@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "slots": [
     {
       "id": "people_count_mode",
@@ -227,11 +227,6 @@
       "mode": "multiple"
     },
     {
-      "id": "body_motion",
-      "label": "主な動作",
-      "mode": "multiple"
-    },
-    {
       "id": "character_species_core",
       "label": "基本種族",
       "mode": "single"
@@ -305,6 +300,66 @@
       "id": "mechanical_limbs",
       "label": "機械化した四肢",
       "mode": "multiple"
+    },
+    {
+      "id": "posture_modifier",
+      "label": "姿勢の変化",
+      "mode": "multiple"
+    },
+    {
+      "id": "leg_pose",
+      "label": "脚の形",
+      "mode": "multiple"
+    },
+    {
+      "id": "locomotion",
+      "label": "移動",
+      "mode": "single"
+    },
+    {
+      "id": "hand_action",
+      "label": "手・腕の動作",
+      "mode": "multiple"
+    },
+    {
+      "id": "gaze_action",
+      "label": "視線動作",
+      "mode": "single"
+    },
+    {
+      "id": "sport_action",
+      "label": "スポーツ動作",
+      "mode": "single"
+    },
+    {
+      "id": "dance_style",
+      "label": "ダンス様式",
+      "mode": "single"
+    },
+    {
+      "id": "acrobatics",
+      "label": "体操・アクロバット",
+      "mode": "single"
+    },
+    {
+      "id": "combat_action",
+      "label": "戦闘動作",
+      "mode": "multiple"
+    },
+    {
+      "id": "airborne_state",
+      "label": "空中・落下状態",
+      "mode": "single"
+    },
+    {
+      "id": "balance_pose",
+      "label": "バランスポーズ",
+      "mode": "single"
+    },
+    {
+      "id": "vehicle_action",
+      "label": "乗り物・騎乗動作",
+      "mode": "single"
     }
   ],
   "rules": [
@@ -639,41 +694,6 @@
       "slot": "primary_expression",
       "category": "expression",
       "subcategory": "表情"
-    },
-    {
-      "slot": "body_motion",
-      "category": "pose",
-      "subcategory": "日常動作"
-    },
-    {
-      "slot": "body_motion",
-      "category": "pose",
-      "subcategory": "転倒・バランス"
-    },
-    {
-      "slot": "body_motion",
-      "category": "pose",
-      "subcategory": "体操・アクロバット"
-    },
-    {
-      "slot": "body_motion",
-      "category": "pose",
-      "subcategory": "ダンス"
-    },
-    {
-      "slot": "body_motion",
-      "category": "pose",
-      "subcategory": "スポーツ"
-    },
-    {
-      "slot": "body_motion",
-      "category": "pose",
-      "subcategory": "武術・戦闘"
-    },
-    {
-      "slot": "body_motion",
-      "category": "pose",
-      "subcategory": "乗り物・騎乗"
     },
     {
       "slot": "character_species_core",

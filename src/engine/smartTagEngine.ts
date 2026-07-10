@@ -91,7 +91,16 @@ const HARD_MOTION_PAIRS = new Set([
   'jumping\u0000sitting',
   'jumping\u0000lying',
   'jumping\u0000kneeling',
+  'running\u0000swimming',
+  'swimming\u0000walking',
 ])
+const HARD_MOTION_SLOT_PAIRS: Array<[string, string]> = [
+  ['body_posture', 'locomotion'],
+  ['body_posture', 'airborne_state'],
+  ['body_posture', 'acrobatics'],
+  ['locomotion', 'airborne_state'],
+  ['airborne_state', 'balance_pose'],
+]
 
 function pairKey(a: string, b: string) {
   return [normalize(a), normalize(b)].sort().join('\u0000')
@@ -224,6 +233,16 @@ function evaluate(candidate: PromptTag, context: SelectedContext): ConflictReaso
     if (HARD_MOTION_PAIRS.has(pairKey(candidate.prompt, item.tag.prompt))) {
       hard.push(item.tag)
       hardMessages.add(`${item.tag.label}と同時に成立しない動作です`)
+    }
+
+    const hasMotionSlotConflict = HARD_MOTION_SLOT_PAIRS.some(([left, right]) => (
+      profile.slots.has(left) && item.profile.slots.has(right)
+    ) || (
+      profile.slots.has(right) && item.profile.slots.has(left)
+    ))
+    if (hasMotionSlotConflict) {
+      hard.push(item.tag)
+      hardMessages.add(`${item.tag.label}と同時に成立しない姿勢・動作です`)
     }
 
     const pair = new Set([normalize(candidate.prompt), normalize(item.tag.prompt)])
