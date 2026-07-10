@@ -167,6 +167,37 @@ try {
   assert.equal(conflict('lying', ['standing'])?.level, 'hard', 'standing and lying must conflict')
   assert.equal(conflict('jumping', ['sitting'])?.level, 'hard', 'jumping and sitting must conflict')
 
+  const poseDictionary = JSON.parse(fs.readFileSync(new URL('../data/pose.json', import.meta.url), 'utf8'))
+  assert.equal(poseDictionary.length, 291, 'Motion dictionary count must remain unchanged')
+  assert.equal(new Set(poseDictionary.map(tag => tag.id)).size, 291, 'Motion ids must remain unique')
+  const motionSubcategories = new Set(['基本姿勢', '姿勢の変化', '手・腕の動作', '脚・開脚', '移動', '空中・落下', 'バランス', '体操・アクロバット', 'ダンス', 'スポーツ', '武術・戦闘', '乗り物・騎乗'])
+  assert.equal(poseDictionary.every(tag => motionSubcategories.has(tag.subcategory)), true, 'every Motion tag must use the redesigned subcategories')
+  assert(getSlotDefinitions().some(slot => slot.id === 'vehicle_action' && slot.mode === 'single'))
+  assert(getSlotDefinitions().some(slot => slot.id === 'dance_style' && slot.mode === 'single'))
+  assert(getSlotDefinitions().some(slot => slot.id === 'combat_action' && slot.mode === 'multiple'))
+
+  const motionOrderPrompts = ['horseback riding', 'punching', 'swimming', 'dancing', 'handstand', 'falling', 'walking', 'knees to chest', 'head tilt', 'arms crossed', 'standing']
+  const motionOrderTags = motionOrderPrompts.map(prompt => ({ ...findTag(prompt), weight: 1 }))
+  const expectedMotionOrder = ['standing', 'arms crossed', 'head tilt', 'knees to chest', 'walking', 'falling', 'handstand', 'dancing', 'swimming', 'punching', 'horseback riding']
+  assert.deepEqual([...motionOrderTags].sort(tagSort).map(tag => tag.prompt), expectedMotionOrder, 'legacy Motion Prompt order must remain compatible')
+  const motionPrompt = buildPrompt([{ id: 'motion-order', name: '被写体 1', tags: motionOrderTags }])
+  assert(motionPrompt.includes(`[${expectedMotionOrder.join(', ')}]`), 'Motion Prompt output order must remain compatible')
+
+  for (const [first, second] of [['walking', 'waving'], ['running', 'waving'], ['jumping', 'arms raised'], ['floating', 'reaching'], ['soccer kick', 'running'], ['punching', 'walking'], ['horseback riding', 'waving']]) {
+    assert.equal(conflict(second, [first]), null, `${first} + ${second} must be compatible`)
+  }
+  for (const [first, second] of [['standing', 'sitting'], ['walking', 'running'], ['jumping', 'floating'], ['jumping', 'sitting'], ['falling', 'floating'], ['handstand', 'standing'], ['dancing', 'belly dance'], ['soccer kick', 'basketball shot'], ['horseback riding', 'riding motorcycle']]) {
+    assert.equal(conflict(second, [first])?.level, 'hard', `${first} + ${second} must conflict`)
+  }
+
+  const migratedMotion = migratePersistedState({
+    blocks: [{ id: 'motion', name: '被写体 1', tags: [{ id: 'pos-walking', prompt: 'walking', label: '歩く', category: 'pose', subcategory: '日常動作', weight: 1.3 }] }],
+    userTags: [],
+  })
+  assert.equal(migratedMotion.blocks[0].tags[0].subcategory, '移動')
+  assert.equal(migratedMotion.blocks[0].tags[0].sortSubcategory, '日常動作')
+  assert.equal(migratedMotion.blocks[0].tags[0].weight, 1.3)
+
   const characterDictionary = JSON.parse(fs.readFileSync(new URL('../data/character.json', import.meta.url), 'utf8'))
   assert.equal(characterDictionary.length, 103, 'character dictionary count must remain unchanged')
   assert.equal(new Set(characterDictionary.map(tag => tag.id)).size, 103, 'character ids must remain unique')

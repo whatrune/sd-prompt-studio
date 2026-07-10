@@ -5,6 +5,7 @@ import type { PromptBlock, SelectedTag } from './store'
 const bodyCategoryOrder = ['character', 'body', 'expression', 'eyes', 'hair', 'clothes', 'accessories']
 const legacyClothingSubcategoryOrder = ['トップス', 'アウター', 'ボトムス', 'ワンピース・ドレス', 'カジュアル', 'フォーマル', 'ゴシック・ロリータ', '制服・学校', '制服・職業', 'ミリタリー・ワーク', 'スポーツ・ダンス', '舞台・アイドル', 'コスチューム', 'ファンタジー・SF', '民族・歴史', '和装', 'ルームウェア', '水着・下着', 'センシティブ衣装', 'デザイン・ディテール', '素材・質感', '柄・装飾', 'レッグウェア', '靴', '衣装（アダルト）']
 const legacyCharacterSubcategoryOrder = ['指定', '種族', '種族特徴', '職業', '属性']
+const legacyPoseSubcategoryOrder = ['基本姿勢', '手・腕', '頭・上半身', '脚・開脚', '日常動作', '落下・バランス', '体操・アクロバット', 'ダンス', 'スポーツ', '武術・戦闘', '乗り物・騎乗', 'ポーズ（アダルト）', '行動（アダルト）']
 const outputCategory = (tag: SelectedTag | PromptTag) => tag.outputCategory ?? tag.category
 
 function formatTag(prompt: string, weight: number) {
@@ -20,8 +21,8 @@ export function tagSort(a: SelectedTag | PromptTag, b: SelectedTag | PromptTag) 
   const bCategory = outputCategory(b)
   const categoryDiff = categoryOrder.indexOf(aCategory) - categoryOrder.indexOf(bCategory)
   if (categoryDiff !== 0) return categoryDiff
-  const order = aCategory === 'clothes' ? legacyClothingSubcategoryOrder : aCategory === 'character' ? legacyCharacterSubcategoryOrder : subcategoryOrder[aCategory] ?? []
-  const usesLegacyOrder = aCategory === 'clothes' || aCategory === 'character'
+  const order = aCategory === 'clothes' ? legacyClothingSubcategoryOrder : aCategory === 'character' ? legacyCharacterSubcategoryOrder : aCategory === 'pose' ? legacyPoseSubcategoryOrder : subcategoryOrder[aCategory] ?? []
+  const usesLegacyOrder = aCategory === 'clothes' || aCategory === 'character' || aCategory === 'pose'
   const aSubcategory = usesLegacyOrder ? a.sortSubcategory ?? a.subcategory : a.subcategory
   const bSubcategory = usesLegacyOrder ? b.sortSubcategory ?? b.subcategory : b.subcategory
   const sortIndex = (subcategory?: string) => {
