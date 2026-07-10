@@ -478,8 +478,18 @@
     "slot": "hand_action",
     "sortSubcategory": "日常動作",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "wave hand",
+      "手を振って挨拶"
+    ],
+    "related": [
+      "greeting",
+      "arms raised"
+    ],
+    "description": "片手または両手を振る汎用的なジェスチャー。"
   },
   {
     "id": "pos-peace-sign",
@@ -535,8 +545,19 @@
     "sortSubcategory": "手・腕",
     "slot": "hand_action",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "pointing gesture",
+      "指差し"
+    ],
+    "related": [
+      "pointing forward",
+      "pointing at viewer",
+      "index finger raised"
+    ],
+    "description": "指を伸ばして対象や方向を示す汎用ジェスチャー。"
   },
   {
     "id": "pos-covering-mouth",
@@ -813,11 +834,25 @@
     "prompt": "writing",
     "category": "pose",
     "subcategory": "手・腕の動作",
-    "slot": "hand_action",
+    "slot": [
+      "hand_action",
+      "gaze_action"
+    ],
     "sortSubcategory": "日常動作",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "writing something",
+      "筆記"
+    ],
+    "related": [
+      "reading book",
+      "holding pen",
+      "desk"
+    ],
+    "description": "手で文字や図を書き記す日常動作。"
   },
   {
     "id": "pos-cooking",
@@ -828,8 +863,19 @@
     "slot": "hand_action",
     "sortSubcategory": "日常動作",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "preparing food",
+      "調理"
+    ],
+    "related": [
+      "kitchen",
+      "holding utensil",
+      "food"
+    ],
+    "description": "食材や調理器具を扱って料理する日常動作。"
   },
   {
     "id": "pos-drinking",
@@ -840,8 +886,19 @@
     "slot": "hand_action",
     "sortSubcategory": "日常動作",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "taking a drink",
+      "飲み物を飲む"
+    ],
+    "related": [
+      "holding cup",
+      "bottle",
+      "eating"
+    ],
+    "description": "容器を口元へ運んで飲み物を飲む動作。"
   },
   {
     "id": "pos-eating",
@@ -861,11 +918,25 @@
     "prompt": "taking selfie",
     "category": "pose",
     "subcategory": "手・腕の動作",
-    "slot": "hand_action",
+    "slot": [
+      "hand_action",
+      "gaze_action"
+    ],
     "sortSubcategory": "日常動作",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "taking a selfie",
+      "selfie pose"
+    ],
+    "related": [
+      "holding phone",
+      "looking at phone",
+      "pov"
+    ],
+    "description": "スマートフォン等を自分へ向けて撮影する動作。"
   },
   {
     "id": "pos-playing-guitar",
@@ -876,8 +947,19 @@
     "slot": "hand_action",
     "sortSubcategory": "日常動作",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "guitar playing",
+      "ギター演奏"
+    ],
+    "related": [
+      "holding guitar",
+      "music",
+      "stage"
+    ],
+    "description": "両手でギターを構えて演奏する動作。"
   },
   {
     "id": "pos-swimming",
@@ -5178,6 +5260,251 @@
     "category": "pose",
     "subcategory": "スポーツ",
     "sortSubcategory": "スポーツ",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-daily-waving",
+    "label": "手を振る",
+    "prompt": "waving",
+    "aliases": [
+      "wave hand",
+      "手を振って挨拶"
+    ],
+    "related": [
+      "greeting",
+      "arms raised"
+    ],
+    "description": "片手または両手を振る汎用的なジェスチャー。",
+    "slot": "hand_action",
+    "category": "pose",
+    "subcategory": "手・腕の動作",
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "pos-waving"
+  },
+  {
+    "id": "rin-daily-pointing",
+    "label": "指差す",
+    "prompt": "pointing",
+    "aliases": [
+      "pointing gesture",
+      "指差し"
+    ],
+    "related": [
+      "pointing forward",
+      "pointing at viewer",
+      "index finger raised"
+    ],
+    "description": "指を伸ばして対象や方向を示す汎用ジェスチャー。",
+    "slot": "hand_action",
+    "category": "pose",
+    "subcategory": "手・腕の動作",
+    "sortSubcategory": "手・腕",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "pos-pointing"
+  },
+  {
+    "id": "rin-daily-taking-selfie",
+    "label": "自撮り",
+    "prompt": "taking selfie",
+    "aliases": [
+      "taking a selfie",
+      "selfie pose"
+    ],
+    "related": [
+      "holding phone",
+      "looking at phone",
+      "pov"
+    ],
+    "description": "スマートフォン等を自分へ向けて撮影する動作。",
+    "slot": [
+      "hand_action",
+      "gaze_action"
+    ],
+    "category": "pose",
+    "subcategory": "手・腕の動作",
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "pos-taking-selfie"
+  },
+  {
+    "id": "rin-daily-writing",
+    "label": "書く",
+    "prompt": "writing",
+    "aliases": [
+      "writing something",
+      "筆記"
+    ],
+    "related": [
+      "reading book",
+      "holding pen",
+      "desk"
+    ],
+    "description": "手で文字や図を書き記す日常動作。",
+    "slot": [
+      "hand_action",
+      "gaze_action"
+    ],
+    "category": "pose",
+    "subcategory": "手・腕の動作",
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "pos-writing"
+  },
+  {
+    "id": "rin-daily-drinking",
+    "label": "飲む",
+    "prompt": "drinking",
+    "aliases": [
+      "taking a drink",
+      "飲み物を飲む"
+    ],
+    "related": [
+      "holding cup",
+      "bottle",
+      "eating"
+    ],
+    "description": "容器を口元へ運んで飲み物を飲む動作。",
+    "slot": "hand_action",
+    "category": "pose",
+    "subcategory": "手・腕の動作",
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "pos-drinking"
+  },
+  {
+    "id": "rin-daily-cooking",
+    "label": "料理する",
+    "prompt": "cooking",
+    "aliases": [
+      "preparing food",
+      "調理"
+    ],
+    "related": [
+      "kitchen",
+      "holding utensil",
+      "food"
+    ],
+    "description": "食材や調理器具を扱って料理する日常動作。",
+    "slot": "hand_action",
+    "category": "pose",
+    "subcategory": "手・腕の動作",
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "pos-cooking"
+  },
+  {
+    "id": "rin-daily-playing-guitar",
+    "label": "ギターを弾く",
+    "prompt": "playing guitar",
+    "aliases": [
+      "guitar playing",
+      "ギター演奏"
+    ],
+    "related": [
+      "holding guitar",
+      "music",
+      "stage"
+    ],
+    "description": "両手でギターを構えて演奏する動作。",
+    "slot": "hand_action",
+    "category": "pose",
+    "subcategory": "手・腕の動作",
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "pos-playing-guitar"
+  },
+  {
+    "id": "rin-daily-holding-phone",
+    "label": "スマートフォンを持つ",
+    "prompt": "holding phone",
+    "aliases": [
+      "holding smartphone",
+      "phone in hand"
+    ],
+    "related": [
+      "taking selfie",
+      "looking at phone",
+      "smartphone"
+    ],
+    "description": "片手または両手でスマートフォンを持つ動作。",
+    "slot": "hand_action",
+    "category": "pose",
+    "subcategory": "手・腕の動作",
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-daily-reading-book",
+    "label": "本を読む",
+    "prompt": "reading book",
+    "aliases": [
+      "reading a book",
+      "book reading"
+    ],
+    "related": [
+      "reading",
+      "holding book",
+      "looking down"
+    ],
+    "description": "本を手に持ち、視線をページへ向けて読む動作。汎用のreadingとは粒度を分ける。",
+    "slot": [
+      "hand_action",
+      "gaze_action"
+    ],
+    "category": "pose",
+    "subcategory": "手・腕の動作",
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-daily-carrying",
+    "label": "物を運ぶ",
+    "prompt": "carrying",
+    "aliases": [
+      "carrying object",
+      "荷物を運ぶ"
+    ],
+    "related": [
+      "holding object",
+      "carrying another",
+      "walking"
+    ],
+    "description": "物を手や腕で支えて運ぶ自己完結した動作。他者を運ぶcarrying anotherとは分離する。",
+    "slot": [
+      "hand_action",
+      "posture_modifier"
+    ],
+    "category": "pose",
+    "subcategory": "手・腕の動作",
+    "sortSubcategory": "日常動作",
     "sources": [
       "RIN"
     ]

@@ -162,7 +162,21 @@
     "label": "抱き合う",
     "prompt": "hugging",
     "category": "people",
-    "subcategory": "相互作用"
+    "subcategory": "相互作用",
+    "sources": [
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "embracing",
+      "hug"
+    ],
+    "related": [
+      "handshake",
+      "couple"
+    ],
+    "description": "二人以上が互いを抱きしめる相互作用。他者を必要とするためMotionではなくPeopleに配置する。",
+    "slot": "interaction_action"
   },
   {
     "id": "peo-holding-hands",
@@ -226,5 +240,48 @@
     "prompt": "group hug",
     "category": "people",
     "subcategory": "相互作用"
+  },
+  {
+    "id": "rin-interaction-handshake",
+    "label": "握手",
+    "prompt": "handshake",
+    "aliases": [
+      "shaking hands",
+      "握手する"
+    ],
+    "related": [
+      "hugging",
+      "greeting",
+      "two people"
+    ],
+    "description": "二人が互いの手を握る相互作用。他者を必要とするためMotionではなくPeopleに配置する。",
+    "slot": "interaction_action",
+    "category": "people",
+    "subcategory": "相互作用",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-interaction-hugging",
+    "label": "抱き合う",
+    "prompt": "hugging",
+    "aliases": [
+      "embracing",
+      "hug"
+    ],
+    "related": [
+      "handshake",
+      "couple"
+    ],
+    "description": "二人以上が互いを抱きしめる相互作用。",
+    "slot": "interaction_action",
+    "category": "people",
+    "subcategory": "相互作用",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "peo-hugging"
   }
 ]
