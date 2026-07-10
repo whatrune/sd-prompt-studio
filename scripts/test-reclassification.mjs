@@ -81,8 +81,8 @@ try {
   assert.equal(clothingDictionary.length, 505, 'clothing dictionary tag count must remain unchanged')
   assert.equal(new Set(clothingDictionary.map(tag => tag.id)).size, 505, 'clothing dictionary ids must remain unique')
   const clothingTags = tags.filter(tag => tag.category === 'clothes')
-  assert.equal(clothingTags.length, 499, 'runtime clothing tag count after existing prompt deduplication must remain unchanged')
-  assert.equal(new Set(clothingTags.map(tag => tag.id)).size, 499, 'runtime clothing ids must remain unique')
+  assert.equal(clothingTags.length, 502, 'runtime clothing tags must include the three Character clothing-state tags')
+  assert.equal(new Set(clothingTags.map(tag => tag.id)).size, 502, 'runtime clothing ids must remain unique')
   assert.equal(clothingTags.every(tag => clothingSubcategories.includes(tag.subcategory)), true)
   assert.equal(adultTags.filter(tag => tag.category === 'clothes').length, 27)
   assert.equal(adultTags.filter(tag => tag.category === 'clothes').every(tag => tag.subcategory === '衣装（アダルト）'), true)
@@ -166,6 +166,52 @@ try {
   assert.equal(conflict('running', ['walking'])?.level, 'hard', 'walking and running must conflict')
   assert.equal(conflict('lying', ['standing'])?.level, 'hard', 'standing and lying must conflict')
   assert.equal(conflict('jumping', ['sitting'])?.level, 'hard', 'jumping and sitting must conflict')
+
+  const characterDictionary = JSON.parse(fs.readFileSync(new URL('../data/character.json', import.meta.url), 'utf8'))
+  assert.equal(characterDictionary.length, 103, 'character dictionary count must remain unchanged')
+  assert.equal(new Set(characterDictionary.map(tag => tag.id)).size, 103, 'character ids must remain unique')
+  const movedCharacterClothing = characterDictionary.filter(tag => ['alternate costume', 'cosplay', 'uniformed character'].includes(tag.prompt))
+  assert.equal(movedCharacterClothing.every(tag => tag.category === 'clothes' && tag.outputCategory === 'character'), true, 'clothing state tags must display under Clothes but output under Character')
+
+  const characterOrderPrompts = ['fire attribute', 'teacher', 'halo', 'elf', 'alternate costume', 'original character']
+  const characterOrderTags = characterOrderPrompts.map(prompt => ({ ...tags.find(tag => tag.prompt === prompt), weight: 1 }))
+  assert.deepEqual([...characterOrderTags].sort(tagSort).map(tag => tag.prompt), ['original character', 'alternate costume', 'elf', 'halo', 'teacher', 'fire attribute'], 'legacy Character Prompt order must remain compatible')
+  const characterPrompt = buildPrompt([{ id: 'character-order', name: '被写体 1', tags: characterOrderTags }])
+  assert(characterPrompt.includes('[original character, alternate costume, elf, halo, teacher, fire attribute]'), 'Clothes-displayed character tags must remain in the Character Prompt group')
+
+  assert.equal(conflict('cyborg', ['human']), null, 'core species and machine species may coexist')
+  assert.equal(conflict('catgirl', ['human']), null, 'core species and species archetype may coexist')
+  assert.equal(conflict('vampire', ['human']), null, 'core species and species state may coexist')
+  assert.equal(conflict('elf', ['human'])?.level, 'hard', 'two core species must conflict')
+  assert.equal(conflict('wolf girl', ['catgirl'])?.level, 'hard', 'two species archetypes must conflict')
+  assert.equal(conflict('robot girl', ['android'])?.level, 'hard', 'two machine species must conflict')
+
+  const findCharacterTag = prompt => characterDictionary.find(tag => tag.prompt === prompt)
+  const characterConflict = (candidate, selected) => getConflictReason(
+    findCharacterTag(candidate),
+    selected.map(prompt => ({ ...findCharacterTag(prompt), weight: 1 })),
+    characterDictionary,
+  )
+  for (const [first, second] of [['cat ears', 'horns'], ['horns', 'angel wings'], ['angel wings', 'cat tail'], ['cat ears', 'cat tail']]) {
+    assert.equal(characterConflict(second, [first]), null, `${first} + ${second} must be compatible`)
+  }
+  assert.equal(characterConflict('fox ears', ['cat ears'])?.level, 'hard', 'two ear types must conflict')
+  assert.equal(characterConflict('demon wings', ['angel wings'])?.level, 'hard', 'two wing types must conflict')
+  assert.equal(conflict('mage', ['teacher']), null, 'multiple occupations and roles must be allowed')
+  assert.equal(conflict('water attribute', ['fire attribute']), null, 'multiple elemental attributes must be allowed')
+
+  const migratedCharacter = migratePersistedState({
+    blocks: [{ id: 'character', name: '被写体 1', tags: [
+      { id: 'cha-maid', prompt: 'maid', label: 'メイド', category: 'character', subcategory: '指定', weight: 1.2 },
+      { id: 'cha-alternate-costume', prompt: 'alternate costume', label: '別衣装', category: 'character', subcategory: '指定', weight: 1 },
+    ] }],
+    userTags: [],
+  })
+  assert.equal(migratedCharacter.blocks[0].tags[0].subcategory, '職業・役割')
+  assert.equal(migratedCharacter.blocks[0].tags[0].weight, 1.2)
+  assert.equal(migratedCharacter.blocks[0].tags[1].category, 'clothes')
+  assert.equal(migratedCharacter.blocks[0].tags[1].outputCategory, 'character')
+  assert.equal(migratedCharacter.blocks[0].tags[1].sortSubcategory, '指定')
 
   console.log('OK: adult reclassification, prompt regression, and persisted-state migration')
 } finally {

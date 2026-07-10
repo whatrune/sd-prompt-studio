@@ -4,7 +4,7 @@ import { tags, type ContentRating, type PromptTag } from './data/tags'
 import { adultTags } from './data/adultTags'
 import { createId } from './id'
 
-export type SelectedTag = { id: string; prompt: string; label: string; category: string; subcategory?: string; sortSubcategory?: string; weight: number; rating?: ContentRating }
+export type SelectedTag = { id: string; prompt: string; label: string; category: string; outputCategory?: string; subcategory?: string; sortSubcategory?: string; weight: number; rating?: ContentRating }
 export type PromptBlock = { id: string; name: string; tags: SelectedTag[] }
 export type ModelPreset = 'illustrious' | 'pony' | 'sdxl' | 'custom'
 
@@ -81,7 +81,7 @@ export function migratePersistedState(persisted: unknown) {
       tags: block.tags.map(tag => {
         const current = dictionaryTagById.get(tag.id)
         return current
-          ? { ...tag, category: current.category, subcategory: current.subcategory, sortSubcategory: current.sortSubcategory, rating: current.rating }
+          ? { ...tag, category: current.category, outputCategory: current.outputCategory, subcategory: current.subcategory, sortSubcategory: current.sortSubcategory, rating: current.rating }
           : tag
       }),
     })),
@@ -193,6 +193,6 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   })
 }), {
   name: 'sd-prompt-studio-v14',
-  version: 3,
+  version: 4,
   migrate: migratePersistedState,
 }))

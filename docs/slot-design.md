@@ -50,3 +50,11 @@ Smart Tag Engineのslotは、同じ部位・役割について同時に成立し
 - `lower_eyelashes`: 下まつ毛を明示する指定
 
 一般まつ毛と上まつ毛の明示指定は重複するため競合し、一般まつ毛と下まつ毛は併用できます。
+
+## Character
+
+Characterでは表示分類とPrompt出力分類を分離できます。衣装状態を表す`alternate costume`、`cosplay`、`uniformed character`は服装から探せるようにしつつ、`outputCategory: character`で従来のPrompt位置を維持します。
+
+種族は基本種族、複合種族、存在形態、機械種別に分割します。異なるslotは併用可能で、同じslot内の種族だけを排他的に扱います。種族特徴は耳、角、翼、尻尾など部位ごとに分割し、異なる部位は同時に指定できます。
+
+職業・役割と元素属性は複数同時に成立できるため`multiple`とし、明確に矛盾する組み合わせが生じた場合だけタグの`conflicts`で制限します。

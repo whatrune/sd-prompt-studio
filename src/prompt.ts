@@ -4,6 +4,8 @@ import type { PromptBlock, SelectedTag } from './store'
 
 const bodyCategoryOrder = ['character', 'body', 'expression', 'eyes', 'hair', 'clothes', 'accessories']
 const legacyClothingSubcategoryOrder = ['トップス', 'アウター', 'ボトムス', 'ワンピース・ドレス', 'カジュアル', 'フォーマル', 'ゴシック・ロリータ', '制服・学校', '制服・職業', 'ミリタリー・ワーク', 'スポーツ・ダンス', '舞台・アイドル', 'コスチューム', 'ファンタジー・SF', '民族・歴史', '和装', 'ルームウェア', '水着・下着', 'センシティブ衣装', 'デザイン・ディテール', '素材・質感', '柄・装飾', 'レッグウェア', '靴', '衣装（アダルト）']
+const legacyCharacterSubcategoryOrder = ['指定', '種族', '種族特徴', '職業', '属性']
+const outputCategory = (tag: SelectedTag | PromptTag) => tag.outputCategory ?? tag.category
 
 function formatTag(prompt: string, weight: number) {
   return weight === 1 ? prompt : `(${prompt}:${weight.toFixed(1)})`
@@ -14,11 +16,14 @@ function uniqueTags(items: SelectedTag[]) {
 }
 
 export function tagSort(a: SelectedTag | PromptTag, b: SelectedTag | PromptTag) {
-  const categoryDiff = categoryOrder.indexOf(a.category) - categoryOrder.indexOf(b.category)
+  const aCategory = outputCategory(a)
+  const bCategory = outputCategory(b)
+  const categoryDiff = categoryOrder.indexOf(aCategory) - categoryOrder.indexOf(bCategory)
   if (categoryDiff !== 0) return categoryDiff
-  const order = a.category === 'clothes' ? legacyClothingSubcategoryOrder : subcategoryOrder[a.category] ?? []
-  const aSubcategory = a.category === 'clothes' ? a.sortSubcategory ?? a.subcategory : a.subcategory
-  const bSubcategory = b.category === 'clothes' ? b.sortSubcategory ?? b.subcategory : b.subcategory
+  const order = aCategory === 'clothes' ? legacyClothingSubcategoryOrder : aCategory === 'character' ? legacyCharacterSubcategoryOrder : subcategoryOrder[aCategory] ?? []
+  const usesLegacyOrder = aCategory === 'clothes' || aCategory === 'character'
+  const aSubcategory = usesLegacyOrder ? a.sortSubcategory ?? a.subcategory : a.subcategory
+  const bSubcategory = usesLegacyOrder ? b.sortSubcategory ?? b.subcategory : b.subcategory
   const sortIndex = (subcategory?: string) => {
     const index = order.indexOf(subcategory ?? '')
     return index === -1 ? order.length : index
@@ -35,13 +40,13 @@ function bracket(items: SelectedTag[]) {
 
 export function buildPrompt(blocks: PromptBlock[]) {
   const allTags = blocks.flatMap(block => block.tags)
-  const quality = allTags.filter(tag => tag.category === 'quality')
-  const people = allTags.filter(tag => tag.category === 'people')
-  const cameraBackground = allTags.filter(tag => ['camera', 'background', 'scene_props'].includes(tag.category))
-  const lightingEffects = allTags.filter(tag => ['lighting', 'effects'].includes(tag.category))
+  const quality = allTags.filter(tag => outputCategory(tag) === 'quality')
+  const people = allTags.filter(tag => outputCategory(tag) === 'people')
+  const cameraBackground = allTags.filter(tag => ['camera', 'background', 'scene_props'].includes(outputCategory(tag)))
+  const lightingEffects = allTags.filter(tag => ['lighting', 'effects'].includes(outputCategory(tag)))
   const subjects = blocks.flatMap(block => {
-    const body = block.tags.filter(tag => bodyCategoryOrder.includes(tag.category))
-    const pose = block.tags.filter(tag => tag.category === 'pose')
+    const body = block.tags.filter(tag => bodyCategoryOrder.includes(outputCategory(tag)))
+    const pose = block.tags.filter(tag => outputCategory(tag) === 'pose')
     if (!body.length && !pose.length) return []
     return [bracket(body), bracket(pose)]
   })
