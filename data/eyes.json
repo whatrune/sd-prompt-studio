@@ -1,0 +1,2273 @@
+[
+  {
+    "id": "eye-blue-eyes",
+    "label": "青い目",
+    "prompt": "blue eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-aqua-eyes",
+    "label": "水色の目",
+    "prompt": "aqua eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-cyan-eyes",
+    "label": "シアンの目",
+    "prompt": "cyan eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-green-eyes",
+    "label": "緑の目",
+    "prompt": "green eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-emerald-eyes",
+    "label": "エメラルドの目",
+    "prompt": "emerald eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-yellow-eyes",
+    "label": "黄色い目",
+    "prompt": "yellow eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-gold-eyes",
+    "label": "金色の目",
+    "prompt": "gold eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-amber-eyes",
+    "label": "琥珀色の目",
+    "prompt": "amber eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-orange-eyes",
+    "label": "オレンジの目",
+    "prompt": "orange eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-red-eyes",
+    "label": "赤い目",
+    "prompt": "red eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-pink-eyes",
+    "label": "ピンクの目",
+    "prompt": "pink eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-purple-eyes",
+    "label": "紫の目",
+    "prompt": "purple eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-violet-eyes",
+    "label": "菫色の目",
+    "prompt": "violet eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-brown-eyes",
+    "label": "茶色の目",
+    "prompt": "brown eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-black-eyes",
+    "label": "黒い目",
+    "prompt": "black eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-grey-eyes",
+    "label": "灰色の目",
+    "prompt": "grey eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-silver-eyes",
+    "label": "銀色の目",
+    "prompt": "silver eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-white-eyes",
+    "label": "白い目",
+    "prompt": "white eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-heterochromia",
+    "label": "オッドアイ",
+    "prompt": "heterochromia",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-multicolored-eyes",
+    "label": "多色の目",
+    "prompt": "multicolored eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-gradient-eyes",
+    "label": "グラデーションの目",
+    "prompt": "gradient eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-rainbow-eyes",
+    "label": "虹色の目",
+    "prompt": "rainbow eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-round-eyes",
+    "label": "丸い目",
+    "prompt": "round eyes",
+    "category": "eyes",
+    "subcategory": "目の形",
+    "slot": "eye_shape"
+  },
+  {
+    "id": "eye-almond-eyes",
+    "label": "アーモンド形の目",
+    "prompt": "almond eyes",
+    "category": "eyes",
+    "subcategory": "目の形",
+    "slot": "eye_shape"
+  },
+  {
+    "id": "eye-narrow-eyes",
+    "label": "細い目",
+    "prompt": "narrow eyes",
+    "category": "eyes",
+    "subcategory": "目の形",
+    "slot": "eye_shape"
+  },
+  {
+    "id": "eye-sharp-eyes",
+    "label": "鋭い目",
+    "prompt": "sharp eyes",
+    "category": "eyes",
+    "subcategory": "目の形",
+    "slot": "eye_shape"
+  },
+  {
+    "id": "eye-droopy-eyes",
+    "label": "たれ目",
+    "prompt": "droopy eyes",
+    "category": "eyes",
+    "subcategory": "目の形",
+    "slot": "eye_shape"
+  },
+  {
+    "id": "eye-upturned-eyes",
+    "label": "つり目",
+    "prompt": "upturned eyes",
+    "category": "eyes",
+    "subcategory": "目の形",
+    "slot": "eye_shape"
+  },
+  {
+    "id": "eye-downturned-eyes",
+    "label": "下がり目",
+    "prompt": "downturned eyes",
+    "category": "eyes",
+    "subcategory": "目の形",
+    "slot": "eye_shape"
+  },
+  {
+    "id": "eye-large-eyes",
+    "label": "大きな目",
+    "prompt": "large eyes",
+    "category": "eyes",
+    "subcategory": "目の形",
+    "slot": "eye_shape"
+  },
+  {
+    "id": "eye-small-eyes",
+    "label": "小さな目",
+    "prompt": "small eyes",
+    "category": "eyes",
+    "subcategory": "目の形",
+    "slot": "eye_shape"
+  },
+  {
+    "id": "eye-half-closed-eyes",
+    "label": "半目",
+    "prompt": "half-closed eyes",
+    "category": "eyes",
+    "subcategory": "目の形",
+    "slot": "eye_shape"
+  },
+  {
+    "id": "eye-half-lidded-eyes",
+    "label": "伏し目",
+    "prompt": "half-lidded eyes",
+    "category": "eyes",
+    "subcategory": "目の形",
+    "slot": "eye_shape"
+  },
+  {
+    "id": "eye-wide-eyed",
+    "label": "見開いた目",
+    "prompt": "wide-eyed",
+    "category": "eyes",
+    "subcategory": "目の形",
+    "slot": "eye_shape"
+  },
+  {
+    "id": "eye-sleepy-eyes",
+    "label": "眠そうな目",
+    "prompt": "sleepy eyes",
+    "category": "eyes",
+    "subcategory": "目の形",
+    "slot": "eye_shape"
+  },
+  {
+    "id": "eye-sanpaku",
+    "label": "三白眼",
+    "prompt": "sanpaku",
+    "category": "eyes",
+    "subcategory": "目の形",
+    "slot": "eye_shape"
+  },
+  {
+    "id": "eye-tareme",
+    "label": "たれ目",
+    "prompt": "tareme",
+    "category": "eyes",
+    "subcategory": "目の形",
+    "slot": "eye_shape"
+  },
+  {
+    "id": "eye-tsurime",
+    "label": "つり目",
+    "prompt": "tsurime",
+    "category": "eyes",
+    "subcategory": "目の形",
+    "slot": "eye_shape"
+  },
+  {
+    "id": "eye-round-pupils",
+    "label": "丸い瞳孔",
+    "prompt": "round pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-slit-pupils",
+    "label": "縦長の瞳孔",
+    "prompt": "slit pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-horizontal-pupils",
+    "label": "横長の瞳孔",
+    "prompt": "horizontal pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-cat-pupils",
+    "label": "猫の瞳孔",
+    "prompt": "cat pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-snake-pupils",
+    "label": "蛇の瞳孔",
+    "prompt": "snake pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-goat-pupils",
+    "label": "山羊の瞳孔",
+    "prompt": "goat pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-diamond-shaped-pupils",
+    "label": "菱形の瞳孔",
+    "prompt": "diamond-shaped pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-heart-shaped-pupils",
+    "label": "ハート形の瞳孔",
+    "prompt": "heart-shaped pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-star-shaped-pupils",
+    "label": "星形の瞳孔",
+    "prompt": "star-shaped pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-cross-shaped-pupils",
+    "label": "十字形の瞳孔",
+    "prompt": "cross-shaped pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-flower-shaped-pupils",
+    "label": "花形の瞳孔",
+    "prompt": "flower-shaped pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-plus-shaped-pupils",
+    "label": "プラス形の瞳孔",
+    "prompt": "plus-shaped pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-x-shaped-pupils",
+    "label": "X形の瞳孔",
+    "prompt": "x-shaped pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-spiral-pupils",
+    "label": "渦巻き瞳孔",
+    "prompt": "spiral pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-constricted-pupils",
+    "label": "収縮した瞳孔",
+    "prompt": "constricted pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-dilated-pupils",
+    "label": "開いた瞳孔",
+    "prompt": "dilated pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-no-pupils",
+    "label": "瞳孔なし",
+    "prompt": "no pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-nebulae-cosmic-eyes",
+    "label": "星雲の宇宙眼",
+    "prompt": "nebulae cosmic eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-cosmic-eyes",
+    "label": "宇宙の瞳",
+    "prompt": "cosmic eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-galaxy-eyes",
+    "label": "銀河の瞳",
+    "prompt": "galaxy eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-starry-eyes",
+    "label": "星空の瞳",
+    "prompt": "starry eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-constellation-eyes",
+    "label": "星座模様の瞳",
+    "prompt": "constellation eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-planet-eyes",
+    "label": "惑星模様の瞳",
+    "prompt": "planet eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-moon-in-eyes",
+    "label": "月を宿す瞳",
+    "prompt": "moon in eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-sun-in-eyes",
+    "label": "太陽を宿す瞳",
+    "prompt": "sun in eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-clock-eyes",
+    "label": "時計模様の瞳",
+    "prompt": "clock eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-gear-eyes",
+    "label": "歯車模様の瞳",
+    "prompt": "gear eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-flower-eyes",
+    "label": "花模様の瞳",
+    "prompt": "flower eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-butterfly-eyes",
+    "label": "蝶模様の瞳",
+    "prompt": "butterfly eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-snowflake-eyes",
+    "label": "雪の結晶の瞳",
+    "prompt": "snowflake eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-flame-eyes",
+    "label": "炎模様の瞳",
+    "prompt": "flame eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-water-eyes",
+    "label": "水模様の瞳",
+    "prompt": "water eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-crystal-eyes",
+    "label": "水晶の瞳",
+    "prompt": "crystal eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-gemstone-eyes",
+    "label": "宝石の瞳",
+    "prompt": "gemstone eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-diamond-eyes",
+    "label": "ダイヤの瞳",
+    "prompt": "diamond eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-kaleidoscope-eyes",
+    "label": "万華鏡の瞳",
+    "prompt": "kaleidoscope eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-stained-glass-eyes",
+    "label": "ステンドグラスの瞳",
+    "prompt": "stained glass eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-mechanical-eyes",
+    "label": "機械の瞳",
+    "prompt": "mechanical eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-cybernetic-eyes",
+    "label": "サイバーアイ",
+    "prompt": "cybernetic eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-digital-eyes",
+    "label": "デジタルの瞳",
+    "prompt": "digital eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-circuit-eyes",
+    "label": "回路模様の瞳",
+    "prompt": "circuit eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-binary-code-eyes",
+    "label": "二進数の瞳",
+    "prompt": "binary code eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-hypnotic-eyes",
+    "label": "催眠模様の瞳",
+    "prompt": "hypnotic eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-spiral-eyes",
+    "label": "渦巻きの目",
+    "prompt": "spiral eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-symbol-shaped-iris",
+    "label": "記号入りの虹彩",
+    "prompt": "symbol-shaped iris",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-complex-iris",
+    "label": "複雑な虹彩",
+    "prompt": "complex iris",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-detailed-iris",
+    "label": "精密な虹彩",
+    "prompt": "detailed iris",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-multi-layered-iris",
+    "label": "多層の虹彩",
+    "prompt": "multi-layered iris",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-ringed-iris",
+    "label": "リング状の虹彩",
+    "prompt": "ringed iris",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-gradient-iris",
+    "label": "グラデーション虹彩",
+    "prompt": "gradient iris",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-two-tone-iris",
+    "label": "ツートン虹彩",
+    "prompt": "two-tone iris",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-eye-highlights",
+    "label": "瞳のハイライト",
+    "prompt": "eye highlights",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-multiple-eye-highlights",
+    "label": "複数のハイライト",
+    "prompt": "multiple eye highlights",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-star-shaped-highlights",
+    "label": "星形ハイライト",
+    "prompt": "star-shaped highlights",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-heart-shaped-highlights",
+    "label": "ハート形ハイライト",
+    "prompt": "heart-shaped highlights",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-cross-shaped-highlights",
+    "label": "十字ハイライト",
+    "prompt": "cross-shaped highlights",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-ring-shaped-highlights",
+    "label": "リング状ハイライト",
+    "prompt": "ring-shaped highlights",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-sparkling-eyes",
+    "label": "きらめく目",
+    "prompt": "sparkling eyes",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-glossy-eyes",
+    "label": "艶のある目",
+    "prompt": "glossy eyes",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-wet-eyes",
+    "label": "潤んだ目",
+    "prompt": "wet eyes",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-rimlit-eyes",
+    "label": "縁が光る瞳",
+    "prompt": "rimlit eyes",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-glowing-eyes",
+    "label": "発光する目",
+    "prompt": "glowing eyes",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-bright-pupils",
+    "label": "明るい瞳孔",
+    "prompt": "bright pupils",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-light-particles-in-eyes",
+    "label": "瞳の中の光粒",
+    "prompt": "light particles in eyes",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-reflective-eyes",
+    "label": "反射する瞳",
+    "prompt": "reflective eyes",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-no-eye-highlights",
+    "label": "ハイライトなし",
+    "prompt": "no eye highlights",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-looking-at-viewer",
+    "label": "こちらを見る",
+    "prompt": "looking at viewer",
+    "category": "eyes",
+    "subcategory": "視線・状態",
+    "slot": "gaze_direction"
+  },
+  {
+    "id": "eye-looking-away",
+    "label": "目をそらす",
+    "prompt": "looking away",
+    "category": "eyes",
+    "subcategory": "視線・状態",
+    "slot": "gaze_direction"
+  },
+  {
+    "id": "eye-looking-back",
+    "label": "振り返って見る",
+    "prompt": "looking back",
+    "category": "eyes",
+    "subcategory": "視線・状態",
+    "slot": "gaze_direction"
+  },
+  {
+    "id": "eye-looking-up",
+    "label": "上を見る",
+    "prompt": "looking up",
+    "category": "eyes",
+    "subcategory": "視線・状態",
+    "slot": "gaze_direction"
+  },
+  {
+    "id": "eye-looking-down",
+    "label": "下を見る",
+    "prompt": "looking down",
+    "category": "eyes",
+    "subcategory": "視線・状態",
+    "slot": "gaze_direction"
+  },
+  {
+    "id": "eye-looking-to-the-side",
+    "label": "横を見る",
+    "prompt": "looking to the side",
+    "category": "eyes",
+    "subcategory": "視線・状態",
+    "slot": "gaze_direction"
+  },
+  {
+    "id": "eye-eye-contact",
+    "label": "視線を合わせる",
+    "prompt": "eye contact",
+    "category": "eyes",
+    "subcategory": "視線・状態",
+    "slot": "gaze_direction"
+  },
+  {
+    "id": "eye-one-eye-closed",
+    "label": "片目を閉じる",
+    "prompt": "one eye closed",
+    "category": "eyes",
+    "subcategory": "視線・状態"
+  },
+  {
+    "id": "eye-closed-eyes",
+    "label": "目を閉じる",
+    "prompt": "closed eyes",
+    "category": "eyes",
+    "subcategory": "視線・状態"
+  },
+  {
+    "id": "eye-wink",
+    "label": "ウィンク",
+    "prompt": "wink",
+    "category": "eyes",
+    "subcategory": "視線・状態"
+  },
+  {
+    "id": "eye-cross-eyed",
+    "label": "寄り目",
+    "prompt": "cross-eyed",
+    "category": "eyes",
+    "subcategory": "視線・状態"
+  },
+  {
+    "id": "eye-empty-eyes",
+    "label": "虚ろな目",
+    "prompt": "empty eyes",
+    "category": "eyes",
+    "subcategory": "視線・状態"
+  },
+  {
+    "id": "eye-blank-eyes",
+    "label": "焦点のない目",
+    "prompt": "blank eyes",
+    "category": "eyes",
+    "subcategory": "視線・状態"
+  },
+  {
+    "id": "eye-lifeless-eyes",
+    "label": "生気のない目",
+    "prompt": "lifeless eyes",
+    "category": "eyes",
+    "subcategory": "視線・状態"
+  },
+  {
+    "id": "eye-bloodshot-eyes",
+    "label": "充血した目",
+    "prompt": "bloodshot eyes",
+    "category": "eyes",
+    "subcategory": "視線・状態"
+  },
+  {
+    "id": "eye-teary-eyes",
+    "label": "涙目",
+    "prompt": "teary eyes",
+    "category": "eyes",
+    "subcategory": "視線・状態"
+  },
+  {
+    "id": "eye-evil-eyes",
+    "label": "邪悪な目",
+    "prompt": "evil eyes",
+    "category": "eyes",
+    "subcategory": "視線・状態"
+  },
+  {
+    "id": "eye-possessed-eyes",
+    "label": "憑依された目",
+    "prompt": "possessed eyes",
+    "category": "eyes",
+    "subcategory": "視線・状態"
+  },
+  {
+    "id": "eye-long-eyelashes",
+    "label": "長いまつ毛",
+    "prompt": "long eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の長さ・量",
+    "slot": "eyelash_length"
+  },
+  {
+    "id": "eye-thick-eyelashes",
+    "label": "濃いまつ毛",
+    "prompt": "thick eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の長さ・量",
+    "slot": "eyelash_length"
+  },
+  {
+    "id": "eye-lower-eyelashes",
+    "label": "下まつ毛",
+    "prompt": "lower eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の長さ・量",
+    "slot": "eyelash_length"
+  },
+  {
+    "id": "eye-colored-eyelashes",
+    "label": "色付きまつ毛",
+    "prompt": "colored eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の色・装飾",
+    "slot": "eyelash_color"
+  },
+  {
+    "id": "eye-eyeliner",
+    "label": "アイライン",
+    "prompt": "eyeliner",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  },
+  {
+    "id": "eye-winged-eyeliner",
+    "label": "跳ね上げアイライン",
+    "prompt": "winged eyeliner",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  },
+  {
+    "id": "eye-heavy-eyelids",
+    "label": "重いまぶた",
+    "prompt": "heavy eyelids",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  },
+  {
+    "id": "eye-double-eyelids",
+    "label": "二重まぶた",
+    "prompt": "double eyelids",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  },
+  {
+    "id": "eye-monolid",
+    "label": "一重まぶた",
+    "prompt": "monolid",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  },
+  {
+    "id": "eye-v5-teal-eyes",
+    "label": "青緑の目",
+    "prompt": "teal eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-navy-blue-eyes",
+    "label": "紺の目",
+    "prompt": "navy blue eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-sky-blue-eyes",
+    "label": "空色の目",
+    "prompt": "sky blue eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-turquoise-eyes",
+    "label": "ターコイズの目",
+    "prompt": "turquoise eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-emerald-green-eyes",
+    "label": "エメラルドグリーンの目",
+    "prompt": "emerald green eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-lime-green-eyes",
+    "label": "黄緑の目",
+    "prompt": "lime green eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-olive-green-eyes",
+    "label": "オリーブの目",
+    "prompt": "olive green eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-hazel-eyes",
+    "label": "ヘーゼルの目",
+    "prompt": "hazel eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-golden-eyes",
+    "label": "金色の目",
+    "prompt": "golden eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-lavender-eyes",
+    "label": "ラベンダーの目",
+    "prompt": "lavender eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-magenta-eyes",
+    "label": "マゼンタの目",
+    "prompt": "magenta eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-rose-eyes",
+    "label": "ローズの目",
+    "prompt": "rose eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-crimson-eyes",
+    "label": "深紅の目",
+    "prompt": "crimson eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-scarlet-eyes",
+    "label": "緋色の目",
+    "prompt": "scarlet eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-gray-eyes",
+    "label": "灰色の目",
+    "prompt": "gray eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-pearl-white-eyes",
+    "label": "真珠色の目",
+    "prompt": "pearl white eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-ice-blue-eyes",
+    "label": "氷色の目",
+    "prompt": "ice blue eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-aqua-and-teal-eyes",
+    "label": "水色と青緑のツートンアイ",
+    "prompt": "aqua and teal eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-cyan-and-navy-blue-eyes",
+    "label": "シアンと紺のツートンアイ",
+    "prompt": "cyan and navy blue eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-sky-blue-and-turquoise-eyes",
+    "label": "空色とターコイズのツートンアイ",
+    "prompt": "sky blue and turquoise eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-emerald-green-and-lime-green-eyes",
+    "label": "エメラルドグリーンと黄緑のツートンアイ",
+    "prompt": "emerald green and lime green eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-olive-green-and-hazel-eyes",
+    "label": "オリーブとヘーゼルのツートンアイ",
+    "prompt": "olive green and hazel eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-amber-and-orange-eyes",
+    "label": "琥珀とオレンジのツートンアイ",
+    "prompt": "amber and orange eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-yellow-and-golden-eyes",
+    "label": "黄色と金色のツートンアイ",
+    "prompt": "yellow and golden eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-violet-and-lavender-eyes",
+    "label": "すみれ色とラベンダーのツートンアイ",
+    "prompt": "violet and lavender eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-magenta-and-rose-eyes",
+    "label": "マゼンタとローズのツートンアイ",
+    "prompt": "magenta and rose eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-crimson-and-scarlet-eyes",
+    "label": "深紅と緋色のツートンアイ",
+    "prompt": "crimson and scarlet eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-gray-and-pearl-white-eyes",
+    "label": "灰色と真珠色のツートンアイ",
+    "prompt": "gray and pearl white eyes",
+    "category": "eyes",
+    "subcategory": "目の色",
+    "slot": "eye_color_primary"
+  },
+  {
+    "id": "eye-v5-celestial-eyes",
+    "label": "天体の瞳",
+    "prompt": "celestial eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-aurora-eyes",
+    "label": "オーロラの瞳",
+    "prompt": "aurora eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-ocean-eyes",
+    "label": "海を映す瞳",
+    "prompt": "ocean eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-cloudy-eyes",
+    "label": "雲模様の瞳",
+    "prompt": "cloudy eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-rainbow-iris",
+    "label": "虹色の虹彩",
+    "prompt": "rainbow iris",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-prismatic-eyes",
+    "label": "プリズムの瞳",
+    "prompt": "prismatic eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-opalescent-eyes",
+    "label": "オパールの瞳",
+    "prompt": "opalescent eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-iridescent-eyes",
+    "label": "玉虫色の瞳",
+    "prompt": "iridescent eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-holographic-eyes",
+    "label": "ホログラムの瞳",
+    "prompt": "holographic eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-fractured-iris",
+    "label": "ひび割れた虹彩",
+    "prompt": "fractured iris",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-cracked-glass-eyes",
+    "label": "割れガラスの瞳",
+    "prompt": "cracked glass eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-liquid-metal-eyes",
+    "label": "液体金属の瞳",
+    "prompt": "liquid metal eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-lava-eyes",
+    "label": "溶岩の瞳",
+    "prompt": "lava eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-electric-eyes",
+    "label": "電撃の瞳",
+    "prompt": "electric eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-lightning-iris",
+    "label": "稲妻の虹彩",
+    "prompt": "lightning iris",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-rune-eyes",
+    "label": "ルーン文字の瞳",
+    "prompt": "rune eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-magic-circle-eyes",
+    "label": "魔法陣の瞳",
+    "prompt": "magic circle eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-sigil-eyes",
+    "label": "紋章の瞳",
+    "prompt": "sigil eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-barcode-eyes",
+    "label": "バーコードの瞳",
+    "prompt": "barcode eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-pixel-eyes",
+    "label": "ピクセルの瞳",
+    "prompt": "pixel eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-matrix-eyes",
+    "label": "マトリックスの瞳",
+    "prompt": "matrix eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-void-eyes",
+    "label": "虚無の瞳",
+    "prompt": "void eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-abyss-eyes",
+    "label": "深淵の瞳",
+    "prompt": "abyss eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-black-sclera",
+    "label": "黒い強膜",
+    "prompt": "black sclera",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-colored-sclera",
+    "label": "色付き強膜",
+    "prompt": "colored sclera",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-double-pupils",
+    "label": "二重瞳孔",
+    "prompt": "double pupils",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-multiple-pupils",
+    "label": "複数の瞳孔",
+    "prompt": "multiple pupils",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-concentric-pupils",
+    "label": "同心円状の瞳孔",
+    "prompt": "concentric pupils",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-flower-iris",
+    "label": "花模様の虹彩",
+    "prompt": "flower iris",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-cherry-blossom-eyes",
+    "label": "桜模様の瞳",
+    "prompt": "cherry blossom eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-lotus-eyes",
+    "label": "蓮模様の瞳",
+    "prompt": "lotus eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-sunflower-eyes",
+    "label": "ひまわり模様の瞳",
+    "prompt": "sunflower eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-snow-globe-eyes",
+    "label": "スノードームの瞳",
+    "prompt": "snow globe eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-cityscape-eyes",
+    "label": "街並みを映す瞳",
+    "prompt": "cityscape eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-sunset-eyes",
+    "label": "夕焼けの瞳",
+    "prompt": "sunset eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-night-sky-eyes",
+    "label": "夜空の瞳",
+    "prompt": "night sky eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-milky-way-eyes",
+    "label": "天の川の瞳",
+    "prompt": "milky way eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-supernova-eyes",
+    "label": "超新星の瞳",
+    "prompt": "supernova eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-black-hole-eyes",
+    "label": "ブラックホールの瞳",
+    "prompt": "black hole eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-solar-eclipse-eyes",
+    "label": "日食の瞳",
+    "prompt": "solar eclipse eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-lunar-eclipse-eyes",
+    "label": "月食の瞳",
+    "prompt": "lunar eclipse eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-dragon-eyes",
+    "label": "竜の瞳",
+    "prompt": "dragon eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-demon-eyes",
+    "label": "悪魔の瞳",
+    "prompt": "demon eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-angelic-eyes",
+    "label": "天使の瞳",
+    "prompt": "angelic eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-doll-eyes",
+    "label": "人形の瞳",
+    "prompt": "doll eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-button-eyes",
+    "label": "ボタンの目",
+    "prompt": "button eyes",
+    "category": "eyes",
+    "subcategory": "虹彩・内部模様",
+    "slot": "iris_pattern"
+  },
+  {
+    "id": "eye-v5-square-shaped-pupils",
+    "label": "四角形の瞳孔",
+    "prompt": "square-shaped pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-v5-triangle-shaped-pupils",
+    "label": "三角形の瞳孔",
+    "prompt": "triangle-shaped pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-v5-crescent-shaped-pupils",
+    "label": "三日月形の瞳孔",
+    "prompt": "crescent-shaped pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-v5-moon-shaped-pupils",
+    "label": "月形の瞳孔",
+    "prompt": "moon-shaped pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-v5-sun-shaped-pupils",
+    "label": "太陽形の瞳孔",
+    "prompt": "sun-shaped pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-v5-gear-shaped-pupils",
+    "label": "歯車形の瞳孔",
+    "prompt": "gear-shaped pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-v5-keyhole-pupils",
+    "label": "鍵穴形の瞳孔",
+    "prompt": "keyhole pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-v5-clover-shaped-pupils",
+    "label": "クローバー形の瞳孔",
+    "prompt": "clover-shaped pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-v5-hexagonal-pupils",
+    "label": "六角形の瞳孔",
+    "prompt": "hexagonal pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-v5-octagonal-pupils",
+    "label": "八角形の瞳孔",
+    "prompt": "octagonal pupils",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "slot": "pupil_shape"
+  },
+  {
+    "id": "eye-v5-shimmering-eyes",
+    "label": "揺らめく瞳",
+    "prompt": "shimmering eyes",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-v5-luminescent-eyes",
+    "label": "淡く発光する瞳",
+    "prompt": "luminescent eyes",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-v5-neon-eyes",
+    "label": "ネオンの瞳",
+    "prompt": "neon eyes",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-v5-glittering-eyes",
+    "label": "きらきらした瞳",
+    "prompt": "glittering eyes",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-v5-diamond-highlights",
+    "label": "ダイヤ形ハイライト",
+    "prompt": "diamond highlights",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-v5-crescent-highlights",
+    "label": "三日月ハイライト",
+    "prompt": "crescent highlights",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-v5-flower-shaped-highlights",
+    "label": "花形ハイライト",
+    "prompt": "flower-shaped highlights",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-v5-soft-eye-highlights",
+    "label": "柔らかな瞳ハイライト",
+    "prompt": "soft eye highlights",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-v5-strong-eye-highlights",
+    "label": "強い瞳ハイライト",
+    "prompt": "strong eye highlights",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-v5-colored-eye-highlights",
+    "label": "色付きハイライト",
+    "prompt": "colored eye highlights",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光"
+  },
+  {
+    "id": "eye-v9-short-eyelashes",
+    "label": "短いまつ毛",
+    "prompt": "short eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の長さ・量",
+    "slot": "eyelash_length"
+  },
+  {
+    "id": "eye-v9-very-long-eyelashes",
+    "label": "とても長いまつ毛",
+    "prompt": "very long eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の長さ・量",
+    "slot": "eyelash_length"
+  },
+  {
+    "id": "eye-v9-dense-eyelashes",
+    "label": "密集したまつ毛",
+    "prompt": "dense eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の長さ・量",
+    "slot": "eyelash_length"
+  },
+  {
+    "id": "eye-v9-sparse-eyelashes",
+    "label": "まばらなまつ毛",
+    "prompt": "sparse eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の長さ・量",
+    "slot": "eyelash_length"
+  },
+  {
+    "id": "eye-v9-fine-eyelashes",
+    "label": "細いまつ毛",
+    "prompt": "fine eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の長さ・量",
+    "slot": "eyelash_length"
+  },
+  {
+    "id": "eye-v9-delicate-eyelashes",
+    "label": "繊細なまつ毛",
+    "prompt": "delicate eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の長さ・量",
+    "slot": "eyelash_length"
+  },
+  {
+    "id": "eye-v9-prominent-eyelashes",
+    "label": "目立つまつ毛",
+    "prompt": "prominent eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の長さ・量",
+    "slot": "eyelash_length"
+  },
+  {
+    "id": "eye-v9-subtle-eyelashes",
+    "label": "控えめなまつ毛",
+    "prompt": "subtle eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の長さ・量",
+    "slot": "eyelash_length"
+  },
+  {
+    "id": "eye-v9-upper-eyelashes",
+    "label": "上まつ毛",
+    "prompt": "upper eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の長さ・量",
+    "slot": "eyelash_length"
+  },
+  {
+    "id": "eye-v9-long-lower-eyelashes",
+    "label": "長い下まつ毛",
+    "prompt": "long lower eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の長さ・量",
+    "slot": "eyelash_length"
+  },
+  {
+    "id": "eye-v9-thick-lower-eyelashes",
+    "label": "濃い下まつ毛",
+    "prompt": "thick lower eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の長さ・量",
+    "slot": "eyelash_length"
+  },
+  {
+    "id": "eye-v9-multiple-eyelashes",
+    "label": "複数束のまつ毛",
+    "prompt": "multiple eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の長さ・量",
+    "slot": "eyelash_length"
+  },
+  {
+    "id": "eye-v9-curled-eyelashes",
+    "label": "カールしたまつ毛",
+    "prompt": "curled eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の形",
+    "slot": "eyelash_shape"
+  },
+  {
+    "id": "eye-v9-upturned-eyelashes",
+    "label": "上向きまつ毛",
+    "prompt": "upturned eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の形",
+    "slot": "eyelash_shape"
+  },
+  {
+    "id": "eye-v9-downturned-eyelashes",
+    "label": "下向きまつ毛",
+    "prompt": "downturned eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の形",
+    "slot": "eyelash_shape"
+  },
+  {
+    "id": "eye-v9-straight-eyelashes",
+    "label": "直線的なまつ毛",
+    "prompt": "straight eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の形",
+    "slot": "eyelash_shape"
+  },
+  {
+    "id": "eye-v9-swept-eyelashes",
+    "label": "流れるまつ毛",
+    "prompt": "swept eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の形",
+    "slot": "eyelash_shape"
+  },
+  {
+    "id": "eye-v9-fan-shaped-eyelashes",
+    "label": "扇状まつ毛",
+    "prompt": "fan-shaped eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の形",
+    "slot": "eyelash_shape"
+  },
+  {
+    "id": "eye-v9-spiky-eyelashes",
+    "label": "トゲ状まつ毛",
+    "prompt": "spiky eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の形",
+    "slot": "eyelash_shape"
+  },
+  {
+    "id": "eye-v9-clustered-eyelashes",
+    "label": "束感まつ毛",
+    "prompt": "clustered eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の形",
+    "slot": "eyelash_shape"
+  },
+  {
+    "id": "eye-v9-separated-eyelashes",
+    "label": "セパレートまつ毛",
+    "prompt": "separated eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の形",
+    "slot": "eyelash_shape"
+  },
+  {
+    "id": "eye-v9-crossed-eyelashes",
+    "label": "交差したまつ毛",
+    "prompt": "crossed eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の形",
+    "slot": "eyelash_shape"
+  },
+  {
+    "id": "eye-v9-feathered-eyelashes",
+    "label": "羽毛状まつ毛",
+    "prompt": "feathered eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の形",
+    "slot": "eyelash_shape"
+  },
+  {
+    "id": "eye-v9-wispy-eyelashes",
+    "label": "ウィスピーまつ毛",
+    "prompt": "wispy eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の形",
+    "slot": "eyelash_shape"
+  },
+  {
+    "id": "eye-v9-doll-eyelashes",
+    "label": "ドール風まつ毛",
+    "prompt": "doll eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の形",
+    "slot": "eyelash_shape"
+  },
+  {
+    "id": "eye-v9-manga-eyelashes",
+    "label": "漫画風まつ毛",
+    "prompt": "manga eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の形",
+    "slot": "eyelash_shape"
+  },
+  {
+    "id": "eye-v9-dramatic-eyelashes",
+    "label": "ドラマチックなまつ毛",
+    "prompt": "dramatic eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の形",
+    "slot": "eyelash_shape"
+  },
+  {
+    "id": "eye-v9-outer-corner-eyelashes",
+    "label": "目尻を強調したまつ毛",
+    "prompt": "outer corner eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の形",
+    "slot": "eyelash_shape"
+  },
+  {
+    "id": "eye-v9-inner-corner-eyelashes",
+    "label": "目頭を強調したまつ毛",
+    "prompt": "inner corner eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の形",
+    "slot": "eyelash_shape"
+  },
+  {
+    "id": "eye-v9-asymmetrical-eyelashes",
+    "label": "左右非対称まつ毛",
+    "prompt": "asymmetrical eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の形",
+    "slot": "eyelash_shape"
+  },
+  {
+    "id": "eye-v9-single-prominent-eyelash",
+    "label": "一本だけ目立つまつ毛",
+    "prompt": "single prominent eyelash",
+    "category": "eyes",
+    "subcategory": "まつ毛の形",
+    "slot": "eyelash_shape"
+  },
+  {
+    "id": "eye-v9-eyelash-tufts",
+    "label": "まつ毛の束",
+    "prompt": "eyelash tufts",
+    "category": "eyes",
+    "subcategory": "まつ毛の形",
+    "slot": "eyelash_shape"
+  },
+  {
+    "id": "eye-v9-black-eyelashes",
+    "label": "黒いまつ毛",
+    "prompt": "black eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の色・装飾",
+    "slot": "eyelash_color"
+  },
+  {
+    "id": "eye-v9-brown-eyelashes",
+    "label": "茶色いまつ毛",
+    "prompt": "brown eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の色・装飾",
+    "slot": "eyelash_color"
+  },
+  {
+    "id": "eye-v9-white-eyelashes",
+    "label": "白いまつ毛",
+    "prompt": "white eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の色・装飾",
+    "slot": "eyelash_color"
+  },
+  {
+    "id": "eye-v9-blonde-eyelashes",
+    "label": "金色のまつ毛",
+    "prompt": "blonde eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の色・装飾",
+    "slot": "eyelash_color"
+  },
+  {
+    "id": "eye-v9-red-eyelashes",
+    "label": "赤いまつ毛",
+    "prompt": "red eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の色・装飾",
+    "slot": "eyelash_color"
+  },
+  {
+    "id": "eye-v9-blue-eyelashes",
+    "label": "青いまつ毛",
+    "prompt": "blue eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の色・装飾",
+    "slot": "eyelash_color"
+  },
+  {
+    "id": "eye-v9-purple-eyelashes",
+    "label": "紫のまつ毛",
+    "prompt": "purple eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の色・装飾",
+    "slot": "eyelash_color"
+  },
+  {
+    "id": "eye-v9-pink-eyelashes",
+    "label": "ピンクのまつ毛",
+    "prompt": "pink eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の色・装飾",
+    "slot": "eyelash_color"
+  },
+  {
+    "id": "eye-v9-multicolored-eyelashes",
+    "label": "多色まつ毛",
+    "prompt": "multicolored eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の色・装飾",
+    "slot": "eyelash_color"
+  },
+  {
+    "id": "eye-v9-gradient-eyelashes",
+    "label": "グラデーションまつ毛",
+    "prompt": "gradient eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の色・装飾",
+    "slot": "eyelash_color"
+  },
+  {
+    "id": "eye-v9-glowing-eyelashes",
+    "label": "発光するまつ毛",
+    "prompt": "glowing eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の色・装飾",
+    "slot": "eyelash_color"
+  },
+  {
+    "id": "eye-v9-sparkling-eyelashes",
+    "label": "きらめくまつ毛",
+    "prompt": "sparkling eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の色・装飾",
+    "slot": "eyelash_color"
+  },
+  {
+    "id": "eye-v9-metallic-eyelashes",
+    "label": "金属光沢のまつ毛",
+    "prompt": "metallic eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の色・装飾",
+    "slot": "eyelash_color"
+  },
+  {
+    "id": "eye-v9-gold-eyelashes",
+    "label": "金のまつ毛",
+    "prompt": "gold eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の色・装飾",
+    "slot": "eyelash_color"
+  },
+  {
+    "id": "eye-v9-silver-eyelashes",
+    "label": "銀のまつ毛",
+    "prompt": "silver eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の色・装飾",
+    "slot": "eyelash_color"
+  },
+  {
+    "id": "eye-v9-decorated-eyelashes",
+    "label": "装飾まつ毛",
+    "prompt": "decorated eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の色・装飾",
+    "slot": "eyelash_color"
+  },
+  {
+    "id": "eye-v9-jeweled-eyelashes",
+    "label": "宝石付きまつ毛",
+    "prompt": "jeweled eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の色・装飾",
+    "slot": "eyelash_color"
+  },
+  {
+    "id": "eye-v9-false-eyelashes",
+    "label": "つけまつ毛",
+    "prompt": "false eyelashes",
+    "category": "eyes",
+    "subcategory": "まつ毛の色・装飾",
+    "slot": "eyelash_color"
+  },
+  {
+    "id": "eye-v9-thin-eyeliner",
+    "label": "細いアイライン",
+    "prompt": "thin eyeliner",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  },
+  {
+    "id": "eye-v9-thick-eyeliner",
+    "label": "太いアイライン",
+    "prompt": "thick eyeliner",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  },
+  {
+    "id": "eye-v9-sharp-eyeliner",
+    "label": "鋭いアイライン",
+    "prompt": "sharp eyeliner",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  },
+  {
+    "id": "eye-v9-soft-eyeliner",
+    "label": "柔らかなアイライン",
+    "prompt": "soft eyeliner",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  },
+  {
+    "id": "eye-v9-cat-eye-liner",
+    "label": "キャットアイライン",
+    "prompt": "cat eye eyeliner",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  },
+  {
+    "id": "eye-v9-puppy-eyeliner",
+    "label": "たれ目アイライン",
+    "prompt": "puppy eyeliner",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  },
+  {
+    "id": "eye-v9-double-eyeliner",
+    "label": "ダブルアイライン",
+    "prompt": "double eyeliner",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  },
+  {
+    "id": "eye-v9-graphic-eyeliner",
+    "label": "グラフィックアイライン",
+    "prompt": "graphic eyeliner",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  },
+  {
+    "id": "eye-v9-colored-eyeliner",
+    "label": "カラーアイライン",
+    "prompt": "colored eyeliner",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  },
+  {
+    "id": "eye-v9-lower-eyeliner",
+    "label": "下まぶたアイライン",
+    "prompt": "lower eyeliner",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  },
+  {
+    "id": "eye-v9-smudged-eyeliner",
+    "label": "ぼかしたアイライン",
+    "prompt": "smudged eyeliner",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  },
+  {
+    "id": "eye-v9-floating-eyeliner",
+    "label": "フローティングアイライン",
+    "prompt": "floating eyeliner",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  },
+  {
+    "id": "eye-v9-cut-crease",
+    "label": "カットクリース",
+    "prompt": "cut crease",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  },
+  {
+    "id": "eye-v9-hooded-eyelids",
+    "label": "奥二重・フードアイ",
+    "prompt": "hooded eyelids",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  },
+  {
+    "id": "eye-v9-visible-eyelid-crease",
+    "label": "明瞭な二重線",
+    "prompt": "visible eyelid crease",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  },
+  {
+    "id": "eye-v9-droopy-eyelids",
+    "label": "垂れたまぶた",
+    "prompt": "droopy eyelids",
+    "category": "eyes",
+    "subcategory": "まぶた・アイライン"
+  }
+]

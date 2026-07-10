@@ -1,0 +1,546 @@
+[
+  {
+    "id": "acc-hair-ribbon",
+    "label": "髪リボン",
+    "prompt": "hair ribbon",
+    "category": "accessories",
+    "subcategory": "髪飾り"
+  },
+  {
+    "id": "acc-hair-bow",
+    "label": "髪の蝶結び",
+    "prompt": "hair bow",
+    "category": "accessories",
+    "subcategory": "髪飾り"
+  },
+  {
+    "id": "acc-hairband",
+    "label": "ヘアバンド",
+    "prompt": "hairband",
+    "category": "accessories",
+    "subcategory": "髪飾り"
+  },
+  {
+    "id": "acc-headband",
+    "label": "カチューシャ",
+    "prompt": "headband",
+    "category": "accessories",
+    "subcategory": "髪飾り"
+  },
+  {
+    "id": "acc-hairclip",
+    "label": "ヘアクリップ",
+    "prompt": "hairclip",
+    "category": "accessories",
+    "subcategory": "髪飾り"
+  },
+  {
+    "id": "acc-hairpin",
+    "label": "ヘアピン",
+    "prompt": "hairpin",
+    "category": "accessories",
+    "subcategory": "髪飾り"
+  },
+  {
+    "id": "acc-barrette",
+    "label": "バレッタ",
+    "prompt": "barrette",
+    "category": "accessories",
+    "subcategory": "髪飾り"
+  },
+  {
+    "id": "acc-scrunchie",
+    "label": "シュシュ",
+    "prompt": "scrunchie",
+    "category": "accessories",
+    "subcategory": "髪飾り"
+  },
+  {
+    "id": "acc-hair-flower",
+    "label": "髪飾りの花",
+    "prompt": "hair flower",
+    "category": "accessories",
+    "subcategory": "髪飾り"
+  },
+  {
+    "id": "acc-hair-ornament",
+    "label": "髪飾り",
+    "prompt": "hair ornament",
+    "category": "accessories",
+    "subcategory": "髪飾り"
+  },
+  {
+    "id": "acc-kanzashi",
+    "label": "かんざし",
+    "prompt": "kanzashi",
+    "category": "accessories",
+    "subcategory": "髪飾り"
+  },
+  {
+    "id": "acc-tiara",
+    "label": "ティアラ",
+    "prompt": "tiara",
+    "category": "accessories",
+    "subcategory": "髪飾り"
+  },
+  {
+    "id": "acc-crown",
+    "label": "王冠",
+    "prompt": "crown",
+    "category": "accessories",
+    "subcategory": "髪飾り"
+  },
+  {
+    "id": "acc-veil",
+    "label": "ベール",
+    "prompt": "veil",
+    "category": "accessories",
+    "subcategory": "髪飾り"
+  },
+  {
+    "id": "acc-maid-headdress",
+    "label": "メイドカチューシャ",
+    "prompt": "maid headdress",
+    "category": "accessories",
+    "subcategory": "髪飾り"
+  },
+  {
+    "id": "acc-choker",
+    "label": "チョーカー",
+    "prompt": "choker",
+    "category": "accessories",
+    "subcategory": "耳・首"
+  },
+  {
+    "id": "acc-necklace",
+    "label": "ネックレス",
+    "prompt": "necklace",
+    "category": "accessories",
+    "subcategory": "耳・首"
+  },
+  {
+    "id": "acc-pendant",
+    "label": "ペンダント",
+    "prompt": "pendant",
+    "category": "accessories",
+    "subcategory": "耳・首"
+  },
+  {
+    "id": "acc-pearl-necklace",
+    "label": "真珠ネックレス",
+    "prompt": "pearl necklace",
+    "category": "accessories",
+    "subcategory": "耳・首"
+  },
+  {
+    "id": "acc-scarf",
+    "label": "スカーフ",
+    "prompt": "scarf",
+    "category": "accessories",
+    "subcategory": "耳・首"
+  },
+  {
+    "id": "acc-necktie",
+    "label": "ネクタイ",
+    "prompt": "necktie",
+    "category": "accessories",
+    "subcategory": "耳・首"
+  },
+  {
+    "id": "acc-bowtie",
+    "label": "蝶ネクタイ",
+    "prompt": "bowtie",
+    "category": "accessories",
+    "subcategory": "耳・首"
+  },
+  {
+    "id": "acc-neckerchief",
+    "label": "ネッカチーフ",
+    "prompt": "neckerchief",
+    "category": "accessories",
+    "subcategory": "耳・首"
+  },
+  {
+    "id": "acc-earrings",
+    "label": "イヤリング",
+    "prompt": "earrings",
+    "category": "accessories",
+    "subcategory": "耳・首"
+  },
+  {
+    "id": "acc-stud-earrings",
+    "label": "スタッドピアス",
+    "prompt": "stud earrings",
+    "category": "accessories",
+    "subcategory": "耳・首"
+  },
+  {
+    "id": "acc-hoop-earrings",
+    "label": "フープピアス",
+    "prompt": "hoop earrings",
+    "category": "accessories",
+    "subcategory": "耳・首"
+  },
+  {
+    "id": "acc-ear-cuffs",
+    "label": "イヤーカフ",
+    "prompt": "ear cuffs",
+    "category": "accessories",
+    "subcategory": "耳・首"
+  },
+  {
+    "id": "acc-gloves",
+    "label": "手袋",
+    "prompt": "gloves",
+    "category": "accessories",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "acc-fingerless-gloves",
+    "label": "指なし手袋",
+    "prompt": "fingerless gloves",
+    "category": "accessories",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "acc-elbow-gloves",
+    "label": "肘までの手袋",
+    "prompt": "elbow gloves",
+    "category": "accessories",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "acc-opera-gloves",
+    "label": "ロンググローブ",
+    "prompt": "opera gloves",
+    "category": "accessories",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "acc-bracelet",
+    "label": "ブレスレット",
+    "prompt": "bracelet",
+    "category": "accessories",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "acc-wristband",
+    "label": "リストバンド",
+    "prompt": "wristband",
+    "category": "accessories",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "acc-watch",
+    "label": "腕時計",
+    "prompt": "watch",
+    "category": "accessories",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "acc-rings",
+    "label": "指輪",
+    "prompt": "rings",
+    "category": "accessories",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "acc-armlet",
+    "label": "アームレット",
+    "prompt": "armlet",
+    "category": "accessories",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "acc-nail-polish",
+    "label": "マニキュア",
+    "prompt": "nail polish",
+    "category": "accessories",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "acc-glasses",
+    "label": "眼鏡",
+    "prompt": "glasses",
+    "category": "accessories",
+    "subcategory": "顔・眼鏡"
+  },
+  {
+    "id": "acc-round-glasses",
+    "label": "丸眼鏡",
+    "prompt": "round glasses",
+    "category": "accessories",
+    "subcategory": "顔・眼鏡"
+  },
+  {
+    "id": "acc-rimless-glasses",
+    "label": "縁なし眼鏡",
+    "prompt": "rimless glasses",
+    "category": "accessories",
+    "subcategory": "顔・眼鏡"
+  },
+  {
+    "id": "acc-half-rim-glasses",
+    "label": "ハーフリム眼鏡",
+    "prompt": "half-rim glasses",
+    "category": "accessories",
+    "subcategory": "顔・眼鏡"
+  },
+  {
+    "id": "acc-sunglasses",
+    "label": "サングラス",
+    "prompt": "sunglasses",
+    "category": "accessories",
+    "subcategory": "顔・眼鏡"
+  },
+  {
+    "id": "acc-monocle",
+    "label": "片眼鏡",
+    "prompt": "monocle",
+    "category": "accessories",
+    "subcategory": "顔・眼鏡"
+  },
+  {
+    "id": "acc-eyepatch",
+    "label": "眼帯",
+    "prompt": "eyepatch",
+    "category": "accessories",
+    "subcategory": "顔・眼鏡"
+  },
+  {
+    "id": "acc-mask",
+    "label": "マスク",
+    "prompt": "mask",
+    "category": "accessories",
+    "subcategory": "顔・眼鏡"
+  },
+  {
+    "id": "acc-medical-mask",
+    "label": "医療用マスク",
+    "prompt": "medical mask",
+    "category": "accessories",
+    "subcategory": "顔・眼鏡"
+  },
+  {
+    "id": "acc-goggles",
+    "label": "ゴーグル",
+    "prompt": "goggles",
+    "category": "accessories",
+    "subcategory": "顔・眼鏡"
+  },
+  {
+    "id": "acc-visor",
+    "label": "バイザー",
+    "prompt": "visor",
+    "category": "accessories",
+    "subcategory": "顔・眼鏡"
+  },
+  {
+    "id": "acc-hat",
+    "label": "帽子",
+    "prompt": "hat",
+    "category": "accessories",
+    "subcategory": "頭・帽子",
+    "slot": "headwear"
+  },
+  {
+    "id": "acc-cap",
+    "label": "キャップ",
+    "prompt": "cap",
+    "category": "accessories",
+    "subcategory": "頭・帽子",
+    "slot": "headwear"
+  },
+  {
+    "id": "acc-baseball-cap",
+    "label": "野球帽",
+    "prompt": "baseball cap",
+    "category": "accessories",
+    "subcategory": "頭・帽子",
+    "slot": "headwear"
+  },
+  {
+    "id": "acc-beanie",
+    "label": "ニット帽",
+    "prompt": "beanie",
+    "category": "accessories",
+    "subcategory": "頭・帽子",
+    "slot": "headwear"
+  },
+  {
+    "id": "acc-beret",
+    "label": "ベレー帽",
+    "prompt": "beret",
+    "category": "accessories",
+    "subcategory": "頭・帽子",
+    "slot": "headwear"
+  },
+  {
+    "id": "acc-sun-hat",
+    "label": "日よけ帽",
+    "prompt": "sun hat",
+    "category": "accessories",
+    "subcategory": "頭・帽子",
+    "slot": "headwear"
+  },
+  {
+    "id": "acc-straw-hat",
+    "label": "麦わら帽子",
+    "prompt": "straw hat",
+    "category": "accessories",
+    "subcategory": "頭・帽子",
+    "slot": "headwear"
+  },
+  {
+    "id": "acc-witch-hat",
+    "label": "魔女帽子",
+    "prompt": "witch hat",
+    "category": "accessories",
+    "subcategory": "頭・帽子",
+    "slot": "headwear"
+  },
+  {
+    "id": "acc-cowboy-hat",
+    "label": "カウボーイハット",
+    "prompt": "cowboy hat",
+    "category": "accessories",
+    "subcategory": "頭・帽子",
+    "slot": "headwear"
+  },
+  {
+    "id": "acc-top-hat",
+    "label": "シルクハット",
+    "prompt": "top hat",
+    "category": "accessories",
+    "subcategory": "頭・帽子",
+    "slot": "headwear"
+  },
+  {
+    "id": "acc-hood",
+    "label": "フード",
+    "prompt": "hood",
+    "category": "accessories",
+    "subcategory": "頭・帽子",
+    "slot": "headwear"
+  },
+  {
+    "id": "acc-helmet",
+    "label": "ヘルメット",
+    "prompt": "helmet",
+    "category": "accessories",
+    "subcategory": "頭・帽子",
+    "slot": "headwear"
+  },
+  {
+    "id": "acc-handbag",
+    "label": "ハンドバッグ",
+    "prompt": "handbag",
+    "category": "accessories",
+    "subcategory": "バッグ・携行品"
+  },
+  {
+    "id": "acc-shoulder-bag",
+    "label": "ショルダーバッグ",
+    "prompt": "shoulder bag",
+    "category": "accessories",
+    "subcategory": "バッグ・携行品"
+  },
+  {
+    "id": "acc-backpack",
+    "label": "リュック",
+    "prompt": "backpack",
+    "category": "accessories",
+    "subcategory": "バッグ・携行品"
+  },
+  {
+    "id": "acc-school-bag",
+    "label": "学生鞄",
+    "prompt": "school bag",
+    "category": "accessories",
+    "subcategory": "バッグ・携行品"
+  },
+  {
+    "id": "acc-briefcase",
+    "label": "ブリーフケース",
+    "prompt": "briefcase",
+    "category": "accessories",
+    "subcategory": "バッグ・携行品"
+  },
+  {
+    "id": "acc-umbrella",
+    "label": "傘",
+    "prompt": "umbrella",
+    "category": "accessories",
+    "subcategory": "バッグ・携行品"
+  },
+  {
+    "id": "acc-parasol",
+    "label": "日傘",
+    "prompt": "parasol",
+    "category": "accessories",
+    "subcategory": "バッグ・携行品"
+  },
+  {
+    "id": "acc-book",
+    "label": "本",
+    "prompt": "book",
+    "category": "accessories",
+    "subcategory": "バッグ・携行品"
+  },
+  {
+    "id": "acc-smartphone",
+    "label": "スマートフォン",
+    "prompt": "smartphone",
+    "category": "accessories",
+    "subcategory": "バッグ・携行品"
+  },
+  {
+    "id": "acc-camera",
+    "label": "カメラ",
+    "prompt": "camera",
+    "category": "accessories",
+    "subcategory": "バッグ・携行品"
+  },
+  {
+    "id": "acc-cup",
+    "label": "カップ",
+    "prompt": "cup",
+    "category": "accessories",
+    "subcategory": "バッグ・携行品"
+  },
+  {
+    "id": "acc-microphone",
+    "label": "マイク",
+    "prompt": "microphone",
+    "category": "accessories",
+    "subcategory": "バッグ・携行品"
+  },
+  {
+    "id": "acc-sword",
+    "label": "剣",
+    "prompt": "sword",
+    "category": "accessories",
+    "subcategory": "バッグ・携行品"
+  },
+  {
+    "id": "acc-staff",
+    "label": "杖",
+    "prompt": "staff",
+    "category": "accessories",
+    "subcategory": "バッグ・携行品"
+  },
+  {
+    "id": "acc-wand",
+    "label": "魔法の杖",
+    "prompt": "wand",
+    "category": "accessories",
+    "subcategory": "バッグ・携行品"
+  },
+  {
+    "id": "acc-shield",
+    "label": "盾",
+    "prompt": "shield",
+    "category": "accessories",
+    "subcategory": "バッグ・携行品"
+  }
+]

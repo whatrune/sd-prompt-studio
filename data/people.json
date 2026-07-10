@@ -1,0 +1,230 @@
+[
+  {
+    "id": "peo-solo",
+    "label": "単独",
+    "prompt": "solo",
+    "category": "people",
+    "subcategory": "人数",
+    "slot": "people_count_mode"
+  },
+  {
+    "id": "peo-1girl",
+    "label": "女性1人",
+    "prompt": "1girl",
+    "category": "people",
+    "subcategory": "人数",
+    "slot": "female_count"
+  },
+  {
+    "id": "peo-1boy",
+    "label": "男性1人",
+    "prompt": "1boy",
+    "category": "people",
+    "subcategory": "人数",
+    "slot": "male_count"
+  },
+  {
+    "id": "peo-2girls",
+    "label": "女性2人",
+    "prompt": "2girls",
+    "category": "people",
+    "subcategory": "人数",
+    "slot": "female_count"
+  },
+  {
+    "id": "peo-2boys",
+    "label": "男性2人",
+    "prompt": "2boys",
+    "category": "people",
+    "subcategory": "人数",
+    "slot": "male_count"
+  },
+  {
+    "id": "peo-1girl-1boy",
+    "label": "男女1人ずつ",
+    "prompt": "1girl, 1boy",
+    "category": "people",
+    "subcategory": "人数"
+  },
+  {
+    "id": "peo-3girls",
+    "label": "女性3人",
+    "prompt": "3girls",
+    "category": "people",
+    "subcategory": "人数",
+    "slot": "female_count"
+  },
+  {
+    "id": "peo-group",
+    "label": "複数人",
+    "prompt": "group",
+    "category": "people",
+    "subcategory": "人数",
+    "slot": "people_count_mode"
+  },
+  {
+    "id": "peo-crowd",
+    "label": "群衆",
+    "prompt": "crowd",
+    "category": "people",
+    "subcategory": "人数"
+  },
+  {
+    "id": "peo-multiple-girls",
+    "label": "複数の女性",
+    "prompt": "multiple girls",
+    "category": "people",
+    "subcategory": "人数",
+    "slot": "female_count"
+  },
+  {
+    "id": "peo-multiple-boys",
+    "label": "複数の男性",
+    "prompt": "multiple boys",
+    "category": "people",
+    "subcategory": "人数",
+    "slot": "male_count"
+  },
+  {
+    "id": "peo-adult",
+    "label": "成人",
+    "prompt": "adult",
+    "category": "people",
+    "subcategory": "年齢・属性",
+    "slot": "age_group"
+  },
+  {
+    "id": "peo-young-adult",
+    "label": "若い成人",
+    "prompt": "young adult",
+    "category": "people",
+    "subcategory": "年齢・属性",
+    "slot": "age_group"
+  },
+  {
+    "id": "peo-mature-female",
+    "label": "大人の女性",
+    "prompt": "mature female",
+    "category": "people",
+    "subcategory": "年齢・属性",
+    "slot": "age_group"
+  },
+  {
+    "id": "peo-mature-male",
+    "label": "大人の男性",
+    "prompt": "mature male",
+    "category": "people",
+    "subcategory": "年齢・属性",
+    "slot": "age_group"
+  },
+  {
+    "id": "peo-teenage",
+    "label": "10代",
+    "prompt": "teenage",
+    "category": "people",
+    "subcategory": "年齢・属性",
+    "slot": "age_group"
+  },
+  {
+    "id": "peo-child",
+    "label": "子ども",
+    "prompt": "child",
+    "category": "people",
+    "subcategory": "年齢・属性",
+    "slot": "age_group"
+  },
+  {
+    "id": "peo-androgynous",
+    "label": "中性的",
+    "prompt": "androgynous",
+    "category": "people",
+    "subcategory": "年齢・属性",
+    "slot": "age_group"
+  },
+  {
+    "id": "peo-female-focus",
+    "label": "女性中心",
+    "prompt": "female focus",
+    "category": "people",
+    "subcategory": "年齢・属性",
+    "slot": "age_group"
+  },
+  {
+    "id": "peo-male-focus",
+    "label": "男性中心",
+    "prompt": "male focus",
+    "category": "people",
+    "subcategory": "年齢・属性",
+    "slot": "age_group"
+  },
+  {
+    "id": "peo-hugging",
+    "label": "抱き合う",
+    "prompt": "hugging",
+    "category": "people",
+    "subcategory": "相互作用"
+  },
+  {
+    "id": "peo-holding-hands",
+    "label": "手をつなぐ",
+    "prompt": "holding hands",
+    "category": "people",
+    "subcategory": "相互作用"
+  },
+  {
+    "id": "peo-kissing",
+    "label": "キス",
+    "prompt": "kissing",
+    "category": "people",
+    "subcategory": "相互作用"
+  },
+  {
+    "id": "peo-facing-another",
+    "label": "向かい合う",
+    "prompt": "facing another",
+    "category": "people",
+    "subcategory": "相互作用"
+  },
+  {
+    "id": "peo-looking-at-another",
+    "label": "相手を見る",
+    "prompt": "looking at another",
+    "category": "people",
+    "subcategory": "相互作用"
+  },
+  {
+    "id": "peo-talking",
+    "label": "会話する",
+    "prompt": "talking",
+    "category": "people",
+    "subcategory": "相互作用"
+  },
+  {
+    "id": "peo-dancing-together",
+    "label": "一緒に踊る",
+    "prompt": "dancing together",
+    "category": "people",
+    "subcategory": "相互作用"
+  },
+  {
+    "id": "peo-carrying-another",
+    "label": "相手を抱える",
+    "prompt": "carrying another",
+    "category": "people",
+    "subcategory": "相互作用"
+  },
+  {
+    "id": "peo-back-to-back",
+    "label": "背中合わせ",
+    "prompt": "back-to-back",
+    "category": "people",
+    "subcategory": "相互作用"
+  },
+  {
+    "id": "peo-group-hug",
+    "label": "集団ハグ",
+    "prompt": "group hug",
+    "category": "people",
+    "subcategory": "相互作用"
+  }
+]

@@ -1,0 +1,369 @@
+[
+  {
+    "id": "bod-slender",
+    "label": "細身",
+    "prompt": "slender",
+    "category": "body",
+    "subcategory": "体型",
+    "slot": "body_type"
+  },
+  {
+    "id": "bod-petite",
+    "label": "小柄",
+    "prompt": "petite",
+    "category": "body",
+    "subcategory": "体型",
+    "slot": "body_type"
+  },
+  {
+    "id": "bod-tall",
+    "label": "長身",
+    "prompt": "tall",
+    "category": "body",
+    "subcategory": "体型",
+    "slot": "body_type"
+  },
+  {
+    "id": "bod-short",
+    "label": "低身長",
+    "prompt": "short",
+    "category": "body",
+    "subcategory": "体型",
+    "slot": "body_type"
+  },
+  {
+    "id": "bod-athletic",
+    "label": "アスリート体型",
+    "prompt": "athletic",
+    "category": "body",
+    "subcategory": "体型",
+    "slot": "body_type"
+  },
+  {
+    "id": "bod-muscular",
+    "label": "筋肉質",
+    "prompt": "muscular",
+    "category": "body",
+    "subcategory": "体型",
+    "slot": "body_type"
+  },
+  {
+    "id": "bod-curvy",
+    "label": "曲線的な体型",
+    "prompt": "curvy",
+    "category": "body",
+    "subcategory": "体型",
+    "slot": "body_type"
+  },
+  {
+    "id": "bod-plump",
+    "label": "ふくよか",
+    "prompt": "plump",
+    "category": "body",
+    "subcategory": "体型",
+    "slot": "body_type"
+  },
+  {
+    "id": "bod-chubby",
+    "label": "ぽっちゃり",
+    "prompt": "chubby",
+    "category": "body",
+    "subcategory": "体型",
+    "slot": "body_type"
+  },
+  {
+    "id": "bod-broad-shoulders",
+    "label": "広い肩",
+    "prompt": "broad shoulders",
+    "category": "body",
+    "subcategory": "体型",
+    "slot": "body_type"
+  },
+  {
+    "id": "bod-narrow-waist",
+    "label": "細い腰",
+    "prompt": "narrow waist",
+    "category": "body",
+    "subcategory": "体型",
+    "slot": "body_type"
+  },
+  {
+    "id": "bod-long-legs",
+    "label": "長い脚",
+    "prompt": "long legs",
+    "category": "body",
+    "subcategory": "体型",
+    "slot": "body_type"
+  },
+  {
+    "id": "bod-thick-thighs",
+    "label": "太い太腿",
+    "prompt": "thick thighs",
+    "category": "body",
+    "subcategory": "体型",
+    "slot": "body_type"
+  },
+  {
+    "id": "bod-slim-legs",
+    "label": "細い脚",
+    "prompt": "slim legs",
+    "category": "body",
+    "subcategory": "体型",
+    "slot": "body_type"
+  },
+  {
+    "id": "bod-small-breasts",
+    "label": "小さい胸",
+    "prompt": "small breasts",
+    "category": "body",
+    "subcategory": "胸・腰",
+    "slot": "breast_waist_size"
+  },
+  {
+    "id": "bod-medium-breasts",
+    "label": "中くらいの胸",
+    "prompt": "medium breasts",
+    "category": "body",
+    "subcategory": "胸・腰",
+    "slot": "breast_waist_size"
+  },
+  {
+    "id": "bod-large-breasts",
+    "label": "大きい胸",
+    "prompt": "large breasts",
+    "category": "body",
+    "subcategory": "胸・腰",
+    "slot": "breast_waist_size"
+  },
+  {
+    "id": "bod-flat-chest",
+    "label": "平らな胸",
+    "prompt": "flat chest",
+    "category": "body",
+    "subcategory": "胸・腰",
+    "slot": "breast_waist_size"
+  },
+  {
+    "id": "bod-cleavage",
+    "label": "胸の谷間",
+    "prompt": "cleavage",
+    "category": "body",
+    "subcategory": "胸・腰",
+    "slot": "breast_waist_size"
+  },
+  {
+    "id": "bod-wide-hips",
+    "label": "広い腰",
+    "prompt": "wide hips",
+    "category": "body",
+    "subcategory": "胸・腰",
+    "slot": "breast_waist_size"
+  },
+  {
+    "id": "bod-narrow-hips",
+    "label": "細い腰回り",
+    "prompt": "narrow hips",
+    "category": "body",
+    "subcategory": "胸・腰",
+    "slot": "breast_waist_size"
+  },
+  {
+    "id": "bod-pale-skin",
+    "label": "色白",
+    "prompt": "pale skin",
+    "category": "body",
+    "subcategory": "肌",
+    "slot": "skin_tone"
+  },
+  {
+    "id": "bod-fair-skin",
+    "label": "明るい肌",
+    "prompt": "fair skin",
+    "category": "body",
+    "subcategory": "肌",
+    "slot": "skin_tone"
+  },
+  {
+    "id": "bod-tan-skin",
+    "label": "日焼け肌",
+    "prompt": "tan skin",
+    "category": "body",
+    "subcategory": "肌",
+    "slot": "skin_tone"
+  },
+  {
+    "id": "bod-dark-skin",
+    "label": "褐色肌",
+    "prompt": "dark skin",
+    "category": "body",
+    "subcategory": "肌",
+    "slot": "skin_tone"
+  },
+  {
+    "id": "bod-very-dark-skin",
+    "label": "濃い褐色肌",
+    "prompt": "very dark skin",
+    "category": "body",
+    "subcategory": "肌",
+    "slot": "skin_tone"
+  },
+  {
+    "id": "bod-freckles",
+    "label": "そばかす",
+    "prompt": "freckles",
+    "category": "body",
+    "subcategory": "肌",
+    "slot": "skin_tone"
+  },
+  {
+    "id": "bod-moles",
+    "label": "ほくろ",
+    "prompt": "moles",
+    "category": "body",
+    "subcategory": "肌",
+    "slot": "skin_tone"
+  },
+  {
+    "id": "bod-beauty-mark",
+    "label": "泣きぼくろ",
+    "prompt": "beauty mark",
+    "category": "body",
+    "subcategory": "肌",
+    "slot": "skin_tone"
+  },
+  {
+    "id": "bod-glossy-skin",
+    "label": "艶のある肌",
+    "prompt": "glossy skin",
+    "category": "body",
+    "subcategory": "肌",
+    "slot": "skin_tone"
+  },
+  {
+    "id": "bod-wet-skin",
+    "label": "濡れた肌",
+    "prompt": "wet skin",
+    "category": "body",
+    "subcategory": "肌",
+    "slot": "skin_tone"
+  },
+  {
+    "id": "bod-pointy-ears",
+    "label": "尖った耳",
+    "prompt": "pointy ears",
+    "category": "body",
+    "subcategory": "特徴"
+  },
+  {
+    "id": "bod-animal-ears",
+    "label": "動物の耳",
+    "prompt": "animal ears",
+    "category": "body",
+    "subcategory": "特徴"
+  },
+  {
+    "id": "bod-cat-ears",
+    "label": "猫耳",
+    "prompt": "cat ears",
+    "category": "body",
+    "subcategory": "特徴"
+  },
+  {
+    "id": "bod-dog-ears",
+    "label": "犬耳",
+    "prompt": "dog ears",
+    "category": "body",
+    "subcategory": "特徴"
+  },
+  {
+    "id": "bod-rabbit-ears",
+    "label": "うさ耳",
+    "prompt": "rabbit ears",
+    "category": "body",
+    "subcategory": "特徴"
+  },
+  {
+    "id": "bod-fox-ears",
+    "label": "狐耳",
+    "prompt": "fox ears",
+    "category": "body",
+    "subcategory": "特徴"
+  },
+  {
+    "id": "bod-horns",
+    "label": "角",
+    "prompt": "horns",
+    "category": "body",
+    "subcategory": "特徴"
+  },
+  {
+    "id": "bod-single-horn",
+    "label": "一本角",
+    "prompt": "single horn",
+    "category": "body",
+    "subcategory": "特徴"
+  },
+  {
+    "id": "bod-wings",
+    "label": "翼",
+    "prompt": "wings",
+    "category": "body",
+    "subcategory": "特徴"
+  },
+  {
+    "id": "bod-angel-wings",
+    "label": "天使の翼",
+    "prompt": "angel wings",
+    "category": "body",
+    "subcategory": "特徴"
+  },
+  {
+    "id": "bod-demon-wings",
+    "label": "悪魔の翼",
+    "prompt": "demon wings",
+    "category": "body",
+    "subcategory": "特徴"
+  },
+  {
+    "id": "bod-tail",
+    "label": "尻尾",
+    "prompt": "tail",
+    "category": "body",
+    "subcategory": "特徴"
+  },
+  {
+    "id": "bod-cat-tail",
+    "label": "猫の尻尾",
+    "prompt": "cat tail",
+    "category": "body",
+    "subcategory": "特徴"
+  },
+  {
+    "id": "bod-fox-tail",
+    "label": "狐の尻尾",
+    "prompt": "fox tail",
+    "category": "body",
+    "subcategory": "特徴"
+  },
+  {
+    "id": "bod-scales",
+    "label": "鱗",
+    "prompt": "scales",
+    "category": "body",
+    "subcategory": "特徴"
+  },
+  {
+    "id": "bod-tattoo",
+    "label": "タトゥー",
+    "prompt": "tattoo",
+    "category": "body",
+    "subcategory": "特徴"
+  },
+  {
+    "id": "bod-scar",
+    "label": "傷跡",
+    "prompt": "scar",
+    "category": "body",
+    "subcategory": "特徴"
+  }
+]

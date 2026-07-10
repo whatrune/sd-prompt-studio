@@ -1,0 +1,198 @@
+[
+  {
+    "id": "qua-masterpiece",
+    "label": "マスターピース",
+    "prompt": "masterpiece",
+    "category": "quality",
+    "subcategory": "品質"
+  },
+  {
+    "id": "qua-best-quality",
+    "label": "最高品質",
+    "prompt": "best quality",
+    "category": "quality",
+    "subcategory": "品質"
+  },
+  {
+    "id": "qua-amazing-quality",
+    "label": "驚異的な品質",
+    "prompt": "amazing quality",
+    "category": "quality",
+    "subcategory": "品質"
+  },
+  {
+    "id": "qua-high-quality",
+    "label": "高品質",
+    "prompt": "high quality",
+    "category": "quality",
+    "subcategory": "品質"
+  },
+  {
+    "id": "qua-very-aesthetic",
+    "label": "高い美的表現",
+    "prompt": "very aesthetic",
+    "category": "quality",
+    "subcategory": "品質"
+  },
+  {
+    "id": "qua-high-resolution",
+    "label": "高解像度",
+    "prompt": "high resolution",
+    "category": "quality",
+    "subcategory": "品質"
+  },
+  {
+    "id": "qua-ultra-detailed",
+    "label": "超精細",
+    "prompt": "ultra-detailed",
+    "category": "quality",
+    "subcategory": "品質"
+  },
+  {
+    "id": "qua-absurdres",
+    "label": "超高解像度",
+    "prompt": "absurdres",
+    "category": "quality",
+    "subcategory": "品質"
+  },
+  {
+    "id": "qua-4k",
+    "label": "4K",
+    "prompt": "4k",
+    "category": "quality",
+    "subcategory": "品質"
+  },
+  {
+    "id": "qua-8k",
+    "label": "8K",
+    "prompt": "8k",
+    "category": "quality",
+    "subcategory": "品質"
+  },
+  {
+    "id": "qua-newest",
+    "label": "最新傾向",
+    "prompt": "newest",
+    "category": "quality",
+    "subcategory": "品質"
+  },
+  {
+    "id": "qua-official-art",
+    "label": "公式アート風",
+    "prompt": "official art",
+    "category": "quality",
+    "subcategory": "品質"
+  },
+  {
+    "id": "qua-professional-illustration",
+    "label": "プロのイラスト",
+    "prompt": "professional illustration",
+    "category": "quality",
+    "subcategory": "品質"
+  },
+  {
+    "id": "qua-intricate-details",
+    "label": "複雑なディテール",
+    "prompt": "intricate details",
+    "category": "quality",
+    "subcategory": "品質"
+  },
+  {
+    "id": "qua-sharp-focus",
+    "label": "シャープな焦点",
+    "prompt": "sharp focus",
+    "category": "quality",
+    "subcategory": "品質"
+  },
+  {
+    "id": "qua-anime-style",
+    "label": "アニメ調",
+    "prompt": "anime style",
+    "category": "quality",
+    "subcategory": "スタイル"
+  },
+  {
+    "id": "qua-semi-realistic",
+    "label": "セミリアル",
+    "prompt": "semi-realistic",
+    "category": "quality",
+    "subcategory": "スタイル"
+  },
+  {
+    "id": "qua-realistic",
+    "label": "リアル調",
+    "prompt": "realistic",
+    "category": "quality",
+    "subcategory": "スタイル"
+  },
+  {
+    "id": "qua-digital-illustration",
+    "label": "デジタルイラスト",
+    "prompt": "digital illustration",
+    "category": "quality",
+    "subcategory": "スタイル"
+  },
+  {
+    "id": "qua-concept-art",
+    "label": "コンセプトアート",
+    "prompt": "concept art",
+    "category": "quality",
+    "subcategory": "スタイル"
+  },
+  {
+    "id": "qua-visual-novel-style",
+    "label": "ビジュアルノベル調",
+    "prompt": "visual novel style",
+    "category": "quality",
+    "subcategory": "スタイル"
+  },
+  {
+    "id": "qua-game-cg",
+    "label": "ゲームCG",
+    "prompt": "game cg",
+    "category": "quality",
+    "subcategory": "スタイル"
+  },
+  {
+    "id": "qua-cel-shading",
+    "label": "セル塗り",
+    "prompt": "cel shading",
+    "category": "quality",
+    "subcategory": "スタイル"
+  },
+  {
+    "id": "qua-painterly",
+    "label": "絵画的",
+    "prompt": "painterly",
+    "category": "quality",
+    "subcategory": "スタイル"
+  },
+  {
+    "id": "qua-lineart",
+    "label": "線画",
+    "prompt": "lineart",
+    "category": "quality",
+    "subcategory": "スタイル"
+  },
+  {
+    "id": "qua-rating-safe",
+    "label": "全年齢",
+    "prompt": "rating safe",
+    "category": "quality",
+    "subcategory": "レーティング"
+  },
+  {
+    "id": "qua-rating-questionable",
+    "label": "やや刺激的",
+    "prompt": "rating questionable",
+    "category": "quality",
+    "subcategory": "レーティング"
+  },
+  {
+    "id": "qua-rating-explicit",
+    "label": "成人向け",
+    "prompt": "rating explicit",
+    "category": "quality",
+    "subcategory": "レーティング"
+  }
+]

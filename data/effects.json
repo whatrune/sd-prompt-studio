@@ -1,0 +1,362 @@
+[
+  {
+    "id": "eff-depth-of-field",
+    "label": "被写界深度",
+    "prompt": "depth of field",
+    "category": "effects",
+    "subcategory": "奥行き・ぼかし",
+    "generationNote": "ピントの合う範囲を限定し、前後のぼけで距離感を作る。主役を目立たせたい人物構図に有効。"
+  },
+  {
+    "id": "eff-shallow-depth-of-field",
+    "label": "浅い被写界深度",
+    "prompt": "shallow depth of field",
+    "category": "effects",
+    "subcategory": "奥行き・ぼかし",
+    "generationNote": "ピント範囲を特に浅くして背景や前景を大きくぼかす。顔や小物への視線誘導が強くなる。"
+  },
+  {
+    "id": "eff-bokeh",
+    "label": "ボケ",
+    "prompt": "bokeh",
+    "category": "effects",
+    "subcategory": "奥行き・ぼかし",
+    "generationNote": "ピント外の光を丸や多角形のぼけとして見せる。夜景、イルミネーション、逆光と相性が良い。"
+  },
+  {
+    "id": "eff-blurry-foreground",
+    "label": "前景ぼかし",
+    "prompt": "blurry foreground",
+    "category": "effects",
+    "subcategory": "奥行き・ぼかし",
+    "generationNote": "手前の物体をぼかし、奥の主役を見せる。画面に前後層が生まれ、覗き見るような臨場感が出る。"
+  },
+  {
+    "id": "eff-blurry-background",
+    "label": "背景ぼかし",
+    "prompt": "blurry background",
+    "category": "effects",
+    "subcategory": "奥行き・ぼかし",
+    "generationNote": "背景をぼかして主役を分離する。背景の情報量を抑えたい人物イラスト向け。"
+  },
+  {
+    "id": "eff-foreground-interest",
+    "label": "前景要素",
+    "prompt": "foreground interest",
+    "category": "effects",
+    "subcategory": "奥行き・ぼかし",
+    "generationNote": "手前に花、葉、家具などの要素を置く構図。奥行きと画面の密度を増やす。"
+  },
+  {
+    "id": "eff-atmospheric-perspective",
+    "label": "空気遠近法",
+    "prompt": "atmospheric perspective",
+    "category": "effects",
+    "subcategory": "奥行き・ぼかし",
+    "generationNote": "遠くの物体ほど薄く青灰色に見せる空気遠近法。山、都市、広い風景の距離感に有効。"
+  },
+  {
+    "id": "eff-layered-composition",
+    "label": "多層構図",
+    "prompt": "layered composition",
+    "category": "effects",
+    "subcategory": "奥行き・ぼかし",
+    "generationNote": "前景、中景、背景を重ねて構成する。平面的な画面を避け、場面の奥行きを強める。"
+  },
+  {
+    "id": "eff-lens-flare",
+    "label": "レンズフレア",
+    "prompt": "lens flare",
+    "category": "effects",
+    "subcategory": "光学効果",
+    "generationNote": "強い光源によるレンズ内反射を描く。逆光や太陽と相性が良いが、顔へ重なりやすい。"
+  },
+  {
+    "id": "eff-chromatic-aberration",
+    "label": "色収差",
+    "prompt": "chromatic aberration",
+    "category": "effects",
+    "subcategory": "光学効果",
+    "generationNote": "輪郭の端に赤青などの色ずれを加える。デジタル感やレンズ感が出るが、強すぎると画質劣化に見える。"
+  },
+  {
+    "id": "eff-bloom",
+    "label": "ブルーム",
+    "prompt": "bloom",
+    "category": "effects",
+    "subcategory": "光学効果",
+    "generationNote": "明るい部分を柔らかくにじませる。発光、幻想、柔らかな逆光の演出に向く。"
+  },
+  {
+    "id": "eff-glare",
+    "label": "光のにじみ",
+    "prompt": "glare",
+    "category": "effects",
+    "subcategory": "光学効果",
+    "generationNote": "強い光の周囲にまぶしいにじみを加える。光源の存在感を強める。"
+  },
+  {
+    "id": "eff-light-leaks",
+    "label": "光漏れ",
+    "prompt": "light leaks",
+    "category": "effects",
+    "subcategory": "光学効果",
+    "generationNote": "フィルムへ光が漏れたような色付きのにじみ。レトロ、写真風、ノスタルジックな仕上げ向け。"
+  },
+  {
+    "id": "eff-film-grain",
+    "label": "フィルム粒子",
+    "prompt": "film grain",
+    "category": "effects",
+    "subcategory": "光学効果",
+    "generationNote": "細かな粒状感を画面全体へ加える。写真や映画風になる一方、細部は少し粗く見える。"
+  },
+  {
+    "id": "eff-vignette",
+    "label": "ビネット",
+    "prompt": "vignette",
+    "category": "effects",
+    "subcategory": "光学効果",
+    "generationNote": "画面四隅を暗くして中央へ視線を集める。ポートレートや不穏な場面に使いやすい。"
+  },
+  {
+    "id": "eff-motion-blur",
+    "label": "モーションブラー",
+    "prompt": "motion blur",
+    "category": "effects",
+    "subcategory": "光学効果",
+    "generationNote": "動いている部分を流して速度感を表現する。静止ポーズでは不自然になりやすい。"
+  },
+  {
+    "id": "eff-radial-blur",
+    "label": "放射状ぼかし",
+    "prompt": "radial blur",
+    "category": "effects",
+    "subcategory": "光学効果",
+    "generationNote": "中心から外へ放射状にぼかす。突進、加速、衝撃、強い視線誘導に向く。"
+  },
+  {
+    "id": "eff-particles",
+    "label": "粒子",
+    "prompt": "particles",
+    "category": "effects",
+    "subcategory": "粒子・空気感",
+    "generationNote": "空中に細かな粒子を追加する汎用指定。粒子の種類を別タグで補うと安定しやすい。"
+  },
+  {
+    "id": "eff-floating-particles",
+    "label": "浮遊粒子",
+    "prompt": "floating particles",
+    "category": "effects",
+    "subcategory": "粒子・空気感",
+    "generationNote": "空中に漂う粒子を描く。光と組み合わせると空気感や奥行きが出る。"
+  },
+  {
+    "id": "eff-sparkles",
+    "label": "きらめき",
+    "prompt": "sparkles",
+    "category": "effects",
+    "subcategory": "粒子・空気感",
+    "generationNote": "小さな光のきらめきを追加する。可愛さ、魔法、清潔感の演出向け。"
+  },
+  {
+    "id": "eff-dust-motes",
+    "label": "塵の粒",
+    "prompt": "dust motes",
+    "category": "effects",
+    "subcategory": "粒子・空気感",
+    "generationNote": "光の中に舞う細かな埃。室内の窓光や体積光と組み合わせると雰囲気が出やすい。"
+  },
+  {
+    "id": "eff-petals",
+    "label": "花びら",
+    "prompt": "petals",
+    "category": "effects",
+    "subcategory": "粒子・空気感",
+    "generationNote": "空中や地面に花びらを追加する。風、春、祝祭、ロマンチックな場面向け。"
+  },
+  {
+    "id": "eff-falling-leaves",
+    "label": "落ち葉",
+    "prompt": "falling leaves",
+    "category": "effects",
+    "subcategory": "粒子・空気感",
+    "generationNote": "舞い落ちる葉を追加する。秋、風、動きのある背景演出に向く。"
+  },
+  {
+    "id": "eff-snowflakes",
+    "label": "雪片",
+    "prompt": "snowflakes",
+    "category": "effects",
+    "subcategory": "粒子・空気感",
+    "generationNote": "結晶状の雪片を描く。近景の大きな雪と遠景の細かな雪を併用すると奥行きが出る。"
+  },
+  {
+    "id": "eff-embers",
+    "label": "火の粉",
+    "prompt": "embers",
+    "category": "effects",
+    "subcategory": "粒子・空気感",
+    "generationNote": "空中に舞う火の粉。炎、戦闘、崩壊、劇的な逆光と相性が良い。"
+  },
+  {
+    "id": "eff-smoke",
+    "label": "煙",
+    "prompt": "smoke",
+    "category": "effects",
+    "subcategory": "粒子・空気感",
+    "generationNote": "煙を加えて背景を隠し、空気の厚みや不穏さを出す。濃すぎると人物が埋もれやすい。"
+  },
+  {
+    "id": "eff-steam",
+    "label": "蒸気",
+    "prompt": "steam",
+    "category": "effects",
+    "subcategory": "粒子・空気感",
+    "generationNote": "白く柔らかな蒸気。温泉、料理、機械、寒暖差のある場面に向く。"
+  },
+  {
+    "id": "eff-fog-effect",
+    "label": "霧効果",
+    "prompt": "fog effect",
+    "category": "effects",
+    "subcategory": "粒子・空気感",
+    "generationNote": "霧で遠景のコントラストを落とす。幻想感や奥行きが出る一方、細部は見えにくくなる。"
+  },
+  {
+    "id": "eff-rain-streaks",
+    "label": "雨筋",
+    "prompt": "rain streaks",
+    "category": "effects",
+    "subcategory": "粒子・空気感",
+    "generationNote": "斜めや縦に流れる雨筋を描く。強い雨や動きを見せたい場面向け。"
+  },
+  {
+    "id": "eff-color-grading",
+    "label": "カラーグレーディング",
+    "prompt": "color grading",
+    "category": "effects",
+    "subcategory": "色調・仕上げ",
+    "generationNote": "画面全体の色調を統一する仕上げ。具体的な色味も併記すると狙いが伝わりやすい。"
+  },
+  {
+    "id": "eff-cinematic-color-grading",
+    "label": "映画的色調",
+    "prompt": "cinematic color grading",
+    "category": "effects",
+    "subcategory": "色調・仕上げ",
+    "generationNote": "映画風の色調と明暗へ整える。ティール＆オレンジなどの具体色を足すと安定しやすい。"
+  },
+  {
+    "id": "eff-high-contrast",
+    "label": "高コントラスト",
+    "prompt": "high contrast",
+    "category": "effects",
+    "subcategory": "色調・仕上げ",
+    "generationNote": "明部と暗部の差を強くする。力強くシャープになるが、影の細部は失われやすい。"
+  },
+  {
+    "id": "eff-low-contrast",
+    "label": "低コントラスト",
+    "prompt": "low contrast",
+    "category": "effects",
+    "subcategory": "色調・仕上げ",
+    "generationNote": "明暗差を弱める。柔らかく霧がかった印象になるが、画面が平坦になりやすい。"
+  },
+  {
+    "id": "eff-vibrant-colors",
+    "label": "鮮やかな色",
+    "prompt": "vibrant colors",
+    "category": "effects",
+    "subcategory": "色調・仕上げ",
+    "generationNote": "彩度を高め、鮮やかな色を強調する。ポップな絵に向くが、肌色も派手になりやすい。"
+  },
+  {
+    "id": "eff-muted-colors",
+    "label": "落ち着いた色",
+    "prompt": "muted colors",
+    "category": "effects",
+    "subcategory": "色調・仕上げ",
+    "generationNote": "彩度を抑えた落ち着いた色調。大人っぽさ、曇天、ノスタルジーと相性が良い。"
+  },
+  {
+    "id": "eff-pastel-colors",
+    "label": "パステル色",
+    "prompt": "pastel colors",
+    "category": "effects",
+    "subcategory": "色調・仕上げ",
+    "generationNote": "淡く明るい色を中心にする。柔らかさ、可愛さ、春らしさを出しやすい。"
+  },
+  {
+    "id": "eff-monochrome",
+    "label": "モノクロ",
+    "prompt": "monochrome",
+    "category": "effects",
+    "subcategory": "色調・仕上げ",
+    "generationNote": "基本的に一色系でまとめる。形や明暗を強調し、色の情報を抑える。"
+  },
+  {
+    "id": "eff-duotone",
+    "label": "デュオトーン",
+    "prompt": "duotone",
+    "category": "effects",
+    "subcategory": "色調・仕上げ",
+    "generationNote": "二つの色を中心に画面を構成する。ポスター的でグラフィカルな仕上がりになる。"
+  },
+  {
+    "id": "eff-hdr",
+    "label": "HDR",
+    "prompt": "HDR",
+    "category": "effects",
+    "subcategory": "色調・仕上げ",
+    "generationNote": "明部と暗部の情報を広く残す表現。細部が強調されるが、過剰だと人工的に見えやすい。"
+  },
+  {
+    "id": "eff-sharp-details",
+    "label": "シャープな細部",
+    "prompt": "sharp details",
+    "category": "effects",
+    "subcategory": "色調・仕上げ",
+    "generationNote": "輪郭や細部をくっきり見せる。高精細化に有効だが、肌や背景まで硬くなる場合がある。"
+  },
+  {
+    "id": "eff-v5-foreground-blur",
+    "label": "前景ぼかし",
+    "prompt": "foreground blur",
+    "category": "effects",
+    "subcategory": "奥行き・ぼかし",
+    "generationNote": "手前を意図的にぼかす表現。花、髪、家具などを前景へ置くと奥行きが出やすい。"
+  },
+  {
+    "id": "eff-v5-background-blur",
+    "label": "背景ぼかし",
+    "prompt": "background blur",
+    "category": "effects",
+    "subcategory": "奥行き・ぼかし",
+    "generationNote": "背景を柔らかくぼかす表現。被写体の輪郭と顔へ視線を集めやすい。"
+  },
+  {
+    "id": "eff-v5-floating-dust",
+    "label": "舞う埃",
+    "prompt": "floating dust",
+    "category": "effects",
+    "subcategory": "粒子・空気感",
+    "generationNote": "空中に舞う埃を描く。逆光や光芒と合わせると空間の厚みが増す。"
+  },
+  {
+    "id": "eff-v5-snow-particles",
+    "label": "雪の粒子",
+    "prompt": "snow particles",
+    "category": "effects",
+    "subcategory": "粒子・空気感",
+    "generationNote": "細かな雪の粒を追加する。降雪の密度や空気感を出したいとき向け。"
+  },
+  {
+    "id": "eff-v5-soft-focus",
+    "label": "ソフトフォーカス",
+    "prompt": "soft focus",
+    "category": "effects",
+    "subcategory": "色調・仕上げ",
+    "generationNote": "全体を柔らかくぼかす写真表現。夢幻、回想、柔らかな人物描写に向く。"
+  }
+]

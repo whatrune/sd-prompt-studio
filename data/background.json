@@ -1,0 +1,2407 @@
+[
+  {
+    "id": "bac-in-the-park",
+    "label": "公園",
+    "prompt": "in the park",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-forest",
+    "label": "森",
+    "prompt": "forest",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-bamboo-forest",
+    "label": "竹林",
+    "prompt": "bamboo forest",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-flower-field",
+    "label": "花畑",
+    "prompt": "flower field",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-meadow",
+    "label": "草原",
+    "prompt": "meadow",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-mountains",
+    "label": "山",
+    "prompt": "mountains",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-snowy-mountains",
+    "label": "雪山",
+    "prompt": "snowy mountains",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-river",
+    "label": "川",
+    "prompt": "river",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-lake",
+    "label": "湖",
+    "prompt": "lake",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-waterfall",
+    "label": "滝",
+    "prompt": "waterfall",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-beach",
+    "label": "海辺",
+    "prompt": "beach",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-ocean",
+    "label": "海",
+    "prompt": "ocean",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-underwater",
+    "label": "水中",
+    "prompt": "underwater",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-desert",
+    "label": "砂漠",
+    "prompt": "desert",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-cave",
+    "label": "洞窟",
+    "prompt": "cave",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-cliff",
+    "label": "崖",
+    "prompt": "cliff",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-garden",
+    "label": "庭園",
+    "prompt": "garden",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-japanese-garden",
+    "label": "日本庭園",
+    "prompt": "Japanese garden",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-city-street",
+    "label": "街路",
+    "prompt": "city street",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-downtown",
+    "label": "繁華街",
+    "prompt": "downtown",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-alley",
+    "label": "路地",
+    "prompt": "alley",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-rooftop",
+    "label": "屋上",
+    "prompt": "rooftop",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-train-station",
+    "label": "駅",
+    "prompt": "train station",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-bus-stop",
+    "label": "バス停",
+    "prompt": "bus stop",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-shopping-district",
+    "label": "商店街",
+    "prompt": "shopping district",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-night-city",
+    "label": "夜の街",
+    "prompt": "night city",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-cyberpunk-city",
+    "label": "サイバーパンク都市",
+    "prompt": "cyberpunk city",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-futuristic-city",
+    "label": "未来都市",
+    "prompt": "futuristic city",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-ruined-city",
+    "label": "廃墟都市",
+    "prompt": "ruined city",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-bridge",
+    "label": "橋",
+    "prompt": "bridge",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-harbor",
+    "label": "港",
+    "prompt": "harbor",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-festival",
+    "label": "祭り",
+    "prompt": "festival",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-amusement-park",
+    "label": "遊園地",
+    "prompt": "amusement park",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-bedroom",
+    "label": "寝室",
+    "prompt": "bedroom",
+    "category": "background",
+    "subcategory": "室内",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-living-room",
+    "label": "リビング",
+    "prompt": "living room",
+    "category": "background",
+    "subcategory": "室内",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-kitchen",
+    "label": "台所",
+    "prompt": "kitchen",
+    "category": "background",
+    "subcategory": "室内",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-bathroom",
+    "label": "浴室",
+    "prompt": "bathroom",
+    "category": "background",
+    "subcategory": "室内",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-classroom",
+    "label": "教室",
+    "prompt": "classroom",
+    "category": "background",
+    "subcategory": "室内",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-school-hallway",
+    "label": "学校の廊下",
+    "prompt": "school hallway",
+    "category": "background",
+    "subcategory": "室内",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-library",
+    "label": "図書館",
+    "prompt": "library",
+    "category": "background",
+    "subcategory": "室内",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-cafe",
+    "label": "カフェ",
+    "prompt": "cafe",
+    "category": "background",
+    "subcategory": "室内",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-restaurant",
+    "label": "レストラン",
+    "prompt": "restaurant",
+    "category": "background",
+    "subcategory": "室内",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-bar",
+    "label": "バー",
+    "prompt": "bar",
+    "category": "background",
+    "subcategory": "室内",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-office",
+    "label": "オフィス",
+    "prompt": "office",
+    "category": "background",
+    "subcategory": "室内",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-laboratory",
+    "label": "研究室",
+    "prompt": "laboratory",
+    "category": "background",
+    "subcategory": "室内",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-hospital-room",
+    "label": "病室",
+    "prompt": "hospital room",
+    "category": "background",
+    "subcategory": "室内",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-gymnasium",
+    "label": "体育館",
+    "prompt": "gymnasium",
+    "category": "background",
+    "subcategory": "室内",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-studio",
+    "label": "スタジオ",
+    "prompt": "studio",
+    "category": "background",
+    "subcategory": "室内",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-workshop",
+    "label": "工房",
+    "prompt": "workshop",
+    "category": "background",
+    "subcategory": "室内",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-throne-room",
+    "label": "玉座の間",
+    "prompt": "throne room",
+    "category": "background",
+    "subcategory": "室内",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-fantasy-landscape",
+    "label": "幻想風景",
+    "prompt": "fantasy landscape",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-enchanted-forest",
+    "label": "魔法の森",
+    "prompt": "enchanted forest",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-floating-islands",
+    "label": "浮島",
+    "prompt": "floating islands",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-crystal-cave",
+    "label": "水晶洞窟",
+    "prompt": "crystal cave",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-heaven",
+    "label": "天界",
+    "prompt": "heaven",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-hell",
+    "label": "地獄",
+    "prompt": "hell",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-space",
+    "label": "宇宙",
+    "prompt": "space",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-outer-space",
+    "label": "外宇宙",
+    "prompt": "outer space",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-spaceship-interior",
+    "label": "宇宙船内",
+    "prompt": "spaceship interior",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-moon-surface",
+    "label": "月面",
+    "prompt": "moon surface",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-alien-planet",
+    "label": "異星",
+    "prompt": "alien planet",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-starry-sky",
+    "label": "星空",
+    "prompt": "starry sky",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-nebula-background",
+    "label": "星雲背景",
+    "prompt": "nebula background",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-galaxy-background",
+    "label": "銀河背景",
+    "prompt": "galaxy background",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-dreamscape",
+    "label": "夢の風景",
+    "prompt": "dreamscape",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-abstract-background",
+    "label": "抽象背景",
+    "prompt": "abstract background",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-sunrise",
+    "label": "日の出",
+    "prompt": "sunrise",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "time_of_day"
+  },
+  {
+    "id": "bac-morning",
+    "label": "朝",
+    "prompt": "morning",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "time_of_day"
+  },
+  {
+    "id": "bac-daytime",
+    "label": "昼",
+    "prompt": "daytime",
+    "category": "background",
+    "subcategory": "時間帯・天候"
+  },
+  {
+    "id": "bac-sunset",
+    "label": "夕焼け",
+    "prompt": "sunset",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "time_of_day"
+  },
+  {
+    "id": "bac-dusk",
+    "label": "黄昏",
+    "prompt": "dusk",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "time_of_day"
+  },
+  {
+    "id": "bac-night",
+    "label": "夜",
+    "prompt": "night",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "time_of_day"
+  },
+  {
+    "id": "bac-midnight",
+    "label": "深夜",
+    "prompt": "midnight",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "time_of_day"
+  },
+  {
+    "id": "bac-rain",
+    "label": "雨",
+    "prompt": "rain",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "weather"
+  },
+  {
+    "id": "bac-heavy-rain",
+    "label": "豪雨",
+    "prompt": "heavy rain",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "weather"
+  },
+  {
+    "id": "bac-snow",
+    "label": "雪",
+    "prompt": "snow",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "weather"
+  },
+  {
+    "id": "bac-blizzard",
+    "label": "吹雪",
+    "prompt": "blizzard",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "weather"
+  },
+  {
+    "id": "bac-fog",
+    "label": "霧",
+    "prompt": "fog",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "weather"
+  },
+  {
+    "id": "bac-mist",
+    "label": "靄",
+    "prompt": "mist",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "weather"
+  },
+  {
+    "id": "bac-cloudy-sky",
+    "label": "曇り空",
+    "prompt": "cloudy sky",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "weather"
+  },
+  {
+    "id": "bac-storm",
+    "label": "嵐",
+    "prompt": "storm",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "weather"
+  },
+  {
+    "id": "bac-lightning",
+    "label": "稲妻",
+    "prompt": "lightning",
+    "category": "background",
+    "subcategory": "時間帯・天候"
+  },
+  {
+    "id": "bac-v5-autumn-forest",
+    "label": "紅葉の森",
+    "prompt": "autumn forest",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-v5-snowy-forest",
+    "label": "雪の森",
+    "prompt": "snowy forest",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-v5-mountain-summit",
+    "label": "山頂",
+    "prompt": "mountain summit",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-v5-lakeside",
+    "label": "湖畔",
+    "prompt": "lakeside",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-v5-riverbank",
+    "label": "川辺",
+    "prompt": "riverbank",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-v5-seashore",
+    "label": "海辺",
+    "prompt": "seashore",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-v5-canyon",
+    "label": "峡谷",
+    "prompt": "canyon",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-v5-neon-city",
+    "label": "ネオン街",
+    "prompt": "neon city",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-v5-cafe-terrace",
+    "label": "カフェテラス",
+    "prompt": "cafe terrace",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-v5-cafe-interior",
+    "label": "カフェ店内",
+    "prompt": "cafe interior",
+    "category": "background",
+    "subcategory": "室内",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-v5-castle-hall",
+    "label": "城の大広間",
+    "prompt": "castle hall",
+    "category": "background",
+    "subcategory": "室内",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-v5-shrine-interior",
+    "label": "神社の中",
+    "prompt": "shrine interior",
+    "category": "background",
+    "subcategory": "室内",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-v5-fantasy-castle",
+    "label": "幻想的な城",
+    "prompt": "fantasy castle",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-v5-cosmic-background",
+    "label": "宇宙背景",
+    "prompt": "cosmic background",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-v5-starfield",
+    "label": "星空背景",
+    "prompt": "starfield",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "bac-v5-golden-hour",
+    "label": "ゴールデンアワー",
+    "prompt": "golden hour",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "time_of_day"
+  },
+  {
+    "id": "bac-v5-blue-hour",
+    "label": "ブルーアワー",
+    "prompt": "blue hour",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "time_of_day"
+  },
+  {
+    "id": "bac-v5-rainy-day",
+    "label": "雨の日",
+    "prompt": "rainy day",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "weather"
+  },
+  {
+    "id": "bac-v5-snowfall",
+    "label": "降雪",
+    "prompt": "snowfall",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": [
+      "weather",
+      "season"
+    ]
+  },
+  {
+    "id": "bac-v5-foggy",
+    "label": "霧",
+    "prompt": "foggy",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "weather"
+  },
+  {
+    "id": "bac-v5-stormy-sky",
+    "label": "嵐の空",
+    "prompt": "stormy sky",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "weather"
+  },
+  {
+    "id": "v12-bg-school-yard",
+    "label": "校庭",
+    "prompt": "school yard",
+    "category": "background",
+    "subcategory": "学校",
+    "aliases": [
+      "グラウンド",
+      "運動場"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-school-rooftop",
+    "label": "学校の屋上",
+    "prompt": "school rooftop",
+    "category": "background",
+    "subcategory": "学校",
+    "aliases": [
+      "屋上"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-school-gymnasium",
+    "label": "体育館",
+    "prompt": "school gymnasium",
+    "category": "background",
+    "subcategory": "学校",
+    "aliases": [
+      "ジム"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-school-swimming-pool",
+    "label": "学校プール",
+    "prompt": "school swimming pool",
+    "category": "background",
+    "subcategory": "学校",
+    "aliases": [
+      "プール"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-school-changing-room",
+    "label": "更衣室",
+    "prompt": "school changing room",
+    "category": "background",
+    "subcategory": "学校",
+    "aliases": [
+      "着替え室"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-locker-room",
+    "label": "ロッカールーム",
+    "prompt": "locker room",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-music-room",
+    "label": "音楽室",
+    "prompt": "music room",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-science-laboratory",
+    "label": "理科室",
+    "prompt": "science laboratory",
+    "category": "background",
+    "subcategory": "学校",
+    "aliases": [
+      "科学室"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-computer-room",
+    "label": "コンピューター室",
+    "prompt": "computer room",
+    "category": "background",
+    "subcategory": "学校",
+    "aliases": [
+      "PC室"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-school-library",
+    "label": "学校図書室",
+    "prompt": "school library",
+    "category": "background",
+    "subcategory": "学校",
+    "aliases": [
+      "図書室"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-school-infirmary",
+    "label": "保健室",
+    "prompt": "school infirmary",
+    "category": "background",
+    "subcategory": "学校",
+    "aliases": [
+      "ナースオフィス"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-student-council-room",
+    "label": "生徒会室",
+    "prompt": "student council room",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-club-room",
+    "label": "部室",
+    "prompt": "club room",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-school-cafeteria",
+    "label": "学校食堂",
+    "prompt": "school cafeteria",
+    "category": "background",
+    "subcategory": "学校",
+    "aliases": [
+      "学食"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-school-entrance",
+    "label": "昇降口",
+    "prompt": "school entrance",
+    "category": "background",
+    "subcategory": "学校",
+    "aliases": [
+      "玄関"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-shoe-locker-area",
+    "label": "下駄箱",
+    "prompt": "shoe locker area",
+    "category": "background",
+    "subcategory": "学校",
+    "aliases": [
+      "靴箱"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-school-staircase",
+    "label": "学校階段",
+    "prompt": "school staircase",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-school-toilet",
+    "label": "学校トイレ",
+    "prompt": "school toilet",
+    "category": "background",
+    "subcategory": "学校",
+    "aliases": [
+      "トイレ"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-school-washroom",
+    "label": "学校洗面所",
+    "prompt": "school washroom",
+    "category": "background",
+    "subcategory": "学校",
+    "aliases": [
+      "洗面所"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-teachers-office",
+    "label": "職員室",
+    "prompt": "teachers office",
+    "category": "background",
+    "subcategory": "学校",
+    "aliases": [
+      "教師室"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-art-room",
+    "label": "美術室",
+    "prompt": "art room",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-home-economics-room",
+    "label": "家庭科室",
+    "prompt": "home economics room",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-school-auditorium",
+    "label": "講堂",
+    "prompt": "school auditorium",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-broadcasting-room",
+    "label": "放送室",
+    "prompt": "broadcasting room",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-sports-equipment-room",
+    "label": "体育倉庫",
+    "prompt": "sports equipment room",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-school-gate",
+    "label": "校門",
+    "prompt": "school gate",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-school-courtyard",
+    "label": "中庭",
+    "prompt": "school courtyard",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-school-route",
+    "label": "通学路",
+    "prompt": "school route",
+    "category": "background",
+    "subcategory": "学校",
+    "aliases": [
+      "登校道"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-university-campus",
+    "label": "大学キャンパス",
+    "prompt": "university campus",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-university-lecture-hall",
+    "label": "大学講義室",
+    "prompt": "university lecture hall",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-university-laboratory",
+    "label": "研究室",
+    "prompt": "university laboratory",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-school-dormitory",
+    "label": "寄宿舎",
+    "prompt": "school dormitory",
+    "category": "background",
+    "subcategory": "学校",
+    "aliases": [
+      "学生寮"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-school-store",
+    "label": "購買部",
+    "prompt": "school store",
+    "category": "background",
+    "subcategory": "学校",
+    "aliases": [
+      "購買"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-indoor-school-pool",
+    "label": "屋内プール",
+    "prompt": "indoor school pool",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-running-track",
+    "label": "陸上トラック",
+    "prompt": "running track",
+    "category": "background",
+    "subcategory": "学校",
+    "aliases": [
+      "トラック"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-school-baseball-field",
+    "label": "野球場",
+    "prompt": "school baseball field",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-school-tennis-court",
+    "label": "テニスコート",
+    "prompt": "school tennis court",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-kyudo-dojo",
+    "label": "弓道場",
+    "prompt": "kyudo dojo",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-kendo-dojo",
+    "label": "剣道場",
+    "prompt": "kendo dojo",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-judo-dojo",
+    "label": "柔道場",
+    "prompt": "judo dojo",
+    "category": "background",
+    "subcategory": "学校",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-dining-room",
+    "label": "ダイニングルーム",
+    "prompt": "dining room",
+    "category": "background",
+    "subcategory": "自宅",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-home-toilet",
+    "label": "自宅トイレ",
+    "prompt": "home toilet",
+    "category": "background",
+    "subcategory": "自宅",
+    "aliases": [
+      "トイレ"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-shower-room",
+    "label": "シャワールーム",
+    "prompt": "shower room",
+    "category": "background",
+    "subcategory": "自宅",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-powder-room",
+    "label": "洗面所",
+    "prompt": "powder room",
+    "category": "background",
+    "subcategory": "自宅",
+    "aliases": [
+      "化粧室"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-laundry-room",
+    "label": "洗濯室",
+    "prompt": "laundry room",
+    "category": "background",
+    "subcategory": "自宅",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-home-hallway",
+    "label": "廊下",
+    "prompt": "home hallway",
+    "category": "background",
+    "subcategory": "自宅",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-home-staircase",
+    "label": "階段",
+    "prompt": "home staircase",
+    "category": "background",
+    "subcategory": "自宅",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-entryway",
+    "label": "玄関",
+    "prompt": "entryway",
+    "category": "background",
+    "subcategory": "自宅",
+    "aliases": [
+      "entrance hall"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-balcony",
+    "label": "ベランダ",
+    "prompt": "balcony",
+    "category": "background",
+    "subcategory": "自宅",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-home-garden",
+    "label": "庭",
+    "prompt": "home garden",
+    "category": "background",
+    "subcategory": "自宅",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-attic",
+    "label": "屋根裏部屋",
+    "prompt": "attic",
+    "category": "background",
+    "subcategory": "自宅",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-basement",
+    "label": "地下室",
+    "prompt": "basement",
+    "category": "background",
+    "subcategory": "自宅",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-garage",
+    "label": "ガレージ",
+    "prompt": "garage",
+    "category": "background",
+    "subcategory": "自宅",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-walk-in-closet",
+    "label": "クローゼット",
+    "prompt": "walk-in closet",
+    "category": "background",
+    "subcategory": "自宅",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-study-room",
+    "label": "書斎",
+    "prompt": "study room",
+    "category": "background",
+    "subcategory": "自宅",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-child-room",
+    "label": "子供部屋",
+    "prompt": "child room",
+    "category": "background",
+    "subcategory": "自宅",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-guest-room",
+    "label": "ゲストルーム",
+    "prompt": "guest room",
+    "category": "background",
+    "subcategory": "自宅",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-japanese-style-room",
+    "label": "和室",
+    "prompt": "japanese-style room",
+    "category": "background",
+    "subcategory": "自宅",
+    "aliases": [
+      "tatami room"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-engawa",
+    "label": "縁側",
+    "prompt": "engawa",
+    "category": "background",
+    "subcategory": "自宅",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-sunroom",
+    "label": "サンルーム",
+    "prompt": "sunroom",
+    "category": "background",
+    "subcategory": "自宅",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-apartment-room",
+    "label": "アパートの一室",
+    "prompt": "apartment room",
+    "category": "background",
+    "subcategory": "自宅",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-luxury-apartment",
+    "label": "高級マンション",
+    "prompt": "luxury apartment",
+    "category": "background",
+    "subcategory": "自宅",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-traditional-japanese-house",
+    "label": "古民家",
+    "prompt": "traditional japanese house",
+    "category": "background",
+    "subcategory": "自宅",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-cabin-interior",
+    "label": "山小屋",
+    "prompt": "cabin interior",
+    "category": "background",
+    "subcategory": "自宅",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-convenience-store",
+    "label": "コンビニ",
+    "prompt": "convenience store",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-supermarket",
+    "label": "スーパーマーケット",
+    "prompt": "supermarket",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-shopping-mall",
+    "label": "ショッピングモール",
+    "prompt": "shopping mall",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-department-store",
+    "label": "デパート",
+    "prompt": "department store",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-coffee-shop",
+    "label": "喫茶店",
+    "prompt": "coffee shop",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-family-restaurant",
+    "label": "ファミレス",
+    "prompt": "family restaurant",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-bar-interior",
+    "label": "バー",
+    "prompt": "bar interior",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-izakaya",
+    "label": "居酒屋",
+    "prompt": "izakaya",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-bakery",
+    "label": "パン屋",
+    "prompt": "bakery",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-cake-shop",
+    "label": "ケーキ屋",
+    "prompt": "cake shop",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-bookstore",
+    "label": "本屋",
+    "prompt": "bookstore",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-public-library",
+    "label": "図書館",
+    "prompt": "public library",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-movie-theater",
+    "label": "映画館",
+    "prompt": "movie theater",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-arcade",
+    "label": "ゲームセンター",
+    "prompt": "arcade",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-karaoke-room",
+    "label": "カラオケ",
+    "prompt": "karaoke room",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-hotel-room",
+    "label": "ホテル客室",
+    "prompt": "hotel room",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-hotel-lobby",
+    "label": "ホテルロビー",
+    "prompt": "hotel lobby",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-ryokan-room",
+    "label": "旅館",
+    "prompt": "ryokan room",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-hot-spring",
+    "label": "温泉",
+    "prompt": "hot spring",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "aliases": [
+      "onsen"
+    ],
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-public-bath",
+    "label": "銭湯",
+    "prompt": "public bath",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-hospital",
+    "label": "病院",
+    "prompt": "hospital",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-examination-room",
+    "label": "診察室",
+    "prompt": "examination room",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-operating-room",
+    "label": "手術室",
+    "prompt": "operating room",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-pharmacy",
+    "label": "薬局",
+    "prompt": "pharmacy",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-meeting-room",
+    "label": "会議室",
+    "prompt": "meeting room",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-factory-interior",
+    "label": "工場",
+    "prompt": "factory interior",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-warehouse",
+    "label": "倉庫",
+    "prompt": "warehouse",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-art-museum",
+    "label": "美術館",
+    "prompt": "art museum",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-museum",
+    "label": "博物館",
+    "prompt": "museum",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-aquarium-interior",
+    "label": "水族館",
+    "prompt": "aquarium interior",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-zoo",
+    "label": "動物園",
+    "prompt": "zoo",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-theme-park",
+    "label": "テーマパーク",
+    "prompt": "theme park",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-church-interior",
+    "label": "教会",
+    "prompt": "church interior",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-shrine-grounds",
+    "label": "神社",
+    "prompt": "shrine grounds",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-temple-grounds",
+    "label": "寺院",
+    "prompt": "temple grounds",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-police-station",
+    "label": "警察署",
+    "prompt": "police station",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-fire-station",
+    "label": "消防署",
+    "prompt": "fire station",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-hair-salon",
+    "label": "美容室",
+    "prompt": "hair salon",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-photo-studio",
+    "label": "撮影スタジオ",
+    "prompt": "photo studio",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-fitness-gym",
+    "label": "ジム",
+    "prompt": "fitness gym",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-dance-studio",
+    "label": "ダンススタジオ",
+    "prompt": "dance studio",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-live-music-venue",
+    "label": "ライブハウス",
+    "prompt": "live music venue",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-backstage",
+    "label": "舞台裏",
+    "prompt": "backstage",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-theater-stage",
+    "label": "劇場舞台",
+    "prompt": "theater stage",
+    "category": "background",
+    "subcategory": "店舗・公共施設",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-shopping-street",
+    "label": "商店街",
+    "prompt": "shopping street",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-crosswalk",
+    "label": "横断歩道",
+    "prompt": "crosswalk",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-intersection",
+    "label": "交差点",
+    "prompt": "intersection",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-back-alley",
+    "label": "裏路地",
+    "prompt": "back alley",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-train-platform",
+    "label": "駅ホーム",
+    "prompt": "train platform",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-subway-station",
+    "label": "地下鉄駅",
+    "prompt": "subway station",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-inside-train",
+    "label": "電車内",
+    "prompt": "inside train",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-inside-subway",
+    "label": "地下鉄車内",
+    "prompt": "inside subway",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-inside-bus",
+    "label": "バス車内",
+    "prompt": "inside bus",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-inside-taxi",
+    "label": "タクシー車内",
+    "prompt": "inside taxi",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-parking-lot",
+    "label": "駐車場",
+    "prompt": "parking lot",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-parking-garage",
+    "label": "立体駐車場",
+    "prompt": "parking garage",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-pedestrian-bridge",
+    "label": "歩道橋",
+    "prompt": "pedestrian bridge",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-riverbank-promenade",
+    "label": "河川敷",
+    "prompt": "riverbank promenade",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-airport-terminal",
+    "label": "空港",
+    "prompt": "airport terminal",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-airplane-cabin",
+    "label": "飛行機内",
+    "prompt": "airplane cabin",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-highway",
+    "label": "高速道路",
+    "prompt": "highway",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-tunnel",
+    "label": "トンネル",
+    "prompt": "tunnel",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-rooftop-garden",
+    "label": "屋上庭園",
+    "prompt": "rooftop garden",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-building-rooftop",
+    "label": "ビル屋上",
+    "prompt": "building rooftop",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-neon-city-street",
+    "label": "ネオン街",
+    "prompt": "neon city street",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-downtown-district",
+    "label": "繁華街",
+    "prompt": "downtown district",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-residential-street",
+    "label": "住宅街",
+    "prompt": "residential street",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-suburban-street",
+    "label": "郊外",
+    "prompt": "suburban street",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-industrial-district",
+    "label": "工業地帯",
+    "prompt": "industrial district",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-abandoned-city",
+    "label": "廃墟の街",
+    "prompt": "abandoned city",
+    "category": "background",
+    "subcategory": "街・交通",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-park",
+    "label": "公園",
+    "prompt": "park",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-playground",
+    "label": "遊び場",
+    "prompt": "playground",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-hill",
+    "label": "丘",
+    "prompt": "hill",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-coral-reef",
+    "label": "珊瑚礁",
+    "prompt": "coral reef",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-oasis",
+    "label": "オアシス",
+    "prompt": "oasis",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-volcano",
+    "label": "火山",
+    "prompt": "volcano",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-snowfield",
+    "label": "雪原",
+    "prompt": "snowfield",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-wetland",
+    "label": "湿地",
+    "prompt": "wetland",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-countryside",
+    "label": "田園",
+    "prompt": "countryside",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-rice-field",
+    "label": "田んぼ",
+    "prompt": "rice field",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-tea-plantation",
+    "label": "茶畑",
+    "prompt": "tea plantation",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-orchard",
+    "label": "果樹園",
+    "prompt": "orchard",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-rose-garden",
+    "label": "薔薇園",
+    "prompt": "rose garden",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-sunflower-field",
+    "label": "ひまわり畑",
+    "prompt": "sunflower field",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-lavender-field",
+    "label": "ラベンダー畑",
+    "prompt": "lavender field",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-cherry-blossom-avenue",
+    "label": "桜並木",
+    "prompt": "cherry blossom avenue",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-field-under-starry-sky",
+    "label": "星空の野原",
+    "prompt": "field under starry sky",
+    "category": "background",
+    "subcategory": "自然",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-castle",
+    "label": "城",
+    "prompt": "castle",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-castle-hallway",
+    "label": "城の廊下",
+    "prompt": "castle hallway",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-dungeon",
+    "label": "ダンジョン",
+    "prompt": "dungeon",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-ancient-ruins",
+    "label": "古代遺跡",
+    "prompt": "ancient ruins",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-magic-library",
+    "label": "魔法図書館",
+    "prompt": "magic library",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-magic-academy",
+    "label": "魔法学校",
+    "prompt": "magic academy",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-floating-island",
+    "label": "浮遊島",
+    "prompt": "floating island",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-above-the-clouds",
+    "label": "雲の上",
+    "prompt": "above the clouds",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-heavenly-realm",
+    "label": "天界",
+    "prompt": "heavenly realm",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-underworld",
+    "label": "冥界",
+    "prompt": "underworld",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-space-station",
+    "label": "宇宙ステーション",
+    "prompt": "space station",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-lunar-surface",
+    "label": "月面",
+    "prompt": "lunar surface",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-virtual-world",
+    "label": "仮想空間",
+    "prompt": "virtual world",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-server-room",
+    "label": "サーバールーム",
+    "prompt": "server room",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-research-facility",
+    "label": "研究施設",
+    "prompt": "research facility",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-control-room",
+    "label": "管制室",
+    "prompt": "control room",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-hangar",
+    "label": "格納庫",
+    "prompt": "hangar",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-sci-fi-factory",
+    "label": "巨大工場",
+    "prompt": "sci-fi factory",
+    "category": "background",
+    "subcategory": "ファンタジー・SF",
+    "slot": "background_location"
+  },
+  {
+    "id": "v12-bg-noon",
+    "label": "昼",
+    "prompt": "noon",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "time_of_day"
+  },
+  {
+    "id": "v12-bg-afternoon",
+    "label": "午後",
+    "prompt": "afternoon",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "time_of_day"
+  },
+  {
+    "id": "v12-bg-evening",
+    "label": "夕方",
+    "prompt": "evening",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "time_of_day"
+  },
+  {
+    "id": "v12-bg-dawn",
+    "label": "夜明け",
+    "prompt": "dawn",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "time_of_day"
+  },
+  {
+    "id": "v12-bg-sunny-weather",
+    "label": "晴天",
+    "prompt": "sunny weather",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "weather"
+  },
+  {
+    "id": "v12-bg-cloudy-weather",
+    "label": "曇天",
+    "prompt": "cloudy weather",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "weather"
+  },
+  {
+    "id": "v12-bg-rainy-weather",
+    "label": "雨",
+    "prompt": "rainy weather",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "weather"
+  },
+  {
+    "id": "v12-bg-snowy-weather",
+    "label": "雪",
+    "prompt": "snowy weather",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "weather"
+  },
+  {
+    "id": "v12-bg-foggy-weather",
+    "label": "霧",
+    "prompt": "foggy weather",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "weather"
+  },
+  {
+    "id": "v12-bg-thunderstorm",
+    "label": "雷雨",
+    "prompt": "thunderstorm",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "weather"
+  },
+  {
+    "id": "v12-bg-spring-season",
+    "label": "春",
+    "prompt": "spring season",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "season"
+  },
+  {
+    "id": "v12-bg-summer-season",
+    "label": "夏",
+    "prompt": "summer season",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "season"
+  },
+  {
+    "id": "v12-bg-autumn-season",
+    "label": "秋",
+    "prompt": "autumn season",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "season"
+  },
+  {
+    "id": "v12-bg-winter-season",
+    "label": "冬",
+    "prompt": "winter season",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "season"
+  },
+  {
+    "id": "v12-bg-christmas-scene",
+    "label": "クリスマス",
+    "prompt": "christmas scene",
+    "category": "background",
+    "subcategory": "時間帯・天候"
+  },
+  {
+    "id": "v12-bg-halloween-scene",
+    "label": "ハロウィン",
+    "prompt": "halloween scene",
+    "category": "background",
+    "subcategory": "時間帯・天候"
+  },
+  {
+    "id": "v12-bg-new-year-scene",
+    "label": "正月",
+    "prompt": "new year scene",
+    "category": "background",
+    "subcategory": "時間帯・天候"
+  },
+  {
+    "id": "v12-bg-valentine-scene",
+    "label": "バレンタイン",
+    "prompt": "valentine scene",
+    "category": "background",
+    "subcategory": "時間帯・天候"
+  },
+  {
+    "id": "v12-bg-summer-festival",
+    "label": "夏祭り",
+    "prompt": "summer festival",
+    "category": "background",
+    "subcategory": "時間帯・天候",
+    "slot": "season"
+  },
+  {
+    "id": "v12-bg-fireworks-festival",
+    "label": "花火大会",
+    "prompt": "fireworks festival",
+    "category": "background",
+    "subcategory": "時間帯・天候"
+  }
+]

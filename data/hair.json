@@ -1,0 +1,2123 @@
+[
+  {
+    "id": "hai-black-hair",
+    "label": "黒髪",
+    "prompt": "black hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-brown-hair",
+    "label": "茶髪",
+    "prompt": "brown hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-auburn-hair",
+    "label": "赤褐色の髪",
+    "prompt": "auburn hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-red-hair",
+    "label": "赤髪",
+    "prompt": "red hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-orange-hair",
+    "label": "オレンジ髪",
+    "prompt": "orange hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-blonde-hair",
+    "label": "金髪",
+    "prompt": "blonde hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-platinum-blonde-hair",
+    "label": "プラチナブロンド",
+    "prompt": "platinum blonde hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-yellow-hair",
+    "label": "黄色い髪",
+    "prompt": "yellow hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-green-hair",
+    "label": "緑髪",
+    "prompt": "green hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-mint-green-hair",
+    "label": "ミント髪",
+    "prompt": "mint green hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-blue-hair",
+    "label": "青髪",
+    "prompt": "blue hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-navy-blue-hair",
+    "label": "紺色の髪",
+    "prompt": "navy blue hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-aqua-hair",
+    "label": "水色の髪",
+    "prompt": "aqua hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-cyan-hair",
+    "label": "シアン髪",
+    "prompt": "cyan hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-purple-hair",
+    "label": "紫髪",
+    "prompt": "purple hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-lavender-hair",
+    "label": "ラベンダー髪",
+    "prompt": "lavender hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-pink-hair",
+    "label": "ピンク髪",
+    "prompt": "pink hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-white-hair",
+    "label": "白髪",
+    "prompt": "white hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-grey-hair",
+    "label": "灰髪",
+    "prompt": "grey hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-silver-hair",
+    "label": "銀髪",
+    "prompt": "silver hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-multicolored-hair",
+    "label": "多色髪",
+    "prompt": "multicolored hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-two-tone-hair",
+    "label": "ツートン髪",
+    "prompt": "two-tone hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-gradient-hair",
+    "label": "グラデーション髪",
+    "prompt": "gradient hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-rainbow-hair",
+    "label": "虹色髪",
+    "prompt": "rainbow hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-streaked-hair",
+    "label": "メッシュ髪",
+    "prompt": "streaked hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-colored-inner-hair",
+    "label": "インナーカラー",
+    "prompt": "colored inner hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-colored-tips",
+    "label": "毛先カラー",
+    "prompt": "colored tips",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-ombre-hair",
+    "label": "オンブレ髪",
+    "prompt": "ombre hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-bangs",
+    "label": "前髪",
+    "prompt": "bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-no-bangs",
+    "label": "前髪なし",
+    "prompt": "no bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-blunt-bangs",
+    "label": "ぱっつん前髪",
+    "prompt": "blunt bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-choppy-bangs",
+    "label": "ギザギザ前髪",
+    "prompt": "choppy bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-wispy-bangs",
+    "label": "薄い前髪",
+    "prompt": "wispy bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-see-through-bangs",
+    "label": "シースルーバング",
+    "prompt": "see-through bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-short-bangs",
+    "label": "短い前髪",
+    "prompt": "short bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-long-bangs",
+    "label": "長い前髪",
+    "prompt": "long bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-arched-bangs",
+    "label": "アーチ前髪",
+    "prompt": "arched bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-curtain-bangs",
+    "label": "カーテンバング",
+    "prompt": "curtain bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-parted-bangs",
+    "label": "分けた前髪",
+    "prompt": "parted bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-center-parted-bangs",
+    "label": "センター分け前髪",
+    "prompt": "center-parted bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-side-swept-bangs",
+    "label": "横流し前髪",
+    "prompt": "side-swept bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-swept-bangs",
+    "label": "流し前髪",
+    "prompt": "swept bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-diagonal-bangs",
+    "label": "斜め前髪",
+    "prompt": "diagonal bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-asymmetrical-bangs",
+    "label": "非対称前髪",
+    "prompt": "asymmetrical bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-braided-bangs",
+    "label": "編み込み前髪",
+    "prompt": "braided bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-hair-between-eyes",
+    "label": "目の間の前髪",
+    "prompt": "hair between eyes",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-hair-over-one-eye",
+    "label": "片目を隠す髪",
+    "prompt": "hair over one eye",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-hair-over-eyes",
+    "label": "両目を隠す髪",
+    "prompt": "hair over eyes",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-hair-intakes",
+    "label": "髪の吸気口",
+    "prompt": "hair intakes",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-split-bangs",
+    "label": "分割前髪",
+    "prompt": "split bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-curled-bangs",
+    "label": "カール前髪",
+    "prompt": "curled bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-spiky-bangs",
+    "label": "尖った前髪",
+    "prompt": "spiky bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-sidelocks",
+    "label": "横髪",
+    "prompt": "sidelocks",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-long-sidelocks",
+    "label": "長い横髪",
+    "prompt": "long sidelocks",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-short-sidelocks",
+    "label": "短い横髪",
+    "prompt": "short sidelocks",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-thick-sidelocks",
+    "label": "太い横髪",
+    "prompt": "thick sidelocks",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-thin-sidelocks",
+    "label": "細い横髪",
+    "prompt": "thin sidelocks",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-asymmetrical-sidelocks",
+    "label": "非対称の横髪",
+    "prompt": "asymmetrical sidelocks",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-single-sidelock",
+    "label": "片側だけの横髪",
+    "prompt": "single sidelock",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-drill-sidelocks",
+    "label": "縦ロール横髪",
+    "prompt": "drill sidelocks",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-braided-sidelocks",
+    "label": "編んだ横髪",
+    "prompt": "braided sidelocks",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-curled-sidelocks",
+    "label": "カールした横髪",
+    "prompt": "curled sidelocks",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-face-framing-hair",
+    "label": "顔周りの毛束",
+    "prompt": "face-framing hair",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-hair-tucked-behind-ear",
+    "label": "耳かけ髪",
+    "prompt": "hair tucked behind ear",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-ear-length-sidelocks",
+    "label": "耳までの横髪",
+    "prompt": "ear-length sidelocks",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-shoulder-length-sidelocks",
+    "label": "肩までの横髪",
+    "prompt": "shoulder-length sidelocks",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-bald",
+    "label": "坊主",
+    "prompt": "bald",
+    "category": "hair",
+    "subcategory": "後ろ髪・長さ",
+    "slot": "hair_length_back"
+  },
+  {
+    "id": "hai-buzz-cut",
+    "label": "丸刈り",
+    "prompt": "buzz cut",
+    "category": "hair",
+    "subcategory": "後ろ髪・長さ",
+    "slot": "hair_length_back"
+  },
+  {
+    "id": "hai-very-short-hair",
+    "label": "ベリーショート",
+    "prompt": "very short hair",
+    "category": "hair",
+    "subcategory": "後ろ髪・長さ",
+    "slot": "hair_length_back"
+  },
+  {
+    "id": "hai-short-hair",
+    "label": "ショート",
+    "prompt": "short hair",
+    "category": "hair",
+    "subcategory": "後ろ髪・長さ",
+    "slot": "hair_length_back"
+  },
+  {
+    "id": "hai-medium-hair",
+    "label": "ミディアム",
+    "prompt": "medium hair",
+    "category": "hair",
+    "subcategory": "後ろ髪・長さ",
+    "slot": "hair_length_back"
+  },
+  {
+    "id": "hai-shoulder-length-hair",
+    "label": "肩までの髪",
+    "prompt": "shoulder-length hair",
+    "category": "hair",
+    "subcategory": "後ろ髪・長さ",
+    "slot": "hair_length_back"
+  },
+  {
+    "id": "hai-long-hair",
+    "label": "ロング",
+    "prompt": "long hair",
+    "category": "hair",
+    "subcategory": "後ろ髪・長さ",
+    "slot": "hair_length_back"
+  },
+  {
+    "id": "hai-very-long-hair",
+    "label": "超ロング",
+    "prompt": "very long hair",
+    "category": "hair",
+    "subcategory": "後ろ髪・長さ",
+    "slot": "hair_length_back"
+  },
+  {
+    "id": "hai-waist-length-hair",
+    "label": "腰までの髪",
+    "prompt": "waist-length hair",
+    "category": "hair",
+    "subcategory": "後ろ髪・長さ",
+    "slot": "hair_length_back"
+  },
+  {
+    "id": "hai-hip-length-hair",
+    "label": "尻までの髪",
+    "prompt": "hip-length hair",
+    "category": "hair",
+    "subcategory": "後ろ髪・長さ",
+    "slot": "hair_length_back"
+  },
+  {
+    "id": "hai-knee-length-hair",
+    "label": "膝までの髪",
+    "prompt": "knee-length hair",
+    "category": "hair",
+    "subcategory": "後ろ髪・長さ",
+    "slot": "hair_length_back"
+  },
+  {
+    "id": "hai-absurdly-long-hair",
+    "label": "床までの髪",
+    "prompt": "absurdly long hair",
+    "category": "hair",
+    "subcategory": "後ろ髪・長さ",
+    "slot": "hair_length_back"
+  },
+  {
+    "id": "hai-hair-spread-out",
+    "label": "広がる髪",
+    "prompt": "hair spread out",
+    "category": "hair",
+    "subcategory": "後ろ髪・長さ",
+    "slot": "hair_length_back"
+  },
+  {
+    "id": "hai-floating-hair",
+    "label": "浮遊する髪",
+    "prompt": "floating hair",
+    "category": "hair",
+    "subcategory": "後ろ髪・長さ",
+    "slot": "hair_length_back"
+  },
+  {
+    "id": "hai-hair-behind-back",
+    "label": "背中に流した髪",
+    "prompt": "hair behind back",
+    "category": "hair",
+    "subcategory": "後ろ髪・長さ",
+    "slot": "hair_length_back"
+  },
+  {
+    "id": "hai-hair-over-shoulder",
+    "label": "肩にかけた髪",
+    "prompt": "hair over shoulder",
+    "category": "hair",
+    "subcategory": "後ろ髪・長さ",
+    "slot": "hair_length_back"
+  },
+  {
+    "id": "hai-bob-cut",
+    "label": "ボブ",
+    "prompt": "bob cut",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-inverted-bob",
+    "label": "前下がりボブ",
+    "prompt": "inverted bob",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-lob-cut",
+    "label": "ロブ",
+    "prompt": "lob cut",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-pixie-cut",
+    "label": "ピクシーカット",
+    "prompt": "pixie cut",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-hime-cut",
+    "label": "姫カット",
+    "prompt": "hime cut",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-wolf-cut",
+    "label": "ウルフカット",
+    "prompt": "wolf cut",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-layered-hair",
+    "label": "レイヤーカット",
+    "prompt": "layered hair",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-undercut",
+    "label": "アンダーカット",
+    "prompt": "undercut",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-sidecut",
+    "label": "サイド刈り上げ",
+    "prompt": "sidecut",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-mohawk",
+    "label": "モヒカン",
+    "prompt": "mohawk",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-ponytail",
+    "label": "ポニーテール",
+    "prompt": "ponytail",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-high-ponytail",
+    "label": "高いポニーテール",
+    "prompt": "high ponytail",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-low-ponytail",
+    "label": "低いポニーテール",
+    "prompt": "low ponytail",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-side-ponytail",
+    "label": "サイドポニー",
+    "prompt": "side ponytail",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-short-ponytail",
+    "label": "短いポニーテール",
+    "prompt": "short ponytail",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-twintails",
+    "label": "ツインテール",
+    "prompt": "twintails",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-high-twintails",
+    "label": "高いツインテール",
+    "prompt": "high twintails",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-low-twintails",
+    "label": "低いツインテール",
+    "prompt": "low twintails",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-short-twintails",
+    "label": "短いツインテール",
+    "prompt": "short twintails",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-uneven-twintails",
+    "label": "不揃いツインテール",
+    "prompt": "uneven twintails",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-braid",
+    "label": "三つ編み",
+    "prompt": "braid",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-single-braid",
+    "label": "一本三つ編み",
+    "prompt": "single braid",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-twin-braids",
+    "label": "二本三つ編み",
+    "prompt": "twin braids",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-side-braid",
+    "label": "サイド三つ編み",
+    "prompt": "side braid",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-french-braid",
+    "label": "編み込み",
+    "prompt": "french braid",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-dutch-braid",
+    "label": "ダッチブレイド",
+    "prompt": "dutch braid",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-fishtail-braid",
+    "label": "フィッシュボーン",
+    "prompt": "fishtail braid",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-crown-braid",
+    "label": "クラウンブレイド",
+    "prompt": "crown braid",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-braided-ponytail",
+    "label": "編みポニー",
+    "prompt": "braided ponytail",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-hair-bun",
+    "label": "お団子",
+    "prompt": "hair bun",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-double-bun",
+    "label": "ツインお団子",
+    "prompt": "double bun",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-side-bun",
+    "label": "サイドお団子",
+    "prompt": "side bun",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-topknot",
+    "label": "トップノット",
+    "prompt": "topknot",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-half-updo",
+    "label": "ハーフアップ",
+    "prompt": "half updo",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-one-side-up",
+    "label": "片側アップ",
+    "prompt": "one side up",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-two-side-up",
+    "label": "両側アップ",
+    "prompt": "two side up",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-updo",
+    "label": "アップヘア",
+    "prompt": "updo",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-drill-hair",
+    "label": "縦ロール",
+    "prompt": "drill hair",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-ringlets",
+    "label": "巻きロール",
+    "prompt": "ringlets",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-dreadlocks",
+    "label": "ドレッド",
+    "prompt": "dreadlocks",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-cornrows",
+    "label": "コーンロウ",
+    "prompt": "cornrows",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-afro",
+    "label": "アフロ",
+    "prompt": "afro",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-pompadour",
+    "label": "ポンパドール",
+    "prompt": "pompadour",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-straight-hair",
+    "label": "ストレート",
+    "prompt": "straight hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-wavy-hair",
+    "label": "ウェーブ",
+    "prompt": "wavy hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-curly-hair",
+    "label": "カール",
+    "prompt": "curly hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-messy-hair",
+    "label": "乱れ髪",
+    "prompt": "messy hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-fluffy-hair",
+    "label": "ふわふわ髪",
+    "prompt": "fluffy hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-spiky-hair",
+    "label": "尖った髪",
+    "prompt": "spiky hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-silky-hair",
+    "label": "絹のような髪",
+    "prompt": "silky hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-shiny-hair",
+    "label": "艶髪",
+    "prompt": "shiny hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-glossy-hair",
+    "label": "光沢髪",
+    "prompt": "glossy hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-wet-hair",
+    "label": "濡れ髪",
+    "prompt": "wet hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-windblown-hair",
+    "label": "風になびく髪",
+    "prompt": "windblown hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-disheveled-hair",
+    "label": "ぼさぼさ髪",
+    "prompt": "disheveled hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-thick-hair",
+    "label": "毛量多め",
+    "prompt": "thick hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-fine-hair",
+    "label": "細い髪",
+    "prompt": "fine hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-voluminous-hair",
+    "label": "ボリューム髪",
+    "prompt": "voluminous hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-ahoge",
+    "label": "アホ毛",
+    "prompt": "ahoge",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-antenna-hair",
+    "label": "触角髪",
+    "prompt": "antenna hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-heart-ahoge",
+    "label": "ハート型アホ毛",
+    "prompt": "heart ahoge",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-hair-flaps",
+    "label": "跳ね髪",
+    "prompt": "hair flaps",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-hair-strands",
+    "label": "細い毛束",
+    "prompt": "hair strands",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-loose-hair-strand",
+    "label": "後れ毛",
+    "prompt": "loose hair strand",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-split-color-hair",
+    "label": "左右色分け髪",
+    "prompt": "split-color hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-glowing-hair",
+    "label": "発光髪",
+    "prompt": "glowing hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-translucent-hair",
+    "label": "半透明髪",
+    "prompt": "translucent hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-galaxy-hair",
+    "label": "銀河髪",
+    "prompt": "galaxy hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-starry-hair",
+    "label": "星空髪",
+    "prompt": "starry hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-gradient-tips",
+    "label": "グラデーション毛先",
+    "prompt": "gradient tips",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-v5-ash-blonde-hair",
+    "label": "アッシュブロンドの髪",
+    "prompt": "ash blonde hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-strawberry-blonde-hair",
+    "label": "ストロベリーブロンドの髪",
+    "prompt": "strawberry blonde hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-honey-blonde-hair",
+    "label": "ハニーブロンドの髪",
+    "prompt": "honey blonde hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-dirty-blonde-hair",
+    "label": "ダーティブロンドの髪",
+    "prompt": "dirty blonde hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-ash-brown-hair",
+    "label": "アッシュブラウンの髪",
+    "prompt": "ash brown hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-chestnut-brown-hair",
+    "label": "栗色の髪",
+    "prompt": "chestnut brown hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-dark-brown-hair",
+    "label": "こげ茶の髪",
+    "prompt": "dark brown hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-light-brown-hair",
+    "label": "薄茶の髪",
+    "prompt": "light brown hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-blue-black-hair",
+    "label": "青みがかった黒の髪",
+    "prompt": "blue-black hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-jet-black-hair",
+    "label": "漆黒の髪",
+    "prompt": "jet black hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-sky-blue-hair",
+    "label": "空色の髪",
+    "prompt": "sky blue hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-ice-blue-hair",
+    "label": "氷色の髪",
+    "prompt": "ice blue hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-emerald-green-hair",
+    "label": "エメラルドグリーンの髪",
+    "prompt": "emerald green hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-forest-green-hair",
+    "label": "深緑の髪",
+    "prompt": "forest green hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-lilac-hair",
+    "label": "ライラックの髪",
+    "prompt": "lilac hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-violet-hair",
+    "label": "すみれ色の髪",
+    "prompt": "violet hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-magenta-hair",
+    "label": "マゼンタの髪",
+    "prompt": "magenta hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-rose-pink-hair",
+    "label": "ローズピンクの髪",
+    "prompt": "rose pink hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-salmon-pink-hair",
+    "label": "サーモンピンクの髪",
+    "prompt": "salmon pink hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-peach-hair",
+    "label": "桃色の髪",
+    "prompt": "peach hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-coral-hair",
+    "label": "コーラルの髪",
+    "prompt": "coral hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-burgundy-hair",
+    "label": "ワインレッドの髪",
+    "prompt": "burgundy hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-scarlet-hair",
+    "label": "緋色の髪",
+    "prompt": "scarlet hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-crimson-hair",
+    "label": "深紅の髪",
+    "prompt": "crimson hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-copper-hair",
+    "label": "銅色の髪",
+    "prompt": "copper hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-golden-hair",
+    "label": "金色の髪",
+    "prompt": "golden hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-silver-white-hair",
+    "label": "銀白色の髪",
+    "prompt": "silver-white hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-pearl-white-hair",
+    "label": "真珠色の髪",
+    "prompt": "pearl white hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-contrasting-hair-strand",
+    "label": "差し色の髪束",
+    "prompt": "contrasting hair strand",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-holographic-hair",
+    "label": "ホログラムヘア",
+    "prompt": "holographic hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-iridescent-hair",
+    "label": "玉虫色の髪",
+    "prompt": "iridescent hair",
+    "category": "hair",
+    "subcategory": "髪色",
+    "slot": "hair_color_primary"
+  },
+  {
+    "id": "hai-v5-flipped-bangs",
+    "label": "外ハネ前髪",
+    "prompt": "flipped bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-layered-bangs",
+    "label": "レイヤー前髪",
+    "prompt": "layered bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-feathered-bangs",
+    "label": "羽毛状の前髪",
+    "prompt": "feathered bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-piecey-bangs",
+    "label": "束感のある前髪",
+    "prompt": "piecey bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-micro-bangs",
+    "label": "極短前髪",
+    "prompt": "micro bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-baby-bangs",
+    "label": "ベビーバング",
+    "prompt": "baby bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-bangs-pinned-back",
+    "label": "留めた前髪",
+    "prompt": "bangs pinned back",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-braided-fringe",
+    "label": "編み込み前髪",
+    "prompt": "braided fringe",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-curtain-fringe",
+    "label": "カーテンバング",
+    "prompt": "curtain fringe",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-wispy-fringe",
+    "label": "薄い前髪",
+    "prompt": "wispy fringe",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-uneven-bangs",
+    "label": "不揃いな前髪",
+    "prompt": "uneven bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-thick-bangs",
+    "label": "厚い前髪",
+    "prompt": "thick bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-thin-bangs",
+    "label": "薄い前髪",
+    "prompt": "thin bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-straight-bangs",
+    "label": "まっすぐな前髪",
+    "prompt": "straight bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-rounded-bangs",
+    "label": "丸みのある前髪",
+    "prompt": "rounded bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-v-shaped-bangs",
+    "label": "V字前髪",
+    "prompt": "v-shaped bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-m-shaped-bangs",
+    "label": "M字前髪",
+    "prompt": "m-shaped bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-crossed-bangs",
+    "label": "交差した前髪",
+    "prompt": "crossed bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-short-center-bangs",
+    "label": "中央だけ短い前髪",
+    "prompt": "short center bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-long-side-bangs",
+    "label": "長い流し前髪",
+    "prompt": "long side bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-face-framing-bangs",
+    "label": "顔周りを縁取る前髪",
+    "prompt": "face-framing bangs",
+    "category": "hair",
+    "subcategory": "前髪",
+    "slot": "front_bangs"
+  },
+  {
+    "id": "hai-v5-face-framing-layers",
+    "label": "顔周りレイヤー",
+    "prompt": "face-framing layers",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-v5-cheek-length-sidelocks",
+    "label": "頬までの横髪",
+    "prompt": "cheek-length sidelocks",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-v5-chin-length-sidelocks",
+    "label": "顎までの横髪",
+    "prompt": "chin-length sidelocks",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-v5-wavy-sidelocks",
+    "label": "波打つ横髪",
+    "prompt": "wavy sidelocks",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-v5-straight-sidelocks",
+    "label": "まっすぐな横髪",
+    "prompt": "straight sidelocks",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-v5-twin-sidelocks",
+    "label": "左右の横髪",
+    "prompt": "twin sidelocks",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-v5-swept-back-sidelocks",
+    "label": "後ろへ流した横髪",
+    "prompt": "swept-back sidelocks",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-v5-flared-sidelocks",
+    "label": "広がった横髪",
+    "prompt": "flared sidelocks",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-v5-tapered-sidelocks",
+    "label": "先細りの横髪",
+    "prompt": "tapered sidelocks",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-v5-layered-sidelocks",
+    "label": "段のある横髪",
+    "prompt": "layered sidelocks",
+    "category": "hair",
+    "subcategory": "横髪",
+    "slot": "side_locks"
+  },
+  {
+    "id": "hai-v5-asymmetrical-bob",
+    "label": "アシンメトリーボブ",
+    "prompt": "asymmetrical bob",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-fauxhawk",
+    "label": "ソフトモヒカン",
+    "prompt": "fauxhawk",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-shag-haircut",
+    "label": "シャグヘア",
+    "prompt": "shag haircut",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-feathered-hair",
+    "label": "フェザーカット",
+    "prompt": "feathered hair",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-lob-haircut",
+    "label": "ロングボブ",
+    "prompt": "lob haircut",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-pageboy-haircut",
+    "label": "おかっぱ",
+    "prompt": "pageboy haircut",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-bowl-cut",
+    "label": "マッシュルームカット",
+    "prompt": "bowl cut",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-mullet",
+    "label": "マレットヘア",
+    "prompt": "mullet",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-jellyfish-haircut",
+    "label": "クラゲヘア",
+    "prompt": "jellyfish haircut",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-octopus-haircut",
+    "label": "オクトパスヘア",
+    "prompt": "octopus haircut",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-butterfly-haircut",
+    "label": "バタフライカット",
+    "prompt": "butterfly haircut",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-wolf-tail-hair",
+    "label": "ウルフテール",
+    "prompt": "wolf tail hair",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-bubble-ponytail",
+    "label": "玉ねぎポニーテール",
+    "prompt": "bubble ponytail",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-bubble-braid",
+    "label": "玉ねぎ編み",
+    "prompt": "bubble braid",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-waterfall-braid",
+    "label": "ウォーターフォール編み",
+    "prompt": "waterfall braid",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-halo-braid",
+    "label": "ハローブレイド",
+    "prompt": "halo braid",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-rope-braid",
+    "label": "ロープ編み",
+    "prompt": "rope braid",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-four-strand-braid",
+    "label": "四つ編み",
+    "prompt": "four-strand braid",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-milkmaid-braid",
+    "label": "ミルクメイドブレイド",
+    "prompt": "milkmaid braid",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-braided-bun",
+    "label": "編み込みお団子",
+    "prompt": "braided bun",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-space-buns",
+    "label": "スペースバンズ",
+    "prompt": "space buns",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-double-buns",
+    "label": "左右のお団子",
+    "prompt": "double buns",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-half-up-bun",
+    "label": "ハーフアップお団子",
+    "prompt": "half-up bun",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-messy-bun",
+    "label": "無造作お団子",
+    "prompt": "messy bun",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-top-knot",
+    "label": "トップノット",
+    "prompt": "top knot",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-samurai-ponytail",
+    "label": "侍ポニーテール",
+    "prompt": "samurai ponytail",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-braided-twintails",
+    "label": "編み込みツインテール",
+    "prompt": "braided twintails",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-curly-twintails",
+    "label": "巻き髪ツインテール",
+    "prompt": "curly twintails",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-high-side-ponytail",
+    "label": "高いサイドポニー",
+    "prompt": "high side ponytail",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-low-side-ponytail",
+    "label": "低いサイドポニー",
+    "prompt": "low side ponytail",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-double-ponytail",
+    "label": "ダブルポニーテール",
+    "prompt": "double ponytail",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-looped-ponytail",
+    "label": "輪っかポニーテール",
+    "prompt": "looped ponytail",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-folded-ponytail",
+    "label": "折り返しポニーテール",
+    "prompt": "folded ponytail",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-half-up-ponytail",
+    "label": "ハーフアップポニー",
+    "prompt": "half-up ponytail",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-multiple-braids",
+    "label": "複数の三つ編み",
+    "prompt": "multiple braids",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-micro-braids",
+    "label": "細い三つ編み",
+    "prompt": "micro braids",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-box-braids",
+    "label": "ボックスブレイズ",
+    "prompt": "box braids",
+    "category": "hair",
+    "subcategory": "髪型",
+    "slot": "main_hairstyle"
+  },
+  {
+    "id": "hai-v5-matte-hair",
+    "label": "艶を抑えた髪",
+    "prompt": "matte hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-v5-coarse-hair",
+    "label": "ごわついた髪",
+    "prompt": "coarse hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-v5-flat-hair",
+    "label": "ぺたんとした髪",
+    "prompt": "flat hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-v5-frizzy-hair",
+    "label": "縮れた髪",
+    "prompt": "frizzy hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-v5-kinky-hair",
+    "label": "強く縮れた髪",
+    "prompt": "kinky hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-v5-coily-hair",
+    "label": "コイル状の髪",
+    "prompt": "coily hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-v5-ringlet-hair",
+    "label": "縦ロールの髪",
+    "prompt": "ringlet hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-v5-beach-waves",
+    "label": "ゆるい波打ち髪",
+    "prompt": "beach waves",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-v5-soft-waves",
+    "label": "柔らかなウェーブ",
+    "prompt": "soft waves",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-v5-loose-curls",
+    "label": "ゆるい巻き髪",
+    "prompt": "loose curls",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-v5-tight-curls",
+    "label": "強い巻き髪",
+    "prompt": "tight curls",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-v5-natural-curls",
+    "label": "自然な巻き髪",
+    "prompt": "natural curls",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-v5-bed-hair",
+    "label": "寝癖",
+    "prompt": "bed hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-v5-tousled-hair",
+    "label": "くしゃっとした髪",
+    "prompt": "tousled hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-v5-windswept-hair",
+    "label": "風になびく髪",
+    "prompt": "windswept hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-v5-flowing-hair",
+    "label": "流れる髪",
+    "prompt": "flowing hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-v5-one-side-tucked-hair",
+    "label": "片側を耳にかけた髪",
+    "prompt": "one side tucked hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-v5-symmetrical-hair",
+    "label": "左右対称の髪",
+    "prompt": "symmetrical hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-v5-asymmetrical-hair",
+    "label": "左右非対称の髪",
+    "prompt": "asymmetrical hair",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  },
+  {
+    "id": "hai-v5-double-ahoge",
+    "label": "二本のアホ毛",
+    "prompt": "double ahoge",
+    "category": "hair",
+    "subcategory": "毛質・特徴"
+  }
+]

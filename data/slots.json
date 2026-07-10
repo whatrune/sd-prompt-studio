@@ -1,0 +1,574 @@
+{
+  "version": 3,
+  "slots": [
+    {
+      "id": "people_count_mode",
+      "label": "単独・グループ",
+      "mode": "single"
+    },
+    {
+      "id": "female_count",
+      "label": "女性人数",
+      "mode": "single"
+    },
+    {
+      "id": "male_count",
+      "label": "男性人数",
+      "mode": "single"
+    },
+    {
+      "id": "age_group",
+      "label": "年齢層",
+      "mode": "single"
+    },
+    {
+      "id": "primary_expression",
+      "label": "基本表情",
+      "mode": "single"
+    },
+    {
+      "id": "eyebrow_shape",
+      "label": "眉の形・状態",
+      "mode": "single"
+    },
+    {
+      "id": "blush_type",
+      "label": "頬・赤面表現",
+      "mode": "single"
+    },
+    {
+      "id": "face_color",
+      "label": "顔色",
+      "mode": "single"
+    },
+    {
+      "id": "gaze_direction",
+      "label": "視線",
+      "mode": "single"
+    },
+    {
+      "id": "mouth_shape",
+      "label": "口の形・状態",
+      "mode": "single"
+    },
+    {
+      "id": "eye_color_primary",
+      "label": "目の色",
+      "mode": "single"
+    },
+    {
+      "id": "eye_shape",
+      "label": "目の形",
+      "mode": "single"
+    },
+    {
+      "id": "pupil_shape",
+      "label": "瞳孔の形",
+      "mode": "single"
+    },
+    {
+      "id": "iris_pattern",
+      "label": "虹彩・内部模様",
+      "mode": "single"
+    },
+    {
+      "id": "eyelash_length",
+      "label": "まつ毛の長さ・量",
+      "mode": "single"
+    },
+    {
+      "id": "eyelash_shape",
+      "label": "まつ毛の形",
+      "mode": "single"
+    },
+    {
+      "id": "eyelash_color",
+      "label": "まつ毛の色・装飾",
+      "mode": "single"
+    },
+    {
+      "id": "hair_color_primary",
+      "label": "基本髪色",
+      "mode": "single"
+    },
+    {
+      "id": "front_bangs",
+      "label": "前髪",
+      "mode": "single"
+    },
+    {
+      "id": "side_locks",
+      "label": "横髪",
+      "mode": "single"
+    },
+    {
+      "id": "hair_length_back",
+      "label": "後ろ髪・長さ",
+      "mode": "single"
+    },
+    {
+      "id": "main_hairstyle",
+      "label": "主要な髪型",
+      "mode": "single"
+    },
+    {
+      "id": "skin_tone",
+      "label": "肌色",
+      "mode": "single"
+    },
+    {
+      "id": "body_type",
+      "label": "体型",
+      "mode": "single"
+    },
+    {
+      "id": "breast_waist_size",
+      "label": "胸・腰のサイズ",
+      "mode": "single"
+    },
+    {
+      "id": "top_main",
+      "label": "主トップス",
+      "mode": "single"
+    },
+    {
+      "id": "outerwear",
+      "label": "主アウター",
+      "mode": "single"
+    },
+    {
+      "id": "bottoms",
+      "label": "主ボトムス",
+      "mode": "single"
+    },
+    {
+      "id": "onepiece_dress",
+      "label": "ワンピース・ドレス",
+      "mode": "single"
+    },
+    {
+      "id": "footwear",
+      "label": "主な履物",
+      "mode": "single"
+    },
+    {
+      "id": "headwear",
+      "label": "帽子・頭部装飾",
+      "mode": "single"
+    },
+    {
+      "id": "body_posture",
+      "label": "基本姿勢",
+      "mode": "single"
+    },
+    {
+      "id": "subject_orientation",
+      "label": "被写体の向き",
+      "mode": "single"
+    },
+    {
+      "id": "camera_vertical_angle",
+      "label": "上下視点",
+      "mode": "single"
+    },
+    {
+      "id": "camera_framing",
+      "label": "画角",
+      "mode": "single"
+    },
+    {
+      "id": "camera_lens",
+      "label": "レンズ",
+      "mode": "single"
+    },
+    {
+      "id": "background_location",
+      "label": "主背景",
+      "mode": "single"
+    },
+    {
+      "id": "time_of_day",
+      "label": "時間帯",
+      "mode": "single"
+    },
+    {
+      "id": "weather",
+      "label": "天候",
+      "mode": "single"
+    },
+    {
+      "id": "season",
+      "label": "季節",
+      "mode": "single"
+    },
+    {
+      "id": "character_species",
+      "label": "種族",
+      "mode": "single"
+    },
+    {
+      "id": "character_occupation",
+      "label": "職業",
+      "mode": "single"
+    },
+    {
+      "id": "character_element",
+      "label": "属性",
+      "mode": "single"
+    },
+    {
+      "id": "body_motion",
+      "label": "主な動作",
+      "mode": "single"
+    }
+  ],
+  "rules": [
+    {
+      "slot": "people_count_mode",
+      "category": "people",
+      "prompts": [
+        "solo",
+        "group"
+      ]
+    },
+    {
+      "slot": "female_count",
+      "category": "people",
+      "patterns": [
+        "^(1|2|3|4|5|6)girls?$",
+        "^multiple girls$",
+        "^many girls$"
+      ]
+    },
+    {
+      "slot": "male_count",
+      "category": "people",
+      "patterns": [
+        "^(1|2|3|4|5|6)boys?$",
+        "^multiple boys$",
+        "^many boys$"
+      ]
+    },
+    {
+      "slot": "age_group",
+      "category": "people",
+      "subcategory": "年齢・属性"
+    },
+    {
+      "slot": "primary_expression",
+      "category": "expression",
+      "subcategory": "基本表情"
+    },
+    {
+      "slot": "mouth_shape",
+      "category": "expression",
+      "subcategory": "口"
+    },
+    {
+      "slot": "gaze_direction",
+      "category": "eyes",
+      "subcategory": "視線・状態",
+      "patterns": [
+        "^looking ",
+        "^eye contact$",
+        "^averted gaze$",
+        "^upward gaze$",
+        "^downward gaze$",
+        "^sideways glance$"
+      ]
+    },
+    {
+      "slot": "eye_color_primary",
+      "category": "eyes",
+      "subcategory": "目の色"
+    },
+    {
+      "slot": "eye_shape",
+      "category": "eyes",
+      "subcategory": "目の形"
+    },
+    {
+      "slot": "pupil_shape",
+      "category": "eyes",
+      "subcategory": "瞳孔"
+    },
+    {
+      "slot": "iris_pattern",
+      "category": "eyes",
+      "subcategory": "虹彩・内部模様"
+    },
+    {
+      "slot": "eyelash_length",
+      "category": "eyes",
+      "subcategory": "まつ毛の長さ・量"
+    },
+    {
+      "slot": "eyelash_shape",
+      "category": "eyes",
+      "subcategory": "まつ毛の形"
+    },
+    {
+      "slot": "eyelash_color",
+      "category": "eyes",
+      "subcategory": "まつ毛の色・装飾"
+    },
+    {
+      "slot": "hair_color_primary",
+      "category": "hair",
+      "subcategory": "髪色"
+    },
+    {
+      "slot": "front_bangs",
+      "category": "hair",
+      "subcategory": "前髪"
+    },
+    {
+      "slot": "side_locks",
+      "category": "hair",
+      "subcategory": "横髪"
+    },
+    {
+      "slot": "hair_length_back",
+      "category": "hair",
+      "subcategory": "後ろ髪・長さ"
+    },
+    {
+      "slot": "main_hairstyle",
+      "category": "hair",
+      "subcategory": "髪型"
+    },
+    {
+      "slot": "body_type",
+      "category": "body",
+      "subcategory": "体型"
+    },
+    {
+      "slot": "breast_waist_size",
+      "category": "body",
+      "subcategory": "胸・腰"
+    },
+    {
+      "slot": "skin_tone",
+      "category": "body",
+      "subcategory": "肌"
+    },
+    {
+      "slot": "top_main",
+      "category": "clothes",
+      "subcategory": "トップス"
+    },
+    {
+      "slot": "outerwear",
+      "category": "clothes",
+      "subcategory": "アウター"
+    },
+    {
+      "slot": "bottoms",
+      "category": "clothes",
+      "subcategory": "ボトムス"
+    },
+    {
+      "slot": "onepiece_dress",
+      "category": "clothes",
+      "subcategory": "ワンピース・ドレス"
+    },
+    {
+      "slot": "footwear",
+      "category": "clothes",
+      "subcategory": "靴"
+    },
+    {
+      "slot": "headwear",
+      "category": "accessories",
+      "subcategory": "帽子"
+    },
+    {
+      "slot": "body_posture",
+      "category": "pose",
+      "prompts": [
+        "standing",
+        "sitting",
+        "lying",
+        "kneeling",
+        "squatting",
+        "crouching",
+        "prone",
+        "supine"
+      ]
+    },
+    {
+      "slot": "subject_orientation",
+      "category": "camera",
+      "prompts": [
+        "front view",
+        "side view",
+        "back view",
+        "three-quarter view"
+      ]
+    },
+    {
+      "slot": "camera_vertical_angle",
+      "category": "camera",
+      "prompts": [
+        "from above",
+        "from below",
+        "eye level"
+      ]
+    },
+    {
+      "slot": "camera_framing",
+      "category": "camera",
+      "subcategory": "画角"
+    },
+    {
+      "slot": "camera_lens",
+      "category": "camera",
+      "subcategory": "レンズ"
+    },
+    {
+      "slot": "background_location",
+      "category": "background",
+      "excludeSubcategories": [
+        "時間・天候"
+      ]
+    },
+    {
+      "slot": "time_of_day",
+      "category": "background",
+      "subcategory": "時間・天候",
+      "patterns": [
+        "morning",
+        "noon",
+        "afternoon",
+        "evening",
+        "sunset",
+        "sunrise",
+        "night",
+        "midnight",
+        "golden hour",
+        "blue hour",
+        "dawn",
+        "dusk"
+      ]
+    },
+    {
+      "slot": "weather",
+      "category": "background",
+      "subcategory": "時間・天候",
+      "patterns": [
+        "sunny",
+        "cloudy",
+        "overcast",
+        "rain",
+        "heavy rain",
+        "snow",
+        "blizzard",
+        "fog",
+        "mist",
+        "thunderstorm",
+        "storm",
+        "windy"
+      ]
+    },
+    {
+      "slot": "season",
+      "category": "background",
+      "subcategory": "時間・天候",
+      "patterns": [
+        "spring",
+        "summer",
+        "autumn",
+        "fall",
+        "winter"
+      ]
+    },
+    {
+      "slot": "face_color",
+      "category": "expression",
+      "subcategory": "頬・眉",
+      "prompts": [
+        "full-face blush",
+        "pale face"
+      ]
+    },
+    {
+      "slot": "blush_type",
+      "category": "expression",
+      "subcategory": "頬・眉",
+      "patterns": [
+        "blush",
+        "rosy cheeks",
+        "nose blush",
+        "blush lines",
+        "blush stickers"
+      ]
+    },
+    {
+      "slot": "eyebrow_shape",
+      "category": "expression",
+      "subcategory": "頬・眉",
+      "patterns": [
+        "eyebrow",
+        "brows?",
+        "furrowed brow",
+        "arched brow",
+        "raised eyebrow"
+      ]
+    },
+    {
+      "slot": "primary_expression",
+      "category": "adult",
+      "subcategory": "表情"
+    },
+    {
+      "slot": "character_species",
+      "category": "character",
+      "subcategory": "種族"
+    },
+    {
+      "slot": "character_occupation",
+      "category": "character",
+      "subcategory": "職業"
+    },
+    {
+      "slot": "character_element",
+      "category": "character",
+      "subcategory": "属性"
+    },
+    {
+      "slot": "body_motion",
+      "category": "pose",
+      "subcategory": "日常動作"
+    },
+    {
+      "slot": "body_motion",
+      "category": "pose",
+      "subcategory": "転倒・バランス"
+    },
+    {
+      "slot": "body_motion",
+      "category": "pose",
+      "subcategory": "体操・アクロバット"
+    },
+    {
+      "slot": "body_motion",
+      "category": "pose",
+      "subcategory": "ダンス"
+    },
+    {
+      "slot": "body_motion",
+      "category": "pose",
+      "subcategory": "スポーツ"
+    },
+    {
+      "slot": "body_motion",
+      "category": "pose",
+      "subcategory": "武術・戦闘"
+    },
+    {
+      "slot": "body_motion",
+      "category": "pose",
+      "subcategory": "乗り物・騎乗"
+    }
+  ]
+}

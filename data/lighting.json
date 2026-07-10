@@ -1,0 +1,346 @@
+[
+  {
+    "id": "lig-soft-lighting",
+    "label": "柔らかな光",
+    "prompt": "soft lighting",
+    "category": "lighting",
+    "subcategory": "光の質",
+    "generationNote": "影の境界が柔らかい光。肌や顔の凹凸を穏やかに見せ、優しい人物表現に向く。"
+  },
+  {
+    "id": "lig-hard-lighting",
+    "label": "硬い光",
+    "prompt": "hard lighting",
+    "category": "lighting",
+    "subcategory": "光の質",
+    "generationNote": "影の境界がはっきりした強い光。立体感や緊張感が出る一方、顔の影も強くなりやすい。"
+  },
+  {
+    "id": "lig-natural-lighting",
+    "label": "自然光",
+    "prompt": "natural lighting",
+    "category": "lighting",
+    "subcategory": "光の質",
+    "generationNote": "太陽光や窓光のような自然な明るさ。日常的で現実感のある雰囲気を作りやすい。"
+  },
+  {
+    "id": "lig-ambient-lighting",
+    "label": "環境光",
+    "prompt": "ambient lighting",
+    "category": "lighting",
+    "subcategory": "光の質",
+    "generationNote": "空間全体を包む間接的な光。強い影を抑え、背景と人物をなじませる。"
+  },
+  {
+    "id": "lig-studio-lighting",
+    "label": "スタジオ照明",
+    "prompt": "studio lighting",
+    "category": "lighting",
+    "subcategory": "光の質",
+    "generationNote": "人物を均一かつ明瞭に見せる撮影照明。商品写真やポートレート風の整理された仕上がり向け。"
+  },
+  {
+    "id": "lig-cinematic-lighting",
+    "label": "映画的照明",
+    "prompt": "cinematic lighting",
+    "category": "lighting",
+    "subcategory": "光の質",
+    "generationNote": "明暗差や色温度を使った映画的な照明。物語性とドラマ性を強める。"
+  },
+  {
+    "id": "lig-dramatic-lighting",
+    "label": "劇的照明",
+    "prompt": "dramatic lighting",
+    "category": "lighting",
+    "subcategory": "光の質",
+    "generationNote": "強い明暗差や方向光で印象を強調する照明。緊張感、威厳、感情表現に向く。"
+  },
+  {
+    "id": "lig-moody-lighting",
+    "label": "ムーディーな照明",
+    "prompt": "moody lighting",
+    "category": "lighting",
+    "subcategory": "光の質",
+    "generationNote": "暗部を多く残し、落ち着きや不穏さを作る照明。低彩度や夜景と相性が良い。"
+  },
+  {
+    "id": "lig-high-key-lighting",
+    "label": "ハイキー",
+    "prompt": "high-key lighting",
+    "category": "lighting",
+    "subcategory": "光の質",
+    "generationNote": "画面全体を明るくし、影を弱める照明。清潔感、軽さ、幸福感を出しやすい。"
+  },
+  {
+    "id": "lig-low-key-lighting",
+    "label": "ローキー",
+    "prompt": "low-key lighting",
+    "category": "lighting",
+    "subcategory": "光の質",
+    "generationNote": "暗部を広く残し、一部だけを照らす照明。重厚、神秘、不安な雰囲気を作る。"
+  },
+  {
+    "id": "lig-front-lighting",
+    "label": "正面光",
+    "prompt": "front lighting",
+    "category": "lighting",
+    "subcategory": "光の方向",
+    "generationNote": "正面から当てる光。顔を均一に見せやすいが、立体感は弱くなりやすい。"
+  },
+  {
+    "id": "lig-side-lighting",
+    "label": "側面光",
+    "prompt": "side lighting",
+    "category": "lighting",
+    "subcategory": "光の方向",
+    "generationNote": "横から当てる光。顔や身体の片側に影ができ、立体感と緊張感が増す。"
+  },
+  {
+    "id": "lig-backlight",
+    "label": "逆光",
+    "prompt": "backlight",
+    "category": "lighting",
+    "subcategory": "光の方向",
+    "generationNote": "被写体の背後から当たる逆光。輪郭が明るくなり、背景との分離や幻想感を作りやすい。"
+  },
+  {
+    "id": "lig-rim-light",
+    "label": "縁取り光",
+    "prompt": "rim light",
+    "category": "lighting",
+    "subcategory": "光の方向",
+    "generationNote": "輪郭部分だけを明るく縁取る光。暗い背景でも人物を浮かび上がらせやすい。"
+  },
+  {
+    "id": "lig-top-lighting",
+    "label": "上からの光",
+    "prompt": "top lighting",
+    "category": "lighting",
+    "subcategory": "光の方向",
+    "generationNote": "真上から当てる光。目元に影が入りやすく、厳しさや舞台照明感が出る。"
+  },
+  {
+    "id": "lig-underlighting",
+    "label": "下からの光",
+    "prompt": "underlighting",
+    "category": "lighting",
+    "subcategory": "光の方向",
+    "generationNote": "下から当てる光。通常と逆の影ができ、不気味さや非日常感を強調する。"
+  },
+  {
+    "id": "lig-split-lighting",
+    "label": "半面照明",
+    "prompt": "split lighting",
+    "category": "lighting",
+    "subcategory": "光の方向",
+    "generationNote": "顔の半分を明るく、半分を暗くする照明。二面性や強いコントラストを演出する。"
+  },
+  {
+    "id": "lig-rembrandt-lighting",
+    "label": "レンブラント照明",
+    "prompt": "Rembrandt lighting",
+    "category": "lighting",
+    "subcategory": "光の方向",
+    "generationNote": "頬に小さな三角形の光を残す古典的な人物照明。落ち着いた立体感と重厚さが出る。"
+  },
+  {
+    "id": "lig-three-point-lighting",
+    "label": "三点照明",
+    "prompt": "three-point lighting",
+    "category": "lighting",
+    "subcategory": "光の方向",
+    "generationNote": "主光、補助光、逆光で人物を立体的に見せる標準照明。安定したポートレート向け。"
+  },
+  {
+    "id": "lig-golden-hour-lighting",
+    "label": "ゴールデンアワー",
+    "prompt": "golden hour lighting",
+    "category": "lighting",
+    "subcategory": "色・時間帯",
+    "generationNote": "日の出直後や日没前の暖かな低い光。長い影と柔らかな金色の空気感が出る。"
+  },
+  {
+    "id": "lig-blue-hour-lighting",
+    "label": "ブルーアワー",
+    "prompt": "blue hour lighting",
+    "category": "lighting",
+    "subcategory": "色・時間帯",
+    "generationNote": "日の出前や日没後の青い薄明かり。静けさ、透明感、夜の始まりを表現しやすい。"
+  },
+  {
+    "id": "lig-sunset-lighting",
+    "label": "夕日の光",
+    "prompt": "sunset lighting",
+    "category": "lighting",
+    "subcategory": "色・時間帯",
+    "generationNote": "夕日の赤橙色を強調する光。暖色の逆光やドラマチックな空と相性が良い。"
+  },
+  {
+    "id": "lig-moonlight",
+    "label": "月明かり",
+    "prompt": "moonlight",
+    "category": "lighting",
+    "subcategory": "色・時間帯",
+    "generationNote": "青白く弱い月明かり。暗部を残した静かな夜景や幻想的な場面向け。"
+  },
+  {
+    "id": "lig-candlelight",
+    "label": "蝋燭の光",
+    "prompt": "candlelight",
+    "category": "lighting",
+    "subcategory": "色・時間帯",
+    "generationNote": "小さく暖かな蝋燭光。近距離だけを照らし、柔らかな影と親密な雰囲気を作る。"
+  },
+  {
+    "id": "lig-firelight",
+    "label": "炎の光",
+    "prompt": "firelight",
+    "category": "lighting",
+    "subcategory": "色・時間帯",
+    "generationNote": "炎由来の揺らぐ暖色光。強い橙色の反射と動きのある影を作りやすい。"
+  },
+  {
+    "id": "lig-neon-lighting",
+    "label": "ネオン照明",
+    "prompt": "neon lighting",
+    "category": "lighting",
+    "subcategory": "色・時間帯",
+    "generationNote": "鮮やかな色光を人物へ反射させる照明。夜の都市、サイバーパンク、濡れた路面と好相性。"
+  },
+  {
+    "id": "lig-colored-lighting",
+    "label": "色付き照明",
+    "prompt": "colored lighting",
+    "category": "lighting",
+    "subcategory": "色・時間帯",
+    "generationNote": "光源そのものに色を付ける指定。肌や衣装の色味も影響を受ける。"
+  },
+  {
+    "id": "lig-red-lighting",
+    "label": "赤い照明",
+    "prompt": "red lighting",
+    "category": "lighting",
+    "subcategory": "色・時間帯",
+    "generationNote": "赤い光で緊張、熱、危険、情熱を強調する。肌色が大きく変わりやすい。"
+  },
+  {
+    "id": "lig-blue-lighting",
+    "label": "青い照明",
+    "prompt": "blue lighting",
+    "category": "lighting",
+    "subcategory": "色・時間帯",
+    "generationNote": "青い光で冷たさ、静けさ、夜、SF感を出す。暖色光との対比にも使える。"
+  },
+  {
+    "id": "lig-purple-lighting",
+    "label": "紫の照明",
+    "prompt": "purple lighting",
+    "category": "lighting",
+    "subcategory": "色・時間帯",
+    "generationNote": "紫の光で幻想、妖艶、クラブ的な雰囲気を作る。青やピンクとの組み合わせが有効。"
+  },
+  {
+    "id": "lig-warm-lighting",
+    "label": "暖色光",
+    "prompt": "warm lighting",
+    "category": "lighting",
+    "subcategory": "色・時間帯",
+    "generationNote": "黄から橙寄りの光。安心感、室内感、夕方らしさを出しやすい。"
+  },
+  {
+    "id": "lig-cool-lighting",
+    "label": "寒色光",
+    "prompt": "cool lighting",
+    "category": "lighting",
+    "subcategory": "色・時間帯",
+    "generationNote": "青白い光。清潔感、寒さ、夜、無機質な印象を強める。"
+  },
+  {
+    "id": "lig-volumetric-lighting",
+    "label": "体積光",
+    "prompt": "volumetric lighting",
+    "category": "lighting",
+    "subcategory": "特殊照明",
+    "generationNote": "霧や埃の中で光の筋を見せる表現。空間の奥行きや神秘性を強める。"
+  },
+  {
+    "id": "lig-god-rays",
+    "label": "光芒",
+    "prompt": "god rays",
+    "category": "lighting",
+    "subcategory": "特殊照明",
+    "generationNote": "隙間から差し込む強い光芒。雲、木漏れ日、窓、霧と組み合わせると効果が出やすい。"
+  },
+  {
+    "id": "lig-dappled-sunlight",
+    "label": "木漏れ日",
+    "prompt": "dappled sunlight",
+    "category": "lighting",
+    "subcategory": "特殊照明",
+    "generationNote": "木の葉などを通したまだらな日差し。顔や衣装に細かな光と影の模様ができる。"
+  },
+  {
+    "id": "lig-spotlight",
+    "label": "スポットライト",
+    "prompt": "spotlight",
+    "category": "lighting",
+    "subcategory": "特殊照明",
+    "generationNote": "狭い範囲へ集中する強い光。舞台感が出て、周囲を暗くしながら主役を強調できる。"
+  },
+  {
+    "id": "lig-lens-lighting",
+    "label": "レンズ光",
+    "prompt": "lens lighting",
+    "category": "lighting",
+    "subcategory": "特殊照明",
+    "generationNote": "レンズを通したような光の演出。意味が曖昧なため、lens flareやbloomの方が安定する場合がある。"
+  },
+  {
+    "id": "lig-glowing-aura",
+    "label": "発光オーラ",
+    "prompt": "glowing aura",
+    "category": "lighting",
+    "subcategory": "特殊照明",
+    "generationNote": "人物の周囲を発光させる表現。魔法、神聖、エネルギー感を追加する。"
+  },
+  {
+    "id": "lig-bioluminescence",
+    "label": "生物発光",
+    "prompt": "bioluminescence",
+    "category": "lighting",
+    "subcategory": "特殊照明",
+    "generationNote": "生物や植物そのものが発光する表現。暗い水中や幻想的な森と相性が良い。"
+  },
+  {
+    "id": "lig-holographic-light",
+    "label": "ホログラム光",
+    "prompt": "holographic light",
+    "category": "lighting",
+    "subcategory": "特殊照明",
+    "generationNote": "虹色や半透明の光を使うSF的表現。輪郭や表面に多色反射が出やすい。"
+  },
+  {
+    "id": "lig-reflected-light",
+    "label": "反射光",
+    "prompt": "reflected light",
+    "category": "lighting",
+    "subcategory": "特殊照明",
+    "generationNote": "床、壁、水面などから返る間接光。影側へ色や明るさを足し、空間になじませる。"
+  },
+  {
+    "id": "lig-caustics",
+    "label": "コースティクス",
+    "prompt": "caustics",
+    "category": "lighting",
+    "subcategory": "特殊照明",
+    "generationNote": "水やガラスで屈折した光の模様。水中、プール、透明素材の表現に向く。"
+  },
+  {
+    "id": "lig-v5-glowing-particles",
+    "label": "発光粒子",
+    "prompt": "glowing particles",
+    "category": "lighting",
+    "subcategory": "特殊照明",
+    "generationNote": "空中に発光する粒子を散らす。魔法、幻想、夜景のアクセントとして使いやすい。"
+  }
+]

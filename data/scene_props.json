@@ -1,0 +1,1353 @@
+[
+  {
+    "id": "prop-bed",
+    "label": "ベッド",
+    "prompt": "bed",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "prop-sofa",
+    "label": "ソファ",
+    "prompt": "sofa",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "prop-chair",
+    "label": "椅子",
+    "prompt": "chair",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "prop-armchair",
+    "label": "アームチェア",
+    "prompt": "armchair",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "prop-stool",
+    "label": "スツール",
+    "prompt": "stool",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "prop-table",
+    "label": "テーブル",
+    "prompt": "table",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "prop-desk",
+    "label": "机",
+    "prompt": "desk",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "prop-coffee-table",
+    "label": "ローテーブル",
+    "prompt": "coffee table",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "prop-bench",
+    "label": "ベンチ",
+    "prompt": "bench",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "prop-bookshelf",
+    "label": "本棚",
+    "prompt": "bookshelf",
+    "category": "scene_props",
+    "subcategory": "収納・容器"
+  },
+  {
+    "id": "prop-bookcase",
+    "label": "ブックケース",
+    "prompt": "bookcase",
+    "category": "scene_props",
+    "subcategory": "収納・容器"
+  },
+  {
+    "id": "prop-cabinet",
+    "label": "キャビネット",
+    "prompt": "cabinet",
+    "category": "scene_props",
+    "subcategory": "収納・容器"
+  },
+  {
+    "id": "prop-wardrobe",
+    "label": "ワードローブ",
+    "prompt": "wardrobe",
+    "category": "scene_props",
+    "subcategory": "収納・容器"
+  },
+  {
+    "id": "prop-dresser",
+    "label": "ドレッサー",
+    "prompt": "dresser",
+    "category": "scene_props",
+    "subcategory": "収納・容器"
+  },
+  {
+    "id": "prop-drawer",
+    "label": "引き出し棚",
+    "prompt": "chest of drawers",
+    "category": "scene_props",
+    "subcategory": "収納・容器"
+  },
+  {
+    "id": "prop-wall-shelf",
+    "label": "壁棚",
+    "prompt": "wall shelf",
+    "category": "scene_props",
+    "subcategory": "収納・容器"
+  },
+  {
+    "id": "prop-floor-lamp",
+    "label": "フロアランプ",
+    "prompt": "floor lamp",
+    "category": "scene_props",
+    "subcategory": "家電・照明"
+  },
+  {
+    "id": "prop-desk-lamp",
+    "label": "デスクライト",
+    "prompt": "desk lamp",
+    "category": "scene_props",
+    "subcategory": "家電・照明"
+  },
+  {
+    "id": "prop-chandelier",
+    "label": "シャンデリア",
+    "prompt": "chandelier",
+    "category": "scene_props",
+    "subcategory": "家電・照明"
+  },
+  {
+    "id": "prop-television",
+    "label": "テレビ",
+    "prompt": "television",
+    "category": "scene_props",
+    "subcategory": "家電・照明"
+  },
+  {
+    "id": "prop-computer",
+    "label": "パソコン",
+    "prompt": "computer",
+    "category": "scene_props",
+    "subcategory": "家電・照明"
+  },
+  {
+    "id": "prop-monitor",
+    "label": "モニター",
+    "prompt": "monitor",
+    "category": "scene_props",
+    "subcategory": "家電・照明"
+  },
+  {
+    "id": "prop-speaker",
+    "label": "スピーカー",
+    "prompt": "speaker",
+    "category": "scene_props",
+    "subcategory": "家電・照明"
+  },
+  {
+    "id": "prop-window",
+    "label": "窓",
+    "prompt": "window",
+    "category": "scene_props",
+    "subcategory": "窓・扉"
+  },
+  {
+    "id": "prop-large-window",
+    "label": "大きな窓",
+    "prompt": "large window",
+    "category": "scene_props",
+    "subcategory": "窓・扉"
+  },
+  {
+    "id": "prop-curtains",
+    "label": "カーテン",
+    "prompt": "curtains",
+    "category": "scene_props",
+    "subcategory": "窓・扉"
+  },
+  {
+    "id": "prop-door",
+    "label": "ドア",
+    "prompt": "door",
+    "category": "scene_props",
+    "subcategory": "窓・扉"
+  },
+  {
+    "id": "prop-sliding-door",
+    "label": "引き戸",
+    "prompt": "sliding door",
+    "category": "scene_props",
+    "subcategory": "窓・扉"
+  },
+  {
+    "id": "prop-mirror",
+    "label": "鏡",
+    "prompt": "mirror",
+    "category": "scene_props",
+    "subcategory": "装飾"
+  },
+  {
+    "id": "prop-rug",
+    "label": "ラグ",
+    "prompt": "rug",
+    "category": "scene_props",
+    "subcategory": "装飾"
+  },
+  {
+    "id": "prop-carpet",
+    "label": "カーペット",
+    "prompt": "carpet",
+    "category": "scene_props",
+    "subcategory": "装飾"
+  },
+  {
+    "id": "prop-potted-plant",
+    "label": "観葉植物",
+    "prompt": "potted plant",
+    "category": "scene_props",
+    "subcategory": "装飾"
+  },
+  {
+    "id": "prop-vase",
+    "label": "花瓶",
+    "prompt": "vase",
+    "category": "scene_props",
+    "subcategory": "装飾"
+  },
+  {
+    "id": "prop-painting",
+    "label": "壁の絵",
+    "prompt": "framed painting",
+    "category": "scene_props",
+    "subcategory": "装飾"
+  },
+  {
+    "id": "prop-wall-clock",
+    "label": "壁時計",
+    "prompt": "wall clock",
+    "category": "scene_props",
+    "subcategory": "装飾"
+  },
+  {
+    "id": "prop-cushions",
+    "label": "クッション",
+    "prompt": "cushions",
+    "category": "scene_props",
+    "subcategory": "装飾"
+  },
+  {
+    "id": "prop-books",
+    "label": "本の山",
+    "prompt": "stack of books",
+    "category": "scene_props",
+    "subcategory": "装飾"
+  },
+  {
+    "id": "prop-streetlamp",
+    "label": "街灯",
+    "prompt": "streetlamp",
+    "category": "scene_props",
+    "subcategory": "屋外小物"
+  },
+  {
+    "id": "prop-fence",
+    "label": "柵",
+    "prompt": "fence",
+    "category": "scene_props",
+    "subcategory": "屋外小物"
+  },
+  {
+    "id": "prop-fountain",
+    "label": "噴水",
+    "prompt": "fountain",
+    "category": "scene_props",
+    "subcategory": "屋外小物"
+  },
+  {
+    "id": "prop-bus-stop",
+    "label": "バス停",
+    "prompt": "bus stop",
+    "category": "scene_props",
+    "subcategory": "屋外小物"
+  },
+  {
+    "id": "prop-vending-machine",
+    "label": "自動販売機",
+    "prompt": "vending machine",
+    "category": "scene_props",
+    "subcategory": "屋外小物"
+  },
+  {
+    "id": "v12-prop-bunk-bed",
+    "label": "二段ベッド",
+    "prompt": "bunk bed",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "v12-prop-canopy-bed",
+    "label": "天蓋ベッド",
+    "prompt": "canopy bed",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "v12-prop-futon",
+    "label": "布団",
+    "prompt": "futon",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "v12-prop-pillow",
+    "label": "枕",
+    "prompt": "pillow",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "v12-prop-blanket",
+    "label": "毛布",
+    "prompt": "blanket",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "v12-prop-school-chair",
+    "label": "学校椅子",
+    "prompt": "school chair",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "v12-prop-office-chair",
+    "label": "オフィスチェア",
+    "prompt": "office chair",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "v12-prop-school-desk",
+    "label": "学校机",
+    "prompt": "school desk",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "v12-prop-dining-table",
+    "label": "ダイニングテーブル",
+    "prompt": "dining table",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "v12-prop-low-table",
+    "label": "ローテーブル",
+    "prompt": "low table",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "v12-prop-kotatsu",
+    "label": "こたつ",
+    "prompt": "kotatsu",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "v12-prop-vanity-table",
+    "label": "ドレッサー",
+    "prompt": "vanity table",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "v12-prop-side-table",
+    "label": "サイドテーブル",
+    "prompt": "side table",
+    "category": "scene_props",
+    "subcategory": "家具"
+  },
+  {
+    "id": "v12-prop-blackboard",
+    "label": "黒板",
+    "prompt": "blackboard",
+    "category": "scene_props",
+    "subcategory": "文具・学校用品"
+  },
+  {
+    "id": "v12-prop-whiteboard",
+    "label": "ホワイトボード",
+    "prompt": "whiteboard",
+    "category": "scene_props",
+    "subcategory": "文具・学校用品"
+  },
+  {
+    "id": "v12-prop-teachers-desk",
+    "label": "教卓",
+    "prompt": "teachers desk",
+    "category": "scene_props",
+    "subcategory": "文具・学校用品"
+  },
+  {
+    "id": "v12-prop-school-locker",
+    "label": "ロッカー",
+    "prompt": "school locker",
+    "category": "scene_props",
+    "subcategory": "文具・学校用品"
+  },
+  {
+    "id": "v12-prop-shoe-lockers",
+    "label": "下駄箱",
+    "prompt": "shoe lockers",
+    "category": "scene_props",
+    "subcategory": "文具・学校用品"
+  },
+  {
+    "id": "v12-prop-books",
+    "label": "本",
+    "prompt": "books",
+    "category": "scene_props",
+    "subcategory": "文具・学校用品"
+  },
+  {
+    "id": "v12-prop-textbook",
+    "label": "教科書",
+    "prompt": "textbook",
+    "category": "scene_props",
+    "subcategory": "文具・学校用品"
+  },
+  {
+    "id": "v12-prop-notebook",
+    "label": "ノート",
+    "prompt": "notebook",
+    "category": "scene_props",
+    "subcategory": "文具・学校用品"
+  },
+  {
+    "id": "v12-prop-chalk",
+    "label": "チョーク",
+    "prompt": "chalk",
+    "category": "scene_props",
+    "subcategory": "文具・学校用品"
+  },
+  {
+    "id": "v12-prop-blackboard-eraser",
+    "label": "黒板消し",
+    "prompt": "blackboard eraser",
+    "category": "scene_props",
+    "subcategory": "文具・学校用品"
+  },
+  {
+    "id": "v12-prop-randoseru",
+    "label": "ランドセル",
+    "prompt": "randoseru",
+    "category": "scene_props",
+    "subcategory": "文具・学校用品"
+  },
+  {
+    "id": "v12-prop-school-bag",
+    "label": "スクールバッグ",
+    "prompt": "school bag",
+    "category": "scene_props",
+    "subcategory": "文具・学校用品"
+  },
+  {
+    "id": "v12-prop-gym-mat",
+    "label": "体操マット",
+    "prompt": "gym mat",
+    "category": "scene_props",
+    "subcategory": "文具・学校用品"
+  },
+  {
+    "id": "v12-prop-vaulting-box",
+    "label": "跳び箱",
+    "prompt": "vaulting box",
+    "category": "scene_props",
+    "subcategory": "文具・学校用品"
+  },
+  {
+    "id": "v12-prop-basketball-hoop",
+    "label": "バスケットゴール",
+    "prompt": "basketball hoop",
+    "category": "scene_props",
+    "subcategory": "文具・学校用品"
+  },
+  {
+    "id": "v12-prop-soccer-goal",
+    "label": "サッカーゴール",
+    "prompt": "soccer goal",
+    "category": "scene_props",
+    "subcategory": "文具・学校用品"
+  },
+  {
+    "id": "v12-prop-piano",
+    "label": "ピアノ",
+    "prompt": "piano",
+    "category": "scene_props",
+    "subcategory": "文具・学校用品"
+  },
+  {
+    "id": "v12-prop-microscope",
+    "label": "顕微鏡",
+    "prompt": "microscope",
+    "category": "scene_props",
+    "subcategory": "文具・学校用品"
+  },
+  {
+    "id": "v12-prop-beaker",
+    "label": "ビーカー",
+    "prompt": "beaker",
+    "category": "scene_props",
+    "subcategory": "文具・学校用品"
+  },
+  {
+    "id": "v12-prop-globe",
+    "label": "地球儀",
+    "prompt": "globe",
+    "category": "scene_props",
+    "subcategory": "文具・学校用品"
+  },
+  {
+    "id": "v12-prop-bathtub",
+    "label": "浴槽",
+    "prompt": "bathtub",
+    "category": "scene_props",
+    "subcategory": "浴室・衛生用品"
+  },
+  {
+    "id": "v12-prop-shower",
+    "label": "シャワー",
+    "prompt": "shower",
+    "category": "scene_props",
+    "subcategory": "浴室・衛生用品"
+  },
+  {
+    "id": "v12-prop-sink",
+    "label": "洗面台",
+    "prompt": "sink",
+    "category": "scene_props",
+    "subcategory": "浴室・衛生用品"
+  },
+  {
+    "id": "v12-prop-bathroom-mirror",
+    "label": "鏡",
+    "prompt": "bathroom mirror",
+    "category": "scene_props",
+    "subcategory": "浴室・衛生用品"
+  },
+  {
+    "id": "v12-prop-toilet",
+    "label": "トイレ",
+    "prompt": "toilet",
+    "category": "scene_props",
+    "subcategory": "浴室・衛生用品"
+  },
+  {
+    "id": "v12-prop-toilet-seat",
+    "label": "便座",
+    "prompt": "toilet seat",
+    "category": "scene_props",
+    "subcategory": "浴室・衛生用品"
+  },
+  {
+    "id": "v12-prop-towel",
+    "label": "タオル",
+    "prompt": "towel",
+    "category": "scene_props",
+    "subcategory": "浴室・衛生用品"
+  },
+  {
+    "id": "v12-prop-bath-towel",
+    "label": "バスタオル",
+    "prompt": "bath towel",
+    "category": "scene_props",
+    "subcategory": "浴室・衛生用品"
+  },
+  {
+    "id": "v12-prop-shampoo-bottle",
+    "label": "シャンプーボトル",
+    "prompt": "shampoo bottle",
+    "category": "scene_props",
+    "subcategory": "浴室・衛生用品"
+  },
+  {
+    "id": "v12-prop-soap",
+    "label": "石鹸",
+    "prompt": "soap",
+    "category": "scene_props",
+    "subcategory": "浴室・衛生用品"
+  },
+  {
+    "id": "v12-prop-washbasin",
+    "label": "洗面器",
+    "prompt": "washbasin",
+    "category": "scene_props",
+    "subcategory": "浴室・衛生用品"
+  },
+  {
+    "id": "v12-prop-laundry-basket",
+    "label": "脱衣かご",
+    "prompt": "laundry basket",
+    "category": "scene_props",
+    "subcategory": "浴室・衛生用品"
+  },
+  {
+    "id": "v12-prop-refrigerator",
+    "label": "冷蔵庫",
+    "prompt": "refrigerator",
+    "category": "scene_props",
+    "subcategory": "キッチン・食卓用品"
+  },
+  {
+    "id": "v12-prop-microwave",
+    "label": "電子レンジ",
+    "prompt": "microwave",
+    "category": "scene_props",
+    "subcategory": "キッチン・食卓用品"
+  },
+  {
+    "id": "v12-prop-oven",
+    "label": "オーブン",
+    "prompt": "oven",
+    "category": "scene_props",
+    "subcategory": "キッチン・食卓用品"
+  },
+  {
+    "id": "v12-prop-stove",
+    "label": "コンロ",
+    "prompt": "stove",
+    "category": "scene_props",
+    "subcategory": "キッチン・食卓用品"
+  },
+  {
+    "id": "v12-prop-kitchen-sink",
+    "label": "流し台",
+    "prompt": "kitchen sink",
+    "category": "scene_props",
+    "subcategory": "キッチン・食卓用品"
+  },
+  {
+    "id": "v12-prop-kitchen-cabinet",
+    "label": "食器棚",
+    "prompt": "kitchen cabinet",
+    "category": "scene_props",
+    "subcategory": "キッチン・食卓用品"
+  },
+  {
+    "id": "v12-prop-plate",
+    "label": "皿",
+    "prompt": "plate",
+    "category": "scene_props",
+    "subcategory": "キッチン・食卓用品"
+  },
+  {
+    "id": "v12-prop-cup",
+    "label": "カップ",
+    "prompt": "cup",
+    "category": "scene_props",
+    "subcategory": "キッチン・食卓用品"
+  },
+  {
+    "id": "v12-prop-teacup",
+    "label": "ティーカップ",
+    "prompt": "teacup",
+    "category": "scene_props",
+    "subcategory": "キッチン・食卓用品"
+  },
+  {
+    "id": "v12-prop-coffee-cup",
+    "label": "コーヒーカップ",
+    "prompt": "coffee cup",
+    "category": "scene_props",
+    "subcategory": "キッチン・食卓用品"
+  },
+  {
+    "id": "v12-prop-fork",
+    "label": "フォーク",
+    "prompt": "fork",
+    "category": "scene_props",
+    "subcategory": "キッチン・食卓用品"
+  },
+  {
+    "id": "v12-prop-spoon",
+    "label": "スプーン",
+    "prompt": "spoon",
+    "category": "scene_props",
+    "subcategory": "キッチン・食卓用品"
+  },
+  {
+    "id": "v12-prop-table-knife",
+    "label": "ナイフ",
+    "prompt": "table knife",
+    "category": "scene_props",
+    "subcategory": "キッチン・食卓用品"
+  },
+  {
+    "id": "v12-prop-bento-box",
+    "label": "弁当箱",
+    "prompt": "bento box",
+    "category": "scene_props",
+    "subcategory": "キッチン・食卓用品"
+  },
+  {
+    "id": "v12-prop-teapot",
+    "label": "ティーポット",
+    "prompt": "teapot",
+    "category": "scene_props",
+    "subcategory": "キッチン・食卓用品"
+  },
+  {
+    "id": "v12-prop-air-conditioner",
+    "label": "エアコン",
+    "prompt": "air conditioner",
+    "category": "scene_props",
+    "subcategory": "家電・照明"
+  },
+  {
+    "id": "v12-prop-electric-fan",
+    "label": "扇風機",
+    "prompt": "electric fan",
+    "category": "scene_props",
+    "subcategory": "家電・照明"
+  },
+  {
+    "id": "v12-prop-fireplace",
+    "label": "暖炉",
+    "prompt": "fireplace",
+    "category": "scene_props",
+    "subcategory": "家電・照明"
+  },
+  {
+    "id": "v12-prop-alarm-clock",
+    "label": "目覚まし時計",
+    "prompt": "alarm clock",
+    "category": "scene_props",
+    "subcategory": "家電・照明"
+  },
+  {
+    "id": "v12-prop-washing-machine",
+    "label": "洗濯機",
+    "prompt": "washing machine",
+    "category": "scene_props",
+    "subcategory": "家電・照明"
+  },
+  {
+    "id": "v12-prop-window-blinds",
+    "label": "ブラインド",
+    "prompt": "window blinds",
+    "category": "scene_props",
+    "subcategory": "窓・扉"
+  },
+  {
+    "id": "v12-prop-shoji",
+    "label": "障子",
+    "prompt": "shoji",
+    "category": "scene_props",
+    "subcategory": "窓・扉"
+  },
+  {
+    "id": "v12-prop-french-doors",
+    "label": "フレンチドア",
+    "prompt": "french doors",
+    "category": "scene_props",
+    "subcategory": "窓・扉"
+  },
+  {
+    "id": "v12-prop-flower-vase",
+    "label": "花瓶",
+    "prompt": "flower vase",
+    "category": "scene_props",
+    "subcategory": "植物・花"
+  },
+  {
+    "id": "v12-prop-cherry-blossoms",
+    "label": "桜",
+    "prompt": "cherry blossoms",
+    "category": "scene_props",
+    "subcategory": "植物・花"
+  },
+  {
+    "id": "v12-prop-roses",
+    "label": "薔薇",
+    "prompt": "roses",
+    "category": "scene_props",
+    "subcategory": "植物・花"
+  },
+  {
+    "id": "v12-prop-sunflowers",
+    "label": "ひまわり",
+    "prompt": "sunflowers",
+    "category": "scene_props",
+    "subcategory": "植物・花"
+  },
+  {
+    "id": "v12-prop-red-spider-lilies",
+    "label": "彼岸花",
+    "prompt": "red spider lilies",
+    "category": "scene_props",
+    "subcategory": "植物・花"
+  },
+  {
+    "id": "v12-prop-hydrangeas",
+    "label": "紫陽花",
+    "prompt": "hydrangeas",
+    "category": "scene_props",
+    "subcategory": "植物・花"
+  },
+  {
+    "id": "v12-prop-tulips",
+    "label": "チューリップ",
+    "prompt": "tulips",
+    "category": "scene_props",
+    "subcategory": "植物・花"
+  },
+  {
+    "id": "v12-prop-lavender",
+    "label": "ラベンダー",
+    "prompt": "lavender",
+    "category": "scene_props",
+    "subcategory": "植物・花"
+  },
+  {
+    "id": "v12-prop-wisteria",
+    "label": "藤の花",
+    "prompt": "wisteria",
+    "category": "scene_props",
+    "subcategory": "植物・花"
+  },
+  {
+    "id": "v12-prop-bonsai",
+    "label": "盆栽",
+    "prompt": "bonsai",
+    "category": "scene_props",
+    "subcategory": "植物・花"
+  },
+  {
+    "id": "v12-prop-cactus",
+    "label": "サボテン",
+    "prompt": "cactus",
+    "category": "scene_props",
+    "subcategory": "植物・花"
+  },
+  {
+    "id": "v12-prop-coffee",
+    "label": "コーヒー",
+    "prompt": "coffee",
+    "category": "scene_props",
+    "subcategory": "食べ物・飲み物"
+  },
+  {
+    "id": "v12-prop-tea",
+    "label": "紅茶",
+    "prompt": "tea",
+    "category": "scene_props",
+    "subcategory": "食べ物・飲み物"
+  },
+  {
+    "id": "v12-prop-cake",
+    "label": "ケーキ",
+    "prompt": "cake",
+    "category": "scene_props",
+    "subcategory": "食べ物・飲み物"
+  },
+  {
+    "id": "v12-prop-parfait",
+    "label": "パフェ",
+    "prompt": "parfait",
+    "category": "scene_props",
+    "subcategory": "食べ物・飲み物"
+  },
+  {
+    "id": "v12-prop-ice-cream",
+    "label": "アイスクリーム",
+    "prompt": "ice cream",
+    "category": "scene_props",
+    "subcategory": "食べ物・飲み物"
+  },
+  {
+    "id": "v12-prop-bread",
+    "label": "パン",
+    "prompt": "bread",
+    "category": "scene_props",
+    "subcategory": "食べ物・飲み物"
+  },
+  {
+    "id": "v12-prop-croissant",
+    "label": "クロワッサン",
+    "prompt": "croissant",
+    "category": "scene_props",
+    "subcategory": "食べ物・飲み物"
+  },
+  {
+    "id": "v12-prop-bento",
+    "label": "弁当",
+    "prompt": "bento",
+    "category": "scene_props",
+    "subcategory": "食べ物・飲み物"
+  },
+  {
+    "id": "v12-prop-ramen",
+    "label": "ラーメン",
+    "prompt": "ramen",
+    "category": "scene_props",
+    "subcategory": "食べ物・飲み物"
+  },
+  {
+    "id": "v12-prop-sushi",
+    "label": "寿司",
+    "prompt": "sushi",
+    "category": "scene_props",
+    "subcategory": "食べ物・飲み物"
+  },
+  {
+    "id": "v12-prop-pizza",
+    "label": "ピザ",
+    "prompt": "pizza",
+    "category": "scene_props",
+    "subcategory": "食べ物・飲み物"
+  },
+  {
+    "id": "v12-prop-hamburger",
+    "label": "ハンバーガー",
+    "prompt": "hamburger",
+    "category": "scene_props",
+    "subcategory": "食べ物・飲み物"
+  },
+  {
+    "id": "v12-prop-fruit-basket",
+    "label": "果物盛り",
+    "prompt": "fruit basket",
+    "category": "scene_props",
+    "subcategory": "食べ物・飲み物"
+  },
+  {
+    "id": "v12-prop-apple",
+    "label": "リンゴ",
+    "prompt": "apple",
+    "category": "scene_props",
+    "subcategory": "食べ物・飲み物"
+  },
+  {
+    "id": "v12-prop-strawberries",
+    "label": "いちご",
+    "prompt": "strawberries",
+    "category": "scene_props",
+    "subcategory": "食べ物・飲み物"
+  },
+  {
+    "id": "v12-prop-wine-glass",
+    "label": "ワイングラス",
+    "prompt": "wine glass",
+    "category": "scene_props",
+    "subcategory": "食べ物・飲み物"
+  },
+  {
+    "id": "v12-prop-smartphone",
+    "label": "スマートフォン",
+    "prompt": "smartphone",
+    "category": "scene_props",
+    "subcategory": "電子機器"
+  },
+  {
+    "id": "v12-prop-laptop",
+    "label": "ノートパソコン",
+    "prompt": "laptop",
+    "category": "scene_props",
+    "subcategory": "電子機器"
+  },
+  {
+    "id": "v12-prop-desktop-computer",
+    "label": "デスクトップPC",
+    "prompt": "desktop computer",
+    "category": "scene_props",
+    "subcategory": "電子機器"
+  },
+  {
+    "id": "v12-prop-computer-monitor",
+    "label": "モニター",
+    "prompt": "computer monitor",
+    "category": "scene_props",
+    "subcategory": "電子機器"
+  },
+  {
+    "id": "v12-prop-keyboard",
+    "label": "キーボード",
+    "prompt": "keyboard",
+    "category": "scene_props",
+    "subcategory": "電子機器"
+  },
+  {
+    "id": "v12-prop-computer-mouse",
+    "label": "マウス",
+    "prompt": "computer mouse",
+    "category": "scene_props",
+    "subcategory": "電子機器"
+  },
+  {
+    "id": "v12-prop-tablet",
+    "label": "タブレット",
+    "prompt": "tablet",
+    "category": "scene_props",
+    "subcategory": "電子機器"
+  },
+  {
+    "id": "v12-prop-headphones",
+    "label": "ヘッドホン",
+    "prompt": "headphones",
+    "category": "scene_props",
+    "subcategory": "電子機器"
+  },
+  {
+    "id": "v12-prop-game-console",
+    "label": "ゲーム機",
+    "prompt": "game console",
+    "category": "scene_props",
+    "subcategory": "電子機器"
+  },
+  {
+    "id": "v12-prop-camera",
+    "label": "カメラ",
+    "prompt": "camera",
+    "category": "scene_props",
+    "subcategory": "電子機器"
+  },
+  {
+    "id": "v12-prop-microphone",
+    "label": "マイク",
+    "prompt": "microphone",
+    "category": "scene_props",
+    "subcategory": "電子機器"
+  },
+  {
+    "id": "v12-prop-speakers",
+    "label": "スピーカー",
+    "prompt": "speakers",
+    "category": "scene_props",
+    "subcategory": "電子機器"
+  },
+  {
+    "id": "v12-prop-bicycle",
+    "label": "自転車",
+    "prompt": "bicycle",
+    "category": "scene_props",
+    "subcategory": "乗り物"
+  },
+  {
+    "id": "v12-prop-motorcycle",
+    "label": "オートバイ",
+    "prompt": "motorcycle",
+    "category": "scene_props",
+    "subcategory": "乗り物"
+  },
+  {
+    "id": "v12-prop-scooter",
+    "label": "スクーター",
+    "prompt": "scooter",
+    "category": "scene_props",
+    "subcategory": "乗り物"
+  },
+  {
+    "id": "v12-prop-car",
+    "label": "自動車",
+    "prompt": "car",
+    "category": "scene_props",
+    "subcategory": "乗り物"
+  },
+  {
+    "id": "v12-prop-sports-car",
+    "label": "スポーツカー",
+    "prompt": "sports car",
+    "category": "scene_props",
+    "subcategory": "乗り物"
+  },
+  {
+    "id": "v12-prop-taxi",
+    "label": "タクシー",
+    "prompt": "taxi",
+    "category": "scene_props",
+    "subcategory": "乗り物"
+  },
+  {
+    "id": "v12-prop-bus",
+    "label": "バス",
+    "prompt": "bus",
+    "category": "scene_props",
+    "subcategory": "乗り物"
+  },
+  {
+    "id": "v12-prop-train",
+    "label": "電車",
+    "prompt": "train",
+    "category": "scene_props",
+    "subcategory": "乗り物"
+  },
+  {
+    "id": "v12-prop-subway-train",
+    "label": "地下鉄",
+    "prompt": "subway train",
+    "category": "scene_props",
+    "subcategory": "乗り物"
+  },
+  {
+    "id": "v12-prop-airplane",
+    "label": "飛行機",
+    "prompt": "airplane",
+    "category": "scene_props",
+    "subcategory": "乗り物"
+  },
+  {
+    "id": "v12-prop-helicopter",
+    "label": "ヘリコプター",
+    "prompt": "helicopter",
+    "category": "scene_props",
+    "subcategory": "乗り物"
+  },
+  {
+    "id": "v12-prop-ship",
+    "label": "船",
+    "prompt": "ship",
+    "category": "scene_props",
+    "subcategory": "乗り物"
+  },
+  {
+    "id": "v12-prop-boat",
+    "label": "ボート",
+    "prompt": "boat",
+    "category": "scene_props",
+    "subcategory": "乗り物"
+  },
+  {
+    "id": "v12-prop-streetlight",
+    "label": "街灯",
+    "prompt": "streetlight",
+    "category": "scene_props",
+    "subcategory": "屋外設備"
+  },
+  {
+    "id": "v12-prop-traffic-light",
+    "label": "信号機",
+    "prompt": "traffic light",
+    "category": "scene_props",
+    "subcategory": "屋外設備"
+  },
+  {
+    "id": "v12-prop-utility-pole",
+    "label": "電柱",
+    "prompt": "utility pole",
+    "category": "scene_props",
+    "subcategory": "屋外設備"
+  },
+  {
+    "id": "v12-prop-mailbox",
+    "label": "郵便ポスト",
+    "prompt": "mailbox",
+    "category": "scene_props",
+    "subcategory": "屋外設備"
+  },
+  {
+    "id": "v12-prop-park-bench",
+    "label": "公園ベンチ",
+    "prompt": "park bench",
+    "category": "scene_props",
+    "subcategory": "屋外設備"
+  },
+  {
+    "id": "v12-prop-slide",
+    "label": "滑り台",
+    "prompt": "slide",
+    "category": "scene_props",
+    "subcategory": "屋外設備"
+  },
+  {
+    "id": "v12-prop-swing",
+    "label": "ブランコ",
+    "prompt": "swing",
+    "category": "scene_props",
+    "subcategory": "屋外設備"
+  },
+  {
+    "id": "v12-prop-jungle-gym",
+    "label": "ジャングルジム",
+    "prompt": "jungle gym",
+    "category": "scene_props",
+    "subcategory": "屋外設備"
+  },
+  {
+    "id": "v12-prop-sandbox",
+    "label": "砂場",
+    "prompt": "sandbox",
+    "category": "scene_props",
+    "subcategory": "屋外設備"
+  },
+  {
+    "id": "v12-prop-bus-stop-sign",
+    "label": "バス停標識",
+    "prompt": "bus stop sign",
+    "category": "scene_props",
+    "subcategory": "屋外設備"
+  },
+  {
+    "id": "v12-prop-road-sign",
+    "label": "道路標識",
+    "prompt": "road sign",
+    "category": "scene_props",
+    "subcategory": "屋外設備"
+  },
+  {
+    "id": "v12-prop-guardrail",
+    "label": "ガードレール",
+    "prompt": "guardrail",
+    "category": "scene_props",
+    "subcategory": "屋外設備"
+  },
+  {
+    "id": "v12-prop-painting-on-wall",
+    "label": "絵画",
+    "prompt": "painting on wall",
+    "category": "scene_props",
+    "subcategory": "装飾"
+  },
+  {
+    "id": "v12-prop-picture-frame",
+    "label": "額縁",
+    "prompt": "picture frame",
+    "category": "scene_props",
+    "subcategory": "装飾"
+  },
+  {
+    "id": "v12-prop-poster",
+    "label": "ポスター",
+    "prompt": "poster",
+    "category": "scene_props",
+    "subcategory": "装飾"
+  },
+  {
+    "id": "v12-prop-stuffed-toy",
+    "label": "ぬいぐるみ",
+    "prompt": "stuffed toy",
+    "category": "scene_props",
+    "subcategory": "装飾"
+  },
+  {
+    "id": "v12-prop-cushion",
+    "label": "クッション",
+    "prompt": "cushion",
+    "category": "scene_props",
+    "subcategory": "装飾"
+  },
+  {
+    "id": "v12-prop-candles",
+    "label": "キャンドル",
+    "prompt": "candles",
+    "category": "scene_props",
+    "subcategory": "装飾"
+  },
+  {
+    "id": "v12-prop-christmas-tree",
+    "label": "クリスマスツリー",
+    "prompt": "christmas tree",
+    "category": "scene_props",
+    "subcategory": "装飾"
+  },
+  {
+    "id": "v12-prop-wind-chime",
+    "label": "風鈴",
+    "prompt": "wind chime",
+    "category": "scene_props",
+    "subcategory": "装飾"
+  },
+  {
+    "id": "v12-prop-paper-lantern",
+    "label": "提灯",
+    "prompt": "paper lantern",
+    "category": "scene_props",
+    "subcategory": "装飾"
+  },
+  {
+    "id": "v12-prop-cat",
+    "label": "猫",
+    "prompt": "cat",
+    "category": "scene_props",
+    "subcategory": "動物"
+  },
+  {
+    "id": "v12-prop-dog",
+    "label": "犬",
+    "prompt": "dog",
+    "category": "scene_props",
+    "subcategory": "動物"
+  },
+  {
+    "id": "v12-prop-fox",
+    "label": "狐",
+    "prompt": "fox",
+    "category": "scene_props",
+    "subcategory": "動物"
+  },
+  {
+    "id": "v12-prop-wolf",
+    "label": "狼",
+    "prompt": "wolf",
+    "category": "scene_props",
+    "subcategory": "動物"
+  },
+  {
+    "id": "v12-prop-rabbit",
+    "label": "うさぎ",
+    "prompt": "rabbit",
+    "category": "scene_props",
+    "subcategory": "動物"
+  },
+  {
+    "id": "v12-prop-bird",
+    "label": "鳥",
+    "prompt": "bird",
+    "category": "scene_props",
+    "subcategory": "動物"
+  },
+  {
+    "id": "v12-prop-butterfly",
+    "label": "蝶",
+    "prompt": "butterfly",
+    "category": "scene_props",
+    "subcategory": "動物"
+  },
+  {
+    "id": "v12-prop-goldfish",
+    "label": "金魚",
+    "prompt": "goldfish",
+    "category": "scene_props",
+    "subcategory": "動物"
+  },
+  {
+    "id": "v12-prop-tropical-fish",
+    "label": "熱帯魚",
+    "prompt": "tropical fish",
+    "category": "scene_props",
+    "subcategory": "動物"
+  },
+  {
+    "id": "v12-prop-horse",
+    "label": "馬",
+    "prompt": "horse",
+    "category": "scene_props",
+    "subcategory": "動物"
+  }
+]

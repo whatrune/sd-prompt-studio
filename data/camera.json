@@ -1,0 +1,561 @@
+[
+  {
+    "id": "cam-portrait",
+    "label": "ポートレート",
+    "prompt": "portrait",
+    "category": "camera",
+    "subcategory": "画角・距離",
+    "slot": "camera_framing",
+    "generationNote": "人物を主役にした標準的な人物構図。背景より顔や上半身を優先しやすく、単独キャラクター向け。"
+  },
+  {
+    "id": "cam-close-up",
+    "label": "クローズアップ",
+    "prompt": "close-up",
+    "category": "camera",
+    "subcategory": "画角・距離",
+    "slot": "camera_framing",
+    "generationNote": "顔や一部を大きく切り取る近距離構図。表情を強調できる一方、髪や肩が画面外になりやすい。"
+  },
+  {
+    "id": "cam-extreme-close-up",
+    "label": "超接写",
+    "prompt": "extreme close-up",
+    "category": "camera",
+    "subcategory": "画角・距離",
+    "slot": "camera_framing",
+    "generationNote": "目や口など顔の一部まで寄る超接写。細部表現向けだが、顔全体や衣装はほぼ写らない。"
+  },
+  {
+    "id": "cam-face-focus",
+    "label": "顔中心",
+    "prompt": "face focus",
+    "category": "camera",
+    "subcategory": "画角・距離",
+    "slot": "camera_framing",
+    "generationNote": "顔へ視線を集める指定。構図そのものより、顔の描写優先度を上げたいときに使う。"
+  },
+  {
+    "id": "cam-upper-body",
+    "label": "上半身",
+    "prompt": "upper body",
+    "category": "camera",
+    "subcategory": "画角・距離",
+    "slot": "camera_framing",
+    "generationNote": "胸から上を中心に収める構図。表情と衣装上半身を両立しやすい。"
+  },
+  {
+    "id": "cam-bust-shot",
+    "label": "バストショット",
+    "prompt": "bust shot",
+    "category": "camera",
+    "subcategory": "画角・距離",
+    "slot": "camera_framing",
+    "generationNote": "胸元から上を写す人物構図。上半身よりやや寄り気味で、顔の存在感が強くなる。"
+  },
+  {
+    "id": "cam-cowboy-shot",
+    "label": "膝上構図",
+    "prompt": "cowboy shot",
+    "category": "camera",
+    "subcategory": "画角・距離",
+    "slot": "camera_framing",
+    "generationNote": "太もも付近から上を収める構図。手や腰回りを見せつつ、顔も十分な大きさで残せる。"
+  },
+  {
+    "id": "cam-full-body",
+    "label": "全身",
+    "prompt": "full body",
+    "category": "camera",
+    "subcategory": "画角・距離",
+    "slot": "camera_framing",
+    "generationNote": "頭から足先まで入れる全身構図。ポーズ確認に向くが、顔は小さくなりやすい。"
+  },
+  {
+    "id": "cam-wide-shot",
+    "label": "広角ショット",
+    "prompt": "wide shot",
+    "category": "camera",
+    "subcategory": "画角・距離",
+    "slot": "camera_framing",
+    "generationNote": "人物と周囲の環境を広く見せる構図。背景の情報量が増え、人物は小さくなりやすい。"
+  },
+  {
+    "id": "cam-long-shot",
+    "label": "ロングショット",
+    "prompt": "long shot",
+    "category": "camera",
+    "subcategory": "画角・距離",
+    "slot": "camera_framing",
+    "generationNote": "人物全体と広い背景を同時に見せる遠景構図。場所や状況の説明を重視したいとき向け。"
+  },
+  {
+    "id": "cam-panorama",
+    "label": "パノラマ",
+    "prompt": "panorama",
+    "category": "camera",
+    "subcategory": "画角・距離",
+    "slot": "camera_framing",
+    "generationNote": "横方向に広い景観を強調する構図。人物より背景主体になりやすく、横長比率と相性が良い。"
+  },
+  {
+    "id": "cam-front-view",
+    "label": "正面",
+    "prompt": "front view",
+    "category": "camera",
+    "subcategory": "視点",
+    "slot": "subject_orientation",
+    "generationNote": "被写体を正面から捉える標準視点。左右差が少なく、顔や衣装を確認しやすい。"
+  },
+  {
+    "id": "cam-side-view",
+    "label": "横向き",
+    "prompt": "side view",
+    "category": "camera",
+    "subcategory": "視点",
+    "slot": "subject_orientation",
+    "generationNote": "被写体を横方向から見る視点。輪郭や鼻筋、身体のシルエットが強調される。"
+  },
+  {
+    "id": "cam-three-quarter-view",
+    "label": "斜め前",
+    "prompt": "three-quarter view",
+    "category": "camera",
+    "subcategory": "視点",
+    "slot": "subject_orientation",
+    "generationNote": "正面と横顔の中間となる斜め視点。顔に立体感が出やすく、人物ポートレートで扱いやすい。"
+  },
+  {
+    "id": "cam-rear-view",
+    "label": "背面",
+    "prompt": "rear view",
+    "category": "camera",
+    "subcategory": "視点",
+    "generationNote": "背中側から見る視点。後ろ髪や背面デザインを見せたいときに使う。"
+  },
+  {
+    "id": "cam-from-above",
+    "label": "俯瞰",
+    "prompt": "from above",
+    "category": "camera",
+    "subcategory": "視点",
+    "slot": "camera_vertical_angle",
+    "generationNote": "被写体を上から見下ろす視点。身体が小さく見えやすく、可憐さや弱さを演出しやすい。"
+  },
+  {
+    "id": "cam-from-below",
+    "label": "煽り",
+    "prompt": "from below",
+    "category": "camera",
+    "subcategory": "視点",
+    "slot": "camera_vertical_angle",
+    "generationNote": "被写体を下から見上げる視点。脚や身体が大きく見え、迫力や威圧感が出やすい。"
+  },
+  {
+    "id": "cam-bird-eye-view",
+    "label": "鳥瞰",
+    "prompt": "bird eye view",
+    "category": "camera",
+    "subcategory": "視点",
+    "generationNote": "かなり高い位置から見下ろす鳥瞰視点。人物より床面や周囲の配置を見せる構図向け。"
+  },
+  {
+    "id": "cam-worm-eye-view",
+    "label": "極端な煽り",
+    "prompt": "worm eye view",
+    "category": "camera",
+    "subcategory": "視点",
+    "generationNote": "地面近くから大きく見上げる極端な煽り。遠近感が強く、脚や手前の物体が誇張されやすい。"
+  },
+  {
+    "id": "cam-over-the-shoulder-shot",
+    "label": "肩越し",
+    "prompt": "over-the-shoulder shot",
+    "category": "camera",
+    "subcategory": "視点",
+    "generationNote": "人物の肩越しに奥を見る構図。会話、対面、視線の先を見せる場面に向く。"
+  },
+  {
+    "id": "cam-pov",
+    "label": "主観視点",
+    "prompt": "pov",
+    "category": "camera",
+    "subcategory": "視点",
+    "generationNote": "カメラを登場人物の目として扱う主観視点。手や相手との距離感を強調しやすい。"
+  },
+  {
+    "id": "cam-selfie-perspective",
+    "label": "自撮り視点",
+    "prompt": "selfie perspective",
+    "category": "camera",
+    "subcategory": "視点",
+    "generationNote": "腕を伸ばして自分を撮るような近距離視点。顔が大きく、背景に広角歪みが出やすい。"
+  },
+  {
+    "id": "cam-centered-composition",
+    "label": "中央構図",
+    "prompt": "centered composition",
+    "category": "camera",
+    "subcategory": "構図",
+    "generationNote": "主役を画面中央に置く安定した構図。視線誘導が明確で、アイコンや立ち絵に向く。"
+  },
+  {
+    "id": "cam-symmetrical-composition",
+    "label": "左右対称",
+    "prompt": "symmetrical composition",
+    "category": "camera",
+    "subcategory": "構図",
+    "generationNote": "左右をほぼ対称に揃える構図。整然、荘厳、無機質な印象を作りやすい。"
+  },
+  {
+    "id": "cam-rule-of-thirds",
+    "label": "三分割構図",
+    "prompt": "rule of thirds",
+    "category": "camera",
+    "subcategory": "構図",
+    "generationNote": "主役を三分割線や交点付近に置く構図。余白と背景を活かしつつ自然なバランスを作る。"
+  },
+  {
+    "id": "cam-dynamic-composition",
+    "label": "動的構図",
+    "prompt": "dynamic composition",
+    "category": "camera",
+    "subcategory": "構図",
+    "generationNote": "斜線や前後差を使って動きを感じさせる構図。アクションや躍動感のあるポーズと相性が良い。"
+  },
+  {
+    "id": "cam-diagonal-composition",
+    "label": "対角線構図",
+    "prompt": "diagonal composition",
+    "category": "camera",
+    "subcategory": "構図",
+    "generationNote": "人物や背景の主要線を対角方向へ配置する構図。画面に流れと緊張感を加える。"
+  },
+  {
+    "id": "cam-dutch-angle",
+    "label": "斜め構図",
+    "prompt": "dutch angle",
+    "category": "camera",
+    "subcategory": "構図",
+    "generationNote": "カメラ全体を斜めに傾ける構図。不安定さ、緊張感、スピード感を強調する。"
+  },
+  {
+    "id": "cam-tilted-frame",
+    "label": "傾いたフレーム",
+    "prompt": "tilted frame",
+    "category": "camera",
+    "subcategory": "構図",
+    "generationNote": "水平線を傾けた画面。Dutch angleより広い意味で、軽い傾きから大きな傾きまで含む。"
+  },
+  {
+    "id": "cam-profile-composition",
+    "label": "横顔構図",
+    "prompt": "profile composition",
+    "category": "camera",
+    "subcategory": "構図",
+    "generationNote": "横顔を主役にした構図。顔の輪郭や視線の方向を見せたいときに向く。"
+  },
+  {
+    "id": "cam-silhouette-composition",
+    "label": "シルエット構図",
+    "prompt": "silhouette composition",
+    "category": "camera",
+    "subcategory": "構図",
+    "generationNote": "逆光などで輪郭を主役にする構図。細部より形、ポーズ、雰囲気を優先する。"
+  },
+  {
+    "id": "cam-negative-space",
+    "label": "余白構図",
+    "prompt": "negative space",
+    "category": "camera",
+    "subcategory": "構図",
+    "generationNote": "主役の周囲に大きな余白を取る構図。孤独感、静けさ、デザイン性を出しやすい。"
+  },
+  {
+    "id": "cam-wide-angle-lens",
+    "label": "広角レンズ",
+    "prompt": "wide-angle lens",
+    "category": "camera",
+    "subcategory": "レンズ",
+    "slot": "camera_lens",
+    "generationNote": "広い範囲を写し、手前を大きく奥を小さく見せるレンズ表現。躍動感や奥行きが強くなる。"
+  },
+  {
+    "id": "cam-ultra-wide-angle-lens",
+    "label": "超広角",
+    "prompt": "ultra wide-angle lens",
+    "category": "camera",
+    "subcategory": "レンズ",
+    "slot": "camera_lens",
+    "generationNote": "広角よりさらに強い遠近誇張。狭い室内や大胆なアクション向けだが、顔や手足が歪みやすい。"
+  },
+  {
+    "id": "cam-telephoto-lens",
+    "label": "望遠レンズ",
+    "prompt": "telephoto lens",
+    "category": "camera",
+    "subcategory": "レンズ",
+    "slot": "camera_lens",
+    "generationNote": "遠近感を圧縮し、背景を被写体へ近づけて見せるレンズ表現。顔の歪みが少なく、背景ボケと相性が良い。"
+  },
+  {
+    "id": "cam-fisheye-lens",
+    "label": "魚眼",
+    "prompt": "fisheye lens",
+    "category": "camera",
+    "subcategory": "レンズ",
+    "slot": "camera_lens",
+    "generationNote": "画面周辺を大きく湾曲させる魚眼表現。強い広がりとコミカルな歪みを作る。"
+  },
+  {
+    "id": "cam-macro-lens",
+    "label": "マクロレンズ",
+    "prompt": "macro lens",
+    "category": "camera",
+    "subcategory": "レンズ",
+    "slot": "camera_lens",
+    "generationNote": "小物や目、花などを極端に大きく写す接写表現。被写界深度が浅くなりやすい。"
+  },
+  {
+    "id": "cam-shallow-depth-of-field",
+    "label": "浅い被写界深度",
+    "prompt": "shallow depth of field",
+    "category": "camera",
+    "subcategory": "レンズ",
+    "slot": "camera_lens",
+    "generationNote": "ピント範囲を狭くし、前景や背景をぼかす。主役を目立たせやすいが、全身や背景情報は失われやすい。"
+  },
+  {
+    "id": "cam-deep-focus",
+    "label": "深い焦点",
+    "prompt": "deep focus",
+    "category": "camera",
+    "subcategory": "レンズ",
+    "slot": "camera_lens",
+    "generationNote": "手前から奥まで広くピントを合わせる表現。背景を含む場面全体を見せたいときに向く。"
+  },
+  {
+    "id": "cam-perspective-distortion",
+    "label": "遠近歪み",
+    "prompt": "perspective distortion",
+    "category": "camera",
+    "subcategory": "レンズ",
+    "slot": "camera_lens",
+    "generationNote": "近い部分を大きく、遠い部分を小さく誇張する表現。手足をカメラへ突き出す構図と相性が良い。"
+  },
+  {
+    "id": "cam-v5-medium-close-up",
+    "label": "バストアップ",
+    "prompt": "medium close-up",
+    "category": "camera",
+    "subcategory": "画角・距離",
+    "slot": "camera_framing",
+    "generationNote": "胸から頭までを中心に写す構図。表情を強調しつつ、肩や衣装上部も残せる。"
+  },
+  {
+    "id": "cam-v5-medium-shot",
+    "label": "腰上",
+    "prompt": "medium shot",
+    "category": "camera",
+    "subcategory": "画角・距離",
+    "slot": "camera_framing",
+    "generationNote": "腰から上を収める構図。手の動き、衣装、表情をバランスよく見せやすい。"
+  },
+  {
+    "id": "cam-v5-knee-shot",
+    "label": "膝上",
+    "prompt": "knee shot",
+    "category": "camera",
+    "subcategory": "画角・距離",
+    "slot": "camera_framing",
+    "generationNote": "膝付近から上を収める構図。立ち姿の雰囲気を残しながら顔も大きく見せられる。"
+  },
+  {
+    "id": "cam-v5-extreme-wide-shot",
+    "label": "超ロングショット",
+    "prompt": "extreme wide shot",
+    "category": "camera",
+    "subcategory": "画角・距離",
+    "slot": "camera_framing",
+    "generationNote": "非常に広い背景の中へ人物を小さく置く構図。スケール感や孤独感の演出向け。"
+  },
+  {
+    "id": "cam-v5-low-angle",
+    "label": "ローアングル",
+    "prompt": "low angle",
+    "category": "camera",
+    "subcategory": "視点",
+    "generationNote": "カメラを低い位置に置いて見上げる構図。脚長、迫力、優位性を強調しやすい。"
+  },
+  {
+    "id": "cam-v5-high-angle",
+    "label": "ハイアングル",
+    "prompt": "high angle",
+    "category": "camera",
+    "subcategory": "視点",
+    "generationNote": "カメラを高い位置に置いて見下ろす構図。頭部が大きく、身体が小さく見えやすい。"
+  },
+  {
+    "id": "cam-v5-profile-view",
+    "label": "真横",
+    "prompt": "profile view",
+    "category": "camera",
+    "subcategory": "視点",
+    "generationNote": "被写体を真横から見る視点。顔や身体の側面シルエットを明確に見せる。"
+  },
+  {
+    "id": "cam-v5-35mm-lens",
+    "label": "35mmレンズ",
+    "prompt": "35mm lens",
+    "category": "camera",
+    "subcategory": "レンズ",
+    "slot": "camera_lens",
+    "generationNote": "やや広角寄りで、人物と背景を両方見せやすい。近距離では遠近感が少し強く出る。"
+  },
+  {
+    "id": "cam-v5-50mm-lens",
+    "label": "50mmレンズ",
+    "prompt": "50mm lens",
+    "category": "camera",
+    "subcategory": "レンズ",
+    "slot": "camera_lens",
+    "generationNote": "標準的で自然な遠近感。人物、日常風景、半身構図に扱いやすい。"
+  },
+  {
+    "id": "cam-v5-85mm-lens",
+    "label": "85mmレンズ",
+    "prompt": "85mm lens",
+    "category": "camera",
+    "subcategory": "レンズ",
+    "slot": "camera_lens",
+    "generationNote": "人物向けの中望遠表現。顔の歪みを抑え、背景を柔らかく整理しやすい。"
+  },
+  {
+    "id": "rin-camera-upper-body",
+    "label": "上半身",
+    "prompt": "upper body",
+    "category": "camera",
+    "subcategory": "画角・距離",
+    "aliases": [],
+    "related": [],
+    "sourceNote": "公開プロンプト資料を参考に独自分類で再構築",
+    "slot": "camera_framing",
+    "generationNote": "胸から上を中心に収める構図。表情と衣装上半身を両立しやすい。"
+  },
+  {
+    "id": "rin-camera-bust-shot",
+    "label": "バストアップ",
+    "prompt": "bust shot",
+    "category": "camera",
+    "subcategory": "画角・距離",
+    "aliases": [],
+    "related": [],
+    "sourceNote": "公開プロンプト資料を参考に独自分類で再構築",
+    "slot": "camera_framing",
+    "generationNote": "胸元から上を写す人物構図。上半身よりやや寄り気味で、顔の存在感が強くなる。"
+  },
+  {
+    "id": "rin-camera-knee-shot",
+    "label": "膝上まで",
+    "prompt": "knee shot",
+    "category": "camera",
+    "subcategory": "画角・距離",
+    "aliases": [],
+    "related": [],
+    "sourceNote": "公開プロンプト資料を参考に独自分類で再構築",
+    "slot": "camera_framing",
+    "generationNote": "膝付近から上を収める構図。立ち姿の雰囲気を残しながら顔も大きく見せられる。"
+  },
+  {
+    "id": "rin-camera-feet-out",
+    "label": "足元を画面外へ",
+    "prompt": "feet out of frame",
+    "category": "camera",
+    "subcategory": "画角・距離",
+    "aliases": [],
+    "related": [],
+    "sourceNote": "公開プロンプト資料を参考に独自分類で再構築",
+    "slot": "camera_framing",
+    "generationNote": "足元だけを画面外に切る構図。全身指定との併用は競合しやすい。"
+  },
+  {
+    "id": "rin-camera-profile",
+    "label": "横顔",
+    "prompt": "profile",
+    "category": "camera",
+    "subcategory": "視点",
+    "aliases": [],
+    "related": [],
+    "sourceNote": "公開プロンプト資料を参考に独自分類で再構築",
+    "generationNote": "横顔を中心に見せる指定。顔の側面や視線方向を明確にしたいとき向け。"
+  },
+  {
+    "id": "rin-camera-three-quarter",
+    "label": "斜め向き",
+    "prompt": "three-quarter view",
+    "category": "camera",
+    "subcategory": "視点",
+    "aliases": [],
+    "related": [],
+    "sourceNote": "公開プロンプト資料を参考に独自分類で再構築",
+    "slot": "subject_orientation",
+    "generationNote": "正面と横顔の中間となる斜め視点。顔に立体感が出やすく、人物ポートレートで扱いやすい。"
+  },
+  {
+    "id": "rin-camera-over-shoulder",
+    "label": "肩越し",
+    "prompt": "over-the-shoulder shot",
+    "category": "camera",
+    "subcategory": "構図",
+    "aliases": [],
+    "related": [],
+    "sourceNote": "公開プロンプト資料を参考に独自分類で再構築",
+    "generationNote": "人物の肩越しに奥を見る構図。会話、対面、視線の先を見せる場面に向く。"
+  },
+  {
+    "id": "rin-camera-pov",
+    "label": "主観視点",
+    "prompt": "pov",
+    "category": "camera",
+    "subcategory": "構図",
+    "aliases": [],
+    "related": [],
+    "sourceNote": "公開プロンプト資料を参考に独自分類で再構築",
+    "generationNote": "カメラを登場人物の目として扱う主観視点。手や相手との距離感を強調しやすい。"
+  },
+  {
+    "id": "rin-camera-dutch",
+    "label": "傾いた構図",
+    "prompt": "dutch angle",
+    "category": "camera",
+    "subcategory": "構図",
+    "aliases": [],
+    "related": [],
+    "sourceNote": "公開プロンプト資料を参考に独自分類で再構築",
+    "generationNote": "カメラ全体を斜めに傾ける構図。不安定さ、緊張感、スピード感を強調する。"
+  },
+  {
+    "id": "rin-camera-wide-angle",
+    "label": "広角",
+    "prompt": "wide-angle lens",
+    "category": "camera",
+    "subcategory": "レンズ",
+    "aliases": [],
+    "related": [],
+    "sourceNote": "公開プロンプト資料を参考に独自分類で再構築",
+    "slot": "camera_lens",
+    "generationNote": "広い範囲を写し、手前を大きく奥を小さく見せるレンズ表現。躍動感や奥行きが強くなる。"
+  },
+  {
+    "id": "rin-camera-fisheye",
+    "label": "魚眼",
+    "prompt": "fisheye",
+    "category": "camera",
+    "subcategory": "レンズ",
+    "aliases": [],
+    "related": [],
+    "sourceNote": "公開プロンプト資料を参考に独自分類で再構築",
+    "slot": "camera_lens",
+    "generationNote": "画面周辺を湾曲させる魚眼表現。中心を大きく、端を強く歪ませたいときに使う。"
+  }
+]

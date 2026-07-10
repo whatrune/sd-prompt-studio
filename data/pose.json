@@ -1,0 +1,2665 @@
+[
+  {
+    "id": "pos-standing",
+    "label": "立つ",
+    "prompt": "standing",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-standing-straight",
+    "label": "まっすぐ立つ",
+    "prompt": "standing straight",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-contrapposto",
+    "label": "コントラポスト",
+    "prompt": "contrapposto",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture",
+    "generationNote": "体重を片脚へ預け、肩と腰を逆方向へ傾ける自然な立ち姿。直立より柔らかく、ファッション系の全身構図に向きます。"
+  },
+  {
+    "id": "pos-leaning-forward",
+    "label": "前傾",
+    "prompt": "leaning forward",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-leaning-back",
+    "label": "後ろに反る",
+    "prompt": "leaning back",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-leaning-against-wall",
+    "label": "壁にもたれる",
+    "prompt": "leaning against wall",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-one-leg-raised",
+    "label": "片脚を上げる",
+    "prompt": "one leg raised",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-crossed-legs",
+    "label": "脚を交差",
+    "prompt": "crossed legs",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "aliases": [
+      "脚組み座り",
+      "座って脚を組む"
+    ],
+    "related": [
+      "sitting"
+    ],
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-legs-apart",
+    "label": "脚を開く",
+    "prompt": "legs apart",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-tiptoes",
+    "label": "つま先立ち",
+    "prompt": "tiptoes",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "aliases": [
+      "背伸び"
+    ],
+    "related": [
+      "heel up",
+      "full body"
+    ],
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-walking",
+    "label": "歩く",
+    "prompt": "walking",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-running",
+    "label": "走る",
+    "prompt": "running",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-jumping",
+    "label": "ジャンプ",
+    "prompt": "jumping",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-sitting",
+    "label": "座る",
+    "prompt": "sitting",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-sitting-on-chair",
+    "label": "椅子に座る",
+    "prompt": "sitting on chair",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-sitting-on-floor",
+    "label": "床に座る",
+    "prompt": "sitting on floor",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-kneeling",
+    "label": "膝立ち",
+    "prompt": "kneeling",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-seiza",
+    "label": "正座",
+    "prompt": "seiza",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "aliases": [
+      "正座する",
+      "formal kneel"
+    ],
+    "related": [
+      "sitting",
+      "kneeling"
+    ],
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-squatting",
+    "label": "しゃがむ",
+    "prompt": "squatting",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture",
+    "aliases": [
+      "スクワット",
+      "手を頭に置いてしゃがむ"
+    ],
+    "related": [
+      "hands on head",
+      "full body"
+    ]
+  },
+  {
+    "id": "pos-crouching",
+    "label": "かがむ",
+    "prompt": "crouching",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-lying",
+    "label": "横になる",
+    "prompt": "lying",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-lying-on-back",
+    "label": "仰向け",
+    "prompt": "lying on back",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-lying-on-stomach",
+    "label": "うつ伏せ",
+    "prompt": "lying on stomach",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-sideways-lying",
+    "label": "横向きに寝る",
+    "prompt": "sideways lying",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-sleeping",
+    "label": "眠る",
+    "prompt": "sleeping",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-arms-crossed",
+    "label": "腕組み",
+    "prompt": "arms crossed",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-hands-on-hips",
+    "label": "腰に手",
+    "prompt": "hands on hips",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-hand-on-chest",
+    "label": "胸に手",
+    "prompt": "hand on chest",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-hand-on-cheek",
+    "label": "頬に手",
+    "prompt": "hand on cheek",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-hand-on-chin",
+    "label": "顎に手",
+    "prompt": "hand on chin",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-hand-in-hair",
+    "label": "髪に手",
+    "prompt": "hand in hair",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-hands-behind-back",
+    "label": "手を後ろに",
+    "prompt": "hands behind back",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-hands-behind-head",
+    "label": "手を頭の後ろに",
+    "prompt": "hands behind head",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-one-hand-raised",
+    "label": "片手を上げる",
+    "prompt": "one hand raised",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-both-hands-raised",
+    "label": "両手を上げる",
+    "prompt": "both hands raised",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-waving",
+    "label": "手を振る",
+    "prompt": "waving",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-peace-sign",
+    "label": "ピース",
+    "prompt": "peace sign",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-thumbs-up",
+    "label": "親指を立てる",
+    "prompt": "thumbs up",
+    "category": "pose",
+    "subcategory": "手・腕",
+    "aliases": [
+      "グッジョブ",
+      "サムズアップ"
+    ]
+  },
+  {
+    "id": "pos-finger-gun",
+    "label": "指鉄砲",
+    "prompt": "finger gun",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-pointing",
+    "label": "指差す",
+    "prompt": "pointing",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-covering-mouth",
+    "label": "口を覆う",
+    "prompt": "covering mouth",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-covering-face",
+    "label": "顔を覆う",
+    "prompt": "covering face",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-salute",
+    "label": "敬礼",
+    "prompt": "salute",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-praying",
+    "label": "祈る",
+    "prompt": "praying",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-clapping",
+    "label": "拍手",
+    "prompt": "clapping",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-head-tilt",
+    "label": "首をかしげる",
+    "prompt": "head tilt",
+    "category": "pose",
+    "subcategory": "頭・上半身"
+  },
+  {
+    "id": "pos-looking-back-over-shoulder",
+    "label": "肩越しに振り返る",
+    "prompt": "looking back over shoulder",
+    "category": "pose",
+    "subcategory": "頭・上半身"
+  },
+  {
+    "id": "pos-arched-back",
+    "label": "背中を反らす",
+    "prompt": "arched back",
+    "category": "pose",
+    "subcategory": "頭・上半身",
+    "aliases": [
+      "反り腰"
+    ]
+  },
+  {
+    "id": "pos-bent-over",
+    "label": "前屈み",
+    "prompt": "bent over",
+    "category": "pose",
+    "subcategory": "頭・上半身",
+    "aliases": [
+      "前かがみ"
+    ]
+  },
+  {
+    "id": "pos-stretching",
+    "label": "伸びをする",
+    "prompt": "stretching",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-twisting-torso",
+    "label": "胴をひねる",
+    "prompt": "twisting torso",
+    "category": "pose",
+    "subcategory": "頭・上半身"
+  },
+  {
+    "id": "pos-hair-flip",
+    "label": "髪を払う",
+    "prompt": "hair flip",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-scratching-nose",
+    "label": "鼻をかく",
+    "prompt": "scratching nose",
+    "category": "pose",
+    "subcategory": "頭・上半身"
+  },
+  {
+    "id": "pos-touching-lips",
+    "label": "唇に触れる",
+    "prompt": "touching lips",
+    "category": "pose",
+    "subcategory": "頭・上半身"
+  },
+  {
+    "id": "pos-adjusting-glasses",
+    "label": "眼鏡を直す",
+    "prompt": "adjusting glasses",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-dancing",
+    "label": "踊る",
+    "prompt": "dancing",
+    "category": "pose",
+    "subcategory": "ダンス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-singing",
+    "label": "歌う",
+    "prompt": "singing",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-fighting-stance",
+    "label": "戦闘姿勢",
+    "prompt": "fighting stance",
+    "category": "pose",
+    "subcategory": "武術・戦闘",
+    "aliases": [
+      "ファイティングポーズ",
+      "戦闘態勢"
+    ],
+    "slot": "body_motion",
+    "generationNote": "攻撃前の構えを作ります。武器を使う場合は武器タグを別に追加し、腕のポーズを重ねすぎないほうが安定します。"
+  },
+  {
+    "id": "pos-drawing-sword",
+    "label": "剣を抜く",
+    "prompt": "drawing sword",
+    "category": "pose",
+    "subcategory": "武術・戦闘",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-casting-spell",
+    "label": "魔法を唱える",
+    "prompt": "casting spell",
+    "category": "pose",
+    "subcategory": "武術・戦闘",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-reading",
+    "label": "読む",
+    "prompt": "reading",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-writing",
+    "label": "書く",
+    "prompt": "writing",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-cooking",
+    "label": "料理する",
+    "prompt": "cooking",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-drinking",
+    "label": "飲む",
+    "prompt": "drinking",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-eating",
+    "label": "食べる",
+    "prompt": "eating",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-taking-selfie",
+    "label": "自撮り",
+    "prompt": "taking selfie",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-playing-guitar",
+    "label": "ギターを弾く",
+    "prompt": "playing guitar",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-swimming",
+    "label": "泳ぐ",
+    "prompt": "swimming",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-falling",
+    "label": "落下する",
+    "prompt": "falling",
+    "category": "pose",
+    "subcategory": "落下・バランス",
+    "slot": "body_motion",
+    "generationNote": "落下中の姿勢。髪や衣服のなびき、空中背景と組み合わせると方向感が伝わりやすくなります。"
+  },
+  {
+    "id": "pos-floating",
+    "label": "浮遊する",
+    "prompt": "floating",
+    "category": "pose",
+    "subcategory": "落下・バランス",
+    "slot": "body_motion",
+    "generationNote": "重力を感じさせず空中に浮く表現。fallingより静的で、幻想的な背景や柔らかいライティングに向きます。"
+  },
+  {
+    "id": "rin-arms-behind-back",
+    "label": "両腕を背中へ",
+    "prompt": "arms behind back",
+    "category": "pose",
+    "subcategory": "手・腕",
+    "aliases": [
+      "両手を後ろに回す"
+    ]
+  },
+  {
+    "id": "pos-v5-one-hand-on-hip",
+    "label": "片手を腰に当てる",
+    "prompt": "one hand on hip",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-v5-hands-in-pockets",
+    "label": "ポケットに手を入れる",
+    "prompt": "hands in pockets",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-v5-crossed-arms",
+    "label": "腕組み",
+    "prompt": "crossed arms",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-v5-arms-crossed-behind-back",
+    "label": "背中側で腕組み",
+    "prompt": "arms crossed behind back",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-v5-arms-raised",
+    "label": "両腕を上げる",
+    "prompt": "arms raised",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-v5-one-arm-raised",
+    "label": "片腕を上げる",
+    "prompt": "one arm raised",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-v5-double-peace-sign",
+    "label": "ダブルピース",
+    "prompt": "double peace sign",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-finger-heart",
+    "label": "指ハート",
+    "prompt": "finger heart",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-v5-heart-hands",
+    "label": "両手でハート",
+    "prompt": "heart hands",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-v5-clenched-fist",
+    "label": "拳を握る",
+    "prompt": "clenched fist",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-v5-interlocked-fingers",
+    "label": "指を組む",
+    "prompt": "interlocked fingers",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-v5-hands-clasped",
+    "label": "手を合わせる",
+    "prompt": "hands clasped",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-v5-touching-hair",
+    "label": "髪に触れる",
+    "prompt": "touching hair",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-v5-adjusting-hair",
+    "label": "髪を整える",
+    "prompt": "adjusting hair",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-v5-touching-cheek",
+    "label": "頬に触れる",
+    "prompt": "touching cheek",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-v5-chin-resting-on-hand",
+    "label": "顎に手を添える",
+    "prompt": "chin resting on hand",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "pos-v5-looking-over-shoulder",
+    "label": "肩越しに見る",
+    "prompt": "looking over shoulder",
+    "category": "pose",
+    "subcategory": "頭・上半身"
+  },
+  {
+    "id": "rin-pose-twisted-torso",
+    "label": "身体をひねる",
+    "prompt": "twisted torso",
+    "category": "pose",
+    "subcategory": "頭・上半身",
+    "aliases": [
+      "上半身をひねる"
+    ]
+  },
+  {
+    "id": "rin-pose-one-leg-standing",
+    "label": "片足立ち",
+    "prompt": "standing on one leg",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "aliases": [
+      "片脚立ち"
+    ],
+    "related": [
+      "balancing"
+    ],
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-v5-feet-apart",
+    "label": "足を開いて立つ",
+    "prompt": "feet apart",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-v5-legs-crossed",
+    "label": "脚を交差する",
+    "prompt": "legs crossed",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-v5-cross-legged",
+    "label": "あぐら",
+    "prompt": "cross-legged",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "v192-knees-to-chest",
+    "label": "体育座り",
+    "prompt": "knees to chest",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "体育すわり",
+      "膝を抱える",
+      "両膝を胸へ寄せる"
+    ],
+    "related": [
+      "sitting",
+      "hugging knees",
+      "full body"
+    ]
+  },
+  {
+    "id": "pos-v5-sitting-on-desk",
+    "label": "机に座る",
+    "prompt": "sitting on desk",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-v5-sitting-sideways",
+    "label": "横向きに座る",
+    "prompt": "sitting sideways",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-v5-lying-on-side",
+    "label": "横向きに寝る",
+    "prompt": "lying on side",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-v5-curling-up",
+    "label": "丸まる",
+    "prompt": "curling up",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "slot": "body_posture"
+  },
+  {
+    "id": "pos-v5-spinning",
+    "label": "回転する",
+    "prompt": "spinning",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-v5-yoga-pose",
+    "label": "ヨガポーズ",
+    "prompt": "yoga pose",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-v5-sword-stance",
+    "label": "剣の構え",
+    "prompt": "sword stance",
+    "category": "pose",
+    "subcategory": "武術・戦闘",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-v5-casting-magic",
+    "label": "魔法を放つ",
+    "prompt": "casting magic",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-v5-holding-umbrella",
+    "label": "傘を持つ",
+    "prompt": "holding umbrella",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "pos-v5-holding-weapon",
+    "label": "武器を持つ",
+    "prompt": "holding weapon",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-sprinting",
+    "label": "全力疾走",
+    "prompt": "sprinting",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-jogging",
+    "label": "ジョギング",
+    "prompt": "jogging",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-skipping",
+    "label": "スキップ",
+    "prompt": "skipping",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-yawning",
+    "label": "あくび",
+    "prompt": "yawning",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-reaching",
+    "label": "手を伸ばす",
+    "prompt": "reaching",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-opening-door",
+    "label": "ドアを開ける",
+    "prompt": "opening door",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-closing-door",
+    "label": "ドアを閉める",
+    "prompt": "closing door",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-fixing-hair",
+    "label": "髪を直す",
+    "prompt": "fixing hair",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-tying-hair",
+    "label": "髪を結ぶ",
+    "prompt": "tying hair",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-putting-on-shoes",
+    "label": "靴を履く",
+    "prompt": "putting on shoes",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-taking-off-jacket",
+    "label": "上着を脱ぐ",
+    "prompt": "taking off jacket",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-turning-around",
+    "label": "振り返る",
+    "prompt": "turning around",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-tripping",
+    "label": "躓く",
+    "prompt": "tripping",
+    "category": "pose",
+    "subcategory": "落下・バランス",
+    "related": [
+      "surprised",
+      "arms out",
+      "one leg raised",
+      "motion blur"
+    ],
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-stumbling",
+    "label": "よろめく",
+    "prompt": "stumbling",
+    "category": "pose",
+    "subcategory": "落下・バランス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-slipping",
+    "label": "滑る",
+    "prompt": "slipping",
+    "category": "pose",
+    "subcategory": "落下・バランス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-losing-balance",
+    "label": "バランスを崩す",
+    "prompt": "losing balance",
+    "category": "pose",
+    "subcategory": "落下・バランス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-catching-oneself",
+    "label": "踏みとどまる",
+    "prompt": "catching oneself",
+    "category": "pose",
+    "subcategory": "落下・バランス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-falling-forward",
+    "label": "前に転ぶ",
+    "prompt": "falling forward",
+    "category": "pose",
+    "subcategory": "落下・バランス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-falling-backward",
+    "label": "後ろに倒れる",
+    "prompt": "falling backward",
+    "category": "pose",
+    "subcategory": "落下・バランス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-falling-sideways",
+    "label": "横に倒れる",
+    "prompt": "falling sideways",
+    "category": "pose",
+    "subcategory": "落下・バランス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-about-to-fall",
+    "label": "転びそうになる",
+    "prompt": "about to fall",
+    "category": "pose",
+    "subcategory": "落下・バランス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-one-leg-balance",
+    "label": "片足立ち",
+    "prompt": "one leg balance",
+    "category": "pose",
+    "subcategory": "落下・バランス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-tiptoe-balance",
+    "label": "つま先立ち",
+    "prompt": "tiptoe balance",
+    "category": "pose",
+    "subcategory": "落下・バランス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-tightrope-walking",
+    "label": "綱渡り",
+    "prompt": "tightrope walking",
+    "category": "pose",
+    "subcategory": "落下・バランス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-y-balance",
+    "label": "Y字バランス",
+    "prompt": "standing split",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "aliases": [
+      "Y字開脚",
+      "片脚を高く上げる",
+      "立位開脚",
+      "I字バランス",
+      "I字開脚",
+      "立位I字開脚"
+    ],
+    "related": [
+      "leg up",
+      "holding leg",
+      "full body",
+      "pointed toes"
+    ],
+    "slot": "body_motion",
+    "generationNote": "立ったまま片脚を高く上げる開脚ポーズ。全身構図と組み合わせないと、上げた脚が画面外へ切れやすくなります。"
+  },
+  {
+    "id": "v19-motion-needle-pose",
+    "label": "ニードルポーズ",
+    "prompt": "needle pose",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "aliases": [
+      "ニードル",
+      "後方脚上げ",
+      "ニードルスケール"
+    ],
+    "slot": "body_motion",
+    "related": [
+      "standing",
+      "leg up",
+      "bent over",
+      "pointed toes"
+    ],
+    "generationNote": "上体を前へ倒しながら片脚を背後へ高く伸ばす体操ポーズ。standing splitより前傾が強く、柔軟性の表現に向きます。"
+  },
+  {
+    "id": "v19-motion-vertical-split",
+    "label": "垂直開脚",
+    "prompt": "vertical split",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "aliases": [
+      "縦開脚"
+    ],
+    "related": [
+      "leg up",
+      "straight legs",
+      "pointed toes",
+      "full body",
+      "kneepits"
+    ],
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-full-split",
+    "label": "前後開脚",
+    "prompt": "front split",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "aliases": [
+      "縦開脚",
+      "180度開脚"
+    ],
+    "related": [
+      "split legs",
+      "straight legs",
+      "pointed toes",
+      "full body"
+    ],
+    "slot": "body_motion",
+    "generationNote": "脚を前後へ開く縦開脚。左右開脚と混同しにくく、床に接した全身ポーズとして比較的伝わりやすいタグです。"
+  },
+  {
+    "id": "v19-motion-middle-split",
+    "label": "左右開脚",
+    "prompt": "middle split",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "aliases": [
+      "横開脚",
+      "180度開脚"
+    ],
+    "related": [
+      "spread legs",
+      "straight legs",
+      "pointed toes",
+      "full body"
+    ],
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-straddle-split",
+    "label": "開脚座り",
+    "prompt": "sitting with legs apart",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "aliases": [
+      "長座開脚"
+    ],
+    "related": [
+      "straddle split",
+      "spread legs",
+      "straight legs",
+      "pointed toes",
+      "full body"
+    ],
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-bridge-pose",
+    "label": "ブリッジ",
+    "prompt": "bridge pose",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "aliases": [
+      "後屈"
+    ],
+    "slot": "body_motion",
+    "related": [
+      "backbend",
+      "full body"
+    ],
+    "generationNote": "手足を床につけて背中を大きく反らすブリッジ。床面が見える構図と全身指定を併用すると形が伝わりやすくなります。"
+  },
+  {
+    "id": "v19-motion-backbend",
+    "label": "後屈",
+    "prompt": "backbend",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-handstand",
+    "label": "逆立ち",
+    "prompt": "handstand",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "slot": "body_motion",
+    "generationNote": "両手で身体を支える倒立。手足の破綻が起きやすいため、全身構図・単独人物・シンプルな背景との組み合わせが安定します。",
+    "aliases": [
+      "倒立"
+    ]
+  },
+  {
+    "id": "v19-motion-one-handed-handstand",
+    "label": "片手倒立",
+    "prompt": "one-handed handstand",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "slot": "body_motion",
+    "generationNote": "片手で支える倒立。通常の逆立ちより難度が高く、腕や指の崩れが出やすいポーズです。"
+  },
+  {
+    "id": "v19-motion-headstand",
+    "label": "頭立ち",
+    "prompt": "headstand",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-cartwheel",
+    "label": "側転",
+    "prompt": "cartwheel",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "slot": "body_motion",
+    "generationNote": "身体を横方向へ回転させる側転。動作途中の姿勢になるため、全身構図や横長の画面と相性が良いタグです。",
+    "aliases": []
+  },
+  {
+    "id": "v19-motion-roundoff",
+    "label": "ロンダート",
+    "prompt": "roundoff",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-forward-roll",
+    "label": "前転",
+    "prompt": "forward roll",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-backward-roll",
+    "label": "後転",
+    "prompt": "backward roll",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-back-handspring",
+    "label": "バク転",
+    "prompt": "back handspring",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "slot": "body_motion",
+    "generationNote": "後方へ跳び、手を床について回転するバク転系動作。手足の位置が複雑なので、他のポーズ指定を重ねすぎないほうが安定します。",
+    "aliases": []
+  },
+  {
+    "id": "v19-motion-backflip",
+    "label": "後方宙返り",
+    "prompt": "backflip",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "slot": "body_motion",
+    "generationNote": "手をつかず後方へ宙返りする動作。空中感を出すにはairborneやdynamic poseを関連候補として使えます。",
+    "aliases": []
+  },
+  {
+    "id": "v19-motion-front-flip",
+    "label": "前方宙返り",
+    "prompt": "front flip",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "slot": "body_motion",
+    "generationNote": "前方へ宙返りする動作。顔が隠れたり身体が丸まりやすいため、表情を重視する画像には不向きです。",
+    "aliases": []
+  },
+  {
+    "id": "v19-motion-aerial-cartwheel",
+    "label": "側方宙返り",
+    "prompt": "aerial cartwheel",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-split-jump",
+    "label": "開脚ジャンプ",
+    "prompt": "split jump",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-straddle-jump",
+    "label": "ストラドルジャンプ",
+    "prompt": "straddle jump",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-dance-pose",
+    "label": "ダンスポーズ",
+    "prompt": "dance pose",
+    "category": "pose",
+    "subcategory": "ダンス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-arabesque",
+    "label": "アラベスク",
+    "prompt": "arabesque",
+    "category": "pose",
+    "subcategory": "ダンス",
+    "aliases": [
+      "バレエアラベスク"
+    ],
+    "related": [
+      "ballet dress",
+      "toe shoes",
+      "stage",
+      "spotlight",
+      "standing on one leg",
+      "outstretched arms",
+      "pointed toes"
+    ],
+    "slot": "body_motion",
+    "generationNote": "片脚で立ち、もう片脚を後方へ伸ばすバレエ姿勢。上体を起こした優雅なバランスポーズを作りやすいタグです。"
+  },
+  {
+    "id": "v19-motion-attitude-pose",
+    "label": "アティチュード",
+    "prompt": "attitude pose",
+    "category": "pose",
+    "subcategory": "ダンス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-pirouette",
+    "label": "ピルエット",
+    "prompt": "pirouette",
+    "category": "pose",
+    "subcategory": "ダンス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-toe-stand",
+    "label": "つま先立ち",
+    "prompt": "toe stand",
+    "category": "pose",
+    "subcategory": "ダンス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-ballet-pose",
+    "label": "バレエポーズ",
+    "prompt": "ballet pose",
+    "category": "pose",
+    "subcategory": "ダンス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-ribbon-dance",
+    "label": "リボンダンス",
+    "prompt": "ribbon dance",
+    "category": "pose",
+    "subcategory": "ダンス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-fan-dance",
+    "label": "扇子舞",
+    "prompt": "fan dance",
+    "category": "pose",
+    "subcategory": "ダンス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-belly-dance",
+    "label": "ベリーダンス",
+    "prompt": "belly dance",
+    "category": "pose",
+    "subcategory": "ダンス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-spinning-dance",
+    "label": "回転するダンス",
+    "prompt": "spinning dance",
+    "category": "pose",
+    "subcategory": "ダンス",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-soccer-kick",
+    "label": "サッカーキック",
+    "prompt": "soccer kick",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-goalkeeper-dive",
+    "label": "ゴールキーパーの飛び込み",
+    "prompt": "goalkeeper dive",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-basketball-dribble",
+    "label": "バスケットボールドリブル",
+    "prompt": "basketball dribble",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-basketball-shot",
+    "label": "バスケットボールシュート",
+    "prompt": "basketball shot",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-slam-dunk",
+    "label": "ダンクシュート",
+    "prompt": "slam dunk",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "related": [
+      "basketball",
+      "basketball hoop",
+      "sports uniform",
+      "indoor court"
+    ],
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-volleyball-serve",
+    "label": "バレーボールサーブ",
+    "prompt": "volleyball serve",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-volleyball-spike",
+    "label": "バレーボールスパイク",
+    "prompt": "volleyball spike",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-tennis-serve",
+    "label": "テニスサーブ",
+    "prompt": "tennis serve",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-tennis-forehand",
+    "label": "テニスのフォアハンド",
+    "prompt": "tennis forehand",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-badminton-smash",
+    "label": "バドミントンスマッシュ",
+    "prompt": "badminton smash",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-baseball-pitching",
+    "label": "野球の投球",
+    "prompt": "baseball pitching",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-baseball-batting",
+    "label": "野球の打撃",
+    "prompt": "baseball batting",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-golf-swing",
+    "label": "ゴルフスイング",
+    "prompt": "golf swing",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-archery-stance",
+    "label": "弓を構える",
+    "prompt": "archery stance",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-swimming-freestyle",
+    "label": "クロール",
+    "prompt": "swimming freestyle",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-diving-into-water",
+    "label": "飛び込み",
+    "prompt": "diving into water",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-cycling",
+    "label": "自転車に乗る",
+    "prompt": "cycling",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-skateboarding",
+    "label": "スケートボード",
+    "prompt": "skateboarding",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-surfing",
+    "label": "サーフィン",
+    "prompt": "surfing",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-skiing",
+    "label": "スキー",
+    "prompt": "skiing",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-snowboarding",
+    "label": "スノーボード",
+    "prompt": "snowboarding",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-figure-skating",
+    "label": "フィギュアスケート",
+    "prompt": "figure skating",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-front-kick",
+    "label": "前蹴り",
+    "prompt": "front kick",
+    "category": "pose",
+    "subcategory": "武術・戦闘",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-side-kick",
+    "label": "横蹴り",
+    "prompt": "side kick",
+    "category": "pose",
+    "subcategory": "武術・戦闘",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-roundhouse-kick",
+    "label": "回し蹴り",
+    "prompt": "roundhouse kick",
+    "category": "pose",
+    "subcategory": "武術・戦闘",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-high-kick",
+    "label": "ハイキック",
+    "prompt": "high kick",
+    "category": "pose",
+    "subcategory": "武術・戦闘",
+    "aliases": [
+      "高い蹴り"
+    ],
+    "related": [
+      "leg up",
+      "dynamic pose",
+      "motion lines",
+      "full body"
+    ],
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-jump-kick",
+    "label": "飛び蹴り",
+    "prompt": "jump kick",
+    "category": "pose",
+    "subcategory": "武術・戦闘",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-axe-kick",
+    "label": "かかと落とし",
+    "prompt": "axe kick",
+    "category": "pose",
+    "subcategory": "武術・戦闘",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-punching",
+    "label": "パンチ",
+    "prompt": "punching",
+    "category": "pose",
+    "subcategory": "武術・戦闘",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-uppercut",
+    "label": "アッパーカット",
+    "prompt": "uppercut",
+    "category": "pose",
+    "subcategory": "武術・戦闘",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-blocking",
+    "label": "防御姿勢",
+    "prompt": "blocking",
+    "category": "pose",
+    "subcategory": "武術・戦闘",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-dodging",
+    "label": "回避",
+    "prompt": "dodging",
+    "category": "pose",
+    "subcategory": "武術・戦闘",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-sword-slash",
+    "label": "斬撃",
+    "prompt": "sword slash",
+    "category": "pose",
+    "subcategory": "武術・戦闘",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-aiming",
+    "label": "狙いを定める",
+    "prompt": "aiming",
+    "category": "pose",
+    "subcategory": "武術・戦闘",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-throwing",
+    "label": "投げる",
+    "prompt": "throwing",
+    "category": "pose",
+    "subcategory": "武術・戦闘",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-horseback-riding",
+    "label": "乗馬",
+    "prompt": "horseback riding",
+    "category": "pose",
+    "subcategory": "乗り物・騎乗",
+    "related": [
+      "horse",
+      "saddle",
+      "holding reins",
+      "equestrian outfit",
+      "riding boots"
+    ],
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-riding-a-horse",
+    "label": "馬に乗る",
+    "prompt": "riding a horse",
+    "category": "pose",
+    "subcategory": "乗り物・騎乗",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-holding-reins",
+    "label": "手綱を持つ",
+    "prompt": "holding reins",
+    "category": "pose",
+    "subcategory": "乗り物・騎乗",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-mounting-horse",
+    "label": "馬に乗る瞬間",
+    "prompt": "mounting a horse",
+    "category": "pose",
+    "subcategory": "乗り物・騎乗",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-dismounting-horse",
+    "label": "馬から降りる",
+    "prompt": "dismounting horse",
+    "category": "pose",
+    "subcategory": "乗り物・騎乗",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-riding-bicycle",
+    "label": "自転車に乗る",
+    "prompt": "riding bicycle",
+    "category": "pose",
+    "subcategory": "乗り物・騎乗",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v19-motion-riding-motorcycle",
+    "label": "バイクに乗る",
+    "prompt": "riding motorcycle",
+    "category": "pose",
+    "subcategory": "乗り物・騎乗",
+    "slot": "body_motion"
+  },
+  {
+    "id": "v192-leg-together",
+    "label": "脚を揃える",
+    "prompt": "legs together",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "閉じた脚",
+      "脚を閉じる"
+    ]
+  },
+  {
+    "id": "v192-spread-legs",
+    "label": "脚を開く",
+    "prompt": "spread legs",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "開脚",
+      "脚を広げる",
+      "脚を大きく開く"
+    ]
+  },
+  {
+    "id": "v192-split-legs",
+    "label": "広く開脚",
+    "prompt": "split legs",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "大開脚",
+      "180度開脚"
+    ]
+  },
+  {
+    "id": "v192-crossed-ankles",
+    "label": "足首を交差",
+    "prompt": "crossed ankles",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "足首クロス"
+    ]
+  },
+  {
+    "id": "v192-pigeon-toed",
+    "label": "内股",
+    "prompt": "pigeon-toed",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "つま先内向き",
+      "内股立ち"
+    ]
+  },
+  {
+    "id": "v192-leg-up",
+    "label": "片脚を上げる",
+    "prompt": "leg up",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "片足を上げる",
+      "座って片脚上げ",
+      "座位で片脚を上げる",
+      "片脚高上げ",
+      "柔軟ポーズ",
+      "座位で片脚を高く上げる"
+    ],
+    "related": [
+      "raise one leg",
+      "sitting",
+      "knee up",
+      "split",
+      "holding leg"
+    ]
+  },
+  {
+    "id": "v192-leg-lift-held",
+    "label": "手で片脚を持ち上げる",
+    "prompt": "holding leg up",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "脚を手で持つ",
+      "片脚保持"
+    ],
+    "related": [
+      "leg lift",
+      "leg up",
+      "full body"
+    ]
+  },
+  {
+    "id": "v192-legs-up",
+    "label": "両脚を上げる",
+    "prompt": "legs up",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "両足上げ",
+      "両脚高上げ",
+      "V字バランス",
+      "V字開脚"
+    ],
+    "related": [
+      "lying on back",
+      "straight legs",
+      "full body",
+      "sitting",
+      "split"
+    ]
+  },
+  {
+    "id": "v192-legs-over-head",
+    "label": "両脚を頭上へ",
+    "prompt": "legs over head",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "脚を頭上まで上げる"
+    ],
+    "related": [
+      "lying on back",
+      "legs up",
+      "kneepits",
+      "full body"
+    ]
+  },
+  {
+    "id": "v192-outstretched-leg-camera",
+    "label": "脚を手前へ伸ばす",
+    "prompt": "leg toward camera",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "脚をカメラ側へ",
+      "手前に脚"
+    ],
+    "related": [
+      "outstretched leg",
+      "foreshortening"
+    ]
+  },
+  {
+    "id": "v192-knees-apart-feet-together",
+    "label": "膝開き・足先揃え",
+    "prompt": "knees apart",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "膝を開く"
+    ],
+    "related": [
+      "feet together"
+    ]
+  },
+  {
+    "id": "v192-knees-together-feet-apart",
+    "label": "膝揃え・足先開き",
+    "prompt": "knees together",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "膝を閉じる"
+    ],
+    "related": [
+      "feet apart"
+    ]
+  },
+  {
+    "id": "v192-knee-up",
+    "label": "片膝を上げる",
+    "prompt": "knee up",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "片膝上げ"
+    ],
+    "related": [
+      "one knee raised"
+    ]
+  },
+  {
+    "id": "v192-knees-up",
+    "label": "両膝を上げる",
+    "prompt": "knees up",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "両膝上げ"
+    ],
+    "related": [
+      "bent knees"
+    ]
+  },
+  {
+    "id": "v192-spread-knees-up",
+    "label": "開脚して膝を立てる",
+    "prompt": "sitting with knees apart",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "膝立て開脚"
+    ],
+    "related": [
+      "spread legs",
+      "knees up",
+      "bent knees",
+      "full body"
+    ]
+  },
+  {
+    "id": "v192-bent-knees",
+    "label": "膝を曲げる",
+    "prompt": "bent knees",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "曲げた膝"
+    ]
+  },
+  {
+    "id": "v192-one-knee",
+    "label": "片膝をつく",
+    "prompt": "kneeling on one knee",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "片膝立ち",
+      "片膝つき"
+    ],
+    "related": [
+      "full body"
+    ]
+  },
+  {
+    "id": "v192-plantar-flexion",
+    "label": "足の甲を伸ばす",
+    "prompt": "pointed toes",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "甲伸ばし",
+      "底屈",
+      "足先を伸ばす",
+      "つま先を伸ばす"
+    ],
+    "related": [
+      "plantar flexion"
+    ]
+  },
+  {
+    "id": "v192-toe-point-camera",
+    "label": "つま先をこちらへ",
+    "prompt": "foot toward camera",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "つま先をカメラへ"
+    ],
+    "related": [
+      "pointed toes",
+      "foreshortening"
+    ]
+  },
+  {
+    "id": "v192-heel-up",
+    "label": "かかとを上げる",
+    "prompt": "heel up",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "かかと上げ"
+    ]
+  },
+  {
+    "id": "v192-legs-folded",
+    "label": "脚を折りたたんで座る",
+    "prompt": "sitting with legs folded",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "aliases": [
+      "横座り",
+      "折りたたみ座り"
+    ],
+    "related": [
+      "full body"
+    ],
+    "slot": "body_posture"
+  },
+  {
+    "id": "v192-all-fours",
+    "label": "四つん這い",
+    "prompt": "all fours",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "aliases": [
+      "両手両膝",
+      "on hands and knees"
+    ],
+    "related": [
+      "full body"
+    ],
+    "slot": "body_posture"
+  },
+  {
+    "id": "v192-standing-leg-hold-side",
+    "label": "立位で横に脚を保持",
+    "prompt": "holding leg",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "aliases": [
+      "横Y字",
+      "片脚横上げ"
+    ],
+    "related": [
+      "standing split",
+      "leg up",
+      "pointed toes"
+    ],
+    "slot": "body_motion"
+  },
+  {
+    "id": "rin-pose-on-back",
+    "label": "仰向け",
+    "prompt": "on back",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "aliases": [
+      "仰向けに寝る"
+    ],
+    "related": [
+      "lying"
+    ],
+    "slot": "body_posture"
+  },
+  {
+    "id": "rin-pose-on-side",
+    "label": "横向きに寝る",
+    "prompt": "on side",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "aliases": [
+      "横寝"
+    ],
+    "related": [
+      "lying"
+    ],
+    "slot": "body_posture"
+  },
+  {
+    "id": "rin-pose-on-stomach",
+    "label": "うつ伏せ",
+    "prompt": "on stomach",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "aliases": [
+      "腹ばい"
+    ],
+    "related": [
+      "lying"
+    ],
+    "slot": "body_posture"
+  },
+  {
+    "id": "rin-pose-fetal",
+    "label": "胎児の姿勢",
+    "prompt": "fetal position",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "aliases": [
+      "丸まって寝る"
+    ],
+    "related": [
+      "lying"
+    ],
+    "slot": "body_posture"
+  },
+  {
+    "id": "rin-pose-butterfly",
+    "label": "蝶々座り",
+    "prompt": "butterfly sitting",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "aliases": [
+      "合せき座"
+    ],
+    "related": [
+      "sitting"
+    ],
+    "slot": "body_posture"
+  },
+  {
+    "id": "rin-pose-indian-style",
+    "label": "あぐら",
+    "prompt": "indian style",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "aliases": [
+      "胡座"
+    ],
+    "related": [
+      "sitting"
+    ],
+    "slot": "body_posture"
+  },
+  {
+    "id": "rin-pose-hugging-legs",
+    "label": "膝を抱える",
+    "prompt": "hugging own legs",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "aliases": [
+      "体育座り"
+    ],
+    "related": [
+      "sitting"
+    ],
+    "slot": "body_posture"
+  },
+  {
+    "id": "rin-pose-wariza",
+    "label": "割座",
+    "prompt": "wariza",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "related": [
+      "sitting"
+    ],
+    "slot": "body_posture"
+  },
+  {
+    "id": "rin-pose-yokozuwari",
+    "label": "横座り",
+    "prompt": "yokozuwari",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "related": [
+      "sitting"
+    ],
+    "slot": "body_posture"
+  },
+  {
+    "id": "rin-pose-reclining",
+    "label": "もたれかかる",
+    "prompt": "reclining",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "aliases": [
+      "寄りかかる"
+    ],
+    "slot": "body_posture"
+  },
+  {
+    "id": "rin-pose-sitting-backwards",
+    "label": "後ろ向きに座る",
+    "prompt": "sitting backwards",
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "related": [
+      "sitting"
+    ],
+    "slot": "body_posture"
+  },
+  {
+    "id": "rin-pose-hopping",
+    "label": "前方へ跳ぶ",
+    "prompt": "hopping",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "aliases": [
+      "ホップ"
+    ],
+    "related": [
+      "jumping"
+    ],
+    "slot": "body_motion"
+  },
+  {
+    "id": "rin-pose-yoga",
+    "label": "ヨガ",
+    "prompt": "yoga",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "related": [
+      "stretching"
+    ],
+    "slot": "body_motion"
+  },
+  {
+    "id": "rin-pose-bowing",
+    "label": "お辞儀",
+    "prompt": "bowing",
+    "category": "pose",
+    "subcategory": "頭・上半身"
+  },
+  {
+    "id": "rin-pose-curtsey",
+    "label": "カーテシー",
+    "prompt": "curtsey",
+    "category": "pose",
+    "subcategory": "頭・上半身",
+    "aliases": [
+      "スカートを持って礼"
+    ]
+  },
+  {
+    "id": "rin-pose-arm-support",
+    "label": "腕で身体を支える",
+    "prompt": "arm support",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-pose-slouching",
+    "label": "猫背",
+    "prompt": "slouching",
+    "category": "pose",
+    "subcategory": "頭・上半身"
+  },
+  {
+    "id": "rin-pose-superhero-landing",
+    "label": "三点着地",
+    "prompt": "superhero landing",
+    "category": "pose",
+    "subcategory": "日常動作",
+    "related": [
+      "dynamic pose"
+    ],
+    "slot": "body_motion"
+  },
+  {
+    "id": "rin-arm-up",
+    "label": "片腕を上げる",
+    "prompt": "arm up",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-arms-up",
+    "label": "両腕を上げる",
+    "prompt": "arms up",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-arm-above-head",
+    "label": "腕を頭上へ",
+    "prompt": "arm above head",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-arm-on-head",
+    "label": "腕を頭に乗せる",
+    "prompt": "arm on own head",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-arm-behind-head",
+    "label": "片腕を頭の後ろへ",
+    "prompt": "arm behind head",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-arms-behind-head",
+    "label": "両腕を頭の後ろへ",
+    "prompt": "arms behind head",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-arm-at-side",
+    "label": "片腕を体の横へ",
+    "prompt": "arm at side",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-arms-at-sides",
+    "label": "両腕を体の横へ",
+    "prompt": "arms at sides",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-v-arms",
+    "label": "V字の腕",
+    "prompt": "v arms",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-arm-behind-back",
+    "label": "片腕を背中へ",
+    "prompt": "arm behind back",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-outstretched-arm",
+    "label": "片腕を伸ばす",
+    "prompt": "outstretched arm",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-outstretched-arms",
+    "label": "両腕を広げる",
+    "prompt": "outstretched arms",
+    "category": "pose",
+    "subcategory": "手・腕",
+    "aliases": [
+      "腕を伸ばす"
+    ]
+  },
+  {
+    "id": "rin-spread-arms",
+    "label": "両腕を左右に広げる",
+    "prompt": "spread arms",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-t-pose",
+    "label": "T字ポーズ",
+    "prompt": "t-pose",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-a-pose",
+    "label": "A字ポーズ",
+    "prompt": "a-pose",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-arm-across-waist",
+    "label": "腕を腰へ回す",
+    "prompt": "arm across waist",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-flexing",
+    "label": "筋肉を見せる",
+    "prompt": "flexing",
+    "category": "pose",
+    "subcategory": "手・腕",
+    "aliases": [
+      "マッスルポーズ"
+    ]
+  },
+  {
+    "id": "rin-shrugging",
+    "label": "肩をすくめる",
+    "prompt": "shrugging",
+    "category": "pose",
+    "subcategory": "頭・上半身"
+  },
+  {
+    "id": "rin-w-arms",
+    "label": "W字の腕",
+    "prompt": "w arms",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-head-rest",
+    "label": "頬杖",
+    "prompt": "head rest",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-arm-on-knee",
+    "label": "片腕を膝へ",
+    "prompt": "arm on knee",
+    "category": "pose",
+    "subcategory": "手・腕",
+    "related": [
+      "knee up"
+    ]
+  },
+  {
+    "id": "rin-arms-on-knees",
+    "label": "両腕を膝へ",
+    "prompt": "arms on knees",
+    "category": "pose",
+    "subcategory": "手・腕",
+    "related": [
+      "knees up"
+    ]
+  },
+  {
+    "id": "rin-legs-folded",
+    "label": "脚を折りたたむ",
+    "prompt": "legs folded",
+    "category": "pose",
+    "subcategory": "脚・開脚"
+  },
+  {
+    "id": "rin-leg-lift",
+    "label": "片脚を持ち上げる",
+    "prompt": "leg lift",
+    "category": "pose",
+    "subcategory": "脚・開脚"
+  },
+  {
+    "id": "rin-outstretched-leg",
+    "label": "脚を伸ばす",
+    "prompt": "outstretched leg",
+    "category": "pose",
+    "subcategory": "脚・開脚"
+  },
+  {
+    "id": "rin-split",
+    "label": "開脚",
+    "prompt": "split",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "スプリット"
+    ],
+    "related": [
+      "sitting"
+    ],
+    "generationNote": "床上で脚を前後または左右へ大きく開くポーズ。方向を明確にしたい場合はfront splitやside splitを優先します。"
+  },
+  {
+    "id": "rin-knees-apart-feet-together",
+    "label": "膝を開いて足先を揃える",
+    "prompt": "knees apart feet together",
+    "category": "pose",
+    "subcategory": "脚・開脚"
+  },
+  {
+    "id": "rin-knees-together-feet-apart",
+    "label": "膝を揃えて足先を開く",
+    "prompt": "knees together feet apart",
+    "category": "pose",
+    "subcategory": "脚・開脚"
+  },
+  {
+    "id": "rin-plantar-flexion",
+    "label": "足先を下へ伸ばす",
+    "prompt": "plantar flexion",
+    "category": "pose",
+    "subcategory": "脚・開脚",
+    "aliases": [
+      "底屈"
+    ]
+  },
+  {
+    "id": "rin-clenched-hand",
+    "label": "拳を握る",
+    "prompt": "clenched hand",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-raised-fist",
+    "label": "拳を突き上げる",
+    "prompt": "raised fist",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-curled-fingers",
+    "label": "指を曲げる",
+    "prompt": "curled fingers",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-pinching-sleeves",
+    "label": "袖をつまむ",
+    "prompt": "pinching sleeves",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-index-raised",
+    "label": "人差し指を立てる",
+    "prompt": "index finger raised",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-pointing-self",
+    "label": "自分を指差す",
+    "prompt": "pointing at self",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-finger-cheek",
+    "label": "指を頬へ当てる",
+    "prompt": "finger to cheek",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-finger-chin",
+    "label": "指を顎へ当てる",
+    "prompt": "finger to own chin",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-finger-mouth",
+    "label": "指を口元へ",
+    "prompt": "finger to mouth",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-shushing",
+    "label": "内緒のジェスチャー",
+    "prompt": "shushing",
+    "category": "pose",
+    "subcategory": "手・腕",
+    "aliases": [
+      "シーッ"
+    ]
+  },
+  {
+    "id": "rin-pointing-viewer",
+    "label": "こちらを指差す",
+    "prompt": "pointing at viewer",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-pointing-forward",
+    "label": "前を指差す",
+    "prompt": "pointing forward",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-pointing-up",
+    "label": "上を指差す",
+    "prompt": "pointing up",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-thumbs-down",
+    "label": "サムズダウン",
+    "prompt": "thumbs down",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-pinky-swear",
+    "label": "指切り",
+    "prompt": "pinky swear",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-gyaru-v",
+    "label": "ギャルピース",
+    "prompt": "gyaru v",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-two-finger-salute",
+    "label": "二本指の敬礼",
+    "prompt": "two-finger salute",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-v-sign",
+    "label": "ピースサイン",
+    "prompt": "v",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-v-over-eye",
+    "label": "目元でピース",
+    "prompt": "v over eye",
+    "category": "pose",
+    "subcategory": "手・腕"
+  },
+  {
+    "id": "rin-v-over-mouth",
+    "label": "口元でピース",
+    "prompt": "v over mouth",
+    "category": "pose",
+    "subcategory": "手・腕"
+  }
+]
