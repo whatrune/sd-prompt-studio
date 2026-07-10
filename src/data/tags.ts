@@ -1,18 +1,52 @@
 export type ContentRating = 'general' | 'suggestive' | 'adult'
 export type ClothingLayer = 'inner' | 'main' | 'outer' | 'accessory'
 export type ClothingCoverage = 'upper' | 'lower' | 'full'
-export type PromptTag = { id: string; label: string; prompt: string; category: string; subcategory?: string; aliases?: string[]; related?: string[]; conflicts?: string[]; models?: string[]; rating?: ContentRating; generationNote?: string; description?: string; sourceNote?: string; slot?: string | string[]; layer?: ClothingLayer; coverage?: ClothingCoverage[] }
+export type PromptTag = { id: string; label: string; prompt: string; category: string; subcategory?: string; sortSubcategory?: string; aliases?: string[]; related?: string[]; conflicts?: string[]; models?: string[]; rating?: ContentRating; generationNote?: string; description?: string; sourceNote?: string; slot?: string | string[]; layer?: ClothingLayer; coverage?: ClothingCoverage[] }
 export const categoryOrder = ["quality", "people", "character", "expression", "eyes", "hair", "body", "clothes", "accessories", "pose", "camera", "background", "scene_props", "lighting", "effects"]
 export const categoryLabels: Record<string,string> = {"quality":"品質","people":"人数・相互作用","character":"キャラクター","expression":"表情・顔","eyes":"目","hair":"髪","body":"身体","clothes":"服装","accessories":"装飾・身につける物","pose":"ポーズ・モーション","camera":"カメラ・構図","background":"背景・場所","scene_props":"小物・オブジェクト","lighting":"ライティング","effects":"奥行き・エフェクト"}
 export const subcategoryOrder: Record<string,string[]> = {"quality":["品質","解像感","スタイル","レーティング"],"people":["人数","年齢・属性","相互作用"],"character":["指定","種族","職業","性格・属性","年齢・体格","身体特徴","耳・角・翼・尻尾","種族特徴","属性","その他"],"expression":["基本表情","口","頬・眉","メイク"],"eyes":["目の色","目の形","瞳孔","虹彩・内部模様","ハイライト・発光","視線・状態","まつ毛の長さ・量","まつ毛の形","まつ毛の色・装飾","まぶた・アイライン"],"hair":["髪色","長さ","髪型","前髪","横髪","後ろ髪","結び方","毛質・特徴","後ろ髪・長さ"],"body":["体型","胸・腰","肌","身体特徴","特徴","身体状態・付着","成人向け身体表現"],"clothes":["トップス","アウター","ボトムス","ワンピース・ドレス","カジュアル","フォーマル","ゴシック・ロリータ","制服・学校","制服・職業","ミリタリー・ワーク","スポーツ・ダンス","舞台・アイドル","コスチューム","ファンタジー・SF","民族・歴史","和装","ルームウェア","水着・下着","センシティブ衣装","デザイン・ディテール","素材・質感","柄・装飾","レッグウェア","靴"],"accessories":["髪飾り","頭・帽子","顔・眼鏡","耳・首","手・腕","バッグ・携行品","日用品"],"pose":["基本姿勢","手・腕","頭・上半身","脚・開脚","日常動作","落下・バランス","体操・アクロバット","ダンス","スポーツ","武術・戦闘","乗り物・騎乗"],"camera":["画角・距離","視点","構図","レンズ","成人向け構図"],"background":["学校","自宅","室内","店舗・公共施設","街・交通","自然","和風","ファンタジー・SF","時間帯・天候","季節"],"scene_props":["家具","文具・学校用品","浴室・衛生用品","キッチン・食卓用品","収納・容器","家電・照明","窓・扉","植物・花","食べ物・飲み物","電子機器","乗り物","屋外設備","武器","楽器","装飾","動物","その他","屋外小物"],"lighting":["光の質","光の方向","光源","色・時間帯","特殊照明"],"effects":["奥行き・ぼかし","光学効果","粒子・空気感","色調・仕上げ","身体表現","演出表現","画面処理・修正","成人向け演出"],"adult":["ポーズ","行動","相互作用","表情","衣装","道具"]}
 subcategoryOrder.people.push('相互作用（アダルト）')
 subcategoryOrder.expression.push('表情（アダルト）')
-subcategoryOrder.clothes.push('衣装（アダルト）')
+subcategoryOrder.clothes = ['上半身', '下半身', 'ワンピース', '制服', '和装', 'ファンタジー', '水着', '下着', '靴', 'アクセサリー', '素材・デザイン', '衣装（アダルト）']
 subcategoryOrder.pose.push('ポーズ（アダルト）', '行動（アダルト）')
 subcategoryOrder.scene_props.push('道具（アダルト）')
 delete subcategoryOrder.adult
 
-const makeTag = (value: PromptTag): PromptTag => value
+export function normalizeClothingTag(value: PromptTag): PromptTag {
+  if (value.category !== 'clothes') return value
+  const { subcategory, prompt } = value
+  let nextSubcategory = 'ファンタジー'
+  if (['デザイン・ディテール', '柄・装飾', '素材・質感', '素材・デザイン'].includes(subcategory ?? '')) nextSubcategory = '素材・デザイン'
+  else if (subcategory === '靴') nextSubcategory = '靴'
+  else if (subcategory === '和装') nextSubcategory = '和装'
+  else if (subcategory === 'レッグウェア') nextSubcategory = /garter/.test(prompt) ? 'アクセサリー' : '下着'
+  else if (['sailor collar', 'maid apron', 'obi', 'petticoat', 'crinoline'].includes(prompt)) nextSubcategory = 'アクセサリー'
+  else if (subcategory === '水着・下着') nextSubcategory = /swimsuit|bikini|rash guard|wetsuit/.test(prompt) ? '水着' : '下着'
+  else if (subcategory === 'ルームウェア') nextSubcategory = '下着'
+  else if (['制服・学校', '制服・職業', 'ミリタリー・ワーク', 'スポーツ・ダンス'].includes(subcategory ?? '')) nextSubcategory = /swimsuit/.test(prompt) ? '水着' : '制服'
+  else if (subcategory === 'ボトムス') nextSubcategory = '下半身'
+  else if (['トップス', 'アウター'].includes(subcategory ?? '')) nextSubcategory = '上半身'
+  else if (subcategory === 'ワンピース・ドレス') nextSubcategory = 'ワンピース'
+  else if (/dress|gown|leotard|bodysuit|catsuit|zentai|unitard|onesie/.test(prompt)) nextSubcategory = 'ワンピース'
+  else if (['ファンタジー・SF', 'コスチューム', 'ゴシック・ロリータ', '民族・歴史', '舞台・アイドル'].includes(subcategory ?? '')) nextSubcategory = 'ファンタジー'
+  else if (subcategory === 'フォーマル') nextSubcategory = /suit|uniform/.test(prompt) ? '制服' : '上半身'
+  else if (subcategory === 'カジュアル') {
+    if (value.coverage?.includes('lower') && !value.coverage.includes('upper')) nextSubcategory = '下半身'
+    else if (value.coverage?.includes('upper') && !value.coverage.includes('lower')) nextSubcategory = '上半身'
+  }
+
+  let normalized: PromptTag = { ...value, subcategory: nextSubcategory, sortSubcategory: value.sortSubcategory ?? subcategory }
+  if (['pantsuit', 'skirt suit'].includes(prompt)) normalized = { ...normalized, layer: 'main', coverage: ['upper', 'lower'] }
+  else if (prompt === 'petticoat') normalized = { ...normalized, layer: 'inner', coverage: ['lower'] }
+  else if (prompt === 'librarian outfit') normalized = { ...normalized, layer: 'main', coverage: ['upper', 'lower'] }
+  else if (/shirt/.test(prompt) && !/shirt dress/.test(prompt)) normalized = { ...normalized, layer: normalized.layer ?? 'main', coverage: ['upper'] }
+  else if (/\b(dress|gown)\b/.test(prompt)) normalized = { ...normalized, layer: normalized.layer ?? 'main', coverage: ['upper', 'lower'] }
+  else if (/\b(pants|skirt)\b/.test(prompt) && !/dress|suit|outfit/.test(prompt)) normalized = { ...normalized, layer: normalized.layer ?? 'main', coverage: ['lower'] }
+  else if (prompt === 'camisole') normalized = { ...normalized, coverage: ['upper'] }
+  return normalized
+}
+
+const makeTag = (value: PromptTag): PromptTag => normalizeClothingTag(value)
 const rawTags: PromptTag[] = [
   makeTag({"id":"acc-hair-ribbon","label":"髪リボン","prompt":"hair ribbon","category":"accessories","subcategory":"髪飾り"}),
   makeTag({"id":"acc-hair-bow","label":"髪の蝶結び","prompt":"hair bow","category":"accessories","subcategory":"髪飾り"}),

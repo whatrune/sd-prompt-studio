@@ -1,10 +1,10 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { ContentRating, PromptTag } from './data/tags'
+import { normalizeClothingTag, tags, type ContentRating, type PromptTag } from './data/tags'
 import { adultTags } from './data/adultTags'
 import { createId } from './id'
 
-export type SelectedTag = { id: string; prompt: string; label: string; category: string; subcategory?: string; weight: number; rating?: ContentRating }
+export type SelectedTag = { id: string; prompt: string; label: string; category: string; subcategory?: string; sortSubcategory?: string; weight: number; rating?: ContentRating }
 export type PromptBlock = { id: string; name: string; tags: SelectedTag[] }
 export type ModelPreset = 'illustrious' | 'pony' | 'sdxl' | 'custom'
 
@@ -54,7 +54,7 @@ const QUALITY_PRESETS: Record<ModelPreset, string[]> = {
 const createFirstBlock = (): PromptBlock => ({ id: createId(), name: '被写体 1', tags: [] })
 const firstBlock = createFirstBlock()
 
-const adultTagById = new Map(adultTags.map(tag => [tag.id, tag]))
+const dictionaryTagById = new Map([...tags, ...adultTags].map(tag => [tag.id, tag]))
 
 export function migratePersistedState(persisted: unknown) {
   if (!persisted || typeof persisted !== 'object') return persisted
@@ -65,14 +65,15 @@ export function migratePersistedState(persisted: unknown) {
     blocks: state.blocks.map(block => ({
       ...block,
       tags: block.tags.map(tag => {
-        const current = adultTagById.get(tag.id)
+        const current = dictionaryTagById.get(tag.id)
         return current
-          ? { ...tag, category: current.category, subcategory: current.subcategory, rating: current.rating }
+          ? { ...tag, category: current.category, subcategory: current.subcategory, sortSubcategory: current.sortSubcategory, rating: current.rating }
           : tag
       }),
     })),
     userTags: Array.isArray(state.userTags)
       ? state.userTags.map(tag => {
+          if (tag.category === 'clothes') return normalizeClothingTag(tag)
           if (tag.category !== 'adult') return tag
           const placement: Record<string, [string, string]> = {
             'ポーズ': ['pose', 'ポーズ（アダルト）'],
@@ -178,6 +179,6 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   })
 }), {
   name: 'sd-prompt-studio-v14',
-  version: 1,
+  version: 2,
   migrate: migratePersistedState,
 }))

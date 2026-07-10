@@ -29,6 +29,9 @@ for (const file of files) {
     if (row.layer && !['inner', 'main', 'outer', 'accessory'].includes(row.layer)) throw new Error(`${file}: invalid layer on ${row.id}`)
     if (row.coverage && (!Array.isArray(row.coverage) || row.coverage.some(value => !['upper', 'lower', 'full'].includes(value)))) throw new Error(`${file}: invalid coverage on ${row.id}`)
     if ((row.layer && !row.coverage) || (!row.layer && row.coverage)) throw new Error(`${file}: layer and coverage must be used together on ${row.id}`)
+    if (file === 'clothes.json' && /shirt/.test(row.prompt) && !/shirt dress/.test(row.prompt) && row.coverage?.join(',') !== 'upper') throw new Error(`${file}: shirt must cover upper on ${row.id}`)
+    if (file === 'clothes.json' && /\b(dress|gown)\b/.test(row.prompt) && !/dress shirt/.test(row.prompt) && row.coverage?.join(',') !== 'upper,lower') throw new Error(`${file}: dress must cover upper and lower on ${row.id}`)
+    if (file === 'clothes.json' && /\b(pants|skirt)\b/.test(row.prompt) && !/dress|suit|outfit/.test(row.prompt) && row.coverage?.join(',') !== 'lower') throw new Error(`${file}: pants and skirts must cover lower on ${row.id}`)
     ids.add(row.id)
     count += 1
   }
