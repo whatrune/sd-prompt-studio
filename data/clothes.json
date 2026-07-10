@@ -1329,7 +1329,7 @@
     "label": "ディアンドル",
     "prompt": "dirndl",
     "category": "clothes",
-    "subcategory": "和装",
+    "subcategory": "民族・歴史",
     "sortSubcategory": "和装"
   },
   {
@@ -1337,7 +1337,7 @@
     "label": "サリー",
     "prompt": "sari",
     "category": "clothes",
-    "subcategory": "和装",
+    "subcategory": "民族・歴史",
     "sortSubcategory": "和装"
   },
   {
@@ -1345,7 +1345,7 @@
     "label": "キルト",
     "prompt": "kilt",
     "category": "clothes",
-    "subcategory": "和装",
+    "subcategory": "民族・歴史",
     "sortSubcategory": "和装"
   },
   {

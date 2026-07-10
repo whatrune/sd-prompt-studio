@@ -104,6 +104,13 @@ try {
   assert.equal(eastAsianTraditionalTags.length, 6)
   assert.equal(eastAsianTraditionalTags.every(tag => tag.subcategory === '民族・歴史'), true, 'Chinese and Korean traditional clothing must not be classified as Japanese clothing')
 
+  const nonJapaneseTraditionalPrompts = new Set(['sari', 'kilt', 'dirndl'])
+  const nonJapaneseTraditionalTags = clothingDictionary.filter(tag => nonJapaneseTraditionalPrompts.has(tag.prompt))
+  assert.equal(nonJapaneseTraditionalTags.length, 3)
+  assert.equal(nonJapaneseTraditionalTags.every(tag => tag.subcategory === '民族・歴史'), true, 'non-Japanese traditional clothing must not be classified as Japanese clothing')
+  const japaneseTraditionalPrompts = ['kimono', 'yukata', 'furisode', 'hakama skirt', 'jinbei', 'miko outfit', 'haori']
+  assert.equal(japaneseTraditionalPrompts.every(prompt => clothingDictionary.find(tag => tag.prompt === prompt)?.subcategory === '和装'), true, 'Japanese traditional clothing must remain in the Japanese clothing category')
+
   const migratedClothing = migratePersistedState({
     blocks: [{ id: 'clothes', name: '被写体 1', tags: [{ id: 'clo-dress-shirt', prompt: 'dress shirt', label: 'saved', category: 'clothes', subcategory: 'トップス', weight: 1.3 }] }],
     userTags: [],
