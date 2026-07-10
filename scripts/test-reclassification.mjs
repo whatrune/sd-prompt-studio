@@ -169,17 +169,42 @@ try {
   assert.equal(conflict('jumping', ['sitting'])?.level, 'hard', 'jumping and sitting must conflict')
 
   const poseDictionary = JSON.parse(fs.readFileSync(new URL('../data/pose.json', import.meta.url), 'utf8'))
-  assert.equal(poseDictionary.length, 291, 'Motion dictionary count must remain unchanged')
-  assert.equal(new Set(poseDictionary.map(tag => tag.id)).size, 291, 'Motion ids must remain unique')
-  assert.equal(poseDictionary.filter(tag => !tag.deprecated).length, 285, 'canonical Motion display count must exclude redirects')
-  assert.equal(allTags.filter(tag => tag.category === 'pose').length, 291, 'physical Motion rows must remain available')
-  assert.equal(tags.filter(tag => tag.category === 'pose').length, 285, 'deprecated Motion rows must not be exposed to the UI')
+  assert.equal(poseDictionary.length, 301, 'Motion physical dictionary must include the RIN gymnastics batch')
+  assert.equal(new Set(poseDictionary.map(tag => tag.id)).size, 301, 'Motion ids must remain unique')
+  assert.equal(poseDictionary.filter(tag => !tag.deprecated).length, 290, 'canonical Motion display count must exclude redirects')
+  assert.equal(allTags.filter(tag => tag.category === 'pose').length, 301, 'physical Motion rows must remain available')
+  assert.equal(tags.filter(tag => tag.category === 'pose').length, 290, 'deprecated Motion rows must not be exposed to the UI')
   assert.equal(tags.some(tag => tag.deprecated), false, 'deprecated tags must not be visible')
   for (const tag of poseDictionary) assert(resolveCanonicalTag(tag.id, allTags), `every legacy id must resolve: ${tag.id}`)
   assert.equal(resolveCanonicalTag('rin-pose-on-back', allTags)?.id, 'pos-lying-on-back')
   assert.equal(resolveCanonicalTag('rin-v-sign', allTags)?.prompt, 'peace sign', 'ambiguous v must not replace the canonical Prompt')
   assert(tags.find(tag => tag.id === 'pos-peace-sign')?.aliases?.includes('v'), 'v must remain searchable as an alias')
   assert.deepEqual(tags.find(tag => tag.id === 'pos-lying-on-back')?.sources, ['existing', 'RIN'])
+
+  const rinGymnasticsRedirects = {
+    'rin-standing-split': 'v19-motion-y-balance',
+    'rin-needle-pose': 'v19-motion-needle-pose',
+    'rin-handstand': 'v19-motion-handstand',
+    'rin-cartwheel': 'v19-motion-cartwheel',
+    'rin-backflip': 'v19-motion-backflip',
+  }
+  for (const [legacyId, canonicalId] of Object.entries(rinGymnasticsRedirects)) {
+    assert.equal(resolveCanonicalTag(legacyId, allTags)?.id, canonicalId, `${legacyId} must resolve to its existing canonical tag`)
+    assert.equal(tags.some(tag => tag.id === legacyId), false, `${legacyId} must not be displayed`)
+    assert.deepEqual(tags.find(tag => tag.id === canonicalId)?.sources, ['existing', 'RIN'])
+  }
+  const rinYogaPrompts = ['lotus pose', 'downward-facing dog', 'tree pose', 'warrior pose', 'cobra pose']
+  for (const prompt of rinYogaPrompts) {
+    const tag = tags.find(item => item.prompt === prompt)
+    assert(tag, `${prompt} must be added as a distinct canonical tag`)
+    assert.deepEqual(tag.sources, ['RIN'])
+    assert(tag.label && tag.aliases?.length && tag.related?.length && tag.description && tag.slot, `${prompt} must include complete RIN metadata`)
+  }
+  assert.deepEqual(tags.find(tag => tag.prompt === 'handstand')?.slot, ['acrobatics', 'balance_pose'], 'handstand must occupy acrobatics and balance slots')
+  assert.deepEqual(tags.find(tag => tag.prompt === 'backflip')?.slot, ['acrobatics', 'airborne_state'])
+  assert.deepEqual(tags.find(tag => tag.prompt === 'standing split')?.slot, ['balance_pose', 'leg_pose'])
+  assert.equal(conflict('handstand', ['standing split'])?.level, 'hard', 'handstand and standing split must conflict through balance_pose')
+  assert.equal(conflict('cartwheel', ['backflip'])?.level, 'hard', 'two acrobatics actions must conflict')
 
   const futureRinTag = { id: 'rin-future-wave', label: 'RIN wave', prompt: 'wave', category: 'pose', sources: ['RIN'], aliases: ['future wave'], related: ['waving'] }
   const mergedFutureTag = mergeCanonicalTag(tags.find(tag => tag.id === 'pos-waving'), futureRinTag)
@@ -227,6 +252,15 @@ try {
   assert.equal(migratedCanonicalMotion.blocks[0].tags[0].prompt, 'on back')
   assert.equal(migratedCanonicalMotion.blocks[0].tags[0].weight, 1.4)
   assert.deepEqual(migratedCanonicalMotion.favoriteIds, ['pos-lying-on-back', 'pos-peace-sign'])
+
+  const migratedRinGymnastics = migratePersistedState({
+    blocks: [{ id: 'rin-gymnastics', name: '被写体 1', tags: [{ id: 'rin-handstand', prompt: 'handstand', label: '逆立ち', category: 'pose', weight: 1.2 }] }],
+    favoriteIds: ['rin-handstand', 'rin-standing-split'],
+    userTags: [],
+  })
+  assert.equal(migratedRinGymnastics.blocks[0].tags[0].id, 'v19-motion-handstand')
+  assert.equal(migratedRinGymnastics.blocks[0].tags[0].weight, 1.2)
+  assert.deepEqual(migratedRinGymnastics.favoriteIds, ['v19-motion-handstand', 'v19-motion-y-balance'])
 
   const characterDictionary = JSON.parse(fs.readFileSync(new URL('../data/character.json', import.meta.url), 'utf8'))
   assert.equal(characterDictionary.length, 103, 'character dictionary count must remain unchanged')

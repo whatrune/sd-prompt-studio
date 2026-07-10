@@ -1313,8 +1313,14 @@
       "yoga pose"
     ],
     "related": [
-      "stretching"
-    ]
+      "stretching",
+      "lotus pose",
+      "downward-facing dog",
+      "tree pose",
+      "warrior pose",
+      "cobra pose"
+    ],
+    "description": "ヨガ全般を表す汎用タグ。具体的な姿勢を指定する場合は個別のyoga poseを併用せず置き換える。"
   },
   {
     "id": "pos-v5-sword-stance",
@@ -1673,13 +1679,17 @@
       "立位開脚",
       "I字バランス",
       "I字開脚",
-      "立位I字開脚"
+      "立位I字開脚",
+      "スタンディングスプリット",
+      "standing leg split"
     ],
     "related": [
       "leg up",
       "holding leg",
       "full body",
-      "pointed toes"
+      "pointed toes",
+      "split",
+      "needle pose"
     ],
     "slot": [
       "balance_pose",
@@ -1688,8 +1698,10 @@
     "generationNote": "立ったまま片脚を高く上げる開脚ポーズ。全身構図と組み合わせないと、上げた脚が画面外へ切れやすくなります。",
     "sortSubcategory": "体操・アクロバット",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "description": "立ったまま片脚を高く上げる開脚ポーズ。バランスと脚の柔軟性を同時に表現する。"
   },
   {
     "id": "v19-motion-needle-pose",
@@ -1700,7 +1712,8 @@
     "aliases": [
       "ニードル",
       "後方脚上げ",
-      "ニードルスケール"
+      "ニードルスケール",
+      "needle scale"
     ],
     "slot": [
       "balance_pose",
@@ -1710,13 +1723,16 @@
       "standing",
       "leg up",
       "bent over",
-      "pointed toes"
+      "pointed toes",
+      "standing split"
     ],
     "generationNote": "上体を前へ倒しながら片脚を背後へ高く伸ばす体操ポーズ。standing splitより前傾が強く、柔軟性の表現に向きます。",
     "sortSubcategory": "体操・アクロバット",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "description": "上体を前へ倒し、片脚を背後へ高く伸ばすバランスポーズ。standing splitより前傾が強い。"
   },
   {
     "id": "v19-motion-vertical-split",
@@ -1848,15 +1864,26 @@
     "prompt": "handstand",
     "category": "pose",
     "subcategory": "体操・アクロバット",
-    "slot": "acrobatics",
+    "slot": [
+      "acrobatics",
+      "balance_pose"
+    ],
     "generationNote": "両手で身体を支える倒立。手足の破綻が起きやすいため、全身構図・単独人物・シンプルな背景との組み合わせが安定します。",
     "aliases": [
-      "倒立"
+      "倒立",
+      "hand stand"
     ],
     "sortSubcategory": "体操・アクロバット",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "related": [
+      "one-handed handstand",
+      "cartwheel",
+      "arm support"
+    ],
+    "description": "両手で身体を支える倒立。体操動作であると同時に、上下反転したバランス姿勢でもある。"
   },
   {
     "id": "v19-motion-one-handed-handstand",
@@ -1891,11 +1918,21 @@
     "subcategory": "体操・アクロバット",
     "slot": "acrobatics",
     "generationNote": "身体を横方向へ回転させる側転。動作途中の姿勢になるため、全身構図や横長の画面と相性が良いタグです。",
-    "aliases": [],
+    "aliases": [
+      "cart wheel",
+      "側方倒立回転"
+    ],
     "sortSubcategory": "体操・アクロバット",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "related": [
+      "handstand",
+      "aerial cartwheel",
+      "gymnastics"
+    ],
+    "description": "手を床について身体を横方向へ回転させる体操動作。"
   },
   {
     "id": "v19-motion-roundoff",
@@ -1961,11 +1998,21 @@
       "airborne_state"
     ],
     "generationNote": "手をつかず後方へ宙返りする動作。空中感を出すにはairborneやdynamic poseを関連候補として使えます。",
-    "aliases": [],
+    "aliases": [
+      "back flip",
+      "backward somersault"
+    ],
     "sortSubcategory": "体操・アクロバット",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "related": [
+      "somersault",
+      "jumping",
+      "airborne"
+    ],
+    "description": "後方へ跳び、空中で一回転する体操動作。"
   },
   {
     "id": "v19-motion-front-flip",
@@ -3762,14 +3809,18 @@
       "スプリット"
     ],
     "related": [
-      "sitting"
+      "sitting",
+      "front split",
+      "middle split",
+      "standing split"
     ],
     "generationNote": "床上で脚を前後または左右へ大きく開くポーズ。方向を明確にしたい場合はfront splitやside splitを優先します。",
     "sortSubcategory": "脚・開脚",
     "slot": "leg_pose",
     "sources": [
       "RIN"
-    ]
+    ],
+    "description": "床上で脚を前後または左右へ大きく開く汎用ポーズ。方向を限定する場合はfront splitやmiddle splitを使う。"
   },
   {
     "id": "rin-knees-apart-feet-together",
@@ -4051,6 +4102,265 @@
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
     "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-standing-split",
+    "label": "立位開脚",
+    "prompt": "standing split",
+    "aliases": [
+      "スタンディングスプリット",
+      "standing leg split"
+    ],
+    "related": [
+      "split",
+      "needle pose",
+      "leg up",
+      "holding leg"
+    ],
+    "description": "立ったまま片脚を高く上げる開脚ポーズ。バランスと脚の柔軟性を同時に表現する。",
+    "slot": [
+      "balance_pose",
+      "leg_pose"
+    ],
+    "category": "pose",
+    "subcategory": "バランス",
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "v19-motion-y-balance"
+  },
+  {
+    "id": "rin-needle-pose",
+    "label": "ニードルポーズ",
+    "prompt": "needle pose",
+    "aliases": [
+      "needle scale",
+      "ニードルスケール"
+    ],
+    "related": [
+      "standing split",
+      "bent over",
+      "leg up",
+      "pointed toes"
+    ],
+    "description": "上体を前へ倒し、片脚を背後へ高く伸ばすバランスポーズ。standing splitより前傾が強い。",
+    "slot": [
+      "balance_pose",
+      "leg_pose"
+    ],
+    "category": "pose",
+    "subcategory": "バランス",
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "v19-motion-needle-pose"
+  },
+  {
+    "id": "rin-handstand",
+    "label": "逆立ち",
+    "prompt": "handstand",
+    "aliases": [
+      "hand stand",
+      "倒立"
+    ],
+    "related": [
+      "one-handed handstand",
+      "cartwheel",
+      "arm support"
+    ],
+    "description": "両手で身体を支える倒立。体操動作であると同時に、上下反転したバランス姿勢でもある。",
+    "slot": [
+      "acrobatics",
+      "balance_pose"
+    ],
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "v19-motion-handstand"
+  },
+  {
+    "id": "rin-cartwheel",
+    "label": "側転",
+    "prompt": "cartwheel",
+    "aliases": [
+      "cart wheel",
+      "側方倒立回転"
+    ],
+    "related": [
+      "handstand",
+      "aerial cartwheel",
+      "gymnastics"
+    ],
+    "description": "手を床について身体を横方向へ回転させる体操動作。",
+    "slot": "acrobatics",
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "v19-motion-cartwheel"
+  },
+  {
+    "id": "rin-backflip",
+    "label": "後方宙返り",
+    "prompt": "backflip",
+    "aliases": [
+      "back flip",
+      "backward somersault"
+    ],
+    "related": [
+      "somersault",
+      "jumping",
+      "airborne"
+    ],
+    "description": "後方へ跳び、空中で一回転する体操動作。",
+    "slot": [
+      "acrobatics",
+      "airborne_state"
+    ],
+    "category": "pose",
+    "subcategory": "体操・アクロバット",
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "v19-motion-backflip"
+  },
+  {
+    "id": "rin-yoga-lotus-pose",
+    "label": "蓮華座",
+    "prompt": "lotus pose",
+    "aliases": [
+      "padmasana",
+      "ロータスポーズ"
+    ],
+    "related": [
+      "yoga",
+      "sitting",
+      "crossed legs"
+    ],
+    "description": "両脚を組んで座るヨガの瞑想姿勢。",
+    "slot": [
+      "body_posture",
+      "leg_pose"
+    ],
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-yoga-downward-dog",
+    "label": "下向きの犬のポーズ",
+    "prompt": "downward-facing dog",
+    "aliases": [
+      "downward dog",
+      "adho mukha svanasana"
+    ],
+    "related": [
+      "yoga",
+      "arm support",
+      "bent over"
+    ],
+    "description": "両手両足を床につけ、腰を高く持ち上げる逆V字のヨガ姿勢。",
+    "slot": [
+      "body_posture",
+      "balance_pose"
+    ],
+    "category": "pose",
+    "subcategory": "バランス",
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-yoga-tree-pose",
+    "label": "木のポーズ",
+    "prompt": "tree pose",
+    "aliases": [
+      "vrikshasana",
+      "片足の木のポーズ"
+    ],
+    "related": [
+      "yoga",
+      "standing on one leg",
+      "one leg balance"
+    ],
+    "description": "片脚で立ち、もう一方の足を支持脚へ添えるヨガのバランスポーズ。",
+    "slot": [
+      "balance_pose",
+      "leg_pose"
+    ],
+    "category": "pose",
+    "subcategory": "バランス",
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-yoga-warrior-pose",
+    "label": "戦士のポーズ",
+    "prompt": "warrior pose",
+    "aliases": [
+      "virabhadrasana",
+      "ウォーリアポーズ"
+    ],
+    "related": [
+      "yoga",
+      "lunge",
+      "arms raised"
+    ],
+    "description": "脚を前後に開き、力強く構えるヨガの立位姿勢。",
+    "slot": [
+      "balance_pose",
+      "leg_pose"
+    ],
+    "category": "pose",
+    "subcategory": "バランス",
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-yoga-cobra-pose",
+    "label": "コブラのポーズ",
+    "prompt": "cobra pose",
+    "aliases": [
+      "bhujangasana",
+      "コブラポーズ"
+    ],
+    "related": [
+      "yoga",
+      "lying on stomach",
+      "arched back"
+    ],
+    "description": "うつ伏せから上体を反らして持ち上げるヨガ姿勢。",
+    "slot": [
+      "body_posture",
+      "posture_modifier"
+    ],
+    "category": "pose",
+    "subcategory": "基本姿勢",
+    "sortSubcategory": "体操・アクロバット",
     "sources": [
       "RIN"
     ]
