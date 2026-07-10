@@ -169,11 +169,11 @@ try {
   assert.equal(conflict('jumping', ['sitting'])?.level, 'hard', 'jumping and sitting must conflict')
 
   const poseDictionary = JSON.parse(fs.readFileSync(new URL('../data/pose.json', import.meta.url), 'utf8'))
-  assert.equal(poseDictionary.length, 301, 'Motion physical dictionary must include the RIN gymnastics batch')
-  assert.equal(new Set(poseDictionary.map(tag => tag.id)).size, 301, 'Motion ids must remain unique')
-  assert.equal(poseDictionary.filter(tag => !tag.deprecated).length, 290, 'canonical Motion display count must exclude redirects')
-  assert.equal(allTags.filter(tag => tag.category === 'pose').length, 301, 'physical Motion rows must remain available')
-  assert.equal(tags.filter(tag => tag.category === 'pose').length, 290, 'deprecated Motion rows must not be exposed to the UI')
+  assert.equal(poseDictionary.length, 311, 'Motion physical dictionary must include the RIN dance batch')
+  assert.equal(new Set(poseDictionary.map(tag => tag.id)).size, 311, 'Motion ids must remain unique')
+  assert.equal(poseDictionary.filter(tag => !tag.deprecated).length, 294, 'canonical Motion display count must exclude redirects')
+  assert.equal(allTags.filter(tag => tag.category === 'pose').length, 311, 'physical Motion rows must remain available')
+  assert.equal(tags.filter(tag => tag.category === 'pose').length, 294, 'deprecated Motion rows must not be exposed to the UI')
   assert.equal(tags.some(tag => tag.deprecated), false, 'deprecated tags must not be visible')
   for (const tag of poseDictionary) assert(resolveCanonicalTag(tag.id, allTags), `every legacy id must resolve: ${tag.id}`)
   assert.equal(resolveCanonicalTag('rin-pose-on-back', allTags)?.id, 'pos-lying-on-back')
@@ -205,6 +205,40 @@ try {
   assert.deepEqual(tags.find(tag => tag.prompt === 'standing split')?.slot, ['balance_pose', 'leg_pose'])
   assert.equal(conflict('handstand', ['standing split'])?.level, 'hard', 'handstand and standing split must conflict through balance_pose')
   assert.equal(conflict('cartwheel', ['backflip'])?.level, 'hard', 'two acrobatics actions must conflict')
+
+  const rinDanceRedirects = {
+    'rin-dance-ballet': 'v19-motion-ballet-pose',
+    'rin-dance-arabesque': 'v19-motion-arabesque',
+    'rin-dance-pirouette': 'v19-motion-pirouette',
+    'rin-dance-fan-dance': 'v19-motion-fan-dance',
+    'rin-dance-belly-dance': 'v19-motion-belly-dance',
+    'rin-dance-ribbon-dance': 'v19-motion-ribbon-dance',
+  }
+  for (const [legacyId, canonicalId] of Object.entries(rinDanceRedirects)) {
+    assert.equal(resolveCanonicalTag(legacyId, allTags)?.id, canonicalId, `${legacyId} must resolve to its existing canonical dance tag`)
+    assert.equal(tags.some(tag => tag.id === legacyId), false, `${legacyId} must not be displayed`)
+    assert.deepEqual(tags.find(tag => tag.id === canonicalId)?.sources, ['existing', 'RIN'])
+  }
+  const specificRinDances = ['hip hop dance', 'idol dance', 'flamenco', 'pole dance']
+  for (const prompt of specificRinDances) {
+    const tag = tags.find(item => item.prompt === prompt)
+    assert(tag, `${prompt} must be added as a distinct canonical dance style`)
+    assert.deepEqual(tag.sources, ['RIN'])
+    assert(tag.label && tag.aliases?.length && tag.related?.length && tag.description && tag.slot, `${prompt} must include complete RIN metadata`)
+  }
+  assert(tags.some(tag => tag.prompt === 'dancing'), 'generic dance must remain a separate canonical tag')
+  assert(tags.some(tag => tag.prompt === 'ballet'), 'RIN ballet Prompt must be promoted on the existing canonical id')
+  assert(tags.find(tag => tag.prompt === 'ballet')?.aliases?.includes('ballet pose'))
+  assert.deepEqual(tags.find(tag => tag.prompt === 'arabesque')?.slot, ['dance_style', 'balance_pose', 'leg_pose'])
+  assert.deepEqual(tags.find(tag => tag.prompt === 'fan dance')?.slot, ['dance_style', 'hand_action'])
+  assert.equal(conflict('ballet', ['dancing'])?.level, 'hard', 'generic and specific dance styles must remain distinct and conflict')
+  assert.equal(conflict('flamenco', ['hip hop dance'])?.level, 'hard', 'different dance styles must conflict')
+  assert.equal(conflict('ballet', ['standing']), null, 'dance style and body posture must coexist')
+  assert.equal(conflict('arabesque', ['standing']), null, 'dance balance pose and base posture must coexist')
+  assert.equal(conflict('fan dance', ['standing']), null, 'dance hand action and base posture must coexist')
+
+  const dancePromptOrder = ['hip hop dance', 'ballet', 'dancing'].map(prompt => ({ ...findTag(prompt), weight: 1 }))
+  assert.deepEqual([...dancePromptOrder].sort(tagSort).map(tag => tag.prompt), ['dancing', 'ballet', 'hip hop dance'], 'new specific dances must preserve legacy dance Prompt order')
 
   const futureRinTag = { id: 'rin-future-wave', label: 'RIN wave', prompt: 'wave', category: 'pose', sources: ['RIN'], aliases: ['future wave'], related: ['waving'] }
   const mergedFutureTag = mergeCanonicalTag(tags.find(tag => tag.id === 'pos-waving'), futureRinTag)
@@ -261,6 +295,16 @@ try {
   assert.equal(migratedRinGymnastics.blocks[0].tags[0].id, 'v19-motion-handstand')
   assert.equal(migratedRinGymnastics.blocks[0].tags[0].weight, 1.2)
   assert.deepEqual(migratedRinGymnastics.favoriteIds, ['v19-motion-handstand', 'v19-motion-y-balance'])
+
+  const migratedRinDance = migratePersistedState({
+    blocks: [{ id: 'rin-dance', name: '被写体 1', tags: [{ id: 'rin-dance-ballet', prompt: 'ballet', label: 'バレエ', category: 'pose', weight: 1.1 }] }],
+    favoriteIds: ['rin-dance-ballet', 'rin-dance-ribbon-dance'],
+    userTags: [],
+  })
+  assert.equal(migratedRinDance.blocks[0].tags[0].id, 'v19-motion-ballet-pose')
+  assert.equal(migratedRinDance.blocks[0].tags[0].prompt, 'ballet')
+  assert.equal(migratedRinDance.blocks[0].tags[0].weight, 1.1)
+  assert.deepEqual(migratedRinDance.favoriteIds, ['v19-motion-ballet-pose', 'v19-motion-ribbon-dance'])
 
   const characterDictionary = JSON.parse(fs.readFileSync(new URL('../data/character.json', import.meta.url), 'utf8'))
   assert.equal(characterDictionary.length, 103, 'character dictionary count must remain unchanged')
