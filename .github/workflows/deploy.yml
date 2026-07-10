@@ -34,7 +34,7 @@ jobs:
         run: npm ci
 
       - name: Validate dictionaries
-        run: npm run validate:dictionaries
+        run: npm run validate:dictionary
         continue-on-error: false
 
       - name: Build
