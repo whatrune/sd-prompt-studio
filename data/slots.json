@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "slots": [
     {
       "id": "people_count_mode",
@@ -29,6 +29,11 @@
     {
       "id": "eyebrow_shape",
       "label": "眉の形・状態",
+      "mode": "single"
+    },
+    {
+      "id": "eyebrow_state",
+      "label": "眉の状態",
       "mode": "single"
     },
     {
@@ -74,6 +79,16 @@
     {
       "id": "eyelash_length",
       "label": "まつ毛の長さ・量",
+      "mode": "single"
+    },
+    {
+      "id": "upper_eyelashes",
+      "label": "上まつ毛",
+      "mode": "single"
+    },
+    {
+      "id": "lower_eyelashes",
+      "label": "下まつ毛",
       "mode": "single"
     },
     {
@@ -219,7 +234,7 @@
     {
       "id": "body_motion",
       "label": "主な動作",
-      "mode": "single"
+      "mode": "multiple"
     }
   ],
   "rules": [
@@ -298,9 +313,29 @@
       "subcategory": "虹彩・内部模様"
     },
     {
+      "slot": "upper_eyelashes",
+      "category": "eyes",
+      "subcategory": "まつ毛の長さ・量",
+      "patterns": [
+        "upper eyelashes"
+      ]
+    },
+    {
+      "slot": "lower_eyelashes",
+      "category": "eyes",
+      "subcategory": "まつ毛の長さ・量",
+      "patterns": [
+        "lower eyelashes"
+      ]
+    },
+    {
       "slot": "eyelash_length",
       "category": "eyes",
-      "subcategory": "まつ毛の長さ・量"
+      "subcategory": "まつ毛の長さ・量",
+      "excludePatterns": [
+        "upper eyelashes",
+        "lower eyelashes"
+      ]
     },
     {
       "slot": "eyelash_shape",
@@ -504,6 +539,16 @@
       ]
     },
     {
+      "slot": "eyebrow_state",
+      "category": "expression",
+      "subcategory": "頬・眉",
+      "patterns": [
+        "raised eyebrow",
+        "furrowed brow",
+        "sad eyebrows"
+      ]
+    },
+    {
       "slot": "eyebrow_shape",
       "category": "expression",
       "subcategory": "頬・眉",
@@ -513,6 +558,11 @@
         "furrowed brow",
         "arched brow",
         "raised eyebrow"
+      ],
+      "excludePatterns": [
+        "raised",
+        "furrowed",
+        "sad"
       ]
     },
     {

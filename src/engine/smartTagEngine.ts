@@ -15,6 +15,7 @@ type SlotRule = {
   category?: string
   subcategory?: string
   excludeSubcategories?: string[]
+  excludePatterns?: string[]
   prompts?: string[]
   patterns?: string[]
 }
@@ -28,6 +29,7 @@ const compiledRules = slotConfig.rules.map(rule => ({
   ...rule,
   normalizedPrompts: new Set((rule.prompts ?? []).map(value => value.trim().toLowerCase())),
   regexes: (rule.patterns ?? []).map(pattern => new RegExp(pattern, 'i')),
+  excludeRegexes: (rule.excludePatterns ?? []).map(pattern => new RegExp(pattern, 'i')),
 }))
 
 const normalize = (value: string) => value.trim().toLowerCase()
@@ -73,11 +75,11 @@ function clothingProfile(tag: Pick<PromptTag, 'prompt' | 'category' | 'subcatego
 
 function clothingConflict(a?: ClothingProfile, b?: ClothingProfile) {
   if (!a || !b) return false
-  if (a.layer !== 'main' || b.layer !== 'main') return false
   const overlap = [...a.coverage].some(part => b.coverage.has(part) || part === 'full' || b.coverage.has('full'))
   if (!overlap) return false
-  if (a.kind === 'onepiece' || b.kind === 'onepiece') return true
-  return a.kind === b.kind
+  if (a.layer !== b.layer) return false
+  if (a.layer === 'accessory') return false
+  return true
 }
 
 const FULL_OUTERWEAR = ['coat','trench coat','overcoat','raincoat','duffle coat','fur coat','gown','robe','bathrobe','dressing gown']
@@ -95,6 +97,7 @@ function ruleMatches(rule: typeof compiledRules[number], tag: Pick<PromptTag, 'p
   if (rule.category && rule.category !== tag.category) return false
   if (rule.subcategory && rule.subcategory !== tag.subcategory) return false
   if (rule.excludeSubcategories?.includes(tag.subcategory ?? '')) return false
+  if (rule.excludeRegexes.some(regex => regex.test(prompt))) return false
   const hasPromptFilter = rule.normalizedPrompts.size > 0 || rule.regexes.length > 0
   if (!hasPromptFilter) return true
   return rule.normalizedPrompts.has(prompt) || rule.regexes.some(regex => regex.test(prompt))
@@ -164,11 +167,23 @@ function evaluate(candidate: PromptTag, context: SelectedContext): ConflictReaso
   for (const item of context.selectedProfiles) {
     if (normalize(item.tag.prompt) === normalize(candidate.prompt)) continue
 
-    for (const [slot, value] of profile.slots) {
-      const selectedValue = item.profile.slots.get(slot)
-      if (selectedValue && selectedValue !== value) {
-        hard.push(item.tag)
-        hardMessages.add(`${item.tag.label}と同じ「${slotLabel(slot)}」を別の値で指定しています`)
+    const candidateConflicts = candidate.conflicts ?? []
+    const sourceConflicts = 'conflicts' in item.source ? item.source.conflicts ?? [] : []
+    if (candidateConflicts.includes(item.tag.prompt) || sourceConflicts.includes(candidate.prompt)) {
+      hard.push(item.tag)
+      hardMessages.add(`${item.tag.label}と辞書上の競合関係があります`)
+      continue
+    }
+
+    // Clothing slots identify the garment family, but layer and coverage decide
+    // whether two garments can actually be worn together.
+    if (!(profile.clothing && item.profile.clothing)) {
+      for (const [slot, value] of profile.slots) {
+        const selectedValue = item.profile.slots.get(slot)
+        if (selectedValue && selectedValue !== value) {
+          hard.push(item.tag)
+          hardMessages.add(`${item.tag.label}と同じ「${slotLabel(slot)}」を別の値で指定しています`)
+        }
       }
     }
 
@@ -183,13 +198,6 @@ function evaluate(candidate: PromptTag, context: SelectedContext): ConflictReaso
     if (clothingConflict(profile.clothing, item.profile.clothing)) {
       hard.push(item.tag)
       hardMessages.add(`${item.tag.label}と衣装の同じ着用範囲を占有します`)
-    }
-
-    const candidateConflicts = candidate.conflicts ?? []
-    const sourceConflicts = 'conflicts' in item.source ? item.source.conflicts ?? [] : []
-    if (candidateConflicts.includes(item.tag.prompt) || sourceConflicts.includes(candidate.prompt)) {
-      hard.push(item.tag)
-      hardMessages.add(`${item.tag.label}と辞書上の競合関係があります`)
     }
 
     const pair = new Set([normalize(candidate.prompt), normalize(item.tag.prompt)])

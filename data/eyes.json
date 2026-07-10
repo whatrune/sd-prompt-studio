@@ -971,7 +971,7 @@
     "prompt": "lower eyelashes",
     "category": "eyes",
     "subcategory": "まつ毛の長さ・量",
-    "slot": "eyelash_length"
+    "slot": "lower_eyelashes"
   },
   {
     "id": "eye-colored-eyelashes",
@@ -1828,7 +1828,7 @@
     "prompt": "upper eyelashes",
     "category": "eyes",
     "subcategory": "まつ毛の長さ・量",
-    "slot": "eyelash_length"
+    "slot": "upper_eyelashes"
   },
   {
     "id": "eye-v9-long-lower-eyelashes",
@@ -1836,7 +1836,7 @@
     "prompt": "long lower eyelashes",
     "category": "eyes",
     "subcategory": "まつ毛の長さ・量",
-    "slot": "eyelash_length"
+    "slot": "lower_eyelashes"
   },
   {
     "id": "eye-v9-thick-lower-eyelashes",
@@ -1844,7 +1844,7 @@
     "prompt": "thick lower eyelashes",
     "category": "eyes",
     "subcategory": "まつ毛の長さ・量",
-    "slot": "eyelash_length"
+    "slot": "lower_eyelashes"
   },
   {
     "id": "eye-v9-multiple-eyelashes",
