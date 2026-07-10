@@ -2095,7 +2095,9 @@
     "category": "pose",
     "subcategory": "ダンス",
     "aliases": [
-      "バレエアラベスク"
+      "バレエアラベスク",
+      "ballet arabesque",
+      "アラベスクポーズ"
     ],
     "related": [
       "ballet dress",
@@ -2104,17 +2106,21 @@
       "spotlight",
       "standing on one leg",
       "outstretched arms",
-      "pointed toes"
+      "pointed toes",
+      "ballet"
     ],
     "slot": [
-      "dance_style",
-      "balance_pose"
+      "dance_move",
+      "balance_pose",
+      "leg_pose"
     ],
     "generationNote": "片脚で立ち、もう片脚を後方へ伸ばすバレエ姿勢。上体を起こした優雅なバランスポーズを作りやすいタグです。",
     "sortSubcategory": "ダンス",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "description": "片脚で立ち、反対の脚を後方へ伸ばすバレエのバランスポーズ。"
   },
   {
     "id": "v19-motion-attitude-pose",
@@ -2137,11 +2143,25 @@
     "prompt": "pirouette",
     "category": "pose",
     "subcategory": "ダンス",
-    "slot": "dance_style",
+    "slot": [
+      "dance_move",
+      "balance_pose"
+    ],
     "sortSubcategory": "ダンス",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "ballet turn",
+      "片足旋回"
+    ],
+    "related": [
+      "ballet",
+      "spinning",
+      "standing on one leg"
+    ],
+    "description": "片脚を軸に身体を回転させるバレエ動作。"
   },
   {
     "id": "v19-motion-toe-stand",
@@ -2161,14 +2181,25 @@
   {
     "id": "v19-motion-ballet-pose",
     "label": "バレエポーズ",
-    "prompt": "ballet pose",
+    "prompt": "ballet",
     "category": "pose",
     "subcategory": "ダンス",
     "slot": "dance_style",
     "sortSubcategory": "ダンス",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "ballet pose",
+      "クラシックバレエ"
+    ],
+    "related": [
+      "arabesque",
+      "pirouette",
+      "toe shoes"
+    ],
+    "description": "クラシックバレエの動きや姿勢を表す汎用スタイル。"
   },
   {
     "id": "v19-motion-ribbon-dance",
@@ -2176,11 +2207,25 @@
     "prompt": "ribbon dance",
     "category": "pose",
     "subcategory": "ダンス",
-    "slot": "dance_style",
+    "slot": [
+      "dance_style",
+      "hand_action"
+    ],
     "sortSubcategory": "ダンス",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "ribbon dancing",
+      "dance with ribbon"
+    ],
+    "related": [
+      "dancing",
+      "holding ribbon",
+      "rhythmic gymnastics"
+    ],
+    "description": "手に持った長いリボンを動かしながら踊るスタイル。"
   },
   {
     "id": "v19-motion-fan-dance",
@@ -2188,11 +2233,25 @@
     "prompt": "fan dance",
     "category": "pose",
     "subcategory": "ダンス",
-    "slot": "dance_style",
+    "slot": [
+      "dance_style",
+      "hand_action"
+    ],
     "sortSubcategory": "ダンス",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "fan dancing",
+      "扇の舞"
+    ],
+    "related": [
+      "dancing",
+      "holding fan",
+      "traditional dance"
+    ],
+    "description": "扇を手に持って動かす舞踊スタイル。"
   },
   {
     "id": "v19-motion-belly-dance",
@@ -2203,8 +2262,18 @@
     "slot": "dance_style",
     "sortSubcategory": "ダンス",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "belly dancing",
+      "oriental dance"
+    ],
+    "related": [
+      "dancing",
+      "hip movement"
+    ],
+    "description": "腰や胴体の動きを中心とする中東由来のダンススタイル。"
   },
   {
     "id": "v19-motion-spinning-dance",
@@ -4361,6 +4430,264 @@
     "category": "pose",
     "subcategory": "基本姿勢",
     "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-dance-ballet",
+    "label": "バレエ",
+    "prompt": "ballet",
+    "aliases": [
+      "ballet pose",
+      "クラシックバレエ"
+    ],
+    "related": [
+      "arabesque",
+      "pirouette",
+      "toe shoes"
+    ],
+    "description": "クラシックバレエの動きや姿勢を表す汎用スタイル。",
+    "slot": "dance_style",
+    "category": "pose",
+    "subcategory": "ダンス",
+    "sortSubcategory": "ダンス",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "v19-motion-ballet-pose"
+  },
+  {
+    "id": "rin-dance-arabesque",
+    "label": "アラベスク",
+    "prompt": "arabesque",
+    "aliases": [
+      "ballet arabesque",
+      "アラベスクポーズ"
+    ],
+    "related": [
+      "ballet",
+      "standing on one leg",
+      "outstretched arms",
+      "pointed toes"
+    ],
+    "description": "片脚で立ち、反対の脚を後方へ伸ばすバレエのバランスポーズ。",
+    "slot": [
+      "dance_move",
+      "balance_pose",
+      "leg_pose"
+    ],
+    "category": "pose",
+    "subcategory": "ダンス",
+    "sortSubcategory": "ダンス",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "v19-motion-arabesque"
+  },
+  {
+    "id": "rin-dance-pirouette",
+    "label": "ピルエット",
+    "prompt": "pirouette",
+    "aliases": [
+      "ballet turn",
+      "片足旋回"
+    ],
+    "related": [
+      "ballet",
+      "spinning",
+      "standing on one leg"
+    ],
+    "description": "片脚を軸に身体を回転させるバレエ動作。",
+    "slot": [
+      "dance_move",
+      "balance_pose"
+    ],
+    "category": "pose",
+    "subcategory": "ダンス",
+    "sortSubcategory": "ダンス",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "v19-motion-pirouette"
+  },
+  {
+    "id": "rin-dance-fan-dance",
+    "label": "扇子舞",
+    "prompt": "fan dance",
+    "aliases": [
+      "fan dancing",
+      "扇の舞"
+    ],
+    "related": [
+      "dancing",
+      "holding fan",
+      "traditional dance"
+    ],
+    "description": "扇を手に持って動かす舞踊スタイル。",
+    "slot": [
+      "dance_style",
+      "hand_action"
+    ],
+    "category": "pose",
+    "subcategory": "ダンス",
+    "sortSubcategory": "ダンス",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "v19-motion-fan-dance"
+  },
+  {
+    "id": "rin-dance-belly-dance",
+    "label": "ベリーダンス",
+    "prompt": "belly dance",
+    "aliases": [
+      "belly dancing",
+      "oriental dance"
+    ],
+    "related": [
+      "dancing",
+      "hip movement"
+    ],
+    "description": "腰や胴体の動きを中心とする中東由来のダンススタイル。",
+    "slot": "dance_style",
+    "category": "pose",
+    "subcategory": "ダンス",
+    "sortSubcategory": "ダンス",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "v19-motion-belly-dance"
+  },
+  {
+    "id": "rin-dance-ribbon-dance",
+    "label": "リボンダンス",
+    "prompt": "ribbon dance",
+    "aliases": [
+      "ribbon dancing",
+      "dance with ribbon"
+    ],
+    "related": [
+      "dancing",
+      "holding ribbon",
+      "rhythmic gymnastics"
+    ],
+    "description": "手に持った長いリボンを動かしながら踊るスタイル。",
+    "slot": [
+      "dance_style",
+      "hand_action"
+    ],
+    "category": "pose",
+    "subcategory": "ダンス",
+    "sortSubcategory": "ダンス",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "v19-motion-ribbon-dance"
+  },
+  {
+    "id": "rin-dance-hip-hop",
+    "label": "ヒップホップダンス",
+    "prompt": "hip hop dance",
+    "aliases": [
+      "hip-hop dance",
+      "hip hop dancing"
+    ],
+    "related": [
+      "dancing",
+      "street dance",
+      "breakdance"
+    ],
+    "description": "リズム感のあるステップや身体のアイソレーションを使うストリートダンス。",
+    "slot": "dance_style",
+    "category": "pose",
+    "subcategory": "ダンス",
+    "sortSubcategory": "ダンス",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-dance-idol",
+    "label": "アイドルダンス",
+    "prompt": "idol dance",
+    "aliases": [
+      "idol dancing",
+      "アイドル振付"
+    ],
+    "related": [
+      "dancing",
+      "stage",
+      "concert",
+      "arms raised"
+    ],
+    "description": "ステージ向けの揃った振付や手振りを中心とするアイドルダンス。",
+    "slot": [
+      "dance_style",
+      "hand_action"
+    ],
+    "category": "pose",
+    "subcategory": "ダンス",
+    "sortSubcategory": "ダンス",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-dance-flamenco",
+    "label": "フラメンコ",
+    "prompt": "flamenco",
+    "aliases": [
+      "flamenco dance",
+      "フラメンコダンス"
+    ],
+    "related": [
+      "dancing",
+      "hand clapping",
+      "footwork"
+    ],
+    "description": "腕や手の表現と力強い足運びを特徴とするスペインの舞踊。",
+    "slot": [
+      "dance_style",
+      "hand_action",
+      "leg_pose"
+    ],
+    "category": "pose",
+    "subcategory": "ダンス",
+    "sortSubcategory": "ダンス",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-dance-pole",
+    "label": "ポールダンス",
+    "prompt": "pole dance",
+    "aliases": [
+      "pole dancing",
+      "dance on pole"
+    ],
+    "related": [
+      "dancing",
+      "holding pole",
+      "acrobatics"
+    ],
+    "description": "垂直のポールを支持に使い、回転や保持姿勢を行うダンス。",
+    "slot": [
+      "dance_style",
+      "balance_pose",
+      "leg_pose",
+      "hand_action"
+    ],
+    "category": "pose",
+    "subcategory": "ダンス",
+    "sortSubcategory": "ダンス",
     "sources": [
       "RIN"
     ]
