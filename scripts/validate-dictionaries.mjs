@@ -3,6 +3,7 @@ import fs from 'node:fs'
 const dir = new URL('../data/', import.meta.url)
 const files = fs.readdirSync(dir).filter(name => name.endsWith('.json') && name !== 'slots.json')
 const ids = new Set()
+const rowsById = new Map()
 const posePrompts = new Set()
 const deferredSlotChecks = []
 const slotIdsDeferred = new Set()
@@ -19,9 +20,12 @@ for (const file of files) {
     if (row.category === 'pose' && row.prompt.includes(',')) throw new Error(`${file}: pose prompt must be a single representative tag: ${row.id}`)
     if (row.category === 'pose') {
       const promptKey = row.prompt.trim().toLowerCase()
-      if (posePrompts.has(promptKey)) throw new Error(`${file}: duplicate pose prompt ${row.prompt}`)
-      posePrompts.add(promptKey)
+      if (!row.deprecated && posePrompts.has(promptKey)) throw new Error(`${file}: duplicate canonical pose prompt ${row.prompt}`)
+      if (!row.deprecated) posePrompts.add(promptKey)
     }
+    if (row.deprecated && !row.redirectTo) throw new Error(`${file}: deprecated tag requires redirectTo on ${row.id}`)
+    if (row.redirectTo && !row.deprecated) throw new Error(`${file}: redirectTo requires deprecated on ${row.id}`)
+    if (row.sources && (!Array.isArray(row.sources) || row.sources.some(source => !['existing', 'RIN'].includes(source)))) throw new Error(`${file}: invalid sources on ${row.id}`)
     const slots = row.slot ? (Array.isArray(row.slot) ? row.slot : [row.slot]) : []
     for (const slot of slots) {
       if (!slotIdsDeferred.has(slot)) deferredSlotChecks.push({ file, id: row.id, slot })
@@ -33,7 +37,20 @@ for (const file of files) {
     if (file === 'clothes.json' && /\b(dress|gown)\b/.test(row.prompt) && !/dress shirt/.test(row.prompt) && row.coverage?.join(',') !== 'upper,lower') throw new Error(`${file}: dress must cover upper and lower on ${row.id}`)
     if (file === 'clothes.json' && /\b(pants|skirt)\b/.test(row.prompt) && !/dress|suit|outfit/.test(row.prompt) && row.coverage?.join(',') !== 'lower') throw new Error(`${file}: pants and skirts must cover lower on ${row.id}`)
     ids.add(row.id)
+    rowsById.set(row.id, row)
     count += 1
+  }
+}
+
+for (const row of rowsById.values()) {
+  if (!row.redirectTo) continue
+  if (!rowsById.has(row.redirectTo)) throw new Error(`missing canonical target ${row.redirectTo} on ${row.id}`)
+  const visited = new Set([row.id])
+  let target = rowsById.get(row.redirectTo)
+  while (target?.redirectTo) {
+    if (visited.has(target.id)) throw new Error(`canonical redirect cycle on ${row.id}`)
+    visited.add(target.id)
+    target = rowsById.get(target.redirectTo)
   }
 }
 
