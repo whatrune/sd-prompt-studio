@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
 import { createServer } from 'vite'
 
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 
 try {
-  const [{ adultTags }, { buildPrompt }, { migratePersistedState }, { categoryOrder, subcategoryOrder }] = await Promise.all([
+  const [{ adultTags }, { buildPrompt, tagSort }, { migratePersistedState }, { categoryOrder, subcategoryOrder, tags }] = await Promise.all([
     server.ssrLoadModule('/src/data/adultTags.ts'),
     server.ssrLoadModule('/src/prompt.ts'),
     server.ssrLoadModule('/src/store.ts'),
@@ -72,6 +73,53 @@ try {
   assert.equal(migrated.blocks[0].tags[0].weight, 1.4)
   assert.equal(migrated.userTags[0].category, 'pose')
   assert.equal(migrated.userTags[0].subcategory, '行動（アダルト）')
+
+  const clothingSubcategories = ['上半身', '下半身', 'ワンピース', 'セット・全身', '制服', '和装', '民族・歴史', 'ファンタジー', '水着', '下着・部屋着', 'レッグウェア', '靴', 'アクセサリー', '素材・デザイン', '衣装（アダルト）']
+  assert.deepEqual(subcategoryOrder.clothes, clothingSubcategories)
+  const clothingDictionary = JSON.parse(fs.readFileSync(new URL('../data/clothes.json', import.meta.url), 'utf8'))
+  assert.equal(clothingDictionary.length, 505, 'clothing dictionary tag count must remain unchanged')
+  assert.equal(new Set(clothingDictionary.map(tag => tag.id)).size, 505, 'clothing dictionary ids must remain unique')
+  const clothingTags = tags.filter(tag => tag.category === 'clothes')
+  assert.equal(clothingTags.length, 499, 'runtime clothing tag count after existing prompt deduplication must remain unchanged')
+  assert.equal(new Set(clothingTags.map(tag => tag.id)).size, 499, 'runtime clothing ids must remain unique')
+  assert.equal(clothingTags.every(tag => clothingSubcategories.includes(tag.subcategory)), true)
+  assert.equal(adultTags.filter(tag => tag.category === 'clothes').length, 27)
+  assert.equal(adultTags.filter(tag => tag.category === 'clothes').every(tag => tag.subcategory === '衣装（アダルト）'), true)
+
+  const legacyOrderPrompts = ['high heels', 'latex', 'dress', 'skirt', 'shirt']
+  const legacyOrderedTags = legacyOrderPrompts.map(prompt => clothingTags.find(tag => tag.prompt === prompt))
+  assert.deepEqual([...legacyOrderedTags].sort(tagSort).map(tag => tag.prompt), ['shirt', 'skirt', 'dress', 'latex', 'high heels'], 'clothing Prompt order must remain compatible')
+
+  const adultClothingOrder = [
+    clothingTags.find(tag => tag.prompt === 'dress'),
+    clothingTags.find(tag => tag.prompt === 'shirt'),
+    adultTags.find(tag => tag.prompt === 'nude'),
+    adultTags.find(tag => tag.prompt === 'see-through clothes'),
+  ]
+  assert.deepEqual([...adultClothingOrder].sort(tagSort).map(tag => tag.prompt), ['shirt', 'dress', 'see-through clothes', 'nude'], 'adult clothing Prompt order must remain compatible')
+
+  const migratedClothing = migratePersistedState({
+    blocks: [{ id: 'clothes', name: '被写体 1', tags: [{ id: 'clo-dress-shirt', prompt: 'dress shirt', label: 'saved', category: 'clothes', subcategory: 'トップス', weight: 1.3 }] }],
+    userTags: [],
+  })
+  assert.equal(migratedClothing.blocks[0].tags[0].subcategory, '上半身')
+  assert.equal(migratedClothing.blocks[0].tags[0].sortSubcategory, 'トップス')
+  assert.equal(migratedClothing.blocks[0].tags[0].weight, 1.3)
+
+  const newUserClothingTag = { id: 'user-new-clothes', prompt: 'custom coordinated outfit', label: 'custom', category: 'clothes', subcategory: 'セット・全身', weight: 1 }
+  const unknownUserClothingTag = { id: 'user-unknown-clothes', prompt: 'unknown custom outfit', label: 'unknown', category: 'clothes', subcategory: '将来追加される分類', weight: 1 }
+  const knownClothingTag = { ...clothingTags.find(tag => tag.prompt === 'shirt'), weight: 1 }
+  assert.deepEqual([newUserClothingTag, knownClothingTag, unknownUserClothingTag].sort(tagSort).map(tag => tag.prompt), ['shirt', 'custom coordinated outfit', 'unknown custom outfit'], 'new and unknown user clothing subcategories must sort after legacy categories')
+
+  const migratedUserSwimwear = migratePersistedState({
+    blocks: [],
+    userTags: [
+      { id: 'user-swimsuit', prompt: 'competition swimsuit', label: 'swimsuit', category: 'clothes', subcategory: '水着・下着', source: 'user' },
+      { id: 'user-rash-guard', prompt: 'long sleeve rash guard', label: 'rash guard', category: 'clothes', subcategory: '水着・下着', source: 'user' },
+      { id: 'user-lingerie', prompt: 'lace lingerie', label: 'lingerie', category: 'clothes', subcategory: '水着・下着', source: 'user' },
+    ],
+  })
+  assert.deepEqual(migratedUserSwimwear.userTags.map(tag => tag.subcategory), ['水着', '水着', '下着・部屋着'])
 
   console.log('OK: adult reclassification, prompt regression, and persisted-state migration')
 } finally {

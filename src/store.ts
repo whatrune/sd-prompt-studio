@@ -1,10 +1,10 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { ContentRating, PromptTag } from './data/tags'
+import { tags, type ContentRating, type PromptTag } from './data/tags'
 import { adultTags } from './data/adultTags'
 import { createId } from './id'
 
-export type SelectedTag = { id: string; prompt: string; label: string; category: string; subcategory?: string; weight: number; rating?: ContentRating }
+export type SelectedTag = { id: string; prompt: string; label: string; category: string; subcategory?: string; sortSubcategory?: string; weight: number; rating?: ContentRating }
 export type PromptBlock = { id: string; name: string; tags: SelectedTag[] }
 export type ModelPreset = 'illustrious' | 'pony' | 'sdxl' | 'custom'
 
@@ -54,7 +54,21 @@ const QUALITY_PRESETS: Record<ModelPreset, string[]> = {
 const createFirstBlock = (): PromptBlock => ({ id: createId(), name: '被写体 1', tags: [] })
 const firstBlock = createFirstBlock()
 
-const adultTagById = new Map(adultTags.map(tag => [tag.id, tag]))
+const dictionaryTagById = new Map([...tags, ...adultTags].map(tag => [tag.id, tag]))
+
+function migrateLegacyUserClothingTag(tag: UserPromptTag): UserPromptTag {
+  const direct: Record<string, string> = {
+    'トップス': '上半身', 'アウター': '上半身', 'ボトムス': '下半身', 'ワンピース・ドレス': 'ワンピース',
+    '制服・学校': '制服', '制服・職業': '制服', '和装': '和装', '民族・歴史': '民族・歴史',
+    'ファンタジー・SF': 'ファンタジー', '水着・下着': '下着・部屋着', 'ルームウェア': '下着・部屋着',
+    'レッグウェア': 'レッグウェア', '靴': '靴', 'デザイン・ディテール': '素材・デザイン',
+    '素材・質感': '素材・デザイン', '柄・装飾': '素材・デザイン', 'センシティブ衣装': '衣装（アダルト）',
+  }
+  const subcategory = tag.subcategory === '水着・下着'
+    ? /\b(swimsuit|bikini|swimwear|rash guard|wetsuit)\b/i.test(tag.prompt) ? '水着' : '下着・部屋着'
+    : direct[tag.subcategory ?? ''] ?? (tag.subcategory === '衣装（アダルト）' ? tag.subcategory : 'セット・全身')
+  return { ...tag, subcategory, sortSubcategory: tag.sortSubcategory ?? tag.subcategory }
+}
 
 export function migratePersistedState(persisted: unknown) {
   if (!persisted || typeof persisted !== 'object') return persisted
@@ -65,14 +79,15 @@ export function migratePersistedState(persisted: unknown) {
     blocks: state.blocks.map(block => ({
       ...block,
       tags: block.tags.map(tag => {
-        const current = adultTagById.get(tag.id)
+        const current = dictionaryTagById.get(tag.id)
         return current
-          ? { ...tag, category: current.category, subcategory: current.subcategory, rating: current.rating }
+          ? { ...tag, category: current.category, subcategory: current.subcategory, sortSubcategory: current.sortSubcategory, rating: current.rating }
           : tag
       }),
     })),
     userTags: Array.isArray(state.userTags)
       ? state.userTags.map(tag => {
+          if (tag.category === 'clothes') return migrateLegacyUserClothingTag(tag)
           if (tag.category !== 'adult') return tag
           const placement: Record<string, [string, string]> = {
             'ポーズ': ['pose', 'ポーズ（アダルト）'],
@@ -178,6 +193,6 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   })
 }), {
   name: 'sd-prompt-studio-v14',
-  version: 1,
+  version: 3,
   migrate: migratePersistedState,
 }))
