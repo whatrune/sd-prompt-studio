@@ -24,3 +24,21 @@ npm.cmd run dev
 ## v20.2
 - LAN内のHTTPアクセスでもコピーできるフォールバックを追加しました。
 - PromptとNegative Promptの両方に対応しています。
+
+# SD Prompt Studio
+
+Stable Diffusion Prompt Builder
+
+## Features
+
+- Japanese-first UI
+- Smart Tag Engine
+- Prompt Builder
+- Category-based dictionary
+- Related tag suggestions
+
+## Development
+
+```bash
+npm install
+npm run dev
