@@ -140,17 +140,25 @@ try {
   assert.equal(conflict('shirt', ['shirt']), null, 'a selected tag must not conflict with itself')
   const explicitConflictCandidate = { ...findTag('shirt'), id: 'explicit-conflict', prompt: 'explicit conflict shirt', conflicts: ['cardigan'] }
   assert.equal(getConflictReason(explicitConflictCandidate, [selectedTag('cardigan')], dictionary)?.level, 'hard', 'explicit conflicts must take priority')
+  const incompleteTopA = { id: 'incomplete-top-a', prompt: 'custom upper garment a', label: 'A', category: 'clothes', subcategory: '上半身', slot: 'top_main' }
+  const incompleteTopB = { id: 'incomplete-top-b', prompt: 'custom upper garment b', label: 'B', category: 'clothes', subcategory: '上半身', slot: 'top_main', layer: 'main' }
+  assert.equal(getConflictReason(incompleteTopB, [{ ...incompleteTopA, weight: 1 }], [incompleteTopA, incompleteTopB])?.level, 'hard', 'incomplete clothing metadata must fall back to same-slot conflict detection')
 
   assert(getSlotDefinitions().some(slot => slot.id === 'upper_eyelashes'))
   assert(getSlotDefinitions().some(slot => slot.id === 'lower_eyelashes'))
   assert.equal(conflict('lower eyelashes', ['upper eyelashes']), null, 'upper and lower eyelashes must be compatible')
   assert.equal(conflict('long lower eyelashes', ['lower eyelashes'])?.level, 'hard', 'two lower-eyelash variants must conflict')
+  assert.equal(conflict('upper eyelashes', ['long eyelashes'])?.level, 'hard', 'unspecified eyelashes must conflict with an explicit upper-eyelash tag')
+  assert.equal(conflict('lower eyelashes', ['long eyelashes']), null, 'unspecified eyelashes are treated as upper and may coexist with lower eyelashes')
   assert.equal(conflict('sidelocks', ['bangs']), null, 'front bangs and sidelocks must be compatible')
   assert.equal(conflict('pants', ['shirt']), null, 'upper and lower garments must be compatible')
   assert.equal(conflict('glasses', ['hat']), null, 'head and face accessories must be compatible')
   assert.equal(conflict('raised eyebrow', ['thick eyebrows']), null, 'eyebrow shape and state must be compatible')
   assert.equal(conflict('sad eyebrows', ['raised eyebrow'])?.level, 'hard', 'two eyebrow states must conflict')
   assert.equal(conflict('waving', ['walking']), null, 'compatible body motions must not share an exclusive slot')
+  assert.equal(conflict('running', ['walking'])?.level, 'hard', 'walking and running must conflict')
+  assert.equal(conflict('lying', ['standing'])?.level, 'hard', 'standing and lying must conflict')
+  assert.equal(conflict('jumping', ['sitting'])?.level, 'hard', 'jumping and sitting must conflict')
 
   console.log('OK: adult reclassification, prompt regression, and persisted-state migration')
 } finally {

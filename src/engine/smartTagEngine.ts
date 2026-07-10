@@ -20,7 +20,7 @@ type SlotRule = {
   patterns?: string[]
 }
 type SlotConfig = { version: number; slots: SlotDefinition[]; rules: SlotRule[] }
-type ClothingProfile = { layer: 'inner' | 'main' | 'outer' | 'accessory'; coverage: Set<'upper' | 'lower' | 'full'>; kind: string }
+type ClothingProfile = { layer: 'inner' | 'main' | 'outer' | 'accessory'; coverage: Set<'upper' | 'lower' | 'full'>; kind: string; metadataComplete: boolean }
 type RuleProfile = { slots: Map<string, string>; exclusiveGroups: Set<string>; clothing?: ClothingProfile }
 
 const slotConfig = slotConfigJson as SlotConfig
@@ -54,22 +54,22 @@ function clothingProfile(tag: Pick<PromptTag, 'prompt' | 'category' | 'subcatego
           : tag.layer === 'outer'
             ? 'outerwear'
             : 'innerwear'
-    return { layer: tag.layer, coverage, kind }
+    return { layer: tag.layer, coverage, kind, metadataComplete: true }
   }
   const prompt = normalize(tag.prompt)
   const sub = tag.subcategory ?? ''
   const includesAny = (terms: string[]) => terms.some(term => prompt === term || prompt.includes(term))
   if (['柄・装飾','素材・質感','袖・襟・開口部','靴下・脚','靴'].includes(sub)) return undefined
-  if (includesAny(OUTER_TERMS) || sub === 'アウター') return { layer: 'outer', coverage: new Set(['upper']), kind: 'outerwear' }
+  if (includesAny(OUTER_TERMS) || sub === 'アウター') return { layer: 'outer', coverage: new Set(['upper']), kind: 'outerwear', metadataComplete: false }
   if (includesAny(INNER_TERMS) || sub === '水着・下着') {
     const cov = prompt.includes('bottom') || prompt.includes('pant') ? new Set<'lower'>(['lower']) : prompt.includes('bra') || prompt.includes('top') ? new Set<'upper'>(['upper']) : new Set<'upper'|'lower'>(['upper','lower'])
-    return { layer: 'inner', coverage: cov as Set<'upper'|'lower'|'full'>, kind: 'innerwear' }
+    return { layer: 'inner', coverage: cov as Set<'upper'|'lower'|'full'>, kind: 'innerwear', metadataComplete: false }
   }
   if (includesAny(ONE_PIECE_TERMS) || ['ワンピース・ドレス','民族・歴史衣装','和服・伝統服','コスプレ・特殊衣装','ファンタジー・SF','制服・職業','寝間着・ルームウェア'].includes(sub) && /(dress|uniform|outfit|suit|robe|kimono|yukata|gown|costume|pajamas)/.test(prompt)) {
-    return { layer: 'main', coverage: new Set(['upper','lower','full']), kind: 'onepiece' }
+    return { layer: 'main', coverage: new Set(['upper','lower','full']), kind: 'onepiece', metadataComplete: false }
   }
-  if (includesAny(BOTTOM_TERMS2) || sub === 'ボトムス') return { layer: 'main', coverage: new Set(['lower']), kind: 'bottom' }
-  if (includesAny(TOP_TERMS) || sub === 'トップス') return { layer: 'main', coverage: new Set(['upper']), kind: 'top' }
+  if (includesAny(BOTTOM_TERMS2) || sub === 'ボトムス') return { layer: 'main', coverage: new Set(['lower']), kind: 'bottom', metadataComplete: false }
+  if (includesAny(TOP_TERMS) || sub === 'トップス') return { layer: 'main', coverage: new Set(['upper']), kind: 'top', metadataComplete: false }
   return undefined
 }
 
@@ -86,6 +86,16 @@ const FULL_OUTERWEAR = ['coat','trench coat','overcoat','raincoat','duffle coat'
 const BOTTOMS = ['skirt','pants','trousers','shorts','jeans','leggings','culottes','buruma','bloomers']
 const FOOTWEAR = ['boots','shoes','sandals','loafers','sneakers','heels','pumps','slippers','barefoot']
 const HAIR_STYLE_EXCLUSIVE = ['twintails','ponytail','side ponytail','single braid','double braid','hair bun','buzz cut','bald']
+const HARD_MOTION_PAIRS = new Set([
+  'running\u0000walking',
+  'jumping\u0000sitting',
+  'jumping\u0000lying',
+  'jumping\u0000kneeling',
+])
+
+function pairKey(a: string, b: string) {
+  return [normalize(a), normalize(b)].sort().join('\u0000')
+}
 
 function cacheKey(tag: Pick<PromptTag, 'prompt' | 'category' | 'subcategory' | 'slot' | 'layer' | 'coverage'>) {
   const slots = Array.isArray(tag.slot) ? tag.slot.join('|') : tag.slot ?? ''
@@ -177,7 +187,8 @@ function evaluate(candidate: PromptTag, context: SelectedContext): ConflictReaso
 
     // Clothing slots identify the garment family, but layer and coverage decide
     // whether two garments can actually be worn together.
-    if (!(profile.clothing && item.profile.clothing)) {
+    const canUseClothingMetadata = profile.clothing?.metadataComplete && item.profile.clothing?.metadataComplete
+    if (!canUseClothingMetadata) {
       for (const [slot, value] of profile.slots) {
         const selectedValue = item.profile.slots.get(slot)
         if (selectedValue && selectedValue !== value) {
@@ -198,6 +209,21 @@ function evaluate(candidate: PromptTag, context: SelectedContext): ConflictReaso
     if (clothingConflict(profile.clothing, item.profile.clothing)) {
       hard.push(item.tag)
       hardMessages.add(`${item.tag.label}と衣装の同じ着用範囲を占有します`)
+    }
+
+    const genericAndUpperEyelashes = (
+      profile.slots.has('eyelash_length') && item.profile.slots.has('upper_eyelashes')
+    ) || (
+      profile.slots.has('upper_eyelashes') && item.profile.slots.has('eyelash_length')
+    )
+    if (genericAndUpperEyelashes) {
+      hard.push(item.tag)
+      hardMessages.add(`${item.tag.label}と上まつ毛の指定が重複します`)
+    }
+
+    if (HARD_MOTION_PAIRS.has(pairKey(candidate.prompt, item.tag.prompt))) {
+      hard.push(item.tag)
+      hardMessages.add(`${item.tag.label}と同時に成立しない動作です`)
     }
 
     const pair = new Set([normalize(candidate.prompt), normalize(item.tag.prompt)])
