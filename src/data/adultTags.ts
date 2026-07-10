@@ -1,5 +1,14 @@
 import type { PromptTag } from './tags'
 
+const legacyAdultCategoryMap: Record<string, { category: string; subcategory: string }> = {
+  'ポーズ': { category: 'pose', subcategory: 'ポーズ（アダルト）' },
+  '行動': { category: 'pose', subcategory: '行動（アダルト）' },
+  '相互作用': { category: 'people', subcategory: '相互作用（アダルト）' },
+  '表情': { category: 'expression', subcategory: '表情（アダルト）' },
+  '衣装': { category: 'clothes', subcategory: '衣装（アダルト）' },
+  '道具': { category: 'scene_props', subcategory: '道具（アダルト）' },
+}
+
 const adult = (
   id: string,
   label: string,
@@ -8,7 +17,18 @@ const adult = (
   subcategory: string,
   aliases: string[] = [],
   rating: 'suggestive' | 'adult' = 'adult'
-): PromptTag => ({ id: `adult-${id}`, label, prompt, category, subcategory, aliases, rating })
+): PromptTag => {
+  const placement = category === 'adult' ? legacyAdultCategoryMap[subcategory] : undefined
+  return {
+    id: `adult-${id}`,
+    label,
+    prompt,
+    category: placement?.category ?? category,
+    subcategory: placement?.subcategory ?? subcategory,
+    aliases,
+    rating,
+  }
+}
 
 /**
  * 成人キャラクター同士の合意ある表現のみを収録する分離辞書。

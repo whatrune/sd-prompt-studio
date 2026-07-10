@@ -6,6 +6,7 @@ const ids = new Set()
 const posePrompts = new Set()
 const deferredSlotChecks = []
 const slotIdsDeferred = new Set()
+const allowedCategories = new Set(['quality', 'people', 'character', 'expression', 'eyes', 'hair', 'body', 'clothes', 'accessories', 'pose', 'camera', 'background', 'scene_props', 'lighting', 'effects'])
 let count = 0
 
 for (const file of files) {
@@ -13,6 +14,7 @@ for (const file of files) {
   if (!Array.isArray(rows)) throw new Error(`${file}: dictionary root must be an array`)
   for (const row of rows) {
     if (!row.id || !row.prompt || !row.category) throw new Error(`${file}: invalid row`)
+    if (!allowedCategories.has(row.category)) throw new Error(`${file}: unknown major category ${row.category} on ${row.id}`)
     if (ids.has(row.id)) throw new Error(`duplicate id: ${row.id}`)
     if (row.category === 'pose' && row.prompt.includes(',')) throw new Error(`${file}: pose prompt must be a single representative tag: ${row.id}`)
     if (row.category === 'pose') {
@@ -46,6 +48,7 @@ for (const check of deferredSlotChecks) {
 }
 for (const rule of slotConfig.rules) {
   if (!rule.slot || !slotIds.has(rule.slot)) throw new Error(`slots.json: unknown slot ${rule.slot}`)
+  if (rule.category && !allowedCategories.has(rule.category)) throw new Error(`slots.json: unknown major category ${rule.category}`)
 }
 
 console.log(`OK: ${count} tags / ${files.length} dictionary files / ${slotConfig.slots.length} slots`)
