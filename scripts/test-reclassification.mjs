@@ -5,12 +5,13 @@ import { createServer } from 'vite'
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 
 try {
-  const [{ adultTags }, { buildPrompt, tagSort }, { migratePersistedState }, { categoryOrder, subcategoryOrder, tags }, { getConflictReason, getSlotDefinitions }] = await Promise.all([
+  const [{ adultTags }, { buildPrompt, tagSort }, { migratePersistedState }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }] = await Promise.all([
     server.ssrLoadModule('/src/data/adultTags.ts'),
     server.ssrLoadModule('/src/prompt.ts'),
     server.ssrLoadModule('/src/store.ts'),
     server.ssrLoadModule('/src/data/tags.ts'),
     server.ssrLoadModule('/src/engine/smartTagEngine.ts'),
+    server.ssrLoadModule('/src/data/canonical.ts'),
   ])
 
   assert.equal(adultTags.length, 131, 'adult tag count must remain unchanged')
@@ -170,6 +171,24 @@ try {
   const poseDictionary = JSON.parse(fs.readFileSync(new URL('../data/pose.json', import.meta.url), 'utf8'))
   assert.equal(poseDictionary.length, 291, 'Motion dictionary count must remain unchanged')
   assert.equal(new Set(poseDictionary.map(tag => tag.id)).size, 291, 'Motion ids must remain unique')
+  assert.equal(poseDictionary.filter(tag => !tag.deprecated).length, 285, 'canonical Motion display count must exclude redirects')
+  assert.equal(allTags.filter(tag => tag.category === 'pose').length, 291, 'physical Motion rows must remain available')
+  assert.equal(tags.filter(tag => tag.category === 'pose').length, 285, 'deprecated Motion rows must not be exposed to the UI')
+  assert.equal(tags.some(tag => tag.deprecated), false, 'deprecated tags must not be visible')
+  for (const tag of poseDictionary) assert(resolveCanonicalTag(tag.id, allTags), `every legacy id must resolve: ${tag.id}`)
+  assert.equal(resolveCanonicalTag('rin-pose-on-back', allTags)?.id, 'pos-lying-on-back')
+  assert.equal(resolveCanonicalTag('rin-v-sign', allTags)?.prompt, 'peace sign', 'ambiguous v must not replace the canonical Prompt')
+  assert(tags.find(tag => tag.id === 'pos-peace-sign')?.aliases?.includes('v'), 'v must remain searchable as an alias')
+  assert.deepEqual(tags.find(tag => tag.id === 'pos-lying-on-back')?.sources, ['existing', 'RIN'])
+
+  const futureRinTag = { id: 'rin-future-wave', label: 'RIN wave', prompt: 'wave', category: 'pose', sources: ['RIN'], aliases: ['future wave'], related: ['waving'] }
+  const mergedFutureTag = mergeCanonicalTag(tags.find(tag => tag.id === 'pos-waving'), futureRinTag)
+  assert.deepEqual(mergedFutureTag.sources, ['existing', 'RIN'], 'future RIN batches must use the same source merge rule')
+  assert.equal(mergedFutureTag.prompt, 'wave', 'future RIN Prompt must be preferred by the canonical merge rule')
+  assert(mergedFutureTag.aliases.includes('future wave'))
+  assert(mergedFutureTag.aliases.includes('waving'), 'the previous canonical Prompt must remain searchable')
+  assert.equal(mergeCanonicalTag(tags.find(tag => tag.id === 'pos-peace-sign'), { ...futureRinTag, prompt: 'v' }).prompt, 'peace sign', 'ambiguous RIN Prompts may be excluded from promotion')
+  assert.equal(canonicalVisibleTags([...allTags, { ...futureRinTag, deprecated: true, redirectTo: 'pos-waving' }]).some(tag => tag.id === futureRinTag.id), false)
   const motionSubcategories = new Set(['基本姿勢', '姿勢の変化', '手・腕の動作', '脚・開脚', '移動', '空中・落下', 'バランス', '体操・アクロバット', 'ダンス', 'スポーツ', '武術・戦闘', '乗り物・騎乗'])
   assert.equal(poseDictionary.every(tag => motionSubcategories.has(tag.subcategory)), true, 'every Motion tag must use the redesigned subcategories')
   assert(getSlotDefinitions().some(slot => slot.id === 'vehicle_action' && slot.mode === 'single'))
@@ -197,6 +216,17 @@ try {
   assert.equal(migratedMotion.blocks[0].tags[0].subcategory, '移動')
   assert.equal(migratedMotion.blocks[0].tags[0].sortSubcategory, '日常動作')
   assert.equal(migratedMotion.blocks[0].tags[0].weight, 1.3)
+
+  const migratedCanonicalMotion = migratePersistedState({
+    blocks: [{ id: 'canonical-motion', name: '被写体 1', tags: [{ id: 'rin-pose-on-back', prompt: 'on back', label: '仰向け', category: 'pose', weight: 1.4 }] }],
+    favoriteIds: ['rin-pose-on-back', 'rin-v-sign'],
+    userTags: [],
+  })
+  assert.equal(migratedCanonicalMotion.blocks[0].tags.length, 1, 'saved selections must not be lost')
+  assert.equal(migratedCanonicalMotion.blocks[0].tags[0].id, 'pos-lying-on-back')
+  assert.equal(migratedCanonicalMotion.blocks[0].tags[0].prompt, 'on back')
+  assert.equal(migratedCanonicalMotion.blocks[0].tags[0].weight, 1.4)
+  assert.deepEqual(migratedCanonicalMotion.favoriteIds, ['pos-lying-on-back', 'pos-peace-sign'])
 
   const characterDictionary = JSON.parse(fs.readFileSync(new URL('../data/character.json', import.meta.url), 'utf8'))
   assert.equal(characterDictionary.length, 103, 'character dictionary count must remain unchanged')

@@ -35,7 +35,7 @@ export function compatibilityLabel(level: ModelHint['level']) {
 
 export function inferCategory(prompt: string, dictionary: PromptTag[]): PromptTag | undefined {
   const normalized = prompt.trim().toLowerCase().replace(/^\(|\)$/g,'').replace(/:\s*[\d.]+$/,'')
-  return dictionary.find(t => t.prompt.toLowerCase() === normalized)
+  return dictionary.find(t => t.prompt.toLowerCase() === normalized || t.aliases?.some(alias => alias.toLowerCase() === normalized))
 }
 
 export function heuristicCategory(prompt: string): string {

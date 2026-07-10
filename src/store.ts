@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { tags, type ContentRating, type PromptTag } from './data/tags'
+import { allTags, type ContentRating, type PromptTag } from './data/tags'
 import { adultTags } from './data/adultTags'
+import { canonicalId, resolveCanonicalTag } from './data/canonical'
 import { createId } from './id'
 
 export type SelectedTag = { id: string; prompt: string; label: string; category: string; outputCategory?: string; subcategory?: string; sortSubcategory?: string; weight: number; rating?: ContentRating }
@@ -54,7 +55,7 @@ const QUALITY_PRESETS: Record<ModelPreset, string[]> = {
 const createFirstBlock = (): PromptBlock => ({ id: createId(), name: '被写体 1', tags: [] })
 const firstBlock = createFirstBlock()
 
-const dictionaryTagById = new Map([...tags, ...adultTags].map(tag => [tag.id, tag]))
+const physicalDictionary = [...allTags, ...adultTags]
 
 function migrateLegacyUserClothingTag(tag: UserPromptTag): UserPromptTag {
   const direct: Record<string, string> = {
@@ -79,12 +80,15 @@ export function migratePersistedState(persisted: unknown) {
     blocks: state.blocks.map(block => ({
       ...block,
       tags: block.tags.map(tag => {
-        const current = dictionaryTagById.get(tag.id)
+        const current = resolveCanonicalTag(tag.id, physicalDictionary)
         return current
-          ? { ...tag, category: current.category, outputCategory: current.outputCategory, subcategory: current.subcategory, sortSubcategory: current.sortSubcategory, rating: current.rating }
+          ? { ...tag, id: current.id, prompt: current.prompt, label: current.label, category: current.category, outputCategory: current.outputCategory, subcategory: current.subcategory, sortSubcategory: current.sortSubcategory, rating: current.rating }
           : tag
       }),
     })),
+    favoriteIds: Array.isArray(state.favoriteIds)
+      ? [...new Set(state.favoriteIds.map(id => canonicalId(id, physicalDictionary)))]
+      : state.favoriteIds,
     userTags: Array.isArray(state.userTags)
       ? state.userTags.map(tag => {
           if (tag.category === 'clothes') return migrateLegacyUserClothingTag(tag)
@@ -193,6 +197,6 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   })
 }), {
   name: 'sd-prompt-studio-v14',
-  version: 5,
+  version: 6,
   migrate: migratePersistedState,
 }))

@@ -6,7 +6,10 @@
     "category": "pose",
     "subcategory": "基本姿勢",
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-standing-straight",
@@ -15,7 +18,10 @@
     "category": "pose",
     "subcategory": "基本姿勢",
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-contrapposto",
@@ -25,7 +31,10 @@
     "subcategory": "姿勢の変化",
     "slot": "posture_modifier",
     "generationNote": "体重を片脚へ預け、肩と腰を逆方向へ傾ける自然な立ち姿。直立より柔らかく、ファッション系の全身構図に向きます。",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-leaning-forward",
@@ -34,7 +43,10 @@
     "category": "pose",
     "subcategory": "姿勢の変化",
     "slot": "posture_modifier",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-leaning-back",
@@ -43,7 +55,10 @@
     "category": "pose",
     "subcategory": "姿勢の変化",
     "slot": "posture_modifier",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-leaning-against-wall",
@@ -52,7 +67,10 @@
     "category": "pose",
     "subcategory": "姿勢の変化",
     "slot": "posture_modifier",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-one-leg-raised",
@@ -61,7 +79,10 @@
     "category": "pose",
     "subcategory": "脚・開脚",
     "slot": "leg_pose",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-crossed-legs",
@@ -77,7 +98,10 @@
       "sitting"
     ],
     "slot": "leg_pose",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-legs-apart",
@@ -86,7 +110,10 @@
     "category": "pose",
     "subcategory": "脚・開脚",
     "slot": "leg_pose",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-tiptoes",
@@ -102,7 +129,10 @@
       "full body"
     ],
     "slot": "leg_pose",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-walking",
@@ -111,7 +141,10 @@
     "category": "pose",
     "subcategory": "移動",
     "slot": "locomotion",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-running",
@@ -120,7 +153,10 @@
     "category": "pose",
     "subcategory": "移動",
     "slot": "locomotion",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-jumping",
@@ -132,7 +168,10 @@
       "locomotion",
       "airborne_state"
     ],
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-sitting",
@@ -141,7 +180,10 @@
     "category": "pose",
     "subcategory": "基本姿勢",
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-sitting-on-chair",
@@ -150,7 +192,10 @@
     "category": "pose",
     "subcategory": "基本姿勢",
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-sitting-on-floor",
@@ -159,7 +204,10 @@
     "category": "pose",
     "subcategory": "基本姿勢",
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-kneeling",
@@ -168,7 +216,10 @@
     "category": "pose",
     "subcategory": "基本姿勢",
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-seiza",
@@ -185,7 +236,10 @@
       "kneeling"
     ],
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-squatting",
@@ -202,7 +256,10 @@
       "hands on head",
       "full body"
     ],
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-crouching",
@@ -211,7 +268,10 @@
     "category": "pose",
     "subcategory": "基本姿勢",
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-lying",
@@ -220,25 +280,50 @@
     "category": "pose",
     "subcategory": "基本姿勢",
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-lying-on-back",
     "label": "仰向け",
-    "prompt": "lying on back",
+    "prompt": "on back",
     "category": "pose",
     "subcategory": "基本姿勢",
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "仰向けに寝る",
+      "lying on back"
+    ],
+    "related": [
+      "lying"
+    ]
   },
   {
     "id": "pos-lying-on-stomach",
     "label": "うつ伏せ",
-    "prompt": "lying on stomach",
+    "prompt": "on stomach",
     "category": "pose",
     "subcategory": "基本姿勢",
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "腹ばい",
+      "lying on stomach"
+    ],
+    "related": [
+      "lying"
+    ]
   },
   {
     "id": "pos-sideways-lying",
@@ -247,7 +332,10 @@
     "category": "pose",
     "subcategory": "姿勢の変化",
     "slot": "posture_modifier",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-sleeping",
@@ -256,7 +344,10 @@
     "category": "pose",
     "subcategory": "基本姿勢",
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-arms-crossed",
@@ -265,7 +356,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-hands-on-hips",
@@ -274,7 +368,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-hand-on-chest",
@@ -283,7 +380,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-hand-on-cheek",
@@ -292,7 +392,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-hand-on-chin",
@@ -301,7 +404,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-hand-in-hair",
@@ -310,7 +416,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-hands-behind-back",
@@ -319,7 +428,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-hands-behind-head",
@@ -328,7 +440,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-one-hand-raised",
@@ -337,7 +452,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-both-hands-raised",
@@ -346,7 +464,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-waving",
@@ -355,7 +476,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "slot": "hand_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-peace-sign",
@@ -364,7 +488,15 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "v"
+    ],
+    "related": []
   },
   {
     "id": "pos-thumbs-up",
@@ -377,7 +509,10 @@
       "サムズアップ"
     ],
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-finger-gun",
@@ -386,7 +521,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-pointing",
@@ -395,7 +533,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-covering-mouth",
@@ -404,7 +545,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-covering-face",
@@ -413,7 +557,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-salute",
@@ -422,7 +569,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-praying",
@@ -431,7 +581,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-clapping",
@@ -440,7 +593,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "slot": "hand_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-head-tilt",
@@ -449,7 +605,10 @@
     "category": "pose",
     "subcategory": "姿勢の変化",
     "sortSubcategory": "頭・上半身",
-    "slot": "posture_modifier"
+    "slot": "posture_modifier",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-looking-back-over-shoulder",
@@ -458,7 +617,10 @@
     "category": "pose",
     "subcategory": "姿勢の変化",
     "sortSubcategory": "頭・上半身",
-    "slot": "gaze_action"
+    "slot": "gaze_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-arched-back",
@@ -470,7 +632,10 @@
       "反り腰"
     ],
     "sortSubcategory": "頭・上半身",
-    "slot": "posture_modifier"
+    "slot": "posture_modifier",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-bent-over",
@@ -482,7 +647,10 @@
       "前かがみ"
     ],
     "sortSubcategory": "頭・上半身",
-    "slot": "posture_modifier"
+    "slot": "posture_modifier",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-stretching",
@@ -491,16 +659,28 @@
     "category": "pose",
     "subcategory": "姿勢の変化",
     "slot": "posture_modifier",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-twisting-torso",
     "label": "胴をひねる",
-    "prompt": "twisting torso",
+    "prompt": "twisted torso",
     "category": "pose",
     "subcategory": "姿勢の変化",
     "sortSubcategory": "頭・上半身",
-    "slot": "posture_modifier"
+    "slot": "posture_modifier",
+    "sources": [
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "上半身をひねる",
+      "twisting torso"
+    ],
+    "related": []
   },
   {
     "id": "pos-hair-flip",
@@ -509,7 +689,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "slot": "hand_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-scratching-nose",
@@ -518,7 +701,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "頭・上半身",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-touching-lips",
@@ -527,7 +713,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "頭・上半身",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-adjusting-glasses",
@@ -536,7 +725,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "slot": "hand_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-dancing",
@@ -545,7 +737,10 @@
     "category": "pose",
     "subcategory": "ダンス",
     "slot": "dance_style",
-    "sortSubcategory": "ダンス"
+    "sortSubcategory": "ダンス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-singing",
@@ -554,7 +749,10 @@
     "category": "pose",
     "subcategory": "姿勢の変化",
     "slot": "posture_modifier",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-fighting-stance",
@@ -568,7 +766,10 @@
     ],
     "slot": "combat_action",
     "generationNote": "攻撃前の構えを作ります。武器を使う場合は武器タグを別に追加し、腕のポーズを重ねすぎないほうが安定します。",
-    "sortSubcategory": "武術・戦闘"
+    "sortSubcategory": "武術・戦闘",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-drawing-sword",
@@ -577,7 +778,10 @@
     "category": "pose",
     "subcategory": "武術・戦闘",
     "slot": "combat_action",
-    "sortSubcategory": "武術・戦闘"
+    "sortSubcategory": "武術・戦闘",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-casting-spell",
@@ -586,7 +790,10 @@
     "category": "pose",
     "subcategory": "武術・戦闘",
     "slot": "combat_action",
-    "sortSubcategory": "武術・戦闘"
+    "sortSubcategory": "武術・戦闘",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-reading",
@@ -595,7 +802,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "slot": "hand_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-writing",
@@ -604,7 +814,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "slot": "hand_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-cooking",
@@ -613,7 +826,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "slot": "hand_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-drinking",
@@ -622,7 +838,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "slot": "hand_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-eating",
@@ -631,7 +850,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "slot": "hand_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-taking-selfie",
@@ -640,7 +862,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "slot": "hand_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-playing-guitar",
@@ -649,7 +874,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "slot": "hand_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-swimming",
@@ -658,7 +886,10 @@
     "category": "pose",
     "subcategory": "スポーツ",
     "slot": "sport_action",
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-falling",
@@ -668,7 +899,10 @@
     "subcategory": "空中・落下",
     "slot": "airborne_state",
     "generationNote": "落下中の姿勢。髪や衣服のなびき、空中背景と組み合わせると方向感が伝わりやすくなります。",
-    "sortSubcategory": "落下・バランス"
+    "sortSubcategory": "落下・バランス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-floating",
@@ -678,7 +912,10 @@
     "subcategory": "空中・落下",
     "slot": "airborne_state",
     "generationNote": "重力を感じさせず空中に浮く表現。fallingより静的で、幻想的な背景や柔らかいライティングに向きます。",
-    "sortSubcategory": "落下・バランス"
+    "sortSubcategory": "落下・バランス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "rin-arms-behind-back",
@@ -690,7 +927,10 @@
       "両手を後ろに回す"
     ],
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "pos-v5-one-hand-on-hip",
@@ -699,7 +939,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-hands-in-pockets",
@@ -708,7 +951,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-crossed-arms",
@@ -717,7 +963,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-arms-crossed-behind-back",
@@ -726,7 +975,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-arms-raised",
@@ -735,7 +987,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-one-arm-raised",
@@ -744,7 +999,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-double-peace-sign",
@@ -753,7 +1011,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "rin-finger-heart",
@@ -762,7 +1023,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "pos-v5-heart-hands",
@@ -771,7 +1035,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-clenched-fist",
@@ -780,7 +1047,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-interlocked-fingers",
@@ -789,7 +1059,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-hands-clasped",
@@ -798,7 +1071,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-touching-hair",
@@ -807,7 +1083,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-adjusting-hair",
@@ -816,7 +1095,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-touching-cheek",
@@ -825,7 +1107,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-chin-resting-on-hand",
@@ -834,7 +1119,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-looking-over-shoulder",
@@ -843,7 +1131,10 @@
     "category": "pose",
     "subcategory": "姿勢の変化",
     "sortSubcategory": "頭・上半身",
-    "slot": "gaze_action"
+    "slot": "gaze_action",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "rin-pose-twisted-torso",
@@ -855,7 +1146,12 @@
       "上半身をひねる"
     ],
     "sortSubcategory": "頭・上半身",
-    "slot": "posture_modifier"
+    "slot": "posture_modifier",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "pos-twisting-torso"
   },
   {
     "id": "rin-pose-one-leg-standing",
@@ -870,7 +1166,10 @@
       "balancing"
     ],
     "slot": "leg_pose",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "pos-v5-feet-apart",
@@ -879,7 +1178,10 @@
     "category": "pose",
     "subcategory": "脚・開脚",
     "slot": "leg_pose",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-legs-crossed",
@@ -888,7 +1190,10 @@
     "category": "pose",
     "subcategory": "脚・開脚",
     "slot": "leg_pose",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-cross-legged",
@@ -897,7 +1202,10 @@
     "category": "pose",
     "subcategory": "脚・開脚",
     "slot": "leg_pose",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-knees-to-chest",
@@ -916,7 +1224,10 @@
       "full body"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-sitting-on-desk",
@@ -925,7 +1236,10 @@
     "category": "pose",
     "subcategory": "基本姿勢",
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-sitting-sideways",
@@ -934,16 +1248,30 @@
     "category": "pose",
     "subcategory": "基本姿勢",
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-lying-on-side",
     "label": "横向きに寝る",
-    "prompt": "lying on side",
+    "prompt": "on side",
     "category": "pose",
     "subcategory": "基本姿勢",
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "横寝",
+      "lying on side"
+    ],
+    "related": [
+      "lying"
+    ]
   },
   {
     "id": "pos-v5-curling-up",
@@ -952,7 +1280,10 @@
     "category": "pose",
     "subcategory": "姿勢の変化",
     "slot": "posture_modifier",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-spinning",
@@ -961,16 +1292,29 @@
     "category": "pose",
     "subcategory": "移動",
     "slot": "locomotion",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-yoga-pose",
     "label": "ヨガポーズ",
-    "prompt": "yoga pose",
+    "prompt": "yoga",
     "category": "pose",
     "subcategory": "バランス",
     "slot": "balance_pose",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "yoga pose"
+    ],
+    "related": [
+      "stretching"
+    ]
   },
   {
     "id": "pos-v5-sword-stance",
@@ -979,7 +1323,10 @@
     "category": "pose",
     "subcategory": "武術・戦闘",
     "slot": "combat_action",
-    "sortSubcategory": "武術・戦闘"
+    "sortSubcategory": "武術・戦闘",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-casting-magic",
@@ -988,7 +1335,10 @@
     "category": "pose",
     "subcategory": "武術・戦闘",
     "slot": "combat_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-holding-umbrella",
@@ -997,7 +1347,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "slot": "hand_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "pos-v5-holding-weapon",
@@ -1006,7 +1359,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "slot": "hand_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-sprinting",
@@ -1015,7 +1371,10 @@
     "category": "pose",
     "subcategory": "移動",
     "slot": "locomotion",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-jogging",
@@ -1024,7 +1383,10 @@
     "category": "pose",
     "subcategory": "移動",
     "slot": "locomotion",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-skipping",
@@ -1033,7 +1395,10 @@
     "category": "pose",
     "subcategory": "移動",
     "slot": "locomotion",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-yawning",
@@ -1042,7 +1407,10 @@
     "category": "pose",
     "subcategory": "姿勢の変化",
     "slot": "posture_modifier",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-reaching",
@@ -1051,7 +1419,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "slot": "hand_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-opening-door",
@@ -1060,7 +1431,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "slot": "hand_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-closing-door",
@@ -1069,7 +1443,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "slot": "hand_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-fixing-hair",
@@ -1078,7 +1455,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "slot": "hand_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-tying-hair",
@@ -1087,7 +1467,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "slot": "hand_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-putting-on-shoes",
@@ -1096,7 +1479,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "slot": "hand_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-taking-off-jacket",
@@ -1105,7 +1491,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "slot": "hand_action",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-turning-around",
@@ -1114,7 +1503,10 @@
     "category": "pose",
     "subcategory": "移動",
     "slot": "locomotion",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-tripping",
@@ -1129,7 +1521,10 @@
       "motion blur"
     ],
     "slot": "balance_pose",
-    "sortSubcategory": "落下・バランス"
+    "sortSubcategory": "落下・バランス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-stumbling",
@@ -1138,7 +1533,10 @@
     "category": "pose",
     "subcategory": "バランス",
     "slot": "balance_pose",
-    "sortSubcategory": "落下・バランス"
+    "sortSubcategory": "落下・バランス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-slipping",
@@ -1147,7 +1545,10 @@
     "category": "pose",
     "subcategory": "バランス",
     "slot": "balance_pose",
-    "sortSubcategory": "落下・バランス"
+    "sortSubcategory": "落下・バランス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-losing-balance",
@@ -1156,7 +1557,10 @@
     "category": "pose",
     "subcategory": "バランス",
     "slot": "balance_pose",
-    "sortSubcategory": "落下・バランス"
+    "sortSubcategory": "落下・バランス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-catching-oneself",
@@ -1165,7 +1569,10 @@
     "category": "pose",
     "subcategory": "バランス",
     "slot": "balance_pose",
-    "sortSubcategory": "落下・バランス"
+    "sortSubcategory": "落下・バランス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-falling-forward",
@@ -1174,7 +1581,10 @@
     "category": "pose",
     "subcategory": "空中・落下",
     "slot": "airborne_state",
-    "sortSubcategory": "落下・バランス"
+    "sortSubcategory": "落下・バランス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-falling-backward",
@@ -1183,7 +1593,10 @@
     "category": "pose",
     "subcategory": "空中・落下",
     "slot": "airborne_state",
-    "sortSubcategory": "落下・バランス"
+    "sortSubcategory": "落下・バランス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-falling-sideways",
@@ -1192,7 +1605,10 @@
     "category": "pose",
     "subcategory": "空中・落下",
     "slot": "airborne_state",
-    "sortSubcategory": "落下・バランス"
+    "sortSubcategory": "落下・バランス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-about-to-fall",
@@ -1201,7 +1617,10 @@
     "category": "pose",
     "subcategory": "バランス",
     "slot": "balance_pose",
-    "sortSubcategory": "落下・バランス"
+    "sortSubcategory": "落下・バランス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-one-leg-balance",
@@ -1210,7 +1629,10 @@
     "category": "pose",
     "subcategory": "バランス",
     "slot": "balance_pose",
-    "sortSubcategory": "落下・バランス"
+    "sortSubcategory": "落下・バランス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-tiptoe-balance",
@@ -1219,7 +1641,10 @@
     "category": "pose",
     "subcategory": "バランス",
     "slot": "balance_pose",
-    "sortSubcategory": "落下・バランス"
+    "sortSubcategory": "落下・バランス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-tightrope-walking",
@@ -1231,7 +1656,10 @@
       "locomotion",
       "balance_pose"
     ],
-    "sortSubcategory": "落下・バランス"
+    "sortSubcategory": "落下・バランス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-y-balance",
@@ -1258,7 +1686,10 @@
       "leg_pose"
     ],
     "generationNote": "立ったまま片脚を高く上げる開脚ポーズ。全身構図と組み合わせないと、上げた脚が画面外へ切れやすくなります。",
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-needle-pose",
@@ -1282,7 +1713,10 @@
       "pointed toes"
     ],
     "generationNote": "上体を前へ倒しながら片脚を背後へ高く伸ばす体操ポーズ。standing splitより前傾が強く、柔軟性の表現に向きます。",
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-vertical-split",
@@ -1304,7 +1738,10 @@
       "balance_pose",
       "leg_pose"
     ],
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-full-split",
@@ -1324,7 +1761,10 @@
     ],
     "slot": "leg_pose",
     "generationNote": "脚を前後へ開く縦開脚。左右開脚と混同しにくく、床に接した全身ポーズとして比較的伝わりやすいタグです。",
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-middle-split",
@@ -1343,7 +1783,10 @@
       "full body"
     ],
     "slot": "leg_pose",
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-straddle-split",
@@ -1362,7 +1805,10 @@
       "full body"
     ],
     "slot": "leg_pose",
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-bridge-pose",
@@ -1379,7 +1825,10 @@
       "full body"
     ],
     "generationNote": "手足を床につけて背中を大きく反らすブリッジ。床面が見える構図と全身指定を併用すると形が伝わりやすくなります。",
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-backbend",
@@ -1388,7 +1837,10 @@
     "category": "pose",
     "subcategory": "体操・アクロバット",
     "slot": "acrobatics",
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-handstand",
@@ -1401,7 +1853,10 @@
     "aliases": [
       "倒立"
     ],
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-one-handed-handstand",
@@ -1411,7 +1866,10 @@
     "subcategory": "体操・アクロバット",
     "slot": "acrobatics",
     "generationNote": "片手で支える倒立。通常の逆立ちより難度が高く、腕や指の崩れが出やすいポーズです。",
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-headstand",
@@ -1420,7 +1878,10 @@
     "category": "pose",
     "subcategory": "体操・アクロバット",
     "slot": "acrobatics",
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-cartwheel",
@@ -1431,7 +1892,10 @@
     "slot": "acrobatics",
     "generationNote": "身体を横方向へ回転させる側転。動作途中の姿勢になるため、全身構図や横長の画面と相性が良いタグです。",
     "aliases": [],
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-roundoff",
@@ -1440,7 +1904,10 @@
     "category": "pose",
     "subcategory": "体操・アクロバット",
     "slot": "acrobatics",
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-forward-roll",
@@ -1449,7 +1916,10 @@
     "category": "pose",
     "subcategory": "体操・アクロバット",
     "slot": "acrobatics",
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-backward-roll",
@@ -1458,7 +1928,10 @@
     "category": "pose",
     "subcategory": "体操・アクロバット",
     "slot": "acrobatics",
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-back-handspring",
@@ -1472,7 +1945,10 @@
     ],
     "generationNote": "後方へ跳び、手を床について回転するバク転系動作。手足の位置が複雑なので、他のポーズ指定を重ねすぎないほうが安定します。",
     "aliases": [],
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-backflip",
@@ -1486,7 +1962,10 @@
     ],
     "generationNote": "手をつかず後方へ宙返りする動作。空中感を出すにはairborneやdynamic poseを関連候補として使えます。",
     "aliases": [],
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-front-flip",
@@ -1500,7 +1979,10 @@
     ],
     "generationNote": "前方へ宙返りする動作。顔が隠れたり身体が丸まりやすいため、表情を重視する画像には不向きです。",
     "aliases": [],
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-aerial-cartwheel",
@@ -1512,7 +1994,10 @@
       "acrobatics",
       "airborne_state"
     ],
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-split-jump",
@@ -1524,7 +2009,10 @@
       "acrobatics",
       "airborne_state"
     ],
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-straddle-jump",
@@ -1536,7 +2024,10 @@
       "acrobatics",
       "airborne_state"
     ],
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-dance-pose",
@@ -1545,7 +2036,10 @@
     "category": "pose",
     "subcategory": "ダンス",
     "slot": "dance_style",
-    "sortSubcategory": "ダンス"
+    "sortSubcategory": "ダンス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-arabesque",
@@ -1570,7 +2064,10 @@
       "balance_pose"
     ],
     "generationNote": "片脚で立ち、もう片脚を後方へ伸ばすバレエ姿勢。上体を起こした優雅なバランスポーズを作りやすいタグです。",
-    "sortSubcategory": "ダンス"
+    "sortSubcategory": "ダンス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-attitude-pose",
@@ -1582,7 +2079,10 @@
       "dance_style",
       "balance_pose"
     ],
-    "sortSubcategory": "ダンス"
+    "sortSubcategory": "ダンス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-pirouette",
@@ -1591,7 +2091,10 @@
     "category": "pose",
     "subcategory": "ダンス",
     "slot": "dance_style",
-    "sortSubcategory": "ダンス"
+    "sortSubcategory": "ダンス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-toe-stand",
@@ -1603,7 +2106,10 @@
       "dance_style",
       "balance_pose"
     ],
-    "sortSubcategory": "ダンス"
+    "sortSubcategory": "ダンス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-ballet-pose",
@@ -1612,7 +2118,10 @@
     "category": "pose",
     "subcategory": "ダンス",
     "slot": "dance_style",
-    "sortSubcategory": "ダンス"
+    "sortSubcategory": "ダンス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-ribbon-dance",
@@ -1621,7 +2130,10 @@
     "category": "pose",
     "subcategory": "ダンス",
     "slot": "dance_style",
-    "sortSubcategory": "ダンス"
+    "sortSubcategory": "ダンス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-fan-dance",
@@ -1630,7 +2142,10 @@
     "category": "pose",
     "subcategory": "ダンス",
     "slot": "dance_style",
-    "sortSubcategory": "ダンス"
+    "sortSubcategory": "ダンス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-belly-dance",
@@ -1639,7 +2154,10 @@
     "category": "pose",
     "subcategory": "ダンス",
     "slot": "dance_style",
-    "sortSubcategory": "ダンス"
+    "sortSubcategory": "ダンス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-spinning-dance",
@@ -1648,7 +2166,10 @@
     "category": "pose",
     "subcategory": "ダンス",
     "slot": "dance_style",
-    "sortSubcategory": "ダンス"
+    "sortSubcategory": "ダンス",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-soccer-kick",
@@ -1657,7 +2178,10 @@
     "category": "pose",
     "subcategory": "スポーツ",
     "slot": "sport_action",
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-goalkeeper-dive",
@@ -1669,7 +2193,10 @@
       "sport_action",
       "airborne_state"
     ],
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-basketball-dribble",
@@ -1678,7 +2205,10 @@
     "category": "pose",
     "subcategory": "スポーツ",
     "slot": "sport_action",
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-basketball-shot",
@@ -1687,7 +2217,10 @@
     "category": "pose",
     "subcategory": "スポーツ",
     "slot": "sport_action",
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-slam-dunk",
@@ -1702,7 +2235,10 @@
       "indoor court"
     ],
     "slot": "sport_action",
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-volleyball-serve",
@@ -1711,7 +2247,10 @@
     "category": "pose",
     "subcategory": "スポーツ",
     "slot": "sport_action",
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-volleyball-spike",
@@ -1720,7 +2259,10 @@
     "category": "pose",
     "subcategory": "スポーツ",
     "slot": "sport_action",
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-tennis-serve",
@@ -1729,7 +2271,10 @@
     "category": "pose",
     "subcategory": "スポーツ",
     "slot": "sport_action",
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-tennis-forehand",
@@ -1738,7 +2283,10 @@
     "category": "pose",
     "subcategory": "スポーツ",
     "slot": "sport_action",
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-badminton-smash",
@@ -1747,7 +2295,10 @@
     "category": "pose",
     "subcategory": "スポーツ",
     "slot": "sport_action",
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-baseball-pitching",
@@ -1756,7 +2307,10 @@
     "category": "pose",
     "subcategory": "スポーツ",
     "slot": "sport_action",
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-baseball-batting",
@@ -1765,7 +2319,10 @@
     "category": "pose",
     "subcategory": "スポーツ",
     "slot": "sport_action",
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-golf-swing",
@@ -1774,7 +2331,10 @@
     "category": "pose",
     "subcategory": "スポーツ",
     "slot": "sport_action",
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-archery-stance",
@@ -1783,7 +2343,10 @@
     "category": "pose",
     "subcategory": "スポーツ",
     "slot": "sport_action",
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-swimming-freestyle",
@@ -1792,7 +2355,10 @@
     "category": "pose",
     "subcategory": "スポーツ",
     "slot": "sport_action",
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-diving-into-water",
@@ -1804,7 +2370,10 @@
       "sport_action",
       "airborne_state"
     ],
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-cycling",
@@ -1813,7 +2382,10 @@
     "category": "pose",
     "subcategory": "スポーツ",
     "slot": "sport_action",
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-skateboarding",
@@ -1822,7 +2394,10 @@
     "category": "pose",
     "subcategory": "スポーツ",
     "slot": "sport_action",
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-surfing",
@@ -1831,7 +2406,10 @@
     "category": "pose",
     "subcategory": "スポーツ",
     "slot": "sport_action",
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-skiing",
@@ -1840,7 +2418,10 @@
     "category": "pose",
     "subcategory": "スポーツ",
     "slot": "sport_action",
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-snowboarding",
@@ -1849,7 +2430,10 @@
     "category": "pose",
     "subcategory": "スポーツ",
     "slot": "sport_action",
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-figure-skating",
@@ -1861,7 +2445,10 @@
       "sport_action",
       "dance_style"
     ],
-    "sortSubcategory": "スポーツ"
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-front-kick",
@@ -1870,7 +2457,10 @@
     "category": "pose",
     "subcategory": "武術・戦闘",
     "slot": "combat_action",
-    "sortSubcategory": "武術・戦闘"
+    "sortSubcategory": "武術・戦闘",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-side-kick",
@@ -1879,7 +2469,10 @@
     "category": "pose",
     "subcategory": "武術・戦闘",
     "slot": "combat_action",
-    "sortSubcategory": "武術・戦闘"
+    "sortSubcategory": "武術・戦闘",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-roundhouse-kick",
@@ -1888,7 +2481,10 @@
     "category": "pose",
     "subcategory": "武術・戦闘",
     "slot": "combat_action",
-    "sortSubcategory": "武術・戦闘"
+    "sortSubcategory": "武術・戦闘",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-high-kick",
@@ -1906,7 +2502,10 @@
       "full body"
     ],
     "slot": "combat_action",
-    "sortSubcategory": "武術・戦闘"
+    "sortSubcategory": "武術・戦闘",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-jump-kick",
@@ -1918,7 +2517,10 @@
       "combat_action",
       "airborne_state"
     ],
-    "sortSubcategory": "武術・戦闘"
+    "sortSubcategory": "武術・戦闘",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-axe-kick",
@@ -1927,7 +2529,10 @@
     "category": "pose",
     "subcategory": "武術・戦闘",
     "slot": "combat_action",
-    "sortSubcategory": "武術・戦闘"
+    "sortSubcategory": "武術・戦闘",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-punching",
@@ -1936,7 +2541,10 @@
     "category": "pose",
     "subcategory": "武術・戦闘",
     "slot": "combat_action",
-    "sortSubcategory": "武術・戦闘"
+    "sortSubcategory": "武術・戦闘",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-uppercut",
@@ -1945,7 +2553,10 @@
     "category": "pose",
     "subcategory": "武術・戦闘",
     "slot": "combat_action",
-    "sortSubcategory": "武術・戦闘"
+    "sortSubcategory": "武術・戦闘",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-blocking",
@@ -1954,7 +2565,10 @@
     "category": "pose",
     "subcategory": "武術・戦闘",
     "slot": "combat_action",
-    "sortSubcategory": "武術・戦闘"
+    "sortSubcategory": "武術・戦闘",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-dodging",
@@ -1963,7 +2577,10 @@
     "category": "pose",
     "subcategory": "武術・戦闘",
     "slot": "combat_action",
-    "sortSubcategory": "武術・戦闘"
+    "sortSubcategory": "武術・戦闘",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-sword-slash",
@@ -1972,7 +2589,10 @@
     "category": "pose",
     "subcategory": "武術・戦闘",
     "slot": "combat_action",
-    "sortSubcategory": "武術・戦闘"
+    "sortSubcategory": "武術・戦闘",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-aiming",
@@ -1981,7 +2601,10 @@
     "category": "pose",
     "subcategory": "武術・戦闘",
     "slot": "combat_action",
-    "sortSubcategory": "武術・戦闘"
+    "sortSubcategory": "武術・戦闘",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-throwing",
@@ -1990,7 +2613,10 @@
     "category": "pose",
     "subcategory": "武術・戦闘",
     "slot": "combat_action",
-    "sortSubcategory": "武術・戦闘"
+    "sortSubcategory": "武術・戦闘",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-horseback-riding",
@@ -2006,7 +2632,10 @@
       "riding boots"
     ],
     "slot": "vehicle_action",
-    "sortSubcategory": "乗り物・騎乗"
+    "sortSubcategory": "乗り物・騎乗",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-riding-a-horse",
@@ -2015,7 +2644,10 @@
     "category": "pose",
     "subcategory": "乗り物・騎乗",
     "slot": "vehicle_action",
-    "sortSubcategory": "乗り物・騎乗"
+    "sortSubcategory": "乗り物・騎乗",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-holding-reins",
@@ -2024,7 +2656,10 @@
     "category": "pose",
     "subcategory": "乗り物・騎乗",
     "slot": "vehicle_action",
-    "sortSubcategory": "乗り物・騎乗"
+    "sortSubcategory": "乗り物・騎乗",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-mounting-horse",
@@ -2033,7 +2668,10 @@
     "category": "pose",
     "subcategory": "乗り物・騎乗",
     "slot": "vehicle_action",
-    "sortSubcategory": "乗り物・騎乗"
+    "sortSubcategory": "乗り物・騎乗",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-dismounting-horse",
@@ -2042,7 +2680,10 @@
     "category": "pose",
     "subcategory": "乗り物・騎乗",
     "slot": "vehicle_action",
-    "sortSubcategory": "乗り物・騎乗"
+    "sortSubcategory": "乗り物・騎乗",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-riding-bicycle",
@@ -2051,7 +2692,10 @@
     "category": "pose",
     "subcategory": "乗り物・騎乗",
     "slot": "vehicle_action",
-    "sortSubcategory": "乗り物・騎乗"
+    "sortSubcategory": "乗り物・騎乗",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v19-motion-riding-motorcycle",
@@ -2060,7 +2704,10 @@
     "category": "pose",
     "subcategory": "乗り物・騎乗",
     "slot": "vehicle_action",
-    "sortSubcategory": "乗り物・騎乗"
+    "sortSubcategory": "乗り物・騎乗",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-leg-together",
@@ -2073,7 +2720,10 @@
       "脚を閉じる"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-spread-legs",
@@ -2087,7 +2737,10 @@
       "脚を大きく開く"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-split-legs",
@@ -2100,7 +2753,10 @@
       "180度開脚"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-crossed-ankles",
@@ -2112,7 +2768,10 @@
       "足首クロス"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-pigeon-toed",
@@ -2125,7 +2784,10 @@
       "内股立ち"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-leg-up",
@@ -2149,7 +2811,10 @@
       "holding leg"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-leg-lift-held",
@@ -2167,7 +2832,10 @@
       "full body"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-legs-up",
@@ -2189,7 +2857,10 @@
       "split"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-legs-over-head",
@@ -2207,7 +2878,10 @@
       "full body"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-outstretched-leg-camera",
@@ -2224,7 +2898,10 @@
       "foreshortening"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-knees-apart-feet-together",
@@ -2239,7 +2916,10 @@
       "feet together"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-knees-together-feet-apart",
@@ -2254,7 +2934,10 @@
       "feet apart"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-knee-up",
@@ -2269,7 +2952,10 @@
       "one knee raised"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-knees-up",
@@ -2284,7 +2970,10 @@
       "bent knees"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-spread-knees-up",
@@ -2302,7 +2991,10 @@
       "full body"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-bent-knees",
@@ -2314,7 +3006,10 @@
       "曲げた膝"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-one-knee",
@@ -2330,7 +3025,10 @@
       "full body"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-plantar-flexion",
@@ -2348,7 +3046,10 @@
       "plantar flexion"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-toe-point-camera",
@@ -2364,7 +3065,10 @@
       "foreshortening"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-heel-up",
@@ -2376,7 +3080,10 @@
       "かかと上げ"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-legs-folded",
@@ -2392,7 +3099,10 @@
       "full body"
     ],
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-all-fours",
@@ -2408,7 +3118,10 @@
       "full body"
     ],
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "v192-standing-leg-hold-side",
@@ -2426,7 +3139,10 @@
       "pointed toes"
     ],
     "slot": "leg_pose",
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "rin-pose-on-back",
@@ -2441,7 +3157,12 @@
       "lying"
     ],
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "pos-lying-on-back"
   },
   {
     "id": "rin-pose-on-side",
@@ -2456,7 +3177,12 @@
       "lying"
     ],
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "pos-v5-lying-on-side"
   },
   {
     "id": "rin-pose-on-stomach",
@@ -2471,7 +3197,12 @@
       "lying"
     ],
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "pos-lying-on-stomach"
   },
   {
     "id": "rin-pose-fetal",
@@ -2486,7 +3217,10 @@
       "lying"
     ],
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-pose-butterfly",
@@ -2501,7 +3235,10 @@
       "sitting"
     ],
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-pose-indian-style",
@@ -2516,7 +3253,10 @@
       "sitting"
     ],
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-pose-hugging-legs",
@@ -2531,7 +3271,10 @@
       "sitting"
     ],
     "slot": "leg_pose",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-pose-wariza",
@@ -2543,7 +3286,10 @@
       "sitting"
     ],
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-pose-yokozuwari",
@@ -2555,7 +3301,10 @@
       "sitting"
     ],
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-pose-reclining",
@@ -2567,7 +3316,10 @@
       "寄りかかる"
     ],
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-pose-sitting-backwards",
@@ -2579,7 +3331,10 @@
       "sitting"
     ],
     "slot": "body_posture",
-    "sortSubcategory": "基本姿勢"
+    "sortSubcategory": "基本姿勢",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-pose-hopping",
@@ -2594,7 +3349,10 @@
       "jumping"
     ],
     "slot": "locomotion",
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-pose-yoga",
@@ -2606,7 +3364,12 @@
       "stretching"
     ],
     "slot": "balance_pose",
-    "sortSubcategory": "体操・アクロバット"
+    "sortSubcategory": "体操・アクロバット",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "pos-v5-yoga-pose"
   },
   {
     "id": "rin-pose-bowing",
@@ -2615,7 +3378,10 @@
     "category": "pose",
     "subcategory": "姿勢の変化",
     "sortSubcategory": "頭・上半身",
-    "slot": "posture_modifier"
+    "slot": "posture_modifier",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-pose-curtsey",
@@ -2627,7 +3393,10 @@
       "スカートを持って礼"
     ],
     "sortSubcategory": "頭・上半身",
-    "slot": "posture_modifier"
+    "slot": "posture_modifier",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-pose-arm-support",
@@ -2636,7 +3405,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-pose-slouching",
@@ -2645,7 +3417,10 @@
     "category": "pose",
     "subcategory": "姿勢の変化",
     "sortSubcategory": "頭・上半身",
-    "slot": "posture_modifier"
+    "slot": "posture_modifier",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-pose-superhero-landing",
@@ -2660,7 +3435,10 @@
       "airborne_state",
       "body_posture"
     ],
-    "sortSubcategory": "日常動作"
+    "sortSubcategory": "日常動作",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-arm-up",
@@ -2669,7 +3447,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-arms-up",
@@ -2678,7 +3459,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-arm-above-head",
@@ -2687,7 +3471,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-arm-on-head",
@@ -2696,7 +3483,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-arm-behind-head",
@@ -2705,7 +3495,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-arms-behind-head",
@@ -2714,7 +3507,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-arm-at-side",
@@ -2723,7 +3519,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-arms-at-sides",
@@ -2732,7 +3531,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-v-arms",
@@ -2741,7 +3543,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-arm-behind-back",
@@ -2750,7 +3555,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-outstretched-arm",
@@ -2759,7 +3567,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-outstretched-arms",
@@ -2771,7 +3582,10 @@
       "腕を伸ばす"
     ],
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-spread-arms",
@@ -2780,7 +3594,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-t-pose",
@@ -2789,7 +3606,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-a-pose",
@@ -2798,7 +3618,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-arm-across-waist",
@@ -2807,7 +3630,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-flexing",
@@ -2819,7 +3645,10 @@
       "マッスルポーズ"
     ],
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-shrugging",
@@ -2828,7 +3657,10 @@
     "category": "pose",
     "subcategory": "姿勢の変化",
     "sortSubcategory": "頭・上半身",
-    "slot": "posture_modifier"
+    "slot": "posture_modifier",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-w-arms",
@@ -2837,7 +3669,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-head-rest",
@@ -2846,7 +3681,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-arm-on-knee",
@@ -2858,7 +3696,10 @@
       "knee up"
     ],
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-arms-on-knees",
@@ -2870,7 +3711,10 @@
       "knees up"
     ],
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-legs-folded",
@@ -2879,7 +3723,10 @@
     "category": "pose",
     "subcategory": "脚・開脚",
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-leg-lift",
@@ -2888,7 +3735,10 @@
     "category": "pose",
     "subcategory": "脚・開脚",
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-outstretched-leg",
@@ -2897,7 +3747,10 @@
     "category": "pose",
     "subcategory": "脚・開脚",
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-split",
@@ -2913,7 +3766,10 @@
     ],
     "generationNote": "床上で脚を前後または左右へ大きく開くポーズ。方向を明確にしたい場合はfront splitやside splitを優先します。",
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-knees-apart-feet-together",
@@ -2922,7 +3778,10 @@
     "category": "pose",
     "subcategory": "脚・開脚",
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-knees-together-feet-apart",
@@ -2931,7 +3790,10 @@
     "category": "pose",
     "subcategory": "脚・開脚",
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-plantar-flexion",
@@ -2943,7 +3805,10 @@
       "底屈"
     ],
     "sortSubcategory": "脚・開脚",
-    "slot": "leg_pose"
+    "slot": "leg_pose",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-clenched-hand",
@@ -2952,7 +3817,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-raised-fist",
@@ -2961,7 +3829,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-curled-fingers",
@@ -2970,7 +3841,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-pinching-sleeves",
@@ -2979,7 +3853,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-index-raised",
@@ -2988,7 +3865,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-pointing-self",
@@ -2997,7 +3877,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-finger-cheek",
@@ -3006,7 +3889,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-finger-chin",
@@ -3015,7 +3901,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-finger-mouth",
@@ -3024,7 +3913,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-shushing",
@@ -3036,7 +3928,10 @@
       "シーッ"
     ],
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-pointing-viewer",
@@ -3045,7 +3940,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-pointing-forward",
@@ -3054,7 +3952,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-pointing-up",
@@ -3063,7 +3964,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-thumbs-down",
@@ -3072,7 +3976,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-pinky-swear",
@@ -3081,7 +3988,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-gyaru-v",
@@ -3090,7 +4000,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-two-finger-salute",
@@ -3099,7 +4012,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-v-sign",
@@ -3108,7 +4024,12 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "pos-peace-sign"
   },
   {
     "id": "rin-v-over-eye",
@@ -3117,7 +4038,10 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   },
   {
     "id": "rin-v-over-mouth",
@@ -3126,6 +4050,9 @@
     "category": "pose",
     "subcategory": "手・腕の動作",
     "sortSubcategory": "手・腕",
-    "slot": "hand_action"
+    "slot": "hand_action",
+    "sources": [
+      "RIN"
+    ]
   }
 ]
