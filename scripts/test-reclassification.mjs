@@ -229,10 +229,14 @@ try {
   assert(tags.some(tag => tag.prompt === 'dancing'), 'generic dance must remain a separate canonical tag')
   assert(tags.some(tag => tag.prompt === 'ballet'), 'RIN ballet Prompt must be promoted on the existing canonical id')
   assert(tags.find(tag => tag.prompt === 'ballet')?.aliases?.includes('ballet pose'))
-  assert.deepEqual(tags.find(tag => tag.prompt === 'arabesque')?.slot, ['dance_style', 'balance_pose', 'leg_pose'])
+  assert.deepEqual(tags.find(tag => tag.prompt === 'arabesque')?.slot, ['dance_move', 'balance_pose', 'leg_pose'])
+  assert.deepEqual(tags.find(tag => tag.prompt === 'pirouette')?.slot, ['dance_move', 'balance_pose'])
   assert.deepEqual(tags.find(tag => tag.prompt === 'fan dance')?.slot, ['dance_style', 'hand_action'])
   assert.equal(conflict('ballet', ['dancing'])?.level, 'hard', 'generic and specific dance styles must remain distinct and conflict')
   assert.equal(conflict('flamenco', ['hip hop dance'])?.level, 'hard', 'different dance styles must conflict')
+  assert.equal(conflict('arabesque', ['ballet']), null, 'ballet style and arabesque move must coexist')
+  assert.equal(conflict('pirouette', ['ballet']), null, 'ballet style and pirouette move must coexist')
+  assert.equal(conflict('pirouette', ['arabesque'])?.level, 'hard', 'different dance moves must conflict')
   assert.equal(conflict('ballet', ['standing']), null, 'dance style and body posture must coexist')
   assert.equal(conflict('arabesque', ['standing']), null, 'dance balance pose and base posture must coexist')
   assert.equal(conflict('fan dance', ['standing']), null, 'dance hand action and base posture must coexist')
@@ -252,6 +256,7 @@ try {
   assert.equal(poseDictionary.every(tag => motionSubcategories.has(tag.subcategory)), true, 'every Motion tag must use the redesigned subcategories')
   assert(getSlotDefinitions().some(slot => slot.id === 'vehicle_action' && slot.mode === 'single'))
   assert(getSlotDefinitions().some(slot => slot.id === 'dance_style' && slot.mode === 'single'))
+  assert(getSlotDefinitions().some(slot => slot.id === 'dance_move' && slot.mode === 'single'))
   assert(getSlotDefinitions().some(slot => slot.id === 'combat_action' && slot.mode === 'multiple'))
 
   const motionOrderPrompts = ['horseback riding', 'punching', 'swimming', 'dancing', 'handstand', 'falling', 'walking', 'knees to chest', 'head tilt', 'arms crossed', 'standing']

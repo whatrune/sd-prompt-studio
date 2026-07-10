@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "slots": [
     {
       "id": "people_count_mode",
@@ -334,6 +334,11 @@
     {
       "id": "dance_style",
       "label": "ダンス様式",
+      "mode": "single"
+    },
+    {
+      "id": "dance_move",
+      "label": "ダンス動作・ポーズ",
       "mode": "single"
     },
     {

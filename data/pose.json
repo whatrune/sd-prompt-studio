@@ -2110,7 +2110,7 @@
       "ballet"
     ],
     "slot": [
-      "dance_style",
+      "dance_move",
       "balance_pose",
       "leg_pose"
     ],
@@ -2144,7 +2144,7 @@
     "category": "pose",
     "subcategory": "ダンス",
     "slot": [
-      "dance_style",
+      "dance_move",
       "balance_pose"
     ],
     "sortSubcategory": "ダンス",
@@ -4474,7 +4474,7 @@
     ],
     "description": "片脚で立ち、反対の脚を後方へ伸ばすバレエのバランスポーズ。",
     "slot": [
-      "dance_style",
+      "dance_move",
       "balance_pose",
       "leg_pose"
     ],
@@ -4502,7 +4502,7 @@
     ],
     "description": "片脚を軸に身体を回転させるバレエ動作。",
     "slot": [
-      "dance_style",
+      "dance_move",
       "balance_pose"
     ],
     "category": "pose",
