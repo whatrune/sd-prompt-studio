@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 8,
   "slots": [
     {
       "id": "people_count_mode",
@@ -324,6 +324,11 @@
     {
       "id": "gaze_action",
       "label": "視線動作",
+      "mode": "single"
+    },
+    {
+      "id": "sport_type",
+      "label": "競技種別",
       "mode": "single"
     },
     {

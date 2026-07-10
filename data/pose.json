@@ -885,11 +885,25 @@
     "prompt": "swimming",
     "category": "pose",
     "subcategory": "スポーツ",
-    "slot": "sport_action",
+    "slot": [
+      "sport_action",
+      "locomotion"
+    ],
     "sortSubcategory": "スポーツ",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "swim",
+      "泳ぐ"
+    ],
+    "related": [
+      "swimming freestyle",
+      "water",
+      "sports"
+    ],
+    "description": "水中を泳いで移動するスポーツ動作。"
   },
   {
     "id": "pos-falling",
@@ -2293,11 +2307,25 @@
     "prompt": "soccer kick",
     "category": "pose",
     "subcategory": "スポーツ",
-    "slot": "sport_action",
+    "slot": [
+      "sport_action",
+      "leg_pose"
+    ],
     "sortSubcategory": "スポーツ",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "football kick",
+      "ボールを蹴る"
+    ],
+    "related": [
+      "soccer",
+      "kicking",
+      "soccer ball"
+    ],
+    "description": "サッカーボールを脚で蹴る具体的なスポーツ動作。"
   },
   {
     "id": "v19-motion-goalkeeper-dive",
@@ -2332,11 +2360,25 @@
     "prompt": "basketball shot",
     "category": "pose",
     "subcategory": "スポーツ",
-    "slot": "sport_action",
+    "slot": [
+      "sport_action",
+      "hand_action"
+    ],
     "sortSubcategory": "スポーツ",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "shooting basketball",
+      "ジャンプシュート"
+    ],
+    "related": [
+      "basketball",
+      "basketball dunk",
+      "basketball hoop"
+    ],
+    "description": "バスケットボールをリングへ投げる具体的なスポーツ動作。"
   },
   {
     "id": "v19-motion-slam-dunk",
@@ -2386,11 +2428,25 @@
     "prompt": "tennis serve",
     "category": "pose",
     "subcategory": "スポーツ",
-    "slot": "sport_action",
+    "slot": [
+      "sport_action",
+      "hand_action"
+    ],
     "sortSubcategory": "スポーツ",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "serving tennis ball",
+      "サーブ動作"
+    ],
+    "related": [
+      "tennis",
+      "tennis racket",
+      "ball toss"
+    ],
+    "description": "ボールを上げてラケットで打つテニスのサーブ動作。"
   },
   {
     "id": "v19-motion-tennis-forehand",
@@ -2431,14 +2487,28 @@
   {
     "id": "v19-motion-baseball-batting",
     "label": "野球の打撃",
-    "prompt": "baseball batting",
+    "prompt": "baseball swing",
     "category": "pose",
     "subcategory": "スポーツ",
-    "slot": "sport_action",
+    "slot": [
+      "sport_action",
+      "hand_action"
+    ],
     "sortSubcategory": "スポーツ",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "baseball batting",
+      "bat swing"
+    ],
+    "related": [
+      "baseball",
+      "baseball bat",
+      "batting"
+    ],
+    "description": "バットを振ってボールを打つ野球動作。"
   },
   {
     "id": "v19-motion-golf-swing",
@@ -2497,11 +2567,25 @@
     "prompt": "cycling",
     "category": "pose",
     "subcategory": "スポーツ",
-    "slot": "sport_action",
+    "slot": [
+      "sport_action",
+      "locomotion"
+    ],
     "sortSubcategory": "スポーツ",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "bicycle riding",
+      "自転車走行"
+    ],
+    "related": [
+      "bicycle",
+      "riding bicycle",
+      "sports"
+    ],
+    "description": "自転車をこいで移動するスポーツ動作。"
   },
   {
     "id": "v19-motion-skateboarding",
@@ -2521,11 +2605,25 @@
     "prompt": "surfing",
     "category": "pose",
     "subcategory": "スポーツ",
-    "slot": "sport_action",
+    "slot": [
+      "sport_action",
+      "balance_pose"
+    ],
     "sortSubcategory": "スポーツ",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "wave surfing",
+      "波乗り"
+    ],
+    "related": [
+      "surfboard",
+      "ocean",
+      "one leg balance"
+    ],
+    "description": "波の上でサーフボードに立つバランススポーツ。"
   },
   {
     "id": "v19-motion-skiing",
@@ -2533,11 +2631,26 @@
     "prompt": "skiing",
     "category": "pose",
     "subcategory": "スポーツ",
-    "slot": "sport_action",
+    "slot": [
+      "sport_action",
+      "locomotion",
+      "balance_pose"
+    ],
     "sortSubcategory": "スポーツ",
     "sources": [
-      "existing"
-    ]
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "snow skiing",
+      "スキー滑走"
+    ],
+    "related": [
+      "skis",
+      "snow",
+      "gliding"
+    ],
+    "description": "雪上をスキー板で滑走するスポーツ動作。"
   },
   {
     "id": "v19-motion-snowboarding",
@@ -4688,6 +4801,383 @@
     "category": "pose",
     "subcategory": "ダンス",
     "sortSubcategory": "ダンス",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-sport-swimming",
+    "label": "水泳",
+    "prompt": "swimming",
+    "aliases": [
+      "swim",
+      "泳ぐ"
+    ],
+    "related": [
+      "swimming freestyle",
+      "water",
+      "sports"
+    ],
+    "description": "水中を泳いで移動するスポーツ動作。",
+    "slot": [
+      "sport_action",
+      "locomotion"
+    ],
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "pos-swimming"
+  },
+  {
+    "id": "rin-sport-cycling",
+    "label": "サイクリング",
+    "prompt": "cycling",
+    "aliases": [
+      "bicycle riding",
+      "自転車走行"
+    ],
+    "related": [
+      "bicycle",
+      "riding bicycle",
+      "sports"
+    ],
+    "description": "自転車をこいで移動するスポーツ動作。",
+    "slot": [
+      "sport_action",
+      "locomotion"
+    ],
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "v19-motion-cycling"
+  },
+  {
+    "id": "rin-sport-surfing",
+    "label": "サーフィン",
+    "prompt": "surfing",
+    "aliases": [
+      "wave surfing",
+      "波乗り"
+    ],
+    "related": [
+      "surfboard",
+      "ocean",
+      "one leg balance"
+    ],
+    "description": "波の上でサーフボードに立つバランススポーツ。",
+    "slot": [
+      "sport_action",
+      "balance_pose"
+    ],
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "v19-motion-surfing"
+  },
+  {
+    "id": "rin-sport-skiing",
+    "label": "スキー",
+    "prompt": "skiing",
+    "aliases": [
+      "snow skiing",
+      "スキー滑走"
+    ],
+    "related": [
+      "skis",
+      "snow",
+      "gliding"
+    ],
+    "description": "雪上をスキー板で滑走するスポーツ動作。",
+    "slot": [
+      "sport_action",
+      "locomotion",
+      "balance_pose"
+    ],
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "v19-motion-skiing"
+  },
+  {
+    "id": "rin-sport-soccer-kick",
+    "label": "サッカーキック",
+    "prompt": "soccer kick",
+    "aliases": [
+      "football kick",
+      "ボールを蹴る"
+    ],
+    "related": [
+      "soccer",
+      "kicking",
+      "soccer ball"
+    ],
+    "description": "サッカーボールを脚で蹴る具体的なスポーツ動作。",
+    "slot": [
+      "sport_action",
+      "leg_pose"
+    ],
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "v19-motion-soccer-kick"
+  },
+  {
+    "id": "rin-sport-basketball-shot",
+    "label": "バスケットボールシュート",
+    "prompt": "basketball shot",
+    "aliases": [
+      "shooting basketball",
+      "ジャンプシュート"
+    ],
+    "related": [
+      "basketball",
+      "basketball dunk",
+      "basketball hoop"
+    ],
+    "description": "バスケットボールをリングへ投げる具体的なスポーツ動作。",
+    "slot": [
+      "sport_action",
+      "hand_action"
+    ],
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "v19-motion-basketball-shot"
+  },
+  {
+    "id": "rin-sport-tennis-serve",
+    "label": "テニスサーブ",
+    "prompt": "tennis serve",
+    "aliases": [
+      "serving tennis ball",
+      "サーブ動作"
+    ],
+    "related": [
+      "tennis",
+      "tennis racket",
+      "ball toss"
+    ],
+    "description": "ボールを上げてラケットで打つテニスのサーブ動作。",
+    "slot": [
+      "sport_action",
+      "hand_action"
+    ],
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "v19-motion-tennis-serve"
+  },
+  {
+    "id": "rin-sport-baseball-swing",
+    "label": "野球スイング",
+    "prompt": "baseball swing",
+    "aliases": [
+      "baseball batting",
+      "bat swing"
+    ],
+    "related": [
+      "baseball",
+      "baseball bat",
+      "batting"
+    ],
+    "description": "バットを振ってボールを打つ野球動作。",
+    "slot": [
+      "sport_action",
+      "hand_action"
+    ],
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "v19-motion-baseball-batting"
+  },
+  {
+    "id": "rin-sport-soccer",
+    "label": "サッカー",
+    "prompt": "soccer",
+    "aliases": [
+      "association football",
+      "football"
+    ],
+    "related": [
+      "soccer kick",
+      "running",
+      "soccer ball"
+    ],
+    "description": "サッカー競技全般を指定するタグ。具体的なプレーはsoccer kick等を組み合わせる。",
+    "slot": "sport_type",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-sport-basketball",
+    "label": "バスケットボール",
+    "prompt": "basketball",
+    "aliases": [
+      "basketball game",
+      "バスケ"
+    ],
+    "related": [
+      "basketball shot",
+      "basketball dunk",
+      "basketball dribble"
+    ],
+    "description": "バスケットボール競技全般を指定するタグ。",
+    "slot": "sport_type",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-sport-tennis",
+    "label": "テニス",
+    "prompt": "tennis",
+    "aliases": [
+      "tennis game",
+      "庭球"
+    ],
+    "related": [
+      "tennis serve",
+      "tennis forehand",
+      "tennis racket"
+    ],
+    "description": "テニス競技全般を指定するタグ。",
+    "slot": "sport_type",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-sport-baseball",
+    "label": "野球",
+    "prompt": "baseball",
+    "aliases": [
+      "baseball game",
+      "ベースボール"
+    ],
+    "related": [
+      "baseball swing",
+      "baseball pitching",
+      "baseball bat"
+    ],
+    "description": "野球競技全般を指定するタグ。",
+    "slot": "sport_type",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-sport-volleyball",
+    "label": "バレーボール",
+    "prompt": "volleyball",
+    "aliases": [
+      "volleyball game",
+      "バレー"
+    ],
+    "related": [
+      "volleyball serve",
+      "volleyball spike",
+      "volleyball ball"
+    ],
+    "description": "バレーボール競技全般を指定するタグ。",
+    "slot": "sport_type",
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-sport-skating",
+    "label": "スケート",
+    "prompt": "skating",
+    "aliases": [
+      "ice skating",
+      "roller skating"
+    ],
+    "related": [
+      "figure skating",
+      "gliding",
+      "skates"
+    ],
+    "description": "氷上またはローラースケートで滑走するスポーツ動作。",
+    "slot": [
+      "sport_action",
+      "locomotion"
+    ],
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "sortSubcategory": "スポーツ",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-sport-basketball-dunk",
+    "label": "ダンクシュート",
+    "prompt": "basketball dunk",
+    "aliases": [
+      "slam dunk",
+      "dunk shot"
+    ],
+    "related": [
+      "basketball",
+      "jumping",
+      "basketball shot"
+    ],
+    "description": "跳躍してボールをリングへ直接入れるバスケットボール動作。jumpingを併用して空中状態を指定できる。",
+    "slot": [
+      "sport_action",
+      "hand_action"
+    ],
+    "category": "pose",
+    "subcategory": "スポーツ",
+    "sortSubcategory": "スポーツ",
     "sources": [
       "RIN"
     ]
