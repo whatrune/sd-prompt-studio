@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "slots": [
     {
       "id": "people_count_mode",
@@ -217,23 +217,93 @@
       "mode": "single"
     },
     {
-      "id": "character_species",
-      "label": "種族",
-      "mode": "single"
-    },
-    {
       "id": "character_occupation",
       "label": "職業",
-      "mode": "single"
+      "mode": "multiple"
     },
     {
       "id": "character_element",
       "label": "属性",
-      "mode": "single"
+      "mode": "multiple"
     },
     {
       "id": "body_motion",
       "label": "主な動作",
+      "mode": "multiple"
+    },
+    {
+      "id": "character_species_core",
+      "label": "基本種族",
+      "mode": "single"
+    },
+    {
+      "id": "character_species_archetype",
+      "label": "複合種族",
+      "mode": "single"
+    },
+    {
+      "id": "character_species_state",
+      "label": "存在形態",
+      "mode": "single"
+    },
+    {
+      "id": "character_species_machine",
+      "label": "機械種別",
+      "mode": "single"
+    },
+    {
+      "id": "halo_type",
+      "label": "光輪",
+      "mode": "single"
+    },
+    {
+      "id": "wing_type",
+      "label": "翼",
+      "mode": "single"
+    },
+    {
+      "id": "horn_type",
+      "label": "角",
+      "mode": "single"
+    },
+    {
+      "id": "ear_type",
+      "label": "耳",
+      "mode": "single"
+    },
+    {
+      "id": "tail_type",
+      "label": "尻尾",
+      "mode": "single"
+    },
+    {
+      "id": "fang_type",
+      "label": "牙",
+      "mode": "single"
+    },
+    {
+      "id": "claw_type",
+      "label": "爪",
+      "mode": "single"
+    },
+    {
+      "id": "body_fur",
+      "label": "体毛",
+      "mode": "multiple"
+    },
+    {
+      "id": "body_scales",
+      "label": "鱗",
+      "mode": "multiple"
+    },
+    {
+      "id": "extra_eye",
+      "label": "追加の目",
+      "mode": "multiple"
+    },
+    {
+      "id": "mechanical_limbs",
+      "label": "機械化した四肢",
       "mode": "multiple"
     }
   ],
@@ -571,21 +641,6 @@
       "subcategory": "表情"
     },
     {
-      "slot": "character_species",
-      "category": "character",
-      "subcategory": "種族"
-    },
-    {
-      "slot": "character_occupation",
-      "category": "character",
-      "subcategory": "職業"
-    },
-    {
-      "slot": "character_element",
-      "category": "character",
-      "subcategory": "属性"
-    },
-    {
       "slot": "body_motion",
       "category": "pose",
       "subcategory": "日常動作"
@@ -619,6 +674,21 @@
       "slot": "body_motion",
       "category": "pose",
       "subcategory": "乗り物・騎乗"
+    },
+    {
+      "slot": "character_species_core",
+      "category": "character",
+      "subcategory": "種族"
+    },
+    {
+      "slot": "character_occupation",
+      "category": "character",
+      "subcategory": "職業・役割"
+    },
+    {
+      "slot": "character_element",
+      "category": "character",
+      "subcategory": "元素属性"
     }
   ]
 }

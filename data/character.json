@@ -4,105 +4,131 @@
     "label": "オリジナルキャラクター",
     "prompt": "original character",
     "category": "character",
-    "subcategory": "指定"
+    "subcategory": "キャラクター指定",
+    "sortSubcategory": "指定"
   },
   {
     "id": "cha-character-sheet",
     "label": "キャラクターシート",
     "prompt": "character sheet",
     "category": "character",
-    "subcategory": "指定"
+    "subcategory": "キャラクター指定",
+    "sortSubcategory": "指定"
   },
   {
     "id": "cha-alternate-costume",
     "label": "別衣装",
     "prompt": "alternate costume",
-    "category": "character",
-    "subcategory": "指定"
+    "category": "clothes",
+    "subcategory": "セット・全身",
+    "sortSubcategory": "指定",
+    "outputCategory": "character"
   },
   {
     "id": "cha-cosplay",
     "label": "コスプレ",
     "prompt": "cosplay",
-    "category": "character",
-    "subcategory": "指定"
+    "category": "clothes",
+    "subcategory": "セット・全身",
+    "sortSubcategory": "指定",
+    "outputCategory": "character"
   },
   {
     "id": "cha-uniformed-character",
     "label": "制服姿",
     "prompt": "uniformed character",
-    "category": "character",
-    "subcategory": "指定"
+    "category": "clothes",
+    "subcategory": "制服",
+    "sortSubcategory": "指定",
+    "outputCategory": "character"
   },
   {
     "id": "cha-fantasy-character",
     "label": "ファンタジーキャラ",
     "prompt": "fantasy character",
     "category": "character",
-    "subcategory": "指定"
+    "subcategory": "世界観・テーマ",
+    "sortSubcategory": "指定"
   },
   {
     "id": "cha-sci-fi-character",
     "label": "SFキャラ",
     "prompt": "sci-fi character",
     "category": "character",
-    "subcategory": "指定"
+    "subcategory": "世界観・テーマ",
+    "sortSubcategory": "指定"
   },
   {
     "id": "cha-idol",
     "label": "アイドル",
     "prompt": "idol",
     "category": "character",
-    "subcategory": "指定"
+    "subcategory": "職業・役割",
+    "sortSubcategory": "指定",
+    "slot": "character_occupation"
   },
   {
     "id": "cha-magical-girl",
     "label": "魔法少女",
     "prompt": "magical girl",
     "category": "character",
-    "subcategory": "指定"
+    "subcategory": "職業・役割",
+    "sortSubcategory": "指定",
+    "slot": "character_occupation"
   },
   {
     "id": "cha-warrior",
     "label": "戦士",
     "prompt": "warrior",
     "category": "character",
-    "subcategory": "指定"
+    "subcategory": "職業・役割",
+    "sortSubcategory": "指定",
+    "slot": "character_occupation"
   },
   {
     "id": "cha-witch",
     "label": "魔女",
     "prompt": "witch",
     "category": "character",
-    "subcategory": "指定"
+    "subcategory": "職業・役割",
+    "sortSubcategory": "指定",
+    "slot": "character_occupation"
   },
   {
     "id": "cha-maid",
     "label": "メイド",
     "prompt": "maid",
     "category": "character",
-    "subcategory": "指定"
+    "subcategory": "職業・役割",
+    "sortSubcategory": "指定",
+    "slot": "character_occupation"
   },
   {
     "id": "cha-nurse",
     "label": "看護師",
     "prompt": "nurse",
     "category": "character",
-    "subcategory": "指定"
+    "subcategory": "職業・役割",
+    "sortSubcategory": "指定",
+    "slot": "character_occupation"
   },
   {
     "id": "cha-office-lady",
     "label": "OL",
     "prompt": "office lady",
     "category": "character",
-    "subcategory": "指定"
+    "subcategory": "職業・役割",
+    "sortSubcategory": "指定",
+    "slot": "character_occupation"
   },
   {
     "id": "cha-student",
     "label": "学生",
     "prompt": "student",
     "category": "character",
-    "subcategory": "指定"
+    "subcategory": "職業・役割",
+    "sortSubcategory": "指定",
+    "slot": "character_occupation"
   },
   {
     "id": "v19-char-species-human",
@@ -114,7 +140,8 @@
       "人間"
     ],
     "description": "人間としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_core",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-elf",
@@ -126,7 +153,8 @@
       "エルフ"
     ],
     "description": "エルフとしてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_core",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-dark-elf",
@@ -138,7 +166,8 @@
       "ダークエルフ"
     ],
     "description": "ダークエルフとしてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_core",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-half-elf",
@@ -150,7 +179,8 @@
       "ハーフエルフ"
     ],
     "description": "ハーフエルフとしてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_core",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-angel",
@@ -162,7 +192,8 @@
       "天使"
     ],
     "description": "天使としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_core",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-fallen-angel",
@@ -174,7 +205,8 @@
       "堕天使"
     ],
     "description": "堕天使としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_core",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-demon",
@@ -186,7 +218,8 @@
       "悪魔"
     ],
     "description": "悪魔としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_core",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-devil",
@@ -198,7 +231,8 @@
       "魔族"
     ],
     "description": "魔族としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_core",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-vampire",
@@ -210,7 +244,8 @@
       "吸血鬼"
     ],
     "description": "吸血鬼としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_state",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-werewolf",
@@ -222,7 +257,8 @@
       "狼人間"
     ],
     "description": "狼人間としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_core",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-beastman",
@@ -234,7 +270,8 @@
       "獣人男性"
     ],
     "description": "獣人男性としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_archetype",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-beastwoman",
@@ -246,7 +283,8 @@
       "獣人女性"
     ],
     "description": "獣人女性としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_archetype",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-anthro",
@@ -258,7 +296,8 @@
       "ケモノ・人型獣"
     ],
     "description": "ケモノ・人型獣としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_archetype",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-catgirl",
@@ -270,7 +309,8 @@
       "猫娘"
     ],
     "description": "猫娘としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_archetype",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-catboy",
@@ -282,7 +322,8 @@
       "猫少年"
     ],
     "description": "猫少年としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_archetype",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-fox-girl",
@@ -294,7 +335,8 @@
       "狐娘"
     ],
     "description": "狐娘としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_archetype",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-wolf-girl",
@@ -306,7 +348,8 @@
       "狼娘"
     ],
     "description": "狼娘としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_archetype",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-rabbit-girl",
@@ -318,7 +361,8 @@
       "兎娘"
     ],
     "description": "兎娘としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_archetype",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-dragon-girl",
@@ -330,7 +374,8 @@
       "竜娘"
     ],
     "description": "竜娘としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_archetype",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-mermaid",
@@ -342,7 +387,8 @@
       "人魚"
     ],
     "description": "人魚としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_core",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-fairy",
@@ -354,7 +400,8 @@
       "妖精"
     ],
     "description": "妖精としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_core",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-ghost",
@@ -366,7 +413,8 @@
       "幽霊"
     ],
     "description": "幽霊としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_state",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-zombie",
@@ -378,7 +426,8 @@
       "ゾンビ"
     ],
     "description": "ゾンビとしてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_state",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-slime-girl",
@@ -390,7 +439,8 @@
       "スライム娘"
     ],
     "description": "スライム娘としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_state",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-oni",
@@ -402,7 +452,8 @@
       "鬼"
     ],
     "description": "鬼としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_core",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-kitsune",
@@ -414,7 +465,8 @@
       "妖狐"
     ],
     "description": "妖狐としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_core",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-goddess",
@@ -426,7 +478,8 @@
       "女神"
     ],
     "description": "女神としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_core",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-cyborg",
@@ -438,7 +491,8 @@
       "サイボーグ"
     ],
     "description": "サイボーグとしてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_machine",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-android",
@@ -450,7 +504,8 @@
       "アンドロイド"
     ],
     "description": "アンドロイドとしてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_machine",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-robot-girl",
@@ -462,7 +517,8 @@
       "ロボット少女"
     ],
     "description": "ロボット少女としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_machine",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-alien",
@@ -474,7 +530,8 @@
       "宇宙人"
     ],
     "description": "宇宙人としてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_core",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-lamia",
@@ -486,7 +543,8 @@
       "ラミア"
     ],
     "description": "ラミアとしてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_core",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-harpy",
@@ -498,7 +556,8 @@
       "ハーピー"
     ],
     "description": "ハーピーとしてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_core",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-centaur",
@@ -510,7 +569,8 @@
       "ケンタウロス"
     ],
     "description": "ケンタウロスとしてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_core",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-dryad",
@@ -522,7 +582,8 @@
       "ドライアド"
     ],
     "description": "ドライアドとしてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_core",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-species-orc",
@@ -534,556 +595,631 @@
       "オーク"
     ],
     "description": "オークとしてキャラクターを指定します。",
-    "slot": "character_species"
+    "slot": "character_species_core",
+    "sortSubcategory": "種族"
   },
   {
     "id": "v19-char-job-teacher",
     "label": "教師",
     "prompt": "teacher",
     "category": "character",
-    "subcategory": "職業",
+    "subcategory": "職業・役割",
     "aliases": [
       "教師"
     ],
-    "slot": "character_occupation"
+    "slot": "character_occupation",
+    "sortSubcategory": "職業"
   },
   {
     "id": "v19-char-job-doctor",
     "label": "医師",
     "prompt": "doctor",
     "category": "character",
-    "subcategory": "職業",
+    "subcategory": "職業・役割",
     "aliases": [
       "医師"
     ],
-    "slot": "character_occupation"
+    "slot": "character_occupation",
+    "sortSubcategory": "職業"
   },
   {
     "id": "v19-char-job-knight",
     "label": "騎士",
     "prompt": "knight",
     "category": "character",
-    "subcategory": "職業",
+    "subcategory": "職業・役割",
     "aliases": [
       "騎士"
     ],
-    "slot": "character_occupation"
+    "slot": "character_occupation",
+    "sortSubcategory": "職業"
   },
   {
     "id": "v19-char-job-mage",
     "label": "魔法使い",
     "prompt": "mage",
     "category": "character",
-    "subcategory": "職業",
+    "subcategory": "職業・役割",
     "aliases": [
       "魔法使い"
     ],
-    "slot": "character_occupation"
+    "slot": "character_occupation",
+    "sortSubcategory": "職業"
   },
   {
     "id": "v19-char-job-priestess",
     "label": "巫女・司祭",
     "prompt": "priestess",
     "category": "character",
-    "subcategory": "職業",
+    "subcategory": "職業・役割",
     "aliases": [
       "巫女・司祭"
     ],
-    "slot": "character_occupation"
+    "slot": "character_occupation",
+    "sortSubcategory": "職業"
   },
   {
     "id": "v19-char-job-assassin",
     "label": "暗殺者",
     "prompt": "assassin",
     "category": "character",
-    "subcategory": "職業",
+    "subcategory": "職業・役割",
     "aliases": [
       "暗殺者"
     ],
-    "slot": "character_occupation"
+    "slot": "character_occupation",
+    "sortSubcategory": "職業"
   },
   {
     "id": "v19-char-job-samurai",
     "label": "侍",
     "prompt": "samurai",
     "category": "character",
-    "subcategory": "職業",
+    "subcategory": "職業・役割",
     "aliases": [
       "侍"
     ],
-    "slot": "character_occupation"
+    "slot": "character_occupation",
+    "sortSubcategory": "職業"
   },
   {
     "id": "v19-char-job-ninja",
     "label": "忍者",
     "prompt": "ninja",
     "category": "character",
-    "subcategory": "職業",
+    "subcategory": "職業・役割",
     "aliases": [
       "忍者"
     ],
-    "slot": "character_occupation"
+    "slot": "character_occupation",
+    "sortSubcategory": "職業"
   },
   {
     "id": "v19-char-job-police-officer",
     "label": "警察官",
     "prompt": "police officer",
     "category": "character",
-    "subcategory": "職業",
+    "subcategory": "職業・役割",
     "aliases": [
       "警察官"
     ],
-    "slot": "character_occupation"
+    "slot": "character_occupation",
+    "sortSubcategory": "職業"
   },
   {
     "id": "v19-char-job-soldier",
     "label": "兵士",
     "prompt": "soldier",
     "category": "character",
-    "subcategory": "職業",
+    "subcategory": "職業・役割",
     "aliases": [
       "兵士"
     ],
-    "slot": "character_occupation"
+    "slot": "character_occupation",
+    "sortSubcategory": "職業"
   },
   {
     "id": "v19-char-job-mechanic",
     "label": "整備士",
     "prompt": "mechanic",
     "category": "character",
-    "subcategory": "職業",
+    "subcategory": "職業・役割",
     "aliases": [
       "整備士"
     ],
-    "slot": "character_occupation"
+    "slot": "character_occupation",
+    "sortSubcategory": "職業"
   },
   {
     "id": "v19-char-job-pilot",
     "label": "パイロット",
     "prompt": "pilot",
     "category": "character",
-    "subcategory": "職業",
+    "subcategory": "職業・役割",
     "aliases": [
       "パイロット"
     ],
-    "slot": "character_occupation"
+    "slot": "character_occupation",
+    "sortSubcategory": "職業"
   },
   {
     "id": "v19-char-job-barista",
     "label": "バリスタ",
     "prompt": "barista",
     "category": "character",
-    "subcategory": "職業",
+    "subcategory": "職業・役割",
     "aliases": [
       "バリスタ"
     ],
-    "slot": "character_occupation"
+    "slot": "character_occupation",
+    "sortSubcategory": "職業"
   },
   {
     "id": "v19-char-job-chef",
     "label": "料理人",
     "prompt": "chef",
     "category": "character",
-    "subcategory": "職業",
+    "subcategory": "職業・役割",
     "aliases": [
       "料理人"
     ],
-    "slot": "character_occupation"
+    "slot": "character_occupation",
+    "sortSubcategory": "職業"
   },
   {
     "id": "v19-char-job-detective",
     "label": "探偵",
     "prompt": "detective",
     "category": "character",
-    "subcategory": "職業",
+    "subcategory": "職業・役割",
     "aliases": [
       "探偵"
     ],
-    "slot": "character_occupation"
+    "slot": "character_occupation",
+    "sortSubcategory": "職業"
   },
   {
     "id": "v19-char-job-scientist",
     "label": "科学者",
     "prompt": "scientist",
     "category": "character",
-    "subcategory": "職業",
+    "subcategory": "職業・役割",
     "aliases": [
       "科学者"
     ],
-    "slot": "character_occupation"
+    "slot": "character_occupation",
+    "sortSubcategory": "職業"
   },
   {
     "id": "v19-char-job-adventurer",
     "label": "冒険者",
     "prompt": "adventurer",
     "category": "character",
-    "subcategory": "職業",
+    "subcategory": "職業・役割",
     "aliases": [
       "冒険者"
     ],
-    "slot": "character_occupation"
+    "slot": "character_occupation",
+    "sortSubcategory": "職業"
   },
   {
     "id": "v19-char-job-dancer",
     "label": "ダンサー",
     "prompt": "dancer",
     "category": "character",
-    "subcategory": "職業",
+    "subcategory": "職業・役割",
     "aliases": [
       "ダンサー"
     ],
-    "slot": "character_occupation"
+    "slot": "character_occupation",
+    "sortSubcategory": "職業"
   },
   {
     "id": "v19-char-job-athlete",
     "label": "アスリート",
     "prompt": "athlete",
     "category": "character",
-    "subcategory": "職業",
+    "subcategory": "職業・役割",
     "aliases": [
       "アスリート"
     ],
-    "slot": "character_occupation"
+    "slot": "character_occupation",
+    "sortSubcategory": "職業"
   },
   {
     "id": "v19-char-attr-fire",
     "label": "炎属性",
     "prompt": "fire attribute",
     "category": "character",
-    "subcategory": "属性",
+    "subcategory": "元素属性",
     "aliases": [
       "炎属性"
     ],
-    "slot": "character_element"
+    "slot": "character_element",
+    "sortSubcategory": "属性"
   },
   {
     "id": "v19-char-attr-water",
     "label": "水属性",
     "prompt": "water attribute",
     "category": "character",
-    "subcategory": "属性",
+    "subcategory": "元素属性",
     "aliases": [
       "水属性"
     ],
-    "slot": "character_element"
+    "slot": "character_element",
+    "sortSubcategory": "属性"
   },
   {
     "id": "v19-char-attr-ice",
     "label": "氷属性",
     "prompt": "ice attribute",
     "category": "character",
-    "subcategory": "属性",
+    "subcategory": "元素属性",
     "aliases": [
       "氷属性"
     ],
-    "slot": "character_element"
+    "slot": "character_element",
+    "sortSubcategory": "属性"
   },
   {
     "id": "v19-char-attr-wind",
     "label": "風属性",
     "prompt": "wind attribute",
     "category": "character",
-    "subcategory": "属性",
+    "subcategory": "元素属性",
     "aliases": [
       "風属性"
     ],
-    "slot": "character_element"
+    "slot": "character_element",
+    "sortSubcategory": "属性"
   },
   {
     "id": "v19-char-attr-earth",
     "label": "土属性",
     "prompt": "earth attribute",
     "category": "character",
-    "subcategory": "属性",
+    "subcategory": "元素属性",
     "aliases": [
       "土属性"
     ],
-    "slot": "character_element"
+    "slot": "character_element",
+    "sortSubcategory": "属性"
   },
   {
     "id": "v19-char-attr-lightning",
     "label": "雷属性",
     "prompt": "lightning attribute",
     "category": "character",
-    "subcategory": "属性",
+    "subcategory": "元素属性",
     "aliases": [
       "雷属性"
     ],
-    "slot": "character_element"
+    "slot": "character_element",
+    "sortSubcategory": "属性"
   },
   {
     "id": "v19-char-attr-light",
     "label": "光属性",
     "prompt": "light attribute",
     "category": "character",
-    "subcategory": "属性",
+    "subcategory": "元素属性",
     "aliases": [
       "光属性"
     ],
-    "slot": "character_element"
+    "slot": "character_element",
+    "sortSubcategory": "属性"
   },
   {
     "id": "v19-char-attr-dark",
     "label": "闇属性",
     "prompt": "dark attribute",
     "category": "character",
-    "subcategory": "属性",
+    "subcategory": "元素属性",
     "aliases": [
       "闇属性"
     ],
-    "slot": "character_element"
+    "slot": "character_element",
+    "sortSubcategory": "属性"
   },
   {
     "id": "v19-char-attr-holy",
     "label": "聖属性",
     "prompt": "holy attribute",
     "category": "character",
-    "subcategory": "属性",
+    "subcategory": "元素属性",
     "aliases": [
       "聖属性"
     ],
-    "slot": "character_element"
+    "slot": "character_element",
+    "sortSubcategory": "属性"
   },
   {
     "id": "v19-char-attr-poison",
     "label": "毒属性",
     "prompt": "poison attribute",
     "category": "character",
-    "subcategory": "属性",
+    "subcategory": "元素属性",
     "aliases": [
       "毒属性"
     ],
-    "slot": "character_element"
+    "slot": "character_element",
+    "sortSubcategory": "属性"
   },
   {
     "id": "v19-char-attr-nature",
     "label": "自然属性",
     "prompt": "nature attribute",
     "category": "character",
-    "subcategory": "属性",
+    "subcategory": "元素属性",
     "aliases": [
       "自然属性"
     ],
-    "slot": "character_element"
+    "slot": "character_element",
+    "sortSubcategory": "属性"
   },
   {
     "id": "v19-char-trait-halo",
     "label": "光輪",
     "prompt": "halo",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "頭部・顔の特徴",
     "aliases": [
       "光輪"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "halo_type"
   },
   {
     "id": "v19-char-trait-angel-wings",
     "label": "天使の翼",
     "prompt": "angel wings",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "翼",
     "aliases": [
       "天使の翼"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "wing_type"
   },
   {
     "id": "v19-char-trait-demon-wings",
     "label": "悪魔の翼",
     "prompt": "demon wings",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "翼",
     "aliases": [
       "悪魔の翼"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "wing_type"
   },
   {
     "id": "v19-char-trait-horns",
     "label": "角",
     "prompt": "horns",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "頭部・顔の特徴",
     "aliases": [
       "角"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "horn_type"
   },
   {
     "id": "v19-char-trait-demon-horns",
     "label": "悪魔の角",
     "prompt": "demon horns",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "頭部・顔の特徴",
     "aliases": [
       "悪魔の角"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "horn_type"
   },
   {
     "id": "v19-char-trait-fangs",
     "label": "牙",
     "prompt": "fangs",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "頭部・顔の特徴",
     "aliases": [
       "牙"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "fang_type"
   },
   {
     "id": "v19-char-trait-pointy-ears",
     "label": "尖った耳",
     "prompt": "pointy ears",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "頭部・顔の特徴",
     "aliases": [
       "尖った耳"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "ear_type"
   },
   {
     "id": "v19-char-trait-animal-ears",
     "label": "獣耳",
     "prompt": "animal ears",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "頭部・顔の特徴",
     "aliases": [
       "獣耳"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "ear_type"
   },
   {
     "id": "v19-char-trait-cat-ears",
     "label": "猫耳",
     "prompt": "cat ears",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "頭部・顔の特徴",
     "aliases": [
       "猫耳"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "ear_type"
   },
   {
     "id": "v19-char-trait-fox-ears",
     "label": "狐耳",
     "prompt": "fox ears",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "頭部・顔の特徴",
     "aliases": [
       "狐耳"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "ear_type"
   },
   {
     "id": "v19-char-trait-wolf-ears",
     "label": "狼耳",
     "prompt": "wolf ears",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "頭部・顔の特徴",
     "aliases": [
       "狼耳"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "ear_type"
   },
   {
     "id": "v19-char-trait-rabbit-ears",
     "label": "兎耳",
     "prompt": "rabbit ears",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "頭部・顔の特徴",
     "aliases": [
       "兎耳"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "ear_type"
   },
   {
     "id": "v19-char-trait-tail",
     "label": "尻尾",
     "prompt": "tail",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "尻尾",
     "aliases": [
       "尻尾"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "tail_type"
   },
   {
     "id": "v19-char-trait-cat-tail",
     "label": "猫の尻尾",
     "prompt": "cat tail",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "尻尾",
     "aliases": [
       "猫の尻尾"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "tail_type"
   },
   {
     "id": "v19-char-trait-fox-tail",
     "label": "狐の尻尾",
     "prompt": "fox tail",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "尻尾",
     "aliases": [
       "狐の尻尾"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "tail_type"
   },
   {
     "id": "v19-char-trait-wolf-tail",
     "label": "狼の尻尾",
     "prompt": "wolf tail",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "尻尾",
     "aliases": [
       "狼の尻尾"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "tail_type"
   },
   {
     "id": "v19-char-trait-multiple-tails",
     "label": "複数の尻尾",
     "prompt": "multiple tails",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "尻尾",
     "aliases": [
       "複数の尻尾"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "tail_type"
   },
   {
     "id": "v19-char-trait-claws",
     "label": "爪・鉤爪",
     "prompt": "claws",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "身体・四肢の特徴",
     "aliases": [
       "爪・鉤爪"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "claw_type"
   },
   {
     "id": "v19-char-trait-fur",
     "label": "体毛・毛皮",
     "prompt": "fur",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "身体・四肢の特徴",
     "aliases": [
       "体毛・毛皮"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "body_fur"
   },
   {
     "id": "v19-char-trait-scales",
     "label": "鱗",
     "prompt": "scales",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "身体・四肢の特徴",
     "aliases": [
       "鱗"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "body_scales"
   },
   {
     "id": "v19-char-trait-third-eye",
     "label": "第三の目",
     "prompt": "third eye",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "頭部・顔の特徴",
     "aliases": [
       "第三の目"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "extra_eye"
   },
   {
     "id": "v19-char-trait-mechanical-arms",
     "label": "機械の腕",
     "prompt": "mechanical arms",
     "category": "character",
-    "subcategory": "種族特徴",
+    "subcategory": "身体・四肢の特徴",
     "aliases": [
       "機械の腕"
-    ]
+    ],
+    "sortSubcategory": "種族特徴",
+    "slot": "mechanical_limbs"
   }
 ]
