@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ContentRating, PromptTag } from './data/tags'
+import { adultTags } from './data/adultTags'
 import { createId } from './id'
 
 export type SelectedTag = { id: string; prompt: string; label: string; category: string; subcategory?: string; weight: number; rating?: ContentRating }
@@ -52,6 +53,41 @@ const QUALITY_PRESETS: Record<ModelPreset, string[]> = {
 
 const createFirstBlock = (): PromptBlock => ({ id: createId(), name: '被写体 1', tags: [] })
 const firstBlock = createFirstBlock()
+
+const adultTagById = new Map(adultTags.map(tag => [tag.id, tag]))
+
+export function migratePersistedState(persisted: unknown) {
+  if (!persisted || typeof persisted !== 'object') return persisted
+  const state = persisted as Partial<State>
+  if (!Array.isArray(state.blocks)) return state
+  return {
+    ...state,
+    blocks: state.blocks.map(block => ({
+      ...block,
+      tags: block.tags.map(tag => {
+        const current = adultTagById.get(tag.id)
+        return current
+          ? { ...tag, category: current.category, subcategory: current.subcategory, rating: current.rating }
+          : tag
+      }),
+    })),
+    userTags: Array.isArray(state.userTags)
+      ? state.userTags.map(tag => {
+          if (tag.category !== 'adult') return tag
+          const placement: Record<string, [string, string]> = {
+            'ポーズ': ['pose', 'ポーズ（アダルト）'],
+            '行動': ['pose', '行動（アダルト）'],
+            '相互作用': ['people', '相互作用（アダルト）'],
+            '表情': ['expression', '表情（アダルト）'],
+            '衣装': ['clothes', '衣装（アダルト）'],
+            '道具': ['scene_props', '道具（アダルト）'],
+          }
+          const [category, subcategory] = placement[tag.subcategory ?? ''] ?? ['pose', '行動（アダルト）']
+          return { ...tag, category, subcategory }
+        })
+      : state.userTags,
+  }
+}
 
 export const usePromptStore = create<State>()(persist((set, get) => ({
   blocks: [firstBlock],
@@ -140,4 +176,8 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
       blocks: state.blocks.map(block => ({ ...block, tags: block.tags.filter(tag => rank[tag.rating ?? 'general'] <= rank[level]) }))
     }
   })
-}), { name: 'sd-prompt-studio-v14' }))
+}), {
+  name: 'sd-prompt-studio-v14',
+  version: 1,
+  migrate: migratePersistedState,
+}))

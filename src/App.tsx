@@ -7,6 +7,7 @@ import { compatibilityLabel, generationNote, heuristicCategory, inferCategory, m
 import { getConflictMap } from './engine/smartTagEngine'
 import './styles.css'
 import { createId } from './id'
+import { buildPrompt, tagSort } from './prompt'
 
 
 
@@ -24,7 +25,6 @@ const SKIN_OPTIONS = [
   ['pale skin', '青白い肌'], ['porcelain skin', '陶器のような白肌'], ['fair skin', '色白'], ['light skin', '明るい肌'], ['rosy skin', '血色のよい肌'], ['peach skin', 'ピーチ色の肌'], ['olive skin', 'オリーブ肌'], ['tan skin', '日焼け肌'], ['sun-kissed skin', '健康的な日焼け肌'], ['bronze skin', 'ブロンズ肌'], ['brown skin', '褐色肌'], ['dark skin', '濃い肌'], ['deep dark skin', '深い褐色肌'], ['blue skin', '青い肌'], ['green skin', '緑の肌'], ['purple skin', '紫の肌'], ['gray skin', '灰色の肌']
 ] as const
 
-const bodyCategoryOrder = ['character', 'body', 'expression', 'eyes', 'hair', 'clothes', 'accessories']
 const mutuallyExclusiveGroups = [
   ['short hair','medium hair','long hair','very long hair','absurdly long hair'],
   ['black hair','brown hair','blonde hair','white hair','silver hair','red hair','blue hair','green hair','pink hair','purple hair','orange hair'],
@@ -64,22 +64,10 @@ async function copyText(text: string): Promise<boolean> {
   }
 }
 
-function formatTag(prompt: string, weight: number) { return weight === 1 ? prompt : `(${prompt}:${weight.toFixed(1)})` }
-function uniqueTags(items: SelectedTag[]) { return [...new Map(items.map(item => [item.prompt, item])).values()] }
 const RATING_RANK: Record<ContentRating, number> = { general: 0, suggestive: 1, adult: 2 }
 const MINOR_MARKERS = ['child','children','young child','elementary school student','middle school student','underage','minor','preteen','teenage','loli','shota']
 function hasMinorMarker(items: SelectedTag[]) { return items.some(t => MINOR_MARKERS.some(marker => t.prompt.toLowerCase().includes(marker))) }
 function hasAdultTag(items: SelectedTag[]) { return items.some(t => t.rating === 'adult') }
-function tagSort(a: SelectedTag | PromptTag, b: SelectedTag | PromptTag) {
-  const categoryDiff = categoryOrder.indexOf(a.category) - categoryOrder.indexOf(b.category)
-  if (categoryDiff !== 0) return categoryDiff
-  const order = subcategoryOrder[a.category] ?? []
-  const subDiff = order.indexOf(a.subcategory ?? '') - order.indexOf(b.subcategory ?? '')
-  if (subDiff !== 0) return subDiff
-  const all = [...tags, ...adultTags]
-  return all.findIndex(t => t.id === a.id) - all.findIndex(t => t.id === b.id)
-}
-function bracket(items: SelectedTag[]) { return `[${uniqueTags(items).sort(tagSort).map(t => formatTag(t.prompt, t.weight)).join(', ')}]` }
 function scoreTag(tag: PromptTag, query: string) {
   const q = query.toLowerCase()
   const label = tag.label.toLowerCase(), prompt = tag.prompt.toLowerCase()
@@ -170,24 +158,7 @@ export default function App() {
     }).sort((a,b) => q ? scoreTag(b,q)-scoreTag(a,q) || tagSort(a,b) : tagSort(a,b))
   }, [category, subcategory, query, favoritesOnly, store.favoriteIds, visibleDictionaryTags, store.hideUnavailable, conflictMap])
 
-  const prompt = useMemo(() => {
-    const allTags = store.blocks.flatMap(b => b.tags)
-    const quality = allTags.filter(t => t.category === 'quality')
-    const people = allTags.filter(t => t.category === 'people')
-    const cameraBackground = allTags.filter(t => ['camera', 'background', 'scene_props'].includes(t.category))
-    const lightingEffects = allTags.filter(t => ['lighting', 'effects'].includes(t.category))
-    const subjects = store.blocks.flatMap(block => {
-      const body = block.tags.filter(t => bodyCategoryOrder.includes(t.category))
-      const pose = block.tags.filter(t => t.category === 'pose')
-      if (!body.length && !pose.length) return []
-      return [bracket(body), bracket(pose)]
-    })
-    const sections = [bracket(quality), bracket(people)]
-    if (subjects.length) sections.push(subjects.join('\n\nBREAK\n\n'))
-    else sections.push('[]', '[]')
-    sections.push(bracket(cameraBackground), 'BREAK', bracket(lightingEffects))
-    return sections.join('\n\n')
-  }, [store.blocks])
+  const prompt = useMemo(() => buildPrompt(store.blocks), [store.blocks])
 
   const warnings = useMemo(() => conflicts(active.tags), [active.tags])
   const related = useMemo(() => relatedTags(active.tags).slice(0, 8), [active.tags])

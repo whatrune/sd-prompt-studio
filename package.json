@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc && vite build",
+    "test": "node scripts/test-reclassification.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "validate:dictionary": "node scripts/validate-dictionaries.mjs",
     "dev:local": "vite --host 0.0.0.0"
