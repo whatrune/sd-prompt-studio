@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { normalizeClothingTag, tags, type ContentRating, type PromptTag } from './data/tags'
+import { tags, type ContentRating, type PromptTag } from './data/tags'
 import { adultTags } from './data/adultTags'
 import { createId } from './id'
 
@@ -56,6 +56,18 @@ const firstBlock = createFirstBlock()
 
 const dictionaryTagById = new Map([...tags, ...adultTags].map(tag => [tag.id, tag]))
 
+function migrateLegacyUserClothingTag(tag: UserPromptTag): UserPromptTag {
+  const direct: Record<string, string> = {
+    'トップス': '上半身', 'アウター': '上半身', 'ボトムス': '下半身', 'ワンピース・ドレス': 'ワンピース',
+    '制服・学校': '制服', '制服・職業': '制服', '和装': '和装', '民族・歴史': '民族・歴史',
+    'ファンタジー・SF': 'ファンタジー', '水着・下着': '下着・部屋着', 'ルームウェア': '下着・部屋着',
+    'レッグウェア': 'レッグウェア', '靴': '靴', 'デザイン・ディテール': '素材・デザイン',
+    '素材・質感': '素材・デザイン', '柄・装飾': '素材・デザイン', 'センシティブ衣装': '衣装（アダルト）',
+  }
+  const subcategory = direct[tag.subcategory ?? ''] ?? (tag.subcategory === '衣装（アダルト）' ? tag.subcategory : 'セット・全身')
+  return { ...tag, subcategory, sortSubcategory: tag.sortSubcategory ?? tag.subcategory }
+}
+
 export function migratePersistedState(persisted: unknown) {
   if (!persisted || typeof persisted !== 'object') return persisted
   const state = persisted as Partial<State>
@@ -73,7 +85,7 @@ export function migratePersistedState(persisted: unknown) {
     })),
     userTags: Array.isArray(state.userTags)
       ? state.userTags.map(tag => {
-          if (tag.category === 'clothes') return normalizeClothingTag(tag)
+          if (tag.category === 'clothes') return migrateLegacyUserClothingTag(tag)
           if (tag.category !== 'adult') return tag
           const placement: Record<string, [string, string]> = {
             'ポーズ': ['pose', 'ポーズ（アダルト）'],
@@ -179,6 +191,6 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   })
 }), {
   name: 'sd-prompt-studio-v14',
-  version: 2,
+  version: 3,
   migrate: migratePersistedState,
 }))

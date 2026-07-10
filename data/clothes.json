@@ -9,7 +9,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "トップス"
   },
   {
     "id": "clo-shirt",
@@ -21,7 +22,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "トップス"
   },
   {
     "id": "clo-dress-shirt",
@@ -33,7 +35,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "トップス"
   },
   {
     "id": "clo-blouse",
@@ -45,7 +48,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "トップス"
   },
   {
     "id": "clo-sleeveless-shirt",
@@ -57,7 +61,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "トップス"
   },
   {
     "id": "clo-tank-top",
@@ -69,7 +74,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "トップス"
   },
   {
     "id": "clo-crop-top",
@@ -81,7 +87,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "トップス"
   },
   {
     "id": "clo-tube-top",
@@ -93,7 +100,8 @@
     "layer": "inner",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "トップス"
   },
   {
     "id": "clo-camisole",
@@ -105,7 +113,8 @@
     "layer": "inner",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "トップス"
   },
   {
     "id": "clo-halter-top",
@@ -117,7 +126,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "トップス"
   },
   {
     "id": "clo-hoodie",
@@ -129,7 +139,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "トップス"
   },
   {
     "id": "clo-sweatshirt",
@@ -141,7 +152,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "トップス"
   },
   {
     "id": "clo-sweater",
@@ -153,7 +165,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "トップス"
   },
   {
     "id": "clo-turtleneck",
@@ -165,7 +178,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "トップス"
   },
   {
     "id": "clo-cardigan",
@@ -177,7 +191,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "トップス"
   },
   {
     "id": "clo-vest",
@@ -189,7 +204,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "トップス"
   },
   {
     "id": "clo-corset",
@@ -201,7 +217,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "トップス"
   },
   {
     "id": "clo-bustier",
@@ -213,7 +230,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "トップス"
   },
   {
     "id": "clo-jersey",
@@ -225,7 +243,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "トップス"
   },
   {
     "id": "clo-sports-bra",
@@ -237,7 +256,8 @@
     "layer": "inner",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "トップス"
   },
   {
     "id": "clo-jacket",
@@ -249,7 +269,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "アウター"
   },
   {
     "id": "clo-open-jacket",
@@ -261,7 +282,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "アウター"
   },
   {
     "id": "clo-blazer",
@@ -273,7 +295,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "アウター"
   },
   {
     "id": "clo-denim-jacket",
@@ -285,7 +308,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "アウター"
   },
   {
     "id": "clo-leather-jacket",
@@ -297,7 +321,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "アウター"
   },
   {
     "id": "clo-bomber-jacket",
@@ -309,7 +334,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "アウター"
   },
   {
     "id": "clo-varsity-jacket",
@@ -321,7 +347,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "アウター"
   },
   {
     "id": "clo-track-jacket",
@@ -333,7 +360,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "アウター"
   },
   {
     "id": "clo-suit-jacket",
@@ -345,7 +373,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "アウター"
   },
   {
     "id": "clo-coat",
@@ -357,7 +386,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "アウター"
   },
   {
     "id": "clo-trench-coat",
@@ -369,7 +399,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "アウター"
   },
   {
     "id": "clo-duffel-coat",
@@ -381,7 +412,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "アウター"
   },
   {
     "id": "clo-fur-coat",
@@ -393,7 +425,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "アウター"
   },
   {
     "id": "clo-cape",
@@ -405,7 +438,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "アウター"
   },
   {
     "id": "clo-cloak",
@@ -417,7 +451,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "アウター"
   },
   {
     "id": "clo-poncho",
@@ -429,7 +464,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "アウター"
   },
   {
     "id": "clo-raincoat",
@@ -441,7 +477,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "アウター"
   },
   {
     "id": "clo-lab-coat",
@@ -453,7 +490,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "アウター"
   },
   {
     "id": "clo-skirt",
@@ -465,7 +503,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ボトムス"
   },
   {
     "id": "clo-miniskirt",
@@ -477,7 +516,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ボトムス"
   },
   {
     "id": "clo-long-skirt",
@@ -489,7 +529,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ボトムス"
   },
   {
     "id": "clo-pleated-skirt",
@@ -501,7 +542,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ボトムス"
   },
   {
     "id": "clo-pencil-skirt",
@@ -513,7 +555,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ボトムス"
   },
   {
     "id": "clo-flared-skirt",
@@ -525,7 +568,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ボトムス"
   },
   {
     "id": "clo-layered-skirt",
@@ -537,7 +581,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ボトムス"
   },
   {
     "id": "clo-asymmetrical-skirt",
@@ -549,7 +594,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ボトムス"
   },
   {
     "id": "clo-shorts",
@@ -561,7 +607,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ボトムス"
   },
   {
     "id": "clo-denim-shorts",
@@ -573,7 +620,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ボトムス"
   },
   {
     "id": "clo-hot-pants",
@@ -585,7 +633,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ボトムス"
   },
   {
     "id": "clo-pants",
@@ -597,7 +646,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ボトムス"
   },
   {
     "id": "clo-jeans",
@@ -609,7 +659,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ボトムス"
   },
   {
     "id": "clo-skinny-jeans",
@@ -621,7 +672,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ボトムス"
   },
   {
     "id": "clo-cargo-pants",
@@ -633,7 +685,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ボトムス"
   },
   {
     "id": "clo-wide-leg-pants",
@@ -645,7 +698,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ボトムス"
   },
   {
     "id": "clo-leggings",
@@ -657,7 +711,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ボトムス"
   },
   {
     "id": "clo-bike-shorts",
@@ -669,7 +724,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ボトムス"
   },
   {
     "id": "clo-hakama",
@@ -681,7 +737,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ボトムス"
   },
   {
     "id": "clo-dress",
@@ -694,7 +751,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ワンピース・ドレス"
   },
   {
     "id": "clo-one-piece-dress",
@@ -707,7 +765,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ワンピース・ドレス"
   },
   {
     "id": "clo-sundress",
@@ -720,7 +779,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ワンピース・ドレス"
   },
   {
     "id": "clo-cocktail-dress",
@@ -733,7 +793,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ワンピース・ドレス"
   },
   {
     "id": "clo-evening-gown",
@@ -746,7 +807,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ワンピース・ドレス"
   },
   {
     "id": "clo-ball-gown",
@@ -759,7 +821,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ワンピース・ドレス"
   },
   {
     "id": "clo-wedding-dress",
@@ -772,7 +835,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ワンピース・ドレス"
   },
   {
     "id": "clo-slip-dress",
@@ -785,7 +849,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ワンピース・ドレス"
   },
   {
     "id": "clo-shirt-dress",
@@ -798,7 +863,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ワンピース・ドレス"
   },
   {
     "id": "clo-sweater-dress",
@@ -811,7 +877,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ワンピース・ドレス"
   },
   {
     "id": "clo-bodycon-dress",
@@ -824,7 +891,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ワンピース・ドレス"
   },
   {
     "id": "clo-off-shoulder-dress",
@@ -837,7 +905,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ワンピース・ドレス"
   },
   {
     "id": "clo-backless-dress",
@@ -850,7 +919,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ワンピース・ドレス"
   },
   {
     "id": "clo-high-low-dress",
@@ -863,7 +933,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ワンピース・ドレス"
   },
   {
     "id": "clo-frilled-dress",
@@ -876,7 +947,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ワンピース・ドレス"
   },
   {
     "id": "clo-lolita-fashion",
@@ -884,7 +956,8 @@
     "prompt": "lolita fashion",
     "category": "clothes",
     "subcategory": "ワンピース",
-    "slot": "onepiece_dress"
+    "slot": "onepiece_dress",
+    "sortSubcategory": "ワンピース・ドレス"
   },
   {
     "id": "clo-gothic-lolita",
@@ -892,7 +965,8 @@
     "prompt": "gothic lolita",
     "category": "clothes",
     "subcategory": "ワンピース",
-    "slot": "onepiece_dress"
+    "slot": "onepiece_dress",
+    "sortSubcategory": "ワンピース・ドレス"
   },
   {
     "id": "clo-china-dress",
@@ -905,7 +979,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ワンピース・ドレス"
   },
   {
     "id": "clo-cheongsam",
@@ -913,7 +988,8 @@
     "prompt": "cheongsam",
     "category": "clothes",
     "subcategory": "ワンピース",
-    "slot": "onepiece_dress"
+    "slot": "onepiece_dress",
+    "sortSubcategory": "ワンピース・ドレス"
   },
   {
     "id": "clo-school-uniform",
@@ -925,39 +1001,44 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-serafuku",
     "label": "セーラー服",
     "prompt": "serafuku",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "制服",
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-sailor-collar",
     "label": "セーラーカラー",
     "prompt": "sailor collar",
     "category": "clothes",
-    "subcategory": "アクセサリー"
+    "subcategory": "アクセサリー",
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-school-blazer",
     "label": "制服ブレザー",
     "prompt": "school blazer",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-gakuran",
     "label": "学ラン",
     "prompt": "gakuran",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "制服",
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-gym-uniform",
@@ -969,19 +1050,21 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-track-suit",
     "label": "ジャージ上下",
     "prompt": "track suit",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-maid-outfit",
@@ -993,14 +1076,16 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-maid-apron",
     "label": "メイドエプロン",
     "prompt": "maid apron",
     "category": "clothes",
-    "subcategory": "アクセサリー"
+    "subcategory": "アクセサリー",
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-nurse-uniform",
@@ -1012,19 +1097,21 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-business-suit",
     "label": "ビジネススーツ",
     "prompt": "business suit",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-office-uniform",
@@ -1036,7 +1123,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-police-uniform",
@@ -1048,7 +1136,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-military-uniform",
@@ -1060,7 +1149,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-pilot-uniform",
@@ -1072,7 +1162,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-chef-uniform",
@@ -1084,7 +1175,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-waitress-uniform",
@@ -1096,31 +1188,34 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-mechanic-overalls",
     "label": "整備士つなぎ",
     "prompt": "mechanic overalls",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-idol-costume",
     "label": "アイドル衣装",
     "prompt": "idol costume",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-kimono",
@@ -1132,7 +1227,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-yukata",
@@ -1144,14 +1240,16 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-furisode",
     "label": "振袖",
     "prompt": "furisode",
     "category": "clothes",
-    "subcategory": "和装"
+    "subcategory": "和装",
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-hakama-skirt",
@@ -1162,7 +1260,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-miko-outfit",
@@ -1174,70 +1273,80 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-jinbei",
     "label": "甚平",
     "prompt": "jinbei",
     "category": "clothes",
-    "subcategory": "和装"
+    "subcategory": "和装",
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-haori",
     "label": "羽織",
     "prompt": "haori",
     "category": "clothes",
-    "subcategory": "和装"
+    "subcategory": "和装",
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-obi",
     "label": "帯",
     "prompt": "obi",
     "category": "clothes",
-    "subcategory": "和装"
+    "subcategory": "アクセサリー",
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-qipao",
     "label": "チャイナドレス",
     "prompt": "qipao",
     "category": "clothes",
-    "subcategory": "和装"
+    "subcategory": "和装",
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-hanfu",
     "label": "漢服",
     "prompt": "hanfu",
     "category": "clothes",
-    "subcategory": "和装"
+    "subcategory": "和装",
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-hanbok",
     "label": "韓服",
     "prompt": "hanbok",
     "category": "clothes",
-    "subcategory": "和装"
+    "subcategory": "和装",
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-dirndl",
     "label": "ディアンドル",
     "prompt": "dirndl",
     "category": "clothes",
-    "subcategory": "和装"
+    "subcategory": "和装",
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-sari",
     "label": "サリー",
     "prompt": "sari",
     "category": "clothes",
-    "subcategory": "和装"
+    "subcategory": "和装",
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-kilt",
     "label": "キルト",
     "prompt": "kilt",
     "category": "clothes",
-    "subcategory": "和装"
+    "subcategory": "和装",
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-swimsuit",
@@ -1249,7 +1358,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "水着・下着"
   },
   {
     "id": "clo-one-piece-swimsuit",
@@ -1261,7 +1371,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "水着・下着"
   },
   {
     "id": "clo-school-swimsuit",
@@ -1273,7 +1384,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "水着・下着"
   },
   {
     "id": "clo-bikini",
@@ -1285,7 +1397,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "水着・下着"
   },
   {
     "id": "clo-string-bikini",
@@ -1297,7 +1410,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "水着・下着"
   },
   {
     "id": "clo-sports-bikini",
@@ -1309,7 +1423,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "水着・下着"
   },
   {
     "id": "clo-rash-guard",
@@ -1321,7 +1436,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "水着・下着"
   },
   {
     "id": "clo-wetsuit",
@@ -1333,631 +1449,715 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "水着・下着"
   },
   {
     "id": "clo-lingerie",
     "label": "ランジェリー",
     "prompt": "lingerie",
     "category": "clothes",
-    "subcategory": "下着",
+    "subcategory": "下着・部屋着",
     "layer": "inner",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "水着・下着"
   },
   {
     "id": "clo-bra",
     "label": "ブラ",
     "prompt": "bra",
     "category": "clothes",
-    "subcategory": "下着",
+    "subcategory": "下着・部屋着",
     "layer": "inner",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "水着・下着"
   },
   {
     "id": "clo-panties",
     "label": "パンティ",
     "prompt": "panties",
     "category": "clothes",
-    "subcategory": "下着",
+    "subcategory": "下着・部屋着",
     "layer": "inner",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "水着・下着"
   },
   {
     "id": "clo-camisole-underwear",
     "label": "下着キャミソール",
     "prompt": "camisole underwear",
     "category": "clothes",
-    "subcategory": "下着",
+    "subcategory": "下着・部屋着",
     "layer": "inner",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "水着・下着"
   },
   {
     "id": "clo-babydoll",
     "label": "ベビードール",
     "prompt": "babydoll",
     "category": "clothes",
-    "subcategory": "下着",
+    "subcategory": "下着・部屋着",
     "layer": "inner",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "水着・下着"
   },
   {
     "id": "clo-corset-lingerie",
     "label": "コルセット下着",
     "prompt": "corset lingerie",
     "category": "clothes",
-    "subcategory": "下着",
+    "subcategory": "下着・部屋着",
     "layer": "inner",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "水着・下着"
   },
   {
     "id": "clo-negligee",
     "label": "ネグリジェ",
     "prompt": "negligee",
     "category": "clothes",
-    "subcategory": "下着",
+    "subcategory": "下着・部屋着",
     "layer": "inner",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "水着・下着"
   },
   {
     "id": "clo-pajamas",
     "label": "パジャマ",
     "prompt": "pajamas",
     "category": "clothes",
-    "subcategory": "下着",
+    "subcategory": "下着・部屋着",
     "layer": "inner",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "水着・下着"
   },
   {
     "id": "clo-nightgown",
     "label": "ナイトガウン",
     "prompt": "nightgown",
     "category": "clothes",
-    "subcategory": "下着",
+    "subcategory": "下着・部屋着",
     "layer": "inner",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "水着・下着"
   },
   {
     "id": "clo-long-sleeves",
     "label": "長袖",
     "prompt": "long sleeves",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "デザイン・ディテール"
   },
   {
     "id": "clo-short-sleeves",
     "label": "半袖",
     "prompt": "short sleeves",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "デザイン・ディテール"
   },
   {
     "id": "clo-sleeveless",
     "label": "袖なし",
     "prompt": "sleeveless",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "デザイン・ディテール"
   },
   {
     "id": "clo-detached-sleeves",
     "label": "分離袖",
     "prompt": "detached sleeves",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "デザイン・ディテール"
   },
   {
     "id": "clo-puffy-sleeves",
     "label": "パフスリーブ",
     "prompt": "puffy sleeves",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "デザイン・ディテール"
   },
   {
     "id": "clo-bell-sleeves",
     "label": "ベルスリーブ",
     "prompt": "bell sleeves",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "デザイン・ディテール"
   },
   {
     "id": "clo-rolled-up-sleeves",
     "label": "腕まくり",
     "prompt": "rolled-up sleeves",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "デザイン・ディテール"
   },
   {
     "id": "clo-oversized-sleeves",
     "label": "大きな袖",
     "prompt": "oversized sleeves",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "デザイン・ディテール"
   },
   {
     "id": "clo-off-shoulder",
     "label": "肩出し",
     "prompt": "off shoulder",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "デザイン・ディテール"
   },
   {
     "id": "clo-one-shoulder",
     "label": "ワンショルダー",
     "prompt": "one shoulder",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "デザイン・ディテール"
   },
   {
     "id": "clo-high-collar",
     "label": "ハイカラー",
     "prompt": "high collar",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "デザイン・ディテール"
   },
   {
     "id": "clo-open-collar",
     "label": "開いた襟",
     "prompt": "open collar",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "デザイン・ディテール"
   },
   {
     "id": "clo-popped-collar",
     "label": "立てた襟",
     "prompt": "popped collar",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "デザイン・ディテール"
   },
   {
     "id": "clo-plunging-neckline",
     "label": "深い胸元",
     "prompt": "plunging neckline",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "デザイン・ディテール"
   },
   {
     "id": "clo-keyhole-neckline",
     "label": "キーホールネック",
     "prompt": "keyhole neckline",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "デザイン・ディテール"
   },
   {
     "id": "clo-backless-outfit",
     "label": "背中開き",
     "prompt": "backless outfit",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "デザイン・ディテール"
   },
   {
     "id": "clo-side-slit",
     "label": "サイドスリット",
     "prompt": "side slit",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "デザイン・ディテール"
   },
   {
     "id": "clo-high-slit",
     "label": "深いスリット",
     "prompt": "high slit",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "デザイン・ディテール"
   },
   {
     "id": "clo-midriff",
     "label": "へそ出し",
     "prompt": "midriff",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "デザイン・ディテール"
   },
   {
     "id": "clo-denim",
     "label": "デニム",
     "prompt": "denim",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "素材・質感"
   },
   {
     "id": "clo-leather",
     "label": "レザー",
     "prompt": "leather",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "素材・質感"
   },
   {
     "id": "clo-latex",
     "label": "ラテックス",
     "prompt": "latex",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "素材・質感"
   },
   {
     "id": "clo-silk",
     "label": "シルク",
     "prompt": "silk",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "素材・質感"
   },
   {
     "id": "clo-satin",
     "label": "サテン",
     "prompt": "satin",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "素材・質感"
   },
   {
     "id": "clo-velvet",
     "label": "ベルベット",
     "prompt": "velvet",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "素材・質感"
   },
   {
     "id": "clo-lace",
     "label": "レース",
     "prompt": "lace",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "素材・質感"
   },
   {
     "id": "clo-chiffon",
     "label": "シフォン",
     "prompt": "chiffon",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "素材・質感"
   },
   {
     "id": "clo-knitwear",
     "label": "ニット",
     "prompt": "knitwear",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "素材・質感"
   },
   {
     "id": "clo-wool",
     "label": "ウール",
     "prompt": "wool",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "素材・質感"
   },
   {
     "id": "clo-fur-trim",
     "label": "ファー縁取り",
     "prompt": "fur trim",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "素材・質感"
   },
   {
     "id": "clo-metallic-fabric",
     "label": "金属質の布",
     "prompt": "metallic fabric",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "素材・質感"
   },
   {
     "id": "clo-transparent-fabric",
     "label": "透明素材",
     "prompt": "transparent fabric",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "素材・質感"
   },
   {
     "id": "clo-sheer-fabric",
     "label": "透け素材",
     "prompt": "sheer fabric",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "素材・質感"
   },
   {
     "id": "clo-wet-clothes",
     "label": "濡れた服",
     "prompt": "wet clothes",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "素材・質感"
   },
   {
     "id": "clo-glossy-clothes",
     "label": "光沢服",
     "prompt": "glossy clothes",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "素材・質感"
   },
   {
     "id": "clo-skin-tight",
     "label": "ぴったりした服",
     "prompt": "skin tight",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "素材・質感"
   },
   {
     "id": "clo-oversized-clothes",
     "label": "オーバーサイズ服",
     "prompt": "oversized clothes",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "素材・質感"
   },
   {
     "id": "clo-baggy-clothes",
     "label": "だぶだぶ服",
     "prompt": "baggy clothes",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "素材・質感"
   },
   {
     "id": "clo-plain-clothes",
     "label": "無地",
     "prompt": "plain clothes",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-striped-clothes",
     "label": "縞模様",
     "prompt": "striped clothes",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-plaid-clothes",
     "label": "チェック柄",
     "prompt": "plaid clothes",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-polka-dot-clothes",
     "label": "水玉模様",
     "prompt": "polka dot clothes",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-floral-print",
     "label": "花柄",
     "prompt": "floral print",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-geometric-pattern",
     "label": "幾何学柄",
     "prompt": "geometric pattern",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-camouflage",
     "label": "迷彩",
     "prompt": "camouflage",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-animal-print",
     "label": "アニマル柄",
     "prompt": "animal print",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-star-print",
     "label": "星柄",
     "prompt": "star print",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-heart-print",
     "label": "ハート柄",
     "prompt": "heart print",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-frills",
     "label": "フリル",
     "prompt": "frills",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-ruffles",
     "label": "ラッフル",
     "prompt": "ruffles",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-lace-trim",
     "label": "レース縁取り",
     "prompt": "lace trim",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-ribbon-trim",
     "label": "リボン装飾",
     "prompt": "ribbon trim",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-embroidery",
     "label": "刺繍",
     "prompt": "embroidery",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-gold-trim",
     "label": "金縁",
     "prompt": "gold trim",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-buttons",
     "label": "ボタン",
     "prompt": "buttons",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-zipper",
     "label": "ジッパー",
     "prompt": "zipper",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-buckles",
     "label": "バックル",
     "prompt": "buckles",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-chains",
     "label": "チェーン",
     "prompt": "chains",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-cutouts",
     "label": "カットアウト",
     "prompt": "cutouts",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-layered-clothes",
     "label": "重ね着",
     "prompt": "layered clothes",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-patchwork",
     "label": "パッチワーク",
     "prompt": "patchwork",
     "category": "clothes",
-    "subcategory": "素材・デザイン"
+    "subcategory": "素材・デザイン",
+    "sortSubcategory": "柄・装飾"
   },
   {
     "id": "clo-socks",
     "label": "靴下",
     "prompt": "socks",
     "category": "clothes",
-    "subcategory": "下着"
+    "subcategory": "レッグウェア",
+    "sortSubcategory": "レッグウェア"
   },
   {
     "id": "clo-ankle-socks",
     "label": "くるぶしソックス",
     "prompt": "ankle socks",
     "category": "clothes",
-    "subcategory": "下着"
+    "subcategory": "レッグウェア",
+    "sortSubcategory": "レッグウェア"
   },
   {
     "id": "clo-crew-socks",
     "label": "クルーソックス",
     "prompt": "crew socks",
     "category": "clothes",
-    "subcategory": "下着"
+    "subcategory": "レッグウェア",
+    "sortSubcategory": "レッグウェア"
   },
   {
     "id": "clo-knee-socks",
     "label": "ハイソックス",
     "prompt": "knee socks",
     "category": "clothes",
-    "subcategory": "下着"
+    "subcategory": "レッグウェア",
+    "sortSubcategory": "レッグウェア"
   },
   {
     "id": "clo-thighhighs",
     "label": "ニーハイ",
     "prompt": "thighhighs",
     "category": "clothes",
-    "subcategory": "下着"
+    "subcategory": "レッグウェア",
+    "sortSubcategory": "レッグウェア"
   },
   {
     "id": "clo-over-kneehighs",
     "label": "オーバーニー",
     "prompt": "over-kneehighs",
     "category": "clothes",
-    "subcategory": "下着"
+    "subcategory": "レッグウェア",
+    "sortSubcategory": "レッグウェア"
   },
   {
     "id": "clo-loose-socks",
     "label": "ルーズソックス",
     "prompt": "loose socks",
     "category": "clothes",
-    "subcategory": "下着"
+    "subcategory": "レッグウェア",
+    "sortSubcategory": "レッグウェア"
   },
   {
     "id": "clo-stockings",
     "label": "ストッキング",
     "prompt": "stockings",
     "category": "clothes",
-    "subcategory": "下着"
+    "subcategory": "レッグウェア",
+    "sortSubcategory": "レッグウェア"
   },
   {
     "id": "clo-pantyhose",
     "label": "タイツ",
     "prompt": "pantyhose",
     "category": "clothes",
-    "subcategory": "下着"
+    "subcategory": "レッグウェア",
+    "sortSubcategory": "レッグウェア"
   },
   {
     "id": "clo-fishnet-stockings",
     "label": "網タイツ",
     "prompt": "fishnet stockings",
     "category": "clothes",
-    "subcategory": "下着"
+    "subcategory": "レッグウェア",
+    "sortSubcategory": "レッグウェア"
   },
   {
     "id": "clo-leg-warmers",
     "label": "レッグウォーマー",
     "prompt": "leg warmers",
     "category": "clothes",
-    "subcategory": "下着"
+    "subcategory": "レッグウェア",
+    "sortSubcategory": "レッグウェア"
   },
   {
     "id": "clo-garter-straps",
     "label": "ガーターストラップ",
     "prompt": "garter straps",
     "category": "clothes",
-    "subcategory": "アクセサリー"
+    "subcategory": "アクセサリー",
+    "sortSubcategory": "レッグウェア"
   },
   {
     "id": "clo-bare-legs",
     "label": "素足",
     "prompt": "bare legs",
     "category": "clothes",
-    "subcategory": "下着"
+    "subcategory": "レッグウェア",
+    "sortSubcategory": "レッグウェア"
   },
   {
     "id": "clo-barefoot",
@@ -1965,7 +2165,8 @@
     "prompt": "barefoot",
     "category": "clothes",
     "subcategory": "靴",
-    "slot": "footwear"
+    "slot": "footwear",
+    "sortSubcategory": "靴"
   },
   {
     "id": "clo-sandals",
@@ -1973,7 +2174,8 @@
     "prompt": "sandals",
     "category": "clothes",
     "subcategory": "靴",
-    "slot": "footwear"
+    "slot": "footwear",
+    "sortSubcategory": "靴"
   },
   {
     "id": "clo-flip-flops",
@@ -1981,7 +2183,8 @@
     "prompt": "flip-flops",
     "category": "clothes",
     "subcategory": "靴",
-    "slot": "footwear"
+    "slot": "footwear",
+    "sortSubcategory": "靴"
   },
   {
     "id": "clo-sneakers",
@@ -1989,7 +2192,8 @@
     "prompt": "sneakers",
     "category": "clothes",
     "subcategory": "靴",
-    "slot": "footwear"
+    "slot": "footwear",
+    "sortSubcategory": "靴"
   },
   {
     "id": "clo-running-shoes",
@@ -1997,7 +2201,8 @@
     "prompt": "running shoes",
     "category": "clothes",
     "subcategory": "靴",
-    "slot": "footwear"
+    "slot": "footwear",
+    "sortSubcategory": "靴"
   },
   {
     "id": "clo-loafers",
@@ -2005,7 +2210,8 @@
     "prompt": "loafers",
     "category": "clothes",
     "subcategory": "靴",
-    "slot": "footwear"
+    "slot": "footwear",
+    "sortSubcategory": "靴"
   },
   {
     "id": "clo-mary-janes",
@@ -2013,7 +2219,8 @@
     "prompt": "mary janes",
     "category": "clothes",
     "subcategory": "靴",
-    "slot": "footwear"
+    "slot": "footwear",
+    "sortSubcategory": "靴"
   },
   {
     "id": "clo-heels",
@@ -2021,7 +2228,8 @@
     "prompt": "heels",
     "category": "clothes",
     "subcategory": "靴",
-    "slot": "footwear"
+    "slot": "footwear",
+    "sortSubcategory": "靴"
   },
   {
     "id": "clo-high-heels",
@@ -2029,7 +2237,8 @@
     "prompt": "high heels",
     "category": "clothes",
     "subcategory": "靴",
-    "slot": "footwear"
+    "slot": "footwear",
+    "sortSubcategory": "靴"
   },
   {
     "id": "clo-pumps",
@@ -2037,7 +2246,8 @@
     "prompt": "pumps",
     "category": "clothes",
     "subcategory": "靴",
-    "slot": "footwear"
+    "slot": "footwear",
+    "sortSubcategory": "靴"
   },
   {
     "id": "clo-platform-shoes",
@@ -2045,7 +2255,8 @@
     "prompt": "platform shoes",
     "category": "clothes",
     "subcategory": "靴",
-    "slot": "footwear"
+    "slot": "footwear",
+    "sortSubcategory": "靴"
   },
   {
     "id": "clo-boots",
@@ -2053,7 +2264,8 @@
     "prompt": "boots",
     "category": "clothes",
     "subcategory": "靴",
-    "slot": "footwear"
+    "slot": "footwear",
+    "sortSubcategory": "靴"
   },
   {
     "id": "clo-ankle-boots",
@@ -2061,7 +2273,8 @@
     "prompt": "ankle boots",
     "category": "clothes",
     "subcategory": "靴",
-    "slot": "footwear"
+    "slot": "footwear",
+    "sortSubcategory": "靴"
   },
   {
     "id": "clo-knee-boots",
@@ -2069,7 +2282,8 @@
     "prompt": "knee boots",
     "category": "clothes",
     "subcategory": "靴",
-    "slot": "footwear"
+    "slot": "footwear",
+    "sortSubcategory": "靴"
   },
   {
     "id": "clo-thigh-boots",
@@ -2077,7 +2291,8 @@
     "prompt": "thigh boots",
     "category": "clothes",
     "subcategory": "靴",
-    "slot": "footwear"
+    "slot": "footwear",
+    "sortSubcategory": "靴"
   },
   {
     "id": "clo-combat-boots",
@@ -2085,7 +2300,8 @@
     "prompt": "combat boots",
     "category": "clothes",
     "subcategory": "靴",
-    "slot": "footwear"
+    "slot": "footwear",
+    "sortSubcategory": "靴"
   },
   {
     "id": "clo-cowboy-boots",
@@ -2093,14 +2309,16 @@
     "prompt": "cowboy boots",
     "category": "clothes",
     "subcategory": "靴",
-    "slot": "footwear"
+    "slot": "footwear",
+    "sortSubcategory": "靴"
   },
   {
     "id": "clo-gym-uniform-2",
     "label": "体操服",
     "prompt": "gym uniform",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "制服",
+    "sortSubcategory": "制服・学校"
   },
   {
     "id": "clo-buruma",
@@ -2111,7 +2329,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・学校"
   },
   {
     "id": "clo-bloomers",
@@ -2122,7 +2341,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・学校"
   },
   {
     "id": "clo-athletic-shirt",
@@ -2133,7 +2353,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "制服・学校"
   },
   {
     "id": "clo-gym-shorts",
@@ -2144,7 +2365,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・学校"
   },
   {
     "id": "clo-track-jacket-2",
@@ -2155,7 +2377,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "制服・学校"
   },
   {
     "id": "clo-track-pants",
@@ -2166,7 +2389,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・学校"
   },
   {
     "id": "clo-school-swimsuit-2",
@@ -2178,7 +2402,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・学校"
   },
   {
     "id": "clo-sports-bra-2",
@@ -2189,7 +2414,8 @@
     "layer": "inner",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "制服・学校"
   },
   {
     "id": "clo-compression-shorts",
@@ -2200,7 +2426,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・学校"
   },
   {
     "id": "clo-leotard",
@@ -2212,43 +2439,47 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-bunny-suit",
     "label": "バニースーツ",
     "prompt": "bunny suit",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-race-queen",
     "label": "レースクイーン衣装",
     "prompt": "race queen outfit",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-idol-costume-2",
     "label": "アイドル衣装",
     "prompt": "idol costume",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-cheongsam-2",
@@ -2260,7 +2491,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-pilot-suit",
@@ -2272,7 +2504,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-plug-suit",
@@ -2284,26 +2517,29 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-bodysuit",
     "label": "ボディスーツ",
     "prompt": "bodysuit",
     "category": "clothes",
-    "subcategory": "ワンピース",
+    "subcategory": "ファンタジー",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-bikini-armor",
     "label": "ビキニアーマー",
     "prompt": "bikini armor",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "ファンタジー",
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-mage-robe",
@@ -2315,28 +2551,32 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-nun-habit",
     "label": "修道女服",
     "prompt": "nun habit",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-shrine-maiden",
     "label": "巫女装束",
     "prompt": "miko",
     "category": "clothes",
-    "subcategory": "和装"
+    "subcategory": "和装",
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-fundoshi",
     "label": "ふんどし",
     "prompt": "fundoshi",
     "category": "clothes",
-    "subcategory": "和装"
+    "subcategory": "和装",
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-v9-henley-shirt",
@@ -2347,7 +2587,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-polo-shirt",
@@ -2358,7 +2599,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-baseball-shirt",
@@ -2369,7 +2611,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-rugby-shirt",
@@ -2380,7 +2623,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-flannel-shirt",
@@ -2391,7 +2635,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-oversized-shirt",
@@ -2402,7 +2647,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-off-shoulder-top",
@@ -2413,7 +2659,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-cold-shoulder-top",
@@ -2424,7 +2671,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-wrap-top",
@@ -2435,7 +2683,8 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-peplum-top",
@@ -2446,21 +2695,24 @@
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-windbreaker",
     "label": "ウィンドブレーカー",
     "prompt": "windbreaker",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-anorak",
     "label": "アノラック",
     "prompt": "anorak",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-parka",
@@ -2471,7 +2723,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-duffle-coat",
@@ -2482,7 +2735,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-pea-coat",
@@ -2493,7 +2747,8 @@
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-jogger-pants",
@@ -2504,7 +2759,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-bell-bottoms",
@@ -2515,31 +2771,34 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-overalls",
     "label": "オーバーオール",
     "prompt": "overalls",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-short-overalls",
     "label": "ショートオーバーオール",
     "prompt": "short overalls",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-denim-skirt",
@@ -2550,7 +2809,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-cargo-skirt",
@@ -2561,7 +2821,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-tennis-skirt",
@@ -2572,7 +2833,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-skater-skirt",
@@ -2583,7 +2845,8 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-wrap-skirt",
@@ -2594,148 +2857,166 @@
     "layer": "main",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-streetwear",
     "label": "ストリートウェア",
     "prompt": "streetwear",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-techwear",
     "label": "テックウェア",
     "prompt": "techwear",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-y2k-fashion",
     "label": "Y2Kファッション",
     "prompt": "y2k fashion",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-jirai-kei",
     "label": "地雷系",
     "prompt": "jirai kei",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-yami-kawaii",
     "label": "病みかわいい",
     "prompt": "yami kawaii",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-gyaru",
     "label": "ギャルファッション",
     "prompt": "gyaru fashion",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-mori-girl",
     "label": "森ガール",
     "prompt": "mori girl fashion",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-cottagecore",
     "label": "コテージコア",
     "prompt": "cottagecore outfit",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-academia",
     "label": "アカデミア風",
     "prompt": "academia outfit",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-dark-academia",
     "label": "ダークアカデミア",
     "prompt": "dark academia outfit",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "カジュアル"
   },
   {
     "id": "clo-v9-pant-suit",
     "label": "パンツスーツ",
     "prompt": "pantsuit",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "フォーマル"
   },
   {
     "id": "clo-v9-skirt-suit",
     "label": "スカートスーツ",
     "prompt": "skirt suit",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "フォーマル"
   },
   {
     "id": "clo-v9-tuxedo",
     "label": "タキシード",
     "prompt": "tuxedo",
     "category": "clothes",
-    "subcategory": "上半身"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "フォーマル"
   },
   {
     "id": "clo-v9-tailcoat",
     "label": "燕尾服",
     "prompt": "tailcoat",
     "category": "clothes",
-    "subcategory": "上半身",
+    "subcategory": "セット・全身",
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "フォーマル"
   },
   {
     "id": "clo-v9-morning-coat",
     "label": "モーニングコート",
     "prompt": "morning coat",
     "category": "clothes",
-    "subcategory": "上半身",
+    "subcategory": "セット・全身",
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "フォーマル"
   },
   {
     "id": "clo-v9-three-piece-suit",
     "label": "スリーピーススーツ",
     "prompt": "three-piece suit",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "フォーマル"
   },
   {
     "id": "clo-v9-vest-suit",
     "label": "ベストスーツ",
     "prompt": "vest suit",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "フォーマル"
   },
   {
     "id": "clo-v9-mermaid-dress",
@@ -2747,7 +3028,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "フォーマル"
   },
   {
     "id": "clo-v9-a-line-dress",
@@ -2759,7 +3041,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "フォーマル"
   },
   {
     "id": "clo-v9-empire-waist-dress",
@@ -2771,7 +3054,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "フォーマル"
   },
   {
     "id": "clo-v9-wrap-dress",
@@ -2783,7 +3067,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "フォーマル"
   },
   {
     "id": "clo-v9-halter-dress",
@@ -2795,7 +3080,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "フォーマル"
   },
   {
     "id": "clo-v9-bridal-gown",
@@ -2807,7 +3093,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "フォーマル"
   },
   {
     "id": "clo-v9-bridesmaid-dress",
@@ -2819,7 +3106,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "フォーマル"
   },
   {
     "id": "clo-v9-prom-dress",
@@ -2831,70 +3119,80 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "フォーマル"
   },
   {
     "id": "clo-v9-formal-uniform",
     "label": "礼装制服",
     "prompt": "formal uniform",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "フォーマル"
   },
   {
     "id": "clo-v9-classic-lolita",
     "label": "クラシカルロリータ",
     "prompt": "classic lolita",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "ゴシック・ロリータ"
   },
   {
     "id": "clo-v9-sweet-lolita",
     "label": "甘ロリ",
     "prompt": "sweet lolita",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "ゴシック・ロリータ"
   },
   {
     "id": "clo-v9-punk-lolita",
     "label": "パンクロリータ",
     "prompt": "punk lolita",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "ゴシック・ロリータ"
   },
   {
     "id": "clo-v9-wa-lolita",
     "label": "和ロリ",
     "prompt": "wa lolita",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "ゴシック・ロリータ"
   },
   {
     "id": "clo-v9-qi-lolita",
     "label": "華ロリ",
     "prompt": "qi lolita",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "ゴシック・ロリータ"
   },
   {
     "id": "clo-v9-sailor-lolita",
     "label": "セーラーロリータ",
     "prompt": "sailor lolita",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "ゴシック・ロリータ"
   },
   {
     "id": "clo-v9-military-lolita",
     "label": "ミリタリーロリータ",
     "prompt": "military lolita",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "ゴシック・ロリータ"
   },
   {
     "id": "clo-v9-aristocrat-fashion",
     "label": "アリストクラット",
     "prompt": "aristocrat fashion",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "ゴシック・ロリータ"
   },
   {
     "id": "clo-v9-gothic-dress",
@@ -2906,7 +3204,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ゴシック・ロリータ"
   },
   {
     "id": "clo-v9-victorian-dress",
@@ -2918,7 +3217,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ゴシック・ロリータ"
   },
   {
     "id": "clo-v9-edwardian-dress",
@@ -2930,7 +3230,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ゴシック・ロリータ"
   },
   {
     "id": "clo-v9-mourning-dress",
@@ -2942,7 +3243,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ゴシック・ロリータ"
   },
   {
     "id": "clo-v9-corset-dress",
@@ -2954,7 +3256,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ゴシック・ロリータ"
   },
   {
     "id": "clo-v9-pinafore-dress",
@@ -2966,7 +3269,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ゴシック・ロリータ"
   },
   {
     "id": "clo-v9-petticoat",
@@ -2977,38 +3281,42 @@
     "layer": "inner",
     "coverage": [
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ゴシック・ロリータ"
   },
   {
     "id": "clo-v9-crinoline",
     "label": "クリノリン",
     "prompt": "crinoline",
     "category": "clothes",
-    "subcategory": "アクセサリー"
+    "subcategory": "アクセサリー",
+    "sortSubcategory": "ゴシック・ロリータ"
   },
   {
     "id": "clo-v9-office-lady",
     "label": "OL制服",
     "prompt": "office lady outfit",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-secretary-outfit",
     "label": "秘書服",
     "prompt": "secretary outfit",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-receptionist-uniform",
@@ -3020,7 +3328,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-bank-teller-uniform",
@@ -3032,7 +3341,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-flight-attendant",
@@ -3044,7 +3354,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-train-conductor",
@@ -3056,7 +3367,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-station-attendant",
@@ -3068,7 +3380,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-bus-driver",
@@ -3080,7 +3393,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-taxi-driver",
@@ -3092,7 +3406,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-cook-uniform",
@@ -3104,19 +3419,21 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-baker-outfit",
     "label": "パン職人服",
     "prompt": "baker outfit",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-barista-uniform",
@@ -3128,7 +3445,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-waiter-uniform",
@@ -3140,7 +3458,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-hotel-staff",
@@ -3152,7 +3471,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-bellhop-uniform",
@@ -3164,7 +3484,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-housekeeper-uniform",
@@ -3176,25 +3497,28 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-doctor-coat",
     "label": "白衣",
     "prompt": "doctor coat",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-scrubs",
     "label": "医療スクラブ",
     "prompt": "medical scrubs",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-surgeon-uniform",
@@ -3206,112 +3530,122 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-dentist-coat",
     "label": "歯科医制服",
     "prompt": "dentist coat",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-pharmacist-coat",
     "label": "薬剤師白衣",
     "prompt": "pharmacist coat",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-veterinarian-coat",
     "label": "獣医白衣",
     "prompt": "veterinarian coat",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-teacher-outfit",
     "label": "教師服",
     "prompt": "teacher outfit",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-kindergarten-teacher",
     "label": "保育士エプロン",
     "prompt": "kindergarten teacher outfit",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-librarian-outfit",
     "label": "司書服",
     "prompt": "librarian outfit",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-mechanic-coveralls",
     "label": "整備士つなぎ",
     "prompt": "mechanic coveralls",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-engineer-coveralls",
     "label": "技術者つなぎ",
     "prompt": "engineer coveralls",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-construction-worker",
     "label": "建設作業服",
     "prompt": "construction worker outfit",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-delivery-uniform",
@@ -3323,7 +3657,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-postal-uniform",
@@ -3335,19 +3670,21 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-firefighter-suit",
     "label": "消防服",
     "prompt": "firefighter suit",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-paramedic-uniform",
@@ -3359,7 +3696,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-lifeguard-uniform",
@@ -3371,7 +3709,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-security-uniform",
@@ -3383,19 +3722,21 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-detective-outfit",
     "label": "探偵服",
     "prompt": "detective outfit",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-prison-guard",
@@ -3407,7 +3748,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-prison-uniform",
@@ -3419,382 +3761,429 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-scientist-coat",
     "label": "研究者白衣",
     "prompt": "scientist coat",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-astronaut-suit",
     "label": "宇宙服",
     "prompt": "astronaut suit",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "制服・職業"
   },
   {
     "id": "clo-v9-officer-uniform",
     "label": "将校服",
     "prompt": "officer uniform",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "制服",
+    "sortSubcategory": "ミリタリー・ワーク"
   },
   {
     "id": "clo-v9-naval-uniform",
     "label": "海軍制服",
     "prompt": "naval uniform",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "制服",
+    "sortSubcategory": "ミリタリー・ワーク"
   },
   {
     "id": "clo-v9-air-force-uniform",
     "label": "空軍制服",
     "prompt": "air force uniform",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "制服",
+    "sortSubcategory": "ミリタリー・ワーク"
   },
   {
     "id": "clo-v9-army-combat-uniform",
     "label": "戦闘服",
     "prompt": "combat uniform",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "制服",
+    "sortSubcategory": "ミリタリー・ワーク"
   },
   {
     "id": "clo-v9-camouflage-uniform",
     "label": "迷彩服",
     "prompt": "camouflage uniform",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "制服",
+    "sortSubcategory": "ミリタリー・ワーク"
   },
   {
     "id": "clo-v9-tactical-gear",
     "label": "タクティカル装備",
     "prompt": "tactical gear",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "ミリタリー・ワーク"
   },
   {
     "id": "clo-v9-sailor-uniform",
     "label": "水兵服",
     "prompt": "sailor uniform",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "制服",
+    "sortSubcategory": "ミリタリー・ワーク"
   },
   {
     "id": "clo-v9-ceremonial-uniform",
     "label": "儀礼服",
     "prompt": "ceremonial military uniform",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "制服",
+    "sortSubcategory": "ミリタリー・ワーク"
   },
   {
     "id": "clo-v9-hazmat-suit",
     "label": "防護服",
     "prompt": "hazmat suit",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "ミリタリー・ワーク"
   },
   {
     "id": "clo-v9-workwear",
     "label": "ワークウェア",
     "prompt": "workwear",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "ミリタリー・ワーク"
   },
   {
     "id": "clo-v9-coveralls",
     "label": "つなぎ",
     "prompt": "coveralls",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ミリタリー・ワーク"
   },
   {
     "id": "clo-v9-apron-dress",
     "label": "エプロンドレス",
     "prompt": "apron dress",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "ワンピース",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ミリタリー・ワーク"
   },
   {
     "id": "clo-v9-utility-vest",
     "label": "ユーティリティベスト",
     "prompt": "utility vest",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "上半身",
     "layer": "outer",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "ミリタリー・ワーク"
   },
   {
     "id": "clo-v9-tool-belt-outfit",
     "label": "工具ベルト付き作業服",
     "prompt": "work outfit with tool belt",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "ミリタリー・ワーク"
   },
   {
     "id": "clo-v9-soccer-uniform",
     "label": "サッカーユニフォーム",
     "prompt": "soccer uniform",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-basketball-uniform",
     "label": "バスケットボールユニフォーム",
     "prompt": "basketball uniform",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-baseball-uniform",
     "label": "野球ユニフォーム",
     "prompt": "baseball uniform",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-volleyball-uniform",
     "label": "バレーボールユニフォーム",
     "prompt": "volleyball uniform",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-tennis-uniform",
     "label": "テニスウェア",
     "prompt": "tennis uniform",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-badminton-uniform",
     "label": "バドミントンウェア",
     "prompt": "badminton uniform",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-golf-outfit",
     "label": "ゴルフウェア",
     "prompt": "golf outfit",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-cycling-uniform",
     "label": "サイクルウェア",
     "prompt": "cycling uniform",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-running-outfit",
     "label": "ランニングウェア",
     "prompt": "running outfit",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-swim-team-uniform",
     "label": "競泳選手衣装",
     "prompt": "competition swimsuit",
     "category": "clothes",
-    "subcategory": "水着"
+    "subcategory": "水着",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-figure-skating-dress",
     "label": "フィギュアスケート衣装",
     "prompt": "figure skating dress",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "ワンピース",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-gymnastics-leotard",
     "label": "体操レオタード",
     "prompt": "gymnastics leotard",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "ワンピース",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-rhythmic-gymnastics",
     "label": "新体操衣装",
     "prompt": "rhythmic gymnastics outfit",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-cheerleader-uniform",
     "label": "チアリーダー衣装",
     "prompt": "cheerleader uniform",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-boxing-outfit",
     "label": "ボクシングウェア",
     "prompt": "boxing outfit",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-martial-arts-uniform",
     "label": "武道着",
     "prompt": "martial arts uniform",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-karate-gi",
     "label": "空手着",
     "prompt": "karate gi",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-judo-gi",
     "label": "柔道着",
     "prompt": "judo gi",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-kendo-gi",
     "label": "剣道着",
     "prompt": "kendo uniform",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-yoga-outfit",
     "label": "ヨガウェア",
     "prompt": "yoga outfit",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-ballet-tutu",
     "label": "バレエチュチュ",
     "prompt": "ballet tutu",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-ballet-leotard",
     "label": "バレエレオタード",
     "prompt": "ballet leotard",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "ワンピース",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-flamenco-dress",
     "label": "フラメンコドレス",
     "prompt": "flamenco dress",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "ワンピース",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-belly-dancer",
     "label": "ベリーダンス衣装",
     "prompt": "belly dancer outfit",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-ballroom-dress",
     "label": "社交ダンスドレス",
     "prompt": "ballroom dance dress",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "ワンピース",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-latin-dance-dress",
     "label": "ラテンダンス衣装",
     "prompt": "latin dance dress",
     "category": "clothes",
-    "subcategory": "制服",
+    "subcategory": "ワンピース",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-jazz-dance-outfit",
     "label": "ジャズダンス衣装",
     "prompt": "jazz dance outfit",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-hip-hop-dance",
     "label": "ヒップホップダンス衣装",
     "prompt": "hip hop dance outfit",
     "category": "clothes",
-    "subcategory": "制服"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "スポーツ・ダンス"
   },
   {
     "id": "clo-v9-stage-costume",
     "label": "ステージ衣装",
     "prompt": "stage costume",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "舞台・アイドル"
   },
   {
     "id": "clo-v9-concert-outfit",
     "label": "ライブ衣装",
     "prompt": "concert outfit",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "舞台・アイドル"
   },
   {
     "id": "clo-v9-idol-dress",
@@ -3806,112 +4195,128 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "舞台・アイドル"
   },
   {
     "id": "clo-v9-idol-uniform",
     "label": "アイドル制服",
     "prompt": "idol uniform",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "舞台・アイドル"
   },
   {
     "id": "clo-v9-showgirl-costume",
     "label": "ショーガール衣装",
     "prompt": "showgirl costume",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "舞台・アイドル"
   },
   {
     "id": "clo-v9-cabaret-costume",
     "label": "キャバレー衣装",
     "prompt": "cabaret costume",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "舞台・アイドル"
   },
   {
     "id": "clo-v9-burlesque-costume",
     "label": "バーレスク衣装",
     "prompt": "burlesque costume",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "舞台・アイドル"
   },
   {
     "id": "clo-v9-circus-performer",
     "label": "サーカス衣装",
     "prompt": "circus performer costume",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "舞台・アイドル"
   },
   {
     "id": "clo-v9-ringmaster-outfit",
     "label": "団長衣装",
     "prompt": "ringmaster outfit",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "舞台・アイドル"
   },
   {
     "id": "clo-v9-magician-outfit",
     "label": "マジシャン衣装",
     "prompt": "magician outfit",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "舞台・アイドル"
   },
   {
     "id": "clo-v9-clown-costume",
     "label": "ピエロ衣装",
     "prompt": "clown costume",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "舞台・アイドル"
   },
   {
     "id": "clo-v9-harlequin-costume",
     "label": "道化師衣装",
     "prompt": "harlequin costume",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "舞台・アイドル"
   },
   {
     "id": "clo-v9-opera-costume",
     "label": "オペラ衣装",
     "prompt": "opera costume",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "舞台・アイドル"
   },
   {
     "id": "clo-v9-theater-costume",
     "label": "演劇衣装",
     "prompt": "theater costume",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "舞台・アイドル"
   },
   {
     "id": "clo-v9-musical-costume",
     "label": "ミュージカル衣装",
     "prompt": "musical costume",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "舞台・アイドル"
   },
   {
     "id": "clo-v9-marching-band",
     "label": "マーチングバンド制服",
     "prompt": "marching band uniform",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "舞台・アイドル"
   },
   {
     "id": "clo-v9-band-uniform",
     "label": "楽団制服",
     "prompt": "band uniform",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "舞台・アイドル"
   },
   {
     "id": "clo-v9-majorette-uniform",
     "label": "バトントワラー衣装",
     "prompt": "majorette uniform",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "舞台・アイドル"
   },
   {
     "id": "clo-v9-maid-dress",
@@ -3923,182 +4328,198 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-classic-maid",
     "label": "クラシックメイド",
     "prompt": "classic maid outfit",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-french-maid",
     "label": "フレンチメイド",
     "prompt": "french maid outfit",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-victorian-maid",
     "label": "ヴィクトリアンメイド",
     "prompt": "victorian maid outfit",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-gothic-maid",
     "label": "ゴシックメイド",
     "prompt": "gothic maid outfit",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-nurse-costume",
     "label": "ナースコスチューム",
     "prompt": "nurse costume",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-witch-costume",
     "label": "魔女コスチューム",
     "prompt": "witch costume",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-vampire-costume",
     "label": "吸血鬼衣装",
     "prompt": "vampire costume",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-devil-costume",
     "label": "悪魔衣装",
     "prompt": "devil costume",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-angel-costume",
     "label": "天使衣装",
     "prompt": "angel costume",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-cat-costume",
     "label": "猫コスチューム",
     "prompt": "cat costume",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-dog-costume",
     "label": "犬コスチューム",
     "prompt": "dog costume",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-fox-costume",
     "label": "狐コスチューム",
     "prompt": "fox costume",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-bear-costume",
     "label": "熊コスチューム",
     "prompt": "bear costume",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-animal-onesie",
     "label": "動物着ぐるみパジャマ",
     "prompt": "animal onesie",
     "category": "clothes",
-    "subcategory": "ワンピース"
+    "subcategory": "ワンピース",
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-mascot-suit",
     "label": "着ぐるみ",
     "prompt": "mascot suit",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-latex-bodysuit",
@@ -4110,19 +4531,21 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-rubber-suit",
     "label": "ラバースーツ",
     "prompt": "rubber suit",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "セット・全身",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-catsuit",
@@ -4134,70 +4557,80 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-zentai",
     "label": "全身タイツ",
     "prompt": "zentai",
     "category": "clothes",
-    "subcategory": "ワンピース"
+    "subcategory": "ワンピース",
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-unitard",
     "label": "ユニタード",
     "prompt": "unitard",
     "category": "clothes",
-    "subcategory": "ワンピース"
+    "subcategory": "ワンピース",
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-ao-dai",
     "label": "アオザイ",
     "prompt": "ao dai",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "セット・全身",
+    "sortSubcategory": "コスチューム"
   },
   {
     "id": "clo-v9-knight-armor",
     "label": "騎士鎧",
     "prompt": "knight armor",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "ファンタジー",
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-plate-armor",
     "label": "プレートアーマー",
     "prompt": "plate armor",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "ファンタジー",
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-chainmail",
     "label": "チェインメイル",
     "prompt": "chainmail",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "ファンタジー",
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-leather-armor",
     "label": "レザーアーマー",
     "prompt": "leather armor",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "ファンタジー",
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-scale-armor",
     "label": "スケイルアーマー",
     "prompt": "scale armor",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "ファンタジー",
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-samurai-armor",
     "label": "侍甲冑",
     "prompt": "samurai armor",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "ファンタジー",
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-wizard-robe",
@@ -4209,7 +4642,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-witch-robe",
@@ -4221,7 +4655,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-priestess-robe",
@@ -4233,7 +4668,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-cleric-robe",
@@ -4245,7 +4681,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-monk-robe",
@@ -4257,7 +4694,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-druid-outfit",
@@ -4269,7 +4707,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-ranger-outfit",
@@ -4281,7 +4720,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-rogue-outfit",
@@ -4293,7 +4733,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-assassin-outfit",
@@ -4305,7 +4746,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-pirate-outfit",
@@ -4317,7 +4759,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-steampunk-outfit",
@@ -4329,7 +4772,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-dieselpunk-outfit",
@@ -4341,7 +4785,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-cyberpunk-outfit",
@@ -4353,7 +4798,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-space-suit",
@@ -4365,14 +4811,16 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-powered-armor",
     "label": "パワードスーツ",
     "prompt": "powered armor",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "ファンタジー",
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-exosuit",
@@ -4384,7 +4832,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-holographic-outfit",
@@ -4396,7 +4845,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-mecha-suit",
@@ -4408,19 +4858,21 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-android-bodysuit",
     "label": "アンドロイドボディスーツ",
     "prompt": "android bodysuit",
     "category": "clothes",
-    "subcategory": "ワンピース",
+    "subcategory": "ファンタジー",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-post-apocalyptic",
@@ -4432,7 +4884,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-tribal-fantasy",
@@ -4444,19 +4897,21 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-fairy-dress",
     "label": "妖精ドレス",
     "prompt": "fairy dress",
     "category": "clothes",
-    "subcategory": "ワンピース",
+    "subcategory": "ファンタジー",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-elf-outfit",
@@ -4468,7 +4923,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-dark-elf-outfit",
@@ -4480,7 +4936,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-succubus-outfit",
@@ -4492,376 +4949,412 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-magical-girl-dress",
     "label": "魔法少女衣装",
     "prompt": "magical girl dress",
     "category": "clothes",
-    "subcategory": "ワンピース",
+    "subcategory": "ファンタジー",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ファンタジー・SF"
   },
   {
     "id": "clo-v9-medieval-dress",
     "label": "中世ドレス",
     "prompt": "medieval dress",
     "category": "clothes",
-    "subcategory": "ワンピース",
+    "subcategory": "民族・歴史",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-renaissance-dress",
     "label": "ルネサンスドレス",
     "prompt": "renaissance dress",
     "category": "clothes",
-    "subcategory": "ワンピース",
+    "subcategory": "民族・歴史",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-baroque-dress",
     "label": "バロックドレス",
     "prompt": "baroque dress",
     "category": "clothes",
-    "subcategory": "ワンピース",
+    "subcategory": "民族・歴史",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-rococo-dress",
     "label": "ロココドレス",
     "prompt": "rococo dress",
     "category": "clothes",
-    "subcategory": "ワンピース",
+    "subcategory": "民族・歴史",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-regency-dress",
     "label": "リージェンシードレス",
     "prompt": "regency dress",
     "category": "clothes",
-    "subcategory": "ワンピース",
+    "subcategory": "民族・歴史",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-georgian-dress",
     "label": "ジョージアン衣装",
     "prompt": "georgian dress",
     "category": "clothes",
-    "subcategory": "ワンピース",
+    "subcategory": "民族・歴史",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-victorian-outfit",
     "label": "ヴィクトリア朝衣装",
     "prompt": "victorian outfit",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "民族・歴史",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-edwardian-outfit",
     "label": "エドワード朝衣装",
     "prompt": "edwardian outfit",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "民族・歴史",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-flapper-dress",
     "label": "フラッパードレス",
     "prompt": "flapper dress",
     "category": "clothes",
-    "subcategory": "ワンピース",
+    "subcategory": "民族・歴史",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-pinup-outfit",
     "label": "ピンナップ衣装",
     "prompt": "pin-up outfit",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "民族・歴史",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-greek-chiton",
     "label": "古代ギリシャ衣装",
     "prompt": "greek chiton",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "民族・歴史",
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-roman-toga",
     "label": "トーガ",
     "prompt": "roman toga",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "民族・歴史",
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-egyptian-outfit",
     "label": "古代エジプト衣装",
     "prompt": "ancient egyptian outfit",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "民族・歴史",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-tang-dynasty",
     "label": "唐装",
     "prompt": "tang dynasty dress",
     "category": "clothes",
-    "subcategory": "ワンピース",
+    "subcategory": "民族・歴史",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-ao-dai-traditional",
     "label": "伝統アオザイ",
     "prompt": "traditional ao dai",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "民族・歴史",
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-lehenga",
     "label": "レヘンガ",
     "prompt": "lehenga",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "民族・歴史",
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-salwar-kameez",
     "label": "サルワールカミーズ",
     "prompt": "salwar kameez",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "民族・歴史",
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-lederhosen",
     "label": "レーダーホーゼン",
     "prompt": "lederhosen",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "民族・歴史",
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-folk-dress",
     "label": "民族衣装",
     "prompt": "folk dress",
     "category": "clothes",
-    "subcategory": "ワンピース",
+    "subcategory": "民族・歴史",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-mexican-dress",
     "label": "メキシコ民族衣装",
     "prompt": "mexican folk dress",
     "category": "clothes",
-    "subcategory": "ワンピース",
+    "subcategory": "民族・歴史",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-russian-sarafan",
     "label": "サラファン",
     "prompt": "russian sarafan",
     "category": "clothes",
-    "subcategory": "ファンタジー"
+    "subcategory": "民族・歴史",
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-polynesian-outfit",
     "label": "ポリネシア衣装",
     "prompt": "polynesian outfit",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "民族・歴史",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-native-american-inspired",
     "label": "ネイティブ風衣装",
     "prompt": "native american inspired outfit",
     "category": "clothes",
-    "subcategory": "ファンタジー",
+    "subcategory": "民族・歴史",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "民族・歴史"
   },
   {
     "id": "clo-v9-button-pajamas",
     "label": "前開きパジャマ",
     "prompt": "button-up pajamas",
     "category": "clothes",
-    "subcategory": "下着",
+    "subcategory": "下着・部屋着",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ルームウェア"
   },
   {
     "id": "clo-v9-short-pajamas",
     "label": "ショートパジャマ",
     "prompt": "short pajamas",
     "category": "clothes",
-    "subcategory": "下着",
+    "subcategory": "下着・部屋着",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ルームウェア"
   },
   {
     "id": "clo-v9-sleep-shirt",
     "label": "スリープシャツ",
     "prompt": "sleep shirt",
     "category": "clothes",
-    "subcategory": "下着",
+    "subcategory": "下着・部屋着",
     "layer": "main",
     "coverage": [
       "upper"
-    ]
+    ],
+    "sortSubcategory": "ルームウェア"
   },
   {
     "id": "clo-v9-robe",
     "label": "ガウン",
     "prompt": "robe",
     "category": "clothes",
-    "subcategory": "下着",
+    "subcategory": "下着・部屋着",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ルームウェア"
   },
   {
     "id": "clo-v9-bathrobe",
     "label": "バスローブ",
     "prompt": "bathrobe",
     "category": "clothes",
-    "subcategory": "下着",
+    "subcategory": "下着・部屋着",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ルームウェア"
   },
   {
     "id": "clo-v9-loungewear",
     "label": "ルームウェア",
     "prompt": "loungewear",
     "category": "clothes",
-    "subcategory": "下着"
+    "subcategory": "下着・部屋着",
+    "sortSubcategory": "ルームウェア"
   },
   {
     "id": "clo-v9-sweatsuit",
     "label": "スウェット上下",
     "prompt": "sweatsuit",
     "category": "clothes",
-    "subcategory": "下着",
+    "subcategory": "下着・部屋着",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ルームウェア"
   },
   {
     "id": "clo-v9-onesie-pajamas",
     "label": "つなぎパジャマ",
     "prompt": "onesie pajamas",
     "category": "clothes",
-    "subcategory": "下着",
+    "subcategory": "下着・部屋着",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ルームウェア"
   },
   {
     "id": "clo-v9-babydoll-nightwear",
     "label": "ベビードールナイトウェア",
     "prompt": "babydoll nightwear",
     "category": "clothes",
-    "subcategory": "下着"
+    "subcategory": "下着・部屋着",
+    "sortSubcategory": "ルームウェア"
   },
   {
     "id": "clo-v9-silk-pajamas",
     "label": "シルクパジャマ",
     "prompt": "silk pajamas",
     "category": "clothes",
-    "subcategory": "下着",
+    "subcategory": "下着・部屋着",
     "layer": "main",
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "ルームウェア"
   },
   {
     "id": "clo-v9-tomesode",
     "label": "留袖",
     "prompt": "tomesode",
     "category": "clothes",
-    "subcategory": "和装"
+    "subcategory": "和装",
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-v9-komon",
@@ -4873,56 +5366,64 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-v9-houmongi",
     "label": "訪問着",
     "prompt": "houmongi",
     "category": "clothes",
-    "subcategory": "和装"
+    "subcategory": "和装",
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-v9-uchikake",
     "label": "打掛",
     "prompt": "uchikake",
     "category": "clothes",
-    "subcategory": "和装"
+    "subcategory": "和装",
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-v9-shiromuku",
     "label": "白無垢",
     "prompt": "shiromuku",
     "category": "clothes",
-    "subcategory": "和装"
+    "subcategory": "和装",
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-v9-samue",
     "label": "作務衣",
     "prompt": "samue",
     "category": "clothes",
-    "subcategory": "和装"
+    "subcategory": "和装",
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-v9-haori-hakama",
     "label": "羽織袴",
     "prompt": "haori and hakama",
     "category": "clothes",
-    "subcategory": "和装"
+    "subcategory": "和装",
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-v9-kariginu",
     "label": "狩衣",
     "prompt": "kariginu",
     "category": "clothes",
-    "subcategory": "和装"
+    "subcategory": "和装",
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-v9-junihitoe",
     "label": "十二単",
     "prompt": "junihitoe",
     "category": "clothes",
-    "subcategory": "和装"
+    "subcategory": "和装",
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-v9-oiran-outfit",
@@ -4934,7 +5435,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-v9-taisho-romance",
@@ -4946,7 +5448,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-v9-showa-retro",
@@ -4958,7 +5461,8 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "和装"
   },
   {
     "id": "clo-v9-yukata-dress",
@@ -4970,6 +5474,7 @@
     "coverage": [
       "upper",
       "lower"
-    ]
+    ],
+    "sortSubcategory": "和装"
   }
 ]

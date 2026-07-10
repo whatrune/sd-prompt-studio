@@ -25,7 +25,9 @@ const adult = (
     prompt,
     category: placement?.category ?? category,
     subcategory: (placement?.category ?? category) === 'clothes' ? '衣装（アダルト）' : placement?.subcategory ?? subcategory,
-    sortSubcategory: subcategory,
+    sortSubcategory: (placement?.category ?? category) === 'clothes'
+      ? subcategory === 'センシティブ衣装' ? subcategory : '衣装（アダルト）'
+      : subcategory,
     aliases,
     rating,
   }
