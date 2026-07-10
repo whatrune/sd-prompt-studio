@@ -64,7 +64,9 @@ function migrateLegacyUserClothingTag(tag: UserPromptTag): UserPromptTag {
     'レッグウェア': 'レッグウェア', '靴': '靴', 'デザイン・ディテール': '素材・デザイン',
     '素材・質感': '素材・デザイン', '柄・装飾': '素材・デザイン', 'センシティブ衣装': '衣装（アダルト）',
   }
-  const subcategory = direct[tag.subcategory ?? ''] ?? (tag.subcategory === '衣装（アダルト）' ? tag.subcategory : 'セット・全身')
+  const subcategory = tag.subcategory === '水着・下着'
+    ? /\b(swimsuit|bikini|swimwear|rash guard|wetsuit)\b/i.test(tag.prompt) ? '水着' : '下着・部屋着'
+    : direct[tag.subcategory ?? ''] ?? (tag.subcategory === '衣装（アダルト）' ? tag.subcategory : 'セット・全身')
   return { ...tag, subcategory, sortSubcategory: tag.sortSubcategory ?? tag.subcategory }
 }
 

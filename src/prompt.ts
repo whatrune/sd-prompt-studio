@@ -19,7 +19,11 @@ export function tagSort(a: SelectedTag | PromptTag, b: SelectedTag | PromptTag) 
   const order = a.category === 'clothes' ? legacyClothingSubcategoryOrder : subcategoryOrder[a.category] ?? []
   const aSubcategory = a.category === 'clothes' ? a.sortSubcategory ?? a.subcategory : a.subcategory
   const bSubcategory = b.category === 'clothes' ? b.sortSubcategory ?? b.subcategory : b.subcategory
-  const subDiff = order.indexOf(aSubcategory ?? '') - order.indexOf(bSubcategory ?? '')
+  const sortIndex = (subcategory?: string) => {
+    const index = order.indexOf(subcategory ?? '')
+    return index === -1 ? order.length : index
+  }
+  const subDiff = sortIndex(aSubcategory) - sortIndex(bSubcategory)
   if (subDiff !== 0) return subDiff
   const all = [...tags, ...adultTags]
   return all.findIndex(t => t.id === a.id) - all.findIndex(t => t.id === b.id)
