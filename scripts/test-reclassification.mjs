@@ -98,6 +98,11 @@ try {
   ]
   assert.deepEqual([...adultClothingOrder].sort(tagSort).map(tag => tag.prompt), ['shirt', 'dress', 'see-through clothes', 'nude'], 'adult clothing Prompt order must remain compatible')
 
+  const eastAsianTraditionalPrompts = new Set(['china dress', 'qipao', 'cheongsam', 'hanfu', 'hanbok'])
+  const eastAsianTraditionalTags = clothingDictionary.filter(tag => eastAsianTraditionalPrompts.has(tag.prompt))
+  assert.equal(eastAsianTraditionalTags.length, 6)
+  assert.equal(eastAsianTraditionalTags.every(tag => tag.subcategory === '民族・歴史'), true, 'Chinese and Korean traditional clothing must not be classified as Japanese clothing')
+
   const migratedClothing = migratePersistedState({
     blocks: [{ id: 'clothes', name: '被写体 1', tags: [{ id: 'clo-dress-shirt', prompt: 'dress shirt', label: 'saved', category: 'clothes', subcategory: 'トップス', weight: 1.3 }] }],
     userTags: [],

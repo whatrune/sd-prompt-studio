@@ -973,7 +973,7 @@
     "label": "チャイナドレス",
     "prompt": "china dress",
     "category": "clothes",
-    "subcategory": "ワンピース",
+    "subcategory": "民族・歴史",
     "slot": "onepiece_dress",
     "layer": "main",
     "coverage": [
@@ -987,7 +987,7 @@
     "label": "旗袍",
     "prompt": "cheongsam",
     "category": "clothes",
-    "subcategory": "ワンピース",
+    "subcategory": "民族・歴史",
     "slot": "onepiece_dress",
     "sortSubcategory": "ワンピース・ドレス"
   },
@@ -1305,7 +1305,7 @@
     "label": "チャイナドレス",
     "prompt": "qipao",
     "category": "clothes",
-    "subcategory": "和装",
+    "subcategory": "民族・歴史",
     "sortSubcategory": "和装"
   },
   {
@@ -1313,7 +1313,7 @@
     "label": "漢服",
     "prompt": "hanfu",
     "category": "clothes",
-    "subcategory": "和装",
+    "subcategory": "民族・歴史",
     "sortSubcategory": "和装"
   },
   {
@@ -1321,7 +1321,7 @@
     "label": "韓服",
     "prompt": "hanbok",
     "category": "clothes",
-    "subcategory": "和装",
+    "subcategory": "民族・歴史",
     "sortSubcategory": "和装"
   },
   {
@@ -2486,7 +2486,7 @@
     "label": "チャイナドレス",
     "prompt": "china dress",
     "category": "clothes",
-    "subcategory": "ワンピース",
+    "subcategory": "民族・歴史",
     "layer": "main",
     "coverage": [
       "upper",
