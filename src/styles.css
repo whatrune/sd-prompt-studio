@@ -602,7 +602,7 @@ body{background:#0b0d11}
 .selected-group-head>button:hover{border-color:#4c5868!important;background:#1b2027!important}
 .selected-group-head>button strong{display:inline-flex;align-items:baseline;gap:4px}
 .selected-group-head>button small{font:9px ui-monospace,monospace;color:#737e8e;font-weight:400}
-.context-position-inline{display:flex;align-items:center;gap:8px;margin-left:auto;padding:0 8px;color:#8f99a8;font-size:10px;white-space:nowrap}
+.context-position-inline{display:flex;align-items:center;gap:8px;margin-left:auto;padding:0 8px;border:0;background:transparent;box-shadow:none;color:#8f99a8;font-size:10px;white-space:nowrap}
 .context-position-inline select{min-width:82px;border:1px solid #39424f;border-radius:2px;background:#0f1318;color:#dfe4eb;padding:4px 6px}
 .selected-outline .selected-chips{gap:9px;padding:4px 3px 8px}
 .selected-outline .selected-chip .chip-label{padding:6px 10px}
