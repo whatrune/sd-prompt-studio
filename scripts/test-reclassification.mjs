@@ -525,6 +525,13 @@ try {
   usePromptStore.getState().addBlock()
   assert.equal(usePromptStore.getState().blocks.at(-1).subjectNumber, 4, 'new Subjects must use the next unused fixed number')
 
+  usePromptStore.setState({ blocks: [{ id: 'layer-target', name: '被写体 1', subjectNumber: 1, tags: [subjectHair] }], activeBlockId: 'layer-target', activeLayer: 'subject', sceneTags: [] })
+  usePromptStore.getState().addTag(sceneQuality)
+  assert.equal(usePromptStore.getState().sceneTags.some(tag => tag.id === sceneQuality.id), true, 'Common tags added during Character editing must target Scene')
+  assert.deepEqual(usePromptStore.getState().blocks[0].tags.map(tag => tag.id), [subjectHair.id], 'Common tags must not leak into Character tags')
+  usePromptStore.getState().removeTagFromLayer('scene', sceneQuality.id)
+  assert.equal(usePromptStore.getState().sceneTags.length, 0, 'selected Common tags must be removable from Scene while editing a Character')
+
   const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
   assert(appSource.includes("useState(true)"), 'Prompt panels must have collapsed initial state')
   assert(appSource.includes('Prompt Actions'), 'copy actions must be rendered above Prompt output')

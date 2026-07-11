@@ -145,7 +145,7 @@ export default function App() {
   const [propDepth, setPropDepth] = useState('background')
   const store = usePromptStore()
   const activeSubject = store.blocks.find(b => b.id === store.activeBlockId)!
-  const active = store.activeLayer === 'scene' ? { id: 'scene', name: 'Scene', tags: store.sceneTags } : activeSubject
+  const active = store.activeLayer === 'scene' ? { id: 'scene', name: 'Scene', tags: store.sceneTags } : { ...activeSubject, tags: [...store.sceneTags, ...activeSubject.tags] }
 
   const subcategories = useMemo(() => subcategoryOrder[category] ?? [], [category])
   const dictionaryTags = useMemo(() => [...tags, ...adultTags, ...store.userTags], [store.userTags])
@@ -179,16 +179,17 @@ export default function App() {
         ...['people','expression','eyes','hair','body','clothes','accessories','pose'].map(category => group(category, category, getCategoryLabel(category, locale), block.tags, block.id)),
       ],
     })
+    const commonSection = { id: 'common', name: t('commonSettings', locale), kind: 'COMMON', targetId: 'scene', groups: [
+      sceneGroup('quality', 'quality', t('quality', locale), undefined, 'スタイル'),
+      sceneGroup('style', 'quality', t('style', locale), 'スタイル'),
+      ...['lighting','camera','background','effects'].map(category => sceneGroup(category, category, getCategoryLabel(category, locale))),
+    ] }
     if (store.activeLayer === 'subject') {
       const selected = store.blocks.find(block => block.id === store.activeBlockId) ?? store.blocks[0]
-      return [subjectSection(selected)]
+      return [commonSection, subjectSection(selected)]
     }
     return [
-      { id: 'common', name: t('commonSettings', locale), kind: 'COMMON', targetId: 'scene', groups: [
-        sceneGroup('quality', 'quality', t('quality', locale), undefined, 'スタイル'),
-        sceneGroup('style', 'quality', t('style', locale), 'スタイル'),
-        ...['lighting','camera','background','effects'].map(category => sceneGroup(category, category, getCategoryLabel(category, locale))),
-      ] },
+      commonSection,
       ...store.blocks.map(subjectSection),
     ]
   }, [locale, store.activeBlockId, store.activeLayer, store.blocks, store.sceneTags])
@@ -207,8 +208,10 @@ export default function App() {
     store.setContentLevel(level)
   }
   function toggleDictionaryTag(tag: PromptTag){
-    const selected = active.tags.find(t => t.prompt === tag.prompt)
-    if (selected) { store.removeTag(selected.id); return }
+    const layerId = isSceneCategory(tag.category) ? 'scene' : store.activeBlockId
+    const layerTags = layerId === 'scene' ? store.sceneTags : activeSubject.tags
+    const selected = layerTags.find(item => item.prompt === tag.prompt)
+    if (selected) { store.removeTagFromLayer(layerId, selected.id); return }
     if (tag.rating === 'adult' && hasMinorMarker(store.blocks.flatMap(b => b.tags))) {
       alert('成人向けタグは、未成年を示すタグと同時に追加できません。')
       return
