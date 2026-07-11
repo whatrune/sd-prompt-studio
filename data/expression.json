@@ -5,7 +5,7 @@
     "prompt": "smile",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-slight-smile",
@@ -13,7 +13,7 @@
     "prompt": "slight smile",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-grin",
@@ -21,7 +21,7 @@
     "prompt": "grin",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-happy",
@@ -29,7 +29,7 @@
     "prompt": "happy",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-laughing",
@@ -37,7 +37,7 @@
     "prompt": "laughing",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-serious",
@@ -45,7 +45,7 @@
     "prompt": "serious",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-expressionless",
@@ -53,7 +53,7 @@
     "prompt": "expressionless",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-neutral-expression",
@@ -61,7 +61,7 @@
     "prompt": "neutral expression",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-sad",
@@ -69,7 +69,7 @@
     "prompt": "sad",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-angry",
@@ -77,7 +77,7 @@
     "prompt": "angry",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-surprised",
@@ -85,7 +85,7 @@
     "prompt": "surprised",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-confused",
@@ -93,7 +93,7 @@
     "prompt": "confused",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-worried",
@@ -101,7 +101,7 @@
     "prompt": "worried",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-scared",
@@ -109,7 +109,7 @@
     "prompt": "scared",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-disgust",
@@ -117,7 +117,7 @@
     "prompt": "disgust",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-smug",
@@ -125,7 +125,7 @@
     "prompt": "smug",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-proud",
@@ -133,7 +133,7 @@
     "prompt": "proud",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-determined",
@@ -141,7 +141,7 @@
     "prompt": "determined",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-sleepy",
@@ -149,7 +149,7 @@
     "prompt": "sleepy",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-bored",
@@ -157,7 +157,7 @@
     "prompt": "bored",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-shy",
@@ -165,7 +165,7 @@
     "prompt": "shy",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-embarrassed",
@@ -173,7 +173,7 @@
     "prompt": "embarrassed",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-blush",
@@ -181,7 +181,14 @@
     "prompt": "blush",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression",
+    "sources": [
+      "existing"
+    ],
+    "aliases": [
+      "blushing"
+    ],
+    "related": []
   },
   {
     "id": "exp-flustered",
@@ -189,7 +196,7 @@
     "prompt": "flustered",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-teasing-smile",
@@ -197,7 +204,7 @@
     "prompt": "teasing smile",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-evil-smile",
@@ -205,7 +212,7 @@
     "prompt": "evil smile",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-seductive-smile",
@@ -213,7 +220,7 @@
     "prompt": "seductive smile",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-crying",
@@ -221,7 +228,7 @@
     "prompt": "crying",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-tears",
@@ -229,7 +236,7 @@
     "prompt": "tears",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "face_state"
   },
   {
     "id": "exp-streaming-tears",
@@ -237,7 +244,7 @@
     "prompt": "streaming tears",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "face_state"
   },
   {
     "id": "exp-closed-mouth",
@@ -245,7 +252,21 @@
     "prompt": "closed mouth",
     "category": "expression",
     "subcategory": "口",
-    "slot": "mouth_shape"
+    "slot": "mouth_openness",
+    "conflicts": [
+      "open mouth",
+      "parted lips",
+      "tongue out",
+      "licking lips",
+      "fang",
+      "fangs",
+      "sharp teeth",
+      "clenched teeth",
+      "visible teeth",
+      "drooling",
+      "gasping",
+      "yawning"
+    ]
   },
   {
     "id": "exp-open-mouth",
@@ -253,7 +274,7 @@
     "prompt": "open mouth",
     "category": "expression",
     "subcategory": "口",
-    "slot": "mouth_shape"
+    "slot": "mouth_openness"
   },
   {
     "id": "exp-parted-lips",
@@ -261,7 +282,7 @@
     "prompt": "parted lips",
     "category": "expression",
     "subcategory": "口",
-    "slot": "mouth_shape"
+    "slot": "mouth_openness"
   },
   {
     "id": "exp-pout",
@@ -269,7 +290,20 @@
     "prompt": "pout",
     "category": "expression",
     "subcategory": "口",
-    "slot": "mouth_shape"
+    "slot": "mouth_shape",
+    "sources": [
+      "existing"
+    ],
+    "aliases": [
+      "pouting",
+      "拗ねる",
+      "むくれる"
+    ],
+    "related": [
+      "puffed cheeks",
+      "looking away",
+      "blush"
+    ]
   },
   {
     "id": "exp-frown",
@@ -285,7 +319,14 @@
     "prompt": "lip bite",
     "category": "expression",
     "subcategory": "口",
-    "slot": "mouth_shape"
+    "slot": "mouth_action",
+    "sources": [
+      "existing"
+    ],
+    "aliases": [
+      "biting lip"
+    ],
+    "related": []
   },
   {
     "id": "exp-tongue-out",
@@ -293,7 +334,7 @@
     "prompt": "tongue out",
     "category": "expression",
     "subcategory": "口",
-    "slot": "mouth_shape"
+    "slot": "mouth_action"
   },
   {
     "id": "exp-licking-lips",
@@ -301,7 +342,7 @@
     "prompt": "licking lips",
     "category": "expression",
     "subcategory": "口",
-    "slot": "mouth_shape"
+    "slot": "mouth_action"
   },
   {
     "id": "exp-fang",
@@ -309,7 +350,14 @@
     "prompt": "fang",
     "category": "expression",
     "subcategory": "口",
-    "slot": "mouth_shape"
+    "slot": "mouth_feature",
+    "sources": [
+      "existing"
+    ],
+    "aliases": [
+      "fangs"
+    ],
+    "related": []
   },
   {
     "id": "exp-sharp-teeth",
@@ -317,7 +365,7 @@
     "prompt": "sharp teeth",
     "category": "expression",
     "subcategory": "口",
-    "slot": "mouth_shape"
+    "slot": "mouth_feature"
   },
   {
     "id": "exp-clenched-teeth",
@@ -325,7 +373,7 @@
     "prompt": "clenched teeth",
     "category": "expression",
     "subcategory": "口",
-    "slot": "mouth_shape"
+    "slot": "mouth_feature"
   },
   {
     "id": "exp-drooling",
@@ -333,7 +381,7 @@
     "prompt": "drooling",
     "category": "expression",
     "subcategory": "口",
-    "slot": "mouth_shape"
+    "slot": "mouth_action"
   },
   {
     "id": "exp-whistling",
@@ -341,7 +389,7 @@
     "prompt": "whistling",
     "category": "expression",
     "subcategory": "口",
-    "slot": "mouth_shape"
+    "slot": "mouth_action"
   },
   {
     "id": "exp--o",
@@ -408,7 +456,14 @@
     "prompt": "furrowed brow",
     "category": "expression",
     "subcategory": "頬・眉",
-    "slot": "eyebrow_shape"
+    "slot": "eyebrow_state",
+    "sources": [
+      "existing"
+    ],
+    "aliases": [
+      "furrowed brows"
+    ],
+    "related": []
   },
   {
     "id": "exp-sad-eyebrows",
@@ -448,7 +503,7 @@
     "prompt": "subtle smile",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-gentle-smile",
@@ -456,7 +511,7 @@
     "prompt": "gentle smile",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-bright-smile",
@@ -464,7 +519,7 @@
     "prompt": "bright smile",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-forced-smile",
@@ -472,7 +527,7 @@
     "prompt": "forced smile",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-awkward-smile",
@@ -480,7 +535,7 @@
     "prompt": "awkward smile",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-nervous-smile",
@@ -488,7 +543,7 @@
     "prompt": "nervous smile",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-smug-smile",
@@ -496,7 +551,7 @@
     "prompt": "smug smile",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-mischievous-smile",
@@ -504,7 +559,7 @@
     "prompt": "mischievous smile",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-sad-smile",
@@ -512,7 +567,7 @@
     "prompt": "sad smile",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-teary-smile",
@@ -520,7 +575,7 @@
     "prompt": "teary smile",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-closed-mouth-smile",
@@ -528,7 +583,7 @@
     "prompt": "closed-mouth smile",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-open-mouth-smile",
@@ -536,7 +591,7 @@
     "prompt": "open-mouth smile",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-toothy-smile",
@@ -544,7 +599,7 @@
     "prompt": "toothy smile",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-smirk",
@@ -552,7 +607,7 @@
     "prompt": "smirk",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-sulking",
@@ -560,7 +615,7 @@
     "prompt": "sulking",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-scowl",
@@ -568,7 +623,7 @@
     "prompt": "scowl",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-furious",
@@ -576,7 +631,7 @@
     "prompt": "furious",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-annoyed",
@@ -584,7 +639,7 @@
     "prompt": "annoyed",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-frustrated",
@@ -592,7 +647,7 @@
     "prompt": "frustrated",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-contempt",
@@ -600,7 +655,7 @@
     "prompt": "contempt",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-melancholic",
@@ -608,7 +663,7 @@
     "prompt": "melancholic",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-lonely",
@@ -616,7 +671,7 @@
     "prompt": "lonely",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-happy-tears",
@@ -624,7 +679,7 @@
     "prompt": "happy tears",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "face_state"
   },
   {
     "id": "exp-v5-shocked",
@@ -632,7 +687,7 @@
     "prompt": "shocked",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-startled",
@@ -640,7 +695,7 @@
     "prompt": "startled",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-puzzled",
@@ -648,7 +703,7 @@
     "prompt": "puzzled",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-blushing",
@@ -656,7 +711,12 @@
     "prompt": "blushing",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression",
+    "deprecated": true,
+    "redirectTo": "exp-blush",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "exp-v5-stoic",
@@ -664,7 +724,7 @@
     "prompt": "stoic",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-drowsy",
@@ -672,7 +732,7 @@
     "prompt": "drowsy",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-dreamy",
@@ -680,7 +740,7 @@
     "prompt": "dreamy",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-ecstatic",
@@ -688,7 +748,7 @@
     "prompt": "ecstatic",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-relieved",
@@ -696,7 +756,7 @@
     "prompt": "relieved",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-fearful",
@@ -704,7 +764,7 @@
     "prompt": "fearful",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-terrified",
@@ -712,7 +772,7 @@
     "prompt": "terrified",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-panicked",
@@ -720,7 +780,7 @@
     "prompt": "panicked",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-jealous",
@@ -728,7 +788,7 @@
     "prompt": "jealous",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-bashful",
@@ -736,7 +796,7 @@
     "prompt": "bashful",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-confident",
@@ -744,7 +804,7 @@
     "prompt": "confident",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-playful",
@@ -752,7 +812,7 @@
     "prompt": "playful",
     "category": "expression",
     "subcategory": "基本表情",
-    "slot": "primary_expression"
+    "slot": "expression"
   },
   {
     "id": "exp-v5-pursed-lips",
@@ -768,7 +828,12 @@
     "prompt": "biting lip",
     "category": "expression",
     "subcategory": "口",
-    "slot": "mouth_shape"
+    "slot": "mouth_action",
+    "deprecated": true,
+    "redirectTo": "exp-lip-bite",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "exp-v5-fangs",
@@ -776,7 +841,12 @@
     "prompt": "fangs",
     "category": "expression",
     "subcategory": "口",
-    "slot": "mouth_shape"
+    "slot": "mouth_feature",
+    "deprecated": true,
+    "redirectTo": "exp-fang",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "exp-v5-visible-teeth",
@@ -784,7 +854,7 @@
     "prompt": "visible teeth",
     "category": "expression",
     "subcategory": "口",
-    "slot": "mouth_shape"
+    "slot": "mouth_feature"
   },
   {
     "id": "exp-v5-gasping",
@@ -792,7 +862,7 @@
     "prompt": "gasping",
     "category": "expression",
     "subcategory": "口",
-    "slot": "mouth_shape"
+    "slot": "mouth_action"
   },
   {
     "id": "exp-v5-yawning",
@@ -800,7 +870,7 @@
     "prompt": "yawning",
     "category": "expression",
     "subcategory": "口",
-    "slot": "mouth_shape"
+    "slot": "mouth_action"
   },
   {
     "id": "exp-v5-raised-eyebrows",
@@ -816,7 +886,12 @@
     "prompt": "furrowed brows",
     "category": "expression",
     "subcategory": "頬・眉",
-    "slot": "eyebrow_shape"
+    "slot": "eyebrow_state",
+    "deprecated": true,
+    "redirectTo": "exp-furrowed-brow",
+    "sources": [
+      "existing"
+    ]
   },
   {
     "id": "exp-v5-arched-eyebrows",
@@ -863,14 +938,16 @@
     "label": "汗マーク",
     "prompt": "sweatdrop",
     "category": "expression",
-    "subcategory": "頬・眉"
+    "subcategory": "頬・眉",
+    "slot": "face_state"
   },
   {
     "id": "exp-v5-vein-pop",
     "label": "怒りマーク",
     "prompt": "vein pop",
     "category": "expression",
-    "subcategory": "頬・眉"
+    "subcategory": "頬・眉",
+    "slot": "face_state"
   },
   {
     "id": "v19-exp-puffed-cheeks",
@@ -881,12 +958,21 @@
     "aliases": [
       "頬をふくらます",
       "ぷく顔",
-      "ふくれっ面"
+      "ふくれっ面",
+      "cheek puff",
+      "頬ぷく",
+      "片頬ぷく"
     ],
     "related": [
       "pout",
       "blush",
-      "looking away"
+      "looking away",
+      "pouting",
+      "raised eyebrow"
+    ],
+    "slot": "cheek_state",
+    "sources": [
+      "existing"
     ]
   },
   {
@@ -902,6 +988,12 @@
     "related": [
       "pouting",
       "raised eyebrow"
+    ],
+    "slot": "cheek_state",
+    "deprecated": true,
+    "redirectTo": "v19-exp-puffed-cheeks",
+    "sources": [
+      "existing"
     ]
   },
   {
@@ -918,6 +1010,11 @@
       "puffed cheeks",
       "looking away",
       "blush"
+    ],
+    "deprecated": true,
+    "redirectTo": "exp-pout",
+    "sources": [
+      "existing"
     ]
   },
   {
@@ -931,7 +1028,8 @@
     ],
     "related": [
       "pursed lips"
-    ]
+    ],
+    "slot": "cheek_state"
   },
   {
     "id": "v19-exp-biting-cheek",
@@ -945,6 +1043,7 @@
     "related": [
       "nervous",
       "looking away"
-    ]
+    ],
+    "slot": "cheek_state"
   }
 ]

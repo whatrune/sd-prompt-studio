@@ -716,105 +716,141 @@
     "label": "瞳のハイライト",
     "prompt": "eye highlights",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_highlight_amount"
   },
   {
     "id": "eye-multiple-eye-highlights",
     "label": "複数のハイライト",
     "prompt": "multiple eye highlights",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_highlight_amount"
   },
   {
     "id": "eye-star-shaped-highlights",
     "label": "星形ハイライト",
     "prompt": "star-shaped highlights",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_highlight_shape",
+    "conflicts": [
+      "no eye highlights"
+    ]
   },
   {
     "id": "eye-heart-shaped-highlights",
     "label": "ハート形ハイライト",
     "prompt": "heart-shaped highlights",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_highlight_shape",
+    "conflicts": [
+      "no eye highlights"
+    ]
   },
   {
     "id": "eye-cross-shaped-highlights",
     "label": "十字ハイライト",
     "prompt": "cross-shaped highlights",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_highlight_shape",
+    "conflicts": [
+      "no eye highlights"
+    ]
   },
   {
     "id": "eye-ring-shaped-highlights",
     "label": "リング状ハイライト",
     "prompt": "ring-shaped highlights",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_highlight_shape",
+    "conflicts": [
+      "no eye highlights"
+    ]
   },
   {
     "id": "eye-sparkling-eyes",
     "label": "きらめく目",
     "prompt": "sparkling eyes",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_effect"
   },
   {
     "id": "eye-glossy-eyes",
     "label": "艶のある目",
     "prompt": "glossy eyes",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_effect"
   },
   {
     "id": "eye-wet-eyes",
     "label": "潤んだ目",
     "prompt": "wet eyes",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_effect"
   },
   {
     "id": "eye-rimlit-eyes",
     "label": "縁が光る瞳",
     "prompt": "rimlit eyes",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_effect"
   },
   {
     "id": "eye-glowing-eyes",
     "label": "発光する目",
     "prompt": "glowing eyes",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_effect"
   },
   {
     "id": "eye-bright-pupils",
     "label": "明るい瞳孔",
     "prompt": "bright pupils",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_effect"
   },
   {
     "id": "eye-light-particles-in-eyes",
     "label": "瞳の中の光粒",
     "prompt": "light particles in eyes",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_effect"
   },
   {
     "id": "eye-reflective-eyes",
     "label": "反射する瞳",
     "prompt": "reflective eyes",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_effect"
   },
   {
     "id": "eye-no-eye-highlights",
     "label": "ハイライトなし",
     "prompt": "no eye highlights",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_highlight_amount",
+    "conflicts": [
+      "star-shaped highlights",
+      "heart-shaped highlights",
+      "cross-shaped highlights",
+      "ring-shaped highlights",
+      "diamond highlights",
+      "crescent highlights",
+      "flower-shaped highlights"
+    ]
   },
   {
     "id": "eye-looking-at-viewer",
@@ -877,77 +913,97 @@
     "label": "片目を閉じる",
     "prompt": "one eye closed",
     "category": "eyes",
-    "subcategory": "視線・状態"
+    "subcategory": "視線・状態",
+    "slot": "eye_state"
   },
   {
     "id": "eye-closed-eyes",
     "label": "目を閉じる",
     "prompt": "closed eyes",
     "category": "eyes",
-    "subcategory": "視線・状態"
+    "subcategory": "視線・状態",
+    "slot": "eye_state",
+    "conflicts": [
+      "looking at viewer",
+      "looking away",
+      "looking back",
+      "looking up",
+      "looking down",
+      "looking to the side",
+      "eye contact"
+    ]
   },
   {
     "id": "eye-wink",
     "label": "ウィンク",
     "prompt": "wink",
     "category": "eyes",
-    "subcategory": "視線・状態"
+    "subcategory": "視線・状態",
+    "slot": "eye_state"
   },
   {
     "id": "eye-cross-eyed",
     "label": "寄り目",
     "prompt": "cross-eyed",
     "category": "eyes",
-    "subcategory": "視線・状態"
+    "subcategory": "視線・状態",
+    "slot": "eye_state"
   },
   {
     "id": "eye-empty-eyes",
     "label": "虚ろな目",
     "prompt": "empty eyes",
     "category": "eyes",
-    "subcategory": "視線・状態"
+    "subcategory": "視線・状態",
+    "slot": "eye_state"
   },
   {
     "id": "eye-blank-eyes",
     "label": "焦点のない目",
     "prompt": "blank eyes",
     "category": "eyes",
-    "subcategory": "視線・状態"
+    "subcategory": "視線・状態",
+    "slot": "eye_state"
   },
   {
     "id": "eye-lifeless-eyes",
     "label": "生気のない目",
     "prompt": "lifeless eyes",
     "category": "eyes",
-    "subcategory": "視線・状態"
+    "subcategory": "視線・状態",
+    "slot": "eye_state"
   },
   {
     "id": "eye-bloodshot-eyes",
     "label": "充血した目",
     "prompt": "bloodshot eyes",
     "category": "eyes",
-    "subcategory": "視線・状態"
+    "subcategory": "視線・状態",
+    "slot": "eye_state"
   },
   {
     "id": "eye-teary-eyes",
     "label": "涙目",
     "prompt": "teary eyes",
     "category": "eyes",
-    "subcategory": "視線・状態"
+    "subcategory": "視線・状態",
+    "slot": "eye_state"
   },
   {
     "id": "eye-evil-eyes",
     "label": "邪悪な目",
     "prompt": "evil eyes",
     "category": "eyes",
-    "subcategory": "視線・状態"
+    "subcategory": "視線・状態",
+    "slot": "eye_state"
   },
   {
     "id": "eye-possessed-eyes",
     "label": "憑依された目",
     "prompt": "possessed eyes",
     "category": "eyes",
-    "subcategory": "視線・状態"
+    "subcategory": "視線・状態",
+    "slot": "eye_state"
   },
   {
     "id": "eye-long-eyelashes",
@@ -986,35 +1042,40 @@
     "label": "アイライン",
     "prompt": "eyeliner",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyeliner_style"
   },
   {
     "id": "eye-winged-eyeliner",
     "label": "跳ね上げアイライン",
     "prompt": "winged eyeliner",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyeliner_style"
   },
   {
     "id": "eye-heavy-eyelids",
     "label": "重いまぶた",
     "prompt": "heavy eyelids",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyelid_state"
   },
   {
     "id": "eye-double-eyelids",
     "label": "二重まぶた",
     "prompt": "double eyelids",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyelid_shape"
   },
   {
     "id": "eye-monolid",
     "label": "一重まぶた",
     "prompt": "monolid",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyelid_shape"
   },
   {
     "id": "eye-v5-teal-eyes",
@@ -1693,70 +1754,89 @@
     "label": "揺らめく瞳",
     "prompt": "shimmering eyes",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_effect"
   },
   {
     "id": "eye-v5-luminescent-eyes",
     "label": "淡く発光する瞳",
     "prompt": "luminescent eyes",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_effect"
   },
   {
     "id": "eye-v5-neon-eyes",
     "label": "ネオンの瞳",
     "prompt": "neon eyes",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_effect"
   },
   {
     "id": "eye-v5-glittering-eyes",
     "label": "きらきらした瞳",
     "prompt": "glittering eyes",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_effect"
   },
   {
     "id": "eye-v5-diamond-highlights",
     "label": "ダイヤ形ハイライト",
     "prompt": "diamond highlights",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_highlight_shape",
+    "conflicts": [
+      "no eye highlights"
+    ]
   },
   {
     "id": "eye-v5-crescent-highlights",
     "label": "三日月ハイライト",
     "prompt": "crescent highlights",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_highlight_shape",
+    "conflicts": [
+      "no eye highlights"
+    ]
   },
   {
     "id": "eye-v5-flower-shaped-highlights",
     "label": "花形ハイライト",
     "prompt": "flower-shaped highlights",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_highlight_shape",
+    "conflicts": [
+      "no eye highlights"
+    ]
   },
   {
     "id": "eye-v5-soft-eye-highlights",
     "label": "柔らかな瞳ハイライト",
     "prompt": "soft eye highlights",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_effect"
   },
   {
     "id": "eye-v5-strong-eye-highlights",
     "label": "強い瞳ハイライト",
     "prompt": "strong eye highlights",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_effect"
   },
   {
     "id": "eye-v5-colored-eye-highlights",
     "label": "色付きハイライト",
     "prompt": "colored eye highlights",
     "category": "eyes",
-    "subcategory": "ハイライト・発光"
+    "subcategory": "ハイライト・発光",
+    "slot": "eye_effect"
   },
   {
     "id": "eye-v9-short-eyelashes",
@@ -2163,111 +2243,127 @@
     "label": "細いアイライン",
     "prompt": "thin eyeliner",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyeliner_style"
   },
   {
     "id": "eye-v9-thick-eyeliner",
     "label": "太いアイライン",
     "prompt": "thick eyeliner",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyeliner_style"
   },
   {
     "id": "eye-v9-sharp-eyeliner",
     "label": "鋭いアイライン",
     "prompt": "sharp eyeliner",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyeliner_style"
   },
   {
     "id": "eye-v9-soft-eyeliner",
     "label": "柔らかなアイライン",
     "prompt": "soft eyeliner",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyeliner_style"
   },
   {
     "id": "eye-v9-cat-eye-liner",
     "label": "キャットアイライン",
     "prompt": "cat eye eyeliner",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyeliner_style"
   },
   {
     "id": "eye-v9-puppy-eyeliner",
     "label": "たれ目アイライン",
     "prompt": "puppy eyeliner",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyeliner_style"
   },
   {
     "id": "eye-v9-double-eyeliner",
     "label": "ダブルアイライン",
     "prompt": "double eyeliner",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyeliner_style"
   },
   {
     "id": "eye-v9-graphic-eyeliner",
     "label": "グラフィックアイライン",
     "prompt": "graphic eyeliner",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyeliner_style"
   },
   {
     "id": "eye-v9-colored-eyeliner",
     "label": "カラーアイライン",
     "prompt": "colored eyeliner",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyeliner_style"
   },
   {
     "id": "eye-v9-lower-eyeliner",
     "label": "下まぶたアイライン",
     "prompt": "lower eyeliner",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyeliner_style"
   },
   {
     "id": "eye-v9-smudged-eyeliner",
     "label": "ぼかしたアイライン",
     "prompt": "smudged eyeliner",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyeliner_style"
   },
   {
     "id": "eye-v9-floating-eyeliner",
     "label": "フローティングアイライン",
     "prompt": "floating eyeliner",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyeliner_style"
   },
   {
     "id": "eye-v9-cut-crease",
     "label": "カットクリース",
     "prompt": "cut crease",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyelid_shape"
   },
   {
     "id": "eye-v9-hooded-eyelids",
     "label": "奥二重・フードアイ",
     "prompt": "hooded eyelids",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyelid_shape"
   },
   {
     "id": "eye-v9-visible-eyelid-crease",
     "label": "明瞭な二重線",
     "prompt": "visible eyelid crease",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyelid_shape"
   },
   {
     "id": "eye-v9-droopy-eyelids",
     "label": "垂れたまぶた",
     "prompt": "droopy eyelids",
     "category": "eyes",
-    "subcategory": "まぶた・アイライン"
+    "subcategory": "まぶた・アイライン",
+    "slot": "eyelid_state"
   }
 ]
