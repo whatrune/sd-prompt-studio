@@ -7,7 +7,7 @@ import { compatibilityLabel, generationNote, heuristicCategory, inferCategory, m
 import { getConflictMap } from './engine/smartTagEngine'
 import './styles.css'
 import { createId } from './id'
-import { buildPrompt, tagSort } from './prompt'
+import { buildPromptWithStrategy, tagSort } from './prompt'
 
 
 
@@ -122,6 +122,7 @@ export default function App() {
   const [composerCollapsed, setComposerCollapsed] = useState(true)
   const [relatedCollapsed, setRelatedCollapsed] = useState(false)
   const [selectedCollapsed, setSelectedCollapsed] = useState(false)
+  const [expansionCollapsed, setExpansionCollapsed] = useState(true)
   const [promptCollapsed, setPromptCollapsed] = useState(true)
   const [negativeCollapsed, setNegativeCollapsed] = useState(true)
   const importRef = useRef<HTMLInputElement>(null)
@@ -159,7 +160,8 @@ export default function App() {
     }).sort((a,b) => q ? scoreTag(b,q)-scoreTag(a,q) || tagSort(a,b) : tagSort(a,b))
   }, [category, subcategory, query, favoritesOnly, store.favoriteIds, visibleDictionaryTags, store.hideUnavailable, conflictMap])
 
-  const prompt = useMemo(() => buildPrompt(store.blocks, store.sceneTags), [store.blocks, store.sceneTags])
+  const expansion = useMemo(() => buildPromptWithStrategy(store.blocks, store.sceneTags, store.modelPreset), [store.blocks, store.sceneTags, store.modelPreset])
+  const prompt = expansion.prompt
 
   const warnings = useMemo(() => conflicts(active.tags), [active.tags])
   const related = useMemo(() => relatedTags(active.tags).slice(0, 8), [active.tags])
@@ -326,6 +328,7 @@ export default function App() {
       <aside className="preview panel">
         <div className="block-tabs"><button className={store.activeLayer==='scene'?'active':''} onClick={()=>store.setActiveLayer('scene')}>Scene</button>{store.blocks.map(b=><button key={b.id} className={store.activeLayer==='subject'&&b.id===store.activeBlockId?'active':''} onClick={()=>store.setActiveBlock(b.id)}>{b.name}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={store.addBlock}><Plus size={16}/>人物追加</button></div>
         <section className="prompt-actions"><strong>Prompt Actions</strong><button onClick={copyPrompt}><Copy size={16}/>{copied?'コピー済み':'Positiveをコピー'}</button><button onClick={async()=>{const ok=await copyText(store.negative);if(ok){setCopied(true);setTimeout(()=>setCopied(false),1400)}}}><Copy size={16}/>{copied?'コピー済み':'Negativeをコピー'}</button></section>
+        {store.activeLayer==='subject'&&activeSubject&&<label className="subject-position">Character position<select value={activeSubject.position??'center'} onChange={event=>store.setSubjectPosition(activeSubject.id,event.target.value as 'left'|'center'|'right')}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>}
         <section className={`preview-section ${selectedCollapsed?'collapsed':''}`}>
           <button className="preview-section-toggle" onClick={()=>setSelectedCollapsed(v=>!v)} aria-expanded={!selectedCollapsed}>
             <span>選択済みタグ</span>{selectedCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>} 
@@ -342,6 +345,10 @@ export default function App() {
               </section>)}</section>)}
             </div>
           </div>}
+        </section>
+        <section className={`preview-section expansion-preview ${expansionCollapsed?'collapsed':''}`}>
+          <button className="preview-section-toggle" onClick={()=>setExpansionCollapsed(value=>!value)} aria-expanded={!expansionCollapsed}><span>Expansion Preview</span>{expansionCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button>
+          {!expansionCollapsed&&<div className="preview-section-content expansion-entities"><small>{expansion.strategy} / {expansion.scene.subject_count} subject(s)</small>{expansion.characters.map(character=><section key={character.id}><strong>{character.name} · {character.position}</strong><pre>{character.output}</pre></section>)}</div>}
         </section>
         <section className={`preview-section output-box ${promptCollapsed?'collapsed':''}`}>
           <div className="output-head"><button className="preview-section-toggle inline" onClick={()=>setPromptCollapsed(v=>!v)} aria-expanded={!promptCollapsed}><span>Prompt</span>{promptCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button><button onClick={copyPrompt}><Copy size={16}/>{copied?'コピー済み':'コピー'}</button></div>
