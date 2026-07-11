@@ -8,7 +8,7 @@ import type { LocalizedLabels } from './i18n'
 
 export type SelectedTag = { id: string; prompt: string; label: string; labels?: LocalizedLabels; category: string; outputCategory?: string; subcategory?: string; sortSubcategory?: string; promptGroup?: string; promptOrder?: number; slot?: string | string[]; weight: number; rating?: ContentRating }
 export type SubjectPosition = 'left' | 'center' | 'right'
-export type PromptBlock = { id: string; name: string; position?: SubjectPosition; tags: SelectedTag[] }
+export type PromptBlock = { id: string; name: string; subjectNumber?: number; position?: SubjectPosition; tags: SelectedTag[] }
 export type EditorLayer = 'subject' | 'scene'
 export const SCENE_CATEGORIES = new Set(['quality', 'camera', 'background', 'scene_props', 'lighting', 'effects'])
 export const isSceneCategory = (category: string) => SCENE_CATEGORIES.has(category)
@@ -62,7 +62,7 @@ const QUALITY_PRESETS: Record<ModelPreset, string[]> = {
   custom: []
 }
 
-const createFirstBlock = (): PromptBlock => ({ id: createId(), name: '被写体 1', position: 'center', tags: [] })
+const createFirstBlock = (): PromptBlock => ({ id: createId(), name: '被写体 1', subjectNumber: 1, position: 'center', tags: [] })
 const firstBlock = createFirstBlock()
 
 const physicalDictionary = [...allTags, ...adultTags]
@@ -88,6 +88,7 @@ export function migratePersistedState(persisted: unknown) {
   const multipleSubjects = state.blocks.length > 1
   const migratedBlocks = state.blocks.map((block, index) => ({
     ...block,
+    subjectNumber: block.subjectNumber ?? Number(block.name.match(/(\d+)\s*$/)?.[1] ?? index + 1),
     position: block.position ?? (multipleSubjects ? index === 0 ? 'left' : index === 1 ? 'right' : 'center' : 'center'),
     tags: block.tags.map(tag => {
       const current = resolveCanonicalTag(tag.id, physicalDictionary)
@@ -193,9 +194,10 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   })),
   addBlock: () => set((state) => {
     const id = createId()
+    const subjectNumber = Math.max(0, ...state.blocks.map((block, index) => block.subjectNumber ?? Number(block.name.match(/(\d+)\s*$/)?.[1] ?? index + 1))) + 1
     const blocks = state.blocks.length === 1
-      ? [{ ...state.blocks[0], position: 'left' as const }, { id, name: '被写体 2', position: 'right' as const, tags: [] }]
-      : [...state.blocks, { id, name: `被写体 ${state.blocks.length + 1}`, position: 'center' as const, tags: [] }]
+      ? [{ ...state.blocks[0], position: 'left' as const }, { id, name: `被写体 ${subjectNumber}`, subjectNumber, position: 'right' as const, tags: [] }]
+      : [...state.blocks, { id, name: `被写体 ${subjectNumber}`, subjectNumber, position: 'center' as const, tags: [] }]
     return { blocks, activeBlockId: id, activeLayer: 'subject' }
   }),
   removeBlock: (id) => set((state) => {
@@ -227,6 +229,6 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   })
 }), {
   name: 'sd-prompt-studio-v14',
-  version: 10,
+  version: 11,
   migrate: migratePersistedState,
 }))

@@ -562,3 +562,13 @@ body{background:#0b0d11}
 .tag-card:hover .star,.tag-card:hover .info-tag{right:5px;transform:none}
 .prompt-actions button,.output-head button,.settings-dictionary-actions button,.dictionary-add,.settings-popover button{border:1px solid #39424f;background:#1b2027;color:#d8dde5;box-shadow:none}
 .prompt-actions button:hover,.output-head button:hover,.settings-dictionary-actions button:hover,.dictionary-add:hover,.settings-popover button:hover{border-color:#566275;background:#252c35;color:#fff}
+
+/* v21.3: Prompt Context hierarchy */
+.selected-layer{margin-top:8px;padding:0 0 9px;border:1px solid #29313b;border-radius:3px;background:#11151a;overflow:hidden}
+.selected-layer-title{display:grid;gap:2px;padding:9px 10px;border:0;border-bottom:1px solid #2d3540;background:#181d24}
+.selected-layer-title small{font:9px/1 ui-monospace,monospace;letter-spacing:.12em;color:#778395}
+.selected-layer-title strong{font-size:12px;color:#e0e5ec}
+.selected-layer>.selected-group{padding:0 8px}
+.selected-layer>.selected-group:first-of-type{padding-top:7px}
+.context-common{border-left:3px solid #68758a}
+.context-character{border-left:3px solid #596d87}

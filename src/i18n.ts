@@ -7,6 +7,7 @@ const messages = {
   addSubject: { ja: '人物追加', en: 'Add subject' }, promptActions: { ja: 'Prompt Actions', en: 'Prompt Actions' },
   copyPositive: { ja: 'Positiveをコピー', en: 'Copy positive' }, copyNegative: { ja: 'Negativeをコピー', en: 'Copy negative' }, copied: { ja: 'コピー済み', en: 'Copied' },
   selectedTags: { ja: '選択済みタグ', en: 'Selected tags' }, commonSettings: { ja: '共通設定', en: 'Common settings' },
+  promptContext: { ja: 'Prompt Context', en: 'Prompt Context' },
   quality: { ja: '品質', en: 'Quality' }, style: { ja: 'スタイル', en: 'Style' }, unselected: { ja: '未選択', en: 'Not selected' },
 } as const
 
