@@ -564,7 +564,7 @@ body{background:#0b0d11}
 .prompt-actions button:hover,.output-head button:hover,.settings-dictionary-actions button:hover,.dictionary-add:hover,.settings-popover button:hover{border-color:#566275;background:#252c35;color:#fff}
 
 /* v21.3: Prompt Context hierarchy */
-.selected-layer{margin-top:8px;padding:0 0 9px;border:1px solid #29313b;border-radius:3px;background:#11151a;overflow:hidden}
+.selected-layer{margin-top:8px;padding:0;border:1px solid #29313b;border-radius:3px;background:#11151a;overflow:hidden}
 .selected-layer-title{display:grid;gap:2px;padding:9px 10px;border:0;border-bottom:1px solid #2d3540;background:#181d24}
 .selected-layer-title small{font:9px/1 ui-monospace,monospace;letter-spacing:.12em;color:#778395}
 .selected-layer-title strong{font-size:12px;color:#e0e5ec}
