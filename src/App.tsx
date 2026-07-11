@@ -144,6 +144,7 @@ export default function App() {
   const [propVertical, setPropVertical] = useState('')
   const [propDepth, setPropDepth] = useState('background')
   const store = usePromptStore()
+  const [viewContextId, setViewContextId] = useState<string>(() => store.activeLayer === 'scene' ? 'overview' : store.activeBlockId)
   const activeSubject = store.blocks.find(b => b.id === store.activeBlockId)!
   const active = store.activeLayer === 'scene' ? { id: 'scene', name: 'Scene', tags: store.sceneTags } : { ...activeSubject, tags: [...store.sceneTags, ...activeSubject.tags] }
 
@@ -184,27 +185,27 @@ export default function App() {
       sceneGroup('style', 'quality', t('style', locale), 'スタイル'),
       ...['lighting','camera','background','effects'].map(category => sceneGroup(category, category, getCategoryLabel(category, locale))),
     ] }
-    if (store.activeLayer === 'subject') {
-      const selected = store.blocks.find(block => block.id === store.activeBlockId) ?? store.blocks[0]
-      return [subjectSection(selected)]
-    }
-    return [
-      commonSection,
-      ...store.blocks.map(subjectSection),
-    ]
-  }, [locale, store.activeBlockId, store.activeLayer, store.blocks, store.sceneTags])
+    if (viewContextId === 'overview') return [commonSection, ...store.blocks.map(subjectSection)]
+    const selected = store.blocks.find(block => block.id === viewContextId) ?? store.blocks[0]
+    return selected ? [commonSection, subjectSection(selected)] : [commonSection]
+  }, [locale, store.blocks, store.sceneTags, viewContextId])
   async function copyPrompt() {
     const success = await copyText(prompt)
     if (!success) { alert('コピーできませんでした。テキストを選択して手動でコピーしてください。'); return }
     setCopied(true)
     setTimeout(() => setCopied(false), 1400)
   }
-  function chooseCategory(c:string){
-    if (isSceneCategory(c)) store.setActiveLayer('scene')
-    else if (store.activeLayer === 'scene' && store.blocks[0]) store.setActiveBlock(store.blocks[0].id)
+  function chooseCategory(c:string, targetId?:string){
+    if (targetId === 'scene' || (!targetId && isSceneCategory(c))) store.setActiveLayer('scene')
+    else {
+      const blockId = targetId ?? (viewContextId === 'overview' ? store.blocks[0]?.id : viewContextId)
+      if (blockId) {
+        store.setActiveBlock(blockId)
+        if (!targetId && viewContextId === 'overview') setViewContextId(blockId)
+      }
+    }
     setCategory(c); setSubcategory('すべて'); setQuery(''); setFavoritesOnly(false)
   }
-  function isContextInteractive(targetId:string){ return store.activeLayer === 'scene' || targetId === store.activeBlockId }
   function changeContentLevel(level: ContentRating){
     if (level === 'adult' && store.contentLevel !== 'adult') {
       const accepted = confirm('成人向けタグを表示します。成人キャラクター同士の表現にのみ使用し、未成年を示すタグとは併用できません。表示しますか？')
@@ -366,7 +367,7 @@ export default function App() {
       </section>
 
       <aside className="preview panel">
-        <div className="block-tabs"><button className={store.activeLayer==='scene'?'active':''} onClick={()=>store.setActiveLayer('scene')}>{t('overview',locale)}</button>{store.blocks.map(b=><button key={b.id} className={store.activeLayer==='subject'&&b.id===store.activeBlockId?'active':''} onClick={()=>store.setActiveBlock(b.id)}>{getCategoryLabel('character',locale)} {b.subjectNumber??1}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={store.addBlock}><Plus size={16}/>{t('addSubject',locale)}</button></div>
+        <div className="block-tabs"><button className={viewContextId==='overview'?'active':''} onClick={()=>setViewContextId('overview')}>{t('overview',locale)}</button>{store.blocks.map(b=><button key={b.id} className={viewContextId===b.id?'active':''} onClick={()=>setViewContextId(b.id)}>{getCategoryLabel('character',locale)} {b.subjectNumber??1}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();if(viewContextId===b.id)setViewContextId('overview');store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={store.addBlock}><Plus size={16}/>{t('addSubject',locale)}</button></div>
         <section className="prompt-actions"><strong>Prompt Actions</strong><button onClick={copyPrompt}><Copy size={16}/>{copied?'コピー済み':'Positiveをコピー'}</button><button onClick={async()=>{const ok=await copyText(store.negative);if(ok){setCopied(true);setTimeout(()=>setCopied(false),1400)}}}><Copy size={16}/>{copied?'コピー済み':'Negativeをコピー'}</button></section>
         <section className={`preview-section ${selectedCollapsed?'collapsed':''}`}>
           <button className="preview-section-toggle" onClick={()=>setSelectedCollapsed(v=>!v)} aria-expanded={!selectedCollapsed}>
@@ -374,8 +375,8 @@ export default function App() {
           </button>
           {!selectedCollapsed&&<div className="preview-section-content">
             <div className="selected-outline">
-              {selectedSections.map(section=><section className={`selected-layer context-${section.kind.toLowerCase()} ${isContextInteractive(section.targetId)?'interactive':'inactive'}`} key={section.id}><button className="selected-layer-title" disabled={!isContextInteractive(section.targetId)} onClick={()=>section.targetId==='scene'?store.setActiveLayer('scene'):store.setActiveBlock(section.targetId)}><strong>{section.name}</strong></button>{store.activeLayer==='subject'&&section.targetId===store.activeBlockId&&<label className="context-position">Position<select value={activeSubject.position??'center'} onChange={event=>store.setSubjectPosition(activeSubject.id,event.target.value as 'left'|'center'|'right')}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>}{section.groups.map(entry=><section className="selected-group" key={entry.key}>
-                <div className="selected-group-head"><button disabled={!isContextInteractive(section.targetId)} onClick={()=>{if(section.targetId!=='scene')store.setActiveBlock(section.targetId);chooseCategory(entry.category);if(entry.subcategory)setSubcategory(entry.subcategory)}}><strong>{entry.label} <small>({entry.items.length})</small></strong></button></div>
+              {selectedSections.map(section=><section className={`selected-layer context-${section.kind.toLowerCase()} interactive`} key={section.id}><button className="selected-layer-title" onClick={()=>section.targetId==='scene'?store.setActiveLayer('scene'):store.setActiveBlock(section.targetId)}><strong>{section.name}</strong></button>{viewContextId!=='overview'&&section.targetId===viewContextId&&<label className="context-position">Position<select value={store.blocks.find(block=>block.id===section.targetId)?.position??'center'} onChange={event=>store.setSubjectPosition(section.targetId,event.target.value as 'left'|'center'|'right')}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>}{section.groups.map(entry=><section className="selected-group" key={entry.key}>
+                <div className="selected-group-head"><button onClick={()=>{chooseCategory(entry.category,section.targetId);if(entry.subcategory)setSubcategory(entry.subcategory)}}><strong>{entry.label} <small>({entry.items.length})</small></strong></button></div>
                 <div className="selected-chips">{entry.items.length===0?<small className="selected-empty">{t('unselected',locale)}</small>:entry.items.sort((a,b)=>tagSort(a.tag,b.tag)).map(({tag,layerId})=><div className={`selected-chip category-${tag.category}`} key={`${layerId}-${tag.id}`} title={`${tag.prompt}${tag.weight!==1?` / 重み ${tag.weight.toFixed(1)}`:''}`}>
                   <button className="chip-label" onClick={()=>{const source=visibleDictionaryTags.find(t=>t.id===tag.id);if(source)setInspectedTag(source)}}>{getTagLabel(tag,locale)}</button>
                   {tag.weight!==1&&<span className="chip-weight">{tag.weight.toFixed(1)}</span>}

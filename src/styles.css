@@ -623,17 +623,17 @@ body{background:#0b0d11}
 .selected-layer.inactive button:disabled{opacity:.68}
 
 /* v21.9: unified Prompt Context groups */
-.selected-layer>.selected-group{margin:0;padding:0;background:transparent;border-radius:0}
+.selected-layer>.selected-group{display:grid;gap:6px;margin:0;padding:0 8px 8px;border:0;background:transparent;border-radius:0}
 .selected-layer.interactive>.selected-group{cursor:pointer}
 .selected-layer.interactive>.selected-group:hover{background:#181d24;box-shadow:inset 0 0 0 1px #3d4755}
 .selected-group-head{margin:0}
-.selected-group-head>button{min-height:25px;padding:3px 4px;border:0!important;border-radius:0;background:transparent!important}
+.selected-group-head>button{min-height:25px;padding:2px 0;border:0!important;border-radius:0;background:transparent!important}
 .selected-layer.interactive .selected-group-head>button:hover{background:transparent!important;box-shadow:none}
-.selected-outline .selected-chips{gap:6px;padding:0 4px 2px}
+.selected-outline .selected-chips{gap:6px;padding:0}
 .selected-layer.inactive>.selected-group{cursor:default}
 .selected-layer.inactive>.selected-group:hover{background:transparent;box-shadow:none}
 
 /* v21.10: interaction-aware tabs and tighter Context groups */
-.selected-group-head>button{min-height:23px;padding:2px 3px}
-.selected-outline .selected-chips{padding:0 3px 1px}
+.selected-group-head>button{min-height:23px;padding:2px 0}
+.selected-outline .selected-chips{padding:0}
 .tag-card:hover .tag-main small{display:none}
