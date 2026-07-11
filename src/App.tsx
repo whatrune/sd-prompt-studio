@@ -199,7 +199,11 @@ export default function App() {
     setCopied(true)
     setTimeout(() => setCopied(false), 1400)
   }
-  function chooseCategory(c:string){ store.setActiveLayer(isSceneCategory(c) ? 'scene' : 'subject'); setCategory(c); setSubcategory('すべて'); setQuery(''); setFavoritesOnly(false) }
+  function chooseCategory(c:string){
+    if (isSceneCategory(c)) store.setActiveLayer('scene')
+    else if (store.activeLayer === 'scene' && store.blocks[0]) store.setActiveBlock(store.blocks[0].id)
+    setCategory(c); setSubcategory('すべて'); setQuery(''); setFavoritesOnly(false)
+  }
   function isContextInteractive(targetId:string){ return store.activeLayer === 'scene' || targetId === store.activeBlockId }
   function changeContentLevel(level: ContentRating){
     if (level === 'adult' && store.contentLevel !== 'adult') {
@@ -362,7 +366,7 @@ export default function App() {
       </section>
 
       <aside className="preview panel">
-        <div className="block-tabs"><button className={store.activeLayer==='scene'?'active':''} disabled={store.activeLayer!=='scene'} onClick={()=>store.setActiveLayer('scene')}>{t('overview',locale)}</button>{store.blocks.map(b=><button key={b.id} className={store.activeLayer==='subject'&&b.id===store.activeBlockId?'active':''} disabled={store.activeLayer==='subject'&&b.id!==store.activeBlockId} onClick={()=>store.setActiveBlock(b.id)}>{getCategoryLabel('character',locale)} {b.subjectNumber??1}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={store.addBlock}><Plus size={16}/>{t('addSubject',locale)}</button></div>
+        <div className="block-tabs"><button className={store.activeLayer==='scene'?'active':''} onClick={()=>store.setActiveLayer('scene')}>{t('overview',locale)}</button>{store.blocks.map(b=><button key={b.id} className={store.activeLayer==='subject'&&b.id===store.activeBlockId?'active':''} onClick={()=>store.setActiveBlock(b.id)}>{getCategoryLabel('character',locale)} {b.subjectNumber??1}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={store.addBlock}><Plus size={16}/>{t('addSubject',locale)}</button></div>
         <section className="prompt-actions"><strong>Prompt Actions</strong><button onClick={copyPrompt}><Copy size={16}/>{copied?'コピー済み':'Positiveをコピー'}</button><button onClick={async()=>{const ok=await copyText(store.negative);if(ok){setCopied(true);setTimeout(()=>setCopied(false),1400)}}}><Copy size={16}/>{copied?'コピー済み':'Negativeをコピー'}</button></section>
         <section className={`preview-section ${selectedCollapsed?'collapsed':''}`}>
           <button className="preview-section-toggle" onClick={()=>setSelectedCollapsed(v=>!v)} aria-expanded={!selectedCollapsed}>
