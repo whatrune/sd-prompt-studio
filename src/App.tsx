@@ -186,7 +186,7 @@ export default function App() {
     ] }
     if (store.activeLayer === 'subject') {
       const selected = store.blocks.find(block => block.id === store.activeBlockId) ?? store.blocks[0]
-      return [commonSection, subjectSection(selected)]
+      return [subjectSection(selected)]
     }
     return [
       commonSection,
