@@ -580,3 +580,15 @@ body{background:#0b0d11}
 .selected-outline .selected-chip .chip-weight{color:#8d97a6}
 .selected-outline .selected-chip .chip-remove{border-left-color:#343b46;background:#14181d;color:#7f8998}
 .selected-outline .selected-chip .chip-remove:hover{background:#3a2026;color:#f1b6bf}
+
+/* v21.5: Explorer spacing and action alignment */
+.selected-layer-title{display:flex;align-items:center;min-height:36px;padding:9px 11px;cursor:pointer}
+.selected-layer-title:hover{border-color:#4d5969;background:#20262e}
+.selected-layer-title strong{line-height:1.35}
+.selected-group-head>button{min-height:34px;padding:8px 10px}
+.selected-outline .selected-chips{gap:8px;padding:3px 2px 7px}
+.selected-outline .selected-chip{min-height:30px}
+.selected-outline .selected-chip .chip-label{padding:6px 9px;line-height:1.35}
+.selected-outline .selected-chip .chip-remove{padding:5px 7px}
+.prompt-actions button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:7px 10px!important;line-height:1}
+.prompt-actions button svg{flex:0 0 auto}
