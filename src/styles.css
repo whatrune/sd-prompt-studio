@@ -627,3 +627,14 @@ body{background:#0b0d11}
 .selected-layer.inactive .selected-layer-title:hover,
 .selected-layer.inactive .selected-group-head>button:hover{border-color:transparent!important;background:inherit!important;box-shadow:none}
 .selected-layer.inactive button:disabled{opacity:.68}
+
+/* v21.9: unified Prompt Context groups */
+.selected-layer>.selected-group{margin:2px 5px;padding:3px 4px 4px;border:1px solid transparent;border-radius:3px;background:transparent;transition:background-color .12s,border-color .12s}
+.selected-layer.interactive>.selected-group{cursor:pointer}
+.selected-layer.interactive>.selected-group:hover{border-color:#3d4755;background:#181d24}
+.selected-group-head{margin:0}
+.selected-group-head>button{min-height:25px;padding:3px 4px;border:0!important;border-radius:0;background:transparent!important}
+.selected-layer.interactive .selected-group-head>button:hover{background:transparent!important;box-shadow:none}
+.selected-outline .selected-chips{gap:6px;padding:0 4px 2px}
+.selected-layer.inactive>.selected-group{cursor:default}
+.selected-layer.inactive>.selected-group:hover{border-color:transparent;background:transparent}
