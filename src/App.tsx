@@ -8,6 +8,7 @@ import { getConflictMap } from './engine/smartTagEngine'
 import './styles.css'
 import { createId } from './id'
 import { buildPromptWithStrategy, tagSort } from './prompt'
+import { DEFAULT_LOCALE, getCategoryLabel, getTagLabel, t } from './i18n'
 
 
 
@@ -107,6 +108,7 @@ function relatedTags(selected: SelectedTag[]) {
 }
 
 export default function App() {
+  const locale = DEFAULT_LOCALE
   const [category, setCategory] = useState('quality')
   const [subcategory, setSubcategory] = useState('すべて')
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -147,7 +149,7 @@ export default function App() {
 
   const subcategories = useMemo(() => subcategoryOrder[category] ?? [], [category])
   const dictionaryTags = useMemo(() => [...tags, ...adultTags, ...store.userTags], [store.userTags])
-  const visibleDictionaryTags = useMemo(() => dictionaryTags.filter(t => RATING_RANK[t.rating ?? 'general'] <= RATING_RANK[store.contentLevel]), [dictionaryTags, store.contentLevel])
+  const visibleDictionaryTags = useMemo(() => dictionaryTags.filter(tag => RATING_RANK[tag.rating ?? 'general'] <= RATING_RANK[store.contentLevel]).map(tag => ({ ...tag, label: getTagLabel(tag, locale) })), [dictionaryTags, locale, store.contentLevel])
   const conflictMap = useMemo(() => getConflictMap(visibleDictionaryTags, active.tags, dictionaryTags), [visibleDictionaryTags, active.tags, dictionaryTags])
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -173,14 +175,7 @@ export default function App() {
       name: block.name,
       targetId: block.id,
       groups: [
-        group('people', 'people', categoryLabels.people, block.tags, block.id),
-        group('expression', 'expression', categoryLabels.expression, block.tags, block.id),
-        group('eyes', 'eyes', categoryLabels.eyes, block.tags, block.id),
-        group('hair', 'hair', categoryLabels.hair, block.tags, block.id),
-        group('body', 'body', categoryLabels.body, block.tags, block.id),
-        group('clothes', 'clothes', categoryLabels.clothes, block.tags, block.id),
-        group('accessories', 'accessories', categoryLabels.accessories, block.tags, block.id),
-        group('pose', 'pose', categoryLabels.pose, block.tags, block.id),
+        ...['people','expression','eyes','hair','body','clothes','accessories','pose'].map(category => group(category, category, getCategoryLabel(category, locale), block.tags, block.id)),
       ],
     })
     if (store.activeLayer === 'subject') {
@@ -188,17 +183,14 @@ export default function App() {
       return [subjectSection(selected)]
     }
     return [
-      { id: 'common', name: '共通設定', targetId: 'scene', groups: [
-        sceneGroup('quality', 'quality', '品質', undefined, 'スタイル'),
-        sceneGroup('style', 'quality', 'スタイル', 'スタイル'),
-        sceneGroup('lighting', 'lighting', categoryLabels.lighting),
-        sceneGroup('camera', 'camera', categoryLabels.camera),
-        sceneGroup('background', 'background', categoryLabels.background),
-        sceneGroup('effects', 'effects', categoryLabels.effects),
+      { id: 'common', name: t('commonSettings', locale), targetId: 'scene', groups: [
+        sceneGroup('quality', 'quality', t('quality', locale), undefined, 'スタイル'),
+        sceneGroup('style', 'quality', t('style', locale), 'スタイル'),
+        ...['lighting','camera','background','effects'].map(category => sceneGroup(category, category, getCategoryLabel(category, locale))),
       ] },
       ...store.blocks.map(subjectSection),
     ]
-  }, [store.activeBlockId, store.activeLayer, store.blocks, store.sceneTags])
+  }, [locale, store.activeBlockId, store.activeLayer, store.blocks, store.sceneTags])
   async function copyPrompt() {
     const success = await copyText(prompt)
     if (!success) { alert('コピーできませんでした。テキストを選択して手動でコピーしてください。'); return }
@@ -292,7 +284,7 @@ export default function App() {
         <button className="ghost" onClick={()=>setAnalyzerOpen(true)}><BookOpen size={17}/>Prompt解析</button>
         <div className="settings-wrap">
           <button className={`ghost settings-button ${settingsOpen?'active':''}`} onClick={()=>setSettingsOpen(v=>!v)} aria-expanded={settingsOpen}>
-            <Settings2 size={17}/>設定
+            <Settings2 size={17}/>{t('settings',locale)}
             {store.contentLevel!=='general'&&<span className={`rating-dot ${store.contentLevel}`} title={store.contentLevel==='adult'?'成人向け表示中':'軽度なセンシティブ表示中'}/>} 
           </button>
           {settingsOpen&&<div className="settings-popover">
@@ -320,19 +312,19 @@ export default function App() {
                 <label className="settings-toggle compact"><input type="checkbox" checked={saveCustom} onChange={e=>setSaveCustom(e.target.checked)}/><span><b>ユーザー辞書へ保存</b></span></label>
                 <button className="dictionary-add" onClick={addCustom}><Plus size={14}/>現在のカテゴリへ追加</button>
               </div>
-              {store.userTags.length>0&&<div className="settings-user-list">{store.userTags.map(tag=><div key={tag.id}><span><b>{tag.label}</b><code>{tag.prompt}</code></span><button title="削除" onClick={()=>store.removeUserTag(tag.id)}><X size={13}/></button></div>)}</div>}
+              {store.userTags.length>0&&<div className="settings-user-list">{store.userTags.map(tag=><div key={tag.id}><span><b>{getTagLabel(tag,locale)}</b><code>{tag.prompt}</code></span><button title="削除" onClick={()=>store.removeUserTag(tag.id)}><X size={13}/></button></div>)}</div>}
               <p>追加・削除・Import・Exportをここで管理します。Role metadataは将来の表示拡張用です。</p>
             </section>
           </div>}
         </div>
-        <button className="ghost danger" onClick={store.clearAll}><Trash2 size={17}/>すべてクリア</button>
+        <button className="ghost danger" onClick={store.clearAll}><Trash2 size={17}/>{t('clearAll',locale)}</button>
       </div>
     </header>
     <section className="workspace">
       <aside className="sidebar panel">
         <div className="search-box"><Search size={17}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="日本語・英語で検索" /></div>
         <button className={`favorite-filter ${favoritesOnly?'active':''}`} onClick={()=>{setFavoritesOnly(!favoritesOnly);setQuery('')}}><Star size={16}/>お気に入り</button>
-        <nav>{categoryOrder.map(c=><button key={c} className={category===c&&!query&&!favoritesOnly?'active':''} onClick={()=>chooseCategory(c)}>{categoryLabels[c]}<small>{visibleDictionaryTags.filter(t=>t.category===c).length}</small></button>)}</nav>
+        <nav>{categoryOrder.map(c=><button key={c} className={category===c&&!query&&!favoritesOnly?'active':''} onClick={()=>chooseCategory(c)}>{getCategoryLabel(c,locale)}<small>{visibleDictionaryTags.filter(t=>t.category===c).length}</small></button>)}</nav>
         <div className="preset-box"><label>モデル</label><select value={store.modelPreset} onChange={e=>store.setModelPreset(e.target.value as ModelPreset)}><option value="illustrious">Illustrious / NoobAI</option><option value="pony">Pony</option><option value="sdxl">SDXL汎用</option><option value="custom">カスタム</option></select><button className="preset" onClick={()=>store.applyQualityPreset()}><WandSparkles size={17}/>品質を置き換え</button></div>
       </aside>
 
@@ -365,19 +357,19 @@ export default function App() {
       </section>
 
       <aside className="preview panel">
-        <div className="block-tabs"><button className={store.activeLayer==='scene'?'active':''} onClick={()=>store.setActiveLayer('scene')}>全体</button>{store.blocks.map(b=><button key={b.id} className={store.activeLayer==='subject'&&b.id===store.activeBlockId?'active':''} onClick={()=>store.setActiveBlock(b.id)}>{b.name}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={store.addBlock}><Plus size={16}/>人物追加</button></div>
+        <div className="block-tabs"><button className={store.activeLayer==='scene'?'active':''} onClick={()=>store.setActiveLayer('scene')}>{t('overview',locale)}</button>{store.blocks.map(b=><button key={b.id} className={store.activeLayer==='subject'&&b.id===store.activeBlockId?'active':''} onClick={()=>store.setActiveBlock(b.id)}>{b.name}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={store.addBlock}><Plus size={16}/>{t('addSubject',locale)}</button></div>
         <section className="prompt-actions"><strong>Prompt Actions</strong><button onClick={copyPrompt}><Copy size={16}/>{copied?'コピー済み':'Positiveをコピー'}</button><button onClick={async()=>{const ok=await copyText(store.negative);if(ok){setCopied(true);setTimeout(()=>setCopied(false),1400)}}}><Copy size={16}/>{copied?'コピー済み':'Negativeをコピー'}</button></section>
         {store.activeLayer==='subject'&&activeSubject&&<label className="subject-position">Character position<select value={activeSubject.position??'center'} onChange={event=>store.setSubjectPosition(activeSubject.id,event.target.value as 'left'|'center'|'right')}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>}
         <section className={`preview-section ${selectedCollapsed?'collapsed':''}`}>
           <button className="preview-section-toggle" onClick={()=>setSelectedCollapsed(v=>!v)} aria-expanded={!selectedCollapsed}>
-            <span>選択済みタグ</span>{selectedCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>} 
+            <span>{t('selectedTags',locale)}</span>{selectedCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}
           </button>
           {!selectedCollapsed&&<div className="preview-section-content">
             <div className="selected-outline">
               {selectedSections.map(section=><section className="selected-layer" key={section.id}><button className="selected-layer-title" onClick={()=>section.targetId==='scene'?store.setActiveLayer('scene'):store.setActiveBlock(section.targetId)}>{section.name}</button>{section.groups.map(entry=><section className="selected-group" key={entry.key}>
                 <div className="selected-group-head"><button onClick={()=>{if(section.targetId!=='scene')store.setActiveBlock(section.targetId);chooseCategory(entry.category);if(entry.subcategory)setSubcategory(entry.subcategory)}}><strong>{entry.label}</strong><span>{entry.items.length}</span></button></div>
-                <div className="selected-chips">{entry.items.length===0?<small className="selected-empty">未選択</small>:entry.items.sort((a,b)=>tagSort(a.tag,b.tag)).map(({tag,layerId})=><div className={`selected-chip category-${tag.category}`} key={`${layerId}-${tag.id}`} title={`${tag.prompt}${tag.weight!==1?` / 重み ${tag.weight.toFixed(1)}`:''}`}>
-                  <button className="chip-label" onClick={()=>{const source=visibleDictionaryTags.find(t=>t.id===tag.id);if(source)setInspectedTag(source)}}>{tag.label}</button>
+                <div className="selected-chips">{entry.items.length===0?<small className="selected-empty">{t('unselected',locale)}</small>:entry.items.sort((a,b)=>tagSort(a.tag,b.tag)).map(({tag,layerId})=><div className={`selected-chip category-${tag.category}`} key={`${layerId}-${tag.id}`} title={`${tag.prompt}${tag.weight!==1?` / 重み ${tag.weight.toFixed(1)}`:''}`}>
+                  <button className="chip-label" onClick={()=>{const source=visibleDictionaryTags.find(t=>t.id===tag.id);if(source)setInspectedTag(source)}}>{getTagLabel(tag,locale)}</button>
                   {tag.weight!==1&&<span className="chip-weight">{tag.weight.toFixed(1)}</span>}
                   <button className="chip-remove" aria-label={`${tag.label}を削除`} onClick={()=>store.removeTagFromLayer(layerId, tag.id)}><X size={12}/></button>
                 </div>)}</div>
