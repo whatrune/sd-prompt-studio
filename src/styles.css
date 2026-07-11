@@ -546,3 +546,19 @@ body{background:#0b0d11}
 .expansion-entities section{border-radius:3px;background:#111419}
 .preview-section.output-box textarea,textarea{border-radius:3px;background:#0d1014;font-family:ui-monospace,monospace;font-size:11px}
 .tag-card:hover .tag-main small{display:block;position:absolute;left:6px;right:6px;bottom:5px;padding:5px 6px;border:1px solid #343c48;background:#0d1014;color:#929cad;font-size:9px;z-index:4}
+
+/* v21.2: Prompt Context navigation and stable controls */
+.selected-outline{padding:4px 10px 10px}
+.selected-layer{padding:7px 0}
+.selected-layer-title{width:100%;padding:6px 7px;border:1px solid transparent;background:transparent;color:#aab3c1;text-align:left;cursor:pointer;font-size:11px;text-transform:none}
+.selected-layer-title:hover{border-color:#333b48;background:#171b21;color:#eef1f5}
+.selected-group-head{margin:2px 0}
+.selected-group-head>button{width:100%;display:flex;align-items:center;justify-content:space-between;padding:7px 8px;border:1px solid #2b313b!important;border-radius:3px;background:#15191f!important;color:#d6dce5;cursor:pointer;text-align:left}
+.selected-group-head>button:hover{border-color:#566274!important;background:#20262e!important}
+.selected-group-head>button span{font:10px ui-monospace,monospace;color:#7f8998}
+.selected-empty{display:block;padding:5px 8px;color:#687281;font-size:10px}
+.tag-card .star,.tag-card .info-tag{position:absolute;right:5px;width:22px;height:22px;margin:0;padding:0;display:grid;place-items:center;transform:none}
+.tag-card .star{top:5px}.tag-card .info-tag{top:31px;left:auto;bottom:auto}
+.tag-card:hover .star,.tag-card:hover .info-tag{right:5px;transform:none}
+.prompt-actions button,.output-head button,.settings-dictionary-actions button,.dictionary-add,.settings-popover button{border:1px solid #39424f;background:#1b2027;color:#d8dde5;box-shadow:none}
+.prompt-actions button:hover,.output-head button:hover,.settings-dictionary-actions button:hover,.dictionary-add:hover,.settings-popover button:hover{border-color:#566275;background:#252c35;color:#fff}

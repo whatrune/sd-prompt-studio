@@ -165,7 +165,17 @@ export default function App() {
 
   const warnings = useMemo(() => conflicts(active.tags), [active.tags])
   const related = useMemo(() => relatedTags(active.tags).slice(0, 8), [active.tags])
-  const selectedSections = useMemo(() => [...store.blocks.map(block => ({ ...block, layer: 'subject' as const })), { id: 'scene', name: 'Scene', tags: store.sceneTags, layer: 'scene' as const }], [store.blocks, store.sceneTags])
+  const selectedSections = useMemo(() => {
+    const group = (category: string, items: SelectedTag[], layerId: string) => ({ category, items: items.filter(tag => tag.category === category).map(tag => ({ tag, layerId })) })
+    const sceneGroup = (category: string) => group(category, store.sceneTags, 'scene')
+    return [
+      { id: 'common', name: '共通設定', groups: [sceneGroup('quality'), sceneGroup('lighting'), sceneGroup('effects')], targetId: 'scene' },
+      ...store.blocks.map(block => ({ id: block.id, name: block.name, groups: [...new Set(block.tags.filter(tag => tag.category !== 'people').map(tag => tag.category))].map(category => group(category, block.tags, block.id)), targetId: block.id })),
+      { id: 'interaction', name: 'Interaction', groups: [group('people', store.blocks.flatMap(block => block.tags), '')].map(entry => ({ ...entry, items: store.blocks.flatMap(block => block.tags.filter(tag => tag.category === entry.category).map(tag => ({ tag, layerId: block.id }))) })), targetId: store.blocks[0].id },
+      { id: 'scene-context', name: 'Scene', groups: [sceneGroup('background'), sceneGroup('scene_props')], targetId: 'scene' },
+      { id: 'camera-context', name: 'Camera', groups: [sceneGroup('camera')], targetId: 'scene' },
+    ]
+  }, [store.blocks, store.sceneTags])
   async function copyPrompt() {
     const success = await copyText(prompt)
     if (!success) { alert('コピーできませんでした。テキストを選択して手動でコピーしてください。'); return }
@@ -341,12 +351,12 @@ export default function App() {
           </button>
           {!selectedCollapsed&&<div className="preview-section-content">
             <div className="selected-outline">
-              {selectedSections.map(section=><section className="selected-layer" key={section.id}><button className="selected-layer-title" onClick={()=>section.layer==='scene'?store.setActiveLayer('scene'):store.setActiveBlock(section.id)}>{section.name}</button>{[...new Map([...section.tags].sort(tagSort).map(tag=>[tag.category,section.tags.filter(item=>item.category===tag.category).sort(tagSort)])).entries()].map(([group,items])=><section className="selected-group" key={group}>
-                <div className="selected-group-head"><button onClick={()=>{section.layer==='scene'?store.setActiveLayer('scene'):store.setActiveBlock(section.id);chooseCategory(group)}}><strong>{categoryLabels[group]}</strong></button></div>
-                <div className="selected-chips">{items.map(tag=><div className={`selected-chip category-${tag.category}`} key={tag.id} title={`${tag.prompt}${tag.weight!==1?` / 重み ${tag.weight.toFixed(1)}`:''}`}>
+              {selectedSections.map(section=><section className="selected-layer" key={section.id}><button className="selected-layer-title" onClick={()=>section.targetId==='scene'?store.setActiveLayer('scene'):store.setActiveBlock(section.targetId)}>{section.name}</button>{section.groups.filter(entry=>entry.items.length>0||entry.category==='quality').map(entry=><section className="selected-group" key={entry.category}>
+                <div className="selected-group-head"><button onClick={()=>chooseCategory(entry.category)}><strong>{categoryLabels[entry.category]}</strong><span>{entry.items.length}</span></button></div>
+                <div className="selected-chips">{entry.items.length===0?<small className="selected-empty">未選択</small>:entry.items.sort((a,b)=>tagSort(a.tag,b.tag)).map(({tag,layerId})=><div className={`selected-chip category-${tag.category}`} key={`${layerId}-${tag.id}`} title={`${tag.prompt}${tag.weight!==1?` / 重み ${tag.weight.toFixed(1)}`:''}`}>
                   <button className="chip-label" onClick={()=>{const source=visibleDictionaryTags.find(t=>t.id===tag.id);if(source)setInspectedTag(source)}}>{tag.label}</button>
                   {tag.weight!==1&&<span className="chip-weight">{tag.weight.toFixed(1)}</span>}
-                  <button className="chip-remove" aria-label={`${tag.label}を削除`} onClick={()=>store.removeTagFromLayer(section.id, tag.id)}><X size={12}/></button>
+                  <button className="chip-remove" aria-label={`${tag.label}を削除`} onClick={()=>store.removeTagFromLayer(layerId, tag.id)}><X size={12}/></button>
                 </div>)}</div>
               </section>)}</section>)}
             </div>
