@@ -254,9 +254,9 @@ export default function App() {
 
   return <main className="app-shell">
     <header className="topbar">
-      <div><h1>SD Prompt Studio v21.0 α1</h1><p>{(TAG_COUNT + ADULT_TAG_COUNT + store.userTags.length).toLocaleString()}タグ。辞書・分析・タグ情報を統合したSmart Tag Engine搭載。競合タグを自動判定するPrompt IDE版です。</p></div>
+      <div><h1>SD Prompt Studio <span className="version-mark">v21.0 α1</span></h1><p>Stable Diffusion Prompt IDE · {(TAG_COUNT + ADULT_TAG_COUNT + store.userTags.length).toLocaleString()} tags</p></div>
       <div className="header-actions">
-        <button className="ghost" onClick={()=>setAnalyzerOpen(true)}><Sparkles size={17}/>Prompt解析</button>
+        <button className="ghost" onClick={()=>setAnalyzerOpen(true)}><BookOpen size={17}/>Prompt解析</button>
         <div className="settings-wrap">
           <button className={`ghost settings-button ${settingsOpen?'active':''}`} onClick={()=>setSettingsOpen(v=>!v)} aria-expanded={settingsOpen}>
             <Settings2 size={17}/>設定
@@ -281,7 +281,14 @@ export default function App() {
                 <input ref={importRef} hidden type="file" accept="application/json" onChange={e=>importUserDictionary(e.target.files?.[0])}/>
                 {store.userTags.length>0&&<button className="danger" onClick={()=>confirm('ユーザー辞書を空にしますか？')&&store.clearUserTags()}>辞書を空にする</button>}
               </div>
-              <p>自由入力で保存したタグのバックアップ、復元、全削除を行います。</p>
+              <div className="settings-custom-form">
+                <label>English Tag<input value={customPrompt} onChange={e=>setCustomPrompt(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addCustom()} placeholder="custom prompt tag" /></label>
+                <label>表示名<input value={customLabel} onChange={e=>setCustomLabel(e.target.value)} placeholder="日本語名（任意）" /></label>
+                <label className="settings-toggle compact"><input type="checkbox" checked={saveCustom} onChange={e=>setSaveCustom(e.target.checked)}/><span><b>ユーザー辞書へ保存</b></span></label>
+                <button className="dictionary-add" onClick={addCustom}><Plus size={14}/>現在のカテゴリへ追加</button>
+              </div>
+              {store.userTags.length>0&&<div className="settings-user-list">{store.userTags.map(tag=><div key={tag.id}><span><b>{tag.label}</b><code>{tag.prompt}</code></span><button title="削除" onClick={()=>store.removeUserTag(tag.id)}><X size={13}/></button></div>)}</div>}
+              <p>追加・削除・Import・Exportをここで管理します。Role metadataは将来の表示拡張用です。</p>
             </section>
           </div>}
         </div>
@@ -314,7 +321,6 @@ export default function App() {
         {category==='scene_props'&&<div className="composer-box"><h3>背景小物コンポーザー</h3><p>小物と画面内の位置、奥行きを組み合わせます。</p><div className="composer-grid"><label>小物<select value={propItem} onChange={e=>setPropItem(e.target.value)}><option value="bed">ベッド</option><option value="chair">椅子</option><option value="sofa">ソファ</option><option value="bookshelf">本棚</option><option value="desk">机</option><option value="table">テーブル</option><option value="floor lamp">フロアランプ</option><option value="window">窓</option><option value="potted plant">観葉植物</option><option value="mirror">鏡</option><option value="television">テレビ</option><option value="cabinet">キャビネット</option></select></label><label>左右<select value={propHorizontal} onChange={e=>setPropHorizontal(e.target.value)}><option value="">指定なし</option><option value="left side">左</option><option value="center">中央</option><option value="right side">右</option></select></label><label>上下<select value={propVertical} onChange={e=>setPropVertical(e.target.value)}><option value="">指定なし</option><option value="upper">上</option><option value="middle">中</option><option value="lower">下</option></select></label><label>奥行き<select value={propDepth} onChange={e=>setPropDepth(e.target.value)}><option value="">指定なし</option><option value="foreground">手前</option><option value="midground">中景</option><option value="background">奥</option></select></label></div><div className="composer-preview">{propItem} / {[propVertical,propHorizontal,propDepth].filter(Boolean).join('・')}</div><button onClick={addSceneProp}><Plus size={16}/>配置して追加</button></div>}
           </div>}
         </section>}
-        <div className="custom-add custom-dictionary"><input value={customPrompt} onChange={e=>setCustomPrompt(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addCustom()} placeholder={`${categoryLabels[category]}に自由な英語タグを追加`} /><input value={customLabel} onChange={e=>setCustomLabel(e.target.value)} placeholder="日本語名（任意）"/><label className="save-custom"><input type="checkbox" checked={saveCustom} onChange={e=>setSaveCustom(e.target.checked)}/>ユーザー辞書へ保存</label><button onClick={addCustom}><Plus size={16}/>追加</button></div>
         {related.length>0&&<section className={`related-suggestions ${relatedCollapsed?'collapsed':''}`}>
           <button className="related-suggestions-toggle" onClick={()=>setRelatedCollapsed(v=>!v)} aria-expanded={!relatedCollapsed}>
             <span><Sparkles size={15}/>関連候補 <small>{related.length}</small></span>
@@ -326,7 +332,7 @@ export default function App() {
       </section>
 
       <aside className="preview panel">
-        <div className="block-tabs"><button className={store.activeLayer==='scene'?'active':''} onClick={()=>store.setActiveLayer('scene')}>Scene</button>{store.blocks.map(b=><button key={b.id} className={store.activeLayer==='subject'&&b.id===store.activeBlockId?'active':''} onClick={()=>store.setActiveBlock(b.id)}>{b.name}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={store.addBlock}><Plus size={16}/>人物追加</button></div>
+        <div className="block-tabs">{store.blocks.map(b=><button key={b.id} className={store.activeLayer==='subject'&&b.id===store.activeBlockId?'active':''} onClick={()=>store.setActiveBlock(b.id)}>{b.name}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();store.removeBlock(b.id)}}/>}</button>)}<button className={store.activeLayer==='scene'?'active':''} onClick={()=>store.setActiveLayer('scene')}>Scene</button><button className="add-block" onClick={store.addBlock}><Plus size={16}/>人物追加</button></div>
         <section className="prompt-actions"><strong>Prompt Actions</strong><button onClick={copyPrompt}><Copy size={16}/>{copied?'コピー済み':'Positiveをコピー'}</button><button onClick={async()=>{const ok=await copyText(store.negative);if(ok){setCopied(true);setTimeout(()=>setCopied(false),1400)}}}><Copy size={16}/>{copied?'コピー済み':'Negativeをコピー'}</button></section>
         {store.activeLayer==='subject'&&activeSubject&&<label className="subject-position">Character position<select value={activeSubject.position??'center'} onChange={event=>store.setSubjectPosition(activeSubject.id,event.target.value as 'left'|'center'|'right')}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>}
         <section className={`preview-section ${selectedCollapsed?'collapsed':''}`}>
@@ -347,11 +353,11 @@ export default function App() {
           </div>}
         </section>
         <section className={`preview-section expansion-preview ${expansionCollapsed?'collapsed':''}`}>
-          <button className="preview-section-toggle" onClick={()=>setExpansionCollapsed(value=>!value)} aria-expanded={!expansionCollapsed}><span>Expansion Preview</span>{expansionCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button>
+          <button className="preview-section-toggle" title="Expansion Preview" onClick={()=>setExpansionCollapsed(value=>!value)} aria-expanded={!expansionCollapsed}><span>Generated Prompt Structure</span>{expansionCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button>
           {!expansionCollapsed&&<div className="preview-section-content expansion-entities"><small>{expansion.strategy} / {expansion.scene.subject_count} subject(s)</small>{expansion.characters.map(character=><section key={character.id}><strong>{character.name} · {character.position}</strong><pre>{character.output}</pre></section>)}</div>}
         </section>
         <section className={`preview-section output-box ${promptCollapsed?'collapsed':''}`}>
-          <div className="output-head"><button className="preview-section-toggle inline" onClick={()=>setPromptCollapsed(v=>!v)} aria-expanded={!promptCollapsed}><span>Prompt</span>{promptCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button><button onClick={copyPrompt}><Copy size={16}/>{copied?'コピー済み':'コピー'}</button></div>
+          <div className="output-head"><button className="preview-section-toggle inline" onClick={()=>setPromptCollapsed(v=>!v)} aria-expanded={!promptCollapsed}><span>Final Prompt</span>{promptCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button><button onClick={copyPrompt}><Copy size={16}/>{copied?'コピー済み':'コピー'}</button></div>
           {!promptCollapsed&&<textarea readOnly value={prompt}/>} 
         </section>
         <section className={`preview-section output-box negative ${negativeCollapsed?'collapsed':''}`}>
