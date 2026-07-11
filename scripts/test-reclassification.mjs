@@ -163,6 +163,32 @@ try {
   assert.equal(conflict('glasses', ['hat']), null, 'head and face accessories must be compatible')
   assert.equal(conflict('raised eyebrow', ['thick eyebrows']), null, 'eyebrow shape and state must be compatible')
   assert.equal(conflict('sad eyebrows', ['raised eyebrow'])?.level, 'hard', 'two eyebrow states must conflict')
+  assert.equal(conflict('raised eyebrow', ['thick eyebrows']), null, 'eyebrow state and shape must coexist')
+  assert.equal(conflict('open mouth', ['fang']), null, 'mouth openness and mouth feature must coexist')
+  assert.equal(conflict('fang', ['closed mouth']), null, 'closed mouth and fang feature must coexist')
+  assert.equal(conflict('sharp teeth', ['closed mouth']), null, 'closed mouth and sharp-teeth feature must coexist')
+  assert.equal(conflict('visible teeth', ['closed mouth'])?.level, 'hard', 'closed mouth and visible teeth must conflict')
+  assert.equal(conflict('tongue out', ['closed mouth'])?.level, 'hard', 'closed mouth and tongue out must conflict')
+  assert.equal(conflict('looking at viewer', ['closed eyes'])?.level, 'hard', 'closed eyes and directed gaze must conflict')
+  assert.equal(conflict('star-shaped highlights', ['no eye highlights'])?.level, 'hard', 'highlight shape and no highlights must conflict')
+  assert.equal(conflict('sparkling eyes', ['wet eyes']), null, 'multiple eye effects must coexist')
+  assert.equal(conflict('winged eyeliner', ['monolid']), null, 'eyeliner style and eyelid shape must coexist')
+  assert(getSlotDefinitions().some(slot => slot.id === 'eye_effect' && slot.mode === 'multiple'))
+  assert(getSlotDefinitions().some(slot => slot.id === 'eyelash_shape'))
+  assert(getSlotDefinitions().some(slot => slot.id === 'eyelash_color'))
+  assert(getSlotDefinitions().some(slot => slot.id === 'eyelash_decoration' && slot.mode === 'multiple'))
+
+  const eyesDictionary = JSON.parse(fs.readFileSync(new URL('../data/eyes.json', import.meta.url), 'utf8'))
+  const expressionDictionary = JSON.parse(fs.readFileSync(new URL('../data/expression.json', import.meta.url), 'utf8'))
+  assert.equal(eyesDictionary.length, 291)
+  assert.equal(expressionDictionary.length, 114)
+  assert.equal(expressionDictionary.filter(tag => !tag.deprecated).length, 108, 'canonical expressions must exclude six redirects')
+  for (const id of ['exp-v5-biting-lip','exp-v5-fangs','exp-v5-furrowed-brows','v19-exp-cheek-puff','v19-exp-pouting','exp-v5-blushing']) {
+    assert(resolveCanonicalTag(id, allTags), `${id} must resolve to a canonical expression`)
+    assert.equal(tags.some(tag => tag.id === id), false, `${id} must not be displayed`)
+  }
+  const expressionOrder = ['angry', 'happy', 'smile'].map(prompt => ({ ...findTag(prompt), weight: 1 }))
+  assert.deepEqual([...expressionOrder].sort(tagSort).map(tag => tag.prompt), ['smile', 'happy', 'angry'], 'existing expression Prompt order must remain compatible')
   assert.equal(conflict('waving', ['walking']), null, 'compatible body motions must not share an exclusive slot')
   assert.equal(conflict('running', ['walking'])?.level, 'hard', 'walking and running must conflict')
   assert.equal(conflict('lying', ['standing'])?.level, 'hard', 'standing and lying must conflict')
@@ -392,6 +418,15 @@ try {
   assert.equal(migratedRinDaily.blocks[0].tags[0].id, 'pos-taking-selfie')
   assert.equal(migratedRinDaily.blocks[0].tags[0].weight, 1.3)
   assert.deepEqual(migratedRinDaily.favoriteIds, ['pos-taking-selfie', 'peo-hugging'])
+
+  const migratedFaceCanonical = migratePersistedState({
+    blocks: [{ id: 'face', name: '被写体 1', tags: [{ id: 'exp-v5-biting-lip', prompt: 'biting lip', label: '唇を噛む', category: 'expression', weight: 1.2 }] }],
+    favoriteIds: ['exp-v5-biting-lip', 'v19-exp-cheek-puff'],
+    userTags: [],
+  })
+  assert.equal(migratedFaceCanonical.blocks[0].tags[0].id, 'exp-lip-bite')
+  assert.equal(migratedFaceCanonical.blocks[0].tags[0].weight, 1.2)
+  assert.deepEqual(migratedFaceCanonical.favoriteIds, ['exp-lip-bite', 'v19-exp-puffed-cheeks'])
 
   const characterDictionary = JSON.parse(fs.readFileSync(new URL('../data/character.json', import.meta.url), 'utf8'))
   assert.equal(characterDictionary.length, 103, 'character dictionary count must remain unchanged')
