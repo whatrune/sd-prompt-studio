@@ -45,12 +45,14 @@ function bracket(items: SelectedTag[]) {
   return `[${uniqueTags(items).sort(tagSort).map(t => formatTag(t.prompt, t.weight)).join(', ')}]`
 }
 
-export function buildPrompt(blocks: PromptBlock[]) {
-  const allTags = blocks.flatMap(block => block.tags)
-  const quality = allTags.filter(tag => outputCategory(tag) === 'quality')
-  const people = allTags.filter(tag => outputCategory(tag) === 'people')
-  const cameraBackground = allTags.filter(tag => ['camera', 'background', 'scene_props'].includes(outputCategory(tag)))
-  const lightingEffects = allTags.filter(tag => ['lighting', 'effects'].includes(outputCategory(tag)))
+export function buildPrompt(blocks: PromptBlock[], sceneTags: SelectedTag[] = []) {
+  const subjectTags = blocks.flatMap(block => block.tags)
+  const sceneCategories = new Set(['quality', 'camera', 'background', 'scene_props', 'lighting', 'effects'])
+  const effectiveSceneTags = [...new Map([...sceneTags, ...subjectTags.filter(tag => sceneCategories.has(outputCategory(tag)))].map(tag => [tag.id, tag])).values()]
+  const quality = effectiveSceneTags.filter(tag => outputCategory(tag) === 'quality')
+  const people = subjectTags.filter(tag => outputCategory(tag) === 'people')
+  const cameraBackground = effectiveSceneTags.filter(tag => ['camera', 'background', 'scene_props'].includes(outputCategory(tag)))
+  const lightingEffects = effectiveSceneTags.filter(tag => ['lighting', 'effects'].includes(outputCategory(tag)))
   const subjects = blocks.flatMap(block => {
     const body = block.tags.filter(tag => bodyCategoryOrder.includes(outputCategory(tag)))
     const pose = block.tags.filter(tag => outputCategory(tag) === 'pose')

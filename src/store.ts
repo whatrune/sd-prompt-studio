@@ -7,13 +7,18 @@ import { createId } from './id'
 
 export type SelectedTag = { id: string; prompt: string; label: string; category: string; outputCategory?: string; subcategory?: string; sortSubcategory?: string; promptGroup?: string; promptOrder?: number; weight: number; rating?: ContentRating }
 export type PromptBlock = { id: string; name: string; tags: SelectedTag[] }
+export type EditorLayer = 'subject' | 'scene'
+export const SCENE_CATEGORIES = new Set(['quality', 'camera', 'background', 'scene_props', 'lighting', 'effects'])
+export const isSceneCategory = (category: string) => SCENE_CATEGORIES.has(category)
 export type ModelPreset = 'illustrious' | 'pony' | 'sdxl' | 'custom'
 
 export type UserPromptTag = PromptTag & { source: 'user' }
 
 type State = {
   blocks: PromptBlock[]
+  sceneTags: SelectedTag[]
   activeBlockId: string
+  activeLayer: EditorLayer
   negative: string
   favoriteIds: string[]
   modelPreset: ModelPreset
@@ -27,11 +32,13 @@ type State = {
   removeUserTag: (id: string) => void
   clearUserTags: () => void
   removeTag: (id: string) => void
+  removeTagFromLayer: (layerId: string, id: string) => void
   setWeight: (id: string, weight: number) => void
   addBlock: () => void
   removeBlock: (id: string) => void
   renameBlock: (id: string, name: string) => void
   setActiveBlock: (id: string) => void
+  setActiveLayer: (layer: EditorLayer) => void
   clearAll: () => void
   applyQualityPreset: (preset?: ModelPreset) => void
   setModelPreset: (preset: ModelPreset) => void
@@ -75,17 +82,27 @@ export function migratePersistedState(persisted: unknown) {
   if (!persisted || typeof persisted !== 'object') return persisted
   const state = persisted as Partial<State>
   if (!Array.isArray(state.blocks)) return state
+  const migratedBlocks = state.blocks.map(block => ({
+    ...block,
+    tags: block.tags.map(tag => {
+      const current = resolveCanonicalTag(tag.id, physicalDictionary)
+      return current
+        ? { ...tag, id: current.id, prompt: current.prompt, label: current.label, category: current.category, outputCategory: current.outputCategory, subcategory: current.subcategory, sortSubcategory: current.sortSubcategory, rating: current.rating }
+        : tag
+    }),
+  }))
+  const sceneById = new Map<string, SelectedTag>()
+  const existingSceneTags = Array.isArray(state.sceneTags) ? state.sceneTags : []
+  for (const tag of [...existingSceneTags, ...migratedBlocks.flatMap(block => block.tags.filter(tag => isSceneCategory(tag.category)))]) {
+    const current = sceneById.get(tag.id)
+    if (!current) sceneById.set(tag.id, tag)
+    else if (tag.weight > current.weight) sceneById.set(tag.id, { ...current, weight: tag.weight })
+  }
   return {
     ...state,
-    blocks: state.blocks.map(block => ({
-      ...block,
-      tags: block.tags.map(tag => {
-        const current = resolveCanonicalTag(tag.id, physicalDictionary)
-        return current
-          ? { ...tag, id: current.id, prompt: current.prompt, label: current.label, category: current.category, outputCategory: current.outputCategory, subcategory: current.subcategory, sortSubcategory: current.sortSubcategory, rating: current.rating }
-          : tag
-      }),
-    })),
+    blocks: migratedBlocks.map(block => ({ ...block, tags: block.tags.filter(tag => !isSceneCategory(tag.category)) })),
+    sceneTags: [...sceneById.values()],
+    activeLayer: state.activeLayer === 'scene' ? 'scene' : 'subject',
     favoriteIds: Array.isArray(state.favoriteIds)
       ? [...new Set(state.favoriteIds.map(id => canonicalId(id, physicalDictionary)))]
       : state.favoriteIds,
@@ -110,7 +127,9 @@ export function migratePersistedState(persisted: unknown) {
 
 export const usePromptStore = create<State>()(persist((set, get) => ({
   blocks: [firstBlock],
+  sceneTags: [],
   activeBlockId: firstBlock.id,
+  activeLayer: 'subject',
   negative: DEFAULT_NEGATIVE,
   favoriteIds: [],
   modelPreset: 'illustrious',
@@ -118,14 +137,14 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   contentLevel: 'general',
   hideUnavailable: false,
   replaceTags: (removeIds, tag) => set((state) => ({
-    blocks: state.blocks.map(b => b.id === state.activeBlockId
+    ...(isSceneCategory(tag.category) ? { sceneTags: [...state.sceneTags.filter(t => !removeIds.includes(t.id) && t.prompt !== tag.prompt), tag] } : { blocks: state.blocks.map(b => b.id === state.activeBlockId
       ? { ...b, tags: [...b.tags.filter(t => !removeIds.includes(t.id) && t.prompt !== tag.prompt), tag] }
-      : b)
+      : b) })
   })),
   addTag: (tag) => set((state) => ({
-    blocks: state.blocks.map(b => b.id === state.activeBlockId && !b.tags.some(t => t.prompt === tag.prompt)
+    ...(isSceneCategory(tag.category) ? { sceneTags: state.sceneTags.some(t => t.prompt === tag.prompt) ? state.sceneTags : [...state.sceneTags, tag] } : { blocks: state.blocks.map(b => b.id === state.activeBlockId && !b.tags.some(t => t.prompt === tag.prompt)
       ? { ...b, tags: [...b.tags, tag] }
-      : b)
+      : b) })
   })),
   addCustomTag: (prompt, category, saveToDictionary = false, label) => {
     const clean = prompt.trim().replace(/^\[|\]$/g, '')
@@ -155,16 +174,21 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   removeUserTag: (id) => set((state) => ({ userTags: state.userTags.filter(t => t.id !== id), favoriteIds: state.favoriteIds.filter(x => x !== id) })),
   clearUserTags: () => set({ userTags: [] }),
   removeTag: (id) => set((state) => ({
+    sceneTags: state.sceneTags.filter(t => t.id !== id),
     blocks: state.blocks.map(b => b.id === state.activeBlockId ? { ...b, tags: b.tags.filter(t => t.id !== id) } : b)
   })),
+  removeTagFromLayer: (layerId, id) => set((state) => layerId === 'scene'
+    ? { sceneTags: state.sceneTags.filter(tag => tag.id !== id) }
+    : { blocks: state.blocks.map(block => block.id === layerId ? { ...block, tags: block.tags.filter(tag => tag.id !== id) } : block) }),
   setWeight: (id, weight) => set((state) => ({
+    sceneTags: state.sceneTags.map(t => t.id === id ? { ...t, weight: Math.max(0.1, Math.min(2, weight || 1)) } : t),
     blocks: state.blocks.map(b => b.id === state.activeBlockId
       ? { ...b, tags: b.tags.map(t => t.id === id ? { ...t, weight: Math.max(0.1, Math.min(2, weight || 1)) } : t) }
       : b)
   })),
   addBlock: () => set((state) => {
     const id = createId()
-    return { blocks: [...state.blocks, { id, name: `被写体 ${state.blocks.length + 1}`, tags: [] }], activeBlockId: id }
+    return { blocks: [...state.blocks, { id, name: `被写体 ${state.blocks.length + 1}`, tags: [] }], activeBlockId: id, activeLayer: 'subject' }
   }),
   removeBlock: (id) => set((state) => {
     if (state.blocks.length === 1) return state
@@ -172,16 +196,13 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
     return { blocks: next, activeBlockId: state.activeBlockId === id ? next[0].id : state.activeBlockId }
   }),
   renameBlock: (id, name) => set((state) => ({ blocks: state.blocks.map(b => b.id === id ? { ...b, name: name.trim() || b.name } : b) })),
-  setActiveBlock: (id) => set({ activeBlockId: id }),
-  clearAll: () => set((state) => ({ blocks: state.blocks.map((b, index) => ({ ...b, name: `被写体 ${index + 1}`, tags: [] })) })),
+  setActiveBlock: (id) => set({ activeBlockId: id, activeLayer: 'subject' }),
+  setActiveLayer: (layer) => set({ activeLayer: layer }),
+  clearAll: () => set((state) => ({ sceneTags: [], blocks: state.blocks.map((b, index) => ({ ...b, name: `被写体 ${index + 1}`, tags: [] })) })),
   applyQualityPreset: (preset) => {
     const current = preset ?? get().modelPreset
     const prompts = QUALITY_PRESETS[current]
-    set((state) => ({
-      blocks: state.blocks.map(b => b.id === state.activeBlockId
-        ? { ...b, tags: [...b.tags.filter(t => t.category !== 'quality'), ...prompts.map((prompt, i) => ({ id: `preset-${current}-${i}`, prompt, label: prompt, category: 'quality', subcategory: '品質', weight: 1 }))] }
-        : b)
-    }))
+    set((state) => ({ sceneTags: [...state.sceneTags.filter(t => t.category !== 'quality'), ...prompts.map((prompt, i) => ({ id: `preset-${current}-${i}`, prompt, label: prompt, category: 'quality', subcategory: '品質', weight: 1 }))] }))
   },
   setModelPreset: (preset) => set({ modelPreset: preset }),
   setNegative: (value) => set({ negative: value }),
@@ -197,6 +218,6 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   })
 }), {
   name: 'sd-prompt-studio-v14',
-  version: 8,
+  version: 9,
   migrate: migratePersistedState,
 }))

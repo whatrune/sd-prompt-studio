@@ -5,7 +5,7 @@ import { createServer } from 'vite'
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 
 try {
-  const [{ adultTags }, { buildPrompt, tagSort }, { migratePersistedState }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }] = await Promise.all([
+  const [{ adultTags }, { buildPrompt, tagSort }, { migratePersistedState, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }] = await Promise.all([
     server.ssrLoadModule('/src/data/adultTags.ts'),
     server.ssrLoadModule('/src/prompt.ts'),
     server.ssrLoadModule('/src/store.ts'),
@@ -468,6 +468,37 @@ try {
   assert.equal(migratedRinEye.blocks[0].tags[0].id, 'eye-empty-eyes')
   assert.equal(migratedRinEye.blocks[0].tags[0].weight, 1.1)
   assert.deepEqual(migratedRinEye.favoriteIds, ['eye-empty-eyes', 'eye-slit-pupils'])
+
+  assert.equal(isSceneCategory('quality'), true)
+  assert.equal(isSceneCategory('camera'), true)
+  assert.equal(isSceneCategory('hair'), false)
+  const sceneQuality = { id: 'qua-masterpiece', prompt: 'masterpiece', label: 'masterpiece', category: 'quality', subcategory: '品質', weight: 1 }
+  const sceneCamera = { id: 'cam-portrait', prompt: 'portrait', label: 'portrait', category: 'camera', subcategory: '画角・距離', weight: 1 }
+  const subjectHair = { id: 'hai-black-hair', prompt: 'black hair', label: '黒髪', category: 'hair', subcategory: '髪色', weight: 1 }
+  const migratedLayers = migratePersistedState({
+    blocks: [
+      { id: 's1', name: 'Subject 1', tags: [sceneQuality, sceneCamera, subjectHair] },
+      { id: 's2', name: 'Subject 2', tags: [{ ...sceneQuality, weight: 1.4 }] },
+    ], favoriteIds: [], userTags: [],
+  })
+  assert.deepEqual(migratedLayers.blocks.map(block => block.tags.map(tag => tag.prompt)), [['black hair'], []])
+  assert.deepEqual(migratedLayers.sceneTags.map(tag => [tag.prompt, tag.weight]), [['masterpiece', 1.4], ['portrait', 1]], 'duplicate Scene tags must use maximum weight and first-seen order')
+  const layeredPrompt = buildPrompt(migratedLayers.blocks, migratedLayers.sceneTags)
+  assert.equal(layeredPrompt.match(/masterpiece/g)?.length, 1, 'Scene tags must be emitted exactly once')
+  assert(layeredPrompt.includes('[black hair]'), 'Subject tag strings must be preserved')
+
+  usePromptStore.setState({ blocks: [{ id: 'subject-test', name: 'Subject 1', tags: [subjectHair] }], activeBlockId: 'subject-test', activeLayer: 'scene', sceneTags: [sceneQuality] })
+  usePromptStore.getState().addBlock()
+  assert.equal(usePromptStore.getState().blocks[1].tags.length, 0, 'new Subjects must start without Scene tags')
+  assert.equal(usePromptStore.getState().sceneTags.length, 1, 'adding a Subject must preserve Scene')
+  const secondId = usePromptStore.getState().blocks[1].id
+  usePromptStore.getState().removeBlock(secondId)
+  assert.equal(usePromptStore.getState().sceneTags.length, 1, 'removing a Subject must preserve Scene')
+
+  const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
+  assert(appSource.includes("useState(true)"), 'Prompt panels must have collapsed initial state')
+  assert(appSource.includes('Prompt Actions'), 'copy actions must be rendered above Prompt output')
+  assert(appSource.includes("store.setActiveLayer('scene')"), 'Scene category jump must activate the Scene layer')
 
   const characterDictionary = JSON.parse(fs.readFileSync(new URL('../data/character.json', import.meta.url), 'utf8'))
   assert.equal(characterDictionary.length, 103, 'character dictionary count must remain unchanged')

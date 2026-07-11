@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Ban, BookOpen, Check, ChevronDown, ChevronUp, Copy, Info, Plus, RotateCcw, Search, Settings2, Sparkles, Star, Trash2, WandSparkles, X } from 'lucide-react'
 import { categoryLabels, categoryOrder, subcategoryOrder, TAG_COUNT, tags, type ContentRating, type PromptTag } from './data/tags'
 import { ADULT_TAG_COUNT, adultTags } from './data/adultTags'
-import { usePromptStore, type SelectedTag, type ModelPreset } from './store'
+import { isSceneCategory, usePromptStore, type SelectedTag, type ModelPreset } from './store'
 import { compatibilityLabel, generationNote, heuristicCategory, inferCategory, modelHints } from './engine/tagIntelligence'
 import { getConflictMap } from './engine/smartTagEngine'
 import './styles.css'
@@ -122,8 +122,8 @@ export default function App() {
   const [composerCollapsed, setComposerCollapsed] = useState(true)
   const [relatedCollapsed, setRelatedCollapsed] = useState(false)
   const [selectedCollapsed, setSelectedCollapsed] = useState(false)
-  const [promptCollapsed, setPromptCollapsed] = useState(false)
-  const [negativeCollapsed, setNegativeCollapsed] = useState(false)
+  const [promptCollapsed, setPromptCollapsed] = useState(true)
+  const [negativeCollapsed, setNegativeCollapsed] = useState(true)
   const importRef = useRef<HTMLInputElement>(null)
   const [clothingItem, setClothingItem] = useState('shirt')
   const [clothingColor, setClothingColor] = useState('black')
@@ -141,7 +141,8 @@ export default function App() {
   const [propVertical, setPropVertical] = useState('')
   const [propDepth, setPropDepth] = useState('background')
   const store = usePromptStore()
-  const active = store.blocks.find(b => b.id === store.activeBlockId)!
+  const activeSubject = store.blocks.find(b => b.id === store.activeBlockId)!
+  const active = store.activeLayer === 'scene' ? { id: 'scene', name: 'Scene', tags: store.sceneTags } : activeSubject
 
   const subcategories = useMemo(() => subcategoryOrder[category] ?? [], [category])
   const dictionaryTags = useMemo(() => [...tags, ...adultTags, ...store.userTags], [store.userTags])
@@ -158,26 +159,18 @@ export default function App() {
     }).sort((a,b) => q ? scoreTag(b,q)-scoreTag(a,q) || tagSort(a,b) : tagSort(a,b))
   }, [category, subcategory, query, favoritesOnly, store.favoriteIds, visibleDictionaryTags, store.hideUnavailable, conflictMap])
 
-  const prompt = useMemo(() => buildPrompt(store.blocks), [store.blocks])
+  const prompt = useMemo(() => buildPrompt(store.blocks, store.sceneTags), [store.blocks, store.sceneTags])
 
   const warnings = useMemo(() => conflicts(active.tags), [active.tags])
   const related = useMemo(() => relatedTags(active.tags).slice(0, 8), [active.tags])
-  const selectedGroups = useMemo(() => {
-    const groups = new Map<string, SelectedTag[]>()
-    ;[...active.tags].sort(tagSort).forEach(tag => {
-      const list = groups.get(tag.category) ?? []
-      list.push(tag)
-      groups.set(tag.category, list)
-    })
-    return [...groups.entries()]
-  }, [active.tags])
+  const selectedSections = useMemo(() => [...store.blocks.map(block => ({ ...block, layer: 'subject' as const })), { id: 'scene', name: 'Scene', tags: store.sceneTags, layer: 'scene' as const }], [store.blocks, store.sceneTags])
   async function copyPrompt() {
     const success = await copyText(prompt)
     if (!success) { alert('コピーできませんでした。テキストを選択して手動でコピーしてください。'); return }
     setCopied(true)
     setTimeout(() => setCopied(false), 1400)
   }
-  function chooseCategory(c:string){ setCategory(c); setSubcategory('すべて'); setQuery(''); setFavoritesOnly(false) }
+  function chooseCategory(c:string){ store.setActiveLayer(isSceneCategory(c) ? 'scene' : 'subject'); setCategory(c); setSubcategory('すべて'); setQuery(''); setFavoritesOnly(false) }
   function changeContentLevel(level: ContentRating){
     if (level === 'adult' && store.contentLevel !== 'adult') {
       const accepted = confirm('成人向けタグを表示します。成人キャラクター同士の表現にのみ使用し、未成年を示すタグとは併用できません。表示しますか？')
@@ -331,22 +324,22 @@ export default function App() {
       </section>
 
       <aside className="preview panel">
-        <div className="block-tabs">{store.blocks.map(b=><button key={b.id} className={b.id===store.activeBlockId?'active':''} onClick={()=>store.setActiveBlock(b.id)}>{b.name}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={store.addBlock}><Plus size={16}/>人物追加</button></div>
+        <div className="block-tabs"><button className={store.activeLayer==='scene'?'active':''} onClick={()=>store.setActiveLayer('scene')}>Scene</button>{store.blocks.map(b=><button key={b.id} className={store.activeLayer==='subject'&&b.id===store.activeBlockId?'active':''} onClick={()=>store.setActiveBlock(b.id)}>{b.name}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={store.addBlock}><Plus size={16}/>人物追加</button></div>
+        <section className="prompt-actions"><strong>Prompt Actions</strong><button onClick={copyPrompt}><Copy size={16}/>{copied?'コピー済み':'Positiveをコピー'}</button><button onClick={async()=>{const ok=await copyText(store.negative);if(ok){setCopied(true);setTimeout(()=>setCopied(false),1400)}}}><Copy size={16}/>{copied?'コピー済み':'Negativeをコピー'}</button></section>
         <section className={`preview-section ${selectedCollapsed?'collapsed':''}`}>
           <button className="preview-section-toggle" onClick={()=>setSelectedCollapsed(v=>!v)} aria-expanded={!selectedCollapsed}>
             <span>選択済みタグ</span>{selectedCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>} 
           </button>
           {!selectedCollapsed&&<div className="preview-section-content">
             <div className="selected-outline">
-              {active.tags.length===0&&<div className="empty compact-empty">左からタグを選択してください。</div>}
-              {selectedGroups.map(([group,items])=><section className="selected-group" key={group}>
-                <div className="selected-group-head"><strong>{categoryLabels[group]}</strong><button onClick={()=>items.forEach(tag=>store.removeTag(tag.id))}>すべて削除</button></div>
+              {selectedSections.map(section=><section className="selected-layer" key={section.id}><button className="selected-layer-title" onClick={()=>section.layer==='scene'?store.setActiveLayer('scene'):store.setActiveBlock(section.id)}>{section.name}</button>{[...new Map([...section.tags].sort(tagSort).map(tag=>[tag.category,section.tags.filter(item=>item.category===tag.category).sort(tagSort)])).entries()].map(([group,items])=><section className="selected-group" key={group}>
+                <div className="selected-group-head"><button onClick={()=>{section.layer==='scene'?store.setActiveLayer('scene'):store.setActiveBlock(section.id);chooseCategory(group)}}><strong>{categoryLabels[group]}</strong></button></div>
                 <div className="selected-chips">{items.map(tag=><div className={`selected-chip category-${tag.category}`} key={tag.id} title={`${tag.prompt}${tag.weight!==1?` / 重み ${tag.weight.toFixed(1)}`:''}`}>
                   <button className="chip-label" onClick={()=>{const source=visibleDictionaryTags.find(t=>t.id===tag.id);if(source)setInspectedTag(source)}}>{tag.label}</button>
                   {tag.weight!==1&&<span className="chip-weight">{tag.weight.toFixed(1)}</span>}
-                  <button className="chip-remove" aria-label={`${tag.label}を削除`} onClick={()=>store.removeTag(tag.id)}><X size={12}/></button>
+                  <button className="chip-remove" aria-label={`${tag.label}を削除`} onClick={()=>store.removeTagFromLayer(section.id, tag.id)}><X size={12}/></button>
                 </div>)}</div>
-              </section>)}
+              </section>)}</section>)}
             </div>
           </div>}
         </section>

@@ -480,3 +480,5 @@ textarea { width:100%; resize:vertical; min-height:105px; background:#0c0f16; bo
   top:10px;
   max-width:calc(100% - 84px);
 }
+.prompt-actions{position:sticky;top:0;z-index:8;display:flex;gap:8px;align-items:center;padding:10px;background:var(--panel,#181818);border-bottom:1px solid rgba(255,255,255,.1)}
+.prompt-actions strong{margin-right:auto}.selected-layer{padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08)}.selected-layer-title{font-weight:700}.selected-group-head>button{background:transparent;border:0;color:inherit;cursor:pointer}
