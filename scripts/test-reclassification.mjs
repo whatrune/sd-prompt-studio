@@ -515,6 +515,16 @@ try {
   usePromptStore.getState().removeBlock(secondId)
   assert.equal(usePromptStore.getState().sceneTags.length, 1, 'removing a Subject must preserve Scene')
 
+  usePromptStore.setState({ blocks: [
+    { id: 'numbered-1', name: '被写体 1', subjectNumber: 1, tags: [] },
+    { id: 'numbered-2', name: '被写体 2', subjectNumber: 2, tags: [] },
+    { id: 'numbered-3', name: '被写体 3', subjectNumber: 3, tags: [] },
+  ], activeBlockId: 'numbered-2' })
+  usePromptStore.getState().removeBlock('numbered-2')
+  assert.deepEqual(usePromptStore.getState().blocks.map(block => block.subjectNumber), [1, 3], 'removing a Subject must not renumber remaining Subjects')
+  usePromptStore.getState().addBlock()
+  assert.equal(usePromptStore.getState().blocks.at(-1).subjectNumber, 4, 'new Subjects must use the next unused fixed number')
+
   const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
   assert(appSource.includes("useState(true)"), 'Prompt panels must have collapsed initial state')
   assert(appSource.includes('Prompt Actions'), 'copy actions must be rendered above Prompt output')
