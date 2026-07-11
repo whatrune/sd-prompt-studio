@@ -287,7 +287,7 @@ export default function App() {
                 <label className="settings-toggle compact"><input type="checkbox" checked={saveCustom} onChange={e=>setSaveCustom(e.target.checked)}/><span><b>ユーザー辞書へ保存</b></span></label>
                 <button className="dictionary-add" onClick={addCustom}><Plus size={14}/>現在のカテゴリへ追加</button>
               </div>
-              {store.userTags.length>0&&<div className="settings-user-list">{store.userTags.slice(0,8).map(tag=><div key={tag.id}><span><b>{tag.label}</b><code>{tag.prompt}</code></span><button title="削除" onClick={()=>store.removeUserTag(tag.id)}><X size={13}/></button></div>)}{store.userTags.length>8&&<small>ほか {store.userTags.length-8} 件</small>}</div>}
+              {store.userTags.length>0&&<div className="settings-user-list">{store.userTags.map(tag=><div key={tag.id}><span><b>{tag.label}</b><code>{tag.prompt}</code></span><button title="削除" onClick={()=>store.removeUserTag(tag.id)}><X size={13}/></button></div>)}</div>}
               <p>追加・削除・Import・Exportをここで管理します。Role metadataは将来の表示拡張用です。</p>
             </section>
           </div>}
@@ -332,7 +332,7 @@ export default function App() {
       </section>
 
       <aside className="preview panel">
-        <div className="block-tabs"><button className={store.activeLayer==='scene'?'active':''} onClick={()=>store.setActiveLayer('scene')}>Scene</button>{store.blocks.map(b=><button key={b.id} className={store.activeLayer==='subject'&&b.id===store.activeBlockId?'active':''} onClick={()=>store.setActiveBlock(b.id)}>{b.name}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={store.addBlock}><Plus size={16}/>人物追加</button></div>
+        <div className="block-tabs">{store.blocks.map(b=><button key={b.id} className={store.activeLayer==='subject'&&b.id===store.activeBlockId?'active':''} onClick={()=>store.setActiveBlock(b.id)}>{b.name}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();store.removeBlock(b.id)}}/>}</button>)}<button className={store.activeLayer==='scene'?'active':''} onClick={()=>store.setActiveLayer('scene')}>Scene</button><button className="add-block" onClick={store.addBlock}><Plus size={16}/>人物追加</button></div>
         <section className="prompt-actions"><strong>Prompt Actions</strong><button onClick={copyPrompt}><Copy size={16}/>{copied?'コピー済み':'Positiveをコピー'}</button><button onClick={async()=>{const ok=await copyText(store.negative);if(ok){setCopied(true);setTimeout(()=>setCopied(false),1400)}}}><Copy size={16}/>{copied?'コピー済み':'Negativeをコピー'}</button></section>
         {store.activeLayer==='subject'&&activeSubject&&<label className="subject-position">Character position<select value={activeSubject.position??'center'} onChange={event=>store.setSubjectPosition(activeSubject.id,event.target.value as 'left'|'center'|'right')}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>}
         <section className={`preview-section ${selectedCollapsed?'collapsed':''}`}>

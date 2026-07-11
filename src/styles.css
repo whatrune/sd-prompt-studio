@@ -539,7 +539,6 @@ body{background:#0b0d11}
 .block-tabs{gap:3px;padding:7px;border-bottom-color:#292e37}
 .block-tabs button{border-radius:3px;padding:6px 8px;font-size:11px;background:#15191f}
 .block-tabs button.active{background:#272e38;border-color:#66748a}
-.block-tabs>button:first-child{order:2}.block-tabs .add-block{order:3}
 .prompt-actions{padding:7px;background:#13171c}
 .prompt-actions button,.output-head button{border:1px solid #39424f!important;border-radius:3px!important;background:#1b2027!important;color:#d8dde5!important;padding:6px 8px!important;font-size:11px}
 .prompt-actions button:hover,.output-head button:hover{background:#252c35!important;border-color:#566275!important}
