@@ -212,6 +212,16 @@ try {
   assert.equal(conflict('star-shaped highlights', ['glowing eyes']), null, 'eye effect and highlight shape must coexist')
   assert.equal(conflict('red pupils', ['slit pupils']), null, 'pupil shape and pupil color must coexist')
   assert.equal(conflict('star-shaped highlights', ['no eye highlights'])?.level, 'hard')
+  const pupilBeforeColor = ['red eyes', 'slit pupils'].map(prompt => ({ ...findTag(prompt), weight: 1 }))
+  assert.deepEqual([...pupilBeforeColor].sort(tagSort).map(tag => tag.prompt), ['slit pupils', 'red eyes'], 'pupil group must sort before eye color')
+  const orderedEyePrompt = buildPrompt([{ id: 'eye-order', name: '被写体 1', tags: pupilBeforeColor }])
+  assert(orderedEyePrompt.includes('[slit pupils, red eyes]'), 'Prompt output must apply pupil-before-color ordering without changing tag strings')
+  const customPromptOrder = [
+    { id: 'order-late', prompt: 'late', label: 'late', category: 'eyes', subcategory: '目の色', promptGroup: 'custom-eyes', promptOrder: 20, weight: 1 },
+    { id: 'order-early', prompt: 'early', label: 'early', category: 'eyes', subcategory: '目の色', promptGroup: 'custom-eyes', promptOrder: 10, weight: 1 },
+  ]
+  assert.deepEqual([...customPromptOrder].sort(tagSort).map(tag => tag.prompt), ['early', 'late'], 'promptOrder must override selection order within a group')
+  assert.equal(conflict('red pupils', ['slit pupils']), null, 'conflict evaluation must remain independent from prompt sorting')
   assert.equal(conflict('waving', ['walking']), null, 'compatible body motions must not share an exclusive slot')
   assert.equal(conflict('running', ['walking'])?.level, 'hard', 'walking and running must conflict')
   assert.equal(conflict('lying', ['standing'])?.level, 'hard', 'standing and lying must conflict')

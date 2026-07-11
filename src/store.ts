@@ -5,7 +5,7 @@ import { adultTags } from './data/adultTags'
 import { canonicalId, resolveCanonicalTag } from './data/canonical'
 import { createId } from './id'
 
-export type SelectedTag = { id: string; prompt: string; label: string; category: string; outputCategory?: string; subcategory?: string; sortSubcategory?: string; weight: number; rating?: ContentRating }
+export type SelectedTag = { id: string; prompt: string; label: string; category: string; outputCategory?: string; subcategory?: string; sortSubcategory?: string; promptGroup?: string; promptOrder?: number; weight: number; rating?: ContentRating }
 export type PromptBlock = { id: string; name: string; tags: SelectedTag[] }
 export type ModelPreset = 'illustrious' | 'pony' | 'sdxl' | 'custom'
 
