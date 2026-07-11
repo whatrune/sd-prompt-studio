@@ -638,3 +638,11 @@ body{background:#0b0d11}
 .selected-outline .selected-chips{gap:6px;padding:0 4px 2px}
 .selected-layer.inactive>.selected-group{cursor:default}
 .selected-layer.inactive>.selected-group:hover{border-color:transparent;background:transparent}
+
+/* v21.10: interaction-aware tabs and tighter Context groups */
+.block-tabs button:disabled{opacity:.5;cursor:default}
+.block-tabs button:disabled:hover{border-color:#303749;background:#15191f;color:#aeb5c5}
+.selected-layer>.selected-group{margin:1px 4px;padding:2px 3px 3px}
+.selected-group-head>button{min-height:23px;padding:2px 3px}
+.selected-outline .selected-chips{padding:0 3px 1px}
+.tag-card:hover .tag-main small{display:none}
