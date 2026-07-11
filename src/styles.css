@@ -592,3 +592,12 @@ body{background:#0b0d11}
 .selected-outline .selected-chip .chip-remove{padding:5px 7px}
 .prompt-actions button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:7px 10px!important;line-height:1}
 .prompt-actions button svg{flex:0 0 auto}
+
+/* v21.6: flat Prompt Context category rows */
+.selected-layer>.selected-group{padding:5px 10px 8px;border-bottom:1px solid #252c35;background:transparent}
+.selected-layer>.selected-group:last-child{border-bottom:0}
+.selected-group-head{margin:0 0 4px}
+.selected-group-head>button{min-height:32px;padding:7px 8px;border:1px solid transparent!important;border-radius:2px;background:transparent!important}
+.selected-group-head>button:hover{border-color:#4c5868!important;background:#1b2027!important}
+.selected-group-head>button strong{font-weight:600}
+.selected-group-head>button span{margin-left:auto;text-align:right}
