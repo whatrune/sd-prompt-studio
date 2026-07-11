@@ -1176,7 +1176,7 @@ const rawTags: PromptTag[] = [
   makeTag({"id":"exp-crying","label":"泣く","prompt":"crying","category":"expression","subcategory":"基本表情","slot":"expression"}),
   makeTag({"id":"exp-tears","label":"涙","prompt":"tears","category":"expression","subcategory":"基本表情","slot":"face_state"}),
   makeTag({"id":"exp-streaming-tears","label":"大粒の涙","prompt":"streaming tears","category":"expression","subcategory":"基本表情","slot":"face_state"}),
-  makeTag({"id":"exp-closed-mouth","label":"口を閉じる","prompt":"closed mouth","category":"expression","subcategory":"口","slot":"mouth_openness","conflicts":["open mouth","parted lips","tongue out","licking lips","fang","fangs","sharp teeth","clenched teeth","visible teeth","drooling","gasping","yawning"]}),
+  makeTag({"id":"exp-closed-mouth","label":"口を閉じる","prompt":"closed mouth","category":"expression","subcategory":"口","slot":"mouth_openness","conflicts":["open mouth","parted lips","tongue out","licking lips","clenched teeth","visible teeth","drooling","gasping","yawning"]}),
   makeTag({"id":"exp-open-mouth","label":"口を開ける","prompt":"open mouth","category":"expression","subcategory":"口","slot":"mouth_openness"}),
   makeTag({"id":"exp-parted-lips","label":"唇を少し開く","prompt":"parted lips","category":"expression","subcategory":"口","slot":"mouth_openness"}),
   makeTag({"id":"exp-pout","label":"口を尖らせる","prompt":"pout","category":"expression","subcategory":"口","slot":"mouth_shape","sources":["existing"],"aliases":["pouting","拗ねる","むくれる"],"related":["puffed cheeks","looking away","blush"]}),
