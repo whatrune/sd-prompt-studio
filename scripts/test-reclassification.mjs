@@ -5,7 +5,7 @@ import { createServer } from 'vite'
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 
 try {
-  const [{ adultTags }, { buildPrompt, tagSort }, { migratePersistedState, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }] = await Promise.all([
+  const [{ adultTags }, { buildPrompt, buildPromptWithStrategy, tagSort }, { migratePersistedState, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }] = await Promise.all([
     server.ssrLoadModule('/src/data/adultTags.ts'),
     server.ssrLoadModule('/src/prompt.ts'),
     server.ssrLoadModule('/src/store.ts'),
@@ -487,9 +487,29 @@ try {
   assert.equal(layeredPrompt.match(/masterpiece/g)?.length, 1, 'Scene tags must be emitted exactly once')
   assert(layeredPrompt.includes('[black hair]'), 'Subject tag strings must be preserved')
 
+  assert.equal(migratedLayers.blocks[0].position, 'left', 'the first migrated multi-Subject must be positioned left')
+  assert.equal(migratedLayers.blocks[1].position, 'right', 'the second migrated multi-Subject must be positioned right')
+  const twoCharacterExpansion = buildPromptWithStrategy([
+    { id: 'left', name: 'Left character', position: 'left', tags: [subjectHair] },
+    { id: 'right', name: 'Right character', position: 'right', tags: [{ ...subjectHair, id: 'hai-white-hair', prompt: 'white hair', label: 'white hair' }] },
+  ], [sceneQuality], 'illustrious')
+  assert.equal(twoCharacterExpansion.scene.subject_count, 2)
+  assert(twoCharacterExpansion.prompt.includes('Left side:\n[black hair]'), 'Illustrious output must label the left entity')
+  assert(twoCharacterExpansion.prompt.includes('Right side:\n[white hair]'), 'Illustrious output must label the right entity')
+  assert.equal(twoCharacterExpansion.prompt.match(/masterpiece/g)?.length, 1, 'shared Scene tags must be emitted once in expanded output')
+  const customBreakExpansion = buildPromptWithStrategy([
+    { id: 'left', name: 'Left', position: 'left', tags: [subjectHair] },
+    { id: 'right', name: 'Right', position: 'right', tags: [{ ...subjectHair, id: 'hai-white-hair', prompt: 'white hair' }] },
+  ], [], 'illustrious', 'ENTITY_BREAK')
+  assert(customBreakExpansion.prompt.includes('ENTITY_BREAK'), 'entity BREAK placement must be configurable')
+
   usePromptStore.setState({ blocks: [{ id: 'subject-test', name: 'Subject 1', tags: [subjectHair] }], activeBlockId: 'subject-test', activeLayer: 'scene', sceneTags: [sceneQuality] })
   usePromptStore.getState().addBlock()
   assert.equal(usePromptStore.getState().blocks[1].tags.length, 0, 'new Subjects must start without Scene tags')
+  assert.equal(usePromptStore.getState().blocks[0].position, 'left')
+  assert.equal(usePromptStore.getState().blocks[1].position, 'right')
+  usePromptStore.getState().setSubjectPosition(usePromptStore.getState().blocks[1].id, 'center')
+  assert.equal(usePromptStore.getState().blocks[1].position, 'center', 'Subject position must be editable')
   assert.equal(usePromptStore.getState().sceneTags.length, 1, 'adding a Subject must preserve Scene')
   const secondId = usePromptStore.getState().blocks[1].id
   usePromptStore.getState().removeBlock(secondId)
@@ -498,6 +518,7 @@ try {
   const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
   assert(appSource.includes("useState(true)"), 'Prompt panels must have collapsed initial state')
   assert(appSource.includes('Prompt Actions'), 'copy actions must be rendered above Prompt output')
+  assert(appSource.includes('Expansion Preview'), 'expanded entities must be inspectable without changing the Prompt')
   assert(appSource.includes("store.setActiveLayer('scene')"), 'Scene category jump must activate the Scene layer')
 
   const characterDictionary = JSON.parse(fs.readFileSync(new URL('../data/character.json', import.meta.url), 'utf8'))

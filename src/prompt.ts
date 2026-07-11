@@ -1,8 +1,9 @@
 import { adultTags } from './data/adultTags'
 import { categoryOrder, subcategoryOrder, tags, type PromptTag } from './data/tags'
 import type { PromptBlock, SelectedTag } from './store'
+import { expandPrompt } from './promptExpansion'
+import type { ModelPreset } from './store'
 
-const bodyCategoryOrder = ['character', 'body', 'expression', 'eyes', 'hair', 'clothes', 'accessories']
 const legacyClothingSubcategoryOrder = ['トップス', 'アウター', 'ボトムス', 'ワンピース・ドレス', 'カジュアル', 'フォーマル', 'ゴシック・ロリータ', '制服・学校', '制服・職業', 'ミリタリー・ワーク', 'スポーツ・ダンス', '舞台・アイドル', 'コスチューム', 'ファンタジー・SF', '民族・歴史', '和装', 'ルームウェア', '水着・下着', 'センシティブ衣装', 'デザイン・ディテール', '素材・質感', '柄・装飾', 'レッグウェア', '靴', '衣装（アダルト）']
 const legacyCharacterSubcategoryOrder = ['指定', '種族', '種族特徴', '職業', '属性']
 const legacyPoseSubcategoryOrder = ['基本姿勢', '手・腕', '頭・上半身', '脚・開脚', '日常動作', '落下・バランス', '体操・アクロバット', 'ダンス', 'スポーツ', '武術・戦闘', '乗り物・騎乗', 'ポーズ（アダルト）', '行動（アダルト）']
@@ -46,22 +47,9 @@ function bracket(items: SelectedTag[]) {
 }
 
 export function buildPrompt(blocks: PromptBlock[], sceneTags: SelectedTag[] = []) {
-  const subjectTags = blocks.flatMap(block => block.tags)
-  const sceneCategories = new Set(['quality', 'camera', 'background', 'scene_props', 'lighting', 'effects'])
-  const effectiveSceneTags = [...new Map([...sceneTags, ...subjectTags.filter(tag => sceneCategories.has(outputCategory(tag)))].map(tag => [tag.id, tag])).values()]
-  const quality = effectiveSceneTags.filter(tag => outputCategory(tag) === 'quality')
-  const people = subjectTags.filter(tag => outputCategory(tag) === 'people')
-  const cameraBackground = effectiveSceneTags.filter(tag => ['camera', 'background', 'scene_props'].includes(outputCategory(tag)))
-  const lightingEffects = effectiveSceneTags.filter(tag => ['lighting', 'effects'].includes(outputCategory(tag)))
-  const subjects = blocks.flatMap(block => {
-    const body = block.tags.filter(tag => bodyCategoryOrder.includes(outputCategory(tag)))
-    const pose = block.tags.filter(tag => outputCategory(tag) === 'pose')
-    if (!body.length && !pose.length) return []
-    return [bracket(body), bracket(pose)]
-  })
-  const sections = [bracket(quality), bracket(people)]
-  if (subjects.length) sections.push(subjects.join('\n\nBREAK\n\n'))
-  else sections.push('[]', '[]')
-  sections.push(bracket(cameraBackground), 'BREAK', bracket(lightingEffects))
-  return sections.join('\n\n')
+  return buildPromptWithStrategy(blocks, sceneTags).prompt
+}
+
+export function buildPromptWithStrategy(blocks: PromptBlock[], sceneTags: SelectedTag[] = [], strategy: ModelPreset = 'illustrious', subjectBreak = 'BREAK') {
+  return expandPrompt(blocks, sceneTags, { strategy, subjectBreak, outputCategory, renderTags: bracket })
 }

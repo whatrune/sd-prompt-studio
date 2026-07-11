@@ -482,3 +482,8 @@ textarea { width:100%; resize:vertical; min-height:105px; background:#0c0f16; bo
 }
 .prompt-actions{position:sticky;top:0;z-index:8;display:flex;gap:8px;align-items:center;padding:10px;background:var(--panel,#181818);border-bottom:1px solid rgba(255,255,255,.1)}
 .prompt-actions strong{margin-right:auto}.selected-layer{padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08)}.selected-layer-title{font-weight:700}.selected-group-head>button{background:transparent;border:0;color:inherit;cursor:pointer}
+.subject-position{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 12px;font-size:12px;border-bottom:1px solid rgba(255,255,255,.08)}
+.subject-position select{min-width:110px}
+.expansion-entities{padding:10px 12px;display:grid;gap:10px}
+.expansion-entities section{padding:8px;border:1px solid rgba(255,255,255,.08);border-radius:8px}
+.expansion-entities pre{margin:6px 0 0;white-space:pre-wrap;font:11px/1.5 ui-monospace,monospace;color:#b8c3d8}

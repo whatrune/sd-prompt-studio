@@ -5,8 +5,9 @@ import { adultTags } from './data/adultTags'
 import { canonicalId, resolveCanonicalTag } from './data/canonical'
 import { createId } from './id'
 
-export type SelectedTag = { id: string; prompt: string; label: string; category: string; outputCategory?: string; subcategory?: string; sortSubcategory?: string; promptGroup?: string; promptOrder?: number; weight: number; rating?: ContentRating }
-export type PromptBlock = { id: string; name: string; tags: SelectedTag[] }
+export type SelectedTag = { id: string; prompt: string; label: string; category: string; outputCategory?: string; subcategory?: string; sortSubcategory?: string; promptGroup?: string; promptOrder?: number; slot?: string | string[]; weight: number; rating?: ContentRating }
+export type SubjectPosition = 'left' | 'center' | 'right'
+export type PromptBlock = { id: string; name: string; position?: SubjectPosition; tags: SelectedTag[] }
 export type EditorLayer = 'subject' | 'scene'
 export const SCENE_CATEGORIES = new Set(['quality', 'camera', 'background', 'scene_props', 'lighting', 'effects'])
 export const isSceneCategory = (category: string) => SCENE_CATEGORIES.has(category)
@@ -37,6 +38,7 @@ type State = {
   addBlock: () => void
   removeBlock: (id: string) => void
   renameBlock: (id: string, name: string) => void
+  setSubjectPosition: (id: string, position: SubjectPosition) => void
   setActiveBlock: (id: string) => void
   setActiveLayer: (layer: EditorLayer) => void
   clearAll: () => void
@@ -59,7 +61,7 @@ const QUALITY_PRESETS: Record<ModelPreset, string[]> = {
   custom: []
 }
 
-const createFirstBlock = (): PromptBlock => ({ id: createId(), name: '被写体 1', tags: [] })
+const createFirstBlock = (): PromptBlock => ({ id: createId(), name: '被写体 1', position: 'center', tags: [] })
 const firstBlock = createFirstBlock()
 
 const physicalDictionary = [...allTags, ...adultTags]
@@ -82,8 +84,10 @@ export function migratePersistedState(persisted: unknown) {
   if (!persisted || typeof persisted !== 'object') return persisted
   const state = persisted as Partial<State>
   if (!Array.isArray(state.blocks)) return state
-  const migratedBlocks = state.blocks.map(block => ({
+  const multipleSubjects = state.blocks.length > 1
+  const migratedBlocks = state.blocks.map((block, index) => ({
     ...block,
+    position: block.position ?? (multipleSubjects ? index === 0 ? 'left' : index === 1 ? 'right' : 'center' : 'center'),
     tags: block.tags.map(tag => {
       const current = resolveCanonicalTag(tag.id, physicalDictionary)
       return current
@@ -188,7 +192,10 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   })),
   addBlock: () => set((state) => {
     const id = createId()
-    return { blocks: [...state.blocks, { id, name: `被写体 ${state.blocks.length + 1}`, tags: [] }], activeBlockId: id, activeLayer: 'subject' }
+    const blocks = state.blocks.length === 1
+      ? [{ ...state.blocks[0], position: 'left' as const }, { id, name: '被写体 2', position: 'right' as const, tags: [] }]
+      : [...state.blocks, { id, name: `被写体 ${state.blocks.length + 1}`, position: 'center' as const, tags: [] }]
+    return { blocks, activeBlockId: id, activeLayer: 'subject' }
   }),
   removeBlock: (id) => set((state) => {
     if (state.blocks.length === 1) return state
@@ -196,6 +203,7 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
     return { blocks: next, activeBlockId: state.activeBlockId === id ? next[0].id : state.activeBlockId }
   }),
   renameBlock: (id, name) => set((state) => ({ blocks: state.blocks.map(b => b.id === id ? { ...b, name: name.trim() || b.name } : b) })),
+  setSubjectPosition: (id, position) => set((state) => ({ blocks: state.blocks.map(block => block.id === id ? { ...block, position } : block) })),
   setActiveBlock: (id) => set({ activeBlockId: id, activeLayer: 'subject' }),
   setActiveLayer: (layer) => set({ activeLayer: layer }),
   clearAll: () => set((state) => ({ sceneTags: [], blocks: state.blocks.map((b, index) => ({ ...b, name: `被写体 ${index + 1}`, tags: [] })) })),
@@ -218,6 +226,6 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   })
 }), {
   name: 'sd-prompt-studio-v14',
-  version: 9,
+  version: 10,
   migrate: migratePersistedState,
 }))
