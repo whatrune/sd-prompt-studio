@@ -568,8 +568,6 @@ body{background:#0b0d11}
 .selected-layer-title{display:grid;gap:2px;padding:9px 10px;border:0;border-bottom:1px solid #2d3540;background:#181d24}
 .selected-layer-title small{font:9px/1 ui-monospace,monospace;letter-spacing:.12em;color:#778395}
 .selected-layer-title strong{font-size:12px;color:#e0e5ec}
-.selected-layer>.selected-group{padding:0 8px}
-.selected-layer>.selected-group:first-of-type{padding-top:7px}
 .context-common{border-left:3px solid #68758a}
 .context-character{border-left:3px solid #596d87}
 
@@ -594,8 +592,6 @@ body{background:#0b0d11}
 .prompt-actions button svg{flex:0 0 auto}
 
 /* v21.6: flat Prompt Context category rows */
-.selected-layer>.selected-group{padding:5px 10px 8px;border-bottom:1px solid #252c35;background:transparent}
-.selected-layer>.selected-group:last-child{border-bottom:0}
 .selected-group-head{margin:0 0 4px}
 .selected-group-head>button{min-height:32px;padding:7px 8px;border:1px solid transparent!important;border-radius:2px;background:transparent!important}
 .selected-group-head>button:hover{border-color:#4c5868!important;background:#1b2027!important}
@@ -603,7 +599,6 @@ body{background:#0b0d11}
 .selected-group-head>button span{margin-left:auto;text-align:right}
 
 /* v21.7: flat category headings and in-context position control */
-.selected-layer>.selected-group{padding:6px 10px 9px;border:0;background:transparent}
 .selected-group-head>button{justify-content:flex-start;width:100%;border-color:transparent!important;background:transparent!important;cursor:pointer}
 .selected-group-head>button:hover{border-color:#4c5868!important;background:#1b2027!important}
 .selected-group-head>button strong{display:inline-flex;align-items:baseline;gap:4px}
@@ -614,7 +609,6 @@ body{background:#0b0d11}
 .selected-outline .selected-chip .chip-label{padding:6px 10px}
 
 /* v21.8: dense, interaction-aware Prompt Context */
-.selected-layer>.selected-group{padding:3px 9px 5px;border:0;background:transparent}
 .selected-group-head{margin:0 0 2px}
 .selected-group-head>button{min-height:27px;padding:4px 6px;border:0!important;border-radius:2px;background:transparent!important}
 .selected-layer.interactive .selected-group-head>button:hover{background:#1b2027!important;box-shadow:inset 0 0 0 1px #4c5868}
@@ -629,18 +623,17 @@ body{background:#0b0d11}
 .selected-layer.inactive button:disabled{opacity:.68}
 
 /* v21.9: unified Prompt Context groups */
-.selected-layer>.selected-group{margin:2px 5px;padding:3px 4px 4px;border:1px solid transparent;border-radius:3px;background:transparent;transition:background-color .12s,border-color .12s}
+.selected-layer>.selected-group{margin:0;padding:0;background:transparent;border-radius:0}
 .selected-layer.interactive>.selected-group{cursor:pointer}
-.selected-layer.interactive>.selected-group:hover{border-color:#3d4755;background:#181d24}
+.selected-layer.interactive>.selected-group:hover{background:#181d24;box-shadow:inset 0 0 0 1px #3d4755}
 .selected-group-head{margin:0}
 .selected-group-head>button{min-height:25px;padding:3px 4px;border:0!important;border-radius:0;background:transparent!important}
 .selected-layer.interactive .selected-group-head>button:hover{background:transparent!important;box-shadow:none}
 .selected-outline .selected-chips{gap:6px;padding:0 4px 2px}
 .selected-layer.inactive>.selected-group{cursor:default}
-.selected-layer.inactive>.selected-group:hover{border-color:transparent;background:transparent}
+.selected-layer.inactive>.selected-group:hover{background:transparent;box-shadow:none}
 
 /* v21.10: interaction-aware tabs and tighter Context groups */
-.selected-layer>.selected-group{margin:1px 4px;padding:2px 3px 3px}
 .selected-group-head>button{min-height:23px;padding:2px 3px}
 .selected-outline .selected-chips{padding:0 3px 1px}
 .tag-card:hover .tag-main small{display:none}
