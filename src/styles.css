@@ -601,3 +601,14 @@ body{background:#0b0d11}
 .selected-group-head>button:hover{border-color:#4c5868!important;background:#1b2027!important}
 .selected-group-head>button strong{font-weight:600}
 .selected-group-head>button span{margin-left:auto;text-align:right}
+
+/* v21.7: flat category headings and in-context position control */
+.selected-layer>.selected-group{padding:6px 10px 9px;border:0;background:transparent}
+.selected-group-head>button{justify-content:flex-start;width:100%;border-color:transparent!important;background:transparent!important;cursor:pointer}
+.selected-group-head>button:hover{border-color:#4c5868!important;background:#1b2027!important}
+.selected-group-head>button strong{display:inline-flex;align-items:baseline;gap:4px}
+.selected-group-head>button small{font:9px ui-monospace,monospace;color:#737e8e;font-weight:400}
+.context-position{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:7px 10px 5px;padding:7px 8px;border:1px solid #2d3540;border-radius:2px;background:#14181e;color:#8f99a8;font-size:10px}
+.context-position select{min-width:100px;border:1px solid #39424f;border-radius:2px;background:#0f1318;color:#dfe4eb;padding:5px 7px}
+.selected-outline .selected-chips{gap:9px;padding:4px 3px 8px}
+.selected-outline .selected-chip .chip-label{padding:6px 10px}
