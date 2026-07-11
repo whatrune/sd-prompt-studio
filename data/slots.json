@@ -1,5 +1,5 @@
 {
-  "version": 10,
+  "version": 11,
   "slots": [
     {
       "id": "people_count_mode",
@@ -440,6 +440,16 @@
       "id": "eyelash_decoration",
       "label": "まつ毛の装飾",
       "mode": "multiple"
+    },
+    {
+      "id": "pupil_color",
+      "label": "瞳孔の色",
+      "mode": "single"
+    },
+    {
+      "id": "pupil_size_state",
+      "label": "瞳孔の大きさ・状態",
+      "mode": "single"
     }
   ],
   "rules": [
