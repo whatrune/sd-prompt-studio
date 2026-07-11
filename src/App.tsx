@@ -195,14 +195,16 @@ export default function App() {
     setCopied(true)
     setTimeout(() => setCopied(false), 1400)
   }
+  function setContextTarget(targetId:string){
+    setViewContextId(targetId)
+    if (targetId === 'overview' || targetId === 'scene') store.setActiveLayer('scene')
+    else store.setActiveBlock(targetId)
+  }
   function chooseCategory(c:string, targetId?:string){
-    if (targetId === 'scene' || (!targetId && isSceneCategory(c))) store.setActiveLayer('scene')
+    if (targetId === 'scene' || (!targetId && isSceneCategory(c))) setContextTarget('overview')
     else {
       const blockId = targetId ?? (viewContextId === 'overview' ? store.blocks[0]?.id : viewContextId)
-      if (blockId) {
-        store.setActiveBlock(blockId)
-        if (!targetId && viewContextId === 'overview') setViewContextId(blockId)
-      }
+      if (blockId) setContextTarget(blockId)
     }
     setCategory(c); setSubcategory('すべて'); setQuery(''); setFavoritesOnly(false)
   }
@@ -367,7 +369,7 @@ export default function App() {
       </section>
 
       <aside className="preview panel">
-        <div className="block-tabs"><button className={viewContextId==='overview'?'active':''} onClick={()=>setViewContextId('overview')}>{t('overview',locale)}</button>{store.blocks.map(b=><button key={b.id} className={viewContextId===b.id?'active':''} onClick={()=>setViewContextId(b.id)}>{getCategoryLabel('character',locale)} {b.subjectNumber??1}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();if(viewContextId===b.id)setViewContextId('overview');store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={store.addBlock}><Plus size={16}/>{t('addSubject',locale)}</button></div>
+        <div className="block-tabs"><button className={viewContextId==='overview'?'active':''} onClick={()=>setContextTarget('overview')}>{t('overview',locale)}</button>{store.blocks.map(b=><button key={b.id} className={viewContextId===b.id?'active':''} onClick={()=>setContextTarget(b.id)}>{getCategoryLabel('character',locale)} {b.subjectNumber??1}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();if(viewContextId===b.id)setContextTarget('overview');store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={store.addBlock}><Plus size={16}/>{t('addSubject',locale)}</button></div>
         <section className="prompt-actions"><strong>Prompt Actions</strong><button onClick={copyPrompt}><Copy size={16}/>{copied?'コピー済み':'Positiveをコピー'}</button><button onClick={async()=>{const ok=await copyText(store.negative);if(ok){setCopied(true);setTimeout(()=>setCopied(false),1400)}}}><Copy size={16}/>{copied?'コピー済み':'Negativeをコピー'}</button></section>
         <section className={`preview-section ${selectedCollapsed?'collapsed':''}`}>
           <button className="preview-section-toggle" onClick={()=>setSelectedCollapsed(v=>!v)} aria-expanded={!selectedCollapsed}>
@@ -375,7 +377,7 @@ export default function App() {
           </button>
           {!selectedCollapsed&&<div className="preview-section-content">
             <div className="selected-outline">
-              {selectedSections.map(section=><section className={`selected-layer context-${section.kind.toLowerCase()} interactive`} key={section.id}><button className="selected-layer-title" onClick={()=>section.targetId==='scene'?store.setActiveLayer('scene'):store.setActiveBlock(section.targetId)}><strong>{section.name}</strong></button>{viewContextId!=='overview'&&section.targetId===viewContextId&&<label className="context-position">Position<select value={store.blocks.find(block=>block.id===section.targetId)?.position??'center'} onChange={event=>store.setSubjectPosition(section.targetId,event.target.value as 'left'|'center'|'right')}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>}{section.groups.map(entry=><section className="selected-group" key={entry.key}>
+              {selectedSections.map(section=><section className={`selected-layer context-${section.kind.toLowerCase()} interactive`} key={section.id}><button className="selected-layer-title" onClick={()=>setContextTarget(section.targetId==='scene'?'overview':section.targetId)}><strong>{section.name}</strong></button>{viewContextId!=='overview'&&section.targetId===viewContextId&&<label className="context-position">Position<select value={store.blocks.find(block=>block.id===section.targetId)?.position??'center'} onChange={event=>store.setSubjectPosition(section.targetId,event.target.value as 'left'|'center'|'right')}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>}{section.groups.map(entry=><section className="selected-group" key={entry.key}>
                 <div className="selected-group-head"><button onClick={()=>{chooseCategory(entry.category,section.targetId);if(entry.subcategory)setSubcategory(entry.subcategory)}}><strong>{entry.label} <small>({entry.items.length})</small></strong></button></div>
                 <div className="selected-chips">{entry.items.length===0?<small className="selected-empty">{t('unselected',locale)}</small>:entry.items.sort((a,b)=>tagSort(a.tag,b.tag)).map(({tag,layerId})=><div className={`selected-chip category-${tag.category}`} key={`${layerId}-${tag.id}`} title={`${tag.prompt}${tag.weight!==1?` / 重み ${tag.weight.toFixed(1)}`:''}`}>
                   <button className="chip-label" onClick={()=>{const source=visibleDictionaryTags.find(t=>t.id===tag.id);if(source)setInspectedTag(source)}}>{getTagLabel(tag,locale)}</button>
