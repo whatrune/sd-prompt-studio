@@ -572,3 +572,11 @@ body{background:#0b0d11}
 .selected-layer>.selected-group:first-of-type{padding-top:7px}
 .context-common{border-left:3px solid #68758a}
 .context-character{border-left:3px solid #596d87}
+
+/* v21.4: restrained category accents inside Prompt Context */
+.selected-outline .selected-chip{border:1px solid #343b46;border-left:3px solid var(--category-accent);background:#171b21;color:#dfe4eb;box-shadow:none}
+.selected-outline .selected-chip .chip-label{color:#dfe4eb}
+.selected-outline .selected-chip .chip-label:hover{color:#fff}
+.selected-outline .selected-chip .chip-weight{color:#8d97a6}
+.selected-outline .selected-chip .chip-remove{border-left-color:#343b46;background:#14181d;color:#7f8998}
+.selected-outline .selected-chip .chip-remove:hover{background:#3a2026;color:#f1b6bf}
