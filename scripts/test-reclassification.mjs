@@ -180,7 +180,8 @@ try {
 
   const eyesDictionary = JSON.parse(fs.readFileSync(new URL('../data/eyes.json', import.meta.url), 'utf8'))
   const expressionDictionary = JSON.parse(fs.readFileSync(new URL('../data/expression.json', import.meta.url), 'utf8'))
-  assert.equal(eyesDictionary.length, 291)
+  assert.equal(eyesDictionary.length, 302)
+  assert.equal(eyesDictionary.filter(tag => !tag.deprecated).length, 297)
   assert.equal(expressionDictionary.length, 114)
   assert.equal(expressionDictionary.filter(tag => !tag.deprecated).length, 108, 'canonical expressions must exclude six redirects')
   for (const id of ['exp-v5-biting-lip','exp-v5-fangs','exp-v5-furrowed-brows','v19-exp-cheek-puff','v19-exp-pouting','exp-v5-blushing']) {
@@ -189,6 +190,28 @@ try {
   }
   const expressionOrder = ['angry', 'happy', 'smile'].map(prompt => ({ ...findTag(prompt), weight: 1 }))
   assert.deepEqual([...expressionOrder].sort(tagSort).map(tag => tag.prompt), ['smile', 'happy', 'angry'], 'existing expression Prompt order must remain compatible')
+
+  const rinEyeRedirects = {
+    'rin-eye-empty-eyes': 'eye-empty-eyes',
+    'rin-eye-teary-eyes': 'eye-teary-eyes',
+    'rin-eye-glowing-eyes': 'eye-glowing-eyes',
+    'rin-eye-star-highlights': 'eye-star-shaped-highlights',
+    'rin-eye-slit-pupils': 'eye-slit-pupils',
+  }
+  for (const [legacyId, canonicalId] of Object.entries(rinEyeRedirects)) {
+    assert.equal(resolveCanonicalTag(legacyId, allTags)?.id, canonicalId)
+    assert.equal(tags.some(tag => tag.id === legacyId), false)
+  }
+  assert.equal(tags.find(tag => tag.prompt === 'red pupils')?.slot, 'pupil_color')
+  assert.equal(tags.find(tag => tag.prompt === 'dilated pupils')?.slot, 'pupil_size_state')
+  assert.equal(tags.find(tag => tag.prompt === 'half-closed eyes')?.slot, 'eye_state')
+  assert(getSlotDefinitions().some(slot => slot.id === 'pupil_color' && slot.mode === 'single'))
+  assert(getSlotDefinitions().some(slot => slot.id === 'pupil_size_state' && slot.mode === 'single'))
+  assert.equal(conflict('empty eyes', ['round eyes']), null, 'eye shape and eye state must coexist')
+  assert.equal(conflict('teary eyes', ['looking at viewer']), null, 'gaze direction and eye state must coexist')
+  assert.equal(conflict('star-shaped highlights', ['glowing eyes']), null, 'eye effect and highlight shape must coexist')
+  assert.equal(conflict('red pupils', ['slit pupils']), null, 'pupil shape and pupil color must coexist')
+  assert.equal(conflict('star-shaped highlights', ['no eye highlights'])?.level, 'hard')
   assert.equal(conflict('waving', ['walking']), null, 'compatible body motions must not share an exclusive slot')
   assert.equal(conflict('running', ['walking'])?.level, 'hard', 'walking and running must conflict')
   assert.equal(conflict('lying', ['standing'])?.level, 'hard', 'standing and lying must conflict')
@@ -427,6 +450,14 @@ try {
   assert.equal(migratedFaceCanonical.blocks[0].tags[0].id, 'exp-lip-bite')
   assert.equal(migratedFaceCanonical.blocks[0].tags[0].weight, 1.2)
   assert.deepEqual(migratedFaceCanonical.favoriteIds, ['exp-lip-bite', 'v19-exp-puffed-cheeks'])
+
+  const migratedRinEye = migratePersistedState({
+    blocks: [{ id: 'eye', name: '被写体 1', tags: [{ id: 'rin-eye-empty-eyes', prompt: 'empty eyes', label: '虚ろな目', category: 'eyes', weight: 1.1 }] }],
+    favoriteIds: ['rin-eye-empty-eyes', 'rin-eye-slit-pupils'], userTags: [],
+  })
+  assert.equal(migratedRinEye.blocks[0].tags[0].id, 'eye-empty-eyes')
+  assert.equal(migratedRinEye.blocks[0].tags[0].weight, 1.1)
+  assert.deepEqual(migratedRinEye.favoriteIds, ['eye-empty-eyes', 'eye-slit-pupils'])
 
   const characterDictionary = JSON.parse(fs.readFileSync(new URL('../data/character.json', import.meta.url), 'utf8'))
   assert.equal(characterDictionary.length, 103, 'character dictionary count must remain unchanged')

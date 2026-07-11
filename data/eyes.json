@@ -253,7 +253,7 @@
     "prompt": "half-closed eyes",
     "category": "eyes",
     "subcategory": "目の形",
-    "slot": "eye_shape"
+    "slot": "eye_state"
   },
   {
     "id": "eye-half-lidded-eyes",
@@ -317,7 +317,20 @@
     "prompt": "slit pupils",
     "category": "eyes",
     "subcategory": "瞳孔",
-    "slot": "pupil_shape"
+    "slot": "pupil_shape",
+    "sources": [
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "vertical slit pupils",
+      "縦長瞳孔"
+    ],
+    "related": [
+      "cat pupils",
+      "snake pupils"
+    ],
+    "description": "瞳孔を細いスリット状にする形状指定。"
   },
   {
     "id": "eye-horizontal-pupils",
@@ -421,7 +434,7 @@
     "prompt": "constricted pupils",
     "category": "eyes",
     "subcategory": "瞳孔",
-    "slot": "pupil_shape"
+    "slot": "pupil_size_state"
   },
   {
     "id": "eye-dilated-pupils",
@@ -429,7 +442,7 @@
     "prompt": "dilated pupils",
     "category": "eyes",
     "subcategory": "瞳孔",
-    "slot": "pupil_shape"
+    "slot": "pupil_size_state"
   },
   {
     "id": "eye-no-pupils",
@@ -437,7 +450,7 @@
     "prompt": "no pupils",
     "category": "eyes",
     "subcategory": "瞳孔",
-    "slot": "pupil_shape"
+    "slot": "pupil_size_state"
   },
   {
     "id": "eye-nebulae-cosmic-eyes",
@@ -736,7 +749,20 @@
     "slot": "eye_highlight_shape",
     "conflicts": [
       "no eye highlights"
-    ]
+    ],
+    "sources": [
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "star eye highlights",
+      "星ハイライト"
+    ],
+    "related": [
+      "eye highlights",
+      "sparkling eyes"
+    ],
+    "description": "目のハイライトを星形にする指定。"
   },
   {
     "id": "eye-heart-shaped-highlights",
@@ -809,7 +835,20 @@
     "prompt": "glowing eyes",
     "category": "eyes",
     "subcategory": "ハイライト・発光",
-    "slot": "eye_effect"
+    "slot": "eye_effect",
+    "sources": [
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "glowing eye effect",
+      "光る目"
+    ],
+    "related": [
+      "luminescent eyes",
+      "neon eyes"
+    ],
+    "description": "目全体または虹彩が光を放つ視覚効果。"
   },
   {
     "id": "eye-bright-pupils",
@@ -955,7 +994,20 @@
     "prompt": "empty eyes",
     "category": "eyes",
     "subcategory": "視線・状態",
-    "slot": "eye_state"
+    "slot": "eye_state",
+    "sources": [
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "vacant eyes",
+      "虚無の目"
+    ],
+    "related": [
+      "blank eyes",
+      "lifeless eyes"
+    ],
+    "description": "感情や焦点が失われたように見える目の状態。"
   },
   {
     "id": "eye-blank-eyes",
@@ -987,7 +1039,20 @@
     "prompt": "teary eyes",
     "category": "eyes",
     "subcategory": "視線・状態",
-    "slot": "eye_state"
+    "slot": "eye_state",
+    "sources": [
+      "existing",
+      "RIN"
+    ],
+    "aliases": [
+      "tearful eyes",
+      "涙をためた目"
+    ],
+    "related": [
+      "tears",
+      "wet eyes"
+    ],
+    "description": "目に涙がたまった一時的な状態。感情そのものとは分離する。"
   },
   {
     "id": "eye-evil-eyes",
@@ -2365,5 +2430,235 @@
     "category": "eyes",
     "subcategory": "まぶた・アイライン",
     "slot": "eyelid_state"
+  },
+  {
+    "id": "rin-eye-empty-eyes",
+    "label": "虚ろな目",
+    "prompt": "empty eyes",
+    "aliases": [
+      "vacant eyes",
+      "虚無の目"
+    ],
+    "related": [
+      "blank eyes",
+      "lifeless eyes"
+    ],
+    "description": "感情や焦点が失われたように見える目の状態。",
+    "slot": "eye_state",
+    "category": "eyes",
+    "subcategory": "視線・状態",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "eye-empty-eyes"
+  },
+  {
+    "id": "rin-eye-teary-eyes",
+    "label": "涙目",
+    "prompt": "teary eyes",
+    "aliases": [
+      "tearful eyes",
+      "涙をためた目"
+    ],
+    "related": [
+      "tears",
+      "wet eyes"
+    ],
+    "description": "目に涙がたまった一時的な状態。感情そのものとは分離する。",
+    "slot": "eye_state",
+    "category": "eyes",
+    "subcategory": "視線・状態",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "eye-teary-eyes"
+  },
+  {
+    "id": "rin-eye-glowing-eyes",
+    "label": "発光する目",
+    "prompt": "glowing eyes",
+    "aliases": [
+      "glowing eye effect",
+      "光る目"
+    ],
+    "related": [
+      "luminescent eyes",
+      "neon eyes"
+    ],
+    "description": "目全体または虹彩が光を放つ視覚効果。",
+    "slot": "eye_effect",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "eye-glowing-eyes"
+  },
+  {
+    "id": "rin-eye-star-highlights",
+    "label": "星形ハイライト",
+    "prompt": "star-shaped highlights",
+    "aliases": [
+      "star eye highlights",
+      "星ハイライト"
+    ],
+    "related": [
+      "eye highlights",
+      "sparkling eyes"
+    ],
+    "description": "目のハイライトを星形にする指定。",
+    "slot": "eye_highlight_shape",
+    "category": "eyes",
+    "subcategory": "ハイライト・発光",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "eye-star-shaped-highlights"
+  },
+  {
+    "id": "rin-eye-slit-pupils",
+    "label": "細い瞳孔",
+    "prompt": "slit pupils",
+    "aliases": [
+      "vertical slit pupils",
+      "縦長瞳孔"
+    ],
+    "related": [
+      "cat pupils",
+      "snake pupils"
+    ],
+    "description": "瞳孔を細いスリット状にする形状指定。",
+    "slot": "pupil_shape",
+    "category": "eyes",
+    "subcategory": "瞳孔",
+    "sources": [
+      "RIN"
+    ],
+    "deprecated": true,
+    "redirectTo": "eye-slit-pupils"
+  },
+  {
+    "id": "rin-eye-red-pupils",
+    "label": "赤い瞳孔",
+    "prompt": "red pupils",
+    "aliases": [
+      "red-colored pupils",
+      "赤色瞳孔"
+    ],
+    "related": [
+      "slit pupils",
+      "red eyes"
+    ],
+    "description": "瞳孔そのものを赤色にする指定。虹彩色とは分離する。",
+    "slot": "pupil_color",
+    "subcategory": "瞳孔",
+    "category": "eyes",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-eye-black-pupils",
+    "label": "黒い瞳孔",
+    "prompt": "black pupils",
+    "aliases": [
+      "dark pupils",
+      "黒色瞳孔"
+    ],
+    "related": [
+      "round pupils",
+      "black eyes"
+    ],
+    "description": "瞳孔そのものを黒色にする指定。",
+    "slot": "pupil_color",
+    "subcategory": "瞳孔",
+    "category": "eyes",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-eye-white-pupils",
+    "label": "白い瞳孔",
+    "prompt": "white pupils",
+    "aliases": [
+      "pale pupils",
+      "白色瞳孔"
+    ],
+    "related": [
+      "glowing eyes",
+      "white eyes"
+    ],
+    "description": "瞳孔そのものを白色にする指定。",
+    "slot": "pupil_color",
+    "subcategory": "瞳孔",
+    "category": "eyes",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-eye-unfocused-eyes",
+    "label": "焦点の合わない目",
+    "prompt": "unfocused eyes",
+    "aliases": [
+      "out-of-focus eyes",
+      "焦点のずれた目"
+    ],
+    "related": [
+      "blank eyes",
+      "cross-eyed"
+    ],
+    "description": "視線の焦点が定まっていない目の状態。感情表現とは分離する。",
+    "slot": "eye_state",
+    "subcategory": "視線・状態",
+    "category": "eyes",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-eye-shiny-eyes",
+    "label": "艶のある目",
+    "prompt": "shiny eyes",
+    "aliases": [
+      "lustrous eyes",
+      "艶やかな目"
+    ],
+    "related": [
+      "glossy eyes",
+      "reflective eyes"
+    ],
+    "description": "目に艶や反射感を加える視覚効果。",
+    "slot": "eye_effect",
+    "subcategory": "ハイライト・発光",
+    "category": "eyes",
+    "sources": [
+      "RIN"
+    ]
+  },
+  {
+    "id": "rin-eye-single-highlight",
+    "label": "単一ハイライト",
+    "prompt": "single eye highlight",
+    "aliases": [
+      "one eye highlight",
+      "一つのハイライト"
+    ],
+    "related": [
+      "eye highlights",
+      "multiple eye highlights"
+    ],
+    "description": "目のハイライト数を一つに限定する指定。",
+    "slot": "eye_highlight_amount",
+    "subcategory": "ハイライト・発光",
+    "category": "eyes",
+    "sources": [
+      "RIN"
+    ]
   }
 ]

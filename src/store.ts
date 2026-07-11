@@ -197,6 +197,6 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   })
 }), {
   name: 'sd-prompt-studio-v14',
-  version: 7,
+  version: 8,
   migrate: migratePersistedState,
 }))
