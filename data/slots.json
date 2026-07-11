@@ -1,5 +1,5 @@
 {
-  "version": 8,
+  "version": 9,
   "slots": [
     {
       "id": "people_count_mode",
@@ -369,6 +369,11 @@
     {
       "id": "vehicle_action",
       "label": "乗り物・騎乗動作",
+      "mode": "single"
+    },
+    {
+      "id": "interaction_action",
+      "label": "相互作用",
       "mode": "single"
     }
   ],

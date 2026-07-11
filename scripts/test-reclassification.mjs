@@ -169,11 +169,11 @@ try {
   assert.equal(conflict('jumping', ['sitting'])?.level, 'hard', 'jumping and sitting must conflict')
 
   const poseDictionary = JSON.parse(fs.readFileSync(new URL('../data/pose.json', import.meta.url), 'utf8'))
-  assert.equal(poseDictionary.length, 326, 'Motion physical dictionary must include the RIN sports batch')
-  assert.equal(new Set(poseDictionary.map(tag => tag.id)).size, 326, 'Motion ids must remain unique')
-  assert.equal(poseDictionary.filter(tag => !tag.deprecated).length, 301, 'canonical Motion display count must exclude redirects')
-  assert.equal(allTags.filter(tag => tag.category === 'pose').length, 326, 'physical Motion rows must remain available')
-  assert.equal(tags.filter(tag => tag.category === 'pose').length, 301, 'deprecated Motion rows must not be exposed to the UI')
+  assert.equal(poseDictionary.length, 336, 'Motion physical dictionary must include the RIN daily-action batch')
+  assert.equal(new Set(poseDictionary.map(tag => tag.id)).size, 336, 'Motion ids must remain unique')
+  assert.equal(poseDictionary.filter(tag => !tag.deprecated).length, 304, 'canonical Motion display count must exclude redirects')
+  assert.equal(allTags.filter(tag => tag.category === 'pose').length, 336, 'physical Motion rows must remain available')
+  assert.equal(tags.filter(tag => tag.category === 'pose').length, 304, 'deprecated Motion rows must not be exposed to the UI')
   assert.equal(tags.some(tag => tag.deprecated), false, 'deprecated tags must not be visible')
   for (const tag of poseDictionary) assert(resolveCanonicalTag(tag.id, allTags), `every legacy id must resolve: ${tag.id}`)
   assert.equal(resolveCanonicalTag('rin-pose-on-back', allTags)?.id, 'pos-lying-on-back')
@@ -274,6 +274,39 @@ try {
   const sportPromptOrder = ['baseball swing', 'soccer kick', 'swimming'].map(prompt => ({ ...findTag(prompt), weight: 1 }))
   assert.deepEqual([...sportPromptOrder].sort(tagSort).map(tag => tag.prompt), ['swimming', 'soccer kick', 'baseball swing'], 'existing sport Prompt order must remain compatible')
 
+  const rinDailyRedirects = {
+    'rin-daily-waving': 'pos-waving',
+    'rin-daily-pointing': 'pos-pointing',
+    'rin-daily-taking-selfie': 'pos-taking-selfie',
+    'rin-daily-writing': 'pos-writing',
+    'rin-daily-drinking': 'pos-drinking',
+    'rin-daily-cooking': 'pos-cooking',
+    'rin-daily-playing-guitar': 'pos-playing-guitar',
+    'rin-interaction-hugging': 'peo-hugging',
+  }
+  for (const [legacyId, canonicalId] of Object.entries(rinDailyRedirects)) {
+    assert.equal(resolveCanonicalTag(legacyId, allTags)?.id, canonicalId, `${legacyId} must resolve to its existing canonical tag`)
+    assert.equal(tags.some(tag => tag.id === legacyId), false, `${legacyId} must not be displayed`)
+  }
+  for (const prompt of ['holding phone', 'reading book', 'carrying']) {
+    const tag = tags.find(item => item.prompt === prompt)
+    assert(tag && tag.category === 'pose', `${prompt} must be added as a self-contained Motion tag`)
+    assert.deepEqual(tag.sources, ['RIN'])
+  }
+  const hugging = tags.find(tag => tag.prompt === 'hugging')
+  const handshake = tags.find(tag => tag.prompt === 'handshake')
+  assert.equal(hugging?.category, 'people', 'hugging must remain outside Motion')
+  assert.equal(handshake?.category, 'people', 'handshake must be separated from Motion')
+  assert.equal(hugging?.slot, 'interaction_action')
+  assert.equal(handshake?.slot, 'interaction_action')
+  assert(getSlotDefinitions().some(slot => slot.id === 'interaction_action' && slot.mode === 'single'))
+  assert.equal(conflict('waving', ['standing']), null, 'hand action and body posture must coexist')
+  assert.equal(conflict('reading book', ['sitting']), null, 'daily hand/gaze action and posture must coexist')
+  assert.equal(conflict('handshake', ['hugging'])?.level, 'hard', 'different interaction actions must conflict')
+
+  const dailyPromptOrder = ['playing guitar', 'taking selfie', 'drinking', 'cooking', 'writing', 'reading'].map(prompt => ({ ...findTag(prompt), weight: 1 }))
+  assert.deepEqual([...dailyPromptOrder].sort(tagSort).map(tag => tag.prompt), ['reading', 'writing', 'cooking', 'drinking', 'taking selfie', 'playing guitar'], 'existing daily-action Prompt order must remain compatible')
+
   const futureRinTag = { id: 'rin-future-wave', label: 'RIN wave', prompt: 'wave', category: 'pose', sources: ['RIN'], aliases: ['future wave'], related: ['waving'] }
   const mergedFutureTag = mergeCanonicalTag(tags.find(tag => tag.id === 'pos-waving'), futureRinTag)
   assert.deepEqual(mergedFutureTag.sources, ['existing', 'RIN'], 'future RIN batches must use the same source merge rule')
@@ -350,6 +383,15 @@ try {
   assert.equal(migratedRinSport.blocks[0].tags[0].prompt, 'baseball swing')
   assert.equal(migratedRinSport.blocks[0].tags[0].weight, 1.2)
   assert.deepEqual(migratedRinSport.favoriteIds, ['v19-motion-baseball-batting', 'pos-swimming'])
+
+  const migratedRinDaily = migratePersistedState({
+    blocks: [{ id: 'rin-daily', name: '被写体 1', tags: [{ id: 'rin-daily-taking-selfie', prompt: 'taking selfie', label: '自撮り', category: 'pose', weight: 1.3 }] }],
+    favoriteIds: ['rin-daily-taking-selfie', 'rin-interaction-hugging'],
+    userTags: [],
+  })
+  assert.equal(migratedRinDaily.blocks[0].tags[0].id, 'pos-taking-selfie')
+  assert.equal(migratedRinDaily.blocks[0].tags[0].weight, 1.3)
+  assert.deepEqual(migratedRinDaily.favoriteIds, ['pos-taking-selfie', 'peo-hugging'])
 
   const characterDictionary = JSON.parse(fs.readFileSync(new URL('../data/character.json', import.meta.url), 'utf8'))
   assert.equal(characterDictionary.length, 103, 'character dictionary count must remain unchanged')
