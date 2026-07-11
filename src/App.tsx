@@ -166,16 +166,39 @@ export default function App() {
   const warnings = useMemo(() => conflicts(active.tags), [active.tags])
   const related = useMemo(() => relatedTags(active.tags).slice(0, 8), [active.tags])
   const selectedSections = useMemo(() => {
-    const group = (category: string, items: SelectedTag[], layerId: string) => ({ category, items: items.filter(tag => tag.category === category).map(tag => ({ tag, layerId })) })
-    const sceneGroup = (category: string) => group(category, store.sceneTags, 'scene')
+    const group = (key: string, category: string, label: string, items: SelectedTag[], layerId: string, subcategory?: string, excludeSubcategory?: string) => ({ key, category, label, subcategory, items: items.filter(tag => tag.category === category && (!subcategory || tag.subcategory === subcategory) && (!excludeSubcategory || tag.subcategory !== excludeSubcategory)).map(tag => ({ tag, layerId })) })
+    const sceneGroup = (key: string, category: string, label: string, subcategory?: string, excludeSubcategory?: string) => group(key, category, label, store.sceneTags, 'scene', subcategory, excludeSubcategory)
+    const subjectSection = (block: typeof store.blocks[number]) => ({
+      id: block.id,
+      name: block.name,
+      targetId: block.id,
+      groups: [
+        group('people', 'people', categoryLabels.people, block.tags, block.id),
+        group('expression', 'expression', categoryLabels.expression, block.tags, block.id),
+        group('eyes', 'eyes', categoryLabels.eyes, block.tags, block.id),
+        group('hair', 'hair', categoryLabels.hair, block.tags, block.id),
+        group('body', 'body', categoryLabels.body, block.tags, block.id),
+        group('clothes', 'clothes', categoryLabels.clothes, block.tags, block.id),
+        group('accessories', 'accessories', categoryLabels.accessories, block.tags, block.id),
+        group('pose', 'pose', categoryLabels.pose, block.tags, block.id),
+      ],
+    })
+    if (store.activeLayer === 'subject') {
+      const selected = store.blocks.find(block => block.id === store.activeBlockId) ?? store.blocks[0]
+      return [subjectSection(selected)]
+    }
     return [
-      { id: 'common', name: '共通設定', groups: [sceneGroup('quality'), sceneGroup('lighting'), sceneGroup('effects')], targetId: 'scene' },
-      ...store.blocks.map(block => ({ id: block.id, name: block.name, groups: [...new Set(block.tags.filter(tag => tag.category !== 'people').map(tag => tag.category))].map(category => group(category, block.tags, block.id)), targetId: block.id })),
-      { id: 'interaction', name: 'Interaction', groups: [group('people', store.blocks.flatMap(block => block.tags), '')].map(entry => ({ ...entry, items: store.blocks.flatMap(block => block.tags.filter(tag => tag.category === entry.category).map(tag => ({ tag, layerId: block.id }))) })), targetId: store.blocks[0].id },
-      { id: 'scene-context', name: 'Scene', groups: [sceneGroup('background'), sceneGroup('scene_props')], targetId: 'scene' },
-      { id: 'camera-context', name: 'Camera', groups: [sceneGroup('camera')], targetId: 'scene' },
+      { id: 'common', name: '共通設定', targetId: 'scene', groups: [
+        sceneGroup('quality', 'quality', '品質', undefined, 'スタイル'),
+        sceneGroup('style', 'quality', 'スタイル', 'スタイル'),
+        sceneGroup('lighting', 'lighting', categoryLabels.lighting),
+        sceneGroup('camera', 'camera', categoryLabels.camera),
+        sceneGroup('background', 'background', categoryLabels.background),
+        sceneGroup('effects', 'effects', categoryLabels.effects),
+      ] },
+      ...store.blocks.map(subjectSection),
     ]
-  }, [store.blocks, store.sceneTags])
+  }, [store.activeBlockId, store.activeLayer, store.blocks, store.sceneTags])
   async function copyPrompt() {
     const success = await copyText(prompt)
     if (!success) { alert('コピーできませんでした。テキストを選択して手動でコピーしてください。'); return }
@@ -342,7 +365,7 @@ export default function App() {
       </section>
 
       <aside className="preview panel">
-        <div className="block-tabs">{store.blocks.map(b=><button key={b.id} className={store.activeLayer==='subject'&&b.id===store.activeBlockId?'active':''} onClick={()=>store.setActiveBlock(b.id)}>{b.name}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();store.removeBlock(b.id)}}/>}</button>)}<button className={store.activeLayer==='scene'?'active':''} onClick={()=>store.setActiveLayer('scene')}>Scene</button><button className="add-block" onClick={store.addBlock}><Plus size={16}/>人物追加</button></div>
+        <div className="block-tabs"><button className={store.activeLayer==='scene'?'active':''} onClick={()=>store.setActiveLayer('scene')}>全体</button>{store.blocks.map(b=><button key={b.id} className={store.activeLayer==='subject'&&b.id===store.activeBlockId?'active':''} onClick={()=>store.setActiveBlock(b.id)}>{b.name}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={store.addBlock}><Plus size={16}/>人物追加</button></div>
         <section className="prompt-actions"><strong>Prompt Actions</strong><button onClick={copyPrompt}><Copy size={16}/>{copied?'コピー済み':'Positiveをコピー'}</button><button onClick={async()=>{const ok=await copyText(store.negative);if(ok){setCopied(true);setTimeout(()=>setCopied(false),1400)}}}><Copy size={16}/>{copied?'コピー済み':'Negativeをコピー'}</button></section>
         {store.activeLayer==='subject'&&activeSubject&&<label className="subject-position">Character position<select value={activeSubject.position??'center'} onChange={event=>store.setSubjectPosition(activeSubject.id,event.target.value as 'left'|'center'|'right')}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>}
         <section className={`preview-section ${selectedCollapsed?'collapsed':''}`}>
@@ -351,8 +374,8 @@ export default function App() {
           </button>
           {!selectedCollapsed&&<div className="preview-section-content">
             <div className="selected-outline">
-              {selectedSections.map(section=><section className="selected-layer" key={section.id}><button className="selected-layer-title" onClick={()=>section.targetId==='scene'?store.setActiveLayer('scene'):store.setActiveBlock(section.targetId)}>{section.name}</button>{section.groups.filter(entry=>entry.items.length>0||entry.category==='quality').map(entry=><section className="selected-group" key={entry.category}>
-                <div className="selected-group-head"><button onClick={()=>chooseCategory(entry.category)}><strong>{categoryLabels[entry.category]}</strong><span>{entry.items.length}</span></button></div>
+              {selectedSections.map(section=><section className="selected-layer" key={section.id}><button className="selected-layer-title" onClick={()=>section.targetId==='scene'?store.setActiveLayer('scene'):store.setActiveBlock(section.targetId)}>{section.name}</button>{section.groups.map(entry=><section className="selected-group" key={entry.key}>
+                <div className="selected-group-head"><button onClick={()=>{if(section.targetId!=='scene')store.setActiveBlock(section.targetId);chooseCategory(entry.category);if(entry.subcategory)setSubcategory(entry.subcategory)}}><strong>{entry.label}</strong><span>{entry.items.length}</span></button></div>
                 <div className="selected-chips">{entry.items.length===0?<small className="selected-empty">未選択</small>:entry.items.sort((a,b)=>tagSort(a.tag,b.tag)).map(({tag,layerId})=><div className={`selected-chip category-${tag.category}`} key={`${layerId}-${tag.id}`} title={`${tag.prompt}${tag.weight!==1?` / 重み ${tag.weight.toFixed(1)}`:''}`}>
                   <button className="chip-label" onClick={()=>{const source=visibleDictionaryTags.find(t=>t.id===tag.id);if(source)setInspectedTag(source)}}>{tag.label}</button>
                   {tag.weight!==1&&<span className="chip-weight">{tag.weight.toFixed(1)}</span>}
