@@ -4,8 +4,9 @@ import { allTags, type ContentRating, type PromptTag } from './data/tags'
 import { adultTags } from './data/adultTags'
 import { canonicalId, resolveCanonicalTag } from './data/canonical'
 import { createId } from './id'
+import type { LocalizedLabels } from './i18n'
 
-export type SelectedTag = { id: string; prompt: string; label: string; category: string; outputCategory?: string; subcategory?: string; sortSubcategory?: string; promptGroup?: string; promptOrder?: number; slot?: string | string[]; weight: number; rating?: ContentRating }
+export type SelectedTag = { id: string; prompt: string; label: string; labels?: LocalizedLabels; category: string; outputCategory?: string; subcategory?: string; sortSubcategory?: string; promptGroup?: string; promptOrder?: number; slot?: string | string[]; weight: number; rating?: ContentRating }
 export type SubjectPosition = 'left' | 'center' | 'right'
 export type PromptBlock = { id: string; name: string; position?: SubjectPosition; tags: SelectedTag[] }
 export type EditorLayer = 'subject' | 'scene'
