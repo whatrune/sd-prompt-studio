@@ -26,6 +26,8 @@ for (const file of files) {
     if (row.deprecated && !row.redirectTo) throw new Error(`${file}: deprecated tag requires redirectTo on ${row.id}`)
     if (row.redirectTo && !row.deprecated) throw new Error(`${file}: redirectTo requires deprecated on ${row.id}`)
     if (row.sources && (!Array.isArray(row.sources) || row.sources.some(source => !['existing', 'RIN'].includes(source)))) throw new Error(`${file}: invalid sources on ${row.id}`)
+    if (row.promptGroup !== undefined && (typeof row.promptGroup !== 'string' || !row.promptGroup.trim())) throw new Error(`${file}: invalid promptGroup on ${row.id}`)
+    if (row.promptOrder !== undefined && (!Number.isFinite(row.promptOrder) || row.promptOrder < 0)) throw new Error(`${file}: invalid promptOrder on ${row.id}`)
     const slots = row.slot ? (Array.isArray(row.slot) ? row.slot : [row.slot]) : []
     for (const slot of slots) {
       if (!slotIdsDeferred.has(slot)) deferredSlotChecks.push({ file, id: row.id, slot })

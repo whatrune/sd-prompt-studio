@@ -21,6 +21,12 @@ export function tagSort(a: SelectedTag | PromptTag, b: SelectedTag | PromptTag) 
   const bCategory = outputCategory(b)
   const categoryDiff = categoryOrder.indexOf(aCategory) - categoryOrder.indexOf(bCategory)
   if (categoryDiff !== 0) return categoryDiff
+  const aGroup = a.promptGroup ?? aCategory
+  const bGroup = b.promptGroup ?? bCategory
+  if (aGroup === bGroup && a.promptOrder !== undefined && b.promptOrder !== undefined) {
+    const promptOrderDiff = a.promptOrder - b.promptOrder
+    if (promptOrderDiff !== 0) return promptOrderDiff
+  }
   const order = aCategory === 'clothes' ? legacyClothingSubcategoryOrder : aCategory === 'character' ? legacyCharacterSubcategoryOrder : aCategory === 'pose' ? legacyPoseSubcategoryOrder : subcategoryOrder[aCategory] ?? []
   const usesLegacyOrder = aCategory === 'clothes' || aCategory === 'character' || aCategory === 'pose'
   const aSubcategory = usesLegacyOrder ? a.sortSubcategory ?? a.subcategory : a.subcategory
