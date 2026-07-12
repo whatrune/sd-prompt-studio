@@ -580,6 +580,12 @@ body{background:#0b0d11}
 .subcategory-tabs button.active{border-color:#65728a;background:#252b35;box-shadow:none}
 .subcategory-tabs button.active::after{display:none}
 .tag-grid{grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:4px}
+.tag-groups,.tag-subcategory-groups{display:grid;gap:14px}
+.tag-category-group,.tag-group{display:grid;gap:7px;min-width:0}
+.tag-category-title,.tag-group-title{margin:0;padding:0;color:var(--text-secondary);font-size:11px;font-weight:600;line-height:1.4}
+.tag-category-title{padding-bottom:6px;border-bottom:1px solid var(--border-muted);color:var(--text-primary);font-size:12px}
+.tag-group-grid{min-width:0}
+.tag-empty-state{min-height:120px;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--text-secondary);font-size:11px}
 .tag-card{min-height:66px;border:1px solid #292f39;border-left:2px solid #3c4553;border-radius:3px;background:#15181e;box-shadow:none;transition:background .12s,border-color .12s}
 .tag-card:hover{border-color:#4c5667;background:#1a1e25;box-shadow:none;transform:none}
 .tag-card.selected{border-color:#66748b;border-left-color:#91a0b8;background:#222832;box-shadow:none}

@@ -88,6 +88,22 @@ function scoreTag(tag: PromptTag, query: string) {
   if ((tag.aliases ?? []).some(a => a.toLowerCase().includes(q))) return 30
   return 0
 }
+type TagSubcategoryGroup = { key: string; label: string; tags: PromptTag[]; showTitle: boolean }
+type TagCategoryGroup = { key: string; label?: string; groups: TagSubcategoryGroup[] }
+function groupTagsBySubcategory(items: PromptTag[], category: string) {
+  const grouped = new Map<string, PromptTag[]>()
+  items.forEach(tag => {
+    const key = tag.subcategory?.trim() || 'その他'
+    const existing = grouped.get(key)
+    if (existing) existing.push(tag)
+    else grouped.set(key, [tag])
+  })
+  const configured = subcategoryOrder[category] ?? []
+  const known = configured.filter(key => key !== 'その他' && grouped.has(key))
+  const unknown = [...grouped.keys()].filter(key => key !== 'その他' && !configured.includes(key))
+  const ordered = [...known, ...unknown, ...(grouped.has('その他') ? ['その他'] : [])]
+  return ordered.map(key => ({ key, label: key, tags: grouped.get(key) ?? [], showTitle: true }))
+}
 function conflicts(selected: SelectedTag[]) {
   const prompts = selected.map(t => t.prompt)
   const groupWarnings = mutuallyExclusiveGroups.flatMap(group => {
@@ -171,17 +187,50 @@ export default function App() {
   const subcategories = useMemo(() => subcategoryOrder[category] ?? [], [category])
   const dictionaryTags = useMemo(() => [...tags, ...adultTags, ...store.userTags], [store.userTags])
   const visibleDictionaryTags = useMemo(() => dictionaryTags.filter(tag => RATING_RANK[tag.rating ?? 'general'] <= RATING_RANK[store.contentLevel]).map(tag => ({ ...tag, label: getTagLabel(tag, locale) })), [dictionaryTags, locale, store.contentLevel])
-  const conflictMap = useMemo(() => getConflictMap(visibleDictionaryTags, active.tags, dictionaryTags), [visibleDictionaryTags, active.tags, dictionaryTags])
+  const conflictSelection = favoritesOnly ? [...store.sceneTags, ...activeSubject.tags] : active.tags
+  const conflictMap = useMemo(() => getConflictMap(visibleDictionaryTags, conflictSelection, dictionaryTags), [visibleDictionaryTags, conflictSelection, dictionaryTags])
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return visibleDictionaryTags.filter(t => {
       if (favoritesOnly && !store.favoriteIds.includes(t.id)) return false
-      if (!q && t.category !== category) return false
-      if (!q && subcategory !== 'すべて' && t.subcategory !== subcategory) return false
+      if (!favoritesOnly && !q && t.category !== category) return false
+      if (!favoritesOnly && !q && subcategory !== 'すべて' && t.subcategory !== subcategory) return false
       if (!q && store.hideUnavailable && conflictMap.get(t.id)?.level === 'hard') return false
       return !q || scoreTag(t, q) > 0
     }).sort((a,b) => q ? scoreTag(b,q)-scoreTag(a,q) || tagSort(a,b) : tagSort(a,b))
   }, [category, subcategory, query, favoritesOnly, store.favoriteIds, visibleDictionaryTags, store.hideUnavailable, conflictMap])
+  const tagCategoryGroups = useMemo<TagCategoryGroup[]>(() => {
+    if (query.trim() || (!favoritesOnly && subcategory !== 'すべて')) {
+      return [{ key: 'flat', groups: [{ key: 'flat', label: '', tags: filtered, showTitle: false }] }]
+    }
+    if (favoritesOnly) {
+      const favoritesByCategory = new Map<string, PromptTag[]>()
+      filtered.forEach(tag => {
+        const existing = favoritesByCategory.get(tag.category)
+        if (existing) existing.push(tag)
+        else favoritesByCategory.set(tag.category, [tag])
+      })
+      return categoryOrder.flatMap(categoryKey => {
+        const categoryTags = favoritesByCategory.get(categoryKey) ?? []
+        if (categoryTags.length === 0) return []
+        const groups = groupTagsBySubcategory(categoryTags, categoryKey)
+        const showSubcategory = groups.length > 1
+        return [{
+          key: categoryKey,
+          label: getCategoryLabel(categoryKey, locale),
+          groups: groups.map(group => ({ ...group, showTitle: showSubcategory })),
+        }]
+      })
+    }
+    return [{ key: category, groups: groupTagsBySubcategory(filtered, category) }]
+  }, [category, favoritesOnly, filtered, locale, query, subcategory])
+  const selectedPrompts = useMemo(() => {
+    const subject = store.blocks.find(block => block.id === viewContextId) ?? activeSubject
+    return {
+      scene: new Set(store.sceneTags.map(tag => tag.prompt)),
+      subject: new Set(subject.tags.map(tag => tag.prompt)),
+    }
+  }, [activeSubject, store.blocks, store.sceneTags, viewContextId])
 
   const expansion = useMemo(() => buildPromptWithStrategy(store.blocks, store.sceneTags, store.modelPreset), [store.blocks, store.sceneTags, store.modelPreset])
   const prompt = expansion.prompt
@@ -319,6 +368,21 @@ export default function App() {
     store.addTag({ id: `composed-prop-${createId()}`, prompt, label: prompt, category: 'scene_props', subcategory: '配置済み', weight: 1 })
   }
 
+  function renderTagCard(tag: PromptTag) {
+    const selected = (isSceneCategory(tag.category) ? selectedPrompts.scene : selectedPrompts.subject).has(tag.prompt)
+    const favorite = store.favoriteIds.includes(tag.id)
+    const isUser = 'source' in tag
+    const conflict = conflictMap.get(tag.id)
+    const unavailable = !selected && conflict?.level === 'hard'
+    const warning = !selected && conflict?.level === 'warning'
+    return <article key={tag.id} className={`tag-card category-${tag.category} ${selected?'selected':''} ${unavailable?'unavailable':''} ${warning?'warning':''}`}>
+      <button className={`star ${favorite?'active':''}`} aria-label="お気に入り" onClick={()=>store.toggleFavorite(tag.id)}><Star size={15} fill={favorite?'currentColor':'none'}/></button>
+      <button className="info-tag" title="タグ詳細" aria-label="タグ詳細" onClick={()=>setInspectedTag(tag)}><Info size={14}/></button>
+      {isUser&&<button className="delete-user-tag" title="ユーザー辞書から削除" onClick={()=>store.removeUserTag(tag.id)}><X size={13}/></button>}
+      <button className="tag-main" onClick={()=>toggleDictionaryTag(tag)}>{unavailable&&<span className="conflict-badge"><Ban size={13}/>競合</span>}{warning&&<span className="warning-badge"><AlertTriangle size={13}/>注意</span>}<strong>{tag.label}</strong><span>{tag.prompt}</span><small>{isUser?'ユーザー辞書 / ':''}{tag.rating==='adult'?'成人向け / ':tag.rating==='suggestive'?'軽度 / ':''}{categoryLabels[tag.category]} / {tag.subcategory}</small></button>
+    </article>
+  }
+
   return <main className="app-shell">
     <header className="topbar">
       <div><h1>SD Prompt Studio <span className="version-mark">v21.0 α1</span></h1><p>Stable Diffusion Prompt IDE · {(TAG_COUNT + ADULT_TAG_COUNT + store.userTags.length).toLocaleString()} tags</p></div>
@@ -366,8 +430,8 @@ export default function App() {
     <section className="workspace">
       <aside className="sidebar panel">
         <div className="panel-role">TAG LIBRARY</div>
-        <div className="search-box"><Search size={17}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="日本語・英語で検索" /></div>
-        <button className={`favorite-filter ${favoritesOnly?'active':''}`} onClick={()=>{setFavoritesOnly(!favoritesOnly);setQuery('')}}><Star size={16}/>お気に入り</button>
+        <div className="search-box"><Search size={17}/><input value={query} onChange={e=>{setQuery(e.target.value);setFavoritesOnly(false)}} placeholder="日本語・英語で検索" /></div>
+        <button className={`favorite-filter ${favoritesOnly?'active':''}`} onClick={()=>{setFavoritesOnly(value=>!value);setQuery('');setSubcategory('すべて')}}><Star size={16}/>お気に入り</button>
         <nav>{categoryOrder.map(c=><button key={c} className={category===c&&!query&&!favoritesOnly?'active':''} onClick={()=>chooseCategory(c)}>{getCategoryLabel(c,locale)}<small>{visibleDictionaryTags.filter(t=>t.category===c).length}</small></button>)}</nav>
         <div className="preset-box"><label>モデル</label><select value={store.modelPreset} onChange={e=>store.setModelPreset(e.target.value as ModelPreset)}><option value="illustrious">Illustrious / NoobAI</option><option value="pony">Pony</option><option value="sdxl">SDXL汎用</option><option value="custom">カスタム</option></select><button className="preset" onClick={()=>store.applyQualityPreset()}><WandSparkles size={17}/>品質を置き換え</button></div>
       </aside>
@@ -378,7 +442,7 @@ export default function App() {
           <div><span className="eyebrow">PROMPT DICTIONARY</span><h2>{favoritesOnly?'お気に入り':`「${query}」の検索結果`}</h2></div>
         </div>}
         {!query&&!favoritesOnly&&subcategories.length>0&&<div className="subcategory-tabs">{['すべて',...subcategories].map(sub=>{const activeSub=subcategory===sub;return <button key={sub} className={activeSub?'active':''} aria-pressed={activeSub} onClick={()=>setSubcategory(sub)}>{activeSub&&<Check size={14}/>}<span>{sub}</span></button>})}</div>}
-        {['hair','eyes','body','clothes','scene_props'].includes(category)&&<section className={`composer-section ${composerCollapsed?'collapsed':''}`}>
+        {!favoritesOnly&&['hair','eyes','body','clothes','scene_props'].includes(category)&&<section className={`composer-section ${composerCollapsed?'collapsed':''}`}>
           <button className="composer-toggle" onClick={()=>setComposerCollapsed(v=>!v)} aria-expanded={!composerCollapsed}>
             <span>コンポーザー</span>
             {composerCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}
@@ -398,7 +462,13 @@ export default function App() {
           </button>
           {!relatedCollapsed&&<div className="related-suggestions-list">{related.filter(tag=>RATING_RANK[tag.rating ?? 'general']<=RATING_RANK[store.contentLevel]).map(tag=><button key={tag.id} className={`category-${tag.category}`} onClick={()=>toggleDictionaryTag(tag)}>＋ {tag.label}<small>{tag.prompt}</small></button>)}</div>}
         </section>}
-        <div className="tag-grid">{filtered.map(tag=>{const selected=active.tags.some(t=>t.prompt===tag.prompt);const favorite=store.favoriteIds.includes(tag.id);const isUser='source' in tag;const conflict=conflictMap.get(tag.id);const unavailable=!selected&&conflict?.level==='hard';const warning=!selected&&conflict?.level==='warning';return <article key={tag.id} className={`tag-card category-${tag.category} ${selected?'selected':''} ${unavailable?'unavailable':''} ${warning?'warning':''}`}><button className={`star ${favorite?'active':''}`} aria-label="お気に入り" onClick={()=>store.toggleFavorite(tag.id)}><Star size={15} fill={favorite?'currentColor':'none'}/></button><button className="info-tag" title="タグ詳細" aria-label="タグ詳細" onClick={()=>setInspectedTag(tag)}><Info size={14}/></button>{isUser&&<button className="delete-user-tag" title="ユーザー辞書から削除" onClick={()=>store.removeUserTag(tag.id)}><X size={13}/></button>}<button className="tag-main" onClick={()=>toggleDictionaryTag(tag)}>{unavailable&&<span className="conflict-badge"><Ban size={13}/>競合</span>}{warning&&<span className="warning-badge"><AlertTriangle size={13}/>注意</span>}<strong>{tag.label}</strong><span>{tag.prompt}</span><small>{isUser?'ユーザー辞書 / ':''}{tag.rating==='adult'?'成人向け / ':tag.rating==='suggestive'?'軽度 / ':''}{categoryLabels[tag.category]} / {tag.subcategory}</small></button></article>})}</div>
+        {favoritesOnly&&filtered.length===0?<div className="tag-empty-state"><Star size={18}/><span>お気に入りタグはありません</span></div>:<div className="tag-groups">{tagCategoryGroups.map(categoryGroup=><section className="tag-category-group" key={categoryGroup.key}>
+          {categoryGroup.label&&<h2 className="tag-category-title">{categoryGroup.label}</h2>}
+          <div className="tag-subcategory-groups">{categoryGroup.groups.map(group=><section className="tag-group" key={`${categoryGroup.key}-${group.key}`}>
+            {group.showTitle&&<h3 className="tag-group-title">{group.label}</h3>}
+            <div className="tag-grid tag-group-grid">{group.tags.map(renderTagCard)}</div>
+          </section>)}</div>
+        </section>)}</div>}
       </section>
 
       <aside className="preview panel">
