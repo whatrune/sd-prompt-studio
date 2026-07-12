@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Ban, BookOpen, Check, ChevronDown, ChevronRight, ChevronUp, Copy, Info, Plus, RotateCcw, Search, Settings2, Sparkles, Star, Trash2, WandSparkles, X } from 'lucide-react'
 import { categoryLabels, categoryOrder, subcategoryOrder, TAG_COUNT, tags, type ContentRating, type PromptTag } from './data/tags'
 import { ADULT_TAG_COUNT, adultTags } from './data/adultTags'
@@ -66,6 +66,16 @@ async function copyText(text: string): Promise<boolean> {
 }
 
 const RATING_RANK: Record<ContentRating, number> = { general: 0, suggestive: 1, adult: 2 }
+type Theme = 'dark' | 'light'
+function getInitialTheme(): Theme {
+  if (typeof window === 'undefined') return 'dark'
+  try {
+    const stored = window.localStorage.getItem('sd-prompt-studio-theme')
+    return stored === 'light' || stored === 'dark' ? stored : 'dark'
+  } catch {
+    return 'dark'
+  }
+}
 const MINOR_MARKERS = ['child','children','young child','elementary school student','middle school student','underage','minor','preteen','teenage','loli','shota']
 function hasMinorMarker(items: SelectedTag[]) { return items.some(t => MINOR_MARKERS.some(marker => t.prompt.toLowerCase().includes(marker))) }
 function hasAdultTag(items: SelectedTag[]) { return items.some(t => t.rating === 'adult') }
@@ -112,9 +122,12 @@ export default function App() {
   const [category, setCategory] = useState('quality')
   const [subcategory, setSubcategory] = useState('すべて')
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [query, setQuery] = useState('')
   const [favoritesOnly, setFavoritesOnly] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [copiedPositive, setCopiedPositive] = useState(false)
+  const [copiedNegative, setCopiedNegative] = useState(false)
+  const [copiedFinal, setCopiedFinal] = useState(false)
   const [inspectedTag, setInspectedTag] = useState<PromptTag | null>(null)
   const [analyzerOpen, setAnalyzerOpen] = useState(false)
   const [analyzerText, setAnalyzerText] = useState('')
@@ -148,6 +161,11 @@ export default function App() {
   const [viewContextId, setViewContextId] = useState<string>(() => store.activeLayer === 'scene' ? 'overview' : store.activeBlockId)
   const activeSubject = store.blocks.find(b => b.id === store.activeBlockId)!
   const active = store.activeLayer === 'scene' ? { id: 'scene', name: 'Scene', tags: store.sceneTags } : { ...activeSubject, tags: [...store.sceneTags, ...activeSubject.tags] }
+
+  useLayoutEffect(() => {
+    document.documentElement.dataset.theme = theme
+    try { window.localStorage.setItem('sd-prompt-studio-theme', theme) } catch { /* Keep the in-memory theme when storage is unavailable. */ }
+  }, [theme])
 
   const subcategories = useMemo(() => subcategoryOrder[category] ?? [], [category])
   const dictionaryTags = useMemo(() => [...tags, ...adultTags, ...store.userTags], [store.userTags])
@@ -190,11 +208,20 @@ export default function App() {
     const selected = store.blocks.find(block => block.id === viewContextId) ?? store.blocks[0]
     return selected ? [commonSection, subjectSection(selected)] : [commonSection]
   }, [locale, store.blocks, store.sceneTags, viewContextId])
-  async function copyPrompt() {
+  async function copyPrompt(target: 'actions' | 'final' = 'actions') {
     const success = await copyText(prompt)
     if (!success) { alert('コピーできませんでした。テキストを選択して手動でコピーしてください。'); return }
+    const setCopied = target === 'actions' ? setCopiedPositive : setCopiedFinal
     setCopied(true)
     setTimeout(() => setCopied(false), 1400)
+  }
+  async function copyNegativePrompt(showFeedback = true) {
+    const success = await copyText(store.negative)
+    if (!success) { alert('コピーできませんでした。テキストを選択して手動でコピーしてください。'); return }
+    if (showFeedback) {
+      setCopiedNegative(true)
+      setTimeout(() => setCopiedNegative(false), 1400)
+    }
   }
   function setContextTarget(targetId:string){
     setViewContextId(targetId)
@@ -302,6 +329,7 @@ export default function App() {
           </button>
           {settingsOpen&&<div className="settings-popover">
             <div className="settings-popover-head"><div><span className="eyebrow">DISPLAY SETTINGS</span><strong>コンテンツ表示</strong></div><button onClick={()=>setSettingsOpen(false)}><X size={15}/></button></div>
+            <div className="theme-setting"><span>テーマ</span><div className="theme-segment" role="group" aria-label="Display theme"><button type="button" aria-pressed={theme==='dark'} className={theme==='dark'?'active':''} onClick={()=>setTheme('dark')}>Dark</button><button type="button" aria-pressed={theme==='light'} className={theme==='light'?'active':''} onClick={()=>setTheme('light')}>Light</button></div></div>
             <label className="settings-field">表示レベル
               <select value={store.contentLevel} onChange={e=>changeContentLevel(e.target.value as ContentRating)}>
                 <option value="general">一般のみ</option>
@@ -371,7 +399,7 @@ export default function App() {
 
       <aside className="preview panel">
         <div className="block-tabs"><button className={viewContextId==='overview'?'active':''} onClick={()=>setContextTarget('overview')}>{t('overview',locale)}</button>{store.blocks.map(b=><button key={b.id} className={viewContextId===b.id?'active':''} onClick={()=>setContextTarget(b.id)}>{getCategoryLabel('character',locale)} {b.subjectNumber??1}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();if(viewContextId===b.id)setContextTarget('overview');store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={store.addBlock}><Plus size={16}/>{t('addSubject',locale)}</button></div>
-        <section className="prompt-actions"><strong>Prompt Actions</strong><button onClick={copyPrompt}><Copy size={16}/>{copied?'コピー済み':'Positiveをコピー'}</button><button onClick={async()=>{const ok=await copyText(store.negative);if(ok){setCopied(true);setTimeout(()=>setCopied(false),1400)}}}><Copy size={16}/>{copied?'コピー済み':'Negativeをコピー'}</button></section>
+        <section className="prompt-actions"><strong>Prompt Actions</strong><button className="copy-positive" onClick={()=>copyPrompt('actions')}>{copiedPositive?<Check size={16}/>:<Copy size={16}/>}<span>{copiedPositive?'コピー済み':'Positiveをコピー'}</span></button><button className="copy-negative" onClick={()=>copyNegativePrompt(true)}>{copiedNegative?<Check size={16}/>:<Copy size={16}/>}<span>{copiedNegative?'コピー済み':'Negativeをコピー'}</span></button></section>
         <section className={`preview-section ${selectedCollapsed?'collapsed':''}`}>
           <button className="preview-section-toggle" onClick={()=>setSelectedCollapsed(v=>!v)} aria-expanded={!selectedCollapsed}>
             <span>{t('promptContext',locale)}</span>{selectedCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}
@@ -410,11 +438,11 @@ export default function App() {
           {!expansionCollapsed&&<div className="preview-section-content expansion-entities"><small>{expansion.strategy} / {expansion.scene.subject_count} subject(s)</small>{expansion.characters.map(character=><section key={character.id}><strong>{character.name} · {character.position}</strong><pre>{character.output}</pre></section>)}</div>}
         </section>
         <section className={`preview-section output-box ${promptCollapsed?'collapsed':''}`}>
-          <div className="output-head"><button className="preview-section-toggle inline" onClick={()=>setPromptCollapsed(v=>!v)} aria-expanded={!promptCollapsed}><span>Final Prompt</span>{promptCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button><button onClick={copyPrompt}><Copy size={16}/>{copied?'コピー済み':'コピー'}</button></div>
+          <div className="output-head"><button className="preview-section-toggle inline" onClick={()=>setPromptCollapsed(v=>!v)} aria-expanded={!promptCollapsed}><span>Final Prompt</span>{promptCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button><button onClick={()=>copyPrompt('final')}>{copiedFinal?<Check size={16}/>:<Copy size={16}/>}<span>{copiedFinal?'コピー済み':'コピー'}</span></button></div>
           {!promptCollapsed&&<textarea readOnly value={prompt}/>} 
         </section>
         <section className={`preview-section output-box negative ${negativeCollapsed?'collapsed':''}`}>
-          <div className="output-head"><button className="preview-section-toggle inline" onClick={()=>setNegativeCollapsed(v=>!v)} aria-expanded={!negativeCollapsed}><span>Negative Prompt</span>{negativeCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button><div><button onClick={store.resetNegative}><RotateCcw size={15}/>初期値</button><button onClick={async()=>{ const success = await copyText(store.negative); if (!success) alert('コピーできませんでした。テキストを選択して手動でコピーしてください。') }}><Copy size={16}/>コピー</button></div></div>
+          <div className="output-head"><button className="preview-section-toggle inline" onClick={()=>setNegativeCollapsed(v=>!v)} aria-expanded={!negativeCollapsed}><span>Negative Prompt</span>{negativeCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button><div><button onClick={store.resetNegative}><RotateCcw size={15}/>初期値</button><button onClick={()=>copyNegativePrompt(false)}><Copy size={16}/>コピー</button></div></div>
           {!negativeCollapsed&&<textarea value={store.negative} onChange={e=>store.setNegative(e.target.value)} />} 
         </section>
       </aside>
