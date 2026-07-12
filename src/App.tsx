@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Ban, BookOpen, Check, ChevronDown, ChevronUp, Copy, Info, Plus, RotateCcw, Search, Settings2, Sparkles, Star, Trash2, WandSparkles, X } from 'lucide-react'
+import { AlertTriangle, Ban, BookOpen, Check, ChevronDown, ChevronRight, ChevronUp, Copy, Info, Plus, RotateCcw, Search, Settings2, Sparkles, Star, Trash2, WandSparkles, X } from 'lucide-react'
 import { categoryLabels, categoryOrder, subcategoryOrder, TAG_COUNT, tags, type ContentRating, type PromptTag } from './data/tags'
 import { ADULT_TAG_COUNT, adultTags } from './data/adultTags'
 import { isSceneCategory, usePromptStore, type SelectedTag, type ModelPreset } from './store'
@@ -124,6 +124,7 @@ export default function App() {
   const [composerCollapsed, setComposerCollapsed] = useState(true)
   const [relatedCollapsed, setRelatedCollapsed] = useState(false)
   const [selectedCollapsed, setSelectedCollapsed] = useState(false)
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
   const [expansionCollapsed, setExpansionCollapsed] = useState(true)
   const [promptCollapsed, setPromptCollapsed] = useState(true)
   const [negativeCollapsed, setNegativeCollapsed] = useState(true)
@@ -377,14 +378,30 @@ export default function App() {
           </button>
           {!selectedCollapsed&&<div className="preview-section-content">
             <div className="selected-outline">
-              {selectedSections.map(section=><section className={`selected-layer context-${section.kind.toLowerCase()} interactive`} key={section.id}><div className="selected-layer-header"><button className="selected-layer-title" onClick={()=>setContextTarget(section.targetId==='scene'?'overview':section.targetId)}><strong>{section.name}</strong></button>{section.targetId!=='scene'&&<label className="context-position-inline">Position<select value={store.blocks.find(block=>block.id===section.targetId)?.position??'center'} onChange={event=>store.setSubjectPosition(section.targetId,event.target.value as 'left'|'center'|'right')}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>}</div>{section.groups.map(entry=><section className="selected-group" key={entry.key} onClick={()=>{chooseCategory(entry.category,section.targetId);if(entry.subcategory)setSubcategory(entry.subcategory)}}>
-                <div className="selected-group-head"><button><strong>{entry.label} <small>({entry.items.length})</small></strong></button></div>
-                <div className="selected-chips">{entry.items.length===0?<small className="selected-empty">{t('unselected',locale)}</small>:entry.items.sort((a,b)=>tagSort(a.tag,b.tag)).map(({tag,layerId})=><div className={`selected-chip category-${tag.category}`} key={`${layerId}-${tag.id}`} title={`${tag.prompt}${tag.weight!==1?` / 重み ${tag.weight.toFixed(1)}`:''}`}>
-                  <button className="chip-label" onClick={event=>{event.stopPropagation();const source=visibleDictionaryTags.find(t=>t.id===tag.id);if(source)setInspectedTag(source)}}>{getTagLabel(tag,locale)}</button>
-                  {tag.weight!==1&&<span className="chip-weight">{tag.weight.toFixed(1)}</span>}
-                  <button className="chip-remove" aria-label={`${tag.label}を削除`} onClick={event=>{event.stopPropagation();store.removeTagFromLayer(layerId, tag.id)}}><X size={12}/></button>
-                </div>)}</div>
-              </section>)}</section>)}
+              {selectedSections.map(section=>{
+                const defaultExpanded = viewContextId === 'overview' ? section.targetId === 'scene' : section.targetId === viewContextId
+                const expanded = expandedSections[section.id] ?? defaultExpanded
+                const contentId = `prompt-context-section-${section.id}`
+                const tagCount = section.groups.reduce((total, entry) => total + entry.items.length, 0)
+                return <section className={`selected-layer context-${section.kind.toLowerCase()} interactive ${expanded?'expanded':'collapsed'}`} key={section.id}>
+                  <div className="selected-layer-header">
+                    <button type="button" className="selected-layer-title selected-layer-toggle" aria-expanded={expanded} aria-controls={contentId} onClick={()=>setExpandedSections(current=>({...current,[section.id]:!expanded}))}>
+                      {expanded?<ChevronDown className="section-chevron" size={14}/>:<ChevronRight className="section-chevron" size={14}/>}
+                      <strong>{section.name}</strong>
+                      <small className="section-tag-count">{tagCount} tags</small>
+                    </button>
+                    {section.targetId!=='scene'&&<label className="context-position-inline" onClick={event=>event.stopPropagation()}>Position<select value={store.blocks.find(block=>block.id===section.targetId)?.position??'center'} onClick={event=>event.stopPropagation()} onChange={event=>store.setSubjectPosition(section.targetId,event.target.value as 'left'|'center'|'right')}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>}
+                  </div>
+                  {expanded&&<div className="selected-layer-content" id={contentId}>{section.groups.map(entry=><section className="selected-group" key={entry.key} onClick={()=>{chooseCategory(entry.category,section.targetId);if(entry.subcategory)setSubcategory(entry.subcategory)}}>
+                    <div className="selected-group-head"><button><strong>{entry.label} <small>({entry.items.length})</small></strong></button></div>
+                    <div className="selected-chips">{entry.items.length===0?<small className="selected-empty">{t('unselected',locale)}</small>:entry.items.sort((a,b)=>tagSort(a.tag,b.tag)).map(({tag,layerId})=><div className={`selected-chip category-${tag.category}`} key={`${layerId}-${tag.id}`} title={`${tag.prompt}${tag.weight!==1?` / 重み ${tag.weight.toFixed(1)}`:''}`}>
+                      <button className="chip-label" onClick={event=>{event.stopPropagation();const source=visibleDictionaryTags.find(t=>t.id===tag.id);if(source)setInspectedTag(source)}}>{getTagLabel(tag,locale)}</button>
+                      {tag.weight!==1&&<span className="chip-weight">{tag.weight.toFixed(1)}</span>}
+                      <button className="chip-remove" aria-label={`${tag.label}を削除`} onClick={event=>{event.stopPropagation();store.removeTagFromLayer(layerId, tag.id)}}><X size={12}/></button>
+                    </div>)}</div>
+                  </section>)}</div>}
+                </section>
+              })}
             </div>
           </div>}
         </section>
