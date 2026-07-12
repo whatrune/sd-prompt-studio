@@ -1,3 +1,6 @@
+import type { PromptTag } from '../data/tags'
+import type { SelectedTag } from '../store'
+
 export type ColorModifier = {
   value: string
   label: string
@@ -35,7 +38,7 @@ export const COLOR_MODIFIABLE_CATEGORIES = new Set(['eyes', 'hair', 'clothes', '
 const KNOWN_COLOR_PREFIXES = [
   ...COLOR_MODIFIERS.map(color => color.value),
   'light blue', 'dark blue', 'light green', 'dark green', 'light brown', 'dark brown',
-  'blonde', 'platinum blonde', 'rose gold',
+  'blonde', 'platinum blonde', 'rose gold', 'grey', 'aqua', 'amber',
 ].sort((a, b) => b.length - a.length)
 
 export function isColorModifiableCategory(category: string) {
@@ -58,4 +61,18 @@ export function applyColorModifier(prompt: string, color: string) {
 
 export function colorModifierSlug(value: string) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
+export function buildColorModifiedTag(tag: PromptTag, color: string, dictionary: PromptTag[], weight = 1): SelectedTag {
+  const prompt = applyColorModifier(tag.prompt, color)
+  const dictionaryMatch = dictionary.find(item => item.prompt.trim().toLowerCase() === prompt.toLowerCase())
+  const source = dictionaryMatch ?? tag
+  return {
+    ...source,
+    id: dictionaryMatch?.id ?? `derived-color-${tag.id}-${colorModifierSlug(color)}`,
+    prompt,
+    baseTagId: dictionaryMatch?.id ?? tag.id,
+    modifiers: { color },
+    weight,
+  }
 }

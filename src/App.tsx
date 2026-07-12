@@ -9,7 +9,7 @@ import './styles.css'
 import { createId } from './id'
 import { buildPromptWithStrategy, tagSort } from './prompt'
 import { DEFAULT_LOCALE, getCategoryLabel, getTagLabel, t } from './i18n'
-import { applyColorModifier, colorModifierSlug, COLOR_MODIFIERS, findColorModifier, isColorModifiableCategory } from './modifiers/colorModifier'
+import { buildColorModifiedTag, COLOR_MODIFIERS, findColorModifier, isColorModifiableCategory } from './modifiers/colorModifier'
 
 
 
@@ -316,12 +316,10 @@ export default function App() {
       if (!accepted) return
     }
     if (colorApplicable) {
-      const prompt = applyColorModifier(tag.prompt, activeColorModifier)
-      const dictionaryMatch = dictionaryTags.find(item => item.prompt.trim().toLowerCase() === prompt.toLowerCase())
-      const baseTagId = dictionaryMatch?.id ?? tag.id
+      const draft = buildColorModifiedTag(tag, activeColorModifier, dictionaryTags)
       const relatedSelections = layerTags.filter(item =>
         item.id === tag.id || item.baseTagId === tag.id || item.prompt === tag.prompt ||
-        item.id === baseTagId || item.baseTagId === baseTagId || item.prompt === prompt
+        item.id === draft.baseTagId || item.baseTagId === draft.baseTagId || item.prompt === draft.prompt
       )
       const removeIds = [...new Set(relatedSelections.map(item => item.id))]
       const existing = relatedSelections[0]
@@ -330,16 +328,7 @@ export default function App() {
         setActiveColorModifier('')
         return
       }
-      const source = dictionaryMatch ?? tag
-      const derived: SelectedTag = {
-        ...source,
-        id: dictionaryMatch?.id ?? `derived-color-${tag.id}-${colorModifierSlug(activeColorModifier)}`,
-        prompt,
-        label: tag.label,
-        baseTagId,
-        modifiers: { color: activeColorModifier },
-        weight: existing?.weight ?? 1,
-      }
+      const derived = buildColorModifiedTag(tag, activeColorModifier, dictionaryTags, existing?.weight ?? 1)
       store.replaceTagInLayer(layerId, removeIds, derived)
       setActiveColorModifier('')
       return
@@ -405,13 +394,15 @@ export default function App() {
     const selectedTag = layerTags.find(item => item.id === tag.id || item.baseTagId === tag.id || item.prompt === tag.prompt)
     const selected = Boolean(selectedTag)
     const appliedColor = selectedTag?.modifiers?.color ? findColorModifier(selectedTag.modifiers.color) : undefined
+    const colorNotApplicable = Boolean(activeColorModifier) && !isColorModifiableCategory(tag.category)
     const favorite = store.favoriteIds.includes(tag.id)
     const isUser = 'source' in tag
     const conflict = conflictMap.get(tag.id)
     const unavailable = !selected && conflict?.level === 'hard'
     const warning = !selected && conflict?.level === 'warning'
-    const accessibleLabel = `${tag.label}${appliedColor ? `、カラー: ${appliedColor.label}` : ''}${selected ? '、選択済み' : ''}`
-    return <article key={tag.id} className={`tag-card category-${tag.category} ${selected?'selected':''} ${unavailable?'unavailable':''} ${warning?'warning':''}`} title={appliedColor ? accessibleLabel : undefined}>
+    const colorAvailability = colorNotApplicable ? '、カラー適用対象外。通常タグとして追加されます' : ''
+    const accessibleLabel = `${tag.label}${appliedColor ? `、カラー: ${appliedColor.label}` : ''}${selected ? '、選択済み' : ''}${colorAvailability}`
+    return <article key={tag.id} className={`tag-card category-${tag.category} ${selected?'selected':''} ${unavailable?'unavailable':''} ${warning?'warning':''} ${colorNotApplicable?'color-not-applicable':''}`} title={appliedColor || colorNotApplicable ? accessibleLabel : undefined}>
       <button className={`star ${favorite?'active':''}`} aria-label="お気に入り" onClick={()=>store.toggleFavorite(tag.id)}><Star size={15} fill={favorite?'currentColor':'none'}/></button>
       <button className="info-tag" title="タグ詳細" aria-label="タグ詳細" onClick={()=>setInspectedTag(tag)}><Info size={14}/></button>
       {isUser&&<button className="delete-user-tag" title="ユーザー辞書から削除" onClick={()=>store.removeUserTag(tag.id)}><X size={13}/></button>}

@@ -5,7 +5,7 @@ import { createServer } from 'vite'
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 
 try {
-  const [{ adultTags }, { buildPrompt, buildPromptWithStrategy, tagSort }, { migratePersistedState, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }, { applyColorModifier, findColorModifier, isColorModifiableCategory }] = await Promise.all([
+  const [{ adultTags }, { buildPrompt, buildPromptWithStrategy, tagSort }, { migratePersistedState, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }, { applyColorModifier, buildColorModifiedTag, findColorModifier, isColorModifiableCategory }] = await Promise.all([
     server.ssrLoadModule('/src/data/adultTags.ts'),
     server.ssrLoadModule('/src/prompt.ts'),
     server.ssrLoadModule('/src/store.ts'),
@@ -590,11 +590,25 @@ try {
   assert.equal(applyColorModifier('white dress', 'blue'), 'blue dress')
   assert.equal(applyColorModifier('navy blue hair', 'red'), 'red hair')
   assert.equal(applyColorModifier('chair', 'black'), 'black chair')
+  assert.equal(applyColorModifier('grey eyes', 'red'), 'red eyes')
+  assert.equal(applyColorModifier('aqua eyes', 'black'), 'black eyes')
+  assert.equal(applyColorModifier('amber eyes', 'blue'), 'blue eyes')
   assert.equal(isColorModifiableCategory('expression'), false)
   assert.equal(isColorModifiableCategory('pose'), false)
   assert.equal(isColorModifiableCategory('eyes'), true)
   assert.equal(isColorModifiableCategory('scene_props'), true)
   assert.equal(findColorModifier('white').swatch, '#ffffff')
+
+  const redEyes = tags.find(tag => tag.prompt === 'red eyes')
+  const blackEyes = tags.find(tag => tag.prompt === 'black eyes')
+  const cosmicEyes = tags.find(tag => tag.prompt === 'cosmic eyes')
+  const matchedBlackEyes = buildColorModifiedTag(redEyes, 'black', tags)
+  assert.equal(matchedBlackEyes.id, blackEyes.id, 'dictionary Prompt match must reuse the canonical dictionary id')
+  assert.equal(matchedBlackEyes.prompt, 'black eyes')
+  assert.equal(matchedBlackEyes.label, '黒い目', 'dictionary Prompt match must use the matched dictionary label')
+  const derivedBlueCosmicEyes = buildColorModifiedTag(cosmicEyes, 'blue', tags)
+  assert.equal(derivedBlueCosmicEyes.prompt, 'blue cosmic eyes')
+  assert.equal(derivedBlueCosmicEyes.label, cosmicEyes.label, 'derived tags without a dictionary match must keep the source label')
 
   const coloredTag = { id: 'derived-color-cosmic-blue', prompt: 'blue cosmic eyes', label: '宇宙眼', category: 'eyes', subcategory: '虹彩・内部模様', baseTagId: 'eyes-cosmic', modifiers: { color: 'blue' }, weight: 1.3 }
   assert(buildPrompt([{ id: 'colored-subject', name: '被写体 1', tags: [coloredTag] }]).includes('(blue cosmic eyes:1.3)'), 'existing Prompt rendering must output the completed colored prompt')
