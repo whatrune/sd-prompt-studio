@@ -21,6 +21,8 @@
   --copy-primary-bg-hover: #2ea043;
   --copy-primary-border: rgba(240,246,252,.10);
   --copy-primary-text: #ffffff;
+  --sticky-surface: rgba(22,27,34,.97);
+  --sticky-shadow: 0 9px 18px rgba(6,8,14,.28);
   --surface: var(--bg-secondary);
   --surface-2: var(--bg-tertiary);
   --line: var(--border);
@@ -52,6 +54,8 @@
   --copy-primary-bg-hover: #1a7f37;
   --copy-primary-border: rgba(31,35,40,.15);
   --copy-primary-text: #ffffff;
+  --sticky-surface: rgba(255,255,255,.97);
+  --sticky-shadow: 0 6px 16px rgba(140,149,159,.18);
   color-scheme: light;
 }
 * { box-sizing: border-box; }
@@ -321,9 +325,9 @@ textarea { width:100%; resize:vertical; min-height:105px; background:#0c0f16; bo
   z-index: 12;
   margin: -4px -18px 14px;
   padding: 14px 18px 11px;
-  background: rgba(18, 21, 30, .97);
-  border-bottom: 1px solid #30384a;
-  box-shadow: 0 9px 18px rgba(6, 8, 14, .28);
+  background: var(--sticky-surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--sticky-shadow);
   backdrop-filter: blur(10px);
   overscroll-behavior-x: contain;
 }
@@ -709,6 +713,9 @@ body{background:var(--bg-primary);color:var(--text-primary)}
 .tag-card .tag-main>span:not(.conflict-badge):not(.warning-badge),.tag-card small{color:var(--text-secondary)}
 .tag-card .star,.tag-card .info-tag{color:var(--text-secondary);background:transparent}
 .tag-card .star:hover,.tag-card .info-tag:hover{color:var(--accent)}
+[data-theme="light"] .ghost.danger{color:var(--danger)}
+[data-theme="light"] .expansion-entities pre{color:var(--text-primary)}
+[data-theme="light"] .tag-card .star.active{color:#9a6700}
 .block-tabs{border-color:var(--border);background:var(--bg-secondary)}
 .block-tabs button{border-color:var(--border);background:var(--bg-primary);color:var(--text-secondary)}
 .block-tabs button:hover{border-color:var(--border-hover);background:var(--bg-hover);color:var(--text-primary)}
