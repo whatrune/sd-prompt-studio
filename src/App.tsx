@@ -227,6 +227,7 @@ export default function App() {
   function setContextTarget(targetId:string){
     if (targetId === 'overview' || targetId === 'scene') {
       setViewContextId('overview')
+      if (mainSubjectId) store.setActiveBlock(mainSubjectId)
       store.setActiveLayer('scene')
     } else if (targetId === mainSubjectId) {
       setViewContextId('overview')
@@ -257,8 +258,10 @@ export default function App() {
     store.setContentLevel(level)
   }
   function toggleDictionaryTag(tag: PromptTag){
-    const layerId = isSceneCategory(tag.category) ? 'scene' : store.activeBlockId
-    const layerTags = layerId === 'scene' ? store.sceneTags : activeSubject.tags
+    const targetSubjectId = viewContextId === 'overview' ? mainSubjectId : viewContextId
+    const targetSubject = store.blocks.find(block => block.id === targetSubjectId) ?? activeSubject
+    const layerId = isSceneCategory(tag.category) ? 'scene' : targetSubject.id
+    const layerTags = layerId === 'scene' ? store.sceneTags : targetSubject.tags
     const selected = layerTags.find(item => item.prompt === tag.prompt)
     if (selected) { store.removeTagFromLayer(layerId, selected.id); return }
     if (tag.rating === 'adult' && hasMinorMarker(store.blocks.flatMap(b => b.tags))) {
