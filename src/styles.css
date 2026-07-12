@@ -829,7 +829,7 @@ body{background:var(--bg-primary);color:var(--text-primary)}
 .color-swatch.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .color-swatch-none::before{background:linear-gradient(135deg,transparent 44%,var(--danger) 46%,var(--danger) 54%,transparent 56%)}
 .color-swatch-none{color:var(--text-secondary)}
-.tag-color-ribbon{position:absolute;right:0;bottom:0;z-index:2;width:64px;height:13px;clip-path:polygon(0 100%,20% 100%,100% 20%,100% 0);background:var(--modifier-color);filter:drop-shadow(0 0 1px color-mix(in srgb,var(--text-primary) 58%,transparent));pointer-events:none}
+.tag-color-ribbon{position:absolute;right:0;bottom:-2px;z-index:2;width:64px;height:14px;clip-path:polygon(0 100%,35% 100%,100% 35%,100% 0);background:var(--modifier-color);filter:drop-shadow(0 0 1px color-mix(in srgb,var(--text-primary) 58%,transparent));pointer-events:none}
 .tag-card.color-not-applicable .tag-main{opacity:.5}
 .tag-card.color-not-applicable .star,.tag-card.color-not-applicable .info-tag,.tag-card.color-not-applicable .delete-user-tag{opacity:.8}
 .tag-card.color-not-applicable:hover .tag-main{opacity:.72}
