@@ -158,7 +158,8 @@ export default function App() {
   const [propVertical, setPropVertical] = useState('')
   const [propDepth, setPropDepth] = useState('background')
   const store = usePromptStore()
-  const [viewContextId, setViewContextId] = useState<string>(() => store.activeLayer === 'scene' ? 'overview' : store.activeBlockId)
+  const mainSubjectId = store.blocks[0]?.id
+  const [viewContextId, setViewContextId] = useState<string>(() => store.activeLayer === 'scene' || store.activeBlockId === store.blocks[0]?.id ? 'overview' : store.activeBlockId)
   const activeSubject = store.blocks.find(b => b.id === store.activeBlockId)!
   const active = store.activeLayer === 'scene' ? { id: 'scene', name: 'Scene', tags: store.sceneTags } : { ...activeSubject, tags: [...store.sceneTags, ...activeSubject.tags] }
 
@@ -190,21 +191,21 @@ export default function App() {
   const selectedSections = useMemo(() => {
     const group = (key: string, category: string, label: string, items: SelectedTag[], layerId: string, subcategory?: string, excludeSubcategory?: string) => ({ key, category, label, subcategory, items: items.filter(tag => tag.category === category && (!subcategory || tag.subcategory === subcategory) && (!excludeSubcategory || tag.subcategory !== excludeSubcategory)).map(tag => ({ tag, layerId })) })
     const sceneGroup = (key: string, category: string, label: string, subcategory?: string, excludeSubcategory?: string) => group(key, category, label, store.sceneTags, 'scene', subcategory, excludeSubcategory)
-    const subjectSection = (block: typeof store.blocks[number]) => ({
+    const subjectSection = (block: typeof store.blocks[number], isMain = false) => ({
       id: block.id,
-      name: `${getCategoryLabel('character', locale)} ${block.subjectNumber ?? 1}`,
+      name: isMain ? 'Main Character' : `${getCategoryLabel('character', locale)} ${block.subjectNumber ?? 1}`,
       kind: 'CHARACTER',
       targetId: block.id,
       groups: [
         ...['people','expression','eyes','hair','body','clothes','accessories','pose'].map(category => group(category, category, getCategoryLabel(category, locale), block.tags, block.id)),
       ],
     })
-    const commonSection = { id: 'common', name: t('commonSettings', locale), kind: 'COMMON', targetId: 'scene', groups: [
+    const commonSection = { id: 'common', name: 'Common', kind: 'COMMON', targetId: 'scene', groups: [
       sceneGroup('quality', 'quality', t('quality', locale), undefined, 'スタイル'),
       sceneGroup('style', 'quality', t('style', locale), 'スタイル'),
       ...['lighting','camera','background','effects'].map(category => sceneGroup(category, category, getCategoryLabel(category, locale))),
     ] }
-    if (viewContextId === 'overview') return [commonSection, ...store.blocks.map(subjectSection)]
+    if (viewContextId === 'overview') return [commonSection, ...store.blocks.map((block, index) => subjectSection(block, index === 0))]
     const selected = store.blocks.find(block => block.id === viewContextId) ?? store.blocks[0]
     return selected ? [commonSection, subjectSection(selected)] : [commonSection]
   }, [locale, store.blocks, store.sceneTags, viewContextId])
@@ -224,9 +225,21 @@ export default function App() {
     }
   }
   function setContextTarget(targetId:string){
-    setViewContextId(targetId)
-    if (targetId === 'overview' || targetId === 'scene') store.setActiveLayer('scene')
-    else store.setActiveBlock(targetId)
+    if (targetId === 'overview' || targetId === 'scene') {
+      setViewContextId('overview')
+      store.setActiveLayer('scene')
+    } else if (targetId === mainSubjectId) {
+      setViewContextId('overview')
+      store.setActiveBlock(targetId)
+    } else {
+      setViewContextId(targetId)
+      store.setActiveBlock(targetId)
+    }
+  }
+  function addCharacter(){
+    store.addBlock()
+    const addedId = usePromptStore.getState().activeBlockId
+    setContextTarget(addedId)
   }
   function chooseCategory(c:string, targetId?:string){
     if (targetId === 'scene' || (!targetId && isSceneCategory(c))) setContextTarget('overview')
@@ -401,7 +414,7 @@ export default function App() {
 
       <aside className="preview panel">
         <div className="panel-role">PROMPT PREVIEW</div>
-        <div className="block-tabs"><button className={viewContextId==='overview'?'active':''} onClick={()=>setContextTarget('overview')}>{t('overview',locale)}</button>{store.blocks.map(b=><button key={b.id} className={viewContextId===b.id?'active':''} onClick={()=>setContextTarget(b.id)}>{getCategoryLabel('character',locale)} {b.subjectNumber??1}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();if(viewContextId===b.id)setContextTarget('overview');store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={store.addBlock}><Plus size={16}/>{t('addSubject',locale)}</button></div>
+        <div className="block-tabs"><button className={viewContextId==='overview'?'active':''} onClick={()=>setContextTarget('overview')}>{t('overview',locale)}</button>{store.blocks.slice(1).map(b=><button key={b.id} className={viewContextId===b.id?'active':''} onClick={()=>setContextTarget(b.id)}>{getCategoryLabel('character',locale)} {b.subjectNumber??1}<X size={13} onClick={e=>{e.stopPropagation();if(viewContextId===b.id)setContextTarget('overview');store.removeBlock(b.id)}}/></button>)}<button className="add-block" onClick={addCharacter}><Plus size={16}/>{t('addSubject',locale)}</button></div>
         <section className="prompt-actions"><strong>Prompt Actions</strong><button className="copy-positive" onClick={()=>copyPrompt('actions')}>{copiedPositive?<Check size={16}/>:<Copy size={16}/>}<span>{copiedPositive?'コピー済み':'Positiveをコピー'}</span></button><button className="copy-negative" onClick={()=>copyNegativePrompt(true)}>{copiedNegative?<Check size={16}/>:<Copy size={16}/>}<span>{copiedNegative?'コピー済み':'Negativeをコピー'}</span></button></section>
         <section className={`preview-section ${selectedCollapsed?'collapsed':''}`}>
           <div className="preview-section-header"><button className="preview-section-toggle" onClick={()=>setSelectedCollapsed(v=>!v)} aria-expanded={!selectedCollapsed}>
@@ -410,7 +423,7 @@ export default function App() {
           {!selectedCollapsed&&<div className="preview-section-content">
             <div className="selected-outline">
               {selectedSections.map(section=>{
-                const defaultExpanded = viewContextId === 'overview' ? section.targetId === 'scene' : section.targetId === viewContextId
+                const defaultExpanded = viewContextId === 'overview' ? section.targetId === 'scene' || section.targetId === mainSubjectId : section.targetId === viewContextId
                 const expanded = expandedSections[section.id] ?? defaultExpanded
                 const contentId = `prompt-context-section-${section.id}`
                 const tagCount = section.groups.reduce((total, entry) => total + entry.items.length, 0)
