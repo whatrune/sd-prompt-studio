@@ -818,6 +818,19 @@ body{background:var(--bg-primary);color:var(--text-primary)}
 .panel-role{display:flex;align-items:center;flex:0 0 auto;height:32px;padding:0 12px;border-bottom:1px solid var(--border);color:var(--text-secondary);font-size:10px;font-weight:700;letter-spacing:.1em}
 .sidebar>.panel-role{margin:-10px -10px 10px}
 .tag-panel>.panel-role{margin:-12px -12px 10px}
+.color-modifier-bar{display:flex;align-items:center;gap:10px;min-height:38px;margin:0 0 10px;padding:4px 0 8px;border-bottom:1px solid var(--border-muted);min-width:0}
+.color-modifier-label{display:grid;flex:0 0 auto;gap:1px;min-width:52px;color:var(--text-secondary);font-size:9px;line-height:1.2;letter-spacing:.08em}
+.color-modifier-label strong{color:var(--text-primary);font-size:10px;font-weight:600;letter-spacing:0}
+.color-modifier-swatches{display:flex;align-items:center;gap:4px;min-width:0;overflow-x:auto;padding:2px;scrollbar-width:thin}
+.color-swatch{position:relative;display:grid;place-items:center;flex:0 0 30px;width:30px;height:30px;margin:0;padding:4px;border:1px solid var(--border);border-radius:3px;background:transparent;color:#fff;box-shadow:none}
+.color-swatch::before{content:"";position:absolute;inset:4px;border:1px solid color-mix(in srgb,var(--border) 70%,transparent);border-radius:2px;background:var(--swatch-color)}
+.color-swatch svg{position:relative;z-index:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.75))}
+.color-swatch:hover{border-color:var(--border-hover);background:var(--bg-hover)}
+.color-swatch.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.color-swatch-none::before{background:linear-gradient(135deg,transparent 44%,var(--danger) 46%,var(--danger) 54%,transparent 56%)}
+.color-swatch-none{color:var(--text-secondary)}
+.tag-color-ribbon{position:absolute;right:-14px;bottom:7px;z-index:2;width:50px;height:12px;transform:rotate(-45deg);border:1px solid color-mix(in srgb,var(--modifier-color) 55%,var(--border));background:var(--modifier-color);box-shadow:0 0 0 1px color-mix(in srgb,var(--text-primary) 25%,transparent),0 1px 3px rgba(0,0,0,.35);pointer-events:none}
+@media(max-width:700px){.color-modifier-bar{align-items:flex-start}.color-modifier-label{padding-top:5px}.color-swatch{flex-basis:30px}}
 .preview-section{--preview-section-spacing:8px;border-top:1px solid var(--border);background:var(--bg-secondary)}
 .preview-section-header{display:flex;align-items:center;min-height:36px;background:var(--bg-secondary)}
 .preview-section-toggle{flex:1;height:36px;min-height:36px;padding:0 12px;font-size:12px;font-weight:600}

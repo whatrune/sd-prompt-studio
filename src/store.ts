@@ -6,7 +6,8 @@ import { canonicalId, resolveCanonicalTag } from './data/canonical'
 import { createId } from './id'
 import type { LocalizedLabels } from './i18n'
 
-export type SelectedTag = { id: string; prompt: string; label: string; labels?: LocalizedLabels; category: string; outputCategory?: string; subcategory?: string; sortSubcategory?: string; promptGroup?: string; promptOrder?: number; slot?: string | string[]; weight: number; rating?: ContentRating }
+export type TagModifiers = { color?: string }
+export type SelectedTag = { id: string; prompt: string; label: string; labels?: LocalizedLabels; category: string; outputCategory?: string; subcategory?: string; sortSubcategory?: string; promptGroup?: string; promptOrder?: number; slot?: string | string[]; layer?: PromptTag['layer']; coverage?: PromptTag['coverage']; weight: number; rating?: ContentRating; baseTagId?: string; modifiers?: TagModifiers }
 export type SubjectPosition = 'left' | 'center' | 'right'
 export type PromptBlock = { id: string; name: string; subjectNumber?: number; position?: SubjectPosition; tags: SelectedTag[] }
 export type EditorLayer = 'subject' | 'scene'
@@ -51,6 +52,7 @@ type State = {
   setContentLevel: (level: ContentRating) => void
   setHideUnavailable: (value: boolean) => void
   replaceTags: (removeIds: string[], tag: SelectedTag) => void
+  replaceTagInLayer: (layerId: string, removeIds: string[], tag: SelectedTag) => void
 }
 
 export const DEFAULT_NEGATIVE = 'modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, long body, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, cropped, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), simple background, conjoined, bad ai-generated'
@@ -147,6 +149,15 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
       ? { ...b, tags: [...b.tags.filter(t => !removeIds.includes(t.id) && t.prompt !== tag.prompt), tag] }
       : b) })
   })),
+  replaceTagInLayer: (layerId, removeIds, tag) => set((state) => {
+    const replace = (items: SelectedTag[]) => [
+      ...items.filter(item => !removeIds.includes(item.id) && item.prompt !== tag.prompt),
+      tag,
+    ]
+    return layerId === 'scene'
+      ? { sceneTags: replace(state.sceneTags) }
+      : { blocks: state.blocks.map(block => block.id === layerId ? { ...block, tags: replace(block.tags) } : block) }
+  }),
   addTag: (tag) => set((state) => ({
     ...(isSceneCategory(tag.category) ? { sceneTags: state.sceneTags.some(t => t.prompt === tag.prompt) ? state.sceneTags : [...state.sceneTags, tag] } : { blocks: state.blocks.map(b => b.id === state.activeBlockId && !b.tags.some(t => t.prompt === tag.prompt)
       ? { ...b, tags: [...b.tags, tag] }
