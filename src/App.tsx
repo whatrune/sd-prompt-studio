@@ -409,7 +409,7 @@ export default function App() {
           <div className="preview-section-header"><button className="preview-section-toggle" onClick={()=>setSelectedCollapsed(v=>!v)} aria-expanded={!selectedCollapsed}>
             <span>{t('promptContext',locale)}</span>{selectedCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}
           </button></div>
-          {!selectedCollapsed&&<div className="preview-section-content">
+          {!selectedCollapsed&&<div className="preview-section-content prompt-context-content">
             <div className="selected-outline">
               {selectedSections.map(section=>{
                 const defaultExpanded = section.targetId === 'scene' || section.targetId === viewContextId
