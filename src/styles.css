@@ -757,6 +757,7 @@ body{background:var(--bg-primary);color:var(--text-primary)}
 .selected-layer-content>.selected-group{border-color:var(--border-muted);background:transparent}
 .selected-layer.interactive>.selected-layer-content>.selected-group:hover{background:var(--bg-hover);box-shadow:inset 0 0 0 1px var(--border)}
 .selected-group-head>button{color:var(--text-primary)!important}
+.selected-group-head>button strong{color:var(--text-primary)}
 .selected-group-head>button small,.selected-empty{color:var(--text-secondary)}
 .selected-outline .selected-chip{border-color:var(--border);border-left-color:var(--category-accent);background:var(--bg-primary);color:var(--text-primary)}
 .selected-outline .selected-chip .chip-label{color:var(--text-primary)}
