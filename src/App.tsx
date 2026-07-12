@@ -159,7 +159,7 @@ export default function App() {
   const [propDepth, setPropDepth] = useState('background')
   const store = usePromptStore()
   const mainSubjectId = store.blocks[0]?.id
-  const [viewContextId, setViewContextId] = useState<string>(() => store.activeLayer === 'scene' || store.activeBlockId === store.blocks[0]?.id ? 'overview' : store.activeBlockId)
+  const [viewContextId, setViewContextId] = useState<string>(() => store.activeBlockId)
   const activeSubject = store.blocks.find(b => b.id === store.activeBlockId)!
   const active = store.activeLayer === 'scene' ? { id: 'scene', name: 'Scene', tags: store.sceneTags } : { ...activeSubject, tags: [...store.sceneTags, ...activeSubject.tags] }
 
@@ -191,9 +191,9 @@ export default function App() {
   const selectedSections = useMemo(() => {
     const group = (key: string, category: string, label: string, items: SelectedTag[], layerId: string, subcategory?: string, excludeSubcategory?: string) => ({ key, category, label, subcategory, items: items.filter(tag => tag.category === category && (!subcategory || tag.subcategory === subcategory) && (!excludeSubcategory || tag.subcategory !== excludeSubcategory)).map(tag => ({ tag, layerId })) })
     const sceneGroup = (key: string, category: string, label: string, subcategory?: string, excludeSubcategory?: string) => group(key, category, label, store.sceneTags, 'scene', subcategory, excludeSubcategory)
-    const subjectSection = (block: typeof store.blocks[number], isMain = false) => ({
+    const subjectSection = (block: typeof store.blocks[number]) => ({
       id: block.id,
-      name: isMain ? 'Main Character' : `${getCategoryLabel('character', locale)} ${block.subjectNumber ?? 1}`,
+      name: `${getCategoryLabel('character', locale)} ${block.subjectNumber ?? 1}`,
       kind: 'CHARACTER',
       targetId: block.id,
       groups: [
@@ -205,7 +205,6 @@ export default function App() {
       sceneGroup('style', 'quality', t('style', locale), 'スタイル'),
       ...['lighting','camera','background','effects'].map(category => sceneGroup(category, category, getCategoryLabel(category, locale))),
     ] }
-    if (viewContextId === 'overview') return [commonSection, ...store.blocks.map((block, index) => subjectSection(block, index === 0))]
     const selected = store.blocks.find(block => block.id === viewContextId) ?? store.blocks[0]
     return selected ? [commonSection, subjectSection(selected)] : [commonSection]
   }, [locale, store.blocks, store.sceneTags, viewContextId])
@@ -225,17 +224,8 @@ export default function App() {
     }
   }
   function setContextTarget(targetId:string){
-    if (targetId === 'overview' || targetId === 'scene') {
-      setViewContextId('overview')
-      if (mainSubjectId) store.setActiveBlock(mainSubjectId)
-      store.setActiveLayer('scene')
-    } else if (targetId === mainSubjectId) {
-      setViewContextId('overview')
-      store.setActiveBlock(targetId)
-    } else {
-      setViewContextId(targetId)
-      store.setActiveBlock(targetId)
-    }
+    setViewContextId(targetId)
+    store.setActiveBlock(targetId)
   }
   function addCharacter(){
     store.addBlock()
@@ -243,11 +233,8 @@ export default function App() {
     setContextTarget(addedId)
   }
   function chooseCategory(c:string, targetId?:string){
-    if (targetId === 'scene' || (!targetId && isSceneCategory(c))) setContextTarget('overview')
-    else {
-      const blockId = targetId ?? (viewContextId === 'overview' ? store.blocks[0]?.id : viewContextId)
-      if (blockId) setContextTarget(blockId)
-    }
+    if (targetId === 'scene' || (!targetId && isSceneCategory(c))) store.setActiveLayer('scene')
+    else store.setActiveBlock(targetId ?? viewContextId)
     setCategory(c); setSubcategory('すべて'); setQuery(''); setFavoritesOnly(false)
   }
   function changeContentLevel(level: ContentRating){
@@ -258,8 +245,7 @@ export default function App() {
     store.setContentLevel(level)
   }
   function toggleDictionaryTag(tag: PromptTag){
-    const targetSubjectId = viewContextId === 'overview' ? mainSubjectId : viewContextId
-    const targetSubject = store.blocks.find(block => block.id === targetSubjectId) ?? activeSubject
+    const targetSubject = store.blocks.find(block => block.id === viewContextId) ?? activeSubject
     const layerId = isSceneCategory(tag.category) ? 'scene' : targetSubject.id
     const layerTags = layerId === 'scene' ? store.sceneTags : targetSubject.tags
     const selected = layerTags.find(item => item.prompt === tag.prompt)
@@ -417,7 +403,7 @@ export default function App() {
 
       <aside className="preview panel">
         <div className="panel-role">PROMPT PREVIEW</div>
-        <div className="block-tabs"><button className={viewContextId==='overview'?'active':''} onClick={()=>setContextTarget('overview')}>{t('overview',locale)}</button>{store.blocks.slice(1).map(b=><button key={b.id} className={viewContextId===b.id?'active':''} onClick={()=>setContextTarget(b.id)}>{getCategoryLabel('character',locale)} {b.subjectNumber??1}<X size={13} onClick={e=>{e.stopPropagation();if(viewContextId===b.id)setContextTarget('overview');store.removeBlock(b.id)}}/></button>)}<button className="add-block" onClick={addCharacter}><Plus size={16}/>{t('addSubject',locale)}</button></div>
+        <div className="block-tabs">{store.blocks.map((b,index)=><button key={b.id} className={viewContextId===b.id?'active':''} onClick={()=>setContextTarget(b.id)}>{getCategoryLabel('character',locale)} {b.subjectNumber??index+1}{index>0&&<X size={13} onClick={e=>{e.stopPropagation();if(viewContextId===b.id&&mainSubjectId)setContextTarget(mainSubjectId);store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={addCharacter}><Plus size={16}/>{t('addSubject',locale)}</button></div>
         <section className="prompt-actions"><strong>Prompt Actions</strong><button className="copy-positive" onClick={()=>copyPrompt('actions')}>{copiedPositive?<Check size={16}/>:<Copy size={16}/>}<span>{copiedPositive?'コピー済み':'Positiveをコピー'}</span></button><button className="copy-negative" onClick={()=>copyNegativePrompt(true)}>{copiedNegative?<Check size={16}/>:<Copy size={16}/>}<span>{copiedNegative?'コピー済み':'Negativeをコピー'}</span></button></section>
         <section className={`preview-section ${selectedCollapsed?'collapsed':''}`}>
           <div className="preview-section-header"><button className="preview-section-toggle" onClick={()=>setSelectedCollapsed(v=>!v)} aria-expanded={!selectedCollapsed}>
@@ -426,7 +412,7 @@ export default function App() {
           {!selectedCollapsed&&<div className="preview-section-content">
             <div className="selected-outline">
               {selectedSections.map(section=>{
-                const defaultExpanded = viewContextId === 'overview' ? section.targetId === 'scene' || section.targetId === mainSubjectId : section.targetId === viewContextId
+                const defaultExpanded = section.targetId === 'scene' || section.targetId === viewContextId
                 const expanded = expandedSections[section.id] ?? defaultExpanded
                 const contentId = `prompt-context-section-${section.id}`
                 const tagCount = section.groups.reduce((total, entry) => total + entry.items.length, 0)
