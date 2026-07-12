@@ -470,7 +470,7 @@ export default function App() {
           <div className="color-modifier-label"><span>COLOR</span><strong>{findColorModifier(activeColorModifier)?.label ?? '指定なし'}</strong></div>
           <div className="color-modifier-swatches">
             <button type="button" className={`color-swatch color-swatch-none ${activeColorModifier?'':'active'}`} title="指定なし" aria-label="カラー指定なし" aria-pressed={!activeColorModifier} onClick={()=>setActiveColorModifier('')}><X size={13}/></button>
-            {COLOR_MODIFIERS.map(color=><button key={color.value} type="button" className={`color-swatch ${activeColorModifier===color.value?'active':''}`} style={{ '--swatch-color': color.swatch } as CSSProperties} title={color.label} aria-label={`カラー: ${color.label}`} aria-pressed={activeColorModifier===color.value} onClick={()=>setActiveColorModifier(color.value)}>{activeColorModifier===color.value&&<Check size={12}/>}</button>)}
+            {COLOR_MODIFIERS.map(color=><button key={color.value} type="button" className={`color-swatch ${activeColorModifier===color.value?'active':''}`} style={{ '--swatch-color': color.swatch } as CSSProperties} title={color.label} aria-label={`カラー: ${color.label}`} aria-pressed={activeColorModifier===color.value} onClick={()=>setActiveColorModifier(current=>current===color.value?'':color.value)}>{activeColorModifier===color.value&&<Check size={12}/>}</button>)}
           </div>
         </div>
         {(favoritesOnly||query)&&<div className="panel-title">
