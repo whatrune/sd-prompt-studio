@@ -363,7 +363,7 @@ export default function App() {
     </header>
     <section className="workspace">
       <aside className="sidebar panel">
-        <div className="panel-role"><span>TAG LIBRARY</span><small>タグライブラリ</small></div>
+        <div className="panel-role">TAG LIBRARY</div>
         <div className="search-box"><Search size={17}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="日本語・英語で検索" /></div>
         <button className={`favorite-filter ${favoritesOnly?'active':''}`} onClick={()=>{setFavoritesOnly(!favoritesOnly);setQuery('')}}><Star size={16}/>お気に入り</button>
         <nav>{categoryOrder.map(c=><button key={c} className={category===c&&!query&&!favoritesOnly?'active':''} onClick={()=>chooseCategory(c)}>{getCategoryLabel(c,locale)}<small>{visibleDictionaryTags.filter(t=>t.category===c).length}</small></button>)}</nav>
@@ -371,7 +371,7 @@ export default function App() {
       </aside>
 
       <section className="tag-panel panel">
-        <div className="panel-role"><span>TAG SELECTOR</span><small>タグ選択</small></div>
+        <div className="panel-role">TAG SELECTOR</div>
         {(favoritesOnly||query)&&<div className="panel-title">
           <div><span className="eyebrow">PROMPT DICTIONARY</span><h2>{favoritesOnly?'お気に入り':`「${query}」の検索結果`}</h2></div>
         </div>}
@@ -400,7 +400,7 @@ export default function App() {
       </section>
 
       <aside className="preview panel">
-        <div className="panel-role panel-role-preview"><span>PROMPT PREVIEW</span><small>プロンプト確認</small></div>
+        <div className="panel-role">PROMPT PREVIEW</div>
         <div className="block-tabs"><button className={viewContextId==='overview'?'active':''} onClick={()=>setContextTarget('overview')}>{t('overview',locale)}</button>{store.blocks.map(b=><button key={b.id} className={viewContextId===b.id?'active':''} onClick={()=>setContextTarget(b.id)}>{getCategoryLabel('character',locale)} {b.subjectNumber??1}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();if(viewContextId===b.id)setContextTarget('overview');store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={store.addBlock}><Plus size={16}/>{t('addSubject',locale)}</button></div>
         <section className="prompt-actions"><strong>Prompt Actions</strong><button className="copy-positive" onClick={()=>copyPrompt('actions')}>{copiedPositive?<Check size={16}/>:<Copy size={16}/>}<span>{copiedPositive?'コピー済み':'Positiveをコピー'}</span></button><button className="copy-negative" onClick={()=>copyNegativePrompt(true)}>{copiedNegative?<Check size={16}/>:<Copy size={16}/>}<span>{copiedNegative?'コピー済み':'Negativeをコピー'}</span></button></section>
         <section className={`preview-section ${selectedCollapsed?'collapsed':''}`}>
@@ -445,8 +445,8 @@ export default function App() {
           {!promptCollapsed&&<div className="preview-section-content"><textarea readOnly value={prompt}/></div>}
         </section>
         <section className={`preview-section output-box negative ${negativeCollapsed?'collapsed':''}`}>
-          <div className="preview-section-header"><button className="preview-section-toggle" onClick={()=>setNegativeCollapsed(v=>!v)} aria-expanded={!negativeCollapsed}><span>Negative Prompt</span>{negativeCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button><button className="preview-section-action" onClick={store.resetNegative}><RotateCcw size={14}/>初期値</button></div>
-          {!negativeCollapsed&&<div className="preview-section-content"><textarea value={store.negative} onChange={e=>store.setNegative(e.target.value)} /></div>}
+          <div className="preview-section-header"><button className="preview-section-toggle" onClick={()=>setNegativeCollapsed(v=>!v)} aria-expanded={!negativeCollapsed}><span>Negative Prompt</span>{negativeCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button></div>
+          {!negativeCollapsed&&<div className="preview-section-content"><textarea value={store.negative} onChange={e=>store.setNegative(e.target.value)} /><div className="preview-section-footer"><button className="preview-content-action" onClick={store.resetNegative}><RotateCcw size={14}/>初期値に戻す</button></div></div>}
         </section>
       </aside>
     </section>
