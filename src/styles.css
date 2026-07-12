@@ -551,7 +551,6 @@ body{background:#0b0d11}
 .selected-outline{padding:4px 10px 10px}
 .selected-layer{padding:7px 0}
 .selected-layer-title{width:100%;padding:6px 7px;border:1px solid transparent;background:transparent;color:#aab3c1;text-align:left;cursor:pointer;font-size:11px;text-transform:none}
-.selected-layer-title:hover{border-color:#333b48;background:#171b21;color:#eef1f5}
 .selected-group-head{margin:2px 0}
 .selected-group-head>button{width:100%;display:flex;align-items:center;justify-content:space-between;padding:7px 8px;border:1px solid #2b313b!important;border-radius:3px;background:#15191f!important;color:#d6dce5;cursor:pointer;text-align:left}
 .selected-group-head>button:hover{border-color:#566274!important;background:#20262e!important}
@@ -580,7 +579,6 @@ body{background:#0b0d11}
 
 /* v21.5: Explorer spacing and action alignment */
 .selected-layer-title{display:flex;align-items:center;min-height:36px;padding:9px 11px;cursor:pointer}
-.selected-layer-title:hover{border-color:#4d5969;background:#20262e}
 .selected-layer-title strong{line-height:1.35}
 .selected-group-head>button{min-height:34px;padding:8px 10px}
 .selected-outline .selected-chips{gap:8px;padding:3px 2px 7px}
@@ -617,7 +615,6 @@ body{background:#0b0d11}
 .selected-outline .selected-chip .chip-remove{padding:4px 6px}
 .selected-layer.inactive .selected-layer-title,
 .selected-layer.inactive .selected-group-head>button{cursor:default}
-.selected-layer.inactive .selected-layer-title:hover,
 .selected-layer.inactive .selected-group-head>button:hover{border-color:transparent!important;background:inherit!important;box-shadow:none}
 .selected-layer.inactive button:disabled{opacity:.68}
 
