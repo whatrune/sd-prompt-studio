@@ -1,0 +1,51 @@
+name: Pull Request Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-preview:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout pull request
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build preview
+        run: pnpm build
+
+      - name: Upload preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-pr-${{ github.event.pull_request.number }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Add preview instructions
+        run: |
+          echo '### Pull Request Preview' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Download the `preview-pr-${{ github.event.pull_request.number }}` artifact from this workflow run.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Serve the extracted directory with any static web server to inspect the production build.' >> "$GITHUB_STEP_SUMMARY"
