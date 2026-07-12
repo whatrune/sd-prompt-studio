@@ -636,7 +636,7 @@ body{background:#0b0d11}
 
 /* v21.3: Prompt Context hierarchy */
 .selected-layer{margin-top:8px;padding:0;border:0;border-bottom:1px solid #29313b;border-radius:0;background:transparent;overflow:hidden}
-.selected-layer-header{display:flex;align-items:center;min-height:36px;border-top:1px solid #29313b;border-bottom:1px solid #29313b;background:#151a21}
+.selected-layer-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;min-height:36px;border-top:1px solid #29313b;border-bottom:1px solid #29313b;background:#151a21}
 .selected-layer-title{display:grid;flex:1;min-width:0;width:auto;gap:2px;padding:7px 8px;border:0;background:transparent}
 .selected-layer-title small{font:9px/1 ui-monospace,monospace;letter-spacing:.12em;color:#778395}
 .selected-layer-title strong{font-size:12px;color:#f0f3f7;font-weight:600}
@@ -773,7 +773,7 @@ body{background:var(--bg-primary);color:var(--text-primary)}
 /* v22.1: collapsible Prompt Context sections */
 .selected-layer-toggle{display:flex;align-items:center;gap:6px;text-align:left}
 .selected-layer-toggle .section-chevron{flex:0 0 auto;color:var(--text-secondary)}
-.selected-layer-toggle .section-tag-count{margin-left:auto;color:var(--text-secondary);font-size:10px;font-weight:400;white-space:nowrap}
+.selected-layer-header>.section-tag-count{grid-column:1/-1;padding:0 11px 6px 31px;color:var(--text-secondary);font-size:10px;font-weight:400;line-height:1;white-space:nowrap}
 .selected-layer-content{display:block}
 
 /* v23: persisted Light theme and Prompt Actions hierarchy */
