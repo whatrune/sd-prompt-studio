@@ -99,7 +99,7 @@ function groupTagsBySubcategory(items: PromptTag[], category: string) {
     else grouped.set(key, [tag])
   })
   const configured = subcategoryOrder[category] ?? []
-  const known = configured.filter(key => grouped.has(key))
+  const known = configured.filter(key => key !== 'その他' && grouped.has(key))
   const unknown = [...grouped.keys()].filter(key => key !== 'その他' && !configured.includes(key))
   const ordered = [...known, ...unknown, ...(grouped.has('その他') ? ['その他'] : [])]
   return ordered.map(key => ({ key, label: key, tags: grouped.get(key) ?? [], showTitle: true }))
