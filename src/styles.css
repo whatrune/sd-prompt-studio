@@ -829,7 +829,7 @@ body{background:var(--bg-primary);color:var(--text-primary)}
 .color-swatch.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .color-swatch-none::before{background:linear-gradient(135deg,transparent 44%,var(--danger) 46%,var(--danger) 54%,transparent 56%)}
 .color-swatch-none{color:var(--text-secondary)}
-.tag-color-ribbon{position:absolute;right:0;bottom:0;z-index:2;width:52px;height:18px;clip-path:polygon(0 0,28% 0,100% 72%,100% 100%,72% 100%,0 28%);background:var(--modifier-color);filter:drop-shadow(0 0 1px color-mix(in srgb,var(--text-primary) 58%,transparent));pointer-events:none}
+.tag-color-ribbon{position:absolute;right:-16px;bottom:1px;z-index:2;width:50px;height:12px;transform:rotate(-45deg);border:1px solid color-mix(in srgb,var(--modifier-color) 55%,var(--border));background:var(--modifier-color);box-shadow:0 0 0 1px color-mix(in srgb,var(--text-primary) 25%,transparent),0 1px 3px rgba(0,0,0,.35);pointer-events:none}
 .tag-card.color-not-applicable .tag-main{opacity:.5}
 .tag-card.color-not-applicable .star,.tag-card.color-not-applicable .info-tag,.tag-card.color-not-applicable .delete-user-tag{opacity:.8}
 .tag-card.color-not-applicable:hover .tag-main{opacity:.72}
