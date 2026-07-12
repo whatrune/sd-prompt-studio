@@ -423,7 +423,7 @@ export default function App() {
                       <strong>{section.name}</strong>
                       <small className="section-tag-count">{tagCount} tags</small>
                     </button>
-                    {section.targetId!=='scene'&&<label className="context-position-inline" onClick={event=>event.stopPropagation()}>Position<select value={store.blocks.find(block=>block.id===section.targetId)?.position??'center'} onClick={event=>event.stopPropagation()} onChange={event=>store.setSubjectPosition(section.targetId,event.target.value as 'left'|'center'|'right')}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>}
+                    {store.blocks.length>1&&section.targetId!=='scene'&&<label className="context-position-inline" onClick={event=>event.stopPropagation()}>Position<select value={store.blocks.find(block=>block.id===section.targetId)?.position??'center'} onClick={event=>event.stopPropagation()} onChange={event=>store.setSubjectPosition(section.targetId,event.target.value as 'left'|'center'|'right')}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>}
                   </div>
                   {expanded&&<div className="selected-layer-content" id={contentId}>{section.groups.map(entry=><section className="selected-group" key={entry.key} onClick={()=>{chooseCategory(entry.category,section.targetId);if(entry.subcategory)setSubcategory(entry.subcategory)}}>
                     <div className="selected-group-head"><button><strong>{entry.label} <small>({entry.items.length})</small></strong></button></div>
