@@ -326,7 +326,126 @@ export default function App() {
       const parsed = JSON.parse(await file.text())
       const items = Array.isArray(parsed) ? parsed : parsed.tags
       if (!Array.isArray(items)) throw new Error('配列ではありません')
-      const added = store.i…2868 tokens truncated…Up size={16}/>}
+      const added = store.importUserTags(items)
+      alert(`${added}件をユーザー辞書へ追加しました`)
+    } catch { alert('JSON形式を読み込めませんでした') }
+    if (importRef.current) importRef.current.value = ''
+  }
+  function addClothing(){
+    const parts = [clothingColor, clothingPattern, clothingMaterial, clothingItem].filter(Boolean)
+    const prompt = parts.join(' ')
+    store.addTag({ id: `composed-clothes-${createId()}`, prompt, label: prompt, category: 'clothes', subcategory: '組み合わせ', weight: 1 })
+  }
+  function buildHairPrompt(){
+    if (!hairAccentColor || hairColorMode === 'solid') return `${hairColor} hair`
+    if (hairColorMode === 'two-tone') return `${hairColor} and ${hairAccentColor} two-tone hair`
+    if (hairColorMode === 'gradient') return `${hairColor} to ${hairAccentColor} gradient hair`
+    if (hairColorMode === 'tips') return `${hairColor} hair with ${hairAccentColor} tips`
+    if (hairColorMode === 'inner') return `${hairColor} hair with ${hairAccentColor} inner color`
+    return `${hairColor} hair with ${hairAccentColor} highlights`
+  }
+  function addHairColor(){
+    const prompt = buildHairPrompt()
+    store.addTag({ id: `composed-hair-${createId()}`, prompt, label: prompt, category: 'hair', subcategory: '髪色・配色', weight: 1 })
+  }
+  function buildEyePrompt(){
+    if (!eyeAccentColor || eyeColorMode === 'solid') return `${eyeColor} eyes`
+    if (eyeColorMode === 'heterochromia') return `${eyeColor} and ${eyeAccentColor} heterochromia`
+    if (eyeColorMode === 'gradient') return `${eyeColor} to ${eyeAccentColor} gradient eyes`
+    if (eyeColorMode === 'inner-ring') return `${eyeColor} eyes with ${eyeAccentColor} inner ring`
+    return `${eyeColor} eyes with ${eyeAccentColor} outer ring`
+  }
+  function addEyeColor(){
+    const prompt = buildEyePrompt()
+    store.addTag({ id: `composed-eyes-${createId()}`, prompt, label: prompt, category: 'eyes', subcategory: '目の色・配色', weight: 1 })
+  }
+  function addSkinColor(){
+    store.addTag({ id: `composed-skin-${createId()}`, prompt: skinColor, label: skinColor, category: 'body', subcategory: '肌色', weight: 1 })
+  }
+  function addSceneProp(){
+    const position = [propVertical, propHorizontal, propDepth ? `in the ${propDepth}` : ''].filter(Boolean).join(' ')
+    const prompt = position ? `${propItem} on the ${position}`.replace('on the in the', 'in the') : propItem
+    store.addTag({ id: `composed-prop-${createId()}`, prompt, label: prompt, category: 'scene_props', subcategory: '配置済み', weight: 1 })
+  }
+
+  function renderTagCard(tag: PromptTag) {
+    const selected = (isSceneCategory(tag.category) ? selectedPrompts.scene : selectedPrompts.subject).has(tag.prompt)
+    const favorite = store.favoriteIds.includes(tag.id)
+    const isUser = 'source' in tag
+    const conflict = conflictMap.get(tag.id)
+    const unavailable = !selected && conflict?.level === 'hard'
+    const warning = !selected && conflict?.level === 'warning'
+    return <article key={tag.id} className={`tag-card category-${tag.category} ${selected?'selected':''} ${unavailable?'unavailable':''} ${warning?'warning':''}`}>
+      <button className={`star ${favorite?'active':''}`} aria-label="お気に入り" onClick={()=>store.toggleFavorite(tag.id)}><Star size={15} fill={favorite?'currentColor':'none'}/></button>
+      <button className="info-tag" title="タグ詳細" aria-label="タグ詳細" onClick={()=>setInspectedTag(tag)}><Info size={14}/></button>
+      {isUser&&<button className="delete-user-tag" title="ユーザー辞書から削除" onClick={()=>store.removeUserTag(tag.id)}><X size={13}/></button>}
+      <button className="tag-main" onClick={()=>toggleDictionaryTag(tag)}>{unavailable&&<span className="conflict-badge"><Ban size={13}/>競合</span>}{warning&&<span className="warning-badge"><AlertTriangle size={13}/>注意</span>}<strong>{tag.label}</strong><span>{tag.prompt}</span><small>{isUser?'ユーザー辞書 / ':''}{tag.rating==='adult'?'成人向け / ':tag.rating==='suggestive'?'軽度 / ':''}{categoryLabels[tag.category]} / {tag.subcategory}</small></button>
+    </article>
+  }
+
+  return <main className="app-shell">
+    <header className="topbar">
+      <div><h1>SD Prompt Studio <span className="version-mark">v21.0 α1</span></h1><p>Stable Diffusion Prompt IDE · {(TAG_COUNT + ADULT_TAG_COUNT + store.userTags.length).toLocaleString()} tags</p></div>
+      <div className="header-actions">
+        <button className="ghost" onClick={()=>setAnalyzerOpen(true)}><BookOpen size={17}/>Prompt解析</button>
+        <div className="settings-wrap">
+          <button className={`ghost settings-button ${settingsOpen?'active':''}`} onClick={()=>setSettingsOpen(v=>!v)} aria-expanded={settingsOpen}>
+            <Settings2 size={17}/>{t('settings',locale)}
+            {store.contentLevel!=='general'&&<span className={`rating-dot ${store.contentLevel}`} title={store.contentLevel==='adult'?'成人向け表示中':'軽度なセンシティブ表示中'}/>} 
+          </button>
+          {settingsOpen&&<div className="settings-popover">
+            <div className="settings-popover-head"><div><span className="eyebrow">DISPLAY SETTINGS</span><strong>コンテンツ表示</strong></div><button onClick={()=>setSettingsOpen(false)}><X size={15}/></button></div>
+            <div className="theme-setting"><span>テーマ</span><div className="theme-segment" role="group" aria-label="Display theme"><button type="button" aria-pressed={theme==='dark'} className={theme==='dark'?'active':''} onClick={()=>setTheme('dark')}>Dark</button><button type="button" aria-pressed={theme==='light'} className={theme==='light'?'active':''} onClick={()=>setTheme('light')}>Light</button></div></div>
+            <label className="settings-field">表示レベル
+              <select value={store.contentLevel} onChange={e=>changeContentLevel(e.target.value as ContentRating)}>
+                <option value="general">一般のみ</option>
+                <option value="suggestive">軽度なセンシティブを含む</option>
+                <option value="adult">成人向けを含む</option>
+              </select>
+            </label>
+            <p>{store.contentLevel==='adult'?'成人向けタグを表示中。未成年タグとの同時使用はブロックされます。':store.contentLevel==='suggestive'?'軽度なセンシティブタグを表示中です。':'成人向けタグは非表示です。'}</p>
+            <label className="settings-toggle"><input type="checkbox" checked={store.hideUnavailable} onChange={e=>store.setHideUnavailable(e.target.checked)}/><span><b>使用可能なタグだけ表示</b><small>OFFでは競合タグをグレーアウト。検索結果では常に表示します。</small></span></label>
+            <section className="settings-dictionary">
+              <div className="settings-section-head"><div><span className="eyebrow">USER DICTIONARY</span><strong>ユーザー辞書</strong></div><small>{store.userTags.length}件</small></div>
+              <div className="settings-dictionary-actions">
+                <button onClick={exportUserDictionary}>辞書を書き出す</button>
+                <button onClick={()=>importRef.current?.click()}>辞書を読み込む</button>
+                <input ref={importRef} hidden type="file" accept="application/json" onChange={e=>importUserDictionary(e.target.files?.[0])}/>
+                {store.userTags.length>0&&<button className="danger" onClick={()=>confirm('ユーザー辞書を空にしますか？')&&store.clearUserTags()}>辞書を空にする</button>}
+              </div>
+              <div className="settings-custom-form">
+                <label>English Tag<input value={customPrompt} onChange={e=>setCustomPrompt(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addCustom()} placeholder="custom prompt tag" /></label>
+                <label>表示名<input value={customLabel} onChange={e=>setCustomLabel(e.target.value)} placeholder="日本語名（任意）" /></label>
+                <label className="settings-toggle compact"><input type="checkbox" checked={saveCustom} onChange={e=>setSaveCustom(e.target.checked)}/><span><b>ユーザー辞書へ保存</b></span></label>
+                <button className="dictionary-add" onClick={addCustom}><Plus size={14}/>現在のカテゴリへ追加</button>
+              </div>
+              {store.userTags.length>0&&<div className="settings-user-list">{store.userTags.map(tag=><div key={tag.id}><span><b>{getTagLabel(tag,locale)}</b><code>{tag.prompt}</code></span><button title="削除" onClick={()=>store.removeUserTag(tag.id)}><X size={13}/></button></div>)}</div>}
+              <p>追加・削除・Import・Exportをここで管理します。Role metadataは将来の表示拡張用です。</p>
+            </section>
+          </div>}
+        </div>
+        <button className="ghost danger" onClick={store.clearAll}><Trash2 size={17}/>{t('clearAll',locale)}</button>
+      </div>
+    </header>
+    <section className="workspace">
+      <aside className="sidebar panel">
+        <div className="panel-role">TAG LIBRARY</div>
+        <div className="search-box"><Search size={17}/><input value={query} onChange={e=>{setQuery(e.target.value);setFavoritesOnly(false)}} placeholder="日本語・英語で検索" /></div>
+        <button className={`favorite-filter ${favoritesOnly?'active':''}`} onClick={()=>{setFavoritesOnly(value=>!value);setQuery('');setSubcategory('すべて')}}><Star size={16}/>お気に入り</button>
+        <nav>{categoryOrder.map(c=><button key={c} className={category===c&&!query&&!favoritesOnly?'active':''} onClick={()=>chooseCategory(c)}>{getCategoryLabel(c,locale)}<small>{visibleDictionaryTags.filter(t=>t.category===c).length}</small></button>)}</nav>
+        <div className="preset-box"><label>モデル</label><select value={store.modelPreset} onChange={e=>store.setModelPreset(e.target.value as ModelPreset)}><option value="illustrious">Illustrious / NoobAI</option><option value="pony">Pony</option><option value="sdxl">SDXL汎用</option><option value="custom">カスタム</option></select><button className="preset" onClick={()=>store.applyQualityPreset()}><WandSparkles size={17}/>品質を置き換え</button></div>
+      </aside>
+
+      <section className="tag-panel panel">
+        <div className="panel-role">TAG SELECTOR</div>
+        {(favoritesOnly||query)&&<div className="panel-title">
+          <div><span className="eyebrow">PROMPT DICTIONARY</span><h2>{favoritesOnly?'お気に入り':`「${query}」の検索結果`}</h2></div>
+        </div>}
+        {!query&&!favoritesOnly&&subcategories.length>0&&<div className="subcategory-tabs">{['すべて',...subcategories].map(sub=>{const activeSub=subcategory===sub;return <button key={sub} className={activeSub?'active':''} aria-pressed={activeSub} onClick={()=>setSubcategory(sub)}>{activeSub&&<Check size={14}/>}<span>{sub}</span></button>})}</div>}
+        {!favoritesOnly&&['hair','eyes','body','clothes','scene_props'].includes(category)&&<section className={`composer-section ${composerCollapsed?'collapsed':''}`}>
+          <button className="composer-toggle" onClick={()=>setComposerCollapsed(v=>!v)} aria-expanded={!composerCollapsed}>
+            <span>コンポーザー</span>
+            {composerCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}
           </button>
           {!composerCollapsed&&<div className="composer-content">
         {category==='hair'&&<div className="composer-box"><h3>髪色コンポーザー</h3><p>基本色と差し色、配色方法を組み合わせます。髪型や前髪は下の辞書から追加できます。</p><div className="composer-grid"><label>基本色<select value={hairColor} onChange={e=>setHairColor(e.target.value)}>{COLOR_OPTIONS.filter(([v])=>v).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><label>差し色<select value={hairAccentColor} onChange={e=>setHairAccentColor(e.target.value)}>{COLOR_OPTIONS.map(([value,label])=><option key={value||'none'} value={value}>{label}</option>)}</select></label><label>配色<select value={hairColorMode} onChange={e=>setHairColorMode(e.target.value)}><option value="solid">単色</option><option value="two-tone">ツートン</option><option value="gradient">グラデーション</option><option value="tips">毛先だけ</option><option value="inner">インナーカラー</option><option value="highlights">ハイライト</option></select></label></div><div className="composer-preview">{buildHairPrompt()}</div><button onClick={addHairColor}><Plus size={16}/>この髪色を追加</button></div>}
@@ -406,4 +525,3 @@ export default function App() {
     {analyzerOpen&&<div className="modal-backdrop" onMouseDown={()=>setAnalyzerOpen(false)}><section className="analyzer-modal" onMouseDown={e=>e.stopPropagation()}><div className="analyzer-head"><div><span className="eyebrow">PROMPT ANALYZER</span><h2>既存プロンプトをGUIへ取り込む</h2></div><button onClick={()=>setAnalyzerOpen(false)}><X size={18}/></button></div><p>カンマ、改行、角括弧、BREAKを解析し、辞書一致またはキーワード推定でカテゴリ分けします。</p><textarea value={analyzerText} onChange={e=>setAnalyzerText(e.target.value)} placeholder="masterpiece, 1girl, blue hair, ..."/><div className="analyzer-preview">{analyzerText.split(/,|\n|BREAK/i).map(x=>x.trim().replace(/^\[|\]$/g,'')).filter(Boolean).slice(0,80).map((raw,i)=>{const clean=raw.replace(/^\((.*):[\d.]+\)$/,'$1').trim();const found=inferCategory(clean,visibleDictionaryTags);const cat=found?.category||heuristicCategory(clean);return <span key={`${raw}-${i}`}><b>{categoryLabels[cat]||cat}</b>{clean}{found?'':'（推定）'}</span>})}</div><div className="modal-actions"><button className="ghost" onClick={()=>setAnalyzerText('')}>クリア</button><button onClick={()=>{const entries=analyzerText.split(/,|\n|BREAK/i).map(x=>x.trim().replace(/^\[|\]$/g,'')).filter(Boolean);entries.forEach(raw=>{const m=raw.match(/^\((.*):([\d.]+)\)$/);const clean=(m?.[1]||raw).trim();const found=inferCategory(clean,visibleDictionaryTags);const cat=found?.category||heuristicCategory(clean);store.addTag({...found,id:found?.id||`analyzed-${createId()}`,prompt:found?.prompt||clean,label:found?.label||clean,category:cat,subcategory:found?.subcategory||'解析・自由タグ',weight:m?Number(m[2]):1})});setAnalyzerOpen(false)}}><BookOpen size={16}/>解析結果を追加</button></div></section></div>}
   </main>
 }
-
