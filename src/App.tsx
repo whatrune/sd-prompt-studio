@@ -158,7 +158,8 @@ export default function App() {
   const [propVertical, setPropVertical] = useState('')
   const [propDepth, setPropDepth] = useState('background')
   const store = usePromptStore()
-  const [viewContextId, setViewContextId] = useState<string>(() => store.activeLayer === 'scene' ? 'overview' : store.activeBlockId)
+  const mainSubjectId = store.blocks[0]?.id
+  const [viewContextId, setViewContextId] = useState<string>(() => store.activeBlockId)
   const activeSubject = store.blocks.find(b => b.id === store.activeBlockId)!
   const active = store.activeLayer === 'scene' ? { id: 'scene', name: 'Scene', tags: store.sceneTags } : { ...activeSubject, tags: [...store.sceneTags, ...activeSubject.tags] }
 
@@ -199,12 +200,11 @@ export default function App() {
         ...['people','expression','eyes','hair','body','clothes','accessories','pose'].map(category => group(category, category, getCategoryLabel(category, locale), block.tags, block.id)),
       ],
     })
-    const commonSection = { id: 'common', name: t('commonSettings', locale), kind: 'COMMON', targetId: 'scene', groups: [
+    const commonSection = { id: 'common', name: 'Common', kind: 'COMMON', targetId: 'scene', groups: [
       sceneGroup('quality', 'quality', t('quality', locale), undefined, 'スタイル'),
       sceneGroup('style', 'quality', t('style', locale), 'スタイル'),
       ...['lighting','camera','background','effects'].map(category => sceneGroup(category, category, getCategoryLabel(category, locale))),
     ] }
-    if (viewContextId === 'overview') return [commonSection, ...store.blocks.map(subjectSection)]
     const selected = store.blocks.find(block => block.id === viewContextId) ?? store.blocks[0]
     return selected ? [commonSection, subjectSection(selected)] : [commonSection]
   }, [locale, store.blocks, store.sceneTags, viewContextId])
@@ -225,15 +225,16 @@ export default function App() {
   }
   function setContextTarget(targetId:string){
     setViewContextId(targetId)
-    if (targetId === 'overview' || targetId === 'scene') store.setActiveLayer('scene')
-    else store.setActiveBlock(targetId)
+    store.setActiveBlock(targetId)
+  }
+  function addCharacter(){
+    store.addBlock()
+    const addedId = usePromptStore.getState().activeBlockId
+    setContextTarget(addedId)
   }
   function chooseCategory(c:string, targetId?:string){
-    if (targetId === 'scene' || (!targetId && isSceneCategory(c))) setContextTarget('overview')
-    else {
-      const blockId = targetId ?? (viewContextId === 'overview' ? store.blocks[0]?.id : viewContextId)
-      if (blockId) setContextTarget(blockId)
-    }
+    if (targetId === 'scene' || (!targetId && isSceneCategory(c))) store.setActiveLayer('scene')
+    else store.setActiveBlock(targetId ?? viewContextId)
     setCategory(c); setSubcategory('すべて'); setQuery(''); setFavoritesOnly(false)
   }
   function changeContentLevel(level: ContentRating){
@@ -244,8 +245,9 @@ export default function App() {
     store.setContentLevel(level)
   }
   function toggleDictionaryTag(tag: PromptTag){
-    const layerId = isSceneCategory(tag.category) ? 'scene' : store.activeBlockId
-    const layerTags = layerId === 'scene' ? store.sceneTags : activeSubject.tags
+    const targetSubject = store.blocks.find(block => block.id === viewContextId) ?? activeSubject
+    const layerId = isSceneCategory(tag.category) ? 'scene' : targetSubject.id
+    const layerTags = layerId === 'scene' ? store.sceneTags : targetSubject.tags
     const selected = layerTags.find(item => item.prompt === tag.prompt)
     if (selected) { store.removeTagFromLayer(layerId, selected.id); return }
     if (tag.rating === 'adult' && hasMinorMarker(store.blocks.flatMap(b => b.tags))) {
@@ -401,7 +403,7 @@ export default function App() {
 
       <aside className="preview panel">
         <div className="panel-role">PROMPT PREVIEW</div>
-        <div className="block-tabs"><button className={viewContextId==='overview'?'active':''} onClick={()=>setContextTarget('overview')}>{t('overview',locale)}</button>{store.blocks.map(b=><button key={b.id} className={viewContextId===b.id?'active':''} onClick={()=>setContextTarget(b.id)}>{getCategoryLabel('character',locale)} {b.subjectNumber??1}{store.blocks.length>1&&<X size={13} onClick={e=>{e.stopPropagation();if(viewContextId===b.id)setContextTarget('overview');store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={store.addBlock}><Plus size={16}/>{t('addSubject',locale)}</button></div>
+        <div className="block-tabs">{store.blocks.map((b,index)=><button key={b.id} className={viewContextId===b.id?'active':''} onClick={()=>setContextTarget(b.id)}>{getCategoryLabel('character',locale)} {b.subjectNumber??index+1}{index>0&&<X size={13} onClick={e=>{e.stopPropagation();if(viewContextId===b.id&&mainSubjectId)setContextTarget(mainSubjectId);store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={addCharacter}><Plus size={16}/>{t('addSubject',locale)}</button></div>
         <section className="prompt-actions"><strong>Prompt Actions</strong><button className="copy-positive" onClick={()=>copyPrompt('actions')}>{copiedPositive?<Check size={16}/>:<Copy size={16}/>}<span>{copiedPositive?'コピー済み':'Positiveをコピー'}</span></button><button className="copy-negative" onClick={()=>copyNegativePrompt(true)}>{copiedNegative?<Check size={16}/>:<Copy size={16}/>}<span>{copiedNegative?'コピー済み':'Negativeをコピー'}</span></button></section>
         <section className={`preview-section ${selectedCollapsed?'collapsed':''}`}>
           <div className="preview-section-header"><button className="preview-section-toggle" onClick={()=>setSelectedCollapsed(v=>!v)} aria-expanded={!selectedCollapsed}>
@@ -410,7 +412,7 @@ export default function App() {
           {!selectedCollapsed&&<div className="preview-section-content">
             <div className="selected-outline">
               {selectedSections.map(section=>{
-                const defaultExpanded = viewContextId === 'overview' ? section.targetId === 'scene' : section.targetId === viewContextId
+                const defaultExpanded = section.targetId === 'scene' || section.targetId === viewContextId
                 const expanded = expandedSections[section.id] ?? defaultExpanded
                 const contentId = `prompt-context-section-${section.id}`
                 const tagCount = section.groups.reduce((total, entry) => total + entry.items.length, 0)
@@ -421,9 +423,8 @@ export default function App() {
                       <strong>{section.name}</strong>
                       <small className="section-tag-count">{tagCount} tags</small>
                     </button>
-                    {section.targetId!=='scene'&&<label className="context-position-inline" onClick={event=>event.stopPropagation()}>Position<select value={store.blocks.find(block=>block.id===section.targetId)?.position??'center'} onClick={event=>event.stopPropagation()} onChange={event=>store.setSubjectPosition(section.targetId,event.target.value as 'left'|'center'|'right')}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>}
                   </div>
-                  {expanded&&<div className="selected-layer-content" id={contentId}>{section.groups.map(entry=><section className="selected-group" key={entry.key} onClick={()=>{chooseCategory(entry.category,section.targetId);if(entry.subcategory)setSubcategory(entry.subcategory)}}>
+                  {expanded&&<div className="selected-layer-content" id={contentId}>{store.blocks.length>1&&section.targetId!=='scene'&&<div className="context-character-metadata"><label className="context-position-inline" onClick={event=>event.stopPropagation()}><span>配置</span><select aria-label="配置" value={store.blocks.find(block=>block.id===section.targetId)?.position??'center'} onClick={event=>event.stopPropagation()} onChange={event=>store.setSubjectPosition(section.targetId,event.target.value as 'left'|'center'|'right')}><option value="left">左側</option><option value="center">中央</option><option value="right">右側</option></select></label></div>}{section.groups.map(entry=><section className="selected-group" key={entry.key} onClick={()=>{chooseCategory(entry.category,section.targetId);if(entry.subcategory)setSubcategory(entry.subcategory)}}>
                     <div className="selected-group-head"><button><strong>{entry.label} <small>({entry.items.length})</small></strong></button></div>
                     <div className="selected-chips">{entry.items.length===0?<small className="selected-empty">{t('unselected',locale)}</small>:entry.items.sort((a,b)=>tagSort(a.tag,b.tag)).map(({tag,layerId})=><div className={`selected-chip category-${tag.category}`} key={`${layerId}-${tag.id}`} title={`${tag.prompt}${tag.weight!==1?` / 重み ${tag.weight.toFixed(1)}`:''}`}>
                       <button className="chip-label" onClick={event=>{event.stopPropagation();const source=visibleDictionaryTags.find(t=>t.id===tag.id);if(source)setInspectedTag(source)}}>{getTagLabel(tag,locale)}</button>
