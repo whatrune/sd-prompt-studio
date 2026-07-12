@@ -5,13 +5,14 @@ import { createServer } from 'vite'
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 
 try {
-  const [{ adultTags }, { buildPrompt, buildPromptWithStrategy, tagSort }, { migratePersistedState, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }] = await Promise.all([
+  const [{ adultTags }, { buildPrompt, buildPromptWithStrategy, tagSort }, { migratePersistedState, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }, { applyColorModifier, buildColorModifiedTag, findColorModifier, isColorModifiableCategory }] = await Promise.all([
     server.ssrLoadModule('/src/data/adultTags.ts'),
     server.ssrLoadModule('/src/prompt.ts'),
     server.ssrLoadModule('/src/store.ts'),
     server.ssrLoadModule('/src/data/tags.ts'),
     server.ssrLoadModule('/src/engine/smartTagEngine.ts'),
     server.ssrLoadModule('/src/data/canonical.ts'),
+    server.ssrLoadModule('/src/modifiers/colorModifier.ts'),
   ])
 
   assert.equal(adultTags.length, 131, 'adult tag count must remain unchanged')
@@ -583,6 +584,52 @@ try {
   assert.equal(migratedCharacter.blocks[0].tags[1].category, 'clothes')
   assert.equal(migratedCharacter.blocks[0].tags[1].outputCategory, 'character')
   assert.equal(migratedCharacter.blocks[0].tags[1].sortSubcategory, '指定')
+
+  assert.equal(applyColorModifier('cosmic eyes', 'black'), 'black cosmic eyes')
+  assert.equal(applyColorModifier('red eyes', 'black'), 'black eyes')
+  assert.equal(applyColorModifier('white dress', 'blue'), 'blue dress')
+  assert.equal(applyColorModifier('navy blue hair', 'red'), 'red hair')
+  assert.equal(applyColorModifier('chair', 'black'), 'black chair')
+  assert.equal(applyColorModifier('grey eyes', 'red'), 'red eyes')
+  assert.equal(applyColorModifier('aqua eyes', 'black'), 'black eyes')
+  assert.equal(applyColorModifier('amber eyes', 'blue'), 'blue eyes')
+  assert.equal(isColorModifiableCategory('expression'), false)
+  assert.equal(isColorModifiableCategory('pose'), false)
+  assert.equal(isColorModifiableCategory('eyes'), true)
+  assert.equal(isColorModifiableCategory('scene_props'), true)
+  assert.equal(findColorModifier('white').swatch, '#ffffff')
+
+  const redEyes = tags.find(tag => tag.prompt === 'red eyes')
+  const blackEyes = tags.find(tag => tag.prompt === 'black eyes')
+  const cosmicEyes = tags.find(tag => tag.prompt === 'cosmic eyes')
+  const matchedBlackEyes = buildColorModifiedTag(redEyes, 'black', tags)
+  assert.equal(matchedBlackEyes.id, blackEyes.id, 'dictionary Prompt match must reuse the canonical dictionary id')
+  assert.equal(matchedBlackEyes.prompt, 'black eyes')
+  assert.equal(matchedBlackEyes.label, '黒い目', 'dictionary Prompt match must use the matched dictionary label')
+  const derivedBlueCosmicEyes = buildColorModifiedTag(cosmicEyes, 'blue', tags)
+  assert.equal(derivedBlueCosmicEyes.prompt, 'blue cosmic eyes')
+  assert.equal(derivedBlueCosmicEyes.label, cosmicEyes.label, 'derived tags without a dictionary match must keep the source label')
+
+  const coloredTag = { id: 'derived-color-cosmic-blue', prompt: 'blue cosmic eyes', label: '宇宙眼', category: 'eyes', subcategory: '虹彩・内部模様', baseTagId: 'eyes-cosmic', modifiers: { color: 'blue' }, weight: 1.3 }
+  assert(buildPrompt([{ id: 'colored-subject', name: '被写体 1', tags: [coloredTag] }]).includes('(blue cosmic eyes:1.3)'), 'existing Prompt rendering must output the completed colored prompt')
+  usePromptStore.setState({
+    blocks: [
+      { id: 'color-subject-1', name: '被写体 1', tags: [{ id: 'eyes-cosmic', prompt: 'cosmic eyes', label: '宇宙眼', category: 'eyes', weight: 1.3 }] },
+      { id: 'color-subject-2', name: '被写体 2', tags: [] },
+    ],
+    sceneTags: [{ id: 'chair', prompt: 'chair', label: '椅子', category: 'scene_props', weight: 1 }],
+    activeBlockId: 'color-subject-2',
+  })
+  usePromptStore.getState().replaceTagInLayer('color-subject-1', ['eyes-cosmic'], coloredTag)
+  assert.equal(usePromptStore.getState().blocks[0].tags[0].prompt, 'blue cosmic eyes', 'explicit layer replacement must update the requested Character')
+  assert.equal(usePromptStore.getState().blocks[0].tags[0].weight, 1.3, 'color replacement must preserve weight')
+  assert.equal(usePromptStore.getState().blocks[1].tags.length, 0, 'color replacement must not update the active but untargeted Character')
+  usePromptStore.getState().replaceTagInLayer('scene', ['chair'], { ...coloredTag, id: 'derived-color-chair-black', prompt: 'black chair', category: 'scene_props', baseTagId: 'chair', modifiers: { color: 'black' }, weight: 1 })
+  assert.equal(usePromptStore.getState().sceneTags[0].prompt, 'black chair', 'scene color replacement must stay in sceneTags')
+
+  const migratedColor = migratePersistedState({ blocks: [{ id: 'saved-color', name: '被写体 1', tags: [coloredTag] }], sceneTags: [], userTags: [] })
+  assert.equal(migratedColor.blocks[0].tags[0].baseTagId, 'eyes-cosmic', 'migration must preserve optional baseTagId')
+  assert.equal(migratedColor.blocks[0].tags[0].modifiers.color, 'blue', 'migration must preserve optional modifier metadata')
 
   console.log('OK: adult reclassification, prompt regression, and persisted-state migration')
 } finally {

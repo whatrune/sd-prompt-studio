@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { AlertTriangle, Ban, BookOpen, Check, ChevronDown, ChevronRight, ChevronUp, Copy, Info, Plus, RotateCcw, Search, Settings2, Sparkles, Star, Trash2, WandSparkles, X } from 'lucide-react'
 import { categoryLabels, categoryOrder, subcategoryOrder, TAG_COUNT, tags, type ContentRating, type PromptTag } from './data/tags'
 import { ADULT_TAG_COUNT, adultTags } from './data/adultTags'
@@ -9,6 +9,7 @@ import './styles.css'
 import { createId } from './id'
 import { buildPromptWithStrategy, tagSort } from './prompt'
 import { DEFAULT_LOCALE, getCategoryLabel, getTagLabel, t } from './i18n'
+import { buildColorModifiedTag, COLOR_MODIFIERS, findColorModifier, isColorModifiableCategory } from './modifiers/colorModifier'
 
 
 
@@ -141,6 +142,7 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [query, setQuery] = useState('')
   const [favoritesOnly, setFavoritesOnly] = useState(false)
+  const [activeColorModifier, setActiveColorModifier] = useState('')
   const [copiedPositive, setCopiedPositive] = useState(false)
   const [copiedNegative, setCopiedNegative] = useState(false)
   const [copiedFinal, setCopiedFinal] = useState(false)
@@ -224,11 +226,11 @@ export default function App() {
     }
     return [{ key: category, groups: groupTagsBySubcategory(filtered, category) }]
   }, [category, favoritesOnly, filtered, locale, query, subcategory])
-  const selectedPrompts = useMemo(() => {
+  const selectedLayerTags = useMemo(() => {
     const subject = store.blocks.find(block => block.id === viewContextId) ?? activeSubject
     return {
-      scene: new Set(store.sceneTags.map(tag => tag.prompt)),
-      subject: new Set(subject.tags.map(tag => tag.prompt)),
+      scene: store.sceneTags,
+      subject: subject.tags,
     }
   }, [activeSubject, store.blocks, store.sceneTags, viewContextId])
 
@@ -297,8 +299,9 @@ export default function App() {
     const targetSubject = store.blocks.find(block => block.id === viewContextId) ?? activeSubject
     const layerId = isSceneCategory(tag.category) ? 'scene' : targetSubject.id
     const layerTags = layerId === 'scene' ? store.sceneTags : targetSubject.tags
-    const selected = layerTags.find(item => item.prompt === tag.prompt)
-    if (selected) { store.removeTagFromLayer(layerId, selected.id); return }
+    const selected = layerTags.find(item => item.id === tag.id || item.baseTagId === tag.id || item.prompt === tag.prompt)
+    const colorApplicable = activeColorModifier && isColorModifiableCategory(tag.category)
+    if (!colorApplicable && selected) { store.removeTagFromLayer(layerId, selected.id); return }
     if (tag.rating === 'adult' && hasMinorMarker(store.blocks.flatMap(b => b.tags))) {
       alert('成人向けタグは、未成年を示すタグと同時に追加できません。')
       return
@@ -308,9 +311,27 @@ export default function App() {
       return
     }
     const conflict = conflictMap.get(tag.id)
-    if (conflict?.level === 'hard') {
+    if (conflict?.level === 'hard' && !selected) {
       const accepted = confirm(`競合しています。\n\nそのまま追加しますか？`)
       if (!accepted) return
+    }
+    if (colorApplicable) {
+      const draft = buildColorModifiedTag(tag, activeColorModifier, dictionaryTags)
+      const relatedSelections = layerTags.filter(item =>
+        item.id === tag.id || item.baseTagId === tag.id || item.prompt === tag.prompt ||
+        item.id === draft.baseTagId || item.baseTagId === draft.baseTagId || item.prompt === draft.prompt
+      )
+      const removeIds = [...new Set(relatedSelections.map(item => item.id))]
+      const existing = relatedSelections[0]
+      if (relatedSelections.some(item => item.modifiers?.color === activeColorModifier)) {
+        removeIds.forEach(id => store.removeTagFromLayer(layerId, id))
+        setActiveColorModifier('')
+        return
+      }
+      const derived = buildColorModifiedTag(tag, activeColorModifier, dictionaryTags, existing?.weight ?? 1)
+      store.replaceTagInLayer(layerId, removeIds, derived)
+      setActiveColorModifier('')
+      return
     }
     store.addTag({...tag, weight: 1})
   }
@@ -369,17 +390,24 @@ export default function App() {
   }
 
   function renderTagCard(tag: PromptTag) {
-    const selected = (isSceneCategory(tag.category) ? selectedPrompts.scene : selectedPrompts.subject).has(tag.prompt)
+    const layerTags = isSceneCategory(tag.category) ? selectedLayerTags.scene : selectedLayerTags.subject
+    const selectedTag = layerTags.find(item => item.id === tag.id || item.baseTagId === tag.id || item.prompt === tag.prompt)
+    const selected = Boolean(selectedTag)
+    const appliedColor = selectedTag?.modifiers?.color ? findColorModifier(selectedTag.modifiers.color) : undefined
+    const colorNotApplicable = Boolean(activeColorModifier) && !isColorModifiableCategory(tag.category)
     const favorite = store.favoriteIds.includes(tag.id)
     const isUser = 'source' in tag
     const conflict = conflictMap.get(tag.id)
     const unavailable = !selected && conflict?.level === 'hard'
     const warning = !selected && conflict?.level === 'warning'
-    return <article key={tag.id} className={`tag-card category-${tag.category} ${selected?'selected':''} ${unavailable?'unavailable':''} ${warning?'warning':''}`}>
+    const colorAvailability = colorNotApplicable ? '、カラー適用対象外。通常タグとして追加されます' : ''
+    const accessibleLabel = `${tag.label}${appliedColor ? `、カラー: ${appliedColor.label}` : ''}${selected ? '、選択済み' : ''}${colorAvailability}`
+    return <article key={tag.id} className={`tag-card category-${tag.category} ${selected?'selected':''} ${unavailable?'unavailable':''} ${warning?'warning':''} ${colorNotApplicable?'color-not-applicable':''}`} title={appliedColor || colorNotApplicable ? accessibleLabel : undefined}>
       <button className={`star ${favorite?'active':''}`} aria-label="お気に入り" onClick={()=>store.toggleFavorite(tag.id)}><Star size={15} fill={favorite?'currentColor':'none'}/></button>
       <button className="info-tag" title="タグ詳細" aria-label="タグ詳細" onClick={()=>setInspectedTag(tag)}><Info size={14}/></button>
       {isUser&&<button className="delete-user-tag" title="ユーザー辞書から削除" onClick={()=>store.removeUserTag(tag.id)}><X size={13}/></button>}
-      <button className="tag-main" onClick={()=>toggleDictionaryTag(tag)}>{unavailable&&<span className="conflict-badge"><Ban size={13}/>競合</span>}{warning&&<span className="warning-badge"><AlertTriangle size={13}/>注意</span>}<strong>{tag.label}</strong><span>{tag.prompt}</span><small>{isUser?'ユーザー辞書 / ':''}{tag.rating==='adult'?'成人向け / ':tag.rating==='suggestive'?'軽度 / ':''}{categoryLabels[tag.category]} / {tag.subcategory}</small></button>
+      <button className="tag-main" aria-label={accessibleLabel} onClick={()=>toggleDictionaryTag(tag)}>{unavailable&&<span className="conflict-badge"><Ban size={13}/>競合</span>}{warning&&<span className="warning-badge"><AlertTriangle size={13}/>注意</span>}<strong>{tag.label}</strong><span>{selectedTag?.prompt ?? tag.prompt}</span><small>{isUser?'ユーザー辞書 / ':''}{tag.rating==='adult'?'成人向け / ':tag.rating==='suggestive'?'軽度 / ':''}{categoryLabels[tag.category]} / {tag.subcategory}</small></button>
+      {appliedColor&&<span className="tag-color-ribbon" style={{ '--modifier-color': appliedColor.swatch } as CSSProperties} aria-hidden="true"/>}
     </article>
   }
 
@@ -438,6 +466,13 @@ export default function App() {
 
       <section className="tag-panel panel">
         <div className="panel-role">TAG SELECTOR</div>
+        <div className="color-modifier-bar" aria-label="Color Modifier">
+          <div className="color-modifier-label"><span>COLOR</span><strong>{findColorModifier(activeColorModifier)?.label ?? '指定なし'}</strong></div>
+          <div className="color-modifier-swatches">
+            <button type="button" className={`color-swatch color-swatch-none ${activeColorModifier?'':'active'}`} title="指定なし" aria-label="カラー指定なし" aria-pressed={!activeColorModifier} onClick={()=>setActiveColorModifier('')}><X size={13}/></button>
+            {COLOR_MODIFIERS.map(color=><button key={color.value} type="button" className={`color-swatch ${activeColorModifier===color.value?'active':''}`} style={{ '--swatch-color': color.swatch } as CSSProperties} title={color.label} aria-label={`カラー: ${color.label}`} aria-pressed={activeColorModifier===color.value} onClick={()=>setActiveColorModifier(current=>current===color.value?'':color.value)}>{activeColorModifier===color.value&&<Check size={12}/>}</button>)}
+          </div>
+        </div>
         {(favoritesOnly||query)&&<div className="panel-title">
           <div><span className="eyebrow">PROMPT DICTIONARY</span><h2>{favoritesOnly?'お気に入り':`「${query}」の検索結果`}</h2></div>
         </div>}
