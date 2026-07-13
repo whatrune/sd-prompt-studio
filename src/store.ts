@@ -11,6 +11,7 @@ export type SelectedTag = { id: string; prompt: string; label: string; labels?: 
 export type SubjectPosition = 'left' | 'center' | 'right'
 export type PromptBlock = { id: string; name: string; subjectNumber?: number; position?: SubjectPosition; tags: SelectedTag[] }
 export type EditorLayer = 'subject' | 'scene'
+export type WorkspaceView = 'prompt' | 'favorites' | 'library'
 export const SCENE_CATEGORIES = new Set(['quality', 'camera', 'background', 'scene_props', 'lighting', 'effects'])
 export const isSceneCategory = (category: string) => SCENE_CATEGORIES.has(category)
 export type ModelPreset = 'illustrious' | 'pony' | 'sdxl' | 'custom'
@@ -44,6 +45,8 @@ export type State = {
   hideUnavailable: boolean
   seeds: SeedEntry[]
   savedPrompts: SavedPrompt[]
+  navigationCollapsed: boolean
+  workspaceView: WorkspaceView
   addTag: (tag: SelectedTag) => void
   addCustomTag: (prompt: string, category: string, saveToDictionary?: boolean, label?: string) => void
   addUserTag: (tag: Omit<UserPromptTag, 'id' | 'source'> & { id?: string }) => void
@@ -73,6 +76,8 @@ export type State = {
   savePrompt: (input: SavePromptInput) => SavedPrompt | null
   restorePrompt: (id: string) => boolean
   deleteSavedPrompt: (id: string) => void
+  setNavigationCollapsed: (collapsed: boolean) => void
+  setWorkspaceView: (view: WorkspaceView) => void
 }
 
 export const DEFAULT_NEGATIVE = 'modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, long body, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, cropped, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), simple background, conjoined, bad ai-generated'
@@ -168,6 +173,8 @@ export function migratePersistedState(persisted: unknown) {
       sceneTags: Array.isArray(saved.sceneTags) ? saved.sceneTags.map(cloneSelectedTag) : [],
       seeds: Array.isArray(saved.seeds) ? saved.seeds.filter(seed => seed && Number.isSafeInteger(seed.value)).map(cloneSeed) : [],
     })) : [],
+    navigationCollapsed: state.navigationCollapsed === true,
+    workspaceView: state.workspaceView === 'favorites' || state.workspaceView === 'library' ? state.workspaceView : 'prompt',
   }
 }
 
@@ -184,6 +191,8 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   hideUnavailable: false,
   seeds: [],
   savedPrompts: [],
+  navigationCollapsed: false,
+  workspaceView: 'prompt',
   replaceTags: (removeIds, tag) => set((state) => ({
     ...(isSceneCategory(tag.category) ? { sceneTags: [...state.sceneTags.filter(t => !removeIds.includes(t.id) && t.prompt !== tag.prompt), tag] } : { blocks: state.blocks.map(b => b.id === state.activeBlockId
       ? { ...b, tags: [...b.tags.filter(t => !removeIds.includes(t.id) && t.prompt !== tag.prompt), tag] }
@@ -318,8 +327,10 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
     return true
   },
   deleteSavedPrompt: (id) => set(state => ({ savedPrompts: state.savedPrompts.filter(item => item.id !== id) })),
+  setNavigationCollapsed: (navigationCollapsed) => set({ navigationCollapsed }),
+  setWorkspaceView: (workspaceView) => set({ workspaceView }),
 }), {
   name: 'sd-prompt-studio-v14',
-  version: 13,
+  version: 14,
   migrate: migratePersistedState,
 }))
