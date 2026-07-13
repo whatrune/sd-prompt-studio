@@ -466,6 +466,7 @@ export default function App() {
 
       <section className="tag-panel panel">
         <div className="panel-role">TAG SELECTOR</div>
+        <div className="tag-selector-content">
         <div className="color-modifier-bar" aria-label="Color Modifier">
           <div className="color-modifier-label"><span>COLOR</span><strong>{findColorModifier(activeColorModifier)?.label ?? '指定なし'}</strong></div>
           <div className="color-modifier-swatches">
@@ -504,6 +505,7 @@ export default function App() {
             <div className="tag-grid tag-group-grid">{group.tags.map(renderTagCard)}</div>
           </section>)}</div>
         </section>)}</div>}
+        </div>
       </section>
 
       <aside className="preview panel">
