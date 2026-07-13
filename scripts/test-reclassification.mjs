@@ -15,6 +15,20 @@ try {
     server.ssrLoadModule('/src/modifiers/colorModifier.ts'),
   ])
 
+  assert.equal(usePromptStore.getState().navigationCollapsed, false, 'Navigation must start expanded')
+  assert.equal(usePromptStore.getState().workspaceView, 'prompt', 'Prompt must be the initial Workspace view')
+  usePromptStore.getState().setNavigationCollapsed(true)
+  assert.equal(usePromptStore.getState().navigationCollapsed, true, 'Navigation collapse state must be editable')
+  usePromptStore.getState().setWorkspaceView('favorites')
+  assert.equal(usePromptStore.getState().workspaceView, 'favorites', 'Favorite navigation must update Workspace view')
+  usePromptStore.getState().setWorkspaceView('library')
+  assert.equal(usePromptStore.getState().workspaceView, 'library', 'Library navigation must update Workspace view')
+  const migratedNavigation = migratePersistedState({ blocks: [{ id: 'navigation-subject', name: '被写体 1', tags: [] }], navigationCollapsed: true, workspaceView: 'library' })
+  assert.equal(migratedNavigation.navigationCollapsed, true, 'persisted Navigation collapse state must survive migration')
+  assert.equal(migratedNavigation.workspaceView, 'library', 'persisted Workspace view must survive migration')
+  usePromptStore.getState().setNavigationCollapsed(false)
+  usePromptStore.getState().setWorkspaceView('prompt')
+
   assert.equal(adultTags.length, 131, 'adult tag count must remain unchanged')
   assert.equal(new Set(adultTags.map(tag => tag.id)).size, 131, 'adult tag ids must remain unique')
   assert.equal(adultTags.some(tag => tag.category === 'adult'), false, 'adult must not be a major category')

@@ -877,3 +877,34 @@ body{background:var(--bg-primary);color:var(--text-primary)}
 .prompt-save-name{display:grid;gap:5px;margin-top:14px;color:var(--text-secondary);font-size:10px}.prompt-save-name input,.prompt-save-seed-row input{width:100%;min-width:0;padding:8px;border:1px solid var(--border);border-radius:3px;background:var(--input-bg);color:var(--text-primary)}
 .prompt-save-seeds{display:grid;gap:7px}.prompt-save-seeds>strong{font-size:11px}.prompt-save-seed-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}.prompt-save-seed-row button:disabled{cursor:not-allowed;opacity:.45}.prompt-add-seed{display:inline-flex;align-items:center;justify-content:center;gap:5px;justify-self:start}
 .prompt-save-error{margin:10px 0 0;color:var(--danger);font-size:10px}
+
+/* v25: Navigation shell foundation */
+.workspace.navigation-collapsed{grid-template-columns:56px minmax(0,1fr) minmax(260px,500px)}
+.navigation-shell{position:relative;padding:0;overflow:hidden}
+.navigation-header{display:flex;align-items:center;justify-content:space-between;flex:0 0 auto;height:32px;padding:0 8px;border-bottom:1px solid var(--border);background:var(--bg-secondary);color:var(--text-secondary);font-size:10px;letter-spacing:.1em}
+.navigation-header button{display:grid;place-items:center;width:26px;height:26px;padding:0;border:0;border-radius:3px;background:transparent;color:var(--text-secondary)}
+.navigation-header button:hover,.navigation-header button:focus-visible{background:var(--bg-hover);color:var(--text-primary)}
+.navigation-groups{display:flex;flex:1;min-height:0;flex-direction:column;gap:8px;padding:8px;overflow-y:auto;overscroll-behavior:contain}
+.navigation-group{position:relative;display:grid;gap:3px}
+.navigation-primary{display:flex;align-items:center;gap:8px;width:100%;min-height:32px;padding:6px 8px;border:1px solid transparent;border-radius:3px;background:transparent;color:var(--text-secondary);font-size:11px;font-weight:650;text-align:left}
+.navigation-primary svg{flex:0 0 auto}.navigation-primary span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.navigation-primary:hover{border-color:var(--border);background:var(--bg-hover);color:var(--text-primary)}
+.navigation-primary.active{border-color:var(--border-hover);background:var(--accent-soft);color:var(--text-primary);box-shadow:inset 2px 0 0 var(--accent)}
+.navigation-children{display:grid;gap:3px;padding-left:12px}
+.navigation-search{padding:2px 0 4px}.navigation-search .search-box{padding:7px}.navigation-search input{min-width:0}
+.navigation-children nav{max-height:none;margin:0;padding:0 0 0 5px;overflow:visible}
+.navigation-children nav button{min-height:28px;padding:5px 7px}
+.navigation-children.compact>button{min-height:28px;padding:5px 8px;border:0;border-radius:3px;background:transparent;color:var(--text-secondary);font-size:11px;text-align:left}
+.navigation-children.compact>button:hover,.navigation-children.compact>button.active{background:var(--bg-hover);color:var(--text-primary)}
+.navigation-shell .preset-box{margin-top:5px;padding:8px 0 0}.navigation-shell .preset{margin-top:0}
+.navigation-settings{margin-top:auto}
+.navigation-shell.collapsed{overflow:visible}
+.navigation-shell.collapsed .navigation-header{justify-content:center;padding:0}.navigation-shell.collapsed .navigation-header strong{display:none}
+.navigation-shell.collapsed .navigation-groups{padding:8px 6px;overflow:visible}
+.navigation-shell.collapsed .navigation-primary{justify-content:center;width:42px;padding:6px}.navigation-shell.collapsed .navigation-primary span{display:none}
+.navigation-shell.collapsed .navigation-flyout{position:absolute;top:0;left:calc(100% + 8px);z-index:20;display:none;width:210px;max-height:calc(100vh - 92px);padding:9px;border:1px solid var(--border);border-radius:4px;background:var(--bg-secondary);box-shadow:var(--popover-shadow);overflow-y:auto}
+.navigation-shell.collapsed .navigation-group:hover>.navigation-flyout,.navigation-shell.collapsed .navigation-group:focus-within>.navigation-flyout{display:grid}
+.navigation-shell.collapsed .navigation-flyout>strong{padding:3px 5px 7px;border-bottom:1px solid var(--border);color:var(--text-primary);font-size:11px}
+.navigation-shell.collapsed .navigation-flyout .navigation-search,.navigation-shell.collapsed .navigation-flyout .preset-box{display:none}
+.navigation-shell.collapsed .navigation-flyout nav{max-height:calc(100vh - 150px);overflow-y:auto}
+@media(max-width:1250px){.workspace.navigation-collapsed{grid-template-columns:56px minmax(0,1.35fr) minmax(260px,1fr)}}

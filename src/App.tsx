@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { AlertTriangle, Ban, BookOpen, Check, ChevronDown, ChevronRight, ChevronUp, Copy, Info, Plus, RotateCcw, Search, Settings2, Sparkles, Star, Trash2, WandSparkles, X } from 'lucide-react'
+import { AlertTriangle, Ban, BookOpen, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Copy, Info, Plus, RotateCcw, Search, Settings2, Sparkles, Star, Trash2, WandSparkles, X } from 'lucide-react'
 import { categoryLabels, categoryOrder, subcategoryOrder, TAG_COUNT, tags, type ContentRating, type PromptTag } from './data/tags'
 import { ADULT_TAG_COUNT, adultTags } from './data/adultTags'
 import { isSceneCategory, usePromptStore, type SelectedTag, type ModelPreset } from './store'
@@ -492,13 +492,38 @@ export default function App() {
         <button className="ghost danger" onClick={store.clearAll}><Trash2 size={17}/>{t('clearAll',locale)}</button>
       </div>
     </header>
-    <section className="workspace">
-      <aside className="sidebar panel">
-        <div className="panel-role">TAG LIBRARY</div>
-        <div className="search-box"><Search size={17}/><input value={query} onChange={e=>{setQuery(e.target.value);setFavoritesOnly(false)}} placeholder="日本語・英語で検索" /></div>
-        <button className={`favorite-filter ${favoritesOnly?'active':''}`} onClick={()=>{setFavoritesOnly(value=>!value);setQuery('');setSubcategory('すべて')}}><Star size={16}/>お気に入り</button>
-        <nav>{categoryOrder.map(c=><button key={c} className={category===c&&!query&&!favoritesOnly?'active':''} onClick={()=>chooseCategory(c)}>{getCategoryLabel(c,locale)}<small>{visibleDictionaryTags.filter(t=>t.category===c).length}</small></button>)}</nav>
-        <div className="preset-box"><label>モデル</label><select value={store.modelPreset} onChange={e=>store.setModelPreset(e.target.value as ModelPreset)}><option value="illustrious">Illustrious / NoobAI</option><option value="pony">Pony</option><option value="sdxl">SDXL汎用</option><option value="custom">カスタム</option></select><button className="preset" onClick={()=>store.applyQualityPreset()}><WandSparkles size={17}/>品質を置き換え</button></div>
+    <section className={`workspace ${store.navigationCollapsed?'navigation-collapsed':''}`}>
+      <aside className={`sidebar panel navigation-shell ${store.navigationCollapsed?'collapsed':''}`} aria-label="Navigation">
+        <div className="navigation-header"><strong>{store.navigationCollapsed?'NAV':'Navigation'}</strong><button type="button" aria-label={store.navigationCollapsed?'Navigationを展開':'Navigationを最小化'} aria-expanded={!store.navigationCollapsed} onClick={()=>store.setNavigationCollapsed(!store.navigationCollapsed)}>{store.navigationCollapsed?<ChevronRight size={16}/>:<ChevronLeft size={16}/>}</button></div>
+        <div className="navigation-groups">
+          <section className="navigation-group prompt-navigation">
+            <button type="button" className={`navigation-primary ${store.workspaceView==='prompt'?'active':''}`} aria-label="Prompt" onClick={()=>store.setWorkspaceView('prompt')}><Sparkles size={17}/><span>Prompt</span></button>
+            <div className="navigation-children navigation-flyout">
+              {store.navigationCollapsed&&<strong>Prompt</strong>}
+              <div className="navigation-search"><div className="search-box"><Search size={16}/><input value={query} onChange={e=>{setQuery(e.target.value);setFavoritesOnly(false);store.setWorkspaceView('prompt')}} placeholder="日本語・英語で検索" /></div></div>
+              <nav aria-label="Prompt categories">{categoryOrder.map(c=><button key={c} className={category===c&&!query&&!favoritesOnly?'active':''} onClick={()=>{store.setWorkspaceView('prompt');chooseCategory(c)}}><span>{getCategoryLabel(c,locale)}</span><small>{visibleDictionaryTags.filter(t=>t.category===c).length}</small></button>)}</nav>
+              <div className="preset-box"><label>モデル</label><select value={store.modelPreset} onChange={e=>store.setModelPreset(e.target.value as ModelPreset)}><option value="illustrious">Illustrious / NoobAI</option><option value="pony">Pony</option><option value="sdxl">SDXL汎用</option><option value="custom">カスタム</option></select><button className="preset" onClick={()=>store.applyQualityPreset()}><WandSparkles size={17}/>品質を置き換え</button></div>
+            </div>
+          </section>
+          <section className="navigation-group">
+            <button type="button" className={`navigation-primary ${store.workspaceView==='favorites'?'active':''}`} aria-label="お気に入り" onClick={()=>store.setWorkspaceView('favorites')}><Star size={17}/><span>お気に入り</span></button>
+            <div className="navigation-children navigation-flyout compact">
+              {store.navigationCollapsed&&<strong>お気に入り</strong>}
+              <button className={favoritesOnly?'active':''} onClick={()=>{store.setWorkspaceView('favorites');setFavoritesOnly(true);setQuery('');setSubcategory('すべて')}}>タグ</button>
+              <button onClick={()=>store.setWorkspaceView('favorites')}>Prompt</button>
+            </div>
+          </section>
+          <section className="navigation-group">
+            <button type="button" className={`navigation-primary ${store.workspaceView==='library'?'active':''}`} aria-label="ライブラリ" onClick={()=>store.setWorkspaceView('library')}><BookOpen size={17}/><span>ライブラリ</span></button>
+            <div className="navigation-children navigation-flyout compact">
+              {store.navigationCollapsed&&<strong>ライブラリ</strong>}
+              <button onClick={()=>store.setWorkspaceView('library')}>Saved Prompt</button>
+            </div>
+          </section>
+          <section className="navigation-group navigation-settings">
+            <button type="button" className={`navigation-primary ${settingsOpen?'active':''}`} aria-label="設定" onClick={()=>setSettingsOpen(true)}><Settings2 size={17}/><span>設定</span></button>
+          </section>
+        </div>
       </aside>
 
       <section className="tag-panel panel">
