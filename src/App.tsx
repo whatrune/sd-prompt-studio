@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { AlertTriangle, Ban, BookOpen, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Copy, Info, Plus, RotateCcw, Search, Settings2, Sparkles, Star, Trash2, WandSparkles, X } from 'lucide-react'
 import { categoryLabels, categoryOrder, subcategoryOrder, TAG_COUNT, tags, type ContentRating, type PromptTag } from './data/tags'
 import { ADULT_TAG_COUNT, adultTags } from './data/adultTags'
@@ -163,6 +163,9 @@ export default function App() {
   const [savePromptName, setSavePromptName] = useState('')
   const [seedInputs, setSeedInputs] = useState<string[]>([''])
   const [savePromptError, setSavePromptError] = useState('')
+  const [activeNavigationFlyout, setActiveNavigationFlyout] = useState<'prompt' | 'favorites' | 'library' | null>(null)
+  const navigationHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const navigationCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const importRef = useRef<HTMLInputElement>(null)
   const [clothingItem, setClothingItem] = useState('shirt')
   const [clothingColor, setClothingColor] = useState('black')
@@ -189,6 +192,53 @@ export default function App() {
     document.documentElement.dataset.theme = theme
     try { window.localStorage.setItem('sd-prompt-studio-theme', theme) } catch { /* Keep the in-memory theme when storage is unavailable. */ }
   }, [theme])
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActiveNavigationFlyout(null)
+    }
+    if (!store.navigationCollapsed) setActiveNavigationFlyout(null)
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      window.removeEventListener('keydown', closeOnEscape)
+      if (navigationHoverTimer.current) window.clearTimeout(navigationHoverTimer.current)
+      if (navigationCloseTimer.current) window.clearTimeout(navigationCloseTimer.current)
+    }
+  }, [store.navigationCollapsed])
+
+  function cancelNavigationTimers() {
+    if (navigationHoverTimer.current) window.clearTimeout(navigationHoverTimer.current)
+    if (navigationCloseTimer.current) window.clearTimeout(navigationCloseTimer.current)
+    navigationHoverTimer.current = null
+    navigationCloseTimer.current = null
+  }
+  function openNavigationFlyoutAfterDelay(view: 'prompt' | 'favorites' | 'library') {
+    if (!store.navigationCollapsed) return
+    cancelNavigationTimers()
+    navigationHoverTimer.current = window.setTimeout(() => {
+      setActiveNavigationFlyout(view)
+      navigationHoverTimer.current = null
+    }, 500)
+  }
+  function closeNavigationFlyoutAfterDelay() {
+    if (navigationHoverTimer.current) window.clearTimeout(navigationHoverTimer.current)
+    navigationHoverTimer.current = null
+    navigationCloseTimer.current = window.setTimeout(() => {
+      setActiveNavigationFlyout(null)
+      navigationCloseTimer.current = null
+    }, 150)
+  }
+  function closeNavigationFlyout() {
+    cancelNavigationTimers()
+    setActiveNavigationFlyout(null)
+  }
+  function navigateToPrompt() {
+    closeNavigationFlyout()
+    store.setWorkspaceView('prompt')
+    setQuery('')
+    setFavoritesOnly(false)
+    setSubcategory('すべて')
+  }
 
   const subcategories = useMemo(() => subcategoryOrder[category] ?? [], [category])
   const dictionaryTags = useMemo(() => [...tags, ...adultTags, ...store.userTags], [store.userTags])
@@ -450,7 +500,7 @@ export default function App() {
 
   return <main className="app-shell">
     <header className="topbar">
-      <div><h1>SD Prompt Studio <span className="version-mark">v21.0 α1</span></h1><p>Stable Diffusion Prompt IDE · {(TAG_COUNT + ADULT_TAG_COUNT + store.userTags.length).toLocaleString()} tags</p></div>
+      <div className="app-brand"><button type="button" className="navigation-toggle" aria-label={store.navigationCollapsed?'Navigationを展開':'Navigationを最小化'} aria-expanded={!store.navigationCollapsed} onClick={()=>{closeNavigationFlyout();store.setNavigationCollapsed(!store.navigationCollapsed)}}>{store.navigationCollapsed?<ChevronRight size={18}/>:<ChevronLeft size={18}/>}</button><div><h1>SD Prompt Studio <span className="version-mark">v21.0 α1</span></h1><p>Stable Diffusion Prompt IDE · {(TAG_COUNT + ADULT_TAG_COUNT + store.userTags.length).toLocaleString()} tags</p></div></div>
       <div className="header-actions">
         <button className="ghost" onClick={()=>setAnalyzerOpen(true)}><BookOpen size={17}/>Prompt解析</button>
         <div className="settings-wrap">
@@ -494,34 +544,33 @@ export default function App() {
     </header>
     <section className={`workspace ${store.navigationCollapsed?'navigation-collapsed':''}`}>
       <aside className={`sidebar panel navigation-shell ${store.navigationCollapsed?'collapsed':''}`} aria-label="Navigation">
-        <div className="navigation-header"><strong>{store.navigationCollapsed?'NAV':'Navigation'}</strong><button type="button" aria-label={store.navigationCollapsed?'Navigationを展開':'Navigationを最小化'} aria-expanded={!store.navigationCollapsed} onClick={()=>store.setNavigationCollapsed(!store.navigationCollapsed)}>{store.navigationCollapsed?<ChevronRight size={16}/>:<ChevronLeft size={16}/>}</button></div>
         <div className="navigation-groups">
-          <section className="navigation-group prompt-navigation">
-            <button type="button" className={`navigation-primary ${store.workspaceView==='prompt'?'active':''}`} aria-label="Prompt" onClick={()=>store.setWorkspaceView('prompt')}><Sparkles size={17}/><span>Prompt</span></button>
+          <section className={`navigation-group prompt-navigation ${activeNavigationFlyout==='prompt'?'flyout-open':''}`} onMouseEnter={()=>openNavigationFlyoutAfterDelay('prompt')} onMouseLeave={closeNavigationFlyoutAfterDelay} onFocus={()=>{if(store.navigationCollapsed){cancelNavigationTimers();setActiveNavigationFlyout('prompt')}}} onBlur={closeNavigationFlyoutAfterDelay}>
+            <button type="button" className={`navigation-primary ${store.workspaceView==='prompt'?'active':''}`} aria-label="プロンプト" aria-current={store.workspaceView==='prompt'?'page':undefined} onClick={navigateToPrompt}><Sparkles size={17}/><span className="navigation-label">プロンプト</span><span className="navigation-tooltip" role="tooltip">プロンプト</span></button>
             <div className="navigation-children navigation-flyout">
-              {store.navigationCollapsed&&<strong>Prompt</strong>}
+              {store.navigationCollapsed&&<strong>プロンプト</strong>}
               <div className="navigation-search"><div className="search-box"><Search size={16}/><input value={query} onChange={e=>{setQuery(e.target.value);setFavoritesOnly(false);store.setWorkspaceView('prompt')}} placeholder="日本語・英語で検索" /></div></div>
-              <nav aria-label="Prompt categories">{categoryOrder.map(c=><button key={c} className={category===c&&!query&&!favoritesOnly?'active':''} onClick={()=>{store.setWorkspaceView('prompt');chooseCategory(c)}}><span>{getCategoryLabel(c,locale)}</span><small>{visibleDictionaryTags.filter(t=>t.category===c).length}</small></button>)}</nav>
+              <nav aria-label="プロンプトカテゴリ">{categoryOrder.map(c=><button key={c} className={category===c&&!query&&!favoritesOnly?'active':''} onClick={()=>{closeNavigationFlyout();store.setWorkspaceView('prompt');chooseCategory(c)}}><span>{getCategoryLabel(c,locale)}</span><small>{visibleDictionaryTags.filter(t=>t.category===c).length}</small></button>)}</nav>
               <div className="preset-box"><label>モデル</label><select value={store.modelPreset} onChange={e=>store.setModelPreset(e.target.value as ModelPreset)}><option value="illustrious">Illustrious / NoobAI</option><option value="pony">Pony</option><option value="sdxl">SDXL汎用</option><option value="custom">カスタム</option></select><button className="preset" onClick={()=>store.applyQualityPreset()}><WandSparkles size={17}/>品質を置き換え</button></div>
             </div>
           </section>
-          <section className="navigation-group">
-            <button type="button" className={`navigation-primary ${store.workspaceView==='favorites'?'active':''}`} aria-label="お気に入り" onClick={()=>store.setWorkspaceView('favorites')}><Star size={17}/><span>お気に入り</span></button>
+          <section className={`navigation-group ${activeNavigationFlyout==='favorites'?'flyout-open':''}`} onMouseEnter={()=>openNavigationFlyoutAfterDelay('favorites')} onMouseLeave={closeNavigationFlyoutAfterDelay} onFocus={()=>{if(store.navigationCollapsed){cancelNavigationTimers();setActiveNavigationFlyout('favorites')}}} onBlur={closeNavigationFlyoutAfterDelay}>
+            <button type="button" className={`navigation-primary ${store.workspaceView==='favorites'?'active':''}`} aria-label="お気に入り" aria-current={store.workspaceView==='favorites'?'page':undefined} onClick={()=>{closeNavigationFlyout();store.setWorkspaceView('favorites')}}><Star size={17}/><span className="navigation-label">お気に入り</span><span className="navigation-tooltip" role="tooltip">お気に入り</span></button>
             <div className="navigation-children navigation-flyout compact">
               {store.navigationCollapsed&&<strong>お気に入り</strong>}
-              <button className={favoritesOnly?'active':''} onClick={()=>{store.setWorkspaceView('favorites');setFavoritesOnly(true);setQuery('');setSubcategory('すべて')}}>タグ</button>
-              <button onClick={()=>store.setWorkspaceView('favorites')}>Prompt</button>
+              <button className={favoritesOnly?'active':''} onClick={()=>{closeNavigationFlyout();store.setWorkspaceView('favorites');setFavoritesOnly(true);setQuery('');setSubcategory('すべて')}}>タグ</button>
+              <button onClick={()=>{closeNavigationFlyout();store.setWorkspaceView('favorites')}}>Prompt</button>
             </div>
           </section>
-          <section className="navigation-group">
-            <button type="button" className={`navigation-primary ${store.workspaceView==='library'?'active':''}`} aria-label="ライブラリ" onClick={()=>store.setWorkspaceView('library')}><BookOpen size={17}/><span>ライブラリ</span></button>
+          <section className={`navigation-group ${activeNavigationFlyout==='library'?'flyout-open':''}`} onMouseEnter={()=>openNavigationFlyoutAfterDelay('library')} onMouseLeave={closeNavigationFlyoutAfterDelay} onFocus={()=>{if(store.navigationCollapsed){cancelNavigationTimers();setActiveNavigationFlyout('library')}}} onBlur={closeNavigationFlyoutAfterDelay}>
+            <button type="button" className={`navigation-primary ${store.workspaceView==='library'?'active':''}`} aria-label="ライブラリ" aria-current={store.workspaceView==='library'?'page':undefined} onClick={()=>{closeNavigationFlyout();store.setWorkspaceView('library')}}><BookOpen size={17}/><span className="navigation-label">ライブラリ</span><span className="navigation-tooltip" role="tooltip">ライブラリ</span></button>
             <div className="navigation-children navigation-flyout compact">
               {store.navigationCollapsed&&<strong>ライブラリ</strong>}
-              <button onClick={()=>store.setWorkspaceView('library')}>Saved Prompt</button>
+              <button onClick={()=>{closeNavigationFlyout();store.setWorkspaceView('library')}}>Saved Prompt</button>
             </div>
           </section>
           <section className="navigation-group navigation-settings">
-            <button type="button" className={`navigation-primary ${settingsOpen?'active':''}`} aria-label="設定" onClick={()=>setSettingsOpen(true)}><Settings2 size={17}/><span>設定</span></button>
+            <button type="button" className={`navigation-primary ${settingsOpen?'active':''}`} aria-label="設定" aria-current={settingsOpen?'page':undefined} onClick={()=>{closeNavigationFlyout();setSettingsOpen(true)}}><Settings2 size={17}/><span className="navigation-label">設定</span><span className="navigation-tooltip" role="tooltip">設定</span></button>
           </section>
         </div>
       </aside>

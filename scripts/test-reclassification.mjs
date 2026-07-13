@@ -612,6 +612,12 @@ try {
   assert(appSource.includes('Prompt Actions'), 'copy actions must be rendered above Prompt output')
   assert(appSource.includes('Expansion Preview'), 'expanded entities must be inspectable without changing the Prompt')
   assert(appSource.includes("store.setActiveLayer('scene')"), 'Scene category jump must activate the Scene layer')
+  assert(appSource.includes('className="app-brand"'), 'Navigation toggle must live in the App Header brand area')
+  assert.equal(appSource.includes('className="navigation-header"'), false, 'Navigation must not retain a duplicate internal Collapse header')
+  assert(appSource.includes("setActiveNavigationFlyout"), 'Flyout visibility must use explicit React state')
+  assert(appSource.includes('}, 500)'), 'Navigation Flyout must use the requested hover delay')
+  assert(appSource.includes('function navigateToPrompt()'), 'Prompt navigation must have an explicit Workspace reset action')
+  for (const label of ['プロンプト', 'お気に入り', 'ライブラリ', '設定']) assert(appSource.includes(`>${label}</span>`), `${label} must be rendered as a Japanese Navigation label`)
 
   const characterDictionary = JSON.parse(fs.readFileSync(new URL('../data/character.json', import.meta.url), 'utf8'))
   assert.equal(characterDictionary.length, 103, 'character dictionary count must remain unchanged')
