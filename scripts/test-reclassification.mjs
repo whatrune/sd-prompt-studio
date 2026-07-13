@@ -540,6 +540,14 @@ try {
   })
   assert.deepEqual(migratedWithoutLibrary.savedPrompts, [], 'existing persisted state must default savedPrompts to an empty array')
   assert.deepEqual(migratedWithoutLibrary.seeds, [], 'existing persisted state must default current seeds to an empty array')
+  const migratedLegacySavedPrompt = migratePersistedState({
+    blocks: [{ id: 'legacy-library', name: '被写体 1', tags: [] }],
+    sceneTags: [],
+    userTags: [],
+    modelPreset: 'sdxl',
+    savedPrompts: [{ id: 'legacy-saved', type: 'favorite', name: 'Legacy Saved', positivePrompt: '', negativePrompt: '', blocks: [{ id: 'legacy-library', name: '被写体 1', tags: [] }], sceneTags: [], seeds: [], createdAt: 1, updatedAt: 1 }],
+  })
+  assert.equal(migratedLegacySavedPrompt.savedPrompts[0].modelPreset, 'sdxl', 'legacy saved Prompts must inherit the persisted Model Preset')
 
   usePromptStore.setState({
     blocks: [{ id: 'library-subject', name: 'Library Subject', subjectNumber: 1, position: 'center', tags: [subjectHair] }],
@@ -547,11 +555,11 @@ try {
     activeBlockId: 'library-subject',
     activeLayer: 'subject',
     negative: 'library negative',
+    modelPreset: 'pony',
     seeds: [],
     savedPrompts: [],
   })
   const savedLibraryPrompt = usePromptStore.getState().savePrompt({
-    type: 'favorite',
     name: 'Library Favorite',
     positivePrompt: 'saved positive snapshot',
     negativePrompt: 'library negative',
@@ -559,8 +567,11 @@ try {
   })
   assert(savedLibraryPrompt, 'valid Prompt state must be saved')
   assert.equal(usePromptStore.getState().savedPrompts.length, 1)
+  assert.equal(usePromptStore.getState().savedPrompts[0].modelPreset, 'pony')
   assert.deepEqual(usePromptStore.getState().savedPrompts[0].seeds.map(seed => seed.value), [123456789, 987654321, 24680])
-  assert.equal(usePromptStore.getState().savePrompt({ type: 'history', name: 'Duplicate seeds', positivePrompt: '', negativePrompt: '', seeds: [{ value: 7 }, { value: 7 }] }), null, 'duplicate Seeds must be rejected')
+  assert.equal(usePromptStore.getState().savePrompt({ name: 'Duplicate seeds', positivePrompt: '', negativePrompt: '', seeds: [{ value: 7 }, { value: 7 }] }), null, 'duplicate Seeds must be rejected')
+  const seedlessPrompt = usePromptStore.getState().savePrompt({ name: 'Seedless Prompt', positivePrompt: '', negativePrompt: '', seeds: [] })
+  assert(seedlessPrompt, 'a Prompt without Seeds must be saved')
 
   usePromptStore.setState({
     blocks: [{ id: 'changed-subject', name: 'Changed', tags: [] }],
@@ -568,6 +579,7 @@ try {
     activeBlockId: 'changed-subject',
     negative: 'changed negative',
     seeds: [{ value: 1 }],
+    modelPreset: 'sdxl',
   })
   assert.equal(usePromptStore.getState().savedPrompts[0].blocks[0].tags[0].prompt, 'black hair', 'saved blocks must remain immutable after current edits')
   assert.equal(usePromptStore.getState().savedPrompts[0].sceneTags[0].prompt, 'masterpiece', 'saved Scene tags must remain immutable after current edits')
@@ -576,9 +588,10 @@ try {
   assert.equal(usePromptStore.getState().blocks[0].tags[0].prompt, 'black hair')
   assert.equal(usePromptStore.getState().sceneTags[0].prompt, 'masterpiece')
   assert.equal(usePromptStore.getState().negative, 'library negative')
+  assert.equal(usePromptStore.getState().modelPreset, 'pony')
   assert.deepEqual(usePromptStore.getState().seeds.map(seed => seed.value), [123456789, 987654321, 24680])
   usePromptStore.getState().deleteSavedPrompt(savedLibraryPrompt.id)
-  assert.equal(usePromptStore.getState().savedPrompts.length, 0, 'deleting a saved Prompt must remove only that snapshot')
+  assert.equal(usePromptStore.getState().savedPrompts.length, 1, 'deleting a saved Prompt must remove only that snapshot')
 
   const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
   assert(appSource.includes("useState(true)"), 'Prompt panels must have collapsed initial state')

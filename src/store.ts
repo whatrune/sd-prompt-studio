@@ -15,11 +15,10 @@ export const SCENE_CATEGORIES = new Set(['quality', 'camera', 'background', 'sce
 export const isSceneCategory = (category: string) => SCENE_CATEGORIES.has(category)
 export type ModelPreset = 'illustrious' | 'pony' | 'sdxl' | 'custom'
 export type SeedEntry = { value: number; note?: string }
-export type SavedPromptType = 'history' | 'favorite'
 export type SavedPrompt = {
   id: string
-  type: SavedPromptType
   name: string
+  modelPreset: ModelPreset
   positivePrompt: string
   negativePrompt: string
   blocks: PromptBlock[]
@@ -28,7 +27,7 @@ export type SavedPrompt = {
   createdAt: number
   updatedAt: number
 }
-export type SavePromptInput = Pick<SavedPrompt, 'type' | 'name' | 'positivePrompt' | 'negativePrompt' | 'seeds'>
+export type SavePromptInput = Pick<SavedPrompt, 'name' | 'positivePrompt' | 'negativePrompt' | 'seeds'>
 
 export type UserPromptTag = PromptTag & { source: 'user' }
 
@@ -97,8 +96,7 @@ const cloneSelectedTag = (tag: SelectedTag): SelectedTag => ({
 })
 const cloneBlock = (block: PromptBlock): PromptBlock => ({ ...block, tags: block.tags.map(cloneSelectedTag) })
 const cloneSeed = (seed: SeedEntry): SeedEntry => ({ ...seed })
-const validSeeds = (seeds: SeedEntry[]) => seeds.length > 0
-  && seeds.every(seed => Number.isSafeInteger(seed.value))
+const validSeeds = (seeds: SeedEntry[]) => seeds.every(seed => Number.isSafeInteger(seed.value))
   && new Set(seeds.map(seed => seed.value)).size === seeds.length
 
 function migrateLegacyUserClothingTag(tag: UserPromptTag): UserPromptTag {
@@ -165,6 +163,7 @@ export function migratePersistedState(persisted: unknown) {
     seeds: Array.isArray(state.seeds) ? state.seeds.filter(seed => seed && Number.isSafeInteger(seed.value)).map(cloneSeed) : [],
     savedPrompts: Array.isArray(state.savedPrompts) ? state.savedPrompts.map(saved => ({
       ...saved,
+      modelPreset: saved.modelPreset ?? state.modelPreset ?? 'illustrious',
       blocks: Array.isArray(saved.blocks) ? saved.blocks.map(cloneBlock) : [],
       sceneTags: Array.isArray(saved.sceneTags) ? saved.sceneTags.map(cloneSelectedTag) : [],
       seeds: Array.isArray(saved.seeds) ? saved.seeds.filter(seed => seed && Number.isSafeInteger(seed.value)).map(cloneSeed) : [],
@@ -290,8 +289,8 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
     const now = Date.now()
     const saved: SavedPrompt = {
       id: `saved-prompt-${createId()}`,
-      type: input.type,
       name,
+      modelPreset: state.modelPreset,
       positivePrompt: input.positivePrompt,
       negativePrompt: input.negativePrompt,
       blocks: state.blocks.map(cloneBlock),
@@ -311,6 +310,7 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
       blocks,
       sceneTags: saved.sceneTags.map(cloneSelectedTag),
       negative: saved.negativePrompt,
+      modelPreset: saved.modelPreset,
       seeds: saved.seeds.map(cloneSeed),
       activeBlockId: blocks[0].id,
       activeLayer: 'subject',
@@ -320,6 +320,6 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   deleteSavedPrompt: (id) => set(state => ({ savedPrompts: state.savedPrompts.filter(item => item.id !== id) })),
 }), {
   name: 'sd-prompt-studio-v14',
-  version: 12,
+  version: 13,
   migrate: migratePersistedState,
 }))

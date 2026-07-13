@@ -2,7 +2,7 @@ import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from '
 import { AlertTriangle, Ban, BookOpen, Check, ChevronDown, ChevronRight, ChevronUp, Copy, Info, Plus, RotateCcw, Search, Settings2, Sparkles, Star, Trash2, WandSparkles, X } from 'lucide-react'
 import { categoryLabels, categoryOrder, subcategoryOrder, TAG_COUNT, tags, type ContentRating, type PromptTag } from './data/tags'
 import { ADULT_TAG_COUNT, adultTags } from './data/adultTags'
-import { isSceneCategory, usePromptStore, type SelectedTag, type ModelPreset, type SavedPromptType } from './store'
+import { isSceneCategory, usePromptStore, type SelectedTag, type ModelPreset } from './store'
 import { compatibilityLabel, generationNote, heuristicCategory, inferCategory, modelHints } from './engine/tagIntelligence'
 import { getConflictMap } from './engine/smartTagEngine'
 import './styles.css'
@@ -160,7 +160,6 @@ export default function App() {
   const [promptCollapsed, setPromptCollapsed] = useState(true)
   const [negativeCollapsed, setNegativeCollapsed] = useState(true)
   const [savePromptOpen, setSavePromptOpen] = useState(false)
-  const [savePromptType, setSavePromptType] = useState<SavedPromptType>('favorite')
   const [savePromptName, setSavePromptName] = useState('')
   const [seedInputs, setSeedInputs] = useState<string[]>([''])
   const [savePromptError, setSavePromptError] = useState('')
@@ -243,18 +242,17 @@ export default function App() {
   const prompt = expansion.prompt
 
   const openSavePrompt = () => {
-    setSavePromptType('favorite')
     setSavePromptName('')
     setSeedInputs(store.seeds.length > 0 ? store.seeds.map(seed => String(seed.value)) : [''])
     setSavePromptError('')
     setSavePromptOpen(true)
   }
   const submitSavedPrompt = () => {
-    if (seedInputs.some(value => !/^\d+$/.test(value))) {
-      setSavePromptError('Seedは空欄なしの整数で入力してください。')
+    if (seedInputs.some(value => value !== '' && !/^\d+$/.test(value))) {
+      setSavePromptError('Seedは整数で入力してください。')
       return
     }
-    const seeds = seedInputs.map(value => ({ value: Number(value) }))
+    const seeds = seedInputs.filter(Boolean).map(value => ({ value: Number(value) }))
     if (seeds.some(seed => !Number.isSafeInteger(seed.value))) {
       setSavePromptError('Seedは安全な整数範囲で入力してください。')
       return
@@ -263,12 +261,12 @@ export default function App() {
       setSavePromptError('同じSeedは重複して保存できません。')
       return
     }
-    const name = savePromptName.trim() || (savePromptType === 'history' ? `History ${new Date().toLocaleString('ja-JP')}` : '')
+    const name = savePromptName.trim()
     if (!name) {
-      setSavePromptError('Favoriteには名前を入力してください。')
+      setSavePromptError('名前を入力してください。')
       return
     }
-    const saved = store.savePrompt({ type: savePromptType, name, positivePrompt: prompt, negativePrompt: store.negative, seeds })
+    const saved = store.savePrompt({ name, positivePrompt: prompt, negativePrompt: store.negative, seeds })
     if (!saved) {
       setSavePromptError('保存内容を確認してください。')
       return
@@ -556,9 +554,9 @@ export default function App() {
           <div className="prompt-library-header"><div><strong>Prompt Library</strong><small>編集状態とSeedを保存・復元</small></div><button className="prompt-library-save" onClick={openSavePrompt}>保存</button></div>
           {store.seeds.length>0&&<div className="prompt-library-current-seeds"><span>Current Seeds</span>{store.seeds.map(seed=><code key={seed.value}>{seed.value}</code>)}</div>}
           {store.savedPrompts.length===0?<div className="prompt-library-empty">保存済みPromptはありません</div>:<div className="prompt-library-list">{store.savedPrompts.map(saved=><article className="prompt-library-card" key={saved.id}>
-            <div className="prompt-library-card-head"><div><strong>{saved.name}</strong><span className={`saved-prompt-type ${saved.type}`}>{saved.type==='favorite'?'Favorite':'History'}</span></div><time dateTime={new Date(saved.createdAt).toISOString()}>{new Date(saved.createdAt).toLocaleString('ja-JP')}</time></div>
+            <div className="prompt-library-card-head"><div><strong>{saved.name}</strong><span className="saved-prompt-model">{saved.modelPreset}</span></div><time dateTime={new Date(saved.createdAt).toISOString()}>{new Date(saved.createdAt).toLocaleString('ja-JP')}</time></div>
             <p>{saved.positivePrompt || '（空のPositive Prompt）'}</p>
-            <div className="saved-prompt-seeds"><span>Seed</span>{saved.seeds.map(seed=><code key={seed.value}>{seed.value}</code>)}</div>
+            <div className="saved-prompt-seeds"><span>Seed</span>{saved.seeds.length>0?saved.seeds.map(seed=><code key={seed.value}>{seed.value}</code>):<small>未設定</small>}</div>
             <div className="prompt-library-card-actions"><button onClick={()=>{if(!confirm('現在の編集内容を置き換えます。\n\n復元しますか？'))return;if(store.restorePrompt(saved.id))setViewContextId(saved.blocks[0]?.id??store.activeBlockId)}}>復元</button><button className="danger" onClick={()=>confirm('この保存済みPromptを削除しますか？')&&store.deleteSavedPrompt(saved.id)}>削除</button></div>
           </article>)}</div>}
         </section>
@@ -611,9 +609,8 @@ export default function App() {
     </section>
     {savePromptOpen&&<div className="modal-backdrop" onMouseDown={()=>setSavePromptOpen(false)}><section className="prompt-save-modal" onMouseDown={event=>event.stopPropagation()}>
       <div className="analyzer-head"><div><span className="eyebrow">PROMPT LIBRARY</span><h2>現在の編集状態を保存</h2></div><button aria-label="保存画面を閉じる" onClick={()=>setSavePromptOpen(false)}><X size={18}/></button></div>
-      <label className="prompt-save-name">名前<input value={savePromptName} onChange={event=>setSavePromptName(event.target.value)} placeholder={savePromptType==='favorite'?'例: Cyber Witch':'空欄なら日時で自動生成'}/></label>
-      <fieldset className="prompt-save-type"><legend>種類</legend><label><input type="radio" name="saved-prompt-type" value="history" checked={savePromptType==='history'} onChange={()=>setSavePromptType('history')}/>History</label><label><input type="radio" name="saved-prompt-type" value="favorite" checked={savePromptType==='favorite'} onChange={()=>setSavePromptType('favorite')}/>Favorite</label></fieldset>
-      <div className="prompt-save-seeds"><strong>Seed</strong>{seedInputs.map((value,index)=><div className="prompt-save-seed-row" key={index}><input inputMode="numeric" aria-label={`Seed ${index+1}`} value={value} onChange={event=>{const next=event.target.value.replace(/\D/g,'');setSeedInputs(current=>current.map((item,i)=>i===index?next:item));setSavePromptError('')}} placeholder="123456789"/><button type="button" disabled={seedInputs.length===1} onClick={()=>setSeedInputs(current=>current.filter((_,i)=>i!==index))}>削除</button></div>)}<button type="button" className="prompt-add-seed" onClick={()=>setSeedInputs(current=>[...current,''])}><Plus size={14}/>Seed追加</button></div>
+      <label className="prompt-save-name">名前<input value={savePromptName} onChange={event=>setSavePromptName(event.target.value)} placeholder="例: Cyber Witch"/></label>
+      <div className="prompt-save-seeds"><strong>Seed <small>（任意）</small></strong>{seedInputs.map((value,index)=><div className="prompt-save-seed-row" key={index}><input inputMode="numeric" aria-label={`Seed ${index+1}`} value={value} onChange={event=>{const next=event.target.value.replace(/\D/g,'');setSeedInputs(current=>current.map((item,i)=>i===index?next:item));setSavePromptError('')}} placeholder="123456789"/><button type="button" onClick={()=>setSeedInputs(current=>current.filter((_,i)=>i!==index))}>削除</button></div>)}<button type="button" className="prompt-add-seed" onClick={()=>setSeedInputs(current=>[...current,''])}><Plus size={14}/>Seed追加</button></div>
       {savePromptError&&<p className="prompt-save-error" role="alert">{savePromptError}</p>}
       <div className="modal-actions"><button className="ghost" onClick={()=>setSavePromptOpen(false)}>キャンセル</button><button onClick={submitSavedPrompt}>保存</button></div>
     </section></div>}
