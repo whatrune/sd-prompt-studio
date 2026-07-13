@@ -608,6 +608,7 @@ try {
   assert.equal(usePromptStore.getState().savedPrompts.length, 1, 'deleting a saved Prompt must remove only that snapshot')
 
   const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
+  const stylesSource = fs.readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
   assert(appSource.includes("useState(true)"), 'Prompt panels must have collapsed initial state')
   assert(appSource.includes('Prompt Actions'), 'copy actions must be rendered above Prompt output')
   assert(appSource.includes('Expansion Preview'), 'expanded entities must be inspectable without changing the Prompt')
@@ -615,6 +616,8 @@ try {
   assert(appSource.includes('className="app-brand"'), 'Navigation toggle must live in the App Header brand area')
   assert(appSource.includes('<Menu size={19}/>'), 'Navigation toggle must use one hamburger icon in both states')
   assert.equal(appSource.includes('navigation-panel-role'), false, 'Navigation must not reserve a dedicated heading row')
+  assert(stylesSource.includes('--panel-header-row: 32px'), 'Workspace panels must share one header-row height')
+  assert(stylesSource.includes('grid-template-rows: var(--panel-header-row) minmax(0, 1fr)'), 'Navigation content must use the shared panel header slot')
   assert.equal(appSource.includes('className="navigation-header"'), false, 'Navigation must not retain a duplicate internal Collapse header')
   assert(appSource.includes('className="navigation-icon-slot"'), 'Navigation children must use a shared icon slot')
   assert(appSource.includes('className={`navigation-item'), 'Prompt categories must use the shared Navigation item structure')

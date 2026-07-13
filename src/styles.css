@@ -1177,3 +1177,24 @@ body,
   border-left: 0;
   box-shadow: none;
 }
+
+/* v30: shared panel header slot and content baseline */
+.workspace {
+  --panel-header-row: 32px;
+  --panel-content-inset-block-start: 8px;
+}
+
+.panel-role {
+  height: var(--panel-header-row);
+}
+
+.navigation-shell {
+  display: grid;
+  grid-template-rows: var(--panel-header-row) minmax(0, 1fr);
+}
+
+.navigation-groups,
+.navigation-shell.collapsed .navigation-groups {
+  grid-row: 2;
+  padding-block-start: var(--panel-content-inset-block-start);
+}
