@@ -1118,13 +1118,14 @@ body,
 
 .navigation-shell:not(.collapsed) .navigation-primary {
   display: block;
-  min-height: 28px;
-  padding: 6px var(--nav-item-padding-x);
+  min-height: 32px;
+  padding: 7px var(--nav-item-padding-x) 6px;
   border-radius: 0;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 650;
+  line-height: 18px;
   letter-spacing: .04em;
 }
 
