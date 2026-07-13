@@ -1012,3 +1012,150 @@ body,
   overflow: visible;
   scrollbar-gutter: auto;
 }
+
+/* v27: shared Navigation icon column and expanded section hierarchy */
+.navigation-shell {
+  --nav-icon-slot: 28px;
+  --nav-item-gap: 6px;
+  --nav-item-padding-x: 8px;
+}
+
+.app-brand {
+  gap: 3px;
+}
+
+.navigation-toggle {
+  width: 44px;
+  height: 34px;
+  margin-inline: 6px;
+}
+
+.navigation-toggle svg,
+.navigation-icon-slot svg {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.navigation-groups,
+.navigation-shell.collapsed .navigation-groups {
+  padding-inline: 6px;
+}
+
+.navigation-icon-slot {
+  display: grid;
+  width: var(--nav-icon-slot);
+  min-width: var(--nav-icon-slot);
+  place-items: center;
+  color: currentColor;
+}
+
+.navigation-children {
+  padding-left: 0;
+}
+
+.navigation-children nav {
+  padding-left: 0;
+}
+
+.navigation-item,
+.navigation-children nav button.navigation-item,
+.navigation-children.compact > button.navigation-item {
+  display: grid;
+  grid-template-columns: var(--nav-icon-slot) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--nav-item-gap);
+  width: 100%;
+  min-height: 30px;
+  padding: 5px var(--nav-item-padding-x);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-align: left;
+}
+
+.navigation-item-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navigation-item small {
+  min-width: 3ch;
+  color: var(--text-secondary);
+  font-size: 9px;
+  text-align: right;
+}
+
+.navigation-item:hover,
+.navigation-children nav button.navigation-item:hover,
+.navigation-children.compact > button.navigation-item:hover {
+  border-color: transparent;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font-weight: 500;
+  box-shadow: none;
+}
+
+.navigation-item.active,
+.navigation-children nav button.navigation-item.active,
+.navigation-children.compact > button.navigation-item.active {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--bg-hover) 88%, var(--bg-secondary));
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.navigation-item:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--accent-muted);
+  outline-offset: 1px;
+}
+
+.navigation-shell:not(.collapsed) .navigation-primary {
+  display: block;
+  min-height: 28px;
+  padding: 6px var(--nav-item-padding-x);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: .04em;
+}
+
+.navigation-shell:not(.collapsed) .navigation-primary-icon {
+  display: none;
+}
+
+.navigation-shell:not(.collapsed) .navigation-primary:hover {
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.navigation-shell:not(.collapsed) .navigation-primary.active {
+  background: transparent;
+  color: var(--text-primary);
+  box-shadow: none;
+}
+
+.navigation-shell.collapsed .navigation-primary {
+  display: grid;
+  grid-template-columns: var(--nav-icon-slot);
+  justify-content: start;
+  width: 44px;
+  min-height: 34px;
+  padding: 3px var(--nav-item-padding-x);
+}
+
+.navigation-shell.collapsed .navigation-primary-icon {
+  display: grid;
+}
+
+.navigation-shell.collapsed .navigation-flyout .navigation-item {
+  grid-template-columns: var(--nav-icon-slot) minmax(0, 1fr) auto;
+}
