@@ -820,7 +820,8 @@ body{background:var(--bg-primary);color:var(--text-primary)}
 .sidebar nav{overflow:visible}
 .sidebar>.panel-role{top:-10px;margin:-10px -10px 10px}
 .tag-panel>.panel-role{top:-12px;margin:-12px -12px 10px}
-.color-modifier-bar{display:flex;align-items:center;gap:10px;min-height:38px;margin:0 0 10px;padding:4px 0 8px;border-bottom:1px solid var(--border);min-width:0}
+.color-modifier-bar{position:static;z-index:auto;display:flex;align-items:center;gap:10px;min-height:38px;margin:0 0 10px;padding:4px 0 8px;border-bottom:1px solid var(--border);min-width:0}
+.tag-panel>.subcategory-tabs{position:static;top:auto;z-index:auto}
 .color-modifier-label{display:grid;flex:0 0 auto;gap:1px;min-width:52px;color:var(--text-secondary);font-size:9px;line-height:1.2;letter-spacing:.08em}
 .color-modifier-label strong{color:var(--text-primary);font-size:10px;font-weight:600;letter-spacing:0}
 .color-modifier-swatches{display:flex;align-items:center;gap:4px;min-width:0;overflow-x:auto;padding:2px;scrollbar-width:thin}
