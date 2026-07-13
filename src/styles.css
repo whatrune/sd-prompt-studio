@@ -1166,3 +1166,14 @@ body,
     grid-template-columns: minmax(190px, .6fr) minmax(0, 1.35fr) minmax(260px, 1fr);
   }
 }
+
+/* v28: separate Navigation and Workspace with spacing, not a vertical rule */
+.navigation-shell {
+  border-right: 0;
+  box-shadow: none;
+}
+
+.tag-panel {
+  border-left: 0;
+  box-shadow: none;
+}
