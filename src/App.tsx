@@ -467,6 +467,7 @@ export default function App() {
       <section className="tag-panel panel">
         <div className="panel-role">TAG SELECTOR</div>
         <div className="tag-selector-content">
+        <div className="tag-selector-controls">
         <div className="color-modifier-bar" aria-label="Color Modifier">
           <div className="color-modifier-label"><span>COLOR</span><strong>{findColorModifier(activeColorModifier)?.label ?? '指定なし'}</strong></div>
           <div className="color-modifier-swatches">
@@ -474,10 +475,11 @@ export default function App() {
             {COLOR_MODIFIERS.map(color=><button key={color.value} type="button" className={`color-swatch ${activeColorModifier===color.value?'active':''}`} style={{ '--swatch-color': color.swatch } as CSSProperties} title={color.label} aria-label={`カラー: ${color.label}`} aria-pressed={activeColorModifier===color.value} onClick={()=>setActiveColorModifier(current=>current===color.value?'':color.value)}>{activeColorModifier===color.value&&<Check size={12}/>}</button>)}
           </div>
         </div>
+        {!query&&!favoritesOnly&&subcategories.length>0&&<div className="subcategory-tabs">{['すべて',...subcategories].map(sub=>{const activeSub=subcategory===sub;return <button key={sub} className={activeSub?'active':''} aria-pressed={activeSub} onClick={()=>setSubcategory(sub)}>{activeSub&&<Check size={14}/>}<span>{sub}</span></button>})}</div>}
+        </div>
         {(favoritesOnly||query)&&<div className="panel-title">
           <div><span className="eyebrow">PROMPT DICTIONARY</span><h2>{favoritesOnly?'お気に入り':`「${query}」の検索結果`}</h2></div>
         </div>}
-        {!query&&!favoritesOnly&&subcategories.length>0&&<div className="subcategory-tabs">{['すべて',...subcategories].map(sub=>{const activeSub=subcategory===sub;return <button key={sub} className={activeSub?'active':''} aria-pressed={activeSub} onClick={()=>setSubcategory(sub)}>{activeSub&&<Check size={14}/>}<span>{sub}</span></button>})}</div>}
         {!favoritesOnly&&['hair','eyes','body','clothes','scene_props'].includes(category)&&<section className={`composer-section ${composerCollapsed?'collapsed':''}`}>
           <button className="composer-toggle" onClick={()=>setComposerCollapsed(v=>!v)} aria-expanded={!composerCollapsed}>
             <span>コンポーザー</span>
