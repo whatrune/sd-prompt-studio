@@ -614,7 +614,7 @@ try {
   assert(appSource.includes("store.setActiveLayer('scene')"), 'Scene category jump must activate the Scene layer')
   assert(appSource.includes('className="app-brand"'), 'Navigation toggle must live in the App Header brand area')
   assert(appSource.includes('<Menu size={19}/>'), 'Navigation toggle must use one hamburger icon in both states')
-  assert(appSource.includes('className="panel-role navigation-panel-role"'), 'Navigation must share the Workspace panel header row')
+  assert.equal(appSource.includes('navigation-panel-role'), false, 'Navigation must not reserve a dedicated heading row')
   assert.equal(appSource.includes('className="navigation-header"'), false, 'Navigation must not retain a duplicate internal Collapse header')
   assert(appSource.includes('className="navigation-icon-slot"'), 'Navigation children must use a shared icon slot')
   assert(appSource.includes('className={`navigation-item'), 'Prompt categories must use the shared Navigation item structure')
