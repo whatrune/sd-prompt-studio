@@ -1163,6 +1163,6 @@ body,
 
 @media (max-width: 1250px) {
   .workspace:not(.navigation-collapsed) {
-    grid-template-columns: minmax(180px, .6fr) minmax(0, 1.35fr) minmax(260px, 1fr);
+    grid-template-columns: minmax(190px, .6fr) minmax(0, 1.35fr) minmax(260px, 1fr);
   }
 }
