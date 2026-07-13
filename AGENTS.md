@@ -49,6 +49,14 @@ UI変更では可能な限り、次も確認する。
 
 実際に確認していない項目を「確認済み」と報告しない。環境制約で確認できない場合は、未確認事項として明記する。
 
+## Failure prevention
+
+- 同じ症状への修正が2回続けて失敗した場合は、3回目を実装する前に停止する。DOM、scroll container、stacking context、computed style、Previewの実状態を再調査し、新しい方針を説明する。
+- Preview確認前に、対象commit SHAのCloudflare Checkが成功していることを確認する。古い表示が疑われる場合は、最新deployment URLまたはcache-busting queryを使う。
+- UI動作の完了報告には、Preview操作、DOMまたはcomputed style、スクリーンショット、Check結果などの根拠を持つ。build成功やDOM上の存在だけで、表示・操作の成功を断定しない。
+- 方針変更時は、以前の方針で追加したwrapper、selector、pseudo、z-index、offset、コメントを検索し、不要な暫定実装を同じ変更内で削除する。
+- 「レビューして」という依頼は、原則として問題の特定と判定までとする。修正、commit、push、review submissionは、ユーザーが依頼した範囲でのみ行う。自分が作成したPRは自己Approveせず、「APPROVE相当」と根拠を報告する。
+
 ## PR review workflow
 
 ### 0. PRの目的を1文で固定する
