@@ -594,20 +594,18 @@ export default function App() {
       </aside>
 
       <section className="tag-panel panel">
-        <div className="tag-selector-content">
-        <div className="tag-selector-controls">
-        {!query&&!favoritesOnly&&subcategories.length>0&&<div className="subcategory-tabs">{['すべて',...subcategories].map(sub=>{const activeSub=subcategory===sub;return <button key={sub} className={activeSub?'active':''} aria-pressed={activeSub} onClick={()=>setSubcategory(sub)}>{activeSub&&<Check size={14}/>}<span>{sub}</span></button>})}</div>}
-        <div className="color-modifier-bar" aria-label="Color Modifier">
+        <div className="prompt-workspace-content">
+        <div className="prompt-controls">
+        <div className="prompt-control-bar">
+        {!query&&!favoritesOnly&&subcategories.length>0&&<section className="category-tabs-section" aria-label="カテゴリ"><div className="subcategory-tabs">{['すべて',...subcategories].map(sub=>{const activeSub=subcategory===sub;return <button key={sub} className={activeSub?'active':''} aria-pressed={activeSub} onClick={()=>setSubcategory(sub)}>{activeSub&&<Check size={14}/>}<span>{sub}</span></button>})}</div></section>}
+        <section className="color-selector-section" aria-label="Color Selector"><div className="color-modifier-bar" aria-label="Color Modifier">
           <div className="color-modifier-label"><span>COLOR</span><strong>{findColorModifier(activeColorModifier)?.label ?? '指定なし'}</strong></div>
           <div className="color-modifier-swatches">
             <button type="button" className={`color-swatch color-swatch-none ${activeColorModifier?'':'active'}`} title="指定なし" aria-label="カラー指定なし" aria-pressed={!activeColorModifier} onClick={()=>setActiveColorModifier('')}><X size={13}/></button>
             {COLOR_MODIFIERS.map(color=><button key={color.value} type="button" className={`color-swatch ${activeColorModifier===color.value?'active':''}`} style={{ '--swatch-color': color.swatch } as CSSProperties} title={color.label} aria-label={`カラー: ${color.label}`} aria-pressed={activeColorModifier===color.value} onClick={()=>setActiveColorModifier(current=>current===color.value?'':color.value)}>{activeColorModifier===color.value&&<Check size={12}/>}</button>)}
           </div>
+        </div></section>
         </div>
-        </div>
-        {(favoritesOnly||query)&&<div className="panel-title">
-          <div><span className="eyebrow">PROMPT DICTIONARY</span><h2>{favoritesOnly?'お気に入り':`「${query}」の検索結果`}</h2></div>
-        </div>}
         {!favoritesOnly&&['hair','eyes','body','clothes','scene_props'].includes(category)&&<section className={`composer-section ${composerCollapsed?'collapsed':''}`}>
           <button className="composer-toggle" onClick={()=>setComposerCollapsed(v=>!v)} aria-expanded={!composerCollapsed}>
             <span>コンポーザー</span>
@@ -621,6 +619,12 @@ export default function App() {
         {category==='scene_props'&&<div className="composer-box"><h3>背景小物コンポーザー</h3><p>小物と画面内の位置、奥行きを組み合わせます。</p><div className="composer-grid"><label>小物<select value={propItem} onChange={e=>setPropItem(e.target.value)}><option value="bed">ベッド</option><option value="chair">椅子</option><option value="sofa">ソファ</option><option value="bookshelf">本棚</option><option value="desk">机</option><option value="table">テーブル</option><option value="floor lamp">フロアランプ</option><option value="window">窓</option><option value="potted plant">観葉植物</option><option value="mirror">鏡</option><option value="television">テレビ</option><option value="cabinet">キャビネット</option></select></label><label>左右<select value={propHorizontal} onChange={e=>setPropHorizontal(e.target.value)}><option value="">指定なし</option><option value="left side">左</option><option value="center">中央</option><option value="right side">右</option></select></label><label>上下<select value={propVertical} onChange={e=>setPropVertical(e.target.value)}><option value="">指定なし</option><option value="upper">上</option><option value="middle">中</option><option value="lower">下</option></select></label><label>奥行き<select value={propDepth} onChange={e=>setPropDepth(e.target.value)}><option value="">指定なし</option><option value="foreground">手前</option><option value="midground">中景</option><option value="background">奥</option></select></label></div><div className="composer-preview">{propItem} / {[propVertical,propHorizontal,propDepth].filter(Boolean).join('・')}</div><button onClick={addSceneProp}><Plus size={16}/>配置して追加</button></div>}
           </div>}
         </section>}
+        {!query&&!favoritesOnly&&!['hair','eyes','body','clothes','scene_props'].includes(category)&&<section className="composer-placeholder" aria-label="Composer"><span>COMPOSER</span></section>}
+        </div>
+        <section className="tag-list-section" aria-label="タグ一覧">
+        {(favoritesOnly||query)&&<div className="panel-title">
+          <div><span className="eyebrow">PROMPT DICTIONARY</span><h2>{favoritesOnly?'お気に入り':`「${query}」の検索結果`}</h2></div>
+        </div>}
         {related.length>0&&<section className={`related-suggestions ${relatedCollapsed?'collapsed':''}`}>
           <button className="related-suggestions-toggle" onClick={()=>setRelatedCollapsed(v=>!v)} aria-expanded={!relatedCollapsed}>
             <span><Sparkles size={15}/>関連候補 <small>{related.length}</small></span>
@@ -635,6 +639,7 @@ export default function App() {
             <div className="tag-grid tag-group-grid">{group.tags.map(renderTagCard)}</div>
           </section>)}</div>
         </section>)}</div>}
+        </section>
         </div>
       </section>
 
