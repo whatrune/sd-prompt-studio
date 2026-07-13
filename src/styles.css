@@ -1183,11 +1183,14 @@ body,
 }
 
 .prompt-workspace-content,
-.prompt-controls,
 .category-tabs-section,
 .color-selector-section,
 .tag-list-section {
   min-width: 0;
+}
+
+.prompt-controls {
+  display: contents;
 }
 
 .category-tabs-section > .subcategory-tabs {
