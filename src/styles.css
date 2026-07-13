@@ -1320,3 +1320,10 @@ body,
   background: transparent;
   box-shadow: none;
 }
+
+.preview > .block-tabs,
+.preview > .prompt-library,
+.preview > .prompt-actions,
+.preview > .prompt-actions + .preview-section {
+  border-bottom: 1px solid var(--border-muted);
+}
