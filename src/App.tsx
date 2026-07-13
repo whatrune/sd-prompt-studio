@@ -562,6 +562,7 @@ export default function App() {
     </header>
     <section className={`workspace ${store.navigationCollapsed?'navigation-collapsed':''}`}>
       <aside className={`sidebar panel navigation-shell ${store.navigationCollapsed?'collapsed':''}`} aria-label="Navigation">
+        <div className="panel-role navigation-panel-role"><span>NAVIGATION</span></div>
         <div className="navigation-groups">
           <section className={`navigation-group prompt-navigation ${activeNavigationFlyout==='prompt'?'flyout-open':''}`} onMouseEnter={()=>openNavigationFlyoutAfterDelay('prompt')} onMouseLeave={closeNavigationFlyoutAfterDelay} onFocus={()=>{if(store.navigationCollapsed){cancelNavigationTimers();setActiveNavigationFlyout('prompt')}}} onBlur={closeNavigationFlyoutAfterDelay}>
             <button type="button" className={`navigation-primary ${store.workspaceView==='prompt'?'active':''}`} aria-label="プロンプト" aria-current={store.workspaceView==='prompt'?'page':undefined} onClick={navigateToPrompt}><span className="navigation-icon-slot navigation-primary-icon"><Sparkles size={17}/></span><span className="navigation-label">プロンプト</span><span className="navigation-tooltip" role="tooltip">プロンプト</span></button>
