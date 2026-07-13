@@ -1279,6 +1279,9 @@ body,
 /* v33: Inspector fixed controls and pane-owned detail scrolling */
 .preview {
   overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: var(--bg-primary);
   box-shadow: none;
 }
 
