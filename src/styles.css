@@ -1249,7 +1249,7 @@ body,
   background: transparent;
 }
 
-/* v32: unified Prompt Workspace and Inspector surfaces */
+/* v32: unified Prompt Workspace surfaces */
 .prompt-control-bar,
 .color-selector-section,
 .color-modifier-bar {
@@ -1274,56 +1274,4 @@ body,
 
 .prompt-controls > .composer-section .composer-toggle:hover {
   background: var(--bg-hover);
-}
-
-.preview {
-  border: 0;
-  border-left: 1px solid var(--border);
-  border-radius: 0;
-  background: var(--bg-primary);
-  box-shadow: none;
-}
-
-.preview > .block-tabs {
-  position: sticky;
-  top: 0;
-  z-index: 7;
-  border-bottom: 0;
-  background: var(--bg-primary);
-  box-shadow: none;
-}
-
-.preview .prompt-library,
-.preview .prompt-library-header,
-.preview .prompt-library-current-seeds,
-.preview .prompt-actions,
-.preview .preview-section,
-.preview .preview-section-header,
-.preview .preview-section-toggle,
-.preview .preview-section-content,
-.preview .selected-layer,
-.preview .selected-layer-header,
-.preview .selected-layer-content > .selected-group {
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.preview .prompt-actions {
-  position: static;
-  top: auto;
-  z-index: auto;
-}
-
-.preview .prompt-library-card {
-  border-color: var(--border-muted);
-  background: transparent;
-  box-shadow: none;
-}
-
-.preview > .block-tabs,
-.preview > .prompt-library,
-.preview > .prompt-actions,
-.preview > .prompt-actions + .preview-section {
-  border-bottom: 1px solid var(--border-muted);
 }
