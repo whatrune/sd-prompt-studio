@@ -626,6 +626,13 @@ try {
   assert(appSource.indexOf('className="category-tabs-section"') < appSource.indexOf('className="color-selector-section"'), 'Category Tabs must render before Color Selector')
   assert(appSource.indexOf('className="color-selector-section"') < appSource.indexOf('className="composer-placeholder"'), 'Color Selector must render before the Composer extension slot')
   assert(appSource.indexOf('className="composer-placeholder"') < appSource.indexOf('className="tag-list-section"'), 'Composer extension slot must render before the Tag List')
+  for (const className of ['inspector-header', 'inspector-scroll']) {
+    assert(appSource.includes(`className="${className}"`), `${className} must be present in the Inspector structure`)
+  }
+  assert(appSource.indexOf('className="inspector-header"') < appSource.indexOf('className="block-tabs"'), 'Character Tabs must live in the fixed Inspector header')
+  assert(appSource.indexOf('className="block-tabs"') < appSource.indexOf('className="prompt-actions"'), 'Prompt Actions must render directly below Character Tabs')
+  assert(appSource.indexOf('className="prompt-actions"') < appSource.indexOf('className="inspector-scroll"'), 'Prompt Actions must remain outside the Inspector scroll region')
+  assert(appSource.indexOf('className="inspector-scroll"') < appSource.indexOf('className="prompt-library"'), 'Prompt Library must retain its content inside the Inspector detail region')
   assert.equal(appSource.includes('className="navigation-header"'), false, 'Navigation must not retain a duplicate internal Collapse header')
   assert(appSource.includes('className="navigation-icon-slot"'), 'Navigation children must use a shared icon slot')
   assert(appSource.includes('className={`navigation-item'), 'Prompt categories must use the shared Navigation item structure')
