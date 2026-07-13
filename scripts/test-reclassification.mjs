@@ -618,6 +618,14 @@ try {
   assert.equal(appSource.includes('<div className="panel-role">TAG SELECTOR</div>'), false, 'TAG SELECTOR must not retain a display-only panel title')
   assert.equal(appSource.includes('<div className="panel-role">PROMPT PREVIEW</div>'), false, 'PROMPT PREVIEW must not retain a display-only panel title')
   assert(appSource.indexOf('className="subcategory-tabs"') < appSource.indexOf('className="color-modifier-bar"'), 'subcategory tabs must render before Color Modifier controls')
+  assert.equal(appSource.includes('tag-selector-content'), false, 'Prompt Workspace must not retain the legacy TAG SELECTOR content name')
+  assert.equal(appSource.includes('tag-selector-controls'), false, 'Prompt Workspace must not retain the legacy TAG SELECTOR controls name')
+  for (const className of ['prompt-workspace-content', 'prompt-controls', 'prompt-control-bar', 'category-tabs-section', 'color-selector-section', 'composer-placeholder', 'tag-list-section']) {
+    assert(appSource.includes(`className="${className}"`), `${className} must be present in the Prompt Workspace structure`)
+  }
+  assert(appSource.indexOf('className="category-tabs-section"') < appSource.indexOf('className="color-selector-section"'), 'Category Tabs must render before Color Selector')
+  assert(appSource.indexOf('className="color-selector-section"') < appSource.indexOf('className="composer-placeholder"'), 'Color Selector must render before the Composer extension slot')
+  assert(appSource.indexOf('className="composer-placeholder"') < appSource.indexOf('className="tag-list-section"'), 'Composer extension slot must render before the Tag List')
   assert.equal(appSource.includes('className="navigation-header"'), false, 'Navigation must not retain a duplicate internal Collapse header')
   assert(appSource.includes('className="navigation-icon-slot"'), 'Navigation children must use a shared icon slot')
   assert(appSource.includes('className={`navigation-item'), 'Prompt categories must use the shared Navigation item structure')

@@ -815,14 +815,11 @@ body{background:var(--bg-primary);color:var(--text-primary)}
 [data-theme="light"] .settings-popover::before{border-color:var(--border);background:var(--bg-secondary)}
 
 /* v24: Prompt Preview panel hierarchy and shared section rhythm */
-.panel-role{position:sticky;top:0;z-index:8;display:flex;align-items:center;flex:0 0 auto;height:32px;padding:0 12px;border-bottom:1px solid var(--border);background:var(--bg-secondary);color:var(--text-secondary);font-size:10px;font-weight:700;letter-spacing:.1em}
 .sidebar{min-height:0;overflow-y:auto;overscroll-behavior:contain}
 .sidebar nav{overflow:visible}
-.sidebar>.panel-role{top:-10px;margin:-10px -10px 10px}
-.tag-panel>.panel-role{top:-12px;margin:-12px -12px 0}
-.tag-selector-controls{position:sticky;top:20px;z-index:7;display:flow-root;min-width:0;background:var(--bg-secondary)}
+.prompt-control-bar{position:sticky;top:0;z-index:7;display:flow-root;min-width:0;background:var(--bg-secondary)}
 .color-modifier-bar{position:static;z-index:auto;display:flex;align-items:center;gap:10px;min-height:38px;margin:0 0 10px;padding:4px 0 8px;border-bottom:1px solid var(--border);min-width:0}
-.tag-selector-controls>.subcategory-tabs{position:static;top:auto;z-index:auto}
+.prompt-control-bar .subcategory-tabs{position:static;top:auto;z-index:auto}
 .color-modifier-label{display:grid;flex:0 0 auto;gap:1px;min-width:52px;color:var(--text-secondary);font-size:9px;line-height:1.2;letter-spacing:.08em}
 .color-modifier-label strong{color:var(--text-primary);font-size:10px;font-weight:600;letter-spacing:0}
 .color-modifier-swatches{display:flex;align-items:center;gap:4px;min-width:0;overflow-x:auto;padding:2px;scrollbar-width:thin}
@@ -841,7 +838,7 @@ body{background:var(--bg-primary);color:var(--text-primary)}
 @media(max-width:1250px){
   body{min-width:0}
   .workspace{grid-template-columns:minmax(150px,.55fr) minmax(0,1.35fr) minmax(260px,1fr)}
-  .workspace>.panel,.tag-selector-content,.tag-selector-controls,.color-modifier-bar,.subcategory-tabs{min-width:0}
+  .workspace>.panel,.prompt-workspace-content,.prompt-controls,.prompt-control-bar,.category-tabs-section,.color-selector-section,.tag-list-section,.color-modifier-bar,.subcategory-tabs{min-width:0}
 }
 .preview-section{--preview-section-spacing:8px;border-top:1px solid var(--border);background:var(--bg-secondary)}
 .preview-section-header{display:flex;align-items:center;min-height:36px;background:var(--bg-secondary)}
@@ -1174,7 +1171,9 @@ body,
 }
 
 .tag-panel {
-  border-left: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--bg-primary);
   box-shadow: none;
 }
 
@@ -1183,11 +1182,15 @@ body,
   padding: 0 12px 12px;
 }
 
-.tag-selector-controls {
-  top: 0;
+.prompt-workspace-content,
+.prompt-controls,
+.category-tabs-section,
+.color-selector-section,
+.tag-list-section {
+  min-width: 0;
 }
 
-.tag-selector-controls > .subcategory-tabs {
+.category-tabs-section > .subcategory-tabs {
   margin: 0 -12px 4px;
   padding: 6px 12px;
   border: 0;
@@ -1196,20 +1199,49 @@ body,
   backdrop-filter: none;
 }
 
-.tag-selector-controls > .subcategory-tabs button {
+.category-tabs-section > .subcategory-tabs button {
   border-color: transparent;
   background: transparent;
   color: var(--text-secondary);
 }
 
-.tag-selector-controls > .subcategory-tabs button:hover {
+.category-tabs-section > .subcategory-tabs button:hover {
   border-color: transparent;
   background: var(--bg-hover);
   color: var(--text-primary);
 }
 
-.tag-selector-controls > .subcategory-tabs button.active {
+.category-tabs-section > .subcategory-tabs button.active {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.color-selector-section {
+  background: var(--bg-secondary);
+}
+
+.prompt-controls > .composer-section {
+  border-color: var(--border-muted);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.composer-placeholder {
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+  margin: 0 0 12px;
+  padding: 0 2px 8px;
+  border-bottom: 1px solid var(--border-muted);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .08em;
+}
+
+.tag-list-section {
+  background: transparent;
 }
