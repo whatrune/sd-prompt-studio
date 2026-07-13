@@ -14,10 +14,24 @@ export type EditorLayer = 'subject' | 'scene'
 export const SCENE_CATEGORIES = new Set(['quality', 'camera', 'background', 'scene_props', 'lighting', 'effects'])
 export const isSceneCategory = (category: string) => SCENE_CATEGORIES.has(category)
 export type ModelPreset = 'illustrious' | 'pony' | 'sdxl' | 'custom'
+export type SeedEntry = { value: number; note?: string }
+export type SavedPrompt = {
+  id: string
+  name: string
+  modelPreset: ModelPreset
+  positivePrompt: string
+  negativePrompt: string
+  blocks: PromptBlock[]
+  sceneTags: SelectedTag[]
+  seeds: SeedEntry[]
+  createdAt: number
+  updatedAt: number
+}
+export type SavePromptInput = Pick<SavedPrompt, 'name' | 'positivePrompt' | 'negativePrompt' | 'seeds'>
 
 export type UserPromptTag = PromptTag & { source: 'user' }
 
-type State = {
+export type State = {
   blocks: PromptBlock[]
   sceneTags: SelectedTag[]
   activeBlockId: string
@@ -28,6 +42,8 @@ type State = {
   userTags: UserPromptTag[]
   contentLevel: ContentRating
   hideUnavailable: boolean
+  seeds: SeedEntry[]
+  savedPrompts: SavedPrompt[]
   addTag: (tag: SelectedTag) => void
   addCustomTag: (prompt: string, category: string, saveToDictionary?: boolean, label?: string) => void
   addUserTag: (tag: Omit<UserPromptTag, 'id' | 'source'> & { id?: string }) => void
@@ -53,6 +69,10 @@ type State = {
   setHideUnavailable: (value: boolean) => void
   replaceTags: (removeIds: string[], tag: SelectedTag) => void
   replaceTagInLayer: (layerId: string, removeIds: string[], tag: SelectedTag) => void
+  setSeeds: (seeds: SeedEntry[]) => void
+  savePrompt: (input: SavePromptInput) => SavedPrompt | null
+  restorePrompt: (id: string) => boolean
+  deleteSavedPrompt: (id: string) => void
 }
 
 export const DEFAULT_NEGATIVE = 'modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, long body, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, cropped, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), simple background, conjoined, bad ai-generated'
@@ -68,6 +88,16 @@ const createFirstBlock = (): PromptBlock => ({ id: createId(), name: '被写体 
 const firstBlock = createFirstBlock()
 
 const physicalDictionary = [...allTags, ...adultTags]
+
+const cloneSelectedTag = (tag: SelectedTag): SelectedTag => ({
+  ...tag,
+  ...(tag.labels ? { labels: { ...tag.labels } } : {}),
+  ...(tag.modifiers ? { modifiers: { ...tag.modifiers } } : {}),
+})
+const cloneBlock = (block: PromptBlock): PromptBlock => ({ ...block, tags: block.tags.map(cloneSelectedTag) })
+const cloneSeed = (seed: SeedEntry): SeedEntry => ({ ...seed })
+const validSeeds = (seeds: SeedEntry[]) => seeds.every(seed => Number.isSafeInteger(seed.value))
+  && new Set(seeds.map(seed => seed.value)).size === seeds.length
 
 function migrateLegacyUserClothingTag(tag: UserPromptTag): UserPromptTag {
   const direct: Record<string, string> = {
@@ -130,6 +160,14 @@ export function migratePersistedState(persisted: unknown) {
           return { ...tag, category, subcategory }
         })
       : state.userTags,
+    seeds: Array.isArray(state.seeds) ? state.seeds.filter(seed => seed && Number.isSafeInteger(seed.value)).map(cloneSeed) : [],
+    savedPrompts: Array.isArray(state.savedPrompts) ? state.savedPrompts.map(saved => ({
+      ...saved,
+      modelPreset: saved.modelPreset ?? state.modelPreset ?? 'illustrious',
+      blocks: Array.isArray(saved.blocks) ? saved.blocks.map(cloneBlock) : [],
+      sceneTags: Array.isArray(saved.sceneTags) ? saved.sceneTags.map(cloneSelectedTag) : [],
+      seeds: Array.isArray(saved.seeds) ? saved.seeds.filter(seed => seed && Number.isSafeInteger(seed.value)).map(cloneSeed) : [],
+    })) : [],
   }
 }
 
@@ -144,6 +182,8 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   userTags: [],
   contentLevel: 'general',
   hideUnavailable: false,
+  seeds: [],
+  savedPrompts: [],
   replaceTags: (removeIds, tag) => set((state) => ({
     ...(isSceneCategory(tag.category) ? { sceneTags: [...state.sceneTags.filter(t => !removeIds.includes(t.id) && t.prompt !== tag.prompt), tag] } : { blocks: state.blocks.map(b => b.id === state.activeBlockId
       ? { ...b, tags: [...b.tags.filter(t => !removeIds.includes(t.id) && t.prompt !== tag.prompt), tag] }
@@ -237,9 +277,49 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
       contentLevel: level,
       blocks: state.blocks.map(block => ({ ...block, tags: block.tags.filter(tag => rank[tag.rating ?? 'general'] <= rank[level]) }))
     }
-  })
+  }),
+  setSeeds: (seeds) => {
+    if (!validSeeds(seeds)) return
+    set({ seeds: seeds.map(cloneSeed) })
+  },
+  savePrompt: (input) => {
+    const name = input.name.trim()
+    if (!name || !validSeeds(input.seeds)) return null
+    const state = get()
+    const now = Date.now()
+    const saved: SavedPrompt = {
+      id: `saved-prompt-${createId()}`,
+      name,
+      modelPreset: state.modelPreset,
+      positivePrompt: input.positivePrompt,
+      negativePrompt: input.negativePrompt,
+      blocks: state.blocks.map(cloneBlock),
+      sceneTags: state.sceneTags.map(cloneSelectedTag),
+      seeds: input.seeds.map(cloneSeed),
+      createdAt: now,
+      updatedAt: now,
+    }
+    set(current => ({ savedPrompts: [saved, ...current.savedPrompts], seeds: saved.seeds.map(cloneSeed) }))
+    return saved
+  },
+  restorePrompt: (id) => {
+    const saved = get().savedPrompts.find(item => item.id === id)
+    if (!saved || saved.blocks.length === 0) return false
+    const blocks = saved.blocks.map(cloneBlock)
+    set({
+      blocks,
+      sceneTags: saved.sceneTags.map(cloneSelectedTag),
+      negative: saved.negativePrompt,
+      modelPreset: saved.modelPreset,
+      seeds: saved.seeds.map(cloneSeed),
+      activeBlockId: blocks[0].id,
+      activeLayer: 'subject',
+    })
+    return true
+  },
+  deleteSavedPrompt: (id) => set(state => ({ savedPrompts: state.savedPrompts.filter(item => item.id !== id) })),
 }), {
   name: 'sd-prompt-studio-v14',
-  version: 11,
+  version: 13,
   migrate: migratePersistedState,
 }))
