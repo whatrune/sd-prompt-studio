@@ -838,6 +838,11 @@ body{background:var(--bg-primary);color:var(--text-primary)}
 .tag-card.color-not-applicable .star,.tag-card.color-not-applicable .info-tag,.tag-card.color-not-applicable .delete-user-tag{opacity:.8}
 .tag-card.color-not-applicable:hover .tag-main{opacity:.72}
 @media(max-width:700px){.color-modifier-bar{align-items:flex-start}.color-modifier-label{padding-top:5px}.color-swatch{flex-basis:30px}}
+@media(max-width:1250px){
+  body{min-width:0}
+  .workspace{grid-template-columns:minmax(150px,.55fr) minmax(0,1.35fr) minmax(260px,1fr)}
+  .workspace>.panel,.tag-selector-content,.tag-selector-controls,.color-modifier-bar,.subcategory-tabs{min-width:0}
+}
 .preview-section{--preview-section-spacing:8px;border-top:1px solid var(--border);background:var(--bg-secondary)}
 .preview-section-header{display:flex;align-items:center;min-height:36px;background:var(--bg-secondary)}
 .preview-section-toggle{flex:1;height:36px;min-height:36px;padding:0 12px;font-size:12px;font-weight:600}
