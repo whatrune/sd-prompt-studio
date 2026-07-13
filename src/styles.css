@@ -1177,3 +1177,18 @@ body,
   border-left: 0;
   box-shadow: none;
 }
+
+/* v31: titleless workspace panels and prompt-first controls */
+.tag-panel {
+  padding: 0 12px 12px;
+}
+
+.tag-selector-controls {
+  top: 0;
+}
+
+.tag-selector-controls > .subcategory-tabs {
+  margin: 0 -12px 10px;
+  padding: 8px 12px;
+  background: var(--bg-primary);
+}

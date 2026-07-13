@@ -594,9 +594,9 @@ export default function App() {
       </aside>
 
       <section className="tag-panel panel">
-        <div className="panel-role">TAG SELECTOR</div>
         <div className="tag-selector-content">
         <div className="tag-selector-controls">
+        {!query&&!favoritesOnly&&subcategories.length>0&&<div className="subcategory-tabs">{['すべて',...subcategories].map(sub=>{const activeSub=subcategory===sub;return <button key={sub} className={activeSub?'active':''} aria-pressed={activeSub} onClick={()=>setSubcategory(sub)}>{activeSub&&<Check size={14}/>}<span>{sub}</span></button>})}</div>}
         <div className="color-modifier-bar" aria-label="Color Modifier">
           <div className="color-modifier-label"><span>COLOR</span><strong>{findColorModifier(activeColorModifier)?.label ?? '指定なし'}</strong></div>
           <div className="color-modifier-swatches">
@@ -604,7 +604,6 @@ export default function App() {
             {COLOR_MODIFIERS.map(color=><button key={color.value} type="button" className={`color-swatch ${activeColorModifier===color.value?'active':''}`} style={{ '--swatch-color': color.swatch } as CSSProperties} title={color.label} aria-label={`カラー: ${color.label}`} aria-pressed={activeColorModifier===color.value} onClick={()=>setActiveColorModifier(current=>current===color.value?'':color.value)}>{activeColorModifier===color.value&&<Check size={12}/>}</button>)}
           </div>
         </div>
-        {!query&&!favoritesOnly&&subcategories.length>0&&<div className="subcategory-tabs">{['すべて',...subcategories].map(sub=>{const activeSub=subcategory===sub;return <button key={sub} className={activeSub?'active':''} aria-pressed={activeSub} onClick={()=>setSubcategory(sub)}>{activeSub&&<Check size={14}/>}<span>{sub}</span></button>})}</div>}
         </div>
         {(favoritesOnly||query)&&<div className="panel-title">
           <div><span className="eyebrow">PROMPT DICTIONARY</span><h2>{favoritesOnly?'お気に入り':`「${query}」の検索結果`}</h2></div>
@@ -640,7 +639,6 @@ export default function App() {
       </section>
 
       <aside className="preview panel">
-        <div className="panel-role">PROMPT PREVIEW</div>
         <div className="block-tabs">{store.blocks.map((b,index)=><button key={b.id} className={viewContextId===b.id?'active':''} onClick={()=>setContextTarget(b.id)}>{getCategoryLabel('character',locale)} {b.subjectNumber??index+1}{index>0&&<X size={13} onClick={e=>{e.stopPropagation();if(viewContextId===b.id&&mainSubjectId)setContextTarget(mainSubjectId);store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={addCharacter}><Plus size={16}/>{t('addSubject',locale)}</button></div>
         <section className="prompt-library">
           <div className="prompt-library-header"><div><strong>Prompt Library</strong><small>編集状態とSeedを保存・復元</small></div><button className="prompt-library-save" onClick={openSavePrompt}>保存</button></div>
