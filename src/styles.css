@@ -1038,7 +1038,7 @@ body,
 
 .navigation-groups,
 .navigation-shell.collapsed .navigation-groups {
-  padding-inline: 6px;
+  padding-inline: 8px;
 }
 
 .navigation-icon-slot {
