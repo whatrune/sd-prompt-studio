@@ -533,6 +533,53 @@ try {
   usePromptStore.getState().removeTagFromLayer('scene', sceneQuality.id)
   assert.equal(usePromptStore.getState().sceneTags.length, 0, 'selected Common tags must be removable from Scene while editing a Character')
 
+  const migratedWithoutLibrary = migratePersistedState({
+    blocks: [{ id: 'legacy-library', name: '被写体 1', tags: [subjectHair] }],
+    sceneTags: [sceneQuality],
+    userTags: [],
+  })
+  assert.deepEqual(migratedWithoutLibrary.savedPrompts, [], 'existing persisted state must default savedPrompts to an empty array')
+  assert.deepEqual(migratedWithoutLibrary.seeds, [], 'existing persisted state must default current seeds to an empty array')
+
+  usePromptStore.setState({
+    blocks: [{ id: 'library-subject', name: 'Library Subject', subjectNumber: 1, position: 'center', tags: [subjectHair] }],
+    sceneTags: [sceneQuality],
+    activeBlockId: 'library-subject',
+    activeLayer: 'subject',
+    negative: 'library negative',
+    seeds: [],
+    savedPrompts: [],
+  })
+  const savedLibraryPrompt = usePromptStore.getState().savePrompt({
+    type: 'favorite',
+    name: 'Library Favorite',
+    positivePrompt: 'saved positive snapshot',
+    negativePrompt: 'library negative',
+    seeds: [{ value: 123456789 }, { value: 987654321 }, { value: 24680 }],
+  })
+  assert(savedLibraryPrompt, 'valid Prompt state must be saved')
+  assert.equal(usePromptStore.getState().savedPrompts.length, 1)
+  assert.deepEqual(usePromptStore.getState().savedPrompts[0].seeds.map(seed => seed.value), [123456789, 987654321, 24680])
+  assert.equal(usePromptStore.getState().savePrompt({ type: 'history', name: 'Duplicate seeds', positivePrompt: '', negativePrompt: '', seeds: [{ value: 7 }, { value: 7 }] }), null, 'duplicate Seeds must be rejected')
+
+  usePromptStore.setState({
+    blocks: [{ id: 'changed-subject', name: 'Changed', tags: [] }],
+    sceneTags: [],
+    activeBlockId: 'changed-subject',
+    negative: 'changed negative',
+    seeds: [{ value: 1 }],
+  })
+  assert.equal(usePromptStore.getState().savedPrompts[0].blocks[0].tags[0].prompt, 'black hair', 'saved blocks must remain immutable after current edits')
+  assert.equal(usePromptStore.getState().savedPrompts[0].sceneTags[0].prompt, 'masterpiece', 'saved Scene tags must remain immutable after current edits')
+  assert.equal(usePromptStore.getState().restorePrompt(savedLibraryPrompt.id), true, 'saved Prompt state must restore')
+  assert.equal(usePromptStore.getState().blocks[0].id, 'library-subject')
+  assert.equal(usePromptStore.getState().blocks[0].tags[0].prompt, 'black hair')
+  assert.equal(usePromptStore.getState().sceneTags[0].prompt, 'masterpiece')
+  assert.equal(usePromptStore.getState().negative, 'library negative')
+  assert.deepEqual(usePromptStore.getState().seeds.map(seed => seed.value), [123456789, 987654321, 24680])
+  usePromptStore.getState().deleteSavedPrompt(savedLibraryPrompt.id)
+  assert.equal(usePromptStore.getState().savedPrompts.length, 0, 'deleting a saved Prompt must remove only that snapshot')
+
   const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
   assert(appSource.includes("useState(true)"), 'Prompt panels must have collapsed initial state')
   assert(appSource.includes('Prompt Actions'), 'copy actions must be rendered above Prompt output')
