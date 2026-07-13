@@ -1278,6 +1278,7 @@ body,
 
 .preview {
   border: 0;
+  border-left: 1px solid var(--border);
   border-radius: 0;
   background: var(--bg-primary);
   box-shadow: none;
