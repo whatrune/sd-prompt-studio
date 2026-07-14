@@ -870,17 +870,6 @@ body{background:var(--bg-primary);color:var(--text-primary)}
 .library-dialog{width:min(520px,calc(100vw - 32px));max-height:min(760px,calc(100vh - 32px));overflow:auto;border:1px solid var(--border);border-radius:12px;background:var(--bg-secondary);padding:18px;color:var(--text-primary)}
 .library-dialog>label{display:grid;gap:7px;margin:16px 0;color:var(--muted);font-size:12px;font-weight:600}
 .library-dialog>label input{min-height:38px}
-.library-inspector-header{display:flex;align-items:center;min-height:72px;padding:10px 12px}
-.library-inspector-header>div{display:grid;gap:3px;min-width:0}
-.library-inspector-header strong,.library-inspector-header small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.library-inspector-header small{color:var(--text-secondary);font-size:9px}
-.library-inspector-scroll .preview-section-title{display:flex;align-items:center;min-height:32px;padding:6px 12px;color:var(--text-primary);font-size:11px;font-weight:650}
-.library-inspector-empty{display:flex;flex:1;min-height:220px;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:20px;color:var(--text-secondary);text-align:center}
-.library-inspector-empty strong{color:var(--text-primary)}.library-inspector-empty span{font-size:10px}
-.library-inspector-scroll .selected-layer-title{cursor:default}
-.library-inspector-scroll .selected-chip .chip-label{padding-right:7px;pointer-events:none}
-.saved-structure-summary,.saved-generation-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.saved-structure-summary>div,.saved-generation-settings>div{display:grid;gap:3px;padding:8px;border:1px solid var(--border-muted);border-radius:3px;background:var(--bg-primary)}
-.saved-structure-summary span,.saved-generation-settings span{color:var(--text-secondary);font-size:9px}.saved-structure-summary strong,.saved-generation-settings strong{overflow-wrap:anywhere;font-size:10px}
 .apply-prompt-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}
 .apply-prompt-options button{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:14px;text-align:left;background:var(--bg-hover);border:1px solid var(--border)}
 .apply-prompt-options button span{color:var(--muted);font-size:11px}

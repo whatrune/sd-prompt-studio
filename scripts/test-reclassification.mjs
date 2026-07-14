@@ -657,7 +657,7 @@ try {
   }
   assert(appSource.indexOf('className="inspector-header"') < appSource.indexOf('className="block-tabs"'), 'Character Tabs must live in the fixed Inspector header')
   assert(appSource.indexOf('className="block-tabs"') < appSource.indexOf('className="prompt-actions"'), 'Prompt Actions must render directly below Character Tabs')
-  assert(appSource.indexOf('className="prompt-actions"') < appSource.indexOf('className="inspector-scroll"'), 'Prompt Actions must remain outside the Inspector scroll region')
+  assert(appSource.indexOf('className="prompt-actions"') < appSource.indexOf('aria-label="Inspector details"'), 'Prompt Actions must remain outside the normal Inspector scroll region')
   assert.equal(appSource.includes('className="prompt-library"'), false, 'Saved Prompt lists must not remain inside the Inspector')
   assert.equal(appSource.includes('className="navigation-header"'), false, 'Navigation must not retain a duplicate internal Collapse header')
   assert(appSource.includes('className="navigation-icon-slot"'), 'Navigation children must use a shared icon slot')
@@ -701,7 +701,13 @@ try {
   assert.equal(appSource.includes('className="saved-prompt-info"'), false, 'Saved Prompt cards must not retain a redundant detail button')
   assert(appSource.includes('className="saved-prompt-apply"'), 'Saved Prompt cards must expose an explicit apply control')
   assert(appSource.includes('aria-label="Saved Prompt Inspector"'), 'the Inspector must expose selected Saved Prompt details in Library mode')
-  assert(appSource.includes('className="inspector-scroll library-inspector-scroll"'), 'Saved Prompt details must use the existing Inspector scroll foundation')
+  assert(appSource.includes('<div className="inspector-scroll" aria-label="Saved Prompt details">'), 'Saved Prompt details must use the existing Inspector scroll foundation')
+  assert.equal(appSource.includes('library-inspector-header'), false, 'Library mode must not use a dedicated Inspector header style')
+  assert.equal(appSource.includes('library-inspector-scroll'), false, 'Library mode must not use a dedicated Inspector scroll style')
+  assert(appSource.includes("const sectionId='saved-prompt-common'"), 'Saved Prompt Common must use the shared collapsible section state')
+  assert(appSource.includes('const sectionId=`saved-prompt-${block.id}`'), 'Saved Prompt characters must use the shared collapsible section state')
+  assert(appSource.includes('className="selected-layer-title selected-layer-toggle"'), 'Saved Prompt context must use the shared Inspector section toggle')
+  assert(appSource.includes('className="chip-label"'), 'Saved Prompt tags must use the shared Inspector chip markup')
   assert.equal(appSource.includes('className="saved-prompt-detail"'), false, 'Saved Prompt details must not use a separate modal UI')
   for (const label of ['プロンプト', 'お気に入り', 'ライブラリ', '設定']) assert(appSource.includes(`>${label}</span>`), `${label} must be rendered as a Japanese Navigation label`)
 
