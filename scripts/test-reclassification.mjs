@@ -654,6 +654,7 @@ try {
   assert(appSource.includes('categoryOrder.filter(categoryKey => visibleDictionaryTags.some'), 'Favorite tabs must include only categories with visible favorite tags')
   assert(appSource.includes("const [searchCategory, setSearchCategory] = useState('すべて')"), 'Search Mode must keep category selection separate from Prompt and Favorite modes')
   assert(appSource.includes("const isSearchMode = query.trim().length > 0"), 'Search Mode must derive from the existing query state')
+  assert(appSource.includes('{(favoritesOnly||isSearchMode)&&<div className="panel-title">'), 'Search result heading must use the trimmed Search Mode state')
   assert(appSource.includes('className="header-search"'), 'Tag search must render in the App Header')
   assert(appSource.includes('aria-label="タグ検索"'), 'Header tag search must have an accessible name')
   assert.equal(appSource.includes('className="navigation-search"'), false, 'Navigation must not retain a duplicate tag search box')
