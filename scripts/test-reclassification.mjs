@@ -5,7 +5,7 @@ import { createServer } from 'vite'
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 
 try {
-  const [{ adultTags }, { buildPrompt, buildPromptWithStrategy, tagSort }, { migratePersistedState, nextPromptGroupName, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }, { applyColorModifier, buildColorModifiedTag, findColorModifier, isColorModifiableCategory }] = await Promise.all([
+  const [{ adultTags }, { buildPrompt, buildPromptWithStrategy, tagSort }, { buildSavedPromptSummary, migratePersistedState, nextPromptGroupName, UNCLASSIFIED_PROMPT_GROUP_ID, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }, { applyColorModifier, buildColorModifiedTag, findColorModifier, isColorModifiableCategory }] = await Promise.all([
     server.ssrLoadModule('/src/data/adultTags.ts'),
     server.ssrLoadModule('/src/prompt.ts'),
     server.ssrLoadModule('/src/store.ts'),
@@ -558,18 +558,22 @@ try {
     userTags: [],
   })
   assert.deepEqual(migratedWithoutLibrary.savedPrompts, [], 'existing persisted state must default savedPrompts to an empty array')
-  assert.deepEqual(migratedWithoutLibrary.promptGroups, [], 'existing persisted state must default Prompt groups to an empty array')
+  assert.deepEqual(migratedWithoutLibrary.promptGroups.map(group => group.id), [UNCLASSIFIED_PROMPT_GROUP_ID], 'existing persisted state must gain the Unclassified Prompt group')
   assert.deepEqual(migratedWithoutLibrary.seeds, [], 'existing persisted state must default current seeds to an empty array')
   const migratedLegacySavedPrompt = migratePersistedState({
     blocks: [{ id: 'legacy-library', name: '被写体 1', tags: [] }],
     sceneTags: [],
     userTags: [],
     modelPreset: 'sdxl',
-    savedPrompts: [{ id: 'legacy-saved', type: 'favorite', name: 'Legacy Saved', positivePrompt: '', negativePrompt: '', blocks: [{ id: 'legacy-library', name: '被写体 1', tags: [] }], sceneTags: [], seeds: [], createdAt: 1, updatedAt: 1 }],
+    savedPrompts: [{ id: 'legacy-saved', type: 'favorite', name: 'Legacy Saved', color: '#ff6699', positivePrompt: '', negativePrompt: '', blocks: [{ id: 'legacy-library', name: '被写体 1', tags: [] }], sceneTags: [], seeds: [], createdAt: 1, updatedAt: 1 }],
   })
   assert.equal(migratedLegacySavedPrompt.savedPrompts[0].modelPreset, 'sdxl', 'legacy saved Prompts must inherit the persisted Model Preset')
   assert.equal(migratedLegacySavedPrompt.savedPrompts[0].settings.modelPreset, 'sdxl', 'legacy saved Prompts must migrate to nested settings')
   assert.deepEqual(migratedLegacySavedPrompt.savedPrompts[0].structure.blocks.map(block => block.id), ['legacy-library'], 'legacy saved Prompts must migrate to a reusable structure snapshot')
+  assert.equal(migratedLegacySavedPrompt.savedPrompts[0].legacyColor, '#ff6699', 'legacy Prompt-level colors must be retained for compatibility')
+  assert.equal('color' in migratedLegacySavedPrompt.savedPrompts[0], false, 'migrated Saved Prompts must not retain color as a renderable field')
+  assert.deepEqual(migratedLegacySavedPrompt.savedPrompts[0].groups, [UNCLASSIFIED_PROMPT_GROUP_ID], 'ungrouped legacy Prompts must migrate into Unclassified')
+  assert.equal(migratedLegacySavedPrompt.promptGroups[0].color, '#ff6699', 'Unclassified must inherit a legacy ungrouped color when available')
 
   usePromptStore.setState({
     blocks: [{ id: 'library-subject', name: 'Library Subject', subjectNumber: 1, position: 'center', tags: [subjectHair] }],
@@ -582,8 +586,11 @@ try {
     savedPrompts: [],
     promptGroups: [],
   })
-  const characterGroup = usePromptStore.getState().addPromptGroup('キャラクター')
+  const characterGroup = usePromptStore.getState().addPromptGroup('キャラクター', '#ff6699')
   assert(characterGroup, 'a named Prompt group must be created')
+  assert.equal(characterGroup.color, '#ff6699', 'Prompt group creation must accept an identifying color')
+  assert.equal(usePromptStore.getState().setPromptGroupColor(characterGroup.id, '#3fb950'), true, 'Prompt group colors must be editable')
+  assert.equal(usePromptStore.getState().promptGroups.find(group => group.id === characterGroup.id)?.color, '#3fb950', 'Prompt group color changes must update the group source of truth')
   assert.equal(usePromptStore.getState().addPromptGroup('キャラクター'), null, 'duplicate Prompt group names must be rejected')
   assert.equal(usePromptStore.getState().renamePromptGroup(characterGroup.id, 'キャラクター資産'), true, 'Prompt groups must be renameable')
   assert.equal(nextPromptGroupName(usePromptStore.getState().promptGroups), 'グループ1', 'default Prompt group names must start at the smallest available suffix')
@@ -595,14 +602,15 @@ try {
     positivePrompt: 'saved positive snapshot',
     negativePrompt: 'library negative',
     seeds: [{ value: 123456789 }, { value: 987654321 }, { value: 24680 }],
-    color: '#ff6699',
     groups: [characterGroup.id, secondaryGroup.id],
   })
   assert(savedLibraryPrompt, 'valid Prompt state must be saved')
   assert.equal(usePromptStore.getState().savedPrompts.length, 1)
   assert.equal(usePromptStore.getState().savedPrompts[0].modelPreset, 'pony')
-  assert.equal(savedLibraryPrompt.color, '#ff6699')
+  assert.equal('color' in savedLibraryPrompt, false, 'new Saved Prompts must not contain Prompt-level color')
+  assert.equal(savedLibraryPrompt.legacyColor, undefined, 'new Saved Prompts must not create compatibility-only legacy colors')
   assert.deepEqual(savedLibraryPrompt.groups, [characterGroup.id, secondaryGroup.id])
+  assert.deepEqual(savedLibraryPrompt.summaryTags, ['black hair'], 'quality tags must be excluded from Saved Prompt summaries')
   assert.equal(savedLibraryPrompt.generatedPrompt, 'saved positive snapshot')
   assert.equal(savedLibraryPrompt.displayTags.length, 2)
   assert.equal(savedLibraryPrompt.structure.blocks[0].tags[0].prompt, 'black hair')
@@ -611,6 +619,15 @@ try {
   assert.equal(usePromptStore.getState().savePrompt({ name: 'Duplicate seeds', positivePrompt: '', negativePrompt: '', seeds: [{ value: 7 }, { value: 7 }] }), null, 'duplicate Seeds must be rejected')
   const seedlessPrompt = usePromptStore.getState().savePrompt({ name: 'Seedless Prompt', positivePrompt: '', negativePrompt: '', seeds: [] })
   assert(seedlessPrompt, 'a Prompt without Seeds must be saved')
+  assert.deepEqual(seedlessPrompt.groups, [UNCLASSIFIED_PROMPT_GROUP_ID], 'saving without a group must assign Unclassified')
+  assert.deepEqual(buildSavedPromptSummary([
+    sceneQuality,
+    { id: 'background', prompt: 'city background', label: '都市', category: 'background', weight: 1 },
+    { id: 'clothes', prompt: 'school uniform', label: '制服', category: 'clothes', weight: 1 },
+    { id: 'people', prompt: '1girl', label: '1人の少女', category: 'people', weight: 1 },
+    { id: 'eyes', prompt: 'blue eyes', label: '青い目', category: 'eyes', weight: 1 },
+    subjectHair,
+  ]), ['1girl', 'black hair', 'blue eyes', 'school uniform'], 'Saved Prompt summaries must prioritize identifying categories and cap output at four tags')
   assert.equal(usePromptStore.getState().deletePromptGroup(characterGroup.id), true, 'Prompt groups must be deletable')
   assert.equal(usePromptStore.getState().promptGroups.some(group => group.id === characterGroup.id), false, 'deleted Prompt groups must leave the group list')
   assert.equal(usePromptStore.getState().savedPrompts.some(saved => saved.id === savedLibraryPrompt.id), true, 'deleting a Prompt group must preserve its saved Prompts')
@@ -730,11 +747,20 @@ try {
   assert(appSource.includes('保存Prompt自体は削除されません。'), 'Prompt group deletion must explain that saved Prompts are preserved')
   assert(appSource.includes("activeLibraryGroup==='all'"), 'the fixed all-prompts tab must remain available')
   assert(appSource.includes('onDoubleClick'), 'user Prompt groups must support desktop double-click rename')
+  assert(appSource.includes('className="library-group-color" type="color"'), 'Prompt group editing must expose a color picker')
+  assert(appSource.includes("'--prompt-group-color':group.color"), 'Library group tabs must render from PromptGroup.color')
+  assert(appSource.includes('（未選択時は未分類）'), 'the save dialog must explain the Unclassified fallback')
+  assert.equal(appSource.includes('prompt-save-color'), false, 'the save dialog must not expose Prompt-level color selection')
   assert(appSource.includes("applySavedPrompt('replace')"), 'Saved Prompt cards must offer replacement apply')
   assert(appSource.includes("applySavedPrompt('merge')"), 'Saved Prompt cards must offer simple merge apply')
   assert(appSource.includes('className="saved-prompt-asset-main" aria-pressed={selected} onClick={()=>setSelectedSavedPrompt(saved)}'), 'Saved Prompt card bodies must update only the Inspector selection')
   assert(appSource.includes("className={`saved-prompt-asset${selected?' selected':''}`}"), 'Saved Prompt cards must expose the current Inspector selection')
   assert(stylesSource.includes('.saved-prompt-asset.selected'), 'selected Saved Prompt cards must have a visible selected style')
+  assert.equal(appSource.includes('saved-prompt-color'), false, 'Saved Prompt cards must not render a color icon')
+  assert.equal(stylesSource.includes('.saved-prompt-color'), false, 'Saved Prompt card styles must not retain the removed color icon')
+  assert(appSource.includes('className="saved-prompt-asset-footer"'), 'Saved Prompt cards must group tag count, creation date, and actions in the footer')
+  assert(appSource.includes('new Date(saved.createdAt)'), 'Saved Prompt cards must display the creation date')
+  assert(stylesSource.includes('text-overflow:ellipsis;white-space:nowrap'), 'Saved Prompt summaries must truncate without horizontal overflow')
   assert.equal(appSource.includes('className="saved-prompt-info"'), false, 'Saved Prompt cards must not retain a redundant detail button')
   assert(appSource.includes('className="saved-prompt-apply"'), 'Saved Prompt cards must expose an explicit apply control')
   assert(appSource.includes('className="saved-prompt-delete"'), 'Saved Prompt cards must expose an explicit delete control')
