@@ -739,8 +739,8 @@ export default function App() {
         {!isSearchMode&&!favoritesOnly&&!['hair','eyes','body','clothes','scene_props'].includes(category)&&<section className="composer-placeholder" aria-label="Composer"><span>COMPOSER</span></section>}
         </div>
         <section className="tag-list-section" aria-label="タグ一覧">
-        {(favoritesOnly||isSearchMode)&&<div className="panel-title">
-          <div><span className="eyebrow">PROMPT DICTIONARY</span><h2>{favoritesOnly?'お気に入り':`「${query}」の検索結果`}</h2></div>
+        {isSearchMode&&<div className="panel-title">
+          <div><span className="eyebrow">PROMPT DICTIONARY</span><h2>{`「${query}」の検索結果`}</h2></div>
         </div>}
         {related.length>0&&<section className={`related-suggestions ${relatedCollapsed?'collapsed':''}`}>
           <button className="related-suggestions-toggle" onClick={()=>setRelatedCollapsed(v=>!v)} aria-expanded={!relatedCollapsed}>
