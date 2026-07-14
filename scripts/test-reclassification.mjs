@@ -742,6 +742,9 @@ try {
   assert.equal(appSource.includes('<span>保存</span>'), false, 'Prompt Actions save controls must not render a text label')
   assert.equal(appSource.includes('<span>クリア</span>'), false, 'Prompt Actions clear controls must not render a text label')
   assert.equal((appSource.match(/className="clear-current-prompt"/g)??[]).length, 2, 'Prompt Actions must expose clear in Prompt and Library Inspector modes')
+  for (const stateSelector of ['.prompt-actions .clear-current-prompt{', '.prompt-actions .clear-current-prompt:hover{', '.prompt-actions .clear-current-prompt:active{']) {
+    assert(stylesSource.includes(stateSelector), `Prompt clear danger styling must define ${stateSelector}`)
+  }
   assert(appSource.includes('現在のPromptをすべてクリアしますか？'), 'clearing the current Prompt must require the requested confirmation')
   assert(appSource.includes('aria-label="設定" title="設定"'), 'the Header settings control must remain accessible while displaying only its icon')
   assert(appSource.includes('ref={settingsRef}') && appSource.includes('settingsRef.current?.contains'), 'Settings must close only when a pointer event occurs outside its wrapper')

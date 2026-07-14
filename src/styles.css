@@ -799,6 +799,9 @@ body{background:var(--bg-primary);color:var(--text-primary)}
 .prompt-actions .copy-positive:hover{border-color:var(--copy-primary-border)!important;background:var(--copy-primary-bg-hover)!important;color:var(--copy-primary-text)!important}
 .prompt-actions .copy-negative{border-color:var(--border)!important;background:var(--bg-tertiary)!important;color:var(--text-primary)!important}
 .prompt-actions .copy-negative:hover{border-color:var(--border-hover)!important;background:var(--bg-hover)!important}
+.prompt-actions .clear-current-prompt{border-color:color-mix(in srgb,var(--danger) 38%,var(--border))!important;background:color-mix(in srgb,var(--danger) 10%,var(--bg-tertiary))!important;color:color-mix(in srgb,var(--danger) 85%,var(--text-primary))!important}
+.prompt-actions .clear-current-prompt:hover{border-color:color-mix(in srgb,var(--danger) 58%,var(--border-hover))!important;background:color-mix(in srgb,var(--danger) 17%,var(--bg-hover))!important;color:var(--danger)!important}
+.prompt-actions .clear-current-prompt:active{border-color:color-mix(in srgb,var(--danger) 68%,var(--border-hover))!important;background:color-mix(in srgb,var(--danger) 23%,var(--bg-hover))!important;box-shadow:inset 0 1px 2px color-mix(in srgb,var(--danger) 32%,transparent)!important}
 .prompt-actions .copy-positive span,.prompt-actions .copy-negative span{white-space:nowrap}
 .modal-backdrop{background:var(--modal-backdrop)}
 .settings-field,.settings-popover p,.settings-toggle b,.settings-toggle small,.settings-popover-head>button{color:var(--text-secondary)}
