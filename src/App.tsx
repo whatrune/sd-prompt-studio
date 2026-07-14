@@ -198,6 +198,7 @@ export default function App() {
   const [activeNavigationFlyout, setActiveNavigationFlyout] = useState<'prompt' | 'favorites' | 'library' | null>(null)
   const navigationHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const navigationCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const settingsRef = useRef<HTMLDivElement>(null)
   const importRef = useRef<HTMLInputElement>(null)
   const [clothingItem, setClothingItem] = useState('shirt')
   const [clothingColor, setClothingColor] = useState('black')
@@ -226,6 +227,14 @@ export default function App() {
     document.documentElement.dataset.theme = theme
     try { window.localStorage.setItem('sd-prompt-studio-theme', theme) } catch { /* Keep the in-memory theme when storage is unavailable. */ }
   }, [theme])
+  useEffect(() => {
+    if (!settingsOpen) return
+    const closeSettingsOnOutsidePointer = (event: PointerEvent) => {
+      if (!settingsRef.current?.contains(event.target as Node)) setSettingsOpen(false)
+    }
+    document.addEventListener('pointerdown', closeSettingsOnOutsidePointer)
+    return () => document.removeEventListener('pointerdown', closeSettingsOnOutsidePointer)
+  }, [settingsOpen])
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -615,9 +624,9 @@ export default function App() {
       <div className="app-brand"><button type="button" className="navigation-toggle" aria-label={store.navigationCollapsed?'Navigationを展開':'Navigationを最小化'} aria-expanded={!store.navigationCollapsed} onClick={()=>{closeNavigationFlyout();store.setNavigationCollapsed(!store.navigationCollapsed)}}><Menu size={19}/></button><div><h1>SD Prompt Studio <span className="version-mark">v21.0 α1</span></h1><p>Stable Diffusion Prompt IDE · {(TAG_COUNT + ADULT_TAG_COUNT + store.userTags.length).toLocaleString()} tags</p></div></div>
       <div className="header-search"><div className="search-box"><Search size={16}/><input aria-label="タグ検索" value={query} onChange={e=>changeSearchQuery(e.target.value)} placeholder="日本語・英語で検索" />{query.length>0&&<button type="button" className="header-search-clear" aria-label="検索をクリア" onClick={()=>changeSearchQuery('')}><X size={15}/></button>}</div></div>
       <div className="header-actions">
-        <div className="settings-wrap">
+        <div className="settings-wrap" ref={settingsRef}>
           <button type="button" className={`ghost settings-button ${settingsOpen?'active':''}`} aria-label="設定" title="設定" onClick={()=>setSettingsOpen(v=>!v)} aria-expanded={settingsOpen}>
-            <Settings2 size={17}/>
+            <Settings2 size={16}/>
             {store.contentLevel!=='general'&&<span className={`rating-dot ${store.contentLevel}`} title={store.contentLevel==='adult'?'成人向け表示中':'軽度なセンシティブ表示中'}/>} 
           </button>
           {settingsOpen&&<div className="settings-popover">
@@ -770,7 +779,7 @@ export default function App() {
         {store.workspaceView==='library'?<>
         <div className="inspector-header" aria-label="Saved Prompt Inspector">
           <div className="block-tabs"><button type="button" className="active">{selectedSavedPrompt?.name??'Promptを選択'}</button></div>
-          <section className="prompt-actions"><strong>Prompt Actions</strong><button className="copy-positive" onClick={()=>copyPrompt('actions')}>{copiedPositive?<Check size={16}/>:<Copy size={16}/>}<span>{copiedPositive?'コピー済み':'Positiveをコピー'}</span></button><button className="copy-negative" onClick={()=>copyNegativePrompt(true)}>{copiedNegative?<Check size={16}/>:<Copy size={16}/>}<span>{copiedNegative?'コピー済み':'Negativeをコピー'}</span></button><button className="save-current-prompt" onClick={openSavePrompt}><Save size={16}/><span>保存</span></button><button className="clear-current-prompt" onClick={()=>setClearPromptConfirmOpen(true)}><Trash2 size={16}/><span>クリア</span></button></section>
+          <section className="prompt-actions"><strong>Prompt Actions</strong><button className="copy-positive" onClick={()=>copyPrompt('actions')}>{copiedPositive?<Check size={16}/>:<Copy size={16}/>}<span>{copiedPositive?'コピー済み':'Positiveをコピー'}</span></button><button className="copy-negative" onClick={()=>copyNegativePrompt(true)}>{copiedNegative?<Check size={16}/>:<Copy size={16}/>}<span>{copiedNegative?'コピー済み':'Negativeをコピー'}</span></button><button type="button" className="save-current-prompt" aria-label="Promptを保存" title="Promptを保存" onClick={openSavePrompt}><Save size={16}/></button><button type="button" className="clear-current-prompt" aria-label="Promptをクリア" title="Promptをクリア" onClick={()=>setClearPromptConfirmOpen(true)}><Trash2 size={16}/></button></section>
         </div>
         <div className="inspector-scroll" aria-label="Saved Prompt details">
           {!selectedSavedPrompt?<section className={`preview-section ${selectedCollapsed?'collapsed':''}`}><div className="preview-section-header"><button className="preview-section-toggle" onClick={()=>setSelectedCollapsed(value=>!value)} aria-expanded={!selectedCollapsed}><span>{t('promptContext',locale)}</span>{selectedCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button></div>{!selectedCollapsed&&<div className="preview-section-content"><small className="selected-empty">カードを選択するとPromptの詳細を確認できます。</small></div>}</section>:<>
@@ -801,7 +810,7 @@ export default function App() {
         </>:<>
         <div className="inspector-header" aria-label="Inspector controls">
           <div className="block-tabs">{store.blocks.map((b,index)=><button key={b.id} className={viewContextId===b.id?'active':''} onClick={()=>setContextTarget(b.id)}>{getCategoryLabel('character',locale)} {b.subjectNumber??index+1}{index>0&&<X size={13} onClick={e=>{e.stopPropagation();if(viewContextId===b.id&&mainSubjectId)setContextTarget(mainSubjectId);store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={addCharacter}><Plus size={16}/>{t('addSubject',locale)}</button></div>
-          <section className="prompt-actions"><strong>Prompt Actions</strong><button className="copy-positive" onClick={()=>copyPrompt('actions')}>{copiedPositive?<Check size={16}/>:<Copy size={16}/>}<span>{copiedPositive?'コピー済み':'Positiveをコピー'}</span></button><button className="copy-negative" onClick={()=>copyNegativePrompt(true)}>{copiedNegative?<Check size={16}/>:<Copy size={16}/>}<span>{copiedNegative?'コピー済み':'Negativeをコピー'}</span></button><button className="save-current-prompt" onClick={openSavePrompt}><Save size={16}/><span>保存</span></button><button className="clear-current-prompt" onClick={()=>setClearPromptConfirmOpen(true)}><Trash2 size={16}/><span>クリア</span></button></section>
+          <section className="prompt-actions"><strong>Prompt Actions</strong><button className="copy-positive" onClick={()=>copyPrompt('actions')}>{copiedPositive?<Check size={16}/>:<Copy size={16}/>}<span>{copiedPositive?'コピー済み':'Positiveをコピー'}</span></button><button className="copy-negative" onClick={()=>copyNegativePrompt(true)}>{copiedNegative?<Check size={16}/>:<Copy size={16}/>}<span>{copiedNegative?'コピー済み':'Negativeをコピー'}</span></button><button type="button" className="save-current-prompt" aria-label="Promptを保存" title="Promptを保存" onClick={openSavePrompt}><Save size={16}/></button><button type="button" className="clear-current-prompt" aria-label="Promptをクリア" title="Promptをクリア" onClick={()=>setClearPromptConfirmOpen(true)}><Trash2 size={16}/></button></section>
         </div>
         <div className="inspector-scroll" aria-label="Inspector details">
         <section className={`preview-section ${selectedCollapsed?'collapsed':''}`}>
