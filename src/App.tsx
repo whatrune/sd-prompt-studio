@@ -159,7 +159,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [query, setQuery] = useState('')
-  const [favoritesOnly, setFavoritesOnly] = useState(false)
+  const [favoriteCategory, setFavoriteCategory] = useState('すべて')
   const [activeColorModifier, setActiveColorModifier] = useState('')
   const [copiedPositive, setCopiedPositive] = useState(false)
   const [copiedNegative, setCopiedNegative] = useState(false)
@@ -201,6 +201,7 @@ export default function App() {
   const [propVertical, setPropVertical] = useState('')
   const [propDepth, setPropDepth] = useState('background')
   const store = usePromptStore()
+  const favoritesOnly = store.workspaceView === 'favorites'
   const mainSubjectId = store.blocks[0]?.id
   const [viewContextId, setViewContextId] = useState<string>(() => store.activeBlockId)
   const activeSubject = store.blocks.find(b => b.id === store.activeBlockId)!
@@ -254,7 +255,13 @@ export default function App() {
     closeNavigationFlyout()
     store.setWorkspaceView('prompt')
     setQuery('')
-    setFavoritesOnly(false)
+    setSubcategory('すべて')
+  }
+  function navigateToFavorites() {
+    closeNavigationFlyout()
+    store.setWorkspaceView('favorites')
+    setQuery('')
+    setFavoriteCategory('すべて')
     setSubcategory('すべて')
   }
 
@@ -263,16 +270,26 @@ export default function App() {
   const visibleDictionaryTags = useMemo(() => dictionaryTags.filter(tag => RATING_RANK[tag.rating ?? 'general'] <= RATING_RANK[store.contentLevel]).map(tag => ({ ...tag, label: getTagLabel(tag, locale) })), [dictionaryTags, locale, store.contentLevel])
   const conflictSelection = favoritesOnly ? [...store.sceneTags, ...activeSubject.tags] : active.tags
   const conflictMap = useMemo(() => getConflictMap(visibleDictionaryTags, conflictSelection, dictionaryTags), [visibleDictionaryTags, conflictSelection, dictionaryTags])
+  const favoriteCategories = useMemo(() => {
+    const favoriteIds = new Set(store.favoriteIds)
+    return categoryOrder.filter(categoryKey => visibleDictionaryTags.some(tag => tag.category === categoryKey
+      && favoriteIds.has(tag.id)
+      && (!store.hideUnavailable || conflictMap.get(tag.id)?.level !== 'hard')))
+  }, [conflictMap, store.favoriteIds, store.hideUnavailable, visibleDictionaryTags])
+  useEffect(() => {
+    if (favoriteCategory !== 'すべて' && !favoriteCategories.includes(favoriteCategory)) setFavoriteCategory('すべて')
+  }, [favoriteCategories, favoriteCategory])
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return visibleDictionaryTags.filter(t => {
       if (favoritesOnly && !store.favoriteIds.includes(t.id)) return false
+      if (favoritesOnly && favoriteCategory !== 'すべて' && t.category !== favoriteCategory) return false
       if (!favoritesOnly && !q && t.category !== category) return false
       if (!favoritesOnly && !q && subcategory !== 'すべて' && t.subcategory !== subcategory) return false
       if (!q && store.hideUnavailable && conflictMap.get(t.id)?.level === 'hard') return false
       return !q || scoreTag(t, q) > 0
     }).sort((a,b) => q ? scoreTag(b,q)-scoreTag(a,q) || tagSort(a,b) : tagSort(a,b))
-  }, [category, subcategory, query, favoritesOnly, store.favoriteIds, visibleDictionaryTags, store.hideUnavailable, conflictMap])
+  }, [category, subcategory, query, favoritesOnly, favoriteCategory, store.favoriteIds, visibleDictionaryTags, store.hideUnavailable, conflictMap])
   const tagCategoryGroups = useMemo<TagCategoryGroup[]>(() => {
     if (query.trim() || (!favoritesOnly && subcategory !== 'すべて')) {
       return [{ key: 'flat', groups: [{ key: 'flat', label: '', tags: filtered, showTitle: false }] }]
@@ -391,7 +408,7 @@ export default function App() {
   function chooseCategory(c:string, targetId?:string){
     if (targetId === 'scene' || (!targetId && isSceneCategory(c))) store.setActiveLayer('scene')
     else store.setActiveBlock(targetId ?? viewContextId)
-    setCategory(c); setSubcategory('すべて'); setQuery(''); setFavoritesOnly(false)
+    store.setWorkspaceView('prompt'); setCategory(c); setSubcategory('すべて'); setQuery('')
   }
   function changeContentLevel(level: ContentRating){
     if (level === 'adult' && store.contentLevel !== 'adult') {
@@ -567,17 +584,17 @@ export default function App() {
             <button type="button" className={`navigation-primary ${store.workspaceView==='prompt'?'active':''}`} aria-label="プロンプト" aria-current={store.workspaceView==='prompt'?'page':undefined} onClick={navigateToPrompt}><span className="navigation-icon-slot navigation-primary-icon"><Sparkles size={17}/></span><span className="navigation-label">プロンプト</span><span className="navigation-tooltip" role="tooltip">プロンプト</span></button>
             <div className="navigation-children navigation-flyout">
               {store.navigationCollapsed&&<strong>プロンプト</strong>}
-              <div className="navigation-search"><div className="search-box"><Search size={16}/><input value={query} onChange={e=>{setQuery(e.target.value);setFavoritesOnly(false);store.setWorkspaceView('prompt')}} placeholder="日本語・英語で検索" /></div></div>
+              <div className="navigation-search"><div className="search-box"><Search size={16}/><input value={query} onChange={e=>{setQuery(e.target.value);store.setWorkspaceView('prompt')}} placeholder="日本語・英語で検索" /></div></div>
               <nav aria-label="プロンプトカテゴリ">{categoryOrder.map(c=>{const CategoryIcon=NAV_CATEGORY_ICONS[c as keyof typeof NAV_CATEGORY_ICONS]??Sparkles;return <button key={c} className={`navigation-item ${category===c&&!query&&!favoritesOnly?'active':''}`} onClick={()=>{closeNavigationFlyout();store.setWorkspaceView('prompt');chooseCategory(c)}}><span className="navigation-icon-slot"><CategoryIcon size={15}/></span><span className="navigation-item-label">{getCategoryLabel(c,locale)}</span><small>{visibleDictionaryTags.filter(t=>t.category===c).length}</small></button>})}</nav>
               <div className="preset-box"><label>モデル</label><select value={store.modelPreset} onChange={e=>store.setModelPreset(e.target.value as ModelPreset)}><option value="illustrious">Illustrious / NoobAI</option><option value="pony">Pony</option><option value="sdxl">SDXL汎用</option><option value="custom">カスタム</option></select><button className="preset" onClick={()=>store.applyQualityPreset()}><WandSparkles size={17}/>品質を置き換え</button></div>
             </div>
           </section>
           <section className={`navigation-group ${activeNavigationFlyout==='favorites'?'flyout-open':''}`} onMouseEnter={()=>openNavigationFlyoutAfterDelay('favorites')} onMouseLeave={closeNavigationFlyoutAfterDelay} onFocus={()=>{if(store.navigationCollapsed){cancelNavigationTimers();setActiveNavigationFlyout('favorites')}}} onBlur={closeNavigationFlyoutAfterDelay}>
-            <button type="button" className={`navigation-primary ${store.workspaceView==='favorites'?'active':''}`} aria-label="お気に入り" aria-current={store.workspaceView==='favorites'?'page':undefined} onClick={()=>{closeNavigationFlyout();store.setWorkspaceView('favorites')}}><span className="navigation-icon-slot navigation-primary-icon"><Star size={17}/></span><span className="navigation-label">お気に入り</span><span className="navigation-tooltip" role="tooltip">お気に入り</span></button>
+            <button type="button" className={`navigation-primary ${store.workspaceView==='favorites'?'active':''}`} aria-label="お気に入り" aria-current={store.workspaceView==='favorites'?'page':undefined} onClick={navigateToFavorites}><span className="navigation-icon-slot navigation-primary-icon"><Star size={17}/></span><span className="navigation-label">お気に入り</span><span className="navigation-tooltip" role="tooltip">お気に入り</span></button>
             <div className="navigation-children navigation-flyout compact">
               {store.navigationCollapsed&&<strong>お気に入り</strong>}
-              <button className={`navigation-item ${favoritesOnly?'active':''}`} onClick={()=>{closeNavigationFlyout();store.setWorkspaceView('favorites');setFavoritesOnly(true);setQuery('');setSubcategory('すべて')}}><span className="navigation-icon-slot"><Tags size={15}/></span><span className="navigation-item-label">タグ</span></button>
-              <button className="navigation-item" onClick={()=>{closeNavigationFlyout();store.setWorkspaceView('favorites')}}><span className="navigation-icon-slot"><MessageSquareText size={15}/></span><span className="navigation-item-label">Prompt</span></button>
+              <button className={`navigation-item ${favoritesOnly?'active':''}`} onClick={navigateToFavorites}><span className="navigation-icon-slot"><Tags size={15}/></span><span className="navigation-item-label">タグ</span></button>
+              <button className="navigation-item" onClick={navigateToFavorites}><span className="navigation-icon-slot"><MessageSquareText size={15}/></span><span className="navigation-item-label">Prompt</span></button>
             </div>
           </section>
           <section className={`navigation-group ${activeNavigationFlyout==='library'?'flyout-open':''}`} onMouseEnter={()=>openNavigationFlyoutAfterDelay('library')} onMouseLeave={closeNavigationFlyoutAfterDelay} onFocus={()=>{if(store.navigationCollapsed){cancelNavigationTimers();setActiveNavigationFlyout('library')}}} onBlur={closeNavigationFlyoutAfterDelay}>
@@ -597,6 +614,7 @@ export default function App() {
         <div className="prompt-workspace-content">
         <div className="prompt-controls">
         <div className="prompt-control-bar">
+        {!query&&favoritesOnly&&<section className="category-tabs-section" aria-label="お気に入りカテゴリ"><div className="subcategory-tabs">{['すべて',...favoriteCategories].map(categoryKey=>{const activeCategory=favoriteCategory===categoryKey;return <button key={categoryKey} className={activeCategory?'active':''} aria-pressed={activeCategory} onClick={()=>setFavoriteCategory(categoryKey)}>{activeCategory&&<Check size={14}/>}<span>{categoryKey==='すべて'?'すべて':getCategoryLabel(categoryKey,locale)}</span></button>})}</div></section>}
         {!query&&!favoritesOnly&&subcategories.length>0&&<section className="category-tabs-section" aria-label="カテゴリ"><div className="subcategory-tabs">{['すべて',...subcategories].map(sub=>{const activeSub=subcategory===sub;return <button key={sub} className={activeSub?'active':''} aria-pressed={activeSub} onClick={()=>setSubcategory(sub)}>{activeSub&&<Check size={14}/>}<span>{sub}</span></button>})}</div></section>}
         <section className="color-selector-section" aria-label="Color Selector"><div className="color-modifier-bar" aria-label="Color Modifier">
           <div className="color-modifier-label"><span>COLOR</span><strong>{findColorModifier(activeColorModifier)?.label ?? '指定なし'}</strong></div>
