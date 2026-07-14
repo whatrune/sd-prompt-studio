@@ -109,6 +109,9 @@ function scoreTag(tag: PromptTag, query: string) {
 }
 type TagSubcategoryGroup = { key: string; label: string; tags: PromptTag[]; showTitle: boolean }
 type TagCategoryGroup = { key: string; label?: string; groups: TagSubcategoryGroup[] }
+function TabLabel({ active, label }: { active: boolean; label: string }) {
+  return <>{active&&<Check size={14}/>}<span>{label}</span></>
+}
 function groupTagsBySubcategory(items: PromptTag[], category: string) {
   const grouped = new Map<string, PromptTag[]>()
   items.forEach(tag => {
@@ -682,11 +685,11 @@ export default function App() {
       <section className="tag-panel panel">
         {store.workspaceView==='library'?<div className="library-workspace">
           <section className="category-tabs-section library-tabs-section" aria-label="Prompt Libraryグループ"><nav className="subcategory-tabs library-tabs">
-            <button type="button" className={activeLibraryGroup==='all'?'active':''} aria-pressed={activeLibraryGroup==='all'} onClick={()=>setActiveLibraryGroup('all')}>すべて</button>
+            <button type="button" className={activeLibraryGroup==='all'?'active':''} aria-pressed={activeLibraryGroup==='all'} onClick={()=>setActiveLibraryGroup('all')}><TabLabel active={activeLibraryGroup==='all'} label="すべて"/></button>
             {store.promptGroups.map(group=><div key={group.id} className={`library-group-tab${activeLibraryGroup===group.id?' active':''}`}>
               {editingGroupId===group.id
                 ?<input className="library-group-edit" aria-label={`${group.name}の名前を編集`} autoFocus value={editingGroupName} onChange={event=>setEditingGroupName(event.target.value)} onBlur={()=>finishGroupRename(group.id)} onKeyDown={event=>{if(event.key==='Enter')finishGroupRename(group.id);if(event.key==='Escape')setEditingGroupId(null)}}/>
-                :<button type="button" className="library-group-select" aria-pressed={activeLibraryGroup===group.id} onClick={()=>setActiveLibraryGroup(group.id)} onDoubleClick={()=>{setEditingGroupId(group.id);setEditingGroupName(group.name)}}>{group.name}</button>}
+                :<button type="button" className="library-group-select" aria-pressed={activeLibraryGroup===group.id} onClick={()=>setActiveLibraryGroup(group.id)} onDoubleClick={()=>{setEditingGroupId(group.id);setEditingGroupName(group.name)}}><TabLabel active={activeLibraryGroup===group.id} label={group.name}/></button>}
               <button type="button" className="library-group-delete" aria-label={`${group.name}を削除`} onPointerDown={event=>event.stopPropagation()} onClick={event=>{event.stopPropagation();setPendingDeleteGroup(group)}} onDoubleClick={event=>event.stopPropagation()}><X size={12}/></button>
             </div>)}
             <button type="button" className="library-add-group" aria-label="グループを追加" onClick={createPromptGroup}><Plus size={15}/></button>
@@ -709,9 +712,9 @@ export default function App() {
         </div>:<div className="prompt-workspace-content">
         <div className="prompt-controls">
         <div className="prompt-control-bar">
-        {isSearchMode&&<section className="category-tabs-section" aria-label="検索結果カテゴリ"><div className="subcategory-tabs">{['すべて',...searchCategories].map(categoryKey=>{const activeCategory=searchCategory===categoryKey;return <button key={categoryKey} className={activeCategory?'active':''} aria-pressed={activeCategory} onClick={()=>setSearchCategory(categoryKey)}>{activeCategory&&<Check size={14}/>}<span>{categoryKey==='すべて'?'すべて':getCategoryLabel(categoryKey,locale)}</span></button>})}</div></section>}
-        {!isSearchMode&&favoritesOnly&&<section className="category-tabs-section" aria-label="お気に入りカテゴリ"><div className="subcategory-tabs">{['すべて',...favoriteCategories].map(categoryKey=>{const activeCategory=favoriteCategory===categoryKey;return <button key={categoryKey} className={activeCategory?'active':''} aria-pressed={activeCategory} onClick={()=>setFavoriteCategory(categoryKey)}>{activeCategory&&<Check size={14}/>}<span>{categoryKey==='すべて'?'すべて':getCategoryLabel(categoryKey,locale)}</span></button>})}</div></section>}
-        {!isSearchMode&&!favoritesOnly&&subcategories.length>0&&<section className="category-tabs-section" aria-label="カテゴリ"><div className="subcategory-tabs">{['すべて',...subcategories].map(sub=>{const activeSub=subcategory===sub;return <button key={sub} className={activeSub?'active':''} aria-pressed={activeSub} onClick={()=>setSubcategory(sub)}>{activeSub&&<Check size={14}/>}<span>{sub}</span></button>})}</div></section>}
+        {isSearchMode&&<section className="category-tabs-section" aria-label="検索結果カテゴリ"><div className="subcategory-tabs">{['すべて',...searchCategories].map(categoryKey=>{const activeCategory=searchCategory===categoryKey;return <button key={categoryKey} className={activeCategory?'active':''} aria-pressed={activeCategory} onClick={()=>setSearchCategory(categoryKey)}><TabLabel active={activeCategory} label={categoryKey==='すべて'?'すべて':getCategoryLabel(categoryKey,locale)}/></button>})}</div></section>}
+        {!isSearchMode&&favoritesOnly&&<section className="category-tabs-section" aria-label="お気に入りカテゴリ"><div className="subcategory-tabs">{['すべて',...favoriteCategories].map(categoryKey=>{const activeCategory=favoriteCategory===categoryKey;return <button key={categoryKey} className={activeCategory?'active':''} aria-pressed={activeCategory} onClick={()=>setFavoriteCategory(categoryKey)}><TabLabel active={activeCategory} label={categoryKey==='すべて'?'すべて':getCategoryLabel(categoryKey,locale)}/></button>})}</div></section>}
+        {!isSearchMode&&!favoritesOnly&&subcategories.length>0&&<section className="category-tabs-section" aria-label="カテゴリ"><div className="subcategory-tabs">{['すべて',...subcategories].map(sub=>{const activeSub=subcategory===sub;return <button key={sub} className={activeSub?'active':''} aria-pressed={activeSub} onClick={()=>setSubcategory(sub)}><TabLabel active={activeSub} label={sub}/></button>})}</div></section>}
         <section className="color-selector-section" aria-label="Color Selector"><div className="color-modifier-bar" aria-label="Color Modifier">
           <div className="color-modifier-label"><span>COLOR</span><strong>{findColorModifier(activeColorModifier)?.label ?? '指定なし'}</strong></div>
           <div className="color-modifier-swatches">

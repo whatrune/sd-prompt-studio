@@ -1224,19 +1224,22 @@ body,
   backdrop-filter: none;
 }
 
-.category-tabs-section > .subcategory-tabs button {
+.category-tabs-section > .subcategory-tabs button,
+.category-tabs-section > .subcategory-tabs .library-group-tab {
   border-color: transparent;
   background: transparent;
   color: var(--text-secondary);
 }
 
-.category-tabs-section > .subcategory-tabs button:hover {
+.category-tabs-section > .subcategory-tabs button:hover,
+.category-tabs-section > .subcategory-tabs .library-group-tab:hover {
   border-color: transparent;
   background: var(--bg-hover);
   color: var(--text-primary);
 }
 
-.category-tabs-section > .subcategory-tabs button.active {
+.category-tabs-section > .subcategory-tabs button.active,
+.category-tabs-section > .subcategory-tabs .library-group-tab.active {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
@@ -1488,20 +1491,8 @@ body,
   flex: 0 0 auto;
   align-items: center;
   min-height: 29px;
-  border: 1px solid transparent;
+  border: 1px solid;
   border-radius: 3px;
-  color: var(--text-secondary);
-}
-
-.library-group-tab:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.library-group-tab.active {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent);
 }
 
 .category-tabs-section > .library-tabs .library-group-select,
