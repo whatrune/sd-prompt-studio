@@ -644,7 +644,11 @@ export default function App() {
       </section>
 
       <aside className="preview panel">
-        <div className="block-tabs">{store.blocks.map((b,index)=><button key={b.id} className={viewContextId===b.id?'active':''} onClick={()=>setContextTarget(b.id)}>{getCategoryLabel('character',locale)} {b.subjectNumber??index+1}{index>0&&<X size={13} onClick={e=>{e.stopPropagation();if(viewContextId===b.id&&mainSubjectId)setContextTarget(mainSubjectId);store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={addCharacter}><Plus size={16}/>{t('addSubject',locale)}</button></div>
+        <div className="inspector-header" aria-label="Inspector controls">
+          <div className="block-tabs">{store.blocks.map((b,index)=><button key={b.id} className={viewContextId===b.id?'active':''} onClick={()=>setContextTarget(b.id)}>{getCategoryLabel('character',locale)} {b.subjectNumber??index+1}{index>0&&<X size={13} onClick={e=>{e.stopPropagation();if(viewContextId===b.id&&mainSubjectId)setContextTarget(mainSubjectId);store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={addCharacter}><Plus size={16}/>{t('addSubject',locale)}</button></div>
+          <section className="prompt-actions"><strong>Prompt Actions</strong><button className="copy-positive" onClick={()=>copyPrompt('actions')}>{copiedPositive?<Check size={16}/>:<Copy size={16}/>}<span>{copiedPositive?'コピー済み':'Positiveをコピー'}</span></button><button className="copy-negative" onClick={()=>copyNegativePrompt(true)}>{copiedNegative?<Check size={16}/>:<Copy size={16}/>}<span>{copiedNegative?'コピー済み':'Negativeをコピー'}</span></button></section>
+        </div>
+        <div className="inspector-scroll" aria-label="Inspector details">
         <section className="prompt-library">
           <div className="prompt-library-header"><div><strong>Prompt Library</strong><small>編集状態とSeedを保存・復元</small></div><button className="prompt-library-save" onClick={openSavePrompt}>保存</button></div>
           {store.seeds.length>0&&<div className="prompt-library-current-seeds"><span>Current Seeds</span>{store.seeds.map(seed=><code key={seed.value}>{seed.value}</code>)}</div>}
@@ -655,7 +659,6 @@ export default function App() {
             <div className="prompt-library-card-actions"><button onClick={()=>{if(!confirm('現在の編集内容を置き換えます。\n\n復元しますか？'))return;if(store.restorePrompt(saved.id))setViewContextId(saved.blocks[0]?.id??store.activeBlockId)}}>復元</button><button className="danger" onClick={()=>confirm('この保存済みPromptを削除しますか？')&&store.deleteSavedPrompt(saved.id)}>削除</button></div>
           </article>)}</div>}
         </section>
-        <section className="prompt-actions"><strong>Prompt Actions</strong><button className="copy-positive" onClick={()=>copyPrompt('actions')}>{copiedPositive?<Check size={16}/>:<Copy size={16}/>}<span>{copiedPositive?'コピー済み':'Positiveをコピー'}</span></button><button className="copy-negative" onClick={()=>copyNegativePrompt(true)}>{copiedNegative?<Check size={16}/>:<Copy size={16}/>}<span>{copiedNegative?'コピー済み':'Negativeをコピー'}</span></button></section>
         <section className={`preview-section ${selectedCollapsed?'collapsed':''}`}>
           <div className="preview-section-header"><button className="preview-section-toggle" onClick={()=>setSelectedCollapsed(v=>!v)} aria-expanded={!selectedCollapsed}>
             <span>{t('promptContext',locale)}</span>{selectedCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}
@@ -700,6 +703,7 @@ export default function App() {
           <div className="preview-section-header"><button className="preview-section-toggle" onClick={()=>setNegativeCollapsed(v=>!v)} aria-expanded={!negativeCollapsed}><span>Negative Prompt</span>{negativeCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button></div>
           {!negativeCollapsed&&<div className="preview-section-content"><textarea value={store.negative} onChange={e=>store.setNegative(e.target.value)} /><div className="preview-section-footer"><button className="preview-content-action" onClick={store.resetNegative}><RotateCcw size={14}/>初期値に戻す</button></div></div>}
         </section>
+        </div>
       </aside>
     </section>
     {savePromptOpen&&<div className="modal-backdrop" onMouseDown={()=>setSavePromptOpen(false)}><section className="prompt-save-modal" onMouseDown={event=>event.stopPropagation()}>
