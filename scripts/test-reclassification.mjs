@@ -613,6 +613,7 @@ try {
   assert.equal(usePromptStore.getState().savedPrompts.length, 1, 'deleting a saved Prompt must remove only that snapshot')
 
   const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
+  const stylesSource = fs.readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
   assert(appSource.includes("useState(true)"), 'Prompt panels must have collapsed initial state')
   assert(appSource.includes('Prompt Actions'), 'copy actions must be rendered above Prompt output')
   assert(appSource.includes('Expansion Preview'), 'expanded entities must be inspectable without changing the Prompt')
@@ -657,6 +658,7 @@ try {
   assert(appSource.includes('{(favoritesOnly||isSearchMode)&&<div className="panel-title">'), 'Search result heading must use the trimmed Search Mode state')
   assert(appSource.includes('className="header-search"'), 'Tag search must render in the App Header')
   assert(appSource.includes('aria-label="タグ検索"'), 'Header tag search must have an accessible name')
+  assert(stylesSource.includes('.header-search .search-box:focus-within'), 'Header tag search must retain a visible keyboard focus state')
   assert.equal(appSource.includes('className="navigation-search"'), false, 'Navigation must not retain a duplicate tag search box')
   assert(appSource.includes('aria-label="検索結果カテゴリ"'), 'Search Mode must render category tabs inside Prompt Workspace')
   assert(appSource.includes("{['すべて',...searchCategories].map"), 'Search Mode must always include the all-results tab')
