@@ -43,8 +43,8 @@ flowchart TD
     F --> G["Native / Expandable Composite Classification"]
     G --> H["Concept Expansion"]
     H --> I["Body State Resolution"]
-    I --> J["Body Orientation Resolution"]
-    J --> K["Support / Balance Resolution"]
+    I --> J["Support Relation Resolution"]
+    J --> K["Body Orientation Resolution"]
     K --> L["Regional Configuration Resolution"]
     L --> M["Modifier / Motion Resolution"]
     M --> N["Object Resolution"]
@@ -135,11 +135,13 @@ Scene-wide tag bags are insufficient for multiple subjects. Each human and objec
 
 ### Visibility and observability
 
-The resolver tracks required, preferred, forbidden, and evidence regions. It must distinguish:
+The resolver tracks required, preferred, forbidden, and evidence regions. It must resolve three separate questions:
 
-- semantic validity;
-- whether the generated framing can display the concept;
-- whether visible evidence is strong enough to verify the state.
+1. **Semantic validity**: whether the concept is structurally valid after state, support, orientation, and conflict resolution.
+2. **Visual observability**: whether the selected framing can show the regions needed to observe the concept.
+3. **Evidence strength**: whether the visible regions provide enough information to verify that the concept or state is present.
+
+For `standing + upper body`, standing is semantically valid but visual observability is low because its evidence regions—especially legs and feet—are outside the frame. The resolver must not convert missing visual evidence into a semantic conflict or report the state as visually proven.
 
 Unresolved visibility can suppress a requested concept or transfer an attribute. In the recorded `upper body + standing + black boots` case, boots disappeared and black transferred to waist/skirt/pants; `full body + standing + black boots` allowed all elements.
 

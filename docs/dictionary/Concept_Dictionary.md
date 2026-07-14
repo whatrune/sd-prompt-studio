@@ -6,7 +6,13 @@ The Concept Dictionary is the canonical ledger between human intent, observed mo
 
 ## Required concept fields
 
-Every production concept is designed to carry the following core information. Optionality in the TypeScript schema supports staged migration; absence means unknown, not false.
+Every production concept carries the following core information. The production dictionary contract and the TypeScript intermediate-representation contract intentionally differ:
+
+- **Production Dictionary**: the fields in the table below are required. Unknown values must be represented explicitly according to the storage format rather than silently omitted.
+- **Draft / Migration Schema**: the corresponding fields in `PromptNode.ts` may be optional so unresearched concepts and partially migrated legacy records can be represented.
+- **Meaning of `undefined`**: an omitted optional value means **unknown / not yet investigated**, never `false`, unsupported, empty, or inapplicable.
+
+Promotion from draft/migration data into the production dictionary therefore requires validation that all production fields are populated.
 
 | Field | Purpose |
 |---|---|
@@ -28,7 +34,7 @@ Every production concept is designed to carry the following core information. Op
 | `supportStatus` | Supported, unverified, unreliable, unsupported, or exception. |
 | `observations` | Evidence-preserving notes, including failures and context. |
 
-The full schema also supports aliases, domains, secondary axes, optional components, state affinity, support/orientation/object/scene requirements, target/evidence/visibility regions, framing and spatial budget, cooperation/suppression, variance, context/model dependency, confidence, and evidence-source IDs. See [PromptNode.ts](../schemas/PromptNode.ts).
+The full schema also supports aliases, domains, secondary axes, optional components, state affinity, support/orientation/object/scene requirements, target/evidence/visibility regions, upper-body observability, visibility strength, viewer-relation requirements/support, framing and spatial budget, resolution priority, cooperation/suppression, variance, context/model dependency, confidence, and evidence-source IDs. See [PromptNode.ts](../schemas/PromptNode.ts).
 
 ## Concept types
 
@@ -72,6 +78,26 @@ State affinity records observed bias rather than a hard truth. For example:
 ```
 
 By contrast, `crossed legs` is a general configuration with low-to-medium state dependency and can retain standing. The dictionary must never merge the two records as synonyms.
+
+## Visibility, observability, and evidence
+
+The Visibility Resolver keeps three judgments separate:
+
+1. **Semantic validity**: whether a concept is valid after semantic and structural resolution.
+2. **Visual observability**: whether the current framing exposes the regions needed to observe it.
+3. **Evidence strength**: whether the visible information is sufficient to verify the concept or state.
+
+Related dictionary fields have distinct meanings:
+
+- `requiresVisibleRegions`, `prefersVisibleRegions`, and `forbidsVisibleRegions` describe region constraints.
+- `evidenceRegions` lists the regions that can prove the concept or state.
+- `upperBodyObservability` estimates how reliably the concept can be inferred when only the upper body is visible.
+- `visibilityStrength` describes how strongly the concept pressures resolution toward visibility of its required or target regions; it is not the same as evidence strength.
+- `requiresViewerRelation` means the concept cannot resolve as intended without a relation to the viewer.
+- `supportsViewerRelation` means a viewer relation can participate in or strengthen the concept but is not required.
+- `priority` is a resolver tie-break input. It is not confidence, prompt weight, or evidence strength.
+
+Example: `standing + upper body` is semantically valid, but `upperBodyObservability` is low because the legs and feet that provide evidence of standing are outside the frame. Low observability must not be treated as a semantic conflict, nor may it be reported as strong visual proof.
 
 ## Component expansion
 

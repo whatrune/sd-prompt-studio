@@ -2,8 +2,14 @@
  * Proposed Visual Concept Compiler intermediate representation.
  *
  * This file is design documentation. It is intentionally stored under docs and
- * is not included by the application tsconfig. Optional fields support gradual
- * migration; missing evidence means "unknown", not "false".
+ * is not included by the application tsconfig.
+ *
+ * ConceptNode is an intermediate representation for draft, unresearched, and
+ * partially migrated records, so fields that are required by the Production
+ * Dictionary may remain optional here. `undefined` always means "unknown / not
+ * yet investigated"; it never means false, unsupported, empty, or inapplicable.
+ * Promotion into the Production Dictionary requires its mandatory fields to be
+ * populated and validated.
  */
 
 export type EvidenceLevel = "low" | "medium" | "high";
@@ -106,9 +112,13 @@ export type ConceptNode = {
 
   targetRegions?: string[];
   evidenceRegions?: string[];
+  /** Reliability of inferring this concept when only upper-body regions are visible. */
+  upperBodyObservability?: EvidenceLevel;
   requiresVisibleRegions?: string[];
   prefersVisibleRegions?: string[];
   forbidsVisibleRegions?: string[];
+  /** Pressure this concept applies toward keeping target or required regions visible. */
+  visibilityStrength?: EvidenceLevel;
 
   minimumFraming?: string;
   preferredFraming?: string[];
@@ -116,6 +126,11 @@ export type ConceptNode = {
   requiresSpatialBudget?: boolean;
   providesSpatialBudget?: boolean;
   preferredSubjectScale?: "small" | "medium" | "large";
+
+  /** True when the intended concept cannot resolve without a viewer-targeted relation. */
+  requiresViewerRelation?: boolean;
+  /** True when a viewer relation can strengthen the concept but is not mandatory. */
+  supportsViewerRelation?: boolean;
 
   affectsAxes?: string[];
   secondaryEffects?: string[];
@@ -125,6 +140,9 @@ export type ConceptNode = {
   cooperativeWith?: string[];
   suppresses?: string[];
   conflicts?: string[];
+
+  /** Resolver tie-break input; not prompt weight, confidence, or evidence strength. */
+  priority?: number;
 
   activationStrength?: EvidenceLevel;
   activationVariance?: EvidenceLevel;
