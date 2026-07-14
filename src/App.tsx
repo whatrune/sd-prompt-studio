@@ -689,7 +689,7 @@ export default function App() {
           </nav>
           <section className="library-card-list" aria-label="保存済みPrompt一覧">
             {visibleSavedPrompts.length===0?<div className="library-empty"><BookOpen size={22}/><strong>保存済みPromptはありません</strong><span>現在のPromptを保存すると、ここから再利用できます。</span></div>:visibleSavedPrompts.map(saved=><article className="saved-prompt-asset" key={saved.id} style={{'--saved-prompt-color':saved.color} as CSSProperties}>
-              <button type="button" className="saved-prompt-asset-main" onClick={()=>setPendingApplyPrompt(saved)}>
+              <button type="button" className="saved-prompt-asset-main" onClick={()=>{setSelectedSavedPrompt(saved);setPendingApplyPrompt(saved)}}>
                 <span className="saved-prompt-color" aria-hidden="true"/>
                 <strong>{saved.name}</strong>
                 <small>{saved.displayTags.length} tags</small>
@@ -751,21 +751,37 @@ export default function App() {
       </section>
 
       <aside className="preview panel">
+        {store.workspaceView==='library'?<>
+        <div className="inspector-header library-inspector-header" aria-label="Saved Prompt Inspector">
+          <div><span className="eyebrow">SELECTED PROMPT</span><strong>{selectedSavedPrompt?.name??'Promptを選択'}</strong>{selectedSavedPrompt&&<small>{selectedSavedPrompt.displayTags.length} tags · {selectedSavedPrompt.settings.modelPreset}</small>}</div>
+        </div>
+        <div className="inspector-scroll library-inspector-scroll" aria-label="Saved Prompt details">
+          {!selectedSavedPrompt?<div className="library-inspector-empty"><Info size={20}/><strong>Promptを選択してください</strong><span>カードのⓘから詳細を確認できます。</span></div>:<>
+          <section className="preview-section">
+            <div className="preview-section-header"><div className="preview-section-title">Prompt Context</div></div>
+            <div className="preview-section-content prompt-context-content"><div className="selected-outline">
+              <section className="selected-layer context-common expanded">
+                <div className="selected-layer-header"><div className="selected-layer-title"><ChevronDown className="section-chevron" size={14}/><strong>Common</strong><small className="section-tag-count">{selectedSavedPrompt.structure.sceneTags.length} tags</small></div></div>
+                <div className="selected-layer-content">{categoryOrder.flatMap(categoryKey=>{const items=selectedSavedPrompt.structure.sceneTags.filter(tag=>tag.category===categoryKey);return items.length?[<section className="selected-group" key={`saved-scene-${categoryKey}`}><div className="selected-group-head"><strong>{getCategoryLabel(categoryKey,locale)} <small>({items.length})</small></strong></div><div className="selected-chips">{items.map(tag=><div className={`selected-chip category-${tag.category}`} key={`saved-scene-${tag.id}`}><span className="chip-label">{getTagLabel(tag,locale)}</span></div>)}</div></section>]:[]})}</div>
+              </section>
+              {selectedSavedPrompt.structure.blocks.map((block,index)=><section className="selected-layer context-character expanded" key={block.id}>
+                <div className="selected-layer-header"><div className="selected-layer-title"><ChevronDown className="section-chevron" size={14}/><strong>{getCategoryLabel('character',locale)} {block.subjectNumber??index+1}</strong><small className="section-tag-count">{block.tags.length} tags</small></div></div>
+                <div className="selected-layer-content">{categoryOrder.flatMap(categoryKey=>{const items=block.tags.filter(tag=>tag.category===categoryKey);return items.length?[<section className="selected-group" key={`${block.id}-${categoryKey}`}><div className="selected-group-head"><strong>{getCategoryLabel(categoryKey,locale)} <small>({items.length})</small></strong></div><div className="selected-chips">{items.map(tag=><div className={`selected-chip category-${tag.category}`} key={`${block.id}-${tag.id}`}><span className="chip-label">{getTagLabel(tag,locale)}</span></div>)}</div></section>]:[]})}</div>
+              </section>)}
+            </div></div>
+          </section>
+          <section className="preview-section expansion-preview"><div className="preview-section-header"><div className="preview-section-title">Generated Prompt Structure</div></div><div className="preview-section-content saved-structure-summary"><div><span>Model</span><strong>{selectedSavedPrompt.settings.modelPreset}</strong></div><div><span>Characters</span><strong>{selectedSavedPrompt.structure.blocks.length}</strong></div></div></section>
+          <section className="preview-section output-box"><div className="preview-section-header"><div className="preview-section-title">Final Prompt</div></div><div className="preview-section-content"><textarea readOnly value={selectedSavedPrompt.generatedPrompt}/></div></section>
+          <section className="preview-section output-box negative"><div className="preview-section-header"><div className="preview-section-title">Negative Prompt</div></div><div className="preview-section-content"><textarea readOnly value={selectedSavedPrompt.negativePrompt}/></div></section>
+          <section className="preview-section"><div className="preview-section-header"><div className="preview-section-title">Generation Settings</div></div><div className="preview-section-content saved-generation-settings"><div><span>Seed</span><strong>{selectedSavedPrompt.settings.seeds.map(seed=>seed.value).join(', ')||'未設定'}</strong></div><div><span>Model</span><strong>{selectedSavedPrompt.settings.modelPreset}</strong></div></div></section>
+          </>}
+        </div>
+        </>:<>
         <div className="inspector-header" aria-label="Inspector controls">
           <div className="block-tabs">{store.blocks.map((b,index)=><button key={b.id} className={viewContextId===b.id?'active':''} onClick={()=>setContextTarget(b.id)}>{getCategoryLabel('character',locale)} {b.subjectNumber??index+1}{index>0&&<X size={13} onClick={e=>{e.stopPropagation();if(viewContextId===b.id&&mainSubjectId)setContextTarget(mainSubjectId);store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={addCharacter}><Plus size={16}/>{t('addSubject',locale)}</button></div>
           <section className="prompt-actions"><strong>Prompt Actions</strong><button className="copy-positive" onClick={()=>copyPrompt('actions')}>{copiedPositive?<Check size={16}/>:<Copy size={16}/>}<span>{copiedPositive?'コピー済み':'Positiveをコピー'}</span></button><button className="copy-negative" onClick={()=>copyNegativePrompt(true)}>{copiedNegative?<Check size={16}/>:<Copy size={16}/>}<span>{copiedNegative?'コピー済み':'Negativeをコピー'}</span></button></section>
         </div>
         <div className="inspector-scroll" aria-label="Inspector details">
-        <section className="prompt-library">
-          <div className="prompt-library-header"><div><strong>Prompt Library</strong><small>編集状態とSeedを保存・復元</small></div><button className="prompt-library-save" onClick={openSavePrompt}>保存</button></div>
-          {store.seeds.length>0&&<div className="prompt-library-current-seeds"><span>Current Seeds</span>{store.seeds.map(seed=><code key={seed.value}>{seed.value}</code>)}</div>}
-          {store.savedPrompts.length===0?<div className="prompt-library-empty">保存済みPromptはありません</div>:<div className="prompt-library-list">{store.savedPrompts.map(saved=><article className="prompt-library-card" key={saved.id}>
-            <div className="prompt-library-card-head"><div><strong>{saved.name}</strong><span className="saved-prompt-model">{saved.modelPreset}</span></div><time dateTime={new Date(saved.createdAt).toISOString()}>{new Date(saved.createdAt).toLocaleString('ja-JP')}</time></div>
-            <p>{saved.positivePrompt || '（空のPositive Prompt）'}</p>
-            <div className="saved-prompt-seeds"><span>Seed</span>{saved.seeds.length>0?saved.seeds.map(seed=><code key={seed.value}>{seed.value}</code>):<small>未設定</small>}</div>
-            <div className="prompt-library-card-actions"><button onClick={()=>{if(!confirm('現在の編集内容を置き換えます。\n\n復元しますか？'))return;if(store.restorePrompt(saved.id))setViewContextId(saved.blocks[0]?.id??store.activeBlockId)}}>復元</button><button className="danger" onClick={()=>confirm('この保存済みPromptを削除しますか？')&&store.deleteSavedPrompt(saved.id)}>削除</button></div>
-          </article>)}</div>}
-        </section>
         <section className={`preview-section ${selectedCollapsed?'collapsed':''}`}>
           <div className="preview-section-header"><button className="preview-section-toggle" onClick={()=>setSelectedCollapsed(v=>!v)} aria-expanded={!selectedCollapsed}>
             <span>{t('promptContext',locale)}</span>{selectedCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}
@@ -811,6 +827,7 @@ export default function App() {
           {!negativeCollapsed&&<div className="preview-section-content"><textarea value={store.negative} onChange={e=>store.setNegative(e.target.value)} /><div className="preview-section-footer"><button className="preview-content-action" onClick={store.resetNegative}><RotateCcw size={14}/>初期値に戻す</button></div></div>}
         </section>
         </div>
+        </>}
       </aside>
     </section>
     {savePromptOpen&&<div className="modal-backdrop" onMouseDown={()=>setSavePromptOpen(false)}><section className="prompt-save-modal" onMouseDown={event=>event.stopPropagation()}>
@@ -827,11 +844,6 @@ export default function App() {
       <label>グループ名<input autoFocus value={groupName} onChange={event=>{setGroupName(event.target.value);setGroupError('')}} onKeyDown={event=>{if(event.key==='Enter')createPromptGroup();if(event.key==='Escape')setGroupDialogOpen(false)}}/></label>
       {groupError&&<p className="prompt-save-error" role="alert">{groupError}</p>}
       <div className="modal-actions"><button className="ghost" onClick={()=>setGroupDialogOpen(false)}>キャンセル</button><button onClick={createPromptGroup}>作成</button></div>
-    </section></div>}
-    {selectedSavedPrompt&&<div className="modal-backdrop" onMouseDown={()=>setSelectedSavedPrompt(null)}><section className="saved-prompt-detail" role="dialog" aria-modal="true" aria-labelledby="saved-prompt-detail-title" onMouseDown={event=>event.stopPropagation()}>
-      <div className="analyzer-head"><div><span className="eyebrow">PROMPT DETAIL</span><h2 id="saved-prompt-detail-title">{selectedSavedPrompt.name}</h2></div><button aria-label="詳細を閉じる" onClick={()=>setSelectedSavedPrompt(null)}><X size={18}/></button></div>
-      <section><h3>Tags <small>{selectedSavedPrompt.displayTags.length}</small></h3><div className="saved-prompt-detail-tags">{categoryOrder.flatMap(categoryKey=>{const items=selectedSavedPrompt.displayTags.filter(tag=>tag.category===categoryKey);return items.length?[<div key={categoryKey}><strong>{getCategoryLabel(categoryKey,locale)}</strong><span>{items.map(tag=>tag.label||tag.prompt).join(' / ')}</span></div>]:[]})}</div></section>
-      <section><h3>Structure</h3><dl className="saved-prompt-structure"><div><dt>Model</dt><dd>{selectedSavedPrompt.settings.modelPreset}</dd></div><div><dt>Characters</dt><dd>{selectedSavedPrompt.structure.blocks.length}</dd></div><div><dt>Scene Tags</dt><dd>{selectedSavedPrompt.structure.sceneTags.length}</dd></div><div><dt>Seeds</dt><dd>{selectedSavedPrompt.settings.seeds.map(seed=>seed.value).join(', ')||'未設定'}</dd></div></dl><pre>{selectedSavedPrompt.generatedPrompt}</pre></section>
     </section></div>}
     {pendingApplyPrompt&&<div className="modal-backdrop" onMouseDown={()=>setPendingApplyPrompt(null)}><section className="library-dialog apply-prompt-dialog" role="dialog" aria-modal="true" aria-labelledby="apply-prompt-title" onMouseDown={event=>event.stopPropagation()}>
       <div className="analyzer-head"><div><span className="eyebrow">APPLY PROMPT</span><h2 id="apply-prompt-title">このPromptを適用しますか？</h2></div><button aria-label="閉じる" onClick={()=>setPendingApplyPrompt(null)}><X size={18}/></button></div>
