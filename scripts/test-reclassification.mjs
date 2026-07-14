@@ -558,6 +558,7 @@ try {
     userTags: [],
   })
   assert.deepEqual(migratedWithoutLibrary.savedPrompts, [], 'existing persisted state must default savedPrompts to an empty array')
+  assert.deepEqual(migratedWithoutLibrary.promptGroups, [], 'existing persisted state must default Prompt groups to an empty array')
   assert.deepEqual(migratedWithoutLibrary.seeds, [], 'existing persisted state must default current seeds to an empty array')
   const migratedLegacySavedPrompt = migratePersistedState({
     blocks: [{ id: 'legacy-library', name: '被写体 1', tags: [] }],
@@ -567,6 +568,8 @@ try {
     savedPrompts: [{ id: 'legacy-saved', type: 'favorite', name: 'Legacy Saved', positivePrompt: '', negativePrompt: '', blocks: [{ id: 'legacy-library', name: '被写体 1', tags: [] }], sceneTags: [], seeds: [], createdAt: 1, updatedAt: 1 }],
   })
   assert.equal(migratedLegacySavedPrompt.savedPrompts[0].modelPreset, 'sdxl', 'legacy saved Prompts must inherit the persisted Model Preset')
+  assert.equal(migratedLegacySavedPrompt.savedPrompts[0].settings.modelPreset, 'sdxl', 'legacy saved Prompts must migrate to nested settings')
+  assert.deepEqual(migratedLegacySavedPrompt.savedPrompts[0].structure.blocks.map(block => block.id), ['legacy-library'], 'legacy saved Prompts must migrate to a reusable structure snapshot')
 
   usePromptStore.setState({
     blocks: [{ id: 'library-subject', name: 'Library Subject', subjectNumber: 1, position: 'center', tags: [subjectHair] }],
@@ -577,16 +580,29 @@ try {
     modelPreset: 'pony',
     seeds: [],
     savedPrompts: [],
+    promptGroups: [],
   })
+  const characterGroup = usePromptStore.getState().addPromptGroup('キャラクター')
+  assert(characterGroup, 'a named Prompt group must be created')
+  assert.equal(usePromptStore.getState().addPromptGroup('キャラクター'), null, 'duplicate Prompt group names must be rejected')
+  assert.equal(usePromptStore.getState().renamePromptGroup(characterGroup.id, 'キャラクター資産'), true, 'Prompt groups must be renameable')
   const savedLibraryPrompt = usePromptStore.getState().savePrompt({
     name: 'Library Favorite',
     positivePrompt: 'saved positive snapshot',
     negativePrompt: 'library negative',
     seeds: [{ value: 123456789 }, { value: 987654321 }, { value: 24680 }],
+    color: '#ff6699',
+    groups: [characterGroup.id],
   })
   assert(savedLibraryPrompt, 'valid Prompt state must be saved')
   assert.equal(usePromptStore.getState().savedPrompts.length, 1)
   assert.equal(usePromptStore.getState().savedPrompts[0].modelPreset, 'pony')
+  assert.equal(savedLibraryPrompt.color, '#ff6699')
+  assert.deepEqual(savedLibraryPrompt.groups, [characterGroup.id])
+  assert.equal(savedLibraryPrompt.generatedPrompt, 'saved positive snapshot')
+  assert.equal(savedLibraryPrompt.displayTags.length, 2)
+  assert.equal(savedLibraryPrompt.structure.blocks[0].tags[0].prompt, 'black hair')
+  assert.equal(savedLibraryPrompt.settings.modelPreset, 'pony')
   assert.deepEqual(usePromptStore.getState().savedPrompts[0].seeds.map(seed => seed.value), [123456789, 987654321, 24680])
   assert.equal(usePromptStore.getState().savePrompt({ name: 'Duplicate seeds', positivePrompt: '', negativePrompt: '', seeds: [{ value: 7 }, { value: 7 }] }), null, 'duplicate Seeds must be rejected')
   const seedlessPrompt = usePromptStore.getState().savePrompt({ name: 'Seedless Prompt', positivePrompt: '', negativePrompt: '', seeds: [] })
@@ -609,6 +625,10 @@ try {
   assert.equal(usePromptStore.getState().negative, 'library negative')
   assert.equal(usePromptStore.getState().modelPreset, 'pony')
   assert.deepEqual(usePromptStore.getState().seeds.map(seed => seed.value), [123456789, 987654321, 24680])
+  usePromptStore.setState({ blocks: [{ id: 'merge-base', name: 'Merge Base', subjectNumber: 1, tags: [] }], sceneTags: [], activeBlockId: 'merge-base', seeds: [] })
+  assert.equal(usePromptStore.getState().mergeSavedPrompt(savedLibraryPrompt.id), true, 'saved Prompt state must support simple merge')
+  assert.equal(usePromptStore.getState().blocks.length, 2, 'simple merge must preserve the current Subject and append saved Subjects')
+  assert.equal(usePromptStore.getState().sceneTags[0].prompt, 'masterpiece', 'simple merge must add saved Scene tags')
   usePromptStore.getState().deleteSavedPrompt(savedLibraryPrompt.id)
   assert.equal(usePromptStore.getState().savedPrompts.length, 1, 'deleting a saved Prompt must remove only that snapshot')
 
@@ -669,6 +689,12 @@ try {
   assert(appSource.includes("searchCategory === 'すべて' || t.category === searchCategory"), 'Search category tabs must filter the search result list')
   assert(appSource.includes("scoreTag(t, q) === 0"), 'Search Mode must keep scoreTag as its matching algorithm')
   assert(appSource.includes("store.hideUnavailable && conflictMap.get(t.id)?.level === 'hard'"), 'Search Mode must respect hideUnavailable')
+  assert(appSource.includes('className="library-workspace"'), 'Library navigation must render a dedicated central Workspace')
+  assert(appSource.includes('className="library-tabs"'), 'Prompt groups must render as Library tabs')
+  assert(appSource.includes("activeLibraryGroup==='all'"), 'the fixed all-prompts tab must remain available')
+  assert(appSource.includes('onDoubleClick'), 'user Prompt groups must support desktop double-click rename')
+  assert(appSource.includes("applySavedPrompt('replace')"), 'Saved Prompt cards must offer replacement apply')
+  assert(appSource.includes("applySavedPrompt('merge')"), 'Saved Prompt cards must offer simple merge apply')
   for (const label of ['プロンプト', 'お気に入り', 'ライブラリ', '設定']) assert(appSource.includes(`>${label}</span>`), `${label} must be rendered as a Japanese Navigation label`)
 
   const characterDictionary = JSON.parse(fs.readFileSync(new URL('../data/character.json', import.meta.url), 'utf8'))

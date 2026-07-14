@@ -16,9 +16,20 @@ export const SCENE_CATEGORIES = new Set(['quality', 'camera', 'background', 'sce
 export const isSceneCategory = (category: string) => SCENE_CATEGORIES.has(category)
 export type ModelPreset = 'illustrious' | 'pony' | 'sdxl' | 'custom'
 export type SeedEntry = { value: number; note?: string }
+export type PromptGroup = { id: string; name: string; createdAt: number; updatedAt: number }
+export type SavedPromptStructure = { blocks: PromptBlock[]; sceneTags: SelectedTag[] }
+export type SavedPromptSettings = { modelPreset: ModelPreset; seeds: SeedEntry[] }
 export type SavedPrompt = {
   id: string
   name: string
+  color: string
+  groups: string[]
+  summaryTags: string[]
+  displayTags: SelectedTag[]
+  structure: SavedPromptStructure
+  generatedPrompt: string
+  settings: SavedPromptSettings
+  /** Compatibility aliases retained for the existing Inspector library. */
   modelPreset: ModelPreset
   positivePrompt: string
   negativePrompt: string
@@ -28,7 +39,7 @@ export type SavedPrompt = {
   createdAt: number
   updatedAt: number
 }
-export type SavePromptInput = Pick<SavedPrompt, 'name' | 'positivePrompt' | 'negativePrompt' | 'seeds'>
+export type SavePromptInput = Pick<SavedPrompt, 'name' | 'positivePrompt' | 'negativePrompt' | 'seeds'> & { color?: string; groups?: string[] }
 
 export type UserPromptTag = PromptTag & { source: 'user' }
 
@@ -45,6 +56,7 @@ export type State = {
   hideUnavailable: boolean
   seeds: SeedEntry[]
   savedPrompts: SavedPrompt[]
+  promptGroups: PromptGroup[]
   navigationCollapsed: boolean
   workspaceView: WorkspaceView
   addTag: (tag: SelectedTag) => void
@@ -75,7 +87,10 @@ export type State = {
   setSeeds: (seeds: SeedEntry[]) => void
   savePrompt: (input: SavePromptInput) => SavedPrompt | null
   restorePrompt: (id: string) => boolean
+  mergeSavedPrompt: (id: string) => boolean
   deleteSavedPrompt: (id: string) => void
+  addPromptGroup: (name: string) => PromptGroup | null
+  renamePromptGroup: (id: string, name: string) => boolean
   setNavigationCollapsed: (collapsed: boolean) => void
   setWorkspaceView: (view: WorkspaceView) => void
 }
@@ -103,6 +118,47 @@ const cloneBlock = (block: PromptBlock): PromptBlock => ({ ...block, tags: block
 const cloneSeed = (seed: SeedEntry): SeedEntry => ({ ...seed })
 const validSeeds = (seeds: SeedEntry[]) => seeds.every(seed => Number.isSafeInteger(seed.value))
   && new Set(seeds.map(seed => seed.value)).size === seeds.length
+const DEFAULT_SAVED_PROMPT_COLOR = '#58a6ff'
+const promptDisplayTags = (blocks: PromptBlock[], sceneTags: SelectedTag[]) => [
+  ...sceneTags.map(cloneSelectedTag),
+  ...blocks.flatMap(block => block.tags.map(cloneSelectedTag)),
+]
+
+function normalizeSavedPrompt(saved: Partial<SavedPrompt>, fallbackPreset: ModelPreset): SavedPrompt {
+  const blocks = Array.isArray(saved.structure?.blocks)
+    ? saved.structure.blocks.map(cloneBlock)
+    : Array.isArray(saved.blocks) ? saved.blocks.map(cloneBlock) : []
+  const sceneTags = Array.isArray(saved.structure?.sceneTags)
+    ? saved.structure.sceneTags.map(cloneSelectedTag)
+    : Array.isArray(saved.sceneTags) ? saved.sceneTags.map(cloneSelectedTag) : []
+  const modelPreset = saved.settings?.modelPreset ?? saved.modelPreset ?? fallbackPreset
+  const seeds = (Array.isArray(saved.settings?.seeds) ? saved.settings.seeds : saved.seeds ?? [])
+    .filter(seed => seed && Number.isSafeInteger(seed.value)).map(cloneSeed)
+  const displayTags = Array.isArray(saved.displayTags) ? saved.displayTags.map(cloneSelectedTag) : promptDisplayTags(blocks, sceneTags)
+  const generatedPrompt = saved.generatedPrompt ?? saved.positivePrompt ?? ''
+  const now = Date.now()
+  return {
+    id: saved.id ?? `saved-prompt-${createId()}`,
+    name: saved.name?.trim() || 'Untitled Prompt',
+    color: saved.color || DEFAULT_SAVED_PROMPT_COLOR,
+    groups: Array.isArray(saved.groups) ? [...new Set(saved.groups.filter(Boolean))] : [],
+    summaryTags: Array.isArray(saved.summaryTags) && saved.summaryTags.length > 0
+      ? [...saved.summaryTags]
+      : displayTags.slice(0, 5).map(tag => tag.label || tag.prompt),
+    displayTags,
+    structure: { blocks: blocks.map(cloneBlock), sceneTags: sceneTags.map(cloneSelectedTag) },
+    generatedPrompt,
+    negativePrompt: saved.negativePrompt ?? '',
+    settings: { modelPreset, seeds: seeds.map(cloneSeed) },
+    modelPreset,
+    positivePrompt: generatedPrompt,
+    blocks,
+    sceneTags,
+    seeds,
+    createdAt: saved.createdAt ?? now,
+    updatedAt: saved.updatedAt ?? saved.createdAt ?? now,
+  }
+}
 
 function migrateLegacyUserClothingTag(tag: UserPromptTag): UserPromptTag {
   const direct: Record<string, string> = {
@@ -166,13 +222,8 @@ export function migratePersistedState(persisted: unknown) {
         })
       : state.userTags,
     seeds: Array.isArray(state.seeds) ? state.seeds.filter(seed => seed && Number.isSafeInteger(seed.value)).map(cloneSeed) : [],
-    savedPrompts: Array.isArray(state.savedPrompts) ? state.savedPrompts.map(saved => ({
-      ...saved,
-      modelPreset: saved.modelPreset ?? state.modelPreset ?? 'illustrious',
-      blocks: Array.isArray(saved.blocks) ? saved.blocks.map(cloneBlock) : [],
-      sceneTags: Array.isArray(saved.sceneTags) ? saved.sceneTags.map(cloneSelectedTag) : [],
-      seeds: Array.isArray(saved.seeds) ? saved.seeds.filter(seed => seed && Number.isSafeInteger(seed.value)).map(cloneSeed) : [],
-    })) : [],
+    savedPrompts: Array.isArray(state.savedPrompts) ? state.savedPrompts.map(saved => normalizeSavedPrompt(saved, state.modelPreset ?? 'illustrious')) : [],
+    promptGroups: Array.isArray(state.promptGroups) ? state.promptGroups.filter(group => group && group.id && group.name?.trim()).map(group => ({ ...group, name: group.name.trim() })) : [],
     navigationCollapsed: state.navigationCollapsed === true,
     workspaceView: state.workspaceView === 'favorites' || state.workspaceView === 'library' ? state.workspaceView : 'prompt',
   }
@@ -191,6 +242,7 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   hideUnavailable: false,
   seeds: [],
   savedPrompts: [],
+  promptGroups: [],
   navigationCollapsed: false,
   workspaceView: 'prompt',
   replaceTags: (removeIds, tag) => set((state) => ({
@@ -296,15 +348,27 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
     if (!name || !validSeeds(input.seeds)) return null
     const state = get()
     const now = Date.now()
+    const blocks = state.blocks.map(cloneBlock)
+    const sceneTags = state.sceneTags.map(cloneSelectedTag)
+    const seeds = input.seeds.map(cloneSeed)
+    const displayTags = promptDisplayTags(blocks, sceneTags)
+    const groups = [...new Set((input.groups ?? []).filter(id => state.promptGroups.some(group => group.id === id)))]
     const saved: SavedPrompt = {
       id: `saved-prompt-${createId()}`,
       name,
+      color: input.color || DEFAULT_SAVED_PROMPT_COLOR,
+      groups,
+      summaryTags: displayTags.slice(0, 5).map(tag => tag.label || tag.prompt),
+      displayTags,
+      structure: { blocks: blocks.map(cloneBlock), sceneTags: sceneTags.map(cloneSelectedTag) },
+      generatedPrompt: input.positivePrompt,
+      settings: { modelPreset: state.modelPreset, seeds: seeds.map(cloneSeed) },
       modelPreset: state.modelPreset,
       positivePrompt: input.positivePrompt,
       negativePrompt: input.negativePrompt,
-      blocks: state.blocks.map(cloneBlock),
-      sceneTags: state.sceneTags.map(cloneSelectedTag),
-      seeds: input.seeds.map(cloneSeed),
+      blocks,
+      sceneTags,
+      seeds,
       createdAt: now,
       updatedAt: now,
     }
@@ -326,11 +390,48 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
     })
     return true
   },
+  mergeSavedPrompt: (id) => {
+    const state = get()
+    const saved = state.savedPrompts.find(item => item.id === id)
+    if (!saved) return false
+    const mergeTags = (current: SelectedTag[], incoming: SelectedTag[]) => {
+      const seen = new Set(current.map(tag => `${tag.id}\u0000${tag.prompt}`))
+      return [...current.map(cloneSelectedTag), ...incoming.filter(tag => !seen.has(`${tag.id}\u0000${tag.prompt}`)).map(cloneSelectedTag)]
+    }
+    const blocks = [...state.blocks.map(cloneBlock), ...saved.blocks.map((block, index) => ({
+      ...cloneBlock(block),
+      id: createId(),
+      subjectNumber: state.blocks.length + index + 1,
+      name: `Character ${state.blocks.length + index + 1}`,
+    }))]
+    set({
+      blocks,
+      sceneTags: mergeTags(state.sceneTags, saved.sceneTags),
+      negative: [state.negative, saved.negativePrompt].filter(Boolean).join(', '),
+      seeds: [...state.seeds, ...saved.seeds.filter(seed => !state.seeds.some(current => current.value === seed.value)).map(cloneSeed)],
+    })
+    return true
+  },
   deleteSavedPrompt: (id) => set(state => ({ savedPrompts: state.savedPrompts.filter(item => item.id !== id) })),
+  addPromptGroup: (value) => {
+    const name = value.trim()
+    if (!name || get().promptGroups.some(group => group.name.toLocaleLowerCase() === name.toLocaleLowerCase())) return null
+    const now = Date.now()
+    const group: PromptGroup = { id: `prompt-group-${createId()}`, name, createdAt: now, updatedAt: now }
+    set(state => ({ promptGroups: [...state.promptGroups, group] }))
+    return group
+  },
+  renamePromptGroup: (id, value) => {
+    const name = value.trim()
+    const state = get()
+    if (!name || !state.promptGroups.some(group => group.id === id) || state.promptGroups.some(group => group.id !== id && group.name.toLocaleLowerCase() === name.toLocaleLowerCase())) return false
+    set({ promptGroups: state.promptGroups.map(group => group.id === id ? { ...group, name, updatedAt: Date.now() } : group) })
+    return true
+  },
   setNavigationCollapsed: (navigationCollapsed) => set({ navigationCollapsed }),
   setWorkspaceView: (workspaceView) => set({ workspaceView }),
 }), {
   name: 'sd-prompt-studio-v14',
-  version: 14,
+  version: 15,
   migrate: migratePersistedState,
 }))

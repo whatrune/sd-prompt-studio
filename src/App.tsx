@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { Activity, AlertTriangle, BadgeCheck, Ban, BookOpen, Camera, Check, ChevronDown, ChevronRight, ChevronUp, Copy, Eye, Gem, Image, Info, Lightbulb, Menu, MessageSquareText, Package, PersonStanding, Plus, RotateCcw, Save, Scissors, Search, Settings2, Shirt, Smile, Sparkles, Star, Tags, Trash2, UserRound, Users, WandSparkles, X } from 'lucide-react'
 import { categoryLabels, categoryOrder, subcategoryOrder, TAG_COUNT, tags, type ContentRating, type PromptTag } from './data/tags'
 import { ADULT_TAG_COUNT, adultTags } from './data/adultTags'
-import { isSceneCategory, usePromptStore, type SelectedTag, type ModelPreset } from './store'
+import { isSceneCategory, usePromptStore, type SelectedTag, type ModelPreset, type SavedPrompt } from './store'
 import { compatibilityLabel, generationNote, heuristicCategory, inferCategory, modelHints } from './engine/tagIntelligence'
 import { getConflictMap } from './engine/smartTagEngine'
 import './styles.css'
@@ -182,6 +182,16 @@ export default function App() {
   const [savePromptName, setSavePromptName] = useState('')
   const [seedInputs, setSeedInputs] = useState<string[]>([''])
   const [savePromptError, setSavePromptError] = useState('')
+  const [savePromptColor, setSavePromptColor] = useState('#58a6ff')
+  const [savePromptGroups, setSavePromptGroups] = useState<string[]>([])
+  const [activeLibraryGroup, setActiveLibraryGroup] = useState('all')
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false)
+  const [groupName, setGroupName] = useState('')
+  const [groupError, setGroupError] = useState('')
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
+  const [editingGroupName, setEditingGroupName] = useState('')
+  const [selectedSavedPrompt, setSelectedSavedPrompt] = useState<SavedPrompt | null>(null)
+  const [pendingApplyPrompt, setPendingApplyPrompt] = useState<SavedPrompt | null>(null)
   const [activeNavigationFlyout, setActiveNavigationFlyout] = useState<'prompt' | 'favorites' | 'library' | null>(null)
   const navigationHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const navigationCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -352,6 +362,8 @@ export default function App() {
   const openSavePrompt = () => {
     setSavePromptName('')
     setSeedInputs(store.seeds.length > 0 ? store.seeds.map(seed => String(seed.value)) : [''])
+    setSavePromptColor('#58a6ff')
+    setSavePromptGroups([])
     setSavePromptError('')
     setSavePromptOpen(true)
   }
@@ -374,12 +386,41 @@ export default function App() {
       setSavePromptError('名前を入力してください。')
       return
     }
-    const saved = store.savePrompt({ name, positivePrompt: prompt, negativePrompt: store.negative, seeds })
+    const saved = store.savePrompt({ name, positivePrompt: prompt, negativePrompt: store.negative, seeds, color: savePromptColor, groups: savePromptGroups })
     if (!saved) {
       setSavePromptError('保存内容を確認してください。')
       return
     }
     setSavePromptOpen(false)
+  }
+  const visibleSavedPrompts = activeLibraryGroup === 'all'
+    ? store.savedPrompts
+    : store.savedPrompts.filter(saved => saved.groups.includes(activeLibraryGroup))
+  const createPromptGroup = () => {
+    const group = store.addPromptGroup(groupName)
+    if (!group) {
+      setGroupError('空の名前、または同名のグループは作成できません。')
+      return
+    }
+    setActiveLibraryGroup(group.id)
+    setGroupName('')
+    setGroupError('')
+    setGroupDialogOpen(false)
+  }
+  const finishGroupRename = (id: string) => {
+    if (store.renamePromptGroup(id, editingGroupName)) setEditingGroupId(null)
+  }
+  const applySavedPrompt = (mode: 'replace' | 'merge') => {
+    if (!pendingApplyPrompt) return
+    const applied = mode === 'replace'
+      ? store.restorePrompt(pendingApplyPrompt.id)
+      : store.mergeSavedPrompt(pendingApplyPrompt.id)
+    if (applied) {
+      const nextBlockId = mode === 'replace' ? pendingApplyPrompt.blocks[0]?.id : store.activeBlockId
+      if (nextBlockId) setViewContextId(nextBlockId)
+      store.setWorkspaceView('prompt')
+      setPendingApplyPrompt(null)
+    }
   }
 
   const warnings = useMemo(() => conflicts(active.tags), [active.tags])
@@ -634,7 +675,31 @@ export default function App() {
       </aside>
 
       <section className="tag-panel panel">
-        <div className="prompt-workspace-content">
+        {store.workspaceView==='library'?<div className="library-workspace">
+          <header className="library-workspace-header">
+            <div><span className="eyebrow">PROMPT ASSETS</span><h1>Prompt Library</h1><p>再編集できるPrompt状態を保存・整理します。</p></div>
+            <button type="button" onClick={openSavePrompt}><Save size={16}/>現在のPromptを保存</button>
+          </header>
+          <nav className="library-tabs" aria-label="Prompt Libraryグループ">
+            <button type="button" className={activeLibraryGroup==='all'?'active':''} aria-pressed={activeLibraryGroup==='all'} onClick={()=>setActiveLibraryGroup('all')}>すべて</button>
+            <button type="button" className="library-add-group" aria-label="グループを追加" onClick={()=>{setGroupName('');setGroupError('');setGroupDialogOpen(true)}}><Plus size={15}/></button>
+            {store.promptGroups.map(group=>editingGroupId===group.id
+              ?<input key={group.id} className="library-group-edit" aria-label={`${group.name}の名前を編集`} autoFocus value={editingGroupName} onChange={event=>setEditingGroupName(event.target.value)} onBlur={()=>finishGroupRename(group.id)} onKeyDown={event=>{if(event.key==='Enter')finishGroupRename(group.id);if(event.key==='Escape')setEditingGroupId(null)}}/>
+              :<button type="button" key={group.id} className={activeLibraryGroup===group.id?'active':''} aria-pressed={activeLibraryGroup===group.id} onClick={()=>setActiveLibraryGroup(group.id)} onDoubleClick={()=>{setEditingGroupId(group.id);setEditingGroupName(group.name)}}>{group.name}</button>)}
+          </nav>
+          <section className="library-card-list" aria-label="保存済みPrompt一覧">
+            {visibleSavedPrompts.length===0?<div className="library-empty"><BookOpen size={22}/><strong>保存済みPromptはありません</strong><span>現在のPromptを保存すると、ここから再利用できます。</span></div>:visibleSavedPrompts.map(saved=><article className="saved-prompt-asset" key={saved.id} style={{'--saved-prompt-color':saved.color} as CSSProperties}>
+              <button type="button" className="saved-prompt-asset-main" onClick={()=>setPendingApplyPrompt(saved)}>
+                <span className="saved-prompt-color" aria-hidden="true"/>
+                <strong>{saved.name}</strong>
+                <small>{saved.displayTags.length} tags</small>
+                <span className="saved-prompt-summary">{saved.summaryTags.length?saved.summaryTags.join(' / '):'タグなし'}</span>
+                <time dateTime={new Date(saved.updatedAt).toISOString()}>{new Date(saved.updatedAt).toLocaleDateString('ja-JP')}</time>
+              </button>
+              <button type="button" className="saved-prompt-info" aria-label={`${saved.name}の詳細`} onClick={()=>setSelectedSavedPrompt(saved)}><Info size={17}/></button>
+            </article>)}
+          </section>
+        </div>:<div className="prompt-workspace-content">
         <div className="prompt-controls">
         <div className="prompt-control-bar">
         {isSearchMode&&<section className="category-tabs-section" aria-label="検索結果カテゴリ"><div className="subcategory-tabs">{['すべて',...searchCategories].map(categoryKey=>{const activeCategory=searchCategory===categoryKey;return <button key={categoryKey} className={activeCategory?'active':''} aria-pressed={activeCategory} onClick={()=>setSearchCategory(categoryKey)}>{activeCategory&&<Check size={14}/>}<span>{categoryKey==='すべて'?'すべて':getCategoryLabel(categoryKey,locale)}</span></button>})}</div></section>}
@@ -682,7 +747,7 @@ export default function App() {
           </section>)}</div>
         </section>)}</div>}
         </section>
-        </div>
+        </div>}
       </section>
 
       <aside className="preview panel">
@@ -751,9 +816,28 @@ export default function App() {
     {savePromptOpen&&<div className="modal-backdrop" onMouseDown={()=>setSavePromptOpen(false)}><section className="prompt-save-modal" onMouseDown={event=>event.stopPropagation()}>
       <div className="analyzer-head"><div><span className="eyebrow">PROMPT LIBRARY</span><h2>現在の編集状態を保存</h2></div><button aria-label="保存画面を閉じる" onClick={()=>setSavePromptOpen(false)}><X size={18}/></button></div>
       <label className="prompt-save-name">名前<input value={savePromptName} onChange={event=>setSavePromptName(event.target.value)} placeholder="例: Cyber Witch"/></label>
+      <label className="prompt-save-color">識別カラー<input type="color" value={savePromptColor} onChange={event=>setSavePromptColor(event.target.value)}/></label>
+      {store.promptGroups.length>0&&<fieldset className="prompt-save-groups"><legend>グループ <small>（複数選択可）</small></legend>{store.promptGroups.map(group=><label key={group.id}><input type="checkbox" checked={savePromptGroups.includes(group.id)} onChange={()=>setSavePromptGroups(current=>current.includes(group.id)?current.filter(id=>id!==group.id):[...current,group.id])}/>{group.name}</label>)}</fieldset>}
       <div className="prompt-save-seeds"><strong>Seed <small>（任意）</small></strong>{seedInputs.map((value,index)=><div className="prompt-save-seed-row" key={index}><input inputMode="numeric" aria-label={`Seed ${index+1}`} value={value} onChange={event=>{const next=event.target.value.replace(/\D/g,'');setSeedInputs(current=>current.map((item,i)=>i===index?next:item));setSavePromptError('')}} placeholder="123456789"/><button type="button" onClick={()=>setSeedInputs(current=>current.filter((_,i)=>i!==index))}>削除</button></div>)}<button type="button" className="prompt-add-seed" onClick={()=>setSeedInputs(current=>[...current,''])}><Plus size={14}/>Seed追加</button></div>
       {savePromptError&&<p className="prompt-save-error" role="alert">{savePromptError}</p>}
       <div className="modal-actions"><button className="ghost" onClick={()=>setSavePromptOpen(false)}>キャンセル</button><button onClick={submitSavedPrompt}>保存</button></div>
+    </section></div>}
+    {groupDialogOpen&&<div className="modal-backdrop" onMouseDown={()=>setGroupDialogOpen(false)}><section className="library-dialog" role="dialog" aria-modal="true" aria-labelledby="new-prompt-group-title" onMouseDown={event=>event.stopPropagation()}>
+      <div className="analyzer-head"><div><span className="eyebrow">PROMPT LIBRARY</span><h2 id="new-prompt-group-title">新しいグループ</h2></div><button aria-label="閉じる" onClick={()=>setGroupDialogOpen(false)}><X size={18}/></button></div>
+      <label>グループ名<input autoFocus value={groupName} onChange={event=>{setGroupName(event.target.value);setGroupError('')}} onKeyDown={event=>{if(event.key==='Enter')createPromptGroup();if(event.key==='Escape')setGroupDialogOpen(false)}}/></label>
+      {groupError&&<p className="prompt-save-error" role="alert">{groupError}</p>}
+      <div className="modal-actions"><button className="ghost" onClick={()=>setGroupDialogOpen(false)}>キャンセル</button><button onClick={createPromptGroup}>作成</button></div>
+    </section></div>}
+    {selectedSavedPrompt&&<div className="modal-backdrop" onMouseDown={()=>setSelectedSavedPrompt(null)}><section className="saved-prompt-detail" role="dialog" aria-modal="true" aria-labelledby="saved-prompt-detail-title" onMouseDown={event=>event.stopPropagation()}>
+      <div className="analyzer-head"><div><span className="eyebrow">PROMPT DETAIL</span><h2 id="saved-prompt-detail-title">{selectedSavedPrompt.name}</h2></div><button aria-label="詳細を閉じる" onClick={()=>setSelectedSavedPrompt(null)}><X size={18}/></button></div>
+      <section><h3>Tags <small>{selectedSavedPrompt.displayTags.length}</small></h3><div className="saved-prompt-detail-tags">{categoryOrder.flatMap(categoryKey=>{const items=selectedSavedPrompt.displayTags.filter(tag=>tag.category===categoryKey);return items.length?[<div key={categoryKey}><strong>{getCategoryLabel(categoryKey,locale)}</strong><span>{items.map(tag=>tag.label||tag.prompt).join(' / ')}</span></div>]:[]})}</div></section>
+      <section><h3>Structure</h3><dl className="saved-prompt-structure"><div><dt>Model</dt><dd>{selectedSavedPrompt.settings.modelPreset}</dd></div><div><dt>Characters</dt><dd>{selectedSavedPrompt.structure.blocks.length}</dd></div><div><dt>Scene Tags</dt><dd>{selectedSavedPrompt.structure.sceneTags.length}</dd></div><div><dt>Seeds</dt><dd>{selectedSavedPrompt.settings.seeds.map(seed=>seed.value).join(', ')||'未設定'}</dd></div></dl><pre>{selectedSavedPrompt.generatedPrompt}</pre></section>
+    </section></div>}
+    {pendingApplyPrompt&&<div className="modal-backdrop" onMouseDown={()=>setPendingApplyPrompt(null)}><section className="library-dialog apply-prompt-dialog" role="dialog" aria-modal="true" aria-labelledby="apply-prompt-title" onMouseDown={event=>event.stopPropagation()}>
+      <div className="analyzer-head"><div><span className="eyebrow">APPLY PROMPT</span><h2 id="apply-prompt-title">このPromptを適用しますか？</h2></div><button aria-label="閉じる" onClick={()=>setPendingApplyPrompt(null)}><X size={18}/></button></div>
+      <p><strong>{pendingApplyPrompt.name}</strong></p><p>現在のPrompt: {store.sceneTags.length+store.blocks.reduce((total,block)=>total+block.tags.length,0)} tags</p>
+      <div className="apply-prompt-options"><button onClick={()=>applySavedPrompt('replace')}><strong>上書き</strong><span>現在のPromptを置き換えます。</span></button><button onClick={()=>applySavedPrompt('merge')}><strong>追加</strong><span>現在のPromptへ単純マージします。</span></button></div>
+      <div className="modal-actions"><button className="ghost" onClick={()=>setPendingApplyPrompt(null)}>キャンセル</button></div>
     </section></div>}
     {inspectedTag&&<div className="modal-backdrop" onMouseDown={()=>setInspectedTag(null)}><section className="tag-detail-modal" onMouseDown={e=>e.stopPropagation()}><div className="analyzer-head"><div><span className="eyebrow">TAG INTELLIGENCE</span><h2>{inspectedTag.label}</h2><code>{inspectedTag.prompt}</code></div><button onClick={()=>setInspectedTag(null)}><X size={18}/></button></div>{categoryGuides[inspectedTag.category]&&<div className={`category-guide category-guide-${inspectedTag.category}`}><strong>{categoryGuides[inspectedTag.category].title}</strong><p>{categoryGuides[inspectedTag.category].text}</p></div>}{generationNote(inspectedTag)&&<><strong className="mini-title">生成メモ</strong><p>{generationNote(inspectedTag)}</p></>}<dl><div><dt>分類</dt><dd>{categoryLabels[inspectedTag.category]} / {inspectedTag.subcategory || '未分類'}</dd></div><div><dt>表示区分</dt><dd>{inspectedTag.rating || 'general'}</dd></div></dl><strong className="mini-title">モデル記法の目安</strong><div className="model-hints">{modelHints(inspectedTag).map(h=><span key={h.model} className={`model-hint ${h.level}`}><b>{h.model}</b>{compatibilityLabel(h.level)}<small>{h.note}</small></span>)}</div>{(inspectedTag.related?.length??0)>0&&<><strong className="mini-title">関連タグ</strong><div className="inspector-related">{inspectedTag.related!.map(x=><button key={x} onClick={()=>{const found=visibleDictionaryTags.find(t=>t.prompt===x);if(found)toggleDictionaryTag(found)}}>{x}</button>)}</div></>}</section></div>}
     {analyzerOpen&&<div className="modal-backdrop" onMouseDown={()=>setAnalyzerOpen(false)}><section className="analyzer-modal" onMouseDown={e=>e.stopPropagation()}><div className="analyzer-head"><div><span className="eyebrow">PROMPT ANALYZER</span><h2>既存プロンプトをGUIへ取り込む</h2></div><button onClick={()=>setAnalyzerOpen(false)}><X size={18}/></button></div><p>カンマ、改行、角括弧、BREAKを解析し、辞書一致またはキーワード推定でカテゴリ分けします。</p><textarea value={analyzerText} onChange={e=>setAnalyzerText(e.target.value)} placeholder="masterpiece, 1girl, blue hair, ..."/><div className="analyzer-preview">{analyzerText.split(/,|\n|BREAK/i).map(x=>x.trim().replace(/^\[|\]$/g,'')).filter(Boolean).slice(0,80).map((raw,i)=>{const clean=raw.replace(/^\((.*):[\d.]+\)$/,'$1').trim();const found=inferCategory(clean,visibleDictionaryTags);const cat=found?.category||heuristicCategory(clean);return <span key={`${raw}-${i}`}><b>{categoryLabels[cat]||cat}</b>{clean}{found?'':'（推定）'}</span>})}</div><div className="modal-actions"><button className="ghost" onClick={()=>setAnalyzerText('')}>クリア</button><button onClick={()=>{const entries=analyzerText.split(/,|\n|BREAK/i).map(x=>x.trim().replace(/^\[|\]$/g,'')).filter(Boolean);entries.forEach(raw=>{const m=raw.match(/^\((.*):([\d.]+)\)$/);const clean=(m?.[1]||raw).trim();const found=inferCategory(clean,visibleDictionaryTags);const cat=found?.category||heuristicCategory(clean);store.addTag({...found,id:found?.id||`analyzed-${createId()}`,prompt:found?.prompt||clean,label:found?.label||clean,category:cat,subcategory:found?.subcategory||'解析・自由タグ',weight:m?Number(m[2]):1})});setAnalyzerOpen(false)}}><BookOpen size={16}/>解析結果を追加</button></div></section></div>}

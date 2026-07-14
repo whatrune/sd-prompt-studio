@@ -840,6 +840,52 @@ body{background:var(--bg-primary);color:var(--text-primary)}
   .workspace{grid-template-columns:minmax(150px,.55fr) minmax(0,1.35fr) minmax(260px,1fr)}
   .workspace>.panel,.prompt-workspace-content,.prompt-controls,.prompt-control-bar,.category-tabs-section,.color-selector-section,.tag-list-section,.color-modifier-bar,.subcategory-tabs{min-width:0}
 }
+
+/* Prompt Library workspace */
+.library-workspace{display:flex;flex-direction:column;min-width:0;min-height:0;height:100%;overflow:hidden;background:var(--bg-primary)}
+.library-workspace-header{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:20px 22px 14px}
+.library-workspace-header h1{margin:2px 0 3px;font-size:22px}
+.library-workspace-header p{margin:0;color:var(--muted);font-size:12px}
+.library-workspace-header>button{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto}
+.library-tabs{display:flex;align-items:center;gap:6px;min-width:0;padding:0 22px 12px;overflow-x:auto;scrollbar-gutter:stable}
+.library-tabs button,.library-group-edit{flex:0 0 auto;min-height:32px;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--muted);padding:6px 12px}
+.library-tabs button:hover{background:var(--bg-hover);color:var(--text-primary)}
+.library-tabs button.active{background:var(--bg-hover);border-color:var(--border);color:var(--text-primary);font-weight:600}
+.library-tabs .library-add-group{display:grid;place-items:center;width:32px;padding:0;border:1px dashed var(--border)}
+.library-group-edit{width:140px;background:var(--input-bg);color:var(--text-primary);outline:2px solid var(--accent)}
+.library-card-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(230px,100%),1fr));gap:12px;min-height:0;padding:4px 22px 22px;overflow-y:auto;scrollbar-gutter:stable}
+.saved-prompt-asset{position:relative;min-width:0;min-height:154px;border:1px solid var(--border);border-left:4px solid var(--saved-prompt-color);border-radius:10px;background:color-mix(in srgb,var(--bg-secondary) 72%,var(--bg-primary));overflow:hidden}
+.saved-prompt-asset:hover{border-color:color-mix(in srgb,var(--saved-prompt-color) 55%,var(--border));background:var(--bg-hover)}
+.saved-prompt-asset-main{display:grid;grid-template-columns:auto 1fr;align-content:start;gap:9px 8px;width:100%;height:100%;padding:15px 42px 15px 14px;text-align:left;background:transparent;border:0;color:var(--text-primary)}
+.saved-prompt-color{width:10px;height:10px;margin-top:4px;border-radius:50%;background:var(--saved-prompt-color)}
+.saved-prompt-asset-main>strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.saved-prompt-asset-main>small,.saved-prompt-asset-main>time{grid-column:2;color:var(--muted);font-size:11px}
+.saved-prompt-summary{grid-column:1/-1;display:-webkit-box;min-width:0;overflow:hidden;color:var(--muted);font-size:12px;line-height:1.55;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.saved-prompt-info{position:absolute;right:9px;top:9px;display:grid;place-items:center;width:30px;height:30px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--muted)}
+.saved-prompt-info:hover{background:var(--bg-secondary);color:var(--text-primary)}
+.library-empty{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:240px;color:var(--muted);text-align:center}
+.library-empty strong{color:var(--text-primary)}
+.library-dialog,.saved-prompt-detail{width:min(520px,calc(100vw - 32px));max-height:min(760px,calc(100vh - 32px));overflow:auto;border:1px solid var(--border);border-radius:12px;background:var(--bg-secondary);padding:18px;color:var(--text-primary)}
+.library-dialog>label{display:grid;gap:7px;margin:16px 0;color:var(--muted);font-size:12px;font-weight:600}
+.library-dialog>label input{min-height:38px}
+.saved-prompt-detail{width:min(680px,calc(100vw - 32px))}
+.saved-prompt-detail>section{padding:14px 0;border-top:1px solid var(--border)}
+.saved-prompt-detail h3{display:flex;gap:8px;margin:0 0 12px;font-size:14px}
+.saved-prompt-detail h3 small{color:var(--muted)}
+.saved-prompt-detail-tags{display:grid;gap:9px}
+.saved-prompt-detail-tags>div{display:grid;grid-template-columns:minmax(90px,130px) 1fr;gap:12px;font-size:12px}
+.saved-prompt-detail-tags span{color:var(--muted);line-height:1.6}
+.saved-prompt-structure{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0 0 12px}
+.saved-prompt-structure>div{padding:9px;border-radius:7px;background:var(--bg-hover)}
+.saved-prompt-structure dt{color:var(--muted);font-size:10px;text-transform:uppercase}.saved-prompt-structure dd{margin:3px 0 0}
+.saved-prompt-detail pre{max-height:180px;margin:0;overflow:auto;white-space:pre-wrap;color:var(--muted);font-size:11px}
+.apply-prompt-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}
+.apply-prompt-options button{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:14px;text-align:left;background:var(--bg-hover);border:1px solid var(--border)}
+.apply-prompt-options button span{color:var(--muted);font-size:11px}
+.prompt-save-color{display:flex!important;align-items:center;justify-content:space-between}.prompt-save-color input{width:54px;min-height:32px!important;padding:2px}
+.prompt-save-groups{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0;padding:10px;border:1px solid var(--border);border-radius:8px}
+.prompt-save-groups legend{padding:0 5px;color:var(--muted);font-size:12px;font-weight:600}.prompt-save-groups label{display:flex;align-items:center;gap:5px;font-size:12px}
+@media(max-width:900px){.library-workspace-header{padding-inline:14px}.library-tabs{padding-inline:14px}.library-card-list{padding-inline:14px}.library-workspace-header p{display:none}}
 .preview-section{--preview-section-spacing:8px;border-top:1px solid var(--border);background:var(--bg-secondary)}
 .preview-section-header{display:flex;align-items:center;min-height:36px;background:var(--bg-secondary)}
 .preview-section-toggle{flex:1;height:36px;min-height:36px;padding:0 12px;font-size:12px;font-weight:600}
