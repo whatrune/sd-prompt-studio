@@ -4,37 +4,44 @@
 
 The Concept Dictionary is the canonical ledger between human intent, observed model behavior, compiler concepts, and rendered phrases. It must not collapse a human translation, a model observation, and a compiler rule into one undocumented label.
 
-## Required concept fields
+## Production Dictionary requirements
 
-Every production concept carries the following core information. The production dictionary contract and the TypeScript intermediate-representation contract intentionally differ:
+The production dictionary contract and the TypeScript intermediate-representation contract intentionally differ:
 
-- **Production Dictionary**: the fields in the table below are required. Unknown values must be represented explicitly according to the storage format rather than silently omitted.
+- **Production Dictionary**: every concept has a small common identity contract plus conditional requirements determined by its Concept Type, role, and declared behavior.
 - **Draft / Migration Schema**: the corresponding fields in `PromptNode.ts` may be optional so unresearched concepts and partially migrated legacy records can be represented.
 - **Meaning of `undefined`**: an omitted optional value means **unknown / not yet investigated**, never `false`, unsupported, empty, or inapplicable.
 
-Promotion from draft/migration data into the production dictionary therefore requires validation that all production fields are populated.
+Promotion from draft/migration data into the production dictionary requires the common fields and every applicable conditional field. It does not require meaningless empty arrays or dummy values for conditions that do not apply.
+
+### Common required fields
 
 | Field | Purpose |
 |---|---|
+| `id` | Stable canonical identifier used by references, provenance, and migration. |
 | `phrase` | Canonical English phrase passed to or considered by the renderer. |
 | `displayName` | UI label; may describe observed behavior rather than translate literally. |
-| `humanMeaning` | Meaning intended by a human speaker. |
-| `observedModelBehavior` | Behavior actually observed under recorded conditions. |
-| `conceptType` | Atomic, modifier, native/expandable composite, relation, effect, or exception. |
+| `domain` | Subject area owned by the concept, separate from its compiler role. |
 | `role` | How the concept acts in the compiler. |
-| `primaryAxis` | Primary compiler-side resolution axis. |
-| `components` | Possible expansion components. |
-| `requiredComponents` | Components that must be present for an expandable concept. |
-| `compatibleStates` | Body/object states in which the concept can resolve. |
-| `preferredStates` | States that improve or dominate activation. |
-| `stateDependency` | Whether state is none, optional, or required. |
-| `conflicts` | Known incompatible concepts or rules. |
-| `secondaryEffects` | Observed cross-axis effects. |
-| `stability` | Repeatability under the recorded scope. |
+| `conceptType` | Atomic, modifier, native/expandable composite, relation, effect, or exception. |
 | `supportStatus` | Supported, unverified, unreliable, unsupported, or exception. |
-| `observations` | Evidence-preserving notes, including failures and context. |
 
-The full schema also supports aliases, domains, secondary axes, optional components, state affinity, support/orientation/object/scene requirements, target/evidence/visibility regions, upper-body observability, visibility strength, viewer-relation requirements/support, framing and spatial budget, resolution priority, cooperation/suppression, variance, context/model dependency, confidence, and evidence-source IDs. See [PromptNode.ts](../schemas/PromptNode.ts).
+Descriptive and research fields such as `humanMeaning`, `observedModelBehavior`, `primaryAxis`, and `observations` are populated when applicable or investigated. A production storage policy may require an explicit unknown marker for these fields, but it must not substitute false, an empty string, or fabricated evidence for unknown information.
+
+### Conditional required fields
+
+| Condition | Required information |
+|---|---|
+| `conceptType: "expandable_composite"` | A non-empty `components` array, at least one component with `role: "required"`, and an `expansionStrategy`. |
+| `conceptType: "relation"` | Directionality or an explicit source/target contract. A resolved relation instance uses `RelationNode.sourceEntityId` and `targetEntityId`. |
+| State-dependent pose or object concept | `stateDependency` and/or `stateAffinity`, with compatible, preferred, or incompatible states when the evidence supports them. |
+| Concept with a visibility or observability requirement | Applicable region metadata such as `requiresVisibleRegions` or `evidenceRegions`, plus observability/visibility strength when known. |
+| Model-dependent concept | `modelDependent: true` and evidence information such as `observations` or `evidenceSources`. |
+| Concept with known conflicts or cross-axis effects | Applicable `conflicts`, `secondaryEffects`, cooperation, suppression, or fallback metadata. |
+
+Atomic, relation, effect, and other concepts are not required to carry `components`, state metadata, or visibility arrays when those concepts do not use those behaviors.
+
+The full schema also supports aliases, secondary axes, role-classified components, state affinity, support/orientation/object/scene requirements, target/evidence/visibility regions, upper-body observability, visibility strength, viewer-relation requirements/support, framing and spatial budget, resolution priority, cooperation/suppression, variance, context/model dependency, confidence, and evidence-source IDs. See [PromptNode.ts](../schemas/PromptNode.ts).
 
 ## Concept types
 
@@ -101,7 +108,16 @@ Example: `standing + upper body` is semantically valid, but `upperBodyObservabil
 
 ## Component expansion
 
-Expansion preserves the parent concept and provenance. It is not a silent replacement. A component can be required, optional, evidence-only, or a rendering candidate.
+Expansion preserves the parent concept and provenance. It is not a silent replacement. `ConceptNode.components` is the only component collection, and every `ConceptComponent` has exactly one `ComponentRole`:
+
+| `ComponentRole` | Meaning |
+|---|---|
+| `required` | Must participate in resolution of the expandable parent concept. |
+| `optional` | May strengthen or refine the parent but is not necessary for its resolution. |
+| `evidence` | Helps verify the parent concept in the generated image; it is not necessarily emitted into the prompt. |
+| `render_candidate` | May be selected by the Renderer for a model/context strategy; it is not an instruction to emit the phrase in every prompt. |
+
+Requiredness and usage are determined only by `ConceptComponent.role`; separate required/optional arrays and boolean flags are not used. The component's containment in its parent `ConceptNode` preserves dictionary provenance, while `ResolvedConceptNode.parentConceptIds` preserves provenance after expansion.
 
 The verified design example is the open-leg forward fold:
 

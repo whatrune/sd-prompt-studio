@@ -64,10 +64,22 @@ export type ConceptDomain =
   | "quality"
   | "effect";
 
+/**
+ * A component has exactly one compiler role within its parent concept.
+ * `evidence` verifies the parent concept in an image and is not necessarily
+ * rendered. `render_candidate` is available to the Renderer but is not an
+ * instruction to emit the component in every prompt.
+ */
+export type ComponentRole =
+  | "required"
+  | "optional"
+  | "evidence"
+  | "render_candidate";
+
 export type ConceptComponent = {
   conceptId: string;
+  role: ComponentRole;
   axis?: string;
-  required?: boolean;
   renderPhrase?: string;
   notes?: string[];
 };
@@ -95,9 +107,10 @@ export type ConceptNode = {
   primaryAxis?: string;
   secondaryAxes?: string[];
 
+  /** Components classified exclusively by ConceptComponent.role. */
   components?: ConceptComponent[];
-  requiredComponents?: ConceptComponent[];
-  optionalComponents?: ConceptComponent[];
+  /** Strategy identifier required when a production concept is expandable. */
+  expansionStrategy?: string;
 
   compatibleStates?: string[];
   preferredStates?: string[];
