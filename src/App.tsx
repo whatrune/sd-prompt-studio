@@ -159,6 +159,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [query, setQuery] = useState('')
+  const [searchCategory, setSearchCategory] = useState('すべて')
   const [favoriteCategory, setFavoriteCategory] = useState('すべて')
   const [activeColorModifier, setActiveColorModifier] = useState('')
   const [copiedPositive, setCopiedPositive] = useState(false)
@@ -201,6 +202,7 @@ export default function App() {
   const [propVertical, setPropVertical] = useState('')
   const [propDepth, setPropDepth] = useState('background')
   const store = usePromptStore()
+  const isSearchMode = query.trim().length > 0
   const favoritesOnly = store.workspaceView === 'favorites'
   const mainSubjectId = store.blocks[0]?.id
   const [viewContextId, setViewContextId] = useState<string>(() => store.activeBlockId)
@@ -264,6 +266,12 @@ export default function App() {
     setFavoriteCategory('すべて')
     setSubcategory('すべて')
   }
+  function changeSearchQuery(value: string) {
+    const startsSearch = !isSearchMode && value.trim().length > 0
+    setQuery(value)
+    if (startsSearch || !value.trim()) setSearchCategory('すべて')
+    if (value.trim()) store.setWorkspaceView('prompt')
+  }
 
   const subcategories = useMemo(() => subcategoryOrder[category] ?? [], [category])
   const dictionaryTags = useMemo(() => [...tags, ...adultTags, ...store.userTags], [store.userTags])
@@ -279,17 +287,32 @@ export default function App() {
   useEffect(() => {
     if (favoriteCategory !== 'すべて' && !favoriteCategories.includes(favoriteCategory)) setFavoriteCategory('すべて')
   }, [favoriteCategories, favoriteCategory])
+  const searchCategories = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return []
+    return categoryOrder.filter(categoryKey => visibleDictionaryTags.some(tag => tag.category === categoryKey
+      && scoreTag(tag, q) > 0
+      && (!store.hideUnavailable || conflictMap.get(tag.id)?.level !== 'hard')))
+  }, [conflictMap, query, store.hideUnavailable, visibleDictionaryTags])
+  useEffect(() => {
+    if (!isSearchMode || (searchCategory !== 'すべて' && !searchCategories.includes(searchCategory))) setSearchCategory('すべて')
+  }, [isSearchMode, searchCategories, searchCategory])
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return visibleDictionaryTags.filter(t => {
+      if (q) {
+        if (scoreTag(t, q) === 0) return false
+        if (store.hideUnavailable && conflictMap.get(t.id)?.level === 'hard') return false
+        return searchCategory === 'すべて' || t.category === searchCategory
+      }
       if (favoritesOnly && !store.favoriteIds.includes(t.id)) return false
       if (favoritesOnly && favoriteCategory !== 'すべて' && t.category !== favoriteCategory) return false
       if (!favoritesOnly && !q && t.category !== category) return false
       if (!favoritesOnly && !q && subcategory !== 'すべて' && t.subcategory !== subcategory) return false
       if (!q && store.hideUnavailable && conflictMap.get(t.id)?.level === 'hard') return false
-      return !q || scoreTag(t, q) > 0
+      return true
     }).sort((a,b) => q ? scoreTag(b,q)-scoreTag(a,q) || tagSort(a,b) : tagSort(a,b))
-  }, [category, subcategory, query, favoritesOnly, favoriteCategory, store.favoriteIds, visibleDictionaryTags, store.hideUnavailable, conflictMap])
+  }, [category, subcategory, query, searchCategory, favoritesOnly, favoriteCategory, store.favoriteIds, visibleDictionaryTags, store.hideUnavailable, conflictMap])
   const tagCategoryGroups = useMemo<TagCategoryGroup[]>(() => {
     if (query.trim() || (!favoritesOnly && subcategory !== 'すべて')) {
       return [{ key: 'flat', groups: [{ key: 'flat', label: '', tags: filtered, showTitle: false }] }]
@@ -536,6 +559,7 @@ export default function App() {
   return <main className="app-shell">
     <header className="topbar">
       <div className="app-brand"><button type="button" className="navigation-toggle" aria-label={store.navigationCollapsed?'Navigationを展開':'Navigationを最小化'} aria-expanded={!store.navigationCollapsed} onClick={()=>{closeNavigationFlyout();store.setNavigationCollapsed(!store.navigationCollapsed)}}><Menu size={19}/></button><div><h1>SD Prompt Studio <span className="version-mark">v21.0 α1</span></h1><p>Stable Diffusion Prompt IDE · {(TAG_COUNT + ADULT_TAG_COUNT + store.userTags.length).toLocaleString()} tags</p></div></div>
+      <div className="header-search"><div className="search-box"><Search size={16}/><input aria-label="タグ検索" value={query} onChange={e=>changeSearchQuery(e.target.value)} placeholder="日本語・英語で検索" />{query.length>0&&<button type="button" className="header-search-clear" aria-label="検索をクリア" onClick={()=>changeSearchQuery('')}><X size={15}/></button>}</div></div>
       <div className="header-actions">
         <button className="ghost" onClick={()=>setAnalyzerOpen(true)}><BookOpen size={17}/>Prompt解析</button>
         <div className="settings-wrap">
@@ -584,8 +608,7 @@ export default function App() {
             <button type="button" className={`navigation-primary ${store.workspaceView==='prompt'?'active':''}`} aria-label="プロンプト" aria-current={store.workspaceView==='prompt'?'page':undefined} onClick={navigateToPrompt}><span className="navigation-icon-slot navigation-primary-icon"><Sparkles size={17}/></span><span className="navigation-label">プロンプト</span><span className="navigation-tooltip" role="tooltip">プロンプト</span></button>
             <div className="navigation-children navigation-flyout">
               {store.navigationCollapsed&&<strong>プロンプト</strong>}
-              <div className="navigation-search"><div className="search-box"><Search size={16}/><input value={query} onChange={e=>{setQuery(e.target.value);store.setWorkspaceView('prompt')}} placeholder="日本語・英語で検索" /></div></div>
-              <nav aria-label="プロンプトカテゴリ">{categoryOrder.map(c=>{const CategoryIcon=NAV_CATEGORY_ICONS[c as keyof typeof NAV_CATEGORY_ICONS]??Sparkles;return <button key={c} className={`navigation-item ${category===c&&!query&&!favoritesOnly?'active':''}`} onClick={()=>{closeNavigationFlyout();store.setWorkspaceView('prompt');chooseCategory(c)}}><span className="navigation-icon-slot"><CategoryIcon size={15}/></span><span className="navigation-item-label">{getCategoryLabel(c,locale)}</span><small>{visibleDictionaryTags.filter(t=>t.category===c).length}</small></button>})}</nav>
+              <nav aria-label="プロンプトカテゴリ">{categoryOrder.map(c=>{const CategoryIcon=NAV_CATEGORY_ICONS[c as keyof typeof NAV_CATEGORY_ICONS]??Sparkles;return <button key={c} className={`navigation-item ${category===c&&!isSearchMode&&!favoritesOnly?'active':''}`} onClick={()=>{closeNavigationFlyout();store.setWorkspaceView('prompt');chooseCategory(c)}}><span className="navigation-icon-slot"><CategoryIcon size={15}/></span><span className="navigation-item-label">{getCategoryLabel(c,locale)}</span><small>{visibleDictionaryTags.filter(t=>t.category===c).length}</small></button>})}</nav>
               <div className="preset-box"><label>モデル</label><select value={store.modelPreset} onChange={e=>store.setModelPreset(e.target.value as ModelPreset)}><option value="illustrious">Illustrious / NoobAI</option><option value="pony">Pony</option><option value="sdxl">SDXL汎用</option><option value="custom">カスタム</option></select><button className="preset" onClick={()=>store.applyQualityPreset()}><WandSparkles size={17}/>品質を置き換え</button></div>
             </div>
           </section>
@@ -614,8 +637,9 @@ export default function App() {
         <div className="prompt-workspace-content">
         <div className="prompt-controls">
         <div className="prompt-control-bar">
-        {!query&&favoritesOnly&&<section className="category-tabs-section" aria-label="お気に入りカテゴリ"><div className="subcategory-tabs">{['すべて',...favoriteCategories].map(categoryKey=>{const activeCategory=favoriteCategory===categoryKey;return <button key={categoryKey} className={activeCategory?'active':''} aria-pressed={activeCategory} onClick={()=>setFavoriteCategory(categoryKey)}>{activeCategory&&<Check size={14}/>}<span>{categoryKey==='すべて'?'すべて':getCategoryLabel(categoryKey,locale)}</span></button>})}</div></section>}
-        {!query&&!favoritesOnly&&subcategories.length>0&&<section className="category-tabs-section" aria-label="カテゴリ"><div className="subcategory-tabs">{['すべて',...subcategories].map(sub=>{const activeSub=subcategory===sub;return <button key={sub} className={activeSub?'active':''} aria-pressed={activeSub} onClick={()=>setSubcategory(sub)}>{activeSub&&<Check size={14}/>}<span>{sub}</span></button>})}</div></section>}
+        {isSearchMode&&<section className="category-tabs-section" aria-label="検索結果カテゴリ"><div className="subcategory-tabs">{['すべて',...searchCategories].map(categoryKey=>{const activeCategory=searchCategory===categoryKey;return <button key={categoryKey} className={activeCategory?'active':''} aria-pressed={activeCategory} onClick={()=>setSearchCategory(categoryKey)}>{activeCategory&&<Check size={14}/>}<span>{categoryKey==='すべて'?'すべて':getCategoryLabel(categoryKey,locale)}</span></button>})}</div></section>}
+        {!isSearchMode&&favoritesOnly&&<section className="category-tabs-section" aria-label="お気に入りカテゴリ"><div className="subcategory-tabs">{['すべて',...favoriteCategories].map(categoryKey=>{const activeCategory=favoriteCategory===categoryKey;return <button key={categoryKey} className={activeCategory?'active':''} aria-pressed={activeCategory} onClick={()=>setFavoriteCategory(categoryKey)}>{activeCategory&&<Check size={14}/>}<span>{categoryKey==='すべて'?'すべて':getCategoryLabel(categoryKey,locale)}</span></button>})}</div></section>}
+        {!isSearchMode&&!favoritesOnly&&subcategories.length>0&&<section className="category-tabs-section" aria-label="カテゴリ"><div className="subcategory-tabs">{['すべて',...subcategories].map(sub=>{const activeSub=subcategory===sub;return <button key={sub} className={activeSub?'active':''} aria-pressed={activeSub} onClick={()=>setSubcategory(sub)}>{activeSub&&<Check size={14}/>}<span>{sub}</span></button>})}</div></section>}
         <section className="color-selector-section" aria-label="Color Selector"><div className="color-modifier-bar" aria-label="Color Modifier">
           <div className="color-modifier-label"><span>COLOR</span><strong>{findColorModifier(activeColorModifier)?.label ?? '指定なし'}</strong></div>
           <div className="color-modifier-swatches">
@@ -637,10 +661,10 @@ export default function App() {
         {category==='scene_props'&&<div className="composer-box"><h3>背景小物コンポーザー</h3><p>小物と画面内の位置、奥行きを組み合わせます。</p><div className="composer-grid"><label>小物<select value={propItem} onChange={e=>setPropItem(e.target.value)}><option value="bed">ベッド</option><option value="chair">椅子</option><option value="sofa">ソファ</option><option value="bookshelf">本棚</option><option value="desk">机</option><option value="table">テーブル</option><option value="floor lamp">フロアランプ</option><option value="window">窓</option><option value="potted plant">観葉植物</option><option value="mirror">鏡</option><option value="television">テレビ</option><option value="cabinet">キャビネット</option></select></label><label>左右<select value={propHorizontal} onChange={e=>setPropHorizontal(e.target.value)}><option value="">指定なし</option><option value="left side">左</option><option value="center">中央</option><option value="right side">右</option></select></label><label>上下<select value={propVertical} onChange={e=>setPropVertical(e.target.value)}><option value="">指定なし</option><option value="upper">上</option><option value="middle">中</option><option value="lower">下</option></select></label><label>奥行き<select value={propDepth} onChange={e=>setPropDepth(e.target.value)}><option value="">指定なし</option><option value="foreground">手前</option><option value="midground">中景</option><option value="background">奥</option></select></label></div><div className="composer-preview">{propItem} / {[propVertical,propHorizontal,propDepth].filter(Boolean).join('・')}</div><button onClick={addSceneProp}><Plus size={16}/>配置して追加</button></div>}
           </div>}
         </section>}
-        {!query&&!favoritesOnly&&!['hair','eyes','body','clothes','scene_props'].includes(category)&&<section className="composer-placeholder" aria-label="Composer"><span>COMPOSER</span></section>}
+        {!isSearchMode&&!favoritesOnly&&!['hair','eyes','body','clothes','scene_props'].includes(category)&&<section className="composer-placeholder" aria-label="Composer"><span>COMPOSER</span></section>}
         </div>
         <section className="tag-list-section" aria-label="タグ一覧">
-        {(favoritesOnly||query)&&<div className="panel-title">
+        {(favoritesOnly||isSearchMode)&&<div className="panel-title">
           <div><span className="eyebrow">PROMPT DICTIONARY</span><h2>{favoritesOnly?'お気に入り':`「${query}」の検索結果`}</h2></div>
         </div>}
         {related.length>0&&<section className={`related-suggestions ${relatedCollapsed?'collapsed':''}`}>
