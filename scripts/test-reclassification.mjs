@@ -558,6 +558,7 @@ try {
     userTags: [],
   })
   assert.deepEqual(migratedWithoutLibrary.savedPrompts, [], 'existing persisted state must default savedPrompts to an empty array')
+  assert.deepEqual(migratedWithoutLibrary.promptGroups, [], 'existing persisted state must default Prompt groups to an empty array')
   assert.deepEqual(migratedWithoutLibrary.seeds, [], 'existing persisted state must default current seeds to an empty array')
   const migratedLegacySavedPrompt = migratePersistedState({
     blocks: [{ id: 'legacy-library', name: '被写体 1', tags: [] }],
@@ -567,6 +568,8 @@ try {
     savedPrompts: [{ id: 'legacy-saved', type: 'favorite', name: 'Legacy Saved', positivePrompt: '', negativePrompt: '', blocks: [{ id: 'legacy-library', name: '被写体 1', tags: [] }], sceneTags: [], seeds: [], createdAt: 1, updatedAt: 1 }],
   })
   assert.equal(migratedLegacySavedPrompt.savedPrompts[0].modelPreset, 'sdxl', 'legacy saved Prompts must inherit the persisted Model Preset')
+  assert.equal(migratedLegacySavedPrompt.savedPrompts[0].settings.modelPreset, 'sdxl', 'legacy saved Prompts must migrate to nested settings')
+  assert.deepEqual(migratedLegacySavedPrompt.savedPrompts[0].structure.blocks.map(block => block.id), ['legacy-library'], 'legacy saved Prompts must migrate to a reusable structure snapshot')
 
   usePromptStore.setState({
     blocks: [{ id: 'library-subject', name: 'Library Subject', subjectNumber: 1, position: 'center', tags: [subjectHair] }],
@@ -577,16 +580,29 @@ try {
     modelPreset: 'pony',
     seeds: [],
     savedPrompts: [],
+    promptGroups: [],
   })
+  const characterGroup = usePromptStore.getState().addPromptGroup('キャラクター')
+  assert(characterGroup, 'a named Prompt group must be created')
+  assert.equal(usePromptStore.getState().addPromptGroup('キャラクター'), null, 'duplicate Prompt group names must be rejected')
+  assert.equal(usePromptStore.getState().renamePromptGroup(characterGroup.id, 'キャラクター資産'), true, 'Prompt groups must be renameable')
   const savedLibraryPrompt = usePromptStore.getState().savePrompt({
     name: 'Library Favorite',
     positivePrompt: 'saved positive snapshot',
     negativePrompt: 'library negative',
     seeds: [{ value: 123456789 }, { value: 987654321 }, { value: 24680 }],
+    color: '#ff6699',
+    groups: [characterGroup.id],
   })
   assert(savedLibraryPrompt, 'valid Prompt state must be saved')
   assert.equal(usePromptStore.getState().savedPrompts.length, 1)
   assert.equal(usePromptStore.getState().savedPrompts[0].modelPreset, 'pony')
+  assert.equal(savedLibraryPrompt.color, '#ff6699')
+  assert.deepEqual(savedLibraryPrompt.groups, [characterGroup.id])
+  assert.equal(savedLibraryPrompt.generatedPrompt, 'saved positive snapshot')
+  assert.equal(savedLibraryPrompt.displayTags.length, 2)
+  assert.equal(savedLibraryPrompt.structure.blocks[0].tags[0].prompt, 'black hair')
+  assert.equal(savedLibraryPrompt.settings.modelPreset, 'pony')
   assert.deepEqual(usePromptStore.getState().savedPrompts[0].seeds.map(seed => seed.value), [123456789, 987654321, 24680])
   assert.equal(usePromptStore.getState().savePrompt({ name: 'Duplicate seeds', positivePrompt: '', negativePrompt: '', seeds: [{ value: 7 }, { value: 7 }] }), null, 'duplicate Seeds must be rejected')
   const seedlessPrompt = usePromptStore.getState().savePrompt({ name: 'Seedless Prompt', positivePrompt: '', negativePrompt: '', seeds: [] })
@@ -609,6 +625,10 @@ try {
   assert.equal(usePromptStore.getState().negative, 'library negative')
   assert.equal(usePromptStore.getState().modelPreset, 'pony')
   assert.deepEqual(usePromptStore.getState().seeds.map(seed => seed.value), [123456789, 987654321, 24680])
+  usePromptStore.setState({ blocks: [{ id: 'merge-base', name: 'Merge Base', subjectNumber: 1, tags: [] }], sceneTags: [], activeBlockId: 'merge-base', seeds: [] })
+  assert.equal(usePromptStore.getState().mergeSavedPrompt(savedLibraryPrompt.id), true, 'saved Prompt state must support simple merge')
+  assert.equal(usePromptStore.getState().blocks.length, 2, 'simple merge must preserve the current Subject and append saved Subjects')
+  assert.equal(usePromptStore.getState().sceneTags[0].prompt, 'masterpiece', 'simple merge must add saved Scene tags')
   usePromptStore.getState().deleteSavedPrompt(savedLibraryPrompt.id)
   assert.equal(usePromptStore.getState().savedPrompts.length, 1, 'deleting a saved Prompt must remove only that snapshot')
 
@@ -637,8 +657,8 @@ try {
   }
   assert(appSource.indexOf('className="inspector-header"') < appSource.indexOf('className="block-tabs"'), 'Character Tabs must live in the fixed Inspector header')
   assert(appSource.indexOf('className="block-tabs"') < appSource.indexOf('className="prompt-actions"'), 'Prompt Actions must render directly below Character Tabs')
-  assert(appSource.indexOf('className="prompt-actions"') < appSource.indexOf('className="inspector-scroll"'), 'Prompt Actions must remain outside the Inspector scroll region')
-  assert(appSource.indexOf('className="inspector-scroll"') < appSource.indexOf('className="prompt-library"'), 'Prompt Library must retain its content inside the Inspector detail region')
+  assert(appSource.indexOf('className="prompt-actions"') < appSource.indexOf('aria-label="Inspector details"'), 'Prompt Actions must remain outside the normal Inspector scroll region')
+  assert.equal(appSource.includes('className="prompt-library"'), false, 'Saved Prompt lists must not remain inside the Inspector')
   assert.equal(appSource.includes('className="navigation-header"'), false, 'Navigation must not retain a duplicate internal Collapse header')
   assert(appSource.includes('className="navigation-icon-slot"'), 'Navigation children must use a shared icon slot')
   assert(appSource.includes('className={`navigation-item'), 'Prompt categories must use the shared Navigation item structure')
@@ -669,6 +689,33 @@ try {
   assert(appSource.includes("searchCategory === 'すべて' || t.category === searchCategory"), 'Search category tabs must filter the search result list')
   assert(appSource.includes("scoreTag(t, q) === 0"), 'Search Mode must keep scoreTag as its matching algorithm')
   assert(appSource.includes("store.hideUnavailable && conflictMap.get(t.id)?.level === 'hard'"), 'Search Mode must respect hideUnavailable')
+  assert(appSource.includes('className="library-workspace"'), 'Library navigation must render a dedicated central Workspace')
+  assert(appSource.indexOf('className="library-workspace"') < appSource.indexOf('className="preview panel"'), 'the Prompt Library list must live in the central Workspace before the Inspector')
+  assert(appSource.includes('className="library-tabs"'), 'Prompt groups must render as Library tabs')
+  assert(appSource.includes('className="library-add-group"') && appSource.includes('setGroupDialogOpen(true)'), 'the add-group control must open a confirmation dialog before creating a tab')
+  assert(appSource.includes("activeLibraryGroup==='all'"), 'the fixed all-prompts tab must remain available')
+  assert(appSource.includes('onDoubleClick'), 'user Prompt groups must support desktop double-click rename')
+  assert(appSource.includes("applySavedPrompt('replace')"), 'Saved Prompt cards must offer replacement apply')
+  assert(appSource.includes("applySavedPrompt('merge')"), 'Saved Prompt cards must offer simple merge apply')
+  assert(appSource.includes('className="saved-prompt-asset-main" aria-pressed={selected} onClick={()=>setSelectedSavedPrompt(saved)}'), 'Saved Prompt card bodies must update only the Inspector selection')
+  assert(appSource.includes("className={`saved-prompt-asset${selected?' selected':''}`}"), 'Saved Prompt cards must expose the current Inspector selection')
+  assert(stylesSource.includes('.saved-prompt-asset.selected'), 'selected Saved Prompt cards must have a visible selected style')
+  assert.equal(appSource.includes('className="saved-prompt-info"'), false, 'Saved Prompt cards must not retain a redundant detail button')
+  assert(appSource.includes('className="saved-prompt-apply"'), 'Saved Prompt cards must expose an explicit apply control')
+  assert(appSource.includes('className="saved-prompt-delete"'), 'Saved Prompt cards must expose an explicit delete control')
+  assert(appSource.includes('setPendingDeletePrompt(saved)'), 'Saved Prompt delete must require explicit confirmation')
+  assert(appSource.includes('className="save-current-prompt" onClick={openSavePrompt}'), 'Prompt Actions must expose the current Prompt save action')
+  assert(appSource.includes('aria-label="Saved Prompt Inspector"'), 'the Inspector must expose selected Saved Prompt details in Library mode')
+  assert.equal((appSource.match(/className="prompt-actions"/g)??[]).length, 2, 'Prompt Actions must remain visible in Prompt and Library Inspector modes')
+  assert(stylesSource.includes('.inspector-header .block-tabs button') && stylesSource.includes('line-height: 16px'), 'shared Inspector tabs must keep Prompt and Library headers pixel-aligned')
+  assert(appSource.includes('<div className="inspector-scroll" aria-label="Saved Prompt details">'), 'Saved Prompt details must use the existing Inspector scroll foundation')
+  assert.equal(appSource.includes('library-inspector-header'), false, 'Library mode must not use a dedicated Inspector header style')
+  assert.equal(appSource.includes('library-inspector-scroll'), false, 'Library mode must not use a dedicated Inspector scroll style')
+  assert(appSource.includes("const sectionId='saved-prompt-common'"), 'Saved Prompt Common must use the shared collapsible section state')
+  assert(appSource.includes('const sectionId=`saved-prompt-${block.id}`'), 'Saved Prompt characters must use the shared collapsible section state')
+  assert(appSource.includes('className="selected-layer-title selected-layer-toggle"'), 'Saved Prompt context must use the shared Inspector section toggle')
+  assert(appSource.includes('className="chip-label"'), 'Saved Prompt tags must use the shared Inspector chip markup')
+  assert.equal(appSource.includes('className="saved-prompt-detail"'), false, 'Saved Prompt details must not use a separate modal UI')
   for (const label of ['プロンプト', 'お気に入り', 'ライブラリ', '設定']) assert(appSource.includes(`>${label}</span>`), `${label} must be rendered as a Japanese Navigation label`)
 
   const characterDictionary = JSON.parse(fs.readFileSync(new URL('../data/character.json', import.meta.url), 'utf8'))
