@@ -192,6 +192,7 @@ export default function App() {
   const [editingGroupName, setEditingGroupName] = useState('')
   const [selectedSavedPrompt, setSelectedSavedPrompt] = useState<SavedPrompt | null>(null)
   const [pendingApplyPrompt, setPendingApplyPrompt] = useState<SavedPrompt | null>(null)
+  const [pendingDeletePrompt, setPendingDeletePrompt] = useState<SavedPrompt | null>(null)
   const [activeNavigationFlyout, setActiveNavigationFlyout] = useState<'prompt' | 'favorites' | 'library' | null>(null)
   const navigationHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const navigationCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -421,6 +422,12 @@ export default function App() {
       store.setWorkspaceView('prompt')
       setPendingApplyPrompt(null)
     }
+  }
+  const deleteSavedPrompt = () => {
+    if (!pendingDeletePrompt) return
+    store.deleteSavedPrompt(pendingDeletePrompt.id)
+    if (selectedSavedPrompt?.id === pendingDeletePrompt.id) setSelectedSavedPrompt(null)
+    setPendingDeletePrompt(null)
   }
 
   const warnings = useMemo(() => conflicts(active.tags), [active.tags])
@@ -698,6 +705,7 @@ export default function App() {
               </button>
               <div className="saved-prompt-asset-actions">
                 <button type="button" className="saved-prompt-apply" aria-label={`${saved.name}を適用`} onClick={()=>setPendingApplyPrompt(saved)}><Check size={15}/>適用</button>
+                <button type="button" className="saved-prompt-delete" aria-label={`${saved.name}を削除`} onClick={()=>setPendingDeletePrompt(saved)}><X size={15}/></button>
               </div>
             </article>)}
           </section>
@@ -786,7 +794,7 @@ export default function App() {
         </>:<>
         <div className="inspector-header" aria-label="Inspector controls">
           <div className="block-tabs">{store.blocks.map((b,index)=><button key={b.id} className={viewContextId===b.id?'active':''} onClick={()=>setContextTarget(b.id)}>{getCategoryLabel('character',locale)} {b.subjectNumber??index+1}{index>0&&<X size={13} onClick={e=>{e.stopPropagation();if(viewContextId===b.id&&mainSubjectId)setContextTarget(mainSubjectId);store.removeBlock(b.id)}}/>}</button>)}<button className="add-block" onClick={addCharacter}><Plus size={16}/>{t('addSubject',locale)}</button></div>
-          <section className="prompt-actions"><strong>Prompt Actions</strong><button className="copy-positive" onClick={()=>copyPrompt('actions')}>{copiedPositive?<Check size={16}/>:<Copy size={16}/>}<span>{copiedPositive?'コピー済み':'Positiveをコピー'}</span></button><button className="copy-negative" onClick={()=>copyNegativePrompt(true)}>{copiedNegative?<Check size={16}/>:<Copy size={16}/>}<span>{copiedNegative?'コピー済み':'Negativeをコピー'}</span></button></section>
+          <section className="prompt-actions"><strong>Prompt Actions</strong><button className="copy-positive" onClick={()=>copyPrompt('actions')}>{copiedPositive?<Check size={16}/>:<Copy size={16}/>}<span>{copiedPositive?'コピー済み':'Positiveをコピー'}</span></button><button className="copy-negative" onClick={()=>copyNegativePrompt(true)}>{copiedNegative?<Check size={16}/>:<Copy size={16}/>}<span>{copiedNegative?'コピー済み':'Negativeをコピー'}</span></button><button className="save-current-prompt" onClick={openSavePrompt}><Save size={16}/><span>保存</span></button></section>
         </div>
         <div className="inspector-scroll" aria-label="Inspector details">
         <section className={`preview-section ${selectedCollapsed?'collapsed':''}`}>
@@ -857,6 +865,11 @@ export default function App() {
       <p><strong>{pendingApplyPrompt.name}</strong></p><p>現在のPrompt: {store.sceneTags.length+store.blocks.reduce((total,block)=>total+block.tags.length,0)} tags</p>
       <div className="apply-prompt-options"><button onClick={()=>applySavedPrompt('replace')}><strong>上書き</strong><span>現在のPromptを置き換えます。</span></button><button onClick={()=>applySavedPrompt('merge')}><strong>追加</strong><span>現在のPromptへ単純マージします。</span></button></div>
       <div className="modal-actions"><button className="ghost" onClick={()=>setPendingApplyPrompt(null)}>キャンセル</button></div>
+    </section></div>}
+    {pendingDeletePrompt&&<div className="modal-backdrop" onMouseDown={()=>setPendingDeletePrompt(null)}><section className="library-dialog delete-prompt-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-prompt-title" onMouseDown={event=>event.stopPropagation()}>
+      <div className="analyzer-head"><div><span className="eyebrow">DELETE PROMPT</span><h2 id="delete-prompt-title">Saved Promptを削除しますか？</h2></div><button aria-label="閉じる" onClick={()=>setPendingDeletePrompt(null)}><X size={18}/></button></div>
+      <p><strong>{pendingDeletePrompt.name}</strong></p><p>この操作は取り消せません。</p>
+      <div className="modal-actions"><button className="ghost" onClick={()=>setPendingDeletePrompt(null)}>キャンセル</button><button className="danger" onClick={deleteSavedPrompt}>削除</button></div>
     </section></div>}
     {inspectedTag&&<div className="modal-backdrop" onMouseDown={()=>setInspectedTag(null)}><section className="tag-detail-modal" onMouseDown={e=>e.stopPropagation()}><div className="analyzer-head"><div><span className="eyebrow">TAG INTELLIGENCE</span><h2>{inspectedTag.label}</h2><code>{inspectedTag.prompt}</code></div><button onClick={()=>setInspectedTag(null)}><X size={18}/></button></div>{categoryGuides[inspectedTag.category]&&<div className={`category-guide category-guide-${inspectedTag.category}`}><strong>{categoryGuides[inspectedTag.category].title}</strong><p>{categoryGuides[inspectedTag.category].text}</p></div>}{generationNote(inspectedTag)&&<><strong className="mini-title">生成メモ</strong><p>{generationNote(inspectedTag)}</p></>}<dl><div><dt>分類</dt><dd>{categoryLabels[inspectedTag.category]} / {inspectedTag.subcategory || '未分類'}</dd></div><div><dt>表示区分</dt><dd>{inspectedTag.rating || 'general'}</dd></div></dl><strong className="mini-title">モデル記法の目安</strong><div className="model-hints">{modelHints(inspectedTag).map(h=><span key={h.model} className={`model-hint ${h.level}`}><b>{h.model}</b>{compatibilityLabel(h.level)}<small>{h.note}</small></span>)}</div>{(inspectedTag.related?.length??0)>0&&<><strong className="mini-title">関連タグ</strong><div className="inspector-related">{inspectedTag.related!.map(x=><button key={x} onClick={()=>{const found=visibleDictionaryTags.find(t=>t.prompt===x);if(found)toggleDictionaryTag(found)}}>{x}</button>)}</div></>}</section></div>}
     {analyzerOpen&&<div className="modal-backdrop" onMouseDown={()=>setAnalyzerOpen(false)}><section className="analyzer-modal" onMouseDown={e=>e.stopPropagation()}><div className="analyzer-head"><div><span className="eyebrow">PROMPT ANALYZER</span><h2>既存プロンプトをGUIへ取り込む</h2></div><button onClick={()=>setAnalyzerOpen(false)}><X size={18}/></button></div><p>カンマ、改行、角括弧、BREAKを解析し、辞書一致またはキーワード推定でカテゴリ分けします。</p><textarea value={analyzerText} onChange={e=>setAnalyzerText(e.target.value)} placeholder="masterpiece, 1girl, blue hair, ..."/><div className="analyzer-preview">{analyzerText.split(/,|\n|BREAK/i).map(x=>x.trim().replace(/^\[|\]$/g,'')).filter(Boolean).slice(0,80).map((raw,i)=>{const clean=raw.replace(/^\((.*):[\d.]+\)$/,'$1').trim();const found=inferCategory(clean,visibleDictionaryTags);const cat=found?.category||heuristicCategory(clean);return <span key={`${raw}-${i}`}><b>{categoryLabels[cat]||cat}</b>{clean}{found?'':'（推定）'}</span>})}</div><div className="modal-actions"><button className="ghost" onClick={()=>setAnalyzerText('')}>クリア</button><button onClick={()=>{const entries=analyzerText.split(/,|\n|BREAK/i).map(x=>x.trim().replace(/^\[|\]$/g,'')).filter(Boolean);entries.forEach(raw=>{const m=raw.match(/^\((.*):([\d.]+)\)$/);const clean=(m?.[1]||raw).trim();const found=inferCategory(clean,visibleDictionaryTags);const cat=found?.category||heuristicCategory(clean);store.addTag({...found,id:found?.id||`analyzed-${createId()}`,prompt:found?.prompt||clean,label:found?.label||clean,category:cat,subcategory:found?.subcategory||'解析・自由タグ',weight:m?Number(m[2]):1})});setAnalyzerOpen(false)}}><BookOpen size={16}/>解析結果を追加</button></div></section></div>}

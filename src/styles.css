@@ -839,6 +839,9 @@ body{background:var(--bg-primary);color:var(--text-primary)}
   body{min-width:0}
   .workspace{grid-template-columns:minmax(150px,.55fr) minmax(0,1.35fr) minmax(260px,1fr)}
   .workspace>.panel,.prompt-workspace-content,.prompt-controls,.prompt-control-bar,.category-tabs-section,.color-selector-section,.tag-list-section,.color-modifier-bar,.subcategory-tabs{min-width:0}
+  .inspector-header .prompt-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .inspector-header .prompt-actions>strong{grid-column:1/-1;margin-right:0}
+  .inspector-header .prompt-actions button{min-width:0;padding-inline:6px!important}
 }
 
 /* Prompt Library workspace */
@@ -862,9 +865,11 @@ body{background:var(--bg-primary);color:var(--text-primary)}
 .saved-prompt-asset-main>small,.saved-prompt-asset-main>time{grid-column:2;color:var(--muted);font-size:11px}
 .saved-prompt-summary{grid-column:1/-1;display:-webkit-box;min-width:0;overflow:hidden;color:var(--muted);font-size:12px;line-height:1.55;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .saved-prompt-asset-actions{display:flex;justify-content:flex-end;gap:6px;padding:8px 10px;border-top:1px solid var(--border-muted)}
-.saved-prompt-apply{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:29px;padding:4px 9px;border:1px solid var(--border);border-radius:5px;background:var(--bg-primary);color:var(--muted);font-size:10px}
-.saved-prompt-apply:hover{border-color:var(--border-hover);background:var(--bg-hover);color:var(--text-primary)}
-.saved-prompt-apply:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.saved-prompt-apply,.saved-prompt-delete{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:29px;padding:4px 9px;border:1px solid var(--border);border-radius:5px;background:var(--bg-primary);color:var(--muted);font-size:10px}
+.saved-prompt-delete{width:29px;padding:4px}
+.saved-prompt-apply:hover,.saved-prompt-delete:hover{border-color:var(--border-hover);background:var(--bg-hover);color:var(--text-primary)}
+.saved-prompt-delete:hover{border-color:var(--danger);color:var(--danger)}
+.saved-prompt-apply:focus-visible,.saved-prompt-delete:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .library-empty{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:240px;color:var(--muted);text-align:center}
 .library-empty strong{color:var(--text-primary)}
 .library-dialog{width:min(520px,calc(100vw - 32px));max-height:min(760px,calc(100vh - 32px));overflow:auto;border:1px solid var(--border);border-radius:12px;background:var(--bg-secondary);padding:18px;color:var(--text-primary)}
@@ -873,6 +878,8 @@ body{background:var(--bg-primary);color:var(--text-primary)}
 .apply-prompt-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}
 .apply-prompt-options button{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:14px;text-align:left;background:var(--bg-hover);border:1px solid var(--border)}
 .apply-prompt-options button span{color:var(--muted);font-size:11px}
+.delete-prompt-dialog .modal-actions .danger{border-color:color-mix(in srgb,var(--danger) 55%,var(--border));background:color-mix(in srgb,var(--danger) 12%,var(--bg-tertiary));color:var(--danger)}
+.delete-prompt-dialog .modal-actions .danger:hover{border-color:var(--danger);background:color-mix(in srgb,var(--danger) 18%,var(--bg-hover))}
 .prompt-save-color{display:flex!important;align-items:center;justify-content:space-between}.prompt-save-color input{width:54px;min-height:32px!important;padding:2px}
 .prompt-save-groups{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0;padding:10px;border:1px solid var(--border);border-radius:8px}
 .prompt-save-groups legend{padding:0 5px;color:var(--muted);font-size:12px;font-weight:600}.prompt-save-groups label{display:flex;align-items:center;gap:5px;font-size:12px}
