@@ -1408,7 +1408,7 @@ body,
 /* v35: app-wide tag search in the Header */
 .topbar {
   display: grid;
-  grid-template-columns: auto minmax(160px, 620px) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 620px) minmax(0, 1fr);
   gap: 12px;
   padding-inline: var(--pane-control-inset);
 }
@@ -1466,7 +1466,7 @@ body,
 
 @media (max-width: 900px) {
   .topbar {
-    grid-template-columns: minmax(160px, auto) minmax(120px, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) minmax(120px, 32vw) minmax(0, 1fr);
     gap: 8px;
   }
 

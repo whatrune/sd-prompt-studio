@@ -709,6 +709,8 @@ try {
   assert(appSource.includes("onClick={()=>changeSearchQuery('')}"), 'Search clear button must reuse the existing Search Mode exit path')
   assert(stylesSource.includes('.header-search .search-box:focus-within'), 'Header tag search must retain a visible keyboard focus state')
   assert(stylesSource.includes('.header-search-clear:focus-visible'), 'Search clear button must retain a visible keyboard focus state')
+  assert(stylesSource.includes('grid-template-columns: minmax(0, 1fr) minmax(160px, 620px) minmax(0, 1fr)'), 'Header search must use equal flexible side tracks around its existing maximum width')
+  assert(stylesSource.includes('grid-template-columns: minmax(0, 1fr) minmax(120px, 32vw) minmax(0, 1fr)'), 'Header search must remain centered while shrinking at the 900px breakpoint')
   assert.equal(appSource.includes('className="navigation-search"'), false, 'Navigation must not retain a duplicate tag search box')
   assert(appSource.includes('aria-label="検索結果カテゴリ"'), 'Search Mode must render category tabs inside Prompt Workspace')
   assert(appSource.includes("{['すべて',...searchCategories].map"), 'Search Mode must always include the all-results tab')
