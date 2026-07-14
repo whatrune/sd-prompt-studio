@@ -689,14 +689,17 @@ export default function App() {
           </nav>
           <section className="library-card-list" aria-label="保存済みPrompt一覧">
             {visibleSavedPrompts.length===0?<div className="library-empty"><BookOpen size={22}/><strong>保存済みPromptはありません</strong><span>現在のPromptを保存すると、ここから再利用できます。</span></div>:visibleSavedPrompts.map(saved=><article className="saved-prompt-asset" key={saved.id} style={{'--saved-prompt-color':saved.color} as CSSProperties}>
-              <button type="button" className="saved-prompt-asset-main" onClick={()=>{setSelectedSavedPrompt(saved);setPendingApplyPrompt(saved)}}>
+              <button type="button" className="saved-prompt-asset-main" onClick={()=>setPendingApplyPrompt(saved)}>
                 <span className="saved-prompt-color" aria-hidden="true"/>
                 <strong>{saved.name}</strong>
                 <small>{saved.displayTags.length} tags</small>
                 <span className="saved-prompt-summary">{saved.summaryTags.length?saved.summaryTags.join(' / '):'タグなし'}</span>
                 <time dateTime={new Date(saved.updatedAt).toISOString()}>{new Date(saved.updatedAt).toLocaleDateString('ja-JP')}</time>
               </button>
-              <button type="button" className="saved-prompt-info" aria-label={`${saved.name}の詳細`} onClick={()=>setSelectedSavedPrompt(saved)}><Info size={17}/></button>
+              <div className="saved-prompt-asset-actions">
+                <button type="button" className="saved-prompt-info" aria-label={`${saved.name}の詳細`} onClick={()=>setSelectedSavedPrompt(saved)}><Info size={15}/>詳細</button>
+                <button type="button" className="saved-prompt-apply" aria-label={`${saved.name}を適用`} onClick={()=>setPendingApplyPrompt(saved)}><Check size={15}/>適用</button>
+              </div>
             </article>)}
           </section>
         </div>:<div className="prompt-workspace-content">
