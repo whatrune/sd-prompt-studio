@@ -846,17 +846,7 @@ body{background:var(--bg-primary);color:var(--text-primary)}
 
 /* Prompt Library workspace */
 .library-workspace{display:flex;flex-direction:column;min-width:0;min-height:0;height:100%;overflow:hidden;background:var(--bg-primary)}
-.library-workspace-header{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:20px 22px 14px}
-.library-workspace-header h1{margin:2px 0 3px;font-size:22px}
-.library-workspace-header p{margin:0;color:var(--muted);font-size:12px}
-.library-workspace-header>button{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto}
-.library-tabs{display:flex;align-items:center;gap:6px;min-width:0;padding:0 22px 12px;overflow-x:auto;scrollbar-gutter:stable}
-.library-tabs button,.library-group-edit{flex:0 0 auto;min-height:32px;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--muted);padding:6px 12px}
-.library-tabs button:hover{background:var(--bg-hover);color:var(--text-primary)}
-.library-tabs button.active{background:var(--bg-hover);border-color:var(--border);color:var(--text-primary);font-weight:600}
-.library-tabs .library-add-group{display:grid;place-items:center;width:32px;padding:0;border:1px dashed var(--border)}
-.library-group-edit{width:140px;background:var(--input-bg);color:var(--text-primary);outline:2px solid var(--accent)}
-.library-card-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(230px,100%),1fr));gap:12px;min-height:0;padding:4px 22px 22px;overflow-y:auto;scrollbar-gutter:stable}
+.library-card-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(230px,100%),1fr));gap:12px;min-height:0;padding:4px 0 12px;overflow-y:auto;scrollbar-gutter:stable}
 .saved-prompt-asset{display:grid;grid-template-rows:minmax(0,1fr) auto;min-width:0;min-height:174px;border:1px solid var(--border);border-left:4px solid var(--saved-prompt-color);border-radius:10px;background:color-mix(in srgb,var(--bg-secondary) 72%,var(--bg-primary));overflow:hidden}
 .saved-prompt-asset:hover{border-color:color-mix(in srgb,var(--saved-prompt-color) 55%,var(--border));background:var(--bg-hover)}
 .saved-prompt-asset.selected{border-color:var(--accent);border-left-color:var(--saved-prompt-color);background:var(--accent-soft);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 24%,transparent)}
@@ -884,7 +874,6 @@ body{background:var(--bg-primary);color:var(--text-primary)}
 .prompt-save-color{display:flex!important;align-items:center;justify-content:space-between}.prompt-save-color input{width:54px;min-height:32px!important;padding:2px}
 .prompt-save-groups{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0;padding:10px;border:1px solid var(--border);border-radius:8px}
 .prompt-save-groups legend{padding:0 5px;color:var(--muted);font-size:12px;font-weight:600}.prompt-save-groups label{display:flex;align-items:center;gap:5px;font-size:12px}
-@media(max-width:900px){.library-workspace-header{padding-inline:14px}.library-tabs{padding-inline:14px}.library-card-list{padding-inline:14px}.library-workspace-header p{display:none}}
 .preview-section{--preview-section-spacing:8px;border-top:1px solid var(--border);background:var(--bg-secondary)}
 .preview-section-header{display:flex;align-items:center;min-height:36px;background:var(--bg-secondary)}
 .preview-section-toggle{flex:1;height:36px;min-height:36px;padding:0 12px;font-size:12px;font-weight:600}
@@ -1235,19 +1224,22 @@ body,
   backdrop-filter: none;
 }
 
-.category-tabs-section > .subcategory-tabs button {
+.category-tabs-section > .subcategory-tabs button,
+.category-tabs-section > .subcategory-tabs .library-group-tab {
   border-color: transparent;
   background: transparent;
   color: var(--text-secondary);
 }
 
-.category-tabs-section > .subcategory-tabs button:hover {
+.category-tabs-section > .subcategory-tabs button:hover,
+.category-tabs-section > .subcategory-tabs .library-group-tab:hover {
   border-color: transparent;
   background: var(--bg-hover);
   color: var(--text-primary);
 }
 
-.category-tabs-section > .subcategory-tabs button.active {
+.category-tabs-section > .subcategory-tabs button.active,
+.category-tabs-section > .subcategory-tabs .library-group-tab.active {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
@@ -1478,4 +1470,87 @@ body,
   .topbar .settings-button {
     padding-inline: 8px;
   }
+}
+
+/* v36: titleless Prompt Library group tabs */
+.library-tabs-section {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.category-tabs-section > .library-tabs {
+  align-items: center;
+  gap: 3px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-gutter: stable;
+}
+
+.library-group-tab {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  min-height: 29px;
+  border: 1px solid;
+  border-radius: 3px;
+}
+
+.category-tabs-section > .library-tabs .library-group-select,
+.category-tabs-section > .library-tabs .library-group-delete {
+  min-height: 27px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.category-tabs-section > .library-tabs .library-group-select {
+  max-width: 180px;
+  padding: 4px 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-tabs-section > .library-tabs .library-group-delete {
+  width: 25px;
+  padding: 0;
+}
+
+.category-tabs-section > .library-tabs .library-group-select:hover,
+.category-tabs-section > .library-tabs .library-group-delete:hover {
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.category-tabs-section > .library-tabs .library-group-delete:hover {
+  color: var(--danger);
+}
+
+.library-group-select:focus-visible,
+.library-group-delete:focus-visible,
+.library-add-group:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.library-group-edit {
+  width: 140px;
+  min-height: 27px;
+  margin: 0;
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  outline: 2px solid var(--accent);
+}
+
+.category-tabs-section > .library-tabs .library-add-group {
+  display: grid;
+  width: 29px;
+  min-height: 29px;
+  place-items: center;
+  padding: 0;
+  border: 1px dashed var(--border);
 }

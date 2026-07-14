@@ -17,6 +17,12 @@ export const isSceneCategory = (category: string) => SCENE_CATEGORIES.has(catego
 export type ModelPreset = 'illustrious' | 'pony' | 'sdxl' | 'custom'
 export type SeedEntry = { value: number; note?: string }
 export type PromptGroup = { id: string; name: string; createdAt: number; updatedAt: number }
+export const nextPromptGroupName = (groups: Pick<PromptGroup, 'name'>[]) => {
+  const names = new Set(groups.map(group => group.name.trim().toLocaleLowerCase()))
+  let suffix = 1
+  while (names.has(`グループ${suffix}`.toLocaleLowerCase())) suffix += 1
+  return `グループ${suffix}`
+}
 export type SavedPromptStructure = { blocks: PromptBlock[]; sceneTags: SelectedTag[] }
 export type SavedPromptSettings = { modelPreset: ModelPreset; seeds: SeedEntry[] }
 export type SavedPrompt = {
@@ -91,6 +97,7 @@ export type State = {
   deleteSavedPrompt: (id: string) => void
   addPromptGroup: (name: string) => PromptGroup | null
   renamePromptGroup: (id: string, name: string) => boolean
+  deletePromptGroup: (id: string) => boolean
   setNavigationCollapsed: (collapsed: boolean) => void
   setWorkspaceView: (view: WorkspaceView) => void
 }
@@ -426,6 +433,15 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
     const state = get()
     if (!name || !state.promptGroups.some(group => group.id === id) || state.promptGroups.some(group => group.id !== id && group.name.toLocaleLowerCase() === name.toLocaleLowerCase())) return false
     set({ promptGroups: state.promptGroups.map(group => group.id === id ? { ...group, name, updatedAt: Date.now() } : group) })
+    return true
+  },
+  deletePromptGroup: (id) => {
+    const state = get()
+    if (!state.promptGroups.some(group => group.id === id)) return false
+    set({
+      promptGroups: state.promptGroups.filter(group => group.id !== id),
+      savedPrompts: state.savedPrompts.map(saved => ({ ...saved, groups: saved.groups.filter(groupId => groupId !== id) })),
+    })
     return true
   },
   setNavigationCollapsed: (navigationCollapsed) => set({ navigationCollapsed }),

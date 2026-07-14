@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { Activity, AlertTriangle, BadgeCheck, Ban, BookOpen, Camera, Check, ChevronDown, ChevronRight, ChevronUp, Copy, Eye, Gem, Image, Info, Lightbulb, Menu, MessageSquareText, Package, PersonStanding, Plus, RotateCcw, Save, Scissors, Search, Settings2, Shirt, Smile, Sparkles, Star, Tags, Trash2, UserRound, Users, WandSparkles, X } from 'lucide-react'
 import { categoryLabels, categoryOrder, subcategoryOrder, TAG_COUNT, tags, type ContentRating, type PromptTag } from './data/tags'
 import { ADULT_TAG_COUNT, adultTags } from './data/adultTags'
-import { isSceneCategory, usePromptStore, type SelectedTag, type ModelPreset, type SavedPrompt } from './store'
+import { isSceneCategory, nextPromptGroupName, usePromptStore, type SelectedTag, type ModelPreset, type PromptGroup, type SavedPrompt } from './store'
 import { compatibilityLabel, generationNote, heuristicCategory, inferCategory, modelHints } from './engine/tagIntelligence'
 import { getConflictMap } from './engine/smartTagEngine'
 import './styles.css'
@@ -109,6 +109,9 @@ function scoreTag(tag: PromptTag, query: string) {
 }
 type TagSubcategoryGroup = { key: string; label: string; tags: PromptTag[]; showTitle: boolean }
 type TagCategoryGroup = { key: string; label?: string; groups: TagSubcategoryGroup[] }
+function TabLabel({ active, label }: { active: boolean; label: string }) {
+  return <>{active&&<Check size={14}/>}<span>{label}</span></>
+}
 function groupTagsBySubcategory(items: PromptTag[], category: string) {
   const grouped = new Map<string, PromptTag[]>()
   items.forEach(tag => {
@@ -185,11 +188,9 @@ export default function App() {
   const [savePromptColor, setSavePromptColor] = useState('#58a6ff')
   const [savePromptGroups, setSavePromptGroups] = useState<string[]>([])
   const [activeLibraryGroup, setActiveLibraryGroup] = useState('all')
-  const [groupDialogOpen, setGroupDialogOpen] = useState(false)
-  const [groupName, setGroupName] = useState('')
-  const [groupError, setGroupError] = useState('')
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
   const [editingGroupName, setEditingGroupName] = useState('')
+  const [pendingDeleteGroup, setPendingDeleteGroup] = useState<PromptGroup | null>(null)
   const [selectedSavedPrompt, setSelectedSavedPrompt] = useState<SavedPrompt | null>(null)
   const [pendingApplyPrompt, setPendingApplyPrompt] = useState<SavedPrompt | null>(null)
   const [pendingDeletePrompt, setPendingDeletePrompt] = useState<SavedPrompt | null>(null)
@@ -398,18 +399,12 @@ export default function App() {
     ? store.savedPrompts
     : store.savedPrompts.filter(saved => saved.groups.includes(activeLibraryGroup))
   const createPromptGroup = () => {
-    const group = store.addPromptGroup(groupName)
-    if (!group) {
-      setGroupError('空の名前、または同名のグループは作成できません。')
-      return
-    }
-    setActiveLibraryGroup(group.id)
-    setGroupName('')
-    setGroupError('')
-    setGroupDialogOpen(false)
+    const group = store.addPromptGroup(nextPromptGroupName(store.promptGroups))
+    if (group) setActiveLibraryGroup(group.id)
   }
   const finishGroupRename = (id: string) => {
-    if (store.renamePromptGroup(id, editingGroupName)) setEditingGroupId(null)
+    store.renamePromptGroup(id, editingGroupName)
+    setEditingGroupId(null)
   }
   const applySavedPrompt = (mode: 'replace' | 'merge') => {
     if (!pendingApplyPrompt) return
@@ -428,6 +423,12 @@ export default function App() {
     store.deleteSavedPrompt(pendingDeletePrompt.id)
     if (selectedSavedPrompt?.id === pendingDeletePrompt.id) setSelectedSavedPrompt(null)
     setPendingDeletePrompt(null)
+  }
+  const deletePromptGroup = () => {
+    if (!pendingDeleteGroup) return
+    const deleted = store.deletePromptGroup(pendingDeleteGroup.id)
+    if (deleted && activeLibraryGroup === pendingDeleteGroup.id) setActiveLibraryGroup('all')
+    setPendingDeleteGroup(null)
   }
 
   const warnings = useMemo(() => conflicts(active.tags), [active.tags])
@@ -683,17 +684,16 @@ export default function App() {
 
       <section className="tag-panel panel">
         {store.workspaceView==='library'?<div className="library-workspace">
-          <header className="library-workspace-header">
-            <div><span className="eyebrow">PROMPT ASSETS</span><h1>Prompt Library</h1><p>再編集できるPrompt状態を保存・整理します。</p></div>
-            <button type="button" onClick={openSavePrompt}><Save size={16}/>現在のPromptを保存</button>
-          </header>
-          <nav className="library-tabs" aria-label="Prompt Libraryグループ">
-            <button type="button" className={activeLibraryGroup==='all'?'active':''} aria-pressed={activeLibraryGroup==='all'} onClick={()=>setActiveLibraryGroup('all')}>すべて</button>
-            <button type="button" className="library-add-group" aria-label="グループを追加" onClick={()=>{setGroupName('');setGroupError('');setGroupDialogOpen(true)}}><Plus size={15}/></button>
-            {store.promptGroups.map(group=>editingGroupId===group.id
-              ?<input key={group.id} className="library-group-edit" aria-label={`${group.name}の名前を編集`} autoFocus value={editingGroupName} onChange={event=>setEditingGroupName(event.target.value)} onBlur={()=>finishGroupRename(group.id)} onKeyDown={event=>{if(event.key==='Enter')finishGroupRename(group.id);if(event.key==='Escape')setEditingGroupId(null)}}/>
-              :<button type="button" key={group.id} className={activeLibraryGroup===group.id?'active':''} aria-pressed={activeLibraryGroup===group.id} onClick={()=>setActiveLibraryGroup(group.id)} onDoubleClick={()=>{setEditingGroupId(group.id);setEditingGroupName(group.name)}}>{group.name}</button>)}
-          </nav>
+          <section className="category-tabs-section library-tabs-section" aria-label="Prompt Libraryグループ"><nav className="subcategory-tabs library-tabs">
+            <button type="button" className={activeLibraryGroup==='all'?'active':''} aria-pressed={activeLibraryGroup==='all'} onClick={()=>setActiveLibraryGroup('all')}><TabLabel active={activeLibraryGroup==='all'} label="すべて"/></button>
+            {store.promptGroups.map(group=><div key={group.id} className={`library-group-tab${activeLibraryGroup===group.id?' active':''}`}>
+              {editingGroupId===group.id
+                ?<input className="library-group-edit" aria-label={`${group.name}の名前を編集`} autoFocus value={editingGroupName} onChange={event=>setEditingGroupName(event.target.value)} onBlur={()=>finishGroupRename(group.id)} onKeyDown={event=>{if(event.key==='Enter')finishGroupRename(group.id);if(event.key==='Escape')setEditingGroupId(null)}}/>
+                :<button type="button" className="library-group-select" aria-pressed={activeLibraryGroup===group.id} onClick={()=>setActiveLibraryGroup(group.id)} onDoubleClick={()=>{setEditingGroupId(group.id);setEditingGroupName(group.name)}}><TabLabel active={activeLibraryGroup===group.id} label={group.name}/></button>}
+              <button type="button" className="library-group-delete" aria-label={`${group.name}を削除`} onPointerDown={event=>event.stopPropagation()} onClick={event=>{event.stopPropagation();setPendingDeleteGroup(group)}} onDoubleClick={event=>event.stopPropagation()}><X size={12}/></button>
+            </div>)}
+            <button type="button" className="library-add-group" aria-label="グループを追加" onClick={createPromptGroup}><Plus size={15}/></button>
+          </nav></section>
           <section className="library-card-list" aria-label="保存済みPrompt一覧">
             {visibleSavedPrompts.length===0?<div className="library-empty"><BookOpen size={22}/><strong>保存済みPromptはありません</strong><span>現在のPromptを保存すると、ここから再利用できます。</span></div>:visibleSavedPrompts.map(saved=>{const selected=selectedSavedPrompt?.id===saved.id;return <article className={`saved-prompt-asset${selected?' selected':''}`} key={saved.id} style={{'--saved-prompt-color':saved.color} as CSSProperties}>
               <button type="button" className="saved-prompt-asset-main" aria-pressed={selected} onClick={()=>setSelectedSavedPrompt(saved)}>
@@ -712,9 +712,9 @@ export default function App() {
         </div>:<div className="prompt-workspace-content">
         <div className="prompt-controls">
         <div className="prompt-control-bar">
-        {isSearchMode&&<section className="category-tabs-section" aria-label="検索結果カテゴリ"><div className="subcategory-tabs">{['すべて',...searchCategories].map(categoryKey=>{const activeCategory=searchCategory===categoryKey;return <button key={categoryKey} className={activeCategory?'active':''} aria-pressed={activeCategory} onClick={()=>setSearchCategory(categoryKey)}>{activeCategory&&<Check size={14}/>}<span>{categoryKey==='すべて'?'すべて':getCategoryLabel(categoryKey,locale)}</span></button>})}</div></section>}
-        {!isSearchMode&&favoritesOnly&&<section className="category-tabs-section" aria-label="お気に入りカテゴリ"><div className="subcategory-tabs">{['すべて',...favoriteCategories].map(categoryKey=>{const activeCategory=favoriteCategory===categoryKey;return <button key={categoryKey} className={activeCategory?'active':''} aria-pressed={activeCategory} onClick={()=>setFavoriteCategory(categoryKey)}>{activeCategory&&<Check size={14}/>}<span>{categoryKey==='すべて'?'すべて':getCategoryLabel(categoryKey,locale)}</span></button>})}</div></section>}
-        {!isSearchMode&&!favoritesOnly&&subcategories.length>0&&<section className="category-tabs-section" aria-label="カテゴリ"><div className="subcategory-tabs">{['すべて',...subcategories].map(sub=>{const activeSub=subcategory===sub;return <button key={sub} className={activeSub?'active':''} aria-pressed={activeSub} onClick={()=>setSubcategory(sub)}>{activeSub&&<Check size={14}/>}<span>{sub}</span></button>})}</div></section>}
+        {isSearchMode&&<section className="category-tabs-section" aria-label="検索結果カテゴリ"><div className="subcategory-tabs">{['すべて',...searchCategories].map(categoryKey=>{const activeCategory=searchCategory===categoryKey;return <button key={categoryKey} className={activeCategory?'active':''} aria-pressed={activeCategory} onClick={()=>setSearchCategory(categoryKey)}><TabLabel active={activeCategory} label={categoryKey==='すべて'?'すべて':getCategoryLabel(categoryKey,locale)}/></button>})}</div></section>}
+        {!isSearchMode&&favoritesOnly&&<section className="category-tabs-section" aria-label="お気に入りカテゴリ"><div className="subcategory-tabs">{['すべて',...favoriteCategories].map(categoryKey=>{const activeCategory=favoriteCategory===categoryKey;return <button key={categoryKey} className={activeCategory?'active':''} aria-pressed={activeCategory} onClick={()=>setFavoriteCategory(categoryKey)}><TabLabel active={activeCategory} label={categoryKey==='すべて'?'すべて':getCategoryLabel(categoryKey,locale)}/></button>})}</div></section>}
+        {!isSearchMode&&!favoritesOnly&&subcategories.length>0&&<section className="category-tabs-section" aria-label="カテゴリ"><div className="subcategory-tabs">{['すべて',...subcategories].map(sub=>{const activeSub=subcategory===sub;return <button key={sub} className={activeSub?'active':''} aria-pressed={activeSub} onClick={()=>setSubcategory(sub)}><TabLabel active={activeSub} label={sub}/></button>})}</div></section>}
         <section className="color-selector-section" aria-label="Color Selector"><div className="color-modifier-bar" aria-label="Color Modifier">
           <div className="color-modifier-label"><span>COLOR</span><strong>{findColorModifier(activeColorModifier)?.label ?? '指定なし'}</strong></div>
           <div className="color-modifier-swatches">
@@ -739,8 +739,8 @@ export default function App() {
         {!isSearchMode&&!favoritesOnly&&!['hair','eyes','body','clothes','scene_props'].includes(category)&&<section className="composer-placeholder" aria-label="Composer"><span>COMPOSER</span></section>}
         </div>
         <section className="tag-list-section" aria-label="タグ一覧">
-        {(favoritesOnly||isSearchMode)&&<div className="panel-title">
-          <div><span className="eyebrow">PROMPT DICTIONARY</span><h2>{favoritesOnly?'お気に入り':`「${query}」の検索結果`}</h2></div>
+        {isSearchMode&&<div className="panel-title">
+          <div><span className="eyebrow">PROMPT DICTIONARY</span><h2>{`「${query}」の検索結果`}</h2></div>
         </div>}
         {related.length>0&&<section className={`related-suggestions ${relatedCollapsed?'collapsed':''}`}>
           <button className="related-suggestions-toggle" onClick={()=>setRelatedCollapsed(v=>!v)} aria-expanded={!relatedCollapsed}>
@@ -855,11 +855,10 @@ export default function App() {
       {savePromptError&&<p className="prompt-save-error" role="alert">{savePromptError}</p>}
       <div className="modal-actions"><button className="ghost" onClick={()=>setSavePromptOpen(false)}>キャンセル</button><button onClick={submitSavedPrompt}>保存</button></div>
     </section></div>}
-    {groupDialogOpen&&<div className="modal-backdrop" onMouseDown={()=>setGroupDialogOpen(false)}><section className="library-dialog" role="dialog" aria-modal="true" aria-labelledby="new-prompt-group-title" onMouseDown={event=>event.stopPropagation()}>
-      <div className="analyzer-head"><div><span className="eyebrow">PROMPT LIBRARY</span><h2 id="new-prompt-group-title">新しいグループ</h2></div><button aria-label="閉じる" onClick={()=>setGroupDialogOpen(false)}><X size={18}/></button></div>
-      <label>グループ名<input autoFocus value={groupName} onChange={event=>{setGroupName(event.target.value);setGroupError('')}} onKeyDown={event=>{if(event.key==='Enter')createPromptGroup();if(event.key==='Escape')setGroupDialogOpen(false)}}/></label>
-      {groupError&&<p className="prompt-save-error" role="alert">{groupError}</p>}
-      <div className="modal-actions"><button className="ghost" onClick={()=>setGroupDialogOpen(false)}>キャンセル</button><button onClick={createPromptGroup}>作成</button></div>
+    {pendingDeleteGroup&&<div className="modal-backdrop" onMouseDown={()=>setPendingDeleteGroup(null)}><section className="library-dialog delete-prompt-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-prompt-group-title" onMouseDown={event=>event.stopPropagation()}>
+      <div className="analyzer-head"><div><span className="eyebrow">DELETE GROUP</span><h2 id="delete-prompt-group-title">グループを削除しますか？</h2></div><button aria-label="閉じる" onClick={()=>setPendingDeleteGroup(null)}><X size={18}/></button></div>
+      <p><strong>{pendingDeleteGroup.name}</strong></p><p>保存Prompt自体は削除されません。</p>
+      <div className="modal-actions"><button className="ghost" onClick={()=>setPendingDeleteGroup(null)}>キャンセル</button><button className="danger" onClick={deletePromptGroup}>削除</button></div>
     </section></div>}
     {pendingApplyPrompt&&<div className="modal-backdrop" onMouseDown={()=>setPendingApplyPrompt(null)}><section className="library-dialog apply-prompt-dialog" role="dialog" aria-modal="true" aria-labelledby="apply-prompt-title" onMouseDown={event=>event.stopPropagation()}>
       <div className="analyzer-head"><div><span className="eyebrow">APPLY PROMPT</span><h2 id="apply-prompt-title">このPromptを適用しますか？</h2></div><button aria-label="閉じる" onClick={()=>setPendingApplyPrompt(null)}><X size={18}/></button></div>

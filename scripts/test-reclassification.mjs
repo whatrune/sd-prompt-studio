@@ -5,7 +5,7 @@ import { createServer } from 'vite'
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 
 try {
-  const [{ adultTags }, { buildPrompt, buildPromptWithStrategy, tagSort }, { migratePersistedState, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }, { applyColorModifier, buildColorModifiedTag, findColorModifier, isColorModifiableCategory }] = await Promise.all([
+  const [{ adultTags }, { buildPrompt, buildPromptWithStrategy, tagSort }, { migratePersistedState, nextPromptGroupName, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }, { applyColorModifier, buildColorModifiedTag, findColorModifier, isColorModifiableCategory }] = await Promise.all([
     server.ssrLoadModule('/src/data/adultTags.ts'),
     server.ssrLoadModule('/src/prompt.ts'),
     server.ssrLoadModule('/src/store.ts'),
@@ -586,19 +586,23 @@ try {
   assert(characterGroup, 'a named Prompt group must be created')
   assert.equal(usePromptStore.getState().addPromptGroup('キャラクター'), null, 'duplicate Prompt group names must be rejected')
   assert.equal(usePromptStore.getState().renamePromptGroup(characterGroup.id, 'キャラクター資産'), true, 'Prompt groups must be renameable')
+  assert.equal(nextPromptGroupName(usePromptStore.getState().promptGroups), 'グループ1', 'default Prompt group names must start at the smallest available suffix')
+  const secondaryGroup = usePromptStore.getState().addPromptGroup('グループ1')
+  assert(secondaryGroup, 'a second Prompt group must be created')
+  assert.equal(nextPromptGroupName(usePromptStore.getState().promptGroups), 'グループ2', 'default Prompt group names must advance past existing names')
   const savedLibraryPrompt = usePromptStore.getState().savePrompt({
     name: 'Library Favorite',
     positivePrompt: 'saved positive snapshot',
     negativePrompt: 'library negative',
     seeds: [{ value: 123456789 }, { value: 987654321 }, { value: 24680 }],
     color: '#ff6699',
-    groups: [characterGroup.id],
+    groups: [characterGroup.id, secondaryGroup.id],
   })
   assert(savedLibraryPrompt, 'valid Prompt state must be saved')
   assert.equal(usePromptStore.getState().savedPrompts.length, 1)
   assert.equal(usePromptStore.getState().savedPrompts[0].modelPreset, 'pony')
   assert.equal(savedLibraryPrompt.color, '#ff6699')
-  assert.deepEqual(savedLibraryPrompt.groups, [characterGroup.id])
+  assert.deepEqual(savedLibraryPrompt.groups, [characterGroup.id, secondaryGroup.id])
   assert.equal(savedLibraryPrompt.generatedPrompt, 'saved positive snapshot')
   assert.equal(savedLibraryPrompt.displayTags.length, 2)
   assert.equal(savedLibraryPrompt.structure.blocks[0].tags[0].prompt, 'black hair')
@@ -607,6 +611,12 @@ try {
   assert.equal(usePromptStore.getState().savePrompt({ name: 'Duplicate seeds', positivePrompt: '', negativePrompt: '', seeds: [{ value: 7 }, { value: 7 }] }), null, 'duplicate Seeds must be rejected')
   const seedlessPrompt = usePromptStore.getState().savePrompt({ name: 'Seedless Prompt', positivePrompt: '', negativePrompt: '', seeds: [] })
   assert(seedlessPrompt, 'a Prompt without Seeds must be saved')
+  assert.equal(usePromptStore.getState().deletePromptGroup(characterGroup.id), true, 'Prompt groups must be deletable')
+  assert.equal(usePromptStore.getState().promptGroups.some(group => group.id === characterGroup.id), false, 'deleted Prompt groups must leave the group list')
+  assert.equal(usePromptStore.getState().savedPrompts.some(saved => saved.id === savedLibraryPrompt.id), true, 'deleting a Prompt group must preserve its saved Prompts')
+  assert.equal(usePromptStore.getState().savedPrompts.some(saved => saved.groups.includes(characterGroup.id)), false, 'deleted Prompt group ids must be removed from every saved Prompt')
+  assert.equal(usePromptStore.getState().savedPrompts.find(saved => saved.id === savedLibraryPrompt.id)?.groups.includes(secondaryGroup.id), true, 'unrelated Prompt group membership must be preserved')
+  assert.equal(usePromptStore.getState().deletePromptGroup('missing-group'), false, 'deleting an unknown Prompt group must be a no-op')
 
   usePromptStore.setState({
     blocks: [{ id: 'changed-subject', name: 'Changed', tags: [] }],
@@ -675,7 +685,8 @@ try {
   assert(appSource.includes('categoryOrder.filter(categoryKey => visibleDictionaryTags.some'), 'Favorite tabs must include only categories with visible favorite tags')
   assert(appSource.includes("const [searchCategory, setSearchCategory] = useState('すべて')"), 'Search Mode must keep category selection separate from Prompt and Favorite modes')
   assert(appSource.includes("const isSearchMode = query.trim().length > 0"), 'Search Mode must derive from the existing query state')
-  assert(appSource.includes('{(favoritesOnly||isSearchMode)&&<div className="panel-title">'), 'Search result heading must use the trimmed Search Mode state')
+  assert(appSource.includes('{isSearchMode&&<div className="panel-title">'), 'Search result heading must use only the trimmed Search Mode state')
+  assert.equal(appSource.includes("favoritesOnly?'お気に入り'"), false, 'Favorite Workspace must not render a dedicated page title')
   assert(appSource.includes('className="header-search"'), 'Tag search must render in the App Header')
   assert(appSource.includes('aria-label="タグ検索"'), 'Header tag search must have an accessible name')
   assert(appSource.includes('query.length>0&&<button type="button" className="header-search-clear"'), 'Search clear button must render only while the input contains text')
@@ -691,8 +702,15 @@ try {
   assert(appSource.includes("store.hideUnavailable && conflictMap.get(t.id)?.level === 'hard'"), 'Search Mode must respect hideUnavailable')
   assert(appSource.includes('className="library-workspace"'), 'Library navigation must render a dedicated central Workspace')
   assert(appSource.indexOf('className="library-workspace"') < appSource.indexOf('className="preview panel"'), 'the Prompt Library list must live in the central Workspace before the Inspector')
-  assert(appSource.includes('className="library-tabs"'), 'Prompt groups must render as Library tabs')
-  assert(appSource.includes('className="library-add-group"') && appSource.includes('setGroupDialogOpen(true)'), 'the add-group control must open a confirmation dialog before creating a tab')
+  assert(appSource.includes('className="subcategory-tabs library-tabs"'), 'Prompt groups must reuse the central category-tab structure')
+  assert(appSource.includes('function TabLabel('), 'Category and Library tabs must share active-label rendering')
+  assert(appSource.includes('<TabLabel active={activeLibraryGroup===\'all\'} label="すべて"/>'), 'the active all-Prompts Library tab must use the shared check label')
+  assert(appSource.includes('<TabLabel active={activeLibraryGroup===group.id} label={group.name}/>'), 'active Prompt group tabs must use the shared check label')
+  assert(appSource.includes('className="library-add-group"') && appSource.includes('onClick={createPromptGroup}'), 'the add-group control must create a default-named tab immediately')
+  assert.equal(appSource.includes('library-workspace-header'), false, 'Prompt Library must start with group tabs without a dedicated title or save header')
+  assert.equal(appSource.includes('groupDialogOpen'), false, 'Prompt group creation must not open a naming dialog')
+  assert(appSource.includes('setPendingDeleteGroup(group)'), 'Prompt group deletion must require explicit confirmation')
+  assert(appSource.includes('保存Prompt自体は削除されません。'), 'Prompt group deletion must explain that saved Prompts are preserved')
   assert(appSource.includes("activeLibraryGroup==='all'"), 'the fixed all-prompts tab must remain available')
   assert(appSource.includes('onDoubleClick'), 'user Prompt groups must support desktop double-click rename')
   assert(appSource.includes("applySavedPrompt('replace')"), 'Saved Prompt cards must offer replacement apply')
