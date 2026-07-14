@@ -559,7 +559,7 @@ export default function App() {
   return <main className="app-shell">
     <header className="topbar">
       <div className="app-brand"><button type="button" className="navigation-toggle" aria-label={store.navigationCollapsed?'Navigationを展開':'Navigationを最小化'} aria-expanded={!store.navigationCollapsed} onClick={()=>{closeNavigationFlyout();store.setNavigationCollapsed(!store.navigationCollapsed)}}><Menu size={19}/></button><div><h1>SD Prompt Studio <span className="version-mark">v21.0 α1</span></h1><p>Stable Diffusion Prompt IDE · {(TAG_COUNT + ADULT_TAG_COUNT + store.userTags.length).toLocaleString()} tags</p></div></div>
-      <div className="header-search"><div className="search-box"><Search size={16}/><input aria-label="タグ検索" value={query} onChange={e=>changeSearchQuery(e.target.value)} placeholder="日本語・英語で検索" /></div></div>
+      <div className="header-search"><div className="search-box"><Search size={16}/><input aria-label="タグ検索" value={query} onChange={e=>changeSearchQuery(e.target.value)} placeholder="日本語・英語で検索" />{query.length>0&&<button type="button" className="header-search-clear" aria-label="検索をクリア" onClick={()=>changeSearchQuery('')}><X size={15}/></button>}</div></div>
       <div className="header-actions">
         <button className="ghost" onClick={()=>setAnalyzerOpen(true)}><BookOpen size={17}/>Prompt解析</button>
         <div className="settings-wrap">

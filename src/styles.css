@@ -1398,6 +1398,29 @@ body,
   box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
+.header-search-clear {
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.header-search-clear:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.header-search-clear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 .topbar .header-actions {
   min-width: 0;
   justify-self: end;
