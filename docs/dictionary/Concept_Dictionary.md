@@ -33,7 +33,7 @@ Descriptive and research fields such as `humanMeaning`, `observedModelBehavior`,
 | Condition | Required information |
 |---|---|
 | `conceptType: "expandable_composite"` | A non-empty `components` array, at least one component with `role: "required"`, and an `expansionStrategy`. |
-| `conceptType: "relation"` | Directionality or an explicit source/target contract. A resolved relation instance uses `RelationNode.sourceEntityId` and `targetEntityId`. |
+| `conceptType: "relation"` | A `relationDefinition` with `directionality`. Source/target entity types, inverse relation, and object-mediator requirements are also required when they are part of the relation meaning. |
 | State-dependent pose or object concept | `stateDependency` and/or `stateAffinity`, with compatible, preferred, or incompatible states when the evidence supports them. |
 | Concept with a visibility or observability requirement | Applicable region metadata such as `requiresVisibleRegions` or `evidenceRegions`, plus observability/visibility strength when known. |
 | Model-dependent concept | `modelDependent: true` and evidence information such as `observations` or `evidenceSources`. |
@@ -42,6 +42,54 @@ Descriptive and research fields such as `humanMeaning`, `observedModelBehavior`,
 Atomic, relation, effect, and other concepts are not required to carry `components`, state metadata, or visibility arrays when those concepts do not use those behaviors.
 
 The full schema also supports aliases, secondary axes, role-classified components, state affinity, support/orientation/object/scene requirements, target/evidence/visibility regions, upper-body observability, visibility strength, viewer-relation requirements/support, framing and spatial budget, resolution priority, cooperation/suppression, variance, context/model dependency, confidence, and evidence-source IDs. See [PromptNode.ts](../schemas/PromptNode.ts).
+
+### Relation concept definitions
+
+`RelationDefinition` belongs to the Concept Dictionary record and describes the meaning and valid connections of a relation phrase. Every production concept with `conceptType: "relation"` requires `relationDefinition.directionality`:
+
+- `directed`: source and target order changes the meaning, such as `handing_to`, `receiving_from`, `holding`, `sitting_on`, or `behind`.
+- `symmetric`: swapping source and target preserves the meaning, such as `holding_hands` or `near`.
+
+When applicable, the definition also stores permitted `sourceEntityTypes` and `targetEntityTypes`, an `inverseRelationConceptId`, and whether an Object entity must mediate the relation.
+
+```ts
+{
+  id: "relation.handing_to",
+  phrase: "handing to",
+  displayName: "手渡す",
+  conceptType: "relation",
+  domain: "relation",
+  role: "relation",
+  supportStatus: "supported",
+  relationDefinition: {
+    directionality: "directed",
+    sourceEntityTypes: ["human"],
+    targetEntityTypes: ["human"],
+    inverseRelationConceptId: "relation.receiving_from",
+    requiresObjectMediator: true
+  }
+}
+```
+
+```ts
+{
+  id: "relation.holding_hands",
+  phrase: "holding hands",
+  displayName: "手をつなぐ",
+  conceptType: "relation",
+  domain: "relation",
+  role: "relation",
+  supportStatus: "supported",
+  relationDefinition: {
+    directionality: "symmetric",
+    sourceEntityTypes: ["human"],
+    targetEntityTypes: ["human"],
+    requiresObjectMediator: false
+  }
+}
+```
+
+`RelationDefinition` is dictionary metadata; it does not identify participants in one generated scene. After resolution, `RelationNode` is the Scene Graph instance that references concrete `sourceEntityId`, `targetEntityId`, and optional `objectEntityId`. The two types must not be collapsed: the definition constrains which instances are valid, while the instance records the N:N graph edge selected for the current scene.
 
 ## Concept types
 

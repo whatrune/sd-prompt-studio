@@ -64,6 +64,28 @@ export type ConceptDomain =
   | "quality"
   | "effect";
 
+export type EntityType = "human" | "object" | "environment" | "region";
+
+export type RelationDirectionality = "directed" | "symmetric";
+
+/**
+ * Dictionary-side semantics for a relation phrase.
+ *
+ * `directed` means source and target order changes the relation meaning.
+ * `symmetric` means swapping source and target preserves the relation meaning.
+ */
+export type RelationDefinition = {
+  directionality: RelationDirectionality;
+  /** Entity types permitted as the relation source; undefined means unresearched. */
+  sourceEntityTypes?: EntityType[];
+  /** Entity types permitted as the relation target; undefined means unresearched. */
+  targetEntityTypes?: EntityType[];
+  /** Concept ID for the inverse direction, such as handing_to ↔ receiving_from. */
+  inverseRelationConceptId?: string;
+  /** True when resolving the relation requires an Object entity as mediator. */
+  requiresObjectMediator?: boolean;
+};
+
 /**
  * A component has exactly one compiler role within its parent concept.
  * `evidence` verifies the parent concept in an image and is not necessarily
@@ -102,6 +124,11 @@ export type ConceptNode = {
   domain: ConceptDomain;
   role: ConceptRole;
   conceptType: ConceptType;
+  /**
+   * Dictionary definition for a relation phrase. Required for production
+   * concepts whose conceptType is "relation".
+   */
+  relationDefinition?: RelationDefinition;
   scope?: "global" | "regional" | "local";
 
   primaryAxis?: string;
@@ -169,8 +196,6 @@ export type ConceptNode = {
   evidenceSources?: string[];
 };
 
-export type EntityType = "human" | "object" | "environment" | "region";
-
 export type EntityNode = {
   id: string;
   entityType: EntityType;
@@ -186,6 +211,7 @@ export type RelationKind =
   | "attention"
   | "support";
 
+/** Resolved Scene Graph relation instance between concrete entity IDs. */
 export type RelationNode = {
   id: string;
   kind: RelationKind;

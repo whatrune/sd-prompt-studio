@@ -119,7 +119,7 @@ graph LR
     C --> R["Model-oriented Prompt"]
 ```
 
-Entities are nodes. Relations are directed or undirected edges. Concepts can expand into required and optional components. The graph must support multiple humans, objects, and environment regions with N:N relations.
+Entities are nodes. Relations are directed or symmetric edges. Concepts can expand into role-classified components: `required`, `optional`, `evidence`, and `render_candidate`. The graph must support multiple humans, objects, and environment regions with N:N relations.
 
 ## Resolution model
 
