@@ -1368,3 +1368,48 @@ body,
 .inspector-scroll .preview-section-toggle {
   background: var(--bg-primary);
 }
+
+/* v35: app-wide tag search in the Header */
+.topbar {
+  display: grid;
+  grid-template-columns: auto minmax(160px, 620px) auto;
+  gap: 12px;
+}
+
+.header-search {
+  width: 100%;
+  min-width: 0;
+  justify-self: center;
+}
+
+.header-search .search-box {
+  min-width: 0;
+  padding: 7px 11px;
+  border-radius: 999px;
+}
+
+.header-search input {
+  min-width: 0;
+}
+
+.topbar .header-actions {
+  min-width: 0;
+  justify-self: end;
+  flex-wrap: nowrap;
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    grid-template-columns: minmax(160px, auto) minmax(120px, 1fr) auto;
+    gap: 8px;
+  }
+
+  .topbar .header-actions {
+    gap: 4px;
+  }
+
+  .topbar .header-actions > button,
+  .topbar .settings-button {
+    padding-inline: 8px;
+  }
+}
