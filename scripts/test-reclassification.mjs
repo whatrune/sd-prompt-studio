@@ -648,6 +648,8 @@ try {
   assert(appSource.includes("const favoritesOnly = store.workspaceView === 'favorites'"), 'Favorite Mode must derive from the persisted Workspace view')
   assert.equal(appSource.includes('setFavoritesOnly'), false, 'Favorite Mode must not keep a second state that can drift from Navigation')
   assert(appSource.includes('aria-label="お気に入りカテゴリ"'), 'Favorite Mode must render category tabs inside Prompt Workspace')
+  assert(appSource.includes('!query&&favoritesOnly&&<section className="category-tabs-section" aria-label="お気に入りカテゴリ"'), 'Favorite Mode must always render the all-favorites tab, including when no favorites exist')
+  assert.equal(appSource.includes('favoritesOnly&&favoriteCategories.length>0'), false, 'Favorite Mode must not hide the all-favorites tab when category count is zero')
   assert(appSource.includes("favoriteCategory !== 'すべて' && t.category !== favoriteCategory"), 'Favorite category tabs must filter the favorite tag list')
   assert(appSource.includes('categoryOrder.filter(categoryKey => visibleDictionaryTags.some'), 'Favorite tabs must include only categories with visible favorite tags')
   for (const label of ['プロンプト', 'お気に入り', 'ライブラリ', '設定']) assert(appSource.includes(`>${label}</span>`), `${label} must be rendered as a Japanese Navigation label`)
