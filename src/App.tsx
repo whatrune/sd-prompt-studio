@@ -689,7 +689,7 @@ export default function App() {
           </nav>
           <section className="library-card-list" aria-label="保存済みPrompt一覧">
             {visibleSavedPrompts.length===0?<div className="library-empty"><BookOpen size={22}/><strong>保存済みPromptはありません</strong><span>現在のPromptを保存すると、ここから再利用できます。</span></div>:visibleSavedPrompts.map(saved=><article className="saved-prompt-asset" key={saved.id} style={{'--saved-prompt-color':saved.color} as CSSProperties}>
-              <button type="button" className="saved-prompt-asset-main" onClick={()=>setPendingApplyPrompt(saved)}>
+              <button type="button" className="saved-prompt-asset-main" onClick={()=>setSelectedSavedPrompt(saved)}>
                 <span className="saved-prompt-color" aria-hidden="true"/>
                 <strong>{saved.name}</strong>
                 <small>{saved.displayTags.length} tags</small>
@@ -697,7 +697,6 @@ export default function App() {
                 <time dateTime={new Date(saved.updatedAt).toISOString()}>{new Date(saved.updatedAt).toLocaleDateString('ja-JP')}</time>
               </button>
               <div className="saved-prompt-asset-actions">
-                <button type="button" className="saved-prompt-info" aria-label={`${saved.name}の詳細`} onClick={()=>setSelectedSavedPrompt(saved)}><Info size={15}/>詳細</button>
                 <button type="button" className="saved-prompt-apply" aria-label={`${saved.name}を適用`} onClick={()=>setPendingApplyPrompt(saved)}><Check size={15}/>適用</button>
               </div>
             </article>)}
@@ -759,7 +758,7 @@ export default function App() {
           <div><span className="eyebrow">SELECTED PROMPT</span><strong>{selectedSavedPrompt?.name??'Promptを選択'}</strong>{selectedSavedPrompt&&<small>{selectedSavedPrompt.displayTags.length} tags · {selectedSavedPrompt.settings.modelPreset}</small>}</div>
         </div>
         <div className="inspector-scroll library-inspector-scroll" aria-label="Saved Prompt details">
-          {!selectedSavedPrompt?<div className="library-inspector-empty"><Info size={20}/><strong>Promptを選択してください</strong><span>カードのⓘから詳細を確認できます。</span></div>:<>
+          {!selectedSavedPrompt?<div className="library-inspector-empty"><Info size={20}/><strong>Promptを選択してください</strong><span>カードを選択すると詳細を確認できます。</span></div>:<>
           <section className="preview-section">
             <div className="preview-section-header"><div className="preview-section-title">Prompt Context</div></div>
             <div className="preview-section-content prompt-context-content"><div className="selected-outline">
