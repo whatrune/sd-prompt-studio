@@ -33,7 +33,7 @@ Descriptive and research fields such as `humanMeaning`, `observedModelBehavior`,
 | Condition | Required information |
 |---|---|
 | `conceptType: "expandable_composite"` | A non-empty `components` array, at least one component with `role: "required"`, and an `expansionStrategy`. |
-| `conceptType: "relation"` | A `relationDefinition` with `directionality`. Source/target entity types, inverse relation, and object-mediator requirements are also required when they are part of the relation meaning. |
+| `conceptType: "relation"` | A `relationDefinition` with `kind` and `directionality`. Source/target entity types and inverse relation are also required when they are part of the relation meaning. |
 | State-dependent pose or object concept | `stateDependency` and/or `stateAffinity`, with compatible, preferred, or incompatible states when the evidence supports them. |
 | Concept with a visibility or observability requirement | Applicable region metadata such as `requiresVisibleRegions` or `evidenceRegions`, plus observability/visibility strength when known. |
 | Model-dependent concept | `modelDependent: true` and evidence information such as `observations` or `evidenceSources`. |
@@ -45,28 +45,60 @@ The full schema also supports aliases, secondary axes, role-classified component
 
 ### Relation concept definitions
 
-`RelationDefinition` belongs to the Concept Dictionary record and describes the meaning and valid connections of a relation phrase. Every production concept with `conceptType: "relation"` requires `relationDefinition.directionality`:
+`RelationDefinition` belongs to the Concept Dictionary record and describes the meaning and valid connections of a relation phrase. Every production concept with `conceptType: "relation"` requires both `relationDefinition.kind` and `relationDefinition.directionality`.
 
-- `directed`: source and target order changes the meaning, such as `handing_to`, `receiving_from`, `holding`, `sitting_on`, or `behind`.
+`kind` is the Relation Engine edge class and is copied into the resolved `RelationNode.kind`:
+
+| Relation Engine class | `RelationKind` | Examples |
+|---|---|---|
+| Physical | `physical` | `holding`, `holding_hands` |
+| Spatial | `spatial` | `near`, `behind` |
+| Shared action | `shared_action` | `walking_together`, `standing_together` |
+| Directed action | `directed_action` | `handing`, `being_received_by`, `waving_to` |
+| Attention | `attention` | `looking_at`, `talking_to` |
+| Support | `support` | `standing_on`, `leaning_on` |
+
+Directionality is independent from the edge class:
+
+- `directed`: source and target order changes the meaning, such as `handing`, `being_received_by`, `holding`, `sitting_on`, or `behind`.
 - `symmetric`: swapping source and target preserves the meaning, such as `holding_hands` or `near`.
 
-When applicable, the definition also stores permitted `sourceEntityTypes` and `targetEntityTypes`, an `inverseRelationConceptId`, and whether an Object entity must mediate the relation.
+When applicable, the definition also stores permitted `sourceEntityTypes` and `targetEntityTypes` and an `inverseRelationConceptId`. Object participation is represented through these Entity Type constraints and normal graph endpoints, not through a mediator-only field.
 
 ```ts
 {
-  id: "relation.handing_to",
-  phrase: "handing to",
-  displayName: "手渡す",
+  id: "relation.handing",
+  phrase: "handing",
+  displayName: "手渡している",
   conceptType: "relation",
   domain: "relation",
   role: "relation",
   supportStatus: "supported",
   relationDefinition: {
+    kind: "directed_action",
     directionality: "directed",
     sourceEntityTypes: ["human"],
+    targetEntityTypes: ["object"],
+    inverseRelationConceptId: "relation.being_handed_by"
+  }
+}
+```
+
+```ts
+{
+  id: "relation.being_received_by",
+  phrase: "being received by",
+  displayName: "受け取られている",
+  conceptType: "relation",
+  domain: "relation",
+  role: "relation",
+  supportStatus: "supported",
+  relationDefinition: {
+    kind: "directed_action",
+    directionality: "directed",
+    sourceEntityTypes: ["object"],
     targetEntityTypes: ["human"],
-    inverseRelationConceptId: "relation.receiving_from",
-    requiresObjectMediator: true
+    inverseRelationConceptId: "relation.receiving"
   }
 }
 ```
@@ -81,15 +113,24 @@ When applicable, the definition also stores permitted `sourceEntityTypes` and `t
   role: "relation",
   supportStatus: "supported",
   relationDefinition: {
+    kind: "physical",
     directionality: "symmetric",
     sourceEntityTypes: ["human"],
-    targetEntityTypes: ["human"],
-    requiresObjectMediator: false
+    targetEntityTypes: ["human"]
   }
 }
 ```
 
-`RelationDefinition` is dictionary metadata; it does not identify participants in one generated scene. After resolution, `RelationNode` is the Scene Graph instance that references concrete `sourceEntityId`, `targetEntityId`, and optional `objectEntityId`. The two types must not be collapsed: the definition constrains which instances are valid, while the instance records the N:N graph edge selected for the current scene.
+Directed handoff uses two binary edges with the Object as a normal `EntityNode`:
+
+```text
+Human A --handing--> Object
+Object --being_received_by--> Human B
+```
+
+It is not represented as one Human-to-Human relation with an attached Object ID.
+
+`RelationDefinition` is dictionary metadata; it defines `RelationKind`, directionality, permitted source/target Entity Types, and an inverse Relation Concept when applicable. It does not identify participants in one generated scene. After resolution, `RelationNode` is the Scene Graph instance that references a Relation Concept ID, concrete `sourceEntityId` and `targetEntityId`, the derived `kind`, and optional observed/execution `strength`. The two types must not be collapsed: the definition constrains which binary edges are valid, while the instance records the N:N graph edge selected for the current scene.
 
 ## Concept types
 

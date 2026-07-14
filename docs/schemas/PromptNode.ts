@@ -66,6 +66,14 @@ export type ConceptDomain =
 
 export type EntityType = "human" | "object" | "environment" | "region";
 
+export type RelationKind =
+  | "physical"
+  | "spatial"
+  | "shared_action"
+  | "directed_action"
+  | "attention"
+  | "support";
+
 export type RelationDirectionality = "directed" | "symmetric";
 
 /**
@@ -75,15 +83,15 @@ export type RelationDirectionality = "directed" | "symmetric";
  * `symmetric` means swapping source and target preserves the relation meaning.
  */
 export type RelationDefinition = {
+  /** Relation Engine edge class copied to the resolved RelationNode.kind. */
+  kind: RelationKind;
   directionality: RelationDirectionality;
   /** Entity types permitted as the relation source; undefined means unresearched. */
   sourceEntityTypes?: EntityType[];
   /** Entity types permitted as the relation target; undefined means unresearched. */
   targetEntityTypes?: EntityType[];
-  /** Concept ID for the inverse direction, such as handing_to ↔ receiving_from. */
+  /** Concept ID for the inverse direction, such as handing ↔ being_handed_by. */
   inverseRelationConceptId?: string;
-  /** True when resolving the relation requires an Object entity as mediator. */
-  requiresObjectMediator?: boolean;
 };
 
 /**
@@ -203,22 +211,14 @@ export type EntityNode = {
   conceptIds: string[];
 };
 
-export type RelationKind =
-  | "physical"
-  | "spatial"
-  | "shared_action"
-  | "directed_action"
-  | "attention"
-  | "support";
-
 /** Resolved Scene Graph relation instance between concrete entity IDs. */
 export type RelationNode = {
   id: string;
+  /** Derived from the referenced relation concept's relationDefinition.kind. */
   kind: RelationKind;
   relationConceptId: string;
   sourceEntityId: string;
   targetEntityId: string;
-  objectEntityId?: string;
   strength?: EvidenceLevel;
 };
 

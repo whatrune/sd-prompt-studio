@@ -6,7 +6,7 @@ The Relation Engine resolves an N:N scene graph. Humans, objects, environments, 
 
 ```mermaid
 graph LR
-    A["Human A"] -->|handing_to| O["Drink"]
+    A["Human A"] -->|handing| O["Drink"]
     O -->|being_received_by| B["Human B"]
     A -->|beside| Bench["Bench"]
     B -->|sitting_on| Bench
@@ -21,14 +21,14 @@ graph LR
 
 ## Edge classes
 
-| Class | Examples |
-|---|---|
-| Physical | `holding`, `touching`, `sitting_on`, `leaning_against`, `holding_hands` |
-| Spatial | `near`, `beside`, `behind`, `in_front_of`, `under` |
-| Shared action | `walking_together`, `standing_together` |
-| Directed action | `handing_to`, `receiving_from`, `waving_to` |
-| Attention | `looking_at`, `talking_to`, `smiling_at` |
-| Support | `supported_by`, `standing_on`, `leaning_on` |
+| Class | `RelationKind` | Examples |
+|---|---|---|
+| Physical | `physical` | `holding`, `touching`, `sitting_on`, `leaning_against`, `holding_hands` |
+| Spatial | `spatial` | `near`, `beside`, `behind`, `in_front_of`, `under` |
+| Shared action | `shared_action` | `walking_together`, `standing_together` |
+| Directed action | `directed_action` | `handing`, `being_received_by`, `waving_to` |
+| Attention | `attention` | `looking_at`, `talking_to`, `smiling_at` |
+| Support | `support` | `supported_by`, `standing_on`, `leaning_on` |
 
 ## Observed strength
 
@@ -53,6 +53,15 @@ A state
 ```
 
 The compiler version bound a silver-haired girl as handing and a black-haired girl as receiving, then improved proximity and role difference. Adding `silver-haired girl standing beside the bench`, `black-haired girl sitting on the bench`, `silver-haired girl handing a drink`, and `black-haired girl reaching out her hand to receive` produced many near-handoff results. Direction was still not perfectly fixed and the bench social-scene cluster competed.
+
+The formal graph representation is two binary edges:
+
+```text
+Human A --handing--> Object
+Object --being_received_by--> Human B
+```
+
+The Object is a normal entity referenced by `sourceEntityId` or `targetEntityId`. A handoff must not be encoded as one Human-to-Human edge with an attached Object ID. The Relation Resolver obtains each edge's `kind` from its Relation Concept's `relationDefinition.kind` rather than hard-coding Concept IDs.
 
 ## Multi-subject requirements
 
