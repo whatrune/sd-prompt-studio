@@ -695,8 +695,8 @@ export default function App() {
               :<button type="button" key={group.id} className={activeLibraryGroup===group.id?'active':''} aria-pressed={activeLibraryGroup===group.id} onClick={()=>setActiveLibraryGroup(group.id)} onDoubleClick={()=>{setEditingGroupId(group.id);setEditingGroupName(group.name)}}>{group.name}</button>)}
           </nav>
           <section className="library-card-list" aria-label="保存済みPrompt一覧">
-            {visibleSavedPrompts.length===0?<div className="library-empty"><BookOpen size={22}/><strong>保存済みPromptはありません</strong><span>現在のPromptを保存すると、ここから再利用できます。</span></div>:visibleSavedPrompts.map(saved=><article className="saved-prompt-asset" key={saved.id} style={{'--saved-prompt-color':saved.color} as CSSProperties}>
-              <button type="button" className="saved-prompt-asset-main" onClick={()=>setSelectedSavedPrompt(saved)}>
+            {visibleSavedPrompts.length===0?<div className="library-empty"><BookOpen size={22}/><strong>保存済みPromptはありません</strong><span>現在のPromptを保存すると、ここから再利用できます。</span></div>:visibleSavedPrompts.map(saved=>{const selected=selectedSavedPrompt?.id===saved.id;return <article className={`saved-prompt-asset${selected?' selected':''}`} key={saved.id} style={{'--saved-prompt-color':saved.color} as CSSProperties}>
+              <button type="button" className="saved-prompt-asset-main" aria-pressed={selected} onClick={()=>setSelectedSavedPrompt(saved)}>
                 <span className="saved-prompt-color" aria-hidden="true"/>
                 <strong>{saved.name}</strong>
                 <small>{saved.displayTags.length} tags</small>
@@ -707,7 +707,7 @@ export default function App() {
                 <button type="button" className="saved-prompt-apply" aria-label={`${saved.name}を適用`} onClick={()=>setPendingApplyPrompt(saved)}><Check size={15}/>適用</button>
                 <button type="button" className="saved-prompt-delete" aria-label={`${saved.name}を削除`} onClick={()=>setPendingDeletePrompt(saved)}><X size={15}/></button>
               </div>
-            </article>)}
+            </article>})}
           </section>
         </div>:<div className="prompt-workspace-content">
         <div className="prompt-controls">
@@ -764,9 +764,10 @@ export default function App() {
         {store.workspaceView==='library'?<>
         <div className="inspector-header" aria-label="Saved Prompt Inspector">
           <div className="block-tabs"><button type="button" className="active">{selectedSavedPrompt?.name??'Promptを選択'}</button></div>
+          <section className="prompt-actions"><strong>Prompt Actions</strong><button className="copy-positive" onClick={()=>copyPrompt('actions')}>{copiedPositive?<Check size={16}/>:<Copy size={16}/>}<span>{copiedPositive?'コピー済み':'Positiveをコピー'}</span></button><button className="copy-negative" onClick={()=>copyNegativePrompt(true)}>{copiedNegative?<Check size={16}/>:<Copy size={16}/>}<span>{copiedNegative?'コピー済み':'Negativeをコピー'}</span></button><button className="save-current-prompt" onClick={openSavePrompt}><Save size={16}/><span>保存</span></button></section>
         </div>
         <div className="inspector-scroll" aria-label="Saved Prompt details">
-          {!selectedSavedPrompt?<section className="preview-section"><div className="preview-section-content"><small className="selected-empty">カードを選択するとPromptの詳細を確認できます。</small></div></section>:<>
+          {!selectedSavedPrompt?<section className={`preview-section ${selectedCollapsed?'collapsed':''}`}><div className="preview-section-header"><button className="preview-section-toggle" onClick={()=>setSelectedCollapsed(value=>!value)} aria-expanded={!selectedCollapsed}><span>{t('promptContext',locale)}</span>{selectedCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button></div>{!selectedCollapsed&&<div className="preview-section-content"><small className="selected-empty">カードを選択するとPromptの詳細を確認できます。</small></div>}</section>:<>
           <section className={`preview-section ${selectedCollapsed?'collapsed':''}`}>
             <div className="preview-section-header"><button className="preview-section-toggle" onClick={()=>setSelectedCollapsed(value=>!value)} aria-expanded={!selectedCollapsed}>
               <span>{t('promptContext',locale)}</span>{selectedCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}
