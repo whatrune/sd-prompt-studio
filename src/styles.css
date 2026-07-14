@@ -1335,6 +1335,10 @@ body,
   background: var(--bg-secondary);
 }
 
+.inspector-header .block-tabs button {
+  line-height: 16px;
+}
+
 .inspector-header .prompt-actions {
   position: static;
   top: auto;

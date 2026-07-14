@@ -707,6 +707,7 @@ try {
   assert(appSource.includes('className="save-current-prompt" onClick={openSavePrompt}'), 'Prompt Actions must expose the current Prompt save action')
   assert(appSource.includes('aria-label="Saved Prompt Inspector"'), 'the Inspector must expose selected Saved Prompt details in Library mode')
   assert.equal((appSource.match(/className="prompt-actions"/g)??[]).length, 2, 'Prompt Actions must remain visible in Prompt and Library Inspector modes')
+  assert(stylesSource.includes('.inspector-header .block-tabs button') && stylesSource.includes('line-height: 16px'), 'shared Inspector tabs must keep Prompt and Library headers pixel-aligned')
   assert(appSource.includes('<div className="inspector-scroll" aria-label="Saved Prompt details">'), 'Saved Prompt details must use the existing Inspector scroll foundation')
   assert.equal(appSource.includes('library-inspector-header'), false, 'Library mode must not use a dedicated Inspector header style')
   assert.equal(appSource.includes('library-inspector-scroll'), false, 'Library mode must not use a dedicated Inspector scroll style')
