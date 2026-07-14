@@ -619,6 +619,21 @@ try {
   assert.equal(usePromptStore.getState().deletePromptGroup('missing-group'), false, 'deleting an unknown Prompt group must be a no-op')
 
   usePromptStore.setState({
+    blocks: [{ id: 'clear-subject', name: '被写体 1', subjectNumber: 1, tags: [subjectHair] }],
+    sceneTags: [sceneQuality],
+    activeBlockId: 'clear-subject',
+    favoriteIds: [favoriteTestId],
+  })
+  const savedPromptIdsBeforeClear = usePromptStore.getState().savedPrompts.map(saved => saved.id)
+  const promptGroupIdsBeforeClear = usePromptStore.getState().promptGroups.map(group => group.id)
+  usePromptStore.getState().clearAll()
+  assert.equal(usePromptStore.getState().sceneTags.length, 0, 'clearing the current Prompt must remove current Scene tags')
+  assert.equal(usePromptStore.getState().blocks.every(block => block.tags.length === 0), true, 'clearing the current Prompt must remove current Subject tags')
+  assert.deepEqual(usePromptStore.getState().savedPrompts.map(saved => saved.id), savedPromptIdsBeforeClear, 'clearing the current Prompt must preserve Saved Prompts')
+  assert.deepEqual(usePromptStore.getState().favoriteIds, [favoriteTestId], 'clearing the current Prompt must preserve Favorite Tags')
+  assert.deepEqual(usePromptStore.getState().promptGroups.map(group => group.id), promptGroupIdsBeforeClear, 'clearing the current Prompt must preserve Library Groups')
+
+  usePromptStore.setState({
     blocks: [{ id: 'changed-subject', name: 'Changed', tags: [] }],
     sceneTags: [],
     activeBlockId: 'changed-subject',
@@ -694,6 +709,8 @@ try {
   assert(appSource.includes("onClick={()=>changeSearchQuery('')}"), 'Search clear button must reuse the existing Search Mode exit path')
   assert(stylesSource.includes('.header-search .search-box:focus-within'), 'Header tag search must retain a visible keyboard focus state')
   assert(stylesSource.includes('.header-search-clear:focus-visible'), 'Search clear button must retain a visible keyboard focus state')
+  assert(stylesSource.includes('grid-template-columns: minmax(0, 1fr) minmax(160px, 620px) minmax(0, 1fr)'), 'Header search must use equal flexible side tracks around its existing maximum width')
+  assert(stylesSource.includes('grid-template-columns: minmax(0, 1fr) minmax(120px, 32vw) minmax(0, 1fr)'), 'Header search must remain centered while shrinking at the 900px breakpoint')
   assert.equal(appSource.includes('className="navigation-search"'), false, 'Navigation must not retain a duplicate tag search box')
   assert(appSource.includes('aria-label="検索結果カテゴリ"'), 'Search Mode must render category tabs inside Prompt Workspace')
   assert(appSource.includes("{['すべて',...searchCategories].map"), 'Search Mode must always include the all-results tab')
@@ -722,7 +739,20 @@ try {
   assert(appSource.includes('className="saved-prompt-apply"'), 'Saved Prompt cards must expose an explicit apply control')
   assert(appSource.includes('className="saved-prompt-delete"'), 'Saved Prompt cards must expose an explicit delete control')
   assert(appSource.includes('setPendingDeletePrompt(saved)'), 'Saved Prompt delete must require explicit confirmation')
-  assert(appSource.includes('className="save-current-prompt" onClick={openSavePrompt}'), 'Prompt Actions must expose the current Prompt save action')
+  assert.equal((appSource.match(/aria-label="Promptを保存" title="Promptを保存"/g)??[]).length, 2, 'Prompt Actions save controls must be icon-only buttons with accessible labels and tooltips')
+  assert.equal((appSource.match(/aria-label="Promptをクリア" title="Promptをクリア"/g)??[]).length, 2, 'Prompt Actions clear controls must be icon-only buttons with accessible labels and tooltips')
+  assert.equal(appSource.includes('<span>保存</span>'), false, 'Prompt Actions save controls must not render a text label')
+  assert.equal(appSource.includes('<span>クリア</span>'), false, 'Prompt Actions clear controls must not render a text label')
+  assert.equal((appSource.match(/className="clear-current-prompt"/g)??[]).length, 2, 'Prompt Actions must expose clear in Prompt and Library Inspector modes')
+  for (const stateSelector of ['.prompt-actions .clear-current-prompt{', '.prompt-actions .clear-current-prompt:hover{', '.prompt-actions .clear-current-prompt:active{']) {
+    assert(stylesSource.includes(stateSelector), `Prompt clear danger styling must define ${stateSelector}`)
+  }
+  assert(appSource.includes('現在のPromptをすべてクリアしますか？'), 'clearing the current Prompt must require the requested confirmation')
+  assert(appSource.includes('aria-label="設定" title="設定"'), 'the Header settings control must remain accessible while displaying only its icon')
+  assert(appSource.includes('ref={settingsRef}') && appSource.includes('settingsRef.current?.contains'), 'Settings must close only when a pointer event occurs outside its wrapper')
+  assert(stylesSource.includes('scrollbar-gutter: auto') && stylesSource.includes('padding-inline: var(--pane-control-inset)'), 'Header actions must align with the Inspector control inset without positional offsets')
+  assert.equal(appSource.includes('onClick={store.clearAll}'), false, 'the Header must not retain the direct clear action')
+  assert(stylesSource.includes('grid-template-columns:repeat(2,minmax(0,1fr))'), 'responsive Prompt Actions must fit all four controls without horizontal overflow')
   assert(appSource.includes('aria-label="Saved Prompt Inspector"'), 'the Inspector must expose selected Saved Prompt details in Library mode')
   assert.equal((appSource.match(/className="prompt-actions"/g)??[]).length, 2, 'Prompt Actions must remain visible in Prompt and Library Inspector modes')
   assert(stylesSource.includes('.inspector-header .block-tabs button') && stylesSource.includes('line-height: 16px'), 'shared Inspector tabs must keep Prompt and Library headers pixel-aligned')
@@ -734,7 +764,7 @@ try {
   assert(appSource.includes('className="selected-layer-title selected-layer-toggle"'), 'Saved Prompt context must use the shared Inspector section toggle')
   assert(appSource.includes('className="chip-label"'), 'Saved Prompt tags must use the shared Inspector chip markup')
   assert.equal(appSource.includes('className="saved-prompt-detail"'), false, 'Saved Prompt details must not use a separate modal UI')
-  for (const label of ['プロンプト', 'お気に入り', 'ライブラリ', '設定']) assert(appSource.includes(`>${label}</span>`), `${label} must be rendered as a Japanese Navigation label`)
+  for (const label of ['プロンプト', 'Prompt解析', 'お気に入り', 'ライブラリ', '設定']) assert(appSource.includes(`>${label}</span>`), `${label} must be rendered as a Navigation label`)
 
   const characterDictionary = JSON.parse(fs.readFileSync(new URL('../data/character.json', import.meta.url), 'utf8'))
   assert.equal(characterDictionary.length, 103, 'character dictionary count must remain unchanged')
