@@ -1,0 +1,245 @@
+{
+  "schema_version": "0.2.0",
+  "graph_version": "0.2.0",
+  "module_file_id": "relations",
+  "module_family": "relations",
+  "description": "Cross-module edges; concepts are not duplicated to represent secondary effects or semantic packages.",
+  "relations": [
+    {
+      "relation_id": "relation.doctor.biases.examining",
+      "relation_type": "biases",
+      "source_concept_id": "role.occupation.doctor",
+      "target_concept_id": "activity.examining",
+      "direction": "directed",
+      "strength": "medium",
+      "confidence": "low",
+      "context": "Optional semantic-role prior, not a required property of every doctor depiction.",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.doctor.biases.medical_environment",
+      "relation_type": "biases",
+      "source_concept_id": "role.occupation.doctor",
+      "target_concept_id": "environment.medical",
+      "direction": "directed",
+      "strength": "medium",
+      "confidence": "low",
+      "context": "Optional role package edge.",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.doctor.biases.professional_expression",
+      "relation_type": "biases",
+      "source_concept_id": "role.occupation.doctor",
+      "target_concept_id": "face.expression.professional",
+      "direction": "directed",
+      "strength": "low",
+      "confidence": "low",
+      "context": "Optional role package edge.",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.doctor.biases.stethoscope",
+      "relation_type": "biases",
+      "source_concept_id": "role.occupation.doctor",
+      "target_concept_id": "object.stethoscope",
+      "direction": "directed",
+      "strength": "medium",
+      "confidence": "low",
+      "context": "Optional role package edge; a stethoscope is not the role itself.",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.doctor.biases.white_coat",
+      "relation_type": "biases",
+      "source_concept_id": "role.occupation.doctor",
+      "target_concept_id": "clothing.outer.white_coat",
+      "direction": "directed",
+      "strength": "medium",
+      "confidence": "low",
+      "context": "Optional role package edge; clothing remains an independent concept.",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.elf.biases.fantasy_clothing",
+      "relation_type": "biases",
+      "source_concept_id": "species.elf",
+      "target_concept_id": "clothing.style.fantasy",
+      "direction": "directed",
+      "strength": "low",
+      "confidence": "low",
+      "context": "Optional prior only.",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.elf.biases.forest",
+      "relation_type": "biases",
+      "source_concept_id": "species.elf",
+      "target_concept_id": "environment.forest",
+      "direction": "directed",
+      "strength": "low",
+      "confidence": "low",
+      "context": "Optional prior only.",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.elf.biases.slender",
+      "relation_type": "biases",
+      "source_concept_id": "species.elf",
+      "target_concept_id": "body.proportion.slender",
+      "direction": "directed",
+      "strength": "low",
+      "confidence": "low",
+      "context": "Optional morphology prior; not a species requirement.",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.elf.conflicts.rounded_ears",
+      "relation_type": "conflicts_with",
+      "source_concept_id": "species.elf",
+      "target_concept_id": "anatomy.ear.rounded_human",
+      "direction": "symmetric",
+      "strength": "high",
+      "confidence": "medium",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.elf.requires.pointed_ears",
+      "relation_type": "requires",
+      "source_concept_id": "species.elf",
+      "target_concept_id": "anatomy.ear.pointed",
+      "direction": "directed",
+      "strength": "high",
+      "confidence": "medium",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.head_extension.may_trigger.eyelid",
+      "relation_type": "may_trigger",
+      "source_concept_id": "orientation.head.extended_backward",
+      "target_concept_id": "face.eyelid.partially_closed",
+      "direction": "directed",
+      "strength": "low",
+      "confidence": "low",
+      "context": "Cross-domain candidate only; Bridge evidence does not establish this facial effect.",
+      "status": "provisional"
+    },
+    {
+      "relation_id": "relation.head_extension.may_trigger.expression_shift",
+      "relation_type": "may_trigger",
+      "source_concept_id": "orientation.head.extended_backward",
+      "target_concept_id": "face.expression.semantic_shift",
+      "direction": "directed",
+      "strength": "low",
+      "confidence": "low",
+      "context": "Cross-domain candidate only.",
+      "status": "provisional"
+    },
+    {
+      "relation_id": "relation.head_extension.may_trigger.mouth_open",
+      "relation_type": "may_trigger",
+      "source_concept_id": "orientation.head.extended_backward",
+      "target_concept_id": "face.mouth.open",
+      "direction": "directed",
+      "strength": "low",
+      "confidence": "low",
+      "context": "Cross-domain candidate only.",
+      "status": "provisional"
+    },
+    {
+      "relation_id": "relation.head_extension.may_trigger.upward_gaze",
+      "relation_type": "may_trigger",
+      "source_concept_id": "orientation.head.extended_backward",
+      "target_concept_id": "face.gaze.upward",
+      "direction": "directed",
+      "strength": "low",
+      "confidence": "low",
+      "context": "Cross-domain candidate only.",
+      "status": "provisional"
+    },
+    {
+      "relation_id": "relation.mermaid.requires.tail",
+      "relation_type": "requires",
+      "source_concept_id": "species.mermaid",
+      "target_concept_id": "anatomy.lower_body.mermaid_tail",
+      "direction": "directed",
+      "strength": "high",
+      "confidence": "high",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.oversized_tshirt.obscures.pelvis_boundary",
+      "relation_type": "obscures",
+      "source_concept_id": "clothing.upper.oversized_white_tshirt",
+      "target_concept_id": "visibility.pelvis_boundary",
+      "direction": "directed",
+      "strength": "medium",
+      "confidence": "medium",
+      "context": "Visibility effect, distinct from any pose or support interpretation.",
+      "evidence_refs": [
+        {
+          "evidence_ref_id": "evidence.brg007b.hip_unclear",
+          "run_id": "BRG-007-B",
+          "observation_path": "experiments/bridge/BRG-007-B/observation.json",
+          "research_packet_path": "reports/BRG-007_research-packet.pdf",
+          "metric": "computed_aggregate.axis_counts.hip_elevation.unclear",
+          "count": 6,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "relation_id": "relation.rear_arm_support.biases.reclined",
+      "relation_type": "biases",
+      "source_concept_id": "support.arm.rearward",
+      "target_concept_id": "body.state.reclined",
+      "direction": "directed",
+      "strength": "high",
+      "confidence": "high",
+      "context": "Observed in the current Bridge Core and model profile; not universal semantics.",
+      "model_profile": "model.novaanimexl_ilv190",
+      "evidence_refs": [
+        {
+          "evidence_ref_id": "evidence.brg007b.reclined_arm_support",
+          "run_id": "BRG-007-B",
+          "observation_path": "experiments/bridge/BRG-007-B/observation.json",
+          "research_packet_path": "reports/BRG-007_research-packet.pdf",
+          "metric": "computed_aggregate.primary_morphology_counts.reclined_arm_support",
+          "count": 5,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "relation_id": "relation.rear_arm_support.observed_as.reclined_pattern",
+      "relation_type": "observed_as",
+      "source_concept_id": "support.arm.rearward",
+      "target_concept_id": "pattern.pose.reclined_arm_support",
+      "direction": "directed",
+      "strength": "high",
+      "confidence": "high",
+      "context": "Interpretation edge; it does not redefine the structural support concept.",
+      "model_profile": "model.novaanimexl_ilv190",
+      "evidence_refs": [
+        {
+          "evidence_ref_id": "evidence.brg007b.reclined_arm_support",
+          "run_id": "BRG-007-B",
+          "observation_path": "experiments/bridge/BRG-007-B/observation.json",
+          "research_packet_path": "reports/BRG-007_research-packet.pdf",
+          "metric": "computed_aggregate.primary_morphology_counts.reclined_arm_support",
+          "count": 5,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        }
+      ],
+      "status": "provisional"
+    }
+  ]
+}

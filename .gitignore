@@ -1,13 +1,17 @@
 # Dependencies
 node_modules/
+.tools/
 
 # Build
 dist/
+!research/sd-prompt-research/dist/
+!research/sd-prompt-research/dist/visual-concept-graph.json
 
 # Logs
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
+*.log
 
 # Environment
 .env

@@ -1,0 +1,93 @@
+schema_version: '1.0'
+run_id: BRG-002
+target_concept: ''
+blind_condition_label: Condition B
+observation_axes:
+- id: body_state
+  label: Body State
+  allowed_values:
+  - standing
+  - sitting
+  - kneeling
+  - lying
+  - quadruped
+  - reclined
+  - unclear
+- id: body_orientation
+  label: Body Orientation
+  allowed_values:
+  - face_up
+  - face_down
+  - side
+  - inverted
+  - unclear
+- id: torso_arch
+  label: Torso Arch
+  allowed_values:
+  - none
+  - weak
+  - medium
+  - strong
+  - unclear
+- id: arm_support
+  label: Arm Support
+  allowed_values:
+  - none
+  - hands
+  - forearms
+  - mixed
+  - unclear
+- id: hand_floor_contact
+  label: Hand/Floor Contact
+  allowed_values:
+  - confirmed
+  - absent
+  - occluded
+  - unclear
+- id: foot_support
+  label: Foot Support
+  allowed_values:
+  - both_feet
+  - one_foot
+  - absent
+  - unclear
+- id: head_floor_relation
+  label: Head/Floor Relation
+  allowed_values:
+  - on_floor
+  - off_floor
+  - occluded
+  - unclear
+- id: hip_elevation
+  label: Hip Elevation
+  allowed_values:
+  - low
+  - medium
+  - high
+  - unclear
+- id: result_class
+  label: Result Class
+  allowed_values:
+  - target_like
+  - partial
+  - alternative_pose
+  - failure
+  - unclear
+known_leakage_candidates:
+- quadruped
+- glute_bridge
+- crawl
+- reclined_pose
+- hand_to_head
+artifact_checks:
+- extra_limbs
+- malformed_hands
+- broken_joints
+- body_intersection
+- clothing_interaction
+- other
+rules:
+  allow_unclear: true
+  analyst_must_not_finalize_concept: true
+  report_observation_counts: true
+  six_images_are_directional_evidence_only: true

@@ -1,0 +1,62 @@
+summary:
+  overall_visible_pattern:
+    - Six lying-centered face-up configurations with arms beside or above the body.
+    - Arm or forearm contact is visible in some panels, but no direct supporting load path is confirmed.
+  analysis_notes:
+    - Visible evidence only; the Prompt phrase was not used to infer supporting load.
+    - Prompt / Concept Leakage was not assessed.
+leakage: []
+cross_condition_comparison:
+  status: not_performed
+  reason: Research comparison was not performed; Prompt / Concept Leakage is not assessed.
+  observations: []
+panels:
+  1:
+    axis_values: {hip_elevation: unclear, support_orientation: unclear, head_surface_contact: unclear, shoulder_surface_contact: unclear}
+    evidence_notes:
+      - Shorts obscure the pelvis-to-floor boundary, so hip elevation is unclear.
+      - Hair and shirt fabric obscure direct head and shoulder contact boundaries.
+      - One hand is visible beside the thigh without a directly visible supporting load path; support orientation is unclear.
+    confidence: medium
+  2:
+    axis_values: {hip_elevation: unclear, support_orientation: unclear, head_surface_contact: unclear, shoulder_surface_contact: unclear}
+    evidence_notes:
+      - Shorts obscure the pelvis-to-floor boundary, so hip elevation is unclear.
+      - Hair and shirt fabric obscure direct head and shoulder contact boundaries.
+      - One forearm visibly contacts the surface, but hands, feet, and the complete load path are not visible.
+    confidence: low
+  3:
+    axis_values: {hip_elevation: unclear, support_orientation: unclear, head_surface_contact: unclear, shoulder_surface_contact: unclear}
+    evidence_notes:
+      - Shorts obscure the pelvis-to-floor boundary, so hip elevation is unclear.
+      - Hair and shirt fabric obscure direct head and shoulder contact boundaries.
+      - A hand and forearm visibly contact the surface, but contact alone does not establish supporting load or orientation.
+    confidence: medium
+  4:
+    axis_values: {hip_elevation: unclear, support_orientation: unclear, head_surface_contact: unclear, shoulder_surface_contact: unclear}
+    evidence_notes:
+      - Shorts obscure the pelvis-to-floor boundary, so hip elevation is unclear.
+      - Hair and shirt fabric obscure direct head and shoulder contact boundaries.
+      - Both forearms visibly contact the surface, but cropped hands and feet hide the complete load path.
+    confidence: medium
+  5:
+    axis_values: {hip_elevation: unclear, support_orientation: unclear, head_surface_contact: unclear, shoulder_surface_contact: unclear}
+    evidence_notes:
+      - Shorts and the close crop obscure the pelvis-to-floor boundary, so hip elevation is unclear.
+      - Hair and shirt fabric obscure direct head and shoulder contact boundaries.
+      - Hands, forearms, and feet are out of frame, so support orientation and arm load cannot be confirmed.
+    confidence: low
+  6:
+    axis_values: {hip_elevation: unclear, support_orientation: unclear, head_surface_contact: unclear, shoulder_surface_contact: unclear}
+    evidence_notes:
+      - Shorts obscure the pelvis-to-floor boundary, so hip elevation is unclear.
+      - Hair and shirt fabric obscure direct head and shoulder contact boundaries.
+      - Arms extend overhead with forearm contact, but cropped hands and feet prevent confirmation of a supporting load path.
+    confidence: low
+uncertain:
+  - {panel_id: 1, field: hip_elevation/head_surface_contact/shoulder_surface_contact/support_orientation, reason: "Clothing and hair obscure direct boundaries and no load path is visible."}
+  - {panel_id: 2, field: hip_elevation/head_surface_contact/shoulder_surface_contact/support_orientation, reason: "Clothing, hair, and crop obscure direct boundaries and load evidence."}
+  - {panel_id: 3, field: hip_elevation/head_surface_contact/shoulder_surface_contact/support_orientation, reason: "Contact is visible but direct body boundaries and supporting load are indeterminate."}
+  - {panel_id: 4, field: hip_elevation/head_surface_contact/shoulder_surface_contact/support_orientation, reason: "Clothing and cropped hands/feet obscure boundaries and the complete load path."}
+  - {panel_id: 5, field: hip_elevation/head_surface_contact/shoulder_surface_contact/support_orientation, reason: "Close crop and occlusion hide boundaries and support evidence."}
+  - {panel_id: 6, field: hip_elevation/head_surface_contact/shoulder_surface_contact/support_orientation, reason: "Clothing and cropped hands/feet prevent direct confirmation."}

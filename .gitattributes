@@ -1,0 +1,8 @@
+* text=auto
+
+# Binary artifacts must never be treated as line-oriented text.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary

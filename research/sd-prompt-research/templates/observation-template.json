@@ -1,0 +1,130 @@
+{
+  "schema_version": "3.0",
+  "run_id": "{{RUN_ID}}",
+  "blind_condition_label": "{{CONDITION_LABEL}}",
+  "panel_count": 6,
+  "image_layout": "unknown",
+  "active_axis_order": [],
+  "summary": {
+    "overall_visible_pattern": [],
+    "analysis_notes": []
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [],
+      "primary_morphology": "",
+      "secondary_morphologies": [],
+      "evidence_notes": [],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "low",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [],
+      "primary_morphology": "",
+      "secondary_morphologies": [],
+      "evidence_notes": [],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "low",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [],
+      "primary_morphology": "",
+      "secondary_morphologies": [],
+      "evidence_notes": [],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "low",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [],
+      "primary_morphology": "",
+      "secondary_morphologies": [],
+      "evidence_notes": [],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "low",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [],
+      "primary_morphology": "",
+      "secondary_morphologies": [],
+      "evidence_notes": [],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "low",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [],
+      "primary_morphology": "",
+      "secondary_morphologies": [],
+      "evidence_notes": [],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "low",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "Comparison condition has not been provided.",
+    "observations": []
+  }
+}

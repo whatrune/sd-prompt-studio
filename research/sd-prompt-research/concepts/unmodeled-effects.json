@@ -1,0 +1,43 @@
+{
+  "schema_version": "0.2.0",
+  "graph_version": "0.2.0",
+  "module_file_id": "unmodeled-effects",
+  "module_family": "unmodeled_effects",
+  "description": "Structured effects that are observed or nominated but do not yet justify a formal axis or concept promotion.",
+  "unmodeled_effects": [
+    {
+      "effect_id": "unmodeled.head_extension.face_drift_candidate",
+      "category": "cross_domain_effect",
+      "source_phrase": "head back",
+      "source_concept_id": "orientation.head.extended_backward",
+      "target_module": "face",
+      "target_region": "eyes, mouth, and expression",
+      "observed_effect": "Possible gaze, eyelid, mouth, or expression drift requires dedicated cross-run observation before any effect is asserted.",
+      "evidence_region": "face",
+      "confidence": "low",
+      "candidate_axis": "cross-domain face state",
+      "model_profile": "model.novaanimexl_ilv190",
+      "evidence_refs": [
+        {
+          "evidence_ref_id": "evidence.brg007b.reclined_arm_support",
+          "run_id": "BRG-007-B",
+          "observation_path": "experiments/bridge/BRG-007-B/observation.json",
+          "research_packet_path": "reports/BRG-007_research-packet.pdf",
+          "metric": "computed_aggregate.primary_morphology_counts.reclined_arm_support",
+          "count": 5,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        }
+      ],
+      "promotion_status": "candidate",
+      "promotion_criteria": [
+        "reproduced across multiple runs",
+        "frequency threshold established",
+        "resolver branch relevance established",
+        "visibility requirement or conflict established"
+      ],
+      "notes": ["The cited Bridge metric establishes context, not the proposed facial effect."]
+    }
+  ]
+}

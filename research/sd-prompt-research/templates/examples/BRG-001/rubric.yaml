@@ -1,0 +1,372 @@
+schema_version: '3.0'
+run_id: BRG-001
+target_concept: arm support
+blind_condition_label: Condition A
+special_values:
+  unclear: 対象は見えているが判定不能、または証拠が競合する
+  not_visible: Crop、遮蔽、髪、服、重なりなどで対象を確認できない
+  not_applicable: そのPanelの構成では項目自体が適用対象外
+axis_catalog:
+  body_state:
+    label: Body State
+    allowed_values:
+    - standing
+    - sitting
+    - kneeling
+    - squatting
+    - lying
+    - reclined
+    - suspended
+    - airborne
+    - unclear
+  body_orientation:
+    label: Body Orientation
+    allowed_values:
+    - face_up
+    - face_down
+    - side_left
+    - side_right
+    - vertical
+    - horizontal
+    - inverted_vertical
+    - oblique
+    - unclear
+  head_orientation:
+    label: Head Orientation
+    allowed_values:
+    - neutral
+    - flexed_forward
+    - extended_backward
+    - rotated_left
+    - rotated_right
+    - tilted_left
+    - tilted_right
+    - visually_inverted
+    - unclear
+    - not_visible
+  torso_arch:
+    label: Torso Arch
+    allowed_values:
+    - none
+    - weak
+    - medium
+    - strong
+    - extreme
+    - unclear
+    - not_visible
+  hip_elevation:
+    label: Hip Elevation
+    allowed_values:
+    - on_surface
+    - low
+    - medium
+    - high
+    - extreme
+    - unclear
+    - not_visible
+  support_structure:
+    label: Support Structure
+    allowed_values:
+    - bipedal
+    - single_foot
+    - hand_and_foot
+    - hand_and_knee
+    - forearm_and_foot
+    - head_shoulder_and_foot
+    - back_and_foot
+    - seated_surface
+    - reclined_arm_support
+    - unsupported
+    - mixed
+    - unclear
+  support_orientation:
+    label: Support Orientation
+    allowed_values:
+    - prone_quadruped
+    - reverse_quadruped
+    - lateral_support
+    - supine_support
+    - kneeling_hand_support
+    - not_applicable
+    - unclear
+  left_hand_surface_contact:
+    label: Left Hand Surface Contact
+    allowed_values:
+    - floor
+    - wall
+    - chair
+    - platform
+    - object
+    - unknown_surface
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  right_hand_surface_contact:
+    label: Right Hand Surface Contact
+    allowed_values:
+    - floor
+    - wall
+    - chair
+    - platform
+    - object
+    - unknown_surface
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  left_forearm_surface_contact:
+    label: Left Forearm Surface Contact
+    allowed_values:
+    - floor
+    - wall
+    - chair
+    - platform
+    - object
+    - unknown_surface
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  right_forearm_surface_contact:
+    label: Right Forearm Surface Contact
+    allowed_values:
+    - floor
+    - wall
+    - chair
+    - platform
+    - object
+    - unknown_surface
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  left_foot_surface_contact:
+    label: Left Foot Surface Contact
+    allowed_values:
+    - floor
+    - wall
+    - chair
+    - platform
+    - object
+    - unknown_surface
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  right_foot_surface_contact:
+    label: Right Foot Surface Contact
+    allowed_values:
+    - floor
+    - wall
+    - chair
+    - platform
+    - object
+    - unknown_surface
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  foot_contact_mode:
+    label: Foot Contact Mode
+    allowed_values:
+    - sole
+    - heel
+    - forefoot
+    - toes
+    - side
+    - mixed
+    - asymmetric
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  head_surface_contact:
+    label: Head Surface Contact
+    allowed_values:
+    - floor
+    - wall
+    - chair
+    - platform
+    - object
+    - unknown_surface
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  shoulder_surface_contact:
+    label: Shoulder Surface Contact
+    allowed_values:
+    - both
+    - left_only
+    - right_only
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  knee_surface_contact:
+    label: Knee Surface Contact
+    allowed_values:
+    - both
+    - left_only
+    - right_only
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  elbow_state:
+    label: Elbow State
+    allowed_values:
+    - straight
+    - slightly_bent
+    - bent
+    - deeply_bent
+    - asymmetric
+    - unclear
+    - not_visible
+  knee_state:
+    label: Knee State
+    allowed_values:
+    - straight
+    - slightly_bent
+    - bent
+    - deeply_bent
+    - asymmetric
+    - unclear
+    - not_visible
+  leg_spacing:
+    label: Leg Spacing
+    allowed_values:
+    - together
+    - narrow
+    - medium
+    - wide
+    - extreme
+    - asymmetric
+    - unclear
+    - not_visible
+  support_evidence_visibility:
+    label: Support Evidence Visibility
+    allowed_values:
+    - clear
+    - partial
+    - occluded
+    - out_of_frame
+    - unclear
+active_observation_axes:
+- body_state
+- body_orientation
+- head_orientation
+- torso_arch
+- hip_elevation
+- support_structure
+- support_orientation
+- left_hand_surface_contact
+- right_hand_surface_contact
+- left_forearm_surface_contact
+- right_forearm_surface_contact
+- left_foot_surface_contact
+- right_foot_surface_contact
+- foot_contact_mode
+- head_surface_contact
+- shoulder_surface_contact
+- knee_surface_contact
+- elbow_state
+- knee_state
+- leg_spacing
+- support_evidence_visibility
+morphology_candidates:
+  primary:
+  - supine_bridge_like
+  - wheel_like
+  - glute_bridge_like
+  - reverse_quadruped
+  - prone_quadruped
+  - kneeling_backbend
+  - reclined_arm_support
+  - lying_arch
+  - other
+  - unclear
+  secondary:
+  - supine_bridge_like
+  - wheel_like
+  - glute_bridge_like
+  - reverse_quadruped
+  - prone_quadruped
+  - kneeling_backbend
+  - reclined_arm_support
+  - lying_arch
+  - not_applicable
+  - other
+  - unclear
+known_leakage_candidates:
+- reverse_quadruped
+- prone_quadruped
+- kneeling_backbend
+- glute_bridge_like
+- reclined_arm_support
+- crawl
+- hand_to_head
+artifact_checks:
+- extra_limb
+- missing_limb
+- fused_limbs
+- body_intersection
+- joint_deformation
+- hand_deformation
+- foot_deformation
+- anatomy_break
+- clothing_interference
+- hair_occlusion
+- unintended_object
+- unintended_support_surface
+- perspective_ambiguity
+- other
+- none
+cross_domain_effects:
+  enabled: true
+  domains:
+  - outfit
+  - hair
+  - face_expression
+  - camera_framing
+  - background_scene
+  - object_generation
+  - lighting_color
+  - anatomy_proportion
+  - other
+  strength_values:
+  - weak
+  - medium
+  - strong
+  - unclear
+  effect_type_values:
+  - natural_response
+  - secondary_effect
+  - leakage
+  - artifact
+  - unclear
+  no_effect_value: none_observed
+  free_text_observation: true
+rules:
+  preserve_axis_labels_exactly: true
+  preserve_axis_order: true
+  output_all_active_axes_for_every_panel: true
+  use_allowed_values_only: true
+  allow_unclear: true
+  allow_not_visible: true
+  allow_not_applicable: true
+  analyst_must_not_assign_target_alignment: true
+  analyst_must_not_finalize_concept: true
+  report_observation_counts: true
+  report_cross_domain_effect_counts: true
+  report_ontology_extension_candidates: true
+  six_images_are_directional_evidence_only: true
+  analyst_must_not_write_aggregate: true
+  json_must_match_active_axis_order: true
+output_contract:
+  format: compact_json
+  schema_version: '3.0'
+  canonical_file: observation.json
+  schema_file: templates/observation-schema.json
+  aggregate_generated_by_codex: true

@@ -1,0 +1,48 @@
+schema_version: '1.0'
+run_id: ''
+domain: ''
+title: ''
+status: PLANNED
+created_at: ''
+updated_at: ''
+research:
+  target_phrase: ''
+  research_question: ''
+  baseline_run_id: null
+  variant_label: ''
+  hypothesis_before_run: ''
+prompt:
+  positive: ''
+  negative: ''
+  changed_phrases: []
+  fixed_phrases: []
+model:
+  checkpoint: ''
+  vae: ''
+  sampler: ''
+  scheduler: ''
+  steps: null
+  cfg_scale: null
+  width: null
+  height: null
+  seeds: []
+source:
+  sheet_file: ''
+  metadata_file: null
+  sidecar_file: null
+  layout: 3x2
+  panel_count: 6
+outputs:
+  panels: []
+  preview_file: null
+  rubric_file: source/rubric.yaml
+  observation_file: observation.md
+  observation_json: observation.json
+  research_review_file: research-review.md
+  observation_schema: templates/observation-schema.json
+  canonical_observation: observation.json
+workflow:
+  assigned_to: ''
+  human_reviewed_by: null
+  accepted_at: null
+  notes: ''

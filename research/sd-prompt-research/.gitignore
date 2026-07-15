@@ -1,0 +1,23 @@
+# Large/generated images
+inbox/*
+experiments/**/source/*
+experiments/**/panels/*
+experiments/**/preview/*
+
+# Keep directories
+!inbox/.gitkeep
+!experiments/**/source/.gitkeep
+!experiments/**/panels/.gitkeep
+!experiments/**/preview/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local backups and scratch output
+.patch-backups/
+tmp/

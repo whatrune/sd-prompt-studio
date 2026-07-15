@@ -1,0 +1,431 @@
+{
+  "schema_version": "3.0",
+  "run_id": "BRG-007-C",
+  "blind_condition_label": "Condition C",
+  "panel_count": 6,
+  "image_layout": "3x2",
+  "active_axis_order": [
+    "body_state",
+    "body_orientation",
+    "head_orientation",
+    "torso_arch",
+    "hip_elevation",
+    "support_structure",
+    "support_orientation",
+    "left_hand_surface_contact",
+    "right_hand_surface_contact",
+    "left_forearm_surface_contact",
+    "right_forearm_surface_contact",
+    "left_foot_surface_contact",
+    "right_foot_surface_contact",
+    "foot_contact_mode",
+    "head_surface_contact",
+    "shoulder_surface_contact",
+    "knee_surface_contact",
+    "elbow_state",
+    "knee_state",
+    "leg_spacing",
+    "support_evidence_visibility"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "All six panels show a face-up body on a flat surface with weak-to-medium visible torso curvature.",
+      "Hands, forearms, and feet are frequently cropped; visible arms rest on the surface without a clear weight-bearing path."
+    ],
+    "analysis_notes": [
+      "Recorded from visible image evidence only; prompt success, concept classification, and cross-condition research judgments were not assessed."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "lying",
+        "face_up",
+        "extended_backward",
+        "weak",
+        "on_surface",
+        "mixed",
+        "supine_support",
+        "not_visible",
+        "absent",
+        "not_visible",
+        "absent",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "floor",
+        "both",
+        "absent",
+        "asymmetric",
+        "slightly_bent",
+        "wide",
+        "partial"
+      ],
+      "primary_morphology": "lying_pose",
+      "secondary_morphologies": [
+        "lying_arch"
+      ],
+      "evidence_notes": [
+        "Head and shoulders visibly meet the surface while the torso has a shallow curve.",
+        "One hand rests beside the thigh without visible loading; the opposite arm and both feet are cropped."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "none",
+        "left_forearm": "unclear",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "lying",
+        "face_up",
+        "extended_backward",
+        "medium",
+        "on_surface",
+        "mixed",
+        "supine_support",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "floor",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "floor",
+        "both",
+        "absent",
+        "straight",
+        "slightly_bent",
+        "wide",
+        "out_of_frame"
+      ],
+      "primary_morphology": "lying_arch",
+      "secondary_morphologies": [
+        "lying_pose"
+      ],
+      "evidence_notes": [
+        "Head and shoulders visibly rest on the surface with a curved torso.",
+        "One extended forearm contacts the surface; both hands and feet are outside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "light"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "lying",
+        "face_up",
+        "rotated_left",
+        "weak",
+        "on_surface",
+        "mixed",
+        "supine_support",
+        "not_visible",
+        "floor",
+        "not_visible",
+        "floor",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "floor",
+        "both",
+        "absent",
+        "asymmetric",
+        "slightly_bent",
+        "wide",
+        "partial"
+      ],
+      "primary_morphology": "lying_pose",
+      "secondary_morphologies": [
+        "lying_arch"
+      ],
+      "evidence_notes": [
+        "One hand and forearm visibly rest on the surface beside the torso.",
+        "The opposite hand, forearm, and both feet are cropped."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "light",
+        "left_forearm": "unclear",
+        "right_forearm": "light"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "lying",
+        "face_up",
+        "extended_backward",
+        "weak",
+        "on_surface",
+        "mixed",
+        "supine_support",
+        "not_visible",
+        "not_visible",
+        "floor",
+        "floor",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "floor",
+        "both",
+        "absent",
+        "asymmetric",
+        "slightly_bent",
+        "wide",
+        "partial"
+      ],
+      "primary_morphology": "lying_pose",
+      "secondary_morphologies": [
+        "lying_arch"
+      ],
+      "evidence_notes": [
+        "Both forearms extend outward on the surface while the hands are cropped.",
+        "Head and shoulders contact the surface; feet are not visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "light",
+        "right_forearm": "light"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "lying",
+        "face_up",
+        "visually_inverted",
+        "medium",
+        "on_surface",
+        "mixed",
+        "supine_support",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "floor",
+        "both",
+        "absent",
+        "straight",
+        "slightly_bent",
+        "wide",
+        "out_of_frame"
+      ],
+      "primary_morphology": "lying_arch",
+      "secondary_morphologies": [
+        "lying_pose"
+      ],
+      "evidence_notes": [
+        "The camera presents the face upside down in frame while the body is face up on the surface.",
+        "The close crop excludes both hands, forearms, and feet."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "lying",
+        "face_up",
+        "neutral",
+        "weak",
+        "on_surface",
+        "mixed",
+        "supine_support",
+        "not_visible",
+        "not_visible",
+        "floor",
+        "floor",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "floor",
+        "both",
+        "absent",
+        "straight",
+        "slightly_bent",
+        "wide",
+        "out_of_frame"
+      ],
+      "primary_morphology": "lying_pose",
+      "secondary_morphologies": [
+        "lying_arch"
+      ],
+      "evidence_notes": [
+        "Both arms extend overhead with visible forearm contact on the surface.",
+        "Hands and feet are outside the frame; the head and shoulders visibly rest on the surface."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "light",
+        "right_forearm": "light"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [
+    {
+      "panel_id": 1,
+      "field": "left_hand_surface_contact",
+      "reason": "The left hand is outside the frame."
+    },
+    {
+      "panel_id": 2,
+      "field": "hand_and_foot_contacts",
+      "reason": "Both hands and feet are outside the frame."
+    },
+    {
+      "panel_id": 5,
+      "field": "limb_contacts",
+      "reason": "The close crop excludes hands, forearms, and feet."
+    },
+    {
+      "panel_id": 6,
+      "field": "hand_and_foot_contacts",
+      "reason": "Hands and feet are outside the frame."
+    }
+  ],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "Cross-condition research comparison was outside the requested data-only scope.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "body_state": {
+        "lying": 6
+      },
+      "body_orientation": {
+        "face_up": 6
+      },
+      "head_orientation": {
+        "extended_backward": 3,
+        "rotated_left": 1,
+        "visually_inverted": 1,
+        "neutral": 1
+      },
+      "torso_arch": {
+        "weak": 4,
+        "medium": 2
+      },
+      "hip_elevation": {
+        "on_surface": 6
+      },
+      "support_structure": {
+        "mixed": 6
+      },
+      "support_orientation": {
+        "supine_support": 6
+      },
+      "left_hand_surface_contact": {
+        "not_visible": 6
+      },
+      "right_hand_surface_contact": {
+        "absent": 1,
+        "not_visible": 4,
+        "floor": 1
+      },
+      "left_forearm_surface_contact": {
+        "not_visible": 4,
+        "floor": 2
+      },
+      "right_forearm_surface_contact": {
+        "absent": 1,
+        "floor": 4,
+        "not_visible": 1
+      },
+      "left_foot_surface_contact": {
+        "not_visible": 6
+      },
+      "right_foot_surface_contact": {
+        "not_visible": 6
+      },
+      "foot_contact_mode": {
+        "not_visible": 6
+      },
+      "head_surface_contact": {
+        "floor": 6
+      },
+      "shoulder_surface_contact": {
+        "both": 6
+      },
+      "knee_surface_contact": {
+        "absent": 6
+      },
+      "elbow_state": {
+        "asymmetric": 3,
+        "straight": 3
+      },
+      "knee_state": {
+        "slightly_bent": 6
+      },
+      "leg_spacing": {
+        "wide": 6
+      },
+      "support_evidence_visibility": {
+        "partial": 3,
+        "out_of_frame": 3
+      }
+    },
+    "primary_morphology_counts": {
+      "lying_pose": 4,
+      "lying_arch": 2
+    },
+    "secondary_morphology_counts": {
+      "lying_arch": 4,
+      "lying_pose": 2
+    },
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}

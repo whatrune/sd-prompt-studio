@@ -1,0 +1,23 @@
+schema_version: "1.0"
+last_updated: ""
+concepts: []
+# Example entry:
+# - id: pose.support.arm_support
+#   phrase: arm support
+#   human_meaning: 腕で身体を支える
+#   observed_model_behavior: ""
+#   domain: pose
+#   role: relation
+#   concept_type: unverified
+#   state_affinity: {}
+#   support_relation: []
+#   orientation_requirements: []
+#   visibility_requirements: []
+#   evidence_regions: []
+#   conflicts: []
+#   secondary_effects: []
+#   stability: unknown
+#   context_dependency: unknown
+#   support_status: unverified
+#   confidence: low
+#   evidence_runs: []
