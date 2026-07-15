@@ -19,6 +19,10 @@ export type SeedEntry = { value: number; note?: string }
 export const UNCLASSIFIED_PROMPT_GROUP_ID = 'prompt-group-unclassified'
 export const PROMPT_GROUP_COLORS = ['#58a6ff', '#a371f7', '#3fb950', '#d29922', '#f778ba', '#39c5cf', '#db6d28', '#8b949e'] as const
 export type PromptGroup = { id: string; name: string; color: string; createdAt: number; updatedAt: number }
+export type PromptGroupUpdateInput = Pick<PromptGroup, 'name' | 'color'>
+export type PromptGroupUpdateResult =
+  | { success: true }
+  | { success: false; reason: 'not-found' | 'internal-group' | 'empty-name' | 'duplicate-name' | 'invalid-color' }
 export const nextPromptGroupName = (groups: Pick<PromptGroup, 'id' | 'name'>[]) => {
   const names = new Set(groups.filter(group => group.id !== UNCLASSIFIED_PROMPT_GROUP_ID).map(group => group.name.trim().toLocaleLowerCase()))
   let suffix = 1
@@ -99,6 +103,7 @@ export type State = {
   mergeSavedPrompt: (id: string) => boolean
   deleteSavedPrompt: (id: string) => void
   addPromptGroup: (name: string, color?: string) => PromptGroup | null
+  updatePromptGroup: (id: string, input: PromptGroupUpdateInput) => PromptGroupUpdateResult
   renamePromptGroup: (id: string, name: string) => boolean
   setPromptGroupColor: (id: string, color: string) => boolean
   deletePromptGroup: (id: string) => boolean
@@ -144,17 +149,26 @@ const promptDisplayTags = (blocks: PromptBlock[], sceneTags: SelectedTag[]) => [
   ...blocks.flatMap(block => block.tags.map(cloneSelectedTag)),
 ]
 
-const SUMMARY_CATEGORY_PRIORITY = ['character', 'people', 'hair', 'eyes', 'clothes', 'pose', 'background', 'camera']
-const QUALITY_SUMMARY_PROMPTS = new Set(['masterpiece', 'best quality', 'amazing quality', 'high quality', '4k'])
+const SUMMARY_CATEGORY_PRIORITY = ['character', 'people', 'hair', 'eyes', 'clothes', 'pose', 'background', 'camera', 'style']
+const EXCLUDED_SUMMARY_SUBCATEGORIES = new Set(['品質', '解像感', 'レーティング'])
+const STYLE_SUMMARY_PROMPTS = new Set(['anime style', 'semi-realistic', 'realistic', 'digital illustration', 'concept art', 'visual novel style', 'game cg', 'cel shading', 'painterly', 'lineart'])
+const QUALITY_SUMMARY_PROMPTS = new Set([
+  'masterpiece', 'best quality', 'amazing quality', 'high quality', 'very aesthetic',
+  'high resolution', 'ultra-detailed', 'absurdres', '4k', '8k', 'newest',
+  'official art', 'professional illustration', 'intricate details', 'sharp focus',
+  'rating safe', 'rating questionable', 'rating explicit',
+])
 const isQualitySummary = (value: string) => {
   const normalized = value.trim().toLocaleLowerCase()
-  return QUALITY_SUMMARY_PROMPTS.has(normalized) || /(?:resolution|aesthetic|absurdres|\b\d+k\b)/i.test(normalized)
+  return QUALITY_SUMMARY_PROMPTS.has(normalized) || /(?:resolution|aesthetic|absurdres|\b\d+k\b|^score_\d|^rating[_\s])/i.test(normalized)
 }
+const summaryCategory = (tag: SelectedTag) => tag.subcategory === 'スタイル' || STYLE_SUMMARY_PROMPTS.has(tag.prompt.trim().toLocaleLowerCase()) ? 'style' : tag.category
+const isExcludedSummaryTag = (tag: SelectedTag) => EXCLUDED_SUMMARY_SUBCATEGORIES.has(tag.subcategory ?? '') || isQualitySummary(tag.prompt)
 
 export function buildSavedPromptSummary(displayTags: SelectedTag[], fallbackTags: string[] = []) {
   const ordered = displayTags
-    .map((tag, index) => ({ tag, index, priority: SUMMARY_CATEGORY_PRIORITY.indexOf(tag.category) }))
-    .filter(({ tag }) => tag.category !== 'quality' && !isQualitySummary(tag.prompt))
+    .map((tag, index) => ({ tag, index, priority: SUMMARY_CATEGORY_PRIORITY.indexOf(summaryCategory(tag)) }))
+    .filter(({ tag }) => !isExcludedSummaryTag(tag))
     .sort((a, b) => (a.priority < 0 ? SUMMARY_CATEGORY_PRIORITY.length : a.priority) - (b.priority < 0 ? SUMMARY_CATEGORY_PRIORITY.length : b.priority) || a.index - b.index)
   const summary: string[] = []
   const seen = new Set<string>()
@@ -496,13 +510,30 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   deleteSavedPrompt: (id) => set(state => ({ savedPrompts: state.savedPrompts.filter(item => item.id !== id) })),
   addPromptGroup: (value, requestedColor) => {
     const name = value.trim()
-    if (!name || get().promptGroups.some(group => group.name.toLocaleLowerCase() === name.toLocaleLowerCase())) return null
+    const state = get()
+    if (!name || state.promptGroups.some(group => group.name.toLocaleLowerCase() === name.toLocaleLowerCase())) return null
     const now = Date.now()
-    const userGroupCount = get().promptGroups.filter(group => group.id !== UNCLASSIFIED_PROMPT_GROUP_ID).length
-    const color = normalizePromptGroupColor(requestedColor, PROMPT_GROUP_COLORS[userGroupCount % PROMPT_GROUP_COLORS.length])
+    const userGroups = state.promptGroups.filter(group => group.id !== UNCLASSIFIED_PROMPT_GROUP_ID)
+    const usedColors = new Set(userGroups.map(group => group.color.toLocaleLowerCase()))
+    const unusedColor = PROMPT_GROUP_COLORS.find(color => !usedColors.has(color.toLocaleLowerCase()))
+    const fallbackColor = unusedColor ?? PROMPT_GROUP_COLORS[userGroups.length % PROMPT_GROUP_COLORS.length]
+    const color = normalizePromptGroupColor(requestedColor, fallbackColor)
     const group: PromptGroup = { id: `prompt-group-${createId()}`, name, color, createdAt: now, updatedAt: now }
     set(state => ({ promptGroups: [...state.promptGroups, group] }))
     return group
+  },
+  updatePromptGroup: (id, input) => {
+    const state = get()
+    const target = state.promptGroups.find(group => group.id === id)
+    if (!target) return { success: false, reason: 'not-found' }
+    if (id === UNCLASSIFIED_PROMPT_GROUP_ID) return { success: false, reason: 'internal-group' }
+    const name = input.name.trim()
+    if (!name) return { success: false, reason: 'empty-name' }
+    if (state.promptGroups.some(group => group.id !== id && group.name.toLocaleLowerCase() === name.toLocaleLowerCase())) return { success: false, reason: 'duplicate-name' }
+    if (!/^#[0-9a-f]{6}$/i.test(input.color)) return { success: false, reason: 'invalid-color' }
+    const updatedAt = Date.now()
+    set({ promptGroups: state.promptGroups.map(group => group.id === id ? { ...group, name, color: input.color, updatedAt } : group) })
+    return { success: true }
   },
   renamePromptGroup: (id, value) => {
     const name = value.trim()

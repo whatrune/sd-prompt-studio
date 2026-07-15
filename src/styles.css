@@ -1573,9 +1573,17 @@ body,
 
 .library-group-editor {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   min-height: 27px;
   gap: 3px;
+}
+
+.library-group-edit-error {
+  flex: 0 0 100%;
+  color: var(--danger);
+  font-size: 10px;
+  line-height: 1.3;
 }
 
 .library-group-color {
