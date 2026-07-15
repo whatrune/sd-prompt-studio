@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import unittest
@@ -20,6 +21,7 @@ from validate_research_claims import (  # noqa: E402
     ClaimValidator,
     KnowledgeData,
     UniqueKeyLoader,
+    assertion_payload,
     canonical_bytes,
     content_hash,
     empty_knowledge,
@@ -27,6 +29,7 @@ from validate_research_claims import (  # noqa: E402
     index_documents,
     load_current_documents,
     load_schema,
+    promotion_payload,
     review_effective_status_at,
     semver_compare,
     yaml,
@@ -67,6 +70,102 @@ def make_validator(
     )
 
 
+def checked_in_knowledge() -> KnowledgeData:
+    schemas = {
+        "assertion": load_schema(ROOT / "schemas" / "research-claim-assertion.schema.json"),
+        "review": load_schema(ROOT / "schemas" / "research-claim-review.schema.json"),
+        "approval": load_schema(ROOT / "schemas" / "research-promotion-approval.schema.json"),
+    }
+    issues = []
+    data = index_documents(load_current_documents(ROOT / "knowledge"), schemas, issues)
+    errors = [issue for issue in issues if issue.severity == "error"]
+    if errors:
+        raise AssertionError(errors)
+    return data
+
+
+def applied_knowledge() -> tuple[KnowledgeData, KnowledgeData, str, str, str]:
+    data = checked_in_knowledge()
+    assertion_id = "assertion.brg008.head_back.face_effect.001"
+    assertion = copy.deepcopy(data.assertions[assertion_id])
+    review_id = f"review.{assertion_id}.001"
+    approval_id = f"promotion_approval.{assertion_id}.001"
+    application_id = f"application.{assertion_id}.001"
+    assertion["promotion"] = {
+        "action": "attach_evidence",
+        "status": "applied",
+        "target_id": "orientation.head.extended_backward",
+        "approval_ids": [approval_id],
+        "applications": [],
+    }
+    assertion_hash = content_hash(assertion_payload(assertion, data.evidence))
+    plan = promotion_payload(assertion, assertion_hash)
+    assert plan is not None
+    promotion_hash = content_hash(plan)
+    review = {
+        "review_id": review_id,
+        "assertion_id": assertion_id,
+        "record_type": "review",
+        "decision": "approve",
+        "reviewer": "test",
+        "recorded_at": "2026-07-15T00:00:00Z",
+        "reviewed_assertion_hash": assertion_hash,
+        "hash_algorithm": "sha256",
+        "review_scope": "assertion_content_v1",
+        "supersedes_review_ids": [],
+    }
+    approval = {
+        "approval_id": approval_id,
+        "assertion_id": assertion_id,
+        "record_type": "approval",
+        "approved_by": "test",
+        "approved_at": "2026-07-15T01:00:00Z",
+        "recorded_at": "2026-07-15T01:00:00Z",
+        "approved_assertion_hash": assertion_hash,
+        "approved_promotion_hash": promotion_hash,
+        "claim_review_ids": [review_id],
+        "hash_algorithm": "sha256",
+        "review_scope": "promotion_content_v1",
+        "supersedes_approval_ids": [],
+    }
+    application = {
+        "application_id": application_id,
+        "assertion_id": assertion_id,
+        "claim_review_ids": [review_id],
+        "promotion_approval_id": approval_id,
+        "applied_promotion_plan": plan,
+        "applied_assertion_hash": assertion_hash,
+        "applied_promotion_hash": promotion_hash,
+        "applied_content": {
+            "content_kind": "evidence_ref",
+            "collection": "concepts",
+            "content_hash": "c" * 64,
+            "hash_algorithm": "sha256",
+            "hash_scope": "graph_content_v1",
+            "content_locator": {
+                "target_id": "orientation.head.extended_backward",
+                "field_path": "/evidence_refs",
+                "item_key": "evidence.brg008b.gaze_direction.not_visible",
+            },
+        },
+        "applied_graph_version": "0.1.0",
+        "applied_at": "2026-07-15T02:00:00Z",
+        "recorded_at": "2026-07-15T02:00:00Z",
+        "supersedes_application_ids": [],
+        "applied_target_id": "orientation.head.extended_backward",
+    }
+    assertion["promotion"]["applications"] = [application]
+    data.assertions = {assertion_id: assertion}
+    data.assertion_files = {assertion_id: "sd-prompt-research/knowledge/assertions/phrase-behaviors.yaml"}
+    data.reviews = {review_id: review}
+    data.review_files = {review_id: "claim-review.yaml"}
+    data.approvals = {approval_id: approval}
+    data.approval_files = {approval_id: "promotion-approval.yaml"}
+    data.applications = {application_id: application}
+    data.application_files = {application_id: "phrase-behaviors.yaml"}
+    return data, copy.deepcopy(data), assertion_id, approval_id, application_id
+
+
 class ResearchClaimTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -82,9 +181,32 @@ class ResearchClaimTests(unittest.TestCase):
         data = index_documents(load_current_documents(ROOT / "knowledge"), schemas, issues)
         self.assertFalse([issue for issue in issues if issue.severity == "error"], issues)
         self.assertEqual(3, len(data.assertions))
-        self.assertEqual(2, len(data.evidence))
+        self.assertEqual(3, len(data.evidence))
         self.assertEqual({}, data.reviews)
         self.assertEqual({}, data.approvals)
+
+    def test_brg008_phrase_assertions_use_condition_specific_evidence(self) -> None:
+        data = checked_in_knowledge()
+        head_back = data.assertions["assertion.brg008.head_back.face_effect.001"]
+        tilted = data.assertions["assertion.brg008.head_tilted_back.face_effect.001"]
+        self.assertEqual(
+            ["evidence.brg008b.gaze_direction.not_visible"],
+            head_back["observed_metrics"][0]["evidence_ref_ids"],
+        )
+        self.assertEqual(5, head_back["observed_metrics"][0]["count"])
+        self.assertEqual(
+            ["evidence.brg008b.gaze_direction.not_visible"],
+            [binding["evidence_ref_id"] for binding in head_back["evidence_bindings"]],
+        )
+        self.assertEqual(
+            ["evidence.brg008c.gaze_direction.not_visible"],
+            tilted["observed_metrics"][0]["evidence_ref_ids"],
+        )
+        self.assertEqual(1, tilted["observed_metrics"][0]["count"])
+        self.assertEqual(
+            ["evidence.brg008c.gaze_direction.not_visible"],
+            [binding["evidence_ref_id"] for binding in tilted["evidence_bindings"]],
+        )
 
     def test_schema_rejects_attach_application_without_locator(self) -> None:
         schema = load_schema(ROOT / "schemas" / "research-claim-assertion.schema.json")
@@ -296,6 +418,250 @@ class ResearchClaimTests(unittest.TestCase):
         self.assertIn("APPEND_ONLY_RECORD_DELETED", codes)
         self.assertIn("AUDIT_RECORD_BACKDATE", codes)
 
+    def test_observed_metric_rejects_missing_evidence_id(self) -> None:
+        data = checked_in_knowledge()
+        assertion = data.assertions["assertion.brg007.arm_support.001"]
+        assertion["observed_metrics"][0]["evidence_ref_ids"] = ["evidence.missing.metric"]
+        validator = make_validator(data=data, graph=self.graph)
+        validator.validate_observed_metrics()
+        self.assertIn("OBSERVED_METRIC_EVIDENCE_NOT_FOUND", {issue.code for issue in validator.issues})
+
+    def test_observed_metric_rejects_metric_path_mismatch(self) -> None:
+        data = checked_in_knowledge()
+        evidence_id = "evidence.brg007b.primary_morphology.reclined_arm_support"
+        data.evidence[evidence_id]["metric"] = "computed_aggregate.primary_morphology_counts.lying_pose"
+        validator = make_validator(data=data, graph=self.graph)
+        validator.validate_observed_metrics()
+        self.assertIn("OBSERVED_METRIC_PATH_MISMATCH", {issue.code for issue in validator.issues})
+
+    def test_observed_metric_rejects_count_mismatch(self) -> None:
+        data = checked_in_knowledge()
+        data.assertions["assertion.brg007.arm_support.001"]["observed_metrics"][0]["count"] = 4
+        validator = make_validator(data=data, graph=self.graph)
+        validator.validate_observed_metrics()
+        self.assertIn("OBSERVED_METRIC_COUNT_MISMATCH", {issue.code for issue in validator.issues})
+
+    def test_observed_metric_rejects_total_mismatch(self) -> None:
+        data = checked_in_knowledge()
+        data.assertions["assertion.brg007.arm_support.001"]["observed_metrics"][0]["total"] = 5
+        validator = make_validator(data=data, graph=self.graph)
+        validator.validate_observed_metrics()
+        self.assertIn("OBSERVED_METRIC_TOTAL_MISMATCH", {issue.code for issue in validator.issues})
+
+    def test_observed_metric_accepts_multiple_evidence_sum(self) -> None:
+        data = checked_in_knowledge()
+        assertion_id = "assertion.brg007.arm_support.001"
+        original_id = "evidence.brg007b.primary_morphology.reclined_arm_support"
+        second_id = "evidence.brg007b.primary_morphology.reclined_arm_support_repeat"
+        data.evidence[second_id] = {**copy.deepcopy(data.evidence[original_id]), "evidence_ref_id": second_id}
+        data.evidence_files[second_id] = data.evidence_files[original_id]
+        metric = data.assertions[assertion_id]["observed_metrics"][0]
+        metric["evidence_ref_ids"] = [original_id, second_id]
+        metric["count"] = 10
+        metric["total"] = 12
+        validator = make_validator(data=data, graph=self.graph)
+        validator.validate_observed_metrics()
+        self.assertEqual([], validator.issues)
+
+    def test_observed_metric_rejects_multiple_evidence_sum_mismatch(self) -> None:
+        data = checked_in_knowledge()
+        assertion_id = "assertion.brg007.arm_support.001"
+        original_id = "evidence.brg007b.primary_morphology.reclined_arm_support"
+        second_id = "evidence.brg007b.primary_morphology.reclined_arm_support_repeat"
+        data.evidence[second_id] = {**copy.deepcopy(data.evidence[original_id]), "evidence_ref_id": second_id}
+        data.evidence_files[second_id] = data.evidence_files[original_id]
+        metric = data.assertions[assertion_id]["observed_metrics"][0]
+        metric["evidence_ref_ids"] = [original_id, second_id]
+        validator = make_validator(data=data, graph=self.graph)
+        validator.validate_observed_metrics()
+        codes = {issue.code for issue in validator.issues}
+        self.assertIn("OBSERVED_METRIC_COUNT_MISMATCH", codes)
+        self.assertIn("OBSERVED_METRIC_TOTAL_MISMATCH", codes)
+
+    def test_observed_metric_rejects_inconsistent_evidence_metrics(self) -> None:
+        data = checked_in_knowledge()
+        assertion_id = "assertion.brg007.arm_support.001"
+        first_id = "evidence.brg007b.primary_morphology.reclined_arm_support"
+        second_id = "evidence.brg008b.gaze_direction.not_visible"
+        metric = data.assertions[assertion_id]["observed_metrics"][0]
+        metric["evidence_ref_ids"] = [first_id, second_id]
+        metric["count"] = data.evidence[first_id]["count"] + data.evidence[second_id]["count"]
+        metric["total"] = data.evidence[first_id]["total"] + data.evidence[second_id]["total"]
+        validator = make_validator(data=data, graph=self.graph)
+        validator.validate_observed_metrics()
+        self.assertIn("OBSERVED_METRIC_EVIDENCE_INCONSISTENT", {issue.code for issue in validator.issues})
+
+    def test_evidence_fact_still_matches_observation_json_value(self) -> None:
+        data = checked_in_knowledge()
+        evidence_id = "evidence.brg008c.gaze_direction.not_visible"
+        evidence = data.evidence[evidence_id]
+        evidence["count"] = 2
+        validator = make_validator(data=data, graph=self.graph)
+        validator._validate_evidence(evidence, data.evidence_files[evidence_id], "assertion.test.evidence.001")
+        self.assertIn("EVIDENCE_METRIC_MISMATCH", {issue.code for issue in validator.issues})
+
+    def test_registered_axis_must_exist_in_module_registry(self) -> None:
+        data = checked_in_knowledge()
+        assertion = data.assertions["assertion.brg008.head_back.face_effect.001"]
+        assertion["causal_hypotheses"][0]["target_axis"]["registration_status"] = "registered"
+        validator = make_validator(data=data, graph=self.graph)
+        validator.validate_assertions()
+        self.assertIn("REGISTERED_AXIS_NOT_FOUND", {issue.code for issue in validator.issues})
+
+    def test_proposed_axis_already_in_registry_warns(self) -> None:
+        data = checked_in_knowledge()
+        assertion = data.assertions["assertion.brg008.head_back.face_effect.001"]
+        assertion["causal_hypotheses"][0]["target_axis"]["name"] = "gaze_direction"
+        validator = make_validator(data=data, graph=self.graph)
+        validator.validate_assertions()
+        issues = [issue for issue in validator.issues if issue.code == "PROPOSED_AXIS_ALREADY_REGISTERED"]
+        self.assertEqual(1, len(issues))
+        self.assertEqual("warning", issues[0].severity)
+
+    def test_target_axis_requires_module_registry(self) -> None:
+        data = checked_in_knowledge()
+        assertion = data.assertions["assertion.brg008.head_back.face_effect.001"]
+        assertion["causal_hypotheses"][0]["target_module"] = "hair"
+        validator = make_validator(data=data, graph=self.graph)
+        validator.validate_assertions()
+        self.assertIn("AXIS_REGISTRY_MODULE_NOT_FOUND", {issue.code for issue in validator.issues})
+
+    def test_assertion_content_v1_hash_scope_is_frozen(self) -> None:
+        data = checked_in_knowledge()
+        assertion_id = "assertion.brg008.head_back.face_effect.001"
+        assertion = data.assertions[assertion_id]
+        payload = assertion_payload(assertion, data.evidence)
+        self.assertEqual(
+            {
+                "subject", "claim", "evidence_bindings", "resolved_evidence_facts",
+                "reproduction", "scope", "generalization_status", "depends_on",
+            },
+            set(payload),
+        )
+        original_hash = content_hash(payload)
+        for field, value in (
+            ("status", "confirmed"),
+            ("observed_metrics", []),
+            ("interpretation_candidates", []),
+            ("causal_hypotheses", []),
+            ("supersedes", ["assertion.example.prior.001"]),
+            ("notes", "changed outside assertion_content_v1"),
+            ("created_by", {"agent": "other", "version": "other", "created_at": "2020-01-01T00:00:00Z"}),
+            ("promotion", {"action": "no_promotion", "status": "not_nominated", "approval_ids": [], "applications": []}),
+        ):
+            changed = copy.deepcopy(assertion)
+            changed[field] = value
+            self.assertEqual(original_hash, content_hash(assertion_payload(changed, data.evidence)), field)
+        included = copy.deepcopy(assertion)
+        included["claim"]["statement"] += " changed"
+        self.assertNotEqual(original_hash, content_hash(assertion_payload(included, data.evidence)))
+        changed_evidence = copy.deepcopy(data.evidence)
+        changed_evidence["evidence.brg008b.gaze_direction.not_visible"]["count"] = 4
+        self.assertNotEqual(original_hash, content_hash(assertion_payload(assertion, changed_evidence)))
+        documentation = (ROOT / "docs" / "research-claim-staging-layer.md").read_text(encoding="utf-8")
+        self.assertIn("### `assertion_content_v1`", documentation)
+        self.assertIn("- resolved Evidence Fact content, excluding storage location", documentation)
+        self.assertIn("Excludes IDs, workflow status, Promotion state", documentation)
+
+    def test_applied_promotion_uses_historical_receipt_after_assertion_change(self) -> None:
+        data, baseline, assertion_id, _, _ = applied_knowledge()
+        data.assertions[assertion_id]["claim"]["statement"] += " updated later"
+        validator = make_validator(data=data, baseline=baseline, graph=self.graph)
+        validator.validate_assertions()
+        validator.validate_reviews_and_approvals()
+        validator.validate_applications()
+        self.assertFalse([issue for issue in validator.issues if issue.severity == "error"], validator.issues)
+        self.assertIn("PROMOTION_REMEDIATION_REQUIRED", {issue.code for issue in validator.issues})
+
+    def test_applied_promotion_requires_valid_unsuperseded_application(self) -> None:
+        data, baseline, assertion_id, _, _ = applied_knowledge()
+        data.assertions[assertion_id]["promotion"]["applications"] = []
+        data.applications = {}
+        data.application_files = {}
+        validator = make_validator(data=data, baseline=baseline, graph=self.graph)
+        validator.validate_assertions()
+        validator.validate_reviews_and_approvals()
+        validator.validate_applications()
+        self.assertIn("PROMOTION_APPLIED_WITHOUT_APPLICATION", {issue.code for issue in validator.issues})
+
+    def test_applied_promotion_rejects_invalid_unsuperseded_application(self) -> None:
+        data, baseline, assertion_id, _, application_id = applied_knowledge()
+        data.applications[application_id]["applied_promotion_hash"] = "f" * 64
+        validator = make_validator(data=data, baseline=baseline, graph=self.graph)
+        validator.validate_assertions()
+        validator.validate_reviews_and_approvals()
+        validator.validate_applications()
+        codes = {issue.code for issue in validator.issues}
+        self.assertIn("PROMOTION_PLAN_HASH_MISMATCH", codes)
+        self.assertIn("PROMOTION_APPLIED_WITHOUT_APPLICATION", codes)
+
+    def test_applied_promotion_withdrawal_after_application_is_warning(self) -> None:
+        data, baseline, assertion_id, approval_id, _ = applied_knowledge()
+        withdrawal_id = f"promotion_approval.{assertion_id}.002"
+        data.approvals[withdrawal_id] = {
+            "approval_id": withdrawal_id,
+            "assertion_id": assertion_id,
+            "record_type": "withdrawal",
+            "withdrawn_at": "2026-07-15T03:00:00Z",
+            "recorded_at": "2026-07-15T03:00:00Z",
+            "supersedes_approval_ids": [approval_id],
+        }
+        data.approval_files[withdrawal_id] = "promotion-approval.yaml"
+        validator = make_validator(data=data, baseline=baseline, graph=self.graph)
+        validator.validate_assertions()
+        validator.validate_reviews_and_approvals()
+        validator.validate_applications()
+        self.assertFalse([issue for issue in validator.issues if issue.severity == "error"], validator.issues)
+        remediation = [issue for issue in validator.issues if issue.code == "PROMOTION_REMEDIATION_REQUIRED"]
+        self.assertTrue(remediation)
+        self.assertTrue(any("Approval is currently withdrawn" in issue.message for issue in remediation))
+
+    def test_applied_review_withdrawal_after_application_is_warning(self) -> None:
+        data, baseline, assertion_id, _, _ = applied_knowledge()
+        review_id = next(iter(data.reviews))
+        withdrawal_id = f"review.{assertion_id}.002"
+        data.reviews[withdrawal_id] = {
+            "review_id": withdrawal_id,
+            "assertion_id": assertion_id,
+            "record_type": "withdrawal",
+            "withdrawn_at": "2026-07-15T03:00:00Z",
+            "recorded_at": "2026-07-15T03:00:00Z",
+            "supersedes_review_ids": [review_id],
+        }
+        data.review_files[withdrawal_id] = "claim-review.yaml"
+        validator = make_validator(data=data, baseline=baseline, graph=self.graph)
+        validator.validate_assertions()
+        validator.validate_reviews_and_approvals()
+        validator.validate_applications()
+        self.assertFalse([issue for issue in validator.issues if issue.severity == "error"], validator.issues)
+        remediation = [issue for issue in validator.issues if issue.code == "PROMOTION_REMEDIATION_REQUIRED"]
+        self.assertTrue(any("is currently withdrawn" in issue.message for issue in remediation))
+
+    def test_approved_promotion_still_requires_current_active_approval(self) -> None:
+        data, baseline, assertion_id, approval_id, _ = applied_knowledge()
+        data.assertions[assertion_id]["promotion"]["status"] = "approved"
+        data.assertions[assertion_id]["promotion"]["applications"] = []
+        data.applications = {}
+        data.application_files = {}
+        validator = make_validator(data=data, baseline=baseline, graph=self.graph)
+        validator.validate_assertions()
+        validator.validate_reviews_and_approvals()
+        self.assertNotIn("PROMOTION_WITHOUT_ACTIVE_APPROVAL", {issue.code for issue in validator.issues})
+        withdrawal_id = f"promotion_approval.{assertion_id}.002"
+        data.approvals[withdrawal_id] = {
+            "approval_id": withdrawal_id,
+            "assertion_id": assertion_id,
+            "record_type": "withdrawal",
+            "withdrawn_at": "2026-07-15T03:00:00Z",
+            "recorded_at": "2026-07-15T03:00:00Z",
+            "supersedes_approval_ids": [approval_id],
+        }
+        data.approval_files[withdrawal_id] = "promotion-approval.yaml"
+        withdrawn_validator = make_validator(data=data, baseline=baseline, graph=self.graph)
+        withdrawn_validator.validate_assertions()
+        withdrawn_validator.validate_reviews_and_approvals()
+        self.assertIn("PROMOTION_WITHOUT_ACTIVE_APPROVAL", {issue.code for issue in withdrawn_validator.issues})
+
     def test_cli_check_does_not_modify_dist(self) -> None:
         dist = ROOT / "dist" / "visual-concept-graph.json"
         before = dist.read_bytes()
@@ -310,6 +676,8 @@ class ResearchClaimTests(unittest.TestCase):
         self.assertEqual(before, dist.read_bytes())
 
     def test_missing_baseline_is_infrastructure_error(self) -> None:
+        environment = os.environ.copy()
+        environment.pop("CLAIM_VALIDATION_BASELINE_SHA", None)
         process = subprocess.run(
             [
                 sys.executable,
@@ -323,6 +691,7 @@ class ResearchClaimTests(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=False,
+            env=environment,
         )
         output = json.loads(process.stdout.decode("utf-8"))
         self.assertEqual(2, process.returncode)

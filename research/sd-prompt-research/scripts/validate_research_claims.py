@@ -589,6 +589,8 @@ class ClaimValidator:
         self.validate_future_timestamps()
         self.validate_graph_versions()
         self.validate_assertions()
+        self.validate_evidence_facts()
+        self.validate_observed_metrics()
         self.validate_references()
         self.validate_reviews_and_approvals()
         self.validate_applications()
@@ -709,22 +711,82 @@ class ClaimValidator:
                     self.issue("CONCEPT_REFERENCE_REJECTED", f"Concept {concept_id!r} is rejected", file, path, assertion_id)
                 elif concept.get("status") in {"provisional", "deprecated"}:
                     self.issue("CONCEPT_REFERENCE_NONFINAL", f"Concept {concept_id!r} is {concept['status']}", file, path, assertion_id, "warning")
-        for evidence in self.data.evidence.values():
-            if self.data.evidence_files[evidence["evidence_ref_id"]] != file:
-                continue
-            self._validate_evidence(evidence, file, assertion_id)
         registry_refs = next(
             (root.get("axis_registry_refs", {}) for path, root in load_current_documents(self.project_root / "knowledge").items() if path == file),
             {},
         )
+        registry_axes: dict[str, set[str]] = {}
+        registry_axis_fields = {
+            "pose": "active_observation_axes",
+            "face": "active_face_axes",
+        }
         for module, registry in registry_refs.items():
             path = self.repo_root / registry["path"]
             if not path.is_file():
                 self.issue("AXIS_REGISTRY_NOT_FOUND", f"Axis registry for {module} does not exist", file, f"$.axis_registry_refs.{module}.path", assertion_id)
-            elif raw_sha256(path) != registry["sha256"]:
+                continue
+            if raw_sha256(path) != registry["sha256"]:
                 self.issue("AXIS_REGISTRY_HASH_DRIFT", f"Axis registry for {module} changed", file, f"$.axis_registry_refs.{module}.sha256", assertion_id, "warning")
+            axis_field = registry_axis_fields.get(module)
+            if axis_field is None:
+                continue
+            try:
+                registry_data = yaml_load(path.read_text(encoding="utf-8"), registry["path"])
+            except (OSError, ValueError) as exc:
+                self.issue("AXIS_REGISTRY_INVALID", str(exc), file, f"$.axis_registry_refs.{module}.path", assertion_id)
+                continue
+            active_axes = registry_data.get(axis_field)
+            if not isinstance(active_axes, list) or not all(isinstance(axis, str) for axis in active_axes):
+                self.issue("AXIS_REGISTRY_INVALID", f"{axis_field} must be an array of strings", file, f"$.axis_registry_refs.{module}.path", assertion_id)
+                continue
+            registry_axes[module] = set(active_axes)
+        for index, hypothesis in enumerate(assertion["causal_hypotheses"]):
+            target_axis = hypothesis.get("target_axis")
+            if target_axis is None:
+                continue
+            module = hypothesis["target_module"]
+            path = f"$.causal_hypotheses[{index}].target_axis"
+            if module not in registry_refs or module not in registry_axis_fields:
+                self.issue(
+                    "AXIS_REGISTRY_MODULE_NOT_FOUND",
+                    f"No Axis Registry is configured for target module {module!r}",
+                    file,
+                    path,
+                    assertion_id,
+                )
+                continue
+            if module not in registry_axes:
+                continue
+            axis_name = target_axis["name"]
+            registered = axis_name in registry_axes[module]
+            if target_axis["registration_status"] == "registered" and not registered:
+                self.issue(
+                    "REGISTERED_AXIS_NOT_FOUND",
+                    f"Axis {axis_name!r} is not active in the {module} registry",
+                    file,
+                    f"{path}.name",
+                    assertion_id,
+                )
+            if target_axis["registration_status"] == "proposed" and registered:
+                self.issue(
+                    "PROPOSED_AXIS_ALREADY_REGISTERED",
+                    f"Proposed axis {axis_name!r} is already active in the {module} registry",
+                    file,
+                    f"{path}.registration_status",
+                    assertion_id,
+                    "warning",
+                )
 
-    def _validate_evidence(self, evidence: dict[str, Any], file: str, assertion_id: str) -> None:
+    def validate_evidence_facts(self) -> None:
+        for evidence_id, evidence in self.data.evidence.items():
+            self._validate_evidence(evidence, self.data.evidence_files[evidence_id], None)
+
+    def _validate_evidence(
+        self,
+        evidence: dict[str, Any],
+        file: str,
+        assertion_id: str | None,
+    ) -> None:
         observation_path = self.repo_root / evidence["observation_path"]
         if not observation_path.is_file():
             self.issue("EVIDENCE_PATH_NOT_FOUND", f"Observation file does not exist: {evidence['observation_path']}", file, "$.evidence_refs", assertion_id)
@@ -746,6 +808,63 @@ class ClaimValidator:
             self.issue("EVIDENCE_COVERAGE_MISMATCH", "full coverage requires total == panel_count", file, "$.evidence_refs", assertion_id)
         if level in {"partial", "limited"} and panel_count is not None and evidence["total"] > panel_count:
             self.issue("EVIDENCE_COVERAGE_MISMATCH", "partial coverage total cannot exceed panel_count", file, "$.evidence_refs", assertion_id)
+
+    def validate_observed_metrics(self) -> None:
+        """Validate observation summaries independently from Evidence Bindings."""
+        for assertion_id, assertion in self.data.assertions.items():
+            file = self.data.assertion_files[assertion_id]
+            for metric_index, observed_metric in enumerate(assertion["observed_metrics"]):
+                metric_path = f"$.observed_metrics[{metric_index}]"
+                evidence_facts: list[dict[str, Any]] = []
+                for evidence_index, evidence_id in enumerate(observed_metric["evidence_ref_ids"]):
+                    evidence = self.data.evidence.get(evidence_id)
+                    if evidence is None:
+                        self.issue(
+                            "OBSERVED_METRIC_EVIDENCE_NOT_FOUND",
+                            f"Evidence {evidence_id!r} does not exist",
+                            file,
+                            f"{metric_path}.evidence_ref_ids[{evidence_index}]",
+                            assertion_id,
+                        )
+                        continue
+                    evidence_facts.append(evidence)
+                    if evidence["metric"] != observed_metric["metric"]:
+                        self.issue(
+                            "OBSERVED_METRIC_PATH_MISMATCH",
+                            f"Evidence {evidence_id!r} metric {evidence['metric']!r} does not match {observed_metric['metric']!r}",
+                            file,
+                            f"{metric_path}.metric",
+                            assertion_id,
+                        )
+                if not evidence_facts:
+                    continue
+                evidence_metrics = {evidence["metric"] for evidence in evidence_facts}
+                if len(evidence_metrics) > 1:
+                    self.issue(
+                        "OBSERVED_METRIC_EVIDENCE_INCONSISTENT",
+                        f"Evidence Facts use different metrics: {sorted(evidence_metrics)}",
+                        file,
+                        f"{metric_path}.evidence_ref_ids",
+                        assertion_id,
+                    )
+                expected_count = sum(evidence["count"] for evidence in evidence_facts)
+                expected_total = sum(evidence["total"] for evidence in evidence_facts)
+                if observed_metric["count"] != expected_count:
+                    self.issue(
+                        "OBSERVED_METRIC_COUNT_MISMATCH",
+                        f"stored count {observed_metric['count']} != Evidence Fact count sum {expected_count}",
+                        file,
+                        f"{metric_path}.count",
+                        assertion_id,
+                    )
+                if observed_metric["total"] != expected_total:
+                    self.issue(
+                        "OBSERVED_METRIC_TOTAL_MISMATCH",
+                        f"stored total {observed_metric['total']} != Evidence Fact total {expected_total}",
+                        file,
+                        f"{metric_path}.total",
+                        assertion_id,
+                    )
 
     def validate_references(self) -> None:
         assertion_adjacency: dict[str, list[str]] = {}
@@ -823,7 +942,7 @@ class ClaimValidator:
                     self.issue("APPROVAL_REFERENCE_NOT_FOUND", f"Approval {approval_id!r} does not exist", self.data.assertion_files[assertion_id], "$.promotion.approval_ids", assertion_id)
                 elif approval.get("record_type") != "approval" or approval.get("assertion_id") != assertion_id:
                     self.issue("APPROVAL_REFERENCE_INVALID", f"Approval {approval_id!r} is not an approval for this assertion", self.data.assertion_files[assertion_id], "$.promotion.approval_ids", assertion_id)
-            if assertion["promotion"]["status"] in {"approved", "applied"}:
+            if assertion["promotion"]["status"] == "approved":
                 active_approval_ids = {
                     approval_id
                     for approval_id in assertion["promotion"].get("approval_ids", [])
@@ -832,16 +951,24 @@ class ClaimValidator:
                 if not active_approval_ids:
                     self.issue(
                         "PROMOTION_WITHOUT_ACTIVE_APPROVAL",
-                        f"Promotion status {assertion['promotion']['status']!r} requires an active current-hash Approval",
+                        "Promotion status 'approved' requires an active current-hash Approval",
                         self.data.assertion_files[assertion_id], "$.promotion.status", assertion_id,
                     )
             for application in assertion["promotion"].get("applications", []):
                 if application["promotion_approval_id"] not in assertion["promotion"].get("approval_ids", []):
-                    self.issue(
-                        "APPLICATION_APPROVAL_NOT_DECLARED",
-                        "Application promotion_approval_id must appear in promotion.approval_ids",
-                        self.data.assertion_files[assertion_id], "$.promotion.applications", assertion_id,
-                    )
+                    if assertion["promotion"]["status"] == "applied":
+                        self.issue(
+                            "PROMOTION_REMEDIATION_REQUIRED",
+                            "Historical Application Approval is no longer declared by the current Promotion state",
+                            self.data.assertion_files[assertion_id], "$.promotion.applications", assertion_id,
+                            "warning",
+                        )
+                    else:
+                        self.issue(
+                            "APPLICATION_APPROVAL_NOT_DECLARED",
+                            "Application promotion_approval_id must appear in promotion.approval_ids",
+                            self.data.assertion_files[assertion_id], "$.promotion.applications", assertion_id,
+                        )
 
     def _validate_approval_chain(
         self,
@@ -954,6 +1081,7 @@ class ClaimValidator:
         for application_id, application in self.data.applications.items():
             assertion_id = application["assertion_id"]
             file = self.data.application_files[application_id]
+            issue_start = len(self.issues)
             expected_prefix = f"application.{assertion_id}."
             if not application_id.startswith(expected_prefix):
                 self.issue("APPLICATION_ASSERTION_ID_MISMATCH", "application_id does not embed assertion_id", file, "$.application_id", assertion_id)
@@ -972,14 +1100,81 @@ class ClaimValidator:
                     self.issue("APPLICATION_ASSERTION_MISMATCH", "Application supersedes another assertion", file, "$.supersedes_application_ids", assertion_id)
                 if parse_instant(application["applied_at"]) <= parse_instant(target["applied_at"]):
                     self.issue("APPLICATION_TIMESTAMP_ORDER", "superseding Application must be applied later", file, "$.applied_at", assertion_id)
-            if application_id not in superseded_ids:
-                active_by_assertion.setdefault(assertion_id, set()).add(application_id)
             self._validate_application_chain(application_id, application, file)
+            chain_valid = not any(
+                issue.severity == "error" for issue in self.issues[issue_start:]
+            )
+            if application_id not in superseded_ids and chain_valid:
+                active_by_assertion.setdefault(assertion_id, set()).add(application_id)
         check_cycles(adjacency, "APPLICATION_REFERENCE_CYCLE", self.data.application_files, self.issues)
         for assertion_id, active_ids in active_by_assertion.items():
             if len(active_ids) > 1:
                 self.issue("MULTIPLE_ACTIVE_APPLICATIONS", f"multiple active Applications: {sorted(active_ids)}", self.data.assertion_files.get(assertion_id, ""), "$.promotion.applications", assertion_id)
+        for assertion_id, assertion in self.data.assertions.items():
+            if assertion["promotion"]["status"] != "applied":
+                continue
+            active_ids = active_by_assertion.get(assertion_id, set())
+            if not active_ids:
+                self.issue(
+                    "PROMOTION_APPLIED_WITHOUT_APPLICATION",
+                    "Promotion status 'applied' requires a valid unsuperseded Application Receipt",
+                    self.data.assertion_files[assertion_id],
+                    "$.promotion.status",
+                    assertion_id,
+                )
+                continue
+            if len(active_ids) == 1:
+                application_id = next(iter(active_ids))
+                self._validate_applied_promotion_remediation(
+                    assertion_id, assertion, self.data.applications[application_id]
+                )
         self._validate_new_application_content(new_ids)
+
+    def _validate_applied_promotion_remediation(
+        self,
+        assertion_id: str,
+        assertion: dict[str, Any],
+        application: dict[str, Any],
+    ) -> None:
+        reasons: list[str] = []
+        current_assertion_hash = self.assertion_hashes.get(assertion_id)
+        current_promotion_hash = self.promotion_hashes.get(assertion_id)
+        if current_assertion_hash != application["applied_assertion_hash"]:
+            reasons.append("current Assertion hash differs from the applied receipt")
+        if current_promotion_hash != application["applied_promotion_hash"]:
+            reasons.append("current Promotion hash differs from the applied receipt")
+        approval = self.data.approvals.get(application["promotion_approval_id"])
+        if approval and approval.get("record_type") == "approval":
+            approval_state, _ = approval_effective_status_at(
+                approval["approval_id"],
+                self.evaluated_at,
+                application["applied_assertion_hash"],
+                application["applied_promotion_hash"],
+                self.data.approvals,
+            )
+            if approval_state != "active":
+                reasons.append(f"Approval is currently {approval_state}")
+        for review_id in application["claim_review_ids"]:
+            review = self.data.reviews.get(review_id)
+            if not review or review.get("record_type") != "review":
+                continue
+            review_state, _ = review_effective_status_at(
+                review_id,
+                self.evaluated_at,
+                application["applied_assertion_hash"],
+                self.data.reviews,
+            )
+            if review_state != "active":
+                reasons.append(f"Review {review_id!r} is currently {review_state}")
+        if reasons:
+            self.issue(
+                "PROMOTION_REMEDIATION_REQUIRED",
+                "; ".join(reasons),
+                self.data.assertion_files[assertion_id],
+                "$.promotion.status",
+                assertion_id,
+                "warning",
+            )
 
     def _validate_application_chain(self, application_id: str, application: dict[str, Any], file: str) -> None:
         assertion_id = application["assertion_id"]

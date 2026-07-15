@@ -35,6 +35,17 @@ evidence_refs:
     measurement_coverage:
       level: full
 
+  - evidence_ref_id: evidence.brg008c.gaze_direction.not_visible
+    observation_module: face
+    observation_path: research/sd-prompt-research/experiments/bridge/BRG-008-C/face-observation.json
+    metric: computed_aggregate.axis_counts.gaze_direction.not_visible
+    denominator_path: panel_count
+    count: 1
+    total: 6
+    storage: local
+    measurement_coverage:
+      level: full
+
 assertions:
   - assertion_id: assertion.brg007.arm_support.001
     status: provisional
@@ -194,16 +205,16 @@ assertions:
       statement: The unregistered surface phrase remains a staging subject pending explicit mapping review.
     observed_metrics:
       - metric: computed_aggregate.axis_counts.gaze_direction.not_visible
-        count: 5
+        count: 1
         total: 6
         evidence_ref_ids:
-          - evidence.brg008b.gaze_direction.not_visible
+          - evidence.brg008c.gaze_direction.not_visible
     interpretation_candidates:
       - interpretation_candidate_id: interpretation.brg008.head_tilted_back.mapping.001
         label: ambiguous_mapping
     causal_hypotheses: []
     evidence_bindings:
-      - evidence_ref_id: evidence.brg008b.gaze_direction.not_visible
+      - evidence_ref_id: evidence.brg008c.gaze_direction.not_visible
         evidence_role: context_only
         applies_to: interpretation.brg008.head_tilted_back.mapping.001
         evidence_quality:

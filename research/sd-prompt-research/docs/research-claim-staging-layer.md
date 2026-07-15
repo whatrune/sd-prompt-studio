@@ -70,6 +70,10 @@ Evidence Fact stores immutable measurements. Evidence Binding stores how an Asse
 
 Local Evidence paths are repository-root relative and use `/`. Metric paths use object-only dotted paths. Array indexes and JSON Pointer are not accepted as metric paths. The Validator resolves `metric`, `denominator_path`, `count`, and `total` against the referenced Observation JSON.
 
+Each `observed_metrics` entry resolves every listed Evidence Fact independently from Evidence Bindings. The metric paths must match. One Evidence Fact supplies the exact `count` and `total`; multiple Evidence Facts supply their sums and must all describe the same metric.
+
+Registered target axes must exist in the module registry (`active_observation_axes` for pose and `active_face_axes` for face). A proposed axis may be absent; if it is already active, validation reports a warning so its registration state can be reconciled.
+
 Reproduction counts distinguish panels, conditions, runs, independent experiment groups, models, and contexts. BRG-007-A/B/C are one independent experiment group rather than three independent experiments.
 
 ## Hash scopes
@@ -207,6 +211,8 @@ Content Locator fields are:
 Attach actions in v0.1 are limited to Concept objects. A newly created object cannot also be an Attach target in the same baseline comparison because the intermediate Create state cannot be reconstructed.
 
 One unsuperseded Application is allowed per Assertion. Superseded Applications remain immutable evidence that an application occurred.
+
+Promotion status evaluation is context-sensitive. `approved` requires an Approval that is active for the current Assertion and Promotion hashes at the evaluation time. `applied` instead requires a valid unsuperseded Application Receipt and evaluates its Approval and Reviews at their historical decision times. Later Assertion edits or Review/Approval withdrawals do not invalidate a previously valid receipt; current-state divergence is reported as `PROMOTION_REMEDIATION_REQUIRED`.
 
 ## Application validation contexts
 

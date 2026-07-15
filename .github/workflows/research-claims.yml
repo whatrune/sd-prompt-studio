@@ -6,6 +6,7 @@ on:
       - "research/sd-prompt-research/concepts/**"
       - "research/sd-prompt-research/knowledge/**"
       - "research/sd-prompt-research/schemas/**"
+      - "research/sd-prompt-research/templates/**"
       - "research/sd-prompt-research/scripts/build_concept_graph.py"
       - "research/sd-prompt-research/scripts/validate_research_claims.py"
       - "research/sd-prompt-research/tests/**"
