@@ -5,7 +5,7 @@ import { createServer } from 'vite'
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 
 try {
-  const [{ adultTags }, { buildPrompt, buildPromptWithStrategy, tagSort }, { migratePersistedState, nextPromptGroupName, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }, { applyColorModifier, buildColorModifiedTag, findColorModifier, isColorModifiableCategory }] = await Promise.all([
+  const [{ adultTags }, { buildPrompt, buildPromptWithStrategy, tagSort }, { buildSavedPromptSummary, migratePersistedState, nextPromptGroupName, PROMPT_GROUP_COLORS, UNCLASSIFIED_PROMPT_GROUP_ID, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }, { applyColorModifier, buildColorModifiedTag, findColorModifier, isColorModifiableCategory }] = await Promise.all([
     server.ssrLoadModule('/src/data/adultTags.ts'),
     server.ssrLoadModule('/src/prompt.ts'),
     server.ssrLoadModule('/src/store.ts'),
@@ -558,18 +558,22 @@ try {
     userTags: [],
   })
   assert.deepEqual(migratedWithoutLibrary.savedPrompts, [], 'existing persisted state must default savedPrompts to an empty array')
-  assert.deepEqual(migratedWithoutLibrary.promptGroups, [], 'existing persisted state must default Prompt groups to an empty array')
+  assert.deepEqual(migratedWithoutLibrary.promptGroups.map(group => group.id), [UNCLASSIFIED_PROMPT_GROUP_ID], 'existing persisted state must gain the Unclassified Prompt group')
   assert.deepEqual(migratedWithoutLibrary.seeds, [], 'existing persisted state must default current seeds to an empty array')
   const migratedLegacySavedPrompt = migratePersistedState({
     blocks: [{ id: 'legacy-library', name: '被写体 1', tags: [] }],
     sceneTags: [],
     userTags: [],
     modelPreset: 'sdxl',
-    savedPrompts: [{ id: 'legacy-saved', type: 'favorite', name: 'Legacy Saved', positivePrompt: '', negativePrompt: '', blocks: [{ id: 'legacy-library', name: '被写体 1', tags: [] }], sceneTags: [], seeds: [], createdAt: 1, updatedAt: 1 }],
+    savedPrompts: [{ id: 'legacy-saved', type: 'favorite', name: 'Legacy Saved', color: '#ff6699', positivePrompt: '', negativePrompt: '', blocks: [{ id: 'legacy-library', name: '被写体 1', tags: [] }], sceneTags: [], seeds: [], createdAt: 1, updatedAt: 1 }],
   })
   assert.equal(migratedLegacySavedPrompt.savedPrompts[0].modelPreset, 'sdxl', 'legacy saved Prompts must inherit the persisted Model Preset')
   assert.equal(migratedLegacySavedPrompt.savedPrompts[0].settings.modelPreset, 'sdxl', 'legacy saved Prompts must migrate to nested settings')
   assert.deepEqual(migratedLegacySavedPrompt.savedPrompts[0].structure.blocks.map(block => block.id), ['legacy-library'], 'legacy saved Prompts must migrate to a reusable structure snapshot')
+  assert.equal(migratedLegacySavedPrompt.savedPrompts[0].legacyColor, '#ff6699', 'legacy Prompt-level colors must be retained for compatibility')
+  assert.equal('color' in migratedLegacySavedPrompt.savedPrompts[0], false, 'migrated Saved Prompts must not retain color as a renderable field')
+  assert.deepEqual(migratedLegacySavedPrompt.savedPrompts[0].groups, [UNCLASSIFIED_PROMPT_GROUP_ID], 'ungrouped legacy Prompts must migrate into Unclassified')
+  assert.equal(migratedLegacySavedPrompt.promptGroups[0].color, '#ff6699', 'Unclassified must inherit a legacy ungrouped color when available')
 
   usePromptStore.setState({
     blocks: [{ id: 'library-subject', name: 'Library Subject', subjectNumber: 1, position: 'center', tags: [subjectHair] }],
@@ -582,27 +586,51 @@ try {
     savedPrompts: [],
     promptGroups: [],
   })
-  const characterGroup = usePromptStore.getState().addPromptGroup('キャラクター')
+  const characterGroup = usePromptStore.getState().addPromptGroup('キャラクター', '#ff6699')
   assert(characterGroup, 'a named Prompt group must be created')
+  assert.equal(characterGroup.color, '#ff6699', 'Prompt group creation must accept an identifying color')
+  assert.equal(usePromptStore.getState().setPromptGroupColor(characterGroup.id, '#3fb950'), true, 'Prompt group colors must be editable')
+  assert.equal(usePromptStore.getState().promptGroups.find(group => group.id === characterGroup.id)?.color, '#3fb950', 'Prompt group color changes must update the group source of truth')
   assert.equal(usePromptStore.getState().addPromptGroup('キャラクター'), null, 'duplicate Prompt group names must be rejected')
   assert.equal(usePromptStore.getState().renamePromptGroup(characterGroup.id, 'キャラクター資産'), true, 'Prompt groups must be renameable')
   assert.equal(nextPromptGroupName(usePromptStore.getState().promptGroups), 'グループ1', 'default Prompt group names must start at the smallest available suffix')
+  assert.equal(nextPromptGroupName([{ id: UNCLASSIFIED_PROMPT_GROUP_ID, name: 'グループ1' }]), 'グループ1', 'the internal Unclassified group must not affect user-group numbering')
   const secondaryGroup = usePromptStore.getState().addPromptGroup('グループ1')
   assert(secondaryGroup, 'a second Prompt group must be created')
   assert.equal(nextPromptGroupName(usePromptStore.getState().promptGroups), 'グループ2', 'default Prompt group names must advance past existing names')
+  const groupBeforeEmptyUpdate = { ...usePromptStore.getState().promptGroups.find(group => group.id === characterGroup.id) }
+  assert.deepEqual(usePromptStore.getState().updatePromptGroup(characterGroup.id, { name: '   ', color: '#112233' }), { success: false, reason: 'empty-name' }, 'empty group names must reject the complete edit')
+  assert.deepEqual(usePromptStore.getState().promptGroups.find(group => group.id === characterGroup.id), groupBeforeEmptyUpdate, 'an empty name must leave both group name and color unchanged')
+  const groupBeforeDuplicateUpdate = { ...usePromptStore.getState().promptGroups.find(group => group.id === characterGroup.id) }
+  assert.deepEqual(usePromptStore.getState().updatePromptGroup(characterGroup.id, { name: secondaryGroup.name, color: '#223344' }), { success: false, reason: 'duplicate-name' }, 'duplicate group names must reject the complete edit')
+  assert.deepEqual(usePromptStore.getState().promptGroups.find(group => group.id === characterGroup.id), groupBeforeDuplicateUpdate, 'a duplicate name must leave both group name and color unchanged')
+  const groupBeforeInvalidColorUpdate = { ...usePromptStore.getState().promptGroups.find(group => group.id === characterGroup.id) }
+  assert.deepEqual(usePromptStore.getState().updatePromptGroup(characterGroup.id, { name: '有効な名前', color: 'invalid' }), { success: false, reason: 'invalid-color' }, 'invalid group colors must reject the complete edit')
+  assert.deepEqual(usePromptStore.getState().promptGroups.find(group => group.id === characterGroup.id), groupBeforeInvalidColorUpdate, 'an invalid color must leave both group name and color unchanged')
+  usePromptStore.setState(state => ({ promptGroups: state.promptGroups.map(group => group.id === characterGroup.id ? { ...group, updatedAt: 1 } : group) }))
+  let atomicGroupUpdateCount = 0
+  const unsubscribeAtomicGroupUpdate = usePromptStore.subscribe(() => { atomicGroupUpdateCount += 1 })
+  assert.deepEqual(usePromptStore.getState().updatePromptGroup(characterGroup.id, { name: '原子的更新', color: '#334455' }), { success: true }, 'valid group name and color must update atomically')
+  unsubscribeAtomicGroupUpdate()
+  const atomicallyUpdatedGroup = usePromptStore.getState().promptGroups.find(group => group.id === characterGroup.id)
+  assert.equal(atomicallyUpdatedGroup?.name, '原子的更新')
+  assert.equal(atomicallyUpdatedGroup?.color, '#334455')
+  assert.notEqual(atomicallyUpdatedGroup?.updatedAt, 1, 'an atomic group update must refresh updatedAt')
+  assert.equal(atomicGroupUpdateCount, 1, 'an atomic group update must emit exactly one Store change')
   const savedLibraryPrompt = usePromptStore.getState().savePrompt({
     name: 'Library Favorite',
     positivePrompt: 'saved positive snapshot',
     negativePrompt: 'library negative',
     seeds: [{ value: 123456789 }, { value: 987654321 }, { value: 24680 }],
-    color: '#ff6699',
     groups: [characterGroup.id, secondaryGroup.id],
   })
   assert(savedLibraryPrompt, 'valid Prompt state must be saved')
   assert.equal(usePromptStore.getState().savedPrompts.length, 1)
   assert.equal(usePromptStore.getState().savedPrompts[0].modelPreset, 'pony')
-  assert.equal(savedLibraryPrompt.color, '#ff6699')
+  assert.equal('color' in savedLibraryPrompt, false, 'new Saved Prompts must not contain Prompt-level color')
+  assert.equal(savedLibraryPrompt.legacyColor, undefined, 'new Saved Prompts must not create compatibility-only legacy colors')
   assert.deepEqual(savedLibraryPrompt.groups, [characterGroup.id, secondaryGroup.id])
+  assert.deepEqual(savedLibraryPrompt.summaryTags, ['black hair'], 'quality tags must be excluded from Saved Prompt summaries')
   assert.equal(savedLibraryPrompt.generatedPrompt, 'saved positive snapshot')
   assert.equal(savedLibraryPrompt.displayTags.length, 2)
   assert.equal(savedLibraryPrompt.structure.blocks[0].tags[0].prompt, 'black hair')
@@ -611,12 +639,72 @@ try {
   assert.equal(usePromptStore.getState().savePrompt({ name: 'Duplicate seeds', positivePrompt: '', negativePrompt: '', seeds: [{ value: 7 }, { value: 7 }] }), null, 'duplicate Seeds must be rejected')
   const seedlessPrompt = usePromptStore.getState().savePrompt({ name: 'Seedless Prompt', positivePrompt: '', negativePrompt: '', seeds: [] })
   assert(seedlessPrompt, 'a Prompt without Seeds must be saved')
+  assert.deepEqual(seedlessPrompt.groups, [UNCLASSIFIED_PROMPT_GROUP_ID], 'saving without a group must assign Unclassified')
+  assert.equal(usePromptStore.getState().renamePromptGroup(UNCLASSIFIED_PROMPT_GROUP_ID, '内部変更'), false, 'the internal Unclassified group must reject rename')
+  assert.equal(usePromptStore.getState().setPromptGroupColor(UNCLASSIFIED_PROMPT_GROUP_ID, '#ffffff'), false, 'the internal Unclassified group must reject color editing')
+  assert.equal(usePromptStore.getState().deletePromptGroup(UNCLASSIFIED_PROMPT_GROUP_ID), false, 'the internal Unclassified group must reject deletion')
+  assert.deepEqual(buildSavedPromptSummary([
+    sceneQuality,
+    { id: 'background', prompt: 'city background', label: '都市', category: 'background', weight: 1 },
+    { id: 'clothes', prompt: 'school uniform', label: '制服', category: 'clothes', weight: 1 },
+    { id: 'people', prompt: '1girl', label: '1人の少女', category: 'people', weight: 1 },
+    { id: 'eyes', prompt: 'blue eyes', label: '青い目', category: 'eyes', weight: 1 },
+    subjectHair,
+  ]), ['1girl', 'black hair', 'blue eyes', 'school uniform'], 'Saved Prompt summaries must prioritize identifying categories and cap output at four tags')
+  const animeStyle = { id: 'style-anime', prompt: 'anime style', label: 'アニメ調', category: 'quality', subcategory: 'スタイル', weight: 1 }
+  const legacyRealisticStyle = { id: 'style-realistic', prompt: 'realistic', label: 'リアル調', category: 'quality', weight: 1 }
+  assert.deepEqual(buildSavedPromptSummary([animeStyle, legacyRealisticStyle]), ['anime style', 'realistic'], 'style tags in the quality category must remain Summary candidates, including legacy tags without subcategory')
+  assert.deepEqual(buildSavedPromptSummary([
+    { id: 'quality-masterpiece', prompt: 'masterpiece', label: 'マスターピース', category: 'quality', subcategory: '品質', weight: 1 },
+    { id: 'quality-resolution', prompt: 'high resolution', label: '高解像度', category: 'quality', subcategory: '解像感', weight: 1 },
+    { id: 'quality-rating', prompt: 'rating safe', label: '全年齢', category: 'quality', subcategory: 'レーティング', weight: 1 },
+  ]), [], 'quality, resolution, and rating tags must be excluded from Saved Prompt summaries')
+  assert.deepEqual(buildSavedPromptSummary([
+    animeStyle,
+    { id: 'summary-camera', prompt: 'portrait', label: 'ポートレート', category: 'camera', weight: 1 },
+    { id: 'summary-hair', prompt: 'silver hair', label: '銀髪', category: 'hair', weight: 1 },
+    { id: 'summary-people', prompt: '1girl', label: '1人の少女', category: 'people', weight: 1 },
+    { id: 'summary-character', prompt: 'original character', label: 'オリジナルキャラクター', category: 'character', weight: 1 },
+  ]), ['original character', '1girl', 'silver hair', 'portrait'], 'existing identifying categories must remain ahead of style and Summary output must stay capped at four')
+  const migratedStyleSummary = migratePersistedState({
+    blocks: [{ id: 'summary-migration', name: '被写体 1', tags: [] }],
+    savedPrompts: [{ id: 'legacy-summary', name: 'Legacy Summary', groups: [], displayTags: [animeStyle, { id: 'legacy-masterpiece', prompt: 'masterpiece', label: '品質', category: 'quality', weight: 1 }], summaryTags: ['masterpiece'], createdAt: 1, updatedAt: 1 }],
+  })
+  assert.deepEqual(migratedStyleSummary.savedPrompts[0].summaryTags, ['anime style'], 'Saved Prompt migration must rebuild Summary tags with the current style-aware exclusion rules')
+  const singleGroupPrompt = usePromptStore.getState().savePrompt({ name: 'Single group', positivePrompt: '', negativePrompt: '', seeds: [], groups: [characterGroup.id] })
+  assert(singleGroupPrompt, 'a Prompt belonging to one user group must be saved')
   assert.equal(usePromptStore.getState().deletePromptGroup(characterGroup.id), true, 'Prompt groups must be deletable')
   assert.equal(usePromptStore.getState().promptGroups.some(group => group.id === characterGroup.id), false, 'deleted Prompt groups must leave the group list')
   assert.equal(usePromptStore.getState().savedPrompts.some(saved => saved.id === savedLibraryPrompt.id), true, 'deleting a Prompt group must preserve its saved Prompts')
   assert.equal(usePromptStore.getState().savedPrompts.some(saved => saved.groups.includes(characterGroup.id)), false, 'deleted Prompt group ids must be removed from every saved Prompt')
   assert.equal(usePromptStore.getState().savedPrompts.find(saved => saved.id === savedLibraryPrompt.id)?.groups.includes(secondaryGroup.id), true, 'unrelated Prompt group membership must be preserved')
+  assert.equal(usePromptStore.getState().savedPrompts.find(saved => saved.id === savedLibraryPrompt.id)?.groups.includes(UNCLASSIFIED_PROMPT_GROUP_ID), false, 'deleting one of multiple groups must not add the internal fallback while another group remains')
+  assert.deepEqual(usePromptStore.getState().savedPrompts.find(saved => saved.id === singleGroupPrompt.id)?.groups, [UNCLASSIFIED_PROMPT_GROUP_ID], 'deleting the only user group must move its Prompt to the internal fallback')
   assert.equal(usePromptStore.getState().deletePromptGroup('missing-group'), false, 'deleting an unknown Prompt group must be a no-op')
+
+  const paletteGroup = (id, name, color) => ({ id, name, color, createdAt: 1, updatedAt: 1 })
+  usePromptStore.setState({ promptGroups: [
+    paletteGroup(UNCLASSIFIED_PROMPT_GROUP_ID, '未分類', PROMPT_GROUP_COLORS[7]),
+    paletteGroup('palette-a', 'Palette A', PROMPT_GROUP_COLORS[0]),
+    paletteGroup('palette-b', 'Palette B', PROMPT_GROUP_COLORS[1]),
+  ] })
+  assert.equal(usePromptStore.getState().deletePromptGroup('palette-a'), true)
+  const reusedPaletteGroup = usePromptStore.getState().addPromptGroup('Palette C')
+  assert.equal(reusedPaletteGroup?.color, PROMPT_GROUP_COLORS[0], 'a new group must reuse the first palette color freed by deletion')
+  usePromptStore.setState({ promptGroups: [paletteGroup(UNCLASSIFIED_PROMPT_GROUP_ID, '未分類', PROMPT_GROUP_COLORS[0])] })
+  const unclassifiedIgnoredColorGroup = usePromptStore.getState().addPromptGroup('Unclassified ignored')
+  assert.equal(unclassifiedIgnoredColorGroup?.color, PROMPT_GROUP_COLORS[0], 'the internal Unclassified color must not count as a used user-group color')
+  const requestedColorGroup = usePromptStore.getState().addPromptGroup('Requested color', '#ABCDEF')
+  assert.equal(requestedColorGroup?.color, '#ABCDEF', 'a valid requested group color must take precedence over automatic palette selection')
+  const invalidRequestedColorGroup = usePromptStore.getState().addPromptGroup('Invalid requested color', 'invalid')
+  assert.equal(invalidRequestedColorGroup?.color, PROMPT_GROUP_COLORS[1], 'an invalid requested color must fall back to the first unused palette color')
+  usePromptStore.setState({ promptGroups: [
+    paletteGroup(UNCLASSIFIED_PROMPT_GROUP_ID, '未分類', '#ffffff'),
+    ...PROMPT_GROUP_COLORS.map((color, index) => paletteGroup(`palette-full-${index}`, `Palette Full ${index}`, index === 0 ? color.toUpperCase() : color)),
+  ] })
+  const fullPaletteGroup = usePromptStore.getState().addPromptGroup('Palette overflow')
+  assert(fullPaletteGroup, 'a Prompt group must still be created after all palette colors are used')
+  assert.equal(fullPaletteGroup.color, PROMPT_GROUP_COLORS[0], 'full-palette fallback must cycle after case-insensitive used-color detection')
 
   usePromptStore.setState({
     blocks: [{ id: 'clear-subject', name: '被写体 1', subjectNumber: 1, tags: [subjectHair] }],
@@ -654,8 +742,9 @@ try {
   assert.equal(usePromptStore.getState().mergeSavedPrompt(savedLibraryPrompt.id), true, 'saved Prompt state must support simple merge')
   assert.equal(usePromptStore.getState().blocks.length, 2, 'simple merge must preserve the current Subject and append saved Subjects')
   assert.equal(usePromptStore.getState().sceneTags[0].prompt, 'masterpiece', 'simple merge must add saved Scene tags')
+  const savedPromptCountBeforeDelete = usePromptStore.getState().savedPrompts.length
   usePromptStore.getState().deleteSavedPrompt(savedLibraryPrompt.id)
-  assert.equal(usePromptStore.getState().savedPrompts.length, 1, 'deleting a saved Prompt must remove only that snapshot')
+  assert.equal(usePromptStore.getState().savedPrompts.length, savedPromptCountBeforeDelete - 1, 'deleting a saved Prompt must remove only that snapshot')
 
   const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
   const stylesSource = fs.readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
@@ -721,20 +810,52 @@ try {
   assert(appSource.indexOf('className="library-workspace"') < appSource.indexOf('className="preview panel"'), 'the Prompt Library list must live in the central Workspace before the Inspector')
   assert(appSource.includes('className="subcategory-tabs library-tabs"'), 'Prompt groups must reuse the central category-tab structure')
   assert(appSource.includes('function TabLabel('), 'Category and Library tabs must share active-label rendering')
-  assert(appSource.includes('<TabLabel active={activeLibraryGroup===\'all\'} label="すべて"/>'), 'the active all-Prompts Library tab must use the shared check label')
+  assert(appSource.includes('<TabLabel active={effectiveLibraryGroup===\'all\'} label="すべて"/>'), 'the effective all-Prompts Library tab must use the shared check label')
   assert(appSource.includes('<TabLabel active={activeLibraryGroup===group.id} label={group.name}/>'), 'active Prompt group tabs must use the shared check label')
+  assert.equal((appSource.match(/userPromptGroups\.map\(group=>/g)??[]).length, 2, 'Library tabs and the save dialog must render only user Prompt groups')
+  assert.equal(appSource.includes('store.promptGroups.map(group=>'), false, 'the internal Prompt group collection must not be rendered directly')
+  assert.equal(appSource.includes('label="未分類"'), false, 'Library tabs must not render the internal Unclassified name')
+  assert.equal(appSource.includes('（未選択時は未分類）'), false, 'the save dialog must not expose the internal Unclassified name')
+  assert(appSource.includes('グループ未選択時はすべてにのみ表示されます'), 'the save dialog must explain the no-group result without exposing the internal group')
+  assert(appSource.includes("const effectiveLibraryGroup = activeLibraryGroup === UNCLASSIFIED_PROMPT_GROUP_ID"), 'an internal active group id must resolve to the all-Prompts view')
+  assert(appSource.includes("const visibleSavedPrompts = effectiveLibraryGroup === 'all'") && appSource.includes('? store.savedPrompts'), 'the all-Prompts tab must include internally unclassified Prompts')
   assert(appSource.includes('className="library-add-group"') && appSource.includes('onClick={createPromptGroup}'), 'the add-group control must create a default-named tab immediately')
+  const createPromptGroupSource = appSource.slice(appSource.indexOf('const createPromptGroup ='), appSource.indexOf('const startGroupEdit ='))
+  assert.equal(createPromptGroupSource.includes('setEditingGroupId(group.id)'), false, 'creating a Prompt group must not enter edit mode')
+  assert.equal(createPromptGroupSource.includes('setEditingGroupName(group.name)'), false, 'creating a Prompt group must not initialize the edit name')
+  assert.equal(createPromptGroupSource.includes('setEditingGroupColor(group.color)'), false, 'creating a Prompt group must not initialize the edit color')
   assert.equal(appSource.includes('library-workspace-header'), false, 'Prompt Library must start with group tabs without a dedicated title or save header')
   assert.equal(appSource.includes('groupDialogOpen'), false, 'Prompt group creation must not open a naming dialog')
   assert(appSource.includes('setPendingDeleteGroup(group)'), 'Prompt group deletion must require explicit confirmation')
   assert(appSource.includes('保存Prompt自体は削除されません。'), 'Prompt group deletion must explain that saved Prompts are preserved')
-  assert(appSource.includes("activeLibraryGroup==='all'"), 'the fixed all-prompts tab must remain available')
+  assert(appSource.includes("effectiveLibraryGroup==='all'"), 'the fixed all-prompts tab must remain available')
   assert(appSource.includes('onDoubleClick'), 'user Prompt groups must support desktop double-click rename')
+  assert(appSource.includes('className="library-group-color" type="color"'), 'Prompt group editing must expose a color picker')
+  const finishGroupEditSource = appSource.slice(appSource.indexOf('const finishGroupEdit ='), appSource.indexOf('const applySavedPrompt ='))
+  assert(finishGroupEditSource.includes('store.updatePromptGroup(id, { name: editingGroupName, color: editingGroupColor })'), 'finishing a Prompt group edit must atomically save the local name and color')
+  assert.equal(finishGroupEditSource.includes('store.renamePromptGroup'), false, 'the UI edit confirmation must not save the group name separately')
+  assert.equal(finishGroupEditSource.includes('store.setPromptGroupColor'), false, 'the UI edit confirmation must not save the group color separately')
+  assert(finishGroupEditSource.includes('if (!result.success)') && finishGroupEditSource.includes('return'), 'an invalid group edit must remain open without reaching the close path')
+  assert(finishGroupEditSource.includes('groupEditNameRef.current?.focus()'), 'an invalid group edit must return focus to the name input')
+  const groupEditorSource = appSource.slice(appSource.indexOf('className="library-group-editor"'), appSource.indexOf('className="library-group-delete"'))
+  assert.equal(groupEditorSource.includes('store.setPromptGroupColor'), false, 'the Prompt group color picker must not update the Store before edit confirmation')
+  assert.equal((groupEditorSource.match(/cancelGroupEdit\(\)/g)??[]).length, 2, 'Escape from either the Prompt group name or color input must use the cancellation path')
+  assert(appSource.includes('groupEditCancelledRef.current'), 'Prompt group edit cancellation must prevent a following blur from saving changes')
+  assert(appSource.includes('className="library-group-edit-error"') && appSource.includes('role="alert"'), 'invalid Prompt group edits must display an accessible error near the name input')
+  assert(stylesSource.includes('.library-group-edit-error'), 'Prompt group edit errors must have a visible style')
+  assert(appSource.includes("'--prompt-group-color':group.color"), 'Library group tabs must render from PromptGroup.color')
+  assert(appSource.includes('const userGroupIds=saved.groups.filter(id=>id!==UNCLASSIFIED_PROMPT_GROUP_ID)'), 'internally unclassified cards must use the normal fallback border instead of an internal group color')
+  assert.equal(appSource.includes('prompt-save-color'), false, 'the save dialog must not expose Prompt-level color selection')
   assert(appSource.includes("applySavedPrompt('replace')"), 'Saved Prompt cards must offer replacement apply')
   assert(appSource.includes("applySavedPrompt('merge')"), 'Saved Prompt cards must offer simple merge apply')
   assert(appSource.includes('className="saved-prompt-asset-main" aria-pressed={selected} onClick={()=>setSelectedSavedPrompt(saved)}'), 'Saved Prompt card bodies must update only the Inspector selection')
   assert(appSource.includes("className={`saved-prompt-asset${selected?' selected':''}`}"), 'Saved Prompt cards must expose the current Inspector selection')
   assert(stylesSource.includes('.saved-prompt-asset.selected'), 'selected Saved Prompt cards must have a visible selected style')
+  assert.equal(appSource.includes('saved-prompt-color'), false, 'Saved Prompt cards must not render a color icon')
+  assert.equal(stylesSource.includes('.saved-prompt-color'), false, 'Saved Prompt card styles must not retain the removed color icon')
+  assert(appSource.includes('className="saved-prompt-asset-footer"'), 'Saved Prompt cards must group tag count, creation date, and actions in the footer')
+  assert(appSource.includes('new Date(saved.createdAt)'), 'Saved Prompt cards must display the creation date')
+  assert(stylesSource.includes('text-overflow:ellipsis;white-space:nowrap'), 'Saved Prompt summaries must truncate without horizontal overflow')
   assert.equal(appSource.includes('className="saved-prompt-info"'), false, 'Saved Prompt cards must not retain a redundant detail button')
   assert(appSource.includes('className="saved-prompt-apply"'), 'Saved Prompt cards must expose an explicit apply control')
   assert(appSource.includes('className="saved-prompt-delete"'), 'Saved Prompt cards must expose an explicit delete control')

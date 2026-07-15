@@ -16,9 +16,15 @@ export const SCENE_CATEGORIES = new Set(['quality', 'camera', 'background', 'sce
 export const isSceneCategory = (category: string) => SCENE_CATEGORIES.has(category)
 export type ModelPreset = 'illustrious' | 'pony' | 'sdxl' | 'custom'
 export type SeedEntry = { value: number; note?: string }
-export type PromptGroup = { id: string; name: string; createdAt: number; updatedAt: number }
-export const nextPromptGroupName = (groups: Pick<PromptGroup, 'name'>[]) => {
-  const names = new Set(groups.map(group => group.name.trim().toLocaleLowerCase()))
+export const UNCLASSIFIED_PROMPT_GROUP_ID = 'prompt-group-unclassified'
+export const PROMPT_GROUP_COLORS = ['#58a6ff', '#a371f7', '#3fb950', '#d29922', '#f778ba', '#39c5cf', '#db6d28', '#8b949e'] as const
+export type PromptGroup = { id: string; name: string; color: string; createdAt: number; updatedAt: number }
+export type PromptGroupUpdateInput = Pick<PromptGroup, 'name' | 'color'>
+export type PromptGroupUpdateResult =
+  | { success: true }
+  | { success: false; reason: 'not-found' | 'internal-group' | 'empty-name' | 'duplicate-name' | 'invalid-color' }
+export const nextPromptGroupName = (groups: Pick<PromptGroup, 'id' | 'name'>[]) => {
+  const names = new Set(groups.filter(group => group.id !== UNCLASSIFIED_PROMPT_GROUP_ID).map(group => group.name.trim().toLocaleLowerCase()))
   let suffix = 1
   while (names.has(`グループ${suffix}`.toLocaleLowerCase())) suffix += 1
   return `グループ${suffix}`
@@ -28,7 +34,8 @@ export type SavedPromptSettings = { modelPreset: ModelPreset; seeds: SeedEntry[]
 export type SavedPrompt = {
   id: string
   name: string
-  color: string
+  /** Migrated Prompt-level color retained for storage compatibility only. Never use for rendering. */
+  legacyColor?: string
   groups: string[]
   summaryTags: string[]
   displayTags: SelectedTag[]
@@ -45,7 +52,7 @@ export type SavedPrompt = {
   createdAt: number
   updatedAt: number
 }
-export type SavePromptInput = Pick<SavedPrompt, 'name' | 'positivePrompt' | 'negativePrompt' | 'seeds'> & { color?: string; groups?: string[] }
+export type SavePromptInput = Pick<SavedPrompt, 'name' | 'positivePrompt' | 'negativePrompt' | 'seeds'> & { groups?: string[] }
 
 export type UserPromptTag = PromptTag & { source: 'user' }
 
@@ -95,8 +102,10 @@ export type State = {
   restorePrompt: (id: string) => boolean
   mergeSavedPrompt: (id: string) => boolean
   deleteSavedPrompt: (id: string) => void
-  addPromptGroup: (name: string) => PromptGroup | null
+  addPromptGroup: (name: string, color?: string) => PromptGroup | null
+  updatePromptGroup: (id: string, input: PromptGroupUpdateInput) => PromptGroupUpdateResult
   renamePromptGroup: (id: string, name: string) => boolean
+  setPromptGroupColor: (id: string, color: string) => boolean
   deletePromptGroup: (id: string) => boolean
   setNavigationCollapsed: (collapsed: boolean) => void
   setWorkspaceView: (view: WorkspaceView) => void
@@ -125,13 +134,66 @@ const cloneBlock = (block: PromptBlock): PromptBlock => ({ ...block, tags: block
 const cloneSeed = (seed: SeedEntry): SeedEntry => ({ ...seed })
 const validSeeds = (seeds: SeedEntry[]) => seeds.every(seed => Number.isSafeInteger(seed.value))
   && new Set(seeds.map(seed => seed.value)).size === seeds.length
-const DEFAULT_SAVED_PROMPT_COLOR = '#58a6ff'
+const DEFAULT_PROMPT_GROUP_COLOR: string = PROMPT_GROUP_COLORS[0]
+const UNCLASSIFIED_PROMPT_GROUP_COLOR: string = PROMPT_GROUP_COLORS[PROMPT_GROUP_COLORS.length - 1]
+const normalizePromptGroupColor = (value: unknown, fallback: string = DEFAULT_PROMPT_GROUP_COLOR) => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value : fallback
+const createUnclassifiedPromptGroup = (now = Date.now(), color: string = UNCLASSIFIED_PROMPT_GROUP_COLOR): PromptGroup => ({
+  id: UNCLASSIFIED_PROMPT_GROUP_ID,
+  name: '未分類',
+  color: normalizePromptGroupColor(color, UNCLASSIFIED_PROMPT_GROUP_COLOR),
+  createdAt: now,
+  updatedAt: now,
+})
 const promptDisplayTags = (blocks: PromptBlock[], sceneTags: SelectedTag[]) => [
   ...sceneTags.map(cloneSelectedTag),
   ...blocks.flatMap(block => block.tags.map(cloneSelectedTag)),
 ]
 
-function normalizeSavedPrompt(saved: Partial<SavedPrompt>, fallbackPreset: ModelPreset): SavedPrompt {
+const SUMMARY_CATEGORY_PRIORITY = ['character', 'people', 'hair', 'eyes', 'clothes', 'pose', 'background', 'camera', 'style']
+const EXCLUDED_SUMMARY_SUBCATEGORIES = new Set(['品質', '解像感', 'レーティング'])
+const STYLE_SUMMARY_PROMPTS = new Set(['anime style', 'semi-realistic', 'realistic', 'digital illustration', 'concept art', 'visual novel style', 'game cg', 'cel shading', 'painterly', 'lineart'])
+const QUALITY_SUMMARY_PROMPTS = new Set([
+  'masterpiece', 'best quality', 'amazing quality', 'high quality', 'very aesthetic',
+  'high resolution', 'ultra-detailed', 'absurdres', '4k', '8k', 'newest',
+  'official art', 'professional illustration', 'intricate details', 'sharp focus',
+  'rating safe', 'rating questionable', 'rating explicit',
+])
+const isQualitySummary = (value: string) => {
+  const normalized = value.trim().toLocaleLowerCase()
+  return QUALITY_SUMMARY_PROMPTS.has(normalized) || /(?:resolution|aesthetic|absurdres|\b\d+k\b|^score_\d|^rating[_\s])/i.test(normalized)
+}
+const summaryCategory = (tag: SelectedTag) => tag.subcategory === 'スタイル' || STYLE_SUMMARY_PROMPTS.has(tag.prompt.trim().toLocaleLowerCase()) ? 'style' : tag.category
+const isExcludedSummaryTag = (tag: SelectedTag) => EXCLUDED_SUMMARY_SUBCATEGORIES.has(tag.subcategory ?? '') || isQualitySummary(tag.prompt)
+
+export function buildSavedPromptSummary(displayTags: SelectedTag[], fallbackTags: string[] = []) {
+  const ordered = displayTags
+    .map((tag, index) => ({ tag, index, priority: SUMMARY_CATEGORY_PRIORITY.indexOf(summaryCategory(tag)) }))
+    .filter(({ tag }) => !isExcludedSummaryTag(tag))
+    .sort((a, b) => (a.priority < 0 ? SUMMARY_CATEGORY_PRIORITY.length : a.priority) - (b.priority < 0 ? SUMMARY_CATEGORY_PRIORITY.length : b.priority) || a.index - b.index)
+  const summary: string[] = []
+  const seen = new Set<string>()
+  for (const { tag } of ordered) {
+    const value = tag.prompt.trim()
+    const key = value.toLocaleLowerCase()
+    if (!value || seen.has(key)) continue
+    summary.push(value)
+    seen.add(key)
+    if (summary.length === 4) return summary
+  }
+  for (const value of fallbackTags) {
+    const clean = value.trim()
+    const key = clean.toLocaleLowerCase()
+    if (!clean || isQualitySummary(clean) || seen.has(key)) continue
+    summary.push(clean)
+    seen.add(key)
+    if (summary.length === 4) break
+  }
+  return summary
+}
+
+type LegacySavedPrompt = Partial<SavedPrompt> & { color?: string }
+
+function normalizeSavedPrompt(saved: LegacySavedPrompt, fallbackPreset: ModelPreset): SavedPrompt {
   const blocks = Array.isArray(saved.structure?.blocks)
     ? saved.structure.blocks.map(cloneBlock)
     : Array.isArray(saved.blocks) ? saved.blocks.map(cloneBlock) : []
@@ -147,11 +209,9 @@ function normalizeSavedPrompt(saved: Partial<SavedPrompt>, fallbackPreset: Model
   return {
     id: saved.id ?? `saved-prompt-${createId()}`,
     name: saved.name?.trim() || 'Untitled Prompt',
-    color: saved.color || DEFAULT_SAVED_PROMPT_COLOR,
+    ...((saved.legacyColor || saved.color) ? { legacyColor: normalizePromptGroupColor(saved.legacyColor ?? saved.color) } : {}),
     groups: Array.isArray(saved.groups) ? [...new Set(saved.groups.filter(Boolean))] : [],
-    summaryTags: Array.isArray(saved.summaryTags) && saved.summaryTags.length > 0
-      ? [...saved.summaryTags]
-      : displayTags.slice(0, 5).map(tag => tag.label || tag.prompt),
+    summaryTags: buildSavedPromptSummary(displayTags, Array.isArray(saved.summaryTags) ? saved.summaryTags : []),
     displayTags,
     structure: { blocks: blocks.map(cloneBlock), sceneTags: sceneTags.map(cloneSelectedTag) },
     generatedPrompt,
@@ -204,6 +264,31 @@ export function migratePersistedState(persisted: unknown) {
     if (!current) sceneById.set(tag.id, tag)
     else if (tag.weight > current.weight) sceneById.set(tag.id, { ...current, weight: tag.weight })
   }
+  const rawSavedPrompts = Array.isArray(state.savedPrompts) ? state.savedPrompts as LegacySavedPrompt[] : []
+  const migratedSavedPrompts = rawSavedPrompts.map(saved => normalizeSavedPrompt(saved, state.modelPreset ?? 'illustrious'))
+  const rawPromptGroups = Array.isArray(state.promptGroups) ? state.promptGroups : []
+  const now = Date.now()
+  const migratedPromptGroups = rawPromptGroups
+    .filter(group => group && group.id && group.name?.trim())
+    .map((group, index) => {
+      const legacyGroupColor = rawSavedPrompts.find(saved => saved.groups?.includes(group.id) && saved.color)?.color
+      return {
+        ...group,
+        name: group.id === UNCLASSIFIED_PROMPT_GROUP_ID ? '未分類' : group.name.trim(),
+        color: normalizePromptGroupColor(group.color ?? legacyGroupColor, PROMPT_GROUP_COLORS[index % PROMPT_GROUP_COLORS.length]),
+        createdAt: group.createdAt ?? now,
+        updatedAt: group.updatedAt ?? group.createdAt ?? now,
+      }
+    })
+  const existingUnclassified = migratedPromptGroups.find(group => group.id === UNCLASSIFIED_PROMPT_GROUP_ID)
+  const legacyUngroupedColor = rawSavedPrompts.find(saved => !saved.groups?.length && saved.color)?.color
+  const unclassifiedGroup = existingUnclassified ?? createUnclassifiedPromptGroup(now, legacyUngroupedColor)
+  const promptGroups = [unclassifiedGroup, ...migratedPromptGroups.filter(group => group.id !== UNCLASSIFIED_PROMPT_GROUP_ID)]
+  const promptGroupIds = new Set(promptGroups.map(group => group.id))
+  const savedPrompts = migratedSavedPrompts.map(saved => {
+    const groups = saved.groups.filter(id => promptGroupIds.has(id))
+    return { ...saved, groups: groups.length > 0 ? groups : [UNCLASSIFIED_PROMPT_GROUP_ID] }
+  })
   return {
     ...state,
     blocks: migratedBlocks.map(block => ({ ...block, tags: block.tags.filter(tag => !isSceneCategory(tag.category)) })),
@@ -229,8 +314,8 @@ export function migratePersistedState(persisted: unknown) {
         })
       : state.userTags,
     seeds: Array.isArray(state.seeds) ? state.seeds.filter(seed => seed && Number.isSafeInteger(seed.value)).map(cloneSeed) : [],
-    savedPrompts: Array.isArray(state.savedPrompts) ? state.savedPrompts.map(saved => normalizeSavedPrompt(saved, state.modelPreset ?? 'illustrious')) : [],
-    promptGroups: Array.isArray(state.promptGroups) ? state.promptGroups.filter(group => group && group.id && group.name?.trim()).map(group => ({ ...group, name: group.name.trim() })) : [],
+    savedPrompts,
+    promptGroups,
     navigationCollapsed: state.navigationCollapsed === true,
     workspaceView: state.workspaceView === 'favorites' || state.workspaceView === 'library' ? state.workspaceView : 'prompt',
   }
@@ -249,7 +334,7 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   hideUnavailable: false,
   seeds: [],
   savedPrompts: [],
-  promptGroups: [],
+  promptGroups: [createUnclassifiedPromptGroup()],
   navigationCollapsed: false,
   workspaceView: 'prompt',
   replaceTags: (removeIds, tag) => set((state) => ({
@@ -359,13 +444,16 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
     const sceneTags = state.sceneTags.map(cloneSelectedTag)
     const seeds = input.seeds.map(cloneSeed)
     const displayTags = promptDisplayTags(blocks, sceneTags)
-    const groups = [...new Set((input.groups ?? []).filter(id => state.promptGroups.some(group => group.id === id)))]
+    const selectedGroups = [...new Set((input.groups ?? []).filter(id => state.promptGroups.some(group => group.id === id)))]
+    const groups = selectedGroups.length > 0 ? selectedGroups : [UNCLASSIFIED_PROMPT_GROUP_ID]
+    const promptGroups = state.promptGroups.some(group => group.id === UNCLASSIFIED_PROMPT_GROUP_ID)
+      ? state.promptGroups
+      : [createUnclassifiedPromptGroup(now), ...state.promptGroups]
     const saved: SavedPrompt = {
       id: `saved-prompt-${createId()}`,
       name,
-      color: input.color || DEFAULT_SAVED_PROMPT_COLOR,
       groups,
-      summaryTags: displayTags.slice(0, 5).map(tag => tag.label || tag.prompt),
+      summaryTags: buildSavedPromptSummary(displayTags),
       displayTags,
       structure: { blocks: blocks.map(cloneBlock), sceneTags: sceneTags.map(cloneSelectedTag) },
       generatedPrompt: input.positivePrompt,
@@ -379,7 +467,7 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
       createdAt: now,
       updatedAt: now,
     }
-    set(current => ({ savedPrompts: [saved, ...current.savedPrompts], seeds: saved.seeds.map(cloneSeed) }))
+    set(current => ({ promptGroups, savedPrompts: [saved, ...current.savedPrompts], seeds: saved.seeds.map(cloneSeed) }))
     return saved
   },
   restorePrompt: (id) => {
@@ -420,27 +508,58 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
     return true
   },
   deleteSavedPrompt: (id) => set(state => ({ savedPrompts: state.savedPrompts.filter(item => item.id !== id) })),
-  addPromptGroup: (value) => {
+  addPromptGroup: (value, requestedColor) => {
     const name = value.trim()
-    if (!name || get().promptGroups.some(group => group.name.toLocaleLowerCase() === name.toLocaleLowerCase())) return null
+    const state = get()
+    if (!name || state.promptGroups.some(group => group.name.toLocaleLowerCase() === name.toLocaleLowerCase())) return null
     const now = Date.now()
-    const group: PromptGroup = { id: `prompt-group-${createId()}`, name, createdAt: now, updatedAt: now }
+    const userGroups = state.promptGroups.filter(group => group.id !== UNCLASSIFIED_PROMPT_GROUP_ID)
+    const usedColors = new Set(userGroups.map(group => group.color.toLocaleLowerCase()))
+    const unusedColor = PROMPT_GROUP_COLORS.find(color => !usedColors.has(color.toLocaleLowerCase()))
+    const fallbackColor = unusedColor ?? PROMPT_GROUP_COLORS[userGroups.length % PROMPT_GROUP_COLORS.length]
+    const color = normalizePromptGroupColor(requestedColor, fallbackColor)
+    const group: PromptGroup = { id: `prompt-group-${createId()}`, name, color, createdAt: now, updatedAt: now }
     set(state => ({ promptGroups: [...state.promptGroups, group] }))
     return group
+  },
+  updatePromptGroup: (id, input) => {
+    const state = get()
+    const target = state.promptGroups.find(group => group.id === id)
+    if (!target) return { success: false, reason: 'not-found' }
+    if (id === UNCLASSIFIED_PROMPT_GROUP_ID) return { success: false, reason: 'internal-group' }
+    const name = input.name.trim()
+    if (!name) return { success: false, reason: 'empty-name' }
+    if (state.promptGroups.some(group => group.id !== id && group.name.toLocaleLowerCase() === name.toLocaleLowerCase())) return { success: false, reason: 'duplicate-name' }
+    if (!/^#[0-9a-f]{6}$/i.test(input.color)) return { success: false, reason: 'invalid-color' }
+    const updatedAt = Date.now()
+    set({ promptGroups: state.promptGroups.map(group => group.id === id ? { ...group, name, color: input.color, updatedAt } : group) })
+    return { success: true }
   },
   renamePromptGroup: (id, value) => {
     const name = value.trim()
     const state = get()
-    if (!name || !state.promptGroups.some(group => group.id === id) || state.promptGroups.some(group => group.id !== id && group.name.toLocaleLowerCase() === name.toLocaleLowerCase())) return false
+    if (id === UNCLASSIFIED_PROMPT_GROUP_ID || !name || !state.promptGroups.some(group => group.id === id) || state.promptGroups.some(group => group.id !== id && group.name.toLocaleLowerCase() === name.toLocaleLowerCase())) return false
     set({ promptGroups: state.promptGroups.map(group => group.id === id ? { ...group, name, updatedAt: Date.now() } : group) })
+    return true
+  },
+  setPromptGroupColor: (id, value) => {
+    const state = get()
+    if (id === UNCLASSIFIED_PROMPT_GROUP_ID || !state.promptGroups.some(group => group.id === id) || !/^#[0-9a-f]{6}$/i.test(value)) return false
+    set({ promptGroups: state.promptGroups.map(group => group.id === id ? { ...group, color: value, updatedAt: Date.now() } : group) })
     return true
   },
   deletePromptGroup: (id) => {
     const state = get()
-    if (!state.promptGroups.some(group => group.id === id)) return false
+    if (id === UNCLASSIFIED_PROMPT_GROUP_ID || !state.promptGroups.some(group => group.id === id)) return false
+    const promptGroups = state.promptGroups.some(group => group.id === UNCLASSIFIED_PROMPT_GROUP_ID)
+      ? state.promptGroups.filter(group => group.id !== id)
+      : [createUnclassifiedPromptGroup(), ...state.promptGroups.filter(group => group.id !== id)]
     set({
-      promptGroups: state.promptGroups.filter(group => group.id !== id),
-      savedPrompts: state.savedPrompts.map(saved => ({ ...saved, groups: saved.groups.filter(groupId => groupId !== id) })),
+      promptGroups,
+      savedPrompts: state.savedPrompts.map(saved => {
+        const groups = saved.groups.filter(groupId => groupId !== id)
+        return { ...saved, groups: groups.length > 0 ? groups : [UNCLASSIFIED_PROMPT_GROUP_ID] }
+      }),
     })
     return true
   },
@@ -448,6 +567,6 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   setWorkspaceView: (workspaceView) => set({ workspaceView }),
 }), {
   name: 'sd-prompt-studio-v14',
-  version: 15,
+  version: 16,
   migrate: migratePersistedState,
 }))

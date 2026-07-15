@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { Activity, AlertTriangle, BadgeCheck, Ban, BookOpen, Camera, Check, ChevronDown, ChevronRight, ChevronUp, Copy, Eye, Gem, Image, Info, Lightbulb, Menu, MessageSquareText, Package, PersonStanding, Plus, RotateCcw, Save, Scissors, Search, Settings2, Shirt, Smile, Sparkles, Star, Tags, Trash2, UserRound, Users, WandSparkles, X } from 'lucide-react'
 import { categoryLabels, categoryOrder, subcategoryOrder, TAG_COUNT, tags, type ContentRating, type PromptTag } from './data/tags'
 import { ADULT_TAG_COUNT, adultTags } from './data/adultTags'
-import { isSceneCategory, nextPromptGroupName, usePromptStore, type SelectedTag, type ModelPreset, type PromptGroup, type SavedPrompt } from './store'
+import { isSceneCategory, nextPromptGroupName, UNCLASSIFIED_PROMPT_GROUP_ID, usePromptStore, type SelectedTag, type ModelPreset, type PromptGroup, type SavedPrompt } from './store'
 import { compatibilityLabel, generationNote, heuristicCategory, inferCategory, modelHints } from './engine/tagIntelligence'
 import { getConflictMap } from './engine/smartTagEngine'
 import './styles.css'
@@ -185,11 +185,14 @@ export default function App() {
   const [savePromptName, setSavePromptName] = useState('')
   const [seedInputs, setSeedInputs] = useState<string[]>([''])
   const [savePromptError, setSavePromptError] = useState('')
-  const [savePromptColor, setSavePromptColor] = useState('#58a6ff')
   const [savePromptGroups, setSavePromptGroups] = useState<string[]>([])
   const [activeLibraryGroup, setActiveLibraryGroup] = useState('all')
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
   const [editingGroupName, setEditingGroupName] = useState('')
+  const [editingGroupColor, setEditingGroupColor] = useState('#58a6ff')
+  const [editingGroupError, setEditingGroupError] = useState('')
+  const groupEditCancelledRef = useRef(false)
+  const groupEditNameRef = useRef<HTMLInputElement>(null)
   const [pendingDeleteGroup, setPendingDeleteGroup] = useState<PromptGroup | null>(null)
   const [selectedSavedPrompt, setSelectedSavedPrompt] = useState<SavedPrompt | null>(null)
   const [pendingApplyPrompt, setPendingApplyPrompt] = useState<SavedPrompt | null>(null)
@@ -216,6 +219,8 @@ export default function App() {
   const [propVertical, setPropVertical] = useState('')
   const [propDepth, setPropDepth] = useState('background')
   const store = usePromptStore()
+  const userPromptGroups = useMemo(() => store.promptGroups.filter(group => group.id !== UNCLASSIFIED_PROMPT_GROUP_ID), [store.promptGroups])
+  const effectiveLibraryGroup = activeLibraryGroup === UNCLASSIFIED_PROMPT_GROUP_ID || (activeLibraryGroup !== 'all' && !userPromptGroups.some(group => group.id === activeLibraryGroup)) ? 'all' : activeLibraryGroup
   const isSearchMode = query.trim().length > 0
   const favoritesOnly = store.workspaceView === 'favorites'
   const mainSubjectId = store.blocks[0]?.id
@@ -235,6 +240,12 @@ export default function App() {
     document.addEventListener('pointerdown', closeSettingsOnOutsidePointer)
     return () => document.removeEventListener('pointerdown', closeSettingsOnOutsidePointer)
   }, [settingsOpen])
+
+  useEffect(() => {
+    if (activeLibraryGroup === UNCLASSIFIED_PROMPT_GROUP_ID || (activeLibraryGroup !== 'all' && !userPromptGroups.some(group => group.id === activeLibraryGroup))) {
+      setActiveLibraryGroup('all')
+    }
+  }, [activeLibraryGroup, userPromptGroups])
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -374,7 +385,6 @@ export default function App() {
   const openSavePrompt = () => {
     setSavePromptName('')
     setSeedInputs(store.seeds.length > 0 ? store.seeds.map(seed => String(seed.value)) : [''])
-    setSavePromptColor('#58a6ff')
     setSavePromptGroups([])
     setSavePromptError('')
     setSavePromptOpen(true)
@@ -398,22 +408,51 @@ export default function App() {
       setSavePromptError('名前を入力してください。')
       return
     }
-    const saved = store.savePrompt({ name, positivePrompt: prompt, negativePrompt: store.negative, seeds, color: savePromptColor, groups: savePromptGroups })
+    const saved = store.savePrompt({ name, positivePrompt: prompt, negativePrompt: store.negative, seeds, groups: savePromptGroups })
     if (!saved) {
       setSavePromptError('保存内容を確認してください。')
       return
     }
     setSavePromptOpen(false)
   }
-  const visibleSavedPrompts = activeLibraryGroup === 'all'
+  const visibleSavedPrompts = effectiveLibraryGroup === 'all'
     ? store.savedPrompts
-    : store.savedPrompts.filter(saved => saved.groups.includes(activeLibraryGroup))
+    : store.savedPrompts.filter(saved => saved.groups.includes(effectiveLibraryGroup))
   const createPromptGroup = () => {
     const group = store.addPromptGroup(nextPromptGroupName(store.promptGroups))
-    if (group) setActiveLibraryGroup(group.id)
+    if (group) {
+      setActiveLibraryGroup(group.id)
+    }
   }
-  const finishGroupRename = (id: string) => {
-    store.renamePromptGroup(id, editingGroupName)
+  const startGroupEdit = (group: PromptGroup) => {
+    if (group.id === UNCLASSIFIED_PROMPT_GROUP_ID) return
+    groupEditCancelledRef.current = false
+    setEditingGroupId(group.id)
+    setEditingGroupName(group.name)
+    setEditingGroupColor(group.color)
+    setEditingGroupError('')
+  }
+  const finishGroupEdit = (id: string) => {
+    const result = store.updatePromptGroup(id, { name: editingGroupName, color: editingGroupColor })
+    if (!result.success) {
+      const messages = {
+        'empty-name': 'グループ名を入力してください。',
+        'duplicate-name': '同じ名前のグループがあります。',
+        'invalid-color': '有効な色を選択してください。',
+        'not-found': 'このグループは見つかりません。',
+        'internal-group': 'このグループは編集できません。',
+      }
+      setEditingGroupError(messages[result.reason])
+      requestAnimationFrame(() => groupEditNameRef.current?.focus())
+      return
+    }
+    groupEditCancelledRef.current = false
+    setEditingGroupError('')
+    setEditingGroupId(null)
+  }
+  const cancelGroupEdit = () => {
+    groupEditCancelledRef.current = true
+    setEditingGroupError('')
     setEditingGroupId(null)
   }
   const applySavedPrompt = (mode: 'replace' | 'merge') => {
@@ -700,27 +739,31 @@ export default function App() {
       <section className="tag-panel panel">
         {store.workspaceView==='library'?<div className="library-workspace">
           <section className="category-tabs-section library-tabs-section" aria-label="Prompt Libraryグループ"><nav className="subcategory-tabs library-tabs">
-            <button type="button" className={activeLibraryGroup==='all'?'active':''} aria-pressed={activeLibraryGroup==='all'} onClick={()=>setActiveLibraryGroup('all')}><TabLabel active={activeLibraryGroup==='all'} label="すべて"/></button>
-            {store.promptGroups.map(group=><div key={group.id} className={`library-group-tab${activeLibraryGroup===group.id?' active':''}`}>
+            <button type="button" className={effectiveLibraryGroup==='all'?'active':''} aria-pressed={effectiveLibraryGroup==='all'} onClick={()=>setActiveLibraryGroup('all')}><TabLabel active={effectiveLibraryGroup==='all'} label="すべて"/></button>
+            {userPromptGroups.map(group=><div key={group.id} className={`library-group-tab${activeLibraryGroup===group.id?' active':''}`} style={{'--prompt-group-color':group.color} as CSSProperties}>
               {editingGroupId===group.id
-                ?<input className="library-group-edit" aria-label={`${group.name}の名前を編集`} autoFocus value={editingGroupName} onChange={event=>setEditingGroupName(event.target.value)} onBlur={()=>finishGroupRename(group.id)} onKeyDown={event=>{if(event.key==='Enter')finishGroupRename(group.id);if(event.key==='Escape')setEditingGroupId(null)}}/>
-                :<button type="button" className="library-group-select" aria-pressed={activeLibraryGroup===group.id} onClick={()=>setActiveLibraryGroup(group.id)} onDoubleClick={()=>{setEditingGroupId(group.id);setEditingGroupName(group.name)}}><TabLabel active={activeLibraryGroup===group.id} label={group.name}/></button>}
+                ?<div className="library-group-editor" onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node | null)){if(groupEditCancelledRef.current){groupEditCancelledRef.current=false;return}finishGroupEdit(group.id)}}}>
+                  <input ref={groupEditNameRef} className="library-group-edit" aria-label={`${group.name}の名前を編集`} aria-invalid={editingGroupError?true:undefined} aria-describedby={editingGroupError?'library-group-edit-error':undefined} autoFocus value={editingGroupName} onChange={event=>{setEditingGroupName(event.target.value);setEditingGroupError('')}} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();finishGroupEdit(group.id)}if(event.key==='Escape'){event.preventDefault();cancelGroupEdit()}}}/>
+                  <input className="library-group-color" type="color" aria-label={`${group.name}の色を編集`} value={editingGroupColor} onInput={event=>{setEditingGroupColor(event.currentTarget.value);setEditingGroupError('')}} onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();cancelGroupEdit()}}}/>
+                  {editingGroupError&&<span className="library-group-edit-error" id="library-group-edit-error" role="alert">{editingGroupError}</span>}
+                </div>
+                :<button type="button" className="library-group-select" aria-pressed={activeLibraryGroup===group.id} title="ダブルクリックで名前と色を編集" onClick={()=>setActiveLibraryGroup(group.id)} onDoubleClick={()=>startGroupEdit(group)}><TabLabel active={activeLibraryGroup===group.id} label={group.name}/></button>}
               <button type="button" className="library-group-delete" aria-label={`${group.name}を削除`} onPointerDown={event=>event.stopPropagation()} onClick={event=>{event.stopPropagation();setPendingDeleteGroup(group)}} onDoubleClick={event=>event.stopPropagation()}><X size={12}/></button>
             </div>)}
             <button type="button" className="library-add-group" aria-label="グループを追加" onClick={createPromptGroup}><Plus size={15}/></button>
           </nav></section>
           <section className="library-card-list" aria-label="保存済みPrompt一覧">
-            {visibleSavedPrompts.length===0?<div className="library-empty"><BookOpen size={22}/><strong>保存済みPromptはありません</strong><span>現在のPromptを保存すると、ここから再利用できます。</span></div>:visibleSavedPrompts.map(saved=>{const selected=selectedSavedPrompt?.id===saved.id;return <article className={`saved-prompt-asset${selected?' selected':''}`} key={saved.id} style={{'--saved-prompt-color':saved.color} as CSSProperties}>
+            {visibleSavedPrompts.length===0?<div className="library-empty"><BookOpen size={22}/><strong>保存済みPromptはありません</strong><span>現在のPromptを保存すると、ここから再利用できます。</span></div>:visibleSavedPrompts.map(saved=>{const selected=selectedSavedPrompt?.id===saved.id;const userGroupIds=saved.groups.filter(id=>id!==UNCLASSIFIED_PROMPT_GROUP_ID);const displayGroupId=effectiveLibraryGroup!=='all'&&userGroupIds.includes(effectiveLibraryGroup)?effectiveLibraryGroup:userGroupIds[0];const groupColor=userPromptGroups.find(group=>group.id===displayGroupId)?.color;return <article className={`saved-prompt-asset${selected?' selected':''}`} key={saved.id} style={{'--prompt-group-color':groupColor} as CSSProperties}>
               <button type="button" className="saved-prompt-asset-main" aria-pressed={selected} onClick={()=>setSelectedSavedPrompt(saved)}>
-                <span className="saved-prompt-color" aria-hidden="true"/>
                 <strong>{saved.name}</strong>
-                <small>{saved.displayTags.length} tags</small>
                 <span className="saved-prompt-summary">{saved.summaryTags.length?saved.summaryTags.join(' / '):'タグなし'}</span>
-                <time dateTime={new Date(saved.updatedAt).toISOString()}>{new Date(saved.updatedAt).toLocaleDateString('ja-JP')}</time>
               </button>
-              <div className="saved-prompt-asset-actions">
-                <button type="button" className="saved-prompt-apply" aria-label={`${saved.name}を適用`} onClick={()=>setPendingApplyPrompt(saved)}><Check size={15}/>適用</button>
-                <button type="button" className="saved-prompt-delete" aria-label={`${saved.name}を削除`} onClick={()=>setPendingDeletePrompt(saved)}><X size={15}/></button>
+              <div className="saved-prompt-asset-footer">
+                <div className="saved-prompt-meta"><span>{saved.displayTags.length} tags</span><time dateTime={new Date(saved.createdAt).toISOString()}>{new Date(saved.createdAt).toLocaleDateString('ja-JP')}</time></div>
+                <div className="saved-prompt-asset-actions">
+                  <button type="button" className="saved-prompt-apply" aria-label={`${saved.name}を適用`} onClick={()=>setPendingApplyPrompt(saved)}><Check size={15}/>適用</button>
+                  <button type="button" className="saved-prompt-delete" aria-label={`${saved.name}を削除`} onClick={()=>setPendingDeletePrompt(saved)}><X size={15}/></button>
+                </div>
               </div>
             </article>})}
           </section>
@@ -864,8 +907,8 @@ export default function App() {
     {savePromptOpen&&<div className="modal-backdrop" onMouseDown={()=>setSavePromptOpen(false)}><section className="prompt-save-modal" onMouseDown={event=>event.stopPropagation()}>
       <div className="analyzer-head"><div><span className="eyebrow">PROMPT LIBRARY</span><h2>現在の編集状態を保存</h2></div><button aria-label="保存画面を閉じる" onClick={()=>setSavePromptOpen(false)}><X size={18}/></button></div>
       <label className="prompt-save-name">名前<input value={savePromptName} onChange={event=>setSavePromptName(event.target.value)} placeholder="例: Cyber Witch"/></label>
-      <label className="prompt-save-color">識別カラー<input type="color" value={savePromptColor} onChange={event=>setSavePromptColor(event.target.value)}/></label>
-      {store.promptGroups.length>0&&<fieldset className="prompt-save-groups"><legend>グループ <small>（複数選択可）</small></legend>{store.promptGroups.map(group=><label key={group.id}><input type="checkbox" checked={savePromptGroups.includes(group.id)} onChange={()=>setSavePromptGroups(current=>current.includes(group.id)?current.filter(id=>id!==group.id):[...current,group.id])}/>{group.name}</label>)}</fieldset>}
+      {userPromptGroups.length>0&&<fieldset className="prompt-save-groups"><legend>グループ</legend>{userPromptGroups.map(group=><label key={group.id}><input type="checkbox" checked={savePromptGroups.includes(group.id)} onChange={()=>setSavePromptGroups(current=>current.includes(group.id)?current.filter(id=>id!==group.id):[...current,group.id])}/><span className="prompt-group-option" style={{'--prompt-group-color':group.color} as CSSProperties}>{group.name}</span></label>)}</fieldset>}
+      <p className="prompt-save-group-note">グループ未選択時はすべてにのみ表示されます</p>
       <div className="prompt-save-seeds"><strong>Seed <small>（任意）</small></strong>{seedInputs.map((value,index)=><div className="prompt-save-seed-row" key={index}><input inputMode="numeric" aria-label={`Seed ${index+1}`} value={value} onChange={event=>{const next=event.target.value.replace(/\D/g,'');setSeedInputs(current=>current.map((item,i)=>i===index?next:item));setSavePromptError('')}} placeholder="123456789"/><button type="button" onClick={()=>setSeedInputs(current=>current.filter((_,i)=>i!==index))}>削除</button></div>)}<button type="button" className="prompt-add-seed" onClick={()=>setSeedInputs(current=>[...current,''])}><Plus size={14}/>Seed追加</button></div>
       {savePromptError&&<p className="prompt-save-error" role="alert">{savePromptError}</p>}
       <div className="modal-actions"><button className="ghost" onClick={()=>setSavePromptOpen(false)}>キャンセル</button><button onClick={submitSavedPrompt}>保存</button></div>
