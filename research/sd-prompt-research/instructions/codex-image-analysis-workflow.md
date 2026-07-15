@@ -76,6 +76,23 @@ Do not create a downloadable JSON file or a Run-prefixed duplicate when Codex is
 
 10. Report the full saved Run folder path and research packet PDF path in the completion response.
 
+## Optional Face Module
+
+The Face Module is opt-in and does not change Observation Schema v3.0.
+
+Enable it only when the Run manifest declares `outputs.face_observation_json`. When a task explicitly requests face observation for an unconfigured Run, first add `outputs.face_observation_json: face-observation.json` to the manifest.
+
+- Read `templates/face-observation-rubric.yaml` and `templates/face-observation-schema.json`.
+- Inspect the existing panel images without using Prompt text as visual evidence.
+- Write the separate canonical file `face-observation.json`; do not add face fields to `observation.json`.
+- Record visible geometry and state only. Do not assign emotion meaning, Prompt causality, or a source Concept.
+- Keep `cross_domain_effects` empty during image observation. Selecting which visible states are effects belongs to the Research Interpretation Layer.
+- Validate and aggregate it with:
+
+  `python scripts/finalize_face_observation.py --run-dir experiments/{domain}/{run-id}`
+
+- Research Packet generation includes the optional Face Module only when the manifest declares `outputs.face_observation_json` and that file exists.
+
 ## Restrictions
 
 Do not:

@@ -1,0 +1,172 @@
+{
+  "schema_version": "1.0",
+  "run_id": "BRG-008-B",
+  "blind_condition_label": "Condition B",
+  "panel_count": 6,
+  "face_observation": {
+    "enabled": true,
+    "active_axis_order": [
+      "neck_extension",
+      "chin_elevation",
+      "face_orientation",
+      "face_visibility",
+      "gaze_direction",
+      "eyelid_state",
+      "mouth_state",
+      "facial_foreshortening",
+      "facial_distortion"
+    ],
+    "panels": [
+      {
+        "panel_id": 1,
+        "neck_extension": "strong",
+        "chin_elevation": "strongly_elevated",
+        "face_orientation": "upward_facing",
+        "face_visibility": "heavily_occluded",
+        "gaze_direction": "not_visible",
+        "eyelid_state": "not_visible",
+        "mouth_state": "not_visible",
+        "facial_foreshortening": "strong",
+        "facial_distortion": "none",
+        "evidence_notes": [
+          "The jaw-to-neck silhouette is strongly extended and the chin is visibly raised relative to the torso.",
+          "The upward face angle and hair hide the eyes and lip boundary, so gaze, eyelids, and mouth are not visible.",
+          "The visible facial contour is strongly compressed by perspective without visible anatomical breakage."
+        ],
+        "confidence": "medium"
+      },
+      {
+        "panel_id": 2,
+        "neck_extension": "medium",
+        "chin_elevation": "elevated",
+        "face_orientation": "visually_inverted",
+        "face_visibility": "clear",
+        "gaze_direction": "toward_camera",
+        "eyelid_state": "open",
+        "mouth_state": "closed",
+        "facial_foreshortening": "weak",
+        "facial_distortion": "none",
+        "evidence_notes": [
+          "The visible neck contour is extended and the chin is elevated relative to the torso; inverted framing is recorded separately.",
+          "Both pupils and open eyelids are visible toward the camera, and the lips have no visible gap.",
+          "Facial proportions show mild perspective compression and coherent feature placement."
+        ],
+        "confidence": "high"
+      },
+      {
+        "panel_id": 3,
+        "neck_extension": "strong",
+        "chin_elevation": "strongly_elevated",
+        "face_orientation": "upward_facing",
+        "face_visibility": "partial",
+        "gaze_direction": "not_visible",
+        "eyelid_state": "not_visible",
+        "mouth_state": "closed",
+        "facial_foreshortening": "strong",
+        "facial_distortion": "none",
+        "evidence_notes": [
+          "The jaw and neck silhouette show strong extension with the chin raised above the face plane.",
+          "Hair and the upward angle hide both eyes; the lip contour is visible and closed.",
+          "The face is strongly foreshortened by perspective with no visible feature-placement breakage."
+        ],
+        "confidence": "medium"
+      },
+      {
+        "panel_id": 4,
+        "neck_extension": "strong",
+        "chin_elevation": "strongly_elevated",
+        "face_orientation": "upward_facing",
+        "face_visibility": "heavily_occluded",
+        "gaze_direction": "not_visible",
+        "eyelid_state": "not_visible",
+        "mouth_state": "not_visible",
+        "facial_foreshortening": "strong",
+        "facial_distortion": "none",
+        "evidence_notes": [
+          "The visible jaw-to-neck line forms strong extension and a strongly elevated chin.",
+          "The upward angle and hair hide the eyes and mouth boundary, leaving those states not visible.",
+          "Only a strongly foreshortened facial contour is visible, without clear anatomical distortion."
+        ],
+        "confidence": "medium"
+      },
+      {
+        "panel_id": 5,
+        "neck_extension": "strong",
+        "chin_elevation": "strongly_elevated",
+        "face_orientation": "upward_facing",
+        "face_visibility": "partial",
+        "gaze_direction": "not_visible",
+        "eyelid_state": "not_visible",
+        "mouth_state": "closed",
+        "facial_foreshortening": "strong",
+        "facial_distortion": "none",
+        "evidence_notes": [
+          "The neck silhouette is strongly extended and the chin is raised well above the visible face plane.",
+          "The eyes are hidden by the upward angle and hair; the visible lip contour remains closed.",
+          "Strong perspective compression is visible without broken facial feature placement."
+        ],
+        "confidence": "medium"
+      },
+      {
+        "panel_id": 6,
+        "neck_extension": "strong",
+        "chin_elevation": "strongly_elevated",
+        "face_orientation": "upward_facing",
+        "face_visibility": "heavily_occluded",
+        "gaze_direction": "not_visible",
+        "eyelid_state": "not_visible",
+        "mouth_state": "not_visible",
+        "facial_foreshortening": "strong",
+        "facial_distortion": "none",
+        "evidence_notes": [
+          "The jaw-to-neck silhouette shows strong extension and a strongly elevated chin.",
+          "Hair and the upward face angle obscure the eyes and mouth boundary, so their states are not visible.",
+          "The remaining face contour is strongly foreshortened without visible anatomical distortion."
+        ],
+        "confidence": "medium"
+      }
+    ]
+  },
+  "cross_domain_effects": [],
+  "computed_aggregate": {
+    "axis_counts": {
+      "neck_extension": {
+        "medium": 1,
+        "strong": 5
+      },
+      "chin_elevation": {
+        "elevated": 1,
+        "strongly_elevated": 5
+      },
+      "face_orientation": {
+        "upward_facing": 5,
+        "visually_inverted": 1
+      },
+      "face_visibility": {
+        "clear": 1,
+        "heavily_occluded": 3,
+        "partial": 2
+      },
+      "gaze_direction": {
+        "not_visible": 5,
+        "toward_camera": 1
+      },
+      "eyelid_state": {
+        "not_visible": 5,
+        "open": 1
+      },
+      "mouth_state": {
+        "closed": 3,
+        "not_visible": 3
+      },
+      "facial_foreshortening": {
+        "strong": 5,
+        "weak": 1
+      },
+      "facial_distortion": {
+        "none": 6
+      }
+    },
+    "cross_domain_effect_counts": {}
+  }
+}

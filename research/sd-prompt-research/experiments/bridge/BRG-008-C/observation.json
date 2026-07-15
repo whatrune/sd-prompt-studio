@@ -1,0 +1,456 @@
+{
+  "schema_version": "3.0",
+  "run_id": "BRG-008-C",
+  "blind_condition_label": "Condition C",
+  "panel_count": 6,
+  "image_layout": "3x2",
+  "active_axis_order": [
+    "body_state",
+    "body_orientation",
+    "head_orientation",
+    "torso_arch",
+    "hip_elevation",
+    "support_structure",
+    "support_orientation",
+    "left_hand_surface_contact",
+    "right_hand_surface_contact",
+    "left_forearm_surface_contact",
+    "right_forearm_surface_contact",
+    "left_foot_surface_contact",
+    "right_foot_surface_contact",
+    "foot_contact_mode",
+    "head_surface_contact",
+    "shoulder_surface_contact",
+    "knee_surface_contact",
+    "elbow_state",
+    "knee_state",
+    "leg_spacing",
+    "support_evidence_visibility"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Four face-up lying arches and two elevated-pelvis, foot-supported configurations are visible.",
+      "Direct pelvis clearance is visible in two panels; clothing or camera angle obscures the boundary in the other four."
+    ],
+    "analysis_notes": [
+      "Visible evidence only; no Prompt success, Concept Leakage, or research conclusion was assessed.",
+      "Contact, load, elevation, and support orientation were not derived from Body State or Morphology."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "lying",
+        "face_up",
+        "extended_backward",
+        "medium",
+        "unclear",
+        "mixed",
+        "unclear",
+        "floor",
+        "not_visible",
+        "floor",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "unclear",
+        "unclear",
+        "absent",
+        "asymmetric",
+        "unclear",
+        "wide",
+        "out_of_frame"
+      ],
+      "primary_morphology": "lying_arch",
+      "secondary_morphologies": [
+        "lying_pose"
+      ],
+      "evidence_notes": [
+        "Shorts and camera angle obscure the pelvis-to-surface boundary; hip elevation is unclear.",
+        "One hand and forearm directly meet the surface, while the opposite arm and both feet are cropped; no complete load path is visible.",
+        "Hair and shirt fabric obscure direct head and shoulder contact boundaries."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "low",
+      "contact_load": {
+        "left_hand": "light",
+        "right_hand": "unclear",
+        "left_forearm": "light",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "lying",
+        "face_up",
+        "extended_backward",
+        "medium",
+        "unclear",
+        "mixed",
+        "unclear",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "unclear",
+        "unclear",
+        "absent",
+        "unclear",
+        "unclear",
+        "wide",
+        "out_of_frame"
+      ],
+      "primary_morphology": "lying_arch",
+      "secondary_morphologies": [
+        "lying_pose"
+      ],
+      "evidence_notes": [
+        "The close crop and shorts hide the direct pelvis-to-surface boundary; hip elevation is unclear.",
+        "Hands, forearms, lower legs, and feet are cropped, preventing observation of a complete support relation.",
+        "Hair and clothing obscure direct head and shoulder contact boundaries."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "low",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "lying",
+        "face_up",
+        "extended_backward",
+        "medium",
+        "unclear",
+        "mixed",
+        "unclear",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "unclear",
+        "unclear",
+        "absent",
+        "unclear",
+        "unclear",
+        "wide",
+        "out_of_frame"
+      ],
+      "primary_morphology": "lying_arch",
+      "secondary_morphologies": [
+        "lying_pose"
+      ],
+      "evidence_notes": [
+        "Shorts and close framing obscure the pelvis-to-surface boundary; hip elevation is unclear.",
+        "The arms and feet are largely cropped, so contact load and overall support orientation cannot be determined.",
+        "Hair and shirt fabric hide direct head and shoulder contact boundaries."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "low",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "lying",
+        "face_up",
+        "extended_backward",
+        "strong",
+        "low",
+        "mixed",
+        "unclear",
+        "floor",
+        "floor",
+        "floor",
+        "floor",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "unclear",
+        "unclear",
+        "absent",
+        "straight",
+        "bent",
+        "wide",
+        "partial"
+      ],
+      "primary_morphology": "glute_bridge_like",
+      "secondary_morphologies": [
+        "supine_bridge_like"
+      ],
+      "evidence_notes": [
+        "A narrow but directly visible gap separates the shorts-covered pelvis from the surface; hip elevation is low.",
+        "Both hands and forearms visibly meet the surface without a visible arm weight-transfer path; both feet are cropped.",
+        "The posterior torso relation and raised pelvis are visible, but cropped feet and obscured head and shoulder boundaries prevent confirmation of the overall support orientation."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "light",
+        "right_hand": "light",
+        "left_forearm": "light",
+        "right_forearm": "light"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "lying",
+        "face_up",
+        "extended_backward",
+        "strong",
+        "high",
+        "back_and_foot",
+        "mixed_support",
+        "floor",
+        "floor",
+        "floor",
+        "floor",
+        "floor",
+        "floor",
+        "mixed",
+        "unclear",
+        "unclear",
+        "absent",
+        "straight",
+        "bent",
+        "wide",
+        "clear"
+      ],
+      "primary_morphology": "glute_bridge_like",
+      "secondary_morphologies": [
+        "supine_bridge_like"
+      ],
+      "evidence_notes": [
+        "A large directly visible clearance gap separates the pelvis from the surface; hip elevation is high.",
+        "Both feet directly meet the surface and visibly form inferior support; both hands and forearms also meet the surface but show no arm weight-transfer path.",
+        "A directly visible load path runs through both planted feet to the raised pelvis, while the posterior upper torso visibly meets the surface; these form mixed support. Hair and shirt still obscure direct head and shoulder contact boundaries."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "light",
+        "right_hand": "light",
+        "left_forearm": "light",
+        "right_forearm": "light"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "lying",
+        "face_up",
+        "rotated_left",
+        "medium",
+        "unclear",
+        "mixed",
+        "unclear",
+        "floor",
+        "floor",
+        "floor",
+        "floor",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "unclear",
+        "unclear",
+        "absent",
+        "bent",
+        "unclear",
+        "wide",
+        "partial"
+      ],
+      "primary_morphology": "lying_arch",
+      "secondary_morphologies": [
+        "lying_pose"
+      ],
+      "evidence_notes": [
+        "The shorts-covered pelvis is visible, but angle and shadow obscure its direct boundary with the surface; hip elevation is unclear.",
+        "Both hands and forearms visibly meet the surface, but the feet are cropped and no arm load-transfer path is visible.",
+        "Hair and shirt fabric obscure direct head and shoulder contact boundaries."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "light",
+        "right_hand": "light",
+        "left_forearm": "light",
+        "right_forearm": "light"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [
+    {
+      "panel_id": 1,
+      "field": "hip_elevation/head_surface_contact/shoulder_surface_contact/support_orientation",
+      "reason": "Clothing, hair, and crop hide the required direct boundaries and load path."
+    },
+    {
+      "panel_id": 2,
+      "field": "hip_elevation/head_surface_contact/shoulder_surface_contact/support_orientation",
+      "reason": "Close crop and occlusion hide the required evidence."
+    },
+    {
+      "panel_id": 3,
+      "field": "hip_elevation/head_surface_contact/shoulder_surface_contact/support_orientation",
+      "reason": "Close crop and occlusion hide the required evidence."
+    },
+    {
+      "panel_id": 4,
+      "field": "head_surface_contact/shoulder_surface_contact/contact_load",
+      "reason": "Hair and clothing obscure direct contact boundaries, and arm contact does not establish load."
+    },
+    {
+      "panel_id": 5,
+      "field": "head_surface_contact/shoulder_surface_contact/contact_load",
+      "reason": "Hair and clothing obscure direct contact boundaries, and arm contact does not establish load."
+    },
+    {
+      "panel_id": 6,
+      "field": "hip_elevation/head_surface_contact/shoulder_surface_contact/support_orientation",
+      "reason": "Clothing, hair, and crop prevent direct confirmation."
+    }
+  ],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "Research comparison was not performed; Prompt / Concept Leakage is not assessed.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "body_state": {
+        "lying": 6
+      },
+      "body_orientation": {
+        "face_up": 6
+      },
+      "head_orientation": {
+        "extended_backward": 5,
+        "rotated_left": 1
+      },
+      "torso_arch": {
+        "medium": 4,
+        "strong": 2
+      },
+      "hip_elevation": {
+        "unclear": 4,
+        "low": 1,
+        "high": 1
+      },
+      "support_structure": {
+        "mixed": 5,
+        "back_and_foot": 1
+      },
+      "support_orientation": {
+        "unclear": 5,
+        "mixed_support": 1
+      },
+      "left_hand_surface_contact": {
+        "floor": 4,
+        "not_visible": 2
+      },
+      "right_hand_surface_contact": {
+        "not_visible": 3,
+        "floor": 3
+      },
+      "left_forearm_surface_contact": {
+        "floor": 4,
+        "not_visible": 2
+      },
+      "right_forearm_surface_contact": {
+        "not_visible": 3,
+        "floor": 3
+      },
+      "left_foot_surface_contact": {
+        "not_visible": 5,
+        "floor": 1
+      },
+      "right_foot_surface_contact": {
+        "not_visible": 5,
+        "floor": 1
+      },
+      "foot_contact_mode": {
+        "not_visible": 5,
+        "mixed": 1
+      },
+      "head_surface_contact": {
+        "unclear": 6
+      },
+      "shoulder_surface_contact": {
+        "unclear": 6
+      },
+      "knee_surface_contact": {
+        "absent": 6
+      },
+      "elbow_state": {
+        "asymmetric": 1,
+        "unclear": 2,
+        "straight": 2,
+        "bent": 1
+      },
+      "knee_state": {
+        "unclear": 4,
+        "bent": 2
+      },
+      "leg_spacing": {
+        "wide": 6
+      },
+      "support_evidence_visibility": {
+        "out_of_frame": 3,
+        "partial": 2,
+        "clear": 1
+      }
+    },
+    "primary_morphology_counts": {
+      "lying_arch": 4,
+      "glute_bridge_like": 2
+    },
+    "secondary_morphology_counts": {
+      "lying_pose": 4,
+      "supine_bridge_like": 2
+    },
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}

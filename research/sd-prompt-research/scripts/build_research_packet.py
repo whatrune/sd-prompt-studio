@@ -22,7 +22,12 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import Image, PageBreak, Paragraph, Preformatted, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import (
+    Image, KeepTogether, PageBreak, Paragraph, Preformatted, SimpleDocTemplate,
+    Spacer, Table, TableStyle,
+)
+
+from finalize_face_observation import policy_errors, schema_errors, stored_aggregate_errors
 
 FONT_CANDIDATES = (
     (Path("C:/Windows/Fonts/BIZ-UDGothicR.ttc"), Path("C:/Windows/Fonts/BIZ-UDGothicB.ttc")),
@@ -34,6 +39,23 @@ COMPARE_FIELDS = (
     "contact_load", "head_surface_contact", "shoulder_surface_contact",
     "primary_morphology",
 )
+FACE_COMPARE_FIELDS = (
+    "neck_extension", "chin_elevation", "face_orientation", "face_visibility",
+    "gaze_direction", "eyelid_state", "mouth_state", "facial_foreshortening",
+    "facial_distortion",
+)
+OPTIONAL_MODULE_METRICS_PER_PAGE = 3
+OPTIONAL_MODULE_OBSERVATION_NOTE = """This module contains visible-state observations only.
+It does not infer:
+- Prompt effect
+- Intent
+- Emotion meaning
+- Success / failure judgment
+It records:
+- Visible geometry
+- Orientation
+- State
+- Visibility"""
 
 
 def now_iso() -> str:
@@ -83,7 +105,33 @@ def load_run(run_dir: Path, observation_name: str = "observation.json") -> dict[
         raise ValueError(f"run_id does not match folder: {run_dir}")
     if manifest.get("status") != "OBSERVED":
         raise ValueError(f"Run is not OBSERVED: {run_dir}")
-    return {"dir": run_dir, "manifest": manifest, "observation": observation, "preview": files["preview"]}
+    outputs = manifest.get("outputs") or {}
+    configured_face = outputs.get("face_observation_json")
+    face_path = run_dir / str(configured_face) if configured_face else None
+    if face_path and not face_path.is_file():
+        raise FileNotFoundError(f"Missing configured optional face observation: {face_path}")
+    face_observation = json.loads(face_path.read_text(encoding="utf-8")) if face_path else None
+    if face_observation and face_observation.get("run_id") != run_dir.name:
+        raise ValueError(f"face observation run_id does not match folder: {run_dir}")
+    if face_observation:
+        root = run_dir.parents[2]
+        schema_path = root / str(outputs.get("face_observation_schema") or "templates/face-observation-schema.json")
+        rubric_path = root / str(outputs.get("face_observation_rubric") or "templates/face-observation-rubric.yaml")
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        rubric = yaml.safe_load(rubric_path.read_text(encoding="utf-8")) or {}
+        errors = schema_errors(face_observation, schema)
+        if not errors:
+            errors.extend(policy_errors(face_observation, rubric, manifest))
+            errors.extend(stored_aggregate_errors(face_observation))
+        if errors:
+            raise ValueError(f"Invalid configured optional face observation: {'; '.join(errors)}")
+    return {
+        "dir": run_dir,
+        "manifest": manifest,
+        "observation": observation,
+        "face_observation": face_observation,
+        "preview": files["preview"],
+    }
 
 
 def make_styles(font: str, bold: str) -> dict[str, ParagraphStyle]:
@@ -99,6 +147,12 @@ def make_styles(font: str, bold: str) -> dict[str, ParagraphStyle]:
             leading=17, textColor=colors.HexColor("#2456A6"), spaceBefore=3 * mm, spaceAfter=2 * mm),
         "body": ParagraphStyle("body", parent=base["BodyText"], fontName=font, fontSize=8.3,
             leading=12, textColor=colors.HexColor("#202636"), spaceAfter=1.5 * mm),
+        "module_layer": ParagraphStyle("module_layer", parent=base["BodyText"], fontName=bold,
+            fontSize=9, leading=12, textColor=colors.HexColor("#2456A6"), spaceAfter=2 * mm),
+        "module_note": ParagraphStyle("module_note", parent=base["BodyText"], fontName=font,
+            fontSize=8.1, leading=11.2, textColor=colors.HexColor("#202636"),
+            borderColor=colors.HexColor("#CAD3E3"), borderWidth=0.5, borderPadding=2.5 * mm,
+            backColor=colors.HexColor("#F6F8FB"), spaceAfter=3 * mm),
         "small": ParagraphStyle("small", parent=base["BodyText"], fontName=font, fontSize=7.2,
             leading=10, textColor=colors.HexColor("#303849"), splitLongWords=True),
         "cell": ParagraphStyle("cell", parent=base["BodyText"], fontName=font, fontSize=7,
@@ -144,6 +198,13 @@ def count_text(counts: dict[str, Any] | Counter[str]) -> str:
 
 def morphology_count_text(counts: dict[str, Any], panel_count: int) -> str:
     """Render one morphology aggregate without mixing primary and secondary counts."""
+    return "\n".join(
+        f"{name} = {count} / {panel_count}" for name, count in sorted(counts.items())
+    ) or "none observed"
+
+
+def module_count_text(counts: dict[str, Any], panel_count: int) -> str:
+    """Render optional-module counts in explicit X / panel_count form."""
     return "\n".join(
         f"{name} = {count} / {panel_count}" for name, count in sorted(counts.items())
     ) or "none observed"
@@ -254,6 +315,77 @@ def aggregate_rows(observation: dict[str, Any]) -> list[list[Any]]:
     return rows
 
 
+def optional_module_aggregate_rows(
+    module_observation: dict[str, Any], observation_key: str,
+) -> list[list[Any]]:
+    """Build a display-only aggregate table for one optional observation module."""
+    module = module_observation.get(observation_key) or {}
+    aggregate = module_observation.get("computed_aggregate") or {}
+    axis_count_map = aggregate.get("axis_counts") or {}
+    panel_count = int(module_observation.get("panel_count") or len(module.get("panels") or []))
+    rows: list[list[Any]] = [["Metric", "Counts"]]
+    for axis in module.get("active_axis_order") or []:
+        rows.append([axis, module_count_text(axis_count_map.get(axis) or {}, panel_count)])
+    return rows
+
+
+def optional_module_metric_groups(fields: tuple[str, ...]) -> tuple[tuple[str, ...], ...]:
+    """Split module metrics into stable, readable PDF page groups."""
+    return tuple(
+        fields[index:index + OPTIONAL_MODULE_METRICS_PER_PAGE]
+        for index in range(0, len(fields), OPTIONAL_MODULE_METRICS_PER_PAGE)
+    )
+
+
+def face_compare_value(face_observation: dict[str, Any] | None, field: str) -> str:
+    if not face_observation:
+        return "not enabled"
+    aggregate = face_observation.get("computed_aggregate") or {}
+    panel_count = int(face_observation.get("panel_count") or 0)
+    return module_count_text((aggregate.get("axis_counts") or {}).get(field) or {}, panel_count)
+
+
+def optional_module_vertical_count_text(counts: dict[str, Any], panel_count: int) -> str:
+    """Render non-zero optional-module counts for a vertical comparison block."""
+    visible = [(name, count) for name, count in sorted(counts.items()) if int(count) > 0]
+    return "\n".join(f"{name}: {count} / {panel_count}" for name, count in visible) or "none observed"
+
+
+def optional_module_cross_condition_metric_rows(
+    runs: list[dict[str, Any]], module_data_key: str, field: str,
+) -> list[list[Any]]:
+    """Build one vertical Run-by-Run comparison for an optional-module metric."""
+    rows: list[list[Any]] = [["Run", "Observed counts"]]
+    for run in runs:
+        module_observation = run.get(module_data_key)
+        if not module_observation:
+            value = "not enabled"
+        else:
+            aggregate = module_observation.get("computed_aggregate") or {}
+            panel_count = int(module_observation.get("panel_count") or 0)
+            counts = (aggregate.get("axis_counts") or {}).get(field) or {}
+            value = optional_module_vertical_count_text(counts, panel_count)
+        rows.append([run["dir"].name, value])
+    return rows
+
+
+def optional_module_aggregate_block(
+    module_label: str, module_observation: dict[str, Any], observation_key: str,
+    styles: dict[str, ParagraphStyle],
+) -> list[Any]:
+    """Render the shared observation-only header and aggregate for any optional module."""
+    return [
+        paragraph(f"Optional {module_label} Module Aggregate", styles["section"]),
+        paragraph("(Observation Layer Only)", styles["module_layer"]),
+        paragraph(OPTIONAL_MODULE_OBSERVATION_NOTE, styles["module_note"]),
+        make_table(
+            optional_module_aggregate_rows(module_observation, observation_key),
+            [58 * mm, 102 * mm],
+            styles,
+        ),
+    ]
+
+
 def uncertainty_rows(runs: list[dict[str, Any]]) -> list[list[Any]]:
     rows: list[list[Any]] = [[
         "Run", "Uncertain", "Visual Artifacts", "Prompt / Concept Leakage",
@@ -347,6 +479,12 @@ def build_packet(
             paragraph("Computed Aggregate", styles["section"]),
             make_table(aggregate_rows(observation), [58 * mm, 102 * mm], styles),
         ])
+        face_observation = run.get("face_observation")
+        if face_observation:
+            story.append(PageBreak())
+            story.extend(optional_module_aggregate_block(
+                "Face", face_observation, "face_observation", styles,
+            ))
 
     if len(runs) > 1:
         rows: list[list[Any]] = [["Metric", *[run["dir"].name for run in runs]]]
@@ -357,6 +495,33 @@ def build_packet(
             paragraph("Direct counts from observation.json only. No success judgment or research interpretation is applied.", styles["body"]),
             make_table(rows, [38 * mm, *([122 * mm / len(runs)] * len(runs))], styles),
         ])
+
+        if any(run.get("face_observation") for run in runs):
+            groups = optional_module_metric_groups(FACE_COMPARE_FIELDS)
+            for group_index, fields in enumerate(groups, start=1):
+                story.extend([
+                    PageBreak(),
+                    paragraph("Module Cross-condition Counts", styles["run"]),
+                    paragraph(
+                        f"Module: Face\nMetric group {group_index} / {len(groups)}. "
+                        "Direct visible-state counts from face-observation.json. "
+                        "Research Interpretation - Phrase effect, Concept meaning, Emotion meaning, "
+                        "Intent, and Resolver impact - is not included.",
+                        styles["body"],
+                    ),
+                ])
+                for field in fields:
+                    story.append(KeepTogether([
+                        paragraph(f"Metric: {field}", styles["section"]),
+                        make_table(
+                            optional_module_cross_condition_metric_rows(
+                                runs, "face_observation", field,
+                            ),
+                            [36 * mm, 124 * mm],
+                            styles,
+                        ),
+                        Spacer(1, 3 * mm),
+                    ]))
 
     story.extend([
         PageBreak(),

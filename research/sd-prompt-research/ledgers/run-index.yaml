@@ -54,3 +54,21 @@ runs:
   status: OBSERVED
   updated_at: '2026-07-15T20:55:06+09:00'
   path: experiments/bridge/BRG-007-C
+- run_id: BRG-008-A
+  domain: bridge
+  title: BRG-008-A
+  status: OBSERVED
+  updated_at: '2026-07-16T01:04:18+09:00'
+  path: experiments/bridge/BRG-008-A
+- run_id: BRG-008-B
+  domain: bridge
+  title: BRG-008-B
+  status: OBSERVED
+  updated_at: '2026-07-16T01:04:18+09:00'
+  path: experiments/bridge/BRG-008-B
+- run_id: BRG-008-C
+  domain: bridge
+  title: BRG-008-C
+  status: OBSERVED
+  updated_at: '2026-07-16T01:04:18+09:00'
+  path: experiments/bridge/BRG-008-C
