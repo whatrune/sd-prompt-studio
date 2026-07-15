@@ -22,7 +22,10 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import Image, PageBreak, Paragraph, Preformatted, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import (
+    Image, KeepTogether, PageBreak, Paragraph, Preformatted, SimpleDocTemplate,
+    Spacer, Table, TableStyle,
+)
 
 from finalize_face_observation import policy_errors, schema_errors, stored_aggregate_errors
 
@@ -40,6 +43,9 @@ FACE_COMPARE_FIELDS = (
     "neck_extension", "chin_elevation", "face_orientation", "face_visibility",
     "gaze_direction", "eyelid_state", "mouth_state", "facial_foreshortening",
     "facial_distortion",
+)
+FACE_COMPARE_GROUPS = tuple(
+    FACE_COMPARE_FIELDS[index:index + 3] for index in range(0, len(FACE_COMPARE_FIELDS), 3)
 )
 
 
@@ -312,6 +318,28 @@ def face_compare_value(face_observation: dict[str, Any] | None, field: str) -> s
     return module_count_text((aggregate.get("axis_counts") or {}).get(field) or {}, panel_count)
 
 
+def face_vertical_count_text(counts: dict[str, Any], panel_count: int) -> str:
+    """Render non-zero optional-module counts for a vertical comparison block."""
+    visible = [(name, count) for name, count in sorted(counts.items()) if int(count) > 0]
+    return "\n".join(f"{name}: {count} / {panel_count}" for name, count in visible) or "none observed"
+
+
+def face_cross_condition_metric_rows(runs: list[dict[str, Any]], field: str) -> list[list[Any]]:
+    """Build one vertical Run-by-Run comparison for a Face metric."""
+    rows: list[list[Any]] = [["Run", "Observed counts"]]
+    for run in runs:
+        face_observation = run.get("face_observation")
+        if not face_observation:
+            value = "not enabled"
+        else:
+            aggregate = face_observation.get("computed_aggregate") or {}
+            panel_count = int(face_observation.get("panel_count") or 0)
+            counts = (aggregate.get("axis_counts") or {}).get(field) or {}
+            value = face_vertical_count_text(counts, panel_count)
+        rows.append([run["dir"].name, value])
+    return rows
+
+
 def uncertainty_rows(runs: list[dict[str, Any]]) -> list[list[Any]]:
     rows: list[list[Any]] = [[
         "Run", "Uncertain", "Visual Artifacts", "Prompt / Concept Leakage",
@@ -428,23 +456,26 @@ def build_packet(
         ])
 
         if any(run.get("face_observation") for run in runs):
-            face_rows: list[list[Any]] = [["Metric", *[run["dir"].name for run in runs]]]
-            face_rows.extend([
-                [
-                    field,
-                    *[face_compare_value(run.get("face_observation"), field) for run in runs],
-                ]
-                for field in FACE_COMPARE_FIELDS
-            ])
-            story.extend([
-                PageBreak(),
-                paragraph("Face Module Cross-condition Counts", styles["run"]),
-                paragraph(
-                    "Direct visible-state counts from face-observation.json. Run columns are mechanically aligned with the manifest conditions; no Phrase effect or emotion meaning is inferred.",
-                    styles["body"],
-                ),
-                make_table(face_rows, [38 * mm, *([122 * mm / len(runs)] * len(runs))], styles),
-            ])
+            for group_index, fields in enumerate(FACE_COMPARE_GROUPS, start=1):
+                story.extend([
+                    PageBreak(),
+                    paragraph("Face Module Cross-condition Counts", styles["run"]),
+                    paragraph(
+                        f"Metric group {group_index} / {len(FACE_COMPARE_GROUPS)}. "
+                        "Direct visible-state counts from face-observation.json. Runs are mechanically aligned with the manifest conditions; no Phrase effect or emotion meaning is inferred.",
+                        styles["body"],
+                    ),
+                ])
+                for field in fields:
+                    story.append(KeepTogether([
+                        paragraph(f"Face Metric: {field}", styles["section"]),
+                        make_table(
+                            face_cross_condition_metric_rows(runs, field),
+                            [36 * mm, 124 * mm],
+                            styles,
+                        ),
+                        Spacer(1, 3 * mm),
+                    ]))
 
     story.extend([
         PageBreak(),

@@ -12,7 +12,15 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from build_research_packet import face_aggregate_rows, face_compare_value, load_run  # noqa: E402
+from build_research_packet import (  # noqa: E402
+    FACE_COMPARE_FIELDS,
+    FACE_COMPARE_GROUPS,
+    face_aggregate_rows,
+    face_compare_value,
+    face_cross_condition_metric_rows,
+    face_vertical_count_text,
+    load_run,
+)
 from finalize_face_observation import (  # noqa: E402
     compute_aggregate,
     policy_errors,
@@ -183,6 +191,26 @@ class FaceObservationTests(unittest.TestCase):
         eyelid_row = next(row for row in rows if row[0] == "eyelid_state")
         self.assertEqual("unclear = 6 / 6", eyelid_row[1])
         self.assertEqual("unclear = 6 / 6", face_compare_value(payload, "eyelid_state"))
+
+    def test_packet_face_cross_condition_uses_vertical_run_rows_for_all_metrics(self) -> None:
+        payload = copy.deepcopy(self.data)
+        payload["computed_aggregate"] = compute_aggregate(payload)
+        runs = [
+            {"dir": Path(f"BRG-008-{suffix}"), "face_observation": payload}
+            for suffix in ("A", "B", "C")
+        ]
+
+        self.assertEqual(list(FACE_COMPARE_FIELDS), [field for group in FACE_COMPARE_GROUPS for field in group])
+        self.assertEqual(9, len(FACE_COMPARE_FIELDS))
+        for field in FACE_COMPARE_FIELDS:
+            rows = face_cross_condition_metric_rows(runs, field)
+            self.assertEqual(["Run", "Observed counts"], rows[0])
+            self.assertEqual(["BRG-008-A", "BRG-008-B", "BRG-008-C"], [row[0] for row in rows[1:]])
+            self.assertTrue(all("6 / 6" in row[1] for row in rows[1:]))
+
+    def test_packet_face_vertical_counts_hide_zero_values(self) -> None:
+        self.assertEqual("open: 3 / 6", face_vertical_count_text({"closed": 0, "open": 3}, 6))
+        self.assertEqual("none observed", face_vertical_count_text({"closed": 0}, 6))
 
 
 if __name__ == "__main__":
