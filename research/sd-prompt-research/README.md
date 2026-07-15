@@ -64,6 +64,26 @@ Stable Diffusion用の単純なPrompt Generatorではなく、Visual Concept Com
 - 失敗画像を消さない。漏れ先もモデル挙動の証拠である。
 - 見えないSupportやContactを推測せず、`unclear`を正式値として使う。
 
+## Research Claim Staging Layer
+
+ObservationとVisual Concept Graphの間に、レビュー可能な研究Claimを保存する中間層があります。
+
+```text
+knowledge/assertions/*.yaml
+knowledge/reviews/claim-review.yaml
+knowledge/reviews/promotion-approval.yaml
+```
+
+Claim YAMLはConcept本体ではなく、`concepts/*.json`の代替でもありません。Observation、Interpretation候補、因果仮説、Promotionを分離して保存します。Review、Approval、Application ReceiptはAppend-only監査Recordです。
+
+検証:
+
+```powershell
+.venv\Scripts\python.exe scripts\validate_research_claims.py --format json
+```
+
+完全なFreeze仕様とContext別コマンドは[`docs/research-claim-staging-layer.md`](docs/research-claim-staging-layer.md)を参照してください。
+
 ## セットアップ
 
 Windows PowerShell例:
