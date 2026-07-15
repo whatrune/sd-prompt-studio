@@ -594,6 +594,7 @@ try {
   assert.equal(usePromptStore.getState().addPromptGroup('キャラクター'), null, 'duplicate Prompt group names must be rejected')
   assert.equal(usePromptStore.getState().renamePromptGroup(characterGroup.id, 'キャラクター資産'), true, 'Prompt groups must be renameable')
   assert.equal(nextPromptGroupName(usePromptStore.getState().promptGroups), 'グループ1', 'default Prompt group names must start at the smallest available suffix')
+  assert.equal(nextPromptGroupName([{ id: UNCLASSIFIED_PROMPT_GROUP_ID, name: 'グループ1' }]), 'グループ1', 'the internal Unclassified group must not affect user-group numbering')
   const secondaryGroup = usePromptStore.getState().addPromptGroup('グループ1')
   assert(secondaryGroup, 'a second Prompt group must be created')
   assert.equal(nextPromptGroupName(usePromptStore.getState().promptGroups), 'グループ2', 'default Prompt group names must advance past existing names')
@@ -620,6 +621,9 @@ try {
   const seedlessPrompt = usePromptStore.getState().savePrompt({ name: 'Seedless Prompt', positivePrompt: '', negativePrompt: '', seeds: [] })
   assert(seedlessPrompt, 'a Prompt without Seeds must be saved')
   assert.deepEqual(seedlessPrompt.groups, [UNCLASSIFIED_PROMPT_GROUP_ID], 'saving without a group must assign Unclassified')
+  assert.equal(usePromptStore.getState().renamePromptGroup(UNCLASSIFIED_PROMPT_GROUP_ID, '内部変更'), false, 'the internal Unclassified group must reject rename')
+  assert.equal(usePromptStore.getState().setPromptGroupColor(UNCLASSIFIED_PROMPT_GROUP_ID, '#ffffff'), false, 'the internal Unclassified group must reject color editing')
+  assert.equal(usePromptStore.getState().deletePromptGroup(UNCLASSIFIED_PROMPT_GROUP_ID), false, 'the internal Unclassified group must reject deletion')
   assert.deepEqual(buildSavedPromptSummary([
     sceneQuality,
     { id: 'background', prompt: 'city background', label: '都市', category: 'background', weight: 1 },
@@ -628,11 +632,15 @@ try {
     { id: 'eyes', prompt: 'blue eyes', label: '青い目', category: 'eyes', weight: 1 },
     subjectHair,
   ]), ['1girl', 'black hair', 'blue eyes', 'school uniform'], 'Saved Prompt summaries must prioritize identifying categories and cap output at four tags')
+  const singleGroupPrompt = usePromptStore.getState().savePrompt({ name: 'Single group', positivePrompt: '', negativePrompt: '', seeds: [], groups: [characterGroup.id] })
+  assert(singleGroupPrompt, 'a Prompt belonging to one user group must be saved')
   assert.equal(usePromptStore.getState().deletePromptGroup(characterGroup.id), true, 'Prompt groups must be deletable')
   assert.equal(usePromptStore.getState().promptGroups.some(group => group.id === characterGroup.id), false, 'deleted Prompt groups must leave the group list')
   assert.equal(usePromptStore.getState().savedPrompts.some(saved => saved.id === savedLibraryPrompt.id), true, 'deleting a Prompt group must preserve its saved Prompts')
   assert.equal(usePromptStore.getState().savedPrompts.some(saved => saved.groups.includes(characterGroup.id)), false, 'deleted Prompt group ids must be removed from every saved Prompt')
   assert.equal(usePromptStore.getState().savedPrompts.find(saved => saved.id === savedLibraryPrompt.id)?.groups.includes(secondaryGroup.id), true, 'unrelated Prompt group membership must be preserved')
+  assert.equal(usePromptStore.getState().savedPrompts.find(saved => saved.id === savedLibraryPrompt.id)?.groups.includes(UNCLASSIFIED_PROMPT_GROUP_ID), false, 'deleting one of multiple groups must not add the internal fallback while another group remains')
+  assert.deepEqual(usePromptStore.getState().savedPrompts.find(saved => saved.id === singleGroupPrompt.id)?.groups, [UNCLASSIFIED_PROMPT_GROUP_ID], 'deleting the only user group must move its Prompt to the internal fallback')
   assert.equal(usePromptStore.getState().deletePromptGroup('missing-group'), false, 'deleting an unknown Prompt group must be a no-op')
 
   usePromptStore.setState({
@@ -671,8 +679,9 @@ try {
   assert.equal(usePromptStore.getState().mergeSavedPrompt(savedLibraryPrompt.id), true, 'saved Prompt state must support simple merge')
   assert.equal(usePromptStore.getState().blocks.length, 2, 'simple merge must preserve the current Subject and append saved Subjects')
   assert.equal(usePromptStore.getState().sceneTags[0].prompt, 'masterpiece', 'simple merge must add saved Scene tags')
+  const savedPromptCountBeforeDelete = usePromptStore.getState().savedPrompts.length
   usePromptStore.getState().deleteSavedPrompt(savedLibraryPrompt.id)
-  assert.equal(usePromptStore.getState().savedPrompts.length, 1, 'deleting a saved Prompt must remove only that snapshot')
+  assert.equal(usePromptStore.getState().savedPrompts.length, savedPromptCountBeforeDelete - 1, 'deleting a saved Prompt must remove only that snapshot')
 
   const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
   const stylesSource = fs.readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
@@ -738,18 +747,25 @@ try {
   assert(appSource.indexOf('className="library-workspace"') < appSource.indexOf('className="preview panel"'), 'the Prompt Library list must live in the central Workspace before the Inspector')
   assert(appSource.includes('className="subcategory-tabs library-tabs"'), 'Prompt groups must reuse the central category-tab structure')
   assert(appSource.includes('function TabLabel('), 'Category and Library tabs must share active-label rendering')
-  assert(appSource.includes('<TabLabel active={activeLibraryGroup===\'all\'} label="すべて"/>'), 'the active all-Prompts Library tab must use the shared check label')
+  assert(appSource.includes('<TabLabel active={effectiveLibraryGroup===\'all\'} label="すべて"/>'), 'the effective all-Prompts Library tab must use the shared check label')
   assert(appSource.includes('<TabLabel active={activeLibraryGroup===group.id} label={group.name}/>'), 'active Prompt group tabs must use the shared check label')
+  assert.equal((appSource.match(/userPromptGroups\.map\(group=>/g)??[]).length, 2, 'Library tabs and the save dialog must render only user Prompt groups')
+  assert.equal(appSource.includes('store.promptGroups.map(group=>'), false, 'the internal Prompt group collection must not be rendered directly')
+  assert.equal(appSource.includes('label="未分類"'), false, 'Library tabs must not render the internal Unclassified name')
+  assert.equal(appSource.includes('（未選択時は未分類）'), false, 'the save dialog must not expose the internal Unclassified name')
+  assert(appSource.includes('グループ未選択時はすべてにのみ表示されます'), 'the save dialog must explain the no-group result without exposing the internal group')
+  assert(appSource.includes("const effectiveLibraryGroup = activeLibraryGroup === UNCLASSIFIED_PROMPT_GROUP_ID"), 'an internal active group id must resolve to the all-Prompts view')
+  assert(appSource.includes("const visibleSavedPrompts = effectiveLibraryGroup === 'all'") && appSource.includes('? store.savedPrompts'), 'the all-Prompts tab must include internally unclassified Prompts')
   assert(appSource.includes('className="library-add-group"') && appSource.includes('onClick={createPromptGroup}'), 'the add-group control must create a default-named tab immediately')
   assert.equal(appSource.includes('library-workspace-header'), false, 'Prompt Library must start with group tabs without a dedicated title or save header')
   assert.equal(appSource.includes('groupDialogOpen'), false, 'Prompt group creation must not open a naming dialog')
   assert(appSource.includes('setPendingDeleteGroup(group)'), 'Prompt group deletion must require explicit confirmation')
   assert(appSource.includes('保存Prompt自体は削除されません。'), 'Prompt group deletion must explain that saved Prompts are preserved')
-  assert(appSource.includes("activeLibraryGroup==='all'"), 'the fixed all-prompts tab must remain available')
+  assert(appSource.includes("effectiveLibraryGroup==='all'"), 'the fixed all-prompts tab must remain available')
   assert(appSource.includes('onDoubleClick'), 'user Prompt groups must support desktop double-click rename')
   assert(appSource.includes('className="library-group-color" type="color"'), 'Prompt group editing must expose a color picker')
   assert(appSource.includes("'--prompt-group-color':group.color"), 'Library group tabs must render from PromptGroup.color')
-  assert(appSource.includes('（未選択時は未分類）'), 'the save dialog must explain the Unclassified fallback')
+  assert(appSource.includes('const userGroupIds=saved.groups.filter(id=>id!==UNCLASSIFIED_PROMPT_GROUP_ID)'), 'internally unclassified cards must use the normal fallback border instead of an internal group color')
   assert.equal(appSource.includes('prompt-save-color'), false, 'the save dialog must not expose Prompt-level color selection')
   assert(appSource.includes("applySavedPrompt('replace')"), 'Saved Prompt cards must offer replacement apply')
   assert(appSource.includes("applySavedPrompt('merge')"), 'Saved Prompt cards must offer simple merge apply')

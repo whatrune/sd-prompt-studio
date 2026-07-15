@@ -19,8 +19,8 @@ export type SeedEntry = { value: number; note?: string }
 export const UNCLASSIFIED_PROMPT_GROUP_ID = 'prompt-group-unclassified'
 export const PROMPT_GROUP_COLORS = ['#58a6ff', '#a371f7', '#3fb950', '#d29922', '#f778ba', '#39c5cf', '#db6d28', '#8b949e'] as const
 export type PromptGroup = { id: string; name: string; color: string; createdAt: number; updatedAt: number }
-export const nextPromptGroupName = (groups: Pick<PromptGroup, 'name'>[]) => {
-  const names = new Set(groups.map(group => group.name.trim().toLocaleLowerCase()))
+export const nextPromptGroupName = (groups: Pick<PromptGroup, 'id' | 'name'>[]) => {
+  const names = new Set(groups.filter(group => group.id !== UNCLASSIFIED_PROMPT_GROUP_ID).map(group => group.name.trim().toLocaleLowerCase()))
   let suffix = 1
   while (names.has(`グループ${suffix}`.toLocaleLowerCase())) suffix += 1
   return `グループ${suffix}`
@@ -513,7 +513,7 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   },
   setPromptGroupColor: (id, value) => {
     const state = get()
-    if (!state.promptGroups.some(group => group.id === id) || !/^#[0-9a-f]{6}$/i.test(value)) return false
+    if (id === UNCLASSIFIED_PROMPT_GROUP_ID || !state.promptGroups.some(group => group.id === id) || !/^#[0-9a-f]{6}$/i.test(value)) return false
     set({ promptGroups: state.promptGroups.map(group => group.id === id ? { ...group, color: value, updatedAt: Date.now() } : group) })
     return true
   },

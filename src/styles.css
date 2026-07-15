@@ -880,6 +880,7 @@ body{background:var(--bg-primary);color:var(--text-primary)}
 .prompt-save-groups{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0;padding:10px;border:1px solid var(--border);border-radius:8px}
 .prompt-save-groups legend{padding:0 5px;color:var(--muted);font-size:12px;font-weight:600}.prompt-save-groups label{display:flex;align-items:center;gap:5px;font-size:12px}
 .prompt-group-option{padding-left:7px;border-left:3px solid var(--prompt-group-color);line-height:1.4}
+.prompt-save-group-note{margin:8px 0 14px;color:var(--muted);font-size:11px}
 .preview-section{--preview-section-spacing:8px;border-top:1px solid var(--border);background:var(--bg-secondary)}
 .preview-section-header{display:flex;align-items:center;min-height:36px;background:var(--bg-secondary)}
 .preview-section-toggle{flex:1;height:36px;min-height:36px;padding:0 12px;font-size:12px;font-weight:600}
