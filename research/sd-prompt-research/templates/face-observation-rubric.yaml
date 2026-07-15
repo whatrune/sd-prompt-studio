@@ -1,0 +1,60 @@
+schema_version: '1.0'
+module: face_observation
+optional: true
+enabled_by_default: false
+panel_count: 6
+visible_evidence_only: true
+active_face_axes:
+  - neck_extension
+  - chin_elevation
+  - face_orientation
+  - face_visibility
+  - gaze_direction
+  - eyelid_state
+  - mouth_state
+  - facial_foreshortening
+  - facial_distortion
+axis_catalog:
+  neck_extension:
+    definition: Visible cervical extension. Do not infer strength from chin elevation alone.
+    allowed_values: [none, weak, medium, strong, unclear, not_visible]
+  chin_elevation:
+    definition: Chin position relative to the face plane and body, independent of camera rotation.
+    allowed_values: [neutral, elevated, strongly_elevated, unclear, not_visible]
+  face_orientation:
+    definition: Visible orientation of the face plane, not an emotion or gaze judgment.
+    allowed_values: [frontal, three_quarter, profile, upward_facing, visually_inverted, unclear, not_visible]
+  face_visibility:
+    definition: Visibility of facial evidence needed for the remaining axes.
+    allowed_values: [clear, partial, heavily_occluded, not_visible]
+  gaze_direction:
+    definition: Direction visible from pupils or eyes only. Face orientation alone is not gaze evidence.
+    allowed_values: [toward_camera, upward, sideward, downward, eyes_closed, unclear, not_visible]
+  eyelid_state:
+    definition: Directly visible eyelid state. Use unclear when angle alone may make the eyes appear narrow.
+    allowed_values: [open, partially_closed, closed, asymmetric, unclear, not_visible]
+  mouth_state:
+    definition: Directly visible separation of the lips.
+    allowed_values: [closed, slightly_open, open, unclear, not_visible]
+  facial_foreshortening:
+    definition: Normal perspective compression of visible facial proportions, separate from distortion.
+    allowed_values: [none, weak, strong, unclear, not_visible]
+  facial_distortion:
+    definition: Visible anatomical or placement breakage in eyes, nose, mouth, or facial contour.
+    allowed_values: [none, mild, severe, unclear, not_visible]
+cross_domain_effects:
+  target_module: face
+  observed_effect_format: '<axis_id>:<observed_value>'
+  source_fields_allowed: false
+  evidence_regions: [neck, chin, face_plane, face, eyes, eyelids, mouth, facial_proportions, facial_features]
+rules:
+  image_analyst_must_not_use_prompt_as_evidence: true
+  image_analyst_must_not_assign_source_concept: true
+  image_analyst_must_not_assign_emotion_meaning: true
+  emotion_terms_prohibited: [happy, sad, painful, ecstatic, sleepy, relaxed, sensual, distressed]
+  preserve_axis_order: true
+  require_all_axes_for_every_panel: true
+  require_evidence_notes: true
+  face_orientation_does_not_imply_gaze: true
+  chin_elevation_does_not_imply_neck_extension: true
+  foreshortening_is_not_distortion: true

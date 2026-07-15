@@ -1,0 +1,235 @@
+{
+  "schema_version": "1.0",
+  "run_id": "BRG-008-C",
+  "blind_condition_label": "Condition C",
+  "panel_count": 6,
+  "face_observation": {
+    "enabled": true,
+    "active_axis_order": [
+      "neck_extension",
+      "chin_elevation",
+      "face_orientation",
+      "face_visibility",
+      "gaze_direction",
+      "eyelid_state",
+      "mouth_state",
+      "facial_foreshortening",
+      "facial_distortion"
+    ],
+    "panels": [
+      {
+        "panel_id": 1,
+        "neck_extension": "strong",
+        "chin_elevation": "strongly_elevated",
+        "face_orientation": "upward_facing",
+        "face_visibility": "partial",
+        "gaze_direction": "unclear",
+        "eyelid_state": "unclear",
+        "mouth_state": "closed",
+        "facial_foreshortening": "strong",
+        "facial_distortion": "none",
+        "evidence_notes": [
+          "The visible jaw-to-neck contour is strongly extended and the chin is raised above the face plane.",
+          "Only a narrow eye region is visible at the upward angle, so gaze and eyelid state are unclear; the lips visibly meet.",
+          "The face plane is strongly compressed by perspective without visible feature-placement breakage."
+        ],
+        "confidence": "medium"
+      },
+      {
+        "panel_id": 2,
+        "neck_extension": "medium",
+        "chin_elevation": "elevated",
+        "face_orientation": "upward_facing",
+        "face_visibility": "clear",
+        "gaze_direction": "eyes_closed",
+        "eyelid_state": "closed",
+        "mouth_state": "slightly_open",
+        "facial_foreshortening": "strong",
+        "facial_distortion": "none",
+        "evidence_notes": [
+          "The visible neck contour is extended and the chin is elevated relative to the face plane.",
+          "Both eyelid lines are directly closed, and a narrow visible gap separates the lips.",
+          "The upward face angle strongly compresses facial proportions without visible anatomical distortion."
+        ],
+        "confidence": "high"
+      },
+      {
+        "panel_id": 3,
+        "neck_extension": "strong",
+        "chin_elevation": "strongly_elevated",
+        "face_orientation": "upward_facing",
+        "face_visibility": "partial",
+        "gaze_direction": "not_visible",
+        "eyelid_state": "not_visible",
+        "mouth_state": "closed",
+        "facial_foreshortening": "strong",
+        "facial_distortion": "none",
+        "evidence_notes": [
+          "The jaw-to-neck silhouette shows strong extension and a strongly elevated chin.",
+          "The upward angle and hair hide both eyes; the lip contour remains visible and closed.",
+          "Strong facial foreshortening is visible without broken feature placement."
+        ],
+        "confidence": "medium"
+      },
+      {
+        "panel_id": 4,
+        "neck_extension": "medium",
+        "chin_elevation": "elevated",
+        "face_orientation": "profile",
+        "face_visibility": "clear",
+        "gaze_direction": "sideward",
+        "eyelid_state": "open",
+        "mouth_state": "closed",
+        "facial_foreshortening": "weak",
+        "facial_distortion": "none",
+        "evidence_notes": [
+          "The neck contour is visibly extended and the chin is elevated relative to the torso.",
+          "The visible pupil points along the profile direction, the eyelid is open, and the lips meet without a gap.",
+          "The profile shows mild perspective compression and coherent facial feature placement."
+        ],
+        "confidence": "high"
+      },
+      {
+        "panel_id": 5,
+        "neck_extension": "weak",
+        "chin_elevation": "neutral",
+        "face_orientation": "profile",
+        "face_visibility": "clear",
+        "gaze_direction": "sideward",
+        "eyelid_state": "open",
+        "mouth_state": "closed",
+        "facial_foreshortening": "weak",
+        "facial_distortion": "none",
+        "evidence_notes": [
+          "The visible neck is only mildly extended and the chin stays near the face plane.",
+          "The visible pupil points along the profile direction, the eyelid is open, and the lip line is closed.",
+          "The profile has mild foreshortening with no visible facial distortion."
+        ],
+        "confidence": "high"
+      },
+      {
+        "panel_id": 6,
+        "neck_extension": "weak",
+        "chin_elevation": "elevated",
+        "face_orientation": "three_quarter",
+        "face_visibility": "clear",
+        "gaze_direction": "toward_camera",
+        "eyelid_state": "open",
+        "mouth_state": "closed",
+        "facial_foreshortening": "weak",
+        "facial_distortion": "none",
+        "evidence_notes": [
+          "The neck contour is mildly extended and the chin is elevated relative to the visible face plane.",
+          "Both pupils and open eyelids are visible toward the camera, and the lips show no separation.",
+          "The three-quarter view has mild perspective compression and coherent feature placement."
+        ],
+        "confidence": "high"
+      }
+    ]
+  },
+  "cross_domain_effects": [
+    {
+      "panel_id": 1,
+      "target_module": "face",
+      "observed_effect": "facial_foreshortening:strong",
+      "evidence_region": "facial_proportions",
+      "confidence": "medium"
+    },
+    {
+      "panel_id": 2,
+      "target_module": "face",
+      "observed_effect": "eyelid_state:closed",
+      "evidence_region": "eyelids",
+      "confidence": "high"
+    },
+    {
+      "panel_id": 2,
+      "target_module": "face",
+      "observed_effect": "mouth_state:slightly_open",
+      "evidence_region": "mouth",
+      "confidence": "high"
+    },
+    {
+      "panel_id": 3,
+      "target_module": "face",
+      "observed_effect": "facial_foreshortening:strong",
+      "evidence_region": "facial_proportions",
+      "confidence": "medium"
+    },
+    {
+      "panel_id": 4,
+      "target_module": "face",
+      "observed_effect": "gaze_direction:sideward",
+      "evidence_region": "eyes",
+      "confidence": "high"
+    },
+    {
+      "panel_id": 5,
+      "target_module": "face",
+      "observed_effect": "gaze_direction:sideward",
+      "evidence_region": "eyes",
+      "confidence": "high"
+    },
+    {
+      "panel_id": 6,
+      "target_module": "face",
+      "observed_effect": "gaze_direction:toward_camera",
+      "evidence_region": "eyes",
+      "confidence": "high"
+    }
+  ],
+  "computed_aggregate": {
+    "axis_counts": {
+      "neck_extension": {
+        "medium": 2,
+        "strong": 2,
+        "weak": 2
+      },
+      "chin_elevation": {
+        "elevated": 3,
+        "neutral": 1,
+        "strongly_elevated": 2
+      },
+      "face_orientation": {
+        "profile": 2,
+        "three_quarter": 1,
+        "upward_facing": 3
+      },
+      "face_visibility": {
+        "clear": 4,
+        "partial": 2
+      },
+      "gaze_direction": {
+        "eyes_closed": 1,
+        "not_visible": 1,
+        "sideward": 2,
+        "toward_camera": 1,
+        "unclear": 1
+      },
+      "eyelid_state": {
+        "closed": 1,
+        "not_visible": 1,
+        "open": 3,
+        "unclear": 1
+      },
+      "mouth_state": {
+        "closed": 5,
+        "slightly_open": 1
+      },
+      "facial_foreshortening": {
+        "strong": 3,
+        "weak": 3
+      },
+      "facial_distortion": {
+        "none": 6
+      }
+    },
+    "cross_domain_effect_counts": {
+      "eyelid_state:closed": 1,
+      "facial_foreshortening:strong": 2,
+      "gaze_direction:sideward": 2,
+      "gaze_direction:toward_camera": 1,
+      "mouth_state:slightly_open": 1
+    }
+  }
+}

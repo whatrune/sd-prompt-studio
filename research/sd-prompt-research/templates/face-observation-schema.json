@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.sd-prompt-studio/face-observation-schema-v1.json",
+  "title": "SD Prompt Studio Optional Face Observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "run_id", "blind_condition_label", "panel_count",
+    "face_observation", "cross_domain_effects"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "run_id": {"type": "string", "minLength": 1},
+    "blind_condition_label": {"type": "string", "minLength": 1},
+    "panel_count": {"const": 6},
+    "face_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "active_axis_order", "panels"],
+      "properties": {
+        "enabled": {"const": true},
+        "active_axis_order": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "panels": {
+          "type": "array", "minItems": 6, "maxItems": 6,
+          "items": {"$ref": "#/$defs/panel"}
+        }
+      }
+    },
+    "cross_domain_effects": {
+      "description": "Blind visible-state candidates only. Source phrase and source concept are intentionally omitted.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/crossDomainEffect"}
+    },
+    "computed_aggregate": {"$ref": "#/$defs/computedAggregate"}
+  },
+  "$defs": {
+    "panel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "panel_id", "neck_extension", "chin_elevation", "face_orientation",
+        "face_visibility", "gaze_direction", "eyelid_state", "mouth_state",
+        "facial_foreshortening", "facial_distortion", "evidence_notes", "confidence"
+      ],
+      "properties": {
+        "panel_id": {"type": "integer", "minimum": 1, "maximum": 6},
+        "neck_extension": {"enum": ["none", "weak", "medium", "strong", "unclear", "not_visible"]},
+        "chin_elevation": {"enum": ["neutral", "elevated", "strongly_elevated", "unclear", "not_visible"]},
+        "face_orientation": {"enum": ["frontal", "three_quarter", "profile", "upward_facing", "visually_inverted", "unclear", "not_visible"]},
+        "face_visibility": {"enum": ["clear", "partial", "heavily_occluded", "not_visible"]},
+        "gaze_direction": {"enum": ["toward_camera", "upward", "sideward", "downward", "eyes_closed", "unclear", "not_visible"]},
+        "eyelid_state": {"enum": ["open", "partially_closed", "closed", "asymmetric", "unclear", "not_visible"]},
+        "mouth_state": {"enum": ["closed", "slightly_open", "open", "unclear", "not_visible"]},
+        "facial_foreshortening": {"enum": ["none", "weak", "strong", "unclear", "not_visible"]},
+        "facial_distortion": {"enum": ["none", "mild", "severe", "unclear", "not_visible"]},
+        "evidence_notes": {
+          "type": "array", "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "confidence": {"enum": ["high", "medium", "low"]}
+      }
+    },
+    "crossDomainEffect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["panel_id", "target_module", "observed_effect", "evidence_region", "confidence"],
+      "properties": {
+        "panel_id": {"type": "integer", "minimum": 1, "maximum": 6},
+        "target_module": {"const": "face"},
+        "observed_effect": {"type": "string", "pattern": "^[a-z_]+:[a-z_]+$"},
+        "evidence_region": {"type": "string", "minLength": 1},
+        "confidence": {"enum": ["high", "medium", "low"]}
+      }
+    },
+    "countMap": {
+      "type": "object",
+      "additionalProperties": {"type": "integer", "minimum": 0, "maximum": 6}
+    },
+    "computedAggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["axis_counts", "cross_domain_effect_counts"],
+      "properties": {
+        "axis_counts": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/countMap"}
+        },
+        "cross_domain_effect_counts": {"$ref": "#/$defs/countMap"}
+      }
+    }
+  }
+}

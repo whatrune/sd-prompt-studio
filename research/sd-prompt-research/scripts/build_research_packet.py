@@ -34,6 +34,11 @@ COMPARE_FIELDS = (
     "contact_load", "head_surface_contact", "shoulder_surface_contact",
     "primary_morphology",
 )
+FACE_COMPARE_FIELDS = (
+    "neck_extension", "chin_elevation", "face_orientation", "face_visibility",
+    "gaze_direction", "eyelid_state", "mouth_state", "facial_foreshortening",
+    "facial_distortion",
+)
 
 
 def now_iso() -> str:
@@ -83,7 +88,21 @@ def load_run(run_dir: Path, observation_name: str = "observation.json") -> dict[
         raise ValueError(f"run_id does not match folder: {run_dir}")
     if manifest.get("status") != "OBSERVED":
         raise ValueError(f"Run is not OBSERVED: {run_dir}")
-    return {"dir": run_dir, "manifest": manifest, "observation": observation, "preview": files["preview"]}
+    outputs = manifest.get("outputs") or {}
+    configured_face = outputs.get("face_observation_json")
+    face_path = run_dir / str(configured_face) if configured_face else run_dir / "face-observation.json"
+    if configured_face and not face_path.is_file():
+        raise FileNotFoundError(f"Missing configured optional face observation: {face_path}")
+    face_observation = json.loads(face_path.read_text(encoding="utf-8")) if face_path.is_file() else None
+    if face_observation and face_observation.get("run_id") != run_dir.name:
+        raise ValueError(f"face observation run_id does not match folder: {run_dir}")
+    return {
+        "dir": run_dir,
+        "manifest": manifest,
+        "observation": observation,
+        "face_observation": face_observation,
+        "preview": files["preview"],
+    }
 
 
 def make_styles(font: str, bold: str) -> dict[str, ParagraphStyle]:
@@ -144,6 +163,13 @@ def count_text(counts: dict[str, Any] | Counter[str]) -> str:
 
 def morphology_count_text(counts: dict[str, Any], panel_count: int) -> str:
     """Render one morphology aggregate without mixing primary and secondary counts."""
+    return "\n".join(
+        f"{name} = {count} / {panel_count}" for name, count in sorted(counts.items())
+    ) or "none observed"
+
+
+def module_count_text(counts: dict[str, Any], panel_count: int) -> str:
+    """Render optional-module counts in explicit X / panel_count form."""
     return "\n".join(
         f"{name} = {count} / {panel_count}" for name, count in sorted(counts.items())
     ) or "none observed"
@@ -254,6 +280,25 @@ def aggregate_rows(observation: dict[str, Any]) -> list[list[Any]]:
     return rows
 
 
+def face_aggregate_rows(face_observation: dict[str, Any]) -> list[list[Any]]:
+    face = face_observation.get("face_observation") or {}
+    aggregate = face_observation.get("computed_aggregate") or {}
+    axis_count_map = aggregate.get("axis_counts") or {}
+    panel_count = int(face_observation.get("panel_count") or len(face.get("panels") or []))
+    rows: list[list[Any]] = [["Face Metric", "Counts"]]
+    for axis in face.get("active_axis_order") or []:
+        rows.append([axis, module_count_text(axis_count_map.get(axis) or {}, panel_count)])
+    return rows
+
+
+def face_compare_value(face_observation: dict[str, Any] | None, field: str) -> str:
+    if not face_observation:
+        return "not enabled"
+    aggregate = face_observation.get("computed_aggregate") or {}
+    panel_count = int(face_observation.get("panel_count") or 0)
+    return module_count_text((aggregate.get("axis_counts") or {}).get(field) or {}, panel_count)
+
+
 def uncertainty_rows(runs: list[dict[str, Any]]) -> list[list[Any]]:
     rows: list[list[Any]] = [[
         "Run", "Uncertain", "Visual Artifacts", "Prompt / Concept Leakage",
@@ -347,6 +392,17 @@ def build_packet(
             paragraph("Computed Aggregate", styles["section"]),
             make_table(aggregate_rows(observation), [58 * mm, 102 * mm], styles),
         ])
+        face_observation = run.get("face_observation")
+        if face_observation:
+            story.extend([
+                PageBreak(),
+                paragraph("Optional Face Module Aggregate", styles["section"]),
+                paragraph(
+                    "Visible face-state counts only. Emotion meaning, Prompt causality, and research interpretation are not assessed.",
+                    styles["body"],
+                ),
+                make_table(face_aggregate_rows(face_observation), [58 * mm, 102 * mm], styles),
+            ])
 
     if len(runs) > 1:
         rows: list[list[Any]] = [["Metric", *[run["dir"].name for run in runs]]]
@@ -357,6 +413,25 @@ def build_packet(
             paragraph("Direct counts from observation.json only. No success judgment or research interpretation is applied.", styles["body"]),
             make_table(rows, [38 * mm, *([122 * mm / len(runs)] * len(runs))], styles),
         ])
+
+        if any(run.get("face_observation") for run in runs):
+            face_rows: list[list[Any]] = [["Metric", *[run["dir"].name for run in runs]]]
+            face_rows.extend([
+                [
+                    field,
+                    *[face_compare_value(run.get("face_observation"), field) for run in runs],
+                ]
+                for field in FACE_COMPARE_FIELDS
+            ])
+            story.extend([
+                PageBreak(),
+                paragraph("Face Module Cross-condition Counts", styles["run"]),
+                paragraph(
+                    "Direct visible-state counts from face-observation.json. Run columns are mechanically aligned with the manifest conditions; no Phrase effect or emotion meaning is inferred.",
+                    styles["body"],
+                ),
+                make_table(face_rows, [38 * mm, *([122 * mm / len(runs)] * len(runs))], styles),
+            ])
 
     story.extend([
         PageBreak(),
