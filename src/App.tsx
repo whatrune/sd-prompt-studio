@@ -190,6 +190,7 @@ export default function App() {
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
   const [editingGroupName, setEditingGroupName] = useState('')
   const [editingGroupColor, setEditingGroupColor] = useState('#58a6ff')
+  const groupEditCancelledRef = useRef(false)
   const [pendingDeleteGroup, setPendingDeleteGroup] = useState<PromptGroup | null>(null)
   const [selectedSavedPrompt, setSelectedSavedPrompt] = useState<SavedPrompt | null>(null)
   const [pendingApplyPrompt, setPendingApplyPrompt] = useState<SavedPrompt | null>(null)
@@ -419,13 +420,11 @@ export default function App() {
     const group = store.addPromptGroup(nextPromptGroupName(store.promptGroups))
     if (group) {
       setActiveLibraryGroup(group.id)
-      setEditingGroupId(group.id)
-      setEditingGroupName(group.name)
-      setEditingGroupColor(group.color)
     }
   }
   const startGroupEdit = (group: PromptGroup) => {
     if (group.id === UNCLASSIFIED_PROMPT_GROUP_ID) return
+    groupEditCancelledRef.current = false
     setEditingGroupId(group.id)
     setEditingGroupName(group.name)
     setEditingGroupColor(group.color)
@@ -433,6 +432,11 @@ export default function App() {
   const finishGroupEdit = (id: string) => {
     store.renamePromptGroup(id, editingGroupName)
     store.setPromptGroupColor(id, editingGroupColor)
+    groupEditCancelledRef.current = false
+    setEditingGroupId(null)
+  }
+  const cancelGroupEdit = () => {
+    groupEditCancelledRef.current = true
     setEditingGroupId(null)
   }
   const applySavedPrompt = (mode: 'replace' | 'merge') => {
@@ -722,9 +726,9 @@ export default function App() {
             <button type="button" className={effectiveLibraryGroup==='all'?'active':''} aria-pressed={effectiveLibraryGroup==='all'} onClick={()=>setActiveLibraryGroup('all')}><TabLabel active={effectiveLibraryGroup==='all'} label="すべて"/></button>
             {userPromptGroups.map(group=><div key={group.id} className={`library-group-tab${activeLibraryGroup===group.id?' active':''}`} style={{'--prompt-group-color':group.color} as CSSProperties}>
               {editingGroupId===group.id
-                ?<div className="library-group-editor" onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node | null))finishGroupEdit(group.id)}}>
-                  <input className="library-group-edit" aria-label={`${group.name}の名前を編集`} autoFocus value={editingGroupName} onChange={event=>setEditingGroupName(event.target.value)} onKeyDown={event=>{if(event.key==='Enter')finishGroupEdit(group.id);if(event.key==='Escape')setEditingGroupId(null)}}/>
-                  <input className="library-group-color" type="color" aria-label={`${group.name}の色を編集`} value={editingGroupColor} onInput={event=>{const color=event.currentTarget.value;setEditingGroupColor(color);store.setPromptGroupColor(group.id,color)}}/>
+                ?<div className="library-group-editor" onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node | null)){if(groupEditCancelledRef.current){groupEditCancelledRef.current=false;return}finishGroupEdit(group.id)}}}>
+                  <input className="library-group-edit" aria-label={`${group.name}の名前を編集`} autoFocus value={editingGroupName} onChange={event=>setEditingGroupName(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();finishGroupEdit(group.id)}if(event.key==='Escape'){event.preventDefault();cancelGroupEdit()}}}/>
+                  <input className="library-group-color" type="color" aria-label={`${group.name}の色を編集`} value={editingGroupColor} onInput={event=>setEditingGroupColor(event.currentTarget.value)} onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();cancelGroupEdit()}}}/>
                 </div>
                 :<button type="button" className="library-group-select" aria-pressed={activeLibraryGroup===group.id} title="ダブルクリックで名前と色を編集" onClick={()=>setActiveLibraryGroup(group.id)} onDoubleClick={()=>startGroupEdit(group)}><TabLabel active={activeLibraryGroup===group.id} label={group.name}/></button>}
               <button type="button" className="library-group-delete" aria-label={`${group.name}を削除`} onPointerDown={event=>event.stopPropagation()} onClick={event=>{event.stopPropagation();setPendingDeleteGroup(group)}} onDoubleClick={event=>event.stopPropagation()}><X size={12}/></button>
