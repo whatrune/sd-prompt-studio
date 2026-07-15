@@ -29,18 +29,32 @@ def policy_errors(data: dict[str, Any], rubric: dict[str, Any], manifest: dict[s
         errors.append(f"run_id must match manifest: {run_id!r}")
 
     face = data.get("face_observation") or {}
+    if not isinstance(face, dict):
+        return errors + ["face_observation must be an object"]
     active_axes = rubric.get("active_face_axes") or []
     if face.get("active_axis_order") != active_axes:
         errors.append("face_observation.active_axis_order must exactly match rubric.active_face_axes")
 
-    panels = face.get("panels") or []
+    raw_panels = face.get("panels") or []
+    if not isinstance(raw_panels, list):
+        return errors + ["face_observation.panels must be an array"]
+    panels = [panel for panel in raw_panels if isinstance(panel, dict)]
     panel_ids = [panel.get("panel_id") for panel in panels]
-    if sorted(panel_ids) != [1, 2, 3, 4, 5, 6]:
-        errors.append(f"panel_id values must be exactly 1..6, got {sorted(panel_ids)}")
+    valid_panel_ids = (
+        len(panels) == len(raw_panels) == 6
+        and all(type(panel_id) is int for panel_id in panel_ids)
+        and sorted(panel_ids) == [1, 2, 3, 4, 5, 6]
+    )
+    if not valid_panel_ids:
+        errors.append(f"panel_id values must be exactly integer IDs 1..6, got {panel_ids!r}")
 
     catalog = rubric.get("axis_catalog") or {}
     prohibited = [term.casefold() for term in ((rubric.get("rules") or {}).get("emotion_terms_prohibited") or [])]
-    panel_by_id = {panel.get("panel_id"): panel for panel in panels}
+    panel_by_id = {
+        panel["panel_id"]: panel
+        for panel in panels
+        if type(panel.get("panel_id")) is int
+    }
     for panel in panels:
         panel_id = panel.get("panel_id")
         for axis in active_axes:
@@ -60,6 +74,8 @@ def policy_errors(data: dict[str, Any], rubric: dict[str, Any], manifest: dict[s
             "effect selection belongs to the Research Interpretation Layer"
         )
     for effect in effects:
+        if not isinstance(effect, dict):
+            continue
         panel_id = effect.get("panel_id")
         panel = panel_by_id.get(panel_id) or {}
         observed = str(effect.get("observed_effect") or "")
@@ -136,10 +152,13 @@ def main() -> int:
     analyst_data = dict(data)
     analyst_data.pop("computed_aggregate", None)
     errors = schema_errors(analyst_data, schema)
-    errors.extend(policy_errors(analyst_data, rubric, manifest))
-    if args.no_write:
-        errors.extend(schema_errors(data, schema))
-        errors.extend(stored_aggregate_errors(data))
+    if not errors:
+        errors.extend(policy_errors(analyst_data, rubric, manifest))
+    if args.no_write and not errors:
+        finalized_schema_errors = schema_errors(data, schema)
+        errors.extend(finalized_schema_errors)
+        if not finalized_schema_errors:
+            errors.extend(stored_aggregate_errors(data))
     if errors:
         print("Face observation validation failed:", file=sys.stderr)
         for error in errors:

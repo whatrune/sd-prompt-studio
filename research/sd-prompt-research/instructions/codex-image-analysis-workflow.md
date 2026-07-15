@@ -80,7 +80,7 @@ Do not create a downloadable JSON file or a Run-prefixed duplicate when Codex is
 
 The Face Module is opt-in and does not change Observation Schema v3.0.
 
-Enable it only when the Run manifest declares `outputs.face_observation_json` or the task explicitly requests face observation.
+Enable it only when the Run manifest declares `outputs.face_observation_json`. When a task explicitly requests face observation for an unconfigured Run, first add `outputs.face_observation_json: face-observation.json` to the manifest.
 
 - Read `templates/face-observation-rubric.yaml` and `templates/face-observation-schema.json`.
 - Inspect the existing panel images without using Prompt text as visual evidence.
@@ -91,7 +91,7 @@ Enable it only when the Run manifest declares `outputs.face_observation_json` or
 
   `python scripts/finalize_face_observation.py --run-dir experiments/{domain}/{run-id}`
 
-- Research Packet generation automatically includes the optional Face Module when the file is present.
+- Research Packet generation includes the optional Face Module only when the manifest declares `outputs.face_observation_json` and that file exists.
 
 ## Restrictions
 

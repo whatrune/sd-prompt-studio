@@ -120,8 +120,9 @@ def load_run(run_dir: Path, observation_name: str = "observation.json") -> dict[
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
         rubric = yaml.safe_load(rubric_path.read_text(encoding="utf-8")) or {}
         errors = schema_errors(face_observation, schema)
-        errors.extend(policy_errors(face_observation, rubric, manifest))
-        errors.extend(stored_aggregate_errors(face_observation))
+        if not errors:
+            errors.extend(policy_errors(face_observation, rubric, manifest))
+            errors.extend(stored_aggregate_errors(face_observation))
         if errors:
             raise ValueError(f"Invalid configured optional face observation: {'; '.join(errors)}")
     return {

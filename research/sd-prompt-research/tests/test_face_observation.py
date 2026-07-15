@@ -150,6 +150,14 @@ class FaceObservationTests(unittest.TestCase):
         self.assertIsNotNone(run["face_observation"])
         self.assertEqual([], stored_aggregate_errors(run["face_observation"]))
 
+    def test_brg_008_manifests_keep_condition_labels(self) -> None:
+        for suffix in ("A", "B", "C"):
+            run_dir = ROOT / "experiments" / "bridge" / f"BRG-008-{suffix}"
+            manifest = yaml.safe_load((run_dir / "manifest.yaml").read_text(encoding="utf-8"))
+            observation = json.loads((run_dir / "observation.json").read_text(encoding="utf-8"))
+            self.assertEqual(f"Condition {suffix}", manifest.get("condition"))
+            self.assertEqual(manifest["condition"], observation["blind_condition_label"])
+
     def test_packet_rejects_configured_stale_face_aggregate(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -228,6 +236,11 @@ class FaceObservationTests(unittest.TestCase):
             "Visible geometry", "Orientation", "State", "Visibility",
         ):
             self.assertIn(label, OPTIONAL_MODULE_OBSERVATION_NOTE)
+
+    def test_policy_reports_invalid_panel_ids_without_crashing(self) -> None:
+        self.data["face_observation"]["panels"][0]["panel_id"] = None
+        errors = policy_errors(self.data, self.rubric, self.manifest)
+        self.assertTrue(any("integer IDs 1..6" in error for error in errors))
 
 
 if __name__ == "__main__":
