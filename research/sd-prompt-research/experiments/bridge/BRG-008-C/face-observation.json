@@ -127,57 +127,7 @@
       }
     ]
   },
-  "cross_domain_effects": [
-    {
-      "panel_id": 1,
-      "target_module": "face",
-      "observed_effect": "facial_foreshortening:strong",
-      "evidence_region": "facial_proportions",
-      "confidence": "medium"
-    },
-    {
-      "panel_id": 2,
-      "target_module": "face",
-      "observed_effect": "eyelid_state:closed",
-      "evidence_region": "eyelids",
-      "confidence": "high"
-    },
-    {
-      "panel_id": 2,
-      "target_module": "face",
-      "observed_effect": "mouth_state:slightly_open",
-      "evidence_region": "mouth",
-      "confidence": "high"
-    },
-    {
-      "panel_id": 3,
-      "target_module": "face",
-      "observed_effect": "facial_foreshortening:strong",
-      "evidence_region": "facial_proportions",
-      "confidence": "medium"
-    },
-    {
-      "panel_id": 4,
-      "target_module": "face",
-      "observed_effect": "gaze_direction:sideward",
-      "evidence_region": "eyes",
-      "confidence": "high"
-    },
-    {
-      "panel_id": 5,
-      "target_module": "face",
-      "observed_effect": "gaze_direction:sideward",
-      "evidence_region": "eyes",
-      "confidence": "high"
-    },
-    {
-      "panel_id": 6,
-      "target_module": "face",
-      "observed_effect": "gaze_direction:toward_camera",
-      "evidence_region": "eyes",
-      "confidence": "high"
-    }
-  ],
+  "cross_domain_effects": [],
   "computed_aggregate": {
     "axis_counts": {
       "neck_extension": {
@@ -224,12 +174,6 @@
         "none": 6
       }
     },
-    "cross_domain_effect_counts": {
-      "eyelid_state:closed": 1,
-      "facial_foreshortening:strong": 2,
-      "gaze_direction:sideward": 2,
-      "gaze_direction:toward_camera": 1,
-      "mouth_state:slightly_open": 1
-    }
+    "cross_domain_effect_counts": {}
   }
 }

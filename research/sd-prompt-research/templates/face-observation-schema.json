@@ -30,7 +30,7 @@
       }
     },
     "cross_domain_effects": {
-      "description": "Blind visible-state candidates only. Source phrase and source concept are intentionally omitted.",
+      "description": "Reserved for a later Research Interpretation Layer. Observation-only finalization requires an empty array.",
       "type": "array",
       "items": {"$ref": "#/$defs/crossDomainEffect"}
     },

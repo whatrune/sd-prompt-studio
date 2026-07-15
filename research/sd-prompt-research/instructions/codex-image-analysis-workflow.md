@@ -86,6 +86,7 @@ Enable it only when the Run manifest declares `outputs.face_observation_json` or
 - Inspect the existing panel images without using Prompt text as visual evidence.
 - Write the separate canonical file `face-observation.json`; do not add face fields to `observation.json`.
 - Record visible geometry and state only. Do not assign emotion meaning, Prompt causality, or a source Concept.
+- Keep `cross_domain_effects` empty during image observation. Selecting which visible states are effects belongs to the Research Interpretation Layer.
 - Validate and aggregate it with:
 
   `python scripts/finalize_face_observation.py --run-dir experiments/{domain}/{run-id}`

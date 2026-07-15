@@ -515,6 +515,7 @@ This module is used only when a separate Face Rubric and Face Schema are supplie
 - Write face observations to `face-observation.json`, not `observation.json`.
 - Use visible face geometry and state only.
 - Do not use Prompt phrases as evidence or assign a source Concept.
+- Keep `cross_domain_effects` empty. Effect selection and source alignment are Research Interpretation Layer responsibilities.
 - Do not assign emotion meanings such as happy, sad, painful, ecstatic, sleepy, relaxed, sensual, or distressed.
 - Face orientation does not imply gaze direction.
 - Chin elevation does not imply neck-extension strength.

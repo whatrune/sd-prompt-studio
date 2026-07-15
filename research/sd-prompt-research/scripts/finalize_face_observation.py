@@ -53,7 +53,13 @@ def policy_errors(data: dict[str, Any], rubric: dict[str, Any], manifest: dict[s
                 errors.append(f"Panel {panel_id}: emotion meaning {term!r} is prohibited in evidence_notes")
 
     allowed_regions = set((rubric.get("cross_domain_effects") or {}).get("evidence_regions") or [])
-    for effect in data.get("cross_domain_effects") or []:
+    effects = data.get("cross_domain_effects") or []
+    if ((rubric.get("cross_domain_effects") or {}).get("observation_stage") == "must_be_empty" and effects):
+        errors.append(
+            "cross_domain_effects must remain empty during observation-only finalization; "
+            "effect selection belongs to the Research Interpretation Layer"
+        )
+    for effect in effects:
         panel_id = effect.get("panel_id")
         panel = panel_by_id.get(panel_id) or {}
         observed = str(effect.get("observed_effect") or "")
@@ -89,6 +95,20 @@ def compute_aggregate(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def stored_aggregate_errors(data: dict[str, Any]) -> list[str]:
+    """Require a stored aggregate and verify that it exactly matches panel data."""
+    stored = data.get("computed_aggregate")
+    if stored is None:
+        return ["computed_aggregate is required for a finalized face observation"]
+    try:
+        expected = compute_aggregate(data)
+    except (KeyError, TypeError) as exc:
+        return [f"computed_aggregate cannot be verified against invalid panel data: {exc}"]
+    if stored != expected:
+        return ["computed_aggregate does not match the aggregate recomputed from panel data"]
+    return []
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-dir", type=Path, required=True)
@@ -117,6 +137,9 @@ def main() -> int:
     analyst_data.pop("computed_aggregate", None)
     errors = schema_errors(analyst_data, schema)
     errors.extend(policy_errors(analyst_data, rubric, manifest))
+    if args.no_write:
+        errors.extend(schema_errors(data, schema))
+        errors.extend(stored_aggregate_errors(data))
     if errors:
         print("Face observation validation failed:", file=sys.stderr)
         for error in errors:

@@ -46,6 +46,8 @@ cross_domain_effects:
   target_module: face
   observed_effect_format: '<axis_id>:<observed_value>'
   source_fields_allowed: false
+  observation_stage: must_be_empty
+  promotion_owner: research_interpretation_layer
   evidence_regions: [neck, chin, face_plane, face, eyes, eyelids, mouth, facial_proportions, facial_features]
 rules:
   image_analyst_must_not_use_prompt_as_evidence: true

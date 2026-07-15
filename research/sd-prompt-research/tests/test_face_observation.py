@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -11,8 +12,13 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from build_research_packet import face_aggregate_rows, face_compare_value  # noqa: E402
-from finalize_face_observation import compute_aggregate, policy_errors, schema_errors  # noqa: E402
+from build_research_packet import face_aggregate_rows, face_compare_value, load_run  # noqa: E402
+from finalize_face_observation import (  # noqa: E402
+    compute_aggregate,
+    policy_errors,
+    schema_errors,
+    stored_aggregate_errors,
+)
 
 
 def base_face_observation() -> dict:
@@ -68,7 +74,7 @@ class FaceObservationTests(unittest.TestCase):
         self.assertNotIn("face_observation", pose_schema["required"])
         self.assertNotIn("face_observation", pose_schema["properties"])
 
-    def test_cross_domain_effect_must_match_visible_panel_value(self) -> None:
+    def test_cross_domain_effect_selection_is_rejected_during_observation(self) -> None:
         self.data["face_observation"]["panels"][0]["eyelid_state"] = "open"
         self.data["cross_domain_effects"] = [{
             "panel_id": 1,
@@ -78,7 +84,7 @@ class FaceObservationTests(unittest.TestCase):
             "confidence": "medium",
         }]
         errors = policy_errors(self.data, self.rubric, self.manifest)
-        self.assertTrue(any("does not match panel value" in error for error in errors))
+        self.assertTrue(any("must remain empty" in error for error in errors))
 
     def test_source_concept_is_rejected_by_schema(self) -> None:
         self.data["cross_domain_effects"] = [{
@@ -102,6 +108,73 @@ class FaceObservationTests(unittest.TestCase):
         aggregate = compute_aggregate(self.data)
         self.assertEqual({"closed": 1, "open": 1, "unclear": 4}, aggregate["axis_counts"]["eyelid_state"])
         self.assertNotIn("source_phrase", aggregate)
+
+    def test_stored_aggregate_must_exist_and_match_panels(self) -> None:
+        self.assertTrue(any("required" in error for error in stored_aggregate_errors(self.data)))
+        self.data["computed_aggregate"] = compute_aggregate(self.data)
+        self.assertEqual([], stored_aggregate_errors(self.data))
+        self.data["computed_aggregate"]["axis_counts"]["eyelid_state"] = {"open": 6}
+        self.assertTrue(any("does not match" in error for error in stored_aggregate_errors(self.data)))
+
+    def test_packet_ignores_unconfigured_face_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            run_dir = root / "experiments" / "bridge" / "TEST-001"
+            (run_dir / "preview").mkdir(parents=True)
+            (run_dir / "manifest.yaml").write_text(
+                yaml.safe_dump({"run_id": "TEST-001", "status": "OBSERVED", "outputs": {}}),
+                encoding="utf-8",
+            )
+            (run_dir / "observation.json").write_text(
+                json.dumps({"run_id": "TEST-001"}), encoding="utf-8"
+            )
+            (run_dir / "observation.md").write_text("observation", encoding="utf-8")
+            (run_dir / "preview" / "TEST-001_preview.jpg").write_bytes(b"preview")
+            face = base_face_observation()
+            face["computed_aggregate"] = compute_aggregate(face)
+            (run_dir / "face-observation.json").write_text(json.dumps(face), encoding="utf-8")
+
+            self.assertIsNone(load_run(run_dir)["face_observation"])
+
+    def test_packet_loads_configured_valid_face_file(self) -> None:
+        run = load_run(ROOT / "experiments" / "bridge" / "BRG-008-A")
+        self.assertIsNotNone(run["face_observation"])
+        self.assertEqual([], stored_aggregate_errors(run["face_observation"]))
+
+    def test_packet_rejects_configured_stale_face_aggregate(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            run_dir = root / "experiments" / "bridge" / "TEST-001"
+            templates = root / "templates"
+            (run_dir / "preview").mkdir(parents=True)
+            templates.mkdir()
+            (templates / "face-observation-schema.json").write_text(
+                json.dumps(self.schema), encoding="utf-8"
+            )
+            (templates / "face-observation-rubric.yaml").write_text(
+                yaml.safe_dump(self.rubric), encoding="utf-8"
+            )
+            outputs = {
+                "face_observation_json": "face-observation.json",
+                "face_observation_schema": "templates/face-observation-schema.json",
+                "face_observation_rubric": "templates/face-observation-rubric.yaml",
+            }
+            (run_dir / "manifest.yaml").write_text(
+                yaml.safe_dump({"run_id": "TEST-001", "status": "OBSERVED", "outputs": outputs}),
+                encoding="utf-8",
+            )
+            (run_dir / "observation.json").write_text(
+                json.dumps({"run_id": "TEST-001"}), encoding="utf-8"
+            )
+            (run_dir / "observation.md").write_text("observation", encoding="utf-8")
+            (run_dir / "preview" / "TEST-001_preview.jpg").write_bytes(b"preview")
+            face = base_face_observation()
+            face["computed_aggregate"] = compute_aggregate(face)
+            face["computed_aggregate"]["axis_counts"]["eyelid_state"] = {"open": 6}
+            (run_dir / "face-observation.json").write_text(json.dumps(face), encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "does not match"):
+                load_run(run_dir)
 
     def test_packet_face_counts_use_x_over_panel_count_format(self) -> None:
         payload = copy.deepcopy(self.data)

@@ -127,50 +127,7 @@
       }
     ]
   },
-  "cross_domain_effects": [
-    {
-      "panel_id": 1,
-      "target_module": "face",
-      "observed_effect": "facial_foreshortening:strong",
-      "evidence_region": "facial_proportions",
-      "confidence": "medium"
-    },
-    {
-      "panel_id": 2,
-      "target_module": "face",
-      "observed_effect": "gaze_direction:toward_camera",
-      "evidence_region": "eyes",
-      "confidence": "high"
-    },
-    {
-      "panel_id": 3,
-      "target_module": "face",
-      "observed_effect": "facial_foreshortening:strong",
-      "evidence_region": "facial_proportions",
-      "confidence": "medium"
-    },
-    {
-      "panel_id": 4,
-      "target_module": "face",
-      "observed_effect": "face_visibility:heavily_occluded",
-      "evidence_region": "face",
-      "confidence": "medium"
-    },
-    {
-      "panel_id": 5,
-      "target_module": "face",
-      "observed_effect": "facial_foreshortening:strong",
-      "evidence_region": "facial_proportions",
-      "confidence": "medium"
-    },
-    {
-      "panel_id": 6,
-      "target_module": "face",
-      "observed_effect": "face_visibility:heavily_occluded",
-      "evidence_region": "face",
-      "confidence": "medium"
-    }
-  ],
+  "cross_domain_effects": [],
   "computed_aggregate": {
     "axis_counts": {
       "neck_extension": {
@@ -210,10 +167,6 @@
         "none": 6
       }
     },
-    "cross_domain_effect_counts": {
-      "face_visibility:heavily_occluded": 2,
-      "facial_foreshortening:strong": 3,
-      "gaze_direction:toward_camera": 1
-    }
+    "cross_domain_effect_counts": {}
   }
 }

@@ -24,6 +24,8 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Image, PageBreak, Paragraph, Preformatted, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from finalize_face_observation import policy_errors, schema_errors, stored_aggregate_errors
+
 FONT_CANDIDATES = (
     (Path("C:/Windows/Fonts/BIZ-UDGothicR.ttc"), Path("C:/Windows/Fonts/BIZ-UDGothicB.ttc")),
     (Path("C:/Windows/Fonts/NotoSansJP-VF.ttf"), Path("C:/Windows/Fonts/NotoSansJP-VF.ttf")),
@@ -90,12 +92,23 @@ def load_run(run_dir: Path, observation_name: str = "observation.json") -> dict[
         raise ValueError(f"Run is not OBSERVED: {run_dir}")
     outputs = manifest.get("outputs") or {}
     configured_face = outputs.get("face_observation_json")
-    face_path = run_dir / str(configured_face) if configured_face else run_dir / "face-observation.json"
-    if configured_face and not face_path.is_file():
+    face_path = run_dir / str(configured_face) if configured_face else None
+    if face_path and not face_path.is_file():
         raise FileNotFoundError(f"Missing configured optional face observation: {face_path}")
-    face_observation = json.loads(face_path.read_text(encoding="utf-8")) if face_path.is_file() else None
+    face_observation = json.loads(face_path.read_text(encoding="utf-8")) if face_path else None
     if face_observation and face_observation.get("run_id") != run_dir.name:
         raise ValueError(f"face observation run_id does not match folder: {run_dir}")
+    if face_observation:
+        root = run_dir.parents[2]
+        schema_path = root / str(outputs.get("face_observation_schema") or "templates/face-observation-schema.json")
+        rubric_path = root / str(outputs.get("face_observation_rubric") or "templates/face-observation-rubric.yaml")
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        rubric = yaml.safe_load(rubric_path.read_text(encoding="utf-8")) or {}
+        errors = schema_errors(face_observation, schema)
+        errors.extend(policy_errors(face_observation, rubric, manifest))
+        errors.extend(stored_aggregate_errors(face_observation))
+        if errors:
+            raise ValueError(f"Invalid configured optional face observation: {'; '.join(errors)}")
     return {
         "dir": run_dir,
         "manifest": manifest,
