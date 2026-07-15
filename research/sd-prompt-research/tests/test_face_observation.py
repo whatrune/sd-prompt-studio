@@ -146,9 +146,44 @@ class FaceObservationTests(unittest.TestCase):
             self.assertIsNone(load_run(run_dir)["face_observation"])
 
     def test_packet_loads_configured_valid_face_file(self) -> None:
-        run = load_run(ROOT / "experiments" / "bridge" / "BRG-008-A")
-        self.assertIsNotNone(run["face_observation"])
-        self.assertEqual([], stored_aggregate_errors(run["face_observation"]))
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            run_dir = root / "experiments" / "bridge" / "TEST-001"
+            templates = root / "templates"
+            (run_dir / "preview").mkdir(parents=True)
+            templates.mkdir()
+            (templates / "face-observation-schema.json").write_text(
+                json.dumps(self.schema), encoding="utf-8"
+            )
+            (templates / "face-observation-rubric.yaml").write_text(
+                yaml.safe_dump(self.rubric), encoding="utf-8"
+            )
+            manifest = {
+                "run_id": "TEST-001",
+                "status": "OBSERVED",
+                "outputs": {
+                    "face_observation_json": "face-observation.json",
+                    "face_observation_schema": "templates/face-observation-schema.json",
+                    "face_observation_rubric": "templates/face-observation-rubric.yaml",
+                },
+            }
+            (run_dir / "manifest.yaml").write_text(
+                yaml.safe_dump(manifest), encoding="utf-8"
+            )
+            (run_dir / "observation.json").write_text(
+                json.dumps({"run_id": "TEST-001"}), encoding="utf-8"
+            )
+            (run_dir / "observation.md").write_text("observation", encoding="utf-8")
+            (run_dir / "preview" / "TEST-001_preview.jpg").write_bytes(b"preview")
+            face = base_face_observation()
+            face["computed_aggregate"] = compute_aggregate(face)
+            (run_dir / "face-observation.json").write_text(
+                json.dumps(face), encoding="utf-8"
+            )
+
+            run = load_run(run_dir)
+            self.assertIsNotNone(run["face_observation"])
+            self.assertEqual([], stored_aggregate_errors(run["face_observation"]))
 
     def test_brg_008_manifests_keep_condition_labels(self) -> None:
         for suffix in ("A", "B", "C"):

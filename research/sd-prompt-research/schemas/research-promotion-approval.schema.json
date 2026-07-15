@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.sd-prompt-studio/research-promotion-approval-v0.1.schema.json",
+  "title": "SD Prompt Studio Research Promotion Approval File",
+  "description": "Append-only Promotion Approval and Approval Withdrawal records for Research Claim Staging Layer v3.9.31.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "approval_file_id", "approvals"],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "approval_file_id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "approvals": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/approvalRecord" },
+          { "$ref": "#/$defs/withdrawalRecord" }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "assertionId": {
+      "type": "string",
+      "pattern": "^assertion(?:\\.[a-z0-9]+(?:_[a-z0-9]+)*){2,}\\.[0-9]{3,}$"
+    },
+    "approvalId": {
+      "type": "string",
+      "pattern": "^promotion_approval\\.assertion(?:\\.[a-z0-9]+(?:_[a-z0-9]+)*){2,}\\.[0-9]{3,}\\.[0-9]{3,}$"
+    },
+    "reviewId": {
+      "type": "string",
+      "pattern": "^review\\.assertion(?:\\.[a-z0-9]+(?:_[a-z0-9]+)*){2,}\\.[0-9]{3,}\\.[0-9]{3,}$"
+    },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "approvalIdSet": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/approvalId" }
+    },
+    "approvalRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approval_id", "assertion_id", "record_type", "approved_by", "approved_at",
+        "recorded_at", "approved_assertion_hash", "approved_promotion_hash",
+        "claim_review_ids", "hash_algorithm", "review_scope", "supersedes_approval_ids"
+      ],
+      "properties": {
+        "approval_id": { "$ref": "#/$defs/approvalId" },
+        "assertion_id": { "$ref": "#/$defs/assertionId" },
+        "record_type": { "const": "approval" },
+        "approved_by": { "type": "string", "minLength": 1 },
+        "approved_at": { "$ref": "#/$defs/timestamp" },
+        "recorded_at": { "$ref": "#/$defs/timestamp" },
+        "approved_assertion_hash": { "$ref": "#/$defs/sha256" },
+        "approved_promotion_hash": { "$ref": "#/$defs/sha256" },
+        "claim_review_ids": {
+          "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/reviewId" }
+        },
+        "hash_algorithm": { "const": "sha256" },
+        "review_scope": { "const": "promotion_content_v1" },
+        "supersedes_approval_ids": { "$ref": "#/$defs/approvalIdSet" },
+        "notes": { "type": "string", "minLength": 1 }
+      }
+    },
+    "withdrawalRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approval_id", "assertion_id", "record_type", "withdrawn_at", "recorded_at",
+        "supersedes_approval_ids"
+      ],
+      "properties": {
+        "approval_id": { "$ref": "#/$defs/approvalId" },
+        "assertion_id": { "$ref": "#/$defs/assertionId" },
+        "record_type": { "const": "withdrawal" },
+        "withdrawn_at": { "$ref": "#/$defs/timestamp" },
+        "recorded_at": { "$ref": "#/$defs/timestamp" },
+        "supersedes_approval_ids": {
+          "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/approvalId" }
+        },
+        "notes": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

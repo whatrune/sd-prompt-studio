@@ -13,6 +13,14 @@
 
 ## Git workflow
 
+### GitHub authentication checks
+
+- Do not treat `gh auth status` as the sole source of truth. In this environment it may report an invalid token even when GitHub API access and repository access work.
+- Verify actual connectivity with both `gh api user --jq ".login"` and `git ls-remote origin HEAD` before declaring GitHub authentication blocked.
+- An HTTPS push that adds or updates `.github/workflows/*` may be rejected when the OAuth token lacks the `workflow` scope, even if ordinary API calls and pushes work.
+- When only the `workflow` scope is missing, keep the workflow file in the change and use an already-configured SSH remote for the push, or refresh the HTTPS credential with `gh auth refresh -h github.com -s workflow`. Do not silently omit the workflow file.
+- After using a temporary SSH configuration, confirm that it did not leave files such as `NUL` or temporary host-key files in the worktree.
+
 - 新規PRは、必ず最新の `main` から新しいブランチを作成する。
 - 別PRのブランチを再利用しない。
 - ユーザーの未コミット変更を削除、上書き、または無断で取り込まない。

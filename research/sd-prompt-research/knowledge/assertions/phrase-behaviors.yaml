@@ -1,0 +1,264 @@
+schema_version: 0.1.0
+assertion_file_id: phrase-behaviors
+claim_family: phrase_behavior
+path_base: repository_root
+metric_path_syntax: dotted_object_path_v1
+
+axis_registry_refs:
+  pose:
+    path: research/sd-prompt-research/templates/rubric-template.yaml
+    sha256: 8f455d3482dc3c5af19b22515acb3612fc65dce7981717bef84f728d1fdb652a
+  face:
+    path: research/sd-prompt-research/templates/face-observation-rubric.yaml
+    sha256: c3622d658ed197bf4cac937998b9935616cc7caee89729922305475d2e30bc2c
+
+evidence_refs:
+  - evidence_ref_id: evidence.brg007b.primary_morphology.reclined_arm_support
+    observation_module: pose
+    observation_path: research/sd-prompt-research/experiments/bridge/BRG-007-B/observation.json
+    metric: computed_aggregate.primary_morphology_counts.reclined_arm_support
+    denominator_path: panel_count
+    count: 5
+    total: 6
+    storage: local
+    measurement_coverage:
+      level: full
+
+  - evidence_ref_id: evidence.brg008b.gaze_direction.not_visible
+    observation_module: face
+    observation_path: research/sd-prompt-research/experiments/bridge/BRG-008-B/face-observation.json
+    metric: computed_aggregate.axis_counts.gaze_direction.not_visible
+    denominator_path: panel_count
+    count: 5
+    total: 6
+    storage: local
+    measurement_coverage:
+      level: full
+
+  - evidence_ref_id: evidence.brg008c.gaze_direction.not_visible
+    observation_module: face
+    observation_path: research/sd-prompt-research/experiments/bridge/BRG-008-C/face-observation.json
+    metric: computed_aggregate.axis_counts.gaze_direction.not_visible
+    denominator_path: panel_count
+    count: 1
+    total: 6
+    storage: local
+    measurement_coverage:
+      level: full
+
+assertions:
+  - assertion_id: assertion.brg007.arm_support.001
+    status: provisional
+    subject:
+      kind: concept_ref
+      concept_id: support.arm.rearward
+      source_phrase: arm support
+    claim:
+      statement: In the BRG-007-B context, arm support phrasing was associated with reclined arm support morphology.
+    observed_metrics:
+      - metric: computed_aggregate.primary_morphology_counts.reclined_arm_support
+        count: 5
+        total: 6
+        evidence_ref_ids:
+          - evidence.brg007b.primary_morphology.reclined_arm_support
+    interpretation_candidates:
+      - interpretation_candidate_id: interpretation.brg007.arm_support.reclined_transition.001
+        label: reclined_transition
+        notes: Interpretation candidate only; it is not a confirmed causal conclusion.
+    causal_hypotheses: []
+    evidence_bindings:
+      - evidence_ref_id: evidence.brg007b.primary_morphology.reclined_arm_support
+        evidence_role: supports
+        applies_to: interpretation.brg007.arm_support.reclined_transition.001
+        evidence_quality:
+          coverage: full
+          directness: direct
+          consistency: high
+    depends_on: []
+    supersedes: []
+    reproduction:
+      panel_count: 18
+      condition_count: 3
+      condition_ids:
+        - BRG-007-A
+        - BRG-007-B
+        - BRG-007-C
+      run_count: 3
+      run_ids:
+        - BRG-007-A
+        - BRG-007-B
+        - BRG-007-C
+      independent_experiment_count: 1
+      experiment_group_ids:
+        - BRG-007
+      model_count: 1
+      model_ids:
+        - model.novaanimexl_ilv190
+      context_count: 1
+      context_ids:
+        - context.bridge_core_brg007
+    scope:
+      model_scope: single_model
+      context_scope: single_context
+      domain_scope: pose
+      generalization_scope: local
+    generalization_status:
+      model_dependency_tested: false
+      context_dependency_tested: false
+    created_by:
+      agent: codex
+      version: research-claim-layer-v3.9.31
+      created_at: 2026-07-15T20:00:00Z
+    promotion:
+      action: no_promotion
+      status: not_nominated
+      approval_ids: []
+      applications: []
+    notes: Observation, interpretation candidate, and promotion state remain separate.
+
+  - assertion_id: assertion.brg008.head_back.face_effect.001
+    status: provisional
+    subject:
+      kind: concept_ref
+      concept_id: orientation.head.extended_backward
+      source_phrase: head back
+    claim:
+      statement: In BRG-008-B, gaze_direction was recorded as not_visible in five of six face-observation panels.
+    observed_metrics:
+      - metric: computed_aggregate.axis_counts.gaze_direction.not_visible
+        count: 5
+        total: 6
+        evidence_ref_ids:
+          - evidence.brg008b.gaze_direction.not_visible
+    interpretation_candidates:
+      - interpretation_candidate_id: interpretation.brg008.head_back.gaze_visibility.001
+        label: gaze_visibility_reduction
+        notes: Candidate interpretation; it does not establish phrase causality.
+    causal_hypotheses:
+      - causal_hypothesis_id: causal_hypothesis.brg008.head_back.face_visibility.001
+        source: orientation.head.extended_backward
+        relation_type: may_reduce_visibility
+        target_module: face
+        target_axis:
+          name: gaze_visibility
+          registration_status: proposed
+        notes: The proposed axis is not added to the Observation Schema in this change.
+    evidence_bindings:
+      - evidence_ref_id: evidence.brg008b.gaze_direction.not_visible
+        evidence_role: supports
+        applies_to: interpretation.brg008.head_back.gaze_visibility.001
+        evidence_quality:
+          coverage: full
+          directness: indirect
+          consistency: high
+    depends_on: []
+    supersedes: []
+    reproduction:
+      panel_count: 18
+      condition_count: 3
+      condition_ids:
+        - BRG-008-A
+        - BRG-008-B
+        - BRG-008-C
+      run_count: 3
+      run_ids:
+        - BRG-008-A
+        - BRG-008-B
+        - BRG-008-C
+      independent_experiment_count: 1
+      experiment_group_ids:
+        - BRG-008
+      model_count: 1
+      model_ids:
+        - model.novaanimexl_ilv190
+      context_count: 1
+      context_ids:
+        - context.bridge_core_brg008
+    scope:
+      model_scope: single_model
+      context_scope: single_context
+      domain_scope: face
+      generalization_scope: local
+    generalization_status:
+      model_dependency_tested: false
+      context_dependency_tested: false
+    created_by:
+      agent: codex
+      version: research-claim-layer-v3.9.31
+      created_at: 2026-07-15T20:00:00Z
+    promotion:
+      action: attach_evidence
+      status: not_nominated
+      target_id: orientation.head.extended_backward
+      approval_ids: []
+      applications: []
+    notes: Face observation is retained separately from the causal hypothesis.
+
+  - assertion_id: assertion.brg008.head_tilted_back.face_effect.001
+    status: draft
+    subject:
+      kind: phrase_surface
+      phrase: head tilted back
+      locale: en
+      normalized_phrase: head tilted back
+    claim:
+      statement: The unregistered surface phrase remains a staging subject pending explicit mapping review.
+    observed_metrics:
+      - metric: computed_aggregate.axis_counts.gaze_direction.not_visible
+        count: 1
+        total: 6
+        evidence_ref_ids:
+          - evidence.brg008c.gaze_direction.not_visible
+    interpretation_candidates:
+      - interpretation_candidate_id: interpretation.brg008.head_tilted_back.mapping.001
+        label: ambiguous_mapping
+    causal_hypotheses: []
+    evidence_bindings:
+      - evidence_ref_id: evidence.brg008c.gaze_direction.not_visible
+        evidence_role: context_only
+        applies_to: interpretation.brg008.head_tilted_back.mapping.001
+        evidence_quality:
+          coverage: full
+          directness: indirect
+          consistency: medium
+    depends_on:
+      - assertion.brg008.head_back.face_effect.001
+    supersedes: []
+    reproduction:
+      panel_count: 18
+      condition_count: 3
+      condition_ids:
+        - BRG-008-A
+        - BRG-008-B
+        - BRG-008-C
+      run_count: 3
+      run_ids:
+        - BRG-008-A
+        - BRG-008-B
+        - BRG-008-C
+      independent_experiment_count: 1
+      experiment_group_ids:
+        - BRG-008
+      model_count: 1
+      model_ids:
+        - model.novaanimexl_ilv190
+      context_count: 1
+      context_ids:
+        - context.bridge_core_brg008
+    scope:
+      model_scope: single_model
+      context_scope: single_context
+      domain_scope: face
+      generalization_scope: local
+    generalization_status:
+      model_dependency_tested: false
+      context_dependency_tested: false
+    created_by:
+      agent: codex
+      version: research-claim-layer-v3.9.31
+      created_at: 2026-07-15T20:00:00Z
+    promotion:
+      action: no_promotion
+      status: not_nominated
+      approval_ids: []
+      applications: []
