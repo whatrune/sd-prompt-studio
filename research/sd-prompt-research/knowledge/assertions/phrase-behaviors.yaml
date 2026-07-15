@@ -43,7 +43,7 @@ assertions:
       concept_id: support.arm.rearward
       source_phrase: arm support
     claim:
-      statement: In the BRG-007 comparison context, the arm support phrase was observed with reclined_arm_support in five of six BRG-007-B panels.
+      statement: In the BRG-007-B context, arm support phrasing was associated with reclined arm support morphology.
     observed_metrics:
       - metric: computed_aggregate.primary_morphology_counts.reclined_arm_support
         count: 5
@@ -99,9 +99,8 @@ assertions:
       version: research-claim-layer-v3.9.31
       created_at: 2026-07-15T20:00:00Z
     promotion:
-      action: attach_model_behavior
+      action: no_promotion
       status: not_nominated
-      target_id: support.arm.rearward
       approval_ids: []
       applications: []
     notes: Observation, interpretation candidate, and promotion state remain separate.
