@@ -1,0 +1,184 @@
+{
+  "example_version": "0.2.0",
+  "status": "illustrative_mechanical_example",
+  "human_intent": "bridge",
+  "intent_profile_id": "intent.pose.bridge",
+  "intent_profile_expansion": {
+    "required_structural_concepts": [
+      "body.orientation.face_up",
+      "pelvis.elevation.above_surface",
+      "support.foot.weight_bearing",
+      "support.hand.weight_bearing",
+      "torso.arch.strong"
+    ],
+    "preferred_structural_concepts": [
+      "configuration.hand.near_head",
+      "configuration.knee.bent",
+      "contact.foot.sole_surface",
+      "support.elbow.weight_bearing"
+    ],
+    "conflict_concepts": [
+      "body.state.reclined",
+      "contact.head.surface_support",
+      "contact.pelvis.surface",
+      "contact.shoulder.surface_support",
+      "support.arm.rearward"
+    ],
+    "visibility_requirements": [
+      "hands",
+      "feet",
+      "pelvis-surface gap",
+      "torso support geometry"
+    ]
+  },
+  "observed_runs": [
+    {
+      "run_id": "BRG-007-A",
+      "observation_path": "experiments/bridge/BRG-007-A/observation.json",
+      "structural_observations": [
+        "body.state.lying",
+        "body.orientation.face_up"
+      ],
+      "interpretation_observations": ["lying_arch", "lying_pose"],
+      "concept_graph_mapping": {
+        "body_state": "lying",
+        "body_orientation": "face_up",
+        "contacts": [
+          {
+            "body_part": "forearm",
+            "surface": "floor",
+            "load": "unclear"
+          }
+        ],
+        "configurations": {
+          "torso_arch": "mixed_medium_and_weak",
+          "hip_elevation": "unclear"
+        },
+        "observed_patterns": ["lying_arch", "lying_pose"]
+      },
+      "unknown_or_unclear": [
+        "pelvis elevation or contact",
+        "weight-bearing arm support",
+        "head surface contact",
+        "shoulder surface contact"
+      ],
+      "notes": [
+        "The current canonical observation records hip_elevation as unclear in 6/6 panels.",
+        "This example does not replace current evidence with an earlier pelvis-on-surface interpretation."
+      ]
+    },
+    {
+      "run_id": "BRG-007-B",
+      "observation_path": "experiments/bridge/BRG-007-B/observation.json",
+      "structural_observations": [
+        "body.orientation.face_up",
+        "body.state.reclined",
+        "support.arm.rearward"
+      ],
+      "interpretation_observations": ["reclined_arm_support"],
+      "concept_graph_mapping": {
+        "body_state": "reclined",
+        "body_orientation": "face_up",
+        "relations": [
+          {
+            "type": "supports",
+            "source": "hand_or_forearm",
+            "target": "upper_body",
+            "direction": "rearward",
+            "load": "supporting",
+            "responsibility_layer": "interpretation_candidate"
+          }
+        ],
+        "contacts": [
+          {
+            "body_part": "hand_or_forearm",
+            "surface": "floor",
+            "responsibility_layer": "visible_observation"
+          }
+        ],
+        "configurations": {
+          "torso_arch": "medium",
+          "hip_elevation": "unclear"
+        },
+        "observed_patterns": ["reclined_arm_support"],
+        "target_evaluation": {
+          "full_bridge": {
+            "status": "not_matched",
+            "missing_constraints": [
+              "pelvis_elevated",
+              "foot_weight_support",
+              "hand_support_near_head",
+              "back_not_surface_supported"
+            ],
+            "conflicting_evidence": [
+              "rearward_waist_level_hand_support",
+              "reclined_body_state"
+            ],
+            "responsibility_layer": "target_pattern_evaluation"
+          }
+        }
+      },
+      "unknown_or_unclear": [
+        "pelvis elevation or contact",
+        "full hand-to-foot weight-bearing geometry"
+      ],
+      "metrics": {
+        "body_state.reclined": "5/6",
+        "primary_morphology.reclined_arm_support": "5/6",
+        "support_orientation.rear_arm_support": "5/6"
+      }
+    },
+    {
+      "run_id": "BRG-007-C",
+      "observation_path": "experiments/bridge/BRG-007-C/observation.json",
+      "structural_observations": [
+        "body.orientation.face_up",
+        "body.state.lying",
+        "contact.arm.surface"
+      ],
+      "interpretation_observations": ["lying_arch", "lying_pose"],
+      "concept_graph_mapping": {
+        "body_state": "lying",
+        "body_orientation": "face_up",
+        "contacts": [
+          {
+            "body_part": "arm_or_forearm",
+            "surface": "floor",
+            "load": "unclear"
+          }
+        ],
+        "configurations": {
+          "torso_arch": "primarily_weak",
+          "hip_elevation": "unclear"
+        },
+        "observed_patterns": ["lying_pose", "lying_arch"]
+      },
+      "unknown_or_unclear": ["reliable arm weight-bearing load path"],
+      "metrics": {
+        "body_state.lying": "6/6"
+      }
+    }
+  ],
+  "illustrative_target_pattern_match": {
+    "observed_graph_basis": "BRG-007-B",
+    "target_pattern_id": "pattern.pose.full_bridge",
+    "satisfied_required_constraints": ["body.orientation.face_up"],
+    "unsatisfied_or_unverified_required_constraints": [
+      "contact.back.absent",
+      "pelvis.elevation.above_surface",
+      "support.foot.weight_bearing",
+      "support.hand.weight_bearing",
+      "torso.arch.strong"
+    ],
+    "observed_conflict_candidates": [
+      "body.state.reclined",
+      "support.arm.rearward"
+    ],
+    "alternative_pattern_candidate": "pattern.pose.reclined_arm_support",
+    "notes": [
+      "This is a static structure example, not a completed matcher.",
+      "It records observation, interpretation candidate, and working evaluation separately.",
+      "It is not a research conclusion or prompt-success judgment."
+    ]
+  }
+}

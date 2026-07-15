@@ -1,0 +1,62 @@
+summary:
+  overall_visible_pattern:
+    - Six face-up, lying-centered configurations with varied torso arch and crop.
+    - Pelvis, head, and shoulder contact boundaries are obscured by shorts, hair, or shirt fabric.
+  analysis_notes:
+    - Visible evidence only; no Prompt success, Concept Leakage, or research conclusion was assessed.
+    - Contact, load, elevation, and support orientation were not derived from Body State or Morphology.
+leakage: []
+cross_condition_comparison:
+  status: not_performed
+  reason: Research comparison was not performed; Prompt / Concept Leakage is not assessed.
+  observations: []
+panels:
+  1:
+    axis_values: {hip_elevation: unclear, support_orientation: unclear, head_surface_contact: unclear, shoulder_surface_contact: unclear}
+    evidence_notes:
+      - The pelvis is visible, but shorts and shadow obscure the pelvis-to-floor boundary; hip elevation is unclear.
+      - Hair obscures the head contact boundary and the shirt obscures the shoulder boundary; both contacts are unclear.
+      - A hand rests beside the thigh without a directly visible load path; support orientation is unclear.
+    confidence: medium
+  2:
+    axis_values: {hip_elevation: unclear, support_orientation: unclear, head_surface_contact: unclear, shoulder_surface_contact: unclear}
+    evidence_notes:
+      - Shorts obscure the pelvis-to-floor boundary, so no visible pelvis gap or direct pelvis contact can be confirmed.
+      - Hair and shirt fabric obscure the direct head and shoulder contact boundaries.
+      - The left hand and forearm visibly contact the surface, but their load contribution and overall support orientation are unclear.
+    confidence: medium
+  3:
+    axis_values: {hip_elevation: unclear, support_orientation: unclear, head_surface_contact: unclear, shoulder_surface_contact: unclear}
+    evidence_notes:
+      - The close crop and shorts obscure the pelvis-to-floor boundary; hip elevation is unclear.
+      - Hair, shirt fabric, and the crop obscure direct head and shoulder contact boundaries.
+      - Hands, forearms, lower legs, and feet are out of frame, so support orientation cannot be confirmed.
+    confidence: low
+  4:
+    axis_values: {hip_elevation: unclear, support_orientation: unclear, head_surface_contact: unclear, shoulder_surface_contact: unclear}
+    evidence_notes:
+      - Shorts and camera angle obscure the pelvis-to-floor boundary; hip elevation is unclear.
+      - Hair and shirt fabric obscure the direct head and shoulder contact boundaries.
+      - One forearm visibly contacts the surface, but hands and feet are cropped and the load path is unclear.
+    confidence: low
+  5:
+    axis_values: {hip_elevation: unclear, support_orientation: unclear, head_surface_contact: unclear, shoulder_surface_contact: unclear}
+    evidence_notes:
+      - Shorts and the overlapping shirt obscure the pelvis-to-floor boundary; hip elevation is unclear.
+      - Hair and shirt fabric obscure direct head and shoulder contact boundaries.
+      - One hand, forearm, and foot visibly contact the surface, but the complete load path and support orientation are unclear.
+    confidence: medium
+  6:
+    axis_values: {hip_elevation: unclear, support_orientation: unclear, head_surface_contact: unclear, shoulder_surface_contact: unclear}
+    evidence_notes:
+      - Shorts and shirt overlap obscure the pelvis-to-floor boundary; hip elevation is unclear.
+      - Hair and clothing obscure direct head and shoulder contact boundaries.
+      - Both arms visibly contact the surface, but cropped feet prevent confirmation of the overall support orientation.
+    confidence: medium
+uncertain:
+  - {panel_id: 1, field: hip_elevation/head_surface_contact/shoulder_surface_contact/support_orientation, reason: "Clothing, hair, and shadow obscure the required direct boundaries and load path."}
+  - {panel_id: 2, field: hip_elevation/head_surface_contact/shoulder_surface_contact/support_orientation, reason: "Clothing and hair obscure direct boundaries; arm contact does not establish the overall load path."}
+  - {panel_id: 3, field: hip_elevation/head_surface_contact/shoulder_surface_contact/support_orientation, reason: "Close crop and occlusion hide the required boundaries and support evidence."}
+  - {panel_id: 4, field: hip_elevation/head_surface_contact/shoulder_surface_contact/support_orientation, reason: "Clothing and crop obscure direct boundaries and complete support evidence."}
+  - {panel_id: 5, field: hip_elevation/head_surface_contact/shoulder_surface_contact/support_orientation, reason: "Clothing and hair obscure direct boundaries; only partial support evidence is visible."}
+  - {panel_id: 6, field: hip_elevation/head_surface_contact/shoulder_surface_contact/support_orientation, reason: "Clothing, hair, and crop prevent direct confirmation."}

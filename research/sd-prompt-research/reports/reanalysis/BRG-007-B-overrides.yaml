@@ -1,0 +1,65 @@
+summary:
+  overall_visible_pattern:
+    - One lying/arched panel followed by five reclined configurations with visible rear arm support.
+    - No directly visible pelvis-to-floor gap is available because shorts obscure the boundary.
+  analysis_notes:
+    - Visible evidence only; Prompt text was not used as contact, load, elevation, or support evidence.
+    - Prompt / Concept Leakage was not assessed.
+leakage: []
+cross_condition_comparison:
+  status: not_performed
+  reason: Research comparison was not performed; Prompt / Concept Leakage is not assessed.
+  observations: []
+panels:
+  1:
+    axis_values: {hip_elevation: unclear, support_orientation: unclear, head_surface_contact: unclear, shoulder_surface_contact: unclear}
+    evidence_notes:
+      - Shorts obscure the pelvis-to-floor boundary, so hip elevation is unclear.
+      - Hair and shirt fabric obscure direct head and shoulder contact boundaries.
+      - The right hand visibly contacts the surface, but a complete stabilizing load path is not directly visible; support orientation is unclear.
+    confidence: medium
+  2:
+    axis_values: {hip_elevation: unclear, support_orientation: rear_arm_support, head_surface_contact: absent, shoulder_surface_contact: absent}
+    contact_load: {left_hand: unclear, right_hand: light, left_forearm: unclear, right_forearm: supporting}
+    evidence_notes:
+      - Shorts obscure the pelvis-to-floor boundary and no directly visible pelvis gap is present; hip elevation is unclear.
+      - Directly visible separation places the head and shoulders above the surface.
+      - The directly visible right forearm forms the rear-arm load path and supports the raised upper torso; the right hand has visible contact but only light contribution.
+    confidence: medium
+  3:
+    axis_values: {hip_elevation: unclear, support_orientation: rear_arm_support, head_surface_contact: absent, shoulder_surface_contact: absent, right_hand_surface_contact: unclear}
+    contact_load: {left_hand: unclear, right_hand: unclear, left_forearm: unclear, right_forearm: supporting}
+    evidence_notes:
+      - Shorts obscure the pelvis-to-floor boundary and no directly visible pelvis gap is present; hip elevation is unclear.
+      - Directly visible separation places the head and shoulders above the surface.
+      - The directly visible right forearm forms the rear-arm load path and supports the raised upper torso; the hand contact boundary is unclear.
+    confidence: medium
+  4:
+    axis_values: {hip_elevation: unclear, support_orientation: rear_arm_support, head_surface_contact: absent, shoulder_surface_contact: absent, left_hand_surface_contact: unclear}
+    contact_load: {left_hand: unclear, right_hand: unclear, left_forearm: supporting, right_forearm: unclear}
+    evidence_notes:
+      - Shorts obscure the pelvis-to-floor boundary and no directly visible pelvis gap is present; hip elevation is unclear.
+      - Directly visible separation places the head and shoulders above the surface.
+      - The directly visible left forearm forms the rear-arm load path and supports the raised upper torso; the hand contact boundary is unclear.
+    confidence: medium
+  5:
+    axis_values: {hip_elevation: unclear, support_orientation: rear_arm_support, head_surface_contact: absent, shoulder_surface_contact: absent}
+    evidence_notes:
+      - Shorts obscure the pelvis-to-floor boundary and no directly visible pelvis gap is present; hip elevation is unclear.
+      - Directly visible separation places the head and shoulders above the surface.
+      - Both directly visible hands form rear-arm load paths and support the raised upper torso through nearly straight arms.
+    confidence: high
+  6:
+    axis_values: {hip_elevation: unclear, support_orientation: rear_arm_support, head_surface_contact: absent, shoulder_surface_contact: absent}
+    evidence_notes:
+      - Shorts obscure the pelvis-to-floor boundary and no directly visible pelvis gap is present; hip elevation is unclear.
+      - Directly visible separation places the head and shoulders above the surface.
+      - Both directly visible hands form rear-arm load paths and support the raised upper torso through straight arms.
+    confidence: high
+uncertain:
+  - {panel_id: 1, field: hip_elevation/head_surface_contact/shoulder_surface_contact/support_orientation, reason: "Clothing and hair obscure direct boundaries and the complete load path is not visible."}
+  - {panel_id: 2, field: hip_elevation/opposite_arm_and_feet, reason: "Pelvis boundary is obscured and the opposite arm and feet are cropped."}
+  - {panel_id: 3, field: hip_elevation/right_hand_surface_contact/opposite_arm_and_feet, reason: "Pelvis and hand boundaries are unclear and the opposite support side is cropped."}
+  - {panel_id: 4, field: hip_elevation/left_hand_surface_contact/opposite_arm_and_feet, reason: "Pelvis and hand boundaries are unclear and the opposite support side is cropped."}
+  - {panel_id: 5, field: hip_elevation/feet, reason: "Pelvis boundary is obscured and both feet are outside the frame."}
+  - {panel_id: 6, field: hip_elevation/feet, reason: "Pelvis boundary is obscured and both feet are cropped."}

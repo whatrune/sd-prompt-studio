@@ -1,0 +1,1715 @@
+{
+  "schema_version": "0.2.0",
+  "graph_version": "0.2.0",
+  "generated_at": "2026-07-15T14:07:41Z",
+  "source_files": [
+    "concepts/physical-concepts.json",
+    "concepts/relations.json",
+    "concepts/semantic-concepts.json",
+    "concepts/target-patterns.json",
+    "concepts/unmodeled-effects.json"
+  ],
+  "concepts": [
+    {
+      "concept_id": "activity.dancing",
+      "label": "Dancing activity",
+      "module": "semantic_role",
+      "concept_type": "activity",
+      "human_meaning": "The entity is dancing.",
+      "status": "draft"
+    },
+    {
+      "concept_id": "activity.examining",
+      "label": "Examining activity",
+      "module": "semantic_role",
+      "concept_type": "activity",
+      "human_meaning": "The entity is examining a subject or patient.",
+      "status": "draft"
+    },
+    {
+      "concept_id": "anatomy.ear.pointed",
+      "label": "Pointed ears",
+      "module": "entity_identity",
+      "concept_type": "body_part_configuration",
+      "human_meaning": "The visible ears have pointed tips.",
+      "status": "draft"
+    },
+    {
+      "concept_id": "anatomy.ear.rounded_human",
+      "label": "Rounded human ears",
+      "module": "entity_identity",
+      "concept_type": "body_part_configuration",
+      "human_meaning": "The ears use a conventional rounded human form.",
+      "status": "draft"
+    },
+    {
+      "concept_id": "anatomy.lower_body.mermaid_tail",
+      "label": "Mermaid lower body",
+      "module": "entity_identity",
+      "concept_type": "body_part_configuration",
+      "human_meaning": "The lower body is transformed into a mermaid tail.",
+      "status": "draft"
+    },
+    {
+      "concept_id": "body.orientation.face_up",
+      "label": "Face-up orientation",
+      "aliases": [
+        "face up",
+        "supine orientation"
+      ],
+      "module": "physical",
+      "concept_type": "body_orientation",
+      "human_meaning": "The front of the body is oriented upward.",
+      "scope": [
+        "body"
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "body.proportion.slender",
+      "label": "Slender proportions",
+      "module": "entity_identity",
+      "concept_type": "body_part_configuration",
+      "human_meaning": "The body has slender proportions.",
+      "status": "draft"
+    },
+    {
+      "concept_id": "body.state.lying",
+      "label": "Lying body state",
+      "aliases": [
+        "lying",
+        "lying down"
+      ],
+      "module": "physical",
+      "concept_type": "body_state",
+      "human_meaning": "The body is primarily in a lying state.",
+      "scope": [
+        "body"
+      ],
+      "evidence_refs": [
+        {
+          "evidence_ref_id": "evidence.brg007a.lying",
+          "run_id": "BRG-007-A",
+          "observation_path": "experiments/bridge/BRG-007-A/observation.json",
+          "research_packet_path": "reports/BRG-007_research-packet.pdf",
+          "metric": "computed_aggregate.axis_counts.body_state.lying",
+          "count": 6,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "body.state.reclined",
+      "label": "Reclined body state",
+      "aliases": [
+        "reclined"
+      ],
+      "module": "physical",
+      "concept_type": "body_state",
+      "human_meaning": "The torso is leaned back while remaining partly elevated.",
+      "scope": [
+        "body",
+        "upper_torso"
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "clothing.lower.black_shorts",
+      "label": "Black shorts",
+      "aliases": [
+        "black shorts"
+      ],
+      "module": "clothing",
+      "concept_type": "clothing",
+      "human_meaning": "Black shorts used as part of the fixed research control context.",
+      "scope": [
+        "pelvis",
+        "upper_legs"
+      ],
+      "clothing_properties": {
+        "intrinsic": {
+          "garment_type": "shorts",
+          "fit": "unspecified",
+          "length": "short",
+          "covered_regions": [
+            "pelvis",
+            "upper legs"
+          ]
+        },
+        "visibility_effects": [],
+        "generative_effects": []
+      },
+      "status": "draft"
+    },
+    {
+      "concept_id": "clothing.outer.white_coat",
+      "label": "White coat",
+      "module": "clothing",
+      "concept_type": "clothing",
+      "human_meaning": "A white outer coat.",
+      "clothing_properties": {
+        "intrinsic": {
+          "garment_type": "coat",
+          "fit": "unspecified",
+          "length": "unspecified",
+          "covered_regions": [
+            "torso"
+          ]
+        },
+        "visibility_effects": [],
+        "generative_effects": []
+      },
+      "status": "draft"
+    },
+    {
+      "concept_id": "clothing.style.fantasy",
+      "label": "Fantasy clothing style",
+      "module": "clothing",
+      "concept_type": "clothing",
+      "human_meaning": "Clothing with a fantasy-world visual style.",
+      "clothing_properties": {
+        "intrinsic": {
+          "garment_type": "style package"
+        },
+        "visibility_effects": [],
+        "generative_effects": []
+      },
+      "status": "draft"
+    },
+    {
+      "concept_id": "clothing.upper.oversized_white_tshirt",
+      "label": "Plain oversized white T-shirt",
+      "aliases": [
+        "oversized white t-shirt",
+        "plain oversized white t-shirt"
+      ],
+      "module": "clothing",
+      "concept_type": "clothing",
+      "human_meaning": "A plain, loose, oversized white T-shirt.",
+      "scope": [
+        "upper_body",
+        "abdomen",
+        "pelvis"
+      ],
+      "clothing_properties": {
+        "intrinsic": {
+          "garment_type": "t-shirt",
+          "fit": "oversized and loose",
+          "length": "potentially hip-covering",
+          "material_behavior": [
+            "soft drape"
+          ],
+          "covered_regions": [
+            "torso",
+            "abdomen",
+            "pelvis boundary"
+          ]
+        },
+        "visibility_effects": [
+          {
+            "target": "pelvis-surface boundary",
+            "effect": "May obscure the boundary needed to assess pelvis elevation or contact.",
+            "status": "provisional",
+            "confidence": "medium",
+            "evidence_status": "provisional",
+            "evidence_refs": [
+              {
+                "evidence_ref_id": "evidence.brg007b.hip_unclear",
+                "run_id": "BRG-007-B",
+                "observation_path": "experiments/bridge/BRG-007-B/observation.json",
+                "research_packet_path": "reports/BRG-007_research-packet.pdf",
+                "metric": "computed_aggregate.axis_counts.hip_elevation.unclear",
+                "count": 6,
+                "total": 6,
+                "confidence": "high",
+                "storage": "local"
+              }
+            ]
+          }
+        ],
+        "generative_effects": []
+      },
+      "status": "provisional",
+      "notes": [
+        "No casual, reclined, athletic, or artifact prior is asserted without dedicated evidence."
+      ]
+    },
+    {
+      "concept_id": "configuration.hand.near_head",
+      "label": "Hands near head",
+      "module": "physical",
+      "concept_type": "body_part_configuration",
+      "human_meaning": "One or both hands are positioned near the head side.",
+      "scope": [
+        "hands",
+        "head"
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "configuration.knee.bent",
+      "label": "Bent knees",
+      "module": "physical",
+      "concept_type": "body_part_configuration",
+      "human_meaning": "The knees are visibly flexed.",
+      "scope": [
+        "knees",
+        "legs"
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "contact.arm.surface",
+      "label": "Arm surface contact",
+      "module": "physical",
+      "concept_type": "contact",
+      "human_meaning": "An arm or forearm visibly contacts the surface without asserting a load path.",
+      "scope": [
+        "arms",
+        "forearms"
+      ],
+      "evidence_refs": [
+        {
+          "evidence_ref_id": "evidence.brg007c.arm_surface_contact",
+          "run_id": "BRG-007-C",
+          "observation_path": "experiments/bridge/BRG-007-C/observation.json",
+          "research_packet_path": "reports/BRG-007_research-packet.pdf",
+          "metric": "computed_aggregate.axis_counts.left_forearm_surface_contact",
+          "confidence": "medium",
+          "storage": "local",
+          "notes": [
+            "Right forearm and arm contact remain available in adjacent aggregate axes; no load is inferred."
+          ]
+        }
+      ],
+      "status": "provisional",
+      "notes": [
+        "Surface contact does not imply weight-bearing support."
+      ]
+    },
+    {
+      "concept_id": "contact.back.absent",
+      "label": "Back not surface-supported",
+      "module": "physical",
+      "concept_type": "contact",
+      "human_meaning": "The back is visibly separated from the supporting surface.",
+      "scope": [
+        "back",
+        "surface"
+      ],
+      "visibility_requirements": [
+        {
+          "region": "back-surface boundary",
+          "requirement": "evidence",
+          "strength": "high",
+          "notes": "Do not infer separation from body state alone."
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "contact.foot.sole_surface",
+      "label": "Soles contacting surface",
+      "module": "physical",
+      "concept_type": "contact",
+      "human_meaning": "The soles visibly contact the supporting surface.",
+      "scope": [
+        "feet",
+        "surface"
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "contact.head.surface_support",
+      "label": "Head surface support",
+      "module": "physical",
+      "concept_type": "contact",
+      "human_meaning": "The head visibly receives support from the surface.",
+      "scope": [
+        "head",
+        "surface"
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "contact.pelvis.surface",
+      "label": "Pelvis surface contact",
+      "module": "physical",
+      "concept_type": "contact",
+      "human_meaning": "A visible boundary establishes that the pelvis contacts the surface.",
+      "scope": [
+        "pelvis",
+        "surface"
+      ],
+      "visibility_requirements": [
+        {
+          "region": "pelvis-surface boundary",
+          "requirement": "must_be_unobscured",
+          "strength": "high"
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "contact.shoulder.surface_support",
+      "label": "Shoulder surface support",
+      "module": "physical",
+      "concept_type": "contact",
+      "human_meaning": "One or both shoulders visibly receive support from the surface.",
+      "scope": [
+        "shoulders",
+        "surface"
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "environment.forest",
+      "label": "Forest environment",
+      "module": "environment",
+      "concept_type": "environment",
+      "human_meaning": "A forest setting.",
+      "status": "draft"
+    },
+    {
+      "concept_id": "environment.medical",
+      "label": "Medical environment",
+      "module": "environment",
+      "concept_type": "environment",
+      "human_meaning": "A medical setting such as a clinic or hospital.",
+      "status": "draft"
+    },
+    {
+      "concept_id": "face.expression.professional",
+      "label": "Professional expression",
+      "module": "face",
+      "concept_type": "expression",
+      "human_meaning": "An expression conventionally associated with professional composure.",
+      "scope": [
+        "face"
+      ],
+      "status": "draft"
+    },
+    {
+      "concept_id": "face.expression.semantic_shift",
+      "label": "Expression semantic shift",
+      "module": "face",
+      "concept_type": "effect",
+      "human_meaning": "The perceived expression changes beyond the source phrase's primary physical scope.",
+      "scope": [
+        "face"
+      ],
+      "status": "draft"
+    },
+    {
+      "concept_id": "face.eyelid.partially_closed",
+      "label": "Partially closed eyelids",
+      "module": "face",
+      "concept_type": "expression",
+      "human_meaning": "The eyelids are visibly partly closed.",
+      "scope": [
+        "eyes"
+      ],
+      "status": "draft"
+    },
+    {
+      "concept_id": "face.gaze.upward",
+      "label": "Upward gaze",
+      "module": "face",
+      "concept_type": "gaze",
+      "human_meaning": "The eyes visibly look upward.",
+      "scope": [
+        "eyes"
+      ],
+      "status": "draft"
+    },
+    {
+      "concept_id": "face.mouth.open",
+      "label": "Open mouth",
+      "module": "face",
+      "concept_type": "expression",
+      "human_meaning": "The mouth is visibly open.",
+      "scope": [
+        "mouth"
+      ],
+      "status": "draft"
+    },
+    {
+      "concept_id": "hair.long",
+      "label": "Long hair",
+      "aliases": [
+        "long hair"
+      ],
+      "module": "hair",
+      "concept_type": "hair",
+      "human_meaning": "Hair long enough to overlap the neck, shoulders, or nearby hands depending on pose and camera.",
+      "scope": [
+        "hair",
+        "head",
+        "neck",
+        "shoulders"
+      ],
+      "hair_properties": {
+        "intrinsic": {
+          "length": "long",
+          "material_behavior": [
+            "drape",
+            "overlap"
+          ],
+          "covered_regions": [
+            "neck",
+            "shoulders"
+          ]
+        },
+        "visibility_effects": [
+          {
+            "target": "visibility.neck",
+            "effect": "Possible reduction in visible neck boundaries.",
+            "status": "draft",
+            "confidence": "low",
+            "evidence_status": "unconfirmed"
+          },
+          {
+            "target": "visibility.shoulder_contact_boundary",
+            "effect": "Possible reduction in shoulder-to-surface contact visibility.",
+            "status": "draft",
+            "confidence": "low",
+            "evidence_status": "unconfirmed"
+          },
+          {
+            "target": "visibility.hand_near_head_contact",
+            "effect": "Possible ambiguity where hands, hair, and the head overlap.",
+            "status": "draft",
+            "confidence": "low",
+            "evidence_status": "unconfirmed"
+          }
+        ],
+        "generative_effects": []
+      },
+      "status": "draft",
+      "notes": [
+        "Visibility effects are design candidates and have no BRG-007 evidence assignment."
+      ]
+    },
+    {
+      "concept_id": "object.stethoscope",
+      "label": "Stethoscope",
+      "module": "objects",
+      "concept_type": "object",
+      "human_meaning": "A stethoscope object.",
+      "status": "draft"
+    },
+    {
+      "concept_id": "orientation.head.extended_backward",
+      "label": "Head extended backward",
+      "aliases": [
+        "head back",
+        "head tilted backward"
+      ],
+      "module": "physical",
+      "concept_type": "body_part_configuration",
+      "human_meaning": "The head is extended backward through the neck.",
+      "role": "head and neck orientation instruction",
+      "scope": [
+        "head",
+        "neck"
+      ],
+      "secondary_effects": [
+        "face.eyelid.partially_closed",
+        "face.expression.semantic_shift",
+        "face.gaze.upward",
+        "face.mouth.open"
+      ],
+      "stability": "unknown",
+      "context_dependency": "high",
+      "status": "provisional",
+      "notes": [
+        "Primary physical meaning is neck extension and chin elevation.",
+        "Face effects are candidates, not Bridge research conclusions."
+      ]
+    },
+    {
+      "concept_id": "pelvis.elevation.above_surface",
+      "label": "Pelvis elevated above surface",
+      "module": "physical",
+      "concept_type": "spatial_relation",
+      "human_meaning": "A visible gap separates the pelvis from the supporting surface.",
+      "scope": [
+        "pelvis",
+        "surface"
+      ],
+      "visibility_requirements": [
+        {
+          "region": "pelvis-surface gap",
+          "requirement": "must_be_unobscured",
+          "strength": "high",
+          "notes": "Upper-torso elevation is not evidence for pelvis elevation."
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "phrase.arms_supporting_body",
+      "label": "Arms supporting body phrase",
+      "aliases": [
+        "arms supporting body"
+      ],
+      "module": "relations",
+      "concept_type": "unresolved_relational_phrase",
+      "human_meaning": "Both arms support the body.",
+      "observed_model_behavior": "In the current Bridge Core context, arm or forearm floor contact appears, but reliable weight-bearing support is not stable.",
+      "role": "unresolved relational instruction",
+      "scope": [
+        "arms",
+        "body"
+      ],
+      "stability": "low",
+      "context_dependency": "high",
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "BRG-007-C remained lying in 6/6 panels; visible arm contact did not establish a reliable load path.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.brg007c.lying",
+              "run_id": "BRG-007-C",
+              "observation_path": "experiments/bridge/BRG-007-C/observation.json",
+              "research_packet_path": "reports/BRG-007_research-packet.pdf",
+              "metric": "computed_aggregate.axis_counts.body_state.lying",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "role.activity.dancer",
+      "label": "Dancer role",
+      "module": "semantic_role",
+      "concept_type": "semantic_role",
+      "human_meaning": "The entity has the activity role of dancer.",
+      "role_package": {
+        "category": "activity_role"
+      },
+      "status": "draft"
+    },
+    {
+      "concept_id": "role.narrative.warrior",
+      "label": "Warrior role",
+      "module": "semantic_role",
+      "concept_type": "semantic_role",
+      "human_meaning": "The entity occupies a warrior narrative role.",
+      "role_package": {
+        "category": "narrative_role"
+      },
+      "status": "draft"
+    },
+    {
+      "concept_id": "role.occupation.doctor",
+      "label": "Doctor role",
+      "aliases": [
+        "doctor"
+      ],
+      "module": "semantic_role",
+      "concept_type": "semantic_role",
+      "human_meaning": "The entity has the occupation of doctor.",
+      "role": "semantic role package; not a clothing concept",
+      "role_package": {
+        "category": "occupation"
+      },
+      "status": "draft"
+    },
+    {
+      "concept_id": "role.rank.queen",
+      "label": "Queen rank",
+      "module": "semantic_role",
+      "concept_type": "semantic_role",
+      "human_meaning": "The entity holds the rank of queen.",
+      "role_package": {
+        "category": "rank"
+      },
+      "status": "draft"
+    },
+    {
+      "concept_id": "role.situational.patient",
+      "label": "Patient role",
+      "module": "semantic_role",
+      "concept_type": "semantic_role",
+      "human_meaning": "The entity occupies the situational role of patient.",
+      "role_package": {
+        "category": "situational_role"
+      },
+      "status": "draft"
+    },
+    {
+      "concept_id": "species.elf",
+      "label": "Elf species",
+      "aliases": [
+        "elf"
+      ],
+      "module": "entity_identity",
+      "concept_type": "species",
+      "human_meaning": "The entity is an elf rather than a human with a decorative tag.",
+      "entity_type": "species",
+      "morphology_strength": "weak",
+      "required_constraints": [
+        "anatomy.ear.pointed"
+      ],
+      "optional_priors": [
+        "body.proportion.slender",
+        "clothing.style.fantasy",
+        "environment.forest"
+      ],
+      "conflicts": [
+        "anatomy.ear.rounded_human"
+      ],
+      "visibility_requirements": [
+        {
+          "region": "ears",
+          "requirement": "required",
+          "strength": "high",
+          "notes": "Species evidence requires the defining ear morphology to be visible."
+        }
+      ],
+      "status": "draft"
+    },
+    {
+      "concept_id": "species.mermaid",
+      "label": "Mermaid species",
+      "aliases": [
+        "mermaid"
+      ],
+      "module": "entity_identity",
+      "concept_type": "species",
+      "human_meaning": "The entity has mermaid anatomy.",
+      "entity_type": "species",
+      "morphology_strength": "transformative",
+      "required_constraints": [
+        "anatomy.lower_body.mermaid_tail"
+      ],
+      "optional_priors": [],
+      "visibility_requirements": [
+        {
+          "region": "lower body",
+          "requirement": "required",
+          "strength": "high"
+        }
+      ],
+      "status": "draft"
+    },
+    {
+      "concept_id": "support.arm.rearward",
+      "label": "Rearward arm support",
+      "aliases": [
+        "arm support",
+        "rear arm support"
+      ],
+      "module": "relations",
+      "concept_type": "support_relation",
+      "human_meaning": "The arms support the body.",
+      "observed_model_behavior": "In the current Bridge Core context, hands move behind the waist or torso and the upper body transitions toward a reclined posture.",
+      "role": "state-transitioning support instruction",
+      "scope": [
+        "hands",
+        "arms",
+        "upper_torso"
+      ],
+      "state_affinity": {
+        "reclined": "high"
+      },
+      "secondary_effects": [
+        "orientation.head.extended_backward"
+      ],
+      "stability": "medium",
+      "context_dependency": "high",
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "BRG-007-B produced reclined_arm_support in 5/6 panels.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.brg007b.reclined_arm_support",
+              "run_id": "BRG-007-B",
+              "observation_path": "experiments/bridge/BRG-007-B/observation.json",
+              "research_packet_path": "reports/BRG-007_research-packet.pdf",
+              "metric": "computed_aggregate.primary_morphology_counts.reclined_arm_support",
+              "count": 5,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        }
+      ],
+      "evidence_regions": [
+        "hands",
+        "arms",
+        "upper_torso"
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "support.elbow.weight_bearing",
+      "label": "Elbow weight-bearing support",
+      "module": "relations",
+      "concept_type": "contact_load",
+      "human_meaning": "A visible load path shows the elbow bearing body weight.",
+      "scope": [
+        "elbows"
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "support.foot.weight_bearing",
+      "label": "Foot weight-bearing support",
+      "module": "relations",
+      "concept_type": "contact_load",
+      "human_meaning": "A visible load path shows one or both feet bearing body weight.",
+      "scope": [
+        "feet"
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "support.hand.weight_bearing",
+      "label": "Hand weight-bearing support",
+      "module": "relations",
+      "concept_type": "contact_load",
+      "human_meaning": "A visible load path shows one or both hands bearing body weight.",
+      "scope": [
+        "hands"
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "torso.arch.strong",
+      "label": "Strong torso arch",
+      "module": "physical",
+      "concept_type": "body_part_configuration",
+      "human_meaning": "The torso forms a strong visible arch.",
+      "scope": [
+        "torso"
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "visibility.hand_near_head_contact",
+      "label": "Hand-near-head contact visibility",
+      "module": "physical",
+      "concept_type": "visibility",
+      "human_meaning": "Hands, hair, head, and contact boundaries are visible enough to distinguish their relationships.",
+      "scope": [
+        "hands",
+        "hair",
+        "head"
+      ],
+      "status": "draft"
+    },
+    {
+      "concept_id": "visibility.neck",
+      "label": "Neck visibility",
+      "module": "physical",
+      "concept_type": "visibility",
+      "human_meaning": "The neck boundary is visible enough for direct structural observation.",
+      "scope": [
+        "neck"
+      ],
+      "status": "draft"
+    },
+    {
+      "concept_id": "visibility.pelvis_boundary",
+      "label": "Pelvis boundary visibility",
+      "module": "physical",
+      "concept_type": "visibility",
+      "human_meaning": "The pelvis and its boundary with the supporting surface are visible enough for direct assessment.",
+      "scope": [
+        "pelvis",
+        "surface"
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "visibility.shoulder_contact_boundary",
+      "label": "Shoulder contact boundary visibility",
+      "module": "physical",
+      "concept_type": "visibility",
+      "human_meaning": "The shoulder-to-surface contact boundary is directly visible.",
+      "scope": [
+        "shoulders",
+        "surface"
+      ],
+      "status": "draft"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "relation.doctor.biases.examining",
+      "relation_type": "biases",
+      "source_concept_id": "role.occupation.doctor",
+      "target_concept_id": "activity.examining",
+      "direction": "directed",
+      "strength": "medium",
+      "confidence": "low",
+      "context": "Optional semantic-role prior, not a required property of every doctor depiction.",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.doctor.biases.medical_environment",
+      "relation_type": "biases",
+      "source_concept_id": "role.occupation.doctor",
+      "target_concept_id": "environment.medical",
+      "direction": "directed",
+      "strength": "medium",
+      "confidence": "low",
+      "context": "Optional role package edge.",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.doctor.biases.professional_expression",
+      "relation_type": "biases",
+      "source_concept_id": "role.occupation.doctor",
+      "target_concept_id": "face.expression.professional",
+      "direction": "directed",
+      "strength": "low",
+      "confidence": "low",
+      "context": "Optional role package edge.",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.doctor.biases.stethoscope",
+      "relation_type": "biases",
+      "source_concept_id": "role.occupation.doctor",
+      "target_concept_id": "object.stethoscope",
+      "direction": "directed",
+      "strength": "medium",
+      "confidence": "low",
+      "context": "Optional role package edge; a stethoscope is not the role itself.",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.doctor.biases.white_coat",
+      "relation_type": "biases",
+      "source_concept_id": "role.occupation.doctor",
+      "target_concept_id": "clothing.outer.white_coat",
+      "direction": "directed",
+      "strength": "medium",
+      "confidence": "low",
+      "context": "Optional role package edge; clothing remains an independent concept.",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.elf.biases.fantasy_clothing",
+      "relation_type": "biases",
+      "source_concept_id": "species.elf",
+      "target_concept_id": "clothing.style.fantasy",
+      "direction": "directed",
+      "strength": "low",
+      "confidence": "low",
+      "context": "Optional prior only.",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.elf.biases.forest",
+      "relation_type": "biases",
+      "source_concept_id": "species.elf",
+      "target_concept_id": "environment.forest",
+      "direction": "directed",
+      "strength": "low",
+      "confidence": "low",
+      "context": "Optional prior only.",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.elf.biases.slender",
+      "relation_type": "biases",
+      "source_concept_id": "species.elf",
+      "target_concept_id": "body.proportion.slender",
+      "direction": "directed",
+      "strength": "low",
+      "confidence": "low",
+      "context": "Optional morphology prior; not a species requirement.",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.elf.conflicts.rounded_ears",
+      "relation_type": "conflicts_with",
+      "source_concept_id": "species.elf",
+      "target_concept_id": "anatomy.ear.rounded_human",
+      "direction": "symmetric",
+      "strength": "high",
+      "confidence": "medium",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.elf.requires.pointed_ears",
+      "relation_type": "requires",
+      "source_concept_id": "species.elf",
+      "target_concept_id": "anatomy.ear.pointed",
+      "direction": "directed",
+      "strength": "high",
+      "confidence": "medium",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.head_extension.may_trigger.expression_shift",
+      "relation_type": "may_trigger",
+      "source_concept_id": "orientation.head.extended_backward",
+      "target_concept_id": "face.expression.semantic_shift",
+      "direction": "directed",
+      "strength": "low",
+      "confidence": "low",
+      "context": "Cross-domain candidate only.",
+      "status": "provisional"
+    },
+    {
+      "relation_id": "relation.head_extension.may_trigger.eyelid",
+      "relation_type": "may_trigger",
+      "source_concept_id": "orientation.head.extended_backward",
+      "target_concept_id": "face.eyelid.partially_closed",
+      "direction": "directed",
+      "strength": "low",
+      "confidence": "low",
+      "context": "Cross-domain candidate only; Bridge evidence does not establish this facial effect.",
+      "status": "provisional"
+    },
+    {
+      "relation_id": "relation.head_extension.may_trigger.mouth_open",
+      "relation_type": "may_trigger",
+      "source_concept_id": "orientation.head.extended_backward",
+      "target_concept_id": "face.mouth.open",
+      "direction": "directed",
+      "strength": "low",
+      "confidence": "low",
+      "context": "Cross-domain candidate only.",
+      "status": "provisional"
+    },
+    {
+      "relation_id": "relation.head_extension.may_trigger.upward_gaze",
+      "relation_type": "may_trigger",
+      "source_concept_id": "orientation.head.extended_backward",
+      "target_concept_id": "face.gaze.upward",
+      "direction": "directed",
+      "strength": "low",
+      "confidence": "low",
+      "context": "Cross-domain candidate only.",
+      "status": "provisional"
+    },
+    {
+      "relation_id": "relation.mermaid.requires.tail",
+      "relation_type": "requires",
+      "source_concept_id": "species.mermaid",
+      "target_concept_id": "anatomy.lower_body.mermaid_tail",
+      "direction": "directed",
+      "strength": "high",
+      "confidence": "high",
+      "status": "draft"
+    },
+    {
+      "relation_id": "relation.oversized_tshirt.obscures.pelvis_boundary",
+      "relation_type": "obscures",
+      "source_concept_id": "clothing.upper.oversized_white_tshirt",
+      "target_concept_id": "visibility.pelvis_boundary",
+      "direction": "directed",
+      "strength": "medium",
+      "confidence": "medium",
+      "context": "Visibility effect, distinct from any pose or support interpretation.",
+      "evidence_refs": [
+        {
+          "evidence_ref_id": "evidence.brg007b.hip_unclear",
+          "run_id": "BRG-007-B",
+          "observation_path": "experiments/bridge/BRG-007-B/observation.json",
+          "research_packet_path": "reports/BRG-007_research-packet.pdf",
+          "metric": "computed_aggregate.axis_counts.hip_elevation.unclear",
+          "count": 6,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "relation_id": "relation.rear_arm_support.biases.reclined",
+      "relation_type": "biases",
+      "source_concept_id": "support.arm.rearward",
+      "target_concept_id": "body.state.reclined",
+      "direction": "directed",
+      "strength": "high",
+      "confidence": "high",
+      "context": "Observed in the current Bridge Core and model profile; not universal semantics.",
+      "model_profile": "model.novaanimexl_ilv190",
+      "evidence_refs": [
+        {
+          "evidence_ref_id": "evidence.brg007b.reclined_arm_support",
+          "run_id": "BRG-007-B",
+          "observation_path": "experiments/bridge/BRG-007-B/observation.json",
+          "research_packet_path": "reports/BRG-007_research-packet.pdf",
+          "metric": "computed_aggregate.primary_morphology_counts.reclined_arm_support",
+          "count": 5,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "relation_id": "relation.rear_arm_support.observed_as.reclined_pattern",
+      "relation_type": "observed_as",
+      "source_concept_id": "support.arm.rearward",
+      "target_concept_id": "pattern.pose.reclined_arm_support",
+      "direction": "directed",
+      "strength": "high",
+      "confidence": "high",
+      "context": "Interpretation edge; it does not redefine the structural support concept.",
+      "model_profile": "model.novaanimexl_ilv190",
+      "evidence_refs": [
+        {
+          "evidence_ref_id": "evidence.brg007b.reclined_arm_support",
+          "run_id": "BRG-007-B",
+          "observation_path": "experiments/bridge/BRG-007-B/observation.json",
+          "research_packet_path": "reports/BRG-007_research-packet.pdf",
+          "metric": "computed_aggregate.primary_morphology_counts.reclined_arm_support",
+          "count": 5,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        }
+      ],
+      "status": "provisional"
+    }
+  ],
+  "target_patterns": [
+    {
+      "target_pattern_id": "pattern.pose.full_bridge",
+      "label": "Full bridge",
+      "human_intent_names": [
+        "bridge",
+        "full bridge",
+        "wheel pose"
+      ],
+      "required_constraints": [
+        "body.orientation.face_up",
+        "contact.back.absent",
+        "pelvis.elevation.above_surface",
+        "support.foot.weight_bearing",
+        "support.hand.weight_bearing",
+        "torso.arch.strong"
+      ],
+      "preferred_constraints": [
+        "configuration.hand.near_head",
+        "configuration.knee.bent",
+        "contact.foot.sole_surface",
+        "support.elbow.weight_bearing"
+      ],
+      "conflicts": [
+        "body.state.reclined",
+        "contact.head.surface_support",
+        "contact.pelvis.surface",
+        "contact.shoulder.surface_support",
+        "support.arm.rearward"
+      ],
+      "evidence_requirements": [
+        {
+          "region": "hands",
+          "requirement": "evidence",
+          "strength": "high"
+        },
+        {
+          "region": "feet",
+          "requirement": "evidence",
+          "strength": "high"
+        },
+        {
+          "region": "pelvis-surface gap",
+          "requirement": "evidence",
+          "strength": "high"
+        },
+        {
+          "region": "torso support geometry",
+          "requirement": "evidence",
+          "strength": "high"
+        }
+      ],
+      "candidate_alternatives": [
+        "pattern.pose.reclined_arm_support"
+      ],
+      "status": "provisional",
+      "notes": [
+        "Initial target pattern proposal; not a confirmed research conclusion."
+      ]
+    },
+    {
+      "target_pattern_id": "pattern.pose.reclined_arm_support",
+      "label": "Reclined arm support",
+      "human_intent_names": [
+        "reclined arm support"
+      ],
+      "required_constraints": [
+        "body.state.reclined",
+        "support.arm.rearward"
+      ],
+      "preferred_constraints": [
+        "body.orientation.face_up"
+      ],
+      "conflicts": [],
+      "evidence_requirements": [
+        {
+          "region": "hands and arms",
+          "requirement": "evidence",
+          "strength": "high"
+        },
+        {
+          "region": "upper torso",
+          "requirement": "evidence",
+          "strength": "medium"
+        }
+      ],
+      "evidence_refs": [
+        {
+          "evidence_ref_id": "evidence.brg007b.reclined_arm_support",
+          "run_id": "BRG-007-B",
+          "observation_path": "experiments/bridge/BRG-007-B/observation.json",
+          "research_packet_path": "reports/BRG-007_research-packet.pdf",
+          "metric": "computed_aggregate.primary_morphology_counts.reclined_arm_support",
+          "count": 5,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        }
+      ],
+      "status": "provisional"
+    }
+  ],
+  "unmodeled_effects": [
+    {
+      "effect_id": "unmodeled.head_extension.face_drift_candidate",
+      "category": "cross_domain_effect",
+      "source_phrase": "head back",
+      "source_concept_id": "orientation.head.extended_backward",
+      "target_module": "face",
+      "target_region": "eyes, mouth, and expression",
+      "observed_effect": "Possible gaze, eyelid, mouth, or expression drift requires dedicated cross-run observation before any effect is asserted.",
+      "evidence_region": "face",
+      "confidence": "low",
+      "candidate_axis": "cross-domain face state",
+      "model_profile": "model.novaanimexl_ilv190",
+      "evidence_refs": [
+        {
+          "evidence_ref_id": "evidence.brg007b.reclined_arm_support",
+          "run_id": "BRG-007-B",
+          "observation_path": "experiments/bridge/BRG-007-B/observation.json",
+          "research_packet_path": "reports/BRG-007_research-packet.pdf",
+          "metric": "computed_aggregate.primary_morphology_counts.reclined_arm_support",
+          "count": 5,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        }
+      ],
+      "promotion_status": "candidate",
+      "promotion_criteria": [
+        "reproduced across multiple runs",
+        "frequency threshold established",
+        "resolver branch relevance established",
+        "visibility requirement or conflict established"
+      ],
+      "notes": [
+        "The cited Bridge metric establishes context, not the proposed facial effect."
+      ]
+    }
+  ],
+  "model_profiles": [
+    {
+      "model_profile_id": "model.novaanimexl_ilv190",
+      "label": "Nova Anime XL iL v190",
+      "checkpoint": "novaAnimeXL_ilV190",
+      "status": "provisional",
+      "notes": [
+        "Initial behavior references are limited to the cited research context."
+      ]
+    }
+  ],
+  "intent_profiles": [
+    {
+      "intent_profile_id": "intent.pose.bridge",
+      "human_intent_names": [
+        "bridge",
+        "wheel pose"
+      ],
+      "required_structural_concepts": [
+        "body.orientation.face_up",
+        "pelvis.elevation.above_surface",
+        "support.foot.weight_bearing",
+        "support.hand.weight_bearing",
+        "torso.arch.strong"
+      ],
+      "preferred_structural_concepts": [
+        "configuration.hand.near_head",
+        "configuration.knee.bent",
+        "contact.foot.sole_surface",
+        "support.elbow.weight_bearing"
+      ],
+      "conflict_concepts": [
+        "body.state.reclined",
+        "contact.head.surface_support",
+        "contact.pelvis.surface",
+        "contact.shoulder.surface_support",
+        "support.arm.rearward"
+      ],
+      "visibility_requirements": [
+        {
+          "region": "hands",
+          "requirement": "evidence",
+          "strength": "high"
+        },
+        {
+          "region": "feet",
+          "requirement": "evidence",
+          "strength": "high"
+        },
+        {
+          "region": "pelvis-surface gap",
+          "requirement": "evidence",
+          "strength": "high"
+        },
+        {
+          "region": "torso support geometry",
+          "requirement": "evidence",
+          "strength": "high"
+        }
+      ],
+      "target_pattern_ids": [
+        "pattern.pose.full_bridge"
+      ],
+      "status": "provisional",
+      "notes": [
+        "Profile expansion is data only; a full resolver is not implemented in this phase."
+      ]
+    }
+  ],
+  "control_context_profiles": [
+    {
+      "context_profile_id": "context.baseline_casual_v1",
+      "label": "Baseline casual clothing v1",
+      "profile_type": "control_baseline",
+      "fixed_phrases": [
+        "plain oversized white t-shirt",
+        "black shorts"
+      ],
+      "fixed_concept_ids": [
+        "clothing.lower.black_shorts",
+        "clothing.upper.oversized_white_tshirt"
+      ],
+      "known_visibility_risks": [
+        {
+          "target": "torso.arch.strong",
+          "effect": "Loose fabric may reduce direct visibility of torso-arch boundaries.",
+          "status": "draft",
+          "confidence": "low",
+          "evidence_status": "unconfirmed"
+        },
+        {
+          "target": "visibility.pelvis_boundary",
+          "effect": "The fixed upper garment can obscure the pelvis boundary.",
+          "status": "provisional",
+          "confidence": "medium",
+          "evidence_status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.brg007b.hip_unclear",
+              "run_id": "BRG-007-B",
+              "observation_path": "experiments/bridge/BRG-007-B/observation.json",
+              "research_packet_path": "reports/BRG-007_research-packet.pdf",
+              "metric": "computed_aggregate.axis_counts.hip_elevation.unclear",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        },
+        {
+          "target": "pelvis.elevation.above_surface",
+          "effect": "Pelvis-floor separation can remain ambiguous under the fixed clothing context.",
+          "status": "provisional",
+          "confidence": "medium",
+          "evidence_status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.brg007b.hip_unclear",
+              "run_id": "BRG-007-B",
+              "observation_path": "experiments/bridge/BRG-007-B/observation.json",
+              "research_packet_path": "reports/BRG-007_research-packet.pdf",
+              "metric": "computed_aggregate.axis_counts.hip_elevation.unclear",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        }
+      ],
+      "status": "provisional",
+      "notes": [
+        "Fixed clothing controls variation; it does not establish absence of clothing effects.",
+        "No generative pose bias is asserted by this context profile."
+      ]
+    }
+  ],
+  "indexes": {
+    "concepts_by_id": {
+      "activity.dancing": 0,
+      "activity.examining": 1,
+      "anatomy.ear.pointed": 2,
+      "anatomy.ear.rounded_human": 3,
+      "anatomy.lower_body.mermaid_tail": 4,
+      "body.orientation.face_up": 5,
+      "body.proportion.slender": 6,
+      "body.state.lying": 7,
+      "body.state.reclined": 8,
+      "clothing.lower.black_shorts": 9,
+      "clothing.outer.white_coat": 10,
+      "clothing.style.fantasy": 11,
+      "clothing.upper.oversized_white_tshirt": 12,
+      "configuration.hand.near_head": 13,
+      "configuration.knee.bent": 14,
+      "contact.arm.surface": 15,
+      "contact.back.absent": 16,
+      "contact.foot.sole_surface": 17,
+      "contact.head.surface_support": 18,
+      "contact.pelvis.surface": 19,
+      "contact.shoulder.surface_support": 20,
+      "environment.forest": 21,
+      "environment.medical": 22,
+      "face.expression.professional": 23,
+      "face.expression.semantic_shift": 24,
+      "face.eyelid.partially_closed": 25,
+      "face.gaze.upward": 26,
+      "face.mouth.open": 27,
+      "hair.long": 28,
+      "object.stethoscope": 29,
+      "orientation.head.extended_backward": 30,
+      "pelvis.elevation.above_surface": 31,
+      "phrase.arms_supporting_body": 32,
+      "role.activity.dancer": 33,
+      "role.narrative.warrior": 34,
+      "role.occupation.doctor": 35,
+      "role.rank.queen": 36,
+      "role.situational.patient": 37,
+      "species.elf": 38,
+      "species.mermaid": 39,
+      "support.arm.rearward": 40,
+      "support.elbow.weight_bearing": 41,
+      "support.foot.weight_bearing": 42,
+      "support.hand.weight_bearing": 43,
+      "torso.arch.strong": 44,
+      "visibility.hand_near_head_contact": 45,
+      "visibility.neck": 46,
+      "visibility.pelvis_boundary": 47,
+      "visibility.shoulder_contact_boundary": 48
+    },
+    "concepts_by_module": {
+      "clothing": [
+        "clothing.lower.black_shorts",
+        "clothing.outer.white_coat",
+        "clothing.style.fantasy",
+        "clothing.upper.oversized_white_tshirt"
+      ],
+      "entity_identity": [
+        "anatomy.ear.pointed",
+        "anatomy.ear.rounded_human",
+        "anatomy.lower_body.mermaid_tail",
+        "body.proportion.slender",
+        "species.elf",
+        "species.mermaid"
+      ],
+      "environment": [
+        "environment.forest",
+        "environment.medical"
+      ],
+      "face": [
+        "face.expression.professional",
+        "face.expression.semantic_shift",
+        "face.eyelid.partially_closed",
+        "face.gaze.upward",
+        "face.mouth.open"
+      ],
+      "hair": [
+        "hair.long"
+      ],
+      "objects": [
+        "object.stethoscope"
+      ],
+      "physical": [
+        "body.orientation.face_up",
+        "body.state.lying",
+        "body.state.reclined",
+        "configuration.hand.near_head",
+        "configuration.knee.bent",
+        "contact.arm.surface",
+        "contact.back.absent",
+        "contact.foot.sole_surface",
+        "contact.head.surface_support",
+        "contact.pelvis.surface",
+        "contact.shoulder.surface_support",
+        "orientation.head.extended_backward",
+        "pelvis.elevation.above_surface",
+        "torso.arch.strong",
+        "visibility.hand_near_head_contact",
+        "visibility.neck",
+        "visibility.pelvis_boundary",
+        "visibility.shoulder_contact_boundary"
+      ],
+      "relations": [
+        "phrase.arms_supporting_body",
+        "support.arm.rearward",
+        "support.elbow.weight_bearing",
+        "support.foot.weight_bearing",
+        "support.hand.weight_bearing"
+      ],
+      "semantic_role": [
+        "activity.dancing",
+        "activity.examining",
+        "role.activity.dancer",
+        "role.narrative.warrior",
+        "role.occupation.doctor",
+        "role.rank.queen",
+        "role.situational.patient"
+      ]
+    },
+    "concepts_by_type": {
+      "activity": [
+        "activity.dancing",
+        "activity.examining"
+      ],
+      "body_orientation": [
+        "body.orientation.face_up"
+      ],
+      "body_part_configuration": [
+        "anatomy.ear.pointed",
+        "anatomy.ear.rounded_human",
+        "anatomy.lower_body.mermaid_tail",
+        "body.proportion.slender",
+        "configuration.hand.near_head",
+        "configuration.knee.bent",
+        "orientation.head.extended_backward",
+        "torso.arch.strong"
+      ],
+      "body_state": [
+        "body.state.lying",
+        "body.state.reclined"
+      ],
+      "clothing": [
+        "clothing.lower.black_shorts",
+        "clothing.outer.white_coat",
+        "clothing.style.fantasy",
+        "clothing.upper.oversized_white_tshirt"
+      ],
+      "contact": [
+        "contact.arm.surface",
+        "contact.back.absent",
+        "contact.foot.sole_surface",
+        "contact.head.surface_support",
+        "contact.pelvis.surface",
+        "contact.shoulder.surface_support"
+      ],
+      "contact_load": [
+        "support.elbow.weight_bearing",
+        "support.foot.weight_bearing",
+        "support.hand.weight_bearing"
+      ],
+      "effect": [
+        "face.expression.semantic_shift"
+      ],
+      "environment": [
+        "environment.forest",
+        "environment.medical"
+      ],
+      "expression": [
+        "face.expression.professional",
+        "face.eyelid.partially_closed",
+        "face.mouth.open"
+      ],
+      "gaze": [
+        "face.gaze.upward"
+      ],
+      "hair": [
+        "hair.long"
+      ],
+      "object": [
+        "object.stethoscope"
+      ],
+      "semantic_role": [
+        "role.activity.dancer",
+        "role.narrative.warrior",
+        "role.occupation.doctor",
+        "role.rank.queen",
+        "role.situational.patient"
+      ],
+      "spatial_relation": [
+        "pelvis.elevation.above_surface"
+      ],
+      "species": [
+        "species.elf",
+        "species.mermaid"
+      ],
+      "support_relation": [
+        "support.arm.rearward"
+      ],
+      "unresolved_relational_phrase": [
+        "phrase.arms_supporting_body"
+      ],
+      "visibility": [
+        "visibility.hand_near_head_contact",
+        "visibility.neck",
+        "visibility.pelvis_boundary",
+        "visibility.shoulder_contact_boundary"
+      ]
+    },
+    "aliases_to_concept_id": {
+      "arm support": "support.arm.rearward",
+      "arms supporting body": "phrase.arms_supporting_body",
+      "black shorts": "clothing.lower.black_shorts",
+      "doctor": "role.occupation.doctor",
+      "elf": "species.elf",
+      "face up": "body.orientation.face_up",
+      "head back": "orientation.head.extended_backward",
+      "head tilted backward": "orientation.head.extended_backward",
+      "long hair": "hair.long",
+      "lying": "body.state.lying",
+      "lying down": "body.state.lying",
+      "mermaid": "species.mermaid",
+      "oversized white t-shirt": "clothing.upper.oversized_white_tshirt",
+      "plain oversized white t-shirt": "clothing.upper.oversized_white_tshirt",
+      "rear arm support": "support.arm.rearward",
+      "reclined": "body.state.reclined",
+      "supine orientation": "body.orientation.face_up"
+    },
+    "relations_by_source": {
+      "clothing.upper.oversized_white_tshirt": [
+        "relation.oversized_tshirt.obscures.pelvis_boundary"
+      ],
+      "orientation.head.extended_backward": [
+        "relation.head_extension.may_trigger.expression_shift",
+        "relation.head_extension.may_trigger.eyelid",
+        "relation.head_extension.may_trigger.mouth_open",
+        "relation.head_extension.may_trigger.upward_gaze"
+      ],
+      "role.occupation.doctor": [
+        "relation.doctor.biases.examining",
+        "relation.doctor.biases.medical_environment",
+        "relation.doctor.biases.professional_expression",
+        "relation.doctor.biases.stethoscope",
+        "relation.doctor.biases.white_coat"
+      ],
+      "species.elf": [
+        "relation.elf.biases.fantasy_clothing",
+        "relation.elf.biases.forest",
+        "relation.elf.biases.slender",
+        "relation.elf.conflicts.rounded_ears",
+        "relation.elf.requires.pointed_ears"
+      ],
+      "species.mermaid": [
+        "relation.mermaid.requires.tail"
+      ],
+      "support.arm.rearward": [
+        "relation.rear_arm_support.biases.reclined",
+        "relation.rear_arm_support.observed_as.reclined_pattern"
+      ]
+    },
+    "relations_by_target": {
+      "activity.examining": [
+        "relation.doctor.biases.examining"
+      ],
+      "anatomy.ear.pointed": [
+        "relation.elf.requires.pointed_ears"
+      ],
+      "anatomy.ear.rounded_human": [
+        "relation.elf.conflicts.rounded_ears"
+      ],
+      "anatomy.lower_body.mermaid_tail": [
+        "relation.mermaid.requires.tail"
+      ],
+      "body.proportion.slender": [
+        "relation.elf.biases.slender"
+      ],
+      "body.state.reclined": [
+        "relation.rear_arm_support.biases.reclined"
+      ],
+      "clothing.outer.white_coat": [
+        "relation.doctor.biases.white_coat"
+      ],
+      "clothing.style.fantasy": [
+        "relation.elf.biases.fantasy_clothing"
+      ],
+      "environment.forest": [
+        "relation.elf.biases.forest"
+      ],
+      "environment.medical": [
+        "relation.doctor.biases.medical_environment"
+      ],
+      "face.expression.professional": [
+        "relation.doctor.biases.professional_expression"
+      ],
+      "face.expression.semantic_shift": [
+        "relation.head_extension.may_trigger.expression_shift"
+      ],
+      "face.eyelid.partially_closed": [
+        "relation.head_extension.may_trigger.eyelid"
+      ],
+      "face.gaze.upward": [
+        "relation.head_extension.may_trigger.upward_gaze"
+      ],
+      "face.mouth.open": [
+        "relation.head_extension.may_trigger.mouth_open"
+      ],
+      "object.stethoscope": [
+        "relation.doctor.biases.stethoscope"
+      ],
+      "pattern.pose.reclined_arm_support": [
+        "relation.rear_arm_support.observed_as.reclined_pattern"
+      ],
+      "visibility.pelvis_boundary": [
+        "relation.oversized_tshirt.obscures.pelvis_boundary"
+      ]
+    },
+    "target_patterns_by_id": {
+      "pattern.pose.full_bridge": 0,
+      "pattern.pose.reclined_arm_support": 1
+    },
+    "intent_profiles_by_id": {
+      "intent.pose.bridge": 0
+    },
+    "control_context_profiles_by_id": {
+      "context.baseline_casual_v1": 0
+    },
+    "evidence_by_run_id": {
+      "BRG-007-A": [
+        "body.state.lying"
+      ],
+      "BRG-007-B": [
+        "clothing.upper.oversized_white_tshirt",
+        "context.baseline_casual_v1",
+        "pattern.pose.reclined_arm_support",
+        "relation.oversized_tshirt.obscures.pelvis_boundary",
+        "relation.rear_arm_support.biases.reclined",
+        "relation.rear_arm_support.observed_as.reclined_pattern",
+        "support.arm.rearward",
+        "unmodeled.head_extension.face_drift_candidate"
+      ],
+      "BRG-007-C": [
+        "contact.arm.surface",
+        "phrase.arms_supporting_body"
+      ]
+    }
+  }
+}

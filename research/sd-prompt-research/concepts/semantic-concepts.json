@@ -1,0 +1,207 @@
+{
+  "schema_version": "0.2.0",
+  "graph_version": "0.2.0",
+  "module_file_id": "semantic-concepts",
+  "module_family": "semantic",
+  "description": "Initial entity identity, species, semantic role, object, activity, and environment concepts.",
+  "concepts": [
+    {
+      "concept_id": "activity.dancing",
+      "label": "Dancing activity",
+      "module": "semantic_role",
+      "concept_type": "activity",
+      "human_meaning": "The entity is dancing.",
+      "status": "draft"
+    },
+    {
+      "concept_id": "activity.examining",
+      "label": "Examining activity",
+      "module": "semantic_role",
+      "concept_type": "activity",
+      "human_meaning": "The entity is examining a subject or patient.",
+      "status": "draft"
+    },
+    {
+      "concept_id": "anatomy.ear.pointed",
+      "label": "Pointed ears",
+      "module": "entity_identity",
+      "concept_type": "body_part_configuration",
+      "human_meaning": "The visible ears have pointed tips.",
+      "status": "draft"
+    },
+    {
+      "concept_id": "anatomy.ear.rounded_human",
+      "label": "Rounded human ears",
+      "module": "entity_identity",
+      "concept_type": "body_part_configuration",
+      "human_meaning": "The ears use a conventional rounded human form.",
+      "status": "draft"
+    },
+    {
+      "concept_id": "anatomy.lower_body.mermaid_tail",
+      "label": "Mermaid lower body",
+      "module": "entity_identity",
+      "concept_type": "body_part_configuration",
+      "human_meaning": "The lower body is transformed into a mermaid tail.",
+      "status": "draft"
+    },
+    {
+      "concept_id": "body.proportion.slender",
+      "label": "Slender proportions",
+      "module": "entity_identity",
+      "concept_type": "body_part_configuration",
+      "human_meaning": "The body has slender proportions.",
+      "status": "draft"
+    },
+    {
+      "concept_id": "clothing.outer.white_coat",
+      "label": "White coat",
+      "module": "clothing",
+      "concept_type": "clothing",
+      "human_meaning": "A white outer coat.",
+      "clothing_properties": {
+        "intrinsic": {
+          "garment_type": "coat",
+          "fit": "unspecified",
+          "length": "unspecified",
+          "covered_regions": ["torso"]
+        },
+        "visibility_effects": [],
+        "generative_effects": []
+      },
+      "status": "draft"
+    },
+    {
+      "concept_id": "clothing.style.fantasy",
+      "label": "Fantasy clothing style",
+      "module": "clothing",
+      "concept_type": "clothing",
+      "human_meaning": "Clothing with a fantasy-world visual style.",
+      "clothing_properties": {
+        "intrinsic": {
+          "garment_type": "style package"
+        },
+        "visibility_effects": [],
+        "generative_effects": []
+      },
+      "status": "draft"
+    },
+    {
+      "concept_id": "environment.forest",
+      "label": "Forest environment",
+      "module": "environment",
+      "concept_type": "environment",
+      "human_meaning": "A forest setting.",
+      "status": "draft"
+    },
+    {
+      "concept_id": "environment.medical",
+      "label": "Medical environment",
+      "module": "environment",
+      "concept_type": "environment",
+      "human_meaning": "A medical setting such as a clinic or hospital.",
+      "status": "draft"
+    },
+    {
+      "concept_id": "object.stethoscope",
+      "label": "Stethoscope",
+      "module": "objects",
+      "concept_type": "object",
+      "human_meaning": "A stethoscope object.",
+      "status": "draft"
+    },
+    {
+      "concept_id": "role.activity.dancer",
+      "label": "Dancer role",
+      "module": "semantic_role",
+      "concept_type": "semantic_role",
+      "human_meaning": "The entity has the activity role of dancer.",
+      "role_package": {"category": "activity_role"},
+      "status": "draft"
+    },
+    {
+      "concept_id": "role.narrative.warrior",
+      "label": "Warrior role",
+      "module": "semantic_role",
+      "concept_type": "semantic_role",
+      "human_meaning": "The entity occupies a warrior narrative role.",
+      "role_package": {"category": "narrative_role"},
+      "status": "draft"
+    },
+    {
+      "concept_id": "role.occupation.doctor",
+      "label": "Doctor role",
+      "aliases": ["doctor"],
+      "module": "semantic_role",
+      "concept_type": "semantic_role",
+      "human_meaning": "The entity has the occupation of doctor.",
+      "role": "semantic role package; not a clothing concept",
+      "role_package": {"category": "occupation"},
+      "status": "draft"
+    },
+    {
+      "concept_id": "role.rank.queen",
+      "label": "Queen rank",
+      "module": "semantic_role",
+      "concept_type": "semantic_role",
+      "human_meaning": "The entity holds the rank of queen.",
+      "role_package": {"category": "rank"},
+      "status": "draft"
+    },
+    {
+      "concept_id": "role.situational.patient",
+      "label": "Patient role",
+      "module": "semantic_role",
+      "concept_type": "semantic_role",
+      "human_meaning": "The entity occupies the situational role of patient.",
+      "role_package": {"category": "situational_role"},
+      "status": "draft"
+    },
+    {
+      "concept_id": "species.elf",
+      "label": "Elf species",
+      "aliases": ["elf"],
+      "module": "entity_identity",
+      "concept_type": "species",
+      "human_meaning": "The entity is an elf rather than a human with a decorative tag.",
+      "entity_type": "species",
+      "morphology_strength": "weak",
+      "required_constraints": ["anatomy.ear.pointed"],
+      "optional_priors": [
+        "body.proportion.slender",
+        "clothing.style.fantasy",
+        "environment.forest"
+      ],
+      "conflicts": ["anatomy.ear.rounded_human"],
+      "visibility_requirements": [
+        {
+          "region": "ears",
+          "requirement": "required",
+          "strength": "high",
+          "notes": "Species evidence requires the defining ear morphology to be visible."
+        }
+      ],
+      "status": "draft"
+    },
+    {
+      "concept_id": "species.mermaid",
+      "label": "Mermaid species",
+      "aliases": ["mermaid"],
+      "module": "entity_identity",
+      "concept_type": "species",
+      "human_meaning": "The entity has mermaid anatomy.",
+      "entity_type": "species",
+      "morphology_strength": "transformative",
+      "required_constraints": ["anatomy.lower_body.mermaid_tail"],
+      "optional_priors": [],
+      "visibility_requirements": [
+        {
+          "region": "lower body",
+          "requirement": "required",
+          "strength": "high"
+        }
+      ],
+      "status": "draft"
+    }
+  ]
+}

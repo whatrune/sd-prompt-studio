@@ -1,0 +1,44 @@
+schema_version: "1.0"
+run_id: BRG-001
+domain: bridge
+title: Bridge Core baseline without arm support
+status: PLANNED
+created_at: ""
+updated_at: ""
+research:
+  target_phrase: arm support
+  research_question: Does arm support increase load-bearing arm support and lift the upper torso in a face-up bridge candidate?
+  baseline_run_id: null
+  variant_label: Condition A
+  hypothesis_before_run: arm support may function as a Support Relation rather than a simple arm configuration.
+prompt:
+  positive: "1girl, silver hair, bob cut, plain oversized white t-shirt, black shorts, simple background, on back, arched back, leaning back, body bridge, full body, side view"
+  negative: ""
+  changed_phrases: []
+  fixed_phrases: [on back, arched back, leaning back, body bridge, full body, side view]
+model:
+  checkpoint: ""
+  vae: ""
+  sampler: ""
+  scheduler: ""
+  steps: null
+  cfg_scale: null
+  width: null
+  height: null
+  seeds: []
+source:
+  sheet_file: ""
+  metadata_file: null
+  layout: "3x2"
+  panel_count: 6
+outputs:
+  panels: []
+  preview_file: null
+  observation_file: observation.md
+  observation_json: observation.json
+  research_review_file: research-review.md
+workflow:
+  assigned_to: わたるん
+  human_reviewed_by: null
+  accepted_at: null
+  notes: "Pair with BRG-002, which adds arm support only."

@@ -1,0 +1,183 @@
+{
+  "schema_version": "0.2.0",
+  "graph_version": "0.2.0",
+  "module_file_id": "target-patterns",
+  "module_family": "target_patterns",
+  "description": "Interpretation patterns and Human Intent profiles. Pose names enter through profiles and patterns, not ontology partitions.",
+  "model_profiles": [
+    {
+      "model_profile_id": "model.novaanimexl_ilv190",
+      "label": "Nova Anime XL iL v190",
+      "checkpoint": "novaAnimeXL_ilV190",
+      "status": "provisional",
+      "notes": ["Initial behavior references are limited to the cited research context."]
+    }
+  ],
+  "intent_profiles": [
+    {
+      "intent_profile_id": "intent.pose.bridge",
+      "human_intent_names": ["bridge", "wheel pose"],
+      "required_structural_concepts": [
+        "body.orientation.face_up",
+        "pelvis.elevation.above_surface",
+        "support.foot.weight_bearing",
+        "support.hand.weight_bearing",
+        "torso.arch.strong"
+      ],
+      "preferred_structural_concepts": [
+        "configuration.hand.near_head",
+        "configuration.knee.bent",
+        "contact.foot.sole_surface",
+        "support.elbow.weight_bearing"
+      ],
+      "conflict_concepts": [
+        "body.state.reclined",
+        "contact.head.surface_support",
+        "contact.pelvis.surface",
+        "contact.shoulder.surface_support",
+        "support.arm.rearward"
+      ],
+      "visibility_requirements": [
+        {"region": "hands", "requirement": "evidence", "strength": "high"},
+        {"region": "feet", "requirement": "evidence", "strength": "high"},
+        {"region": "pelvis-surface gap", "requirement": "evidence", "strength": "high"},
+        {"region": "torso support geometry", "requirement": "evidence", "strength": "high"}
+      ],
+      "target_pattern_ids": ["pattern.pose.full_bridge"],
+      "status": "provisional",
+      "notes": ["Profile expansion is data only; a full resolver is not implemented in this phase."]
+    }
+  ],
+  "control_context_profiles": [
+    {
+      "context_profile_id": "context.baseline_casual_v1",
+      "label": "Baseline casual clothing v1",
+      "profile_type": "control_baseline",
+      "fixed_phrases": [
+        "plain oversized white t-shirt",
+        "black shorts"
+      ],
+      "fixed_concept_ids": [
+        "clothing.lower.black_shorts",
+        "clothing.upper.oversized_white_tshirt"
+      ],
+      "known_visibility_risks": [
+        {
+          "target": "torso.arch.strong",
+          "effect": "Loose fabric may reduce direct visibility of torso-arch boundaries.",
+          "status": "draft",
+          "confidence": "low",
+          "evidence_status": "unconfirmed"
+        },
+        {
+          "target": "visibility.pelvis_boundary",
+          "effect": "The fixed upper garment can obscure the pelvis boundary.",
+          "status": "provisional",
+          "confidence": "medium",
+          "evidence_status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.brg007b.hip_unclear",
+              "run_id": "BRG-007-B",
+              "observation_path": "experiments/bridge/BRG-007-B/observation.json",
+              "research_packet_path": "reports/BRG-007_research-packet.pdf",
+              "metric": "computed_aggregate.axis_counts.hip_elevation.unclear",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        },
+        {
+          "target": "pelvis.elevation.above_surface",
+          "effect": "Pelvis-floor separation can remain ambiguous under the fixed clothing context.",
+          "status": "provisional",
+          "confidence": "medium",
+          "evidence_status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.brg007b.hip_unclear",
+              "run_id": "BRG-007-B",
+              "observation_path": "experiments/bridge/BRG-007-B/observation.json",
+              "research_packet_path": "reports/BRG-007_research-packet.pdf",
+              "metric": "computed_aggregate.axis_counts.hip_elevation.unclear",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        }
+      ],
+      "status": "provisional",
+      "notes": [
+        "Fixed clothing controls variation; it does not establish absence of clothing effects.",
+        "No generative pose bias is asserted by this context profile."
+      ]
+    }
+  ],
+  "target_patterns": [
+    {
+      "target_pattern_id": "pattern.pose.full_bridge",
+      "label": "Full bridge",
+      "human_intent_names": ["bridge", "full bridge", "wheel pose"],
+      "required_constraints": [
+        "body.orientation.face_up",
+        "contact.back.absent",
+        "pelvis.elevation.above_surface",
+        "support.foot.weight_bearing",
+        "support.hand.weight_bearing",
+        "torso.arch.strong"
+      ],
+      "preferred_constraints": [
+        "configuration.hand.near_head",
+        "configuration.knee.bent",
+        "contact.foot.sole_surface",
+        "support.elbow.weight_bearing"
+      ],
+      "conflicts": [
+        "body.state.reclined",
+        "contact.head.surface_support",
+        "contact.pelvis.surface",
+        "contact.shoulder.surface_support",
+        "support.arm.rearward"
+      ],
+      "evidence_requirements": [
+        {"region": "hands", "requirement": "evidence", "strength": "high"},
+        {"region": "feet", "requirement": "evidence", "strength": "high"},
+        {"region": "pelvis-surface gap", "requirement": "evidence", "strength": "high"},
+        {"region": "torso support geometry", "requirement": "evidence", "strength": "high"}
+      ],
+      "candidate_alternatives": ["pattern.pose.reclined_arm_support"],
+      "status": "provisional",
+      "notes": ["Initial target pattern proposal; not a confirmed research conclusion."]
+    },
+    {
+      "target_pattern_id": "pattern.pose.reclined_arm_support",
+      "label": "Reclined arm support",
+      "human_intent_names": ["reclined arm support"],
+      "required_constraints": ["body.state.reclined", "support.arm.rearward"],
+      "preferred_constraints": ["body.orientation.face_up"],
+      "conflicts": [],
+      "evidence_requirements": [
+        {"region": "hands and arms", "requirement": "evidence", "strength": "high"},
+        {"region": "upper torso", "requirement": "evidence", "strength": "medium"}
+      ],
+      "evidence_refs": [
+        {
+          "evidence_ref_id": "evidence.brg007b.reclined_arm_support",
+          "run_id": "BRG-007-B",
+          "observation_path": "experiments/bridge/BRG-007-B/observation.json",
+          "research_packet_path": "reports/BRG-007_research-packet.pdf",
+          "metric": "computed_aggregate.primary_morphology_counts.reclined_arm_support",
+          "count": 5,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        }
+      ],
+      "status": "provisional"
+    }
+  ]
+}

@@ -1,0 +1,441 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.sd-prompt-studio/observation-schema-v3.json",
+  "title": "SD Prompt Studio Observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "blind_condition_label",
+    "panel_count",
+    "image_layout",
+    "active_axis_order",
+    "summary",
+    "panels",
+    "leakage",
+    "uncertain",
+    "ontology_extension_candidates",
+    "cross_condition_comparison"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "3.0"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "blind_condition_label": {
+      "type": "string",
+      "minLength": 1
+    },
+    "panel_count": {
+      "const": 6
+    },
+    "image_layout": {
+      "type": "string",
+      "enum": [
+        "3x2",
+        "2x3",
+        "individual_panels",
+        "unknown"
+      ]
+    },
+    "active_axis_order": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "overall_visible_pattern",
+        "analysis_notes"
+      ],
+      "properties": {
+        "overall_visible_pattern": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "analysis_notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "panels": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "$ref": "#/$defs/panel"
+      }
+    },
+    "leakage": {
+      "description": "Prompt / Concept Leakage is a research-stage assessment. When cross-condition research comparison is not performed, this array remains empty and means 'not assessed', never 'none observed'.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/leakage"
+      }
+    },
+    "uncertain": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/uncertain"
+      }
+    },
+    "ontology_extension_candidates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ontologyExtension"
+      }
+    },
+    "cross_condition_comparison": {
+      "$ref": "#/$defs/comparison"
+    },
+    "computed_aggregate": {
+      "$ref": "#/$defs/computedAggregate"
+    }
+  },
+  "$defs": {
+    "crossDomainEffect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "strength",
+        "effect_type",
+        "observation"
+      ],
+      "properties": {
+        "domain": {
+          "type": "string"
+        },
+        "strength": {
+          "type": "string",
+          "enum": [
+            "weak",
+            "medium",
+            "strong",
+            "unclear"
+          ]
+        },
+        "effect_type": {
+          "type": "string",
+          "enum": [
+            "natural_response",
+            "secondary_effect",
+            "interaction",
+            "leakage",
+            "artifact",
+            "unclear"
+          ]
+        },
+        "observation": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "panel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "panel_id",
+        "axis_values",
+        "primary_morphology",
+        "secondary_morphologies",
+        "evidence_notes",
+        "cross_domain_effects",
+        "artifacts",
+        "confidence",
+        "contact_load"
+      ],
+      "properties": {
+        "panel_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6
+        },
+        "axis_values": {
+          "description": "Values follow active_axis_order and the rubric enums. Contact, load, elevation, and support values must be based on directly visible evidence documented in evidence_notes; do not derive them from state or morphology.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "primary_morphology": {
+          "type": "string",
+          "description": "Observed morphology only, not target success, failure, or leakage. Use existing morphology candidates whenever possible. Use 'other' only when no existing candidate can represent the observation."
+        },
+        "secondary_morphologies": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          },
+          "description": "Additional observed morphologies only, not target success, failure, or leakage. Use existing morphology candidates whenever possible. Use 'other' only when no existing candidate can represent the observation."
+        },
+        "evidence_notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cross_domain_effects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/crossDomainEffect"
+          }
+        },
+        "artifacts": {
+          "description": "Directly visible generation defects only, such as extra limbs, fused anatomy, or broken joints. This field is separate from Prompt / Concept Leakage.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ]
+        },
+        "contact_load": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "left_hand",
+            "right_hand",
+            "left_forearm",
+            "right_forearm"
+          ],
+          "properties": {
+            "left_hand": {
+              "$ref": "#/$defs/loadState"
+            },
+            "right_hand": {
+              "$ref": "#/$defs/loadState"
+            },
+            "left_forearm": {
+              "$ref": "#/$defs/loadState"
+            },
+            "right_forearm": {
+              "$ref": "#/$defs/loadState"
+            }
+          }
+        }
+      }
+    },
+    "leakage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "panel_ids",
+        "strength",
+        "observation"
+      ],
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "panel_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          }
+        },
+        "strength": {
+          "type": "string",
+          "enum": [
+            "weak",
+            "medium",
+            "strong",
+            "unclear"
+          ]
+        },
+        "observation": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "uncertain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "panel_id",
+        "field",
+        "reason"
+      ],
+      "properties": {
+        "panel_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6
+        },
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "ontologyExtension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field",
+        "candidate_value",
+        "panel_ids",
+        "observation"
+      ],
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "candidate_value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "panel_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          }
+        },
+        "observation": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "comparisonObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field",
+        "observation"
+      ],
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observation": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reason",
+        "observations"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "not_performed",
+            "performed"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/comparisonObservation"
+          }
+        }
+      }
+    },
+    "countMap": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 6
+      }
+    },
+    "nestedCountMap": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/countMap"
+      }
+    },
+    "computedAggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "axis_counts",
+        "primary_morphology_counts",
+        "secondary_morphology_counts",
+        "artifact_counts",
+        "cross_domain_effect_counts",
+        "leakage_counts"
+      ],
+      "properties": {
+        "axis_counts": {
+          "$ref": "#/$defs/nestedCountMap"
+        },
+        "primary_morphology_counts": {
+          "$ref": "#/$defs/countMap"
+        },
+        "secondary_morphology_counts": {
+          "$ref": "#/$defs/countMap"
+        },
+        "artifact_counts": {
+          "$ref": "#/$defs/countMap"
+        },
+        "cross_domain_effect_counts": {
+          "$ref": "#/$defs/nestedCountMap"
+        },
+        "leakage_counts": {
+          "$ref": "#/$defs/countMap"
+        }
+      }
+    },
+    "loadState": {
+      "type": "string",
+      "enum": [
+        "none",
+        "light",
+        "supporting",
+        "weight_bearing",
+        "unclear"
+      ]
+    }
+  }
+}
