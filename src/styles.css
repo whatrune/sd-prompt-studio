@@ -1091,7 +1091,7 @@ body,
 .navigation-section-title {
   padding: 0 calc(var(--pane-content-inset) - var(--nav-edge-padding)) 4px;
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 650;
   line-height: 16px;
   letter-spacing: .12em;
