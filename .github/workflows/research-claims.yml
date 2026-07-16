@@ -11,6 +11,7 @@ on:
       - "research/sd-prompt-research/scripts/validate_research_claims.py"
       - "research/sd-prompt-research/scripts/claim_draft_pipeline.py"
       - "research/sd-prompt-research/scripts/observation_to_claim.py"
+      - "research/sd-prompt-research/scripts/research_explorer.py"
       - "research/sd-prompt-research/tests/**"
       - "research/sd-prompt-research/requirements.txt"
       - ".github/workflows/research-claims.yml"
@@ -46,6 +47,10 @@ jobs:
       - name: Validate Concept Graph sources
         working-directory: research/sd-prompt-research
         run: python scripts/build_concept_graph.py --check
+
+      - name: Validate Research Explorer index
+        working-directory: research/sd-prompt-research
+        run: python scripts/research_explorer.py index --check
 
       - name: Validate Research Claim staging layer
         working-directory: research/sd-prompt-research
