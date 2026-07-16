@@ -178,7 +178,7 @@ export default function App() {
   const [relatedCollapsed, setRelatedCollapsed] = useState(false)
   const [selectedCollapsed, setSelectedCollapsed] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
-  const [generationContextCollapsed, setGenerationContextCollapsed] = useState(false)
+  const [generationContextCollapsed, setGenerationContextCollapsed] = useState(true)
   const [expansionCollapsed, setExpansionCollapsed] = useState(true)
   const [promptCollapsed, setPromptCollapsed] = useState(true)
   const [negativeCollapsed, setNegativeCollapsed] = useState(true)
