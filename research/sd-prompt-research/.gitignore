@@ -1,8 +1,21 @@
-# Large/generated images
+# Generated and local image assets
 inbox/*
-experiments/**/source/*
 experiments/**/panels/*
 experiments/**/preview/*
+
+# Keep reproducibility records in source/ trackable. Ignore only image binaries
+# and local cache directories; YAML/JSON/TXT prompt, workflow, rubric, model,
+# sampler, seed, and generation metadata remain eligible for Git.
+experiments/**/source/**/*.png
+experiments/**/source/**/*.jpg
+experiments/**/source/**/*.jpeg
+experiments/**/source/**/*.webp
+experiments/**/source/**/*.gif
+experiments/**/source/**/*.bmp
+experiments/**/source/**/*.tif
+experiments/**/source/**/*.tiff
+experiments/**/source/**/cache/
+experiments/**/source/**/tmp/
 
 # Keep directories
 !inbox/.gitkeep
