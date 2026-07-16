@@ -1,4 +1,5 @@
 :root {
+  --pane-content-inset: 12px;
   --pane-control-inset: 7px;
   --nav-icon-slot: 28px;
   --nav-item-gap: 6px;
@@ -1088,7 +1089,7 @@ body,
 }
 
 .navigation-section-title {
-  padding: 0 var(--nav-item-padding-x) 4px;
+  padding: 0 calc(var(--pane-content-inset) - var(--nav-edge-padding)) 4px;
   color: var(--text-secondary);
   font-size: 10px;
   font-weight: 650;
@@ -1281,7 +1282,7 @@ body,
 
 /* v31: titleless workspace panels and prompt-first controls */
 .tag-panel {
-  padding: 0 12px 12px;
+  padding: 0 var(--pane-content-inset) var(--pane-content-inset);
 }
 
 .prompt-workspace-content,
@@ -1296,13 +1297,13 @@ body,
 }
 
 .category-tabs-section > .subcategory-tabs {
-  margin: 0 -12px 4px;
-  padding: 6px 12px;
+  margin: 0 calc(-1 * var(--pane-content-inset)) 4px;
+  padding: 6px var(--pane-content-inset);
   border: 0;
   background: var(--bg-primary);
   box-shadow: none;
   backdrop-filter: none;
-  scroll-padding-inline-start: 12px;
+  scroll-padding-inline-start: var(--pane-content-inset);
   scrollbar-gutter: auto;
   scrollbar-color: transparent transparent;
 }
