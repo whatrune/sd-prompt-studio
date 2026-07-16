@@ -123,6 +123,7 @@ class AxisRegistryPathError(ValueError):
 class KnowledgeData:
     assertions: dict[str, dict[str, Any]]
     assertion_files: dict[str, str]
+    assertion_roots: dict[str, dict[str, Any]]
     evidence: dict[str, dict[str, Any]]
     evidence_files: dict[str, str]
     reviews: dict[str, dict[str, Any]]
@@ -275,7 +276,7 @@ def validate_schema(
 
 
 def empty_knowledge() -> KnowledgeData:
-    return KnowledgeData({}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+    return KnowledgeData({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
 
 
 def _insert_unique(
@@ -316,6 +317,7 @@ def index_documents(
     for file, root in sorted(documents.items()):
         if "assertions" in root:
             validate_schema(root, schemas["assertion"], file, issues, infrastructure)
+            data.assertion_roots[file] = root
             for evidence in root.get("evidence_refs", []):
                 evidence_id = evidence.get("evidence_ref_id", "")
                 _insert_unique(
@@ -362,6 +364,8 @@ def load_current_documents(knowledge_root: Path) -> dict[str, dict[str, Any]]:
     if not knowledge_root.exists():
         return documents
     for path in sorted([*knowledge_root.rglob("*.yaml"), *knowledge_root.rglob("*.yml")]):
+        if path.relative_to(knowledge_root).parts[0] == "registries":
+            continue
         relative = path.relative_to(knowledge_root.parent.parent).as_posix()
         documents[relative] = yaml_load(path.read_text(encoding="utf-8"), relative)
     return documents
@@ -390,6 +394,8 @@ def git_documents(repo_root: Path, commit: str, prefix: str) -> dict[str, dict[s
     documents: dict[str, dict[str, Any]] = {}
     for path in sorted(line.strip() for line in listing.splitlines() if line.strip()):
         if not path.endswith((".yaml", ".yml")):
+            continue
+        if "/registries/" in path:
             continue
         documents[path] = yaml_load(run_git(repo_root, "show", f"{commit}:{path}"), path)
     return documents
@@ -850,10 +856,14 @@ class ClaimValidator:
                     self.issue("CONCEPT_REFERENCE_REJECTED", f"Concept {concept_id!r} is rejected", file, path, assertion_id)
                 elif concept.get("status") in {"provisional", "deprecated"}:
                     self.issue("CONCEPT_REFERENCE_NONFINAL", f"Concept {concept_id!r} is {concept['status']}", file, path, assertion_id, "warning")
-        registry_refs = next(
-            (root.get("axis_registry_refs", {}) for path, root in load_current_documents(self.project_root / "knowledge").items() if path == file),
-            {},
-        )
+        assertion_root = self.data.assertion_roots.get(file)
+        if assertion_root is None:
+            # Preserve the validator's injectable document-loader seam used by
+            # focused path/hash tests and older callers that construct
+            # KnowledgeData directly. Normal current/temp Knowledge indexing
+            # supplies assertion_roots and does not reread a different tree.
+            assertion_root = load_current_documents(self.project_root / "knowledge").get(file, {})
+        registry_refs = assertion_root.get("axis_registry_refs", {})
         registry_axes: dict[str, set[str]] = {}
         registry_axis_fields = {
             "pose": "active_observation_axes",

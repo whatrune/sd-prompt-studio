@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.sd-prompt-studio/observation-module-registry-v0.1.schema.json",
+  "x-contract-version": "0.1.0",
+  "title": "SD Prompt Studio Observation Module Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "registry_version", "registry_id", "modules"],
+  "properties": {
+    "schema_version": {"const": "0.1.0"},
+    "registry_version": {"$ref": "#/$defs/semver"},
+    "registry_id": {"const": "observation-modules"},
+    "modules": {
+      "type": "array",
+      "minItems": 7,
+      "items": {"$ref": "#/$defs/module"}
+    }
+  },
+  "$defs": {
+    "snake": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+    },
+    "stringSet": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/snake"}
+    },
+    "semanticContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["definition", "scope", "metric_namespaces"],
+      "properties": {
+        "definition": {"type": "string", "minLength": 1},
+        "scope": {"$ref": "#/$defs/stringSet"},
+        "metric_namespaces": {"$ref": "#/$defs/stringSet"}
+      }
+    },
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slug", "status", "aliases", "semantic_contract_version",
+        "evidence_id_contract", "semantic_contract"
+      ],
+      "properties": {
+        "slug": {"$ref": "#/$defs/snake"},
+        "status": {"enum": ["active", "deprecated"]},
+        "aliases": {"$ref": "#/$defs/stringSet"},
+        "semantic_contract_version": {"$ref": "#/$defs/semver"},
+        "evidence_id_contract": {"const": "evidence_id_v1"},
+        "semantic_contract": {"$ref": "#/$defs/semanticContract"}
+      }
+    }
+  }
+}

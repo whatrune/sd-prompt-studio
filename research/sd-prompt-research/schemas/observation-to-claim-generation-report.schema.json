@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.sd-prompt-studio/observation-to-claim-generation-report-v0.1.schema.json",
+  "x-contract-version": "0.1.0",
+  "title": "SD Prompt Studio Claim Draft Generation Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generation_report_schema_version", "report_type", "subject_id_kind", "subject_id",
+    "generator", "sources", "identity", "observation_validation", "aggregate_validation",
+    "metric_extraction", "unresolved_fields", "human_decision_required", "diagnostics"
+  ],
+  "properties": {
+    "generation_report_schema_version": {"const": "0.1.0"},
+    "report_type": {"enum": ["generation", "generation_failure"]},
+    "subject_id_kind": {"enum": ["draft_id", "attempt_id"]},
+    "subject_id": {"type": "string", "minLength": 1},
+    "generator": {"$ref": "#/$defs/generator"},
+    "sources": {"$ref": "#/$defs/sources"},
+    "identity": {"oneOf": [{"$ref": "#/$defs/successIdentity"}, {"$ref": "#/$defs/failureIdentity"}]},
+    "observation_validation": {"$ref": "#/$defs/observationValidation"},
+    "aggregate_validation": {"$ref": "#/$defs/aggregateValidation"},
+    "metric_extraction": {"$ref": "#/$defs/metricExtraction"},
+    "unresolved_fields": {"type": "array", "items": {"$ref": "#/$defs/unresolved"}},
+    "human_decision_required": {"type": "array", "items": {"$ref": "#/$defs/decision"}},
+    "diagnostics": {"type": "array", "items": {"$ref": "#/$defs/diagnostic"}}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"report_type": {"const": "generation"}}, "required": ["report_type"]},
+      "then": {
+        "properties": {
+          "subject_id_kind": {"const": "draft_id"},
+          "subject_id": {"pattern": "^draft\\.[a-f0-9]{64}$"},
+          "identity": {"$ref": "#/$defs/successIdentity"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"report_type": {"const": "generation_failure"}}, "required": ["report_type"]},
+      "then": {
+        "properties": {
+          "subject_id_kind": {"const": "attempt_id"},
+          "subject_id": {"$ref": "#/$defs/uuid7"},
+          "identity": {"$ref": "#/$defs/failureIdentity"}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "semver": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"},
+    "uuid7": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "stepStatus": {"enum": ["not_started", "succeeded", "failed", "inconclusive", "not_applicable"]},
+    "generator": {
+      "type": "object", "additionalProperties": false,
+      "required": ["generator_contract", "generator_version", "template_version"],
+      "properties": {
+        "generator_contract": {"type": "string", "minLength": 1},
+        "generator_version": {"$ref": "#/$defs/semver"},
+        "template_version": {"type": "string", "minLength": 1}
+      }
+    },
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_role", "logical_path", "hash_algorithm", "hash_value", "parse_status", "module", "run_id"],
+      "properties": {
+        "source_role": {"enum": ["observation", "optional_module_observation", "manifest", "experiment_group_metadata", "module_registry", "axis_registry", "rubric"]},
+        "logical_path": {"type": "string", "minLength": 1},
+        "hash_algorithm": {"enum": ["jcs_sha256_v1", "normalized_text_file_sha256_v1", "raw_bytes_sha256_v1"]},
+        "hash_value": {"$ref": "#/$defs/sha256"},
+        "parse_status": {"enum": ["succeeded", "failed"]},
+        "module": {"type": "string", "minLength": 1},
+        "run_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "sources": {
+      "type": "object", "additionalProperties": false, "required": ["source_files"],
+      "properties": {"source_files": {"type": "array", "items": {"$ref": "#/$defs/source"}}}
+    },
+    "successIdentity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "draft_id", "draft_input_identity_hash"],
+      "properties": {
+        "status": {"const": "succeeded"},
+        "draft_id": {"type": "string", "minLength": 1},
+        "draft_input_identity_hash": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "failureIdentity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "error_code"],
+      "properties": {"status": {"const": "failed"}, "error_code": {"type": "string", "minLength": 1}}
+    },
+    "observationValidation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["step_status", "validator_version", "result_code"],
+      "properties": {
+        "step_status": {"$ref": "#/$defs/stepStatus"},
+        "validator_version": {"type": "string", "minLength": 1},
+        "result_code": {"type": "string", "minLength": 1}
+      }
+    },
+    "aggregateValidation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["step_status", "consistency_result"],
+      "properties": {
+        "step_status": {"$ref": "#/$defs/stepStatus"},
+        "consistency_result": {"enum": ["consistent", "inconsistent", "unavailable"]}
+      }
+    },
+    "metricExtraction": {
+      "type": "object", "additionalProperties": false,
+      "required": ["step_status", "metrics"],
+      "properties": {
+        "step_status": {"$ref": "#/$defs/stepStatus"},
+        "metrics": {"type": "array", "items": {"$ref": "https://local.sd-prompt-studio/observation-to-claim-draft-v0.1.schema.json#/$defs/extractedMetric"}}
+      }
+    },
+    "unresolved": {"$ref": "https://local.sd-prompt-studio/observation-to-claim-draft-v0.1.schema.json#/$defs/unresolvedField"},
+    "decision": {"$ref": "https://local.sd-prompt-studio/observation-to-claim-draft-v0.1.schema.json#/$defs/humanDecision"},
+    "diagnostic": {
+      "type": "object", "additionalProperties": false,
+      "required": ["severity", "code", "path", "message"],
+      "properties": {
+        "severity": {"enum": ["error", "warning"]},
+        "code": {"type": "string", "minLength": 1},
+        "path": {"type": "string", "minLength": 1},
+        "message": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

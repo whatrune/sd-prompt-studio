@@ -1,0 +1,264 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.sd-prompt-studio/observation-to-claim-receipt-v0.1.schema.json",
+  "x-contract-version": "0.1.0",
+  "title": "SD Prompt Studio Observation-to-Claim Lifecycle Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_schema_version", "receipt_id", "receipt_type", "recorded_at",
+    "result", "related_artifact_ids", "related_artifact_hashes", "payload"
+  ],
+  "properties": {
+    "receipt_schema_version": {"const": "0.1.0"},
+    "receipt_id": {"$ref": "#/$defs/uuid7"},
+    "receipt_type": {"enum": ["generation", "candidate_generation", "registry_compatibility_check", "finalize_attempt", "rollback"]},
+    "recorded_at": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "result": {"enum": ["succeeded", "failed", "inconclusive", "not_applicable"]},
+    "related_artifact_ids": {"$ref": "#/$defs/artifactIds"},
+    "related_artifact_hashes": {"$ref": "#/$defs/artifactHashes"},
+    "payload": {"type": "object"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"receipt_type": {"const": "generation"}}},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/generationPayload"}}}
+    },
+    {
+      "if": {"properties": {"receipt_type": {"const": "candidate_generation"}}},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/candidatePayload"}}}
+    },
+    {
+      "if": {"properties": {"receipt_type": {"const": "registry_compatibility_check"}}},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/compatibilityPayload"}}}
+    },
+    {
+      "if": {"properties": {"receipt_type": {"const": "finalize_attempt"}}},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/finalizePayload"}}}
+    },
+    {
+      "if": {"properties": {"receipt_type": {"const": "rollback"}}},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/rollbackPayload"}}}
+    },
+    {
+      "if": {
+        "properties": {
+          "receipt_type": {"const": "finalize_attempt"},
+          "result": {"const": "failed"}
+        },
+        "required": ["receipt_type", "result"]
+      },
+      "then": {"properties": {"payload": {"required": ["failed_step", "error_code"]}}}
+    },
+    {
+      "if": {
+        "properties": {
+          "receipt_type": {"const": "finalize_attempt"},
+          "result": {"const": "succeeded"}
+        },
+        "required": ["receipt_type", "result"]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "destination_path": {"type": "string", "pattern": "^(?!not_available$).+"},
+              "candidate_identity": {"$ref": "#/$defs/candidateIdentityAvailable"}
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "semver": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"},
+    "uuid7": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "artifactIds": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "pre_schema_draft": {"type": "string", "minLength": 1},
+        "generation_report": {"type": "string", "minLength": 1},
+        "human_resolution": {"type": "string", "minLength": 1},
+        "claim_candidate": {"type": "string", "minLength": 1},
+        "canonical_assertion": {"type": "string", "minLength": 1},
+        "validation_result": {"type": "string", "minLength": 1}
+      }
+    },
+    "hash": {
+      "type": "object", "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": {"type": "string", "minLength": 1},
+        "value": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "artifactHashes": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "pre_schema_draft": {"$ref": "#/$defs/hash"},
+        "generation_report": {"$ref": "#/$defs/hash"},
+        "human_resolution": {"$ref": "#/$defs/hash"},
+        "claim_candidate": {"$ref": "#/$defs/hash"},
+        "canonical_assertion": {"$ref": "#/$defs/hash"},
+        "validation_result": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "step": {
+      "type": "object", "additionalProperties": false,
+      "required": ["step_status", "result_code"],
+      "properties": {
+        "step_status": {"enum": ["not_started", "succeeded", "failed", "inconclusive", "not_applicable"]},
+        "result_code": {"type": "string", "minLength": 1}
+      }
+    },
+    "diagnostic": {"$ref": "https://local.sd-prompt-studio/observation-to-claim-generation-report-v0.1.schema.json#/$defs/diagnostic"},
+    "candidateIdentityAvailable": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "candidate_id", "candidate_id_projection_version", "candidate_id_projection_hash", "candidate_schema_version", "generator_version", "candidate_wrapper_artifact_hash_v1", "canonical_assertion_artifact_hash_v1", "assertion_content_v1_hash"],
+      "properties": {
+        "status": {"const": "available"},
+        "candidate_id": {"type": "string", "pattern": "^candidate\\.[a-f0-9]{64}$"},
+        "candidate_id_projection_version": {"const": "candidate_id_projection_v1"},
+        "candidate_id_projection_hash": {"$ref": "#/$defs/sha256"},
+        "candidate_schema_version": {"const": "0.1.0"},
+        "generator_version": {"$ref": "#/$defs/semver"},
+        "candidate_wrapper_artifact_hash_v1": {"$ref": "#/$defs/sha256"},
+        "canonical_assertion_artifact_hash_v1": {"$ref": "#/$defs/sha256"},
+        "assertion_content_v1_hash": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "candidateIdentityUnavailable": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "reason_code"],
+      "properties": {
+        "status": {"const": "not_available"},
+        "reason_code": {"type": "string", "minLength": 1}
+      }
+    },
+    "candidateIdentity": {"oneOf": [{"$ref": "#/$defs/candidateIdentityAvailable"}, {"$ref": "#/$defs/candidateIdentityUnavailable"}]},
+    "generationPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_validation", "identity_construction", "report_persistence", "diagnostics"],
+      "properties": {
+        "source_validation": {"$ref": "#/$defs/step"},
+        "identity_construction": {"$ref": "#/$defs/step"},
+        "report_persistence": {"$ref": "#/$defs/step"},
+        "diagnostics": {"type": "array", "items": {"$ref": "#/$defs/diagnostic"}}
+      }
+    },
+    "candidatePayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["draft_validation", "human_resolution_validation", "candidate_construction", "schema_validation", "integration_validation", "candidate_identity", "diagnostics"],
+      "properties": {
+        "draft_validation": {"$ref": "#/$defs/step"},
+        "human_resolution_validation": {"$ref": "#/$defs/step"},
+        "candidate_construction": {"$ref": "#/$defs/step"},
+        "schema_validation": {"$ref": "#/$defs/step"},
+        "integration_validation": {"$ref": "#/$defs/step"},
+        "candidate_identity": {"$ref": "#/$defs/candidateIdentity"},
+        "diagnostics": {"type": "array", "items": {"$ref": "#/$defs/diagnostic"}}
+      }
+    },
+    "compatibilityResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["generation_hash", "current_hash", "result"],
+      "properties": {
+        "generation_hash": {"$ref": "#/$defs/sha256"},
+        "current_hash": {"$ref": "#/$defs/sha256"},
+        "result": {"enum": ["unchanged", "compatible_changed", "incompatible"]}
+      }
+    },
+    "moduleCompatibilityResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["canonical_module_slug", "generation_hash", "current_hash", "generation_status", "current_status", "result"],
+      "properties": {
+        "canonical_module_slug": {"type": "string", "minLength": 1},
+        "generation_hash": {"$ref": "#/$defs/sha256"},
+        "current_hash": {"$ref": "#/$defs/sha256"},
+        "generation_status": {"enum": ["active", "deprecated"]},
+        "current_status": {"enum": ["active", "deprecated"]},
+        "result": {"enum": ["unchanged", "compatible_changed", "incompatible"]}
+      }
+    },
+    "metricCompatibilityResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["module", "metric", "generation_hash", "current_hash", "result"],
+      "properties": {
+        "module": {"type": "string", "minLength": 1},
+        "metric": {"type": "string", "minLength": 1},
+        "generation_hash": {"$ref": "#/$defs/sha256"},
+        "current_hash": {"$ref": "#/$defs/sha256"},
+        "result": {"enum": ["unchanged", "compatible_changed", "incompatible"]}
+      }
+    },
+    "evidenceCompatibilityResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["evidence_id", "generation_projection_hash", "current_projection_hash", "result"],
+      "properties": {
+        "evidence_id": {"type": "string", "minLength": 1},
+        "generation_projection_hash": {"$ref": "#/$defs/sha256"},
+        "current_projection_hash": {"$ref": "#/$defs/sha256"},
+        "result": {"enum": ["unchanged", "compatible_changed", "incompatible"]}
+      }
+    },
+    "compatibilityPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["registry_load", "compatibility_evaluation", "classification", "module_results", "metric_results", "evidence_id_results", "diagnostics"],
+      "properties": {
+        "registry_load": {"$ref": "#/$defs/step"},
+        "compatibility_evaluation": {"$ref": "#/$defs/step"},
+        "classification": {"enum": ["unchanged", "compatible_changed", "incompatible", "not_available"]},
+        "module_results": {"type": "array", "items": {"$ref": "#/$defs/moduleCompatibilityResult"}},
+        "metric_results": {"type": "array", "items": {"$ref": "#/$defs/metricCompatibilityResult"}},
+        "evidence_id_results": {"type": "array", "items": {"$ref": "#/$defs/evidenceCompatibilityResult"}},
+        "diagnostics": {"type": "array", "items": {"$ref": "#/$defs/diagnostic"}}
+      }
+    },
+    "finalizePayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["lock_acquisition", "snapshot_validation", "integration_validation", "install", "postcondition_validation", "candidate_identity", "destination_path", "diagnostics"],
+      "properties": {
+        "lock_acquisition": {"$ref": "#/$defs/step"},
+        "snapshot_validation": {"$ref": "#/$defs/step"},
+        "integration_validation": {"$ref": "#/$defs/step"},
+        "install": {"$ref": "#/$defs/step"},
+        "postcondition_validation": {"$ref": "#/$defs/step"},
+        "candidate_identity": {"$ref": "#/$defs/candidateIdentity"},
+        "destination_path": {
+          "oneOf": [
+            {"type": "string", "pattern": "^(?!not_available$).+"},
+            {"const": "not_available"}
+          ]
+        },
+        "failed_step": {"type": "string", "minLength": 1},
+        "error_code": {"type": "string", "minLength": 1},
+        "diagnostics": {"type": "array", "items": {"$ref": "#/$defs/diagnostic"}}
+      }
+    },
+    "snapshot": {
+      "type": "object", "additionalProperties": false,
+      "required": ["step_status", "result_code", "content_hash"],
+      "properties": {
+        "step_status": {"enum": ["not_started", "succeeded", "failed", "inconclusive", "not_applicable"]},
+        "result_code": {"type": "string", "minLength": 1},
+        "content_hash": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"const": "not_available"}]}
+      }
+    },
+    "rollbackPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["related_finalize_receipt_id", "rollback_execution", "cause_code", "candidate_identity", "staged_paths", "created_paths", "pre_snapshot", "post_snapshot", "diagnostics"],
+      "properties": {
+        "related_finalize_receipt_id": {"$ref": "#/$defs/uuid7"},
+        "rollback_execution": {"$ref": "#/$defs/step"},
+        "cause_code": {"type": "string", "minLength": 1},
+        "candidate_identity": {"$ref": "#/$defs/candidateIdentityAvailable"},
+        "staged_paths": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "created_paths": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "pre_snapshot": {"$ref": "#/$defs/snapshot"},
+        "post_snapshot": {"$ref": "#/$defs/snapshot"},
+        "diagnostics": {"type": "array", "items": {"$ref": "#/$defs/diagnostic"}}
+      }
+    }
+  }
+}

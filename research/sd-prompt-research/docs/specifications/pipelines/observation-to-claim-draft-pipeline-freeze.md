@@ -848,7 +848,9 @@ The `candidate_generation` payload requires:
 An available `candidate_identity` requires exactly `status: available`,
 `candidate_id`, `candidate_id_projection_version`,
 `candidate_id_projection_hash`, `candidate_schema_version`, and
-`generator_version`. `candidate_id` is the stable Candidate ID defined in
+`generator_version`, plus `candidate_wrapper_artifact_hash_v1`,
+`canonical_assertion_artifact_hash_v1`, and `assertion_content_v1_hash`.
+`candidate_id` is the stable Candidate ID defined in
 Section 12; `candidate_id_projection_version` is const
 `candidate_id_projection_v1`; `candidate_id_projection_hash` is the 64-character
 lowercase SHA-256 of that projection; `candidate_schema_version` is const
@@ -887,11 +889,25 @@ The `finalize_attempt` payload requires:
 - `destination_path`: non-empty canonical logical path; and
 - `diagnostics`: array of `diagnostic_v1`.
 
+A failed Finalize attempt additionally requires non-empty `failed_step` and
+`error_code`. Finalize preflight begins with Candidate existence and selection,
+Wrapper Schema validation, Candidate Generation Receipt Hash binding, and
+Candidate identity recalculation. Failure at any of those steps emits a failed
+`finalize_attempt` Receipt before returning the CLI error. If the Candidate
+cannot be trusted sufficiently to reproduce its identity, the Receipt uses
+`candidate_identity.status: not_available` with the failure code as
+`reason_code`; no unverified Artifact or semantic Hash is invented. When the
+Canonical destination cannot be derived from a trusted Candidate,
+`destination_path` is the exact sentinel `not_available`; this sentinel is not
+a filesystem path and is forbidden for a succeeded Finalize Receipt.
+
 The `rollback` payload requires:
 
 - `related_finalize_receipt_id`: UUIDv7;
 - `rollback_execution`: `receipt_step_v1`;
 - `cause_code`: non-empty error code;
+- `candidate_identity`: the available Candidate identity and its three Hash
+  bindings used by the related Finalize attempt;
 - `staged_paths`: unique array of non-empty logical paths;
 - `created_paths`: unique array of non-empty logical paths;
 - `pre_snapshot`: `snapshot_result_v1`;
@@ -1061,13 +1077,13 @@ Application records.
 source_draft_id: <non-empty string>
 source_draft_identity_hash: <64-character lowercase SHA-256>
 human_resolution_hash: <64-character lowercase SHA-256>
-candidate_contract_version: "0.1.0"
+candidate_schema_version: "0.1.0"
 generator_version: <non-empty string>
 ```
 
-Within this projection, `candidate_contract_version` is the value stored as the
-Wrapper root's `candidate_schema_version`; it is not a second independently
-versioned contract. The projection is RFC 8785 JCS encoded and SHA-256 hashed to
+`candidate_schema_version` is the Candidate Wrapper Contract Version stored at
+the Wrapper root and is the sole Candidate contract-version field. The
+projection is RFC 8785 JCS encoded and SHA-256 hashed to
 lowercase hexadecimal. `candidate_id_projection_hash` stores that complete
 64-character hash and `candidate_id` is `candidate.` followed by the hash.
 
@@ -1148,6 +1164,27 @@ Assertion File; Wrapper metadata never enters Canonical Knowledge. The Wrapper
 Artifact Hash covers the complete `claim-candidate.yaml`, while Canonical
 Artifact and existing semantic hashes cover only the staged canonical Assertion
 under their already defined Hash Contracts.
+
+`canonical_assertion_artifact_hash_v1` uses one fixed Canonical YAML
+Serialization Profile: UTF-8, no BOM, LF newlines, one final newline, no YAML
+aliases or anchors, no key sorting, and an explicit root key order. The root
+order is: `schema_version`, `assertion_file_id`, `claim_family`, `path_base`,
+`metric_path_syntax`, `axis_registry_refs`, `evidence_refs`, then `assertions`.
+The serializer constructs this order explicitly rather than relying on source
+mapping insertion order. Nested closed objects follow their Research Claim
+Schema `properties` order; dynamic-key maps use lexical key order; arrays retain
+their contract-defined order. This is explicit schema-directed ordering, not
+the YAML serializer's `sort_keys` option. The same Canonical Assertion object therefore yields
+the same byte sequence for Candidate Generation, Finalize revalidation, and
+create-only installation.
+
+Candidate Generation, Finalize, and Rollback Receipts keep the Hash purposes
+separate. `candidate_wrapper_artifact_hash_v1` and
+`canonical_assertion_artifact_hash_v1` are
+`normalized_text_file_sha256_v1` Artifact Hashes over their exact saved bytes.
+`assertion_content_v1_hash` is the existing RFC 8785 JCS plus SHA-256 semantic
+Hash. A Rollback Receipt repeats all three bindings from its related Finalize
+attempt and never substitutes the semantic Hash for either Artifact Hash.
 
 ## 13. Finalize transaction
 

@@ -9,6 +9,8 @@ on:
       - "research/sd-prompt-research/templates/**"
       - "research/sd-prompt-research/scripts/build_concept_graph.py"
       - "research/sd-prompt-research/scripts/validate_research_claims.py"
+      - "research/sd-prompt-research/scripts/claim_draft_pipeline.py"
+      - "research/sd-prompt-research/scripts/observation_to_claim.py"
       - "research/sd-prompt-research/tests/**"
       - "research/sd-prompt-research/requirements.txt"
       - ".github/workflows/research-claims.yml"
