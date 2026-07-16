@@ -5,6 +5,8 @@ Status: **Freeze specification; implementation not started**
 Specification contract: `observation_to_claim_draft_v1`
 
 Pre-schema draft format: `0.1.0`
+Generation Report format: `0.1.0`
+Human Resolution format: `0.1.0`
 Receipt format: `0.1.0`
 
 ## 1. Purpose and scope
@@ -190,10 +192,11 @@ semantic_contract:
 ```
 
 `definition` is a required non-empty string. `scope` and
-`metric_namespaces` are required arrays containing strings only. Unknown fields
-inside `semantic_contract` are invalid. The arrays may not contain duplicate
-values; their stored order is preserved, while their projection order is
-normalized as described below.
+`metric_namespaces` are required arrays of non-empty ASCII lowercase snake-case
+strings matching `^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$`. Unknown fields inside
+`semantic_contract` are invalid. The arrays may not contain duplicate values;
+their stored order is preserved, while their projection order is normalized as
+described below.
 
 Canonical slugs and aliases use ASCII lowercase snake case matching
 `^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$`. Slugs, aliases, and cross-entry combinations
@@ -292,6 +295,15 @@ hexadecimal. The hard projection excludes status, aliases, physical paths, and
 the Registry-wide version. The change fingerprint excludes aliases and paths
 but deliberately includes status and the full semantic version.
 
+The hard-compatibility result is declaration-based. It proves that the
+canonical slug, declared semantic MAJOR version, and Evidence ID contract agree;
+it does not independently prove that two Module meanings are compatible. Human
+Registry Review is responsible for verifying that every semantic-contract
+change uses the correct SemVer increment. A meaning-breaking change hidden
+behind an unchanged or insufficiently incremented version is a Registry review
+failure, not evidence that the hard-compatibility algorithm established
+compatibility.
+
 The immutable Draft stores the generation-time values normatively, and the
 sorted list is part of `draft_input_identity_v1`:
 
@@ -323,12 +335,17 @@ hash differences alone do not make an existing Draft incompatible.
 `metric_compatibility_v1` is generated for each metric actually used by a
 Draft. It contains Registry role, canonical Module slug, metric name, metric
 path contract, definition, allowed values, denominator contract, and visibility
-contract. A contract field with insufficient definition uses the typed object
-value `{"status":"not_defined"}`. A field that does not apply to that metric
-uses `{"status":"not_applicable"}`. These states are distinct and neither may
-be represented by null, an empty string, or an empty object. A source from which
-the Pipeline cannot determine whether the field is undefined or inapplicable
-produces `METRIC_COMPATIBILITY_UNAVAILABLE` rather than guessing either state.
+contract. The typed object value `{"status":"not_defined"}` may be used only
+when that exact state is explicitly declared by the Registry or Metric Contract.
+Likewise, `{"status":"not_applicable"}` may be used only when explicitly
+declared by the Registry or Metric Contract. These states are distinct and
+neither may be represented by null, an empty string, or an empty object.
+
+The Pipeline must not derive either state from an absent field, a parse failure,
+or generator judgment. An absent declaration, unreadable declaration, or any
+other case in which the state cannot be established produces
+`METRIC_COMPATIBILITY_UNAVAILABLE`; it is never repaired by synthesizing a typed
+state.
 
 For example:
 
@@ -536,7 +553,8 @@ display sentence is derived presentation.
 An identical ID and identity with intact generated artifacts is idempotent
 success. An existing human-resolution or Candidate artifact is never
 overwritten. One ID with a different identity produces `DRAFT_ID_COLLISION`;
-missing or altered generated artifacts produce a corrupt-draft error.
+missing generated artifacts produce `DRAFT_CORRUPT`, and altered immutable
+generated artifacts produce `DRAFT_TAMPERED`.
 
 ### 9.1 Failure artifacts
 
@@ -555,11 +573,38 @@ required versions, and identity-construction failure are generation failures.
 
 ## 10. Generation Report and Receipt
 
-The Generation Report is deterministic. It contains the generator and template
-versions, source hashes, identity hash, generation-time Observation validation
-and aggregate-consistency results, extracted and rejected metrics, unresolved
-fields, missing Evidence, provisional Concept candidates, and required human
-decisions. `subject_unresolved` is an unresolved field, not a rejected metric.
+The Generation Report is a closed, deterministic JSON artifact with
+`generation_report_schema_version: "0.1.0"`. Its exact root fields are:
+
+- `generation_report_schema_version`;
+- `report_type`, either `generation` or `generation_failure`;
+- `subject_id_kind`, either `draft_id` or `attempt_id`;
+- `subject_id`;
+- `generator`, containing contract, generator, and template versions;
+- `sources`, containing source roles, logical provenance paths, and hashes;
+- `identity`, containing the Draft identity version and hash when constructible;
+- `validation`, containing generation-time Observation and aggregate checks;
+- `extraction`, containing extracted and rejected metrics and Evidence candidates;
+- `unresolved`, containing missing Evidence, provisional Concept candidates,
+  and required human decisions; and
+- `diagnostics`, containing deterministic errors and warnings.
+
+All root fields are required. A value unavailable by contract is represented by
+an explicitly permitted typed status in that field's closed sub-contract, not
+by omitting a root field. Unknown root or nested fields are invalid.
+`subject_unresolved` is an unresolved field, not a rejected metric.
+
+`generation_report_content_v1` contains the complete closed Report object. Map
+keys use JCS order. Source entries sort by semantic role, Module, Run ID, and
+logical path; validation and diagnostic entries sort by phase, code, and path;
+metric and Evidence entries sort by Module, metric path, and stable ID. Source
+JSON arrays whose order is evidentiary are not reordered. The projection is RFC
+8785 JCS encoded and SHA-256 hashed to lowercase hexadecimal.
+
+Generation Reports contain no timestamps. Their source Observation timestamps,
+if present, remain inside source hashes and provenance rather than becoming
+Report execution time. Consequently the same inputs and versions produce the
+same Report content hash.
 
 The Report never contains runtime Registry comparison, Candidate integration,
 Finalize, environment, or timestamp results.
@@ -571,7 +616,26 @@ named `generation-receipts/` directory. Every Receipt has
 `finalize_attempt`, or `rollback`. Existing Receipts are never edited, deleted,
 or migrated in place.
 
-The Receipt root contract distinguishes structure version from lifecycle event:
+The Receipt is a closed JSON envelope. Its exact required root fields are:
+
+- `receipt_schema_version`;
+- `receipt_id`;
+- `receipt_type`;
+- `recorded_at`;
+- `result`;
+- `related_artifact_ids`;
+- `related_artifact_hashes`; and
+- `payload`.
+
+Unknown root fields are invalid. `receipt_id` is UUIDv7.
+`recorded_at` is an RFC 3339 UTC timestamp with a `Z` suffix and is deliberately
+runtime history rather than deterministic identity. `result` is one of
+`succeeded`, `failed`, or `inconclusive`. `related_artifact_ids` is a closed map
+from artifact role to stable ID. `related_artifact_hashes` is a closed map from
+artifact role to an object containing the hash-contract name and lowercase
+SHA-256 value. Only artifacts present at receipt creation appear in those maps.
+
+The root contract distinguishes structure version from lifecycle event:
 
 ```json
 {
@@ -581,13 +645,34 @@ The Receipt root contract distinguishes structure version from lifecycle event:
 ```
 
 `receipt_schema_version` versions the Receipt JSON structure.
-`receipt_type` is an enum identifying the lifecycle event. Adding a Receipt
-type requires an explicit enum extension and the corresponding contract review;
-a breaking structural change requires a new Receipt Schema version. A type must
-never be smuggled in as an unknown string under the existing `0.1.0` contract.
+`receipt_type` is an enum identifying the lifecycle event. The `0.1.0` enum is
+frozen: adding any Receipt type is a Receipt Contract change and requires a new
+`receipt_schema_version`. A type must never be smuggled in as an unknown string
+under the existing `0.1.0` contract.
 Both fields are required at the Receipt root. The complete version 0.1.0
 `receipt_type` enum is `generation`, `candidate_generation`,
 `registry_compatibility_check`, `finalize_attempt`, and `rollback`.
+
+`payload` is a closed object selected by `receipt_type`:
+
+- `generation`: generator contract and version, source-validation outcome,
+  Draft identity outcome, Report ID and hash, and generated artifact IDs;
+- `candidate_generation`: Draft ID and identity hash, Human Resolution ID and
+  content hash, Candidate ID and hash, Schema-validation outcome, and unresolved
+  decision list;
+- `registry_compatibility_check`: generation-time and current Registry versions
+  and hashes, affected used-Module, Registry-role, metric, and Evidence ID
+  compatibility results, final classification, warnings, and errors;
+- `finalize_attempt`: Candidate ID and hash, Human Resolution hash, lock outcome,
+  pre-install and checked snapshots, integration and postcondition validation
+  outcomes, destination logical path, and install outcome; and
+- `rollback`: related Finalize Receipt ID, staged and created logical paths,
+  pre/post snapshots, rollback cause, attempted actions, and rollback outcome.
+
+Every listed payload field is required for its Receipt type. Where an operation
+did not reach a step, that field uses the applicable closed status enum defined
+by the future Receipt Schema rather than being omitted or set to null. Unknown
+payload fields and payloads belonging to another Receipt type are invalid.
 
 Receipt Schema versions are managed independently from Research Claim Schema
 versions and Observation Module Registry Schema versions. No one of these
@@ -604,21 +689,66 @@ hashes, per-used-Module hard and change results, used Registry-role and metric
 results, Evidence ID projection results, final compatibility classification,
 warnings, and errors. Unused Registry material is not copied.
 
-Artifact hashes include only artifacts present at receipt creation. JSON uses
-JCS/SHA-256 and YAML uses normalized text SHA-256. Missing artifacts are omitted,
-not null. A Receipt never hashes itself.
+Artifact hashes use JSON JCS/SHA-256 or YAML normalized-text SHA-256 as declared
+by each map entry. Missing artifacts are omitted from the artifact maps, not
+represented by null. Within payloads, step status is explicit as described
+above. A Receipt never hashes itself. Map ordering is governed by JCS; arrays of
+diagnostics and compatibility results use the same deterministic sort rules as
+their originating contracts. Receipt timestamps and UUIDs are lifecycle data
+and are not claimed to be deterministic across repeated executions.
 
 ## 11. Human Resolution
 
-`human-resolution.yaml` records human decisions needed to construct the current
-Research Claim Schema: selected subject, Claim adoption, Evidence bindings,
-claim family, scope, generalization status, interpretation candidates, causal
-hypotheses, and rejected candidates. The Pipeline never selects these values.
+`human-resolution.yaml` is a closed human-authored artifact with
+`human_resolution_schema_version: "0.1.0"`. Its exact root fields are:
 
-`human_resolution_hash` is the JCS/SHA-256 hash of decision fields only. It
-excludes comments, timestamps, and UI metadata. Bindings sort by Evidence ID and
-role; rejected, interpretation, and causal candidates sort by their stable IDs.
-The Candidate stores this hash and is invalid if it no longer matches.
+- `human_resolution_schema_version`;
+- `resolution_id`;
+- `source_draft_id`;
+- `source_draft_identity_hash`;
+- `selected_assertion_id`;
+- `selected_subject`;
+- `selected_claim_statement`;
+- `selected_evidence_bindings`;
+- `selected_claim_family`;
+- `selected_scope`;
+- `selected_generalization_status`;
+- `interpretation_candidates`;
+- `causal_hypotheses`;
+- `depends_on`;
+- `supersedes`;
+- `rejected_candidates`;
+- `decided_by`;
+- `decided_at`; and
+- `display_comments`.
+
+All root fields are required and unknown root or nested fields are invalid.
+`resolution_id` is UUIDv7. `decided_at` is an RFC 3339 UTC timestamp with a `Z`
+suffix. Empty decisions use the field's valid empty array or empty closed object;
+they are not represented by a missing field.
+
+Only Human Resolution decides `selected_assertion_id`, `selected_subject`,
+`selected_claim_statement`, `selected_evidence_bindings`, `selected_scope`,
+`selected_generalization_status`, `interpretation_candidates`,
+`causal_hypotheses`, `depends_on`, and `supersedes`. It also decides the Claim
+family and rejected candidates needed by the current Candidate contract. The
+Generator never selects `selected_assertion_id` or any other research-semantic
+value. The selected Assertion ID must satisfy the current Research Claim Schema
+and pass the global collision check before Candidate generation.
+
+`human_resolution_content_v1` contains the source Draft ID and identity hash,
+selected Assertion ID, all selected research-semantic fields, adopted relation
+lists, and rejected candidates. It excludes `resolution_id`, `decided_by`,
+`decided_at`, `display_comments`, YAML formatting, comments, and presentation
+order. Evidence bindings sort by Evidence ID and role. Scope, dependency, and
+supersession lists sort by stable ID or canonical value. Rejected,
+interpretation, and causal candidates sort by their stable IDs. Duplicate set
+members are invalid before projection.
+
+The projection is RFC 8785 JCS encoded and SHA-256 hashed to lowercase
+hexadecimal. The resulting `human_resolution_hash` is stored by the Candidate;
+the Candidate is invalid if it no longer matches. Human timestamps are retained
+for audit history but do not alter the semantic decision hash.
 
 ## 12. Claim Candidate and validation
 
@@ -688,6 +818,15 @@ Within the lock:
 7. run postcondition validation; and
 8. release the lock only after success or completed rollback.
 
+Failure to acquire the lock within the fixed timeout produces
+`FINALIZE_LOCK_TIMEOUT`. If a changed snapshot cannot be reconciled by the
+required revalidation before install, Finalize stops with
+`CANONICAL_SNAPSHOT_CHANGED`. A create-only install that encounters an existing
+destination produces `CANONICAL_DESTINATION_EXISTS`; it never overwrites that
+file. Postcondition validation failure produces `POST_VALIDATION_FAILED` and
+requires rollback of the file created by that attempt. Failure to complete that
+rollback produces the critical `ROLLBACK_FAILED` error.
+
 The snapshot is a sorted JCS/SHA-256 projection of normalized logical paths and
 content hashes for every input read by integration validation, including Claim
 Assertions and Reviews, Concept Graph reference sources, and used Registries.
@@ -752,6 +891,26 @@ The fixed Registry change warning is
 `REGISTRY_CHANGED_SINCE_DRAFT_GENERATION`; it is emitted only for an affected
 used Module, Registry role, or metric.
 
+The following lifecycle error contracts are also fixed. "Canonical timing"
+describes the point at which the error is detected; it does not authorize any
+additional write.
+
+| Code | Phase | Retry | Canonical timing | Receipt | Rollback |
+| --- | --- | --- | --- | --- | --- |
+| `REQUIRED_HUMAN_DECISION_MISSING` | Human Resolution / Candidate generation | Yes, after a human supplies the missing decision | Before any canonical change | `candidate_generation` | No |
+| `DRAFT_TAMPERED` | Draft load or Candidate generation | No; restore or regenerate the immutable Draft first | Before any canonical change | Receipt for the detecting attempt | No |
+| `DRAFT_CORRUPT` | Draft load or Candidate generation | No; restore or regenerate the incomplete Draft first | Before any canonical change | Receipt for the detecting attempt | No |
+| `FINALIZE_LOCK_TIMEOUT` | Finalize lock acquisition | Yes | Before any canonical change | `finalize_attempt` | No |
+| `CANONICAL_SNAPSHOT_CHANGED` | Finalize integration validation | Yes, from a fresh snapshot | Before install | `finalize_attempt` | No |
+| `CANONICAL_DESTINATION_EXISTS` | Finalize create-only install | Only after resolving the ID or destination collision | No file from this attempt is installed | `finalize_attempt` | No |
+| `POST_VALIDATION_FAILED` | Finalize postcondition validation | Yes, only after successful rollback and a new validation attempt | After this attempt created its file | `finalize_attempt` and `rollback` | Required |
+| `ROLLBACK_FAILED` | Finalize rollback | No automatic retry; operator remediation is required | After this attempt created its file | `rollback` | Attempted but incomplete |
+
+These names are canonical. Implementations must not emit a second alias code
+for the same condition. Existing structural, Registry, Evidence, and Receipt
+codes retain their existing phases and are not duplicated by this lifecycle
+table.
+
 ## 16. Finalize rules and invariants
 
 The following are invariant:
@@ -800,3 +959,10 @@ identity, Evidence lifecycle, Human Resolution, Candidate Schema validation,
 Canonical integration validation, Finalize transaction, and Receipt contract.
 An implementation must not require earlier prompts or chat history to interpret
 these contracts.
+
+No Pipeline artifact contract is left implicit at this Freeze boundary. The
+Pre-schema Draft, Generation Report, Human Resolution, and Receipt contracts are
+fixed at `0.1.0` in this document. Claim Candidate and Canonical Assertion
+structure use the current Research Claim Schema rather than defining a parallel
+schema here. Future physical Schema files for the new `0.1.0` artifacts must
+implement these closed contracts without changing their meaning.
