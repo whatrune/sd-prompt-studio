@@ -709,7 +709,7 @@ export default function App() {
             <div className="navigation-children navigation-flyout">
               {store.navigationCollapsed&&<strong>プロンプト</strong>}
               <nav aria-label="プロンプトカテゴリ">{categoryOrder.map(c=>{const CategoryIcon=NAV_CATEGORY_ICONS[c as keyof typeof NAV_CATEGORY_ICONS]??Sparkles;return <button key={c} className={`navigation-item ${category===c&&!isSearchMode&&!favoritesOnly?'active':''}`} onClick={()=>{closeNavigationFlyout();store.setWorkspaceView('prompt');chooseCategory(c)}}><span className="navigation-icon-slot"><CategoryIcon size={15}/></span><span className="navigation-item-label">{getCategoryLabel(c,locale)}</span><small>{visibleDictionaryTags.filter(t=>t.category===c).length}</small></button>})}</nav>
-              <div className="preset-box"><label>モデル</label><select value={store.modelPreset} onChange={e=>store.setModelPreset(e.target.value as ModelPreset)}><option value="illustrious">Illustrious / NoobAI</option><option value="pony">Pony</option><option value="sdxl">SDXL汎用</option><option value="custom">カスタム</option></select><button className="preset" onClick={()=>store.applyQualityPreset()}><WandSparkles size={17}/>品質を置き換え</button></div>
+              <button className="preset navigation-quality-preset" onClick={()=>store.applyQualityPreset()}><WandSparkles size={17}/>品質を置き換え</button>
             </div>
           </section>
           <section className="navigation-group navigation-analyzer">
@@ -887,6 +887,10 @@ export default function App() {
               })}
             </div>
           </div>}
+        </section>
+        <section className="generation-context" aria-labelledby="generation-context-title">
+          <div className="generation-context-header"><span id="generation-context-title">Generation Context</span></div>
+          <label className="generation-context-field"><span>MODEL</span><select value={store.modelPreset} onChange={e=>store.setModelPreset(e.target.value as ModelPreset)}><option value="illustrious">Illustrious</option><option value="pony">Pony</option><option value="sdxl">SDXL</option><option value="custom">Custom</option></select></label>
         </section>
         <section className={`preview-section expansion-preview ${expansionCollapsed?'collapsed':''}`}>
           <div className="preview-section-header"><button className="preview-section-toggle" title="Expansion Preview" onClick={()=>setExpansionCollapsed(value=>!value)} aria-expanded={!expansionCollapsed}><span>Generated Prompt Structure</span>{expansionCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button></div>
