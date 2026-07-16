@@ -1,0 +1,98 @@
+schema_version: "0.1.0"
+registry_version: "1.0.0"
+registry_id: observation-modules
+modules:
+  - slug: pose
+    status: active
+    aliases: []
+    semantic_contract_version: "1.0.0"
+    evidence_id_contract: evidence_id_v1
+    semantic_contract:
+      definition: Visible-state observations for body pose and support geometry.
+      scope:
+        - body_state
+        - body_orientation
+        - support_relation
+        - contact
+        - visibility
+      metric_namespaces:
+        - pose
+  - slug: face
+    status: active
+    aliases:
+      - face_observation
+    semantic_contract_version: "1.0.0"
+    evidence_id_contract: evidence_id_v1
+    semantic_contract:
+      definition: Visible-state observations for face geometry, orientation, state, and visibility.
+      scope:
+        - face_geometry
+        - face_orientation
+        - gaze
+        - visibility
+      metric_namespaces:
+        - face
+  - slug: hair
+    status: active
+    aliases: []
+    semantic_contract_version: "1.0.0"
+    evidence_id_contract: evidence_id_v1
+    semantic_contract:
+      definition: Visible-state observations for hair geometry, arrangement, and visibility.
+      scope:
+        - hair_geometry
+        - hair_state
+        - visibility
+      metric_namespaces:
+        - hair
+  - slug: clothing
+    status: active
+    aliases: []
+    semantic_contract_version: "1.0.0"
+    evidence_id_contract: evidence_id_v1
+    semantic_contract:
+      definition: Visible-state observations for garment geometry, coverage, and material behavior.
+      scope:
+        - garment_geometry
+        - coverage
+        - visibility
+      metric_namespaces:
+        - clothing
+  - slug: camera
+    status: active
+    aliases: []
+    semantic_contract_version: "1.0.0"
+    evidence_id_contract: evidence_id_v1
+    semantic_contract:
+      definition: Visible-state observations for framing, viewpoint, and perspective geometry.
+      scope:
+        - framing
+        - viewpoint
+        - perspective
+      metric_namespaces:
+        - camera
+  - slug: object
+    status: active
+    aliases: []
+    semantic_contract_version: "1.0.0"
+    evidence_id_contract: evidence_id_v1
+    semantic_contract:
+      definition: Visible-state observations for objects, object geometry, and object relations.
+      scope:
+        - object_state
+        - object_geometry
+        - object_relation
+        - visibility
+      metric_namespaces:
+        - object
+  - slug: other
+    status: active
+    aliases: []
+    semantic_contract_version: "1.0.0"
+    evidence_id_contract: evidence_id_v1
+    semantic_contract:
+      definition: Visible-state observations that have no registered specialized module.
+      scope:
+        - unmodeled_visible_state
+      metric_namespaces:
+        - other

@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.sd-prompt-studio/observation-to-claim-human-resolution-v0.1.schema.json",
+  "x-contract-version": "0.1.0",
+  "title": "SD Prompt Studio Claim Draft Human Resolution",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "human_resolution_schema_version", "resolution_id", "source_draft_id",
+    "source_draft_identity_hash", "selected_assertion_id", "selected_subject",
+    "selected_claim_statement", "selected_evidence_bindings", "selected_claim_family",
+    "selected_scope", "selected_generalization_status", "interpretation_candidates",
+    "causal_hypotheses", "depends_on", "supersedes", "rejected_candidates",
+    "decided_by", "decided_at"
+  ],
+  "properties": {
+    "human_resolution_schema_version": {"const": "0.1.0"},
+    "resolution_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "source_draft_id": {"type": "string", "pattern": "^draft\\.[a-f0-9]{64}$"},
+    "source_draft_identity_hash": {"$ref": "#/$defs/sha256"},
+    "selected_assertion_id": {"$ref": "https://local.sd-prompt-studio/research-claim-assertion-v0.1.schema.json#/$defs/assertionId"},
+    "selected_subject": {"$ref": "https://local.sd-prompt-studio/research-claim-assertion-v0.1.schema.json#/$defs/subject"},
+    "selected_claim_statement": {"$ref": "https://local.sd-prompt-studio/research-claim-assertion-v0.1.schema.json#/$defs/claim"},
+    "selected_evidence_bindings": {
+      "type": "array",
+      "items": {"$ref": "https://local.sd-prompt-studio/research-claim-assertion-v0.1.schema.json#/$defs/evidenceBinding"}
+    },
+    "selected_claim_family": {"$ref": "https://local.sd-prompt-studio/research-claim-assertion-v0.1.schema.json#/$defs/snakeName"},
+    "selected_scope": {"$ref": "https://local.sd-prompt-studio/research-claim-assertion-v0.1.schema.json#/$defs/scope"},
+    "selected_generalization_status": {"$ref": "https://local.sd-prompt-studio/research-claim-assertion-v0.1.schema.json#/$defs/generalizationStatus"},
+    "interpretation_candidates": {
+      "type": "array",
+      "items": {"$ref": "https://local.sd-prompt-studio/research-claim-assertion-v0.1.schema.json#/$defs/interpretationCandidate"}
+    },
+    "causal_hypotheses": {
+      "type": "array",
+      "items": {"$ref": "https://local.sd-prompt-studio/research-claim-assertion-v0.1.schema.json#/$defs/causalHypothesis"}
+    },
+    "depends_on": {
+      "type": "array", "uniqueItems": true,
+      "items": {"$ref": "https://local.sd-prompt-studio/research-claim-assertion-v0.1.schema.json#/$defs/assertionId"}
+    },
+    "supersedes": {
+      "type": "array", "uniqueItems": true,
+      "items": {"$ref": "https://local.sd-prompt-studio/research-claim-assertion-v0.1.schema.json#/$defs/assertionId"}
+    },
+    "rejected_candidates": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/rejectedCandidate"}
+    },
+    "decided_by": {"type": "string", "minLength": 1},
+    "decided_at": {"type": "string", "format": "date-time", "pattern": "Z$"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "rejectedCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_kind", "candidate_id", "reason_code"],
+      "properties": {
+        "candidate_kind": {"enum": ["subject", "claim_statement", "evidence_binding", "interpretation_candidate", "causal_hypothesis"]},
+        "candidate_id": {"type": "string", "minLength": 1},
+        "reason_code": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

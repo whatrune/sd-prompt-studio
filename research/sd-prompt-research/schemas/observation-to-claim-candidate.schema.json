@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.sd-prompt-studio/observation-to-claim-candidate-v0.1.schema.json",
+  "x-contract-version": "0.1.0",
+  "title": "SD Prompt Studio Claim Candidate Wrapper",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "candidate_schema_version", "candidate_id", "candidate_id_projection_version",
+    "candidate_id_projection_hash", "source_draft_id", "source_draft_identity_hash",
+    "human_resolution_hash", "generator_version", "canonical_assertion"
+  ],
+  "properties": {
+    "candidate_schema_version": {"const": "0.1.0"},
+    "candidate_id": {"type": "string", "pattern": "^candidate\\.[a-f0-9]{64}$"},
+    "candidate_id_projection_version": {"const": "candidate_id_projection_v1"},
+    "candidate_id_projection_hash": {"$ref": "#/$defs/sha256"},
+    "source_draft_id": {"type": "string", "pattern": "^draft\\.[a-f0-9]{64}$"},
+    "source_draft_identity_hash": {"$ref": "#/$defs/sha256"},
+    "human_resolution_hash": {"$ref": "#/$defs/sha256"},
+    "generator_version": {"type": "string", "minLength": 1},
+    "canonical_assertion": {"$ref": "https://local.sd-prompt-studio/research-claim-assertion-v0.1.schema.json"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  }
+}
