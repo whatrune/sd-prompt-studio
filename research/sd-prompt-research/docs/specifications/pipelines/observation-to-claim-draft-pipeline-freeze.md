@@ -583,8 +583,9 @@ required versions, and identity-construction failure are generation failures.
 
 ### 10.1 Shared Generation Report envelope
 
-The Generation Report is a closed, deterministic JSON artifact used for both
-success and failure. Its required root fields are exactly:
+The Generation Report is a closed JSON artifact with one shared envelope for
+success and failure. Determinism depends on `report_type` as defined below. Its
+required root fields are exactly:
 
 - `generation_report_schema_version`: string, const `"0.1.0"`;
 - `report_type`: enum `generation` or `generation_failure`;
@@ -613,6 +614,11 @@ draft_id: <non-empty string>
 draft_input_identity_hash: <64-character lowercase SHA-256>
 ```
 
+A success Report is deterministic: the same inputs, contract and implementation
+versions, and declared environment conditions produce identical Report content.
+`generation_report_content_v1` is its Semantic / Deterministic Hash contract and
+covers the complete success Report.
+
 On failure, `report_type` is `generation_failure`, `subject_id_kind` is
 `attempt_id`, and `subject_id` is the failure-attempt UUIDv7. The identity object
 requires exactly:
@@ -626,6 +632,14 @@ A failure identity has no Draft identity. It is invalid to add `draft_id` or
 `draft_input_identity_hash`, invent either value, use the attempt ID as a Draft
 ID, or substitute null or an empty string.
 
+A failure Report is an attempt-scoped integrity artifact. Its UUIDv7 attempt ID
+may differ on every execution, so neither identical bytes nor a stable semantic
+identity is promised across repeated failures. Its full stored bytes are hashed
+with `raw_bytes_sha256_v1` as an Artifact Integrity Hash. That hash verifies the
+stored attempt artifact only and must not be used as a Failure-cause identity or
+as evidence that two Failure causes differ. The attempt ID must not be made
+deterministic or reinterpreted as a Draft ID.
+
 ### 10.2 Generation Report nested contracts
 
 `generator_contract_v1` requires exactly three non-empty strings:
@@ -637,14 +651,37 @@ closed `source_file_v1` objects. Each source object requires:
 - `source_role`: enum `observation`, `optional_module_observation`, `manifest`,
   `experiment_group_metadata`, `module_registry`, `axis_registry`, or `rubric`;
 - `logical_path`: non-empty POSIX-style provenance path;
-- `hash_contract`: enum `jcs_sha256_v1` or
-  `normalized_text_file_sha256_v1`;
-- `content_hash`: 64-character lowercase SHA-256;
+- `hash_algorithm`: enum `jcs_sha256_v1`,
+  `normalized_text_file_sha256_v1`, or `raw_bytes_sha256_v1`;
+- `hash_value`: 64-character lowercase SHA-256;
+- `parse_status`: enum `succeeded` or `failed`;
 - `module`: canonical Module slug or the literal `not_applicable`; and
 - `run_id`: non-empty string or the literal `not_applicable`.
 
 Unknown source fields are invalid. Entries sort by `source_role`, `module`,
 `run_id`, then `logical_path`. Duplicate compound keys are invalid.
+
+The source hash algorithms are disjoint contracts:
+
+- `jcs_sha256_v1` applies to valid JSON. The parsed JSON is RFC 8785 JCS encoded,
+  SHA-256 hashed, and emitted as lowercase hexadecimal. It is a Semantic /
+  Deterministic Hash.
+- `normalized_text_file_sha256_v1` applies to valid UTF-8 text and YAML Registry
+  material. It removes a UTF-8 BOM, normalizes CRLF and CR to LF, performs no
+  other transformation, SHA-256 hashes the resulting UTF-8 bytes, and emits
+  lowercase hexadecimal. It is a Text Artifact Identity Hash.
+- `raw_bytes_sha256_v1` applies only when JSON parsing fails or UTF-8 decoding
+  fails. It SHA-256 hashes the raw file bytes without normalization and emits
+  lowercase hexadecimal. It is an Artifact Integrity Hash for input identity,
+  Failure reproduction, and tamper detection, never semantic equality.
+
+Valid JSON requires `hash_algorithm: jcs_sha256_v1` and
+`parse_status: succeeded`. JSON parse failure or UTF-8 decode failure requires
+`hash_algorithm: raw_bytes_sha256_v1` and `parse_status: failed`. A valid UTF-8
+YAML or text source uses `normalized_text_file_sha256_v1`; its `parse_status`
+records the actual structured parse result. Parse-failed sources remain present
+in `source_files`. It is invalid to describe unparseable JSON as JCS-hashed, to
+omit a failed source, or to substitute null or an empty hash.
 
 `step_status_v1` is the shared enum `not_started`, `succeeded`, `failed`,
 `inconclusive`, or `not_applicable`. Every step object contains a required
@@ -683,17 +720,38 @@ entries sort by `field_path` and `reason_code`. Decision entries sort by
 Severity is `error` or `warning`; the remaining values are non-empty strings.
 Diagnostics sort by severity, code, path, then message.
 
-`generation_report_content_v1` contains the complete closed Report object. Map
-keys use RFC 8785 JCS order and arrays use the sort rules above. Source JSON
-arrays whose original order is evidentiary are represented only through source
-hashes and are not reordered. The JCS projection is SHA-256 hashed to lowercase
-hexadecimal. Every Report field is in this projection.
+For a success Report, `generation_report_content_v1` contains the complete
+closed Report object. Map keys use RFC 8785 JCS order and arrays use the sort
+rules above. Source JSON arrays whose original order is evidentiary are
+represented only through source hashes and are not reordered. The JCS
+projection is SHA-256 hashed to lowercase hexadecimal. Every success Report
+field is in this projection.
+
+For a failure Report, no Semantic / Deterministic Report projection is created.
+`raw_bytes_sha256_v1` over the complete stored Report bytes is its Artifact
+Integrity Hash. A difference between two such hashes does not directly imply a
+difference between their Failure causes.
 
 Generation Reports contain no execution timestamp. Source timestamps remain
 inside source hashes and provenance. The Report never contains runtime Registry
 comparison, Candidate integration, Finalize, or environment results.
 
-### 10.3 Receipt envelope
+### 10.3 Hash purpose boundary
+
+Semantic / Deterministic Hashes compare meaning or deterministic content. Their
+uses here are Draft identity, a successful Generation Report content hash, and
+semantic comparison of valid JCS inputs. Artifact Integrity Hashes verify stored
+bytes without claiming semantic equality. Their uses here are Failure Reports,
+parse-inaccessible sources, attempt-scoped artifacts, Failure reproduction, and
+tamper detection.
+
+The two purposes are not interchangeable. An Artifact Integrity Hash difference
+does not directly establish a different Failure cause, while equality proves
+only equality of the hashed bytes under the named byte-hash contract. A raw-byte
+hash must never be promoted into a semantic identity merely because it is
+stable for one file.
+
+### 10.4 Receipt envelope
 
 Receipts are immutable append-only lifecycle history under the historically
 named `generation-receipts/` directory. Every Receipt has
@@ -746,7 +804,7 @@ Both fields are required at the Receipt root. The complete version 0.1.0
 `receipt_type` enum is `generation`, `candidate_generation`,
 `registry_compatibility_check`, `finalize_attempt`, and `rollback`.
 
-### 10.4 Receipt payload contracts
+### 10.5 Receipt payload contracts
 
 Every payload is closed. All fields listed for its type are required, unknown
 fields are invalid, and every step field is a closed `receipt_step_v1` object
