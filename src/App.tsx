@@ -704,18 +704,25 @@ export default function App() {
     <section className={`workspace ${store.navigationCollapsed?'navigation-collapsed':''}`}>
       <aside className={`sidebar panel navigation-shell ${store.navigationCollapsed?'collapsed':''}`} aria-label="Navigation">
         <div className="navigation-groups">
+          <section className="navigation-section navigation-section-prompt" aria-label="Prompt categories">
+          <div className="navigation-section-title">PROMPT</div>
           <section className={`navigation-group prompt-navigation ${activeNavigationFlyout==='prompt'?'flyout-open':''}`} onMouseEnter={()=>openNavigationFlyoutAfterDelay('prompt')} onMouseLeave={closeNavigationFlyoutAfterDelay} onFocus={()=>{if(store.navigationCollapsed){cancelNavigationTimers();setActiveNavigationFlyout('prompt')}}} onBlur={closeNavigationFlyoutAfterDelay}>
             <button type="button" className={`navigation-primary ${store.workspaceView==='prompt'?'active':''}`} aria-label="プロンプト" aria-current={store.workspaceView==='prompt'?'page':undefined} onClick={navigateToPrompt}><span className="navigation-icon-slot navigation-primary-icon"><Sparkles size={17}/></span><span className="navigation-label">プロンプト</span><span className="navigation-tooltip" role="tooltip">プロンプト</span></button>
             <div className="navigation-children navigation-flyout">
               {store.navigationCollapsed&&<strong>プロンプト</strong>}
               <nav aria-label="プロンプトカテゴリ">{categoryOrder.map(c=>{const CategoryIcon=NAV_CATEGORY_ICONS[c as keyof typeof NAV_CATEGORY_ICONS]??Sparkles;return <button key={c} className={`navigation-item ${category===c&&!isSearchMode&&!favoritesOnly?'active':''}`} onClick={()=>{closeNavigationFlyout();store.setWorkspaceView('prompt');chooseCategory(c)}}><span className="navigation-icon-slot"><CategoryIcon size={15}/></span><span className="navigation-item-label">{getCategoryLabel(c,locale)}</span><small>{visibleDictionaryTags.filter(t=>t.category===c).length}</small></button>})}</nav>
-              <button className="preset navigation-quality-preset" onClick={()=>store.applyQualityPreset()}><WandSparkles size={17}/>品質を置き換え</button>
             </div>
           </section>
+          </section>
+          <section className="navigation-section navigation-section-tools" aria-label="Tools">
+          <div className="navigation-section-title">TOOLS</div>
           <section className="navigation-group navigation-analyzer">
             <button type="button" className={`navigation-primary ${analyzerOpen?'active':''}`} aria-label="Prompt解析" aria-current={analyzerOpen?'page':undefined} onClick={()=>{closeNavigationFlyout();setAnalyzerOpen(true)}}><span className="navigation-icon-slot navigation-primary-icon"><BookOpen size={17}/></span><span className="navigation-label">Prompt解析</span><span className="navigation-tooltip" role="tooltip">Prompt解析</span></button>
           </section>
-          <section className={`navigation-group ${activeNavigationFlyout==='favorites'?'flyout-open':''}`} onMouseEnter={()=>openNavigationFlyoutAfterDelay('favorites')} onMouseLeave={closeNavigationFlyoutAfterDelay} onFocus={()=>{if(store.navigationCollapsed){cancelNavigationTimers();setActiveNavigationFlyout('favorites')}}} onBlur={closeNavigationFlyoutAfterDelay}>
+          </section>
+          <section className="navigation-section navigation-section-library" aria-label="Library">
+          <div className="navigation-section-title">LIBRARY</div>
+          <section className={`navigation-group navigation-favorites ${activeNavigationFlyout==='favorites'?'flyout-open':''}`} onMouseEnter={()=>openNavigationFlyoutAfterDelay('favorites')} onMouseLeave={closeNavigationFlyoutAfterDelay} onFocus={()=>{if(store.navigationCollapsed){cancelNavigationTimers();setActiveNavigationFlyout('favorites')}}} onBlur={closeNavigationFlyoutAfterDelay}>
             <button type="button" className={`navigation-primary ${store.workspaceView==='favorites'?'active':''}`} aria-label="お気に入り" aria-current={store.workspaceView==='favorites'?'page':undefined} onClick={navigateToFavorites}><span className="navigation-icon-slot navigation-primary-icon"><Star size={17}/></span><span className="navigation-label">お気に入り</span><span className="navigation-tooltip" role="tooltip">お気に入り</span></button>
             <div className="navigation-children navigation-flyout compact">
               {store.navigationCollapsed&&<strong>お気に入り</strong>}
@@ -723,12 +730,13 @@ export default function App() {
               <button className="navigation-item" onClick={navigateToFavorites}><span className="navigation-icon-slot"><MessageSquareText size={15}/></span><span className="navigation-item-label">Prompt</span></button>
             </div>
           </section>
-          <section className={`navigation-group ${activeNavigationFlyout==='library'?'flyout-open':''}`} onMouseEnter={()=>openNavigationFlyoutAfterDelay('library')} onMouseLeave={closeNavigationFlyoutAfterDelay} onFocus={()=>{if(store.navigationCollapsed){cancelNavigationTimers();setActiveNavigationFlyout('library')}}} onBlur={closeNavigationFlyoutAfterDelay}>
+          <section className={`navigation-group navigation-library ${activeNavigationFlyout==='library'?'flyout-open':''}`} onMouseEnter={()=>openNavigationFlyoutAfterDelay('library')} onMouseLeave={closeNavigationFlyoutAfterDelay} onFocus={()=>{if(store.navigationCollapsed){cancelNavigationTimers();setActiveNavigationFlyout('library')}}} onBlur={closeNavigationFlyoutAfterDelay}>
             <button type="button" className={`navigation-primary ${store.workspaceView==='library'?'active':''}`} aria-label="ライブラリ" aria-current={store.workspaceView==='library'?'page':undefined} onClick={()=>{closeNavigationFlyout();store.setWorkspaceView('library')}}><span className="navigation-icon-slot navigation-primary-icon"><BookOpen size={17}/></span><span className="navigation-label">ライブラリ</span><span className="navigation-tooltip" role="tooltip">ライブラリ</span></button>
             <div className="navigation-children navigation-flyout compact">
               {store.navigationCollapsed&&<strong>ライブラリ</strong>}
-              <button className="navigation-item" onClick={()=>{closeNavigationFlyout();store.setWorkspaceView('library')}}><span className="navigation-icon-slot"><Save size={15}/></span><span className="navigation-item-label">Saved Prompt</span></button>
+              <button className={`navigation-item ${store.workspaceView==='library'?'active':''}`} onClick={()=>{closeNavigationFlyout();store.setWorkspaceView('library')}}><span className="navigation-icon-slot"><Save size={15}/></span><span className="navigation-item-label">Saved Prompt</span></button>
             </div>
+          </section>
           </section>
           <section className="navigation-group navigation-settings">
             <button type="button" className={`navigation-primary ${settingsOpen?'active':''}`} aria-label="設定" aria-current={settingsOpen?'page':undefined} onClick={()=>{closeNavigationFlyout();setSettingsOpen(true)}}><span className="navigation-icon-slot navigation-primary-icon"><Settings2 size={17}/></span><span className="navigation-label">設定</span><span className="navigation-tooltip" role="tooltip">設定</span></button>
@@ -891,6 +899,7 @@ export default function App() {
         <section className="generation-context" aria-labelledby="generation-context-title">
           <div className="generation-context-header"><span id="generation-context-title">Generation Context</span></div>
           <label className="generation-context-field"><span>MODEL</span><select value={store.modelPreset} onChange={e=>store.setModelPreset(e.target.value as ModelPreset)}><option value="illustrious">Illustrious</option><option value="pony">Pony</option><option value="sdxl">SDXL</option><option value="custom">Custom</option></select></label>
+          <button type="button" className="preset generation-quality-preset" onClick={()=>store.applyQualityPreset()}><WandSparkles size={17}/>品質を置き換え</button>
         </section>
         <section className={`preview-section expansion-preview ${expansionCollapsed?'collapsed':''}`}>
           <div className="preview-section-header"><button className="preview-section-toggle" title="Expansion Preview" onClick={()=>setExpansionCollapsed(value=>!value)} aria-expanded={!expansionCollapsed}><span>Generated Prompt Structure</span>{expansionCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button></div>

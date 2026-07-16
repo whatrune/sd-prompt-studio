@@ -930,7 +930,6 @@ body{background:var(--bg-primary);color:var(--text-primary)}
 .navigation-children nav button:focus-visible{position:relative;z-index:1;outline:2px solid var(--accent-muted);outline-offset:1px}
 .navigation-children.compact>button{min-height:28px;padding:5px 8px;border:0;border-radius:3px;background:transparent;color:var(--text-secondary);font-size:11px;text-align:left}
 .navigation-children.compact>button:hover,.navigation-children.compact>button.active{background:var(--bg-hover);color:var(--text-primary)}
-.navigation-quality-preset{display:flex;align-items:center;justify-content:center;gap:6px;width:calc(100% - 10px);margin:5px 5px 0;padding:7px 9px}
 .navigation-settings{margin-top:auto}
 .navigation-shell.collapsed{overflow:visible}
 .navigation-shell.collapsed .navigation-groups{padding:0 6px 8px;overflow:visible}
@@ -1076,6 +1075,27 @@ body,
   color: currentColor;
 }
 
+.navigation-section {
+  display: grid;
+  gap: 3px;
+  padding-top: 9px;
+  border-top: 1px solid var(--border-muted);
+}
+
+.navigation-section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.navigation-section-title {
+  padding: 0 var(--nav-item-padding-x) 4px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 16px;
+  letter-spacing: .12em;
+}
+
 .navigation-children {
   padding-left: 0;
 }
@@ -1160,6 +1180,49 @@ body,
   display: none;
 }
 
+.navigation-shell:not(.collapsed) .navigation-section-prompt > .prompt-navigation > .navigation-primary {
+  display: none;
+}
+
+.navigation-shell:not(.collapsed) .navigation-section-tools .navigation-primary,
+.navigation-shell:not(.collapsed) .navigation-section-library .navigation-favorites .navigation-primary {
+  display: grid;
+  grid-template-columns: var(--nav-icon-slot) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--nav-item-gap);
+  min-height: 30px;
+  padding: 5px var(--nav-item-padding-x);
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: normal;
+  letter-spacing: 0;
+}
+
+.navigation-shell:not(.collapsed) .navigation-section-tools .navigation-primary-icon,
+.navigation-shell:not(.collapsed) .navigation-section-library .navigation-favorites .navigation-primary-icon {
+  display: grid;
+}
+
+.navigation-shell:not(.collapsed) .navigation-section-tools .navigation-primary:hover,
+.navigation-shell:not(.collapsed) .navigation-section-library .navigation-favorites .navigation-primary:hover {
+  background: var(--bg-hover);
+}
+
+.navigation-shell:not(.collapsed) .navigation-section-tools .navigation-primary.active,
+.navigation-shell:not(.collapsed) .navigation-section-library .navigation-favorites .navigation-primary.active {
+  background: color-mix(in srgb, var(--bg-hover) 88%, var(--bg-secondary));
+}
+
+.navigation-shell:not(.collapsed) .navigation-section-library .navigation-favorites .navigation-children,
+.navigation-shell:not(.collapsed) .navigation-section-library .navigation-library > .navigation-primary {
+  display: none;
+}
+
+.navigation-shell:not(.collapsed) .navigation-section-library .navigation-library .navigation-children {
+  display: grid;
+}
+
 .navigation-shell:not(.collapsed) .navigation-primary:hover {
   background: transparent;
   color: var(--text-primary);
@@ -1182,6 +1245,15 @@ body,
 
 .navigation-shell.collapsed .navigation-primary-icon {
   display: grid;
+}
+
+.navigation-shell.collapsed .navigation-section {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.navigation-shell.collapsed .navigation-section-title {
+  display: none;
 }
 
 .navigation-shell.collapsed .navigation-flyout .navigation-item {
@@ -1463,6 +1535,16 @@ body,
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-primary);
+}
+
+.generation-quality-preset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  gap: 6px;
+  margin: 0;
+  padding: 7px 10px;
 }
 
 /* v34: align the Inspector base tone with the Prompt Workspace */
