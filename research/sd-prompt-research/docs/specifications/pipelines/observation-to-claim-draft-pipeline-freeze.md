@@ -159,6 +159,28 @@ The initial canonical slugs are `pose`, `face`, `hair`, `clothing`, `camera`,
 `semantic_contract_version`, `evidence_id_contract`, and `semantic_contract`.
 The only status values are `active` and `deprecated`.
 
+In version 1, `semantic_contract` is a closed normative object rather than an
+extension point. It requires exactly these fields:
+
+```yaml
+semantic_contract:
+  definition: Visible-state observations for body pose and support geometry.
+  scope:
+    - body_state
+    - body_orientation
+    - support_relation
+    - contact
+    - visibility
+  metric_namespaces:
+    - pose
+```
+
+`definition` is a required non-empty string. `scope` and
+`metric_namespaces` are required arrays containing strings only. Unknown fields
+inside `semantic_contract` are invalid. The arrays may not contain duplicate
+values; their stored order is preserved, while their projection order is
+normalized as described below.
+
 Canonical slugs and aliases use ASCII lowercase snake case matching
 `^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$`. Slugs, aliases, and cross-entry combinations
 must be unique. Aliases resolve to a canonical slug before ID generation and
@@ -205,10 +227,12 @@ and stored array order are excluded through semantic projection.
 
 ### 3.4 Module semantic version consistency
 
-`module_semantic_content_v1` contains the canonical slug and the structured
-`semantic_contract` only. It excludes version, status, aliases, ID contract,
-formatting, and path. Its arrays are sorted during projection and the result is
-JCS/SHA-256 hashed.
+`module_semantic_content_v1` contains exactly the canonical `slug` and the
+closed structured `semantic_contract`. It excludes status, aliases,
+`evidence_id_contract`, every version field, Registry and file paths, and YAML
+formatting. `scope` and `metric_namespaces` are sorted only while constructing
+the projection. The result is RFC 8785 JCS encoded and SHA-256 hashed to
+lowercase hexadecimal.
 
 Baseline and candidate Registry versions are compared per canonical slug:
 
@@ -242,6 +266,34 @@ semantic version, semantic-content hash, ID contract, and status. A hard hash
 match with a fingerprint difference is `compatible_changed`, unless the current
 status is deprecated, which is incompatible for new Candidate or Finalize work.
 
+Both projections are RFC 8785 JCS encoded and SHA-256 hashed to lowercase
+hexadecimal. The hard projection excludes status, aliases, physical paths, and
+the Registry-wide version. The change fingerprint excludes aliases and paths
+but deliberately includes status and the full semantic version.
+
+The immutable Draft stores the generation-time values normatively, and the
+sorted list is part of `draft_input_identity_v1`:
+
+```yaml
+used_module_compatibility:
+  - canonical_module_slug: face
+    semantic_contract_version: "1.0.0"
+    evidence_id_contract: evidence_id_v1
+    module_hard_compatibility_hash: "<lowercase-sha256>"
+    module_change_fingerprint_hash: "<lowercase-sha256>"
+    status_at_generation: active
+  - canonical_module_slug: pose
+    semantic_contract_version: "1.0.0"
+    evidence_id_contract: evidence_id_v1
+    module_hard_compatibility_hash: "<lowercase-sha256>"
+    module_change_fingerprint_hash: "<lowercase-sha256>"
+    status_at_generation: active
+```
+
+Entries are sorted by `canonical_module_slug`. Duplicate slugs are invalid.
+These values make the compatibility decision reproducible; they do not replace
+the complete generation-time Registry content hash retained in Draft identity.
+
 Results are `unchanged`, `compatible_changed`, or `incompatible`. Whole-Registry
 hash differences alone do not make an existing Draft incompatible.
 
@@ -250,9 +302,21 @@ hash differences alone do not make an existing Draft incompatible.
 `metric_compatibility_v1` is generated for each metric actually used by a
 Draft. It contains Registry role, canonical Module slug, metric name, metric
 path contract, definition, allowed values, denominator contract, and visibility
-contract. Formally undefined fields use the typed value
-`{"status":"not_defined"}`; unavailable data is not treated as formally
-undefined and produces `METRIC_COMPATIBILITY_UNAVAILABLE`.
+contract. A contract field with insufficient definition uses the typed object
+value `{"status":"not_defined"}`. A field that does not apply to that metric
+uses `{"status":"not_applicable"}`. These states are distinct and neither may
+be represented by null, an empty string, or an empty object. A source from which
+the Pipeline cannot determine whether the field is undefined or inapplicable
+produces `METRIC_COMPATIBILITY_UNAVAILABLE` rather than guessing either state.
+
+For example:
+
+```yaml
+denominator_contract:
+  status: not_defined
+visibility_contract:
+  status: not_applicable
+```
 
 Allowed values are sorted for projection. The projection is JCS/SHA-256 hashed.
 The immutable Draft stores:
@@ -485,6 +549,21 @@ named `generation-receipts/` directory. Every Receipt has
 `generation`, `candidate_generation`, `registry_compatibility_check`,
 `finalize_attempt`, or `rollback`. Existing Receipts are never edited, deleted,
 or migrated in place.
+
+The Receipt root contract distinguishes structure version from lifecycle event:
+
+```json
+{
+  "receipt_schema_version": "0.1.0",
+  "receipt_type": "registry_compatibility_check"
+}
+```
+
+`receipt_schema_version` versions the Receipt JSON structure.
+`receipt_type` is an enum identifying the lifecycle event. Adding a Receipt
+type requires an explicit enum extension and the corresponding contract review;
+a breaking structural change requires a new Receipt Schema version. A type must
+never be smuggled in as an unknown string under the existing `0.1.0` contract.
 
 The future Receipt Schema path is
 `schemas/observation-to-claim-receipt.schema.json`; its `$id`,
