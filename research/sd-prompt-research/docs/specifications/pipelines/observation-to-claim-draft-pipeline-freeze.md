@@ -129,6 +129,9 @@ The implementation PR must create them at the paths fixed here.
 
 ### 3.1 Registry instance structure
 
+The following YAML is an explanatory partial example of the Registry shape. It
+does not enumerate or limit the complete normative initial Module set.
+
 ```yaml
 schema_version: "0.1.0"
 registry_version: "1.0.0"
@@ -154,8 +157,19 @@ modules:
       metric_namespaces: [face]
 ```
 
-The initial canonical slugs are `pose`, `face`, `hair`, `clothing`, `camera`,
-`object`, and `other`. All entries require `slug`, `status`, `aliases`,
+The normative initial canonical Module slugs are:
+
+- `pose`
+- `face`
+- `hair`
+- `clothing`
+- `camera`
+- `object`
+- `other`
+
+An implementation must create entries for all seven slugs. The number of
+entries shown in an explanatory YAML example never constrains the normative
+Registry contents. All entries require `slug`, `status`, `aliases`,
 `semantic_contract_version`, `evidence_id_contract`, and `semantic_contract`.
 The only status values are `active` and `deprecated`.
 
@@ -220,6 +234,13 @@ bump `schema_version`; knowledge-content changes bump `registry_version`.
 only, Modules are sorted by slug and aliases, scope, and metric namespaces are
 sorted lexically. The stored YAML order is not rewritten. Duplicate validation
 occurs before projection and is never hidden by sorting.
+
+The stored order of `modules`, `aliases`, `scope`, and `metric_namespaces` is a
+human-facing presentation order. In the semantic hash projection, those four
+arrays are treated as sets and sorted lexically only in the temporary
+projection. Reordering them in stored YAML does not change the semantic hash.
+The Pipeline and Registry tooling must not rewrite the stored YAML merely to
+match projection order.
 
 The projection is RFC 8785 JCS encoded and SHA-256 hashed to lowercase hex.
 Comments, YAML formatting, quote style, key order, physical path, timestamps,
@@ -564,6 +585,13 @@ The Receipt root contract distinguishes structure version from lifecycle event:
 type requires an explicit enum extension and the corresponding contract review;
 a breaking structural change requires a new Receipt Schema version. A type must
 never be smuggled in as an unknown string under the existing `0.1.0` contract.
+Both fields are required at the Receipt root. The complete version 0.1.0
+`receipt_type` enum is `generation`, `candidate_generation`,
+`registry_compatibility_check`, `finalize_attempt`, and `rollback`.
+
+Receipt Schema versions are managed independently from Research Claim Schema
+versions and Observation Module Registry Schema versions. No one of these
+version values may be inferred from or substituted for another.
 
 The future Receipt Schema path is
 `schemas/observation-to-claim-receipt.schema.json`; its `$id`,
@@ -762,3 +790,13 @@ Implementation may choose concrete cross-platform lock and UUIDv7 libraries,
 temporary-file APIs, and command names only when they preserve every normative
 contract above. Those are implementation choices, not unresolved data or
 lifecycle semantics.
+
+### 18.1 Specification completeness
+
+This document is the cumulative, standalone contract for the Pipeline. It
+normatively covers the independent Observation Module Registry version, Module
+semantic contract, Evidence ID contract, Module and metric compatibility, Draft
+identity, Evidence lifecycle, Human Resolution, Candidate Schema validation,
+Canonical integration validation, Finalize transaction, and Receipt contract.
+An implementation must not require earlier prompts or chat history to interpret
+these contracts.
