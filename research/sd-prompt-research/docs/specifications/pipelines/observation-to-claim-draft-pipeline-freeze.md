@@ -67,9 +67,11 @@ Pre-schema Draft + Generation Report + Generation Receipt
   ↓
 Human Resolution
   ↓
-Claim Candidate
+Claim Candidate Wrapper
   ↓
-Candidate Schema Validation
+Candidate Wrapper Contract Validation
+  ↓
+Nested Canonical Assertion Schema Validation
   ↓
 Canonical Integration Validation
   ↓
@@ -840,7 +842,20 @@ The `candidate_generation` payload requires:
 - `candidate_construction`: `receipt_step_v1`;
 - `schema_validation`: `receipt_step_v1`;
 - `integration_validation`: `receipt_step_v1`; and
+- `candidate_identity`: the closed availability union defined below; and
 - `diagnostics`: array of `diagnostic_v1`.
+
+An available `candidate_identity` requires exactly `status: available`,
+`candidate_id`, `candidate_id_projection_version`,
+`candidate_id_projection_hash`, `candidate_schema_version`, and
+`generator_version`. `candidate_id` is the stable Candidate ID defined in
+Section 12; `candidate_id_projection_version` is const
+`candidate_id_projection_v1`; `candidate_id_projection_hash` is the 64-character
+lowercase SHA-256 of that projection; `candidate_schema_version` is const
+`0.1.0`; and `generator_version` is the exact Generator contract version used by
+Candidate construction. If Candidate identity construction was not reached or
+did not succeed, the object instead requires exactly `status: not_available`
+and a non-empty `reason_code`. Unknown fields in either branch are invalid.
 
 The `registry_compatibility_check` payload requires:
 
@@ -867,6 +882,8 @@ The `finalize_attempt` payload requires:
 
 - `lock_acquisition`, `snapshot_validation`, `integration_validation`,
   `install`, and `postcondition_validation`, each `receipt_step_v1`;
+- `candidate_identity`: the same closed Candidate identity availability union
+  required by a `candidate_generation` Receipt;
 - `destination_path`: non-empty canonical logical path; and
 - `diagnostics`: array of `diagnostic_v1`.
 
@@ -1008,17 +1025,89 @@ hexadecimal. The resulting `human_resolution_hash` is stored by the Candidate;
 the Candidate is invalid if it no longer matches. Human timestamps are retained
 for audit history but do not alter the semantic decision hash.
 
-## 12. Claim Candidate and validation
+## 12. Claim Candidate Wrapper, identity, and validation
 
-`claim-candidate.yaml` is generated only after every current Research Claim
-Schema-required decision is resolved. Its Assertion status is `draft`; Promotion
-uses the schema-valid `no_promotion` / `not_nominated` form with empty approval
-and application arrays. It does not invent Review, Approval, or Application
-records.
+`claim-candidate.yaml` is a closed Candidate Wrapper Artifact. It is not a
+Canonical Assertion File and is not validated directly as one. Its required root
+fields are exactly:
+
+- `candidate_schema_version`: string, const `"0.1.0"`;
+- `candidate_id`: the stable Candidate ID defined below;
+- `candidate_id_projection_version`: const `candidate_id_projection_v1`;
+- `candidate_id_projection_hash`: 64-character lowercase SHA-256;
+- `source_draft_id`: non-empty string;
+- `source_draft_identity_hash`: 64-character lowercase SHA-256;
+- `human_resolution_hash`: 64-character lowercase SHA-256;
+- `generator_version`: non-empty string; and
+- `canonical_assertion`: a complete object conforming to Research Claim
+  Assertion File Schema `0.1.0`.
+
+Unknown Wrapper fields are invalid. Wrapper metadata, including
+`human_resolution_hash`, `candidate_id`, and Generator identity fields, must not
+be inserted into `canonical_assertion`. The nested object retains the Research
+Claim Assertion Schema's `additionalProperties: false` contract.
+
+The Candidate is generated only after every current Research Claim
+Schema-required decision is resolved. Its nested Assertion status is `draft`;
+Promotion uses the schema-valid `no_promotion` / `not_nominated` form with empty
+approval and application arrays. It does not invent Review, Approval, or
+Application records.
+
+### 12.1 Candidate ID identity contract
+
+`candidate_id_projection_v1` contains exactly these fields:
+
+```yaml
+source_draft_id: <non-empty string>
+source_draft_identity_hash: <64-character lowercase SHA-256>
+human_resolution_hash: <64-character lowercase SHA-256>
+candidate_contract_version: "0.1.0"
+generator_version: <non-empty string>
+```
+
+Within this projection, `candidate_contract_version` is the value stored as the
+Wrapper root's `candidate_schema_version`; it is not a second independently
+versioned contract. The projection is RFC 8785 JCS encoded and SHA-256 hashed to
+lowercase hexadecimal. `candidate_id_projection_hash` stores that complete
+64-character hash and `candidate_id` is `candidate.` followed by the hash.
+
+An identical projection produces the same Candidate ID. A different projection
+produces a new Candidate ID. An existing Candidate is immutable and must never
+be overwritten. If the same Candidate ID and `generator_version` resolve to
+different Candidate Wrapper, nested canonical Assertion, or existing semantic
+content hashes, generation stops with `CANDIDATE_ID_COLLISION`; it must not keep
+the newest result, add a sequence number, or change the ID to evade the error.
+
+`generator_version` is the aggregate contract version for everything that can
+affect Candidate output. Its scope includes Candidate Wrapper construction,
+`canonical_assertion` construction, Evidence Binding selection and construction,
+and Template transformation. It must equal the version recorded by the source
+Generation Report's `generator.generator_version`. Component versions may be
+tracked internally or as
+Receipt or Generation Report diagnostics, but they must not be added as separate
+fields to `candidate_id_projection_v1`.
+
+`generator_version` must change whenever a modification can affect a Wrapper
+field or value, a `canonical_assertion` field or value, Evidence Binding
+selection, ordering, or content, Template transformation output, Artifact
+canonical serialization output, or an input to a Candidate Hash projection.
+Documentation-only, logging-only, test-only, or internal performance changes may
+leave it unchanged only when output non-impact is guaranteed. If non-impact
+cannot be guaranteed, the version changes.
+
+Changing only the value of `generator_version` does not change the structure or
+name of `candidate_id_projection_v1`. Adding any new Candidate Identity input,
+including a component-specific version such as
+`evidence_binding_generator_version`, `template_transform_version`, or
+`canonical_assertion_generator_version`, is forbidden in v1 and requires a new
+projection contract such as `candidate_id_projection_v2`, with a new projection
+definition, Candidate ID rule, Receipt fields, and compatibility rules.
+
+### 12.2 Canonical Assertion construction
 
 Every required Assertion field has an explicit source:
 
-- `assertion_id` is a human-approved stable candidate ID after global collision
+- `assertion_id` is a human-approved stable Assertion ID after global collision
   checking;
 - `status` is fixed to `draft`;
 - `subject`, the adopted `claim.statement`, `evidence_bindings`, `scope`, and
@@ -1037,20 +1126,28 @@ Every required Assertion field has an explicit source:
 - `promotion` is fixed to `action: no_promotion`, `status: not_nominated`, and
   empty `approval_ids` and `applications`.
 
-The Candidate does not use invented placeholders to satisfy the Schema. Any
+The nested `canonical_assertion` does not use invented placeholders to satisfy
+the Schema. Any
 unresolved required value stays in `human_decision_required` and prevents
 Candidate generation.
 
-Candidate validation has two distinct layers:
+Candidate validation has three distinct layers before Finalize:
 
-1. Candidate Schema validation checks required fields, types, enums, and
-   structure. It is necessary but insufficient.
-2. Canonical integration validation checks the exact staged canonical assertion
+1. Candidate Wrapper Contract validation checks Wrapper fields, identity
+   consistency, types, hashes, and the unknown-field policy.
+2. The nested `canonical_assertion` is validated independently against Research
+   Claim Assertion File Schema `0.1.0`.
+3. Canonical integration validation checks the exact staged canonical assertion
    file together with all current canonical Assertions, Evidence, Graph
    Concepts, Registry references, and other Validator inputs.
 
 The exact bytes that will be installed, including generated root metadata, are
-the integration-validation target—not merely the source Candidate.
+the integration-validation target--not merely the Candidate Wrapper. Finalize
+introduces only the validated `canonical_assertion` content as the new Canonical
+Assertion File; Wrapper metadata never enters Canonical Knowledge. The Wrapper
+Artifact Hash covers the complete `claim-candidate.yaml`, while Canonical
+Artifact and existing semantic hashes cover only the staged canonical Assertion
+under their already defined Hash Contracts.
 
 ## 13. Finalize transaction
 
@@ -1142,6 +1239,7 @@ Additional fixed codes are:
 - `METRIC_COMPATIBILITY_UNAVAILABLE`
 - `DUPLICATE_METRIC_COMPATIBILITY_ENTRY`
 - `DRAFT_ID_COLLISION`
+- `CANDIDATE_ID_COLLISION`
 - `RECEIPT_SCHEMA_UNSUPPORTED`
 - `RECEIPT_SCHEMA_VERSION_MISMATCH`
 
@@ -1164,6 +1262,7 @@ Receipt type.
 | `REQUIRED_HUMAN_DECISION_MISSING` | Human Resolution / Candidate generation | Yes, after a human supplies the missing decision | Before any canonical change | `candidate_generation` | No |
 | `DRAFT_TAMPERED` | Draft load, Candidate generation, or Finalize | No; restore or regenerate the immutable Draft first | Before any canonical change | Detection-phase Receipt type | No |
 | `DRAFT_CORRUPT` | Draft load, Candidate generation, or Finalize | No; restore or regenerate the incomplete Draft first | Before any canonical change | Detection-phase Receipt type | No |
+| `CANDIDATE_ID_COLLISION` | Candidate generation or Finalize | No; correct the nondeterminism, version omission, implementation mismatch, or artifact alteration first | Before any canonical change | Detection-phase Receipt type | No |
 | `FINALIZE_LOCK_TIMEOUT` | Finalize lock acquisition | Yes | Before any canonical change | `finalize_attempt` | No |
 | `CANONICAL_SNAPSHOT_CHANGED` | Finalize integration validation | Yes, from a fresh snapshot | Before install | `finalize_attempt` | No |
 | `CANONICAL_DESTINATION_EXISTS` | Finalize create-only install | Only after resolving the ID or destination collision | No file from this attempt is installed | `finalize_attempt` | No |
@@ -1219,17 +1318,19 @@ lifecycle semantics.
 This document is the cumulative, standalone contract for the Pipeline. It
 normatively covers the independent Observation Module Registry version, Module
 semantic contract, Evidence ID contract, Module and metric compatibility, Draft
-identity, Evidence lifecycle, Human Resolution, Candidate Schema validation,
+identity, Evidence lifecycle, Human Resolution, Candidate Wrapper validation,
+Nested Canonical Assertion Schema validation,
 Canonical integration validation, Finalize transaction, and Receipt contract.
 An implementation must not require earlier prompts or chat history to interpret
 these contracts.
 
 No Pipeline artifact contract is left implicit at this Freeze boundary. The
-Pre-schema Draft, Generation Report, Human Resolution, and Receipt contracts are
-fixed at `0.1.0` in this document. Claim Candidate and Canonical Assertion
-structure use the current Research Claim Schema rather than defining a parallel
-schema here. Any later physical Schema encoding for the new `0.1.0` artifacts is
-mechanical only and must not add contract decisions.
+Pre-schema Draft, Generation Report, Human Resolution, Candidate Wrapper, and
+Receipt contracts are fixed at `0.1.0` in this document. Only the Candidate
+Wrapper's nested `canonical_assertion` and the resulting Canonical Assertion File
+use the current Research Claim Schema; Wrapper metadata is a separate closed
+Artifact contract. Any later physical Schema encoding for the new `0.1.0`
+artifacts is mechanical only and must not add contract decisions.
 
 **All Artifact Envelope and Nested Contract definitions in this specification
 are normative and implementation-ready.** Generation failure never requires an
