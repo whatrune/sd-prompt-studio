@@ -1,5 +1,10 @@
 * text=auto
 
+# Axis Registry references use raw file SHA-256. Pin their checkout bytes so
+# Windows and Linux validators compute the same hashes.
+research/sd-prompt-research/templates/face-observation-rubric.yaml text eol=crlf
+research/sd-prompt-research/templates/rubric-template.yaml text eol=crlf
+
 # Binary artifacts must never be treated as line-oriented text.
 *.pdf binary
 *.png binary
