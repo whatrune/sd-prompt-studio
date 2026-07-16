@@ -405,9 +405,25 @@ class ClaimDraftPipelineTests(unittest.TestCase):
     def test_canonical_yaml_serialization_uses_explicit_root_order(self) -> None:
         with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
             _result, candidate = self.candidate_for(ROOT, Path(output_dir))
+            canonical = candidate.wrapper["canonical_assertion"]
+
+            def reverse_objects(value):
+                if isinstance(value, dict):
+                    return {
+                        key: reverse_objects(item)
+                        for key, item in reversed(list(value.items()))
+                    }
+                if isinstance(value, list):
+                    return [reverse_objects(item) for item in value]
+                return value
+
             payload = pipeline.canonical_assertion_bytes(
-                dict(reversed(list(candidate.wrapper["canonical_assertion"].items())))
+                reverse_objects(canonical)
             ).decode("utf-8")
+            self.assertEqual(
+                payload.encode("utf-8"),
+                pipeline.canonical_assertion_bytes(canonical),
+            )
             root_keys = [
                 line.split(":", 1)[0].strip('"')
                 for line in payload.splitlines()

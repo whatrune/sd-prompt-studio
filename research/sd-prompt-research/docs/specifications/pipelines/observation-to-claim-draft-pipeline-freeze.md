@@ -896,7 +896,10 @@ Candidate identity recalculation. Failure at any of those steps emits a failed
 `finalize_attempt` Receipt before returning the CLI error. If the Candidate
 cannot be trusted sufficiently to reproduce its identity, the Receipt uses
 `candidate_identity.status: not_available` with the failure code as
-`reason_code`; no unverified Artifact or semantic Hash is invented.
+`reason_code`; no unverified Artifact or semantic Hash is invented. When the
+Canonical destination cannot be derived from a trusted Candidate,
+`destination_path` is the exact sentinel `not_available`; this sentinel is not
+a filesystem path and is forbidden for a succeeded Finalize Receipt.
 
 The `rollback` payload requires:
 
@@ -1168,7 +1171,10 @@ aliases or anchors, no key sorting, and an explicit root key order. The root
 order is: `schema_version`, `assertion_file_id`, `claim_family`, `path_base`,
 `metric_path_syntax`, `axis_registry_refs`, `evidence_refs`, then `assertions`.
 The serializer constructs this order explicitly rather than relying on source
-mapping insertion order. The same Canonical Assertion object therefore yields
+mapping insertion order. Nested closed objects follow their Research Claim
+Schema `properties` order; dynamic-key maps use lexical key order; arrays retain
+their contract-defined order. This is explicit schema-directed ordering, not
+the YAML serializer's `sort_keys` option. The same Canonical Assertion object therefore yields
 the same byte sequence for Candidate Generation, Finalize revalidation, and
 create-only installation.
 

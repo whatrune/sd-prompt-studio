@@ -119,7 +119,8 @@ Candidate selection, Wrapper validation, Candidate Generation Receipt binding,
 and identity recomputation are audited preflight steps. Failure before the
 canonical transaction still writes a failed `finalize_attempt` Receipt with
 `failed_step`, `error_code`, and diagnostics; an untrusted Candidate uses a
-`not_available` identity rather than invented hashes. Rollback Receipts repeat
+`not_available` identity and `destination_path: not_available` rather than
+invented hashes or paths. Rollback Receipts repeat
 the same Wrapper Artifact, Canonical YAML Artifact, and
 `assertion_content_v1` semantic Hash bindings as the related Finalize attempt.
 

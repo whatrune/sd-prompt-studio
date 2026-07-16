@@ -192,6 +192,75 @@ def yaml_bytes(value: Any) -> bytes:
     ).encode("utf-8")
 
 
+def _resolve_local_schema(schema: Mapping[str, Any], root: Mapping[str, Any]) -> Mapping[str, Any]:
+    current = schema
+    visited: set[str] = set()
+    while isinstance(current, Mapping) and isinstance(current.get("$ref"), str):
+        reference = str(current["$ref"])
+        if not reference.startswith("#/") or reference in visited:
+            break
+        visited.add(reference)
+        target: Any = root
+        for segment in reference[2:].split("/"):
+            target = target[segment.replace("~1", "/").replace("~0", "~")]
+        current = target
+    return current
+
+
+def _select_schema_branch(
+    value: Any,
+    schema: Mapping[str, Any],
+    root: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    resolved = _resolve_local_schema(schema, root)
+    branches = resolved.get("oneOf") or resolved.get("anyOf")
+    if not isinstance(branches, list):
+        return resolved
+    for branch in branches:
+        candidate = _resolve_local_schema(branch, root)
+        if not isinstance(value, Mapping):
+            return candidate
+        properties = candidate.get("properties", {})
+        required = set(candidate.get("required", []))
+        if not required.issubset(value):
+            continue
+        if candidate.get("additionalProperties") is False and not set(value).issubset(properties):
+            continue
+        if any(
+            isinstance(rule, Mapping)
+            and "const" in rule
+            and key in value
+            and value[key] != rule["const"]
+            for key, rule in properties.items()
+        ):
+            continue
+        return candidate
+    return resolved
+
+
+def _order_for_canonical_yaml(
+    value: Any,
+    schema: Mapping[str, Any],
+    root: Mapping[str, Any],
+) -> Any:
+    selected = _select_schema_branch(value, schema, root)
+    if isinstance(value, Mapping):
+        properties = selected.get("properties", {})
+        additional = selected.get("additionalProperties")
+        ordered: dict[str, Any] = {}
+        for key, child_schema in properties.items():
+            if key in value:
+                ordered[key] = _order_for_canonical_yaml(value[key], child_schema, root)
+        for key in sorted(set(value) - set(ordered)):
+            child_schema = additional if isinstance(additional, Mapping) else {}
+            ordered[key] = _order_for_canonical_yaml(value[key], child_schema, root)
+        return ordered
+    if isinstance(value, list):
+        item_schema = selected.get("items", {})
+        return [_order_for_canonical_yaml(item, item_schema, root) for item in value]
+    return value
+
+
 def canonical_assertion_bytes(value: Mapping[str, Any]) -> bytes:
     """Serialize a Canonical Assertion with the frozen YAML artifact profile."""
     if set(value) != set(CANONICAL_ASSERTION_ROOT_KEY_ORDER):
@@ -199,7 +268,14 @@ def canonical_assertion_bytes(value: Mapping[str, Any]) -> bytes:
             "CANONICAL_ASSERTION_SERIALIZATION_FAILED",
             "Canonical Assertion root fields do not match the fixed serialization profile",
         )
-    ordered = {key: value[key] for key in CANONICAL_ASSERTION_ROOT_KEY_ORDER}
+    schema_path = Path(__file__).resolve().parents[1] / CLAIM_SCHEMA_RELATIVE
+    schema = _load_json(schema_path)
+    ordered = _order_for_canonical_yaml(value, schema, schema)
+    if tuple(ordered) != CANONICAL_ASSERTION_ROOT_KEY_ORDER:
+        raise PipelineError(
+            "CANONICAL_ASSERTION_SERIALIZATION_FAILED",
+            "Canonical Assertion root key order does not match the fixed profile",
+        )
     payload = yaml.dump(
         ordered,
         Dumper=_CanonicalAssertionDumper,

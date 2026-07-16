@@ -49,6 +49,25 @@
         "required": ["receipt_type", "result"]
       },
       "then": {"properties": {"payload": {"required": ["failed_step", "error_code"]}}}
+    },
+    {
+      "if": {
+        "properties": {
+          "receipt_type": {"const": "finalize_attempt"},
+          "result": {"const": "succeeded"}
+        },
+        "required": ["receipt_type", "result"]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "destination_path": {"type": "string", "pattern": "^(?!not_available$).+"},
+              "candidate_identity": {"$ref": "#/$defs/candidateIdentityAvailable"}
+            }
+          }
+        }
+      }
     }
   ],
   "$defs": {
@@ -206,7 +225,12 @@
         "install": {"$ref": "#/$defs/step"},
         "postcondition_validation": {"$ref": "#/$defs/step"},
         "candidate_identity": {"$ref": "#/$defs/candidateIdentity"},
-        "destination_path": {"type": "string", "minLength": 1},
+        "destination_path": {
+          "oneOf": [
+            {"type": "string", "pattern": "^(?!not_available$).+"},
+            {"const": "not_available"}
+          ]
+        },
         "failed_step": {"type": "string", "minLength": 1},
         "error_code": {"type": "string", "minLength": 1},
         "diagnostics": {"type": "array", "items": {"$ref": "#/$defs/diagnostic"}}
