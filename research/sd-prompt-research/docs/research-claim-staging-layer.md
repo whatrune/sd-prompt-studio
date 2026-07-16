@@ -80,6 +80,10 @@ Reproduction counts distinguish panels, conditions, runs, independent experiment
 
 All semantic and audit hashes use RFC 8785 JCS, UTF-8, SHA-256, and lowercase hexadecimal.
 
+Axis Registry references use the separate Text File Hash specification in
+[`hash-normalization-v1.md`](hash-normalization-v1.md). Text File Hash
+normalization does not change any JCS Semantic or Audit Hash scope.
+
 ### `assertion_content_v1`
 
 Includes:
