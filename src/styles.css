@@ -5,6 +5,7 @@
   --nav-item-gap: 6px;
   --nav-item-padding-x: 8px;
   --nav-edge-padding: 8px;
+  --category-tabs-height: 49px;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --bg-primary: #0d1117;
   --bg-secondary: #161b22;
@@ -1292,6 +1293,12 @@ body,
   min-width: 0;
 }
 
+.category-tabs-section:not(.library-tabs-section) {
+  height: var(--category-tabs-height);
+  min-height: var(--category-tabs-height);
+  margin-bottom: 4px;
+}
+
 .prompt-controls {
   display: contents;
 }
@@ -1308,7 +1315,11 @@ body,
   scrollbar-color: transparent transparent;
 }
 
-.prompt-workspace-content .category-tabs-section > .subcategory-tabs {
+.category-tabs-section:not(.library-tabs-section) > .subcategory-tabs {
+  align-items: flex-start;
+  height: 100%;
+  min-height: 0;
+  margin-bottom: 0;
   padding-block: 0 12px;
 }
 
