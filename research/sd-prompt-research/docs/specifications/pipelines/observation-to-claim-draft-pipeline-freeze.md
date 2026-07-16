@@ -556,6 +556,14 @@ overwritten. One ID with a different identity produces `DRAFT_ID_COLLISION`;
 missing generated artifacts produce `DRAFT_CORRUPT`, and altered immutable
 generated artifacts produce `DRAFT_TAMPERED`.
 
+`DRAFT_CORRUPT` is limited to a required artifact being absent, an artifact that
+cannot be parsed under its fixed contract, a missing required field, or an
+internally inconsistent artifact reference. `DRAFT_TAMPERED` is limited to an
+immutable artifact hash mismatch, disagreement between stored content and its
+recorded hash, or detected human modification of a generated immutable artifact.
+The codes are mutually exclusive for one diagnosed condition; a hash mismatch
+is tampering even when the modified content also fails parsing.
+
 ### 9.1 Failure artifacts
 
 If valid identity cannot be constructed, diagnostics use:
@@ -573,41 +581,119 @@ required versions, and identity-construction failure are generation failures.
 
 ## 10. Generation Report and Receipt
 
-The Generation Report is a closed, deterministic JSON artifact with
-`generation_report_schema_version: "0.1.0"`. Its exact root fields are:
+### 10.1 Shared Generation Report envelope
 
-- `generation_report_schema_version`;
-- `report_type`, either `generation` or `generation_failure`;
-- `subject_id_kind`, either `draft_id` or `attempt_id`;
-- `subject_id`;
-- `generator`, containing contract, generator, and template versions;
-- `sources`, containing source roles, logical provenance paths, and hashes;
-- `identity`, containing the Draft identity version and hash when constructible;
-- `validation`, containing generation-time Observation and aggregate checks;
-- `extraction`, containing extracted and rejected metrics and Evidence candidates;
-- `unresolved`, containing missing Evidence, provisional Concept candidates,
-  and required human decisions; and
-- `diagnostics`, containing deterministic errors and warnings.
+The Generation Report is a closed, deterministic JSON artifact used for both
+success and failure. Its required root fields are exactly:
 
-All root fields are required. A value unavailable by contract is represented by
-an explicitly permitted typed status in that field's closed sub-contract, not
-by omitting a root field. Unknown root or nested fields are invalid.
+- `generation_report_schema_version`: string, const `"0.1.0"`;
+- `report_type`: enum `generation` or `generation_failure`;
+- `subject_id_kind`: enum `draft_id` or `attempt_id`;
+- `subject_id`: non-empty string;
+- `generator`: `generator_contract_v1` object;
+- `sources`: `source_collection_v1` object;
+- `identity`: one of the closed identity objects below;
+- `observation_validation`: `observation_validation_v1` object;
+- `aggregate_validation`: `aggregate_validation_v1` object;
+- `metric_extraction`: `metric_extraction_v1` object;
+- `unresolved_fields`: array of `unresolved_field_v1`;
+- `human_decision_required`: array of `human_decision_required_v1`; and
+- `diagnostics`: array of `diagnostic_v1`.
+
+Every root field is required and unknown root or nested fields are invalid.
+Null, empty strings, empty objects, or field omission must not stand for an
+unreached or unavailable state.
+
+On success, `report_type` is `generation`, `subject_id_kind` is `draft_id`, and
+`subject_id` equals `identity.draft_id`. The identity object requires exactly:
+
+```yaml
+status: succeeded
+draft_id: <non-empty string>
+draft_input_identity_hash: <64-character lowercase SHA-256>
+```
+
+On failure, `report_type` is `generation_failure`, `subject_id_kind` is
+`attempt_id`, and `subject_id` is the failure-attempt UUIDv7. The identity object
+requires exactly:
+
+```yaml
+status: failed
+error_code: <non-empty error code string>
+```
+
+A failure identity has no Draft identity. It is invalid to add `draft_id` or
+`draft_input_identity_hash`, invent either value, use the attempt ID as a Draft
+ID, or substitute null or an empty string.
+
+### 10.2 Generation Report nested contracts
+
+`generator_contract_v1` requires exactly three non-empty strings:
+`generator_contract`, `generator_version`, and `template_version`.
+
+`source_collection_v1` requires exactly one field, `source_files`, an array of
+closed `source_file_v1` objects. Each source object requires:
+
+- `source_role`: enum `observation`, `optional_module_observation`, `manifest`,
+  `experiment_group_metadata`, `module_registry`, `axis_registry`, or `rubric`;
+- `logical_path`: non-empty POSIX-style provenance path;
+- `hash_contract`: enum `jcs_sha256_v1` or
+  `normalized_text_file_sha256_v1`;
+- `content_hash`: 64-character lowercase SHA-256;
+- `module`: canonical Module slug or the literal `not_applicable`; and
+- `run_id`: non-empty string or the literal `not_applicable`.
+
+Unknown source fields are invalid. Entries sort by `source_role`, `module`,
+`run_id`, then `logical_path`. Duplicate compound keys are invalid.
+
+`step_status_v1` is the shared enum `not_started`, `succeeded`, `failed`,
+`inconclusive`, or `not_applicable`. Every step object contains a required
+`step_status`; no other value, null, empty string, empty object, or omitted step
+field expresses execution state.
+
+`observation_validation_v1` requires exactly `step_status`,
+`validator_version` as a non-empty string, and `result_code` as a non-empty
+string. `aggregate_validation_v1` requires exactly `step_status` and
+`consistency_result`, whose enum is `consistent`, `inconsistent`, or
+`unavailable`.
+
+`metric_extraction_v1` requires exactly `step_status` and `metrics`. `metrics`
+is an array of closed `extracted_metric_v1` objects requiring:
+
+- `module`: canonical Module slug;
+- `metric_path`: dotted metric path;
+- `observed_value`: non-empty string;
+- `count`: integer greater than or equal to zero;
+- `total`: integer greater than or equal to one; and
+- `evidence_candidate_id`: stable non-empty Evidence candidate ID.
+
+Unknown metric fields are invalid. Metrics sort by `module`, `metric_path`,
+`observed_value`, then `evidence_candidate_id`. Duplicate compound keys are
+invalid.
+
+`unresolved_field_v1` requires exactly `field_path` and `reason_code`, both
+non-empty strings. `human_decision_required_v1` requires exactly
+`decision_key`, `reason_code`, and `candidate_ids`; the first two are non-empty
+strings and `candidate_ids` is a unique array of non-empty strings. Unresolved
+entries sort by `field_path` and `reason_code`. Decision entries sort by
+`decision_key` and `reason_code`, and their candidate IDs sort lexically.
 `subject_unresolved` is an unresolved field, not a rejected metric.
 
+`diagnostic_v1` requires exactly `severity`, `code`, `path`, and `message`.
+Severity is `error` or `warning`; the remaining values are non-empty strings.
+Diagnostics sort by severity, code, path, then message.
+
 `generation_report_content_v1` contains the complete closed Report object. Map
-keys use JCS order. Source entries sort by semantic role, Module, Run ID, and
-logical path; validation and diagnostic entries sort by phase, code, and path;
-metric and Evidence entries sort by Module, metric path, and stable ID. Source
-JSON arrays whose order is evidentiary are not reordered. The projection is RFC
-8785 JCS encoded and SHA-256 hashed to lowercase hexadecimal.
+keys use RFC 8785 JCS order and arrays use the sort rules above. Source JSON
+arrays whose original order is evidentiary are represented only through source
+hashes and are not reordered. The JCS projection is SHA-256 hashed to lowercase
+hexadecimal. Every Report field is in this projection.
 
-Generation Reports contain no timestamps. Their source Observation timestamps,
-if present, remain inside source hashes and provenance rather than becoming
-Report execution time. Consequently the same inputs and versions produce the
-same Report content hash.
+Generation Reports contain no execution timestamp. Source timestamps remain
+inside source hashes and provenance. The Report never contains runtime Registry
+comparison, Candidate integration, Finalize, or environment results.
 
-The Report never contains runtime Registry comparison, Candidate integration,
-Finalize, environment, or timestamp results.
+### 10.3 Receipt envelope
 
 Receipts are immutable append-only lifecycle history under the historically
 named `generation-receipts/` directory. Every Receipt has
@@ -618,22 +704,29 @@ or migrated in place.
 
 The Receipt is a closed JSON envelope. Its exact required root fields are:
 
-- `receipt_schema_version`;
-- `receipt_id`;
-- `receipt_type`;
-- `recorded_at`;
-- `result`;
-- `related_artifact_ids`;
-- `related_artifact_hashes`; and
-- `payload`.
+- `receipt_schema_version`: string, const `"0.1.0"`;
+- `receipt_id`: UUIDv7 string;
+- `receipt_type`: the closed enum below;
+- `recorded_at`: RFC 3339 UTC timestamp string with a `Z` suffix;
+- `result`: the closed result enum below;
+- `related_artifact_ids`: closed object;
+- `related_artifact_hashes`: closed object; and
+- `payload`: the closed object selected by `receipt_type`.
 
 Unknown root fields are invalid. `receipt_id` is UUIDv7.
 `recorded_at` is an RFC 3339 UTC timestamp with a `Z` suffix and is deliberately
 runtime history rather than deterministic identity. `result` is one of
-`succeeded`, `failed`, or `inconclusive`. `related_artifact_ids` is a closed map
-from artifact role to stable ID. `related_artifact_hashes` is a closed map from
-artifact role to an object containing the hash-contract name and lowercase
-SHA-256 value. Only artifacts present at receipt creation appear in those maps.
+`succeeded`, `failed`, `inconclusive`, or `not_applicable`.
+
+`related_artifact_ids` is a closed object whose only allowed role keys are
+`pre_schema_draft`, `generation_report`, `human_resolution`, `claim_candidate`,
+`canonical_assertion`, and `validation_result`. Each present value is a
+non-empty stable artifact ID. `related_artifact_hashes` permits exactly the same
+role keys. Each present hash value is a closed object requiring exactly
+`algorithm`, a non-empty string naming the applicable hash contract, and
+`value`, a 64-character lowercase SHA-256. Unknown role keys are invalid. A role
+is omitted from both maps when that artifact does not exist; null, an empty
+string, or an empty object is invalid.
 
 The root contract distinguishes structure version from lifecycle event:
 
@@ -653,34 +746,92 @@ Both fields are required at the Receipt root. The complete version 0.1.0
 `receipt_type` enum is `generation`, `candidate_generation`,
 `registry_compatibility_check`, `finalize_attempt`, and `rollback`.
 
-`payload` is a closed object selected by `receipt_type`:
+### 10.4 Receipt payload contracts
 
-- `generation`: generator contract and version, source-validation outcome,
-  Draft identity outcome, Report ID and hash, and generated artifact IDs;
-- `candidate_generation`: Draft ID and identity hash, Human Resolution ID and
-  content hash, Candidate ID and hash, Schema-validation outcome, and unresolved
-  decision list;
-- `registry_compatibility_check`: generation-time and current Registry versions
-  and hashes, affected used-Module, Registry-role, metric, and Evidence ID
-  compatibility results, final classification, warnings, and errors;
-- `finalize_attempt`: Candidate ID and hash, Human Resolution hash, lock outcome,
-  pre-install and checked snapshots, integration and postcondition validation
-  outcomes, destination logical path, and install outcome; and
-- `rollback`: related Finalize Receipt ID, staged and created logical paths,
-  pre/post snapshots, rollback cause, attempted actions, and rollback outcome.
+Every payload is closed. All fields listed for its type are required, unknown
+fields are invalid, and every step field is a closed `receipt_step_v1` object
+requiring exactly `step_status` and `result_code`. `step_status` uses
+`step_status_v1`; `result_code` is a non-empty string. For `not_started` it must
+be `NOT_STARTED`; for `not_applicable` it must be `NOT_APPLICABLE`. Failed and
+inconclusive steps use their applicable fixed diagnostic code, and a succeeded
+step uses `SUCCEEDED`. Null, empty strings, empty objects, and field omission
+cannot express an unreached step.
 
-Every listed payload field is required for its Receipt type. Where an operation
-did not reach a step, that field uses the applicable closed status enum defined
-by the future Receipt Schema rather than being omitted or set to null. Unknown
-payload fields and payloads belonging to another Receipt type are invalid.
+The `generation` payload requires:
+
+- `source_validation`: `receipt_step_v1`;
+- `identity_construction`: `receipt_step_v1`;
+- `report_persistence`: `receipt_step_v1`; and
+- `diagnostics`: array of `diagnostic_v1`.
+
+The `candidate_generation` payload requires:
+
+- `draft_validation`: `receipt_step_v1`;
+- `human_resolution_validation`: `receipt_step_v1`;
+- `candidate_construction`: `receipt_step_v1`;
+- `schema_validation`: `receipt_step_v1`;
+- `integration_validation`: `receipt_step_v1`; and
+- `diagnostics`: array of `diagnostic_v1`.
+
+The `registry_compatibility_check` payload requires:
+
+- `registry_load`: `receipt_step_v1`;
+- `compatibility_evaluation`: `receipt_step_v1`;
+- `classification`: enum `unchanged`, `compatible_changed`, `incompatible`, or
+  `not_available`;
+- `module_results`: array of closed objects requiring `canonical_module_slug`,
+  `generation_hash`, `current_hash`, and `result`;
+- `metric_results`: array of closed objects requiring `module`, `metric`,
+  `generation_hash`, `current_hash`, and `result`;
+- `evidence_id_results`: array of closed objects requiring `evidence_id`,
+  `generation_projection_hash`, `current_projection_hash`, and `result`; and
+- `diagnostics`: array of `diagnostic_v1`.
+
+`not_available` is permitted only when Registry loading or compatibility
+evaluation did not succeed. Every compatibility hash is a 64-character
+lowercase SHA-256 and every item result uses `unchanged`, `compatible_changed`,
+or `incompatible`. Module results sort
+by canonical slug, metric results by Module then metric, and Evidence results by
+Evidence ID. Unknown result-object fields and duplicate sort keys are invalid.
+
+The `finalize_attempt` payload requires:
+
+- `lock_acquisition`, `snapshot_validation`, `integration_validation`,
+  `install`, and `postcondition_validation`, each `receipt_step_v1`;
+- `destination_path`: non-empty canonical logical path; and
+- `diagnostics`: array of `diagnostic_v1`.
+
+The `rollback` payload requires:
+
+- `related_finalize_receipt_id`: UUIDv7;
+- `rollback_execution`: `receipt_step_v1`;
+- `cause_code`: non-empty error code;
+- `staged_paths`: unique array of non-empty logical paths;
+- `created_paths`: unique array of non-empty logical paths;
+- `pre_snapshot`: `snapshot_result_v1`;
+- `post_snapshot`: `snapshot_result_v1`; and
+- `diagnostics`: array of `diagnostic_v1`.
+
+`snapshot_result_v1` is a closed object requiring exactly `step_status`,
+`result_code`, and `content_hash`. The first two follow `receipt_step_v1`.
+`content_hash` is either a 64-character lowercase SHA-256 or the literal
+`not_available`; that literal is permitted only when `step_status` is
+`failed`, `inconclusive`, `not_started`, or `not_applicable`.
+
+Path arrays sort lexically. Diagnostic arrays use `diagnostic_v1` ordering. All
+other payload arrays use their explicit ordering above. The complete Receipt,
+including its payload, is the `receipt_content_v1` JCS projection when an
+external audit record hashes it. A Receipt never stores or includes its own hash
+inside that projection.
 
 Receipt Schema versions are managed independently from Research Claim Schema
 versions and Observation Module Registry Schema versions. No one of these
 version values may be inferred from or substituted for another.
 
-The future Receipt Schema path is
+If mechanically encoded later, the Receipt Schema path is
 `schemas/observation-to-claim-receipt.schema.json`; its `$id`,
-`x-contract-version`, and root const must consistently identify `0.1.0`.
+`x-contract-version`, and root const must consistently identify the already
+fixed `0.1.0` contract in this document and may not add contract decisions.
 Unsupported and mismatched versions produce `RECEIPT_SCHEMA_UNSUPPORTED` and
 `RECEIPT_SCHEMA_VERSION_MISMATCH`.
 
@@ -690,12 +841,9 @@ results, Evidence ID projection results, final compatibility classification,
 warnings, and errors. Unused Registry material is not copied.
 
 Artifact hashes use JSON JCS/SHA-256 or YAML normalized-text SHA-256 as declared
-by each map entry. Missing artifacts are omitted from the artifact maps, not
-represented by null. Within payloads, step status is explicit as described
-above. A Receipt never hashes itself. Map ordering is governed by JCS; arrays of
-diagnostics and compatibility results use the same deterministic sort rules as
-their originating contracts. Receipt timestamps and UUIDs are lifecycle data
-and are not claimed to be deterministic across repeated executions.
+by each map entry. Map ordering is governed by JCS. Receipt timestamps and
+UUIDs are lifecycle data and are not claimed to be deterministic across repeated
+executions.
 
 ## 11. Human Resolution
 
@@ -719,13 +867,16 @@ and are not claimed to be deterministic across repeated executions.
 - `supersedes`;
 - `rejected_candidates`;
 - `decided_by`;
-- `decided_at`; and
-- `display_comments`.
+- `decided_at`.
 
 All root fields are required and unknown root or nested fields are invalid.
-`resolution_id` is UUIDv7. `decided_at` is an RFC 3339 UTC timestamp with a `Z`
-suffix. Empty decisions use the field's valid empty array or empty closed object;
-they are not represented by a missing field.
+`human_resolution_schema_version` is a string const `"0.1.0"`;
+`resolution_id` is a UUIDv7 string; `source_draft_id` is a non-empty string;
+`source_draft_identity_hash` is a 64-character lowercase SHA-256; `decided_by`
+is a non-empty string; and `decided_at` is an RFC 3339 UTC timestamp string with
+a `Z` suffix. `selected_claim_family` is an ASCII lowercase snake-case string.
+Empty decisions use the field's valid empty array; they are not represented by
+a missing field. The Generator must not infer Claim family from Observation.
 
 Only Human Resolution decides `selected_assertion_id`, `selected_subject`,
 `selected_claim_statement`, `selected_evidence_bindings`, `selected_scope`,
@@ -736,10 +887,48 @@ Generator never selects `selected_assertion_id` or any other research-semantic
 value. The selected Assertion ID must satisfy the current Research Claim Schema
 and pass the global collision check before Candidate generation.
 
+### 11.1 Normative nested Research Claim references
+
+The following fields use the exact closed definitions from Research Claim
+Assertion Schema version `0.1.0`, `$id`
+`https://local.sd-prompt-studio/research-claim-assertion-v0.1.schema.json`:
+
+- `selected_assertion_id`: `#/$defs/assertionId`;
+- `selected_subject`: `#/$defs/subject`;
+- `selected_claim_statement`: `#/$defs/claim`;
+- each `selected_evidence_bindings` item: `#/$defs/evidenceBinding`;
+- `selected_claim_family`: `#/$defs/snakeName`;
+- `selected_scope`: `#/$defs/scope`;
+- `selected_generalization_status`: `#/$defs/generalizationStatus`;
+- each `interpretation_candidates` item: `#/$defs/interpretationCandidate`;
+- each `causal_hypotheses` item: `#/$defs/causalHypothesis`; and
+- each `depends_on` and `supersedes` item: `#/$defs/assertionId`.
+
+These are version-pinned normative references, not delegation to a future
+Schema. All referenced objects retain their required fields, enums, and
+`additionalProperties: false` rules. In particular,
+`selected_generalization_status` is the referenced closed object, not a scalar
+string. Evidence bindings sort by `evidence_ref_id`, `evidence_role`, then
+`applies_to`; interpretation and causal entries sort by their stable IDs;
+`depends_on` and `supersedes` are unique and sort lexically. These arrays and
+objects are included in `human_resolution_content_v1`.
+
+`rejected_candidates` has no Research Claim Schema equivalent and is therefore
+defined here as an array of closed objects requiring exactly:
+
+- `candidate_kind`: enum `subject`, `claim_statement`, `evidence_binding`,
+  `interpretation_candidate`, or `causal_hypothesis`;
+- `candidate_id`: non-empty stable candidate identifier; and
+- `reason_code`: non-empty string.
+
+Rejected candidates sort by `candidate_kind`, `candidate_id`, then
+`reason_code`; duplicate compound keys are invalid. All three fields are in the
+Human Resolution content projection.
+
 `human_resolution_content_v1` contains the source Draft ID and identity hash,
 selected Assertion ID, all selected research-semantic fields, adopted relation
 lists, and rejected candidates. It excludes `resolution_id`, `decided_by`,
-`decided_at`, `display_comments`, YAML formatting, comments, and presentation
+`decided_at`, YAML formatting, comments, and presentation
 order. Evidence bindings sort by Evidence ID and role. Scope, dependency, and
 supersession lists sort by stable ID or canonical value. Rejected,
 interpretation, and causal candidates sort by their stable IDs. Duplicate set
@@ -895,11 +1084,17 @@ The following lifecycle error contracts are also fixed. "Canonical timing"
 describes the point at which the error is detected; it does not authorize any
 additional write.
 
+Receipt type follows the detection phase. Generation emits `generation`,
+Candidate generation emits `candidate_generation`, Finalize emits
+`finalize_attempt`, and Rollback emits `rollback`. This phase mapping also
+applies to `DRAFT_CORRUPT` and `DRAFT_TAMPERED`; neither code creates a new
+Receipt type.
+
 | Code | Phase | Retry | Canonical timing | Receipt | Rollback |
 | --- | --- | --- | --- | --- | --- |
 | `REQUIRED_HUMAN_DECISION_MISSING` | Human Resolution / Candidate generation | Yes, after a human supplies the missing decision | Before any canonical change | `candidate_generation` | No |
-| `DRAFT_TAMPERED` | Draft load or Candidate generation | No; restore or regenerate the immutable Draft first | Before any canonical change | Receipt for the detecting attempt | No |
-| `DRAFT_CORRUPT` | Draft load or Candidate generation | No; restore or regenerate the incomplete Draft first | Before any canonical change | Receipt for the detecting attempt | No |
+| `DRAFT_TAMPERED` | Draft load, Candidate generation, or Finalize | No; restore or regenerate the immutable Draft first | Before any canonical change | Detection-phase Receipt type | No |
+| `DRAFT_CORRUPT` | Draft load, Candidate generation, or Finalize | No; restore or regenerate the incomplete Draft first | Before any canonical change | Detection-phase Receipt type | No |
 | `FINALIZE_LOCK_TIMEOUT` | Finalize lock acquisition | Yes | Before any canonical change | `finalize_attempt` | No |
 | `CANONICAL_SNAPSHOT_CHANGED` | Finalize integration validation | Yes, from a fresh snapshot | Before install | `finalize_attempt` | No |
 | `CANONICAL_DESTINATION_EXISTS` | Finalize create-only install | Only after resolving the ID or destination collision | No file from this attempt is installed | `finalize_attempt` | No |
@@ -964,5 +1159,12 @@ No Pipeline artifact contract is left implicit at this Freeze boundary. The
 Pre-schema Draft, Generation Report, Human Resolution, and Receipt contracts are
 fixed at `0.1.0` in this document. Claim Candidate and Canonical Assertion
 structure use the current Research Claim Schema rather than defining a parallel
-schema here. Future physical Schema files for the new `0.1.0` artifacts must
-implement these closed contracts without changing their meaning.
+schema here. Any later physical Schema encoding for the new `0.1.0` artifacts is
+mechanical only and must not add contract decisions.
+
+**All Artifact Envelope and Nested Contract definitions in this specification
+are normative and implementation-ready.** Generation failure never requires an
+invented Draft ID, Human Resolution supplies Claim family, every nested field
+has either a complete local contract or a version-pinned current-Schema pointer,
+and every Receipt type has a closed payload. No contract meaning is delegated to
+a later Schema or to implementation judgment.
