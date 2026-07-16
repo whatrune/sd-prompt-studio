@@ -661,7 +661,7 @@ closed `source_file_v1` objects. Each source object requires:
 Unknown source fields are invalid. Entries sort by `source_role`, `module`,
 `run_id`, then `logical_path`. Duplicate compound keys are invalid.
 
-The source hash algorithms are disjoint contracts:
+The hash algorithms are disjoint algorithm contracts:
 
 - `jcs_sha256_v1` applies to valid JSON. The parsed JSON is RFC 8785 JCS encoded,
   SHA-256 hashed, and emitted as lowercase hexadecimal. It is a Semantic /
@@ -670,10 +670,15 @@ The source hash algorithms are disjoint contracts:
   material. It removes a UTF-8 BOM, normalizes CRLF and CR to LF, performs no
   other transformation, SHA-256 hashes the resulting UTF-8 bytes, and emits
   lowercase hexadecimal. It is a Text Artifact Identity Hash.
-- `raw_bytes_sha256_v1` applies only when JSON parsing fails or UTF-8 decoding
-  fails. It SHA-256 hashes the raw file bytes without normalization and emits
-  lowercase hexadecimal. It is an Artifact Integrity Hash for input identity,
-  Failure reproduction, and tamper detection, never semantic equality.
+- `raw_bytes_sha256_v1` accepts raw bytes, performs no normalization, SHA-256
+  hashes those bytes, and emits 64 lowercase hexadecimal characters. The
+  algorithm contract itself does not depend on whether an input artifact parsed
+  successfully. Its permitted purposes are Artifact Integrity Hashing,
+  attempt-scoped Artifact Hashing, parse-inaccessible Source Hashing, and tamper
+  detection. It must never be used for semantic equality.
+
+The following selection policy applies specifically inside `source_file_v1` and
+does not restrict uses of `raw_bytes_sha256_v1` by other artifact contracts:
 
 Valid JSON requires `hash_algorithm: jcs_sha256_v1` and
 `parse_status: succeeded`. JSON parse failure or UTF-8 decode failure requires
@@ -682,6 +687,12 @@ YAML or text source uses `normalized_text_file_sha256_v1`; its `parse_status`
 records the actual structured parse result. Parse-failed sources remain present
 in `source_files`. It is invalid to describe unparseable JSON as JCS-hashed, to
 omit a failed source, or to substitute null or an empty hash.
+
+Generation Failure Reports are outside that Source selection policy. A Failure
+Report may be valid JSON and still use `raw_bytes_sha256_v1` because it is an
+attempt-scoped artifact containing a possible UUIDv7 attempt ID, is not a
+semantic-identity comparison target, and uses the hash only to detect changes to
+the stored bytes. No Semantic Hash contract applies to a Failure Report.
 
 `step_status_v1` is the shared enum `not_started`, `succeeded`, `failed`,
 `inconclusive`, or `not_applicable`. Every step object contains a required
