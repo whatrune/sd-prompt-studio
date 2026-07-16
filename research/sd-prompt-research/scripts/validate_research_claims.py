@@ -110,6 +110,10 @@ class InfrastructureFailure(RuntimeError):
         self.code = code
 
 
+class InvalidTextEncodingError(ValueError):
+    """Raised when a Text File Hash input is not valid UTF-8."""
+
+
 @dataclass
 class KnowledgeData:
     assertions: dict[str, dict[str, Any]]
@@ -152,6 +156,26 @@ def content_hash(value: Any) -> str:
 
 def raw_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def normalized_text_file_sha256_v1(path: Path) -> str:
+    """Hash UTF-8 text after BOM removal and newline normalization.
+
+    This function is intentionally separate from RFC 8785 JCS-based semantic
+    hashes and from raw file hashing. It normalizes only a leading UTF-8 BOM
+    and CRLF/CR line endings; all other text representation remains intact.
+    """
+    raw = path.read_bytes()
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise InvalidTextEncodingError(
+            f"Text file is not valid UTF-8: {path.as_posix()}"
+        ) from exc
+    if text.startswith("\ufeff"):
+        text = text[1:]
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
 def yaml_load(text: str, source: str) -> dict[str, Any]:
@@ -725,7 +749,18 @@ class ClaimValidator:
             if not path.is_file():
                 self.issue("AXIS_REGISTRY_NOT_FOUND", f"Axis registry for {module} does not exist", file, f"$.axis_registry_refs.{module}.path", assertion_id)
                 continue
-            if raw_sha256(path) != registry["sha256"]:
+            try:
+                registry_sha256 = normalized_text_file_sha256_v1(path)
+            except InvalidTextEncodingError as exc:
+                self.issue(
+                    "TEXT_FILE_INVALID_UTF8",
+                    str(exc),
+                    file,
+                    f"$.axis_registry_refs.{module}.path",
+                    assertion_id,
+                )
+                continue
+            if registry_sha256 != registry["sha256"]:
                 self.issue("AXIS_REGISTRY_HASH_DRIFT", f"Axis registry for {module} changed", file, f"$.axis_registry_refs.{module}.sha256", assertion_id, "warning")
             axis_field = registry_axis_fields.get(module)
             if axis_field is None:

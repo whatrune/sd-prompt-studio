@@ -7,10 +7,10 @@ metric_path_syntax: dotted_object_path_v1
 axis_registry_refs:
   pose:
     path: research/sd-prompt-research/templates/rubric-template.yaml
-    sha256: 8f455d3482dc3c5af19b22515acb3612fc65dce7981717bef84f728d1fdb652a
+    sha256: b1898afeb44a5813feb7d77ccc90a553bc5995dc58190313c28051de229336f9
   face:
     path: research/sd-prompt-research/templates/face-observation-rubric.yaml
-    sha256: c985b625c8533804bae11af7a3c17fa7fdc2f408595620e8a1a258121d35ef03
+    sha256: c3622d658ed197bf4cac937998b9935616cc7caee89729922305475d2e30bc2c
 
 evidence_refs:
   - evidence_ref_id: evidence.brg007b.primary_morphology.reclined_arm_support

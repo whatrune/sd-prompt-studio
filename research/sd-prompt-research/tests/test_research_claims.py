@@ -6,9 +6,11 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 from jsonschema import Draft202012Validator, FormatChecker
 
@@ -19,6 +21,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from build_concept_graph import build_graph  # noqa: E402
 from validate_research_claims import (  # noqa: E402
     ClaimValidator,
+    InvalidTextEncodingError,
     KnowledgeData,
     UniqueKeyLoader,
     assertion_payload,
@@ -29,6 +32,7 @@ from validate_research_claims import (  # noqa: E402
     index_documents,
     load_current_documents,
     load_schema,
+    normalized_text_file_sha256_v1,
     promotion_payload,
     review_effective_status_at,
     semver_compare,
@@ -184,6 +188,83 @@ class ResearchClaimTests(unittest.TestCase):
         self.assertEqual(3, len(data.evidence))
         self.assertEqual({}, data.reviews)
         self.assertEqual({}, data.approvals)
+
+    def test_text_file_hash_normalizes_lf_crlf_and_cr_bytes(self) -> None:
+        variants = (
+            b"registry:\n  enabled: true\n",
+            b"registry:\r\n  enabled: true\r\n",
+            b"registry:\r  enabled: true\r",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            hashes = []
+            for index, payload in enumerate(variants):
+                path = Path(directory) / f"registry-{index}.yaml"
+                path.write_bytes(payload)
+                hashes.append(normalized_text_file_sha256_v1(path))
+        self.assertEqual(1, len(set(hashes)))
+        self.assertEqual(
+            "c1caff7eccf1c5f127fcb8756306011655f74fd04c55217a8b06ea94fdff2fe7",
+            hashes[0],
+        )
+
+    def test_text_file_hash_ignores_utf8_bom(self) -> None:
+        payload = "registry:\n  label: 日本語\n".encode("utf-8")
+        with tempfile.TemporaryDirectory() as directory:
+            plain = Path(directory) / "plain.yaml"
+            bom = Path(directory) / "bom.yaml"
+            plain.write_bytes(payload)
+            bom.write_bytes(b"\xef\xbb\xbf" + payload)
+            self.assertEqual(
+                normalized_text_file_sha256_v1(plain),
+                normalized_text_file_sha256_v1(bom),
+            )
+
+    def test_checked_in_registry_text_hashes_match_fixed_values(self) -> None:
+        self.assertEqual(
+            "b1898afeb44a5813feb7d77ccc90a553bc5995dc58190313c28051de229336f9",
+            normalized_text_file_sha256_v1(ROOT / "templates" / "rubric-template.yaml"),
+        )
+        self.assertEqual(
+            "c3622d658ed197bf4cac937998b9935616cc7caee89729922305475d2e30bc2c",
+            normalized_text_file_sha256_v1(ROOT / "templates" / "face-observation-rubric.yaml"),
+        )
+
+    def test_text_file_hash_rejects_invalid_utf8_bytes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "invalid.yaml"
+            path.write_bytes(b"registry: \xff\n")
+            with self.assertRaises(InvalidTextEncodingError):
+                normalized_text_file_sha256_v1(path)
+
+    def test_axis_registry_invalid_utf8_is_structured_validation_error(self) -> None:
+        data = checked_in_knowledge()
+        validator = make_validator(data=data, graph=self.graph)
+        with patch(
+            "validate_research_claims.normalized_text_file_sha256_v1",
+            side_effect=InvalidTextEncodingError("Text file is not valid UTF-8"),
+        ):
+            validator.validate_assertions()
+        codes = [issue.code for issue in validator.issues]
+        self.assertIn("TEXT_FILE_INVALID_UTF8", codes)
+        self.assertNotIn("AXIS_REGISTRY_HASH_DRIFT", codes)
+
+    def test_semantic_hashes_are_unchanged_by_registry_hash_migration(self) -> None:
+        validator = make_validator(data=checked_in_knowledge(), graph=self.graph)
+        validator.validate_assertions()
+        self.assertEqual(
+            {
+                "assertion.brg007.arm_support.001": "4b851f18b997cc5d0b3df772de3769a9da42e26077e8fc44bc9b17297432b24c",
+                "assertion.brg008.head_back.face_effect.001": "566c79236168674f333b2686bf8d34e5814e614d4032c1b188db141e4b154d4d",
+                "assertion.brg008.head_tilted_back.face_effect.001": "c2399177ea23bdcb34f89b06879b8edf7a50aadceadb9c820658004ce03b4e6e",
+            },
+            validator.assertion_hashes,
+        )
+        self.assertEqual(
+            {
+                "assertion.brg008.head_back.face_effect.001": "dd83c66ec7761a434d952bc4c7d599bf5a349b53a436acb01ff038f50356bebb",
+            },
+            validator.promotion_hashes,
+        )
 
     def test_brg008_phrase_assertions_use_condition_specific_evidence(self) -> None:
         data = checked_in_knowledge()
