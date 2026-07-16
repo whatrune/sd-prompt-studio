@@ -178,6 +178,7 @@ export default function App() {
   const [relatedCollapsed, setRelatedCollapsed] = useState(false)
   const [selectedCollapsed, setSelectedCollapsed] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
+  const [generationContextCollapsed, setGenerationContextCollapsed] = useState(false)
   const [expansionCollapsed, setExpansionCollapsed] = useState(true)
   const [promptCollapsed, setPromptCollapsed] = useState(true)
   const [negativeCollapsed, setNegativeCollapsed] = useState(true)
@@ -896,10 +897,12 @@ export default function App() {
             </div>
           </div>}
         </section>
-        <section className="generation-context" aria-labelledby="generation-context-title">
-          <div className="generation-context-header"><span id="generation-context-title">Generation Context</span></div>
-          <label className="generation-context-field"><span>MODEL</span><select value={store.modelPreset} onChange={e=>store.setModelPreset(e.target.value as ModelPreset)}><option value="illustrious">Illustrious</option><option value="pony">Pony</option><option value="sdxl">SDXL</option><option value="custom">Custom</option></select></label>
-          <button type="button" className="preset generation-quality-preset" onClick={()=>store.applyQualityPreset()}><WandSparkles size={17}/>品質を置き換え</button>
+        <section className={`preview-section generation-context ${generationContextCollapsed?'collapsed':''}`} aria-labelledby="generation-context-title">
+          <div className="preview-section-header"><button type="button" className="preview-section-toggle" onClick={()=>setGenerationContextCollapsed(value=>!value)} aria-expanded={!generationContextCollapsed}><span id="generation-context-title">Generation Context</span>{generationContextCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button></div>
+          {!generationContextCollapsed&&<div className="preview-section-content generation-context-content"><div className="generation-context-row">
+            <label className="generation-context-field"><span>MODEL</span><select value={store.modelPreset} onChange={e=>store.setModelPreset(e.target.value as ModelPreset)}><option value="illustrious">Illustrious</option><option value="pony">Pony</option><option value="sdxl">SDXL</option><option value="custom">Custom</option></select></label>
+            <button type="button" className="preset generation-quality-preset" onClick={()=>store.applyQualityPreset()}><WandSparkles size={15}/>品質を適用</button>
+          </div></div>}
         </section>
         <section className={`preview-section expansion-preview ${expansionCollapsed?'collapsed':''}`}>
           <div className="preview-section-header"><button className="preview-section-toggle" title="Expansion Preview" onClick={()=>setExpansionCollapsed(value=>!value)} aria-expanded={!expansionCollapsed}><span>Generated Prompt Structure</span>{expansionCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button></div>

@@ -1502,26 +1502,26 @@ body,
 }
 
 .generation-context {
-  display: grid;
   flex: 0 0 auto;
-  gap: 8px;
-  padding: 10px 12px 12px;
-  border-bottom: 1px solid var(--border);
   background: var(--bg-primary);
 }
 
-.generation-context-header {
-  color: var(--text-primary);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: .02em;
+.generation-context-content {
+  padding: 10px 12px 12px;
+}
+
+.generation-context-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
 }
 
 .generation-context-field {
+  flex: 1 1 170px;
   display: grid;
-  grid-template-columns: minmax(70px, .35fr) minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
+  gap: 4px;
+  min-width: 0;
   color: var(--text-secondary);
   font-size: 9px;
   font-weight: 650;
@@ -1531,7 +1531,8 @@ body,
 .generation-context-field select {
   width: 100%;
   min-width: 0;
-  padding: 7px 9px;
+  height: 30px;
+  padding: 5px 8px;
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-primary);
@@ -1541,10 +1542,12 @@ body,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  justify-self: start;
+  flex: 0 0 auto;
   gap: 6px;
+  min-height: 30px;
   margin: 0;
-  padding: 7px 10px;
+  padding: 6px 10px;
+  font-size: 11px;
 }
 
 /* v34: align the Inspector base tone with the Prompt Workspace */
