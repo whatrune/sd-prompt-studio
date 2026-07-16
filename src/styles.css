@@ -1089,11 +1089,11 @@ body,
 }
 
 .navigation-section-title {
-  padding: 0 calc(var(--pane-content-inset) - var(--nav-edge-padding)) 4px;
+  padding: 7px calc(var(--pane-content-inset) - var(--nav-edge-padding)) 0;
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 650;
-  line-height: 16px;
+  line-height: 13px;
   letter-spacing: .12em;
 }
 
@@ -1306,6 +1306,10 @@ body,
   scroll-padding-inline-start: var(--pane-content-inset);
   scrollbar-gutter: auto;
   scrollbar-color: transparent transparent;
+}
+
+.prompt-workspace-content .category-tabs-section > .subcategory-tabs {
+  padding-block: 0 12px;
 }
 
 .category-tabs-section > .subcategory-tabs:hover,
