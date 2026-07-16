@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import claim_draft_pipeline as pipeline  # noqa: E402
+import observation_to_claim as cli  # noqa: E402
 from validate_research_claims import load_current_documents  # noqa: E402
 
 
@@ -23,6 +24,26 @@ BRG008_FACE = ROOT / "experiments" / "bridge" / "BRG-008-A" / "face-observation.
 
 
 class ClaimDraftPipelineTests(unittest.TestCase):
+    @staticmethod
+    def successful_validator_process() -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "validation_completed": True,
+                    "passed": True,
+                    "valid": True,
+                    "exit_code": 0,
+                    "error_count": 0,
+                    "infrastructure_error_count": 0,
+                    "errors": [],
+                    "infrastructure_errors": [],
+                }
+            ),
+            stderr="",
+        )
+
     def generate(self, output: Path) -> pipeline.GenerationResult:
         return pipeline.generate_draft(ROOT, [(OBSERVATION, "pose")], output_root=output)
 
@@ -89,6 +110,24 @@ class ClaimDraftPipelineTests(unittest.TestCase):
         shutil.copytree(ROOT / "experiments" / "bridge" / "BRG-009-A", destination_run)
         return project_root
 
+    def candidate_for(
+        self, project_root: Path, output: Path
+    ) -> tuple[pipeline.GenerationResult, pipeline.CandidateResult]:
+        observation = (
+            project_root / "experiments" / "bridge" / "BRG-009-A" / "observation.json"
+            if project_root != ROOT
+            else OBSERVATION
+        )
+        result = pipeline.generate_draft(
+            project_root, [(observation, "pose")], output_root=output
+        )
+        (result.draft_dir / "human-resolution.yaml").write_bytes(
+            pipeline.yaml_bytes(self.resolution_for(result))
+        )
+        with patch.object(pipeline, "_integrated_validate"):
+            candidate = pipeline.generate_candidate(project_root, result.draft_dir)
+        return result, candidate
+
     def test_initial_module_registry_is_closed_and_versioned(self) -> None:
         registry, modules, content_hash = pipeline.load_module_registry(ROOT)
         self.assertEqual(registry["schema_version"], "0.1.0")
@@ -96,7 +135,7 @@ class ClaimDraftPipelineTests(unittest.TestCase):
         self.assertRegex(content_hash, r"^[a-f0-9]{64}$")
 
     def test_generation_is_deterministic_and_idempotent(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(dir=Path.home()) as directory:
             first = self.generate(Path(directory))
             second = self.generate(Path(directory))
             self.assertEqual(first.draft_id, second.draft_id)
@@ -167,7 +206,7 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             )
 
     def test_candidate_wrapper_does_not_leak_metadata_into_canonical_assertion(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(dir=Path.home()) as directory:
             result = self.generate(Path(directory))
             resolution = self.resolution_for(result)
             (result.draft_dir / "human-resolution.yaml").write_bytes(pipeline.yaml_bytes(resolution))
@@ -179,7 +218,7 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             pipeline.validate_artifact(ROOT, "observation-to-claim-candidate.schema.json", candidate.wrapper)
 
     def test_existing_canonical_evidence_is_referenced_without_duplication(self) -> None:
-        with tempfile.TemporaryDirectory() as project_dir, tempfile.TemporaryDirectory() as first_output, tempfile.TemporaryDirectory() as second_output:
+        with tempfile.TemporaryDirectory() as project_dir, tempfile.TemporaryDirectory(dir=Path.home()) as first_output, tempfile.TemporaryDirectory(dir=Path.home()) as second_output:
             project_root = self.temporary_project(project_dir)
             observation = project_root / "experiments" / "bridge" / "BRG-009-A" / "observation.json"
             first = pipeline.generate_draft(
@@ -231,12 +270,12 @@ class ClaimDraftPipelineTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, "EXPLICIT_FINALIZE_REQUIRED")
 
     def test_finalize_postvalidation_failure_rolls_back_and_records_receipt(self) -> None:
-        with tempfile.TemporaryDirectory() as output_dir, tempfile.TemporaryDirectory() as project_dir:
+        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir, tempfile.TemporaryDirectory() as project_dir:
             result = self.generate(Path(output_dir))
             resolution = self.resolution_for(result)
             (result.draft_dir / "human-resolution.yaml").write_bytes(pipeline.yaml_bytes(resolution))
             with patch.object(pipeline, "_integrated_validate"):
-                pipeline.generate_candidate(ROOT, result.draft_dir)
+                candidate = pipeline.generate_candidate(ROOT, result.draft_dir)
 
             project_root = self.temporary_project(project_dir)
             completed = subprocess.CompletedProcess(
@@ -246,38 +285,261 @@ class ClaimDraftPipelineTests(unittest.TestCase):
                 pipeline.subprocess, "run", return_value=completed
             ):
                 with self.assertRaises(pipeline.PipelineError) as raised:
-                    pipeline.finalize_candidate(project_root, result.draft_dir, explicit_finalize=True)
+                    pipeline.finalize_candidate(
+                        project_root,
+                        result.draft_dir,
+                        candidate_id=candidate.candidate_id,
+                        explicit_finalize=True,
+                    )
             self.assertEqual(raised.exception.code, "POST_VALIDATION_FAILED")
             destination = project_root / "knowledge" / "assertions" / "assertion-brg009-lying-arch-001.yaml"
             self.assertFalse(destination.exists())
             receipts = [
                 json.loads(path.read_text(encoding="utf-8"))
-                for path in (result.draft_dir / "generation-receipts").glob("*.json")
+                for path in (candidate.candidate_dir / "generation-receipts").glob("*.json")
             ]
             self.assertTrue(any(item["receipt_type"] == "finalize_attempt" for item in receipts))
             self.assertTrue(any(item["receipt_type"] == "rollback" for item in receipts))
 
     def test_finalize_success_installs_only_canonical_assertion(self) -> None:
-        with tempfile.TemporaryDirectory() as output_dir, tempfile.TemporaryDirectory() as project_dir:
+        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir, tempfile.TemporaryDirectory() as project_dir:
             result = self.generate(Path(output_dir))
             resolution = self.resolution_for(result)
             (result.draft_dir / "human-resolution.yaml").write_bytes(pipeline.yaml_bytes(resolution))
             with patch.object(pipeline, "_integrated_validate"):
                 candidate = pipeline.generate_candidate(ROOT, result.draft_dir)
             project_root = self.temporary_project(project_dir)
-            completed = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout=json.dumps({"errors": []}), stderr=""
-            )
+            completed = self.successful_validator_process()
             with patch.object(pipeline, "_integrated_validate"), patch.object(
                 pipeline.subprocess, "run", return_value=completed
             ):
                 finalized = pipeline.finalize_candidate(
-                    project_root, result.draft_dir, explicit_finalize=True
+                    project_root,
+                    result.draft_dir,
+                    candidate_id=candidate.candidate_id,
+                    explicit_finalize=True,
                 )
             installed = pipeline._load_yaml(finalized.destination)
             self.assertEqual(installed, candidate.wrapper["canonical_assertion"])
             self.assertNotIn("candidate_id", installed)
             self.assertEqual(finalized.receipt["result"], "succeeded")
+
+    def test_finalize_rejects_schema_valid_canonical_assertion_tampering(self) -> None:
+        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
+            result, candidate = self.candidate_for(ROOT, Path(output_dir))
+            wrapper = copy.deepcopy(candidate.wrapper)
+            wrapper["canonical_assertion"]["assertions"][0]["claim"]["statement"] += " Tampered."
+            candidate.candidate_path.write_bytes(pipeline.yaml_bytes(wrapper))
+            with self.assertRaises(pipeline.PipelineError) as raised:
+                pipeline.finalize_candidate(
+                    ROOT,
+                    result.draft_dir,
+                    candidate_id=candidate.candidate_id,
+                    explicit_finalize=True,
+                )
+            self.assertIn(
+                raised.exception.code,
+                {"CANDIDATE_TAMPERED", "CANONICAL_ASSERTION_HASH_MISMATCH"},
+            )
+
+    def test_finalize_rejects_wrapper_metadata_tampering(self) -> None:
+        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
+            result, candidate = self.candidate_for(ROOT, Path(output_dir))
+            wrapper = copy.deepcopy(candidate.wrapper)
+            wrapper["generator_version"] = "0.2.0"
+            candidate.candidate_path.write_bytes(pipeline.yaml_bytes(wrapper))
+            with self.assertRaises(pipeline.PipelineError) as raised:
+                pipeline.finalize_candidate(
+                    ROOT,
+                    result.draft_dir,
+                    candidate_id=candidate.candidate_id,
+                    explicit_finalize=True,
+                )
+            self.assertEqual(raised.exception.code, "CANDIDATE_TAMPERED")
+
+    def test_validator_infrastructure_failure_is_not_success(self) -> None:
+        completed = subprocess.CompletedProcess(
+            args=[],
+            returncode=2,
+            stdout=json.dumps(
+                {
+                    "validation_completed": False,
+                    "passed": False,
+                    "valid": False,
+                    "exit_code": 2,
+                    "error_count": 0,
+                    "infrastructure_error_count": 1,
+                    "errors": [],
+                    "infrastructure_errors": [{"code": "TEST"}],
+                }
+            ),
+            stderr="",
+        )
+        with self.assertRaises(pipeline.PipelineError) as raised:
+            pipeline._require_successful_validator_result(
+                completed, "CANDIDATE_INTEGRATION_FAILED"
+            )
+        self.assertEqual(raised.exception.code, "CANDIDATE_INTEGRATION_FAILED")
+
+    def test_validator_incomplete_json_is_not_success(self) -> None:
+        completed = self.successful_validator_process()
+        report = json.loads(completed.stdout)
+        report["validation_completed"] = False
+        completed.stdout = json.dumps(report)
+        with self.assertRaises(pipeline.PipelineError):
+            pipeline._require_successful_validator_result(
+                completed, "POST_VALIDATION_FAILED"
+            )
+
+    def test_human_resolutions_create_separate_immutable_candidates(self) -> None:
+        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
+            result = self.generate(Path(output_dir))
+            first_resolution = self.resolution_for(result)
+            resolution_path = result.draft_dir / "human-resolution.yaml"
+            resolution_path.write_bytes(pipeline.yaml_bytes(first_resolution))
+            with patch.object(pipeline, "_integrated_validate"):
+                first = pipeline.generate_candidate(ROOT, result.draft_dir)
+            original = first.candidate_path.read_bytes()
+            second_resolution = copy.deepcopy(first_resolution)
+            second_resolution["selected_claim_statement"]["statement"] += " Alternative."
+            resolution_path.write_bytes(pipeline.yaml_bytes(second_resolution))
+            with patch.object(pipeline, "_integrated_validate"):
+                second = pipeline.generate_candidate(ROOT, result.draft_dir)
+            self.assertNotEqual(first.candidate_id, second.candidate_id)
+            self.assertNotEqual(first.candidate_dir, second.candidate_dir)
+            self.assertEqual(first.candidate_path.read_bytes(), original)
+
+    def test_same_candidate_id_with_changed_content_is_collision(self) -> None:
+        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
+            result, candidate = self.candidate_for(ROOT, Path(output_dir))
+            candidate.candidate_path.write_bytes(candidate.candidate_path.read_bytes() + b"\n")
+            with patch.object(pipeline, "_integrated_validate"):
+                with self.assertRaises(pipeline.PipelineError) as raised:
+                    pipeline.generate_candidate(ROOT, result.draft_dir)
+            self.assertEqual(raised.exception.code, "CANDIDATE_ID_COLLISION")
+
+    def test_finalize_cli_requires_explicit_candidate_selection(self) -> None:
+        with self.assertRaises(SystemExit):
+            cli.parser(ROOT).parse_args(
+                ["finalize", "--draft-dir", "draft", "--explicit-finalize"]
+            )
+
+    def test_finalize_rejects_candidate_id_path_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
+            result, candidate = self.candidate_for(ROOT, Path(output_dir))
+            with self.assertRaises(pipeline.PipelineError) as raised:
+                pipeline.finalize_candidate(
+                    ROOT,
+                    result.draft_dir,
+                    candidate_id="candidate." + "0" * 64,
+                    explicit_finalize=True,
+                )
+            self.assertEqual(raised.exception.code, "CANDIDATE_SELECTION_INVALID")
+
+    def test_candidate_projection_uses_schema_version_field(self) -> None:
+        with tempfile.TemporaryDirectory() as output_dir:
+            result = self.generate(Path(output_dir))
+            resolution_hash = pipeline.human_resolution_hash(self.resolution_for(result))
+            _candidate_id, _hash, projection = pipeline._candidate_identity(
+                result.draft, resolution_hash
+            )
+            self.assertIn("candidate_schema_version", projection)
+            self.assertNotIn("candidate_contract_version", projection)
+
+    def test_candidate_schema_rejects_non_semver_generator(self) -> None:
+        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
+            _result, candidate = self.candidate_for(ROOT, Path(output_dir))
+            invalid = copy.deepcopy(candidate.wrapper)
+            invalid["generator_version"] = "not-semver"
+            with self.assertRaises(pipeline.PipelineError) as raised:
+                pipeline._validate_candidate_schema(ROOT, invalid)
+            self.assertEqual(raised.exception.code, "CANDIDATE_SCHEMA_INVALID")
+
+    def test_candidate_and_finalize_receipts_bind_same_three_hashes(self) -> None:
+        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir, tempfile.TemporaryDirectory() as project_dir:
+            result, candidate = self.candidate_for(ROOT, Path(output_dir))
+            project_root = self.temporary_project(project_dir)
+            with patch.object(pipeline, "_integrated_validate"), patch.object(
+                pipeline.subprocess,
+                "run",
+                return_value=self.successful_validator_process(),
+            ):
+                finalized = pipeline.finalize_candidate(
+                    project_root,
+                    result.draft_dir,
+                    candidate_id=candidate.candidate_id,
+                    explicit_finalize=True,
+                )
+            first = candidate.receipt["payload"]["candidate_identity"]
+            second = finalized.receipt["payload"]["candidate_identity"]
+            for key in (
+                "candidate_wrapper_artifact_hash_v1",
+                "canonical_assertion_artifact_hash_v1",
+                "assertion_content_v1_hash",
+            ):
+                self.assertEqual(first[key], second[key])
+
+    def test_existing_evidence_full_observation_hash_collision_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as project_dir, tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
+            project_root = self.temporary_project(project_dir)
+            observation = project_root / "experiments" / "bridge" / "BRG-009-A" / "observation.json"
+            result = pipeline.generate_draft(
+                project_root, [(observation, "pose")], output_root=Path(output_dir)
+            )
+            staged = next(
+                item
+                for item in result.draft["staged_evidence"]
+                if item["canonical_fact"]["metric"].endswith(
+                    "primary_morphology_counts.lying_arch"
+                )
+            )
+            other = project_root / "experiments" / "bridge" / "OTHER" / "observation.json"
+            other.parent.mkdir(parents=True)
+            changed = pipeline._load_json(observation)
+            changed["run_id"] = "OTHER"
+            other.write_bytes(pipeline.json_bytes(changed))
+            existing = copy.deepcopy(staged["canonical_fact"])
+            existing["observation_path"] = other.relative_to(project_root.parent.parent).as_posix()
+            (project_root / "knowledge" / "assertions" / "collision-fixture.yaml").write_bytes(
+                pipeline.yaml_bytes({"evidence_refs": [existing]})
+            )
+            (result.draft_dir / "human-resolution.yaml").write_bytes(
+                pipeline.yaml_bytes(self.resolution_for(result))
+            )
+            with patch.object(pipeline, "_integrated_validate"):
+                with self.assertRaises(pipeline.PipelineError) as raised:
+                    pipeline.generate_candidate(project_root, result.draft_dir)
+            self.assertEqual(raised.exception.code, "EVIDENCE_ID_COLLISION")
+
+    def test_deprecated_used_module_is_incompatible(self) -> None:
+        with tempfile.TemporaryDirectory() as project_dir, tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
+            project_root = self.temporary_project(project_dir)
+            result, candidate = self.candidate_for(project_root, Path(output_dir))
+            registry_path = project_root / "knowledge" / "registries" / "observation-modules.yaml"
+            registry = pipeline._load_yaml(registry_path)
+            next(item for item in registry["modules"] if item["slug"] == "pose")["status"] = "deprecated"
+            registry_path.write_bytes(pipeline.yaml_bytes(registry))
+            compatibility = pipeline.check_registry_compatibility(project_root, result.draft_dir)
+            self.assertEqual(compatibility.classification, "incompatible")
+            pose = next(
+                item
+                for item in compatibility.receipt["payload"]["module_results"]
+                if item["canonical_module_slug"] == "pose"
+            )
+            self.assertEqual(pose["current_status"], "deprecated")
+            with self.assertRaises(pipeline.PipelineError) as raised:
+                pipeline.generate_candidate(project_root, result.draft_dir)
+            self.assertEqual(raised.exception.code, "DRAFT_REGISTRY_INCOMPATIBLE")
+            with self.assertRaises(pipeline.PipelineError) as finalize_raised:
+                pipeline.finalize_candidate(
+                    project_root,
+                    result.draft_dir,
+                    candidate_id=candidate.candidate_id,
+                    explicit_finalize=True,
+                )
+            self.assertEqual(
+                finalize_raised.exception.code, "DRAFT_REGISTRY_INCOMPATIBLE"
+            )
 
     def test_module_registry_is_not_loaded_as_claim_yaml(self) -> None:
         documents = load_current_documents(ROOT / "knowledge")

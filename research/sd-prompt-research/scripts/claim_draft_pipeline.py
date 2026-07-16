@@ -33,6 +33,8 @@ from finalize_face_observation import compute_aggregate as compute_face_aggregat
 from finalize_observation import compute_aggregate as compute_pose_aggregate
 from validate_research_claims import (
     InvalidTextEncodingError,
+    assertion_payload,
+    content_hash,
     normalized_text_file_sha256_v1,
     yaml_load,
 )
@@ -61,6 +63,10 @@ ASSERTION_ID_RE = re.compile(
 )
 METRIC_PATH_RE = re.compile(r"^[a-z0-9_]+(?:\.[a-z0-9_]+)*$")
 SNAKE_RE = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
+SEMVER_RE = re.compile(
+    r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+    r"(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
+)
 
 MODULE_REGISTRY_RELATIVE = Path("knowledge/registries/observation-modules.yaml")
 MODULE_REGISTRY_SCHEMA_RELATIVE = Path("schemas/observation-module-registry.schema.json")
@@ -101,6 +107,7 @@ class GenerationResult:
 @dataclass(frozen=True)
 class CandidateResult:
     candidate_id: str
+    candidate_dir: Path
     candidate_path: Path
     wrapper: dict[str, Any]
     receipt: dict[str, Any]
@@ -117,6 +124,18 @@ class FinalizeResult:
 class CompatibilityResult:
     classification: str
     receipt: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class VerifiedCandidate:
+    candidate_dir: Path
+    wrapper: dict[str, Any]
+    wrapper_payload: bytes
+    canonical_payload: bytes
+    hash_binding: dict[str, str]
+    draft: dict[str, Any]
+    resolution: dict[str, Any]
+    candidate_receipt: dict[str, Any]
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -140,6 +159,17 @@ class _NoAliasSafeDumper(yaml.SafeDumper):
         return True
 
 
+class _CanonicalAssertionDumper(_NoAliasSafeDumper):
+    pass
+
+
+def _represent_canonical_string(dumper: yaml.SafeDumper, value: str) -> yaml.ScalarNode:
+    return dumper.represent_scalar("tag:yaml.org,2002:str", value, style='"')
+
+
+_CanonicalAssertionDumper.add_representer(str, _represent_canonical_string)
+
+
 def yaml_bytes(value: Any) -> bytes:
     return yaml.dump(
         value,
@@ -148,6 +178,25 @@ def yaml_bytes(value: Any) -> bytes:
         sort_keys=False,
         default_flow_style=False,
     ).encode("utf-8")
+
+
+def canonical_assertion_bytes(value: Mapping[str, Any]) -> bytes:
+    """Serialize a Canonical Assertion with the frozen YAML artifact profile."""
+    payload = yaml.dump(
+        value,
+        Dumper=_CanonicalAssertionDumper,
+        allow_unicode=True,
+        sort_keys=False,
+        default_flow_style=False,
+        indent=2,
+        width=4096,
+        line_break="\n",
+    ).encode("utf-8")
+    if payload.startswith(b"\xef\xbb\xbf") or b"\r" in payload or not payload.endswith(b"\n"):
+        raise PipelineError("CANONICAL_ASSERTION_SERIALIZATION_FAILED", "Canonical YAML profile invariant failed")
+    if b"&id" in payload or b"*id" in payload:
+        raise PipelineError("CANONICAL_ASSERTION_SERIALIZATION_FAILED", "YAML anchors or aliases are forbidden")
+    return payload
 
 
 def utc_now_text() -> str:
@@ -192,9 +241,34 @@ def validate_artifact(project_root: Path, schema_filename: str, value: Any) -> N
         raise PipelineError("ARTIFACT_SCHEMA_INVALID", "; ".join(formatted), schema_filename)
 
 
+def _native_path(path: Path) -> str:
+    resolved = str(path.resolve())
+    return "\\\\?\\" + resolved if os.name == "nt" and not resolved.startswith("\\\\?\\") else resolved
+
+
+def _read_bytes(path: Path) -> bytes:
+    with open(_native_path(path), "rb") as stream:
+        return stream.read()
+
+
+def _read_text(path: Path, encoding: str = "utf-8-sig") -> str:
+    return _read_bytes(path).decode(encoding)
+
+
+def _json_files(directory: Path) -> list[Path]:
+    try:
+        with os.scandir(_native_path(directory)) as entries:
+            return sorted(
+                (Path(entry.path) for entry in entries if entry.is_file() and entry.name.endswith(".json")),
+                key=lambda item: item.name,
+            )
+    except FileNotFoundError:
+        return []
+
+
 def _load_json(path: Path) -> dict[str, Any]:
     try:
-        raw = path.read_bytes()
+        raw = _read_bytes(path)
     except OSError as exc:
         raise PipelineError("SOURCE_NOT_FOUND", f"Cannot read source: {path}", str(path)) from exc
     try:
@@ -212,7 +286,7 @@ def _load_json(path: Path) -> dict[str, Any]:
 
 def _load_yaml(path: Path) -> dict[str, Any]:
     try:
-        text = path.read_text(encoding="utf-8-sig")
+        text = _read_text(path)
     except UnicodeDecodeError as exc:
         raise PipelineError("TEXT_FILE_INVALID_UTF8", f"Text file is not valid UTF-8: {path}", str(path)) from exc
     except OSError as exc:
@@ -647,10 +721,11 @@ def _sort_report(report: dict[str, Any]) -> dict[str, Any]:
 
 def _write_create_or_same(path: Path, payload: bytes, collision_code: str) -> bool:
     path.parent.mkdir(parents=True, exist_ok=True)
+    native_path = _native_path(path)
     try:
-        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        descriptor = os.open(native_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
     except FileExistsError:
-        if path.read_bytes() == payload:
+        if _read_bytes(path) == payload:
             return True
         raise PipelineError(collision_code, f"Immutable artifact already exists with different content: {path}", str(path))
     try:
@@ -659,7 +734,10 @@ def _write_create_or_same(path: Path, payload: bytes, collision_code: str) -> bo
             stream.flush()
             os.fsync(stream.fileno())
     except BaseException:
-        path.unlink(missing_ok=True)
+        try:
+            os.unlink(native_path)
+        except FileNotFoundError:
+            pass
         raise
     return False
 
@@ -764,12 +842,7 @@ def generate_draft(
         existing = canonical_evidence.get(staged_entry["evidence_id"])
         if existing is None:
             continue
-        existing_projection = _fact_content(existing, staged_entry["observation_content_hash"])
-        if semantic_hash(existing_projection) != staged_entry["evidence_content_hash"]:
-            raise PipelineError(
-                "EVIDENCE_ID_COLLISION",
-                f"Canonical Evidence content differs for {staged_entry['evidence_id']}",
-            )
+        _verify_existing_evidence_content(project_root, existing, staged_entry)
 
     registry_path = _safe_project_path(project_root, MODULE_REGISTRY_RELATIVE)
     sources.append(
@@ -968,8 +1041,8 @@ def persist_generation_failure(
 def _load_and_verify_draft(project_root: Path, draft_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     draft_path = draft_dir / "pre-schema-draft.yaml"
     report_path = draft_dir / "generation-report.json"
-    draft_payload = draft_path.read_bytes()
-    report_payload = report_path.read_bytes()
+    draft_payload = _read_bytes(draft_path)
+    report_payload = _read_bytes(report_path)
     draft = _load_yaml(draft_path)
     report = _load_json(report_path)
     validate_artifact(project_root, "observation-to-claim-draft.schema.json", draft)
@@ -980,7 +1053,7 @@ def _load_and_verify_draft(project_root: Path, draft_dir: Path) -> tuple[dict[st
         raise PipelineError("DRAFT_CORRUPT", "Generation Report Draft identity hash mismatch")
 
     receipts: list[dict[str, Any]] = []
-    for path in sorted((draft_dir / "generation-receipts").glob("*.json")):
+    for path in _json_files(draft_dir / "generation-receipts"):
         receipt = _load_json(path)
         if (
             receipt.get("receipt_type") == "generation"
@@ -1122,6 +1195,51 @@ def _fact_content(fact: Mapping[str, Any], observation_hash: str) -> dict[str, A
     }
 
 
+def _existing_observation_content_hash(project_root: Path, fact: Mapping[str, Any]) -> str:
+    stored_path = str(fact.get("observation_path") or "")
+    posix = PurePosixPath(stored_path.replace("\\", "/"))
+    if not stored_path or posix.is_absolute() or ".." in posix.parts or re.match(r"^[A-Za-z]:", stored_path):
+        raise PipelineError(
+            "EVIDENCE_CONTENT_UNRESOLVABLE",
+            f"Existing Evidence has an unsafe Observation path: {stored_path!r}",
+        )
+    repo_root = _repository_root(project_root).resolve()
+    observation_path = (repo_root / Path(*posix.parts)).resolve()
+    try:
+        observation_path.relative_to(repo_root)
+    except ValueError as exc:
+        raise PipelineError(
+            "EVIDENCE_CONTENT_UNRESOLVABLE",
+            f"Existing Evidence Observation escapes Repository Root: {stored_path}",
+        ) from exc
+    if not observation_path.is_file():
+        raise PipelineError(
+            "EVIDENCE_CONTENT_UNRESOLVABLE",
+            f"Existing Evidence Observation does not exist: {stored_path}",
+        )
+    try:
+        return semantic_hash(_load_json(observation_path))
+    except PipelineError as exc:
+        raise PipelineError(
+            "EVIDENCE_CONTENT_UNRESOLVABLE",
+            f"Existing Evidence Observation cannot be resolved: {stored_path}: {exc}",
+        ) from exc
+
+
+def _verify_existing_evidence_content(
+    project_root: Path,
+    existing_fact: Mapping[str, Any],
+    staged_entry: Mapping[str, Any],
+) -> None:
+    existing_observation_hash = _existing_observation_content_hash(project_root, existing_fact)
+    existing_hash = semantic_hash(_fact_content(existing_fact, existing_observation_hash))
+    if existing_hash != staged_entry["evidence_content_hash"]:
+        raise PipelineError(
+            "EVIDENCE_ID_COLLISION",
+            f"Canonical Evidence content differs for {staged_entry['evidence_id']}",
+        )
+
+
 def _reproduction(run_metadata: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     run_ids = sorted({str(item["run_id"]) for item in run_metadata})
     condition_ids = sorted({str(item["condition_id"]) for item in run_metadata})
@@ -1165,19 +1283,58 @@ def _candidate_identity(draft: Mapping[str, Any], resolution_hash: str) -> tuple
         "source_draft_id": draft["draft_id"],
         "source_draft_identity_hash": draft["draft_input_identity_hash"],
         "human_resolution_hash": resolution_hash,
-        "candidate_contract_version": CANDIDATE_SCHEMA_VERSION,
+        "candidate_schema_version": CANDIDATE_SCHEMA_VERSION,
         "generator_version": GENERATOR_VERSION,
     }
     digest = semantic_hash(projection)
     return f"candidate.{digest}", digest, projection
 
 
+def _assertion_content_v1_hash(project_root: Path, canonical: Mapping[str, Any]) -> str:
+    evidence = _canonical_evidence(project_root)
+    for fact in canonical.get("evidence_refs", []):
+        evidence_id = fact["evidence_ref_id"]
+        if evidence_id in evidence:
+            raise PipelineError("DUPLICATE_EVIDENCE_ID", f"Duplicate Canonical Evidence: {evidence_id}")
+        evidence[evidence_id] = fact
+    assertions = canonical.get("assertions", [])
+    if len(assertions) != 1:
+        raise PipelineError("CANDIDATE_SCHEMA_INVALID", "Candidate must contain exactly one Assertion")
+    try:
+        return content_hash(assertion_payload(assertions[0], evidence))
+    except KeyError as exc:
+        raise PipelineError("CANDIDATE_SCHEMA_INVALID", f"Assertion Evidence cannot be resolved: {exc}") from exc
+
+
+def _candidate_hash_binding(
+    project_root: Path,
+    wrapper: Mapping[str, Any],
+    wrapper_payload: bytes,
+    canonical_payload: bytes,
+) -> dict[str, str]:
+    return {
+        "candidate_wrapper_artifact_hash_v1": _artifact_hash(
+            "normalized_text_file_sha256_v1", wrapper, wrapper_payload
+        )["value"],
+        "canonical_assertion_artifact_hash_v1": _artifact_hash(
+            "normalized_text_file_sha256_v1", wrapper["canonical_assertion"], canonical_payload
+        )["value"],
+        "assertion_content_v1_hash": _assertion_content_v1_hash(
+            project_root, wrapper["canonical_assertion"]
+        ),
+    }
+
+
 def _candidate_receipt(
+    project_root: Path,
     draft: Mapping[str, Any],
     resolution: Mapping[str, Any],
     wrapper: Mapping[str, Any],
+    draft_payload: bytes,
     wrapper_payload: bytes,
+    canonical_payload: bytes,
 ) -> dict[str, Any]:
+    binding = _candidate_hash_binding(project_root, wrapper, wrapper_payload, canonical_payload)
     identity = {
         "status": "available",
         "candidate_id": wrapper["candidate_id"],
@@ -1185,6 +1342,7 @@ def _candidate_receipt(
         "candidate_id_projection_hash": wrapper["candidate_id_projection_hash"],
         "candidate_schema_version": wrapper["candidate_schema_version"],
         "generator_version": wrapper["generator_version"],
+        **binding,
     }
     return {
         "receipt_schema_version": RECEIPT_SCHEMA_VERSION,
@@ -1199,10 +1357,14 @@ def _candidate_receipt(
             "canonical_assertion": wrapper["canonical_assertion"]["assertions"][0]["assertion_id"],
         },
         "related_artifact_hashes": {
-            "pre_schema_draft": {"algorithm": "jcs_sha256_v1", "value": draft["draft_input_identity_hash"]},
+            "pre_schema_draft": _artifact_hash(
+                "normalized_text_file_sha256_v1", draft, draft_payload
+            ),
             "human_resolution": {"algorithm": "jcs_sha256_v1", "value": wrapper["human_resolution_hash"]},
             "claim_candidate": _artifact_hash("normalized_text_file_sha256_v1", wrapper, wrapper_payload),
-            "canonical_assertion": _artifact_hash("jcs_sha256_v1", wrapper["canonical_assertion"]),
+            "canonical_assertion": _artifact_hash(
+                "normalized_text_file_sha256_v1", wrapper["canonical_assertion"], canonical_payload
+            ),
         },
         "payload": {
             "draft_validation": _receipt_step("succeeded", "SUCCEEDED"),
@@ -1223,14 +1385,46 @@ def _validate_canonical_schema(project_root: Path, document: Mapping[str, Any]) 
         raise PipelineError("CANDIDATE_SCHEMA_INVALID", "; ".join(errors))
 
 
-def _integrated_validate(project_root: Path, document: Mapping[str, Any]) -> None:
+def _validate_candidate_schema(project_root: Path, wrapper: Mapping[str, Any]) -> None:
+    try:
+        validate_artifact(project_root, "observation-to-claim-candidate.schema.json", wrapper)
+    except PipelineError as exc:
+        raise PipelineError("CANDIDATE_SCHEMA_INVALID", str(exc)) from exc
+
+
+def _require_successful_validator_result(
+    completed: subprocess.CompletedProcess[str], failure_code: str
+) -> dict[str, Any]:
+    try:
+        report = json.loads(completed.stdout)
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise PipelineError(failure_code, completed.stderr or completed.stdout or str(exc)) from exc
+    required = (
+        completed.returncode == 0
+        and report.get("validation_completed") is True
+        and report.get("passed") is True
+        and report.get("valid") is True
+        and report.get("exit_code") == 0
+        and report.get("error_count") == 0
+        and report.get("infrastructure_error_count") == 0
+        and report.get("errors") == []
+        and report.get("infrastructure_errors") == []
+    )
+    if not required:
+        raise PipelineError(failure_code, "Research Claim Validator did not report a complete successful validation")
+    return report
+
+
+def _integrated_validate(
+    project_root: Path, document: Mapping[str, Any], canonical_payload: bytes
+) -> None:
     with tempfile.TemporaryDirectory(prefix="claim-candidate-") as directory:
         temp_knowledge = Path(directory) / "knowledge"
         shutil.copytree(project_root / "knowledge", temp_knowledge)
         target = temp_knowledge / "assertions" / f"{document['assertion_file_id']}.yaml"
         if target.exists():
             raise PipelineError("CANONICAL_DESTINATION_EXISTS", f"Canonical Assertion destination exists: {target.name}")
-        target.write_bytes(yaml_bytes(document))
+        target.write_bytes(canonical_payload)
         command = [
             sys.executable,
             str(project_root / "scripts" / "validate_research_claims.py"),
@@ -1240,14 +1434,7 @@ def _integrated_validate(project_root: Path, document: Mapping[str, Any]) -> Non
             "--format", "json",
         ]
         completed = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", check=False)
-        try:
-            report = json.loads(completed.stdout)
-        except json.JSONDecodeError as exc:
-            raise PipelineError("CANDIDATE_INTEGRATION_FAILED", completed.stderr or completed.stdout or str(exc)) from exc
-        errors = report.get("errors") or []
-        if errors:
-            message = "; ".join(f"{item.get('code')}: {item.get('message')}" for item in errors)
-            raise PipelineError("CANDIDATE_INTEGRATION_FAILED", message)
+        _require_successful_validator_result(completed, "CANDIDATE_INTEGRATION_FAILED")
 
 
 def generate_candidate(project_root: Path, draft_dir: Path) -> CandidateResult:
@@ -1257,7 +1444,7 @@ def generate_candidate(project_root: Path, draft_dir: Path) -> CandidateResult:
     compatibility = check_registry_compatibility(project_root, draft_dir)
     if compatibility.classification == "incompatible":
         raise PipelineError(
-            "DRAFT_EVIDENCE_ID_INCOMPATIBLE",
+            "DRAFT_REGISTRY_INCOMPATIBLE",
             "Current Registry contracts are incompatible with the persisted Draft",
         )
     resolution = _load_yaml(draft_dir / "human-resolution.yaml")
@@ -1306,9 +1493,7 @@ def generate_candidate(project_root: Path, draft_dir: Path) -> CandidateResult:
             if existing is None:
                 new_facts.append(copy.deepcopy(staged_entry["canonical_fact"]))
             else:
-                existing_projection = _fact_content(existing, staged_entry["observation_content_hash"])
-                if semantic_hash(existing_projection) != staged_entry["evidence_content_hash"]:
-                    raise PipelineError("EVIDENCE_ID_COLLISION", f"Evidence content differs for {evidence_id}")
+                _verify_existing_evidence_content(project_root, existing, staged_entry)
         else:
             selected_facts.append(existing)
 
@@ -1363,7 +1548,8 @@ def generate_candidate(project_root: Path, draft_dir: Path) -> CandidateResult:
         "assertions": [assertion],
     }
     _validate_canonical_schema(project_root, canonical)
-    _integrated_validate(project_root, canonical)
+    canonical_payload = canonical_assertion_bytes(canonical)
+    _integrated_validate(project_root, canonical, canonical_payload)
     candidate_id, projection_hash, _projection = _candidate_identity(draft, resolution_hash)
     wrapper = {
         "candidate_schema_version": CANDIDATE_SCHEMA_VERSION,
@@ -1377,17 +1563,27 @@ def generate_candidate(project_root: Path, draft_dir: Path) -> CandidateResult:
         "canonical_assertion": canonical,
     }
     payload = yaml_bytes(wrapper)
-    validate_artifact(project_root, "observation-to-claim-candidate.schema.json", wrapper)
-    path = draft_dir / "claim-candidate.yaml"
+    _validate_candidate_schema(project_root, wrapper)
+    candidate_dir = draft_dir / "claim-candidates" / candidate_id
+    path = candidate_dir / "claim-candidate.yaml"
     same = _write_create_or_same(path, payload, "CANDIDATE_ID_COLLISION")
-    receipt = _candidate_receipt(draft, resolution, wrapper, payload)
+    receipt = _candidate_receipt(
+        project_root,
+        draft,
+        resolution,
+        wrapper,
+        _read_bytes(draft_dir / "pre-schema-draft.yaml"),
+        payload,
+        canonical_payload,
+    )
     validate_artifact(project_root, "observation-to-claim-receipt.schema.json", receipt)
+    (candidate_dir / "generation-receipts").mkdir(parents=True, exist_ok=True)
     _write_create_or_same(
-        draft_dir / "generation-receipts" / f"{receipt['receipt_id']}.json",
+        candidate_dir / "generation-receipts" / f"{receipt['receipt_id']}.json",
         json_bytes(receipt),
         "CANDIDATE_ID_COLLISION",
     )
-    return CandidateResult(candidate_id, path, wrapper, receipt, same)
+    return CandidateResult(candidate_id, candidate_dir, path, wrapper, receipt, same)
 
 
 def check_registry_compatibility(project_root: Path, draft_dir: Path) -> CompatibilityResult:
@@ -1409,7 +1605,9 @@ def check_registry_compatibility(project_root: Path, draft_dir: Path) -> Compati
         if current is None:
             raise PipelineError("MODULE_SLUG_NOT_REGISTERED", f"Module is no longer registered: {slug}")
         _semantic, hard_hash, fingerprint_hash = _module_projection(current)
-        if hard_hash != used["module_hard_compatibility_hash"]:
+        if current["status"] == "deprecated":
+            classification = "incompatible"
+        elif hard_hash != used["module_hard_compatibility_hash"]:
             classification = "incompatible"
         elif fingerprint_hash == used["module_change_fingerprint_hash"]:
             classification = "unchanged"
@@ -1421,6 +1619,8 @@ def check_registry_compatibility(project_root: Path, draft_dir: Path) -> Compati
                 "canonical_module_slug": slug,
                 "generation_hash": used["module_change_fingerprint_hash"],
                 "current_hash": fingerprint_hash,
+                "generation_status": used["status_at_generation"],
+                "current_status": current["status"],
                 "result": classification,
             }
         )
@@ -1585,6 +1785,181 @@ def canonical_knowledge_snapshot(project_root: Path) -> str:
     return semantic_hash(sorted(entries, key=lambda item: item["path"]))
 
 
+def _resolve_candidate_path(
+    draft_dir: Path,
+    *,
+    candidate_id: str | None,
+    candidate_path: Path | None,
+) -> tuple[Path, Path]:
+    if (candidate_id is None) == (candidate_path is None):
+        raise PipelineError(
+            "CANDIDATE_SELECTION_REQUIRED",
+            "Finalize requires exactly one of candidate_id or candidate_path",
+        )
+    root = (draft_dir / "claim-candidates").resolve()
+    if candidate_id is not None:
+        if not re.fullmatch(r"candidate\.[a-f0-9]{64}", candidate_id):
+            raise PipelineError("CANDIDATE_SELECTION_INVALID", "candidate_id is invalid")
+        candidate_dir = (root / candidate_id).resolve()
+        path = candidate_dir / "claim-candidate.yaml"
+    else:
+        path = candidate_path.resolve()  # type: ignore[union-attr]
+        candidate_dir = path.parent
+    try:
+        candidate_dir.relative_to(root)
+    except ValueError as exc:
+        raise PipelineError("CANDIDATE_SELECTION_INVALID", "Candidate path is outside the Draft") from exc
+    if path.name != "claim-candidate.yaml" or candidate_dir.parent != root:
+        raise PipelineError("CANDIDATE_SELECTION_INVALID", "Candidate path does not follow the immutable layout")
+    if not os.path.isfile(_native_path(path)):
+        raise PipelineError("CANDIDATE_SELECTION_INVALID", f"Candidate does not exist: {path}")
+    return candidate_dir, path
+
+
+def _receipt_hash_matches(
+    receipt: Mapping[str, Any], role: str, algorithm: str, value: str
+) -> bool:
+    stored = receipt.get("related_artifact_hashes", {}).get(role, {})
+    return stored.get("algorithm") == algorithm and stored.get("value") == value
+
+
+def _verify_candidate_for_finalize(
+    project_root: Path,
+    draft_dir: Path,
+    *,
+    candidate_id: str | None,
+    candidate_path: Path | None,
+) -> VerifiedCandidate:
+    candidate_dir, path = _resolve_candidate_path(
+        draft_dir, candidate_id=candidate_id, candidate_path=candidate_path
+    )
+    wrapper_payload = _read_bytes(path)
+    wrapper = _load_yaml(path)
+    _validate_candidate_schema(project_root, wrapper)
+    _validate_canonical_schema(project_root, wrapper["canonical_assertion"])
+    if candidate_id is not None and wrapper["candidate_id"] != candidate_id:
+        raise PipelineError("CANDIDATE_SELECTION_INVALID", "Selected candidate_id does not match Wrapper")
+    if candidate_dir.name != wrapper["candidate_id"]:
+        raise PipelineError("CANDIDATE_SELECTION_INVALID", "Candidate directory does not match Wrapper ID")
+
+    draft, report = _load_and_verify_draft(project_root, draft_dir)
+    resolution = _load_yaml(draft_dir / "human-resolution.yaml")
+    _validate_resolution(project_root, resolution)
+    if semantic_hash(draft["draft_input_identity"]) != draft["draft_input_identity_hash"]:
+        raise PipelineError("DRAFT_TAMPERED", "Draft identity hash no longer matches")
+    if (
+        wrapper["source_draft_id"] != draft["draft_id"]
+        or wrapper["source_draft_identity_hash"] != draft["draft_input_identity_hash"]
+    ):
+        raise PipelineError("DRAFT_TAMPERED", "Candidate does not bind the current Draft")
+    if (
+        resolution.get("source_draft_id") != draft["draft_id"]
+        or resolution.get("source_draft_identity_hash") != draft["draft_input_identity_hash"]
+    ):
+        raise PipelineError("HUMAN_RESOLUTION_CHANGED", "Human Resolution does not bind the current Draft")
+    resolution_hash = human_resolution_hash(resolution)
+    if wrapper["human_resolution_hash"] != resolution_hash:
+        raise PipelineError("HUMAN_RESOLUTION_CHANGED", "Human Resolution content changed after Candidate generation")
+    if (
+        draft.get("generator_version") != GENERATOR_VERSION
+        or report.get("generator", {}).get("generator_version") != GENERATOR_VERSION
+        or wrapper["generator_version"] != GENERATOR_VERSION
+    ):
+        raise PipelineError("CANDIDATE_TAMPERED", "Generator version binding mismatch")
+
+    expected_id, expected_projection_hash, _projection = _candidate_identity(draft, resolution_hash)
+    expected_metadata = {
+        "candidate_id": expected_id,
+        "candidate_id_projection_version": CANDIDATE_ID_PROJECTION_VERSION,
+        "candidate_id_projection_hash": expected_projection_hash,
+        "candidate_schema_version": CANDIDATE_SCHEMA_VERSION,
+        "generator_version": GENERATOR_VERSION,
+    }
+    if any(wrapper.get(key) != value for key, value in expected_metadata.items()):
+        raise PipelineError("CANDIDATE_TAMPERED", "Candidate identity metadata is inconsistent")
+
+    compatibility = check_registry_compatibility(project_root, draft_dir)
+    if compatibility.classification == "incompatible":
+        raise PipelineError("DRAFT_REGISTRY_INCOMPATIBLE", "Current Registry is incompatible with the Candidate Draft")
+
+    canonical_payload = canonical_assertion_bytes(wrapper["canonical_assertion"])
+    binding = _candidate_hash_binding(project_root, wrapper, wrapper_payload, canonical_payload)
+    receipt_paths = _json_files(candidate_dir / "generation-receipts")
+    receipts: list[dict[str, Any]] = []
+    for receipt_path in receipt_paths:
+        receipt = _load_json(receipt_path)
+        if (
+            receipt.get("receipt_type") == "candidate_generation"
+            and receipt.get("result") == "succeeded"
+            and receipt.get("related_artifact_ids", {}).get("claim_candidate") == wrapper["candidate_id"]
+        ):
+            validate_artifact(project_root, "observation-to-claim-receipt.schema.json", receipt)
+            receipts.append(receipt)
+    if not receipts:
+        raise PipelineError("CANDIDATE_RECEIPT_NOT_FOUND", "No successful Candidate Generation Receipt was found")
+
+    actual_draft_hash = _artifact_hash(
+        "normalized_text_file_sha256_v1",
+        draft,
+        _read_bytes(draft_dir / "pre-schema-draft.yaml"),
+    )["value"]
+    mismatch_codes: set[str] = set()
+    for receipt in receipts:
+        identity = receipt.get("payload", {}).get("candidate_identity", {})
+        identity_expected = {**expected_metadata, **binding, "status": "available"}
+        if identity != identity_expected:
+            if identity.get("canonical_assertion_artifact_hash_v1") != binding["canonical_assertion_artifact_hash_v1"]:
+                mismatch_codes.add("CANONICAL_ASSERTION_HASH_MISMATCH")
+            else:
+                mismatch_codes.add("CANDIDATE_TAMPERED")
+            continue
+        if not _receipt_hash_matches(
+            receipt,
+            "canonical_assertion",
+            "normalized_text_file_sha256_v1",
+            binding["canonical_assertion_artifact_hash_v1"],
+        ):
+            mismatch_codes.add("CANONICAL_ASSERTION_HASH_MISMATCH")
+            continue
+        if not _receipt_hash_matches(
+            receipt,
+            "claim_candidate",
+            "normalized_text_file_sha256_v1",
+            binding["candidate_wrapper_artifact_hash_v1"],
+        ):
+            mismatch_codes.add("CANDIDATE_TAMPERED")
+            continue
+        if not _receipt_hash_matches(
+            receipt, "pre_schema_draft", "normalized_text_file_sha256_v1", actual_draft_hash
+        ):
+            mismatch_codes.add("DRAFT_TAMPERED")
+            continue
+        if not _receipt_hash_matches(
+            receipt, "human_resolution", "jcs_sha256_v1", resolution_hash
+        ):
+            mismatch_codes.add("HUMAN_RESOLUTION_CHANGED")
+            continue
+        return VerifiedCandidate(
+            candidate_dir,
+            wrapper,
+            wrapper_payload,
+            canonical_payload,
+            binding,
+            draft,
+            resolution,
+            receipt,
+        )
+    for code in (
+        "CANONICAL_ASSERTION_HASH_MISMATCH",
+        "HUMAN_RESOLUTION_CHANGED",
+        "DRAFT_TAMPERED",
+        "CANDIDATE_TAMPERED",
+    ):
+        if code in mismatch_codes:
+            raise PipelineError(code, "Candidate Generation Receipt hash binding mismatch")
+    raise PipelineError("CANDIDATE_TAMPERED", "Candidate Generation Receipt binding mismatch")
+
+
 def _finalize_receipt(
     wrapper: Mapping[str, Any],
     destination: Path,
@@ -1592,6 +1967,8 @@ def _finalize_receipt(
     steps: Mapping[str, Mapping[str, str]],
     diagnostics: Sequence[Mapping[str, str]],
     *,
+    hash_binding: Mapping[str, str],
+    canonical_payload: bytes,
     receipt_id: str | None = None,
     wrapper_payload: bytes | None = None,
 ) -> dict[str, Any]:
@@ -1603,6 +1980,7 @@ def _finalize_receipt(
         "candidate_id_projection_hash": wrapper["candidate_id_projection_hash"],
         "candidate_schema_version": wrapper["candidate_schema_version"],
         "generator_version": wrapper["generator_version"],
+        **hash_binding,
     }
     return {
         "receipt_schema_version": RECEIPT_SCHEMA_VERSION,
@@ -1618,7 +1996,9 @@ def _finalize_receipt(
             "claim_candidate": _artifact_hash(
                 "normalized_text_file_sha256_v1", wrapper, wrapper_payload or yaml_bytes(wrapper)
             ),
-            "canonical_assertion": _artifact_hash("jcs_sha256_v1", canonical),
+            "canonical_assertion": _artifact_hash(
+                "normalized_text_file_sha256_v1", canonical, canonical_payload
+            ),
         },
         "payload": {
             "lock_acquisition": steps["lock_acquisition"],
@@ -1683,29 +2063,28 @@ def _rollback_receipt(
     }
 
 
-def finalize_candidate(project_root: Path, draft_dir: Path, *, explicit_finalize: bool) -> FinalizeResult:
+def finalize_candidate(
+    project_root: Path,
+    draft_dir: Path,
+    *,
+    candidate_id: str | None = None,
+    candidate_path: Path | None = None,
+    explicit_finalize: bool,
+) -> FinalizeResult:
     if not explicit_finalize:
         raise PipelineError("EXPLICIT_FINALIZE_REQUIRED", "Finalize requires an explicit human action")
     project_root = project_root.resolve()
     draft_dir = draft_dir.resolve()
-    wrapper = _load_yaml(draft_dir / "claim-candidate.yaml")
-    draft = _load_yaml(draft_dir / "pre-schema-draft.yaml")
-    resolution = _load_yaml(draft_dir / "human-resolution.yaml")
-    compatibility = check_registry_compatibility(project_root, draft_dir)
-    if compatibility.classification == "incompatible":
-        raise PipelineError(
-            "DRAFT_EVIDENCE_ID_INCOMPATIBLE",
-            "Current Registry contracts are incompatible with the Candidate source Draft",
-        )
-    resolution_hash = human_resolution_hash(resolution)
-    candidate_id, projection_hash, _ = _candidate_identity(draft, resolution_hash)
-    if wrapper.get("candidate_id") != candidate_id or wrapper.get("candidate_id_projection_hash") != projection_hash:
-        raise PipelineError("DRAFT_TAMPERED", "Candidate identity no longer matches Draft and Human Resolution")
-    if wrapper.get("human_resolution_hash") != resolution_hash:
-        raise PipelineError("DRAFT_TAMPERED", "Candidate Human Resolution hash mismatch")
+    verified = _verify_candidate_for_finalize(
+        project_root,
+        draft_dir,
+        candidate_id=candidate_id,
+        candidate_path=candidate_path,
+    )
+    wrapper = verified.wrapper
     canonical = wrapper["canonical_assertion"]
-    _validate_canonical_schema(project_root, canonical)
-    _integrated_validate(project_root, canonical)
+    canonical_payload = verified.canonical_payload
+    _integrated_validate(project_root, canonical, canonical_payload)
     destination = project_root / "knowledge" / "assertions" / f"{canonical['assertion_file_id']}.yaml"
     logical_destination = destination.relative_to(project_root)
     lock_path = project_root / "knowledge" / ".claim-finalize.lock"
@@ -1717,25 +2096,25 @@ def finalize_candidate(project_root: Path, draft_dir: Path, *, explicit_finalize
         "postcondition_validation": _receipt_step("not_started", "NOT_STARTED"),
     }
     rollback_info: tuple[str, str, str | None, str, list[dict[str, str]]] | None = None
-    wrapper_payload = (draft_dir / "claim-candidate.yaml").read_bytes()
+    wrapper_payload = verified.wrapper_payload
+    receipt_dir = verified.candidate_dir / "generation-receipts"
     try:
         with _KnowledgeLock(lock_path):
             steps["lock_acquisition"] = _receipt_step("succeeded", "SUCCEEDED")
             before = canonical_knowledge_snapshot(project_root)
             steps["snapshot_validation"] = _receipt_step("succeeded", "SUCCEEDED")
-            _integrated_validate(project_root, canonical)
+            _integrated_validate(project_root, canonical, canonical_payload)
             steps["integration_validation"] = _receipt_step("succeeded", "SUCCEEDED")
             current = canonical_knowledge_snapshot(project_root)
             if current != before:
-                _integrated_validate(project_root, canonical)
+                _integrated_validate(project_root, canonical, canonical_payload)
                 after_revalidation = canonical_knowledge_snapshot(project_root)
                 if after_revalidation != current:
                     raise PipelineError("CANONICAL_SNAPSHOT_CHANGED", "Canonical Knowledge changed during Finalize")
                 before = current
-            payload = yaml_bytes(canonical)
             destination.parent.mkdir(parents=True, exist_ok=True)
             temporary = destination.with_name(f".{destination.name}.{uuid7_text()}.tmp")
-            temporary.write_bytes(payload)
+            temporary.write_bytes(canonical_payload)
             try:
                 os.link(temporary, destination)
             except FileExistsError as exc:
@@ -1752,9 +2131,7 @@ def finalize_candidate(project_root: Path, draft_dir: Path, *, explicit_finalize
                     "--format", "json",
                 ]
                 completed = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", check=False)
-                report = json.loads(completed.stdout)
-                if report.get("errors"):
-                    raise PipelineError("POST_VALIDATION_FAILED", "Canonical postcondition validation failed")
+                _require_successful_validator_result(completed, "POST_VALIDATION_FAILED")
             except BaseException as post_error:
                 cause_code = post_error.code if isinstance(post_error, PipelineError) else "POST_VALIDATION_FAILED"
                 try:
@@ -1780,12 +2157,14 @@ def finalize_candidate(project_root: Path, draft_dir: Path, *, explicit_finalize
             "failed",
             steps,
             [error.diagnostic()],
+            hash_binding=verified.hash_binding,
+            canonical_payload=canonical_payload,
             receipt_id=finalize_receipt_id,
             wrapper_payload=wrapper_payload,
         )
         validate_artifact(project_root, "observation-to-claim-receipt.schema.json", receipt)
         _write_create_or_same(
-            draft_dir / "generation-receipts" / f"{receipt['receipt_id']}.json",
+            receipt_dir / f"{receipt['receipt_id']}.json",
             json_bytes(receipt),
             "DRAFT_ID_COLLISION",
         )
@@ -1803,7 +2182,7 @@ def finalize_candidate(project_root: Path, draft_dir: Path, *, explicit_finalize
             )
             validate_artifact(project_root, "observation-to-claim-receipt.schema.json", rollback_receipt)
             _write_create_or_same(
-                draft_dir / "generation-receipts" / f"{rollback_receipt['receipt_id']}.json",
+                receipt_dir / f"{rollback_receipt['receipt_id']}.json",
                 json_bytes(rollback_receipt),
                 "DRAFT_ID_COLLISION",
             )
@@ -1814,11 +2193,13 @@ def finalize_candidate(project_root: Path, draft_dir: Path, *, explicit_finalize
         "succeeded",
         steps,
         [],
+        hash_binding=verified.hash_binding,
+        canonical_payload=canonical_payload,
         wrapper_payload=wrapper_payload,
     )
     validate_artifact(project_root, "observation-to-claim-receipt.schema.json", receipt)
     _write_create_or_same(
-        draft_dir / "generation-receipts" / f"{receipt['receipt_id']}.json",
+        receipt_dir / f"{receipt['receipt_id']}.json",
         json_bytes(receipt),
         "DRAFT_ID_COLLISION",
     )

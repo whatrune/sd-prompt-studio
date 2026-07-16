@@ -43,6 +43,7 @@
   ],
   "$defs": {
     "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "semver": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"},
     "uuid7": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
     "artifactIds": {
       "type": "object", "additionalProperties": false,
@@ -85,14 +86,17 @@
     "diagnostic": {"$ref": "https://local.sd-prompt-studio/observation-to-claim-generation-report-v0.1.schema.json#/$defs/diagnostic"},
     "candidateIdentityAvailable": {
       "type": "object", "additionalProperties": false,
-      "required": ["status", "candidate_id", "candidate_id_projection_version", "candidate_id_projection_hash", "candidate_schema_version", "generator_version"],
+      "required": ["status", "candidate_id", "candidate_id_projection_version", "candidate_id_projection_hash", "candidate_schema_version", "generator_version", "candidate_wrapper_artifact_hash_v1", "canonical_assertion_artifact_hash_v1", "assertion_content_v1_hash"],
       "properties": {
         "status": {"const": "available"},
         "candidate_id": {"type": "string", "pattern": "^candidate\\.[a-f0-9]{64}$"},
         "candidate_id_projection_version": {"const": "candidate_id_projection_v1"},
         "candidate_id_projection_hash": {"$ref": "#/$defs/sha256"},
         "candidate_schema_version": {"const": "0.1.0"},
-        "generator_version": {"type": "string", "minLength": 1}
+        "generator_version": {"$ref": "#/$defs/semver"},
+        "candidate_wrapper_artifact_hash_v1": {"$ref": "#/$defs/sha256"},
+        "canonical_assertion_artifact_hash_v1": {"$ref": "#/$defs/sha256"},
+        "assertion_content_v1_hash": {"$ref": "#/$defs/sha256"}
       }
     },
     "candidateIdentityUnavailable": {
@@ -138,11 +142,13 @@
     },
     "moduleCompatibilityResult": {
       "type": "object", "additionalProperties": false,
-      "required": ["canonical_module_slug", "generation_hash", "current_hash", "result"],
+      "required": ["canonical_module_slug", "generation_hash", "current_hash", "generation_status", "current_status", "result"],
       "properties": {
         "canonical_module_slug": {"type": "string", "minLength": 1},
         "generation_hash": {"$ref": "#/$defs/sha256"},
         "current_hash": {"$ref": "#/$defs/sha256"},
+        "generation_status": {"enum": ["active", "deprecated"]},
+        "current_status": {"enum": ["active", "deprecated"]},
         "result": {"enum": ["unchanged", "compatible_changed", "incompatible"]}
       }
     },

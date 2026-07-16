@@ -49,6 +49,7 @@
   ],
   "$defs": {
     "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "semver": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"},
     "uuid7": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
     "stepStatus": {"enum": ["not_started", "succeeded", "failed", "inconclusive", "not_applicable"]},
     "generator": {
@@ -56,7 +57,7 @@
       "required": ["generator_contract", "generator_version", "template_version"],
       "properties": {
         "generator_contract": {"type": "string", "minLength": 1},
-        "generator_version": {"type": "string", "minLength": 1},
+        "generator_version": {"$ref": "#/$defs/semver"},
         "template_version": {"type": "string", "minLength": 1}
       }
     },

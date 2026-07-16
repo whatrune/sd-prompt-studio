@@ -16,7 +16,7 @@
     "draft_schema_version": {"const": "0.1.0"},
     "draft_type": {"const": "descriptive_observation"},
     "generator_contract": {"const": "observation_to_claim_draft_v1"},
-    "generator_version": {"type": "string", "minLength": 1},
+    "generator_version": {"$ref": "#/$defs/semver"},
     "template_version": {"type": "string", "minLength": 1},
     "draft_id": {"type": "string", "pattern": "^draft\\.[a-f0-9]{64}$"},
     "draft_input_identity_hash": {"$ref": "#/$defs/sha256"},
@@ -31,6 +31,7 @@
   },
   "$defs": {
     "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "semver": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"},
     "sourceFile": {
       "type": "object", "additionalProperties": false,
       "required": ["source_role", "logical_path", "hash_algorithm", "hash_value", "parse_status", "module", "run_id"],
@@ -59,7 +60,7 @@
         "aggregate_consistency_profile_version": {"type": "string", "minLength": 1},
         "metric_extraction_profile_version": {"type": "string", "minLength": 1},
         "generator_contract": {"const": "observation_to_claim_draft_v1"},
-        "generator_version": {"type": "string", "minLength": 1},
+        "generator_version": {"$ref": "#/$defs/semver"},
         "template_version": {"type": "string", "minLength": 1},
         "registry_schema_version": {"type": "string", "minLength": 1},
         "registry_version": {"type": "string", "minLength": 1},

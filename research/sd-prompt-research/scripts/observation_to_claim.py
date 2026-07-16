@@ -43,6 +43,9 @@ def parser(default_root: Path) -> argparse.ArgumentParser:
 
     finalize = subcommands.add_parser("finalize", help="Finalize a validated Candidate into Canonical Knowledge")
     finalize.add_argument("--draft-dir", type=Path, required=True)
+    selection = finalize.add_mutually_exclusive_group(required=True)
+    selection.add_argument("--candidate-id")
+    selection.add_argument("--candidate-path", type=Path)
     finalize.add_argument(
         "--explicit-finalize",
         action="store_true",
@@ -110,6 +113,7 @@ def main(argv: list[str] | None = None) -> int:
                     {
                         "status": "succeeded",
                         "candidate_id": result.candidate_id,
+                        "candidate_dir": str(result.candidate_dir),
                         "candidate_path": str(result.candidate_path),
                         "idempotent": result.idempotent,
                     },
@@ -134,6 +138,8 @@ def main(argv: list[str] | None = None) -> int:
             result = finalize_candidate(
                 project_root,
                 args.draft_dir,
+                candidate_id=args.candidate_id,
+                candidate_path=args.candidate_path,
                 explicit_finalize=args.explicit_finalize,
             )
             print(json.dumps({"status": "succeeded", "destination": str(result.destination)}, ensure_ascii=False))

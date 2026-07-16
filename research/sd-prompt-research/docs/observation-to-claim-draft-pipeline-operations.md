@@ -26,8 +26,11 @@ inbox/claim-drafts/<draft_id>/
   pre-schema-draft.yaml
   generation-report.json
   human-resolution.yaml       # supplied by a human; never generated
-  claim-candidate.yaml        # generated after Human Resolution
   generation-receipts/*.json
+  claim-candidates/
+    <candidate_id>/
+      claim-candidate.yaml
+      generation-receipts/*.json
 ```
 
 Failed generation attempts are recorded under
@@ -80,7 +83,10 @@ python scripts/observation_to_claim.py candidate `
 The command validates the Human Resolution, produces a closed Candidate
 Wrapper, validates its nested canonical Assertion separately, and performs
 Canonical Knowledge integration validation. Wrapper metadata never enters the
-canonical Assertion.
+canonical Assertion. The command returns `candidate_id`, `candidate_dir`, and
+`candidate_path`. Candidate directories are immutable: changing the Human
+Resolution or Generator version creates a different Candidate ID and never
+overwrites an earlier Candidate.
 
 ## Finalize
 
@@ -89,13 +95,25 @@ Finalize is create-only and requires an explicit human action:
 ```powershell
 python scripts/observation_to_claim.py finalize `
   --draft-dir inbox/claim-drafts/<draft_id> `
+  --candidate-id candidate.<projection_hash> `
   --explicit-finalize
 ```
+
+`--candidate-path <.../claim-candidate.yaml>` may be used instead of
+`--candidate-id`. Exactly one selector is required; Finalize never infers a
+latest Candidate from the Draft directory.
 
 Finalize holds the canonical lock, checks the canonical snapshot, validates the
 exact staged Assertion, installs one new Assertion file without overwriting,
 and runs postcondition validation. A postcondition failure removes only the
 file created by that attempt and records both Finalize and Rollback Receipts.
+Before installation, Finalize revalidates the Wrapper and nested Assertion,
+the Draft and Human Resolution bindings, the Candidate ID projection, Registry
+compatibility, and the successful Candidate Generation Receipt. The Receipt
+binds three distinct hashes: the normalized Candidate Wrapper bytes, the fixed
+Canonical Assertion YAML bytes, and the existing JCS-based
+`assertion_content_v1` semantic hash. The exact validated Canonical YAML bytes
+are installed without reserialization.
 
 ## Validation
 

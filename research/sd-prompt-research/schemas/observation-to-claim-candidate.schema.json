@@ -18,10 +18,11 @@
     "source_draft_id": {"type": "string", "pattern": "^draft\\.[a-f0-9]{64}$"},
     "source_draft_identity_hash": {"$ref": "#/$defs/sha256"},
     "human_resolution_hash": {"$ref": "#/$defs/sha256"},
-    "generator_version": {"type": "string", "minLength": 1},
+    "generator_version": {"$ref": "#/$defs/semver"},
     "canonical_assertion": {"$ref": "https://local.sd-prompt-studio/research-claim-assertion-v0.1.schema.json"}
   },
   "$defs": {
-    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "semver": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"}
   }
 }
