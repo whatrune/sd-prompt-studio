@@ -1,0 +1,494 @@
+schema_version: '3.0'
+run_id: BRG-007-A
+target_concept: ''
+blind_condition_label: Condition A
+blind_analysis: true
+special_values:
+  unclear: 対象は見えているが判定不能、または証拠が競合する
+  not_visible: Crop、遮蔽、髪、服、重なりなどで対象を確認できない
+  not_applicable: そのPanelの構成では項目自体が適用対象外
+axis_catalog:
+  body_state:
+    label: Body State
+    allowed_values:
+    - standing
+    - sitting
+    - kneeling
+    - quadruped
+    - squatting
+    - lying
+    - reclined
+    - suspended
+    - airborne
+    - unclear
+  body_orientation:
+    label: Body Orientation
+    allowed_values:
+    - face_up
+    - face_down
+    - side_left
+    - side_right
+    - vertical
+    - horizontal
+    - inverted_vertical
+    - oblique
+    - unclear
+  head_orientation:
+    label: Head Orientation
+    allowed_values:
+    - neutral
+    - flexed_forward
+    - extended_backward
+    - rotated_left
+    - rotated_right
+    - tilted_left
+    - tilted_right
+    - visually_inverted
+    - unclear
+    - not_visible
+  torso_arch:
+    label: Torso Arch
+    allowed_values:
+    - none
+    - weak
+    - medium
+    - strong
+    - extreme
+    - unclear
+    - not_visible
+  torso_lean:
+    label: Torso Lean
+    allowed_values:
+    - none
+    - forward
+    - backward
+    - lateral_left
+    - lateral_right
+    - unclear
+    - not_visible
+  torso_rotation:
+    label: Torso Rotation
+    allowed_values:
+    - none
+    - slight
+    - strong
+    - unclear
+    - not_visible
+  hip_elevation:
+    label: Hip Elevation
+    definition: "Pelvis-to-support-surface clearance only; never infer from torso, head contact, Body State, or Morphology."
+    allowed_values:
+    - on_surface
+    - low
+    - medium
+    - high
+    - extreme
+    - unclear
+    - not_visible
+  pelvis_orientation:
+    label: Pelvis Orientation
+    allowed_values:
+    - neutral
+    - anterior_tilt
+    - posterior_tilt
+    - rotated_left
+    - rotated_right
+    - unclear
+    - not_visible
+  support_structure:
+    label: Support Structure
+    allowed_values:
+    - bipedal
+    - single_foot
+    - hand_and_foot
+    - hand_and_knee
+    - forearm_and_foot
+    - head_shoulder_and_foot
+    - back_and_foot
+    - seated_surface
+    - reclined_arm_support
+    - unsupported
+    - mixed
+    - unclear
+  support_orientation:
+    label: Support Orientation
+    definition: "Direction and relationship of visible load support, not body-facing direction."
+    allowed_values:
+    - prone_quadruped
+    - reverse_quadruped
+    - lateral_support
+    - supine_support
+    - kneeling_hand_support
+    - posterior_body_support
+    - rear_arm_support
+    - inferior_foot_support
+    - mixed_support
+    - not_applicable
+    - unclear
+  left_hand_surface_contact:
+    label: Left Hand Surface Contact
+    allowed_values:
+    - floor
+    - wall
+    - chair
+    - platform
+    - object
+    - unknown_surface
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  right_hand_surface_contact:
+    label: Right Hand Surface Contact
+    allowed_values:
+    - floor
+    - wall
+    - chair
+    - platform
+    - object
+    - unknown_surface
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  left_forearm_surface_contact:
+    label: Left Forearm Surface Contact
+    allowed_values:
+    - floor
+    - wall
+    - chair
+    - platform
+    - object
+    - unknown_surface
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  right_forearm_surface_contact:
+    label: Right Forearm Surface Contact
+    allowed_values:
+    - floor
+    - wall
+    - chair
+    - platform
+    - object
+    - unknown_surface
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  left_foot_surface_contact:
+    label: Left Foot Surface Contact
+    allowed_values:
+    - floor
+    - wall
+    - chair
+    - platform
+    - object
+    - unknown_surface
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  right_foot_surface_contact:
+    label: Right Foot Surface Contact
+    allowed_values:
+    - floor
+    - wall
+    - chair
+    - platform
+    - object
+    - unknown_surface
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  foot_contact_mode:
+    label: Foot Contact Mode
+    allowed_values:
+    - sole
+    - heel
+    - forefoot
+    - toes
+    - side
+    - mixed
+    - asymmetric
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  head_surface_contact:
+    label: Head Surface Contact
+    definition: "Direct head-to-surface relation only; lying or face_up never implies contact."
+    allowed_values:
+    - floor
+    - wall
+    - chair
+    - platform
+    - object
+    - unknown_surface
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  shoulder_surface_contact:
+    label: Shoulder Surface Contact
+    definition: "Direct shoulder-to-surface relation only; lying or face_up never implies contact."
+    allowed_values:
+    - both
+    - left_only
+    - right_only
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  back_surface_contact:
+    label: Back Surface Contact
+    allowed_values:
+    - upper_back
+    - mid_back
+    - lower_back
+    - multiple_regions
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  hip_surface_contact:
+    label: Hip Surface Contact
+    allowed_values:
+    - both
+    - left_only
+    - right_only
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  knee_surface_contact:
+    label: Knee Surface Contact
+    allowed_values:
+    - both
+    - left_only
+    - right_only
+    - absent
+    - unclear
+    - not_visible
+    - not_applicable
+  elbow_state:
+    label: Elbow State
+    allowed_values:
+    - straight
+    - slightly_bent
+    - bent
+    - deeply_bent
+    - asymmetric
+    - unclear
+    - not_visible
+  knee_state:
+    label: Knee State
+    allowed_values:
+    - straight
+    - slightly_bent
+    - bent
+    - deeply_bent
+    - asymmetric
+    - unclear
+    - not_visible
+  leg_spacing:
+    label: Leg Spacing
+    allowed_values:
+    - together
+    - narrow
+    - medium
+    - wide
+    - extreme
+    - asymmetric
+    - unclear
+    - not_visible
+  hands_visibility:
+    label: Hands Visibility
+    allowed_values:
+    - both_clear
+    - left_only
+    - right_only
+    - partial
+    - occluded
+    - out_of_frame
+    - unclear
+  feet_visibility:
+    label: Feet Visibility
+    allowed_values:
+    - both_clear
+    - left_only
+    - right_only
+    - partial
+    - occluded
+    - out_of_frame
+    - unclear
+  support_evidence_visibility:
+    label: Support Evidence Visibility
+    allowed_values:
+    - clear
+    - partial
+    - occluded
+    - out_of_frame
+    - unclear
+active_observation_axes:
+- body_state
+- body_orientation
+- head_orientation
+- torso_arch
+- hip_elevation
+- support_structure
+- support_orientation
+- left_hand_surface_contact
+- right_hand_surface_contact
+- left_forearm_surface_contact
+- right_forearm_surface_contact
+- left_foot_surface_contact
+- right_foot_surface_contact
+- foot_contact_mode
+- head_surface_contact
+- shoulder_surface_contact
+- knee_surface_contact
+- elbow_state
+- knee_state
+- leg_spacing
+- support_evidence_visibility
+contact_load:
+  enabled: true
+  fields:
+  - left_hand
+  - right_hand
+  - left_forearm
+  - right_forearm
+  allowed_values:
+  - none
+  - light
+  - supporting
+  - weight_bearing
+  - unclear
+  definitions:
+    none: 視覚的に荷重支持へ寄与していない
+    light: 接触または軽い補助は見えるが、主要な支持ではない
+    supporting: 身体姿勢の維持に寄与している支持が見える
+    weight_bearing: 明確な体重荷重を担っている
+    unclear: 接触は見えるが荷重関係を判定できない
+morphology_candidates:
+  primary:
+  - standing_pose
+  - sitting_pose
+  - kneeling_pose
+  - squatting_pose
+  - lying_pose
+  - reclined_pose
+  - prone_quadruped
+  - reverse_quadruped
+  - kneeling_hand_support
+  - quadruped_pose
+  - supine_bridge_like
+  - wheel_like
+  - glute_bridge_like
+  - kneeling_backbend
+  - reclined_arm_support
+  - lying_arch
+  - seated_arch
+  - other
+  - unclear
+  secondary:
+  - standing_pose
+  - sitting_pose
+  - kneeling_pose
+  - quadruped_pose
+  - squatting_pose
+  - lying_pose
+  - reclined_pose
+  - prone_quadruped
+  - reverse_quadruped
+  - kneeling_hand_support
+  - supine_bridge_like
+  - wheel_like
+  - glute_bridge_like
+  - kneeling_backbend
+  - reclined_arm_support
+  - lying_arch
+  - seated_arch
+  - not_applicable
+  - other
+  - unclear
+  other_usage_rule: 既存候補で表現できない場合のみotherを使用し、ontology_extension_candidatesへ理由を記録する
+known_leakage_candidates:
+- reverse_quadruped
+- prone_quadruped
+- glute_bridge_like
+- reclined_arm_suppor
+artifact_checks:
+- extra_limb
+- missing_limb
+- fused_limbs
+- body_intersection
+- joint_deformation
+- hand_deformation
+- foot_deformation
+- anatomy_break
+- clothing_interference
+- hair_occlusion
+- unintended_object
+- unintended_support_surface
+- perspective_ambiguity
+- other
+- none
+cross_domain_effects:
+  enabled: true
+  domains:
+  - outfit
+  - hair
+  - face_expression
+  - camera_framing
+  - background_scene
+  - object_generation
+  - lighting_color
+  - anatomy_proportion
+  - other
+  strength_values:
+  - weak
+  - medium
+  - strong
+  - unclear
+  effect_type_values:
+  - natural_response
+  - secondary_effect
+  - interaction
+  - leakage
+  - artifact
+  - unclear
+  no_effect_value: none_observed
+  free_text_observation: true
+support_load_distribution:
+  enabled: false
+rules:
+  preserve_axis_labels_exactly: true
+  preserve_axis_order: true
+  output_all_active_axes_for_every_panel: true
+  use_allowed_values_only: true
+  allow_unclear: true
+  allow_not_visible: true
+  allow_not_applicable: true
+  distinguish_contact_from_load: true
+  enforce_visible_evidence_policy: true
+  visible_evidence_only: true
+  do_not_infer_contact_load_elevation_from_state_or_morphology: true
+  require_unclear_when_direct_evidence_is_insufficient: true
+  cropped_body_part_uses_not_visible: true
+  visible_but_indeterminate_uses_unclear: true
+  floor_contact_does_not_imply_supporting_load: true
+  confidence_tracks_evidence_visibility: true
+  output_contact_load_for_every_panel: true
+  prefer_existing_morphology_candidates: true
+  require_ontology_extension_note_when_using_other: true
+  analyst_must_not_assign_target_alignment: true
+  analyst_must_not_finalize_concept: true
+  analyst_must_not_interpret_phrase_function: true
+  report_observation_counts: false
+  report_cross_domain_effect_counts: false
+  report_ontology_extension_candidates: true
+  six_images_are_directional_evidence_only: true
