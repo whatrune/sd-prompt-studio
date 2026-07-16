@@ -10,9 +10,10 @@ It does not apply to `assertion_content_v1`, `promotion_content_v1`, Application
 hashes, `graph_content_v1`, or `audit_record_v1`. Those Semantic and Audit Hashes
 continue to use RFC 8785 JCS followed by SHA-256.
 
-The current Registry paths remain Git repository-root relative under the
-existing `path_base: repository_root` contract. Moving them to a Research
-Project Root base is a separate migration and is not part of v1.
+Registry Path resolution is independent from this Hash specification. Current
+Research Claim files store Registry paths relative to the Research Project Root
+under `path_base: research_project_root`; changing the path contract does not
+change normalized Text File Hash output.
 
 ## Algorithm
 

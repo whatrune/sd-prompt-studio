@@ -14,7 +14,7 @@ import sys
 import tempfile
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Mapping
 
 import rfc8785
@@ -99,6 +99,7 @@ class Issue:
     path: str
     message: str
     assertion_id: str | None = None
+    details: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {key: value for key, value in asdict(self).items() if value is not None}
@@ -112,6 +113,10 @@ class InfrastructureFailure(RuntimeError):
 
 class InvalidTextEncodingError(ValueError):
     """Raised when a Text File Hash input is not valid UTF-8."""
+
+
+class AxisRegistryPathError(ValueError):
+    """Raised when an Axis Registry path violates its storage contract."""
 
 
 @dataclass
@@ -203,8 +208,39 @@ def add_issue(
     path: str,
     message: str,
     assertion_id: str | None = None,
+    details: dict[str, Any] | None = None,
 ) -> None:
-    issues.append(Issue(code, severity, file, path, message, assertion_id))
+    issues.append(Issue(code, severity, file, path, message, assertion_id, details))
+
+
+def normalize_axis_registry_path(stored_path: str) -> str:
+    """Normalize separators without converting legacy repository-root paths."""
+    if not isinstance(stored_path, str) or not stored_path:
+        raise AxisRegistryPathError("Axis Registry path must be a non-empty string")
+    normalized_separators = stored_path.replace("\\", "/")
+    if re.match(r"^[A-Za-z]:", normalized_separators):
+        raise AxisRegistryPathError("Axis Registry path must not use a Windows drive prefix")
+    if normalized_separators.startswith("//"):
+        raise AxisRegistryPathError("Axis Registry path must not be a UNC path")
+    pure_path = PurePosixPath(normalized_separators)
+    if pure_path.is_absolute():
+        raise AxisRegistryPathError("Axis Registry path must be relative")
+    if ".." in pure_path.parts:
+        raise AxisRegistryPathError("Axis Registry path must not contain '..'")
+    normalized = pure_path.as_posix()
+    if normalized in {"", "."}:
+        raise AxisRegistryPathError("Axis Registry path must identify a file")
+    return normalized
+
+
+def resolve_axis_registry_path(project_root: Path, stored_path: str) -> tuple[str, Path]:
+    """Resolve an Axis Registry path within the Research Project Root."""
+    normalized = normalize_axis_registry_path(stored_path)
+    resolved_root = project_root.resolve()
+    resolved_path = (resolved_root / PurePosixPath(normalized)).resolve(strict=False)
+    if not resolved_path.is_relative_to(resolved_root):
+        raise AxisRegistryPathError("Axis Registry path resolves outside Research Project Root")
+    return normalized, resolved_path
 
 
 def load_schema(path: Path) -> dict[str, Any]:
@@ -357,6 +393,37 @@ def git_documents(repo_root: Path, commit: str, prefix: str) -> dict[str, dict[s
             continue
         documents[path] = yaml_load(run_git(repo_root, "show", f"{commit}:{path}"), path)
     return documents
+
+
+def git_schemas(
+    repo_root: Path,
+    project_root: Path,
+    commit: str,
+) -> dict[str, dict[str, Any]]:
+    """Load Claim schemas from the same commit as historical Claim data."""
+    project_prefix = project_root.relative_to(repo_root).as_posix()
+    schema_files = {
+        "assertion": "research-claim-assertion.schema.json",
+        "review": "research-claim-review.schema.json",
+        "approval": "research-promotion-approval.schema.json",
+    }
+    result: dict[str, dict[str, Any]] = {}
+    for kind, filename in schema_files.items():
+        repository_path = f"{project_prefix}/schemas/{filename}"
+        try:
+            value = json.loads(run_git(repo_root, "show", f"{commit}:{repository_path}"))
+        except (InfrastructureFailure, json.JSONDecodeError) as exc:
+            raise InfrastructureFailure(
+                "BASELINE_INVALID",
+                f"Unable to load baseline schema {repository_path}: {exc}",
+            ) from exc
+        if not isinstance(value, dict):
+            raise InfrastructureFailure(
+                "BASELINE_INVALID",
+                f"Baseline schema {repository_path} must be a JSON object",
+            )
+        result[kind] = value
+    return result
 
 
 def baseline_graph(
@@ -602,12 +669,14 @@ class ClaimValidator:
         self.promotion_hashes: dict[str, str] = {}
         self.review_states: dict[str, dict[str, Any]] = {}
         self.approval_states: dict[str, dict[str, Any]] = {}
+        self.registry_drift_references: dict[str, dict[str, Any]] = {}
 
     def issue(
         self, code: str, message: str, file: str = "", path: str = "$",
         assertion_id: str | None = None, severity: str = "error",
+        details: dict[str, Any] | None = None,
     ) -> None:
-        add_issue(self.issues, code, severity, file, path, message, assertion_id)
+        add_issue(self.issues, code, severity, file, path, message, assertion_id, details)
 
     def validate(self) -> None:
         self.validate_future_timestamps()
@@ -672,6 +741,7 @@ class ClaimValidator:
             )
 
     def validate_assertions(self) -> None:
+        self.registry_drift_references = {}
         concept_index: dict[str, dict[str, Any]] = {}
         if self.candidate_graph:
             concept_index = {item["concept_id"]: item for item in self.candidate_graph["concepts"]}
@@ -687,6 +757,51 @@ class ClaimValidator:
             if promotion is not None:
                 self.promotion_hashes[assertion_id] = content_hash(promotion)
             self._validate_assertion_semantics(assertion_id, assertion, file, concept_index)
+        self._emit_registry_drift_warnings()
+
+    def _record_registry_drift(
+        self,
+        registry_path: str,
+        computed_sha256: str,
+        assertion_id: str,
+        file: str,
+        reference_path: str,
+        stored_sha256: str,
+    ) -> None:
+        entry = self.registry_drift_references.setdefault(
+            registry_path,
+            {"computed_sha256": computed_sha256, "references": []},
+        )
+        entry["references"].append(
+            {
+                "assertion_id": assertion_id,
+                "file": file,
+                "path": reference_path,
+                "stored_sha256": stored_sha256,
+            }
+        )
+
+    def _emit_registry_drift_warnings(self) -> None:
+        for registry_path in sorted(self.registry_drift_references):
+            entry = self.registry_drift_references[registry_path]
+            references = sorted(
+                entry["references"],
+                key=lambda item: (
+                    item["assertion_id"], item["stored_sha256"], item["file"], item["path"]
+                ),
+            )
+            self.issue(
+                "AXIS_REGISTRY_HASH_DRIFT",
+                "Axis registry hash drift detected",
+                registry_path,
+                "$.axis_registry_refs.*.sha256",
+                severity="warning",
+                details={
+                    "registry_path": registry_path,
+                    "computed_sha256": entry["computed_sha256"],
+                    "references": references,
+                },
+            )
 
     def _validate_assertion_semantics(
         self, assertion_id: str, assertion: dict[str, Any], file: str,
@@ -745,12 +860,25 @@ class ClaimValidator:
             "face": "active_face_axes",
         }
         for module, registry in registry_refs.items():
-            path = self.repo_root / registry["path"]
-            if not path.is_file():
+            registry_path_field = f"$.axis_registry_refs.{module}.path"
+            try:
+                registry_path, registry_file = resolve_axis_registry_path(
+                    self.project_root, registry["path"]
+                )
+            except (AxisRegistryPathError, OSError) as exc:
+                self.issue(
+                    "AXIS_REGISTRY_PATH_INVALID",
+                    str(exc),
+                    file,
+                    registry_path_field,
+                    assertion_id,
+                )
+                continue
+            if not registry_file.is_file():
                 self.issue("AXIS_REGISTRY_NOT_FOUND", f"Axis registry for {module} does not exist", file, f"$.axis_registry_refs.{module}.path", assertion_id)
                 continue
             try:
-                registry_sha256 = normalized_text_file_sha256_v1(path)
+                registry_sha256 = normalized_text_file_sha256_v1(registry_file)
             except InvalidTextEncodingError as exc:
                 self.issue(
                     "TEXT_FILE_INVALID_UTF8",
@@ -761,12 +889,21 @@ class ClaimValidator:
                 )
                 continue
             if registry_sha256 != registry["sha256"]:
-                self.issue("AXIS_REGISTRY_HASH_DRIFT", f"Axis registry for {module} changed", file, f"$.axis_registry_refs.{module}.sha256", assertion_id, "warning")
+                self._record_registry_drift(
+                    registry_path,
+                    registry_sha256,
+                    assertion_id,
+                    file,
+                    f"$.axis_registry_refs.{module}.sha256",
+                    registry["sha256"],
+                )
             axis_field = registry_axis_fields.get(module)
             if axis_field is None:
                 continue
             try:
-                registry_data = yaml_load(path.read_text(encoding="utf-8"), registry["path"])
+                registry_data = yaml_load(
+                    registry_file.read_text(encoding="utf-8"), registry_path
+                )
             except (OSError, ValueError) as exc:
                 self.issue("AXIS_REGISTRY_INVALID", str(exc), file, f"$.axis_registry_refs.{module}.path", assertion_id)
                 continue
@@ -1454,7 +1591,12 @@ def main(argv: list[str] | None = None) -> int:
         data = index_documents(documents, schemas, issues)
         baseline_prefix = (project_root / "knowledge").relative_to(repo_root).as_posix()
         baseline_documents = git_documents(repo_root, baseline_ref, baseline_prefix)
-        baseline = index_documents(baseline_documents, schemas, [], infrastructure=True)
+        baseline = index_documents(
+            baseline_documents,
+            git_schemas(repo_root, project_root, baseline_ref),
+            [],
+            infrastructure=True,
+        )
         candidate_graph: dict[str, Any] | None = None
         baseline_candidate: dict[str, Any] | None = None
         if args.validation_context in GRAPH_CONTEXTS:

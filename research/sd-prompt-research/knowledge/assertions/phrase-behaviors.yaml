@@ -1,15 +1,15 @@
 schema_version: 0.1.0
 assertion_file_id: phrase-behaviors
 claim_family: phrase_behavior
-path_base: repository_root
+path_base: research_project_root
 metric_path_syntax: dotted_object_path_v1
 
 axis_registry_refs:
   pose:
-    path: research/sd-prompt-research/templates/rubric-template.yaml
+    path: templates/rubric-template.yaml
     sha256: b1898afeb44a5813feb7d77ccc90a553bc5995dc58190313c28051de229336f9
   face:
-    path: research/sd-prompt-research/templates/face-observation-rubric.yaml
+    path: templates/face-observation-rubric.yaml
     sha256: c3622d658ed197bf4cac937998b9935616cc7caee89729922305475d2e30bc2c
 
 evidence_refs:

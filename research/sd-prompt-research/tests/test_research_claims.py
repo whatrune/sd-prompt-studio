@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from build_concept_graph import build_graph  # noqa: E402
 from validate_research_claims import (  # noqa: E402
+    AxisRegistryPathError,
     ClaimValidator,
     InvalidTextEncodingError,
     KnowledgeData,
@@ -29,12 +30,15 @@ from validate_research_claims import (  # noqa: E402
     content_hash,
     empty_knowledge,
     graph_identity,
+    git_schemas,
     index_documents,
     load_current_documents,
     load_schema,
     normalized_text_file_sha256_v1,
+    normalize_axis_registry_path,
     promotion_payload,
     review_effective_status_at,
+    resolve_axis_registry_path,
     semver_compare,
     yaml,
 )
@@ -265,6 +269,208 @@ class ResearchClaimTests(unittest.TestCase):
             },
             validator.promotion_hashes,
         )
+
+    def test_claim_registry_paths_use_research_project_root_only(self) -> None:
+        documents = load_current_documents(ROOT / "knowledge")
+        assertion_file = next(root for root in documents.values() if "assertions" in root)
+        self.assertEqual("research_project_root", assertion_file["path_base"])
+        self.assertEqual(
+            "templates/rubric-template.yaml",
+            assertion_file["axis_registry_refs"]["pose"]["path"],
+        )
+        self.assertEqual(
+            "templates/face-observation-rubric.yaml",
+            assertion_file["axis_registry_refs"]["face"]["path"],
+        )
+        self.assertTrue(
+            all(
+                evidence["observation_path"].startswith("research/sd-prompt-research/")
+                for evidence in assertion_file["evidence_refs"]
+            )
+        )
+        schema = load_schema(ROOT / "schemas" / "research-claim-assertion.schema.json")
+        legacy = copy.deepcopy(assertion_file)
+        legacy["path_base"] = "repository_root"
+        errors = list(Draft202012Validator(schema).iter_errors(legacy))
+        self.assertTrue(any(list(error.absolute_path) == ["path_base"] for error in errors))
+
+    def test_baseline_claims_use_baseline_commit_schema(self) -> None:
+        current = {
+            kind: load_schema(ROOT / "schemas" / filename)
+            for kind, filename in {
+                "assertion": "research-claim-assertion.schema.json",
+                "review": "research-claim-review.schema.json",
+                "approval": "research-promotion-approval.schema.json",
+            }.items()
+        }
+        baseline_assertion = copy.deepcopy(current["assertion"])
+        baseline_assertion["properties"]["path_base"] = {"const": "repository_root"}
+        baseline_by_filename = {
+            "research-claim-assertion.schema.json": baseline_assertion,
+            "research-claim-review.schema.json": current["review"],
+            "research-promotion-approval.schema.json": current["approval"],
+        }
+
+        def fake_run_git(_repo_root: Path, *args: str) -> str:
+            filename = args[-1].rsplit("/", 1)[-1]
+            return json.dumps(baseline_by_filename[filename])
+
+        with patch("validate_research_claims.run_git", side_effect=fake_run_git):
+            schemas = git_schemas(REPO_ROOT, ROOT, "baseline-commit")
+        self.assertEqual(
+            "repository_root", schemas["assertion"]["properties"]["path_base"]["const"]
+        )
+        self.assertEqual(
+            "research_project_root",
+            current["assertion"]["properties"]["path_base"]["const"],
+        )
+
+    def test_axis_registry_resolver_uses_research_project_root_without_legacy_rewrite(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project_root = Path(directory) / "research" / "sd-prompt-research"
+            registry = project_root / "templates" / "example.yaml"
+            registry.parent.mkdir(parents=True)
+            registry.write_bytes(b"active: true\n")
+            normalized, resolved = resolve_axis_registry_path(
+                project_root, "templates/example.yaml"
+            )
+            self.assertEqual("templates/example.yaml", normalized)
+            self.assertEqual(registry.resolve(), resolved)
+            legacy, legacy_resolved = resolve_axis_registry_path(
+                project_root,
+                "research/sd-prompt-research/templates/example.yaml",
+            )
+            self.assertEqual(
+                "research/sd-prompt-research/templates/example.yaml", legacy
+            )
+            self.assertFalse(legacy_resolved.is_file())
+
+    def test_axis_registry_resolver_rejects_unsafe_paths(self) -> None:
+        unsafe_paths = (
+            "../../outside.yaml",
+            "/absolute/example.yaml",
+            "C:/absolute/example.yaml",
+            "C:relative/example.yaml",
+            "//server/share/example.yaml",
+            "\\\\server\\share\\example.yaml",
+        )
+        for stored_path in unsafe_paths:
+            with self.subTest(stored_path=stored_path):
+                with self.assertRaises(AxisRegistryPathError):
+                    normalize_axis_registry_path(stored_path)
+
+    def test_axis_registry_resolver_rejects_symlink_outside_project_root(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            project_root = base / "research" / "sd-prompt-research"
+            templates = project_root / "templates"
+            templates.mkdir(parents=True)
+            outside = base / "outside.yaml"
+            outside.write_bytes(b"active: true\n")
+            link = templates / "outside-link.yaml"
+            try:
+                link.symlink_to(outside)
+            except OSError as exc:
+                if os.name == "nt" and getattr(exc, "winerror", None) in {5, 1314}:
+                    self.skipTest(
+                        "Symlink test skipped: Windows environment without symlink permission"
+                    )
+                raise
+            with self.assertRaises(AxisRegistryPathError):
+                resolve_axis_registry_path(project_root, "templates/outside-link.yaml")
+
+    def test_registry_hash_is_unchanged_by_path_contract_migration(self) -> None:
+        _, migrated = resolve_axis_registry_path(
+            ROOT, "templates/face-observation-rubric.yaml"
+        )
+        legacy = REPO_ROOT / "research/sd-prompt-research/templates/face-observation-rubric.yaml"
+        self.assertEqual(
+            normalized_text_file_sha256_v1(legacy),
+            normalized_text_file_sha256_v1(migrated),
+        )
+
+    def test_axis_registry_drift_aggregates_only_mismatched_references(self) -> None:
+        data = checked_in_knowledge()
+        assertion_ids = (
+            "assertion.brg007.arm_support.001",
+            "assertion.brg008.head_back.face_effect.001",
+        )
+        files = ("sd-prompt-research/knowledge/assertions/a.yaml", "sd-prompt-research/knowledge/assertions/b.yaml")
+        data.assertions = {item: data.assertions[item] for item in assertion_ids}
+        data.assertion_files = dict(zip(assertion_ids, files, strict=True))
+        correct = "c3622d658ed197bf4cac937998b9935616cc7caee89729922305475d2e30bc2c"
+        documents = {
+            files[0]: {"axis_registry_refs": {"face": {"path": "templates/face-observation-rubric.yaml", "sha256": correct}}},
+            files[1]: {"axis_registry_refs": {"face": {"path": "./templates/face-observation-rubric.yaml", "sha256": "0" * 64}}},
+        }
+        validator = make_validator(data=data, graph=self.graph)
+        with patch("validate_research_claims.load_current_documents", return_value=documents):
+            validator.validate_assertions()
+        warnings = [issue for issue in validator.issues if issue.code == "AXIS_REGISTRY_HASH_DRIFT"]
+        self.assertEqual(1, len(warnings))
+        warning = warnings[0].to_dict()
+        self.assertEqual("templates/face-observation-rubric.yaml", warning["file"])
+        self.assertEqual("$.axis_registry_refs.*.sha256", warning["path"])
+        self.assertNotIn("assertion_id", warning)
+        self.assertEqual(
+            [assertion_ids[1]],
+            [item["assertion_id"] for item in warning["details"]["references"]],
+        )
+
+    def test_axis_registry_drift_aggregates_all_mismatched_references(self) -> None:
+        data = checked_in_knowledge()
+        assertion_ids = (
+            "assertion.brg007.arm_support.001",
+            "assertion.brg008.head_back.face_effect.001",
+        )
+        files = ("sd-prompt-research/knowledge/assertions/a.yaml", "sd-prompt-research/knowledge/assertions/b.yaml")
+        data.assertions = {item: data.assertions[item] for item in assertion_ids}
+        data.assertion_files = dict(zip(assertion_ids, files, strict=True))
+        documents = {
+            file: {"axis_registry_refs": {"face": {"path": "templates/face-observation-rubric.yaml", "sha256": str(index) * 64}}}
+            for index, file in enumerate(files)
+        }
+        validator = make_validator(data=data, graph=self.graph)
+        with patch("validate_research_claims.load_current_documents", return_value=documents):
+            validator.validate_assertions()
+        warnings = [issue for issue in validator.issues if issue.code == "AXIS_REGISTRY_HASH_DRIFT"]
+        self.assertEqual(1, len(warnings))
+        references = warnings[0].details["references"]
+        self.assertEqual(list(assertion_ids), [item["assertion_id"] for item in references])
+
+    def test_missing_axis_registry_does_not_report_hash_drift(self) -> None:
+        data = checked_in_knowledge()
+        assertion_id = "assertion.brg007.arm_support.001"
+        file = "sd-prompt-research/knowledge/assertions/missing.yaml"
+        data.assertions = {assertion_id: data.assertions[assertion_id]}
+        data.assertion_files = {assertion_id: file}
+        documents = {
+            file: {"axis_registry_refs": {"pose": {"path": "templates/missing.yaml", "sha256": "0" * 64}}}
+        }
+        validator = make_validator(data=data, graph=self.graph)
+        with patch("validate_research_claims.load_current_documents", return_value=documents):
+            validator.validate_assertions()
+        codes = [issue.code for issue in validator.issues]
+        self.assertIn("AXIS_REGISTRY_NOT_FOUND", codes)
+        self.assertNotIn("AXIS_REGISTRY_HASH_DRIFT", codes)
+
+    def test_invalid_axis_registry_path_has_highest_registry_error_priority(self) -> None:
+        data = checked_in_knowledge()
+        assertion_id = "assertion.brg007.arm_support.001"
+        file = "sd-prompt-research/knowledge/assertions/invalid-path.yaml"
+        data.assertions = {assertion_id: data.assertions[assertion_id]}
+        data.assertion_files = {assertion_id: file}
+        documents = {
+            file: {"axis_registry_refs": {"pose": {"path": "../../outside.yaml", "sha256": "0" * 64}}}
+        }
+        validator = make_validator(data=data, graph=self.graph)
+        with patch("validate_research_claims.load_current_documents", return_value=documents):
+            validator.validate_assertions()
+        codes = [issue.code for issue in validator.issues]
+        self.assertIn("AXIS_REGISTRY_PATH_INVALID", codes)
+        self.assertNotIn("AXIS_REGISTRY_NOT_FOUND", codes)
+        self.assertNotIn("TEXT_FILE_INVALID_UTF8", codes)
+        self.assertNotIn("AXIS_REGISTRY_HASH_DRIFT", codes)
 
     def test_brg008_phrase_assertions_use_condition_specific_evidence(self) -> None:
         data = checked_in_knowledge()

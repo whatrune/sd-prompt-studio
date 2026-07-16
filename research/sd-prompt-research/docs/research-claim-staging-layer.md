@@ -74,6 +74,11 @@ Each `observed_metrics` entry resolves every listed Evidence Fact independently 
 
 Registered target axes must exist in the module registry (`active_observation_axes` for pose and `active_face_axes` for face). A proposed axis may be absent; if it is already active, validation reports a warning so its registration state can be reconciled.
 
+Axis Registry paths follow the separate
+[`research-claim-path-contract.md`](research-claim-path-contract.md):
+`path_base: research_project_root` applies only to `axis_registry_refs.*.path`.
+Evidence `observation_path` values remain Git Repository Root relative.
+
 Reproduction counts distinguish panels, conditions, runs, independent experiment groups, models, and contexts. BRG-007-A/B/C are one independent experiment group rather than three independent experiments.
 
 ## Hash scopes

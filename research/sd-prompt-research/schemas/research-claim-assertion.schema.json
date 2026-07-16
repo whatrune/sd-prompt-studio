@@ -19,7 +19,7 @@
     "schema_version": { "const": "0.1.0" },
     "assertion_file_id": { "$ref": "#/$defs/fileId" },
     "claim_family": { "$ref": "#/$defs/snakeName" },
-    "path_base": { "const": "repository_root" },
+    "path_base": { "const": "research_project_root" },
     "metric_path_syntax": { "const": "dotted_object_path_v1" },
     "axis_registry_refs": {
       "type": "object",
@@ -94,6 +94,10 @@
       "type": "string",
       "pattern": "^research/sd-prompt-research/(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[^:\\r\\n]+$"
     },
+    "researchProjectPath": {
+      "type": "string",
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!//)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[^:\\r\\n]+$"
+    },
     "metricPath": {
       "type": "string",
       "pattern": "^[a-z0-9_]+(?:\\.[a-z0-9_]+)*$"
@@ -114,7 +118,7 @@
       "additionalProperties": false,
       "required": ["path", "sha256"],
       "properties": {
-        "path": { "$ref": "#/$defs/repositoryPath" },
+        "path": { "$ref": "#/$defs/researchProjectPath" },
         "sha256": { "$ref": "#/$defs/sha256" }
       }
     },
