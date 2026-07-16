@@ -163,6 +163,18 @@ class _CanonicalAssertionDumper(_NoAliasSafeDumper):
     pass
 
 
+CANONICAL_ASSERTION_ROOT_KEY_ORDER = (
+    "schema_version",
+    "assertion_file_id",
+    "claim_family",
+    "path_base",
+    "metric_path_syntax",
+    "axis_registry_refs",
+    "evidence_refs",
+    "assertions",
+)
+
+
 def _represent_canonical_string(dumper: yaml.SafeDumper, value: str) -> yaml.ScalarNode:
     return dumper.represent_scalar("tag:yaml.org,2002:str", value, style='"')
 
@@ -182,8 +194,14 @@ def yaml_bytes(value: Any) -> bytes:
 
 def canonical_assertion_bytes(value: Mapping[str, Any]) -> bytes:
     """Serialize a Canonical Assertion with the frozen YAML artifact profile."""
+    if set(value) != set(CANONICAL_ASSERTION_ROOT_KEY_ORDER):
+        raise PipelineError(
+            "CANONICAL_ASSERTION_SERIALIZATION_FAILED",
+            "Canonical Assertion root fields do not match the fixed serialization profile",
+        )
+    ordered = {key: value[key] for key in CANONICAL_ASSERTION_ROOT_KEY_ORDER}
     payload = yaml.dump(
-        value,
+        ordered,
         Dumper=_CanonicalAssertionDumper,
         allow_unicode=True,
         sort_keys=False,
@@ -1982,6 +2000,27 @@ def _finalize_receipt(
         "generator_version": wrapper["generator_version"],
         **hash_binding,
     }
+    payload: dict[str, Any] = {
+        "lock_acquisition": steps["lock_acquisition"],
+        "snapshot_validation": steps["snapshot_validation"],
+        "integration_validation": steps["integration_validation"],
+        "install": steps["install"],
+        "postcondition_validation": steps["postcondition_validation"],
+        "candidate_identity": identity,
+        "destination_path": destination.as_posix(),
+        "diagnostics": list(diagnostics),
+    }
+    if result == "failed":
+        error_code = str(diagnostics[0].get("code", "FINALIZE_FAILED")) if diagnostics else "FINALIZE_FAILED"
+        payload["failed_step"] = next(
+            (
+                name
+                for name, step in steps.items()
+                if step.get("step_status") == "failed"
+            ),
+            "finalize_transaction",
+        )
+        payload["error_code"] = error_code
     return {
         "receipt_schema_version": RECEIPT_SCHEMA_VERSION,
         "receipt_id": receipt_id or uuid7_text(),
@@ -2000,17 +2039,73 @@ def _finalize_receipt(
                 "normalized_text_file_sha256_v1", canonical, canonical_payload
             ),
         },
+        "payload": payload,
+    }
+
+
+def _preflight_finalize_receipt(
+    candidate_id: str | None,
+    error: PipelineError,
+) -> dict[str, Any]:
+    failed_steps = {
+        "CANDIDATE_SCHEMA_INVALID": "candidate_schema_validation",
+        "CANDIDATE_RECEIPT_NOT_FOUND": "candidate_receipt_binding",
+        "CANDIDATE_TAMPERED": "candidate_receipt_binding",
+        "CANONICAL_ASSERTION_HASH_MISMATCH": "candidate_receipt_binding",
+        "DRAFT_TAMPERED": "draft_artifact_verification",
+        "HUMAN_RESOLUTION_CHANGED": "human_resolution_validation",
+        "DRAFT_REGISTRY_INCOMPATIBLE": "registry_compatibility_check",
+    }
+    steps = {
+        name: _receipt_step("not_started", "NOT_STARTED")
+        for name in (
+            "lock_acquisition",
+            "snapshot_validation",
+            "integration_validation",
+            "install",
+            "postcondition_validation",
+        )
+    }
+    artifact_ids: dict[str, str] = {}
+    if candidate_id and re.fullmatch(r"candidate\.[a-f0-9]{64}", candidate_id):
+        artifact_ids["claim_candidate"] = candidate_id
+    return {
+        "receipt_schema_version": RECEIPT_SCHEMA_VERSION,
+        "receipt_id": uuid7_text(),
+        "receipt_type": "finalize_attempt",
+        "recorded_at": utc_now_text(),
+        "result": "failed",
+        "related_artifact_ids": artifact_ids,
+        "related_artifact_hashes": {},
         "payload": {
-            "lock_acquisition": steps["lock_acquisition"],
-            "snapshot_validation": steps["snapshot_validation"],
-            "integration_validation": steps["integration_validation"],
-            "install": steps["install"],
-            "postcondition_validation": steps["postcondition_validation"],
-            "candidate_identity": identity,
-            "destination_path": destination.as_posix(),
-            "diagnostics": list(diagnostics),
+            **steps,
+            "candidate_identity": {
+                "status": "not_available",
+                "reason_code": error.code,
+            },
+            "destination_path": "not_available",
+            "failed_step": failed_steps.get(error.code, "candidate_identity_validation"),
+            "error_code": error.code,
+            "diagnostics": [error.diagnostic()],
         },
     }
+
+
+def _preflight_receipt_directory(
+    draft_dir: Path,
+    candidate_id: str | None,
+    candidate_path: Path | None,
+) -> Path:
+    if candidate_id and re.fullmatch(r"candidate\.[a-f0-9]{64}", candidate_id):
+        return draft_dir / "claim-candidates" / candidate_id / "generation-receipts"
+    if candidate_path is not None:
+        candidate_dir = candidate_path.resolve().parent
+        try:
+            candidate_dir.relative_to((draft_dir / "claim-candidates").resolve())
+        except ValueError:
+            return draft_dir / "generation-receipts"
+        return candidate_dir / "generation-receipts"
+    return draft_dir / "generation-receipts"
 
 
 def _rollback_receipt(
@@ -2022,7 +2117,20 @@ def _rollback_receipt(
     post_snapshot: str | None,
     result: str,
     diagnostics: Sequence[Mapping[str, str]],
+    *,
+    hash_binding: Mapping[str, str],
+    wrapper_payload: bytes,
+    canonical_payload: bytes,
 ) -> dict[str, Any]:
+    identity = {
+        "status": "available",
+        "candidate_id": wrapper["candidate_id"],
+        "candidate_id_projection_version": wrapper["candidate_id_projection_version"],
+        "candidate_id_projection_hash": wrapper["candidate_id_projection_hash"],
+        "candidate_schema_version": wrapper["candidate_schema_version"],
+        "generator_version": wrapper["generator_version"],
+        **hash_binding,
+    }
     return {
         "receipt_schema_version": RECEIPT_SCHEMA_VERSION,
         "receipt_id": uuid7_text(),
@@ -2035,9 +2143,13 @@ def _rollback_receipt(
         },
         "related_artifact_hashes": {
             "claim_candidate": _artifact_hash(
-                "normalized_text_file_sha256_v1", wrapper, yaml_bytes(wrapper)
+                "normalized_text_file_sha256_v1", wrapper, wrapper_payload
             ),
-            "canonical_assertion": _artifact_hash("jcs_sha256_v1", wrapper["canonical_assertion"]),
+            "canonical_assertion": _artifact_hash(
+                "normalized_text_file_sha256_v1",
+                wrapper["canonical_assertion"],
+                canonical_payload,
+            ),
         },
         "payload": {
             "related_finalize_receipt_id": finalize_receipt_id,
@@ -2046,6 +2158,7 @@ def _rollback_receipt(
                 "SUCCEEDED" if result == "succeeded" else "ROLLBACK_FAILED",
             ),
             "cause_code": cause_code,
+            "candidate_identity": identity,
             "staged_paths": [destination.as_posix()],
             "created_paths": [destination.as_posix()],
             "pre_snapshot": {
@@ -2075,12 +2188,25 @@ def finalize_candidate(
         raise PipelineError("EXPLICIT_FINALIZE_REQUIRED", "Finalize requires an explicit human action")
     project_root = project_root.resolve()
     draft_dir = draft_dir.resolve()
-    verified = _verify_candidate_for_finalize(
-        project_root,
-        draft_dir,
-        candidate_id=candidate_id,
-        candidate_path=candidate_path,
-    )
+    try:
+        verified = _verify_candidate_for_finalize(
+            project_root,
+            draft_dir,
+            candidate_id=candidate_id,
+            candidate_path=candidate_path,
+        )
+    except PipelineError as error:
+        receipt = _preflight_finalize_receipt(candidate_id, error)
+        validate_artifact(project_root, "observation-to-claim-receipt.schema.json", receipt)
+        receipt_dir = _preflight_receipt_directory(
+            draft_dir, candidate_id, candidate_path
+        )
+        _write_create_or_same(
+            receipt_dir / f"{receipt['receipt_id']}.json",
+            json_bytes(receipt),
+            "DRAFT_ID_COLLISION",
+        )
+        raise
     wrapper = verified.wrapper
     canonical = wrapper["canonical_assertion"]
     canonical_payload = verified.canonical_payload
@@ -2179,6 +2305,9 @@ def finalize_candidate(
                 post_snapshot,
                 rollback_result,
                 rollback_diagnostics,
+                hash_binding=verified.hash_binding,
+                wrapper_payload=wrapper_payload,
+                canonical_payload=canonical_payload,
             )
             validate_artifact(project_root, "observation-to-claim-receipt.schema.json", rollback_receipt)
             _write_create_or_same(

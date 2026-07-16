@@ -300,6 +300,22 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             ]
             self.assertTrue(any(item["receipt_type"] == "finalize_attempt" for item in receipts))
             self.assertTrue(any(item["receipt_type"] == "rollback" for item in receipts))
+            rollback = next(item for item in receipts if item["receipt_type"] == "rollback")
+            identity = rollback["payload"]["candidate_identity"]
+            for key in (
+                "candidate_wrapper_artifact_hash_v1",
+                "canonical_assertion_artifact_hash_v1",
+                "assertion_content_v1_hash",
+            ):
+                self.assertEqual(identity[key], candidate.receipt["payload"]["candidate_identity"][key])
+            self.assertEqual(
+                rollback["related_artifact_hashes"]["claim_candidate"]["algorithm"],
+                "normalized_text_file_sha256_v1",
+            )
+            self.assertEqual(
+                rollback["related_artifact_hashes"]["canonical_assertion"]["algorithm"],
+                "normalized_text_file_sha256_v1",
+            )
 
     def test_finalize_success_installs_only_canonical_assertion(self) -> None:
         with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir, tempfile.TemporaryDirectory() as project_dir:
@@ -356,6 +372,53 @@ class ClaimDraftPipelineTests(unittest.TestCase):
                     explicit_finalize=True,
                 )
             self.assertEqual(raised.exception.code, "CANDIDATE_TAMPERED")
+
+    def test_finalize_preflight_schema_failure_writes_failed_receipt(self) -> None:
+        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
+            result, candidate = self.candidate_for(ROOT, Path(output_dir))
+            wrapper = copy.deepcopy(candidate.wrapper)
+            wrapper["generator_version"] = "invalid-version"
+            candidate.candidate_path.write_bytes(pipeline.yaml_bytes(wrapper))
+            with self.assertRaises(pipeline.PipelineError) as raised:
+                pipeline.finalize_candidate(
+                    ROOT,
+                    result.draft_dir,
+                    candidate_id=candidate.candidate_id,
+                    explicit_finalize=True,
+                )
+            self.assertEqual(raised.exception.code, "CANDIDATE_SCHEMA_INVALID")
+            receipts = [
+                json.loads(path.read_text(encoding="utf-8"))
+                for path in candidate.candidate_dir.joinpath("generation-receipts").glob("*.json")
+            ]
+            failed = [
+                item
+                for item in receipts
+                if item["receipt_type"] == "finalize_attempt"
+                and item["result"] == "failed"
+            ]
+            self.assertEqual(len(failed), 1)
+            self.assertEqual(failed[0]["payload"]["failed_step"], "candidate_schema_validation")
+            self.assertEqual(failed[0]["payload"]["error_code"], "CANDIDATE_SCHEMA_INVALID")
+            self.assertEqual(failed[0]["payload"]["candidate_identity"]["status"], "not_available")
+
+    def test_canonical_yaml_serialization_uses_explicit_root_order(self) -> None:
+        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
+            _result, candidate = self.candidate_for(ROOT, Path(output_dir))
+            payload = pipeline.canonical_assertion_bytes(
+                dict(reversed(list(candidate.wrapper["canonical_assertion"].items())))
+            ).decode("utf-8")
+            root_keys = [
+                line.split(":", 1)[0].strip('"')
+                for line in payload.splitlines()
+                if line and not line.startswith((" ", "-"))
+            ]
+            self.assertEqual(
+                root_keys,
+                list(pipeline.CANONICAL_ASSERTION_ROOT_KEY_ORDER),
+            )
+            self.assertTrue(payload.endswith("\n"))
+            self.assertNotIn("\r", payload)
 
     def test_validator_infrastructure_failure_is_not_success(self) -> None:
         completed = subprocess.CompletedProcess(
@@ -443,8 +506,16 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             _candidate_id, _hash, projection = pipeline._candidate_identity(
                 result.draft, resolution_hash
             )
-            self.assertIn("candidate_schema_version", projection)
-            self.assertNotIn("candidate_contract_version", projection)
+            self.assertEqual(
+                set(projection),
+                {
+                    "source_draft_id",
+                    "source_draft_identity_hash",
+                    "human_resolution_hash",
+                    "candidate_schema_version",
+                    "generator_version",
+                },
+            )
 
     def test_candidate_schema_rejects_non_semver_generator(self) -> None:
         with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
