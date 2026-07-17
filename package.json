@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc && vite build",
-    "test": "node scripts/test-reclassification.mjs",
+    "build": "node scripts/validate-research-explorer-boundaries.mjs && tsc && vite build && node scripts/validate-research-explorer-boundaries.mjs --dist dist",
+    "test": "node scripts/test-reclassification.mjs && node scripts/test-research-explorer-boundaries.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "validate:dictionary": "node scripts/validate-dictionaries.mjs",
+    "validate:research-boundaries": "node scripts/validate-research-explorer-boundaries.mjs",
     "dev:local": "vite --host 0.0.0.0"
   },
   "dependencies": {

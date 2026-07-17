@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.sd-prompt-studio/research-explorer-index-v0.1.schema.json",
+  "title": "SD Prompt Studio Research Explorer Derived Index",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "index_snapshot_id",
+    "generated_at",
+    "fingerprint_contract",
+    "artifacts",
+    "diagnostics"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "index_snapshot_id": { "type": "string", "pattern": "^snapshot\\.[a-f0-9]{64}$" },
+    "generated_at": { "type": "string", "format": "date-time", "pattern": "Z$" },
+    "fingerprint_contract": { "const": "source_freshness_fingerprint_v1" },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/artifact" }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "fingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract", "algorithm", "value"],
+      "properties": {
+        "contract": { "const": "source_freshness_fingerprint_v1" },
+        "algorithm": { "const": "sha256_raw_bytes" },
+        "value": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "researchHash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "value", "source"],
+      "properties": {
+        "name": {
+          "enum": [
+            "candidate_wrapper_artifact_hash_v1",
+            "canonical_assertion_artifact_hash_v1",
+            "assertion_content_v1_hash",
+            "draft_input_identity_hash"
+          ]
+        },
+        "value": { "$ref": "#/$defs/sha256" },
+        "source": { "type": "string", "pattern": "^\\$" }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relation", "target_entity_id"],
+      "properties": {
+        "relation": { "type": "string", "minLength": 1 },
+        "target_entity_id": { "type": "string", "minLength": 1 },
+        "target_artifact_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "displayStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "source"],
+      "properties": {
+        "value": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "artifact_type",
+        "source_path",
+        "display_name",
+        "media_type",
+        "byte_size",
+        "display_status",
+        "source_freshness_fingerprint",
+        "research_audit_hashes",
+        "relationships"
+      ],
+      "properties": {
+        "artifact_id": { "type": "string", "pattern": "^(artifact|validation)\\." },
+        "artifact_type": {
+          "enum": [
+            "run",
+            "observation",
+            "draft",
+            "human_resolution",
+            "candidate",
+            "receipt",
+            "canonical_assertion",
+            "validation_result",
+            "report",
+            "run_index",
+            "research_artifact"
+          ]
+        },
+        "entity_id": { "type": "string", "minLength": 1 },
+        "source_path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+        },
+        "display_name": { "type": "string", "minLength": 1 },
+        "media_type": { "type": "string", "minLength": 1 },
+        "byte_size": { "type": "integer", "minimum": 0 },
+        "display_status": { "$ref": "#/$defs/displayStatus" },
+        "source_freshness_fingerprint": { "$ref": "#/$defs/fingerprint" },
+        "research_audit_hashes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/researchHash" }
+        },
+        "relationships": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/relationship" }
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "path"],
+      "properties": {
+        "code": {
+          "enum": [
+            "ARTIFACT_CHANGED_DURING_READ",
+            "ARTIFACT_PARSE_FAILED",
+            "ARTIFACT_PATH_OUTSIDE_ROOT",
+            "ARTIFACT_READ_FAILED",
+            "ARTIFACT_SYMLINK_BROKEN",
+            "FINALIZE_BINDING_INVALID",
+            "RECEIPT_HASH_MISMATCH",
+            "RECEIPT_INVALID"
+          ]
+        },
+        "path": { "type": "string", "minLength": 1 },
+        "artifact_id": { "type": "string", "minLength": 1 },
+        "source_path": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
