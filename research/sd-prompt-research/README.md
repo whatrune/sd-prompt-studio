@@ -199,6 +199,157 @@ Research Explorer APIへMutation Endpointを追加せず、既存のread-only境
 - 失敗画像を消さない。漏れ先もモデル挙動の証拠である。
 - 見えないSupportやContactを推測せず、`unclear`を正式値として使う。
 
+## Research Review Output Format
+
+Research Reviewは、既存の責務と研究フローを変更せず、レビュー結果の出力形式だけを次のContractへ統一する。このContractはImage-to-Observation整合確認を行うObservation Review出力を対象とし、Observation Schema、Research Claim Contract、Run status、`research-review.md`の責務を変更しない。標準フローにある研究担当のInterpretationおよびWorking Conclusion工程を置き換えない。
+
+### Review Status
+
+Research Reviewは、先頭に必ず`Review Status`を出力し、値は次のEnumから1つだけを使用する。
+
+- `APPROVE`: Observationと画像の間に、修正を必要とする不整合が存在しない。
+- `COMMENT`: 重大な修正は不要だが、境界的な観察、注意事項、または再確認推奨事項が存在する。
+- `NEEDS_FOLLOWUP`: Observation修正、再確認、または追加レビューが必要である。
+- `REJECT`: Observationと画像の間に重大な不整合があり、現在のObservationを研究利用できない。
+
+Status名へ「相当」などの接尾辞を追加してはならない。`APPROVE`、`COMMENT`、`NEEDS_FOLLOWUP`、`REJECT`をそのまま出力する。
+
+このReview Statusはレビュー出力上の判定であり、Run lifecycle statusではない。Review Statusを出力しただけでは`manifest.yaml`のstatusを変更しない。既存フローの人間レビュー後に使用する`ACCEPTED`、`REJECTED`、`NEEDS_FOLLOWUP`とは別に扱い、status更新は明示的な依頼または既存フローの所定工程でのみ行う。
+
+### 標準構成
+
+人間向けのResearch Reviewは次の順序を標準として推奨する。`Observed Comparison`は条件比較を行う場合だけ含め、それ以外のSectionと機械判定可能な固定項目は維持する。
+
+```markdown
+## Review Status
+
+Review Status:
+COMMENT
+
+## Review Summary
+
+BRG-012はCOMMENTです。
+画像とObservationの大きな不整合はありませんが、BRG-012-B Panel 6のtorso_arch分類は境界的であり、条件比較に利用する場合は再確認を推奨します。
+
+## Scope
+
+- Image-to-Observation consistency
+- Observation Schema consistency
+- Rubric Evidence Policy consistency
+- Computed Aggregate consistency
+- Derived Index consistency
+
+## Critical Findings
+
+None
+
+## Warnings
+
+- BRG-012-B Panel 6のtorso_arch=strongはmediumとの境界的分類。胴体強度を条件比較に使用する場合は再確認を推奨。
+
+## Observed Comparison
+
+| Condition | wheel_like | Main Morphology | Support Structure | Artifact |
+| --- | --- | --- | --- | --- |
+| BRG-012-A | 2/6 | kneeling_hand_support 3/6, prone_quadruped 2/6 | hand_and_knee | none |
+| BRG-012-B | 1/6 | kneeling_backbend 1/6 | hand_and_knee 2/6 | none |
+| BRG-012-C | 1/6 | kneeling_hand_support 2/6 | mixed_support | perspective_ambiguity 1 |
+
+## Validation Status
+
+Validation Status:
+
+- Observation Schema: PASS
+- Rubric Evidence Policy: PASS
+- Computed Aggregate: PASS
+- Derived Index: PASS
+
+## Research Interpretation Boundary
+
+Research Interpretation:
+Not performed.
+
+## Modification Status
+
+Modification Status:
+
+Files Modified:
+None
+
+## Next Action
+
+- Recheck BRG-012-B Panel 6 torso_arch
+- Proceed to Working Conclusion review
+```
+
+各Sectionは次の規則に従う。
+
+- `Review Summary`: Review Statusの判定理由、主要な注意点、レビュー後の扱いを、人間が短時間で把握できる自然文で簡潔に記載する。原則として2〜3文以内とし、Research Interpretationを含めない。
+- `Scope`: レビュー対象範囲を列挙する。
+- `Critical Findings`: 研究利用を止める重大な不整合を記載する。存在しない場合は`None`とする。
+- `Warnings`: 重大な修正を必要としない境界的な観察、注意事項、再確認推奨事項を記載する。人間が読みやすい文章または箇条書きを使用し、存在しない場合は`None`とする。
+- `Observed Comparison`: Markdown Tableを優先し、1行を1 Condition、`Condition`以外の列を観測軸ごとに分離する。列は対象実験のObservationに存在する観測軸だけを使用し、実験内容に応じて変更できる。`wheel_like`、`Main Morphology`、`Support Structure`、`Artifact`は例示列であり、必須ではない。Observationに記録された観測値だけを記載し、条件比較を行わない場合はSectionごと省略する。
+- `Validation Status`: `Observation Schema`、`Rubric Evidence Policy`、`Computed Aggregate`、`Derived Index`を固定項目とし、各値は`PASS`、`FAIL`、`NOT_RUN`のいずれかとする。
+- `Research Interpretation Boundary`: `Research Interpretation: Not performed.`または`Research Interpretation: Pending human review.`を明記し、Observation ReviewでResearch Conclusionを確定しない。
+- `Modification Status`: 修正なしでも必ず出力する。変更がない場合は`Files Modified: None`、変更がある場合は`Files Modified:`の下に変更したrepo-relative pathを列挙する。
+- `Next Action`: 必要な次工程を自然文または箇条書きで記載する。不要な場合は`None`とする。
+
+`Critical Findings`が存在する場合は`NEEDS_FOLLOWUP`または`REJECT`を使用する。`Critical Findings`が`None`で`Warnings`が存在する場合は`COMMENT`、両方が`None`の場合は`APPROVE`を使用する。
+
+### Observation ReviewとResearch Conclusionの分離
+
+このOutput Formatを用いるObservation Reviewで許可されるのは次の確認に限る。
+
+- ImageとObservationの整合確認
+- Visible Evidence確認
+- Rubric違反確認
+- Observation Schema確認
+- `computed_aggregate`確認
+
+このObservation Reviewでは次を行わない。
+
+- Working Conclusion確定
+- Research Claim生成または確定
+- Concept Dictionary更新
+- Prompt Resolver更新
+- 次実験の確定
+
+研究解釈は別工程で行う。レビュー担当は、明示的な修正依頼なしにObservation、Research Claim、Concept Dictionary、Run statusを変更しない。
+
+### Comparison表現ルール
+
+Observation Reviewの比較記述は、Observationに記録された頻度と分布だけを扱う。
+
+許可:
+
+- metric名
+- count
+- `X/6`形式
+- observed category
+- artifact名
+- 「BRG-012-Cでは`wheel_like`が3/6観測された」
+
+禁止:
+
+- 「`wheel_like`が改善した」
+- 「BRG-012-Cが最も成功した」
+- 「bridge poseが有効だった」
+- 「body bridgeが優れている」
+
+成功率、効果量、Working Conclusion、および成功、失敗、優劣、有効性、因果を示す表現はResearch Interpretation以降で扱い、Observation Reviewには含めない。
+
+表の各セルは、将来的に`condition`、`metric`、`value`へ分離して検索、集計、Graph化、Influence分析へ利用できる粒度を維持する。
+
+```json
+{
+  "condition": "BRG-012-A",
+  "metric": "wheel_like",
+  "value": "2/6"
+}
+```
+
+この粒度はReview出力の表示規則であり、JSON Schema、Observationの保存形式、Index、またはResearch Claim Contractを追加・変更するものではない。
+
 ## Research Claim Staging Layer
 
 ObservationとVisual Concept Graphの間に、レビュー可能な研究Claimを保存する中間層があります。

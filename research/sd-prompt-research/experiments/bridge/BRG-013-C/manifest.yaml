@@ -1,0 +1,128 @@
+schema_version: '1.0'
+run_id: BRG-013-C
+domain: bridge
+title: BRG-013-C
+status: OBSERVED
+created_at: '2026-07-17T21:29:27+09:00'
+updated_at: '2026-07-17T21:39:32+09:00'
+research:
+  target_phrase: ''
+  research_question: ''
+  baseline_run_id: null
+  variant_label: ''
+  hypothesis_before_run: ''
+prompt:
+  positive: 1girl, silver hair, bob cut, plain oversized white t-shirt, black shorts,
+    simple background, full body, side view, face up, knees bent, feet planted, arched
+    back, body bridge, bridge pose, arm support, chest lifted, weight on hands and
+    feet
+  negative: modern, recent, old, oldest, cartoon, graphic, text, painting,crayon,
+    graphite, abstract, glitch, deformed, mutated, ugly,disfigured, lowres, bad anatomy,
+    bad hands, missing fingers,extra fingers, extra digits, fewer digits, very displeasing,(worst
+    quality, bad quality:1.2), sketch, jpeg artifacts,signature, watermark, username,(censored,
+    bar_censor, mosaic_censor:1.2),conjoined, bad ai-generated
+  changed_phrases: []
+  fixed_phrases: []
+model:
+  checkpoint: novaAnimeXL_ilV190
+  vae: ''
+  sampler: Euler a
+  scheduler: Automatic
+  steps: 20
+  cfg_scale: 4.5
+  width: 1024
+  height: 1024
+  seeds:
+  - 1592777928
+source:
+  sheet_file: source/BRG-013-C_sheet.png
+  metadata_file: source/BRG-013-C_metadata.yaml
+  sidecar_file: null
+  layout: 3x2
+  panel_count: 6
+  original_filename: image (2).png
+outputs:
+  panels:
+  - panels/BRG-013-C_01.png
+  - panels/BRG-013-C_02.png
+  - panels/BRG-013-C_03.png
+  - panels/BRG-013-C_04.png
+  - panels/BRG-013-C_05.png
+  - panels/BRG-013-C_06.png
+  preview_file: preview/BRG-013-C_preview.jpg
+  rubric_file: source/rubric.yaml
+  observation_file: observation.md
+  observation_json: observation.json
+  research_review_file: research-review.md
+  observation_schema: templates/observation-schema.json
+  canonical_observation: observation.json
+workflow:
+  assigned_to: 研究担当ChatGPT
+  human_reviewed_by: null
+  accepted_at: null
+  notes: ''
+ingested_metadata:
+  metadata_status: found
+  source: embedded_image
+  format: png
+  embedded:
+    parameters: '1girl, silver hair, bob cut, plain oversized white t-shirt, black
+      shorts, simple background, full body, side view, face up, knees bent, feet planted,
+      arched back, body bridge, bridge pose, arm support, chest lifted, weight on
+      hands and feet
+
+      Negative prompt: modern, recent, old, oldest, cartoon, graphic, text, painting,crayon,
+      graphite, abstract, glitch, deformed, mutated, ugly,disfigured, lowres, bad
+      anatomy, bad hands, missing fingers,extra fingers, extra digits, fewer digits,
+      very displeasing,(worst quality, bad quality:1.2), sketch, jpeg artifacts,signature,
+      watermark, username,(censored, bar_censor, mosaic_censor:1.2),conjoined, bad
+      ai-generated
+
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed:
+      1592777928, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190,
+      Version: f2.0.1v1.10.1-previous-669-gdfdcbab6'
+  generation:
+    raw_parameters: '1girl, silver hair, bob cut, plain oversized white t-shirt, black
+      shorts, simple background, full body, side view, face up, knees bent, feet planted,
+      arched back, body bridge, bridge pose, arm support, chest lifted, weight on
+      hands and feet
+
+      Negative prompt: modern, recent, old, oldest, cartoon, graphic, text, painting,crayon,
+      graphite, abstract, glitch, deformed, mutated, ugly,disfigured, lowres, bad
+      anatomy, bad hands, missing fingers,extra fingers, extra digits, fewer digits,
+      very displeasing,(worst quality, bad quality:1.2), sketch, jpeg artifacts,signature,
+      watermark, username,(censored, bar_censor, mosaic_censor:1.2),conjoined, bad
+      ai-generated
+
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed:
+      1592777928, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190,
+      Version: f2.0.1v1.10.1-previous-669-gdfdcbab6'
+    positive_prompt: 1girl, silver hair, bob cut, plain oversized white t-shirt, black
+      shorts, simple background, full body, side view, face up, knees bent, feet planted,
+      arched back, body bridge, bridge pose, arm support, chest lifted, weight on
+      hands and feet
+    negative_prompt: modern, recent, old, oldest, cartoon, graphic, text, painting,crayon,
+      graphite, abstract, glitch, deformed, mutated, ugly,disfigured, lowres, bad
+      anatomy, bad hands, missing fingers,extra fingers, extra digits, fewer digits,
+      very displeasing,(worst quality, bad quality:1.2), sketch, jpeg artifacts,signature,
+      watermark, username,(censored, bar_censor, mosaic_censor:1.2),conjoined, bad
+      ai-generated
+    settings:
+      Steps: '20'
+      Sampler: Euler a
+      Schedule type: Automatic
+      CFG scale: '4.5'
+      Seed: '1592777928'
+      Size: 1024x1024
+      Model hash: fa486caafc
+      Model: novaAnimeXL_ilV190
+      Version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    normalized:
+      steps: '20'
+      sampler: Euler a
+      scheduler: Automatic
+      cfg_scale: '4.5'
+      seed: '1592777928'
+      size: 1024x1024
+      checkpoint: novaAnimeXL_ilV190
+      model_hash: fa486caafc
