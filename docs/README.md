@@ -35,6 +35,10 @@ The compiler preserves learned phrases, distinguishes human meaning from observe
    - [Camera Research](research/Camera_Research.md)
    - [Lighting Research](research/Lighting_Research.md)
    - [Relation Research](research/Relation_Research.md)
+6. Research Explorer:
+   - [Architecture](research/research-explorer-design.md)
+   - [Frontend UI Contract](research/research-explorer-ui-design.md)
+   - [Integration Validation](research/research-explorer-integration-validation.md)
 
 ## Status vocabulary
 

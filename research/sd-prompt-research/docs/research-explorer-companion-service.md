@@ -18,11 +18,13 @@ The service does not generate Claims, change Evidence, edit Observations, run Pr
 
 ## Build and run
 
-Build the public-safe frontend first:
+Build the public-safe frontend with a root base for the same-origin Local Research Mode:
 
 ```powershell
-pnpm run build
+pnpm run build:research-local
 ```
+
+The ordinary `pnpm run build` keeps the deployment base used by GitHub Pages. Do not use that output for the Companion root routes: its assets are requested below `/sd-prompt-studio/`, so `/research` cannot load the application when the Companion serves the frontend at `/`. `build:research-local` changes only the Vite asset base; it does not enable Research Data in a public deployment or change the Research API contract.
 
 Validate the index without writing a file:
 
@@ -47,7 +49,44 @@ Serve the frontend and API from one origin:
   --port 8765
 ```
 
-Open `http://127.0.0.1:8765`. Loading the frontend establishes an HttpOnly, `SameSite=Strict` session cookie scoped to `/api/research`.
+Open `http://127.0.0.1:8765/research`. Loading the frontend establishes an HttpOnly, `SameSite=Strict` session cookie scoped to `/api/research`.
+
+Confirm both direct routes from the same Companion origin:
+
+```text
+http://127.0.0.1:8765/research
+http://127.0.0.1:8765/research/artifact/<opaque-artifact-id>
+```
+
+Browser reload and direct navigation use the Companion SPA fallback. Do not connect a Cloudflare or GitHub Pages frontend to this loopback API, and do not add a CORS workaround.
+
+## Integration validation
+
+Run the real-data API integration test from the Research Project Root:
+
+```powershell
+.venv\Scripts\python.exe -m unittest tests.test_research_explorer_integration -v
+```
+
+The test keeps the service read-only and verifies:
+
+- same-origin `/`, `/research`, and Artifact direct-route fallback;
+- the HttpOnly session boundary;
+- the current Derived Index with at least 136 Artifacts;
+- JSON, YAML, and Markdown Artifact round trips;
+- Artifact and snapshot response headers;
+- `INDEX_SNAPSHOT_MISMATCH` without stale body disclosure; and
+- absence of absolute Repository paths and session tokens from the Index response.
+
+The current checked-in dataset does not contain a `text/plain` Artifact. Plain Text remains a supported Viewer media type, but real-data display requires such an Artifact to be present in a future Derived Index.
+
+### Troubleshooting
+
+If `/research` returns HTML but the screen remains blank, inspect the generated `dist/index.html`. Asset URLs must start with `/assets/` for Local Research Mode. Rebuild with `pnpm run build:research-local`; do not change the Companion route or add CORS.
+
+If the UI displays `Research Data Unavailable`, verify that the page is loaded from the Companion origin and that the initial frontend response established the session cookie. Public Preview without a fixture is expected to remain unavailable.
+
+If Artifact loading stops with `INDEX_SNAPSHOT_MISMATCH` or `ARTIFACT_STALE`, do not display cached content. Rebuild or restart the read-only Companion as documented; no Refresh API is currently provided.
 
 The server refuses wildcard and non-loopback bind addresses.
 
