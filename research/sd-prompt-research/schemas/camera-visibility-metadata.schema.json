@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.sd-prompt-studio/camera-visibility-metadata-v0.1.schema.json",
+  "x-contract-version": "0.1.0",
+  "title": "SD Prompt Studio Camera Visibility Metadata Artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_id", "visibility_status"],
+  "properties": {
+    "schema_version": {"const": "0.1.0"},
+    "run_id": {"$ref": "#/$defs/runId"},
+    "visibility_status": {"enum": ["available", "unavailable"]},
+    "unavailable_reason": {"type": "string", "minLength": 1},
+    "camera": {"$ref": "#/$defs/camera"},
+    "subject_occupancy": {"$ref": "#/$defs/subjectOccupancy"},
+    "visible_regions": {"$ref": "#/$defs/visibleRegions"},
+    "occlusions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/occlusion"}
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": ["visibility_status"],
+        "properties": {"visibility_status": {"const": "available"}}
+      },
+      "then": {
+        "required": ["camera", "subject_occupancy", "visible_regions"],
+        "not": {"required": ["unavailable_reason"]}
+      },
+      "else": {
+        "required": ["unavailable_reason"],
+        "not": {
+          "anyOf": [
+            {"required": ["camera"]},
+            {"required": ["subject_occupancy"]},
+            {"required": ["visible_regions"]},
+            {"required": ["occlusions"]}
+          ]
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "camera": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["framing", "angle", "perspective"],
+      "properties": {
+        "framing": {
+          "enum": ["full_body", "upper_body", "portrait", "close_up", "unknown"]
+        },
+        "angle": {"$ref": "#/$defs/cameraAngle"},
+        "perspective": {"enum": ["normal", "wide", "telephoto", "unknown"]}
+      }
+    },
+    "cameraAngle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["horizontal", "vertical"],
+      "properties": {
+        "horizontal": {"enum": ["front", "side", "three_quarter", "unknown"]},
+        "vertical": {"enum": ["eye_level", "high_angle", "low_angle", "unknown"]}
+      }
+    },
+    "ratio": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "subjectOccupancy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width_ratio", "height_ratio", "area_ratio"],
+      "properties": {
+        "width_ratio": {"$ref": "#/$defs/ratio"},
+        "height_ratio": {"$ref": "#/$defs/ratio"},
+        "area_ratio": {"$ref": "#/$defs/ratio"}
+      }
+    },
+    "visibilityState": {
+      "enum": ["visible", "partial", "unclear", "not_visible"]
+    },
+    "visibleRegions": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "head": {"$ref": "#/$defs/visibilityState"},
+        "face": {"$ref": "#/$defs/visibilityState"},
+        "hair": {"$ref": "#/$defs/visibilityState"},
+        "neck": {"$ref": "#/$defs/visibilityState"},
+        "shoulders": {"$ref": "#/$defs/visibilityState"},
+        "arms": {"$ref": "#/$defs/visibilityState"},
+        "hands": {"$ref": "#/$defs/visibilityState"},
+        "torso": {"$ref": "#/$defs/visibilityState"},
+        "hips": {"$ref": "#/$defs/visibilityState"},
+        "legs": {"$ref": "#/$defs/visibilityState"},
+        "knees": {"$ref": "#/$defs/visibilityState"},
+        "feet": {"$ref": "#/$defs/visibilityState"}
+      }
+    },
+    "region": {
+      "enum": [
+        "head", "face", "hair", "neck", "shoulders", "arms",
+        "hands", "torso", "hips", "legs", "knees", "feet"
+      ]
+    },
+    "occlusion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["region", "cause"],
+      "properties": {
+        "region": {"$ref": "#/$defs/region"},
+        "cause": {
+          "enum": [
+            "clothing", "hair", "object", "camera_crop",
+            "perspective", "lighting", "unknown"
+          ]
+        }
+      }
+    }
+  }
+}
