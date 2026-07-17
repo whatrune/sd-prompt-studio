@@ -1,0 +1,484 @@
+{
+  "schema_version": "3.0",
+  "run_id": "BRG-010-C",
+  "blind_condition_label": "Condition C",
+  "panel_count": 6,
+  "image_layout": "3x2",
+  "active_axis_order": [
+    "body_state",
+    "body_orientation",
+    "head_orientation",
+    "torso_arch",
+    "hip_elevation",
+    "support_structure",
+    "support_orientation",
+    "left_hand_surface_contact",
+    "right_hand_surface_contact",
+    "left_forearm_surface_contact",
+    "right_forearm_surface_contact",
+    "left_foot_surface_contact",
+    "right_foot_surface_contact",
+    "foot_contact_mode",
+    "head_surface_contact",
+    "shoulder_surface_contact",
+    "knee_surface_contact",
+    "elbow_state",
+    "knee_state",
+    "leg_spacing",
+    "support_evidence_visibility"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Visible configurations include seated rear-arm support, kneeling hand support, kneeling backbends, and a low hand-assisted squat.",
+      "Panel 3 contains an obvious duplicated and intersecting body structure."
+    ],
+    "analysis_notes": [
+      "The duplicated structure in Panel 3 is recorded only as visible generation artifact evidence.",
+      "Prompt / Concept Leakage was not assessed."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "sitting",
+        "oblique",
+        "extended_backward",
+        "medium",
+        "on_surface",
+        "reclined_arm_support",
+        "rear_arm_support",
+        "floor",
+        "floor",
+        "absent",
+        "absent",
+        "floor",
+        "floor",
+        "sole",
+        "absent",
+        "absent",
+        "absent",
+        "straight",
+        "bent",
+        "narrow",
+        "clear"
+      ],
+      "primary_morphology": "reclined_arm_support",
+      "secondary_morphologies": [
+        "sitting_pose"
+      ],
+      "evidence_notes": [
+        "The pelvis has a direct visible contact boundary with the floor, and both soles have direct visible floor boundaries.",
+        "Both hands visibly meet the floor behind the torso; straight arms form a supporting rear-arm load path.",
+        "A visible separation gap keeps the head and shoulders off the floor."
+      ],
+      "contact_load": {
+        "left_hand": "supporting",
+        "right_hand": "supporting",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      },
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high"
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "kneeling",
+        "horizontal",
+        "extended_backward",
+        "strong",
+        "high",
+        "hand_and_knee",
+        "kneeling_hand_support",
+        "floor",
+        "floor",
+        "absent",
+        "absent",
+        "floor",
+        "floor",
+        "toes",
+        "absent",
+        "absent",
+        "both",
+        "straight",
+        "deeply_bent",
+        "medium",
+        "clear"
+      ],
+      "primary_morphology": "kneeling_hand_support",
+      "secondary_morphologies": [
+        "quadruped_pose"
+      ],
+      "evidence_notes": [
+        "Both palms and both knees have direct visible floor boundaries, and the straight arms form a visible hand-to-shoulder load path.",
+        "A large visible pelvis-to-floor gap places the pelvis high above the floor while the knees remain grounded; both toe regions also meet the floor.",
+        "A visible separation gap keeps the head and shoulders off the floor."
+      ],
+      "contact_load": {
+        "left_hand": "weight_bearing",
+        "right_hand": "weight_bearing",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      },
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high"
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "unclear",
+        "unclear",
+        "visually_inverted",
+        "extreme",
+        "unclear",
+        "mixed",
+        "unclear",
+        "floor",
+        "floor",
+        "floor",
+        "floor",
+        "unclear",
+        "unclear",
+        "unclear",
+        "unclear",
+        "unclear",
+        "both",
+        "asymmetric",
+        "deeply_bent",
+        "medium",
+        "partial"
+      ],
+      "primary_morphology": "other",
+      "secondary_morphologies": [
+        "kneeling_hand_support",
+        "kneeling_backbend"
+      ],
+      "evidence_notes": [
+        "Two visibly duplicated upper-body structures intersect around the pelvis and waist, preventing a single reliable body state or orientation assignment.",
+        "Two palms, both forearms, and both knees visibly meet the floor, but the duplicated anatomy prevents a reliable unified load-path interpretation.",
+        "Clothing and the intersecting duplicate torso obscure the pelvis-to-floor boundary and head or shoulder contact boundaries."
+      ],
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      },
+      "cross_domain_effects": [
+        {
+          "domain": "anatomy_proportion",
+          "strength": "strong",
+          "effect_type": "artifact",
+          "observation": "A second upper torso and head visibly intersect the primary kneeling body."
+        }
+      ],
+      "artifacts": [
+        "extra_limb",
+        "body_intersection",
+        "anatomy_break"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "kneeling",
+        "vertical",
+        "extended_backward",
+        "strong",
+        "unclear",
+        "mixed",
+        "unclear",
+        "absent",
+        "absent",
+        "absent",
+        "absent",
+        "floor",
+        "floor",
+        "side",
+        "absent",
+        "absent",
+        "both",
+        "slightly_bent",
+        "deeply_bent",
+        "narrow",
+        "clear"
+      ],
+      "primary_morphology": "kneeling_backbend",
+      "secondary_morphologies": [
+        "kneeling_pose"
+      ],
+      "evidence_notes": [
+        "Both knees and the side regions of both feet have direct visible floor boundaries; both hands rest on the thighs rather than the floor.",
+        "The pelvis boundary is overlapped by the folded legs and shorts, so clearance cannot be determined.",
+        "The head and shoulders are visibly separated from the floor; no arm support path is present."
+      ],
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      },
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high"
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "squatting",
+        "oblique",
+        "extended_backward",
+        "strong",
+        "low",
+        "mixed",
+        "mixed_support",
+        "floor",
+        "floor",
+        "absent",
+        "absent",
+        "floor",
+        "floor",
+        "forefoot",
+        "absent",
+        "absent",
+        "absent",
+        "straight",
+        "deeply_bent",
+        "narrow",
+        "clear"
+      ],
+      "primary_morphology": "squatting_pose",
+      "secondary_morphologies": [
+        "kneeling_hand_support"
+      ],
+      "evidence_notes": [
+        "Both palms and both forefeet visibly meet the floor, while both knees remain visibly separated from it.",
+        "A small visible pelvis-to-floor gap remains beneath the deeply flexed legs; both hands and feet form a visible mixed supporting load path.",
+        "The head and shoulders are visibly separated from the floor."
+      ],
+      "contact_load": {
+        "left_hand": "supporting",
+        "right_hand": "supporting",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      },
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high"
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "sitting",
+        "oblique",
+        "extended_backward",
+        "medium",
+        "on_surface",
+        "reclined_arm_support",
+        "rear_arm_support",
+        "floor",
+        "floor",
+        "absent",
+        "absent",
+        "floor",
+        "floor",
+        "sole",
+        "absent",
+        "absent",
+        "absent",
+        "straight",
+        "bent",
+        "narrow",
+        "clear"
+      ],
+      "primary_morphology": "reclined_arm_support",
+      "secondary_morphologies": [
+        "sitting_pose"
+      ],
+      "evidence_notes": [
+        "The pelvis has a direct visible contact boundary with the floor, and both soles have direct visible floor boundaries.",
+        "Both hands visibly meet the floor behind the torso; straight arms form a supporting rear-arm load path.",
+        "A visible separation gap keeps the head and shoulders off the floor."
+      ],
+      "contact_load": {
+        "left_hand": "supporting",
+        "right_hand": "supporting",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      },
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "leakage": [],
+  "uncertain": [
+    {
+      "panel_id": 3,
+      "field": "body_configuration",
+      "reason": "Duplicated intersecting anatomy prevents a single coherent body-state and support assignment."
+    },
+    {
+      "panel_id": 4,
+      "field": "hip_elevation",
+      "reason": "Folded legs and shorts obscure the pelvis-to-floor boundary."
+    }
+  ],
+  "ontology_extension_candidates": [
+    {
+      "field": "primary_morphology",
+      "candidate_value": "duplicated_intersecting_body",
+      "panel_ids": [
+        3
+      ],
+      "observation": "No existing whole-body morphology represents the visibly duplicated and intersecting two-torso structure."
+    }
+  ],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "Research comparison was not performed; Prompt / Concept Leakage is not assessed.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "body_state": {
+        "sitting": 2,
+        "kneeling": 2,
+        "unclear": 1,
+        "squatting": 1
+      },
+      "body_orientation": {
+        "oblique": 3,
+        "horizontal": 1,
+        "unclear": 1,
+        "vertical": 1
+      },
+      "head_orientation": {
+        "extended_backward": 5,
+        "visually_inverted": 1
+      },
+      "torso_arch": {
+        "medium": 2,
+        "strong": 3,
+        "extreme": 1
+      },
+      "hip_elevation": {
+        "on_surface": 2,
+        "high": 1,
+        "unclear": 2,
+        "low": 1
+      },
+      "support_structure": {
+        "reclined_arm_support": 2,
+        "hand_and_knee": 1,
+        "mixed": 3
+      },
+      "support_orientation": {
+        "rear_arm_support": 2,
+        "kneeling_hand_support": 1,
+        "unclear": 2,
+        "mixed_support": 1
+      },
+      "left_hand_surface_contact": {
+        "floor": 5,
+        "absent": 1
+      },
+      "right_hand_surface_contact": {
+        "floor": 5,
+        "absent": 1
+      },
+      "left_forearm_surface_contact": {
+        "absent": 5,
+        "floor": 1
+      },
+      "right_forearm_surface_contact": {
+        "absent": 5,
+        "floor": 1
+      },
+      "left_foot_surface_contact": {
+        "floor": 5,
+        "unclear": 1
+      },
+      "right_foot_surface_contact": {
+        "floor": 5,
+        "unclear": 1
+      },
+      "foot_contact_mode": {
+        "sole": 2,
+        "toes": 1,
+        "unclear": 1,
+        "side": 1,
+        "forefoot": 1
+      },
+      "head_surface_contact": {
+        "absent": 5,
+        "unclear": 1
+      },
+      "shoulder_surface_contact": {
+        "absent": 5,
+        "unclear": 1
+      },
+      "knee_surface_contact": {
+        "absent": 3,
+        "both": 3
+      },
+      "elbow_state": {
+        "straight": 4,
+        "asymmetric": 1,
+        "slightly_bent": 1
+      },
+      "knee_state": {
+        "bent": 2,
+        "deeply_bent": 4
+      },
+      "leg_spacing": {
+        "narrow": 4,
+        "medium": 2
+      },
+      "support_evidence_visibility": {
+        "clear": 5,
+        "partial": 1
+      }
+    },
+    "primary_morphology_counts": {
+      "reclined_arm_support": 2,
+      "kneeling_hand_support": 1,
+      "other": 1,
+      "kneeling_backbend": 1,
+      "squatting_pose": 1
+    },
+    "secondary_morphology_counts": {
+      "sitting_pose": 2,
+      "quadruped_pose": 1,
+      "kneeling_hand_support": 2,
+      "kneeling_backbend": 1,
+      "kneeling_pose": 1
+    },
+    "artifact_counts": {
+      "none": 5,
+      "extra_limb": 1,
+      "body_intersection": 1,
+      "anatomy_break": 1
+    },
+    "cross_domain_effect_counts": {
+      "anatomy_proportion": {
+        "artifact:strong": 1
+      }
+    },
+    "leakage_counts": {}
+  }
+}

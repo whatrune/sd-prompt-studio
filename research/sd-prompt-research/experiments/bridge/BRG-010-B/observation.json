@@ -1,0 +1,429 @@
+{
+  "schema_version": "3.0",
+  "run_id": "BRG-010-B",
+  "blind_condition_label": "Condition B",
+  "panel_count": 6,
+  "image_layout": "3x2",
+  "active_axis_order": [
+    "body_state",
+    "body_orientation",
+    "head_orientation",
+    "torso_arch",
+    "hip_elevation",
+    "support_structure",
+    "support_orientation",
+    "left_hand_surface_contact",
+    "right_hand_surface_contact",
+    "left_forearm_surface_contact",
+    "right_forearm_surface_contact",
+    "left_foot_surface_contact",
+    "right_foot_surface_contact",
+    "foot_contact_mode",
+    "head_surface_contact",
+    "shoulder_surface_contact",
+    "knee_surface_contact",
+    "elbow_state",
+    "knee_state",
+    "leg_spacing",
+    "support_evidence_visibility"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Most panels show face-up lying configurations with the pelvis on the floor and bent knees.",
+      "One panel shows a low raised-pelvis bridge-like configuration."
+    ],
+    "analysis_notes": [
+      "Hands are generally placed on the torso or beside the body without a visible weight-bearing path.",
+      "Prompt / Concept Leakage was not assessed."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "lying",
+        "face_up",
+        "neutral",
+        "weak",
+        "on_surface",
+        "back_and_foot",
+        "posterior_body_support",
+        "absent",
+        "absent",
+        "absent",
+        "absent",
+        "absent",
+        "absent",
+        "absent",
+        "unclear",
+        "unclear",
+        "absent",
+        "bent",
+        "deeply_bent",
+        "narrow",
+        "clear"
+      ],
+      "primary_morphology": "lying_pose",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The pelvis visibly meets the floor and both feet are raised clear of the surface.",
+        "Both hands are visibly placed on the torso rather than the floor, and no forearm-to-floor boundary is visible.",
+        "A visible posterior pelvis-and-back load path meets the floor; hair and shirt obscure direct head and shoulder contact boundaries."
+      ],
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      },
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high"
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "lying",
+        "face_up",
+        "extended_backward",
+        "none",
+        "on_surface",
+        "back_and_foot",
+        "posterior_body_support",
+        "absent",
+        "absent",
+        "absent",
+        "absent",
+        "floor",
+        "floor",
+        "sole",
+        "unclear",
+        "unclear",
+        "absent",
+        "bent",
+        "bent",
+        "narrow",
+        "clear"
+      ],
+      "primary_morphology": "lying_pose",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The pelvis and both soles have direct visible floor boundaries.",
+        "Both hands rest on the torso and neither forearm meets the floor.",
+        "A visible posterior pelvis-and-back load path meets the floor; hair and clothing obscure direct head and shoulder contact boundaries."
+      ],
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      },
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high"
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "lying",
+        "face_up",
+        "extended_backward",
+        "medium",
+        "low",
+        "head_shoulder_and_foot",
+        "mixed_support",
+        "unclear",
+        "unclear",
+        "absent",
+        "absent",
+        "floor",
+        "floor",
+        "mixed",
+        "absent",
+        "unclear",
+        "absent",
+        "slightly_bent",
+        "bent",
+        "wide",
+        "partial"
+      ],
+      "primary_morphology": "glute_bridge_like",
+      "secondary_morphologies": [
+        "supine_bridge_like"
+      ],
+      "evidence_notes": [
+        "A small visible gap separates the pelvis from the floor; both feet visibly meet the floor, one through the forefoot and one through a broader plantar region.",
+        "One hand visibly touches the floor beside the torso without a clear arm load path; anatomical left-right identity is not reliable from this view.",
+        "The head is visibly separated from the floor, while the shoulder boundary is partly hidden by clothing."
+      ],
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      },
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "lying",
+        "face_up",
+        "neutral",
+        "none",
+        "on_surface",
+        "back_and_foot",
+        "posterior_body_support",
+        "absent",
+        "absent",
+        "absent",
+        "absent",
+        "floor",
+        "floor",
+        "sole",
+        "unclear",
+        "unclear",
+        "absent",
+        "bent",
+        "bent",
+        "narrow",
+        "clear"
+      ],
+      "primary_morphology": "lying_pose",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The pelvis has a direct visible contact boundary with the floor, and both feet have direct visible floor boundaries.",
+        "Both hands are clasped over the torso and the forearms remain above the floor.",
+        "A visible posterior pelvis-and-back load path meets the floor; hair and shirt obscure direct head and shoulder boundaries."
+      ],
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      },
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high"
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "lying",
+        "face_up",
+        "neutral",
+        "none",
+        "on_surface",
+        "back_and_foot",
+        "posterior_body_support",
+        "absent",
+        "absent",
+        "absent",
+        "absent",
+        "floor",
+        "floor",
+        "sole",
+        "unclear",
+        "unclear",
+        "absent",
+        "slightly_bent",
+        "bent",
+        "narrow",
+        "clear"
+      ],
+      "primary_morphology": "lying_pose",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The pelvis and both soles visibly meet the floor.",
+        "Both hands lie on the thighs or lower abdomen and neither forearm meets the floor.",
+        "A visible posterior pelvis-and-back load path meets the floor; hair and clothing obscure direct head and shoulder contact boundaries."
+      ],
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      },
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high"
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "lying",
+        "face_up",
+        "neutral",
+        "weak",
+        "on_surface",
+        "back_and_foot",
+        "posterior_body_support",
+        "absent",
+        "absent",
+        "absent",
+        "absent",
+        "floor",
+        "floor",
+        "sole",
+        "unclear",
+        "unclear",
+        "absent",
+        "bent",
+        "bent",
+        "narrow",
+        "clear"
+      ],
+      "primary_morphology": "lying_pose",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The pelvis and both feet have direct visible floor boundaries.",
+        "Both hands and forearms are held over the upper torso rather than contacting the floor.",
+        "A visible posterior pelvis-and-back load path meets the floor; hair and clothing obscure direct head and shoulder contact boundaries."
+      ],
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      },
+      "cross_domain_effects": [
+        {
+          "domain": "outfit",
+          "strength": "weak",
+          "effect_type": "natural_response",
+          "observation": "The shirt is lifted and folded across the upper torso."
+        }
+      ],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "leakage": [],
+  "uncertain": [
+    {
+      "panel_id": 1,
+      "field": "head_and_shoulder_contact",
+      "reason": "Hair and loose clothing obscure direct contact boundaries in most panels."
+    }
+  ],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "Research comparison was not performed; Prompt / Concept Leakage is not assessed.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "body_state": {
+        "lying": 6
+      },
+      "body_orientation": {
+        "face_up": 6
+      },
+      "head_orientation": {
+        "neutral": 4,
+        "extended_backward": 2
+      },
+      "torso_arch": {
+        "weak": 2,
+        "none": 3,
+        "medium": 1
+      },
+      "hip_elevation": {
+        "on_surface": 5,
+        "low": 1
+      },
+      "support_structure": {
+        "back_and_foot": 5,
+        "head_shoulder_and_foot": 1
+      },
+      "support_orientation": {
+        "posterior_body_support": 5,
+        "mixed_support": 1
+      },
+      "left_hand_surface_contact": {
+        "absent": 5,
+        "unclear": 1
+      },
+      "right_hand_surface_contact": {
+        "absent": 5,
+        "unclear": 1
+      },
+      "left_forearm_surface_contact": {
+        "absent": 6
+      },
+      "right_forearm_surface_contact": {
+        "absent": 6
+      },
+      "left_foot_surface_contact": {
+        "absent": 1,
+        "floor": 5
+      },
+      "right_foot_surface_contact": {
+        "absent": 1,
+        "floor": 5
+      },
+      "foot_contact_mode": {
+        "absent": 1,
+        "sole": 4,
+        "mixed": 1
+      },
+      "head_surface_contact": {
+        "unclear": 5,
+        "absent": 1
+      },
+      "shoulder_surface_contact": {
+        "unclear": 6
+      },
+      "knee_surface_contact": {
+        "absent": 6
+      },
+      "elbow_state": {
+        "bent": 4,
+        "slightly_bent": 2
+      },
+      "knee_state": {
+        "deeply_bent": 1,
+        "bent": 5
+      },
+      "leg_spacing": {
+        "narrow": 5,
+        "wide": 1
+      },
+      "support_evidence_visibility": {
+        "clear": 5,
+        "partial": 1
+      }
+    },
+    "primary_morphology_counts": {
+      "lying_pose": 5,
+      "glute_bridge_like": 1
+    },
+    "secondary_morphology_counts": {
+      "supine_bridge_like": 1
+    },
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {
+      "outfit": {
+        "natural_response:weak": 1
+      }
+    },
+    "leakage_counts": {}
+  }
+}
