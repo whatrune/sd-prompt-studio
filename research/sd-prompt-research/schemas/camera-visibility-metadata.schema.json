@@ -10,13 +10,13 @@
     "schema_version": {"const": "0.1.0"},
     "run_id": {"$ref": "#/$defs/runId"},
     "visibility_status": {"enum": ["available", "unavailable"]},
-    "unavailable_reason": {"type": "string", "minLength": 1},
-    "camera": {"$ref": "#/$defs/camera"},
-    "subject_occupancy": {"$ref": "#/$defs/subjectOccupancy"},
-    "visible_regions": {"$ref": "#/$defs/visibleRegions"},
-    "occlusions": {
+    "unavailable_reason": {"$ref": "#/$defs/rootUnavailableReason"},
+    "unavailable_reason_detail": {"$ref": "#/$defs/reasonDetail"},
+    "panels": {
       "type": "array",
-      "items": {"$ref": "#/$defs/occlusion"}
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {"$ref": "#/$defs/panel"}
     }
   },
   "allOf": [
@@ -26,26 +26,155 @@
         "properties": {"visibility_status": {"const": "available"}}
       },
       "then": {
-        "required": ["camera", "subject_occupancy", "visible_regions"],
-        "not": {"required": ["unavailable_reason"]}
+        "required": ["panels"],
+        "not": {
+          "anyOf": [
+            {"required": ["unavailable_reason"]},
+            {"required": ["unavailable_reason_detail"]}
+          ]
+        }
       },
       "else": {
         "required": ["unavailable_reason"],
-        "not": {
-          "anyOf": [
-            {"required": ["camera"]},
-            {"required": ["subject_occupancy"]},
-            {"required": ["visible_regions"]},
-            {"required": ["occlusions"]}
-          ]
-        }
+        "not": {"required": ["panels"]}
       }
+    },
+    {
+      "if": {
+        "required": ["unavailable_reason"],
+        "properties": {"unavailable_reason": {"const": "other"}}
+      },
+      "then": {"required": ["unavailable_reason_detail"]},
+      "else": {"not": {"required": ["unavailable_reason_detail"]}}
     }
   ],
   "$defs": {
     "runId": {
       "type": "string",
       "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "rootUnavailableReason": {
+      "enum": ["source_artifact_missing", "invalid_run", "other"]
+    },
+    "panelUnavailableReason": {
+      "enum": [
+        "image_missing",
+        "subject_not_identifiable",
+        "primary_subject_ambiguous",
+        "insufficient_visibility",
+        "other"
+      ]
+    },
+    "reasonDetail": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "sourceImage": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z][A-Za-z0-9+.-]*:)(?!//)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\r\\n]+$"
+    },
+    "panel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["panel_id", "visibility_status", "source_image"],
+      "properties": {
+        "panel_id": {"type": "integer", "minimum": 1, "maximum": 6},
+        "visibility_status": {"enum": ["available", "unavailable"]},
+        "source_image": {"$ref": "#/$defs/sourceImage"},
+        "unavailable_reason": {"$ref": "#/$defs/panelUnavailableReason"},
+        "unavailable_reason_detail": {"$ref": "#/$defs/reasonDetail"},
+        "camera": {"$ref": "#/$defs/camera"},
+        "subject_occupancy": {"$ref": "#/$defs/subjectOccupancy"},
+        "visibility_coverage": {"$ref": "#/$defs/visibilityCoverage"},
+        "visible_regions": {"$ref": "#/$defs/visibleRegions"},
+        "occlusions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/occlusion"}
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["visibility_status"],
+            "properties": {"visibility_status": {"const": "available"}}
+          },
+          "then": {
+            "required": [
+              "camera",
+              "subject_occupancy",
+              "visibility_coverage",
+              "visible_regions"
+            ],
+            "not": {
+              "anyOf": [
+                {"required": ["unavailable_reason"]},
+                {"required": ["unavailable_reason_detail"]}
+              ]
+            }
+          },
+          "else": {
+            "required": ["unavailable_reason"],
+            "not": {
+              "anyOf": [
+                {"required": ["camera"]},
+                {"required": ["subject_occupancy"]},
+                {"required": ["visibility_coverage"]},
+                {"required": ["visible_regions"]},
+                {"required": ["occlusions"]}
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["unavailable_reason"],
+            "properties": {"unavailable_reason": {"const": "other"}}
+          },
+          "then": {"required": ["unavailable_reason_detail"]},
+          "else": {"not": {"required": ["unavailable_reason_detail"]}}
+        },
+        {
+          "if": {
+            "required": ["visibility_coverage"],
+            "properties": {
+              "visibility_coverage": {
+                "required": ["status"],
+                "properties": {"status": {"const": "complete"}}
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "visible_regions": {
+                "minProperties": 12,
+                "maxProperties": 12,
+                "required": [
+                  "head", "face", "hair", "neck", "shoulders", "arms",
+                  "hands", "torso", "hips", "legs", "knees", "feet"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["visibility_coverage"],
+            "properties": {
+              "visibility_coverage": {
+                "required": ["status"],
+                "properties": {"status": {"const": "partial"}}
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "visible_regions": {"minProperties": 1, "maxProperties": 11}
+            }
+          }
+        }
+      ]
     },
     "camera": {
       "type": "object",
@@ -64,7 +193,11 @@
       "additionalProperties": false,
       "required": ["horizontal", "vertical"],
       "properties": {
-        "horizontal": {"enum": ["front", "side", "three_quarter", "unknown"]},
+        "horizontal": {
+          "enum": [
+            "front", "side", "three_quarter", "rear", "rear_three_quarter", "unknown"
+          ]
+        },
         "vertical": {"enum": ["eye_level", "high_angle", "low_angle", "unknown"]}
       }
     },
@@ -73,15 +206,60 @@
       "minimum": 0.0,
       "maximum": 1.0
     },
+    "areaRatio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {"enum": ["available", "unavailable"]},
+        "value": {"$ref": "#/$defs/ratio"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["status"],
+            "properties": {"status": {"const": "available"}}
+          },
+          "then": {"required": ["value"]},
+          "else": {"not": {"required": ["value"]}}
+        }
+      ]
+    },
     "subjectOccupancy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["width_ratio", "height_ratio", "area_ratio"],
+      "required": ["width_ratio", "height_ratio", "area_ratio", "measurement_method"],
       "properties": {
         "width_ratio": {"$ref": "#/$defs/ratio"},
         "height_ratio": {"$ref": "#/$defs/ratio"},
-        "area_ratio": {"$ref": "#/$defs/ratio"}
-      }
+        "area_ratio": {"$ref": "#/$defs/areaRatio"},
+        "measurement_method": {
+          "enum": ["manual_estimate", "bounding_box", "segmentation"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["measurement_method"],
+            "properties": {"measurement_method": {"const": "bounding_box"}}
+          },
+          "then": {
+            "required": ["area_ratio"],
+            "properties": {
+              "area_ratio": {
+                "required": ["status"],
+                "properties": {"status": {"const": "unavailable"}}
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visibilityCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {"status": {"enum": ["complete", "partial"]}}
     },
     "visibilityState": {
       "enum": ["visible", "partial", "unclear", "not_visible"]
@@ -89,7 +267,6 @@
     "visibleRegions": {
       "type": "object",
       "additionalProperties": false,
-      "minProperties": 1,
       "properties": {
         "head": {"$ref": "#/$defs/visibilityState"},
         "face": {"$ref": "#/$defs/visibilityState"},
@@ -119,8 +296,8 @@
         "region": {"$ref": "#/$defs/region"},
         "cause": {
           "enum": [
-            "clothing", "hair", "object", "camera_crop",
-            "perspective", "lighting", "unknown"
+            "clothing", "hair", "object", "camera_crop", "perspective",
+            "lighting", "self_occlusion", "unknown"
           ]
         }
       }

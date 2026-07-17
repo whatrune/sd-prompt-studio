@@ -7,74 +7,80 @@
 - Normative schema: `schemas/camera-visibility-metadata.schema.json`
 - Canonical artifact path: `experiments/<domain>/<run-id>/visibility-metadata.yaml`
 
-This document is the normative source for Camera Visibility Metadata
-Foundation v0.1.0. The JSON Schema and structural tests implement this
-document. Earlier design notes and chat prompts are non-normative.
+This cumulative document is the normative source for Camera Visibility
+Metadata Foundation v0.1.0. The JSON Schema and Structural Tests implement
+this document. Earlier design notes and prompts are non-normative.
 
-## Purpose
+## Purpose and responsibility boundary
 
-Camera Visibility Metadata records the image conditions under which visible
-evidence could be inspected. It separates observability conditions from the
-Observation that records what was actually seen.
+Camera Visibility Metadata records the image-result conditions under which
+visible evidence could be inspected. It is Observability Metadata, not a
+Research Observation.
 
-This artifact records:
+It records only:
 
-- framing and observed camera conditions;
-- estimated primary-subject occupancy;
-- body-region visibility; and
+- per-Panel camera conditions;
+- primary-subject occupancy estimates;
+- per-region visibility states; and
 - directly observable occlusion causes.
 
-It does not record or infer:
+It does not generate, alter, or infer:
 
-- pose or morphology;
-- support or contact;
-- Observation, classification, or morphology confidence;
-- Prompt effect or causal influence;
-- Research Interpretation, Working Conclusion, or Research Claim; or
-- success or failure judgment.
-
-The responsibility boundary is:
+- Pose, Support, Contact, Morphology, or hidden geometry;
+- Observation Confidence;
+- Research Interpretation, Working Conclusion, or Research Claim;
+- Prompt effect or causal influence; or
+- Research success or failure.
 
 ```text
 Prompt Provenance
-  what was specified as a generation prompt
+  derived structure describing what the generation prompt specified
 
 Camera Visibility Metadata
-  under what image-result conditions evidence was observable
+  conditions under which evidence was observable in each image Panel
 
 Observation
-  what visible evidence was recorded
+  visible evidence recorded under the Observation contract
 ```
 
-## Scope
+Prompt Provenance is not the raw Prompt source of truth. Camera Visibility
+Metadata is not a source for automatically filling or correcting Observation
+values.
+
+## PR82 implementation boundary
 
 PR82 provides:
 
 - this cumulative Freeze specification;
 - a closed Draft 2020-12 JSON Schema;
-- structural schema tests;
-- a semantic-validation test design and reserved error catalog; and
-- documentation references.
+- Structural Schema Tests;
+- a future Semantic Validation design; and
+- a reserved Error Catalog.
 
-PR82 does not provide camera estimation, region detection, occupancy
-calculation, occlusion detection, a Semantic Validator, error emission, an
-artifact generator, or Camera Visibility Metadata files for existing Runs.
+PR82 does not provide:
 
-## Artifact location and compatibility
+- a Semantic Validator or Error emission;
+- camera, occupancy, visibility, or occlusion estimation;
+- image binding or image hashing;
+- a Camera Visibility Metadata generator;
+- Receipts, Validation Records, or Audit Artifacts;
+- External References; or
+- artifacts for existing Runs.
 
-Camera Visibility Metadata is an optional Run-root artifact:
+No existing Run, manifest, Observation Schema, Research Claim contract,
+Prompt Provenance contract, Concept Graph, Derived Index, or Research Data is
+changed.
+
+## Artifact location and optionality
+
+The optional Run-root artifact is:
 
 ```text
 experiments/<domain>/<run-id>/visibility-metadata.yaml
 ```
 
-It does not replace or modify a raw image. It is not a required manifest
-field. Absence of the artifact is valid for every existing Run and means that
-visibility metadata has not been recorded.
-
-No existing Run, manifest, Observation Schema, Research Claim contract,
-Prompt Provenance contract, Concept Graph, or Resolver is migrated or changed
-by this contract.
+It is not a required manifest field. Its absence means only that Camera
+Visibility Metadata has not been recorded.
 
 ## Root contract
 
@@ -82,275 +88,306 @@ Every artifact requires:
 
 - `schema_version`: exactly `0.1.0`;
 - `run_id`; and
-- `visibility_status`.
+- `visibility_status`: `available` or `unavailable`.
 
-`visibility_status` is `available` or `unavailable`.
+An `available` Root requires `panels` and forbids `unavailable_reason` and
+`unavailable_reason_detail`.
 
-An `available` artifact requires `camera`, `subject_occupancy`, and
-`visible_regions`; it forbids `unavailable_reason`. `occlusions` is optional.
+An `unavailable` Root requires `unavailable_reason` and forbids `panels`.
+Root reasons are:
 
-An `unavailable` artifact requires a non-empty `unavailable_reason`; it
-forbids `camera`, `subject_occupancy`, `visible_regions`, and `occlusions`.
-The reason remains free text in v0.1.0 because no normative reason-code enum
-has been defined.
+- `source_artifact_missing`: the Run-level image set or base artifact cannot
+  be identified, so the Panel list cannot be constructed;
+- `invalid_run`; or
+- `other`.
+
+`other` requires a nonblank `unavailable_reason_detail`. Other reasons forbid
+the detail. Root reasons and Panel reasons are separate enums.
 
 ```yaml
 schema_version: "0.1.0"
 run_id: BRG-013-A
 visibility_status: available
-camera:
-  framing: full_body
-  angle:
-    horizontal: side
-    vertical: eye_level
-  perspective: unknown
-subject_occupancy:
-  width_ratio: 0.64
-  height_ratio: 0.88
-  area_ratio: 0.37
-visible_regions:
-  hands: partial
-  feet: visible
-  knees: unclear
-occlusions:
-  - region: hands
-    cause: clothing
+panels:
+  # Exactly six Panel objects.
 ```
 
-All artifact and nested objects are closed contracts. Unknown fields are
-rejected.
+All Root and nested objects are closed contracts. Unknown fields are rejected.
 
-## Run binding
+## Panel collection contract
 
-A future Semantic Validator must require exact equality among:
+An available artifact has exactly six Panel entries. A Panel that cannot be
+analyzed is retained as an `unavailable` Panel; it is never omitted.
 
-- the Canonical Run directory name;
-- `manifest.yaml` `run_id`; and
-- Camera Visibility Metadata `run_id`.
+Each Panel always requires:
 
-Mismatch is `VISIBILITY_METADATA_RUN_MISMATCH`. PR82 documents this rule but
-does not implement cross-artifact Run resolution.
+- `panel_id`: integer `1` through `6`;
+- `visibility_status`: `available` or `unavailable`; and
+- `source_image`: expected or actual Run-directory-relative image path.
+
+Canonical Panel order is ascending `panel_id`. Panel ID uniqueness, ordering,
+and equality with an existing Observation Panel set are future Semantic
+Validation rules. If no Observation exists, Panel-set comparison has the
+Semantic Validation outcome `NOT_EVALUATED`. `NOT_EVALUATED` is not an
+Artifact field and PR82 creates no result Artifact for it.
+
+### Available Panel
+
+An available Panel requires:
+
+- `camera`;
+- `subject_occupancy`;
+- `visibility_coverage`; and
+- `visible_regions`.
+
+`occlusions` is optional. `unavailable_reason` and
+`unavailable_reason_detail` are forbidden.
+
+### Unavailable Panel
+
+An unavailable Panel requires a Panel reason and forbids `camera`,
+`subject_occupancy`, `visibility_coverage`, `visible_regions`, and
+`occlusions`.
+
+Panel reasons are:
+
+- `image_missing`: the Panel list and expected `source_image` are known, but
+  the individual Panel image is absent;
+- `subject_not_identifiable`: the subject itself cannot be recognized;
+- `primary_subject_ambiguous`: multiple subjects are present and one Primary
+  Subject cannot be selected unambiguously;
+- `insufficient_visibility`; or
+- `other`.
+
+`other` requires a nonblank detail. Other reasons forbid it. Validators must
+not re-analyze an image to decide whether a human-selected reason is factually
+correct.
+
+v0.1.0 supports one Primary Subject only. It does not add a multi-subject
+Schema.
+
+## Source image path contract
+
+`source_image` is required for both Panel states. For `image_missing`, it is
+the expected path.
+
+The standard naming convention is:
+
+```text
+panels/<run_id>_<panel_id:02d>.png
+```
+
+Example:
+
+```yaml
+source_image: panels/BRG-013-A_01.png
+```
+
+Structural Validation rejects URI and URL schemes in addition to absolute
+paths, Windows Drive paths, UNC paths, backslashes, and `..` traversal. File
+existence, Research Project containment, resolved symlink containment, and
+cross-field naming equality are future Semantic Validation rules.
 
 ## Camera contract
 
-`camera` describes camera conditions observed in the generated image. It is a
-closed object requiring `framing`, `angle`, and `perspective`.
+`camera` is a closed object. The nested `angle` structure is normative.
 
-### Framing
+```yaml
+camera:
+  framing: full_body
+  angle:
+    horizontal: rear
+    vertical: eye_level
+  perspective: normal
+```
 
-`framing` is one of:
+It requires:
 
-- `full_body`;
-- `upper_body`;
-- `portrait`;
-- `close_up`; or
-- `unknown`.
+- `framing`: `full_body`, `upper_body`, `portrait`, `close_up`, or `unknown`;
+- `angle.horizontal`: `front`, `side`, `three_quarter`, `rear`,
+  `rear_three_quarter`, or `unknown`;
+- `angle.vertical`: `eye_level`, `high_angle`, `low_angle`, or `unknown`; and
+- `perspective`: `normal`, `wide`, `telephoto`, or `unknown`.
 
-### Angle
+Framing definitions are mutually exclusive:
 
-`angle` is a closed object with two required axes.
+- `full_body`: head through feet are observable in the same frame;
+- `upper_body`: head through approximately the waist are primary, without
+  feet as a principal part of the frame;
+- `portrait`: head and shoulders or chest are primary, without the waist as a
+  principal part;
+- `close_up`: face or a local body region is primary and does not include the
+  shoulder/chest range of a portrait; and
+- `unknown`: crop boundary or classification cannot be resolved.
 
-`horizontal` is one of:
-
-- `front`;
-- `side`;
-- `three_quarter`; or
-- `unknown`.
-
-`vertical` is one of:
-
-- `eye_level`;
-- `high_angle`;
-- `low_angle`; or
-- `unknown`.
-
-### Perspective
-
-`perspective` is one of:
-
-- `normal`;
-- `wide`;
-- `telephoto`; or
-- `unknown`.
-
-When an image does not directly support a camera classification, `unknown`
-is used. Prompt wording is not evidence for a Camera Visibility value.
+The definitions, not evaluation order, determine the value. When boundary
+conditions overlap, retain the wider observable body range; a useful checking
+order is full body, upper body, portrait, then close-up. Prompt wording is not
+evidence for a Camera Visibility value.
 
 ## Subject occupancy contract
 
-`subject_occupancy` is a closed object requiring three estimated ratios in the
-inclusive range `0.0` through `1.0`:
+`subject_occupancy` requires:
 
-- `width_ratio`: estimated width of the primary subject's axis-aligned visible
-  extent divided by image width;
-- `height_ratio`: estimated height of the primary subject's axis-aligned
-  visible extent divided by image height; and
-- `area_ratio`: estimated visible subject-silhouette area divided by image
-  area.
+- `width_ratio`: visible Primary Subject width divided by image width;
+- `height_ratio`: visible Primary Subject height divided by image height;
+- `area_ratio`: visible Primary Subject silhouette area divided by image area;
+  and
+- `measurement_method`.
 
-`area_ratio` is not the product of `width_ratio` and `height_ratio` and is not
-the area of their bounding rectangle. Hair and worn clothing belong to the
-subject silhouette. Background, independent objects, and support objects do
-not. The values are observation-condition estimates, not precise geometric
-measurements and not confidence scores.
+Numeric ratios are in the inclusive range `0.0..1.0`. `area_ratio` is not
+`width_ratio * height_ratio` and is not bounding-box area. Hair and worn
+clothing are part of the silhouette; background, independent objects, and
+support objects are not.
 
-v0.1.0 represents one primary analysis subject established by the Run. It does
-not define multi-subject selection or per-subject occupancy. If a primary
-subject cannot be identified sufficiently to record all three ratios, the
-artifact cannot be `available` under v0.1.0.
+`area_ratio` is a required closed state object:
 
-## Visible-region contract
+```yaml
+area_ratio:
+  status: available
+  value: 0.37
+```
 
-`visible_regions` records the observability of a non-empty subset of these
-registered regions:
+or:
 
-- `head`;
-- `face`;
-- `hair`;
-- `neck`;
-- `shoulders`;
-- `arms`;
-- `hands`;
-- `torso`;
-- `hips`;
-- `legs`;
-- `knees`; and
-- `feet`.
+```yaml
+area_ratio:
+  status: unavailable
+```
 
-Every recorded region is one of:
+`available` requires `value`; `unavailable` forbids it; `null` is invalid.
 
-- `visible`: the region is directly observable for the selected subject;
-- `partial`: only a directly identifiable portion or subset is observable;
-- `unclear`: image evidence is insufficient to classify visibility reliably;
+One `measurement_method` applies to all ratios in v0.1.0:
+
+- `manual_estimate`: width and height are allowed; area is available only when
+  the visible silhouette can be estimated;
+- `segmentation`: width, height, and mask-derived silhouette area are allowed;
   or
-- `not_visible`: no directly observable portion is present.
+- `bounding_box`: width and height are allowed, but `area_ratio.status` must
+  be `unavailable` and `value` is forbidden.
 
-For plural regions such as `hands`, `partial` may indicate that only a subset
-is observable. `partial` is a positive observation of incomplete visibility;
-`unclear` represents classification uncertainty. An omitted registered region
-means it was not recorded, not that it was `not_visible`.
+Ratio-specific methods cannot be mixed. A future Schema version is required
+to represent mixed methods.
 
-Visibility is not an Observation result. For example, `feet: partial` may
-coexist with an Observation value such as `foot_contact: unclear`. Fields such
-as `foot_contact_confidence` are forbidden from this artifact.
+The Schema guarantees field presence, state branches, enum/type constraints,
+ratio ranges, and the bounding-box prohibition on storing area values. It does
+not verify the producer's actual algorithm or silhouette accuracy.
+
+## Visibility coverage and region contract
+
+`visibility_coverage.status` is `complete` or `partial`.
+
+- `complete` requires all 12 registered region keys;
+- `partial` requires between 1 and 11 registered region keys; and
+- zero regions are not an available Panel.
+
+The registered regions are:
+
+`head`, `face`, `hair`, `neck`, `shoulders`, `arms`, `hands`, `torso`, `hips`,
+`legs`, `knees`, and `feet`.
+
+Each recorded value is:
+
+- `visible`;
+- `partial`;
+- `unclear`; or
+- `not_visible`.
+
+These are Observability states, not Research Observation values.
 
 ## Occlusion contract
 
-`occlusions` is an optional ordered array of directly observable occlusion
-entries. Each entry requires:
+`occlusions` is an optional ordered array. Each closed entry requires a
+registered `region` and one cause:
 
-- `region`: one registered visible-region name; and
-- `cause`: `clothing`, `hair`, `object`, `camera_crop`, `perspective`,
-  `lighting`, or `unknown`.
+- `clothing`;
+- `hair`;
+- `object`;
+- `camera_crop`;
+- `perspective`;
+- `lighting`;
+- `self_occlusion`; or
+- `unknown`.
 
-An occlusion records why evidence is unavailable or partial; it does not infer
-pose, support, contact, or hidden geometry. A future Semantic Validator must
-require every occlusion `region` to be present in `visible_regions` with
-`partial`, `unclear`, or `not_visible`. It must reject duplicate region/cause
-pairs. PR82 does not implement those cross-field rules.
+Structural Validation rejects only an exactly duplicated region/cause object.
+The same cause may affect multiple regions, and one region may have multiple
+causes.
 
-Canonical occlusion order is lexical `region`, then lexical `cause`. A future
-Semantic Validator rejects non-canonical ordering rather than silently sorting
-the array.
+A future Semantic Validator requires an occlusion region to exist in the same
+Panel's `visible_regions` with state `partial`, `unclear`, or `not_visible`.
+An occlusion on `visible` is invalid. Canonical order is lexical region then
+lexical cause.
 
-## Prompt Provenance boundary
+Occlusion is only a reason for reduced observability. It never creates or
+changes Pose, Support, Contact, Morphology, or Observation Confidence.
 
-A Prompt Provenance camera phrase records what was requested. Camera Visibility
-Metadata records what was observed in the resulting image. The two values are
-not merged and neither is inferred from the other.
+## Run and Observation boundaries
 
-For example, a `side view` prompt phrase does not establish a fixed camera
-control or require `camera.angle.horizontal: side`. A difference is reportable
-context, not an automatic error and not evidence of Prompt effect.
+A future Semantic Validator requires exact equality among the Canonical Run
+directory name, manifest `run_id`, and artifact `run_id`. It may compare Panel
+sets only when an Observation exists. It does not compare or rewrite
+Observation values.
 
-## Observation boundary
+Camera Visibility Metadata does not determine Observation Confidence and does
+not make a Research Conclusion.
 
-Camera Visibility Metadata may explain why an Observation is `unclear`, but it
-does not replace an Observation and does not assign Observation confidence.
-It must not be used to fill hidden support, contact, orientation, morphology,
-or body structure.
+## Structural Validation implemented
 
-The allowed relationship is non-causal:
+The Draft 2020-12 Schema validates:
 
-```text
-Image result -> has_observability_conditions -> Camera Visibility Metadata
-Image result -> has_visible_evidence -> Observation
-```
+- Root and Panel status branches;
+- exactly six Panel objects and lexical Panel ID bounds;
+- Root and Panel reason enums and `other` detail rules;
+- nested Camera structure and enums;
+- occupancy required fields, ratio ranges, area state, and bounding-box rule;
+- complete/partial region counts and Visibility State enums;
+- exact duplicate occlusion objects;
+- lexical source path safety; and
+- closed-object unknown-field rejection.
 
-## Structural validation implemented in PR82
+## Semantic Validation designed but not implemented
 
-The JSON Schema validates:
+Future work may validate:
 
-- required root and nested fields;
-- available versus unavailable branches;
-- primitive and object types;
-- camera, visibility, region, and occlusion enums;
-- inclusive ratio ranges;
-- at least one recorded visible region; and
-- unknown-field rejection at every object level.
+- Run directory, manifest, and artifact Run ID equality;
+- Panel ID uniqueness and canonical order;
+- Observation Panel-set equality, or `NOT_EVALUATED` when absent;
+- source file existence, resolved containment, symlink containment, and exact
+  naming convention;
+- occlusion region/state consistency and canonical order;
+- actual measurement-method declaration and segmentation-mask existence; and
+- area value agreement with image content.
 
-The Schema cannot detect YAML duplicate keys after a lossy parser has already
-collapsed them. A future YAML-loading path must reject duplicate keys before
-Schema validation.
+It must not re-analyze images to judge Primary Subject reasons, generate
+Observation values, or emit Research conclusions.
 
-## Semantic validation designed but not implemented
+## Reserved Error Catalog
 
-A future Semantic Validator and safe YAML loader test:
+These codes are reserved only. PR82 does not emit them.
 
-- successful Structural Schema validation as a precondition, including ratio
-  ranges, available/unavailable field constraints, camera enums, and visible
-  region enums;
-- exact Run-directory, manifest, and artifact Run ID equality;
-- duplicate YAML region keys before object construction;
-- occlusion-region presence and visibility-state consistency;
-- duplicate occlusion region/cause pairs;
-- Canonical occlusion ordering; and
-- cross-artifact consistency without treating visibility as an Observation or
-  research conclusion.
-
-Camera estimation, region detection, occupancy calculation, and occlusion
-detection remain producer responsibilities and are not Validator behavior.
-
-## Reserved error catalog
-
-The following codes are reserved contracts. PR82 does not emit them.
-
-| Code | Layer | Severity | Condition | Artifact usability | Retry or remediation |
+| Code | Layer | Severity | Condition | Artifact usability | Remediation |
 | --- | --- | --- | --- | --- | --- |
-| `VISIBILITY_METADATA_RUN_MISMATCH` | Semantic | error | Run directory, manifest, and artifact Run IDs differ. | Invalid for Run-bound use. | Restore exact Run binding and validate again. |
-| `VISIBILITY_RATIO_OUT_OF_RANGE` | Structural diagnostic | error | An occupancy ratio is outside `0.0..1.0`. | Structurally invalid. | Correct the estimate or regenerate the artifact. |
-| `VISIBILITY_REGION_DUPLICATE` | Parse/Semantic | error | A YAML region key or Canonical region entry is duplicated. | Invalid because data may have been overwritten during parsing. | Use a duplicate-key-rejecting loader and retain one explicit value. |
-| `VISIBILITY_OCCLUSION_INVALID` | Semantic | error | An occlusion references an absent or fully visible region, repeats a pair, or violates Canonical order. | Invalid for occlusion-aware use. | Correct the reference or ordering and validate again. |
-| `VISIBILITY_CAMERA_VALUE_INVALID` | Structural diagnostic | error | A camera value is outside the registered enum. | Structurally invalid. | Use a registered value or `unknown`. |
+| `VISIBILITY_METADATA_RUN_MISMATCH` | Semantic | error | Run directory, manifest, and artifact IDs differ. | Invalid for Run-bound use. | Restore exact binding. |
+| `VISIBILITY_PANEL_MISMATCH` | Semantic | error | Panel IDs are duplicate, noncanonical, or differ from an available Observation set. | Invalid for Panel-bound use. | Correct the Panel set/order. |
+| `VISIBILITY_SOURCE_IMAGE_INVALID` | Structural/Semantic | error | Path syntax is unsafe, or the file is missing/outside the Run through resolution or symlink. | Invalid for image-bound use. | Correct the safe path or source file. |
+| `VISIBILITY_RATIO_OUT_OF_RANGE` | Structural diagnostic | error | A ratio is outside `0.0..1.0`. | Structurally invalid. | Correct the estimate. |
+| `VISIBILITY_REGION_DUPLICATE` | Parse/Semantic | error | A YAML region key is duplicated. | Invalid because a parser may have overwritten data. | Use a duplicate-key-rejecting loader. |
+| `VISIBILITY_OCCLUSION_INVALID` | Semantic | error | Occlusion region/state or order is inconsistent. | Invalid for occlusion-aware use. | Correct the same-Panel reference/order. |
+| `VISIBILITY_CAMERA_VALUE_INVALID` | Structural diagnostic | error | A Camera value is outside the enum. | Structurally invalid. | Use a registered value or `unknown`. |
+| `VISIBILITY_COVERAGE_INVALID` | Structural diagnostic | error | Coverage status and region count disagree. | Structurally invalid. | Correct coverage or region set. |
 
-## Structural test contract
+## Structural Test contract
 
-PR82 structural tests cover:
+Tests cover Schema meta-validation, Root/Panel branches, exactly six Panels,
+reason separation and details, nested Camera enums, occupancy and area state
+branches, bounding-box constraints, coverage counts, Visibility States,
+occlusion uniqueness, unsafe source paths, and closed objects.
 
-- Schema meta-validation;
-- a valid available artifact;
-- a valid unavailable artifact;
-- available/unavailable branch constraints;
-- root and nested unknown-field rejection;
-- camera object shape and enum rejection;
-- ratio type and inclusive range rejection;
-- visible-region name and state rejection;
-- non-empty visible-region enforcement;
-- occlusion object shape and enum rejection; and
-- Run ID lexical form.
-
-Semantic rules and reserved Error emission are test designs only.
+Structural tests intentionally demonstrate that semantic-only cases such as
+Panel ordering and `visible` plus occlusion remain structurally valid.
 
 ## Deferred work
 
-The following require later contracts or PRs:
-
-- a safe YAML loader and Semantic Validator;
-- reserved Error emission and CLI integration;
-- camera and perspective estimation;
-- region and occlusion detection;
-- occupancy measurement and producer-method provenance;
-- multiple-subject identity and per-subject metadata;
-- artifact content identity or byte-integrity hashing;
-- artifact generator and real-Run adoption; and
-- Research Explorer display or image-to-Prompt conversion.
+Deferred items include a safe YAML loader, Semantic Validator, reserved Error
+emission, estimation/generation tools, image binding, real-Run adoption,
+multi-subject metadata, and Research Explorer display.
