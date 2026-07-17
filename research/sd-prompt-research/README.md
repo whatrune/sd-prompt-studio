@@ -98,6 +98,16 @@ Index検証:
 
 起動方法、API、Fingerprint、Security境界は[`docs/research-explorer-companion-service.md`](docs/research-explorer-companion-service.md)を参照してください。
 
+正式化済みRunをLedgerへ登録し、Run/Observation Relationshipを含むDerived Indexを再生成・検証する最小経路:
+
+```powershell
+.venv\Scripts\python.exe scripts\register_research_run.py `
+  --run-dir experiments\bridge\BRG-010-A `
+  --index-output tmp\research-explorer-index.json
+```
+
+この処理はClaim、Evidence、Human Resolution、Finalizeを生成しません。詳細は[`docs/research-run-ingestion.md`](docs/research-run-ingestion.md)を参照してください。
+
 ## セットアップ
 
 Windows PowerShell例:

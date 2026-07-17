@@ -159,6 +159,12 @@ Display Status is a Read Model value. The browser does not calculate it.
 Assertion ID equality alone does not establish Finalize success.
 Research Explorer does not rerun Finalize, replace Validator behavior, or repair a Receipt. It only derives a display relationship from existing Pipeline contracts and current read-only Artifact snapshots.
 
+For a Run directory containing both a matching `manifest.yaml` and
+`observation.json`, the Derived Index adds one mechanical `observation_of`
+relationship from the Observation Artifact to the Run Artifact. The
+relationship is created only when both parsed Artifacts share the same `run_id`
+and canonical Run directory. It is not a research interpretation.
+
 ## Security boundary
 
 The implementation enforces:

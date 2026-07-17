@@ -49,6 +49,13 @@ FINGERPRINT_ALGORITHM = "sha256_raw_bytes"
 SESSION_COOKIE = "sdps_research_session"
 SESSION_MAX_AGE = 3600
 SNAPSHOT_HEADER = "X-Research-Index-Snapshot"
+RESEARCH_ARTIFACT_MEDIA_TYPES = {
+    ".json": "application/json",
+    ".md": "text/markdown",
+    ".pdf": "application/pdf",
+    ".yaml": "application/yaml",
+    ".yml": "application/yaml",
+}
 DEFAULT_DISCOVERY_ROOTS = (
     "experiments",
     "ledgers/run-index.yaml",
@@ -338,6 +345,43 @@ def _collect_relationships(value: Any) -> list[dict[str, str]]:
     return [unique[key] for key in sorted(unique)]
 
 
+def _apply_run_observation_relationships(artifacts: list[dict[str, Any]]) -> None:
+    """Bind an Observation to the manifest in the same Run directory.
+
+    This is a mechanical read-model relationship. It does not infer an
+    Experiment, compare conditions, or interpret any Observation value.
+    """
+
+    runs_by_directory: dict[str, dict[str, Any]] = {}
+    for artifact in artifacts:
+        if artifact["artifact_type"] != "run" or not artifact.get("entity_id"):
+            continue
+        directory = PurePosixPath(artifact["source_path"]).parent.as_posix()
+        runs_by_directory[directory] = artifact
+
+    for observation in artifacts:
+        if observation.get("artifact_type") != "observation":
+            continue
+        directory = PurePosixPath(observation["source_path"]).parent.as_posix()
+        run = runs_by_directory.get(directory)
+        if run is None or observation.get("entity_id") != run.get("entity_id"):
+            continue
+        edge = {
+            "relation": "observation_of",
+            "target_entity_id": str(run["entity_id"]),
+            "target_artifact_id": str(run["artifact_id"]),
+        }
+        if edge not in observation["relationships"]:
+            observation["relationships"].append(edge)
+            observation["relationships"].sort(
+                key=lambda item: (
+                    item["relation"],
+                    item["target_entity_id"],
+                    item.get("target_artifact_id", ""),
+                )
+            )
+
+
 def _iter_candidate_paths(project_root: Path, roots: Iterable[str]) -> tuple[list[Path], list[dict[str, str]]]:
     files: list[Path] = []
     diagnostics: list[dict[str, str]] = []
@@ -613,7 +657,10 @@ def build_research_index(
             "artifact_type": artifact_type,
             "source_path": relative,
             "display_name": entity_id or path.name,
-            "media_type": mimetypes.guess_type(path.name)[0] or "application/octet-stream",
+            "media_type": RESEARCH_ARTIFACT_MEDIA_TYPES.get(
+                path.suffix.lower(),
+                mimetypes.guess_type(path.name)[0] or "application/octet-stream",
+            ),
             "byte_size": secure_read.byte_size,
             "display_status": _display_status(artifact_type, data, parse_error),
             "source_freshness_fingerprint": secure_read.fingerprint,
@@ -635,6 +682,7 @@ def build_research_index(
         elif parse_error:
             diagnostics.append({"code": "ARTIFACT_PARSE_FAILED", "path": relative})
 
+    _apply_run_observation_relationships(artifacts)
     _apply_finalize_relationships(
         root, artifacts, parsed_by_path, valid_receipt_paths, diagnostics
     )
