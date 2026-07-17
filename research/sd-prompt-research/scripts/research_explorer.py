@@ -771,7 +771,14 @@ class ResearchExplorerHandler(BaseHTTPRequestHandler):
         artifact = self.state.artifacts.get(artifact_id)
         if artifact is None:
             raise ResearchExplorerError("ARTIFACT_NOT_FOUND", "Unknown artifact ID", status=404)
-        secure_read = secure_read_project_file(self.state.project_root, artifact["source_path"])
+        try:
+            secure_read = secure_read_project_file(self.state.project_root, artifact["source_path"])
+        except ResearchExplorerError as exc:
+            if exc.code == "ARTIFACT_CHANGED_DURING_READ":
+                raise ResearchExplorerError(
+                    "ARTIFACT_STALE", "Source changed during secure read", status=409
+                ) from exc
+            raise
         if (
             secure_read.fingerprint != artifact["source_freshness_fingerprint"]
             or secure_read.byte_size != artifact["byte_size"]

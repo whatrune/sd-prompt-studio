@@ -79,7 +79,7 @@ Returns the exact Artifact bytes only when:
 - a single Secure Read keeps the opened file within Research Project Root; and
 - the byte size and Source Freshness Fingerprint derived from the response bytes match the index.
 
-Mismatch returns HTTP 409 with `INDEX_SNAPSHOT_MISMATCH` or `ARTIFACT_STALE`. Stale content is not returned.
+Mismatch returns HTTP 409 with `INDEX_SNAPSHOT_MISMATCH` or `ARTIFACT_STALE`. A file-identity change detected during the Secure Read is exposed at the Artifact API boundary as `ARTIFACT_STALE`. Stale content is not returned.
 
 The API does not accept raw filesystem paths. `POST`, `PUT`, `PATCH`, `DELETE`, and `OPTIONS` return `READ_ONLY_API` with HTTP 405.
 

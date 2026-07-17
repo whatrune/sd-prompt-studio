@@ -525,6 +525,52 @@ class ResearchExplorerHTTPTests(ResearchExplorerTestCase):
         self.assertEqual(status, 409)
         self.assertEqual(json.loads(body)["error"]["code"], "ARTIFACT_STALE")
 
+    def test_artifact_change_during_secure_read_is_reported_as_stale(self) -> None:
+        cookie = self.session_cookie()
+        artifact = next(
+            item for item in self.server.state.index["artifacts"] if item["artifact_type"] == "run"
+        )
+        changed = explorer.ResearchExplorerError(
+            "ARTIFACT_CHANGED_DURING_READ", "changed while reading", status=409
+        )
+        with patch.object(explorer, "secure_read_project_file", side_effect=changed):
+            status, _, body = self.request(
+                "GET",
+                f"/api/research/artifacts/{artifact['artifact_id']}",
+                headers={
+                    "Cookie": cookie,
+                    explorer.SNAPSHOT_HEADER: self.server.state.index["index_snapshot_id"],
+                },
+            )
+        self.assertEqual(status, 409)
+        self.assertEqual(json.loads(body)["error"]["code"], "ARTIFACT_STALE")
+
+    def test_artifact_read_rejects_symlink_swap_outside_project_root(self) -> None:
+        cookie = self.session_cookie()
+        artifact = next(
+            item for item in self.server.state.index["artifacts"] if item["artifact_type"] == "run"
+        )
+        manifest = self.manifest()
+        outside = Path(self.temp_dir.name) / "outside-manifest.yaml"
+        outside.write_text("secret: true\n", encoding="utf-8")
+        manifest.unlink()
+        try:
+            os.symlink(outside, manifest)
+        except OSError as exc:
+            if os.name == "nt":
+                self.skipTest(f"Windows symlink permission unavailable: {exc}")
+            raise
+        status, _, body = self.request(
+            "GET",
+            f"/api/research/artifacts/{artifact['artifact_id']}",
+            headers={
+                "Cookie": cookie,
+                explorer.SNAPSHOT_HEADER: self.server.state.index["index_snapshot_id"],
+            },
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body)["error"]["code"], "ARTIFACT_PATH_INVALID")
+
     def test_raw_path_api_is_not_exposed(self) -> None:
         cookie = self.session_cookie()
         status, _, body = self.request(
