@@ -2,6 +2,8 @@
 
 Stable Diffusion用の単純なPrompt Generatorではなく、Visual Concept Compilerを研究するためのローカル運用基盤です。
 
+Prompt Provenance FoundationのNormative Contractは、[Prompt Provenance Foundation Freeze Specification](docs/specifications/contracts/prompt-provenance-foundation-freeze.md)を参照してください。PR81はSchemaとStructural Testのみを提供し、Prompt Provenance Artifact生成やSemantic Validationはまだ提供しません。
+
 ## 担当
 
 ### わたるん

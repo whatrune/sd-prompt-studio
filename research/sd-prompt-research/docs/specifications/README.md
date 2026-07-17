@@ -35,6 +35,7 @@ directories are not added to Git.
 ## Current specifications
 
 - [Observation-to-Claim Draft Pipeline Freeze Specification](pipelines/observation-to-claim-draft-pipeline-freeze.md)
+- [Prompt Provenance Foundation Freeze Specification](contracts/prompt-provenance-foundation-freeze.md)
 
 Existing documents directly under `docs/` remain in place. Moving them into
 this hierarchy is outside the scope of the initial specifications PR and must
