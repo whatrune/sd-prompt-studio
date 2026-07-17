@@ -16,7 +16,6 @@ const forbiddenBundlePatterns = [
   /inbox[\\/]claim-drafts/i,
   /knowledge[\\/]assertions/i,
   /experiments[\\/]bridge[\\/]BRG-/i,
-  /\/api\/research\//i,
   /https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])/i,
 ]
 const forbiddenArtifactNames = new Set([
@@ -53,6 +52,27 @@ function inspectText(file, patterns, label, failures) {
   }
 }
 
+function collectResearchArtifactTokens(root) {
+  const researchRoot = path.join(root, 'research', 'sd-prompt-research')
+  const artifactRoots = ['experiments', 'inbox', path.join('knowledge', 'assertions')]
+  const tokenPatterns = [
+    /\bBRG-[0-9]{3}(?:-[A-Z])?\b/g,
+    /\b(?:assertion|candidate|draft|evidence)\.[a-z0-9][a-z0-9._-]{8,}\b/g,
+    /\b[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/g,
+  ]
+  const tokens = new Set()
+  for (const artifactRoot of artifactRoots) {
+    for (const file of walk(path.join(researchRoot, artifactRoot))) {
+      if (!textExtensions.has(path.extname(file).toLowerCase()) && !/\.ya?ml$/i.test(file)) continue
+      const contents = fs.readFileSync(file, 'utf8')
+      for (const pattern of tokenPatterns) {
+        for (const match of contents.matchAll(pattern)) tokens.add(match[0])
+      }
+    }
+  }
+  return [...tokens].sort()
+}
+
 const failures = []
 
 for (const root of sourceRoots) {
@@ -71,10 +91,18 @@ if (distFlag !== -1) {
     failures.push('--dist requires a directory')
   } else {
     const distRoot = path.resolve(repoRoot, supplied)
+    const researchArtifactTokens = collectResearchArtifactTokens(repoRoot)
     for (const file of walk(distRoot)) {
       inspectText(file, forbiddenBundlePatterns, 'public bundle contains live Research path', failures)
       if (forbiddenArtifactNames.has(path.basename(file))) {
         failures.push(`public bundle contains Research Artifact: ${relative(file)}`)
+      }
+      if (!textExtensions.has(path.extname(file).toLowerCase())) continue
+      const contents = fs.readFileSync(file, 'utf8')
+      for (const token of researchArtifactTokens) {
+        if (contents.includes(token)) {
+          failures.push(`public bundle contains Research Artifact identity: ${relative(file)} contains ${token}`)
+        }
       }
     }
   }

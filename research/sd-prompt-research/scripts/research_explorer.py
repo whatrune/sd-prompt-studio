@@ -13,6 +13,7 @@ import http.cookies
 import ipaddress
 import json
 import mimetypes
+import os
 import re
 import secrets
 import socket
@@ -28,7 +29,18 @@ from urllib.parse import unquote, urlsplit
 import yaml
 from jsonschema import Draft202012Validator
 
-from validate_research_claims import normalized_text_file_sha256_v1
+from claim_draft_pipeline import (
+    PipelineError,
+    _artifact_hash as pipeline_artifact_hash,
+    canonical_assertion_bytes,
+    validate_artifact,
+)
+from validate_research_claims import (
+    UniqueKeyLoader,
+    assertion_payload,
+    content_hash,
+    normalized_text_file_sha256_v1,
+)
 
 
 INDEX_SCHEMA_VERSION = "0.1.0"
@@ -69,6 +81,16 @@ class ResearchExplorerError(RuntimeError):
         return {"code": self.code, "message": self.message}
 
 
+@dataclass(frozen=True)
+class SecureReadResult:
+    """A single-open, root-contained snapshot of a Research Artifact."""
+
+    resolved_path: Path
+    data: bytes
+    byte_size: int
+    fingerprint: dict[str, str]
+
+
 def utc_now_text() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
@@ -99,6 +121,10 @@ def source_freshness_fingerprint_bytes(data: bytes) -> dict[str, str]:
         "algorithm": FINGERPRINT_ALGORITHM,
         "value": value,
     }
+
+
+def _file_identity(value: os.stat_result) -> tuple[int, int, int, int]:
+    return (value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns)
 
 
 def _is_relative_to(path: Path, root: Path) -> bool:
@@ -133,6 +159,42 @@ def resolve_project_path(project_root: Path, stored_path: str, *, must_exist: bo
     return resolved
 
 
+def secure_read_project_file(project_root: Path, stored_path: str) -> SecureReadResult:
+    """Read one contained file once and derive size/fingerprint from those exact bytes."""
+
+    resolved = resolve_project_path(project_root, stored_path)
+    try:
+        with resolved.open("rb") as stream:
+            before = os.fstat(stream.fileno())
+            data = stream.read()
+            after = os.fstat(stream.fileno())
+    except OSError as exc:
+        raise ResearchExplorerError(
+            "ARTIFACT_READ_FAILED", f"Artifact cannot be read: {stored_path}", status=409
+        ) from exc
+    if _file_identity(before) != _file_identity(after) or after.st_size != len(data):
+        raise ResearchExplorerError(
+            "ARTIFACT_CHANGED_DURING_READ", f"Artifact changed while being read: {stored_path}", status=409
+        )
+    try:
+        post_resolved = resolve_project_path(project_root, stored_path)
+        post_stat = post_resolved.stat()
+    except (OSError, ResearchExplorerError) as exc:
+        raise ResearchExplorerError(
+            "ARTIFACT_CHANGED_DURING_READ", f"Artifact path changed while being read: {stored_path}", status=409
+        ) from exc
+    if post_resolved != resolved or _file_identity(post_stat) != _file_identity(after):
+        raise ResearchExplorerError(
+            "ARTIFACT_CHANGED_DURING_READ", f"Artifact identity changed while being read: {stored_path}", status=409
+        )
+    return SecureReadResult(
+        resolved_path=resolved,
+        data=data,
+        byte_size=len(data),
+        fingerprint=source_freshness_fingerprint_bytes(data),
+    )
+
+
 def validate_loopback_host(host: str) -> None:
     """Reject wildcard or non-loopback bind targets."""
 
@@ -144,13 +206,13 @@ def validate_loopback_host(host: str) -> None:
         raise ResearchExplorerError("BIND_HOST_NOT_LOOPBACK", f"Bind host is not loopback-only: {host}")
 
 
-def _load_structured(path: Path) -> tuple[Any | None, str | None]:
+def _load_structured(path: Path, payload: bytes) -> tuple[Any | None, str | None]:
     try:
         if path.suffix.lower() == ".json":
-            return json.loads(path.read_text(encoding="utf-8")), None
+            return json.loads(payload.decode("utf-8-sig")), None
         if path.suffix.lower() in {".yaml", ".yml"}:
-            return yaml.safe_load(path.read_text(encoding="utf-8")), None
-    except (UnicodeDecodeError, json.JSONDecodeError, yaml.YAMLError) as exc:
+            return yaml.load(payload.decode("utf-8-sig"), Loader=UniqueKeyLoader), None
+    except (UnicodeDecodeError, ValueError, json.JSONDecodeError, yaml.YAMLError) as exc:
         return None, str(exc)
     return None, None
 
@@ -317,10 +379,160 @@ def _iter_candidate_paths(project_root: Path, roots: Iterable[str]) -> tuple[lis
     )
 
 
+def _index_diagnostic(code: str, artifact: Mapping[str, Any]) -> dict[str, str]:
+    source_path = str(artifact["source_path"])
+    return {
+        "code": code,
+        "path": source_path,
+        "artifact_id": str(artifact["artifact_id"]),
+        "source_path": source_path,
+    }
+
+
+def _normalized_artifact_hash(value: Any, payload: bytes) -> str:
+    return str(
+        pipeline_artifact_hash("normalized_text_file_sha256_v1", value, payload)["value"]
+    )
+
+
+def _assertion_content_hash_from_candidate(
+    canonical: Mapping[str, Any],
+    canonical_source: str,
+    parsed_by_path: Mapping[str, Any],
+) -> str:
+    evidence: dict[str, dict[str, Any]] = {}
+    for source_path, document in sorted(parsed_by_path.items()):
+        if source_path == canonical_source or not source_path.startswith("knowledge/assertions/"):
+            continue
+        if not isinstance(document, Mapping):
+            continue
+        for fact in document.get("evidence_refs", []):
+            if not isinstance(fact, Mapping) or not isinstance(fact.get("evidence_ref_id"), str):
+                raise ValueError("Canonical Evidence entry is invalid")
+            evidence_id = str(fact["evidence_ref_id"])
+            if evidence_id in evidence:
+                raise ValueError(f"Duplicate Canonical Evidence ID: {evidence_id}")
+            evidence[evidence_id] = dict(fact)
+    for fact in canonical.get("evidence_refs", []):
+        if not isinstance(fact, Mapping) or not isinstance(fact.get("evidence_ref_id"), str):
+            raise ValueError("Candidate Evidence entry is invalid")
+        evidence_id = str(fact["evidence_ref_id"])
+        if evidence_id in evidence:
+            raise ValueError(f"Duplicate Candidate Evidence ID: {evidence_id}")
+        evidence[evidence_id] = dict(fact)
+    assertions = canonical.get("assertions", [])
+    if not isinstance(assertions, list) or len(assertions) != 1 or not isinstance(assertions[0], Mapping):
+        raise ValueError("Candidate must contain exactly one Assertion")
+    return content_hash(assertion_payload(assertions[0], evidence))
+
+
+def _finalize_binding_is_valid(
+    project_root: Path,
+    receipt: Mapping[str, Any],
+    by_entity: Mapping[str, list[dict[str, Any]]],
+    artifacts_by_path: Mapping[str, dict[str, Any]],
+    parsed_by_path: Mapping[str, Any],
+) -> tuple[dict[str, Any], str] | tuple[None, str]:
+    ids = receipt.get("related_artifact_ids")
+    hashes = receipt.get("related_artifact_hashes")
+    payload = receipt.get("payload")
+    if not isinstance(ids, Mapping) or not isinstance(hashes, Mapping) or not isinstance(payload, Mapping):
+        return None, "FINALIZE_BINDING_INVALID"
+    candidate_id = ids.get("claim_candidate")
+    assertion_id = ids.get("canonical_assertion")
+    destination = payload.get("destination_path")
+    identity = payload.get("candidate_identity")
+    if not all(isinstance(item, str) and item for item in (candidate_id, assertion_id, destination)):
+        return None, "FINALIZE_BINDING_INVALID"
+    if not isinstance(identity, Mapping) or identity.get("status") != "available":
+        return None, "FINALIZE_BINDING_INVALID"
+    candidates = [item for item in by_entity.get(str(candidate_id), []) if item["artifact_type"] == "candidate"]
+    if len(candidates) != 1:
+        return None, "FINALIZE_BINDING_INVALID"
+    candidate_artifact = candidates[0]
+    wrapper = parsed_by_path.get(candidate_artifact["source_path"])
+    if not isinstance(wrapper, Mapping):
+        return None, "FINALIZE_BINDING_INVALID"
+    try:
+        validate_artifact(project_root, "observation-to-claim-candidate.schema.json", wrapper)
+    except PipelineError:
+        return None, "FINALIZE_BINDING_INVALID"
+
+    identity_fields = (
+        "candidate_id",
+        "candidate_id_projection_version",
+        "candidate_id_projection_hash",
+        "candidate_schema_version",
+        "generator_version",
+    )
+    if any(identity.get(field) != wrapper.get(field) for field in identity_fields):
+        return None, "FINALIZE_BINDING_INVALID"
+    if wrapper.get("candidate_id") != candidate_id:
+        return None, "FINALIZE_BINDING_INVALID"
+    canonical = wrapper.get("canonical_assertion")
+    if not isinstance(canonical, Mapping):
+        return None, "FINALIZE_BINDING_INVALID"
+    assertions = canonical.get("assertions")
+    if (
+        not isinstance(assertions, list)
+        or len(assertions) != 1
+        or not isinstance(assertions[0], Mapping)
+        or assertions[0].get("assertion_id") != assertion_id
+    ):
+        return None, "FINALIZE_BINDING_INVALID"
+
+    claim_hash = hashes.get("claim_candidate")
+    canonical_hash = hashes.get("canonical_assertion")
+    if not all(
+        isinstance(record, Mapping)
+        and record.get("algorithm") == "normalized_text_file_sha256_v1"
+        and isinstance(record.get("value"), str)
+        and HASH_RE.fullmatch(str(record["value"]))
+        for record in (claim_hash, canonical_hash)
+    ):
+        return None, "RECEIPT_HASH_MISMATCH"
+    if (
+        identity.get("candidate_wrapper_artifact_hash_v1") != claim_hash["value"]
+        or identity.get("canonical_assertion_artifact_hash_v1") != canonical_hash["value"]
+    ):
+        return None, "RECEIPT_HASH_MISMATCH"
+
+    try:
+        candidate_read = secure_read_project_file(project_root, candidate_artifact["source_path"])
+        canonical_payload = canonical_assertion_bytes(canonical)
+        canonical_source = PurePosixPath(str(destination).replace("\\", "/")).as_posix()
+        canonical_read = secure_read_project_file(project_root, canonical_source)
+        canonical_document = parsed_by_path.get(canonical_source)
+        validate_artifact(project_root, "research-claim-assertion.schema.json", canonical_document)
+        actual_candidate_hash = _normalized_artifact_hash(wrapper, candidate_read.data)
+        actual_canonical_hash = _normalized_artifact_hash(canonical, canonical_payload)
+        actual_assertion_hash = _assertion_content_hash_from_candidate(
+            canonical, canonical_source, parsed_by_path
+        )
+    except (PipelineError, ResearchExplorerError, TypeError, ValueError, KeyError):
+        return None, "FINALIZE_BINDING_INVALID"
+    if canonical_read.data != canonical_payload or canonical_document != canonical:
+        return None, "FINALIZE_BINDING_INVALID"
+    if (
+        actual_candidate_hash != identity.get("candidate_wrapper_artifact_hash_v1")
+        or actual_canonical_hash != identity.get("canonical_assertion_artifact_hash_v1")
+        or actual_assertion_hash != identity.get("assertion_content_v1_hash")
+    ):
+        return None, "FINALIZE_BINDING_INVALID"
+    if actual_candidate_hash != claim_hash["value"] or actual_canonical_hash != canonical_hash["value"]:
+        return None, "FINALIZE_BINDING_INVALID"
+    canonical_artifact = artifacts_by_path.get(canonical_source)
+    if canonical_artifact is None:
+        return None, "FINALIZE_BINDING_INVALID"
+    return canonical_artifact, ""
+
+
 def _apply_finalize_relationships(
     project_root: Path,
     artifacts: list[dict[str, Any]],
     parsed_by_path: Mapping[str, Any],
+    valid_receipt_paths: set[str],
+    diagnostics: list[dict[str, str]],
 ) -> None:
     by_entity: dict[str, list[dict[str, Any]]] = {}
     for artifact in artifacts:
@@ -328,42 +540,25 @@ def _apply_finalize_relationships(
         if isinstance(entity_id, str):
             by_entity.setdefault(entity_id, []).append(artifact)
 
+    artifacts_by_path = {item["source_path"]: item for item in artifacts}
     for receipt in artifacts:
         if receipt["artifact_type"] != "receipt":
+            continue
+        if receipt["source_path"] not in valid_receipt_paths:
             continue
         data = parsed_by_path.get(receipt["source_path"])
         if not isinstance(data, Mapping):
             continue
         if data.get("receipt_type") != "finalize_attempt" or data.get("result") != "succeeded":
             continue
-        ids = data.get("related_artifact_ids")
-        hashes = data.get("related_artifact_hashes")
-        payload = data.get("payload")
-        if not isinstance(ids, Mapping) or not isinstance(hashes, Mapping) or not isinstance(payload, Mapping):
-            continue
-        candidate_id = ids.get("claim_candidate")
-        assertion_id = ids.get("canonical_assertion")
-        hash_record = hashes.get("canonical_assertion")
-        destination = payload.get("destination_path")
-        if not all(isinstance(item, str) and item for item in (candidate_id, assertion_id, destination)):
-            continue
-        if not isinstance(hash_record, Mapping) or hash_record.get("algorithm") != "normalized_text_file_sha256_v1":
-            continue
-        expected_hash = hash_record.get("value")
-        if not isinstance(expected_hash, str) or not HASH_RE.fullmatch(expected_hash):
-            continue
-        try:
-            canonical_path = resolve_project_path(project_root, destination)
-        except ResearchExplorerError:
-            continue
-        if normalized_text_file_sha256_v1(canonical_path) != expected_hash:
-            continue
-        canonical_source = canonical_path.relative_to(project_root.resolve()).as_posix()
-        canonical_artifact = next(
-            (item for item in artifacts if item["source_path"] == canonical_source), None
+        canonical_artifact, error_code = _finalize_binding_is_valid(
+            project_root, data, by_entity, artifacts_by_path, parsed_by_path
         )
         if canonical_artifact is None:
+            diagnostics.append(_index_diagnostic(error_code, receipt))
             continue
+        candidate_id = data["related_artifact_ids"]["claim_candidate"]
+        assertion_id = data["related_artifact_ids"]["canonical_assertion"]
         for candidate in by_entity.get(candidate_id, []):
             candidate["display_status"] = {
                 "value": "finalized",
@@ -394,11 +589,17 @@ def build_research_index(
     files, diagnostics = _iter_candidate_paths(root, discovery_roots)
     artifacts: list[dict[str, Any]] = []
     parsed_by_path: dict[str, Any] = {}
+    valid_receipt_paths: set[str] = set()
     seen_ids: set[str] = set()
 
     for path in files:
         relative = path.relative_to(root).as_posix()
-        data, parse_error = _load_structured(path)
+        try:
+            secure_read = secure_read_project_file(root, relative)
+        except ResearchExplorerError as exc:
+            diagnostics.append({"code": exc.code, "path": relative})
+            continue
+        data, parse_error = _load_structured(path, secure_read.data)
         if data is not None:
             parsed_by_path[relative] = data
         artifact_type = _artifact_type(path, root)
@@ -413,19 +614,30 @@ def build_research_index(
             "source_path": relative,
             "display_name": entity_id or path.name,
             "media_type": mimetypes.guess_type(path.name)[0] or "application/octet-stream",
-            "byte_size": path.stat().st_size,
+            "byte_size": secure_read.byte_size,
             "display_status": _display_status(artifact_type, data, parse_error),
-            "source_freshness_fingerprint": source_freshness_fingerprint(path),
+            "source_freshness_fingerprint": secure_read.fingerprint,
             "research_audit_hashes": _collect_research_hashes(data),
             "relationships": _collect_relationships(data),
         }
         if entity_id:
             artifact["entity_id"] = entity_id
         artifacts.append(artifact)
-        if parse_error:
+        if artifact_type == "receipt":
+            try:
+                if parse_error or not isinstance(data, Mapping):
+                    raise PipelineError("ARTIFACT_SCHEMA_INVALID", parse_error or "Receipt root is invalid")
+                validate_artifact(root, "observation-to-claim-receipt.schema.json", data)
+                valid_receipt_paths.add(relative)
+            except PipelineError:
+                artifact["display_status"] = {"value": "failed", "source": "receipt_schema_invalid"}
+                diagnostics.append(_index_diagnostic("RECEIPT_INVALID", artifact))
+        elif parse_error:
             diagnostics.append({"code": "ARTIFACT_PARSE_FAILED", "path": relative})
 
-    _apply_finalize_relationships(root, artifacts, parsed_by_path)
+    _apply_finalize_relationships(
+        root, artifacts, parsed_by_path, valid_receipt_paths, diagnostics
+    )
     artifacts.sort(key=lambda item: item["artifact_id"])
     snapshot_projection = [
         {
@@ -559,18 +771,20 @@ class ResearchExplorerHandler(BaseHTTPRequestHandler):
         artifact = self.state.artifacts.get(artifact_id)
         if artifact is None:
             raise ResearchExplorerError("ARTIFACT_NOT_FOUND", "Unknown artifact ID", status=404)
-        path = resolve_project_path(self.state.project_root, artifact["source_path"])
-        data = path.read_bytes()
-        current = source_freshness_fingerprint_bytes(data)
-        if current != artifact["source_freshness_fingerprint"]:
+        secure_read = secure_read_project_file(self.state.project_root, artifact["source_path"])
+        if (
+            secure_read.fingerprint != artifact["source_freshness_fingerprint"]
+            or secure_read.byte_size != artifact["byte_size"]
+        ):
             raise ResearchExplorerError(
                 "ARTIFACT_STALE", "Source Freshness Fingerprint changed", status=409
             )
+        data = secure_read.data
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", artifact["media_type"])
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
-        self.send_header("ETag", f'"{current["value"]}"')
+        self.send_header("ETag", f'"{secure_read.fingerprint["value"]}"')
         self.send_header("X-Research-Artifact-Id", artifact_id)
         self.send_header(SNAPSHOT_HEADER, actual_snapshot)
         self.send_header("X-Content-Type-Options", "nosniff")

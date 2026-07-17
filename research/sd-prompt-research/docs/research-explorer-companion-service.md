@@ -76,8 +76,8 @@ Returns the exact Artifact bytes only when:
 - the session cookie is valid;
 - the `X-Research-Index-Snapshot` request header matches the current index;
 - the opaque Artifact ID exists in the index;
-- the path still resolves within Research Project Root; and
-- the current Source Freshness Fingerprint matches the indexed value.
+- a single Secure Read keeps the opened file within Research Project Root; and
+- the byte size and Source Freshness Fingerprint derived from the response bytes match the index.
 
 Mismatch returns HTTP 409 with `INDEX_SNAPSHOT_MISMATCH` or `ARTIFACT_STALE`. Stale content is not returned.
 
@@ -89,10 +89,13 @@ The API does not accept raw filesystem paths. `POST`, `PUT`, `PATCH`, `DELETE`, 
 
 Algorithm:
 
-1. Read the exact source bytes.
-2. Apply no text, newline, Unicode, YAML, or JSON normalization.
-3. Calculate SHA-256.
-4. Store lowercase hexadecimal as the fingerprint value.
+1. Resolve and open a Research Project Root-contained file through the shared Secure Read helper.
+2. Read the exact source bytes once.
+3. Apply no text, newline, Unicode, YAML, or JSON normalization.
+4. Calculate SHA-256 and byte size from those same bytes.
+5. Store lowercase hexadecimal as the fingerprint value.
+
+Index generation and Artifact responses use the same Secure Read helper. It checks path containment and symlink escape, opens one file, detects file-identity changes during the read, and derives response body, size, and fingerprint from one byte snapshot. The service does not validate one path and then reopen a different path for the response.
 
 It is used only for stale detection and cache/snapshot identity. It must not be used for Semantic Equality, Claim decisions, Evidence identity, Review, Approval, Promotion, or as a replacement for an existing Pipeline Hash.
 
@@ -110,9 +113,12 @@ Display Status is a Read Model value. The browser does not calculate it.
 - Presence-based Artifact types receive their documented discovery state.
 - Receipt status comes from the existing `receipt.result` value.
 - Validator status comes from existing Validator result fields.
-- A Candidate is marked `finalized` only when a successful `finalize_attempt` Receipt identifies the Candidate and Canonical Assertion, and the current Canonical file matches the Receipt's existing `normalized_text_file_sha256_v1` binding.
+- Every Receipt is validated against `observation-to-claim-receipt.schema.json`. Invalid Receipts remain visible as failed Artifacts and add `RECEIPT_INVALID` to index diagnostics.
+- A Candidate is marked `finalized` only when a schema-valid, successful `finalize_attempt` Receipt identifies the Candidate and Canonical Assertion; Candidate identity fields match the wrapper; the wrapper and Canonical YAML artifact hashes match; and the recomputed `assertion_content_v1_hash` matches the Receipt binding.
+- `RECEIPT_HASH_MISMATCH` records an internally inconsistent Receipt hash binding. `FINALIZE_BINDING_INVALID` records a mismatch between the Receipt and current Candidate or Canonical Artifact.
 
 Assertion ID equality alone does not establish Finalize success.
+Research Explorer does not rerun Finalize, replace Validator behavior, or repair a Receipt. It only derives a display relationship from existing Pipeline contracts and current read-only Artifact snapshots.
 
 ## Security boundary
 
@@ -135,13 +141,16 @@ The token is generated in memory for each service process and is not written to 
 
 ## Public Preview boundary
 
-Cloudflare Pages and GitHub Pages remain public fixture-only environments. They must not connect to the Local Companion Service or contain real Research Artifacts.
+Cloudflare Pages and GitHub Pages remain public fixture-only environments. They must not activate a Local Companion connection or contain real Research Artifacts. Local Research Mode is served by the Local Companion Service and may use the same-origin `/api/research/*` client contract.
 
 `pnpm run validate:research-boundaries` rejects:
 
 - Frontend source imports from `research/sd-prompt-research`;
 - known Research Artifact filenames in `public/`;
-- live Repository, inbox, Claim, Run, localhost, or `/api/research/` paths in the built public bundle.
+- live Repository, inbox, Claim, Run, or localhost paths in the built public bundle; and
+- concrete IDs extracted from current Run, Draft, Candidate, Evidence, Receipt, and Assertion Artifacts.
+
+The guard intentionally allows inert Local Research Mode API client code such as `/api/research/index`. This separates legitimate same-origin transport code from real Artifact content. Public Preview remains fixture-only; runtime activation of Research Mode belongs only to the Local Companion origin.
 
 `pnpm run build` runs this validation before and after the Vite build.
 

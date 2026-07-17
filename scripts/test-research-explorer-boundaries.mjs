@@ -56,12 +56,36 @@ try {
   fs.rmSync(publicArtifact, { recursive: true, force: true })
 }
 
+const localApiClient = fixture()
+try {
+  fs.writeFileSync(path.join(localApiClient, 'dist', 'app.js'), "fetch('/api/research/index')")
+  const result = validate(localApiClient)
+  assert.equal(result.status, 0, 'Local Research Mode API client code should be allowed')
+} finally {
+  fs.rmSync(localApiClient, { recursive: true, force: true })
+}
+
 const bundleLeak = fixture()
 try {
-  fs.writeFileSync(path.join(bundleLeak, 'dist', 'app.js'), "fetch('/api/research/index')")
+  const artifactDir = path.join(
+    bundleLeak,
+    'research',
+    'sd-prompt-research',
+    'knowledge',
+    'assertions',
+  )
+  fs.mkdirSync(artifactDir, { recursive: true })
+  fs.writeFileSync(
+    path.join(artifactDir, 'fixture.yaml'),
+    'assertions:\n  - assertion_id: assertion.private.fixture.001\n',
+  )
+  fs.writeFileSync(
+    path.join(bundleLeak, 'dist', 'app.js'),
+    'const leaked = "assertion.private.fixture.001"',
+  )
   const result = validate(bundleLeak)
   assert.equal(result.status, 1)
-  assert.match(result.stderr, /public bundle contains live Research path/)
+  assert.match(result.stderr, /public bundle contains Research Artifact identity/)
 } finally {
   fs.rmSync(bundleLeak, { recursive: true, force: true })
 }

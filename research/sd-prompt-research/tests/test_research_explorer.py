@@ -4,11 +4,13 @@ import http.client
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import threading
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import yaml
 
@@ -17,18 +19,15 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import research_explorer as explorer  # noqa: E402
+import claim_draft_pipeline as pipeline  # noqa: E402
 
 
 class ResearchExplorerTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.project = Path(self.temp_dir.name) / "research-project"
-        self.project.mkdir()
-        (self.project / "schemas").mkdir()
-        shutil.copy2(
-            ROOT / "schemas" / "research-explorer-index.schema.json",
-            self.project / "schemas" / "research-explorer-index.schema.json",
-        )
+        self.project = Path(self.temp_dir.name) / "research" / "sd-prompt-research"
+        self.project.mkdir(parents=True)
+        shutil.copytree(ROOT / "schemas", self.project / "schemas")
         self.frontend = Path(self.temp_dir.name) / "frontend"
         self.frontend.mkdir()
         (self.frontend / "index.html").write_text("<!doctype html><title>fixture</title>\n", encoding="utf-8")
@@ -58,6 +57,130 @@ class ResearchExplorerTestCase(unittest.TestCase):
             {"run_id": "BRG-TEST-A", "prompt": "fixture prompt"},
         )
 
+    @staticmethod
+    def successful_validator_process() -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "validation_completed": True,
+                    "passed": True,
+                    "valid": True,
+                    "exit_code": 0,
+                    "error_count": 0,
+                    "infrastructure_error_count": 0,
+                    "errors": [],
+                    "infrastructure_errors": [],
+                }
+            ),
+            stderr="",
+        )
+
+    def _resolution_for(self, result: pipeline.GenerationResult) -> dict:
+        evidence = next(
+            item
+            for item in result.draft["staged_evidence"]
+            if item["canonical_fact"]["metric"].endswith("primary_morphology_counts.lying_arch")
+        )
+        return {
+            "human_resolution_schema_version": "0.1.0",
+            "resolution_id": pipeline.uuid7_text(),
+            "source_draft_id": result.draft_id,
+            "source_draft_identity_hash": result.draft["draft_input_identity_hash"],
+            "selected_assertion_id": "assertion.brg009.lying_arch.explorer.001",
+            "selected_subject": {
+                "kind": "phrase_surface",
+                "phrase": "lying arch",
+                "locale": "en",
+                "normalized_phrase": "lying arch",
+            },
+            "selected_claim_statement": {
+                "statement": "In the BRG-009-A context, lying arch morphology was observed."
+            },
+            "selected_evidence_bindings": [
+                {
+                    "evidence_ref_id": evidence["evidence_id"],
+                    "evidence_role": "supports",
+                    "applies_to": "assertion.brg009.lying_arch.explorer.001",
+                    "evidence_quality": {
+                        "coverage": "full",
+                        "directness": "direct",
+                        "consistency": "high",
+                    },
+                }
+            ],
+            "selected_claim_family": "phrase_behavior",
+            "selected_scope": {
+                "model_scope": "single_model",
+                "context_scope": "single_context",
+                "domain_scope": "pose",
+                "generalization_scope": "local",
+            },
+            "selected_generalization_status": {
+                "model_dependency_tested": False,
+                "context_dependency_tested": False,
+            },
+            "interpretation_candidates": [],
+            "causal_hypotheses": [],
+            "depends_on": [],
+            "supersedes": [],
+            "rejected_candidates": [],
+            "decided_by": "test-human",
+            "decided_at": "2026-07-17T00:00:00Z",
+        }
+
+    def finalized_pipeline_fixture(
+        self,
+    ) -> tuple[pipeline.GenerationResult, pipeline.CandidateResult, pipeline.FinalizeResult]:
+        for name in ("knowledge", "concepts", "templates"):
+            shutil.copytree(ROOT / name, self.project / name)
+        source_run = ROOT / "experiments" / "bridge" / "BRG-009-A"
+        destination_run = self.project / "experiments" / "bridge" / "BRG-009-A"
+        destination_run.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(source_run, destination_run)
+        result = pipeline.generate_draft(
+            self.project,
+            [(destination_run / "observation.json", "pose")],
+            output_root=Path(self.temp_dir.name) / "i",
+        )
+        draft_dir = result.draft_dir.parent / "d"
+        result.draft_dir.rename(draft_dir)
+        (draft_dir / "human-resolution.yaml").write_bytes(
+            pipeline.yaml_bytes(self._resolution_for(result))
+        )
+        completed = self.successful_validator_process()
+        with patch.object(pipeline, "_integrated_validate"), patch.object(
+            pipeline.subprocess, "run", return_value=completed
+        ):
+            candidate = pipeline.generate_candidate(self.project, draft_dir)
+            finalized = pipeline.finalize_candidate(
+                self.project,
+                draft_dir,
+                candidate_id=candidate.candidate_id,
+                explicit_finalize=True,
+            )
+        self.pipeline_view_root = Path(self.temp_dir.name)
+        shutil.copytree(self.project / "schemas", self.pipeline_view_root / "schemas")
+        shutil.copytree(self.project / "knowledge", self.pipeline_view_root / "knowledge")
+        return result, candidate, finalized
+
+    @staticmethod
+    def finalize_receipt_path(
+        candidate: pipeline.CandidateResult, finalized: pipeline.FinalizeResult
+    ) -> Path:
+        return (
+            candidate.candidate_dir
+            / "generation-receipts"
+            / f"{finalized.receipt['receipt_id']}.json"
+        )
+
+    def build_pipeline_index(self) -> dict:
+        return explorer.build_research_index(
+            self.pipeline_view_root,
+            discovery_roots=(*explorer.DEFAULT_DISCOVERY_ROOTS, "i"),
+        )
+
 
 class ResearchExplorerTests(ResearchExplorerTestCase):
     def test_fingerprint_is_content_sensitive_and_separate_from_research_hashes(self) -> None:
@@ -74,6 +197,61 @@ class ResearchExplorerTests(ResearchExplorerTestCase):
         self.assertEqual(artifact["research_audit_hashes"], [])
         self.assertNotIn("content", artifact)
         self.assertNotIn("prompt", json.dumps(artifact))
+
+    def test_index_size_and_fingerprint_share_one_secure_read_result(self) -> None:
+        self.manifest()
+        reads: dict[str, explorer.SecureReadResult] = {}
+        original = explorer.secure_read_project_file
+
+        def recording_read(project_root: Path, stored_path: str) -> explorer.SecureReadResult:
+            result = original(project_root, stored_path)
+            reads[stored_path] = result
+            return result
+
+        with patch.object(explorer, "secure_read_project_file", side_effect=recording_read):
+            index = explorer.build_research_index(self.project)
+        artifact = next(item for item in index["artifacts"] if item["artifact_type"] == "run")
+        secure_read = reads[artifact["source_path"]]
+        self.assertEqual(artifact["byte_size"], secure_read.byte_size)
+        self.assertEqual(artifact["source_freshness_fingerprint"], secure_read.fingerprint)
+
+    def test_secure_read_rejects_change_during_read(self) -> None:
+        path = self.manifest().resolve()
+        original_open = Path.open
+
+        class MutatingReader:
+            def __init__(self, stream: object) -> None:
+                self.stream = stream
+
+            def __enter__(self) -> "MutatingReader":
+                self.stream.__enter__()
+                return self
+
+            def __exit__(self, *args: object) -> object:
+                return self.stream.__exit__(*args)
+
+            def fileno(self) -> int:
+                return self.stream.fileno()
+
+            def read(self) -> bytes:
+                data = self.stream.read()
+                with original_open(path, "ab") as writer:
+                    writer.write(b"# changed during read\n")
+                return data
+
+        def mutating_open(target: Path, *args: object, **kwargs: object) -> object:
+            stream = original_open(target, *args, **kwargs)
+            if target.resolve() == path and args and args[0] == "rb":
+                return MutatingReader(stream)
+            return stream
+
+        with patch.object(Path, "open", mutating_open), self.assertRaises(
+            explorer.ResearchExplorerError
+        ) as raised:
+            explorer.secure_read_project_file(
+                self.project, path.relative_to(self.project).as_posix()
+            )
+        self.assertEqual(raised.exception.code, "ARTIFACT_CHANGED_DURING_READ")
 
     def test_index_references_only_existing_research_hash_contracts(self) -> None:
         hashes = {
@@ -118,78 +296,79 @@ class ResearchExplorerTests(ResearchExplorerTestCase):
         self.assertEqual(artifact["display_status"]["value"], "passed")
 
     def test_finalize_relationship_requires_success_receipt_and_canonical_hash(self) -> None:
-        candidate_id = "candidate." + "1" * 64
-        assertion_id = "assertion.fixture.001"
-        self.write_yaml(
-            f"inbox/claim-drafts/draft.001/claim-candidates/{candidate_id}/claim-candidate.yaml",
-            {"candidate_id": candidate_id, "canonical_assertion": {"assertions": [{"assertion_id": assertion_id}]}},
+        _, candidate_result, _ = self.finalized_pipeline_fixture()
+        index = self.build_pipeline_index()
+        candidate = next(
+            item
+            for item in index["artifacts"]
+            if item.get("entity_id") == candidate_result.candidate_id
         )
-        canonical = self.write_yaml(
-            "knowledge/assertions/fixture.yaml",
-            {
-                "schema_version": "0.1.0",
-                "assertion_file_id": "fixture",
-                "claim_family": "phrase_behavior",
-                "assertions": [{"assertion_id": assertion_id}],
-            },
-        )
-        canonical_hash = explorer.normalized_text_file_sha256_v1(canonical)
-        self.write_json(
-            f"inbox/claim-drafts/draft.001/claim-candidates/{candidate_id}/generation-receipts/receipt.json",
-            {
-                "receipt_id": "019abcdef-0000-7000-8000-000000000001",
-                "receipt_type": "finalize_attempt",
-                "result": "succeeded",
-                "related_artifact_ids": {
-                    "claim_candidate": candidate_id,
-                    "canonical_assertion": assertion_id,
-                },
-                "related_artifact_hashes": {
-                    "canonical_assertion": {
-                        "algorithm": "normalized_text_file_sha256_v1",
-                        "value": canonical_hash,
-                    }
-                },
-                "payload": {"destination_path": "knowledge/assertions/fixture.yaml"},
-            },
-        )
-        index = explorer.build_research_index(self.project)
-        candidate = next(item for item in index["artifacts"] if item["artifact_type"] == "candidate")
         self.assertEqual(candidate["display_status"]["value"], "finalized")
         self.assertTrue(any(item["relation"] == "finalized_as" for item in candidate["relationships"]))
+        self.assertNotIn(
+            "FINALIZE_BINDING_INVALID", {item["code"] for item in index["diagnostics"]}
+        )
 
-    def test_bad_finalize_hash_does_not_mark_candidate_finalized(self) -> None:
-        candidate_id = "candidate." + "2" * 64
-        assertion_id = "assertion.fixture.002"
-        self.write_yaml(
-            f"inbox/claim-drafts/draft.002/claim-candidates/{candidate_id}/claim-candidate.yaml",
-            {"candidate_id": candidate_id},
+    def test_invalid_finalize_receipt_is_diagnostic_and_not_finalized(self) -> None:
+        _, candidate_result, finalized = self.finalized_pipeline_fixture()
+        receipt_path = self.finalize_receipt_path(candidate_result, finalized)
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        del receipt["recorded_at"]
+        receipt_path.write_text(json.dumps(receipt) + "\n", encoding="utf-8")
+        index = self.build_pipeline_index()
+        candidate = next(
+            item
+            for item in index["artifacts"]
+            if item.get("entity_id") == candidate_result.candidate_id
         )
-        self.write_yaml(
-            "knowledge/assertions/fixture.yaml",
-            {"assertion_file_id": "fixture", "assertions": [{"assertion_id": assertion_id}]},
-        )
-        self.write_json(
-            f"inbox/claim-drafts/draft.002/claim-candidates/{candidate_id}/generation-receipts/receipt.json",
-            {
-                "receipt_type": "finalize_attempt",
-                "result": "succeeded",
-                "related_artifact_ids": {
-                    "claim_candidate": candidate_id,
-                    "canonical_assertion": assertion_id,
-                },
-                "related_artifact_hashes": {
-                    "canonical_assertion": {
-                        "algorithm": "normalized_text_file_sha256_v1",
-                        "value": "f" * 64,
-                    }
-                },
-                "payload": {"destination_path": "knowledge/assertions/fixture.yaml"},
-            },
-        )
-        index = explorer.build_research_index(self.project)
-        candidate = next(item for item in index["artifacts"] if item["artifact_type"] == "candidate")
         self.assertEqual(candidate["display_status"]["value"], "created")
+        invalid = [item for item in index["diagnostics"] if item["code"] == "RECEIPT_INVALID"]
+        self.assertTrue(invalid)
+        self.assertEqual(
+            invalid[0]["source_path"], receipt_path.relative_to(self.pipeline_view_root).as_posix()
+        )
+
+    def test_canonical_hash_mismatch_is_not_finalized(self) -> None:
+        _, candidate_result, finalized = self.finalized_pipeline_fixture()
+        canonical = self.pipeline_view_root / finalized.receipt["payload"]["destination_path"]
+        canonical.write_bytes(canonical.read_bytes() + b"# changed\n")
+        index = self.build_pipeline_index()
+        candidate = next(
+            item
+            for item in index["artifacts"]
+            if item.get("entity_id") == candidate_result.candidate_id
+        )
+        self.assertEqual(candidate["display_status"]["value"], "created")
+        self.assertIn("FINALIZE_BINDING_INVALID", {item["code"] for item in index["diagnostics"]})
+
+    def test_receipt_hash_mismatch_is_not_finalized(self) -> None:
+        _, candidate_result, finalized = self.finalized_pipeline_fixture()
+        receipt_path = self.finalize_receipt_path(candidate_result, finalized)
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        receipt["related_artifact_hashes"]["canonical_assertion"]["value"] = "f" * 64
+        receipt_path.write_text(json.dumps(receipt) + "\n", encoding="utf-8")
+        index = self.build_pipeline_index()
+        candidate = next(
+            item
+            for item in index["artifacts"]
+            if item.get("entity_id") == candidate_result.candidate_id
+        )
+        self.assertEqual(candidate["display_status"]["value"], "created")
+        self.assertIn("RECEIPT_HASH_MISMATCH", {item["code"] for item in index["diagnostics"]})
+
+    def test_candidate_change_after_finalize_is_not_finalized(self) -> None:
+        _, candidate_result, _ = self.finalized_pipeline_fixture()
+        candidate_result.candidate_path.write_bytes(
+            candidate_result.candidate_path.read_bytes() + b"# changed\n"
+        )
+        index = self.build_pipeline_index()
+        candidate = next(
+            item
+            for item in index["artifacts"]
+            if item.get("entity_id") == candidate_result.candidate_id
+        )
+        self.assertEqual(candidate["display_status"]["value"], "created")
+        self.assertIn("FINALIZE_BINDING_INVALID", {item["code"] for item in index["diagnostics"]})
 
     def test_project_path_rejects_traversal_and_absolute_paths(self) -> None:
         for value in ("../outside.yaml", "C:/outside.yaml", "/outside.yaml"):

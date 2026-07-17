@@ -134,12 +134,19 @@
       "properties": {
         "code": {
           "enum": [
+            "ARTIFACT_CHANGED_DURING_READ",
             "ARTIFACT_PARSE_FAILED",
             "ARTIFACT_PATH_OUTSIDE_ROOT",
-            "ARTIFACT_SYMLINK_BROKEN"
+            "ARTIFACT_READ_FAILED",
+            "ARTIFACT_SYMLINK_BROKEN",
+            "FINALIZE_BINDING_INVALID",
+            "RECEIPT_HASH_MISMATCH",
+            "RECEIPT_INVALID"
           ]
         },
-        "path": { "type": "string", "minLength": 1 }
+        "path": { "type": "string", "minLength": 1 },
+        "artifact_id": { "type": "string", "minLength": 1 },
+        "source_path": { "type": "string", "minLength": 1 }
       }
     }
   }
