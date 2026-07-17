@@ -53,6 +53,141 @@ Stable Diffusion用の単純なPrompt Generatorではなく、Visual Concept Com
 10. `ACCEPTED`、`REJECTED`、`NEEDS_FOLLOWUP`のいずれかへ更新する。
 11. ACCEPTEDまたは有力な暫定結果を`ledgers/concept-ledger.yaml`へ反映する。
 
+## Codexへの簡易依頼
+
+次のような自然言語の依頼を受けた場合、Codexは本README、対象Runの現在状態、関連するInstructionsおよび既存Contractを参照して処理する。
+
+- 「inboxの画像を取り込んで」
+- 「新しいRunとして正式化して」
+- 「Observationを保存して正式化して」
+- 「Research Explorerへ反映して」
+- 「最新Runを解析・正式化してPDF化。研究判断なし。」
+- 「研究開始」
+- 「研究開始してPDF化」
+- 「研究開始。最後にResearch PacketをPDF化」
+
+Codexは明示的な許可がない限り、Research Interpretation、Working Conclusion、Research Claim、Research Claim Evidence Fact / Evidence Binding、Human Resolution、Promotion、Candidate Finalize、Application、Concept Dictionary更新、次実験提案を生成または確定しない。Visible Evidenceとして記録するObservationとResearch Claim Evidenceを混同せず、Runを`OBSERVED`へ更新するObservation FinalizationとCandidate Finalize / Applicationを区別する。
+
+### 正式化の基本定義
+
+「正式化」は、常に最初の工程からやり直すことを意味しない。Codexは対象Runの現在状態と既存成果物を確認し、必要な未完了工程だけを正しい順序で実行する。既に取り込み済みのRunに対して、inbox取込み、Run ID採番、Panel分割、既存成果物生成を重複実行しない。
+
+対象成果物が揃っている範囲で、正式化は次の処理を含む。
+
+1. 対象Run、Domain、開始時ステータスを特定する。
+2. 未取り込みの場合のみ、inboxから画像を取り込む。
+3. 新規Runの場合のみ、DomainとRun IDを確定して採番する。
+4. 未分割の場合のみ、6枚一体画像をPanelへ分割する。
+5. `manifest.yaml`、`source/rubric.yaml`、Observation成果物を所定位置へ作成または正規更新する。
+6. Observation完成条件をすべて満たした場合のみ、Runを`OBSERVED`へ更新する。
+7. 手順6に成功した場合のみ、`register_research_run.py`でRunを登録する。
+8. 手順6に成功した場合のみ、Derived Indexを再生成して検証する。
+9. 手順6に成功した場合のみ、必要に応じてLocal Companion Serviceを再起動し、Research Explorerで表示確認する。
+10. 実行内容、作成・更新ファイル、最終ステータス、検証結果、未完了工程を報告する。
+
+Observationが未完成またはValidationに失敗した場合は、`OBSERVED`へ更新せず、`register_research_run.py`を実行せず、Observed RunとしてDerived Indexへ登録しない。`INGESTED`または処理前の適切なステータスを維持し、手順10の報告だけを実行する。
+
+既存Runがすでに`OBSERVED`以上のステータスである場合、再検証失敗だけを理由に自動降格したり、過去成果物を無効化・破棄したりしない。既存ステータスを維持し、再検証失敗を完了報告へ記録する。ステータス降格や過去成果物の無効化には、明示的なユーザー確認を必要とする。このREADME追記だけを根拠に、新しいValidation Record、Receipt、監査Artifact、Claim YAMLを作成しない。既存Workflowが正式な出力先を定義している場合のみ、その既存出力を使用する。
+
+「正式化」は、無条件に`ACCEPTED`、Research Claim確定、Research Claim Evidence生成、Human Resolution、Promotion、Candidate Finalize、Application、Concept Dictionary更新まで進める意味ではない。`register_research_run.py`もこれらを生成しない。
+
+### 研究開始
+
+「研究開始」は、対象Runについて「正式化の基本定義」1〜10を、現在状態から実行可能な範囲で連続実行する明示指示として扱う。Observationが未完成の場合に必要となる画像解析の実行許可を含むが、画像から直接確認できるVisible Evidenceの記録に限定し、研究担当者としての判断を許可するものではない。
+
+処理途中で必須成果物不足、画像不足、Schema違反、Rubric違反、Aggregate不一致、対象RunまたはGrouped Run構成の曖昧性が判明した場合は、安全に完了できた最高ステータスで停止する。未完了工程を成功扱いせず、停止理由、最終ステータス、未実行工程を報告する。
+
+「研究開始」だけではPDF生成を含まない。PDFも必要な場合は、「研究開始してPDF化」または「研究開始。最後にResearch PacketをPDF化」のように明示する。
+
+### 対象Runの決定
+
+ユーザーがRun IDを明示している場合は、そのRunを対象とする。「最新Run」が指定された場合は、次の優先順位で対象を決定する。
+
+1. 直前の取込み処理で作成されたRun。
+2. 現在の作業文脈で明示されているRun。
+3. 確定済みDomain内で`manifest.created_at`が最も新しいRun。
+
+`created_at`が存在しない、同値、または比較不能な場合は、数値部分が最大の標準Run IDを候補とする。`created_at`と採番結果が矛盾する場合、Domainが確定していない場合、非標準Run IDが混在する場合、または同じ最新採番に無関係な複数候補がある場合は自動選択せず、候補Run ID、Domain、`created_at`、現在ステータスを提示して確認を求める。Bridgeを暗黙の既定Domainとして仮定しない。
+
+標準Grouped Run IDは`<prefix>-<number>-<condition-suffix>`形式とし、末尾Condition Suffixを除いた部分を運用上のBase Run IDとして扱う。例は`BRG-010-A`、`BRG-010-B`、`BRG-010-AA`である。Base Run IDはObservation Schemaやmanifestの必須Canonical Fieldでも、Canonical Research DataのIdentity要素でもない。任意のハイフン分割や非標準IDからGrouped Run構造を推測しない。
+
+最新Run判定では、Grouped Runを条件Run単位ではなくBase Run ID単位の候補グループとして比較する。代表`created_at`は、同じBase Run IDを持つ条件Runの`manifest.created_at`のうち最も新しい値とする。Grouped Runが対象になった場合は、条件Runのうち1件だけを選択せず、確認できた同一グループの全条件Runを対象とする。実行後の報告ではGrouped Runの場合のみ派生Base Run IDを表示し、単一Runでは省略または`not applicable`とする。
+
+条件Runの欠落は、期待メンバー一覧が次のいずれかから明示的に確認できる場合だけ判定する。
+
+- 直前の`ingest_inbox.py`実行結果。
+- 現在の作業文脈で作成されたRun一覧。
+- ユーザーが明示した条件Run一覧。
+- 既存Artifactに明示的に保存された実験構成。
+
+現在存在するRunディレクトリや標準Grouped Run形式だけから、存在しない条件Runや期待条件数を推測しない。期待メンバーが不明、一部条件Runが欠落、条件ごとにステータスが異なる、一部だけValidation Errorがある、または標準形式として一意に解析できない場合は、正常な条件だけを勝手に正式化しない。発見した条件Run、各ステータス、確認できた範囲、不確定理由、必要な確認事項を報告して停止する。
+
+### 既存Runの正規更新と破壊的上書き
+
+「既存Runを上書きしない」は、別Runを同一Run IDへ置換する、既存画像を意図せず置換する、取り込み済み画像を再取込みする、または他Runの成果物を選択中Runへ保存する破壊的操作を禁止する意味とする。
+
+明示的に選択されたRunについて、既存Workflowに従って`manifest.yaml`、`observation.json`、`observation.md`、`computed_aggregate`、`research-review.md`の雛形、Run Ledger entry、Derived Indexを正規更新することは許可する。`ingest_run.py --overwrite`などの破壊的置換が必要な場合は、対象、理由、影響範囲を提示し、事前にユーザー確認を得る。
+
+### 画像解析の境界
+
+依頼文に「解析」が明示されている場合、または「研究開始」が指定されている場合のみ、Codexは[`instructions/codex-image-analysis-workflow.md`](instructions/codex-image-analysis-workflow.md)に従ってImage Analyst Workflowを実行し、Observationを作成してよい。これはCodexが研究担当者の役割を引き受けることを意味しない。
+
+CodexがImage Analystとして実行できるのは、Visible Evidenceの記録、Observation項目の記入、Observation Schema準拠の検証である。見えないSupport、Contact、Orientation、身体構造、因果関係、意図を推測で補完せず、不明な項目は正式値として`unclear`を使用する。Research Interpretation、Working Conclusion、Research Claim、Research Claim Evidence、Concept分類、研究結論を作成または確定しない。
+
+「解析」または「研究開始」が明示されていない場合、未完成のObservationを推測で補完しない。Observation雛形の生成、既存Observationの保存、形式検証など実行可能な工程までを行い、`INGESTED`または現在の適切なステータスを維持する。
+
+### Observation完成条件
+
+Observationの完成とは、次の条件をすべて満たす状態をいう。
+
+- Canonicalな`observation.json`が所定位置に存在する。
+- Observation Schema検証が成功している。
+- `source/rubric.yaml`の`active_observation_axes`と`axis_values`に準拠している。
+- Rubric Evidence Policyに違反していない。
+- Panel数、Panel ID、各Panelの必須項目が正しい。
+- `unclear`が正式値として正しく扱われている。
+- `computed_aggregate`とPanel別Observationの集計結果が一致している。
+- Run ID、Condition Label、Panel ID、参照先に不整合がない。
+- Grouped Runの場合は、Run IDのsuffixとCondition Labelの対応が正しい。
+
+これらの検証がすべて成功した場合のみ`OBSERVED`へ更新する。失敗した場合は、Validation Error、対象ファイル、失敗項目、データ整理上の修正候補、未実行工程を報告する。
+
+### PNGメタデータと追加設定ファイル
+
+生成条件はPNG内メタデータを優先する。Positive Prompt、Negative Prompt、Steps、Sampler、CFG、Seed、Size、Checkpointなどは、埋め込まれた生成情報から取得する。同名の`.yaml`、`.yml`、`.json`、`.txt`は、存在する場合だけ補助情報として使用し、存在しないことをエラーにしない。PNG内情報と追加設定ファイルが矛盾する場合は勝手に統合せず、差異を報告する。
+
+### PDF化
+
+依頼文に「PDF化」または「Research PacketをPDF化」が明示された場合のみ、[`instructions/codex-image-analysis-workflow.md`](instructions/codex-image-analysis-workflow.md)および既存Research Packet生成処理に従ってPDFを生成する。対象Runが`OBSERVED`になり、Observation検証が成功した後に実行する。
+
+Grouped Runは共有Base Run ID単位で1つ、単一RunはそのRunだけをPDF化する。PDF内容は既存Research Packet生成処理の定義範囲に限定し、この簡易依頼を根拠に新しいセクション、研究解釈、Panel別全文、Observation JSON全文を無条件に追加しない。
+
+生成後はPDFをページ画像へRenderし、文字切れ、要素の重なり、画像・文章の欠落、ページ外へのはみ出し、Panel順序・ラベル、日本語・記号の文字化けを確認する。問題がある場合は修正して再Renderする。
+
+### Research Explorerへの反映
+
+「Research Explorerへ反映」は、`register_research_run.py`によるRun Ledgerへの登録または同期、Derived Index再生成、Derived Index上でのRun/Observation Relationship生成、IndexのSchema・整合性検証、必要なLocal Companion Service再起動、対象Run・Observation・Relationshipの表示確認を意味する。
+
+Run/Observation Relationshipは、同一Canonical Runディレクトリに存在し、完全一致するRun IDを持つRun ArtifactとObservation Artifactから機械的に派生するRead Model情報である。Base Run IDやGrouped Runの比較関係から生成せず、Canonical Research Dataへ研究判断として永続保存しない。各条件Runは完全なRun ID単位で個別にRelationshipを生成する。
+
+Research Explorer APIへMutation Endpointを追加せず、既存のread-only境界を維持する。Companion Serviceまたはブラウザ環境の制約で画面確認できない場合も、正常に完了したObservation Finalization、Run登録、Derived Index生成を巻き戻さない。Run登録、Index検証、Service起動、UI表示確認を分離して報告し、UIを確認できなかった場合は`未確認`とする。
+
+### 実行後の報告
+
+処理後は、該当する次の項目を報告する。
+
+- 対象Domain、Run ID、Grouped Runの場合の派生Base Run IDと対象条件Run。
+- 開始時ステータスと最終ステータス。
+- 実行したコマンド。
+- 作成したファイルと正規更新したファイル。
+- Observation Schema、Rubric Evidence Policy、`computed_aggregate`の検証結果。
+- Run登録とDerived Indexの検証結果。
+- Companion Serviceの再起動結果とResearch Explorer表示確認結果。
+- 明示された場合のPDF生成先とRender確認結果。
+- 未完了工程、停止理由、Validation Error、判断が必要な点。
+
+「研究判断なし」が指定されている場合は、Visible EvidenceのObservation、形式検証、正規保存、`OBSERVED`への更新、Run登録、Derived Index生成、Explorer表示確認、明示された場合のPDF化だけを実行し、Research Interpretation以降へ進まない。
+
 ## 重要ルール
 
 - Promptをタグ集合として扱わない。
