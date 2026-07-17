@@ -183,10 +183,10 @@ Example:
 source_image: panels/BRG-013-A_01.png
 ```
 
-Structural Validation rejects absolute paths, Windows Drive paths, UNC paths,
-backslashes, and `..` traversal. File existence, Research Project containment,
-resolved symlink containment, and cross-field naming equality are future
-Semantic Validation rules.
+Structural Validation rejects URI and URL schemes in addition to absolute
+paths, Windows Drive paths, UNC paths, backslashes, and `..` traversal. File
+existence, Research Project containment, resolved symlink containment, and
+cross-field naming equality are future Semantic Validation rules.
 
 ## Camera contract
 

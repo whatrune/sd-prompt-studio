@@ -374,11 +374,20 @@ class CameraVisibilityMetadataSchemaTests(unittest.TestCase):
         self.assert_valid(artifact)
 
     def test_source_image_rejects_unsafe_lexical_paths(self) -> None:
+        artifact = valid_available()
+        self.mutate_panel(artifact)["source_image"] = "panels/BRG-013-A_01.png"
+        self.assert_valid(artifact)
+
         for path in (
             "/tmp/panel.png",
             "C:/images/panel.png",
             "C:images/panel.png",
             "//server/share/panel.png",
+            "https://example.com/panel.png",
+            "s3://bucket/panel.png",
+            "file://server/panel.png",
+            "data:image/png;base64,AAAA",
+            "custom+scheme:value",
             "panels\\panel.png",
             "../panel.png",
             "panels/../panel.png",
