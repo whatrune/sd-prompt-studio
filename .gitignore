@@ -24,3 +24,9 @@ pnpm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Local development cache
+.pnpm-store/
+
+# Git worktree directories
+.worktrees/
