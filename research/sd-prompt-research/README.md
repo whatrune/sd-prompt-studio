@@ -4,6 +4,8 @@ Stable Diffusion用の単純なPrompt Generatorではなく、Visual Concept Com
 
 Prompt Provenance FoundationのNormative Contractは、[Prompt Provenance Foundation Freeze Specification](docs/specifications/contracts/prompt-provenance-foundation-freeze.md)を参照してください。PR81はSchemaとStructural Testのみを提供し、Prompt Provenance Artifact生成やSemantic Validationはまだ提供しません。
 
+Camera Visibility Metadata FoundationのNormative Contractは、[Camera Visibility Metadata Foundation Freeze Specification](docs/specifications/contracts/camera-visibility-metadata-foundation-freeze.md)を参照してください。PR82はSchemaとStructural Testのみを提供し、Artifact生成、自動推定、Semantic Validationは提供しません。
+
 ## 担当
 
 ### わたるん
