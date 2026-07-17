@@ -5,6 +5,7 @@ import fs from 'node:fs'
 
 const read = path => fs.readFileSync(path, 'utf8')
 
+const packageJson = JSON.parse(read('package.json'))
 const router = read('src/appRouter.tsx')
 const apiClient = read('src/features/research-explorer/api/researchApiClient.ts')
 const types = read('src/features/research-explorer/types/research.ts')
@@ -38,5 +39,7 @@ assert.match(viewer, /PrismLight as SyntaxHighlighter/)
 assert.doesNotMatch(viewer, /contentEditable|dangerouslySetInnerHTML/)
 assert.match(inspector, /Not Provided/)
 assert.match(page, /Research Data Unavailable/)
+assert.match(packageJson.scripts['build:research-local'], /vite build --base \/(?:\s|$)/)
+assert.match(packageJson.scripts['build:research-local'], /validate-research-explorer-boundaries\.mjs --dist dist/)
 
 console.log('Research Explorer UI contract regression tests passed.')

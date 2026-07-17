@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "node scripts/validate-research-explorer-boundaries.mjs && tsc && vite build && node scripts/validate-research-explorer-boundaries.mjs --dist dist",
+    "build:research-local": "node scripts/validate-research-explorer-boundaries.mjs && tsc && vite build --base / && node scripts/validate-research-explorer-boundaries.mjs --dist dist",
     "test": "node scripts/test-reclassification.mjs && node scripts/test-research-explorer-boundaries.mjs && node scripts/test-research-explorer-ui.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "validate:dictionary": "node scripts/validate-dictionaries.mjs",
