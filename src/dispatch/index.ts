@@ -1,11 +1,19 @@
 export { WORKER_ROLE, validateAssignment } from './admission'
 export { Dispatcher } from './dispatcher'
-export { buildBlockedHandoff, buildExecutionHandoff, buildFailedHandoff } from './handoff'
+export {
+  buildBlockedHandoff,
+  buildExecutionHandoff,
+  buildFailedHandoff,
+  finalizeCanonicalHandoff,
+} from './handoff'
 export { DISPATCH_STATES, RESULT_STATUSES, VALIDATION_STATUSES } from './types'
 export type {
-  DispatchResult,
+  CanonicalFinalizationResult,
+  CanonicalHandoffFields,
+  CanonicalResultHandoff,
   DispatchState,
-  ResultHandoff,
+  ProvisionalDispatchResult,
+  ProvisionalHandoff,
   ResultStatus,
   TaskAssignment,
   ValidationResult,

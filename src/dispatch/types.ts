@@ -57,7 +57,7 @@ export interface WorkerRunner {
   run(context: WorkerRunContext): Promise<WorkerExecutionResult>
 }
 
-export interface ResultHandoff {
+export interface ProvisionalHandoff {
   task_id: string | null
   role: string | null
   status: ResultStatus
@@ -68,8 +68,40 @@ export interface ResultHandoff {
   unresolved_items: string[]
 }
 
-export interface DispatchResult {
+export interface CanonicalResultHandoff extends ProvisionalHandoff {
+  task_id: string
+  role: string
+  canonical_record: string
+  contract_boundary_confirmation: string[]
+  escalation_required: string
+  recommended_next_action: string
+}
+
+export interface ProvisionalDispatchResult {
   state: DispatchState
   state_history: DispatchState[]
-  handoff: ResultHandoff
+  provisional_handoff: ProvisionalHandoff
 }
+
+export interface CanonicalHandoffFields {
+  canonical_saved: true
+  canonical_record: string
+  contract_boundary_confirmation: readonly string[]
+  escalation_required: string
+  recommended_next_action: string
+}
+
+export type CanonicalFinalizationResult =
+  | {
+      finalized: true
+      state: DispatchState
+      state_history: DispatchState[]
+      handoff: CanonicalResultHandoff
+    }
+  | {
+      finalized: false
+      state: 'blocked'
+      state_history: DispatchState[]
+      provisional_handoff: ProvisionalHandoff
+      issues: string[]
+    }

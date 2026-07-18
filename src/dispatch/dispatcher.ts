@@ -1,17 +1,25 @@
 import { validateAssignment } from './admission'
 import { buildBlockedHandoff, buildExecutionHandoff, buildFailedHandoff } from './handoff'
-import type { DispatchResult, DispatchState, ResultStatus, WorkerRunner } from './types'
+import type { DispatchState, ProvisionalDispatchResult, ResultStatus, WorkerRunner } from './types'
 
-function terminalStateFor(status: ResultStatus): DispatchState {
-  if (status === 'blocked') return 'blocked'
-  if (status === 'failed') return 'failed'
-  return 'completed'
+function provisionalStateFor(status: ResultStatus): DispatchState {
+  switch (status) {
+    case 'blocked':
+      return 'blocked'
+    case 'failed':
+      return 'failed'
+    case 'completed':
+    case 'completed_with_warnings':
+    case 'needs_followup':
+    case 'not_applicable':
+      return 'running'
+  }
 }
 
 export class Dispatcher {
   constructor(private readonly runner: WorkerRunner) {}
 
-  async dispatch(assignmentInput: unknown): Promise<DispatchResult> {
+  async dispatch(assignmentInput: unknown): Promise<ProvisionalDispatchResult> {
     const admission = validateAssignment(assignmentInput)
 
     if (!admission.accepted) {
@@ -21,7 +29,7 @@ export class Dispatcher {
       return {
         state: 'blocked',
         state_history: [initialState, 'blocked'],
-        handoff: buildBlockedHandoff(
+        provisional_handoff: buildBlockedHandoff(
           assignmentInput,
           admission.issues.map(issue => issue.message),
         ),
@@ -32,16 +40,19 @@ export class Dispatcher {
 
     try {
       const executionResult = await this.runner.run({ assignment: admission.assignment })
-      const handoff = buildExecutionHandoff(admission.assignment, executionResult)
-      const state = terminalStateFor(handoff.status)
-      stateHistory.push(state)
-      return { state, state_history: stateHistory, handoff }
+      const provisionalHandoff = buildExecutionHandoff(admission.assignment, executionResult)
+      const state = provisionalStateFor(provisionalHandoff.status)
+      if (state !== 'running') stateHistory.push(state)
+      return { state, state_history: stateHistory, provisional_handoff: provisionalHandoff }
     } catch {
       stateHistory.push('failed')
       return {
         state: 'failed',
         state_history: stateHistory,
-        handoff: buildFailedHandoff(admission.assignment, ['Worker Runner execution failed.']),
+        provisional_handoff: buildFailedHandoff(
+          admission.assignment,
+          ['Worker Runner execution failed.'],
+        ),
       }
     }
   }
