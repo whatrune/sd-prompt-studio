@@ -33,6 +33,17 @@ Unit / Component Testはlive Secret、live Runner、実Repository writeを使用
 
 「Runnerが呼ばれなかった」ことが期待結果の場合、mock invocation countまたは同等の負の証拠を必要とする。
 
+## Task Identity Tests
+
+| ID | Input | Expected result |
+| --- | --- | --- |
+| ID-001 | `task_id: ARCH-DISPATCH-001`、Assignment Issue #92、Result PR #93 | 3つを別IdentityとしてBinding |
+| ID-002 | 同一Taskのretry | `task_id`維持、新しい`execution_id` |
+| ID-003 | PR再作成またはCanonical Result URL変更 | `task_id`不変、Result referenceだけ更新 |
+| ID-004 | Issue番号またはPR番号だけをTask Identityとして入力 | Admission拒否 |
+| ID-005 | Assignmentの`task_id`とExecution Planの`task_id`不一致 | blocked、Runner未起動 |
+| ID-006 | 同一`task_id`へ異なるAssignment revision | 再承認なしではstale |
+
 ## Admission Test Matrix
 
 | ID | Input | Expected result | Must not happen |

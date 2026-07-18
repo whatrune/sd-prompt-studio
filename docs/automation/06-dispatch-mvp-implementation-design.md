@@ -3,7 +3,7 @@
 ## Status
 
 - Design version: `0.1.0`
-- Status: review candidate
+- Status: freeze-ready candidate
 - Role: Backend Architect
 - Canonical Task Assignment: [Issue #92](https://github.com/whatrune/sd-prompt-studio/issues/92)
 - Normative Contract: PR #91 merge commit `ebe727270647cc13e5e610d7746e0ef5866928da`
@@ -32,10 +32,32 @@ Normative Input:
 Boundary:
 
 - PR #91: 何を自動化してよいかを定義するAutomation Contract
-- 本書: そのContractを実装可能なComponentへ分割するImplementation Design
+- Draft PR #93（本書）: そのContractを実装可能なComponentへ分割するImplementation Design
 - 後続PR: Workflow、Dispatcher、Runner integration、Test、Provisioningの実装
 
 実装上PR #91の変更が必要になった場合、Backend Implementerは補完せずArchitect Teamへ返却する。
+
+## Task Identity Contract
+
+`task_id`はGitHub上の保存先やExecution回数に依存しない業務単位の正本である。Issue番号、PR番号、`execution_id`はそれぞれ異なるLifecycle上の参照または実行識別子であり、`task_id`の代用にしない。
+
+現在の設計Taskは次へBindingする。
+
+| Identity | Value | Responsibility |
+| --- | --- | --- |
+| Task | `task_id: ARCH-DISPATCH-001` | 業務単位の安定したIdentity |
+| Assignment | [GitHub Issue #92](https://github.com/whatrune/sd-prompt-studio/issues/92) | Canonical Task Assignmentの保存先 |
+| Result | [Draft PR #93](https://github.com/whatrune/sd-prompt-studio/pull/93) | Design DiffとResult Handoffの保存先 |
+| Execution | 将来DispatcherがExecutionごとに生成する`execution_id` | 同一Task内の個別実行、retry、timeout、cancelの識別 |
+
+規則:
+
+- Assignment、Execution、Resultは分離して照合可能にする。
+- GitHub Issue番号またはPR番号だけをTask Identityとして扱わない。
+- Canonical Locationの移動、PR再作成、再実行によって`task_id`を変更しない。
+- 同一Taskを再実行する場合、`task_id`を維持し、新しい`execution_id`を割り当てる。
+- Assignment revision digestは承認対象Snapshotを識別するが、`task_id`そのものではない。
+- `execution_id`の生成形式と永続Schemaは将来Implementation Decisionであり、本PRでは追加しない。
 
 ## MVP Scope
 
@@ -88,7 +110,15 @@ Integrated Lead Verification
 - timeout、cancel、process resultを監視する。
 - HandoffをCanonical Locationへ保存して返す。
 
-DispatcherはWorker作業、Contract判断、Scope補完、Merge判断を行わない。
+Dispatcherは実行管理Roleであり、次を行わない。
+
+- Workerまたは他の専門Roleの作業
+- Architecture判断
+- Contract変更または未定義Contractの補完
+- Product判断
+- Research判断またはObservation判断
+- Assignment Scopeの変更または拡大
+- Merge、Approve、Revert判断
 
 ### Worker Runner
 
@@ -256,7 +286,8 @@ Output:
 
 Failure:
 
-- dirty、branch existing、worktree collision、base mismatchは`blocked`または`stale`。
+- dirty、branch existing、worktree collisionは`blocked`。
+- approved base revisionと現在baseが不一致の場合は`stale`。
 
 ### Step 5: Worker Execution
 
@@ -348,6 +379,15 @@ Failure:
 - Handoff投稿失敗時は実行が成功していても`completed`にしない。
 
 ## Git and Worktree Design
+
+### Isolation Invariant
+
+- 1 `task_id`
+- 1 primary Role
+- 1 task branch
+- 1 active worktree per Execution
+
+同一Taskのretryでは`task_id`とtask branchを維持し、新しい`execution_id`とcreate-only worktreeを使う。異なるTaskまたはRoleでbranch/worktreeを共有しない。
 
 ### Branch Naming
 
