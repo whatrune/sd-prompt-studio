@@ -54,14 +54,18 @@ Observation、Review Status、Research Conclusionを変更しない。
 
 ## Request Routing
 
-### 次の研究開始
+### 研究開始 / 次の研究開始
 
 1. Research Execution OP
-2. 明示的な画像解析許可がある場合のみImage Analysis OP
+2. Image Analysis OP
 3. Maintenance OP
 4. Integrated Leadが各結果と未完了工程を統合報告
 
-構成不明、対象Run不明、期待メンバー不明の場合は安全停止して確認する。
+「研究開始」と「次の研究開始」は、既存Research ContractとTask Assignmentの範囲内で、Research Execution OP、Image Analysis OP、Maintenance OPへRoutingする明示許可である。Image Analysis OPは全PanelのVisible Evidence観察、Observation作成、Rubric Axis、Value、順序の遵守を行えるが、見えない接触、支持、荷重、因果、意図を補完しない。
+
+この依頼にはResearch Review、Research Interpretation、Working Conclusion、Research Claim、Human Resolution、Canonical Mappingの正式採用、PDF生成、Existing Runの上書き・削除・置換を含まない。Research Reviewは「研究結果レビュー」等、PDF生成は「PDF化して」または「研究開始してPDF化」等の明示依頼を必要とする。Research Interpretation以降は既存Research Workflowが要求する別の明示承認を必要とする。
+
+対象Run、入力画像、期待Panel構成、Rubricなどの必須Inputが不足する場合は安全停止し、不足情報を報告する。Integrated Lead自身がImage AnalysisまたはMaintenanceを実行する意味ではない。
 
 ### 研究結果レビュー
 

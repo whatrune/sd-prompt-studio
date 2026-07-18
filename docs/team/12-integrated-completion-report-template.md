@@ -10,7 +10,7 @@
 - Request owner:
 - Request summary:
 - Task IDs:
-- Overall status: completed | completed_with_warnings | needs_followup | blocked | failed
+- Overall status: completed | completed_with_warnings | needs_followup | blocked | failed | not_applicable
 
 ## Routed Roles
 
@@ -63,6 +63,8 @@
 
 - Branch / worktree:
 - Commit / PR:
+- Task Assignment canonical records:
+- Result Handoff canonical records:
 - Created files:
 - Updated files:
 - Generated artifacts:
@@ -73,6 +75,14 @@
 - Concrete action:
 - Preconditions:
 ```
+
+## Overall Status Aggregation Rules
+
+- 全Routed Taskが`not_applicable`ならOverall Statusも`not_applicable`とする。
+- `completed`と`not_applicable`が混在する場合、Applicable TaskだけでOverall Statusを決定する。
+- `not_applicable`のTaskもRouted RolesとResultsへ明示する。
+- `failed`、`blocked`、`needs_followup`を`not_applicable`で隠さない。
+- Applicable Taskがない場合に`completed`を使用しない。
 
 ## Non-normative Development Example
 

@@ -16,6 +16,7 @@
 - Priority:
 - Depends on:
 - Target branch naming:
+- canonical_record: Task Assignment全文を保存したGitHub URLまたはRepository-relative Markdown path
 
 ## Objective
 
@@ -138,5 +139,6 @@ Architect Teamは割当前に次を確認する。
 - [ ] Validation commandと期待結果がある。
 - [ ] 未定義仕様を実装者へ委譲していない。
 - [ ] Existing Run / Research Artifact境界が明記されている。
+- [ ] `canonical_record`を直接参照でき、Task Assignment全文が保存されている。
 
 Gateを満たさないAssignmentは`draft`として扱い、実装を開始しない。
