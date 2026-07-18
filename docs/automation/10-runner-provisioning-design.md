@@ -827,9 +827,9 @@ PR #99のResult型にobservability fieldを追加しない。永続的なexecuti
 
 ## Implementation Split
 
-番号はplanning aliasであり、GitHub PR番号を予約または保証しない。
+依頼内の`PR101`から`PR104`はplanning例であり、GitHub PR番号を予約または保証しない。実際のPR #101は本Design PRへ割り当てられたため、後続実装は次のstable planning aliasで管理し、実PR番号は作成時に確定する。
 
-### PR101: Runner Provisioning Interface Implementation
+### Follow-up A: Runner Provisioning Interface Implementation
 
 Scope candidate:
 
@@ -843,7 +843,7 @@ Gate:
 - Product OwnerによるRunner recommendation承認
 - Architect Review
 
-### PR102: GitHub Runner Adapter
+### Follow-up B: GitHub Runner Adapter
 
 Scope candidate:
 
@@ -855,7 +855,7 @@ Gate:
 
 - Control Plane / OS / runner profile決定
 
-### PR103: Credential Integration
+### Follow-up C: Credential Integration
 
 Scope candidate:
 
@@ -867,7 +867,7 @@ Gate:
 
 - Secret owner、storage、rotation、permission承認
 
-### PR104: Trigger Automation
+### Follow-up D: Trigger Automation
 
 Scope candidate:
 
@@ -876,7 +876,7 @@ Scope candidate:
 
 Gate:
 
-- PR101からPR103のSecurity Gate成功
+- Follow-up AからFollow-up CのSecurity Gate成功
 
 各PRは別Task Assignment、branch、worktree、reviewerを持つ。本PRでは実装しない。
 
