@@ -88,6 +88,21 @@ Rule-conflict resolution is defined. PR85 does not persist either key.
 
 ## Evaluation prerequisites and processing order
 
+PR84 Structural Validation is a mandatory precondition of the PR86 entry
+point. `evaluate_evidence_rule()` does not perform JSON Schema validation.
+Input Rule Set MUST have passed PR84 Schema Validation. That upstream
+validation establishes:
+
+- a valid Root Schema;
+- valid Rule Object Schemas;
+- presence of every required field;
+- absence of unknown fields; and
+- valid field types and formats.
+
+PR86 is responsible only for Rule Semantic Validation, Visibility Evaluation,
+and Overclaim Evaluation. It does not replace or repeat PR84 Structural
+Validation.
+
 A future evaluator processes inputs in this order:
 
 1. validate the Evidence Rule Set structurally;

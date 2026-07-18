@@ -2,9 +2,12 @@
 """Pure Evidence Rule evaluation for the PR85 v0.1.0 contract.
 
 ``evaluate_evidence_rule`` is the only public evaluation entry point.  It
-validates the supplied Rule Set and selected Rule before evaluating any
-Visibility Condition, so a validation result cannot be reused for a different
-or subsequently modified Rule Set.
+validates Rule Set and Rule semantics before evaluating any Visibility
+Condition, so a validation result cannot be reused for a different or
+subsequently modified Rule Set.
+
+``evaluate_evidence_rule()`` does not perform JSON Schema validation. Input
+Rule Set MUST have passed PR84 Schema Validation.
 
 The module consumes an already-resolved ``RubricBindingResult``.  It performs
 no file I/O, Rubric path or hash resolution, natural-language Evidence Policy
@@ -536,6 +539,11 @@ def evaluate_evidence_rule(
     rubric_binding: RubricBindingResult,
 ) -> EvidenceEvaluation:
     """Validate and evaluate one Rule without mutating or persisting inputs.
+
+    ``evaluate_evidence_rule()`` does not perform JSON Schema validation. Input
+    Rule Set MUST have passed PR84 Schema Validation.  That precondition covers
+    the Root and Rule Object Schemas, required fields, unknown-field rejection,
+    and type and format validation.
 
     Rule Set and Rule semantic checks always complete before the internal
     Condition evaluator runs.  Rubric resolution remains an upstream concern;
