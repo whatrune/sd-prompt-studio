@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
 """Pure Evidence Rule evaluation for the PR85 v0.1.0 contract.
 
-The module evaluates already-structured inputs.  It deliberately performs no
-file I/O, Rubric natural-language interpretation, Observation mutation,
-Diagnostic emission, or result persistence.
+``evaluate_evidence_rule`` is the only public evaluation entry point.  It
+validates the supplied Rule Set and selected Rule before evaluating any
+Visibility Condition, so a validation result cannot be reused for a different
+or subsequently modified Rule Set.
+
+The module consumes an already-resolved ``RubricBindingResult``.  It performs
+no file I/O, Rubric path or hash resolution, natural-language Evidence Policy
+interpretation, Observation mutation, external Diagnostic emission, or result
+persistence.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Collection, Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 
 EVIDENCE_RULE_INVALID = "EVIDENCE_RULE_INVALID"
@@ -47,6 +53,11 @@ class PolicyEvaluationStatus(str, Enum):
     NOT_EVALUATED = "not_evaluated"
 
 
+class RubricBindingStatus(str, Enum):
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+
+
 class Severity(str, Enum):
     ERROR = "error"
     WARNING = "warning"
@@ -70,15 +81,45 @@ class ConditionEvaluation:
 class VisibilityEvaluation:
     status: EvaluationStatus
     conditions: tuple[ConditionEvaluation, ...]
-    diagnostics: tuple[Diagnostic, ...] = ()
     not_evaluated_reason: str | None = None
 
 
 @dataclass(frozen=True)
 class OverclaimEvaluation:
     status: OverclaimStatus
-    diagnostics: tuple[Diagnostic, ...] = ()
     not_evaluated_reason: str | None = None
+
+
+@dataclass(frozen=True)
+class RubricBindingResult:
+    """Closed input supplied by a Rubric resolver outside PR86.
+
+    ``succeeded`` requires nonempty, unique ``allowed_values`` and a Policy
+    status.  ``failed`` forbids both fields because neither result is available.
+    """
+
+    status: RubricBindingStatus
+    allowed_values: tuple[str, ...] | None = None
+    policy_status: PolicyEvaluationStatus | None = None
+
+
+@dataclass(frozen=True)
+class EvidenceEvaluation:
+    """Canonical result returned by :func:`evaluate_evidence_rule`.
+
+    Diagnostics live only at this level so nested evaluation results cannot
+    disagree with the aggregate result.
+    """
+
+    visibility: VisibilityEvaluation
+    overclaim: OverclaimEvaluation
+    diagnostics: tuple[Diagnostic, ...]
+
+
+@dataclass(frozen=True)
+class _RuleSetValidationResult:
+    rule: Mapping[str, Any] | None
+    diagnostics: tuple[Diagnostic, ...]
 
 
 def _diagnostic(code: str, message: str) -> Diagnostic:
@@ -102,7 +143,13 @@ def _ordered_diagnostics(*items: Diagnostic) -> tuple[Diagnostic, ...]:
     )
 
 
-def _condition_list(rule: Mapping[str, Any]) -> tuple[str, Sequence[Mapping[str, Any]]] | None:
+def _rule_diagnostic(message: str) -> Diagnostic:
+    return _diagnostic(EVIDENCE_RULE_INVALID, message)
+
+
+def _condition_list(
+    rule: Mapping[str, Any],
+) -> tuple[str, Sequence[Mapping[str, Any]]] | None:
     prerequisite = rule.get("visibility_prerequisite")
     if not isinstance(prerequisite, Mapping):
         return None
@@ -121,13 +168,18 @@ def _condition_list(rule: Mapping[str, Any]) -> tuple[str, Sequence[Mapping[str,
     return branch, conditions
 
 
-def _rule_error(message: str) -> VisibilityEvaluation:
-    return VisibilityEvaluation(
-        status=EvaluationStatus.NOT_EVALUATED,
-        conditions=(),
-        diagnostics=(_diagnostic(EVIDENCE_RULE_INVALID, message),),
-        not_evaluated_reason="rule_invalid",
-    )
+def _string_values(value: Any, field_name: str) -> tuple[tuple[str, ...] | None, str | None]:
+    if (
+        not isinstance(value, Sequence)
+        or isinstance(value, (str, bytes))
+        or not value
+        or not all(isinstance(item, str) and item for item in value)
+    ):
+        return None, f"{field_name} must be a nonempty string array"
+    values = tuple(value)
+    if len(set(values)) != len(values):
+        return None, f"{field_name} contains duplicate values"
+    return values, None
 
 
 def _validate_regions(conditions: Sequence[Mapping[str, Any]]) -> str | None:
@@ -135,21 +187,112 @@ def _validate_regions(conditions: Sequence[Mapping[str, Any]]) -> str | None:
     for condition in conditions:
         region = condition.get("region")
         allowed_states = condition.get("allowed_states")
-        if not isinstance(region, str):
+        if not isinstance(region, str) or not region:
             return "Condition region is missing or invalid"
         if region in regions:
             return f"Region '{region}' is defined more than once"
         regions.add(region)
-        if (
-            not isinstance(allowed_states, Sequence)
-            or isinstance(allowed_states, (str, bytes))
-            or not allowed_states
-            or not all(isinstance(state, str) for state in allowed_states)
-        ):
-            return f"Region '{region}' has invalid allowed_states"
-        if not set(allowed_states).issubset(VISIBILITY_STATES):
+        states, error = _string_values(allowed_states, f"Region '{region}' allowed_states")
+        if error:
+            return error
+        if not set(states or ()).issubset(VISIBILITY_STATES):
             return f"Region '{region}' has an unsupported visibility State"
     return None
+
+
+def _validate_rule_semantics(rule: Mapping[str, Any]) -> tuple[Diagnostic, ...]:
+    diagnostics: list[Diagnostic] = []
+    rule_id = rule.get("rule_id")
+    if not isinstance(rule_id, str) or not rule_id:
+        diagnostics.append(_rule_diagnostic("Rule has a missing or invalid rule_id"))
+
+    parsed = _condition_list(rule)
+    if parsed is None:
+        diagnostics.append(
+            _rule_diagnostic(
+                "visibility_prerequisite must contain exactly one nonempty branch"
+            )
+        )
+    else:
+        _, conditions = parsed
+        region_error = _validate_regions(conditions)
+        if region_error:
+            diagnostics.append(_rule_diagnostic(region_error))
+
+    prerequisite_values, prerequisite_error = _string_values(
+        rule.get("observation_values_requiring_prerequisite"),
+        "observation_values_requiring_prerequisite",
+    )
+    if prerequisite_error:
+        diagnostics.append(_rule_diagnostic(prerequisite_error))
+
+    policy = rule.get("insufficient_visibility_policy")
+    fallback_values: tuple[str, ...] | None = None
+    if not isinstance(policy, Mapping):
+        diagnostics.append(
+            _rule_diagnostic("insufficient_visibility_policy is missing or invalid")
+        )
+    else:
+        fallback_values, fallback_error = _string_values(
+            policy.get("allowed_fallback_values"),
+            "allowed_fallback_values",
+        )
+        if fallback_error:
+            diagnostics.append(_rule_diagnostic(fallback_error))
+
+    if prerequisite_values is not None and fallback_values is not None:
+        overlap = set(prerequisite_values).intersection(fallback_values)
+        if overlap:
+            diagnostics.append(
+                _rule_diagnostic(
+                    "Rule values overlap prerequisite and fallback sets: "
+                    + ", ".join(sorted(overlap))
+                )
+            )
+    return _ordered_diagnostics(*diagnostics)
+
+
+def _validate_rule_set_semantics(
+    rule_set: Mapping[str, Any],
+    *,
+    rule_id: str,
+) -> _RuleSetValidationResult:
+    rules = rule_set.get("rules") if isinstance(rule_set, Mapping) else None
+    if (
+        not isinstance(rules, Sequence)
+        or isinstance(rules, (str, bytes))
+        or not rules
+        or not all(isinstance(item, Mapping) for item in rules)
+    ):
+        return _RuleSetValidationResult(
+            rule=None,
+            diagnostics=(_rule_diagnostic("Rule Set rules must be a nonempty Rule array"),),
+        )
+
+    diagnostics: list[Diagnostic] = []
+    by_id: dict[str, Mapping[str, Any]] = {}
+    for rule in rules:
+        current_id = rule.get("rule_id")
+        if isinstance(current_id, str) and current_id in by_id:
+            qualifier = "different content" if by_id[current_id] != rule else "duplicate content"
+            diagnostics.append(
+                _rule_diagnostic(
+                    f"rule_id '{current_id}' is defined more than once with {qualifier}"
+                )
+            )
+        elif isinstance(current_id, str):
+            by_id[current_id] = rule
+        diagnostics.extend(_validate_rule_semantics(rule))
+
+    selected = by_id.get(rule_id)
+    if selected is None:
+        diagnostics.append(_rule_diagnostic(f"rule_id '{rule_id}' was not found uniquely"))
+    if diagnostics:
+        return _RuleSetValidationResult(
+            rule=None,
+            diagnostics=_ordered_diagnostics(*diagnostics),
+        )
+    return _RuleSetValidationResult(rule=selected, diagnostics=())
 
 
 def _bind_available_panel(
@@ -198,27 +341,19 @@ def _aggregate(
     return EvaluationStatus.NOT_EVALUATED
 
 
-def evaluate_visibility_prerequisite(
+def _evaluate_visibility_prerequisite(
     rule: Mapping[str, Any],
     metadata: Mapping[str, Any] | None,
     *,
     run_id: str,
     panel_id: int,
 ) -> VisibilityEvaluation:
-    """Evaluate one PR84 Rule against one exactly bound Panel.
-
-    Inputs are not mutated.  Structural Schema validation remains an upstream
-    prerequisite; defensive shape checks return EVIDENCE_RULE_INVALID.
-    """
+    """Evaluate a semantically valid Rule against one exactly bound Panel."""
 
     parsed = _condition_list(rule)
-    if parsed is None:
-        return _rule_error("visibility_prerequisite must contain exactly one nonempty branch")
+    if parsed is None:  # The public entry point makes this unreachable.
+        raise ValueError("Rule must be validated before Condition evaluation")
     branch, conditions = parsed
-    region_error = _validate_regions(conditions)
-    if region_error:
-        return _rule_error(region_error)
-
     panel, binding_reason = _bind_available_panel(
         metadata,
         run_id=run_id,
@@ -272,90 +407,167 @@ def evaluate_visibility_prerequisite(
     )
 
 
-def evaluate_overclaim(
+def _rubric_binding_error(binding: RubricBindingResult) -> str | None:
+    if not isinstance(binding, RubricBindingResult):
+        return "Rubric binding input has an invalid type"
+    if binding.status is RubricBindingStatus.FAILED:
+        if binding.allowed_values is not None or binding.policy_status is not None:
+            return "Failed Rubric binding must not provide values or Policy status"
+        return "Rubric binding failed"
+    if binding.status is not RubricBindingStatus.SUCCEEDED:
+        return "Rubric binding status is invalid"
+    if not isinstance(binding.allowed_values, tuple):
+        return "Successful Rubric binding requires immutable allowed_values"
+    values, values_error = _string_values(binding.allowed_values, "rubric_allowed_values")
+    if values_error:
+        return values_error
+    if values is None or not isinstance(
+        binding.policy_status,
+        PolicyEvaluationStatus,
+    ):
+        return "Successful Rubric binding requires a Policy evaluation status"
+    return None
+
+
+def _evaluate_overclaim(
     visibility: VisibilityEvaluation,
     *,
     observed_value: str | None,
-    rubric_allowed_values: Collection[str] | None,
-    prerequisite_values: Collection[str],
-    fallback_values: Collection[str],
-    rubric_binding_succeeded: bool,
-    policy_status: PolicyEvaluationStatus,
-) -> OverclaimEvaluation:
-    """Combine pre-evaluated inputs without interpreting a Rubric Policy.
-
-    Combinations not defined by the Freeze contract remain not_evaluated.  The
-    function never guesses policy meaning or modifies an Observation.
-    """
-
-    if any(item.code == EVIDENCE_RULE_INVALID for item in visibility.diagnostics):
-        return OverclaimEvaluation(
-            status=OverclaimStatus.NOT_EVALUATED,
-            diagnostics=visibility.diagnostics,
-            not_evaluated_reason="rule_invalid",
-        )
-
-    overlap = set(prerequisite_values).intersection(fallback_values)
-    if overlap:
-        message = "Rule values overlap prerequisite and fallback sets: " + ", ".join(sorted(overlap))
-        return OverclaimEvaluation(
-            status=OverclaimStatus.NOT_EVALUATED,
-            diagnostics=(_diagnostic(EVIDENCE_RULE_INVALID, message),),
-            not_evaluated_reason="rule_invalid",
-        )
+    prerequisite_values: Sequence[str],
+    fallback_values: Sequence[str],
+    rubric_binding: RubricBindingResult,
+) -> tuple[OverclaimEvaluation, tuple[Diagnostic, ...]]:
+    """Combine resolved inputs without interpreting a Rubric Policy."""
 
     if observed_value is None:
-        return OverclaimEvaluation(
-            status=OverclaimStatus.NOT_EVALUATED,
-            not_evaluated_reason="observation_value_missing",
+        return (
+            OverclaimEvaluation(
+                status=OverclaimStatus.NOT_EVALUATED,
+                not_evaluated_reason="observation_value_missing",
+            ),
+            (),
         )
     if visibility.status is EvaluationStatus.NOT_EVALUATED:
-        return OverclaimEvaluation(
-            status=OverclaimStatus.NOT_EVALUATED,
-            diagnostics=visibility.diagnostics,
-            not_evaluated_reason="visibility_not_evaluated",
+        return (
+            OverclaimEvaluation(
+                status=OverclaimStatus.NOT_EVALUATED,
+                not_evaluated_reason="visibility_not_evaluated",
+            ),
+            (),
         )
-    if not rubric_binding_succeeded or rubric_allowed_values is None:
-        return _mapping_failure("Rubric binding failed")
-    if observed_value not in rubric_allowed_values:
+
+    binding_error = _rubric_binding_error(rubric_binding)
+    if binding_error:
+        return _mapping_failure(binding_error)
+
+    allowed_values = rubric_binding.allowed_values or ()
+    if observed_value not in allowed_values:
         return _mapping_failure("Observed value is not declared by the Rubric axis")
-    if policy_status is PolicyEvaluationStatus.NOT_EVALUATED:
+    if rubric_binding.policy_status is PolicyEvaluationStatus.NOT_EVALUATED:
         return _mapping_failure("Rubric Evidence Policy is not machine-evaluable")
 
     in_prerequisite = observed_value in prerequisite_values
     in_fallback = observed_value in fallback_values
 
     if visibility.status is EvaluationStatus.SATISFIED:
-        if policy_status is PolicyEvaluationStatus.NO_VIOLATION:
-            return OverclaimEvaluation(status=OverclaimStatus.NO_VIOLATION)
+        if rubric_binding.policy_status is PolicyEvaluationStatus.NO_VIOLATION:
+            return OverclaimEvaluation(status=OverclaimStatus.NO_VIOLATION), ()
         return _mapping_failure("Policy result conflicts with satisfied visibility")
 
     if in_fallback:
-        if policy_status is PolicyEvaluationStatus.NO_VIOLATION:
-            return OverclaimEvaluation(status=OverclaimStatus.NO_VIOLATION)
+        if rubric_binding.policy_status is PolicyEvaluationStatus.NO_VIOLATION:
+            return OverclaimEvaluation(status=OverclaimStatus.NO_VIOLATION), ()
         return _mapping_failure("Policy result conflicts with an allowed fallback value")
 
-    if in_prerequisite and policy_status is PolicyEvaluationStatus.VIOLATION:
-        return OverclaimEvaluation(
-            status=OverclaimStatus.VIOLATION,
-            diagnostics=_ordered_diagnostics(
-                _diagnostic(
-                    EVIDENCE_OBSERVATION_OVERCLAIM,
-                    "Observation value exceeds its confirmed evidence boundary",
-                ),
-                _diagnostic(
-                    EVIDENCE_VISIBILITY_INSUFFICIENT,
-                    "Visibility prerequisite is unsatisfied for the Observation value",
-                ),
+    if (
+        in_prerequisite
+        and rubric_binding.policy_status is PolicyEvaluationStatus.VIOLATION
+    ):
+        diagnostics = _ordered_diagnostics(
+            _diagnostic(
+                EVIDENCE_OBSERVATION_OVERCLAIM,
+                "Observation value exceeds its confirmed evidence boundary",
+            ),
+            _diagnostic(
+                EVIDENCE_VISIBILITY_INSUFFICIENT,
+                "Visibility prerequisite is unsatisfied for the Observation value",
             ),
         )
+        return OverclaimEvaluation(status=OverclaimStatus.VIOLATION), diagnostics
 
     return _mapping_failure("Rule, value, and Policy result do not form a defined evaluation case")
 
 
-def _mapping_failure(message: str) -> OverclaimEvaluation:
-    return OverclaimEvaluation(
-        status=OverclaimStatus.NOT_EVALUATED,
-        diagnostics=(_diagnostic(EVIDENCE_RUBRIC_MAPPING_INVALID, message),),
-        not_evaluated_reason="rubric_mapping_invalid",
+def _mapping_failure(
+    message: str,
+) -> tuple[OverclaimEvaluation, tuple[Diagnostic, ...]]:
+    return (
+        OverclaimEvaluation(
+            status=OverclaimStatus.NOT_EVALUATED,
+            not_evaluated_reason="rubric_mapping_invalid",
+        ),
+        (_diagnostic(EVIDENCE_RUBRIC_MAPPING_INVALID, message),),
+    )
+
+
+def _invalid_evaluation(diagnostics: tuple[Diagnostic, ...]) -> EvidenceEvaluation:
+    return EvidenceEvaluation(
+        visibility=VisibilityEvaluation(
+            status=EvaluationStatus.NOT_EVALUATED,
+            conditions=(),
+            not_evaluated_reason="rule_invalid",
+        ),
+        overclaim=OverclaimEvaluation(
+            status=OverclaimStatus.NOT_EVALUATED,
+            not_evaluated_reason="rule_invalid",
+        ),
+        diagnostics=diagnostics,
+    )
+
+
+def evaluate_evidence_rule(
+    rule_set: Mapping[str, Any],
+    metadata: Mapping[str, Any] | None,
+    *,
+    rule_id: str,
+    run_id: str,
+    panel_id: int,
+    observed_value: str | None,
+    rubric_binding: RubricBindingResult,
+) -> EvidenceEvaluation:
+    """Validate and evaluate one Rule without mutating or persisting inputs.
+
+    Rule Set and Rule semantic checks always complete before the internal
+    Condition evaluator runs.  Rubric resolution remains an upstream concern;
+    this function validates only the closed ``RubricBindingResult`` supplied to
+    it and preserves an independently calculated Visibility status when Rubric
+    binding or Policy evaluation cannot complete.
+    """
+
+    validation = _validate_rule_set_semantics(rule_set, rule_id=rule_id)
+    if validation.diagnostics or validation.rule is None:
+        diagnostics = validation.diagnostics or (
+            _rule_diagnostic("Rule Set validation did not select a Rule"),
+        )
+        return _invalid_evaluation(diagnostics)
+
+    rule = validation.rule
+    visibility = _evaluate_visibility_prerequisite(
+        rule,
+        metadata,
+        run_id=run_id,
+        panel_id=panel_id,
+    )
+    policy = rule["insufficient_visibility_policy"]
+    overclaim, diagnostics = _evaluate_overclaim(
+        visibility,
+        observed_value=observed_value,
+        prerequisite_values=rule["observation_values_requiring_prerequisite"],
+        fallback_values=policy["allowed_fallback_values"],
+        rubric_binding=rubric_binding,
+    )
+    return EvidenceEvaluation(
+        visibility=visibility,
+        overclaim=overclaim,
+        diagnostics=diagnostics,
     )
