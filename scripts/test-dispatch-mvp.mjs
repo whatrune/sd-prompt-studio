@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { createServer } from 'vite'
 
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
@@ -22,6 +23,39 @@ const completedExecution = () => ({
   validation_results: [{ name: 'docs-only', status: 'passed' }],
   unresolved_items: [],
 })
+
+const git = args => execFileSync('git', args, { encoding: 'utf8' })
+
+const commitExists = ref => {
+  try {
+    execFileSync('git', ['cat-file', '-e', `${ref}^{commit}`], { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+}
+
+const boundaryChangedPaths = () => {
+  if (commitExists('origin/main')) {
+    return git(['diff', '--name-only', 'origin/main...HEAD'])
+  }
+
+  const eventPath = process.env.GITHUB_EVENT_PATH
+  assert.equal(process.env.GITHUB_ACTIONS, 'true', 'origin/main is required outside GitHub Actions')
+  assert(eventPath, 'GITHUB_EVENT_PATH is required for a shallow GitHub Actions checkout')
+  const event = JSON.parse(readFileSync(eventPath, 'utf8'))
+  const baseSha = event?.pull_request?.base?.sha
+  assert.match(baseSha, /^[0-9a-f]{40}$/, 'pull_request.base.sha must be a full commit SHA')
+
+  if (!commitExists(baseSha)) {
+    execFileSync('git', ['fetch', '--no-tags', '--depth=1', 'origin', baseSha], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  }
+  assert(commitExists(baseSha), 'the pull request base commit must be available for boundary validation')
+  return git(['diff', '--name-only', baseSha, 'HEAD'])
+}
 
 try {
   const { Dispatcher, finalizeCanonicalHandoff, validateAssignment } = await server.ssrLoadModule('/src/dispatch/index.ts')
@@ -194,11 +228,7 @@ try {
     assert.equal(result.provisional_handoff.status, 'blocked')
   }
 
-  const changedPaths = execFileSync(
-    'git',
-    ['diff', '--name-only', 'origin/main...HEAD'],
-    { encoding: 'utf8' },
-  )
+  const changedPaths = boundaryChangedPaths()
     .trim()
     .split(/\r?\n/)
     .filter(Boolean)
