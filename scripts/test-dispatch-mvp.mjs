@@ -57,6 +57,14 @@ const boundaryChangedPaths = () => {
   return git(['diff', '--name-only', baseSha, 'HEAD'])
 }
 
+const isDispatchBoundaryPath = path => path === 'package.json'
+  || path === 'scripts/test-dispatch-mvp.mjs'
+  || path.startsWith('src/dispatch/')
+
+const dispatchBoundaryPaths = paths => paths
+  .map(path => path.replaceAll('\\', '/'))
+  .filter(isDispatchBoundaryPath)
+
 try {
   const { Dispatcher, finalizeCanonicalHandoff, validateAssignment } = await server.ssrLoadModule('/src/dispatch/index.ts')
 
@@ -232,16 +240,40 @@ try {
     .trim()
     .split(/\r?\n/)
     .filter(Boolean)
-    .map(path => path.replaceAll('\\', '/'))
-  const allowedChange = path => path === 'package.json'
-    || path === 'scripts/test-dispatch-mvp.mjs'
-    || path === 'scripts/test-execution-adapter.mjs'
-    || path.startsWith('src/dispatch/')
-    || path.startsWith('src/execution-adapter/')
-  assert(changedPaths.every(allowedChange), `dispatch MVP changed a forbidden path: ${changedPaths.join(', ')}`)
-  if (changedPaths.some(path => path.startsWith('src/dispatch/'))) {
-    assert(changedPaths.includes('src/dispatch/dispatcher.ts'), 'dispatch changes must include the dispatcher boundary')
+  const dispatchChanges = dispatchBoundaryPaths(changedPaths)
+  assert(
+    dispatchChanges.every(isDispatchBoundaryPath),
+    `dispatch MVP changed a forbidden path: ${dispatchChanges.join(', ')}`,
+  )
+  if (dispatchChanges.some(path => path.startsWith('src/dispatch/'))) {
+    assert(dispatchChanges.includes('src/dispatch/dispatcher.ts'), 'dispatch changes must include the dispatcher boundary')
   }
+
+  assert.deepEqual(
+    dispatchBoundaryPaths([
+      'src/execution-adapter/executionAdapter.ts',
+      'scripts/test-execution-adapter.mjs',
+      'docs/automation/10-runner-provisioning-design.md',
+      'src/runner/runner.ts',
+      '.github/workflows/runner.yml',
+      'research/runs/example/manifest.json',
+    ]),
+    [],
+    'later Automation, Execution Adapter, runner, and research changes must be outside the Dispatch boundary',
+  )
+  assert.deepEqual(
+    dispatchBoundaryPaths([
+      'src/dispatch/dispatcher.ts',
+      'scripts/test-dispatch-mvp.mjs',
+      'package.json',
+    ]),
+    [
+      'src/dispatch/dispatcher.ts',
+      'scripts/test-dispatch-mvp.mjs',
+      'package.json',
+    ],
+    'the Dispatch Core implementation, its test, and package configuration must remain in scope',
+  )
 
   console.log('Dispatch MVP core tests passed.')
 } finally {
