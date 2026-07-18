@@ -117,6 +117,18 @@ Integrated Leadは原則として専門作業用worktreeを持たない。ファ
 
 会話履歴を正本にしない。正本はGit上のContract、Canonical Locationへ保存されたTask AssignmentとResult Handoff、PR Diff、Validation Resultである。Integrated LeadはCanonical Recordを直接参照できないAssignmentまたはHandoffを正式受領しない。Role別会話が自動通信できることを前提にしない。
 
+## Future Dispatcher Boundary
+
+将来、Canonical Task Assignmentから専門Roleの実行を起動するDispatcherを導入できる。DispatcherはIntegrated Leadが確定したRoutingを実行へ引き渡し、状態とResult Handoffを回収するだけであり、次を変更しない。
+
+- Integrated Leadが依頼を分類してRoleへRoutingする責務
+- Architect TeamがArchitectureとContractを判断する責務
+- Specialistが専門作業を行う責務
+- Product OwnerがProduct方針、Merge、Revertを判断する責務
+- Research Operations RoleがObservation、Review、Reportingを行う責務
+
+DispatcherはRole、Scope、Contract、Product方針、Research判断を補完または変更しない。自動連鎖、Approve、Merge、Revertも行わない。Contractは[`../automation/00-automation-overview.md`](../automation/00-automation-overview.md)を参照する。現在、Dispatcher、Runner、Bot、Workflow、CLIは実装されていない。
+
 ## Future Split Boundary
 
 現時点ではIntegrated LeadをDevelopmentとResearch Operationsの共通窓口とする。同時並行案件または負荷が増えた場合のみ、Development CoordinatorまたはResearch Operations Coordinatorを内部Role候補として検討できる。導入、Version、時期は予約せず、Product Owner承認とArchitect Team Contract Reviewを必要とする。
