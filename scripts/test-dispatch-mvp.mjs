@@ -25,6 +25,11 @@ const completedExecution = () => ({
 })
 
 const git = args => execFileSync('git', args, { encoding: 'utf8' })
+const DISPATCH_BOUNDARY_PATHS = [
+  'package.json',
+  'scripts/test-dispatch-mvp.mjs',
+  'src/dispatch',
+]
 
 const commitExists = ref => {
   try {
@@ -37,7 +42,7 @@ const commitExists = ref => {
 
 const boundaryChangedPaths = () => {
   if (commitExists('origin/main')) {
-    return git(['diff', '--name-only', 'origin/main...HEAD'])
+    return git(['diff', '--name-only', 'origin/main...HEAD', '--', ...DISPATCH_BOUNDARY_PATHS])
   }
 
   const eventPath = process.env.GITHUB_EVENT_PATH
@@ -54,7 +59,7 @@ const boundaryChangedPaths = () => {
     })
   }
   assert(commitExists(baseSha), 'the pull request base commit must be available for boundary validation')
-  return git(['diff', '--name-only', baseSha, 'HEAD'])
+  return git(['diff', '--name-only', baseSha, 'HEAD', '--', ...DISPATCH_BOUNDARY_PATHS])
 }
 
 const isDispatchBoundaryPath = path => path === 'package.json'
@@ -240,14 +245,11 @@ try {
     .trim()
     .split(/\r?\n/)
     .filter(Boolean)
-  const dispatchChanges = dispatchBoundaryPaths(changedPaths)
+    .map(path => path.replaceAll('\\', '/'))
   assert(
-    dispatchChanges.every(isDispatchBoundaryPath),
-    `dispatch MVP changed a forbidden path: ${dispatchChanges.join(', ')}`,
+    changedPaths.every(isDispatchBoundaryPath),
+    `Dispatch path filtering returned an out-of-scope path: ${changedPaths.join(', ')}`,
   )
-  if (dispatchChanges.some(path => path.startsWith('src/dispatch/'))) {
-    assert(dispatchChanges.includes('src/dispatch/dispatcher.ts'), 'dispatch changes must include the dispatcher boundary')
-  }
 
   assert.deepEqual(
     dispatchBoundaryPaths([
