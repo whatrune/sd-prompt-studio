@@ -29,6 +29,24 @@
 - PRは指定がなければDraftで作成する。
 - PR本文には目的、背景、ユーザーへの影響、変更内容、検証結果、未確認事項を書く。
 
+## Team development baseline
+
+- `main`へ直接作業せず、担当Task専用のbranchとworktreeを使用する。
+- 1担当、1branch、1worktreeにつき1つの主要作業単位だけを扱う。
+- 未定義仕様、Contract衝突、Product判断を実装者またはWorkerが独自に確定しない。
+- Architecture、Schema、API、Freeze仕様などのContract変更はArchitect Teamのレビュー対象とする。
+- Freeze済み仕様をImplementation担当が変更しない。変更が必要な場合は実装を停止してArchitect Teamへ返却する。
+- Existing Run、Research Artifact、Canonical MappingをTask Assignmentなしで変更しない。
+- すべての担当者は、変更ファイル、非実施範囲、Validation結果、未確認事項を含む完了報告を行う。
+- Role別責務、worktree運用、Handoff、Task Assignmentの詳細は[`docs/team/`](docs/team/00-operating-model.md)を参照する。
+
+### Role boundary protection
+
+- 依頼を受けた時点で、現在のRole、依頼内容、必要権限、他Roleの担当領域かを確認する。
+- 現在のRole責務外の場合は作業を開始せず、適切な担当Roleと確認先を提示する。
+- 責務外の依頼をRole変更として扱う場合、ユーザーまたはProduct Ownerの明示確認を得る。依頼内容だけからRole変更を推測しない。
+- Contract判断、実装判断、Research判断、定型作業を一つのRole判断として混在させない。
+
 ## Implementation rules
 
 - ユーザー価値と成功条件を、実装手段より優先する。
