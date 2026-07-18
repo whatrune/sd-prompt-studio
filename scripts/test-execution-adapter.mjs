@@ -4,6 +4,11 @@ import { readFileSync } from 'node:fs'
 import { createServer } from 'vite'
 
 const git = args => execFileSync('git', args, { encoding: 'utf8' })
+const EXECUTION_ADAPTER_BOUNDARY_PATHS = [
+  'package.json',
+  'scripts/test-execution-adapter.mjs',
+  'src/execution-adapter',
+]
 
 const commitExists = ref => {
   try {
@@ -16,7 +21,7 @@ const commitExists = ref => {
 
 const boundaryChangedPaths = () => {
   if (commitExists('origin/main')) {
-    return git(['diff', '--name-only', 'origin/main...HEAD'])
+    return git(['diff', '--name-only', 'origin/main...HEAD', '--', ...EXECUTION_ADAPTER_BOUNDARY_PATHS])
   }
 
   const eventPath = process.env.GITHUB_EVENT_PATH
@@ -34,8 +39,16 @@ const boundaryChangedPaths = () => {
     })
   }
   assert(commitExists(baseSha), 'pull request base commit must be available after fetch')
-  return git(['diff', '--name-only', baseSha, 'HEAD'])
+  return git(['diff', '--name-only', baseSha, 'HEAD', '--', ...EXECUTION_ADAPTER_BOUNDARY_PATHS])
 }
+
+const isExecutionAdapterBoundaryPath = path => path === 'package.json'
+  || path === 'scripts/test-execution-adapter.mjs'
+  || path.startsWith('src/execution-adapter/')
+
+const executionAdapterBoundaryPaths = paths => paths
+  .map(path => path.replaceAll('\\', '/'))
+  .filter(isExecutionAdapterBoundaryPath)
 
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 
@@ -154,11 +167,36 @@ try {
     .split(/\r?\n/)
     .filter(Boolean)
     .map(path => path.replaceAll('\\', '/'))
-  const allowedChange = path => path === 'package.json'
-    || path === 'scripts/test-dispatch-mvp.mjs'
-    || path === 'scripts/test-execution-adapter.mjs'
-    || path.startsWith('src/execution-adapter/')
-  assert(changedPaths.every(allowedChange), `Execution Adapter changed a forbidden path: ${changedPaths.join(', ')}`)
+  assert(
+    changedPaths.every(isExecutionAdapterBoundaryPath),
+    `Execution Adapter path filtering returned an out-of-scope path: ${changedPaths.join(', ')}`,
+  )
+
+  assert.deepEqual(
+    executionAdapterBoundaryPaths([
+      'src/dispatch/dispatcher.ts',
+      'scripts/test-dispatch-mvp.mjs',
+      'docs/automation/12-model-routing-policy.md',
+      'src/runner/runner.ts',
+      '.github/workflows/runner.yml',
+      'research/runs/example/manifest.json',
+    ]),
+    [],
+    'Dispatch, Automation Design, runner, and research changes must be outside the Execution Adapter boundary',
+  )
+  assert.deepEqual(
+    executionAdapterBoundaryPaths([
+      'src/execution-adapter/executionAdapter.ts',
+      'scripts/test-execution-adapter.mjs',
+      'package.json',
+    ]),
+    [
+      'src/execution-adapter/executionAdapter.ts',
+      'scripts/test-execution-adapter.mjs',
+      'package.json',
+    ],
+    'the Execution Adapter implementation, its test, and package configuration must remain in scope',
+  )
 
   console.log('Execution Adapter core tests passed.')
 } finally {
