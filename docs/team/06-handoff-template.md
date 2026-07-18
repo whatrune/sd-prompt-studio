@@ -14,6 +14,7 @@
 - Branch:
 - Worktree:
 - Commit / PR:
+- canonical_record: Result Handoff全文を保存したGitHub URLまたはRepository-relative Markdown path
 
 ## Purpose
 
@@ -101,5 +102,6 @@
 - 実行していないValidationを`passed`と記載しない。
 - timeout、環境制約、既知の失敗を成功結果と分離する。
 - 会話にしか存在しない判断は`Input Documents`または`Decisions Made`へ転記する。
+- Result Handoffは、正式受領前に`canonical_record`へ全文を保存する。会話またはローカルファイルだけを保存先にしない。
 - 未コミット変更を引継ぐ場合は、理由と正確なfile listを記載する。標準はcommit済み状態で引き継ぐ。
 - `Next Safe Step`は「続ける」ではなく、再開可能な具体的操作にする。

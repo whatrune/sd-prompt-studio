@@ -48,6 +48,11 @@ The compiler preserves learned phrases, distinguishes human meaning from observe
    - [Worktree and Branch Rules](team/05-worktree-and-branch-rules.md)
    - [Handoff Template](team/06-handoff-template.md)
    - [Task Assignment Template](team/07-task-assignment-template.md)
+   - [Integrated Lead Charter](team/08-integrated-lead-charter.md)
+   - [Development Routing Contract](team/09-development-routing-contract.md)
+   - [Research Operations Routing Contract](team/10-research-operations-routing-contract.md)
+   - [Delegation and Result Contract](team/11-delegation-and-result-contract.md)
+   - [Integrated Completion Report Template](team/12-integrated-completion-report-template.md)
 
 ## Status vocabulary
 
