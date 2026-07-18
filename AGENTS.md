@@ -47,6 +47,14 @@
 - 責務外の依頼をRole変更として扱う場合、ユーザーまたはProduct Ownerの明示確認を得る。依頼内容だけからRole変更を推測しない。
 - Contract判断、実装判断、Research判断、定型作業を一つのRole判断として混在させない。
 
+### Integrated Lead routing
+
+- 通常のDevelopment、Research Operations、Support依頼はIntegrated Leadを受付窓口とする。
+- Integrated Leadは専門作業を自分で実施せず、既存RoleへTask AssignmentとしてRoutingする。
+- Product方針、優先順位、Contract変更承認、Role変更、Merge、RevertはProduct Ownerへ返す。
+- Role間の正本は会話履歴ではなく、Git上のContract、Task Assignment、Result Handoff、PR Diff、Validation Resultとする。
+- Integrated Leadの責務とRouting詳細は[`docs/team/08-integrated-lead-charter.md`](docs/team/08-integrated-lead-charter.md)を参照する。
+
 ## Implementation rules
 
 - ユーザー価値と成功条件を、実装手段より優先する。
