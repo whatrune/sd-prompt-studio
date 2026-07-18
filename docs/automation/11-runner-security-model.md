@@ -148,7 +148,7 @@ Security posture:
 - arbitrary URL from Issue / repository content
 - credential exfiltration endpoint
 
-Allowlistの具体domainとproxyはPR103またはProvisioning Operations Reviewで決定する。
+Allowlistの具体domainとproxyはFollow-up CまたはProvisioning Operations Reviewで決定する。
 
 ## Command Policy
 

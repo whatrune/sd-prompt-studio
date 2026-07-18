@@ -702,7 +702,7 @@ Failure:
 - branch / workspaceの同時ownerは一execution。
 - conflict、remote advance、dirty stateを自動rebase / resetで解消しない。
 
-GitHub-hosted jobのsingle checkoutをTask Workspaceとして使う構成と、明示`git worktree`を作る構成のどちらも候補である。既存Contractの一Task一workspace isolation、deterministic identity、main非編集を満たす必要がある。具体Git commandはPR101で決定する。
+GitHub-hosted jobのsingle checkoutをTask Workspaceとして使う構成と、明示`git worktree`を作る構成のどちらも候補である。既存Contractの一Task一workspace isolation、deterministic identity、main非編集を満たす必要がある。具体Git commandはFollow-up Aで決定する。
 
 ## Credential Boundary
 
