@@ -6,6 +6,8 @@ Prompt Provenance FoundationのNormative Contractは、[Prompt Provenance Founda
 
 Camera Visibility Metadata FoundationのNormative Contractは、[Camera Visibility Metadata Foundation Freeze Specification](docs/specifications/contracts/camera-visibility-metadata-foundation-freeze.md)を参照してください。PR82はSchemaとStructural Testのみを提供し、Artifact生成、自動推定、Semantic Validationは提供しません。
 
+Image Observation Contract FoundationのNormative Contractは、[Image Observation Contract Foundation Freeze Specification](docs/specifications/contracts/image-observation-contract-foundation-freeze.md)を参照してください。PR84はEvidence Rule SchemaとStructural Testのみを提供し、Canonical Mapping、Semantic Validation、Observation更新は提供しません。
+
 ## 担当
 
 ### わたるん
