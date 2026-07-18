@@ -39,6 +39,15 @@ The compiler preserves learned phrases, distinguishes human meaning from observe
    - [Architecture](research/research-explorer-design.md)
    - [Frontend UI Contract](research/research-explorer-ui-design.md)
    - [Integration Validation](research/research-explorer-integration-validation.md)
+7. Team development:
+   - [Operating Model](team/00-operating-model.md)
+   - [Architect Team Charter](team/01-architect-team-charter.md)
+   - [Backend Implementer Charter](team/02-backend-implementer-charter.md)
+   - [Frontend Implementer Charter](team/03-frontend-implementer-charter.md)
+   - [Worker Charter](team/04-worker-charter.md)
+   - [Worktree and Branch Rules](team/05-worktree-and-branch-rules.md)
+   - [Handoff Template](team/06-handoff-template.md)
+   - [Task Assignment Template](team/07-task-assignment-template.md)
 
 ## Status vocabulary
 
