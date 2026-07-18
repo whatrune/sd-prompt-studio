@@ -38,6 +38,7 @@ directories are not added to Git.
 - [Prompt Provenance Foundation Freeze Specification](contracts/prompt-provenance-foundation-freeze.md)
 - [Camera Visibility Metadata Foundation Freeze Specification](contracts/camera-visibility-metadata-foundation-freeze.md)
 - [Image Observation Contract Foundation Freeze Specification](contracts/image-observation-contract-foundation-freeze.md)
+- [Evidence Evaluation Foundation Freeze Specification](contracts/evidence-evaluation-foundation-freeze.md)
 
 Existing documents directly under `docs/` remain in place. Moving them into
 this hierarchy is outside the scope of the initial specifications PR and must

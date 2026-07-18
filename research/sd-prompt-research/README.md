@@ -8,6 +8,8 @@ Camera Visibility Metadata FoundationのNormative Contractは、[Camera Visibili
 
 Image Observation Contract FoundationのNormative Contractは、[Image Observation Contract Foundation Freeze Specification](docs/specifications/contracts/image-observation-contract-foundation-freeze.md)を参照してください。PR84はEvidence Rule SchemaとStructural Testのみを提供し、Canonical Mapping、Semantic Validation、Observation更新は提供しません。
 
+Evidence Evaluation FoundationのNormative Contractは、[Evidence Evaluation Foundation Freeze Specification](docs/specifications/contracts/evidence-evaluation-foundation-freeze.md)を参照してください。PR85は評価アルゴリズムとDiagnostic境界のみを定義し、Semantic Validator、Error Emit、Evaluation Result保存は提供しません。
+
 ## 担当
 
 ### わたるん
