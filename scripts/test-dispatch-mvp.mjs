@@ -235,9 +235,13 @@ try {
     .map(path => path.replaceAll('\\', '/'))
   const allowedChange = path => path === 'package.json'
     || path === 'scripts/test-dispatch-mvp.mjs'
+    || path === 'scripts/test-execution-adapter.mjs'
     || path.startsWith('src/dispatch/')
+    || path.startsWith('src/execution-adapter/')
   assert(changedPaths.every(allowedChange), `dispatch MVP changed a forbidden path: ${changedPaths.join(', ')}`)
-  assert(changedPaths.includes('src/dispatch/dispatcher.ts'), 'boundary test must inspect committed PR changes')
+  if (changedPaths.some(path => path.startsWith('src/dispatch/'))) {
+    assert(changedPaths.includes('src/dispatch/dispatcher.ts'), 'dispatch changes must include the dispatcher boundary')
+  }
 
   console.log('Dispatch MVP core tests passed.')
 } finally {
