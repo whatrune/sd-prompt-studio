@@ -132,6 +132,8 @@ export interface RoutingFailure {
   readonly evaluation_timestamp: string
 }
 
+export type ModelRoutingResult = RoutingDecision | RoutingFailure
+
 export type ModelRoutingContractValidationCode =
   | 'INVALID_TYPE'
   | 'MISSING_FIELD'
