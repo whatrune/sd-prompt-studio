@@ -1,4 +1,7 @@
 export {
+  routeModel,
+} from './core'
+export {
   CANONICAL_ROUTING_ROLES,
   CLASSIFICATION_LEVELS,
   LATENCY_POSTURES,
@@ -21,6 +24,7 @@ export type {
   LatencyPosture,
   ModelRoutingContractValidationCode,
   ModelRoutingContractValidationError,
+  ModelRoutingResult,
   RiskClassification,
   RoutingDecision,
   RoutingDecisionValidationResult,
