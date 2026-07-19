@@ -9,6 +9,9 @@ export {
   validateContextPlanningFailureV1,
 } from './validation'
 export {
+  planContext,
+} from './core'
+export {
   compareContextReferencesUtf8,
   validateContextOrderingRuleV1,
   validateContextOrderingSemantics,
@@ -73,3 +76,7 @@ export type {
   ContextPlanReferenceProjectionV1,
   ContextPlanReferenceVerificationResult,
 } from './reference'
+export type {
+  ContextPlannerCoreInput,
+  ContextPlannerCoreResult,
+} from './core'
