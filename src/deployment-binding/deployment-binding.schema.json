@@ -1,0 +1,322 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Deployment Binding Record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "binding_id",
+    "binding_revision",
+    "tier_binding",
+    "deployment",
+    "capabilities",
+    "compatibility",
+    "operations",
+    "resolution",
+    "governance"
+  ],
+  "properties": {
+    "contract_version": { "const": "deployment_binding_v1" },
+    "binding_id": { "$ref": "#/$defs/bindingId" },
+    "binding_revision": { "$ref": "#/$defs/positiveInteger" },
+    "tier_binding": { "$ref": "#/$defs/tierBinding" },
+    "deployment": { "$ref": "#/$defs/deployment" },
+    "capabilities": { "$ref": "#/$defs/capabilities" },
+    "compatibility": { "$ref": "#/$defs/compatibility" },
+    "operations": { "$ref": "#/$defs/operations" },
+    "resolution": { "$ref": "#/$defs/resolution" },
+    "governance": { "$ref": "#/$defs/governance" }
+  },
+  "$defs": {
+    "positiveInteger": { "type": "integer", "minimum": 1 },
+    "nonNegativeInteger": { "type": "integer", "minimum": 0 },
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "opaqueIdentifier": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "bindingId": {
+      "type": "string",
+      "pattern": "^deployment_binding\\.[a-z0-9][a-z0-9_-]*$"
+    },
+    "exactVersion": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S+$",
+      "not": { "pattern": "^(?:[Ll][Aa][Tt][Ee][Ss][Tt])$|[?*]" }
+    },
+    "versionedReference": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9][A-Za-z0-9._-]*)+$"
+    },
+    "canonicalReference": {
+      "type": "string",
+      "pattern": "^(?:https://github\\.com/[^\\s]+|(?:docs|config|policies|evidence|profiles)/[^\\s]+)$",
+      "not": { "pattern": "[?&](?:token|secret|api[_-]?key|credential|password)=" }
+    },
+    "utcTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "reasoningLevel": { "enum": ["low", "medium", "high"] },
+    "logicalTier": { "enum": ["efficient", "general", "advanced"] },
+    "uniqueVersionedReferences": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/versionedReference" }
+    },
+    "nonEmptyUniqueVersionedReferences": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/versionedReference" }
+    },
+    "nonEmptyUniqueOpaqueIdentifiers": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/opaqueIdentifier" }
+    },
+    "nonEmptyUniqueCanonicalReferences": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/canonicalReference" }
+    },
+    "bindingReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding_id", "binding_revision"],
+      "properties": {
+        "binding_id": { "$ref": "#/$defs/bindingId" },
+        "binding_revision": { "$ref": "#/$defs/positiveInteger" }
+      }
+    },
+    "tierBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "routing_contract_version",
+        "logical_tier",
+        "capability_floor_ref",
+        "required_reasoning_level"
+      ],
+      "properties": {
+        "routing_contract_version": { "$ref": "#/$defs/opaqueIdentifier" },
+        "logical_tier": { "$ref": "#/$defs/logicalTier" },
+        "capability_floor_ref": { "$ref": "#/$defs/versionedReference" },
+        "required_reasoning_level": { "$ref": "#/$defs/reasoningLevel" }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider_id", "model_family", "model_version", "deployment_id"],
+      "properties": {
+        "provider_id": { "$ref": "#/$defs/opaqueIdentifier" },
+        "model_family": { "$ref": "#/$defs/opaqueIdentifier" },
+        "model_version": { "$ref": "#/$defs/exactVersion" },
+        "deployment_id": { "$ref": "#/$defs/opaqueIdentifier" },
+        "provider_profile_ref": { "$ref": "#/$defs/versionedReference" }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supported_reasoning_levels",
+        "declared_context_limit_tokens",
+        "reserved_output_tokens",
+        "usable_input_limit_tokens",
+        "context_evidence_ref",
+        "tool_profile_refs",
+        "structured_output_profile_refs",
+        "response_profile_refs"
+      ],
+      "properties": {
+        "supported_reasoning_levels": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/reasoningLevel" }
+        },
+        "default_reasoning_level": { "$ref": "#/$defs/reasoningLevel" },
+        "declared_context_limit_tokens": { "$ref": "#/$defs/positiveInteger" },
+        "reserved_output_tokens": { "$ref": "#/$defs/nonNegativeInteger" },
+        "usable_input_limit_tokens": { "$ref": "#/$defs/positiveInteger" },
+        "context_evidence_ref": { "$ref": "#/$defs/canonicalReference" },
+        "tool_profile_refs": { "$ref": "#/$defs/uniqueVersionedReferences" },
+        "structured_output_profile_refs": { "$ref": "#/$defs/uniqueVersionedReferences" },
+        "response_profile_refs": { "$ref": "#/$defs/uniqueVersionedReferences" }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execution_adapter_contract_versions",
+        "runner_profile_refs",
+        "sandbox_profile_refs",
+        "network_policy_refs",
+        "tool_profile_refs",
+        "response_profile_refs"
+      ],
+      "properties": {
+        "execution_adapter_contract_versions": { "$ref": "#/$defs/nonEmptyUniqueOpaqueIdentifiers" },
+        "runner_profile_refs": { "$ref": "#/$defs/nonEmptyUniqueVersionedReferences" },
+        "sandbox_profile_refs": { "$ref": "#/$defs/nonEmptyUniqueVersionedReferences" },
+        "network_policy_refs": { "$ref": "#/$defs/nonEmptyUniqueVersionedReferences" },
+        "tool_profile_refs": { "$ref": "#/$defs/uniqueVersionedReferences" },
+        "response_profile_refs": { "$ref": "#/$defs/nonEmptyUniqueVersionedReferences" }
+      }
+    },
+    "operations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cost_class",
+        "budget_posture",
+        "cost_evidence_ref",
+        "latency_class",
+        "reliability_class",
+        "latency_evidence_ref",
+        "reliability_evidence_ref",
+        "availability_requirement",
+        "retry_policy_ref",
+        "monitoring_profile_ref",
+        "capacity_policy_ref"
+      ],
+      "properties": {
+        "cost_class": { "enum": ["cost_optimized", "balanced", "quality_optimized"] },
+        "budget_posture": { "enum": ["cost_first", "balanced", "quality_first"] },
+        "cost_evidence_ref": { "$ref": "#/$defs/canonicalReference" },
+        "latency_class": { "enum": ["low_latency", "standard", "extended"] },
+        "reliability_class": { "enum": ["standard", "high"] },
+        "latency_evidence_ref": { "$ref": "#/$defs/canonicalReference" },
+        "reliability_evidence_ref": { "$ref": "#/$defs/canonicalReference" },
+        "availability_requirement": { "enum": ["standard", "high"] },
+        "retry_policy_ref": { "$ref": "#/$defs/versionedReference" },
+        "monitoring_profile_ref": { "$ref": "#/$defs/versionedReference" },
+        "capacity_policy_ref": { "$ref": "#/$defs/versionedReference" }
+      }
+    },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selection_priority", "resolution_scope_ref", "fallback_binding_refs"],
+      "properties": {
+        "selection_priority": { "$ref": "#/$defs/positiveInteger" },
+        "resolution_scope_ref": { "$ref": "#/$defs/versionedReference" },
+        "fallback_binding_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/bindingReference" }
+        }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lifecycle_status", "created_at", "review_due_at", "change_reason"],
+      "properties": {
+        "lifecycle_status": { "enum": ["draft", "approved", "deprecated", "retired"] },
+        "created_at": { "$ref": "#/$defs/utcTimestamp" },
+        "effective_from": { "$ref": "#/$defs/utcTimestamp" },
+        "approved_at": { "$ref": "#/$defs/utcTimestamp" },
+        "deprecated_at": { "$ref": "#/$defs/utcTimestamp" },
+        "retired_at": { "$ref": "#/$defs/utcTimestamp" },
+        "review_due_at": { "$ref": "#/$defs/utcTimestamp" },
+        "approval_owner": { "$ref": "#/$defs/nonEmptyString" },
+        "approval_record": { "$ref": "#/$defs/canonicalReference" },
+        "architecture_review_ref": { "$ref": "#/$defs/canonicalReference" },
+        "security_review_ref": { "$ref": "#/$defs/canonicalReference" },
+        "capability_evidence_refs": { "$ref": "#/$defs/nonEmptyUniqueCanonicalReferences" },
+        "quality_evaluation_refs": { "$ref": "#/$defs/nonEmptyUniqueCanonicalReferences" },
+        "cost_evaluation_refs": { "$ref": "#/$defs/nonEmptyUniqueCanonicalReferences" },
+        "latency_evaluation_refs": { "$ref": "#/$defs/nonEmptyUniqueCanonicalReferences" },
+        "availability_evidence_refs": { "$ref": "#/$defs/nonEmptyUniqueCanonicalReferences" },
+        "security_review_refs": { "$ref": "#/$defs/nonEmptyUniqueCanonicalReferences" },
+        "compatibility_evidence_refs": { "$ref": "#/$defs/nonEmptyUniqueCanonicalReferences" },
+        "supersedes": { "$ref": "#/$defs/bindingReference" },
+        "rollback_target": { "$ref": "#/$defs/bindingReference" },
+        "change_reason": { "$ref": "#/$defs/nonEmptyString" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "lifecycle_status": { "const": "draft" } } },
+          "then": {
+            "not": {
+              "anyOf": [
+                { "required": ["effective_from"] },
+                { "required": ["approved_at"] },
+                { "required": ["deprecated_at"] },
+                { "required": ["retired_at"] },
+                { "required": ["approval_owner"] },
+                { "required": ["approval_record"] },
+                { "required": ["architecture_review_ref"] },
+                { "required": ["security_review_ref"] },
+                { "required": ["capability_evidence_refs"] },
+                { "required": ["quality_evaluation_refs"] },
+                { "required": ["cost_evaluation_refs"] },
+                { "required": ["latency_evaluation_refs"] },
+                { "required": ["availability_evidence_refs"] },
+                { "required": ["security_review_refs"] },
+                { "required": ["compatibility_evidence_refs"] }
+              ]
+            }
+          }
+        },
+        {
+          "if": { "properties": { "lifecycle_status": { "const": "approved" } } },
+          "then": { "$ref": "#/$defs/approvedGovernance" }
+        },
+        {
+          "if": { "properties": { "lifecycle_status": { "const": "deprecated" } } },
+          "then": {
+            "allOf": [
+              { "$ref": "#/$defs/approvedGovernance" },
+              { "required": ["deprecated_at"] }
+            ]
+          }
+        },
+        {
+          "if": { "properties": { "lifecycle_status": { "const": "retired" } } },
+          "then": {
+            "allOf": [
+              { "$ref": "#/$defs/approvalMetadata" },
+              { "$ref": "#/$defs/approvalEvidence" },
+              { "required": ["retired_at"] }
+            ]
+          }
+        }
+      ]
+    },
+    "approvalMetadata": {
+      "required": [
+        "approval_owner",
+        "approval_record",
+        "architecture_review_ref",
+        "security_review_ref"
+      ]
+    },
+    "approvalEvidence": {
+      "required": [
+        "capability_evidence_refs",
+        "quality_evaluation_refs",
+        "cost_evaluation_refs",
+        "latency_evaluation_refs",
+        "availability_evidence_refs",
+        "security_review_refs",
+        "compatibility_evidence_refs"
+      ]
+    },
+    "approvedGovernance": {
+      "allOf": [
+        { "$ref": "#/$defs/approvalMetadata" },
+        { "$ref": "#/$defs/approvalEvidence" },
+        { "required": ["effective_from", "approved_at"] }
+      ]
+    }
+  }
+}
