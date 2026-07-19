@@ -69,6 +69,18 @@ const bindingSetIdentity = () => ({
   binding_set_revision: 1,
 })
 
+const bindingReference = binding => ({
+  binding_id: binding.binding_id,
+  binding_revision: binding.binding_revision,
+})
+
+const secondBinding = () => {
+  const binding = validBinding()
+  binding.binding_id = 'deployment_binding.secondary'
+  binding.deployment.deployment_id = 'deployment-secondary'
+  return binding
+}
+
 const validRequest = () => ({
   resolver_contract_version: 'deployment_resolver_v1',
   task_id: 'IMPLEMENT-DEPLOYMENT-RESOLVER-CONTRACT-001',
@@ -87,6 +99,7 @@ const validRequest = () => ({
     binding_set_identity: bindingSetIdentity(),
     validation_proof_ref: 'docs/evidence/binding-set-validation.md',
     semantic_validation_version: 'binding_set_semantic_validation_v1',
+    validated_binding_refs: [{ binding_id: 'deployment_binding.example', binding_revision: 1 }],
     status: 'completed',
     validated_at: '2000-01-01T00:00:00Z',
     valid_until: '2000-01-02T00:00:00Z',
@@ -123,6 +136,20 @@ const validRequest = () => ({
   },
   evaluation_timestamp: '2000-01-01T12:00:00Z',
 })
+
+const validTwoMemberRequest = () => {
+  const request = validRequest()
+  const secondary = secondBinding()
+  const secondaryReference = bindingReference(secondary)
+  request.binding_set_snapshot.included_binding_refs.push(secondaryReference)
+  request.binding_set_snapshot.bindings.push(secondary)
+  request.binding_set_validation.validated_binding_refs.push({ ...secondaryReference })
+  request.availability_snapshot.binding_states.push({
+    binding_identity: { ...secondaryReference },
+    state: 'available',
+  })
+  return request
+}
 
 const commonResult = () => ({
   resolver_contract_version: 'deployment_resolver_v1',
@@ -173,6 +200,10 @@ try {
     assert.equal(result.accepted, true, 'valid ResolverRequest must be accepted')
     assert(Object.isFrozen(result.request), 'accepted request must be immutable')
     assert(Object.isFrozen(result.request.binding_set_snapshot), 'accepted nested request data must be immutable')
+    assert(Object.isFrozen(result.request.binding_set_validation.validated_binding_refs), 'validated Binding references must be immutable')
+    assert(Object.isFrozen(result.request.binding_set_snapshot.included_binding_refs), 'included Binding references must be immutable')
+    assert(Object.isFrozen(result.request.binding_set_snapshot.bindings), 'Binding collection must be immutable')
+    assert(Object.isFrozen(result.request.availability_snapshot.binding_states), 'availability Binding states must be immutable')
     assert(Object.isFrozen(result.request.binding_set_snapshot.bindings[0].deployment), 'accepted Binding data must be deeply immutable')
     assert.throws(() => {
       result.request.execution_context.logical_tier = 'advanced'
@@ -213,10 +244,166 @@ try {
   }
 
   {
+    const request = validRequest()
+    delete request.binding_set_validation.validated_binding_refs
+    const result = validateResolverRequest(request)
+    assert.equal(result.accepted, false, 'missing validated_binding_refs must be rejected')
+    assert(result.errors.some(error => error.path === '$.binding_set_validation.validated_binding_refs'))
+  }
+
+  {
+    const request = validRequest()
+    request.binding_set_validation.validated_binding_refs.push({ binding_id: 'deployment_binding.extra', binding_revision: 1 })
+    const result = validateResolverRequest(request)
+    assert.equal(result.accepted, false, 'extra validation proof reference must be rejected')
+    assert(result.errors.some(error => error.code === 'INCONSISTENT_MEMBERSHIP' && error.path.includes('validated_binding_refs[1]')))
+  }
+
+  {
+    const request = validTwoMemberRequest()
+    request.binding_set_validation.validated_binding_refs.pop()
+    const result = validateResolverRequest(request)
+    assert.equal(result.accepted, false, 'missing validation proof reference must be rejected')
+    assert(result.errors.some(error => error.code === 'INCONSISTENT_MEMBERSHIP' && error.path === '$.binding_set_validation.validated_binding_refs'))
+  }
+
+  {
+    const request = validRequest()
+    request.binding_set_validation.validated_binding_refs.push({ ...request.binding_set_validation.validated_binding_refs[0] })
+    const result = validateResolverRequest(request)
+    assert.equal(result.accepted, false, 'duplicate validation proof reference must be rejected')
+    assert(result.errors.some(error => error.code === 'DUPLICATE_VALUE' && error.path.includes('validated_binding_refs[1]')))
+  }
+
+  {
+    const request = validTwoMemberRequest()
+    request.binding_set_validation.validated_binding_refs.reverse()
+    const result = validateResolverRequest(request)
+    assert.equal(result.accepted, true, 'validation proof membership order must not affect acceptance')
+  }
+
+  {
+    const request = validTwoMemberRequest()
+    request.binding_set_snapshot.bindings.pop()
+    const result = validateResolverRequest(request)
+    assert.equal(result.accepted, false, 'missing Binding Record must be rejected')
+    assert(result.errors.some(error => error.code === 'INCONSISTENT_MEMBERSHIP' && error.path === '$.binding_set_snapshot.bindings'))
+  }
+
+  {
+    const request = validRequest()
+    request.binding_set_snapshot.bindings.push(secondBinding())
+    const result = validateResolverRequest(request)
+    assert.equal(result.accepted, false, 'extra Binding Record must be rejected')
+    assert(result.errors.some(error => error.code === 'INCONSISTENT_MEMBERSHIP' && error.path.includes('bindings[1]')))
+  }
+
+  {
+    const request = validRequest()
+    request.binding_set_snapshot.included_binding_refs.push({ ...request.binding_set_snapshot.included_binding_refs[0] })
+    const result = validateResolverRequest(request)
+    assert.equal(result.accepted, false, 'duplicate included reference must be rejected')
+    assert(result.errors.some(error => error.code === 'DUPLICATE_VALUE' && error.path.includes('included_binding_refs[1]')))
+  }
+
+  {
+    const request = validRequest()
+    request.binding_set_snapshot.bindings.push(validBinding())
+    const result = validateResolverRequest(request)
+    assert.equal(result.accepted, false, 'duplicate Binding Record identity must be rejected')
+    assert(result.errors.some(error => error.code === 'DUPLICATE_VALUE' && error.path.includes('bindings[1]')))
+  }
+
+  {
+    const request = validRequest()
+    request.binding_set_snapshot.included_binding_refs[0].binding_revision = 2
+    const result = validateResolverRequest(request)
+    assert.equal(result.accepted, false, 'Binding identity revision mismatch must be rejected')
+    assert(result.errors.some(error => error.code === 'INCONSISTENT_MEMBERSHIP'))
+  }
+
+  {
+    const request = validTwoMemberRequest()
+    request.availability_snapshot.binding_states.pop()
+    const result = validateResolverRequest(request)
+    assert.equal(result.accepted, false, 'missing availability state must be rejected')
+    assert(result.errors.some(error => error.code === 'INCONSISTENT_MEMBERSHIP' && error.path === '$.availability_snapshot.binding_states'))
+  }
+
+  {
+    const request = validRequest()
+    request.availability_snapshot.binding_states.push({
+      binding_identity: bindingReference(secondBinding()),
+      state: 'available',
+    })
+    const result = validateResolverRequest(request)
+    assert.equal(result.accepted, false, 'extra availability state must be rejected')
+    assert(result.errors.some(error => error.code === 'INCONSISTENT_MEMBERSHIP' && error.path.includes('binding_states[1]')))
+  }
+
+  {
+    const request = validRequest()
+    request.availability_snapshot.binding_states.push(structuredClone(request.availability_snapshot.binding_states[0]))
+    const result = validateResolverRequest(request)
+    assert.equal(result.accepted, false, 'duplicate availability state identity must be rejected')
+    assert(result.errors.some(error => error.code === 'DUPLICATE_VALUE' && error.path.includes('binding_states[1]')))
+  }
+
+  for (const [name, mutate, expectedPath] of [
+    ['future validation proof', request => { request.binding_set_validation.validated_at = '2000-01-01T13:00:00Z' }, '$.binding_set_validation.validated_at'],
+    ['expired validation proof', request => { request.binding_set_validation.valid_until = request.evaluation_timestamp }, '$.binding_set_validation.valid_until'],
+    ['future availability observation', request => { request.availability_snapshot.observed_at = '2000-01-01T13:00:00Z' }, '$.availability_snapshot.observed_at'],
+    ['expired availability snapshot', request => { request.availability_snapshot.valid_until = request.evaluation_timestamp }, '$.availability_snapshot.valid_until'],
+    ['snapshot before effective_from', request => { request.binding_set_snapshot.effective_from = '2000-01-01T13:00:00Z' }, '$.binding_set_snapshot.effective_from'],
+    ['snapshot at review_due_at', request => { request.binding_set_snapshot.review_due_at = request.evaluation_timestamp }, '$.binding_set_snapshot.review_due_at'],
+    ['reversed snapshot window', request => {
+      request.binding_set_snapshot.effective_from = '2000-01-01T14:00:00Z'
+      request.binding_set_snapshot.review_due_at = '2000-01-01T13:00:00Z'
+    }, '$.binding_set_snapshot.review_due_at'],
+  ]) {
+    const request = validRequest()
+    mutate(request)
+    const result = validateResolverRequest(request)
+    assert.equal(result.accepted, false, `${name} must be rejected`)
+    assert(result.errors.some(error => error.code === 'INVALID_TIME_WINDOW' && error.path === expectedPath))
+  }
+
+  {
     const result = validateResolutionResult(resolvedResult())
     assert.equal(result.accepted, true, 'resolved Result shape must be accepted')
     assert(Object.isFrozen(result.result), 'accepted resolved Result must be immutable')
     assert(Object.isFrozen(result.result.selected_binding), 'selected Binding must be immutable')
+    assert(Object.isFrozen(result.result.compatibility.tool_profile_refs), 'completed Result compatibility arrays must be immutable')
+    assert(Object.isFrozen(result.result.compatibility.structured_output_profile_refs), 'completed Result structured output profiles must be immutable')
+  }
+
+  for (const [name, mutate, expectedPath] of [
+    ['unsupported Adapter contract', result => { result.compatibility.execution_adapter_contract_version = 'execution-adapter-unsupported-v1' }, '$.compatibility.execution_adapter_contract_version'],
+    ['unsupported Runner profile', result => { result.compatibility.runner_profile_ref = 'runner-profile.unsupported/v1' }, '$.compatibility.runner_profile_ref'],
+    ['unsupported Sandbox profile', result => { result.compatibility.sandbox_profile_ref = 'sandbox-profile.unsupported/v1' }, '$.compatibility.sandbox_profile_ref'],
+    ['unsupported Network policy', result => { result.compatibility.network_policy_ref = 'network-policy.unsupported/v1' }, '$.compatibility.network_policy_ref'],
+    ['unsupported Tool profile', result => { result.compatibility.tool_profile_refs = ['tool-profile.unsupported/v1'] }, '$.compatibility.tool_profile_refs[0]'],
+    ['Tool profile declared by capability only', result => {
+      result.selected_binding.capabilities.tool_profile_refs = ['tool-profile.example/v1']
+      result.compatibility.tool_profile_refs = ['tool-profile.example/v1']
+    }, '$.compatibility.tool_profile_refs[0]'],
+    ['Tool profile declared by compatibility only', result => {
+      result.selected_binding.compatibility.tool_profile_refs = ['tool-profile.example/v1']
+      result.compatibility.tool_profile_refs = ['tool-profile.example/v1']
+    }, '$.compatibility.tool_profile_refs[0]'],
+    ['unsupported Structured Output profile', result => { result.compatibility.structured_output_profile_refs = ['structured-output.unsupported/v1'] }, '$.compatibility.structured_output_profile_refs[0]'],
+    ['unsupported Response profile', result => { result.compatibility.response_profile_ref = 'response-profile.unsupported/v1' }, '$.compatibility.response_profile_ref'],
+    ['unsupported required_reasoning_level', result => { result.required_reasoning_level = 'high' }, '$.required_reasoning_level'],
+    ['required_reasoning_level below Binding floor', result => {
+      result.selected_binding.capabilities.supported_reasoning_levels = ['low', 'medium']
+      result.required_reasoning_level = 'low'
+    }, '$.required_reasoning_level'],
+  ]) {
+    const result = resolvedResult()
+    mutate(result)
+    const validation = validateResolutionResult(result)
+    assert.equal(validation.accepted, false, `${name} must be rejected`)
+    assert(validation.errors.some(error => error.code === 'INCONSISTENT_VALUE' && error.path === expectedPath))
   }
 
   {

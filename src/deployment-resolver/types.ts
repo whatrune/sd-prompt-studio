@@ -55,6 +55,7 @@ export interface BindingSetValidationProof {
   readonly binding_set_identity: BindingSetIdentity
   readonly validation_proof_ref: string
   readonly semantic_validation_version: string
+  readonly validated_binding_refs: readonly DeepReadonly<BindingRevisionReference>[]
   readonly status: 'completed'
   readonly validated_at: string
   readonly valid_until: string
@@ -159,6 +160,9 @@ export type ResolverContractValidationCode =
   | 'DUPLICATE_VALUE'
   | 'SECRET_FIELD'
   | 'INCONSISTENT_IDENTITY'
+  | 'INCONSISTENT_MEMBERSHIP'
+  | 'INCONSISTENT_VALUE'
+  | 'INVALID_TIME_WINDOW'
 
 export interface ResolverContractValidationError {
   readonly code: ResolverContractValidationCode

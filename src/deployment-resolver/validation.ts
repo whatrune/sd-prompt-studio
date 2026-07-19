@@ -3,7 +3,7 @@ import {
   REASONING_LEVELS,
   validateDeploymentBinding,
 } from '../deployment-binding'
-import type { BindingRevisionReference } from '../deployment-binding'
+import type { BindingRevisionReference, DeploymentBinding, ReasoningLevel } from '../deployment-binding'
 import {
   AVAILABILITY_STATES,
   BINDING_SET_CONTRACT_VERSION,
@@ -200,6 +200,93 @@ function validateBindingIdentity(
   return bindingId && bindingRevision ? { binding_id: bindingId, binding_revision: bindingRevision } : undefined
 }
 
+interface IdentityEntry {
+  identity: BindingRevisionReference
+  key: string
+  path: string
+}
+
+interface SnapshotValidationData {
+  identity?: BindingSetIdentity
+  routingContractVersion?: string
+  resolutionScopeRef?: string
+  membership: IdentityEntry[]
+  effectiveFrom?: string
+  reviewDueAt?: string
+}
+
+interface ProofValidationData {
+  identity?: BindingSetIdentity
+  membership: IdentityEntry[]
+  validatedAt?: string
+  validUntil?: string
+}
+
+interface AvailabilityValidationData {
+  identity?: BindingSetIdentity
+  membership: IdentityEntry[]
+  observedAt?: string
+  validUntil?: string
+}
+
+function identityKey(identity: BindingRevisionReference): string {
+  return `${identity.binding_id}@${identity.binding_revision}`
+}
+
+function validateBindingReferenceArray(
+  record: RecordValue | undefined,
+  key: string,
+  path: string,
+  errors: ResolverContractValidationError[],
+): IdentityEntry[] {
+  if (!record || !hasOwn(record, key)) return []
+  const value = record[key]
+  if (!Array.isArray(value) || value.length === 0) {
+    addError(errors, 'INVALID_TYPE', `${path}.${key}`, 'Expected a non-empty array.')
+    return []
+  }
+
+  const entries: IdentityEntry[] = []
+  const seen = new Set<string>()
+  for (const [index, item] of value.entries()) {
+    const itemPath = `${path}.${key}[${index}]`
+    const identity = validateBindingIdentity(item, itemPath, errors)
+    if (!identity) continue
+    const memberKey = identityKey(identity)
+    if (seen.has(memberKey)) {
+      addError(errors, 'DUPLICATE_VALUE', itemPath, 'Binding identity is duplicated.')
+    }
+    seen.add(memberKey)
+    entries.push({ identity, key: memberKey, path: itemPath })
+  }
+  return entries
+}
+
+function compareMembership(
+  expected: readonly IdentityEntry[],
+  actual: readonly IdentityEntry[],
+  actualCollectionPath: string,
+  actualLabel: string,
+  errors: ResolverContractValidationError[],
+): void {
+  const expectedKeys = new Set(expected.map(entry => entry.key))
+  const actualKeys = new Set(actual.map(entry => entry.key))
+  for (const entry of actual) {
+    if (!expectedKeys.has(entry.key)) {
+      addError(errors, 'INCONSISTENT_MEMBERSHIP', entry.path, `${actualLabel} contains an identity outside the Binding Set Snapshot membership.`)
+    }
+  }
+  const missing = expected.filter(entry => !actualKeys.has(entry.key))
+  if (missing.length > 0) {
+    addError(
+      errors,
+      'INCONSISTENT_MEMBERSHIP',
+      actualCollectionPath,
+      `${actualLabel} is missing Binding identity: ${missing.map(entry => entry.key).join(', ')}.`,
+    )
+  }
+}
+
 function validateBindingSetIdentity(
   value: unknown,
   path: string,
@@ -225,7 +312,7 @@ function validateBindingSetSnapshot(
   value: unknown,
   path: string,
   errors: ResolverContractValidationError[],
-): { identity?: BindingSetIdentity; routingContractVersion?: string; resolutionScopeRef?: string } {
+): SnapshotValidationData {
   const fields = [
     'binding_set_identity',
     'routing_contract_version',
@@ -241,18 +328,12 @@ function validateBindingSetSnapshot(
   const routingContractVersion = stringAt(record, 'routing_contract_version', path, errors, value => OPAQUE_IDENTIFIER.test(value), 'Invalid routing contract version.')
   const resolutionScopeRef = trustedReferenceAt(record, 'resolution_scope_ref', path, errors)
   trustedReferenceAt(record, 'approval_record', path, errors)
-  timestampAt(record, 'effective_from', path, errors)
-  timestampAt(record, 'review_due_at', path, errors)
+  const effectiveFrom = timestampAt(record, 'effective_from', path, errors)
+  const reviewDueAt = timestampAt(record, 'review_due_at', path, errors)
+  const membership = validateBindingReferenceArray(record, 'included_binding_refs', path, errors)
 
-  if (record && hasOwn(record, 'included_binding_refs')) {
-    const references = record.included_binding_refs
-    if (!Array.isArray(references) || references.length === 0) {
-      addError(errors, 'INVALID_TYPE', `${path}.included_binding_refs`, 'Expected a non-empty array.')
-    } else {
-      references.forEach((reference, index) => validateBindingIdentity(reference, `${path}.included_binding_refs[${index}]`, errors))
-    }
-  }
-
+  const bindingEntries: IdentityEntry[] = []
+  const seenBindings = new Set<string>()
   if (record && hasOwn(record, 'bindings')) {
     const bindings = record.bindings
     if (!Array.isArray(bindings) || bindings.length === 0) {
@@ -262,23 +343,38 @@ function validateBindingSetSnapshot(
         const result = validateDeploymentBinding(binding)
         if (!result.accepted) {
           addError(errors, 'INVALID_VALUE', `${path}.bindings[${index}]`, 'Expected a structurally valid Deployment Binding value.')
+        } else {
+          const identity = {
+            binding_id: result.binding.binding_id,
+            binding_revision: result.binding.binding_revision,
+          }
+          const memberKey = identityKey(identity)
+          const itemPath = `${path}.bindings[${index}]`
+          if (seenBindings.has(memberKey)) {
+            addError(errors, 'DUPLICATE_VALUE', itemPath, 'Deployment Binding identity is duplicated.')
+          }
+          seenBindings.add(memberKey)
+          bindingEntries.push({ identity, key: memberKey, path: itemPath })
         }
       }
     }
   }
 
-  return { identity, routingContractVersion, resolutionScopeRef }
+  compareMembership(membership, bindingEntries, `${path}.bindings`, 'Binding Record collection', errors)
+
+  return { identity, routingContractVersion, resolutionScopeRef, membership, effectiveFrom, reviewDueAt }
 }
 
 function validateBindingSetProof(
   value: unknown,
   path: string,
   errors: ResolverContractValidationError[],
-): BindingSetIdentity | undefined {
+): ProofValidationData {
   const fields = [
     'binding_set_identity',
     'validation_proof_ref',
     'semantic_validation_version',
+    'validated_binding_refs',
     'status',
     'validated_at',
     'valid_until',
@@ -287,10 +383,11 @@ function validateBindingSetProof(
   const identity = validateBindingSetIdentity(record?.binding_set_identity, `${path}.binding_set_identity`, errors)
   trustedReferenceAt(record, 'validation_proof_ref', path, errors)
   stringAt(record, 'semantic_validation_version', path, errors, value => OPAQUE_IDENTIFIER.test(value), 'Invalid semantic validation version.')
+  const membership = validateBindingReferenceArray(record, 'validated_binding_refs', path, errors)
   enumAt(record, 'status', path, ['completed'], errors)
-  timestampAt(record, 'validated_at', path, errors)
-  timestampAt(record, 'valid_until', path, errors)
-  return identity
+  const validatedAt = timestampAt(record, 'validated_at', path, errors)
+  const validUntil = timestampAt(record, 'valid_until', path, errors)
+  return { identity, membership, validatedAt, validUntil }
 }
 
 function validateExecutionContext(
@@ -347,7 +444,7 @@ function validateAvailabilitySnapshot(
   value: unknown,
   path: string,
   errors: ResolverContractValidationError[],
-): BindingSetIdentity | undefined {
+): AvailabilityValidationData {
   const fields = [
     'snapshot_id',
     'binding_set_identity',
@@ -359,36 +456,49 @@ function validateAvailabilitySnapshot(
   const record = objectAt(value, path, fields, fields, errors)
   stringAt(record, 'snapshot_id', path, errors, value => OPAQUE_IDENTIFIER.test(value), 'Invalid availability snapshot identity.')
   const identity = validateBindingSetIdentity(record?.binding_set_identity, `${path}.binding_set_identity`, errors)
-  timestampAt(record, 'observed_at', path, errors)
-  timestampAt(record, 'valid_until', path, errors)
+  const observedAt = timestampAt(record, 'observed_at', path, errors)
+  const validUntil = timestampAt(record, 'valid_until', path, errors)
   trustedReferenceAt(record, 'verification_ref', path, errors)
 
+  const membership: IdentityEntry[] = []
   if (record && hasOwn(record, 'binding_states')) {
     const bindingStates = record.binding_states
     if (!Array.isArray(bindingStates) || bindingStates.length === 0) {
       addError(errors, 'INVALID_TYPE', `${path}.binding_states`, 'Expected a non-empty array.')
     } else {
-      const identities: string[] = []
+      const identities = new Set<string>()
       for (const [index, stateValue] of bindingStates.entries()) {
         const statePath = `${path}.binding_states[${index}]`
         const stateRecord = objectAt(stateValue, statePath, ['binding_identity', 'state'], ['binding_identity', 'state'], errors)
         const bindingIdentity = validateBindingIdentity(stateRecord?.binding_identity, `${statePath}.binding_identity`, errors)
         enumAt(stateRecord, 'state', statePath, AVAILABILITY_STATES, errors)
-        if (bindingIdentity) identities.push(`${bindingIdentity.binding_id}@${bindingIdentity.binding_revision}`)
-      }
-      if (new Set(identities).size !== identities.length) {
-        addError(errors, 'DUPLICATE_VALUE', `${path}.binding_states`, 'Binding state identities must be unique.')
+        if (bindingIdentity) {
+          const memberKey = identityKey(bindingIdentity)
+          if (identities.has(memberKey)) {
+            addError(errors, 'DUPLICATE_VALUE', statePath, 'Binding state identity is duplicated.')
+          }
+          identities.add(memberKey)
+          membership.push({ identity: bindingIdentity, key: memberKey, path: statePath })
+        }
       }
     }
   }
-  return identity
+  return { identity, membership, observedAt, validUntil }
 }
 
 function validateCompatibility(
   value: unknown,
   path: string,
   errors: ResolverContractValidationError[],
-): void {
+): {
+  executionAdapterContractVersion?: string
+  runnerProfileRef?: string
+  sandboxProfileRef?: string
+  networkPolicyRef?: string
+  toolProfileRefs?: string[]
+  structuredOutputProfileRefs?: string[]
+  responseProfileRef?: string
+} {
   const fields = [
     'execution_adapter_contract_version',
     'runner_profile_ref',
@@ -399,12 +509,126 @@ function validateCompatibility(
     'response_profile_ref',
   ] as const
   const record = objectAt(value, path, fields, fields, errors)
-  stringAt(record, 'execution_adapter_contract_version', path, errors, value => OPAQUE_IDENTIFIER.test(value), 'Invalid adapter contract version.')
-  for (const field of ['runner_profile_ref', 'sandbox_profile_ref', 'network_policy_ref', 'response_profile_ref'] as const) {
-    trustedReferenceAt(record, field, path, errors)
+  const executionAdapterContractVersion = stringAt(record, 'execution_adapter_contract_version', path, errors, value => OPAQUE_IDENTIFIER.test(value), 'Invalid adapter contract version.')
+  const runnerProfileRef = trustedReferenceAt(record, 'runner_profile_ref', path, errors)
+  const sandboxProfileRef = trustedReferenceAt(record, 'sandbox_profile_ref', path, errors)
+  const networkPolicyRef = trustedReferenceAt(record, 'network_policy_ref', path, errors)
+  const responseProfileRef = trustedReferenceAt(record, 'response_profile_ref', path, errors)
+  const toolProfileRefs = stringArrayAt(record, 'tool_profile_refs', path, errors, value => VERSIONED_REFERENCE.test(value))
+  const structuredOutputProfileRefs = stringArrayAt(record, 'structured_output_profile_refs', path, errors, value => VERSIONED_REFERENCE.test(value))
+  return {
+    executionAdapterContractVersion,
+    runnerProfileRef,
+    sandboxProfileRef,
+    networkPolicyRef,
+    toolProfileRefs,
+    structuredOutputProfileRefs,
+    responseProfileRef,
   }
-  for (const field of ['tool_profile_refs', 'structured_output_profile_refs'] as const) {
-    stringArrayAt(record, field, path, errors, value => VERSIONED_REFERENCE.test(value))
+}
+
+function requireSupported(
+  value: string | undefined,
+  supported: readonly string[],
+  path: string,
+  message: string,
+  errors: ResolverContractValidationError[],
+): void {
+  if (value && !supported.includes(value)) {
+    addError(errors, 'INCONSISTENT_VALUE', path, message)
+  }
+}
+
+type SelectedBindingCompatibilityShape = Pick<DeploymentBinding, 'capabilities' | 'compatibility' | 'tier_binding'>
+
+function selectedBindingCompatibilityShape(value: unknown): SelectedBindingCompatibilityShape | undefined {
+  if (!isRecord(value) || !isRecord(value.capabilities) || !isRecord(value.compatibility) || !isRecord(value.tier_binding)) return undefined
+  const capabilities = value.capabilities
+  const compatibility = value.compatibility
+  const tierBinding = value.tier_binding
+  const requiredArrays = [
+    capabilities.tool_profile_refs,
+    capabilities.structured_output_profile_refs,
+    capabilities.response_profile_refs,
+    capabilities.supported_reasoning_levels,
+    compatibility.execution_adapter_contract_versions,
+    compatibility.runner_profile_refs,
+    compatibility.sandbox_profile_refs,
+    compatibility.network_policy_refs,
+    compatibility.tool_profile_refs,
+    compatibility.response_profile_refs,
+  ]
+  if (!requiredArrays.every(Array.isArray) || typeof tierBinding.required_reasoning_level !== 'string') return undefined
+  return value as unknown as SelectedBindingCompatibilityShape
+}
+
+function validateSelectedBindingCompatibility(
+  binding: SelectedBindingCompatibilityShape,
+  compatibility: ReturnType<typeof validateCompatibility>,
+  requiredReasoningLevel: ReasoningLevel | undefined,
+  errors: ResolverContractValidationError[],
+): void {
+  requireSupported(
+    compatibility.executionAdapterContractVersion,
+    binding.compatibility.execution_adapter_contract_versions,
+    '$.compatibility.execution_adapter_contract_version',
+    'Adapter contract is not supported by the selected Binding.',
+    errors,
+  )
+  requireSupported(compatibility.runnerProfileRef, binding.compatibility.runner_profile_refs, '$.compatibility.runner_profile_ref', 'Runner profile is not supported by the selected Binding.', errors)
+  requireSupported(compatibility.sandboxProfileRef, binding.compatibility.sandbox_profile_refs, '$.compatibility.sandbox_profile_ref', 'Sandbox profile is not supported by the selected Binding.', errors)
+  requireSupported(compatibility.networkPolicyRef, binding.compatibility.network_policy_refs, '$.compatibility.network_policy_ref', 'Network policy is not supported by the selected Binding.', errors)
+
+  for (const [index, toolProfileRef] of (compatibility.toolProfileRefs ?? []).entries()) {
+    if (!binding.capabilities.tool_profile_refs.includes(toolProfileRef) || !binding.compatibility.tool_profile_refs.includes(toolProfileRef)) {
+      addError(errors, 'INCONSISTENT_VALUE', `$.compatibility.tool_profile_refs[${index}]`, 'Tool profile must be supported by both selected Binding capability and compatibility declarations.')
+    }
+  }
+  for (const [index, structuredOutputProfileRef] of (compatibility.structuredOutputProfileRefs ?? []).entries()) {
+    if (!binding.capabilities.structured_output_profile_refs.includes(structuredOutputProfileRef)) {
+      addError(errors, 'INCONSISTENT_VALUE', `$.compatibility.structured_output_profile_refs[${index}]`, 'Structured output profile is not supported by the selected Binding.')
+    }
+  }
+  if (compatibility.responseProfileRef && (
+    !binding.capabilities.response_profile_refs.includes(compatibility.responseProfileRef)
+    || !binding.compatibility.response_profile_refs.includes(compatibility.responseProfileRef)
+  )) {
+    addError(errors, 'INCONSISTENT_VALUE', '$.compatibility.response_profile_ref', 'Response profile must be supported by both selected Binding capability and compatibility declarations.')
+  }
+
+  if (requiredReasoningLevel) {
+    if (!binding.capabilities.supported_reasoning_levels.includes(requiredReasoningLevel)) {
+      addError(errors, 'INCONSISTENT_VALUE', '$.required_reasoning_level', 'Required reasoning level is not supported by the selected Binding.')
+    }
+    const requiredRank = REASONING_LEVELS.indexOf(requiredReasoningLevel)
+    const bindingFloorRank = REASONING_LEVELS.indexOf(binding.tier_binding.required_reasoning_level)
+    if (requiredRank < bindingFloorRank) {
+      addError(errors, 'INCONSISTENT_VALUE', '$.required_reasoning_level', 'Required reasoning level is below the selected Binding reasoning floor.')
+    }
+  }
+}
+
+function validateEvaluationWindow(
+  start: string | undefined,
+  end: string | undefined,
+  evaluationTimestamp: string | undefined,
+  startPath: string,
+  endPath: string,
+  label: string,
+  errors: ResolverContractValidationError[],
+): void {
+  if (!start || !end || !evaluationTimestamp) return
+  const startTime = Date.parse(start)
+  const endTime = Date.parse(end)
+  const evaluationTime = Date.parse(evaluationTimestamp)
+  if (startTime >= endTime) {
+    addError(errors, 'INVALID_TIME_WINDOW', endPath, `${label} time window must have an exclusive upper boundary after its start.`)
+  }
+  if (startTime > evaluationTime) {
+    addError(errors, 'INVALID_TIME_WINDOW', startPath, `${label} is future-dated at evaluation_timestamp.`)
+  }
+  if (evaluationTime >= endTime) {
+    addError(errors, 'INVALID_TIME_WINDOW', endPath, `${label} is expired at evaluation_timestamp; the upper boundary is exclusive.`)
   }
 }
 
@@ -454,17 +678,17 @@ export function validateResolverRequest(value: unknown): ResolverRequestValidati
   enumAt(root, 'resolver_contract_version', '$', [DEPLOYMENT_RESOLVER_CONTRACT_VERSION], errors)
   stringAt(root, 'task_id', '$', errors, candidate => OPAQUE_IDENTIFIER.test(candidate), 'Invalid task_id.')
   trustedReferenceAt(root, 'assignment_revision', '$', errors)
-  timestampAt(root, 'evaluation_timestamp', '$', errors)
+  const evaluationTimestamp = timestampAt(root, 'evaluation_timestamp', '$', errors)
 
   const snapshot = validateBindingSetSnapshot(root?.binding_set_snapshot, '$.binding_set_snapshot', errors)
-  const validationIdentity = validateBindingSetProof(root?.binding_set_validation, '$.binding_set_validation', errors)
+  const validationProof = validateBindingSetProof(root?.binding_set_validation, '$.binding_set_validation', errors)
   const executionContext = validateExecutionContext(root?.execution_context, '$.execution_context', errors)
-  const availabilityIdentity = validateAvailabilitySnapshot(root?.availability_snapshot, '$.availability_snapshot', errors)
+  const availability = validateAvailabilitySnapshot(root?.availability_snapshot, '$.availability_snapshot', errors)
 
-  if (snapshot.identity && validationIdentity && !sameBindingSetIdentity(snapshot.identity, validationIdentity)) {
+  if (snapshot.identity && validationProof.identity && !sameBindingSetIdentity(snapshot.identity, validationProof.identity)) {
     addError(errors, 'INCONSISTENT_IDENTITY', '$.binding_set_validation.binding_set_identity', 'Validation proof must reference the exact Binding Set Snapshot identity.')
   }
-  if (snapshot.identity && availabilityIdentity && !sameBindingSetIdentity(snapshot.identity, availabilityIdentity)) {
+  if (snapshot.identity && availability.identity && !sameBindingSetIdentity(snapshot.identity, availability.identity)) {
     addError(errors, 'INCONSISTENT_IDENTITY', '$.availability_snapshot.binding_set_identity', 'Availability Snapshot must reference the exact Binding Set Snapshot identity.')
   }
   if (snapshot.routingContractVersion && executionContext.routingContractVersion && snapshot.routingContractVersion !== executionContext.routingContractVersion) {
@@ -473,6 +697,35 @@ export function validateResolverRequest(value: unknown): ResolverRequestValidati
   if (snapshot.resolutionScopeRef && executionContext.resolutionScopeRef && snapshot.resolutionScopeRef !== executionContext.resolutionScopeRef) {
     addError(errors, 'INCONSISTENT_IDENTITY', '$.execution_context.resolution_scope_ref', 'Execution Context must reference the Binding Set resolution scope.')
   }
+  compareMembership(snapshot.membership, validationProof.membership, '$.binding_set_validation.validated_binding_refs', 'Validation proof membership', errors)
+  compareMembership(snapshot.membership, availability.membership, '$.availability_snapshot.binding_states', 'Availability state collection', errors)
+  validateEvaluationWindow(
+    snapshot.effectiveFrom,
+    snapshot.reviewDueAt,
+    evaluationTimestamp,
+    '$.binding_set_snapshot.effective_from',
+    '$.binding_set_snapshot.review_due_at',
+    'Binding Set Snapshot',
+    errors,
+  )
+  validateEvaluationWindow(
+    validationProof.validatedAt,
+    validationProof.validUntil,
+    evaluationTimestamp,
+    '$.binding_set_validation.validated_at',
+    '$.binding_set_validation.valid_until',
+    'Validation proof',
+    errors,
+  )
+  validateEvaluationWindow(
+    availability.observedAt,
+    availability.validUntil,
+    evaluationTimestamp,
+    '$.availability_snapshot.observed_at',
+    '$.availability_snapshot.valid_until',
+    'Availability Snapshot',
+    errors,
+  )
 
   if (errors.length > 0 || !root) return { accepted: false, errors: Object.freeze(errors) }
   return { accepted: true, request: cloneAndFreeze(root as unknown as ResolverRequest), errors: [] }
@@ -531,7 +784,7 @@ export function validateResolutionResult(value: unknown): ResolutionResultValida
     )) {
       addError(errors, 'INCONSISTENT_IDENTITY', '$.selected_binding_identity', 'Selected Binding identity must match the pinned Binding value.')
     }
-    enumAt(root, 'required_reasoning_level', '$', REASONING_LEVELS, errors)
+    const requiredReasoningLevel = enumAt(root, 'required_reasoning_level', '$', REASONING_LEVELS, errors) as ReasoningLevel | undefined
     if (root && hasOwn(root, 'fallback_path')) {
       if (!Array.isArray(root.fallback_path)) {
         addError(errors, 'INVALID_TYPE', '$.fallback_path', 'Expected an array.')
@@ -539,7 +792,13 @@ export function validateResolutionResult(value: unknown): ResolutionResultValida
         root.fallback_path.forEach((item, index) => validateBindingIdentity(item, `$.fallback_path[${index}]`, errors))
       }
     }
-    validateCompatibility(root?.compatibility, '$.compatibility', errors)
+    const compatibility = validateCompatibility(root?.compatibility, '$.compatibility', errors)
+    const compatibilityBinding = selectedBindingResult.accepted
+      ? selectedBindingResult.binding
+      : selectedBindingCompatibilityShape(root?.selected_binding)
+    if (compatibilityBinding) {
+      validateSelectedBindingCompatibility(compatibilityBinding, compatibility, requiredReasoningLevel, errors)
+    }
     validateDiagnostics(root?.diagnostics, '$.diagnostics', errors)
   } else if (status === 'blocked' || status === 'failed') {
     const failureCode = enumAt(root, 'failure_code', '$', RESOLUTION_FAILURE_CODES, errors)
