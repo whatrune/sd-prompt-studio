@@ -13,6 +13,21 @@ import type {
   ContextPlanValidationResult,
   DeepReadonly,
 } from './types'
+import {
+  CONTEXT_PLANNING_DECISION_OWNERS,
+  CONTEXT_PLANNING_FAILURE_CONTRACT_VERSION,
+  CONTEXT_PLANNING_FAILURE_V1_MAPPINGS,
+  CONTEXT_PLANNING_FAILURE_V1_CODES,
+  CONTEXT_PLANNING_FAILURE_V1_STAGES,
+  CONTEXT_PLANNING_NEXT_ACTIONS,
+  CONTEXT_PLANNING_RETRY_POLICIES,
+  NO_SUPPORTING_ERRORS,
+} from './supporting-contracts'
+import type {
+  ContextPlanningFailureV1,
+  ContextPlanningFailureV1ValidationResult,
+  SupportingContractValidationError,
+} from './supporting-contracts'
 
 type RecordValue = Record<string, unknown>
 
@@ -328,4 +343,69 @@ export function validateContextPlanningFailure(value: unknown): ContextPlanningF
   if (errors.length > 0) return Object.freeze({ accepted: false as const, errors: deepFreezeClone(errors) })
   const failure = deepFreezeClone(value as ContextPlanningFailure)
   return Object.freeze({ accepted: true, failure, value: failure, errors: NO_ERRORS })
+}
+
+export function validateContextPlanningFailureV1(value: unknown): ContextPlanningFailureV1ValidationResult {
+  const errors: SupportingContractValidationError[] = []
+  const required = [
+    'context_planning_failure_contract_version', 'task_id', 'assignment_revision', 'routing_contract_version',
+    'routing_decision_ref', 'context_policy_ref', 'status', 'failure_code', 'failed_stage', 'path', 'message',
+    'decision_owner', 'recommended_next_action', 'retry_policy', 'planner_version', 'evaluation_timestamp',
+  ] as const
+  const allowed = [...required, 'affected_ref'] as const
+  if (!isRecord(value)) {
+    errors.push({ code: 'invalid_value', path: '$', message: 'Expected a closed object.' })
+  } else {
+    for (const key of required) {
+      if (!hasOwn(value, key)) errors.push({ code: 'missing_field', path: `$.${key}`, message: 'Required field is missing.' })
+    }
+    for (const key of Object.keys(value)) {
+      if (!allowed.includes(key as (typeof allowed)[number])) {
+        errors.push({ code: 'unknown_field', path: `$.${key}`, message: SECRET_FIELD.test(key) ? 'Secret-bearing fields are forbidden.' : 'Unknown field is forbidden.' })
+      }
+    }
+
+    const requireString = (key: string, predicate: (item: string) => boolean, code: SupportingContractValidationError['code'] = 'invalid_value'): string | undefined => {
+      if (!hasOwn(value, key)) return undefined
+      const item = value[key]
+      if (typeof item !== 'string' || !predicate(item)) {
+        errors.push({ code, path: `$.${key}`, message: 'Expected an allowed non-empty value.' })
+        return undefined
+      }
+      return item
+    }
+    requireString('context_planning_failure_contract_version', item => item === CONTEXT_PLANNING_FAILURE_CONTRACT_VERSION, 'inconsistent_identity')
+    requireString('task_id', item => OPAQUE_IDENTIFIER.test(item), 'inconsistent_identity')
+    requireString('assignment_revision', referenceAllowed, 'invalid_reference')
+    requireString('routing_contract_version', item => item === ROUTING_CONTRACT_VERSION, 'inconsistent_identity')
+    requireString('routing_decision_ref', referenceAllowed, 'invalid_reference')
+    requireString('context_policy_ref', referenceAllowed, 'invalid_reference')
+    requireString('status', item => item === 'blocked' || item === 'failed')
+    const failureCode = requireString('failure_code', item => CONTEXT_PLANNING_FAILURE_V1_CODES.includes(item as ContextPlanningFailureV1['failure_code']))
+    requireString('failed_stage', item => CONTEXT_PLANNING_FAILURE_V1_STAGES.includes(item as ContextPlanningFailureV1['failed_stage']))
+    requireString('path', item => JSON_PATH.test(item))
+    requireString('message', item => item.trim().length > 0 && !SECRET_TEXT.test(item) && !PERSONAL_PATH.test(item) && !PRIVATE_ENDPOINT.test(item))
+    if (hasOwn(value, 'affected_ref')) requireString('affected_ref', referenceAllowed, 'invalid_reference')
+    requireString('decision_owner', item => CONTEXT_PLANNING_DECISION_OWNERS.includes(item as ContextPlanningFailureV1['decision_owner']))
+    requireString('recommended_next_action', item => CONTEXT_PLANNING_NEXT_ACTIONS.includes(item as ContextPlanningFailureV1['recommended_next_action']))
+    requireString('retry_policy', item => CONTEXT_PLANNING_RETRY_POLICIES.includes(item as ContextPlanningFailureV1['retry_policy']))
+    requireString('planner_version', item => OPAQUE_IDENTIFIER.test(item))
+    requireString('evaluation_timestamp', isUtcTimestamp)
+
+    if (failureCode) {
+      const fields = ['status', 'failed_stage', 'decision_owner', 'recommended_next_action', 'retry_policy', 'message'] as const
+      const candidates = CONTEXT_PLANNING_FAILURE_V1_MAPPINGS.filter(mapping => mapping.failure_code === failureCode)
+      const closest = candidates.reduce((best, candidate) => {
+        const matches = fields.filter(field => value[field] === candidate[field]).length
+        return !best || matches > best.matches ? { mapping: candidate, matches } : best
+      }, undefined as { readonly mapping: (typeof candidates)[number]; readonly matches: number } | undefined)?.mapping
+      if (closest && !fields.every(field => value[field] === closest[field])) {
+        fields.forEach(field => {
+          if (value[field] !== closest[field]) errors.push({ code: 'inconsistent_identity', path: `$.${field}`, message: `Expected the closed ${failureCode} catalog value.` })
+        })
+      }
+    }
+  }
+  if (errors.length > 0) return Object.freeze({ accepted: false as const, errors: deepFreezeClone(errors) })
+  return Object.freeze({ accepted: true as const, value: deepFreezeClone(value as ContextPlanningFailureV1), errors: NO_SUPPORTING_ERRORS })
 }
