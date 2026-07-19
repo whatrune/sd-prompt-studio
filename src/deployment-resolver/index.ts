@@ -5,6 +5,9 @@ export {
   RESOLUTION_FAILURE_CODES,
 } from './types'
 export {
+  resolveDeployment,
+} from './core'
+export {
   validateResolutionResult,
   validateResolverRequest,
 } from './validation'
