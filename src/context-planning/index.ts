@@ -9,10 +9,12 @@ export {
   validateContextPlanningFailureV1,
 } from './validation'
 export {
+  compareContextReferencesUtf8,
   validateContextOrderingRuleV1,
   validateContextOrderingSemantics,
   validateContextPolicyRuleV1,
   validateContextPolicySemantics,
+  validateContextPolicySnapshot,
   validateContextPolicyV1,
 } from './policy'
 export {
@@ -26,6 +28,7 @@ export {
   CONTEXT_ORDERING_RULE_CONTRACT_VERSION,
   CONTEXT_PLANNING_DECISION_OWNERS,
   CONTEXT_PLANNING_FAILURE_CONTRACT_VERSION,
+  CONTEXT_PLANNING_FAILURE_V1_MAPPINGS,
   CONTEXT_PLANNING_FAILURE_V1_CODES,
   CONTEXT_PLANNING_FAILURE_V1_STAGES,
   CONTEXT_PLANNING_NEXT_ACTIONS,
@@ -50,6 +53,7 @@ export type {
   ContextPlanningDecisionOwner,
   ContextPlanningFailureV1,
   ContextPlanningFailureV1Code,
+  ContextPlanningFailureV1Mapping,
   ContextPlanningFailureV1Stage,
   ContextPlanningFailureV1ValidationResult,
   ContextPlanningNextAction,

@@ -16,6 +16,7 @@ import type {
 import {
   CONTEXT_PLANNING_DECISION_OWNERS,
   CONTEXT_PLANNING_FAILURE_CONTRACT_VERSION,
+  CONTEXT_PLANNING_FAILURE_V1_MAPPINGS,
   CONTEXT_PLANNING_FAILURE_V1_CODES,
   CONTEXT_PLANNING_FAILURE_V1_STAGES,
   CONTEXT_PLANNING_NEXT_ACTIONS,
@@ -379,9 +380,9 @@ export function validateContextPlanningFailureV1(value: unknown): ContextPlannin
     requireString('routing_contract_version', item => item === ROUTING_CONTRACT_VERSION, 'inconsistent_identity')
     requireString('routing_decision_ref', referenceAllowed, 'invalid_reference')
     requireString('context_policy_ref', referenceAllowed, 'invalid_reference')
-    const status = requireString('status', item => item === 'blocked' || item === 'failed')
+    requireString('status', item => item === 'blocked' || item === 'failed')
     const failureCode = requireString('failure_code', item => CONTEXT_PLANNING_FAILURE_V1_CODES.includes(item as ContextPlanningFailureV1['failure_code']))
-    const failedStage = requireString('failed_stage', item => CONTEXT_PLANNING_FAILURE_V1_STAGES.includes(item as ContextPlanningFailureV1['failed_stage']))
+    requireString('failed_stage', item => CONTEXT_PLANNING_FAILURE_V1_STAGES.includes(item as ContextPlanningFailureV1['failed_stage']))
     requireString('path', item => JSON_PATH.test(item))
     requireString('message', item => item.trim().length > 0 && !SECRET_TEXT.test(item) && !PERSONAL_PATH.test(item) && !PRIVATE_ENDPOINT.test(item))
     if (hasOwn(value, 'affected_ref')) requireString('affected_ref', referenceAllowed, 'invalid_reference')
@@ -391,12 +392,18 @@ export function validateContextPlanningFailureV1(value: unknown): ContextPlannin
     requireString('planner_version', item => OPAQUE_IDENTIFIER.test(item))
     requireString('evaluation_timestamp', isUtcTimestamp)
 
-    if (failureCode === 'internal_failure') {
-      if (status !== 'failed') errors.push({ code: 'inconsistent_identity', path: '$.status', message: 'internal_failure requires failed status.' })
-      if (failedStage !== 'internal_processing') errors.push({ code: 'inconsistent_identity', path: '$.failed_stage', message: 'internal_failure requires internal_processing stage.' })
-    } else if (failureCode) {
-      if (status !== 'blocked') errors.push({ code: 'inconsistent_identity', path: '$.status', message: 'Input, Policy, ordering, and validation failures require blocked status.' })
-      if (failedStage === 'internal_processing') errors.push({ code: 'inconsistent_identity', path: '$.failed_stage', message: 'internal_processing is reserved for internal_failure.' })
+    if (failureCode) {
+      const fields = ['status', 'failed_stage', 'decision_owner', 'recommended_next_action', 'retry_policy', 'message'] as const
+      const candidates = CONTEXT_PLANNING_FAILURE_V1_MAPPINGS.filter(mapping => mapping.failure_code === failureCode)
+      const closest = candidates.reduce((best, candidate) => {
+        const matches = fields.filter(field => value[field] === candidate[field]).length
+        return !best || matches > best.matches ? { mapping: candidate, matches } : best
+      }, undefined as { readonly mapping: (typeof candidates)[number]; readonly matches: number } | undefined)?.mapping
+      if (closest && !fields.every(field => value[field] === closest[field])) {
+        fields.forEach(field => {
+          if (value[field] !== closest[field]) errors.push({ code: 'inconsistent_identity', path: `$.${field}`, message: `Expected the closed ${failureCode} catalog value.` })
+        })
+      }
     }
   }
   if (errors.length > 0) return Object.freeze({ accepted: false as const, errors: deepFreezeClone(errors) })

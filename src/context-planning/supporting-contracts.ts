@@ -85,23 +85,13 @@ export interface ContextPolicyRuleMatchV1 {
 export interface ContextPolicyRuleV1 {
   readonly rule_contract_version: typeof CONTEXT_POLICY_RULE_CONTRACT_VERSION
   readonly rule_id: string
-  readonly rule_version: string
+  readonly rule_revision: string
+  readonly rule_ref: string
+  readonly policy_ref: string
   readonly match: ContextPolicyRuleMatchV1
   readonly action: 'include' | 'exclude'
-  readonly context_refs: readonly string[]
   readonly priority: number
   readonly source_ref: string
-}
-
-export interface ContextPolicyV1 {
-  readonly context_policy_contract_version: typeof CONTEXT_POLICY_CONTRACT_VERSION
-  readonly context_policy_ref: string
-  readonly policy_version: string
-  readonly rules: readonly ContextPolicyRuleV1[]
-  readonly ordering_rule_ref: string
-  readonly evaluation_scope: readonly string[]
-  readonly created_from: string
-  readonly evaluation_timestamp: string
 }
 
 export interface ContextRankAssignmentV1 {
@@ -110,12 +100,49 @@ export interface ContextRankAssignmentV1 {
 }
 
 export interface ContextOrderingRuleV1 {
-  readonly ordering_rule_contract_version: typeof CONTEXT_ORDERING_RULE_CONTRACT_VERSION
-  readonly ordering_rule_ref: string
-  readonly ordering_version: string
-  readonly rank_assignments: readonly ContextRankAssignmentV1[]
-  readonly default_behavior: 'require_explicit_rank'
+  readonly rule_contract_version: typeof CONTEXT_ORDERING_RULE_CONTRACT_VERSION
+  readonly rule_id: string
+  readonly rule_revision: string
+  readonly rule_ref: string
+  readonly policy_ref: string
+  readonly strategy: 'explicit_rank'
+  readonly rank_entries: readonly ContextRankAssignmentV1[]
+  readonly source_ref: string
 }
+
+export interface ContextPolicyV1 {
+  readonly context_policy_contract_version: typeof CONTEXT_POLICY_CONTRACT_VERSION
+  readonly context_policy_ref: string
+  readonly policy_revision: string
+  readonly optional_context_rules: readonly ContextPolicyRuleV1[]
+  readonly ordering_rule: ContextOrderingRuleV1
+  readonly source_ref: string
+  readonly approval_ref: string
+}
+
+export interface ContextPlanningFailureV1Mapping {
+  readonly failure_code: ContextPlanningFailureV1Code
+  readonly status: ContextPlanningFailureV1['status']
+  readonly failed_stage: ContextPlanningFailureV1Stage
+  readonly decision_owner: ContextPlanningDecisionOwner
+  readonly recommended_next_action: ContextPlanningNextAction
+  readonly retry_policy: ContextPlanningRetryPolicy
+  readonly message: string
+}
+
+export const CONTEXT_PLANNING_FAILURE_V1_MAPPINGS = deepFreezeClone<readonly ContextPlanningFailureV1Mapping[]>([
+  { failure_code: 'inconsistent_identity', status: 'blocked', failed_stage: 'input_binding', decision_owner: 'routing_input_owner', recommended_next_action: 'correct_routing_input', retry_policy: 'after_input_revision', message: 'Context Planning input identities do not match.' },
+  { failure_code: 'missing_context_policy', status: 'blocked', failed_stage: 'policy_validation', decision_owner: 'context_policy_owner', recommended_next_action: 'provide_compatible_policy_snapshot', retry_policy: 'after_policy_revision', message: 'The exact routed Context Policy Snapshot is missing.' },
+  { failure_code: 'incompatible_context_policy', status: 'blocked', failed_stage: 'policy_validation', decision_owner: 'context_policy_owner', recommended_next_action: 'provide_compatible_policy_snapshot', retry_policy: 'after_policy_revision', message: 'The supplied Context Policy Snapshot is incompatible with the routed requirement.' },
+  { failure_code: 'unsupported_context_reference', status: 'blocked', failed_stage: 'input_binding', decision_owner: 'routing_input_owner', recommended_next_action: 'correct_routing_input', retry_policy: 'after_input_revision', message: 'A routed Context reference is outside the supported immutable-reference boundary.' },
+  { failure_code: 'context_policy_no_match', status: 'blocked', failed_stage: 'optional_context_resolution', decision_owner: 'context_policy_owner', recommended_next_action: 'correct_context_policy', retry_policy: 'after_policy_revision', message: 'No exact Context Policy rule matches the optional Context reference.' },
+  { failure_code: 'context_policy_conflict', status: 'blocked', failed_stage: 'optional_context_resolution', decision_owner: 'context_policy_owner', recommended_next_action: 'correct_context_policy', retry_policy: 'after_policy_revision', message: 'More than one exact Context Policy rule is authoritative at the highest priority.' },
+  { failure_code: 'forbidden_context', status: 'blocked', failed_stage: 'input_binding', decision_owner: 'routing_input_owner', recommended_next_action: 'correct_routing_input', retry_policy: 'after_input_revision', message: 'Required Context violates a routed forbidden category.' },
+  { failure_code: 'forbidden_context', status: 'blocked', failed_stage: 'optional_context_resolution', decision_owner: 'context_policy_owner', recommended_next_action: 'correct_context_policy', retry_policy: 'after_policy_revision', message: 'Included optional Context violates a routed forbidden category.' },
+  { failure_code: 'invalid_context_order', status: 'blocked', failed_stage: 'order_generation', decision_owner: 'context_policy_owner', recommended_next_action: 'correct_context_policy', retry_policy: 'after_policy_revision', message: 'The approved ordering rule cannot produce one complete unique rank order.' },
+  { failure_code: 'result_validation_failed', status: 'blocked', failed_stage: 'result_validation', decision_owner: 'architect_team', recommended_next_action: 'architect_review', retry_policy: 'after_architect_decision', message: 'The constructed Context Plan was rejected by the frozen Context Plan contract.' },
+  { failure_code: 'internal_failure', status: 'failed', failed_stage: 'internal_processing', decision_owner: 'backend_implementer', recommended_next_action: 'implementation_review', retry_policy: 'after_implementation_fix', message: 'An unexpected Context Planner implementation defect prevented completion.' },
+])
 
 export type SupportingContractValidationCode =
   | 'missing_field'

@@ -2,6 +2,7 @@ import type { ContextPlan, DeepReadonly } from './types'
 import { validateContextPlan } from './validation'
 import { NO_SUPPORTING_ERRORS, deepFreezeClone, isRecord } from './supporting-contracts'
 import type { SupportingContractValidationError } from './supporting-contracts'
+import { compareContextReferencesUtf8 } from './policy'
 
 const CONTEXT_PLAN_REF = /^evidence\/context-plans\/sha256-[0-9a-f]{64}$/
 const PLACEHOLDER_REF = `evidence/context-plans/sha256-${'0'.repeat(64)}`
@@ -21,6 +22,8 @@ export interface ContextPlanReferenceProjectionV1 {
   readonly context_rendering_profile_ref: string
   readonly materialization_policy_ref: string
   readonly applied_rule_refs: readonly string[]
+  readonly planner_version: string
+  readonly evaluation_timestamp: string
 }
 
 export type ContextPlanReferenceInput = Omit<ContextPlan, 'context_plan_ref'> & { readonly context_plan_ref?: string }
@@ -54,7 +57,7 @@ export function canonicalizeJcs(value: unknown): string {
   }
   if (Array.isArray(value)) return `[${value.map(item => canonicalizeJcs(item)).join(',')}]`
   if (isRecord(value)) {
-    const entries = Object.keys(value).sort().map(key => {
+    const entries = Object.keys(value).sort(compareJcsPropertyNames).map(key => {
       const item = value[key]
       if (item === undefined) throw new TypeError('JCS objects cannot contain undefined values.')
       return `${canonicalizeJcs(key)}:${canonicalizeJcs(item)}`
@@ -64,8 +67,17 @@ export function canonicalizeJcs(value: unknown): string {
   throw new TypeError('Value is outside the RFC 8785 JSON data model.')
 }
 
+function compareJcsPropertyNames(left: string, right: string): number {
+  const length = Math.min(left.length, right.length)
+  for (let index = 0; index < length; index += 1) {
+    const difference = left.charCodeAt(index) - right.charCodeAt(index)
+    if (difference !== 0) return difference
+  }
+  return left.length - right.length
+}
+
 function bytewiseSorted(values: readonly string[]): readonly string[] {
-  return [...values].sort((left, right) => left < right ? -1 : left > right ? 1 : 0)
+  return [...values].sort(compareContextReferencesUtf8)
 }
 
 export function createContextPlanReferenceProjection(value: ContextPlanReferenceInput): DeepReadonly<ContextPlanReferenceProjectionV1> {
@@ -87,6 +99,8 @@ export function createContextPlanReferenceProjection(value: ContextPlanReference
     context_rendering_profile_ref: plan.context_rendering_profile_ref,
     materialization_policy_ref: plan.materialization_policy_ref,
     applied_rule_refs: bytewiseSorted(plan.applied_rule_refs),
+    planner_version: plan.planner_version,
+    evaluation_timestamp: plan.evaluation_timestamp,
   })
 }
 
