@@ -26,6 +26,17 @@ try {
   assert.equal(vi(input({ operator_override: { state: 'bound', override_ref: source, actor_role: 'product_owner', minimum_outcome: 'handoff_required', reason_code: 'not-a-catalog-value', issued_at: at } }), at).accepted, false)
   assert.equal(vi(input({ workflow_phase: 'made-up-phase' }), at).accepted, false)
   assert.equal(vp(policy(), at).accepted, true); assert.equal(vp(policy({ checkpoint_rules: [{ ...policy().checkpoint_rules[0], unknown: true }] }), at).accepted, false)
+  const softRule = policy().derived_signal_rules[0]
+  const hardRule = { ...softRule, rule_ref: 'rules/context-health/derived-signal/security', derived_signal_code: 'security_boundary_uncertain', signal_class: 'hard_stop' }; delete hardRule.weight
+  const forcedRule = { ...softRule, rule_ref: 'rules/context-health/derived-signal/handoff', derived_signal_code: 'operator_handoff', signal_class: 'forced_handoff' }; delete forcedRule.weight
+  assert.equal(vp(policy({ derived_signal_rules: [hardRule] }), at).accepted, true, 'hard_stop without weight must be admitted')
+  assert.equal(vp(policy({ derived_signal_rules: [forcedRule] }), at).accepted, true, 'forced_handoff without weight must be admitted')
+  const { weight: ignoredSoftWeight, ...softWithoutWeight } = softRule
+  assert.equal(vp(policy({ derived_signal_rules: [softWithoutWeight] }), at).accepted, false, 'soft without weight must be rejected')
+  assert.equal(vp(policy({ derived_signal_rules: [{ ...softRule, weight: 0 }] }), at).accepted, false, 'soft with zero weight must be rejected')
+  assert.equal(vp(policy({ derived_signal_rules: [{ ...softRule, weight: 1.5 }] }), at).accepted, false, 'soft with non-integer weight must be rejected')
+  assert.equal(vp(policy({ derived_signal_rules: [{ ...hardRule, weight: 1 }] }), at).accepted, false, 'hard_stop with weight must be rejected')
+  assert.equal(vp(policy({ derived_signal_rules: [{ ...forcedRule, weight: 1 }] }), at).accepted, false, 'forced_handoff with weight must be rejected')
   assert.equal(vd(decision(), at).accepted, true); assert.equal(vm(manifest(), at).accepted, true)
   assert.equal(vm(manifest({ component_artifacts: manifest().component_artifacts.slice(0, 4) }), at).accepted, false)
   assert.equal(validateContextHealthDecisionSemantics(decision({ applied_atomic_signal_rule_refs: ['rules/context-health/checkpoint/pre-review'] }), policy()).valid, false)
@@ -42,6 +53,9 @@ try {
   assert.equal(vv({ ...resumeCommon, result_kind: 'internal_failure', internal_failure_code: 'resume_internal_failure', decision_owner: 'backend_implementer', recommended_next_action_code: 'implementation_review', retry_policy: 'after_implementation_fix' }, at).accepted, true)
   assert.equal(vv({ ...resumeCommon, result_kind: 'success', drift_class: 'none', fresh_context_health_input_ref: inputRef, fresh_context_health_decision_ref: decisionRef }, at).accepted, false)
   const p = policy(); p.context_health_policy_ref = await generateContextHealthPolicyRef(p); assert.equal(await verifyContextHealthReference(p), true)
+  const hardPolicy = policy({ derived_signal_rules: [hardRule] }); hardPolicy.context_health_policy_ref = await generateContextHealthPolicyRef(hardPolicy); assert.equal(await verifyContextHealthReference(hardPolicy), true)
+  const forcedPolicy = policy({ derived_signal_rules: [forcedRule] }); forcedPolicy.context_health_policy_ref = await generateContextHealthPolicyRef(forcedPolicy); assert.equal(await verifyContextHealthReference(forcedPolicy), true)
+  assert.notEqual(await generateContextHealthPolicyRef(policy({ derived_signal_rules: [{ ...softRule, weight: 4 }] })), await generateContextHealthPolicyRef(policy()), 'soft weight remains part of the normative projection')
   const i = input(); i.context_health_input_ref = await generateContextHealthInputRef(i); assert.equal(await verifyContextHealthReference(i), true)
   const d = decision(); d.context_health_decision_ref = await generateContextHealthDecisionRef(d); assert.equal(await verifyContextHealthReference(d), true)
   const h = manifest(); h.context_handoff_manifest_ref = await generateContextHandoffManifestRef(h); assert.equal(await verifyContextHealthReference(h), true)
