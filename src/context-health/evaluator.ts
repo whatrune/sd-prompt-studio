@@ -18,7 +18,7 @@ function policyFailure(p:ContextHealthPolicyV1):EvaluatorFailureReasonV1|undefin
 
 export async function evaluateContextHealthV1(inputCandidate:unknown,policyCandidate:unknown):Promise<ContextHealthEvaluationResultV1>{
   const at=typeof (inputCandidate as {evaluation_timestamp?:unknown})?.evaluation_timestamp==='string'?(inputCandidate as {evaluation_timestamp:string}).evaluation_timestamp:''
-  const inputAdmission=validateContextHealthEvaluationInputV1(inputCandidate,at);const policyAdmission=validateContextHealthPolicyV1(policyCandidate,at)
+  if(!at)return {ok:false,reason:'policy_mismatch'};const inputAdmission=validateContextHealthEvaluationInputV1(inputCandidate,at);const policyAdmission=validateContextHealthPolicyV1(policyCandidate,at)
   if(!inputAdmission.accepted||!policyAdmission.accepted)return {ok:false,reason:'policy_mismatch'}
   const input=inputAdmission.value as ContextHealthEvaluationInputV1,policy=policyAdmission.value as ContextHealthPolicyV1
   if(input.policy_ref!==policy.context_health_policy_ref)return {ok:false,reason:'policy_mismatch'}
