@@ -4,7 +4,10 @@ export {
   CONTEXT_PLANNING_FAILURE_STAGES,
 } from './types'
 export {
+  CONTEXT_PLAN_CATEGORY_SEMANTIC_CODES,
   validateContextPlan,
+  validateContextPlanCategorySemantics,
+  validateContextPlanStructure,
   validateContextPlanningFailure,
   validateContextPlanningFailureV1,
 } from './validation'
@@ -21,12 +24,40 @@ export {
   validateContextPolicyV1,
 } from './policy'
 export {
+  CONTEXT_PLAN_FINAL_REJECTION_RESPONSIBILITIES,
+  CONTEXT_PLAN_SEMANTIC_PROVENANCE_DISCOVERY_BOUNDARY,
   canonicalizeJcs,
   createContextPlanReferenceProjection,
   generateContextPlanRef,
   isContextPlanRefValid,
+  validateAdmittedContextPlan,
   verifyContextPlanRef,
 } from './reference'
+export {
+  CONTEXT_CATEGORY_BINDING_CONTRACT_VERSION,
+  CONTEXT_CATEGORY_BINDING_REFERENCE_VERSION,
+  createContextCategoryBindingReferenceProjection,
+  generateContextCategoryBindingSnapshotRef,
+  isContextImmutableReference,
+  validateContextCategoryBindingEntryV1,
+  validateContextCategoryBindingSnapshotV1,
+  verifyContextCategoryBindingSnapshotRef,
+} from './category-binding'
+export {
+  CONTEXT_POLICY_V2_CONTRACT_VERSION,
+  CONTEXT_POLICY_V2_REFERENCE_VERSION,
+  createContextPolicyV2ReferenceProjection,
+  generateContextPolicyV2Ref,
+  validateContextPolicyV2,
+  validateContextPolicyV2CategoryBinding,
+  verifyContextPolicyV2Ref,
+} from './policy-v2'
+export {
+  CONTEXT_PLANNER_ENTRY_ADMISSION_CONTRACT_VERSION,
+  PLANNER_ENTRY_STRUCTURAL_ERROR_CODES,
+  SUPPORTED_CONTEXT_PLANNER_VERSIONS,
+  admitContextPlannerEntry,
+} from './entry-admission'
 export {
   CONTEXT_ORDERING_RULE_CONTRACT_VERSION,
   CONTEXT_PLANNING_DECISION_OWNERS,
@@ -72,11 +103,53 @@ export type {
   SupportingContractValidationResult,
 } from './supporting-contracts'
 export type {
+  ContextPlanCategorySemanticCode,
+  ContextPlanCategorySemanticError,
+  ContextPlanCategorySemanticValidationResult,
+  ContextPlanStructureValidationResult,
+} from './validation'
+export type {
+  AdmittedContextPlanSemanticProvenanceEvidence,
+  AdmittedContextPlanValidationCode,
+  AdmittedContextPlanValidationError,
+  AdmittedContextPlanValidationProvenance,
+  AdmittedContextPlanValidationResult,
+  ContextPlanFinalRejectionResponsibility,
   ContextPlanReferenceInput,
   ContextPlanReferenceProjectionV1,
   ContextPlanReferenceVerificationResult,
 } from './reference'
 export type {
-  ContextPlannerCoreInput,
   ContextPlannerCoreResult,
 } from './core'
+export type {
+  ContextCategoryBindingEntryV1,
+  ContextCategoryBindingEntryValidationResult,
+  ContextCategoryBindingReferenceInput,
+  ContextCategoryBindingReferenceProjectionV1,
+  ContextCategoryBindingReferenceVerificationResult,
+  ContextCategoryBindingSnapshotV1,
+  ContextCategoryBindingSnapshotValidationResult,
+  ContextIdentityValidationCode,
+  ContextIdentityValidationError,
+  ContextIdentityValidationResult,
+} from './category-binding'
+export type {
+  ContextOrderingRuleV2ReferenceProjection,
+  ContextPolicyRuleV2ReferenceProjection,
+  ContextPolicyV2,
+  ContextPolicyV2ReferenceInput,
+  ContextPolicyV2ReferenceProjection,
+  ContextPolicyV2ReferenceVerificationResult,
+  ContextPolicyV2ValidationResult,
+} from './policy-v2'
+export type {
+  AdmissionAccepted,
+  ContextPlannerCoreInput,
+  ContextPlannerEntryAdmissionResult,
+  ContextPlannerEntryStructuralInput,
+  NonEmptyReadonlyArray,
+  PlannerEntryStructuralError,
+  PlannerEntryStructuralErrorCode,
+  PlannerEntryStructuralRejection,
+} from './entry-admission'
