@@ -336,20 +336,23 @@ Any mismatch returns the existing closed `blocked/incompatible_context_policy` b
 
 `ContextPlanningFailureV1` is created only after successful Entry Admission.
 
-| Failure condition | Required admitted source fields | Closed mapping | Producer | Validator | Partial Plan |
-| --- | --- | --- | --- | --- | --- |
-| Cross-input identity mismatch | all seven Core fields | `blocked/inconsistent_identity` | Operational Core | PR #139 validator | forbidden |
-| Missing/incompatible Policy v2 or Category Snapshot binding | exact admitted Policy/Snapshot refs | `blocked/incompatible_context_policy` | Operational Core | PR #139 validator | forbidden |
-| Routed reference has no exact Binding | admitted Decision and Snapshot | `blocked/unsupported_context_reference` | Operational Core | PR #139 validator | forbidden |
-| Optional rule missing | admitted Policy v2 | `blocked/context_policy_no_match` | Operational Core | PR #139 validator | forbidden |
-| Highest-priority tie | admitted Policy v2 | `blocked/context_policy_conflict` | Operational Core | PR #139 validator | forbidden |
-| Required Context category intersects forbidden set | exact Binding | `blocked/forbidden_context/input_binding` | Operational Core | PR #139 validator | forbidden |
-| Included optional category intersects forbidden set | exact Binding | `blocked/forbidden_context/optional_context_resolution` | Operational Core | PR #139 validator | forbidden |
-| Missing/conflicting rank before accepted ordering | admitted ordering Rule | `blocked/invalid_context_order` | Operational Core | PR #139 validator | forbidden |
-| Constructed Plan rejected by the new admitted validation path | admitted exact identity | `blocked/result_validation_failed` | Operational Core | PR #139 validator | forbidden |
-| Unexpected operational defect | admitted exact identity | `failed/internal_failure` | Operational Core | PR #139 validator | forbidden |
+| Failure condition | Required admitted source fields | Closed mapping | Failure `context_policy_ref` source | Producer | Validator | Partial Plan |
+| --- | --- | --- | --- | --- | --- | --- |
+| Cross-input identity mismatch | all seven Core fields | `blocked/inconsistent_identity` | `core_input.routing_decision.context_policy_ref` | Operational Core | PR #139 validator | forbidden |
+| Missing/incompatible Policy v2 or Category Snapshot binding | exact admitted Policy/Snapshot refs | `blocked/incompatible_context_policy` | `core_input.routing_decision.context_policy_ref` | Operational Core | PR #139 validator | forbidden |
+| Routed reference has no exact Binding | admitted Decision and Snapshot | `blocked/unsupported_context_reference` | `core_input.routing_decision.context_policy_ref` | Operational Core | PR #139 validator | forbidden |
+| Optional rule missing | admitted Policy v2 | `blocked/context_policy_no_match` | `core_input.routing_decision.context_policy_ref` | Operational Core | PR #139 validator | forbidden |
+| Highest-priority tie | admitted Policy v2 | `blocked/context_policy_conflict` | `core_input.routing_decision.context_policy_ref` | Operational Core | PR #139 validator | forbidden |
+| Required Context category intersects forbidden set | exact Binding | `blocked/forbidden_context/input_binding` | `core_input.routing_decision.context_policy_ref` | Operational Core | PR #139 validator | forbidden |
+| Included optional category intersects forbidden set | exact Binding | `blocked/forbidden_context/optional_context_resolution` | `core_input.routing_decision.context_policy_ref` | Operational Core | PR #139 validator | forbidden |
+| Missing/conflicting rank before accepted ordering | admitted ordering Rule | `blocked/invalid_context_order` | `core_input.routing_decision.context_policy_ref` | Operational Core | PR #139 validator | forbidden |
+| Final Plan rejection proven to originate from a correctable admitted input or Policy condition that could not be represented earlier | exact admitted source and closed validation diagnostic | `blocked/result_validation_failed` | `core_input.routing_decision.context_policy_ref` | Operational Core | PR #139 validator | forbidden |
+| Invalid Plan produced after Admission, semantic validation, and ordering invariants passed, including an unclassified final rejection | admitted exact identity and invariant proof | `failed/internal_failure` | `core_input.routing_decision.context_policy_ref` | Operational Core | PR #139 validator | forbidden |
+| Unexpected operational defect | admitted exact identity | `failed/internal_failure` | `core_input.routing_decision.context_policy_ref` | Operational Core | PR #139 validator | forbidden |
 
-Failure identity is copied only from `ContextPlannerCoreInput`. No fallback extraction exists. An operational exception handler is installed only after the exact immutable Failure Context has been constructed from admitted inputs.
+Every operational Failure copies `context_policy_ref` exclusively from `ContextPlannerCoreInput.routing_decision.context_policy_ref`. This remains true when the supplied `context_policy.context_policy_ref` differs. The supplied Policy reference may appear only as a safe `affected_ref` or a precise `path`; it never replaces the routed Policy reference in Failure identity.
+
+All other Failure identity is copied only from `ContextPlannerCoreInput`. No fallback extraction exists. An operational exception handler is installed only after the exact immutable Failure Context has been constructed from admitted inputs.
 
 ## 14. ContextPlan identity binding table
 
@@ -487,12 +490,20 @@ do not use input order or a tie breaker
 
 ```text
 after AdmissionAccepted:
-  failure_context = exact immutable identity from core_input
+  failure_context.task_id = core_input.routing_decision.task_id
+  failure_context.assignment_revision = core_input.routing_decision.assignment_revision
+  failure_context.routing_contract_version = core_input.routing_decision.routing_contract_version
+  failure_context.routing_decision_ref = core_input.routing_decision_ref
+  failure_context.context_policy_ref = core_input.routing_decision.context_policy_ref
+  failure_context.planner_version = core_input.planner_version
+  failure_context.evaluation_timestamp = core_input.routing_decision.evaluation_timestamp
   mapping = exact PR #139 closed mapping for code and stage
   construct candidate from failure_context + mapping + safe path/ref
   validate ContextPlanningFailureV1
   return failure only; never a partial Plan
 ```
+
+Never copy `failure_context.context_policy_ref` from `core_input.context_policy.context_policy_ref`. On a Policy-reference mismatch, the routed reference remains the Failure identity and the supplied reference is diagnostic-only when safe.
 
 Before Admission acceptance, only Structural Rejection is legal.
 
@@ -507,11 +518,23 @@ copy exact routed and supplied values
 build ContextPlan without context_plan_ref
 run new structural-only Plan validation
 run Category Binding-aware semantic validation
+if rejected:
+  if the closed diagnostic proves an admitted input or Policy origin,
+     the candidate field equals that exact admitted source,
+     and the condition required the assembled Plan to evaluate:
+    blocked / result_validation_failed
+  otherwise:
+    failed / internal_failure
 generate context_plan_ref
 verify context_plan_ref
 repeat admitted validation on final Plan
+apply the same closed rejection classification
 return deeply immutable Plan
 ```
+
+The final validator returns an ephemeral closed responsibility classification with each rejection: `input_or_policy` or `planner_implementation`. `input_or_policy` is legal only when the validator identifies an exact admitted input or Policy path, confirms that the candidate copied that source unchanged, and confirms that the condition could not be represented before complete Plan assembly. Output-owned paths, projection or reference-generation defects, invariant contradictions, missing provenance, and unknown or unclassified causes are `planner_implementation`.
+
+`blocked/result_validation_failed` is therefore not a catch-all for final validation rejection. After Admission, semantic validation, and ordering invariants pass, a malformed Plan caused by Core construction is `failed/internal_failure` even when the final validator is the component that detects it.
 
 ### 17.8 context_plan_ref generation
 
@@ -544,6 +567,8 @@ if the closed Failure constructor itself cannot produce a valid Failure:
 
 Raw exception text is never emitted in either result.
 
+A final validator rejection is handled by section 17.7 rather than this exception branch. An exception or invariant contradiction during classification itself is `failed/internal_failure`.
+
 ## 18. Existing validateContextPlan alignment
 
 The existing `validateContextPlan` remains behaviorally unchanged for backward compatibility. Its path-based forbidden-category inference is not used as semantic authority in the new admitted Planner path.
@@ -552,7 +577,7 @@ The required alignment is:
 
 1. add a new `validateContextPlanStructure` that performs the existing closed-object, type, reference, set, and complete-order checks but performs no category inference;
 2. add a new `validateContextPlanCategorySemantics(plan, categorySnapshot, policyV2)` that checks exact identity, coverage, and category intersection;
-3. add a composed `validateAdmittedContextPlan` that requires structure, Category semantics, and reference verification;
+3. add a composed `validateAdmittedContextPlan` that requires structure, Category semantics, and reference verification and returns the closed `input_or_policy` or `planner_implementation` responsibility for a rejection;
 4. update the reference projection helper to use structural-only validation rather than legacy path inference;
 5. keep existing `validateContextPlan` and its tests unchanged until a separately approved versioned deprecation/migration Task;
 6. update PR #140 to call only the new admitted path after the alignment implementation is merged.
@@ -586,8 +611,10 @@ Used only after exact identity admission for:
 - optional rule no-match or highest-priority conflict;
 - exact Category/forbidden intersection;
 - missing/conflicting rank;
-- admitted Plan rejection;
+- final Plan rejection proven to originate from a correctable admitted input or Policy condition unavailable to earlier validation;
 - unexpected operational defect.
+
+An invalid Plan produced after all documented Admission, semantic, and ordering preconditions pass is an operational implementation defect and uses `failed/internal_failure`. Unknown final-rejection origin also fails closed as `failed/internal_failure`; it is never downgraded to a correctable block.
 
 No code path converts one result class into the other, and no error is emitted twice.
 
@@ -648,7 +675,12 @@ Logs and Result Handoffs must not contain source content, Secret, Credential, pe
 
 - Structural Rejection never contains fake FailureV1 identity;
 - operational failure uses exact admitted Task, Assignment, Decision, Policy, Planner, and timestamp values;
+- every operational Failure uses `routing_decision.context_policy_ref`, including supplied Policy mismatch cases;
+- a mismatched supplied Policy reference is diagnostic-only and never becomes Failure identity;
 - no placeholder such as `unknown-task` or epoch timestamp exists;
+- final rejection with closed correctable input/Policy provenance is `blocked/result_validation_failed`;
+- malformed Core output after all preconditions pass is `failed/internal_failure`;
+- unknown or unclassified final-rejection origin is `failed/internal_failure`;
 - unexpected operational defect returns valid `failed/internal_failure`;
 - failure-constructor fatal defect does not fabricate a result;
 - raw exception text and partial Plan are absent.
@@ -687,7 +719,13 @@ This Architecture PR is merge step 0. No implementation starts before Product Ow
 - proposed task ID: `IMPLEMENT-CONTEXT-CATEGORY-BINDING-CONTRACT-001`
 - role: Backend Implementer
 - dependencies: merged Architecture PR from Issue #141 and merged PR #139
-- allowed files: new Category/Policy-v2 contract module under `src/context-planning/`, required `index.ts` exports, one focused test script, and `package.json` test registration
+- allowed created files:
+  - `src/context-planning/category-binding.ts`
+  - `src/context-planning/policy-v2.ts`
+  - `scripts/test-context-category-binding-contract.mjs`
+- allowed updated files:
+  - `src/context-planning/index.ts`
+  - `package.json`
 - forbidden files: Model Router, Resolver, Adapter, Runner, Dispatcher, Workflow, Existing Run, Research Artifact
 - completion: closed types/validators, JCS/SHA-256 identity helpers, approved-category and duplicate tests, no v1 mutation
 - merge gate: Backend Architect review and Product Owner decision
@@ -697,7 +735,12 @@ This Architecture PR is merge step 0. No implementation starts before Product Ow
 - proposed task ID: `IMPLEMENT-CONTEXT-PLANNER-ENTRY-ADMISSION-001`
 - role: Backend Implementer
 - dependencies: Step 1 merged
-- allowed files: new Entry Admission module, `src/context-planning/index.ts`, focused admission test script, and `package.json` test registration
+- allowed created files:
+  - `src/context-planning/entry-admission.ts`
+  - `scripts/test-context-planner-entry-admission.mjs`
+- allowed updated files:
+  - `src/context-planning/index.ts`
+  - `package.json`
 - forbidden files: PR #140 Core files except shared exports, all other subsystems
 - completion: arbitrary-value admission, strict validator reuse, Structural Rejection union, seven-field deep-frozen Core Input, no fake identity
 - merge gate: Backend Architect review and Product Owner decision
@@ -707,9 +750,16 @@ This Architecture PR is merge step 0. No implementation starts before Product Ow
 - proposed task ID: `ALIGN-CONTEXT-PLAN-VALIDATION-001`
 - role: Backend Implementer
 - dependencies: Steps 1 and 2 merged
-- allowed files: `src/context-planning/validation.ts`, `reference.ts`, `index.ts`, Context Plan contract test script, one focused semantic test script, and `package.json` registration
+- allowed created files:
+  - `scripts/test-context-plan-category-semantics.mjs`
+- allowed updated files:
+  - `src/context-planning/validation.ts`
+  - `src/context-planning/reference.ts`
+  - `src/context-planning/index.ts`
+  - `scripts/test-context-plan-contract.mjs`
+  - `package.json`
 - forbidden files: existing type meaning, legacy fixture behavior, PR #140 Core, other subsystems
-- completion: new structural-only and Category-aware validators, legacy validator unchanged, reference helper uses structural-only validation
+- completion: new structural-only and Category-aware validators, closed final-rejection responsibility classification, legacy validator unchanged, reference helper uses structural-only validation
 - merge gate: Backend Architect review and Product Owner decision
 
 ### Step 4 — Correct existing Draft PR #140
@@ -728,7 +778,12 @@ This Architecture PR is merge step 0. No implementation starts before Product Ow
 - proposed task ID: `INTEGRATE-CONTEXT-PLANNER-ENTRY-001`
 - role: Backend Implementer
 - dependencies: corrected PR #140 merged
-- allowed files: new Context Planner Entry façade module, `index.ts`, focused integration tests, and test registration
+- allowed created files:
+  - `src/context-planning/entry.ts`
+  - `scripts/test-context-planner-entry.mjs`
+- allowed updated files:
+  - `src/context-planning/index.ts`
+  - `package.json`
 - forbidden files: Dispatcher/Runner integration unless separately assigned, source I/O, Policy retrieval, other contracts
 - completion: public unknown-value Entry composes Admission then typed Core; Structural Rejection and Operational Result remain distinct
 - merge gate: Backend Architect review and Product Owner decision
@@ -736,9 +791,12 @@ This Architecture PR is merge step 0. No implementation starts before Product Ow
 ### Step 6 — Regression expansion and offline integration proof
 
 - proposed task ID: `TEST-CONTEXT-PLANNER-ADMISSION-REGRESSION-001`
-- role: Backend Implementer or Worker for matrix preparation, Backend Implementer for executable tests
+- role: Backend Implementer
 - dependencies: Step 5 merged
-- allowed files: Context Planning test scripts, approved fixtures, and test registration only
+- allowed created files:
+  - `scripts/test-context-planner-admission-regression.mjs`
+- allowed updated files:
+  - `package.json`
 - forbidden files: production behavior, external I/O, Provider/Deployment integration
 - completion: all section 21 scenarios, cumulative Issue #135 tests, purity guards, legacy compatibility, deterministic references
 - merge gate: Backend Architect review and Product Owner decision
@@ -779,13 +837,12 @@ The Architecture is implementation-ready only when reviewers can confirm:
 
 ## 25. Deferred decisions
 
-- concrete filenames for future Category/Policy-v2 and Admission modules;
 - storage, retrieval, approval enforcement, retention, and revocation for Policy and Category Snapshots;
 - operational platform-failure reporting when the closed Failure constructor itself is defective;
 - eventual deprecation or versioned replacement of legacy `validateContextPlan`;
 - integration beyond the Context Planner Entry façade.
 
-These decisions do not authorize implementation in this Task.
+The exact Repository-relative implementation file scopes for Steps 1, 2, 3, 5, and 6 are frozen in section 22. The remaining deferred decisions do not authorize implementation in this Task.
 
 ## 26. Explicit non-implementation confirmation
 
