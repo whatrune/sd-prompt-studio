@@ -85,6 +85,30 @@ const planCandidate = (policyRef, overrides = {}) => ({
   ...overrides,
 })
 
+const routingDecision = (policyRef, overrides = {}) => ({
+  routing_contract_version: 'model_routing_v1',
+  task_id: 'ALIGN-CONTEXT-PLAN-VALIDATION-001',
+  assignment_revision: 'assignments/context-plan/validation-alignment-v1',
+  logical_tier: 'general',
+  required_reasoning_level: 'medium',
+  capability_floor_ref: 'policies/routing/capability-floor-v1',
+  response_profile_ref: 'profiles/response/backend-v1',
+  context_policy_ref: policyRef,
+  required_context_refs: [requiredRef],
+  optional_context_refs: [includedRef, excludedRef],
+  forbidden_context_categories: ['secrets'],
+  required_structured_output_profile_refs: [],
+  required_tool_profile_refs: [],
+  latency_policy_ref: 'policies/latency/standard-v1',
+  cost_policy_ref: 'policies/cost/standard-v1',
+  security_policy_refs: ['policies/security/repository-v1'],
+  validation_policy_ref: 'policies/validation/context-plan-v1',
+  applied_rule_refs: ['policies/routing/rules/context-plan-validation-v1'],
+  decision_rationale: 'The admitted route requires deterministic ContextPlan validation.',
+  evaluation_timestamp: '2026-07-20T09:00:00Z',
+  ...overrides,
+})
+
 const rejectedAt = (result, code, path, message) => {
   assert.equal(result.accepted, false, message)
   assert(result.errors.some(error => error.code === code && error.path === path), `${message}: expected ${code} at ${path}; got ${result.errors.map(error => `${error.code}:${error.path}`).join(', ')}`)
@@ -96,6 +120,8 @@ try {
   const api = await server.ssrLoadModule('/src/context-planning/index.ts')
   const {
     CONTEXT_PLAN_FINAL_REJECTION_RESPONSIBILITIES,
+    CONTEXT_PLAN_SEMANTIC_PROVENANCE_DISCOVERY_BOUNDARY,
+    admitContextPlannerEntry,
     generateContextCategoryBindingSnapshotRef,
     generateContextPlanRef,
     generateContextPolicyV2Ref,
@@ -129,6 +155,29 @@ try {
     const plan = await bindPlan(planCandidate(policy.context_policy_ref, planOverrides))
     return { snapshot, policy, plan }
   }
+  const admitBundle = async bundle => {
+    const admission = await admitContextPlannerEntry({
+      entry_admission_contract_version: 'context_planner_entry_admission_v1',
+      routing_decision: routingDecision(bundle.policy.context_policy_ref),
+      routing_decision_ref: bundle.plan.routing_decision_ref,
+      context_policy: bundle.policy,
+      context_category_binding: bundle.snapshot,
+      context_rendering_profile_ref: bundle.plan.context_rendering_profile_ref,
+      materialization_policy_ref: bundle.plan.materialization_policy_ref,
+      planner_version: bundle.plan.planner_version,
+    })
+    assert.equal(admission.accepted, true, 'provenance fixture must originate from accepted Entry Admission')
+    return admission
+  }
+  const requiredCoverageProvenance = async bundle => ({
+    admission: await admitBundle(bundle),
+    semantic_rejections: [{
+      error_code: 'context_binding_coverage',
+      error_path: '$.required_context_refs[0]',
+      admitted_source_path: '$.routing_decision.required_context_refs[0]',
+      discovery_boundary: CONTEXT_PLAN_SEMANTIC_PROVENANCE_DISCOVERY_BOUNDARY,
+    }],
+  })
 
   const valid = await buildBundle()
 
@@ -246,9 +295,34 @@ try {
     const missingBinding = await buildBundle({
       snapshotOverrides: { bindings: snapshotCandidate().bindings.filter(binding => binding.context_ref !== requiredRef) },
     })
-    const correctable = await validateAdmittedContextPlan(missingBinding.plan, missingBinding.snapshot, missingBinding.policy)
+    const unproven = await validateAdmittedContextPlan(missingBinding.plan, missingBinding.snapshot, missingBinding.policy)
+    assert.equal(unproven.accepted, false)
+    assert.equal(unproven.responsibility, 'planner_implementation', 'unproven Category-semantic rejection must fail closed')
+
+    const correctable = await validateAdmittedContextPlan(
+      missingBinding.plan,
+      missingBinding.snapshot,
+      missingBinding.policy,
+      await requiredCoverageProvenance(missingBinding),
+    )
     assert.equal(correctable.accepted, false)
-    assert.equal(correctable.responsibility, 'input_or_policy', 'exact correctable admitted Policy condition must classify as input_or_policy')
+    assert.equal(correctable.responsibility, 'input_or_policy', 'proven exact admitted source copy with assembly-only discovery must classify as input_or_policy')
+
+    const wrongSource = await requiredCoverageProvenance(missingBinding)
+    wrongSource.semantic_rejections[0].admitted_source_path = '$.routing_decision.optional_context_refs[0]'
+    const mismatchedProvenance = await validateAdmittedContextPlan(
+      missingBinding.plan,
+      missingBinding.snapshot,
+      missingBinding.policy,
+      wrongSource,
+    )
+    assert.equal(mismatchedProvenance.accepted, false)
+    assert.equal(mismatchedProvenance.responsibility, 'planner_implementation', 'provenance whose admitted source was not copied exactly must fail closed')
+
+    const otherSnapshot = await bindSnapshot(snapshotCandidate({ approval_ref: 'evidence/approvals/context-category-bindings-v2' }))
+    const snapshotMismatch = await validateAdmittedContextPlan(valid.plan, otherSnapshot, valid.policy)
+    assert.equal(snapshotMismatch.accepted, false)
+    assert.equal(snapshotMismatch.responsibility, 'planner_implementation', 'Policy-to-Snapshot mismatch is an admitted-path invariant contradiction')
 
     const badReference = await validateAdmittedContextPlan({ ...valid.plan, context_plan_ref: placeholderPlanRef }, valid.snapshot, valid.policy)
     assert.equal(badReference.accepted, false)

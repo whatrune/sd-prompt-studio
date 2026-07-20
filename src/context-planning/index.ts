@@ -22,6 +22,7 @@ export {
 } from './policy'
 export {
   CONTEXT_PLAN_FINAL_REJECTION_RESPONSIBILITIES,
+  CONTEXT_PLAN_SEMANTIC_PROVENANCE_DISCOVERY_BOUNDARY,
   canonicalizeJcs,
   createContextPlanReferenceProjection,
   generateContextPlanRef,
@@ -105,8 +106,10 @@ export type {
   ContextPlanStructureValidationResult,
 } from './validation'
 export type {
+  AdmittedContextPlanSemanticProvenanceEvidence,
   AdmittedContextPlanValidationCode,
   AdmittedContextPlanValidationError,
+  AdmittedContextPlanValidationProvenance,
   AdmittedContextPlanValidationResult,
   ContextPlanFinalRejectionResponsibility,
   ContextPlanReferenceInput,
