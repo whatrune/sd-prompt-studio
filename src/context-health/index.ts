@@ -154,3 +154,4 @@ export async function verifyContextHealthReference(v:ContextHealthPolicyV1|Conte
 export const CONTEXT_HANDOFF_TEMPLATES=deepFreezeClone({manifest:{template_version:'context-handoff-template-v1',required_contract:CONTEXT_HANDOFF_MANIFEST_VERSION,purpose:'non_judgmental_shape_only'},compressed_handoff:{template_version:'compressed-context-handoff-template-v1',section_order:['workflow_identity','completed_work','frozen_decisions','unresolved_items','blockers_and_risks','forbidden_operations','validation','exact_next_action','freshness_redaction']},bootstrap_prompt:{template_version:'context-bootstrap-prompt-template-v1',instruction_order:['load_manifest','validate_bundle','fresh_fetch_mutable_state','classify_drift','preserve_unresolved_items','reevaluate_context_health','identify_legal_next_action','stop_on_non_success']}})
 export { evaluateContextHealthV1 } from './evaluator'
 export * from './integration'
+export * from './artifacts'
