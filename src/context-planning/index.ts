@@ -14,6 +14,7 @@ export {
 export {
   planContext,
 } from './core'
+export { planContextEntry } from './entry'
 export {
   compareContextReferencesUtf8,
   validateContextOrderingRuleV1,
@@ -122,6 +123,7 @@ export type {
 export type {
   ContextPlannerCoreResult,
 } from './core'
+export type { ContextPlannerEntryResult } from './entry'
 export type {
   ContextCategoryBindingEntryV1,
   ContextCategoryBindingEntryValidationResult,
