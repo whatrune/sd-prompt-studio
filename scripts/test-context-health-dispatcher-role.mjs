@@ -1,8 +1,14 @@
 import assert from 'node:assert/strict'
 import { createServer } from 'vite'
+import { basePolicy, baseInput, observation, at, taskSource, protectedActionSource } from './test-context-health-evaluator.mjs'
 const server=await createServer({server:{middlewareMode:true},appType:'custom'})
 try {
  const m=await server.ssrLoadModule('/src/context-health/integration.ts')
+ const c=await server.ssrLoadModule('/src/context-health/index.ts')
+ const policy=basePolicy();policy.context_health_policy_ref=await c.generateContextHealthPolicyRef(policy)
+ const input=baseInput(policy.context_health_policy_ref);input.role='backend_architect';input.workflow_phase='review';input.constraint_snapshot.allowed_change_refs=[protectedActionSource];input.constraint_snapshot.forbidden_change_refs=[];input.context_health_input_ref=await c.generateContextHealthInputRef(input)
+ const bound={canonical_task_record:input.workflow_identity.canonical_task_record,task_assignment_coverage_id:'coverage-1',task_assignment_immutable_revision:{kind:'git_sha',git_sha:'a'.repeat(40)},task_id:input.task_id,assignment_revision:1,assigned_role:input.role,repository:input.repository,workflow_phase:input.workflow_phase,requested_action:'begin_review_judgment',requested_action_ref:protectedActionSource}
+ const live=await m.integrateContextHealthV1(bound,input,policy);assert.equal(live.result_kind,'continue');assert.equal(m.validateContextHealthIntegrationResultV1(live),true);assert.equal(await m.verifyContextHealthIntegrationResultRef(live),true);assert.equal(Object.isFrozen(live),true)
  const gh=n=>({kind:'github',url:`https://github.com/whatrune/sd-prompt-studio/issues/${n}`})
  const binding={canonical_task_record:gh(160),task_assignment_coverage_id:'coverage-1',task_assignment_immutable_revision:{kind:'git_sha',git_sha:'a'.repeat(40)},task_id:'task-1',assignment_revision:1,assigned_role:'backend_implementer',repository:'whatrune/sd-prompt-studio',workflow_phase:'implementation',requested_action:'continue_current_assigned_work',requested_action_ref:gh(161)}
  assert.equal(m.validateTaskAssignmentActionBindingV1(binding),true)
