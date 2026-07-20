@@ -28,6 +28,8 @@ import type {
   ContextPlanningFailureV1ValidationResult,
   SupportingContractValidationError,
 } from './supporting-contracts'
+import type { ContextCategoryBindingSnapshotV1 } from './category-binding'
+import type { ContextPolicyV2 } from './policy-v2'
 
 type RecordValue = Record<string, unknown>
 
@@ -251,6 +253,146 @@ function failureFromErrors(value: unknown, errors: readonly ContextPlanValidatio
   const validation = validateContextPlanningFailure(failure)
   if (!validation.accepted) throw new Error('Context Plan validator constructed an invalid failure.')
   return validation.failure
+}
+
+export type ContextPlanStructureValidationResult =
+  | {
+      readonly accepted: true
+      readonly plan: DeepReadonly<ContextPlan>
+      readonly value: DeepReadonly<ContextPlan>
+      readonly errors: readonly []
+    }
+  | {
+      readonly accepted: false
+      readonly errors: readonly DeepReadonly<ContextPlanValidationError>[]
+    }
+
+export const CONTEXT_PLAN_CATEGORY_SEMANTIC_CODES = Object.freeze([
+  'plan_policy_reference_mismatch',
+  'category_snapshot_reference_mismatch',
+  'context_binding_coverage',
+  'forbidden_context',
+] as const)
+
+export type ContextPlanCategorySemanticCode = (typeof CONTEXT_PLAN_CATEGORY_SEMANTIC_CODES)[number]
+
+export interface ContextPlanCategorySemanticError {
+  readonly code: ContextPlanCategorySemanticCode
+  readonly path: string
+  readonly message: string
+}
+
+export type ContextPlanCategorySemanticValidationResult =
+  | {
+      readonly accepted: true
+      readonly plan: DeepReadonly<ContextPlan>
+      readonly value: DeepReadonly<ContextPlan>
+      readonly errors: readonly []
+    }
+  | {
+      readonly accepted: false
+      readonly errors: readonly DeepReadonly<ContextPlanCategorySemanticError>[]
+    }
+
+export function validateContextPlanStructure(value: unknown): ContextPlanStructureValidationResult {
+  const errors: ContextPlanValidationError[] = []
+  const fields = [
+    'context_plan_contract_version', 'context_plan_ref', 'task_id', 'assignment_revision', 'routing_contract_version',
+    'routing_decision_ref', 'context_policy_ref', 'required_context_refs', 'included_optional_context_refs',
+    'excluded_optional_context_refs', 'forbidden_context_categories', 'context_order', 'context_rendering_profile_ref',
+    'materialization_policy_ref', 'applied_rule_refs', 'planner_version', 'evaluation_timestamp',
+  ] as const
+  const record = objectAt(value, '$', fields, fields, errors)
+  enumAt(record, 'context_plan_contract_version', '$', [CONTEXT_PLAN_CONTRACT_VERSION], errors, 'inconsistent_identity')
+  referenceAt(record, 'context_plan_ref', '$', errors)
+  stringAt(record, 'task_id', '$', errors, item => OPAQUE_IDENTIFIER.test(item), 'inconsistent_identity', 'Expected an opaque Task identifier.')
+  referenceAt(record, 'assignment_revision', '$', errors)
+  enumAt(record, 'routing_contract_version', '$', [ROUTING_CONTRACT_VERSION], errors, 'inconsistent_identity')
+  referenceAt(record, 'routing_decision_ref', '$', errors)
+  referenceAt(record, 'context_policy_ref', '$', errors)
+  const required = stringArrayAt(record, 'required_context_refs', '$', errors, { references: true, nonEmpty: true }) ?? []
+  const included = stringArrayAt(record, 'included_optional_context_refs', '$', errors, { references: true }) ?? []
+  const excluded = stringArrayAt(record, 'excluded_optional_context_refs', '$', errors, { references: true }) ?? []
+  stringArrayAt(record, 'forbidden_context_categories', '$', errors, { categories: true })
+  const order = stringArrayAt(record, 'context_order', '$', errors, { references: true, nonEmpty: true }) ?? []
+  referenceAt(record, 'context_rendering_profile_ref', '$', errors)
+  referenceAt(record, 'materialization_policy_ref', '$', errors)
+  stringArrayAt(record, 'applied_rule_refs', '$', errors, { references: true, nonEmpty: true })
+  stringAt(record, 'planner_version', '$', errors, item => OPAQUE_IDENTIFIER.test(item), 'invalid_value', 'Expected an opaque planner version.')
+  timestampAt(record, 'evaluation_timestamp', '$', errors)
+
+  const requiredSet = new Set(required)
+  const includedSet = new Set(included)
+  const excludedSet = new Set(excluded)
+  addCrossSetError(included, requiredSet, '$.included_optional_context_refs', errors, 'duplicate_reference', 'Required and included optional Context must be disjoint.')
+  addCrossSetError(excluded, requiredSet, '$.excluded_optional_context_refs', errors, 'invalid_context_order', 'Required and excluded optional Context must be disjoint.')
+  addCrossSetError(excluded, includedSet, '$.excluded_optional_context_refs', errors, 'invalid_context_order', 'Included and excluded optional Context must be disjoint.')
+
+  const planned = new Set([...required, ...included])
+  const orderSet = new Set(order)
+  for (const [index, reference] of order.entries()) {
+    if (!planned.has(reference)) {
+      const excludedReference = excludedSet.has(reference)
+      addError(errors, 'invalid_context_order', `$.context_order[${index}]`, excludedReference ? 'Excluded optional Context is forbidden in context_order.' : 'Unplanned Context is forbidden in context_order.')
+    }
+  }
+  for (const reference of planned) {
+    if (!orderSet.has(reference)) addError(errors, 'invalid_context_order', '$.context_order', `Missing planned Context reference: ${reference}.`)
+  }
+  if (orderSet.size !== planned.size) addError(errors, 'invalid_context_order', '$.context_order', 'context_order must be a complete permutation of required and included optional Context.')
+
+  if (errors.length > 0) return Object.freeze({ accepted: false as const, errors: deepFreezeClone(errors) })
+  const plan = deepFreezeClone(value as ContextPlan)
+  return Object.freeze({ accepted: true as const, plan, value: plan, errors: NO_ERRORS })
+}
+
+function semanticError(
+  errors: ContextPlanCategorySemanticError[],
+  code: ContextPlanCategorySemanticCode,
+  path: string,
+  message: string,
+): void {
+  errors.push({ code, path, message })
+}
+
+export function validateContextPlanCategorySemantics(
+  plan: DeepReadonly<ContextPlan>,
+  categorySnapshot: DeepReadonly<ContextCategoryBindingSnapshotV1>,
+  policyV2: DeepReadonly<ContextPolicyV2>,
+): ContextPlanCategorySemanticValidationResult {
+  const errors: ContextPlanCategorySemanticError[] = []
+  if (plan.context_policy_ref !== policyV2.context_policy_ref) {
+    semanticError(errors, 'plan_policy_reference_mismatch', '$.context_policy_ref', 'ContextPlan must copy the exact admitted Context Policy v2 reference.')
+  }
+  if (policyV2.category_binding_snapshot_ref !== categorySnapshot.category_binding_snapshot_ref) {
+    semanticError(errors, 'category_snapshot_reference_mismatch', '$.category_binding_snapshot_ref', 'Context Policy v2 must bind the exact admitted Category Binding Snapshot reference.')
+  }
+
+  const bindings = new Map<string, DeepReadonly<ContextCategoryBindingSnapshotV1['bindings'][number]>[]>()
+  for (const binding of categorySnapshot.bindings) {
+    const matches = bindings.get(binding.context_ref) ?? []
+    matches.push(binding)
+    bindings.set(binding.context_ref, matches)
+  }
+  const forbidden = new Set(plan.forbidden_context_categories)
+  const validatePlanned = (references: readonly string[], basePath: string): void => {
+    references.forEach((reference, index) => {
+      const matches = bindings.get(reference) ?? []
+      if (matches.length !== 1) {
+        semanticError(errors, 'context_binding_coverage', `${basePath}[${index}]`, 'Every planned Context reference requires exactly one exact Category Binding.')
+        return
+      }
+      if (matches[0].categories.some(category => forbidden.has(category))) {
+        semanticError(errors, 'forbidden_context', `${basePath}[${index}]`, 'Planned Context has an exact approved category that intersects forbidden_context_categories.')
+      }
+    })
+  }
+  validatePlanned(plan.required_context_refs, '$.required_context_refs')
+  validatePlanned(plan.included_optional_context_refs, '$.included_optional_context_refs')
+
+  if (errors.length > 0) return Object.freeze({ accepted: false as const, errors: deepFreezeClone(errors) })
+  const accepted = deepFreezeClone(plan as ContextPlan)
+  return Object.freeze({ accepted: true as const, plan: accepted, value: accepted, errors: NO_ERRORS })
 }
 
 export function validateContextPlan(value: unknown): ContextPlanValidationResult {

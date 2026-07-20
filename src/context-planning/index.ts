@@ -4,7 +4,10 @@ export {
   CONTEXT_PLANNING_FAILURE_STAGES,
 } from './types'
 export {
+  CONTEXT_PLAN_CATEGORY_SEMANTIC_CODES,
   validateContextPlan,
+  validateContextPlanCategorySemantics,
+  validateContextPlanStructure,
   validateContextPlanningFailure,
   validateContextPlanningFailureV1,
 } from './validation'
@@ -18,10 +21,13 @@ export {
   validateContextPolicyV1,
 } from './policy'
 export {
+  CONTEXT_PLAN_FINAL_REJECTION_RESPONSIBILITIES,
+  CONTEXT_PLAN_SEMANTIC_PROVENANCE_DISCOVERY_BOUNDARY,
   canonicalizeJcs,
   createContextPlanReferenceProjection,
   generateContextPlanRef,
   isContextPlanRefValid,
+  validateAdmittedContextPlan,
   verifyContextPlanRef,
 } from './reference'
 export {
@@ -94,6 +100,18 @@ export type {
   SupportingContractValidationResult,
 } from './supporting-contracts'
 export type {
+  ContextPlanCategorySemanticCode,
+  ContextPlanCategorySemanticError,
+  ContextPlanCategorySemanticValidationResult,
+  ContextPlanStructureValidationResult,
+} from './validation'
+export type {
+  AdmittedContextPlanSemanticProvenanceEvidence,
+  AdmittedContextPlanValidationCode,
+  AdmittedContextPlanValidationError,
+  AdmittedContextPlanValidationProvenance,
+  AdmittedContextPlanValidationResult,
+  ContextPlanFinalRejectionResponsibility,
   ContextPlanReferenceInput,
   ContextPlanReferenceProjectionV1,
   ContextPlanReferenceVerificationResult,

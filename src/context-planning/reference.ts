@@ -1,8 +1,19 @@
-import type { ContextPlan, DeepReadonly } from './types'
-import { validateContextPlan } from './validation'
+import type { ContextPlan, ContextPlanningFailureCode, DeepReadonly } from './types'
+import {
+  validateContextPlanCategorySemantics,
+  validateContextPlanStructure,
+} from './validation'
+import type {
+  ContextPlanCategorySemanticCode,
+  ContextPlanCategorySemanticError,
+  ContextPlanStructureValidationResult,
+} from './validation'
 import { NO_SUPPORTING_ERRORS, deepFreezeClone, isRecord } from './supporting-contracts'
 import type { SupportingContractValidationError } from './supporting-contracts'
 import { compareContextReferencesUtf8 } from './policy'
+import type { ContextCategoryBindingSnapshotV1 } from './category-binding'
+import type { ContextPolicyV2 } from './policy-v2'
+import type { AdmissionAccepted, ContextPlannerCoreInput } from './entry-admission'
 
 const CONTEXT_PLAN_REF = /^evidence\/context-plans\/sha256-[0-9a-f]{64}$/
 const PLACEHOLDER_REF = `evidence/context-plans/sha256-${'0'.repeat(64)}`
@@ -31,6 +42,52 @@ export type ContextPlanReferenceInput = Omit<ContextPlan, 'context_plan_ref'> & 
 export type ContextPlanReferenceVerificationResult =
   | { readonly accepted: true; readonly reference: string; readonly projection: DeepReadonly<ContextPlanReferenceProjectionV1>; readonly errors: readonly [] }
   | { readonly accepted: false; readonly errors: readonly DeepReadonly<SupportingContractValidationError>[] }
+
+export const CONTEXT_PLAN_FINAL_REJECTION_RESPONSIBILITIES = Object.freeze([
+  'input_or_policy',
+  'planner_implementation',
+] as const)
+
+export type ContextPlanFinalRejectionResponsibility = (typeof CONTEXT_PLAN_FINAL_REJECTION_RESPONSIBILITIES)[number]
+
+export type AdmittedContextPlanValidationCode =
+  | ContextPlanningFailureCode
+  | ContextPlanCategorySemanticCode
+  | 'context_plan_reference_mismatch'
+  | 'internal_validation_failure'
+
+export interface AdmittedContextPlanValidationError {
+  readonly code: AdmittedContextPlanValidationCode
+  readonly path: string
+  readonly message: string
+}
+
+export const CONTEXT_PLAN_SEMANTIC_PROVENANCE_DISCOVERY_BOUNDARY = 'complete_plan_assembly' as const
+
+export interface AdmittedContextPlanSemanticProvenanceEvidence {
+  readonly error_code: Extract<ContextPlanCategorySemanticCode, 'context_binding_coverage' | 'forbidden_context'>
+  readonly error_path: string
+  readonly admitted_source_path: string
+  readonly discovery_boundary: typeof CONTEXT_PLAN_SEMANTIC_PROVENANCE_DISCOVERY_BOUNDARY
+}
+
+export interface AdmittedContextPlanValidationProvenance {
+  readonly admission: DeepReadonly<AdmissionAccepted>
+  readonly semantic_rejections: readonly DeepReadonly<AdmittedContextPlanSemanticProvenanceEvidence>[]
+}
+
+export type AdmittedContextPlanValidationResult =
+  | {
+      readonly accepted: true
+      readonly plan: DeepReadonly<ContextPlan>
+      readonly value: DeepReadonly<ContextPlan>
+      readonly errors: readonly []
+    }
+  | {
+      readonly accepted: false
+      readonly responsibility: ContextPlanFinalRejectionResponsibility
+      readonly errors: readonly DeepReadonly<AdmittedContextPlanValidationError>[]
+    }
 
 function hasLoneSurrogate(value: string): boolean {
   for (let index = 0; index < value.length; index += 1) {
@@ -81,7 +138,7 @@ function bytewiseSorted(values: readonly string[]): readonly string[] {
 }
 
 export function createContextPlanReferenceProjection(value: ContextPlanReferenceInput): DeepReadonly<ContextPlanReferenceProjectionV1> {
-  const admitted = validateContextPlan({ ...value, context_plan_ref: PLACEHOLDER_REF })
+  const admitted = validateContextPlanStructure({ ...value, context_plan_ref: PLACEHOLDER_REF })
   if (!admitted.accepted) throw new TypeError(`Invalid ContextPlan reference input at ${admitted.errors[0]?.path ?? '$'}.`)
   const plan = admitted.plan
   return deepFreezeClone({
@@ -131,6 +188,135 @@ export async function verifyContextPlanRef(value: ContextPlan): Promise<ContextP
   } catch {
     errors.push({ code: 'invalid_value', path: '$', message: 'ContextPlan reference projection is structurally invalid.' })
     return Object.freeze({ accepted: false as const, errors: deepFreezeClone(errors) })
+  }
+}
+
+function structuralErrors(
+  result: Extract<ContextPlanStructureValidationResult, { readonly accepted: false }>,
+): readonly DeepReadonly<AdmittedContextPlanValidationError>[] {
+  return deepFreezeClone(result.errors.map(item => ({ code: item.code, path: item.path, message: item.message })))
+}
+
+function exactArrayValue(value: readonly string[], path: string, field: string): string | undefined {
+  const match = new RegExp(`^\\$\\.${field}\\[(0|[1-9][0-9]*)\\]$`).exec(path)
+  return match ? value[Number(match[1])] : undefined
+}
+
+function exactAdmittedSourceCopy(
+  plan: DeepReadonly<ContextPlan>,
+  coreInput: DeepReadonly<ContextPlannerCoreInput>,
+  planPath: string,
+  sourcePath: string,
+): boolean {
+  const requiredPlanValue = exactArrayValue(plan.required_context_refs, planPath, 'required_context_refs')
+  if (requiredPlanValue !== undefined) {
+    return requiredPlanValue === exactArrayValue(
+      coreInput.routing_decision.required_context_refs,
+      sourcePath,
+      'routing_decision\\.required_context_refs',
+    )
+  }
+  const includedPlanValue = exactArrayValue(plan.included_optional_context_refs, planPath, 'included_optional_context_refs')
+  return includedPlanValue !== undefined && includedPlanValue === exactArrayValue(
+    coreInput.routing_decision.optional_context_refs,
+    sourcePath,
+    'routing_decision\\.optional_context_refs',
+  )
+}
+
+function provenanceIdentityMatches(
+  plan: DeepReadonly<ContextPlan>,
+  categorySnapshot: DeepReadonly<ContextCategoryBindingSnapshotV1>,
+  policyV2: DeepReadonly<ContextPolicyV2>,
+  admission: DeepReadonly<AdmissionAccepted>,
+): boolean {
+  const coreInput = admission.core_input
+  return admission.accepted === true
+    && coreInput.routing_decision_ref === plan.routing_decision_ref
+    && coreInput.routing_decision.context_policy_ref === plan.context_policy_ref
+    && coreInput.context_policy.context_policy_ref === policyV2.context_policy_ref
+    && coreInput.context_policy.context_policy_ref === plan.context_policy_ref
+    && coreInput.context_policy.category_binding_snapshot_ref === policyV2.category_binding_snapshot_ref
+    && coreInput.context_category_binding.category_binding_snapshot_ref === categorySnapshot.category_binding_snapshot_ref
+}
+
+function semanticRejectionHasClosedProvenance(
+  error: DeepReadonly<ContextPlanCategorySemanticError>,
+  plan: DeepReadonly<ContextPlan>,
+  categorySnapshot: DeepReadonly<ContextCategoryBindingSnapshotV1>,
+  policyV2: DeepReadonly<ContextPolicyV2>,
+  provenance: DeepReadonly<AdmittedContextPlanValidationProvenance> | undefined,
+): boolean {
+  if (!provenance || (error.code !== 'context_binding_coverage' && error.code !== 'forbidden_context')) return false
+  if (!provenanceIdentityMatches(plan, categorySnapshot, policyV2, provenance.admission)) return false
+  const evidence = provenance.semantic_rejections.find(item => item.error_code === error.code && item.error_path === error.path)
+  if (!evidence || evidence.discovery_boundary !== CONTEXT_PLAN_SEMANTIC_PROVENANCE_DISCOVERY_BOUNDARY) return false
+  return exactAdmittedSourceCopy(plan, provenance.admission.core_input, error.path, evidence.admitted_source_path)
+}
+
+function semanticResponsibility(
+  errors: readonly DeepReadonly<ContextPlanCategorySemanticError>[],
+  plan: DeepReadonly<ContextPlan>,
+  categorySnapshot: DeepReadonly<ContextCategoryBindingSnapshotV1>,
+  policyV2: DeepReadonly<ContextPolicyV2>,
+  provenance: DeepReadonly<AdmittedContextPlanValidationProvenance> | undefined,
+): ContextPlanFinalRejectionResponsibility {
+  if (errors.length === 0) return 'planner_implementation'
+  return errors.every(error => semanticRejectionHasClosedProvenance(error, plan, categorySnapshot, policyV2, provenance))
+    ? 'input_or_policy'
+    : 'planner_implementation'
+}
+
+export async function validateAdmittedContextPlan(
+  value: unknown,
+  categorySnapshot: DeepReadonly<ContextCategoryBindingSnapshotV1>,
+  policyV2: DeepReadonly<ContextPolicyV2>,
+  provenance?: DeepReadonly<AdmittedContextPlanValidationProvenance>,
+): Promise<AdmittedContextPlanValidationResult> {
+  try {
+    const structure = validateContextPlanStructure(value)
+    if (!structure.accepted) {
+      return Object.freeze({
+        accepted: false as const,
+        responsibility: 'planner_implementation' as const,
+        errors: structuralErrors(structure),
+      })
+    }
+
+    const semantics = validateContextPlanCategorySemantics(structure.value, categorySnapshot, policyV2)
+    if (!semantics.accepted) {
+      return Object.freeze({
+        accepted: false as const,
+        responsibility: semanticResponsibility(semantics.errors, structure.value, categorySnapshot, policyV2, provenance),
+        errors: deepFreezeClone(semantics.errors),
+      })
+    }
+
+    const reference = await verifyContextPlanRef(semantics.value)
+    if (!reference.accepted) {
+      return Object.freeze({
+        accepted: false as const,
+        responsibility: 'planner_implementation' as const,
+        errors: deepFreezeClone(reference.errors.map(item => ({
+          code: 'context_plan_reference_mismatch' as const,
+          path: item.path,
+          message: 'ContextPlan reference generation or verification failed.',
+        }))),
+      })
+    }
+
+    const plan = deepFreezeClone(semantics.value as ContextPlan)
+    return Object.freeze({ accepted: true as const, plan, value: plan, errors: NO_SUPPORTING_ERRORS })
+  } catch {
+    return Object.freeze({
+      accepted: false as const,
+      responsibility: 'planner_implementation' as const,
+      errors: deepFreezeClone([{
+        code: 'internal_validation_failure' as const,
+        path: '$',
+        message: 'An unknown admitted ContextPlan validation origin failed closed.',
+      }]),
+    })
   }
 }
 
