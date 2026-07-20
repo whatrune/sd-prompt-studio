@@ -369,6 +369,23 @@ try {
 
   {
     const source = structuredClone(baseline.input)
+    const safeBindings = structuredClone(source.context_category_binding.bindings)
+    const forbiddenBindings = safeBindings.map(binding => binding.context_ref === requiredA
+      ? { ...binding, categories: ['secrets'] }
+      : binding)
+    let bindingReads = 0
+    Object.defineProperty(source.context_category_binding, 'bindings', {
+      enumerable: true,
+      get: () => (++bindingReads <= 2 ? safeBindings : forbiddenBindings),
+    })
+    const result = await planContext(source)
+    expectFailure(result, 'internal_failure', 'internal_processing', '$.required_context_refs[0]')
+    assert(bindingReads >= 3, 'fault injection must reach the composed final validator after both earlier exact screenings')
+    assert.equal(result.context_policy_ref, baseline.input.routing_decision.context_policy_ref)
+  }
+
+  {
+    const source = structuredClone(baseline.input)
     source.context_policy = new Proxy(source.context_policy, {
       get(target, property, receiver) {
         if (property === 'optional_context_rules') throw new Error('raw injected internal defect')
@@ -401,6 +418,8 @@ try {
     assert(!/\?\?\s*0/.test(coreSource), 'rank lookup must not have a fallback rank')
     assert.match(coreSource, /rank === undefined\) return failure\(context, 'internal_failure'/, 'impossible rank lookup must fail as internal_failure')
     assert.match(coreSource, /admitted\.responsibility === 'input_or_policy'[\s\S]*'result_validation_failed'[\s\S]*'internal_failure'/, 'final responsibility mapping must be closed and fail unknown values as internal_failure')
+    assert(!coreSource.includes('finalValidationProvenance'), 'Core must not manufacture final provenance for conditions screened before Plan assembly')
+    assert(!/error_code:\s*['"]forbidden_context['"]/.test(coreSource), 'Core must never fabricate forbidden_context provenance')
     assert(!/fetch\(|readFile|https?:\/\//.test(coreSource), 'Operational Core must not access filesystem, Repository, URL, or network data')
     assert(!/Date\.|Math\.random|process\.env|localeCompare/.test(coreSource), 'Operational Core must not use wall clock, random, environment, or locale state')
   }

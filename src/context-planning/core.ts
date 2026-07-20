@@ -19,14 +19,9 @@ import {
   validateContextOrderingSemantics,
 } from './policy'
 import {
-  CONTEXT_PLAN_SEMANTIC_PROVENANCE_DISCOVERY_BOUNDARY,
   generateContextPlanRef,
   validateAdmittedContextPlan,
   verifyContextPlanRef,
-} from './reference'
-import type {
-  AdmittedContextPlanSemanticProvenanceEvidence,
-  AdmittedContextPlanValidationProvenance,
 } from './reference'
 import {
   validateContextPlanCategorySemantics,
@@ -100,41 +95,6 @@ function sourceIndex(values: readonly string[], reference: string): number {
 
 function intersects(left: readonly string[], right: ReadonlySet<string>): boolean {
   return left.some(value => right.has(value))
-}
-
-function finalValidationProvenance(
-  input: DeepReadonly<ContextPlannerCoreInput>,
-  plan: DeepReadonly<ContextPlan>,
-): DeepReadonly<AdmittedContextPlanValidationProvenance> {
-  const evidence: AdmittedContextPlanSemanticProvenanceEvidence[] = []
-  plan.required_context_refs.forEach((reference, index) => {
-    const admittedIndex = sourceIndex(input.routing_decision.required_context_refs, reference)
-    if (admittedIndex < 0) return
-    for (const errorCode of ['context_binding_coverage', 'forbidden_context'] as const) {
-      evidence.push({
-        error_code: errorCode,
-        error_path: `$.required_context_refs[${index}]`,
-        admitted_source_path: `$.routing_decision.required_context_refs[${admittedIndex}]`,
-        discovery_boundary: CONTEXT_PLAN_SEMANTIC_PROVENANCE_DISCOVERY_BOUNDARY,
-      })
-    }
-  })
-  plan.included_optional_context_refs.forEach((reference, index) => {
-    const admittedIndex = sourceIndex(input.routing_decision.optional_context_refs, reference)
-    if (admittedIndex < 0) return
-    for (const errorCode of ['context_binding_coverage', 'forbidden_context'] as const) {
-      evidence.push({
-        error_code: errorCode,
-        error_path: `$.included_optional_context_refs[${index}]`,
-        admitted_source_path: `$.routing_decision.optional_context_refs[${admittedIndex}]`,
-        discovery_boundary: CONTEXT_PLAN_SEMANTIC_PROVENANCE_DISCOVERY_BOUNDARY,
-      })
-    }
-  })
-  return Object.freeze({
-    admission: Object.freeze({ accepted: true as const, core_input: input, errors: Object.freeze([]) }),
-    semantic_rejections: Object.freeze(evidence.map(item => Object.freeze(item))),
-  })
 }
 
 export async function planContext(
@@ -250,7 +210,6 @@ export async function planContext(
       plan,
       categorySnapshot,
       policy,
-      finalValidationProvenance(input, plan),
     )
     if (!admitted.accepted) {
       return admitted.responsibility === 'input_or_policy'
