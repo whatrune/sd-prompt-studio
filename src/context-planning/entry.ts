@@ -9,6 +9,9 @@ import type {
 import type { DeepReadonly } from './types'
 
 export type ContextPlannerEntryResult = PlannerEntryStructuralRejection | ContextPlannerCoreResult
+type OperationalDelegate = (
+  coreInput: DeepReadonly<ContextPlannerCoreInput>,
+) => Promise<ContextPlannerCoreResult>
 
 async function sanitizedStructuralRejection(): Promise<PlannerEntryStructuralRejection> {
   const defect = new Proxy({}, {
@@ -33,19 +36,25 @@ async function sanitizedOperationalFailure(
   return planContext(defect)
 }
 
-export async function planContextEntry(value: unknown): Promise<ContextPlannerEntryResult> {
-  let admission: ContextPlannerEntryAdmissionResult
-  try {
-    admission = await admitContextPlannerEntry(value)
-  } catch {
-    return sanitizedStructuralRejection()
-  }
+export function createPlanContextEntryFacade(
+  operationalDelegate: OperationalDelegate,
+): (value: unknown) => Promise<ContextPlannerEntryResult> {
+  return async (value: unknown): Promise<ContextPlannerEntryResult> => {
+    let admission: ContextPlannerEntryAdmissionResult
+    try {
+      admission = await admitContextPlannerEntry(value)
+    } catch {
+      return sanitizedStructuralRejection()
+    }
 
-  if (!admission.accepted) return admission
+    if (!admission.accepted) return admission
 
-  try {
-    return await planContext(admission.core_input)
-  } catch {
-    return sanitizedOperationalFailure(admission.core_input)
+    try {
+      return await operationalDelegate(admission.core_input)
+    } catch {
+      return sanitizedOperationalFailure(admission.core_input)
+    }
   }
 }
+
+export const planContextEntry = createPlanContextEntryFacade(planContext)

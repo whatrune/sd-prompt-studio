@@ -122,6 +122,7 @@ const expectOperational = (result, code, stage) => {
 
 try {
   const api = await server.ssrLoadModule('/src/context-planning/index.ts')
+  const { createPlanContextEntryFacade } = await server.ssrLoadModule('/src/context-planning/entry.ts')
   const {
     admitContextPlannerEntry,
     generateContextCategoryBindingSnapshotRef,
@@ -251,33 +252,38 @@ try {
   }
 
   {
-    const originalDigest = globalThis.crypto.subtle.digest
-    let digestCalls = 0
-    globalThis.crypto.subtle.digest = async function (...args) {
-      digestCalls += 1
-      if (digestCalls >= 3) throw new Error('raw-post-admission-defect')
-      return originalDigest.apply(this, args)
-    }
-    try {
-      const result = await planContextEntry(baseline.caller)
-      expectOperational(result, 'internal_failure', 'internal_processing')
-      assert.equal(result.status, 'failed')
-      assert.equal(result.context_policy_ref, baseline.caller.routing_decision.context_policy_ref)
-      assert.equal(result.task_id, baseline.caller.routing_decision.task_id)
-      assert.equal(result.evaluation_timestamp, baseline.caller.routing_decision.evaluation_timestamp)
-      assert(!JSON.stringify(result).includes('raw-post-admission-defect'))
-      assert(!JSON.stringify(result).includes('unknown-task'))
-      assert(!JSON.stringify(result).includes('1970-01-01'))
-    } finally {
-      globalThis.crypto.subtle.digest = originalDigest
-    }
+    const rawMessage = 'raw-delegation-defect-reaching-facade'
+    let operationalCalls = 0
+    const faultInjectedFacade = createPlanContextEntryFacade(async coreInput => {
+      operationalCalls += 1
+      assert.deepEqual(coreInput, baselineAdmission.core_input, 'Admission must succeed and supply its exact frozen Core input before delegation')
+      assert(Object.isFrozen(coreInput))
+      throw new Error(rawMessage)
+    })
+    const result = await faultInjectedFacade(baseline.caller)
+    assert.equal(operationalCalls, 1, 'fault-injected delegation must throw exactly once without recovery recursion')
+    expectOperational(result, 'internal_failure', 'internal_processing')
+    assert.equal(result.status, 'failed')
+    assert.equal(result.task_id, baselineAdmission.core_input.routing_decision.task_id)
+    assert.equal(result.assignment_revision, baselineAdmission.core_input.routing_decision.assignment_revision)
+    assert.equal(result.routing_contract_version, baselineAdmission.core_input.routing_decision.routing_contract_version)
+    assert.equal(result.routing_decision_ref, baselineAdmission.core_input.routing_decision_ref)
+    assert.equal(result.context_policy_ref, baselineAdmission.core_input.routing_decision.context_policy_ref)
+    assert.equal(result.planner_version, baselineAdmission.core_input.planner_version)
+    assert.equal(result.evaluation_timestamp, baselineAdmission.core_input.routing_decision.evaluation_timestamp)
+    assert.equal(validateContextPlanningFailureV1(result).accepted, true)
+    assert.equal('accepted' in result, false, 'post-Admission recovery must not return Structural Rejection')
+    assert(!JSON.stringify(result).includes(rawMessage))
+    assert(!JSON.stringify(result).includes('unknown-task'))
+    assert(!JSON.stringify(result).includes('1970-01-01'))
   }
 
   {
     const entrySource = await readFile(new URL('../src/context-planning/entry.ts', import.meta.url), 'utf8')
-    assert.match(entrySource, /if \(!admission\.accepted\) return admission[\s\S]*planContext\(admission\.core_input\)/, 'Core must only run after accepted Admission')
+    assert.match(entrySource, /if \(!admission\.accepted\) return admission[\s\S]*operationalDelegate\(admission\.core_input\)/, 'Core must only run after accepted Admission')
     assert(!/validateContext|validateRouting|generateContextPlan/.test(entrySource), 'facade must not duplicate structural or planning logic')
     assert(!/Date\.|Math\.random|process\.env|localeCompare|fetch\(|readFile|https?:\/\//.test(entrySource), 'facade must have no external or runtime-state dependency')
+    assert.equal('createPlanContextEntryFacade' in api, false, 'the closed fault-injection seam must not expand the public barrel API')
   }
 
   console.log('Context Planner Entry facade tests passed.')
