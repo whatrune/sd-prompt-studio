@@ -44,6 +44,12 @@ export {
   verifyContextPolicyV2Ref,
 } from './policy-v2'
 export {
+  CONTEXT_PLANNER_ENTRY_ADMISSION_CONTRACT_VERSION,
+  PLANNER_ENTRY_STRUCTURAL_ERROR_CODES,
+  SUPPORTED_CONTEXT_PLANNER_VERSIONS,
+  admitContextPlannerEntry,
+} from './entry-admission'
+export {
   CONTEXT_ORDERING_RULE_CONTRACT_VERSION,
   CONTEXT_PLANNING_DECISION_OWNERS,
   CONTEXT_PLANNING_FAILURE_CONTRACT_VERSION,
@@ -113,3 +119,13 @@ export type {
   ContextPolicyV2ReferenceVerificationResult,
   ContextPolicyV2ValidationResult,
 } from './policy-v2'
+export type {
+  AdmissionAccepted,
+  ContextPlannerCoreInput,
+  ContextPlannerEntryAdmissionResult,
+  ContextPlannerEntryStructuralInput,
+  NonEmptyReadonlyArray,
+  PlannerEntryStructuralError,
+  PlannerEntryStructuralErrorCode,
+  PlannerEntryStructuralRejection,
+} from './entry-admission'
