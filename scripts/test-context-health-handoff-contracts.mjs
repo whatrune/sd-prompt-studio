@@ -19,7 +19,7 @@ const manifest = (x = {}) => ({ contract_version: 'context-handoff-manifest-v1',
 
 try {
   const api = await server.ssrLoadModule('/src/context-health/index.ts')
-  const { validateContextHealthEvaluationInputV1: vi, validateContextHealthPolicyV1: vp, validateContextHealthDecisionV1: vd, validateContextHandoffManifestV1: vm, validateContextHandoffComponentValidationInputV1: vc, validateContextHandoffComponentValidationResultV1: vr, validateContextResumeValidationResultV1: vv, validateContextHealthDecisionSemantics, generateContextHealthPolicyRef, verifyContextHealthReference } = api
+  const { validateContextHealthEvaluationInputV1: vi, validateContextHealthPolicyV1: vp, validateContextHealthDecisionV1: vd, validateContextHandoffManifestV1: vm, validateContextHandoffComponentValidationInputV1: vc, validateContextHandoffComponentValidationResultV1: vr, validateContextResumeValidationResultV1: vv, validateContextHealthDecisionSemantics, generateContextHealthPolicyRef, generateContextHealthInputRef, generateContextHealthDecisionRef, generateContextHandoffManifestRef, verifyContextHealthReference } = api
   assert.equal(vi(input(), at).accepted, true); assert(Object.isFrozen(vi(input(), at).value)); assert(Object.isFrozen(vi(input(), at).value.workflow_identity))
   assert.equal(vi(input({ workflow_identity: { ...identity(), issue_binding: { ...bound('i'), extra: true } } }), at).accepted, false)
   assert.equal(vi(input({ workflow_identity: { ...identity(), issue_binding: { state: 'not_created', observed_at: at, creation_record_ref: source } } }), at).accepted, false)
@@ -42,5 +42,21 @@ try {
   assert.equal(vv({ ...resumeCommon, result_kind: 'internal_failure', internal_failure_code: 'resume_internal_failure', decision_owner: 'backend_implementer', recommended_next_action_code: 'implementation_review', retry_policy: 'after_implementation_fix' }, at).accepted, true)
   assert.equal(vv({ ...resumeCommon, result_kind: 'success', drift_class: 'none', fresh_context_health_input_ref: inputRef, fresh_context_health_decision_ref: decisionRef }, at).accepted, false)
   const p = policy(); p.context_health_policy_ref = await generateContextHealthPolicyRef(p); assert.equal(await verifyContextHealthReference(p), true)
+  const i = input(); i.context_health_input_ref = await generateContextHealthInputRef(i); assert.equal(await verifyContextHealthReference(i), true)
+  const d = decision(); d.context_health_decision_ref = await generateContextHealthDecisionRef(d); assert.equal(await verifyContextHealthReference(d), true)
+  const h = manifest(); h.context_handoff_manifest_ref = await generateContextHandoffManifestRef(h); assert.equal(await verifyContextHealthReference(h), true)
+  for (const [root, field, generate] of [[p, 'context_health_policy_ref', generateContextHealthPolicyRef], [i, 'context_health_input_ref', generateContextHealthInputRef], [d, 'context_health_decision_ref', generateContextHealthDecisionRef], [h, 'context_handoff_manifest_ref', generateContextHandoffManifestRef]]) {
+    const original = await generate(root); const changed = { ...root, [field]: 'invalid-self-reference', policy_revision: `${root.policy_revision ?? 'x'}-changed` }; assert.notEqual(await generate(changed), original)
+    const reordered = { ...root, [field]: 'other' }; if (Array.isArray(root.approved_by_roles)) reordered.approved_by_roles = [...root.approved_by_roles].reverse(); if (Array.isArray(root.source_provenance)) reordered.source_provenance = [...root.source_provenance].reverse(); assert.equal(await generate(reordered), original)
+  }
+  const listA = { ...h, completed_work: [{ fact_id: 'work-1', fact_kind: 'completed_work', resolution_state: 'resolved', evidence_state: 'verified', owner_role: 'backend_implementer', value: { kind: 'string', string_value: 'a' }, source_refs: [source], freshness_evidence_ids: [], redaction_record_ids: [], provenance_ids: [] }, { fact_id: 'work-2', fact_kind: 'completed_work', resolution_state: 'resolved', evidence_state: 'verified', owner_role: 'backend_implementer', value: { kind: 'string', string_value: 'b' }, source_refs: [source], freshness_evidence_ids: [], redaction_record_ids: [], provenance_ids: [] }] }
+  const listB = { ...listA, completed_work: [...listA.completed_work].reverse() }; assert.notEqual(await generateContextHandoffManifestRef(listA), await generateContextHandoffManifestRef(listB))
+  const factBase = { fact_id: 'fact-1', fact_kind: 'validation_result', resolution_state: 'resolved', evidence_state: 'verified', owner_role: 'backend_implementer', value: { kind: 'string', string_value: 'verified' }, source_refs: [source], freshness_evidence_ids: [], redaction_record_ids: [], provenance_ids: [] }
+  for (const value of [{ kind: 'string', string_value: 's' }, { kind: 'integer', integer_value: 1 }, { kind: 'boolean', boolean_value: true }, { kind: 'string_set', string_values: ['a', 'b'] }, { kind: 'reference', reference_value: source }]) assert.equal(vm(manifest({ material_facts: [{ ...factBase, value }] }), at).accepted, true)
+  const { value: ignoredValue, ...notApplicableFact } = factBase
+  assert.equal(vm(manifest({ material_facts: [{ ...notApplicableFact, resolution_state: 'not_applicable' }] }), at).accepted, true)
+  assert.equal(vm(manifest({ material_facts: [{ ...factBase, resolution_state: 'not_applicable' }] }), at).accepted, false)
+  assert.equal(vm(manifest({ material_facts: [{ ...factBase, evidence_state: 'stale' }] }), at).accepted, false)
+  assert.equal(vm(manifest({ material_facts: [{ ...factBase, value: { kind: 'unknown', text: 'no' } }] }), at).accepted, false)
   console.log('Context Health and Handoff contract tests passed.')
 } finally { await server.close() }
