@@ -194,6 +194,8 @@ const baseInput = (policy_ref) => ({
 
 const observation = (observation_id, atomic_signal_code, authority, presence = 'present', evidence_refs = [atomicEvidenceA]) => ({ observation_id, atomic_signal_code, presence, authority, evidence_refs, observed_at: at })
 
+export { basePolicy, baseInput, observation, at, taskSource, protectedActionSource }
+
 try {
   const contract = await server.ssrLoadModule('/src/context-health/index.ts')
   const evaluator = await server.ssrLoadModule('/src/context-health/evaluator.ts')

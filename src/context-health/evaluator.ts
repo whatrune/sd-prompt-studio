@@ -457,7 +457,7 @@ export async function evaluateContextHealthV1(inputCandidate: unknown, policyCan
     checkpoint_type: input.checkpoint.checkpoint_type,
     outcome,
     legal_action_class: outcome === 'continue' || outcome === 'checkpoint_only' ? 'assigned_work_allowed' : outcome === 'handoff_required' ? 'handoff_required' : 'hard_stop',
-    required_artifact_class: outcome === 'continue' ? 'decision_record' : 'context_handoff_manifest',
+    required_artifact_class: outcome === 'continue' ? 'decision_record' : outcome === 'checkpoint_only' ? 'checkpoint_record' : 'context_handoff_manifest',
     checkpoint_rule_ref: checkpointRule.rule_ref,
     applied_atomic_signal_rule_refs: selectedAtomicRefs,
     applied_coverage_rule_refs: applicableCoverageRules.map((rule) => rule.rule_ref).sort(),
