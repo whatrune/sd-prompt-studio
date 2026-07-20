@@ -25,6 +25,25 @@ export {
   verifyContextPlanRef,
 } from './reference'
 export {
+  CONTEXT_CATEGORY_BINDING_CONTRACT_VERSION,
+  CONTEXT_CATEGORY_BINDING_REFERENCE_VERSION,
+  createContextCategoryBindingReferenceProjection,
+  generateContextCategoryBindingSnapshotRef,
+  isContextImmutableReference,
+  validateContextCategoryBindingEntryV1,
+  validateContextCategoryBindingSnapshotV1,
+  verifyContextCategoryBindingSnapshotRef,
+} from './category-binding'
+export {
+  CONTEXT_POLICY_V2_CONTRACT_VERSION,
+  CONTEXT_POLICY_V2_REFERENCE_VERSION,
+  createContextPolicyV2ReferenceProjection,
+  generateContextPolicyV2Ref,
+  validateContextPolicyV2,
+  validateContextPolicyV2CategoryBinding,
+  verifyContextPolicyV2Ref,
+} from './policy-v2'
+export {
   CONTEXT_ORDERING_RULE_CONTRACT_VERSION,
   CONTEXT_PLANNING_DECISION_OWNERS,
   CONTEXT_PLANNING_FAILURE_CONTRACT_VERSION,
@@ -73,3 +92,24 @@ export type {
   ContextPlanReferenceProjectionV1,
   ContextPlanReferenceVerificationResult,
 } from './reference'
+export type {
+  ContextCategoryBindingEntryV1,
+  ContextCategoryBindingEntryValidationResult,
+  ContextCategoryBindingReferenceInput,
+  ContextCategoryBindingReferenceProjectionV1,
+  ContextCategoryBindingReferenceVerificationResult,
+  ContextCategoryBindingSnapshotV1,
+  ContextCategoryBindingSnapshotValidationResult,
+  ContextIdentityValidationCode,
+  ContextIdentityValidationError,
+  ContextIdentityValidationResult,
+} from './category-binding'
+export type {
+  ContextOrderingRuleV2ReferenceProjection,
+  ContextPolicyRuleV2ReferenceProjection,
+  ContextPolicyV2,
+  ContextPolicyV2ReferenceInput,
+  ContextPolicyV2ReferenceProjection,
+  ContextPolicyV2ReferenceVerificationResult,
+  ContextPolicyV2ValidationResult,
+} from './policy-v2'
