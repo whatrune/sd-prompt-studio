@@ -8,6 +8,8 @@ try {
  assert.equal(m.validateTaskAssignmentActionBindingV1(binding),true)
  assert.equal(m.validateTaskAssignmentActionBindingV1({...binding,extra:true}),false)
  assert.equal(m.validateTaskAssignmentActionBindingV1({...binding,assignment_revision:0}),false)
+ const rejected=await m.integrateContextHealthV1({...binding,extra:true},{evaluation_timestamp:'2026-07-20T00:00:00.000Z'},{})
+ assert.equal(rejected.result_kind,'failure');assert.equal(rejected.failure_code,'evaluation_input_admission_failed')
  const failure={contract_version:'context-health-integration-result-v1',context_health_integration_result_ref:'',result_kind:'failure',failure_code:'protected_action_forbidden',failure_stage:'legality',path:'$.requested_action',message:'blocked',verified_identity_refs:[gh(160)],decision_owner:'product_owner',retry_policy:'after_product_owner_decision'}
  failure.context_health_integration_result_ref=await m.generateContextHealthIntegrationResultRef(failure)
  assert.equal(m.validateContextHealthIntegrationResultV1(failure),true);assert.equal(await m.verifyContextHealthIntegrationResultRef(failure),true)
