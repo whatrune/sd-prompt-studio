@@ -25,11 +25,12 @@ try {
  const assertIntegrated=async (mutate,kind)=>{const {policy,input,binding}=await makeAdmitted(mutate);const evaluation=await e.evaluateContextHealthV1(input,policy);assert.equal(evaluation.ok,true,JSON.stringify(evaluation));const result=await m.integrateContextHealthV1(binding,input,policy);assert.equal(result.result_kind,kind,JSON.stringify(result));assert.equal(m.validateContextHealthIntegrationResultV1(result),true);assert.equal(m.validateContextHealthIntegrationResultSemantics(result),true);assert.equal(await m.verifyContextHealthIntegrationResultRef(result),true);assert.equal(Object.isFrozen(result),true);return {policy,input,binding,result}}
  const live=await assertIntegrated(()=>{},'continue')
  const decisionExecution=await makeAdmitted();const decision=(await e.evaluateContextHealthV1(decisionExecution.input,decisionExecution.policy)).decision
- assert.equal(c.validateContextHealthDecisionV1({...decision,unexpected:true},at).accepted,false,'Decision contract failure is distinct')
+ const assertDecisionFailure=async (candidate,code)=>{const result=await m.integrateContextHealthV1(decisionExecution.binding,decisionExecution.input,decisionExecution.policy,async()=>({ok:true,decision:candidate}));assert.equal(result.result_kind,'failure',JSON.stringify(result));assert.equal(result.failure_code,code,JSON.stringify(result));assert.equal(m.validateContextHealthIntegrationResultV1(result),true);assert.equal(await m.verifyContextHealthIntegrationResultRef(result),true)}
+ await assertDecisionFailure({...decision,unexpected:true},'decision_contract_invalid')
  const semanticFailure={...decision,required_artifact_class:'checkpoint_record'}
  semanticFailure.context_health_decision_ref=await c.generateContextHealthDecisionRef(semanticFailure)
- assert.equal(c.validateContextHealthDecisionSemantics(semanticFailure,decisionExecution.policy).valid,false,'Decision semantic failure is distinct')
- assert.equal(await c.verifyContextHealthReference({...decision,context_health_decision_ref:'evidence/context-health-decisions/sha256-'+'0'.repeat(64)}),false,'Decision reference failure is distinct')
+ await assertDecisionFailure(semanticFailure,'decision_semantic_invalid')
+ await assertDecisionFailure({...decision,context_health_decision_ref:'evidence/context-health-decisions/sha256-'+'0'.repeat(64)},'decision_reference_invalid')
  const checkpointLive=await assertIntegrated(input=>{input.counter_snapshot.operation_count=3},'checkpoint_only')
  assert.equal(checkpointLive.result.checkpoint_publication_instruction.publication_performed,false)
  const handoffLive=await assertIntegrated(input=>{input.atomic_signal_observations=[observation('handoff','operator_handoff_event','authoritative')]},'handoff_required')
