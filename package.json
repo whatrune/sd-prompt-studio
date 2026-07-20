@@ -22,6 +22,7 @@
     "test:context-plan-category-semantics": "node scripts/test-context-plan-category-semantics.mjs",
     "test:context-planner": "node scripts/test-context-planner.mjs",
     "test:context-planner-entry": "node scripts/test-context-planner-entry.mjs",
+    "test:context-health-handoff-contracts": "node scripts/test-context-health-handoff-contracts.mjs",
     "test:context-planner-integration-regression": "node scripts/test-context-planner-integration-regression.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "validate:dictionary": "node scripts/validate-dictionaries.mjs",
