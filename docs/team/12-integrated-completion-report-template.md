@@ -1,5 +1,12 @@
 # Integrated Completion Report Template
 
+<!-- role-contract-meta
+id: 12
+kind: template
+owns: none
+uses: result_handoff_shape, handoff_status, terminal_stop_reason, completion_evidence, review_finding, review_decision_record
+-->
+
 このTemplateはIntegrated Leadが複数RoleのHandoffを統合し、Product Ownerへ状態と必要判断を返すために使用する記入形式である。statusは[Delegation and Result Contract](11-delegation-and-result-contract.md)、`execution_stop_reason`とcompletion evidenceは[Shared Role Execution Contract](13-shared-role-execution-contract.md)を参照し、本Template自体は規則を定義しない。
 
 ```markdown

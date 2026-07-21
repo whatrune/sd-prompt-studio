@@ -1,5 +1,12 @@
 # Architect Team Charter
 
+<!-- role-contract-meta
+id: 01
+kind: role_charter
+owns: architect_role_delta
+uses: role_taxonomy, decision_ownership, shared_admission, protected_actions, terminal_stop_reason, same_task_correction, resume_authority, completion_evidence, review_admission, review_finding, review_decision_record
+-->
+
 ## Mission
 
 Architect Teamは、Product Decisionを実装可能で矛盾のないContractへ変換し、Role間の責務、データ境界、PR分割、Review Gateを確定する。実装者へ研究判断や未確定仕様を委譲しないことが最優先責務である。

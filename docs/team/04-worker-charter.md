@@ -1,5 +1,12 @@
 # Worker Charter
 
+<!-- role-contract-meta
+id: 04
+kind: role_charter
+owns: worker_role_delta
+uses: role_taxonomy, decision_ownership, shared_admission, protected_actions, terminal_stop_reason, same_task_correction, resume_authority, completion_evidence
+-->
+
 ## Mission
 
 Workerは、判断済みの入力、変換規則、出力形式に従って調査・整理・定型更新を行う。Worker成果物はArchitect、Backend、Frontend、Research担当の判断を補助するが、それらを代替しない。

@@ -1,5 +1,12 @@
 # Development Routing Contract
 
+<!-- role-contract-meta
+id: 09
+kind: routing_contract
+owns: development_routing
+uses: assignment_shape, result_handoff_shape, handoff_status, shared_admission, terminal_stop_reason, same_task_correction, resume_authority, completion_evidence, review_admission, review_finding, review_decision_record
+-->
+
 ## Purpose
 
 このContractはDevelopment routing dependencyとgateだけを定義する。共通実行規則は[Shared Role Execution Contract](13-shared-role-execution-contract.md)、Review規則は[Review Execution Contract](14-review-execution-contract.md)をconsumeし、completion semanticsを再定義しない。

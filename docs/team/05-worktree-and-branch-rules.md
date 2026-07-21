@@ -1,5 +1,12 @@
 # Worktree and Branch Rules
 
+<!-- role-contract-meta
+id: 05
+kind: contract
+owns: git_lifecycle
+uses: same_task_correction, resume_authority
+-->
+
 ## Purpose
 
 並行作業による変更混入、別PR branchの再利用、mainへの直接編集、未コミット変更の損失を防ぐため、branchとworktreeの運用を固定する。

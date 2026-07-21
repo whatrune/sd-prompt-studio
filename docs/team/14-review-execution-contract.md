@@ -1,5 +1,12 @@
 # Review Execution Contract
 
+<!-- role-contract-meta
+id: 14
+kind: contract
+owns: review_admission, review_finding, review_decision_record
+uses: assignment_shape, result_handoff_shape, handoff_status, shared_admission, canonical_record_admission, protected_actions, terminal_stop_reason, same_task_correction, resume_authority, completion_evidence, finding_closure_authority
+-->
+
 ## Purpose and Dependencies
 
 このContractは、既存RoleがReview Assignmentを受けたときに[Shared Role Execution Contract](13-shared-role-execution-contract.md)へ追加適用するReview capability ruleの唯一のnormative ownerである。Review AssignmentとResult Handoffのshape / statusは[Delegation and Result Contract](11-delegation-and-result-contract.md)をconsumeする。
@@ -78,7 +85,7 @@ Repository-relative Markdownを添える場合は、pathとfull 40-character com
 
 - Review Amendmentは同じ`task_id`、branch、worktree、PRへ累積する。
 - 後続pushは既存findingを暗黙にcloseしない。
-- 同じreview authorityを持つRoleが、new full HEADのevidenceとfinding別closure flagをcanonical Review Decisionへ記録した場合だけcloseできる。
+- finding closure authorityはShared Role Execution Contractを適用する。Reviewerは要求されたnew full HEADのevidenceとfinding別closure flagをcanonical Review Decisionへ記録する。
 - Final Review Decisionもprior findingを個別に列挙し、open / closedを明示する。
 - Architecture gapが必要な場合、Reviewerはgapの内容とboundaryを記録し、Architect Teamへ返す。Reviewer自身がContractを補完しない。
 - Architecture AmendmentはArchitecture questionだけを閉じ、implementation findingを自動closeしない。

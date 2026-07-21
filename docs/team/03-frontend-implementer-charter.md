@@ -1,5 +1,12 @@
 # Frontend Implementer Charter
 
+<!-- role-contract-meta
+id: 03
+kind: role_charter
+owns: frontend_implementation_delta
+uses: role_taxonomy, decision_ownership, shared_admission, protected_actions, terminal_stop_reason, same_task_correction, resume_authority, completion_evidence
+-->
+
 ## Mission
 
 Frontend Implementerは、承認済みUI ContractとBackend API Contractに従い、ユーザーが目的の操作を安全に完了できるUIを実装する。FrontendはResearch判断、Backend Validation、Canonical Data Mutationを代替しない。

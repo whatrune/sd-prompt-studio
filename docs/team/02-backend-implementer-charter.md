@@ -1,5 +1,12 @@
 # Backend Implementer Charter
 
+<!-- role-contract-meta
+id: 02
+kind: role_charter
+owns: backend_implementation_delta
+uses: role_taxonomy, decision_ownership, shared_admission, protected_actions, terminal_stop_reason, same_task_correction, resume_authority, completion_evidence
+-->
+
 ## Mission
 
 Backend Implementerは、Freeze済みContractとTask Assignmentを変更せずに、Backendの決定的な実装、Test、Validation根拠を提供する。実装上の判断はContractが許可する範囲に限定する。

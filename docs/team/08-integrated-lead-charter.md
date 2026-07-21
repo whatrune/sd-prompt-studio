@@ -1,5 +1,12 @@
 # Integrated Lead Charter
 
+<!-- role-contract-meta
+id: 08
+kind: role_charter
+owns: integrated_lead_routing, resume_dispatch_record_delta
+uses: role_taxonomy, decision_ownership, assignment_shape, result_handoff_shape, handoff_status, shared_admission, canonical_record_admission, protected_actions, terminal_stop_reason, same_task_correction, resume_authority, completion_evidence, review_finding
+-->
+
 ## Purpose
 
 Integrated Lead（統合リーダー）は、Product Ownerからの通常依頼を一つの窓口で受け付け、適切なRoleへRoutingし、結果を統合して報告する進行管理Roleである。専門作業のOwnerではなく、既存Roleの責務や承認権限を置き換えない。

@@ -1,5 +1,12 @@
 # Delegation and Result Contract
 
+<!-- role-contract-meta
+id: 11
+kind: contract
+owns: assignment_shape, result_handoff_shape, handoff_status
+uses: none
+-->
+
 ## Purpose
 
 このContractは、Task AssignmentとResult Handoffのrecord shape、およびResult Handoff status vocabularyの唯一のnormative ownerである。fresh fetch、authority判定、terminal stop、testing、completion evidenceの意味はShared Role Execution Contractが所有し、本書は再定義しない。

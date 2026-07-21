@@ -1,5 +1,12 @@
 # Research Operations Routing Contract
 
+<!-- role-contract-meta
+id: 10
+kind: routing_contract
+owns: research_routing, research_review_vocabulary
+uses: assignment_shape, result_handoff_shape, handoff_status, shared_admission, terminal_stop_reason, same_task_correction, completion_evidence, review_admission, review_finding, review_decision_record
+-->
+
 ## Purpose
 
 このContractはResearch Operations固有のRole、routing、判定語彙だけを定義する。共通実行規則は[Shared Role Execution Contract](13-shared-role-execution-contract.md)、Review Assignment時は[Review Execution Contract](14-review-execution-contract.md)をconsumeする。Observation、Evidence、Research Claim、Review statusの意味や生成権限は変更しない。

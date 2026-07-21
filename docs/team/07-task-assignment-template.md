@@ -1,5 +1,12 @@
 # Task Assignment Template
 
+<!-- role-contract-meta
+id: 07
+kind: template
+owns: none
+uses: assignment_shape, canonical_record_admission, shared_admission, review_admission
+-->
+
 このTemplateは、Task Assignmentを記録するためのnon-normativeな記入形式である。Assignmentのrecord shapeは[Delegation and Result Contract](11-delegation-and-result-contract.md)、共通実行規則は[Shared Role Execution Contract](13-shared-role-execution-contract.md)、Review時は[Review Execution Contract](14-review-execution-contract.md)が所有する。本TemplateではTask固有情報だけを反復する。
 
 ````markdown

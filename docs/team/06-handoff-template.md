@@ -1,5 +1,12 @@
 # Handoff Template
 
+<!-- role-contract-meta
+id: 06
+kind: template
+owns: none
+uses: result_handoff_shape, handoff_status, terminal_stop_reason, canonical_record_admission, completion_evidence
+-->
+
 このTemplateは、担当者間の引継ぎ、Review依頼、Blocked Task返却、完了報告に使用する記入形式である。fieldとstatusは[Delegation and Result Contract](11-delegation-and-result-contract.md)、実行と停止の意味は[Shared Role Execution Contract](13-shared-role-execution-contract.md)、Review時は[Review Execution Contract](14-review-execution-contract.md)に従い、本Template自体は規則を定義しない。
 
 ```markdown

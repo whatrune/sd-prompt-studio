@@ -1,5 +1,12 @@
 # Repository Working Rules
 
+<!-- role-contract-meta
+id: AGENTS
+kind: entry_guard
+owns: repository_entry_guard, repository_implementation_rules, ui_review_delta
+uses: role_taxonomy, precedence, decision_ownership, git_lifecycle, integrated_lead_routing, development_routing, research_routing, assignment_shape, result_handoff_shape, handoff_status, shared_admission, canonical_record_admission, protected_actions, terminal_stop_reason, same_task_correction, resume_authority, completion_evidence, review_admission, review_finding, review_decision_record
+-->
+
 このファイルは、このリポジトリで作業するCodex向けの永続的な運用ルールです。ユーザーの最新の明示指示が本書と競合する場合は、最新の明示指示を優先してください。
 
 ## Rule conflict and user override
