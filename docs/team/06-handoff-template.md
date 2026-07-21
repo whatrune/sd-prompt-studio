@@ -1,6 +1,6 @@
 # Handoff Template
 
-このTemplateは、担当者間の引継ぎ、Review依頼、Blocked Task返却、完了報告に使用する。未確認事項と未完了事項を省略しない。
+このTemplateは、担当者間の引継ぎ、Review依頼、Blocked Task返却、完了報告に使用する記入形式である。fieldとstatusは[Delegation and Result Contract](11-delegation-and-result-contract.md)、実行と停止の意味は[Shared Role Execution Contract](13-shared-role-execution-contract.md)、Review時は[Review Execution Contract](14-review-execution-contract.md)に従い、本Template自体は規則を定義しない。
 
 ```markdown
 # Task
@@ -11,6 +11,8 @@
 - Role Change Authorized By:
 - Owner:
 - Status: proposed | designing | frozen | assigned | in_progress | review | merge_ready | blocked | merged
+- Result Handoff status: completed | completed_with_warnings | needs_followup | blocked | failed | not_applicable
+- execution_stop_reason: completed | architecture_gap | external_blocker
 - Branch:
 - Worktree:
 - Commit / PR:
@@ -67,9 +69,13 @@
 
 ## Validation
 
-| Command / check | Result | Evidence / notes |
-| --- | --- | --- |
-| `git diff --check` |  |  |
+| Command / check | Result / exit | Execution HEAD | Evidence / notes |
+| --- | --- | --- | --- |
+|  |  |  |  |
+
+- Focused coverage:
+- Full regression coverage:
+- GitHub checks and checked HEAD:
 
 ## Known Failures and Risks
 
@@ -92,16 +98,12 @@
 ## Completion Report
 
 - Final status:
+- execution_stop_reason:
 - Checks status:
 - Mergeability:
 - Remaining work:
 ```
 
-## Usage Rules
+## Usage
 
-- 実行していないValidationを`passed`と記載しない。
-- timeout、環境制約、既知の失敗を成功結果と分離する。
-- 会話にしか存在しない判断は`Input Documents`または`Decisions Made`へ転記する。
-- Result Handoffは、正式受領前に`canonical_record`へ全文を保存する。会話またはローカルファイルだけを保存先にしない。
-- 未コミット変更を引継ぐ場合は、理由と正確なfile listを記載する。標準はcommit済み状態で引き継ぐ。
-- `Next Safe Step`は「続ける」ではなく、再開可能な具体的操作にする。
+共通のvalidation evidence、canonical location、terminal reporting、same-task correctionは上記Contractを参照する。未コミット変更を引き継ぐ場合は理由と正確なfile listを記録し、`Next Safe Step`には再開可能な具体的操作を書く。

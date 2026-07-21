@@ -4,6 +4,8 @@
 
 Frontend Implementerは、承認済みUI ContractとBackend API Contractに従い、ユーザーが目的の操作を安全に完了できるUIを実装する。FrontendはResearch判断、Backend Validation、Canonical Data Mutationを代替しない。
 
+全Role共通のadmission、protected action、terminal stop reason、same-task correction、testing baseline、completion evidenceは[Shared Role Execution Contract](13-shared-role-execution-contract.md)を適用する。本CharterはFrontend Implementer固有の差分だけを定義する。
+
 ## Required Inputs
 
 - Roleが`Frontend Implementer`であるTask Assignment
@@ -70,14 +72,7 @@ Frontend要件が現在のAPIで満たせない場合、APIを独自拡張せず
 - Proposed acceptance case:
 ```
 
-次の場合はFrontend実装を停止して確認する。
-
-- Backend API変更が必要になる。
-- Schema変更が必要になる。
-- 新しいData Contract、Status、Error、Hashが必要になる。
-- UIだけでは安全なfallbackを決定できない。
-
-確認先は、UI判断ならDesign Reviewer、Backend APIまたはSchemaならBackend Architect、Role横断判断ならArchitect Teamとする。
+Backend API、Schema、新しいData Contract / Status / Error / Hash、またはUIだけでは決められないfallbackが必要な場合は、exact gapを記録して`architecture_gap`で停止する。確認先は、UI判断ならDesign Reviewer、Backend APIまたはSchemaならBackend Architect、Role横断判断ならArchitect Teamとする。Cumulative AmendmentとIntegrated Lead Resume Dispatch前に実装を再開しない。
 
 ## Review Evidence
 
@@ -96,11 +91,11 @@ Frontend完了報告には、該当する範囲で次を添付する。
 
 ## Frontend Completion Gate
 
+- [ ] Shared Role Execution Contractのcompletion evidenceとtesting baselineを満たしている。
 - [ ] User objectiveを操作として完了できる。
 - [ ] Backend Contractを変更または再実装していない。
 - [ ] Existing Stateと保存互換性を維持している。
 - [ ] Error / Empty / Loading状態を確認している。
-- [ ] UI Contract Test、pnpm test、buildが成功している。
 - [ ] Preview確認結果または未確認理由がある。
 
 完了報告は[Handoff Template](06-handoff-template.md)を使用する。

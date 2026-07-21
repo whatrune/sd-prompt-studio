@@ -2,7 +2,7 @@
 
 ## Purpose
 
-このContractは、Product Ownerから受けた開発依頼をIntegrated Leadが既存Roleへ安全にRoutingする規則を定義する。Architecture判断、実装、Review、Merge判断のOwnerは既存Charterのまま維持する。
+このContractは、Product Ownerから受けた開発依頼をIntegrated Leadが既存Roleへ安全にRoutingする規則だけを定義する。Architecture判断、実装、Review、Merge判断のOwnerは既存Charterのまま維持し、共通実行規則は[Shared Role Execution Contract](13-shared-role-execution-contract.md)、Review規則は[Review Execution Contract](14-review-execution-contract.md)を参照する。
 
 ## Standard Flow
 
@@ -79,14 +79,11 @@ Implementation Assignment前に次を確認する。
 
 ## Completion Gate
 
-Development TaskをProduct Ownerへ`completed`または`merge_ready`として報告するには次が必要である。
+Development Taskのcompletion semanticsとevidenceはShared Role Execution Contract、Review completionはReview Execution Contractが所有する。本Routing Contractでは、Product Ownerへ統合報告する前に次のrouting dependencyが閉じていることだけを確認する。
 
 - Freeze済み仕様が参照可能
-- 必要実装とTestが完了
-- Required Validation結果が記録済み
-- Architect Review完了
+- 必要なImplementation HandoffとReview Decisionがcanonical locationに存在
 - 未解決Critical Findingなし
-- GitHub ChecksとMergeability確認済み
 - 未確認事項とProduct Owner判断事項が明示
 
 Checks未完了、Review未完了、Critical Findingありの場合はMerge Readyと報告しない。

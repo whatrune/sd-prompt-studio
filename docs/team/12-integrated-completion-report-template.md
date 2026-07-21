@@ -1,6 +1,6 @@
 # Integrated Completion Report Template
 
-このTemplateはIntegrated Leadが複数RoleのHandoffを統合し、Product Ownerへ状態と必要判断を返すために使用する。部分成功、未確認、Errorを省略しない。
+このTemplateはIntegrated Leadが複数RoleのHandoffを統合し、Product Ownerへ状態と必要判断を返すために使用する記入形式である。statusは[Delegation and Result Contract](11-delegation-and-result-contract.md)、`execution_stop_reason`とcompletion evidenceは[Shared Role Execution Contract](13-shared-role-execution-contract.md)を参照し、本Template自体は規則を定義しない。
 
 ```markdown
 # Integrated Completion Report
@@ -14,8 +14,8 @@
 
 ## Routed Roles
 
-| Role | Task ID | Purpose | Handoff status |
-| --- | --- | --- | --- |
+| Role | Task ID | Purpose | Handoff status | execution_stop_reason |
+| --- | --- | --- | --- | --- |
 
 ## Work Performed
 
