@@ -65,6 +65,7 @@
 - Commit / PR:
 - Task Assignment canonical records:
 - Result Handoff canonical records:
+- Supporting records with full 40-character commit SHA:
 - Created files:
 - Updated files:
 - Generated artifacts:
@@ -98,10 +99,10 @@
 
 ## Routed Roles
 
-| Role | Task ID | Purpose | Handoff status |
-| --- | --- | --- | --- |
-| Backend Implementer | DEV-101 | 実装とTest | completed |
-| Backend Architect | REVIEW-101 | Contract Review | needs_followup |
+| Role | Task ID | Purpose | Handoff status | execution_stop_reason |
+| --- | --- | --- | --- | --- |
+| Backend Implementer | DEV-101 | 実装とTest | completed | completed |
+| Backend Architect | REVIEW-101 | Contract Review | needs_followup | completed |
 
 ## Results
 
@@ -114,6 +115,8 @@
 ## Product Owner Decision Required
 
 なし。Critical Finding修正後に再Reviewする。
+
+Review Task自身は必須検証とblocking findingのcanonical record化を完遂している。`completed + needs_followup`はreview対象がmerge-readyであることを意味しない。
 
 ## Next Action
 

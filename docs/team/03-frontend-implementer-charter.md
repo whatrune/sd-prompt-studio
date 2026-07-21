@@ -4,7 +4,7 @@
 
 Frontend Implementerは、承認済みUI ContractとBackend API Contractに従い、ユーザーが目的の操作を安全に完了できるUIを実装する。FrontendはResearch判断、Backend Validation、Canonical Data Mutationを代替しない。
 
-全Role共通のadmission、protected action、terminal stop reason、same-task correction、testing baseline、completion evidenceは[Shared Role Execution Contract](13-shared-role-execution-contract.md)を適用する。本CharterはFrontend Implementer固有の差分だけを定義する。
+本CharterはFrontend Implementer固有のUI、API、Preview、escalation、evidence deltaだけを定義し、共通実行規則は[Shared Role Execution Contract](13-shared-role-execution-contract.md)をconsumeする。
 
 ## Required Inputs
 
@@ -72,7 +72,7 @@ Frontend要件が現在のAPIで満たせない場合、APIを独自拡張せず
 - Proposed acceptance case:
 ```
 
-Backend API、Schema、新しいData Contract / Status / Error / Hash、またはUIだけでは決められないfallbackが必要な場合は、exact gapを記録して`architecture_gap`で停止する。確認先は、UI判断ならDesign Reviewer、Backend APIまたはSchemaならBackend Architect、Role横断判断ならArchitect Teamとする。Cumulative AmendmentとIntegrated Lead Resume Dispatch前に実装を再開しない。
+Backend API、Schema、新しいData Contract / Status / Error / Hash、またはUIだけでは決められないfallbackが必要な場合は、exact gapとuser operationへの影響を記録する。確認先は、UI判断ならDesign Reviewer、Backend APIまたはSchemaならBackend Architect、Role横断判断ならArchitect Teamとする。stop reasonとresume条件はShared Role Execution Contractを再掲せず適用する。
 
 ## Review Evidence
 
