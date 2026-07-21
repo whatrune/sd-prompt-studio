@@ -4,6 +4,8 @@
 
 並行作業による変更混入、別PR branchの再利用、mainへの直接編集、未コミット変更の損失を防ぐため、branchとworktreeの運用を固定する。
 
+same-task correctionの適用条件とResume authorityは[Shared Role Execution Contract](13-shared-role-execution-contract.md)が所有する。本書はGit lifecycleだけを定義する。
+
 ## Core Rules
 
 - `main`を直接編集しない。
@@ -94,7 +96,7 @@ git worktree add .worktrees/<task> -b codex/<role>-<purpose> origin/main
 - Implementation PRは対象Freeze Contractを変更しない。
 - Frontend PRはBackend Contractを変更しない。
 - Worker PRは判断を伴うContract変更を含めない。
-- 追加Review修正は同じPR branchへcommitしてpushする。
+- Shared Role Execution Contractがsame-task correctionを要求するReview修正は、同じPR branchへcommitしてpushする。
 - 自分のPRを自己Approveしない。
 
 ## Merge Gate

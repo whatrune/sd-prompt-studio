@@ -1,6 +1,6 @@
 # Task Assignment Template
 
-このTemplateは、Architect TeamがBackend Implementer、Frontend Implementer、Workerへ作業を割り当てる際に使用する。Assignmentは実装者がContract判断を行わずに着手できるClosed Instructionでなければならない。
+このTemplateは、Architect TeamがBackend Implementer、Frontend Implementer、Workerへ作業を割り当てる際に使用する。Assignmentのrecord shapeは[Delegation and Result Contract](11-delegation-and-result-contract.md)、共通実行規則は[Shared Role Execution Contract](13-shared-role-execution-contract.md)、Review時は[Review Execution Contract](14-review-execution-contract.md)が所有する。本TemplateではTask固有情報だけを反復する。
 
 ````markdown
 # Task Assignment
@@ -17,6 +17,8 @@
 - Depends on:
 - Target branch naming:
 - canonical_record: Task Assignment全文を保存したGitHub URLまたはRepository-relative Markdown path
+- Execution baseline: `docs/team/13-shared-role-execution-contract.md` at full commit SHA
+- Review baseline: `docs/team/14-review-execution-contract.md` at full commit SHA | not_applicable
 
 ## Objective
 
@@ -33,6 +35,7 @@
 - Freeze Contract and version:
 - API / Schema Contract:
 - Architecture document:
+- Current Cumulative Amendments / Resume Dispatch / Review Decisions:
 
 ### Informative
 
@@ -56,11 +59,8 @@ NormativeとExampleを混同しない。
 
 ## Forbidden Changes
 
-- Freeze Contract
-- Schema
-- Existing Run / Research Artifact
-- Product behavior
-- Scope外API / CLI / Storage
+- Task固有の禁止file / behavior / data boundary
+- Task固有protected action
 
 各禁止事項には理由を記載する。
 
@@ -81,9 +81,11 @@ NormativeとExampleを混同しない。
 
 ## Failure and Stop Conditions
 
-- Architectへ返却する未定義条件
-- 処理を停止すべきError
-- 自動fallback禁止条件
+- Task固有のarchitecture gap
+- Task固有のexternal blocker
+- Task固有の禁止fallback
+
+共通terminal reasonとsame-task correction手順はExecution baselineを再掲せず参照する。
 
 ## Expected Output
 
@@ -109,16 +111,11 @@ git diff --check
 
 既知の長時間Test、environment-dependent check、Preview確認を分離して記載する。
 
-## Report Format
+## Task-Specific Result Additions
 
-- Role / Task ID
-- Branch / worktree / commit / PR
-- Files created and updated
-- Implemented behavior
-- Explicitly unimplemented scope
-- Validation commands and results
-- Existing Data impact
-- Remaining questions
+- 共通Result Handoffに追加するTask固有artifact / evidence:
+- Task固有のunverified item:
+- Next owner:
 
 ## Merge Gate
 
@@ -140,5 +137,7 @@ Architect Teamは割当前に次を確認する。
 - [ ] 未定義仕様を実装者へ委譲していない。
 - [ ] Existing Run / Research Artifact境界が明記されている。
 - [ ] `canonical_record`を直接参照でき、Task Assignment全文が保存されている。
+- [ ] Execution baselineと、該当するReview baselineがfull commit SHAで固定されている。
+- [ ] dependency PR / merge commit、Task固有matrix、branch / worktree / target PRが明記されている。
 
 Gateを満たさないAssignmentは`draft`として扱い、実装を開始しない。
