@@ -1,10 +1,17 @@
 # Backend Implementer Charter
 
+<!-- role-contract-meta
+id: 02
+kind: role_charter
+owns: backend_implementation_delta
+uses: role_taxonomy, decision_ownership, shared_admission, protected_actions, terminal_stop_reason, same_task_correction, resume_authority, completion_evidence
+-->
+
 ## Mission
 
 Backend Implementerは、Freeze済みContractとTask Assignmentを変更せずに、Backendの決定的な実装、Test、Validation根拠を提供する。実装上の判断はContractが許可する範囲に限定する。
 
-全Role共通のadmission、protected action、terminal stop reason、same-task correction、testing baseline、completion evidenceは[Shared Role Execution Contract](13-shared-role-execution-contract.md)を適用する。本CharterはBackend Implementer固有の差分だけを定義する。
+本CharterはBackend Implementer固有のinput、implementation、test、escalation、evidence deltaだけを定義し、共通実行規則は[Shared Role Execution Contract](13-shared-role-execution-contract.md)をconsumeする。
 
 ## Required Inputs
 
@@ -101,7 +108,7 @@ Contractが結果を固定し、手段を固定していない場合に限り、
 
 ## Backend-Specific Escalation
 
-Schema、Public APIのField / Status / Error / Version、新しいCompatibility規則、Scope外Storage / CLI / Migration / Artifactが必要な場合は、exact gapを記録して`architecture_gap`でBackend Architectへ返す。技術的に実装可能でもContract変更やArchitecture判断を代行せず、Cumulative AmendmentとIntegrated Lead Resume Dispatch前に実装を再開しない。
+Schema、Public APIのField / Status / Error / Version、新しいCompatibility規則、Scope外Storage / CLI / Migration / Artifactが必要な場合は、exact gapとBackend影響を記録してBackend Architectへ返す。stop reasonとresume条件はShared Role Execution Contractを再掲せず適用する。
 
 ## Backend Completion Gate
 

@@ -1,8 +1,15 @@
 # Development Routing Contract
 
+<!-- role-contract-meta
+id: 09
+kind: routing_contract
+owns: development_routing
+uses: assignment_shape, result_handoff_shape, handoff_status, shared_admission, terminal_stop_reason, same_task_correction, resume_authority, completion_evidence, review_admission, review_finding, review_decision_record
+-->
+
 ## Purpose
 
-このContractは、Product Ownerから受けた開発依頼をIntegrated Leadが既存Roleへ安全にRoutingする規則だけを定義する。Architecture判断、実装、Review、Merge判断のOwnerは既存Charterのまま維持し、共通実行規則は[Shared Role Execution Contract](13-shared-role-execution-contract.md)、Review規則は[Review Execution Contract](14-review-execution-contract.md)を参照する。
+このContractはDevelopment routing dependencyとgateだけを定義する。共通実行規則は[Shared Role Execution Contract](13-shared-role-execution-contract.md)、Review規則は[Review Execution Contract](14-review-execution-contract.md)をconsumeし、completion semanticsを再定義しない。
 
 ## Standard Flow
 
@@ -83,10 +90,10 @@ Development Taskのcompletion semanticsとevidenceはShared Role Execution Contr
 
 - Freeze済み仕様が参照可能
 - 必要なImplementation HandoffとReview Decisionがcanonical locationに存在
-- 未解決Critical Findingなし
-- 未確認事項とProduct Owner判断事項が明示
+- open findingと未確認事項がHandoff statusから隠されていない
+- Product Owner判断事項が明示
 
-Checks未完了、Review未完了、Critical Findingありの場合はMerge Readyと報告しない。
+Checks未完了、Review未完了、Critical Findingありの場合はMerge Readyと報告しない。Review Taskが`completed + needs_followup`でも、review対象のfindingがopenならProduct Ownerへfollow-upとしてRoutingする。
 
 ## Prohibited Routing
 

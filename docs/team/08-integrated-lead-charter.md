@@ -1,10 +1,17 @@
 # Integrated Lead Charter
 
+<!-- role-contract-meta
+id: 08
+kind: role_charter
+owns: integrated_lead_routing, resume_dispatch_record_delta
+uses: role_taxonomy, decision_ownership, assignment_shape, result_handoff_shape, handoff_status, shared_admission, canonical_record_admission, protected_actions, terminal_stop_reason, same_task_correction, resume_authority, completion_evidence, review_finding
+-->
+
 ## Purpose
 
 Integrated Lead（統合リーダー）は、Product Ownerからの通常依頼を一つの窓口で受け付け、適切なRoleへRoutingし、結果を統合して報告する進行管理Roleである。専門作業のOwnerではなく、既存Roleの責務や承認権限を置き換えない。
 
-このCharterはTeam Operating Modelを補足する。全Role共通の実行、停止、same-task correction、completion evidenceは[Shared Role Execution Contract](13-shared-role-execution-contract.md)を適用する。PR81〜PR86のResearch Contract、既存Schema、Existing Run、Research Artifactの意味は変更しない。
+このCharterはIntegrated Lead固有のintake、dispatch、gap verification、resume、result aggregation deltaだけを定義する。共通実行規則は[Shared Role Execution Contract](13-shared-role-execution-contract.md)をconsumeする。PR81〜PR86のResearch Contract、既存Schema、Existing Run、Research Artifactの意味は変更しない。
 
 ## Position
 
@@ -111,13 +118,17 @@ Integrated Leadは担当者の自己申告Statusを無条件に採用せず、Sh
 - Research ObservationとReview結果の矛盾
 - ErrorとWarning、Existing Warningと新規Regressionの混同
 
-差戻しで新しい仕様を作らない。Review correctionは同じTask / branch / worktree / PRへ返す。Architecture gapはArchitect TeamへRoutingし、Cumulative Amendmentだけでは再開させず、closure確認後にIntegrated LeadがResume Dispatchを記録する。Product判断はProduct OwnerへRoutingする。
+差戻しで新しい仕様を作らない。Integrated Leadはexact gapをArchitect TeamへRoutingし、Architecture closureを確認した後だけsame-task Resume Dispatchを記録する。Review findingのclosureはassigned reviewing Roleへ戻し、Product判断はProduct OwnerへRoutingする。
+
+### Resume Dispatch Record Delta
+
+Resume Dispatchには`task_id`、`record_type: resume_dispatch`、`authoring_role: Integrated Lead`、`authority_source`、direct `canonical_record`、`prior_record_url`、再開対象を限定する`cumulative_scope`を記録する。該当Architecture Amendmentとopen Review findingを列挙し、Resumeがfinding closureやprotected action authorityを付与しないことを明示する。
 
 ## Workspace Boundary
 
-Integrated Leadは原則として専門作業用worktreeを持たない。ファイル変更は、1 task、1 branch、1 worktree、1 primary roleの原則で担当Roleが行う。Contract文書自体を変更するTaskでは、そのTaskのArchitect Roleが専用worktreeを使用する。
+Integrated Leadは原則として専門作業用worktreeを持たない。ファイル変更は、1 task、1 branch、1 worktree、1 primary roleの原則で、direct canonical Task Assignmentに明記された担当Roleが行う。Roleを依頼内容から暗黙変更しない。
 
-会話履歴を正本にしない。正本はGit上のContract、Canonical Locationへ保存されたTask AssignmentとResult Handoff、PR Diff、Validation Resultである。Integrated LeadはCanonical Recordを直接参照できないAssignmentまたはHandoffを正式受領しない。Role別会話が自動通信できることを前提にしない。
+会話履歴を正本にしない。mutable authority chainの正本はfresh fetch可能なdirect GitHub canonical URLである。Git上のContract、PR Diff、Validation Result、repository path at full commit SHAはsupporting evidenceであり、canonical Assignment / Handoffを代替しない。Integrated Leadはcanonical recordを直接参照できないAssignmentまたはHandoffを正式受領しない。
 
 ## Future Dispatcher Boundary
 

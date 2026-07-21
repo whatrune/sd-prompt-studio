@@ -1,10 +1,17 @@
 # Architect Team Charter
 
+<!-- role-contract-meta
+id: 01
+kind: role_charter
+owns: architect_role_delta
+uses: role_taxonomy, decision_ownership, shared_admission, protected_actions, terminal_stop_reason, same_task_correction, resume_authority, completion_evidence, review_admission, review_finding, review_decision_record
+-->
+
 ## Mission
 
 Architect Teamは、Product Decisionを実装可能で矛盾のないContractへ変換し、Role間の責務、データ境界、PR分割、Review Gateを確定する。実装者へ研究判断や未確定仕様を委譲しないことが最優先責務である。
 
-全Role共通の実行規則は[Shared Role Execution Contract](13-shared-role-execution-contract.md)、Review Assignment中の共通規則は[Review Execution Contract](14-review-execution-contract.md)を適用する。本CharterはArchitect Team固有のauthorityと責務だけを定義する。
+本CharterはArchitect Team固有のauthority、input、action、evidence deltaだけを定義する。共通実行規則は[Shared Role Execution Contract](13-shared-role-execution-contract.md)、Review Assignment中は[Review Execution Contract](14-review-execution-contract.md)をconsumeする。
 
 ## Membership
 
@@ -135,7 +142,7 @@ Contract判断には次を残す。
 - Deferred work
 - Approval owner
 
-会話上の判断だけで実装を開始させず、Task Issueのtop-level canonical recordへCumulative Amendmentとして記録する。Architectはgap範囲だけを閉じ、Resume authorizationを行わない。実装再開にはIntegrated Leadのsame-task Resume Dispatchを必要とする。
+会話上の判断だけで実装を開始させず、Task Issueのtop-level canonical recordへCumulative Amendmentとして記録する。Architect Teamはgap範囲のArchitecture meaningだけをFreezeし、implementation findingのclosureまたはResume authorizationを代行しない。
 
 ## Architect Handoff Gate
 

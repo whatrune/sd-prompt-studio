@@ -1,10 +1,17 @@
 # Worktree and Branch Rules
 
+<!-- role-contract-meta
+id: 05
+kind: contract
+owns: git_lifecycle
+uses: same_task_correction, resume_authority
+-->
+
 ## Purpose
 
 並行作業による変更混入、別PR branchの再利用、mainへの直接編集、未コミット変更の損失を防ぐため、branchとworktreeの運用を固定する。
 
-same-task correctionの適用条件とResume authorityは[Shared Role Execution Contract](13-shared-role-execution-contract.md)が所有する。本書はGit lifecycleだけを定義する。
+本書はGit lifecycleだけを定義する。same-task correctionのauthorityとstop / resume meaningは[Shared Role Execution Contract](13-shared-role-execution-contract.md)をconsumeする。
 
 ## Core Rules
 
@@ -138,7 +145,7 @@ git worktree prune
 
 ## Handoff Between Worktrees
 
-別担当へ引き継ぐ場合、worktree自体を共有状態として扱わない。commit SHA、branch、PR、Handoff文書を正本とする。未コミット差分を引継ぎ手段にしない。
+別担当へ引き継ぐ場合、worktree自体を共有状態として扱わない。mutable authorityとHandoffの正本はdirect GitHub canonical URLとし、commit SHA、branch、repository pathはcommit-pinned supporting recordとして扱う。未コミット差分を引継ぎ手段にしない。
 
 引継ぎには最低限、次を含む。
 

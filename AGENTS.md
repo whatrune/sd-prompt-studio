@@ -1,5 +1,12 @@
 # Repository Working Rules
 
+<!-- role-contract-meta
+id: AGENTS
+kind: entry_guard
+owns: repository_entry_guard, repository_implementation_rules, ui_review_delta
+uses: role_taxonomy, precedence, decision_ownership, git_lifecycle, integrated_lead_routing, development_routing, research_routing, assignment_shape, result_handoff_shape, handoff_status, shared_admission, canonical_record_admission, protected_actions, terminal_stop_reason, same_task_correction, resume_authority, completion_evidence, review_admission, review_finding, review_decision_record
+-->
+
 このファイルは、このリポジトリで作業するCodex向けの永続的な運用ルールです。ユーザーの最新の明示指示が本書と競合する場合は、最新の明示指示を優先してください。
 
 ## Rule conflict and user override
@@ -29,31 +36,20 @@
 - PRは指定がなければDraftで作成する。
 - PR本文には目的、背景、ユーザーへの影響、変更内容、検証結果、未確認事項を書く。
 
-## Team development baseline
+## Role Contract Entry Guard
 
-- `main`へ直接作業せず、担当Task専用のbranchとworktreeを使用する。
-- 1担当、1branch、1worktreeにつき1つの主要作業単位だけを扱う。
-- 未定義仕様、Contract衝突、Product判断を実装者またはWorkerが独自に確定しない。
-- Architecture、Schema、API、Freeze仕様などのContract変更はArchitect Teamのレビュー対象とする。
-- Freeze済み仕様をImplementation担当が変更しない。変更が必要な場合は実装を停止してArchitect Teamへ返却する。
-- Existing Run、Research Artifact、Canonical MappingをTask Assignmentなしで変更しない。
-- すべての担当者は、変更ファイル、非実施範囲、Validation結果、未確認事項を含む完了報告を行う。
-- Role別責務、worktree運用、Handoff、Task Assignmentの詳細は[`docs/team/`](docs/team/00-operating-model.md)を参照する。
+この節は入口ガードであり、Role execution contractを再定義しない。作業開始時にfresh fetchしたTask Assignmentとcanonical chainを、次のnormative ownerに照合する。
 
-### Role boundary protection
+- Role taxonomy、precedence、decision ownership: [`docs/team/00-operating-model.md`](docs/team/00-operating-model.md)
+- common execution、authority、stop/resume、completion evidence: [`docs/team/13-shared-role-execution-contract.md`](docs/team/13-shared-role-execution-contract.md)
+- Task Assignment / Result Handoff shapeとstatus vocabulary: [`docs/team/11-delegation-and-result-contract.md`](docs/team/11-delegation-and-result-contract.md)
+- review admission、finding、closure: [`docs/team/14-review-execution-contract.md`](docs/team/14-review-execution-contract.md)
+- branch / worktree / PR lifecycle: [`docs/team/05-worktree-and-branch-rules.md`](docs/team/05-worktree-and-branch-rules.md)
+- Integrated LeadとDevelopment / Research routing delta: [`docs/team/08-integrated-lead-charter.md`](docs/team/08-integrated-lead-charter.md)、[`docs/team/09-development-routing-contract.md`](docs/team/09-development-routing-contract.md)、[`docs/team/10-research-operations-routing-contract.md`](docs/team/10-research-operations-routing-contract.md)
 
-- 依頼を受けた時点で、現在のRole、依頼内容、必要権限、他Roleの担当領域かを確認する。
-- 現在のRole責務外の場合は作業を開始せず、適切な担当Roleと確認先を提示する。
-- 責務外の依頼をRole変更として扱う場合、ユーザーまたはProduct Ownerの明示確認を得る。依頼内容だけからRole変更を推測しない。
-- Contract判断、実装判断、Research判断、定型作業を一つのRole判断として混在させない。
+新規またはmigration後のlive recordでは、`canonical_record`をrecord全文へ直接到達しfresh fetchできるGitHub Issue / PR bodyまたはtop-level comment URLとする。repository-relative Markdown pathはfull 40-character commit SHAと組にしたimmutableな`supporting_record`としてのみ使用する。
 
-### Integrated Lead routing
-
-- 通常のDevelopment、Research Operations、Support依頼はIntegrated Leadを受付窓口とする。
-- Integrated Leadは専門作業を自分で実施せず、既存RoleへTask AssignmentとしてRoutingする。
-- Product方針、優先順位、Contract変更承認、Role変更、Merge、RevertはProduct Ownerへ返す。
-- Role間の正本は会話履歴ではなく、Git上のContract、Task Assignment、Result Handoff、PR Diff、Validation Resultとする。
-- Integrated Leadの責務とRouting詳細は[`docs/team/08-integrated-lead-charter.md`](docs/team/08-integrated-lead-charter.md)を参照する。
+入口で`task_id`、`record_type`、`authoring_role`、authority source、direct canonical URL、prior record URL、cumulative / supersede scope、reviewed full HEAD、finding closure flagsを該当範囲で確認する。不足、矛盾、取得不能、Role外判断を検出した場合のstop、routing、resume、terminal handoffは上記normative ownerに従い、この節から推測しない。
 
 ## Implementation rules
 
@@ -91,7 +87,9 @@ UI変更では可能な限り、次も確認する。
 - 方針変更時は、以前の方針で追加したwrapper、selector、pseudo、z-index、offset、コメントを検索し、不要な暫定実装を同じ変更内で削除する。
 - 「レビューして」という依頼は、原則として問題の特定と判定までとする。修正、commit、push、review submissionは、ユーザーが依頼した範囲でのみ行う。自分が作成したPRは自己Approveせず、「APPROVE相当」と根拠を報告する。
 
-## PR review workflow
+## UI PR Review Delta
+
+この節は[`docs/team/14-review-execution-contract.md`](docs/team/14-review-execution-contract.md)をconsumeするUI review固有の追加確認である。review authority、finding state、closure、Result Handoff statusを再定義しない。
 
 ### 0. PRの目的を1文で固定する
 
@@ -154,9 +152,9 @@ UI変更は、原則として次の順番でレビューする。
 
 画面上で目的未達が確認できた場合は、コード詳細へ進む前にその事実を報告する。
 
-### 7. APPROVE条件
+### 7. UIのAPPROVE相当条件
 
-次をすべて満たした場合のみApproveする。
+Review Execution Contractのadmission、authority、evidence条件に加え、UIについて次をすべて満たした場合だけAPPROVE相当と判定する。
 
 - 目的を達成している
 - 受け入れ条件を満たしている
@@ -166,11 +164,11 @@ UI変更は、原則として次の順番でレビューする。
 - 実装方法が目的と保守性に対して妥当
 - 必須のtestとbuildが成功している
 
-目的未達が1つでもあればApproveしない。
+目的未達が1つでもあればAPPROVE相当と判定しない。
 
-### 8. REQUEST CHANGESとCOMMENTの基準
+### 8. UI finding severityの基準
 
-次はREQUEST CHANGESとする。
+次はReview Execution Contractのblocking findingとしてCHANGES_REQUIRED相当と判定する。
 
 - 目的未達
 - 既存機能の破壊
@@ -178,7 +176,7 @@ UI変更は、原則として次の順番でレビューする。
 - 主要UIが操作不能
 - 受け入れ条件の不達
 
-次の軽微な指摘は、原則としてCOMMENTでよい。
+次の軽微な指摘は、原則としてnon-blocking COMMENT相当でよい。
 
 - 命名
 - 小さなCSS調整

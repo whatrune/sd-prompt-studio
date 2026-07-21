@@ -1,0 +1,70 @@
+[
+  {
+    "name": "new-normative-cycle",
+    "mutations": [
+      {
+        "type": "append_metadata_value",
+        "file": "docs/team/11-delegation-and-result-contract.md",
+        "field": "uses",
+        "value": "shared_admission"
+      }
+    ],
+    "expected_failures": ["normative dependency graph cycle"]
+  },
+  {
+    "name": "duplicate-normative-owner",
+    "mutations": [
+      {
+        "type": "append_metadata_value",
+        "file": "docs/team/01-architect-team-charter.md",
+        "field": "owns",
+        "value": "protected_actions"
+      }
+    ],
+    "expected_failures": ["duplicate normative owner for protected_actions"]
+  },
+  {
+    "name": "reversed-normative-owner",
+    "mutations": [
+      {
+        "type": "set_metadata_value",
+        "file": "docs/team/13-shared-role-execution-contract.md",
+        "field": "owns",
+        "value": "shared_admission, canonical_record_admission, protected_actions, terminal_stop_reason, same_task_correction, completion_evidence, finding_closure_authority, context_resistance_matrix"
+      },
+      {
+        "type": "append_metadata_value",
+        "file": "docs/team/01-architect-team-charter.md",
+        "field": "owns",
+        "value": "resume_authority"
+      }
+    ],
+    "expected_failures": ["reversed normative ownership for resume_authority"]
+  },
+  {
+    "name": "role-charter-redefines-shared-rules",
+    "mutations": [
+      {
+        "type": "append_text",
+        "file": "docs/team/03-frontend-implementer-charter.md",
+        "value": "Task Assignmentに明示的なauthorityがない限り、すべてのRoleで次を禁止する。\n\n- Integrated LeadだけがResume Dispatchを記録する。"
+      }
+    ],
+    "expected_failures": [
+      "redefines protected_actions",
+      "redefines resume_authority"
+    ]
+  },
+  {
+    "name": "template-becomes-normative-owner",
+    "mutations": [
+      {
+        "type": "append_metadata_value",
+        "file": "docs/team/07-task-assignment-template.md",
+        "field": "owns",
+        "value": "template_owned_rule"
+      }
+    ],
+    "expected_failures": ["template must not become a normative owner"]
+  }
+]
