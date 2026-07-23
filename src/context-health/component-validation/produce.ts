@@ -47,21 +47,23 @@ export async function produceContextHandoffComponentValidationResultV1(value:unk
   if(!utc(observedAt))return reject(observedAt,'$.validation_timestamp','invalid_timestamp')
   const control=executionControl===undefined?{contract_version:'component-validation-production-execution-control-v1' as const,mode:'production' as const}:executionControl
   const possible=typeof control==='object'&&control!==null?sessions.get(control):undefined
-  const localTrace:ComponentValidationProductionTestTraceEventV1[]=[];const localObservations:ComponentValidationProductionTestAdmissionObservationV1[]=[]
+  const localTrace:ComponentValidationProductionTestTraceEventV1[]=[];const localObservations:ComponentValidationProductionTestAdmissionObservationV1[]=[];const localCounts=counts()
   if(possible)localTrace.push('source_input_admission_started')
   const admission=validateContextHandoffComponentValidationInputV1(value,observedAt)
-  if(possible){possible.counts.source_input_admission=1;localObservations.push({boundary:'source_input_admission',admission_projection:sourceProjection(admission,observedAt)});localTrace.push(admission.accepted?'source_input_admission_accepted':'source_input_admission_rejected' as ComponentValidationProductionTestTraceEventV1)}
+  if(possible){localCounts.source_input_admission=1;localObservations.push({boundary:'source_input_admission',admission_projection:sourceProjection(admission,observedAt)});localTrace.push(admission.accepted?'source_input_admission_accepted':'source_input_admission_rejected' as ComponentValidationProductionTestTraceEventV1)}
   if(!admission.accepted)return deepFreezeClone({contract_version:'context-handoff-component-validation-production-outcome-v1',outcome_kind:'rejected',structural_rejection:admission.rejection,validator_contract_version:'context-handoff-component-validator-v1',observed_at:observedAt})
   const input=admission.value;const manifest=input.context_handoff_manifest
   const anchorFailure={contract_version:'context-handoff-component-validation-terminal-anchor-failure-v1' as const,failure_code:'component_validation_terminal_anchor_internal_failure' as const,path:'$' as const,message:'component validation returned the pre-admitted terminal fallback' as const,evidence_refs:[] as unknown as readonly [],validator_contract_version:'context-handoff-component-validator-v1' as const,observed_at:observedAt}
-  if(possible){localTrace.push('terminal_anchor_failure_admission_started');possible.counts.terminal_anchor_failure_admission=1}
+  if(possible){localTrace.push('terminal_anchor_failure_admission_started');localCounts.terminal_anchor_failure_admission=1}
   const anchorFailurePromise=validateComponentValidationTerminalAnchorFailureV1(anchorFailure,input,observedAt)
+  let claimed=false
   if(possible&&possible.lifecycle==='created'){
+   claimed=true
    const bad=possible.mode==='force_malformed_preclaim_prefix'||possible.mode==='force_journal_transfer_failure'
    possible.lifecycle=bad?'capture_failed_pending':'running'
-   if(!bad){possible.trace.push(...localTrace);possible.observations.push(...localObservations)}
+   if(!bad){possible.trace.push(...localTrace);Object.assign(possible.counts,localCounts);possible.observations.push(...localObservations)}
   }
-  const owned=possible!==undefined&&(possible.lifecycle==='running'||possible.lifecycle==='capture_failed_pending')?possible:undefined
+  const owned=claimed?possible:undefined
   const anchorFailureAdmission=await anchorFailurePromise;if(!anchorFailureAdmission.accepted)throw new Error('component validation production invariant failure')
   record(owned,'terminal_anchor_failure_admission_accepted');observation(owned,{boundary:'terminal_anchor_failure_admission',admission_result:anchorFailureAdmission})
   const anchorCandidate={contract_version:'context-handoff-component-validation-terminal-anchor-outcome-v1' as const,outcome_kind:'terminal_failed' as const,failure:anchorFailureAdmission.value,validator_contract_version:'context-handoff-component-validator-v1' as const,observed_at:observedAt}
