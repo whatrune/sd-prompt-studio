@@ -35,6 +35,8 @@ export async function validateComponentValidationProductionOutcomeV1(value:unkno
  const verification=source.accepted?await verifyContextHandoffManifestRef(source.value.context_handoff_manifest,observedAt):undefined
  if(typeof value!=='object'||value===null||Array.isArray(value))return rejectOutcome('not_object','$',observedAt)
  const x=value as {[key:string]:unknown}
+ const fields=x.outcome_kind==='rejected'?['contract_version','outcome_kind','structural_rejection','validator_contract_version','observed_at']:x.outcome_kind==='produced'?['contract_version','outcome_kind','component_validation_result','validator_contract_version','observed_at']:x.outcome_kind==='failed'?['contract_version','outcome_kind','failure','validator_contract_version','observed_at']:undefined
+ if(fields){const unknown=firstUnknown(x,fields);if(unknown)return rejectOutcome('unknown_field',`$.${unknown}`,observedAt);if(Object.keys(x).length!==fields.length||!fields.every(field=>Object.prototype.hasOwnProperty.call(x,field)))return rejectOutcome('invalid_conditional_fields','$',observedAt)}
  if(!source.accepted||verification?.result_kind==='mismatch'){
   const expected=!source.accepted?source.rejection:createContextHealthStructuralRejectionV1('content_reference_mismatch','$.context_handoff_manifest.context_handoff_manifest_ref',observedAt)
   const path=!source.accepted?'$.sourceInput':'$.context_handoff_manifest.context_handoff_manifest_ref'
