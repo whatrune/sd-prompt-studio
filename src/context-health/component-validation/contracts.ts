@@ -37,6 +37,11 @@ export async function validateComponentValidationProductionOutcomeV1(value:unkno
  const x=value as {[key:string]:unknown}
  const fields=x.outcome_kind==='rejected'?['contract_version','outcome_kind','structural_rejection','validator_contract_version','observed_at']:x.outcome_kind==='produced'?['contract_version','outcome_kind','component_validation_result','validator_contract_version','observed_at']:x.outcome_kind==='failed'?['contract_version','outcome_kind','failure','validator_contract_version','observed_at']:undefined
  if(fields){const unknown=firstUnknown(x,fields);if(unknown)return rejectOutcome('unknown_field',`$.${unknown}`,observedAt);if(Object.keys(x).length!==fields.length||!fields.every(field=>Object.prototype.hasOwnProperty.call(x,field)))return rejectOutcome('invalid_conditional_fields','$',observedAt)}
+ if(x.outcome_kind==='rejected'){
+  if(x.contract_version!==COMPONENT_VALIDATION_PRODUCTION_OUTCOME_VERSION)return rejectOutcome('invalid_conditional_fields','$.contract_version',observedAt)
+  if(x.validator_contract_version!=='context-handoff-component-validator-v1')return rejectOutcome('invalid_conditional_fields','$.validator_contract_version',observedAt)
+  if(x.observed_at!==observedAt)return rejectOutcome('invalid_conditional_fields','$.observed_at',observedAt)
+ }
  if(!source.accepted||verification?.result_kind==='mismatch'){
   const expected=!source.accepted?source.rejection:createContextHealthStructuralRejectionV1('content_reference_mismatch','$.context_handoff_manifest.context_handoff_manifest_ref',observedAt)
   const path=!source.accepted?'$.sourceInput':'$.context_handoff_manifest.context_handoff_manifest_ref'
@@ -53,7 +58,9 @@ export async function validateComponentValidationProductionOutcomeV1(value:unkno
  if(x.observed_at!==observedAt)return rejectOutcome('invalid_conditional_fields','$.observed_at',observedAt)
  if(x.outcome_kind==='produced'){
   const result=validateContextHandoffComponentValidationResultV1(x.component_validation_result,observedAt)
-  return result.accepted?{accepted:true,value:deepFreezeClone(value as ComponentValidationProductionOutcomeV1)}:rejectOutcome('invalid_conditional_fields','$.component_validation_result',observedAt)
+  if(!result.accepted)return rejectOutcome('invalid_conditional_fields','$.component_validation_result',observedAt)
+  if(result.value.context_handoff_manifest_ref!==source.value.context_handoff_manifest.context_handoff_manifest_ref)return rejectOutcome('invalid_conditional_fields','$.component_validation_result.context_handoff_manifest_ref',observedAt)
+  return {accepted:true,value:deepFreezeClone(value as ComponentValidationProductionOutcomeV1)}
  }
  if(x.outcome_kind==='failed'){
   const failure=await validateComponentValidationProductionFailureV1(x.failure,sourceInput,observedAt)
