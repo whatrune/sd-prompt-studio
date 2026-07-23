@@ -1,4 +1,4 @@
-import { deepFreezeClone, type CanonicalSourceRefV1, type ComponentArtifactV1, type ContextHandoffManifestV1 } from '../index'
+import { createContextHealthStructuralRejectionV1, deepFreezeClone, validateContextHandoffComponentValidationInputV1, validateContextHandoffComponentValidationResultV1, validateContextHealthStructuralRejectionV1, verifyContextHandoffManifestRef, type AdmissionResult, type CanonicalSourceRefV1, type ComponentArtifactV1, type ContextHandoffManifestV1, type StrictUtcTimestampV1 } from '../index'
 
 export const COMPONENT_KIND_ORDER=['compressed_context_handoff','bootstrap_prompt','canonical_record_manifest','repository_state_snapshot','validation_snapshot'] as const
 export type ComponentKindV1=ComponentArtifactV1['component_kind']
@@ -26,3 +26,34 @@ export const generateDescriptorEvidenceRefV1=async(manifest:ContextHandoffManife
 export const generateObservedBytesEvidenceRefV1=async(manifest:ContextHandoffManifestV1,kind:ComponentKindV1,length:number,digest:string):Promise<CanonicalSourceRefV1>=>deepFreezeClone({kind:'content_addressed',content_ref:await content('evidence/context-handoff-component-observations',observedBytesEvidenceProjectionV1(manifest,kind,length,digest))})
 export const generateComponentValidationDiagnosticIdV1=async(value:Omit<import('../index').ComponentValidationDiagnosticV1,'diagnostic_id'>):Promise<string>=>`diagnostics/context-handoff-component-validation/sha256-${await sha(jcs({projection_contract_version:COMPONENT_VALIDATION_DIAGNOSTIC_IDENTITY_PROJECTION_VERSION,component_kind:value.component_kind,code:value.code,path:value.path,message:value.message,evidence_refs:canonical(value.evidence_refs)}))}`
 export const verifyComponentValidationDiagnosticIdV1=async(value:import('../index').ComponentValidationDiagnosticV1):Promise<boolean>=>value.diagnostic_id===await generateComponentValidationDiagnosticIdV1(value)
+const rejectOutcome=(code:Parameters<typeof createContextHealthStructuralRejectionV1>[0],path:string,at:StrictUtcTimestampV1)=>({accepted:false as const,rejection:createContextHealthStructuralRejectionV1(code,path,at)})
+export async function validateComponentValidationProductionFailureV1(value:unknown,sourceInput:unknown,observedAt:StrictUtcTimestampV1):Promise<AdmissionResult<ComponentValidationProductionFailureV1>>{const source=validateContextHandoffComponentValidationInputV1(sourceInput,observedAt);if(!source.accepted)return rejectOutcome('invalid_format','$',observedAt);const verification=await verifyContextHandoffManifestRef(source.value.context_handoff_manifest,observedAt);if(verification.result_kind==='mismatch')return rejectOutcome('content_reference_mismatch','$.context_handoff_manifest.context_handoff_manifest_ref',observedAt);if(verification.result_kind==='internal_failure'){if(typeof value!=='object'||value===null||Array.isArray(value))return rejectOutcome('not_object','$',observedAt);const x=value as {[key:string]:unknown};return x.contract_version===COMPONENT_VALIDATION_PRODUCTION_FAILURE_VERSION&&x.failure_code==='component_validation_production_internal_failure'&&x.path==='$.context_handoff_manifest.context_handoff_manifest_ref'&&x.message==='component validation production failed internally'&&Array.isArray(x.evidence_refs)&&x.evidence_refs.length===0&&x.validator_contract_version==='context-handoff-component-validator-v1'&&x.observed_at===observedAt?{accepted:true,value:deepFreezeClone(x as unknown as ComponentValidationProductionFailureV1)}:rejectOutcome('invalid_conditional_fields','$.failure',observedAt)}if(typeof value!=='object'||value===null||Array.isArray(value))return rejectOutcome('not_object','$',observedAt);const x=value as {[key:string]:unknown},fields=['contract_version','failure_code','path','message','evidence_refs','validator_contract_version','observed_at'];if(Object.keys(x).length!==fields.length||!fields.every(k=>k in x)||x.contract_version!==COMPONENT_VALIDATION_PRODUCTION_FAILURE_VERSION||x.failure_code!=='component_validation_production_internal_failure'||x.message!=='component validation production failed internally'||x.validator_contract_version!=='context-handoff-component-validator-v1'||x.observed_at!==observedAt||!Array.isArray(x.evidence_refs))return rejectOutcome('invalid_format','$',observedAt);return {accepted:true,value:deepFreezeClone({contract_version:COMPONENT_VALIDATION_PRODUCTION_FAILURE_VERSION,failure_code:'component_validation_production_internal_failure',path:typeof x.path==='string'?x.path:'$',message:'component validation production failed internally',evidence_refs:x.evidence_refs as CanonicalSourceRefV1[],validator_contract_version:'context-handoff-component-validator-v1',observed_at:observedAt})}}
+export async function validateComponentValidationProductionOutcomeV1(value:unknown,sourceInput:unknown,observedAt:StrictUtcTimestampV1):Promise<AdmissionResult<ComponentValidationProductionOutcomeV1>>{
+ const source=validateContextHandoffComponentValidationInputV1(sourceInput,observedAt)
+ const verification=source.accepted?await verifyContextHandoffManifestRef(source.value.context_handoff_manifest,observedAt):undefined
+ if(typeof value!=='object'||value===null||Array.isArray(value))return rejectOutcome('not_object','$',observedAt)
+ const x=value as {[key:string]:unknown}
+ if(!source.accepted||verification?.result_kind==='mismatch'){
+  const expected=!source.accepted?source.rejection:createContextHealthStructuralRejectionV1('content_reference_mismatch','$.context_handoff_manifest.context_handoff_manifest_ref',observedAt)
+  const path=!source.accepted?'$.sourceInput':'$.context_handoff_manifest.context_handoff_manifest_ref'
+  if(x.outcome_kind==='rejected'&&validateContextHealthStructuralRejectionV1(x.structural_rejection,observedAt).accepted&&JSON.stringify(x.structural_rejection)===JSON.stringify(expected))return {accepted:true,value:deepFreezeClone(value as ComponentValidationProductionOutcomeV1)}
+  return rejectOutcome('invalid_conditional_fields',path,observedAt)
+ }
+ if(verification?.result_kind==='internal_failure'){
+  if(x.outcome_kind!=='failed')return rejectOutcome('invalid_conditional_fields','$.outcome_kind',observedAt)
+  const failure=await validateComponentValidationProductionFailureV1(x.failure,sourceInput,observedAt)
+  return failure.accepted?{accepted:true,value:deepFreezeClone(value as ComponentValidationProductionOutcomeV1)}:rejectOutcome('invalid_conditional_fields','$.failure',observedAt)
+ }
+ if(x.contract_version!==COMPONENT_VALIDATION_PRODUCTION_OUTCOME_VERSION)return rejectOutcome('invalid_conditional_fields','$.contract_version',observedAt)
+ if(x.validator_contract_version!=='context-handoff-component-validator-v1')return rejectOutcome('invalid_conditional_fields','$.validator_contract_version',observedAt)
+ if(x.observed_at!==observedAt)return rejectOutcome('invalid_conditional_fields','$.observed_at',observedAt)
+ if(x.outcome_kind==='produced'){
+  const result=validateContextHandoffComponentValidationResultV1(x.component_validation_result,observedAt)
+  return result.accepted?{accepted:true,value:deepFreezeClone(value as ComponentValidationProductionOutcomeV1)}:rejectOutcome('invalid_conditional_fields','$.component_validation_result',observedAt)
+ }
+ if(x.outcome_kind==='failed'){
+  const failure=await validateComponentValidationProductionFailureV1(x.failure,sourceInput,observedAt)
+  return failure.accepted?{accepted:true,value:deepFreezeClone(value as ComponentValidationProductionOutcomeV1)}:rejectOutcome('invalid_conditional_fields','$.failure',observedAt)
+ }
+ return rejectOutcome('invalid_enum','$.outcome_kind',observedAt)
+}
