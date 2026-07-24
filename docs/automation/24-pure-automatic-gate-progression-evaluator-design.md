@@ -214,4 +214,3 @@ architecture gap returned to Architect Team.
 
 This task implements none of those phases. It does not modify PR Body content,
 dispatch work, mark Ready, approve, merge, or perform GitHub I/O at runtime.
-
