@@ -152,6 +152,78 @@ Review correctionとArchitecture gap closureは、原則として同じ`task_id`
 
 CI greenは必要条件になり得るが十分条件ではない。stale HEAD、smoke test、symbol existence、helper-only test、PR bodyの自己申告はcompletion evidenceにならない。
 
+## PR Gate Status Completion Contract
+
+This Contract is the normative owner of current PR Gate Status. A PR Body is a
+canonical Result-Handoff surface for its current Gate Status, but it does not
+replace the Issue-level canonical decision or completion record.
+
+### Required current-state fields
+
+The PR Body Gate Status section MUST state all of the following:
+
+- the current full 40-character PR HEAD;
+- Final Regression status and direct canonical evidence URL;
+- Operational Validation status and direct canonical evidence URL;
+- PR state and Draft/Ready state;
+- Ready, Approve, and Merge status separately;
+- current blocking reason, if any, and the next gate / owner.
+
+Each gate value MUST be explicit as one of `completed`, `historical_at_prior_head`,
+`pending`, `blocked`, or `unperformed`. These values describe a PR Body field;
+they do not add to or alter the Result Handoff status vocabulary owned by
+[Delegation and Result Contract](11-delegation-and-result-contract.md).
+
+The Role authorized by the Task Assignment to update the PR Body owns the
+metadata mutation. The Role that performs a gate owns that gate's canonical
+completion record. The PR Body MUST cite the record; it MUST NOT infer a gate
+result from CI green, a chat summary, or a stale prior statement.
+
+### Completion conditions and invalidation
+
+| Event | Required completion evidence | Required PR Body action before downstream reliance |
+| --- | --- | --- |
+| Final Regression | case-level `PASS` or `BLOCKED` result, all bound to one exact HEAD | record that exact HEAD, result, and canonical evidence URL |
+| Operational Validation | direct canonical PASS or BLOCKED result bound to one exact HEAD | record that exact HEAD, result, and canonical evidence URL before a Ready recommendation is actionable |
+| Draft-to-Ready or Ready-to-Draft transition | exact HEAD before and after, PR state before and after, and a record that identifies the sole transition action | immediately update PR state, Draft/Ready status, transition evidence URL, and remaining protected-action status |
+| HEAD change | new exact full HEAD and canonical change record | mark prior gate evidence `historical_at_prior_head` or invalidate it; update Gate Status before any subsequent review or gate decision relies on it |
+
+A downstream gate decision MUST stop as `needs_followup` when the current PR
+Body omits a required field, conflicts with the corresponding completion
+record, or presents prior-HEAD evidence as current. A metadata-only correction
+does not change the authority of the evidence it cites, but it requires the
+dependent gate to revalidate the corrected current PR Body at the unchanged
+HEAD.
+
+Ready, Approve, and Merge are protected actions. A Gate Status entry may record
+only a completed protected action backed by its canonical completion record;
+it does not itself authorize that action.
+
+### Protected-action behavior after a HEAD change
+
+The following matrix is the closed rule for the three protected-action rows.
+It uses the same field labels and values required by the PR template and the
+Review Execution Contract.
+
+| Protected action | Allowed Gate Status values | Required canonical evidence | Required transition after `historical_at_prior_head` |
+| --- | --- | --- | --- |
+| Ready for Review | `completed \| historical_at_prior_head \| pending \| blocked \| unperformed` | direct completion record with exact HEAD before/after, PR state before/after, and sole-action evidence | If the PR is currently Ready, a Draft-return completion record is required before re-review; then fresh required gates, review, and a new Ready completion are required. |
+| Approve | `completed \| historical_at_prior_head \| pending \| blocked \| unperformed` | direct approval record with the approved exact HEAD and reviewing authority | A prior approval cannot authorize the new HEAD. Fresh review and a new approval after Ready are required. |
+| Merge | `completed \| historical_at_prior_head \| pending \| blocked \| unperformed` | direct merge or PR-closure record with the exact merged HEAD | No automatic continuation. A claimed completed merge with a later open-PR HEAD is a canonical conflict: stop as `blocked` and escalate to Product Owner / Architect Team. |
+
+On a HEAD change, any completed protected-action evidence for the prior HEAD is
+recorded as `historical_at_prior_head`; it is preserved as evidence but is not
+current authorization. `pending`, `blocked`, and `unperformed` remain their
+stated value only when their evidence is still applicable to the new HEAD.
+
+Draft return is required only when a PR is Ready at the time its HEAD changes.
+Its direct canonical completion record MUST identify the prior and current
+HEAD, Ready-to-Draft state transition, and the sole transition action. A
+historical Ready record alone does not permit re-review or a later Ready action.
+The later Ready completion requires fresh applicable Final Regression and
+Operational Validation evidence, the required review decision, and its own
+exact-HEAD completion record.
+
 ## Testing Baseline
 
 Taskの適用範囲に応じ、testを`positive`、`negative`、`boundary`、`malformed`へ分類する。
