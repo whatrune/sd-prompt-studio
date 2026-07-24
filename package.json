@@ -27,6 +27,7 @@
     "test:context-handoff-component-validation-production": "node scripts/test-context-handoff-component-validation-production.mjs",
     "test:context-health-evaluator": "node scripts/test-context-health-evaluator.mjs",
     "test:context-health-dispatcher-role": "node scripts/test-context-health-dispatcher-role.mjs",
+    "test:automatic-gate-progression-evaluator": "node scripts/test-automatic-gate-progression-evaluator.mjs",
     "test:context-planner-integration-regression": "node scripts/test-context-planner-integration-regression.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "validate:dictionary": "node scripts/validate-dictionaries.mjs",
