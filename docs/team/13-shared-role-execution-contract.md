@@ -199,6 +199,31 @@ Ready, Approve, and Merge are protected actions. A Gate Status entry may record
 only a completed protected action backed by its canonical completion record;
 it does not itself authorize that action.
 
+### Protected-action behavior after a HEAD change
+
+The following matrix is the closed rule for the three protected-action rows.
+It uses the same field labels and values required by the PR template and the
+Review Execution Contract.
+
+| Protected action | Allowed Gate Status values | Required canonical evidence | Required transition after `historical_at_prior_head` |
+| --- | --- | --- | --- |
+| Ready for Review | `completed \| historical_at_prior_head \| pending \| blocked \| unperformed` | direct completion record with exact HEAD before/after, PR state before/after, and sole-action evidence | If the PR is currently Ready, a Draft-return completion record is required before re-review; then fresh required gates, review, and a new Ready completion are required. |
+| Approve | `completed \| historical_at_prior_head \| pending \| blocked \| unperformed` | direct approval record with the approved exact HEAD and reviewing authority | A prior approval cannot authorize the new HEAD. Fresh review and a new approval after Ready are required. |
+| Merge | `completed \| historical_at_prior_head \| pending \| blocked \| unperformed` | direct merge or PR-closure record with the exact merged HEAD | No automatic continuation. A claimed completed merge with a later open-PR HEAD is a canonical conflict: stop as `blocked` and escalate to Product Owner / Architect Team. |
+
+On a HEAD change, any completed protected-action evidence for the prior HEAD is
+recorded as `historical_at_prior_head`; it is preserved as evidence but is not
+current authorization. `pending`, `blocked`, and `unperformed` remain their
+stated value only when their evidence is still applicable to the new HEAD.
+
+Draft return is required only when a PR is Ready at the time its HEAD changes.
+Its direct canonical completion record MUST identify the prior and current
+HEAD, Ready-to-Draft state transition, and the sole transition action. A
+historical Ready record alone does not permit re-review or a later Ready action.
+The later Ready completion requires fresh applicable Final Regression and
+Operational Validation evidence, the required review decision, and its own
+exact-HEAD completion record.
+
 ## Testing Baseline
 
 Taskの適用範囲に応じ、testを`positive`、`negative`、`boundary`、`malformed`へ分類する。

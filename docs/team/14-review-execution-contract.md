@@ -83,6 +83,25 @@ correction; the reviewer MUST NOT silently repair the PR Body or treat CI green
 as completion. The correction must be followed by the dependent read-only gate
 revalidation at the unchanged exact HEAD before a review decision relies on it.
 
+### Protected-action review matrix after a HEAD change
+
+The reviewer MUST apply the Shared Role Execution Contract matrix exactly. The
+same field labels, values, evidence, and next-action wording apply to the PR
+template:
+
+| Protected action | Allowed Gate Status values | Required canonical evidence | Required transition after `historical_at_prior_head` |
+| --- | --- | --- | --- |
+| Ready for Review | `completed \| historical_at_prior_head \| pending \| blocked \| unperformed` | direct completion record with exact HEAD before/after, PR state before/after, and sole-action evidence | If the PR is currently Ready, a Draft-return completion record is required before re-review; then fresh required gates, review, and a new Ready completion are required. |
+| Approve | `completed \| historical_at_prior_head \| pending \| blocked \| unperformed` | direct approval record with the approved exact HEAD and reviewing authority | A prior approval cannot authorize the new HEAD. Fresh review and a new approval after Ready are required. |
+| Merge | `completed \| historical_at_prior_head \| pending \| blocked \| unperformed` | direct merge or PR-closure record with the exact merged HEAD | No automatic continuation. A claimed completed merge with a later open-PR HEAD is a canonical conflict: stop as `blocked` and escalate to Product Owner / Architect Team. |
+
+For review admission, a HEAD change makes prior protected-action evidence
+historical. A Ready-to-Draft return is required only if the PR was Ready when
+the HEAD changed. The reviewer MUST reject a re-review or later Ready action
+until the Draft-return record, fresh applicable gate evidence, and new review
+decision are present. A completed Merge cannot coexist with a later open-PR
+HEAD; that combination is a blocking canonical-record conflict.
+
 ## Review Decision Canonical Record
 
 Review DecisionまたはReview Amendmentは、Task Issueのtop-level commentへ記録し、record全文へ直接到達できるGitHub URLを`canonical_record`とする。PR review UIとinline threadはmirror / evidence pointerであり、canonical recordを置き換えない。
