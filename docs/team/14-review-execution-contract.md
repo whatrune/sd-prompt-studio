@@ -57,6 +57,32 @@ Review evidenceは該当する範囲で次を含む。
 
 Architecture test matrixに未消化rowがある場合、review対象はcompletionまたはAPPROVE相当にならない。Review Taskは未消化rowをblocking findingとして記録した場合だけ`completed + needs_followup`になれる。
 
+## Gate Status Review Overlay
+
+This section is a review overlay. The completion conditions, evidence ownership,
+and PR Body Gate Status fields are owned by the
+[Shared Role Execution Contract](13-shared-role-execution-contract.md); this
+Contract does not become a generic execution owner.
+
+Before a reviewer relies on a Gate Status entry, the reviewer MUST fresh-fetch
+the PR Body, exact PR HEAD and state, and every cited canonical completion
+record. The reviewer MUST verify that:
+
+- each current gate is bound to the reviewed full HEAD;
+- prior-HEAD evidence is explicitly labeled `historical_at_prior_head` and is
+  not used as current completion evidence;
+- Final Regression and Operational Validation have direct canonical result
+  records rather than inferred CI status;
+- a Draft/Ready transition is represented by its sole-action completion record;
+- Ready, Approve, and Merge are independent status fields; and
+- the current blocking reason and next gate match the canonical record chain.
+
+A stale, missing, or conflicting Gate Status entry is a review finding. The
+reviewer MUST record the exact mismatch and require a same-task metadata-only
+correction; the reviewer MUST NOT silently repair the PR Body or treat CI green
+as completion. The correction must be followed by the dependent read-only gate
+revalidation at the unchanged exact HEAD before a review decision relies on it.
+
 ## Review Decision Canonical Record
 
 Review DecisionまたはReview Amendmentは、Task Issueのtop-level commentへ記録し、record全文へ直接到達できるGitHub URLを`canonical_record`とする。PR review UIとinline threadはmirror / evidence pointerであり、canonical recordを置き換えない。
