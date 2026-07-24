@@ -34,6 +34,33 @@ Canonical Issue/PR records are authoritative for mutable decisions. A PR Body Ga
 
 When admitted evidence conflicts, the controller stops with `canonical_conflict`; it does not select a preferred record. A direct current canonical record can make a stale PR Body entry historical, but no stale entry can make a direct record current.
 
+### 3.1 Closed canonical precedence and conflict matrix
+
+Precedence is authority-domain-specific rather than a general recency order. A
+source is usable only for the authority stated in this table. Every automatic
+transition MUST cite the required direct canonical URL(s), plus the current PR
+snapshot where the row requires one. A conflict, missing required citation, or
+failed freshness check stops progression; no row can be repaired by inference.
+
+| Source | Authority use and classification | Exact freshness / citation requirement | Conflict or absence outcome | Recovery owner | Downstream auto-progression |
+| --- | --- | --- | --- | --- | --- |
+| Task Assignment and direct Issue decision | canonical scope, assigned Role, allowed action, and escalation authority | direct Task Assignment / decision URL; exact task, repository, and active revision | `canonical_conflict` for inconsistent authority; `external_blocker` when unreadable | Integrated Lead or named decision owner | only after a valid matching assignment is admitted |
+| Direct Result Handoff | canonical statement of completed work, terminal status, stop reason, validation, and recommended next action | direct Result Handoff URL; matching task/Role and exact execution HEAD where applicable | stop if missing, stale for the required HEAD, or contradicted by a same-authority record | Result-Handoff authoring Role | only the explicitly named next action may be evaluated |
+| Direct Review Decision / Amendment | canonical review decision, blocking findings, and finding-specific closure | direct top-level Issue/PR record URL; full reviewed HEAD; current closure flags | any open/reopened blocker stops; contradictory decisions stop as `canonical_conflict` | assigned reviewer or Architect Team | no progression past a blocker; closed findings still require all other gates |
+| Product Owner approval | canonical, action-scoped approval only | direct approval URL; exact task, PR, action, full HEAD, base/state snapshot, and expiry/one-use condition | cannot override a conflict, blocker, missing canonical record, HEAD drift, or failed check; otherwise stale/missing approval waits for Product Owner | Product Owner | only to the matching protected-action precondition check |
+| Fresh PR metadata | current mutable evidence: PR/branch/base/head, open/closed, Draft/Ready, and non-outdated review state | fresh PR retrieval at `evaluated_at`; full current head/base and PR URL cited in the decision | mismatch with a canonical record stops as `canonical_conflict`; unavailable state is `external_blocker` | Integrated Lead for retrieval; named authority for substantive conflict | never alone; validates rather than creates authority |
+| Review thread or inline comment | evidence pointer only; it is not a Review Decision or finding-closure authority | direct thread URL and fresh non-outdated state when cited | thread alone cannot close, reopen, or authorize; an unresolved blocking thread requires its canonical Review Decision to be obtained | assigned reviewer | none until canonical Review Decision is admitted |
+| Check / CI result | exact-HEAD validation evidence only | check URL/name/conclusion and checked full HEAD; current retrieval | green CI alone creates no gate, approval, or completion; missing, failed, pending, cancelled, or wrong-HEAD check stops as `external_blocker` | validation/check owner | only as a satisfied prerequisite to an otherwise authorized action |
+| PR Body Gate Status | projection of already-admitted current evidence, never authority | fresh PR Body snapshot; direct URLs for every cited gate and current full HEAD | stale, malformed, uncited, or conflicting projection stops before downstream reliance; direct canonical evidence prevails | Task-Assignment-authorized metadata Role | none until the projection is verified against admitted evidence |
+
+The controller evaluates the rows in this order: Task Assignment scope; direct
+Result Handoff and Review Decision authority; fresh PR/check state; Product
+Owner action scope; then Gate Status projection consistency. Review threads can
+only supply evidence pointers during the direct Review Decision check. A Product
+Owner approval is evaluated after, and never overrides, an earlier stop. If two
+direct records within the same authority domain conflict, neither wins: record
+`canonical_conflict`, cite both records, and return to the recovery owner.
+
 ## 4. Canonical progression inputs
 
 Every evaluated transition MUST have one immutable `ProgressionInputSnapshot` created from fresh retrieval at `evaluated_at`. It is a logical design model, not a new persisted schema.
@@ -165,7 +192,20 @@ After invalidation, the controller records the historical evidence and returns t
 
 ## 9. PR Body Gate Status projection
 
-The PR Body remains a current-state projection, not the source of authority. The future Gate Status publisher is the only component that writes this projection, acting only after a controller decision is admitted and only where the Task Assignment explicitly permits the metadata update. It does not create a protected-action completion record or change an authority decision.
+The PR Body remains a current-state projection, not the source of authority.
+The Role authorized by the Task Assignment remains the sole owner of the PR
+Body metadata mutation, as required by the Shared Role Execution Contract. A
+future Gate Status publisher is only that Role's transport: it carries out the
+Role's already-authorized, already-admitted projection mutation and has no
+independent Role, decision, metadata, or protected-action authority.
+
+The transport may run only when the Task Assignment authorizes the metadata
+mutation, the authorized Role's canonical decision is admitted, all cited
+evidence binds to the current exact HEAD, and the invocation is limited to the
+resulting projection patch. It MUST NOT infer a gate result, generate approval,
+reassign a Role, execute a protected action, alter canonical evidence, or write
+when those conditions cannot be verified. Update or verification failure is the
+priority-12 fail-closed stop; it never transfers ownership to the transport.
 
 The publisher MUST:
 
