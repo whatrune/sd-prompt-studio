@@ -60,6 +60,16 @@ Architecture AmendmentはArchitecture questionだけを閉じ、implementation f
 
 ## Canonical and Supporting Records
 
+### Canonical Artifact Binding
+
+Large structured contracts are canonical artifacts only when Git-managed and
+versioned. Their Issue/PR record binding names path, version, full commit SHA,
+digest, ordering rule, and review result. Older bindings remain historical.
+
+Current and historical bindings each require path, version, full commit SHA,
+digest algorithm/value, ordering rule, review URL, and binding state. Updates
+retain the prior binding as historical and add a complete successor current binding.
+
 migration後のlive Taskでは、Task Assignment、Architecture Amendment、Resume Dispatch、Review Decision / Amendment、Result Handoffの`canonical_record`を、record全文へ直接到達しfresh fetchできるGitHub Issue / PR bodyまたはtop-level comment URLにする。
 
 - repository-relative Markdown path、local path、branch名、commit SHAだけを`canonical_record`にしない。

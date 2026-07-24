@@ -6,6 +6,13 @@
 
 ## 1. Purpose
 
+### Canonical artifact dependency
+
+Artifact-dependent progression requires path, version, full commit SHA, digest,
+manifest ordering, and review-result URL. Reconstruction uses only bound-commit
+contents and the manifest procedure. A missing or mismatched binding stops
+fail-closed; Gate Status must not infer artifact validity.
+
 This contract defines a future fail-closed control plane for progressing one existing task from canonical Result Handoffs, Review Decisions, Product Owner approvals, and fresh GitHub state. It removes ordinary manual prompt forwarding without granting an automation a new decision right.
 
 The controller may admit canonical evidence, create a deterministic transition record, request an already-authorized metadata update or dispatch, and stop. It does not perform specialist work, decide Product policy, close a finding by inference, or make a protected GitHub action safe merely because an event was observed.
@@ -266,6 +273,13 @@ The pure controller acceptance matrix is normative:
 | `AGP-12` | controller is disabled for a legacy task | no automatic action; manual routing remains available |
 
 ## 14. Deferred scope
+
+### Artifact verification stop
+
+Manifest reconstruction uses declared included fields in declared ordering and
+excludes its reported digest field from digest input. Missing/unreadable bound
+artifact, reconstruction failure, ordering or digest mismatch, bound-HEAD drift,
+or absent/mismatched artifact review stops every artifact-dependent transition.
 
 The following need separate design and Product Owner approval: event transport, polling/webhooks, GitHub credentials, token/secret handling, permission model, GitHub API mutation, scheduler/queue, locking storage, protected action execution, handling of public forks, and any cross-repository operation.
 
