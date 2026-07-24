@@ -9,6 +9,13 @@ uses: assignment_shape, result_handoff_shape, handoff_status, shared_admission, 
 
 ## Purpose and Dependencies
 
+### Artifact-bound review
+
+Review records bind artifact path, version, full commit SHA, digest, ordering,
+and outcome. Review reconstructs the artifact only from that commit and its
+manifest procedure. Missing binding, HEAD change, digest mismatch, or missing
+review result fails closed.
+
 このContractは、既存RoleがReview Assignmentを受けたときに[Shared Role Execution Contract](13-shared-role-execution-contract.md)へ追加適用するReview capability ruleの唯一のnormative ownerである。Review AssignmentとResult Handoffのshape / statusは[Delegation and Result Contract](11-delegation-and-result-contract.md)をconsumeする。
 
 単一の汎用Reviewerまたは`Frontend Architect`を正式Roleとして追加せず、Role taxonomy、RoleV1、Result Handoff status、Research Review vocabularyを変更しない。

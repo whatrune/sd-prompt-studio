@@ -6,6 +6,13 @@
 
 ## 1. Purpose
 
+### Canonical artifact dependency
+
+Artifact-dependent progression requires path, version, full commit SHA, digest,
+manifest ordering, and review-result URL. Reconstruction uses only bound-commit
+contents and the manifest procedure. A missing or mismatched binding stops
+fail-closed; Gate Status must not infer artifact validity.
+
 This contract defines a future fail-closed control plane for progressing one existing task from canonical Result Handoffs, Review Decisions, Product Owner approvals, and fresh GitHub state. It removes ordinary manual prompt forwarding without granting an automation a new decision right.
 
 The controller may admit canonical evidence, create a deterministic transition record, request an already-authorized metadata update or dispatch, and stop. It does not perform specialist work, decide Product policy, close a finding by inference, or make a protected GitHub action safe merely because an event was observed.
