@@ -24,6 +24,7 @@
     "test:context-planner-entry": "node scripts/test-context-planner-entry.mjs",
     "test:context-health-handoff-contracts": "node scripts/test-context-health-handoff-contracts.mjs",
     "test:context-handoff-artifact-generator": "node scripts/test-context-handoff-artifact-generator.mjs",
+    "test:context-handoff-component-validation-production": "node scripts/test-context-handoff-component-validation-production.mjs",
     "test:context-health-evaluator": "node scripts/test-context-health-evaluator.mjs",
     "test:context-health-dispatcher-role": "node scripts/test-context-health-dispatcher-role.mjs",
     "test:context-planner-integration-regression": "node scripts/test-context-planner-integration-regression.mjs",
