@@ -16,6 +16,10 @@ and outcome. Review reconstructs the artifact only from that commit and its
 manifest procedure. Missing binding, HEAD change, digest mismatch, or missing
 review result fails closed.
 
+Review verifies exact binding, readable bound-commit contents, manifest field
+inclusion/exclusion, ordering, deterministic reconstruction, declared digest,
+and matching review URL; any failure blocks artifact-dependent review.
+
 このContractは、既存RoleがReview Assignmentを受けたときに[Shared Role Execution Contract](13-shared-role-execution-contract.md)へ追加適用するReview capability ruleの唯一のnormative ownerである。Review AssignmentとResult Handoffのshape / statusは[Delegation and Result Contract](11-delegation-and-result-contract.md)をconsumeする。
 
 単一の汎用Reviewerまたは`Frontend Architect`を正式Roleとして追加せず、Role taxonomy、RoleV1、Result Handoff status、Research Review vocabularyを変更しない。

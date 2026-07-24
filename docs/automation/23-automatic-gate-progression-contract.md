@@ -274,6 +274,13 @@ The pure controller acceptance matrix is normative:
 
 ## 14. Deferred scope
 
+### Artifact verification stop
+
+Manifest reconstruction uses declared included fields in declared ordering and
+excludes its reported digest field from digest input. Missing/unreadable bound
+artifact, reconstruction failure, ordering or digest mismatch, bound-HEAD drift,
+or absent/mismatched artifact review stops every artifact-dependent transition.
+
 The following need separate design and Product Owner approval: event transport, polling/webhooks, GitHub credentials, token/secret handling, permission model, GitHub API mutation, scheduler/queue, locking storage, protected action execution, handling of public forks, and any cross-repository operation.
 
 Until those contracts and their implementations are approved, this document is a freeze candidate for deterministic behavior, not authorization to perform an automated action.
