@@ -336,7 +336,7 @@ const canonicalUrl = (value: unknown): value is CanonicalUrl =>
 const headSha = (value: unknown): value is HeadSha =>
   typeof value === 'string' && /^[0-9a-f]{40}$/.test(value)
 const actionId = (value: unknown): value is ActionId =>
-  typeof value === 'string' && /^[a-z][a-z0-9_-]{0,127}$/.test(value)
+  typeof value === 'string' && /^[a-z][a-z0-9_]{0,63}$/.test(value)
 const nonEmpty = (value: unknown): value is string =>
   typeof value === 'string' && value.length > 0
 const utcTimestamp = (value: unknown): value is string =>
@@ -783,7 +783,7 @@ function validateInput(value: unknown): StructuralRejection | undefined {
     const check = validateExact(input.checks[index], ['name', 'url', 'conclusion', 'checked_head'], [], path)
     if (check) return check
     const item = input.checks[index] as JsonObject
-    if (!actionId(item.name)) return reject('invalid_type_or_format', `${path}/name`)
+    if (!nonEmpty(item.name)) return reject('invalid_type_or_format', `${path}/name`)
     if (!canonicalUrl(item.url)) return reject('invalid_type_or_format', `${path}/url`)
     if (!['success', 'failure', 'pending', 'cancelled'].includes(String(item.conclusion))) {
       return reject('invalid_enum', `${path}/conclusion`)
@@ -1125,8 +1125,6 @@ export function evaluateAutomaticGateProgressionV2(
     const handoffRef = input.result_handoff.canonical_record
     const reviewRef = input.review_decision.canonical_record
     const prRef = input.pr.url
-    const priorHandoffRef =
-      'https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050'
     const correction = input.review_decision.correction
 
     trace.push('canonical_authority')
@@ -1144,7 +1142,7 @@ export function evaluateAutomaticGateProgressionV2(
         trace,
         'canonical_conflict',
         'architecture_gap',
-        [assignmentRef, priorHandoffRef, handoffRef, reviewRef, prRef],
+        [assignmentRef, handoffRef, reviewRef, prRef],
         'backend_architect',
         ['fresh_review_correction'],
       )
@@ -1186,7 +1184,6 @@ export function evaluateAutomaticGateProgressionV2(
         'architecture_gap',
         [
           assignmentRef,
-          ...(correction.task_id !== input.task_id ? [priorHandoffRef] : []),
           handoffRef,
           reviewRef,
           prRef,

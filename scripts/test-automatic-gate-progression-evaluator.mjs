@@ -4,13 +4,13 @@ import { readFile } from 'node:fs/promises'
 import { createServer } from 'vite'
 
 const ARTIFACT_PATH = 'docs/automation/phase1-v2-normative-fixture-corpus.json'
-const ARTIFACT_VERSION = '1.0.0'
+const ARTIFACT_VERSION = '1.0.1'
 const SCHEMA_VERSION = 'phase1-v2-fixture-manifest-v1'
 const EXPANSION_VERSION = 'normative-fixture-expansion-v1'
 const CONTRACT_VERSION = 'normative-fixture-encoding-v1'
 const CORPUS_ID = 'phase1-v2-automatic-gate-progression'
-const MATRIX_DIGEST = 'sha256:604e32ccf10172695cbcde0e2aeafbaab57dac79ec96a2c709326a65e54135ef'
-const CORPUS_DIGEST = 'sha256:b5bcd3d9d2feb154749c7d899df6135a665e046d7c6da3e19d5015764f7a8f8d'
+const MATRIX_DIGEST = 'sha256:ee0663ec97dee4fc80a06d8dd8d9bd4c147c97a20705042358316df09c1c92da'
+const CORPUS_DIGEST = 'sha256:5271fa413afdace667086c6fa69f5f59a7a3cb089ba416700fd6e6c60163a289'
 const BASE_ORDER = ['B-N', 'B-O', 'G-N', 'G-B', 'G-B-ALT']
 const STRUCTURAL_CODES = new Set([
   'unknown_field',
