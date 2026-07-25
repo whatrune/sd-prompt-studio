@@ -1,0 +1,3143 @@
+{
+  "artifact_version": "phase1-v2-batch3-freeze-artifact-v1",
+  "schema_version": "phase1-v2-batch3-freeze-artifact-schema-v1",
+  "batch": "batch_3",
+  "canonical_task": "https://github.com/whatrune/sd-prompt-studio/issues/181",
+  "task_assignment": "https://github.com/whatrune/sd-prompt-studio/issues/181#issuecomment-5078392301",
+  "base_commit": "15e503382d4ee2ee00c6bc4c003efb42c3c5f679",
+  "freeze_record": "https://github.com/whatrune/sd-prompt-studio/issues/181#issuecomment-5078425901",
+  "freeze_record_continuation": "https://github.com/whatrune/sd-prompt-studio/issues/181#issuecomment-5078426782",
+  "review_record": "https://github.com/whatrune/sd-prompt-studio/issues/181#issuecomment-5078491960",
+  "base_fixture_bindings": [
+    {
+      "fixture_id": "B-N",
+      "repository_path": "docs/automation/bn-canonical-candidate.json"
+    },
+    {
+      "fixture_id": "B-O",
+      "repository_path": "docs/automation/bo-canonical-candidate.json"
+    },
+    {
+      "fixture_id": "G-N",
+      "repository_path": "docs/automation/gn-canonical-candidate.json"
+    },
+    {
+      "fixture_id": "G-B",
+      "repository_path": "docs/automation/gb-canonical-candidate.json"
+    }
+  ],
+  "catalog_order": [
+    "AGP-X15",
+    "AGP-X16",
+    "AGP-X17",
+    "AGP-X18a",
+    "AGP-X18b",
+    "AGP-X18c",
+    "AGP-X18d",
+    "AGP-X19",
+    "AGP-X20",
+    "AGP-X21",
+    "AGP-X22",
+    "AGP-X23",
+    "AGP-X24",
+    "AGP-X25",
+    "AGP-X26a",
+    "AGP-X26b",
+    "AGP-X27",
+    "AGP-X28",
+    "AGP-X29"
+  ],
+  "evaluator_rows": [
+    {
+      "ordinal": 1,
+      "row_id": "AGP-X18a",
+      "base_fixture_id": "G-N",
+      "operations": [],
+      "expected_result": {
+        "contract_version": "automatic-gate-progression-evaluation-result-v2",
+        "task_id": "task-001",
+        "evaluated_at": "2026-07-24T00:00:00Z",
+        "input_fingerprint": "agp-input-v2:sha256:20838b5aa934201cee8db639fc2115dcd710bac322f3a38d7347f7f17fb51137",
+        "precedence_trace": [
+          "structural_admission",
+          "canonical_authority",
+          "current_evidence",
+          "gate_status"
+        ],
+        "gate_status_requirement": {
+          "required": true,
+          "authorized_metadata_role": "backend_implementer",
+          "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+          "current_head": "0123456789abcdef0123456789abcdef01234567",
+          "required_gate_fields": [
+            "current_head",
+            "final_regression",
+            "operational_validation",
+            "pr_state",
+            "draft_state",
+            "ready",
+            "approve",
+            "merge",
+            "next_gate_owner"
+          ],
+          "citation_urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307"
+          ],
+          "reason": "stale",
+          "must_verify_after_write": true,
+          "next_gate_owner": "integrated_lead"
+        },
+        "kind": "require_gate_status_update",
+        "requirement": {
+          "required": true,
+          "authorized_metadata_role": "backend_implementer",
+          "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+          "current_head": "0123456789abcdef0123456789abcdef01234567",
+          "required_gate_fields": [
+            "current_head",
+            "final_regression",
+            "operational_validation",
+            "pr_state",
+            "draft_state",
+            "ready",
+            "approve",
+            "merge",
+            "next_gate_owner"
+          ],
+          "citation_urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307"
+          ],
+          "reason": "stale",
+          "must_verify_after_write": true,
+          "next_gate_owner": "integrated_lead"
+        }
+      },
+      "expected_trace": [
+        "structural_admission",
+        "canonical_authority",
+        "current_evidence",
+        "gate_status"
+      ],
+      "expected_evidence": [
+        {
+          "path": "/gate_status_requirement/citation_urls",
+          "urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307"
+          ]
+        },
+        {
+          "path": "/requirement/citation_urls",
+          "urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307"
+          ]
+        }
+      ],
+      "forbidden_result_paths": [
+        "/approval_record",
+        "/canonical_evidence_refs",
+        "/execution_stop_reason",
+        "/historical_evidence_refs",
+        "/idempotency_key",
+        "/invalidation_reason",
+        "/next_action",
+        "/predecessor_canonical_url",
+        "/protected_action",
+        "/recovery_owner",
+        "/required_approval_fields",
+        "/required_base",
+        "/required_fresh_gates",
+        "/required_future_canonical_event",
+        "/required_head",
+        "/required_pr",
+        "/required_recovery_evidence",
+        "/same_task_id",
+        "/stop_condition",
+        "/target_head",
+        "/target_role",
+        "/wait_reason"
+      ],
+      "fingerprint_relation": {
+        "kind": "exact",
+        "value": "agp-input-v2:sha256:20838b5aa934201cee8db639fc2115dcd710bac322f3a38d7347f7f17fb51137"
+      }
+    },
+    {
+      "ordinal": 2,
+      "row_id": "AGP-X18b",
+      "base_fixture_id": "G-B",
+      "operations": [],
+      "expected_result": {
+        "contract_version": "automatic-gate-progression-evaluation-result-v2",
+        "task_id": "task-001",
+        "evaluated_at": "2026-07-24T00:00:00Z",
+        "input_fingerprint": "agp-input-v2:sha256:76b6316585b9689191d2e0f7e20c8fdb0dc2a851fcdaec259f6136a1cc50d6c7",
+        "precedence_trace": [
+          "structural_admission",
+          "canonical_authority",
+          "current_evidence",
+          "gate_status"
+        ],
+        "gate_status_requirement": {
+          "required": true,
+          "authorized_metadata_role": "backend_implementer",
+          "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+          "current_head": "0123456789abcdef0123456789abcdef01234567",
+          "required_gate_fields": [
+            "current_head",
+            "final_regression",
+            "operational_validation",
+            "pr_state",
+            "draft_state",
+            "ready",
+            "approve",
+            "merge",
+            "next_gate_owner"
+          ],
+          "citation_urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+            "https://github.com/whatrune/sd-prompt-studio/pull/180"
+          ],
+          "reason": "stale",
+          "must_verify_after_write": true,
+          "current_blocker": "gate_blocker",
+          "next_gate_owner": "integrated_lead"
+        },
+        "kind": "require_gate_status_update",
+        "requirement": {
+          "required": true,
+          "authorized_metadata_role": "backend_implementer",
+          "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+          "current_head": "0123456789abcdef0123456789abcdef01234567",
+          "required_gate_fields": [
+            "current_head",
+            "final_regression",
+            "operational_validation",
+            "pr_state",
+            "draft_state",
+            "ready",
+            "approve",
+            "merge",
+            "next_gate_owner"
+          ],
+          "citation_urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+            "https://github.com/whatrune/sd-prompt-studio/pull/180"
+          ],
+          "reason": "stale",
+          "must_verify_after_write": true,
+          "current_blocker": "gate_blocker",
+          "next_gate_owner": "integrated_lead"
+        }
+      },
+      "expected_trace": [
+        "structural_admission",
+        "canonical_authority",
+        "current_evidence",
+        "gate_status"
+      ],
+      "expected_evidence": [
+        {
+          "path": "/gate_status_requirement/citation_urls",
+          "urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+            "https://github.com/whatrune/sd-prompt-studio/pull/180"
+          ]
+        },
+        {
+          "path": "/requirement/citation_urls",
+          "urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+            "https://github.com/whatrune/sd-prompt-studio/pull/180"
+          ]
+        }
+      ],
+      "forbidden_result_paths": [
+        "/approval_record",
+        "/canonical_evidence_refs",
+        "/execution_stop_reason",
+        "/historical_evidence_refs",
+        "/idempotency_key",
+        "/invalidation_reason",
+        "/next_action",
+        "/predecessor_canonical_url",
+        "/protected_action",
+        "/recovery_owner",
+        "/required_approval_fields",
+        "/required_base",
+        "/required_fresh_gates",
+        "/required_future_canonical_event",
+        "/required_head",
+        "/required_pr",
+        "/required_recovery_evidence",
+        "/same_task_id",
+        "/stop_condition",
+        "/target_head",
+        "/target_role",
+        "/wait_reason"
+      ],
+      "fingerprint_relation": {
+        "kind": "exact",
+        "value": "agp-input-v2:sha256:76b6316585b9689191d2e0f7e20c8fdb0dc2a851fcdaec259f6136a1cc50d6c7"
+      }
+    },
+    {
+      "ordinal": 3,
+      "row_id": "AGP-X18c",
+      "base_fixture_id": "G-B",
+      "operations": [
+        {
+          "op": "replace",
+          "path": "/gate_status/current_blocker",
+          "value": "another_blocker"
+        }
+      ],
+      "expected_result": {
+        "contract_version": "automatic-gate-progression-evaluation-result-v2",
+        "task_id": "task-001",
+        "evaluated_at": "2026-07-24T00:00:00Z",
+        "input_fingerprint": "agp-input-v2:sha256:3da6c92ffb85fe00a19923f12fd6aa8d8e3bd003fcd3ceaa7f7dcfa548f6816a",
+        "precedence_trace": [
+          "structural_admission",
+          "canonical_authority",
+          "current_evidence",
+          "gate_status"
+        ],
+        "gate_status_requirement": {
+          "required": true,
+          "authorized_metadata_role": "backend_implementer",
+          "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+          "current_head": "0123456789abcdef0123456789abcdef01234567",
+          "required_gate_fields": [
+            "current_head",
+            "final_regression",
+            "operational_validation",
+            "pr_state",
+            "draft_state",
+            "ready",
+            "approve",
+            "merge",
+            "next_gate_owner"
+          ],
+          "citation_urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+            "https://github.com/whatrune/sd-prompt-studio/pull/180"
+          ],
+          "reason": "stale",
+          "must_verify_after_write": true,
+          "current_blocker": "another_blocker",
+          "next_gate_owner": "integrated_lead"
+        },
+        "kind": "require_gate_status_update",
+        "requirement": {
+          "required": true,
+          "authorized_metadata_role": "backend_implementer",
+          "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+          "current_head": "0123456789abcdef0123456789abcdef01234567",
+          "required_gate_fields": [
+            "current_head",
+            "final_regression",
+            "operational_validation",
+            "pr_state",
+            "draft_state",
+            "ready",
+            "approve",
+            "merge",
+            "next_gate_owner"
+          ],
+          "citation_urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+            "https://github.com/whatrune/sd-prompt-studio/pull/180"
+          ],
+          "reason": "stale",
+          "must_verify_after_write": true,
+          "current_blocker": "another_blocker",
+          "next_gate_owner": "integrated_lead"
+        }
+      },
+      "expected_trace": [
+        "structural_admission",
+        "canonical_authority",
+        "current_evidence",
+        "gate_status"
+      ],
+      "expected_evidence": [
+        {
+          "path": "/gate_status_requirement/citation_urls",
+          "urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+            "https://github.com/whatrune/sd-prompt-studio/pull/180"
+          ]
+        },
+        {
+          "path": "/requirement/citation_urls",
+          "urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+            "https://github.com/whatrune/sd-prompt-studio/pull/180"
+          ]
+        }
+      ],
+      "forbidden_result_paths": [
+        "/approval_record",
+        "/canonical_evidence_refs",
+        "/execution_stop_reason",
+        "/historical_evidence_refs",
+        "/idempotency_key",
+        "/invalidation_reason",
+        "/next_action",
+        "/predecessor_canonical_url",
+        "/protected_action",
+        "/recovery_owner",
+        "/required_approval_fields",
+        "/required_base",
+        "/required_fresh_gates",
+        "/required_future_canonical_event",
+        "/required_head",
+        "/required_pr",
+        "/required_recovery_evidence",
+        "/same_task_id",
+        "/stop_condition",
+        "/target_head",
+        "/target_role",
+        "/wait_reason"
+      ],
+      "fingerprint_relation": {
+        "kind": "differs",
+        "prior_row_ids": [
+          "AGP-X18b"
+        ]
+      }
+    },
+    {
+      "ordinal": 4,
+      "row_id": "AGP-X18d",
+      "base_fixture_id": "G-N",
+      "operations": [],
+      "expected_result": {
+        "contract_version": "automatic-gate-progression-evaluation-result-v2",
+        "task_id": "task-001",
+        "evaluated_at": "2026-07-24T00:00:00Z",
+        "input_fingerprint": "agp-input-v2:sha256:20838b5aa934201cee8db639fc2115dcd710bac322f3a38d7347f7f17fb51137",
+        "precedence_trace": [
+          "structural_admission",
+          "canonical_authority",
+          "current_evidence",
+          "gate_status"
+        ],
+        "gate_status_requirement": {
+          "required": true,
+          "authorized_metadata_role": "backend_implementer",
+          "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+          "current_head": "0123456789abcdef0123456789abcdef01234567",
+          "required_gate_fields": [
+            "current_head",
+            "final_regression",
+            "operational_validation",
+            "pr_state",
+            "draft_state",
+            "ready",
+            "approve",
+            "merge",
+            "next_gate_owner"
+          ],
+          "citation_urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307"
+          ],
+          "reason": "stale",
+          "must_verify_after_write": true,
+          "next_gate_owner": "integrated_lead"
+        },
+        "kind": "require_gate_status_update",
+        "requirement": {
+          "required": true,
+          "authorized_metadata_role": "backend_implementer",
+          "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+          "current_head": "0123456789abcdef0123456789abcdef01234567",
+          "required_gate_fields": [
+            "current_head",
+            "final_regression",
+            "operational_validation",
+            "pr_state",
+            "draft_state",
+            "ready",
+            "approve",
+            "merge",
+            "next_gate_owner"
+          ],
+          "citation_urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307"
+          ],
+          "reason": "stale",
+          "must_verify_after_write": true,
+          "next_gate_owner": "integrated_lead"
+        }
+      },
+      "expected_trace": [
+        "structural_admission",
+        "canonical_authority",
+        "current_evidence",
+        "gate_status"
+      ],
+      "expected_evidence": [
+        {
+          "path": "/gate_status_requirement/citation_urls",
+          "urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307"
+          ]
+        },
+        {
+          "path": "/requirement/citation_urls",
+          "urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307"
+          ]
+        }
+      ],
+      "forbidden_result_paths": [
+        "/approval_record",
+        "/canonical_evidence_refs",
+        "/execution_stop_reason",
+        "/historical_evidence_refs",
+        "/idempotency_key",
+        "/invalidation_reason",
+        "/next_action",
+        "/predecessor_canonical_url",
+        "/protected_action",
+        "/recovery_owner",
+        "/required_approval_fields",
+        "/required_base",
+        "/required_fresh_gates",
+        "/required_future_canonical_event",
+        "/required_head",
+        "/required_pr",
+        "/required_recovery_evidence",
+        "/same_task_id",
+        "/stop_condition",
+        "/target_head",
+        "/target_role",
+        "/wait_reason"
+      ],
+      "fingerprint_relation": {
+        "kind": "equals",
+        "prior_row_id": "AGP-X18a"
+      }
+    },
+    {
+      "ordinal": 5,
+      "row_id": "AGP-X21",
+      "base_fixture_id": "B-N",
+      "operations": [
+        {
+          "op": "replace",
+          "path": "/task_assignment/allowed_actions",
+          "value": [
+            "correct_phase1_pure_evaluator"
+          ]
+        },
+        {
+          "op": "add",
+          "path": "/result_handoff/recommended_next_action",
+          "value": "implement_phase1_pure_evaluator"
+        },
+        {
+          "op": "replace",
+          "path": "/review_decision/decision",
+          "value": "needs_followup"
+        },
+        {
+          "op": "replace",
+          "path": "/review_decision/blocking_findings",
+          "value": [
+            {
+              "finding_id": "f1",
+              "state": "closed"
+            }
+          ]
+        },
+        {
+          "op": "add",
+          "path": "/review_decision/correction",
+          "value": {
+            "target_role": "backend_implementer",
+            "next_action": "correct_phase1_pure_evaluator",
+            "task_id": "task-001",
+            "repository": "whatrune/sd-prompt-studio",
+            "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+            "head": "0123456789abcdef0123456789abcdef01234567",
+            "correction_scope_ref": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+            "predecessor_handoff_ref": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "predecessor_action": "implement_phase1_pure_evaluator"
+          }
+        },
+        {
+          "op": "replace",
+          "path": "/result_handoff/status",
+          "value": "needs_followup"
+        },
+        {
+          "op": "replace",
+          "path": "/result_handoff/execution_stop_reason",
+          "value": "architecture_gap"
+        }
+      ],
+      "expected_result": {
+        "contract_version": "automatic-gate-progression-evaluation-result-v2",
+        "task_id": "task-001",
+        "evaluated_at": "2026-07-24T00:00:00Z",
+        "input_fingerprint": "agp-input-v2:sha256:848450f972bc49b14ec78d2f182adc4b713e60be7683d0e198d0a921e0321940",
+        "precedence_trace": [
+          "structural_admission",
+          "canonical_authority"
+        ],
+        "gate_status_requirement": {
+          "required": false
+        },
+        "kind": "stop",
+        "stop_condition": "canonical_conflict",
+        "execution_stop_reason": "architecture_gap",
+        "canonical_evidence_refs": [
+          "https://github.com/whatrune/sd-prompt-studio/issues/179",
+          "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+          "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+          "https://github.com/whatrune/sd-prompt-studio/pull/180"
+        ],
+        "recovery_owner": "backend_architect",
+        "required_recovery_evidence": [
+          "fresh_review_correction"
+        ]
+      },
+      "expected_trace": [
+        "structural_admission",
+        "canonical_authority"
+      ],
+      "expected_evidence": [
+        {
+          "path": "/canonical_evidence_refs",
+          "urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+            "https://github.com/whatrune/sd-prompt-studio/pull/180"
+          ]
+        }
+      ],
+      "forbidden_result_paths": [
+        "/approval_record",
+        "/historical_evidence_refs",
+        "/idempotency_key",
+        "/invalidation_reason",
+        "/next_action",
+        "/predecessor_canonical_url",
+        "/protected_action",
+        "/required_approval_fields",
+        "/required_base",
+        "/required_fresh_gates",
+        "/required_future_canonical_event",
+        "/required_head",
+        "/required_pr",
+        "/requirement",
+        "/same_task_id",
+        "/target_head",
+        "/target_role",
+        "/wait_reason"
+      ],
+      "fingerprint_relation": {
+        "kind": "exact",
+        "value": "agp-input-v2:sha256:848450f972bc49b14ec78d2f182adc4b713e60be7683d0e198d0a921e0321940"
+      }
+    },
+    {
+      "ordinal": 6,
+      "row_id": "AGP-X23",
+      "base_fixture_id": "B-O",
+      "operations": [
+        {
+          "op": "replace",
+          "path": "/task_assignment/next_transition",
+          "value": {
+            "target_role": "backend_implementer",
+            "next_action": "implement_phase1",
+            "protected_action": "ready_for_review"
+          }
+        },
+        {
+          "op": "replace",
+          "path": "/approval",
+          "value": {
+            "record_state": "present",
+            "canonical_record": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
+            "author": {
+              "provider": "github",
+              "login": "defma",
+              "verified_role": "product_owner",
+              "role_authority_ref": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072441211"
+            },
+            "repository": "whatrune/sd-prompt-studio",
+            "task_id": "task-001",
+            "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+            "action": "ready_for_review",
+            "approved_head": "0123456789abcdef0123456789abcdef01234567",
+            "approved_base": "main",
+            "approved_pr_state": "open",
+            "approved_draft": true,
+            "scope": {
+              "scope_kind": "single_protected_action",
+              "task_id": "task-001",
+              "repository": "whatrune/sd-prompt-studio",
+              "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+              "action": "ready_for_review",
+              "head": "0123456789abcdef0123456789abcdef01234567",
+              "base": "main",
+              "pr_state": "open",
+              "draft": true
+            },
+            "validity": {
+              "mode": "expires_at",
+              "expires_at": "2026-07-23T23:59:59Z",
+              "consumed": false
+            }
+          }
+        }
+      ],
+      "expected_result": {
+        "contract_version": "automatic-gate-progression-evaluation-result-v2",
+        "task_id": "task-001",
+        "evaluated_at": "2026-07-24T00:00:00Z",
+        "input_fingerprint": "agp-input-v2:sha256:4ebd3650e8473132873087dfbfb6d577a5cd24e4b14bf543a08084280b3818b5",
+        "precedence_trace": [
+          "structural_admission",
+          "canonical_authority",
+          "current_evidence",
+          "approval_validity"
+        ],
+        "gate_status_requirement": {
+          "required": false
+        },
+        "kind": "invalidate_approval",
+        "approval_record": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
+        "invalidation_reason": "expired",
+        "historical_evidence_refs": [
+          "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050"
+        ],
+        "required_fresh_gates": [
+          "product_owner_approval"
+        ]
+      },
+      "expected_trace": [
+        "structural_admission",
+        "canonical_authority",
+        "current_evidence",
+        "approval_validity"
+      ],
+      "expected_evidence": [
+        {
+          "path": "/historical_evidence_refs",
+          "urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050"
+          ]
+        }
+      ],
+      "forbidden_result_paths": [
+        "/canonical_evidence_refs",
+        "/execution_stop_reason",
+        "/idempotency_key",
+        "/next_action",
+        "/predecessor_canonical_url",
+        "/protected_action",
+        "/recovery_owner",
+        "/required_approval_fields",
+        "/required_base",
+        "/required_future_canonical_event",
+        "/required_head",
+        "/required_pr",
+        "/required_recovery_evidence",
+        "/requirement",
+        "/same_task_id",
+        "/stop_condition",
+        "/target_head",
+        "/target_role",
+        "/wait_reason"
+      ],
+      "fingerprint_relation": {
+        "kind": "exact",
+        "value": "agp-input-v2:sha256:4ebd3650e8473132873087dfbfb6d577a5cd24e4b14bf543a08084280b3818b5"
+      }
+    },
+    {
+      "ordinal": 7,
+      "row_id": "AGP-X24",
+      "base_fixture_id": "B-O",
+      "operations": [
+        {
+          "op": "replace",
+          "path": "/task_assignment/next_transition",
+          "value": {
+            "target_role": "backend_implementer",
+            "next_action": "implement_phase1",
+            "protected_action": "ready_for_review"
+          }
+        },
+        {
+          "op": "replace",
+          "path": "/approval",
+          "value": {
+            "record_state": "present",
+            "canonical_record": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
+            "author": {
+              "provider": "github",
+              "login": "defma",
+              "verified_role": "product_owner",
+              "role_authority_ref": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072441211"
+            },
+            "repository": "whatrune/sd-prompt-studio",
+            "task_id": "task-001",
+            "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+            "action": "ready_for_review",
+            "approved_head": "0123456789abcdef0123456789abcdef01234567",
+            "approved_base": "main",
+            "approved_pr_state": "open",
+            "approved_draft": true,
+            "scope": {
+              "scope_kind": "single_protected_action",
+              "task_id": "task-001",
+              "repository": "whatrune/sd-prompt-studio",
+              "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+              "action": "ready_for_review",
+              "head": "0123456789abcdef0123456789abcdef01234567",
+              "base": "main",
+              "pr_state": "open",
+              "draft": true
+            },
+            "validity": {
+              "mode": "one_use",
+              "consumed": true
+            }
+          }
+        }
+      ],
+      "expected_result": {
+        "contract_version": "automatic-gate-progression-evaluation-result-v2",
+        "task_id": "task-001",
+        "evaluated_at": "2026-07-24T00:00:00Z",
+        "input_fingerprint": "agp-input-v2:sha256:0764ef5f2010c176d64bf433cc004e9764372dd68b56ce28fcdd4d6e6e1fe72c",
+        "precedence_trace": [
+          "structural_admission",
+          "canonical_authority",
+          "current_evidence",
+          "approval_validity"
+        ],
+        "gate_status_requirement": {
+          "required": false
+        },
+        "kind": "invalidate_approval",
+        "approval_record": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
+        "invalidation_reason": "consumed",
+        "historical_evidence_refs": [
+          "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050"
+        ],
+        "required_fresh_gates": [
+          "product_owner_approval"
+        ]
+      },
+      "expected_trace": [
+        "structural_admission",
+        "canonical_authority",
+        "current_evidence",
+        "approval_validity"
+      ],
+      "expected_evidence": [
+        {
+          "path": "/historical_evidence_refs",
+          "urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050"
+          ]
+        }
+      ],
+      "forbidden_result_paths": [
+        "/canonical_evidence_refs",
+        "/execution_stop_reason",
+        "/idempotency_key",
+        "/next_action",
+        "/predecessor_canonical_url",
+        "/protected_action",
+        "/recovery_owner",
+        "/required_approval_fields",
+        "/required_base",
+        "/required_future_canonical_event",
+        "/required_head",
+        "/required_pr",
+        "/required_recovery_evidence",
+        "/requirement",
+        "/same_task_id",
+        "/stop_condition",
+        "/target_head",
+        "/target_role",
+        "/wait_reason"
+      ],
+      "fingerprint_relation": {
+        "kind": "exact",
+        "value": "agp-input-v2:sha256:0764ef5f2010c176d64bf433cc004e9764372dd68b56ce28fcdd4d6e6e1fe72c"
+      }
+    },
+    {
+      "ordinal": 8,
+      "row_id": "AGP-X26a",
+      "base_fixture_id": "B-O",
+      "operations": [
+        {
+          "op": "replace",
+          "path": "/task_assignment/next_transition",
+          "value": {
+            "target_role": "backend_implementer",
+            "next_action": "implement_phase1",
+            "protected_action": "ready_for_review"
+          }
+        },
+        {
+          "op": "replace",
+          "path": "/approval",
+          "value": {
+            "record_state": "present",
+            "canonical_record": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
+            "author": {
+              "provider": "github",
+              "login": "defma",
+              "verified_role": "product_owner",
+              "role_authority_ref": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072441211"
+            },
+            "repository": "whatrune/sd-prompt-studio",
+            "task_id": "task-001",
+            "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+            "action": "ready_for_review",
+            "approved_head": "0123456789abcdef0123456789abcdef01234567",
+            "approved_base": "main",
+            "approved_pr_state": "open",
+            "approved_draft": true,
+            "scope": {
+              "scope_kind": "single_protected_action",
+              "task_id": "task-001",
+              "repository": "whatrune/sd-prompt-studio",
+              "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+              "action": "ready_for_review",
+              "head": "0123456789abcdef0123456789abcdef01234567",
+              "base": "main",
+              "pr_state": "open",
+              "draft": true
+            },
+            "validity": {
+              "mode": "expires_at",
+              "expires_at": "2026-07-23T23:59:59Z",
+              "consumed": false
+            }
+          }
+        },
+        {
+          "op": "replace",
+          "path": "/review_threads",
+          "value": [
+            {
+              "url": "https://github.com/whatrune/sd-prompt-studio/pull/180#discussion_r1",
+              "state": "unresolved",
+              "outdated": false,
+              "blocking": true
+            }
+          ]
+        }
+      ],
+      "expected_result": {
+        "contract_version": "automatic-gate-progression-evaluation-result-v2",
+        "task_id": "task-001",
+        "evaluated_at": "2026-07-24T00:00:00Z",
+        "input_fingerprint": "agp-input-v2:sha256:db618a15d1649475f2da8581f42d88fe74edeab3d711f0dd985fda6389825cb7",
+        "precedence_trace": [
+          "structural_admission",
+          "canonical_authority",
+          "current_evidence"
+        ],
+        "gate_status_requirement": {
+          "required": false
+        },
+        "kind": "stop",
+        "stop_condition": "blocking_finding_recurrence",
+        "execution_stop_reason": "external_blocker",
+        "canonical_evidence_refs": [
+          "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+          "https://github.com/whatrune/sd-prompt-studio/pull/180#discussion_r1"
+        ],
+        "recovery_owner": "integrated_lead",
+        "required_recovery_evidence": [
+          "closed_current_review_decision"
+        ]
+      },
+      "expected_trace": [
+        "structural_admission",
+        "canonical_authority",
+        "current_evidence"
+      ],
+      "expected_evidence": [
+        {
+          "path": "/canonical_evidence_refs",
+          "urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+            "https://github.com/whatrune/sd-prompt-studio/pull/180#discussion_r1"
+          ]
+        }
+      ],
+      "forbidden_result_paths": [
+        "/approval_record",
+        "/historical_evidence_refs",
+        "/idempotency_key",
+        "/invalidation_reason",
+        "/next_action",
+        "/predecessor_canonical_url",
+        "/protected_action",
+        "/required_approval_fields",
+        "/required_base",
+        "/required_fresh_gates",
+        "/required_future_canonical_event",
+        "/required_head",
+        "/required_pr",
+        "/requirement",
+        "/same_task_id",
+        "/target_head",
+        "/target_role",
+        "/wait_reason"
+      ],
+      "fingerprint_relation": {
+        "kind": "exact",
+        "value": "agp-input-v2:sha256:db618a15d1649475f2da8581f42d88fe74edeab3d711f0dd985fda6389825cb7"
+      }
+    },
+    {
+      "ordinal": 9,
+      "row_id": "AGP-X26b",
+      "base_fixture_id": "B-N",
+      "operations": [
+        {
+          "op": "replace",
+          "path": "/task_assignment/allowed_actions",
+          "value": [
+            "implement_phase1"
+          ]
+        },
+        {
+          "op": "replace",
+          "path": "/task_assignment/next_transition",
+          "value": {
+            "target_role": "backend_implementer",
+            "next_action": "implement_phase1",
+            "protected_action": "ready_for_review"
+          }
+        },
+        {
+          "op": "replace",
+          "path": "/approval",
+          "value": {
+            "record_state": "present",
+            "canonical_record": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
+            "author": {
+              "provider": "github",
+              "login": "defma",
+              "verified_role": "product_owner",
+              "role_authority_ref": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072441211"
+            },
+            "repository": "whatrune/sd-prompt-studio",
+            "task_id": "task-001",
+            "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+            "action": "ready_for_review",
+            "approved_head": "0123456789abcdef0123456789abcdef01234567",
+            "approved_base": "main",
+            "approved_pr_state": "open",
+            "approved_draft": true,
+            "scope": {
+              "scope_kind": "single_protected_action",
+              "task_id": "task-001",
+              "repository": "whatrune/sd-prompt-studio",
+              "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+              "action": "ready_for_review",
+              "head": "0123456789abcdef0123456789abcdef01234567",
+              "base": "main",
+              "pr_state": "open",
+              "draft": true
+            },
+            "validity": {
+              "mode": "expires_at",
+              "expires_at": "2026-07-23T23:59:59Z",
+              "consumed": false
+            }
+          }
+        },
+        {
+          "op": "replace",
+          "path": "/checks/0/conclusion",
+          "value": "pending"
+        }
+      ],
+      "expected_result": {
+        "contract_version": "automatic-gate-progression-evaluation-result-v2",
+        "task_id": "task-001",
+        "evaluated_at": "2026-07-24T00:00:00Z",
+        "input_fingerprint": "agp-input-v2:sha256:dc49ecd954706f421b5bbd26587f9704d15f8d79df417b074529da4da2033c7b",
+        "precedence_trace": [
+          "structural_admission",
+          "canonical_authority",
+          "current_evidence"
+        ],
+        "gate_status_requirement": {
+          "required": false
+        },
+        "kind": "stop",
+        "stop_condition": "fresh_evidence_unavailable",
+        "execution_stop_reason": "external_blocker",
+        "canonical_evidence_refs": [
+          "https://github.com/whatrune/sd-prompt-studio/issues/179",
+          "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+          "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+          "https://github.com/whatrune/sd-prompt-studio/pull/180"
+        ],
+        "recovery_owner": "integrated_lead",
+        "required_recovery_evidence": [
+          "fresh_exact_head_check",
+          "clean_available_workspace"
+        ]
+      },
+      "expected_trace": [
+        "structural_admission",
+        "canonical_authority",
+        "current_evidence"
+      ],
+      "expected_evidence": [
+        {
+          "path": "/canonical_evidence_refs",
+          "urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/179",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+            "https://github.com/whatrune/sd-prompt-studio/pull/180"
+          ]
+        }
+      ],
+      "forbidden_result_paths": [
+        "/approval_record",
+        "/historical_evidence_refs",
+        "/idempotency_key",
+        "/invalidation_reason",
+        "/next_action",
+        "/predecessor_canonical_url",
+        "/protected_action",
+        "/required_approval_fields",
+        "/required_base",
+        "/required_fresh_gates",
+        "/required_future_canonical_event",
+        "/required_head",
+        "/required_pr",
+        "/requirement",
+        "/same_task_id",
+        "/target_head",
+        "/target_role",
+        "/wait_reason"
+      ],
+      "fingerprint_relation": {
+        "kind": "exact",
+        "value": "agp-input-v2:sha256:dc49ecd954706f421b5bbd26587f9704d15f8d79df417b074529da4da2033c7b"
+      }
+    },
+    {
+      "ordinal": 10,
+      "row_id": "AGP-X27",
+      "base_fixture_id": "B-O",
+      "operations": [
+        {
+          "op": "replace",
+          "path": "/task_assignment/next_transition",
+          "value": {
+            "target_role": "backend_implementer",
+            "next_action": "implement_phase1",
+            "protected_action": "ready_for_review"
+          }
+        },
+        {
+          "op": "replace",
+          "path": "/approval",
+          "value": {
+            "record_state": "present",
+            "canonical_record": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
+            "author": {
+              "provider": "github",
+              "login": "defma",
+              "verified_role": "product_owner",
+              "role_authority_ref": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072441211"
+            },
+            "repository": "whatrune/sd-prompt-studio",
+            "task_id": "task-001",
+            "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+            "action": "ready_for_review",
+            "approved_head": "0123456789abcdef0123456789abcdef01234567",
+            "approved_base": "main",
+            "approved_pr_state": "open",
+            "approved_draft": true,
+            "scope": {
+              "scope_kind": "single_protected_action",
+              "task_id": "task-001",
+              "repository": "whatrune/sd-prompt-studio",
+              "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+              "action": "ready_for_review",
+              "head": "0123456789abcdef0123456789abcdef01234567",
+              "base": "main",
+              "pr_state": "open",
+              "draft": true
+            },
+            "validity": {
+              "mode": "one_use",
+              "consumed": false
+            }
+          }
+        }
+      ],
+      "expected_result": {
+        "contract_version": "automatic-gate-progression-evaluation-result-v2",
+        "task_id": "task-001",
+        "evaluated_at": "2026-07-24T00:00:00Z",
+        "input_fingerprint": "agp-input-v2:sha256:85cd522b9fa0934a03b6c1bca710d5676b45e1c8bf3c07849fa809bf1d749379",
+        "precedence_trace": [
+          "structural_admission",
+          "canonical_authority",
+          "current_evidence",
+          "approval_validity",
+          "gate_status",
+          "transition"
+        ],
+        "gate_status_requirement": {
+          "required": false
+        },
+        "kind": "recommend_next_role",
+        "target_role": "backend_implementer",
+        "next_action": "implement_phase1",
+        "predecessor_canonical_url": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+        "target_head": "0123456789abcdef0123456789abcdef01234567",
+        "same_task_id": "task-001",
+        "idempotency_key": "agp-transition-v2:sha256:4025de6100fc756ed93d2c5aeaa5c0f86ccec05ac4c27bb3e83b7170364b33b1"
+      },
+      "expected_trace": [
+        "structural_admission",
+        "canonical_authority",
+        "current_evidence",
+        "approval_validity",
+        "gate_status",
+        "transition"
+      ],
+      "expected_evidence": [],
+      "forbidden_result_paths": [
+        "/approval_record",
+        "/canonical_evidence_refs",
+        "/execution_stop_reason",
+        "/historical_evidence_refs",
+        "/invalidation_reason",
+        "/protected_action",
+        "/recovery_owner",
+        "/required_approval_fields",
+        "/required_base",
+        "/required_fresh_gates",
+        "/required_future_canonical_event",
+        "/required_head",
+        "/required_pr",
+        "/required_recovery_evidence",
+        "/requirement",
+        "/stop_condition",
+        "/wait_reason"
+      ],
+      "fingerprint_relation": {
+        "kind": "exact",
+        "value": "agp-input-v2:sha256:85cd522b9fa0934a03b6c1bca710d5676b45e1c8bf3c07849fa809bf1d749379"
+      }
+    },
+    {
+      "ordinal": 11,
+      "row_id": "AGP-X28",
+      "base_fixture_id": "B-N",
+      "operations": [],
+      "expected_result": {
+        "contract_version": "automatic-gate-progression-evaluation-result-v2",
+        "task_id": "task-001",
+        "evaluated_at": "2026-07-24T00:00:00Z",
+        "input_fingerprint": "agp-input-v2:sha256:45ae2c8fd7737659f215c74158b6600236a28f4f9f0138586f0f6b4db6be4ab6",
+        "precedence_trace": [
+          "structural_admission",
+          "canonical_authority",
+          "current_evidence",
+          "gate_status",
+          "transition"
+        ],
+        "gate_status_requirement": {
+          "required": false
+        },
+        "kind": "no_transition",
+        "wait_reason": "no_declared_transition",
+        "required_future_canonical_event": "direct_same_task_decision"
+      },
+      "expected_trace": [
+        "structural_admission",
+        "canonical_authority",
+        "current_evidence",
+        "gate_status",
+        "transition"
+      ],
+      "expected_evidence": [],
+      "forbidden_result_paths": [
+        "/approval_record",
+        "/canonical_evidence_refs",
+        "/execution_stop_reason",
+        "/historical_evidence_refs",
+        "/idempotency_key",
+        "/invalidation_reason",
+        "/next_action",
+        "/predecessor_canonical_url",
+        "/protected_action",
+        "/recovery_owner",
+        "/required_approval_fields",
+        "/required_base",
+        "/required_fresh_gates",
+        "/required_head",
+        "/required_pr",
+        "/required_recovery_evidence",
+        "/requirement",
+        "/same_task_id",
+        "/stop_condition",
+        "/target_head",
+        "/target_role"
+      ],
+      "fingerprint_relation": {
+        "kind": "equals",
+        "prior_row_id": "AGP-A01"
+      }
+    },
+    {
+      "ordinal": 12,
+      "row_id": "AGP-X29",
+      "base_fixture_id": "B-N",
+      "operations": [
+        {
+          "op": "replace",
+          "path": "/task_assignment/allowed_actions",
+          "value": [
+            "correct_phase1_pure_evaluator"
+          ]
+        },
+        {
+          "op": "add",
+          "path": "/result_handoff/recommended_next_action",
+          "value": "implement_phase1_pure_evaluator"
+        },
+        {
+          "op": "replace",
+          "path": "/review_decision/decision",
+          "value": "needs_followup"
+        },
+        {
+          "op": "replace",
+          "path": "/review_decision/blocking_findings",
+          "value": [
+            {
+              "finding_id": "f1",
+              "state": "closed"
+            }
+          ]
+        },
+        {
+          "op": "add",
+          "path": "/review_decision/correction",
+          "value": {
+            "target_role": "backend_implementer",
+            "next_action": "correct_phase1_pure_evaluator",
+            "task_id": "task-001",
+            "repository": "whatrune/sd-prompt-studio",
+            "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+            "head": "0123456789abcdef0123456789abcdef01234567",
+            "correction_scope_ref": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+            "predecessor_handoff_ref": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "predecessor_action": "implement_phase1_pure_evaluator"
+          }
+        }
+      ],
+      "expected_result": {
+        "contract_version": "automatic-gate-progression-evaluation-result-v2",
+        "task_id": "task-001",
+        "evaluated_at": "2026-07-24T00:00:00Z",
+        "input_fingerprint": "agp-input-v2:sha256:ce6d3722e480734cb62c4a1e3ee104ebd8918eeb70d9cc6e8bdd74dc96f9d7e0",
+        "precedence_trace": [
+          "structural_admission",
+          "canonical_authority",
+          "current_evidence",
+          "gate_status",
+          "transition"
+        ],
+        "gate_status_requirement": {
+          "required": false
+        },
+        "kind": "recommend_next_role",
+        "target_role": "backend_implementer",
+        "next_action": "correct_phase1_pure_evaluator",
+        "predecessor_canonical_url": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+        "target_head": "0123456789abcdef0123456789abcdef01234567",
+        "same_task_id": "task-001",
+        "idempotency_key": "agp-transition-v2:sha256:1445b9b8b21056b2c0cd3852247ddf2dc4b91a683d89289306a045dea6353ff4"
+      },
+      "expected_trace": [
+        "structural_admission",
+        "canonical_authority",
+        "current_evidence",
+        "gate_status",
+        "transition"
+      ],
+      "expected_evidence": [],
+      "forbidden_result_paths": [
+        "/approval_record",
+        "/canonical_evidence_refs",
+        "/execution_stop_reason",
+        "/historical_evidence_refs",
+        "/invalidation_reason",
+        "/protected_action",
+        "/recovery_owner",
+        "/required_approval_fields",
+        "/required_base",
+        "/required_fresh_gates",
+        "/required_future_canonical_event",
+        "/required_head",
+        "/required_pr",
+        "/required_recovery_evidence",
+        "/requirement",
+        "/stop_condition",
+        "/wait_reason"
+      ],
+      "fingerprint_relation": {
+        "kind": "equals",
+        "prior_row_id": "AGP-C02"
+      }
+    }
+  ],
+  "variant_groups": [
+    {
+      "variant_group_contract_version": "automatic-gate-progression-row-variant-group-v1",
+      "row_id": "AGP-X15",
+      "batch": "batch_3",
+      "variants": [
+        {
+          "parent_row_id": "AGP-X15",
+          "variant_key": "approval_absent",
+          "base_fixture_id": "B-O",
+          "operations": [
+            {
+              "op": "replace",
+              "path": "/task_assignment/next_transition",
+              "value": {
+                "target_role": "backend_implementer",
+                "next_action": "implement_phase1",
+                "protected_action": "ready_for_review"
+              }
+            },
+            {
+              "op": "replace",
+              "path": "/approval",
+              "value": {
+                "record_state": "absent"
+              }
+            }
+          ],
+          "expected_result": {
+            "contract_version": "automatic-gate-progression-evaluation-result-v2",
+            "task_id": "task-001",
+            "evaluated_at": "2026-07-24T00:00:00Z",
+            "input_fingerprint": "agp-input-v2:sha256:8d598f2247e78ac0fcd596a24ab6146a94112604cef46f492992306258da6da2",
+            "precedence_trace": [
+              "structural_admission",
+              "canonical_authority",
+              "current_evidence",
+              "approval_validity"
+            ],
+            "gate_status_requirement": {
+              "required": false
+            },
+            "kind": "wait_for_protected_action",
+            "protected_action": "ready_for_review",
+            "wait_reason": "approval_missing_or_not_current",
+            "required_approval_fields": [
+              "canonical_record",
+              "author",
+              "repository",
+              "task_id",
+              "pr",
+              "action",
+              "approved_head",
+              "approved_base",
+              "approved_pr_state",
+              "approved_draft",
+              "scope",
+              "validity"
+            ],
+            "required_head": "0123456789abcdef0123456789abcdef01234567",
+            "required_base": "main",
+            "required_pr": "https://github.com/whatrune/sd-prompt-studio/pull/180"
+          },
+          "expected_trace": [
+            "structural_admission",
+            "canonical_authority",
+            "current_evidence",
+            "approval_validity"
+          ],
+          "expected_evidence": [],
+          "forbidden_result_paths": [
+            "/approval_record",
+            "/canonical_evidence_refs",
+            "/execution_stop_reason",
+            "/historical_evidence_refs",
+            "/idempotency_key",
+            "/invalidation_reason",
+            "/next_action",
+            "/predecessor_canonical_url",
+            "/recovery_owner",
+            "/required_fresh_gates",
+            "/required_future_canonical_event",
+            "/required_recovery_evidence",
+            "/requirement",
+            "/same_task_id",
+            "/stop_condition",
+            "/target_head",
+            "/target_role"
+          ],
+          "fingerprint_relation": {
+            "kind": "exact",
+            "value": "agp-input-v2:sha256:8d598f2247e78ac0fcd596a24ab6146a94112604cef46f492992306258da6da2"
+          }
+        },
+        {
+          "parent_row_id": "AGP-X15",
+          "variant_key": "approval_unreadable",
+          "base_fixture_id": "B-O",
+          "operations": [
+            {
+              "op": "replace",
+              "path": "/task_assignment/next_transition",
+              "value": {
+                "target_role": "backend_implementer",
+                "next_action": "implement_phase1",
+                "protected_action": "ready_for_review"
+              }
+            },
+            {
+              "op": "replace",
+              "path": "/approval",
+              "value": {
+                "record_state": "unreadable",
+                "canonical_record": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050"
+              }
+            }
+          ],
+          "expected_result": {
+            "contract_version": "automatic-gate-progression-evaluation-result-v2",
+            "task_id": "task-001",
+            "evaluated_at": "2026-07-24T00:00:00Z",
+            "input_fingerprint": "agp-input-v2:sha256:afdb7924aada4d8a28dc9ed98a72edbcff26b508b917fc6ce531e5d9e413cd8f",
+            "precedence_trace": [
+              "structural_admission",
+              "canonical_authority",
+              "current_evidence",
+              "approval_validity"
+            ],
+            "gate_status_requirement": {
+              "required": false
+            },
+            "kind": "stop",
+            "stop_condition": "fresh_evidence_unavailable",
+            "execution_stop_reason": "external_blocker",
+            "canonical_evidence_refs": [
+              "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050"
+            ],
+            "recovery_owner": "integrated_lead",
+            "required_recovery_evidence": [
+              "fresh_product_owner_approval"
+            ]
+          },
+          "expected_trace": [
+            "structural_admission",
+            "canonical_authority",
+            "current_evidence",
+            "approval_validity"
+          ],
+          "expected_evidence": [
+            {
+              "path": "/canonical_evidence_refs",
+              "urls": [
+                "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050"
+              ]
+            }
+          ],
+          "forbidden_result_paths": [
+            "/approval_record",
+            "/historical_evidence_refs",
+            "/idempotency_key",
+            "/invalidation_reason",
+            "/next_action",
+            "/predecessor_canonical_url",
+            "/protected_action",
+            "/required_approval_fields",
+            "/required_base",
+            "/required_fresh_gates",
+            "/required_future_canonical_event",
+            "/required_head",
+            "/required_pr",
+            "/requirement",
+            "/same_task_id",
+            "/target_head",
+            "/target_role",
+            "/wait_reason"
+          ],
+          "fingerprint_relation": {
+            "kind": "exact",
+            "value": "agp-input-v2:sha256:afdb7924aada4d8a28dc9ed98a72edbcff26b508b917fc6ce531e5d9e413cd8f"
+          }
+        },
+        {
+          "parent_row_id": "AGP-X15",
+          "variant_key": "approval_present",
+          "base_fixture_id": "B-O",
+          "operations": [
+            {
+              "op": "replace",
+              "path": "/task_assignment/next_transition",
+              "value": {
+                "target_role": "backend_implementer",
+                "next_action": "implement_phase1",
+                "protected_action": "ready_for_review"
+              }
+            },
+            {
+              "op": "replace",
+              "path": "/approval",
+              "value": {
+                "record_state": "present",
+                "canonical_record": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
+                "author": {
+                  "provider": "github",
+                  "login": "defma",
+                  "verified_role": "product_owner",
+                  "role_authority_ref": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072441211"
+                },
+                "repository": "whatrune/sd-prompt-studio",
+                "task_id": "task-001",
+                "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+                "action": "ready_for_review",
+                "approved_head": "0123456789abcdef0123456789abcdef01234567",
+                "approved_base": "main",
+                "approved_pr_state": "open",
+                "approved_draft": true,
+                "scope": {
+                  "scope_kind": "single_protected_action",
+                  "task_id": "task-001",
+                  "repository": "whatrune/sd-prompt-studio",
+                  "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+                  "action": "ready_for_review",
+                  "head": "0123456789abcdef0123456789abcdef01234567",
+                  "base": "main",
+                  "pr_state": "open",
+                  "draft": true
+                },
+                "validity": {
+                  "mode": "one_use",
+                  "consumed": false
+                }
+              }
+            }
+          ],
+          "expected_result": {
+            "contract_version": "automatic-gate-progression-evaluation-result-v2",
+            "task_id": "task-001",
+            "evaluated_at": "2026-07-24T00:00:00Z",
+            "input_fingerprint": "agp-input-v2:sha256:85cd522b9fa0934a03b6c1bca710d5676b45e1c8bf3c07849fa809bf1d749379",
+            "precedence_trace": [
+              "structural_admission",
+              "canonical_authority",
+              "current_evidence",
+              "approval_validity",
+              "gate_status",
+              "transition"
+            ],
+            "gate_status_requirement": {
+              "required": false
+            },
+            "kind": "recommend_next_role",
+            "target_role": "backend_implementer",
+            "next_action": "implement_phase1",
+            "predecessor_canonical_url": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+            "target_head": "0123456789abcdef0123456789abcdef01234567",
+            "same_task_id": "task-001",
+            "idempotency_key": "agp-transition-v2:sha256:4025de6100fc756ed93d2c5aeaa5c0f86ccec05ac4c27bb3e83b7170364b33b1"
+          },
+          "expected_trace": [
+            "structural_admission",
+            "canonical_authority",
+            "current_evidence",
+            "approval_validity",
+            "gate_status",
+            "transition"
+          ],
+          "expected_evidence": [],
+          "forbidden_result_paths": [
+            "/approval_record",
+            "/canonical_evidence_refs",
+            "/execution_stop_reason",
+            "/historical_evidence_refs",
+            "/invalidation_reason",
+            "/protected_action",
+            "/recovery_owner",
+            "/required_approval_fields",
+            "/required_base",
+            "/required_fresh_gates",
+            "/required_future_canonical_event",
+            "/required_head",
+            "/required_pr",
+            "/required_recovery_evidence",
+            "/requirement",
+            "/stop_condition",
+            "/wait_reason"
+          ],
+          "fingerprint_relation": {
+            "kind": "exact",
+            "value": "agp-input-v2:sha256:85cd522b9fa0934a03b6c1bca710d5676b45e1c8bf3c07849fa809bf1d749379"
+          }
+        }
+      ]
+    },
+    {
+      "variant_group_contract_version": "automatic-gate-progression-row-variant-group-v1",
+      "row_id": "AGP-X19",
+      "batch": "batch_3",
+      "variants": [
+        {
+          "parent_row_id": "AGP-X19",
+          "variant_key": "needs_followup_architecture_gap",
+          "base_fixture_id": "B-N",
+          "operations": [
+            {
+              "op": "replace",
+              "path": "/result_handoff/status",
+              "value": "needs_followup"
+            },
+            {
+              "op": "replace",
+              "path": "/result_handoff/execution_stop_reason",
+              "value": "architecture_gap"
+            }
+          ],
+          "expected_result": {
+            "contract_version": "automatic-gate-progression-evaluation-result-v2",
+            "task_id": "task-001",
+            "evaluated_at": "2026-07-24T00:00:00Z",
+            "input_fingerprint": "agp-input-v2:sha256:e89038d41d92db71c1c2b68a5aa2a862a64d2a17b2be837910794a55b73d5e16",
+            "precedence_trace": [
+              "structural_admission",
+              "canonical_authority"
+            ],
+            "gate_status_requirement": {
+              "required": false
+            },
+            "kind": "stop",
+            "stop_condition": "transition_not_terminal_or_permitted",
+            "execution_stop_reason": "architecture_gap",
+            "canonical_evidence_refs": [
+              "https://github.com/whatrune/sd-prompt-studio/issues/179",
+              "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+              "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307"
+            ],
+            "recovery_owner": "integrated_lead",
+            "required_recovery_evidence": [
+              "completed_result_handoff"
+            ]
+          },
+          "expected_trace": [
+            "structural_admission",
+            "canonical_authority"
+          ],
+          "expected_evidence": [
+            {
+              "path": "/canonical_evidence_refs",
+              "urls": [
+                "https://github.com/whatrune/sd-prompt-studio/issues/179",
+                "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+                "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307"
+              ]
+            }
+          ],
+          "forbidden_result_paths": [
+            "/approval_record",
+            "/historical_evidence_refs",
+            "/idempotency_key",
+            "/invalidation_reason",
+            "/next_action",
+            "/predecessor_canonical_url",
+            "/protected_action",
+            "/required_approval_fields",
+            "/required_base",
+            "/required_fresh_gates",
+            "/required_future_canonical_event",
+            "/required_head",
+            "/required_pr",
+            "/requirement",
+            "/same_task_id",
+            "/target_head",
+            "/target_role",
+            "/wait_reason"
+          ],
+          "fingerprint_relation": {
+            "kind": "exact",
+            "value": "agp-input-v2:sha256:e89038d41d92db71c1c2b68a5aa2a862a64d2a17b2be837910794a55b73d5e16"
+          }
+        },
+        {
+          "parent_row_id": "AGP-X19",
+          "variant_key": "needs_followup_external_blocker",
+          "base_fixture_id": "B-N",
+          "operations": [
+            {
+              "op": "replace",
+              "path": "/result_handoff/status",
+              "value": "needs_followup"
+            },
+            {
+              "op": "replace",
+              "path": "/result_handoff/execution_stop_reason",
+              "value": "external_blocker"
+            }
+          ],
+          "expected_result": {
+            "contract_version": "automatic-gate-progression-evaluation-result-v2",
+            "task_id": "task-001",
+            "evaluated_at": "2026-07-24T00:00:00Z",
+            "input_fingerprint": "agp-input-v2:sha256:b81484d068eca173e2e78379c65eb2a5e0837dd1a1a3b6b3b1fcb059da9bbc67",
+            "precedence_trace": [
+              "structural_admission",
+              "canonical_authority"
+            ],
+            "gate_status_requirement": {
+              "required": false
+            },
+            "kind": "stop",
+            "stop_condition": "transition_not_terminal_or_permitted",
+            "execution_stop_reason": "external_blocker",
+            "canonical_evidence_refs": [
+              "https://github.com/whatrune/sd-prompt-studio/issues/179",
+              "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+              "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307"
+            ],
+            "recovery_owner": "integrated_lead",
+            "required_recovery_evidence": [
+              "external_blocker_recovery"
+            ]
+          },
+          "expected_trace": [
+            "structural_admission",
+            "canonical_authority"
+          ],
+          "expected_evidence": [
+            {
+              "path": "/canonical_evidence_refs",
+              "urls": [
+                "https://github.com/whatrune/sd-prompt-studio/issues/179",
+                "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+                "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307"
+              ]
+            }
+          ],
+          "forbidden_result_paths": [
+            "/approval_record",
+            "/historical_evidence_refs",
+            "/idempotency_key",
+            "/invalidation_reason",
+            "/next_action",
+            "/predecessor_canonical_url",
+            "/protected_action",
+            "/required_approval_fields",
+            "/required_base",
+            "/required_fresh_gates",
+            "/required_future_canonical_event",
+            "/required_head",
+            "/required_pr",
+            "/requirement",
+            "/same_task_id",
+            "/target_head",
+            "/target_role",
+            "/wait_reason"
+          ],
+          "fingerprint_relation": {
+            "kind": "exact",
+            "value": "agp-input-v2:sha256:b81484d068eca173e2e78379c65eb2a5e0837dd1a1a3b6b3b1fcb059da9bbc67"
+          }
+        },
+        {
+          "parent_row_id": "AGP-X19",
+          "variant_key": "blocked_architecture_gap",
+          "base_fixture_id": "B-N",
+          "operations": [
+            {
+              "op": "replace",
+              "path": "/result_handoff/status",
+              "value": "blocked"
+            },
+            {
+              "op": "replace",
+              "path": "/result_handoff/execution_stop_reason",
+              "value": "architecture_gap"
+            }
+          ],
+          "expected_result": {
+            "contract_version": "automatic-gate-progression-evaluation-result-v2",
+            "task_id": "task-001",
+            "evaluated_at": "2026-07-24T00:00:00Z",
+            "input_fingerprint": "agp-input-v2:sha256:31d5965018dbeb22091e410891802e74c97a8131251f6960de879241222c8bde",
+            "precedence_trace": [
+              "structural_admission",
+              "canonical_authority"
+            ],
+            "gate_status_requirement": {
+              "required": false
+            },
+            "kind": "stop",
+            "stop_condition": "transition_not_terminal_or_permitted",
+            "execution_stop_reason": "architecture_gap",
+            "canonical_evidence_refs": [
+              "https://github.com/whatrune/sd-prompt-studio/issues/179",
+              "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+              "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307"
+            ],
+            "recovery_owner": "integrated_lead",
+            "required_recovery_evidence": [
+              "completed_result_handoff"
+            ]
+          },
+          "expected_trace": [
+            "structural_admission",
+            "canonical_authority"
+          ],
+          "expected_evidence": [
+            {
+              "path": "/canonical_evidence_refs",
+              "urls": [
+                "https://github.com/whatrune/sd-prompt-studio/issues/179",
+                "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+                "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307"
+              ]
+            }
+          ],
+          "forbidden_result_paths": [
+            "/approval_record",
+            "/historical_evidence_refs",
+            "/idempotency_key",
+            "/invalidation_reason",
+            "/next_action",
+            "/predecessor_canonical_url",
+            "/protected_action",
+            "/required_approval_fields",
+            "/required_base",
+            "/required_fresh_gates",
+            "/required_future_canonical_event",
+            "/required_head",
+            "/required_pr",
+            "/requirement",
+            "/same_task_id",
+            "/target_head",
+            "/target_role",
+            "/wait_reason"
+          ],
+          "fingerprint_relation": {
+            "kind": "exact",
+            "value": "agp-input-v2:sha256:31d5965018dbeb22091e410891802e74c97a8131251f6960de879241222c8bde"
+          }
+        },
+        {
+          "parent_row_id": "AGP-X19",
+          "variant_key": "blocked_external_blocker",
+          "base_fixture_id": "B-N",
+          "operations": [
+            {
+              "op": "replace",
+              "path": "/result_handoff/status",
+              "value": "blocked"
+            },
+            {
+              "op": "replace",
+              "path": "/result_handoff/execution_stop_reason",
+              "value": "external_blocker"
+            }
+          ],
+          "expected_result": {
+            "contract_version": "automatic-gate-progression-evaluation-result-v2",
+            "task_id": "task-001",
+            "evaluated_at": "2026-07-24T00:00:00Z",
+            "input_fingerprint": "agp-input-v2:sha256:2ba0a1d06ce05a0633b8b85a884b3c8c7b25431ecbdf63a0af4c401775398d72",
+            "precedence_trace": [
+              "structural_admission",
+              "canonical_authority"
+            ],
+            "gate_status_requirement": {
+              "required": false
+            },
+            "kind": "stop",
+            "stop_condition": "transition_not_terminal_or_permitted",
+            "execution_stop_reason": "external_blocker",
+            "canonical_evidence_refs": [
+              "https://github.com/whatrune/sd-prompt-studio/issues/179",
+              "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+              "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307"
+            ],
+            "recovery_owner": "integrated_lead",
+            "required_recovery_evidence": [
+              "external_blocker_recovery"
+            ]
+          },
+          "expected_trace": [
+            "structural_admission",
+            "canonical_authority"
+          ],
+          "expected_evidence": [
+            {
+              "path": "/canonical_evidence_refs",
+              "urls": [
+                "https://github.com/whatrune/sd-prompt-studio/issues/179",
+                "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+                "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307"
+              ]
+            }
+          ],
+          "forbidden_result_paths": [
+            "/approval_record",
+            "/historical_evidence_refs",
+            "/idempotency_key",
+            "/invalidation_reason",
+            "/next_action",
+            "/predecessor_canonical_url",
+            "/protected_action",
+            "/required_approval_fields",
+            "/required_base",
+            "/required_fresh_gates",
+            "/required_future_canonical_event",
+            "/required_head",
+            "/required_pr",
+            "/requirement",
+            "/same_task_id",
+            "/target_head",
+            "/target_role",
+            "/wait_reason"
+          ],
+          "fingerprint_relation": {
+            "kind": "exact",
+            "value": "agp-input-v2:sha256:2ba0a1d06ce05a0633b8b85a884b3c8c7b25431ecbdf63a0af4c401775398d72"
+          }
+        }
+      ]
+    },
+    {
+      "variant_group_contract_version": "automatic-gate-progression-row-variant-group-v1",
+      "row_id": "AGP-X22",
+      "batch": "batch_3",
+      "variants": [
+        {
+          "parent_row_id": "AGP-X22",
+          "variant_key": "predecessor_ref_mismatch",
+          "base_fixture_id": "B-N",
+          "operations": [
+            {
+              "op": "replace",
+              "path": "/task_assignment/allowed_actions",
+              "value": [
+                "correct_phase1_pure_evaluator"
+              ]
+            },
+            {
+              "op": "add",
+              "path": "/result_handoff/recommended_next_action",
+              "value": "implement_phase1_pure_evaluator"
+            },
+            {
+              "op": "replace",
+              "path": "/review_decision/decision",
+              "value": "needs_followup"
+            },
+            {
+              "op": "replace",
+              "path": "/review_decision/blocking_findings",
+              "value": [
+                {
+                  "finding_id": "f1",
+                  "state": "closed"
+                }
+              ]
+            },
+            {
+              "op": "add",
+              "path": "/review_decision/correction",
+              "value": {
+                "target_role": "backend_implementer",
+                "next_action": "correct_phase1_pure_evaluator",
+                "task_id": "task-001",
+                "repository": "whatrune/sd-prompt-studio",
+                "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+                "head": "0123456789abcdef0123456789abcdef01234567",
+                "correction_scope_ref": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+                "predecessor_handoff_ref": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
+                "predecessor_action": "implement_phase1_pure_evaluator"
+              }
+            }
+          ],
+          "expected_result": {
+            "contract_version": "automatic-gate-progression-evaluation-result-v2",
+            "task_id": "task-001",
+            "evaluated_at": "2026-07-24T00:00:00Z",
+            "input_fingerprint": "agp-input-v2:sha256:b722fd5cfb64e05036d2cd0bf3fcdc7e884830b40bd3d53bfa7c713903618932",
+            "precedence_trace": [
+              "structural_admission",
+              "canonical_authority"
+            ],
+            "gate_status_requirement": {
+              "required": false
+            },
+            "kind": "stop",
+            "stop_condition": "canonical_conflict",
+            "execution_stop_reason": "architecture_gap",
+            "canonical_evidence_refs": [
+              "https://github.com/whatrune/sd-prompt-studio/issues/179",
+              "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
+              "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+              "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+              "https://github.com/whatrune/sd-prompt-studio/pull/180"
+            ],
+            "recovery_owner": "backend_architect",
+            "required_recovery_evidence": [
+              "fresh_review_correction"
+            ]
+          },
+          "expected_trace": [
+            "structural_admission",
+            "canonical_authority"
+          ],
+          "expected_evidence": [
+            {
+              "path": "/canonical_evidence_refs",
+              "urls": [
+                "https://github.com/whatrune/sd-prompt-studio/issues/179",
+                "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
+                "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+                "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+                "https://github.com/whatrune/sd-prompt-studio/pull/180"
+              ]
+            }
+          ],
+          "forbidden_result_paths": [
+            "/approval_record",
+            "/historical_evidence_refs",
+            "/idempotency_key",
+            "/invalidation_reason",
+            "/next_action",
+            "/predecessor_canonical_url",
+            "/protected_action",
+            "/required_approval_fields",
+            "/required_base",
+            "/required_fresh_gates",
+            "/required_future_canonical_event",
+            "/required_head",
+            "/required_pr",
+            "/requirement",
+            "/same_task_id",
+            "/target_head",
+            "/target_role",
+            "/wait_reason"
+          ],
+          "fingerprint_relation": {
+            "kind": "exact",
+            "value": "agp-input-v2:sha256:b722fd5cfb64e05036d2cd0bf3fcdc7e884830b40bd3d53bfa7c713903618932"
+          }
+        },
+        {
+          "parent_row_id": "AGP-X22",
+          "variant_key": "predecessor_action_mismatch",
+          "base_fixture_id": "B-N",
+          "operations": [
+            {
+              "op": "replace",
+              "path": "/task_assignment/allowed_actions",
+              "value": [
+                "correct_phase1_pure_evaluator"
+              ]
+            },
+            {
+              "op": "add",
+              "path": "/result_handoff/recommended_next_action",
+              "value": "implement_phase1_pure_evaluator"
+            },
+            {
+              "op": "replace",
+              "path": "/review_decision/decision",
+              "value": "needs_followup"
+            },
+            {
+              "op": "replace",
+              "path": "/review_decision/blocking_findings",
+              "value": [
+                {
+                  "finding_id": "f1",
+                  "state": "closed"
+                }
+              ]
+            },
+            {
+              "op": "add",
+              "path": "/review_decision/correction",
+              "value": {
+                "target_role": "backend_implementer",
+                "next_action": "correct_phase1_pure_evaluator",
+                "task_id": "task-001",
+                "repository": "whatrune/sd-prompt-studio",
+                "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+                "head": "0123456789abcdef0123456789abcdef01234567",
+                "correction_scope_ref": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+                "predecessor_handoff_ref": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+                "predecessor_action": "other_action"
+              }
+            }
+          ],
+          "expected_result": {
+            "contract_version": "automatic-gate-progression-evaluation-result-v2",
+            "task_id": "task-001",
+            "evaluated_at": "2026-07-24T00:00:00Z",
+            "input_fingerprint": "agp-input-v2:sha256:968d0ae388bde01304a8c369e5242a1cda938a9e8f8023384e929b231083d6c7",
+            "precedence_trace": [
+              "structural_admission",
+              "canonical_authority"
+            ],
+            "gate_status_requirement": {
+              "required": false
+            },
+            "kind": "stop",
+            "stop_condition": "canonical_conflict",
+            "execution_stop_reason": "architecture_gap",
+            "canonical_evidence_refs": [
+              "https://github.com/whatrune/sd-prompt-studio/issues/179",
+              "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+              "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+              "https://github.com/whatrune/sd-prompt-studio/pull/180"
+            ],
+            "recovery_owner": "backend_architect",
+            "required_recovery_evidence": [
+              "fresh_review_correction"
+            ]
+          },
+          "expected_trace": [
+            "structural_admission",
+            "canonical_authority"
+          ],
+          "expected_evidence": [
+            {
+              "path": "/canonical_evidence_refs",
+              "urls": [
+                "https://github.com/whatrune/sd-prompt-studio/issues/179",
+                "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+                "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
+                "https://github.com/whatrune/sd-prompt-studio/pull/180"
+              ]
+            }
+          ],
+          "forbidden_result_paths": [
+            "/approval_record",
+            "/historical_evidence_refs",
+            "/idempotency_key",
+            "/invalidation_reason",
+            "/next_action",
+            "/predecessor_canonical_url",
+            "/protected_action",
+            "/required_approval_fields",
+            "/required_base",
+            "/required_fresh_gates",
+            "/required_future_canonical_event",
+            "/required_head",
+            "/required_pr",
+            "/requirement",
+            "/same_task_id",
+            "/target_head",
+            "/target_role",
+            "/wait_reason"
+          ],
+          "fingerprint_relation": {
+            "kind": "exact",
+            "value": "agp-input-v2:sha256:968d0ae388bde01304a8c369e5242a1cda938a9e8f8023384e929b231083d6c7"
+          }
+        }
+      ]
+    }
+  ],
+  "structural_admission_meta_tests": [
+    {
+      "meta_test_contract_version": "automatic-gate-progression-meta-test-v1",
+      "meta_test_id": "AGP-X16",
+      "batch": "batch_3",
+      "test_kind": "structural_admission_rejection",
+      "target_public_module": "src/automatic-gate-progression/index.ts",
+      "target_public_export": "evaluateAutomaticGateProgressionV2",
+      "authority_refs": [
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069673150",
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069818298",
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069855756",
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069931815",
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5070071485",
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+        "https://github.com/whatrune/sd-prompt-studio/issues/181#issuecomment-5076900737"
+      ],
+      "structural_cases": [
+        {
+          "case_key": "approval_present_unknown_field",
+          "base_fixture_id": "B-O",
+          "operations": [
+            {
+              "op": "replace",
+              "path": "/task_assignment/next_transition",
+              "value": {
+                "target_role": "backend_implementer",
+                "next_action": "implement_phase1",
+                "protected_action": "ready_for_review"
+              }
+            },
+            {
+              "op": "replace",
+              "path": "/approval",
+              "value": {
+                "record_state": "present",
+                "canonical_record": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
+                "author": {
+                  "provider": "github",
+                  "login": "defma",
+                  "verified_role": "product_owner",
+                  "role_authority_ref": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072441211"
+                },
+                "repository": "whatrune/sd-prompt-studio",
+                "task_id": "task-001",
+                "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+                "action": "ready_for_review",
+                "approved_head": "0123456789abcdef0123456789abcdef01234567",
+                "approved_base": "main",
+                "approved_pr_state": "open",
+                "approved_draft": true,
+                "scope": {
+                  "scope_kind": "single_protected_action",
+                  "task_id": "task-001",
+                  "repository": "whatrune/sd-prompt-studio",
+                  "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+                  "action": "ready_for_review",
+                  "head": "0123456789abcdef0123456789abcdef01234567",
+                  "base": "main",
+                  "pr_state": "open",
+                  "draft": true
+                },
+                "validity": {
+                  "mode": "one_use",
+                  "consumed": false
+                },
+                "unexpected_field": true
+              }
+            }
+          ],
+          "expected_admission_rejection": {
+            "code": "unknown_field",
+            "path": "/approval/unexpected_field"
+          },
+          "expected_safe_result": {
+            "contract_version": "automatic-gate-progression-evaluation-result-v2",
+            "task_id": "unknown_task",
+            "evaluated_at": "1970-01-01T00:00:00Z",
+            "input_fingerprint": "invalid-input-v2",
+            "precedence_trace": [
+              "structural_admission"
+            ],
+            "gate_status_requirement": {
+              "required": false
+            },
+            "kind": "stop",
+            "stop_condition": "malformed_or_unknown_input",
+            "execution_stop_reason": "architecture_gap",
+            "canonical_evidence_refs": [],
+            "recovery_owner": "backend_architect",
+            "required_recovery_evidence": [
+              "correct_v2_input"
+            ]
+          },
+          "expected_trace": [
+            "structural_admission"
+          ],
+          "expected_evidence": [
+            {
+              "path": "/canonical_evidence_refs",
+              "urls": []
+            }
+          ],
+          "forbidden_result_paths": [
+            "/approval_record",
+            "/historical_evidence_refs",
+            "/idempotency_key",
+            "/invalidation_reason",
+            "/next_action",
+            "/predecessor_canonical_url",
+            "/protected_action",
+            "/required_approval_fields",
+            "/required_base",
+            "/required_fresh_gates",
+            "/required_future_canonical_event",
+            "/required_head",
+            "/required_pr",
+            "/requirement",
+            "/same_task_id",
+            "/target_head",
+            "/target_role",
+            "/wait_reason"
+          ],
+          "fingerprint_relation": {
+            "kind": "invalid",
+            "value": "invalid-input-v2"
+          }
+        }
+      ],
+      "assertions": [
+        "the literal patch program is admitted by PatchOperationV1",
+        "V2 Structural Admission rejects before semantic evaluation with the exact code and RFC 6901 path",
+        "the public evaluator returns the exact safe structural stop and does not throw or reject",
+        "the malformed input is unchanged and no raw malformed value is exposed"
+      ]
+    },
+    {
+      "meta_test_contract_version": "automatic-gate-progression-meta-test-v1",
+      "meta_test_id": "AGP-X17",
+      "batch": "batch_3",
+      "test_kind": "structural_admission_rejection",
+      "target_public_module": "src/automatic-gate-progression/index.ts",
+      "target_public_export": "evaluateAutomaticGateProgressionV2",
+      "authority_refs": [
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069673150",
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069818298",
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069855756",
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069931815",
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5070071485",
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+        "https://github.com/whatrune/sd-prompt-studio/issues/181#issuecomment-5076900737"
+      ],
+      "structural_cases": [
+        {
+          "case_key": "approval_task_identity_mismatch",
+          "base_fixture_id": "B-O",
+          "operations": [
+            {
+              "op": "replace",
+              "path": "/task_assignment/next_transition",
+              "value": {
+                "target_role": "backend_implementer",
+                "next_action": "implement_phase1",
+                "protected_action": "ready_for_review"
+              }
+            },
+            {
+              "op": "replace",
+              "path": "/approval",
+              "value": {
+                "record_state": "present",
+                "canonical_record": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
+                "author": {
+                  "provider": "github",
+                  "login": "defma",
+                  "verified_role": "product_owner",
+                  "role_authority_ref": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072441211"
+                },
+                "repository": "whatrune/sd-prompt-studio",
+                "task_id": "task-001",
+                "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+                "action": "ready_for_review",
+                "approved_head": "0123456789abcdef0123456789abcdef01234567",
+                "approved_base": "main",
+                "approved_pr_state": "open",
+                "approved_draft": true,
+                "scope": {
+                  "scope_kind": "single_protected_action",
+                  "task_id": "task-001",
+                  "repository": "whatrune/sd-prompt-studio",
+                  "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+                  "action": "ready_for_review",
+                  "head": "0123456789abcdef0123456789abcdef01234567",
+                  "base": "main",
+                  "pr_state": "open",
+                  "draft": true
+                },
+                "validity": {
+                  "mode": "one_use",
+                  "consumed": false
+                }
+              }
+            },
+            {
+              "op": "replace",
+              "path": "/approval/task_id",
+              "value": "other-task"
+            },
+            {
+              "op": "replace",
+              "path": "/approval/scope/task_id",
+              "value": "other-task"
+            }
+          ],
+          "expected_admission_rejection": {
+            "code": "invalid_conditional_matrix",
+            "path": "/approval/task_id"
+          },
+          "expected_safe_result": {
+            "contract_version": "automatic-gate-progression-evaluation-result-v2",
+            "task_id": "unknown_task",
+            "evaluated_at": "1970-01-01T00:00:00Z",
+            "input_fingerprint": "invalid-input-v2",
+            "precedence_trace": [
+              "structural_admission"
+            ],
+            "gate_status_requirement": {
+              "required": false
+            },
+            "kind": "stop",
+            "stop_condition": "malformed_or_unknown_input",
+            "execution_stop_reason": "architecture_gap",
+            "canonical_evidence_refs": [],
+            "recovery_owner": "backend_architect",
+            "required_recovery_evidence": [
+              "correct_v2_input"
+            ]
+          },
+          "expected_trace": [
+            "structural_admission"
+          ],
+          "expected_evidence": [
+            {
+              "path": "/canonical_evidence_refs",
+              "urls": []
+            }
+          ],
+          "forbidden_result_paths": [
+            "/approval_record",
+            "/historical_evidence_refs",
+            "/idempotency_key",
+            "/invalidation_reason",
+            "/next_action",
+            "/predecessor_canonical_url",
+            "/protected_action",
+            "/required_approval_fields",
+            "/required_base",
+            "/required_fresh_gates",
+            "/required_future_canonical_event",
+            "/required_head",
+            "/required_pr",
+            "/requirement",
+            "/same_task_id",
+            "/target_head",
+            "/target_role",
+            "/wait_reason"
+          ],
+          "fingerprint_relation": {
+            "kind": "invalid",
+            "value": "invalid-input-v2"
+          }
+        }
+      ],
+      "assertions": [
+        "the literal patch program is admitted by PatchOperationV1",
+        "V2 Structural Admission rejects before semantic evaluation with the exact code and RFC 6901 path",
+        "the public evaluator returns the exact safe structural stop and does not throw or reject",
+        "the malformed input is unchanged and no raw malformed value is exposed"
+      ]
+    },
+    {
+      "meta_test_contract_version": "automatic-gate-progression-meta-test-v1",
+      "meta_test_id": "AGP-X20",
+      "batch": "batch_3",
+      "test_kind": "structural_admission_rejection",
+      "target_public_module": "src/automatic-gate-progression/index.ts",
+      "target_public_export": "evaluateAutomaticGateProgressionV2",
+      "authority_refs": [
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069673150",
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069818298",
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069855756",
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069931815",
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5070071485",
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+        "https://github.com/whatrune/sd-prompt-studio/issues/181#issuecomment-5076900737"
+      ],
+      "structural_cases": [
+        {
+          "case_key": "unsupported_completed_architecture_gap_pair",
+          "base_fixture_id": "B-N",
+          "operations": [
+            {
+              "op": "replace",
+              "path": "/result_handoff/execution_stop_reason",
+              "value": "architecture_gap"
+            }
+          ],
+          "expected_admission_rejection": {
+            "code": "invalid_conditional_matrix",
+            "path": "/result_handoff/execution_stop_reason"
+          },
+          "expected_safe_result": {
+            "contract_version": "automatic-gate-progression-evaluation-result-v2",
+            "task_id": "unknown_task",
+            "evaluated_at": "1970-01-01T00:00:00Z",
+            "input_fingerprint": "invalid-input-v2",
+            "precedence_trace": [
+              "structural_admission"
+            ],
+            "gate_status_requirement": {
+              "required": false
+            },
+            "kind": "stop",
+            "stop_condition": "malformed_or_unknown_input",
+            "execution_stop_reason": "architecture_gap",
+            "canonical_evidence_refs": [],
+            "recovery_owner": "backend_architect",
+            "required_recovery_evidence": [
+              "correct_v2_input"
+            ]
+          },
+          "expected_trace": [
+            "structural_admission"
+          ],
+          "expected_evidence": [
+            {
+              "path": "/canonical_evidence_refs",
+              "urls": []
+            }
+          ],
+          "forbidden_result_paths": [
+            "/approval_record",
+            "/historical_evidence_refs",
+            "/idempotency_key",
+            "/invalidation_reason",
+            "/next_action",
+            "/predecessor_canonical_url",
+            "/protected_action",
+            "/required_approval_fields",
+            "/required_base",
+            "/required_fresh_gates",
+            "/required_future_canonical_event",
+            "/required_head",
+            "/required_pr",
+            "/requirement",
+            "/same_task_id",
+            "/target_head",
+            "/target_role",
+            "/wait_reason"
+          ],
+          "fingerprint_relation": {
+            "kind": "invalid",
+            "value": "invalid-input-v2"
+          }
+        }
+      ],
+      "assertions": [
+        "the literal patch program is admitted by PatchOperationV1",
+        "V2 Structural Admission rejects before semantic evaluation with the exact code and RFC 6901 path",
+        "the public evaluator returns the exact safe structural stop and does not throw or reject",
+        "the malformed input is unchanged and no raw malformed value is exposed"
+      ]
+    },
+    {
+      "meta_test_contract_version": "automatic-gate-progression-meta-test-v1",
+      "meta_test_id": "AGP-X25",
+      "batch": "batch_3",
+      "test_kind": "structural_admission_rejection",
+      "target_public_module": "src/automatic-gate-progression/index.ts",
+      "target_public_export": "evaluateAutomaticGateProgressionV2",
+      "authority_refs": [
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069673150",
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069818298",
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069855756",
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069931815",
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5070071485",
+        "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
+        "https://github.com/whatrune/sd-prompt-studio/issues/181#issuecomment-5076900737"
+      ],
+      "structural_cases": [
+        {
+          "case_key": "expires_at_missing_timestamp",
+          "base_fixture_id": "B-O",
+          "operations": [
+            {
+              "op": "replace",
+              "path": "/task_assignment/next_transition",
+              "value": {
+                "target_role": "backend_implementer",
+                "next_action": "implement_phase1",
+                "protected_action": "ready_for_review"
+              }
+            },
+            {
+              "op": "replace",
+              "path": "/approval",
+              "value": {
+                "record_state": "present",
+                "canonical_record": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
+                "author": {
+                  "provider": "github",
+                  "login": "defma",
+                  "verified_role": "product_owner",
+                  "role_authority_ref": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072441211"
+                },
+                "repository": "whatrune/sd-prompt-studio",
+                "task_id": "task-001",
+                "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+                "action": "ready_for_review",
+                "approved_head": "0123456789abcdef0123456789abcdef01234567",
+                "approved_base": "main",
+                "approved_pr_state": "open",
+                "approved_draft": true,
+                "scope": {
+                  "scope_kind": "single_protected_action",
+                  "task_id": "task-001",
+                  "repository": "whatrune/sd-prompt-studio",
+                  "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+                  "action": "ready_for_review",
+                  "head": "0123456789abcdef0123456789abcdef01234567",
+                  "base": "main",
+                  "pr_state": "open",
+                  "draft": true
+                },
+                "validity": {
+                  "mode": "expires_at",
+                  "consumed": false
+                }
+              }
+            }
+          ],
+          "expected_admission_rejection": {
+            "code": "missing_required_field",
+            "path": "/approval/validity/expires_at"
+          },
+          "expected_safe_result": {
+            "contract_version": "automatic-gate-progression-evaluation-result-v2",
+            "task_id": "unknown_task",
+            "evaluated_at": "1970-01-01T00:00:00Z",
+            "input_fingerprint": "invalid-input-v2",
+            "precedence_trace": [
+              "structural_admission"
+            ],
+            "gate_status_requirement": {
+              "required": false
+            },
+            "kind": "stop",
+            "stop_condition": "malformed_or_unknown_input",
+            "execution_stop_reason": "architecture_gap",
+            "canonical_evidence_refs": [],
+            "recovery_owner": "backend_architect",
+            "required_recovery_evidence": [
+              "correct_v2_input"
+            ]
+          },
+          "expected_trace": [
+            "structural_admission"
+          ],
+          "expected_evidence": [
+            {
+              "path": "/canonical_evidence_refs",
+              "urls": []
+            }
+          ],
+          "forbidden_result_paths": [
+            "/approval_record",
+            "/historical_evidence_refs",
+            "/idempotency_key",
+            "/invalidation_reason",
+            "/next_action",
+            "/predecessor_canonical_url",
+            "/protected_action",
+            "/required_approval_fields",
+            "/required_base",
+            "/required_fresh_gates",
+            "/required_future_canonical_event",
+            "/required_head",
+            "/required_pr",
+            "/requirement",
+            "/same_task_id",
+            "/target_head",
+            "/target_role",
+            "/wait_reason"
+          ],
+          "fingerprint_relation": {
+            "kind": "invalid",
+            "value": "invalid-input-v2"
+          }
+        },
+        {
+          "case_key": "expires_at_invalid_timestamp",
+          "base_fixture_id": "B-O",
+          "operations": [
+            {
+              "op": "replace",
+              "path": "/task_assignment/next_transition",
+              "value": {
+                "target_role": "backend_implementer",
+                "next_action": "implement_phase1",
+                "protected_action": "ready_for_review"
+              }
+            },
+            {
+              "op": "replace",
+              "path": "/approval",
+              "value": {
+                "record_state": "present",
+                "canonical_record": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
+                "author": {
+                  "provider": "github",
+                  "login": "defma",
+                  "verified_role": "product_owner",
+                  "role_authority_ref": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072441211"
+                },
+                "repository": "whatrune/sd-prompt-studio",
+                "task_id": "task-001",
+                "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+                "action": "ready_for_review",
+                "approved_head": "0123456789abcdef0123456789abcdef01234567",
+                "approved_base": "main",
+                "approved_pr_state": "open",
+                "approved_draft": true,
+                "scope": {
+                  "scope_kind": "single_protected_action",
+                  "task_id": "task-001",
+                  "repository": "whatrune/sd-prompt-studio",
+                  "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+                  "action": "ready_for_review",
+                  "head": "0123456789abcdef0123456789abcdef01234567",
+                  "base": "main",
+                  "pr_state": "open",
+                  "draft": true
+                },
+                "validity": {
+                  "mode": "expires_at",
+                  "expires_at": "not-a-timestamp",
+                  "consumed": false
+                }
+              }
+            }
+          ],
+          "expected_admission_rejection": {
+            "code": "invalid_type_or_format",
+            "path": "/approval/validity/expires_at"
+          },
+          "expected_safe_result": {
+            "contract_version": "automatic-gate-progression-evaluation-result-v2",
+            "task_id": "unknown_task",
+            "evaluated_at": "1970-01-01T00:00:00Z",
+            "input_fingerprint": "invalid-input-v2",
+            "precedence_trace": [
+              "structural_admission"
+            ],
+            "gate_status_requirement": {
+              "required": false
+            },
+            "kind": "stop",
+            "stop_condition": "malformed_or_unknown_input",
+            "execution_stop_reason": "architecture_gap",
+            "canonical_evidence_refs": [],
+            "recovery_owner": "backend_architect",
+            "required_recovery_evidence": [
+              "correct_v2_input"
+            ]
+          },
+          "expected_trace": [
+            "structural_admission"
+          ],
+          "expected_evidence": [
+            {
+              "path": "/canonical_evidence_refs",
+              "urls": []
+            }
+          ],
+          "forbidden_result_paths": [
+            "/approval_record",
+            "/historical_evidence_refs",
+            "/idempotency_key",
+            "/invalidation_reason",
+            "/next_action",
+            "/predecessor_canonical_url",
+            "/protected_action",
+            "/required_approval_fields",
+            "/required_base",
+            "/required_fresh_gates",
+            "/required_future_canonical_event",
+            "/required_head",
+            "/required_pr",
+            "/requirement",
+            "/same_task_id",
+            "/target_head",
+            "/target_role",
+            "/wait_reason"
+          ],
+          "fingerprint_relation": {
+            "kind": "invalid",
+            "value": "invalid-input-v2"
+          }
+        },
+        {
+          "case_key": "validity_mode_invalid_enum",
+          "base_fixture_id": "B-O",
+          "operations": [
+            {
+              "op": "replace",
+              "path": "/task_assignment/next_transition",
+              "value": {
+                "target_role": "backend_implementer",
+                "next_action": "implement_phase1",
+                "protected_action": "ready_for_review"
+              }
+            },
+            {
+              "op": "replace",
+              "path": "/approval",
+              "value": {
+                "record_state": "present",
+                "canonical_record": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
+                "author": {
+                  "provider": "github",
+                  "login": "defma",
+                  "verified_role": "product_owner",
+                  "role_authority_ref": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072441211"
+                },
+                "repository": "whatrune/sd-prompt-studio",
+                "task_id": "task-001",
+                "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+                "action": "ready_for_review",
+                "approved_head": "0123456789abcdef0123456789abcdef01234567",
+                "approved_base": "main",
+                "approved_pr_state": "open",
+                "approved_draft": true,
+                "scope": {
+                  "scope_kind": "single_protected_action",
+                  "task_id": "task-001",
+                  "repository": "whatrune/sd-prompt-studio",
+                  "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+                  "action": "ready_for_review",
+                  "head": "0123456789abcdef0123456789abcdef01234567",
+                  "base": "main",
+                  "pr_state": "open",
+                  "draft": true
+                },
+                "validity": {
+                  "mode": "forever",
+                  "consumed": false
+                }
+              }
+            }
+          ],
+          "expected_admission_rejection": {
+            "code": "invalid_enum",
+            "path": "/approval/validity/mode"
+          },
+          "expected_safe_result": {
+            "contract_version": "automatic-gate-progression-evaluation-result-v2",
+            "task_id": "unknown_task",
+            "evaluated_at": "1970-01-01T00:00:00Z",
+            "input_fingerprint": "invalid-input-v2",
+            "precedence_trace": [
+              "structural_admission"
+            ],
+            "gate_status_requirement": {
+              "required": false
+            },
+            "kind": "stop",
+            "stop_condition": "malformed_or_unknown_input",
+            "execution_stop_reason": "architecture_gap",
+            "canonical_evidence_refs": [],
+            "recovery_owner": "backend_architect",
+            "required_recovery_evidence": [
+              "correct_v2_input"
+            ]
+          },
+          "expected_trace": [
+            "structural_admission"
+          ],
+          "expected_evidence": [
+            {
+              "path": "/canonical_evidence_refs",
+              "urls": []
+            }
+          ],
+          "forbidden_result_paths": [
+            "/approval_record",
+            "/historical_evidence_refs",
+            "/idempotency_key",
+            "/invalidation_reason",
+            "/next_action",
+            "/predecessor_canonical_url",
+            "/protected_action",
+            "/required_approval_fields",
+            "/required_base",
+            "/required_fresh_gates",
+            "/required_future_canonical_event",
+            "/required_head",
+            "/required_pr",
+            "/requirement",
+            "/same_task_id",
+            "/target_head",
+            "/target_role",
+            "/wait_reason"
+          ],
+          "fingerprint_relation": {
+            "kind": "invalid",
+            "value": "invalid-input-v2"
+          }
+        },
+        {
+          "case_key": "validity_unknown_field",
+          "base_fixture_id": "B-O",
+          "operations": [
+            {
+              "op": "replace",
+              "path": "/task_assignment/next_transition",
+              "value": {
+                "target_role": "backend_implementer",
+                "next_action": "implement_phase1",
+                "protected_action": "ready_for_review"
+              }
+            },
+            {
+              "op": "replace",
+              "path": "/approval",
+              "value": {
+                "record_state": "present",
+                "canonical_record": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
+                "author": {
+                  "provider": "github",
+                  "login": "defma",
+                  "verified_role": "product_owner",
+                  "role_authority_ref": "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072441211"
+                },
+                "repository": "whatrune/sd-prompt-studio",
+                "task_id": "task-001",
+                "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+                "action": "ready_for_review",
+                "approved_head": "0123456789abcdef0123456789abcdef01234567",
+                "approved_base": "main",
+                "approved_pr_state": "open",
+                "approved_draft": true,
+                "scope": {
+                  "scope_kind": "single_protected_action",
+                  "task_id": "task-001",
+                  "repository": "whatrune/sd-prompt-studio",
+                  "pr": "https://github.com/whatrune/sd-prompt-studio/pull/180",
+                  "action": "ready_for_review",
+                  "head": "0123456789abcdef0123456789abcdef01234567",
+                  "base": "main",
+                  "pr_state": "open",
+                  "draft": true
+                },
+                "validity": {
+                  "mode": "one_use",
+                  "consumed": false,
+                  "unexpected_field": true
+                }
+              }
+            }
+          ],
+          "expected_admission_rejection": {
+            "code": "unknown_field",
+            "path": "/approval/validity/unexpected_field"
+          },
+          "expected_safe_result": {
+            "contract_version": "automatic-gate-progression-evaluation-result-v2",
+            "task_id": "unknown_task",
+            "evaluated_at": "1970-01-01T00:00:00Z",
+            "input_fingerprint": "invalid-input-v2",
+            "precedence_trace": [
+              "structural_admission"
+            ],
+            "gate_status_requirement": {
+              "required": false
+            },
+            "kind": "stop",
+            "stop_condition": "malformed_or_unknown_input",
+            "execution_stop_reason": "architecture_gap",
+            "canonical_evidence_refs": [],
+            "recovery_owner": "backend_architect",
+            "required_recovery_evidence": [
+              "correct_v2_input"
+            ]
+          },
+          "expected_trace": [
+            "structural_admission"
+          ],
+          "expected_evidence": [
+            {
+              "path": "/canonical_evidence_refs",
+              "urls": []
+            }
+          ],
+          "forbidden_result_paths": [
+            "/approval_record",
+            "/historical_evidence_refs",
+            "/idempotency_key",
+            "/invalidation_reason",
+            "/next_action",
+            "/predecessor_canonical_url",
+            "/protected_action",
+            "/required_approval_fields",
+            "/required_base",
+            "/required_fresh_gates",
+            "/required_future_canonical_event",
+            "/required_head",
+            "/required_pr",
+            "/requirement",
+            "/same_task_id",
+            "/target_head",
+            "/target_role",
+            "/wait_reason"
+          ],
+          "fingerprint_relation": {
+            "kind": "invalid",
+            "value": "invalid-input-v2"
+          }
+        }
+      ],
+      "assertions": [
+        "the literal patch program is admitted by PatchOperationV1",
+        "V2 Structural Admission rejects before semantic evaluation with the exact code and RFC 6901 path",
+        "the public evaluator returns the exact safe structural stop and does not throw or reject",
+        "the malformed input is unchanged and no raw malformed value is exposed"
+      ]
+    }
+  ],
+  "static_meta_tests": []
+}
