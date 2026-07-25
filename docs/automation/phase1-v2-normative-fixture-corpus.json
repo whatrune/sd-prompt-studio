@@ -1,5 +1,5 @@
 {
-  "artifact_version": "1.0.0",
+  "artifact_version": "1.0.1",
   "schema_version": "phase1-v2-fixture-manifest-v1",
   "contract_version": "normative-fixture-encoding-v1",
   "expansion_contract_version": "normative-fixture-expansion-v1",
@@ -12,7 +12,7 @@
   },
   "manifest": {
     "artifact_path": "docs/automation/phase1-v2-normative-fixture-corpus.json",
-    "artifact_version": "1.0.0",
+    "artifact_version": "1.0.1",
     "schema_version": "phase1-v2-fixture-manifest-v1",
     "ordering": {
       "catalog": "batch_1_to_batch_4_then_declared_catalog_order",
@@ -67,11 +67,11 @@
         "excluded_json_pointer": "/manifest/digest/value"
       }
     },
-    "matrix_expansion_digest": "sha256:604e32ccf10172695cbcde0e2aeafbaab57dac79ec96a2c709326a65e54135ef",
+    "matrix_expansion_digest": "sha256:ee0663ec97dee4fc80a06d8dd8d9bd4c147c97a20705042358316df09c1c92da",
     "digest": {
       "kind": "corpus_digest",
       "algorithm": "sha256",
-      "value": "sha256:b5bcd3d9d2feb154749c7d899df6135a665e046d7c6da3e19d5015764f7a8f8d"
+      "value": "sha256:5271fa413afdace667086c6fa69f5f59a7a3cb089ba416700fd6e6c60163a289"
     }
   },
   "base_fixtures": [
@@ -6459,7 +6459,6 @@
         "execution_stop_reason": "architecture_gap",
         "canonical_evidence_refs": [
           "https://github.com/whatrune/sd-prompt-studio/issues/179",
-          "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
           "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
           "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
           "https://github.com/whatrune/sd-prompt-studio/pull/180"
@@ -6478,7 +6477,6 @@
           "path": "/canonical_evidence_refs",
           "urls": [
             "https://github.com/whatrune/sd-prompt-studio/issues/179",
-            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
             "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
             "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
             "https://github.com/whatrune/sd-prompt-studio/pull/180"
@@ -6510,8 +6508,8 @@
         "value": "agp-input-v2:sha256:418197b559cf6658d347600ec2bd008976891f0043bc114079a103938adf952f"
       },
       "expanded_input_digest": "sha256:418197b559cf6658d347600ec2bd008976891f0043bc114079a103938adf952f",
-      "expanded_result_digest": "sha256:c767edbf65c1a6c283c56625f5e0e25eb05a2c9f3dc04b3b74c0a088c302f9d9",
-      "row_digest": "sha256:b9e88b98aa6a9f4b4dfb3620bd385c319f36f1622cee7294f78578f35b8c1431"
+      "expanded_result_digest": "sha256:77105699241a94362ff27b961797338a8b16daf6933ac55cc7bc6deaddcd9be5",
+      "row_digest": "sha256:58402d2c2405493367e8ecfd6170d8e94ecb74deb218e4f0bb34aae6f56aed1a"
     },
     {
       "ordinal": 53,
@@ -6584,7 +6582,6 @@
         "execution_stop_reason": "architecture_gap",
         "canonical_evidence_refs": [
           "https://github.com/whatrune/sd-prompt-studio/issues/179",
-          "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
           "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
           "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
           "https://github.com/whatrune/sd-prompt-studio/pull/180"
@@ -6603,7 +6600,6 @@
           "path": "/canonical_evidence_refs",
           "urls": [
             "https://github.com/whatrune/sd-prompt-studio/issues/179",
-            "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5069371050",
             "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5071425438",
             "https://github.com/whatrune/sd-prompt-studio/issues/179#issuecomment-5072260307",
             "https://github.com/whatrune/sd-prompt-studio/pull/180"
@@ -6635,8 +6631,8 @@
         "value": "agp-input-v2:sha256:28f9e3f01e1471f1a77c5c755d32b2bc57287c59ee244fa584aa809e0f83a746"
       },
       "expanded_input_digest": "sha256:28f9e3f01e1471f1a77c5c755d32b2bc57287c59ee244fa584aa809e0f83a746",
-      "expanded_result_digest": "sha256:794015771cd80051bcd6428834b61bdbf356ce841947899bf338fe7913fc9f97",
-      "row_digest": "sha256:57710118e1439da15a56d93514d7af26aa41d62715f103458aa3806dd89d137d"
+      "expanded_result_digest": "sha256:d7ce0bd550983dc15cd1c158bbbdbcfc88851a4304a0f3b3a66857c398eed352",
+      "row_digest": "sha256:123287d882417cf71c2b87d84bdb9587f3afec504b79f92943ee349edf92cdf9"
     },
     {
       "ordinal": 54,
