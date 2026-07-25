@@ -358,6 +358,66 @@ try {
   }
   equal(structuralInvocationCount, 25, 'all Structural Admission cases invoked')
 
+  const actionIdRegressionCases = [
+    { caseKey: 'hyphenated_action_id', actionId: 'implement-phase1' },
+    { caseKey: 'sixty_five_character_action_id', actionId: `a${'a'.repeat(64)}` },
+  ]
+  for (const testCase of actionIdRegressionCases) {
+    const input = clone(baseById.get('B-O').literal_v2_input)
+    input.task_assignment.allowed_actions = [testCase.actionId]
+    const before = canonicalize(input)
+    const actual = api.evaluateAutomaticGateProgressionV2(input)
+    equal(actual.kind, 'stop', `ActionId regression kind ${testCase.caseKey}`)
+    equal(
+      actual.stop_condition,
+      'malformed_or_unknown_input',
+      `ActionId regression stop condition ${testCase.caseKey}`,
+    )
+    equal(actual.input_fingerprint, 'invalid-input-v2', `ActionId regression fingerprint ${testCase.caseKey}`)
+    deepEqual(
+      actual.precedence_trace,
+      ['structural_admission'],
+      `ActionId regression trace ${testCase.caseKey}`,
+    )
+    equal(canonicalize(input), before, `ActionId regression input immutability ${testCase.caseKey}`)
+  }
+
+  const unrelatedTaskInput = clone(baseById.get('B-N').literal_v2_input)
+  const unrelatedTaskUrl = (value) =>
+    typeof value === 'string'
+      ? value.replaceAll('/issues/179', '/issues/999').replaceAll('/pull/180', '/pull/999')
+      : Array.isArray(value)
+        ? value.map(unrelatedTaskUrl)
+        : value && typeof value === 'object'
+          ? Object.fromEntries(Object.entries(value).map(([key, nested]) => [key, unrelatedTaskUrl(nested)]))
+          : value
+  const unrelatedTask = unrelatedTaskUrl(unrelatedTaskInput)
+  unrelatedTask.task_id = 'task-999'
+  const unrelatedTaskBefore = canonicalize(unrelatedTask)
+  const unrelatedTaskActual = api.evaluateAutomaticGateProgressionV2(unrelatedTask)
+  const admittedEvidence = new Set([
+    unrelatedTask.task_assignment.canonical_record,
+    unrelatedTask.result_handoff.canonical_record,
+    unrelatedTask.review_decision.canonical_record,
+    unrelatedTask.pr.url,
+  ])
+  equal(unrelatedTaskActual.kind, 'stop', 'unrelated task evidence kind')
+  equal(unrelatedTaskActual.stop_condition, 'canonical_conflict', 'unrelated task evidence conflict')
+  deepEqual(
+    unrelatedTaskActual.canonical_evidence_refs,
+    [...admittedEvidence],
+    'unrelated task evidence exact admitted projection',
+  )
+  check(
+    unrelatedTaskActual.canonical_evidence_refs.every((ref) => admittedEvidence.has(ref)),
+    'unrelated task evidence is entirely input-bound',
+  )
+  check(
+    unrelatedTaskActual.canonical_evidence_refs.every((ref) => !ref.includes('/issues/179')),
+    'unrelated task evidence does not synthesize Issue 179 history',
+  )
+  equal(canonicalize(unrelatedTask), unrelatedTaskBefore, 'unrelated task input immutability')
+
   let sourceCaseCount = 0
   for (const record of corpus.source_admission_meta_tests) {
     equal(
