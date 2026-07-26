@@ -1060,6 +1060,224 @@ const safeStructuralStop = (): AutomaticGateProgressionEvaluationResultV2 =>
     required_recovery_evidence: ['correct_v2_input'],
   })
 
+type ClosedAdmissionResultV1<T> =
+  | Readonly<{
+      contract_version: 'closed-admission-result-v1'
+      kind: 'accepted'
+      value: T
+    }>
+  | Readonly<{
+      contract_version: 'closed-admission-result-v1'
+      kind: 'rejected'
+      rejection: Readonly<{ code: string; path: string; message: string }>
+    }>
+  | Readonly<{
+      contract_version: 'closed-admission-result-v1'
+      kind: 'failed'
+      failure: Readonly<{ code: 'validator_internal_failure'; diagnostic_id: string; safe_message: 'validator failed internally' }>
+    }>
+
+const resultAdmissionRejected = (code: string, path: string, message: string) =>
+  freeze({
+    contract_version: 'closed-admission-result-v1' as const,
+    kind: 'rejected' as const,
+    rejection: { code, path, message },
+  })
+
+const resultExact = (value: unknown, fields: readonly string[], path: string) => {
+  if (!isObject(value)) return resultAdmissionRejected('invalid_type', path, 'invalid type')
+  for (const field of fields) {
+    if (!hasOwn(value, field)) {
+      return resultAdmissionRejected('missing_required_field', `${path}/${field}`, 'missing required field')
+    }
+  }
+  const unknown = Object.keys(value).find((field) => !fields.includes(field))
+  return unknown === undefined
+    ? undefined
+    : resultAdmissionRejected('unknown_field', `${path}/${unknown}`, 'unknown field')
+}
+
+const validateGateStatusRequirementResultV2 = (value: unknown, path: string) => {
+  if (!isObject(value)) return resultAdmissionRejected('invalid_type', path, 'invalid type')
+  const fields = value.required === false
+    ? ['required']
+    : [
+        'required',
+        'authorized_metadata_role',
+        'pr',
+        'current_head',
+        'required_gate_fields',
+        'citation_urls',
+        'reason',
+        'must_verify_after_write',
+        ...(hasOwn(value, 'current_blocker') ? ['current_blocker'] : []),
+        ...(hasOwn(value, 'next_gate_owner') ? ['next_gate_owner'] : []),
+      ]
+  const exact = resultExact(value, fields, path)
+  if (exact) return exact
+  if (value.required === false) return undefined
+  if (
+    value.required !== true ||
+    !role(value.authorized_metadata_role) ||
+    !canonicalUrl(value.pr) ||
+    !headSha(value.current_head) ||
+    !Array.isArray(value.required_gate_fields) ||
+    value.required_gate_fields.length !== gateNames.length ||
+    !gateNames.every((name, index) => (value.required_gate_fields as unknown[])[index] === name) ||
+    !Array.isArray(value.citation_urls) ||
+    !value.citation_urls.every(canonicalUrl) ||
+    !sortedUnique(value.citation_urls) ||
+    !['missing', 'stale', 'conflicting', 'historical_at_prior_head'].includes(String(value.reason)) ||
+    value.must_verify_after_write !== true ||
+    (hasOwn(value, 'current_blocker') && !actionId(value.current_blocker)) ||
+    (hasOwn(value, 'next_gate_owner') && !role(value.next_gate_owner))
+  ) {
+    return resultAdmissionRejected('semantic_mismatch', path, 'semantic mismatch')
+  }
+  return undefined
+}
+
+export function validateAutomaticGateProgressionEvaluationResultV2(
+  input: unknown,
+): ClosedAdmissionResultV1<AutomaticGateProgressionEvaluationResultV2> {
+  try {
+    if (!isObject(input)) return resultAdmissionRejected('invalid_type', '', 'invalid type')
+    const commonFields = [
+      'contract_version',
+      'task_id',
+      'evaluated_at',
+      'input_fingerprint',
+      'precedence_trace',
+      'gate_status_requirement',
+      'kind',
+    ]
+    const branchFields: Readonly<Record<string, readonly string[]>> = {
+      recommend_next_role: [
+        'target_role',
+        'next_action',
+        'predecessor_canonical_url',
+        'target_head',
+        'same_task_id',
+        'idempotency_key',
+      ],
+      wait_for_protected_action: [
+        'protected_action',
+        'wait_reason',
+        'required_approval_fields',
+        'required_head',
+        'required_base',
+        'required_pr',
+      ],
+      require_gate_status_update: ['requirement'],
+      invalidate_approval: [
+        'approval_record',
+        'invalidation_reason',
+        'historical_evidence_refs',
+        'required_fresh_gates',
+      ],
+      stop: [
+        'stop_condition',
+        'execution_stop_reason',
+        'canonical_evidence_refs',
+        'recovery_owner',
+        'required_recovery_evidence',
+      ],
+      no_transition: ['wait_reason', 'required_future_canonical_event'],
+    }
+    const fields = branchFields[String(input.kind)]
+    if (!fields) return resultAdmissionRejected('invalid_enum', '/kind', 'invalid enum value')
+    const exact = resultExact(input, [...commonFields, ...fields], '')
+    if (exact) return exact
+    if (
+      input.contract_version !== AUTOMATIC_GATE_PROGRESSION_EVALUATION_RESULT_V2_VERSION ||
+      !nonEmpty(input.task_id) ||
+      !utcTimestamp(input.evaluated_at) ||
+      !nonEmpty(input.input_fingerprint) ||
+      !Array.isArray(input.precedence_trace) ||
+      !input.precedence_trace.every(nonEmpty)
+    ) {
+      return resultAdmissionRejected('semantic_mismatch', '', 'semantic mismatch')
+    }
+    const gateIssue = validateGateStatusRequirementResultV2(input.gate_status_requirement, '/gate_status_requirement')
+    if (gateIssue) return gateIssue
+    const strings = (value: unknown) => Array.isArray(value) && value.every(nonEmpty)
+    const refs = (value: unknown) =>
+      Array.isArray(value) && value.every(canonicalUrl) && sortedUnique(value as string[])
+    let valid = false
+    if (input.kind === 'recommend_next_role') {
+      valid =
+        role(input.target_role) &&
+        actionId(input.next_action) &&
+        canonicalUrl(input.predecessor_canonical_url) &&
+        headSha(input.target_head) &&
+        nonEmpty(input.same_task_id) &&
+        nonEmpty(input.idempotency_key)
+    } else if (input.kind === 'wait_for_protected_action') {
+      valid =
+        enumValue(input.protected_action, protectedActions) &&
+        input.wait_reason === 'approval_missing_or_not_current' &&
+        strings(input.required_approval_fields) &&
+        headSha(input.required_head) &&
+        nonEmpty(input.required_base) &&
+        canonicalUrl(input.required_pr)
+    } else if (input.kind === 'require_gate_status_update') {
+      const requirementIssue = validateGateStatusRequirementResultV2(input.requirement, '/requirement')
+      valid =
+        !requirementIssue &&
+        isObject(input.requirement) &&
+        input.requirement.required === true &&
+        canonicalize(input.requirement) === canonicalize(input.gate_status_requirement)
+    } else if (input.kind === 'invalidate_approval') {
+      valid =
+        canonicalUrl(input.approval_record) &&
+        ['expired', 'consumed', 'head_drift', 'base_or_state_drift', 'check_drift', 'blocking_recurrence'].includes(String(input.invalidation_reason)) &&
+        refs(input.historical_evidence_refs) &&
+        strings(input.required_fresh_gates)
+    } else if (input.kind === 'stop') {
+      valid =
+        [
+          'malformed_or_unknown_input',
+          'canonical_conflict',
+          'canonical_action_conflict',
+          'blocking_finding_recurrence',
+          'required_context_health_unavailable',
+          'fresh_evidence_unavailable',
+          'transition_not_terminal_or_permitted',
+          'authority_drift',
+          'ambiguous_role_ownership',
+        ].includes(String(input.stop_condition)) &&
+        ['architecture_gap', 'external_blocker'].includes(String(input.execution_stop_reason)) &&
+        refs(input.canonical_evidence_refs) &&
+        role(input.recovery_owner) &&
+        strings(input.required_recovery_evidence)
+    } else {
+      valid =
+        input.wait_reason === 'no_declared_transition' &&
+        input.required_future_canonical_event === 'direct_same_task_decision'
+    }
+    if (!valid) return resultAdmissionRejected('semantic_mismatch', '', 'semantic mismatch')
+    return freeze({
+      contract_version: 'closed-admission-result-v1',
+      kind: 'accepted',
+      value: freeze(structuredClone(input) as AutomaticGateProgressionEvaluationResultV2),
+    })
+  } catch {
+    return freeze({
+      contract_version: 'closed-admission-result-v1',
+      kind: 'failed',
+      failure: {
+        code: 'validator_internal_failure',
+        diagnostic_id: `closed-admission-failure-v1:${sha256Hex(canonicalize({
+          contract_version: 'closed-admission-result-v1',
+          validator_id: 'automatic-gate-progression-evaluation-result-v2',
+          code: 'validator_internal_failure',
+        }))}`,
+        safe_message: 'validator failed internally',
+      },
+    })
+  }
+}
+
 const common = (
   input: AutomaticGateProgressionEvaluationInputV2,
   inputFingerprint: string,

@@ -1,12 +1,21 @@
+import {
+  evaluateAutomaticGateProgressionV2,
+  validateAutomaticGateProgressionEvaluationResultV2,
+  type AutomaticGateProgressionEvaluationResultV2,
+} from '../automatic-gate-progression'
+
 export const CANONICAL_EVENT_ADMISSION_OUTCOME_V1 = 'canonical-event-admission-outcome-v1' as const
 
 type Json = unknown
-type PortResult<T> = Readonly<{ kind: 'ok'; value: T } | { kind: 'failed'; safe_code: 'port_operation_failed' }>
+type PortResult<T> = Readonly<
+  | { contract_version: 'canonical-event-port-result-v1'; kind: 'ok'; value: T }
+  | { contract_version: 'canonical-event-port-result-v1'; kind: 'failed'; safe_code: 'port_operation_failed' }
+>
 type LedgerResult = Readonly<
-  | { contract_version?: string; kind: 'committed'; decision: 'current' | 'historical'; generation: number | null; generation_key: string | null; prior_watermark_revision_timestamp: string | null; prior_watermark_event_id: string | null }
-  | { kind: 'duplicate'; code: 'duplicate_delivery'; existing_event_id: string }
-  | { kind: 'conflict'; code: 'delivery_identity_conflict' | 'event_identity_payload_conflict' }
-  | { kind: 'failed'; code: 'ledger_read_failure' | 'ledger_write_failure' | 'ordering_invariant_failure'; retryable: boolean }
+  | { contract_version: 'canonical-event-ledger-transaction-result-v1'; kind: 'committed'; decision: 'current' | 'historical'; generation: number | null; generation_key: string | null; prior_watermark_revision_timestamp: string | null; prior_watermark_event_id: string | null }
+  | { contract_version: 'canonical-event-ledger-transaction-result-v1'; kind: 'duplicate'; code: 'duplicate_delivery'; existing_event_id: string }
+  | { contract_version: 'canonical-event-ledger-transaction-result-v1'; kind: 'conflict'; code: 'delivery_identity_conflict' | 'event_identity_payload_conflict' }
+  | { contract_version: 'canonical-event-ledger-transaction-result-v1'; kind: 'failed'; code: 'ledger_read_failure' | 'ledger_write_failure' | 'ordering_invariant_failure'; retryable: boolean }
 >
 export type CanonicalEventAdmissionPortsV1 = Readonly<{
   canonicalize_jcs: (value: Json) => PortResult<Uint8Array>
@@ -14,7 +23,7 @@ export type CanonicalEventAdmissionPortsV1 = Readonly<{
   ledger_transact: (value: Json) => Promise<LedgerResult>
 }>
 type Rejection = Readonly<{ code: string; stage: string; path: string; message: string }>
-type Failure = Readonly<{ code: string; stage: string; diagnostic_id: string; safe_message: string; retryable: boolean }>
+type Failure = Readonly<{ code: string; stage: string; operation: 'canonicalize_jcs' | 'sha256' | 'ledger_transact' | null; diagnostic_id: string; safe_message: string; retryable: boolean }>
 export type CanonicalEventAdmissionOutcomeV1 =
   | Readonly<{ contract_version: typeof CANONICAL_EVENT_ADMISSION_OUTCOME_V1; kind: 'accepted'; evaluated_at: string; delivery_id: string; raw_payload_sha256: string; envelope: Json; evaluator_trigger: 'required' | 'suppressed' }>
   | Readonly<{ contract_version: typeof CANONICAL_EVENT_ADMISSION_OUTCOME_V1; kind: 'rejected'; evaluated_at: string; delivery_id: string | null; raw_payload_sha256: string | null; rejection: Rejection; existing_event_id: string | null; retryable: false }>
@@ -91,6 +100,7 @@ const terminalFailure = freeze({
   failure: {
     code: 'terminal_outcome_failure',
     stage: 'bootstrap',
+    operation: null,
     diagnostic_id: `cea-failure-v1:${'0'.repeat(64)}`,
     safe_message: 'event admission failed before a normal outcome could be admitted',
     retryable: false,
@@ -99,17 +109,145 @@ const terminalFailure = freeze({
 
 const reject = (evaluatedAt: string, deliveryId: string | null, digest: string | null, code: string, stage: string, path: string, message: string): CanonicalEventAdmissionOutcomeV1 =>
   freeze({ contract_version: CANONICAL_EVENT_ADMISSION_OUTCOME_V1, kind: 'rejected', evaluated_at: evaluatedAt, delivery_id: deliveryId, raw_payload_sha256: digest, rejection: { code, stage, path, message }, existing_event_id: null, retryable: false as const })
-const fail = (evaluatedAt: string | null, deliveryId: string | null, digest: string | null, code: string, stage: string, message: string, retryable: boolean): CanonicalEventAdmissionOutcomeV1 =>
-  freeze({ contract_version: CANONICAL_EVENT_ADMISSION_OUTCOME_V1, kind: 'failed', evaluated_at: evaluatedAt, delivery_id: deliveryId, raw_payload_sha256: digest, failure: { code, stage, diagnostic_id: `cea-failure-v1:${'0'.repeat(64)}`, safe_message: message, retryable } })
+const canonicalJson = (value: unknown): string => {
+  if (value === null || typeof value === 'boolean' || typeof value === 'string') return JSON.stringify(value)
+  if (typeof value === 'number' && Number.isFinite(value)) return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
+  if (isObject(value)) return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`
+  throw new TypeError('outside JSON data model')
+}
+const sha256HexPure = (text: string): string => {
+  const bytes = new TextEncoder().encode(text)
+  const paddedLength = (((bytes.length + 9 + 63) >> 6) << 6)
+  const data = new Uint8Array(paddedLength)
+  data.set(bytes)
+  data[bytes.length] = 0x80
+  const view = new DataView(data.buffer)
+  const bitLength = bytes.length * 8
+  view.setUint32(paddedLength - 8, Math.floor(bitLength / 0x100000000))
+  view.setUint32(paddedLength - 4, bitLength >>> 0)
+  const constants = [
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
+    0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
+    0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786,
+    0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147,
+    0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+    0x650a7354,
+    0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70,
+    0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116,
+    0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f,
+    0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa,
+    0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+  ]
+  const state = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]
+  const words = new Uint32Array(64)
+  const rotate = (value: number, bits: number) => (value >>> bits) | (value << (32 - bits))
+  for (let offset = 0; offset < data.length; offset += 64) {
+    for (let index = 0; index < 16; index += 1) words[index] = view.getUint32(offset + index * 4)
+    for (let index = 16; index < 64; index += 1) {
+      const first = words[index - 15]
+      const second = words[index - 2]
+      const s0 = rotate(first, 7) ^ rotate(first, 18) ^ (first >>> 3)
+      const s1 = rotate(second, 17) ^ rotate(second, 19) ^ (second >>> 10)
+      words[index] = (words[index - 16] + s0 + words[index - 7] + s1) >>> 0
+    }
+    let [a, b, c, d, e, f, g, h] = state
+    for (let index = 0; index < 64; index += 1) {
+      const s1 = rotate(e, 6) ^ rotate(e, 11) ^ rotate(e, 25)
+      const choice = (e & f) ^ (~e & g)
+      const first = (h + s1 + choice + constants[index] + words[index]) >>> 0
+      const s0 = rotate(a, 2) ^ rotate(a, 13) ^ rotate(a, 22)
+      const majority = (a & b) ^ (a & c) ^ (b & c)
+      const second = (s0 + majority) >>> 0
+      h = g; g = f; f = e; e = (d + first) >>> 0; d = c; c = b; b = a; a = (first + second) >>> 0
+    }
+    state[0] = (state[0] + a) >>> 0; state[1] = (state[1] + b) >>> 0
+    state[2] = (state[2] + c) >>> 0; state[3] = (state[3] + d) >>> 0
+    state[4] = (state[4] + e) >>> 0; state[5] = (state[5] + f) >>> 0
+    state[6] = (state[6] + g) >>> 0; state[7] = (state[7] + h) >>> 0
+  }
+  return state.map((word) => word.toString(16).padStart(8, '0')).join('')
+}
+const fail = (evaluatedAt: string | null, deliveryId: string | null, digest: string | null, code: string, stage: string, message: string, retryable: boolean, operation: Failure['operation'] = null): CanonicalEventAdmissionOutcomeV1 =>
+  freeze({
+    contract_version: CANONICAL_EVENT_ADMISSION_OUTCOME_V1,
+    kind: 'failed',
+    evaluated_at: evaluatedAt,
+    delivery_id: deliveryId,
+    raw_payload_sha256: digest,
+    failure: {
+      code,
+      stage,
+      operation,
+      diagnostic_id: `cea-failure-v1:${sha256HexPure(canonicalJson({
+        contract_version: CANONICAL_EVENT_ADMISSION_OUTCOME_V1,
+        code,
+        stage,
+        operation,
+        delivery_id: deliveryId,
+        raw_payload_sha256: digest,
+        evaluated_at: evaluatedAt,
+      }))}`,
+      safe_message: message,
+      retryable,
+    },
+  })
+class PortBoundaryError extends Error {
+  constructor(
+    readonly operation: 'canonicalize_jcs' | 'sha256',
+    readonly boundary: 'internal' | 'contract',
+  ) {
+    super(`${operation}:${boundary}`)
+  }
+}
 const portBytes = (ports: CanonicalEventAdmissionPortsV1, value: Json): Uint8Array => {
-  const result = ports.canonicalize_jcs(clone(value))
-  if (!isObject(result) || result.kind !== 'ok' || !(result.value instanceof Uint8Array)) throw new Error('canonicalize')
-  return result.value
+  let result: unknown
+  try {
+    result = ports.canonicalize_jcs(clone(value))
+  } catch {
+    throw new PortBoundaryError('canonicalize_jcs', 'internal')
+  }
+  if (!isObject(result) || result.contract_version !== 'canonical-event-port-result-v1') throw new PortBoundaryError('canonicalize_jcs', 'contract')
+  if (result.kind === 'failed' && Object.keys(result).length === 3 && result.safe_code === 'port_operation_failed') throw new PortBoundaryError('canonicalize_jcs', 'internal')
+  if (result.kind !== 'ok' || Object.keys(result).length !== 3 || !(result.value instanceof Uint8Array)) throw new PortBoundaryError('canonicalize_jcs', 'contract')
+  return new Uint8Array(result.value)
 }
 const portSha = (ports: CanonicalEventAdmissionPortsV1, value: Uint8Array): string => {
-  const result = ports.sha256(new Uint8Array(value))
-  if (!isObject(result) || result.kind !== 'ok' || typeof result.value !== 'string') throw new Error('sha256')
-  return result.value
+  let result: unknown
+  try {
+    result = ports.sha256(new Uint8Array(value))
+  } catch {
+    throw new PortBoundaryError('sha256', 'internal')
+  }
+  if (!isObject(result) || result.contract_version !== 'canonical-event-port-result-v1') throw new PortBoundaryError('sha256', 'contract')
+  if (result.kind === 'failed' && Object.keys(result).length === 3 && result.safe_code === 'port_operation_failed') throw new PortBoundaryError('sha256', 'internal')
+  if (result.kind !== 'ok' || Object.keys(result).length !== 3 || !format(result.value, /^sha256:[0-9a-f]{64}$/)) throw new PortBoundaryError('sha256', 'contract')
+  return result.value as string
+}
+const ledgerResultIsClosed = (input: unknown): input is LedgerResult => {
+  if (!isObject(input) || input.contract_version !== 'canonical-event-ledger-transaction-result-v1') return false
+  const fields = input.kind === 'committed'
+    ? ['contract_version', 'kind', 'decision', 'generation', 'generation_key', 'prior_watermark_revision_timestamp', 'prior_watermark_event_id']
+    : input.kind === 'duplicate'
+      ? ['contract_version', 'kind', 'code', 'existing_event_id']
+      : input.kind === 'conflict'
+        ? ['contract_version', 'kind', 'code']
+        : input.kind === 'failed'
+          ? ['contract_version', 'kind', 'code', 'retryable']
+          : []
+  if (fields.length === 0 || Object.keys(input).length !== fields.length || fields.some((field) => !has(input, field))) return false
+  if (input.kind === 'committed') {
+    return ['current', 'historical'].includes(String(input.decision)) &&
+      (input.generation === null || validNumber(input.generation)) &&
+      (input.generation_key === null || format(input.generation_key, /^github-freshness-generation-v1:sha256:[0-9a-f]{64}$/)) &&
+      (input.prior_watermark_revision_timestamp === null || utcTimestamp(input.prior_watermark_revision_timestamp)) &&
+      (input.prior_watermark_event_id === null || format(input.prior_watermark_event_id, /^github-event-v1:sha256:[0-9a-f]{64}$/))
+  }
+  if (input.kind === 'duplicate') return input.code === 'duplicate_delivery' && format(input.existing_event_id, /^github-event-v1:sha256:[0-9a-f]{64}$/)
+  if (input.kind === 'conflict') return ['delivery_identity_conflict', 'event_identity_payload_conflict'].includes(String(input.code))
+  return ['ledger_read_failure', 'ledger_write_failure', 'ordering_invariant_failure'].includes(String(input.code)) &&
+    input.retryable === (input.code !== 'ordering_invariant_failure')
 }
 const shaJcs = (ports: CanonicalEventAdmissionPortsV1, value: Json): string => portSha(ports, portBytes(ports, value))
 const utf8 = (value: string): Uint8Array => new TextEncoder().encode(value)
@@ -162,7 +300,7 @@ const eventFields = (descriptor: EventDescriptor): readonly [readonly string[], 
   return fields
 }
 
-export async function admitCanonicalGitHubEventV1(invocation: unknown, rawInput: unknown, ports: CanonicalEventAdmissionPortsV1): Promise<CanonicalEventAdmissionOutcomeV1> {
+async function produceCanonicalGitHubEventV1(invocation: unknown, rawInput: unknown, ports: CanonicalEventAdmissionPortsV1): Promise<CanonicalEventAdmissionOutcomeV1> {
   let evaluatedAt: string | null = null
   let deliveryId: string | null = null
   let rawDigest: string | null = null
@@ -262,15 +400,22 @@ export async function admitCanonicalGitHubEventV1(invocation: unknown, rawInput:
     const eventId = `github-event-v1:${shaJcs(ports, { contract_version: 'canonical-event-admission-v1', provider: 'github', repository: { database_id: repository.id as number, node_id: repository.node_id as string, full_name: repository.full_name as string }, event_type: descriptor.eventType, source_object: canonicalSource, source_revision: sourceRevision } as Json)}`
     const streamKey = `github-stream-v1:${shaJcs(ports, { provider: 'github', repository_database_id: repository.id as number, source_object_kind: sourceObject.kind, source_object_database_id: sourceObject.database_id, parent_database_id: sourceObject.parent_database_id } as Json)}`
     const normalizedDigest = shaJcs(ports, { event_type: descriptor.eventType, source_object: sourceObject, actor, occurred_at: occurredAt, source_revision: sourceRevision, immutable_source_refs: immutableSourceRefs, normalized_payload: normalizedPayload } as Json)
-    const ledger = await ports.ledger_transact(freeze({ contract_version: 'canonical-event-ledger-transaction-request-v1', delivery_id: deliveryId, canonical_event_id: eventId, raw_payload_sha256: rawDigest, normalized_projection_sha256: normalizedDigest, stream_key: streamKey, revision_timestamp: revisionTimestamp, tie_break_key: [descriptor.rank, eventId] }) as Json)
-    if (!isObject(ledger)) return fail(evaluatedAt, deliveryId, rawDigest, 'port_contract_invalid', 'ledger_write', 'event ledger returned an invalid result', false)
+    let ledger: LedgerResult
+    try {
+      ledger = await ports.ledger_transact(freeze({ contract_version: 'canonical-event-ledger-transaction-request-v1', delivery_id: deliveryId, canonical_event_id: eventId, raw_payload_sha256: rawDigest, normalized_projection_sha256: normalizedDigest, stream_key: streamKey, revision_timestamp: revisionTimestamp, tie_break_key: [descriptor.rank, eventId] }) as Json)
+    } catch {
+      return fail(evaluatedAt, deliveryId, rawDigest, 'ledger_transaction_internal_failure', 'ledger_transaction', 'event ledger transaction failed internally', true)
+    }
+    if (!ledgerResultIsClosed(ledger)) return fail(evaluatedAt, deliveryId, rawDigest, 'port_contract_invalid', 'port_contract', 'ledger_transact returned an invalid port result', false, 'ledger_transact')
     if (ledger.kind === 'duplicate') {
       const outcome = reject(evaluatedAt, deliveryId, rawDigest, 'duplicate_delivery', 'duplicate_ordering', '/delivery/delivery_id', 'event delivery already admitted') as Extract<CanonicalEventAdmissionOutcomeV1, { kind: 'rejected' }>
       return freeze({ ...outcome, existing_event_id: ledger.existing_event_id as string })
     }
     if (ledger.kind === 'conflict') return reject(evaluatedAt, deliveryId, rawDigest, ledger.code as string, 'duplicate_ordering', ledger.code === 'delivery_identity_conflict' ? '/delivery/delivery_id' : '/canonical_event_id', ledger.code === 'delivery_identity_conflict' ? 'delivery identity is bound to different content' : 'event identity is bound to different content')
-    if (ledger.kind === 'failed') return fail(evaluatedAt, deliveryId, rawDigest, ledger.code as string, ledger.code === 'ledger_read_failure' ? 'ledger_read' : ledger.code === 'ledger_write_failure' ? 'ledger_write' : 'ordering', 'event ledger operation failed', Boolean(ledger.retryable))
-    if (ledger.kind !== 'committed' || !['current', 'historical'].includes(ledger.decision as string)) return fail(evaluatedAt, deliveryId, rawDigest, 'port_contract_invalid', 'ledger_write', 'event ledger returned an invalid result', false)
+    if (ledger.kind === 'failed') {
+      const message = ledger.code === 'ledger_read_failure' ? 'event ledger read failed' : ledger.code === 'ledger_write_failure' ? 'event ledger write failed' : 'event ordering invariant failed'
+      return fail(evaluatedAt, deliveryId, rawDigest, ledger.code, ledger.code === 'ledger_read_failure' ? 'ledger_read' : ledger.code === 'ledger_write_failure' ? 'ledger_write' : 'ordering', message, ledger.retryable)
+    }
     const disposition = ledger.decision as 'current' | 'historical'
     const envelope = {
       contract_version: 'canonical-event-admission-v1', schema_version: 'canonical-event-envelope-v1', canonical_event_id: eventId, provider: 'github', admission_profile: 'sd-prompt-studio-github-admission-v1',
@@ -285,41 +430,13 @@ export async function admitCanonicalGitHubEventV1(invocation: unknown, rawInput:
     }
     return freeze({ contract_version: CANONICAL_EVENT_ADMISSION_OUTCOME_V1, kind: 'accepted', evaluated_at: evaluatedAt, delivery_id: deliveryId, raw_payload_sha256: rawDigest as string, envelope, evaluator_trigger: disposition === 'current' ? 'required' : 'suppressed' })
   } catch (error) {
-    if (error instanceof Error && error.message === 'canonicalize') return fail(evaluatedAt, deliveryId, rawDigest, 'canonicalization_internal_failure', 'canonicalization', 'event canonicalization failed internally', false)
-    if (error instanceof Error && error.message === 'sha256') return fail(evaluatedAt, deliveryId, rawDigest, 'digest_internal_failure', 'digest', 'event digest computation failed internally', false)
+    if (error instanceof PortBoundaryError && error.boundary === 'contract') return fail(evaluatedAt, deliveryId, rawDigest, 'port_contract_invalid', 'port_contract', `${error.operation} returned an invalid port result`, false, error.operation)
+    if (error instanceof PortBoundaryError && error.operation === 'canonicalize_jcs') return fail(evaluatedAt, deliveryId, rawDigest, 'canonicalization_internal_failure', 'canonicalization', 'event canonicalization failed internally', false)
+    if (error instanceof PortBoundaryError && error.operation === 'sha256') return fail(evaluatedAt, deliveryId, rawDigest, 'digest_internal_failure', 'digest', 'event digest computation failed internally', false)
     return terminalFailure
   }
 }
 
-export function validateCanonicalEventAdmissionOutcomeV1(input: unknown): Readonly<{ contract_version: 'closed-admission-result-v1'; kind: 'accepted'; value: CanonicalEventAdmissionOutcomeV1 } | { contract_version: 'closed-admission-result-v1'; kind: 'rejected'; rejection: { code: string; path: string; message: string } }> {
-  if (!isObject(input) || input.contract_version !== CANONICAL_EVENT_ADMISSION_OUTCOME_V1 || !['accepted', 'rejected', 'failed'].includes(String(input.kind))) return freeze({ contract_version: 'closed-admission-result-v1', kind: 'rejected', rejection: { code: 'semantic_mismatch', path: '', message: 'semantic mismatch' } })
-  return freeze({ contract_version: 'closed-admission-result-v1', kind: 'accepted', value: clone(input) as CanonicalEventAdmissionOutcomeV1 })
-}
-
-export function transactFreshnessGenerationV1(input: unknown): Json {
-  if (!isObject(input) || !Array.isArray(input.generations) || !isObject(input.request)) return freeze({ contract_version: 'canonical-event-freshness-transition-outcome-v1', kind: 'failed', failure: { code: 'ordering_invariant_failure', safe_message: 'generation ordering invariant failed', retryable: false } })
-  const generations = input.generations as Obj[]
-  const request = input.request
-  const failedOrdering = () => freeze({ contract_version: 'canonical-event-freshness-transition-outcome-v1', kind: 'failed', failure: { code: 'ordering_invariant_failure', safe_message: 'generation ordering invariant failed', retryable: false } })
-  if (request.kind === 'finish_attempt') return failedOrdering()
-  let generation: Obj | undefined
-  if (request.kind === 'retry_generation') generation = generations.find((item) => item.generation_key === request.generation_key)
-  else generation = generations.find((item) => item.state === 'pending')
-  if (!generation) return failedOrdering()
-  const predecessor = generation.predecessor_generation_key ? generations.find((item) => item.generation_key === generation!.predecessor_generation_key) : null
-  if (request.kind === 'claim_next' && predecessor && ['failed_retryable', 'running'].includes(String(predecessor.state))) return freeze({ contract_version: 'canonical-event-freshness-transition-outcome-v1', kind: 'applied', result: { contract_version: 'canonical-event-freshness-transition-result-v1', kind: 'blocked_by_predecessor', requested_generation_key: generation.generation_key, predecessor_generation_key: predecessor.generation_key, predecessor_state: predecessor.state } })
-  const attempt = Array.isArray(generation.attempts) ? generation.attempts.length + 1 : 1
-  const keyCharacter = Number(generation.generation) === 1 ? 'b' : 'd'
-  return freeze({ contract_version: 'canonical-event-freshness-transition-outcome-v1', kind: 'applied', result: { contract_version: 'canonical-event-freshness-transition-result-v1', kind: 'attempt_started', generation_key: generation.generation_key, generation: generation.generation, attempt_key: `github-freshness-attempt-v1:sha256:${keyCharacter.repeat(64)}`, attempt, member_event_ids: clone(generation.member_event_ids) } })
-}
-
-type InvocationPorts = Readonly<{
-  validate_ready: (input: unknown) => unknown
-  evaluate: (input: unknown) => unknown
-  validate_result: (input: unknown) => unknown
-  validate_outcome: (input: unknown) => unknown
-  validate_terminal_anchor: (input: unknown) => unknown
-}>
 const invocationFailureMessages: Readonly<Record<string, string>> = {
   ready_binding_contract_invalid: 'evaluator Ready binding is invalid',
   ready_binding_validation_internal_failure: 'evaluator Ready binding validation failed internally',
@@ -333,36 +450,564 @@ const invocationDiagnosticIds: Readonly<Record<string, string>> = {
   evaluator_result_contract_invalid: '139a06145e8d946639fdc592040cc1f73346a8d5941fb2bb5c2e882f78ceb70e',
   evaluator_result_validation_internal_failure: '3db7be1c2dbdb49123c543f347af8fe4fe7377f290deef15a142d6c7c7f5f9db',
 }
-const invocationFailed = (ready: Obj | null, code: string): Json => freeze({ contract_version: 'canonical-event-evaluator-invocation-outcome-v1', kind: 'failed', evaluated_at: ready?.evaluated_at ?? '1970-01-01T00:00:00Z', snapshot_id: ready?.snapshot_id ?? `github-fresh-snapshot-v1:sha256:${'0'.repeat(64)}`, generation_keys: clone(ready?.generation_keys ?? []), failure: { code, diagnostic_id: `cea-evaluator-failure-v1:${invocationDiagnosticIds[code] ?? '0'.repeat(64)}`, safe_message: invocationFailureMessages[code] } })
-export function invokeAutomaticGateProgressionForCanonicalEventsV1(readyInput: unknown, ports: InvocationPorts): Json {
-  const terminal = (ready: Obj | null) => invocationFailed(ready, 'invocation_outcome_terminal_failure')
-  let ready: Obj | null = null
+export type AdmissionResultV1<T> =
+  | Readonly<{ contract_version: 'closed-admission-result-v1'; kind: 'accepted'; value: T }>
+  | Readonly<{ contract_version: 'closed-admission-result-v1'; kind: 'rejected'; rejection: Readonly<{ code: string; path: string; message: string }> }>
+  | Readonly<{ contract_version: 'closed-admission-result-v1'; kind: 'failed'; failure: Readonly<{ code: 'validator_internal_failure'; diagnostic_id: string; safe_message: 'validator failed internally' }> }>
+
+const rejectAdmission = (code: string, path: string, message: string) =>
+  freeze({ contract_version: 'closed-admission-result-v1' as const, kind: 'rejected' as const, rejection: { code, path, message } })
+const failAdmission = (validatorId = 'canonical-event-internal-v1') =>
+  freeze({
+    contract_version: 'closed-admission-result-v1' as const,
+    kind: 'failed' as const,
+    failure: {
+      code: 'validator_internal_failure' as const,
+      diagnostic_id: `closed-admission-failure-v1:${sha256HexPure(canonicalJson({
+        contract_version: 'closed-admission-result-v1',
+        validator_id: validatorId,
+        code: 'validator_internal_failure',
+      }))}`,
+      safe_message: 'validator failed internally' as const,
+    },
+  })
+const acceptAdmission = <T>(value: T, validatorId = 'canonical-event-internal-v1'): AdmissionResultV1<T> => {
   try {
-    let admission: unknown
-    try { admission = ports.validate_ready(readyInput) } catch { return invocationFailed(null, 'ready_binding_validation_internal_failure') }
-    if (!isObject(admission) || admission.kind === 'failed') return invocationFailed(null, 'ready_binding_validation_internal_failure')
-    if (admission.kind !== 'accepted' || !isObject(admission.value)) return invocationFailed(null, 'ready_binding_contract_invalid')
-    ready = admission.value
-    let evaluatorResult: unknown
-    try { evaluatorResult = ports.evaluate(ready.evaluator_input) } catch { evaluatorResult = invocationFailed(ready, 'evaluator_internal_failure'); return admitInvocationOutcome(evaluatorResult, ready, ports, terminal) }
-    let resultAdmission: unknown
-    try { resultAdmission = ports.validate_result(evaluatorResult) } catch { return admitInvocationOutcome(invocationFailed(ready, 'evaluator_result_validation_internal_failure'), ready, ports, terminal) }
-    if (!isObject(resultAdmission) || resultAdmission.kind === 'failed') return admitInvocationOutcome(invocationFailed(ready, 'evaluator_result_validation_internal_failure'), ready, ports, terminal)
-    if (resultAdmission.kind !== 'accepted') return admitInvocationOutcome(invocationFailed(ready, 'evaluator_result_contract_invalid'), ready, ports, terminal)
-    const sentinel = isObject(evaluatorResult) && evaluatorResult.input_fingerprint === 'invalid-input-v2' && evaluatorResult.task_id === 'unknown_task'
-    const outcome = { contract_version: 'canonical-event-evaluator-invocation-outcome-v1', kind: sentinel ? 'input_rejected' : 'evaluated', evaluated_at: ready.evaluated_at, snapshot_id: ready.snapshot_id, generation_keys: clone(ready.generation_keys), evaluator_result: clone(evaluatorResult) }
-    return admitInvocationOutcome(outcome, ready, ports, terminal)
+    return freeze({ contract_version: 'closed-admission-result-v1' as const, kind: 'accepted' as const, value: freeze(clone(value)) as T })
   } catch {
-    return terminal(ready)
+    return failAdmission(validatorId)
   }
 }
-const admitInvocationOutcome = (outcome: unknown, ready: Obj, ports: InvocationPorts, terminal: (ready: Obj) => Json): Json => {
+const exactObject = (input: unknown, requiredFields: readonly string[], optionalFields: readonly string[] = [], path = '') => {
+  if (!isObject(input)) return rejectAdmission('invalid_type', path, 'invalid type')
+  for (const field of requiredFields) {
+    if (!has(input, field)) return rejectAdmission('missing_required_field', `${path}/${field}`, 'missing required field')
+  }
+  const allowed = new Set([...requiredFields, ...optionalFields])
+  const unknown = Object.keys(input).find((field) => !allowed.has(field))
+  return unknown === undefined ? undefined : rejectAdmission('unknown_field', `${path}/${unknown}`, 'unknown field')
+}
+const utcTimestamp = (value: unknown) =>
+  typeof value === 'string' &&
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value) &&
+  Number.isFinite(Date.parse(value))
+const format = (value: unknown, expression: RegExp) => typeof value === 'string' && expression.test(value)
+const sortedUnique = (value: unknown, expression?: RegExp) =>
+  Array.isArray(value) &&
+  value.every((item) => typeof item === 'string' && (!expression || expression.test(item))) &&
+  value.every((item, index) => index === 0 || String(value[index - 1]) < item)
+const jsonData = (value: unknown, ancestors = new Set<object>()): boolean => {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true
+  if (typeof value === 'number') return Number.isFinite(value)
+  if (typeof value !== 'object' || ancestors.has(value)) return false
+  ancestors.add(value)
+  if (Array.isArray(value)) {
+    return Object.keys(value).every((key) => /^(0|[1-9][0-9]*)$/.test(key) && Number(key) < value.length) &&
+      value.every((item) => jsonData(item, new Set(ancestors)))
+  }
+  if (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) return false
+  return Object.values(Object.getOwnPropertyDescriptors(value)).every(
+    (descriptor) => 'value' in descriptor && descriptor.enumerable && jsonData(descriptor.value, new Set(ancestors)),
+  )
+}
+
+export function validateCanonicalEventAdmissionInvocationV1(input: unknown): AdmissionResultV1<Readonly<Obj>> {
   try {
-    const anchor = ports.validate_terminal_anchor(invocationFailed(ready, 'invocation_outcome_terminal_failure'))
-    if (!isObject(anchor) || anchor.kind !== 'accepted') return invocationFailed(ready, 'invocation_outcome_terminal_failure')
-    const admitted = ports.validate_outcome(outcome)
-    return isObject(admitted) && admitted.kind === 'accepted' ? freeze(clone(outcome) as Json) : terminal(ready)
+    const root = exactObject(input, ['contract_version', 'clock', 'verification'])
+    if (root) return root
+    const value = input as Obj
+    if (value.contract_version !== 'canonical-event-admission-invocation-v1') return rejectAdmission('invalid_enum', '/contract_version', 'invalid enum value')
+    const clockIssue = exactObject(value.clock, ['state', 'admission_started_at'], [], '/clock')
+    if (clockIssue) return clockIssue
+    const clock = value.clock as Obj
+    if (!['available', 'unavailable'].includes(String(clock.state)) || !(clock.admission_started_at === null || utcTimestamp(clock.admission_started_at))) return rejectAdmission('conditional_field_violation', '/clock', 'conditional field violation')
+    const verificationIssue = exactObject(value.verification, ['state'], ['evidence'], '/verification')
+    if (verificationIssue) return verificationIssue
+    const verification = value.verification as Obj
+    if (!['verified', 'unverified', 'missing', 'failed'].includes(String(verification.state))) return rejectAdmission('invalid_enum', '/verification/state', 'invalid enum value')
+    if ((verification.state === 'verified') !== has(verification, 'evidence')) return rejectAdmission('conditional_field_violation', '/verification/evidence', 'conditional field violation')
+    return jsonData(value) ? acceptAdmission(value) : rejectAdmission('invalid_type', '', 'invalid type')
   } catch {
-    return terminal(ready)
+    return failAdmission('canonical-event-admission-invocation-v1')
+  }
+}
+
+export function validateRawGitHubEventInputV1(input: unknown): AdmissionResultV1<Readonly<Obj>> {
+  try {
+    const root = exactObject(input, ['contract_version', 'admission_profile', 'provider', 'repository', 'header_projection', 'raw_payload'])
+    if (root) return root
+    const value = input as Obj
+    if (value.contract_version !== 'canonical-event-raw-input-v1' || value.admission_profile !== 'sd-prompt-studio-github-admission-v1' || value.provider !== 'github') return rejectAdmission('invalid_enum', '/contract_version', 'invalid enum value')
+    for (const [field, fields] of [
+      ['repository', ['database_id', 'node_id', 'full_name', 'html_url']],
+      ['header_projection', ['delivery_id', 'event_name', 'action', 'hook_id', 'observed_at']],
+      ['raw_payload', ['content_type', 'encoding', 'body_base64', 'byte_length', 'sha256']],
+    ] as const) {
+      const issue = exactObject(value[field], fields, [], `/${field}`)
+      if (issue) return issue
+    }
+    return jsonData(value) ? acceptAdmission(value) : rejectAdmission('invalid_type', '', 'invalid type')
+  } catch {
+    return failAdmission('canonical-event-raw-input-v1')
+  }
+}
+
+const admissionFailureMatrix: Readonly<Record<string, readonly [string, string | null, string, boolean]>> = {
+  invocation_context_invalid: ['bootstrap', null, 'admission invocation context invalid', false],
+  admission_clock_unavailable: ['bootstrap', null, 'admission clock unavailable', true],
+  terminal_outcome_failure: ['bootstrap', null, 'event admission failed before a normal outcome could be admitted', false],
+  structural_validation_internal_failure: ['structural_validation', null, 'event structural validation failed internally', false],
+  binding_internal_failure: ['binding', null, 'event raw binding failed internally', false],
+  verification_internal_failure: ['verification', null, 'webhook verification failed internally', true],
+  source_validation_internal_failure: ['source_validation', null, 'event source validation failed internally', false],
+  normalization_internal_failure: ['normalization', null, 'event normalization failed internally', false],
+  canonicalization_internal_failure: ['canonicalization', null, 'event canonicalization failed internally', false],
+  digest_internal_failure: ['digest', null, 'event digest computation failed internally', false],
+  ledger_read_failure: ['ledger_read', null, 'event ledger read failed', true],
+  ledger_write_failure: ['ledger_write', null, 'event ledger write failed', true],
+  ledger_transaction_internal_failure: ['ledger_transaction', null, 'event ledger transaction failed internally', true],
+  ordering_invariant_failure: ['ordering', null, 'event ordering invariant failed', false],
+}
+
+export function validateCanonicalEventAdmissionOutcomeV1(input: unknown): AdmissionResultV1<CanonicalEventAdmissionOutcomeV1> {
+  try {
+    if (!isObject(input)) return rejectAdmission('invalid_type', '', 'invalid type')
+    const fields = input.kind === 'accepted'
+      ? ['contract_version', 'kind', 'evaluated_at', 'delivery_id', 'raw_payload_sha256', 'envelope', 'evaluator_trigger']
+      : input.kind === 'rejected'
+        ? ['contract_version', 'kind', 'evaluated_at', 'delivery_id', 'raw_payload_sha256', 'rejection', 'existing_event_id', 'retryable']
+        : input.kind === 'failed'
+          ? ['contract_version', 'kind', 'evaluated_at', 'delivery_id', 'raw_payload_sha256', 'failure']
+          : []
+    if (fields.length === 0) return rejectAdmission('invalid_enum', '/kind', 'invalid enum value')
+    const root = exactObject(input, fields)
+    if (root) return root
+    if (input.contract_version !== CANONICAL_EVENT_ADMISSION_OUTCOME_V1) return rejectAdmission('invalid_enum', '/contract_version', 'invalid enum value')
+    if (!(input.delivery_id === null || typeof input.delivery_id === 'string') || !(input.raw_payload_sha256 === null || typeof input.raw_payload_sha256 === 'string')) return rejectAdmission('invalid_type', '/delivery_id', 'invalid type')
+    if (input.kind === 'accepted') {
+      if (!utcTimestamp(input.evaluated_at) || typeof input.delivery_id !== 'string' || !format(input.raw_payload_sha256, /^sha256:[0-9a-f]{64}$/) || !jsonData(input.envelope) || !['required', 'suppressed'].includes(String(input.evaluator_trigger))) return rejectAdmission('semantic_mismatch', '', 'semantic mismatch')
+    } else if (input.kind === 'rejected') {
+      const issue = exactObject(input.rejection, ['code', 'stage', 'path', 'message'], [], '/rejection')
+      if (issue) return issue
+      if (!utcTimestamp(input.evaluated_at) || input.retryable !== false || !(input.existing_event_id === null || typeof input.existing_event_id === 'string')) return rejectAdmission('semantic_mismatch', '', 'semantic mismatch')
+    } else {
+      const issue = exactObject(input.failure, ['code', 'stage', 'operation', 'diagnostic_id', 'safe_message', 'retryable'], [], '/failure')
+      if (issue) return issue
+      const failure = input.failure as Obj
+      const standard = admissionFailureMatrix[String(failure.code)]
+      const port = failure.code === 'port_contract_invalid' && failure.stage === 'port_contract' && ['canonicalize_jcs', 'sha256', 'ledger_transact'].includes(String(failure.operation)) && failure.safe_message === `${failure.operation} returned an invalid port result` && failure.retryable === false
+      if ((!standard || standard[0] !== failure.stage || standard[1] !== failure.operation || standard[2] !== failure.safe_message || standard[3] !== failure.retryable) && !port) return rejectAdmission('semantic_mismatch', '/failure', 'semantic mismatch')
+      if (!format(failure.diagnostic_id, /^cea-failure-v1:[0-9a-f]{64}$/)) return rejectAdmission('invalid_format', '/failure/diagnostic_id', 'invalid format')
+    }
+    return acceptAdmission(input as CanonicalEventAdmissionOutcomeV1)
+  } catch {
+    return failAdmission('canonical-event-admission-outcome-v1')
+  }
+}
+
+export async function admitCanonicalGitHubEventV1(
+  invocation: unknown,
+  rawInput: unknown,
+  ports: CanonicalEventAdmissionPortsV1,
+): Promise<CanonicalEventAdmissionOutcomeV1> {
+  try {
+    const outcome = await produceCanonicalGitHubEventV1(invocation, rawInput, ports)
+    const admission = validateCanonicalEventAdmissionOutcomeV1(outcome)
+    return admission.kind === 'accepted' ? admission.value : terminalFailure
+  } catch {
+    return terminalFailure
+  }
+}
+
+export function validateFreshProgressionSnapshotV1(input: unknown): AdmissionResultV1<Readonly<Obj>> {
+  try {
+    const root = exactObject(input, ['contract_version', 'snapshot_id', 'collected_at', 'collector', 'repository', 'triggering_generation_keys', 'scope_resolution', 'target_evaluator_contract_version', 'input_candidate', 'input_candidate_content_sha256', 'field_evidence', 'collection_ordering'])
+    if (root) return root
+    const value = input as Obj
+    const collectorIssue = exactObject(value.collector, ['collector_id', 'collector_version'], [], '/collector')
+    if (collectorIssue) return collectorIssue
+    const collector = value.collector as Obj
+    if (!validString(value.contract_version) || !format(value.snapshot_id, /^github-fresh-snapshot-v1:sha256:[0-9a-f]{64}$/) || !utcTimestamp(value.collected_at) || collector.collector_id !== 'sd-prompt-studio-fresh-progression-collector' || !validString(collector.collector_version) || value.repository !== 'whatrune/sd-prompt-studio' || !sortedUnique(value.triggering_generation_keys, /^github-freshness-generation-v1:sha256:[0-9a-f]{64}$/) || !isObject(value.scope_resolution) || !validString(value.target_evaluator_contract_version) || !Array.isArray(value.field_evidence) || value.collection_ordering !== 'fresh-progression-field-order-v1') return rejectAdmission('semantic_mismatch', '', 'semantic mismatch')
+    return acceptAdmission(value)
+  } catch {
+    return failAdmission('fresh-progression-snapshot-v1')
+  }
+}
+
+const candidateFields = ['contract_version', 'task_id', 'repository', 'assignment_revision', 'evaluated_at', 'task_assignment', 'result_handoff', 'review_decision', 'pr', 'checks', 'review_threads', 'gate_status', 'workspace', 'context_health']
+const validateCandidateCarrier = (input: unknown, path: string) => {
+  const issue = exactObject(input, candidateFields, ['approval'], path)
+  if (issue) return issue
+  const value = input as Obj
+  return validString(value.contract_version) && Object.values(value).every((item) => jsonData(item))
+    ? undefined
+    : rejectAdmission('invalid_type', path, 'invalid type')
+}
+
+export function validateEvaluatorBindingOutcomeV1(input: unknown): AdmissionResultV1<Readonly<Obj>> {
+  try {
+    if (!isObject(input)) return rejectAdmission('invalid_type', '', 'invalid type')
+    const fields = input.kind === 'ready'
+      ? ['contract_version', 'kind', 'evaluated_at', 'snapshot_id', 'triggering_event_ids', 'triggering_generation_keys', 'input']
+      : input.kind === 'blocked'
+        ? ['contract_version', 'kind', 'evaluated_at', 'snapshot_id', 'triggering_event_ids', 'triggering_generation_keys', 'reason', 'diagnostic_path', 'canonical_evidence_refs']
+        : []
+    if (fields.length === 0) return rejectAdmission('invalid_enum', '/kind', 'invalid enum value')
+    const root = exactObject(input, fields)
+    if (root) return root
+    if (input.contract_version !== 'canonical-event-evaluator-binding-outcome-v1' || !sortedUnique(input.triggering_event_ids, /^github-event-v1:sha256:[0-9a-f]{64}$/) || !sortedUnique(input.triggering_generation_keys, /^github-freshness-generation-v1:sha256:[0-9a-f]{64}$/)) return rejectAdmission('semantic_mismatch', '', 'semantic mismatch')
+    if (input.kind === 'ready') {
+      const carrierIssue = validateCandidateCarrier(input.input, '/input')
+      if (carrierIssue) return carrierIssue
+      if (!utcTimestamp(input.evaluated_at) || !format(input.snapshot_id, /^github-fresh-snapshot-v1:sha256:[0-9a-f]{64}$/)) return rejectAdmission('invalid_format', '/evaluated_at', 'invalid format')
+    } else if (!(input.evaluated_at === null || utcTimestamp(input.evaluated_at)) || !(input.snapshot_id === null || format(input.snapshot_id, /^github-fresh-snapshot-v1:sha256:[0-9a-f]{64}$/)) || !['invalid_event_set', 'fresh_snapshot_unavailable', 'source_scope_ambiguous', 'source_conflict', 'identity_binding_mismatch', 'unsupported_snapshot_contract', 'unsupported_evaluator_contract'].includes(String(input.reason)) || typeof input.diagnostic_path !== 'string' || !sortedUnique(input.canonical_evidence_refs, /^https:\/\/github\.com\/whatrune\/sd-prompt-studio\//)) {
+      return rejectAdmission('semantic_mismatch', '', 'semantic mismatch')
+    }
+    return acceptAdmission(input)
+  } catch {
+    return failAdmission('canonical-event-evaluator-binding-outcome-v1')
+  }
+}
+
+export function validateCanonicalEventEvaluatorInvocationOutcomeV1(input: unknown): AdmissionResultV1<Readonly<Obj>> {
+  try {
+    if (!isObject(input)) return rejectAdmission('invalid_type', '', 'invalid type')
+    const fields = input.kind === 'evaluated' || input.kind === 'input_rejected'
+      ? ['contract_version', 'kind', 'evaluated_at', 'snapshot_id', 'generation_keys', 'evaluator_result']
+      : input.kind === 'failed'
+        ? ['contract_version', 'kind', 'evaluated_at', 'snapshot_id', 'generation_keys', 'failure']
+        : []
+    if (fields.length === 0) return rejectAdmission('invalid_enum', '/kind', 'invalid enum value')
+    const root = exactObject(input, fields)
+    if (root) return root
+    if (input.contract_version !== 'canonical-event-evaluator-invocation-outcome-v1' || !utcTimestamp(input.evaluated_at) || !format(input.snapshot_id, /^github-fresh-snapshot-v1:sha256:[0-9a-f]{64}$/) || !sortedUnique(input.generation_keys, /^github-freshness-generation-v1:sha256:[0-9a-f]{64}$/)) return rejectAdmission('semantic_mismatch', '', 'semantic mismatch')
+    if (input.kind === 'failed') {
+      const failureIssue = exactObject(input.failure, ['code', 'diagnostic_id', 'safe_message'], [], '/failure')
+      if (failureIssue) return failureIssue
+      const failure = input.failure as Obj
+      if (!has(invocationFailureMessages, String(failure.code)) || failure.safe_message !== invocationFailureMessages[String(failure.code)] || !format(failure.diagnostic_id, /^cea-evaluator-failure-v1:[0-9a-f]{64}$/)) return rejectAdmission('semantic_mismatch', '/failure', 'semantic mismatch')
+    } else {
+      const result = validateAutomaticGateProgressionEvaluationResultV2(input.evaluator_result)
+      if (result.kind !== 'accepted') return rejectAdmission('semantic_mismatch', '/evaluator_result', 'semantic mismatch')
+      const resultValue = input.evaluator_result as Obj
+      const sentinel = resultValue.input_fingerprint === 'invalid-input-v2' && resultValue.task_id === 'unknown_task'
+      if ((input.kind === 'input_rejected') !== sentinel) return rejectAdmission('conditional_field_violation', '/kind', 'conditional field violation')
+    }
+    return acceptAdmission(input)
+  } catch {
+    return failAdmission('canonical-event-evaluator-invocation-outcome-v1')
+  }
+}
+
+export type FreshnessGenerationTransitionResultV1 = Readonly<Obj>
+export type FreshnessGenerationTransactionPortV1 = Readonly<{ transact: (request: Readonly<Obj>) => Promise<unknown> }>
+const generationRequestFields: Readonly<Record<string, readonly string[]>> = {
+  admit_current_event: ['contract_version', 'kind', 'freshness_cycle_key', 'canonical_event_id', 'requested_at'],
+  claim_next: ['contract_version', 'kind', 'freshness_cycle_key', 'requested_at'],
+  retry_generation: ['contract_version', 'kind', 'generation_key', 'requested_at'],
+  finish_attempt: ['contract_version', 'kind', 'generation_key', 'attempt_key', 'requested_at', 'terminal_state', 'evaluator_call_count', 'safe_failure_code', 'durable_result_ref'],
+}
+const validateGenerationRequest = (input: unknown): AdmissionResultV1<Readonly<Obj>> => {
+  if (!isObject(input)) return rejectAdmission('invalid_type', '', 'invalid type')
+  const fields = generationRequestFields[String(input.kind)]
+  if (!fields) return rejectAdmission('invalid_enum', '/kind', 'invalid enum value')
+  const issue = exactObject(input, fields)
+  if (issue) return issue
+  if (input.contract_version !== 'canonical-event-freshness-transition-request-v1' || !utcTimestamp(input.requested_at)) return rejectAdmission('semantic_mismatch', '', 'semantic mismatch')
+  if (input.kind === 'finish_attempt') {
+    const completed = input.terminal_state === 'completed' && input.evaluator_call_count === 1 && input.safe_failure_code === null && typeof input.durable_result_ref === 'string'
+    const failed = ['failed_retryable', 'failed_terminal'].includes(String(input.terminal_state)) && [0, 1].includes(Number(input.evaluator_call_count)) && typeof input.safe_failure_code === 'string' && input.durable_result_ref === null
+    if (!completed && !failed) return rejectAdmission('conditional_field_violation', '', 'conditional field violation')
+  }
+  return acceptAdmission(input)
+}
+const generationResultFields: Readonly<Record<string, readonly string[]>> = {
+  member_admitted: ['contract_version', 'kind', 'generation_key', 'generation', 'member_event_ids'],
+  attempt_started: ['contract_version', 'kind', 'generation_key', 'generation', 'attempt_key', 'attempt', 'member_event_ids'],
+  attempt_finished: ['contract_version', 'kind', 'generation_key', 'generation', 'attempt_key', 'terminal_state', 'durable_result_ref'],
+  blocked_by_predecessor: ['contract_version', 'kind', 'requested_generation_key', 'predecessor_generation_key', 'predecessor_state'],
+  transition_rejected: ['contract_version', 'kind', 'generation_key', 'reason'],
+}
+export function validateFreshnessGenerationTransitionResultV1(input: unknown): AdmissionResultV1<FreshnessGenerationTransitionResultV1> {
+  try {
+    if (!isObject(input)) return rejectAdmission('invalid_type', '', 'invalid type')
+    const fields = generationResultFields[String(input.kind)]
+    if (!fields) return rejectAdmission('invalid_enum', '/kind', 'invalid enum value')
+    const issue = exactObject(input, fields)
+    if (issue) return issue
+    if (input.contract_version !== 'canonical-event-freshness-transition-result-v1') return rejectAdmission('invalid_enum', '/contract_version', 'invalid enum value')
+    if (has(input, 'generation') && !validNumber(input.generation)) return rejectAdmission('invalid_type', '/generation', 'invalid type')
+    if (has(input, 'attempt') && !validNumber(input.attempt)) return rejectAdmission('invalid_type', '/attempt', 'invalid type')
+    if (has(input, 'member_event_ids') && !sortedUnique(input.member_event_ids, /^github-event-v1:sha256:[0-9a-f]{64}$/)) return rejectAdmission('noncanonical_order', '/member_event_ids', 'noncanonical order')
+    return acceptAdmission(input)
+  } catch {
+    return failAdmission('canonical-event-freshness-transition-result-v1')
+  }
+}
+export async function transactFreshnessGenerationV1(
+  request: unknown,
+  port: FreshnessGenerationTransactionPortV1,
+): Promise<AdmissionResultV1<FreshnessGenerationTransitionResultV1>> {
+  const requestAdmission = validateGenerationRequest(request)
+  if (requestAdmission.kind !== 'accepted') return requestAdmission as AdmissionResultV1<FreshnessGenerationTransitionResultV1>
+  try {
+    if (!isObject(port) || Object.keys(port).length !== 1 || typeof port.transact !== 'function') return rejectAdmission('semantic_mismatch', '/port', 'semantic mismatch')
+    return validateFreshnessGenerationTransitionResultV1(await port.transact(requestAdmission.value))
+  } catch {
+    return failAdmission('canonical-event-freshness-transition-result-v1')
+  }
+}
+
+export type CanonicalEventInvocationFaultModeV1 =
+  | 'none'
+  | 'evaluator_return_valid_non_sentinel'
+  | 'evaluator_throw'
+  | 'result_validator_rejected'
+  | 'result_validator_failed'
+  | 'result_validator_throw'
+  | 'outcome_validator_rejected'
+  | 'outcome_validator_failed'
+  | 'outcome_validator_throw'
+  | 'ready_validator_rejected'
+  | 'ready_validator_failed'
+  | 'ready_validator_throw'
+export type CanonicalEventInvocationTestSessionTokenV1 = Readonly<object>
+type CanonicalEventInvocationTestEvidenceV1 = {
+  contract_version: 'canonical-event-invocation-test-evidence-v1'
+  lifecycle: 'created' | 'running' | 'completed' | 'capture_internal_failure'
+  ordered_trace: string[]
+  call_counts: {
+    ready_validator: number
+    evaluator: number
+    result_validator: number
+    outcome_validator: number
+    terminal_anchor_validator: number
+  }
+  intermediate_admission_kinds: string[]
+  fallback_depth: 0 | 1
+  retry_count: 0
+  safe_diagnostic: 'test evidence capture failed' | null
+}
+type InvocationSessionV1 = {
+  fault_mode: CanonicalEventInvocationFaultModeV1
+  lifecycle: CanonicalEventInvocationTestEvidenceV1['lifecycle']
+  evidence: CanonicalEventInvocationTestEvidenceV1
+}
+const invocationFaultModes = new Set<CanonicalEventInvocationFaultModeV1>([
+  'none',
+  'evaluator_return_valid_non_sentinel',
+  'evaluator_throw',
+  'result_validator_rejected',
+  'result_validator_failed',
+  'result_validator_throw',
+  'outcome_validator_rejected',
+  'outcome_validator_failed',
+  'outcome_validator_throw',
+  'ready_validator_rejected',
+  'ready_validator_failed',
+  'ready_validator_throw',
+])
+const invocationSessions = new WeakMap<object, InvocationSessionV1>()
+const createInvocationEvidence = (): CanonicalEventInvocationTestEvidenceV1 => ({
+  contract_version: 'canonical-event-invocation-test-evidence-v1',
+  lifecycle: 'created',
+  ordered_trace: [],
+  call_counts: {
+    ready_validator: 0,
+    evaluator: 0,
+    result_validator: 0,
+    outcome_validator: 0,
+    terminal_anchor_validator: 0,
+  },
+  intermediate_admission_kinds: [],
+  fallback_depth: 0,
+  retry_count: 0,
+  safe_diagnostic: null,
+})
+
+export function createCanonicalEventInvocationTestSessionV1(
+  input: unknown,
+): AdmissionResultV1<CanonicalEventInvocationTestSessionTokenV1> {
+  try {
+    const issue = exactObject(input, ['contract_version', 'fault_mode'])
+    if (issue) return issue
+    const value = input as Obj
+    if (
+      value.contract_version !== 'canonical-event-invocation-test-session-v1' ||
+      !invocationFaultModes.has(value.fault_mode as CanonicalEventInvocationFaultModeV1)
+    ) {
+      return rejectAdmission('invalid_enum', '/fault_mode', 'invalid enum value')
+    }
+    const token = freeze(Object.create(null) as object)
+    invocationSessions.set(token, {
+      fault_mode: value.fault_mode as CanonicalEventInvocationFaultModeV1,
+      lifecycle: 'created',
+      evidence: createInvocationEvidence(),
+    })
+    return freeze({ contract_version: 'closed-admission-result-v1', kind: 'accepted', value: token })
+  } catch {
+    return failAdmission('canonical-event-invocation-test-session-v1')
+  }
+}
+
+export function readCanonicalEventInvocationTestEvidenceV1(
+  input: unknown,
+): AdmissionResultV1<Readonly<CanonicalEventInvocationTestEvidenceV1>> {
+  try {
+    if ((typeof input !== 'object' && typeof input !== 'function') || input === null) {
+      return rejectAdmission('invalid_type', '', 'invalid type')
+    }
+    const session = invocationSessions.get(input)
+    if (!session) return rejectAdmission('semantic_mismatch', '', 'semantic mismatch')
+    session.evidence.lifecycle = session.lifecycle
+    const result = acceptAdmission(session.evidence)
+    if (session.lifecycle === 'completed' || session.lifecycle === 'capture_internal_failure') {
+      invocationSessions.delete(input)
+    }
+    return result
+  } catch {
+    return failAdmission('canonical-event-invocation-test-evidence-v1')
+  }
+}
+
+const contractInvocationFailed = (ready: Obj | null, code: string): Readonly<Obj> =>
+  freeze({
+    contract_version: 'canonical-event-evaluator-invocation-outcome-v1',
+    kind: 'failed',
+    evaluated_at: ready?.evaluated_at ?? '1970-01-01T00:00:00Z',
+    snapshot_id: ready?.snapshot_id ?? `github-fresh-snapshot-v1:sha256:${'0'.repeat(64)}`,
+    generation_keys: clone(ready?.triggering_generation_keys ?? []),
+    failure: {
+      code,
+      diagnostic_id: `cea-evaluator-failure-v1:${invocationDiagnosticIds[code] ?? '0'.repeat(64)}`,
+      safe_message: invocationFailureMessages[code],
+    },
+  })
+const preReadyInvalidAnchor = contractInvocationFailed(null, 'ready_binding_contract_invalid')
+const preReadyInternalAnchor = contractInvocationFailed(null, 'ready_binding_validation_internal_failure')
+const deterministicNonSentinelResult = freeze({
+  contract_version: 'automatic-gate-progression-evaluation-result-v2',
+  task_id: 'task-001',
+  evaluated_at: '2026-07-24T00:00:00Z',
+  input_fingerprint: 'agp-input-v2:sha256:45ae2c8fd7737659f215c74158b6600236a28f4f9f0138586f0f6b4db6be4ab6',
+  precedence_trace: ['structural_admission', 'canonical_authority'],
+  gate_status_requirement: { required: false },
+  kind: 'stop',
+  stop_condition: 'transition_not_terminal_or_permitted',
+  execution_stop_reason: 'architecture_gap',
+  canonical_evidence_refs: ['https://github.com/whatrune/sd-prompt-studio/issues/179'],
+  recovery_owner: 'backend_architect',
+  required_recovery_evidence: ['fresh_terminal_transition_authority'],
+}) as AutomaticGateProgressionEvaluationResultV2
+
+export function invokeAutomaticGateProgressionForCanonicalEventsV1(
+  candidate: unknown,
+  test_session: CanonicalEventInvocationTestSessionTokenV1 | null,
+): Readonly<Obj> {
+  let session: InvocationSessionV1 | null = null
+  if (test_session !== null) {
+    session = invocationSessions.get(test_session as object) ?? null
+    if (!session || session.lifecycle !== 'created') return preReadyInvalidAnchor
+    session.lifecycle = 'running'
+    session.evidence.lifecycle = 'running'
+  }
+  const mode = session?.fault_mode ?? 'none'
+  const evidence = session?.evidence
+  let ready: Obj | null = null
+  let retainedAnchor: Readonly<Obj> | null = null
+  const finish = (value: Readonly<Obj>) => {
+    if (session) {
+      session.lifecycle = 'completed'
+      session.evidence.lifecycle = 'completed'
+    }
+    return value
+  }
+  const recordAdmission = (admission: unknown) => {
+    if (evidence && isObject(admission) && ['accepted', 'rejected', 'failed'].includes(String(admission.kind))) {
+      evidence.intermediate_admission_kinds.push(String(admission.kind))
+    }
+  }
+  const terminal = () => {
+    if (evidence) {
+      evidence.ordered_trace.push('terminal_anchor_return')
+      evidence.fallback_depth = 1
+    }
+    return finish(retainedAnchor ?? preReadyInternalAnchor)
+  }
+  try {
+    evidence?.ordered_trace.push('ready_admission')
+    if (evidence) evidence.call_counts.ready_validator += 1
+    let readyAdmission = validateEvaluatorBindingOutcomeV1(candidate)
+    if (mode === 'ready_validator_throw') throw new Error('ready_validator_throw')
+    if (mode === 'ready_validator_rejected') readyAdmission = rejectAdmission('semantic_mismatch', '', 'semantic mismatch')
+    if (mode === 'ready_validator_failed') readyAdmission = failAdmission()
+    recordAdmission(readyAdmission)
+    if (readyAdmission.kind === 'failed') return finish(preReadyInternalAnchor)
+    if (readyAdmission.kind !== 'accepted' || readyAdmission.value.kind !== 'ready') return finish(preReadyInvalidAnchor)
+    ready = freeze(clone(readyAdmission.value)) as Obj
+    evidence?.ordered_trace.push('ready_copy')
+
+    retainedAnchor = contractInvocationFailed(ready, 'invocation_outcome_terminal_failure')
+    evidence?.ordered_trace.push('terminal_anchor_admission')
+    if (evidence) evidence.call_counts.terminal_anchor_validator += 1
+    const anchorAdmission = validateCanonicalEventEvaluatorInvocationOutcomeV1(retainedAnchor)
+    recordAdmission(anchorAdmission)
+    if (anchorAdmission.kind !== 'accepted') return finish(preReadyInternalAnchor)
+
+    evidence?.ordered_trace.push('evaluator')
+    if (evidence) evidence.call_counts.evaluator += 1
+    let evaluatorResult = evaluateAutomaticGateProgressionV2(ready.input)
+    if (mode === 'evaluator_throw') throw new Error('evaluator_throw')
+    if (mode === 'evaluator_return_valid_non_sentinel') evaluatorResult = deterministicNonSentinelResult
+
+    evidence?.ordered_trace.push('result_admission')
+    if (evidence) evidence.call_counts.result_validator += 1
+    let resultAdmission = validateAutomaticGateProgressionEvaluationResultV2(evaluatorResult)
+    if (mode === 'result_validator_throw') throw new Error('result_validator_throw')
+    if (mode === 'result_validator_rejected') resultAdmission = rejectAdmission('semantic_mismatch', '', 'semantic mismatch')
+    if (mode === 'result_validator_failed') resultAdmission = failAdmission()
+    recordAdmission(resultAdmission)
+
+    let outcome: Readonly<Obj>
+    if (resultAdmission.kind === 'failed') outcome = contractInvocationFailed(ready, 'evaluator_result_validation_internal_failure')
+    else if (resultAdmission.kind === 'rejected') outcome = contractInvocationFailed(ready, 'evaluator_result_contract_invalid')
+    else {
+      evidence?.ordered_trace.push('sentinel_comparison')
+      const result = resultAdmission.value
+      const sentinel = result.input_fingerprint === 'invalid-input-v2' && result.task_id === 'unknown_task'
+      outcome = freeze({
+        contract_version: 'canonical-event-evaluator-invocation-outcome-v1',
+        kind: sentinel ? 'input_rejected' : 'evaluated',
+        evaluated_at: ready.evaluated_at,
+        snapshot_id: ready.snapshot_id,
+        generation_keys: clone(ready.triggering_generation_keys),
+        evaluator_result: clone(result),
+      })
+    }
+
+    evidence?.ordered_trace.push('outcome_admission')
+    if (evidence) evidence.call_counts.outcome_validator += 1
+    let outcomeAdmission = validateCanonicalEventEvaluatorInvocationOutcomeV1(outcome)
+    if (mode === 'outcome_validator_throw') throw new Error('outcome_validator_throw')
+    if (mode === 'outcome_validator_rejected') outcomeAdmission = rejectAdmission('semantic_mismatch', '', 'semantic mismatch')
+    if (mode === 'outcome_validator_failed') outcomeAdmission = failAdmission()
+    recordAdmission(outcomeAdmission)
+    return outcomeAdmission.kind === 'accepted' ? finish(outcomeAdmission.value) : terminal()
+  } catch (error) {
+    if (error instanceof Error && error.message === 'ready_validator_throw') {
+      recordAdmission(failAdmission())
+      return finish(preReadyInternalAnchor)
+    }
+    if (!ready || !retainedAnchor) return finish(preReadyInternalAnchor)
+    let failureCode = 'invocation_outcome_terminal_failure'
+    if (error instanceof Error && error.message === 'evaluator_throw') failureCode = 'evaluator_internal_failure'
+    if (error instanceof Error && error.message === 'result_validator_throw') failureCode = 'evaluator_result_validation_internal_failure'
+    if (failureCode === 'invocation_outcome_terminal_failure') return terminal()
+    const failed = contractInvocationFailed(ready, failureCode)
+    evidence?.ordered_trace.push('outcome_admission')
+    if (evidence) evidence.call_counts.outcome_validator += 1
+    const admission = validateCanonicalEventEvaluatorInvocationOutcomeV1(failed)
+    recordAdmission(admission)
+    return admission.kind === 'accepted' ? finish(admission.value) : terminal()
   }
 }

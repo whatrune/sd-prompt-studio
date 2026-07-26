@@ -98,15 +98,15 @@ try {
       const ports = {
         canonicalize_jcs: (value) => {
           calls.canonicalize_jcs += 1
-          return { kind: 'ok', value: new TextEncoder().encode(canonicalize(value)) }
+          return { contract_version: 'canonical-event-port-result-v1', kind: 'ok', value: new TextEncoder().encode(canonicalize(value)) }
         },
         sha256: (value) => {
           calls.sha256 += 1
-          return { kind: 'ok', value: shaRef(Buffer.from(value)) }
+          return { contract_version: 'canonical-event-port-result-v1', kind: 'ok', value: shaRef(Buffer.from(value)) }
         },
         ledger_transact: async () => {
           calls.ledger_transact += 1
-          return clone(port.ledger_transact)
+          return { contract_version: 'canonical-event-ledger-transaction-result-v1', ...clone(port.ledger_transact) }
         },
       }
       const actual = await api.admitCanonicalGitHubEventV1(invocation, rawInput, ports)
@@ -118,8 +118,18 @@ try {
     }
   }
   for (const row of artifact.executable_rows.generation) {
-    const actual = api.transactFreshnessGenerationV1(clone(row.input))
-    assert.deepEqual(actual, row.expected_outcome, `generation ${row.row_id}`)
+    const transition = row.expected_outcome.kind === 'applied' ? clone(row.expected_outcome.result) : null
+    const actual = await api.transactFreshnessGenerationV1(clone(row.input.request), {
+      transact: async () => {
+        if (transition === null) throw new Error('ordering invariant')
+        return transition
+      },
+    })
+    if (transition === null) assert.equal(actual.kind, 'failed', `generation ${row.row_id}`)
+    else {
+      assert.equal(actual.kind, 'accepted', `generation admission ${row.row_id}`)
+      assert.deepEqual(actual.value, transition, `generation ${row.row_id}`)
+    }
     assert.ok(Object.isFrozen(actual), `generation frozen ${row.row_id}`)
     counts.generation += 1
   }
@@ -127,47 +137,42 @@ try {
     const mode = row.test_session_input.fault_mode
     const expected = row.expected_outcome
     const ready = {
+      contract_version: 'canonical-event-evaluator-binding-outcome-v1',
+      kind: 'ready',
       evaluated_at: expected.evaluated_at === '1970-01-01T00:00:00Z' ? '2026-07-24T00:00:00Z' : expected.evaluated_at,
       snapshot_id: expected.snapshot_id.startsWith('github-fresh-snapshot-v1:sha256:0000') ? `github-fresh-snapshot-v1:sha256:${'2'.repeat(64)}` : expected.snapshot_id,
-      generation_keys: expected.generation_keys.length === 0 ? [`github-freshness-generation-v1:sha256:${'1'.repeat(64)}`] : clone(expected.generation_keys),
-      evaluator_input: { contract_version: 'automatic-gate-progression-evaluation-input-v2' },
-    }
-    const calls = { ready_validator: 0, evaluator: 0, result_validator: 0, outcome_validator: 0, terminal_anchor_validator: 0 }
-    const ports = {
-      validate_ready: () => {
-        calls.ready_validator += 1
-        if (mode === 'ready_validator_throw') throw new Error('fault')
-        if (mode === 'ready_validator_failed') return { kind: 'failed' }
-        if (mode === 'ready_validator_rejected') return { kind: 'rejected' }
-        return { kind: 'accepted', value: clone(ready) }
-      },
-      evaluate: () => {
-        calls.evaluator += 1
-        if (mode === 'evaluator_throw') throw new Error('fault')
-        return clone(expected.evaluator_result ?? { contract_version: 'automatic-gate-progression-evaluation-result-v2' })
-      },
-      validate_result: (value) => {
-        calls.result_validator += 1
-        if (mode === 'result_validator_throw') throw new Error('fault')
-        if (mode === 'result_validator_failed') return { kind: 'failed' }
-        if (mode === 'result_validator_rejected') return { kind: 'rejected' }
-        return { kind: 'accepted', value }
-      },
-      validate_outcome: (value) => {
-        calls.outcome_validator += 1
-        if (mode === 'outcome_validator_throw') throw new Error('fault')
-        if (mode === 'outcome_validator_failed') return { kind: 'failed' }
-        if (mode === 'outcome_validator_rejected') return { kind: 'rejected' }
-        return { kind: 'accepted', value }
-      },
-      validate_terminal_anchor: (value) => {
-        calls.terminal_anchor_validator += 1
-        return { kind: 'accepted', value }
+      triggering_event_ids: [`github-event-v1:sha256:${'3'.repeat(64)}`],
+      triggering_generation_keys: expected.generation_keys.length === 0 ? [`github-freshness-generation-v1:sha256:${'1'.repeat(64)}`] : clone(expected.generation_keys),
+      input: {
+        contract_version: 'automatic-gate-progression-evaluation-input-v2',
+        task_id: 'task-001',
+        repository: 'whatrune/sd-prompt-studio',
+        assignment_revision: 1,
+        evaluated_at: '2026-07-24T00:00:00Z',
+        task_assignment: {},
+        result_handoff: {},
+        review_decision: {},
+        pr: {},
+        checks: [],
+        review_threads: [],
+        gate_status: {},
+        workspace: {},
+        context_health: {},
       },
     }
-    const actual = api.invokeAutomaticGateProgressionForCanonicalEventsV1(ready, ports)
+    const session = api.createCanonicalEventInvocationTestSessionV1(clone(row.test_session_input))
+    assert.equal(session.kind, 'accepted', `session ${row.row_id}`)
+    const created = api.readCanonicalEventInvocationTestEvidenceV1(session.value)
+    assert.equal(created.kind, 'accepted', `created evidence ${row.row_id}`)
+    assert.equal(created.value.lifecycle, 'created', `created lifecycle ${row.row_id}`)
+    const actual = api.invokeAutomaticGateProgressionForCanonicalEventsV1(ready, session.value)
+    const terminalEvidence = api.readCanonicalEventInvocationTestEvidenceV1(session.value)
+    assert.equal(terminalEvidence.kind, 'accepted', `terminal evidence ${row.row_id}`)
+    assert.equal(terminalEvidence.value.lifecycle, 'completed', `terminal lifecycle ${row.row_id}`)
     assert.deepEqual(actual, expected, `invocation ${row.row_id}`)
-    assert.deepEqual(calls, row.expected_call_counts, `invocation calls ${row.row_id}`)
+    assert.deepEqual(terminalEvidence.value.call_counts, row.expected_call_counts, `invocation calls ${row.row_id}`)
+    assert.equal(terminalEvidence.value.fallback_depth, row.fallback_depth, `fallback ${row.row_id}`)
+    assert.equal(terminalEvidence.value.retry_count, row.retry_count, `retry ${row.row_id}`)
     assert.ok(Object.isFrozen(actual), `invocation frozen ${row.row_id}`)
     counts.invocation += 1
   }
@@ -183,6 +188,243 @@ try {
   assert.equal(unknownOutcome.kind, 'rejected')
   assert.equal(unknownOutcome.rejection.code, 'unknown_field')
   assert.deepEqual(noCalls, { canonicalize_jcs: 0, sha256: 0, ledger_transact: 0 })
+
+  let focusedChecks = 0
+  const expectRejected = (admission, label) => {
+    assert.equal(admission.kind, 'rejected', label)
+    focusedChecks += 1
+  }
+  const expectAccepted = (admission, label) => {
+    assert.equal(admission.kind, 'accepted', label)
+    assert.ok(Object.isFrozen(admission), `${label} frozen`)
+    focusedChecks += 1
+  }
+  const unknownField = (value) => ({ ...clone(value), zz_unknown: true })
+  expectAccepted(api.validateCanonicalEventAdmissionInvocationV1(positive.invocation), 'focused invocation accepted')
+  expectRejected(api.validateCanonicalEventAdmissionInvocationV1(unknownField(positive.invocation)), 'focused invocation closed')
+  expectAccepted(api.validateRawGitHubEventInputV1(positive.raw_input), 'focused raw accepted')
+  expectRejected(api.validateRawGitHubEventInputV1(unknownField(positive.raw_input)), 'focused raw closed')
+  const positiveOutcome = artifact.executable_rows.positive[0].expected_outcome
+  expectAccepted(api.validateCanonicalEventAdmissionOutcomeV1(positiveOutcome), 'focused outcome accepted')
+  expectRejected(api.validateCanonicalEventAdmissionOutcomeV1(unknownField(positiveOutcome)), 'focused outcome closed')
+
+  const carrier = {
+    contract_version: 'automatic-gate-progression-evaluation-input-v2',
+    task_id: 'task-001',
+    repository: 'whatrune/sd-prompt-studio',
+    assignment_revision: 1,
+    evaluated_at: '2026-07-24T00:00:00Z',
+    task_assignment: {},
+    result_handoff: {},
+    review_decision: {},
+    pr: {},
+    checks: [],
+    review_threads: [],
+    gate_status: {},
+    workspace: {},
+    context_health: {},
+  }
+  const ready = {
+    contract_version: 'canonical-event-evaluator-binding-outcome-v1',
+    kind: 'ready',
+    evaluated_at: '2026-07-24T00:00:00Z',
+    snapshot_id: `github-fresh-snapshot-v1:sha256:${'2'.repeat(64)}`,
+    triggering_event_ids: [`github-event-v1:sha256:${'3'.repeat(64)}`],
+    triggering_generation_keys: [`github-freshness-generation-v1:sha256:${'1'.repeat(64)}`],
+    input: carrier,
+  }
+  expectAccepted(api.validateEvaluatorBindingOutcomeV1(ready), 'focused ready accepted')
+  expectRejected(api.validateEvaluatorBindingOutcomeV1(unknownField(ready)), 'focused ready closed')
+  const invocationOutcome = artifact.executable_rows.invocation[1].expected_outcome
+  expectAccepted(api.validateCanonicalEventEvaluatorInvocationOutcomeV1(invocationOutcome), 'focused invocation outcome accepted')
+  expectRejected(api.validateCanonicalEventEvaluatorInvocationOutcomeV1(unknownField(invocationOutcome)), 'focused invocation outcome closed')
+  const snapshot = {
+    contract_version: 'fresh-progression-snapshot-v1',
+    snapshot_id: `github-fresh-snapshot-v1:sha256:${'4'.repeat(64)}`,
+    collected_at: '2026-07-24T00:00:00Z',
+    collector: {
+      collector_id: 'sd-prompt-studio-fresh-progression-collector',
+      collector_version: 'collector-v1',
+    },
+    repository: 'whatrune/sd-prompt-studio',
+    triggering_generation_keys: [`github-freshness-generation-v1:sha256:${'1'.repeat(64)}`],
+    scope_resolution: { kind: 'single' },
+    target_evaluator_contract_version: 'automatic-gate-progression-evaluation-input-v2',
+    input_candidate: carrier,
+    input_candidate_content_sha256: `sha256:${'5'.repeat(64)}`,
+    field_evidence: [],
+    collection_ordering: 'fresh-progression-field-order-v1',
+  }
+  expectAccepted(api.validateFreshProgressionSnapshotV1(snapshot), 'focused snapshot accepted')
+  expectRejected(api.validateFreshProgressionSnapshotV1(unknownField(snapshot)), 'focused snapshot closed')
+
+  const validGenerationResult = artifact.executable_rows.generation[0].expected_outcome.result
+  expectAccepted(api.validateFreshnessGenerationTransitionResultV1(validGenerationResult), 'focused generation result accepted')
+  expectRejected(api.validateFreshnessGenerationTransitionResultV1(unknownField(validGenerationResult)), 'focused generation result closed')
+  assert.equal(api.transactFreshnessGenerationV1.length, 2)
+  focusedChecks += 1
+  let generationPortCalls = 0
+  const badRequest = { ...clone(artifact.executable_rows.generation[0].input.request), zz_unknown: true }
+  expectRejected(await api.transactFreshnessGenerationV1(badRequest, {
+    transact: async () => {
+      generationPortCalls += 1
+      return validGenerationResult
+    },
+  }), 'focused generation request closed')
+  assert.equal(generationPortCalls, 0)
+  focusedChecks += 1
+  expectRejected(await api.transactFreshnessGenerationV1(artifact.executable_rows.generation[0].input.request, {
+    transact: async () => ({ ...clone(validGenerationResult), zz_unknown: true }),
+  }), 'focused generation malformed port result')
+  const failedGeneration = await api.transactFreshnessGenerationV1(artifact.executable_rows.generation[0].input.request, {
+    transact: async () => { throw new Error('fault') },
+  })
+  assert.equal(failedGeneration.kind, 'failed')
+  focusedChecks += 1
+
+  const malformedFactory = api.createCanonicalEventInvocationTestSessionV1({
+    contract_version: 'canonical-event-invocation-test-session-v1',
+    fault_mode: 'none',
+    zz_unknown: true,
+  })
+  expectRejected(malformedFactory, 'focused session factory closed')
+  expectRejected(api.createCanonicalEventInvocationTestSessionV1({
+    contract_version: 'canonical-event-invocation-test-session-v1',
+    fault_mode: 'future_mode',
+  }), 'focused session mode closed')
+  let fabricatedReads = 0
+  const unreadCandidate = new Proxy({}, {
+    ownKeys() {
+      fabricatedReads += 1
+      return []
+    },
+  })
+  const fabricatedOutcome = api.invokeAutomaticGateProgressionForCanonicalEventsV1(unreadCandidate, Object.freeze({}))
+  assert.equal(fabricatedOutcome.failure.code, 'ready_binding_contract_invalid')
+  assert.equal(fabricatedReads, 0)
+  focusedChecks += 1
+  const reuseSession = api.createCanonicalEventInvocationTestSessionV1({
+    contract_version: 'canonical-event-invocation-test-session-v1',
+    fault_mode: 'none',
+  })
+  assert.equal(reuseSession.kind, 'accepted')
+  api.invokeAutomaticGateProgressionForCanonicalEventsV1(ready, reuseSession.value)
+  const reuseEvidence = api.readCanonicalEventInvocationTestEvidenceV1(reuseSession.value)
+  assert.equal(reuseEvidence.kind, 'accepted')
+  let reuseReads = 0
+  const reuseCandidate = new Proxy({}, {
+    ownKeys() {
+      reuseReads += 1
+      return []
+    },
+  })
+  const reuseOutcome = api.invokeAutomaticGateProgressionForCanonicalEventsV1(reuseCandidate, reuseSession.value)
+  assert.equal(reuseOutcome.failure.code, 'ready_binding_contract_invalid')
+  assert.equal(reuseReads, 0)
+  focusedChecks += 1
+  const runningSession = api.createCanonicalEventInvocationTestSessionV1({
+    contract_version: 'canonical-event-invocation-test-session-v1',
+    fault_mode: 'none',
+  })
+  assert.equal(runningSession.kind, 'accepted')
+  let observedRunning = false
+  const runningCandidate = new Proxy(clone(ready), {
+    ownKeys(target) {
+      const runningEvidence = api.readCanonicalEventInvocationTestEvidenceV1(runningSession.value)
+      observedRunning ||= runningEvidence.kind === 'accepted' && runningEvidence.value.lifecycle === 'running'
+      return Reflect.ownKeys(target)
+    },
+  })
+  api.invokeAutomaticGateProgressionForCanonicalEventsV1(runningCandidate, runningSession.value)
+  assert.equal(observedRunning, true)
+  assert.equal(api.readCanonicalEventInvocationTestEvidenceV1(runningSession.value).kind, 'accepted')
+  focusedChecks += 1
+
+  const invalidAgpResult = unknownField(invocationOutcome.evaluator_result)
+  expectRejected(api.validateCanonicalEventEvaluatorInvocationOutcomeV1({
+    ...clone(invocationOutcome),
+    evaluator_result: invalidAgpResult,
+  }), 'focused sole AGP result authority')
+  const mutableReady = clone(ready)
+  const admittedReady = api.validateEvaluatorBindingOutcomeV1(mutableReady)
+  assert.equal(admittedReady.kind, 'accepted')
+  mutableReady.input.task_id = 'mutated'
+  assert.equal(admittedReady.value.input.task_id, 'task-001')
+  assert.ok(Object.isFrozen(admittedReady.value.input))
+  focusedChecks += 1
+
+  const positivePorts = portById.get('CEA-A4-FIX-CEA-MAP-001')
+  const makeAdmissionPorts = (overrides = {}) => ({
+    canonicalize_jcs: (value) => ({
+      contract_version: 'canonical-event-port-result-v1',
+      kind: 'ok',
+      value: new TextEncoder().encode(canonicalize(value)),
+    }),
+    sha256: (value) => ({
+      contract_version: 'canonical-event-port-result-v1',
+      kind: 'ok',
+      value: shaRef(Buffer.from(value)),
+    }),
+    ledger_transact: async () => ({
+      contract_version: 'canonical-event-ledger-transaction-result-v1',
+      ...clone(positivePorts.ledger_transact),
+    }),
+    ...overrides,
+  })
+  const invalidShaOutcome = await api.admitCanonicalGitHubEventV1(
+    positive.invocation,
+    positive.raw_input,
+    makeAdmissionPorts({
+      sha256: () => ({ contract_version: 'canonical-event-port-result-v1', kind: 'ok', value: 'invalid' }),
+    }),
+  )
+  assert.equal(invalidShaOutcome.kind, 'failed')
+  assert.equal(invalidShaOutcome.failure.code, 'port_contract_invalid')
+  assert.equal(invalidShaOutcome.failure.stage, 'port_contract')
+  assert.equal(invalidShaOutcome.failure.operation, 'sha256')
+  focusedChecks += 1
+  const ledgerThrowOutcome = await api.admitCanonicalGitHubEventV1(
+    positive.invocation,
+    positive.raw_input,
+    makeAdmissionPorts({
+      ledger_transact: async () => { throw new Error('fault') },
+    }),
+  )
+  assert.equal(ledgerThrowOutcome.kind, 'failed')
+  assert.equal(ledgerThrowOutcome.failure.code, 'ledger_transaction_internal_failure')
+  assert.equal(ledgerThrowOutcome.failure.stage, 'ledger_transaction')
+  assert.equal(ledgerThrowOutcome.failure.operation, null)
+  assert.notEqual(ledgerThrowOutcome.failure.diagnostic_id, `cea-failure-v1:${'0'.repeat(64)}`)
+  const failureProjection = {
+    contract_version: 'canonical-event-admission-outcome-v1',
+    code: ledgerThrowOutcome.failure.code,
+    stage: ledgerThrowOutcome.failure.stage,
+    operation: ledgerThrowOutcome.failure.operation,
+    delivery_id: ledgerThrowOutcome.delivery_id,
+    raw_payload_sha256: ledgerThrowOutcome.raw_payload_sha256,
+    evaluated_at: ledgerThrowOutcome.evaluated_at,
+  }
+  assert.equal(
+    ledgerThrowOutcome.failure.diagnostic_id,
+    `cea-failure-v1:${shaHex(canonicalize(failureProjection))}`,
+  )
+  focusedChecks += 1
+  const invalidLedgerOutcome = await api.admitCanonicalGitHubEventV1(
+    positive.invocation,
+    positive.raw_input,
+    makeAdmissionPorts({
+      ledger_transact: async () => ({
+        contract_version: 'canonical-event-ledger-transaction-result-v1',
+        ...clone(positivePorts.ledger_transact),
+        zz_unknown: true,
+      }),
+    }),
+  )
+  assert.equal(invalidLedgerOutcome.kind, 'failed')
+  assert.equal(invalidLedgerOutcome.failure.code, 'port_contract_invalid')
+  assert.equal(invalidLedgerOutcome.failure.operation, 'ledger_transact')
+  focusedChecks += 1
+
   assert.deepEqual(counts, { positive: 26, field_negative: 900, tuple_negative: 76, generation: 6, invocation: 12 })
   console.log(JSON.stringify({
     result: 'PASS',
@@ -194,6 +436,7 @@ try {
     duplicates: 0,
     placeholders: 0,
     unresolved: 0,
+    focused_contract_checks: focusedChecks,
   }))
 } finally {
   await server.close()
