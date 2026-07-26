@@ -445,6 +445,92 @@ try {
     }),
     ...overrides,
   })
+  const sourceIdentityCases = [
+    {
+      label: 'valid repository source identity',
+      operation: { kind: 'none' },
+      expectedKind: positive.expected_accepted_outcome.kind,
+    },
+    {
+      label: 'external host HTML URL',
+      operation: {
+        kind: 'replace',
+        path: '/provider_payload/issue/html_url',
+        value: 'https://evil.example/issues/196',
+      },
+      expectedKind: 'rejected',
+      expectedPath: '/provider_payload/issue/html_url',
+    },
+    {
+      label: 'wrong repository API URL',
+      operation: {
+        kind: 'replace',
+        path: '/provider_payload/issue/url',
+        value: 'https://api.github.com/repos/whatrune/other-repository/issues/196',
+      },
+      expectedKind: 'rejected',
+      expectedPath: '/provider_payload/issue/url',
+    },
+    {
+      label: 'wrong repository HTML URL',
+      operation: {
+        kind: 'replace',
+        path: '/provider_payload/issue/html_url',
+        value: 'https://github.com/whatrune/other-repository/issues/196',
+      },
+      expectedKind: 'rejected',
+      expectedPath: '/provider_payload/issue/html_url',
+    },
+  ]
+  for (const sourceIdentityCase of sourceIdentityCases) {
+    const candidate = rebuild(positive, sourceIdentityCase.operation)
+    const calls = { canonicalize_jcs: 0, sha256: 0, ledger_transact: 0 }
+    const durableEvidence = []
+    const outcome = await api.admitCanonicalGitHubEventV1(
+      candidate.invocation,
+      candidate.rawInput,
+      makeAdmissionPorts({
+        canonicalize_jcs: (value) => {
+          calls.canonicalize_jcs += 1
+          return {
+            contract_version: 'canonical-event-port-result-v1',
+            kind: 'ok',
+            value: new TextEncoder().encode(canonicalize(value)),
+          }
+        },
+        sha256: (value) => {
+          calls.sha256 += 1
+          return {
+            contract_version: 'canonical-event-port-result-v1',
+            kind: 'ok',
+            value: shaRef(Buffer.from(value)),
+          }
+        },
+        ledger_transact: async (request) => {
+          calls.ledger_transact += 1
+          durableEvidence.push(clone(request))
+          return {
+            contract_version: 'canonical-event-ledger-transaction-result-v1',
+            ...clone(positivePorts.ledger_transact),
+          }
+        },
+      }),
+    )
+    assert.equal(outcome.kind, sourceIdentityCase.expectedKind, sourceIdentityCase.label)
+    if (sourceIdentityCase.expectedKind === 'rejected') {
+      assert.equal(outcome.rejection.code, 'repository_mismatch', `${sourceIdentityCase.label} code`)
+      assert.equal(outcome.rejection.stage, 'source_identity', `${sourceIdentityCase.label} stage`)
+      assert.equal(outcome.rejection.path, sourceIdentityCase.expectedPath, `${sourceIdentityCase.label} path`)
+      assert.deepEqual(calls, { canonicalize_jcs: 0, sha256: 1, ledger_transact: 0 }, `${sourceIdentityCase.label} calls`)
+      assert.deepEqual(expectedTraceFor(outcome), ['P', 'S', 'B', 'A', 'C', 'R'], `${sourceIdentityCase.label} trace`)
+      assert.deepEqual(durableEvidence, [], `${sourceIdentityCase.label} durable evidence`)
+    } else {
+      assert.deepEqual(outcome, positive.expected_accepted_outcome, `${sourceIdentityCase.label} outcome`)
+      assert.deepEqual(calls, positive.expected_call_counts, `${sourceIdentityCase.label} calls`)
+      assert.equal(durableEvidence.length, 1, `${sourceIdentityCase.label} durable evidence`)
+    }
+    focusedChecks += 1
+  }
   const invalidShaOutcome = await api.admitCanonicalGitHubEventV1(
     positive.invocation,
     positive.raw_input,
