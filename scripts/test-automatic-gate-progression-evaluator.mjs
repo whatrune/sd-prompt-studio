@@ -281,12 +281,26 @@ try {
     'public result version',
   )
   equal(typeof api.evaluateAutomaticGateProgressionV2, 'function', 'public V2 evaluator')
+  equal(
+    typeof api.validateAutomaticGateProgressionEvaluationInputV2,
+    'function',
+    'public V2 input validator',
+  )
+  equal(
+    typeof api.validateAutomaticGateProgressionEvaluationResultV2,
+    'function',
+    'public V2 result validator',
+  )
   check(!('evaluateAutomaticGateProgressionV1' in api), 'V1 evaluator is not exported')
 
   const actualByRow = new Map()
   for (const row of corpus.evaluator_rows) {
     const input = expandedRows.get(row.row_id)
     const before = canonicalize(input)
+    const admittedInput = api.validateAutomaticGateProgressionEvaluationInputV2(input)
+    equal(admittedInput.kind, 'accepted', `input Admission ${row.row_id}`)
+    deepEqual(admittedInput.value, input, `input Admission value ${row.row_id}`)
+    check(Object.isFrozen(admittedInput.value), `input Admission frozen ${row.row_id}`)
     const actual = api.evaluateAutomaticGateProgressionV2(input)
     deepEqual(actual, row.expected_result, `complete result ${row.row_id}`)
     deepEqual(actual.precedence_trace, row.expected_trace, `expected trace ${row.row_id}`)
@@ -299,8 +313,28 @@ try {
     equal(canonicalize(input), before, `input immutability ${row.row_id}`)
     check(Object.isFrozen(actual), `result root frozen ${row.row_id}`)
     check(RESULT_KINDS.has(actual.kind), `closed result kind ${row.row_id}`)
+    const admittedResult = api.validateAutomaticGateProgressionEvaluationResultV2(actual)
+    equal(admittedResult.kind, 'accepted', `result Admission ${row.row_id}`)
+    deepEqual(admittedResult.value, actual, `result Admission value ${row.row_id}`)
+    check(Object.isFrozen(admittedResult.value), `result Admission frozen ${row.row_id}`)
     actualByRow.set(row.row_id, actual)
   }
+  const resultWithUnknown = {
+    ...clone(actualByRow.values().next().value),
+    zz_unknown: true,
+  }
+  equal(
+    api.validateAutomaticGateProgressionEvaluationResultV2(resultWithUnknown).kind,
+    'rejected',
+    'result Admission rejects unknown root field',
+  )
+  const resultWithNestedUnknown = clone(actualByRow.values().next().value)
+  resultWithNestedUnknown.gate_status_requirement.zz_unknown = true
+  equal(
+    api.validateAutomaticGateProgressionEvaluationResultV2(resultWithNestedUnknown).kind,
+    'rejected',
+    'result Admission rejects unknown nested field',
+  )
 
   let structuralInvocationCount = 0
   for (const record of corpus.structural_admission_meta_tests) {
@@ -324,6 +358,22 @@ try {
         `RFC 6901 path ${record.meta_test_id}#${testCase.case_key}`,
       )
       const before = canonicalize(input)
+      const inputAdmission = api.validateAutomaticGateProgressionEvaluationInputV2(input)
+      equal(
+        inputAdmission.kind,
+        'rejected',
+        `Structural input Admission ${record.meta_test_id}#${testCase.case_key}`,
+      )
+      equal(
+        inputAdmission.rejection.code,
+        testCase.expected_admission_rejection.code,
+        `Structural input Admission code ${record.meta_test_id}#${testCase.case_key}`,
+      )
+      equal(
+        inputAdmission.rejection.path,
+        testCase.expected_admission_rejection.path,
+        `Structural input Admission path ${record.meta_test_id}#${testCase.case_key}`,
+      )
       structuralInvocationCount += 1
       const actual = api.evaluateAutomaticGateProgressionV2(input)
       deepEqual(
