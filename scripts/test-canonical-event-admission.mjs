@@ -228,6 +228,16 @@ try {
     ['reference', (value) => { value.envelope.ordering.stream_key = `github-stream-v1:sha256:${'0'.repeat(64)}` }],
     ['conditional', (value) => { value.envelope.ordering.disposition = value.evaluator_trigger === 'required' ? 'historical' : 'current' }],
     ['collection', (value) => { value.envelope.immutable_source_refs.push(value.envelope.immutable_source_refs[0]) }],
+    ['actor type catalog', (value) => { value.envelope.actor.actor_type = 'Alien' }],
+    ['source external host', (value) => { value.envelope.source_object.canonical_url = 'https://evil.example/issues/196' }],
+    ['source wrong repository', (value) => { value.envelope.source_object.canonical_url = 'https://github.com/whatrune/other-repository/issues/196' }],
+    ['normalized source external host', (value) => {
+      if (value.envelope.normalized_payload.kind === 'canonical_record_trigger') value.envelope.normalized_payload.record_url = 'https://evil.example/issues/196'
+      else if (value.envelope.normalized_payload.kind === 'pr_snapshot_trigger') value.envelope.normalized_payload.pr_url = 'https://evil.example/pull/196'
+      else value.envelope.normalized_payload.source_api_url = 'https://evil.example/repos/whatrune/sd-prompt-studio/check-runs/196'
+    }],
+    ['immutable source external host', (value) => { value.envelope.immutable_source_refs = ['https://evil.example/evidence'] }],
+    ['immutable source wrong repository', (value) => { value.envelope.immutable_source_refs = ['https://github.com/whatrune/other-repository/issues/196'] }],
   ]
   for (const [label, mutate] of envelopeNegativeCases) {
     const candidate = clone(positiveOutcome)

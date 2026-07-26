@@ -585,6 +585,10 @@ const envelopeSemantic = (path: string) =>
   envelopeIssue('semantic_mismatch', path, 'semantic mismatch')
 const canonicalHttpUrl = (value: unknown) =>
   typeof value === 'string' && /^https:\/\/[^\s]+$/.test(value)
+const gitHubSourceUrl = (value: unknown) =>
+  typeof value === 'string' &&
+  (/^https:\/\/github\.com\/whatrune\/sd-prompt-studio\/[^\s]+$/.test(value) ||
+    /^https:\/\/api\.github\.com\/repos\/whatrune\/sd-prompt-studio\/[^\s]+$/.test(value))
 const nullableUtcTimestamp = (value: unknown) => value === null || utcTimestamp(value)
 const nullableEventId = (value: unknown) =>
   value === null || format(value, /^github-event-v1:sha256:[0-9a-f]{64}$/)
@@ -670,9 +674,9 @@ const validateCanonicalEventEnvelopeV1 = (
     source.kind !== descriptor.sourceKind ||
     !validNumber(source.database_id) ||
     !validString(source.node_id) ||
-    !canonicalHttpUrl(source.canonical_url) ||
+    !gitHubSourceUrl(source.canonical_url) ||
     (expectsParent
-      ? !validNumber(source.parent_database_id) || !canonicalHttpUrl(source.parent_canonical_url)
+      ? !validNumber(source.parent_database_id) || !gitHubSourceUrl(source.parent_canonical_url)
       : source.parent_database_id !== null || source.parent_canonical_url !== null)
   ) {
     return envelopeSemantic('/envelope/source_object')
@@ -691,7 +695,7 @@ const validateCanonicalEventEnvelopeV1 = (
     !validNumber(actor.database_id) ||
     !validString(actor.node_id) ||
     !validString(actor.login) ||
-    !validString(actor.actor_type) ||
+    !['User', 'Bot', 'Organization'].includes(String(actor.actor_type)) ||
     actor.canonical_url !== `https://github.com/${actor.login}`
   ) {
     return envelopeSemantic('/envelope/actor')
@@ -768,7 +772,8 @@ const validateCanonicalEventEnvelopeV1 = (
   if (!validRevision) return envelopeSemantic('/envelope/source_revision')
 
   if (
-    !sortedUnique(envelope.immutable_source_refs, /^https:\/\/[^\s]+$/) ||
+    !sortedUnique(envelope.immutable_source_refs) ||
+    !(envelope.immutable_source_refs as unknown[]).every(gitHubSourceUrl) ||
     (envelope.immutable_source_refs as unknown[]).length === 0
   ) {
     return envelopeIssue('noncanonical_order', '/envelope/immutable_source_refs', 'noncanonical order')
@@ -832,7 +837,7 @@ const validateCanonicalEventEnvelopeV1 = (
       ['check_run', 'commit_status'].includes(String(normalizedPayload.ci_kind)) &&
       normalizedPayload.action === (descriptor.eventName === 'status' ? 'updated' : descriptor.action) &&
       validString(normalizedPayload.check_name) &&
-      canonicalHttpUrl(normalizedPayload.source_api_url) &&
+      gitHubSourceUrl(normalizedPayload.source_api_url) &&
       format(normalizedPayload.head_sha, /^[0-9a-f]{40}$/) &&
       validString(normalizedPayload.state) &&
       (normalizedPayload.conclusion === null || validString(normalizedPayload.conclusion)) &&
