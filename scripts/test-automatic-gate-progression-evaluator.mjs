@@ -282,6 +282,11 @@ try {
   )
   equal(typeof api.evaluateAutomaticGateProgressionV2, 'function', 'public V2 evaluator')
   equal(
+    typeof api.validateAutomaticGateProgressionEvaluationInputV2,
+    'function',
+    'public V2 input validator',
+  )
+  equal(
     typeof api.validateAutomaticGateProgressionEvaluationResultV2,
     'function',
     'public V2 result validator',
@@ -292,6 +297,10 @@ try {
   for (const row of corpus.evaluator_rows) {
     const input = expandedRows.get(row.row_id)
     const before = canonicalize(input)
+    const admittedInput = api.validateAutomaticGateProgressionEvaluationInputV2(input)
+    equal(admittedInput.kind, 'accepted', `input Admission ${row.row_id}`)
+    deepEqual(admittedInput.value, input, `input Admission value ${row.row_id}`)
+    check(Object.isFrozen(admittedInput.value), `input Admission frozen ${row.row_id}`)
     const actual = api.evaluateAutomaticGateProgressionV2(input)
     deepEqual(actual, row.expected_result, `complete result ${row.row_id}`)
     deepEqual(actual.precedence_trace, row.expected_trace, `expected trace ${row.row_id}`)
@@ -349,6 +358,22 @@ try {
         `RFC 6901 path ${record.meta_test_id}#${testCase.case_key}`,
       )
       const before = canonicalize(input)
+      const inputAdmission = api.validateAutomaticGateProgressionEvaluationInputV2(input)
+      equal(
+        inputAdmission.kind,
+        'rejected',
+        `Structural input Admission ${record.meta_test_id}#${testCase.case_key}`,
+      )
+      equal(
+        inputAdmission.rejection.code,
+        testCase.expected_admission_rejection.code,
+        `Structural input Admission code ${record.meta_test_id}#${testCase.case_key}`,
+      )
+      equal(
+        inputAdmission.rejection.path,
+        testCase.expected_admission_rejection.path,
+        `Structural input Admission path ${record.meta_test_id}#${testCase.case_key}`,
+      )
       structuralInvocationCount += 1
       const actual = api.evaluateAutomaticGateProgressionV2(input)
       deepEqual(

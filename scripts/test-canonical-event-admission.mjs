@@ -6,6 +6,9 @@ import { createServer } from 'vite'
 const ARTIFACT_PATH = 'docs/automation/canonical-event-admission-normative-catalog-v2.json'
 const artifactText = await readFile(ARTIFACT_PATH, 'utf8')
 const artifact = JSON.parse(artifactText)
+const progressionCorpus = JSON.parse(
+  await readFile('docs/automation/phase1-v2-normative-fixture-corpus.json', 'utf8'),
+)
 const canonicalize = (value) => value === null || typeof value !== 'object'
   ? JSON.stringify(value)
   : Array.isArray(value)
@@ -20,8 +23,8 @@ const without = (value, key) => {
   return copy
 }
 
-assert.equal(artifact.artifact_version, '2.0.2')
-assert.equal(artifact.contract_version, 'canonical-event-admission-amendment-007')
+assert.equal(artifact.artifact_version, '2.0.3')
+assert.equal(artifact.contract_version, 'canonical-event-admission-amendment-012')
 assert.equal(artifact.manifest.counts.active_executable_rows, 1020)
 assert.deepEqual(
   ['positive', 'field_negative', 'tuple_negative', 'generation', 'invocation'].map((key) => artifact.executable_rows[key].length),
@@ -39,10 +42,19 @@ assert.equal(shaRef(canonicalize(rows)), artifact.manifest.authority_digests.exe
 const artifactForDigest = clone(artifact)
 delete artifactForDigest.manifest.artifact_digest.value
 assert.equal(shaRef(canonicalize(artifactForDigest)), artifact.manifest.artifact_digest.value)
-assert.equal(artifact.manifest.authority_digests.authority_bundle_digest, 'sha256:32063d4bc62ff87a185e2de68377259f18f44d70b2695e85bb565638c8efa44d')
+assert.equal(artifact.manifest.authority_digests.authority_bundle_digest, 'sha256:922ad4e2c43f84b4eb03766ad751ecb783a052e705d0821b1ba6bd57b98703e3')
 
 const fixtureById = new Map(artifact.fixtures.map((fixture) => [fixture.fixture_id, fixture]))
 const portById = new Map(artifact.port_companions.map((fixture) => [fixture.fixture_id, fixture]))
+const progressionBase = progressionCorpus.base_fixtures.find((fixture) => fixture.fixture_id === 'B-N')
+assert.ok(progressionBase, 'B-N progression fixture')
+const validProgressionInput = clone(progressionBase.literal_v2_input)
+const malformedProgressionInput = clone(validProgressionInput)
+malformedProgressionInput.task_id = 7
+const invocationCandidateById = new Map([
+  ['CEA-A4-READY-VALID', validProgressionInput],
+  ['CEA-A4-READY-MALFORMED-TASK-ID', malformedProgressionInput],
+])
 const decodePointer = (pointer) => pointer.split('/').slice(1).map((part) => part.replaceAll('~1', '/').replaceAll('~0', '~'))
 const applyOperation = (providerPayload, operation) => {
   if (operation.kind === 'none') return
@@ -87,6 +99,7 @@ const expectedTraceFor = (outcome) => {
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 try {
   const api = await server.ssrLoadModule('/src/canonical-event-admission/index.ts')
+  const progressionApi = await server.ssrLoadModule('/src/automatic-gate-progression/index.ts')
   const counts = { positive: 0, field_negative: 0, tuple_negative: 0, generation: 0, invocation: 0 }
   for (const group of ['positive', 'field_negative', 'tuple_negative']) {
     for (const row of artifact.executable_rows[group]) {
@@ -136,6 +149,8 @@ try {
   for (const row of artifact.executable_rows.invocation) {
     const mode = row.test_session_input.fault_mode
     const expected = row.expected_outcome
+    const candidateInput = invocationCandidateById.get(row.candidate_fixture_id)
+    assert.ok(candidateInput, `invocation candidate fixture ${row.candidate_fixture_id}`)
     const ready = {
       contract_version: 'canonical-event-evaluator-binding-outcome-v1',
       kind: 'ready',
@@ -143,22 +158,7 @@ try {
       snapshot_id: expected.snapshot_id.startsWith('github-fresh-snapshot-v1:sha256:0000') ? `github-fresh-snapshot-v1:sha256:${'2'.repeat(64)}` : expected.snapshot_id,
       triggering_event_ids: [`github-event-v1:sha256:${'3'.repeat(64)}`],
       triggering_generation_keys: expected.generation_keys.length === 0 ? [`github-freshness-generation-v1:sha256:${'1'.repeat(64)}`] : clone(expected.generation_keys),
-      input: {
-        contract_version: 'automatic-gate-progression-evaluation-input-v2',
-        task_id: 'task-001',
-        repository: 'whatrune/sd-prompt-studio',
-        assignment_revision: 1,
-        evaluated_at: '2026-07-24T00:00:00Z',
-        task_assignment: {},
-        result_handoff: {},
-        review_decision: {},
-        pr: {},
-        checks: [],
-        review_threads: [],
-        gate_status: {},
-        workspace: {},
-        context_health: {},
-      },
+      input: clone(candidateInput),
     }
     const session = api.createCanonicalEventInvocationTestSessionV1(clone(row.test_session_input))
     assert.equal(session.kind, 'accepted', `session ${row.row_id}`)
@@ -173,6 +173,9 @@ try {
     assert.deepEqual(terminalEvidence.value.call_counts, row.expected_call_counts, `invocation calls ${row.row_id}`)
     assert.equal(terminalEvidence.value.fallback_depth, row.fallback_depth, `fallback ${row.row_id}`)
     assert.equal(terminalEvidence.value.retry_count, row.retry_count, `retry ${row.row_id}`)
+    if (row.row_id === 'CEA-A4-INV-002') {
+      assert.deepEqual(terminalEvidence.value.ordered_trace, ['ready_admission'], 'INV-002 trace')
+    }
     assert.ok(Object.isFrozen(actual), `invocation frozen ${row.row_id}`)
     counts.invocation += 1
   }
@@ -216,23 +219,30 @@ try {
   const positiveOutcome = artifact.executable_rows.positive[0].expected_outcome
   expectAccepted(api.validateCanonicalEventAdmissionOutcomeV1(positiveOutcome), 'focused outcome accepted')
   expectRejected(api.validateCanonicalEventAdmissionOutcomeV1(unknownField(positiveOutcome)), 'focused outcome closed')
-
-  const carrier = {
-    contract_version: 'automatic-gate-progression-evaluation-input-v2',
-    task_id: 'task-001',
-    repository: 'whatrune/sd-prompt-studio',
-    assignment_revision: 1,
-    evaluated_at: '2026-07-24T00:00:00Z',
-    task_assignment: {},
-    result_handoff: {},
-    review_decision: {},
-    pr: {},
-    checks: [],
-    review_threads: [],
-    gate_status: {},
-    workspace: {},
-    context_health: {},
+  const envelopeNegativeCases = [
+    ['missing', (value) => { delete value.envelope.actor.login }],
+    ['unknown', (value) => { value.envelope.source_object.zz_unknown = true }],
+    ['type', (value) => { value.envelope.delivery.hook_id = 'invalid' }],
+    ['enum', (value) => { value.envelope.lineage.migration_kind = 'future' }],
+    ['timestamp', (value) => { value.envelope.observed_at = 'not-a-timestamp' }],
+    ['reference', (value) => { value.envelope.ordering.stream_key = `github-stream-v1:sha256:${'0'.repeat(64)}` }],
+    ['conditional', (value) => { value.envelope.ordering.disposition = value.evaluator_trigger === 'required' ? 'historical' : 'current' }],
+    ['collection', (value) => { value.envelope.immutable_source_refs.push(value.envelope.immutable_source_refs[0]) }],
+  ]
+  for (const [label, mutate] of envelopeNegativeCases) {
+    const candidate = clone(positiveOutcome)
+    mutate(candidate)
+    expectRejected(api.validateCanonicalEventAdmissionOutcomeV1(candidate), `focused envelope ${label}`)
   }
+  const mutableOutcome = clone(positiveOutcome)
+  const admittedOutcome = api.validateCanonicalEventAdmissionOutcomeV1(mutableOutcome)
+  assert.equal(admittedOutcome.kind, 'accepted')
+  mutableOutcome.envelope.actor.login = 'mutated'
+  assert.notEqual(admittedOutcome.value.envelope.actor.login, 'mutated')
+  assert.ok(Object.isFrozen(admittedOutcome.value.envelope.actor))
+  focusedChecks += 1
+
+  const carrier = clone(validProgressionInput)
   const ready = {
     contract_version: 'canonical-event-evaluator-binding-outcome-v1',
     kind: 'ready',
@@ -244,6 +254,51 @@ try {
   }
   expectAccepted(api.validateEvaluatorBindingOutcomeV1(ready), 'focused ready accepted')
   expectRejected(api.validateEvaluatorBindingOutcomeV1(unknownField(ready)), 'focused ready closed')
+  expectAccepted(
+    progressionApi.validateAutomaticGateProgressionEvaluationInputV2(carrier),
+    'focused AGP input authority accepted',
+  )
+  const readyNegativeCases = [
+    ['missing', (value) => { delete value.input.task_assignment.assigned_role }],
+    ['unknown', (value) => { value.input.task_assignment.zz_unknown = true }],
+    ['type', (value) => { value.input.task_id = 7 }],
+    ['enum', (value) => { value.input.repository = 'other/repository' }],
+    ['timestamp', (value) => { value.input.evaluated_at = 'not-a-timestamp' }],
+    ['reference', (value) => { value.input.result_handoff.canonical_record = 'not-a-canonical-reference' }],
+    ['conditional', (value) => { value.input.result_handoff.execution_stop_reason = 'architecture_gap' }],
+    ['root-unknown', (value) => { value.input.zz_unknown = true }],
+  ]
+  for (const [label, mutate] of readyNegativeCases) {
+    const candidate = clone(ready)
+    mutate(candidate)
+    const directAdmission = progressionApi.validateAutomaticGateProgressionEvaluationInputV2(candidate.input)
+    expectRejected(directAdmission, `focused AGP input ${label}`)
+    const readyAdmission = api.validateEvaluatorBindingOutcomeV1(candidate)
+    expectRejected(readyAdmission, `focused ready ${label}`)
+    assert.ok(readyAdmission.rejection.path.startsWith('/input'), `focused ready path ${label}`)
+
+    const session = api.createCanonicalEventInvocationTestSessionV1({
+      contract_version: 'canonical-event-invocation-test-session-v1',
+      fault_mode: 'none',
+    })
+    assert.equal(session.kind, 'accepted', `focused ready session ${label}`)
+    const outcome = api.invokeAutomaticGateProgressionForCanonicalEventsV1(candidate, session.value)
+    assert.equal(outcome.kind, 'failed', `focused ready outcome kind ${label}`)
+    assert.equal(outcome.failure.code, 'ready_binding_contract_invalid', `focused ready outcome code ${label}`)
+    const evidence = api.readCanonicalEventInvocationTestEvidenceV1(session.value)
+    assert.equal(evidence.kind, 'accepted', `focused ready evidence ${label}`)
+    assert.deepEqual(evidence.value.ordered_trace, ['ready_admission'], `focused ready trace ${label}`)
+    assert.deepEqual(evidence.value.call_counts, {
+      ready_validator: 1,
+      evaluator: 0,
+      result_validator: 0,
+      outcome_validator: 0,
+      terminal_anchor_validator: 0,
+    }, `focused ready calls ${label}`)
+    assert.equal(evidence.value.fallback_depth, 0, `focused ready fallback ${label}`)
+    assert.equal(evidence.value.retry_count, 0, `focused ready retry ${label}`)
+    focusedChecks += 6
+  }
   const invocationOutcome = artifact.executable_rows.invocation[1].expected_outcome
   expectAccepted(api.validateCanonicalEventEvaluatorInvocationOutcomeV1(invocationOutcome), 'focused invocation outcome accepted')
   expectRejected(api.validateCanonicalEventEvaluatorInvocationOutcomeV1(unknownField(invocationOutcome)), 'focused invocation outcome closed')

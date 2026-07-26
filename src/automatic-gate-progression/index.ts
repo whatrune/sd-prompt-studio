@@ -1060,7 +1060,7 @@ const safeStructuralStop = (): AutomaticGateProgressionEvaluationResultV2 =>
     required_recovery_evidence: ['correct_v2_input'],
   })
 
-type ClosedAdmissionResultV1<T> =
+export type ClosedAdmissionResultV1<T> =
   | Readonly<{
       contract_version: 'closed-admission-result-v1'
       kind: 'accepted'
@@ -1083,6 +1083,56 @@ const resultAdmissionRejected = (code: string, path: string, message: string) =>
     kind: 'rejected' as const,
     rejection: { code, path, message },
   })
+
+const structuralAdmissionMessage = (code: StructuralRejection['code']) => {
+  const messages: Readonly<Record<StructuralRejection['code'], string>> = {
+    unknown_field: 'unknown field',
+    missing_required_field: 'missing required field',
+    forbidden_field: 'forbidden field',
+    invalid_type_or_format: 'invalid type or format',
+    invalid_enum: 'invalid enum value',
+    duplicate_set_member: 'duplicate set member',
+    noncanonical_set_order: 'noncanonical set order',
+    invalid_conditional_matrix: 'invalid conditional matrix',
+    invalid_cross_input_binding: 'invalid cross-input binding',
+  }
+  return messages[code]
+}
+
+export function validateAutomaticGateProgressionEvaluationInputV2(
+  input: unknown,
+): ClosedAdmissionResultV1<AutomaticGateProgressionEvaluationInputV2> {
+  try {
+    const rejection = validateInput(input)
+    if (rejection) {
+      return resultAdmissionRejected(
+        rejection.code,
+        rejection.path,
+        structuralAdmissionMessage(rejection.code),
+      )
+    }
+    return freeze({
+      contract_version: 'closed-admission-result-v1' as const,
+      kind: 'accepted' as const,
+      value: freeze(structuredClone(input) as AutomaticGateProgressionEvaluationInputV2),
+    })
+  } catch {
+    const diagnosticProjection = {
+      contract_version: 'closed-admission-result-v1',
+      validator_id: 'automatic-gate-progression-evaluation-input-v2',
+      code: 'validator_internal_failure',
+    }
+    return freeze({
+      contract_version: 'closed-admission-result-v1' as const,
+      kind: 'failed' as const,
+      failure: {
+        code: 'validator_internal_failure' as const,
+        diagnostic_id: `closed-admission-failure-v1:${sha256Hex(canonicalize(diagnosticProjection))}`,
+        safe_message: 'validator failed internally' as const,
+      },
+    })
+  }
+}
 
 const resultExact = (value: unknown, fields: readonly string[], path: string) => {
   if (!isObject(value)) return resultAdmissionRejected('invalid_type', path, 'invalid type')
@@ -1335,8 +1385,9 @@ export function evaluateAutomaticGateProgressionV2(
   candidate: unknown,
 ): AutomaticGateProgressionEvaluationResultV2 {
   try {
-    if (validateInput(candidate)) return safeStructuralStop()
-    const input = candidate as AutomaticGateProgressionEvaluationInputV2
+    const inputAdmission = validateAutomaticGateProgressionEvaluationInputV2(candidate)
+    if (inputAdmission.kind !== 'accepted') return safeStructuralStop()
+    const input = inputAdmission.value
     const inputFingerprint = fingerprint(input)
     const trace = ['structural_admission']
     const assignmentRef = input.task_assignment.canonical_record

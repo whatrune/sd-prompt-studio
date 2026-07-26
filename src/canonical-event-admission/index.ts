@@ -1,5 +1,6 @@
 import {
   evaluateAutomaticGateProgressionV2,
+  validateAutomaticGateProgressionEvaluationInputV2,
   validateAutomaticGateProgressionEvaluationResultV2,
   type AutomaticGateProgressionEvaluationResultV2,
 } from '../automatic-gate-progression'
@@ -578,6 +579,354 @@ const admissionFailureMatrix: Readonly<Record<string, readonly [string, string |
   ordering_invariant_failure: ['ordering', null, 'event ordering invariant failed', false],
 }
 
+const envelopeIssue = (code: string, path: string, message: string) =>
+  rejectAdmission(code, path, message)
+const envelopeSemantic = (path: string) =>
+  envelopeIssue('semantic_mismatch', path, 'semantic mismatch')
+const canonicalHttpUrl = (value: unknown) =>
+  typeof value === 'string' && /^https:\/\/[^\s]+$/.test(value)
+const nullableUtcTimestamp = (value: unknown) => value === null || utcTimestamp(value)
+const nullableEventId = (value: unknown) =>
+  value === null || format(value, /^github-event-v1:sha256:[0-9a-f]{64}$/)
+
+const validateCanonicalEventEnvelopeV1 = (
+  input: unknown,
+  deliveryId: unknown,
+  rawPayloadSha256: unknown,
+  evaluatorTrigger: unknown,
+) => {
+  const root = exactObject(input, [
+    'contract_version',
+    'schema_version',
+    'canonical_event_id',
+    'provider',
+    'admission_profile',
+    'repository',
+    'event_type',
+    'source_object',
+    'actor',
+    'occurred_at',
+    'observed_at',
+    'delivery',
+    'source_revision',
+    'immutable_source_refs',
+    'raw_payload_binding',
+    'normalized_payload',
+    'ordering',
+    'lineage',
+  ], [], '/envelope')
+  if (root) return root
+  const envelope = input as Obj
+  if (
+    envelope.contract_version !== 'canonical-event-admission-v1' ||
+    envelope.schema_version !== 'canonical-event-envelope-v1' ||
+    envelope.provider !== 'github' ||
+    envelope.admission_profile !== 'sd-prompt-studio-github-admission-v1' ||
+    !format(envelope.canonical_event_id, /^github-event-v1:sha256:[0-9a-f]{64}$/) ||
+    !utcTimestamp(envelope.observed_at) ||
+    !nullableUtcTimestamp(envelope.occurred_at)
+  ) {
+    return envelopeSemantic('/envelope')
+  }
+
+  const repositoryIssue = exactObject(
+    envelope.repository,
+    ['database_id', 'node_id', 'full_name', 'html_url'],
+    [],
+    '/envelope/repository',
+  )
+  if (repositoryIssue) return repositoryIssue
+  const repository = envelope.repository as Obj
+  if (
+    !validNumber(repository.database_id) ||
+    !validString(repository.node_id) ||
+    !format(repository.full_name, /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/) ||
+    repository.html_url !== `https://github.com/${repository.full_name}`
+  ) {
+    return envelopeSemantic('/envelope/repository')
+  }
+
+  const normalizedPayload = envelope.normalized_payload
+  if (!isObject(normalizedPayload)) return envelopeIssue('invalid_type', '/envelope/normalized_payload', 'invalid type')
+  const descriptor = EVENT_DESCRIPTORS.find(
+    (candidate) =>
+      candidate.eventType === envelope.event_type &&
+      candidate.normalizedKind === normalizedPayload.kind &&
+      (candidate.action === normalizedPayload.action ||
+        (candidate.eventName === 'status' && normalizedPayload.action === 'updated')),
+  )
+  if (!descriptor) return envelopeIssue('invalid_enum', '/envelope/event_type', 'invalid enum value')
+
+  const sourceIssue = exactObject(
+    envelope.source_object,
+    ['kind', 'database_id', 'node_id', 'canonical_url', 'parent_database_id', 'parent_canonical_url'],
+    [],
+    '/envelope/source_object',
+  )
+  if (sourceIssue) return sourceIssue
+  const source = envelope.source_object as Obj
+  const expectsParent = descriptor.parentKey !== null
+  if (
+    source.kind !== descriptor.sourceKind ||
+    !validNumber(source.database_id) ||
+    !validString(source.node_id) ||
+    !canonicalHttpUrl(source.canonical_url) ||
+    (expectsParent
+      ? !validNumber(source.parent_database_id) || !canonicalHttpUrl(source.parent_canonical_url)
+      : source.parent_database_id !== null || source.parent_canonical_url !== null)
+  ) {
+    return envelopeSemantic('/envelope/source_object')
+  }
+
+  const actorIssue = exactObject(
+    envelope.actor,
+    ['provider', 'database_id', 'node_id', 'login', 'actor_type', 'canonical_url'],
+    [],
+    '/envelope/actor',
+  )
+  if (actorIssue) return actorIssue
+  const actor = envelope.actor as Obj
+  if (
+    actor.provider !== 'github' ||
+    !validNumber(actor.database_id) ||
+    !validString(actor.node_id) ||
+    !validString(actor.login) ||
+    !validString(actor.actor_type) ||
+    actor.canonical_url !== `https://github.com/${actor.login}`
+  ) {
+    return envelopeSemantic('/envelope/actor')
+  }
+
+  const deliveryIssue = exactObject(
+    envelope.delivery,
+    ['transport', 'delivery_id', 'hook_id', 'verification_record_ref'],
+    [],
+    '/envelope/delivery',
+  )
+  if (deliveryIssue) return deliveryIssue
+  const delivery = envelope.delivery as Obj
+  if (
+    delivery.transport !== 'github_webhook' ||
+    delivery.delivery_id !== deliveryId ||
+    !validNumber(delivery.hook_id) ||
+    !format(delivery.verification_record_ref, /^github-webhook-verification-v1:sha256:[0-9a-f]{64}$/)
+  ) {
+    return envelopeSemantic('/envelope/delivery')
+  }
+
+  if (!isObject(envelope.source_revision)) {
+    return envelopeIssue('invalid_type', '/envelope/source_revision', 'invalid type')
+  }
+  const revision = envelope.source_revision as Obj
+  const revisionFields: Readonly<Record<string, readonly string[]>> = {
+    record_updated_at: ['kind', 'revision_timestamp'],
+    pr_head_transition: ['kind', 'revision_timestamp', 'before_head', 'after_head', 'required_equality'],
+    check_run_created: ['kind', 'revision_token', 'head_sha', 'provider_state'],
+    webhook_occurrence: ['kind', 'delivery_id', 'head_sha', 'provider_state'],
+    ci_observation: [
+      'kind',
+      'revision_timestamp',
+      'head_sha',
+      'state',
+      ...(has(revision, 'required_state_literal') ? ['required_state_literal'] : []),
+    ],
+  }
+  const selectedRevisionFields = revisionFields[String(revision.kind)]
+  if (!selectedRevisionFields) return envelopeIssue('invalid_enum', '/envelope/source_revision/kind', 'invalid enum value')
+  const revisionIssue = exactObject(revision, selectedRevisionFields, [], '/envelope/source_revision')
+  if (revisionIssue) return revisionIssue
+  let validRevision = false
+  if (revision.kind === 'record_updated_at') {
+    validRevision = utcTimestamp(revision.revision_timestamp)
+  } else if (revision.kind === 'pr_head_transition') {
+    validRevision =
+      utcTimestamp(revision.revision_timestamp) &&
+      format(revision.before_head, /^[0-9a-f]{40}$/) &&
+      format(revision.after_head, /^[0-9a-f]{40}$/) &&
+      Array.isArray(revision.required_equality) &&
+      revision.required_equality.length === 2 &&
+      revision.required_equality[0] === revision.after_head &&
+      revision.required_equality[1] === revision.after_head
+  } else if (revision.kind === 'check_run_created') {
+    validRevision =
+      revision.revision_token === 'created' &&
+      format(revision.head_sha, /^[0-9a-f]{40}$/) &&
+      validString(revision.provider_state)
+  } else if (revision.kind === 'webhook_occurrence') {
+    validRevision =
+      revision.delivery_id === '/header_projection/delivery_id' &&
+      format(revision.head_sha, /^[0-9a-f]{40}$/) &&
+      validString(revision.provider_state)
+  } else {
+    validRevision =
+      utcTimestamp(revision.revision_timestamp) &&
+      format(revision.head_sha, /^[0-9a-f]{40}$/) &&
+      validString(revision.state) &&
+      (!has(revision, 'required_state_literal') ||
+        (revision.required_state_literal === 'completed' && revision.state === 'completed'))
+  }
+  if (!validRevision) return envelopeSemantic('/envelope/source_revision')
+
+  if (
+    !sortedUnique(envelope.immutable_source_refs, /^https:\/\/[^\s]+$/) ||
+    (envelope.immutable_source_refs as unknown[]).length === 0
+  ) {
+    return envelopeIssue('noncanonical_order', '/envelope/immutable_source_refs', 'noncanonical order')
+  }
+
+  const rawBindingIssue = exactObject(
+    envelope.raw_payload_binding,
+    ['content_type', 'byte_length', 'sha256', 'normalized_projection_sha256', 'retained_raw_payload'],
+    [],
+    '/envelope/raw_payload_binding',
+  )
+  if (rawBindingIssue) return rawBindingIssue
+  const rawBinding = envelope.raw_payload_binding as Obj
+  if (
+    rawBinding.content_type !== 'application/json' ||
+    !validNumber(rawBinding.byte_length) ||
+    rawBinding.sha256 !== rawPayloadSha256 ||
+    !format(rawBinding.normalized_projection_sha256, /^sha256:[0-9a-f]{64}$/) ||
+    rawBinding.retained_raw_payload !== false
+  ) {
+    return envelopeSemantic('/envelope/raw_payload_binding')
+  }
+
+  const normalizedFields: Readonly<Record<string, readonly string[]>> = {
+    canonical_record_trigger: ['kind', 'record_kind', 'action', 'record_url', 'parent_url', 'record_updated_at'],
+    pr_snapshot_trigger: ['kind', 'action', 'pr_url', 'head_sha', 'base_ref', 'state', 'draft', 'record_updated_at'],
+    ci_snapshot_trigger: ['kind', 'ci_kind', 'action', 'check_name', 'source_api_url', 'head_sha', 'state', 'conclusion', 'record_updated_at'],
+  }
+  const selectedNormalizedFields = normalizedFields[String(normalizedPayload.kind)]
+  if (!selectedNormalizedFields) {
+    return envelopeIssue('invalid_enum', '/envelope/normalized_payload/kind', 'invalid enum value')
+  }
+  const normalizedIssue = exactObject(
+    normalizedPayload,
+    selectedNormalizedFields,
+    [],
+    '/envelope/normalized_payload',
+  )
+  if (normalizedIssue) return normalizedIssue
+  let validNormalized = false
+  if (normalizedPayload.kind === 'canonical_record_trigger') {
+    validNormalized =
+      normalizedPayload.record_kind === descriptor.sourceKind &&
+      normalizedPayload.action === descriptor.action &&
+      normalizedPayload.record_url === source.canonical_url &&
+      (expectsParent
+        ? normalizedPayload.parent_url === source.parent_canonical_url
+        : normalizedPayload.parent_url === null) &&
+      utcTimestamp(normalizedPayload.record_updated_at)
+  } else if (normalizedPayload.kind === 'pr_snapshot_trigger') {
+    validNormalized =
+      normalizedPayload.action === descriptor.action &&
+      normalizedPayload.pr_url === source.canonical_url &&
+      format(normalizedPayload.head_sha, /^[0-9a-f]{40}$/) &&
+      validString(normalizedPayload.base_ref) &&
+      ['open', 'closed'].includes(String(normalizedPayload.state)) &&
+      typeof normalizedPayload.draft === 'boolean' &&
+      utcTimestamp(normalizedPayload.record_updated_at)
+  } else {
+    validNormalized =
+      ['check_run', 'commit_status'].includes(String(normalizedPayload.ci_kind)) &&
+      normalizedPayload.action === (descriptor.eventName === 'status' ? 'updated' : descriptor.action) &&
+      validString(normalizedPayload.check_name) &&
+      canonicalHttpUrl(normalizedPayload.source_api_url) &&
+      format(normalizedPayload.head_sha, /^[0-9a-f]{40}$/) &&
+      validString(normalizedPayload.state) &&
+      (normalizedPayload.conclusion === null || validString(normalizedPayload.conclusion)) &&
+      nullableUtcTimestamp(normalizedPayload.record_updated_at)
+  }
+  if (!validNormalized) return envelopeSemantic('/envelope/normalized_payload')
+
+  const orderingIssue = exactObject(
+    envelope.ordering,
+    ['stream_key', 'ordering_key', 'disposition', 'prior_watermark_event_id'],
+    [],
+    '/envelope/ordering',
+  )
+  if (orderingIssue) return orderingIssue
+  const ordering = envelope.ordering as Obj
+  if (
+    !format(ordering.stream_key, /^github-stream-v1:sha256:[0-9a-f]{64}$/) ||
+    !Array.isArray(ordering.ordering_key) ||
+    ordering.ordering_key.length !== 3 ||
+    !utcTimestamp(ordering.ordering_key[0]) ||
+    ordering.ordering_key[1] !== descriptor.rank ||
+    ordering.ordering_key[2] !== envelope.canonical_event_id ||
+    !['current', 'historical'].includes(String(ordering.disposition)) ||
+    !nullableEventId(ordering.prior_watermark_event_id) ||
+    (ordering.disposition === 'current') !== (evaluatorTrigger === 'required')
+  ) {
+    return envelopeSemantic('/envelope/ordering')
+  }
+
+  const lineageIssue = exactObject(envelope.lineage, ['migration_kind'], [], '/envelope/lineage')
+  if (lineageIssue) return lineageIssue
+  if ((envelope.lineage as Obj).migration_kind !== 'none') {
+    return envelopeIssue('invalid_enum', '/envelope/lineage/migration_kind', 'invalid enum value')
+  }
+
+  const sourceProjection = {
+    kind: source.kind,
+    database_id: source.database_id,
+    node_id: source.node_id,
+    parent_database_id: source.parent_database_id,
+  }
+  const eventIdProjection = {
+    contract_version: 'canonical-event-admission-v1',
+    provider: 'github',
+    repository: {
+      database_id: repository.database_id,
+      node_id: repository.node_id,
+      full_name: repository.full_name,
+    },
+    event_type: envelope.event_type,
+    source_object: sourceProjection,
+    source_revision: revision,
+  }
+  if (
+    envelope.canonical_event_id !==
+    `github-event-v1:sha256:${sha256HexPure(canonicalJson(eventIdProjection))}`
+  ) {
+    return envelopeIssue('reference_mismatch', '/envelope/canonical_event_id', 'reference mismatch')
+  }
+  const streamProjection = {
+    provider: 'github',
+    repository_database_id: repository.database_id,
+    source_object_kind: source.kind,
+    source_object_database_id: source.database_id,
+    parent_database_id: source.parent_database_id,
+  }
+  if (
+    ordering.stream_key !==
+    `github-stream-v1:sha256:${sha256HexPure(canonicalJson(streamProjection))}`
+  ) {
+    return envelopeIssue('reference_mismatch', '/envelope/ordering/stream_key', 'reference mismatch')
+  }
+  const normalizedProjection = {
+    event_type: envelope.event_type,
+    source_object: source,
+    actor,
+    occurred_at: envelope.occurred_at,
+    source_revision: revision,
+    immutable_source_refs: envelope.immutable_source_refs,
+    normalized_payload: normalizedPayload,
+  }
+  if (
+    rawBinding.normalized_projection_sha256 !==
+    `sha256:${sha256HexPure(canonicalJson(normalizedProjection))}`
+  ) {
+    return envelopeIssue(
+      'reference_mismatch',
+      '/envelope/raw_payload_binding/normalized_projection_sha256',
+      'reference mismatch',
+    )
+  }
+  return undefined
+}
+
 export function validateCanonicalEventAdmissionOutcomeV1(input: unknown): AdmissionResultV1<CanonicalEventAdmissionOutcomeV1> {
   try {
     if (!isObject(input)) return rejectAdmission('invalid_type', '', 'invalid type')
@@ -594,7 +943,14 @@ export function validateCanonicalEventAdmissionOutcomeV1(input: unknown): Admiss
     if (input.contract_version !== CANONICAL_EVENT_ADMISSION_OUTCOME_V1) return rejectAdmission('invalid_enum', '/contract_version', 'invalid enum value')
     if (!(input.delivery_id === null || typeof input.delivery_id === 'string') || !(input.raw_payload_sha256 === null || typeof input.raw_payload_sha256 === 'string')) return rejectAdmission('invalid_type', '/delivery_id', 'invalid type')
     if (input.kind === 'accepted') {
-      if (!utcTimestamp(input.evaluated_at) || !format(input.delivery_id, /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/) || !format(input.raw_payload_sha256, /^sha256:[0-9a-f]{64}$/) || !isObject(input.envelope) || Object.keys(input.envelope).length === 0 || !['required', 'suppressed'].includes(String(input.evaluator_trigger))) return rejectAdmission('semantic_mismatch', '', 'semantic mismatch')
+      if (!utcTimestamp(input.evaluated_at) || !format(input.delivery_id, /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/) || !format(input.raw_payload_sha256, /^sha256:[0-9a-f]{64}$/) || !['required', 'suppressed'].includes(String(input.evaluator_trigger))) return rejectAdmission('semantic_mismatch', '', 'semantic mismatch')
+      const envelope = validateCanonicalEventEnvelopeV1(
+        input.envelope,
+        input.delivery_id,
+        input.raw_payload_sha256,
+        input.evaluator_trigger,
+      )
+      if (envelope) return envelope
     } else if (input.kind === 'rejected') {
       const issue = exactObject(input.rejection, ['code', 'stage', 'path', 'message'], [], '/rejection')
       if (issue) return issue
@@ -643,14 +999,17 @@ export function validateFreshProgressionSnapshotV1(input: unknown): AdmissionRes
   }
 }
 
-const candidateFields = ['contract_version', 'task_id', 'repository', 'assignment_revision', 'evaluated_at', 'task_assignment', 'result_handoff', 'review_decision', 'pr', 'checks', 'review_threads', 'gate_status', 'workspace', 'context_health']
 const validateCandidateCarrier = (input: unknown, path: string) => {
-  const issue = exactObject(input, candidateFields, ['approval'], path)
-  if (issue) return issue
-  const value = input as Obj
-  return validString(value.contract_version) && Object.values(value).every((item) => jsonData(item))
-    ? undefined
-    : rejectAdmission('invalid_type', path, 'invalid type')
+  const admission = validateAutomaticGateProgressionEvaluationInputV2(input)
+  if (admission.kind === 'failed') return failAdmission('automatic-gate-progression-evaluation-input-v2')
+  if (admission.kind === 'rejected') {
+    return rejectAdmission(
+      admission.rejection.code,
+      `${path}${admission.rejection.path}`,
+      admission.rejection.message,
+    )
+  }
+  return undefined
 }
 
 export function validateEvaluatorBindingOutcomeV1(input: unknown): AdmissionResultV1<Readonly<Obj>> {
