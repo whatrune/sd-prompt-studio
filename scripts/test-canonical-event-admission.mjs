@@ -188,6 +188,15 @@ try {
   assert.equal(unknownOutcome.kind, 'rejected')
   assert.equal(unknownOutcome.rejection.code, 'unknown_field')
   assert.deepEqual(noCalls, { canonicalize_jcs: 0, sha256: 0, ledger_transact: 0 })
+  const invalidRaw = clone(positive.raw_input)
+  invalidRaw.repository.database_id = 'not-a-number'
+  assert.equal(api.validateRawGitHubEventInputV1(invalidRaw).kind, 'rejected', 'nested repository type is rejected')
+  const accepted = clone(positive.expected_accepted_outcome)
+  accepted.envelope = {}
+  assert.equal(api.validateCanonicalEventAdmissionOutcomeV1(accepted).kind, 'rejected', 'empty accepted envelope is rejected')
+  const invalidDelivery = clone(positive.expected_accepted_outcome)
+  invalidDelivery.delivery_id = 'not-a-delivery-uuid'
+  assert.equal(api.validateCanonicalEventAdmissionOutcomeV1(invalidDelivery).kind, 'rejected', 'invalid accepted delivery id is rejected')
 
   let focusedChecks = 0
   const expectRejected = (admission, label) => {

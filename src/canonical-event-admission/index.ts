@@ -546,6 +546,15 @@ export function validateRawGitHubEventInputV1(input: unknown): AdmissionResultV1
       const issue = exactObject(value[field], fields, [], `/${field}`)
       if (issue) return issue
     }
+    const repository = value.repository as Obj
+    const header = value.header_projection as Obj
+    const payload = value.raw_payload as Obj
+    if (!validNumber(repository.database_id)) return rejectAdmission('invalid_type', '/repository/database_id', 'invalid type')
+    if (!format(repository.node_id, /^[A-Za-z0-9_=-]+$/)) return rejectAdmission('invalid_format', '/repository/node_id', 'invalid format')
+    if (!format(repository.full_name, /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/)) return rejectAdmission('invalid_format', '/repository/full_name', 'invalid format')
+    if (repository.html_url !== `https://github.com/${repository.full_name}`) return rejectAdmission('semantic_mismatch', '/repository/html_url', 'semantic mismatch')
+    if (!format(header.delivery_id, /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/) || !validNumber(header.hook_id) || !utcTimestamp(header.observed_at) || !(typeof header.action === 'string' || header.action === null) || !validString(header.event_name)) return rejectAdmission('invalid_format', '/header_projection', 'invalid format')
+    if (payload.content_type !== 'application/json' || payload.encoding !== 'base64' || !validNumber(payload.byte_length) || !format(payload.sha256, /^sha256:[0-9a-f]{64}$/) || !validString(payload.body_base64)) return rejectAdmission('invalid_format', '/raw_payload', 'invalid format')
     return jsonData(value) ? acceptAdmission(value) : rejectAdmission('invalid_type', '', 'invalid type')
   } catch {
     return failAdmission('canonical-event-raw-input-v1')
@@ -585,7 +594,7 @@ export function validateCanonicalEventAdmissionOutcomeV1(input: unknown): Admiss
     if (input.contract_version !== CANONICAL_EVENT_ADMISSION_OUTCOME_V1) return rejectAdmission('invalid_enum', '/contract_version', 'invalid enum value')
     if (!(input.delivery_id === null || typeof input.delivery_id === 'string') || !(input.raw_payload_sha256 === null || typeof input.raw_payload_sha256 === 'string')) return rejectAdmission('invalid_type', '/delivery_id', 'invalid type')
     if (input.kind === 'accepted') {
-      if (!utcTimestamp(input.evaluated_at) || typeof input.delivery_id !== 'string' || !format(input.raw_payload_sha256, /^sha256:[0-9a-f]{64}$/) || !jsonData(input.envelope) || !['required', 'suppressed'].includes(String(input.evaluator_trigger))) return rejectAdmission('semantic_mismatch', '', 'semantic mismatch')
+      if (!utcTimestamp(input.evaluated_at) || !format(input.delivery_id, /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/) || !format(input.raw_payload_sha256, /^sha256:[0-9a-f]{64}$/) || !isObject(input.envelope) || Object.keys(input.envelope).length === 0 || !['required', 'suppressed'].includes(String(input.evaluator_trigger))) return rejectAdmission('semantic_mismatch', '', 'semantic mismatch')
     } else if (input.kind === 'rejected') {
       const issue = exactObject(input.rejection, ['code', 'stage', 'path', 'message'], [], '/rejection')
       if (issue) return issue
