@@ -1,7 +1,7 @@
 {
-  "artifact_version": "2.0.0",
+  "artifact_version": "2.0.1",
   "schema_version": "canonical-event-admission-catalog-artifact-v1",
-  "contract_version": "canonical-event-admission-amendment-004",
+  "contract_version": "canonical-event-admission-amendment-006",
   "catalog_id": "canonical-event-admission-normative-rows-v2",
   "canonical_task": "https://github.com/whatrune/sd-prompt-studio/issues/196",
   "authority_records": {
@@ -46,11 +46,17 @@
       "https://github.com/whatrune/sd-prompt-studio/issues/196#issuecomment-5080915927"
     ],
     "closure_manifest": "https://github.com/whatrune/sd-prompt-studio/issues/196#issuecomment-5080915927",
-    "independent_architecture_review": "https://github.com/whatrune/sd-prompt-studio/issues/196#issuecomment-5080932128"
+    "independent_architecture_review": "https://github.com/whatrune/sd-prompt-studio/issues/196#issuecomment-5080932128",
+    "row_digest_gap": "https://github.com/whatrune/sd-prompt-studio/issues/196#issuecomment-5081224778",
+    "row_digest_amendments": [
+      "https://github.com/whatrune/sd-prompt-studio/issues/196#issuecomment-5081244274",
+      "https://github.com/whatrune/sd-prompt-studio/issues/196#issuecomment-5081289259"
+    ],
+    "row_digest_architecture_review": "https://github.com/whatrune/sd-prompt-studio/issues/196#issuecomment-5081335557"
   },
   "manifest": {
     "artifact_path": "docs/automation/canonical-event-admission-normative-catalog-v2.json",
-    "artifact_version": "2.0.0",
+    "artifact_version": "2.0.1",
     "schema_version": "canonical-event-admission-catalog-artifact-v1",
     "catalog_version": "canonical-event-admission-normative-rows-v2",
     "ordering": {
@@ -92,12 +98,12 @@
       "fixture_catalog_digest": "sha256:121c172876121b9e1385c66fdcc5874f4c148f972c35498541e642b3aa0863fd",
       "port_companion_catalog_digest": "sha256:4d0d18bfdb1c836f13aee28e1ff3d655163e1ca8444fcfb6ea5bf1edb3a146fa",
       "admission_matrix_digest": "sha256:a9187072f98ea10f65a17f6dc1bc3af094083afcd89aa3933f49d84c204097fb",
-      "executable_catalog_digest": "sha256:fa65d95930c8139003773eab68044ab8ca0a5dd8916ea2e390389da74362e11a",
-      "authority_bundle_digest": "sha256:4e21858afc095fb135f78756659d3e71d8557051bb55be91a002baee1a124ba6"
+      "executable_catalog_digest": "sha256:f8575bfbe83cc67cc33890b6c5674e2e9369eab019bb97920dc579a9873512bb",
+      "authority_bundle_digest": "sha256:47b3144b2cd4c0a7fb90abb3082cdc711f472f7489a1ba5d9e0c2c1557498373"
     },
     "artifact_digest": {
       "algorithm": "sha256",
-      "value": "sha256:80508b2167703a6820c748e57030bd5b157a65d7d09f128e0ac71092b084cf6f"
+      "value": "sha256:47ec0fe65560874fefe0a776234b75e2ee13cdff74216b990c8b8c26195dbf08"
     }
   },
   "tuple_bindings": [
@@ -63118,7 +63124,8 @@
           "publisher",
           "dispatcher",
           "protected_action"
-        ]
+        ],
+        "row_digest": "sha256:ac9b1cbbd8f0e7b15c5adb40b799eaff34295edb8e0b1f1937aaff860fa67044"
       },
       {
         "contract_version": "canonical-event-generation-test-row-v1",
@@ -63200,7 +63207,8 @@
           "publisher",
           "dispatcher",
           "protected_action"
-        ]
+        ],
+        "row_digest": "sha256:f99954d78fe891e71fd5fd52657940e0554889f5b8d4cf541d569f92494ca000"
       },
       {
         "contract_version": "canonical-event-generation-test-row-v1",
@@ -63287,7 +63295,8 @@
           "publisher",
           "dispatcher",
           "protected_action"
-        ]
+        ],
+        "row_digest": "sha256:c7ff3916103c0cd0a03f44a68c3e895b79da2ef5947c43e6b42d1a13bdc06b72"
       },
       {
         "contract_version": "canonical-event-generation-test-row-v1",
@@ -63378,7 +63387,8 @@
           "publisher",
           "dispatcher",
           "protected_action"
-        ]
+        ],
+        "row_digest": "sha256:a18e2225fd6144cd72bc2efbe80d5e04520a8064611315d5b528489f877379ef"
       },
       {
         "contract_version": "canonical-event-generation-test-row-v1",
@@ -63469,7 +63479,8 @@
           "publisher",
           "dispatcher",
           "protected_action"
-        ]
+        ],
+        "row_digest": "sha256:aef5981898177962a383bd51fe9be7f65c8cbd5678c13f07b667d810a6c8f619"
       },
       {
         "contract_version": "canonical-event-generation-test-row-v1",
@@ -63560,7 +63571,8 @@
           "publisher",
           "dispatcher",
           "protected_action"
-        ]
+        ],
+        "row_digest": "sha256:d2bc1cd36c836c7ad023600c9c46f585805743881e869804a26187158476ad80"
       }
     ],
     "invocation": [
@@ -63621,7 +63633,8 @@
           "publisher",
           "dispatcher",
           "protected_action"
-        ]
+        ],
+        "row_digest": "sha256:aa7da7015b178ab32d6dc17d0eed40eccfcc6c461aeb65a16f47ed9dde0e98a7"
       },
       {
         "contract_version": "canonical-event-invocation-test-row-v2",
@@ -63677,7 +63690,8 @@
           "publisher",
           "dispatcher",
           "protected_action"
-        ]
+        ],
+        "row_digest": "sha256:717c96b8c8efaebb417834f88d4ab2ca55d27a57d644337fce1060920a57e1f9"
       },
       {
         "contract_version": "canonical-event-invocation-test-row-v2",
@@ -63716,7 +63730,8 @@
           "publisher",
           "dispatcher",
           "protected_action"
-        ]
+        ],
+        "row_digest": "sha256:523778a7eb2ce32e6d13ffa1b2f750043163b8fcf0e4320604e1017229efe94d"
       },
       {
         "contract_version": "canonical-event-invocation-test-row-v2",
@@ -63755,7 +63770,8 @@
           "publisher",
           "dispatcher",
           "protected_action"
-        ]
+        ],
+        "row_digest": "sha256:8e43b01bca31e79cb96d1b6d57428376e81ab4707967d8090d7d9e7574cf4ccd"
       },
       {
         "contract_version": "canonical-event-invocation-test-row-v2",
@@ -63794,7 +63810,8 @@
           "publisher",
           "dispatcher",
           "protected_action"
-        ]
+        ],
+        "row_digest": "sha256:6a8d39cde77c07428db7f82c0111f673e38d6f6e6d4a3fb68840a2dffb852b80"
       },
       {
         "contract_version": "canonical-event-invocation-test-row-v2",
@@ -63835,7 +63852,8 @@
           "publisher",
           "dispatcher",
           "protected_action"
-        ]
+        ],
+        "row_digest": "sha256:d06bb6a5e64d8df85369dd5b93885bc981754765729c048ce525434356b35b4a"
       },
       {
         "contract_version": "canonical-event-invocation-test-row-v2",
@@ -63876,7 +63894,8 @@
           "publisher",
           "dispatcher",
           "protected_action"
-        ]
+        ],
+        "row_digest": "sha256:8ee0997490b9949e1eaf0ac9a9dbb1b8920a2a42e8044dab93a32e980c264b2d"
       },
       {
         "contract_version": "canonical-event-invocation-test-row-v2",
@@ -63917,7 +63936,8 @@
           "publisher",
           "dispatcher",
           "protected_action"
-        ]
+        ],
+        "row_digest": "sha256:f2b6f5b742fa1cc3d2578fc23f8505c5e79581d12d9b6e3b4b33689249661709"
       },
       {
         "contract_version": "canonical-event-invocation-test-row-v2",
@@ -63958,7 +63978,8 @@
           "publisher",
           "dispatcher",
           "protected_action"
-        ]
+        ],
+        "row_digest": "sha256:73ee10e1ece0f106950d5f130f874630e3f46dd92224bda681a9eca4754c2130"
       },
       {
         "contract_version": "canonical-event-invocation-test-row-v2",
@@ -63999,7 +64020,8 @@
           "publisher",
           "dispatcher",
           "protected_action"
-        ]
+        ],
+        "row_digest": "sha256:e23fb1b253bffd1c51807f76f101b062c8d309dff31fb20dc3c57179d52cdd98"
       },
       {
         "contract_version": "canonical-event-invocation-test-row-v2",
@@ -64040,7 +64062,8 @@
           "publisher",
           "dispatcher",
           "protected_action"
-        ]
+        ],
+        "row_digest": "sha256:dc20a62056e5686429c9eeeab93032fc6d9a57ae128f5cde621bab7cc0fa09ab"
       },
       {
         "contract_version": "canonical-event-invocation-test-row-v2",
@@ -64081,7 +64104,8 @@
           "publisher",
           "dispatcher",
           "protected_action"
-        ]
+        ],
+        "row_digest": "sha256:365d6a3e6a20875f3a039c39eea09ff832d9faea11637b478b0eb9aa407f94d1"
       }
     ]
   }
