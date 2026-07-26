@@ -352,6 +352,24 @@ async function produceCanonicalGitHubEventV1(invocation: unknown, rawInput: unkn
     if (sender.html_url !== `https://github.com/${sender.login}`) return reject(evaluatedAt, deliveryId, rawDigest, 'actor_identity_invalid', 'source_identity', '/provider_payload/sender/html_url', 'actor identity invalid')
     const source = descriptor.sourceKey === null ? payload : payload[descriptor.sourceKey] as Obj
     const parent = descriptor.parentKey ? payload[descriptor.parentKey] as Obj : null
+    const sourceIdentityUrls: readonly [unknown, string][] = descriptor.eventName === 'status'
+      ? [
+          [source.url, '/provider_payload/url'],
+          [(payload.commit as Obj).html_url, '/provider_payload/commit/html_url'],
+          [(payload.commit as Obj).url, '/provider_payload/commit/url'],
+        ]
+      : [
+          [source.html_url, `/provider_payload/${descriptor.sourceKey}/html_url`],
+          [source.url, `/provider_payload/${descriptor.sourceKey}/url`],
+          ...(parent
+            ? [
+                [parent.html_url, `/provider_payload/${descriptor.parentKey}/html_url`],
+                [parent.url, `/provider_payload/${descriptor.parentKey}/url`],
+              ] as readonly [unknown, string][]
+            : []),
+        ]
+    const invalidSourceIdentity = sourceIdentityUrls.find(([value]) => !gitHubSourceUrl(value))
+    if (invalidSourceIdentity) return reject(evaluatedAt, deliveryId, rawDigest, 'repository_mismatch', 'source_identity', invalidSourceIdentity[1], 'repository identity mismatch')
     const sourceId = source.id as number
     const sourceObject = {
       kind: descriptor.sourceKind,
