@@ -1,7 +1,7 @@
 {
-  "artifact_version": "2.0.2",
+  "artifact_version": "2.0.3",
   "schema_version": "canonical-event-admission-catalog-artifact-v1",
-  "contract_version": "canonical-event-admission-amendment-007",
+  "contract_version": "canonical-event-admission-amendment-012",
   "catalog_id": "canonical-event-admission-normative-rows-v2",
   "canonical_task": "https://github.com/whatrune/sd-prompt-studio/issues/196",
   "authority_records": {
@@ -55,11 +55,14 @@
     "row_digest_architecture_review": "https://github.com/whatrune/sd-prompt-studio/issues/196#issuecomment-5081335557",
     "normalized_projection_gap": "https://github.com/whatrune/sd-prompt-studio/issues/196#issuecomment-5082351095",
     "normalized_projection_amendment": "https://github.com/whatrune/sd-prompt-studio/issues/196#issuecomment-5082383404",
-    "normalized_projection_architecture_review": "https://github.com/whatrune/sd-prompt-studio/issues/196#issuecomment-5082411283"
+    "normalized_projection_architecture_review": "https://github.com/whatrune/sd-prompt-studio/issues/196#issuecomment-5082411283",
+    "ready_admission_gap": "https://github.com/whatrune/sd-prompt-studio/issues/196#issuecomment-5084661441",
+    "ready_admission_amendment": "https://github.com/whatrune/sd-prompt-studio/issues/196#issuecomment-5084739286",
+    "ready_admission_architecture_review": "https://github.com/whatrune/sd-prompt-studio/issues/196#issuecomment-5084748457"
   },
   "manifest": {
     "artifact_path": "docs/automation/canonical-event-admission-normative-catalog-v2.json",
-    "artifact_version": "2.0.2",
+    "artifact_version": "2.0.3",
     "schema_version": "canonical-event-admission-catalog-artifact-v1",
     "catalog_version": "canonical-event-admission-normative-rows-v2",
     "ordering": {
@@ -101,12 +104,12 @@
       "fixture_catalog_digest": "sha256:ef0695ee65d7cf9abb9b9bf182124c71c7e38f895ea5dbe0439255cb691cea7c",
       "port_companion_catalog_digest": "sha256:4d0d18bfdb1c836f13aee28e1ff3d655163e1ca8444fcfb6ea5bf1edb3a146fa",
       "admission_matrix_digest": "sha256:8fd7689cb614bb4b5357778c3b2288631503e4bdf9efcca0a9540da57b4c546e",
-      "executable_catalog_digest": "sha256:e8c346cf8c7362a9b475fbb8804b1f9ff15cb013cfc8742504b58b82d545be48",
-      "authority_bundle_digest": "sha256:32063d4bc62ff87a185e2de68377259f18f44d70b2695e85bb565638c8efa44d"
+      "executable_catalog_digest": "sha256:8dff823583cf2d6a330cf83267b7be672eaff6bafed60caafc3b50215a06bb0c",
+      "authority_bundle_digest": "sha256:922ad4e2c43f84b4eb03766ad751ecb783a052e705d0821b1ba6bd57b98703e3"
     },
     "artifact_digest": {
       "algorithm": "sha256",
-      "value": "sha256:f64a6a2e7bcff0b1f127a1c187ddc22eaa249e655c98f762ac8b14f4cbf459b8"
+      "value": "sha256:b1729e124b9e90e3ba9d1ccadc26e31aa0a639388379aabbd57690f060c8f215"
     }
   },
   "tuple_bindings": [
@@ -63651,39 +63654,22 @@
         },
         "expected_outcome": {
           "contract_version": "canonical-event-evaluator-invocation-outcome-v1",
-          "kind": "input_rejected",
-          "evaluated_at": "2026-07-24T00:00:00Z",
-          "snapshot_id": "github-fresh-snapshot-v1:sha256:2222222222222222222222222222222222222222222222222222222222222222",
-          "generation_keys": [
-            "github-freshness-generation-v1:sha256:1111111111111111111111111111111111111111111111111111111111111111"
-          ],
-          "evaluator_result": {
-            "contract_version": "automatic-gate-progression-evaluation-result-v2",
-            "task_id": "unknown_task",
-            "evaluated_at": "1970-01-01T00:00:00Z",
-            "input_fingerprint": "invalid-input-v2",
-            "precedence_trace": [
-              "structural_admission"
-            ],
-            "gate_status_requirement": {
-              "required": false
-            },
-            "kind": "stop",
-            "stop_condition": "malformed_or_unknown_input",
-            "execution_stop_reason": "architecture_gap",
-            "canonical_evidence_refs": [],
-            "recovery_owner": "backend_architect",
-            "required_recovery_evidence": [
-              "correct_v2_input"
-            ]
+          "kind": "failed",
+          "evaluated_at": "1970-01-01T00:00:00Z",
+          "snapshot_id": "github-fresh-snapshot-v1:sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          "generation_keys": [],
+          "failure": {
+            "code": "ready_binding_contract_invalid",
+            "diagnostic_id": "cea-evaluator-failure-v1:0000000000000000000000000000000000000000000000000000000000000000",
+            "safe_message": "evaluator Ready binding is invalid"
           }
         },
         "expected_call_counts": {
           "ready_validator": 1,
-          "evaluator": 1,
-          "result_validator": 1,
-          "outcome_validator": 1,
-          "terminal_anchor_validator": 1
+          "evaluator": 0,
+          "result_validator": 0,
+          "outcome_validator": 0,
+          "terminal_anchor_validator": 0
         },
         "fallback_depth": 0,
         "retry_count": 0,
@@ -63694,7 +63680,7 @@
           "dispatcher",
           "protected_action"
         ],
-        "row_digest": "sha256:717c96b8c8efaebb417834f88d4ab2ca55d27a57d644337fce1060920a57e1f9"
+        "row_digest": "sha256:24042c23a00d056183d68a7bbc38d06a6f2993393a819cccfa0883ce72afb29e"
       },
       {
         "contract_version": "canonical-event-invocation-test-row-v2",
