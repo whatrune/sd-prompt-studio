@@ -93,41 +93,157 @@ try {
     'Publisher must not re-export evaluator validator',
   )
 
+  const canonicalBody = (content, title = 'Canonical evidence') =>
+    `# ${title}\n\n\`\`\`yaml\n${JSON.stringify({ gate_status_evidence_binding: content }, null, 2)}\n\`\`\`\n`
+  const ordinaryEvidence = ({
+    kind,
+    url,
+    author,
+    head_binding,
+    source_record_url = url,
+  }) => {
+    const content = {
+      contract_version: 'gate-status-canonical-role-evidence-content-v1',
+      evidence_class: 'canonical_role_record',
+      evidence_kind: kind,
+      canonical_url: url,
+      source_record_url,
+      authoring_role: author,
+      task_id: 'DESIGN-GATE-STATUS-PUBLISHER-CONTRACT-001',
+      repository: 'whatrune/sd-prompt-studio',
+      head_binding,
+      verification_state: 'verified',
+    }
+    const body_utf8 = canonicalBody(content, kind)
+    return {
+      evidence: {
+        evidence_class: 'canonical_role_record',
+        evidence_kind: kind,
+        canonical_url: url,
+        authoring_role: author,
+        task_id: 'DESIGN-GATE-STATUS-PUBLISHER-CONTRACT-001',
+        repository: 'whatrune/sd-prompt-studio',
+        head_binding,
+        fetched_content_sha256: shaText(body_utf8),
+        content_projection_sha256: shaJcs(content),
+        verification_state: 'verified',
+      },
+      read: {
+        state: 'available',
+        source_kind: 'canonical_body',
+        canonical_url: url,
+        body_utf8,
+        fetched_content_sha256: shaText(body_utf8),
+        content,
+        content_projection_sha256: shaJcs(content),
+      },
+    }
+  }
+  const projectionAuthorizationHeader = {
+    task_id: 'DESIGN-GATE-STATUS-PUBLISHER-CONTRACT-001',
+    implementation_phase_id: 'IMPLEMENT-GATE-STATUS-PUBLISHER-V1-001',
+    record_type: 'same_task_implementation_resume_dispatch',
+    canonical_task: TASK,
+    authoring_role: 'Integrated Lead',
+    assigned_role: 'Backend Implementer',
+    authority_main_full_head_sha: '15a173e8482e72913e57dc89c8c0539eb96b1b1d',
+    freeze_candidate:
+      'https://github.com/whatrune/sd-prompt-studio/issues/206#issuecomment-5085601779',
+    cumulative_amendment_001:
+      'https://github.com/whatrune/sd-prompt-studio/issues/206#issuecomment-5085674758',
+    cumulative_amendment_002:
+      'https://github.com/whatrune/sd-prompt-studio/issues/206#issuecomment-5085733363',
+    cumulative_amendment_003:
+      'https://github.com/whatrune/sd-prompt-studio/issues/206#issuecomment-5085861985',
+    cumulative_amendment_004:
+      'https://github.com/whatrune/sd-prompt-studio/issues/206#issuecomment-5085942624',
+    architecture_review_decision: REVIEW,
+    architecture_review_decision_value: 'APPROVE',
+    architecture_review_blocking_finding_count: 0,
+    implementation_resume_allowed: true,
+    new_task_allowed: false,
+    new_task_branch_allowed: true,
+    new_task_worktree_allowed: true,
+    draft_pr_allowed_after_validation_pass: true,
+    ready_allowed: false,
+    approve_allowed: false,
+    merge_allowed: false,
+  }
+  const projectionAuthorizationContent = {
+    contract_version: 'gate-status-projection-authorization-source-content-v1',
+    canonical_url: PROJECTION_AUTH,
+    task_id: projectionAuthorizationHeader.task_id,
+    implementation_phase_id: projectionAuthorizationHeader.implementation_phase_id,
+    record_type: projectionAuthorizationHeader.record_type,
+    canonical_task: projectionAuthorizationHeader.canonical_task,
+    record_authoring_role: 'integrated_lead',
+    assigned_role: 'backend_implementer',
+    authority_main_full_head_sha: projectionAuthorizationHeader.authority_main_full_head_sha,
+    freeze_candidate: projectionAuthorizationHeader.freeze_candidate,
+    cumulative_amendment_001: projectionAuthorizationHeader.cumulative_amendment_001,
+    cumulative_amendment_002: projectionAuthorizationHeader.cumulative_amendment_002,
+    cumulative_amendment_003: projectionAuthorizationHeader.cumulative_amendment_003,
+    cumulative_amendment_004: projectionAuthorizationHeader.cumulative_amendment_004,
+    architecture_review_decision: projectionAuthorizationHeader.architecture_review_decision,
+    architecture_review_decision_value:
+      projectionAuthorizationHeader.architecture_review_decision_value,
+    architecture_review_blocking_finding_count:
+      projectionAuthorizationHeader.architecture_review_blocking_finding_count,
+    implementation_resume_allowed: projectionAuthorizationHeader.implementation_resume_allowed,
+    new_task_allowed: projectionAuthorizationHeader.new_task_allowed,
+    new_task_branch_allowed: projectionAuthorizationHeader.new_task_branch_allowed,
+    new_task_worktree_allowed: projectionAuthorizationHeader.new_task_worktree_allowed,
+    draft_pr_allowed_after_validation_pass:
+      projectionAuthorizationHeader.draft_pr_allowed_after_validation_pass,
+    ready_allowed: projectionAuthorizationHeader.ready_allowed,
+    approve_allowed: projectionAuthorizationHeader.approve_allowed,
+    merge_allowed: projectionAuthorizationHeader.merge_allowed,
+  }
+  const projectionAuthorizationBody =
+    `# Same-Task Implementation Resume Dispatch\n\n\`\`\`yaml\n${JSON.stringify(projectionAuthorizationHeader, null, 2)}\n\`\`\`\n`
+  const projectionAuthorizationEvidence = {
+    evidence_class: 'canonical_role_record',
+    evidence_kind: 'projection_authorization',
+    canonical_url: PROJECTION_AUTH,
+    authoring_role: 'integrated_lead',
+    task_id: 'DESIGN-GATE-STATUS-PUBLISHER-CONTRACT-001',
+    repository: 'whatrune/sd-prompt-studio',
+    head_binding: { state: 'not_head_bound', basis_url: PROJECTION_AUTH },
+    fetched_content_sha256: shaText(projectionAuthorizationBody),
+    content_projection_sha256: shaJcs(projectionAuthorizationContent),
+    verification_state: 'verified',
+  }
+  const projectionAuthorizationRead = {
+    state: 'available',
+    source_kind: 'canonical_body',
+    canonical_url: PROJECTION_AUTH,
+    body_utf8: projectionAuthorizationBody,
+    fetched_content_sha256: shaText(projectionAuthorizationBody),
+    content: projectionAuthorizationContent,
+    content_projection_sha256: shaJcs(projectionAuthorizationContent),
+  }
+  const taskEvidence = ordinaryEvidence({
+    kind: 'task_assignment',
+    url: TASK,
+    author: 'integrated_lead',
+    head_binding: { state: 'not_head_bound', basis_url: TASK },
+  })
+  const reviewEvidence = ordinaryEvidence({
+    kind: 'review_decision',
+    url: REVIEW,
+    author: 'architect_team',
+    head_binding: { state: 'current', head: HEAD },
+  })
   const evidenceRecords = [
-    {
-      evidence_class: 'canonical_role_record',
-      evidence_kind: 'task_assignment',
-      canonical_url: TASK,
-      authoring_role: 'integrated_lead',
-      task_id: 'DESIGN-GATE-STATUS-PUBLISHER-CONTRACT-001',
-      repository: 'whatrune/sd-prompt-studio',
-      head_binding: { state: 'not_head_bound', basis_url: TASK },
-      fetched_content_sha256: fixedDigest('1'),
-      verification_state: 'verified',
-    },
-    {
-      evidence_class: 'canonical_role_record',
-      evidence_kind: 'review_decision',
-      canonical_url: REVIEW,
-      authoring_role: 'architect_team',
-      task_id: 'DESIGN-GATE-STATUS-PUBLISHER-CONTRACT-001',
-      repository: 'whatrune/sd-prompt-studio',
-      head_binding: { state: 'current', head: HEAD },
-      fetched_content_sha256: fixedDigest('2'),
-      verification_state: 'verified',
-    },
-    {
-      evidence_class: 'canonical_role_record',
-      evidence_kind: 'projection_authorization',
-      canonical_url: PROJECTION_AUTH,
-      authoring_role: 'integrated_lead',
-      task_id: 'DESIGN-GATE-STATUS-PUBLISHER-CONTRACT-001',
-      repository: 'whatrune/sd-prompt-studio',
-      head_binding: { state: 'current', head: HEAD },
-      fetched_content_sha256: fixedDigest('3'),
-      verification_state: 'verified',
-    },
+    taskEvidence.evidence,
+    reviewEvidence.evidence,
+    projectionAuthorizationEvidence,
   ].sort((a, b) => Buffer.from(a.canonical_url).compare(Buffer.from(b.canonical_url)))
+  const evidenceReads = new Map([
+    [TASK, taskEvidence.read],
+    [REVIEW, reviewEvidence.read],
+    [PROJECTION_AUTH, projectionAuthorizationRead],
+  ])
 
   const taskAuthority = {
     task_id: 'DESIGN-GATE-STATUS-PUBLISHER-CONTRACT-001',
@@ -289,7 +405,14 @@ try {
     if (receipt) input.receipt_store_capability.value.unique_key = key
     const admission = api.validateGateStatusPublicationInputV1(input)
     assert.equal(admission.accepted, true, JSON.stringify(admission))
-    return { input, body, snapshot, desired, key }
+    return {
+      input,
+      body,
+      snapshot,
+      desired,
+      key,
+      evidence_reads: new Map([...evidenceReads].map(([url, read]) => [url, clone(read)])),
+    }
   }
 
   const makePorts = (
@@ -303,7 +426,14 @@ try {
       throwAt = null,
     } = {},
   ) => {
-    const counts = { canonical: 0, pr_read: 0, cas: 0, receipt: 0, retry_write: 0 }
+    const counts = {
+      canonical: 0,
+      canonical_by_url: new Map(),
+      pr_read: 0,
+      cas: 0,
+      receipt: 0,
+      retry_write: 0,
+    }
     let replacementBody = null
     let storedReceipt = null
     const map = new Map([
@@ -322,8 +452,41 @@ try {
     const ports = {
       read_canonical_record: async (url) => {
         counts.canonical += 1
+        counts.canonical_by_url.set(url, (counts.canonical_by_url.get(url) ?? 0) + 1)
         if (throwAt === 'canonical') throw new Error('secret-token')
         if (unavailable.has(url)) return { state: 'unavailable' }
+        const call = counts.canonical_by_url.get(url)
+        if (url === TASK && call === 1) {
+          const content = clone(taskAuthority)
+          if (invalid.has(url)) content.invalid = true
+          return {
+            state: 'available',
+            source_kind: 'canonical_body',
+            canonical_url: url,
+            body_utf8: canonicalize(content),
+            fetched_content_sha256: fixedDigest('9'),
+            content,
+            content_projection_sha256: shaJcs(content),
+          }
+        }
+        if (url === PROJECTION_AUTH && call === 1) {
+          const content = clone(fixture.input.projection_authorization)
+          if (invalid.has(url)) content.invalid = true
+          return {
+            state: 'available',
+            source_kind: 'canonical_body',
+            canonical_url: url,
+            body_utf8: canonicalize(content),
+            fetched_content_sha256: fixedDigest('9'),
+            content,
+            content_projection_sha256: shaJcs(content),
+          }
+        }
+        if (fixture.evidence_reads.has(url)) {
+          const result = clone(fixture.evidence_reads.get(url))
+          if (invalid.has(url)) result.content.invalid = true
+          return result
+        }
         const content = clone(map.get(url))
         if (invalid.has(url)) content.invalid = true
         const evidence = fixture.input.evidence_records.find((item) => item.canonical_url === url)
@@ -337,7 +500,15 @@ try {
           (url === PRIOR_SET
             ? fixture.input.prior_attempt_authorities.fetched_content_sha256
             : fixedDigest('9'))
-        return { state: 'available', canonical_url: url, fetched_content_sha256: digestValue, content }
+        return {
+          state: 'available',
+          source_kind: 'canonical_body',
+          canonical_url: url,
+          body_utf8: canonicalize(content),
+          fetched_content_sha256: digestValue,
+          content,
+          content_projection_sha256: shaJcs(content),
+        }
       },
       read_pr: async () => {
         counts.pr_read += 1
@@ -496,6 +667,15 @@ try {
     const fixture = make()
     const result = await execute(fixture, { unavailable: new Set([REVIEW]) })
     assert.equal(result.result.branch.stopped.stop_code, 'canonical_evidence_invalid')
+    const tampered = make()
+    const tamperedHarness = makePorts(tampered)
+    const canonicalRead = tamperedHarness.ports.read_canonical_record
+    tamperedHarness.ports.read_canonical_record = async (url) => {
+      const value = await canonicalRead(url)
+      return url === REVIEW ? { ...value, content: { tampered: true } } : value
+    }
+    const tamperedResult = await api.publishGateStatusV1(clone(tampered.input), tamperedHarness.ports)
+    assert.equal(tamperedResult.branch.stopped.stop_code, 'canonical_evidence_invalid')
   })
 
   await caseResult('GSP-011', async () => {
@@ -885,7 +1065,660 @@ try {
     const result = await execute(fixture, { invalid: new Set([REVIEW]) })
     assert.equal(result.result.kind, 'stopped')
     assert.equal(result.counts.cas, 0)
+    const valid = await execute(make({ atomic: true }))
+    const impossible = clone(valid.result)
+    impossible.identity_binding = { state: 'unavailable' }
+    impossible.evaluator_binding = { state: 'unavailable' }
+    impossible.publication_binding = { state: 'unavailable' }
+    impossible.operation_binding = { state: 'unavailable' }
+    impossible.transport_binding = { state: 'unavailable' }
+    impossible.receipt_store_binding = { state: 'unavailable' }
+    impossible.write_state = { attempted: false, observed: false, verified: false, confirmation: 'none' }
+    impossible.receipt_disposition = { state: 'not_performed', reason: 'publication_stopped' }
+    assert.equal(api.validateGateStatusPublicationResultV1(impossible).accepted, false)
   })
+
+  const refreshFixtureAuthority = (fixture) => {
+    fixture.input.evidence_records.sort((a, b) =>
+      Buffer.from(a.canonical_url).compare(Buffer.from(b.canonical_url)))
+    const citations = fixture.input.evidence_records
+      .map((item) => item.canonical_url)
+      .filter((url) => url !== TASK && url !== PROJECTION_AUTH)
+      .sort((a, b) => Buffer.from(a).compare(Buffer.from(b)))
+    fixture.input.evaluator.result.requirement.citation_urls = clone(citations)
+    fixture.input.evaluator.result.gate_status_requirement.citation_urls = clone(citations)
+    fixture.input.evaluator.result_sha256 = shaJcs(fixture.input.evaluator.result)
+    fixture.input.projection_authorization.evaluator_result_sha256 =
+      fixture.input.evaluator.result_sha256
+    fixture.input.projection_authorization.projection.current_blocker_next_gate.evidence_urls =
+      clone(citations)
+    fixture.input.projection_authorization.projection_sha256 =
+      shaJcs(fixture.input.projection_authorization.projection)
+    fixture.key = api.buildGateStatusPublicationKeyV1(fixture.input)
+    assert.ok(fixture.key)
+    fixture.input.prior_attempt_authorities.publication_key = fixture.key
+    if (fixture.input.receipt_store_capability.state === 'admitted') {
+      fixture.input.receipt_store_capability.value.unique_key = fixture.key
+    }
+    const admission = api.validateGateStatusPublicationInputV1(fixture.input)
+    assert.equal(admission.accepted, true, JSON.stringify(admission))
+    return fixture
+  }
+
+  const refreshPublicationKeyOnly = (fixture) => {
+    fixture.input.evidence_records.sort((a, b) =>
+      Buffer.from(a.canonical_url).compare(Buffer.from(b.canonical_url)))
+    fixture.key = api.buildGateStatusPublicationKeyV1(fixture.input)
+    assert.ok(fixture.key)
+    fixture.input.prior_attempt_authorities.publication_key = fixture.key
+    if (fixture.input.receipt_store_capability.state === 'admitted') {
+      fixture.input.receipt_store_capability.value.unique_key = fixture.key
+    }
+    return fixture
+  }
+
+  const githubCheckEvidence = ({
+    conclusion = 'success',
+    started_at = '2026-07-26T22:00:00Z',
+    completed_at = '2026-07-26T22:01:00Z',
+  } = {}) => {
+    const url = 'https://github.com/whatrune/sd-prompt-studio/actions/runs/30227255862/job/89859405099'
+    const source = {
+      contract_version: 'gate-status-github-check-source-v1',
+      canonical_url: url,
+      repository: 'whatrune/sd-prompt-studio',
+      pr_url: PR,
+      checked_head: HEAD,
+      name: 'build-preview',
+      conclusion,
+      producer: { kind: 'github_app', login: 'github-actions', database_id: 15368 },
+      started_at,
+      completed_at,
+    }
+    const content = {
+      contract_version: 'gate-status-github-check-content-v1',
+      evidence_class: 'github_mutable_evidence',
+      evidence_kind: 'github_check',
+      canonical_url: url,
+      repository: source.repository,
+      pr_url: source.pr_url,
+      checked_head: source.checked_head,
+      name: source.name,
+      conclusion: source.conclusion,
+      producer: source.producer,
+      started_at: source.started_at,
+      completed_at: source.completed_at,
+      verification_state: 'verified',
+    }
+    return {
+      evidence: {
+        evidence_class: 'github_mutable_evidence',
+        evidence_kind: 'github_check',
+        canonical_url: url,
+        repository: source.repository,
+        pr_url: source.pr_url,
+        checked_head: source.checked_head,
+        name: source.name,
+        conclusion: source.conclusion,
+        producer: source.producer,
+        started_at: source.started_at,
+        completed_at: source.completed_at,
+        fetched_content_sha256: shaJcs(source),
+        content_projection_sha256: shaJcs(content),
+        verification_state: 'verified',
+      },
+      read: {
+        state: 'available',
+        source_kind: 'github_resource',
+        canonical_url: url,
+        source,
+        fetched_content_sha256: shaJcs(source),
+        content,
+        content_projection_sha256: shaJcs(content),
+      },
+    }
+  }
+
+  const githubThreadEvidence = () => {
+    const url = `${PR}#discussion_r2000000001`
+    const source = {
+      contract_version: 'gate-status-github-review-thread-source-v1',
+      canonical_url: url,
+      repository: 'whatrune/sd-prompt-studio',
+      pr_url: PR,
+      observed_head: HEAD,
+      state: 'resolved',
+      outdated: false,
+      blocking: false,
+    }
+    const content = {
+      contract_version: 'gate-status-github-review-thread-content-v1',
+      evidence_class: 'github_mutable_evidence',
+      evidence_kind: 'review_thread',
+      canonical_url: url,
+      repository: source.repository,
+      pr_url: source.pr_url,
+      observed_head: source.observed_head,
+      state: source.state,
+      outdated: source.outdated,
+      blocking: source.blocking,
+      verification_state: 'verified',
+    }
+    return {
+      evidence: {
+        evidence_class: 'github_mutable_evidence',
+        evidence_kind: 'review_thread',
+        canonical_url: url,
+        repository: source.repository,
+        pr_url: source.pr_url,
+        observed_head: source.observed_head,
+        state: source.state,
+        outdated: source.outdated,
+        blocking: source.blocking,
+        fetched_content_sha256: shaJcs(source),
+        content_projection_sha256: shaJcs(content),
+        verification_state: 'verified',
+      },
+      read: {
+        state: 'available',
+        source_kind: 'github_resource',
+        canonical_url: url,
+        source,
+        fetched_content_sha256: shaJcs(source),
+        content,
+        content_projection_sha256: shaJcs(content),
+      },
+    }
+  }
+
+  const canonicalKindConfig = {
+    task_assignment: {
+      url: TASK,
+      author: 'integrated_lead',
+      head_binding: { state: 'not_head_bound', basis_url: TASK },
+    },
+    result_handoff: {
+      url: `${TASK}#issuecomment-5087000001`,
+      author: 'backend_implementer',
+      head_binding: { state: 'current', head: HEAD },
+    },
+    review_decision: {
+      url: REVIEW,
+      author: 'architect_team',
+      head_binding: { state: 'current', head: HEAD },
+    },
+    final_regression_result: {
+      url: `${TASK}#issuecomment-5087000002`,
+      author: 'backend_implementer',
+      head_binding: { state: 'current', head: HEAD },
+    },
+    operational_validation_result: {
+      url: `${TASK}#issuecomment-5087000003`,
+      author: 'maintenance_op',
+      head_binding: { state: 'current', head: HEAD },
+    },
+    product_owner_approval: {
+      url: `${TASK}#issuecomment-5087000004`,
+      author: 'product_owner',
+      head_binding: { state: 'current', head: HEAD },
+    },
+    protected_action_completion: {
+      url: `${TASK}#issuecomment-5087000005`,
+      author: 'integrated_lead',
+      head_binding: { state: 'current', head: HEAD },
+    },
+  }
+
+  const fixtureForEvidenceKind = (kind, options = {}) => {
+    const fixture = make()
+    let target
+    if (kind === 'projection_authorization') {
+      target = {
+        evidence: clone(projectionAuthorizationEvidence),
+        read: clone(projectionAuthorizationRead),
+      }
+    } else if (kind === 'github_check') {
+      target = githubCheckEvidence(options)
+    } else if (kind === 'review_thread') {
+      target = githubThreadEvidence()
+    } else {
+      target = ordinaryEvidence({ kind, ...canonicalKindConfig[kind] })
+    }
+    const existingIndex = fixture.input.evidence_records.findIndex(
+      (item) => item.evidence_kind === kind,
+    )
+    if (existingIndex === -1) fixture.input.evidence_records.push(clone(target.evidence))
+    else fixture.input.evidence_records[existingIndex] = clone(target.evidence)
+    fixture.evidence_reads.set(target.evidence.canonical_url, clone(target.read))
+    refreshFixtureAuthority(fixture)
+    return { fixture, target_url: target.evidence.canonical_url }
+  }
+
+  const runDeterministicNegative = async (
+    fixture,
+    expectedCode = 'canonical_evidence_invalid',
+    options = undefined,
+  ) => {
+    const before = canonicalize(fixture.input)
+    const firstHarness = makePorts(fixture, options)
+    const first = await api.publishGateStatusV1(clone(fixture.input), firstHarness.ports)
+    const secondHarness = makePorts(fixture, options)
+    const second = await api.publishGateStatusV1(clone(fixture.input), secondHarness.ports)
+    assert.equal(first.kind, 'stopped')
+    assert.equal(first.branch.stopped.stop_code, expectedCode)
+    assert.equal(firstHarness.counts.pr_read, 0)
+    assert.equal(firstHarness.counts.cas, 0)
+    assert.equal(firstHarness.counts.receipt, 0)
+    assert.equal(firstHarness.counts.retry_write, 0)
+    assert.equal(api.validateGateStatusPublicationResultV1(first).accepted, true)
+    assert.ok(Object.isFrozen(first))
+    assert.equal(JSON.stringify(first), JSON.stringify(second))
+    assert.equal(canonicalize(fixture.input), before)
+    return first
+  }
+
+  const evidenceCutoverRows = []
+  {
+    for (const [id, target] of [
+      ['GSP-S1-EVIDENCE-CUTOVER-001', fixtureForEvidenceKind('github_check')],
+      [
+        'GSP-S1-EVIDENCE-CUTOVER-002',
+        fixtureForEvidenceKind('github_check', {
+          conclusion: 'pending',
+          started_at: null,
+          completed_at: null,
+        }),
+      ],
+      ['GSP-S1-EVIDENCE-CUTOVER-003', fixtureForEvidenceKind('review_thread')],
+    ]) {
+      const admission = api.validateGateStatusPublicationInputV1(target.fixture.input)
+      assert.equal(admission.accepted, true, id)
+      const result = await execute(target.fixture)
+      assert.equal(result.result.branch.stopped.stop_code, 'atomic_precondition_unavailable')
+      evidenceCutoverRows.push(id)
+    }
+    for (const [id, kind] of [
+      ['GSP-S1-EVIDENCE-CUTOVER-004', 'github_check'],
+      ['GSP-S1-EVIDENCE-CUTOVER-005', 'review_thread'],
+      ['GSP-S1-EVIDENCE-CUTOVER-006', 'github_check'],
+    ]) {
+      const { fixture } = fixtureForEvidenceKind(kind)
+      const index = fixture.input.evidence_records.findIndex((item) => item.evidence_kind === kind)
+      fixture.input.evidence_records[index].observed_at = '2026-07-26T22:00:00Z'
+      if (id !== 'GSP-S1-EVIDENCE-CUTOVER-006') {
+        delete fixture.input.evidence_records[index].content_projection_sha256
+        if (kind === 'github_check') {
+          delete fixture.input.evidence_records[index].started_at
+          delete fixture.input.evidence_records[index].completed_at
+        }
+      }
+      const admission = api.validateGateStatusPublicationInputV1(fixture.input)
+      assert.equal(admission.accepted, false)
+      assert.equal(admission.rejection.path, `/evidence_records/${index}/observed_at`)
+      const harness = makePorts(fixture)
+      const result = await api.publishGateStatusV1(clone(fixture.input), harness.ports)
+      assert.equal(result.branch.stopped.stop_code, 'structural_admission_failed')
+      assert.equal(harness.counts.canonical, 0)
+      evidenceCutoverRows.push(id)
+    }
+    {
+      const { fixture } = fixtureForEvidenceKind('github_check')
+      const index = fixture.input.evidence_records.findIndex(
+        (item) => item.evidence_kind === 'github_check',
+      )
+      delete fixture.input.evidence_records[index].content_projection_sha256
+      const admission = api.validateGateStatusPublicationInputV1(fixture.input)
+      assert.equal(admission.accepted, false)
+      assert.equal(
+        admission.rejection.path,
+        `/evidence_records/${index}/content_projection_sha256`,
+      )
+      evidenceCutoverRows.push('GSP-S1-EVIDENCE-CUTOVER-007')
+    }
+    {
+      const { fixture } = fixtureForEvidenceKind('github_check')
+      const index = fixture.input.evidence_records.findIndex(
+        (item) => item.evidence_kind === 'github_check',
+      )
+      fixture.input.evidence_records[index].evidence_class = 'canonical_role_record'
+      const admission = api.validateGateStatusPublicationInputV1(fixture.input)
+      assert.equal(admission.accepted, false)
+      assert.equal(admission.rejection.path, `/evidence_records/${index}/evidence_kind`)
+      evidenceCutoverRows.push('GSP-S1-EVIDENCE-CUTOVER-008')
+    }
+    {
+      const { fixture } = fixtureForEvidenceKind('github_check')
+      const index = fixture.input.evidence_records.findIndex(
+        (item) => item.evidence_kind === 'github_check',
+      )
+      fixture.input.evidence_records[index].completed_at = '2026-07-26T21:59:59Z'
+      const admission = api.validateGateStatusPublicationInputV1(fixture.input)
+      assert.equal(admission.accepted, false)
+      assert.equal(admission.rejection.code, 'invalid_conditional_matrix')
+      evidenceCutoverRows.push('GSP-S1-EVIDENCE-CUTOVER-009')
+    }
+    {
+      const fixture = make()
+      fixture.input.evidence_records.splice(1, 0, clone(fixture.input.evidence_records[0]))
+      const admission = api.validateGateStatusPublicationInputV1(fixture.input)
+      assert.equal(admission.accepted, false)
+      assert.equal(admission.rejection.code, 'duplicate_set_member')
+      assert.match(admission.rejection.path, /\/canonical_url$/)
+      evidenceCutoverRows.push('GSP-S1-EVIDENCE-CUTOVER-010')
+    }
+  }
+  assert.equal(evidenceCutoverRows.length, 10)
+
+  const s6BranchRows = []
+  const s6Kinds = [
+    'task_assignment',
+    'result_handoff',
+    'review_decision',
+    'final_regression_result',
+    'operational_validation_result',
+    'product_owner_approval',
+    'protected_action_completion',
+    'projection_authorization',
+    'github_check',
+    'review_thread',
+  ]
+  for (const kind of s6Kinds) {
+    {
+      const { fixture } = fixtureForEvidenceKind(kind)
+      const result = await execute(fixture)
+      assert.equal(result.result.branch.stopped.stop_code, 'atomic_precondition_unavailable')
+      s6BranchRows.push(`GSP-S6-POS-${kind}`)
+    }
+    {
+      const { fixture, target_url } = fixtureForEvidenceKind(kind)
+      const read = fixture.evidence_reads.get(target_url)
+      if (read.source_kind === 'canonical_body') read.body_utf8 += 'x'
+      else if (kind === 'github_check') read.source.started_at = '2026-07-26T21:59:59Z'
+      else read.source.blocking = !read.source.blocking
+      await runDeterministicNegative(fixture)
+      s6BranchRows.push(`GSP-S6-BODY-SOURCE-${kind}`)
+    }
+    {
+      const { fixture, target_url } = fixtureForEvidenceKind(kind)
+      fixture.evidence_reads.get(target_url).content.unexpected = true
+      await runDeterministicNegative(fixture)
+      s6BranchRows.push(`GSP-S6-CONTENT-${kind}`)
+    }
+    {
+      const { fixture, target_url } = fixtureForEvidenceKind(kind)
+      const read = fixture.evidence_reads.get(target_url)
+      const inputEvidence = fixture.input.evidence_records.find(
+        (item) => item.canonical_url === target_url,
+      )
+      if (read.source_kind === 'canonical_body') {
+        if (kind === 'projection_authorization') {
+          read.body_utf8 = read.body_utf8.replace(
+            '\"authoring_role\": \"Integrated Lead\"',
+            '\"authoring_role\": \"Backend Implementer\"',
+          )
+          inputEvidence.fetched_content_sha256 = shaText(read.body_utf8)
+          read.fetched_content_sha256 = inputEvidence.fetched_content_sha256
+        } else {
+          read.content.authoring_role =
+            read.content.authoring_role === 'product_owner'
+              ? 'backend_implementer'
+              : 'product_owner'
+          read.body_utf8 = canonicalBody(read.content, kind)
+          read.fetched_content_sha256 = shaText(read.body_utf8)
+          read.content_projection_sha256 = shaJcs(read.content)
+          inputEvidence.fetched_content_sha256 = read.fetched_content_sha256
+          inputEvidence.content_projection_sha256 = read.content_projection_sha256
+        }
+      } else if (kind === 'github_check') {
+        read.source.producer.login = 'different-app'
+        read.content = {
+          ...read.content,
+          producer: clone(read.source.producer),
+        }
+        read.fetched_content_sha256 = shaJcs(read.source)
+        read.content_projection_sha256 = shaJcs(read.content)
+        inputEvidence.fetched_content_sha256 = read.fetched_content_sha256
+        inputEvidence.content_projection_sha256 = read.content_projection_sha256
+      } else {
+        read.source.producer = {
+          kind: 'github_user',
+          login: 'not-admissible',
+          database_id: 1,
+        }
+      }
+      await runDeterministicNegative(fixture)
+      s6BranchRows.push(`GSP-S6-ATTR-${kind}`)
+    }
+    {
+      const { fixture, target_url } = fixtureForEvidenceKind(kind)
+      const inputEvidence = fixture.input.evidence_records.find(
+        (item) => item.canonical_url === target_url,
+      )
+      if (kind === 'github_check') {
+        const read = fixture.evidence_reads.get(target_url)
+        read.source.checked_head = 'f'.repeat(40)
+        read.content.checked_head = read.source.checked_head
+        read.fetched_content_sha256 = shaJcs(read.source)
+        read.content_projection_sha256 = shaJcs(read.content)
+        inputEvidence.fetched_content_sha256 = read.fetched_content_sha256
+        inputEvidence.content_projection_sha256 = read.content_projection_sha256
+      } else if (kind === 'review_thread') {
+        const read = fixture.evidence_reads.get(target_url)
+        read.source.observed_head = 'f'.repeat(40)
+        read.content.observed_head = read.source.observed_head
+        read.fetched_content_sha256 = shaJcs(read.source)
+        read.content_projection_sha256 = shaJcs(read.content)
+        inputEvidence.fetched_content_sha256 = read.fetched_content_sha256
+        inputEvidence.content_projection_sha256 = read.content_projection_sha256
+      } else {
+        if (kind === 'task_assignment') {
+          inputEvidence.head_binding.basis_url = `${TASK}#issuecomment-5087999991`
+        } else if (kind === 'projection_authorization') {
+          inputEvidence.head_binding = { state: 'current', head: HEAD }
+        } else {
+          inputEvidence.head_binding = { state: 'historical', head: 'f'.repeat(40) }
+        }
+      }
+      const admission = api.validateGateStatusPublicationInputV1(fixture.input)
+      if (admission.accepted) await runDeterministicNegative(fixture)
+      else {
+        const harness = makePorts(fixture)
+        const result = await api.publishGateStatusV1(clone(fixture.input), harness.ports)
+        assert.equal(result.branch.stopped.stop_code, 'structural_admission_failed')
+        assert.equal(harness.counts.canonical, 0)
+      }
+      s6BranchRows.push(`GSP-S6-HEAD-${kind}`)
+    }
+  }
+  assert.equal(s6BranchRows.length, 50)
+
+  const s6CrossRows = []
+  {
+    const fixture = make()
+    fixture.input.evidence_records = fixture.input.evidence_records.filter(
+      (item) => item.canonical_url !== REVIEW,
+    )
+    refreshPublicationKeyOnly(fixture)
+    await runDeterministicNegative(fixture)
+    s6CrossRows.push('GSP-S6-X-001')
+  }
+  {
+    const fixture = make()
+    const extra = ordinaryEvidence({
+      kind: 'result_handoff',
+      url: `${TASK}#issuecomment-5087100001`,
+      author: 'backend_implementer',
+      head_binding: { state: 'current', head: HEAD },
+    })
+    fixture.input.evidence_records.push(extra.evidence)
+    fixture.input.evidence_records.sort((a, b) =>
+      Buffer.from(a.canonical_url).compare(Buffer.from(b.canonical_url)))
+    fixture.evidence_reads.set(extra.evidence.canonical_url, extra.read)
+    refreshPublicationKeyOnly(fixture)
+    await runDeterministicNegative(fixture)
+    s6CrossRows.push('GSP-S6-X-002')
+  }
+  {
+    const fixture = make()
+    fixture.input.evidence_records.splice(1, 0, clone(fixture.input.evidence_records[0]))
+    const harness = makePorts(fixture)
+    const result = await api.publishGateStatusV1(clone(fixture.input), harness.ports)
+    assert.equal(result.branch.stopped.stop_code, 'structural_admission_failed')
+    assert.equal(harness.counts.canonical, 0)
+    s6CrossRows.push('GSP-S6-X-003')
+  }
+  {
+    const fixture = make()
+    fixture.input.evidence_records.reverse()
+    const harness = makePorts(fixture)
+    const result = await api.publishGateStatusV1(clone(fixture.input), harness.ports)
+    assert.equal(result.branch.stopped.stop_code, 'structural_admission_failed')
+    assert.equal(harness.counts.canonical, 0)
+    s6CrossRows.push('GSP-S6-X-004')
+  }
+  for (const id of ['GSP-S6-X-005', 'GSP-S6-X-006']) {
+    const fixture = make()
+    const source = `${TASK}#issuecomment-5087200000`
+    for (const suffix of [1, 2]) {
+      const candidate = ordinaryEvidence({
+        kind: 'result_handoff',
+        url: `${TASK}#issuecomment-508720000${suffix}`,
+        source_record_url: source,
+        author: 'backend_implementer',
+        head_binding: { state: 'current', head: HEAD },
+      })
+      fixture.input.evidence_records.push(candidate.evidence)
+      fixture.evidence_reads.set(candidate.evidence.canonical_url, candidate.read)
+    }
+    refreshFixtureAuthority(fixture)
+    await runDeterministicNegative(fixture, 'canonical_conflict')
+    s6CrossRows.push(id)
+  }
+  {
+    const { fixture, target_url } = fixtureForEvidenceKind('github_check')
+    const read = fixture.evidence_reads.get(target_url)
+    read.source_kind = 'canonical_body'
+    read.body_utf8 = '{}'
+    delete read.source
+    await runDeterministicNegative(fixture)
+    s6CrossRows.push('GSP-S6-X-007')
+  }
+  {
+    const { fixture, target_url } = fixtureForEvidenceKind('result_handoff')
+    const read = fixture.evidence_reads.get(target_url)
+    read.content.authoring_role = 'github-actions'
+    read.body_utf8 = canonicalBody(read.content, 'result_handoff')
+    read.fetched_content_sha256 = shaText(read.body_utf8)
+    read.content_projection_sha256 = shaJcs(read.content)
+    const inputEvidence = fixture.input.evidence_records.find(
+      (item) => item.canonical_url === target_url,
+    )
+    inputEvidence.fetched_content_sha256 = read.fetched_content_sha256
+    inputEvidence.content_projection_sha256 = read.content_projection_sha256
+    await runDeterministicNegative(fixture)
+    s6CrossRows.push('GSP-S6-X-008')
+  }
+  {
+    const { fixture, target_url } = fixtureForEvidenceKind('github_check')
+    fixture.evidence_reads.get(target_url).source.producer.kind = 'backend_implementer'
+    await runDeterministicNegative(fixture)
+    s6CrossRows.push('GSP-S6-X-009')
+  }
+  {
+    const { fixture, target_url } = fixtureForEvidenceKind('review_thread')
+    await runDeterministicNegative(fixture, 'canonical_evidence_invalid', {
+      unavailable: new Set([target_url]),
+    })
+    s6CrossRows.push('GSP-S6-X-010')
+  }
+  {
+    const { fixture, target_url } = fixtureForEvidenceKind('review_thread')
+    const first = makePorts(fixture)
+    const original = first.ports.read_canonical_record
+    first.ports.read_canonical_record = async (url) => {
+      if (url === target_url) throw new Error('raw-provider-secret')
+      return original(url)
+    }
+    const result = await api.publishGateStatusV1(clone(fixture.input), first.ports)
+    assert.equal(result.branch.stopped.stop_code, 'canonical_evidence_invalid')
+    assert.equal(JSON.stringify(result).includes('raw-provider-secret'), false)
+    s6CrossRows.push('GSP-S6-X-011')
+  }
+  {
+    const fixture = make()
+    const lastUrl = PROJECTION_AUTH
+    fixture.evidence_reads.get(lastUrl).content.assigned_role = 'architect_team'
+    const harness = makePorts(fixture)
+    const result = await api.publishGateStatusV1(clone(fixture.input), harness.ports)
+    assert.equal(result.branch.stopped.stop_code, 'canonical_evidence_invalid')
+    assert.equal(harness.counts.pr_read, 0)
+    assert.ok(harness.counts.canonical_by_url.get(TASK) >= 2)
+    assert.ok(harness.counts.canonical_by_url.get(REVIEW) >= 1)
+    s6CrossRows.push('GSP-S6-X-012')
+  }
+  assert.equal(s6CrossRows.length, 12)
+
+  const resultValidatorCases = []
+  {
+    const validResults = {
+      applied: (await execute(make({ atomic: true }))).result,
+      already_current: (await execute(make({ current: true }))).result,
+      stopped: (await execute(make())).result,
+      reconciliation_required: (
+        await execute(make({ atomic: true }), { readback: 'mismatch' })
+      ).result,
+    }
+    for (const [kind, valid] of Object.entries(validResults)) {
+      assert.equal(api.validateGateStatusPublicationResultV1(valid).accepted, true)
+      resultValidatorCases.push(`${kind}:positive`)
+      const mutations = [
+        (value) => { value.unexpected = true },
+        (value) => { value.branch.unexpected = true },
+        (value) => {
+          value.write_state.confirmation =
+            value.write_state.confirmation === 'none' ? 'confirmed' : 'none'
+        },
+      ]
+      if (kind !== 'stopped') {
+        mutations.push(
+          (value) => { value.identity_binding = { state: 'unavailable' } },
+          (value) => {
+            value.publication_binding.intended_projection_sha256 =
+              value.publication_binding.intended_projection_sha256.replace(
+                /^./,
+                (char) => char === '0' ? '1' : '0',
+              )
+          },
+          (value) => {
+            const branch = value.branch[kind]
+            const snapshot = branch.post_snapshot ?? branch.current_snapshot ??
+              branch.last_observation?.snapshot
+            if (snapshot) {
+              snapshot.head = snapshot.head.replace(
+                /^./,
+                (char) => char === '0' ? '1' : '0',
+              )
+            }
+          },
+        )
+      } else {
+        mutations.push(
+          (value) => { value.receipt_disposition.reason = 'write_not_verified' },
+          (value) => { value.diagnostics[0].code = 'identity_mismatch' },
+        )
+      }
+      for (const [mutationIndex, mutate] of mutations.entries()) {
+        const invalid = clone(valid)
+        mutate(invalid)
+        assert.equal(
+          api.validateGateStatusPublicationResultV1(invalid).accepted,
+          false,
+          `${kind} mutation ${mutationIndex}`,
+        )
+        resultValidatorCases.push(`${kind}:negative`)
+      }
+    }
+  }
 
   assert.deepEqual(evidence, Array.from({ length: 36 }, (_, index) => `GSP-${String(index + 1).padStart(3, '0')}`))
   const summary = {
@@ -895,6 +1728,10 @@ try {
     last_row: evidence.at(-1),
     public_producer: true,
     deterministic: true,
+    evidence_cutover_cases: evidenceCutoverRows.length,
+    s6_branch_bound_cases: s6BranchRows.length,
+    s6_cross_branch_cases: s6CrossRows.length,
+    result_validator_cases: resultValidatorCases.length,
     result: 'PASS',
   }
   console.log(JSON.stringify(summary))
