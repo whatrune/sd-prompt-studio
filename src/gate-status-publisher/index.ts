@@ -69,6 +69,7 @@ export type FreshPrReadResultV1 =
       readonly state: 'available'
       readonly snapshot: Readonly<JsonObject>
       readonly body_utf8: string
+      readonly atomic_revision_observation?: Readonly<JsonObject>
     }
   | { readonly state: 'unavailable' }
 
@@ -1067,6 +1068,213 @@ const validateOrdinaryCanonicalContent = (
   return validateHeadBindingValue(value.head_binding, '/head_binding')
 }
 
+type DirectEvidenceWrapperAdmission =
+  | {
+      readonly accepted: true
+      readonly binding: Readonly<JsonObject>
+      readonly semantics: Readonly<JsonObject> | null
+    }
+  | { readonly accepted: false; readonly path: string }
+
+const validateDirectEvidenceSemantics = (
+  semantics: unknown,
+  binding: JsonObject,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  if (!isObject(semantics)) {
+    return rejection('invalid_type_or_format', '/gate_status_evidence_semantics')
+  }
+  const common = [
+    'contract_version',
+    'semantic_branch',
+    'evidence_kind',
+    'canonical_url',
+    'task_id',
+    'repository',
+    'head_binding',
+  ]
+  const branch = String(semantics.semantic_branch)
+  const branchFields =
+    branch === 'validation_result'
+      ? ['validation_kind', 'validated_head', 'result', 'blocking_finding_count']
+      : branch === 'protected_action_result'
+        ? ['protected_action', 'action_head', 'action_result', 'blocking_finding_count']
+        : branch === 'blocker_transition'
+          ? ['blocker_id', 'next_action', 'next_owner', 'blocking_finding_count']
+          : []
+  if (branchFields.length === 0) {
+    return rejection('invalid_enum', '/gate_status_evidence_semantics/semantic_branch')
+  }
+  const issue = exactUnknownBeforeMissing(
+    semantics,
+    [...common, ...branchFields],
+    '/gate_status_evidence_semantics',
+  )
+  if (issue) return issue
+  if (
+    semantics.contract_version !== 'gate-status-direct-evidence-semantics-v1' ||
+    semantics.evidence_kind !== binding.evidence_kind
+  ) {
+    return rejection(
+      'invalid_cross_input_binding',
+      '/gate_status_evidence_semantics/evidence_kind',
+    )
+  }
+  if (
+    semantics.evidence_kind === 'final_regression_completion' ||
+    semantics.evidence_kind === 'operational_validation_completion'
+  ) {
+    return rejection('invalid_enum', '/gate_status_evidence_semantics/evidence_kind')
+  }
+  if (
+    semantics.canonical_url !== binding.canonical_url ||
+    semantics.task_id !== binding.task_id ||
+    semantics.repository !== binding.repository ||
+    !isObject(semantics.head_binding) ||
+    semantics.head_binding.state !== 'current' ||
+    canonicalize(semantics.head_binding) !== canonicalize(binding.head_binding)
+  ) {
+    return rejection(
+      'invalid_cross_input_binding',
+      '/gate_status_evidence_semantics/head_binding',
+    )
+  }
+  const head = semantics.head_binding.head
+  if (!fullSha(head)) {
+    return rejection(
+      'invalid_type_or_format',
+      '/gate_status_evidence_semantics/head_binding/head',
+    )
+  }
+  if (branch === 'validation_result') {
+    const kind = String(semantics.evidence_kind)
+    const validationKind = String(semantics.validation_kind)
+    if (!['final_regression_result', 'operational_validation_result'].includes(kind)) {
+      return rejection('invalid_enum', '/gate_status_evidence_semantics/evidence_kind')
+    }
+    if (
+      (kind === 'final_regression_result' && validationKind !== 'final_regression') ||
+      (kind === 'operational_validation_result' &&
+        validationKind !== 'operational_validation')
+    ) {
+      return rejection(
+        'invalid_cross_input_binding',
+        '/gate_status_evidence_semantics/validation_kind',
+      )
+    }
+    if (semantics.validated_head !== head) {
+      return rejection(
+        'invalid_cross_input_binding',
+        '/gate_status_evidence_semantics/validated_head',
+      )
+    }
+    if (
+      !['PASS', 'BLOCKED'].includes(String(semantics.result)) ||
+      !Number.isInteger(semantics.blocking_finding_count) ||
+      Number(semantics.blocking_finding_count) < 0 ||
+      (semantics.result === 'PASS' && semantics.blocking_finding_count !== 0) ||
+      (semantics.result === 'BLOCKED' && Number(semantics.blocking_finding_count) < 1)
+    ) {
+      return rejection(
+        'invalid_conditional_matrix',
+        '/gate_status_evidence_semantics/blocking_finding_count',
+      )
+    }
+    return undefined
+  }
+  if (branch === 'protected_action_result') {
+    if (semantics.evidence_kind !== 'protected_action_completion') {
+      return rejection('invalid_enum', '/gate_status_evidence_semantics/evidence_kind')
+    }
+    if (
+      !protectedActions.has(String(semantics.protected_action)) ||
+      semantics.protected_action !== binding.protected_action
+    ) {
+      return rejection(
+        'invalid_cross_input_binding',
+        '/gate_status_evidence_semantics/protected_action',
+      )
+    }
+    if (semantics.action_head !== head) {
+      return rejection(
+        'invalid_cross_input_binding',
+        '/gate_status_evidence_semantics/action_head',
+      )
+    }
+    if (
+      !['completed', 'blocked'].includes(String(semantics.action_result)) ||
+      !Number.isInteger(semantics.blocking_finding_count) ||
+      Number(semantics.blocking_finding_count) < 0 ||
+      (semantics.action_result === 'completed' &&
+        semantics.blocking_finding_count !== 0) ||
+      (semantics.action_result === 'blocked' &&
+        Number(semantics.blocking_finding_count) < 1)
+    ) {
+      return rejection(
+        'invalid_conditional_matrix',
+        '/gate_status_evidence_semantics/blocking_finding_count',
+      )
+    }
+    return undefined
+  }
+  if (!['review_decision', 'result_handoff'].includes(String(semantics.evidence_kind))) {
+    return rejection('invalid_enum', '/gate_status_evidence_semantics/evidence_kind')
+  }
+  if (
+    !(semantics.blocker_id === null || action(semantics.blocker_id)) ||
+    !(semantics.next_action === null || action(semantics.next_action)) ||
+    !(semantics.next_owner === null || role(semantics.next_owner)) ||
+    (semantics.next_action === null) !== (semantics.next_owner === null) ||
+    (
+      semantics.blocker_id === null &&
+      semantics.next_action === null &&
+      semantics.next_owner === null
+    ) ||
+    !Number.isInteger(semantics.blocking_finding_count) ||
+    Number(semantics.blocking_finding_count) < 0 ||
+    (semantics.blocker_id === null && semantics.blocking_finding_count !== 0) ||
+    (semantics.blocker_id !== null && Number(semantics.blocking_finding_count) < 1)
+  ) {
+    return rejection(
+      'invalid_conditional_matrix',
+      '/gate_status_evidence_semantics/blocker_id',
+    )
+  }
+  return undefined
+}
+
+const admitDirectEvidenceWrapper = (
+  body: string,
+): DirectEvidenceWrapperAdmission => {
+  const wrapper = firstYamlAuthority(body)
+  if (!wrapper) return { accepted: false, path: '' }
+  const keys = Object.keys(wrapper)
+  const expected =
+    keys.length === 1
+      ? ['gate_status_evidence_binding']
+      : ['gate_status_evidence_binding', 'gate_status_evidence_semantics']
+  if (
+    keys.length !== expected.length ||
+    keys.some((key, index) => key !== expected[index]) ||
+    !isObject(wrapper.gate_status_evidence_binding)
+  ) return { accepted: false, path: '' }
+  const binding = wrapper.gate_status_evidence_binding
+  const bindingIssue = validateOrdinaryCanonicalContent(binding)
+  if (bindingIssue) return { accepted: false, path: bindingIssue.path }
+  if (!hasOwn(wrapper, 'gate_status_evidence_semantics')) {
+    return { accepted: true, binding, semantics: null }
+  }
+  const semanticIssue = validateDirectEvidenceSemantics(
+    wrapper.gate_status_evidence_semantics,
+    binding,
+  )
+  if (semanticIssue) return { accepted: false, path: semanticIssue.path }
+  return {
+    accepted: true,
+    binding,
+    semantics: wrapper.gate_status_evidence_semantics as JsonObject,
+  }
+}
+
 const roleAuthorityContentFields = [
   'contract_version',
   'authority_class',
@@ -1491,7 +1699,12 @@ const threadContentFromSource = (source: JsonObject) => ({
 })
 
 type EvidenceMemberAdmission =
-  | { readonly state: 'valid'; readonly authority_identity: string }
+  | {
+      readonly state: 'valid'
+      readonly authority_identity: string
+      readonly evidence: Readonly<JsonObject>
+      readonly semantics: Readonly<JsonObject> | null
+    }
   | { readonly state: 'invalid'; readonly path: string }
   | { readonly state: 'unavailable'; readonly path: string }
 
@@ -1534,7 +1747,11 @@ const roleAuthorityBindingIssue = (
     ) return '/author_role_authority_ref'
     expectedRole = authority.issuer_role
   } else if (kind === 'result_handoff') {
-    if (authority.authority_kind !== 'task_assignment') {
+    if (
+      authority.authority_kind !== 'task_assignment' ||
+      scope.scope_kind !== 'task_assignment' ||
+      scope.task_assignment_url !== identity.task_assignment_url
+    ) {
       return '/author_role_authority_ref'
     }
     expectedRole = authority.authorized_role
@@ -1623,6 +1840,7 @@ const admitEvidenceRead = (
     ) return { state: 'invalid', path: '' }
 
     let reconstructed: JsonObject | null = null
+    let semantics: JsonObject | null = null
     let authorityIdentity = requestedUrl
     if (evidence.evidence_kind === 'projection_authorization') {
       reconstructed = reconstructProjectionAuthorizationContent(result.body_utf8, requestedUrl)
@@ -1638,16 +1856,11 @@ const admitEvidenceRead = (
         (evidence.head_binding as JsonObject).basis_url !== requestedUrl
       ) return { state: 'invalid', path: '/authoring_role' }
     } else {
-      const authority = firstYamlAuthority(result.body_utf8)
-      if (!authority || !hasOwn(authority, 'gate_status_evidence_binding')) {
-        return { state: 'invalid', path: '' }
-      }
-      reconstructed = isObject(authority.gate_status_evidence_binding)
-        ? authority.gate_status_evidence_binding
-        : null
+      const wrapper = admitDirectEvidenceWrapper(result.body_utf8)
+      if (!wrapper.accepted) return { state: 'invalid', path: wrapper.path }
+      reconstructed = wrapper.binding as JsonObject
+      semantics = wrapper.semantics as JsonObject | null
       if (
-        reconstructed === null ||
-        validateOrdinaryCanonicalContent(reconstructed) !== undefined ||
         reconstructed.evidence_kind !== evidence.evidence_kind ||
         reconstructed.canonical_url !== requestedUrl ||
         reconstructed.authoring_role !== evidence.authoring_role ||
@@ -1670,7 +1883,12 @@ const admitEvidenceRead = (
       reconstructedDigest !== evidence.content_projection_sha256 ||
       canonicalize(reconstructed) !== canonicalize(result.content)
     ) return { state: 'invalid', path: '' }
-    return { state: 'valid', authority_identity: authorityIdentity }
+    return {
+      state: 'valid',
+      authority_identity: authorityIdentity,
+      evidence: cloneFreeze(evidence),
+      semantics: semantics === null ? null : cloneFreeze(semantics),
+    }
   }
 
   if (
@@ -1727,7 +1945,12 @@ const admitEvidenceRead = (
       key !== 'verification_state' &&
       canonicalize(reconstructed[key]) !== canonicalize(value))
   if (differingClaim) return { state: 'invalid', path: `/${differingClaim[0]}` }
-  return { state: 'valid', authority_identity: requestedUrl }
+  return {
+    state: 'valid',
+    authority_identity: requestedUrl,
+    evidence: cloneFreeze(evidence),
+    semantics: null,
+  }
 }
 
 const validateTransport = (
@@ -2564,6 +2787,25 @@ export function validateGateStatusPublicationInputV1(
         ))
       }
     }
+    for (let index = 0; index < value.evidence_records.length; index += 1) {
+      const evidence = value.evidence_records[index] as JsonObject
+      if (evidence.evidence_kind !== 'result_handoff') continue
+      const authority = authorityByUrl.get(
+        String(evidence.author_role_authority_ref),
+      )
+      const scope = authority?.scope
+      if (
+        authority?.authority_kind !== 'task_assignment' ||
+        !isObject(scope) ||
+        scope.scope_kind !== 'task_assignment' ||
+        scope.task_assignment_url !== identity.task_assignment_url
+      ) {
+        return rejected(rejection(
+          'invalid_cross_input_binding',
+          `/evidence_records/${index}/author_role_authority_ref`,
+        ))
+      }
+    }
     const evaluatorResult = evaluatorAdmission.value
     issue = exact(value.pr_snapshot, ['snapshot', 'body_utf8', 'body_matches_snapshot_sha256'], '/pr_snapshot')
     if (issue) return rejected(issue)
@@ -3360,7 +3602,17 @@ const validateResultCrossBindings = (
           priorBinding.state !== 'absent'
         )) ||
       (write.confirmation === 'reconciled_after_indeterminate' &&
-        (atomic.state !== 'prior_indeterminate' || priorBinding.state !== 'indeterminate'))
+        !(
+          (
+            atomic.state === 'prior_indeterminate' &&
+            priorBinding.state === 'indeterminate'
+          ) ||
+          (
+            atomic.state === 'direct' &&
+            priorBinding.state === 'absent' &&
+            transport.kind === 'proven_atomic_compare_and_swap'
+          )
+        ))
     ) return rejection('invalid_conditional_matrix', '/write_state/confirmation')
   } else if (value.kind === 'already_current') {
     const current = branch.already_current as JsonObject
@@ -3751,6 +4003,7 @@ const reconciliationResult = (
   owner: RoleV1,
   evidenceUrls: readonly string[],
   lastObservation: JsonObject,
+  diagnosticPath = '/branch/reconciliation_required',
 ): GateStatusPublicationResultV1 => {
   const terminal = stoppedResult(
     unavailableContext(),
@@ -3766,7 +4019,7 @@ const reconciliationResult = (
     ...context,
     write_state: writeState,
     receipt_disposition: receiptDisposition,
-    diagnostics: [diagnostic(code, '/branch/reconciliation_required', evidenceUrls)],
+    diagnostics: [diagnostic(code, diagnosticPath, evidenceUrls)],
     branch: {
       reconciliation_required: {
         reconciliation_code: code,
@@ -3830,13 +4083,73 @@ const validCanonicalRead = (
 const canonicalReadUnavailable = (result: unknown) =>
   isObject(result) && result.state === 'unavailable' && exact(result, ['state'], '') === undefined
 
+const validateAtomicRevisionObservation = (
+  value: unknown,
+  transport?: JsonObject,
+): boolean => {
+  if (!isObject(value)) return false
+  if (value.state === 'unavailable') {
+    return exact(value, ['state'], '') === undefined
+  }
+  if (
+    value.state !== 'available' ||
+    exact(
+      value,
+      [
+        'state',
+        'provider',
+        'adapter_id',
+        'adapter_version',
+        'atomic_scope',
+        'revision_identity',
+      ],
+      '',
+    ) !== undefined ||
+    !isObject(value.revision_identity)
+  ) return false
+  const revision = value.revision_identity
+  if (
+    exact(
+      revision,
+      ['contract_version', 'identity_kind', 'normalized_identity_sha256'],
+      '',
+    ) !== undefined ||
+    revision.contract_version !== 'provider-atomic-revision-identity-v1' ||
+    revision.identity_kind !== 'exact_value_frozen_by_transport_capability_authority' ||
+    !digest(revision.normalized_identity_sha256)
+  ) return false
+  return transport === undefined ||
+    (
+      value.provider === transport.provider &&
+      value.adapter_id === transport.adapter_id &&
+      value.adapter_version === transport.adapter_version &&
+      value.atomic_scope === transport.atomic_scope
+    )
+}
+
 const validFreshPrRead = (
   result: unknown,
+  transport: JsonObject,
 ): result is Extract<FreshPrReadResultV1, { readonly state: 'available' }> => {
   if (!isObject(result) || result.state !== 'available') return false
-  if (exact(result, ['state', 'snapshot', 'body_utf8'], '') !== undefined) return false
+  const requiresRevision =
+    transport.kind === 'proven_atomic_compare_and_swap'
+  const fields = [
+    'state',
+    'snapshot',
+    'body_utf8',
+    ...(requiresRevision ? ['atomic_revision_observation'] : []),
+  ]
+  if (exact(result, fields, '') !== undefined) return false
   return validateSnapshot(result.snapshot, '/snapshot') === undefined &&
     typeof result.body_utf8 === 'string' &&
+    (
+      !requiresRevision ||
+      validateAtomicRevisionObservation(
+        result.atomic_revision_observation,
+        transport,
+      )
+    ) &&
     sha256Bytes(new TextEncoder().encode(result.body_utf8)) ===
       (result.snapshot as JsonObject).body_utf8_sha256
 }
@@ -3909,8 +4222,320 @@ const publicationContext = (input: JsonObject): RuntimeContext => {
   }
 }
 
+type DerivedEvidenceMember = {
+  readonly evidence: Readonly<JsonObject>
+  readonly semantics: Readonly<JsonObject> | null
+}
+
+const currentHeadEvidence = (
+  member: DerivedEvidenceMember,
+  expectedHead: unknown,
+) =>
+  isObject(member.evidence.head_binding) &&
+  member.evidence.head_binding.state === 'current' &&
+  member.evidence.head_binding.head === expectedHead
+
+const semanticsProvesStatus = (
+  member: DerivedEvidenceMember,
+  expectedKind: 'final_regression_result' | 'operational_validation_result',
+  value: unknown,
+  expectedHead: unknown,
+) => {
+  const semantics = member.semantics
+  if (
+    !semantics ||
+    semantics.semantic_branch !== 'validation_result' ||
+    semantics.evidence_kind !== expectedKind ||
+    !isObject(semantics.head_binding) ||
+    semantics.head_binding.head !== expectedHead
+  ) return false
+  return value === 'completed'
+    ? semantics.result === 'PASS'
+    : value === 'blocked'
+      ? semantics.result === 'BLOCKED'
+      : false
+}
+
+const semanticsProvesAction = (
+  member: DerivedEvidenceMember,
+  protectedAction: string,
+  value: unknown,
+  expectedHead: unknown,
+) => {
+  const semantics = member.semantics
+  if (
+    !semantics ||
+    semantics.semantic_branch !== 'protected_action_result' ||
+    semantics.evidence_kind !== 'protected_action_completion' ||
+    semantics.protected_action !== protectedAction ||
+    !isObject(semantics.head_binding) ||
+    semantics.head_binding.head !== expectedHead
+  ) return false
+  return semantics.action_result === value
+}
+
+const validateDerivedEvidenceBinding = (
+  input: JsonObject,
+  projection: JsonObject,
+  requirement: JsonObject,
+  admitted: ReadonlyMap<string, DerivedEvidenceMember>,
+): string | null => {
+  const identity = input.identity as JsonObject
+  const snapshot = (input.pr_snapshot as JsonObject).snapshot as JsonObject
+  const authorizationUrl = String(identity.projection_authority_url)
+  const expectedHead = identity.expected_head
+  const checkUrls = (
+    rowName: string,
+    urls: unknown,
+    predicate: (member: DerivedEvidenceMember) => boolean,
+    passiveAllowed = false,
+  ): string | null => {
+    if (!Array.isArray(urls)) return `/${rowName}/evidence_urls`
+    for (let index = 0; index < urls.length; index += 1) {
+      const member = admitted.get(String(urls[index]))
+      if ((!member && !passiveAllowed) || (member && !predicate(member))) {
+        return `/${rowName}/evidence_urls/${index}`
+      }
+    }
+    return null
+  }
+  const currentHead = projection.current_head as JsonObject
+  if (
+    currentHead.value !== expectedHead ||
+    currentHead.value !== requirement.current_head
+  ) return '/current_head/value'
+  let issue = checkUrls(
+    'current_head',
+    currentHead.evidence_urls,
+    (member) =>
+      member.evidence.evidence_kind === 'projection_authorization' &&
+      member.evidence.canonical_url === authorizationUrl,
+  )
+  if (issue) return issue
+
+  const prState = projection.pr_state_draft as JsonObject
+  const expectedPrState =
+    snapshot.state === 'open'
+      ? snapshot.draft === true
+        ? 'open_draft'
+        : 'open_ready'
+      : 'closed'
+  if (prState.value !== expectedPrState) return '/pr_state_draft/value'
+  issue = checkUrls(
+    'pr_state_draft',
+    prState.evidence_urls,
+    (member) =>
+      member.evidence.evidence_kind === 'projection_authorization' &&
+      member.evidence.canonical_url === authorizationUrl,
+  )
+  if (issue) return issue
+
+  const validationRows = [
+    ['final_regression', 'final_regression_result'],
+    ['operational_validation', 'operational_validation_result'],
+  ] as const
+  for (const [rowName, evidenceKind] of validationRows) {
+    const row = projection[rowName] as JsonObject
+    issue = checkUrls(
+      rowName,
+      row.evidence_urls,
+      (member) => {
+        if (
+          member.evidence.evidence_kind !== evidenceKind ||
+          !currentHeadEvidence(member, expectedHead)
+        ) return false
+        return ['completed', 'blocked'].includes(String(row.value))
+          ? semanticsProvesStatus(member, evidenceKind, row.value, expectedHead)
+          : ['pending', 'unperformed'].includes(String(row.value))
+      },
+      ['pending', 'unperformed'].includes(String(row.value)),
+    )
+    if (issue) return issue
+    if (
+      ['completed', 'blocked'].includes(String(row.value)) &&
+      (row.evidence_urls as unknown[]).length === 0
+    ) return `/${rowName}/evidence_urls`
+    if (row.value === 'historical_at_prior_head') return `/${rowName}/value`
+  }
+
+  const actionRows = [
+    ['ready', 'ready_for_review'],
+    ['approve', 'approve'],
+    ['merge', 'normal_merge_commit'],
+  ] as const
+  for (const [rowName, protectedAction] of actionRows) {
+    const row = projection[rowName] as JsonObject
+    issue = checkUrls(
+      rowName,
+      row.evidence_urls,
+      (member) => {
+        if (!currentHeadEvidence(member, expectedHead)) return false
+        if (['pending', 'unperformed'].includes(String(row.value))) {
+          return rowName === 'ready'
+            ? member.evidence.evidence_kind === 'protected_action_completion' &&
+                member.evidence.protected_action === protectedAction
+            : member.evidence.evidence_kind === 'product_owner_approval' ||
+                (
+                  member.evidence.evidence_kind === 'protected_action_completion' &&
+                  member.evidence.protected_action === protectedAction
+                )
+        }
+        return ['completed', 'blocked'].includes(String(row.value)) &&
+          semanticsProvesAction(member, protectedAction, row.value, expectedHead)
+      },
+      ['pending', 'unperformed'].includes(String(row.value)),
+    )
+    if (issue) return issue
+    if (
+      ['completed', 'blocked'].includes(String(row.value)) &&
+      (row.evidence_urls as unknown[]).length === 0
+    ) return `/${rowName}/evidence_urls`
+    if (row.value === 'historical_at_prior_head') return `/${rowName}/value`
+  }
+
+  const blocker = projection.current_blocker_next_gate as JsonObject
+  const expectedBlocker = hasOwn(requirement, 'current_blocker')
+    ? requirement.current_blocker
+    : null
+  const expectedOwner = hasOwn(requirement, 'next_gate_owner')
+    ? requirement.next_gate_owner
+    : null
+  if (blocker.blocker_id !== expectedBlocker) {
+    return '/current_blocker_next_gate/blocker_id'
+  }
+  if (blocker.next_owner !== expectedOwner) {
+    return '/current_blocker_next_gate/next_owner'
+  }
+  if (
+    (expectedOwner === null && blocker.next_action !== null) ||
+    (expectedOwner !== null && blocker.next_action === null)
+  ) return '/current_blocker_next_gate/next_action'
+  const nonNullTriple =
+    blocker.blocker_id !== null ||
+    blocker.next_action !== null ||
+    blocker.next_owner !== null
+  issue = checkUrls(
+    'current_blocker_next_gate',
+    blocker.evidence_urls,
+    (member) => {
+      if (
+        !currentHeadEvidence(member, expectedHead) ||
+        !['review_decision', 'result_handoff'].includes(
+          String(member.evidence.evidence_kind),
+        )
+      ) return false
+      if (!nonNullTriple) {
+        return member.evidence.evidence_kind === 'review_decision' &&
+          member.semantics === null
+      }
+      const semantics = member.semantics
+      return semantics !== null &&
+        semantics.semantic_branch === 'blocker_transition' &&
+        semantics.blocker_id === blocker.blocker_id &&
+        semantics.next_action === blocker.next_action &&
+        semantics.next_owner === blocker.next_owner
+    },
+    !nonNullTriple,
+  )
+  if (issue) return issue
+  if (
+    nonNullTriple &&
+    (blocker.evidence_urls as unknown[]).length === 0
+  ) return '/current_blocker_next_gate/evidence_urls'
+
+  const historical = projection.historical_evidence as JsonObject[]
+  for (let index = 0; index < historical.length; index += 1) {
+    const item = historical[index]
+    const member = admitted.get(String(item.evidence_url))
+    const binding = member?.evidence.head_binding
+    if (
+      !member ||
+      !isObject(binding) ||
+      binding.state !== 'historical' ||
+      binding.head !== item.head
+    ) return `/historical_evidence/${index}/evidence_url`
+  }
+  return null
+}
+
+type ExactCanonicalDecoderId =
+  | 'prior_attempt_authority_set_v1'
+  | 'prior_attempt_authority_record_v1'
+  | 'receipt_authority_authorized_v1'
+  | 'receipt_store_capability_v1'
+  | 'prior_attempt_reconciliation_observation_v1'
+  | 'proven_atomic_transport_capability_v1'
+
+const exactCanonicalDecoderWrapper: Readonly<
+  Record<ExactCanonicalDecoderId, string>
+> = {
+  prior_attempt_authority_set_v1:
+    'gate_status_prior_attempt_authority_set_binding',
+  prior_attempt_authority_record_v1:
+    'gate_status_prior_attempt_authority_binding',
+  receipt_authority_authorized_v1:
+    'gate_status_receipt_authority_binding',
+  receipt_store_capability_v1:
+    'gate_status_receipt_store_capability_binding',
+  prior_attempt_reconciliation_observation_v1:
+    'gate_status_prior_attempt_reconciliation_observation_binding',
+  proven_atomic_transport_capability_v1:
+    'gate_status_transport_capability_binding',
+}
+
+const reconstructExactCanonicalControl = (
+  decoder: ExactCanonicalDecoderId,
+  body: string,
+  bodyDigest: string,
+): JsonObject | null => {
+  const wrapper = firstYamlAuthority(body)
+  const wrapperKey = exactCanonicalDecoderWrapper[decoder]
+  if (
+    !wrapper ||
+    Object.keys(wrapper).length !== 1 ||
+    Object.keys(wrapper)[0] !== wrapperKey ||
+    !isObject(wrapper[wrapperKey])
+  ) return null
+  const payload = structuredClone(wrapper[wrapperKey]) as JsonObject
+  if (
+    decoder === 'prior_attempt_authority_set_v1' ||
+    decoder === 'prior_attempt_authority_record_v1' ||
+    decoder === 'prior_attempt_reconciliation_observation_v1'
+  ) {
+    if (hasOwn(payload, 'fetched_content_sha256')) return null
+    payload.fetched_content_sha256 = bodyDigest
+  }
+  let issue: GateStatusAdmissionRejectionV1 | undefined
+  if (decoder === 'prior_attempt_authority_set_v1') {
+    const admission = validatePriorAttemptAuthoritySetInputV1(payload)
+    if (!admission.accepted) return null
+    return admission.value as JsonObject
+  }
+  if (decoder === 'prior_attempt_authority_record_v1') {
+    issue = validatePriorRecord(payload, '')
+  } else if (decoder === 'receipt_authority_authorized_v1') {
+    issue = validateReceiptAuthority(payload, '')
+    if (payload.state !== 'authorized') return null
+  } else if (decoder === 'receipt_store_capability_v1') {
+    issue = validateReceiptStoreCapability(
+      { state: 'admitted', value: payload },
+      '',
+    )
+  } else if (decoder === 'prior_attempt_reconciliation_observation_v1') {
+    const admission =
+      validatePriorAttemptReconciliationObservationInputV1(payload)
+    if (!admission.accepted) return null
+    return admission.value as JsonObject
+  } else {
+    issue = validateTransport(payload, '')
+    if (payload.kind !== 'proven_atomic_compare_and_swap') return null
+  }
+  return issue === undefined ? payload : null
+}
+
 const exactContentRead = async (
   ports: GateStatusPublisherPortsV1,
+  decoder: ExactCanonicalDecoderId,
   url: string,
   expectedContent: unknown,
   expectedDigest?: string,
@@ -3923,10 +4548,22 @@ const exactContentRead = async (
   }
   if (canonicalReadUnavailable(result)) return 'unavailable'
   if (!validCanonicalRead(result, url)) return 'invalid'
+  if (result.source_kind !== 'canonical_body') return 'invalid'
+  const rawDigest = sha256Utf8(result.body_utf8)
   if (
-    result.source_kind !== 'canonical_body' ||
-    canonicalize(result.content) !== canonicalize(expectedContent) ||
-    (expectedDigest !== undefined && result.fetched_content_sha256 !== expectedDigest)
+    rawDigest !== result.fetched_content_sha256 ||
+    (expectedDigest !== undefined && rawDigest !== expectedDigest)
+  ) return 'invalid'
+  const reconstructed = reconstructExactCanonicalControl(
+    decoder,
+    result.body_utf8,
+    rawDigest,
+  )
+  if (
+    reconstructed === null ||
+    gateStatusJcsSha256V1(reconstructed) !== result.content_projection_sha256 ||
+    canonicalize(reconstructed) !== canonicalize(result.content) ||
+    canonicalize(reconstructed) !== canonicalize(expectedContent)
   ) return 'invalid'
   return 'valid'
 }
@@ -4032,7 +4669,8 @@ const receiptForVerifiedBody = async (
     if (
       !admitted.accepted ||
       (admitted.value as JsonObject).publication_key !== publicationKey ||
-      available.receipt_url !== (admitted.value as JsonObject).receipt_url
+      available.receipt_url !== (admitted.value as JsonObject).receipt_url ||
+      canonicalize(admitted.value) !== canonicalize(candidate)
     ) {
       return {
         kind: 'reconciliation',
@@ -4304,6 +4942,7 @@ export async function publishGateStatusV1(
       admittedRoleAuthorities.set(String(record.canonical_url), member.value)
     }
     const admittedAuthorityIdentities = new Set<string>()
+    const admittedEvidence = new Map<string, DerivedEvidenceMember>()
     for (let index = 0; index < evidenceRecords.length; index += 1) {
       const evidence = evidenceRecords[index]
       let result: unknown
@@ -4334,19 +4973,25 @@ export async function publishGateStatusV1(
         )
       }
       admittedAuthorityIdentities.add(member.authority_identity)
+      admittedEvidence.set(String(evidence.canonical_url), {
+        evidence: member.evidence,
+        semantics: member.semantics,
+      })
     }
 
     const requirement = evaluatorAdmission.value.requirement
-    const blocker = projection.current_blocker_next_gate as JsonObject
-    if (
-      blocker.blocker_id !== (requirement.current_blocker ?? null) ||
-      blocker.next_owner !== (requirement.next_gate_owner ?? null)
-    ) {
+    const derivedBindingIssue = validateDerivedEvidenceBinding(
+      input,
+      projection,
+      requirement as JsonObject,
+      admittedEvidence,
+    )
+    if (derivedBindingIssue !== null) {
       return stoppedResult(
         context,
         'authority_projection_conflict',
         'S7_stop_consistency',
-        '/projection_authorization/projection/current_blocker_next_gate',
+        `/projection_authorization/projection${derivedBindingIssue}`,
         recoveryOwner,
         citations,
       )
@@ -4366,6 +5011,7 @@ export async function publishGateStatusV1(
       )
     }
 
+    const freshReadTransport = input.transport_capability as JsonObject
     let fresh: unknown
     try {
       fresh = await ports.read_pr(String(identity.pr_url))
@@ -4382,7 +5028,7 @@ export async function publishGateStatusV1(
         citations,
       )
     }
-    if (!validFreshPrRead(fresh)) {
+    if (!validFreshPrRead(fresh, freshReadTransport)) {
       return stoppedResult(
         context,
         'fresh_pr_unavailable',
@@ -4467,6 +5113,7 @@ export async function publishGateStatusV1(
     const priorSet = input.prior_attempt_authorities as JsonObject
     const setRead = await exactContentRead(
       ports,
+      'prior_attempt_authority_set_v1',
       String(priorSet.authority_set_url),
       priorSet,
       String(priorSet.fetched_content_sha256),
@@ -4489,6 +5136,7 @@ export async function publishGateStatusV1(
       const record = priorRecords[index]
       const memberRead = await exactContentRead(
         ports,
+        'prior_attempt_authority_record_v1',
         String(record.canonical_record),
         record,
         String(record.fetched_content_sha256),
@@ -4537,6 +5185,7 @@ export async function publishGateStatusV1(
     if (receiptAuthority.state === 'authorized') {
       const authorityRead = await exactContentRead(
         ports,
+        'receipt_authority_authorized_v1',
         String(receiptAuthority.canonical_record),
         receiptAuthority,
       )
@@ -4553,6 +5202,7 @@ export async function publishGateStatusV1(
       const capability = receiptStore.value as JsonObject
       const capabilityRead = await exactContentRead(
         ports,
+        'receipt_store_capability_v1',
         String(capability.capability_authority_url),
         capability,
       )
@@ -4631,10 +5281,28 @@ export async function publishGateStatusV1(
       }
       const observationRead = await exactContentRead(
         ports,
+        'prior_attempt_reconciliation_observation_v1',
         String(observation.canonical_record),
         observation,
         String(observation.fetched_content_sha256),
       )
+      if (observationRead === 'invalid') {
+        return reconciliationResult(
+          context,
+          'readback_mismatch',
+          {
+            attempted: true,
+            observed: true,
+            verified: false,
+            confirmation: 'readback_mismatch',
+          },
+          { state: 'not_performed', reason: 'write_not_verified' },
+          recoveryOwner,
+          [String(observation.canonical_record)],
+          { state: 'unavailable' },
+          '/prior_attempt_reconciliation_observation/canonical_record',
+        )
+      }
       if (observation.state === 'unavailable' || observationRead === 'unavailable') {
         return reconciliationResult(
           context,
@@ -4770,6 +5438,7 @@ export async function publishGateStatusV1(
     }
     const capabilityRead = await exactContentRead(
       ports,
+      'proven_atomic_transport_capability_v1',
       String(transport.capability_authority_url),
       transport,
     )
@@ -4779,6 +5448,25 @@ export async function publishGateStatusV1(
         'atomic_precondition_unavailable',
         'S15_transport_capability',
         '/transport_capability/capability_authority_url',
+        'architect_team',
+        [String(transport.capability_authority_url)],
+      )
+    }
+    const preRevisionObservation = fresh.atomic_revision_observation
+    if (
+      !validateAtomicRevisionObservation(preRevisionObservation, transport) ||
+      !isObject(preRevisionObservation) ||
+      preRevisionObservation.state !== 'available' ||
+      !isObject(preRevisionObservation.revision_identity) ||
+      preRevisionObservation.revision_identity.normalized_identity_sha256 !==
+        (transport.atomic_revision_identity as JsonObject)
+          .normalized_identity_sha256
+    ) {
+      return stoppedResult(
+        context,
+        'atomic_precondition_unavailable',
+        'S16_atomic_precondition',
+        '/transport_capability/atomic_revision_identity',
         'architect_team',
         [String(transport.capability_authority_url)],
       )
@@ -4874,7 +5562,7 @@ export async function publishGateStatusV1(
     } catch {
       readback = { state: 'unavailable' }
     }
-    if (!validFreshPrRead(readback)) {
+    if (!validFreshPrRead(readback, transport)) {
       return reconciliationResult(
         context,
         'post_write_read_unavailable',
@@ -4885,6 +5573,12 @@ export async function publishGateStatusV1(
         { state: 'unavailable' },
       )
     }
+    const postRevisionObservation = readback.atomic_revision_observation
+    const postRevisionAdmitted =
+      validateAtomicRevisionObservation(postRevisionObservation, transport) &&
+      isObject(postRevisionObservation) &&
+      postRevisionObservation.state === 'available' &&
+      isObject(postRevisionObservation.revision_identity)
     const after = inspectGateStatusSectionV1(readback.body_utf8)
     const exactAfter =
       after.valid &&
@@ -4908,15 +5602,40 @@ export async function publishGateStatusV1(
         },
       )
     }
-    if (casState === 'indeterminate') {
-      const postRevision = (casResult as JsonObject).normalized_revision_identity_sha256
-      const preRevision = (transport.atomic_revision_identity as JsonObject)
+    const preRevision = (transport.atomic_revision_identity as JsonObject)
+      .normalized_identity_sha256
+    const postRevision = postRevisionAdmitted
+      ? (postRevisionObservation.revision_identity as JsonObject)
         .normalized_identity_sha256
+      : null
+    if (casState === 'indeterminate') {
       if (!digest(postRevision) || postRevision === preRevision) {
         return reconciliationResult(
           context,
           'write_outcome_unknown',
           { attempted: true, observed: false, verified: false, confirmation: 'submission_indeterminate' },
+          { state: 'not_performed', reason: 'write_not_verified' },
+          recoveryOwner,
+          citations,
+          receiptObservation(
+            readback.snapshot,
+            String(context.publication_binding.intended_projection_sha256),
+            after.non_gate_sha256,
+          ),
+        )
+      }
+    } else {
+      const appliedRevision = (casResult as JsonObject)
+        .normalized_revision_identity_sha256
+      if (
+        !digest(postRevision) ||
+        postRevision !== appliedRevision ||
+        postRevision === preRevision
+      ) {
+        return reconciliationResult(
+          context,
+          'readback_mismatch',
+          { attempted: true, observed: true, verified: false, confirmation: 'readback_mismatch' },
           { state: 'not_performed', reason: 'write_not_verified' },
           recoveryOwner,
           citations,
