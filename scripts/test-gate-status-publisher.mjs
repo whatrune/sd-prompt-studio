@@ -100,6 +100,36 @@ try {
 
   const canonicalBody = (content, title = 'Canonical evidence') =>
     `# ${title}\n\n\`\`\`yaml\n${JSON.stringify({ gate_status_evidence_binding: content }, null, 2)}\n\`\`\`\n`
+  const controlWrapperKeys = {
+    prior_attempt_authority_set_v1:
+      'gate_status_prior_attempt_authority_set_binding',
+    prior_attempt_authority_record_v1:
+      'gate_status_prior_attempt_authority_binding',
+    receipt_authority_authorized_v1:
+      'gate_status_receipt_authority_binding',
+    receipt_store_capability_v1:
+      'gate_status_receipt_store_capability_binding',
+    prior_attempt_reconciliation_observation_v1:
+      'gate_status_prior_attempt_reconciliation_observation_binding',
+    proven_atomic_transport_capability_v1:
+      'gate_status_transport_capability_binding',
+  }
+  const controlBody = (decoder, content) => {
+    const payload = clone(content)
+    if (
+      [
+        'prior_attempt_authority_set_v1',
+        'prior_attempt_authority_record_v1',
+        'prior_attempt_reconciliation_observation_v1',
+      ].includes(decoder)
+    ) delete payload.fetched_content_sha256
+    return `# Exact canonical control\n\n\`\`\`yaml\n${
+      JSON.stringify({ [controlWrapperKeys[decoder]]: payload }, null, 2)
+    }\n\`\`\`\n`
+  }
+  const bindControlDigest = (decoder, content) => {
+    content.fetched_content_sha256 = shaText(controlBody(decoder, content))
+  }
   const ordinaryEvidence = ({
     kind,
     url,
@@ -556,6 +586,10 @@ try {
     assert.ok(key)
     input.prior_attempt_authorities.publication_key = key
     if (receipt) input.receipt_store_capability.value.unique_key = key
+    bindControlDigest(
+      'prior_attempt_authority_set_v1',
+      input.prior_attempt_authorities,
+    )
     const admission = api.validateGateStatusPublicationInputV1(input)
     assert.equal(admission.accepted, true, JSON.stringify(admission))
     return {
@@ -578,6 +612,7 @@ try {
       unavailable = new Set(),
       invalid = new Set(),
       readback = 'exact',
+      postRevision = 'changed',
       throwAt = null,
     } = {},
   ) => {
@@ -627,19 +662,29 @@ try {
         const prior = fixture.input.prior_attempt_authorities.records.find(
           (item) => item.canonical_record === url,
         )
-        const digestValue =
-          evidence?.fetched_content_sha256 ??
-          prior?.fetched_content_sha256 ??
-          content?.fetched_content_sha256 ??
-          (url === PRIOR_SET
-            ? fixture.input.prior_attempt_authorities.fetched_content_sha256
-            : fixedDigest('9'))
+        const decoder =
+          url === PRIOR_SET
+            ? 'prior_attempt_authority_set_v1'
+            : prior
+              ? 'prior_attempt_authority_record_v1'
+              : url === RECEIPT_AUTH
+                ? 'receipt_authority_authorized_v1'
+                : url === RECEIPT_STORE_AUTH
+                  ? 'receipt_store_capability_v1'
+                  : url === TRANSPORT_AUTH
+                    ? 'proven_atomic_transport_capability_v1'
+                    : content?.contract_version ===
+                        'gate-status-prior-attempt-reconciliation-observation-v1'
+                      ? 'prior_attempt_reconciliation_observation_v1'
+                      : null
+        assert.ok(decoder, `missing exact control decoder for ${url}`)
+        const body_utf8 = controlBody(decoder, content)
         return {
           state: 'available',
           source_kind: 'canonical_body',
           canonical_url: url,
-          body_utf8: canonicalize(content),
-          fetched_content_sha256: digestValue,
+          body_utf8,
+          fetched_content_sha256: shaText(body_utf8),
           content,
           content_projection_sha256: shaJcs(content),
         }
@@ -648,7 +693,26 @@ try {
         counts.pr_read += 1
         if (throwAt === 'read_pr') throw new Error('secret-token')
         if (counts.pr_read === 1 || replacementBody === null) {
-          return { state: 'available', snapshot: clone(fixture.snapshot), body_utf8: fixture.body }
+          return {
+            state: 'available',
+            snapshot: clone(fixture.snapshot),
+            body_utf8: fixture.body,
+            ...(fixture.input.transport_capability.kind ===
+            'proven_atomic_compare_and_swap'
+              ? {
+                  atomic_revision_observation: {
+                    state: 'available',
+                    provider: fixture.input.transport_capability.provider,
+                    adapter_id: fixture.input.transport_capability.adapter_id,
+                    adapter_version: fixture.input.transport_capability.adapter_version,
+                    atomic_scope: 'complete_pr_body',
+                    revision_identity: clone(
+                      fixture.input.transport_capability.atomic_revision_identity,
+                    ),
+                  },
+                }
+              : {}),
+          }
         }
         if (readback === 'unavailable') return { state: 'unavailable' }
         const body =
@@ -663,6 +727,29 @@ try {
             fetched_at: '2026-07-26T23:02:00Z',
           },
           body_utf8: body,
+          ...(fixture.input.transport_capability.kind ===
+          'proven_atomic_compare_and_swap'
+            ? {
+                atomic_revision_observation: {
+                  state: 'available',
+                  provider: fixture.input.transport_capability.provider,
+                  adapter_id: fixture.input.transport_capability.adapter_id,
+                  adapter_version: fixture.input.transport_capability.adapter_version,
+                  atomic_scope: 'complete_pr_body',
+                  revision_identity: {
+                    ...clone(
+                      fixture.input.transport_capability.atomic_revision_identity,
+                    ),
+                    normalized_identity_sha256:
+                      postRevision === 'unchanged'
+                        ? fixture.input.transport_capability
+                          .atomic_revision_identity
+                          .normalized_identity_sha256
+                        : fixedDigest('6'),
+                  },
+                },
+              }
+            : {}),
         }
       },
       compare_and_swap_gate_status: async (request) => {
@@ -908,11 +995,15 @@ try {
   await caseResult('GSP-021', async () => {
     const first = make({ atomic: true })
     const second = make({ atomic: true })
-    second.input.projection_authorization.projection.final_regression.value = 'blocked'
+    second.input.projection_authorization.projection.final_regression.value = 'unperformed'
     second.input.projection_authorization.projection_sha256 =
       shaJcs(second.input.projection_authorization.projection)
     second.key = api.buildGateStatusPublicationKeyV1(second.input)
     second.input.prior_attempt_authorities.publication_key = second.key
+    bindControlDigest(
+      'prior_attempt_authority_set_v1',
+      second.input.prior_attempt_authorities,
+    )
     const one = await execute(first)
     const two = await execute(second, { cas: 'precondition_failed' })
     assert.notEqual(one.result.publication_binding.publication_key, two.result.publication_binding.publication_key)
@@ -1046,6 +1137,22 @@ try {
     } else {
       fixture.input.prior_attempt_reconciliation_observation = { state: 'not_required' }
     }
+    for (const item of fixture.input.prior_attempt_authorities.records) {
+      bindControlDigest('prior_attempt_authority_record_v1', item)
+    }
+    if (
+      fixture.input.prior_attempt_reconciliation_observation.state !==
+      'not_required'
+    ) {
+      bindControlDigest(
+        'prior_attempt_reconciliation_observation_v1',
+        fixture.input.prior_attempt_reconciliation_observation,
+      )
+    }
+    bindControlDigest(
+      'prior_attempt_authority_set_v1',
+      fixture.input.prior_attempt_authorities,
+    )
     assert.equal(api.validateGateStatusPublicationInputV1(fixture.input).accepted, true)
     const harness = makePorts(fixture)
     harness.map.set(PRIOR_SET, fixture.input.prior_attempt_authorities)
@@ -1167,7 +1274,15 @@ try {
         receipt: throwAt === 'receipt',
       })
       const result = await execute(fixture, { throwAt })
-      assert.ok(['stopped', 'reconciliation_required'].includes(result.result.kind))
+      if (throwAt === 'cas') {
+        assert.equal(result.result.kind, 'applied')
+        assert.equal(
+          result.result.write_state.confirmation,
+          'reconciled_after_indeterminate',
+        )
+      } else {
+        assert.ok(['stopped', 'reconciliation_required'].includes(result.result.kind))
+      }
       assert.equal(result.counts.retry_write, 0)
     }
   })
@@ -1230,12 +1345,20 @@ try {
     fixture.input.projection_authorization.evaluator_result_sha256 =
       fixture.input.evaluator.result_sha256
     fixture.input.projection_authorization.projection.current_blocker_next_gate.evidence_urls =
-      clone(citations)
+      fixture.input.evidence_records
+        .filter((item) =>
+          ['review_decision', 'result_handoff'].includes(item.evidence_kind))
+        .map((item) => item.canonical_url)
+        .sort((a, b) => Buffer.from(a).compare(Buffer.from(b)))
     fixture.input.projection_authorization.projection_sha256 =
       shaJcs(fixture.input.projection_authorization.projection)
     fixture.key = api.buildGateStatusPublicationKeyV1(fixture.input)
     assert.ok(fixture.key)
     fixture.input.prior_attempt_authorities.publication_key = fixture.key
+    bindControlDigest(
+      'prior_attempt_authority_set_v1',
+      fixture.input.prior_attempt_authorities,
+    )
     if (fixture.input.receipt_store_capability.state === 'admitted') {
       fixture.input.receipt_store_capability.value.unique_key = fixture.key
     }
@@ -1250,6 +1373,10 @@ try {
     fixture.key = api.buildGateStatusPublicationKeyV1(fixture.input)
     assert.ok(fixture.key)
     fixture.input.prior_attempt_authorities.publication_key = fixture.key
+    bindControlDigest(
+      'prior_attempt_authority_set_v1',
+      fixture.input.prior_attempt_authorities,
+    )
     if (fixture.input.receipt_store_capability.state === 'admitted') {
       fixture.input.receipt_store_capability.value.unique_key = fixture.key
     }
@@ -4067,6 +4194,589 @@ try {
   }
   assert.equal(focusedA013Cases.length, 8)
 
+  const cumulativeCases = []
+  const additiveSemanticFixture = (
+    profileId,
+    evidenceIndex,
+    projectionRow,
+    projectionValue,
+    semantics,
+  ) => {
+    const input = buildFocusedProfileInput(profileId)
+    input.projection_authorization.projection[projectionRow].value = projectionValue
+    input.projection_authorization.projection[projectionRow].evidence_urls = [
+      focusedEvidenceUrls[evidenceIndex],
+    ]
+    input.projection_authorization.projection_sha256 =
+      shaJcs(input.projection_authorization.projection)
+    const key = api.buildGateStatusPublicationKeyV1(input)
+    input.prior_attempt_authorities.publication_key = key
+    const ports = expandFocusedPorts(
+      profileId,
+      input,
+      { kind: 'nonatomic_baseline' },
+    )
+    const entry = ports.canonical_records.find((candidate) =>
+      candidate.ordinal === `E${evidenceIndex}`)
+    assert.ok(entry)
+    const binding = clone(entry.result.content)
+    const body_utf8 =
+      `# Additive direct semantic evidence\n\n\`\`\`yaml\n${
+        JSON.stringify({
+          gate_status_evidence_binding: binding,
+          gate_status_evidence_semantics: semantics,
+        }, null, 2)
+      }\n\`\`\`\n`
+    entry.result.body_utf8 = body_utf8
+    entry.result.fetched_content_sha256 = shaText(body_utf8)
+    const record = input.evidence_records.find((candidate) =>
+      candidate.canonical_url === entry.canonical_url)
+    record.fetched_content_sha256 = entry.result.fetched_content_sha256
+    return { input, ports }
+  }
+  const validationSemantics = (
+    evidenceIndex,
+    validationKind,
+    result = 'PASS',
+    count = result === 'PASS' ? 0 : 1,
+  ) => ({
+    contract_version: 'gate-status-direct-evidence-semantics-v1',
+    semantic_branch: 'validation_result',
+    evidence_kind: focusedEvidenceSpecs[evidenceIndex].evidence_kind,
+    canonical_url: focusedEvidenceUrls[evidenceIndex],
+    task_id: focused.task_id,
+    repository: focused.repository,
+    head_binding: { state: 'current', head: focused.head },
+    validation_kind: validationKind,
+    validated_head: focused.head,
+    result,
+    blocking_finding_count: count,
+  })
+  for (const [id, profileId, evidenceIndex, rowName, validationKind] of [
+    ['GSP-A016-014', 'FINAL', 3, 'final_regression', 'final_regression'],
+    ['GSP-A018-OV-001', 'OPERATIONAL', 4, 'operational_validation', 'operational_validation'],
+  ]) {
+    const fixture = additiveSemanticFixture(
+      profileId,
+      evidenceIndex,
+      rowName,
+      'completed',
+      validationSemantics(evidenceIndex, validationKind),
+    )
+    const harness = makeFocusedPublicHarness({ ...fixture, input: fixture.input })
+    const result = await api.publishGateStatusV1(
+      focusedDeepFreeze(clone(fixture.input)),
+      harness.ports,
+    )
+    assert.deepEqual(focusedResultTuple(result), focusedLaterTuple, id)
+    assert.deepEqual(focusedVector(harness.counts), [2, 3, 1, 0, 0, 0, 0], id)
+    cumulativeCases.push(id)
+  }
+  for (const [id, evidenceIndex, rowName, validationKind] of [
+    ['GSP-A018-FR-BLOCKED', 3, 'final_regression', 'final_regression'],
+    ['GSP-A018-OV-BLOCKED', 4, 'operational_validation', 'operational_validation'],
+  ]) {
+    const profileId = evidenceIndex === 3 ? 'FINAL' : 'OPERATIONAL'
+    const fixture = additiveSemanticFixture(
+      profileId,
+      evidenceIndex,
+      rowName,
+      'blocked',
+      validationSemantics(evidenceIndex, validationKind, 'BLOCKED', 1),
+    )
+    const harness = makeFocusedPublicHarness({ ...fixture, input: fixture.input })
+    const result = await api.publishGateStatusV1(clone(fixture.input), harness.ports)
+    assert.deepEqual(focusedResultTuple(result), focusedLaterTuple, id)
+    cumulativeCases.push(id)
+  }
+  for (const [id, mutate, expectedPath] of [
+    [
+      'GSP-A018-REJECT-COMPLETION-ALIAS',
+      (semantic) => { semantic.evidence_kind = 'final_regression_completion' },
+      '/gate_status_evidence_semantics/evidence_kind',
+    ],
+    [
+      'GSP-A018-REJECT-CROSS-VALIDATION',
+      (semantic) => { semantic.validation_kind = 'operational_validation' },
+      '/gate_status_evidence_semantics/validation_kind',
+    ],
+    [
+      'GSP-A018-REJECT-FALSE-PASS',
+      (semantic) => { semantic.blocking_finding_count = 1 },
+      '/gate_status_evidence_semantics/blocking_finding_count',
+    ],
+  ]) {
+    const semantic = validationSemantics(3, 'final_regression')
+    mutate(semantic)
+    const fixture = additiveSemanticFixture(
+      'FINAL',
+      3,
+      'final_regression',
+      'completed',
+      semantic,
+    )
+    const harness = makeFocusedPublicHarness({ ...fixture, input: fixture.input })
+    const result = await api.publishGateStatusV1(clone(fixture.input), harness.ports)
+    assert.equal(result.kind, 'stopped', id)
+    assert.equal(result.branch.stopped.failed_stage, 'S6_evidence_admission', id)
+    assert.ok(result.diagnostics[0].path.endsWith(expectedPath), id)
+    assert.equal(harness.counts.pr_read, 0, id)
+    cumulativeCases.push(id)
+  }
+  {
+    const fixture = additiveSemanticFixture(
+      'FINAL',
+      3,
+      'final_regression',
+      'blocked',
+      validationSemantics(3, 'final_regression'),
+    )
+    const harness = makeFocusedPublicHarness({ ...fixture, input: fixture.input })
+    const result = await api.publishGateStatusV1(clone(fixture.input), harness.ports)
+    assert.equal(result.branch.stopped.stop_code, 'authority_projection_conflict')
+    assert.equal(result.branch.stopped.failed_stage, 'S7_stop_consistency')
+    cumulativeCases.push('GSP-A018-S7-SEMANTIC-MISMATCH')
+  }
+  {
+    const fixture = additiveSemanticFixture(
+      'FINAL',
+      3,
+      'final_regression',
+      'completed',
+      validationSemantics(3, 'final_regression'),
+    )
+    const entry = fixture.ports.canonical_records.find((candidate) =>
+      candidate.ordinal === 'E3')
+    entry.result.body_utf8 = `${entry.result.body_utf8} `
+    const harness = makeFocusedPublicHarness({ ...fixture, input: fixture.input })
+    const result = await api.publishGateStatusV1(clone(fixture.input), harness.ports)
+    assert.equal(result.branch.stopped.stop_code, 'canonical_evidence_invalid')
+    assert.equal(harness.counts.pr_read, 0)
+    cumulativeCases.push('GSP-A017-RAW-BODY-TAMPER')
+  }
+  {
+    const indeterminateFixture = make({ atomic: true })
+    const indeterminateAdmission =
+      api.validateGateStatusPublicationInputV1(clone(indeterminateFixture.input))
+    assert.equal(indeterminateAdmission.accepted, true, JSON.stringify(indeterminateAdmission))
+    assert.ok(api.buildGateStatusPublicationKeyV1(indeterminateAdmission.value))
+    const indeterminateHarness = makePorts(
+      indeterminateFixture,
+      { cas: 'indeterminate' },
+    )
+    const postHarnessAdmission =
+      api.validateGateStatusPublicationInputV1(clone(indeterminateFixture.input))
+    assert.equal(postHarnessAdmission.accepted, true, JSON.stringify(postHarnessAdmission))
+    const appliedResult = await api.publishGateStatusV1(
+      clone(indeterminateFixture.input),
+      indeterminateHarness.ports,
+    )
+    assert.equal(api.validateGateStatusPublicationResultV1(appliedResult).accepted, true)
+    const applied = { result: appliedResult, ...indeterminateHarness }
+    assert.equal(applied.result.kind, 'applied', JSON.stringify(applied.result))
+    assert.equal(
+      applied.result.write_state.confirmation,
+      'reconciled_after_indeterminate',
+    )
+    assert.equal(applied.counts.cas, 1)
+    assert.equal(applied.counts.retry_write, 0)
+    const unknown = await execute(make({ atomic: true }), {
+      cas: 'indeterminate',
+      postRevision: 'unchanged',
+    })
+    assert.equal(
+      unknown.result.branch.reconciliation_required.reconciliation_code,
+      'write_outcome_unknown',
+    )
+    assert.equal(unknown.counts.receipt, 0)
+    cumulativeCases.push('GSP-A015-013', 'GSP-A015-014')
+  }
+  {
+    const exact = make({ atomic: true })
+    const first = await execute(exact, { cas: 'indeterminate' })
+    const second = await execute(exact, { cas: 'indeterminate' })
+    assert.equal(canonicalize(first.result), canonicalize(second.result))
+    assert.deepEqual(first.counts, second.counts)
+    cumulativeCases.push('GSP-A015-020')
+  }
+  assert.equal(new Set(cumulativeCases).size, cumulativeCases.length)
+
+  const amendment020Cases = []
+  const synchronizeAmendment020Input = (input) => {
+    input.evaluator.result_sha256 = shaJcs(input.evaluator.result)
+    input.projection_authorization.evaluator_result_sha256 =
+      input.evaluator.result_sha256
+    input.projection_authorization.projection_sha256 =
+      shaJcs(input.projection_authorization.projection)
+    input.prior_attempt_authorities.publication_key =
+      api.buildGateStatusPublicationKeyV1(input)
+    assert.ok(input.prior_attempt_authorities.publication_key)
+    return input
+  }
+  const runAmendment020 = async (
+    profileId,
+    input = buildFocusedProfileInput(profileId),
+    ports = null,
+  ) => {
+    synchronizeAmendment020Input(input)
+    const expandedPorts = ports ?? expandFocusedPorts(
+      profileId,
+      input,
+      focusedNonAtomicPlan,
+    )
+    const harness = makeFocusedPublicHarness({
+      input,
+      ports: expandedPorts,
+    })
+    const frozenInput = focusedDeepFreeze(clone(input))
+    const result = await api.publishGateStatusV1(frozenInput, harness.ports)
+    assert.equal(api.validateGateStatusPublicationResultV1(result).accepted, true)
+    return {
+      result,
+      tuple: focusedResultTuple(result),
+      vector: focusedVector(harness.counts),
+      counts: harness.counts,
+    }
+  }
+  {
+    for (const rowId of [
+      'GSP-S6-ROLE-AUTH-001',
+      'GSP-S6-ROLE-AUTH-002',
+      'GSP-S6-ROLE-AUTH-003',
+      'GSP-S6-ROLE-AUTH-004',
+    ]) {
+      const row = focusedRows.find((candidate) => candidate.row_id === rowId)
+      const execution = focusedPublicResults.get(rowId)
+      assert.ok(row)
+      assert.ok(execution)
+      assert.equal(shaJcs(expandFocusedCase(row)), focusedCaseDigests[rowId])
+      assert.deepEqual(focusedResultTuple(execution.result), focusedLaterTuple)
+      assert.deepEqual(execution.vector, row.call_vector)
+    }
+    amendment020Cases.push('GSP-A020-001')
+  }
+  {
+    assert.equal(focusedRows.length, 56)
+    assert.equal(focusedPublicResults.size, 56)
+    for (const row of focusedRows) {
+      const execution = focusedPublicResults.get(row.row_id)
+      assert.ok(execution)
+      assert.deepEqual(execution.vector, row.call_vector, row.row_id)
+    }
+    assert.equal(
+      shaJcs(focusedCurrentCorpus),
+      'sha256:7a6fc92e95f4fb8e18381a7b173a78d1835b7a18ff1dfa8727bdcdc0e3ddba73',
+    )
+    amendment020Cases.push('GSP-A020-002')
+  }
+  {
+    const passive = await runAmendment020('TASK')
+    assert.deepEqual(passive.tuple, focusedLaterTuple)
+    assert.deepEqual(passive.vector, [1, 2, 1, 0, 0, 0, 0])
+    assert.equal(passive.counts.other_canonical_read, 0)
+    amendment020Cases.push('GSP-A020-003')
+    assert.equal(
+      buildFocusedProfileInput('TASK')
+        .projection_authorization.projection.current_blocker_next_gate
+        .evidence_urls[0],
+      focusedEvidenceUrls[2],
+    )
+    assert.deepEqual(passive.vector, [1, 2, 1, 0, 0, 0, 0])
+    amendment020Cases.push('GSP-A020-004')
+  }
+  {
+    const input = buildFocusedProfileInput('TASK')
+    input.projection_authorization.projection.current_head.evidence_urls = [
+      focusedEvidenceUrls[3],
+    ]
+    const execution = await runAmendment020('TASK', input)
+    assert.equal(execution.result.branch.stopped.stop_code, 'authority_projection_conflict')
+    assert.equal(
+      execution.result.diagnostics[0].path,
+      '/projection_authorization/projection/current_head/evidence_urls/0',
+    )
+    assert.deepEqual(execution.vector, [1, 2, 0, 0, 0, 0, 0])
+    amendment020Cases.push('GSP-A020-005')
+  }
+  {
+    const input = buildFocusedProfileInput('TASK')
+    input.projection_authorization.projection.final_regression.value = 'completed'
+    const execution = await runAmendment020('TASK', input)
+    assert.equal(execution.result.branch.stopped.stop_code, 'authority_projection_conflict')
+    assert.equal(
+      execution.result.diagnostics[0].path,
+      '/projection_authorization/projection/final_regression/evidence_urls/0',
+    )
+    assert.equal(execution.counts.pr_read, 0)
+    amendment020Cases.push('GSP-A020-006')
+  }
+  {
+    const input = buildFocusedProfileInput('TASK')
+    input.projection_authorization.projection.ready.value = 'completed'
+    const execution = await runAmendment020('TASK', input)
+    assert.equal(
+      execution.result.diagnostics[0].path,
+      '/projection_authorization/projection/ready/evidence_urls/0',
+    )
+    assert.equal(execution.counts.pr_read, 0)
+    amendment020Cases.push('GSP-A020-007')
+  }
+  {
+    const input = buildFocusedProfileInput('TASK')
+    for (const requirement of [
+      input.evaluator.result.gate_status_requirement,
+      input.evaluator.result.requirement,
+    ]) {
+      requirement.current_blocker = 'architecture_review'
+      requirement.next_gate_owner = 'architect_team'
+    }
+    input.projection_authorization.projection.current_blocker_next_gate = {
+      blocker_id: 'architecture_review',
+      next_action: 'architecture_review',
+      next_owner: 'architect_team',
+      evidence_urls: [focusedEvidenceUrls[2]],
+    }
+    const execution = await runAmendment020('TASK', input)
+    assert.equal(
+      execution.result.diagnostics[0].path,
+      '/projection_authorization/projection/current_blocker_next_gate/evidence_urls/0',
+    )
+    assert.equal(execution.counts.pr_read, 0)
+    amendment020Cases.push('GSP-A020-008')
+  }
+  {
+    const input = buildFocusedProfileInput('TASK')
+    input.projection_authorization.projection.historical_evidence = [{
+      head: focused.base,
+      value: 'historical_at_prior_head',
+      evidence_url: focusedEvidenceUrls[3],
+    }]
+    const execution = await runAmendment020('TASK', input)
+    assert.equal(
+      execution.result.diagnostics[0].path,
+      '/projection_authorization/projection/historical_evidence/0/evidence_url',
+    )
+    amendment020Cases.push('GSP-A020-009')
+  }
+  {
+    const input = buildFocusedProfileInput('REVIEW')
+    input.projection_authorization.projection.final_regression = {
+      value: 'completed',
+      evidence_urls: [focusedEvidenceUrls[2]],
+      next_action: null,
+      next_owner: null,
+    }
+    const execution = await runAmendment020('REVIEW', input)
+    assert.equal(
+      execution.result.diagnostics[0].path,
+      '/projection_authorization/projection/final_regression/evidence_urls/0',
+    )
+    amendment020Cases.push('GSP-A020-010')
+  }
+  {
+    const fixture = additiveSemanticFixture(
+      'FINAL',
+      3,
+      'operational_validation',
+      'completed',
+      validationSemantics(3, 'final_regression'),
+    )
+    const execution = await runAmendment020('FINAL', fixture.input, fixture.ports)
+    assert.equal(
+      execution.result.diagnostics[0].path,
+      '/projection_authorization/projection/operational_validation/evidence_urls/0',
+    )
+    amendment020Cases.push('GSP-A020-011')
+  }
+  {
+    const fixture = additiveSemanticFixture(
+      'FINAL',
+      3,
+      'final_regression',
+      'completed',
+      validationSemantics(3, 'final_regression'),
+    )
+    const target = fixture.ports.canonical_records.find((candidate) =>
+      candidate.ordinal === 'E3')
+    target.result.body_utf8 = `${target.result.body_utf8} `
+    const execution = await runAmendment020('FINAL', fixture.input, fixture.ports)
+    assert.equal(execution.result.branch.stopped.stop_code, 'canonical_evidence_invalid')
+    assert.equal(execution.counts.pr_read, 0)
+    assert.equal(execution.counts.evidence_read, 2)
+    amendment020Cases.push('GSP-A020-012')
+  }
+  {
+    const currentInput = buildFocusedProfileInput('TASK')
+    currentInput.projection_authorization.projection.historical_evidence = [{
+      head: focused.base,
+      value: 'historical_at_prior_head',
+      evidence_url: focusedEvidenceUrls[7],
+    }]
+    const currentAsHistorical = await runAmendment020('TASK', currentInput)
+    assert.equal(
+      currentAsHistorical.result.diagnostics[0].path,
+      '/projection_authorization/projection/historical_evidence/0/evidence_url',
+    )
+
+    const historicalInput = buildFocusedProfileInput('FINAL')
+    historicalInput.projection_authorization.projection.final_regression.value = 'completed'
+    const historicalPorts = expandFocusedPorts(
+      'FINAL',
+      historicalInput,
+      focusedNonAtomicPlan,
+    )
+    const historicalEntry = historicalPorts.canonical_records.find((candidate) =>
+      candidate.ordinal === 'E3')
+    const historicalAuthority = historicalPorts.canonical_records.find((candidate) =>
+      candidate.ordinal === 'A2')
+    historicalInput.evidence_records.find((candidate) =>
+      candidate.canonical_url === focusedEvidenceUrls[3]).head_binding = {
+      state: 'historical',
+      head: focused.base,
+    }
+    historicalInput.role_authority_set.records.find((candidate) =>
+      candidate.canonical_url === focusedAuthorityUrls[2]).scope.validated_head =
+        focused.base
+    applyFocusedSourceOperation(historicalEntry, {
+      kind: 'replace_fetched_binding',
+      pointer: '/head_binding',
+      value: { state: 'historical', head: focused.base },
+      recompute: 'body_and_both_digests',
+    })
+    synchronizeFocusedClaim(
+      historicalInput,
+      historicalEntry,
+      'synchronize_both_digests',
+    )
+    applyFocusedSourceOperation(historicalAuthority, {
+      kind: 'replace_fetched_binding',
+      pointer: '/scope/validated_head',
+      value: focused.base,
+      recompute: 'body_and_both_digests',
+    })
+    synchronizeFocusedClaim(
+      historicalInput,
+      historicalAuthority,
+      'synchronize_both_digests',
+    )
+    const historicalAsCurrent = await runAmendment020(
+      'FINAL',
+      historicalInput,
+      historicalPorts,
+    )
+    assert.equal(
+      historicalAsCurrent.result.diagnostics[0].path,
+      '/projection_authorization/projection/final_regression/evidence_urls/0',
+    )
+    amendment020Cases.push('GSP-A020-013')
+  }
+  {
+    const missing = buildFocusedProfileInput('FINAL')
+    missing.evidence_records = missing.evidence_records.filter((candidate) =>
+      candidate.canonical_url !== focusedEvidenceUrls[3])
+    missing.role_authority_set.records =
+      missing.role_authority_set.records.filter((candidate) =>
+        candidate.canonical_url !== focusedAuthorityUrls[2])
+    const missingResult = await runAmendment020('FINAL', missing)
+    assert.equal(missingResult.result.branch.stopped.stop_code, 'canonical_evidence_invalid')
+    assert.equal(missingResult.result.diagnostics[0].path, '/evidence_records')
+    assert.deepEqual(missingResult.vector, [0, 0, 0, 0, 0, 0, 0])
+
+    const extra = buildFocusedProfileInput('TASK')
+    extra.evidence_records.push(clone(focusedEvidence[5].record))
+    extra.evidence_records.sort((left, right) =>
+      Buffer.from(left.canonical_url).compare(Buffer.from(right.canonical_url)))
+    const extraResult = await runAmendment020('TASK', extra)
+    assert.equal(extraResult.result.branch.stopped.stop_code, 'canonical_evidence_invalid')
+    assert.equal(extraResult.result.diagnostics[0].path, '/evidence_records')
+    assert.deepEqual(extraResult.vector, [0, 0, 0, 0, 0, 0, 0])
+    amendment020Cases.push('GSP-A020-014')
+  }
+  {
+    for (const [rowName, value] of [
+      ['final_regression', 'completed'],
+      ['ready', 'blocked'],
+    ]) {
+      const input = buildFocusedProfileInput('TASK')
+      input.projection_authorization.projection[rowName].value = value
+      const execution = await runAmendment020('TASK', input)
+      assert.equal(execution.result.branch.stopped.stop_code, 'authority_projection_conflict')
+      assert.equal(execution.counts.pr_read, 0)
+    }
+    amendment020Cases.push('GSP-A020-015')
+  }
+  {
+    const passiveUrl =
+      'https://github.com/whatrune/sd-prompt-studio/issues/206#issuecomment-5096999999'
+    const passiveInput = buildFocusedProfileInput('TASK')
+    passiveInput.projection_authorization.projection.final_regression.evidence_urls = [
+      passiveUrl,
+    ]
+    const passive = await runAmendment020('TASK', passiveInput)
+    assert.deepEqual(passive.tuple, focusedLaterTuple)
+    const assertedInput = buildFocusedProfileInput('TASK')
+    assertedInput.projection_authorization.projection.final_regression = {
+      value: 'completed',
+      evidence_urls: [passiveUrl],
+      next_action: null,
+      next_owner: null,
+    }
+    const asserted = await runAmendment020('TASK', assertedInput)
+    assert.equal(asserted.result.branch.stopped.stop_code, 'authority_projection_conflict')
+    assert.equal(asserted.counts.pr_read, 0)
+    amendment020Cases.push('GSP-A020-016')
+  }
+  {
+    const noAuthority = buildFocusedProfileInput('TASK')
+    for (const requirement of [
+      noAuthority.evaluator.result.gate_status_requirement,
+      noAuthority.evaluator.result.requirement,
+    ]) {
+      requirement.citation_urls = [...requirement.citation_urls, focusedEvidenceUrls[2]]
+        .sort((left, right) => Buffer.from(left).compare(Buffer.from(right)))
+    }
+    noAuthority.evidence_records.push(clone(focusedEvidence[2].record))
+    noAuthority.evidence_records.sort((left, right) =>
+      Buffer.from(left.canonical_url).compare(Buffer.from(right.canonical_url)))
+    const noAuthorityResult = await runAmendment020('TASK', noAuthority)
+    assert.equal(noAuthorityResult.result.branch.stopped.failed_stage, 'S1_structural_admission')
+    assert.equal(noAuthorityResult.counts.authority_read, 0)
+
+    const wrongRow = clone(noAuthority)
+    wrongRow.role_authority_set.records.push(clone(focusedAuthorities[1].record))
+    wrongRow.role_authority_set.records.sort((left, right) =>
+      Buffer.from(left.canonical_url).compare(Buffer.from(right.canonical_url)))
+    wrongRow.projection_authorization.projection.final_regression = {
+      value: 'completed',
+      evidence_urls: [focusedEvidenceUrls[2]],
+      next_action: null,
+      next_owner: null,
+    }
+    const wrongRowResult = await runAmendment020('REVIEW', wrongRow)
+    assert.equal(wrongRowResult.result.branch.stopped.stop_code, 'authority_projection_conflict')
+    assert.equal(
+      wrongRowResult.result.diagnostics[0].path,
+      '/projection_authorization/projection/final_regression/evidence_urls/0',
+    )
+    amendment020Cases.push('GSP-A020-017')
+  }
+  {
+    const input = buildFocusedProfileInput('TASK')
+    const first = await runAmendment020('TASK', clone(input))
+    const second = await runAmendment020('TASK', clone(input))
+    assert.equal(canonicalize(first.result), canonicalize(second.result))
+    assert.deepEqual(first.vector, second.vector)
+    assert.equal(canonicalize(input), canonicalize(buildFocusedProfileInput('TASK')))
+    amendment020Cases.push('GSP-A020-018')
+  }
+  assert.deepEqual(
+    amendment020Cases,
+    Array.from(
+      { length: 18 },
+      (_, index) => `GSP-A020-${String(index + 1).padStart(3, '0')}`,
+    ),
+  )
+
   assert.deepEqual(evidence, Array.from({ length: 36 }, (_, index) => `GSP-${String(index + 1).padStart(3, '0')}`))
   const summary = {
     contract: 'Gate Status Publisher V1',
@@ -4082,6 +4792,8 @@ try {
     normative_public_cases: focusedPublicRows.length,
     corpus_admission_cases: focusedCorpusAdmissionCases.length,
     canonical_throw_cases: focusedA013Cases.length + 2,
+    cumulative_amendment_cases: cumulativeCases.length,
+    amendment_020_cases: amendment020Cases.length,
     result: 'PASS',
   }
   console.log(JSON.stringify(summary))
