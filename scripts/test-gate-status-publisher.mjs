@@ -623,9 +623,13 @@ try {
     const counts = {
       canonical: 0,
       canonical_by_url: new Map(),
+      role_authority: 0,
+      evidence: 0,
+      control: 0,
       pr_read: 0,
       cas: 0,
       receipt: 0,
+      write: 0,
       retry_write: 0,
     }
     let replacementBody = null
@@ -676,6 +680,13 @@ try {
       read_canonical_record: async (url) => {
         counts.canonical += 1
         counts.canonical_by_url.set(url, (counts.canonical_by_url.get(url) ?? 0) + 1)
+        if (fixture.role_authority_reads.has(url)) {
+          counts.role_authority += 1
+        } else if (fixture.evidence_reads.has(url)) {
+          counts.evidence += 1
+        } else {
+          counts.control += 1
+        }
         if (throwAt === 'canonical') throw new Error('secret-token')
         if (unavailable.has(url)) return { state: 'unavailable' }
         if (fixture.evidence_reads.has(url)) {
@@ -756,6 +767,7 @@ try {
       },
       compare_and_swap_gate_status: async (request) => {
         counts.cas += 1
+        counts.write += 1
         if (counts.cas > 1) counts.retry_write += 1
         replacementBody = request.replacement_body_utf8
         if (throwAt === 'cas') throw new Error('secret-token')
@@ -4887,6 +4899,14 @@ try {
       [1, 1],
     )
     assert.deepEqual(
+      [firstHarness.counts.receipt, secondHarness.counts.receipt],
+      [1, 1],
+    )
+    assert.deepEqual(
+      [firstHarness.counts.write, secondHarness.counts.write],
+      [1, 1],
+    )
+    assert.deepEqual(
       [firstHarness.counts.retry_write, secondHarness.counts.retry_write],
       [0, 0],
     )
@@ -5087,6 +5107,18 @@ try {
       api.publishGateStatusV1(clone(fixture.input), harnesses[index].ports)))
     assert.deepEqual(results.map((result) => result.kind), ['applied', 'applied'])
     assert.deepEqual(
+      harnesses.map((harness) => harness.counts.receipt),
+      [1, 1],
+    )
+    assert.deepEqual(
+      harnesses.map((harness) => harness.counts.write),
+      [1, 1],
+    )
+    assert.deepEqual(
+      harnesses.map((harness) => harness.counts.retry_write),
+      [0, 0],
+    )
+    assert.deepEqual(
       [sharedReceiptState.created, sharedReceiptState.existing],
       [1, 1],
     )
@@ -5101,22 +5133,138 @@ try {
     amendment015CompleteCases.push('GSP-A015-020')
   }
   {
-    const negativeResults = await Promise.all([
-      execute(make({ atomic: true }), {
-        cas: 'indeterminate',
-        postRevision: 'unavailable',
-      }),
-      execute(make({ atomic: true }), {
-        cas: 'applied',
-        postRevision: 'different_changed',
-      }),
-      execute(make(), { unexpectedNoCasRevision: true }),
-    ])
-    for (const item of negativeResults) {
-      const serialized = JSON.stringify(item.result)
+    const assertPublicNegative = async ({
+      fixture,
+      harness,
+      expectedKind,
+      expectedCode,
+      expectedPath,
+      expectedStage = null,
+    }) => {
+      const inputAdmission = api.validateGateStatusPublicationInputV1(
+        clone(fixture.input),
+      )
+      assert.equal(inputAdmission.accepted, true, JSON.stringify(inputAdmission))
+      const result = await api.publishGateStatusV1(
+        inputAdmission.value,
+        harness.ports,
+      )
+      const resultAdmission = api.validateGateStatusPublicationResultV1(result)
+      assert.equal(resultAdmission.accepted, true, JSON.stringify(resultAdmission))
+      assert.equal(result.kind, expectedKind)
+      assert.equal(result.diagnostics.length, 1)
+      assert.equal(result.diagnostics[0].code, expectedCode)
+      assert.equal(result.diagnostics[0].path, expectedPath)
+      assert.equal(Object.keys(result.branch).length, 1)
+      if (expectedKind === 'stopped') {
+        assert.equal(result.branch.stopped.stop_code, expectedCode)
+        assert.equal(result.branch.stopped.failed_stage, expectedStage)
+        assert.equal(harness.counts.cas, 0)
+        assert.equal(harness.counts.receipt, 0)
+        assert.equal(harness.counts.write, 0)
+      } else {
+        assert.equal(
+          result.branch.reconciliation_required.reconciliation_code,
+          expectedCode,
+        )
+        assert.equal(
+          result.branch.reconciliation_required.procedure,
+          'fresh_read_only',
+        )
+        assert.equal(
+          result.branch.reconciliation_required.retry_write_allowed,
+          false,
+        )
+      }
+      assert.equal(
+        result.diagnostics.some(
+          (item) => item.code === 'internal_failure_before_submission',
+        ),
+        false,
+      )
+      assert.equal(harness.counts.retry_write, 0)
+      const serialized = JSON.stringify(result)
       assert.equal(serialized.includes('secret-token'), false)
-      assert.equal(item.counts.retry_write, 0)
-      assert.ok(['stopped', 'reconciliation_required'].includes(item.result.kind))
+      return result
+    }
+    const controlNegativeCases = [
+      {
+        id: 'GSP-A015-009',
+        mutate: (result) => {
+          result.body_utf8 = `${result.body_utf8} `
+        },
+      },
+      {
+        id: 'GSP-A015-010',
+        mutate: (result) => {
+          result.fetched_content_sha256 = fixedDigest('a')
+        },
+      },
+      {
+        id: 'GSP-A015-011',
+        mutate: (result) => {
+          result.content.verification_state = 'invalid'
+        },
+      },
+      {
+        id: 'GSP-A015-012',
+        mutate: (result) => {
+          result.content_projection_sha256 = fixedDigest('b')
+        },
+      },
+    ]
+    for (const negative of controlNegativeCases) {
+      const fixture = make({ atomic: true })
+      const harness = makePorts(fixture)
+      const original = harness.ports.read_canonical_record
+      harness.ports.read_canonical_record = async (url) => {
+        const result = await original(url)
+        if (url === PRIOR_SET && result.state === 'available') {
+          negative.mutate(result)
+        }
+        return result
+      }
+      await assertPublicNegative({
+        fixture,
+        harness,
+        expectedKind: 'stopped',
+        expectedCode: 'prior_attempt_authority_invalid',
+        expectedPath: '/prior_attempt_authorities/authority_set_url',
+        expectedStage: 'S11_prior_attempt_set_admission',
+      })
+    }
+    const reconciliationCases = [
+      {
+        id: 'GSP-A015-014',
+        options: { cas: 'indeterminate', postRevision: 'unchanged' },
+        expectedCode: 'write_outcome_unknown',
+      },
+      {
+        id: 'GSP-A015-015',
+        options: { cas: 'indeterminate', postRevision: 'unavailable' },
+        expectedCode: 'write_outcome_unknown',
+      },
+      {
+        id: 'GSP-A015-016',
+        options: { cas: 'indeterminate', readback: 'mismatch' },
+        expectedCode: 'readback_mismatch',
+      },
+      {
+        id: 'GSP-A015-017',
+        options: { cas: 'applied', postRevision: 'different_changed' },
+        expectedCode: 'readback_mismatch',
+      },
+    ]
+    for (const negative of reconciliationCases) {
+      const fixture = make({ atomic: true })
+      const harness = makePorts(fixture, negative.options)
+      await assertPublicNegative({
+        fixture,
+        harness,
+        expectedKind: 'reconciliation_required',
+        expectedCode: negative.expectedCode,
+        expectedPath: '/branch/reconciliation_required',
+      })
     }
     amendment015CompleteCases.push('GSP-A015-021')
   }
@@ -5175,7 +5323,7 @@ try {
             harness,
             targetUrl: observation.canonical_record,
             expectedContent: observation,
-            expectedCode: 'prior_attempt_authority_invalid',
+            expectedCode: 'readback_mismatch',
             expectedPath:
               '/prior_attempt_reconciliation_observation/canonical_record',
             expectedControlReads: 3,
@@ -5241,6 +5389,16 @@ try {
       .filter(([url]) => urls.has(url))
       .reduce((sum, [, count]) => sum + count, 0)
   }
+  const exactEightVector = (counts) => [
+    counts.role_authority,
+    counts.evidence,
+    counts.control,
+    counts.pr_read,
+    counts.cas,
+    counts.receipt,
+    counts.write,
+    counts.retry_write,
+  ]
   const executeDecoderScenario = async (scenario) => {
     const result = await api.publishGateStatusV1(
       focusedDeepFreeze(clone(scenario.fixture.input)),
@@ -5344,9 +5502,11 @@ try {
     assert.equal(code, scenario.expectedCode, scenario.decoder)
     assert.equal(result.diagnostics[0].path, scenario.expectedPath, scenario.decoder)
     assert.equal(controlReadCount(scenario), scenario.expectedControlReads)
-    assert.equal(scenario.harness.counts.cas, 0)
-    assert.equal(scenario.harness.counts.receipt, 0)
-    assert.equal(scenario.harness.counts.retry_write, 0)
+    assert.deepEqual(
+      exactEightVector(scenario.harness.counts),
+      [2, 3, scenario.expectedControlReads, 1, 0, 0, 0, 0],
+      scenario.decoder,
+    )
     return result
   }
 
@@ -5468,9 +5628,17 @@ try {
     ),
   )
   followupFindingCases.push('B-208-05')
+  followupFindingCases.push('B-208-06')
   assert.deepEqual(
     followupFindingCases,
-    ['B-208-01', 'B-208-02', 'B-208-03', 'B-208-04', 'B-208-05'],
+    [
+      'B-208-01',
+      'B-208-02',
+      'B-208-03',
+      'B-208-04',
+      'B-208-05',
+      'B-208-06',
+    ],
   )
 
   assert.deepEqual(evidence, Array.from({ length: 36 }, (_, index) => `GSP-${String(index + 1).padStart(3, '0')}`))

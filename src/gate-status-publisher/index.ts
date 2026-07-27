@@ -4003,6 +4003,7 @@ const reconciliationResult = (
   owner: RoleV1,
   evidenceUrls: readonly string[],
   lastObservation: JsonObject,
+  diagnosticPath = '/branch/reconciliation_required',
 ): GateStatusPublicationResultV1 => {
   const terminal = stoppedResult(
     unavailableContext(),
@@ -4018,7 +4019,7 @@ const reconciliationResult = (
     ...context,
     write_state: writeState,
     receipt_disposition: receiptDisposition,
-    diagnostics: [diagnostic(code, '/branch/reconciliation_required', evidenceUrls)],
+    diagnostics: [diagnostic(code, diagnosticPath, evidenceUrls)],
     branch: {
       reconciliation_required: {
         reconciliation_code: code,
@@ -5286,13 +5287,20 @@ export async function publishGateStatusV1(
         String(observation.fetched_content_sha256),
       )
       if (observationRead === 'invalid') {
-        return stoppedResult(
+        return reconciliationResult(
           context,
-          'prior_attempt_authority_invalid',
-          'S14_prior_attempt_reconciliation_observation',
-          '/prior_attempt_reconciliation_observation/canonical_record',
+          'readback_mismatch',
+          {
+            attempted: true,
+            observed: true,
+            verified: false,
+            confirmation: 'readback_mismatch',
+          },
+          { state: 'not_performed', reason: 'write_not_verified' },
           recoveryOwner,
           [String(observation.canonical_record)],
+          { state: 'unavailable' },
+          '/prior_attempt_reconciliation_observation/canonical_record',
         )
       }
       if (observation.state === 'unavailable' || observationRead === 'unavailable') {
