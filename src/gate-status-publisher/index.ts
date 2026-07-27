@@ -1,0 +1,3394 @@
+import {
+  validateAutomaticGateProgressionEvaluationResultV2,
+  type AutomaticGateProgressionEvaluationResultV2,
+} from '../automatic-gate-progression'
+import { ROLE_VALUES, type RoleV1 } from '../context-health'
+
+export const GATE_STATUS_PUBLICATION_INPUT_V1 = 'gate-status-publication-input-v1' as const
+export const GATE_STATUS_PROJECTION_V1 = 'gate-status-projection-v1' as const
+export const GATE_STATUS_PUBLICATION_RESULT_V1 = 'gate-status-publication-result-v1' as const
+export const GATE_STATUS_PUBLICATION_RECEIPT_V1 = 'gate-status-publication-receipt-v1' as const
+
+type JsonObject = Record<string, unknown>
+type DigestV1 = string
+type CanonicalUrlV1 = string
+type FullShaV1 = string
+
+export type GateStatusPublicationInputV1 = Readonly<JsonObject>
+export type GateStatusProjectionV1 = Readonly<JsonObject>
+export type GateStatusPublicationResultV1 = Readonly<JsonObject>
+export type GateStatusPublicationReceiptV1 = Readonly<JsonObject>
+
+export type GateStatusAdmissionRejectionV1 = {
+  readonly code:
+    | 'unknown_field'
+    | 'missing_required_field'
+    | 'forbidden_field'
+    | 'invalid_type_or_format'
+    | 'invalid_enum'
+    | 'duplicate_set_member'
+    | 'noncanonical_set_order'
+    | 'invalid_conditional_matrix'
+    | 'invalid_cross_input_binding'
+  readonly path: string
+  readonly message: string
+}
+
+export type GateStatusAdmissionResultV1<T> =
+  | { readonly accepted: true; readonly value: T }
+  | { readonly accepted: false; readonly rejection: GateStatusAdmissionRejectionV1 }
+
+export type CanonicalRecordReadResultV1 =
+  | {
+      readonly state: 'available'
+      readonly canonical_url: CanonicalUrlV1
+      readonly fetched_content_sha256: DigestV1
+      readonly content: unknown
+    }
+  | { readonly state: 'unavailable' }
+
+export type FreshPrReadResultV1 =
+  | {
+      readonly state: 'available'
+      readonly snapshot: Readonly<JsonObject>
+      readonly body_utf8: string
+    }
+  | { readonly state: 'unavailable' }
+
+export type AtomicCompareAndSwapResultV1 =
+  | {
+      readonly state: 'applied'
+      readonly normalized_revision_identity_sha256: DigestV1
+    }
+  | { readonly state: 'precondition_failed' }
+  | { readonly state: 'failed_before_write' }
+  | { readonly state: 'indeterminate' }
+
+export type ReceiptCreateOrGetResultV1 =
+  | {
+      readonly state: 'created' | 'existing_exact'
+      readonly receipt_url: CanonicalUrlV1
+      readonly receipt: GateStatusPublicationReceiptV1
+    }
+  | { readonly state: 'existing_conflict' }
+  | { readonly state: 'failed_before_commit' }
+  | { readonly state: 'indeterminate' }
+
+export interface GateStatusPublisherPortsV1 {
+  readonly read_canonical_record: (
+    canonicalUrl: CanonicalUrlV1,
+  ) => Promise<CanonicalRecordReadResultV1>
+  readonly read_pr: (prUrl: CanonicalUrlV1) => Promise<FreshPrReadResultV1>
+  readonly compare_and_swap_gate_status: (request: {
+    readonly pr_url: CanonicalUrlV1
+    readonly expected_body_utf8_sha256: DigestV1
+    readonly expected_normalized_revision_identity_sha256: DigestV1
+    readonly replacement_body_utf8: string
+    readonly atomic_operation_key: string
+  }) => Promise<AtomicCompareAndSwapResultV1>
+  readonly receipt_create_or_get: (request: {
+    readonly publication_key: string
+    readonly candidate: GateStatusPublicationReceiptV1
+  }) => Promise<ReceiptCreateOrGetResultV1>
+}
+
+const roles = new Set<string>(ROLE_VALUES)
+const digestPattern = /^sha256:[0-9a-f]{64}$/
+const fullShaPattern = /^[0-9a-f]{40}$/
+const canonicalUrlPattern = /^https:\/\/github\.com\/whatrune\/sd-prompt-studio\/\S+$/
+const prUrlPattern = /^https:\/\/github\.com\/whatrune\/sd-prompt-studio\/pull\/[1-9][0-9]*$/
+const utcPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/
+const actionPattern = /^[a-z][a-z0-9_]{0,63}$/
+
+const isObject = (value: unknown): value is JsonObject =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+const hasOwn = (value: JsonObject, key: string) => Object.prototype.hasOwnProperty.call(value, key)
+const nonEmpty = (value: unknown): value is string => typeof value === 'string' && value.length > 0
+const digest = (value: unknown): value is DigestV1 =>
+  typeof value === 'string' && digestPattern.test(value)
+const fullSha = (value: unknown): value is FullShaV1 =>
+  typeof value === 'string' && fullShaPattern.test(value)
+const canonicalUrl = (value: unknown): value is CanonicalUrlV1 =>
+  typeof value === 'string' && canonicalUrlPattern.test(value)
+const prUrl = (value: unknown): value is CanonicalUrlV1 =>
+  typeof value === 'string' && prUrlPattern.test(value)
+const utc = (value: unknown): value is string =>
+  typeof value === 'string' && utcPattern.test(value) && Number.isFinite(Date.parse(value))
+const role = (value: unknown): value is RoleV1 =>
+  typeof value === 'string' && roles.has(value)
+const action = (value: unknown): value is string =>
+  typeof value === 'string' && actionPattern.test(value)
+
+const byteCompare = (left: string, right: string) => {
+  const a = new TextEncoder().encode(left)
+  const b = new TextEncoder().encode(right)
+  for (let index = 0; index < Math.min(a.length, b.length); index += 1) {
+    if (a[index] !== b[index]) return a[index] - b[index]
+  }
+  return a.length - b.length
+}
+const sortedUnique = (values: readonly string[]) =>
+  values.every((value, index) => index === 0 || byteCompare(values[index - 1], value) < 0)
+const deepFreeze = <T>(value: T): T => {
+  if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.freeze(value)
+    for (const child of Object.values(value as JsonObject)) deepFreeze(child)
+  }
+  return value
+}
+const cloneFreeze = <T>(value: T): T => deepFreeze(structuredClone(value))
+
+function canonicalize(value: unknown): string {
+  if (value === null || typeof value === 'boolean' || typeof value === 'string') {
+    return JSON.stringify(value)
+  }
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new TypeError('outside RFC 8785 JSON data model')
+    return JSON.stringify(value)
+  }
+  if (Array.isArray(value)) return `[${value.map(canonicalize).join(',')}]`
+  if (isObject(value)) {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalize(value[key])}`)
+      .join(',')}}`
+  }
+  throw new TypeError('outside RFC 8785 JSON data model')
+}
+
+function sha256HexBytes(bytes: Uint8Array): string {
+  const bitLength = bytes.length * 8
+  const paddedLength = (((bytes.length + 9 + 63) >> 6) << 6)
+  const data = new Uint8Array(paddedLength)
+  data.set(bytes)
+  data[bytes.length] = 0x80
+  const view = new DataView(data.buffer)
+  view.setUint32(paddedLength - 4, bitLength >>> 0)
+  view.setUint32(paddedLength - 8, Math.floor(bitLength / 0x100000000))
+  const constants = [
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
+    0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
+    0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786,
+    0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147,
+    0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+    0x650a7354,
+    0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70,
+    0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116,
+    0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f,
+    0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa,
+    0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+  ]
+  const state = [
+    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+    0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+  ]
+  const words = new Uint32Array(64)
+  const rotate = (value: number, bits: number) => (value >>> bits) | (value << (32 - bits))
+  for (let offset = 0; offset < data.length; offset += 64) {
+    for (let index = 0; index < 16; index += 1) words[index] = view.getUint32(offset + index * 4)
+    for (let index = 16; index < 64; index += 1) {
+      const a = words[index - 15]
+      const b = words[index - 2]
+      const s0 = rotate(a, 7) ^ rotate(a, 18) ^ (a >>> 3)
+      const s1 = rotate(b, 17) ^ rotate(b, 19) ^ (b >>> 10)
+      words[index] = (words[index - 16] + s0 + words[index - 7] + s1) >>> 0
+    }
+    let [a, b, c, d, e, f, g, h] = state
+    for (let index = 0; index < 64; index += 1) {
+      const s1 = rotate(e, 6) ^ rotate(e, 11) ^ rotate(e, 25)
+      const choice = (e & f) ^ (~e & g)
+      const first = (h + s1 + choice + constants[index] + words[index]) >>> 0
+      const s0 = rotate(a, 2) ^ rotate(a, 13) ^ rotate(a, 22)
+      const majority = (a & b) ^ (a & c) ^ (b & c)
+      const second = (s0 + majority) >>> 0
+      h = g
+      g = f
+      f = e
+      e = (d + first) >>> 0
+      d = c
+      c = b
+      b = a
+      a = (first + second) >>> 0
+    }
+    state[0] = (state[0] + a) >>> 0
+    state[1] = (state[1] + b) >>> 0
+    state[2] = (state[2] + c) >>> 0
+    state[3] = (state[3] + d) >>> 0
+    state[4] = (state[4] + e) >>> 0
+    state[5] = (state[5] + f) >>> 0
+    state[6] = (state[6] + g) >>> 0
+    state[7] = (state[7] + h) >>> 0
+  }
+  return state.map((word) => word.toString(16).padStart(8, '0')).join('')
+}
+
+const sha256Bytes = (bytes: Uint8Array): DigestV1 => `sha256:${sha256HexBytes(bytes)}`
+const sha256Utf8 = (value: string): DigestV1 => sha256Bytes(new TextEncoder().encode(value))
+export const gateStatusJcsSha256V1 = (value: unknown): DigestV1 =>
+  sha256Bytes(new TextEncoder().encode(canonicalize(value)))
+
+const rejection = (
+  code: GateStatusAdmissionRejectionV1['code'],
+  path: string,
+): GateStatusAdmissionRejectionV1 => ({
+  code,
+  path,
+  message: 'Gate Status Publisher V1 admission rejected the supplied value.',
+})
+const exact = (
+  value: unknown,
+  fields: readonly string[],
+  path: string,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  if (!isObject(value)) return rejection('invalid_type_or_format', path)
+  const missing = fields.find((field) => !hasOwn(value, field))
+  if (missing !== undefined) return rejection('missing_required_field', `${path}/${missing}`)
+  const allowed = new Set(fields)
+  const unknown = Object.keys(value).filter((field) => !allowed.has(field)).sort(byteCompare)[0]
+  return unknown === undefined ? undefined : rejection('unknown_field', `${path}/${unknown}`)
+}
+const exactOptional = (
+  value: unknown,
+  required: readonly string[],
+  optional: readonly string[],
+  path: string,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  if (!isObject(value)) return rejection('invalid_type_or_format', path)
+  const missing = required.find((field) => !hasOwn(value, field))
+  if (missing !== undefined) return rejection('missing_required_field', `${path}/${missing}`)
+  const allowed = new Set([...required, ...optional])
+  const unknown = Object.keys(value).filter((field) => !allowed.has(field)).sort(byteCompare)[0]
+  return unknown === undefined ? undefined : rejection('unknown_field', `${path}/${unknown}`)
+}
+const validateStringSet = (
+  value: unknown,
+  path: string,
+  item: (value: unknown) => boolean = nonEmpty,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  if (!Array.isArray(value)) return rejection('invalid_type_or_format', path)
+  for (let index = 0; index < value.length; index += 1) {
+    if (!item(value[index])) return rejection('invalid_type_or_format', `${path}/${index}`)
+  }
+  if (new Set(value).size !== value.length) return rejection('duplicate_set_member', path)
+  if (!sortedUnique(value)) return rejection('noncanonical_set_order', path)
+  return undefined
+}
+const accepted = <T>(value: T): GateStatusAdmissionResultV1<T> => ({
+  accepted: true,
+  value: cloneFreeze(value),
+})
+const rejected = <T>(issue: GateStatusAdmissionRejectionV1): GateStatusAdmissionResultV1<T> => ({
+  accepted: false,
+  rejection: issue,
+})
+
+const projectionRows = [
+  'current_head',
+  'final_regression',
+  'operational_validation',
+  'pr_state_draft',
+  'ready',
+  'approve',
+  'merge',
+  'current_blocker_next_gate',
+  'historical_evidence',
+] as const
+const statusValues = new Set([
+  'completed',
+  'historical_at_prior_head',
+  'pending',
+  'blocked',
+  'unperformed',
+])
+const validateTransitionRow = (
+  value: unknown,
+  path: string,
+  valueValidator: (value: unknown) => boolean,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  const issue = exact(value, ['value', 'evidence_urls', 'next_action', 'next_owner'], path)
+  if (issue) return issue
+  const row = value as JsonObject
+  if (!valueValidator(row.value)) return rejection('invalid_enum', `${path}/value`)
+  const refs = validateStringSet(row.evidence_urls, `${path}/evidence_urls`, canonicalUrl)
+  if (refs) return refs
+  if (!(row.next_action === null || action(row.next_action))) {
+    return rejection('invalid_type_or_format', `${path}/next_action`)
+  }
+  if (!(row.next_owner === null || role(row.next_owner))) {
+    return rejection('invalid_type_or_format', `${path}/next_owner`)
+  }
+  if ((row.next_action === null) !== (row.next_owner === null)) {
+    return rejection('invalid_conditional_matrix', path)
+  }
+  return undefined
+}
+
+export function validateGateStatusProjectionV1(
+  input: unknown,
+): GateStatusAdmissionResultV1<GateStatusProjectionV1> {
+  try {
+    const root = exact(input, ['contract_version', ...projectionRows], '')
+    if (root) return rejected(root)
+    const value = input as JsonObject
+    if (value.contract_version !== GATE_STATUS_PROJECTION_V1) {
+      return rejected(rejection('invalid_enum', '/contract_version'))
+    }
+    let issue = validateTransitionRow(value.current_head, '/current_head', fullSha)
+    if (issue) return rejected(issue)
+    issue = validateTransitionRow(value.final_regression, '/final_regression', (item) =>
+      typeof item === 'string' && statusValues.has(item))
+    if (issue) return rejected(issue)
+    issue = validateTransitionRow(value.operational_validation, '/operational_validation', (item) =>
+      typeof item === 'string' && statusValues.has(item))
+    if (issue) return rejected(issue)
+    issue = validateTransitionRow(value.pr_state_draft, '/pr_state_draft', (item) =>
+      typeof item === 'string' && ['open_draft', 'open_ready', 'closed'].includes(item))
+    if (issue) return rejected(issue)
+    for (const key of ['ready', 'approve', 'merge'] as const) {
+      issue = validateTransitionRow(value[key], `/${key}`, (item) =>
+        typeof item === 'string' && statusValues.has(item))
+      if (issue) return rejected(issue)
+    }
+    issue = exact(
+      value.current_blocker_next_gate,
+      ['blocker_id', 'next_action', 'next_owner', 'evidence_urls'],
+      '/current_blocker_next_gate',
+    )
+    if (issue) return rejected(issue)
+    const blocker = value.current_blocker_next_gate as JsonObject
+    if (!(blocker.blocker_id === null || action(blocker.blocker_id))) {
+      return rejected(rejection('invalid_type_or_format', '/current_blocker_next_gate/blocker_id'))
+    }
+    if (!(blocker.next_action === null || action(blocker.next_action))) {
+      return rejected(rejection('invalid_type_or_format', '/current_blocker_next_gate/next_action'))
+    }
+    if (!(blocker.next_owner === null || role(blocker.next_owner))) {
+      return rejected(rejection('invalid_type_or_format', '/current_blocker_next_gate/next_owner'))
+    }
+    if ((blocker.next_action === null) !== (blocker.next_owner === null)) {
+      return rejected(rejection('invalid_conditional_matrix', '/current_blocker_next_gate'))
+    }
+    issue = validateStringSet(blocker.evidence_urls, '/current_blocker_next_gate/evidence_urls', canonicalUrl)
+    if (issue) return rejected(issue)
+    if (!Array.isArray(value.historical_evidence)) {
+      return rejected(rejection('invalid_type_or_format', '/historical_evidence'))
+    }
+    const historicalKeys: string[] = []
+    for (let index = 0; index < value.historical_evidence.length; index += 1) {
+      const item = value.historical_evidence[index]
+      issue = exact(item, ['head', 'value', 'evidence_url'], `/historical_evidence/${index}`)
+      if (issue) return rejected(issue)
+      const record = item as JsonObject
+      if (!fullSha(record.head) || record.value !== 'historical_at_prior_head' || !canonicalUrl(record.evidence_url)) {
+        return rejected(rejection('invalid_type_or_format', `/historical_evidence/${index}`))
+      }
+      historicalKeys.push(`${record.head}\u0000${record.evidence_url}`)
+    }
+    if (!sortedUnique(historicalKeys) && historicalKeys.length > 1) {
+      return rejected(rejection('noncanonical_set_order', '/historical_evidence'))
+    }
+    return accepted(value)
+  } catch {
+    return rejected(rejection('invalid_type_or_format', ''))
+  }
+}
+
+const renderEvidence = (value: unknown) =>
+  Array.isArray(value) && value.length > 0 ? value.join('<br>') : 'not_applicable'
+const renderNext = (row: JsonObject) =>
+  row.next_action === null ? 'none' : `${row.next_action} (owner: ${row.next_owner})`
+
+export function renderGateStatusProjectionV1(projection: unknown): string | null {
+  const admission = validateGateStatusProjectionV1(projection)
+  if (!admission.accepted) return null
+  const value = admission.value as JsonObject
+  const rows: [string, JsonObject][] = [
+    ['Current exact HEAD', value.current_head as JsonObject],
+    ['Final Regression', value.final_regression as JsonObject],
+    ['Operational Validation', value.operational_validation as JsonObject],
+    ['PR state / Draft status', value.pr_state_draft as JsonObject],
+    ['Ready for Review', value.ready as JsonObject],
+    ['Approve', value.approve as JsonObject],
+    ['Merge', value.merge as JsonObject],
+  ]
+  const blocker = value.current_blocker_next_gate as JsonObject
+  const blockerValue = blocker.blocker_id === null ? 'none' : String(blocker.blocker_id)
+  const lines = [
+    '## Gate Status',
+    '',
+    '> This section is the current PR Body Result-Handoff surface. Cite Issue or PR',
+    '> top-level canonical records directly; do not infer completion from CI green.',
+    '',
+    '| Field | Current value | Canonical evidence | Next required transition |',
+    '| --- | --- | --- | --- |',
+    ...rows.map(([label, row]) =>
+      `| ${label} | \`${row.value}\` | ${renderEvidence(row.evidence_urls)} | ${renderNext(row)} |`),
+    `| Current blocking reason / next gate | \`${blockerValue}\` | ${renderEvidence(blocker.evidence_urls)} | ${renderNext(blocker)} |`,
+    '',
+    '### Historical evidence',
+    '',
+  ]
+  const historical = value.historical_evidence as JsonObject[]
+  if (historical.length === 0) lines.push('- none')
+  else for (const item of historical) {
+    lines.push(`- \`${item.head}\`: \`historical_at_prior_head\` - ${item.evidence_url}`)
+  }
+  return lines.join('\n')
+}
+
+type SectionInspection =
+  | {
+      readonly valid: true
+      readonly start: number
+      readonly end: number
+      readonly section: string
+      readonly non_gate_sha256: DigestV1
+    }
+  | { readonly valid: false }
+
+export function inspectGateStatusSectionV1(body: string): SectionInspection {
+  const matches = [...body.matchAll(/^## Gate Status[ \t]*$/gm)]
+  if (matches.length !== 1 || matches[0].index === undefined) return { valid: false }
+  const start = matches[0].index
+  const afterHeading = start + matches[0][0].length
+  const next = /^## (?!Gate Status(?:[ \t]*$)).+$/gm
+  next.lastIndex = afterHeading
+  const found = next.exec(body)
+  let end = found?.index ?? body.length
+  if (end > start && body[end - 1] === '\n') end -= 1
+  if (end > start && body[end - 1] === '\r') end -= 1
+  const section = body.slice(start, end)
+  if (
+    !section.includes('| Field | Current value | Canonical evidence | Next required transition |') ||
+    (section.match(/^### Historical evidence[ \t]*$/gm) ?? []).length > 1
+  ) return { valid: false }
+  const encoder = new TextEncoder()
+  const prefix = encoder.encode(body.slice(0, start))
+  const suffix = encoder.encode(body.slice(end))
+  const bytes = new Uint8Array(prefix.length + suffix.length)
+  bytes.set(prefix)
+  bytes.set(suffix, prefix.length)
+  return { valid: true, start, end, section, non_gate_sha256: sha256Bytes(bytes) }
+}
+
+const validateBinding = (
+  value: unknown,
+  path: string,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  if (!isObject(value)) return rejection('invalid_type_or_format', path)
+  if (value.state === 'assigned') {
+    const issue = exact(value, ['state', 'value'], path)
+    if (issue) return issue
+    return nonEmpty(value.value) ? undefined : rejection('invalid_type_or_format', `${path}/value`)
+  }
+  if (value.state === 'not_assigned') {
+    const issue = exact(value, ['state', 'basis_url'], path)
+    if (issue) return issue
+    return canonicalUrl(value.basis_url)
+      ? undefined
+      : rejection('invalid_type_or_format', `${path}/basis_url`)
+  }
+  return rejection('invalid_enum', `${path}/state`)
+}
+
+const validateSnapshot = (
+  value: unknown,
+  path: string,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  const issue = exact(
+    value,
+    [
+      'contract_version',
+      'source_kind',
+      'pr_url',
+      'pr_number',
+      'head',
+      'base',
+      'state',
+      'draft',
+      'body_utf8_sha256',
+      'fetched_at',
+      'etag',
+    ],
+    path,
+  )
+  if (issue) return issue
+  const snapshot = value as JsonObject
+  if (
+    snapshot.contract_version !== 'github-body-snapshot-v1' ||
+    snapshot.source_kind !== 'github_pull_request' ||
+    !prUrl(snapshot.pr_url) ||
+    !Number.isInteger(snapshot.pr_number) ||
+    Number(snapshot.pr_number) < 1 ||
+    !fullSha(snapshot.head) ||
+    !fullSha(snapshot.base) ||
+    snapshot.state !== 'open' ||
+    typeof snapshot.draft !== 'boolean' ||
+    !digest(snapshot.body_utf8_sha256) ||
+    !utc(snapshot.fetched_at) ||
+    !isObject(snapshot.etag)
+  ) return rejection('invalid_type_or_format', path)
+  if (snapshot.etag.state === 'absent') return exact(snapshot.etag, ['state'], `${path}/etag`)
+  if (snapshot.etag.state === 'observed_for_read_cache_only') {
+    const etagIssue = exact(snapshot.etag, ['state', 'value'], `${path}/etag`)
+    if (etagIssue) return etagIssue
+    return nonEmpty(snapshot.etag.value)
+      ? undefined
+      : rejection('invalid_type_or_format', `${path}/etag/value`)
+  }
+  return rejection('invalid_enum', `${path}/etag/state`)
+}
+
+const evidenceClasses = new Set([
+  'task_assignment',
+  'result_handoff',
+  'review_decision',
+  'final_regression_result',
+  'operational_validation_result',
+  'product_owner_approval',
+  'protected_action_completion',
+  'projection_authorization',
+])
+
+const validateEvidence = (
+  value: unknown,
+  path: string,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  if (!isObject(value)) return rejection('invalid_type_or_format', path)
+  if (value.evidence_class === 'canonical_role_record') {
+    const issue = exact(
+      value,
+      [
+        'evidence_class',
+        'evidence_kind',
+        'canonical_url',
+        'authoring_role',
+        'task_id',
+        'repository',
+        'head_binding',
+        'fetched_content_sha256',
+        'verification_state',
+      ],
+      path,
+    )
+    if (issue) return issue
+    if (
+      typeof value.evidence_kind !== 'string' ||
+      !evidenceClasses.has(value.evidence_kind) ||
+      !canonicalUrl(value.canonical_url) ||
+      !role(value.authoring_role) ||
+      !nonEmpty(value.task_id) ||
+      value.repository !== 'whatrune/sd-prompt-studio' ||
+      !digest(value.fetched_content_sha256) ||
+      value.verification_state !== 'verified' ||
+      !isObject(value.head_binding)
+    ) return rejection('invalid_type_or_format', path)
+    const binding = value.head_binding
+    if (binding.state === 'current' || binding.state === 'historical') {
+      const bindingIssue = exact(binding, ['state', 'head'], `${path}/head_binding`)
+      if (bindingIssue) return bindingIssue
+      return fullSha(binding.head)
+        ? undefined
+        : rejection('invalid_type_or_format', `${path}/head_binding/head`)
+    }
+    if (binding.state === 'not_head_bound') {
+      const bindingIssue = exact(binding, ['state', 'basis_url'], `${path}/head_binding`)
+      if (bindingIssue) return bindingIssue
+      return canonicalUrl(binding.basis_url)
+        ? undefined
+        : rejection('invalid_type_or_format', `${path}/head_binding/basis_url`)
+    }
+    return rejection('invalid_enum', `${path}/head_binding/state`)
+  }
+  if (value.evidence_class === 'github_mutable_evidence' && value.evidence_kind === 'github_check') {
+    const issue = exact(
+      value,
+      [
+        'evidence_class',
+        'evidence_kind',
+        'canonical_url',
+        'repository',
+        'pr_url',
+        'checked_head',
+        'name',
+        'conclusion',
+        'producer',
+        'observed_at',
+        'fetched_content_sha256',
+        'verification_state',
+      ],
+      path,
+    )
+    if (issue) return issue
+    if (
+      !canonicalUrl(value.canonical_url) ||
+      value.repository !== 'whatrune/sd-prompt-studio' ||
+      !prUrl(value.pr_url) ||
+      !fullSha(value.checked_head) ||
+      !nonEmpty(value.name) ||
+      !['success', 'failure', 'pending', 'cancelled'].includes(String(value.conclusion)) ||
+      !isObject(value.producer) ||
+      !utc(value.observed_at) ||
+      !digest(value.fetched_content_sha256) ||
+      value.verification_state !== 'verified'
+    ) return rejection('invalid_type_or_format', path)
+    const producerIssue = exact(value.producer, ['kind', 'login', 'database_id'], `${path}/producer`)
+    if (producerIssue) return producerIssue
+    return ['github_app', 'github_user'].includes(String(value.producer.kind)) &&
+      nonEmpty(value.producer.login) &&
+      Number.isInteger(value.producer.database_id) &&
+      Number(value.producer.database_id) > 0
+      ? undefined
+      : rejection('invalid_type_or_format', `${path}/producer`)
+  }
+  if (value.evidence_class === 'github_mutable_evidence' && value.evidence_kind === 'review_thread') {
+    const issue = exact(
+      value,
+      [
+        'evidence_class',
+        'evidence_kind',
+        'canonical_url',
+        'repository',
+        'pr_url',
+        'observed_head',
+        'state',
+        'outdated',
+        'blocking',
+        'observed_at',
+        'fetched_content_sha256',
+        'verification_state',
+      ],
+      path,
+    )
+    if (issue) return issue
+    return canonicalUrl(value.canonical_url) &&
+      value.repository === 'whatrune/sd-prompt-studio' &&
+      prUrl(value.pr_url) &&
+      fullSha(value.observed_head) &&
+      ['resolved', 'unresolved'].includes(String(value.state)) &&
+      typeof value.outdated === 'boolean' &&
+      typeof value.blocking === 'boolean' &&
+      utc(value.observed_at) &&
+      digest(value.fetched_content_sha256) &&
+      value.verification_state === 'verified'
+      ? undefined
+      : rejection('invalid_type_or_format', path)
+  }
+  return rejection('invalid_enum', `${path}/evidence_class`)
+}
+
+const validateTransport = (
+  value: unknown,
+  path: string,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  if (!isObject(value)) return rejection('invalid_type_or_format', path)
+  if (value.kind === 'github_pr_body_patch_without_atomic_precondition') {
+    const issue = exact(
+      value,
+      [
+        'kind',
+        'provider',
+        'update_endpoint',
+        'conditional_write_supported',
+        'publisher_mutation_allowed',
+        'recovery_protocol',
+      ],
+      path,
+    )
+    if (issue) return issue
+    return value.provider === 'github' &&
+      value.update_endpoint ===
+        'https://docs.github.com/en/rest/issues/issues#update-an-issue' &&
+      value.conditional_write_supported === false &&
+      value.publisher_mutation_allowed === false &&
+      value.recovery_protocol === 'authorized_metadata_role_update_then_fresh_reconciliation'
+      ? undefined
+      : rejection('invalid_conditional_matrix', path)
+  }
+  if (value.kind === 'proven_atomic_compare_and_swap') {
+    const issue = exact(
+      value,
+      [
+        'kind',
+        'provider',
+        'adapter_id',
+        'adapter_version',
+        'atomic_scope',
+        'capability_authority_url',
+        'conditional_write_supported',
+        'publisher_mutation_allowed',
+        'atomic_revision_identity',
+      ],
+      path,
+    )
+    if (issue) return issue
+    const revisionIssue = exact(
+      value.atomic_revision_identity,
+      ['contract_version', 'identity_kind', 'normalized_identity_sha256'],
+      `${path}/atomic_revision_identity`,
+    )
+    if (revisionIssue) return revisionIssue
+    const revision = value.atomic_revision_identity as JsonObject
+    return nonEmpty(value.provider) &&
+      nonEmpty(value.adapter_id) &&
+      nonEmpty(value.adapter_version) &&
+      value.atomic_scope === 'complete_pr_body' &&
+      canonicalUrl(value.capability_authority_url) &&
+      value.conditional_write_supported === true &&
+      value.publisher_mutation_allowed === true &&
+      revision.contract_version === 'provider-atomic-revision-identity-v1' &&
+      revision.identity_kind === 'exact_value_frozen_by_transport_capability_authority' &&
+      digest(revision.normalized_identity_sha256)
+      ? undefined
+      : rejection('invalid_conditional_matrix', path)
+  }
+  return rejection('invalid_enum', `${path}/kind`)
+}
+
+const validateReceiptAuthority = (
+  value: unknown,
+  path: string,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  if (!isObject(value)) return rejection('invalid_type_or_format', path)
+  if (value.state === 'not_authorized') return exact(value, ['state'], path)
+  if (value.state === 'authorized') {
+    const issue = exact(value, ['state', 'owner_role', 'canonical_record'], path)
+    if (issue) return issue
+    return role(value.owner_role) && canonicalUrl(value.canonical_record)
+      ? undefined
+      : rejection('invalid_type_or_format', path)
+  }
+  return rejection('invalid_enum', `${path}/state`)
+}
+
+const validateReceiptStoreCapability = (
+  value: unknown,
+  path: string,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  if (!isObject(value)) return rejection('invalid_type_or_format', path)
+  if (value.state === 'not_required') return exact(value, ['state'], path)
+  if (value.state !== 'admitted') return rejection('invalid_enum', `${path}/state`)
+  const issue = exact(value, ['state', 'value'], path)
+  if (issue) return issue
+  const capabilityIssue = exact(
+    value.value,
+    [
+      'contract_version',
+      'kind',
+      'provider',
+      'adapter_id',
+      'adapter_version',
+      'capability_authority_url',
+      'key_namespace',
+      'unique_key',
+      'consistency',
+      'operation',
+      'supported_outcomes',
+    ],
+    `${path}/value`,
+  )
+  if (capabilityIssue) return capabilityIssue
+  const capability = value.value as JsonObject
+  const outcomes = [
+    'created',
+    'existing_exact',
+    'existing_conflict',
+    'failed_before_commit',
+    'indeterminate',
+  ]
+  return capability.contract_version === 'gate-status-receipt-store-capability-v1' &&
+    capability.kind === 'proven_atomic_create_or_get' &&
+    nonEmpty(capability.provider) &&
+    nonEmpty(capability.adapter_id) &&
+    nonEmpty(capability.adapter_version) &&
+    canonicalUrl(capability.capability_authority_url) &&
+    capability.key_namespace === 'gate-status-publication-receipt-v1' &&
+    nonEmpty(capability.unique_key) &&
+    capability.consistency === 'linearizable' &&
+    capability.operation === 'atomic_create_or_get' &&
+    Array.isArray(capability.supported_outcomes) &&
+    canonicalize(capability.supported_outcomes) === canonicalize(outcomes)
+    ? undefined
+    : rejection('invalid_conditional_matrix', `${path}/value`)
+}
+
+const validatePriorReceipt = (
+  value: unknown,
+  path: string,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  if (!isObject(value)) return rejection('invalid_type_or_format', path)
+  if (value.state === 'absent') return exact(value, ['state'], path)
+  if (value.state === 'present') {
+    const issue = exact(value, ['state', 'receipt_url', 'receipt'], path)
+    if (issue) return issue
+    if (!canonicalUrl(value.receipt_url)) return rejection('invalid_type_or_format', `${path}/receipt_url`)
+    const receipt = validateGateStatusPublicationReceiptV1(value.receipt)
+    return receipt.accepted ? undefined : receipt.rejection
+  }
+  return rejection('invalid_enum', `${path}/state`)
+}
+
+export function validateAtomicOperationKeyProjectionV1(
+  input: unknown,
+): GateStatusAdmissionResultV1<Readonly<JsonObject>> {
+  try {
+    const issue = exact(
+      input,
+      [
+        'contract_version',
+        'key_kind',
+        'publication_key',
+        'transport_capability_authority_url',
+        'provider',
+        'adapter_id',
+        'adapter_version',
+        'atomic_scope',
+        'atomic_revision_identity',
+        'precondition_body_utf8_sha256',
+        'precondition_non_gate_sha256',
+        'receipt_authority_state',
+        'receipt_store_capability_state',
+        'prior_receipt_state',
+        'prior_receipt_url',
+      ],
+      '',
+    )
+    if (issue) return rejected(issue)
+    const value = input as JsonObject
+    const revisionIssue = exact(
+      value.atomic_revision_identity,
+      ['contract_version', 'identity_kind', 'normalized_identity_sha256'],
+      '/atomic_revision_identity',
+    )
+    if (revisionIssue) return rejected(revisionIssue)
+    const revision = value.atomic_revision_identity as JsonObject
+    if (
+      value.contract_version !== 'gate-status-atomic-operation-key-projection-v1' ||
+      value.key_kind !== 'proven_atomic_attempt' ||
+      !/^gate-status-publication-v1:sha256:[0-9a-f]{64}$/.test(String(value.publication_key)) ||
+      !canonicalUrl(value.transport_capability_authority_url) ||
+      !nonEmpty(value.provider) ||
+      !nonEmpty(value.adapter_id) ||
+      !nonEmpty(value.adapter_version) ||
+      value.atomic_scope !== 'complete_pr_body' ||
+      revision.contract_version !== 'provider-atomic-revision-identity-v1' ||
+      revision.identity_kind !== 'exact_value_frozen_by_transport_capability_authority' ||
+      !digest(revision.normalized_identity_sha256) ||
+      !digest(value.precondition_body_utf8_sha256) ||
+      !digest(value.precondition_non_gate_sha256) ||
+      !['not_authorized', 'authorized'].includes(String(value.receipt_authority_state)) ||
+      !['not_required', 'proven_atomic_create_or_get'].includes(
+        String(value.receipt_store_capability_state),
+      ) ||
+      !['absent', 'present'].includes(String(value.prior_receipt_state)) ||
+      !(
+        (value.prior_receipt_state === 'absent' && value.prior_receipt_url === null) ||
+        (value.prior_receipt_state === 'present' && canonicalUrl(value.prior_receipt_url))
+      )
+    ) return rejected(rejection('invalid_conditional_matrix', ''))
+    if (
+      (value.receipt_authority_state === 'not_authorized' &&
+        value.receipt_store_capability_state !== 'not_required') ||
+      (value.receipt_authority_state === 'authorized' &&
+        value.receipt_store_capability_state !== 'proven_atomic_create_or_get')
+    ) return rejected(rejection('invalid_conditional_matrix', '/receipt_store_capability_state'))
+    return accepted(value)
+  } catch {
+    return rejected(rejection('invalid_type_or_format', ''))
+  }
+}
+
+const validatePriorRecord = (
+  input: unknown,
+  path: string,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  const issue = exact(
+    input,
+    [
+      'contract_version',
+      'canonical_record',
+      'record_type',
+      'authoring_role',
+      'task_id',
+      'assignment_revision',
+      'repository',
+      'pr_url',
+      'pr_number',
+      'head',
+      'base',
+      'publication_key',
+      'intended_projection_sha256',
+      'precondition_non_gate_sha256',
+      'submission_scope',
+      'atomic_operation_projection',
+      'atomic_operation_projection_sha256',
+      'atomic_operation_key',
+      'transport_capability_authority_url',
+      'submission_state',
+      'submitted_at',
+      'fetched_content_sha256',
+      'verification_state',
+    ],
+    path,
+  )
+  if (issue) return issue
+  const value = input as JsonObject
+  const projection = validateAtomicOperationKeyProjectionV1(value.atomic_operation_projection)
+  if (!projection.accepted) {
+    return rejection(projection.rejection.code, `${path}/atomic_operation_projection${projection.rejection.path}`)
+  }
+  const projected = projection.value as JsonObject
+  if (
+    value.contract_version !== 'gate-status-prior-attempt-authority-v1' ||
+    !canonicalUrl(value.canonical_record) ||
+    value.record_type !== 'gate_status_publication_attempt' ||
+    !role(value.authoring_role) ||
+    !nonEmpty(value.task_id) ||
+    !Number.isInteger(value.assignment_revision) ||
+    Number(value.assignment_revision) < 1 ||
+    value.repository !== 'whatrune/sd-prompt-studio' ||
+    !prUrl(value.pr_url) ||
+    !Number.isInteger(value.pr_number) ||
+    !fullSha(value.head) ||
+    !fullSha(value.base) ||
+    !/^gate-status-publication-v1:sha256:[0-9a-f]{64}$/.test(String(value.publication_key)) ||
+    !digest(value.intended_projection_sha256) ||
+    !digest(value.precondition_non_gate_sha256) ||
+    value.submission_scope !== 'atomic_body_write' ||
+    !digest(value.atomic_operation_projection_sha256) ||
+    !/^gate-status-publication-atomic-operation-v1:sha256:[0-9a-f]{64}$/.test(
+      String(value.atomic_operation_key),
+    ) ||
+    !canonicalUrl(value.transport_capability_authority_url) ||
+    value.submission_state !== 'indeterminate' ||
+    !utc(value.submitted_at) ||
+    !digest(value.fetched_content_sha256) ||
+    value.verification_state !== 'verified'
+  ) return rejection('invalid_type_or_format', path)
+  const projectionSha = gateStatusJcsSha256V1(projected)
+  const operationKey = `gate-status-publication-atomic-operation-v1:${projectionSha}`
+  if (
+    value.atomic_operation_projection_sha256 !== projectionSha ||
+    value.atomic_operation_key !== operationKey ||
+    value.publication_key !== projected.publication_key ||
+    value.precondition_non_gate_sha256 !== projected.precondition_non_gate_sha256 ||
+    value.transport_capability_authority_url !== projected.transport_capability_authority_url
+  ) return rejection('invalid_cross_input_binding', path)
+  return undefined
+}
+
+export function validatePriorAttemptAuthoritySetInputV1(
+  input: unknown,
+): GateStatusAdmissionResultV1<Readonly<JsonObject>> {
+  try {
+    const issue = exact(
+      input,
+      [
+        'contract_version',
+        'authority_set_url',
+        'authoring_role',
+        'task_id',
+        'assignment_revision',
+        'repository',
+        'pr_url',
+        'pr_number',
+        'head',
+        'base',
+        'publication_key',
+        'completeness',
+        'state',
+        'records',
+        'fetched_content_sha256',
+        'verification_state',
+      ],
+      '',
+    )
+    if (issue) return rejected(issue)
+    const value = input as JsonObject
+    if (
+      value.contract_version !== 'gate-status-prior-attempt-authority-set-v1' ||
+      !canonicalUrl(value.authority_set_url) ||
+      !role(value.authoring_role) ||
+      !nonEmpty(value.task_id) ||
+      !Number.isInteger(value.assignment_revision) ||
+      Number(value.assignment_revision) < 1 ||
+      value.repository !== 'whatrune/sd-prompt-studio' ||
+      !prUrl(value.pr_url) ||
+      !Number.isInteger(value.pr_number) ||
+      Number(value.pr_number) < 1 ||
+      !fullSha(value.head) ||
+      !fullSha(value.base) ||
+      !/^gate-status-publication-v1:sha256:[0-9a-f]{64}$/.test(String(value.publication_key)) ||
+      value.completeness !== 'complete_for_publication_key' ||
+      !['absent', 'present'].includes(String(value.state)) ||
+      !Array.isArray(value.records) ||
+      !digest(value.fetched_content_sha256) ||
+      value.verification_state !== 'verified'
+    ) return rejected(rejection('invalid_type_or_format', ''))
+    if (
+      (value.state === 'absent' && value.records.length !== 0) ||
+      (value.state === 'present' && (value.records.length < 1 || value.records.length > 32))
+    ) return rejected(rejection('invalid_conditional_matrix', '/records'))
+    const urls: string[] = []
+    for (let index = 0; index < value.records.length; index += 1) {
+      const recordIssue = validatePriorRecord(value.records[index], `/records/${index}`)
+      if (recordIssue) return rejected(recordIssue)
+      urls.push(String((value.records[index] as JsonObject).canonical_record))
+    }
+    if (new Set(urls).size !== urls.length) {
+      return rejected(rejection('duplicate_set_member', '/records'))
+    }
+    if (!sortedUnique(urls)) return rejected(rejection('noncanonical_set_order', '/records'))
+    return accepted(value)
+  } catch {
+    return rejected(rejection('invalid_type_or_format', ''))
+  }
+}
+
+export function validatePriorAttemptReconciliationObservationInputV1(
+  input: unknown,
+): GateStatusAdmissionResultV1<Readonly<JsonObject>> {
+  try {
+    if (!isObject(input)) return rejected(rejection('invalid_type_or_format', ''))
+    if (input.state === 'not_required') {
+      const issue = exact(input, ['state'], '')
+      return issue ? rejected(issue) : accepted(input)
+    }
+    if (input.state === 'unavailable') {
+      const issue = exact(
+        input,
+        [
+          'state',
+          'contract_version',
+          'canonical_record',
+          'authoring_role',
+          'task_id',
+          'repository',
+          'pr_url',
+          'head',
+          'base',
+          'prior_attempt_authority_url',
+          'publication_key',
+          'atomic_operation_key',
+          'transport_capability_authority_url',
+          'observation_state',
+          'observed_at',
+          'fetched_content_sha256',
+          'verification_state',
+        ],
+        '',
+      )
+      if (issue) return rejected(issue)
+      return input.contract_version === 'gate-status-prior-attempt-reconciliation-observation-v1' &&
+        canonicalUrl(input.canonical_record) &&
+        role(input.authoring_role) &&
+        nonEmpty(input.task_id) &&
+        input.repository === 'whatrune/sd-prompt-studio' &&
+        prUrl(input.pr_url) &&
+        fullSha(input.head) &&
+        fullSha(input.base) &&
+        canonicalUrl(input.prior_attempt_authority_url) &&
+        /^gate-status-publication-v1:sha256:[0-9a-f]{64}$/.test(String(input.publication_key)) &&
+        /^gate-status-publication-atomic-operation-v1:sha256:[0-9a-f]{64}$/.test(
+          String(input.atomic_operation_key),
+        ) &&
+        canonicalUrl(input.transport_capability_authority_url) &&
+        input.observation_state === 'read_unavailable' &&
+        utc(input.observed_at) &&
+        digest(input.fetched_content_sha256) &&
+        input.verification_state === 'verified'
+        ? accepted(input)
+        : rejected(rejection('invalid_type_or_format', ''))
+    }
+    if (input.state !== 'available') return rejected(rejection('invalid_enum', '/state'))
+    const issue = exact(
+      input,
+      [
+        'state',
+        'contract_version',
+        'canonical_record',
+        'authoring_role',
+        'task_id',
+        'repository',
+        'pr_url',
+        'pr_number',
+        'head',
+        'base',
+        'prior_attempt_authority_url',
+        'publication_key',
+        'atomic_operation_key',
+        'transport_capability_authority_url',
+        'snapshot_identity',
+        'post_read_atomic_revision_identity',
+        'observed_projection_sha256',
+        'observed_non_gate_sha256',
+        'observed_at',
+        'fetched_content_sha256',
+        'verification_state',
+      ],
+      '',
+    )
+    if (issue) return rejected(issue)
+    const snapshotIssue = exact(
+      input.snapshot_identity,
+      ['source_kind', 'pr_url', 'pr_number', 'head', 'base', 'state', 'draft', 'body_utf8_sha256'],
+      '/snapshot_identity',
+    )
+    if (snapshotIssue) return rejected(snapshotIssue)
+    const revisionIssue = exact(
+      input.post_read_atomic_revision_identity,
+      ['contract_version', 'identity_kind', 'normalized_identity_sha256'],
+      '/post_read_atomic_revision_identity',
+    )
+    if (revisionIssue) return rejected(revisionIssue)
+    const snapshot = input.snapshot_identity as JsonObject
+    const revision = input.post_read_atomic_revision_identity as JsonObject
+    return input.contract_version === 'gate-status-prior-attempt-reconciliation-observation-v1' &&
+      canonicalUrl(input.canonical_record) &&
+      role(input.authoring_role) &&
+      nonEmpty(input.task_id) &&
+      input.repository === 'whatrune/sd-prompt-studio' &&
+      prUrl(input.pr_url) &&
+      Number.isInteger(input.pr_number) &&
+      fullSha(input.head) &&
+      fullSha(input.base) &&
+      canonicalUrl(input.prior_attempt_authority_url) &&
+      /^gate-status-publication-v1:sha256:[0-9a-f]{64}$/.test(String(input.publication_key)) &&
+      /^gate-status-publication-atomic-operation-v1:sha256:[0-9a-f]{64}$/.test(
+        String(input.atomic_operation_key),
+      ) &&
+      canonicalUrl(input.transport_capability_authority_url) &&
+      snapshot.source_kind === 'github_pull_request' &&
+      prUrl(snapshot.pr_url) &&
+      Number.isInteger(snapshot.pr_number) &&
+      fullSha(snapshot.head) &&
+      fullSha(snapshot.base) &&
+      snapshot.state === 'open' &&
+      typeof snapshot.draft === 'boolean' &&
+      digest(snapshot.body_utf8_sha256) &&
+      revision.contract_version === 'provider-atomic-revision-identity-v1' &&
+      revision.identity_kind === 'exact_value_frozen_by_transport_capability_authority' &&
+      digest(revision.normalized_identity_sha256) &&
+      digest(input.observed_projection_sha256) &&
+      digest(input.observed_non_gate_sha256) &&
+      utc(input.observed_at) &&
+      digest(input.fetched_content_sha256) &&
+      input.verification_state === 'verified'
+      ? accepted(input)
+      : rejected(rejection('invalid_type_or_format', ''))
+  } catch {
+    return rejected(rejection('invalid_type_or_format', ''))
+  }
+}
+
+const publicationProjection = (input: JsonObject, projectionSha: DigestV1, citations: string[]) => {
+  const identity = input.identity as JsonObject
+  const evaluator = input.evaluator as JsonObject
+  const evaluatorResult = evaluator.result as JsonObject
+  return {
+    contract_version: GATE_STATUS_PUBLICATION_INPUT_V1,
+    task_id: identity.task_id,
+    assignment_revision: identity.assignment_revision,
+    task_assignment_url: identity.task_assignment_url,
+    projection_authority_url: identity.projection_authority_url,
+    authorized_metadata_role: identity.authorized_metadata_role,
+    repository: identity.repository,
+    pr_url: identity.pr_url,
+    pr_number: identity.pr_number,
+    branch_binding: identity.branch,
+    worktree_binding: identity.worktree,
+    expected_head: identity.expected_head,
+    expected_base: identity.expected_base,
+    evaluator_contract_version: evaluatorResult.contract_version,
+    evaluator_input_fingerprint: evaluatorResult.input_fingerprint,
+    evaluator_result_sha256: evaluator.result_sha256,
+    sorted_citation_urls: citations,
+    intended_projection_sha256: projectionSha,
+  }
+}
+
+export function buildGateStatusPublicationKeyV1(input: unknown): string | null {
+  if (!isObject(input) || !isObject(input.identity) || !isObject(input.evaluator)) return null
+  const authorization = isObject(input.projection_authorization)
+    ? input.projection_authorization
+    : undefined
+  if (!authorization) return null
+  const projection = validateGateStatusProjectionV1(authorization.projection)
+  if (!projection.accepted || !Array.isArray(input.evidence_records)) return null
+  const citations = input.evidence_records
+    .map((item) => (isObject(item) ? item.canonical_url : undefined))
+  if (!citations.every(canonicalUrl)) return null
+  const projectionSha = gateStatusJcsSha256V1(projection.value)
+  return `gate-status-publication-v1:${gateStatusJcsSha256V1(
+    publicationProjection(input, projectionSha, citations as string[]),
+  )}`
+}
+
+const readOnlyOperationProjection = (
+  input: JsonObject,
+  publicationKey: string,
+  snapshot: JsonObject,
+) => {
+  const prior = input.prior_attempt_authorities as JsonObject
+  const receiptAuthority = input.receipt_authority as JsonObject
+  const receiptStore = input.receipt_store_capability as JsonObject
+  const priorReceipt = input.prior_receipt as JsonObject
+  const priorRecords = prior.records as JsonObject[]
+  return {
+    contract_version: 'gate-status-read-only-operation-key-projection-v1',
+    key_kind: 'github_read_only_snapshot',
+    publication_key: publicationKey,
+    snapshot_identity: {
+      source_kind: snapshot.source_kind,
+      pr_url: snapshot.pr_url,
+      pr_number: snapshot.pr_number,
+      head: snapshot.head,
+      base: snapshot.base,
+      state: snapshot.state,
+      draft: snapshot.draft,
+      body_utf8_sha256: snapshot.body_utf8_sha256,
+    },
+    transport_capability_kind: (input.transport_capability as JsonObject).kind,
+    prior_attempt_state: priorRecords.length === 1 ? 'indeterminate' : 'absent',
+    prior_attempt_operation_key:
+      priorRecords.length === 1 ? priorRecords[0].atomic_operation_key : null,
+    receipt_authority_state: receiptAuthority.state,
+    receipt_store_capability_state:
+      receiptStore.state === 'admitted' ? 'proven_atomic_create_or_get' : 'not_required',
+    prior_receipt_state: priorReceipt.state,
+    prior_receipt_url: priorReceipt.state === 'present' ? priorReceipt.receipt_url : null,
+  }
+}
+
+export function buildGateStatusReadOnlyOperationKeyV1(
+  input: unknown,
+): { readonly projection: Readonly<JsonObject>; readonly projection_sha256: DigestV1; readonly operation_key: string } | null {
+  if (!isObject(input) || !isObject(input.pr_snapshot) || !isObject(input.pr_snapshot.snapshot)) {
+    return null
+  }
+  const publicationKey = buildGateStatusPublicationKeyV1(input)
+  if (publicationKey === null) return null
+  const projection = readOnlyOperationProjection(input, publicationKey, input.pr_snapshot.snapshot)
+  const projectionSha = gateStatusJcsSha256V1(projection)
+  return cloneFreeze({
+    projection,
+    projection_sha256: projectionSha,
+    operation_key: `gate-status-publication-read-only-operation-v1:${projectionSha}`,
+  })
+}
+
+export function validateGateStatusPublicationInputV1(
+  input: unknown,
+): GateStatusAdmissionResultV1<GateStatusPublicationInputV1> {
+  try {
+    const root = exact(
+      input,
+      [
+        'contract_version',
+        'identity',
+        'evaluator',
+        'projection_authorization',
+        'evidence_records',
+        'pr_snapshot',
+        'prior_attempt_authorities',
+        'prior_attempt_reconciliation_observation',
+        'prior_receipt',
+        'receipt_authority',
+        'receipt_store_capability',
+        'transport_capability',
+      ],
+      '',
+    )
+    if (root) return rejected(root)
+    const value = input as JsonObject
+    if (value.contract_version !== GATE_STATUS_PUBLICATION_INPUT_V1) {
+      return rejected(rejection('invalid_enum', '/contract_version'))
+    }
+    let issue = exact(
+      value.identity,
+      [
+        'task_id',
+        'assignment_revision',
+        'repository',
+        'task_assignment_url',
+        'projection_authority_url',
+        'authorized_metadata_role',
+        'authorized_transport_action',
+        'pr_url',
+        'pr_number',
+        'branch',
+        'worktree',
+        'expected_head',
+        'expected_base',
+      ],
+      '/identity',
+    )
+    if (issue) return rejected(issue)
+    const identity = value.identity as JsonObject
+    if (
+      !nonEmpty(identity.task_id) ||
+      !Number.isInteger(identity.assignment_revision) ||
+      Number(identity.assignment_revision) < 1 ||
+      identity.repository !== 'whatrune/sd-prompt-studio' ||
+      !canonicalUrl(identity.task_assignment_url) ||
+      !canonicalUrl(identity.projection_authority_url) ||
+      !role(identity.authorized_metadata_role) ||
+      identity.authorized_transport_action !== 'publish_gate_status_projection' ||
+      !prUrl(identity.pr_url) ||
+      !Number.isInteger(identity.pr_number) ||
+      Number(identity.pr_number) < 1 ||
+      !fullSha(identity.expected_head) ||
+      !fullSha(identity.expected_base)
+    ) return rejected(rejection('invalid_type_or_format', '/identity'))
+    issue = validateBinding(identity.branch, '/identity/branch')
+    if (issue) return rejected(issue)
+    issue = validateBinding(identity.worktree, '/identity/worktree')
+    if (issue) return rejected(issue)
+    issue = exact(value.evaluator, ['admission_state', 'result', 'result_sha256'], '/evaluator')
+    if (issue) return rejected(issue)
+    const evaluator = value.evaluator as JsonObject
+    if (evaluator.admission_state !== 'accepted' || !digest(evaluator.result_sha256)) {
+      return rejected(rejection('invalid_type_or_format', '/evaluator'))
+    }
+    const evaluatorAdmission = validateAutomaticGateProgressionEvaluationResultV2(evaluator.result)
+    if (evaluatorAdmission.kind !== 'accepted') {
+      return rejected(rejection('invalid_cross_input_binding', '/evaluator/result'))
+    }
+    if (gateStatusJcsSha256V1(evaluatorAdmission.value) !== evaluator.result_sha256) {
+      return rejected(rejection('invalid_cross_input_binding', '/evaluator'))
+    }
+    issue = exact(
+      value.projection_authorization,
+      [
+        'authoring_role',
+        'canonical_record',
+        'task_id',
+        'assignment_revision',
+        'repository',
+        'pr_url',
+        'head',
+        'base',
+        'evaluator_input_fingerprint',
+        'evaluator_result_sha256',
+        'projection',
+        'projection_sha256',
+      ],
+      '/projection_authorization',
+    )
+    if (issue) return rejected(issue)
+    const authorization = value.projection_authorization as JsonObject
+    const projectionAdmission = validateGateStatusProjectionV1(authorization.projection)
+    if (!projectionAdmission.accepted) {
+      return rejected(rejection(
+        projectionAdmission.rejection.code,
+        `/projection_authorization/projection${projectionAdmission.rejection.path}`,
+      ))
+    }
+    if (
+      !role(authorization.authoring_role) ||
+      !canonicalUrl(authorization.canonical_record) ||
+      authorization.task_id !== identity.task_id ||
+      authorization.assignment_revision !== identity.assignment_revision ||
+      authorization.repository !== identity.repository ||
+      authorization.pr_url !== identity.pr_url ||
+      authorization.head !== identity.expected_head ||
+      authorization.base !== identity.expected_base ||
+      authorization.evaluator_input_fingerprint !== evaluatorAdmission.value.input_fingerprint ||
+      authorization.evaluator_result_sha256 !== evaluator.result_sha256 ||
+      authorization.projection_sha256 !== gateStatusJcsSha256V1(projectionAdmission.value)
+    ) return rejected(rejection('invalid_cross_input_binding', '/projection_authorization'))
+    if (authorization.authoring_role !== identity.authorized_metadata_role) {
+      return rejected(rejection('invalid_cross_input_binding', '/projection_authorization/authoring_role'))
+    }
+    if (!Array.isArray(value.evidence_records)) {
+      return rejected(rejection('invalid_type_or_format', '/evidence_records'))
+    }
+    const evidenceUrls: string[] = []
+    for (let index = 0; index < value.evidence_records.length; index += 1) {
+      issue = validateEvidence(value.evidence_records[index], `/evidence_records/${index}`)
+      if (issue) return rejected(issue)
+      evidenceUrls.push(String((value.evidence_records[index] as JsonObject).canonical_url))
+    }
+    if (new Set(evidenceUrls).size !== evidenceUrls.length) {
+      return rejected(rejection('duplicate_set_member', '/evidence_records'))
+    }
+    if (!sortedUnique(evidenceUrls)) {
+      return rejected(rejection('noncanonical_set_order', '/evidence_records'))
+    }
+    const evaluatorResult = evaluatorAdmission.value
+    if (evaluatorResult.kind === 'require_gate_status_update') {
+      const expectedEvidence = [
+        ...new Set([
+          ...evaluatorResult.requirement.citation_urls,
+          String(identity.task_assignment_url),
+          String(identity.projection_authority_url),
+        ]),
+      ].sort(byteCompare)
+      if (canonicalize(evidenceUrls) !== canonicalize(expectedEvidence)) {
+        return rejected(rejection('invalid_cross_input_binding', '/evidence_records'))
+      }
+    }
+    issue = exact(value.pr_snapshot, ['snapshot', 'body_utf8', 'body_matches_snapshot_sha256'], '/pr_snapshot')
+    if (issue) return rejected(issue)
+    const snapshotContainer = value.pr_snapshot as JsonObject
+    issue = validateSnapshot(snapshotContainer.snapshot, '/pr_snapshot/snapshot')
+    if (issue) return rejected(issue)
+    if (
+      typeof snapshotContainer.body_utf8 !== 'string' ||
+      snapshotContainer.body_matches_snapshot_sha256 !== true ||
+      sha256Utf8(snapshotContainer.body_utf8) !==
+        (snapshotContainer.snapshot as JsonObject).body_utf8_sha256
+    ) return rejected(rejection('invalid_cross_input_binding', '/pr_snapshot'))
+    const snapshot = snapshotContainer.snapshot as JsonObject
+    if (
+      snapshot.pr_url !== identity.pr_url ||
+      snapshot.pr_number !== identity.pr_number ||
+      snapshot.head !== identity.expected_head ||
+      snapshot.base !== identity.expected_base
+    ) return rejected(rejection('invalid_cross_input_binding', '/pr_snapshot/snapshot'))
+    const priorAdmission = validatePriorAttemptAuthoritySetInputV1(value.prior_attempt_authorities)
+    if (!priorAdmission.accepted) {
+      return rejected(rejection(
+        priorAdmission.rejection.code,
+        `/prior_attempt_authorities${priorAdmission.rejection.path}`,
+      ))
+    }
+    const observationAdmission =
+      validatePriorAttemptReconciliationObservationInputV1(
+        value.prior_attempt_reconciliation_observation,
+      )
+    if (!observationAdmission.accepted) {
+      return rejected(rejection(
+        observationAdmission.rejection.code,
+        `/prior_attempt_reconciliation_observation${observationAdmission.rejection.path}`,
+      ))
+    }
+    const prior = priorAdmission.value as JsonObject
+    const records = prior.records as JsonObject[]
+    const observation = observationAdmission.value as JsonObject
+    if (
+      (records.length === 0 && observation.state !== 'not_required') ||
+      (records.length > 1 && observation.state !== 'not_required')
+    ) return rejected(rejection('invalid_conditional_matrix', '/prior_attempt_reconciliation_observation/state'))
+    issue = validatePriorReceipt(value.prior_receipt, '/prior_receipt')
+    if (issue) return rejected(issue)
+    issue = validateReceiptAuthority(value.receipt_authority, '/receipt_authority')
+    if (issue) return rejected(issue)
+    issue = validateReceiptStoreCapability(value.receipt_store_capability, '/receipt_store_capability')
+    if (issue) return rejected(issue)
+    issue = validateTransport(value.transport_capability, '/transport_capability')
+    if (issue) return rejected(issue)
+    const receiptAuthority = value.receipt_authority as JsonObject
+    const receiptStore = value.receipt_store_capability as JsonObject
+    const priorReceipt = value.prior_receipt as JsonObject
+    if (
+      (receiptAuthority.state === 'not_authorized' &&
+        (receiptStore.state !== 'not_required' || priorReceipt.state !== 'absent')) ||
+      (receiptAuthority.state === 'authorized' &&
+        (receiptAuthority.owner_role !== identity.authorized_metadata_role ||
+          receiptStore.state !== 'admitted'))
+    ) return rejected(rejection('invalid_conditional_matrix', '/receipt_store_capability'))
+    if (evaluatorResult.kind === 'require_gate_status_update') {
+      const projection = projectionAdmission.value as JsonObject
+      if (
+        (projection.current_head as JsonObject).value !== identity.expected_head ||
+        (projection.pr_state_draft as JsonObject).value !==
+          (snapshot.draft === true ? 'open_draft' : 'open_ready') ||
+        evaluatorResult.requirement.pr !== identity.pr_url ||
+        evaluatorResult.requirement.current_head !== identity.expected_head ||
+        evaluatorResult.requirement.authorized_metadata_role !== identity.authorized_metadata_role ||
+        (projection.current_blocker_next_gate as JsonObject).blocker_id !==
+          (evaluatorResult.requirement.current_blocker ?? null) ||
+        (projection.current_blocker_next_gate as JsonObject).next_owner !==
+          (evaluatorResult.requirement.next_gate_owner ?? null)
+      ) return rejected(rejection('invalid_cross_input_binding', '/projection_authorization/projection'))
+    }
+    const publicationKey = buildGateStatusPublicationKeyV1(value)
+    if (publicationKey === null || prior.publication_key !== publicationKey) {
+      return rejected(rejection('invalid_cross_input_binding', '/prior_attempt_authorities/publication_key'))
+    }
+    if (receiptStore.state === 'admitted') {
+      const capability = receiptStore.value as JsonObject
+      if (capability.unique_key !== publicationKey) {
+        return rejected(rejection('invalid_cross_input_binding', '/receipt_store_capability/value/unique_key'))
+      }
+    }
+    return accepted(value)
+  } catch {
+    return rejected(rejection('invalid_type_or_format', ''))
+  }
+}
+
+export function validateGateStatusPublicationReceiptV1(
+  input: unknown,
+): GateStatusAdmissionResultV1<GateStatusPublicationReceiptV1> {
+  try {
+    const issue = exact(
+      input,
+      [
+        'contract_version',
+        'publication_key',
+        'successful_operation_key',
+        'task_id',
+        'assignment_revision',
+        'repository',
+        'pr_url',
+        'pr_number',
+        'head',
+        'base',
+        'authorized_metadata_role',
+        'projection_authority_url',
+        'evaluator_input_fingerprint',
+        'evaluator_result_sha256',
+        'intended_projection_sha256',
+        'observed_projection_sha256',
+        'pre_snapshot',
+        'post_snapshot',
+        'before_non_gate_sha256',
+        'after_non_gate_sha256',
+        'canonical_citation_urls',
+        'result_kind',
+        'receipt_url',
+      ],
+      '',
+    )
+    if (issue) return rejected(issue)
+    const value = input as JsonObject
+    let nested = validateSnapshot(value.pre_snapshot, '/pre_snapshot')
+    if (nested) return rejected(nested)
+    nested = validateSnapshot(value.post_snapshot, '/post_snapshot')
+    if (nested) return rejected(nested)
+    nested = validateStringSet(value.canonical_citation_urls, '/canonical_citation_urls', canonicalUrl)
+    if (nested) return rejected(nested)
+    return value.contract_version === GATE_STATUS_PUBLICATION_RECEIPT_V1 &&
+      /^gate-status-publication-v1:sha256:[0-9a-f]{64}$/.test(String(value.publication_key)) &&
+      /^(?:gate-status-publication-read-only-operation-v1|gate-status-publication-atomic-operation-v1):sha256:[0-9a-f]{64}$/.test(
+        String(value.successful_operation_key),
+      ) &&
+      nonEmpty(value.task_id) &&
+      Number.isInteger(value.assignment_revision) &&
+      Number(value.assignment_revision) > 0 &&
+      value.repository === 'whatrune/sd-prompt-studio' &&
+      prUrl(value.pr_url) &&
+      Number.isInteger(value.pr_number) &&
+      Number(value.pr_number) > 0 &&
+      fullSha(value.head) &&
+      fullSha(value.base) &&
+      role(value.authorized_metadata_role) &&
+      canonicalUrl(value.projection_authority_url) &&
+      nonEmpty(value.evaluator_input_fingerprint) &&
+      digest(value.evaluator_result_sha256) &&
+      digest(value.intended_projection_sha256) &&
+      value.observed_projection_sha256 === value.intended_projection_sha256 &&
+      digest(value.before_non_gate_sha256) &&
+      value.after_non_gate_sha256 === value.before_non_gate_sha256 &&
+      ['applied', 'already_current'].includes(String(value.result_kind)) &&
+      canonicalUrl(value.receipt_url)
+      ? accepted(value)
+      : rejected(rejection('invalid_cross_input_binding', ''))
+  } catch {
+    return rejected(rejection('invalid_type_or_format', ''))
+  }
+}
+
+const stages = new Set([
+  'S1_structural_admission',
+  'S2_assignment_authority',
+  'S3_identity_binding',
+  'S4_evaluator_admission',
+  'S5_projection_admission',
+  'S6_evidence_admission',
+  'S7_stop_consistency',
+  'S8_fresh_pr_read',
+  'S9_section_admission',
+  'S10_render_and_publication_key',
+  'S11_prior_attempt_set_admission',
+  'S12_receipt_authority_and_store_admission',
+  'S13_operation_binding',
+  'S14_prior_attempt_reconciliation_observation',
+  'S15_transport_capability',
+  'S16_atomic_precondition',
+  'S17_single_write',
+  'S18_body_read_only_reconciliation',
+  'S19_receipt_atomic_create_or_get',
+  'S20_result_admission',
+])
+
+const diagnosticCatalog = {
+  structural_admission_failed: 'Gate Status publication input failed structural admission.',
+  assignment_authority_unavailable: 'Task Assignment or projection authority is unavailable.',
+  metadata_transport_unauthorized: 'The metadata transport action is not authorized.',
+  identity_mismatch: 'Publication identity does not match admitted authority.',
+  evaluator_authority_invalid: 'The evaluator result is not admissible publication authority.',
+  gate_status_update_not_required: 'The evaluator result does not require Gate Status publication.',
+  projection_authority_invalid: 'The desired projection is not exactly authorized.',
+  canonical_evidence_invalid: 'Required canonical evidence is missing, stale, or invalid.',
+  canonical_conflict: 'Admitted authority records conflict.',
+  authority_projection_conflict: 'The desired projection conflicts with admitted authority.',
+  forbidden_authority_smuggling: 'The request contains forbidden decision or protected-action authority.',
+  fresh_pr_unavailable: 'Fresh pull request state is unavailable.',
+  authority_drift: 'Fresh pull request state differs from admitted authority.',
+  gate_status_section_invalid: 'The Gate Status section is missing, duplicate, ambiguous, or malformed.',
+  non_gate_mutation_detected: 'The candidate would change content outside Gate Status.',
+  atomic_precondition_unavailable: 'The provider does not offer an admitted atomic body-write precondition.',
+  compare_and_swap_failed: 'The admitted atomic write precondition did not match.',
+  transport_unavailable_before_write: 'The transport failed before write acceptance.',
+  prior_attempt_authority_unavailable: 'The canonical prior publication attempt is unavailable.',
+  prior_attempt_authority_invalid: 'The canonical prior publication attempt does not match this publication.',
+  prior_attempt_observation_required: 'A valid single prior attempt requires a reconciliation observation.',
+  receipt_capability_unavailable: 'Authorized receipt publication requires an admitted atomic create-or-get capability.',
+  receipt_capability_invalid: 'The receipt-store capability does not match its reviewed authority.',
+  internal_failure_before_submission: 'An internal failure occurred before write submission.',
+  write_outcome_unknown: 'Write acceptance cannot be determined without fresh reconciliation.',
+  post_write_read_unavailable: 'Post-write state is unavailable for verification.',
+  readback_mismatch: 'Read-back state does not equal the intended safe projection.',
+  receipt_indeterminate: 'Receipt publication requires read-only reconciliation.',
+  internal_state_indeterminate: 'Internal state after submission requires read-only reconciliation.',
+  receipt_conflict: 'An existing receipt conflicts with this publication.',
+  receipt_store_unavailable_after_body_verified: 'The receipt store failed after the body state was verified.',
+} as const
+
+type DiagnosticCodeV1 = keyof typeof diagnosticCatalog
+const stopCodes = new Set<DiagnosticCodeV1>([
+  'structural_admission_failed',
+  'assignment_authority_unavailable',
+  'metadata_transport_unauthorized',
+  'identity_mismatch',
+  'evaluator_authority_invalid',
+  'gate_status_update_not_required',
+  'projection_authority_invalid',
+  'canonical_evidence_invalid',
+  'canonical_conflict',
+  'authority_projection_conflict',
+  'forbidden_authority_smuggling',
+  'fresh_pr_unavailable',
+  'authority_drift',
+  'gate_status_section_invalid',
+  'non_gate_mutation_detected',
+  'atomic_precondition_unavailable',
+  'compare_and_swap_failed',
+  'transport_unavailable_before_write',
+  'prior_attempt_authority_unavailable',
+  'prior_attempt_authority_invalid',
+  'prior_attempt_observation_required',
+  'receipt_capability_unavailable',
+  'receipt_capability_invalid',
+  'internal_failure_before_submission',
+])
+const reconciliationCodes = new Set<DiagnosticCodeV1>([
+  'write_outcome_unknown',
+  'post_write_read_unavailable',
+  'readback_mismatch',
+  'receipt_indeterminate',
+  'internal_state_indeterminate',
+  'receipt_conflict',
+  'receipt_store_unavailable_after_body_verified',
+])
+
+const validateDiagnostic = (
+  value: unknown,
+  path: string,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  const issue = exact(value, ['code', 'path', 'message', 'evidence_urls'], path)
+  if (issue) return issue
+  const diagnostic = value as JsonObject
+  if (
+    typeof diagnostic.code !== 'string' ||
+    !hasOwn(diagnosticCatalog, diagnostic.code) ||
+    typeof diagnostic.path !== 'string' ||
+    diagnostic.message !== diagnosticCatalog[diagnostic.code as DiagnosticCodeV1]
+  ) return rejection('invalid_conditional_matrix', path)
+  return validateStringSet(diagnostic.evidence_urls, `${path}/evidence_urls`, canonicalUrl)
+}
+
+const validateIdentityBinding = (
+  value: unknown,
+  path: string,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  if (!isObject(value)) return rejection('invalid_type_or_format', path)
+  if (value.state === 'unavailable') return exact(value, ['state'], path)
+  if (value.state !== 'admitted') return rejection('invalid_enum', `${path}/state`)
+  const issue = exact(value, ['state', 'value'], path)
+  if (issue) return issue
+  return exact(
+    value.value,
+    [
+      'task_id',
+      'assignment_revision',
+      'repository',
+      'task_assignment_url',
+      'projection_authority_url',
+      'authorized_metadata_role',
+      'authorized_transport_action',
+      'pr_url',
+      'pr_number',
+      'branch',
+      'worktree',
+      'expected_head',
+      'expected_base',
+    ],
+    `${path}/value`,
+  )
+}
+
+const validateSimpleBinding = (
+  value: unknown,
+  path: string,
+  admittedState: string,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  if (!isObject(value)) return rejection('invalid_type_or_format', path)
+  if (value.state === 'unavailable') return exact(value, ['state'], path)
+  if (value.state !== admittedState) return rejection('invalid_enum', `${path}/state`)
+  return exact(value, ['state', 'value'], path)
+}
+
+const validatePublicationBinding = (
+  value: unknown,
+  path: string,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  if (!isObject(value)) return rejection('invalid_type_or_format', path)
+  if (value.state === 'unavailable') return exact(value, ['state'], path)
+  const issue = exact(
+    value,
+    ['state', 'publication_key', 'intended_projection_sha256', 'canonical_citation_urls'],
+    path,
+  )
+  if (issue) return issue
+  if (
+    value.state !== 'available' ||
+    !/^gate-status-publication-v1:sha256:[0-9a-f]{64}$/.test(String(value.publication_key)) ||
+    !digest(value.intended_projection_sha256)
+  ) return rejection('invalid_type_or_format', path)
+  return validateStringSet(value.canonical_citation_urls, `${path}/canonical_citation_urls`, canonicalUrl)
+}
+
+const validateWriteState = (
+  value: unknown,
+  path: string,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  const issue = exact(value, ['attempted', 'observed', 'verified', 'confirmation'], path)
+  if (issue) return issue
+  const state = value as JsonObject
+  const key = `${state.attempted}/${state.observed}/${state.verified}/${state.confirmation}`
+  return new Set([
+    'false/false/false/none',
+    'false/false/true/already_current_read',
+    'true/false/false/submission_indeterminate',
+    'true/true/false/readback_mismatch',
+    'true/true/true/direct_response_and_readback',
+    'true/true/true/reconciled_after_indeterminate',
+  ]).has(key)
+    ? undefined
+    : rejection('invalid_conditional_matrix', path)
+}
+
+const validateOperationBinding = (
+  value: unknown,
+  path: string,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  if (!isObject(value)) return rejection('invalid_type_or_format', path)
+  if (value.state === 'unavailable') return exact(value, ['state'], path)
+  const issue = exact(value, ['state', 'read_only_evaluation', 'atomic_attempt'], path)
+  if (issue) return issue
+  if (value.state !== 'available') return rejection('invalid_enum', `${path}/state`)
+  const readOnlyIssue = exact(
+    value.read_only_evaluation,
+    ['projection', 'projection_sha256', 'operation_key'],
+    `${path}/read_only_evaluation`,
+  )
+  if (readOnlyIssue) return readOnlyIssue
+  const readOnly = value.read_only_evaluation as JsonObject
+  if (
+    !isObject(readOnly.projection) ||
+    !digest(readOnly.projection_sha256) ||
+    readOnly.projection_sha256 !== gateStatusJcsSha256V1(readOnly.projection) ||
+    readOnly.operation_key !==
+      `gate-status-publication-read-only-operation-v1:${readOnly.projection_sha256}`
+  ) return rejection('invalid_cross_input_binding', `${path}/read_only_evaluation`)
+  if (!isObject(value.atomic_attempt)) {
+    return rejection('invalid_type_or_format', `${path}/atomic_attempt`)
+  }
+  const atomic = value.atomic_attempt
+  if (atomic.state === 'absent') return exact(atomic, ['state'], `${path}/atomic_attempt`)
+  const atomicIssue = exact(
+    atomic,
+    ['state', 'authority_url', 'projection', 'projection_sha256', 'operation_key'],
+    `${path}/atomic_attempt`,
+  )
+  if (atomicIssue) return atomicIssue
+  const projectionAdmission = validateAtomicOperationKeyProjectionV1(atomic.projection)
+  if (!projectionAdmission.accepted) {
+    return rejection(
+      projectionAdmission.rejection.code,
+      `${path}/atomic_attempt/projection${projectionAdmission.rejection.path}`,
+    )
+  }
+  const projectionSha = gateStatusJcsSha256V1(projectionAdmission.value)
+  return ['direct', 'prior_indeterminate'].includes(String(atomic.state)) &&
+    canonicalUrl(atomic.authority_url) &&
+    atomic.projection_sha256 === projectionSha &&
+    atomic.operation_key === `gate-status-publication-atomic-operation-v1:${projectionSha}`
+    ? undefined
+    : rejection('invalid_cross_input_binding', `${path}/atomic_attempt`)
+}
+
+const validatePriorAttemptBinding = (
+  value: unknown,
+  path: string,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  if (!isObject(value)) return rejection('invalid_type_or_format', path)
+  if (value.state === 'unavailable' || value.state === 'absent') return exact(value, ['state'], path)
+  const issue = exact(
+    value,
+    [
+      'state',
+      'authority_set_url',
+      'authority_url',
+      'publication_key',
+      'operation_key',
+      'submitted_at',
+      'transport_capability_ref',
+    ],
+    path,
+  )
+  if (issue) return issue
+  return value.state === 'indeterminate' &&
+    canonicalUrl(value.authority_set_url) &&
+    canonicalUrl(value.authority_url) &&
+    /^gate-status-publication-v1:sha256:[0-9a-f]{64}$/.test(String(value.publication_key)) &&
+    /^gate-status-publication-atomic-operation-v1:sha256:[0-9a-f]{64}$/.test(
+      String(value.operation_key),
+    ) &&
+    utc(value.submitted_at) &&
+    canonicalUrl(value.transport_capability_ref)
+    ? undefined
+    : rejection('invalid_type_or_format', path)
+}
+
+const validateReceiptStoreBinding = (
+  value: unknown,
+  path: string,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  if (!isObject(value)) return rejection('invalid_type_or_format', path)
+  if (value.state === 'unavailable' || value.state === 'not_required') return exact(value, ['state'], path)
+  const issue = exact(
+    value,
+    [
+      'state',
+      'capability_authority_url',
+      'provider',
+      'adapter_id',
+      'adapter_version',
+      'unique_key',
+    ],
+    path,
+  )
+  if (issue) return issue
+  return value.state === 'admitted' &&
+    canonicalUrl(value.capability_authority_url) &&
+    nonEmpty(value.provider) &&
+    nonEmpty(value.adapter_id) &&
+    nonEmpty(value.adapter_version) &&
+    /^gate-status-publication-v1:sha256:[0-9a-f]{64}$/.test(String(value.unique_key))
+    ? undefined
+    : rejection('invalid_type_or_format', path)
+}
+
+const validateReceiptDisposition = (
+  value: unknown,
+  path: string,
+): GateStatusAdmissionRejectionV1 | undefined => {
+  if (!isObject(value)) return rejection('invalid_type_or_format', path)
+  if (value.state === 'not_authorized') return exact(value, ['state'], path)
+  if (value.state === 'created' || value.state === 'reused') {
+    const issue = exact(value, ['state', 'owner_role', 'receipt_url', 'receipt_key'], path)
+    if (issue) return issue
+    return role(value.owner_role) &&
+      canonicalUrl(value.receipt_url) &&
+      /^gate-status-publication-v1:sha256:[0-9a-f]{64}$/.test(String(value.receipt_key))
+      ? undefined
+      : rejection('invalid_type_or_format', path)
+  }
+  if (value.state === 'not_performed') {
+    const issue = exact(value, ['state', 'reason'], path)
+    if (issue) return issue
+    return [
+      'publication_stopped',
+      'write_not_verified',
+      'receipt_store_failed_before_commit',
+      'receipt_conflict',
+    ].includes(String(value.reason))
+      ? undefined
+      : rejection('invalid_enum', `${path}/reason`)
+  }
+  if (value.state === 'verification_required') {
+    const issue = exact(value, ['state', 'owner_role', 'publication_key', 'reason'], path)
+    if (issue) return issue
+    return role(value.owner_role) &&
+      /^gate-status-publication-v1:sha256:[0-9a-f]{64}$/.test(String(value.publication_key)) &&
+      value.reason === 'receipt_store_outcome_indeterminate'
+      ? undefined
+      : rejection('invalid_type_or_format', path)
+  }
+  return rejection('invalid_enum', `${path}/state`)
+}
+
+export function validateGateStatusPublicationResultV1(
+  input: unknown,
+): GateStatusAdmissionResultV1<GateStatusPublicationResultV1> {
+  try {
+    const root = exact(
+      input,
+      [
+        'contract_version',
+        'kind',
+        'identity_binding',
+        'evaluator_binding',
+        'publication_binding',
+        'operation_binding',
+        'transport_binding',
+        'prior_attempt_binding',
+        'write_state',
+        'receipt_store_binding',
+        'receipt_disposition',
+        'diagnostics',
+        'branch',
+      ],
+      '',
+    )
+    if (root) return rejected(root)
+    const value = input as JsonObject
+    if (
+      value.contract_version !== GATE_STATUS_PUBLICATION_RESULT_V1 ||
+      !['applied', 'already_current', 'stopped', 'reconciliation_required'].includes(
+        String(value.kind),
+      )
+    ) return rejected(rejection('invalid_enum', '/kind'))
+    let issue = validateIdentityBinding(value.identity_binding, '/identity_binding')
+    if (issue) return rejected(issue)
+    issue = validateSimpleBinding(value.evaluator_binding, '/evaluator_binding', 'admitted')
+    if (issue) return rejected(issue)
+    issue = validatePublicationBinding(value.publication_binding, '/publication_binding')
+    if (issue) return rejected(issue)
+    issue = validateOperationBinding(value.operation_binding, '/operation_binding')
+    if (issue) return rejected(issue)
+    issue = validateSimpleBinding(value.transport_binding, '/transport_binding', 'admitted')
+    if (issue) return rejected(issue)
+    issue = validatePriorAttemptBinding(value.prior_attempt_binding, '/prior_attempt_binding')
+    if (issue) return rejected(issue)
+    issue = validateWriteState(value.write_state, '/write_state')
+    if (issue) return rejected(issue)
+    issue = validateReceiptStoreBinding(value.receipt_store_binding, '/receipt_store_binding')
+    if (issue) return rejected(issue)
+    issue = validateReceiptDisposition(value.receipt_disposition, '/receipt_disposition')
+    if (issue) return rejected(issue)
+    if (!Array.isArray(value.diagnostics)) {
+      return rejected(rejection('invalid_type_or_format', '/diagnostics'))
+    }
+    if (
+      ((value.kind === 'applied' || value.kind === 'already_current') &&
+        value.diagnostics.length !== 0) ||
+      ((value.kind === 'stopped' || value.kind === 'reconciliation_required') &&
+        value.diagnostics.length !== 1)
+    ) return rejected(rejection('invalid_conditional_matrix', '/diagnostics'))
+    for (let index = 0; index < value.diagnostics.length; index += 1) {
+      issue = validateDiagnostic(value.diagnostics[index], `/diagnostics/${index}`)
+      if (issue) return rejected(issue)
+    }
+    if (!isObject(value.branch)) return rejected(rejection('invalid_type_or_format', '/branch'))
+    const branch = value.branch
+    if (value.kind === 'applied') {
+      issue = exact(branch, ['applied'], '/branch')
+      if (issue) return rejected(issue)
+      issue = exact(
+        branch.applied,
+        [
+          'post_snapshot',
+          'observed_projection_sha256',
+          'before_non_gate_sha256',
+          'after_non_gate_sha256',
+        ],
+        '/branch/applied',
+      )
+      if (issue) return rejected(issue)
+      const applied = branch.applied as JsonObject
+      issue = validateSnapshot(applied.post_snapshot, '/branch/applied/post_snapshot')
+      if (issue) return rejected(issue)
+      if (
+        !digest(applied.observed_projection_sha256) ||
+        !digest(applied.before_non_gate_sha256) ||
+        applied.after_non_gate_sha256 !== applied.before_non_gate_sha256
+      ) return rejected(rejection('invalid_cross_input_binding', '/branch/applied'))
+    } else if (value.kind === 'already_current') {
+      issue = exact(branch, ['already_current'], '/branch')
+      if (issue) return rejected(issue)
+      issue = exact(
+        branch.already_current,
+        [
+          'current_snapshot',
+          'observed_projection_sha256',
+          'observed_non_gate_sha256',
+          'current_state_basis',
+        ],
+        '/branch/already_current',
+      )
+      if (issue) return rejected(issue)
+      const current = branch.already_current as JsonObject
+      issue = validateSnapshot(current.current_snapshot, '/branch/already_current/current_snapshot')
+      if (issue) return rejected(issue)
+      if (
+        !digest(current.observed_projection_sha256) ||
+        !digest(current.observed_non_gate_sha256) ||
+        !['initial_fresh_read', 'authorized_metadata_role_correction'].includes(
+          String(current.current_state_basis),
+        )
+      ) return rejected(rejection('invalid_conditional_matrix', '/branch/already_current'))
+    } else if (value.kind === 'stopped') {
+      issue = exact(branch, ['stopped'], '/branch')
+      if (issue) return rejected(issue)
+      issue = exact(
+        branch.stopped,
+        ['stop_code', 'failed_stage', 'recovery_owner', 'required_evidence_urls'],
+        '/branch/stopped',
+      )
+      if (issue) return rejected(issue)
+      const stopped = branch.stopped as JsonObject
+      if (
+        typeof stopped.stop_code !== 'string' ||
+        !stopCodes.has(stopped.stop_code as DiagnosticCodeV1) ||
+        typeof stopped.failed_stage !== 'string' ||
+        !stages.has(stopped.failed_stage) ||
+        !role(stopped.recovery_owner)
+      ) return rejected(rejection('invalid_conditional_matrix', '/branch/stopped'))
+      issue = validateStringSet(
+        stopped.required_evidence_urls,
+        '/branch/stopped/required_evidence_urls',
+        canonicalUrl,
+      )
+      if (issue) return rejected(issue)
+      const diagnostic = value.diagnostics[0] as JsonObject
+      if (diagnostic.code !== stopped.stop_code) {
+        return rejected(rejection('invalid_cross_input_binding', '/diagnostics/0/code'))
+      }
+    } else {
+      issue = exact(branch, ['reconciliation_required'], '/branch')
+      if (issue) return rejected(issue)
+      issue = exact(
+        branch.reconciliation_required,
+        [
+          'reconciliation_code',
+          'last_observation',
+          'reconciliation_owner',
+          'procedure',
+          'retry_write_allowed',
+          'required_evidence_urls',
+        ],
+        '/branch/reconciliation_required',
+      )
+      if (issue) return rejected(issue)
+      const reconciliation = branch.reconciliation_required as JsonObject
+      if (
+        typeof reconciliation.reconciliation_code !== 'string' ||
+        !reconciliationCodes.has(reconciliation.reconciliation_code as DiagnosticCodeV1) ||
+        !role(reconciliation.reconciliation_owner) ||
+        reconciliation.procedure !== 'fresh_read_only' ||
+        reconciliation.retry_write_allowed !== false ||
+        !isObject(reconciliation.last_observation)
+      ) return rejected(rejection('invalid_conditional_matrix', '/branch/reconciliation_required'))
+      if (reconciliation.last_observation.state === 'unavailable') {
+        issue = exact(reconciliation.last_observation, ['state'], '/branch/reconciliation_required/last_observation')
+      } else {
+        issue = exact(
+          reconciliation.last_observation,
+          ['state', 'snapshot', 'observed_projection_sha256', 'observed_non_gate_sha256'],
+          '/branch/reconciliation_required/last_observation',
+        )
+        if (!issue) {
+          const observation = reconciliation.last_observation
+          issue = validateSnapshot(
+            observation.snapshot,
+            '/branch/reconciliation_required/last_observation/snapshot',
+          )
+          if (
+            !issue &&
+            !(
+              (observation.observed_projection_sha256 === null ||
+                digest(observation.observed_projection_sha256)) &&
+              (observation.observed_non_gate_sha256 === null ||
+                digest(observation.observed_non_gate_sha256))
+            )
+          ) issue = rejection('invalid_type_or_format', '/branch/reconciliation_required/last_observation')
+        }
+      }
+      if (issue) return rejected(issue)
+      issue = validateStringSet(
+        reconciliation.required_evidence_urls,
+        '/branch/reconciliation_required/required_evidence_urls',
+        canonicalUrl,
+      )
+      if (issue) return rejected(issue)
+      const diagnostic = value.diagnostics[0] as JsonObject
+      if (diagnostic.code !== reconciliation.reconciliation_code) {
+        return rejected(rejection('invalid_cross_input_binding', '/diagnostics/0/code'))
+      }
+    }
+    return accepted(value)
+  } catch {
+    return rejected(rejection('invalid_type_or_format', ''))
+  }
+}
+
+type RuntimeContext = {
+  identity_binding: JsonObject
+  evaluator_binding: JsonObject
+  publication_binding: JsonObject
+  operation_binding: JsonObject
+  transport_binding: JsonObject
+  prior_attempt_binding: JsonObject
+  receipt_store_binding: JsonObject
+}
+
+const unavailableContext = (): RuntimeContext => ({
+  identity_binding: { state: 'unavailable' },
+  evaluator_binding: { state: 'unavailable' },
+  publication_binding: { state: 'unavailable' },
+  operation_binding: { state: 'unavailable' },
+  transport_binding: { state: 'unavailable' },
+  prior_attempt_binding: { state: 'unavailable' },
+  receipt_store_binding: { state: 'unavailable' },
+})
+
+const diagnostic = (
+  code: DiagnosticCodeV1,
+  path: string,
+  evidenceUrls: readonly string[],
+) => ({
+  code,
+  path,
+  message: diagnosticCatalog[code],
+  evidence_urls: [...evidenceUrls].sort(byteCompare),
+})
+
+const admitResult = (candidate: JsonObject, terminal: JsonObject): GateStatusPublicationResultV1 => {
+  const admission = validateGateStatusPublicationResultV1(candidate)
+  if (admission.accepted) return admission.value
+  const terminalAdmission = validateGateStatusPublicationResultV1(terminal)
+  return terminalAdmission.accepted ? terminalAdmission.value : cloneFreeze(terminal)
+}
+
+const stoppedResult = (
+  context: RuntimeContext,
+  code: DiagnosticCodeV1,
+  stage: string,
+  path: string,
+  recoveryOwner: RoleV1,
+  evidenceUrls: readonly string[],
+): GateStatusPublicationResultV1 => {
+  const terminal = {
+    contract_version: GATE_STATUS_PUBLICATION_RESULT_V1,
+    kind: 'stopped',
+    ...unavailableContext(),
+    write_state: { attempted: false, observed: false, verified: false, confirmation: 'none' },
+    receipt_disposition: { state: 'not_performed', reason: 'publication_stopped' },
+    diagnostics: [diagnostic('internal_failure_before_submission', '', [])],
+    branch: {
+      stopped: {
+        stop_code: 'internal_failure_before_submission',
+        failed_stage: 'S1_structural_admission',
+        recovery_owner: 'backend_implementer',
+        required_evidence_urls: [],
+      },
+    },
+  }
+  const candidate = {
+    contract_version: GATE_STATUS_PUBLICATION_RESULT_V1,
+    kind: 'stopped',
+    ...context,
+    write_state: { attempted: false, observed: false, verified: false, confirmation: 'none' },
+    receipt_disposition: { state: 'not_performed', reason: 'publication_stopped' },
+    diagnostics: [diagnostic(code, path, evidenceUrls)],
+    branch: {
+      stopped: {
+        stop_code: code,
+        failed_stage: stage,
+        recovery_owner: recoveryOwner,
+        required_evidence_urls: [...evidenceUrls].sort(byteCompare),
+      },
+    },
+  }
+  return admitResult(candidate, terminal)
+}
+
+const reconciliationResult = (
+  context: RuntimeContext,
+  code: DiagnosticCodeV1,
+  writeState: JsonObject,
+  receiptDisposition: JsonObject,
+  owner: RoleV1,
+  evidenceUrls: readonly string[],
+  lastObservation: JsonObject,
+): GateStatusPublicationResultV1 => {
+  const terminal = stoppedResult(
+    unavailableContext(),
+    'internal_failure_before_submission',
+    'S1_structural_admission',
+    '',
+    'backend_implementer',
+    [],
+  ) as JsonObject
+  const candidate = {
+    contract_version: GATE_STATUS_PUBLICATION_RESULT_V1,
+    kind: 'reconciliation_required',
+    ...context,
+    write_state: writeState,
+    receipt_disposition: receiptDisposition,
+    diagnostics: [diagnostic(code, '/branch/reconciliation_required', evidenceUrls)],
+    branch: {
+      reconciliation_required: {
+        reconciliation_code: code,
+        last_observation: lastObservation,
+        reconciliation_owner: owner,
+        procedure: 'fresh_read_only',
+        retry_write_allowed: false,
+        required_evidence_urls: [...evidenceUrls].sort(byteCompare),
+      },
+    },
+  }
+  return admitResult(candidate, terminal)
+}
+
+const validCanonicalRead = (
+  result: unknown,
+  url: string,
+): result is Extract<CanonicalRecordReadResultV1, { readonly state: 'available' }> => {
+  if (!isObject(result)) return false
+  if (result.state === 'unavailable') return exact(result, ['state'], '') === undefined
+  return exact(result, ['state', 'canonical_url', 'fetched_content_sha256', 'content'], '') === undefined &&
+    result.state === 'available' &&
+    result.canonical_url === url &&
+    digest(result.fetched_content_sha256)
+}
+
+const canonicalReadUnavailable = (result: unknown) =>
+  isObject(result) && result.state === 'unavailable' && exact(result, ['state'], '') === undefined
+
+const validFreshPrRead = (
+  result: unknown,
+): result is Extract<FreshPrReadResultV1, { readonly state: 'available' }> => {
+  if (!isObject(result) || result.state !== 'available') return false
+  if (exact(result, ['state', 'snapshot', 'body_utf8'], '') !== undefined) return false
+  return validateSnapshot(result.snapshot, '/snapshot') === undefined &&
+    typeof result.body_utf8 === 'string' &&
+    sha256Bytes(new TextEncoder().encode(result.body_utf8)) ===
+      (result.snapshot as JsonObject).body_utf8_sha256
+}
+
+const freshPrUnavailable = (result: unknown) =>
+  isObject(result) && result.state === 'unavailable' && exact(result, ['state'], '') === undefined
+
+const atomicResultState = (result: unknown): string | null => {
+  if (!isObject(result) || typeof result.state !== 'string') return null
+  if (result.state === 'applied') {
+    return exact(result, ['state', 'normalized_revision_identity_sha256'], '') === undefined &&
+      digest(result.normalized_revision_identity_sha256)
+      ? result.state
+      : null
+  }
+  return ['precondition_failed', 'failed_before_write', 'indeterminate'].includes(result.state) &&
+    exact(result, ['state'], '') === undefined
+    ? result.state
+    : null
+}
+
+const receiptResultState = (result: unknown): string | null => {
+  if (!isObject(result) || typeof result.state !== 'string') return null
+  if (result.state === 'created' || result.state === 'existing_exact') {
+    if (exact(result, ['state', 'receipt_url', 'receipt'], '') !== undefined) return null
+    return canonicalUrl(result.receipt_url) &&
+      validateGateStatusPublicationReceiptV1(result.receipt).accepted
+      ? result.state
+      : null
+  }
+  return ['existing_conflict', 'failed_before_commit', 'indeterminate'].includes(result.state) &&
+    exact(result, ['state'], '') === undefined
+    ? result.state
+    : null
+}
+
+const authorityRecord = (identity: JsonObject) => ({
+  task_id: identity.task_id,
+  assignment_revision: identity.assignment_revision,
+  repository: identity.repository,
+  assigned_role: identity.authorized_metadata_role,
+  allowed_actions: ['publish_gate_status_projection'],
+  forbidden_actions: [],
+})
+
+const evidenceUrlsFrom = (input: JsonObject): string[] =>
+  (input.evidence_records as JsonObject[]).map((item) => String(item.canonical_url))
+
+const publicationContext = (input: JsonObject): RuntimeContext => {
+  const identity = input.identity as JsonObject
+  const evaluator = input.evaluator as JsonObject
+  const result = evaluator.result as JsonObject
+  const publicationKey = buildGateStatusPublicationKeyV1(input)
+  const projection = (input.projection_authorization as JsonObject).projection
+  return {
+    identity_binding: { state: 'admitted', value: identity },
+    evaluator_binding: {
+      state: 'admitted',
+      value: {
+        contract_version: result.contract_version,
+        input_fingerprint: result.input_fingerprint,
+        result_sha256: evaluator.result_sha256,
+      },
+    },
+    publication_binding: {
+      state: 'available',
+      publication_key: publicationKey,
+      intended_projection_sha256: gateStatusJcsSha256V1(projection),
+      canonical_citation_urls: evidenceUrlsFrom(input),
+    },
+    operation_binding: { state: 'unavailable' },
+    transport_binding: { state: 'unavailable' },
+    prior_attempt_binding: { state: 'unavailable' },
+    receipt_store_binding: { state: 'unavailable' },
+  }
+}
+
+const exactContentRead = async (
+  ports: GateStatusPublisherPortsV1,
+  url: string,
+  expectedContent: unknown,
+  expectedDigest?: string,
+): Promise<'valid' | 'unavailable' | 'invalid'> => {
+  let result: unknown
+  try {
+    result = await ports.read_canonical_record(url)
+  } catch {
+    return 'unavailable'
+  }
+  if (canonicalReadUnavailable(result)) return 'unavailable'
+  if (!validCanonicalRead(result, url)) return 'invalid'
+  if (
+    canonicalize(result.content) !== canonicalize(expectedContent) ||
+    (expectedDigest !== undefined && result.fetched_content_sha256 !== expectedDigest)
+  ) return 'invalid'
+  return 'valid'
+}
+
+const makeReceiptCandidate = (
+  input: JsonObject,
+  context: RuntimeContext,
+  operationKey: string,
+  preSnapshot: JsonObject,
+  postSnapshot: JsonObject,
+  nonGate: string,
+  resultKind: 'applied' | 'already_current',
+): GateStatusPublicationReceiptV1 => {
+  const identity = input.identity as JsonObject
+  const evaluator = input.evaluator as JsonObject
+  const evaluatorResult = evaluator.result as JsonObject
+  const publication = context.publication_binding
+  const authority = input.receipt_authority as JsonObject
+  return cloneFreeze({
+    contract_version: GATE_STATUS_PUBLICATION_RECEIPT_V1,
+    publication_key: publication.publication_key,
+    successful_operation_key: operationKey,
+    task_id: identity.task_id,
+    assignment_revision: identity.assignment_revision,
+    repository: identity.repository,
+    pr_url: identity.pr_url,
+    pr_number: identity.pr_number,
+    head: identity.expected_head,
+    base: identity.expected_base,
+    authorized_metadata_role: identity.authorized_metadata_role,
+    projection_authority_url: identity.projection_authority_url,
+    evaluator_input_fingerprint: evaluatorResult.input_fingerprint,
+    evaluator_result_sha256: evaluator.result_sha256,
+    intended_projection_sha256: publication.intended_projection_sha256,
+    observed_projection_sha256: publication.intended_projection_sha256,
+    pre_snapshot: preSnapshot,
+    post_snapshot: postSnapshot,
+    before_non_gate_sha256: nonGate,
+    after_non_gate_sha256: nonGate,
+    canonical_citation_urls: publication.canonical_citation_urls,
+    result_kind: resultKind,
+    receipt_url: authority.canonical_record,
+  })
+}
+
+const receiptForVerifiedBody = async (
+  input: JsonObject,
+  context: RuntimeContext,
+  ports: GateStatusPublisherPortsV1,
+  operationKey: string,
+  preSnapshot: JsonObject,
+  postSnapshot: JsonObject,
+  nonGate: string,
+  resultKind: 'applied' | 'already_current',
+): Promise<
+  | { readonly kind: 'success'; readonly disposition: JsonObject }
+  | { readonly kind: 'reconciliation'; readonly code: DiagnosticCodeV1; readonly disposition: JsonObject }
+> => {
+  const authority = input.receipt_authority as JsonObject
+  if (authority.state === 'not_authorized') {
+    return { kind: 'success', disposition: { state: 'not_authorized' } }
+  }
+  const priorReceipt = input.prior_receipt as JsonObject
+  const owner = authority.owner_role as RoleV1
+  const publicationKey = context.publication_binding.publication_key as string
+  if (priorReceipt.state === 'present') {
+    return {
+      kind: 'success',
+      disposition: {
+        state: 'reused',
+        owner_role: owner,
+        receipt_url: priorReceipt.receipt_url,
+        receipt_key: publicationKey,
+      },
+    }
+  }
+  const candidate = makeReceiptCandidate(
+    input,
+    context,
+    operationKey,
+    preSnapshot,
+    postSnapshot,
+    nonGate,
+    resultKind,
+  )
+  let result: unknown
+  try {
+    result = await ports.receipt_create_or_get({ publication_key: publicationKey, candidate })
+  } catch {
+    return {
+      kind: 'reconciliation',
+      code: 'receipt_store_unavailable_after_body_verified',
+      disposition: { state: 'not_performed', reason: 'receipt_store_failed_before_commit' },
+    }
+  }
+  const state = receiptResultState(result)
+  if (state === 'created' || state === 'existing_exact') {
+    const available = result as Extract<
+      ReceiptCreateOrGetResultV1,
+      { readonly state: 'created' | 'existing_exact' }
+    >
+    const admitted = validateGateStatusPublicationReceiptV1(available.receipt)
+    if (
+      !admitted.accepted ||
+      (admitted.value as JsonObject).publication_key !== publicationKey ||
+      available.receipt_url !== (admitted.value as JsonObject).receipt_url
+    ) {
+      return {
+        kind: 'reconciliation',
+        code: 'receipt_conflict',
+        disposition: { state: 'not_performed', reason: 'receipt_conflict' },
+      }
+    }
+    return {
+      kind: 'success',
+      disposition: {
+        state: state === 'created' ? 'created' : 'reused',
+        owner_role: owner,
+        receipt_url: available.receipt_url,
+        receipt_key: publicationKey,
+      },
+    }
+  }
+  if (state === 'existing_conflict') {
+    return {
+      kind: 'reconciliation',
+      code: 'receipt_conflict',
+      disposition: { state: 'not_performed', reason: 'receipt_conflict' },
+    }
+  }
+  if (state === 'failed_before_commit' || state === null) {
+    return {
+      kind: 'reconciliation',
+      code: 'receipt_store_unavailable_after_body_verified',
+      disposition: { state: 'not_performed', reason: 'receipt_store_failed_before_commit' },
+    }
+  }
+  return {
+    kind: 'reconciliation',
+    code: 'receipt_indeterminate',
+    disposition: {
+      state: 'verification_required',
+      owner_role: owner,
+      publication_key: publicationKey,
+      reason: 'receipt_store_outcome_indeterminate',
+    },
+  }
+}
+
+const alreadyCurrentResult = (
+  context: RuntimeContext,
+  snapshot: JsonObject,
+  nonGate: string,
+  disposition: JsonObject,
+  basis: 'initial_fresh_read' | 'authorized_metadata_role_correction',
+): GateStatusPublicationResultV1 => {
+  const terminal = stoppedResult(
+    unavailableContext(),
+    'internal_failure_before_submission',
+    'S1_structural_admission',
+    '',
+    'backend_implementer',
+    [],
+  ) as JsonObject
+  return admitResult(
+    {
+      contract_version: GATE_STATUS_PUBLICATION_RESULT_V1,
+      kind: 'already_current',
+      ...context,
+      write_state: {
+        attempted: false,
+        observed: false,
+        verified: true,
+        confirmation: 'already_current_read',
+      },
+      receipt_disposition: disposition,
+      diagnostics: [],
+      branch: {
+        already_current: {
+          current_snapshot: snapshot,
+          observed_projection_sha256: context.publication_binding.intended_projection_sha256,
+          observed_non_gate_sha256: nonGate,
+          current_state_basis: basis,
+        },
+      },
+    },
+    terminal,
+  )
+}
+
+const appliedResult = (
+  context: RuntimeContext,
+  postSnapshot: JsonObject,
+  nonGate: string,
+  disposition: JsonObject,
+  confirmation: 'direct_response_and_readback' | 'reconciled_after_indeterminate',
+): GateStatusPublicationResultV1 => {
+  const terminal = stoppedResult(
+    unavailableContext(),
+    'internal_failure_before_submission',
+    'S1_structural_admission',
+    '',
+    'backend_implementer',
+    [],
+  ) as JsonObject
+  return admitResult(
+    {
+      contract_version: GATE_STATUS_PUBLICATION_RESULT_V1,
+      kind: 'applied',
+      ...context,
+      write_state: {
+        attempted: true,
+        observed: true,
+        verified: true,
+        confirmation,
+      },
+      receipt_disposition: disposition,
+      diagnostics: [],
+      branch: {
+        applied: {
+          post_snapshot: postSnapshot,
+          observed_projection_sha256: context.publication_binding.intended_projection_sha256,
+          before_non_gate_sha256: nonGate,
+          after_non_gate_sha256: nonGate,
+        },
+      },
+    },
+    terminal,
+  )
+}
+
+const receiptObservation = (snapshot: JsonObject, projection: string, nonGate: string) => ({
+  state: 'available',
+  snapshot,
+  observed_projection_sha256: projection,
+  observed_non_gate_sha256: nonGate,
+})
+
+export async function publishGateStatusV1(
+  rawInput: unknown,
+  ports: GateStatusPublisherPortsV1,
+): Promise<GateStatusPublicationResultV1> {
+  let submitted = false
+  let context = unavailableContext()
+  let recoveryOwner: RoleV1 = 'backend_implementer'
+  try {
+    const inputAdmission = validateGateStatusPublicationInputV1(rawInput)
+    if (!inputAdmission.accepted) {
+      return stoppedResult(
+        context,
+        'structural_admission_failed',
+        'S1_structural_admission',
+        inputAdmission.rejection.path,
+        recoveryOwner,
+        [],
+      )
+    }
+    const input = inputAdmission.value as JsonObject
+    const identity = input.identity as JsonObject
+    recoveryOwner = identity.authorized_metadata_role as RoleV1
+    context = publicationContext(input)
+    const citations = evidenceUrlsFrom(input)
+
+    const taskRead = await exactContentRead(
+      ports,
+      String(identity.task_assignment_url),
+      authorityRecord(identity),
+    )
+    if (taskRead === 'unavailable') {
+      return stoppedResult(
+        context,
+        'assignment_authority_unavailable',
+        'S2_assignment_authority',
+        '/identity/task_assignment_url',
+        'integrated_lead',
+        [String(identity.task_assignment_url)],
+      )
+    }
+    if (taskRead === 'invalid') {
+      return stoppedResult(
+        context,
+        'metadata_transport_unauthorized',
+        'S2_assignment_authority',
+        '/identity/authorized_transport_action',
+        'integrated_lead',
+        [String(identity.task_assignment_url)],
+      )
+    }
+    const authorization = input.projection_authorization as JsonObject
+    const projectionRead = await exactContentRead(
+      ports,
+      String(identity.projection_authority_url),
+      authorization,
+    )
+    if (projectionRead !== 'valid') {
+      return stoppedResult(
+        context,
+        projectionRead === 'unavailable'
+          ? 'assignment_authority_unavailable'
+          : 'projection_authority_invalid',
+        'S2_assignment_authority',
+        '/identity/projection_authority_url',
+        'integrated_lead',
+        [String(identity.projection_authority_url)],
+      )
+    }
+
+    const evaluator = input.evaluator as JsonObject
+    const evaluatorResult = evaluator.result as JsonObject
+    const evaluatorGateRequirement = evaluatorResult.gate_status_requirement as JsonObject
+    if (
+      evaluatorResult.task_id !== identity.task_id ||
+      (evaluatorGateRequirement.required === true &&
+        (evaluatorGateRequirement.pr !== identity.pr_url ||
+          evaluatorGateRequirement.current_head !== identity.expected_head))
+    ) {
+      return stoppedResult(
+        context,
+        'identity_mismatch',
+        'S3_identity_binding',
+        '/evaluator/result',
+        recoveryOwner,
+        citations,
+      )
+    }
+    const evaluatorAdmission = validateAutomaticGateProgressionEvaluationResultV2(evaluatorResult)
+    if (evaluatorAdmission.kind !== 'accepted') {
+      return stoppedResult(
+        context,
+        'evaluator_authority_invalid',
+        'S4_evaluator_admission',
+        '/evaluator/result',
+        recoveryOwner,
+        citations,
+      )
+    }
+    if (evaluatorAdmission.value.kind !== 'require_gate_status_update') {
+      return stoppedResult(
+        context,
+        'gate_status_update_not_required',
+        'S4_evaluator_admission',
+        '/evaluator/result/kind',
+        'integrated_lead',
+        citations,
+      )
+    }
+    const projectionAdmission = validateGateStatusProjectionV1(authorization.projection)
+    if (!projectionAdmission.accepted) {
+      return stoppedResult(
+        context,
+        'projection_authority_invalid',
+        'S5_projection_admission',
+        `/projection_authorization/projection${projectionAdmission.rejection.path}`,
+        recoveryOwner,
+        citations,
+      )
+    }
+    const projection = projectionAdmission.value as JsonObject
+
+    const evidenceRecords = input.evidence_records as JsonObject[]
+    for (const evidence of evidenceRecords) {
+      let result: unknown
+      try {
+        result = await ports.read_canonical_record(String(evidence.canonical_url))
+      } catch {
+        result = { state: 'unavailable' }
+      }
+      const state = canonicalReadUnavailable(result)
+        ? 'unavailable'
+        : validCanonicalRead(result, String(evidence.canonical_url)) &&
+            result.fetched_content_sha256 === evidence.fetched_content_sha256
+          ? 'valid'
+          : 'invalid'
+      if (state !== 'valid') {
+        return stoppedResult(
+          context,
+          state === 'unavailable' ? 'canonical_evidence_invalid' : 'canonical_conflict',
+          'S6_evidence_admission',
+          '/evidence_records',
+          recoveryOwner,
+          [String(evidence.canonical_url)],
+        )
+      }
+    }
+
+    const requirement = evaluatorAdmission.value.requirement
+    const blocker = projection.current_blocker_next_gate as JsonObject
+    if (
+      blocker.blocker_id !== (requirement.current_blocker ?? null) ||
+      blocker.next_owner !== (requirement.next_gate_owner ?? null)
+    ) {
+      return stoppedResult(
+        context,
+        'authority_projection_conflict',
+        'S7_stop_consistency',
+        '/projection_authorization/projection/current_blocker_next_gate',
+        recoveryOwner,
+        citations,
+      )
+    }
+    if (
+      JSON.stringify(projection).includes('ready_for_review') ||
+      JSON.stringify(projection).includes('normal_merge_commit') ||
+      JSON.stringify(projection).includes('dispatch')
+    ) {
+      return stoppedResult(
+        context,
+        'forbidden_authority_smuggling',
+        'S7_stop_consistency',
+        '/projection_authorization/projection',
+        'integrated_lead',
+        citations,
+      )
+    }
+
+    let fresh: unknown
+    try {
+      fresh = await ports.read_pr(String(identity.pr_url))
+    } catch {
+      fresh = { state: 'unavailable' }
+    }
+    if (freshPrUnavailable(fresh)) {
+      return stoppedResult(
+        context,
+        'fresh_pr_unavailable',
+        'S8_fresh_pr_read',
+        '/pr_snapshot',
+        recoveryOwner,
+        citations,
+      )
+    }
+    if (!validFreshPrRead(fresh)) {
+      return stoppedResult(
+        context,
+        'fresh_pr_unavailable',
+        'S8_fresh_pr_read',
+        '/pr_snapshot',
+        recoveryOwner,
+        citations,
+      )
+    }
+    const snapshotContainer = input.pr_snapshot as JsonObject
+    const expectedSnapshot = snapshotContainer.snapshot as JsonObject
+    if (
+      canonicalize(fresh.snapshot) !== canonicalize(expectedSnapshot) ||
+      fresh.body_utf8 !== snapshotContainer.body_utf8
+    ) {
+      return stoppedResult(
+        context,
+        'authority_drift',
+        'S8_fresh_pr_read',
+        '/pr_snapshot',
+        'integrated_lead',
+        citations,
+      )
+    }
+    const inspection = inspectGateStatusSectionV1(fresh.body_utf8)
+    if (!inspection.valid) {
+      return stoppedResult(
+        context,
+        'gate_status_section_invalid',
+        'S9_section_admission',
+        '/pr_snapshot/body_utf8',
+        recoveryOwner,
+        citations,
+      )
+    }
+    const rendered = renderGateStatusProjectionV1(projection)
+    if (rendered === null) {
+      return stoppedResult(
+        context,
+        'projection_authority_invalid',
+        'S10_render_and_publication_key',
+        '/projection_authorization/projection',
+        recoveryOwner,
+        citations,
+      )
+    }
+    const sectionTail = inspection.section.slice(inspection.section.trimEnd().length)
+    const candidateBody =
+      fresh.body_utf8.slice(0, inspection.start) +
+      rendered +
+      sectionTail +
+      fresh.body_utf8.slice(inspection.end)
+    const candidateInspection = inspectGateStatusSectionV1(candidateBody)
+    if (!candidateInspection.valid || candidateInspection.non_gate_sha256 !== inspection.non_gate_sha256) {
+      return stoppedResult(
+        context,
+        'non_gate_mutation_detected',
+        'S10_render_and_publication_key',
+        '/projection_authorization/projection',
+        'backend_implementer',
+        citations,
+      )
+    }
+
+    const priorSet = input.prior_attempt_authorities as JsonObject
+    const setRead = await exactContentRead(
+      ports,
+      String(priorSet.authority_set_url),
+      priorSet,
+      String(priorSet.fetched_content_sha256),
+    )
+    if (setRead !== 'valid') {
+      context = { ...context, prior_attempt_binding: { state: 'unavailable' } }
+      return stoppedResult(
+        context,
+        setRead === 'unavailable'
+          ? 'prior_attempt_authority_unavailable'
+          : 'prior_attempt_authority_invalid',
+        'S11_prior_attempt_set_admission',
+        '/prior_attempt_authorities/authority_set_url',
+        recoveryOwner,
+        [String(priorSet.authority_set_url)],
+      )
+    }
+    const priorRecords = priorSet.records as JsonObject[]
+    for (let index = 0; index < priorRecords.length; index += 1) {
+      const record = priorRecords[index]
+      const memberRead = await exactContentRead(
+        ports,
+        String(record.canonical_record),
+        record,
+        String(record.fetched_content_sha256),
+      )
+      if (memberRead !== 'valid') {
+        return stoppedResult(
+          context,
+          memberRead === 'unavailable'
+            ? 'prior_attempt_authority_unavailable'
+            : 'prior_attempt_authority_invalid',
+          'S11_prior_attempt_set_admission',
+          `/prior_attempt_authorities/records/${index}/canonical_record`,
+          recoveryOwner,
+          [String(record.canonical_record)],
+        )
+      }
+    }
+    if (priorRecords.length > 1) {
+      return stoppedResult(
+        context,
+        'canonical_conflict',
+        'S11_prior_attempt_set_admission',
+        '/prior_attempt_authorities/records/1',
+        recoveryOwner,
+        priorRecords.map((record) => String(record.canonical_record)),
+      )
+    }
+    context = {
+      ...context,
+      prior_attempt_binding:
+        priorRecords.length === 0
+          ? { state: 'absent' }
+          : {
+              state: 'indeterminate',
+              authority_set_url: priorSet.authority_set_url,
+              authority_url: priorRecords[0].canonical_record,
+              publication_key: priorRecords[0].publication_key,
+              operation_key: priorRecords[0].atomic_operation_key,
+              submitted_at: priorRecords[0].submitted_at,
+              transport_capability_ref: priorRecords[0].transport_capability_authority_url,
+            },
+    }
+
+    const receiptAuthority = input.receipt_authority as JsonObject
+    const receiptStore = input.receipt_store_capability as JsonObject
+    if (receiptAuthority.state === 'authorized') {
+      const authorityRead = await exactContentRead(
+        ports,
+        String(receiptAuthority.canonical_record),
+        receiptAuthority,
+      )
+      if (authorityRead !== 'valid') {
+        return stoppedResult(
+          context,
+          'receipt_capability_unavailable',
+          'S12_receipt_authority_and_store_admission',
+          '/receipt_authority/canonical_record',
+          recoveryOwner,
+          [String(receiptAuthority.canonical_record)],
+        )
+      }
+      const capability = receiptStore.value as JsonObject
+      const capabilityRead = await exactContentRead(
+        ports,
+        String(capability.capability_authority_url),
+        capability,
+      )
+      if (capabilityRead !== 'valid') {
+        return stoppedResult(
+          context,
+          capabilityRead === 'unavailable'
+            ? 'receipt_capability_unavailable'
+            : 'receipt_capability_invalid',
+          'S12_receipt_authority_and_store_admission',
+          '/receipt_store_capability',
+          recoveryOwner,
+          [String(capability.capability_authority_url)],
+        )
+      }
+      context = {
+        ...context,
+        receipt_store_binding: {
+          state: 'admitted',
+          capability_authority_url: capability.capability_authority_url,
+          provider: capability.provider,
+          adapter_id: capability.adapter_id,
+          adapter_version: capability.adapter_version,
+          unique_key: context.publication_binding.publication_key,
+        },
+      }
+    } else {
+      context = { ...context, receipt_store_binding: { state: 'not_required' } }
+    }
+    const transport = input.transport_capability as JsonObject
+    context = { ...context, transport_binding: { state: 'admitted', value: transport } }
+
+    const readOnly = buildGateStatusReadOnlyOperationKeyV1(input)
+    if (readOnly === null) {
+      return stoppedResult(
+        context,
+        'internal_failure_before_submission',
+        'S13_operation_binding',
+        '/operation_binding',
+        'backend_implementer',
+        citations,
+      )
+    }
+    context = {
+      ...context,
+      operation_binding: {
+        state: 'available',
+        read_only_evaluation: readOnly,
+        atomic_attempt: { state: 'absent' },
+      },
+    }
+
+    if (priorRecords.length === 1) {
+      const prior = priorRecords[0]
+      context = {
+        ...context,
+        operation_binding: {
+          state: 'available',
+          read_only_evaluation: readOnly,
+          atomic_attempt: {
+            state: 'prior_indeterminate',
+            authority_url: prior.canonical_record,
+            projection: prior.atomic_operation_projection,
+            projection_sha256: prior.atomic_operation_projection_sha256,
+            operation_key: prior.atomic_operation_key,
+          },
+        },
+      }
+      const observation = input.prior_attempt_reconciliation_observation as JsonObject
+      if (observation.state === 'not_required') {
+        return stoppedResult(
+          context,
+          'prior_attempt_observation_required',
+          'S14_prior_attempt_reconciliation_observation',
+          '/prior_attempt_reconciliation_observation/state',
+          recoveryOwner,
+          [String(prior.canonical_record)],
+        )
+      }
+      const observationRead = await exactContentRead(
+        ports,
+        String(observation.canonical_record),
+        observation,
+        String(observation.fetched_content_sha256),
+      )
+      if (observation.state === 'unavailable' || observationRead === 'unavailable') {
+        return reconciliationResult(
+          context,
+          'post_write_read_unavailable',
+          { attempted: true, observed: false, verified: false, confirmation: 'submission_indeterminate' },
+          { state: 'not_performed', reason: 'write_not_verified' },
+          recoveryOwner,
+          [String(observation.canonical_record)],
+          { state: 'unavailable' },
+        )
+      }
+      const atomicProjection = prior.atomic_operation_projection as JsonObject
+      const observedRevision = (observation.post_read_atomic_revision_identity as JsonObject)
+        .normalized_identity_sha256
+      const preRevision = (atomicProjection.atomic_revision_identity as JsonObject)
+        .normalized_identity_sha256
+      const projectionMatches =
+        inspection.section.trimEnd() === rendered &&
+        observation.observed_projection_sha256 === context.publication_binding.intended_projection_sha256
+      const nonGateMatches =
+        inspection.non_gate_sha256 === prior.precondition_non_gate_sha256 &&
+        observation.observed_non_gate_sha256 === inspection.non_gate_sha256
+      const bodyUnchanged =
+        fresh.snapshot.body_utf8_sha256 === atomicProjection.precondition_body_utf8_sha256
+      if (!projectionMatches || !nonGateMatches || observationRead !== 'valid') {
+        return reconciliationResult(
+          context,
+          'readback_mismatch',
+          { attempted: true, observed: true, verified: false, confirmation: 'readback_mismatch' },
+          { state: 'not_performed', reason: 'write_not_verified' },
+          recoveryOwner,
+          [String(observation.canonical_record)],
+          receiptObservation(
+            fresh.snapshot,
+            String(observation.observed_projection_sha256),
+            String(observation.observed_non_gate_sha256),
+          ),
+        )
+      }
+      if ((bodyUnchanged && observedRevision === preRevision) || observedRevision === preRevision) {
+        return reconciliationResult(
+          context,
+          'write_outcome_unknown',
+          { attempted: true, observed: false, verified: false, confirmation: 'submission_indeterminate' },
+          { state: 'not_performed', reason: 'write_not_verified' },
+          recoveryOwner,
+          [String(observation.canonical_record)],
+          receiptObservation(
+            fresh.snapshot,
+            String(observation.observed_projection_sha256),
+            String(observation.observed_non_gate_sha256),
+          ),
+        )
+      }
+      const receipt = await receiptForVerifiedBody(
+        input,
+        context,
+        ports,
+        String(prior.atomic_operation_key),
+        expectedSnapshot,
+        fresh.snapshot,
+        inspection.non_gate_sha256,
+        'applied',
+      )
+      if (receipt.kind === 'reconciliation') {
+        return reconciliationResult(
+          context,
+          receipt.code,
+          { attempted: true, observed: true, verified: true, confirmation: 'reconciled_after_indeterminate' },
+          receipt.disposition,
+          recoveryOwner,
+          citations,
+          receiptObservation(
+            fresh.snapshot,
+            String(context.publication_binding.intended_projection_sha256),
+            inspection.non_gate_sha256,
+          ),
+        )
+      }
+      return appliedResult(
+        context,
+        fresh.snapshot,
+        inspection.non_gate_sha256,
+        receipt.disposition,
+        'reconciled_after_indeterminate',
+      )
+    }
+
+    if (inspection.section.trimEnd() === rendered) {
+      const receipt = await receiptForVerifiedBody(
+        input,
+        context,
+        ports,
+        String(readOnly.operation_key),
+        expectedSnapshot,
+        fresh.snapshot,
+        inspection.non_gate_sha256,
+        'already_current',
+      )
+      if (receipt.kind === 'reconciliation') {
+        return reconciliationResult(
+          context,
+          receipt.code,
+          { attempted: false, observed: false, verified: true, confirmation: 'already_current_read' },
+          receipt.disposition,
+          recoveryOwner,
+          citations,
+          receiptObservation(
+            fresh.snapshot,
+            String(context.publication_binding.intended_projection_sha256),
+            inspection.non_gate_sha256,
+          ),
+        )
+      }
+      return alreadyCurrentResult(
+        context,
+        fresh.snapshot,
+        inspection.non_gate_sha256,
+        receipt.disposition,
+        'initial_fresh_read',
+      )
+    }
+
+    if (transport.kind === 'github_pr_body_patch_without_atomic_precondition') {
+      return stoppedResult(
+        context,
+        'atomic_precondition_unavailable',
+        'S15_transport_capability',
+        '/transport_capability',
+        recoveryOwner,
+        citations,
+      )
+    }
+    const capabilityRead = await exactContentRead(
+      ports,
+      String(transport.capability_authority_url),
+      transport,
+    )
+    if (capabilityRead !== 'valid') {
+      return stoppedResult(
+        context,
+        'atomic_precondition_unavailable',
+        'S15_transport_capability',
+        '/transport_capability/capability_authority_url',
+        'architect_team',
+        [String(transport.capability_authority_url)],
+      )
+    }
+    const receiptAuthorityState = receiptAuthority.state as string
+    const priorReceipt = input.prior_receipt as JsonObject
+    const atomicProjection = {
+      contract_version: 'gate-status-atomic-operation-key-projection-v1',
+      key_kind: 'proven_atomic_attempt',
+      publication_key: context.publication_binding.publication_key,
+      transport_capability_authority_url: transport.capability_authority_url,
+      provider: transport.provider,
+      adapter_id: transport.adapter_id,
+      adapter_version: transport.adapter_version,
+      atomic_scope: 'complete_pr_body',
+      atomic_revision_identity: transport.atomic_revision_identity,
+      precondition_body_utf8_sha256: fresh.snapshot.body_utf8_sha256,
+      precondition_non_gate_sha256: inspection.non_gate_sha256,
+      receipt_authority_state: receiptAuthorityState,
+      receipt_store_capability_state:
+        receiptStore.state === 'admitted' ? 'proven_atomic_create_or_get' : 'not_required',
+      prior_receipt_state: priorReceipt.state,
+      prior_receipt_url: priorReceipt.state === 'present' ? priorReceipt.receipt_url : null,
+    }
+    const atomicAdmission = validateAtomicOperationKeyProjectionV1(atomicProjection)
+    if (!atomicAdmission.accepted) {
+      return stoppedResult(
+        context,
+        'internal_failure_before_submission',
+        'S16_atomic_precondition',
+        '/operation_binding/atomic_attempt/projection',
+        'backend_implementer',
+        citations,
+      )
+    }
+    const atomicSha = gateStatusJcsSha256V1(atomicAdmission.value)
+    const atomicKey = `gate-status-publication-atomic-operation-v1:${atomicSha}`
+    context = {
+      ...context,
+      operation_binding: {
+        state: 'available',
+        read_only_evaluation: readOnly,
+        atomic_attempt: {
+          state: 'direct',
+          authority_url: transport.capability_authority_url,
+          projection: atomicAdmission.value,
+          projection_sha256: atomicSha,
+          operation_key: atomicKey,
+        },
+      },
+    }
+    let casResult: unknown
+    submitted = true
+    try {
+      casResult = await ports.compare_and_swap_gate_status({
+        pr_url: String(identity.pr_url),
+        expected_body_utf8_sha256: String(fresh.snapshot.body_utf8_sha256),
+        expected_normalized_revision_identity_sha256: String(
+          (transport.atomic_revision_identity as JsonObject).normalized_identity_sha256,
+        ),
+        replacement_body_utf8: candidateBody,
+        atomic_operation_key: atomicKey,
+      })
+    } catch {
+      casResult = { state: 'indeterminate' }
+    }
+    const casState = atomicResultState(casResult)
+    if (casState === 'precondition_failed') {
+      submitted = false
+      return stoppedResult(
+        context,
+        'compare_and_swap_failed',
+        'S16_atomic_precondition',
+        '/operation_binding',
+        recoveryOwner,
+        citations,
+      )
+    }
+    if (casState === 'failed_before_write' || casState === null) {
+      submitted = false
+      return stoppedResult(
+        context,
+        'transport_unavailable_before_write',
+        'S17_single_write',
+        '/transport_capability',
+        recoveryOwner,
+        citations,
+      )
+    }
+    let readback: unknown
+    try {
+      readback = await ports.read_pr(String(identity.pr_url))
+    } catch {
+      readback = { state: 'unavailable' }
+    }
+    if (!validFreshPrRead(readback)) {
+      return reconciliationResult(
+        context,
+        'post_write_read_unavailable',
+        { attempted: true, observed: false, verified: false, confirmation: 'submission_indeterminate' },
+        { state: 'not_performed', reason: 'write_not_verified' },
+        recoveryOwner,
+        citations,
+        { state: 'unavailable' },
+      )
+    }
+    const after = inspectGateStatusSectionV1(readback.body_utf8)
+    const exactAfter =
+      after.valid &&
+      after.section.trimEnd() === rendered &&
+      after.non_gate_sha256 === inspection.non_gate_sha256 &&
+      (readback.snapshot as JsonObject).head === identity.expected_head &&
+      (readback.snapshot as JsonObject).base === identity.expected_base
+    if (!exactAfter) {
+      return reconciliationResult(
+        context,
+        'readback_mismatch',
+        { attempted: true, observed: true, verified: false, confirmation: 'readback_mismatch' },
+        { state: 'not_performed', reason: 'write_not_verified' },
+        recoveryOwner,
+        citations,
+        {
+          state: 'available',
+          snapshot: readback.snapshot,
+          observed_projection_sha256: null,
+          observed_non_gate_sha256: after.valid ? after.non_gate_sha256 : null,
+        },
+      )
+    }
+    if (casState === 'indeterminate') {
+      const postRevision = (casResult as JsonObject).normalized_revision_identity_sha256
+      const preRevision = (transport.atomic_revision_identity as JsonObject)
+        .normalized_identity_sha256
+      if (!digest(postRevision) || postRevision === preRevision) {
+        return reconciliationResult(
+          context,
+          'write_outcome_unknown',
+          { attempted: true, observed: false, verified: false, confirmation: 'submission_indeterminate' },
+          { state: 'not_performed', reason: 'write_not_verified' },
+          recoveryOwner,
+          citations,
+          receiptObservation(
+            readback.snapshot,
+            String(context.publication_binding.intended_projection_sha256),
+            after.non_gate_sha256,
+          ),
+        )
+      }
+    }
+    const receipt = await receiptForVerifiedBody(
+      input,
+      context,
+      ports,
+      atomicKey,
+      fresh.snapshot,
+      readback.snapshot,
+      after.non_gate_sha256,
+      'applied',
+    )
+    if (receipt.kind === 'reconciliation') {
+      return reconciliationResult(
+        context,
+        receipt.code,
+        { attempted: true, observed: true, verified: true, confirmation:
+          casState === 'indeterminate' ? 'reconciled_after_indeterminate' : 'direct_response_and_readback' },
+        receipt.disposition,
+        recoveryOwner,
+        citations,
+        receiptObservation(
+          readback.snapshot,
+          String(context.publication_binding.intended_projection_sha256),
+          after.non_gate_sha256,
+        ),
+      )
+    }
+    return appliedResult(
+      context,
+      readback.snapshot,
+      after.non_gate_sha256,
+      receipt.disposition,
+      casState === 'indeterminate' ? 'reconciled_after_indeterminate' : 'direct_response_and_readback',
+    )
+  } catch {
+    if (submitted) {
+      return reconciliationResult(
+        context,
+        'internal_state_indeterminate',
+        { attempted: true, observed: false, verified: false, confirmation: 'submission_indeterminate' },
+        { state: 'not_performed', reason: 'write_not_verified' },
+        recoveryOwner,
+        [],
+        { state: 'unavailable' },
+      )
+    }
+    return stoppedResult(
+      context,
+      'internal_failure_before_submission',
+      'S20_result_admission',
+      '',
+      'backend_implementer',
+      [],
+    )
+  }
+}
