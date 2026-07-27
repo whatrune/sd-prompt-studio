@@ -29,6 +29,11 @@ const RECEIPT_AUTH =
   'https://github.com/whatrune/sd-prompt-studio/issues/206#issuecomment-5086000003'
 const RECEIPT_STORE_AUTH =
   'https://github.com/whatrune/sd-prompt-studio/issues/206#issuecomment-5086000004'
+const ROLE_AUTH_TASK = `${TASK}#test-gsp-role-authority-00-task`
+const ROLE_AUTH_REVIEW = `${TASK}#test-gsp-role-authority-01-review`
+const ROLE_AUTH_FINAL = `${TASK}#test-gsp-role-authority-02-final-regression`
+const ROLE_AUTH_OPERATIONAL = `${TASK}#test-gsp-role-authority-03-operational-validation`
+const ROLE_AUTH_PROTECTED = `${TASK}#test-gsp-role-authority-04-protected-action`
 
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 try {
@@ -101,6 +106,8 @@ try {
     author,
     head_binding,
     source_record_url = url,
+    authority_ref,
+    protected_action,
   }) => {
     const content = {
       contract_version: 'gate-status-canonical-role-evidence-content-v1',
@@ -112,10 +119,12 @@ try {
       task_id: 'DESIGN-GATE-STATUS-PUBLISHER-CONTRACT-001',
       repository: 'whatrune/sd-prompt-studio',
       head_binding,
-      verification_state: 'verified',
     }
+    if (authority_ref !== undefined) content.author_role_authority_ref = authority_ref
+    if (protected_action !== undefined) content.protected_action = protected_action
+    content.verification_state = 'verified'
     const body_utf8 = canonicalBody(content, kind)
-    return {
+    const value = {
       evidence: {
         evidence_class: 'canonical_role_record',
         evidence_kind: kind,
@@ -124,6 +133,68 @@ try {
         task_id: 'DESIGN-GATE-STATUS-PUBLISHER-CONTRACT-001',
         repository: 'whatrune/sd-prompt-studio',
         head_binding,
+      },
+      read: {
+        state: 'available',
+        source_kind: 'canonical_body',
+        canonical_url: url,
+        body_utf8,
+        fetched_content_sha256: shaText(body_utf8),
+        content,
+        content_projection_sha256: shaJcs(content),
+      },
+    }
+    if (authority_ref !== undefined) {
+      value.evidence.author_role_authority_ref = authority_ref
+    }
+    if (protected_action !== undefined) {
+      value.evidence.protected_action = protected_action
+    }
+    value.evidence.fetched_content_sha256 = shaText(body_utf8)
+    value.evidence.content_projection_sha256 = shaJcs(content)
+    value.evidence.verification_state = 'verified'
+    return value
+  }
+  const roleAuthorityBody = (content, ordinal) =>
+    `# Gate Status Role Authority ${ordinal}\n\n\`\`\`yaml\n${
+      JSON.stringify({ gate_status_role_authority_binding: content }, null, 2)
+    }\n\`\`\`\n`
+  const roleAuthority = ({
+    ordinal,
+    kind,
+    url,
+    source_record_url,
+    issuer,
+    authorized,
+    scope,
+  }) => {
+    const content = {
+      contract_version: 'gate-status-role-authority-content-v1',
+      authority_class: 'admitted_role_authority',
+      authority_kind: kind,
+      canonical_url: url,
+      source_record_url,
+      issuer_role: issuer,
+      authorized_role: authorized,
+      task_id: 'DESIGN-GATE-STATUS-PUBLISHER-CONTRACT-001',
+      assignment_revision: 1,
+      repository: 'whatrune/sd-prompt-studio',
+      scope,
+      verification_state: 'verified',
+    }
+    const body_utf8 = roleAuthorityBody(content, ordinal)
+    return {
+      record: {
+        authority_class: 'admitted_role_authority',
+        authority_kind: kind,
+        canonical_url: url,
+        source_record_url,
+        issuer_role: issuer,
+        authorized_role: authorized,
+        task_id: 'DESIGN-GATE-STATUS-PUBLISHER-CONTRACT-001',
+        assignment_revision: 1,
+        repository: 'whatrune/sd-prompt-studio',
+        scope,
         fetched_content_sha256: shaText(body_utf8),
         content_projection_sha256: shaJcs(content),
         verification_state: 'verified',
@@ -227,13 +298,88 @@ try {
     url: TASK,
     author: 'integrated_lead',
     head_binding: { state: 'not_head_bound', basis_url: TASK },
+    authority_ref: ROLE_AUTH_TASK,
   })
   const reviewEvidence = ordinaryEvidence({
     kind: 'review_decision',
     url: REVIEW,
     author: 'architect_team',
     head_binding: { state: 'current', head: HEAD },
+    authority_ref: ROLE_AUTH_REVIEW,
   })
+  const taskRoleAuthority = roleAuthority({
+    ordinal: 'A0',
+    kind: 'task_assignment',
+    url: ROLE_AUTH_TASK,
+    source_record_url: TASK,
+    issuer: 'integrated_lead',
+    authorized: 'backend_implementer',
+    scope: { scope_kind: 'task_assignment', task_assignment_url: TASK },
+  })
+  const reviewRoleAuthority = roleAuthority({
+    ordinal: 'A1',
+    kind: 'review_assignment',
+    url: ROLE_AUTH_REVIEW,
+    source_record_url: `${TASK}#test-review-assignment`,
+    issuer: 'integrated_lead',
+    authorized: 'architect_team',
+    scope: {
+      scope_kind: 'review_assignment',
+      pr_url: PR,
+      reviewed_head: HEAD,
+      review_kind: 'implementation_review',
+    },
+  })
+  const finalRoleAuthority = roleAuthority({
+    ordinal: 'A2',
+    kind: 'validation_dispatch',
+    url: ROLE_AUTH_FINAL,
+    source_record_url: `${TASK}#test-final-regression-dispatch`,
+    issuer: 'integrated_lead',
+    authorized: 'backend_implementer',
+    scope: {
+      scope_kind: 'validation_dispatch',
+      pr_url: PR,
+      validated_head: HEAD,
+      validation_kind: 'final_regression',
+    },
+  })
+  const operationalRoleAuthority = roleAuthority({
+    ordinal: 'A3',
+    kind: 'validation_dispatch',
+    url: ROLE_AUTH_OPERATIONAL,
+    source_record_url: `${TASK}#test-operational-validation-dispatch`,
+    issuer: 'integrated_lead',
+    authorized: 'maintenance_op',
+    scope: {
+      scope_kind: 'validation_dispatch',
+      pr_url: PR,
+      validated_head: HEAD,
+      validation_kind: 'operational_validation',
+    },
+  })
+  const protectedRoleAuthority = roleAuthority({
+    ordinal: 'A4',
+    kind: 'protected_action_authority',
+    url: ROLE_AUTH_PROTECTED,
+    source_record_url: `${TASK}#test-protected-action-authority`,
+    issuer: 'product_owner',
+    authorized: 'integrated_lead',
+    scope: {
+      scope_kind: 'protected_action_authority',
+      pr_url: PR,
+      authorized_head: HEAD,
+      protected_action: 'ready_for_review',
+    },
+  })
+  const baseRoleAuthorityRecords = [
+    taskRoleAuthority.record,
+    reviewRoleAuthority.record,
+  ].sort((a, b) => Buffer.from(a.canonical_url).compare(Buffer.from(b.canonical_url)))
+  const baseRoleAuthorityReads = new Map([
+    [ROLE_AUTH_TASK, taskRoleAuthority.read],
+    [ROLE_AUTH_REVIEW, reviewRoleAuthority.read],
+  ])
   const evidenceRecords = [
     taskEvidence.evidence,
     reviewEvidence.evidence,
@@ -340,6 +486,13 @@ try {
         result_sha256: shaJcs(evaluatorResult),
       },
       projection_authorization: authorization,
+      role_authority_set: {
+        contract_version: 'gate-status-role-authority-set-v1',
+        task_id: 'DESIGN-GATE-STATUS-PUBLISHER-CONTRACT-001',
+        assignment_revision: 1,
+        repository: 'whatrune/sd-prompt-studio',
+        records: clone(baseRoleAuthorityRecords),
+      },
       evidence_records: clone(evidenceRecords),
       pr_snapshot: {
         snapshot,
@@ -412,6 +565,8 @@ try {
       desired,
       key,
       evidence_reads: new Map([...evidenceReads].map(([url, read]) => [url, clone(read)])),
+      role_authority_reads:
+        new Map([...baseRoleAuthorityReads].map(([url, read]) => [url, clone(read)])),
     }
   }
 
@@ -438,6 +593,7 @@ try {
     let storedReceipt = null
     const map = new Map([
       ...fixture.input.evidence_records.map((item) => [item.canonical_url, item]),
+      ...fixture.input.role_authority_set.records.map((item) => [item.canonical_url, item]),
       [TASK, taskAuthority],
       [PROJECTION_AUTH, fixture.input.projection_authorization],
       [PRIOR_SET, fixture.input.prior_attempt_authorities],
@@ -455,35 +611,13 @@ try {
         counts.canonical_by_url.set(url, (counts.canonical_by_url.get(url) ?? 0) + 1)
         if (throwAt === 'canonical') throw new Error('secret-token')
         if (unavailable.has(url)) return { state: 'unavailable' }
-        const call = counts.canonical_by_url.get(url)
-        if (url === TASK && call === 1) {
-          const content = clone(taskAuthority)
-          if (invalid.has(url)) content.invalid = true
-          return {
-            state: 'available',
-            source_kind: 'canonical_body',
-            canonical_url: url,
-            body_utf8: canonicalize(content),
-            fetched_content_sha256: fixedDigest('9'),
-            content,
-            content_projection_sha256: shaJcs(content),
-          }
-        }
-        if (url === PROJECTION_AUTH && call === 1) {
-          const content = clone(fixture.input.projection_authorization)
-          if (invalid.has(url)) content.invalid = true
-          return {
-            state: 'available',
-            source_kind: 'canonical_body',
-            canonical_url: url,
-            body_utf8: canonicalize(content),
-            fetched_content_sha256: fixedDigest('9'),
-            content,
-            content_projection_sha256: shaJcs(content),
-          }
-        }
         if (fixture.evidence_reads.has(url)) {
           const result = clone(fixture.evidence_reads.get(url))
+          if (invalid.has(url)) result.content.invalid = true
+          return result
+        }
+        if (fixture.role_authority_reads.has(url)) {
+          const result = clone(fixture.role_authority_reads.get(url))
           if (invalid.has(url)) result.content.invalid = true
           return result
         }
@@ -592,7 +726,11 @@ try {
 
   await caseResult('GSP-002', async () => {
     const result = await execute(make({ current: true }))
-    assert.equal(result.result.kind, 'already_current', JSON.stringify(result.result))
+    assert.equal(result.result.kind, 'stopped', JSON.stringify(result.result))
+    assert.equal(
+      result.result.branch.stopped.stop_code,
+      'atomic_precondition_unavailable',
+    )
     assert.equal(result.counts.cas, 0)
   })
 
@@ -601,6 +739,7 @@ try {
     const first = await execute(fixture)
     const second = await execute(fixture)
     assert.deepEqual(first.result, second.result)
+    assert.equal(first.result.kind, 'stopped')
     assert.equal(first.result.publication_binding.publication_key, second.result.publication_binding.publication_key)
   })
 
@@ -638,7 +777,7 @@ try {
   await caseResult('GSP-007', async () => {
     const fixture = make()
     const result = await execute(fixture, { invalid: new Set([TASK]) })
-    assert.equal(result.result.branch.stopped.stop_code, 'metadata_transport_unauthorized')
+    assert.equal(result.result.branch.stopped.stop_code, 'canonical_evidence_invalid')
   })
 
   await caseResult('GSP-008', async () => {
@@ -1236,26 +1375,31 @@ try {
       url: TASK,
       author: 'integrated_lead',
       head_binding: { state: 'not_head_bound', basis_url: TASK },
+      authority_ref: ROLE_AUTH_TASK,
     },
     result_handoff: {
       url: `${TASK}#issuecomment-5087000001`,
       author: 'backend_implementer',
       head_binding: { state: 'current', head: HEAD },
+      authority_ref: ROLE_AUTH_TASK,
     },
     review_decision: {
       url: REVIEW,
       author: 'architect_team',
       head_binding: { state: 'current', head: HEAD },
+      authority_ref: ROLE_AUTH_REVIEW,
     },
     final_regression_result: {
       url: `${TASK}#issuecomment-5087000002`,
       author: 'backend_implementer',
       head_binding: { state: 'current', head: HEAD },
+      authority_ref: ROLE_AUTH_FINAL,
     },
     operational_validation_result: {
       url: `${TASK}#issuecomment-5087000003`,
       author: 'maintenance_op',
       head_binding: { state: 'current', head: HEAD },
+      authority_ref: ROLE_AUTH_OPERATIONAL,
     },
     product_owner_approval: {
       url: `${TASK}#issuecomment-5087000004`,
@@ -1266,11 +1410,28 @@ try {
       url: `${TASK}#issuecomment-5087000005`,
       author: 'integrated_lead',
       head_binding: { state: 'current', head: HEAD },
+      authority_ref: ROLE_AUTH_PROTECTED,
+      protected_action: 'ready_for_review',
     },
   }
 
   const fixtureForEvidenceKind = (kind, options = {}) => {
     const fixture = make()
+    const authorityByKind = {
+      final_regression_result: finalRoleAuthority,
+      operational_validation_result: operationalRoleAuthority,
+      protected_action_completion: protectedRoleAuthority,
+    }
+    const extraAuthority = authorityByKind[kind]
+    if (extraAuthority) {
+      fixture.input.role_authority_set.records.push(clone(extraAuthority.record))
+      fixture.input.role_authority_set.records.sort((a, b) =>
+        Buffer.from(a.canonical_url).compare(Buffer.from(b.canonical_url)))
+      fixture.role_authority_reads.set(
+        extraAuthority.record.canonical_url,
+        clone(extraAuthority.read),
+      )
+    }
     let target
     if (kind === 'projection_authorization') {
       target = {
@@ -1538,6 +1699,11 @@ try {
     fixture.input.evidence_records = fixture.input.evidence_records.filter(
       (item) => item.canonical_url !== REVIEW,
     )
+    fixture.input.role_authority_set.records =
+      fixture.input.role_authority_set.records.filter(
+        (item) => item.canonical_url !== ROLE_AUTH_REVIEW,
+      )
+    fixture.role_authority_reads.delete(ROLE_AUTH_REVIEW)
     refreshPublicationKeyOnly(fixture)
     await runDeterministicNegative(fixture)
     s6CrossRows.push('GSP-S6-X-001')
@@ -1549,6 +1715,7 @@ try {
       url: `${TASK}#issuecomment-5087100001`,
       author: 'backend_implementer',
       head_binding: { state: 'current', head: HEAD },
+      authority_ref: ROLE_AUTH_TASK,
     })
     fixture.input.evidence_records.push(extra.evidence)
     fixture.input.evidence_records.sort((a, b) =>
@@ -1586,6 +1753,7 @@ try {
         source_record_url: source,
         author: 'backend_implementer',
         head_binding: { state: 'current', head: HEAD },
+        authority_ref: ROLE_AUTH_TASK,
       })
       fixture.input.evidence_records.push(candidate.evidence)
       fixture.evidence_reads.set(candidate.evidence.canonical_url, candidate.read)
@@ -1652,8 +1820,8 @@ try {
     const result = await api.publishGateStatusV1(clone(fixture.input), harness.ports)
     assert.equal(result.branch.stopped.stop_code, 'canonical_evidence_invalid')
     assert.equal(harness.counts.pr_read, 0)
-    assert.ok(harness.counts.canonical_by_url.get(TASK) >= 2)
-    assert.ok(harness.counts.canonical_by_url.get(REVIEW) >= 1)
+    assert.equal(harness.counts.canonical_by_url.get(TASK), 1)
+    assert.equal(harness.counts.canonical_by_url.get(REVIEW), 1)
     s6CrossRows.push('GSP-S6-X-012')
   }
   assert.equal(s6CrossRows.length, 12)
@@ -1662,7 +1830,9 @@ try {
   {
     const validResults = {
       applied: (await execute(make({ atomic: true }))).result,
-      already_current: (await execute(make({ current: true }))).result,
+      already_current: (
+        await execute(make({ current: true, receipt: true }), { receipt: 'created' })
+      ).result,
       stopped: (await execute(make())).result,
       reconciliation_required: (
         await execute(make({ atomic: true }), { readback: 'mismatch' })
@@ -1720,6 +1890,2183 @@ try {
     }
   }
 
+  const focused = {
+    task_id: 'DESIGN-GATE-STATUS-PUBLISHER-CONTRACT-001',
+    implementation_phase_id: 'IMPLEMENT-GATE-STATUS-PUBLISHER-V1-001',
+    repository: 'whatrune/sd-prompt-studio',
+    pr_url: 'https://github.com/whatrune/sd-prompt-studio/pull/207',
+    head: '84ef079dd2abe94de6c69c0e7bf0b73911338301',
+    base: '15a173e8482e72913e57dc89c8c0539eb96b1b1d',
+    branch: 'codex/issue-206-gate-status-publisher-v1',
+    worktree: 'issue-206-gate-status-publisher-v1',
+    evaluated_at: '2026-07-27T04:00:00Z',
+    fetched_at: '2026-07-27T04:00:01Z',
+    check_started_at: '2026-07-27T03:55:00Z',
+    check_completed_at: '2026-07-27T03:59:00Z',
+  }
+  const focusedAuthorityUrls = Array.from(
+    { length: 5 },
+    (_, index) =>
+      `https://github.com/whatrune/sd-prompt-studio/issues/206#test-gsp-role-authority-0${index}-${
+        ['task', 'review', 'final-regression', 'operational-validation', 'protected-action'][index]
+      }`,
+  )
+  const focusedAuthoritySourceUrls = [
+    'https://github.com/whatrune/sd-prompt-studio/issues/206#test-gsp-evidence-00-task-assignment',
+    'https://github.com/whatrune/sd-prompt-studio/issues/206#test-gsp-source-01-review-assignment',
+    'https://github.com/whatrune/sd-prompt-studio/issues/206#test-gsp-source-02-final-regression-dispatch',
+    'https://github.com/whatrune/sd-prompt-studio/issues/206#test-gsp-source-03-operational-validation-dispatch',
+    'https://github.com/whatrune/sd-prompt-studio/issues/206#test-gsp-source-04-protected-action-authority',
+  ]
+  const focusedEvidenceUrls = Array.from(
+    { length: 10 },
+    (_, index) =>
+      `https://github.com/whatrune/sd-prompt-studio/issues/206#test-gsp-evidence-${String(index).padStart(2, '0')}-${
+        [
+          'task-assignment',
+          'result-handoff',
+          'review-decision',
+          'final-regression',
+          'operational-validation',
+          'product-owner-approval',
+          'protected-action-completion',
+          'projection-authorization',
+          'github-check',
+          'review-thread',
+        ][index]
+      }`,
+  )
+  const focusedFixtureBody = (ordinal, bindingKey, content) =>
+    `# Gate Status Focused Fixture: ${ordinal}\n\n\`\`\`yaml\n${
+      JSON.stringify({ [bindingKey]: content }, null, 2)
+    }\n\`\`\`\n`
+  const focusedAuthoritySpecs = [
+    {
+      authority_kind: 'task_assignment',
+      issuer_role: 'integrated_lead',
+      authorized_role: 'backend_implementer',
+      scope: {
+        scope_kind: 'task_assignment',
+        task_assignment_url: focusedEvidenceUrls[0],
+      },
+    },
+    {
+      authority_kind: 'review_assignment',
+      issuer_role: 'integrated_lead',
+      authorized_role: 'architect_team',
+      scope: {
+        scope_kind: 'review_assignment',
+        pr_url: focused.pr_url,
+        reviewed_head: focused.head,
+        review_kind: 'implementation_review',
+      },
+    },
+    {
+      authority_kind: 'validation_dispatch',
+      issuer_role: 'integrated_lead',
+      authorized_role: 'backend_implementer',
+      scope: {
+        scope_kind: 'validation_dispatch',
+        pr_url: focused.pr_url,
+        validated_head: focused.head,
+        validation_kind: 'final_regression',
+      },
+    },
+    {
+      authority_kind: 'validation_dispatch',
+      issuer_role: 'integrated_lead',
+      authorized_role: 'maintenance_op',
+      scope: {
+        scope_kind: 'validation_dispatch',
+        pr_url: focused.pr_url,
+        validated_head: focused.head,
+        validation_kind: 'operational_validation',
+      },
+    },
+    {
+      authority_kind: 'protected_action_authority',
+      issuer_role: 'product_owner',
+      authorized_role: 'integrated_lead',
+      scope: {
+        scope_kind: 'protected_action_authority',
+        pr_url: focused.pr_url,
+        authorized_head: focused.head,
+        protected_action: 'ready_for_review',
+      },
+    },
+  ]
+  const buildFocusedAuthority = (index, override = {}) => {
+    const spec = focusedAuthoritySpecs[index]
+    const canonical_url = override.canonical_url ?? focusedAuthorityUrls[index]
+    const source_record_url =
+      override.source_record_url ?? focusedAuthoritySourceUrls[index]
+    const content = {
+      contract_version: 'gate-status-role-authority-content-v1',
+      authority_class: 'admitted_role_authority',
+      authority_kind: spec.authority_kind,
+      canonical_url,
+      source_record_url,
+      issuer_role: spec.issuer_role,
+      authorized_role: spec.authorized_role,
+      task_id: focused.task_id,
+      assignment_revision: 1,
+      repository: focused.repository,
+      scope: clone(spec.scope),
+      verification_state: 'verified',
+    }
+    const body_utf8 = focusedFixtureBody(
+      `A${index}`,
+      'gate_status_role_authority_binding',
+      content,
+    )
+    const record = {
+      authority_class: content.authority_class,
+      authority_kind: content.authority_kind,
+      canonical_url,
+      source_record_url,
+      issuer_role: content.issuer_role,
+      authorized_role: content.authorized_role,
+      task_id: content.task_id,
+      assignment_revision: content.assignment_revision,
+      repository: content.repository,
+      scope: clone(content.scope),
+      fetched_content_sha256: shaText(body_utf8),
+      content_projection_sha256: shaJcs(content),
+      verification_state: 'verified',
+    }
+    const read = {
+      state: 'available',
+      source_kind: 'canonical_body',
+      canonical_url,
+      body_utf8,
+      fetched_content_sha256: record.fetched_content_sha256,
+      content,
+      content_projection_sha256: record.content_projection_sha256,
+    }
+    return { record, read }
+  }
+  const focusedAuthorities = focusedAuthoritySpecs.map((_, index) =>
+    buildFocusedAuthority(index))
+
+  const focusedEvidenceSpecs = [
+    {
+      evidence_kind: 'task_assignment',
+      authoring_role: 'integrated_lead',
+      head_binding: { state: 'not_head_bound', basis_url: focusedEvidenceUrls[0] },
+      author_role_authority_ref: focusedAuthorityUrls[0],
+    },
+    {
+      evidence_kind: 'result_handoff',
+      authoring_role: 'backend_implementer',
+      head_binding: { state: 'current', head: focused.head },
+      author_role_authority_ref: focusedAuthorityUrls[0],
+    },
+    {
+      evidence_kind: 'review_decision',
+      authoring_role: 'architect_team',
+      head_binding: { state: 'current', head: focused.head },
+      author_role_authority_ref: focusedAuthorityUrls[1],
+    },
+    {
+      evidence_kind: 'final_regression_result',
+      authoring_role: 'backend_implementer',
+      head_binding: { state: 'current', head: focused.head },
+      author_role_authority_ref: focusedAuthorityUrls[2],
+    },
+    {
+      evidence_kind: 'operational_validation_result',
+      authoring_role: 'maintenance_op',
+      head_binding: { state: 'current', head: focused.head },
+      author_role_authority_ref: focusedAuthorityUrls[3],
+    },
+    {
+      evidence_kind: 'product_owner_approval',
+      authoring_role: 'product_owner',
+      head_binding: { state: 'current', head: focused.head },
+    },
+    {
+      evidence_kind: 'protected_action_completion',
+      authoring_role: 'integrated_lead',
+      head_binding: { state: 'current', head: focused.head },
+      author_role_authority_ref: focusedAuthorityUrls[4],
+      protected_action: 'ready_for_review',
+    },
+  ]
+  const buildFocusedOrdinaryEvidence = (index) => {
+    const spec = focusedEvidenceSpecs[index]
+    const canonical_url = focusedEvidenceUrls[index]
+    const content = {
+      contract_version: 'gate-status-canonical-role-evidence-content-v1',
+      evidence_class: 'canonical_role_record',
+      evidence_kind: spec.evidence_kind,
+      canonical_url,
+      source_record_url: canonical_url,
+      authoring_role: spec.authoring_role,
+      task_id: focused.task_id,
+      repository: focused.repository,
+      head_binding: clone(spec.head_binding),
+    }
+    if (spec.author_role_authority_ref !== undefined) {
+      content.author_role_authority_ref = spec.author_role_authority_ref
+    }
+    if (spec.protected_action !== undefined) {
+      content.protected_action = spec.protected_action
+    }
+    content.verification_state = 'verified'
+    const body_utf8 = focusedFixtureBody(
+      `E${index}`,
+      'gate_status_evidence_binding',
+      content,
+    )
+    const record = {
+      evidence_class: content.evidence_class,
+      evidence_kind: content.evidence_kind,
+      canonical_url,
+      authoring_role: content.authoring_role,
+      task_id: content.task_id,
+      repository: content.repository,
+      head_binding: clone(content.head_binding),
+    }
+    if (content.author_role_authority_ref !== undefined) {
+      record.author_role_authority_ref = content.author_role_authority_ref
+    }
+    if (content.protected_action !== undefined) {
+      record.protected_action = content.protected_action
+    }
+    record.fetched_content_sha256 = shaText(body_utf8)
+    record.content_projection_sha256 = shaJcs(content)
+    record.verification_state = 'verified'
+    return {
+      record,
+      read: {
+        state: 'available',
+        source_kind: 'canonical_body',
+        canonical_url,
+        body_utf8,
+        fetched_content_sha256: record.fetched_content_sha256,
+        content,
+        content_projection_sha256: record.content_projection_sha256,
+      },
+    }
+  }
+  const focusedEvidence = focusedEvidenceSpecs.map((_, index) =>
+    buildFocusedOrdinaryEvidence(index))
+  const focusedProjectionAuthorizationContent = {
+    contract_version: 'gate-status-projection-authorization-source-content-v1',
+    canonical_url: focusedEvidenceUrls[7],
+    task_id: focused.task_id,
+    implementation_phase_id: focused.implementation_phase_id,
+    record_type: 'same_task_implementation_resume_dispatch',
+    canonical_task: focusedEvidenceUrls[0],
+    record_authoring_role: 'integrated_lead',
+    assigned_role: 'backend_implementer',
+    authority_main_full_head_sha: focused.base,
+    freeze_candidate:
+      'https://github.com/whatrune/sd-prompt-studio/issues/206#test-gsp-authority-freeze',
+    cumulative_amendment_001:
+      'https://github.com/whatrune/sd-prompt-studio/issues/206#test-gsp-amendment-001',
+    cumulative_amendment_002:
+      'https://github.com/whatrune/sd-prompt-studio/issues/206#test-gsp-amendment-002',
+    cumulative_amendment_003:
+      'https://github.com/whatrune/sd-prompt-studio/issues/206#test-gsp-amendment-003',
+    cumulative_amendment_004:
+      'https://github.com/whatrune/sd-prompt-studio/issues/206#test-gsp-amendment-004',
+    architecture_review_decision:
+      'https://github.com/whatrune/sd-prompt-studio/issues/206#test-gsp-review-decision',
+    architecture_review_decision_value: 'APPROVE',
+    architecture_review_blocking_finding_count: 0,
+    implementation_resume_allowed: true,
+    new_task_allowed: false,
+    new_task_branch_allowed: true,
+    new_task_worktree_allowed: true,
+    draft_pr_allowed_after_validation_pass: true,
+    ready_allowed: false,
+    approve_allowed: false,
+    merge_allowed: false,
+  }
+  const focusedProjectionAuthorizationBody = focusedFixtureBody(
+    'E7',
+    'gate_status_evidence_binding',
+    focusedProjectionAuthorizationContent,
+  )
+  focusedEvidence[7] = {
+    record: {
+      evidence_class: 'canonical_role_record',
+      evidence_kind: 'projection_authorization',
+      canonical_url: focusedEvidenceUrls[7],
+      authoring_role: 'integrated_lead',
+      task_id: focused.task_id,
+      repository: focused.repository,
+      head_binding: {
+        state: 'not_head_bound',
+        basis_url: focusedEvidenceUrls[7],
+      },
+      fetched_content_sha256: shaText(focusedProjectionAuthorizationBody),
+      content_projection_sha256: shaJcs(focusedProjectionAuthorizationContent),
+      verification_state: 'verified',
+    },
+    read: {
+      state: 'available',
+      source_kind: 'canonical_body',
+      canonical_url: focusedEvidenceUrls[7],
+      body_utf8: focusedProjectionAuthorizationBody,
+      fetched_content_sha256: shaText(focusedProjectionAuthorizationBody),
+      content: focusedProjectionAuthorizationContent,
+      content_projection_sha256: shaJcs(focusedProjectionAuthorizationContent),
+    },
+  }
+  const focusedCheckSource = {
+    contract_version: 'gate-status-github-check-source-v1',
+    canonical_url: focusedEvidenceUrls[8],
+    repository: focused.repository,
+    pr_url: focused.pr_url,
+    checked_head: focused.head,
+    name: 'build-preview',
+    conclusion: 'success',
+    producer: { kind: 'github_app', login: 'github-actions', database_id: 15368 },
+    started_at: focused.check_started_at,
+    completed_at: focused.check_completed_at,
+  }
+  const focusedCheckContent = {
+    contract_version: 'gate-status-github-check-content-v1',
+    evidence_class: 'github_mutable_evidence',
+    evidence_kind: 'github_check',
+    canonical_url: focusedEvidenceUrls[8],
+    repository: focused.repository,
+    pr_url: focused.pr_url,
+    checked_head: focused.head,
+    name: 'build-preview',
+    conclusion: 'success',
+    producer: clone(focusedCheckSource.producer),
+    started_at: focused.check_started_at,
+    completed_at: focused.check_completed_at,
+    verification_state: 'verified',
+  }
+  focusedEvidence[8] = {
+    record: {
+      evidence_class: 'github_mutable_evidence',
+      evidence_kind: 'github_check',
+      canonical_url: focusedEvidenceUrls[8],
+      repository: focused.repository,
+      pr_url: focused.pr_url,
+      checked_head: focused.head,
+      name: 'build-preview',
+      conclusion: 'success',
+      producer: clone(focusedCheckSource.producer),
+      started_at: focused.check_started_at,
+      completed_at: focused.check_completed_at,
+      fetched_content_sha256: shaJcs(focusedCheckSource),
+      content_projection_sha256: shaJcs(focusedCheckContent),
+      verification_state: 'verified',
+    },
+    read: {
+      state: 'available',
+      source_kind: 'github_resource',
+      canonical_url: focusedEvidenceUrls[8],
+      source: focusedCheckSource,
+      fetched_content_sha256: shaJcs(focusedCheckSource),
+      content: focusedCheckContent,
+      content_projection_sha256: shaJcs(focusedCheckContent),
+    },
+  }
+  const focusedThreadSource = {
+    contract_version: 'gate-status-github-review-thread-source-v1',
+    canonical_url: focusedEvidenceUrls[9],
+    repository: focused.repository,
+    pr_url: focused.pr_url,
+    observed_head: focused.head,
+    state: 'resolved',
+    outdated: false,
+    blocking: false,
+  }
+  const focusedThreadContent = {
+    contract_version: 'gate-status-github-review-thread-content-v1',
+    evidence_class: 'github_mutable_evidence',
+    evidence_kind: 'review_thread',
+    canonical_url: focusedEvidenceUrls[9],
+    repository: focused.repository,
+    pr_url: focused.pr_url,
+    observed_head: focused.head,
+    state: 'resolved',
+    outdated: false,
+    blocking: false,
+    verification_state: 'verified',
+  }
+  focusedEvidence[9] = {
+    record: {
+      evidence_class: 'github_mutable_evidence',
+      evidence_kind: 'review_thread',
+      canonical_url: focusedEvidenceUrls[9],
+      repository: focused.repository,
+      pr_url: focused.pr_url,
+      observed_head: focused.head,
+      state: 'resolved',
+      outdated: false,
+      blocking: false,
+      fetched_content_sha256: shaJcs(focusedThreadSource),
+      content_projection_sha256: shaJcs(focusedThreadContent),
+      verification_state: 'verified',
+    },
+    read: {
+      state: 'available',
+      source_kind: 'github_resource',
+      canonical_url: focusedEvidenceUrls[9],
+      source: focusedThreadSource,
+      fetched_content_sha256: shaJcs(focusedThreadSource),
+      content: focusedThreadContent,
+      content_projection_sha256: shaJcs(focusedThreadContent),
+    },
+  }
+  const focusedProjection = {
+    contract_version: 'gate-status-projection-v1',
+    current_head: row(focused.head, [focusedEvidenceUrls[7]]),
+    final_regression: row('pending', [focusedEvidenceUrls[3]]),
+    operational_validation: row('unperformed', [focusedEvidenceUrls[4]]),
+    pr_state_draft: row('open_draft', [focusedEvidenceUrls[7]]),
+    ready: row('unperformed', [focusedEvidenceUrls[6]]),
+    approve: row('unperformed', [focusedEvidenceUrls[5]]),
+    merge: row('unperformed', [focusedEvidenceUrls[5]]),
+    current_blocker_next_gate: {
+      blocker_id: null,
+      next_action: null,
+      next_owner: null,
+      evidence_urls: [focusedEvidenceUrls[2]],
+    },
+    historical_evidence: [],
+  }
+  const focusedPrBody =
+    `Purpose\r\n\r\n${api.renderGateStatusProjectionV1(focusedProjection)
+    }\r\n\r\n## Scope boundary\r\noutside\r\n`
+  const focusedPrSnapshot = {
+    contract_version: 'github-body-snapshot-v1',
+    source_kind: 'github_pull_request',
+    pr_url: focused.pr_url,
+    pr_number: 207,
+    head: focused.head,
+    base: focused.base,
+    state: 'open',
+    draft: true,
+    body_utf8_sha256: shaText(focusedPrBody),
+    fetched_at: focused.fetched_at,
+    etag: { state: 'absent' },
+  }
+  assert.equal(
+    focusedPrSnapshot.body_utf8_sha256,
+    'sha256:90cb4da543b6a8dd840eb96681e7c2e41ea28c74abaec56b5836397d02ec1b9b',
+    'A012 exact PR body bytes',
+  )
+  const focusedProfiles = {
+    ALL: { authorities: [0, 1, 2, 3, 4], evidence: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] },
+    TASK: { authorities: [0], evidence: [0, 7] },
+    RESULT: { authorities: [0], evidence: [0, 1, 7] },
+    REVIEW: { authorities: [0, 1], evidence: [0, 2, 7] },
+    FINAL: { authorities: [0, 2], evidence: [0, 3, 7] },
+    OPERATIONAL: { authorities: [0, 3], evidence: [0, 4, 7] },
+    PO_APPROVAL: { authorities: [0], evidence: [0, 5, 7] },
+    PROTECTED: { authorities: [0, 4], evidence: [0, 6, 7] },
+    PROJECTION: { authorities: [0], evidence: [0, 7] },
+    CHECK: { authorities: [0], evidence: [0, 7, 8] },
+    THREAD: { authorities: [0], evidence: [0, 7, 9] },
+  }
+  const buildFocusedProfileInput = (profileId) => {
+    const selected = focusedProfiles[profileId]
+    const citation_urls = selected.evidence
+      .filter((index) => index !== 0 && index !== 7)
+      .map((index) => focusedEvidenceUrls[index])
+      .sort((a, b) => Buffer.from(a).compare(Buffer.from(b)))
+    const gateRequirement = {
+      required: true,
+      authorized_metadata_role: 'backend_implementer',
+      pr: focused.pr_url,
+      current_head: focused.head,
+      required_gate_fields: [
+        'current_head',
+        'final_regression',
+        'operational_validation',
+        'pr_state',
+        'draft_state',
+        'ready',
+        'approve',
+        'merge',
+        'next_gate_owner',
+      ],
+      citation_urls,
+      reason: 'missing',
+      must_verify_after_write: true,
+    }
+    const result = {
+      contract_version: 'automatic-gate-progression-evaluation-result-v2',
+      task_id: focused.task_id,
+      evaluated_at: focused.evaluated_at,
+      input_fingerprint: `agp-input-v2:sha256:${'d'.repeat(64)}`,
+      precedence_trace: ['structural_admission', 'gate_status_projection'],
+      gate_status_requirement: clone(gateRequirement),
+      kind: 'require_gate_status_update',
+      requirement: clone(gateRequirement),
+    }
+    const authorization = {
+      authoring_role: 'backend_implementer',
+      canonical_record: focusedEvidenceUrls[7],
+      task_id: focused.task_id,
+      assignment_revision: 1,
+      repository: focused.repository,
+      pr_url: focused.pr_url,
+      head: focused.head,
+      base: focused.base,
+      evaluator_input_fingerprint: result.input_fingerprint,
+      evaluator_result_sha256: shaJcs(result),
+      projection: clone(focusedProjection),
+      projection_sha256: shaJcs(focusedProjection),
+    }
+    const input = {
+      contract_version: 'gate-status-publication-input-v1',
+      identity: {
+        task_id: focused.task_id,
+        assignment_revision: 1,
+        repository: focused.repository,
+        task_assignment_url: focusedEvidenceUrls[0],
+        projection_authority_url: focusedEvidenceUrls[7],
+        authorized_metadata_role: 'backend_implementer',
+        authorized_transport_action: 'publish_gate_status_projection',
+        pr_url: focused.pr_url,
+        pr_number: 207,
+        branch: { state: 'assigned', value: focused.branch },
+        worktree: { state: 'assigned', value: focused.worktree },
+        expected_head: focused.head,
+        expected_base: focused.base,
+      },
+      evaluator: {
+        admission_state: 'accepted',
+        result,
+        result_sha256: shaJcs(result),
+      },
+      projection_authorization: authorization,
+      role_authority_set: {
+        contract_version: 'gate-status-role-authority-set-v1',
+        task_id: focused.task_id,
+        assignment_revision: 1,
+        repository: focused.repository,
+        records: selected.authorities.map((index) =>
+          clone(focusedAuthorities[index].record)),
+      },
+      evidence_records: selected.evidence.map((index) =>
+        clone(focusedEvidence[index].record)),
+      pr_snapshot: {
+        snapshot: clone(focusedPrSnapshot),
+        body_utf8: focusedPrBody,
+        body_matches_snapshot_sha256: true,
+      },
+      prior_attempt_authorities: {
+        contract_version: 'gate-status-prior-attempt-authority-set-v1',
+        authority_set_url:
+          'https://github.com/whatrune/sd-prompt-studio/issues/206#test-gsp-prior-attempt-authority-set',
+        authoring_role: 'backend_implementer',
+        task_id: focused.task_id,
+        assignment_revision: 1,
+        repository: focused.repository,
+        pr_url: focused.pr_url,
+        pr_number: 207,
+        head: focused.head,
+        base: focused.base,
+        publication_key: `gate-status-publication-v1:sha256:${'0'.repeat(64)}`,
+        completeness: 'complete_for_publication_key',
+        state: 'absent',
+        records: [],
+        fetched_content_sha256: fixedDigest('5'),
+        verification_state: 'verified',
+      },
+      prior_attempt_reconciliation_observation: { state: 'not_required' },
+      prior_receipt: { state: 'absent' },
+      receipt_authority: { state: 'not_authorized' },
+      receipt_store_capability: { state: 'not_required' },
+      transport_capability: {
+        kind: 'github_pr_body_patch_without_atomic_precondition',
+        provider: 'github',
+        update_endpoint:
+          'https://docs.github.com/en/rest/issues/issues#update-an-issue',
+        conditional_write_supported: false,
+        publisher_mutation_allowed: false,
+        recovery_protocol:
+          'authorized_metadata_role_update_then_fresh_reconciliation',
+      },
+    }
+    input.prior_attempt_authorities.publication_key =
+      api.buildGateStatusPublicationKeyV1(input)
+    return input
+  }
+  const focusedProfileDigests = {
+    ALL: 'sha256:67a3280bb94fb3b35d991d105dbb007b7d0bba5e6eb5bb5c2bc1d6d0005eadf8',
+    TASK: 'sha256:cd5646903dc656271c723fcb1c5b14be68b86aa0c1bbd6dac588de2fa9b6721a',
+    RESULT: 'sha256:2a80ac028864da45f0efdb57085e179abc418bc2efa350cad967f5304a2baeed',
+    REVIEW: 'sha256:915f44cdea05523364cf9698aeeccab77739d6ad49a6dd962803571f40b252c9',
+    FINAL: 'sha256:eab3b5412569b98483b80042c12038091e5f0f419144af40f24a12d456bcdc1f',
+    OPERATIONAL:
+      'sha256:952e610f7bf03b88b2630d8217a9fc01e970b0f68b3d90ce0976b9a399ec3f4c',
+    PO_APPROVAL:
+      'sha256:acb01d31d2725bec9aaf91aabaacb0e64ccd89e372ee0c290531b2a0a8f12d50',
+    PROTECTED:
+      'sha256:d285c8983ce13c3094ebfa213bb28093a04d7fb58629eb1940cc9906e1809395',
+    PROJECTION:
+      'sha256:cd5646903dc656271c723fcb1c5b14be68b86aa0c1bbd6dac588de2fa9b6721a',
+    CHECK: 'sha256:35d26185432ad2deea2950e5ef1606b0f4c0ef23adf9011e7a8768d34127ad66',
+    THREAD: 'sha256:5c8ce5e8f1a26586a0a0207348a8420387c337ed26ec7d90ec0ddd1847dac7f8',
+  }
+  for (const [profileId, expectedDigest] of Object.entries(focusedProfileDigests)) {
+    assert.equal(
+      shaJcs(buildFocusedProfileInput(profileId)),
+      expectedDigest,
+      `A012 ${profileId} profile input digest`,
+    )
+  }
+  const decodePointer = (pointer) =>
+    pointer === ''
+      ? []
+      : pointer.slice(1).split('/').map((part) =>
+          part.replaceAll('~1', '/').replaceAll('~0', '~'))
+  const focusedPointerParent = (root, pointer) => {
+    const segments = decodePointer(pointer)
+    const key = segments.pop()
+    let parent = root
+    for (const segment of segments) parent = parent[segment]
+    return { parent, key }
+  }
+  const focusedPointerGet = (root, pointer) =>
+    decodePointer(pointer).reduce((value, segment) => value[segment], root)
+  const focusedPointerReplace = (root, pointer, value) => {
+    const { parent, key } = focusedPointerParent(root, pointer)
+    parent[key] = clone(value)
+  }
+  const focusedPointerAdd = (root, pointer, value) => {
+    const { parent, key } = focusedPointerParent(root, pointer)
+    if (Array.isArray(parent)) parent.splice(Number(key), 0, clone(value))
+    else parent[key] = clone(value)
+  }
+  const focusedPointerRemove = (root, pointer) => {
+    const { parent, key } = focusedPointerParent(root, pointer)
+    if (Array.isArray(parent)) parent.splice(Number(key), 1)
+    else delete parent[key]
+  }
+  const applyFocusedInputOperation = (input, operation) => {
+    if (
+      operation.kind === 'none' ||
+      operation.kind === 'invoke_twice_without_mutation' ||
+      operation.kind === 'mutate_after_admission'
+    ) return
+    if (operation.kind === 'sequence_input') {
+      for (const child of operation.operations) applyFocusedInputOperation(input, child)
+      return
+    }
+    if (operation.kind === 'remove_input') {
+      focusedPointerRemove(input, operation.pointer)
+      return
+    }
+    if (operation.kind === 'add_input') {
+      focusedPointerAdd(input, operation.pointer, operation.value)
+      return
+    }
+    if (operation.kind === 'replace_input') {
+      focusedPointerReplace(input, operation.pointer, operation.value)
+      return
+    }
+    if (operation.kind === 'swap_input') {
+      const first = clone(focusedPointerGet(input, operation.pointer_a))
+      const second = clone(focusedPointerGet(input, operation.pointer_b))
+      focusedPointerReplace(input, operation.pointer_a, second)
+      focusedPointerReplace(input, operation.pointer_b, first)
+      return
+    }
+    if (operation.kind === 'duplicate_input_value') {
+      focusedPointerReplace(
+        input,
+        operation.target_pointer,
+        focusedPointerGet(input, operation.source_pointer),
+      )
+      return
+    }
+    assert.fail(`unknown focused input operation: ${operation.kind}`)
+  }
+  const focusedCanonicalRecords = (profileId) => {
+    const profile = focusedProfiles[profileId]
+    return [
+      ...profile.authorities.map((index) => ({
+        ordinal: `A${index}`,
+        canonical_url: focusedAuthorityUrls[index],
+        result: clone(focusedAuthorities[index].read),
+      })),
+      ...profile.evidence.map((index) => ({
+        ordinal: `E${index}`,
+        canonical_url: focusedEvidenceUrls[index],
+        result: clone(focusedEvidence[index].read),
+      })),
+    ].sort((a, b) => Buffer.from(a.canonical_url).compare(Buffer.from(b.canonical_url)))
+  }
+  const applyFocusedSourceOperation = (entry, operation) => {
+    const result = entry.result
+    if (operation.kind === 'none') return
+    if (operation.kind === 'replace_reader_digest') {
+      const current = result[operation.digest_field]
+      const replacement = current.endsWith('0') ? '1' : '0'
+      result[operation.digest_field] = `${current.slice(0, -1)}${replacement}`
+      return
+    }
+    if (operation.kind === 'add_reader_content') {
+      focusedPointerAdd(result.content, operation.pointer, operation.value)
+      result.content_projection_sha256 = shaJcs(result.content)
+      return
+    }
+    if (operation.kind === 'replace_fetched_binding' && operation.pointer === '') {
+      result.content = clone(operation.value)
+    } else if (operation.kind === 'replace_fetched_binding') {
+      focusedPointerReplace(result.content, operation.pointer, operation.value)
+    } else if (operation.kind === 'add_fetched_binding') {
+      focusedPointerAdd(result.content, operation.pointer, operation.value)
+    } else if (operation.kind === 'remove_fetched_binding') {
+      focusedPointerRemove(result.content, operation.pointer)
+    } else {
+      assert.fail(`unknown focused source operation: ${operation.kind}`)
+    }
+    result.body_utf8 = focusedFixtureBody(
+      entry.ordinal,
+      entry.ordinal.startsWith('A')
+        ? 'gate_status_role_authority_binding'
+        : 'gate_status_evidence_binding',
+      result.content,
+    )
+    result.fetched_content_sha256 = shaText(result.body_utf8)
+    result.content_projection_sha256 = shaJcs(result.content)
+  }
+  const synchronizeFocusedClaim = (input, entry, claimBinding) => {
+    if (claimBinding === 'preserve') return
+    const records = entry.ordinal.startsWith('A')
+      ? input.role_authority_set.records
+      : input.evidence_records
+    const record = records.find((candidate) =>
+      candidate.canonical_url === entry.canonical_url)
+    assert.ok(record, `claim target ${entry.ordinal}`)
+    if (claimBinding === 'synchronize_both_digests') {
+      record.fetched_content_sha256 = entry.result.fetched_content_sha256
+      record.content_projection_sha256 = entry.result.content_projection_sha256
+    } else if (claimBinding === 'synchronize_content_projection_digest') {
+      record.content_projection_sha256 = entry.result.content_projection_sha256
+    } else {
+      assert.fail(`unknown focused claim binding: ${claimBinding}`)
+    }
+  }
+  const expandFocusedPorts = (profileId, input, plan) => {
+    const canonical_records =
+      plan.kind === 'validator_only' ? [] : focusedCanonicalRecords(profileId)
+    let fault = null
+    if (plan.kind === 'canonical_unavailable') {
+      canonical_records.find((entry) =>
+        entry.ordinal === plan.target_ordinal).result = { state: 'unavailable' }
+    } else if (plan.kind === 'canonical_throw') {
+      fault = {
+        kind: 'canonical_read_throw',
+        target_ordinal: plan.target_ordinal,
+        safe_error_id: plan.safe_error_id,
+      }
+    } else if (plan.kind === 'canonical_override') {
+      const entry = canonical_records.find((candidate) =>
+        candidate.ordinal === plan.target_ordinal)
+      assert.ok(entry, `source target ${plan.target_ordinal}`)
+      applyFocusedSourceOperation(entry, plan.source_operation)
+      synchronizeFocusedClaim(input, entry, plan.claim_binding)
+    }
+    return {
+      contract_version: 'gate-status-focused-port-plan-v1',
+      plan_kind: plan.kind,
+      canonical_records,
+      pr_read:
+        plan.kind === 'validator_only' || plan.kind === 'canonical_throw'
+          ? { kind: 'forbidden' }
+          : {
+              kind: 'single_available',
+              value: {
+                snapshot: clone(focusedPrSnapshot),
+                body_utf8: focusedPrBody,
+              },
+            },
+      cas: { kind: 'forbidden' },
+      receipt_store: { kind: 'forbidden' },
+      write: { kind: 'forbidden' },
+      retry: { kind: 'forbidden' },
+      fault,
+    }
+  }
+  const expandFocusedCase = (rowEncoding) => {
+    const input = buildFocusedProfileInput(rowEncoding.profile_id)
+    applyFocusedInputOperation(input, rowEncoding.input_operation)
+    const ports = expandFocusedPorts(
+      rowEncoding.profile_id,
+      input,
+      rowEncoding.port_plan,
+    )
+    return {
+      contract_version: 'gate-status-focused-expanded-case-v1',
+      row_id: rowEncoding.row_id,
+      profile_id: rowEncoding.profile_id,
+      input_operation: clone(rowEncoding.input_operation),
+      port_plan_encoding: clone(rowEncoding.port_plan),
+      public_surface: rowEncoding.public_surface,
+      input,
+      ports,
+      expected_tuple: clone(rowEncoding.expected_tuple),
+      call_vector: clone(rowEncoding.call_vector),
+      assertion_profile: rowEncoding.assertion_profile,
+    }
+  }
+  const focusedAcceptedTuple = {
+    result_kind: 'accepted',
+    stage: null,
+    stop_code: null,
+    diagnostic_path: null,
+  }
+  const focusedFirstRow = {
+    row_id: 'GSP-S1-ROLE-AUTH-001',
+    profile_id: 'ALL',
+    input_operation: { kind: 'none' },
+    port_plan: { kind: 'validator_only' },
+    public_surface: 'validateGateStatusPublicationInputV1',
+    expected_tuple: focusedAcceptedTuple,
+    call_vector: [0, 0, 0, 0, 0, 0, 0],
+    assertion_profile: 'validator_accept',
+  }
+  assert.equal(
+    shaJcs(expandFocusedCase(focusedFirstRow)),
+    'sha256:aee3ca81967aacc6791c849a489dcc45f6f6da3b9100f8028725d6c67fa7fb72',
+    'A012 first expanded case digest',
+  )
+  const focusedStoppedTuple = (stage, stop_code, diagnostic_path) => ({
+    result_kind: 'stopped',
+    stage,
+    stop_code,
+    diagnostic_path,
+  })
+  const focusedValidatorPlan = { kind: 'validator_only' }
+  const focusedNonAtomicPlan = { kind: 'nonatomic_baseline' }
+  const focusedLaterTuple = focusedStoppedTuple(
+    'S11',
+    'atomic_precondition_unavailable',
+    '/prior_attempt_reconciliation_observation',
+  )
+  const focusedS1Tuple = (code, path) =>
+    focusedStoppedTuple('S1', code, path)
+  const focusedS6Tuple = (path) =>
+    focusedStoppedTuple('S6', 'canonical_evidence_invalid', path)
+  const focusedOverride = (
+    target_ordinal,
+    source_operation,
+    claim_binding = 'synchronize_both_digests',
+  ) => ({
+    kind: 'canonical_override',
+    target_ordinal,
+    source_operation,
+    claim_binding,
+  })
+  const focusedRows = [
+    focusedFirstRow,
+    {
+      row_id: 'GSP-S1-ROLE-AUTH-002',
+      profile_id: 'ALL',
+      input_operation: { kind: 'remove_input', pointer: '/role_authority_set' },
+      port_plan: focusedValidatorPlan,
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS1Tuple(
+        'structural_admission_failed',
+        '/role_authority_set',
+      ),
+      call_vector: [0, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S1-ROLE-AUTH-003',
+      profile_id: 'ALL',
+      input_operation: {
+        kind: 'add_input',
+        pointer: '/role_authority_set/records/0/scope/unexpected',
+        value: true,
+      },
+      port_plan: focusedValidatorPlan,
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS1Tuple(
+        'structural_admission_failed',
+        '/role_authority_set/records/0/scope/unexpected',
+      ),
+      call_vector: [0, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S1-ROLE-AUTH-004',
+      profile_id: 'ALL',
+      input_operation: {
+        kind: 'duplicate_input_value',
+        source_pointer: '/role_authority_set/records/0/canonical_url',
+        target_pointer: '/role_authority_set/records/1/canonical_url',
+      },
+      port_plan: focusedValidatorPlan,
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS1Tuple(
+        'duplicate_set_member',
+        '/role_authority_set/records/1/canonical_url',
+      ),
+      call_vector: [0, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S1-ROLE-AUTH-005',
+      profile_id: 'ALL',
+      input_operation: {
+        kind: 'swap_input',
+        pointer_a: '/role_authority_set/records/0',
+        pointer_b: '/role_authority_set/records/1',
+      },
+      port_plan: focusedValidatorPlan,
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS1Tuple(
+        'noncanonical_set_order',
+        '/role_authority_set/records/1/canonical_url',
+      ),
+      call_vector: [0, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S1-ROLE-AUTH-006',
+      profile_id: 'ALL',
+      input_operation: {
+        kind: 'remove_input',
+        pointer: '/role_authority_set/records/0',
+      },
+      port_plan: focusedValidatorPlan,
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS1Tuple(
+        'invalid_cross_input_binding',
+        '/role_authority_set/records',
+      ),
+      call_vector: [0, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S1-ROLE-AUTH-007',
+      profile_id: 'ALL',
+      input_operation: {
+        kind: 'add_input',
+        pointer: '/role_authority_set/records/5',
+        value: {
+          authority_class: 'admitted_role_authority',
+          authority_kind: 'review_assignment',
+          canonical_url:
+            'https://github.com/whatrune/sd-prompt-studio/issues/206#test-gsp-role-authority-05-unused-review',
+          source_record_url:
+            'https://github.com/whatrune/sd-prompt-studio/issues/206#test-gsp-source-05-unused-review-source',
+          issuer_role: 'integrated_lead',
+          authorized_role: 'architect_team',
+          task_id: focused.task_id,
+          assignment_revision: 1,
+          repository: focused.repository,
+          scope: {
+            scope_kind: 'review_assignment',
+            pr_url: focused.pr_url,
+            reviewed_head: focused.head,
+            review_kind: 'implementation_review',
+          },
+          fetched_content_sha256:
+            'sha256:6d915e34df6037b62e1dfa73cb9943422c4912247c5b926d8f729d457242ca0a',
+          content_projection_sha256:
+            'sha256:665f69ce86b82c30b3ee7d1b737d834ab84caa0b93f62013bfdf979043a7353d',
+          verification_state: 'verified',
+        },
+      },
+      port_plan: focusedValidatorPlan,
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS1Tuple(
+        'invalid_cross_input_binding',
+        '/role_authority_set/records/5',
+      ),
+      call_vector: [0, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S1-ROLE-AUTH-008',
+      profile_id: 'ALL',
+      input_operation: {
+        kind: 'replace_input',
+        pointer: '/evidence_records/1/author_role_authority_ref',
+        value:
+          'https://github.com/whatrune/sd-prompt-studio/issues/206#test-gsp-role-authority-99-absent',
+      },
+      port_plan: focusedValidatorPlan,
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS1Tuple(
+        'invalid_cross_input_binding',
+        '/evidence_records/1/author_role_authority_ref',
+      ),
+      call_vector: [0, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S1-ROLE-AUTH-009',
+      profile_id: 'ALL',
+      input_operation: {
+        kind: 'add_input',
+        pointer: '/evidence_records/5/author_role_authority_ref',
+        value: focusedAuthorityUrls[0],
+      },
+      port_plan: focusedValidatorPlan,
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS1Tuple(
+        'unknown_field',
+        '/evidence_records/5/author_role_authority_ref',
+      ),
+      call_vector: [0, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S1-ROLE-AUTH-010',
+      profile_id: 'ALL',
+      input_operation: {
+        kind: 'add_input',
+        pointer: '/evidence_records/7/author_role_authority_ref',
+        value: focusedAuthorityUrls[0],
+      },
+      port_plan: focusedValidatorPlan,
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS1Tuple(
+        'unknown_field',
+        '/evidence_records/7/author_role_authority_ref',
+      ),
+      call_vector: [0, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S1-ROLE-AUTH-011',
+      profile_id: 'ALL',
+      input_operation: {
+        kind: 'add_input',
+        pointer: '/evidence_records/9/authoring_role',
+        value: 'architect_team',
+      },
+      port_plan: focusedValidatorPlan,
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS1Tuple(
+        'unknown_field',
+        '/evidence_records/9/authoring_role',
+      ),
+      call_vector: [0, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S1-ROLE-AUTH-012',
+      profile_id: 'ALL',
+      input_operation: {
+        kind: 'replace_input',
+        pointer: '/role_authority_set/records/0/scope/scope_kind',
+        value: 'review_assignment',
+      },
+      port_plan: focusedValidatorPlan,
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS1Tuple(
+        'invalid_conditional_matrix',
+        '/role_authority_set/records/0/scope/scope_kind',
+      ),
+      call_vector: [0, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+  ]
+  focusedRows.push(
+    ...[
+      ['GSP-S6-ROLE-AUTH-001', 'TASK', [1, 2, 1, 0, 0, 0, 0]],
+      ['GSP-S6-ROLE-AUTH-002', 'REVIEW', [2, 3, 1, 0, 0, 0, 0]],
+      ['GSP-S6-ROLE-AUTH-003', 'FINAL', [2, 3, 1, 0, 0, 0, 0]],
+      ['GSP-S6-ROLE-AUTH-004', 'PROTECTED', [2, 3, 1, 0, 0, 0, 0]],
+    ].map(([row_id, profile_id, call_vector]) => ({
+      row_id,
+      profile_id,
+      input_operation: { kind: 'none' },
+      port_plan: focusedNonAtomicPlan,
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedLaterTuple,
+      call_vector,
+      assertion_profile: 'later_stop',
+    })),
+    {
+      row_id: 'GSP-S6-ROLE-AUTH-005',
+      profile_id: 'TASK',
+      input_operation: { kind: 'none' },
+      port_plan: focusedOverride('A0', {
+        kind: 'replace_fetched_binding',
+        pointer: '',
+        value: {},
+        recompute: 'body_and_both_digests',
+      }),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS6Tuple('/role_authority_set/records/0'),
+      call_vector: [1, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S6-ROLE-AUTH-006',
+      profile_id: 'TASK',
+      input_operation: { kind: 'none' },
+      port_plan: focusedOverride('A0', {
+        kind: 'add_fetched_binding',
+        pointer: '/unexpected',
+        value: true,
+        recompute: 'body_and_both_digests',
+      }),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS6Tuple('/role_authority_set/records/0/unexpected'),
+      call_vector: [1, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S6-ROLE-AUTH-007',
+      profile_id: 'TASK',
+      input_operation: { kind: 'none' },
+      port_plan: focusedOverride('A0', {
+        kind: 'remove_fetched_binding',
+        pointer: '/authorized_role',
+        recompute: 'body_and_both_digests',
+      }),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple:
+        focusedS6Tuple('/role_authority_set/records/0/authorized_role'),
+      call_vector: [1, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S6-ROLE-AUTH-008',
+      profile_id: 'TASK',
+      input_operation: { kind: 'none' },
+      port_plan: focusedOverride(
+        'A0',
+        {
+          kind: 'replace_reader_digest',
+          digest_field: 'fetched_content_sha256',
+          last_hex: '0',
+        },
+        'preserve',
+      ),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple:
+        focusedS6Tuple('/role_authority_set/records/0/fetched_content_sha256'),
+      call_vector: [1, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S6-ROLE-AUTH-009',
+      profile_id: 'TASK',
+      input_operation: { kind: 'none' },
+      port_plan: focusedOverride(
+        'A0',
+        {
+          kind: 'replace_reader_digest',
+          digest_field: 'content_projection_sha256',
+          last_hex: '0',
+        },
+        'preserve',
+      ),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple:
+        focusedS6Tuple('/role_authority_set/records/0/content_projection_sha256'),
+      call_vector: [1, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S6-ROLE-AUTH-010',
+      profile_id: 'TASK',
+      input_operation: { kind: 'none' },
+      port_plan: focusedOverride('A0', {
+        kind: 'replace_fetched_binding',
+        pointer: '/authorized_role',
+        value: 'product_owner',
+        recompute: 'body_and_both_digests',
+      }),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple:
+        focusedS6Tuple('/role_authority_set/records/0/authorized_role'),
+      call_vector: [1, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S6-ROLE-AUTH-011',
+      profile_id: 'TASK',
+      input_operation: { kind: 'none' },
+      port_plan: { kind: 'canonical_unavailable', target_ordinal: 'A0' },
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS6Tuple('/role_authority_set/records/0'),
+      call_vector: [1, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S6-ROLE-AUTH-012',
+      profile_id: 'TASK',
+      input_operation: { kind: 'none' },
+      port_plan: {
+        kind: 'canonical_throw',
+        target_ordinal: 'A0',
+        safe_error_id: 'deterministic_test_error',
+      },
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS6Tuple('/role_authority_set/records/0'),
+      call_vector: [1, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+  )
+  focusedRows.push(
+    {
+      row_id: 'GSP-S6-ROLE-MATRIX-NEG-001',
+      profile_id: 'TASK',
+      input_operation: {
+        kind: 'replace_input',
+        pointer: '/evidence_records/0/authoring_role',
+        value: 'product_owner',
+      },
+      port_plan: focusedOverride('E0', {
+        kind: 'replace_fetched_binding',
+        pointer: '/authoring_role',
+        value: 'product_owner',
+        recompute: 'body_and_both_digests',
+      }),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS6Tuple('/evidence_records/0/authoring_role'),
+      call_vector: [1, 1, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    ...[
+      ['GSP-S6-ROLE-MATRIX-NEG-002', 'RESULT', 'E1', 'product_owner', [1, 2, 0, 0, 0, 0, 0]],
+      ['GSP-S6-ROLE-MATRIX-NEG-003', 'REVIEW', 'E2', 'product_owner', [2, 2, 0, 0, 0, 0, 0]],
+      ['GSP-S6-ROLE-MATRIX-NEG-004', 'FINAL', 'E3', 'product_owner', [2, 2, 0, 0, 0, 0, 0]],
+      ['GSP-S6-ROLE-MATRIX-NEG-005', 'OPERATIONAL', 'E4', 'product_owner', [2, 2, 0, 0, 0, 0, 0]],
+      ['GSP-S6-ROLE-MATRIX-NEG-006', 'PO_APPROVAL', 'E5', 'integrated_lead', [1, 2, 0, 0, 0, 0, 0]],
+      ['GSP-S6-ROLE-MATRIX-NEG-007', 'PROTECTED', 'E6', 'product_owner', [2, 2, 0, 0, 0, 0, 0]],
+    ].map(([row_id, profile_id, target, role, call_vector]) => ({
+      row_id,
+      profile_id,
+      input_operation: {
+        kind: 'replace_input',
+        pointer: '/evidence_records/1/authoring_role',
+        value: role,
+      },
+      port_plan: focusedOverride(target, {
+        kind: 'replace_fetched_binding',
+        pointer: '/authoring_role',
+        value: role,
+        recompute: 'body_and_both_digests',
+      }),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS6Tuple('/evidence_records/1/authoring_role'),
+      call_vector,
+      assertion_profile: 'fail_closed',
+    })),
+    {
+      row_id: 'GSP-S6-ROLE-MATRIX-NEG-008',
+      profile_id: 'PROJECTION',
+      input_operation: {
+        kind: 'replace_input',
+        pointer: '/evidence_records/1/authoring_role',
+        value: 'product_owner',
+      },
+      port_plan: focusedOverride('E7', {
+        kind: 'replace_fetched_binding',
+        pointer: '/record_authoring_role',
+        value: 'product_owner',
+        recompute: 'body_and_both_digests',
+      }),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS6Tuple('/evidence_records/1/authoring_role'),
+      call_vector: [1, 2, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S6-ROLE-MATRIX-NEG-009',
+      profile_id: 'CHECK',
+      input_operation: {
+        kind: 'replace_input',
+        pointer: '/evidence_records/2/producer',
+        value: {
+          kind: 'github_user',
+          login: 'backend-architect',
+          database_id: 206,
+        },
+      },
+      port_plan: focusedOverride(
+        'E8',
+        { kind: 'none' },
+        'preserve',
+      ),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS6Tuple('/evidence_records/2/producer'),
+      call_vector: [1, 3, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S6-ROLE-MATRIX-NEG-010',
+      profile_id: 'THREAD',
+      input_operation: { kind: 'none' },
+      port_plan: focusedOverride(
+        'E9',
+        {
+          kind: 'add_reader_content',
+          pointer: '/producer',
+          value: {
+            kind: 'github_user',
+            login: 'backend-architect',
+            database_id: 206,
+          },
+          recompute: 'content_projection_digest_only',
+        },
+        'synchronize_content_projection_digest',
+      ),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS6Tuple('/evidence_records/2/producer'),
+      call_vector: [1, 3, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+  )
+  focusedRows.push(
+    ...[
+      ['GSP-S6-ROLE-MATRIX-POS-001', 'TASK', [1, 2, 1, 0, 0, 0, 0]],
+      ['GSP-S6-ROLE-MATRIX-POS-002', 'RESULT', [1, 3, 1, 0, 0, 0, 0]],
+      ['GSP-S6-ROLE-MATRIX-POS-003', 'REVIEW', [2, 3, 1, 0, 0, 0, 0]],
+      ['GSP-S6-ROLE-MATRIX-POS-004', 'FINAL', [2, 3, 1, 0, 0, 0, 0]],
+      ['GSP-S6-ROLE-MATRIX-POS-005', 'OPERATIONAL', [2, 3, 1, 0, 0, 0, 0]],
+      ['GSP-S6-ROLE-MATRIX-POS-006', 'PO_APPROVAL', [1, 3, 1, 0, 0, 0, 0]],
+      ['GSP-S6-ROLE-MATRIX-POS-007', 'PROTECTED', [2, 3, 1, 0, 0, 0, 0]],
+      ['GSP-S6-ROLE-MATRIX-POS-008', 'PROJECTION', [1, 2, 1, 0, 0, 0, 0]],
+      ['GSP-S6-ROLE-MATRIX-POS-009', 'CHECK', [1, 3, 1, 0, 0, 0, 0]],
+      ['GSP-S6-ROLE-MATRIX-POS-010', 'THREAD', [1, 3, 1, 0, 0, 0, 0]],
+    ].map(([row_id, profile_id, call_vector]) => ({
+      row_id,
+      profile_id,
+      input_operation: { kind: 'none' },
+      port_plan: focusedNonAtomicPlan,
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedLaterTuple,
+      call_vector,
+      assertion_profile: 'later_stop',
+    })),
+  )
+  const focusedCaseDigests = {
+    'GSP-S1-ROLE-AUTH-001': 'sha256:aee3ca81967aacc6791c849a489dcc45f6f6da3b9100f8028725d6c67fa7fb72',
+    'GSP-S1-ROLE-AUTH-002': 'sha256:277ec8d795e657f29d4e4e04f729f9c0e6dd03ff05609167bd4dbff7f6f8a740',
+    'GSP-S1-ROLE-AUTH-003': 'sha256:481d618ec51ae49512afe259059c16ab81b2f8ce12836122e88c84d1738b77f0',
+    'GSP-S1-ROLE-AUTH-004': 'sha256:9ab576c89f4e955fed75388bfaa97ee66c74801768313f528e1eae614cbd359e',
+    'GSP-S1-ROLE-AUTH-005': 'sha256:304c18095690c8a7c573fac031514ffe0bbf4230993a4ae5c84724255b13e930',
+    'GSP-S1-ROLE-AUTH-006': 'sha256:ba58ceb5f30cd5623f678b3e52672211885e2e455d2ed8fa83a82645ada01b25',
+    'GSP-S1-ROLE-AUTH-007': 'sha256:eb5d69d8fe421504f7b066a97b2e76f127195ace9ed0e09440270535edd505b7',
+    'GSP-S1-ROLE-AUTH-008': 'sha256:f4a4014ced45149e370a61bcbd2211fc365de26193d5707f0bbd3db8f2ed58a3',
+    'GSP-S1-ROLE-AUTH-009': 'sha256:01c29cf8723e516a535883ccc81e492f4117cab774692365a76d2b94111401de',
+    'GSP-S1-ROLE-AUTH-010': 'sha256:ad5120e9a04bf22772394ac6648704c309934d6a586a28a644330c9e477e5559',
+    'GSP-S1-ROLE-AUTH-011': 'sha256:62c70a479f354667c6d4451742a34f3c1a81afacc79a20f01c7b7863a6e56e1a',
+    'GSP-S1-ROLE-AUTH-012': 'sha256:c35815f7bf09c751256d0413413b855bf742fc23c48db2e2ce0b9c8bb4b190da',
+    'GSP-S6-ROLE-AUTH-001': 'sha256:684741059cbc688df7583ec9c59b9084ecd1b44e33af5b6514367ba6fc17edbe',
+    'GSP-S6-ROLE-AUTH-002': 'sha256:c4c9f8228fd83bfe55e360f4a38ee6a8597d898ecfd819e82008141c40f3247f',
+    'GSP-S6-ROLE-AUTH-003': 'sha256:4743baf896411bfb8f8fdef0a00f7dc18f10526352baa21b9081276252dd01f3',
+    'GSP-S6-ROLE-AUTH-004': 'sha256:5a998116ce19f2cf7e88f41933e948ca9b5c0ce6f32989f2d4927897a4128f16',
+    'GSP-S6-ROLE-AUTH-005': 'sha256:8aef4eda7924e0596f16b0c7943dd57cbe44b3d84c7a0d9a922bdc154beef79a',
+    'GSP-S6-ROLE-AUTH-006': 'sha256:e0ec1b5828a6763165ec8bd04381c8267051f2483de8044ce8bcfb484df674a9',
+    'GSP-S6-ROLE-AUTH-007': 'sha256:0374df5dbffc0d5d07b61f937ef084ac5e8264af99418a5609091be046c2ec04',
+    'GSP-S6-ROLE-AUTH-008': 'sha256:af3eaa759cc5b89a9d261757c35f44cadfb35ff3224b770105690f685f21ca75',
+    'GSP-S6-ROLE-AUTH-009': 'sha256:7dfcff7b15d284fb1c3bce045796e57c305c17a49e6e16f44bb9f09e0d66f0a2',
+    'GSP-S6-ROLE-AUTH-010': 'sha256:17007aa3daf8f90e80e496b8a743e666517a3f4550ccaa627b849da15079d4ae',
+    'GSP-S6-ROLE-AUTH-011': 'sha256:70b4b498b3a8c845cf8884406108e834d59fd798f44cf548bd453fc662bbf89a',
+    'GSP-S6-ROLE-AUTH-012': 'sha256:857a334fc8e1ecb305e8761707d70620ea2d78b26c726094e02b27f6af6bbf12',
+    'GSP-S6-ROLE-BIND-001': 'sha256:21159418289e7b991a453b1fe663cf2991820805f9c252b5271c0b8caaa7b819',
+    'GSP-S6-ROLE-BIND-002': 'sha256:854cad6690c014070fe6a8b54f49a3122510c04ce9f211789f65d404ce62fdb8',
+    'GSP-S6-ROLE-BIND-003': 'sha256:450350085082e6244ff67d2de8fb0676f0ed1eba5bfbebd1f92aea05914d53d8',
+    'GSP-S6-ROLE-BIND-004': 'sha256:d702914952b420edffddf7e64aaa845e687b895634c1bf3494d35186f0ae1fc2',
+    'GSP-S6-ROLE-BIND-005': 'sha256:595cd5968df5c32639182b43f7dc0185be157b5c1c06a1a56eb8cd7a96f7b129',
+    'GSP-S6-ROLE-BIND-006': 'sha256:f05209b941a1be1b192f8c899c5b5062754168ab77191cb9615c4ca44ce11be3',
+    'GSP-S6-ROLE-BIND-007': 'sha256:5c7f89ece5fa71563c05e45e979c29b7a1a4eb52860c860b6bfd4ff3d952e9f0',
+    'GSP-S6-ROLE-BIND-008': 'sha256:2cf8273d5e061a91478764153e3ab28f41d377837bfda5b3dafdb855db050d1d',
+    'GSP-S6-ROLE-BIND-009': 'sha256:c4b795232783a46038340969fb8409560cc9745e51e3beb3215f7ee0202c800e',
+    'GSP-S6-ROLE-BIND-010': 'sha256:09b18ca624d33e787005124281e122239d8e39b9955f3c9e1df3f4b7366a0b15',
+    'GSP-S6-ROLE-BIND-011': 'sha256:f1ef380d024c3b18e4ad0283b2216a95a40e8930b2dbbd92cc35facfed6a1b04',
+    'GSP-S6-ROLE-BIND-012': 'sha256:3eabe27351e7fb52ed600a84bd2bed9869c23b1cc0b3d91aea159a00474b1ff8',
+    'GSP-S6-ROLE-MATRIX-NEG-001': 'sha256:f681f0bc18d27decbeb89c0936d1636084034b3e64c431426bec9f31c2aa81ac',
+    'GSP-S6-ROLE-MATRIX-NEG-002': 'sha256:37e242ed588161966cbb23f647774ac256af93e315f2b653762f3291bbb12073',
+    'GSP-S6-ROLE-MATRIX-NEG-003': 'sha256:eb136e99b9e11fa7ea6738e2a396c1324eee379d99386a0eceab79efb21eb083',
+    'GSP-S6-ROLE-MATRIX-NEG-004': 'sha256:6f8705ddfc3f17aa3200d37c765413d2d0a1c2938201b8bced913e66ccf3dd00',
+    'GSP-S6-ROLE-MATRIX-NEG-005': 'sha256:a221b1e41e6af4469175b13bebd0d59daae1907848ca81eeca3d453cb479d2eb',
+    'GSP-S6-ROLE-MATRIX-NEG-006': 'sha256:02462c78cb7efa7910b11c9e2204b41d93f4e3d5d87bd583563d191f49316f26',
+    'GSP-S6-ROLE-MATRIX-NEG-007': 'sha256:3d1f0bff28f2323b8592366553c2044fcef71e7dac2b0d42f334c5cda6dac31c',
+    'GSP-S6-ROLE-MATRIX-NEG-008': 'sha256:2103102476340125c478cc92a23a63482ff54607362b75c5f8ac3db94760f4e1',
+    'GSP-S6-ROLE-MATRIX-NEG-009': 'sha256:b62f33a06f34e0b616759230fcfc1595b6da8decf60478a86ad91d6d4b073945',
+    'GSP-S6-ROLE-MATRIX-NEG-010': 'sha256:20a312f0e8b57658a07a60bd6b07bc18fd9e29809d7e531c5e4e046cea2258f3',
+    'GSP-S6-ROLE-MATRIX-POS-001': 'sha256:67167118758bd0d1dece1b6a080fb78ad5a77e0620422fc446746ad5f9189e76',
+    'GSP-S6-ROLE-MATRIX-POS-002': 'sha256:03690f0ab98c007d876b6d8692bfec16b57f46dceab85b48b08ac52c3c55cc9f',
+    'GSP-S6-ROLE-MATRIX-POS-003': 'sha256:beccad6a66f318b4f69261fbe68b51e8f949e337c67862b5052150fd51f0f815',
+    'GSP-S6-ROLE-MATRIX-POS-004': 'sha256:22408979a3c16e948b31c464764c7bc5cd393ceb8bbdee3f452d1cbab06d8826',
+    'GSP-S6-ROLE-MATRIX-POS-005': 'sha256:a5ee19761d686d94204f821af77fa9adb85accf584c69d7da35de1348ab9dc05',
+    'GSP-S6-ROLE-MATRIX-POS-006': 'sha256:c6b5bad0b1f4fb8a598a5f16d4c8ec2b7c06d1148a3eae463aed0180e7db7359',
+    'GSP-S6-ROLE-MATRIX-POS-007': 'sha256:409f4b9446787435ad2ddc70e7603587a08b8806ba7bf5cce18cf9fc67de4cd6',
+    'GSP-S6-ROLE-MATRIX-POS-008': 'sha256:427b26571c6d617ddcd4ff46c1a2e75f5b833309cf16d36b3fd047e562f16637',
+    'GSP-S6-ROLE-MATRIX-POS-009': 'sha256:c28d804ddba5454cd636b8fe0bfa25e9d983febddfd8a868f74def5547826651',
+    'GSP-S6-ROLE-MATRIX-POS-010': 'sha256:139f6c75e2442b88f727c18b2c5659315a483e9998b7d590850eef75e79f5e7b',
+  }
+  focusedRows.push(
+    {
+      row_id: 'GSP-S6-ROLE-BIND-001',
+      profile_id: 'RESULT',
+      input_operation: {
+        kind: 'sequence_input',
+        operations: [
+          {
+            kind: 'replace_input',
+            pointer: '/role_authority_set/records/0/authorized_role',
+            value: 'product_owner',
+          },
+          {
+            kind: 'replace_input',
+            pointer: '/evidence_records/1/authoring_role',
+            value: 'product_owner',
+          },
+        ],
+      },
+      port_plan: focusedOverride('E1', {
+        kind: 'replace_fetched_binding',
+        pointer: '/authoring_role',
+        value: 'product_owner',
+        recompute: 'body_and_both_digests',
+      }),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple:
+        focusedS6Tuple('/role_authority_set/records/0/authorized_role'),
+      call_vector: [1, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S6-ROLE-BIND-002',
+      profile_id: 'TASK',
+      input_operation: { kind: 'none' },
+      port_plan: focusedOverride('A0', {
+        kind: 'replace_fetched_binding',
+        pointer: '/source_record_url',
+        value:
+          'https://github.com/whatrune/sd-prompt-studio/issues/206#test-gsp-source-99-wrong',
+        recompute: 'body_and_both_digests',
+      }),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple:
+        focusedS6Tuple('/role_authority_set/records/0/source_record_url'),
+      call_vector: [1, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S6-ROLE-BIND-003',
+      profile_id: 'TASK',
+      input_operation: { kind: 'none' },
+      port_plan: focusedOverride('A0', {
+        kind: 'replace_fetched_binding',
+        pointer: '/task_id',
+        value: 'OTHER-TASK-001',
+        recompute: 'body_and_both_digests',
+      }),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS6Tuple('/role_authority_set/records/0/task_id'),
+      call_vector: [1, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S6-ROLE-BIND-004',
+      profile_id: 'TASK',
+      input_operation: { kind: 'none' },
+      port_plan: focusedOverride('A0', {
+        kind: 'replace_fetched_binding',
+        pointer: '/assignment_revision',
+        value: 2,
+        recompute: 'body_and_both_digests',
+      }),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple:
+        focusedS6Tuple('/role_authority_set/records/0/assignment_revision'),
+      call_vector: [1, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S6-ROLE-BIND-005',
+      profile_id: 'TASK',
+      input_operation: { kind: 'none' },
+      port_plan: focusedOverride('A0', {
+        kind: 'replace_fetched_binding',
+        pointer: '/repository',
+        value: 'whatrune/other-repository',
+        recompute: 'body_and_both_digests',
+      }),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple:
+        focusedS6Tuple('/role_authority_set/records/0/repository'),
+      call_vector: [1, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S6-ROLE-BIND-006',
+      profile_id: 'REVIEW',
+      input_operation: { kind: 'none' },
+      port_plan: focusedOverride('A1', {
+        kind: 'replace_fetched_binding',
+        pointer: '/scope/pr_url',
+        value: 'https://github.com/whatrune/sd-prompt-studio/pull/208',
+        recompute: 'body_and_both_digests',
+      }),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple:
+        focusedS6Tuple('/role_authority_set/records/1/scope/pr_url'),
+      call_vector: [2, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S6-ROLE-BIND-007',
+      profile_id: 'REVIEW',
+      input_operation: { kind: 'none' },
+      port_plan: focusedOverride('A1', {
+        kind: 'replace_fetched_binding',
+        pointer: '/scope/reviewed_head',
+        value: '1111111111111111111111111111111111111111',
+        recompute: 'body_and_both_digests',
+      }),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple:
+        focusedS6Tuple('/role_authority_set/records/1/scope/reviewed_head'),
+      call_vector: [2, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S6-ROLE-BIND-008',
+      profile_id: 'FINAL',
+      input_operation: { kind: 'none' },
+      port_plan: focusedOverride('A2', {
+        kind: 'replace_fetched_binding',
+        pointer: '/scope/validation_kind',
+        value: 'operational_validation',
+        recompute: 'body_and_both_digests',
+      }),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple:
+        focusedS6Tuple('/role_authority_set/records/1/scope/validation_kind'),
+      call_vector: [2, 0, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S6-ROLE-BIND-009',
+      profile_id: 'PROTECTED',
+      input_operation: {
+        kind: 'replace_input',
+        pointer: '/evidence_records/1/protected_action',
+        value: 'approve',
+      },
+      port_plan: focusedOverride('E6', {
+        kind: 'replace_fetched_binding',
+        pointer: '/protected_action',
+        value: 'approve',
+        recompute: 'body_and_both_digests',
+      }),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedS6Tuple('/evidence_records/1/protected_action'),
+      call_vector: [2, 2, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S6-ROLE-BIND-010',
+      profile_id: 'ALL',
+      input_operation: { kind: 'none' },
+      port_plan: focusedOverride('E1', {
+        kind: 'replace_fetched_binding',
+        pointer: '/author_role_authority_ref',
+        value: focusedAuthorityUrls[1],
+        recompute: 'body_and_both_digests',
+      }),
+      public_surface: 'publishGateStatusV1',
+      expected_tuple:
+        focusedS6Tuple('/evidence_records/1/author_role_authority_ref'),
+      call_vector: [5, 2, 0, 0, 0, 0, 0],
+      assertion_profile: 'fail_closed',
+    },
+    {
+      row_id: 'GSP-S6-ROLE-BIND-011',
+      profile_id: 'ALL',
+      input_operation: { kind: 'invoke_twice_without_mutation' },
+      port_plan: focusedNonAtomicPlan,
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedLaterTuple,
+      call_vector: [10, 20, 2, 0, 0, 0, 0],
+      assertion_profile: 'deterministic_rerun',
+    },
+    {
+      row_id: 'GSP-S6-ROLE-BIND-012',
+      profile_id: 'ALL',
+      input_operation: {
+        kind: 'mutate_after_admission',
+        pointer: '/evidence_records/1/authoring_role',
+        value: 'product_owner',
+      },
+      port_plan: focusedNonAtomicPlan,
+      public_surface: 'publishGateStatusV1',
+      expected_tuple: focusedLaterTuple,
+      call_vector: [5, 10, 1, 0, 0, 0, 0],
+      assertion_profile: 'mutation_isolation',
+    },
+  )
+  focusedRows.sort((a, b) =>
+    Buffer.from(a.row_id).compare(Buffer.from(b.row_id)))
+  assert.equal(focusedRows.length, 56)
+  assert.equal(new Set(focusedRows.map((item) => item.row_id)).size, 56)
+  const focusedLiteralBundle = {
+    contract_version: 'gate-status-focused-literal-bundle-v1',
+    constants: clone(focused),
+    authority_urls: clone(focusedAuthorityUrls),
+    authority_source_urls: clone(focusedAuthoritySourceUrls),
+    evidence_urls: clone(focusedEvidenceUrls),
+    authority_records: focusedAuthorities.map((item) => clone(item.record)),
+    authority_reads: focusedAuthorities.map((item) => clone(item.read)),
+    evidence_records: focusedEvidence.map((item) => clone(item.record)),
+    evidence_reads: focusedEvidence.map((item) => clone(item.read)),
+    unused_authority_record: clone(
+      focusedRows.find((item) => item.row_id === 'GSP-S1-ROLE-AUTH-007')
+        .input_operation.value,
+    ),
+    projection: clone(focusedProjection),
+    pr_body_utf8: focusedPrBody,
+    pr_snapshot: clone(focusedPrSnapshot),
+    full_profile_input: buildFocusedProfileInput('ALL'),
+  }
+  assert.equal(
+    shaJcs(focusedLiteralBundle),
+    'sha256:da36ae82c12c312886f391f0b305e5aac46a6e23043161a507515eb545b58af0',
+    'A012 literal bundle digest',
+  )
+  assert.equal(
+    shaJcs(focusedRows),
+    'sha256:2702a4b1cdd9abe0eb7eb1fa2a6f2ba80faf789304055ab744f0580c7beb555c',
+    'A012 row encoding catalog digest',
+  )
+  const focusedExpandedCases = focusedRows.map((rowEncoding) => {
+    const expanded = expandFocusedCase(rowEncoding)
+    assert.equal(
+      shaJcs(expanded),
+      focusedCaseDigests[rowEncoding.row_id],
+      `A012 expanded case digest ${rowEncoding.row_id}`,
+    )
+    return expanded
+  })
+  assert.equal(
+    new Set(Object.values(focusedCaseDigests)).size,
+    56,
+    'A012 unique case digests',
+  )
+  const focusedCorpusProjection = (amendmentId, caseDigests) => ({
+    contract_version: 'gate-status-focused-corpus-digest-v1',
+    amendment_id: amendmentId,
+    row_order: focusedRows.map((item) => item.row_id),
+    cases: focusedRows.map((item) => ({
+      row_id: item.row_id,
+      case_sha256: caseDigests[item.row_id],
+    })),
+  })
+  const focusedCurrentCorpus = focusedCorpusProjection(
+    'GSP-ARCH-AMENDMENT-014',
+    focusedCaseDigests,
+  )
+  assert.equal(
+    shaJcs(focusedCurrentCorpus),
+    'sha256:7a6fc92e95f4fb8e18381a7b173a78d1835b7a18ff1dfa8727bdcdc0e3ddba73',
+    'A014 canonical corpus digest',
+  )
+  const focusedHistoricalCaseDigests = {
+    ...focusedCaseDigests,
+    'GSP-S6-ROLE-AUTH-012':
+      'sha256:3d0886b7a02e774245e4a66e0ac93efda06afb2dc8da5063594672ecc8476794',
+  }
+  assert.equal(
+    shaJcs(focusedCorpusProjection(
+      'GSP-ARCH-AMENDMENT-012',
+      focusedHistoricalCaseDigests,
+    )),
+    'sha256:9354c37514de61039d7303cf556a7a692eb97de9892efc39db1f68e1055f8bf9',
+    'A014 historical corpus digest boundary',
+  )
+  assert.equal(
+    shaJcs(focusedCorpusProjection(
+      'GSP-ARCH-AMENDMENT-012',
+      focusedCaseDigests,
+    )),
+    'sha256:937923f7081a9202d5f2403336d815ec68a5a7737fd45d1b1b3ee84b9faa8d03',
+    'A014 forbidden intermediate corpus digest boundary',
+  )
+  const focusedReaderResultAdmitted = (result) => {
+    if (result?.state === 'unavailable') {
+      return Object.keys(result).length === 1
+    }
+    if (result?.state !== 'available') return false
+    if (result.source_kind === 'canonical_body') {
+      return (
+        Object.keys(result).sort().join(',') ===
+          [
+            'body_utf8',
+            'canonical_url',
+            'content',
+            'content_projection_sha256',
+            'fetched_content_sha256',
+            'source_kind',
+            'state',
+          ].sort().join(',') &&
+        typeof result.body_utf8 === 'string' &&
+        /^sha256:[0-9a-f]{64}$/.test(result.fetched_content_sha256) &&
+        /^sha256:[0-9a-f]{64}$/.test(result.content_projection_sha256) &&
+        result.content !== null &&
+        typeof result.content === 'object'
+      )
+    }
+    if (result.source_kind === 'github_resource') {
+      return (
+        Object.keys(result).sort().join(',') ===
+          [
+            'canonical_url',
+            'content',
+            'content_projection_sha256',
+            'fetched_content_sha256',
+            'source',
+            'source_kind',
+            'state',
+          ].sort().join(',') &&
+        /^sha256:[0-9a-f]{64}$/.test(result.fetched_content_sha256) &&
+        /^sha256:[0-9a-f]{64}$/.test(result.content_projection_sha256) &&
+        result.source !== null &&
+        typeof result.source === 'object' &&
+        result.content !== null &&
+        typeof result.content === 'object'
+      )
+    }
+    return false
+  }
+  const focusedCorpusCandidate = ({
+    rows = focusedRows,
+    cases = focusedExpandedCases,
+    caseDigests = focusedCaseDigests,
+    corpus = focusedCurrentCorpus,
+    corpusDigest =
+      'sha256:7a6fc92e95f4fb8e18381a7b173a78d1835b7a18ff1dfa8727bdcdc0e3ddba73',
+  } = {}) => ({
+    rows: clone(rows),
+    cases: clone(cases),
+    case_digests: clone(caseDigests),
+    corpus: clone(corpus),
+    corpus_digest: corpusDigest,
+  })
+  let focusedCorpusPublisherInvocations = 0
+  const admitFocusedCorpus = (candidate) => {
+    try {
+      if (
+        !Array.isArray(candidate.rows) ||
+        candidate.rows.length !== 56 ||
+        new Set(candidate.rows.map((row) => row.row_id)).size !== 56 ||
+        shaJcs(candidate.rows) !==
+          'sha256:2702a4b1cdd9abe0eb7eb1fa2a6f2ba80faf789304055ab744f0580c7beb555c'
+      ) return { accepted: false, code: 'row_catalog_mismatch' }
+      if (
+        !Array.isArray(candidate.cases) ||
+        candidate.cases.length !== 56 ||
+        Object.keys(candidate.case_digests ?? {}).length !== 56
+      ) return { accepted: false, code: 'case_set_mismatch' }
+      for (let index = 0; index < candidate.rows.length; index += 1) {
+        const rowId = candidate.rows[index].row_id
+        const expandedCase = candidate.cases[index]
+        if (
+          expandedCase?.row_id !== rowId ||
+          shaJcs(expandedCase) !== candidate.case_digests[rowId] ||
+          candidate.case_digests[rowId] !== focusedCaseDigests[rowId]
+        ) return { accepted: false, code: 'case_digest_mismatch', row_id: rowId }
+        if (
+          expandedCase.ports.canonical_records.some((entry) =>
+            !focusedReaderResultAdmitted(entry.result))
+        ) return { accepted: false, code: 'reader_result_invalid', row_id: rowId }
+        if (expandedCase.ports.fault?.kind === 'canonical_read_throw') {
+          const target = expandedCase.ports.canonical_records.find((entry) =>
+            entry.ordinal === expandedCase.ports.fault.target_ordinal)
+          if (!target || !focusedReaderResultAdmitted(target.result)) {
+            return { accepted: false, code: 'throw_target_invalid', row_id: rowId }
+          }
+        }
+      }
+      const exactCorpus = focusedCorpusProjection(
+        'GSP-ARCH-AMENDMENT-014',
+        candidate.case_digests,
+      )
+      if (
+        canonicalize(candidate.corpus) !== canonicalize(exactCorpus) ||
+        shaJcs(candidate.corpus) !== candidate.corpus_digest ||
+        candidate.corpus_digest !==
+          'sha256:7a6fc92e95f4fb8e18381a7b173a78d1835b7a18ff1dfa8727bdcdc0e3ddba73'
+      ) return { accepted: false, code: 'corpus_digest_mismatch' }
+      return { accepted: true }
+    } catch {
+      return { accepted: false, code: 'malformed_corpus' }
+    }
+  }
+  const focusedCorpusAdmissionCases = []
+  {
+    const exact = focusedCorpusCandidate()
+    assert.equal(admitFocusedCorpus(exact).accepted, true)
+    focusedCorpusAdmissionCases.push('GSP-A014-001')
+  }
+  {
+    const oldClaim = focusedCorpusCandidate()
+    oldClaim.case_digests['GSP-S6-ROLE-AUTH-012'] =
+      'sha256:3d0886b7a02e774245e4a66e0ac93efda06afb2dc8da5063594672ecc8476794'
+    assert.equal(admitFocusedCorpus(oldClaim).code, 'case_digest_mismatch')
+    assert.equal(focusedCorpusPublisherInvocations, 0)
+    focusedCorpusAdmissionCases.push('GSP-A014-002')
+  }
+  {
+    assert.equal(
+      shaJcs(focusedRows),
+      'sha256:2702a4b1cdd9abe0eb7eb1fa2a6f2ba80faf789304055ab744f0580c7beb555c',
+    )
+    focusedCorpusAdmissionCases.push('GSP-A014-003')
+  }
+  {
+    assert.equal(new Set(Object.values(focusedCaseDigests)).size, 56)
+    focusedCorpusAdmissionCases.push('GSP-A014-004')
+  }
+  {
+    assert.equal(
+      shaJcs(focusedCurrentCorpus),
+      'sha256:7a6fc92e95f4fb8e18381a7b173a78d1835b7a18ff1dfa8727bdcdc0e3ddba73',
+    )
+    focusedCorpusAdmissionCases.push('GSP-A014-005')
+  }
+  {
+    const oldCorpus = focusedCorpusCandidate({
+      caseDigests: focusedHistoricalCaseDigests,
+      corpus: focusedCorpusProjection(
+        'GSP-ARCH-AMENDMENT-012',
+        focusedHistoricalCaseDigests,
+      ),
+      corpusDigest:
+        'sha256:9354c37514de61039d7303cf556a7a692eb97de9892efc39db1f68e1055f8bf9',
+    })
+    assert.equal(admitFocusedCorpus(oldCorpus).accepted, false)
+    assert.equal(focusedCorpusPublisherInvocations, 0)
+    focusedCorpusAdmissionCases.push('GSP-A014-006')
+  }
+  {
+    const intermediate = focusedCorpusCandidate({
+      corpus: focusedCorpusProjection('GSP-ARCH-AMENDMENT-012', focusedCaseDigests),
+      corpusDigest:
+        'sha256:937923f7081a9202d5f2403336d815ec68a5a7737fd45d1b1b3ee84b9faa8d03',
+    })
+    assert.equal(admitFocusedCorpus(intermediate).accepted, false)
+    assert.equal(focusedCorpusPublisherInvocations, 0)
+    focusedCorpusAdmissionCases.push('GSP-A014-007')
+  }
+  {
+    const comparison = clone(
+      focusedExpandedCases.find((item) => item.row_id === 'GSP-S6-ROLE-AUTH-012'),
+    )
+    comparison.ports.pr_read = {
+      kind: 'single_available',
+      value: {
+        snapshot: clone(focusedPrSnapshot),
+        body_utf8: focusedPrBody,
+      },
+    }
+    assert.equal(
+      shaJcs(comparison),
+      'sha256:3db5433306fdb62792c046056feec31409ca1943b47d3557b9406a34c906f75d',
+    )
+    const comparisonCandidate = focusedCorpusCandidate()
+    comparisonCandidate.cases[
+      focusedRows.findIndex((row) => row.row_id === 'GSP-S6-ROLE-AUTH-012')
+    ] = comparison
+    assert.equal(admitFocusedCorpus(comparisonCandidate).code, 'case_digest_mismatch')
+    assert.equal(focusedCorpusPublisherInvocations, 0)
+    focusedCorpusAdmissionCases.push('GSP-A014-008')
+  }
+  {
+    const otherChange = focusedCorpusCandidate()
+    otherChange.case_digests['GSP-S1-ROLE-AUTH-001'] =
+      'sha256:0000000000000000000000000000000000000000000000000000000000000000'
+    assert.equal(admitFocusedCorpus(otherChange).code, 'case_digest_mismatch')
+    assert.equal(focusedCorpusPublisherInvocations, 0)
+    focusedCorpusAdmissionCases.push('GSP-A014-009')
+  }
+  {
+    const first = focusedCorpusCandidate()
+    const second = focusedCorpusCandidate()
+    assert.equal(canonicalize(first.corpus), canonicalize(second.corpus))
+    assert.equal(shaJcs(first.corpus), shaJcs(second.corpus))
+    focusedCorpusAdmissionCases.push('GSP-A014-010')
+  }
+  {
+    const throwInsideResult = focusedCorpusCandidate()
+    const authIndex = focusedRows.findIndex((row) =>
+      row.row_id === 'GSP-S6-ROLE-AUTH-012')
+    throwInsideResult.cases[authIndex].ports.canonical_records
+      .find((entry) => entry.ordinal === 'A0').result.throw_sentinel =
+        'deterministic_test_error'
+    assert.equal(admitFocusedCorpus(throwInsideResult).accepted, false)
+    assert.equal(focusedCorpusPublisherInvocations, 0)
+    focusedCorpusAdmissionCases.push('GSP-A013-009')
+  }
+  for (const kind of ['omit', 'replace']) {
+    const invalidTarget = focusedCorpusCandidate()
+    const authIndex = focusedRows.findIndex((row) =>
+      row.row_id === 'GSP-S6-ROLE-AUTH-012')
+    const records = invalidTarget.cases[authIndex].ports.canonical_records
+    const targetIndex = records.findIndex((entry) => entry.ordinal === 'A0')
+    if (kind === 'omit') records.splice(targetIndex, 1)
+    else records[targetIndex].result = { state: 'unavailable' }
+    assert.equal(admitFocusedCorpus(invalidTarget).accepted, false)
+    assert.equal(focusedCorpusPublisherInvocations, 0)
+  }
+  focusedCorpusAdmissionCases.push('GSP-A013-010')
+  assert.equal(focusedCorpusAdmissionCases.length, 12)
+  const focusedDeepFreeze = (value) => {
+    if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
+      for (const child of Object.values(value)) focusedDeepFreeze(child)
+      Object.freeze(value)
+    }
+    return value
+  }
+  const focusedIsDeepFrozen = (value) =>
+    value === null ||
+    typeof value !== 'object' ||
+    (
+      Object.isFrozen(value) &&
+      Object.values(value).every((child) => focusedIsDeepFrozen(child))
+    )
+  const makeFocusedPublicHarness = (expanded) => {
+    const counts = {
+      authority_read: 0,
+      evidence_read: 0,
+      pr_read: 0,
+      cas: 0,
+      receipt: 0,
+      write: 0,
+      retry: 0,
+      other_canonical_read: 0,
+    }
+    const byUrl = new Map()
+    const entries = new Map(
+      expanded.ports.canonical_records.map((entry) =>
+        [entry.canonical_url, entry]),
+    )
+    const authoritySet = new Set(
+      expanded.input.role_authority_set?.records?.map((item) =>
+        item.canonical_url) ?? [],
+    )
+    const evidenceSet = new Set(
+      expanded.input.evidence_records?.map((item) => item.canonical_url) ?? [],
+    )
+    const read_canonical_record = async (url) => {
+      byUrl.set(url, (byUrl.get(url) ?? 0) + 1)
+      if (authoritySet.has(url)) counts.authority_read += 1
+      else if (evidenceSet.has(url)) counts.evidence_read += 1
+      else counts.other_canonical_read += 1
+      const entry = entries.get(url)
+      if (!entry) return { state: 'unavailable' }
+      if (
+        expanded.ports.fault?.kind === 'canonical_read_throw' &&
+        expanded.ports.fault.target_ordinal === entry.ordinal
+      ) throw new Error(expanded.ports.fault.safe_error_id)
+      return clone(entry.result)
+    }
+    return {
+      counts,
+      ports: {
+        read_canonical_record,
+        read_pr: async () => {
+          counts.pr_read += 1
+          assert.equal(expanded.ports.pr_read.kind, 'single_available')
+          return {
+            state: 'available',
+            ...clone(expanded.ports.pr_read.value),
+          }
+        },
+        compare_and_swap_gate_status: async () => {
+          counts.cas += 1
+          counts.write += 1
+          assert.fail('focused CAS is forbidden')
+        },
+        receipt_create_or_get: async () => {
+          counts.receipt += 1
+          assert.fail('focused receipt is forbidden')
+        },
+      },
+    }
+  }
+  const focusedVector = (counts) => [
+    counts.authority_read,
+    counts.evidence_read,
+    counts.pr_read,
+    counts.cas,
+    counts.receipt,
+    counts.write,
+    counts.retry,
+  ]
+  const focusedResultTuple = (result) => ({
+    result_kind: result.kind,
+    stage: result.branch.stopped.failed_stage.split('_', 1)[0],
+    stop_code: result.branch.stopped.stop_code,
+    diagnostic_path: result.diagnostics[0].path,
+  })
+  const runFocusedSingleInvocation = async (rowEncoding, expanded, input) => {
+    focusedDeepFreeze(expanded.ports)
+    assert.equal(focusedIsDeepFrozen(expanded.ports), true)
+    const harness = makeFocusedPublicHarness({ ...expanded, input })
+    const result = await api.publishGateStatusV1(input, harness.ports)
+    assert.deepEqual(
+      focusedResultTuple(result),
+      rowEncoding.expected_tuple,
+      rowEncoding.row_id,
+    )
+    assert.equal(harness.counts.other_canonical_read, 0, rowEncoding.row_id)
+    assert.equal(focusedIsDeepFrozen(result), true, rowEncoding.row_id)
+    assert.equal(JSON.stringify(result).includes('deterministic_test_error'), false)
+    return { result, vector: focusedVector(harness.counts) }
+  }
+  const runFocusedPublicCase = async (rowEncoding) => {
+    const expanded = expandFocusedCase(rowEncoding)
+    if (rowEncoding.public_surface === 'validateGateStatusPublicationInputV1') {
+      const input = focusedDeepFreeze(clone(expanded.input))
+      assert.equal(focusedIsDeepFrozen(input), true)
+      const admission = api.validateGateStatusPublicationInputV1(input)
+      assert.equal(admission.accepted, true, rowEncoding.row_id)
+      assert.deepEqual(rowEncoding.expected_tuple, focusedAcceptedTuple)
+      assert.deepEqual(rowEncoding.call_vector, [0, 0, 0, 0, 0, 0, 0])
+      return { result: admission, vector: rowEncoding.call_vector }
+    }
+    if (rowEncoding.assertion_profile === 'deterministic_rerun') {
+      const firstExpanded = expandFocusedCase(rowEncoding)
+      const secondExpanded = expandFocusedCase(rowEncoding)
+      const first = await runFocusedSingleInvocation(
+        rowEncoding,
+        firstExpanded,
+        focusedDeepFreeze(clone(firstExpanded.input)),
+      )
+      const second = await runFocusedSingleInvocation(
+        rowEncoding,
+        secondExpanded,
+        focusedDeepFreeze(clone(secondExpanded.input)),
+      )
+      assert.equal(canonicalize(first.result), canonicalize(second.result), rowEncoding.row_id)
+      assert.deepEqual(
+        first.vector.map((value, index) => value + second.vector[index]),
+        rowEncoding.call_vector,
+        rowEncoding.row_id,
+      )
+      return { result: first.result, vector: rowEncoding.call_vector }
+    }
+    if (rowEncoding.assertion_profile === 'mutation_isolation') {
+      const baselineExpanded = expandFocusedCase(rowEncoding)
+      const baseline = await runFocusedSingleInvocation(
+        rowEncoding,
+        baselineExpanded,
+        focusedDeepFreeze(clone(baselineExpanded.input)),
+      )
+      const callerInput = clone(expanded.input)
+      focusedDeepFreeze(expanded.ports)
+      const harness = makeFocusedPublicHarness({ ...expanded, input: callerInput })
+      const originalRead = harness.ports.read_canonical_record
+      let releaseFirstRead
+      let signalFirstRead
+      const firstReadEntered = new Promise((resolve) => { signalFirstRead = resolve })
+      const firstReadRelease = new Promise((resolve) => { releaseFirstRead = resolve })
+      let firstRead = true
+      harness.ports.read_canonical_record = async (url) => {
+        const result = await originalRead(url)
+        if (firstRead) {
+          firstRead = false
+          signalFirstRead()
+          await firstReadRelease
+        }
+        return result
+      }
+      const pending = api.publishGateStatusV1(callerInput, harness.ports)
+      await firstReadEntered
+      focusedPointerReplace(
+        callerInput,
+        rowEncoding.input_operation.pointer,
+        rowEncoding.input_operation.value,
+      )
+      releaseFirstRead()
+      const result = await pending
+      assert.deepEqual(
+        focusedResultTuple(result),
+        rowEncoding.expected_tuple,
+        rowEncoding.row_id,
+      )
+      assert.equal(canonicalize(result), canonicalize(baseline.result), rowEncoding.row_id)
+      assert.deepEqual(focusedVector(harness.counts), rowEncoding.call_vector, rowEncoding.row_id)
+      assert.equal(harness.counts.other_canonical_read, 0, rowEncoding.row_id)
+      assert.equal(focusedIsDeepFrozen(result), true, rowEncoding.row_id)
+      return { result, vector: focusedVector(harness.counts) }
+    }
+    const input = focusedDeepFreeze(clone(expanded.input))
+    assert.equal(focusedIsDeepFrozen(input), true)
+    const execution = await runFocusedSingleInvocation(rowEncoding, expanded, input)
+    assert.deepEqual(execution.vector, rowEncoding.call_vector, rowEncoding.row_id)
+    return execution
+  }
+  const focusedPublicRows = []
+  const focusedPublicResults = new Map()
+  for (const row of focusedRows) {
+    const execution = await runFocusedPublicCase(row)
+    focusedPublicRows.push(row.row_id)
+    focusedPublicResults.set(row.row_id, execution)
+  }
+  assert.equal(focusedPublicRows.length, 56)
+  const focusedA013Cases = []
+  {
+    const authCase = focusedExpandedCases.find((item) =>
+      item.row_id === 'GSP-S6-ROLE-AUTH-012')
+    assert.deepEqual(
+      authCase.ports.canonical_records.map((entry) => entry.ordinal),
+      ['E0', 'E7', 'A0'],
+    )
+    focusedA013Cases.push('GSP-A013-001')
+    const target = authCase.ports.canonical_records.find((entry) =>
+      entry.ordinal === 'A0')
+    assert.equal(target.result.state, 'available')
+    assert.equal(target.result.source_kind, 'canonical_body')
+    assert.equal(focusedReaderResultAdmitted(target.result), true)
+    focusedA013Cases.push('GSP-A013-002')
+    assert.equal(
+      authCase.ports.canonical_records.every((entry) =>
+        focusedReaderResultAdmitted(entry.result)),
+      true,
+    )
+    focusedA013Cases.push('GSP-A013-003')
+    assert.deepEqual(authCase.ports.fault, {
+      kind: 'canonical_read_throw',
+      target_ordinal: 'A0',
+      safe_error_id: 'deterministic_test_error',
+    })
+    focusedA013Cases.push('GSP-A013-004')
+    const execution = focusedPublicResults.get('GSP-S6-ROLE-AUTH-012')
+    assert.deepEqual(focusedResultTuple(execution.result), {
+      result_kind: 'stopped',
+      stage: 'S6',
+      stop_code: 'canonical_evidence_invalid',
+      diagnostic_path: '/role_authority_set/records/0',
+    })
+    assert.equal(JSON.stringify(execution.result).includes('deterministic_test_error'), false)
+    focusedA013Cases.push('GSP-A013-005')
+    assert.deepEqual(execution.vector, [1, 0, 0, 0, 0, 0, 0])
+    focusedA013Cases.push('GSP-A013-006')
+    assert.equal(
+      shaJcs(authCase),
+      'sha256:857a334fc8e1ecb305e8761707d70620ea2d78b26c726094e02b27f6af6bbf12',
+    )
+    focusedA013Cases.push('GSP-A013-007')
+    assert.equal(
+      shaJcs(focusedCurrentCorpus),
+      'sha256:7a6fc92e95f4fb8e18381a7b173a78d1835b7a18ff1dfa8727bdcdc0e3ddba73',
+    )
+    focusedA013Cases.push('GSP-A013-008')
+  }
+  assert.equal(focusedA013Cases.length, 8)
+
   assert.deepEqual(evidence, Array.from({ length: 36 }, (_, index) => `GSP-${String(index + 1).padStart(3, '0')}`))
   const summary = {
     contract: 'Gate Status Publisher V1',
@@ -1732,6 +4079,9 @@ try {
     s6_branch_bound_cases: s6BranchRows.length,
     s6_cross_branch_cases: s6CrossRows.length,
     result_validator_cases: resultValidatorCases.length,
+    normative_public_cases: focusedPublicRows.length,
+    corpus_admission_cases: focusedCorpusAdmissionCases.length,
+    canonical_throw_cases: focusedA013Cases.length + 2,
     result: 'PASS',
   }
   console.log(JSON.stringify(summary))
