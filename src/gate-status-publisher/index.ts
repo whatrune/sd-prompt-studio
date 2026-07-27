@@ -1747,7 +1747,11 @@ const roleAuthorityBindingIssue = (
     ) return '/author_role_authority_ref'
     expectedRole = authority.issuer_role
   } else if (kind === 'result_handoff') {
-    if (authority.authority_kind !== 'task_assignment') {
+    if (
+      authority.authority_kind !== 'task_assignment' ||
+      scope.scope_kind !== 'task_assignment' ||
+      scope.task_assignment_url !== identity.task_assignment_url
+    ) {
       return '/author_role_authority_ref'
     }
     expectedRole = authority.authorized_role
@@ -2780,6 +2784,25 @@ export function validateGateStatusPublicationInputV1(
         return rejected(rejection(
           'invalid_cross_input_binding',
           `/role_authority_set/records/${index}`,
+        ))
+      }
+    }
+    for (let index = 0; index < value.evidence_records.length; index += 1) {
+      const evidence = value.evidence_records[index] as JsonObject
+      if (evidence.evidence_kind !== 'result_handoff') continue
+      const authority = authorityByUrl.get(
+        String(evidence.author_role_authority_ref),
+      )
+      const scope = authority?.scope
+      if (
+        authority?.authority_kind !== 'task_assignment' ||
+        !isObject(scope) ||
+        scope.scope_kind !== 'task_assignment' ||
+        scope.task_assignment_url !== identity.task_assignment_url
+      ) {
+        return rejected(rejection(
+          'invalid_cross_input_binding',
+          `/evidence_records/${index}/author_role_authority_ref`,
         ))
       }
     }
@@ -4105,18 +4128,26 @@ const validateAtomicRevisionObservation = (
 
 const validFreshPrRead = (
   result: unknown,
+  transport: JsonObject,
 ): result is Extract<FreshPrReadResultV1, { readonly state: 'available' }> => {
   if (!isObject(result) || result.state !== 'available') return false
-  const fields = ['state', 'snapshot', 'body_utf8']
-  if (hasOwn(result, 'atomic_revision_observation')) {
-    fields.push('atomic_revision_observation')
-  }
+  const requiresRevision =
+    transport.kind === 'proven_atomic_compare_and_swap'
+  const fields = [
+    'state',
+    'snapshot',
+    'body_utf8',
+    ...(requiresRevision ? ['atomic_revision_observation'] : []),
+  ]
   if (exact(result, fields, '') !== undefined) return false
   return validateSnapshot(result.snapshot, '/snapshot') === undefined &&
     typeof result.body_utf8 === 'string' &&
     (
-      !hasOwn(result, 'atomic_revision_observation') ||
-      validateAtomicRevisionObservation(result.atomic_revision_observation)
+      !requiresRevision ||
+      validateAtomicRevisionObservation(
+        result.atomic_revision_observation,
+        transport,
+      )
     ) &&
     sha256Bytes(new TextEncoder().encode(result.body_utf8)) ===
       (result.snapshot as JsonObject).body_utf8_sha256
@@ -4392,7 +4423,10 @@ const validateDerivedEvidenceBinding = (
           String(member.evidence.evidence_kind),
         )
       ) return false
-      if (!nonNullTriple) return member.semantics === null
+      if (!nonNullTriple) {
+        return member.evidence.evidence_kind === 'review_decision' &&
+          member.semantics === null
+      }
       const semantics = member.semantics
       return semantics !== null &&
         semantics.semantic_branch === 'blocker_transition' &&
@@ -4634,7 +4668,8 @@ const receiptForVerifiedBody = async (
     if (
       !admitted.accepted ||
       (admitted.value as JsonObject).publication_key !== publicationKey ||
-      available.receipt_url !== (admitted.value as JsonObject).receipt_url
+      available.receipt_url !== (admitted.value as JsonObject).receipt_url ||
+      canonicalize(admitted.value) !== canonicalize(candidate)
     ) {
       return {
         kind: 'reconciliation',
@@ -4975,6 +5010,7 @@ export async function publishGateStatusV1(
       )
     }
 
+    const freshReadTransport = input.transport_capability as JsonObject
     let fresh: unknown
     try {
       fresh = await ports.read_pr(String(identity.pr_url))
@@ -4991,7 +5027,7 @@ export async function publishGateStatusV1(
         citations,
       )
     }
-    if (!validFreshPrRead(fresh)) {
+    if (!validFreshPrRead(fresh, freshReadTransport)) {
       return stoppedResult(
         context,
         'fresh_pr_unavailable',
@@ -5249,6 +5285,16 @@ export async function publishGateStatusV1(
         observation,
         String(observation.fetched_content_sha256),
       )
+      if (observationRead === 'invalid') {
+        return stoppedResult(
+          context,
+          'prior_attempt_authority_invalid',
+          'S14_prior_attempt_reconciliation_observation',
+          '/prior_attempt_reconciliation_observation/canonical_record',
+          recoveryOwner,
+          [String(observation.canonical_record)],
+        )
+      }
       if (observation.state === 'unavailable' || observationRead === 'unavailable') {
         return reconciliationResult(
           context,
@@ -5508,7 +5554,7 @@ export async function publishGateStatusV1(
     } catch {
       readback = { state: 'unavailable' }
     }
-    if (!validFreshPrRead(readback)) {
+    if (!validFreshPrRead(readback, transport)) {
       return reconciliationResult(
         context,
         'post_write_read_unavailable',

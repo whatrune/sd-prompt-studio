@@ -612,8 +612,12 @@ try {
       unavailable = new Set(),
       invalid = new Set(),
       readback = 'exact',
+      preRevision = 'matching',
       postRevision = 'changed',
+      unexpectedNoCasRevision = false,
       throwAt = null,
+      receiptMismatch = false,
+      sharedReceiptState = null,
     } = {},
   ) => {
     const counts = {
@@ -626,6 +630,34 @@ try {
     }
     let replacementBody = null
     let storedReceipt = null
+    const revisionObservation = (phase) => {
+      const transport = fixture.input.transport_capability
+      if (transport.kind !== 'proven_atomic_compare_and_swap') {
+        return unexpectedNoCasRevision ? { state: 'unavailable' } : null
+      }
+      const mode = phase === 'pre' ? preRevision : postRevision
+      if (mode === 'omitted') return null
+      if (mode === 'unavailable') return { state: 'unavailable' }
+      return {
+        state: 'available',
+        provider:
+          mode === 'capability_mismatch'
+            ? 'wrong-provider'
+            : transport.provider,
+        adapter_id: transport.adapter_id,
+        adapter_version: transport.adapter_version,
+        atomic_scope: 'complete_pr_body',
+        revision_identity: {
+          ...clone(transport.atomic_revision_identity),
+          normalized_identity_sha256:
+            phase === 'pre' || mode === 'unchanged'
+              ? transport.atomic_revision_identity.normalized_identity_sha256
+              : mode === 'different_changed'
+                ? fixedDigest('7')
+                : fixedDigest('6'),
+        },
+      }
+    }
     const map = new Map([
       ...fixture.input.evidence_records.map((item) => [item.canonical_url, item]),
       ...fixture.input.role_authority_set.records.map((item) => [item.canonical_url, item]),
@@ -693,25 +725,14 @@ try {
         counts.pr_read += 1
         if (throwAt === 'read_pr') throw new Error('secret-token')
         if (counts.pr_read === 1 || replacementBody === null) {
+          const observation = revisionObservation('pre')
           return {
             state: 'available',
             snapshot: clone(fixture.snapshot),
             body_utf8: fixture.body,
-            ...(fixture.input.transport_capability.kind ===
-            'proven_atomic_compare_and_swap'
-              ? {
-                  atomic_revision_observation: {
-                    state: 'available',
-                    provider: fixture.input.transport_capability.provider,
-                    adapter_id: fixture.input.transport_capability.adapter_id,
-                    adapter_version: fixture.input.transport_capability.adapter_version,
-                    atomic_scope: 'complete_pr_body',
-                    revision_identity: clone(
-                      fixture.input.transport_capability.atomic_revision_identity,
-                    ),
-                  },
-                }
-              : {}),
+            ...(observation === null
+              ? {}
+              : { atomic_revision_observation: observation }),
           }
         }
         if (readback === 'unavailable') return { state: 'unavailable' }
@@ -719,6 +740,7 @@ try {
           readback === 'mismatch'
             ? replacementBody.replace('outside', 'outside-mutated')
             : replacementBody
+        const observation = revisionObservation('post')
         return {
           state: 'available',
           snapshot: {
@@ -727,29 +749,9 @@ try {
             fetched_at: '2026-07-26T23:02:00Z',
           },
           body_utf8: body,
-          ...(fixture.input.transport_capability.kind ===
-          'proven_atomic_compare_and_swap'
-            ? {
-                atomic_revision_observation: {
-                  state: 'available',
-                  provider: fixture.input.transport_capability.provider,
-                  adapter_id: fixture.input.transport_capability.adapter_id,
-                  adapter_version: fixture.input.transport_capability.adapter_version,
-                  atomic_scope: 'complete_pr_body',
-                  revision_identity: {
-                    ...clone(
-                      fixture.input.transport_capability.atomic_revision_identity,
-                    ),
-                    normalized_identity_sha256:
-                      postRevision === 'unchanged'
-                        ? fixture.input.transport_capability
-                          .atomic_revision_identity
-                          .normalized_identity_sha256
-                        : fixedDigest('6'),
-                  },
-                },
-              }
-            : {}),
+          ...(observation === null
+            ? {}
+            : { atomic_revision_observation: observation }),
         }
       },
       compare_and_swap_gate_status: async (request) => {
@@ -765,13 +767,40 @@ try {
       receipt_create_or_get: async ({ candidate }) => {
         counts.receipt += 1
         if (throwAt === 'receipt') throw new Error('secret-token')
+        if (sharedReceiptState !== null) {
+          if (sharedReceiptState.receipt === null) {
+            sharedReceiptState.receipt = clone(candidate)
+            sharedReceiptState.created += 1
+            return {
+              state: 'created',
+              receipt_url: candidate.receipt_url,
+              receipt: clone(candidate),
+            }
+          }
+          sharedReceiptState.existing += 1
+          return {
+            state: 'existing_exact',
+            receipt_url: sharedReceiptState.receipt.receipt_url,
+            receipt: clone(sharedReceiptState.receipt),
+          }
+        }
         if (receipt === 'created') {
           storedReceipt = clone(candidate)
-          return { state: 'created', receipt_url: candidate.receipt_url, receipt: storedReceipt }
+          const returned = clone(storedReceipt)
+          if (receiptMismatch) {
+            returned.successful_operation_key =
+              `gate-status-publication-atomic-operation-v1:sha256:${'a'.repeat(64)}`
+          }
+          return { state: 'created', receipt_url: candidate.receipt_url, receipt: returned }
         }
         if (receipt === 'existing_exact') {
           storedReceipt ??= clone(candidate)
-          return { state: 'existing_exact', receipt_url: candidate.receipt_url, receipt: storedReceipt }
+          const returned = clone(storedReceipt)
+          if (receiptMismatch) {
+            returned.successful_operation_key =
+              `gate-status-publication-atomic-operation-v1:sha256:${'a'.repeat(64)}`
+          }
+          return { state: 'existing_exact', receipt_url: candidate.receipt_url, receipt: returned }
         }
         return { state: receipt }
       },
@@ -1346,8 +1375,7 @@ try {
       fixture.input.evaluator.result_sha256
     fixture.input.projection_authorization.projection.current_blocker_next_gate.evidence_urls =
       fixture.input.evidence_records
-        .filter((item) =>
-          ['review_decision', 'result_handoff'].includes(item.evidence_kind))
+        .filter((item) => item.evidence_kind === 'review_decision')
         .map((item) => item.canonical_url)
         .sort((a, b) => Buffer.from(a).compare(Buffer.from(b)))
     fixture.input.projection_authorization.projection_sha256 =
@@ -4777,6 +4805,674 @@ try {
     ),
   )
 
+  const followupFindingCases = []
+  {
+    const input = buildFocusedProfileInput('RESULT')
+    const foreignAuthorityUrl =
+      'https://github.com/whatrune/sd-prompt-studio/issues/206#test-gsp-role-authority-foreign-task'
+    const foreignAssignmentUrl =
+      'https://github.com/whatrune/sd-prompt-studio/issues/999'
+    const foreignAuthority = clone(focusedAuthorities[0].record)
+    foreignAuthority.canonical_url = foreignAuthorityUrl
+    foreignAuthority.scope.task_assignment_url = foreignAssignmentUrl
+    input.role_authority_set.records.push(foreignAuthority)
+    input.role_authority_set.records.sort((left, right) =>
+      Buffer.from(left.canonical_url).compare(Buffer.from(right.canonical_url)))
+    const handoff = input.evidence_records.find((candidate) =>
+      candidate.evidence_kind === 'result_handoff')
+    handoff.author_role_authority_ref = foreignAuthorityUrl
+    const execution = await runAmendment020('RESULT', input)
+    assert.equal(execution.result.branch.stopped.failed_stage, 'S1_structural_admission')
+    assert.ok(
+      execution.result.diagnostics[0].path.endsWith('/author_role_authority_ref'),
+    )
+    assert.deepEqual(execution.vector, [0, 0, 0, 0, 0, 0, 0])
+    followupFindingCases.push('B-208-01')
+  }
+  {
+    const input = buildFocusedProfileInput('RESULT')
+    input.projection_authorization.projection.current_blocker_next_gate
+      .evidence_urls = [focusedEvidenceUrls[1]]
+    const execution = await runAmendment020('RESULT', input)
+    assert.equal(execution.result.branch.stopped.stop_code, 'authority_projection_conflict')
+    assert.equal(
+      execution.result.diagnostics[0].path,
+      '/projection_authorization/projection/current_blocker_next_gate/evidence_urls/0',
+    )
+    assert.deepEqual(execution.vector, [1, 3, 0, 0, 0, 0, 0])
+    followupFindingCases.push('B-208-02')
+  }
+  {
+    for (const receiptState of ['created', 'existing_exact']) {
+      const mismatch = await execute(
+        make({ current: true, receipt: true }),
+        { receipt: receiptState, receiptMismatch: true },
+      )
+      assert.equal(mismatch.result.kind, 'reconciliation_required')
+      assert.equal(
+        mismatch.result.branch.reconciliation_required.reconciliation_code,
+        'receipt_conflict',
+      )
+      assert.equal(mismatch.counts.receipt, 1)
+      assert.equal(mismatch.counts.cas, 0)
+    }
+    const sharedReceiptState = { receipt: null, created: 0, existing: 0 }
+    const firstFixture = make({ atomic: true, receipt: true })
+    const secondFixture = make({ atomic: true, receipt: true })
+    const firstHarness = makePorts(firstFixture, {
+      cas: 'indeterminate',
+      sharedReceiptState,
+    })
+    const secondHarness = makePorts(secondFixture, {
+      cas: 'indeterminate',
+      sharedReceiptState,
+    })
+    const [firstResult, secondResult] = await Promise.all([
+      api.publishGateStatusV1(clone(firstFixture.input), firstHarness.ports),
+      api.publishGateStatusV1(clone(secondFixture.input), secondHarness.ports),
+    ])
+    assert.deepEqual(
+      [firstResult.kind, secondResult.kind],
+      ['applied', 'applied'],
+    )
+    assert.deepEqual(
+      [
+        firstResult.receipt_disposition.state,
+        secondResult.receipt_disposition.state,
+      ].sort(),
+      ['created', 'reused'],
+    )
+    assert.deepEqual(
+      [firstHarness.counts.cas, secondHarness.counts.cas],
+      [1, 1],
+    )
+    assert.deepEqual(
+      [firstHarness.counts.retry_write, secondHarness.counts.retry_write],
+      [0, 0],
+    )
+    assert.deepEqual(
+      [sharedReceiptState.created, sharedReceiptState.existing],
+      [1, 1],
+    )
+    followupFindingCases.push('B-208-03')
+  }
+  {
+    const noCasPositive = await execute(make())
+    assert.equal(
+      noCasPositive.result.branch.stopped.stop_code,
+      'atomic_precondition_unavailable',
+    )
+    const noCasUnexpected = await execute(
+      make(),
+      { unexpectedNoCasRevision: true },
+    )
+    assert.equal(
+      noCasUnexpected.result.branch.stopped.stop_code,
+      'fresh_pr_unavailable',
+    )
+    assert.equal(noCasUnexpected.counts.cas, 0)
+    const omitted = await execute(
+      make({ atomic: true }),
+      { preRevision: 'omitted' },
+    )
+    assert.equal(omitted.result.branch.stopped.stop_code, 'fresh_pr_unavailable')
+    const unavailable = await execute(
+      make({ atomic: true }),
+      { preRevision: 'unavailable' },
+    )
+    assert.equal(
+      unavailable.result.branch.stopped.stop_code,
+      'atomic_precondition_unavailable',
+    )
+    const mismatched = await execute(
+      make({ atomic: true }),
+      { preRevision: 'capability_mismatch' },
+    )
+    assert.equal(mismatched.result.branch.stopped.stop_code, 'fresh_pr_unavailable')
+    followupFindingCases.push('B-208-04')
+  }
+  assert.deepEqual(
+    followupFindingCases,
+    ['B-208-01', 'B-208-02', 'B-208-03', 'B-208-04'],
+  )
+
+  const amendment015CompleteCases = []
+  {
+    const exactSet = await execute(make({ atomic: true }))
+    assert.equal(exactSet.result.kind, 'applied')
+    assert.equal(
+      exactSet.counts.canonical_by_url.get(PRIOR_SET),
+      1,
+      JSON.stringify([...exactSet.counts.canonical_by_url]),
+    )
+    amendment015CompleteCases.push('GSP-A015-008')
+  }
+  {
+    const rawTamper = make({ atomic: true })
+    const harness = makePorts(rawTamper)
+    const original = harness.ports.read_canonical_record
+    harness.ports.read_canonical_record = async (url) => {
+      const result = await original(url)
+      if (url === PRIOR_SET && result.state === 'available') {
+        result.body_utf8 = `${result.body_utf8} `
+      }
+      return result
+    }
+    const result = await api.publishGateStatusV1(clone(rawTamper.input), harness.ports)
+    assert.equal(result.branch.stopped.stop_code, 'prior_attempt_authority_invalid')
+    assert.equal(harness.counts.pr_read, 1)
+    assert.equal(harness.counts.cas, 0)
+    amendment015CompleteCases.push('GSP-A015-009')
+  }
+  {
+    const digestMismatch = make({ atomic: true })
+    const harness = makePorts(digestMismatch)
+    const original = harness.ports.read_canonical_record
+    harness.ports.read_canonical_record = async (url) => {
+      const result = await original(url)
+      if (url === PRIOR_SET && result.state === 'available') {
+        result.fetched_content_sha256 = fixedDigest('a')
+      }
+      return result
+    }
+    const result = await api.publishGateStatusV1(
+      clone(digestMismatch.input),
+      harness.ports,
+    )
+    assert.equal(result.branch.stopped.stop_code, 'prior_attempt_authority_invalid')
+    amendment015CompleteCases.push('GSP-A015-010')
+  }
+  {
+    const deepMismatch = make({ atomic: true })
+    const harness = makePorts(deepMismatch)
+    const original = harness.ports.read_canonical_record
+    harness.ports.read_canonical_record = async (url) => {
+      const result = await original(url)
+      if (url === PRIOR_SET && result.state === 'available') {
+        result.content.verification_state = 'invalid'
+      }
+      return result
+    }
+    const result = await api.publishGateStatusV1(
+      clone(deepMismatch.input),
+      harness.ports,
+    )
+    assert.equal(result.branch.stopped.stop_code, 'prior_attempt_authority_invalid')
+    amendment015CompleteCases.push('GSP-A015-011')
+  }
+  {
+    const projectionMismatch = make({ atomic: true })
+    const harness = makePorts(projectionMismatch)
+    const original = harness.ports.read_canonical_record
+    harness.ports.read_canonical_record = async (url) => {
+      const result = await original(url)
+      if (url === PRIOR_SET && result.state === 'available') {
+        result.content_projection_sha256 = fixedDigest('b')
+      }
+      return result
+    }
+    const result = await api.publishGateStatusV1(
+      clone(projectionMismatch.input),
+      harness.ports,
+    )
+    assert.equal(result.branch.stopped.stop_code, 'prior_attempt_authority_invalid')
+    amendment015CompleteCases.push('GSP-A015-012')
+  }
+  {
+    const committed = await execute(
+      make({ atomic: true }),
+      { cas: 'indeterminate' },
+    )
+    assert.equal(committed.result.kind, 'applied')
+    assert.equal(
+      committed.result.write_state.confirmation,
+      'reconciled_after_indeterminate',
+    )
+    amendment015CompleteCases.push('GSP-A015-013')
+    const unchanged = await execute(
+      make({ atomic: true }),
+      { cas: 'indeterminate', postRevision: 'unchanged' },
+    )
+    assert.equal(
+      unchanged.result.branch.reconciliation_required.reconciliation_code,
+      'write_outcome_unknown',
+    )
+    amendment015CompleteCases.push('GSP-A015-014')
+    const unavailable = await execute(
+      make({ atomic: true }),
+      { cas: 'indeterminate', postRevision: 'unavailable' },
+    )
+    assert.equal(
+      unavailable.result.branch.reconciliation_required.reconciliation_code,
+      'write_outcome_unknown',
+    )
+    amendment015CompleteCases.push('GSP-A015-015')
+    const bodyMismatch = await execute(
+      make({ atomic: true }),
+      { cas: 'indeterminate', readback: 'mismatch' },
+    )
+    assert.equal(
+      bodyMismatch.result.branch.reconciliation_required.reconciliation_code,
+      'readback_mismatch',
+    )
+    amendment015CompleteCases.push('GSP-A015-016')
+    const appliedRevisionMismatch = await execute(
+      make({ atomic: true }),
+      { cas: 'applied', postRevision: 'different_changed' },
+    )
+    assert.equal(
+      appliedRevisionMismatch.result.branch.reconciliation_required
+        .reconciliation_code,
+      'readback_mismatch',
+    )
+    assert.equal(appliedRevisionMismatch.counts.receipt, 0)
+    amendment015CompleteCases.push('GSP-A015-017')
+    const receiptSuccess = await execute(
+      make({ atomic: true, receipt: true }),
+      { cas: 'indeterminate' },
+    )
+    assert.equal(receiptSuccess.result.kind, 'applied')
+    assert.equal(receiptSuccess.counts.receipt, 1)
+    amendment015CompleteCases.push('GSP-A015-018')
+  }
+  {
+    const sharedReceiptState = { receipt: null, created: 0, existing: 0 }
+    const fixtures = [
+      make({ atomic: true, receipt: true }),
+      make({ atomic: true, receipt: true }),
+    ]
+    const harnesses = fixtures.map((fixture) =>
+      makePorts(fixture, { cas: 'indeterminate', sharedReceiptState }))
+    const results = await Promise.all(fixtures.map((fixture, index) =>
+      api.publishGateStatusV1(clone(fixture.input), harnesses[index].ports)))
+    assert.deepEqual(results.map((result) => result.kind), ['applied', 'applied'])
+    assert.deepEqual(
+      [sharedReceiptState.created, sharedReceiptState.existing],
+      [1, 1],
+    )
+    amendment015CompleteCases.push('GSP-A015-019')
+  }
+  {
+    const fixture = make({ atomic: true })
+    const first = await execute(fixture, { cas: 'indeterminate' })
+    const second = await execute(fixture, { cas: 'indeterminate' })
+    assert.equal(canonicalize(first.result), canonicalize(second.result))
+    assert.deepEqual(first.counts, second.counts)
+    amendment015CompleteCases.push('GSP-A015-020')
+  }
+  {
+    const negativeResults = await Promise.all([
+      execute(make({ atomic: true }), {
+        cas: 'indeterminate',
+        postRevision: 'unavailable',
+      }),
+      execute(make({ atomic: true }), {
+        cas: 'applied',
+        postRevision: 'different_changed',
+      }),
+      execute(make(), { unexpectedNoCasRevision: true }),
+    ])
+    for (const item of negativeResults) {
+      const serialized = JSON.stringify(item.result)
+      assert.equal(serialized.includes('secret-token'), false)
+      assert.equal(item.counts.retry_write, 0)
+      assert.ok(['stopped', 'reconciliation_required'].includes(item.result.kind))
+    }
+    amendment015CompleteCases.push('GSP-A015-021')
+  }
+  assert.deepEqual(
+    amendment015CompleteCases,
+    Array.from(
+      { length: 14 },
+      (_, index) => `GSP-A015-${String(index + 8).padStart(3, '0')}`,
+    ),
+  )
+
+  const decoderIds = [
+    'prior_attempt_authority_set_v1',
+    'prior_attempt_authority_record_v1',
+    'receipt_authority_authorized_v1',
+    'receipt_store_capability_v1',
+    'prior_attempt_reconciliation_observation_v1',
+    'proven_atomic_transport_capability_v1',
+  ]
+  const makeDecoderScenario = (decoder) => {
+    if (decoder === 'prior_attempt_authority_set_v1') {
+      const fixture = make({ atomic: true })
+      return {
+        decoder,
+        fixture,
+        harness: makePorts(fixture),
+        targetUrl: PRIOR_SET,
+        expectedContent: fixture.input.prior_attempt_authorities,
+        expectedCode: 'prior_attempt_authority_invalid',
+        expectedPath: '/prior_attempt_authorities/authority_set_url',
+        expectedControlReads: 1,
+      }
+    }
+    if (
+      decoder === 'prior_attempt_authority_record_v1' ||
+      decoder === 'prior_attempt_reconciliation_observation_v1'
+    ) {
+      const { fixture, harness } = makePriorAttempt()
+      const member = fixture.input.prior_attempt_authorities.records[0]
+      const observation = fixture.input.prior_attempt_reconciliation_observation
+      return decoder === 'prior_attempt_authority_record_v1'
+        ? {
+            decoder,
+            fixture,
+            harness,
+            targetUrl: member.canonical_record,
+            expectedContent: member,
+            expectedCode: 'prior_attempt_authority_invalid',
+            expectedPath:
+              '/prior_attempt_authorities/records/0/canonical_record',
+            expectedControlReads: 2,
+          }
+        : {
+            decoder,
+            fixture,
+            harness,
+            targetUrl: observation.canonical_record,
+            expectedContent: observation,
+            expectedCode: 'prior_attempt_authority_invalid',
+            expectedPath:
+              '/prior_attempt_reconciliation_observation/canonical_record',
+            expectedControlReads: 3,
+          }
+    }
+    if (
+      decoder === 'receipt_authority_authorized_v1' ||
+      decoder === 'receipt_store_capability_v1'
+    ) {
+      const fixture = make({ current: true, receipt: true })
+      return decoder === 'receipt_authority_authorized_v1'
+        ? {
+            decoder,
+            fixture,
+            harness: makePorts(fixture),
+            targetUrl: RECEIPT_AUTH,
+            expectedContent: fixture.input.receipt_authority,
+            expectedCode: 'receipt_capability_unavailable',
+            expectedPath: '/receipt_authority/canonical_record',
+            expectedControlReads: 2,
+          }
+        : {
+            decoder,
+            fixture,
+            harness: makePorts(fixture),
+            targetUrl: RECEIPT_STORE_AUTH,
+            expectedContent: fixture.input.receipt_store_capability.value,
+            expectedCode: 'receipt_capability_invalid',
+            expectedPath: '/receipt_store_capability',
+            expectedControlReads: 3,
+          }
+    }
+    const fixture = make({ atomic: true })
+    return {
+      decoder,
+      fixture,
+      harness: makePorts(fixture),
+      targetUrl: TRANSPORT_AUTH,
+      expectedContent: fixture.input.transport_capability,
+      expectedCode: 'atomic_precondition_unavailable',
+      expectedPath: '/transport_capability/capability_authority_url',
+      expectedControlReads: 2,
+    }
+  }
+  const controlUrlsFor = (scenario) => {
+    const urls = new Set([
+      PRIOR_SET,
+      RECEIPT_AUTH,
+      RECEIPT_STORE_AUTH,
+      TRANSPORT_AUTH,
+    ])
+    for (const record of scenario.fixture.input.prior_attempt_authorities.records) {
+      urls.add(record.canonical_record)
+    }
+    const observation =
+      scenario.fixture.input.prior_attempt_reconciliation_observation
+    if (observation.canonical_record) urls.add(observation.canonical_record)
+    return urls
+  }
+  const controlReadCount = (scenario) => {
+    const urls = controlUrlsFor(scenario)
+    return [...scenario.harness.counts.canonical_by_url]
+      .filter(([url]) => urls.has(url))
+      .reduce((sum, [, count]) => sum + count, 0)
+  }
+  const executeDecoderScenario = async (scenario) => {
+    const result = await api.publishGateStatusV1(
+      focusedDeepFreeze(clone(scenario.fixture.input)),
+      scenario.harness.ports,
+    )
+    assert.equal(api.validateGateStatusPublicationResultV1(result).accepted, true)
+    return result
+  }
+  const mutateDecoderContent = (decoder, content) => {
+    if (
+      decoder === 'prior_attempt_authority_set_v1' ||
+      decoder === 'prior_attempt_authority_record_v1' ||
+      decoder === 'prior_attempt_reconciliation_observation_v1'
+    ) {
+      content.verification_state = 'invalid'
+    } else if (decoder === 'receipt_authority_authorized_v1') {
+      content.owner_role = 'architect_team'
+    } else {
+      content.provider = 'different-provider'
+    }
+  }
+  const decoderPayload = (decoder, content) => {
+    const payload = clone(content)
+    if (
+      decoder === 'prior_attempt_authority_set_v1' ||
+      decoder === 'prior_attempt_authority_record_v1' ||
+      decoder === 'prior_attempt_reconciliation_observation_v1'
+    ) delete payload.fetched_content_sha256
+    return payload
+  }
+  const synchronizeDecoderExpectedDigest = (scenario, bodyDigest) => {
+    if (scenario.decoder === 'prior_attempt_authority_set_v1') {
+      scenario.fixture.input.prior_attempt_authorities.fetched_content_sha256 =
+        bodyDigest
+      return
+    }
+    if (scenario.decoder === 'prior_attempt_authority_record_v1') {
+      scenario.fixture.input.prior_attempt_authorities.records[0]
+        .fetched_content_sha256 = bodyDigest
+      bindControlDigest(
+        'prior_attempt_authority_set_v1',
+        scenario.fixture.input.prior_attempt_authorities,
+      )
+      return
+    }
+    if (scenario.decoder === 'prior_attempt_reconciliation_observation_v1') {
+      scenario.fixture.input.prior_attempt_reconciliation_observation
+        .fetched_content_sha256 = bodyDigest
+    }
+  }
+  const attachDecoderMutation = (scenario, mutation) => {
+    const original = scenario.harness.ports.read_canonical_record
+    let wrapperBody = null
+    if (['wrong_wrapper', 'unknown_wrapper', 'ambiguous_wrapper'].includes(mutation)) {
+      const payload = decoderPayload(scenario.decoder, scenario.expectedContent)
+      const correctKey = controlWrapperKeys[scenario.decoder]
+      const wrongKey = controlWrapperKeys[
+        decoderIds[(decoderIds.indexOf(scenario.decoder) + 1) % decoderIds.length]
+      ]
+      const wrapper =
+        mutation === 'wrong_wrapper'
+          ? { [wrongKey]: payload }
+          : mutation === 'unknown_wrapper'
+            ? { gate_status_unknown_control_binding: payload }
+            : {
+                [correctKey]: payload,
+                gate_status_unknown_control_binding: payload,
+              }
+      wrapperBody =
+        `# Exact canonical control\n\n\`\`\`yaml\n${
+          JSON.stringify(wrapper, null, 2)
+        }\n\`\`\`\n`
+      synchronizeDecoderExpectedDigest(scenario, shaText(wrapperBody))
+    }
+    scenario.harness.ports.read_canonical_record = async (url) => {
+      const result = await original(url)
+      if (url !== scenario.targetUrl || result.state !== 'available') return result
+      if (mutation === 'raw_body_tamper') {
+        result.body_utf8 = `${result.body_utf8} `
+      } else if (mutation === 'projection_digest_mismatch') {
+        result.content_projection_sha256 = fixedDigest('c')
+      } else if (mutation === 'deep_equality_mismatch') {
+        mutateDecoderContent(scenario.decoder, result.content)
+      } else {
+        result.body_utf8 = wrapperBody
+        result.fetched_content_sha256 = shaText(wrapperBody)
+      }
+      return result
+    }
+  }
+  const assertDecoderInvalid = async (scenario) => {
+    const result = await executeDecoderScenario(scenario)
+    const branch =
+      result.kind === 'stopped'
+        ? result.branch.stopped
+        : result.branch.reconciliation_required
+    const code =
+      result.kind === 'stopped'
+        ? branch.stop_code
+        : branch.reconciliation_code
+    assert.equal(code, scenario.expectedCode, scenario.decoder)
+    assert.equal(result.diagnostics[0].path, scenario.expectedPath, scenario.decoder)
+    assert.equal(controlReadCount(scenario), scenario.expectedControlReads)
+    assert.equal(scenario.harness.counts.cas, 0)
+    assert.equal(scenario.harness.counts.receipt, 0)
+    assert.equal(scenario.harness.counts.retry_write, 0)
+    return result
+  }
+
+  const decoderPositiveCases = []
+  for (let index = 0; index < decoderIds.length; index += 1) {
+    const scenario = makeDecoderScenario(decoderIds[index])
+    const result = await executeDecoderScenario(scenario)
+    assert.ok(['applied', 'already_current'].includes(result.kind))
+    assert.equal(
+      scenario.harness.counts.canonical_by_url.get(scenario.targetUrl),
+      1,
+    )
+    decoderPositiveCases.push(
+      `GSP-A017-DEC-${String(index + 1).padStart(3, '0')}`,
+    )
+  }
+
+  const decoderNegativeCases = []
+  let decoderNegativeOrdinal = 7
+  for (const decoder of decoderIds) {
+    for (const mutation of [
+      'raw_body_tamper',
+      'projection_digest_mismatch',
+    ]) {
+      const scenario = makeDecoderScenario(decoder)
+      attachDecoderMutation(scenario, mutation)
+      await assertDecoderInvalid(scenario)
+      decoderNegativeCases.push(
+        `GSP-A017-DEC-${String(decoderNegativeOrdinal).padStart(3, '0')}`,
+      )
+      decoderNegativeOrdinal += 1
+    }
+    for (const mutation of [
+      'deep_equality_mismatch',
+      'wrong_wrapper',
+      'unknown_wrapper',
+      'ambiguous_wrapper',
+    ]) {
+      const scenario = makeDecoderScenario(decoder)
+      attachDecoderMutation(scenario, mutation)
+      await assertDecoderInvalid(scenario)
+    }
+    decoderNegativeCases.push(
+      `GSP-A017-DEC-${String(decoderNegativeOrdinal).padStart(3, '0')}`,
+    )
+    decoderNegativeOrdinal += 1
+  }
+  assert.equal(decoderNegativeOrdinal, 25)
+
+  const decoderCallCases = []
+  for (let index = 0; index < decoderIds.length; index += 1) {
+    const scenario = makeDecoderScenario(decoderIds[index])
+    attachDecoderMutation(scenario, 'raw_body_tamper')
+    await assertDecoderInvalid(scenario)
+    assert.equal(
+      scenario.harness.counts.canonical_by_url.get(scenario.targetUrl),
+      1,
+    )
+    decoderCallCases.push(
+      `GSP-A017-DEC-${String(index + 25).padStart(3, '0')}`,
+    )
+  }
+
+  const decoderDeterminismCases = []
+  for (let index = 0; index < decoderIds.length; index += 1) {
+    const first = makeDecoderScenario(decoderIds[index])
+    const second = makeDecoderScenario(decoderIds[index])
+    const firstDigests = []
+    const secondDigests = []
+    for (const [scenario, digests] of [
+      [first, firstDigests],
+      [second, secondDigests],
+    ]) {
+      const original = scenario.harness.ports.read_canonical_record
+      scenario.harness.ports.read_canonical_record = async (url) => {
+        const result = await original(url)
+        if (url === scenario.targetUrl && result.state === 'available') {
+          digests.push(result.fetched_content_sha256)
+        }
+        return result
+      }
+      focusedDeepFreeze(scenario.harness.ports)
+    }
+    const firstResult = await executeDecoderScenario(first)
+    const secondResult = await executeDecoderScenario(second)
+    assert.equal(canonicalize(firstResult), canonicalize(secondResult))
+    assert.deepEqual(firstDigests, secondDigests)
+    assert.deepEqual(first.harness.counts, second.harness.counts)
+    decoderDeterminismCases.push(
+      `GSP-A017-DET-${String(index + 1).padStart(3, '0')}`,
+    )
+  }
+  assert.deepEqual(
+    decoderPositiveCases,
+    Array.from(
+      { length: 6 },
+      (_, index) => `GSP-A017-DEC-${String(index + 1).padStart(3, '0')}`,
+    ),
+  )
+  assert.deepEqual(
+    decoderNegativeCases,
+    Array.from(
+      { length: 18 },
+      (_, index) => `GSP-A017-DEC-${String(index + 7).padStart(3, '0')}`,
+    ),
+  )
+  assert.deepEqual(
+    decoderCallCases,
+    Array.from(
+      { length: 6 },
+      (_, index) => `GSP-A017-DEC-${String(index + 25).padStart(3, '0')}`,
+    ),
+  )
+  assert.deepEqual(
+    decoderDeterminismCases,
+    Array.from(
+      { length: 6 },
+      (_, index) => `GSP-A017-DET-${String(index + 1).padStart(3, '0')}`,
+    ),
+  )
+  followupFindingCases.push('B-208-05')
+  assert.deepEqual(
+    followupFindingCases,
+    ['B-208-01', 'B-208-02', 'B-208-03', 'B-208-04', 'B-208-05'],
+  )
+
   assert.deepEqual(evidence, Array.from({ length: 36 }, (_, index) => `GSP-${String(index + 1).padStart(3, '0')}`))
   const summary = {
     contract: 'Gate Status Publisher V1',
@@ -4794,6 +5490,12 @@ try {
     canonical_throw_cases: focusedA013Cases.length + 2,
     cumulative_amendment_cases: cumulativeCases.length,
     amendment_020_cases: amendment020Cases.length,
+    followup_finding_cases: followupFindingCases.length,
+    amendment_015_complete_cases: amendment015CompleteCases.length,
+    decoder_positive_cases: decoderPositiveCases.length,
+    decoder_negative_cases: decoderNegativeCases.length,
+    decoder_call_cases: decoderCallCases.length,
+    decoder_determinism_cases: decoderDeterminismCases.length,
     result: 'PASS',
   }
   console.log(JSON.stringify(summary))
