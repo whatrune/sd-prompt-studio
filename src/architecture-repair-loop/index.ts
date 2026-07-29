@@ -64,38 +64,59 @@ const DECISION_FINDING_IDS = Object.freeze([
   'B-210-CBV8-REV-01',
 ])
 const DECISION_STATES = Object.freeze(['open', 'closed', 'reopened_with_new_finding'])
-const decisionBinding = (value: unknown, path: string): AdmissionResultV2<Obj> => {
+const decisionBinding = (
+  value: unknown,
+  path: string,
+  relationPolicy: 'enforce' | 'defer_to_proof_binding' = 'enforce',
+): AdmissionResultV2<Obj> => {
   const fields = ['schema_version','decision_record','task_id','authoring_role','decision','blocking_finding_count','finding_dispositions','contract_gap_closed','architecture_review_closed','implementation_resume_allowed','source_issue_209_resume_allowed','status','execution_stop_reason','projection_digest']
   const admitted = exact(value, fields, path); if (admitted.branch === 'rejected') return admitted
   const ref = recordRef(admitted.value.decision_record, `${path}/decision_record`); if (ref.branch === 'rejected') return ref
   if (ref.value.record_type !== 'independent_architecture_review_decision') return reject('cross_reference_mismatch', `${path}/decision_record/record_type`, 'Decision record type mismatch')
   if (!Array.isArray(admitted.value.finding_dispositions)) return reject('invalid_type', `${path}/finding_dispositions`, 'array required')
   const findingIds: string[] = []
-  let openCount = 0
+  let nonclosedCount = 0
   for (const [index, disposition] of admitted.value.finding_dispositions.entries()) {
     const item = exact(disposition, ['evidence_ref','finding_id','state'], `${path}/finding_dispositions/${index}`); if (item.branch === 'rejected') return item
     const evidence = recordRef(item.value.evidence_ref, `${path}/finding_dispositions/${index}/evidence_ref`); if (evidence.branch === 'rejected') return evidence
     if (typeof item.value.finding_id !== 'string' || !DECISION_FINDING_IDS.includes(item.value.finding_id) || typeof item.value.state !== 'string' || !DECISION_STATES.includes(item.value.state)) return reject('invalid_enum', `${path}/finding_dispositions/${index}`, 'invalid finding disposition')
     if (stableJson(evidence.value) !== stableJson(ref.value)) return reject('cross_reference_mismatch', `${path}/finding_dispositions/${index}/evidence_ref`, 'finding evidence must bind the Decision record')
     findingIds.push(item.value.finding_id)
-    if (item.value.state === 'open') openCount += 1
+    if (item.value.state !== 'closed') nonclosedCount += 1
   }
   const duplicateIndex = findingIds.findIndex((findingId, index) => findingIds.indexOf(findingId) !== index)
   if (duplicateIndex >= 0) return reject('duplicate_identity', `${path}/finding_dispositions/${duplicateIndex}/finding_id`, 'duplicate finding disposition')
   if (stableJson(findingIds) !== stableJson(DECISION_FINDING_IDS)) return reject('semantic_coverage_mismatch', `${path}/finding_dispositions`, 'finding dispositions must be complete and ordered')
   if (admitted.value.schema_version !== 'ArchitectureRepairReviewDecisionBindingV8' ||
       admitted.value.task_id !== 'DESIGN-ARCHITECTURE-REPAIR-LOOP-CONTRACT-001' ||
-      admitted.value.authoring_role !== 'Architect Team Independent Reviewer' ||
-      !['APPROVE','CHANGES_REQUIRED','BLOCKED'].includes(String(admitted.value.decision)) ||
-      !Number.isSafeInteger(admitted.value.blocking_finding_count) ||
-      admitted.value.blocking_finding_count !== openCount ||
-      typeof admitted.value.contract_gap_closed !== 'boolean' ||
+      admitted.value.authoring_role !== 'Architect Team Independent Reviewer') {
+    return reject('invalid_enum', path, 'invalid Decision binding')
+  }
+  if (!['APPROVE','CHANGES_REQUIRED','BLOCKED'].includes(String(admitted.value.decision))) {
+    return reject('invalid_enum', `${path}/decision`, 'invalid Decision')
+  }
+  if (!Number.isSafeInteger(admitted.value.blocking_finding_count)) {
+    return reject('invalid_enum', `${path}/blocking_finding_count`, 'invalid blocking finding count')
+  }
+  if (relationPolicy === 'enforce' && admitted.value.blocking_finding_count !== nonclosedCount) {
+    return reject('cross_reference_mismatch', `${path}/blocking_finding_count`, 'blocking finding count must equal non-closed finding count')
+  }
+  if (relationPolicy === 'enforce' &&
+      ((admitted.value.decision === 'APPROVE' && nonclosedCount !== 0) ||
+       (admitted.value.decision === 'CHANGES_REQUIRED' && nonclosedCount === 0))) {
+    return reject('cross_reference_mismatch', `${path}/decision`, 'Decision must match non-closed finding count')
+  }
+  if (typeof admitted.value.contract_gap_closed !== 'boolean' ||
       typeof admitted.value.architecture_review_closed !== 'boolean' ||
       typeof admitted.value.implementation_resume_allowed !== 'boolean' ||
       typeof admitted.value.source_issue_209_resume_allowed !== 'boolean' ||
-      !['completed','completed_with_warnings','needs_followup','blocked'].includes(String(admitted.value.status)) ||
-      !['completed','architecture_gap','external_blocker','canonical_conflict'].includes(String(admitted.value.execution_stop_reason)) ||
-      typeof admitted.value.projection_digest !== 'string' ||
+      !['completed','completed_with_warnings','needs_followup','blocked'].includes(String(admitted.value.status))) {
+    return reject('invalid_enum', path, 'invalid Decision binding')
+  }
+  if (!['completed','architecture_gap','external_blocker'].includes(String(admitted.value.execution_stop_reason))) {
+    return reject('invalid_enum', `${path}/execution_stop_reason`, 'invalid execution stop reason')
+  }
+  if (typeof admitted.value.projection_digest !== 'string' ||
       !/^[0-9a-f]{64}$/.test(admitted.value.projection_digest)) return reject('invalid_enum', path, 'invalid Decision binding')
   const projection = { ...admitted.value }; delete projection.projection_digest
   if (sha256Pure(stableJson(projection)) !== admitted.value.projection_digest) return reject('digest_mismatch', `${path}/projection_digest`, 'Decision binding digest mismatch')
@@ -378,21 +399,23 @@ export function validateArchitectureRepairAuthorityObservationV8(observation: un
   if (admitted.branch === 'rejected') return admitted
   if (admitted.value.schema_version !== 'ArchitectureRepairAuthorityObservationV8') return reject('unsupported_schema_version', '/observation/schema_version', 'unsupported observation schema')
   if (admitted.value.producer !== 'Integrated Lead') return reject('invalid_enum', '/observation/producer', 'invalid producer')
-  const observationNested = admitObservationNested(admitted.value); if (observationNested.branch === 'rejected') return observationNested
   const production = exact(productionInput, ['schema_version', 'task_id', 'operation_key', 'iteration_number', 'attempt_number', 'decision_binding', 'pre_read_authority_refs', 'input_digest'], '/productionInput')
   if (production.branch === 'rejected') return production
   if (production.value.schema_version !== 'ArchitectureRepairProductionInputV8' || production.value.task_id !== 'DESIGN-ARCHITECTURE-REPAIR-LOOP-CONTRACT-001' || typeof production.value.operation_key !== 'string' || production.value.operation_key.length === 0 || !Number.isSafeInteger(production.value.iteration_number) || Number(production.value.iteration_number) < 1 || !Number.isSafeInteger(production.value.attempt_number) || Number(production.value.attempt_number) < 1 || !Array.isArray(production.value.pre_read_authority_refs) || typeof production.value.input_digest !== 'string' || !/^[0-9a-f]{64}$/.test(production.value.input_digest)) return reject('invalid_enum', '/productionInput', 'invalid production input')
-  const productionDecision = decisionBinding(production.value.decision_binding, '/productionInput/decision_binding'); if (productionDecision.branch === 'rejected') return productionDecision
+  const productionDecision = decisionBinding(production.value.decision_binding, '/productionInput/decision_binding', 'defer_to_proof_binding'); if (productionDecision.branch === 'rejected') return productionDecision
   for (const [index, ref] of production.value.pre_read_authority_refs.entries()) { const reference = recordRef(ref, `/productionInput/pre_read_authority_refs/${index}`); if (reference.branch === 'rejected') return reference }
   const productionProjection = { ...production.value }; delete productionProjection.input_digest
   if (sha256Pure(stableJson(productionProjection)) !== production.value.input_digest) return reject('digest_mismatch', '/productionInput/input_digest', 'production input digest mismatch')
   if (!isObject(proofToken) || !tokens.has(proofToken)) return reject('cross_reference_mismatch', '/proofToken', 'forged or reused proof token')
   const state = tokens.get(proofToken)!; tokens.delete(proofToken)
-  if (stableJson(production.value.decision_binding) !== stableJson(state.input.decision_binding)) {
-    if (isObject(production.value.decision_binding) && production.value.decision_binding.contract_gap_closed !== false) return reject('cross_reference_mismatch', '/productionInput/decision_binding/contract_gap_closed', 'decision binding mismatch')
-    if (isObject(production.value.decision_binding) && production.value.decision_binding.status !== 'needs_followup') return reject('cross_reference_mismatch', '/productionInput/decision_binding/status', 'decision binding mismatch')
+  const tokenBoundDecision = state.input.decision_binding
+  if (!isObject(tokenBoundDecision)) return reject('cross_reference_mismatch', '/productionInput/decision_binding', 'token-bound decision unavailable')
+  if (stableJson(productionDecision.value) !== stableJson(tokenBoundDecision)) {
+    if (productionDecision.value.contract_gap_closed !== tokenBoundDecision.contract_gap_closed) return reject('cross_reference_mismatch', '/productionInput/decision_binding/contract_gap_closed', 'decision binding mismatch')
+    if (productionDecision.value.status !== tokenBoundDecision.status) return reject('cross_reference_mismatch', '/productionInput/decision_binding/status', 'decision binding mismatch')
     return reject('cross_reference_mismatch', '/productionInput/decision_binding', 'decision binding mismatch')
   }
+  const observationNested = admitObservationNested(admitted.value); if (observationNested.branch === 'rejected') return observationNested
   if (admitted.value.task_id !== state.input.task_id || admitted.value.observed_at !== state.input.observed_at || admitted.value.production_input_binding !== production.value.input_digest || admitted.value.proof_binding_digest !== state.proof.proof_digest || stableJson(admitted.value.decision_binding) !== stableJson(production.value.decision_binding) || !isObject(admitted.value.authority_snapshot) || !isObject(admitted.value.projection)) return reject('cross_reference_mismatch', '/observation', 'observation binding mismatch')
   const derived = deriveObservationValues(state)
   if (!derived) return reject('cross_reference_mismatch', '/observation', 'proof-derived observation unavailable')
