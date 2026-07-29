@@ -443,8 +443,20 @@ try {
           : value
   const unrelatedTask = unrelatedTaskUrl(unrelatedTaskInput)
   unrelatedTask.task_id = 'task-999'
+  check(
+    unrelatedTask.result_handoff.task_id !== unrelatedTask.task_id,
+    'PMR-CAA019-006 stimulus is an input authority mismatch',
+  )
   const unrelatedTaskBefore = canonicalize(unrelatedTask)
-  const unrelatedTaskActual = api.evaluateAutomaticGateProgressionV2(unrelatedTask)
+  let pmrCaa019006CallCount = 0
+  const pmrCaa019006Results = []
+  const evaluatePmrCaa019006 = (candidate) => {
+    pmrCaa019006CallCount += 1
+    const result = api.evaluateAutomaticGateProgressionV2(candidate)
+    pmrCaa019006Results.push(result)
+    return result
+  }
+  const unrelatedTaskActual = evaluatePmrCaa019006(unrelatedTask)
   const admittedEvidence = new Set([
     unrelatedTask.task_assignment.canonical_record,
     unrelatedTask.result_handoff.canonical_record,
@@ -452,6 +464,20 @@ try {
     unrelatedTask.pr.url,
   ])
   equal(unrelatedTaskActual.kind, 'stop', 'unrelated task evidence kind')
+  equal(pmrCaa019006CallCount, 1, 'PMR-CAA019-006 one public evaluator call')
+  equal(pmrCaa019006Results.length, 1, 'PMR-CAA019-006 one terminal result')
+  equal(pmrCaa019006Results[0], unrelatedTaskActual, 'PMR-CAA019-006 retained result identity')
+  equal(unrelatedTaskActual.execution_stop_reason, 'architecture_gap', 'PMR-CAA019-006 execution stop reason')
+  check(
+    unrelatedTaskActual.execution_stop_reason !== 'canonical_conflict',
+    'PMR-CAA019-006 controller conflict is absent from execution stop reason',
+  )
+  equal(unrelatedTaskActual.recovery_owner, 'backend_architect', 'PMR-CAA019-006 recovery owner')
+  deepEqual(
+    unrelatedTaskActual.required_recovery_evidence,
+    ['fresh_review_correction'],
+    'PMR-CAA019-006 required recovery evidence',
+  )
   equal(unrelatedTaskActual.stop_condition, 'canonical_conflict', 'unrelated task evidence conflict')
   deepEqual(
     unrelatedTaskActual.canonical_evidence_refs,
@@ -581,6 +607,17 @@ try {
       corpus_digest: CORPUS_DIGEST,
       evaluator_cases: corpus.evaluator_rows.length,
       structural_cases: structuralInvocationCount,
+      pmr_caa019_006: {
+        row_id: 'PMR-CAA019-006',
+        public_evaluator_calls: pmrCaa019006CallCount,
+        results: pmrCaa019006Results.map((result) => ({
+          kind: result.kind,
+          stop_condition: result.stop_condition,
+          execution_stop_reason: result.execution_stop_reason,
+          recovery_owner: result.recovery_owner,
+          required_recovery_evidence: result.required_recovery_evidence,
+        })),
+      },
       source_cases: sourceCaseCount,
       m01_branches: m01.case_bindings.length,
       m02_binding_sets: m02.case_bindings.map((binding) => binding.bound_evaluator_row_ids.length),

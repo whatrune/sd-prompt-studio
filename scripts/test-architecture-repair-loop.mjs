@@ -11,6 +11,8 @@ const RECORDS = {
   amendment018: '5113638767',
   corpus: '5098979462',
 }
+const CBV_CATALOG_DIGEST = '5dac98e338f0f548e5f3e7e58f423c93a2cf4ff2de1d24e6e4f52a4d82ae2bae'
+const PMR_CATALOG_DIGEST = '3170be2820652a672a6a4548ab3440668a82af480b6c1230e753549e8b53da4b'
 
 const clone = structuredClone
 const canonicalize = (value) => value === null || typeof value !== 'object'
@@ -91,6 +93,7 @@ for (const replacement of [...amendment.ordered_replacements, ...amendment018.or
 }
 assert.equal(fixtureCatalog.catalog_digest, amendment018.reconstruction.effective_fixture_catalog_digest)
 assert.equal(validationCatalog.catalog_digest, amendment018.reconstruction.effective_validation_catalog_digest)
+assert.equal(validationCatalog.catalog_digest, CBV_CATALOG_DIGEST, 'CAA023 frozen CBV catalog digest')
 assert.equal(sha(without(fixtureCatalog, 'catalog_digest')), fixtureCatalog.catalog_digest)
 assert.equal(sha(without(validationCatalog, 'catalog_digest')), validationCatalog.catalog_digest)
 for (const row of validationCatalog.rows) assert.equal(sha(without(row, 'row_digest')), row.row_digest, row.row_id)
@@ -218,12 +221,85 @@ const resealDecisionInput = (input) => {
   input.decision_binding.projection_digest = sha(without(input.decision_binding, 'projection_digest'))
   input.input_digest = sha(without(input, 'input_digest'))
 }
+const pmrCaa019Rows = [
+  {
+    rowId: 'PMR-CAA019-001',
+    mutate(binding) {
+      assert.equal(binding.finding_dispositions.filter(({ state }) => state === 'open').length, 1)
+      binding.decision = 'APPROVE'
+    },
+    expectedCode: 'cross_reference_mismatch',
+    expectedPath: '/decision_binding/decision',
+  },
+  {
+    rowId: 'PMR-CAA019-002',
+    mutate(binding) {
+      const openFinding = binding.finding_dispositions.find(({ state }) => state === 'open')
+      assert.ok(openFinding)
+      openFinding.state = 'reopened_with_new_finding'
+      binding.decision = 'APPROVE'
+      binding.blocking_finding_count = 0
+    },
+    expectedCode: 'cross_reference_mismatch',
+    expectedPath: '/decision_binding/blocking_finding_count',
+  },
+  {
+    rowId: 'PMR-CAA019-003',
+    mutate(binding) {
+      const openFinding = binding.finding_dispositions.find(({ state }) => state === 'open')
+      assert.ok(openFinding)
+      openFinding.state = 'reopened_with_new_finding'
+      binding.decision = 'APPROVE'
+      binding.blocking_finding_count = 1
+    },
+    expectedCode: 'cross_reference_mismatch',
+    expectedPath: '/decision_binding/decision',
+  },
+  {
+    rowId: 'PMR-CAA019-004',
+    mutate(binding) {
+      for (const finding of binding.finding_dispositions) finding.state = 'closed'
+      binding.decision = 'CHANGES_REQUIRED'
+      binding.blocking_finding_count = 0
+    },
+    expectedCode: 'cross_reference_mismatch',
+    expectedPath: '/decision_binding/decision',
+  },
+  {
+    rowId: 'PMR-CAA019-005',
+    mutate(binding) {
+      binding.execution_stop_reason = 'canonical_conflict'
+    },
+    expectedCode: 'invalid_enum',
+    expectedPath: '/decision_binding/execution_stop_reason',
+  },
+]
+assert.equal(new Set(pmrCaa019Rows.map(({ rowId }) => rowId)).size, 5, 'CAA021 unique row owners 001-005')
+const pmrCaa019Results = []
+for (const row of pmrCaa019Rows) {
+  const input = clone(baseFixture.materialization_input)
+  row.mutate(input.decision_binding)
+  resealDecisionInput(input)
+  const callsBefore = adapterFetchCalls
+  const result = await production.materializeArchitectureRepairAuthorityProofV8(input, fixturePorts.value)
+  assert.equal(result.branch, 'rejected', `${row.rowId} terminal`)
+  assert.equal(result.rejection.code, row.expectedCode, `${row.rowId} code`)
+  assert.equal(result.rejection.path, `/input${row.expectedPath}`, `${row.rowId} invocation path`)
+  assert.equal(result.rejection.path.slice('/input'.length), row.expectedPath, `${row.rowId} catalog path`)
+  assert.equal(adapterFetchCalls, callsBefore, `${row.rowId} zero port calls`)
+  pmrCaa019Results.push({
+    row_id: row.rowId,
+    terminal: result.branch,
+    code: result.rejection.code,
+    path: row.expectedPath,
+    port_calls: adapterFetchCalls - callsBefore,
+  })
+}
 for (const [name, mutate, expectedCode] of [
   ['incomplete finding set', (binding) => { binding.finding_dispositions.pop() }, 'semantic_coverage_mismatch'],
   ['duplicate finding identity', (binding) => { binding.finding_dispositions[1].finding_id = binding.finding_dispositions[0].finding_id }, 'duplicate_identity'],
   ['out-of-order finding set', (binding) => { binding.finding_dispositions.reverse() }, 'semantic_coverage_mismatch'],
   ['invalid finding state', (binding) => { binding.finding_dispositions[0].state = 'unknown' }, 'invalid_enum'],
-  ['blocking count mismatch', (binding) => { binding.blocking_finding_count += 1 }, 'invalid_enum'],
   ['invalid boolean', (binding) => { binding.contract_gap_closed = 'false' }, 'invalid_enum'],
   ['invalid status', (binding) => { binding.status = 'pending' }, 'invalid_enum'],
   ['unbound evidence ref', (binding) => { binding.finding_dispositions[0].evidence_ref.body_sha256 = '0'.repeat(64) }, 'cross_reference_mismatch'],
@@ -405,11 +481,21 @@ const runCbvRow = async (row) => {
   if (materialized.branch !== 'produced') return { branch: material.branch, code: material.code, path: material.path, terminal_stage: 'materializer', materialization_branch: material.branch, validation_branch: 'not_invoked', materializer_call_vector: Object.values(counts), validator_invocations: [], raw_body_retained: false }
   let token = materialized.proof_token
   if (row.input_mutation.kind === 'forged_token') token = clone(token)
+  let projectionAccessed = false
+  if (Object.prototype.hasOwnProperty.call(state.observation, 'projection')) {
+    const projectionValue = state.observation.projection
+    Object.defineProperty(state.observation, 'projection', {
+      configurable: true,
+      enumerable: true,
+      get() { projectionAccessed = true; return projectionValue },
+    })
+  }
   const invocations = []
   const callValidator = () => {
+    projectionAccessed = false
     const admitted = production.validateArchitectureRepairAuthorityObservationV8(state.observation, state.production_input, token)
     const normalized = normalizeValidation(admitted)
-    invocations.push({ ordinal: invocations.length + 1, branch: normalized.branch, code: normalized.code, path: normalized.path, projection_reads: normalized.branch === 'accepted' || normalized.path.includes('/projection/') || normalized.path.endsWith('/observation_digest') ? 1 : 0 })
+    invocations.push({ ordinal: invocations.length + 1, branch: normalized.branch, code: normalized.code, path: normalized.path, projection_reads: projectionAccessed ? 1 : 0 })
     return normalized
   }
   let validated = callValidator()
@@ -436,12 +522,48 @@ const proofDerivedRejected = production.validateArchitectureRepairAuthorityObser
 assert.equal(proofDerivedRejected.branch, 'rejected', 'V8 caller-consistent forged snapshot rejected')
 assert.equal(proofDerivedRejected.rejection.path, '/observation/authority_snapshot', 'V8 proof-derived snapshot authority')
 
+const cbvTriadAuthority = new Map([
+  ['CBV-010', { rowDigest: 'c39b06811a9540f9042581478fe06215f95c48a31f1bb5e0530b04422d87d732', path: '/productionInput/decision_binding' }],
+  ['CBV-011', { rowDigest: '5d46df2d5ae5dbe83964c42eb03d7a105e8ab08f3995368a0501db3948110e2c', path: '/productionInput/decision_binding/contract_gap_closed' }],
+  ['CBV-012', { rowDigest: '951572a72b2e1173f2a927e79915571a0da3d811280208149e3a0353355d8258', path: '/productionInput/decision_binding/status' }],
+])
+const cbvTriadResults = []
+const cbvProjectionSensitivityRows = new Set(['CBV-001', 'CBV-017', 'CBV-020', 'CBV-021', 'CBV-022', 'CBV-023'])
+const cbvProjectionSensitivityResults = []
 const cbvResults = []
 for (const row of validationCatalog.rows) {
+  const expectedIdentity = row.expected
+  const expectedDigestBefore = sha(row.expected)
   const actual = await runCbvRow(row)
+  const expectedDigestAfter = sha(row.expected)
+  assert.equal(row.expected, expectedIdentity, `${row.row_id} expected identity retained`)
+  assert.equal(expectedDigestAfter, expectedDigestBefore, `${row.row_id} expected digest retained`)
   assert.deepEqual(actual, row.expected, row.row_id)
+  const triad = cbvTriadAuthority.get(row.row_id)
+  if (triad) {
+    assert.equal(row.row_digest, triad.rowDigest, `${row.row_id} frozen row digest`)
+    assert.equal(actual.path, triad.path, `${row.row_id} exact precedence path`)
+    assert.ok(actual.validator_invocations.every(({ projection_reads: reads }) => reads === 0), `${row.row_id} zero projection reads`)
+    cbvTriadResults.push({
+      row_id: row.row_id,
+      path: actual.path,
+      expected_digest_before: expectedDigestBefore,
+      expected_digest_after: expectedDigestAfter,
+      projection_reads: actual.validator_invocations.reduce((total, invocation) => total + invocation.projection_reads, 0),
+    })
+  }
   cbvResults.push({ row_id: row.row_id, branch: actual.branch, digest: sha(actual) })
+  if (cbvProjectionSensitivityRows.has(row.row_id)) {
+    const projectionReads = actual.validator_invocations.map(({ projection_reads: reads }) => reads)
+    assert.equal(projectionReads.reduce((total, reads) => total + reads, 0), 1, `${row.row_id} direct projection-read sensitivity`)
+    cbvProjectionSensitivityResults.push({
+      row_id: row.row_id,
+      projection_reads_by_invocation: projectionReads,
+      projection_reads: 1,
+    })
+  }
 }
+assert.equal(cbvTriadResults.length, 3, 'CAA023 independent CBV triad coverage')
 
 const parseArlRows = (body) => body.split('\n').filter((line) => /^\| \d+ \| ARL-/.test(line)).map((line) => {
   const columns = line.split(' | ')
@@ -522,4 +644,4 @@ for (const row of arlRows) {
 }
 
 await vite.close()
-console.log(JSON.stringify({ result: 'PASS', operations: 14, cbv: { rows: cbvResults.length, results: cbvResults }, arl: { rows: arlResults.length, results: arlResults } }))
+console.log(JSON.stringify({ result: 'PASS', catalogs: { cbv: CBV_CATALOG_DIGEST, pmr: PMR_CATALOG_DIGEST }, cbv_triad: cbvTriadResults, cbv_projection_sensitivity: cbvProjectionSensitivityResults, pmr_caa019: pmrCaa019Results, operations: 14, cbv: { rows: cbvResults.length, results: cbvResults }, arl: { rows: arlResults.length, results: arlResults } }))
