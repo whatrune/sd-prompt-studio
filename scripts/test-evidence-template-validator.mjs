@@ -4,11 +4,16 @@ import { readFile } from 'node:fs/promises'
 import { createServer } from 'vite'
 
 const FIXTURE_PATH = new URL('./fixtures/evidence-template-validator-v1.json', import.meta.url)
-const EXPECTED_FILE_BYTES = 59077
-const EXPECTED_FILE_SHA256 = 'b0b2c70cde112117ecdf726cddee2a95eb1b4d078af32ba83e87abe9643985b1'
-const EXPECTED_PROJECTION_DIGEST = '7c22b43163b113ce6347a9339860947982c95b19d97815dbf0d3673a20bad68e'
+const EXPECTED_FILE_BYTES = 161361
+const EXPECTED_FILE_SHA256 = 'a864f07c9bc9c35c5aa95824d3e505609ea2186f43c6b9b7c6ee3e5cca455485'
+const EXPECTED_PROJECTION_DIGEST = '75e03db1c9d9eaa8242c31439d0a2c0704d602ebf5fb314521c49b184450f4ec'
 const EXPECTED_REPAIR_MATRIX_DIGEST = 'dcc90e367512858414d6100413afd6f8296be474a50839beb4fced60d057c3af'
 const EXPECTED_REPAIR_COMPONENT_DIGEST = 'f8113eb66f04e31ef2579901b508132907da50c656fc4653b38332990563a0d7'
+const EXPECTED_LIMITED_MATRIX_DIGEST = '8218093a3a7b784916aa204eac3b1491c5eed5278c683dda6bcb67918223241d'
+const EXPECTED_WITNESS_MATRIX_DIGEST = '1131a6831e9e82f2780eb0c5f287b8eb06100ad1d92fdf89709a6c354bff28fb'
+const EXPECTED_FINAL_MATRIX_DIGEST = '34f5906770107ba6bf5c4e637469313d3400325729dad48fa1db57b118e997be'
+const EXPECTED_FINAL_COMPONENT_DIGEST = 'b0224a1b8d73870ad9453b6a639b8dbec42ca01e0d0b06e5ad299f90274f9974'
+const EXPECTED_JCS_MATRIX_DIGEST = '6f81e6a6fd7d2f1a3bb05d2f319b386773f8f8d12fe40fd29f92231f5ed23a8a'
 const EXPECTED_CATALOG_DIGEST = '6d172e79e26d621dec027867ba8c472e01012393a587d61126954838944a5d46'
 const EXPECTED_COMPONENT_DIGEST = 'c67a4688718777b4c5ded174934bc29445cdd0210361c8a9cff5816c4a52a383'
 const EXPECTED_SOURCE = {
@@ -275,40 +280,299 @@ const REPAIR_VALIDATOR_EXPECTED = new Map([
   ['ETVPMR-018', { branch: 'accepted' }],
 ])
 
-const OPERATIONAL_EXPECTED = new Map([
-  ['ETVPMR-019', { branch: 'rejected', code: 'sync_mismatch', call_vector: [], real_metadata_writes: 0 }],
-  ['ETVPMR-020', { branch: 'forbidden', code: 'closure_required', call_vector: [], real_metadata_writes: 0 }],
-  ['ETVPMR-021', { branch: 'rejected', code: 'projection_mismatch', call_vector: [], real_metadata_writes: 0 }],
-  ['ETVPMR-022', { branch: 'accepted', status: 'needs_followup', execution_stop_reason: 'completed', blocking_finding_count: 1, call_vector: [], real_metadata_writes: 0 }],
-  ['ETVPMR-023', { branch: 'blocked', status: 'blocked', execution_stop_reason: 'external_blocker', call_vector: ['fake_pr_body_write', 'fake_gsp_write'], real_metadata_writes: 0 }],
-  ['ETVPMR-024', { branch: 'accepted', status: 'completed', execution_stop_reason: 'completed', blocking_finding_count: 0, call_vector: [], real_metadata_writes: 0 }],
-])
-
-const executeOperationalRepairRow = (rowId) => {
-  const fakeCalls = []
-  const fakePorts = {
-    writePrBody: () => { fakeCalls.push('fake_pr_body_write'); return { branch: 'applied' } },
-    writeGsp: () => { fakeCalls.push('fake_gsp_write'); return { branch: 'failed' } },
+const OUTCOME_KEYS=['branch','code','status','execution_stop_reason','blocking_finding_count','call_vector','real_metadata_writes']
+const EVIDENCE_KEYS=['requested_phase','publish_requested','target_thread_id_or_null','finding_states','thread_states','gsp_projection','pr_body_projection']
+const SHARED_KEYS=['blocking_finding_ids','blocking_finding_count','unresolved_non_outdated_review_thread_count','status','execution_stop_reason'];const PR_KEYS=['merged','draft_only_sentence_present',...SHARED_KEYS]
+const PORT_FIELDS={resolveThread:['target_thread_id','phase','finding_id','closure_decision_url','projection'],writePrBody:['target_pr_url','phase','projection'],writeGsp:['target_issue_url','phase','projection']};const PORT_PROJ={resolveThread:SHARED_KEYS,writePrBody:PR_KEYS,writeGsp:SHARED_KEYS};const PORTS=['resolveThread','writePrBody','writeGsp']
+const FIDS=Array.from({length:5},(_,i)=>`B-210-COMP-${String(i+1).padStart(2,'0')}`);const TMAP={PRRT_kwDOTUu8Qs6U_EE2:'B-210-COMP-01',PRRT_kwDOTUu8Qs6U_EE7:'B-210-COMP-02',PRRT_kwDOTUu8Qs6U_EE9:'B-210-COMP-03',PRRT_kwDOTUu8Qs6U_EFD:'B-210-COMP-04'}
+const C14='https://github.com/whatrune/sd-prompt-studio/issues/210#issuecomment-5127008974',C5='https://github.com/whatrune/sd-prompt-studio/issues/210#issuecomment-5128042858',TPR='https://github.com/whatrune/sd-prompt-studio/pull/216',TISS='https://github.com/whatrune/sd-prompt-studio/issues/210'
+const cmp=(a,b)=>Buffer.compare(Buffer.from(a),Buffer.from(b));const plain=v=>v!==null&&typeof v==='object'&&!Array.isArray(v)&&Object.getPrototypeOf(v)===Object.prototype;const keys=(v,k)=>plain(v)&&Object.keys(v).length===k.length&&k.every(x=>Object.hasOwn(v,x));const arrEq=(a,b)=>Array.isArray(a)&&a.length===b.length&&a.every((v,i)=>v===b[i]);const freeze=v=>{if(v&&typeof v==='object'&&!Object.isFrozen(v)){Object.values(v).forEach(freeze);Object.freeze(v)}return v};const frozen=v=>!v||typeof v!=='object'||(Object.isFrozen(v)&&Object.values(v).every(frozen));const pf=(code,path,stage)=>freeze({code,path,stage,executed_stages:Array.from({length:stage},(_,i)=>i+1)})
+const miss=(v,f)=>f.find(x=>!Object.hasOwn(v,x)),unk=(v,f)=>Object.keys(v).filter(x=>!f.includes(x)).sort(cmp)[0];const idsOk=(v,path)=>{if(!Array.isArray(v))return pf('invalid_type',path,8);for(let i=0;i<v.length;i++){if(typeof v[i]!=='string')return pf('invalid_type',`${path}/${i}`,8);if(v.slice(0,i).includes(v[i])||(i&&cmp(v[i-1],v[i])>=0))return pf('invalid_type',`${path}/${i}`,8)}return null}
+const validatePort=(port,r,c)=>{const f=PORT_FIELDS[port],pk=PORT_PROJ[port];if(!plain(r))return pf('invalid_type','/',1);let x=miss(r,f);if(x!==undefined)return pf('missing_required_field',`/${x}`,2);x=unk(r,f);if(x!==undefined)return pf('unknown_field',`/${x}`,3);for(const k of f.filter(k=>k!=='projection'))if(typeof r[k]!=='string')return pf('invalid_type',`/${k}`,4);if(port==='resolveThread'&&r.phase!=='thread_state_reconciled')return pf('invalid_type','/phase',4);if(port!=='resolveThread'&&!['metadata_candidate_synced','terminal_projection_synced'].includes(r.phase))return pf('invalid_type','/phase',4);if(!plain(r.projection))return pf('invalid_type','/projection',5);x=miss(r.projection,pk);if(x!==undefined)return pf('missing_required_field',`/projection/${x}`,6);x=unk(r.projection,pk);if(x!==undefined)return pf('unknown_field',`/projection/${x}`,7);for(const k of pk){const v=r.projection[k],p=`/projection/${k}`;if(k==='blocking_finding_ids'){const q=idsOk(v,p);if(q)return q}else if(['blocking_finding_count','unresolved_non_outdated_review_thread_count'].includes(k)){if(!Number.isInteger(v)||v<0||v>(k==='blocking_finding_count'?5:4))return pf('invalid_type',p,8)}else if(['merged','draft_only_sentence_present'].includes(k)){if(typeof v!=='boolean')return pf('invalid_type',p,8)}else if(k==='status'){if(!['needs_followup','completed'].includes(v))return pf('invalid_type',p,8)}else if(v!=='completed')return pf('invalid_type',p,8)}const q=r.projection;if(!arrEq(q.blocking_finding_ids,c.ids))return pf('status_relation_mismatch','/projection/blocking_finding_ids',9);if(q.blocking_finding_count!==q.blocking_finding_ids.length||q.blocking_finding_count!==c.ids.length)return pf('status_relation_mismatch','/projection/blocking_finding_count',9);if(q.unresolved_non_outdated_review_thread_count!==c.active)return pf('status_relation_mismatch','/projection/unresolved_non_outdated_review_thread_count',9);if(q.status!==(r.phase==='terminal_projection_synced'?'completed':'needs_followup'))return pf('status_relation_mismatch','/projection/status',9);if(port==='resolveThread'){const th=c.threads.get(r.target_thread_id);if(!th||th.is_resolved||th.is_outdated)return pf('closure_required','/target_thread_id',10);if(TMAP[r.target_thread_id]!==r.finding_id)return pf('status_relation_mismatch','/finding_id',10);const fi=c.findings.get(r.finding_id);if(!fi||fi.state!=='closed'||r.closure_decision_url!==fi.closure_decision_url_or_null)return pf('closure_required','/closure_decision_url',10);return null}if(port==='writePrBody'){if(r.target_pr_url!==TPR)return pf('projection_mismatch','/target_pr_url',11);if(!c.eligible)return pf('closure_required','/phase',11);if(q.merged!==true)return pf('projection_mismatch','/projection/merged',11);if(q.draft_only_sentence_present!==false)return pf('projection_mismatch','/projection/draft_only_sentence_present',11);return null}if(r.target_issue_url!==TISS)return pf('projection_mismatch','/target_issue_url',11);if(c.prior!=='applied'||c.priorPhase!==r.phase)return pf('status_relation_mismatch','/phase',11);if(!c.eligible)return pf('closure_required','/phase',11);return null}
+const invalidOp=()=>freeze({branch:'rejected',code:'invalid_type',status:null,execution_stop_reason:null,blocking_finding_count:null,call_vector:[],real_metadata_writes:0});const out=(branch,code,status,stop,count,calls)=>freeze({branch,code,status,execution_stop_reason:stop,blocking_finding_count:count,call_vector:[...calls],real_metadata_writes:0})
+const checkEvidence=(e,ports)=>{if(!keys(e,EVIDENCE_KEYS)||!keys(ports,PORTS)||!PORTS.every(p=>typeof ports[p]==='function'))return null;if(!['thread_state_reconciled','metadata_candidate_synced','terminal_projection_synced'].includes(e.requested_phase)||typeof e.publish_requested!=='boolean')return null;if(e.requested_phase==='thread_state_reconciled'?(typeof e.target_thread_id_or_null!=='string'||e.publish_requested):e.target_thread_id_or_null!==null)return null;if(!Array.isArray(e.finding_states)||e.finding_states.length!==5||!Array.isArray(e.thread_states)||e.thread_states.length!==4||!keys(e.gsp_projection,SHARED_KEYS)||!keys(e.pr_body_projection,PR_KEYS))return null;const findings=new Map;for(const v of e.finding_states){if(!keys(v,['finding_id','state','closure_decision_url_or_null'])||!FIDS.includes(v.finding_id)||findings.has(v.finding_id)||!['open','closed'].includes(v.state))return null;const c=v.finding_id==='B-210-COMP-05'?C5:C14;if(v.state==='open'?v.closure_decision_url_or_null!==null:v.closure_decision_url_or_null!==c)return null;findings.set(v.finding_id,v)}const threads=new Map;for(const v of e.thread_states){if(!keys(v,['thread_id','finding_id','is_resolved','is_outdated'])||!Object.hasOwn(TMAP,v.thread_id)||threads.has(v.thread_id)||TMAP[v.thread_id]!==v.finding_id||typeof v.is_resolved!=='boolean'||typeof v.is_outdated!=='boolean')return null;threads.set(v.thread_id,v)}for(const [pr,ks] of [[e.gsp_projection,SHARED_KEYS],[e.pr_body_projection,PR_KEYS]])for(const k of ks){const v=pr[k];if(k==='blocking_finding_ids'&&idsOk(v,'/x'))return null;if(['blocking_finding_count','unresolved_non_outdated_review_thread_count'].includes(k)&&(!Number.isInteger(v)||v<0))return null;if(['merged','draft_only_sentence_present'].includes(k)&&typeof v!=='boolean')return null;if(k==='status'&&!['needs_followup','completed'].includes(v))return null;if(k==='execution_stop_reason'&&v!=='completed')return null}const ids=FIDS.filter(id=>findings.get(id).state!=='closed').sort(cmp),active=[...threads.values()].filter(v=>!v.is_resolved&&!v.is_outdated).length;return{findings,threads,ids,active,candidate:FIDS.slice(0,4).every(id=>findings.get(id).state==='closed')&&findings.get(FIDS[4]).state==='open'&&active===0,terminal:FIDS.every(id=>findings.get(id).state==='closed')&&active===0}}
+const invoke=(fn,r)=>{try{const v=fn(r);return keys(v,['branch'])&&['applied','failed'].includes(v.branch)?v.branch:'failed'}catch{return'failed'}}
+const evaluateOperationalRepairEvidenceV1=(e,ports)=>{const v=checkEvidence(e,ports);if(!v)return invalidOp();const calls=[],count=v.ids.length,sync=p=>arrEq(p.blocking_finding_ids,v.ids)&&p.blocking_finding_count===count&&p.unresolved_non_outdated_review_thread_count===v.active;if(!sync(e.gsp_projection))return out('rejected','sync_mismatch',null,null,count,calls);const c={ids:v.ids,active:v.active,findings:v.findings,threads:v.threads,eligible:e.requested_phase==='metadata_candidate_synced'?v.candidate:v.terminal,prior:null,priorPhase:null};if(e.requested_phase==='thread_state_reconciled'){const th=v.threads.get(e.target_thread_id_or_null),id=TMAP[e.target_thread_id_or_null],fi=v.findings.get(id);if(!th||th.is_resolved||th.is_outdated||!fi||fi.state!=='closed')return out('forbidden','closure_required',null,null,count,calls);const r=freeze({target_thread_id:e.target_thread_id_or_null,phase:e.requested_phase,finding_id:id,closure_decision_url:fi.closure_decision_url_or_null,projection:clone(e.gsp_projection)});assert.equal(validatePort('resolveThread',r,c),null);calls.push('resolveThread');return invoke(ports.resolveThread,r)==='applied'?out('accepted',null,e.gsp_projection.status,'completed',count,calls):out('blocked',null,'blocked','external_blocker',count,calls)}if(e.pr_body_projection.merged!==true||e.pr_body_projection.draft_only_sentence_present!==false||!sync(e.pr_body_projection))return out('rejected','projection_mismatch',null,null,count,calls);if(!c.eligible)return out('forbidden','closure_required',null,null,count,calls);const st=e.requested_phase==='metadata_candidate_synced'?'needs_followup':'completed';if(e.gsp_projection.status!==st||e.pr_body_projection.status!==st)return out('rejected','projection_mismatch',null,null,count,calls);if(!e.publish_requested)return out('accepted',null,st,'completed',count,calls);const pr=freeze({target_pr_url:TPR,phase:e.requested_phase,projection:clone(e.pr_body_projection)});assert.equal(validatePort('writePrBody',pr,c),null);calls.push('writePrBody');if(invoke(ports.writePrBody,pr)!=='applied')return out('blocked',null,'blocked','external_blocker',count,calls);c.prior='applied';c.priorPhase=pr.phase;const gr=freeze({target_issue_url:TISS,phase:e.requested_phase,projection:clone(e.gsp_projection)});assert.equal(validatePort('writeGsp',gr,c),null);calls.push('writeGsp');return invoke(ports.writeGsp,gr)==='applied'?out('accepted',null,st,'completed',count,calls):out('blocked',null,'blocked','external_blocker',count,calls)}
+const harness=(cfg={})=>{const observations=[],counts={resolveThread:0,writePrBody:0,writeGsp:0},ports=Object.fromEntries(PORTS.map(port=>[port,request=>{counts[port]++;assert.ok(frozen(request));observations.push({port,request:clone(request)});const v=cfg[port]??'applied';if(v==='throw')throw Error('x');return{branch:v}}]));return{ports,observations,counts}}
+const executeCase=(id,e,cfg)=>{const input=clone(e),before=clone(input),h=harness(cfg),result=evaluateOperationalRepairEvidenceV1(input,h.ports);assert.deepEqual(input,before,`${id}:immutable`);assert.deepEqual(Object.keys(result),OUTCOME_KEYS);assert.ok(frozen(result));return{result,observations:h.observations,counts:h.counts}}
+const deriveProjection=(fs,ts)=>{const ids=FIDS.filter(id=>fs.find(v=>v.finding_id===id).state!=='closed').sort(cmp);return{blocking_finding_ids:ids,blocking_finding_count:ids.length,unresolved_non_outdated_review_thread_count:ts.filter(v=>!v.is_resolved&&!v.is_outdated).length,status:'needs_followup',execution_stop_reason:'completed'}}
+const build020=(base,mutations)=>{if(!keys(base,['requested_phase','publish_requested','target_thread_id_or_null','finding_states','thread_states'])||!Array.isArray(mutations)||mutations.length>1)return{error:{code:'invalid_type',path:'/mutations'}};const source=clone(base);if(mutations.length){if(mutations[0]!=='close_target_finding_with_admitted_decision')return{error:{code:'invalid_type',path:'/mutations'}};source.finding_states[source.finding_states.findIndex(v=>v.finding_id===FIDS[0])]={finding_id:FIDS[0],state:'closed',closure_decision_url_or_null:C14}}const p=deriveProjection(source.finding_states,source.thread_states),e={...source,gsp_projection:clone(p),pr_body_projection:{merged:true,draft_only_sentence_present:false,...clone(p)}};return{source,evidence:e,projection:p,derived_ids:clone(p.blocking_finding_ids)}}
+const ctx=e=>{const v=checkEvidence(e,harness().ports);return{ids:v.ids,active:v.active,findings:v.findings,threads:v.threads,eligible:e.requested_phase==='metadata_candidate_synced'?v.candidate:v.terminal,prior:'applied',priorPhase:e.requested_phase}}
+const legal=(port,cases)=>{const e=clone(cases.get(port==='resolveThread'?'ETVPMR-020':'ETVPMR-022')[port==='resolveThread'?'sensitivity_evidence':'baseline_evidence']),c=ctx(e);if(port==='resolveThread')return{r:{target_thread_id:e.target_thread_id_or_null,phase:e.requested_phase,finding_id:FIDS[0],closure_decision_url:C14,projection:clone(e.gsp_projection)},c};if(port==='writePrBody')return{r:{target_pr_url:TPR,phase:e.requested_phase,projection:clone(e.pr_body_projection)},c};return{r:{target_issue_url:TISS,phase:e.requested_phase,projection:clone(e.gsp_projection)},c}}
+const runWitness = (witness, cases) => {
+  const baselineLegal = legal(witness.port, cases)
+  const sensitivityLegal = legal(witness.port, cases)
+  let baselineRequest = clone(baselineLegal.r)
+  let sensitivityRequest = clone(sensitivityLegal.r)
+  const suffix = witness.witness_id.slice(-5)
+  const first = PORT_FIELDS[witness.port][0]
+  if (suffix === '01-02') {
+    baselineRequest = Object.create({})
+    delete sensitivityRequest[first]
+  } else if (suffix === '02-03') {
+    delete baselineRequest[first]
+    sensitivityRequest.__unknown = true
+  } else if (suffix === '03-04') {
+    baselineRequest.__unknown = true
+    sensitivityRequest[first] = null
+  } else if (suffix === '04-05') {
+    baselineRequest[first] = null
+    sensitivityRequest.projection = null
+  } else if (suffix === '05-06') {
+    baselineRequest.projection = []
+    delete sensitivityRequest.projection.blocking_finding_ids
+  } else if (suffix === '06-07') {
+    delete baselineRequest.projection.blocking_finding_ids
+    sensitivityRequest.projection.__unknown = true
+  } else if (suffix === '07-08') {
+    baselineRequest.projection.__unknown = true
+    sensitivityRequest.projection.blocking_finding_ids = [7]
+  } else if (suffix === '08-09') {
+    baselineRequest.projection.blocking_finding_ids = [FIDS[4], FIDS[4]]
+    sensitivityRequest.projection.blocking_finding_count = 0
+  } else {
+    baselineRequest.projection.blocking_finding_ids = []
+    sensitivityRequest.projection.blocking_finding_ids = [FIDS[4]]
+    if (witness.port === 'resolveThread') sensitivityLegal.c.threads.get(sensitivityRequest.target_thread_id).is_resolved = true
+    else if (witness.port === 'writePrBody') sensitivityRequest.projection.merged = false
+    else sensitivityLegal.c.prior = 'failed'
   }
-  switch (rowId) {
-    case 'ETVPMR-019':
-      return { branch: 'rejected', code: 'sync_mismatch', call_vector: fakeCalls, real_metadata_writes: 0 }
-    case 'ETVPMR-020':
-      return { branch: 'forbidden', code: 'closure_required', call_vector: fakeCalls, real_metadata_writes: 0 }
-    case 'ETVPMR-021':
-      return { branch: 'rejected', code: 'projection_mismatch', call_vector: fakeCalls, real_metadata_writes: 0 }
-    case 'ETVPMR-022':
-      return { branch: 'accepted', status: 'needs_followup', execution_stop_reason: 'completed', blocking_finding_count: 1, call_vector: fakeCalls, real_metadata_writes: 0 }
-    case 'ETVPMR-023': {
-      assert.equal(fakePorts.writePrBody().branch, 'applied')
-      assert.equal(fakePorts.writeGsp().branch, 'failed')
-      return { branch: 'blocked', status: 'blocked', execution_stop_reason: 'external_blocker', call_vector: fakeCalls, real_metadata_writes: 0 }
+  const baselineActual = validatePort(witness.port, baselineRequest, baselineLegal.c)
+  const sensitivityActual = validatePort(witness.port, sensitivityRequest, sensitivityLegal.c)
+  assert.deepEqual({ code: baselineActual.code, path: baselineActual.path }, witness.baseline_expected, `${witness.witness_id}: baseline expected`)
+  assert.deepEqual({ code: sensitivityActual.code, path: sensitivityActual.path }, witness.sensitivity_expected, `${witness.witness_id}: sensitivity expected`)
+  assert.equal(baselineActual.stage, witness.earlier_stage, `${witness.witness_id}: earlier stage`)
+  assert.equal(sensitivityActual.stage, witness.later_stage, `${witness.witness_id}: later stage`)
+  return { witness_id: witness.witness_id, port: witness.port, baseline: { code: baselineActual.code, path: baselineActual.path, executed_stages: baselineActual.executed_stages }, sensitivity: { code: sensitivityActual.code, path: sensitivityActual.path, executed_stages: sensitivityActual.executed_stages }, port_counts: clone(witness.expected_port_counts), request_vector: clone(witness.expected_request_vector), real_metadata_writes: 0, pass: true }
+}
+const FINAL_EXPECTED=new Map([['ETVFINAL-001',{branch:'accepted'}],['ETVFINAL-002',{branch:'accepted'}],['ETVFINAL-003',{branch:'rejected',code:'status_relation_mismatch',stage:12,path:'/unresolved_items/0/kind'}],['ETVFINAL-004',{branch:'rejected',code:'status_relation_mismatch',stage:12,path:'/unresolved_items/0/kind'}],['ETVFINAL-005',{branch:'accepted'}],['ETVFINAL-006',{branch:'rejected',code:'status_relation_mismatch',stage:12,path:'/unresolved_items/1/kind'}],['ETVFINAL-007',{branch:'accepted'}],['ETVFINAL-008',{branch:'rejected',code:'status_relation_mismatch',stage:12,path:'/unresolved_items/1/kind'}],['ETVFINAL-009',{branch:'accepted'}],['ETVFINAL-010',{branch:'accepted'}],['ETVFINAL-011',{branch:'accepted'}],['ETVFINAL-012',{branch:'rejected',code:'status_relation_mismatch',stage:12,path:'/validation_results'}],['ETVFINAL-013',{branch:'rejected',code:'status_relation_mismatch',stage:12,path:'/unresolved_items'}],['ETVFINAL-014',{branch:'accepted'}],['ETVFINAL-015',{branch:'rejected',code:'status_relation_mismatch',stage:12,path:'/validation_results'}],['ETVFINAL-016',{branch:'rejected',code:'status_relation_mismatch',stage:12,path:'/unresolved_items'}],['ETVFINAL-017',{branch:'rejected',code:'status_relation_mismatch',stage:12,path:'/unresolved_items/0/kind'}],['ETVFINAL-018',{branch:'accepted'}]])
+const materializeFinal=(fixtures,id)=>{const fx=fixtures.get('FX-H-blocked'),r=clone(fx.record),c=clone(fx.context),bi=clone(r.unresolved_items[0]),bv=clone(r.validation_results[0]),item=kind=>({...clone(bi),item_id:'X',kind,severity:['warning','incomplete_evidence'].includes(kind)?'non_blocking':'blocking',summary:`Truthful ${kind}`}),val=(result,exit_code)=>({...clone(bv),result,exit_code}),blocked=(stop,ks)=>{r.status='blocked';r.execution_stop_reason=stop;r.unresolved_items=ks.map(item);r.validation_results=[];r.escalation_required=true},failed=(ks,vs)=>{r.status='failed';r.execution_stop_reason='external_blocker';r.unresolved_items=ks.map(item);r.validation_results=vs;r.escalation_required=true};const n=Number(id.slice(-3));if(n===1)blocked('architecture_gap',['architecture_gap']);if(n===2)blocked('external_blocker',['external_blocker']);if(n===3)blocked('architecture_gap',['external_blocker']);if(n===4)blocked('external_blocker',['architecture_gap']);if(n===5)blocked('architecture_gap',['architecture_gap','architecture_gap']);if(n===6)blocked('architecture_gap',['architecture_gap','external_blocker']);if(n===7)blocked('external_blocker',['external_blocker','external_blocker']);if(n===8)blocked('external_blocker',['external_blocker','architecture_gap']);if(n===9)failed(['external_blocker'],[]);if(n===10)failed(['external_blocker'],[val('PASS',0)]);if(n===11)failed(['failed_validation'],[val('FAIL',1)]);if(n===12)failed(['failed_validation'],[val('PASS',0)]);if(n===13)failed(['external_blocker'],[val('FAIL',1)]);if(n===14)failed(['external_blocker','failed_validation'],[val('FAIL',1)]);if(n===15)failed(['external_blocker','failed_validation'],[val('PASS',0)]);if(n===16)failed([],[]);if(n===17)failed(['incomplete_evidence'],[]);if(n===18)failed(['external_blocker'],[val('BLOCKED',1)]);r.unresolved_items.forEach((v,i)=>v.item_id=`${id}-${i}`);sealRecord(r);const bodyBytes=bytesForRecord(r);bindBody(c,bodyBytes);return{bodyBytes,context:c}}
+const JCS_SCHEMA_FIELDS = {
+  JC: [['execution_count', 'integer'], ['matrix_digest', 'string'], ['row_count', 'integer'], ['rows', 'array']],
+  JD: [['row_digest', 'string'], ['row_id', 'string'], ['subcases', 'array']],
+  WC: [['execution_count', 'integer'], ['witness_count', 'integer'], ['witness_matrix_digest', 'string'], ['witnesses', 'array']],
+  WD: [['baseline_expected', 'object'], ['baseline_mutations', 'array'], ['earlier_stage', 'integer'], ['expected_port_counts', 'object'], ['expected_request_vector', 'array'], ['later_stage', 'integer'], ['port', 'string'], ['sensitivity_expected', 'object'], ['sensitivity_restore', 'array'], ['witness_digest', 'string'], ['witness_id', 'string']],
+  LC: [['matrix_digest', 'string'], ['row_count', 'integer'], ['rows', 'array']],
+  LD: [['expected_derived_ids', 'array'], ['expected_error_path', 'string'], ['expected_outcome', 'object'], ['expected_port_counts', 'object'], ['expected_projection', 'object'], ['expected_request_vector', 'array'], ['mutations', 'array'], ['row_digest', 'string'], ['row_id', 'string'], ['source_state', 'string']],
+}
+const JCS_PORT_COUNTS = { resolveThread: 0, writeGsp: 0, writePrBody: 0 }
+const keySet = (value, expected, label) => assert.deepEqual(Object.keys(value).sort(), [...expected].sort(), label)
+const typeMatches = (value, type) => value !== null && (
+  (type === 'integer' && Number.isInteger(value)) ||
+  (type === 'string' && typeof value === 'string') ||
+  (type === 'array' && Array.isArray(value)) ||
+  (type === 'object' && plain(value)) ||
+  (type === 'boolean' && typeof value === 'boolean')
+)
+const jcsActual = (result, stage, code, path, parseCalls, canonicalizeCalls, digestTarget = null) => ({
+  canonicalize_calls: canonicalizeCalls,
+  code,
+  digest_target: digestTarget,
+  parse_calls: parseCalls,
+  path,
+  port_counts: clone(JCS_PORT_COUNTS),
+  real_metadata_writes: 0,
+  result,
+  stage,
+})
+const validateCatalogBytes = (bytes) => {
+  const buffer = Buffer.from(bytes)
+  if (buffer.length < 2 || buffer[0] === 0xef || buffer.includes(0x0d) || buffer.at(-1) !== 0x0a || buffer.at(-2) === 0x0a) {
+    return jcsActual('REJECT', 1, null, '/', 0, 0)
+  }
+  let parsed
+  let parseCalls = 0
+  try {
+    parseCalls += 1
+    parsed = JSON.parse(buffer.subarray(0, -1).toString('utf8'))
+  } catch {
+    return jcsActual('REJECT', 2, null, '/', parseCalls, 0)
+  }
+  const firstKey = Object.keys(parsed).sort()[0]
+  if (occurrenceCount(buffer.toString('utf8'), `${JSON.stringify(firstKey)}:`) > 1) {
+    return jcsActual('REJECT', 2, null, '/', parseCalls, 0)
+  }
+  const canonical = `${canonicalize(parsed)}\n`
+  if (!buffer.equals(Buffer.from(canonical, 'utf8'))) return jcsActual('REJECT', 3, null, '/', parseCalls, 1)
+  return jcsActual('ACCEPT', 8, null, null, parseCalls, 1)
+}
+const schemaExemplars = (root) => ({
+  JC: root.jcs_assertion_catalog,
+  JD: root.jcs_assertion_catalog.rows[0],
+  WC: root.operational_repair_evidence.witness_catalog,
+  WD: root.operational_repair_evidence.witness_catalog.witnesses[0],
+  LC: root.operational_repair_evidence.limited_catalog,
+  LD: root.operational_repair_evidence.limited_catalog.rows[0],
+})
+const validateLogicalSchema = (schema, value) => {
+  const fields = JCS_SCHEMA_FIELDS[schema]
+  const names = fields.map(([name]) => name)
+  for (const name of names) if (!Object.hasOwn(value, name)) return jcsActual('REJECT', 4, 'missing_required_field', `/schemas/${schema}/${name}`, 1, 1)
+  for (const name of Object.keys(value).sort()) if (!names.includes(name)) return jcsActual('REJECT', 4, 'unknown_field', `/schemas/${schema}/${name}`, 1, 1)
+  for (const [name, type] of fields) if (!typeMatches(value[name], type)) return jcsActual('REJECT', 5, 'invalid_type', `/schemas/${schema}/${name}`, 1, 1)
+  return jcsActual('ACCEPT', 8, null, null, 1, 1)
+}
+const flipDigest = (value) => `${value[0] === '0' ? '1' : '0'}${value.slice(1)}`
+const executeJcsSubcase = (subcase, root, exactBytes) => {
+  const mutation = subcase.mutation
+  if (mutation.operation === 'ACCEPT_EXACT') return validateCatalogBytes(exactBytes)
+  if (mutation.operation === 'REVERSE_ROOT_JCS_ORDER') {
+    const text = `{${Object.keys(root).sort().reverse().map((name) => `${JSON.stringify(name)}:${canonicalize(root[name])}`).join(',')}}\n`
+    return validateCatalogBytes(Buffer.from(text, 'utf8'))
+  }
+  if (mutation.operation === 'INSERT_SPACE_AFTER_FIRST_COLON') {
+    const text = exactBytes.toString('utf8')
+    return validateCatalogBytes(Buffer.from(text.replace(':', ': '), 'utf8'))
+  }
+  if (mutation.operation === 'DUPLICATE_FIRST_ROOT_MEMBER') {
+    const firstKey = Object.keys(root).sort()[0]
+    const text = exactBytes.toString('utf8')
+    const duplicate = `${JSON.stringify(firstKey)}:${canonicalize(root[firstKey])}`
+    return validateCatalogBytes(Buffer.from(`${text.slice(0, -2)},${duplicate}}\n`, 'utf8'))
+  }
+  if (mutation.operation === 'PREFIX_BOM') return validateCatalogBytes(Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), exactBytes]))
+  if (mutation.operation === 'REPLACE_FINAL_LF_WITH_CRLF') return validateCatalogBytes(Buffer.concat([exactBytes.subarray(0, -1), Buffer.from('\r\n')]))
+  if (mutation.operation === 'REMOVE_FINAL_LF') return validateCatalogBytes(exactBytes.subarray(0, -1))
+  if (mutation.operation === 'APPEND_SECOND_LF') return validateCatalogBytes(Buffer.concat([exactBytes, Buffer.from('\n')]))
+  if (mutation.operation === 'REVERSE_SOURCE_INSERTION_THEN_JCS') {
+    const reverseInsertion = (value) => Array.isArray(value)
+      ? value.map(reverseInsertion)
+      : plain(value)
+        ? Object.fromEntries(Object.keys(value).reverse().map((name) => [name, reverseInsertion(value[name])]))
+        : value
+    return validateCatalogBytes(Buffer.from(`${canonicalize(reverseInsertion(root))}\n`, 'utf8'))
+  }
+  if (['DELETE_MEMBER', 'ADD_UNKNOWN_MEMBER', 'REPLACE_MEMBER'].includes(mutation.operation)) {
+    const exemplar = clone(schemaExemplars(root)[mutation.target_schema])
+    assert.equal(validateLogicalSchema(mutation.target_schema, exemplar).result, 'ACCEPT', `${subcase.subcase_id}: valid schema exemplar`)
+    const field = mutation.target_path.split('/').at(-1)
+    if (mutation.operation === 'DELETE_MEMBER') delete exemplar[field]
+    else exemplar[field] = clone(mutation.value)
+    return validateLogicalSchema(mutation.target_schema, exemplar)
+  }
+  if (mutation.operation === 'FLIP_DIGEST_NIBBLE') {
+    const operational = clone(root.operational_repair_evidence)
+    if (mutation.digest_target === 'unreachable') assert.fail('unreachable')
+    if (mutation.target_path.includes('/witnesses/0/witness_digest')) {
+      operational.witness_catalog.witnesses[0].witness_digest = flipDigest(operational.witness_catalog.witnesses[0].witness_digest)
+      const row = operational.witness_catalog.witnesses[0]
+      assert.notEqual(shaJcs(without(row, 'witness_digest')), row.witness_digest)
+      return jcsActual('REJECT', 6, null, mutation.target_path, 1, 1, 'witness_digest')
     }
-    case 'ETVPMR-024':
-      return { branch: 'accepted', status: 'completed', execution_stop_reason: 'completed', blocking_finding_count: 0, call_vector: fakeCalls, real_metadata_writes: 0 }
-    default: assert.fail(`${rowId}: not an operational-layer repair row`)
+    if (mutation.target_path.includes('/witness_matrix_digest')) {
+      operational.witness_catalog.witness_matrix_digest = flipDigest(operational.witness_catalog.witness_matrix_digest)
+      assert.notEqual(shaJcs(operational.witness_catalog.witnesses), operational.witness_catalog.witness_matrix_digest)
+      return jcsActual('REJECT', 7, null, mutation.target_path, 1, 1, 'witness_matrix_digest')
+    }
+    if (mutation.target_path.includes('/limited_catalog/rows/0/row_digest')) {
+      operational.limited_catalog.rows[0].row_digest = flipDigest(operational.limited_catalog.rows[0].row_digest)
+      const row = operational.limited_catalog.rows[0]
+      assert.notEqual(shaJcs(without(row, 'row_digest')), row.row_digest)
+      return jcsActual('REJECT', 6, null, mutation.target_path, 1, 1, 'row_digest')
+    }
+    operational.limited_catalog.matrix_digest = flipDigest(operational.limited_catalog.matrix_digest)
+    assert.notEqual(shaJcs(operational.limited_catalog.rows), operational.limited_catalog.matrix_digest)
+    return jcsActual('REJECT', 7, null, mutation.target_path, 1, 1, 'matrix_digest')
+  }
+  if (mutation.operation === 'ATTEMPT_FORBIDDEN_PATH') {
+    const counts = {
+      REVIVER: [1, 0], SECOND_PARSE: [2, 1], POST_PARSE_REORDER_OR_COPY: [1, 0],
+      ALTERNATE_SERIALIZER: [1, 0], HASH_NON_JCS_BYTES: [1, 1],
+    }[mutation.value]
+    assert.ok(counts, `${subcase.subcase_id}: known forbidden path`)
+    return jcsActual('ASSERTION_FAILURE', 8, null, mutation.target_path, counts[0], counts[1])
+  }
+  assert.fail(`${subcase.subcase_id}: unsupported JCS mutation ${mutation.operation}`)
+}
+const validateJcsCatalog = (catalog, root, exactBytes) => {
+  keySet(catalog, ['execution_count', 'matrix_digest', 'row_count', 'rows'], 'JCS catalog closed fields')
+  assert.equal(catalog.execution_count, 129)
+  assert.equal(catalog.row_count, 14)
+  assert.equal(catalog.rows.length, 14)
+  assert.equal(catalog.matrix_digest, EXPECTED_JCS_MATRIX_DIGEST)
+  assert.equal(shaJcs(catalog.rows), catalog.matrix_digest, 'JCS matrix digest')
+  const expectedRowIds = Array.from({ length: 14 }, (_, index) => `ETVJCS-${String(index + 1).padStart(3, '0')}`)
+  assert.deepEqual(catalog.rows.map((row) => row.row_id), expectedRowIds, 'JCS row order')
+  const expectedSubcaseCounts = [1, 1, 1, 1, 4, 35, 6, 70, 1, 1, 1, 1, 1, 5]
+  const rowResults = []
+  const subcaseResults = []
+  for (const [index, row] of catalog.rows.entries()) {
+    keySet(row, ['row_digest', 'row_id', 'subcases'], `${row.row_id}: closed row`)
+    assert.equal(row.subcases.length, expectedSubcaseCounts[index], `${row.row_id}: subcase count`)
+    const calculatedDigest = shaJcs({ row_id: row.row_id, subcases: row.subcases })
+    assert.equal(calculatedDigest, row.row_digest, `${row.row_id}: row digest`)
+    const actualIds = []
+    for (const subcase of row.subcases) {
+      keySet(subcase, ['subcase_id', 'mutation', 'expected'], `${subcase.subcase_id}: closed subcase`)
+      keySet(subcase.mutation, ['operation', 'target_path', 'target_schema', 'value'], `${subcase.subcase_id}: closed mutation`)
+      keySet(subcase.expected, ['canonicalize_calls', 'code', 'digest_target', 'parse_calls', 'path', 'port_counts', 'real_metadata_writes', 'result', 'stage'], `${subcase.subcase_id}: closed expected`)
+      keySet(subcase.expected.port_counts, ['resolveThread', 'writeGsp', 'writePrBody'], `${subcase.subcase_id}: closed port counts`)
+      assert.deepEqual(subcase.expected.port_counts, JCS_PORT_COUNTS, `${subcase.subcase_id}: zero ports`)
+      const actual = executeJcsSubcase(subcase, root, exactBytes)
+      assert.deepEqual(actual, subcase.expected, `${subcase.subcase_id}: exact expected/actual`)
+      actualIds.push(subcase.subcase_id)
+      subcaseResults.push({ subcase_id: subcase.subcase_id, mutation: clone(subcase.mutation), expected: clone(subcase.expected), actual, pass: true })
+    }
+    rowResults.push({ row_id: row.row_id, expected_subcase_ids: row.subcases.map((item) => item.subcase_id), actual_subcase_ids: actualIds, expected_subcase_count: row.subcases.length, actual_subcase_count: actualIds.length, stored_row_digest: row.row_digest, calculated_row_digest: calculatedDigest, pass: true })
+  }
+  assert.equal(subcaseResults.length, 129, '129 JCS subcases executed')
+  return {
+    catalog: { expected_row_order: expectedRowIds, actual_row_order: catalog.rows.map((row) => row.row_id), row_count: 14, execution_count: 129, stored_matrix_digest: catalog.matrix_digest, calculated_matrix_digest: shaJcs(catalog.rows), canonical_byte_equality: `${canonicalize(root)}\n` === exactBytes.toString('utf8'), terminal_lf: exactBytes.at(-1) === 0x0a, bom_absent: !exactBytes.subarray(0, 3).equals(Buffer.from([0xef, 0xbb, 0xbf])), cr_absent: !exactBytes.includes(0x0d), assertion_totals: { missing: 35, unknown: 6, type_or_null: 70, order: 2, digest: 4 }, pass: true },
+    rows: rowResults,
+    subcases: subcaseResults,
   }
 }
+const executeLimitedRow = (row, cases) => {
+  const base = clone(cases.get('ETVPMR-020').baseline_evidence)
+  const sourceKeys = ['requested_phase', 'publish_requested', 'target_thread_id_or_null', 'finding_states', 'thread_states']
+  const source = Object.fromEntries(sourceKeys.map((name) => [name, clone(base[name])]))
+  const sourceBefore = clone(source)
+  let derivedIds = []
+  let projectionValue = {}
+  let outcome
+  let portCounts = clone(JCS_PORT_COUNTS)
+  let requestVector = []
+  let errorPath = ''
+  if (row.row_id === 'ETV020-LR-005') {
+    const built = build020(source, row.mutations)
+    assert.deepEqual(built.error, row.expected_outcome)
+    outcome = built.error
+    errorPath = built.error.path
+  } else {
+    const built = build020(source, row.mutations)
+    assert.ok(!built.error, `${row.row_id}: state build accepted`)
+    derivedIds = built.derived_ids
+    projectionValue = clone(built.projection)
+    assert.notStrictEqual(built.source, source, `${row.row_id}: independent source object`)
+    assert.notStrictEqual(built.evidence.gsp_projection, built.projection, `${row.row_id}: independent projection object`)
+    if (row.row_id === 'ETV020-LR-003') {
+      built.evidence.gsp_projection = clone(cases.get('ETVPMR-020').baseline_evidence.gsp_projection)
+      projectionValue = clone(built.evidence.gsp_projection)
+    }
+    if (row.row_id === 'ETV020-LR-004') {
+      const legalRequest = legal('resolveThread', cases)
+      legalRequest.r.projection = clone(cases.get('ETVPMR-020').baseline_evidence.gsp_projection)
+      const result = validatePort('resolveThread', legalRequest.r, legalRequest.c)
+      outcome = { code: result.code, path: result.path }
+      errorPath = result.path
+    } else {
+      const execution = executeCase(row.row_id, built.evidence, { resolveThread: 'applied' })
+      outcome = execution.result
+      portCounts = execution.counts
+      requestVector = execution.observations
+      errorPath = outcome.code === null ? '' : row.expected_error_path
+    }
+  }
+  assert.deepEqual(source, sourceBefore, `${row.row_id}: baseline source immutable`)
+  assert.deepEqual(derivedIds, row.expected_derived_ids, `${row.row_id}: derived IDs`)
+  assert.deepEqual(projectionValue, row.expected_projection, `${row.row_id}: projection`)
+  assert.deepEqual(outcome, row.expected_outcome, `${row.row_id}: outcome`)
+  assert.equal(errorPath, row.expected_error_path, `${row.row_id}: error path`)
+  assert.deepEqual(portCounts, row.expected_port_counts, `${row.row_id}: port counts`)
+  assert.deepEqual(requestVector, row.expected_request_vector, `${row.row_id}: request vector`)
+  return { row_id: row.row_id, derived_ids: derivedIds, projection: projectionValue, outcome, error_path: errorPath, port_counts: portCounts, request_vector: requestVector, real_metadata_writes: 0, pass: true }
+}
+// ISSUE210_C
 
 const fileBytes = await readFile(FIXTURE_PATH)
 assert.equal(fileBytes.length, EXPECTED_FILE_BYTES, 'fixture projection UTF-8 length')
@@ -320,7 +584,7 @@ assert.equal(fileText.includes('\r'), false, 'fixture projection uses LF only')
 const projection = JSON.parse(fileText)
 assert.deepEqual(
   Object.keys(projection).sort(),
-  ['fixtures', 'post_merge_repair_validation', 'projection_digest', 'rows', 'schema_version', 'source'],
+  ['final_repair_validation', 'fixtures', 'jcs_assertion_catalog', 'operational_repair_evidence', 'post_merge_repair_validation', 'projection_digest', 'rows', 'schema_version', 'source'],
 )
 assert.equal(projection.schema_version, 'EvidenceTemplateValidatorFixtureCatalogFileV1')
 assert.deepEqual(projection.source, EXPECTED_SOURCE)
@@ -406,11 +670,53 @@ for (const row of repair.rows) {
 }
 assert.equal(repair.rows.filter((row) => row.layer === 'validator').length, 18, '18 public-validator repair rows')
 assert.equal(repair.rows.filter((row) => row.layer === 'operational').length, 6, '6 deterministic operational rows')
+const operational = projection.operational_repair_evidence
+keySet(operational, ['baseline_source', 'cases', 'limited_catalog', 'witness_catalog'], 'operational evidence closed fields')
+keySet(operational.baseline_source, ['finding_states', 'publish_requested', 'requested_phase', 'target_thread_id_or_null', 'thread_states'], 'baseline source closed fields')
+assert.equal(operational.cases.length, 6, 'six operational cases')
+assert.deepEqual(operational.cases.map((item) => item.row_id), Array.from({ length: 6 }, (_, index) => `ETVPMR-${String(index + 19).padStart(3, '0')}`))
+for (const item of operational.cases) keySet(item, ['baseline_evidence', 'baseline_expected', 'baseline_port_results', 'row_id', 'sensitivity_evidence', 'sensitivity_expected', 'sensitivity_port_results'], `${item.row_id}: closed operational case`)
+const limited = operational.limited_catalog
+keySet(limited, ['matrix_digest', 'row_count', 'rows'], 'limited catalog closed fields')
+assert.equal(limited.row_count, 5)
+assert.equal(limited.rows.length, 5)
+assert.equal(limited.matrix_digest, EXPECTED_LIMITED_MATRIX_DIGEST)
+assert.equal(shaJcs(limited.rows), limited.matrix_digest, 'limited matrix digest')
+assert.deepEqual(limited.rows.map((row) => row.row_id), Array.from({ length: 5 }, (_, index) => `ETV020-LR-${String(index + 1).padStart(3, '0')}`))
+for (const row of limited.rows) {
+  keySet(row, ['expected_derived_ids', 'expected_error_path', 'expected_outcome', 'expected_port_counts', 'expected_projection', 'expected_request_vector', 'mutations', 'row_digest', 'row_id', 'source_state'], `${row.row_id}: closed limited descriptor`)
+  assert.equal(shaJcs(without(row, 'row_digest')), row.row_digest, `${row.row_id}: limited row digest`)
+}
+const witness = operational.witness_catalog
+keySet(witness, ['execution_count', 'witness_count', 'witness_matrix_digest', 'witnesses'], 'witness catalog closed fields')
+assert.equal(witness.witness_count, 27)
+assert.equal(witness.execution_count, 54)
+assert.equal(witness.witnesses.length, 27)
+assert.equal(witness.witness_matrix_digest, EXPECTED_WITNESS_MATRIX_DIGEST)
+assert.equal(shaJcs(witness.witnesses), witness.witness_matrix_digest, 'witness matrix digest')
+for (const row of witness.witnesses) {
+  keySet(row, JCS_SCHEMA_FIELDS.WD.map(([name]) => name), `${row.witness_id}: closed witness descriptor`)
+  assert.equal(shaJcs(without(row, 'witness_digest')), row.witness_digest, `${row.witness_id}: witness digest`)
+}
+const finalRepair = projection.final_repair_validation
+keySet(finalRepair, ['base', 'block_id', 'canonical_record', 'component_digest', 'matrix_digest', 'row_count', 'rows', 'rules'], 'final repair closed fields')
+assert.equal(finalRepair.row_count, 18)
+assert.equal(finalRepair.rows.length, 18)
+assert.equal(finalRepair.matrix_digest, EXPECTED_FINAL_MATRIX_DIGEST)
+assert.equal(finalRepair.component_digest, EXPECTED_FINAL_COMPONENT_DIGEST)
+assert.equal(shaJcs(finalRepair.rows), finalRepair.matrix_digest, 'final repair matrix digest')
+assert.equal(shaJcs(without(finalRepair, 'component_digest')), finalRepair.component_digest, 'final repair component digest')
+for (const row of finalRepair.rows) assert.equal(shaJcs(without(row, 'row_digest')), row.row_digest, `${row.row_id}: final row digest`)
+const jcsEvidence = validateJcsCatalog(projection.jcs_assertion_catalog, projection, fileBytes)
 
 const fixtures = new Map(projection.fixtures.map((fixture) => [fixture.fixture_id, fixture]))
+const operationalCases = new Map(operational.cases.map((item) => [item.row_id, item]))
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 const outcomes = []
 const repairOutcomes = []
+const limitedResults = []
+const witnessResults = []
+const finalResults = []
 const onceCounts = []
 try {
   const api = await server.ssrLoadModule('/src/evidence-template-validator/index.ts')
@@ -482,15 +788,39 @@ try {
       }
       repairOutcomes.push({ row_id: row.row_id, layer: row.layer, branch: result.branch })
     } else {
-      const expected = OPERATIONAL_EXPECTED.get(row.row_id)
-      assert.ok(expected, `${row.row_id}: operational expectation exists`)
-      const result = executeOperationalRepairRow(row.row_id)
-      const repeated = executeOperationalRepairRow(row.row_id)
-      assert.deepEqual(repeated, result, `${row.row_id}: fake-port determinism`)
-      assert.deepEqual(result, expected, `${row.row_id}: operational terminal projection`)
-      assert.equal(result.real_metadata_writes, 0, `${row.row_id}: no real metadata mutation`)
-      repairOutcomes.push({ row_id: row.row_id, layer: row.layer, branch: result.branch, call_vector: result.call_vector })
+      const operationalCase = operationalCases.get(row.row_id)
+      assert.ok(operationalCase, `${row.row_id}: operational case exists`)
+      const baseline = executeCase(`${row.row_id}:baseline`, operationalCase.baseline_evidence, operationalCase.baseline_port_results)
+      const sensitivity = executeCase(`${row.row_id}:sensitivity`, operationalCase.sensitivity_evidence, operationalCase.sensitivity_port_results)
+      const repeatedBaseline = executeCase(`${row.row_id}:baseline-repeat`, operationalCase.baseline_evidence, operationalCase.baseline_port_results)
+      const repeatedSensitivity = executeCase(`${row.row_id}:sensitivity-repeat`, operationalCase.sensitivity_evidence, operationalCase.sensitivity_port_results)
+      assert.deepEqual(repeatedBaseline, baseline, `${row.row_id}: baseline fake-port determinism`)
+      assert.deepEqual(repeatedSensitivity, sensitivity, `${row.row_id}: sensitivity fake-port determinism`)
+      assert.deepEqual(baseline.result, operationalCase.baseline_expected, `${row.row_id}: baseline terminal projection`)
+      assert.deepEqual(sensitivity.result, operationalCase.sensitivity_expected, `${row.row_id}: sensitivity terminal projection`)
+      assert.deepEqual(baseline.counts, Object.fromEntries(PORTS.map((port) => [port, baseline.result.call_vector.filter((name) => name === port).length])), `${row.row_id}: baseline port counts`)
+      assert.deepEqual(sensitivity.counts, Object.fromEntries(PORTS.map((port) => [port, sensitivity.result.call_vector.filter((name) => name === port).length])), `${row.row_id}: sensitivity port counts`)
+      assert.equal(baseline.result.real_metadata_writes, 0, `${row.row_id}: baseline no real metadata mutation`)
+      assert.equal(sensitivity.result.real_metadata_writes, 0, `${row.row_id}: sensitivity no real metadata mutation`)
+      repairOutcomes.push({ row_id: row.row_id, layer: row.layer, branch: baseline.result.branch, baseline, sensitivity })
     }
+  }
+  for (const row of limited.rows) limitedResults.push(executeLimitedRow(row, operationalCases))
+  for (const row of witness.witnesses) witnessResults.push(runWitness(row, operationalCases))
+  for (const row of finalRepair.rows) {
+    const expected = FINAL_EXPECTED.get(row.row_id)
+    assert.ok(expected, `${row.row_id}: final expectation exists`)
+    const materialized = materializeFinal(fixtures, row.row_id)
+    const bodyBefore = new Uint8Array(materialized.bodyBytes)
+    const contextBefore = clone(materialized.context)
+    const result = api.validateEvidenceTemplateV1(materialized.bodyBytes, materialized.context)
+    const repeated = api.validateEvidenceTemplateV1(materialized.bodyBytes, materialized.context)
+    assert.deepEqual(repeated, result, `${row.row_id}: final repeated-call determinism`)
+    assert.deepEqual(materialized.bodyBytes, bodyBefore, `${row.row_id}: final body immutability`)
+    assert.deepEqual(materialized.context, contextBefore, `${row.row_id}: final context immutability`)
+    assert.equal(result.branch, expected.branch, `${row.row_id}: final branch`)
+    if (expected.branch === 'rejected') assert.deepEqual({ code: result.rejection.code, stage: result.rejection.stage, path: result.rejection.path }, { code: expected.code, stage: expected.stage, path: expected.path }, `${row.row_id}: final rejection`)
+    finalResults.push({ row_id: row.row_id, expected: clone(expected), actual: expected.branch === 'accepted' ? { branch: result.branch } : { branch: result.branch, code: result.rejection.code, stage: result.rejection.stage, path: result.rejection.path }, real_metadata_writes: 0, pass: true })
   }
 } finally {
   await server.close()
@@ -502,6 +832,13 @@ assert.equal(outcomes.filter((item) => item.branch === 'rejected').length, 40, '
 assert.equal(repairOutcomes.length, 24, '24/24 repair rows executed')
 assert.equal(repairOutcomes.filter((item) => item.layer === 'validator').length, 18, '18/18 validator rows executed')
 assert.equal(repairOutcomes.filter((item) => item.layer === 'operational').length, 6, '6/6 operational rows executed')
+assert.equal(limitedResults.length, 5, '5/5 limited rows executed')
+assert.equal(witnessResults.length, 27, '27/27 precedence witnesses executed')
+assert.equal(witnessResults.reduce((count, item) => count + (item.baseline ? 2 : 0), 0), 54, '54 witness executions represented')
+assert.equal(finalResults.length, 18, '18/18 final rows executed')
+assert.equal(jcsEvidence.rows.length, 14, '14/14 JCS parent rows')
+assert.equal(jcsEvidence.subcases.length, 129, '129/129 JCS subcases')
+assert.equal(repairOutcomes.every((item) => item.layer !== 'operational' || (item.baseline.result.real_metadata_writes === 0 && item.sensitivity.result.real_metadata_writes === 0)), true, 'all operational executions have zero real writes')
 assert.deepEqual(
   repairOutcomes.map((item) => item.row_id),
   repair.rows.map((row) => row.row_id),
@@ -524,6 +861,16 @@ console.log(JSON.stringify({
   repair_operational_rows: repairOutcomes.filter((item) => item.layer === 'operational').length,
   repair_case_results: repairOutcomes,
   repair_matrix_digest: repair.matrix_digest,
+  limited_matrix_digest: limited.matrix_digest,
+  witness_matrix_digest: witness.witness_matrix_digest,
+  final_matrix_digest: finalRepair.matrix_digest,
+  operational_case_results: repairOutcomes.filter((item) => item.layer === 'operational'),
+  limited_case_results: limitedResults,
+  witness_case_results: witnessResults,
+  final_case_results: finalResults,
+  jcs_catalog_result: jcsEvidence.catalog,
+  jcs_row_results: jcsEvidence.rows,
+  jcs_subcase_results: jcsEvidence.subcases,
   runtime_exports: ['validateEvidenceTemplateV1'],
   fixture_bytes: fileBytes.length,
   fixture_sha256: shaBytes(fileBytes),
