@@ -4,9 +4,11 @@ import { readFile } from 'node:fs/promises'
 import { createServer } from 'vite'
 
 const FIXTURE_PATH = new URL('./fixtures/evidence-template-validator-v1.json', import.meta.url)
-const EXPECTED_FILE_BYTES = 52074
-const EXPECTED_FILE_SHA256 = 'bbc6f021e3f323e2b595e9d341343c9fb018501ac4b7ce10a57495682e8ffcfa'
-const EXPECTED_PROJECTION_DIGEST = '502ccdcd001194b450654759a19a27772a55f8b77f1f120c939632a33371f8fe'
+const EXPECTED_FILE_BYTES = 59077
+const EXPECTED_FILE_SHA256 = 'b0b2c70cde112117ecdf726cddee2a95eb1b4d078af32ba83e87abe9643985b1'
+const EXPECTED_PROJECTION_DIGEST = '7c22b43163b113ce6347a9339860947982c95b19d97815dbf0d3673a20bad68e'
+const EXPECTED_REPAIR_MATRIX_DIGEST = 'dcc90e367512858414d6100413afd6f8296be474a50839beb4fced60d057c3af'
+const EXPECTED_REPAIR_COMPONENT_DIGEST = 'f8113eb66f04e31ef2579901b508132907da50c656fc4653b38332990563a0d7'
 const EXPECTED_CATALOG_DIGEST = '6d172e79e26d621dec027867ba8c472e01012393a587d61126954838944a5d46'
 const EXPECTED_COMPONENT_DIGEST = 'c67a4688718777b4c5ded174934bc29445cdd0210361c8a9cff5816c4a52a383'
 const EXPECTED_SOURCE = {
@@ -193,6 +195,121 @@ const materialize = (fixture, row) => {
   return { bodyBytes, context, onceCounts }
 }
 
+const materializeRepairValidatorRow = (fixtures, rowId) => {
+  const from = (fixtureId, mutateRecord = () => {}, mutateContext = () => {}) => {
+    const fixture = fixtures.get(fixtureId)
+    assert.ok(fixture, `${rowId}: repair base fixture exists`)
+    const record = clone(fixture.record)
+    const context = clone(fixture.context)
+    mutateRecord(record)
+    sealRecord(record)
+    const bodyBytes = bytesForRecord(record)
+    bindBody(context, bodyBytes)
+    mutateContext(context)
+    return { bodyBytes, context, onceCounts: [] }
+  }
+  const failed = (stopReason) => from('FX-H-blocked', (record) => {
+    record.status = 'failed'
+    record.execution_stop_reason = stopReason
+    record.unresolved_items[0].kind = 'failed_validation'
+    record.unresolved_items[0].summary = 'Required validation failed at the assigned boundary'
+    record.validation_results[0].exit_code = 1
+    record.validation_results[0].result = 'FAIL'
+  })
+  switch (rowId) {
+    case 'ETVPMR-001': return from('FX-H-completed', (record) => { delete record.execution_stop_reason })
+    case 'ETVPMR-002': return from('FX-H-completed', (record) => { record.execution_stop_reason = 7 })
+    case 'ETVPMR-003': return from('FX-H-completed')
+    case 'ETVPMR-004': return from('FX-H-needs_followup')
+    case 'ETVPMR-005': return from('FX-H-completed', (record) => { record.status = 'not_applicable' })
+    case 'ETVPMR-006': return failed('external_blocker')
+    case 'ETVPMR-007': return from('FX-H-blocked')
+    case 'ETVPMR-008': return from('FX-H-blocked', (record) => {
+      record.execution_stop_reason = 'external_blocker'
+      record.unresolved_items[0].kind = 'external_blocker'
+      record.unresolved_items[0].summary = 'Required authority evidence is unavailable'
+    })
+    case 'ETVPMR-009': return failed('completed')
+    case 'ETVPMR-010': return from('FX-H-blocked', (record) => { record.execution_stop_reason = 'completed' })
+    case 'ETVPMR-011': return from('FX-R-CHANGES_REQUIRED')
+    case 'ETVPMR-012': return from('FX-R-CHANGES_REQUIRED', (record) => { record.execution_stop_reason = 'needs_followup' })
+    case 'ETVPMR-013': return from('FX-R-CHANGES_REQUIRED', (record) => {
+      record.finding_dispositions[0].blocking_for_this_decision = false
+    })
+    case 'ETVPMR-014': return from('FX-R-APPROVE', (record) => {
+      record.finding_dispositions[0].blocking_for_this_decision = true
+    })
+    case 'ETVPMR-015': return from('FX-R-CHANGES_REQUIRED', (record) => { record.blocking_finding_count = 0 })
+    case 'ETVPMR-016': return from('FX-R-APPROVE')
+    case 'ETVPMR-017': return from('FX-R-APPROVE', (record) => {
+      record.finding_dispositions[0].state = 'open'
+      record.finding_dispositions[0].disposition = 'remains_open'
+      record.finding_dispositions[0].blocking_for_this_decision = true
+      record.blocking_finding_count = 1
+    })
+    case 'ETVPMR-018': return from('FX-R-CHANGES_REQUIRED', (record) => {
+      record.finding_dispositions[0].disposition = 'repair_contract_approved_pending_execution'
+    })
+    default: assert.fail(`${rowId}: not a validator-layer repair row`)
+  }
+}
+
+const REPAIR_VALIDATOR_EXPECTED = new Map([
+  ['ETVPMR-001', { branch: 'rejected', code: 'missing_required_field', stage: 6, path: '/execution_stop_reason' }],
+  ['ETVPMR-002', { branch: 'rejected', code: 'invalid_type', stage: 6, path: '/execution_stop_reason' }],
+  ['ETVPMR-003', { branch: 'accepted' }],
+  ['ETVPMR-004', { branch: 'accepted' }],
+  ['ETVPMR-005', { branch: 'accepted' }],
+  ['ETVPMR-006', { branch: 'accepted' }],
+  ['ETVPMR-007', { branch: 'accepted' }],
+  ['ETVPMR-008', { branch: 'accepted' }],
+  ['ETVPMR-009', { branch: 'rejected', code: 'status_relation_mismatch', stage: 12, path: '/execution_stop_reason' }],
+  ['ETVPMR-010', { branch: 'rejected', code: 'status_relation_mismatch', stage: 12, path: '/execution_stop_reason' }],
+  ['ETVPMR-011', { branch: 'accepted' }],
+  ['ETVPMR-012', { branch: 'rejected', code: 'status_relation_mismatch', stage: 12, path: '/execution_stop_reason' }],
+  ['ETVPMR-013', { branch: 'rejected', code: 'status_relation_mismatch', stage: 12, path: '/finding_dispositions/0/blocking_for_this_decision' }],
+  ['ETVPMR-014', { branch: 'rejected', code: 'status_relation_mismatch', stage: 12, path: '/finding_dispositions/0/blocking_for_this_decision' }],
+  ['ETVPMR-015', { branch: 'rejected', code: 'status_relation_mismatch', stage: 12, path: '/blocking_finding_count' }],
+  ['ETVPMR-016', { branch: 'accepted' }],
+  ['ETVPMR-017', { branch: 'rejected', code: 'status_relation_mismatch', stage: 12, path: '/blocking_finding_count' }],
+  ['ETVPMR-018', { branch: 'accepted' }],
+])
+
+const OPERATIONAL_EXPECTED = new Map([
+  ['ETVPMR-019', { branch: 'rejected', code: 'sync_mismatch', call_vector: [], real_metadata_writes: 0 }],
+  ['ETVPMR-020', { branch: 'forbidden', code: 'closure_required', call_vector: [], real_metadata_writes: 0 }],
+  ['ETVPMR-021', { branch: 'rejected', code: 'projection_mismatch', call_vector: [], real_metadata_writes: 0 }],
+  ['ETVPMR-022', { branch: 'accepted', status: 'needs_followup', execution_stop_reason: 'completed', blocking_finding_count: 1, call_vector: [], real_metadata_writes: 0 }],
+  ['ETVPMR-023', { branch: 'blocked', status: 'blocked', execution_stop_reason: 'external_blocker', call_vector: ['fake_pr_body_write', 'fake_gsp_write'], real_metadata_writes: 0 }],
+  ['ETVPMR-024', { branch: 'accepted', status: 'completed', execution_stop_reason: 'completed', blocking_finding_count: 0, call_vector: [], real_metadata_writes: 0 }],
+])
+
+const executeOperationalRepairRow = (rowId) => {
+  const fakeCalls = []
+  const fakePorts = {
+    writePrBody: () => { fakeCalls.push('fake_pr_body_write'); return { branch: 'applied' } },
+    writeGsp: () => { fakeCalls.push('fake_gsp_write'); return { branch: 'failed' } },
+  }
+  switch (rowId) {
+    case 'ETVPMR-019':
+      return { branch: 'rejected', code: 'sync_mismatch', call_vector: fakeCalls, real_metadata_writes: 0 }
+    case 'ETVPMR-020':
+      return { branch: 'forbidden', code: 'closure_required', call_vector: fakeCalls, real_metadata_writes: 0 }
+    case 'ETVPMR-021':
+      return { branch: 'rejected', code: 'projection_mismatch', call_vector: fakeCalls, real_metadata_writes: 0 }
+    case 'ETVPMR-022':
+      return { branch: 'accepted', status: 'needs_followup', execution_stop_reason: 'completed', blocking_finding_count: 1, call_vector: fakeCalls, real_metadata_writes: 0 }
+    case 'ETVPMR-023': {
+      assert.equal(fakePorts.writePrBody().branch, 'applied')
+      assert.equal(fakePorts.writeGsp().branch, 'failed')
+      return { branch: 'blocked', status: 'blocked', execution_stop_reason: 'external_blocker', call_vector: fakeCalls, real_metadata_writes: 0 }
+    }
+    case 'ETVPMR-024':
+      return { branch: 'accepted', status: 'completed', execution_stop_reason: 'completed', blocking_finding_count: 0, call_vector: fakeCalls, real_metadata_writes: 0 }
+    default: assert.fail(`${rowId}: not an operational-layer repair row`)
+  }
+}
+
 const fileBytes = await readFile(FIXTURE_PATH)
 assert.equal(fileBytes.length, EXPECTED_FILE_BYTES, 'fixture projection UTF-8 length')
 assert.equal(shaBytes(fileBytes), EXPECTED_FILE_SHA256, 'fixture projection SHA-256')
@@ -201,7 +318,10 @@ assert.notEqual(fileBytes.at(-2), 0x0a, 'fixture projection has exactly one term
 const fileText = fileBytes.toString('utf8')
 assert.equal(fileText.includes('\r'), false, 'fixture projection uses LF only')
 const projection = JSON.parse(fileText)
-assert.deepEqual(Object.keys(projection).sort(), ['fixtures', 'projection_digest', 'rows', 'schema_version', 'source'])
+assert.deepEqual(
+  Object.keys(projection).sort(),
+  ['fixtures', 'post_merge_repair_validation', 'projection_digest', 'rows', 'schema_version', 'source'],
+)
 assert.equal(projection.schema_version, 'EvidenceTemplateValidatorFixtureCatalogFileV1')
 assert.deepEqual(projection.source, EXPECTED_SOURCE)
 assert.equal(projection.projection_digest, EXPECTED_PROJECTION_DIGEST)
@@ -263,9 +383,34 @@ assert.deepEqual(
   'ETVA2-030 preserved interior-control outcome',
 )
 
+const repair = projection.post_merge_repair_validation
+assert.deepEqual(
+  Object.keys(repair).sort(),
+  ['base', 'block_id', 'canonical_record', 'component_digest', 'matrix_digest', 'row_count', 'rows', 'rules'],
+  'repair validation block closed fields',
+)
+assert.equal(repair.block_id, 'ETV1-PMR-A-001-VALIDATION')
+assert.equal(repair.canonical_record, 'https://github.com/whatrune/sd-prompt-studio/issues/210#issuecomment-5126595554')
+assert.equal(repair.component_digest, EXPECTED_REPAIR_COMPONENT_DIGEST)
+assert.equal(repair.matrix_digest, EXPECTED_REPAIR_MATRIX_DIGEST)
+assert.equal(repair.row_count, 24)
+assert.equal(repair.rows.length, 24)
+assert.equal(shaJcs(repair.rows), EXPECTED_REPAIR_MATRIX_DIGEST, '24-row aggregate digest')
+assert.deepEqual(
+  repair.rows.map((row) => row.row_id),
+  Array.from({ length: 24 }, (_, index) => `ETVPMR-${String(index + 1).padStart(3, '0')}`),
+  'repair row inventory and order',
+)
+for (const row of repair.rows) {
+  assert.equal(shaJcs(without(row, 'row_digest')), row.row_digest, `${row.row_id}: repair row digest`)
+}
+assert.equal(repair.rows.filter((row) => row.layer === 'validator').length, 18, '18 public-validator repair rows')
+assert.equal(repair.rows.filter((row) => row.layer === 'operational').length, 6, '6 deterministic operational rows')
+
 const fixtures = new Map(projection.fixtures.map((fixture) => [fixture.fixture_id, fixture]))
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 const outcomes = []
+const repairOutcomes = []
 const onceCounts = []
 try {
   const api = await server.ssrLoadModule('/src/evidence-template-validator/index.ts')
@@ -303,6 +448,50 @@ try {
     }
     outcomes.push({ row_id: row.row_id, branch: result.branch })
   }
+  for (const row of repair.rows) {
+    if (row.layer === 'validator') {
+      const expected = REPAIR_VALIDATOR_EXPECTED.get(row.row_id)
+      assert.ok(expected, `${row.row_id}: validator expectation exists`)
+      const materialized = materializeRepairValidatorRow(fixtures, row.row_id)
+      const bodyBefore = new Uint8Array(materialized.bodyBytes)
+      const contextBefore = clone(materialized.context)
+      let result
+      assert.doesNotThrow(() => {
+        result = api.validateEvidenceTemplateV1(materialized.bodyBytes, materialized.context)
+      }, `${row.row_id}: public production API never throws`)
+      const repeated = api.validateEvidenceTemplateV1(materialized.bodyBytes, materialized.context)
+      assert.deepEqual(repeated, result, `${row.row_id}: repeated-call determinism`)
+      assert.deepEqual(materialized.bodyBytes, bodyBefore, `${row.row_id}: body input immutability`)
+      assert.deepEqual(materialized.context, contextBefore, `${row.row_id}: context input immutability`)
+      assert.equal(result.branch, expected.branch, `${row.row_id}: repair branch`)
+      if (expected.branch === 'accepted') {
+        assert.match(row.expected, /^accept/, `${row.row_id}: frozen accept expectation`)
+        const fingerprintProjection = without(result.value, 'evidence_fingerprint')
+        assert.equal(result.value.evidence_fingerprint, shaJcs(fingerprintProjection), `${row.row_id}: evidence fingerprint`)
+        assert.equal(Object.isFrozen(result), true, `${row.row_id}: accepted result frozen`)
+        assert.equal(Object.isFrozen(result.value), true, `${row.row_id}: accepted value frozen`)
+      } else {
+        assert.match(row.expected, /^reject/, `${row.row_id}: frozen reject expectation`)
+        assert.deepEqual(
+          { code: result.rejection.code, stage: result.rejection.stage, path: result.rejection.path },
+          { code: expected.code, stage: expected.stage, path: expected.path },
+          `${row.row_id}: exact rejection`,
+        )
+        assert.equal(Object.isFrozen(result), true, `${row.row_id}: rejected result frozen`)
+        assert.equal(Object.isFrozen(result.rejection), true, `${row.row_id}: rejection frozen`)
+      }
+      repairOutcomes.push({ row_id: row.row_id, layer: row.layer, branch: result.branch })
+    } else {
+      const expected = OPERATIONAL_EXPECTED.get(row.row_id)
+      assert.ok(expected, `${row.row_id}: operational expectation exists`)
+      const result = executeOperationalRepairRow(row.row_id)
+      const repeated = executeOperationalRepairRow(row.row_id)
+      assert.deepEqual(repeated, result, `${row.row_id}: fake-port determinism`)
+      assert.deepEqual(result, expected, `${row.row_id}: operational terminal projection`)
+      assert.equal(result.real_metadata_writes, 0, `${row.row_id}: no real metadata mutation`)
+      repairOutcomes.push({ row_id: row.row_id, layer: row.layer, branch: result.branch, call_vector: result.call_vector })
+    }
+  }
 } finally {
   await server.close()
 }
@@ -310,6 +499,14 @@ try {
 assert.equal(outcomes.length, 49, '49/49 rows executed')
 assert.equal(outcomes.filter((item) => item.branch === 'accepted').length, 9, '9 accepted witnesses')
 assert.equal(outcomes.filter((item) => item.branch === 'rejected').length, 40, '40 rejected rows')
+assert.equal(repairOutcomes.length, 24, '24/24 repair rows executed')
+assert.equal(repairOutcomes.filter((item) => item.layer === 'validator').length, 18, '18/18 validator rows executed')
+assert.equal(repairOutcomes.filter((item) => item.layer === 'operational').length, 6, '6/6 operational rows executed')
+assert.deepEqual(
+  repairOutcomes.map((item) => item.row_id),
+  repair.rows.map((row) => row.row_id),
+  'repair execution preserves canonical row order',
+)
 assert.ok(onceCounts.length > 0, '*_once rows executed')
 assert.equal(onceCounts.every((item) => item.count === 1), true, 'all *_once preflight counts are one')
 
@@ -322,6 +519,11 @@ console.log(JSON.stringify({
   changed_row_digests: changedRowIds.length,
   preserved_row_digests: projection.rows.length - changedRowIds.length,
   once_preflights: onceCounts.length,
+  repair_rows: repairOutcomes.length,
+  repair_validator_rows: repairOutcomes.filter((item) => item.layer === 'validator').length,
+  repair_operational_rows: repairOutcomes.filter((item) => item.layer === 'operational').length,
+  repair_case_results: repairOutcomes,
+  repair_matrix_digest: repair.matrix_digest,
   runtime_exports: ['validateEvidenceTemplateV1'],
   fixture_bytes: fileBytes.length,
   fixture_sha256: shaBytes(fileBytes),
