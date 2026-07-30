@@ -115,6 +115,7 @@ const COMMON_FIELDS = [
 const PROFILE_FIELDS: Readonly<Record<RecordType, readonly string[]>> = {
   result_handoff: [
     ...COMMON_FIELDS,
+    'execution_stop_reason',
     'completed_work',
     'created_files',
     'updated_files',
@@ -694,6 +695,7 @@ const validateRecordStructure = (
       const evidenceRefs = validateRefArray(object.evidence_refs, `${path}/evidence_refs`, refs)
       if (evidenceRefs !== null) return { rejection: evidenceRefs, refs }
     }
+    if (!nonEmptyString(record.execution_stop_reason)) return { rejection: reject('invalid_type', 6, '/execution_stop_reason'), refs }
     if (typeof record.escalation_required !== 'boolean') return { rejection: reject('invalid_type', 6, '/escalation_required'), refs }
     const action = validateClosed(record.recommended_next_action, ['action', 'authority_ref', 'role'], '/recommended_next_action')
     if (action !== null) return { rejection: action, refs }
@@ -844,8 +846,19 @@ const validateRelations = (
   context: EvidenceTemplateValidationContextV1,
 ): EvidenceTemplateValidationResultV1 | null => {
   if (context.target_record_type === 'result_handoff') {
-    const statuses = ['completed', 'completed_with_warnings', 'needs_followup', 'blocked']
+    const statuses = ['completed', 'completed_with_warnings', 'needs_followup', 'blocked', 'failed', 'not_applicable']
     if (!statuses.includes(String(record.status))) return reject('invalid_status', 12, '/status')
+    const stopReasons: Readonly<Record<string, readonly string[]>> = {
+      completed: ['completed'],
+      completed_with_warnings: ['completed'],
+      needs_followup: ['completed'],
+      blocked: ['architecture_gap', 'external_blocker'],
+      failed: ['external_blocker'],
+      not_applicable: ['completed'],
+    }
+    if (!stopReasons[String(record.status)].includes(String(record.execution_stop_reason))) {
+      return reject('status_relation_mismatch', 12, '/execution_stop_reason')
+    }
     const unresolved = record.unresolved_items as JsonObject[]
     for (let index = 0; index < unresolved.length; index += 1) {
       const item = unresolved[index]
@@ -889,8 +902,12 @@ const validateRelations = (
       return reject('status_relation_mismatch', 12, '/escalation_required')
     }
     const action = record.recommended_next_action as JsonObject
-    if (record.status === 'completed' && action.authority_ref !== null) return reject('status_relation_mismatch', 12, '/recommended_next_action/authority_ref')
-    if (record.status !== 'completed' && action.authority_ref === null) return reject('status_relation_mismatch', 12, '/recommended_next_action/authority_ref')
+    if (['completed', 'not_applicable'].includes(String(record.status)) && action.authority_ref !== null) {
+      return reject('status_relation_mismatch', 12, '/recommended_next_action/authority_ref')
+    }
+    if (!['completed', 'not_applicable'].includes(String(record.status)) && action.authority_ref === null) {
+      return reject('status_relation_mismatch', 12, '/recommended_next_action/authority_ref')
+    }
     if (record.status === 'completed') {
       if (unresolved.length !== 0) return reject('status_relation_mismatch', 12, '/unresolved_items')
       if (!evidenceComplete) return reject('status_relation_mismatch', 12, '/completed_work')
@@ -907,14 +924,31 @@ const validateRelations = (
       if (unresolved.length === 0) return reject('status_relation_mismatch', 12, '/unresolved_items')
       const blocking = unresolved.findIndex((item) => item.severity === 'blocking')
       if (blocking >= 0) return reject('status_relation_mismatch', 12, `/unresolved_items/${blocking}/severity`)
-      if (evidenceComplete && validationComplete) return reject('status_relation_mismatch', 12, '/completed_work')
-    } else {
+      if (!evidenceComplete) return reject('status_relation_mismatch', 12, '/completed_work')
+      if (!validationComplete) return reject('status_relation_mismatch', 12, '/validation_results')
+      if (record.escalation_required !== false) return reject('status_relation_mismatch', 12, '/escalation_required')
+    } else if (record.status === 'blocked') {
       if (unresolved.length === 0) return reject('status_relation_mismatch', 12, '/unresolved_items')
       const nonBlockingKind = unresolved.findIndex(
         (item) => !['architecture_gap', 'external_blocker'].includes(item.kind as string),
       )
       if (nonBlockingKind >= 0) return reject('status_relation_mismatch', 12, `/unresolved_items/${nonBlockingKind}/kind`)
       if (record.escalation_required !== true) return reject('status_relation_mismatch', 12, '/escalation_required')
+    } else if (record.status === 'failed') {
+      if (unresolved.length === 0) return reject('status_relation_mismatch', 12, '/unresolved_items')
+      const nonFailureKind = unresolved.findIndex(
+        (item) => !['failed_validation', 'external_blocker'].includes(item.kind as string),
+      )
+      if (nonFailureKind >= 0) return reject('status_relation_mismatch', 12, `/unresolved_items/${nonFailureKind}/kind`)
+      if (!validation.some((item) => item.result === 'FAIL' && (item.exit_code as number) > 0)) {
+        return reject('status_relation_mismatch', 12, '/validation_results')
+      }
+      if (record.escalation_required !== true) return reject('status_relation_mismatch', 12, '/escalation_required')
+    } else {
+      if (unresolved.length !== 0) return reject('status_relation_mismatch', 12, '/unresolved_items')
+      if (!evidenceComplete) return reject('status_relation_mismatch', 12, '/completed_work')
+      if (!validationComplete) return reject('status_relation_mismatch', 12, '/validation_results')
+      if (record.escalation_required !== false) return reject('status_relation_mismatch', 12, '/escalation_required')
     }
     return null
   }
@@ -938,7 +972,23 @@ const validateRelations = (
   const findings = record.finding_dispositions as JsonObject[]
   const findingIds = findings.map((item) => item.finding_id as string)
   if (!sameStringSet(findingIds, context.required_evidence_ids)) return reject('status_relation_mismatch', 12, '/finding_dispositions')
-  const blockingCount = findings.filter((item) => item.blocking_for_this_decision === true).length
+  let blockingCount = 0
+  for (let index = 0; index < findings.length; index += 1) {
+    const item = findings[index]
+    const closed = item.state === 'closed' && item.disposition === 'closed'
+    const open =
+      ['open', 'reopened'].includes(String(item.state)) &&
+      ['remains_open', 'repair_contract_approved_pending_execution'].includes(String(item.disposition))
+    const notOwned = item.state === 'not_owned' && item.disposition === 'not_in_scope'
+    if (!closed && !open && !notOwned) {
+      return reject('status_relation_mismatch', 12, `/finding_dispositions/${index}/disposition`)
+    }
+    const expectedBlocking = !closed
+    if (item.blocking_for_this_decision !== expectedBlocking) {
+      return reject('status_relation_mismatch', 12, `/finding_dispositions/${index}/blocking_for_this_decision`)
+    }
+    if (expectedBlocking) blockingCount += 1
+  }
   if (record.blocking_finding_count !== blockingCount) return reject('status_relation_mismatch', 12, '/blocking_finding_count')
   if ((record.authority_dispatch as JsonObject).record_type !== 'review_dispatch') {
     return reject('status_relation_mismatch', 12, '/authority_dispatch/record_type')
@@ -954,7 +1004,7 @@ const validateRelations = (
   } else if (record.decision === 'CHANGES_REQUIRED') {
     if (record.status !== 'needs_followup') return reject('status_relation_mismatch', 12, '/status')
     if ((record.blocking_finding_count as number) < 1) return reject('status_relation_mismatch', 12, '/blocking_finding_count')
-    if (record.execution_stop_reason !== 'needs_followup') return reject('status_relation_mismatch', 12, '/execution_stop_reason')
+    if (record.execution_stop_reason !== 'completed') return reject('status_relation_mismatch', 12, '/execution_stop_reason')
   } else {
     if (record.status !== 'blocked') return reject('status_relation_mismatch', 12, '/status')
     if ((record.blocking_finding_count as number) < 1) return reject('status_relation_mismatch', 12, '/blocking_finding_count')
