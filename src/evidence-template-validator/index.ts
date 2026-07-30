@@ -929,10 +929,10 @@ const validateRelations = (
       if (record.escalation_required !== false) return reject('status_relation_mismatch', 12, '/escalation_required')
     } else if (record.status === 'blocked') {
       if (unresolved.length === 0) return reject('status_relation_mismatch', 12, '/unresolved_items')
-      const nonBlockingKind = unresolved.findIndex(
-        (item) => !['architecture_gap', 'external_blocker'].includes(item.kind as string),
+      const nonMatchingKind = unresolved.findIndex(
+        (item) => item.kind !== record.execution_stop_reason,
       )
-      if (nonBlockingKind >= 0) return reject('status_relation_mismatch', 12, `/unresolved_items/${nonBlockingKind}/kind`)
+      if (nonMatchingKind >= 0) return reject('status_relation_mismatch', 12, `/unresolved_items/${nonMatchingKind}/kind`)
       if (record.escalation_required !== true) return reject('status_relation_mismatch', 12, '/escalation_required')
     } else if (record.status === 'failed') {
       if (unresolved.length === 0) return reject('status_relation_mismatch', 12, '/unresolved_items')
@@ -940,9 +940,12 @@ const validateRelations = (
         (item) => !['failed_validation', 'external_blocker'].includes(item.kind as string),
       )
       if (nonFailureKind >= 0) return reject('status_relation_mismatch', 12, `/unresolved_items/${nonFailureKind}/kind`)
-      if (!validation.some((item) => item.result === 'FAIL' && (item.exit_code as number) > 0)) {
+      const hasFailedValidation = unresolved.some((item) => item.kind === 'failed_validation')
+      const hasQualifyingFail = validation.some((item) => item.result === 'FAIL' && (item.exit_code as number) > 0)
+      if (hasFailedValidation && !hasQualifyingFail) {
         return reject('status_relation_mismatch', 12, '/validation_results')
       }
+      if (hasQualifyingFail && !hasFailedValidation) return reject('status_relation_mismatch', 12, '/unresolved_items')
       if (record.escalation_required !== true) return reject('status_relation_mismatch', 12, '/escalation_required')
     } else {
       if (unresolved.length !== 0) return reject('status_relation_mismatch', 12, '/unresolved_items')
