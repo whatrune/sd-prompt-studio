@@ -179,6 +179,7 @@ const api={
 }
 let assertions = 0
 const caseAssertionLog = []
+const pmcsEvidence = []
 let activeCumulativeValidationClass='final_regression'
 const captureCaseEvidence=(message,actual,expected,validationClass=activeCumulativeValidationClass)=>{
   const text=String(message)
@@ -344,16 +345,17 @@ const state = {
   audit_chain:{audit_version:'audit_chain_ref_v1',head_decision_url_or_null:null,head_decision_id_or_null:null,decision_count_total:0,chain_digest:sha('audit')},
   pending_transport:null,last_decision_url:null,
 }
-const makeEvent = (patch={}) => {
+const makeEventForState = (sourceState,patch={}) => {
   const semantic = {
     event_version:'continuous_orchestration_event_v1',event_type:'task_opted_in',
-    task_id:state.task_id,assignment_revision:1,canonical_record_url:comment('5137394014'),
-    authoring_role:'role-product_owner_request',authority_snapshot_digest:snapshot.snapshot_digest,
+    task_id:sourceState.task_id,assignment_revision:sourceState.assignment_revision,canonical_record_url:comment('5137394014'),
+    authoring_role:'role-product_owner_request',authority_snapshot_digest:sourceState.authority_snapshot.snapshot_digest,
     subject_head_sha_or_null:null,predecessor_event_id_or_null:null,...patch,
   }
   const semantic_event_digest = digest(semantic)
   return {...semantic,event_id:semantic_event_digest,observed_at:'2026-07-31T00:00:01Z',semantic_event_digest}
 }
+const makeEvent = (patch={}) => makeEventForState(state,patch)
 const noTransition = {kind:'no_transition',future_event_type:'result_handoff_published',future_event_role_id:'role-implementation'}
 const reduce = (s=state,e=makeEvent(),result=noTransition,recovery=null) =>
   api.reduceContinuousOrchestrationV1(s,e,profiles,result,comment('6000000001'),'2026-07-31T00:00:02Z',recovery)
@@ -376,6 +378,213 @@ const replay = reduce(first.state,makeEvent())
 equal(replay.admission.branch,'replay','COV1-004 replay')
 equal(replay.decision,null,'replay no decision')
 equal(replay.state.state_revision,1,'replay zero mutation')
+
+// COV1-PMR-001 Revision 3: pre-merge completion simulation (PMCS-001..014).
+const pmcsRows=corpus.pre_merge_completion_simulation.rows
+equal(pmcsRows.length,14,'PMCS exact 14 rows')
+deepEqual(pmcsRows.map((row)=>row.id),Array.from({length:14},(_,i)=>`COV1-PMCS-${String(i+1).padStart(3,'0')}`),'PMCS ordered row ids')
+equal(corpus.rows.length+pmcsRows.length,54,'COV1 and PMCS combined completeness')
+const sealedSOne=deepFreeze(clone(first.state))
+equal(sealedSOne.event_cursor.last_event_id_or_null,pmcsRows[1].event_predecessor_event_id_or_null,'PMCS sealed S_ONE cursor authority')
+const terminalState=(prState,approvalState={state:'current',reason:'matched',approval_record_url_or_null:comment('5140441598')})=>{
+  const s=clone(state)
+  s.authority_snapshot.pr_state=prState
+  const projection=clone(s.authority_snapshot)
+  delete projection.snapshot_digest
+  delete projection.observed_at
+  s.authority_snapshot.snapshot_digest=digest(projection)
+  s.approval_state=clone(approvalState)
+  return s
+}
+const pmcsCall=(row,invoke)=>{
+  const start=runtimeEvidenceLog.length
+  const result=invoke()
+  const operations=runtimeEvidenceLog.slice(start)
+  equal(operations.length,1,`${row.id} exactly one public call`)
+  const operation=operations[0]
+  pmcsEvidence.push(deepFreeze({
+    row_id:row.id,
+    finding_id:row.finding_id,
+    public_api:row.public_api,
+    causal_operation_id:operation.causal_operation_id,
+    operation_kind:operation.operation_kind,
+    classification:operation.classification,
+    access_counts:clone(operation.access_counts),
+    state_delta:clone(operation.state_delta),
+    result_digest_or_null:operation.result_digest_or_null,
+    decision_digest_or_null:operation.decision_digest_or_null,
+    ledger_digest_or_null:operation.ledger_digest_or_null,
+    audit_digest_or_null:operation.audit_digest_or_null,
+    replay_entry_count_or_null:operation.replay_entry_count_or_null,
+    status:'PASS',
+  }))
+  return result
+}
+for(const row of pmcsRows){
+  if(row.id==='COV1-PMCS-001'||row.id==='COV1-PMCS-002'){
+    const s=row.state_fixture==='S_ZERO'?clone(state):clone(sealedSOne)
+    const before=digest(s)
+    const e=makeEventForState(s,{canonical_record_url:comment(row.id==='COV1-PMCS-001'?'6000700001':'6000700002'),predecessor_event_id_or_null:row.event_predecessor_event_id_or_null})
+    const r=pmcsCall(row,()=>api.reduceContinuousOrchestrationV1(s,e,profiles,noTransition,comment(row.id==='COV1-PMCS-001'?'6000710001':'6000710002'),'2026-07-31T06:00:02Z'))
+    equal(r.admission.branch,row.expected.admission_branch,`${row.id} new admission`)
+    equal(r.decision.branch,row.expected.decision_branch,`${row.id} no-transition decision`)
+    equal(r.terminal_no_mutation,row.expected.terminal_no_mutation,`${row.id} mutation class`)
+    equal(r.state.state_revision,s.state_revision+1,`${row.id} revision advances once`)
+    equal(r.state.event_cursor.last_event_id_or_null,e.event_id,`${row.id} cursor advances to admitted event`)
+    equal(r.state.replay_ledger.entries.length,s.replay_ledger.entries.length+1,`${row.id} replay append once`)
+    equal(r.state.audit_chain.decision_count_total,s.audit_chain.decision_count_total+1,`${row.id} audit append once`)
+    check(r.cas_projection!==null,`${row.id} CAS candidate present`)
+    check(digest(r.state)!==before,`${row.id} state changes`)
+  }else if(['COV1-PMCS-003','COV1-PMCS-004','COV1-PMCS-005'].includes(row.id)){
+    const s=row.state_fixture==='S_ZERO'?clone(state):clone(sealedSOne)
+    const before=digest(s),beforeCursor=clone(s.event_cursor),beforeReplay=clone(s.replay_ledger),beforeAudit=clone(s.audit_chain),beforeCounters=clone(s.loop_counters)
+    const e=makeEventForState(s,{canonical_record_url:comment(`6000700${row.id.slice(-3)}`),predecessor_event_id_or_null:row.event_predecessor_event_id_or_null})
+    const r=pmcsCall(row,()=>api.reduceContinuousOrchestrationV1(s,e,profiles,noTransition,comment(`6000710${row.id.slice(-3)}`),'2026-07-31T06:00:02Z'))
+    equal(r.admission,row.expected.admission_branch,`${row.id} no admission`)
+    equal(r.decision.branch,row.expected.decision_branch,`${row.id} stop decision`)
+    equal(r.decision.reason_code,row.expected.reason_code,`${row.id} canonical conflict`)
+    equal(r.terminal_no_mutation,row.expected.terminal_no_mutation,`${row.id} terminal no mutation`)
+    deepEqual(r.state,s,`${row.id} original state value`)
+    equal(digest(r.state),before,`${row.id} state digest unchanged`)
+    deepEqual(r.state.event_cursor,beforeCursor,`${row.id} cursor unchanged`)
+    deepEqual(r.state.replay_ledger,beforeReplay,`${row.id} replay unchanged`)
+    deepEqual(r.state.audit_chain,beforeAudit,`${row.id} audit unchanged`)
+    deepEqual(r.state.loop_counters,beforeCounters,`${row.id} counters unchanged`)
+    equal(r.cas_projection,null,`${row.id} CAS absent`)
+    equal(r.state.pending_transport,s.pending_transport,`${row.id} transport unchanged`)
+    equal(api.validateContinuationDecisionV1(r.decision).kind,'accepted',`${row.id} stop decision admitted`)
+  }else if(row.id==='COV1-PMCS-006'){
+    const s=clone(sealedSOne),before=digest(s),e=makeEventForState(state)
+    const r=pmcsCall(row,()=>api.reduceContinuousOrchestrationV1(s,e,profiles,noTransition,comment('6000710006'),'2026-07-31T06:00:02Z'))
+    equal(r.admission.branch,row.expected.admission_branch,`${row.id} exact replay`)
+    equal(r.decision,row.expected.decision_branch,`${row.id} no new decision`)
+    equal(r.terminal_no_mutation,row.expected.terminal_no_mutation,`${row.id} replay terminal class`)
+    deepEqual(r.state,s,`${row.id} original state value`)
+    equal(digest(r.state),before,`${row.id} state digest unchanged`)
+    equal(r.admission.state_changed,false,`${row.id} state change false`)
+    equal(r.admission.transport_invoked,false,`${row.id} transport false`)
+    equal(r.admission.audit_head_changed,false,`${row.id} audit false`)
+    equal(r.admission.counter_changed,false,`${row.id} counter false`)
+    equal(r.cas_projection,null,`${row.id} CAS absent`)
+  }else if(['COV1-PMCS-007','COV1-PMCS-008','COV1-PMCS-009','COV1-PMCS-010'].includes(row.id)){
+    const s=clone(state)
+    if(row.active_binding_relation==='partial_role_action_match')s.active_role_binding.authority_record_url=row.authority_record_url
+    if(row.active_binding_relation==='null_pair'){s.active_role_binding=null;s.active_action_id=null}
+    if(row.active_binding_relation==='structurally_valid_absent_row'){
+      s.active_role_binding.authority_record_url=row.authority_record_url
+      s.active_role_binding.allowed_scope_digest=row.allowed_scope_digest
+    }
+    const before=digest(s)
+    const a=pmcsCall(row,()=>api.validateContinuousOrchestrationStateV1(s,profiles))
+    equal(a.kind,row.expected.kind,`${row.id} state admission`)
+    if(a.kind==='rejected'){
+      equal(a.rejection.code,row.expected.code,`${row.id} rejection code`)
+      equal(a.rejection.path,row.expected.path,`${row.id} rejection path`)
+    }
+    equal(profiles.route_binding_table.bindings.filter((binding)=>s.active_role_binding!==null&&jcs(binding)===jcs(s.active_role_binding)).length,row.expected.exact_current_row_match_count,`${row.id} exact current row count`)
+    equal(digest(s),before,`${row.id} validator no mutation`)
+  }else{
+    const s=terminalState(row.pr_state),before=digest(s),beforeCounters=clone(s.loop_counters)
+    const e=makeEventForState(s,{event_type:'product_owner_approval_published',canonical_record_url:comment(`6000700${row.id.slice(-3)}`),authoring_role:'role-product_owner_request',subject_head_sha_or_null:head,predecessor_event_id_or_null:s.event_cursor.last_event_id_or_null})
+    const r=pmcsCall(row,()=>api.reduceContinuousOrchestrationV1(s,e,profiles,{kind:'wait_for_protected_action',protected_action_id:'normal_merge_commit'},comment(`6000710${row.id.slice(-3)}`),'2026-07-31T06:00:02Z'))
+    equal(r.admission.branch,row.expected.admission_branch,`${row.id} admitted decision`)
+    equal(r.decision.branch,row.expected.decision_branch,`${row.id} protected branch`)
+    equal(r.terminal_no_mutation,row.expected.terminal_no_mutation??false,`${row.id} reduction mutation class`)
+    equal(r.state.authority_snapshot.pr_state,row.pr_state,`${row.id} observed PR state retained`)
+    equal(r.state.state_revision,s.state_revision+1,`${row.id} revision advances once`)
+    equal(r.state.replay_ledger.entries.length,s.replay_ledger.entries.length+1,`${row.id} replay append once`)
+    equal(r.state.audit_chain.decision_count_total,s.audit_chain.decision_count_total+1,`${row.id} audit append once`)
+    equal(r.state.pending_transport,null,`${row.id} transport absent`)
+    check(r.cas_projection!==null,`${row.id} CAS present`)
+    equal(api.validateContinuationDecisionV1(r.decision).kind,'accepted',`${row.id} decision admitted`)
+    equal(api.validateContinuousOrchestrationStateV1(r.state,profiles).kind,'accepted',`${row.id} state admitted`)
+    if(row.pr_state==='open_draft'||row.pr_state==='open_ready'){
+      equal(r.decision.approved_pr_state,row.expected.approved_pr_state,`${row.id} approved PR state exact`)
+      equal(r.decision.execution_authority,row.expected.execution_authority,`${row.id} execution authority false`)
+    }else{
+      equal(r.decision.reason_code,row.expected.reason_code,`${row.id} authority drift`)
+      equal(r.decision.invalidation_class,row.expected.invalidation_class,`${row.id} PR-state invalidation`)
+      deepEqual(r.decision.invalidated_record_urls,[comment('5140441598')],`${row.id} approval invalidated`)
+      deepEqual(r.decision.historical_evidence_record_urls,[comment('5140441598')],`${row.id} approval retained historically`)
+      equal(r.decision.earliest_gate_id,'architecture',`${row.id} earliest gate`)
+      equal(r.decision.controller_condition,'authority_drift',`${row.id} controller condition`)
+      equal(r.decision.terminal_stop_reason,'external_blocker',`${row.id} terminal stop reason`)
+      equal(r.decision.result_handoff_status,'blocked',`${row.id} handoff status`)
+      equal(r.decision.recovery_role_id,profiles.authority_projection_profile.collector_role_id,`${row.id} recovery role`)
+      equal(r.decision.required_recovery_event_type,'product_owner_approval_published',`${row.id} recovery event`)
+      deepEqual(r.decision.recovery_evidence_field_ids,['approval_state'],`${row.id} recovery evidence`)
+      equal(r.decision.automatic_resume,true,`${row.id} automatic resume`)
+      equal(Object.hasOwn(r.decision,'execution_authority'),false,`${row.id} execution authority absent`)
+      equal(Object.hasOwn(r.decision,'approved_pr_state'),false,`${row.id} approved PR state absent`)
+      deepEqual(r.state.loop_counters.finding_counters,beforeCounters.finding_counters,`${row.id} finding counters unchanged`)
+      deepEqual(r.state.loop_counters.metadata_counters,beforeCounters.metadata_counters,`${row.id} metadata counters unchanged`)
+      deepEqual(r.state.loop_counters.delivery_counters,beforeCounters.delivery_counters,`${row.id} delivery counters unchanged`)
+      equal(r.state.loop_counters.cycle_ledger.progress_epoch,beforeCounters.cycle_ledger.progress_epoch,`${row.id} progress epoch unchanged`)
+      equal(r.state.loop_counters.cycle_ledger.max_gate_ordinal_reached,beforeCounters.cycle_ledger.max_gate_ordinal_reached,`${row.id} max gate unchanged`)
+      equal(r.state.loop_counters.cycle_ledger.decision_count_without_progress,beforeCounters.cycle_ledger.decision_count_without_progress+1,`${row.id} no-progress count increments`)
+    }
+    check(digest(r.state)!==before,`${row.id} admitted decision changes state`)
+  }
+}
+equal(pmcsEvidence.length,14,'PMCS one case-local evidence record per row')
+deepEqual(pmcsEvidence.map((row)=>row.row_id),pmcsRows.map((row)=>row.id),'PMCS evidence ordered completeness')
+equal(pmcsEvidence.filter((row)=>row.status==='PASS').length,14,'PMCS 14/14 PASS')
+equal(pmcsEvidence.filter((row)=>row.access_counts.transport!==0).length,0,'PMCS transport call count zero')
+
+const terminalPrecedenceEvidence=[]
+const terminalApprovalVariants=[
+  {id:'none',value:{state:'none',reason:'missing',approval_record_url_or_null:null}},
+  {id:'current',value:{state:'current',reason:'matched',approval_record_url_or_null:comment('5140441598')}},
+  {id:'historical',value:{state:'historical_at_prior_head',reason:'head_drift',approval_record_url_or_null:comment('5140441598')}},
+  {id:'invalid',value:{state:'invalid',reason:'malformed',approval_record_url_or_null:comment('5140441598')}},
+  {id:'not_evaluable',value:{state:'not_evaluable',reason:'unreadable',approval_record_url_or_null:comment('5140441598')}},
+]
+const terminalInvalidationKeys=[
+  'decision_version','decision_id','task_id','assignment_revision','input_event_url','input_event_digest',
+  'predecessor_decision_url_or_null','authority_snapshot_digest','branch','reason_code','idempotency_key',
+  'gsp_hook','next_owner_role_id','evaluated_at','invalidated_record_urls','invalidation_class',
+  'historical_evidence_record_urls','earliest_gate_id','controller_condition','terminal_stop_reason',
+  'result_handoff_status','recovery_role_id','required_recovery_event_type','recovery_evidence_field_ids',
+  'automatic_resume',
+].sort()
+for(const prState of ['merged','closed_unmerged']){
+  for(const variant of terminalApprovalVariants){
+    const s=terminalState(prState,variant.value)
+    const before=digest(s),start=runtimeEvidenceLog.length
+    const event=makeEventForState(s,{event_type:'product_owner_approval_published',canonical_record_url:comment(`600072${String(terminalPrecedenceEvidence.length+1).padStart(4,'0')}`),authoring_role:'role-product_owner_request',subject_head_sha_or_null:head})
+    const result=api.reduceContinuousOrchestrationV1(s,event,profiles,{kind:'wait_for_protected_action',protected_action_id:'normal_merge_commit'},comment(`600073${String(terminalPrecedenceEvidence.length+1).padStart(4,'0')}`),'2026-07-31T06:00:03Z')
+    const operations=runtimeEvidenceLog.slice(start)
+    equal(operations.length,1,`${prState}/${variant.id} exactly one public call`)
+    equal(result.admission.branch,'new_decision',`${prState}/${variant.id} admitted`)
+    equal(result.decision.branch,'invalidate_authority',`${prState}/${variant.id} terminal invalidation`)
+    equal(result.decision.reason_code,'authority_drift',`${prState}/${variant.id} authority drift`)
+    equal(result.decision.invalidation_class,'pr_state_drift',`${prState}/${variant.id} PR-state precedence`)
+    equal(result.decision.gsp_hook,'required_after_transition',`${prState}/${variant.id} GSP hook`)
+    equal(result.decision.required_recovery_event_type,'product_owner_approval_published',`${prState}/${variant.id} recovery event`)
+    deepEqual(result.decision.recovery_evidence_field_ids,['approval_state'],`${prState}/${variant.id} recovery evidence`)
+    deepEqual(Object.keys(result.decision).sort(),terminalInvalidationKeys,`${prState}/${variant.id} frozen invalidation shape`)
+    equal(result.state.pending_transport,null,`${prState}/${variant.id} no transport authority`)
+    for(const forbidden of ['execution_authority','executor_role_id','protected_action_id','approval_record_url','approved_head_sha','approved_base_sha','approved_pr_state']){
+      equal(Object.hasOwn(result.decision,forbidden),false,`${prState}/${variant.id} excludes ${forbidden}`)
+    }
+    check(digest(result.state)!==before,`${prState}/${variant.id} admitted invalidation changes state`)
+    terminalPrecedenceEvidence.push(deepFreeze({
+      pr_state:prState,
+      approval_state:variant.id,
+      classification:operations[0].classification,
+      decision_branch:result.decision.branch,
+      reason_code:result.decision.reason_code,
+      invalidation_class:result.decision.invalidation_class,
+      transport_call_count:operations[0].access_counts.transport,
+      terminal_shape_field_count:Object.keys(result.decision).length,
+      status:'PASS',
+    }))
+  }
+}
+equal(terminalPrecedenceEvidence.length,10,'terminal precedence exact 10 cases')
+equal(terminalPrecedenceEvidence.filter((row)=>row.status==='PASS').length,10,'terminal precedence 10/10 PASS')
+equal(terminalPrecedenceEvidence.filter((row)=>row.invalidation_class!=='pr_state_drift').length,0,'terminal precedence always PR-state drift')
+equal(terminalPrecedenceEvidence.filter((row)=>row.transport_call_count!==0).length,0,'terminal precedence transport count zero')
 
 const unknownEvent = {...makeEvent(),unknown:true}
 equal(api.validateContinuousOrchestrationEventV1(unknownEvent).kind,'rejected','COV1-003 closed event')
@@ -1563,4 +1772,4 @@ for (const forbidden of ['node:fs','node:crypto','fetch(','Date.now','process.en
 }
 check(!('createTrustedProvenanceCollectorPortV1' in productionApi),'production export excludes collector factory')
 check(!('corruptTrustedProvenanceObservationForTestV1' in productionApi),'production export excludes corruption seam')
-console.log(JSON.stringify({result:'PASS',rows:corpus.rows.length,assertions,authority_main_sha:corpus.authority_main_sha,security_boundary_cases:supplementalEvidence}))
+console.log(JSON.stringify({result:'PASS',rows:corpus.rows.length,pre_merge_completion_simulation_rows:pmcsRows.length,combined_rows:corpus.rows.length+pmcsRows.length,terminal_precedence_rows:terminalPrecedenceEvidence.length,assertions,authority_main_sha:corpus.authority_main_sha,pre_merge_completion_simulation_cases:pmcsEvidence,terminal_precedence_cases:terminalPrecedenceEvidence,security_boundary_cases:supplementalEvidence}))
