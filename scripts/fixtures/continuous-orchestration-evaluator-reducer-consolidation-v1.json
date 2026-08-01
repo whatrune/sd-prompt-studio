@@ -1,0 +1,1031 @@
+{
+  "fixture_version": "continuous-orchestration-evaluator-reducer-consolidation-v1",
+  "task_id": "AUDIT-CONTINUOUS-ORCHESTRATION-REFACTORING-001",
+  "repository": "whatrune/sd-prompt-studio",
+  "authority_head": "b7d1013052514aacddb559cc4f24af5e33c08b96",
+  "branch": "codex/issue-221-core-consolidation",
+  "logical_worktree_identity": "issue-221-core-consolidation",
+  "prior_manifest_digest": "b66b3cec4a4be12eee5a149b9327d6b553174d39186270d73a069d768c97f6e6",
+  "prior_cumulative_digest": "52906d14c599f908fbcaef7a77588480733fcc307a08039aeb7bc25b7ef7a0c1",
+  "predecessor_path_bindings": [
+    {
+      "path": "scripts/fixtures/continuous-orchestration-core-consolidation-m0-v1.json",
+      "sha256": "0bb2903dabec3416657361fccf3984b697ee73fe7bf8c3c46bd51725dc854983"
+    },
+    {
+      "path": "scripts/test-continuous-orchestration-core-consolidation-m0.mjs",
+      "sha256": "f13fabceee6571b9915f7a323b5fa1ced950bef026a07c199e88f7046675044d"
+    },
+    {
+      "path": "src/continuous-orchestration/shared-proof-interfaces-v1.ts",
+      "sha256": "6ee6de35b634edf0481b679e003f7cdc19572e3a29aee139bb36252944cdb094"
+    },
+    {
+      "path": "scripts/fixtures/continuous-orchestration-shared-proof-interfaces-v1.json",
+      "sha256": "7d2a3d9b3f94a5ac4d9874fbc1faf9a9d04a1a7f7849d421384675e44a810039"
+    },
+    {
+      "path": "scripts/test-continuous-orchestration-shared-proof-interfaces.mjs",
+      "sha256": "5810c429bdd9e40b975154c030f09c442dbc66a3e87e3cd808f507349a34b79c"
+    },
+    {
+      "path": "src/continuous-orchestration/shadow-equivalence-v1.ts",
+      "sha256": "2aaab2e0d8cdac1046dee20ec3fc57692ccf13b16a224b1430f03ba7f610d4c2"
+    },
+    {
+      "path": "scripts/fixtures/continuous-orchestration-shadow-equivalence-v1.json",
+      "sha256": "8fee556578903174599867c747fd9ababa7bd93c9e5bfb5c76735f32299770d9"
+    },
+    {
+      "path": "scripts/test-continuous-orchestration-shadow-equivalence.mjs",
+      "sha256": "647ff5954f8b3d265ae231c553dfe3ad0bbe0315686714c9156ac10a8a97b8a6"
+    },
+    {
+      "path": "src/continuous-orchestration/authority-routing-budget-cutover-v1.ts",
+      "sha256": "3aed25556fab6d0105e738624f39015deb804445deb86fd57329128ddfbb952f"
+    },
+    {
+      "path": "scripts/fixtures/continuous-orchestration-authority-routing-budget-cutover-v1.json",
+      "sha256": "947ad2d817e0f847a484c770f45355d3bfc508fed90600eab69c24e7677d9f5f"
+    },
+    {
+      "path": "scripts/test-continuous-orchestration-authority-routing-budget-cutover.mjs",
+      "sha256": "e971797663e753028b225dfb89d86624a2353f8a2beecbc7cf6e20c4453af8c0"
+    },
+    {
+      "path": "src/continuous-orchestration/completion-candidate-projection-cutover-v1.ts",
+      "sha256": "49714919ad25653faadf492768da609e627547928d96c17c6cb0073afbd4460e"
+    },
+    {
+      "path": "scripts/fixtures/continuous-orchestration-completion-candidate-projection-cutover-v1.json",
+      "sha256": "e84952ca6ef27c0e262ed64c049b999315ba8b2c9554947bf4aa9e8c76bf7467"
+    },
+    {
+      "path": "scripts/test-continuous-orchestration-completion-candidate-projection-cutover.mjs",
+      "sha256": "e2fa0951201112db0ee0739288948440df596cdc506b12f970ba6de3ab338608"
+    }
+  ],
+  "added_paths": [
+    "src/continuous-orchestration/evaluator-reducer-consolidation-v1.ts",
+    "scripts/fixtures/continuous-orchestration-evaluator-reducer-consolidation-v1.json",
+    "scripts/test-continuous-orchestration-evaluator-reducer-consolidation.mjs"
+  ],
+  "ordered_cumulative_paths": [
+    "scripts/fixtures/continuous-orchestration-core-consolidation-m0-v1.json",
+    "scripts/test-continuous-orchestration-core-consolidation-m0.mjs",
+    "src/continuous-orchestration/shared-proof-interfaces-v1.ts",
+    "scripts/fixtures/continuous-orchestration-shared-proof-interfaces-v1.json",
+    "scripts/test-continuous-orchestration-shared-proof-interfaces.mjs",
+    "src/continuous-orchestration/shadow-equivalence-v1.ts",
+    "scripts/fixtures/continuous-orchestration-shadow-equivalence-v1.json",
+    "scripts/test-continuous-orchestration-shadow-equivalence.mjs",
+    "src/continuous-orchestration/authority-routing-budget-cutover-v1.ts",
+    "scripts/fixtures/continuous-orchestration-authority-routing-budget-cutover-v1.json",
+    "scripts/test-continuous-orchestration-authority-routing-budget-cutover.mjs",
+    "src/continuous-orchestration/completion-candidate-projection-cutover-v1.ts",
+    "scripts/fixtures/continuous-orchestration-completion-candidate-projection-cutover-v1.json",
+    "scripts/test-continuous-orchestration-completion-candidate-projection-cutover.mjs",
+    "src/continuous-orchestration/evaluator-reducer-consolidation-v1.ts",
+    "scripts/fixtures/continuous-orchestration-evaluator-reducer-consolidation-v1.json",
+    "scripts/test-continuous-orchestration-evaluator-reducer-consolidation.mjs"
+  ],
+  "row_count": 144,
+  "groups": [
+    {
+      "group_id": "M5-ADM",
+      "row_count": 14,
+      "rows": [
+        {
+          "row_id": "M5-ADM-001",
+          "assertion": "closed positive input is admitted",
+          "expected": "PASS",
+          "row_digest": "2363463b3447d0c7e55a67c95507042536aa0d88042755638ae0a3134c2f8e55"
+        },
+        {
+          "row_id": "M5-ADM-002",
+          "assertion": "unknown top-level field is rejected",
+          "expected": "PASS",
+          "row_digest": "530595b8f33386b427b9d9189362b64ce002e3b24f9b3c90c411c68d41ed1af5"
+        },
+        {
+          "row_id": "M5-ADM-003",
+          "assertion": "missing profile is rejected",
+          "expected": "PASS",
+          "row_digest": "2cdfa2c0cd2cb05f4c2b58193343cf7feed73a6808ccb2db5b0b1b9ed24eae5d"
+        },
+        {
+          "row_id": "M5-ADM-004",
+          "assertion": "cross-task authority bundle is rejected",
+          "expected": "PASS",
+          "row_digest": "e4109ad111ecbb1448fb3c27ee8e0dfd07765a591473d5f8922168ae926312cb"
+        },
+        {
+          "row_id": "M5-ADM-005",
+          "assertion": "invalid profile digest is rejected",
+          "expected": "PASS",
+          "row_digest": "02eb09e2c2da455c8edc27d518bc3230cb609e52dfab862901d14e0c108b1036"
+        },
+        {
+          "row_id": "M5-ADM-006",
+          "assertion": "HEAD drift is rejected",
+          "expected": "PASS",
+          "row_digest": "7607bccb414f7e91262c98a851e5abda0815b497dc38dd87a4669a8e101bc65d"
+        },
+        {
+          "row_id": "M5-ADM-007",
+          "assertion": "invalid state is rejected",
+          "expected": "PASS",
+          "row_digest": "9fb9822cdde8f16f762ab53fe3b7476423dafdb5be4f3733274383a27f324cf1"
+        },
+        {
+          "row_id": "M5-ADM-008",
+          "assertion": "event authority mismatch is rejected",
+          "expected": "PASS",
+          "row_digest": "c23da7c18bde7aef9bfb5c6b06e8a476c0007ec6ccb69d071f271d6b61313a9b"
+        },
+        {
+          "row_id": "M5-ADM-009",
+          "assertion": "invalid input digest is rejected",
+          "expected": "PASS",
+          "row_digest": "671216d40891eaa64ad93c7f3bd5eb9ff5b15b168abcb877955822f8094c0849"
+        },
+        {
+          "row_id": "M5-ADM-010",
+          "assertion": "accepted input is deep-frozen and mutation-isolated",
+          "expected": "PASS",
+          "row_digest": "ad1243e8bdda5dd48796c22433b507f5a7a9eb46dacddc738200cf50f9f0e5ce"
+        },
+        {
+          "row_id": "M5-ADM-011",
+          "assertion": "unknown nested profile field is rejected",
+          "expected": "PASS",
+          "row_digest": "9ce32875a479207081b6c92a17fc07f9eb7a1d2d13b65c48c542090c5d9d1cd8"
+        },
+        {
+          "row_id": "M5-ADM-012",
+          "assertion": "raw secret input yields sanitized rejection",
+          "expected": "PASS",
+          "row_digest": "26680dae0957702c5068f4bc45972992e7c5101429bbb01e4d4d5d59ddaa2b79"
+        },
+        {
+          "row_id": "M5-ADM-013",
+          "assertion": "missing no-transition conditional binding is rejected",
+          "expected": "PASS",
+          "row_digest": "577057b17a7caed0faa67c64263fdf19d342fd3bd6aadf6e728514721cc4ae25"
+        },
+        {
+          "row_id": "M5-ADM-014",
+          "assertion": "result rejection never echoes raw input",
+          "expected": "PASS",
+          "row_digest": "0cf15d358674756bbe85880090682371f095cf6bcb009668a80e5621773ad3aa"
+        }
+      ],
+      "group_digest": "79663a11e2d9211d7dbfaf332db7161d8c490012bfde34b8eb83b128ed732cc2"
+    },
+    {
+      "group_id": "M5-DEC",
+      "row_count": 24,
+      "rows": [
+        {
+          "row_id": "M5-DEC-001",
+          "assertion": "recommend_next_role derives one exact decision port",
+          "expected": "PASS",
+          "row_digest": "13ca7f1ebab2a113c3ebf671aef24ba3468d4e5a8a55c08164db9849ddfe0755"
+        },
+        {
+          "row_id": "M5-DEC-002",
+          "assertion": "wait_for_protected_action derives one exact decision port",
+          "expected": "PASS",
+          "row_digest": "ff480a69d3a526de46bc2885ac770a951f3274c4f138cc9da45e2e84cfc9cb10"
+        },
+        {
+          "row_id": "M5-DEC-003",
+          "assertion": "require_gate_status_update derives one exact decision port",
+          "expected": "PASS",
+          "row_digest": "815098cf29ad5ca7e7b3ebb39ca8783d96abde1b627e2745395ec7dbf4ac62c9"
+        },
+        {
+          "row_id": "M5-DEC-004",
+          "assertion": "invalidate_approval derives one exact decision port",
+          "expected": "PASS",
+          "row_digest": "b49816f0f814a995fc5c11ec21a68e201d304991dc8a10836888ed75d346c69d"
+        },
+        {
+          "row_id": "M5-DEC-005",
+          "assertion": "stop derives one exact decision port",
+          "expected": "PASS",
+          "row_digest": "d381c1e2cd72a9214af53dd6c2c576659963553cdaf491be87bd4e39a948b071"
+        },
+        {
+          "row_id": "M5-DEC-006",
+          "assertion": "no_transition derives one exact decision port",
+          "expected": "PASS",
+          "row_digest": "080adc037f2ea7b619dce75dd5f52b47c387da6ae0f1e4786580684ef73ca20b"
+        },
+        {
+          "row_id": "M5-DEC-007",
+          "assertion": "source result kind binds decision port kind",
+          "expected": "PASS",
+          "row_digest": "efbd2ad873b988c234ba587e6a74171d2b228b2058add7ca08ade753888158bc"
+        },
+        {
+          "row_id": "M5-DEC-008",
+          "assertion": "source result digest binds decision port source",
+          "expected": "PASS",
+          "row_digest": "0c5298cb351f3beec70592efbefa46e05eec93fe57de0f7884645f949a64241b"
+        },
+        {
+          "row_id": "M5-DEC-009",
+          "assertion": "projected target Role is preserved",
+          "expected": "PASS",
+          "row_digest": "881ef742a2cf5b083bb42ef8177df30c787b6c78e1e18b289978e4e7389acce6"
+        },
+        {
+          "row_id": "M5-DEC-010",
+          "assertion": "projected target Action is preserved",
+          "expected": "PASS",
+          "row_digest": "a85bd6d6c9a16384849fbd14a4577724845b08ecde0351e7a2baa153bc403c16"
+        },
+        {
+          "row_id": "M5-DEC-011",
+          "assertion": "projected target HEAD is preserved",
+          "expected": "PASS",
+          "row_digest": "4fdad159a0da32c878c342352c02e7cf608e63e337fbf42c3fa507661cdbc0b3"
+        },
+        {
+          "row_id": "M5-DEC-012",
+          "assertion": "protected action ID is preserved",
+          "expected": "PASS",
+          "row_digest": "9755d028dcbfad2d3cc241296ccbb8da6aecb1893711fd04f94b6f4c4aa21a45"
+        },
+        {
+          "row_id": "M5-DEC-013",
+          "assertion": "gate update requirement is preserved",
+          "expected": "PASS",
+          "row_digest": "b389b43daff7d4c692f78df65a6c982fe46f67a4db20cf8344d80b98fe7089ae"
+        },
+        {
+          "row_id": "M5-DEC-014",
+          "assertion": "approval invalidation class is preserved",
+          "expected": "PASS",
+          "row_digest": "b7139486632ee8f17046b2223386f78f298977730fc3004187d69a775db6f196"
+        },
+        {
+          "row_id": "M5-DEC-015",
+          "assertion": "stop reason is preserved",
+          "expected": "PASS",
+          "row_digest": "33904f4933141acac285a0a748bd25915c8167502ea5b10c02e26303fc67ab0e"
+        },
+        {
+          "row_id": "M5-DEC-016",
+          "assertion": "no-transition future event is explicit",
+          "expected": "PASS",
+          "row_digest": "e7e6f77d4841c9a8a9868c3f325f305fdce4b5511eb672fb0dacdc9d76b3290f"
+        },
+        {
+          "row_id": "M5-DEC-017",
+          "assertion": "decision-port mismatch stops",
+          "expected": "PASS",
+          "row_digest": "b127bd5dd58a97e511c8255cca9d8c316d7f33dbed1be51157b429a81205dedf"
+        },
+        {
+          "row_id": "M5-DEC-018",
+          "assertion": "unmapped or malformed port rejects",
+          "expected": "PASS",
+          "row_digest": "d62bac3d905dddfd62c0d9506a578e59c363761c4dcbe166a99861bee0626482"
+        },
+        {
+          "row_id": "M5-DEC-019",
+          "assertion": "AGP evaluator invocation count is zero",
+          "expected": "PASS",
+          "row_digest": "37e47049f45525776871dac887cfeff7ace9617da6bbb4c58f53541b3269e86b"
+        },
+        {
+          "row_id": "M5-DEC-020",
+          "assertion": "decision-port derivation count is exactly one",
+          "expected": "PASS",
+          "row_digest": "9553c1c4b03d2e2734ae035cb9295d9bc20c5fb470152a13fa56b166cf6e6f02"
+        },
+        {
+          "row_id": "M5-DEC-021",
+          "assertion": "duplicate precedence invocation count is zero",
+          "expected": "PASS",
+          "row_digest": "4341d73f340a292b3b2456da47d8c722cfd650763d8b7784b386fea65c6bda24"
+        },
+        {
+          "row_id": "M5-DEC-022",
+          "assertion": "fallback reducer invocation count is zero",
+          "expected": "PASS",
+          "row_digest": "d8d746d7a5e19b6507784588afab0b4a69defca388c37b2ccca9c941009a7e10"
+        },
+        {
+          "row_id": "M5-DEC-023",
+          "assertion": "hard-coded Role inference count is zero",
+          "expected": "PASS",
+          "row_digest": "fc7a430bdc7fd380d095ceeb14ba082b434a1d80ad7ff52d029cefaca9ca0d79"
+        },
+        {
+          "row_id": "M5-DEC-024",
+          "assertion": "decision-port result is deep-frozen",
+          "expected": "PASS",
+          "row_digest": "7e5434df00177ad3dcd123ab1ccf4e95cbe9ea2d05463e1b9f7ab15f5f0899b2"
+        }
+      ],
+      "group_digest": "c0cc00a763a10c859f787bad1265c0fcd7836a1bcd38463c5265196b69c2883c"
+    },
+    {
+      "group_id": "M5-REDUCE",
+      "row_count": 20,
+      "rows": [
+        {
+          "row_id": "M5-REDUCE-001",
+          "assertion": "existing reducer is invoked exactly once",
+          "expected": "PASS",
+          "row_digest": "f81863e9dbc13c07cf2ef802158e7bd0f59137ea21ea33da07e301130eb28589"
+        },
+        {
+          "row_id": "M5-REDUCE-002",
+          "assertion": "accepted reducer transition is preserved",
+          "expected": "PASS",
+          "row_digest": "80d6236c0028dfca4f8c6b967dbaf2d86cd0da2fba7b36f2a68e5c8f6f1ef697"
+        },
+        {
+          "row_id": "M5-REDUCE-003",
+          "assertion": "reducer decision branch matches decision port",
+          "expected": "PASS",
+          "row_digest": "4201c265e1467214f61e07a79b050dd380b275c96b7b3af1a1ff80c2face1945"
+        },
+        {
+          "row_id": "M5-REDUCE-004",
+          "assertion": "reducer reason semantics are preserved",
+          "expected": "PASS",
+          "row_digest": "8ab7bf7b5c538909c6fde14a29c05a56010069a526132c08269f3783c46db6f5"
+        },
+        {
+          "row_id": "M5-REDUCE-005",
+          "assertion": "reducer next state is preserved",
+          "expected": "PASS",
+          "row_digest": "1bb6ee513054236d19f544a2127ef68e5e97400613a1e907beb412a34e40024d"
+        },
+        {
+          "row_id": "M5-REDUCE-006",
+          "assertion": "reducer CAS projection is preserved",
+          "expected": "PASS",
+          "row_digest": "ee49fc4eadb242053ff54fd4b8407be9e79a3abaabdad695e44789d3967be5af"
+        },
+        {
+          "row_id": "M5-REDUCE-007",
+          "assertion": "reducer audit evidence is preserved",
+          "expected": "PASS",
+          "row_digest": "e8be0c0809cdb5d67ac61b3ab7bf4cbc2546f1eb6357eaf495edcd6574831777"
+        },
+        {
+          "row_id": "M5-REDUCE-008",
+          "assertion": "reducer replay ledger evidence is preserved",
+          "expected": "PASS",
+          "row_digest": "0e78843298862eaa52b282a73c3973dcb12b5e781267c49c3331b8a98dd70d0d"
+        },
+        {
+          "row_id": "M5-REDUCE-009",
+          "assertion": "reducer output is deep-frozen",
+          "expected": "PASS",
+          "row_digest": "03466ecf3c977d8fbbb3018b1dcc4c5a02fb9f7d730654e588ab967f036a499a"
+        },
+        {
+          "row_id": "M5-REDUCE-010",
+          "assertion": "duplicate reducer invocation count is zero",
+          "expected": "PASS",
+          "row_digest": "7d0cb4384a6e9fd5d8f47471c9f92950dcf34f3c5c0869af35af87fb3c441e95"
+        },
+        {
+          "row_id": "M5-REDUCE-011",
+          "assertion": "branch divergence stops",
+          "expected": "PASS",
+          "row_digest": "346163b64cd2e45722c09a304e00b48544d48c4f031671a7e532f9c745eb2d37"
+        },
+        {
+          "row_id": "M5-REDUCE-012",
+          "assertion": "reason divergence stops",
+          "expected": "PASS",
+          "row_digest": "3239444a1bd4e3e1169a953bb5a5b5ec31d1cd0be8eaaa2ca079a93388124a63"
+        },
+        {
+          "row_id": "M5-REDUCE-013",
+          "assertion": "state divergence stops",
+          "expected": "PASS",
+          "row_digest": "0b763e89a4826fbb0d05fe9251bc687cc52738331cd11cfae34abdd42671a983"
+        },
+        {
+          "row_id": "M5-REDUCE-014",
+          "assertion": "event admission failure rejects before reduction",
+          "expected": "PASS",
+          "row_digest": "b51e0675c27ee8cfac72ee3a3cdfc006cb705c823411770a28cd216e9c278c6a"
+        },
+        {
+          "row_id": "M5-REDUCE-015",
+          "assertion": "completion candidate requires completion authority",
+          "expected": "PASS",
+          "row_digest": "5838ce0c0a3bc0ca399334e8233ff0f33b5fe1046833e29924ae731981c62212"
+        },
+        {
+          "row_id": "M5-REDUCE-016",
+          "assertion": "completed state requires completion authority",
+          "expected": "PASS",
+          "row_digest": "f3e6a83124e24da1fa5bc5f0e375988ab2beb749bebde86fc126e97b278bcad5"
+        },
+        {
+          "row_id": "M5-REDUCE-017",
+          "assertion": "one next state only",
+          "expected": "PASS",
+          "row_digest": "afd93117fee1c66d92d5b7c07c4f9f62fdf52252de53c487d680300bc1922331"
+        },
+        {
+          "row_id": "M5-REDUCE-018",
+          "assertion": "one reducer result only",
+          "expected": "PASS",
+          "row_digest": "8de50a34128afb38fedfa70a18c91d4d636259174e1aff669a8f0df9dd1a233b"
+        },
+        {
+          "row_id": "M5-REDUCE-019",
+          "assertion": "internal reducer failure stops safely",
+          "expected": "PASS",
+          "row_digest": "f0ba9d9d9d9e84d72a0442eb1ddbcacb8a8a7b58a4ce51c9b88982edcca62f73"
+        },
+        {
+          "row_id": "M5-REDUCE-020",
+          "assertion": "raw exception material is not returned",
+          "expected": "PASS",
+          "row_digest": "7707be860ae7d18f412cae6c756b49181fc78ceaf49da0529165984364d9129f"
+        }
+      ],
+      "group_digest": "2d372c33b461cc96e72002b81f4e4c7ae98b0b76a2617e2dde4f6a47f2bb9160"
+    },
+    {
+      "group_id": "M5-ROUTE",
+      "row_count": 16,
+      "rows": [
+        {
+          "row_id": "M5-ROUTE-001",
+          "assertion": "exact admitted route is preserved",
+          "expected": "PASS",
+          "row_digest": "5825272704b0e50f72ed214a5b4f7ab201c45ec8b4dbbd5b13af24637ff8484e"
+        },
+        {
+          "row_id": "M5-ROUTE-002",
+          "assertion": "route scope digest is preserved",
+          "expected": "PASS",
+          "row_digest": "902f3f159444dbd45db7c1630edce9974d23a0e8ab73f529e2aed0bd19ae97a8"
+        },
+        {
+          "row_id": "M5-ROUTE-003",
+          "assertion": "same-task branch binding is preserved",
+          "expected": "PASS",
+          "row_digest": "c1f9d6589113195f0dc71b3e1313082ed75b53aa66c86ba9e81b30afa860c222"
+        },
+        {
+          "row_id": "M5-ROUTE-004",
+          "assertion": "same-task worktree binding is preserved",
+          "expected": "PASS",
+          "row_digest": "1b9620aab8cd9034ee3da904e8663c082504f6ff22e330e8b75581f23986b787"
+        },
+        {
+          "row_id": "M5-ROUTE-005",
+          "assertion": "same-task PR binding is preserved",
+          "expected": "PASS",
+          "row_digest": "b0314a991476616684f6a17b20378415dc84b427ff748f2e6e9a66d7a5e9ed86"
+        },
+        {
+          "row_id": "M5-ROUTE-006",
+          "assertion": "same-task HEAD binding is preserved",
+          "expected": "PASS",
+          "row_digest": "7e8ba9cc15614fb435e9d4289fa34958849a6b13a71394e7ab7cfab28d7f5bf2"
+        },
+        {
+          "row_id": "M5-ROUTE-007",
+          "assertion": "no route remains no route",
+          "expected": "PASS",
+          "row_digest": "b6718198cf20057df0d99d6ea33223a55a45c103dd5fe1667b46368eabfef507"
+        },
+        {
+          "row_id": "M5-ROUTE-008",
+          "assertion": "multiple or conflicting route rejects",
+          "expected": "PASS",
+          "row_digest": "db1b016b710297ea6207e04542b5b9e7559ba82e86295d16c89e3fed6994f9c8"
+        },
+        {
+          "row_id": "M5-ROUTE-009",
+          "assertion": "Role mismatch stops",
+          "expected": "PASS",
+          "row_digest": "6758e78b2a41f742b3e8d5d77052fed6f5bdb10c29f9b085d8414860465b476a"
+        },
+        {
+          "row_id": "M5-ROUTE-010",
+          "assertion": "Action mismatch stops",
+          "expected": "PASS",
+          "row_digest": "9732183d09c257c72cb518f4896dfe6bda8e6cd529a8e4e88f1670a247668080"
+        },
+        {
+          "row_id": "M5-ROUTE-011",
+          "assertion": "ARL evidence is not routing authority",
+          "expected": "PASS",
+          "row_digest": "e3583487889c711b3c4401a2c54f43e570b756eddb59b758ac4b5337c8352978"
+        },
+        {
+          "row_id": "M5-ROUTE-012",
+          "assertion": "dispatch intent count is at most one",
+          "expected": "PASS",
+          "row_digest": "0591fdbe8b0a227892f703ac91049f0f5ce5f7901d62b5d166fed1b293976bd4"
+        },
+        {
+          "row_id": "M5-ROUTE-013",
+          "assertion": "protected route remains external",
+          "expected": "PASS",
+          "row_digest": "98e76ab85721812912d90ecf855b1880d17d1ef8463d43c19dd05eefee42b404"
+        },
+        {
+          "row_id": "M5-ROUTE-014",
+          "assertion": "transport invocation count is zero",
+          "expected": "PASS",
+          "row_digest": "8356c72933e4efd3afb14962747df6e35dd6e8377fe4fc1b775a9c4f7e067d0a"
+        },
+        {
+          "row_id": "M5-ROUTE-015",
+          "assertion": "route authority digest cross-binds M3 evidence",
+          "expected": "PASS",
+          "row_digest": "b8508ea0bcd640d1ef156ce37ba79f4f418bdc53cc090ebc6d7291021a13f408"
+        },
+        {
+          "row_id": "M5-ROUTE-016",
+          "assertion": "route result is deterministic",
+          "expected": "PASS",
+          "row_digest": "202a63c767ccb655e547b6f58d40fabeb45263110e9a7124402a0f61d87b4ac3"
+        }
+      ],
+      "group_digest": "bc30733302a6ca7d19b9fe6f854a62106f52fffb560237dab72f1b273075f119"
+    },
+    {
+      "group_id": "M5-COMP",
+      "row_count": 12,
+      "rows": [
+        {
+          "row_id": "M5-COMP-001",
+          "assertion": "M4 completion decision binding is required for technical completion",
+          "expected": "PASS",
+          "row_digest": "15847e24473e6dfc78948f9afdb57140de921b7bc048f6cf3579af5528dbe5e5"
+        },
+        {
+          "row_id": "M5-COMP-002",
+          "assertion": "candidate request is not completion",
+          "expected": "PASS",
+          "row_digest": "7e8d3a2794b6385cbb562180443a037b38c1e6336f8abd172f837b2fad700612"
+        },
+        {
+          "row_id": "M5-COMP-003",
+          "assertion": "CI alone is not completion",
+          "expected": "PASS",
+          "row_digest": "322dac57d591931e48c19f9bb05e1225ddd19f98f27b850f60269dfca021792c"
+        },
+        {
+          "row_id": "M5-COMP-004",
+          "assertion": "GSP alone is not completion",
+          "expected": "PASS",
+          "row_digest": "6dc4fbcefbba517408f4d4e834134cea20f7af1e9eece0c63514ee2655eb74da"
+        },
+        {
+          "row_id": "M5-COMP-005",
+          "assertion": "PR merge alone is not completion",
+          "expected": "PASS",
+          "row_digest": "0f5f787179e218c0e65b627fb9877c23408ad2dd336e035d76000436d6afdba4"
+        },
+        {
+          "row_id": "M5-COMP-006",
+          "assertion": "preflight alone is not completion",
+          "expected": "PASS",
+          "row_digest": "ca94028de95e9c8588f7b978e9a21a2b8fc86eafbcb4b2f87532d957686ee733"
+        },
+        {
+          "row_id": "M5-COMP-007",
+          "assertion": "blocking finding recurrence stops completion",
+          "expected": "PASS",
+          "row_digest": "2fd230799920c8f1ae3b3d212d8727235edc387cd340a73ca515448026469beb"
+        },
+        {
+          "row_id": "M5-COMP-008",
+          "assertion": "thread recurrence stops completion",
+          "expected": "PASS",
+          "row_digest": "12529d82f3e4107ad94511527d4aa545ee6901d1bedf66ba27d768ba53ad946c"
+        },
+        {
+          "row_id": "M5-COMP-009",
+          "assertion": "completion assessment request count is at most one",
+          "expected": "PASS",
+          "row_digest": "b619ed931ad32841571aca47c45cd45282bc3007a3d8cdf4f358b2f0192d0e28"
+        },
+        {
+          "row_id": "M5-COMP-010",
+          "assertion": "M5 authors no Completion Decision",
+          "expected": "PASS",
+          "row_digest": "e7d2031e79995ef1ccb6f1390274da9093648122ff325ca147ae5cb47c782d0d"
+        },
+        {
+          "row_id": "M5-COMP-011",
+          "assertion": "Issue close authority remains false",
+          "expected": "PASS",
+          "row_digest": "684a60a60eb4b9eee48214e4adb8511fddd0159b5effecd6e81ab08a9ab0148e"
+        },
+        {
+          "row_id": "M5-COMP-012",
+          "assertion": "completion evidence digest is preserved",
+          "expected": "PASS",
+          "row_digest": "10e5e171a051e6674f2532f1eb95a5d346d303d4b5e9eede3ebbcfcc33cee67c"
+        }
+      ],
+      "group_digest": "692b400ed4bdbe59f87f0d464899e03c40efaa0fe54522a50c6b313a5f85dc09"
+    },
+    {
+      "group_id": "M5-FRESH",
+      "row_count": 14,
+      "rows": [
+        {
+          "row_id": "M5-FRESH-001",
+          "assertion": "evaluation snapshot is distinct from action guard",
+          "expected": "PASS",
+          "row_digest": "0f2e5ca54326318aea5e8c2126275712ad0187e0fdb81e6ff3a947a55549b3af"
+        },
+        {
+          "row_id": "M5-FRESH-002",
+          "assertion": "action guard cannot reuse evaluation freshness",
+          "expected": "PASS",
+          "row_digest": "cde2c42f942bac24c29745aa44af248e18a1408f2fd9c90955a3212135a50cdb"
+        },
+        {
+          "row_id": "M5-FRESH-003",
+          "assertion": "consumed guard rejects",
+          "expected": "PASS",
+          "row_digest": "a8b22f462220138fb497654e26042bd72b944c7f06312e937b8a18337df616c7"
+        },
+        {
+          "row_id": "M5-FRESH-004",
+          "assertion": "stale guard rejects",
+          "expected": "PASS",
+          "row_digest": "d023e92edf94384b6209642f7f02856718674818f7973850cfc1939021d33c31"
+        },
+        {
+          "row_id": "M5-FRESH-005",
+          "assertion": "cross-action guard rejects",
+          "expected": "PASS",
+          "row_digest": "26965ee1ff88b54404b4cb5dd1be25d503e357867b1b8242f339cd5cd03b0449"
+        },
+        {
+          "row_id": "M5-FRESH-006",
+          "assertion": "cross-HEAD guard rejects",
+          "expected": "PASS",
+          "row_digest": "a2e395823421c067c20adf6bfd7e19f7202338401393a2b1608c277b07e01d39"
+        },
+        {
+          "row_id": "M5-FRESH-007",
+          "assertion": "HEAD drift stops",
+          "expected": "PASS",
+          "row_digest": "01563f86a7cb2b61860f6ab6addf8505ca72e764f7832fead3db9c0ec1e708ad"
+        },
+        {
+          "row_id": "M5-FRESH-008",
+          "assertion": "base drift stops",
+          "expected": "PASS",
+          "row_digest": "bbfc1d6c3b2646d026e200c6a4d4843d7c97d3e4e2e102234cfbd6f507b5adc0"
+        },
+        {
+          "row_id": "M5-FRESH-009",
+          "assertion": "PR state drift stops",
+          "expected": "PASS",
+          "row_digest": "aabf6598b723f883a5dad6e347bbefddb2260b87db9453f58eaa3d4feb734acc"
+        },
+        {
+          "row_id": "M5-FRESH-010",
+          "assertion": "check drift stops",
+          "expected": "PASS",
+          "row_digest": "dc094a53fcfaf0350187f0dac6a6464653762edd113eae5f0f52e3dc306837ba"
+        },
+        {
+          "row_id": "M5-FRESH-011",
+          "assertion": "finding drift stops",
+          "expected": "PASS",
+          "row_digest": "e41cb9298f1e5302925e8b0667867b1b9ea5d6208016117d55951ef4f86e337d"
+        },
+        {
+          "row_id": "M5-FRESH-012",
+          "assertion": "thread drift stops",
+          "expected": "PASS",
+          "row_digest": "bc575de6cc742830e7362bd6ac23466e55b69d41b9989a6d318209ea7e305ee0"
+        },
+        {
+          "row_id": "M5-FRESH-013",
+          "assertion": "GSP drift stops",
+          "expected": "PASS",
+          "row_digest": "8062428e7a73081199f570b68b3197d864587911db068a3d2af1793332028e79"
+        },
+        {
+          "row_id": "M5-FRESH-014",
+          "assertion": "workspace drift stops",
+          "expected": "PASS",
+          "row_digest": "ea4f414a44dbde601c581fd712d2ec770bf1ad66d743ddee2e9af424b23765d4"
+        }
+      ],
+      "group_digest": "fc2173f0c3f02a3224020e16c3f4d067dc848c7c128ef8fb7c2db20fb1e7bf91"
+    },
+    {
+      "group_id": "M5-PROTECTED",
+      "row_count": 12,
+      "rows": [
+        {
+          "row_id": "M5-PROTECTED-001",
+          "assertion": "Ready simulation requires Product Owner authority",
+          "expected": "PASS",
+          "row_digest": "01cb4e4fb643d62bb85387e8663951ad0de7c3753fad2b0cad08822e9e3caae7"
+        },
+        {
+          "row_id": "M5-PROTECTED-002",
+          "assertion": "Merge simulation requires Product Owner authority",
+          "expected": "PASS",
+          "row_digest": "e164b97b7321ecd2398ed163c69da2b94a62056f009b4b34afdc696fca937599"
+        },
+        {
+          "row_id": "M5-PROTECTED-003",
+          "assertion": "Ready simulation keeps execution external",
+          "expected": "PASS",
+          "row_digest": "fcebb4c67212c83636f7d29a79a7faa251dca6076a575e5fa06f6070045d481c"
+        },
+        {
+          "row_id": "M5-PROTECTED-004",
+          "assertion": "Merge simulation keeps execution external",
+          "expected": "PASS",
+          "row_digest": "5cd43a0bd45c35eb55af2a63eca40aeb1366a4c17da7d4396f5e035f4d1b5e51"
+        },
+        {
+          "row_id": "M5-PROTECTED-005",
+          "assertion": "Ready uses two external guards",
+          "expected": "PASS",
+          "row_digest": "0526f9d917049d2af530daf43857e6157456d7f2a0f811cb337b64d0b6e410a4"
+        },
+        {
+          "row_id": "M5-PROTECTED-006",
+          "assertion": "Merge uses two external guards",
+          "expected": "PASS",
+          "row_digest": "279a74cb282a63030b92e16b7f44a6f2be9d671d30ccbda22b8072f3f8991511"
+        },
+        {
+          "row_id": "M5-PROTECTED-007",
+          "assertion": "closed PR rejects protected wait",
+          "expected": "PASS",
+          "row_digest": "b1f78166427d15a49b0c045564641bb528466f6398ea02dd1fea8d28c474e549"
+        },
+        {
+          "row_id": "M5-PROTECTED-008",
+          "assertion": "merged PR rejects protected wait",
+          "expected": "PASS",
+          "row_digest": "748fdcd8c0330f493059c04859e383f0820c911d4063e610f2ed2dff2bfafebf"
+        },
+        {
+          "row_id": "M5-PROTECTED-009",
+          "assertion": "missing approval remains waiting",
+          "expected": "PASS",
+          "row_digest": "9d20721ce54ec9c029d3990900646b2c36e0e6f85a629dd7511f54ace33209c6"
+        },
+        {
+          "row_id": "M5-PROTECTED-010",
+          "assertion": "approval is not consumed by M5",
+          "expected": "PASS",
+          "row_digest": "1d4d93b14faf928e6363aa1bd6165030c4deb1df97ab1591d0cb99594f7d0670"
+        },
+        {
+          "row_id": "M5-PROTECTED-011",
+          "assertion": "protected action invocation count is zero",
+          "expected": "PASS",
+          "row_digest": "f0a97dfb97b4014bdade0b717b95840689713c0752313f7e3da7bed8ee72d983"
+        },
+        {
+          "row_id": "M5-PROTECTED-012",
+          "assertion": "simulation output is deterministic and frozen",
+          "expected": "PASS",
+          "row_digest": "8198771506f8c3b3b1db521bba2efd7fbc266ed6813b14d57c2adb654cb46aa5"
+        }
+      ],
+      "group_digest": "a36a4c1d17dbaf4f0f1c8e4c131f1fb1159362ef0ade7de1733d0f47b2735a93"
+    },
+    {
+      "group_id": "M5-REPLAY",
+      "row_count": 10,
+      "rows": [
+        {
+          "row_id": "M5-REPLAY-001",
+          "assertion": "identical admitted input yields byte-identical output",
+          "expected": "PASS",
+          "row_digest": "f8e9b363a49835d884af21404b3145c9c02be2c32fc511efa9cc2f8c58f7740c"
+        },
+        {
+          "row_id": "M5-REPLAY-002",
+          "assertion": "identical replay creates no new intent",
+          "expected": "PASS",
+          "row_digest": "0518c5465954e87aa9d9899b7758e10a9cbf54f740bd2e02720e31bfe18e9114"
+        },
+        {
+          "row_id": "M5-REPLAY-003",
+          "assertion": "identical replay creates no new ledger operand",
+          "expected": "PASS",
+          "row_digest": "8734880cd3cbb71d9032850123b50918cb2085c95c4196b3d0c6e67ee1bc7a84"
+        },
+        {
+          "row_id": "M5-REPLAY-004",
+          "assertion": "identical replay creates no projection request",
+          "expected": "PASS",
+          "row_digest": "fa6c9dee50c4f0a11cdb06f90683817940ab37820747a10c1b7978af187330ae"
+        },
+        {
+          "row_id": "M5-REPLAY-005",
+          "assertion": "identical replay creates no completion request",
+          "expected": "PASS",
+          "row_digest": "b0ebefc3bb581053a7a02dcfefc64c922f2aae9ae0551633c0f8f08ea0326b79"
+        },
+        {
+          "row_id": "M5-REPLAY-006",
+          "assertion": "concurrent CAS loser creates no second intent",
+          "expected": "PASS",
+          "row_digest": "63f50d7d0355d09d0390d1f605db1d216dfd769e13792742bb40e56b5c05d374"
+        },
+        {
+          "row_id": "M5-REPLAY-007",
+          "assertion": "CAS loser creates no ledger mutation",
+          "expected": "PASS",
+          "row_digest": "7aea72984524726aa21c43d5db6e9dce59f282a802adc04e417fbfaadf202b59"
+        },
+        {
+          "row_id": "M5-REPLAY-008",
+          "assertion": "wrapper and consolidated modes are mutually exclusive",
+          "expected": "PASS",
+          "row_digest": "79618f14e99d99af2664300126fecd9f32a598490053656103ae4c0286dfad14"
+        },
+        {
+          "row_id": "M5-REPLAY-009",
+          "assertion": "wrapper parity digest is deterministic",
+          "expected": "PASS",
+          "row_digest": "940c331ec16e828a774f8b016eca04cc577cab532654a601e95d5eef3cdc6e96"
+        },
+        {
+          "row_id": "M5-REPLAY-010",
+          "assertion": "all outputs are deeply frozen",
+          "expected": "PASS",
+          "row_digest": "06c6210fcf11ceee2f4cdb80cfb6c72e3d75f3ceb6d50b1f5556f95f57a29d90"
+        }
+      ],
+      "group_digest": "68e7703a31a6f4a09f58d94a771fcacf6452d859d38ce54b2e2f1169270c97a9"
+    },
+    {
+      "group_id": "M5-MANIFEST",
+      "row_count": 10,
+      "rows": [
+        {
+          "row_id": "M5-MANIFEST-001",
+          "assertion": "exact fourteen predecessor paths are retained",
+          "expected": "PASS",
+          "row_digest": "6566eb49d8985a4b4079940b25a8283e1dd12bd1aaf1abc71522a304a04fe058"
+        },
+        {
+          "row_id": "M5-MANIFEST-002",
+          "assertion": "exact three M5 paths are appended",
+          "expected": "PASS",
+          "row_digest": "b7e76392f51b35cecd966106596363cc73c6515571211043332e1410c82a1fcc"
+        },
+        {
+          "row_id": "M5-MANIFEST-003",
+          "assertion": "cumulative path count is seventeen",
+          "expected": "PASS",
+          "row_digest": "a22d7219e34de4866e1b2e301fc425ffa6bd181fff3ff6aa6ee935314a9eb186"
+        },
+        {
+          "row_id": "M5-MANIFEST-004",
+          "assertion": "successor manifest is deterministic",
+          "expected": "PASS",
+          "row_digest": "1fc736fee591f45331d42779dd28a3a8aa1adbd7f7cddc4c7c39cdf0ae191ad3"
+        },
+        {
+          "row_id": "M5-MANIFEST-005",
+          "assertion": "missing predecessor path rejects",
+          "expected": "PASS",
+          "row_digest": "781841c3279b4352c5ca39ea04ad27db3e8b8e303a28ce3d0614220cbc9871d9"
+        },
+        {
+          "row_id": "M5-MANIFEST-006",
+          "assertion": "extra path rejects",
+          "expected": "PASS",
+          "row_digest": "b520f0b5462c03f8291fbd64b68864382cd70aa0328e889418345865cb77499c"
+        },
+        {
+          "row_id": "M5-MANIFEST-007",
+          "assertion": "path order mismatch rejects",
+          "expected": "PASS",
+          "row_digest": "f01246bb6d88458e4f58b4bfcfcbd0dd1bcc728887c0bfe22d38647b26a32e21"
+        },
+        {
+          "row_id": "M5-MANIFEST-008",
+          "assertion": "prior manifest digest drift rejects",
+          "expected": "PASS",
+          "row_digest": "b1e864f2a4542ab4587fb0e8f7bf20a86f0e1caacb58bf3040b797dc96eaa271"
+        },
+        {
+          "row_id": "M5-MANIFEST-009",
+          "assertion": "active M5 byte drift rejects",
+          "expected": "PASS",
+          "row_digest": "69f0b903f0e14e1d79c813d99ccc3d9f644676ef7c569c3afe3d306ee0448f33"
+        },
+        {
+          "row_id": "M5-MANIFEST-010",
+          "assertion": "aggregate digest drift rejects",
+          "expected": "PASS",
+          "row_digest": "3d10e30786586dd3dfb9115bf7223ae976efd33c67d9cad34fc2b21f06f7e72f"
+        }
+      ],
+      "group_digest": "5e0bb962a6bae8514d4f214c8a1bb3aa316650afe4599a628f19e08dcff0c795"
+    },
+    {
+      "group_id": "M5-REG",
+      "row_count": 12,
+      "rows": [
+        {
+          "row_id": "M5-REG-001",
+          "assertion": "AGP 56-row normative corpus passes",
+          "expected": "PASS",
+          "row_digest": "2715ef69645ac75e39687c74607aaa3548358602fefbd3abe8d2e5f84bf9e269"
+        },
+        {
+          "row_id": "M5-REG-002",
+          "assertion": "COV 40-row base corpus passes",
+          "expected": "PASS",
+          "row_digest": "6a0362bdd9ebcabf244995d1b2b1e3688c78ba4cb26f55e1e0211ea5b0c7bbfc"
+        },
+        {
+          "row_id": "M5-REG-003",
+          "assertion": "COV 14-row PMCS corpus passes",
+          "expected": "PASS",
+          "row_digest": "ddea21da7c013cdf6d507fc55351625e442bcb1afc0cf9cfe29d5f3cb661d1e6"
+        },
+        {
+          "row_id": "M5-REG-004",
+          "assertion": "COV production entry regressions pass",
+          "expected": "PASS",
+          "row_digest": "b5588c0b1dd1a7d0469cdf7aa6acb078460c410e9320c84ef4f490e505280944"
+        },
+        {
+          "row_id": "M5-REG-005",
+          "assertion": "M1 147-row matrix passes",
+          "expected": "PASS",
+          "row_digest": "87d8778eda18540fbf0c78535f56c5d47fb7aeefaf77304b15595c3cddfe4919"
+        },
+        {
+          "row_id": "M5-REG-006",
+          "assertion": "M2 72-row matrix passes",
+          "expected": "PASS",
+          "row_digest": "ee18f8fb2564ebdcc1e9675f40095abffa198acf55bce38ffd90f420a9f9c886"
+        },
+        {
+          "row_id": "M5-REG-007",
+          "assertion": "M2 67-row supplement passes",
+          "expected": "PASS",
+          "row_digest": "a8f8fdada8b3b43aa83192b026dfcdba06c5c48d35bc6af0b53ea937c9304315"
+        },
+        {
+          "row_id": "M5-REG-008",
+          "assertion": "M3 130-row matrix passes",
+          "expected": "PASS",
+          "row_digest": "4a342b3b3054a25f6d1632a1e948303714aa1eaa6f32b4e5ebac5c0719a363bc"
+        },
+        {
+          "row_id": "M5-REG-009",
+          "assertion": "M4 120-row matrix passes",
+          "expected": "PASS",
+          "row_digest": "bd634b5bfbe3bf4b7eeb21ad3e9457f48f53f9436ac700e7e3e43856e966bfdd"
+        },
+        {
+          "row_id": "M5-REG-010",
+          "assertion": "GSP and ARL regressions pass",
+          "expected": "PASS",
+          "row_digest": "0dd10a4f388a47ad25f4f854e03987ffd590a54868784bb6595a45d60bbed16e"
+        },
+        {
+          "row_id": "M5-REG-011",
+          "assertion": "type build and diff boundaries pass",
+          "expected": "PASS",
+          "row_digest": "f5161ad6bed780e0de9a73079555ec85a0450b4857feb3cfa6d492d47c6f54ae"
+        },
+        {
+          "row_id": "M5-REG-012",
+          "assertion": "Final Regression and Operational Validation bind exact candidate",
+          "expected": "PASS",
+          "row_digest": "4f5da97ee8fb48ae42a8eaf1d61f15b5934752653c210c26b966b632b4113246"
+        }
+      ],
+      "group_digest": "81a2cd5dde2ac68e57eb0bbfb8a68c71729a7babbcc54a38ce0ceb3bdb4b832c"
+    }
+  ],
+  "aggregate_digest": "51e88862af61b1ed5b05d2d059724fc10e83cbf62c323f942e4c4f62204cdd00",
+  "matrix_digest": "959d96bd89085a88cc2eebc35685cead4f1bbd7060a78da754a3f46568f42077"
+}

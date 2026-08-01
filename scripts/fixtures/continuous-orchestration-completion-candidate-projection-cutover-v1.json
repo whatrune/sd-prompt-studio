@@ -1,0 +1,846 @@
+{
+  "fixture_version": "continuous_orchestration_completion_candidate_projection_cutover_fixture_v1",
+  "task_id": "AUDIT-CONTINUOUS-ORCHESTRATION-REFACTORING-001",
+  "repository": "whatrune/sd-prompt-studio",
+  "slice_id": "M4",
+  "authority_head_sha": "b7d1013052514aacddb559cc4f24af5e33c08b96",
+  "branch": "codex/issue-221-core-consolidation",
+  "logical_worktree_identity": "issue-221-core-consolidation",
+  "implementation_candidate_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5149928215",
+  "candidate_assessment_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5149936579",
+  "implementation_dispatch_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5149941514",
+  "review_decision_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5150079973",
+  "repair_dispatch_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5150087354",
+  "repair_finding_ids": [
+    "B-221-M4-IMPL-REV-01",
+    "B-221-M4-IMPL-REV-02",
+    "B-221-M4-IMPL-REV-03",
+    "B-221-M4-META-REV-01"
+  ],
+  "repair_negative_probe_count": 14,
+  "publication_policy_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5149870587",
+  "prior_manifest_digest": "a4c9e63e18b86431f44319fc0d1de6f8e1ff07670a72bac672d59b7233bbbf91",
+  "prior_cumulative_digest": "0a5da09089085471dedca69b536ac0779277245f91f72458f9f250f17c10375c",
+  "prior_slice_count": 4,
+  "active_slice_ordinal": 4,
+  "ordered_cumulative_paths": [
+    "scripts/fixtures/continuous-orchestration-core-consolidation-m0-v1.json",
+    "scripts/test-continuous-orchestration-core-consolidation-m0.mjs",
+    "src/continuous-orchestration/shared-proof-interfaces-v1.ts",
+    "scripts/fixtures/continuous-orchestration-shared-proof-interfaces-v1.json",
+    "scripts/test-continuous-orchestration-shared-proof-interfaces.mjs",
+    "src/continuous-orchestration/shadow-equivalence-v1.ts",
+    "scripts/fixtures/continuous-orchestration-shadow-equivalence-v1.json",
+    "scripts/test-continuous-orchestration-shadow-equivalence.mjs",
+    "src/continuous-orchestration/authority-routing-budget-cutover-v1.ts",
+    "scripts/fixtures/continuous-orchestration-authority-routing-budget-cutover-v1.json",
+    "scripts/test-continuous-orchestration-authority-routing-budget-cutover.mjs",
+    "src/continuous-orchestration/completion-candidate-projection-cutover-v1.ts",
+    "scripts/fixtures/continuous-orchestration-completion-candidate-projection-cutover-v1.json",
+    "scripts/test-continuous-orchestration-completion-candidate-projection-cutover.mjs"
+  ],
+  "result_path_count": 14,
+  "predecessor_path_sha256": {
+    "scripts/fixtures/continuous-orchestration-core-consolidation-m0-v1.json": "0bb2903dabec3416657361fccf3984b697ee73fe7bf8c3c46bd51725dc854983",
+    "scripts/test-continuous-orchestration-core-consolidation-m0.mjs": "f13fabceee6571b9915f7a323b5fa1ced950bef026a07c199e88f7046675044d",
+    "src/continuous-orchestration/shared-proof-interfaces-v1.ts": "6ee6de35b634edf0481b679e003f7cdc19572e3a29aee139bb36252944cdb094",
+    "scripts/fixtures/continuous-orchestration-shared-proof-interfaces-v1.json": "7d2a3d9b3f94a5ac4d9874fbc1faf9a9d04a1a7f7849d421384675e44a810039",
+    "scripts/test-continuous-orchestration-shared-proof-interfaces.mjs": "5810c429bdd9e40b975154c030f09c442dbc66a3e87e3cd808f507349a34b79c",
+    "src/continuous-orchestration/shadow-equivalence-v1.ts": "2aaab2e0d8cdac1046dee20ec3fc57692ccf13b16a224b1430f03ba7f610d4c2",
+    "scripts/fixtures/continuous-orchestration-shadow-equivalence-v1.json": "8fee556578903174599867c747fd9ababa7bd93c9e5bfb5c76735f32299770d9",
+    "scripts/test-continuous-orchestration-shadow-equivalence.mjs": "647ff5954f8b3d265ae231c553dfe3ad0bbe0315686714c9156ac10a8a97b8a6",
+    "src/continuous-orchestration/authority-routing-budget-cutover-v1.ts": "3aed25556fab6d0105e738624f39015deb804445deb86fd57329128ddfbb952f",
+    "scripts/fixtures/continuous-orchestration-authority-routing-budget-cutover-v1.json": "947ad2d817e0f847a484c770f45355d3bfc508fed90600eab69c24e7677d9f5f",
+    "scripts/test-continuous-orchestration-authority-routing-budget-cutover.mjs": "e971797663e753028b225dfb89d86624a2353f8a2beecbc7cf6e20c4453af8c0"
+  },
+  "groups": [
+    {
+      "group_id": "M4-ADM",
+      "row_count": 12,
+      "group_digest": "fcad9e2aff6dca393d4ca6c03ae769f423c46f4eb3d27938cbe6ac1ace03d112",
+      "rows": [
+        {
+          "row_id": "M4-ADM-001",
+          "assertion": "valid closed input admitted",
+          "expected": "PASS",
+          "row_digest": "78b4a29c244c53bfa836622baf20a2cf66d01a0574b499f66e768fff3a1d59db"
+        },
+        {
+          "row_id": "M4-ADM-002",
+          "assertion": "top-level unknown rejected",
+          "expected": "PASS",
+          "row_digest": "617d114dd39a7fa527a325f9dc61613b9ff25e014af1158b53f2f4aed6dfe455"
+        },
+        {
+          "row_id": "M4-ADM-003",
+          "assertion": "nested unknown rejected",
+          "expected": "PASS",
+          "row_digest": "8b7ae3a7b83151c496593d9dfadd008c2e5e687ae3f9de36c966071aa5e63daf"
+        },
+        {
+          "row_id": "M4-ADM-004",
+          "assertion": "missing required field rejected",
+          "expected": "PASS",
+          "row_digest": "3574e88c36944dc4517facac87f317838720b52b9f5ec975b9d18e7450191019"
+        },
+        {
+          "row_id": "M4-ADM-005",
+          "assertion": "invalid enum rejected",
+          "expected": "PASS",
+          "row_digest": "16c37e1e024d062531c1111bdd179a1c72151f67c762f28006bde5173bbf12d8"
+        },
+        {
+          "row_id": "M4-ADM-006",
+          "assertion": "review order mismatch rejected",
+          "expected": "PASS",
+          "row_digest": "8fe965d87f7956787fab5f83103e505f82a19e37cae0dcb6945b4107e01b856e"
+        },
+        {
+          "row_id": "M4-ADM-007",
+          "assertion": "authority bundle mismatch stopped",
+          "expected": "PASS",
+          "row_digest": "8f70f1e6e09e11c905e4f7728b3ec7d3a16febf8e9e44cadf83decc87f007f10"
+        },
+        {
+          "row_id": "M4-ADM-008",
+          "assertion": "profile digest mismatch rejected",
+          "expected": "PASS",
+          "row_digest": "03b96db262ad0325e7ed983b1aa8915df4d343ef50e6efe7b0f3da23b2f4af57"
+        },
+        {
+          "row_id": "M4-ADM-009",
+          "assertion": "candidate identity mismatch stopped",
+          "expected": "PASS",
+          "row_digest": "df6e6b88f1b4957e16d59a3470ec1902ef3263c6d021d4891c2e2d2646b6b73b"
+        },
+        {
+          "row_id": "M4-ADM-010",
+          "assertion": "raw canonical body rejected",
+          "expected": "PASS",
+          "row_digest": "585cfd27a6bddb654d87c3bb197a048f54169581ec9f0b323c3be3ffbb31301a"
+        },
+        {
+          "row_id": "M4-ADM-011",
+          "assertion": "caller supplied derived digest rejected",
+          "expected": "PASS",
+          "row_digest": "c67f85a9e88b4776d5b26172217541ae9dcdc32cc8e5258f1dca9a1b8314054a"
+        },
+        {
+          "row_id": "M4-ADM-012",
+          "assertion": "rejection has no raw input echo",
+          "expected": "PASS",
+          "row_digest": "cf04fce3b00fd8e9d56405e0397dfad6784dbf9c84dbd3436f42478063148b13"
+        }
+      ]
+    },
+    {
+      "group_id": "M4-CAND",
+      "row_count": 18,
+      "group_digest": "51e3404ec92cb47ae10166c745aae4264d70a0355d9afbf3156e7a73445d3521",
+      "rows": [
+        {
+          "row_id": "M4-CAND-001",
+          "assertion": "unpublished candidate admitted",
+          "expected": "PASS",
+          "row_digest": "63104c7b69793c0736a88d3dd4dc05f279bdb1c13fefd266922c6e6f594dcfea"
+        },
+        {
+          "row_id": "M4-CAND-002",
+          "assertion": "published candidate admitted",
+          "expected": "PASS",
+          "row_digest": "eaef430a2ca6867ff1c2cd50ac5e0e52652e8adf41ff230105fc531842889627"
+        },
+        {
+          "row_id": "M4-CAND-003",
+          "assertion": "ordered paths authoritative",
+          "expected": "PASS",
+          "row_digest": "ae7011a7b78b02498a839b2e4367278686cac94f5b041e27e29e2edf3fab78e0"
+        },
+        {
+          "row_id": "M4-CAND-004",
+          "assertion": "aggregate reconstruction bound",
+          "expected": "PASS",
+          "row_digest": "5f70e3b86d3478f34cc01758ecfe5ae86ae901a57e924650e65ec9db74621f99"
+        },
+        {
+          "row_id": "M4-CAND-005",
+          "assertion": "base SHA bound",
+          "expected": "PASS",
+          "row_digest": "084353061206fffde4bd0f879fd5c2508f1c821708f26f371ad36f42a97c63ae"
+        },
+        {
+          "row_id": "M4-CAND-006",
+          "assertion": "working HEAD bound",
+          "expected": "PASS",
+          "row_digest": "4bb3e038ea063aa8db9107e7d4fb45cfac6a35ea22a82a5d8182046c09aa64ef"
+        },
+        {
+          "row_id": "M4-CAND-007",
+          "assertion": "published HEAD bound",
+          "expected": "PASS",
+          "row_digest": "0710bcf355c0b76b02a5e9b1c8eeadcfff766592f850755d2140b8af7496191e"
+        },
+        {
+          "row_id": "M4-CAND-008",
+          "assertion": "Result Handoff bridge required",
+          "expected": "PASS",
+          "row_digest": "55f5a8a2e1cdae8eb134936adb3efc282472b27f3aa7a1c06ad1136285877cb3"
+        },
+        {
+          "row_id": "M4-CAND-009",
+          "assertion": "Git normalization requires revised authority",
+          "expected": "PASS",
+          "row_digest": "e78d7a449a833061dcfd517b9a2a4d5b88e81fd31c4956955dfcfe82c5fee0e4"
+        },
+        {
+          "row_id": "M4-CAND-010",
+          "assertion": "extra path rejected",
+          "expected": "PASS",
+          "row_digest": "a0bb1898a08b728413a2466ed3d50f71ea63144e817688f5e00be36f5c86c83d"
+        },
+        {
+          "row_id": "M4-CAND-011",
+          "assertion": "missing path rejected",
+          "expected": "PASS",
+          "row_digest": "3e44b8a6b452dfdc01ea15dac3dd4104a2d8c6e8e716bdf8f966eedbfacaab5d"
+        },
+        {
+          "row_id": "M4-CAND-012",
+          "assertion": "reordered path rejected",
+          "expected": "PASS",
+          "row_digest": "5b78e3b64c98907068d3a6e4022ec9c519ffaeda550b0616876d630f30a30a55"
+        },
+        {
+          "row_id": "M4-CAND-013",
+          "assertion": "aggregate mismatch stopped",
+          "expected": "PASS",
+          "row_digest": "e62d3b7f31a71c744de9926377d01c13300351356d09d057f21a108439974229"
+        },
+        {
+          "row_id": "M4-CAND-014",
+          "assertion": "aggregate-only disclosure accepted",
+          "expected": "PASS",
+          "row_digest": "e9336274da8fe53ce3eb4c50ef1fcad9e0d837a93133800e0931308ffbb56e4d"
+        },
+        {
+          "row_id": "M4-CAND-015",
+          "assertion": "PR Body not candidate authority",
+          "expected": "PASS",
+          "row_digest": "7e9d81991bb6e0f81f914af01f4552f90f865546d7df7910401a4a154c1c41ce"
+        },
+        {
+          "row_id": "M4-CAND-016",
+          "assertion": "GSP not candidate authority",
+          "expected": "PASS",
+          "row_digest": "00257cea11ebdc92a8ca482041dbc1c6ff6c3534b6c904e4f3564ced68436ca2"
+        },
+        {
+          "row_id": "M4-CAND-017",
+          "assertion": "per-file claim not candidate authority",
+          "expected": "PASS",
+          "row_digest": "e35f01c609c0994553be6fe17976a6fe137f3adfdf3446d4dfbfa5ae6a3b6037"
+        },
+        {
+          "row_id": "M4-CAND-018",
+          "assertion": "candidate replay deterministic",
+          "expected": "PASS",
+          "row_digest": "6d9e7052f9ca099f9d2c0ec2144eab769db0142026798a194686b3259554ba95"
+        }
+      ]
+    },
+    {
+      "group_id": "M4-REVIEW",
+      "row_count": 10,
+      "group_digest": "f2213e38fe21b608795edc2e3777ae7af2b427ed10b34243ed8e1e71d812513f",
+      "rows": [
+        {
+          "row_id": "M4-REVIEW-001",
+          "assertion": "three review bindings admitted",
+          "expected": "PASS",
+          "row_digest": "b1e617dff40d29a7dbb4c8bdd540fe9fabaa579c58d7b95ed0dcd90037d37905"
+        },
+        {
+          "row_id": "M4-REVIEW-002",
+          "assertion": "architecture review role exact",
+          "expected": "PASS",
+          "row_digest": "208cd5f2faf9a6cf94b2c02c2e9efe9cc034e1e0b42b30683a9a7da9b38c2480"
+        },
+        {
+          "row_id": "M4-REVIEW-003",
+          "assertion": "implementation review role exact",
+          "expected": "PASS",
+          "row_digest": "14c83736b9e0b8f7241a6ff8cb6903f49a90ee754216f2b5124a77bcca00acc1"
+        },
+        {
+          "row_id": "M4-REVIEW-004",
+          "assertion": "publication review role exact",
+          "expected": "PASS",
+          "row_digest": "71a5efe55467d99526567f5840e060d03449fbb0eadc119a83fe2bd038f97b6a"
+        },
+        {
+          "row_id": "M4-REVIEW-005",
+          "assertion": "wrong candidate rejected",
+          "expected": "PASS",
+          "row_digest": "94dfc127526cc5010c0ef3599b40e0100c217f19be4a501b676d8c115f3f5035"
+        },
+        {
+          "row_id": "M4-REVIEW-006",
+          "assertion": "prior HEAD review rejected",
+          "expected": "PASS",
+          "row_digest": "108982c3a760d1608c4bd223bdd2539cf09f99cf7bbfa7b499e83ab6900e2a68"
+        },
+        {
+          "row_id": "M4-REVIEW-007",
+          "assertion": "wrong role rejected",
+          "expected": "PASS",
+          "row_digest": "60a83665e8e944a7d91de812bd3d553481a1fc8fc62d51dd7188ab7324d94b6a"
+        },
+        {
+          "row_id": "M4-REVIEW-008",
+          "assertion": "self review rejected",
+          "expected": "PASS",
+          "row_digest": "a2ccd9452b405622e8080e79295801d10a8e619880bb21995d79c1d49d4a9ebc"
+        },
+        {
+          "row_id": "M4-REVIEW-009",
+          "assertion": "duplicate or order rejected",
+          "expected": "PASS",
+          "row_digest": "a1b65bf15c429ccbc7b5070840e2d14551cfc184e9ba6f0e676089273389a190"
+        },
+        {
+          "row_id": "M4-REVIEW-010",
+          "assertion": "CI-only evidence rejected",
+          "expected": "PASS",
+          "row_digest": "c502a61a71c00c3141dbcdb3484619079d166a22c8c4bf0266d6d4dea0317a7c"
+        }
+      ]
+    },
+    {
+      "group_id": "M4-COMP",
+      "row_count": 20,
+      "group_digest": "beba0b0b20cff9dc3d65e4218e27b8a55efa07d6f9bdf9528cb3eb00c5421159",
+      "rows": [
+        {
+          "row_id": "M4-COMP-001",
+          "assertion": "completion evidence admitted",
+          "expected": "PASS",
+          "row_digest": "f906c457c10d39b39acbb14629d10e3737fc79982a9955d42969b5d5720ec315"
+        },
+        {
+          "row_id": "M4-COMP-002",
+          "assertion": "assessment required branch",
+          "expected": "PASS",
+          "row_digest": "6f1512df5dcff7d076d889d0cff3c7cda375e3968c1b02be184b4df48e08029d"
+        },
+        {
+          "row_id": "M4-COMP-003",
+          "assertion": "independent decision admitted",
+          "expected": "PASS",
+          "row_digest": "fd773fda1619f3352717df89367b3cfa8f361d1a58668690c1b63dba02e3d77f"
+        },
+        {
+          "row_id": "M4-COMP-004",
+          "assertion": "architecture gate required",
+          "expected": "PASS",
+          "row_digest": "4eecd838510e24e7e2768928e6c44456c291bba32adfac175c37683cc5a817a2"
+        },
+        {
+          "row_id": "M4-COMP-005",
+          "assertion": "implementation gate required",
+          "expected": "PASS",
+          "row_digest": "a62b03ef5c37076087bfc3f3e9b002cd85a5957fc510e544c26e685518d3cf08"
+        },
+        {
+          "row_id": "M4-COMP-006",
+          "assertion": "publication gate required",
+          "expected": "PASS",
+          "row_digest": "163b72db8c545c943539b6a884b0288bbd0c87e5853abe20fdc1c1125a06d700"
+        },
+        {
+          "row_id": "M4-COMP-007",
+          "assertion": "Final Regression required",
+          "expected": "PASS",
+          "row_digest": "df154bbe62c439682f5d8d2ca4eb108ee04a9b588b8953db73fa0dfaaf93e9f5"
+        },
+        {
+          "row_id": "M4-COMP-008",
+          "assertion": "Operational Validation required",
+          "expected": "PASS",
+          "row_digest": "149bfe55097b043102bd88f500566b1bc664d8af523f267ea8ca929be486e111"
+        },
+        {
+          "row_id": "M4-COMP-009",
+          "assertion": "Completion Preflight required",
+          "expected": "PASS",
+          "row_digest": "590ebe9e678750cc19866fbe57de26b07f8d9652f01e40c666678c87bd86284e"
+        },
+        {
+          "row_id": "M4-COMP-010",
+          "assertion": "current main binding required",
+          "expected": "PASS",
+          "row_digest": "eb2ef0a1c5b89297063466349384aef174b74854b3670c058acfacd792c6a318"
+        },
+        {
+          "row_id": "M4-COMP-011",
+          "assertion": "post-merge GSP required",
+          "expected": "PASS",
+          "row_digest": "d55f55bc38fa7bbda724958b4cbc7ddd631962276f6f893c8d1d2b2d5857575a"
+        },
+        {
+          "row_id": "M4-COMP-012",
+          "assertion": "finding recurrence stops completion",
+          "expected": "PASS",
+          "row_digest": "907af98fb8e4139e5fdd1dbf9108b6f420d29ddb84c01db27ed4de4830ac731c"
+        },
+        {
+          "row_id": "M4-COMP-013",
+          "assertion": "thread recurrence stops completion",
+          "expected": "PASS",
+          "row_digest": "2264e86d8f4b5aedd6bb4f1c82f5b4f47e3c35a6ac0b133ad833e46b1bf7079b"
+        },
+        {
+          "row_id": "M4-COMP-014",
+          "assertion": "wrong PR HEAD stops completion",
+          "expected": "PASS",
+          "row_digest": "ecb214cdae04694902171a6b82a3e7bc30154d4ba3f0d9686d3ecf1af35461ef"
+        },
+        {
+          "row_id": "M4-COMP-015",
+          "assertion": "wrong current main stops completion",
+          "expected": "PASS",
+          "row_digest": "0821a7e470e3b3bce13bfef08852b82b599eb8a13767c039e8f7a63a759820d3"
+        },
+        {
+          "row_id": "M4-COMP-016",
+          "assertion": "GSP-only cannot complete",
+          "expected": "PASS",
+          "row_digest": "49f56507b4a02bff2c3dfca10b7cb55b5d1ab943950a810762d1e237329e3148"
+        },
+        {
+          "row_id": "M4-COMP-017",
+          "assertion": "CI-only cannot complete",
+          "expected": "PASS",
+          "row_digest": "ca5e8bdefd68731bfa5d3c5a359f833fa8ffbd50a48ba265df44fa8982eb8eec"
+        },
+        {
+          "row_id": "M4-COMP-018",
+          "assertion": "merged-only cannot complete",
+          "expected": "PASS",
+          "row_digest": "d6ea7c07c652d64464e9de3ed5b2f889fd658a3f2a51f64817a2355271cdf656"
+        },
+        {
+          "row_id": "M4-COMP-019",
+          "assertion": "issue close remains separate",
+          "expected": "PASS",
+          "row_digest": "6c1cf71f5681468a531a14aa5b11f004acc07636d4e682f2413bcced0c68a5f2"
+        },
+        {
+          "row_id": "M4-COMP-020",
+          "assertion": "M4 produces zero completion decisions",
+          "expected": "PASS",
+          "row_digest": "1f00dd4c19edc8007aca9fd4e13553bb586e0fbdc41bc774ee8bf25479b2b9f3"
+        }
+      ]
+    },
+    {
+      "group_id": "M4-PROJ",
+      "row_count": 20,
+      "group_digest": "5418cae5b381e7f9f9e74d020695389d33c2911dcd04bf77ad274449aba7bc28",
+      "rows": [
+        {
+          "row_id": "M4-PROJ-001",
+          "assertion": "gate projection intent admitted",
+          "expected": "PASS",
+          "row_digest": "98a1206d194a684311d523fa21831b822d5785a1481fd1962113a7b9dbada29e"
+        },
+        {
+          "row_id": "M4-PROJ-002",
+          "assertion": "required field IDs bound",
+          "expected": "PASS",
+          "row_digest": "dae0bb02c6bd087aebfff0644ed5a0f11aff73c6663bf666974e3bb02ccd120c"
+        },
+        {
+          "row_id": "M4-PROJ-003",
+          "assertion": "evidence URLs bound",
+          "expected": "PASS",
+          "row_digest": "786ea4c7f2c4f4e7f7124c16c79022e2a1d8f0db191749d4a20c732a19ccc8c3"
+        },
+        {
+          "row_id": "M4-PROJ-004",
+          "assertion": "authorized metadata role bound",
+          "expected": "PASS",
+          "row_digest": "e38b6939bffa8c9c06e8e2a4c13cbb80785b5e87d9a3ce0089c88362bbc7a61e"
+        },
+        {
+          "row_id": "M4-PROJ-005",
+          "assertion": "PR bound",
+          "expected": "PASS",
+          "row_digest": "9afe87ef2ad167ee90e7a9f66161465f60dbfd2d58cf0c9f61193f56eadaf185"
+        },
+        {
+          "row_id": "M4-PROJ-006",
+          "assertion": "HEAD bound",
+          "expected": "PASS",
+          "row_digest": "ef763e28b89b2e7874e04e8b6087543bb59d4a308662afff35c962723b4a651a"
+        },
+        {
+          "row_id": "M4-PROJ-007",
+          "assertion": "prior generation bound",
+          "expected": "PASS",
+          "row_digest": "397fe2edf9f7ade63522c4bf97e824e54717826f6f5d1c61e75bb54cbd4c65d9"
+        },
+        {
+          "row_id": "M4-PROJ-008",
+          "assertion": "prior rows digest bound",
+          "expected": "PASS",
+          "row_digest": "55d9c8cc5958c75f0de3fd10cfa08f98f8ce95b91b0fbf1477ad62f6a10fbe09"
+        },
+        {
+          "row_id": "M4-PROJ-009",
+          "assertion": "GSP request projection produced",
+          "expected": "PASS",
+          "row_digest": "26050b12edb402c8a725b29b6f01a201f38809a8b56dc1c6c5b5dd62e87a4741"
+        },
+        {
+          "row_id": "M4-PROJ-010",
+          "assertion": "GSP sole construction authority",
+          "expected": "PASS",
+          "row_digest": "bb0a1ec12e62a36183d714091052a588d5f0270bc0a597a76636274bee7c6156"
+        },
+        {
+          "row_id": "M4-PROJ-011",
+          "assertion": "stale generation stopped",
+          "expected": "PASS",
+          "row_digest": "0bcf35c86ea8e04b8b92867582c418ea5c3b1556f3122f1ed79b4132a82ae5a9"
+        },
+        {
+          "row_id": "M4-PROJ-012",
+          "assertion": "metadata-only repair supported",
+          "expected": "PASS",
+          "row_digest": "5bb07ad9b4d905d6fd6359abe5ec68dd944df748c4520c4fb8dc396129b57c97"
+        },
+        {
+          "row_id": "M4-PROJ-013",
+          "assertion": "alternate writer rejected",
+          "expected": "PASS",
+          "row_digest": "672ac61fac0d26b931b3f195b6db5061a5a858a07a3b17307ae5d068cd9f1c5b"
+        },
+        {
+          "row_id": "M4-PROJ-014",
+          "assertion": "finding closure authority false",
+          "expected": "PASS",
+          "row_digest": "bd4b9b9ca3afba6c4b66518f293a21039517a53bca023567b7ded324db8b1713"
+        },
+        {
+          "row_id": "M4-PROJ-015",
+          "assertion": "approval authority false",
+          "expected": "PASS",
+          "row_digest": "5ab587a206e1edfd536a0c9417523ede27362d067872fd7398d776082ede204a"
+        },
+        {
+          "row_id": "M4-PROJ-016",
+          "assertion": "completion authority false",
+          "expected": "PASS",
+          "row_digest": "0e826acb27a86edab856ee5d2125e14c7b136af08d7851b7ba8acdd5506ae326"
+        },
+        {
+          "row_id": "M4-PROJ-017",
+          "assertion": "projection performed false",
+          "expected": "PASS",
+          "row_digest": "8f7cf768aedc1cab176f6980b398d3f551ba09e22fbff03e61eba850ca59507b"
+        },
+        {
+          "row_id": "M4-PROJ-018",
+          "assertion": "metadata write count zero",
+          "expected": "PASS",
+          "row_digest": "65ff438240accc933d17941b6f3c723c2bd5e82c03fdcfee191e57e45d88a6db"
+        },
+        {
+          "row_id": "M4-PROJ-019",
+          "assertion": "unique intent request at most one",
+          "expected": "PASS",
+          "row_digest": "289c4011a22a9bc145ff05eb350f2ebe23b4fbdb6a364b775d62784f8548e2e0"
+        },
+        {
+          "row_id": "M4-PROJ-020",
+          "assertion": "projection replay deterministic",
+          "expected": "PASS",
+          "row_digest": "f2248865f66ec7b76db74ddbd3c0555ac2c962bc429f7dfff96d6297448a093a"
+        }
+      ]
+    },
+    {
+      "group_id": "M4-RECEIPT",
+      "row_count": 12,
+      "group_digest": "eac46fb86055ce4c864222aca7e1f65849dfed6f1e9cd6ab2c98a10ac89af9d0",
+      "rows": [
+        {
+          "row_id": "M4-RECEIPT-001",
+          "assertion": "GSP result admitted by existing validator",
+          "expected": "PASS",
+          "row_digest": "9a659108b821a4d48647cc99a35348d2f9f469ba1ddbb9e576781967decd78f3"
+        },
+        {
+          "row_id": "M4-RECEIPT-002",
+          "assertion": "GSP receipt admitted by existing validator",
+          "expected": "PASS",
+          "row_digest": "273c569dbdb3e36563597a07d2aa6f89ef2b742e6c67fe3658cab03cd46d8ec5"
+        },
+        {
+          "row_id": "M4-RECEIPT-003",
+          "assertion": "positive result receipt reobservation chain",
+          "expected": "PASS",
+          "row_digest": "ac9a883069dab269bbf244e5cda93cbff12132d43e6263bed93af5aa97cb1b0c"
+        },
+        {
+          "row_id": "M4-RECEIPT-004",
+          "assertion": "idempotent receipt reuse accepted",
+          "expected": "PASS",
+          "row_digest": "741957035da65d904d2753756dbf8a20c799a54c4300acff3b520b339ae4b6f3"
+        },
+        {
+          "row_id": "M4-RECEIPT-005",
+          "assertion": "receipt and result task mismatch rejected",
+          "expected": "PASS",
+          "row_digest": "7fd5c4f4532a7cb0ca6a10a0ff5f923aafcadc187ac8706fa2d6929db1da24ab"
+        },
+        {
+          "row_id": "M4-RECEIPT-006",
+          "assertion": "PR mismatch rejected",
+          "expected": "PASS",
+          "row_digest": "11a0977b0cb1dffeb22ee38984c649818339fdb63530476f84bff544a78284bc"
+        },
+        {
+          "row_id": "M4-RECEIPT-007",
+          "assertion": "HEAD mismatch rejected",
+          "expected": "PASS",
+          "row_digest": "137d9905f24c4cc6f2da9bf8532a0b17c743a75584bf8da9725592947c9a9d96"
+        },
+        {
+          "row_id": "M4-RECEIPT-008",
+          "assertion": "generation mismatch rejected",
+          "expected": "PASS",
+          "row_digest": "8dfe79b0af0de686cbb7e6bed0e0d63da426180147f7624d26f49391291ac9f3"
+        },
+        {
+          "row_id": "M4-RECEIPT-009",
+          "assertion": "rows digest mismatch rejected",
+          "expected": "PASS",
+          "row_digest": "2a68ccbcd3b7b759d9dca21e6dd6f2c09ea273a5c0c1b5ad5178fddb588ac038"
+        },
+        {
+          "row_id": "M4-RECEIPT-010",
+          "assertion": "intent mismatch rejected",
+          "expected": "PASS",
+          "row_digest": "c3ea167b92f26e4e04fb8b834c6874649f0def6e2679a377a201256209a324ce"
+        },
+        {
+          "row_id": "M4-RECEIPT-011",
+          "assertion": "read-after-write mismatch rejected",
+          "expected": "PASS",
+          "row_digest": "ea584f6421444c6839c8979cd4b8a60c4c2f706460d8aa517399de6872bbeef6"
+        },
+        {
+          "row_id": "M4-RECEIPT-012",
+          "assertion": "receipt grants no closure or completion",
+          "expected": "PASS",
+          "row_digest": "98a49e64f66723415b6f14540747d270809d3062efe32ec7514b4b8fcd576bc2"
+        }
+      ]
+    },
+    {
+      "group_id": "M4-FRESH",
+      "row_count": 8,
+      "group_digest": "3ed23742ad0b90ccd12ad891b945a4edceadfe52460dde468deade61e8579cea",
+      "rows": [
+        {
+          "row_id": "M4-FRESH-001",
+          "assertion": "evaluation snapshot exact",
+          "expected": "PASS",
+          "row_digest": "63ea63eee8f5f373b80eb9de85ce1945e1e71c0214164bc6ae528ebb87dfd1a8"
+        },
+        {
+          "row_id": "M4-FRESH-002",
+          "assertion": "metadata action guard exact",
+          "expected": "PASS",
+          "row_digest": "f85b0412af63ba89b0319a6459bfc5d31bf431f3f578cb8a89302c7367916fc0"
+        },
+        {
+          "row_id": "M4-FRESH-003",
+          "assertion": "HEAD drift stopped",
+          "expected": "PASS",
+          "row_digest": "b297c495c8f94d53416eb9f0b354f4c94e8ef856726b9f60fb88648775c7c4d5"
+        },
+        {
+          "row_id": "M4-FRESH-004",
+          "assertion": "PR drift stopped",
+          "expected": "PASS",
+          "row_digest": "4f0220bc9043ca15e938ba0618cb86c4115f90d0d4cf0f4cbb61c6eb21d9af35"
+        },
+        {
+          "row_id": "M4-FRESH-005",
+          "assertion": "finding drift stopped",
+          "expected": "PASS",
+          "row_digest": "95fe406f1a207b316b32dfc09943bd3632aafcd330ca62f5c8b2a1937aaf5e4b"
+        },
+        {
+          "row_id": "M4-FRESH-006",
+          "assertion": "thread drift stopped",
+          "expected": "PASS",
+          "row_digest": "1c6920a4e34fecb14c53e861e0508cba277e607c3c5f3fb1034c65233fd50cfd"
+        },
+        {
+          "row_id": "M4-FRESH-007",
+          "assertion": "GSP and check-set drift stopped",
+          "expected": "PASS",
+          "row_digest": "9d2e03c0d1b060a2b05ca766e2329f0ed598f143ecc033206f452c9e8945d721"
+        },
+        {
+          "row_id": "M4-FRESH-008",
+          "assertion": "workspace inaccessible consumed-proof and zero protected action",
+          "expected": "PASS",
+          "row_digest": "0902e53a93a6246f16c1dde357bbc1e8228df91232d57f8e7886e39d83335df2"
+        }
+      ]
+    },
+    {
+      "group_id": "M4-MANIFEST",
+      "row_count": 10,
+      "group_digest": "4121d7aef3d4a88967e0c3db75f29f5bc221f886fecb017508900ce32b1a5c81",
+      "rows": [
+        {
+          "row_id": "M4-MANIFEST-001",
+          "assertion": "exact eleven predecessor paths",
+          "expected": "PASS",
+          "row_digest": "e6dc361177e957d05a6597199b5c2949d3c55d36d76e3007ae03e4a5cb78c925"
+        },
+        {
+          "row_id": "M4-MANIFEST-002",
+          "assertion": "exact predecessor byte identities",
+          "expected": "PASS",
+          "row_digest": "eda50aa8d5d3ba1e38d2df2cf0378f770e2e1c877c479ebbdafc0d24a060c545"
+        },
+        {
+          "row_id": "M4-MANIFEST-003",
+          "assertion": "exact three M4 additions",
+          "expected": "PASS",
+          "row_digest": "71bf83df4e0142feb746f7c4b09eb409b17a5fb6c116daf55a5f62ad2575c90c"
+        },
+        {
+          "row_id": "M4-MANIFEST-004",
+          "assertion": "exact fourteen path count",
+          "expected": "PASS",
+          "row_digest": "b60383f6e99b1a68c75426cee0ecfd70ed6f107402fb86a2e27010581a513122"
+        },
+        {
+          "row_id": "M4-MANIFEST-005",
+          "assertion": "frozen cumulative order exact and reverse rejected",
+          "expected": "PASS",
+          "row_digest": "a8c367d116acba60824008de6e5d8930e86fbc512b148c0c6c9055a3b599fac3"
+        },
+        {
+          "row_id": "M4-MANIFEST-006",
+          "assertion": "M4 slice digest deterministic",
+          "expected": "PASS",
+          "row_digest": "49b466ee58e9a7793f778de7a2f5cc0cf38b99e4265c1b6a0e6a633eb72815f5"
+        },
+        {
+          "row_id": "M4-MANIFEST-007",
+          "assertion": "cumulative digest deterministic",
+          "expected": "PASS",
+          "row_digest": "345695ce27491382bedf242a1b89246f5be460787640316555e72b7b284e0d43"
+        },
+        {
+          "row_id": "M4-MANIFEST-008",
+          "assertion": "manifest digest deterministic",
+          "expected": "PASS",
+          "row_digest": "d87e422071269384fcfc5766fa3e558ee01d9d87fdbf11f0d0ca5033dfff4011"
+        },
+        {
+          "row_id": "M4-MANIFEST-009",
+          "assertion": "prior manifest mismatch rejected",
+          "expected": "PASS",
+          "row_digest": "ff2e08f83d03ca494dee54437d768063a6853f93460112ebbc0e32e2377b70f1"
+        },
+        {
+          "row_id": "M4-MANIFEST-010",
+          "assertion": "active aggregate drift rejected",
+          "expected": "PASS",
+          "row_digest": "c402092861cef69b71da2f7c335f59cc14b08041807a5b31d74da0151b23743e"
+        }
+      ]
+    },
+    {
+      "group_id": "M4-REG",
+      "row_count": 10,
+      "group_digest": "3c0b4cf99090c47ec5e8bbbac0c1ba5136a5fc746664114e77378f5f1f520555",
+      "rows": [
+        {
+          "row_id": "M4-REG-001",
+          "assertion": "M0 standalone regression",
+          "expected": "PASS",
+          "row_digest": "0f26417758f0024bc7a9322d2f05d2fd05cb507c0ea7c121606358e3f9ec6332"
+        },
+        {
+          "row_id": "M4-REG-002",
+          "assertion": "M1 147-row regression",
+          "expected": "PASS",
+          "row_digest": "8f3e5275f500e800413f94dd1fe314bc2cd64f6a5300aaa8d880736c5c7e4955"
+        },
+        {
+          "row_id": "M4-REG-003",
+          "assertion": "M1 cumulative compatibility regression",
+          "expected": "PASS",
+          "row_digest": "a39ff49877f548f8a9f87a294886c431a1b74dcd9203751485def8a4ace74e61"
+        },
+        {
+          "row_id": "M4-REG-004",
+          "assertion": "M2 72-row regression",
+          "expected": "PASS",
+          "row_digest": "6bd7599d44bc19c9affd6664877d1047fcb612c6ff838106d92db1a2d609f4fb"
+        },
+        {
+          "row_id": "M4-REG-005",
+          "assertion": "M2 67-row supplement",
+          "expected": "PASS",
+          "row_digest": "861eba23a2ddfc04e17814a4f609f05a8a0a1c63aa9633cd60ffd590ee35e3f5"
+        },
+        {
+          "row_id": "M4-REG-006",
+          "assertion": "M3 130-row regression",
+          "expected": "PASS",
+          "row_digest": "844e68479464f51860ac09adda1accec2721b9b73fc62f68ff44f24b26c64670"
+        },
+        {
+          "row_id": "M4-REG-007",
+          "assertion": "AGP 56-row regression",
+          "expected": "PASS",
+          "row_digest": "6ac7f6bc359e5899b3352e728215fd88821b74a9075871b37e352181ffdc7bc8"
+        },
+        {
+          "row_id": "M4-REG-008",
+          "assertion": "COV GSP ARL regressions",
+          "expected": "PASS",
+          "row_digest": "b86a312cf94fbd76ca4f5dc280767cf4ccef79d1eb0585eee9016b57268dbcd7"
+        },
+        {
+          "row_id": "M4-REG-009",
+          "assertion": "production entrypoint bytes equal exact HEAD blobs",
+          "expected": "PASS",
+          "row_digest": "8f75eb3cd7131ce9fefab4c4118868f04abbc69460cedce3777cbe2c8a9a7599"
+        },
+        {
+          "row_id": "M4-REG-010",
+          "assertion": "duplicate writer count zero",
+          "expected": "PASS",
+          "row_digest": "9e04a54830822f84e9c42d1fecfc87ebadf5d3b25df367ba4fa8317b4bdec69c"
+        }
+      ]
+    }
+  ],
+  "group_count": 9,
+  "row_count": 120,
+  "aggregate_digest": "3b2618a04465ff8fd5daa14188b491e839ae7a7959cbcfaeea5625a152cea87f",
+  "matrix_digest": "57355a238fcce3c4d44ee85e498d2b5f17e42aa7314ffe879d989035cd3993c1",
+  "fixture_digest": "b0305ba074bd6f899d7eec1cf1e37a781eae1098cf4980e3b579a3cff74568a1"
+}
