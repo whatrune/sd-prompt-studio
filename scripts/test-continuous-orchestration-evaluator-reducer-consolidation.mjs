@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import {execFileSync} from 'node:child_process'
+import {execFileSync,spawnSync} from 'node:child_process'
 import {createHash} from 'node:crypto'
 import {readFile} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
@@ -14,9 +14,141 @@ const digest=v=>sha(jcs(v)),D=s=>sha(s),without=(v,...ks)=>Object.fromEntries(Ob
 const ordered=a=>[...a].sort((x,y)=>Buffer.from(x).compare(Buffer.from(y))),url=n=>`https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-${n}`
 const accepted=r=>r.kind==='accepted',rejected=r=>r.kind==='rejected',same=(a,b)=>jcs(a)===jcs(b),deepFrozen=v=>v===null||typeof v!=='object'||Object.isFrozen(v)&&Object.values(v).every(deepFrozen)
 const git=(...a)=>execFileSync('git',a,{cwd:process.cwd(),encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim()
-const runJson=(args,env=process.env)=>JSON.parse(execFileSync(process.execPath,args,{cwd:process.cwd(),encoding:'utf8',stdio:['ignore','pipe','pipe'],env}))
+const runJson=(args,env=process.env)=>{
+ const output=execFileSync(process.execPath,args,{cwd:process.cwd(),encoding:'utf8',stdio:['ignore','pipe','pipe'],env})
+ const values=[]
+ for(const line of output.split(/\r?\n/).filter(Boolean)){try{values.push(JSON.parse(line))}catch{/* Vite may emit optimizer diagnostics on stdout. */}}
+ assert.equal(values.length,1,'child runner must emit exactly one JSON result')
+ return values[0]
+}
 let assertions=0;const check=(c,m)=>{assertions++;assert.ok(c,m)}
 const HEAD=fixture.authority_head,TASK=fixture.task_id,REPO=fixture.repository,SCOPE=D('issue221-m5-scope'),PR='https://github.com/whatrune/sd-prompt-studio/pull/220'
+
+const AT=fixture.authority_transition_v2
+const TRANSITION_FLAG='--authority-transition-envelope-v2='
+const SELF_TEST_FLAG='--implementation-self-test'
+const TRANSITION_PR='https://github.com/whatrune/sd-prompt-studio/pull/222'
+const CANDIDATE_ID='issue-221-m0-m6-cumulative-candidate-v2-b222-fr01-repair'
+const CANDIDATE_FIELDS=['candidate_authority_version','task_id','repository','finding_id','candidate_id','branch','original_checkout_authority_sha','repair_parent_head_sha','ordered_repository_relative_paths','exact_changed_paths','aggregate_candidate_digest','ordered_manifest_digest','candidate_identity','result_handoff_url','candidate_binding_digest']
+const PUBLISHED_FIELDS=['publication_commit_parent_sha','published_pr_head_sha','merge_before_head_sha','required_pr_state','commit_tree_candidate_binding_digest']
+const PROOF_CORE_FIELDS=AT.proof_fields.slice(0,15)
+const SOURCE_FIELDS=['checkout_head_source','branch_source','pr_metadata_source','current_main_source','merge_before_head_source','candidate_identity_source','aggregate_manifest_source']
+const LEDGER_FIELDS=['ledger_version','task_id','repository','owner_role_id','entries','ledger_digest']
+const LEDGER_ENTRY_FIELDS=['predecessor_key','transition_key','proof_digest','successor_head_sha','consumption_ordinal','consumed_by_role_id']
+const COMMAND_FIELDS=['command_version','task_id','repository','owner_role_id','owner_authority_record_url','predecessor_key','transition_key','proof_digest','expected_ledger_digest','command_digest']
+const RECEIPT_FIELDS=['receipt_version','task_id','repository','owner_role_id','predecessor_key','transition_key','proof_digest','successor_head_sha','previous_ledger_digest','next_ledger_digest','consumption_ordinal','receipt_digest']
+const exactKeys=(value,keys)=>value!==null&&typeof value==='object'&&!Array.isArray(value)&&same(Object.keys(value).sort(),[...keys].sort())
+const directIssueUrl=value=>typeof value==='string'&&/^https:\/\/github\.com\/whatrune\/sd-prompt-studio\/issues\/221#issuecomment-\d+$/.test(value)
+const sealField=(value,key)=>({...value,[key]:digest(value)})
+const rejectTransition=code=>Object.freeze({kind:'rejected',code})
+const acceptTransition=(code,value={})=>Object.freeze({kind:'accepted',code,...value})
+const encodeEnvelope=envelope=>Buffer.from(jcs(envelope),'utf8').toString('base64url')
+const sealEnvelope=envelope=>sealField(without(envelope,'envelope_digest'),'envelope_digest')
+const resealLedger=ledger=>sealField(without(ledger,'ledger_digest'),'ledger_digest')
+const resealCommand=command=>sealField(without(command,'command_digest'),'command_digest')
+const proofCore=proof=>Object.fromEntries(PROOF_CORE_FIELDS.map(key=>[key,proof[key]]))
+const predecessorTuple=predecessor=>Object.fromEntries(['predecessor_version','task_id','repository','candidate_id','candidate_identity','publication_candidate_url','checkout_head_sha','base_head_sha','current_main_sha','aggregate_candidate_digest','ordered_manifest_digest'].map(key=>[key,predecessor[key]]))
+
+const parseTransitionCli=args=>{
+ if(args.length===0)return rejectTransition('missing_transition_envelope')
+ if(args.length!==1||!args[0].startsWith(TRANSITION_FLAG))return rejectTransition('invalid_cli_envelope_authority')
+ const token=args[0].slice(TRANSITION_FLAG.length)
+ if(!/^[A-Za-z0-9_-]+$/.test(token)||token.includes('='))return rejectTransition('malformed_transition_envelope')
+ let bytes,value
+ try{
+  bytes=Buffer.from(token,'base64url')
+  if(bytes.toString('base64url')!==token)return rejectTransition('malformed_transition_envelope')
+  value=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes))
+  if(!Buffer.from(jcs(value),'utf8').equals(bytes))return rejectTransition('malformed_transition_envelope')
+ }catch{return rejectTransition('malformed_transition_envelope')}
+ return acceptTransition('accepted_cli_envelope',{argument:args[0],token,value})
+}
+
+const validateAndConsumeTransitionEnvelope=envelope=>{
+ if(envelope===null||typeof envelope!=='object'||Array.isArray(envelope)||!Object.hasOwn(envelope,'finalization'))return rejectTransition('missing_finalization')
+ if(!exactKeys(envelope,AT.envelope_fields)||envelope.envelope_version!=='authority-transition-validation-envelope-v2'||envelope.envelope_digest!==digest(without(envelope,'envelope_digest')))return rejectTransition('invalid_transition_digest')
+ const {proof,finalization,fresh_observation:observation,consumption_ledger:ledger,consume_command:command}=envelope
+ if(finalization===undefined||finalization===null)return rejectTransition('missing_finalization')
+ if(!exactKeys(finalization,AT.finalization_fields)||finalization.finalization_version!=='authority-transition-finalization-v2')return rejectTransition('invalid_finalization_schema')
+ if(!directIssueUrl(finalization.finalization_record_url)||finalization.architecture_revision_url!==AT.architecture_revision_url)return rejectTransition('finalization_identity_mismatch')
+ if(!exactKeys(proof,AT.proof_fields))return rejectTransition('predecessor_authority_mismatch')
+ const core=proofCore(proof)
+ if(finalization.proof_core_digest!==digest(core))return rejectTransition('proof_core_mismatch')
+ if(finalization.finalization_digest!==digest(without(finalization,'finalization_digest')))return rejectTransition('finalization_digest_mismatch')
+ if(proof.proof_version!=='authority-transition-proof-v2'||proof.transition_class!=='repaired_candidate_to_published_pr_head'||proof.successor_ordinal!==1||proof.single_successor!==true||proof.replay_allowed!==false)return rejectTransition('predecessor_authority_mismatch')
+ const predecessor=proof.predecessor_authority
+ if(!exactKeys(predecessor,AT.predecessor_authority_fields)||predecessor.predecessor_version!=='authority-transition-predecessor-v1'||predecessor.disposition!=='historical_at_prior_head'||predecessor.predecessor_key!==AT.predecessor_key||digest(predecessorTuple(predecessor))!==AT.predecessor_key||predecessor.old_published_head_sha!==AT.old_published_head_sha)return rejectTransition('predecessor_authority_mismatch')
+ const proofWithoutKeys=Object.fromEntries(AT.proof_fields.slice(0,17).map(key=>[key,proof[key]]))
+ if(proof.transition_key!==digest(proofWithoutKeys)||proof.proof_digest!==digest(without(proof,'proof_digest')))return rejectTransition('predecessor_authority_mismatch')
+ if(!exactKeys(observation,AT.observation_fields)||observation.observation_version!=='fresh-authority-transition-observation-v2'||!exactKeys(observation.source_bindings,SOURCE_FIELDS)||observation.observation_digest!==digest(without(observation,'observation_digest')))return rejectTransition('stale_transition')
+ const candidate=proof.repaired_candidate_authority,published=proof.published_authority
+ if(!exactKeys(candidate,CANDIDATE_FIELDS)||!exactKeys(published,PUBLISHED_FIELDS))return rejectTransition('finalization_identity_mismatch')
+ const identityEqual=finalization.finalization_record_url===proof.finalization_record_url&&finalization.finalization_record_url===observation.authority_finalization_record_url&&finalization.finalization_digest===proof.finalization_digest&&finalization.predecessor_key===proof.predecessor_key&&finalization.repaired_candidate_id===candidate.candidate_id&&finalization.repaired_candidate_identity===candidate.candidate_identity&&finalization.repaired_candidate_binding_digest===candidate.candidate_binding_digest
+ if(!identityEqual)return rejectTransition('finalization_identity_mismatch')
+ const commonBound=envelope.task_id===TASK&&envelope.repository===REPO&&proof.task_id===TASK&&proof.repository===REPO&&finalization.task_id===TASK&&finalization.repository===REPO&&observation.task_id===TASK&&observation.repository===REPO&&proof.finding_id==='B-222-FR-01'&&finalization.finding_id==='B-222-FR-01'&&proof.target_pr_url===TRANSITION_PR&&finalization.target_pr_url===TRANSITION_PR&&observation.target_pr_url===TRANSITION_PR&&proof.branch===fixture.branch&&finalization.branch===fixture.branch&&observation.branch===fixture.branch&&proof.publication_result_handoff_url===finalization.publication_result_handoff_url&&proof.publication_result_handoff_url===observation.publication_result_handoff_url
+ if(!commonBound)return rejectTransition('finalization_identity_mismatch')
+ const mixed=[candidate.aggregate_candidate_digest,finalization.aggregate_candidate_digest,observation.observed_aggregate_candidate_digest].includes(AT.old_aggregate_candidate_digest)||[candidate.ordered_manifest_digest,finalization.ordered_manifest_digest,observation.observed_ordered_manifest_digest].includes(AT.old_ordered_manifest_digest)
+ if(mixed&&!(candidate.aggregate_candidate_digest===finalization.aggregate_candidate_digest&&candidate.aggregate_candidate_digest===observation.observed_aggregate_candidate_digest&&candidate.ordered_manifest_digest===finalization.ordered_manifest_digest&&candidate.ordered_manifest_digest===observation.observed_ordered_manifest_digest))return rejectTransition('mixed_authority_rejected')
+ if(candidate.aggregate_candidate_digest===AT.old_aggregate_candidate_digest||candidate.ordered_manifest_digest===AT.old_ordered_manifest_digest||published.published_pr_head_sha===AT.old_published_head_sha)return rejectTransition('historical_authority_rejected')
+ if(candidate.candidate_id!==CANDIDATE_ID||candidate.candidate_identity!==`sha256:${candidate.aggregate_candidate_digest}`||candidate.candidate_binding_digest!==digest(without(candidate,'candidate_binding_digest'))||finalization.aggregate_candidate_digest!==candidate.aggregate_candidate_digest||observation.observed_candidate_id!==candidate.candidate_id||observation.observed_candidate_identity!==candidate.candidate_identity||observation.observed_aggregate_candidate_digest!==candidate.aggregate_candidate_digest)return rejectTransition('aggregate_authority_mismatch')
+ if(candidate.ordered_repository_relative_paths.length!==20||!same(candidate.exact_changed_paths,AT.exact_changed_paths)||finalization.ordered_manifest_digest!==candidate.ordered_manifest_digest||observation.observed_ordered_manifest_digest!==candidate.ordered_manifest_digest)return rejectTransition('manifest_authority_mismatch')
+ if(candidate.repair_parent_head_sha!==AT.old_published_head_sha||published.publication_commit_parent_sha!==AT.old_published_head_sha||finalization.publication_commit_parent_sha!==AT.old_published_head_sha||observation.observed_pr_base_sha!==AT.old_published_head_sha)return rejectTransition('publication_parent_mismatch')
+ const successor=published.published_pr_head_sha
+ if(successor===AT.old_published_head_sha||published.merge_before_head_sha!==successor||finalization.published_pr_head_sha!==successor||finalization.merge_before_head_sha!==successor||observation.observed_checkout_head_sha!==successor||observation.observed_pr_head_sha!==successor||observation.observed_merge_before_head_sha!==successor)return rejectTransition('published_head_mismatch')
+ if(published.required_pr_state!=='open_draft'||finalization.required_pr_state!=='open_draft'||observation.observed_pr_state!=='open_draft'||observation.fresh_guard_record_url!==envelope.retry_dispatch_url||!directIssueUrl(envelope.retry_dispatch_url)||Object.values(observation.source_bindings).some(value=>typeof value!=='string'||value.length===0))return rejectTransition('stale_transition')
+ if(!exactKeys(ledger,LEDGER_FIELDS)||ledger.ledger_version!=='authority-transition-consumption-ledger-v1'||ledger.task_id!==TASK||ledger.repository!==REPO||ledger.owner_role_id!=='validation_runner'||ledger.ledger_digest!==digest(without(ledger,'ledger_digest'))||!Array.isArray(ledger.entries)||ledger.entries.some((entry,index)=>!exactKeys(entry,LEDGER_ENTRY_FIELDS)||entry.consumption_ordinal!==index+1||entry.consumed_by_role_id!=='validation_runner'))return rejectTransition('invalid_consumption_boundary')
+ if(!exactKeys(command,COMMAND_FIELDS)||command.command_version!=='authority-transition-consume-command-v1'||command.task_id!==TASK||command.repository!==REPO||command.owner_role_id!=='validation_runner'||command.owner_authority_record_url!==envelope.retry_dispatch_url||command.predecessor_key!==proof.predecessor_key||command.transition_key!==proof.transition_key||command.proof_digest!==proof.proof_digest||command.expected_ledger_digest!==ledger.ledger_digest||command.command_digest!==digest(without(command,'command_digest')))return rejectTransition('invalid_consumption_boundary')
+ const keyConflict=ledger.entries.find(entry=>entry.transition_key===proof.transition_key&&(entry.predecessor_key!==proof.predecessor_key||entry.proof_digest!==proof.proof_digest||entry.successor_head_sha!==successor))
+ const secondSuccessor=ledger.entries.find(entry=>entry.predecessor_key===proof.predecessor_key&&(entry.transition_key!==proof.transition_key||entry.successor_head_sha!==successor))
+ const replay=ledger.entries.find(entry=>entry.predecessor_key===proof.predecessor_key&&entry.transition_key===proof.transition_key&&entry.proof_digest===proof.proof_digest&&entry.successor_head_sha===successor)
+ if(keyConflict||secondSuccessor)return rejectTransition('second_successor')
+ if(replay)return rejectTransition('transition_replay')
+ const entry={predecessor_key:proof.predecessor_key,transition_key:proof.transition_key,proof_digest:proof.proof_digest,successor_head_sha:successor,consumption_ordinal:ledger.entries.length+1,consumed_by_role_id:'validation_runner'}
+ const nextLedger=resealLedger({...ledger,entries:[...ledger.entries,entry]})
+ const receipt=sealField({receipt_version:'authority-transition-consumption-receipt-v1',task_id:TASK,repository:REPO,owner_role_id:'validation_runner',predecessor_key:proof.predecessor_key,transition_key:proof.transition_key,proof_digest:proof.proof_digest,successor_head_sha:successor,previous_ledger_digest:ledger.ledger_digest,next_ledger_digest:nextLedger.ledger_digest,consumption_ordinal:entry.consumption_ordinal},'receipt_digest')
+ if(!exactKeys(receipt,RECEIPT_FIELDS)||receipt.receipt_digest!==digest(without(receipt,'receipt_digest')))return rejectTransition('invalid_consumption_boundary')
+ return acceptTransition('accepted_direct_m5',{authority_transition_envelope_digest:envelope.envelope_digest,authority_transition_proof_digest:proof.proof_digest,authority_transition_finalization_digest:finalization.finalization_digest,next_ledger:nextLedger,receipt})
+}
+
+const makeTransitionEnvelope=()=>{
+ const handoff=url('5154000001'),finalizationUrl=url('5154000002'),dispatch=url('5154000003')
+ const successor=D('issue221-b222-fr01-published-successor').slice(0,40)
+ const aggregate=D('issue221-b222-fr01-repaired-aggregate'),manifest=D('issue221-b222-fr01-repaired-manifest')
+ const predecessor={predecessor_version:'authority-transition-predecessor-v1',task_id:TASK,repository:REPO,candidate_id:'issue-221-m0-m6-cumulative-candidate-v1',candidate_identity:`sha256:${AT.old_aggregate_candidate_digest}`,publication_candidate_url:url('5151560006'),publication_result_handoff_url:url('5151669403'),checkout_head_sha:'b7d1013052514aacddb559cc4f24af5e33c08b96',base_head_sha:'b7d1013052514aacddb559cc4f24af5e33c08b96',current_main_sha:'b7d1013052514aacddb559cc4f24af5e33c08b96',old_published_head_sha:AT.old_published_head_sha,aggregate_candidate_digest:AT.old_aggregate_candidate_digest,ordered_manifest_digest:AT.old_ordered_manifest_digest,disposition:'historical_at_prior_head',predecessor_key:AT.predecessor_key}
+ const candidate=sealField({candidate_authority_version:'repaired-candidate-authority-v2',task_id:TASK,repository:REPO,finding_id:'B-222-FR-01',candidate_id:CANDIDATE_ID,branch:fixture.branch,original_checkout_authority_sha:'b7d1013052514aacddb559cc4f24af5e33c08b96',repair_parent_head_sha:AT.old_published_head_sha,ordered_repository_relative_paths:[...fixture.ordered_cumulative_paths,'src/continuous-orchestration/deprecation-removal-v1.ts','scripts/fixtures/continuous-orchestration-deprecation-removal-v1.json','scripts/test-continuous-orchestration-deprecation-removal.mjs'],exact_changed_paths:AT.exact_changed_paths,aggregate_candidate_digest:aggregate,ordered_manifest_digest:manifest,candidate_identity:`sha256:${aggregate}`,result_handoff_url:handoff},'candidate_binding_digest')
+ const published={publication_commit_parent_sha:AT.old_published_head_sha,published_pr_head_sha:successor,merge_before_head_sha:successor,required_pr_state:'open_draft',commit_tree_candidate_binding_digest:candidate.candidate_binding_digest}
+ const core={proof_version:'authority-transition-proof-v2',transition_class:'repaired_candidate_to_published_pr_head',task_id:TASK,repository:REPO,finding_id:'B-222-FR-01',target_pr_url:TRANSITION_PR,branch:fixture.branch,predecessor_authority:predecessor,repaired_candidate_authority:candidate,published_authority:published,publication_result_handoff_url:handoff,successor_ordinal:1,single_successor:true,replay_allowed:false,predecessor_key:AT.predecessor_key}
+ const finalization=sealField({finalization_version:'authority-transition-finalization-v2',task_id:TASK,repository:REPO,finding_id:'B-222-FR-01',architecture_revision_url:AT.architecture_revision_url,predecessor_key:AT.predecessor_key,repaired_candidate_id:candidate.candidate_id,repaired_candidate_identity:candidate.candidate_identity,repaired_candidate_binding_digest:candidate.candidate_binding_digest,aggregate_candidate_digest:aggregate,ordered_manifest_digest:manifest,target_pr_url:TRANSITION_PR,branch:fixture.branch,publication_commit_parent_sha:AT.old_published_head_sha,published_pr_head_sha:successor,merge_before_head_sha:successor,required_pr_state:'open_draft',publication_result_handoff_url:handoff,finalization_record_url:finalizationUrl,proof_core_digest:digest(core)},'finalization_digest')
+ const proofPrefix={...core,finalization_record_url:finalizationUrl,finalization_digest:finalization.finalization_digest}
+ const proof=sealField({...proofPrefix,transition_key:digest(proofPrefix)},'proof_digest')
+ const source_bindings={checkout_head_source:'local_git_rev_parse_head',branch_source:'local_git_branch_show_current',pr_metadata_source:'canonical_fresh_guard_record',current_main_source:'canonical_fresh_guard_record',merge_before_head_source:'canonical_fresh_guard_record',candidate_identity_source:'publication_candidate_record',aggregate_manifest_source:'publication_result_handoff_record'}
+ const observation=sealField({observation_version:'fresh-authority-transition-observation-v2',task_id:TASK,repository:REPO,target_pr_url:TRANSITION_PR,branch:fixture.branch,observed_checkout_head_sha:successor,observed_pr_head_sha:successor,observed_pr_base_sha:AT.old_published_head_sha,observed_current_main_sha:'b7d1013052514aacddb559cc4f24af5e33c08b96',observed_merge_before_head_sha:successor,observed_pr_state:'open_draft',observed_candidate_id:candidate.candidate_id,observed_candidate_identity:candidate.candidate_identity,observed_aggregate_candidate_digest:aggregate,observed_ordered_manifest_digest:manifest,authority_finalization_record_url:finalizationUrl,publication_result_handoff_url:handoff,fresh_guard_record_url:dispatch,source_bindings},'observation_digest')
+ const ledger=resealLedger({ledger_version:'authority-transition-consumption-ledger-v1',task_id:TASK,repository:REPO,owner_role_id:'validation_runner',entries:[]})
+ const command=resealCommand({command_version:'authority-transition-consume-command-v1',task_id:TASK,repository:REPO,owner_role_id:'validation_runner',owner_authority_record_url:dispatch,predecessor_key:proof.predecessor_key,transition_key:proof.transition_key,proof_digest:proof.proof_digest,expected_ledger_digest:ledger.ledger_digest})
+ return sealEnvelope({envelope_version:'authority-transition-validation-envelope-v2',task_id:TASK,repository:REPO,proof,finalization,fresh_observation:observation,consumption_ledger:ledger,consume_command:command,retry_dispatch_url:dispatch})
+}
+
+const transitionFixtureEnvelope=makeTransitionEnvelope()
+const transitionFixtureArgument=`${TRANSITION_FLAG}${encodeEnvelope(transitionFixtureEnvelope)}`
+const suppliedTransitionCli=process.argv.slice(2)
+const explicitSelfTest=same(suppliedTransitionCli,[SELF_TEST_FLAG])
+let suppliedTransitionResult=null
+let suppliedTransitionEnvelope=null,suppliedTransitionIsFixture=false
+if(!explicitSelfTest){
+ const parsed=parseTransitionCli(suppliedTransitionCli)
+ suppliedTransitionEnvelope=parsed.kind==='accepted'?parsed.value:null
+ suppliedTransitionIsFixture=parsed.kind==='accepted'&&parsed.argument===transitionFixtureArgument
+ suppliedTransitionResult=parsed.kind==='accepted'?validateAndConsumeTransitionEnvelope(parsed.value):parsed
+ if(suppliedTransitionResult.kind!=='accepted'){
+  console.log(JSON.stringify({result:'FAIL',contract:'Authority Transition Validation Envelope V2',code:suppliedTransitionResult.code,child_invocation_count:0}))
+ process.exit(1)
+ }
+}
+if(explicitSelfTest){
+ const probe=spawnSync(process.execPath,[process.argv[1]],{cwd:process.cwd(),encoding:'utf8',stdio:['ignore','pipe','pipe']})
+ const result=JSON.parse(probe.stdout)
+ check(probe.status===1&&result.result==='FAIL'&&result.code==='missing_transition_envelope'&&result.child_invocation_count===0,'direct M5 process without envelope fails closed')
+}
 
 const server=await createServer({configFile:false,cacheDir:join(tmpdir(),'sd-prompt-studio-issue221-m5-vite'),optimizeDeps:{noDiscovery:true},server:{middlewareMode:true},appType:'custom',logLevel:'error'})
 const api=await server.ssrLoadModule('/src/continuous-orchestration/evaluator-reducer-consolidation-v1.ts')
@@ -144,7 +276,8 @@ const m4run={result:predecessorIdentity?'PASS':'FAIL',rows:'120/120',cumulative_
 await server.close()
 const agpRun=runJson(['scripts/test-automatic-gate-progression-evaluator.mjs']),covRun=runJson(['--experimental-strip-types','scripts/test-continuous-orchestration.mjs']),gspRun=runJson(['scripts/test-gate-status-publisher.mjs']),arlRun=runJson(['scripts/test-architecture-repair-loop.mjs'])
 const staged=git('diff','--cached','--name-only').split(/\r?\n/).filter(Boolean),tracked=git('diff','--name-only').split(/\r?\n/).filter(Boolean)
-check(staged.length===0,'staged zero');check(tracked.length===0,'tracked existing delta zero')
+const trackedBoundary=tracked.length===0||same([...tracked].sort(),[...AT.exact_changed_paths].sort())
+check(staged.length===0,'staged zero');check(trackedBoundary,'tracked exact repair boundary')
 const reseal=(value,key)=>({...without(value,key),[key]:digest(without(value,key))})
 const invalidInput=(fn,source=baseInput)=>{const v=clone(source);fn(v);return api.sealEvaluatorReducerConsolidationInputV1(without(v,'input_digest'))}
 const observe=(input,expected,observed,passed)=>({input,expected,observed,passed})
@@ -179,6 +312,62 @@ const targetedProbes=[
  rejectionCase(targetedApprovalConsumptionDrift,'/input/protected_action_simulation_or_null/protected_action_guard_or_null'),
 ]
 for(const [index,probe] of targetedProbes.entries())check(probe.passed,`targeted repair probe ${index+1}`)
+const rebindTransitionEnvelope=input=>{
+ const value=clone(input)
+ value.proof.repaired_candidate_authority=sealField(without(value.proof.repaired_candidate_authority,'candidate_binding_digest'),'candidate_binding_digest')
+ value.proof.published_authority.commit_tree_candidate_binding_digest=value.proof.repaired_candidate_authority.candidate_binding_digest
+ value.finalization.repaired_candidate_binding_digest=value.proof.repaired_candidate_authority.candidate_binding_digest
+ value.finalization.proof_core_digest=digest(proofCore(value.proof))
+ value.finalization=sealField(without(value.finalization,'finalization_digest'),'finalization_digest')
+ value.proof.finalization_digest=value.finalization.finalization_digest
+ const prefix=Object.fromEntries(AT.proof_fields.slice(0,17).map(key=>[key,value.proof[key]]))
+ value.proof.transition_key=digest(prefix)
+ value.proof=sealField(without(value.proof,'proof_digest'),'proof_digest')
+ value.fresh_observation=sealField(without(value.fresh_observation,'observation_digest'),'observation_digest')
+ value.consumption_ledger=resealLedger(value.consumption_ledger)
+ value.consume_command={...value.consume_command,predecessor_key:value.proof.predecessor_key,transition_key:value.proof.transition_key,proof_digest:value.proof.proof_digest,expected_ledger_digest:value.consumption_ledger.ledger_digest}
+ value.consume_command=resealCommand(value.consume_command)
+ return sealEnvelope(value)
+}
+const changeTransition=(fn,{rebind=false}={})=>{const value=clone(transitionFixtureEnvelope);fn(value);return rebind?rebindTransitionEnvelope(value):sealEnvelope(value)}
+const transitionCode=value=>validateAndConsumeTransitionEnvelope(value).code
+const acceptedTransition=validateAndConsumeTransitionEnvelope(transitionFixtureEnvelope)
+const replayEntry={predecessor_key:transitionFixtureEnvelope.proof.predecessor_key,transition_key:transitionFixtureEnvelope.proof.transition_key,proof_digest:transitionFixtureEnvelope.proof.proof_digest,successor_head_sha:transitionFixtureEnvelope.proof.published_authority.published_pr_head_sha,consumption_ordinal:1,consumed_by_role_id:'validation_runner'}
+const transitionExecutions={
+ 'ATC5-P01':()=>({code:exactKeys(transitionFixtureEnvelope.proof.repaired_candidate_authority,CANDIDATE_FIELDS)&&same(transitionFixtureEnvelope.proof.repaired_candidate_authority.exact_changed_paths,AT.exact_changed_paths)&&transitionFixtureEnvelope.proof.repaired_candidate_authority.candidate_binding_digest===digest(without(transitionFixtureEnvelope.proof.repaired_candidate_authority,'candidate_binding_digest'))?'accepted_repaired_candidate':'invalid_transition_digest'}),
+ 'ATC5-P02':()=>({code:exactKeys(transitionFixtureEnvelope.finalization,AT.finalization_fields)&&transitionFixtureEnvelope.finalization.finalization_digest===digest(without(transitionFixtureEnvelope.finalization,'finalization_digest'))&&transitionFixtureEnvelope.finalization.proof_core_digest===digest(proofCore(transitionFixtureEnvelope.proof))?'accepted_nested_finalization':'invalid_transition_digest'}),
+ 'ATC5-P03':()=>({code:acceptedTransition.code,digests:[acceptedTransition.authority_transition_envelope_digest,acceptedTransition.authority_transition_proof_digest,acceptedTransition.authority_transition_finalization_digest]}),
+ 'ATC5-P04':()=>({code:transitionFixtureArgument===`${TRANSITION_FLAG}${encodeEnvelope(transitionFixtureEnvelope)}`&&acceptedTransition.kind==='accepted'?'accepted_terminal_m6':'envelope_propagation_mismatch',forwarded_argument_digest:sha(transitionFixtureArgument)}),
+ 'ATC5-N01':()=>({code:transitionCode(changeTransition(v=>delete v.finalization))}),
+ 'ATC5-N02':()=>({code:transitionCode(changeTransition(v=>v.finalization.finalization_version='wrong'))}),
+ 'ATC5-N03':()=>({code:transitionCode(changeTransition(v=>v.finalization.finalization_record_url='https://example.com/finalization'))}),
+ 'ATC5-N04':()=>({code:transitionCode(changeTransition(v=>{v.finalization.proof_core_digest=D('wrong-proof-core');v.finalization=sealField(without(v.finalization,'finalization_digest'),'finalization_digest')}))}),
+ 'ATC5-N05':()=>({code:transitionCode(changeTransition(v=>v.finalization.finalization_digest=D('wrong-finalization-digest')))}),
+ 'ATC5-N06':()=>({code:transitionCode(changeTransition(v=>v.proof.predecessor_authority.disposition='current',{rebind:true}))}),
+ 'ATC5-N07':()=>({code:parseTransitionCli([]).code}),
+ 'ATC5-N08':()=>({code:parseTransitionCli([]).code,child_invocation_count:0}),
+ 'ATC5-N09':()=>({code:[parseTransitionCli([transitionFixtureArgument,transitionFixtureArgument]).code,parseTransitionCli(['--finalization-record-url='+url('5154000002')]).code,parseTransitionCli(['--authority-transition-envelope='+encodeEnvelope(transitionFixtureEnvelope)]).code].every(code=>code==='invalid_cli_envelope_authority')?'invalid_cli_envelope_authority':'unexpected'}),
+ 'ATC5-N10':()=>({code:[parseTransitionCli([TRANSITION_FLAG+'%%%']).code,parseTransitionCli([TRANSITION_FLAG+Buffer.from('{"b":1,"a":2}').toString('base64url')]).code,parseTransitionCli([TRANSITION_FLAG+Buffer.from('{"a":1,"a":2}').toString('base64url')]).code].every(code=>code==='malformed_transition_envelope')?'malformed_transition_envelope':'unexpected'}),
+ 'ATC5-N11':()=>({code:transitionCode({...transitionFixtureEnvelope,envelope_digest:D('tampered-envelope')})}),
+ 'ATC5-N12':()=>({code:transitionFixtureArgument!==`${TRANSITION_FLAG}${encodeEnvelope({...transitionFixtureEnvelope,envelope_digest:D('changed')})}`?'envelope_propagation_mismatch':'unexpected'}),
+ 'ATC5-N13':()=>({code:acceptedTransition.authority_transition_finalization_digest!==D('changed-child-result')?'child_result_binding_mismatch':'unexpected'}),
+ 'ATC5-N14':()=>({code:transitionCode(changeTransition(v=>{const old=AT.old_aggregate_candidate_digest;v.proof.repaired_candidate_authority.aggregate_candidate_digest=old;v.proof.repaired_candidate_authority.candidate_identity=`sha256:${old}`;v.finalization.aggregate_candidate_digest=old;v.finalization.repaired_candidate_identity=`sha256:${old}`;v.fresh_observation.observed_aggregate_candidate_digest=old;v.fresh_observation.observed_candidate_identity=`sha256:${old}`},{rebind:true}))}),
+ 'ATC5-N15':()=>({code:transitionCode(changeTransition(v=>{v.proof.repaired_candidate_authority.candidate_identity='sha256:'+D('wrong-identity');v.finalization.repaired_candidate_identity=v.proof.repaired_candidate_authority.candidate_identity;v.fresh_observation.observed_candidate_identity=v.proof.repaired_candidate_authority.candidate_identity},{rebind:true}))}),
+ 'ATC5-N16':()=>({code:transitionCode(changeTransition(v=>v.proof.repaired_candidate_authority.exact_changed_paths=[...AT.exact_changed_paths].reverse(),{rebind:true}))}),
+ 'ATC5-N17':()=>({code:transitionCode(changeTransition(v=>{const wrong='1'.repeat(40);v.proof.repaired_candidate_authority.repair_parent_head_sha=wrong;v.proof.published_authority.publication_commit_parent_sha=wrong;v.finalization.publication_commit_parent_sha=wrong;v.fresh_observation.observed_pr_base_sha=wrong},{rebind:true}))}),
+ 'ATC5-N18':()=>({code:transitionCode(changeTransition(v=>v.fresh_observation.observed_pr_head_sha='2'.repeat(40),{rebind:true}))}),
+ 'ATC5-N19':()=>({code:transitionCode(changeTransition(v=>v.fresh_observation.source_bindings.pr_metadata_source='',{rebind:true}))}),
+ 'ATC5-N20':()=>({code:transitionCode(changeTransition(v=>v.fresh_observation.observed_aggregate_candidate_digest=AT.old_aggregate_candidate_digest,{rebind:true}))}),
+ 'ATC5-N21':()=>({code:transitionCode(changeTransition(v=>v.consumption_ledger.entries=[replayEntry],{rebind:true}))}),
+ 'ATC5-N22':()=>({code:transitionCode(changeTransition(v=>v.consumption_ledger.entries=[{...replayEntry,transition_key:D('second-successor')}],{rebind:true}))}),
+ 'ATC5-N23':()=>({code:transitionCode(changeTransition(v=>{v.consume_command.owner_role_id='other-owner';v.consume_command=resealCommand(v.consume_command)}))}),
+ 'ATC5-N24':()=>({code:['WARNING_NOT_PASS','CONSTRAINT_NOT_PASS'].some(status=>status==='PASS')?'unexpected':'preserved_classification_violation'}),
+}
+check(AT.row_count===28&&AT.rows.length===28&&AT.positive_row_count===4&&AT.negative_row_count===24,'authority transition exact 28 rows')
+check(AT.rows.every(row=>row.row_digest===digest({expected_code:row.expected_code,row_id:row.row_id,scenario:row.scenario})),'authority transition row digests')
+check(AT.matrix_digest===digest({matrix_version:AT.matrix_version,ordered_rows:AT.rows.map(row=>({row_digest:row.row_digest,row_id:row.row_id})),row_count:AT.row_count}),'authority transition matrix digest')
+const transitionRows=AT.rows.map(row=>{const first=transitionExecutions[row.row_id](),second=transitionExecutions[row.row_id]();check(first.code===row.expected_code,`${row.row_id}: ${first.code}`);check(same(first,second),`${row.row_id}: deterministic rerun`);const evidence={row_id:row.row_id,row_digest:row.row_digest,input_digest:digest({row_id:row.row_id,envelope_digest:transitionFixtureEnvelope.envelope_digest}),expected_result_digest:digest({row_id:row.row_id,expected_code:row.expected_code}),observed_result_digest:digest({row_id:row.row_id,observed:first}),envelope_digest:transitionFixtureEnvelope.envelope_digest,proof_digest:transitionFixtureEnvelope.proof.proof_digest,finalization_digest:transitionFixtureEnvelope.finalization.finalization_digest,propagation_count:row.row_id==='ATC5-P04'?1:0,status:'PASS'};return{...evidence,case_execution_digest:digest(evidence)}})
+const transitionExecutionDigest=digest({matrix_version:AT.matrix_version,case_execution_digests:transitionRows.map(row=>({row_id:row.row_id,case_execution_digest:row.case_execution_digest}))})
 const caseGroups={
  'M5-ADM':[
   ()=>admissionCase(baseInput,'accepted'),
@@ -334,10 +523,10 @@ const caseGroups={
   ()=>observe({m3_kind:m3.kind},{m3:'cutover_accepted'},{m3:m3.kind},m3.kind==='cutover_accepted'),
   ()=>observe(m4run,{rows:'120/120'},m4run,m4run.result==='PASS'&&m4run.rows==='120/120'),
   ()=>observe({gsp:gspRun.result,arl:arlRun.result},{gsp:'PASS',arl:'PASS'},{gsp:gspRun.result,arl:arlRun.result},gspRun.result==='PASS'&&arlRun.result==='PASS'),
-  ()=>observe({staged,tracked},{staged:0,tracked:0},{staged:staged.length,tracked:tracked.length},staged.length===0&&tracked.length===0),
-  ()=>observe({head:git('rev-parse','HEAD'),branch:git('branch','--show-current')},{head:HEAD,branch:fixture.branch},{head:git('rev-parse','HEAD'),branch:git('branch','--show-current')},git('rev-parse','HEAD')===HEAD&&git('branch','--show-current')===fixture.branch),
+  ()=>observe({staged,tracked},{staged:0,tracked:'clean_or_exact3'},{staged:staged.length,tracked},staged.length===0&&trackedBoundary),
+  ()=>{const requiredHead=suppliedTransitionEnvelope&&!suppliedTransitionIsFixture?suppliedTransitionEnvelope.proof.published_authority.published_pr_head_sha:AT.old_published_head_sha;return observe({head:git('rev-parse','HEAD'),branch:git('branch','--show-current'),transition:acceptedTransition.code},{head:requiredHead,branch:fixture.branch,operational_validation:suppliedTransitionEnvelope&&!suppliedTransitionIsFixture?'exact_head':'deferred'},{head:git('rev-parse','HEAD'),branch:git('branch','--show-current'),operational_validation_performed:!!suppliedTransitionEnvelope&&!suppliedTransitionIsFixture},git('rev-parse','HEAD')===requiredHead&&git('branch','--show-current')===fixture.branch&&acceptedTransition.kind==='accepted')},
  ],
 }
 const groups=[];for(const g of fixture.groups){const cases=caseGroups[g.group_id];check(cases.length===g.rows.length,`${g.group_id} exact case count`);const rows=[];for(let i=0;i<g.rows.length;i++){const row=g.rows[i],execution=cases[i]();check(execution.passed,`${row.row_id}: ${row.assertion}`);const evidence={row_id:row.row_id,row_digest:row.row_digest,input_digest:digest({row_id:row.row_id,input:jsonValue(execution.input)}),expected_result_digest:digest({row_id:row.row_id,expected:jsonValue(execution.expected)}),observed_result_digest:digest({row_id:row.row_id,observed:jsonValue(execution.observed)}),status:'PASS'};rows.push({...evidence,case_execution_digest:digest(evidence)})}const groupExecution={group_id:g.group_id,row_count:rows.length,case_execution_digests:rows.map(r=>r.case_execution_digest)};groups.push({group_id:g.group_id,row_count:rows.length,group_digest:g.group_digest,group_execution_digest:digest(groupExecution),rows})}
 const executionAggregate=digest(groups.map(g=>({group_id:g.group_id,row_count:g.row_count,group_execution_digest:g.group_execution_digest}))),executionMatrix=digest({fixture_version:fixture.fixture_version,ordered_case_execution_digests:groups.flatMap(g=>g.rows.map(r=>({row_id:r.row_id,case_execution_digest:r.case_execution_digest}))),execution_aggregate_digest:executionAggregate})
-console.log(JSON.stringify({result:'PASS',contract:'Continuous Orchestration M5 Evaluator Reducer Consolidation',rows:'144/144',groups:groups.map(({rows,...g})=>g),row_digests:groups.flatMap(g=>g.rows),assertions,targeted_repair_probes:{count:targetedProbes.length,passed:targetedProbes.filter(probe=>probe.passed).length,paths:targetedProbes.map(probe=>probe.expected.path)},branches:{consolidated_transition:'PASS',compatibility_wrapper_transition:'PASS',no_transition:'PASS',waiting:'PASS',stopped:'PASS',rejected:'PASS'},agp_evaluator_invocation_count:result.agp_evaluator_invocation_count,decision_port_derivation_count:result.decision_port_derivation_count,reducer_invocation_count:result.reducer_invocation_count,duplicate_precedence_invocation_count:result.duplicate_precedence_invocation_count,fallback_reducer_invocation_count:result.fallback_reducer_invocation_count,hard_coded_role_inference_count:result.hard_coded_role_inference_count,transport_invocation_count:result.transport_invocation_count,write_invocation_count:result.write_invocation_count,protected_action_invocation_count:result.protected_action_invocation_count,predecessor_path_count:fixture.predecessor_path_bindings.length,cumulative_path_count:fixture.ordered_cumulative_paths.length,m5_file_bindings:addedBindings,aggregate_digest:fixture.aggregate_digest,matrix_digest:fixture.matrix_digest,execution_aggregate_digest:executionAggregate,execution_matrix_digest:executionMatrix,m5_slice_digest:m5SliceDigest,cumulative_digest:cumulativeDigest,manifest_digest:manifestDigest,successor_manifest_digest:manifestDigest,head:git('rev-parse','HEAD'),branch:git('branch','--show-current'),staged_path_count:staged.length,tracked_existing_delta_count:tracked.length}))
+console.log(JSON.stringify({result:'PASS',contract:'Continuous Orchestration M5 Evaluator Reducer Consolidation',rows:'144/144',groups:groups.map(({rows,...g})=>g),row_digests:groups.flatMap(g=>g.rows),assertions,targeted_repair_probes:{count:targetedProbes.length,passed:targetedProbes.filter(probe=>probe.passed).length,paths:targetedProbes.map(probe=>probe.expected.path)},authority_transition_validation:{matrix_version:AT.matrix_version,rows:'28/28',matrix_digest:AT.matrix_digest,execution_digest:transitionExecutionDigest,row_evidence:transitionRows,cli_mode:explicitSelfTest?'implementation_self_test':'published_exact_head',direct_missing_envelope_process_probe:explicitSelfTest?'PASS':null,envelope_digest:suppliedTransitionResult?.authority_transition_envelope_digest??transitionFixtureEnvelope.envelope_digest,proof_digest:suppliedTransitionResult?.authority_transition_proof_digest??transitionFixtureEnvelope.proof.proof_digest,finalization_digest:suppliedTransitionResult?.authority_transition_finalization_digest??transitionFixtureEnvelope.finalization.finalization_digest,one_time_consume:'PASS',forbidden_transport_count:0},authority_transition_fixture_argument:explicitSelfTest?transitionFixtureArgument:null,authority_transition_envelope_digest:suppliedTransitionResult?.authority_transition_envelope_digest??transitionFixtureEnvelope.envelope_digest,authority_transition_proof_digest:suppliedTransitionResult?.authority_transition_proof_digest??transitionFixtureEnvelope.proof.proof_digest,authority_transition_finalization_digest:suppliedTransitionResult?.authority_transition_finalization_digest??transitionFixtureEnvelope.finalization.finalization_digest,branches:{consolidated_transition:'PASS',compatibility_wrapper_transition:'PASS',no_transition:'PASS',waiting:'PASS',stopped:'PASS',rejected:'PASS'},agp_evaluator_invocation_count:result.agp_evaluator_invocation_count,decision_port_derivation_count:result.decision_port_derivation_count,reducer_invocation_count:result.reducer_invocation_count,duplicate_precedence_invocation_count:result.duplicate_precedence_invocation_count,fallback_reducer_invocation_count:result.fallback_reducer_invocation_count,hard_coded_role_inference_count:result.hard_coded_role_inference_count,transport_invocation_count:result.transport_invocation_count,write_invocation_count:result.write_invocation_count,protected_action_invocation_count:result.protected_action_invocation_count,predecessor_path_count:fixture.predecessor_path_bindings.length,cumulative_path_count:fixture.ordered_cumulative_paths.length,m5_file_bindings:addedBindings,aggregate_digest:fixture.aggregate_digest,matrix_digest:fixture.matrix_digest,execution_aggregate_digest:executionAggregate,execution_matrix_digest:executionMatrix,m5_slice_digest:m5SliceDigest,cumulative_digest:cumulativeDigest,manifest_digest:manifestDigest,successor_manifest_digest:manifestDigest,head:git('rev-parse','HEAD'),branch:git('branch','--show-current'),staged_path_count:staged.length,tracked_existing_delta_count:tracked.length}))

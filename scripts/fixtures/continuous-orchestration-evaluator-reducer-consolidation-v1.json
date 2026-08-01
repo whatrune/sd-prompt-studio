@@ -1027,5 +1027,57 @@
     }
   ],
   "aggregate_digest": "51e88862af61b1ed5b05d2d059724fc10e83cbf62c323f942e4c4f62204cdd00",
-  "matrix_digest": "959d96bd89085a88cc2eebc35685cead4f1bbd7060a78da754a3f46568f42077"
+  "matrix_digest": "959d96bd89085a88cc2eebc35685cead4f1bbd7060a78da754a3f46568f42077",
+  "authority_transition_v2": {
+    "architecture_revision_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5153319874",
+    "predecessor_key": "cd6b5085b5300d0d8f9647879da760fdd664f281918747006bb26228b8b01b41",
+    "old_published_head_sha": "529707bc632d1a432f2931c9f83a2f95711fd5d3",
+    "old_aggregate_candidate_digest": "514c575b3fd3b14d2a8b74c456e206be03e0d0f3ced494212e4ce78ad0e353b2",
+    "old_ordered_manifest_digest": "b7c801e664879b410d21fe563a96b94d46a89f55e66572248ce6c8c1b29b21e4",
+    "exact_changed_paths": [
+      "scripts/fixtures/continuous-orchestration-evaluator-reducer-consolidation-v1.json",
+      "scripts/test-continuous-orchestration-evaluator-reducer-consolidation.mjs",
+      "scripts/test-continuous-orchestration-deprecation-removal.mjs"
+    ],
+    "finalization_fields": ["finalization_version", "task_id", "repository", "finding_id", "architecture_revision_url", "predecessor_key", "repaired_candidate_id", "repaired_candidate_identity", "repaired_candidate_binding_digest", "aggregate_candidate_digest", "ordered_manifest_digest", "target_pr_url", "branch", "publication_commit_parent_sha", "published_pr_head_sha", "merge_before_head_sha", "required_pr_state", "publication_result_handoff_url", "finalization_record_url", "proof_core_digest", "finalization_digest"],
+    "predecessor_authority_fields": ["predecessor_version", "task_id", "repository", "candidate_id", "candidate_identity", "publication_candidate_url", "publication_result_handoff_url", "checkout_head_sha", "base_head_sha", "current_main_sha", "old_published_head_sha", "aggregate_candidate_digest", "ordered_manifest_digest", "disposition", "predecessor_key"],
+    "proof_fields": ["proof_version", "transition_class", "task_id", "repository", "finding_id", "target_pr_url", "branch", "predecessor_authority", "repaired_candidate_authority", "published_authority", "publication_result_handoff_url", "successor_ordinal", "single_successor", "replay_allowed", "predecessor_key", "finalization_record_url", "finalization_digest", "transition_key", "proof_digest"],
+    "envelope_fields": ["envelope_version", "task_id", "repository", "proof", "finalization", "fresh_observation", "consumption_ledger", "consume_command", "retry_dispatch_url", "envelope_digest"],
+    "observation_fields": ["observation_version", "task_id", "repository", "target_pr_url", "branch", "observed_checkout_head_sha", "observed_pr_head_sha", "observed_pr_base_sha", "observed_current_main_sha", "observed_merge_before_head_sha", "observed_pr_state", "observed_candidate_id", "observed_candidate_identity", "observed_aggregate_candidate_digest", "observed_ordered_manifest_digest", "authority_finalization_record_url", "publication_result_handoff_url", "fresh_guard_record_url", "source_bindings", "observation_digest"],
+    "matrix_version": "authority-transition-validation-matrix-v5",
+    "row_count": 28,
+    "positive_row_count": 4,
+    "negative_row_count": 24,
+    "matrix_digest": "4540cbfad828c3b52b137e3459254d057cf2698155d23732a60d8d1509d74488",
+    "rows": [
+      {"row_id":"ATC5-P01","scenario":"exact three-path repaired candidate deterministically derives candidate binding","expected_code":"accepted_repaired_candidate","row_digest":"ede6b6bd93e217254e69478179a1f20d70a39ec65d8375b5fa52f05d8365ef32"},
+      {"row_id":"ATC5-P02","scenario":"envelope carries one full exact21 self-canonical Finalization object bound to proof core and published authority","expected_code":"accepted_nested_finalization","row_digest":"ac217643710f0599f4f7e3f555ec4beba89706e4f237bc125e8ac1768cbc137a"},
+      {"row_id":"ATC5-P03","scenario":"direct M5 admits one canonical envelope containing full Finalization and accepts published successor","expected_code":"accepted_direct_m5","row_digest":"777e9a7c26f968c4ce1a9ae4a95a86c2ee5f4642d1abe7d5c49efe46afefab27"},
+      {"row_id":"ATC5-P04","scenario":"terminal M6 forwards the full-Finalization envelope token byte-for-byte and binds M5 result","expected_code":"accepted_terminal_m6","row_digest":"37c980a3690b80263d786520a9b0202f39b554fd4e43d4ace216ca9dc60513c8"},
+      {"row_id":"ATC5-N01","scenario":"nested Finalization object is missing","expected_code":"missing_finalization","row_digest":"50c617ff7d1fdd6f090e037b97b7e1764650277aef5bf61cbabba477766416ad"},
+      {"row_id":"ATC5-N02","scenario":"nested Finalization is partial, has unknown field, or has wrong version","expected_code":"invalid_finalization_schema","row_digest":"fcbd25146fb35d6061dc199a5935755cc9976eb47d4214e162045b042763eac7"},
+      {"row_id":"ATC5-N03","scenario":"Finalization self URL, proof URL, observation URL, digest, or identity binding mismatches","expected_code":"finalization_identity_mismatch","row_digest":"9770da9cd18f168b7e6a89bee83bc7da12c0190d45e5037af8e4554bcc5dae5a"},
+      {"row_id":"ATC5-N04","scenario":"nested Finalization proof_core_digest mismatches canonical proof core","expected_code":"proof_core_mismatch","row_digest":"44bc9226ff5f456e5789b60c53f53ce78915efc3c4006b22afd4e6bd03fcd8e1"},
+      {"row_id":"ATC5-N05","scenario":"nested Finalization finalization_digest does not match exact21 JCS projection","expected_code":"finalization_digest_mismatch","row_digest":"208ae7d31b9a0810f1a3295c26689101ad41f3d7f1fdaef2201fbf2c63a27c30"},
+      {"row_id":"ATC5-N06","scenario":"predecessor authority field, historical disposition, or predecessor key mismatch","expected_code":"predecessor_authority_mismatch","row_digest":"975b04d814222e1f12999f5ae4056ce7a20cfce08c513675c329fa8e8c1466c8"},
+      {"row_id":"ATC5-N07","scenario":"direct M5 invocation omits full-Finalization envelope flag","expected_code":"missing_transition_envelope","row_digest":"e2d554678a4ef89ee2c59db1b4ae8178096c209654a791513cf5796b6a28da86"},
+      {"row_id":"ATC5-N08","scenario":"terminal M6 invocation omits full-Finalization envelope flag","expected_code":"missing_transition_envelope","row_digest":"34d3aa7b421d466c1978a8089d3e997d203d945ca075b1d4e88896b29caaf9f1"},
+      {"row_id":"ATC5-N09","scenario":"URL-only Finalization, duplicate flag, unknown flag, alias, fallback, or alternate transport supplied","expected_code":"invalid_cli_envelope_authority","row_digest":"c46b0c4d8ec40c254b72a5570f5aa5f2d0631dacb7e2903934356d2442c613fd"},
+      {"row_id":"ATC5-N10","scenario":"envelope token is malformed base64url, UTF-8, JSON, non-JCS, or contains duplicate keys","expected_code":"malformed_transition_envelope","row_digest":"a66a5f1903b1bcdd9dfe4af50ee36a61e690fad15757c13e78d1694dfee6a526"},
+      {"row_id":"ATC5-N11","scenario":"envelope field, nested Finalization bytes, or envelope_digest tampered","expected_code":"invalid_transition_digest","row_digest":"42ce6daf41bb95fc49cb8f706bfaa7201f7caf5f9ca08e07e7f7d8fd5cb02489"},
+      {"row_id":"ATC5-N12","scenario":"terminal M6 changes, reconstructs, or reserializes the envelope token","expected_code":"envelope_propagation_mismatch","row_digest":"5ac72f2df149f02031ceca5ef924721b295d2556907d28e5807850ebd308970b"},
+      {"row_id":"ATC5-N13","scenario":"M5 result does not echo admitted envelope, proof, and Finalization digests","expected_code":"child_result_binding_mismatch","row_digest":"8e07c2b27e817a05e21097d754055ce7014de1811aac6ea55c7f5a2c7a226382"},
+      {"row_id":"ATC5-N14","scenario":"old candidate, aggregate, manifest, Handoff, or HEAD offered as current","expected_code":"historical_authority_rejected","row_digest":"db923e0321d26300e3d9ba30b924b733383e8c7383953837044b455722ae1b51"},
+      {"row_id":"ATC5-N15","scenario":"repaired candidate identity or aggregate authority mismatches","expected_code":"aggregate_authority_mismatch","row_digest":"55352497c93696acfaafd89f12eca61ef6d467c1568174fc25ba7d7e33f9d601"},
+      {"row_id":"ATC5-N16","scenario":"ordered manifest authority, order, count, or exact three-path scope mismatches","expected_code":"manifest_authority_mismatch","row_digest":"1f5210543a913142f900da56c3fe18cd34405b9b2cb651844bb32f66265d24b8"},
+      {"row_id":"ATC5-N17","scenario":"additional commit parent is not old published HEAD","expected_code":"publication_parent_mismatch","row_digest":"bbc7c1eb3db60d3220db0186aed026a122eb9e13876383d80380f0399ede9607"},
+      {"row_id":"ATC5-N18","scenario":"proof, Finalization, observation, local, remote, or PR new HEAD mismatches","expected_code":"published_head_mismatch","row_digest":"9da8d20b831c85737362a9e756fa47a2435f4c473340496fa859b0b391b16be0"},
+      {"row_id":"ATC5-N19","scenario":"fresh guard source is missing, stale, unresolved, or authority drifted","expected_code":"stale_transition","row_digest":"a2843750fbbe3bade6405d3bed176b3dee20bbd0ea945f63ea45f4782bdaed1c"},
+      {"row_id":"ATC5-N20","scenario":"old and repaired authority fields are mixed across proof, Finalization, observation, or envelope","expected_code":"mixed_authority_rejected","row_digest":"223d82d9e10a13835667322d8f10339b32afd0a61faa46adb6f103351ac8c7c9"},
+      {"row_id":"ATC5-N21","scenario":"exact finalized predecessor, proof, Finalization, and successor was already consumed","expected_code":"transition_replay","row_digest":"eb681e17531b0cf3edd5ef5f228c62cc67fd9ba4ebeb36409207c72cf217dd7e"},
+      {"row_id":"ATC5-N22","scenario":"same predecessor proposes another Finalization, repaired candidate, or published successor","expected_code":"second_successor","row_digest":"fcbdf5d3b636c0d9ba57f22c7c3c352e7e5469a7a3e93ad399382280100f5cbc"},
+      {"row_id":"ATC5-N23","scenario":"URL fetch, network, environment, auxiliary file, stdin, reconstruction, retry, owner bypass, or second representation used","expected_code":"invalid_consumption_boundary","row_digest":"0781f9df01fed1c70e8bcff89adcd2b8f788cba61b6470867ef1f696ba6d1fb0"},
+      {"row_id":"ATC5-N24","scenario":"ETV or M3 preserved classification is promoted to PASS","expected_code":"preserved_classification_violation","row_digest":"666ee768b44f6715887f9d1c95a9dc156e34fecf0afad23305e090152e605b9b"}
+    ]
+  }
 }
