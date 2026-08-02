@@ -1,0 +1,919 @@
+{
+  "fixture_version": "continuous_orchestration_authority_routing_budget_cutover_fixture_v1",
+  "task_id": "AUDIT-CONTINUOUS-ORCHESTRATION-REFACTORING-001",
+  "repository": "whatrune/sd-prompt-studio",
+  "slice_id": "M3",
+  "authority_head_sha": "b7d1013052514aacddb559cc4f24af5e33c08b96",
+  "branch": "codex/issue-221-core-consolidation",
+  "logical_worktree_identity": "issue-221-core-consolidation",
+  "candidate_assessment_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5147777774",
+  "prior_implementation_review_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5148027598",
+  "architecture_revision_3_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5148223021",
+  "architecture_review_approve_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5148251385",
+  "same_task_resume_dispatch_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5148352781",
+  "implementation_rereview_decision_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5149707659",
+  "canonical_repair_dispatch_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5149741190",
+  "frozen_profile_modes": [
+    "m3_cutover_v1",
+    "legacy_adapter_v1"
+  ],
+  "frozen_finalization_branches": [
+    "eligible_token",
+    "owner_in_progress_rejected",
+    "already_consumed_rejected",
+    "cas_loser_rejected",
+    "invalid_finalization_authority"
+  ],
+  "final_binding_common_fields": [
+    "schema_version",
+    "prepared_route_authority_binding_digest",
+    "cas_outcome_proof_digest",
+    "predecessor_guard_proof_digest",
+    "combined_task_assignment_authority_digest",
+    "route_identity_digest",
+    "profile_mode_binding_digest",
+    "delivery_result_branch"
+  ],
+  "final_binding_winner_fields": [
+    "receipt_binding_kind",
+    "transport_idempotency_key",
+    "consumption_receipt_digest",
+    "transport_port_invocation_count"
+  ],
+  "final_binding_loser_fields": [
+    "receipt_binding_kind",
+    "transport_idempotency_key",
+    "consumption_receipt_digest",
+    "transport_port_invocation_count",
+    "no_receipt_reason"
+  ],
+  "m2_completion_preflight_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5147688820",
+  "prior_manifest_digest": "76440e14b1bdd87290a82795653f0d7d9d4a38993edecfc51b8c16ebf4992eae",
+  "prior_cumulative_digest": "6e22f5db1b6db6e60c791e30bc0bbdfad3717b29d893948deaf6627bf2e4f584",
+  "prior_slice_count": 3,
+  "active_slice_ordinal": 3,
+  "ordered_cumulative_paths": [
+    "scripts/fixtures/continuous-orchestration-core-consolidation-m0-v1.json",
+    "scripts/test-continuous-orchestration-core-consolidation-m0.mjs",
+    "src/continuous-orchestration/shared-proof-interfaces-v1.ts",
+    "scripts/fixtures/continuous-orchestration-shared-proof-interfaces-v1.json",
+    "scripts/test-continuous-orchestration-shared-proof-interfaces.mjs",
+    "src/continuous-orchestration/shadow-equivalence-v1.ts",
+    "scripts/fixtures/continuous-orchestration-shadow-equivalence-v1.json",
+    "scripts/test-continuous-orchestration-shadow-equivalence.mjs",
+    "src/continuous-orchestration/authority-routing-budget-cutover-v1.ts",
+    "scripts/fixtures/continuous-orchestration-authority-routing-budget-cutover-v1.json",
+    "scripts/test-continuous-orchestration-authority-routing-budget-cutover.mjs"
+  ],
+  "result_path_count": 11,
+  "groups": [
+    {
+      "group_id": "M3-ADM",
+      "row_count": 14,
+      "group_digest": "c00911ef4d4e225ec0828de1797203c13af6f82476fee0fa9c10b1f35c291613",
+      "rows": [
+        {
+          "row_id": "M3-ADM-001",
+          "assertion": "valid closed input admitted",
+          "expected": "PASS",
+          "row_digest": "99fa726766d97c26785fe68af9c54d52b1c2ff1cc78a1cde5064ba370d56a811"
+        },
+        {
+          "row_id": "M3-ADM-002",
+          "assertion": "valid authority bundle admitted",
+          "expected": "PASS",
+          "row_digest": "4f8cb1d2b318d43cef5b0f47eac9cf8b5f150ccd375ddd2d5020507217838484"
+        },
+        {
+          "row_id": "M3-ADM-003",
+          "assertion": "top-level unknown rejected",
+          "expected": "PASS",
+          "row_digest": "78163c94df675ed2ca8a9a7b7687df5d2136bd8f053672b2908a88dbf8a5184a"
+        },
+        {
+          "row_id": "M3-ADM-004",
+          "assertion": "nested unknown rejected",
+          "expected": "PASS",
+          "row_digest": "da4576eb2c3346ea9052c6c8be2ccb7ec3a7f54d82d87b3c48bc123f4af5f47f"
+        },
+        {
+          "row_id": "M3-ADM-005",
+          "assertion": "missing required field rejected",
+          "expected": "PASS",
+          "row_digest": "1620df253e4c250b3106bf968d4fc71b2f11a3fd7e05dabb7dfa786b8b912e44"
+        },
+        {
+          "row_id": "M3-ADM-006",
+          "assertion": "source URL mismatch rejected",
+          "expected": "PASS",
+          "row_digest": "da68809103fb0011d0ee2771e6929e3d7766965e4139aa206db75e3a62c02303"
+        },
+        {
+          "row_id": "M3-ADM-007",
+          "assertion": "owner mismatch rejected",
+          "expected": "PASS",
+          "row_digest": "11f2b96db0c2b225cfd2c126e173f442f16e194b62488d5cd9e07887e8754b74"
+        },
+        {
+          "row_id": "M3-ADM-008",
+          "assertion": "scope mismatch rejected",
+          "expected": "PASS",
+          "row_digest": "4c55c371bb0d1bc221c8e92747859e5fbf1dc7e14277182a6d317b2fd701eb5a"
+        },
+        {
+          "row_id": "M3-ADM-009",
+          "assertion": "content mismatch rejected",
+          "expected": "PASS",
+          "row_digest": "fe8d46f054f6153ead8cff27e97c01cba05b26fc73a2c0af4cb041a4c94bee39"
+        },
+        {
+          "row_id": "M3-ADM-010",
+          "assertion": "HEAD mismatch rejected",
+          "expected": "PASS",
+          "row_digest": "528f0500014047f0b335a9cdd0e48a808aaa5400429411bd0bdfe6ff9809d6e4"
+        },
+        {
+          "row_id": "M3-ADM-011",
+          "assertion": "freshness mismatch rejected",
+          "expected": "PASS",
+          "row_digest": "f05a94cbf698e8407b2df8506aac4656365a073f8f4d156aa3a97c91ecd9b970"
+        },
+        {
+          "row_id": "M3-ADM-012",
+          "assertion": "duplicate source rejected",
+          "expected": "PASS",
+          "row_digest": "8069d8ecb70552042f1f84d6ceee2bb70017a0c69cc70dcd3b6f1ca4688dcbd1"
+        },
+        {
+          "row_id": "M3-ADM-013",
+          "assertion": "noncanonical source order rejected",
+          "expected": "PASS",
+          "row_digest": "6054e3ad4c5787460345f17734ab78bf5316c76c763b87c4ae206d75c14fa65e"
+        },
+        {
+          "row_id": "M3-ADM-014",
+          "assertion": "mutation isolation and deterministic digest",
+          "expected": "PASS",
+          "row_digest": "e3322a76a556a353d4f85f5bf3c9bdf5ef52243dcb7c605dd1b024927f210bf3"
+        }
+      ]
+    },
+    {
+      "group_id": "M3-OWNER",
+      "row_count": 12,
+      "group_digest": "9cca0b67161934a1eaf8d2d824434e16d416bc641fd688ca5d82f11228e29fc0",
+      "rows": [
+        {
+          "row_id": "M3-OWNER-001",
+          "assertion": "source semantic owner unique",
+          "expected": "PASS",
+          "row_digest": "c74c90e9ef317483f88941c3692e004aefaab1ac7ea57f12fc3169e389a2c3f1"
+        },
+        {
+          "row_id": "M3-OWNER-002",
+          "assertion": "collector admission owner retained",
+          "expected": "PASS",
+          "row_digest": "4a511abded427d562761df8900bfc7f455284f1755b250bb8291bf48e5fba4d2"
+        },
+        {
+          "row_id": "M3-OWNER-003",
+          "assertion": "route authority retained",
+          "expected": "PASS",
+          "row_digest": "0fbc1e84d26e8116ef5f22e62b68f47a82aa9379927722ba260bfb761edbc118"
+        },
+        {
+          "row_id": "M3-OWNER-004",
+          "assertion": "budget policy owner retained",
+          "expected": "PASS",
+          "row_digest": "feb48a803efbb3a12952d8e2faa5da57625a697b0abb9cd5d5471e21ba0681c7"
+        },
+        {
+          "row_id": "M3-OWNER-005",
+          "assertion": "ledger mechanical owner retained",
+          "expected": "PASS",
+          "row_digest": "5cb0adf81759b9ae3da5769325041c061b50dbb5fb0726780a79333679333cea"
+        },
+        {
+          "row_id": "M3-OWNER-006",
+          "assertion": "Integrated Lead dispatch owner retained",
+          "expected": "PASS",
+          "row_digest": "b29ccf11be001f18eedfb0d346d4317e413198f4a8ee025dcb70bdc5ab2422db"
+        },
+        {
+          "row_id": "M3-OWNER-007",
+          "assertion": "transport owner separated",
+          "expected": "PASS",
+          "row_digest": "235b81e08798b3698597c60c3b3bc7b68b9485118d131c05799ca42abe91eac9"
+        },
+        {
+          "row_id": "M3-OWNER-008",
+          "assertion": "protected executor separated",
+          "expected": "PASS",
+          "row_digest": "fbb0ab781b004195c526fffd2d734b3b41aecefd84f2e5037ea15ce260351950"
+        },
+        {
+          "row_id": "M3-OWNER-009",
+          "assertion": "role inference forbidden",
+          "expected": "PASS",
+          "row_digest": "416727f54fd553b9f9bb5b68c805d7230171cc79945533a8b77c60134f6bc5d3"
+        },
+        {
+          "row_id": "M3-OWNER-010",
+          "assertion": "recency inference forbidden",
+          "expected": "PASS",
+          "row_digest": "31603900bbe51ad8139b40002edeebfbf58fc687a23b3c3d2b1e83a27f7b3148"
+        },
+        {
+          "row_id": "M3-OWNER-011",
+          "assertion": "dual owner rejected",
+          "expected": "PASS",
+          "row_digest": "4f94816d04a22dc01095034ceda3eb2ea0b9f6d036496fc01016f9205219a7c7"
+        },
+        {
+          "row_id": "M3-OWNER-012",
+          "assertion": "owner conflict stops",
+          "expected": "PASS",
+          "row_digest": "7c3925a1b4d00483b58124456c8113fbbada8157d05d66e745f09959a566179c"
+        }
+      ]
+    },
+    {
+      "group_id": "M3-ROUTE",
+      "row_count": 18,
+      "group_digest": "c440161b9dba1d09ffc468230da7e964d333a1744c2f3348138fe19bcaa52d0f",
+      "rows": [
+        {
+          "row_id": "M3-ROUTE-001",
+          "assertion": "valid role dispatch intent",
+          "expected": "PASS",
+          "row_digest": "51fc41d03476ac0d402baac2ad0f9c6198aa520a192732bb35b93d2faa1f635c"
+        },
+        {
+          "row_id": "M3-ROUTE-002",
+          "assertion": "valid independent review intent",
+          "expected": "PASS",
+          "row_digest": "721027ea55017ee54cbb496170d9290e052c2ac87c32fbbd9d75922828b4823c"
+        },
+        {
+          "row_id": "M3-ROUTE-003",
+          "assertion": "valid metadata route intent",
+          "expected": "PASS",
+          "row_digest": "724e150fc8cb1f05374e8836db8b39dbfb9d2b09f8a8412e2cdf5309ff9ac8d5"
+        },
+        {
+          "row_id": "M3-ROUTE-004",
+          "assertion": "task binding enforced",
+          "expected": "PASS",
+          "row_digest": "f9d01617171e1b554dab298f5fd8ed0f48d73700866afff1a4dea6938ecfc435"
+        },
+        {
+          "row_id": "M3-ROUTE-005",
+          "assertion": "branch binding enforced",
+          "expected": "PASS",
+          "row_digest": "13126ce8e783add30b427c1ecbaf503b3abb2aa22318aeadffa51a77ae1eeee1"
+        },
+        {
+          "row_id": "M3-ROUTE-006",
+          "assertion": "worktree binding enforced",
+          "expected": "PASS",
+          "row_digest": "a6247cf827094d4b51045ad22b5be99857c2d23b80e331f948f8077f59c905e5"
+        },
+        {
+          "row_id": "M3-ROUTE-007",
+          "assertion": "PR binding enforced",
+          "expected": "PASS",
+          "row_digest": "54a9d6126847be5a28e0a5393b48ebdf112a94c695ebc2bd7eee4dca1ed51167"
+        },
+        {
+          "row_id": "M3-ROUTE-008",
+          "assertion": "HEAD binding enforced",
+          "expected": "PASS",
+          "row_digest": "cc7d8ef8c8bbedc0a1326c097b1440f42645a4c5bfb27881d7f7a16a31b55e5d"
+        },
+        {
+          "row_id": "M3-ROUTE-009",
+          "assertion": "predecessor binding enforced",
+          "expected": "PASS",
+          "row_digest": "27c8c00154a1bb85e67a919468f8ab4e9c9f018467894131a609687831ec2664"
+        },
+        {
+          "row_id": "M3-ROUTE-010",
+          "assertion": "scope binding enforced",
+          "expected": "PASS",
+          "row_digest": "12c381ddc30756c610cceaea727de1e001ae358cdc8b969626a8990766f30987"
+        },
+        {
+          "row_id": "M3-ROUTE-011",
+          "assertion": "missing route rejected",
+          "expected": "PASS",
+          "row_digest": "477d3ad3fdb7b66f89d90e66a193f6dfd13212a13b6e946eab05f8ad078e30ce"
+        },
+        {
+          "row_id": "M3-ROUTE-012",
+          "assertion": "multiple route authority rejected",
+          "expected": "PASS",
+          "row_digest": "92a8414e987e650b55f2b69bf8b1c333a78b769a1029450e8b7c48a394ddb25a"
+        },
+        {
+          "row_id": "M3-ROUTE-013",
+          "assertion": "unauthorized role change rejected",
+          "expected": "PASS",
+          "row_digest": "98110111b7441ccb84554277d4d3d4c2529f22fa8f6b3b31bc0e95131b814686"
+        },
+        {
+          "row_id": "M3-ROUTE-014",
+          "assertion": "idempotent intent deterministic",
+          "expected": "PASS",
+          "row_digest": "356a5ad0f247f4e5679050cc783af40d5f631ffd38b27fc6ce121584024bf7a5"
+        },
+        {
+          "row_id": "M3-ROUTE-015",
+          "assertion": "duplicate dispatch suppressed",
+          "expected": "PASS",
+          "row_digest": "1d63170a321eae6ce6600bfbbe3f25755ca1a81b11dd5a8ae0d33d6e972c4a7b"
+        },
+        {
+          "row_id": "M3-ROUTE-016",
+          "assertion": "protected route waits",
+          "expected": "PASS",
+          "row_digest": "a9850a920dfcf2229e8bc967c785f5699c5c52a69416bf3f4f5fc9b2599c9516"
+        },
+        {
+          "row_id": "M3-ROUTE-017",
+          "assertion": "one-way compatibility route projection",
+          "expected": "PASS",
+          "row_digest": "38400e84905b2f7a228dcd55911ac372d2a2ab91a9d5c87f115150c041506f19"
+        },
+        {
+          "row_id": "M3-ROUTE-018",
+          "assertion": "extra dispatch count zero",
+          "expected": "PASS",
+          "row_digest": "a4ac4912556369932d13fede80d06f05121fb85716d048b05ffa3277f32799c7"
+        }
+      ]
+    },
+    {
+      "group_id": "M3-FRESH",
+      "row_count": 16,
+      "group_digest": "17ab6253b25fa2da2d49c4af0e24618cc4f7612bbcfff2b23185de22957bd7b1",
+      "rows": [
+        {
+          "row_id": "M3-FRESH-001",
+          "assertion": "evaluation snapshot admitted",
+          "expected": "PASS",
+          "row_digest": "3851b81a9fe7e013b0bade137066f1304026f2837509e8dc6a65ef23166ad664"
+        },
+        {
+          "row_id": "M3-FRESH-002",
+          "assertion": "later action guard admitted",
+          "expected": "PASS",
+          "row_digest": "def292cbec2c44dd5dc310bfeb5b805fb20a69455d4bca94bd19b6e07364ba28"
+        },
+        {
+          "row_id": "M3-FRESH-003",
+          "assertion": "HEAD drift stops",
+          "expected": "PASS",
+          "row_digest": "5f8cfbd24b77894211185db2d478c8b59fe1ed07257fbf0c11adb8795039dc16"
+        },
+        {
+          "row_id": "M3-FRESH-004",
+          "assertion": "base drift stops",
+          "expected": "PASS",
+          "row_digest": "4bda2d96c4fc4f368454a430c8b7ee2f420660ee0eae479291c9790bf1f59b6b"
+        },
+        {
+          "row_id": "M3-FRESH-005",
+          "assertion": "PR state drift stops",
+          "expected": "PASS",
+          "row_digest": "7f1479c2b53e38a7568c6ff145c58c9c335f352323740e4f987bd368bc641a07"
+        },
+        {
+          "row_id": "M3-FRESH-006",
+          "assertion": "check drift stops",
+          "expected": "PASS",
+          "row_digest": "b69246787585864c8f3067f7deb57df7fa2987ee7ca59c0b50f73a42b0c70800"
+        },
+        {
+          "row_id": "M3-FRESH-007",
+          "assertion": "finding drift stops",
+          "expected": "PASS",
+          "row_digest": "cde5669e7a94df07138c956a5994fc0ef98621c2d6dd77dc7e403e425fd41a7a"
+        },
+        {
+          "row_id": "M3-FRESH-008",
+          "assertion": "thread drift stops",
+          "expected": "PASS",
+          "row_digest": "f97c42d7952e383cb140e6b4872fa5d28b190f5b7793d47da1af3537dc4c8566"
+        },
+        {
+          "row_id": "M3-FRESH-009",
+          "assertion": "GSP drift stops",
+          "expected": "PASS",
+          "row_digest": "a602915043b9b0e6a72a9ab55b7de64e41bc7e34e7724ed6649a1a39688e629e"
+        },
+        {
+          "row_id": "M3-FRESH-010",
+          "assertion": "workspace drift stops",
+          "expected": "PASS",
+          "row_digest": "87223f8664a3a40d2210a3a3b7d0202dfa7a81cde956afbc3b131fe7b98b5841"
+        },
+        {
+          "row_id": "M3-FRESH-011",
+          "assertion": "inaccessible evidence stops",
+          "expected": "PASS",
+          "row_digest": "85ad6b841f686f64bc06affe7633746ecb6e7776a4395b1f80291cc8bd88348e"
+        },
+        {
+          "row_id": "M3-FRESH-012",
+          "assertion": "consumed proof rejected",
+          "expected": "PASS",
+          "row_digest": "abeb7bdeb4100deed3afe2d432eb9fe0a53873b5c62b63bdb0d9aab7bed7678a"
+        },
+        {
+          "row_id": "M3-FRESH-013",
+          "assertion": "reused proof rejected",
+          "expected": "PASS",
+          "row_digest": "3888a83e085529a52ec41b1da032d74698641b39afd52eba99d751ed2bb77aa3"
+        },
+        {
+          "row_id": "M3-FRESH-014",
+          "assertion": "guard purpose mismatch rejected",
+          "expected": "PASS",
+          "row_digest": "024f6779e9491978551518c29d4c22936665ea5931cccef1925edb23f1186aed"
+        },
+        {
+          "row_id": "M3-FRESH-015",
+          "assertion": "non-increasing time rejected",
+          "expected": "PASS",
+          "row_digest": "5397d53be4b3a8ab8363561a1995a94ac187d260a66094e769b682a77d0269ac"
+        },
+        {
+          "row_id": "M3-FRESH-016",
+          "assertion": "injected-time deterministic",
+          "expected": "PASS",
+          "row_digest": "c822f2d96e239688fbfa027ef2e1bf0c48f4ea959ebc54a1cbab971d70a0bfa8"
+        }
+      ]
+    },
+    {
+      "group_id": "M3-BUDGET",
+      "row_count": 28,
+      "group_digest": "cbdf84061b756d2ccf6a022464c05eb8aeb4671e9fadb52a79bdcf7d8e59be7c",
+      "rows": [
+        {
+          "row_id": "M3-BUDGET-001",
+          "assertion": "valid budget profile",
+          "expected": "PASS",
+          "row_digest": "231e71ce73037224c588be6561da6d497402fd6a3347f9bac1fef6e184b927d7"
+        },
+        {
+          "row_id": "M3-BUDGET-002",
+          "assertion": "valid repair ledger",
+          "expected": "PASS",
+          "row_digest": "b2376cca1cfd5aca519a7bff083ba0ee533a86f72431ee2c250b28900282600c"
+        },
+        {
+          "row_id": "M3-BUDGET-003",
+          "assertion": "technical limit minus one",
+          "expected": "PASS",
+          "row_digest": "7c48fbf136e150023a175ce9a4277549666824c0e12b536661b59478b2d3aab5"
+        },
+        {
+          "row_id": "M3-BUDGET-004",
+          "assertion": "technical limit",
+          "expected": "PASS",
+          "row_digest": "578da4ec7c2d8675a5117de0b7e62e7bf3b5a881a9096639f2e28b61405ea7a5"
+        },
+        {
+          "row_id": "M3-BUDGET-005",
+          "assertion": "technical limit plus one stops",
+          "expected": "PASS",
+          "row_digest": "3d44bfae3509f112d2e8b0923dba2c9393ad3b7eea32a637d1d598718d334614"
+        },
+        {
+          "row_id": "M3-BUDGET-006",
+          "assertion": "architecture limit minus one",
+          "expected": "PASS",
+          "row_digest": "6014c59a1cb73b5c35fa9165b2cce87fbf816a81838918749618fb5b5f4fcf37"
+        },
+        {
+          "row_id": "M3-BUDGET-007",
+          "assertion": "architecture limit",
+          "expected": "PASS",
+          "row_digest": "fc300bdba005b378b01bf06f1589cbd7fb88a2f6f1dc23516556cf19c5b738b0"
+        },
+        {
+          "row_id": "M3-BUDGET-008",
+          "assertion": "architecture limit plus one stops",
+          "expected": "PASS",
+          "row_digest": "65cc9e36905ee2d04046b9dabdbf445b02f638dcd5b8369e222ded558f1839ea"
+        },
+        {
+          "row_id": "M3-BUDGET-009",
+          "assertion": "metadata limit minus one",
+          "expected": "PASS",
+          "row_digest": "3d46780c4b21aa06e46f067bf07e28aa161448b62e20dc3b01f7bbf0086ed0e8"
+        },
+        {
+          "row_id": "M3-BUDGET-010",
+          "assertion": "metadata limit",
+          "expected": "PASS",
+          "row_digest": "0027cf6c21281adf615901323bc6f7ac615b7c815fd0034a7226947e7f3f9d4b"
+        },
+        {
+          "row_id": "M3-BUDGET-011",
+          "assertion": "metadata limit plus one stops",
+          "expected": "PASS",
+          "row_digest": "23f900b2cda0e9e31dfd8cfde2fd2782036d5044ee1145571d2aca41a49d04f7"
+        },
+        {
+          "row_id": "M3-BUDGET-012",
+          "assertion": "delivery limit minus one",
+          "expected": "PASS",
+          "row_digest": "b826b1c1d8ca4a99aef9b0fc69e57ca76f31b018c3591c22a4fa17ce54750237"
+        },
+        {
+          "row_id": "M3-BUDGET-013",
+          "assertion": "delivery limit",
+          "expected": "PASS",
+          "row_digest": "dcc20729727a54a6c4334a0d16eb1c11d42f325f8a9a8693b30dfb6493bcbebb"
+        },
+        {
+          "row_id": "M3-BUDGET-014",
+          "assertion": "delivery limit plus one stops",
+          "expected": "PASS",
+          "row_digest": "eca8dfd0e0768adf17f47c18cd08a572d27d55464e38533b80f43fc8011cfe93"
+        },
+        {
+          "row_id": "M3-BUDGET-015",
+          "assertion": "identical attempt replay",
+          "expected": "PASS",
+          "row_digest": "5d7d300653d81a6f2ee1c56a33cfb90ca0c42dec1c5860e1c1d94d34ab97e265"
+        },
+        {
+          "row_id": "M3-BUDGET-016",
+          "assertion": "concurrent identical claim stable",
+          "expected": "PASS",
+          "row_digest": "276dd28bf873358c67da4ee754ae382c397562571c1e8808cac211a3d0418550"
+        },
+        {
+          "row_id": "M3-BUDGET-017",
+          "assertion": "same finding new HEAD no reset",
+          "expected": "PASS",
+          "row_digest": "52a1abf6ca1e029323bdb00f2184acfdce5e6f7cb4de9f97eb2f87db945c91f0"
+        },
+        {
+          "row_id": "M3-BUDGET-018",
+          "assertion": "reopened finding no reset",
+          "expected": "PASS",
+          "row_digest": "e41bbf47248c7442a510d34760b358bf6ef72cd0a0d7ec162b2387f10ceb5852"
+        },
+        {
+          "row_id": "M3-BUDGET-019",
+          "assertion": "split finding history retained",
+          "expected": "PASS",
+          "row_digest": "0b954ae6fd90c90e4739fdef4ba4fffa1a6c84607850cbc33a034049306d93ba"
+        },
+        {
+          "row_id": "M3-BUDGET-020",
+          "assertion": "merged finding history retained",
+          "expected": "PASS",
+          "row_digest": "b5b66ec615c76daaf91381f9ff47b9a408367fdeda3a5aa1eb178f09cb4caa0f"
+        },
+        {
+          "row_id": "M3-BUDGET-021",
+          "assertion": "attempt class isolation",
+          "expected": "PASS",
+          "row_digest": "bd3562693702ed8387a99f31bd93e2d32cef9e73cfa2d09ff1cde238428f62bd"
+        },
+        {
+          "row_id": "M3-BUDGET-022",
+          "assertion": "admitted epoch change carry",
+          "expected": "PASS",
+          "row_digest": "e650d056896ff4d02630c17e8c07ea02ee40cd566af9bf52fe02477177209bc1"
+        },
+        {
+          "row_id": "M3-BUDGET-023",
+          "assertion": "prior audit history retained",
+          "expected": "PASS",
+          "row_digest": "9eb7534f5047803b6e761d5a501b7f69f48a0df552d7f96c4fad5b7cc822bf6a"
+        },
+        {
+          "row_id": "M3-BUDGET-024",
+          "assertion": "checkpoint at 32",
+          "expected": "PASS",
+          "row_digest": "9d7fca532042473fe770805ece6f71cdab5416574e4da06a2a532eb848594bbe"
+        },
+        {
+          "row_id": "M3-BUDGET-025",
+          "assertion": "stop at 64",
+          "expected": "PASS",
+          "row_digest": "48ed9096eee41f6ba310883549984a0f378f2371c3ed213099d97a39d927525d"
+        },
+        {
+          "row_id": "M3-BUDGET-026",
+          "assertion": "policy mismatch rejected",
+          "expected": "PASS",
+          "row_digest": "a8b47cbb3a338ffe90fbfd01762f493abd43fe60ba9dcf41fc01c086e2ed2b2d"
+        },
+        {
+          "row_id": "M3-BUDGET-027",
+          "assertion": "unclassifiable attempt rejected",
+          "expected": "PASS",
+          "row_digest": "7428d9203fc14c22e1b7ef0b43491a4806da43aa86ae39b22e6881611dce3253"
+        },
+        {
+          "row_id": "M3-BUDGET-028",
+          "assertion": "scope-domain conflict rejected",
+          "expected": "PASS",
+          "row_digest": "ab4a971c45f7750b23c5d267d3e1fa88b08c3c7b614992d2610b0dbcb6b06f17"
+        }
+      ]
+    },
+    {
+      "group_id": "M3-REPLAY",
+      "row_count": 12,
+      "group_digest": "f69e82035f2538a04285ef467d6827726e759f4826902e1cdd3ce21cfd0da9a4",
+      "rows": [
+        {
+          "row_id": "M3-REPLAY-001",
+          "assertion": "identical rerun deterministic",
+          "expected": "PASS",
+          "row_digest": "770746694e1a3bebaa5d2239017304c0bce76b6aa2a559bab9a2b004720d018f"
+        },
+        {
+          "row_id": "M3-REPLAY-002",
+          "assertion": "replay does not increment",
+          "expected": "PASS",
+          "row_digest": "4400f6a1bdab9fcf0690d5f2edb611d55947d294e397ed193acb10e55eb26e77"
+        },
+        {
+          "row_id": "M3-REPLAY-003",
+          "assertion": "concurrent CAS operand identical",
+          "expected": "PASS",
+          "row_digest": "61cb5b8b80af4866ac2001420169210f30d8f7f139b24d666a2d725e1678eb06"
+        },
+        {
+          "row_id": "M3-REPLAY-004",
+          "assertion": "only one external CAS winner",
+          "expected": "PASS",
+          "row_digest": "5a3d6998265d42076d988e275d0270dc2a40ab77d31d38b0f6793edfd5b7042a"
+        },
+        {
+          "row_id": "M3-REPLAY-005",
+          "assertion": "CAS loser authorizes no intent",
+          "expected": "PASS",
+          "row_digest": "e10802c12a02373d0a4d7e1b406851058c163c599643b7fe34595e38d52a190d"
+        },
+        {
+          "row_id": "M3-REPLAY-006",
+          "assertion": "distinct attempts canonical order",
+          "expected": "PASS",
+          "row_digest": "33ce2894009b2c025831c17f4d854aadba4ddf73f726f23beda58c3419cd9255"
+        },
+        {
+          "row_id": "M3-REPLAY-007",
+          "assertion": "duplicate idempotency rejected",
+          "expected": "PASS",
+          "row_digest": "264e506236f92a1def75531edff60909865eab78f9ff9c8e1ed7935726851784"
+        },
+        {
+          "row_id": "M3-REPLAY-008",
+          "assertion": "stale ledger rejected",
+          "expected": "PASS",
+          "row_digest": "b1cc5a159afe39b8f7655c124c28d9e29d4dec10b402ebe2ac37230ad6cefaf7"
+        },
+        {
+          "row_id": "M3-REPLAY-009",
+          "assertion": "stale state rejected",
+          "expected": "PASS",
+          "row_digest": "0eac348fd7cc56c2d324d97eaa1ee3cc4884ab827e8d7b4d389839049400fbfa"
+        },
+        {
+          "row_id": "M3-REPLAY-010",
+          "assertion": "stale source counter rejected",
+          "expected": "PASS",
+          "row_digest": "395fabf296dfda8709bc9d8164c877f44965fee32077d24552e74596d081e226"
+        },
+        {
+          "row_id": "M3-REPLAY-011",
+          "assertion": "result deeply frozen",
+          "expected": "PASS",
+          "row_digest": "b37f0cc65fa61180259052e01f38fad72c294b2eb0d76751127b6866e2e634c1"
+        },
+        {
+          "row_id": "M3-REPLAY-012",
+          "assertion": "zero IO and extra dispatch",
+          "expected": "PASS",
+          "row_digest": "aec7ad14bd49ac464bb228f14a55868551bbca9bb71a6f918cc5fc2e33d454bb"
+        }
+      ]
+    },
+    {
+      "group_id": "M3-FALLBACK",
+      "row_count": 10,
+      "group_digest": "da184ff6977b83395f5e1a929e1a60237b2fd909dd5a8ed2185e120e38423a1e",
+      "rows": [
+        {
+          "row_id": "M3-FALLBACK-001",
+          "assertion": "cutover mode accepted",
+          "expected": "PASS",
+          "row_digest": "2412ec4489fffc380a40a9ac43f836979987324019d26a03606c7c08e1cb8956"
+        },
+        {
+          "row_id": "M3-FALLBACK-002",
+          "assertion": "legacy mode accepted",
+          "expected": "PASS",
+          "row_digest": "4065f33763e9e24c7cc7097657ead2e7390df42f8026fc9962b909631085f197"
+        },
+        {
+          "row_id": "M3-FALLBACK-003",
+          "assertion": "both modes rejected",
+          "expected": "PASS",
+          "row_digest": "f07192583b7497453ddff138cd02c0e8b1b93e494c0d78d483e810ef154c8ba1"
+        },
+        {
+          "row_id": "M3-FALLBACK-004",
+          "assertion": "neither mode rejected",
+          "expected": "PASS",
+          "row_digest": "8b95201fbe80553c2da2851196315a06b2ce8b217c8a36fb2e36c21c2c64cba2"
+        },
+        {
+          "row_id": "M3-FALLBACK-005",
+          "assertion": "unbound mode rejected",
+          "expected": "PASS",
+          "row_digest": "650eecaed148dfa7e9eebf0394849b44c76ee169478958ecda4c6fd447b9ca1b"
+        },
+        {
+          "row_id": "M3-FALLBACK-006",
+          "assertion": "single-profile rollback",
+          "expected": "PASS",
+          "row_digest": "dc428761db461ab8a6c4560ef8d419316568b9d6d644508c4c071a38ccbd097f"
+        },
+        {
+          "row_id": "M3-FALLBACK-007",
+          "assertion": "rollback counter preserved",
+          "expected": "PASS",
+          "row_digest": "46495a60428cd617033731c8765ef559600add6451e0b9cecff6151cf088b5f2"
+        },
+        {
+          "row_id": "M3-FALLBACK-008",
+          "assertion": "rollback authority preserved",
+          "expected": "PASS",
+          "row_digest": "1fbb39c5b5472f2e1aecea00346b8d2ac4e371cf4a9fa848eb7e6f479664ba44"
+        },
+        {
+          "row_id": "M3-FALLBACK-009",
+          "assertion": "dynamic fallback forbidden",
+          "expected": "PASS",
+          "row_digest": "1916788cfb82b0cf3bf68c45177c56e24fbc02d3f8ccf776f9df3198e8221b0e"
+        },
+        {
+          "row_id": "M3-FALLBACK-010",
+          "assertion": "old API readable through adapter",
+          "expected": "PASS",
+          "row_digest": "a43fb5c6bbcbebc8caf197c9aee41fb6f636d93de00c32de466d973bbaf62dc5"
+        }
+      ]
+    },
+    {
+      "group_id": "M3-MANIFEST",
+      "row_count": 10,
+      "group_digest": "6c5a8877d1700e56d3a53ca4d4139625716679c9f3b723045f3b5444527bbe3a",
+      "rows": [
+        {
+          "row_id": "M3-MANIFEST-001",
+          "assertion": "prior eight path identities",
+          "expected": "PASS",
+          "row_digest": "67411e5c4ff8e2b2004124a512ed555873af9fcbf52d68cd13118143978f0bd1"
+        },
+        {
+          "row_id": "M3-MANIFEST-002",
+          "assertion": "prior path order",
+          "expected": "PASS",
+          "row_digest": "56ea7a3b0c9cf99baf5695e94f41a014cbc2fed2d622761610f81da5d0990927"
+        },
+        {
+          "row_id": "M3-MANIFEST-003",
+          "assertion": "prior manifest digest",
+          "expected": "PASS",
+          "row_digest": "1ac1a4993fc6e1ec81a3fb8a40e60ef00cf0f71425f5403f3cbb35f0b07476de"
+        },
+        {
+          "row_id": "M3-MANIFEST-004",
+          "assertion": "three ordered additions",
+          "expected": "PASS",
+          "row_digest": "1e79a3bcde43dd7f232396798eef8147e21db04ca2fc1d0d052d777e2cd47373"
+        },
+        {
+          "row_id": "M3-MANIFEST-005",
+          "assertion": "exact eleven path count",
+          "expected": "PASS",
+          "row_digest": "ade2018476e4b51b28ab75d9c7dae18d3dc661e199e2f1c5cb27c9e4a02e8dea"
+        },
+        {
+          "row_id": "M3-MANIFEST-006",
+          "assertion": "deterministic cumulative digest",
+          "expected": "PASS",
+          "row_digest": "eafec2df9a8e9fa1edf87b14ec81f89c255e8c025f80795c50897fbb4b11d3e5"
+        },
+        {
+          "row_id": "M3-MANIFEST-007",
+          "assertion": "missing path rejected",
+          "expected": "PASS",
+          "row_digest": "5f326b732b56f437ec889119ccf8875613c222c7863b45ab49101c276020d381"
+        },
+        {
+          "row_id": "M3-MANIFEST-008",
+          "assertion": "extra path rejected",
+          "expected": "PASS",
+          "row_digest": "353ca92c2d79463fa264004ae9b66965b4bc7335b0a77d914dec55bb0725d60c"
+        },
+        {
+          "row_id": "M3-MANIFEST-009",
+          "assertion": "order drift rejected",
+          "expected": "PASS",
+          "row_digest": "6f7b3b4e2cf65c6fce3817365ebd0a56e6e6a20672629b6155ea9228e6415c39"
+        },
+        {
+          "row_id": "M3-MANIFEST-010",
+          "assertion": "active and aggregate drift precedence",
+          "expected": "PASS",
+          "row_digest": "420e3fb3fd901a54db35e8ffa71eb5f3de8c57cb75b759b88a16e8059b603a21"
+        }
+      ]
+    },
+    {
+      "group_id": "M3-REG",
+      "row_count": 10,
+      "group_digest": "46c337dbd08a3a9eaf5f9f9d3de96efacea9fddf79a725d2559ca183e4e042c9",
+      "rows": [
+        {
+          "row_id": "M3-REG-001",
+          "assertion": "M0 runner PASS",
+          "expected": "PASS",
+          "row_digest": "8663a498e82d891d310a7fb3e8ff2c40893be770bd5d371e239c457c5910ff36"
+        },
+        {
+          "row_id": "M3-REG-002",
+          "assertion": "M1 runner PASS",
+          "expected": "PASS",
+          "row_digest": "e2e40762c9abbfaebf926eb7acb047e2be88c7f789b17603d333e338d8b8bb17"
+        },
+        {
+          "row_id": "M3-REG-003",
+          "assertion": "M2 semantic 72 PASS",
+          "expected": "PASS",
+          "row_digest": "81352cec33d4280bc056d7ebb7d42e7c3731fbe9abf90a29873ed34e27dcd3be"
+        },
+        {
+          "row_id": "M3-REG-004",
+          "assertion": "M2 supplement 67 PASS",
+          "expected": "PASS",
+          "row_digest": "501b84d24b81483fbd2f7222785273fd2468f3a292ba791eca85bc53d33c0dc4"
+        },
+        {
+          "row_id": "M3-REG-005",
+          "assertion": "AGP 56 PASS",
+          "expected": "PASS",
+          "row_digest": "76d60db2afaaf869fae1b380abf3251e99b59eb88b240406f7e561098fcf3daa"
+        },
+        {
+          "row_id": "M3-REG-006",
+          "assertion": "COV 40 plus 14 PASS",
+          "expected": "PASS",
+          "row_digest": "77970229ab75a81aef09ba58720dff14b1db09926d39cd92fd3c0f5dff0d583f"
+        },
+        {
+          "row_id": "M3-REG-007",
+          "assertion": "GSP regression PASS",
+          "expected": "PASS",
+          "row_digest": "97d6dc366f1e10cae100a2bcd907e63e98f6a92a814a64f8aca5f795b37696f6"
+        },
+        {
+          "row_id": "M3-REG-008",
+          "assertion": "ARL regression PASS",
+          "expected": "PASS",
+          "row_digest": "9bb1fde774ec3fef7e0de8e8db53873a4948de8205b63e1b0d9954f2d044d6e3"
+        },
+        {
+          "row_id": "M3-REG-009",
+          "assertion": "type and diff PASS",
+          "expected": "PASS",
+          "row_digest": "a63c429cf71b33ee41dc4fb10c38415a1bb129b0ac4b97c47adb6c40534e1859"
+        },
+        {
+          "row_id": "M3-REG-010",
+          "assertion": "production import write transport protected zero",
+          "expected": "PASS",
+          "row_digest": "3a28a4e772bfd90db31742327573e984ca787bb0ddde49d3616e839bfbe79382"
+        }
+      ]
+    }
+  ],
+  "row_count": 130,
+  "group_count": 9,
+  "aggregate_digest": "29d2a4e76d188b7b2fa40410f9ba7084789fbf38fcbd060135b0fecc5f31cdcb",
+  "matrix_digest": "480bb2a82c072af5833b1ed2e0462072a6e90dd74b433104150a2ae84dd65f7a",
+  "fixture_digest": "3e7ac96964eea8c01bf3fcc72753cfb4cdaa34e0d3f2563a3ac960b3f8f846c7"
+}
