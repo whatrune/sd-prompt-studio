@@ -5,8 +5,8 @@
   "authority_head": "b7d1013052514aacddb559cc4f24af5e33c08b96",
   "branch": "codex/issue-221-core-consolidation",
   "logical_worktree_identity": "issue-221-core-consolidation",
-  "prior_manifest_digest": "b66b3cec4a4be12eee5a149b9327d6b553174d39186270d73a069d768c97f6e6",
-  "prior_cumulative_digest": "52906d14c599f908fbcaef7a77588480733fcc307a08039aeb7bc25b7ef7a0c1",
+  "prior_manifest_digest": "88e6b78e12235f0198b09b12ce77ff454973f2ad1866af234960b548bfc82347",
+  "prior_cumulative_digest": "74f9cf7bae423551abce42e66e0eb1a2890e35a9c3d3d12b8e954080943d7124",
   "predecessor_path_bindings": [
     {
       "path": "scripts/fixtures/continuous-orchestration-core-consolidation-m0-v1.json",
@@ -54,15 +54,15 @@
     },
     {
       "path": "src/continuous-orchestration/completion-candidate-projection-cutover-v1.ts",
-      "sha256": "e087d95c5fe6066082862bddf054604285f5c6704318648486717afdfd0c7f82"
+      "sha256": "64bd6d8ed1b1c6f0d80bf9536a63fcc6308119f02eef6cde18abec548a700cfe"
     },
     {
       "path": "scripts/fixtures/continuous-orchestration-completion-candidate-projection-cutover-v1.json",
-      "sha256": "384e55f2e2a60f3d3355981afc24cd3fb9594398bc61cb2c08d7b5e919916c20"
+      "sha256": "b3f361f7c2b33ade92c7d158739c6531cd94658dbd2051f2f500fa1cbd1641d7"
     },
     {
       "path": "scripts/test-continuous-orchestration-completion-candidate-projection-cutover.mjs",
-      "sha256": "5e0fb38c985786156d3cbeb17b0d324d8b194d2d5d67748a19b43bd9fe256d9a"
+      "sha256": "a306e13ae0c83a522a8946740a4aa6ea1ba44fd9357b3866ff5380730c8cbfc1"
     }
   ],
   "added_paths": [
@@ -1310,5 +1310,5 @@
       }
     ]
   },
-  "fixture_digest": "c9ca7623c85bf66fd2c393173d7f352ff3f6358cce4393328b1de547a59f6ae8"
+  "fixture_digest": "3a2cf0f5df9d56e13b8f07158563910e97ca3a4aa3a0edfc6907b7992bf9c832"
 }

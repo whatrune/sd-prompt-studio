@@ -15,8 +15,8 @@ export const DEPRECATION_REPOSITORY_CONSUMER_SCAN_V1_VERSION = 'deprecation_repo
 export const DEPRECATION_EXECUTABLE_TRACE_V1_VERSION = 'deprecation_executable_trace_v1' as const
 export const DEPRECATION_SEMANTIC_CONSUMER_GRAPH_V1_VERSION = 'deprecation_semantic_consumer_graph_v1' as const
 export const M6_SEMANTIC_GRAPH_AUTHORITY_REVISION = 1 as const
-export const M6_EXPECTED_M5_MANIFEST_DIGEST = 'afebb503deea990e261a179f7601044f359f8e033c88a96119012684b25da7d6' as const
-export const M6_EXPECTED_M5_CUMULATIVE_DIGEST = '26b14b2dbba98decf5328807477cb625974248e845d5a71b5c4fc744d131b958' as const
+export const M6_EXPECTED_M5_MANIFEST_DIGEST = '90de69316713e5b438b6459be7b5368b66ea3c57395b6ab3c4feb8cf6bb751a8' as const
+export const M6_EXPECTED_M5_CUMULATIVE_DIGEST = '267a9d54265e2000ff2b47791c0b2a5b923c41740dc466fbc706ada55677af5a' as const
 export const M6_CANONICAL_EMPTY_CONSUMER_SET_DIGEST = digest([])
 export const M6_TASK_ID = 'AUDIT-CONTINUOUS-ORCHESTRATION-REFACTORING-001' as const
 export const M6_REPOSITORY = 'whatrune/sd-prompt-studio' as const
@@ -259,11 +259,11 @@ const PREDECESSOR_PATH_BINDINGS=[
  ['src/continuous-orchestration/authority-routing-budget-cutover-v1.ts','25d45748f1f3b4a7ec5883b63f260be7729cd0420e3f1847615ab1de90721490'],
  ['scripts/fixtures/continuous-orchestration-authority-routing-budget-cutover-v1.json','947ad2d817e0f847a484c770f45355d3bfc508fed90600eab69c24e7677d9f5f'],
  ['scripts/test-continuous-orchestration-authority-routing-budget-cutover.mjs','0788f575a2832c3b2c760742d11628fc060ae4384c06f99462de40e7173fed94'],
- ['src/continuous-orchestration/completion-candidate-projection-cutover-v1.ts','e087d95c5fe6066082862bddf054604285f5c6704318648486717afdfd0c7f82'],
- ['scripts/fixtures/continuous-orchestration-completion-candidate-projection-cutover-v1.json','384e55f2e2a60f3d3355981afc24cd3fb9594398bc61cb2c08d7b5e919916c20'],
- ['scripts/test-continuous-orchestration-completion-candidate-projection-cutover.mjs','5e0fb38c985786156d3cbeb17b0d324d8b194d2d5d67748a19b43bd9fe256d9a'],
+ ['src/continuous-orchestration/completion-candidate-projection-cutover-v1.ts','64bd6d8ed1b1c6f0d80bf9536a63fcc6308119f02eef6cde18abec548a700cfe'],
+ ['scripts/fixtures/continuous-orchestration-completion-candidate-projection-cutover-v1.json','b3f361f7c2b33ade92c7d158739c6531cd94658dbd2051f2f500fa1cbd1641d7'],
+ ['scripts/test-continuous-orchestration-completion-candidate-projection-cutover.mjs','a306e13ae0c83a522a8946740a4aa6ea1ba44fd9357b3866ff5380730c8cbfc1'],
  ['src/continuous-orchestration/evaluator-reducer-consolidation-v1.ts','f44dc4bbd5f17a2fd3491b6c5546e425d7b1c69c54641cd12d51df6746ec0004'],
- ['scripts/fixtures/continuous-orchestration-evaluator-reducer-consolidation-v1.json','03f709ac358a68d54fca70a1c5ff1613635ab5dfab7bdadd0b66a50ce1fbd049'],
+ ['scripts/fixtures/continuous-orchestration-evaluator-reducer-consolidation-v1.json','ff613a6ddb21b168632a526d561bbb0bdd9800e21d5264b1aca2678b7b0a1235'],
  ['scripts/test-continuous-orchestration-evaluator-reducer-consolidation.mjs','e482a20638be523fa7a88b1ef357d78c2b6299b760142437006088736408bd8d'],
 ].map(([path,sha256])=>({path,sha256}))
 const SURFACE_CLASSES=['production_imports','production_calls','direct_exports','indirect_exports','fixtures_and_runners','test_only_imports','generic_progress_runner_profiles','cross_component_bindings','compatibility_wrappers','public_package_entries','canonical_completion_records'] as const

@@ -49,9 +49,9 @@
     "src/continuous-orchestration/shadow-equivalence-v1.ts": "2aaab2e0d8cdac1046dee20ec3fc57692ccf13b16a224b1430f03ba7f610d4c2",
     "scripts/fixtures/continuous-orchestration-shadow-equivalence-v1.json": "8fee556578903174599867c747fd9ababa7bd93c9e5bfb5c76735f32299770d9",
     "scripts/test-continuous-orchestration-shadow-equivalence.mjs": "647ff5954f8b3d265ae231c553dfe3ad0bbe0315686714c9156ac10a8a97b8a6",
-    "src/continuous-orchestration/authority-routing-budget-cutover-v1.ts": "3aed25556fab6d0105e738624f39015deb804445deb86fd57329128ddfbb952f",
+    "src/continuous-orchestration/authority-routing-budget-cutover-v1.ts": "25d45748f1f3b4a7ec5883b63f260be7729cd0420e3f1847615ab1de90721490",
     "scripts/fixtures/continuous-orchestration-authority-routing-budget-cutover-v1.json": "947ad2d817e0f847a484c770f45355d3bfc508fed90600eab69c24e7677d9f5f",
-    "scripts/test-continuous-orchestration-authority-routing-budget-cutover.mjs": "e971797663e753028b225dfb89d86624a2353f8a2beecbc7cf6e20c4453af8c0"
+    "scripts/test-continuous-orchestration-authority-routing-budget-cutover.mjs": "0788f575a2832c3b2c760742d11628fc060ae4384c06f99462de40e7173fed94"
   },
   "groups": [
     {
@@ -445,7 +445,7 @@
     {
       "group_id": "M4-PROJ",
       "row_count": 20,
-      "group_digest": "5418cae5b381e7f9f9e74d020695389d33c2911dcd04bf77ad274449aba7bc28",
+      "group_digest": "a4d5a3ced0bc4860aa6d039015cda06496e3ae26bfc417e778584060f83c3060",
       "rows": [
         {
           "row_id": "M4-PROJ-001",
@@ -497,15 +497,15 @@
         },
         {
           "row_id": "M4-PROJ-009",
-          "assertion": "GSP request projection produced",
+          "assertion": "legacy V1 projection request stopped",
           "expected": "PASS",
-          "row_digest": "26050b12edb402c8a725b29b6f01a201f38809a8b56dc1c6c5b5dd62e87a4741"
+          "row_digest": "3d318fe0ded0b884f1a1a8f231063118829619b256eae084651887f6a96dcb3c"
         },
         {
           "row_id": "M4-PROJ-010",
-          "assertion": "GSP sole construction authority",
+          "assertion": "legacy V1 rejection uses projection conflict",
           "expected": "PASS",
-          "row_digest": "bb0a1ec12e62a36183d714091052a588d5f0270bc0a597a76636274bee7c6156"
+          "row_digest": "f0064a44e223695e493258a62b3352740fa7a67cdaa41c9c9f0e6376d9a9ae09"
         },
         {
           "row_id": "M4-PROJ-011",
@@ -515,9 +515,9 @@
         },
         {
           "row_id": "M4-PROJ-012",
-          "assertion": "metadata-only repair supported",
+          "assertion": "V2 metadata-only repair supported",
           "expected": "PASS",
-          "row_digest": "5bb07ad9b4d905d6fd6359abe5ec68dd944df748c4520c4fb8dc396129b57c97"
+          "row_digest": "28f8cca8388c2a594b2712fac488fc285da20e207bdad8f15fd1ec1bc11b9595"
         },
         {
           "row_id": "M4-PROJ-013",
@@ -572,7 +572,7 @@
     {
       "group_id": "M4-RECEIPT",
       "row_count": 12,
-      "group_digest": "eac46fb86055ce4c864222aca7e1f65849dfed6f1e9cd6ab2c98a10ac89af9d0",
+      "group_digest": "73a38758c43242f88f0f8058d742071b6b08f8554f6caa627af4a0960f6abaad",
       "rows": [
         {
           "row_id": "M4-RECEIPT-001",
@@ -588,15 +588,15 @@
         },
         {
           "row_id": "M4-RECEIPT-003",
-          "assertion": "positive result receipt reobservation chain",
+          "assertion": "legacy V1 receipt path stopped",
           "expected": "PASS",
-          "row_digest": "ac9a883069dab269bbf244e5cda93cbff12132d43e6263bed93af5aa97cb1b0c"
+          "row_digest": "ba91097f2b241a8f0b3c3c81706e50ac0e0e30327937c11fdfbf39b28806be42"
         },
         {
           "row_id": "M4-RECEIPT-004",
-          "assertion": "idempotent receipt reuse accepted",
+          "assertion": "legacy V1 receipt stop deterministic",
           "expected": "PASS",
-          "row_digest": "741957035da65d904d2753756dbf8a20c799a54c4300acff3b520b339ae4b6f3"
+          "row_digest": "5527becfc307be6cb4f66448d028c043564c5a8fdcfc61ee7aebe17278b2674f"
         },
         {
           "row_id": "M4-RECEIPT-005",
@@ -642,9 +642,9 @@
         },
         {
           "row_id": "M4-RECEIPT-012",
-          "assertion": "receipt grants no closure or completion",
+          "assertion": "V2 receipt schema grants no closure or completion",
           "expected": "PASS",
-          "row_digest": "98a49e64f66723415b6f14540747d270809d3062efe32ec7514b4b8fcd576bc2"
+          "row_digest": "eaa525f1b5dd4d79f17526187ac6aa1432bbc35a44336e2976f388b55fa65af2"
         }
       ]
     },
@@ -840,8 +840,8 @@
   ],
   "group_count": 9,
   "row_count": 120,
-  "aggregate_digest": "3b2618a04465ff8fd5daa14188b491e839ae7a7959cbcfaeea5625a152cea87f",
-  "matrix_digest": "57355a238fcce3c4d44ee85e498d2b5f17e42aa7314ffe879d989035cd3993c1",
+  "aggregate_digest": "3132fcc43f9873082000227d810c80eaa5f8417abd32e426fca755c734a814b3",
+  "matrix_digest": "f47f76f3ebbe215ec5f360fa3fe951be91f4ea8167941052e3f1e99287e60ce6",
   "transported_task_assignment_literal_corpus": {
     "corpus_version": "m4-projection-authority-binding-literal-corpus-v5",
     "matrix_version": "m4-projection-authority-binding-validation-matrix-v5",
@@ -2609,5 +2609,5 @@
   },
   "transported_task_assignment_matrix_digest": "4efa3438b25890f64ec1492f1c145e4759421be719901be9dc8a1f3931d4078e",
   "transported_task_assignment_corpus_digest": "1237acbf76d480bdc531a33559ea1b5d09f7f533ea83a0c8929b5dee73cf8a2c",
-  "fixture_digest": "d520a37a59560c7144ab0c3e04c3450df44fefd56addb495a362fb497d66e67e"
+  "fixture_digest": "b90c0a485e23aa49b7749ce65cbf7933918c1efd84191fb6b679a31f61f938cf"
 }
