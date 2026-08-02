@@ -11,8 +11,8 @@
   "active_repair_review_decision": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5151169068",
   "active_repair_dispatch": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5151311161",
   "assignment_revision": 3,
-  "prior_manifest_digest": "9b81f8d88eff42fc6246c4b618abd101f5a925b3abb4383d6d47cc0782887b39",
-  "prior_cumulative_digest": "957f4da0614d3a0a97c971029fceef43bab8bf72b70d96f22407d7fcf3393383",
+  "prior_manifest_digest": "afebb503deea990e261a179f7601044f359f8e033c88a96119012684b25da7d6",
+  "prior_cumulative_digest": "26b14b2dbba98decf5328807477cb625974248e845d5a71b5c4fc744d131b958",
   "predecessor_path_bindings": [
     {
       "path": "scripts/fixtures/continuous-orchestration-core-consolidation-m0-v1.json",
@@ -48,7 +48,7 @@
     },
     {
       "path": "src/continuous-orchestration/authority-routing-budget-cutover-v1.ts",
-      "sha256": "3aed25556fab6d0105e738624f39015deb804445deb86fd57329128ddfbb952f"
+      "sha256": "25d45748f1f3b4a7ec5883b63f260be7729cd0420e3f1847615ab1de90721490"
     },
     {
       "path": "scripts/fixtures/continuous-orchestration-authority-routing-budget-cutover-v1.json",
@@ -56,19 +56,19 @@
     },
     {
       "path": "scripts/test-continuous-orchestration-authority-routing-budget-cutover.mjs",
-      "sha256": "e971797663e753028b225dfb89d86624a2353f8a2beecbc7cf6e20c4453af8c0"
+      "sha256": "0788f575a2832c3b2c760742d11628fc060ae4384c06f99462de40e7173fed94"
     },
     {
       "path": "src/continuous-orchestration/completion-candidate-projection-cutover-v1.ts",
-      "sha256": "49714919ad25653faadf492768da609e627547928d96c17c6cb0073afbd4460e"
+      "sha256": "e087d95c5fe6066082862bddf054604285f5c6704318648486717afdfd0c7f82"
     },
     {
       "path": "scripts/fixtures/continuous-orchestration-completion-candidate-projection-cutover-v1.json",
-      "sha256": "e84952ca6ef27c0e262ed64c049b999315ba8b2c9554947bf4aa9e8c76bf7467"
+      "sha256": "384e55f2e2a60f3d3355981afc24cd3fb9594398bc61cb2c08d7b5e919916c20"
     },
     {
       "path": "scripts/test-continuous-orchestration-completion-candidate-projection-cutover.mjs",
-      "sha256": "e2fa0951201112db0ee0739288948440df596cdc506b12f970ba6de3ab338608"
+      "sha256": "5e0fb38c985786156d3cbeb17b0d324d8b194d2d5d67748a19b43bd9fe256d9a"
     },
     {
       "path": "src/continuous-orchestration/evaluator-reducer-consolidation-v1.ts",
@@ -76,11 +76,11 @@
     },
     {
       "path": "scripts/fixtures/continuous-orchestration-evaluator-reducer-consolidation-v1.json",
-      "sha256": "bf80a6174396a12adde87ce754d6e0d80b2569bc1d1e07afe88cd4720ee648ed"
+      "sha256": "03f709ac358a68d54fca70a1c5ff1613635ab5dfab7bdadd0b66a50ce1fbd049"
     },
     {
       "path": "scripts/test-continuous-orchestration-evaluator-reducer-consolidation.mjs",
-      "sha256": "f41df0e18b0e877498018917356a4c1b0473436e8ec5c6a255e88541f6bf879a"
+      "sha256": "e482a20638be523fa7a88b1ef357d78c2b6299b760142437006088736408bd8d"
     }
   ],
   "added_paths": [
@@ -1006,5 +1006,5 @@
   ],
   "aggregate_digest": "6cb4e9dd09fe18b2dd3f3a28b1f9b2fe9e57e52d08eea517156e50d6675f5ecb",
   "matrix_digest": "cbd71b68e34ef931601929fe211168f1740ad1dbb82e27aac503d80f4be61307",
-  "fixture_digest": "f2f86a01b9cefe7fcf176dcaf2a59707216c488c77d070716aa725b3ba48a48f"
+  "fixture_digest": "4377e76ebc84bf1805bcced59b604bdf177fe69d83a286fbe97eff399e37e892"
 }

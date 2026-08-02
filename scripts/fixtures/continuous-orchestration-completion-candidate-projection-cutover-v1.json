@@ -842,5 +842,1772 @@
   "row_count": 120,
   "aggregate_digest": "3b2618a04465ff8fd5daa14188b491e839ae7a7959cbcfaeea5625a152cea87f",
   "matrix_digest": "57355a238fcce3c4d44ee85e498d2b5f17e42aa7314ffe879d989035cd3993c1",
-  "fixture_digest": "b0305ba074bd6f899d7eec1cf1e37a781eae1098cf4980e3b579a3cff74568a1"
+  "transported_task_assignment_literal_corpus": {
+    "corpus_version": "m4-projection-authority-binding-literal-corpus-v5",
+    "matrix_version": "m4-projection-authority-binding-validation-matrix-v5",
+    "expansion_contract": {
+      "base_selection": "select the exactly matching base_fixture_id",
+      "patch_order": "apply input_mutations in listed order",
+      "patch_schema": [
+        "op",
+        "path",
+        "value",
+        "phase"
+      ],
+      "pre_seal": "apply before deterministic leaf-to-root JCS digest sealing",
+      "post_seal": "apply after sealing and do not reseal",
+      "authority_fixture": "resolve dispatch_authority_fixture_id to exactly one literal synthetic admitted projection; copy no ambient values",
+      "task_assignment_transport": "copy the complete task_assignment_projection object into M4ProjectionIntentAuthorityBindingV3; no URL lookup or reconstruction",
+      "output": "expand the seed into the exact M4 V2 production input using the frozen existing M4 fixture builder and the cumulative Revision 4 projections",
+      "admitted_field_ids_order": "all admitted_field_ids arrays are exact UTF-8 ascending; no alternate or insertion order is authority"
+    },
+    "dispatch_authority_fixtures": [
+      {
+        "fixture_id": "ORDINARY_METADATA_DISPATCH_V1",
+        "fixture_status": "synthetic_admitted_projection",
+        "task_assignment_source_record": {
+          "record_type": "task_assignment",
+          "canonical_record_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922100001",
+          "task_id": "AUDIT-CONTINUOUS-ORCHESTRATION-REFACTORING-001",
+          "repository": "whatrune/sd-prompt-studio",
+          "assignment_revision": 1,
+          "requested_by_role_id": "product_owner",
+          "assigned_role_id": "backend_implementer",
+          "pr_url": "https://github.com/whatrune/sd-prompt-studio/pull/222",
+          "pr_head_sha": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "allowed_scope_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "allowed_action_ids": [
+            "construct_gate_status_projection_request"
+          ],
+          "forbidden_action_ids": [
+            "commit",
+            "github_approve",
+            "issue_209_operation",
+            "merge",
+            "push",
+            "ready",
+            "repository_mutation",
+            "thread_resolve",
+            "worktree_topology"
+          ],
+          "stop_condition_ids": [
+            "architecture_ambiguity",
+            "authority_change",
+            "protected_action_required",
+            "repeat_limit_exceeded",
+            "safety_boundary_change"
+          ],
+          "implementation_authority": false,
+          "metadata_authority": false,
+          "projection_authority": false,
+          "completion_authority": false,
+          "finding_closure_authority": false,
+          "approval_authority": false,
+          "protected_action_authority": false,
+          "protected_action_permission_ids": []
+        },
+        "task_assignment_projection": {
+          "projection_version": "m4_projection_task_assignment_authority_v2",
+          "source_record_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922100001",
+          "source_record_digest": "7534b3c8ffceaffd283b807e9e98f584f539a5aa30456a6c248a2f712f403204",
+          "task_id": "AUDIT-CONTINUOUS-ORCHESTRATION-REFACTORING-001",
+          "repository": "whatrune/sd-prompt-studio",
+          "assignment_revision": 1,
+          "requested_by_role_id": "product_owner",
+          "assigned_role_id": "backend_implementer",
+          "pr_url": "https://github.com/whatrune/sd-prompt-studio/pull/222",
+          "pr_head_sha": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "allowed_scope_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "allowed_action_ids": [
+            "construct_gate_status_projection_request"
+          ],
+          "forbidden_action_ids": [
+            "commit",
+            "github_approve",
+            "issue_209_operation",
+            "merge",
+            "push",
+            "ready",
+            "repository_mutation",
+            "thread_resolve",
+            "worktree_topology"
+          ],
+          "stop_condition_ids": [
+            "architecture_ambiguity",
+            "authority_change",
+            "protected_action_required",
+            "repeat_limit_exceeded",
+            "safety_boundary_change"
+          ],
+          "implementation_authority": false,
+          "metadata_authority": false,
+          "projection_authority": false,
+          "completion_authority": false,
+          "finding_closure_authority": false,
+          "approval_authority": false,
+          "protected_action_authority": false,
+          "protected_action_permission_ids": [],
+          "projection_digest": "96b53e6b5d17fe901ec48a6f34925585098f748f419ee1f807c61c362233ee4c"
+        },
+        "dispatch_authority": {
+          "dispatch_authority_version": "m4_projection_dispatch_authority_v1",
+          "intent_authority_record_type": "metadata_sync_dispatch",
+          "canonical_record_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922100002",
+          "authoring_role_id": "integrated_lead",
+          "assigned_role_id": "backend_implementer",
+          "task_assignment_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922100001",
+          "task_assignment_identity_digest": "96b53e6b5d17fe901ec48a6f34925585098f748f419ee1f807c61c362233ee4c",
+          "task_id": "AUDIT-CONTINUOUS-ORCHESTRATION-REFACTORING-001",
+          "repository": "whatrune/sd-prompt-studio",
+          "assignment_revision": 1,
+          "pr_url": "https://github.com/whatrune/sd-prompt-studio/pull/222",
+          "pr_head_sha": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "allowed_scope_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "allowed_action_id": "construct_gate_status_projection_request",
+          "metadata_authority": false,
+          "implementation_authority": false,
+          "projection_authority": false,
+          "completion_authority": false,
+          "finding_closure_authority": false,
+          "approval_authority": false,
+          "protected_action_authority": false,
+          "dispatch_authority_digest": "f1bc1d56f68f68372ab9e75da3bc4099851c4b2694c25a4b097cdff91ac076f4"
+        },
+        "admitted_assignment_source": {
+          "source_type": "task_assignment",
+          "source_ref": {
+            "kind": "canonical_record",
+            "url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922100001"
+          },
+          "owner_contract_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922100001",
+          "authority_class": "normative_semantic",
+          "authority_scope_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "content_projection_digest": "0de97167fb69ab7fd98d8cee469744abb8b5fc5480b11dcb059d7677df1d95a7",
+          "task_id": "AUDIT-CONTINUOUS-ORCHESTRATION-REFACTORING-001",
+          "repository": "whatrune/sd-prompt-studio",
+          "subject_head_sha_or_null": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "observed_at": "2026-08-02T00:00:00Z",
+          "admitted_field_ids": [
+            "assigned_role_id",
+            "assignment_revision",
+            "canonical_record_url",
+            "contract_version",
+            "pr_head_sha",
+            "pr_url",
+            "repository",
+            "task_id"
+          ],
+          "admission_result": "accepted"
+        },
+        "admitted_dispatch_source": {
+          "source_type": "identity",
+          "source_ref": {
+            "kind": "canonical_record",
+            "url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922100002"
+          },
+          "owner_contract_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922100001",
+          "authority_class": "projection_transport",
+          "authority_scope_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "content_projection_digest": "f1bc1d56f68f68372ab9e75da3bc4099851c4b2694c25a4b097cdff91ac076f4",
+          "task_id": "AUDIT-CONTINUOUS-ORCHESTRATION-REFACTORING-001",
+          "repository": "whatrune/sd-prompt-studio",
+          "subject_head_sha_or_null": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "observed_at": "2026-08-02T00:00:01Z",
+          "admitted_field_ids": [
+            "assigned_role_id",
+            "assignment_revision",
+            "authoring_role_id",
+            "canonical_record_url",
+            "contract_version",
+            "pr_head_sha",
+            "pr_url",
+            "repository",
+            "task_id"
+          ],
+          "admission_result": "accepted"
+        },
+        "task_assignment_source_binding_digest": "0de97167fb69ab7fd98d8cee469744abb8b5fc5480b11dcb059d7677df1d95a7",
+        "admitted_assignment_source_digest": "e79c510ecf083e81a0ce3e843222b69509479d56521e23f03c0def39869a2372",
+        "admitted_dispatch_source_digest": "0a3b4876bdd9813ab42109d1732b192361f8ab954845128ae558be8f5f170643"
+      },
+      {
+        "fixture_id": "COMPLETION_PROJECTION_DISPATCH_V1",
+        "fixture_status": "synthetic_admitted_projection",
+        "task_assignment_source_record": {
+          "record_type": "task_assignment",
+          "canonical_record_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922100001",
+          "task_id": "AUDIT-CONTINUOUS-ORCHESTRATION-REFACTORING-001",
+          "repository": "whatrune/sd-prompt-studio",
+          "assignment_revision": 1,
+          "requested_by_role_id": "product_owner",
+          "assigned_role_id": "backend_implementer",
+          "pr_url": "https://github.com/whatrune/sd-prompt-studio/pull/222",
+          "pr_head_sha": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "allowed_scope_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "allowed_action_ids": [
+            "construct_gate_status_projection_request"
+          ],
+          "forbidden_action_ids": [
+            "commit",
+            "github_approve",
+            "issue_209_operation",
+            "merge",
+            "push",
+            "ready",
+            "repository_mutation",
+            "thread_resolve",
+            "worktree_topology"
+          ],
+          "stop_condition_ids": [
+            "architecture_ambiguity",
+            "authority_change",
+            "protected_action_required",
+            "repeat_limit_exceeded",
+            "safety_boundary_change"
+          ],
+          "implementation_authority": false,
+          "metadata_authority": false,
+          "projection_authority": false,
+          "completion_authority": false,
+          "finding_closure_authority": false,
+          "approval_authority": false,
+          "protected_action_authority": false,
+          "protected_action_permission_ids": []
+        },
+        "task_assignment_projection": {
+          "projection_version": "m4_projection_task_assignment_authority_v2",
+          "source_record_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922100001",
+          "source_record_digest": "7534b3c8ffceaffd283b807e9e98f584f539a5aa30456a6c248a2f712f403204",
+          "task_id": "AUDIT-CONTINUOUS-ORCHESTRATION-REFACTORING-001",
+          "repository": "whatrune/sd-prompt-studio",
+          "assignment_revision": 1,
+          "requested_by_role_id": "product_owner",
+          "assigned_role_id": "backend_implementer",
+          "pr_url": "https://github.com/whatrune/sd-prompt-studio/pull/222",
+          "pr_head_sha": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "allowed_scope_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "allowed_action_ids": [
+            "construct_gate_status_projection_request"
+          ],
+          "forbidden_action_ids": [
+            "commit",
+            "github_approve",
+            "issue_209_operation",
+            "merge",
+            "push",
+            "ready",
+            "repository_mutation",
+            "thread_resolve",
+            "worktree_topology"
+          ],
+          "stop_condition_ids": [
+            "architecture_ambiguity",
+            "authority_change",
+            "protected_action_required",
+            "repeat_limit_exceeded",
+            "safety_boundary_change"
+          ],
+          "implementation_authority": false,
+          "metadata_authority": false,
+          "projection_authority": false,
+          "completion_authority": false,
+          "finding_closure_authority": false,
+          "approval_authority": false,
+          "protected_action_authority": false,
+          "protected_action_permission_ids": [],
+          "projection_digest": "96b53e6b5d17fe901ec48a6f34925585098f748f419ee1f807c61c362233ee4c"
+        },
+        "dispatch_authority": {
+          "dispatch_authority_version": "m4_projection_dispatch_authority_v1",
+          "intent_authority_record_type": "completion_projection_dispatch",
+          "canonical_record_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922100003",
+          "authoring_role_id": "integrated_lead",
+          "assigned_role_id": "backend_implementer",
+          "task_assignment_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922100001",
+          "task_assignment_identity_digest": "96b53e6b5d17fe901ec48a6f34925585098f748f419ee1f807c61c362233ee4c",
+          "task_id": "AUDIT-CONTINUOUS-ORCHESTRATION-REFACTORING-001",
+          "repository": "whatrune/sd-prompt-studio",
+          "assignment_revision": 1,
+          "pr_url": "https://github.com/whatrune/sd-prompt-studio/pull/222",
+          "pr_head_sha": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "allowed_scope_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "allowed_action_id": "construct_gate_status_projection_request",
+          "metadata_authority": false,
+          "implementation_authority": false,
+          "projection_authority": false,
+          "completion_authority": false,
+          "finding_closure_authority": false,
+          "approval_authority": false,
+          "protected_action_authority": false,
+          "dispatch_authority_digest": "ce3f4b9dbd6ec5b40f83a0743cfe53cc19f8b1195a5924e9edbe243d0d9aa6ac"
+        },
+        "admitted_assignment_source": {
+          "source_type": "task_assignment",
+          "source_ref": {
+            "kind": "canonical_record",
+            "url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922100001"
+          },
+          "owner_contract_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922100001",
+          "authority_class": "normative_semantic",
+          "authority_scope_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "content_projection_digest": "0de97167fb69ab7fd98d8cee469744abb8b5fc5480b11dcb059d7677df1d95a7",
+          "task_id": "AUDIT-CONTINUOUS-ORCHESTRATION-REFACTORING-001",
+          "repository": "whatrune/sd-prompt-studio",
+          "subject_head_sha_or_null": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "observed_at": "2026-08-02T00:00:00Z",
+          "admitted_field_ids": [
+            "assigned_role_id",
+            "assignment_revision",
+            "canonical_record_url",
+            "contract_version",
+            "pr_head_sha",
+            "pr_url",
+            "repository",
+            "task_id"
+          ],
+          "admission_result": "accepted"
+        },
+        "admitted_dispatch_source": {
+          "source_type": "identity",
+          "source_ref": {
+            "kind": "canonical_record",
+            "url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922100003"
+          },
+          "owner_contract_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922100001",
+          "authority_class": "projection_transport",
+          "authority_scope_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "content_projection_digest": "ce3f4b9dbd6ec5b40f83a0743cfe53cc19f8b1195a5924e9edbe243d0d9aa6ac",
+          "task_id": "AUDIT-CONTINUOUS-ORCHESTRATION-REFACTORING-001",
+          "repository": "whatrune/sd-prompt-studio",
+          "subject_head_sha_or_null": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "observed_at": "2026-08-02T00:00:01Z",
+          "admitted_field_ids": [
+            "assigned_role_id",
+            "assignment_revision",
+            "authoring_role_id",
+            "canonical_record_url",
+            "contract_version",
+            "pr_head_sha",
+            "pr_url",
+            "repository",
+            "task_id"
+          ],
+          "admission_result": "accepted"
+        },
+        "task_assignment_source_binding_digest": "0de97167fb69ab7fd98d8cee469744abb8b5fc5480b11dcb059d7677df1d95a7",
+        "admitted_assignment_source_digest": "e79c510ecf083e81a0ce3e843222b69509479d56521e23f03c0def39869a2372",
+        "admitted_dispatch_source_digest": "df9da2e96d615d2dd80d9efd85fc3c8b350b481b419e3e0b6ef3d7e7e592f7fd"
+      }
+    ],
+    "base_fixtures": [
+      {
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "seed": {
+          "input_version": "completion_candidate_projection_cutover_input_v2",
+          "task_id": "AUDIT-CONTINUOUS-ORCHESTRATION-REFACTORING-001",
+          "repository": "whatrune/sd-prompt-studio",
+          "assignment_revision": 1,
+          "pr_url": "https://github.com/whatrune/sd-prompt-studio/pull/222",
+          "pr_head_sha": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "current_main_sha": "b7d1013052514aacddb559cc4f24af5e33c08b96",
+          "candidate_published_head_sha": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "fresh_snapshot_pr_head_sha": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "fresh_snapshot_pr_url": "https://github.com/whatrune/sd-prompt-studio/pull/222",
+          "projection_intent_class": "ordinary_metadata_only",
+          "intent_authority_record_type": "metadata_sync_dispatch",
+          "intent_authority_record_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922100002",
+          "dispatch_authority_fixture_id": "ORDINARY_METADATA_DISPATCH_V1",
+          "dispatch_authoring_role_id": "integrated_lead",
+          "dispatch_assigned_role_id": "backend_implementer",
+          "authorized_metadata_role_id": "backend_implementer",
+          "gate_projection_reason": "stale",
+          "required_field_ids": [
+            "current_head",
+            "next_gate",
+            "pr_state"
+          ],
+          "gate_projection_evidence_urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5153906304",
+            "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5154214751"
+          ],
+          "expected_prior_generation": 12,
+          "expected_prior_gate_rows_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+          "completion_stage": "ordinary",
+          "completion_evidence_record_url": null,
+          "completion_evidence_candidate_digest": null,
+          "completion_evidence_input_present": false,
+          "completion_decision_url": null,
+          "completion_decision_binding_digest": null,
+          "completion_decision_pr_head_sha": null,
+          "completion_decision_input_present": false,
+          "metadata_action_guard_present": true,
+          "gsp_result_stage": "none"
+        }
+      },
+      {
+        "base_fixture_id": "COMPLETION_C0_AWAITING_EVIDENCE",
+        "seed": {
+          "input_version": "completion_candidate_projection_cutover_input_v2",
+          "task_id": "AUDIT-CONTINUOUS-ORCHESTRATION-REFACTORING-001",
+          "repository": "whatrune/sd-prompt-studio",
+          "assignment_revision": 1,
+          "pr_url": "https://github.com/whatrune/sd-prompt-studio/pull/222",
+          "pr_head_sha": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "current_main_sha": "b7d1013052514aacddb559cc4f24af5e33c08b96",
+          "candidate_published_head_sha": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "fresh_snapshot_pr_head_sha": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "fresh_snapshot_pr_url": "https://github.com/whatrune/sd-prompt-studio/pull/222",
+          "projection_intent_class": "completion_linked",
+          "intent_authority_record_type": "completion_projection_dispatch",
+          "intent_authority_record_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922100003",
+          "dispatch_authority_fixture_id": "COMPLETION_PROJECTION_DISPATCH_V1",
+          "dispatch_authoring_role_id": "integrated_lead",
+          "dispatch_assigned_role_id": "backend_implementer",
+          "authorized_metadata_role_id": "backend_implementer",
+          "gate_projection_reason": "stale",
+          "required_field_ids": [
+            "completion_preflight",
+            "current_head",
+            "next_gate"
+          ],
+          "gate_projection_evidence_urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5154214751"
+          ],
+          "expected_prior_generation": 12,
+          "expected_prior_gate_rows_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+          "completion_stage": "awaiting_evidence",
+          "completion_evidence_record_url": null,
+          "completion_evidence_candidate_digest": null,
+          "completion_evidence_input_present": false,
+          "completion_decision_url": null,
+          "completion_decision_binding_digest": null,
+          "completion_decision_pr_head_sha": null,
+          "completion_decision_input_present": false,
+          "metadata_action_guard_present": true,
+          "gsp_result_stage": "none"
+        }
+      },
+      {
+        "base_fixture_id": "COMPLETION_C1_AWAITING_DECISION",
+        "seed": {
+          "input_version": "completion_candidate_projection_cutover_input_v2",
+          "task_id": "AUDIT-CONTINUOUS-ORCHESTRATION-REFACTORING-001",
+          "repository": "whatrune/sd-prompt-studio",
+          "assignment_revision": 1,
+          "pr_url": "https://github.com/whatrune/sd-prompt-studio/pull/222",
+          "pr_head_sha": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "current_main_sha": "b7d1013052514aacddb559cc4f24af5e33c08b96",
+          "candidate_published_head_sha": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "fresh_snapshot_pr_head_sha": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "fresh_snapshot_pr_url": "https://github.com/whatrune/sd-prompt-studio/pull/222",
+          "projection_intent_class": "completion_linked",
+          "intent_authority_record_type": "completion_projection_dispatch",
+          "intent_authority_record_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922100003",
+          "dispatch_authority_fixture_id": "COMPLETION_PROJECTION_DISPATCH_V1",
+          "dispatch_authoring_role_id": "integrated_lead",
+          "dispatch_assigned_role_id": "backend_implementer",
+          "authorized_metadata_role_id": "backend_implementer",
+          "gate_projection_reason": "stale",
+          "required_field_ids": [
+            "completion_preflight",
+            "current_head",
+            "next_gate"
+          ],
+          "gate_projection_evidence_urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5154103597",
+            "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5154214751"
+          ],
+          "expected_prior_generation": 12,
+          "expected_prior_gate_rows_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+          "completion_stage": "awaiting_decision",
+          "completion_evidence_record_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5154103597",
+          "completion_evidence_candidate_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+          "completion_evidence_input_present": true,
+          "completion_decision_url": null,
+          "completion_decision_binding_digest": null,
+          "completion_decision_pr_head_sha": null,
+          "completion_decision_input_present": false,
+          "metadata_action_guard_present": true,
+          "gsp_result_stage": "none"
+        }
+      },
+      {
+        "base_fixture_id": "COMPLETION_C2_COMPLETE",
+        "seed": {
+          "input_version": "completion_candidate_projection_cutover_input_v2",
+          "task_id": "AUDIT-CONTINUOUS-ORCHESTRATION-REFACTORING-001",
+          "repository": "whatrune/sd-prompt-studio",
+          "assignment_revision": 1,
+          "pr_url": "https://github.com/whatrune/sd-prompt-studio/pull/222",
+          "pr_head_sha": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "current_main_sha": "b7d1013052514aacddb559cc4f24af5e33c08b96",
+          "candidate_published_head_sha": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "fresh_snapshot_pr_head_sha": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "fresh_snapshot_pr_url": "https://github.com/whatrune/sd-prompt-studio/pull/222",
+          "projection_intent_class": "completion_linked",
+          "intent_authority_record_type": "completion_projection_dispatch",
+          "intent_authority_record_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922100003",
+          "dispatch_authority_fixture_id": "COMPLETION_PROJECTION_DISPATCH_V1",
+          "dispatch_authoring_role_id": "integrated_lead",
+          "dispatch_assigned_role_id": "backend_implementer",
+          "authorized_metadata_role_id": "backend_implementer",
+          "gate_projection_reason": "stale",
+          "required_field_ids": [
+            "completion_preflight",
+            "current_head",
+            "next_gate"
+          ],
+          "gate_projection_evidence_urls": [
+            "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5154103597",
+            "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5154214751",
+            "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5154300001"
+          ],
+          "expected_prior_generation": 12,
+          "expected_prior_gate_rows_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+          "completion_stage": "complete",
+          "completion_evidence_record_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5154103597",
+          "completion_evidence_candidate_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+          "completion_evidence_input_present": true,
+          "completion_decision_url": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5154300001",
+          "completion_decision_binding_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+          "completion_decision_pr_head_sha": "4cf4fd2651647ff02f85d863249d8255bd881b0e",
+          "completion_decision_input_present": true,
+          "metadata_action_guard_present": true,
+          "gsp_result_stage": "none"
+        }
+      }
+    ],
+    "rows": [
+      {
+        "row_id": "M4PAB2-001",
+        "group": "classification",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "projection_publication_required",
+          "reason_or_code": null,
+          "path_or_null": null
+        },
+        "assertions": [
+          "completion inputs are null",
+          "authority flags are false",
+          "GSP request count is one"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-002",
+        "group": "classification",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/gate_projection_reason",
+            "value": "historical_at_prior_head",
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "projection_publication_required",
+          "reason_or_code": null,
+          "path_or_null": null
+        },
+        "assertions": [
+          "current PR HEAD remains exact",
+          "historical reason does not become stale authority",
+          "GSP remains sole writer"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-003",
+        "group": "classification",
+        "base_fixture_id": "COMPLETION_C2_COMPLETE",
+        "input_mutations": [],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "projection_publication_required",
+          "reason_or_code": null,
+          "path_or_null": null
+        },
+        "assertions": [
+          "completion stage is complete",
+          "evidence and Decision are cross-bound",
+          "authority flags are false"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-004",
+        "group": "classification",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/projection_intent_class",
+            "value": "unknown_class",
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "invalid_enum",
+          "path_or_null": "/input/projection_intent_authority_binding_or_null/projection_intent_class"
+        },
+        "assertions": [
+          "class vocabulary is closed"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-005",
+        "group": "classification",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "remove",
+            "path": "/projection_intent_class",
+            "value": null,
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "missing_required_field",
+          "path_or_null": "/input/projection_intent_authority_binding_or_null/projection_intent_class"
+        },
+        "assertions": [
+          "unclassified projection is rejected before request construction"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-006",
+        "group": "classification",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/intent_authority_record_type",
+            "value": "completion_projection_dispatch",
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "invalid_conditional_matrix",
+          "path_or_null": "/input/projection_intent_authority_binding_or_null/intent_authority_record_type"
+        },
+        "assertions": [
+          "ordinary class cannot use completion dispatch"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-007",
+        "group": "classification",
+        "base_fixture_id": "COMPLETION_C0_AWAITING_EVIDENCE",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/intent_authority_record_type",
+            "value": "metadata_sync_dispatch",
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "invalid_conditional_matrix",
+          "path_or_null": "/input/projection_intent_authority_binding_or_null/intent_authority_record_type"
+        },
+        "assertions": [
+          "completion class cannot downgrade to metadata dispatch"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-008",
+        "group": "classification",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/derived/gate_projection_intent_digest",
+            "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "phase": "post_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "stopped",
+          "reason_or_code": "projection_conflict",
+          "path_or_null": null
+        },
+        "assertions": [
+          "binding and GateProjectionIntent digest mismatch is stopped"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-009",
+        "group": "authority",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "projection_publication_required",
+          "reason_or_code": null,
+          "path_or_null": null
+        },
+        "assertions": [
+          "task repository assignment PR URL and HEAD all match",
+          "ordinary metadata has no completion authority"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-010",
+        "group": "authority",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/pr_head_sha",
+            "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "stopped",
+          "reason_or_code": "projection_conflict",
+          "path_or_null": null
+        },
+        "assertions": [
+          "stale binding HEAD is rejected against fresh and input authority"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-011",
+        "group": "authority",
+        "base_fixture_id": "COMPLETION_C2_COMPLETE",
+        "input_mutations": [],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "projection_publication_required",
+          "reason_or_code": null,
+          "path_or_null": null
+        },
+        "assertions": [
+          "evidence URL and digest match",
+          "Decision URL digest and HEAD match",
+          "Decision is APPROVE_COMPLETION by independent assessor"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-012",
+        "group": "authority",
+        "base_fixture_id": "COMPLETION_C0_AWAITING_EVIDENCE",
+        "input_mutations": [],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "waiting",
+          "reason_or_code": "missing_completion_evidence",
+          "path_or_null": null
+        },
+        "assertions": [
+          "awaiting_evidence stage is structurally valid",
+          "no request is produced"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-013",
+        "group": "authority",
+        "base_fixture_id": "COMPLETION_C1_AWAITING_DECISION",
+        "input_mutations": [],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "waiting",
+          "reason_or_code": "missing_completion_decision",
+          "path_or_null": null
+        },
+        "assertions": [
+          "evidence is admitted before Decision wait",
+          "no request is produced"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-014",
+        "group": "authority",
+        "base_fixture_id": "COMPLETION_C1_AWAITING_DECISION",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/completion_evidence_record_url",
+            "value": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5154999999",
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "stopped",
+          "reason_or_code": "completion_conflict",
+          "path_or_null": null
+        },
+        "assertions": [
+          "evidence URL must occur in evidence_urls",
+          "substitution is rejected"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-015",
+        "group": "authority",
+        "base_fixture_id": "COMPLETION_C1_AWAITING_DECISION",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/completion_evidence_candidate_digest",
+            "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "phase": "post_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "stopped",
+          "reason_or_code": "completion_conflict",
+          "path_or_null": null
+        },
+        "assertions": [
+          "binding evidence digest equals CompletionEvidenceCandidate candidate_digest"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-016",
+        "group": "authority",
+        "base_fixture_id": "COMPLETION_C2_COMPLETE",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/completion_decision_url",
+            "value": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-5154999998",
+            "phase": "post_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "stopped",
+          "reason_or_code": "completion_conflict",
+          "path_or_null": null
+        },
+        "assertions": [
+          "binding Decision URL equals admitted Decision URL"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-017",
+        "group": "authority",
+        "base_fixture_id": "COMPLETION_C2_COMPLETE",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/completion_decision_binding_digest",
+            "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "phase": "post_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "stopped",
+          "reason_or_code": "completion_conflict",
+          "path_or_null": null
+        },
+        "assertions": [
+          "binding Decision digest equals admitted Decision binding_digest"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-018",
+        "group": "authority",
+        "base_fixture_id": "COMPLETION_C2_COMPLETE",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/completion_decision_pr_head_sha",
+            "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "stopped",
+          "reason_or_code": "completion_conflict",
+          "path_or_null": null
+        },
+        "assertions": [
+          "Decision HEAD equals input intent fresh candidate and binding HEAD"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-019",
+        "group": "authority",
+        "base_fixture_id": "COMPLETION_C2_COMPLETE",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/derived/completion_decision_current_main_sha",
+            "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "phase": "post_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "stopped",
+          "reason_or_code": "completion_conflict",
+          "path_or_null": null
+        },
+        "assertions": [
+          "Decision main equals evidence and input main"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-020",
+        "group": "authority",
+        "base_fixture_id": "COMPLETION_C2_COMPLETE",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/derived/completion_decision_authoring_role_id",
+            "value": "backend_implementer",
+            "phase": "post_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "invalid_cross_input_binding",
+          "path_or_null": "/input/completion_decision_or_null"
+        },
+        "assertions": [
+          "only independent_completion_assessor may author APPROVE_COMPLETION"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-021",
+        "group": "staging",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/completion_evidence_input_present",
+            "value": true,
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "invalid_conditional_matrix",
+          "path_or_null": "/input/projection_intent_authority_binding_or_null"
+        },
+        "assertions": [
+          "ordinary metadata cannot carry completion inputs"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-022",
+        "group": "staging",
+        "base_fixture_id": "COMPLETION_C1_AWAITING_DECISION",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/completion_evidence_candidate_digest",
+            "value": null,
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "invalid_conditional_matrix",
+          "path_or_null": "/input/projection_intent_authority_binding_or_null"
+        },
+        "assertions": [
+          "evidence triplet is all-null or all-non-null"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-023",
+        "group": "precedence",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "add",
+            "path": "/derived/unknown_binding_field",
+            "value": true,
+            "phase": "post_seal"
+          },
+          {
+            "op": "replace",
+            "path": "/pr_head_sha",
+            "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "phase": "post_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "unknown_field",
+          "path_or_null": "/input/projection_intent_authority_binding_or_null/unknown_binding_field"
+        },
+        "assertions": [
+          "structural unknown field precedes stale authority"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-024",
+        "group": "precedence",
+        "base_fixture_id": "COMPLETION_C0_AWAITING_EVIDENCE",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/fresh_snapshot_pr_head_sha",
+            "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "stopped",
+          "reason_or_code": "freshness_conflict",
+          "path_or_null": null
+        },
+        "assertions": [
+          "freshness conflict precedes missing evidence"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-025",
+        "group": "precedence",
+        "base_fixture_id": "COMPLETION_C0_AWAITING_EVIDENCE",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/candidate_published_head_sha",
+            "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "stopped",
+          "reason_or_code": "candidate_conflict",
+          "path_or_null": null
+        },
+        "assertions": [
+          "candidate conflict precedes missing evidence"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-026",
+        "group": "precedence",
+        "base_fixture_id": "COMPLETION_C1_AWAITING_DECISION",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/completion_evidence_candidate_digest",
+            "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "phase": "post_seal"
+          },
+          {
+            "op": "replace",
+            "path": "/metadata_action_guard_present",
+            "value": false,
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "stopped",
+          "reason_or_code": "completion_conflict",
+          "path_or_null": null
+        },
+        "assertions": [
+          "completion conflict precedes transport guard"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-027",
+        "group": "precedence",
+        "base_fixture_id": "COMPLETION_C1_AWAITING_DECISION",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/metadata_action_guard_present",
+            "value": false,
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "waiting",
+          "reason_or_code": "missing_completion_decision",
+          "path_or_null": null
+        },
+        "assertions": [
+          "Decision wait precedes transport guard wait"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-028",
+        "group": "precedence",
+        "base_fixture_id": "COMPLETION_C2_COMPLETE",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/metadata_action_guard_present",
+            "value": false,
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "waiting",
+          "reason_or_code": "missing_gsp_result",
+          "path_or_null": null
+        },
+        "assertions": [
+          "complete authority chain reaches existing transport guard wait"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-029",
+        "group": "flow",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "projection_publication_required",
+          "reason_or_code": null,
+          "path_or_null": null
+        },
+        "assertions": [
+          "metadata write count is zero",
+          "finding closure count is zero",
+          "completion and approval authority are false"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-030",
+        "group": "flow",
+        "base_fixture_id": "COMPLETION_C2_COMPLETE",
+        "input_mutations": [],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "projection_publication_required",
+          "reason_or_code": null,
+          "path_or_null": null
+        },
+        "assertions": [
+          "Decision admission precedes request",
+          "M4 produces no Completion Decision",
+          "GSP request count is one"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-031",
+        "group": "flow",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/gsp_result_stage",
+            "value": "receipt_complete",
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "projection_receipt_admitted",
+          "reason_or_code": null,
+          "path_or_null": null
+        },
+        "assertions": [
+          "receipt is exact-head bound",
+          "receipt grants no closure completion or approval"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-032",
+        "group": "flow",
+        "base_fixture_id": "COMPLETION_C2_COMPLETE",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/gsp_result_stage",
+            "value": "receipt_complete",
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "projection_receipt_admitted",
+          "reason_or_code": null,
+          "path_or_null": null
+        },
+        "assertions": [
+          "completion chain remains bound",
+          "receipt is not Completion authority"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-033",
+        "group": "flow",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "projection_publication_required",
+          "reason_or_code": null,
+          "path_or_null": null
+        },
+        "assertions": [
+          "two identical evaluations have byte-identical result digest",
+          "I/O counts remain zero"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-034",
+        "group": "flow",
+        "base_fixture_id": "COMPLETION_C2_COMPLETE",
+        "input_mutations": [],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "projection_publication_required",
+          "reason_or_code": null,
+          "path_or_null": null
+        },
+        "assertions": [
+          "two identical evaluations have byte-identical result digest",
+          "I/O counts remain zero"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-035",
+        "group": "cumulative",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/derived/candidate_bytes_changed",
+            "value": true,
+            "phase": "post_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "authority_transition_required",
+          "reason_or_code": "historical_at_prior_head",
+          "path_or_null": null
+        },
+        "assertions": [
+          "old Manifest and Aggregate are not current after byte change"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-036",
+        "group": "cumulative",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/derived/m4_predecessor_binding_state",
+            "value": "repaired_m3_bound",
+            "phase": "post_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "cumulative_binding_accepted",
+          "reason_or_code": null,
+          "path_or_null": null
+        },
+        "assertions": [
+          "M4 fixture binds repaired M3 bytes"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-037",
+        "group": "cumulative",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/derived/m5_predecessor_binding_state",
+            "value": "repaired_m3_m4_bound",
+            "phase": "post_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "cumulative_binding_accepted",
+          "reason_or_code": null,
+          "path_or_null": null
+        },
+        "assertions": [
+          "M5 fixture contains no stale predecessor binding"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-038",
+        "group": "cumulative",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/derived/m6_binding_state",
+            "value": "successor_authority_consistent",
+            "phase": "post_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "cumulative_binding_accepted",
+          "reason_or_code": null,
+          "path_or_null": null
+        },
+        "assertions": [
+          "M6 source and fixture bind one successor authority"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-039",
+        "group": "cumulative",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "add",
+            "path": "/derived/changed_paths/-",
+            "value": "src/continuous-orchestration/shared-proof-interfaces-v1.ts",
+            "phase": "post_seal"
+          }
+        ],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "stopped",
+          "reason_or_code": "scope_violation",
+          "path_or_null": null
+        },
+        "assertions": [
+          "path outside exact eight-path allowlist is rejected"
+        ]
+      },
+      {
+        "row_id": "M4PAB2-040",
+        "group": "cumulative",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "preservation_verified",
+          "reason_or_code": null,
+          "path_or_null": null
+        },
+        "assertions": [
+          "ETV remains WARNING_NOT_PASS",
+          "M3 standalone remains CONSTRAINT_NOT_PASS",
+          "Issue 209 remains paused",
+          "old Merge approval remains invalid"
+        ]
+      },
+      {
+        "row_id": "M4PAB3-041",
+        "group": "dispatch_authority",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "projection_publication_required",
+          "reason_or_code": null,
+          "path_or_null": null
+        },
+        "assertions": [
+          "ordinary base resolves ORDINARY_METADATA_DISPATCH_V1",
+          "Dispatch source and Task Assignment source are admitted",
+          "all authority-grant flags are false",
+          "allowed action is construct_gate_status_projection_request"
+        ]
+      },
+      {
+        "row_id": "M4PAB3-042",
+        "group": "dispatch_authority",
+        "base_fixture_id": "COMPLETION_C2_COMPLETE",
+        "input_mutations": [],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "projection_publication_required",
+          "reason_or_code": null,
+          "path_or_null": null
+        },
+        "assertions": [
+          "completion base resolves COMPLETION_PROJECTION_DISPATCH_V1",
+          "Dispatch author is integrated_lead",
+          "assigned role is backend_implementer",
+          "Completion authority remains external"
+        ]
+      },
+      {
+        "row_id": "M4PAB3-043",
+        "group": "dispatch_authority",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/dispatch_authority/authoring_role_id",
+            "value": "backend_implementer",
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "invalid_conditional_matrix",
+          "path_or_null": "/input/projection_intent_authority_binding_or_null/dispatch_authority/authoring_role_id"
+        },
+        "assertions": [
+          "metadata_sync_dispatch author is exactly integrated_lead",
+          "role substitution cannot reach request construction"
+        ]
+      },
+      {
+        "row_id": "M4PAB3-044",
+        "group": "dispatch_authority",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/dispatch_authority/assigned_role_id",
+            "value": "architect_team",
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "invalid_cross_input_binding",
+          "path_or_null": "/input/projection_intent_authority_binding_or_null/dispatch_authority/assigned_role_id"
+        },
+        "assertions": [
+          "assigned role equals Gate Projection Intent role",
+          "assigned role equals Task Assignment role"
+        ]
+      },
+      {
+        "row_id": "M4PAB3-045",
+        "group": "dispatch_authority",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/task_assignment_projection/assigned_role_id",
+            "value": "architect_team",
+            "phase": "pre_seal"
+          },
+          {
+            "op": "replace",
+            "path": "/task_assignment_projection/allowed_scope_digest",
+            "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "invalid_cross_input_binding",
+          "path_or_null": "/input/projection_intent_authority_binding_or_null/dispatch_authority/task_assignment_identity_digest"
+        },
+        "assertions": [
+          "Task Assignment role and scope are both bound",
+          "a resealed but unauthorized Assignment is rejected"
+        ]
+      },
+      {
+        "row_id": "M4PAB3-046",
+        "group": "dispatch_authority",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/dispatch_authority/intent_authority_record_type",
+            "value": "completion_projection_dispatch",
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "invalid_conditional_matrix",
+          "path_or_null": "/input/projection_intent_authority_binding_or_null/dispatch_authority/intent_authority_record_type"
+        },
+        "assertions": [
+          "record type is one-to-one with projection class",
+          "record type substitution cannot inherit valid source membership"
+        ]
+      },
+      {
+        "row_id": "M4PAB3-047",
+        "group": "dispatch_authority",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/dispatch_authority/metadata_authority",
+            "value": true,
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "invalid_conditional_matrix",
+          "path_or_null": "/input/projection_intent_authority_binding_or_null/dispatch_authority/metadata_authority"
+        },
+        "assertions": [
+          "all seven authority-grant flags remain false",
+          "request-construction scope is not metadata write authority"
+        ]
+      },
+      {
+        "row_id": "M4PAB4-048",
+        "group": "task_assignment_v2",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [],
+        "expected": {
+          "admission": "accepted",
+          "result_kind": "projection_publication_required",
+          "reason_or_code": null,
+          "path_or_null": null
+        },
+        "assertions": [
+          "Task Assignment V2 is transported in the binding",
+          "source URL digest and projection digest are indivisible",
+          "allowed action and all stops are exact",
+          "Assignment and Dispatch admitted_field_ids are exact UTF-8 ascending and production Authority Bundle admission succeeds"
+        ]
+      },
+      {
+        "row_id": "M4PAB4-049",
+        "group": "task_assignment_v2",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "remove",
+            "path": "/task_assignment_projection/source_record_digest",
+            "value": null,
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "missing_required_field",
+          "path_or_null": "/input/projection_intent_authority_binding_or_null/task_assignment_authority/source_record_digest"
+        },
+        "assertions": [
+          "Task Assignment V2 is closed and complete"
+        ]
+      },
+      {
+        "row_id": "M4PAB4-050",
+        "group": "task_assignment_v2",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "add",
+            "path": "/task_assignment_projection/ambient_scope",
+            "value": "forbidden",
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "unknown_field",
+          "path_or_null": "/input/projection_intent_authority_binding_or_null/task_assignment_authority/ambient_scope"
+        },
+        "assertions": [
+          "unknown Task Assignment fields are rejected before semantic evaluation"
+        ]
+      },
+      {
+        "row_id": "M4PAB4-051",
+        "group": "task_assignment_v2",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/task_assignment_projection/source_record_digest",
+            "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "phase": "post_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "invalid_cross_input_binding",
+          "path_or_null": "/input/projection_intent_authority_binding_or_null/task_assignment_authority/projection_digest"
+        },
+        "assertions": [
+          "source record digest is inside the Task Assignment projection digest",
+          "post-seal substitution is rejected"
+        ]
+      },
+      {
+        "row_id": "M4PAB4-052",
+        "group": "task_assignment_v2",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/task_assignment_projection/source_record_url",
+            "value": "https://github.com/whatrune/sd-prompt-studio/issues/221#issuecomment-922109999",
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "invalid_cross_input_binding",
+          "path_or_null": "/input/projection_intent_authority_binding_or_null/task_assignment_authority/source_record_url"
+        },
+        "assertions": [
+          "projection URL equals Dispatch Assignment URL",
+          "projection URL equals admitted Assignment source URL"
+        ]
+      },
+      {
+        "row_id": "M4PAB4-053",
+        "group": "task_assignment_v2",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/admitted_assignment_source/admitted_field_ids",
+            "value": [
+              "assignment_revision",
+              "assigned_role_id",
+              "canonical_record_url",
+              "contract_version",
+              "pr_head_sha",
+              "pr_url",
+              "repository",
+              "task_id"
+            ],
+            "phase": "post_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "invalid_type_or_format",
+          "path_or_null": "/bundle/sources/0"
+        },
+        "assertions": [
+          "admitted_field_ids has one canonical UTF-8 ascending authority",
+          "noncanonical legacy order is rejected before semantic evaluation"
+        ]
+      },
+      {
+        "row_id": "M4PAB4-054",
+        "group": "task_assignment_v2",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "replace",
+            "path": "/task_assignment_projection/pr_head_sha",
+            "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "invalid_cross_input_binding",
+          "path_or_null": "/input/projection_intent_authority_binding_or_null/task_assignment_authority/pr_head_sha"
+        },
+        "assertions": [
+          "Task Assignment projection is exact-head bound",
+          "stale authority does not reach Completion waiting"
+        ]
+      },
+      {
+        "row_id": "M4PAB4-055",
+        "group": "task_assignment_v2",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "add",
+            "path": "/task_assignment_projection/protected_action_permission_ids/-",
+            "value": "merge",
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "invalid_conditional_matrix",
+          "path_or_null": "/input/projection_intent_authority_binding_or_null/task_assignment_authority/protected_action_permission_ids"
+        },
+        "assertions": [
+          "protected permission set is exactly empty",
+          "protected action cannot be inferred from allowed action"
+        ]
+      },
+      {
+        "row_id": "M4PAB4-056",
+        "group": "task_assignment_v2",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "remove",
+            "path": "/task_assignment_projection/stop_condition_ids/1",
+            "value": null,
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "invalid_conditional_matrix",
+          "path_or_null": "/input/projection_intent_authority_binding_or_null/task_assignment_authority/stop_condition_ids"
+        },
+        "assertions": [
+          "all five stop conditions are mandatory",
+          "partial stop authority fails closed"
+        ]
+      },
+      {
+        "row_id": "M4PAB4-057",
+        "group": "task_assignment_v2",
+        "base_fixture_id": "ORDINARY_V2_VALID",
+        "input_mutations": [
+          {
+            "op": "remove",
+            "path": "/task_assignment_projection/allowed_action_ids/0",
+            "value": null,
+            "phase": "pre_seal"
+          }
+        ],
+        "expected": {
+          "admission": "rejected",
+          "result_kind": "rejected",
+          "reason_or_code": "invalid_conditional_matrix",
+          "path_or_null": "/input/projection_intent_authority_binding_or_null/task_assignment_authority/allowed_action_ids"
+        },
+        "assertions": [
+          "construct_gate_status_projection_request is the sole allowed action",
+          "empty or additional action set is rejected"
+        ]
+      }
+    ]
+  },
+  "transported_task_assignment_matrix_digest": "4efa3438b25890f64ec1492f1c145e4759421be719901be9dc8a1f3931d4078e",
+  "transported_task_assignment_corpus_digest": "1237acbf76d480bdc531a33559ea1b5d09f7f533ea83a0c8929b5dee73cf8a2c",
+  "fixture_digest": "d520a37a59560c7144ab0c3e04c3450df44fefd56addb495a362fb497d66e67e"
 }

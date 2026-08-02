@@ -32,6 +32,7 @@ const rejected = result => result.kind==='rejected'
 const resealObject = (value,key) => ({...without(value,key),[key]:digest(without(value,key))})
 const noEcho = value => !/(?:Users[\\/]|(?:^|["\s])[A-Za-z]:[\\/]|credential|private_secret|environment_variable)/i.test(JSON.stringify(value))
 const runJson = (args,env=process.env) => JSON.parse(execFileSync(process.execPath,args,{cwd:process.cwd(),encoding:'utf8',stdio:['ignore','pipe','pipe'],env}))
+const focusedPrHeadGuard = process.env.M3_PR_HEAD_GUARD_FOCUSED === '1'
 const withUntrackedExclusions = async (paths,run) => {
   const directory=await mkdtemp(join(tmpdir(),'m3-predecessor-'))
   const excludes=join(directory,'exclude')
@@ -43,13 +44,13 @@ const withUntrackedExclusions = async (paths,run) => {
 const m1M2M3Paths=fixture.ordered_cumulative_paths.slice(2)
 const m2M3Paths=fixture.ordered_cumulative_paths.slice(5)
 const m3OnlyPaths=fixture.ordered_cumulative_paths.slice(8)
-const m0=await withUntrackedExclusions(m1M2M3Paths,env=>runJson(['scripts/test-continuous-orchestration-core-consolidation-m0.mjs'],env))
-const m1Result=await withUntrackedExclusions(m2M3Paths,env=>runJson(['scripts/test-continuous-orchestration-shared-proof-interfaces.mjs'],env))
-const m2=await withUntrackedExclusions(m3OnlyPaths,env=>runJson(['scripts/test-continuous-orchestration-shadow-equivalence.mjs'],env))
-const agp=runJson(['scripts/test-automatic-gate-progression-evaluator.mjs'])
-const cov=runJson(['--experimental-strip-types','scripts/test-continuous-orchestration.mjs'])
-const gsp=runJson(['scripts/test-gate-status-publisher.mjs'])
-const arl=runJson(['scripts/test-architecture-repair-loop.mjs'])
+const m0=focusedPrHeadGuard?null:await withUntrackedExclusions(m1M2M3Paths,env=>runJson(['scripts/test-continuous-orchestration-core-consolidation-m0.mjs'],env))
+const m1Result=focusedPrHeadGuard?null:await withUntrackedExclusions(m2M3Paths,env=>runJson(['scripts/test-continuous-orchestration-shared-proof-interfaces.mjs'],env))
+const m2=focusedPrHeadGuard?null:await withUntrackedExclusions(m3OnlyPaths,env=>runJson(['scripts/test-continuous-orchestration-shadow-equivalence.mjs'],env))
+const agp=focusedPrHeadGuard?null:runJson(['scripts/test-automatic-gate-progression-evaluator.mjs'])
+const cov=focusedPrHeadGuard?null:runJson(['--experimental-strip-types','scripts/test-continuous-orchestration.mjs'])
+const gsp=focusedPrHeadGuard?null:runJson(['scripts/test-gate-status-publisher.mjs'])
+const arl=focusedPrHeadGuard?null:runJson(['scripts/test-architecture-repair-loop.mjs'])
 const server = await createServer({configFile:false,cacheDir:join(tmpdir(),'sd-prompt-studio-issue221-m3-vite'),optimizeDeps:{noDiscovery:true},server:{middlewareMode:true},appType:'custom',logLevel:'error'})
 const api = await server.ssrLoadModule('/src/continuous-orchestration/authority-routing-budget-cutover-v1.ts')
 const core = await server.ssrLoadModule('/src/continuous-orchestration/index.ts')
@@ -179,6 +180,44 @@ for(const scenario of finalBindingCases){
 
 const mutatedInput=(mutator,source=baseInput)=>{const copy=clone(source);mutator(copy);delete copy.input_digest;return api.sealAuthorityRoutingBudgetCutoverInputV1(copy)}
 const invalid = (mutator,source=baseInput) => api.runAuthorityRoutingBudgetCutoverV1(mutatedInput(mutator,source)).kind==='rejected'
+
+// B-222-READY-REV-01: a PR-scoped route is bound to the observed PR HEAD, not
+// to a concurrently different main HEAD. The no-PR route retains its existing
+// main-HEAD binding, and mixed URL/HEAD authorities fail closed.
+const PR_URL='https://github.com/whatrune/sd-prompt-studio/pull/222'
+const PR_HEAD='b'.repeat(40)
+const MISMATCHED_PR_HEAD='c'.repeat(40)
+const prFresh=m1.deriveFreshAuthoritySnapshotShadowV1({...freshBase,pr_url_or_null:PR_URL,pr_head_sha_or_null:PR_HEAD,pr_base_sha_or_null:HEAD,pr_state:'open_draft'}).value
+const prBundle=m1.deriveAdmittedAuthorityBundleShadowV1({...bundleBase,sources:[{...authoritySource,subject_head_sha_or_null:PR_HEAD}],fresh_snapshot:prFresh}).value
+const prStateSnapshotBase={...stateSnapshotBase,main_sha_or_null:HEAD,pr_url_or_null:PR_URL,pr_head_sha_or_null:PR_HEAD,pr_base_sha_or_null:HEAD,pr_state:'open_draft'}
+const prStateSnapshot={...prStateSnapshotBase,snapshot_digest:digest(without(prStateSnapshotBase,'observed_at'))}
+const prState={...clone(state),authority_snapshot:prStateSnapshot}
+const prEventBase={...without(event,'event_id','observed_at','semantic_event_digest'),authority_snapshot_digest:prStateSnapshot.snapshot_digest,subject_head_sha_or_null:PR_HEAD}
+const prEventSemantic=digest(prEventBase)
+const prEvent={...prEventBase,event_id:prEventSemantic,observed_at:event.observed_at,semantic_event_digest:prEventSemantic}
+const prRouteSelection=api.sealM3RouteSelectionV1({...without(routeSelection,'selection_digest'),pr_url_or_null:PR_URL,head_sha_or_null:PR_HEAD})
+const prRouteEvaluation={...routeEvaluation,target_head_sha_or_null:PR_HEAD}
+const prActionFresh=m1.deriveFreshAuthoritySnapshotShadowV1({...without(prFresh,'snapshot_digest'),purpose:'action_guard',observed_at:'2026-08-01T02:00:03Z'}).value
+const prGuard=m1.deriveActionGuardProofShadowV1({...without(guard,'proof_digest'),evaluation_snapshot_digest:prFresh.snapshot_digest,action_snapshot:prActionFresh},prFresh).value
+const prRouteInput=makeInput({state:prState,event:prEvent,authority_bundle:prBundle,evaluation:prRouteEvaluation,route_selection:prRouteSelection,action_guard_proof_or_null:prGuard})
+const prRouteResult=api.runAuthorityRoutingBudgetCutoverV1(prRouteInput)
+check(routeResult.kind==='cutover_accepted'&&routeSelection.pr_url_or_null===null&&routeInput.combined_task_assignment_authority.pr_head_sha===HEAD,'no-PR route preserves main HEAD binding')
+check(PR_HEAD!==HEAD&&prRouteResult.kind==='cutover_accepted'&&prRouteResult.prepared_route_authority_binding_or_null?.pr_head_sha===PR_HEAD,'PR route admits diverged main and PR HEAD')
+check(invalid(x=>{
+  x.route_selection=api.sealM3RouteSelectionV1({...without(x.route_selection,'selection_digest'),head_sha_or_null:MISMATCHED_PR_HEAD})
+  x.evaluation={...x.evaluation,target_head_sha_or_null:MISMATCHED_PR_HEAD}
+  x.combined_task_assignment_authority=api.sealM3CombinedTaskAssignmentAuthorityProjectionV1({...without(x.combined_task_assignment_authority,'combined_task_assignment_authority_digest'),pr_head_sha:MISMATCHED_PR_HEAD})
+},prRouteInput),'PR route rejects observed PR HEAD mismatch')
+check(invalid(x=>{
+  const mismatchedUrl='https://github.com/whatrune/sd-prompt-studio/pull/223'
+  x.route_selection=api.sealM3RouteSelectionV1({...without(x.route_selection,'selection_digest'),pr_url_or_null:mismatchedUrl})
+  x.combined_task_assignment_authority=api.sealM3CombinedTaskAssignmentAuthorityProjectionV1({...without(x.combined_task_assignment_authority,'combined_task_assignment_authority_digest'),pr_number:223,pr_url:mismatchedUrl})
+},prRouteInput),'PR route rejects observed PR URL mismatch')
+if(focusedPrHeadGuard){
+  await server.close()
+  console.log(JSON.stringify({result:'PASS',contract:'B-222-READY-REV-01 PR HEAD action-guard binding',cases:'4/4',no_pr_main_binding:'PASS',diverged_main_pr_head:'PASS',pr_head_mismatch:'PASS',pr_url_mismatch:'PASS',m3_standalone_classification:'CONSTRAINT_NOT_PASS'}))
+  process.exit(0)
+}
 const repairEvidence=(findingDomain,attemptClass,sourceCounter,suffix,stableFindingId=D(`${findingDomain}:${attemptClass}`))=>api.sealRepairAttemptEvidenceV1({evidence_version:api.REPAIR_ATTEMPT_EVIDENCE_V1_VERSION,evidence_record_url:url(suffix),task_id:TASK,repository:REPO,assignment_revision:1,semantic_epoch_id:epoch,stable_finding_id:stableFindingId,finding_domain:findingDomain,attempt_class:attemptClass,scope_digest:SCOPE,source_counter:sourceCounter,predecessor_record_url:url('5147777774')})
 const inputWithAttempt=(ledgerValue,evidenceValue,extra={})=>makeInput({repair_attempt_ledger:ledgerValue,repair_attempt_evidence_or_null:evidenceValue,...extra})
 const advanceAttempt=(ledgerValue,domain,attemptClass,count,suffix,stableId=D(`${domain}:${attemptClass}`))=>{

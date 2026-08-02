@@ -15,8 +15,8 @@ export const DEPRECATION_REPOSITORY_CONSUMER_SCAN_V1_VERSION = 'deprecation_repo
 export const DEPRECATION_EXECUTABLE_TRACE_V1_VERSION = 'deprecation_executable_trace_v1' as const
 export const DEPRECATION_SEMANTIC_CONSUMER_GRAPH_V1_VERSION = 'deprecation_semantic_consumer_graph_v1' as const
 export const M6_SEMANTIC_GRAPH_AUTHORITY_REVISION = 1 as const
-export const M6_EXPECTED_M5_MANIFEST_DIGEST = '9b81f8d88eff42fc6246c4b618abd101f5a925b3abb4383d6d47cc0782887b39' as const
-export const M6_EXPECTED_M5_CUMULATIVE_DIGEST = '957f4da0614d3a0a97c971029fceef43bab8bf72b70d96f22407d7fcf3393383' as const
+export const M6_EXPECTED_M5_MANIFEST_DIGEST = 'afebb503deea990e261a179f7601044f359f8e033c88a96119012684b25da7d6' as const
+export const M6_EXPECTED_M5_CUMULATIVE_DIGEST = '26b14b2dbba98decf5328807477cb625974248e845d5a71b5c4fc744d131b958' as const
 export const M6_CANONICAL_EMPTY_CONSUMER_SET_DIGEST = digest([])
 export const M6_TASK_ID = 'AUDIT-CONTINUOUS-ORCHESTRATION-REFACTORING-001' as const
 export const M6_REPOSITORY = 'whatrune/sd-prompt-studio' as const
@@ -256,15 +256,15 @@ const PREDECESSOR_PATH_BINDINGS=[
  ['src/continuous-orchestration/shadow-equivalence-v1.ts','2aaab2e0d8cdac1046dee20ec3fc57692ccf13b16a224b1430f03ba7f610d4c2'],
  ['scripts/fixtures/continuous-orchestration-shadow-equivalence-v1.json','8fee556578903174599867c747fd9ababa7bd93c9e5bfb5c76735f32299770d9'],
  ['scripts/test-continuous-orchestration-shadow-equivalence.mjs','647ff5954f8b3d265ae231c553dfe3ad0bbe0315686714c9156ac10a8a97b8a6'],
- ['src/continuous-orchestration/authority-routing-budget-cutover-v1.ts','3aed25556fab6d0105e738624f39015deb804445deb86fd57329128ddfbb952f'],
+ ['src/continuous-orchestration/authority-routing-budget-cutover-v1.ts','25d45748f1f3b4a7ec5883b63f260be7729cd0420e3f1847615ab1de90721490'],
  ['scripts/fixtures/continuous-orchestration-authority-routing-budget-cutover-v1.json','947ad2d817e0f847a484c770f45355d3bfc508fed90600eab69c24e7677d9f5f'],
- ['scripts/test-continuous-orchestration-authority-routing-budget-cutover.mjs','e971797663e753028b225dfb89d86624a2353f8a2beecbc7cf6e20c4453af8c0'],
- ['src/continuous-orchestration/completion-candidate-projection-cutover-v1.ts','49714919ad25653faadf492768da609e627547928d96c17c6cb0073afbd4460e'],
- ['scripts/fixtures/continuous-orchestration-completion-candidate-projection-cutover-v1.json','e84952ca6ef27c0e262ed64c049b999315ba8b2c9554947bf4aa9e8c76bf7467'],
- ['scripts/test-continuous-orchestration-completion-candidate-projection-cutover.mjs','e2fa0951201112db0ee0739288948440df596cdc506b12f970ba6de3ab338608'],
+ ['scripts/test-continuous-orchestration-authority-routing-budget-cutover.mjs','0788f575a2832c3b2c760742d11628fc060ae4384c06f99462de40e7173fed94'],
+ ['src/continuous-orchestration/completion-candidate-projection-cutover-v1.ts','e087d95c5fe6066082862bddf054604285f5c6704318648486717afdfd0c7f82'],
+ ['scripts/fixtures/continuous-orchestration-completion-candidate-projection-cutover-v1.json','384e55f2e2a60f3d3355981afc24cd3fb9594398bc61cb2c08d7b5e919916c20'],
+ ['scripts/test-continuous-orchestration-completion-candidate-projection-cutover.mjs','5e0fb38c985786156d3cbeb17b0d324d8b194d2d5d67748a19b43bd9fe256d9a'],
  ['src/continuous-orchestration/evaluator-reducer-consolidation-v1.ts','f44dc4bbd5f17a2fd3491b6c5546e425d7b1c69c54641cd12d51df6746ec0004'],
- ['scripts/fixtures/continuous-orchestration-evaluator-reducer-consolidation-v1.json','bf80a6174396a12adde87ce754d6e0d80b2569bc1d1e07afe88cd4720ee648ed'],
- ['scripts/test-continuous-orchestration-evaluator-reducer-consolidation.mjs','f41df0e18b0e877498018917356a4c1b0473436e8ec5c6a255e88541f6bf879a'],
+ ['scripts/fixtures/continuous-orchestration-evaluator-reducer-consolidation-v1.json','03f709ac358a68d54fca70a1c5ff1613635ab5dfab7bdadd0b66a50ce1fbd049'],
+ ['scripts/test-continuous-orchestration-evaluator-reducer-consolidation.mjs','e482a20638be523fa7a88b1ef357d78c2b6299b760142437006088736408bd8d'],
 ].map(([path,sha256])=>({path,sha256}))
 const SURFACE_CLASSES=['production_imports','production_calls','direct_exports','indirect_exports','fixtures_and_runners','test_only_imports','generic_progress_runner_profiles','cross_component_bindings','compatibility_wrappers','public_package_entries','canonical_completion_records'] as const
 const SURFACE_PATHS:Record<(typeof SURFACE_CLASSES)[number],readonly string[]>={

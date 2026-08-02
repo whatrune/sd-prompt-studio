@@ -536,7 +536,10 @@ const finalizationInputProblem = (value: unknown, path = '/m3_delivery_finalize'
     predecessor.task_id === prepared.task_id && predecessor.repository === prepared.repository_full_name &&
     predecessor.assignment_revision === prepared.assignment_revision && predecessor.action_id === prepared.action_id &&
     predecessor.guard_scope === 'non_protected_transport' && predecessor.evaluation_snapshot_digest === prepared.fresh_snapshot_digest &&
-    predecessor.action_snapshot.main_sha_or_null === prepared.pr_head_sha && predecessor.action_snapshot.workspace_state === 'clean_bound'
+    (prepared.pr_url === null
+      ? predecessor.action_snapshot.pr_url_or_null === null && predecessor.action_snapshot.pr_head_sha_or_null === null && predecessor.action_snapshot.main_sha_or_null === prepared.pr_head_sha
+      : predecessor.action_snapshot.pr_url_or_null === prepared.pr_url && predecessor.action_snapshot.pr_head_sha_or_null === prepared.pr_head_sha) &&
+    predecessor.action_snapshot.workspace_state === 'clean_bound'
   if (!bound) return { code:'invalid_cross_input_binding', path:`${path}/prepared_route_authority_binding` }
 
   if (cas.outcome === 'loser') {
@@ -745,7 +748,10 @@ const inputProblem = (value: JsonObject): Problem | undefined => {
     const route = input.route_selection.binding
     if (route.allowed_scope_digest !== p.allowed_scope_digest || !input.profiles.route_binding_table.bindings.some((candidate) => same(candidate, route))) return { code: 'invalid_cross_input_binding', path: '/route_selection/binding' }
     if (routeRequired(input.evaluation) && (input.evaluation.target_role_id !== route.role_id || input.evaluation.next_action_id !== route.action_id || input.evaluation.predecessor_canonical_url !== input.route_selection.predecessor_canonical_url)) return { code: 'invalid_cross_input_binding', path: '/route_selection/binding' }
-    if (ca.selected_route_action_id !== route.action_id || ca.branch_name !== input.route_selection.branch || ca.worktree_binding_digest !== worktreeBindingDigest(input.route_selection.worktree_identity) || ca.pr_url !== input.route_selection.pr_url_or_null || ca.pr_number !== prNumber(input.route_selection.pr_url_or_null) || ca.pr_head_sha !== input.route_selection.head_sha_or_null || ca.pr_head_sha !== b.fresh_snapshot.main_sha_or_null || ca.predecessor_digest !== predecessorDigest(input.route_selection.predecessor_canonical_url)) return { code: 'invalid_cross_input_binding', path: '/route_selection/authority_binding' }
+    const routeHeadBound = input.route_selection.pr_url_or_null === null
+      ? b.fresh_snapshot.pr_url_or_null === null && b.fresh_snapshot.pr_head_sha_or_null === null && ca.pr_head_sha === b.fresh_snapshot.main_sha_or_null
+      : b.fresh_snapshot.pr_url_or_null === input.route_selection.pr_url_or_null && ca.pr_head_sha === b.fresh_snapshot.pr_head_sha_or_null
+    if (ca.selected_route_action_id !== route.action_id || ca.branch_name !== input.route_selection.branch || ca.worktree_binding_digest !== worktreeBindingDigest(input.route_selection.worktree_identity) || ca.pr_url !== input.route_selection.pr_url_or_null || ca.pr_number !== prNumber(input.route_selection.pr_url_or_null) || ca.pr_head_sha !== input.route_selection.head_sha_or_null || !routeHeadBound || ca.predecessor_digest !== predecessorDigest(input.route_selection.predecessor_canonical_url)) return { code: 'invalid_cross_input_binding', path: '/route_selection/authority_binding' }
     if (routeForbidden(input.evaluation)) return { code: 'invalid_conditional_matrix', path: '/route_selection/kind' }
   } else if (routeRequired(input.evaluation)) return { code: 'invalid_conditional_matrix', path: '/route_selection/kind' }
   if (input.repair_attempt_evidence_or_null) {
