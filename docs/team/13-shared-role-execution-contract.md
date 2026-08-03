@@ -277,6 +277,53 @@ Closed contract、validator、builder、evaluator、integration taskでは、該
 
 Issue #163のAmendment 007でCheckpoint exact projectionの矛盾をfresh fetchした場合、`CR-01` / `CR-02`によりBackend Implementerは`architecture_gap + blocked`で停止する。Cumulative Architecture Amendment 002がArchitecture meaningをFreezeしても、Review findingは自動closeせず、Integrated Lead Resume Dispatchがない間は`CR-05`により`external_blocker + blocked`で再開しない。validなsame-task Resume Dispatch後だけ実装を再開できる。
 
+## Ready Review Terminal Observation Collector V1
+
+The Ready Review Terminal Observation Collector V1 has exactly two layers. Its
+owner-only production CLI adapter accepts exactly a repository identity, pull
+request number, full pull-request HEAD, and the direct canonical Ready
+Generation Record URL. The adapter privately constructs authenticated GitHub
+acquisition, normalizes the observations, and invokes the pure observation core
+once. Callers cannot inject or replace a port, callback, adapter, fixture, test
+mode, producer roster, policy option, preload hook, global hook, or
+environment-selected scenario.
+
+The deterministic core accepts only the closed nine-field
+`ReadyReviewTerminalObservationCoreInputV1`. It performs no GitHub, filesystem,
+environment, clock-read, callback, or policy operation. Its closed result is
+either `artifact_produced` with the 16-field artifact, or
+`observation_rejected` with the exact two-field failure and the frozen
+input-to-artifact first-failure stage order. Transport failures remain private
+to the adapter and cannot be represented as core rejections. Only
+`artifact_produced` may emit stdout.
+
+The canonical Ready Generation Record and its referenced producer roster are
+OWNER-authored top-level Task Issue records. The collector verifies their
+self-canonical URLs, closed projections, JCS/SHA-256 seals, exact repository,
+pull request, HEAD and Ready-event binding, the contiguous Ready-record revision
+chain with one current leaf, and the roster effective window. The frozen roster
+is observation authority; the collector does not select or prioritize review
+producers.
+
+The collector emits an artifact only after it has acquired one exact terminal
+receipt for every roster producer and then traversed the complete
+`PullRequest.reviewThreads` connection. The post-terminal snapshot is acquired
+at or after the latest receipt time and preserves thread resolution and outdated
+state without interpreting either. Missing, duplicate, stale, mixed, malformed,
+or digest-inconsistent records produce no artifact.
+
+The single output is the exact 16-field
+`ReadyReviewTerminalObservationArtifactV1`, recursively immutable and sealed as
+RFC 8785 JCS bytes plus SHA-256. It is observation data only. Merge eligibility,
+rule evaluation, stop reasons, violation classes, evidence precedence,
+Completion/GSP binding, and policy decisions are outside V1 and belong to a
+separate Evaluator V2. Evaluator V2 may consume only the sealed artifact bytes
+and may not refetch GitHub data or implicitly reconstruct omitted evidence.
+The pure core may be imported directly for deterministic negative validation,
+but it is not a package, barrel, CLI, or alternative production transport
+authority. Negative validation uses literal closed Core Inputs and never
+replaces or patches the owner-only transport.
+
 ## Compatibility
 
 - PR #167より前のTask AssignmentとResult Handoffをinvalid化しない。

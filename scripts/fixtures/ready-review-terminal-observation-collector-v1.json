@@ -1,0 +1,140 @@
+{
+  "contract_version": "ready-review-terminal-observation-collector-validation-v1",
+  "ready_record": {
+    "record_type": "ready_review_generation_record_v1",
+    "canonical_record": "https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000001",
+    "repository": "whatrune/sd-prompt-studio",
+    "pr_number": 220,
+    "pr_url": "https://github.com/whatrune/sd-prompt-studio/pull/220",
+    "exact_head": "1111111111111111111111111111111111111111",
+    "ready_event_id": "READY-220-01",
+    "ready_occurred_at": "2026-08-01T00:00:00Z",
+    "task_issue_url": "https://github.com/whatrune/sd-prompt-studio/issues/226",
+    "revision": 1,
+    "prior_record_url": null,
+    "producer_roster_source_url": "https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000000",
+    "producer_roster_source_digest": "__SEALED_BY_TEST__"
+  },
+  "roster_record": {
+    "record_type": "ready_review_producer_roster_v1",
+    "canonical_record": "https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000000",
+    "repository": "whatrune/sd-prompt-studio",
+    "pr_number": 220,
+    "exact_head": "1111111111111111111111111111111111111111",
+    "ready_event_id": "READY-220-01",
+    "producer_ids": ["reviewer-one", "reviewer-two"],
+    "effective_from": "2026-07-31T00:00:00Z",
+    "effective_until": null
+  },
+  "receipt_sources": [
+    {
+      "projection_version": "submitted-review-source-projection-v1",
+      "kind": "submitted_review",
+      "producer_id": "reviewer-one",
+      "review_id": "7000000001",
+      "review_url": "https://github.com/whatrune/sd-prompt-studio/pull/220#pullrequestreview-7000000001",
+      "submitted_at": "2026-08-01T00:10:00Z",
+      "reviewed_head": "1111111111111111111111111111111111111111",
+      "ready_event_id": "READY-220-01",
+      "review_state": "APPROVED",
+      "finding_ids": [],
+      "source_observed_at": "2026-08-01T00:30:00Z"
+    },
+    {
+      "projection_version": "no-findings-correlation-source-projection-v1",
+      "kind": "no_findings_correlation",
+      "producer_id": "reviewer-two",
+      "reaction_id": "7000000002",
+      "reaction_target_url": "https://github.com/whatrune/sd-prompt-studio/pull/220",
+      "reaction_actor": "reviewer-two",
+      "reaction_content": "+1",
+      "reaction_created_at": "2026-08-01T00:20:00Z",
+      "reviewed_head": "1111111111111111111111111111111111111111",
+      "ready_event_id": "READY-220-01",
+      "ready_interval_observation_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "correlation_source_urls": [
+        "https://github.com/whatrune/sd-prompt-studio/pull/220",
+        "https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000001"
+      ],
+      "source_observed_at": "2026-08-01T00:30:00Z"
+    }
+  ],
+  "thread_pages": [
+    {
+      "page_ordinal": 0,
+      "start_cursor": null,
+      "end_cursor": "cursor-1",
+      "has_next_page": true,
+      "nodes": [
+        {
+          "thread_id": "THREAD-01",
+          "is_resolved": false,
+          "is_outdated": false,
+          "path": "src/example.ts",
+          "line": 10,
+          "start_line": 10,
+          "last_comment_id": "COMMENT-01",
+          "last_comment_created_at": "2026-08-01T00:15:00Z"
+        }
+      ],
+      "source_url": "https://api.github.com/graphql#PullRequest.reviewThreads-page-0",
+      "source_observed_at": "2026-08-01T00:31:00Z"
+    },
+    {
+      "page_ordinal": 1,
+      "start_cursor": "cursor-1",
+      "end_cursor": "cursor-terminal",
+      "has_next_page": false,
+      "nodes": [
+        {
+          "thread_id": "THREAD-02",
+          "is_resolved": true,
+          "is_outdated": false,
+          "path": "src/example.ts",
+          "line": null,
+          "start_line": null,
+          "last_comment_id": "COMMENT-02",
+          "last_comment_created_at": "2026-08-01T00:16:00Z"
+        }
+      ],
+      "source_url": "https://api.github.com/graphql#PullRequest.reviewThreads-page-1",
+      "source_observed_at": "2026-08-01T00:31:01Z"
+    }
+  ],
+  "negative_cases": [
+    "core_input_unknown_field",
+    "core_input_missing_field",
+    "request_identity_unknown_field",
+    "ready_issuer_unauthorized",
+    "ready_record_digest_mismatch",
+    "ready_record_unknown_field",
+    "ready_chain_stale_non_leaf",
+    "ready_chain_competing_leaf",
+    "ready_chain_broken",
+    "ready_event_missing",
+    "ready_event_unknown_field",
+    "roster_record_unknown_field",
+    "roster_digest_mismatch",
+    "roster_unsorted",
+    "producer_receipt_missing",
+    "producer_receipt_duplicate",
+    "producer_receipt_stale_head",
+    "producer_receipt_stale_ready",
+    "producer_receipt_mixed_branch",
+    "producer_source_unknown_field",
+    "producer_source_missing_field",
+    "receipts_observed_at_mismatch",
+    "thread_page_unknown_field",
+    "thread_node_unknown_field",
+    "thread_page_missing_field",
+    "thread_node_missing_field",
+    "thread_page_reordered",
+    "thread_cursor_broken",
+    "thread_identity_duplicate",
+    "thread_page_digest_mismatch",
+    "pre_terminal_snapshot",
+    "pre_terminal_page",
+    "artifact_non_jcs_bytes",
+    "caller_fixture_option"
+  ]
+}
