@@ -157,6 +157,38 @@ Repository-relative Markdownを添える場合は、pathとfull 40-character com
 - Design Reviewer、Backend Architect、Architect Team、Research Review OPは、それぞれのRole固有authorityと判定語彙を維持する。
 - Research Review OPの`APPROVE | COMMENT | NEEDS_FOLLOWUP | REJECT`やResearch meaningをこのContractで再定義しない。
 
+## Ready-triggered review observation boundary
+
+A Ready-triggered review generation is not complete merely because its current
+unresolved-thread count is zero. Before any later evaluator assesses the review
+generation, the owner-only Ready Review Terminal Observation Collector V1 must
+observe the exact Ready event and PR HEAD, the complete frozen producer roster,
+one terminal receipt for every producer, and a full review-thread snapshot
+acquired only after the latest terminal receipt.
+
+The production path is exactly CLI admission, private owner-only GitHub
+adapter, closed nine-field Core Input, deterministic pure core, and either
+sealed artifact bytes or fail-closed exit. The adapter owns transport and
+normalization; the core owns closed observation admission and artifact
+construction. A GitHub command or response failure is adapter-private and must
+not be reported as a core observation rejection. A core rejection must not be
+reported as a transport failure.
+
+Collector V1 records submitted-review and no-findings-correlation receipts as a
+closed two-branch source projection. It preserves review state, finding IDs, and
+thread state but does not classify or close them. Its artifact therefore does
+not authorize Ready, Merge, Completion, GSP publication, or any other protected
+action.
+
+Review-terminal rules and Completion/GSP authority binding must be evaluated by
+a separate pure Evaluator V2 using only the exact sealed Collector V1 artifact.
+Review code must not substitute a fixture, test runner, barrel export, ambient
+GitHub lookup, or caller-provided transport for the collector's production
+observation path.
+Focused negative validation sends explicit literal Core Inputs to the same
+production core. It must not use a preload, mutable global, environment-selected
+scenario, caller-supplied transport, or second production entrypoint.
+
 ## Review Terminal Result
 
 Review executionもShared Role Execution Contractのclosed `execution_stop_reason`を使用し、Result Handoff `status`とは分離する。
