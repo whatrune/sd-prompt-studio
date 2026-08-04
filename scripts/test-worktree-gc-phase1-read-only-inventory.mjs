@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
   BuildWorktreeGcRecordEnvelopeV1,
@@ -15,7 +16,8 @@ import {
   MainWorktreeGcPhase1ReadOnlyInventoryCliV1,
 } from './worktree-gc-phase1-read-only-inventory-cli.mjs'
 
-const EXECUTION_HEAD = '29428547576d2ff2c439ad348e19d507aba60a33'
+const EXECUTION_HEAD = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
+assert.match(EXECUTION_HEAD, /^[0-9a-f]{40}$/, 'correction execution HEAD is an exact Git commit')
 const OBSERVED_AT = '2026-08-04T15:00:00Z'
 const AUTHORITY = 'https://github.com/whatrune/sd-prompt-studio/issues/248#issuecomment-5179407064'
 const POLICY = 'https://github.com/whatrune/sd-prompt-studio/issues/209#issuecomment-5097525010'
@@ -89,12 +91,11 @@ function completed(operation, payload, inputDigest) {
   return { ...projection, result_digest: digest(projection) }
 }
 
-function makeKeep(entryKey, repositoryIdentity, pathIdentity, headBinding, index, lifecycleState) {
+function makeKeepRecord(repositoryIdentity, pathIdentity, headBinding, index, supersedesKeepRef = null, revocationRef = null) {
   const repositoryIdentityDigest = digest(repositoryIdentity)
   const pathIdentityDigest = digest(pathIdentity)
   const validFrom = index === 0 ? '2026-08-01T00:00:00Z' : '2026-08-02T00:00:00Z'
-  const expiresAt = lifecycleState === 'expired_unresolved' ? '2026-08-03T00:00:00Z' : null
-  const keepRecord = BuildWorktreeGcRecordEnvelopeV1('explicit_keep_authority', AUTHORITY, OBSERVED_AT, {
+  return BuildWorktreeGcRecordEnvelopeV1('explicit_keep_authority', AUTHORITY, OBSERVED_AT, {
     schema_version: 'ExplicitKeepAuthorityV1',
     owner_role: index === 0 ? 'Product Owner' : 'Integrated Lead',
     owner_record_url: AUTHORITY,
@@ -103,10 +104,15 @@ function makeKeep(entryKey, repositoryIdentity, pathIdentity, headBinding, index
     head_binding_or_null: headBinding,
     reason_code: index === 0 ? 'product_keep' : 'active_assignment',
     valid_from: validFrom,
-    expires_at_or_null: expiresAt,
-    supersedes_keep_ref_or_null: null,
-    revocation_ref_or_null: null,
+    expires_at_or_null: null,
+    supersedes_keep_ref_or_null: supersedesKeepRef,
+    revocation_ref_or_null: revocationRef,
   })
+}
+
+function makeLifecycleEvidence(entryKey, repositoryIdentity, pathIdentity, headBinding, keepRecord, lifecycleState, options = {}) {
+  const repositoryIdentityDigest = digest(repositoryIdentity)
+  const pathIdentityDigest = digest(pathIdentity)
   const fields = {
     schema_version: 'KeepLifecycleEvidenceV1', entry_key: entryKey,
     keep_record: keepRecord, keep_ref: ref(keepRecord),
@@ -114,10 +120,24 @@ function makeKeep(entryKey, repositoryIdentity, pathIdentity, headBinding, index
     path_identity_digest: pathIdentityDigest,
     head_binding_digest_or_null: digest(headBinding),
     evaluated_at: OBSERVED_AT, lifecycle_state: lifecycleState,
-    superseding_keep_ref_or_null: null, revocation_ref_or_null: null,
-    resolution_evidence_refs: [],
+    superseding_keep_ref_or_null: options.supersedingKeepRef ?? null,
+    revocation_ref_or_null: options.revocationRef ?? null,
+    resolution_evidence_refs: options.resolutionEvidenceRefs ?? [],
   }
-  return { keepRecord, evidence: { ...fields, lifecycle_evidence_digest: digest(fields) } }
+  return { ...fields, lifecycle_evidence_digest: digest(fields) }
+}
+
+function makeKeep(entryKey, repositoryIdentity, pathIdentity, headBinding, index, lifecycleState) {
+  const expiresAt = lifecycleState === 'expired_unresolved' ? '2026-08-03T00:00:00Z' : null
+  let keepRecord = makeKeepRecord(repositoryIdentity, pathIdentity, headBinding, index)
+  if (expiresAt !== null) {
+    const payload = { ...keepRecord.payload, expires_at_or_null: expiresAt }
+    keepRecord = BuildWorktreeGcRecordEnvelopeV1('explicit_keep_authority', AUTHORITY, OBSERVED_AT, payload)
+  }
+  return {
+    keepRecord,
+    evidence: makeLifecycleEvidence(entryKey, repositoryIdentity, pathIdentity, headBinding, keepRecord, lifecycleState),
+  }
 }
 
 function makeScenario(options = {}) {
@@ -191,7 +211,20 @@ function makeScenario(options = {}) {
   }
   const results = Object.fromEntries(readNames.map(operation => [operation, completed(operation, payloads[operation], inputDigest)]))
   options.mutateResults?.(results, { entryKey, inputDigest })
-  return { input, results, entryKey }
+  return { input, results, entryKey, repositoryIdentity, state }
+}
+
+function replaceKeepResult(scenario, keepRecords, lifecycleEvidenceRecords) {
+  const explicitKeepAuthorityRefs = keepRecords.map(ref).sort((left, right) => Buffer.compare(Buffer.from(left.record_id), Buffer.from(right.record_id)))
+  const keepLifecycleEvidenceRecords = [...lifecycleEvidenceRecords].sort((left, right) => Buffer.compare(Buffer.from(left.keep_ref.record_id), Buffer.from(right.keep_ref.record_id)))
+  const observationRef = scenario.results.read_explicit_keep_authority.payload.observation_ref
+  const payload = {
+    observation_ref: observationRef,
+    items: [item({ entry_key: scenario.entryKey, explicit_keep_authority_refs: explicitKeepAuthorityRefs })],
+    keep_lifecycle_evidence_records: keepLifecycleEvidenceRecords,
+  }
+  scenario.results.read_explicit_keep_authority = completed('read_explicit_keep_authority', payload, digest(scenario.input))
+  return scenario
 }
 
 function syntheticPort(results, ledger) {
@@ -226,6 +259,10 @@ function newLedger() {
 
 async function collectScenario(options = {}) {
   const scenario = makeScenario(options)
+  return collectBuiltScenario(scenario)
+}
+
+async function collectBuiltScenario(scenario) {
   const ledger = newLedger()
   const collection = await CollectWorktreeGcPhase1InventoryV1(scenario.input, syntheticPort(scenario.results, ledger))
   return { scenario, ledger, collection }
@@ -292,6 +329,56 @@ assert.deepEqual(wgc003.classification_records[0].payload.blocking_reason_codes,
 const wgc004 = classifyCollection((await collectScenario({ keepStates: ['expired_unresolved'] })).collection)
 assert.equal(wgc004.classification_records[0].payload.classification, 'blocked_unknown')
 assert.deepEqual(wgc004.classification_records[0].payload.blocking_reason_codes, ['expired_keep_unresolved'])
+
+// Exact supersession admits an acyclic chain even when the direct superseder is itself superseded.
+const chainScenario = makeScenario()
+const chainA = makeKeepRecord(chainScenario.repositoryIdentity, chainScenario.state.pathIdentity, chainScenario.state.headBinding, 0)
+const chainB = makeKeepRecord(chainScenario.repositoryIdentity, chainScenario.state.pathIdentity, chainScenario.state.headBinding, 1, ref(chainA))
+const chainC = makeKeepRecord(chainScenario.repositoryIdentity, chainScenario.state.pathIdentity, chainScenario.state.headBinding, 2, ref(chainB))
+replaceKeepResult(chainScenario, [chainA, chainB, chainC], [
+  makeLifecycleEvidence(chainScenario.entryKey, chainScenario.repositoryIdentity, chainScenario.state.pathIdentity, chainScenario.state.headBinding, chainA, 'superseded', { supersedingKeepRef: ref(chainB) }),
+  makeLifecycleEvidence(chainScenario.entryKey, chainScenario.repositoryIdentity, chainScenario.state.pathIdentity, chainScenario.state.headBinding, chainB, 'superseded', { supersedingKeepRef: ref(chainC) }),
+  makeLifecycleEvidence(chainScenario.entryKey, chainScenario.repositoryIdentity, chainScenario.state.pathIdentity, chainScenario.state.headBinding, chainC, 'current'),
+])
+const chainCollection = (await collectBuiltScenario(chainScenario)).collection
+assert.equal(chainCollection.result, 'completed', 'acyclic supersession chain admitted')
+assert.equal(classifyCollection(chainCollection).classification_records[0].payload.classification, 'protected_explicit_keep')
+assert.deepEqual(classifyCollection(chainCollection).classification_records[0].payload.blocking_reason_codes, [])
+
+// Revoked evidence remains in the artifact but does not protect or block by itself.
+const revokedScenario = makeScenario()
+const revokedKeep = makeKeepRecord(
+  revokedScenario.repositoryIdentity, revokedScenario.state.pathIdentity,
+  revokedScenario.state.headBinding, 0, null, AUTHORITY,
+)
+replaceKeepResult(revokedScenario, [revokedKeep], [
+  makeLifecycleEvidence(revokedScenario.entryKey, revokedScenario.repositoryIdentity, revokedScenario.state.pathIdentity, revokedScenario.state.headBinding, revokedKeep, 'revoked', {
+    revocationRef: AUTHORITY,
+    resolutionEvidenceRefs: [AUTHORITY],
+  }),
+])
+const revokedCollection = (await collectBuiltScenario(revokedScenario)).collection
+assert.equal(revokedCollection.result, 'completed', 'revoked keep evidence admitted')
+assert.equal(classifyCollection(revokedCollection).classification_records[0].payload.classification, 'eligible_clean_merged_inactive_candidate')
+
+// A supersedes ref with matching ID/digest but a different authority URL is not the exact target ref.
+const mismatchedRefScenario = makeScenario()
+const targetKeep = makeKeepRecord(mismatchedRefScenario.repositoryIdentity, mismatchedRefScenario.state.pathIdentity, mismatchedRefScenario.state.headBinding, 0)
+const mismatchedTargetRef = {
+  ...ref(targetKeep),
+  authority_url: 'https://github.com/whatrune/sd-prompt-studio/issues/247#issuecomment-5179347436',
+}
+const invalidSuperseder = makeKeepRecord(
+  mismatchedRefScenario.repositoryIdentity, mismatchedRefScenario.state.pathIdentity,
+  mismatchedRefScenario.state.headBinding, 1, mismatchedTargetRef,
+)
+replaceKeepResult(mismatchedRefScenario, [targetKeep, invalidSuperseder], [
+  makeLifecycleEvidence(mismatchedRefScenario.entryKey, mismatchedRefScenario.repositoryIdentity, mismatchedRefScenario.state.pathIdentity, mismatchedRefScenario.state.headBinding, targetKeep, 'superseded', { supersedingKeepRef: ref(invalidSuperseder) }),
+  makeLifecycleEvidence(mismatchedRefScenario.entryKey, mismatchedRefScenario.repositoryIdentity, mismatchedRefScenario.state.pathIdentity, mismatchedRefScenario.state.headBinding, invalidSuperseder, 'current'),
+])
+const mismatchedRefCollection = (await collectBuiltScenario(mismatchedRefScenario)).collection
+assert.equal(mismatchedRefCollection.result, 'blocked')
+assert.equal(mismatchedRefCollection.failure_code, 'artifact_canonicalization_failed')
 
 // WGC-037: all named allocation uncertainties remain bounded evidence, never reclaimable exact bytes.
 const capacityUncertainties = ['alternate_stream_unenumerated', 'cloud_placeholder', 'compression_or_dedup_unknown', 'sparse_allocation']
@@ -426,8 +513,9 @@ for (const key of ['write', 'move', 'quarantine', 'remove', 'delete', 'prune', '
 }
 
 console.log(JSON.stringify({
-  result: 'PASS', focused_cases: 58, classification_branches: classificationCases.length,
+  result: 'PASS', focused_cases: 61, classification_branches: classificationCases.length,
   retained_rows: ['WGC-003', 'WGC-004', 'WGC-037', 'WGC-039', 'WGC-042', 'WGC-045'],
+  lifecycle_cases: ['exact_ref_chain', 'revoked_non_protecting', 'mismatched_authority_ref_rejected'],
   read_only_port_calls: directLedger.read_calls.length,
   artifact_emissions: directLedger.artifact_outputs.length,
   provenance_records: 1, deep_immutability: 'PASS',

@@ -524,7 +524,8 @@ function validateLifecycleState(evidence, lifecycleById, inventory, path) {
   const payload = evidence.keep_record.payload
   const evaluatedAt = evidence.evaluated_at
   const superseders = [...lifecycleById.values()].filter(candidate =>
-    candidate.keep_record.payload.supersedes_keep_ref_or_null?.record_id === evidence.keep_ref.record_id &&
+    candidate.keep_record.payload.supersedes_keep_ref_or_null !== null &&
+    sameRecordRef(candidate.keep_record.payload.supersedes_keep_ref_or_null, evidence.keep_record) &&
     candidate.lifecycle_state !== 'revoked')
   if (evidence.lifecycle_state === 'revoked') {
     if (payload.revocation_ref_or_null === null || evidence.revocation_ref_or_null !== payload.revocation_ref_or_null ||
@@ -536,7 +537,9 @@ function validateLifecycleState(evidence, lifecycleById, inventory, path) {
   if (evidence.lifecycle_state === 'superseded') {
     if (payload.revocation_ref_or_null !== null || evidence.revocation_ref_or_null !== null || superseders.length !== 1 ||
         evidence.superseding_keep_ref_or_null === null || !sameRecordRef(evidence.superseding_keep_ref_or_null, superseders[0].keep_record) ||
-        superseders[0].lifecycle_state !== 'current' || superseders[0].repository_identity_digest !== evidence.repository_identity_digest ||
+        superseders[0].keep_record.payload.valid_from > evaluatedAt ||
+        (superseders[0].keep_record.payload.expires_at_or_null !== null && evaluatedAt >= superseders[0].keep_record.payload.expires_at_or_null) ||
+        superseders[0].repository_identity_digest !== evidence.repository_identity_digest ||
         superseders[0].path_identity_digest !== evidence.path_identity_digest ||
         superseders[0].head_binding_digest_or_null !== evidence.head_binding_digest_or_null) {
       fail('authority_binding_mismatch', path)
@@ -555,6 +558,21 @@ function validateLifecycleState(evidence, lifecycleById, inventory, path) {
   }
   if (payload.head_binding_or_null !== null && valueDigest(payload.head_binding_or_null) !== valueDigest(inventory.payload.head_binding)) {
     fail('authority_binding_mismatch', `${path}/keep_record/payload/head_binding_or_null`)
+  }
+}
+
+function validateNoLifecycleCycles(lifecycleById) {
+  for (const start of lifecycleById.values()) {
+    const visited = new Set()
+    let current = start
+    while (current.lifecycle_state === 'superseded') {
+      if (visited.has(current.keep_ref.record_id)) fail('authority_binding_mismatch', '/keep_lifecycle_evidence_records')
+      visited.add(current.keep_ref.record_id)
+      const nextRef = current.superseding_keep_ref_or_null
+      const next = nextRef === null ? null : lifecycleById.get(nextRef.record_id)
+      if (!next || !sameRecordRef(nextRef, next.keep_record)) fail('inventory_reference_mismatch', '/keep_lifecycle_evidence_records')
+      current = next
+    }
   }
 }
 
@@ -592,6 +610,7 @@ function validateArtifactKeepAndProvenance(artifact) {
     validateKeepLifecycleEvidence(evidence, `/keep_lifecycle_evidence_records/${index}`)
     lifecycleById.set(evidence.keep_ref.record_id, evidence)
   })
+  validateNoLifecycleCycles(lifecycleById)
   const referenceCounts = new Map([...lifecycleById.keys()].map(key => [key, 0]))
   artifact.inventory_records.forEach((inventory, inventoryIndex) => {
     const provenance = provenanceByInventoryId.get(inventory.record_id)
