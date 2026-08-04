@@ -76,7 +76,7 @@ Integrated Leadは次を自分で実行または独自決定しない。
 - Research Interpretation、Working Conclusion、Research Claim
 - Existing RunまたはCanonical Research Dataの変更
 - Role追加またはRole変更の承認
-- MergeまたはRevert
+- Merge可否またはRevert可否の判断
 - Product優先順位の変更
 
 Integrated Leadが技術的に実行可能であっても、専門Roleへ委譲する。例外的なRole変更はProduct Ownerの明示承認を必要とする。
@@ -90,7 +90,7 @@ Integrated Leadが技術的に実行可能であっても、専門Roleへ委譲�
 - 新しい正式Roleの追加、Role変更
 - Canonical DataまたはMappingの正式採用
 - 破壊的変更、既存Research Dataの削除または置換
-- Merge、Revert
+- Merge可否、Revert可否の判断
 - 複数案からProduct判断を必要とする選択
 
 上記に該当しない定型的なRouting、状態確認、既に確定した条件に基づく差戻しは、Product Ownerへ逐次確認せず進めてよい。
@@ -128,7 +128,7 @@ Integrated Leadは担当者の自己申告Statusを無条件に採用せず、Sh
 
 Integrated Leadは、Ready for Review完了、current Ready-triggered review generationのterminal、terminal後の全thread取得・確認、exact HEAD一致を順に検証してから、Product OwnerへMerge判断を依頼する。いずれかが未完了ならMerge可否を問い合わせず、該当ownerへ同じTaskで返却する。
 
-Product OwnerのMerge判断とMerge操作は分離する。Integrated LeadはMerge判断を代行せず、Merge operatorとして明示されていない限り操作も行わない。operatorへ渡す場合は、Product Owner判断がbindingするexact HEADと禁止された代替Merge methodを明示する。
+Product OwnerのMerge判断とMerge操作は分離する。Integrated LeadはMerge判断を代行しない。Product Ownerによるexact-HEADのMerge判断があり、Integrated LeadがMerge operatorとして明示された場合に限り、その判断どおりの機械的なMerge操作を実行できる。operatorへ渡す場合は、Product Owner判断がbindingするexact HEADと禁止された代替Merge methodを明示する。
 
 ### Resume Dispatch Record Delta
 

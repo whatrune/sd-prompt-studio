@@ -191,11 +191,12 @@ became terminal, the reviewer records the exact Ready, Merge, terminal, and
 thread timestamps as a blocking sequencing finding; it does not reinterpret
 the later finding as a post-Merge-only review.
 
-Review-terminal rules and Completion/GSP authority binding must be evaluated by
-a separate pure Evaluator V2 using only the exact sealed Collector V1 artifact.
-Review code must not substitute a fixture, test runner, barrel export, ambient
-GitHub lookup, or caller-provided transport for the collector's production
-observation path.
+Automated evaluation of review-terminal rules and Completion/GSP authority
+binding by a separate pure Evaluator V2 using only the exact sealed Collector V1
+artifact is a future candidate. Evaluator V2 is not a prerequisite for the
+current human-led Merge sequencing defined above. Any future review code must
+not substitute a fixture, test runner, barrel export, ambient GitHub lookup, or
+caller-provided transport for the collector's production observation path.
 Focused negative validation sends explicit literal Core Inputs to the same
 production core. It must not use a preload, mutable global, environment-selected
 scenario, caller-supplied transport, or second production entrypoint.
