@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { createServer } from 'vite'
-import { basePolicy, baseInput, observation, at, taskSource } from './test-context-health-evaluator.mjs'
+import { basePolicy, baseInput, observation, at, taskSource } from './context-health-test-helpers.mjs'
 const server=await createServer({server:{middlewareMode:true},appType:'custom'})
 try {
  const m=await server.ssrLoadModule('/src/context-health/integration.ts')
