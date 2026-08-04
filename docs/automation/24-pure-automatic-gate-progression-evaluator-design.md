@@ -4,10 +4,13 @@
 **Task:** `ARCH-AUTOMATIC-GATE-PROGRESSION-PHASE1-PURE-EVALUATOR-001`
 **Canonical task assignment:** <https://github.com/whatrune/sd-prompt-studio/issues/177>
 **Authority main:** `fabfbd5d58fa3eb50859e553c5681d52b4d51ff5`
+**Repository reality supporting-record commit:** `ba5fc2a4395d2ac474ce95af3cd9b0e56cdb603a`
 
 ## 1. Ownership Boundary
 
 This document owns only the contract-to-repository implementation mapping for the automatic gate progression evaluator. Operational meaning, responsibility, logical inputs, logical outputs, precedence, stop conditions, and protected-action boundaries are owned by the [Automatic Gate Progression Contract](23-automatic-gate-progression-contract.md). Team authority and record meaning remain owned by [Team document 11](../team/11-delegation-and-result-contract.md), [Team document 13](../team/13-shared-role-execution-contract.md), and [Team document 14](../team/14-review-execution-contract.md).
+
+The canonical task assignment above is a direct GitHub record. Every repository-relative document or source path in this mapping is only a supporting record bound to full commit SHA `ba5fc2a4395d2ac474ce95af3cd9b0e56cdb603a`; a path, export, fixture, test, or internal import is not canonical authority or production runtime proof.
 
 ## 2. Source Mapping
 
@@ -24,7 +27,7 @@ This document owns only the contract-to-repository implementation mapping for th
 
 V1 is not a public export. This mapping records the current implementation and does not introduce a new version, branch, status, field, or capability.
 
-## 3. Runtime Consumers
+## 3. Internal Library / Module Consumers
 
 | Consumer | Source mapping |
 | --- | --- |
@@ -32,6 +35,8 @@ V1 is not a public export. This mapping records the current implementation and d
 | Gate Status Publisher | `src/gate-status-publisher/index.ts` |
 | Continuous Orchestration evaluator/reducer | `src/continuous-orchestration/evaluator-reducer-consolidation-v1.ts` |
 | Continuous Orchestration shared proof interface | `src/continuous-orchestration/shared-proof-interfaces-v1.ts` |
+
+These are direct internal source relationships at supporting-record commit `ba5fc2a4395d2ac474ce95af3cd9b0e56cdb603a`. They do not establish that any consumer is reachable from a production composition root, and they are not evidence of a production dispatch／controller host.
 
 The pure evaluator itself performs no transport or protected action. This is an implementation fact mapped to the operational boundary in document 23, not a second definition of that boundary.
 
@@ -48,6 +53,10 @@ The pure evaluator itself performs no transport or protected action. This is an 
 
 ## 5. Runtime Entry Boundary
 
-The repository exposes the pure evaluator through the public exports of `src/automatic-gate-progression/index.ts`. Production consumers import that module directly. No CLI, GitHub adapter, filesystem adapter, scheduler, protected-action executor, or alternate runtime entrypoint is mapped to this component.
+The repository exposes the pure evaluator through the public exports of `src/automatic-gate-progression/index.ts`, and the internal library／module consumers listed above import its evaluator, validators, or result types. Focused and integration tests also exercise the component. Source presence, public exports, tests, and these internal consumer edges are separate from production runtime reachability.
+
+At supporting-record commit `ba5fc2a4395d2ac474ce95af3cd9b0e56cdb603a`, the production composition root is `src/main.tsx` → `src/appRouter.tsx` → `src/App.tsx`. No incoming edge from that root to the pure evaluator or the internal consumers listed above is confirmed. No production dispatch／controller host, CLI, GitHub adapter, filesystem adapter, scheduler, protected-action executor, or alternate production runtime entrypoint is mapped to this component. Production reachability is therefore unproven, not implemented-by-inference.
+
+This mapping also does not prove the Collector V1 physical operator, Collector V1 scheduler／automatic trigger owner, Cloudflare-side configuration and execution conditions, or any repository-external Automation execution path. Each remains `UNKNOWN` until supported by a direct canonical runtime record or an evidenced incoming edge from its production composition／execution host.
 
 Any future source, symbol, command, or runtime-entry change belongs in this mapping only after the corresponding operational meaning remains valid under document 23. This document does not authorize that change.
