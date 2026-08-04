@@ -24,7 +24,9 @@ This contract consumes those rules without redefining them. Controller-local sta
 
 ## 3. Responsibility Boundary
 
-The controller MAY admit evidence, produce one deterministic progression decision, request an already-authorized metadata projection or same-task dispatch, and stop.
+The pure evaluator and the automatic progression controller are separate boundaries. The pure evaluator only evaluates its supplied immutable snapshot and returns `recommend_next_role`; it does not dispatch, write a transition record, author Resume Dispatch, publish metadata, or execute an action.
+
+The controller MAY admit evidence, invoke the evaluator, produce the controller result required by the admitted evidence, request an already-authorized metadata projection, request and record an already-authorized same-task dispatch, and stop. The controller revalidates authority before recording a dispatch; the evaluator recommendation is not dispatch authority.
 
 The controller MUST NOT perform specialist work, choose a Product direction, freeze or change a Contract, infer finding closure, change an Existing Run, create replacement task scope, or execute Ready, Approve, Merge, Revert, rebase, squash, force push, or another protected action. A future protected-action executor remains separately authorized under Team document 13.
 
@@ -104,9 +106,11 @@ These are controller-local states only. `awaiting_protected_execution` is not ex
 
 ## 8. Same-Task Dispatch Output
 
-A dispatch request requires an explicit next Role and action in admitted authority. It MUST preserve `task_id`, Assignment, repository, branch, worktree, PR, cumulative scope, predecessor record, exact target HEAD, and idempotency identity. A duplicate identity returns the existing decision and MUST NOT create another dispatch.
+A controller dispatch request or record requires an explicit next Role and action in admitted authority. It MUST preserve `task_id`, Assignment, repository, branch, worktree, PR, cumulative scope, predecessor record, exact target HEAD, and idempotency identity. A duplicate identity returns the existing decision and MUST NOT create another dispatch.
 
 Role identity MUST NOT be inferred from a file, label, reviewer, prior chat, or technical capability. Same-task correction and Resume authority remain owned by Team document 13 and the Integrated Lead Charter.
+
+The controller MAY record a Resume Dispatch only as the transport of Integrated Lead's existing authoring authority and record shape, after the applicable same-task closure and authority are admitted. Integrated Lead remains the Resume Dispatch authoring authority. Neither the controller nor the evaluator gains independent Resume authority.
 
 ## 9. Closed Stop and Recovery Conditions
 
@@ -157,7 +161,7 @@ Automatic progression is opt-in by Task Assignment. Existing manual tasks are no
 
 | ID | Scenario | Required result |
 | --- | --- | --- |
-| `AGP-01` | completed handoff names one review Role | one same-task review recommendation after required Gate Status verification |
+| `AGP-01` | completed handoff names one review Role | exactly one same-task review dispatch after required Gate Status verification |
 | `AGP-02` | duplicate delivery | same decision identity; no duplicate dispatch or projection |
 | `AGP-03` | HEAD changes after review or decision | affected evidence becomes historical; no protected action or Resume |
 | `AGP-04` | blocking finding opens or reopens | stop and name correction owner |

@@ -48,6 +48,8 @@ This non-normative template captures task-specific assignment inputs and expecte
 - Existing implementation:
 - Fixture / example:
 - Preconditions:
+- Completion conditions:
+- Escalation conditions:
 
 ## Scope
 
@@ -55,6 +57,7 @@ This non-normative template captures task-specific assignment inputs and expecte
 - Allowed behavior:
 - Allowed tests:
 - Forbidden files / behavior / data:
+- Task-specific forbidden fallback:
 - This task performs:
 - This task does not perform:
 
