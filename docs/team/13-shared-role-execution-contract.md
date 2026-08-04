@@ -116,8 +116,8 @@ Execution is fail-closed. The terminal stop reason MUST describe the actual boun
 | `completed` | the assigned work and required evidence are complete |
 | `architecture_gap` | external contract meaning is missing/conflicting or frozen architecture mismatches Repository Reality |
 | `external_blocker` | required authority, service, runtime, tool, or source cannot be accessed |
-| `failed_validation` | required validation ran and failed |
-| `scope_boundary` | progress requires an unauthorized scope expansion |
+
+These are the only three `execution_stop_reason` values. Validation failure and insufficient authorized scope MUST use an existing Result Handoff status together with the applicable existing stop reason: `completed + needs_followup` only when the assigned review or investigation and its required validation are complete and the correction is recorded; `architecture_gap + blocked` for missing or conflicting external meaning or a Repository Reality mismatch; or `external_blocker + blocked | failed` when authority, repository state, tooling, runtime, or another external condition prevents safe completion. They MUST NOT introduce another stop reason.
 
 Progress-only reporting is not terminal. The assignee MUST continue through authorized completion while safe in-scope work remains. A Review Task that completes its assigned review and records blocking findings MAY finish as `completed` with handoff status `needs_followup`; this does not complete the reviewed artifact. A verified non-applicable task MAY finish as `completed` with status `not_applicable`.
 
