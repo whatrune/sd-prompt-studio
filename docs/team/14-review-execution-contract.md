@@ -9,205 +9,109 @@ uses: assignment_shape, result_handoff_shape, handoff_status, shared_admission, 
 
 ## Purpose and Dependencies
 
-### Artifact-bound review
+This document is the sole normative owner for review admission, review findings, and Review Decision records. Shared authority, Repository Reality, protected actions, failure behavior, correction, Resume, completion, finding-closure authority, and Merge sequencing come from the [Shared Role Execution Contract](13-shared-role-execution-contract.md). Assignment and Result Handoff shapes come from the [Delegation and Result Contract](11-delegation-and-result-contract.md).
 
-Review records bind artifact path, version, full commit SHA, digest, ordering,
-and outcome. Review reconstructs the artifact only from that commit and its
-manifest procedure. Missing binding, HEAD change, digest mismatch, or missing
-review result fails closed.
+## Review Admission
 
-Review verifies exact binding, readable bound-commit contents, manifest field
-inclusion/exclusion, ordering, deterministic reconstruction, declared digest,
-and matching review URL; any failure blocks artifact-dependent review.
+At review start and immediately before recording the decision, the reviewer MUST fresh-fetch:
 
-このContractは、既存RoleがReview Assignmentを受けたときに[Shared Role Execution Contract](13-shared-role-execution-contract.md)へ追加適用するReview capability ruleの唯一のnormative ownerである。Review AssignmentとResult Handoffのshape / statusは[Delegation and Result Contract](11-delegation-and-result-contract.md)をconsumeする。
+- the canonical Task Assignment and cumulative authority records;
+- the reviewed PR, branch, and full 40-character HEAD;
+- the frozen contract and Repository Reality evidence applicable to the task;
+- changed files, commits, checks, validation records, and Result Handoff;
+- prior Review Decisions, findings, closure flags, and current review threads; and
+- protected-action evidence relevant to the requested decision.
 
-単一の汎用Reviewerまたは`Frontend Architect`を正式Roleとして追加せず、Role taxonomy、RoleV1、Result Handoff status、Research Review vocabularyを変更しない。
-
-## Admission
-
-Reviewerは、review開始時とDecision記録直前に次をfresh fetchする。
-
-- Task objectiveとobservable acceptance criteria
-- Freeze済みContract、Task-specific test matrix、Cumulative Amendment
-- open Review Amendmentとfindingごとのclosure state
-- reviewed PR、full 40-character HEAD、base、Diff、files
-- production path、focused test、full regression、GitHub checksと各実行full HEAD
-- Role固有のreview authorityとprotected action boundary
-- record type、authoring authority、prior record、cumulative scopeを含むcanonical chain
-
-Review対象のHEADが変わった場合、古いreview evidenceを新HEADの証明として再利用しない。HEAD更新だけでfindingをcloseしない。
+The reviewer MUST stop when authority is missing, stale, conflicting, inaccessible, or bound to another HEAD. Chat, memory, PR description, source presence, CI success, and Gate Status projection MUST NOT substitute for direct evidence.
 
 ## Review Order
 
-1. 実装手段ではなく、Task objectiveとobservable acceptanceの達成を確認する。
-2. Freeze Contractとallowed / forbidden scopeへの適合を確認する。
-3. production public entryを通るbehaviorとfailure pathを確認する。
-4. Shared Role Execution Contractのtesting baselineとTask-specific matrixの全rowを照合する。
-5. full regressionとGitHub checksを、同じreviewed full HEADに対して確認する。
-6. existing behavior、data、state、compatibilityへのregressionを確認する。
-7. findingとrequired correctionをdirect canonical Review Decisionへ記録する。
+1. Verify the task objective and observable acceptance criteria.
+2. Verify frozen contracts, Issue Scope, allowed changes, and forbidden changes.
+3. Verify production behavior and failure paths through the public production entrypoint when runtime behavior is claimed.
+4. Verify focused positive, negative, boundary, malformed, and task-required matrix cases.
+5. Verify regression and GitHub checks against the same reviewed full HEAD.
+6. Verify preserved behavior, data, state, identity, safety, and compatibility.
+7. Record every finding and the final decision in the direct canonical Review Decision.
 
-Architecture Reviewでは、上記に加えてShared Role Execution ContractのRepository Reality Checkを確認する。実在するowner、host、entrypoint、caller、consumer、file、symbolのいずれかが必要なのに`UNKNOWN`である場合、Implementation ReadyまたはAPPROVE相当と判定しない。
+Architecture Review MUST also verify the Repository Reality Check. A required `UNKNOWN` fact prevents Implementation Ready or approval-equivalent status.
 
-主要objective、acceptance、required matrixのいずれかが未達なら、review対象をcompleted、APPROVE相当、merge-readyと判定しない。ただしReviewerがAssignment上のreviewと必須検証を完遂し、blocking findingをcanonical record化した場合、Review Task自身は`execution_stop_reason: completed`と`status: needs_followup`で完遂できる。
+If the objective, acceptance criteria, or required matrix is incomplete, the reviewed artifact MUST NOT be marked complete, approval-equivalent, or merge-ready. A reviewer that completed the assigned review and recorded blocking findings MAY complete the Review Task as `completed + needs_followup`.
 
 ## Evidence Standard
 
-CI greenだけではReview Decisionを確定しない。helper-only test、smoke test、symbol existence、stale HEAD、PR bodyの自己申告をnormative coverageとして扱わない。
+- Evidence MUST identify source, command or observation, result, timestamp when relevant, and exact HEAD.
+- Runtime claims require runtime-path evidence; static declarations, barrel exports, fixtures, and test-only calls are insufficient.
+- Failure-path evidence MUST show the expected stop behavior and absence of forbidden downstream effects.
+- Unperformed checks MUST remain unperformed.
+- An unconsumed architecture matrix row is a blocking finding.
 
-Review evidenceは該当する範囲で次を含む。
+## Gate Status Overlay
 
-- reviewed PRとfull `reviewed_head`
-- objective / acceptanceごとの観測結果
-- production pathとrequired result / failure branches
-- positive / negative / boundary / malformed coverage
-- unknown / duplicate / missing / ordering / cross-reference coverage
-- mutation isolation、deep immutability、recursive freeze coverage
-- focused / full validation commands、result、実行full HEAD
-- GitHub check name、conclusion、checked full HEAD
-- scope外変更、compatibility、unresolved / unverified items
+Before relying on Gate Status, the reviewer MUST fresh-fetch the PR body and every cited canonical record. The reviewer MUST verify current HEAD, applicable Final Regression and Operational Validation results, Draft or Ready state, independent Ready, Approve, and Merge fields, current blocker, and next gate.
 
-Architecture test matrixに未消化rowがある場合、review対象はcompletionまたはAPPROVE相当にならない。Review Taskは未消化rowをblocking findingとして記録した場合だけ`completed + needs_followup`になれる。
+A stale, missing, or conflicting Gate Status entry is a review finding. The reviewer MUST require same-task metadata-only correction and the dependent read-only gate MUST be rerun. The reviewer MUST NOT silently repair metadata or treat CI success as completion.
 
-## Gate Status Review Overlay
+After a HEAD change, prior Ready and approval evidence become historical at the prior HEAD. If the PR was Ready, a recorded return to Draft and fresh applicable gates, review, and Ready are required. A completed Merge combined with a later open-PR HEAD is a blocking canonical conflict.
 
-This section is a review overlay. The completion conditions, evidence ownership,
-and PR Body Gate Status fields are owned by the
-[Shared Role Execution Contract](13-shared-role-execution-contract.md); this
-Contract does not become a generic execution owner.
+## Review Decision Record
 
-Before a reviewer relies on a Gate Status entry, the reviewer MUST fresh-fetch
-the PR Body, exact PR HEAD and state, and every cited canonical completion
-record. The reviewer MUST verify that:
+A Review Decision or Amendment MUST be a top-level Task Issue record with a direct `canonical_record` URL. PR review UI and inline threads are evidence mirrors, not the canonical record.
 
-- each current gate is bound to the reviewed full HEAD;
-- prior-HEAD evidence is explicitly labeled `historical_at_prior_head` and is
-  not used as current completion evidence;
-- Final Regression and Operational Validation have direct canonical result
-  records rather than inferred CI status;
-- a Draft/Ready transition is represented by its sole-action completion record;
-- Ready, Approve, and Merge are independent status fields; and
-- the current blocking reason and next gate match the canonical record chain.
+Its authority metadata includes `task_id`, `record_type`, `authoring_role`, `authority_source`, and `canonical_record`.
 
-A stale, missing, or conflicting Gate Status entry is a review finding. The
-reviewer MUST record the exact mismatch and require a same-task metadata-only
-correction; the reviewer MUST NOT silently repair the PR Body or treat CI green
-as completion. The correction must be followed by the dependent read-only gate
-revalidation at the unchanged exact HEAD before a review decision relies on it.
+The record MUST include:
 
-### Protected-action review matrix after a HEAD change
+- `task_id`, record type, authoring and reviewing Role, authority source, and prior record;
+- repository, PR, branch, reviewed full HEAD, and review scope;
+- objective and acceptance result;
+- evidence and validation results;
+- cumulative findings with stable IDs, severity, required correction, and closure state;
+- decision: approval-equivalent, changes required, or blocked;
+- execution stop reason and Result Handoff status;
+- protected-action state and next owner; and
+- unresolved and unperformed items.
 
-The reviewer MUST apply the Shared Role Execution Contract matrix exactly. The
-same field labels, values, evidence, and next-action wording apply to the PR
-template:
+A repository-relative document MAY be attached only as a supporting record with its full commit SHA.
 
-| Protected action | Allowed Gate Status values | Required canonical evidence | Required transition after `historical_at_prior_head` |
-| --- | --- | --- | --- |
-| Ready for Review | `completed \| historical_at_prior_head \| pending \| blocked \| unperformed` | direct completion record with exact HEAD before/after, PR state before/after, and sole-action evidence | If the PR is currently Ready, a Draft-return completion record is required before re-review; then fresh required gates, review, and a new Ready completion are required. |
-| Approve | `completed \| historical_at_prior_head \| pending \| blocked \| unperformed` | direct approval record with the approved exact HEAD and reviewing authority | A prior approval cannot authorize the new HEAD. Fresh review and a new approval after Ready are required. |
-| Merge | `completed \| historical_at_prior_head \| pending \| blocked \| unperformed` | direct merge or PR-closure record with the exact merged HEAD | No automatic continuation. A claimed completed merge with a later open-PR HEAD is a canonical conflict: stop as `blocked` and escalate to Product Owner / Architect Team. |
+## Findings and Closure
 
-For review admission, a HEAD change makes prior protected-action evidence
-historical. A Ready-to-Draft return is required only if the PR was Ready when
-the HEAD changed. The reviewer MUST reject a re-review or later Ready action
-until the Draft-return record, fresh applicable gate evidence, and new review
-decision are present. A completed Merge cannot coexist with a later open-PR
-HEAD; that combination is a blocking canonical-record conflict.
-
-## Review Decision Canonical Record
-
-Review DecisionまたはReview Amendmentは、Task Issueのtop-level commentへ記録し、record全文へ直接到達できるGitHub URLを`canonical_record`とする。PR review UIとinline threadはmirror / evidence pointerであり、canonical recordを置き換えない。
-
-Decisionには次を含める。
-
-- `task_id`
-- `record_type`: `review_decision | review_amendment`
-- `authoring_role`と`authority_source`
-- direct `canonical_record` URL
-- `prior_record_url`
-- `cumulative_scope`または`supersede_scope`
-- `reviewed_pr`
-- full 40-character `reviewed_head`
-- reviewing Roleと適用Contract
-- `decision`
-- blocking findingsとevidence
-- required corrections
-- allowed next actionとforbidden next action
-- findingごとのclosure flag
-- unresolved / unverified items
-
-Repository-relative Markdownを添える場合は、pathとfull 40-character commit SHAを組にした`supporting_record`として記録する。
-
-## Cumulative Findings and Closure
-
-- Review Amendmentは同じ`task_id`、branch、worktree、PRへ累積する。
-- 後続pushは既存findingを暗黙にcloseしない。
-- finding closure authorityはShared Role Execution Contractを適用する。Reviewerは要求されたnew full HEADのevidenceとfinding別closure flagをcanonical Review Decisionへ記録する。
-- Final Review Decisionもprior findingを個別に列挙し、open / closedを明示する。
-- Architecture gapが必要な場合、Reviewerはgapの内容とboundaryを記録し、Architect Teamへ返す。Reviewer自身がContractを補完しない。
-- Architecture AmendmentはArchitecture questionだけを閉じ、implementation findingを自動closeしない。
-- Architecture Amendmentだけではimplementationをresumeしない。Integrated Leadのvalidなsame-task Resume Dispatchを必要とする。
+- Each finding MUST identify the violated contract or acceptance condition, evidence, affected HEAD, severity, and required correction.
+- Findings remain cumulative until the original review authority closes them in a fresh full-HEAD Review Decision.
+- A code change, author response, resolved UI thread, Architecture Amendment, CI pass, or Gate Status update MUST NOT close a finding by itself.
+- An Architecture Gap finding MUST identify only the missing external meaning or Reality mismatch and return it to Architect Team.
+- Architect closure requires Integrated Lead's valid same-task Resume Dispatch before implementation resumes.
 
 ## Capability Boundary
 
-このoverlayはReviewを担当する既存Roleへ新しいprotected action authorityを付与しない。protected actionの一覧とsame-task correctionの共通意味はShared Role Execution Contractを参照する。
+The reviewer MAY inspect and report within assigned review authority. The reviewer MUST NOT modify implementation, metadata, protected-action state, or authority records unless separately assigned that action. When GitHub `APPROVE` is forbidden, the reviewer records only the approval-equivalent decision and evidence.
 
-- 自分が作成したPRを自己Approveしない。
-- Review中に成果物を無断修正しない。修正は対象TaskのImplementerへ同一Taskで返す。
-- `APPROVE`というGitHub actionがAssignmentで禁止されている場合は実行せず、`APPROVE相当`の判定と根拠だけをcanonical recordへ記録する。
-- Design Reviewer、Backend Architect、Architect Team、Research Review OPは、それぞれのRole固有authorityと判定語彙を維持する。
-- Research Review OPの`APPROVE | COMMENT | NEEDS_FOLLOWUP | REJECT`やResearch meaningをこのContractで再定義しない。
+Role-specific review vocabulary and authority remain with the applicable reviewing Role.
 
-## Ready-triggered review observation boundary
+## Ready-Triggered Review Observation
 
-A Ready-triggered review generation is not complete merely because its current
-unresolved-thread count is zero. Before any later evaluator assesses the review
-generation, the owner-only Ready Review Terminal Observation Collector V1 must
-observe the exact Ready event and PR HEAD, the complete frozen producer roster,
-one terminal receipt for every producer, and a full review-thread snapshot
-acquired only after the latest terminal receipt.
+Ready Review Terminal Observation Collector V1 has exactly two layers. Its owner-only production CLI adapter accepts exactly a repository identity, pull request number, full pull-request HEAD, and the direct canonical Ready Generation Record URL. The adapter privately constructs authenticated GitHub acquisition, normalizes observations, and invokes the pure observation core once. Callers MUST NOT inject or replace a port, callback, adapter, fixture, test mode, producer roster, policy option, preload hook, global hook, or environment-selected scenario.
 
-The production path is exactly CLI admission, private owner-only GitHub
-adapter, closed nine-field Core Input, deterministic pure core, and either
-sealed artifact bytes or fail-closed exit. The adapter owns transport and
-normalization; the core owns closed observation admission and artifact
-construction. A GitHub command or response failure is adapter-private and must
-not be reported as a core observation rejection. A core rejection must not be
-reported as a transport failure.
+The deterministic core accepts only the closed nine-field `ReadyReviewTerminalObservationCoreInputV1`. It performs no GitHub, filesystem, environment, clock-read, callback, or policy operation. Its closed result is either `artifact_produced` with the 16-field artifact or `observation_rejected` with the exact two-field failure and frozen input-to-artifact first-failure stage order. Transport failures remain private to the adapter and MUST NOT be represented as core rejections; core rejections MUST NOT be reported as transport failures. Only `artifact_produced` may emit stdout.
 
-Collector V1 records submitted-review and no-findings-correlation receipts as a
-closed two-branch source projection. It preserves review state, finding IDs, and
-thread state but does not classify or close them. Its artifact therefore does
-not authorize Ready, Merge, Completion, GSP publication, or any other protected
-action.
+The canonical Ready Generation Record and its referenced producer roster are owner-authored top-level Task Issue records. Collector V1 verifies their self-canonical URLs, closed projections, JCS/SHA-256 seals, exact repository, pull request, HEAD and Ready-event binding, contiguous Ready-record revision chain with one current leaf, and roster effective window. The frozen roster is observation authority; Collector V1 does not select or prioritize review producers.
 
-For Merge-gate review, the current Ready-triggered generation MUST be terminal
-before the thread snapshot is treated as complete. The reviewing Role then
-checks every returned thread and rechecks the exact PR HEAD. A prior Ready
-generation, a pre-terminal thread count, or an earlier reviewed HEAD does not
-satisfy this review dependency. If Merge occurred before the current generation
-became terminal, the reviewer records the exact Ready, Merge, terminal, and
-thread timestamps as a blocking sequencing finding; it does not reinterpret
-the later finding as a post-Merge-only review.
+Collector V1 emits an artifact only after acquiring one exact terminal receipt for every roster producer and then traversing the complete `PullRequest.reviewThreads` connection. The post-terminal thread snapshot is acquired at or after the latest receipt time and preserves thread resolution and outdated state without interpreting either. Missing, duplicate, stale, mixed, malformed, or digest-inconsistent records produce no artifact.
 
-Automated evaluation of review-terminal rules and Completion/GSP authority
-binding by a separate pure Evaluator V2 using only the exact sealed Collector V1
-artifact is a future candidate. Evaluator V2 is not a prerequisite for the
-current human-led Merge sequencing defined above. Any future review code must
-not substitute a fixture, test runner, barrel export, ambient GitHub lookup, or
-caller-provided transport for the collector's production observation path.
-Focused negative validation sends explicit literal Core Inputs to the same
-production core. It must not use a preload, mutable global, environment-selected
-scenario, caller-supplied transport, or second production entrypoint.
+The single output is the exact 16-field `ReadyReviewTerminalObservationArtifactV1`, recursively immutable and sealed as RFC 8785 JCS bytes plus SHA-256. It is observation data only. Merge eligibility, rule evaluation, stop reasons, violation classes, evidence precedence, Completion/GSP binding, and policy decisions are outside V1. Collector V1 does not classify or close findings and does not authorize Ready, Merge, Completion, Gate Status publication, or any other protected action.
 
-## Review Terminal Result
+For Merge-gate review, the current Ready-triggered generation MUST be terminal before its thread snapshot is complete. The reviewing Role then MUST inspect every returned thread and recheck the exact PR HEAD. A prior Ready generation, pre-terminal thread count, or earlier reviewed HEAD is insufficient.
 
-Review executionもShared Role Execution Contractのclosed `execution_stop_reason`を使用し、Result Handoff `status`とは分離する。
+If Merge occurred before the current generation became terminal, the reviewer MUST record the exact Ready, Merge, terminal, and thread timestamps as a blocking sequencing finding. A later technical finding MUST NOT be reclassified as post-Merge-only when this ordering failure exists.
 
-- Review Assignment自体と必須validationを完遂し、findingなし: `completed + completed`
-- Review Assignment自体と必須validationを完遂し、blocking findingをcanonical record化: `completed + needs_followup`
-- Review meaningが未Freezeまたは矛盾: `architecture_gap + blocked`
-- required authority recordまたはfresh stateを取得不能: `external_blocker + blocked | failed`
+Automated evaluation of review-terminal rules and Completion or Gate Status authority binding by a pure Evaluator V2 is a future candidate. Evaluator V2 is not a prerequisite for the current human-led Merge sequence. Any future evaluator MUST consume only the exact sealed Collector V1 artifact bytes and MUST NOT refetch GitHub data or reconstruct omitted evidence. The pure core MAY be imported directly for deterministic negative validation, but it is not a package, barrel, CLI, or alternative production transport authority. Negative validation MUST use literal closed Core Inputs and MUST NOT replace or patch the owner-only transport with a fixture, test runner, ambient lookup, preload, mutable global, environment-selected scenario, caller-supplied transport, or second production entrypoint.
 
-progress-only report、CI green、Review開始のacknowledgementだけをterminal resultにしない。
+## Terminal Review Result
+
+The reviewer MUST publish one canonical terminal result:
+
+- approval-equivalent when all required review conditions pass and no blocking finding remains;
+- changes required when review completed and blocking correction is assigned; or
+- blocked when review cannot complete because required authority or evidence is unavailable.
+
+This result completes only the Review Task. Ready, Approve, Merge, finding closure, metadata correction, and artifact completion remain separate authorities and records.

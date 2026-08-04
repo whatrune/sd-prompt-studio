@@ -9,228 +9,77 @@ uses: shared_admission, protected_actions, terminal_stop_reason, review_admissio
 
 ## Purpose
 
-この文書は、SD Prompt Studioを複数担当で安全に開発するための共通運用モデルを定義する。目的は、Product判断、Contract設計、Backend実装、Frontend実装、定型作業を分離し、Freeze済み仕様と既存Research Artifactを保護したまま並行開発できる状態を作ることである。
+This document defines Role taxonomy, source precedence, decision ownership, and team topology. Shared execution behavior belongs to the [Shared Role Execution Contract](13-shared-role-execution-contract.md); review behavior belongs to the [Review Execution Contract](14-review-execution-contract.md).
 
-この運用Contractは開発方法を定義するものであり、Product方針、Research Contract、Observation、Evidence、Schema、Canonical Research Dataの意味を変更しない。
+## Protected Baseline
 
-## Protected Contract Baseline
+The prompt provenance, camera visibility, image observation, and evidence evaluation contracts established by PR81 through PR86 remain outside this operating model. A task that changes their schema, status, error, hash, artifact, observation, or evidence meaning requires an explicit Product Owner decision and a separate Architect Team contract review.
 
-PR81〜PR86で確立された次の責務境界は、本運用Contractの対象外であり、そのまま維持する。
+## Precedence
 
-- Prompt Provenance Foundation
-- Camera Visibility Metadata Foundationとその実装境界
-- Image Observation Contract Foundation
-- Evidence Evaluation Foundationとpure evaluator実装境界
+Within each source's authority, the order is:
 
-本運用Contractは、これらのSchema、Status、Error、Hash、Artifact、Observation、Evidenceの意味を再定義しない。将来これらを変更するTaskは、通常のImplementation Assignmentではなく、Product Ownerの明示判断とArchitect Teamによる別Contract Reviewを必要とする。
+1. the latest explicit Product Owner decision;
+2. the latest cumulative Architect Team contract record;
+3. this operating model and shared team contracts;
+4. the applicable Role Charter;
+5. the canonical Task Assignment;
+6. implementation notes, PR descriptions, and chat.
 
-## Normative References and Precedence
+A lower source MUST NOT weaken a higher source. A conflict MUST be handled through the Shared Role Execution Contract rather than resolved locally.
 
-作業者は次の優先順位で指示を解釈する。
+## Normative Ownership
 
-1. Product Ownerの最新の明示判断（Product Owner authority内のみ）
-2. 対象TaskのFreeze済みContract、Task Assignment、権限あるCumulative Amendment、Review Decision、Resume Dispatch
-3. Repository rootの`AGENTS.md`
-4. 本Operating Model
-5. [`13-shared-role-execution-contract.md`](13-shared-role-execution-contract.md)
-6. applicable primary Role Charter
-7. applicable capability overlayである[`14-review-execution-contract.md`](14-review-execution-contract.md)
-8. routing、branch、automation integration contract
-9. templateとexample
-10. implementation convention
-
-下位Sourceは上位Sourceを緩和できない。Role Charterと共通Contractが衝突する場合、作業者は独自解決せず、`architecture_gap`としてArchitect Teamへ返却する。
-
-## Normative Ownership Map
-
-| Concern | Normative owner |
+| Concern | Canonical owner |
 | --- | --- |
-| Role taxonomy、team topology、全体flow、最上位precedence | 本Operating Model |
-| 全Role共通のadmission、authority、stop、same-task correction、testing、completion evidence | [`13-shared-role-execution-contract.md`](13-shared-role-execution-contract.md) |
-| Role固有責務とauthority delta | applicable Role Charter |
-| Review capabilityの実行規則 | [`14-review-execution-contract.md`](14-review-execution-contract.md) |
-| Task Assignment / Result Handoff shapeとstatus | [`11-delegation-and-result-contract.md`](11-delegation-and-result-contract.md) |
-| routing、Git lifecycle、automation integration | 各専用contract |
-| 記入形式 | templates。normative ruleを所有しない |
+| Role taxonomy, precedence, decision ownership, team topology | this document |
+| Role-specific authority delta | applicable Role Charter |
+| Development routing | [Development Routing Contract](09-development-routing-contract.md) |
+| Shared admission, protected actions, failure behavior, correction, resume, completion, Merge sequencing | [Shared Role Execution Contract](13-shared-role-execution-contract.md) |
+| Review admission, findings, and decisions | [Review Execution Contract](14-review-execution-contract.md) |
+| Assignment and handoff fields | [Delegation and Result Contract](11-delegation-and-result-contract.md) |
+| Git lifecycle | repository entry guard and the canonical Task Assignment |
 
-`Frontend Architect`と単一の汎用Reviewerは正式Roleとして追加しない。Review Contractは既存RoleへAssignment時だけ適用するcapability overlayである。
+Normative dependency edges run from consumer to owner. Navigation links and examples are non-normative. Every `AGENTS.md` and `docs/team/00` through `14` document MUST contain exactly one `role-contract-meta` block with a unique `id`, declared `kind`, `owns`, and `uses`.
 
-## Reference Edge Types
+## Roles and Decision Owners
 
-- `normative dependency`: consumerがownerのruleを適用するedge。必ず`consumer -> owner`で記録する。
-- `ownership declaration`: 本Operating Modelがunique ownerを列挙するためのpointer。dependency edgeではない。
-- `navigation backlink`: 読者の移動だけを目的とするlink。dependency edgeではない。
-- `example`: non-normativeでありdependency edgeではない。
+| Role | Owned decisions and work |
+| --- | --- |
+| Product Owner | product priority, product trade-offs, Role changes, final Merge or Revert decision |
+| Integrated Lead | intake, classification, routing, state coordination, evidence integration, same-task Resume Dispatch |
+| Architect Team | architecture meaning, external contracts, responsibility boundaries, contract freeze, architecture review |
+| Backend Implementer | backend implementation and backend validation within frozen contracts |
+| Frontend Implementer | frontend implementation, UI behavior, accessibility, and frontend validation within frozen contracts |
+| Worker | mechanical research, inventory, metadata, documentation, and other explicitly assigned non-authoritative work |
+| Reviewing Role | the review decision and finding closure assigned by the review contract |
+| Research Operations Roles | observation, research review, reporting, and other research-specific work under their contracts |
 
-literal Markdown link graphとnormative dependency graphは別に検証し、どちらにもcycleを作らない。
+The future Dispatcher is an execution adapter, not a decision owner. Its status remains as documented in [Automation Overview](../automation/00-automation-overview.md).
 
-各`AGENTS.md` / `docs/team/00`〜`14`は、先頭にexactly oneの`role-contract-meta` commentを持つ。
+## Decision Boundary
 
-- `id`: graph nodeとして一意なdocument ID
-- `kind`: `entry_guard | operating_model | role_charter | contract | routing_contract | template`
-- `owns`: この文書だけがnormative ownerであるconcernのcomma-separated list。所有しない場合は`none`
-- `uses`: 他文書のnormative concernをconsumeするcomma-separated list。consumeしない場合は`none`
+- Product Owner product decisions MUST NOT silently redefine technical contracts.
+- Architect Team MUST NOT delegate unresolved architecture meaning to an Implementer.
+- Implementers MUST NOT change frozen external contracts through implementation choices.
+- Integrated Lead MUST NOT replace specialist, reviewer, Architect Team, or Product Owner authority.
+- A Merge operator MAY execute a Merge only under the exact-HEAD decision and operator binding defined by the Shared Role Execution Contract.
 
-validatorは実文書の`owns`からunique owner mapを作り、各`uses`をそのownerへ解決して`consumer -> owner` edgeを導出する。undeclared owner reference、duplicate owner、Freeze済みownerの反転、self dependency、cycleを失敗させる。`kind: template`は`owns: none`だけが許可される。
+## Delivery Model
 
-## Roles
-
-### Integrated Lead
-
-責務:
-
-- Product Ownerからの通常依頼の受付
-- Development、Research Operations、Supportへの分類
-- 既存RoleへのTask Assignmentと依存関係管理
-- Result Handoffの受領、整合確認、差戻し
-- Product Owner向け統合完了報告
-
-Integrated Leadは専門作業、Architecture判断、Research判断、Mergeを行わない。既存Roleの責務や承認権限を置き換えず、通常窓口とRoutingを一本化する。詳細は[`08-integrated-lead-charter.md`](08-integrated-lead-charter.md)を参照する。
-
-### Dispatcher
-
-Dispatcherは、将来のIntegrated Dispatch AutomationでCanonical Task Assignmentの受付、Role Binding、Runner起動要求、実行状態管理、Result Handoff回収を行う実行管理Roleである。判断Roleではなく、Integrated Lead、Architect Team、Product Owner、Research Operations Roleの判断を代行しない。
-
-現在はContractのみであり、Dispatcher、Runner、Bot、Workflow、CLIは実装されていない。責務と自動化境界は[`../automation/00-automation-overview.md`](../automation/00-automation-overview.md)を参照する。
-
-### Product Owner
-
-責務:
-
-- Product上の最終意思決定
-- 優先順位と成功条件の承認
-- Scope変更の承認
-- Merge可否の最終判断
-- 未決定事項を保留するか確定するかの判断
-
-Product Ownerは技術Contractを単独で暗黙変更する役割ではない。技術的影響はArchitect Teamが整理し、判断可能な選択肢として提示する。
-
-### Architect Team
-
-責務:
-
-- Architecture判断
-- Contract設計とFreeze
-- PRおよびTaskの分割
-- Role間の責務境界の確定
-- 技術レビュー
-- 未定義事項とContract衝突の解消
-- Architecture前のRepository Reality CheckとImplementation Ready判定
-
-参加Role:
-
-- Product Owner
-- Design Reviewer
-- Backend Architect
-
-### Backend Implementer
-
-責務:
-
-- Freeze済み仕様のBackend実装
-- API、Validator、Artifact処理の実装
-- Deterministic Logicと安全境界の実装
-- Backend Testと回帰Testの作成
-- 実装結果と未確認事項の報告
-
-### Frontend Implementer
-
-責務:
-
-- UIとReact Componentの実装
-- Frontend State管理
-- UX改善
-- API Contractに従ったRead Model表示
-- Frontend TestとPreview確認
-
-### Worker
-
-責務:
-
-- 調査、棚卸し、比較表作成
-- 指示済み形式へのCSV/JSON整理
-- READMEと資料の定型更新
-- Test Matrix作成
-- 判断を伴わない機械的修正
-
-## Delivery Flow
-
-標準フローは次のとおりとする。
-
-```text
-Product Decision
-        ↓
-Integrated Lead Intake / Routing
-        ↓
-Repository Reality Check
-        ↓
-Architect Design / Contract Freeze
-        ↓
-Implementation Ready Verification
-        ↓
-Task Assignment
-        ↓
-Implementation or Worker Execution
-        ↓
-Role Review / Contract Review
-        ↓
-Integrated Lead Completion Verification
-        ↓
-Product Owner Merge Decision
-        ↓
-Merge and Worktree Cleanup
-```
-
-Contract変更とImplementationは別作業単位として扱う。Implementation担当はFreeze済みContractを入力として受け取り、その作業内でContractを変更しない。実装中に曖昧性が見つかった場合は、実装で補完せずArchitect Teamへ返却する。
-
-Integrated LeadはこのFlowの状態とHandoffを管理するが、各Gateの専門判断を代行しない。Repository Reality Check、Architecture Gap、same-task correction、Merge sequencingの共通意味は[Shared Role Execution Contract](13-shared-role-execution-contract.md)に従う。Development Routingは[`09-development-routing-contract.md`](09-development-routing-contract.md)、Research Operations Routingは[`10-research-operations-routing-contract.md`](10-research-operations-routing-contract.md)に従う。
-
-将来Dispatcherを有効化する場合も、`Task Assignment`から`Implementation or Worker Execution`までの起動と実行状態管理だけを補助する。Contract Freeze、Role Review、Integrated Lead Completion Verification、Product Owner Merge Decisionは自動化しない。
+The standard lifecycle is product direction, architecture and contract freeze, Task Assignment, implementation, independent review, validation, protected-action sequencing, and completion. Routing details are in the [Development Routing Contract](09-development-routing-contract.md). Admission, correction, resume, and Merge rules are not repeated here.
 
 ## Work Item States
 
-| State | Meaning | Exit condition |
-| --- | --- | --- |
-| `proposed` | 目的と背景のみ存在する | Product Ownerが優先順位と目的を承認 |
-| `designing` | Architect Teamが境界を設計中 | 未決定事項が明示され、レビュー可能 |
-| `frozen` | 実装可能なContractが確定し、Repository Realityの必要項目に`UNKNOWN`がない | Task Assignmentが作成可能 |
-| `assigned` | Role、Scope、入力、出力が確定 | 専用branch/worktreeが準備済み |
-| `in_progress` | 担当者が作業中 | Expected OutputとValidationが完了 |
-| `review` | Role責務とContract適合を確認中 | Blockerがなく、検証根拠が揃う |
-| `merge_ready` | Ready-triggered reviewがterminalで、threadsとexact HEADを確認済み。Product Owner判断待ち | Product OwnerがMergeを許可 |
-| `merged` | mainへ導入済み | Worktreeとbranchのcleanup完了 |
-| `blocked` | 未定義事項または外部条件待ち | BlockerのOwnerが解消またはScopeを変更 |
-
-## Decision Boundaries
-
-| Decision | Owner | Required consultation |
-| --- | --- | --- |
-| Product priority and Merge decision | Product Owner | Architect Team、Integrated Leadによるevidence統合 |
-| Authorized Merge operation | Task AssignmentまたはProduct Owner判断で明示されたActor | Product Ownerのexact-HEAD Merge decision |
-| Architecture and Contract | Architect Team | Affected Implementers |
-| Backend implementation detail | Backend Implementer | Backend Architect when Contract-sensitive |
-| Frontend implementation detail | Frontend Implementer | Design Reviewer; Backend Architect for API impact |
-| Mechanical transformation | Worker | Assigning Role |
-| Research conclusion or Canonical research judgment | Authorized Research Workflow/Human | Not delegated by this operating model |
-
-## Role Boundary Protection
-
-全Role共通のadmission、protected action、Role変更禁止、stop reasonは[Shared Role Execution Contract](13-shared-role-execution-contract.md)を適用する。本Operating ModelではRoleの存在とDecision ownerだけを定義し、共通実行規則を再定義しない。
-
-Freeze済みContractの変更、Existing Run、Research Artifact、Canonical Mappingの変更、ProductまたはResearch meaningの決定は、上記Decision BoundaryとTask Assignmentのauthorityに従う。
-
-## Review Model
-
-| Change type | Required review |
+| State | Meaning |
 | --- | --- |
-| Architecture / Contract | Architect Team |
-| Backend implementation | Backend Architectまたは委任されたBackend Reviewer |
-| Frontend implementation | Design Reviewer; API影響時はBackend Architectも必要 |
-| Worker output | Taskを割り当てたRole |
-| Research Artifact | 既存Research Workflowで要求されるReview |
+| `proposed` | objective exists; contract is not frozen |
+| `frozen` | contract is implementable and required Repository Reality facts are known |
+| `assigned` | Role, scope, inputs, outputs, branch, and worktree are bound |
+| `in_progress` | assigned work is executing |
+| `review` | Role and contract conformance is under review |
+| `merge_ready` | the Merge prerequisites are complete and Product Owner decision is pending |
+| `merged` | the exact approved HEAD is merged |
+| `blocked` | a canonical blocker prevents progress |
 
-Review Assignmentを受けた既存Roleは[Review Execution Contract](14-review-execution-contract.md)を適用する。このoverlayは正式Roleを追加せず、Merge、Approve、Ready、Revert、Issue closureのauthorityを付与しない。
-
-## Execution and Completion
-
-全Role共通のfresh fetch、terminal stop reason、progress-only reporting禁止、same-task correction、testing baseline、completion evidenceは[Shared Role Execution Contract](13-shared-role-execution-contract.md)が唯一のnormative ownerである。Result Handoffのfieldとstatusは[Delegation and Result Contract](11-delegation-and-result-contract.md)に従う。
+These states do not grant protected-action authority.

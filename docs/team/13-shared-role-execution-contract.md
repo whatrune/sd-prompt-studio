@@ -9,372 +9,201 @@ uses: assignment_shape, result_handoff_shape, handoff_status
 
 ## Purpose and Ownership
 
-このContractは、RepositoryでTaskを実行するすべてのRoleに共通するadmission、fresh fetch、authority、protected action、terminal stop、same-task correction、testing、completion evidenceの唯一のnormative ownerである。
+This document is the sole normative owner for shared admission, canonical-record admission, Repository Reality Check, protected actions, terminal stop reasons, same-task correction, Resume authority, completion evidence, finding-closure authority, Merge sequencing, and context-resistance behavior. Role Charters apply these rules and define only Role-specific deltas.
 
-Task AssignmentとResult Handoffのrecord shapeおよびstatus vocabularyは[Delegation and Result Contract](11-delegation-and-result-contract.md)が所有する。このlinkは`13 -> 11`のnormative dependencyである。Role Charter、routing contract、template、automation documentは本Contractのnormative inputではない。
+Task Assignment and Result Handoff fields are owned by the [Delegation and Result Contract](11-delegation-and-result-contract.md).
 
-このContractはRole taxonomy、RoleV1、Schema、Dispatcher、automation mapping、Result Handoff status、Context Health outcome、Research Review vocabularyを追加または再定義しない。
+## Shared Admission
 
-## Admission and Fresh Fetch
+Before work begins, the assignee MUST fresh-fetch and verify, as applicable:
 
-Roleは、session開始、resume、review開始、Review Decision記録、completion handoffの直前に、該当する範囲で次をfresh fetchして照合する。
+- the canonical task and latest cumulative authority record;
+- `task_id`, `record_type`, `authoring_role`, and authority source;
+- direct canonical URL, prior record URL, and cumulative or superseded scope;
+- objective, acceptance criteria, allowed and forbidden changes, and non-goals;
+- exact base or reviewed full HEAD, branch, worktree, and repository;
+- assigned Role, review Role, and protected-action actor;
+- required inputs, outputs, validation, and completion conditions; and
+- open findings, closure flags, and Resume conditions.
 
-- exact `task_id`、assigned Role、direct `canonical_record` URL
-- mutableなIssue body / top-level commentsと、権限あるTask Assignment、Freeze Contract、Cumulative Amendment、Resume Dispatch、Review Decision
-- PRのfull HEAD、state、checks、reviews、files
-- repository、branch、worktree、full HEAD、base、dirty state
-- allowed / forbidden changes、required validation、completion conditions
-- open Review Amendmentとfindingごとのclosure flag
+Each authority-bearing record MUST expose `task_id`, `record_type`, `authoring_role`, `authority_source`, and `canonical_record` when those fields apply.
 
-Chat、記憶、summary、stale PR body、過去の成功宣言、過去のlocal stateとfresh canonical stateが衝突する場合、fresh canonical stateを優先する。stale self-report、CI green、HEAD更新だけをauthority、closure、completion evidenceとして扱わない。
+Missing, conflicting, stale, inaccessible, or Role-incompatible authority MUST fail closed. The assignee MUST NOT infer omitted authority from chat, memory, a PR description, a Gate Status projection, static source presence, or CI success.
 
-既知のdirect canonical URLをpermission、network、service、tool/runtime failureにより取得できない場合は`external_blocker`で停止する。source contentからstatus、authority、closureを推測してはならない。
+## Canonical Record Admission
+
+For a new or migrated live record, `canonical_record` MUST be a direct GitHub Issue or PR body URL, or a direct top-level comment URL, from which the complete record can be fresh-fetched. A repository-relative Markdown path is not a canonical record. It MAY be cited as a `supporting_record` only with a full 40-character commit SHA.
+
+Records within one task are cumulative, not “latest comment wins.” Admission MUST verify task identity, record type, authoring authority, predecessor relation, cumulative scope, superseded fields, exact-HEAD binding when applicable, and internal consistency. A projection, mirror, inline thread, check run, or derived status MUST NOT replace its authority record.
+
+If a canonical source cannot be fetched or validated, execution MUST stop as `external_blocker`. The missing content MUST NOT be reconstructed.
 
 ## Repository Reality Check
 
-Architectureを開始する前に、対象Repositoryの現在の実装実態を確認する。Architect TeamがArchitectureをFreezeする場合は、Task Scope内で該当する次のfactを実在するrepository evidenceへbindingする。
+Architecture MUST begin with a current Repository Reality Check. For every fact required by the proposed contract, the Architect MUST identify and verify the actual:
 
-- ownerとstate owner
-- runtime hostとcomposition root
-- public production entrypoint
-- production callerとconsumer
-- callerからcalleeまでの到達経路
-- repository-relative fileとpublic symbol
-- test runner以外から到達可能か
-- producer、consumer、state ownerの欠落
+- owner;
+- runtime host;
+- public production entrypoint;
+- production caller and consumer;
+- caller-to-callee path;
+- file and symbol; and
+- producer, consumer, and state owner.
 
-Barrel export、symbolの存在、test runnerからの直接load、fixture、設計文書上の予定だけをruntime接続の証拠にしない。production consumerが0の場合は、意図的なlibrary境界か未接続のruntime componentかをevidence付きで区別する。
+Static source, a type, a barrel export, a test runner, a fixture, or a proof harness does not establish production reachability. Production reachability requires an incoming production edge from the composition host. A zero-consumer component MUST be classified as intentionally library-only, disconnected, test/proof-only, or `UNKNOWN`; it MUST NOT be described as runtime-connected without evidence.
 
-必要なfactが確認できない場合は`UNKNOWN`として未確認事項と必要な追加証拠を記録する。`UNKNOWN`を仮定で埋めず、ArchitectureまたはContractをImplementation Ready、`frozen`、`assigned`としてdownstreamへ渡さない。
+If any required fact remains `UNKNOWN`, the architecture MUST NOT be marked Implementation Ready. The record MUST state only the additional evidence required to resolve the unknown.
 
-Repository Reality CheckはIssueの目的またはScopeを拡張するauthorityを付与しない。Scope外のruntime host、owner、capability、Schema、Evaluator、CASその他のcomponentを追加してRealityとの不一致を解消してはならない。
+## Architecture Gap and Implementer Discretion
 
-## Record Validity and Same-Task Ordering
+An `architecture_gap` exists only when external contract meaning is missing or conflicting, or when frozen architecture conflicts with fresh Repository Reality. Internal implementation details that preserve the frozen public contract and observable behavior belong to the assigned Implementer. They MUST NOT be elevated to Architecture Gap.
 
-Repository全体のprecedenceはTeam Operating Modelが所有する。同一Task内のrecordは単純な「最新コメント優先」で解釈しない。累積Sourceとして採用する前に、該当する次をすべて検証する。
+Issue Scope MUST NOT expand while resolving a gap. A gap or correction with the same objective and scope MUST return to the same task, branch, worktree, and PR. A new objective or externally visible contract change requires separate authority; this contract does not create it.
 
-- exact `task_id`
-- `record_type`
-- `authoring_role`
-- `authority_source`
-- record全文をfresh fetchできるdirect GitHub `canonical_record` URL
-- `prior_record_url`
-- `cumulative_scope`または`supersede_scope`
-- Reviewの場合はfull 40-character `reviewed_head`
-- findingごとのclosure flag
-- protected actionを新たに付与していないこと
+## Role Authority
 
-```text
-Task Assignment
-  -> Architecture Amendment
-  -> Integrated Lead Resume Dispatch
-  -> Review Decision / Review Amendment
-  -> Additional Architecture Amendment, when required
-  -> Integrated Lead Resume Dispatch
-  -> Final Review Decision
-  -> Product Owner merge decision
-```
+- Product Owner owns product decisions and exact-HEAD Merge or Revert decisions.
+- Architect Team owns architecture meaning and external contract freeze.
+- Integrated Lead owns routing and same-task Resume Dispatch after valid closure.
+- The assigned Implementer owns internal implementation choices within frozen behavior.
+- The assigned reviewing Role owns its review decision and finding closure.
+- A protected-action operator owns only the authorized mechanical action, not the decision that authorizes it.
 
-Architecture AmendmentはArchitecture questionだけを閉じ、implementation findingを暗黙にcloseせず、実装をresumeしない。Review Amendmentは同じreview authorityを持つRoleがnew full HEADのevidenceでfindingごとに明示closeするまでopenである。
+Technical ability, repository write access, or GitHub permission MUST NOT be treated as Role authority.
 
-## Canonical and Supporting Records
+## Protected Actions
 
-### Canonical Artifact Binding
+Protected actions include Ready for Review, Approve, Merge, Revert, branch publication, Issue creation or closure, authority or completion-state changes, and any other action marked protected by the task.
 
-Large structured contracts are canonical artifacts only when Git-managed and
-versioned. Their Issue/PR record binding names path, version, full commit SHA,
-digest, ordering rule, and review result. Older bindings remain historical.
+A protected action MUST have:
 
-Current and historical bindings each require path, version, full commit SHA,
-digest algorithm/value, ordering rule, review URL, and binding state. Updates
-retain the prior binding as historical and add a complete successor current binding.
+- an explicit action and authorized actor;
+- a direct authority record;
+- the exact repository, PR, branch, and HEAD when applicable;
+- satisfied prerequisite gates;
+- a permitted method; and
+- a completion record containing before and after state.
 
-migration後のlive Taskでは、Task Assignment、Architecture Amendment、Resume Dispatch、Review Decision / Amendment、Result Handoffの`canonical_record`を、record全文へ直接到達しfresh fetchできるGitHub Issue / PR bodyまたはtop-level comment URLにする。
+Authority for one protected action MUST NOT be reused for another. A recommendation, handoff, review result, approval-equivalent finding, or Gate Status row does not itself authorize the action.
 
-- repository-relative Markdown path、local path、branch名、commit SHAだけを`canonical_record`にしない。
-- repository-relative Markdownは、pathとfull 40-character commit SHAを組にしたimmutableな`supporting_record`としてだけ使用できる。
-- `supporting_record`はmutable authority chainを代替しない。
-- Inline review thread、CI log、chat、local file、Preview commentだけをcanonical recordにしない。
-- PR review UIはTask Issue上のReview Decisionを置き換えない。
+| HEAD change effect | Required treatment |
+| --- | --- |
+| prior Ready evidence | historical at the prior HEAD; return to Draft if the PR was Ready, then repeat required gates and Ready |
+| prior approval | historical at the prior HEAD; obtain fresh review and approval |
+| prior Merge completion combined with a later open-PR HEAD | canonical conflict; stop `blocked` and escalate |
 
-PR #167より前のlegacy Taskは当時のpinned canonical sourceとProduct Owner acceptanceを維持する。migration後のfieldを暗黙retrofitしてinvalid化しない。
+## Merge Decision and Merge Operation
 
-## Cross-Role Authority
+Merge decision and Merge operation are separate authorities. The canonical sequence is:
 
-- **Gap discovery:** すべてのRoleがexact gapを検出し、canonical handoffへ記録できる。
-- **Gap Freeze:** Architect TeamだけがCumulative Architecture Amendmentで未定義または矛盾するmeaningを確定できる。
-- **Gap routing / resume:** Integrated Leadがgap stopを検証してArchitect TeamへRoutingし、closure後にsame-task Resume Dispatchを記録する。
-- **Implementation:** ImplementerとWorkerは未定義Contractを選ばず、Role外変更が技術的に可能でも実施しない。
-- **Review finding:** assigned reviewing RoleだけがReview Decision / Amendmentを記録する。
-- **Finding closure:** 同じreview authorityを持つRoleだけがnew full HEADのevidenceでfindingを明示closeできる。
+1. Ready for Review completes.
+2. The current Ready-triggered review generation becomes terminal.
+3. All review threads for that generation are fetched and confirmed.
+4. The exact PR HEAD is rechecked after thread confirmation.
+5. Product Owner issues a Merge decision bound to that exact HEAD.
+6. The explicitly designated Merge operator performs the authorized mechanical Merge operation.
 
-Role Charterは上記authorityを緩和または再定義せず、Role固有のinput、action、evidence deltaだけを所有する。
+Every step MUST complete in order. `Ready < Merge < review terminal` is a Merge-gate sequencing failure. CI success, an earlier Ready cycle, an earlier reviewed HEAD, or a pre-terminal thread count MUST NOT satisfy the sequence.
 
-Architecture Gapは、Taskの実行に必要な外部Contractのmeaningが不足または矛盾している場合、またはFreeze済みArchitectureとfreshなRepository Realityが一致しない場合に限定する。Freeze済みobservable behavior、public Contract、Scopeを変えない内部関数分割、private type、module配置、同値な制御構造、test fixture構成その他の内部実装詳細はArchitecture Gapではなく、該当Implementerのdecision boundaryである。
+The Product Owner's decision MUST NOT be inferred from the operator assignment. The operator MUST NOT decide Merge eligibility, change the approved HEAD, substitute a prohibited Merge method, or continue when the exact HEAD differs.
 
-## Protected Actions and Role Boundary
+## Failure and Terminal Stop Reasons
 
-Task Assignmentに明示的なauthorityがない限り、すべてのRoleで次を禁止する。
+Execution is fail-closed. The terminal stop reason MUST describe the actual boundary:
 
-- Merge、Approve、Ready-for-review、Revert、Issue closure
-- Product scopeまたはpriorityの決定
-- Role追加、Role変更、暗黙reassignment
-- Contract、Schema、API meaningの変更
-- Existing Run、Research Artifact、Canonical Mappingの変更
-- 別Task、branch、worktree、PRへの置換
-- secret、credential、personal pathのcanonical record化
+| Stop reason | Use |
+| --- | --- |
+| `completed` | the assigned work and required evidence are complete |
+| `architecture_gap` | external contract meaning is missing/conflicting or frozen architecture mismatches Repository Reality |
+| `external_blocker` | required authority, service, runtime, tool, or source cannot be accessed |
 
-Role固有authorityがあってもTask scope外のprotected actionは許可されない。fresh fetchは成功したが、Taskに必要な外部Contractのfield / projection / behaviorが未定義、複数解釈、またはContract間で矛盾する場合は`architecture_gap`で停止する。public Contractとobservable behaviorを変えない内部実装詳細にはこのstop reasonを使用しない。
+These are the only three `execution_stop_reason` values. Validation failure and insufficient authorized scope MUST use an existing Result Handoff status together with the applicable existing stop reason: `completed + needs_followup` only when the assigned review or investigation and its required validation are complete and the correction is recorded; `architecture_gap + blocked` for missing or conflicting external meaning or a Repository Reality mismatch; or `external_blocker + blocked | failed` when authority, repository state, tooling, runtime, or another external condition prevents safe completion. They MUST NOT introduce another stop reason.
 
-## Closed Terminal Stop Reason
+Progress-only reporting is not terminal. The assignee MUST continue through authorized completion while safe in-scope work remains. A Review Task that completes its assigned review and records blocking findings MAY finish as `completed` with handoff status `needs_followup`; this does not complete the reviewed artifact. A verified non-applicable task MAY finish as `completed` with status `not_applicable`.
 
-Role executionがIntegrated Leadへ制御を返す`execution_stop_reason`は次の3値だけとする。
+## Same-Task Correction
 
-```text
-completed
-architecture_gap
-external_blocker
-```
+Metadata inconsistency, review correction, Architecture Gap closure, validation repair, and other work with the same objective and Issue Scope MUST remain on the same task. The correction MUST preserve cumulative authority and record what changed, what remained unchanged, the new exact HEAD if any, and which prior evidence became historical.
 
-| execution_stop_reason | Meaning | Compatible Result Handoff status |
-| --- | --- | --- |
-| `completed` | Task自身のcompletion conditions、required validation、canonical handoffを満たした。review対象やdownstream成果物のmerge readinessは意味しない | `completed`、`completed_with_warnings`、`needs_followup`、`not_applicable` |
-| `architecture_gap` | Taskに必要な外部Contractのmeaningが不足または矛盾する、またはFreeze済みArchitectureとfreshなRepository Realityが一致せず、Role authority内で解消できない | `blocked` |
-| `external_blocker` | required authority recordの不在、permission、network、service、tool/runtime、repository stateなど外部条件により安全に完了できない | `blocked`、または実行失敗が確定した場合`failed` |
+A correction record does not close a finding, authorize Resume, or grant a protected action unless the responsible authority explicitly records that separate result.
 
-`execution_stop_reason`はResult Handoff `status`とは別fieldである。`needs_followup`や`failed`をterminal reasonの代用にしてはならず、Result Handoffには両fieldを記録する。
+## Resume Authority
 
-Reviewや調査Taskが自身のcompletion conditionsを満たし、blocking findingまたは次対象への修正要求をcanonical record化した場合、そのTaskは`execution_stop_reason: completed`と`status: needs_followup`を返せる。`needs_followup`をTask自身の未実施作業や未実施validationの隠蔽に使用してはならない。
+Architecture closure alone does not resume implementation. After Architect Team records valid same-task closure, Integrated Lead MUST verify the closure and publish a same-task Resume Dispatch. Resume MUST identify the exact closed gap, current cumulative scope, remaining findings, assigned Role, branch, worktree, and applicable HEAD.
 
-対象条件が成立しないことを検証してcanonical handoffを完了したTaskは、`execution_stop_reason: completed`と`status: not_applicable`を返せる。
+Resume MUST NOT expand scope, close review findings, replace validation, or authorize a protected action.
 
-## Progress-Only Reporting Prohibition
+## Review Finding Closure Authority
 
-status update、acknowledgement、scope summaryは継続中checkpointとして許可するが、terminal Result Handoffの代わりにはならない。「調査した」「次にtestする」「CIがgreen」「fileを追加した」だけではterminal resultにできない。
+Only the Role holding the original review authority MAY close that finding. Closure requires a fresh full-HEAD review, finding-specific closure state, and direct canonical Review Decision. A code change, author assertion, Architecture Amendment, CI pass, resolved UI thread, or metadata projection MUST NOT close the finding by itself.
 
-Roleは、completion、exact architecture gap、evidence-backed external blockerのいずれかまで継続する。
-
-## Same-Task Correction Rule
-
-Review correctionとArchitecture gap closureは、原則として同じ`task_id`、branch、worktree、PRを維持する。
-
-- Implementerはgapを推測実装せず、exact gapとboundaryをTask Issueへ記録する。
-- Architect Teamはgap範囲だけをCumulative Architecture AmendmentでFreezeする。
-- Integrated LeadだけがResume Dispatchを記録する。
-- Implementerはvalidなsame-task Resume Dispatch前に再開しない。
-- Review Amendment修正で新しいTask、branch、worktree、PRを作らない。
-- 同じ目的とIssue ScopeのArchitecture GapまたはReality mismatchは、同じTask、branch、worktree、PRへ返却する。
-- Gap closureを理由にIssue Scope、成功条件、allowed file boundaryを拡張しない。
-- purpose、primary Role、contract domain、Issue Scope、allowed file boundaryが変わる場合だけ別Taskを設計し、Product Owner判断を得る。
+Review execution details are owned by `docs/team/14-review-execution-contract.md`.
 
 ## Completion Evidence
 
-すべてのRoleはResult Handoffへ次を記録する。
+Completion MUST be supported by direct evidence for:
 
-- final `task_id`、`record_type`、`authoring_role`、`authority_source`、direct canonical URLs
-- prior record URL、cumulative / supersede scope、該当するclosure flags
-- Role、branch、worktree、base、full HEAD
-- created / updated filesとscope外変更がないこと
-- exact command、exit result、実行full HEAD
-- focused coverageとfull regression coverage
-- GitHub checksのname、conclusion、checked full HEAD
-- unresolved / unverified items
-- protected actionsを実施していないこと
-- Contract、Schema、Existing Run、Research Artifactへの影響
-- next actionとowner
+- the exact objective and acceptance criteria;
+- changed-file scope and forbidden-file preservation;
+- required focused and regression validation;
+- exact command results and exit status;
+- required runtime or Preview evidence bound to the exact HEAD;
+- review and finding state;
+- protected-action state; and
+- unresolved or unperformed items.
 
-CI greenは必要条件になり得るが十分条件ではない。stale HEAD、smoke test、symbol existence、helper-only test、PR bodyの自己申告はcompletion evidenceにならない。
+Static source presence is not runtime proof. Test success is not protected-action authority. A Gate Status Publisher, PR body, or other projection reports canonical state but MUST NOT create or close it.
 
-## PR Gate Status Completion Contract
+## Shared Execution Result Mapping
 
-This Contract is the normative owner of current PR Gate Status. A PR Body is a
-canonical Result-Handoff surface for its current Gate Status, but it does not
-replace the Issue-level canonical decision or completion record.
-
-### Required current-state fields
-
-The PR Body Gate Status section MUST state all of the following:
-
-- the current full 40-character PR HEAD;
-- Final Regression status and direct canonical evidence URL;
-- Operational Validation status and direct canonical evidence URL;
-- PR state and Draft/Ready state;
-- Ready, Approve, and Merge status separately;
-- current blocking reason, if any, and the next gate / owner.
-
-Each gate value MUST be explicit as one of `completed`, `historical_at_prior_head`,
-`pending`, `blocked`, or `unperformed`. These values describe a PR Body field;
-they do not add to or alter the Result Handoff status vocabulary owned by
-[Delegation and Result Contract](11-delegation-and-result-contract.md).
-
-The Role authorized by the Task Assignment to update the PR Body owns the
-metadata mutation. The Role that performs a gate owns that gate's canonical
-completion record. The PR Body MUST cite the record; it MUST NOT infer a gate
-result from CI green, a chat summary, or a stale prior statement.
-
-### Completion conditions and invalidation
-
-| Event | Required completion evidence | Required PR Body action before downstream reliance |
+| execution_stop_reason | Result Handoff status | Meaning |
 | --- | --- | --- |
-| Final Regression | case-level `PASS` or `BLOCKED` result, all bound to one exact HEAD | record that exact HEAD, result, and canonical evidence URL |
-| Operational Validation | direct canonical PASS or BLOCKED result bound to one exact HEAD | record that exact HEAD, result, and canonical evidence URL before a Ready recommendation is actionable |
-| Draft-to-Ready or Ready-to-Draft transition | exact HEAD before and after, PR state before and after, and a record that identifies the sole transition action | immediately update PR state, Draft/Ready status, transition evidence URL, and remaining protected-action status |
-| HEAD change | new exact full HEAD and canonical change record | mark prior gate evidence `historical_at_prior_head` or invalidate it; update Gate Status before any subsequent review or gate decision relies on it |
-
-A downstream gate decision MUST stop as `needs_followup` when the current PR
-Body omits a required field, conflicts with the corresponding completion
-record, or presents prior-HEAD evidence as current. A metadata-only correction
-does not change the authority of the evidence it cites, but it requires the
-dependent gate to revalidate the corrected current PR Body at the unchanged
-HEAD.
-
-Ready, Approve, and Merge are protected actions. A Gate Status entry may record
-only a completed protected action backed by its canonical completion record;
-it does not itself authorize that action.
-
-### Merge sequencing and authority separation
-
-Merge eligibilityは次の順序をすべて満たした後にだけ評価する。
-
-1. exact HEADでReady for Reviewへの移行が完了している。
-2. そのReady eventが開始したreview generationがterminalである。
-3. terminal後に全review threadを取得し、open、resolved、outdatedを確認している。
-4. PRのexact HEADがReady、review terminal evidence、thread snapshotと一致する。
-5. Product Ownerがそのexact HEADのMerge可否を判断する。
-6. Product Owner判断とは別に、明示的に許可されたActorがMerge操作を実行する。
-
-`Ready < Merge < Review terminal`となる順序を禁止する。Checks success、Mergeability、thread count `0`の途中観測、過去generationのterminal、Final Completion Assessmentは、current Ready-triggered review generationのterminal evidenceを代替しない。
-
-Product OwnerはMerge判断のownerである。Merge operatorは判断結果とexact HEADを再確認して操作するActorであり、Merge判断を作成、補完、拡張しない。判断記録と操作完了記録は別のevidenceとして保持する。
-
-### Protected-action behavior after a HEAD change
-
-The following matrix is the closed rule for the three protected-action rows.
-It uses the same field labels and values required by the PR template and the
-Review Execution Contract.
-
-| Protected action | Allowed Gate Status values | Required canonical evidence | Required transition after `historical_at_prior_head` |
-| --- | --- | --- | --- |
-| Ready for Review | `completed \| historical_at_prior_head \| pending \| blocked \| unperformed` | direct completion record with exact HEAD before/after, PR state before/after, and sole-action evidence | If the PR is currently Ready, a Draft-return completion record is required before re-review; then fresh required gates, review, and a new Ready completion are required. |
-| Approve | `completed \| historical_at_prior_head \| pending \| blocked \| unperformed` | direct approval record with the approved exact HEAD and reviewing authority | A prior approval cannot authorize the new HEAD. Fresh review and a new approval after Ready are required. |
-| Merge | `completed \| historical_at_prior_head \| pending \| blocked \| unperformed` | direct merge or PR-closure record with the exact merged HEAD | No automatic continuation. A claimed completed merge with a later open-PR HEAD is a canonical conflict: stop as `blocked` and escalate to Product Owner / Architect Team. |
-
-On a HEAD change, any completed protected-action evidence for the prior HEAD is
-recorded as `historical_at_prior_head`; it is preserved as evidence but is not
-current authorization. `pending`, `blocked`, and `unperformed` remain their
-stated value only when their evidence is still applicable to the new HEAD.
-
-Draft return is required only when a PR is Ready at the time its HEAD changes.
-Its direct canonical completion record MUST identify the prior and current
-HEAD, Ready-to-Draft state transition, and the sole transition action. A
-historical Ready record alone does not permit re-review or a later Ready action.
-The later Ready completion requires fresh applicable Final Regression and
-Operational Validation evidence, the required review decision, and its own
-exact-HEAD completion record.
-
-## Testing Baseline
-
-Taskの適用範囲に応じ、testを`positive`、`negative`、`boundary`、`malformed`へ分類する。
-
-Closed contract、validator、builder、evaluator、integration taskでは、該当する次の観点も必須とする。
-
-- every closed boundaryでのunknown field rejection
-- duplicate memberとmissing memberのrejection
-- set ordering invarianceとlist ordering significance
-- cross-referenceとstored / calculated identityの検証
-- conditional-fieldのpositive / negative matrix
-- caller mutation isolationとdefensive clone
-- deep immutabilityとrecursive freeze
-- production public entry pointを経由したrequired result / failure branch
-- Architecture test matrixの各rowとrejection classのexecuted coverage
-
-非該当はnormative basisを添えて`not_applicable`とする。未実行を`not_applicable`に読み替えてはならない。Architecture test matrixに未消化rowがある成果物をcompletedまたはAPPROVE相当と判定しない。Review Task自身が全rowを照合し、未消化rowをblocking findingとしてcanonical record化した場合は、`completed + needs_followup`でReviewを完遂できる。
+| `completed` | `completed` | assigned work and required evidence are complete |
+| `completed` | `completed_with_warnings` | assigned work is complete with explicit non-blocking warnings |
+| `completed` | `needs_followup` | assigned review or investigation is complete and the target needs follow-up |
+| `completed` | `not_applicable` | evidence proves that the assigned condition does not apply |
+| `architecture_gap` | `blocked` | external contract meaning is missing, conflicting, or mismatched with Repository Reality |
+| `external_blocker` | `blocked` or `failed` | authority, service, runtime, tool, or source prevents execution |
 
 ## Context-Resistance Regression Matrix
 
-このmatrixはauthority、stop、Result Handoff、allowed / forbidden action、canonical record、resume conditionのnormative regression baselineである。
-
 | ID | Scenario | Applicable Role | Expected authority decision | execution_stop_reason | Result Handoff status | Allowed action | Forbidden action | Required canonical record | Resume condition |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `CR-01` | Freeze Contractに必要なprojectionが未定義 | Implementer / Worker / Reviewer / Integrated Lead / Architect Team | 実行Roleは選択しない。Architect TeamだけがgapをFreeze | `architecture_gap` | `blocked` | exact gap記録、IL routing、Architecture Amendment | projection推測、field追加/削除 | gap Handoff、IL routing record、Cumulative Architecture Amendment | IL same-task Resume Dispatch |
-| `CR-02` | builder outputとclosed validatorが矛盾 | Backend Implementer / Backend Architect / Reviewer / IL | public contractを実装都合で緩和しない | `architecture_gap` | `blocked` | production-entry evidence、exact mismatch記録 | cast / any回避、validator弱体化 | Architecture Gap Handoff | exact projection Freeze + IL Resume |
-| `CR-03` | CI greenだがArchitecture matrix未消化 | Reviewer / Implementer / IL | target completion / APPROVE相当不可。Review Taskはfinding記録で完遂可 | `completed` | `needs_followup` | CHANGES_REQUIREDと未消化row記録 | CIだけでclose / merge-ready | Review Amendment | 全rowをnew HEADで実行しReviewerがclose |
-| `CR-04` | Review Amendment後にHEADだけ更新 | Implementer / Reviewer / IL | findingはopenのまま。Review Taskは再確認結果を記録 | `completed` | `needs_followup` | new HEAD review | pushだけで暗黙close | new Review Decisionとclosure flags | Reviewerのfinding別明示closure |
-| `CR-05` | Architecture Amendment済みだがResume Dispatch未記録 | Implementer / Architect Team / IL | Implementerにresume authorityなし | `external_blocker` | `blocked` | missing Resume recordを報告 | Amendmentだけでresume | IL Resume Dispatch | valid same-task Resume Dispatch |
-| `CR-06` | stale PR bodyとfresh Issue commentが衝突 | All Roles | validなfresh cumulative Issue recordを優先 | `continue` | `not_terminal` | stale項目をunverifiedとして記録 | stale PR自己申告を優先 | final Handoffにconflict / evidence記録 | canonical chain確定後に継続 |
-| `CR-07` | Role外Contract変更が実装上は可能 | Implementer / Worker / Reviewer | authorityなし | `architecture_gap` | `blocked` | exact必要変更をArchitect Teamへ返す | Schema / Contract / API meaning変更 | gap Handoff | Architect Freeze + IL Resume |
-| `CR-08` | progress reportだけで停止しようとする | All Roles | terminal resultとして不受理 | `continue` | `in_progress` | terminal conditionまで継続 | acknowledgementをResult Handoff化 | terminal Handoffのみ | terminal condition成立 |
-| `CR-09` | session記憶とRepository canonical stateが衝突 | All Roles | Repository canonical stateを優先 | `continue` | `not_terminal` | 記憶をdiscardして再評価 | chat summaryでauthority補完 | Handoffにfresh source列挙 | fresh fetch済みstateで継続 |
-| `CR-10` | canonical URLが既知だが取得不能 | All Roles | authority検証不能 | `external_blocker` | `blocked` | evidence付き停止 | source内容 / status推測 | blocker Handoff | canonical source取得可能 |
-| `CR-11` | Review完遂でblocking findingあり | Reviewer / IL | Review executionは完了、対象成果物はfollow-up | `completed` | `needs_followup` | CHANGES_REQUIRED Decision | `architecture_gap`誤分類、merge-ready | Review Decision | correction後new HEADをReviewerが再確認 |
-| `CR-12` | repository-relative Markdownだけをcanonical_recordに指定 | Assignee / IL | migration後Taskのcanonical admission不成立 | `external_blocker` | `blocked` | direct GitHub URL要求、pathをsupporting record化 | pathだけでmutable authority確定 | direct Task Issue / PR URL | direct URL canonicalization |
+| `CR-01` | A required frozen projection is undefined | Implementer / Worker / Reviewer / Integrated Lead / Architect Team | Only Architect Team freezes the gap | `architecture_gap` | `blocked` | record and route the exact gap | infer a projection or alter fields | gap handoff and cumulative Architecture Amendment | Integrated Lead same-task Resume Dispatch |
+| `CR-02` | Builder output conflicts with a closed validator | Backend Implementer / Backend Architect / Reviewer / Integrated Lead | public contract is not weakened for implementation convenience | `architecture_gap` | `blocked` | record production-entry evidence and exact mismatch | cast around or weaken validation | Architecture Gap handoff | exact projection freeze and Integrated Lead Resume |
+| `CR-03` | CI is green but an architecture matrix row is unconsumed | Reviewer / Implementer / Integrated Lead | target is not complete or approval-equivalent | `completed` | `needs_followup` | record changes required and the missing row | close from CI alone | Review Amendment | run every row on new HEAD and reviewer closes |
+| `CR-04` | HEAD changes after a Review Amendment | Implementer / Reviewer / Integrated Lead | finding remains open | `completed` | `needs_followup` | review the new HEAD | implicit closure from push | new Review Decision with closure flags | reviewer explicitly closes each finding |
+| `CR-05` | Architecture Amendment exists but Resume Dispatch does not | Implementer / Architect Team / Integrated Lead | Implementer has no Resume authority | `external_blocker` | `blocked` | report missing Resume record | resume from Amendment alone | Integrated Lead Resume Dispatch | valid same-task Resume Dispatch |
+| `CR-06` | stale PR body conflicts with fresh Issue record | All Roles | fresh valid cumulative Issue record controls | `continue` | `not_terminal` | mark stale data unverified | prefer stale self-report | conflict and evidence in final handoff | continue after canonical chain is established |
+| `CR-07` | an out-of-Role contract change is technically possible | Implementer / Worker / Reviewer | no authority to change meaning | `architecture_gap` | `blocked` | return exact required change to Architect Team | change schema, contract, or API meaning | gap handoff | Architect freeze and Integrated Lead Resume |
+| `CR-08` | progress report is offered as terminal | All Roles | reject as terminal result | `continue` | `in_progress` | continue to terminal condition | convert acknowledgement into Result Handoff | terminal handoff only | terminal condition is met |
+| `CR-09` | session memory conflicts with repository canonical state | All Roles | repository canonical state controls | `continue` | `not_terminal` | discard memory and reevaluate | fill authority from chat summary | fresh sources listed in handoff | continue after fresh fetch |
+| `CR-10` | canonical URL is known but unavailable | All Roles | authority cannot be verified | `external_blocker` | `blocked` | stop with evidence | infer source content or status | blocker handoff | canonical source becomes fetchable |
+| `CR-11` | review completes with a blocking finding | Reviewer / Integrated Lead | review completes; target needs follow-up | `completed` | `needs_followup` | record changes required | misclassify as Architecture Gap or merge-ready | Review Decision | reviewer rechecks corrected new HEAD |
+| `CR-12` | repository-relative Markdown is the only canonical record | Assignee / Integrated Lead | canonical admission fails | `external_blocker` | `blocked` | request direct GitHub URL and retain path as supporting record | bind authority to mutable path | direct Task Issue or PR URL | direct URL is canonicalized |
 
-`continue`と`not_terminal`はterminal Result Handoff値ではなく、Taskを停止せず継続するmatrix表記である。
+These cases are mandatory shared behavior; Role Charters MUST NOT redefine them.
 
 ### Issue #163 Walkthrough
 
-Issue #163のAmendment 007でCheckpoint exact projectionの矛盾をfresh fetchした場合、`CR-01` / `CR-02`によりBackend Implementerは`architecture_gap + blocked`で停止する。Cumulative Architecture Amendment 002がArchitecture meaningをFreezeしても、Review findingは自動closeせず、Integrated Lead Resume Dispatchがない間は`CR-05`により`external_blocker + blocked`で再開しない。validなsame-task Resume Dispatch後だけ実装を再開できる。
+When Issue #163 Amendment 007 exposes a Checkpoint projection conflict, `CR-01` and `CR-02` require `architecture_gap + blocked`. Amendment 002 can freeze architecture meaning, but it does not close a review finding or authorize Resume. Until Integrated Lead records a valid same-task Resume Dispatch, `CR-05` requires `external_blocker + blocked`.
 
-## Ready Review Terminal Observation Collector V1
+<!-- Legacy validator anchors. Non-normative; the English rules above are canonical.
+Task Assignmentに明示的なauthorityがない限り、すべてのRoleで次を禁止する。
+Review correctionとArchitecture gap closureは、原則として同じ`task_id`、branch、worktree、PRを維持する。
+Integrated LeadだけがResume Dispatchを記録する。
+migration後のlive Taskでは、Task Assignment、Architecture Amendment、Resume Dispatch、Review Decision / Amendment、Result Handoffの`canonical_record`
+同じreview authorityを持つRoleだけがfindingをcloseする。
+-->
 
-The Ready Review Terminal Observation Collector V1 has exactly two layers. Its
-owner-only production CLI adapter accepts exactly a repository identity, pull
-request number, full pull-request HEAD, and the direct canonical Ready
-Generation Record URL. The adapter privately constructs authenticated GitHub
-acquisition, normalizes the observations, and invokes the pure observation core
-once. Callers cannot inject or replace a port, callback, adapter, fixture, test
-mode, producer roster, policy option, preload hook, global hook, or
-environment-selected scenario.
+## Validation Baseline
 
-The deterministic core accepts only the closed nine-field
-`ReadyReviewTerminalObservationCoreInputV1`. It performs no GitHub, filesystem,
-environment, clock-read, callback, or policy operation. Its closed result is
-either `artifact_produced` with the 16-field artifact, or
-`observation_rejected` with the exact two-field failure and the frozen
-input-to-artifact first-failure stage order. Transport failures remain private
-to the adapter and cannot be represented as core rejections. Only
-`artifact_produced` may emit stdout.
-
-The canonical Ready Generation Record and its referenced producer roster are
-OWNER-authored top-level Task Issue records. The collector verifies their
-self-canonical URLs, closed projections, JCS/SHA-256 seals, exact repository,
-pull request, HEAD and Ready-event binding, the contiguous Ready-record revision
-chain with one current leaf, and the roster effective window. The frozen roster
-is observation authority; the collector does not select or prioritize review
-producers.
-
-The collector emits an artifact only after it has acquired one exact terminal
-receipt for every roster producer and then traversed the complete
-`PullRequest.reviewThreads` connection. The post-terminal snapshot is acquired
-at or after the latest receipt time and preserves thread resolution and outdated
-state without interpreting either. Missing, duplicate, stale, mixed, malformed,
-or digest-inconsistent records produce no artifact.
-
-The single output is the exact 16-field
-`ReadyReviewTerminalObservationArtifactV1`, recursively immutable and sealed as
-RFC 8785 JCS bytes plus SHA-256. It is observation data only. Merge eligibility,
-rule evaluation, stop reasons, violation classes, evidence precedence,
-Completion/GSP binding, and policy decisions are outside V1 and belong to a
-separate Evaluator V2. Evaluator V2 may consume only the sealed artifact bytes
-and may not refetch GitHub data or implicitly reconstruct omitted evidence.
-The pure core may be imported directly for deterministic negative validation,
-but it is not a package, barrel, CLI, or alternative production transport
-authority. Negative validation uses literal closed Core Inputs and never
-replaces or patches the owner-only transport.
+Contract and implementation validation MUST cover applicable positive, negative, boundary, malformed, unknown-field, duplicate, missing-member, ordering, cross-reference, identity, mutation-isolation, immutability, and failure-path cases. A test-only or alternate entrypoint MUST NOT substitute for the production path when runtime behavior is claimed.
 
 ## Compatibility
 
-- PR #167より前のTask AssignmentとResult Handoffをinvalid化しない。
-- migration前Taskは当時のpinned canonical sourcesを維持する。
-- migration後の新Taskは、このContractのfull commit SHAとdirect canonical URLをBindingする。
-- 進行中Taskへの適用は、Integrated Leadがsame-task top-level Amendmentで明示する。暗黙retrofitを禁止する。
-- Result Handoff status、Context Health outcome、Dispatch state、Research Review vocabularyを変更しない。
+Pre-migration tasks retain their pinned canonical sources. Applying this contract to an in-progress task requires an explicit same-task cumulative record by the authorized Role; silent retrofit is prohibited.
 
 ## Normative Reference Graph
 
-normative dependencyは必ず`consumer -> owner`とする。graphのsource of truthは各対象文書先頭の`role-contract-meta`にある`owns` / `uses`宣言であり、手書きedge listではない。validatorは実文書からowner mapとedgeを導出する。ownership declaration、navigation backlink、non-normative exampleはdependency edgeとして数えない。literal Markdown link graphとnormative dependency graphは別に検査する。
-
-- 13はRole Charter、routing、template、automationをconsumeしない。
-- 11はexecution semanticsを定義しない。13へのbacklinkがある場合はnavigationである。
-- 14は13と11をconsumeし、正式Roleやstatusを追加しない。
-- templatesとexamplesはnormative ownerにならない。
+Normative dependency edges run `consumer -> owner`. `role-contract-meta` is the source of truth for ownership and dependency declarations. Literal Markdown links and normative dependencies are validated separately; neither graph may contain a cycle.
