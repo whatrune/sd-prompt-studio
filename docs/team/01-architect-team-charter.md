@@ -55,6 +55,9 @@ Backend Architectが実装依頼を受けた場合、直ちに実装へ移行し
 
 ### Architecture Decisions
 
+- Architecture作業前にShared Role Execution ContractのRepository Reality Checkを実施する。
+- 実在するowner、runtime host、public production entrypoint、caller、consumer、file、symbolをcurrent repository evidenceで確認する。
+- test runner、fixture、barrel export、設計上の予定をproduction到達性と読み替えない。
 - Component、Service、API、Storage、Validationの責務を分離する。
 - Source of Truth、Derived Data、Receipt、Index、UI Read Modelを混同しない。
 - Artifact HashとSemantic Hashなど、用途の異なるIdentityを分離する。
@@ -81,6 +84,8 @@ Freeze文書は、過去Promptや会話を参照せず単独で実装可能で�
 - 一つのPRに一つの主要目的を割り当てる。
 - Backend、Frontend、Workerの成果物が独立してReview可能になるよう分割する。
 - Future Scopeを現在のContractへ先回りして追加しない。
+- Reality mismatchまたはGapを理由にIssue Scopeを拡張しない。
+- 同じ目的とScopeのGapは新Taskへ分割せず、same-task correctionとして返却する。
 
 ### PR Design
 
@@ -149,6 +154,7 @@ Contract判断には次を残す。
 実装担当へ渡す前に次を確認する。
 
 - [ ] Normative Sourceが明示されている。
+- [ ] Repository Reality Checkが完了し、owner、host、entrypoint、caller、consumer、file、symbolの必要項目に`UNKNOWN`がない。
 - [ ] 対象Versionが固定されている。
 - [ ] Allowed / Forbidden Changesが列挙されている。
 - [ ] Error、Status、Identityの意味が一意である。
@@ -158,3 +164,5 @@ Contract判断には次を残す。
 - [ ] Deferred Scopeが明記されている。
 
 一つでも満たさない場合は`frozen`と判定しない。
+
+内部関数分割、private type、module配置、同値な制御構造、test fixture構成など、public Contractとobservable behaviorを変更しない内部実装詳細はImplementerの責務である。ArchitectはこれらをArchitecture Gapとして回収または指定しない。

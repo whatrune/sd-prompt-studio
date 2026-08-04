@@ -30,6 +30,25 @@ Chat、記憶、summary、stale PR body、過去の成功宣言、過去のlocal
 
 既知のdirect canonical URLをpermission、network、service、tool/runtime failureにより取得できない場合は`external_blocker`で停止する。source contentからstatus、authority、closureを推測してはならない。
 
+## Repository Reality Check
+
+Architectureを開始する前に、対象Repositoryの現在の実装実態を確認する。Architect TeamがArchitectureをFreezeする場合は、Task Scope内で該当する次のfactを実在するrepository evidenceへbindingする。
+
+- ownerとstate owner
+- runtime hostとcomposition root
+- public production entrypoint
+- production callerとconsumer
+- callerからcalleeまでの到達経路
+- repository-relative fileとpublic symbol
+- test runner以外から到達可能か
+- producer、consumer、state ownerの欠落
+
+Barrel export、symbolの存在、test runnerからの直接load、fixture、設計文書上の予定だけをruntime接続の証拠にしない。production consumerが0の場合は、意図的なlibrary境界か未接続のruntime componentかをevidence付きで区別する。
+
+必要なfactが確認できない場合は`UNKNOWN`として未確認事項と必要な追加証拠を記録する。`UNKNOWN`を仮定で埋めず、ArchitectureまたはContractをImplementation Ready、`frozen`、`assigned`としてdownstreamへ渡さない。
+
+Repository Reality CheckはIssueの目的またはScopeを拡張するauthorityを付与しない。Scope外のruntime host、owner、capability、Schema、Evaluator、CASその他のcomponentを追加してRealityとの不一致を解消してはならない。
+
 ## Record Validity and Same-Task Ordering
 
 Repository全体のprecedenceはTeam Operating Modelが所有する。同一Task内のrecordは単純な「最新コメント優先」で解釈しない。累積Sourceとして採用する前に、該当する次をすべて検証する。
@@ -91,6 +110,8 @@ PR #167より前のlegacy Taskは当時のpinned canonical sourceとProduct Owne
 
 Role Charterは上記authorityを緩和または再定義せず、Role固有のinput、action、evidence deltaだけを所有する。
 
+Architecture Gapは、Taskの実行に必要な外部Contractのmeaningが不足または矛盾している場合、またはFreeze済みArchitectureとfreshなRepository Realityが一致しない場合に限定する。Freeze済みobservable behavior、public Contract、Scopeを変えない内部関数分割、private type、module配置、同値な制御構造、test fixture構成その他の内部実装詳細はArchitecture Gapではなく、該当Implementerのdecision boundaryである。
+
 ## Protected Actions and Role Boundary
 
 Task Assignmentに明示的なauthorityがない限り、すべてのRoleで次を禁止する。
@@ -103,7 +124,7 @@ Task Assignmentに明示的なauthorityがない限り、すべてのRoleで次�
 - 別Task、branch、worktree、PRへの置換
 - secret、credential、personal pathのcanonical record化
 
-Role固有authorityがあってもTask scope外のprotected actionは許可されない。fresh fetchは成功したが、必要なfield / projection / behaviorが未定義、複数解釈、またはContract間で矛盾する場合は`architecture_gap`で停止する。
+Role固有authorityがあってもTask scope外のprotected actionは許可されない。fresh fetchは成功したが、Taskに必要な外部Contractのfield / projection / behaviorが未定義、複数解釈、またはContract間で矛盾する場合は`architecture_gap`で停止する。public Contractとobservable behaviorを変えない内部実装詳細にはこのstop reasonを使用しない。
 
 ## Closed Terminal Stop Reason
 
@@ -118,7 +139,7 @@ external_blocker
 | execution_stop_reason | Meaning | Compatible Result Handoff status |
 | --- | --- | --- |
 | `completed` | Task自身のcompletion conditions、required validation、canonical handoffを満たした。review対象やdownstream成果物のmerge readinessは意味しない | `completed`、`completed_with_warnings`、`needs_followup`、`not_applicable` |
-| `architecture_gap` | fresh fetch済みSourceのmeaningが不足または矛盾し、Role authority内で一意に決められない | `blocked` |
+| `architecture_gap` | Taskに必要な外部Contractのmeaningが不足または矛盾する、またはFreeze済みArchitectureとfreshなRepository Realityが一致せず、Role authority内で解消できない | `blocked` |
 | `external_blocker` | required authority recordの不在、permission、network、service、tool/runtime、repository stateなど外部条件により安全に完了できない | `blocked`、または実行失敗が確定した場合`failed` |
 
 `execution_stop_reason`はResult Handoff `status`とは別fieldである。`needs_followup`や`failed`をterminal reasonの代用にしてはならず、Result Handoffには両fieldを記録する。
@@ -142,7 +163,9 @@ Review correctionとArchitecture gap closureは、原則として同じ`task_id`
 - Integrated LeadだけがResume Dispatchを記録する。
 - Implementerはvalidなsame-task Resume Dispatch前に再開しない。
 - Review Amendment修正で新しいTask、branch、worktree、PRを作らない。
-- purpose、primary Role、contract domain、allowed file boundaryが変わる場合だけ別Taskを設計し、Product Owner判断を得る。
+- 同じ目的とIssue ScopeのArchitecture GapまたはReality mismatchは、同じTask、branch、worktree、PRへ返却する。
+- Gap closureを理由にIssue Scope、成功条件、allowed file boundaryを拡張しない。
+- purpose、primary Role、contract domain、Issue Scope、allowed file boundaryが変わる場合だけ別Taskを設計し、Product Owner判断を得る。
 
 ## Completion Evidence
 
@@ -208,6 +231,21 @@ HEAD.
 Ready, Approve, and Merge are protected actions. A Gate Status entry may record
 only a completed protected action backed by its canonical completion record;
 it does not itself authorize that action.
+
+### Merge sequencing and authority separation
+
+Merge eligibilityは次の順序をすべて満たした後にだけ評価する。
+
+1. exact HEADでReady for Reviewへの移行が完了している。
+2. そのReady eventが開始したreview generationがterminalである。
+3. terminal後に全review threadを取得し、open、resolved、outdatedを確認している。
+4. PRのexact HEADがReady、review terminal evidence、thread snapshotと一致する。
+5. Product Ownerがそのexact HEADのMerge可否を判断する。
+6. Product Owner判断とは別に、明示的に許可されたActorがMerge操作を実行する。
+
+`Ready < Merge < Review terminal`となる順序を禁止する。Checks success、Mergeability、thread count `0`の途中観測、過去generationのterminal、Final Completion Assessmentは、current Ready-triggered review generationのterminal evidenceを代替しない。
+
+Product OwnerはMerge判断のownerである。Merge operatorは判断結果とexact HEADを再確認して操作するActorであり、Merge判断を作成、補完、拡張しない。判断記録と操作完了記録は別のevidenceとして保持する。
 
 ### Protected-action behavior after a HEAD change
 

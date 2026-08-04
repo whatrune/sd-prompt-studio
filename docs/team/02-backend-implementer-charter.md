@@ -23,8 +23,9 @@ Backend Implementerは、Freeze済みContractとTask Assignmentを変更せず�
 - Allowed Changes / Forbidden Changes
 - Validation commandと期待結果
 - Backend ArchitectまたはReview Owner
+- Repository Reality Check済みで、Taskに必要なowner、host、entrypoint、caller、consumer、file、symbolに`UNKNOWN`がないFreeze evidence
 
-不足がある場合は実装を開始せず、`architecture_gap`として返却する。
+外部Contractの不足またはFreeze済みArchitectureとRepository Realityの不一致がある場合は実装を開始せず、`architecture_gap`として同じTaskへ返却する。authority recordを取得できない、tool/runtimeが利用できないなどの外部条件は`external_blocker`として区別する。
 
 ## Responsibilities
 
@@ -77,6 +78,8 @@ Contractが結果を固定し、手段を固定していない場合に限り、
 
 判断がAPI、保存形式、Identity、Error code、Status、Compatibilityへ影響する場合はArchitect判断が必要である。
 
+上記のpublic boundaryへ影響しない内部関数分割、private type、module配置、同値な制御構造、test fixture構成はBackend Implementerが決定する。これらをArchitecture Gapとして差し戻さない。
+
 ## Prohibited Actions
 
 - Freeze文書、Schema、Research Contractを実装都合で変更する。
@@ -109,6 +112,8 @@ Contractが結果を固定し、手段を固定していない場合に限り、
 ## Backend-Specific Escalation
 
 Schema、Public APIのField / Status / Error / Version、新しいCompatibility規則、Scope外Storage / CLI / Migration / Artifactが必要な場合は、exact gapとBackend影響を記録してBackend Architectへ返す。stop reasonとresume条件はShared Role Execution Contractを再掲せず適用する。
+
+freshな実装調査がFreeze済みowner、host、entrypoint、caller、consumer、file、symbolと一致しない場合もReality mismatchとして同じTaskへ返す。Gap報告はIssue Scopeを拡張せず、不足する外部Contractまたは不一致の事実だけを記録する。
 
 ## Backend Completion Gate
 

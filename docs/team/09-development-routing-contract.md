@@ -20,6 +20,9 @@ Product Owner Request
 Integrated Lead intake and classification
         |
         v
+Repository Reality Check
+        |
+        v
 Architect Team design / freeze
         |
         v
@@ -37,9 +40,12 @@ Integrated Lead verifies integrated completion
         |
         v
 Product Owner merge decision
+        |
+        v
+Authorized Merge operation
 ```
 
-Contract変更とImplementationは別Taskとする。Freezeが存在しない、複数解釈が残る、またはInput Contractが衝突する場合はImplementationへRoutingしない。
+Contract変更とImplementationは別Taskとする。Architecture前のRepository Reality Checkが未完了、必要項目が`UNKNOWN`、Freezeが存在しない、外部Contractに複数解釈が残る、またはFreezeとRealityが衝突する場合はImplementationへRoutingしない。
 
 ## Routing Matrix
 
@@ -62,6 +68,7 @@ Integrated Leadは依頼を受けたら次を順に確認する。
 3. Backend、Frontend、Workerの作業境界
 4. 依存PR、Normative Source、Review Owner
 5. Product Ownerへ戻す判断の有無
+6. Repository Reality Checkに必要なowner、host、entrypoint、caller、consumer、file、symbolと`UNKNOWN`の有無
 
 ## Freeze Verification Gate
 
@@ -73,6 +80,8 @@ Implementation Assignment前に次を確認する。
 - Acceptance CriteriaとValidation commandが存在
 - 未決定事項がImplementerへ委譲されていない
 - Existing Run、Research Artifact、Schemaへの影響が明記
+- owner、runtime host、public production entrypoint、caller、consumer、file、symbolが実在するrepository evidenceへbindingされている
+- 必要項目に`UNKNOWN`がない
 
 不成立の場合はArchitect Teamへ返却する。
 
@@ -81,6 +90,7 @@ Implementation Assignment前に次を確認する。
 - 一つのTaskに一つのPrimary Roleを割り当てる。
 - BackendとFrontendの両変更が必要な場合は、Contract依存関係を確定して別Taskへ分割する。
 - WorkerへArchitecture、Contract、Product判断を割り当てない。
+- public Contractを変えない内部実装詳細は該当Implementerへ委ね、Architecture Taskへ戻さない。
 - Reviewは実装担当と分離する。
 - 各Taskは[`11-delegation-and-result-contract.md`](11-delegation-and-result-contract.md)に従う。
 
@@ -92,8 +102,9 @@ Development Taskのcompletion semanticsとevidenceはShared Role Execution Contr
 - 必要なImplementation HandoffとReview Decisionがcanonical locationに存在
 - open findingと未確認事項がHandoff statusから隠されていない
 - Product Owner判断事項が明示
+- Ready for Review completion、current Ready-triggered review terminal、terminal後のthread snapshot、exact HEAD一致が確認済み
 
-Checks未完了、Review未完了、Critical Findingありの場合はMerge Readyと報告しない。Review Taskが`completed + needs_followup`でも、review対象のfindingがopenならProduct Ownerへfollow-upとしてRoutingする。
+Checks未完了、current Ready-triggered Review未terminal、thread未取得、exact HEAD不一致、Critical Findingありの場合はMerge Readyと報告しない。Review Taskが`completed + needs_followup`でも、review対象のfindingがopenならProduct Ownerへfollow-upとしてRoutingする。`Ready < Merge < Review terminal`となる操作順序を禁止する。
 
 ## Prohibited Routing
 
@@ -104,6 +115,8 @@ Checks未完了、Review未完了、Critical Findingありの場合はMerge Read
 - Frontend都合でBackend Contractを変更する
 - Backend都合でResearch Contractを変更する
 - Product Owner承認なしでMergeまたはRevertする
+- Product OwnerのMerge判断とMerge操作を同一authorityとして扱う
+- Gap対応でIssue Scopeを拡張し、同じ目的とScopeの作業を新Taskへ分割する
 
 ## Example
 
@@ -113,7 +126,8 @@ Checks未完了、Review未完了、Critical Findingありの場合はMerge Read
 2. Contract未FreezeならArchitect TeamへRoutingする。
 3. Freeze後、BackendまたはFrontend ImplementerへTask Assignmentする。
 4. 専門ReviewerへReviewを依頼する。
-5. Checks、Mergeability、Critical Findingを統合する。
+5. Ready完了、Ready-triggered review terminal、全thread、exact HEAD、Checks、Mergeability、Critical Findingを統合する。
 6. Merge可否と判断事項をProduct Ownerへ返す。
+7. Product Ownerがexact HEADのMergeを許可した後、別のauthorized Merge operatorが操作する。
 
-Integrated LeadはStep 3の実装またはStep 6のMergeを代行しない。
+Integrated LeadはStep 3の実装、Step 6のMerge判断、Step 7のMerge操作を代行しない。ただしStep 7のoperatorとして明示的に指定された場合だけ、判断記録を変更せず操作できる。

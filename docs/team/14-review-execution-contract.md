@@ -48,6 +48,8 @@ Review対象のHEADが変わった場合、古いreview evidenceを新HEADの証
 6. existing behavior、data、state、compatibilityへのregressionを確認する。
 7. findingとrequired correctionをdirect canonical Review Decisionへ記録する。
 
+Architecture Reviewでは、上記に加えてShared Role Execution ContractのRepository Reality Checkを確認する。実在するowner、host、entrypoint、caller、consumer、file、symbolのいずれかが必要なのに`UNKNOWN`である場合、Implementation ReadyまたはAPPROVE相当と判定しない。
+
 主要objective、acceptance、required matrixのいずれかが未達なら、review対象をcompleted、APPROVE相当、merge-readyと判定しない。ただしReviewerがAssignment上のreviewと必須検証を完遂し、blocking findingをcanonical record化した場合、Review Task自身は`execution_stop_reason: completed`と`status: needs_followup`で完遂できる。
 
 ## Evidence Standard
@@ -180,11 +182,21 @@ thread state but does not classify or close them. Its artifact therefore does
 not authorize Ready, Merge, Completion, GSP publication, or any other protected
 action.
 
-Review-terminal rules and Completion/GSP authority binding must be evaluated by
-a separate pure Evaluator V2 using only the exact sealed Collector V1 artifact.
-Review code must not substitute a fixture, test runner, barrel export, ambient
-GitHub lookup, or caller-provided transport for the collector's production
-observation path.
+For Merge-gate review, the current Ready-triggered generation MUST be terminal
+before the thread snapshot is treated as complete. The reviewing Role then
+checks every returned thread and rechecks the exact PR HEAD. A prior Ready
+generation, a pre-terminal thread count, or an earlier reviewed HEAD does not
+satisfy this review dependency. If Merge occurred before the current generation
+became terminal, the reviewer records the exact Ready, Merge, terminal, and
+thread timestamps as a blocking sequencing finding; it does not reinterpret
+the later finding as a post-Merge-only review.
+
+Automated evaluation of review-terminal rules and Completion/GSP authority
+binding by a separate pure Evaluator V2 using only the exact sealed Collector V1
+artifact is a future candidate. Evaluator V2 is not a prerequisite for the
+current human-led Merge sequencing defined above. Any future review code must
+not substitute a fixture, test runner, barrel export, ambient GitHub lookup, or
+caller-provided transport for the collector's production observation path.
 Focused negative validation sends explicit literal Core Inputs to the same
 production core. It must not use a preload, mutable global, environment-selected
 scenario, caller-supplied transport, or second production entrypoint.

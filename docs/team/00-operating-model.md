@@ -115,6 +115,7 @@ Product Ownerは技術Contractを単独で暗黙変更する役割ではない�
 - Role間の責務境界の確定
 - 技術レビュー
 - 未定義事項とContract衝突の解消
+- Architecture前のRepository Reality CheckとImplementation Ready判定
 
 参加Role:
 
@@ -161,7 +162,11 @@ Product Decision
         ↓
 Integrated Lead Intake / Routing
         ↓
+Repository Reality Check
+        ↓
 Architect Design / Contract Freeze
+        ↓
+Implementation Ready Verification
         ↓
 Task Assignment
         ↓
@@ -178,7 +183,7 @@ Merge and Worktree Cleanup
 
 Contract変更とImplementationは別作業単位として扱う。Implementation担当はFreeze済みContractを入力として受け取り、その作業内でContractを変更しない。実装中に曖昧性が見つかった場合は、実装で補完せずArchitect Teamへ返却する。
 
-Integrated LeadはこのFlowの状態とHandoffを管理するが、各Gateの専門判断を代行しない。Development Routingは[`09-development-routing-contract.md`](09-development-routing-contract.md)、Research Operations Routingは[`10-research-operations-routing-contract.md`](10-research-operations-routing-contract.md)に従う。
+Integrated LeadはこのFlowの状態とHandoffを管理するが、各Gateの専門判断を代行しない。Repository Reality Check、Architecture Gap、same-task correction、Merge sequencingの共通意味は[Shared Role Execution Contract](13-shared-role-execution-contract.md)に従う。Development Routingは[`09-development-routing-contract.md`](09-development-routing-contract.md)、Research Operations Routingは[`10-research-operations-routing-contract.md`](10-research-operations-routing-contract.md)に従う。
 
 将来Dispatcherを有効化する場合も、`Task Assignment`から`Implementation or Worker Execution`までの起動と実行状態管理だけを補助する。Contract Freeze、Role Review、Integrated Lead Completion Verification、Product Owner Merge Decisionは自動化しない。
 
@@ -188,11 +193,11 @@ Integrated LeadはこのFlowの状態とHandoffを管理するが、各Gateの�
 | --- | --- | --- |
 | `proposed` | 目的と背景のみ存在する | Product Ownerが優先順位と目的を承認 |
 | `designing` | Architect Teamが境界を設計中 | 未決定事項が明示され、レビュー可能 |
-| `frozen` | 実装可能なContractが確定 | Task Assignmentが作成可能 |
+| `frozen` | 実装可能なContractが確定し、Repository Realityの必要項目に`UNKNOWN`がない | Task Assignmentが作成可能 |
 | `assigned` | Role、Scope、入力、出力が確定 | 専用branch/worktreeが準備済み |
 | `in_progress` | 担当者が作業中 | Expected OutputとValidationが完了 |
 | `review` | Role責務とContract適合を確認中 | Blockerがなく、検証根拠が揃う |
-| `merge_ready` | Product Owner判断待ち | Product OwnerがMergeを許可 |
+| `merge_ready` | Ready-triggered reviewがterminalで、threadsとexact HEADを確認済み。Product Owner判断待ち | Product OwnerがMergeを許可 |
 | `merged` | mainへ導入済み | Worktreeとbranchのcleanup完了 |
 | `blocked` | 未定義事項または外部条件待ち | BlockerのOwnerが解消またはScopeを変更 |
 
@@ -200,7 +205,8 @@ Integrated LeadはこのFlowの状態とHandoffを管理するが、各Gateの�
 
 | Decision | Owner | Required consultation |
 | --- | --- | --- |
-| Product priority and Merge | Product Owner | Architect Team |
+| Product priority and Merge decision | Product Owner | Architect Team、Integrated Leadによるevidence統合 |
+| Authorized Merge operation | Task AssignmentまたはProduct Owner判断で明示されたActor | Product Ownerのexact-HEAD Merge decision |
 | Architecture and Contract | Architect Team | Affected Implementers |
 | Backend implementation detail | Backend Implementer | Backend Architect when Contract-sensitive |
 | Frontend implementation detail | Frontend Implementer | Design Reviewer; Backend Architect for API impact |
