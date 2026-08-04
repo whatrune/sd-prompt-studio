@@ -69,13 +69,22 @@ Runnerが`succeeded`でも、必須Validation、Expected Output、Canonical Hand
 
 ## Canonical Location
 
-Automation Handoffの保存先は既存Contractで許可された次に限定する。
+Automation Handoffの`canonical_record`は、完全なRecordをfresh-fetchできるdirect GitHub recordに限定する。
 
-1. GitHub IssueまたはPull RequestのBody
-2. GitHub IssueまたはPull RequestのTop-level Comment
-3. Task branch内のGit管理されたRepository-relative Markdown path
+1. GitHub IssueまたはPull Requestのdirect Body URL
+2. GitHub IssueまたはPull Requestのdirect Top-level Comment URL
 
-会話、Runner local file、LogだけをCanonical Recordにしない。DispatcherがHandoff投稿に失敗した場合、Taskを`completed`としてIntegrated Leadへ返さない。
+Repository-relative Markdown pathはCanonical Recordではない。supporting recordとして参照する場合は、repository、path、およびfull 40-character commit SHAを同時に束縛する。mutable branch名、short SHA、path単独ではauthorityまたはcurrent runtime stateを証明しない。
+
+本alignmentのCanonical Task recordはdirect GitHub recordである[Issue #240](https://github.com/whatrune/sd-prompt-studio/issues/240)と[Resume Dispatch](https://github.com/whatrune/sd-prompt-studio/issues/240#issuecomment-5176584167)である。本書が参照するTeam Contractとrepository sourceは、full commit SHA `ba5fc2a4395d2ac474ce95af3cd9b0e56cdb603a`に束縛されたsupporting recordとしてのみ扱う。
+
+会話、Runner local file、Log、repository-relative pathだけをCanonical Recordにしない。DispatcherがHandoff投稿に失敗した場合、Taskを`completed`としてIntegrated Leadへ返さない。
+
+## Task 3 Contract Boundary
+
+Evidence reuse、evidence invalidation、Collector V1 applicability、およびGate Status projection-only reuseの意味は[`../team/13-shared-role-execution-contract.md`](../team/13-shared-role-execution-contract.md)が所有する。本書はその意味を変更または拡張しない。このrepository-relative referenceのsupporting-record bindingはfull commit SHA `ba5fc2a4395d2ac474ce95af3cd9b0e56cdb603a`である。
+
+Automation Handoffにevidence referenceが存在しても、それだけでは再利用admission、finding closure、Role authority、protected-action authority、またはproduction reachabilityを成立させない。Collector V1 artifactはobservation evidenceであり、production physical operator、scheduler／automatic trigger owner、Cloudflare設定、repository外Automation実行経路を証明しない。これらは`UNKNOWN`のまま扱う。
 
 ## Failure Handoff
 
