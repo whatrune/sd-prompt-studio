@@ -42,11 +42,17 @@ function hasUnknown(payload) {
     payload.merge_evidence.admitted_main_sha !== payload.repository_identity.authority_main_sha
 }
 
-function classificationFor(payload) {
+function classificationFor(payload, lifecycleEvidence) {
   if (payload.is_primary_repository) return ['protected_primary_repository', []]
-  if (payload.explicit_keep_authority_refs.length > 0) {
-    return ['protected_explicit_keep', payload.explicit_keep_authority_refs.length > 1 ? ['keep_authority_conflict'] : []]
+  const current = lifecycleEvidence.filter(evidence => evidence.lifecycle_state === 'current')
+  const expired = lifecycleEvidence.filter(evidence => evidence.lifecycle_state === 'expired_unresolved')
+  if (current.length > 0) {
+    const reasons = []
+    if (current.length > 1) reasons.push('keep_authority_conflict')
+    if (expired.length > 0) reasons.push('expired_keep_unresolved')
+    return ['protected_explicit_keep', reasons]
   }
+  if (expired.length > 0) return ['blocked_unknown', ['expired_keep_unresolved']]
   if (hasUnknown(payload)) return ['blocked_unknown', ['authority_drift']]
   if (payload.path_identity.common_git_dir_identity !== payload.repository_identity.common_git_dir_identity) return ['blocked_path_identity', ['path_identity_mismatch']]
   if (payload.registration_state.admin_state !== 'present') return ['blocked_inaccessible_or_linked', ['linked_or_unreadable']]
@@ -60,7 +66,7 @@ function classificationFor(payload) {
   return ['not_candidate', []]
 }
 
-function evidenceRefs(inventory) {
+function evidenceRefs(inventory, lifecycleEvidence) {
   const payload = inventory.payload
   return uniqueSorted([
     inventory.authority_url,
@@ -69,7 +75,24 @@ function evidenceRefs(inventory) {
     ...payload.activity_lock_state.evidence_refs,
     payload.merge_evidence.authority_url,
     payload.inactivity_evidence.policy_ref,
+    ...lifecycleEvidence.flatMap(evidence => [
+      evidence.keep_record.authority_url,
+      evidence.keep_record.payload.owner_record_url,
+      evidence.revocation_ref_or_null,
+      evidence.superseding_keep_ref_or_null?.authority_url,
+      ...evidence.resolution_evidence_refs,
+    ]),
   ])
+}
+
+function deepCloneFreeze(value) {
+  const clone = structuredClone(value)
+  const freeze = current => {
+    if (current === null || typeof current !== 'object' || ArrayBuffer.isView(current)) return current
+    for (const child of Object.values(current)) freeze(child)
+    return Object.freeze(current)
+  }
+  return freeze(clone)
 }
 
 function mapFailure(error) {
@@ -89,8 +112,10 @@ export function ClassifyWorktreeGcPhase1InventoryV1(input) {
     const actualDigest = DigestWorktreeGcPhase1InventoryArtifactV1(input.artifact_bytes_utf8)
     if (actualDigest !== input.artifact_digest) throw new WorktreeGcPhase1ContractError('artifact_digest_mismatch', '/artifact_digest')
     const artifact = ParseWorktreeGcPhase1InventoryArtifactV1(input.artifact_bytes_utf8)
+    const lifecycleById = new Map(artifact.keep_lifecycle_evidence_records.map(evidence => [evidence.keep_ref.record_id, evidence]))
     const classificationRecords = artifact.inventory_records.map(inventory => {
-      const [classification, reasons] = classificationFor(inventory.payload)
+      const lifecycleEvidence = inventory.payload.explicit_keep_authority_refs.map(ref => lifecycleById.get(ref.record_id))
+      const [classification, reasons] = classificationFor(inventory.payload, lifecycleEvidence)
       const payload = Object.freeze({
         schema_version: 'WorktreeClassificationPayloadV2',
         inventory_ref: Object.freeze({
@@ -101,13 +126,13 @@ export function ClassifyWorktreeGcPhase1InventoryV1(input) {
         classification_rule_version: 'worktree-classification-rules-v2',
         classification,
         blocking_reason_codes: uniqueSorted(reasons),
-        evidence_refs: evidenceRefs(inventory),
+        evidence_refs: evidenceRefs(inventory, lifecycleEvidence),
         evaluated_at: input.evaluated_at,
       })
       return BuildWorktreeGcRecordEnvelopeV1('worktree_classification', inventory.authority_url, input.evaluated_at, payload)
     }).sort((left, right) => compareUtf8(left.payload.inventory_ref.record_id, right.payload.inventory_ref.record_id))
     const evaluationDigest = DigestWorktreeGcPhase1InventoryArtifactV1(CanonicalizeWorktreeGcPhase1JcsUtf8V1(classificationRecords))
-    return Object.freeze({
+    return deepCloneFreeze({
       schema_version: 'ClassifyWorktreeGcPhase1InventoryResultV1',
       result: 'classified',
       input_artifact_digest: input.artifact_digest,
@@ -116,7 +141,7 @@ export function ClassifyWorktreeGcPhase1InventoryV1(input) {
     })
   } catch (error) {
     const failureCode = mapFailure(error)
-    return Object.freeze({
+    return deepCloneFreeze({
       schema_version: 'ClassifyWorktreeGcPhase1InventoryResultV1',
       result: 'rejected',
       input_artifact_digest_or_null: inputDigest,

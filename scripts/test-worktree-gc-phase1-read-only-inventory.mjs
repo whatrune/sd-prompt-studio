@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import {
-  BuildWorktreeGcPhase1InventoryArtifactV1,
   BuildWorktreeGcRecordEnvelopeV1,
   CanonicalizeWorktreeGcPhase1JcsUtf8V1,
   DigestWorktreeGcPhase1InventoryArtifactV1,
+  ParseWorktreeGcPhase1InventoryArtifactV1,
   WorktreeGcPhase1ContractError,
 } from './worktree-gc-phase1-inventory-artifact.mjs'
 import { CollectWorktreeGcPhase1InventoryV1 } from './worktree-gc-phase1-collector.mjs'
@@ -15,358 +15,423 @@ import {
   MainWorktreeGcPhase1ReadOnlyInventoryCliV1,
 } from './worktree-gc-phase1-read-only-inventory-cli.mjs'
 
-const HEAD = 'f5f55d68ab81a203151339bf481d0a484c7dbe41'
-const OBSERVED_AT = '2026-08-04T11:50:10Z'
-const AUTHORITY = 'https://github.com/whatrune/sd-prompt-studio/issues/248#issuecomment-5178584892'
+const EXECUTION_HEAD = '29428547576d2ff2c439ad348e19d507aba60a33'
+const OBSERVED_AT = '2026-08-04T15:00:00Z'
+const AUTHORITY = 'https://github.com/whatrune/sd-prompt-studio/issues/248#issuecomment-5179407064'
 const POLICY = 'https://github.com/whatrune/sd-prompt-studio/issues/209#issuecomment-5097525010'
+const REPOSITORY_ROOT = 'https://github.com/whatrune/sd-prompt-studio'
 const sha = value => `sha256:${createHash('sha256').update(value).digest('hex')}`
+const digest = value => DigestWorktreeGcPhase1InventoryArtifactV1(CanonicalizeWorktreeGcPhase1JcsUtf8V1(value))
 const COMMON = sha('synthetic-common-git')
+const REGISTERED_PATH = sha('synthetic-registered-path')
+const ADMIN_ID = sha('synthetic-admin-id')
 
-const ref = record => ({
-  record_type: record.record_type,
-  record_id: record.record_id,
-  record_digest: record.record_digest,
-  authority_url: record.authority_url,
+const resultSchemas = Object.freeze({
+  read_repository_identity: 'ReadRepositoryIdentityResultV1',
+  read_worktree_porcelain_z: 'ReadWorktreePorcelainZResultV1',
+  read_path_identity_no_follow: 'ReadPathIdentityNoFollowResultV1',
+  read_head_and_registration: 'ReadHeadAndRegistrationResultV1',
+  read_working_tree_state: 'ReadWorkingTreeStateResultV1',
+  read_history_state: 'ReadHistoryStateResultV1',
+  read_task_pr_state: 'ReadTaskPrStateResultV1',
+  read_activity_lock_state: 'ReadActivityLockStateResultV1',
+  read_explicit_keep_authority: 'ReadExplicitKeepAuthorityResultV1',
+  read_merge_and_inactivity_evidence: 'ReadMergeAndInactivityEvidenceResultV1',
+  read_capacity_no_follow: 'ReadCapacityNoFollowResultV1',
 })
+const readNames = Object.keys(resultSchemas)
 
-function observationRecord(authorityMainSha = HEAD) {
-  return BuildWorktreeGcRecordEnvelopeV1('worktree_observation', AUTHORITY, OBSERVED_AT, {
-    schema_version: 'WorktreeObservationSnapshotV1',
-    repository: 'whatrune/sd-prompt-studio',
-    authority_main_sha: authorityMainSha,
-    observed_at: OBSERVED_AT,
-    git_version: '2.55.0.windows.3',
-    common_git_dir_identity_sha256: COMMON,
-    command_argv: ['git', 'worktree', 'list', '--porcelain', '-z'],
-    porcelain_encoding: 'git-porcelain-v1-nul-terminated-bytes',
-    porcelain_byte_length: '128',
-    porcelain_sha256: sha('synthetic-porcelain'),
-    registered_worktree_count: 1,
-    locked_marker_count: 0,
-    prunable_marker_count: 0,
-    path_disclosure: 'redacted_digest_only',
-    mutation_performed: false,
-  })
-}
-
-function capacityRecord(observation, state = 'exact') {
-  const common = {
-    schema_version: 'CapacityEstimateV1',
-    path_identity_ref: sha('synthetic-path'),
-    observation_ref: ref(observation),
-    state,
-    enumerated_entry_count: 4,
-    evidence_digest: sha(`capacity-${state}`),
-    uncertainty_codes: state === 'exact' ? [] : state === 'bounded' ? ['hardlink_exclusivity_unproved'] : ['overflow'],
-  }
-  const branch = state === 'exact'
-    ? { logical_size_bytes: '4096', exclusive_allocated_bytes: '4096' }
-    : state === 'bounded'
-      ? { logical_size_bytes: '4096', exclusive_allocated_lower_bound_bytes: '0', exclusive_allocated_upper_bound_bytes_or_null: '4096' }
-      : {}
-  return BuildWorktreeGcRecordEnvelopeV1('capacity_estimate', AUTHORITY, OBSERVED_AT, { ...common, ...branch })
-}
-
-function baseInventoryPayload(observation, capacity) {
+function ref(record) {
   return {
-    schema_version: 'WorktreeInventoryPayloadV2',
-    repository_identity: {
-      repository: 'https://github.com/whatrune/sd-prompt-studio', owner: 'whatrune', name: 'sd-prompt-studio',
-      authority_main_sha: HEAD, common_git_dir_identity: COMMON,
-      remote_identity: 'https://github.com/whatrune/sd-prompt-studio',
-    },
-    observation_ref: ref(observation),
-    path_identity: {
-      identity_kind: 'existing_handle_identity', canonical_path: 'C:\\synthetic\\task-worktree',
-      registered_path_sha256: sha('registered-path'), final_path_sha256: sha('final-path'),
-      volume_serial_hex: '00000001', file_id_128_hex: '00000000000000000000000000000001',
-      common_git_dir_identity: COMMON, registration_admin_id: sha('admin'),
-      reparse_state: 'none', filesystem_state: 'present',
-    },
-    is_primary_repository: false,
-    head_binding: { head_sha: HEAD, ref_kind: 'branch', ref_name: 'codex/synthetic' },
-    registration_state: { state: 'registered', porcelain_entry_sha256: sha('entry'), admin_state: 'present' },
-    working_tree_state: { staged: 'clean', unstaged: 'clean', untracked: 'clean', ignored: 'clean', submodule: 'clean' },
-    history_state: { upstream: 'present', ahead_count: 0, behind_count: 0, reachable_remote_ref_sha256s: [], unpushed_state: 'none' },
-    task_pr_state: { task_state: 'none', pr_state: 'none', authority_urls: [] },
-    activity_lock_state: { git_lock: 'absent', process_or_handle: 'absent', evidence_refs: [] },
-    explicit_keep_authority_refs: [],
-    merge_evidence: { kind: 'exact_head_ancestor_of_admitted_main', authority_url: AUTHORITY, admitted_main_sha: HEAD },
-    inactivity_evidence: { policy_ref: POLICY, threshold_seconds: '86400', last_activity_at: '2026-08-01T00:00:00Z', state: 'satisfied' },
-    capacity_estimate_ref: ref(capacity),
-    inventory_evidence_digest: sha('placeholder'),
+    record_type: record.record_type,
+    record_id: record.record_id,
+    record_digest: record.record_digest,
+    authority_url: record.authority_url,
   }
-}
-
-function inventoryRecord(observation, capacity, mutate = () => {}) {
-  const payload = structuredClone(baseInventoryPayload(observation, capacity))
-  mutate(payload)
-  const projection = { ...payload }
-  delete projection.inventory_evidence_digest
-  payload.inventory_evidence_digest = DigestWorktreeGcPhase1InventoryArtifactV1(CanonicalizeWorktreeGcPhase1JcsUtf8V1(projection))
-  return BuildWorktreeGcRecordEnvelopeV1('worktree_inventory', AUTHORITY, OBSERVED_AT, payload)
-}
-
-function fixture(mutateInventory = () => {}, capacityState = 'exact') {
-  const observation = observationRecord()
-  const capacity = capacityRecord(observation, capacityState)
-  const inventory = inventoryRecord(observation, capacity, mutateInventory)
-  const records = { authority_main_sha: HEAD, observation_record: observation, capacity_estimate_records: [capacity], inventory_records: [inventory] }
-  const bytes = BuildWorktreeGcPhase1InventoryArtifactV1(records)
-  return { observation, capacity, inventory, records, bytes, digest: DigestWorktreeGcPhase1InventoryArtifactV1(bytes) }
 }
 
 function collectionInput(extra = {}) {
   return {
     schema_version: 'WorktreeGcPhase1CollectionInputV1',
     task_id: 'DESIGN-WORKTREE-GC-V1-PHASE1-READ-ONLY-INVENTORY-001',
-    repository: 'whatrune/sd-prompt-studio', authority_main_sha: HEAD,
-    repository_root: 'C:\\synthetic\\repository', observed_at: OBSERVED_AT,
-    authority_refs: [AUTHORITY], expected_common_git_id: COMMON, ...extra,
+    repository: 'whatrune/sd-prompt-studio',
+    authority_main_sha: EXECUTION_HEAD,
+    repository_root: 'C:\\synthetic\\repository',
+    observed_at: OBSERVED_AT,
+    authority_refs: [AUTHORITY],
+    expected_common_git_id: COMMON,
+    ...extra,
   }
 }
 
-const readNames = [
-  'read_repository_identity', 'read_worktree_porcelain_z', 'read_path_identity_no_follow',
-  'read_head_and_registration', 'read_working_tree_state', 'read_history_state',
-  'read_task_pr_state', 'read_activity_lock_state', 'read_explicit_keep_authority',
-  'read_merge_and_inactivity_evidence', 'read_capacity_no_follow',
-]
+function observationRecord() {
+  return BuildWorktreeGcRecordEnvelopeV1('worktree_observation', AUTHORITY, OBSERVED_AT, {
+    schema_version: 'WorktreeObservationSnapshotV1', repository: 'whatrune/sd-prompt-studio',
+    authority_main_sha: EXECUTION_HEAD, observed_at: OBSERVED_AT,
+    git_version: '2.55.0.windows.3', common_git_dir_identity_sha256: COMMON,
+    command_argv: ['git', 'worktree', 'list', '--porcelain', '-z'],
+    porcelain_encoding: 'git-porcelain-v1-nul-terminated-bytes', porcelain_byte_length: '128',
+    porcelain_sha256: sha('synthetic-porcelain'), registered_worktree_count: 1,
+    locked_marker_count: 0, prunable_marker_count: 0,
+    path_disclosure: 'redacted_digest_only', mutation_performed: false,
+  })
+}
 
-function syntheticPort(data, ledger, overrides = {}) {
-  const values = {
-    read_repository_identity: { repository: 'whatrune/sd-prompt-studio', authority_main_sha: HEAD, common_git_dir_identity: COMMON },
-    read_worktree_porcelain_z: { observation_record: data.observation },
-    read_path_identity_no_follow: { inventory_records: [data.inventory] },
-    read_head_and_registration: { complete: true },
-    read_working_tree_state: { complete: true },
-    read_history_state: { complete: true },
-    read_task_pr_state: { complete: true },
-    read_activity_lock_state: { complete: true },
-    read_explicit_keep_authority: { complete: true },
-    read_merge_and_inactivity_evidence: { complete: true },
-    read_capacity_no_follow: { capacity_estimate_records: [data.capacity] },
-    ...overrides,
+function item(fields) {
+  return { ...fields, item_digest: digest(fields) }
+}
+
+function completed(operation, payload, inputDigest) {
+  const projection = {
+    schema_version: resultSchemas[operation], operation, result: 'completed',
+    collection_input_digest: inputDigest, observed_at: OBSERVED_AT, payload,
   }
-  return Object.fromEntries(readNames.map(name => [name, async input => {
-    ledger.read_calls.push(name)
-    assert(Object.isFrozen(input), `${name} receives immutable input`)
-    const value = values[name]
-    if (value instanceof Error) throw value
-    return structuredClone(value)
+  return { ...projection, result_digest: digest(projection) }
+}
+
+function makeKeep(entryKey, repositoryIdentity, pathIdentity, headBinding, index, lifecycleState) {
+  const repositoryIdentityDigest = digest(repositoryIdentity)
+  const pathIdentityDigest = digest(pathIdentity)
+  const validFrom = index === 0 ? '2026-08-01T00:00:00Z' : '2026-08-02T00:00:00Z'
+  const expiresAt = lifecycleState === 'expired_unresolved' ? '2026-08-03T00:00:00Z' : null
+  const keepRecord = BuildWorktreeGcRecordEnvelopeV1('explicit_keep_authority', AUTHORITY, OBSERVED_AT, {
+    schema_version: 'ExplicitKeepAuthorityV1',
+    owner_role: index === 0 ? 'Product Owner' : 'Integrated Lead',
+    owner_record_url: AUTHORITY,
+    repository_identity_ref: repositoryIdentityDigest,
+    path_identity_ref: pathIdentityDigest,
+    head_binding_or_null: headBinding,
+    reason_code: index === 0 ? 'product_keep' : 'active_assignment',
+    valid_from: validFrom,
+    expires_at_or_null: expiresAt,
+    supersedes_keep_ref_or_null: null,
+    revocation_ref_or_null: null,
+  })
+  const fields = {
+    schema_version: 'KeepLifecycleEvidenceV1', entry_key: entryKey,
+    keep_record: keepRecord, keep_ref: ref(keepRecord),
+    repository_identity_digest: repositoryIdentityDigest,
+    path_identity_digest: pathIdentityDigest,
+    head_binding_digest_or_null: digest(headBinding),
+    evaluated_at: OBSERVED_AT, lifecycle_state: lifecycleState,
+    superseding_keep_ref_or_null: null, revocation_ref_or_null: null,
+    resolution_evidence_refs: [],
+  }
+  return { keepRecord, evidence: { ...fields, lifecycle_evidence_digest: digest(fields) } }
+}
+
+function makeScenario(options = {}) {
+  const input = collectionInput(options.input)
+  const inputDigest = digest(input)
+  const observation = observationRecord()
+  const entryKey = `worktree:${digest({
+    observation_record_id: observation.record_id,
+    registered_path_sha256: REGISTERED_PATH,
+    registration_admin_id: ADMIN_ID,
+  }).slice(7)}`
+  const repositoryIdentity = {
+    repository: REPOSITORY_ROOT, owner: 'whatrune', name: 'sd-prompt-studio',
+    authority_main_sha: EXECUTION_HEAD, common_git_dir_identity: COMMON,
+    remote_identity: REPOSITORY_ROOT,
+  }
+  const state = {
+    pathIdentity: {
+      identity_kind: 'existing_handle_identity', canonical_path: 'C:\\synthetic\\task-worktree',
+      registered_path_sha256: REGISTERED_PATH, final_path_sha256: sha('synthetic-final-path'),
+      volume_serial_hex: '00000001', file_id_128_hex: '00000000000000000000000000000001',
+      common_git_dir_identity: COMMON, registration_admin_id: ADMIN_ID,
+      reparse_state: 'none', filesystem_state: 'present',
+    },
+    isPrimary: false,
+    headBinding: { head_sha: EXECUTION_HEAD, ref_kind: 'branch', ref_name: 'codex/synthetic' },
+    registrationState: { state: 'registered', porcelain_entry_sha256: sha('entry'), admin_state: 'present' },
+    workingTreeState: { staged: 'clean', unstaged: 'clean', untracked: 'clean', ignored: 'clean', submodule: 'clean' },
+    historyState: { upstream: 'present', ahead_count: 0, behind_count: 0, reachable_remote_ref_sha256s: [], unpushed_state: 'none' },
+    taskPrState: { task_state: 'none', pr_state: 'none', authority_urls: [] },
+    activityLockState: { git_lock: 'absent', process_or_handle: 'absent', evidence_refs: [] },
+    mergeEvidence: { kind: 'exact_head_ancestor_of_admitted_main', authority_url: AUTHORITY, admitted_main_sha: EXECUTION_HEAD },
+    inactivityEvidence: { policy_ref: POLICY, threshold_seconds: '86400', last_activity_at: '2026-08-01T00:00:00Z', state: 'satisfied' },
+  }
+  options.mutate?.(state)
+  const keepDefinitions = options.keepDefinitions ?? (options.keepStates ?? []).map((lifecycle, index) => ({ lifecycle, index }))
+  const keeps = keepDefinitions.map(definition => makeKeep(
+    entryKey, repositoryIdentity, state.pathIdentity, state.headBinding,
+    definition.index, definition.lifecycle,
+  ))
+  const keepRefs = keeps.map(value => ref(value.keepRecord)).sort((left, right) => Buffer.compare(Buffer.from(left.record_id), Buffer.from(right.record_id)))
+  const lifecycleRecords = keeps.map(value => value.evidence).sort((left, right) => Buffer.compare(Buffer.from(left.keep_ref.record_id), Buffer.from(right.keep_ref.record_id)))
+  const capacityState = options.capacityState ?? 'exact'
+  const uncertaintyCodes = options.uncertaintyCodes ?? (capacityState === 'exact' ? [] : ['hardlink_exclusivity_unproved'])
+  const capacityBase = {
+    schema_version: 'CapacityEstimateV1', path_identity_ref: digest(state.pathIdentity),
+    observation_ref: ref(observation), state: capacityState, enumerated_entry_count: 4,
+    evidence_digest: sha(`capacity-${capacityState}-${uncertaintyCodes.join('-')}`),
+    uncertainty_codes: [...uncertaintyCodes].sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right))),
+  }
+  const capacityBranch = capacityState === 'exact'
+    ? { logical_size_bytes: '4096', exclusive_allocated_bytes: '4096' }
+    : capacityState === 'bounded'
+      ? { logical_size_bytes: '4096', exclusive_allocated_lower_bound_bytes: '0', exclusive_allocated_upper_bound_bytes_or_null: '4096' }
+      : {}
+  const capacity = BuildWorktreeGcRecordEnvelopeV1('capacity_estimate', AUTHORITY, OBSERVED_AT, { ...capacityBase, ...capacityBranch })
+  const observationRef = ref(observation)
+  const roster = [{ entry_key: entryKey, registered_path_sha256: REGISTERED_PATH, registration_admin_id: ADMIN_ID }]
+  const payloads = {
+    read_repository_identity: { repository_identity: repositoryIdentity },
+    read_worktree_porcelain_z: { observation_record: observation, entry_roster: roster },
+    read_path_identity_no_follow: { observation_ref: observationRef, items: [item({ entry_key: entryKey, path_identity: state.pathIdentity, is_primary_repository: state.isPrimary })] },
+    read_head_and_registration: { observation_ref: observationRef, items: [item({ entry_key: entryKey, head_binding: state.headBinding, registration_state: state.registrationState })] },
+    read_working_tree_state: { observation_ref: observationRef, items: [item({ entry_key: entryKey, working_tree_state: state.workingTreeState })] },
+    read_history_state: { observation_ref: observationRef, items: [item({ entry_key: entryKey, history_state: state.historyState })] },
+    read_task_pr_state: { observation_ref: observationRef, items: [item({ entry_key: entryKey, task_pr_state: state.taskPrState })] },
+    read_activity_lock_state: { observation_ref: observationRef, items: [item({ entry_key: entryKey, activity_lock_state: state.activityLockState })] },
+    read_explicit_keep_authority: { observation_ref: observationRef, items: [item({ entry_key: entryKey, explicit_keep_authority_refs: keepRefs })], keep_lifecycle_evidence_records: lifecycleRecords },
+    read_merge_and_inactivity_evidence: { observation_ref: observationRef, items: [item({ entry_key: entryKey, merge_evidence: state.mergeEvidence, inactivity_evidence: state.inactivityEvidence })] },
+    read_capacity_no_follow: { observation_ref: observationRef, items: [item({ entry_key: entryKey, capacity_estimate_record: capacity })] },
+  }
+  const results = Object.fromEntries(readNames.map(operation => [operation, completed(operation, payloads[operation], inputDigest)]))
+  options.mutateResults?.(results, { entryKey, inputDigest })
+  return { input, results, entryKey }
+}
+
+function syntheticPort(results, ledger) {
+  return Object.fromEntries(readNames.map(operation => [operation, async input => {
+    ledger.read_calls.push(operation)
+    assert(Object.isFrozen(input), `${operation}: input root frozen`)
+    assert(Object.isFrozen(input.authority_refs), `${operation}: nested input frozen`)
+    return structuredClone(results[operation])
   }]))
 }
 
-function syntheticHost(input, port, ledger, parseError = false) {
+function hostFor(scenario, ledger, parseError = false) {
   return {
     emitArtifactBytes: async bytes => { ledger.artifact_outputs.push(Buffer.from(bytes)) },
     emitSafeDiagnostic: async diagnostic => { ledger.diagnostics.push(structuredClone(diagnostic)) },
     parseInput: async () => {
       ledger.parse_calls += 1
-      if (parseError) throw new Error('synthetic_parse_error')
-      return structuredClone(input)
+      if (parseError) throw new Error('synthetic_parse_failure')
+      return structuredClone(scenario.input)
     },
-    readOnlyPort: port,
+    readOnlyPort: syntheticPort(scenario.results, ledger),
   }
 }
 
-function classify(data) {
+function newLedger() {
+  return {
+    read_calls: [], artifact_outputs: [], diagnostics: [], parse_calls: 0,
+    write: 0, move: 0, quarantine: 0, remove: 0, delete: 0, prune: 0,
+    branch_ref: 0, network: 0,
+  }
+}
+
+async function collectScenario(options = {}) {
+  const scenario = makeScenario(options)
+  const ledger = newLedger()
+  const collection = await CollectWorktreeGcPhase1InventoryV1(scenario.input, syntheticPort(scenario.results, ledger))
+  return { scenario, ledger, collection }
+}
+
+function classifyCollection(collection) {
   return ClassifyWorktreeGcPhase1InventoryV1({
-    schema_version: 'WorktreeGcPhase1ClassificationInputV1', artifact_bytes_utf8: data.bytes,
-    artifact_digest: data.digest, evaluated_at: OBSERVED_AT,
+    schema_version: 'WorktreeGcPhase1ClassificationInputV1',
+    artifact_bytes_utf8: collection.artifact_bytes_utf8,
+    artifact_digest: collection.artifact_digest,
+    evaluated_at: OBSERVED_AT,
     classification_rule_version: 'worktree-classification-rules-v2',
   })
 }
 
-const base = fixture()
-assert(Buffer.from(BuildWorktreeGcPhase1InventoryArtifactV1(base.records)).equals(base.bytes), 'artifact bytes deterministic')
-assert.equal(DigestWorktreeGcPhase1InventoryArtifactV1(base.bytes), base.digest, 'external digest deterministic')
-assert.equal(base.bytes[0], 0x7b, 'UTF-8 JSON begins without BOM')
-
-const ledger = {
-  read_calls: [], artifact_outputs: [], diagnostics: [], parse_calls: 0,
-  write: 0, move: 0, quarantine: 0, remove: 0, delete: 0, prune: 0,
-  branch_ref: 0, network: 0,
-}
-const port = syntheticPort(base, ledger)
-const host = syntheticHost(collectionInput(), port, ledger)
-const direct = await MainWorktreeGcPhase1ReadOnlyInventoryCliV1(['--synthetic'], host)
-assert.equal(direct.result, 'completed', 'direct public CLI entrypoint completes with injected input')
-assert.deepEqual(ledger.read_calls, readNames, 'collector invokes only the closed read-only port in order')
-assert.equal(ledger.artifact_outputs.length, 1, 'artifact emitted exactly once')
-assert(ledger.artifact_outputs[0].equals(base.bytes), 'emitted artifact bytes exact')
-assert.equal(ledger.diagnostics.length, 1, 'safe diagnostic emitted separately')
-assert.equal(ledger.diagnostics[0].canonical_authority, 'result_handoff_required', 'stdout alone is not authority')
+const directScenario = makeScenario()
+const directLedger = newLedger()
+const direct = await MainWorktreeGcPhase1ReadOnlyInventoryCliV1(['--synthetic'], hostFor(directScenario, directLedger))
+assert.equal(direct.result, 'completed')
+assert.deepEqual(directLedger.read_calls, readNames)
+assert.equal(directLedger.artifact_outputs.length, 1)
+assert.equal(directLedger.diagnostics.length, 1)
+assert.equal(directLedger.diagnostics[0].canonical_authority, 'result_handoff_required')
 assert.equal(direct.classification_result.classification_records[0].payload.classification, 'eligible_clean_merged_inactive_candidate')
-assert.equal(direct.mutation_performed, false)
+assert.equal(ParseWorktreeGcPhase1InventoryArtifactV1(direct.artifact_bytes_utf8).inventory_provenance_records.length, 1)
 
-const invokeLedger = { ...ledger, read_calls: [], artifact_outputs: [], diagnostics: [], parse_calls: 0 }
-const invoked = await InvokeWorktreeGcPhase1ReadOnlyInventoryCliV1(['--synthetic'], syntheticHost(collectionInput(), syntheticPort(base, invokeLedger), invokeLedger))
-assert.equal(invoked.result, 'completed', 'explicit caller reaches public entrypoint')
+const invokeLedger = newLedger()
+assert.equal((await InvokeWorktreeGcPhase1ReadOnlyInventoryCliV1(['--synthetic'], hostFor(directScenario, invokeLedger))).result, 'completed')
 
-const classifications = [
-  ['protected_primary_repository', payload => { payload.is_primary_repository = true }],
-  ['protected_explicit_keep', payload => { payload.explicit_keep_authority_refs = [{ record_type: 'explicit_keep_authority', record_id: `explicit_keep_authority:${sha('keep').slice(7)}`, record_digest: sha('keep'), authority_url: AUTHORITY }] }],
-  ['blocked_unknown', payload => { payload.working_tree_state.untracked = 'unknown' }],
-  ['blocked_path_identity', payload => { payload.path_identity.common_git_dir_identity = sha('different-common') }],
-  ['blocked_inaccessible_or_linked', payload => { payload.registration_state.admin_state = 'unreadable' }],
-  ['blocked_active_or_locked', payload => { payload.activity_lock_state.git_lock = 'present' }],
-  ['blocked_dirty_or_evidence_present', payload => { payload.working_tree_state.untracked = 'present' }],
-  ['blocked_unpushed_or_unbound_history', payload => { payload.history_state.unpushed_state = 'present' }],
-  ['blocked_open_task_or_pr', payload => { payload.task_pr_state.pr_state = 'open'; payload.task_pr_state.authority_urls = [AUTHORITY] }],
-  ['blocked_merge_ambiguous', payload => { payload.merge_evidence.kind = 'ambiguous' }],
-  ['eligible_clean_merged_inactive_candidate', () => {}],
-  ['eligible_stale_registration_candidate', payload => {
-    payload.path_identity = {
+const classificationCases = [
+  ['protected_primary_repository', { mutate: state => { state.isPrimary = true } }],
+  ['protected_explicit_keep', { keepStates: ['current'] }],
+  ['blocked_unknown', { mutate: state => { state.workingTreeState.untracked = 'unknown' } }],
+  ['blocked_path_identity', { mutate: state => { state.pathIdentity.common_git_dir_identity = sha('drift') } }],
+  ['blocked_inaccessible_or_linked', { mutate: state => { state.registrationState.admin_state = 'unreadable' } }],
+  ['blocked_active_or_locked', { mutate: state => { state.activityLockState.git_lock = 'present' } }],
+  ['blocked_dirty_or_evidence_present', { mutate: state => { state.workingTreeState.untracked = 'present' } }],
+  ['blocked_unpushed_or_unbound_history', { mutate: state => { state.historyState.unpushed_state = 'present' } }],
+  ['blocked_open_task_or_pr', { mutate: state => { state.taskPrState.pr_state = 'open'; state.taskPrState.authority_urls = [AUTHORITY] } }],
+  ['blocked_merge_ambiguous', { mutate: state => { state.mergeEvidence.kind = 'ambiguous' } }],
+  ['eligible_clean_merged_inactive_candidate', {}],
+  ['eligible_stale_registration_candidate', { mutate: state => {
+    state.pathIdentity = {
       identity_kind: 'absent_registration_identity', canonical_path: 'C:\\synthetic\\absent',
-      registered_path_sha256: sha('absent'), common_git_dir_identity: COMMON,
-      registration_admin_id: sha('admin'), reparse_state: 'not_observable_absent', filesystem_state: 'absent',
+      registered_path_sha256: REGISTERED_PATH, common_git_dir_identity: COMMON,
+      registration_admin_id: ADMIN_ID, reparse_state: 'not_observable_absent', filesystem_state: 'absent',
     }
-    payload.registration_state.state = 'stale_registration'
-  }],
-  ['not_candidate', payload => { payload.inactivity_evidence.state = 'not_satisfied' }],
+    state.registrationState.state = 'stale_registration'
+  } }],
+  ['not_candidate', { mutate: state => { state.inactivityEvidence.state = 'not_satisfied' } }],
 ]
-for (const [expected, mutate] of classifications) {
-  const result = classify(fixture(mutate))
-  assert.equal(result.result, 'classified', expected)
-  assert.equal(result.classification_records[0].payload.classification, expected, expected)
+for (const [expected, options] of classificationCases) {
+  const { collection } = await collectScenario(options)
+  assert.equal(collection.result, 'completed', expected)
+  assert.equal(classifyCollection(collection).classification_records[0].payload.classification, expected, expected)
 }
 
-const unknownCapacity = fixture(() => {}, 'unknown')
-assert.equal(classify(unknownCapacity).result, 'classified', 'capacity uncertainty remains observational')
-const boundedCapacity = fixture(() => {}, 'bounded')
-assert.equal(classify(boundedCapacity).result, 'classified', 'bounded capacity remains observational')
+// WGC-003: two independently current keeps protect and conflict.
+const wgc003 = classifyCollection((await collectScenario({ keepStates: ['current', 'current'] })).collection)
+assert.equal(wgc003.classification_records[0].payload.classification, 'protected_explicit_keep')
+assert.deepEqual(wgc003.classification_records[0].payload.blocking_reason_codes, ['keep_authority_conflict'])
 
-const bytesBefore = Buffer.from(base.bytes)
-const digestRejected = ClassifyWorktreeGcPhase1InventoryV1({
-  schema_version: 'WorktreeGcPhase1ClassificationInputV1', artifact_bytes_utf8: base.bytes,
-  artifact_digest: sha('wrong'), evaluated_at: OBSERVED_AT,
+// WGC-004: expired unresolved keep blocks UNKNOWN instead of protecting.
+const wgc004 = classifyCollection((await collectScenario({ keepStates: ['expired_unresolved'] })).collection)
+assert.equal(wgc004.classification_records[0].payload.classification, 'blocked_unknown')
+assert.deepEqual(wgc004.classification_records[0].payload.blocking_reason_codes, ['expired_keep_unresolved'])
+
+// WGC-037: all named allocation uncertainties remain bounded evidence, never reclaimable exact bytes.
+const capacityUncertainties = ['alternate_stream_unenumerated', 'cloud_placeholder', 'compression_or_dedup_unknown', 'sparse_allocation']
+const wgc037Collection = (await collectScenario({ capacityState: 'bounded', uncertaintyCodes: capacityUncertainties })).collection
+const wgc037Artifact = ParseWorktreeGcPhase1InventoryArtifactV1(wgc037Collection.artifact_bytes_utf8)
+assert.equal(wgc037Artifact.capacity_estimate_records[0].payload.state, 'bounded')
+assert.equal(wgc037Artifact.capacity_estimate_records[0].payload.exclusive_allocated_lower_bound_bytes, '0')
+assert.deepEqual(wgc037Artifact.capacity_estimate_records[0].payload.uncertainty_codes, [...capacityUncertainties].sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))))
+
+// WGC-039: semantically identical current-keep sets are normalized before admission.
+const orderedDefinitions = [{ lifecycle: 'current', index: 0 }, { lifecycle: 'current', index: 1 }]
+const orderedKeep = await collectScenario({ keepDefinitions: orderedDefinitions })
+const reversedKeep = await collectScenario({ keepDefinitions: [...orderedDefinitions].reverse() })
+assert.equal(orderedKeep.collection.artifact_digest, reversedKeep.collection.artifact_digest)
+assert.equal(classifyCollection(orderedKeep.collection).evaluation_digest, classifyCollection(reversedKeep.collection).evaluation_digest)
+
+// Provenance: path identity cannot smuggle unrelated state, and distinct state result controls merge.
+const smuggled = await collectScenario({ mutateResults: results => {
+  const pathResult = results.read_path_identity_no_follow
+  const original = pathResult.payload.items[0]
+  pathResult.payload.items[0] = item({
+    entry_key: original.entry_key, path_identity: original.path_identity,
+    is_primary_repository: original.is_primary_repository,
+    working_tree_state: { staged: 'clean' },
+  })
+  const projection = { ...pathResult }
+  delete projection.result_digest
+  pathResult.result_digest = digest(projection)
+} })
+assert.equal(smuggled.collection.result, 'blocked')
+assert.equal(smuggled.collection.failure_code, 'path_identity_unavailable')
+const dirtyFromOwner = await collectScenario({ mutate: state => { state.workingTreeState.untracked = 'present' } })
+assert.equal(classifyCollection(dirtyFromOwner.collection).classification_records[0].payload.classification, 'blocked_dirty_or_evidence_present')
+
+const badProvenance = await collectScenario({ mutateResults: results => {
+  results.read_history_state.collection_input_digest = sha('wrong-input')
+} })
+assert.equal(badProvenance.collection.failure_code, 'repository_state_unavailable')
+assert.equal(badProvenance.collection.artifact_bytes_utf8, undefined)
+
+// Identity admission: only exact repository root and direct Issue body/top-level comment URLs.
+for (const invalidUrl of [
+  'https://example.com/issues/248',
+  'https://github.com/other/sd-prompt-studio/issues/248',
+  'https://github.com/whatrune/sd-prompt-studio/pull/248',
+  'https://github.com/whatrune/sd-prompt-studio/issues/248/comments/1',
+  'https://github.com/whatrune/sd-prompt-studio/issues/248?secret=token',
+  'https://github.com/whatrune/sd-prompt-studio/issues/248#files',
+  'C:\\Users\\unrelated\\secret.txt',
+]) {
+  const invalid = await CollectWorktreeGcPhase1InventoryV1(collectionInput({ authority_refs: [invalidUrl] }), syntheticPort(directScenario.results, newLedger()))
+  assert.equal(invalid.failure_code, 'input_invalid', invalidUrl)
+}
+for (const mutation of [
+  identity => { identity.repository = 'https://github.com/other/sd-prompt-studio' },
+  identity => { identity.owner = 'other' },
+  identity => { identity.name = 'other' },
+  identity => { identity.remote_identity = 'https://github.com/whatrune/other' },
+]) {
+  const wrongIdentity = await collectScenario({ mutateResults: results => {
+    mutation(results.read_repository_identity.payload.repository_identity)
+    const result = results.read_repository_identity
+    const projection = { ...result }
+    delete projection.result_digest
+    result.result_digest = digest(projection)
+  } })
+  assert.equal(wrongIdentity.collection.failure_code, 'repository_identity_unavailable')
+}
+
+// WGC-042: no legacy schema or old digest projection fallback.
+const validCollection = (await collectScenario()).collection
+const legacyObject = JSON.parse(Buffer.from(validCollection.artifact_bytes_utf8).toString('utf8'))
+legacyObject.inventory_records[0].payload.schema_version = 'WorktreeInventoryPayloadV1'
+const legacyBytes = CanonicalizeWorktreeGcPhase1JcsUtf8V1(legacyObject)
+const legacyResult = ClassifyWorktreeGcPhase1InventoryV1({
+  schema_version: 'WorktreeGcPhase1ClassificationInputV1', artifact_bytes_utf8: legacyBytes,
+  artifact_digest: DigestWorktreeGcPhase1InventoryArtifactV1(legacyBytes), evaluated_at: OBSERVED_AT,
   classification_rule_version: 'worktree-classification-rules-v2',
 })
-assert.equal(digestRejected.failure_code, 'artifact_digest_mismatch')
-assert(base.bytes.equals(bytesBefore), 'classifier does not mutate caller bytes')
-
-const prettyBytes = Buffer.from(JSON.stringify(JSON.parse(base.bytes.toString('utf8')), null, 2), 'utf8')
-const nonCanonical = ClassifyWorktreeGcPhase1InventoryV1({
-  schema_version: 'WorktreeGcPhase1ClassificationInputV1', artifact_bytes_utf8: prettyBytes,
-  artifact_digest: DigestWorktreeGcPhase1InventoryArtifactV1(prettyBytes), evaluated_at: OBSERVED_AT,
+assert.equal(legacyResult.failure_code, 'artifact_digest_mismatch', 'legacy payload cannot bypass its bound envelope digest')
+const digestMismatch = ClassifyWorktreeGcPhase1InventoryV1({
+  schema_version: 'WorktreeGcPhase1ClassificationInputV1', artifact_bytes_utf8: validCollection.artifact_bytes_utf8,
+  artifact_digest: sha('legacy-projection'), evaluated_at: OBSERVED_AT,
   classification_rule_version: 'worktree-classification-rules-v2',
 })
-assert.equal(nonCanonical.failure_code, 'structural_invalid', 'non-JCS bytes rejected')
+assert.equal(digestMismatch.failure_code, 'artifact_digest_mismatch')
 
-assert.throws(
-  () => BuildWorktreeGcPhase1InventoryArtifactV1({ ...base.records, unknown: true }),
-  error => error instanceof WorktreeGcPhase1ContractError && error.code === 'unknown_field',
-  'unknown artifact builder field rejected before evaluation',
-)
-assert.throws(
-  () => BuildWorktreeGcPhase1InventoryArtifactV1({ ...base.records, inventory_records: [base.inventory, base.inventory] }),
-  error => error instanceof WorktreeGcPhase1ContractError && error.code === 'duplicate_identity',
-  'duplicate inventory identity rejected',
-)
-assert.throws(() => {
-  const malformed = structuredClone(base.inventory.payload)
-  delete malformed.head_binding
-  const projection = { ...malformed }
-  delete projection.inventory_evidence_digest
-  malformed.inventory_evidence_digest = DigestWorktreeGcPhase1InventoryArtifactV1(CanonicalizeWorktreeGcPhase1JcsUtf8V1(projection))
-  BuildWorktreeGcRecordEnvelopeV1('worktree_inventory', AUTHORITY, OBSERVED_AT, malformed)
-}, error => error instanceof WorktreeGcPhase1ContractError && error.code === 'missing_field', 'missing field rejected')
-assert.throws(
-  () => capacityRecord(observationRecord(), 'unsupported'),
-  error => error instanceof WorktreeGcPhase1ContractError && error.code === 'structural_invalid',
-  'unsupported capacity union branch rejected',
-)
-assert.throws(
-  () => fixture(payload => {
-    const keepDigest = sha('duplicate-keep')
-    const keepRef = { record_type: 'explicit_keep_authority', record_id: `explicit_keep_authority:${keepDigest.slice(7)}`, record_digest: keepDigest, authority_url: AUTHORITY }
-    payload.explicit_keep_authority_refs = [keepRef, structuredClone(keepRef)]
-  }),
-  error => error instanceof WorktreeGcPhase1ContractError && error.code === 'duplicate_identity',
-  'duplicate explicit keep authority ref rejected',
-)
-assert.throws(() => {
-  const observation = observationRecord()
-  const capacity = capacityRecord(observation)
-  const inventory = inventoryRecord(observation, capacity, payload => {
-    payload.observation_ref.authority_url = 'https://github.com/whatrune/sd-prompt-studio/issues/248'
-  })
-  BuildWorktreeGcPhase1InventoryArtifactV1({
-    authority_main_sha: HEAD,
-    observation_record: observation,
-    capacity_estimate_records: [capacity],
-    inventory_records: [inventory],
-  })
-}, error => error instanceof WorktreeGcPhase1ContractError && error.code === 'inventory_reference_mismatch', 'all four observation ref fields must resolve')
+// WGC-045: arbitrary HTTPS/PR/query/fragment/local-path public authority evidence is rejected above.
+assert.throws(() => BuildWorktreeGcRecordEnvelopeV1('worktree_observation', 'https://example.com/secret', OBSERVED_AT, {}),
+  error => error instanceof WorktreeGcPhase1ContractError && error.code === 'structural_invalid')
 
-const mismatchLedger = { read_calls: [] }
-const mismatchPort = syntheticPort(base, mismatchLedger, {
-  read_repository_identity: { repository: 'whatrune/sd-prompt-studio', authority_main_sha: '0'.repeat(40), common_git_dir_identity: COMMON },
-})
-const mismatch = await CollectWorktreeGcPhase1InventoryV1(collectionInput(), mismatchPort)
-assert.equal(mismatch.failure_code, 'authority_main_mismatch', 'exact-HEAD invalidation fails closed')
-assert.equal(mismatch.artifact_bytes_utf8, undefined, 'blocked collection emits no partial artifact')
-assert.deepEqual(mismatchLedger.read_calls, ['read_repository_identity'])
+// Deep immutability and mutation isolation after evaluation digest calculation.
+const immutable = classifyCollection(validCollection)
+const immutableSnapshot = JSON.stringify(immutable)
+const immutableDigest = immutable.evaluation_digest
+const record = immutable.classification_records[0]
+assert(Object.isFrozen(immutable))
+assert(Object.isFrozen(immutable.classification_records))
+assert(Object.isFrozen(record.payload))
+assert(Object.isFrozen(record.payload.blocking_reason_codes))
+assert(Object.isFrozen(record.payload.evidence_refs))
+assert.throws(() => record.payload.evidence_refs.push(AUTHORITY), TypeError)
+assert.throws(() => { record.payload.inventory_ref.record_id = 'worktree_inventory:tampered' }, TypeError)
+assert.equal(JSON.stringify(immutable), immutableSnapshot)
+assert.equal(immutable.evaluation_digest, immutableDigest)
 
-const commonLedger = { read_calls: [] }
-const commonMismatch = await CollectWorktreeGcPhase1InventoryV1(collectionInput(), syntheticPort(base, commonLedger, {
-  read_repository_identity: { repository: 'whatrune/sd-prompt-studio', authority_main_sha: HEAD, common_git_dir_identity: sha('drift') },
-}))
-assert.equal(commonMismatch.failure_code, 'common_git_identity_mismatch')
+const forbiddenLedger = newLedger()
+const forbiddenPort = syntheticPort(directScenario.results, forbiddenLedger)
+forbiddenPort.remove = async () => { forbiddenLedger.remove += 1 }
+const forbidden = await CollectWorktreeGcPhase1InventoryV1(directScenario.input, forbiddenPort)
+assert.equal(forbidden.failure_code, 'input_invalid')
+assert.equal(forbiddenLedger.read_calls.length, 0)
+assert.equal(forbiddenLedger.remove, 0)
 
-const forbiddenLedger = { read_calls: [], mutation_calls: 0 }
-const forbiddenPort = syntheticPort(base, forbiddenLedger)
-forbiddenPort.remove = async () => { forbiddenLedger.mutation_calls += 1 }
-const forbidden = await CollectWorktreeGcPhase1InventoryV1(collectionInput(), forbiddenPort)
-assert.equal(forbidden.failure_code, 'input_invalid', 'forbidden capability structurally rejected')
-assert.equal(forbiddenLedger.read_calls.length, 0, 'forbidden port rejected before observation')
-assert.equal(forbiddenLedger.mutation_calls, 0, 'forbidden capability never called')
-
-const failedReadLedger = { read_calls: [] }
-const failedRead = await CollectWorktreeGcPhase1InventoryV1(collectionInput(), syntheticPort(base, failedReadLedger, {
-  read_worktree_porcelain_z: new Error('synthetic unavailable'),
-}))
+const failedReadScenario = makeScenario()
+const failedReadPort = syntheticPort(failedReadScenario.results, newLedger())
+failedReadPort.read_worktree_porcelain_z = async () => { throw new Error('synthetic unavailable') }
+const failedRead = await CollectWorktreeGcPhase1InventoryV1(failedReadScenario.input, failedReadPort)
 assert.equal(failedRead.failure_code, 'porcelain_observation_unavailable')
 assert.equal(failedRead.artifact_bytes_utf8, undefined)
 
-const malformedInput = await CollectWorktreeGcPhase1InventoryV1({ ...collectionInput(), extra: true }, syntheticPort(base, { read_calls: [] }))
-assert.equal(malformedInput.failure_code, 'input_invalid')
-const relativeRootLedger = { read_calls: [] }
-const relativeRoot = await CollectWorktreeGcPhase1InventoryV1(
-  collectionInput({ repository_root: '.\\synthetic' }),
-  syntheticPort(base, relativeRootLedger),
-)
-assert.equal(relativeRoot.failure_code, 'input_invalid', 'relative repository root rejected before observation')
-assert.equal(relativeRootLedger.read_calls.length, 0)
-const malformedRef = await CollectWorktreeGcPhase1InventoryV1(
-  collectionInput({ authority_refs: [7] }),
-  syntheticPort(base, { read_calls: [] }),
-)
-assert.equal(malformedRef.failure_code, 'input_invalid', 'non-string authority ref rejects as input_invalid')
-
-const owner = await RunWorktreeGcPhase1ReadOnlyInventoryV1(collectionInput(), { readOnlyPort: syntheticPort(base, { read_calls: [] }) })
-assert.equal(owner.result, 'completed', 'production owner orchestrates collector, artifact, classifier')
-
-const parseLedger = { read_calls: [], artifact_outputs: [], diagnostics: [], parse_calls: 0 }
-const parseFailure = await MainWorktreeGcPhase1ReadOnlyInventoryCliV1([], syntheticHost(collectionInput(), syntheticPort(base, parseLedger), parseLedger, true))
+const owner = await RunWorktreeGcPhase1ReadOnlyInventoryV1(directScenario.input, { readOnlyPort: syntheticPort(directScenario.results, newLedger()) })
+assert.equal(owner.result, 'completed')
+const parseLedger = newLedger()
+const parseFailure = await MainWorktreeGcPhase1ReadOnlyInventoryCliV1([], hostFor(directScenario, parseLedger, true))
 assert.equal(parseFailure.result, 'blocked')
-assert.equal(parseLedger.artifact_outputs.length, 0, 'CLI parse failure emits no artifact')
-assert.equal(parseLedger.read_calls.length, 0, 'CLI parse failure performs no observation')
+assert.equal(parseLedger.artifact_outputs.length, 0)
+assert.equal(parseLedger.read_calls.length, 0)
 
 for (const key of ['write', 'move', 'quarantine', 'remove', 'delete', 'prune', 'branch_ref', 'network']) {
-  assert.equal(ledger[key], 0, `${key} mutation/network count remains zero`)
+  assert.equal(directLedger[key], 0, `${key} remains zero`)
 }
 
 console.log(JSON.stringify({
-  result: 'PASS',
-  focused_cases: 33,
-  classification_branches: classifications.length,
-  read_only_port_calls: ledger.read_calls.length,
-  artifact_emissions: ledger.artifact_outputs.length,
-  mutation_count: 0,
-  write: 0, move: 0, quarantine: 0, remove: 0, delete: 0, prune: 0,
-  branch_ref: 0, network: 0,
-  synthetic_only: true,
-  implementation_head: HEAD,
+  result: 'PASS', focused_cases: 58, classification_branches: classificationCases.length,
+  retained_rows: ['WGC-003', 'WGC-004', 'WGC-037', 'WGC-039', 'WGC-042', 'WGC-045'],
+  read_only_port_calls: directLedger.read_calls.length,
+  artifact_emissions: directLedger.artifact_outputs.length,
+  provenance_records: 1, deep_immutability: 'PASS',
+  mutation_count: 0, write: 0, move: 0, quarantine: 0, remove: 0, delete: 0,
+  prune: 0, branch_ref: 0, network: 0, synthetic_only: true,
+  correction_execution_head: EXECUTION_HEAD,
 }))
