@@ -22,7 +22,10 @@
     "pr_number": 220,
     "exact_head": "1111111111111111111111111111111111111111",
     "ready_event_id": "READY-220-01",
-    "producer_ids": ["reviewer-one", "reviewer-two"],
+    "producer_ids": [
+      "reviewer-one",
+      "reviewer-two"
+    ],
     "effective_from": "2026-07-31T00:00:00Z",
     "effective_until": null
   },
@@ -136,5 +139,1314 @@
     "pre_terminal_page",
     "artifact_non_jcs_bytes",
     "caller_fixture_option"
+  ],
+  "host_level_contract_version": "host-level-ready-review-barrier-validation-v1",
+  "host_level_rows": [
+    {
+      "row_id": "SFRG-001",
+      "input": {
+        "cli_args": {
+          "repository": "whatrune/sd-prompt-studio",
+          "pr": 229,
+          "head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001"
+        },
+        "transport": {
+          "timeline": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "9001",
+                  "event": "ready_for_review",
+                  "created_at": "2026-08-04T00:00:00Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:00:10Z"
+          },
+          "pr": {
+            "result": "ok",
+            "value": {
+              "state": "open",
+              "draft": false,
+              "head_sha": "c795f843de9a34a51b22152f75a13d907646c4b3",
+              "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229",
+              "source_observed_at": "2026-08-04T00:00:11Z"
+            }
+          },
+          "reviews": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "4801",
+                  "user": {
+                    "login": "chatgpt-codex-connector[bot]"
+                  },
+                  "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229#pullrequestreview-4801",
+                  "commit_id": "c795f843de9a34a51b22152f75a13d907646c4b3",
+                  "submitted_at": "2026-08-04T00:00:00Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:01:00Z"
+          },
+          "threads": {
+            "result": "ok",
+            "pages": [
+              {
+                "ordinal": 0,
+                "requested_after": null,
+                "end_cursor": "C1",
+                "has_next_page": false,
+                "head_ref_oid": "c795f843de9a34a51b22152f75a13d907646c4b3",
+                "source_observed_at": "2026-08-04T00:01:10Z",
+                "nodes": []
+              }
+            ]
+          },
+          "legacy_reactions": []
+        }
+      },
+      "expected": {
+        "result": {
+          "decision": "merge_allowed",
+          "repo": "whatrune/sd-prompt-studio",
+          "pr_number": 229,
+          "exact_head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001",
+          "observed_review_id": "4801",
+          "snapshot_captured_at": "2026-08-04T00:01:10Z"
+        },
+        "selected_review_id": "4801"
+      },
+      "calls": {
+        "timeline_api": 1,
+        "pr_api": 1,
+        "reviews_api": 1,
+        "thread_graphql": 1,
+        "host_evaluator": 1,
+        "reactions_api": 0,
+        "legacy_core": 0
+      }
+    },
+    {
+      "row_id": "SFRG-002",
+      "input": {
+        "cli_args": {
+          "repository": "whatrune/sd-prompt-studio",
+          "pr": 229,
+          "head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001"
+        },
+        "transport": {
+          "timeline": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "9001",
+                  "event": "ready_for_review",
+                  "created_at": "2026-08-04T00:00:00Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:00:10Z"
+          },
+          "pr": {
+            "result": "ok",
+            "value": {
+              "state": "open",
+              "draft": false,
+              "head_sha": "c795f843de9a34a51b22152f75a13d907646c4b3",
+              "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229",
+              "source_observed_at": "2026-08-04T00:00:11Z"
+            }
+          },
+          "reviews": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "4801",
+                  "user": {
+                    "login": "chatgpt-codex-connector[bot]"
+                  },
+                  "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229#pullrequestreview-4801",
+                  "commit_id": "c795f843de9a34a51b22152f75a13d907646c4b3",
+                  "submitted_at": "2026-08-04T00:00:30Z"
+                },
+                {
+                  "id": "4802",
+                  "user": {
+                    "login": "chatgpt-codex-connector[bot]"
+                  },
+                  "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229#pullrequestreview-4802",
+                  "commit_id": "c795f843de9a34a51b22152f75a13d907646c4b3",
+                  "submitted_at": "2026-08-04T00:00:30Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:01:00Z"
+          },
+          "threads": {
+            "result": "ok",
+            "pages": [
+              {
+                "ordinal": 0,
+                "requested_after": null,
+                "end_cursor": "C1",
+                "has_next_page": false,
+                "head_ref_oid": "c795f843de9a34a51b22152f75a13d907646c4b3",
+                "source_observed_at": "2026-08-04T00:01:10Z",
+                "nodes": []
+              }
+            ]
+          },
+          "legacy_reactions": []
+        }
+      },
+      "expected": {
+        "result": {
+          "decision": "merge_allowed",
+          "repo": "whatrune/sd-prompt-studio",
+          "pr_number": 229,
+          "exact_head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001",
+          "observed_review_id": "4802",
+          "snapshot_captured_at": "2026-08-04T00:01:10Z"
+        },
+        "selected_review_id": "4802"
+      },
+      "calls": {
+        "timeline_api": 1,
+        "pr_api": 1,
+        "reviews_api": 1,
+        "thread_graphql": 1,
+        "host_evaluator": 1,
+        "reactions_api": 0,
+        "legacy_core": 0
+      }
+    },
+    {
+      "row_id": "SFRG-003",
+      "input": {
+        "cli_args": {
+          "repository": "whatrune/sd-prompt-studio",
+          "pr": 229,
+          "head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001"
+        },
+        "transport": {
+          "timeline": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "9001",
+                  "event": "ready_for_review",
+                  "created_at": "2026-08-04T00:00:00Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:00:10Z"
+          },
+          "pr": {
+            "result": "ok",
+            "value": {
+              "state": "open",
+              "draft": false,
+              "head_sha": "c795f843de9a34a51b22152f75a13d907646c4b3",
+              "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229",
+              "source_observed_at": "2026-08-04T00:00:11Z"
+            }
+          },
+          "reviews": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "4801",
+                  "user": {
+                    "login": "chatgpt-codex-connector[bot]"
+                  },
+                  "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229#pullrequestreview-4801",
+                  "commit_id": "c795f843de9a34a51b22152f75a13d907646c4b3",
+                  "submitted_at": "2026-08-04T00:00:30Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:01:00Z"
+          },
+          "threads": {
+            "result": "ok",
+            "pages": [
+              {
+                "ordinal": 0,
+                "requested_after": null,
+                "end_cursor": "C1",
+                "has_next_page": true,
+                "head_ref_oid": "c795f843de9a34a51b22152f75a13d907646c4b3",
+                "source_observed_at": "2026-08-04T00:01:10Z",
+                "nodes": []
+              },
+              {
+                "ordinal": 1,
+                "requested_after": "C1",
+                "end_cursor": "C2",
+                "has_next_page": false,
+                "head_ref_oid": "c795f843de9a34a51b22152f75a13d907646c4b3",
+                "source_observed_at": "2026-08-04T00:01:11Z",
+                "nodes": []
+              }
+            ]
+          },
+          "legacy_reactions": []
+        }
+      },
+      "expected": {
+        "result": {
+          "decision": "merge_allowed",
+          "repo": "whatrune/sd-prompt-studio",
+          "pr_number": 229,
+          "exact_head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001",
+          "observed_review_id": "4801",
+          "snapshot_captured_at": "2026-08-04T00:01:11Z"
+        },
+        "selected_review_id": "4801"
+      },
+      "calls": {
+        "timeline_api": 1,
+        "pr_api": 1,
+        "reviews_api": 1,
+        "thread_graphql": 2,
+        "host_evaluator": 1,
+        "reactions_api": 0,
+        "legacy_core": 0
+      }
+    },
+    {
+      "row_id": "SFRG-004",
+      "input": {
+        "cli_args": {
+          "repository": "whatrune/sd-prompt-studio",
+          "pr": 229,
+          "head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001"
+        },
+        "transport": {
+          "timeline": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "9001",
+                  "event": "ready_for_review",
+                  "created_at": "2026-08-04T00:00:00Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:00:10Z"
+          },
+          "pr": {
+            "result": "ok",
+            "value": {
+              "state": "open",
+              "draft": false,
+              "head_sha": "c795f843de9a34a51b22152f75a13d907646c4b3",
+              "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229",
+              "source_observed_at": "2026-08-04T00:00:11Z"
+            }
+          },
+          "reviews": {
+            "result": "ok",
+            "pages": [
+              []
+            ],
+            "source_observed_at": "2026-08-04T00:01:00Z"
+          },
+          "threads": {
+            "result": "not_called"
+          },
+          "legacy_reactions": []
+        }
+      },
+      "expected": {
+        "result": {
+          "decision": "blocked",
+          "reason": "review_not_observed"
+        },
+        "selected_review_id": null
+      },
+      "calls": {
+        "timeline_api": 1,
+        "pr_api": 1,
+        "reviews_api": 1,
+        "thread_graphql": 0,
+        "host_evaluator": 1,
+        "reactions_api": 0,
+        "legacy_core": 0
+      }
+    },
+    {
+      "row_id": "SFRG-005",
+      "input": {
+        "cli_args": {
+          "repository": "whatrune/sd-prompt-studio",
+          "pr": 229,
+          "head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001"
+        },
+        "transport": {
+          "timeline": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "9001",
+                  "event": "ready_for_review",
+                  "created_at": "2026-08-04T00:00:00Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:00:10Z"
+          },
+          "pr": {
+            "result": "ok",
+            "value": {
+              "state": "open",
+              "draft": false,
+              "head_sha": "c795f843de9a34a51b22152f75a13d907646c4b3",
+              "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229",
+              "source_observed_at": "2026-08-04T00:00:11Z"
+            }
+          },
+          "reviews": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "4801",
+                  "user": {
+                    "login": "other-reviewer[bot]"
+                  },
+                  "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229#pullrequestreview-4801",
+                  "commit_id": "c795f843de9a34a51b22152f75a13d907646c4b3",
+                  "submitted_at": "2026-08-04T00:00:30Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:01:00Z"
+          },
+          "threads": {
+            "result": "not_called"
+          },
+          "legacy_reactions": []
+        }
+      },
+      "expected": {
+        "result": {
+          "decision": "blocked",
+          "reason": "review_not_observed"
+        },
+        "selected_review_id": null
+      },
+      "calls": {
+        "timeline_api": 1,
+        "pr_api": 1,
+        "reviews_api": 1,
+        "thread_graphql": 0,
+        "host_evaluator": 1,
+        "reactions_api": 0,
+        "legacy_core": 0
+      }
+    },
+    {
+      "row_id": "SFRG-006",
+      "input": {
+        "cli_args": {
+          "repository": "whatrune/sd-prompt-studio",
+          "pr": 229,
+          "head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001"
+        },
+        "transport": {
+          "timeline": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "9001",
+                  "event": "ready_for_review",
+                  "created_at": "2026-08-04T00:00:00Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:00:10Z"
+          },
+          "pr": {
+            "result": "ok",
+            "value": {
+              "state": "open",
+              "draft": false,
+              "head_sha": "c795f843de9a34a51b22152f75a13d907646c4b3",
+              "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229",
+              "source_observed_at": "2026-08-04T00:00:11Z"
+            }
+          },
+          "reviews": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "4801",
+                  "user": {
+                    "login": "chatgpt-codex-connector[bot]"
+                  },
+                  "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229#pullrequestreview-4801",
+                  "commit_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "submitted_at": "2026-08-04T00:00:30Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:01:00Z"
+          },
+          "threads": {
+            "result": "not_called"
+          },
+          "legacy_reactions": []
+        }
+      },
+      "expected": {
+        "result": {
+          "decision": "blocked",
+          "reason": "candidate_binding_mismatch"
+        },
+        "selected_review_id": null
+      },
+      "calls": {
+        "timeline_api": 1,
+        "pr_api": 1,
+        "reviews_api": 1,
+        "thread_graphql": 0,
+        "host_evaluator": 1,
+        "reactions_api": 0,
+        "legacy_core": 0
+      }
+    },
+    {
+      "row_id": "SFRG-007",
+      "input": {
+        "cli_args": {
+          "repository": "whatrune/sd-prompt-studio",
+          "pr": 229,
+          "head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001"
+        },
+        "transport": {
+          "timeline": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "9001",
+                  "event": "ready_for_review",
+                  "created_at": "2026-08-04T00:00:00Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:00:10Z"
+          },
+          "pr": {
+            "result": "ok",
+            "value": {
+              "state": "open",
+              "draft": false,
+              "head_sha": "c795f843de9a34a51b22152f75a13d907646c4b3",
+              "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229",
+              "source_observed_at": "2026-08-04T00:00:11Z"
+            }
+          },
+          "reviews": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "4801",
+                  "user": {
+                    "login": "chatgpt-codex-connector[bot]"
+                  },
+                  "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229#pullrequestreview-4801",
+                  "commit_id": "c795f843de9a34a51b22152f75a13d907646c4b3",
+                  "submitted_at": "2026-08-03T23:59:59Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:01:00Z"
+          },
+          "threads": {
+            "result": "not_called"
+          },
+          "legacy_reactions": []
+        }
+      },
+      "expected": {
+        "result": {
+          "decision": "blocked",
+          "reason": "candidate_binding_mismatch"
+        },
+        "selected_review_id": null
+      },
+      "calls": {
+        "timeline_api": 1,
+        "pr_api": 1,
+        "reviews_api": 1,
+        "thread_graphql": 0,
+        "host_evaluator": 1,
+        "reactions_api": 0,
+        "legacy_core": 0
+      }
+    },
+    {
+      "row_id": "SFRG-008",
+      "input": {
+        "cli_args": {
+          "repository": "whatrune/sd-prompt-studio",
+          "pr": 229,
+          "head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001"
+        },
+        "transport": {
+          "timeline": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "9001",
+                  "event": "ready_for_review",
+                  "created_at": "2026-08-04T00:00:00Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:00:10Z"
+          },
+          "pr": {
+            "result": "ok",
+            "value": {
+              "state": "open",
+              "draft": true,
+              "head_sha": "c795f843de9a34a51b22152f75a13d907646c4b3",
+              "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229",
+              "source_observed_at": "2026-08-04T00:00:11Z"
+            }
+          },
+          "reviews": {
+            "result": "not_called"
+          },
+          "threads": {
+            "result": "not_called"
+          },
+          "legacy_reactions": []
+        }
+      },
+      "expected": {
+        "result": {
+          "decision": "blocked",
+          "reason": "candidate_binding_mismatch"
+        },
+        "selected_review_id": null
+      },
+      "calls": {
+        "timeline_api": 1,
+        "pr_api": 1,
+        "reviews_api": 0,
+        "thread_graphql": 0,
+        "host_evaluator": 1,
+        "reactions_api": 0,
+        "legacy_core": 0
+      }
+    },
+    {
+      "row_id": "SFRG-009",
+      "input": {
+        "cli_args": {
+          "repository": "whatrune/sd-prompt-studio",
+          "pr": 229,
+          "head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001"
+        },
+        "transport": {
+          "timeline": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "9001",
+                  "event": "ready_for_review",
+                  "created_at": "2026-08-04T00:00:00Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:00:10Z"
+          },
+          "pr": {
+            "result": "ok",
+            "value": {
+              "state": "closed",
+              "draft": false,
+              "head_sha": "c795f843de9a34a51b22152f75a13d907646c4b3",
+              "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229",
+              "source_observed_at": "2026-08-04T00:00:11Z"
+            }
+          },
+          "reviews": {
+            "result": "not_called"
+          },
+          "threads": {
+            "result": "not_called"
+          },
+          "legacy_reactions": []
+        }
+      },
+      "expected": {
+        "result": {
+          "decision": "blocked",
+          "reason": "candidate_binding_mismatch"
+        },
+        "selected_review_id": null
+      },
+      "calls": {
+        "timeline_api": 1,
+        "pr_api": 1,
+        "reviews_api": 0,
+        "thread_graphql": 0,
+        "host_evaluator": 1,
+        "reactions_api": 0,
+        "legacy_core": 0
+      }
+    },
+    {
+      "row_id": "SFRG-010",
+      "input": {
+        "cli_args": {
+          "repository": "whatrune/sd-prompt-studio",
+          "pr": 229,
+          "head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001"
+        },
+        "transport": {
+          "timeline": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "9001",
+                  "event": "ready_for_review",
+                  "created_at": "2026-08-04T00:00:00Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:00:10Z"
+          },
+          "pr": {
+            "result": "ok",
+            "value": {
+              "state": "open",
+              "draft": false,
+              "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229",
+              "source_observed_at": "2026-08-04T00:00:11Z"
+            }
+          },
+          "reviews": {
+            "result": "not_called"
+          },
+          "threads": {
+            "result": "not_called"
+          },
+          "legacy_reactions": []
+        }
+      },
+      "expected": {
+        "result": {
+          "decision": "blocked",
+          "reason": "candidate_binding_mismatch"
+        },
+        "selected_review_id": null
+      },
+      "calls": {
+        "timeline_api": 1,
+        "pr_api": 1,
+        "reviews_api": 0,
+        "thread_graphql": 0,
+        "host_evaluator": 1,
+        "reactions_api": 0,
+        "legacy_core": 0
+      }
+    },
+    {
+      "row_id": "SFRG-011",
+      "input": {
+        "cli_args": {
+          "repository": "whatrune/sd-prompt-studio",
+          "pr": 229,
+          "head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001"
+        },
+        "transport": {
+          "timeline": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "9001",
+                  "event": "ready_for_review",
+                  "created_at": "2026-08-04T00:00:00Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:00:10Z"
+          },
+          "pr": {
+            "result": "failure",
+            "code": "github_read_failed"
+          },
+          "reviews": {
+            "result": "not_called"
+          },
+          "threads": {
+            "result": "not_called"
+          },
+          "legacy_reactions": []
+        }
+      },
+      "expected": {
+        "result": {
+          "decision": "blocked",
+          "reason": "review_unknown"
+        },
+        "selected_review_id": null
+      },
+      "calls": {
+        "timeline_api": 1,
+        "pr_api": 1,
+        "reviews_api": 0,
+        "thread_graphql": 0,
+        "host_evaluator": 1,
+        "reactions_api": 0,
+        "legacy_core": 0
+      }
+    },
+    {
+      "row_id": "SFRG-012",
+      "input": {
+        "cli_args": {
+          "repository": "whatrune/sd-prompt-studio",
+          "pr": 229,
+          "head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001"
+        },
+        "transport": {
+          "timeline": {
+            "result": "failure",
+            "code": "github_read_failed"
+          },
+          "pr": {
+            "result": "not_called"
+          },
+          "reviews": {
+            "result": "not_called"
+          },
+          "threads": {
+            "result": "not_called"
+          },
+          "legacy_reactions": []
+        }
+      },
+      "expected": {
+        "result": {
+          "decision": "blocked",
+          "reason": "review_unknown"
+        },
+        "selected_review_id": null
+      },
+      "calls": {
+        "timeline_api": 1,
+        "pr_api": 0,
+        "reviews_api": 0,
+        "thread_graphql": 0,
+        "host_evaluator": 1,
+        "reactions_api": 0,
+        "legacy_core": 0
+      }
+    },
+    {
+      "row_id": "SFRG-013",
+      "input": {
+        "cli_args": {
+          "repository": "whatrune/sd-prompt-studio",
+          "pr": 229,
+          "head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001"
+        },
+        "transport": {
+          "timeline": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "9001",
+                  "event": "ready_for_review",
+                  "created_at": "2026-08-04T00:00:00Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:00:10Z"
+          },
+          "pr": {
+            "result": "ok",
+            "value": {
+              "state": "open",
+              "draft": false,
+              "head_sha": "c795f843de9a34a51b22152f75a13d907646c4b3",
+              "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229",
+              "source_observed_at": "2026-08-04T00:00:11Z"
+            }
+          },
+          "reviews": {
+            "result": "failure",
+            "code": "github_read_failed"
+          },
+          "threads": {
+            "result": "not_called"
+          },
+          "legacy_reactions": []
+        }
+      },
+      "expected": {
+        "result": {
+          "decision": "blocked",
+          "reason": "review_unknown"
+        },
+        "selected_review_id": null
+      },
+      "calls": {
+        "timeline_api": 1,
+        "pr_api": 1,
+        "reviews_api": 1,
+        "thread_graphql": 0,
+        "host_evaluator": 1,
+        "reactions_api": 0,
+        "legacy_core": 0
+      }
+    },
+    {
+      "row_id": "SFRG-014",
+      "input": {
+        "cli_args": {
+          "repository": "whatrune/sd-prompt-studio",
+          "pr": 229,
+          "head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001"
+        },
+        "transport": {
+          "timeline": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "9001",
+                  "event": "ready_for_review",
+                  "created_at": "2026-08-04T00:00:00Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:00:10Z"
+          },
+          "pr": {
+            "result": "ok",
+            "value": {
+              "state": "open",
+              "draft": false,
+              "head_sha": "c795f843de9a34a51b22152f75a13d907646c4b3",
+              "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229",
+              "source_observed_at": "2026-08-04T00:00:11Z"
+            }
+          },
+          "reviews": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "4801",
+                  "user": {
+                    "login": "chatgpt-codex-connector[bot]"
+                  },
+                  "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229#pullrequestreview-4801",
+                  "commit_id": "c795f843de9a34a51b22152f75a13d907646c4b3",
+                  "submitted_at": "2026-08-04T00:00:30Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:01:00Z"
+          },
+          "threads": {
+            "result": "malformed",
+            "payload": {
+              "data": null
+            }
+          },
+          "legacy_reactions": []
+        }
+      },
+      "expected": {
+        "result": {
+          "decision": "blocked",
+          "reason": "snapshot_incomplete"
+        },
+        "selected_review_id": "4801"
+      },
+      "calls": {
+        "timeline_api": 1,
+        "pr_api": 1,
+        "reviews_api": 1,
+        "thread_graphql": 1,
+        "host_evaluator": 1,
+        "reactions_api": 0,
+        "legacy_core": 0
+      }
+    },
+    {
+      "row_id": "SFRG-015",
+      "input": {
+        "cli_args": {
+          "repository": "whatrune/sd-prompt-studio",
+          "pr": 229,
+          "head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001"
+        },
+        "transport": {
+          "timeline": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "9001",
+                  "event": "ready_for_review",
+                  "created_at": "2026-08-04T00:00:00Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:00:10Z"
+          },
+          "pr": {
+            "result": "ok",
+            "value": {
+              "state": "open",
+              "draft": false,
+              "head_sha": "c795f843de9a34a51b22152f75a13d907646c4b3",
+              "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229",
+              "source_observed_at": "2026-08-04T00:00:11Z"
+            }
+          },
+          "reviews": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "4801",
+                  "user": {
+                    "login": "chatgpt-codex-connector[bot]"
+                  },
+                  "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229#pullrequestreview-4801",
+                  "commit_id": "c795f843de9a34a51b22152f75a13d907646c4b3",
+                  "submitted_at": "2026-08-04T00:00:30Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:01:00Z"
+          },
+          "threads": {
+            "result": "ok",
+            "pages": [
+              {
+                "ordinal": 0,
+                "requested_after": null,
+                "end_cursor": null,
+                "has_next_page": true,
+                "head_ref_oid": "c795f843de9a34a51b22152f75a13d907646c4b3",
+                "source_observed_at": "2026-08-04T00:01:10Z",
+                "nodes": []
+              }
+            ]
+          },
+          "legacy_reactions": []
+        }
+      },
+      "expected": {
+        "result": {
+          "decision": "blocked",
+          "reason": "snapshot_incomplete"
+        },
+        "selected_review_id": "4801"
+      },
+      "calls": {
+        "timeline_api": 1,
+        "pr_api": 1,
+        "reviews_api": 1,
+        "thread_graphql": 1,
+        "host_evaluator": 1,
+        "reactions_api": 0,
+        "legacy_core": 0
+      }
+    },
+    {
+      "row_id": "SFRG-016",
+      "input": {
+        "cli_args": {
+          "repository": "whatrune/sd-prompt-studio",
+          "pr": 229,
+          "head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001"
+        },
+        "transport": {
+          "timeline": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "9001",
+                  "event": "ready_for_review",
+                  "created_at": "2026-08-04T00:00:00Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:00:10Z"
+          },
+          "pr": {
+            "result": "ok",
+            "value": {
+              "state": "open",
+              "draft": false,
+              "head_sha": "c795f843de9a34a51b22152f75a13d907646c4b3",
+              "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229",
+              "source_observed_at": "2026-08-04T00:00:11Z"
+            }
+          },
+          "reviews": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "4801",
+                  "user": {
+                    "login": "chatgpt-codex-connector[bot]"
+                  },
+                  "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229#pullrequestreview-4801",
+                  "commit_id": "c795f843de9a34a51b22152f75a13d907646c4b3",
+                  "submitted_at": "2026-08-04T00:00:30Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:01:00Z"
+          },
+          "threads": {
+            "result": "ok",
+            "pages": [
+              {
+                "ordinal": 0,
+                "requested_after": null,
+                "end_cursor": "C1",
+                "has_next_page": false,
+                "head_ref_oid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "source_observed_at": "2026-08-04T00:01:10Z",
+                "nodes": []
+              }
+            ]
+          },
+          "legacy_reactions": []
+        }
+      },
+      "expected": {
+        "result": {
+          "decision": "blocked",
+          "reason": "candidate_binding_mismatch"
+        },
+        "selected_review_id": "4801"
+      },
+      "calls": {
+        "timeline_api": 1,
+        "pr_api": 1,
+        "reviews_api": 1,
+        "thread_graphql": 1,
+        "host_evaluator": 1,
+        "reactions_api": 0,
+        "legacy_core": 0
+      }
+    },
+    {
+      "row_id": "SFRG-017",
+      "input": {
+        "cli_args": {
+          "repository": "whatrune/sd-prompt-studio",
+          "pr": 229,
+          "head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001"
+        },
+        "transport": {
+          "timeline": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "9001",
+                  "event": "ready_for_review",
+                  "created_at": "2026-08-04T00:00:00Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:00:10Z"
+          },
+          "pr": {
+            "result": "ok",
+            "value": {
+              "state": "open",
+              "draft": false,
+              "head_sha": "c795f843de9a34a51b22152f75a13d907646c4b3",
+              "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229",
+              "source_observed_at": "2026-08-04T00:00:11Z"
+            }
+          },
+          "reviews": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "4801",
+                  "user": {
+                    "login": "chatgpt-codex-connector[bot]"
+                  },
+                  "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229#pullrequestreview-4801",
+                  "commit_id": "c795f843de9a34a51b22152f75a13d907646c4b3",
+                  "submitted_at": "2026-08-04T00:00:30Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:01:00Z"
+          },
+          "threads": {
+            "result": "ok",
+            "pages": [
+              {
+                "ordinal": 0,
+                "requested_after": null,
+                "end_cursor": "C1",
+                "has_next_page": false,
+                "head_ref_oid": "c795f843de9a34a51b22152f75a13d907646c4b3",
+                "source_observed_at": "2026-08-04T00:01:10Z",
+                "nodes": [
+                  {
+                    "thread_id": "T1",
+                    "is_resolved": false,
+                    "is_outdated": false
+                  }
+                ]
+              }
+            ]
+          },
+          "legacy_reactions": []
+        }
+      },
+      "expected": {
+        "result": {
+          "decision": "blocked",
+          "reason": "unresolved_non_outdated_thread"
+        },
+        "selected_review_id": "4801"
+      },
+      "calls": {
+        "timeline_api": 1,
+        "pr_api": 1,
+        "reviews_api": 1,
+        "thread_graphql": 1,
+        "host_evaluator": 1,
+        "reactions_api": 0,
+        "legacy_core": 0
+      }
+    },
+    {
+      "row_id": "SFRG-018",
+      "input": {
+        "cli_args": {
+          "repository": "whatrune/sd-prompt-studio",
+          "pr": 229,
+          "head": "c795f843de9a34a51b22152f75a13d907646c4b3",
+          "ready_event_id": "9001"
+        },
+        "transport": {
+          "timeline": {
+            "result": "ok",
+            "pages": [
+              [
+                {
+                  "id": "9001",
+                  "event": "ready_for_review",
+                  "created_at": "2026-08-04T00:00:00Z"
+                }
+              ]
+            ],
+            "source_observed_at": "2026-08-04T00:00:10Z"
+          },
+          "pr": {
+            "result": "ok",
+            "value": {
+              "state": "open",
+              "draft": false,
+              "head_sha": "c795f843de9a34a51b22152f75a13d907646c4b3",
+              "html_url": "https://github.com/whatrune/sd-prompt-studio/pull/229",
+              "source_observed_at": "2026-08-04T00:00:11Z"
+            }
+          },
+          "reviews": {
+            "result": "ok",
+            "pages": [
+              []
+            ],
+            "source_observed_at": "2026-08-04T00:01:00Z"
+          },
+          "threads": {
+            "result": "not_called"
+          },
+          "legacy_reactions": [
+            {
+              "id": "7001",
+              "user": {
+                "login": "chatgpt-codex-connector[bot]"
+              },
+              "content": "+1",
+              "created_at": "2026-08-04T00:00:30Z"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "result": {
+          "decision": "blocked",
+          "reason": "review_not_observed"
+        },
+        "selected_review_id": null
+      },
+      "calls": {
+        "timeline_api": 1,
+        "pr_api": 1,
+        "reviews_api": 1,
+        "thread_graphql": 0,
+        "host_evaluator": 1,
+        "reactions_api": 0,
+        "legacy_core": 0
+      }
+    }
   ]
 }

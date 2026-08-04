@@ -277,15 +277,45 @@ Closed contract、validator、builder、evaluator、integration taskでは、該
 
 Issue #163のAmendment 007でCheckpoint exact projectionの矛盾をfresh fetchした場合、`CR-01` / `CR-02`によりBackend Implementerは`architecture_gap + blocked`で停止する。Cumulative Architecture Amendment 002がArchitecture meaningをFreezeしても、Review findingは自動closeせず、Integrated Lead Resume Dispatchがない間は`CR-05`により`external_blocker + blocked`で再開しない。validなsame-task Resume Dispatch後だけ実装を再開できる。
 
-## Ready Review Terminal Observation Collector V1
+## Host-Level Ready Review Gate V1
 
-The Ready Review Terminal Observation Collector V1 has exactly two layers. Its
-owner-only production CLI adapter accepts exactly a repository identity, pull
-request number, full pull-request HEAD, and the direct canonical Ready
-Generation Record URL. The adapter privately constructs authenticated GitHub
-acquisition, normalizes the observations, and invokes the pure observation core
-once. Callers cannot inject or replace a port, callback, adapter, fixture, test
-mode, producer roster, policy option, preload hook, global hook, or
+The owner-only production CLI is a single superseding entry path. It accepts
+exactly `--repository OWNER/REPO`, `--pr POSITIVE_INTEGER`, `--head
+FULL_40_CHAR_LOWERCASE_SHA`, and `--ready-event-id POSITIVE_DECIMAL_ID`.
+`--ready-record` is an unknown argument. Dual mode, hidden discriminators,
+legacy fallback, caller-supplied transport, fixtures, preload hooks, and
+environment-selected scenarios are prohibited.
+
+The CLI reuses its authenticated `gh` read transport and the complete paginated
+`PullRequest.reviewThreads` GraphQL traversal. It acquires the exact Ready
+timeline event, open non-Draft PR and exact HEAD, then native submitted reviews
+from `chatgpt-codex-connector[bot]`. A `+1` reaction is not review evidence.
+Qualifying reviews are ordered by submission time and numeric review ID; the
+greatest tuple is the sole admitted review. After that review is observed, every
+thread page is acquired with its cursor, page observation time, and HEAD.
+
+The pure `evaluateHostLevelReadyReviewBarrierV1` receives only the closed
+in-process observation union. It performs no GitHub, clock, artifact Core,
+reaction, mutation, Merge, or protected-action operation. Its fixed
+first-failure order is CLI, Ready timeline, PR state and HEAD, review transport
+and binding, thread transport, per-page time and HEAD, cursor completeness,
+unresolved non-outdated threads, then `merge_allowed`. Terminal stdout is only
+the existing `MinimalReadyReviewBarrierResultV1`; no artifact or second
+authority representation is emitted.
+
+The prior Ready Review Terminal Observation Collector artifact path is
+`historical_at_prior_contract`. Its artifact Core, producer roster, canonical
+Ready-record, reaction receipt, and artifact-only stdout contracts remain in
+the repository for historical compatibility, but the replacement CLI neither
+invokes them nor treats them as current authority.
+
+### Historical Collector V1 contract
+
+The historical Ready Review Terminal Observation Collector V1 has exactly two
+layers. Its former owner-only adapter privately constructed authenticated GitHub
+acquisition, normalized the observations, and invoked the pure observation core
+once. Callers could not inject or replace a port, callback, adapter, fixture,
+test mode, producer roster, policy option, preload hook, global hook, or
 environment-selected scenario.
 
 The deterministic core accepts only the closed nine-field

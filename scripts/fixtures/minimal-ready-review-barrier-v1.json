@@ -1,0 +1,97 @@
+{
+  "contract_version": "minimal-ready-review-barrier-validation-v1",
+  "eligibility_matrix_version": "ready-review-normal-merge-eligibility-validation-v1",
+  "eligibility_concurrency_rows": [
+    {
+      "row_id": "MRRH-11",
+      "attempt_count": 2,
+      "shared_generation": true,
+      "distinct_attempt_ids": true,
+      "expected_eligible_count": 1,
+      "expected_duplicate_count": 1,
+      "expected_barrier_calls_per_attempt": 1,
+      "protected_execution_count": 0
+    }
+  ],
+  "eligibility_rows": [
+    { "row_id": "MRRH-01", "expected_kind": "normal_merge_commit_eligible", "expected_reason": null, "barrier_calls": 1 },
+    { "row_id": "MRRH-02", "expected_kind": "normal_merge_commit_eligible", "expected_reason": null, "barrier_calls": 1 },
+    { "row_id": "MRRH-03", "expected_kind": "merge_blocked", "expected_reason": "review_not_observed", "barrier_calls": 1 },
+    { "row_id": "MRRH-04", "expected_kind": "merge_blocked", "expected_reason": "review_timeout", "barrier_calls": 1 },
+    { "row_id": "MRRH-05", "expected_kind": "merge_blocked", "expected_reason": "unresolved_non_outdated_thread", "barrier_calls": 1 },
+    { "row_id": "MRRH-06A", "expected_kind": "merge_blocked", "expected_reason": "review_unknown", "barrier_calls": 1 },
+    { "row_id": "MRRH-06B", "expected_kind": "merge_blocked", "expected_reason": "review_not_observed", "barrier_calls": 1 },
+    { "row_id": "MRRH-06C", "expected_kind": "merge_blocked", "expected_reason": "review_unknown", "barrier_calls": 1 },
+    { "row_id": "MRRH-07A", "expected_kind": "rejected", "expected_reason": "stale_artifact", "barrier_calls": 1 },
+    { "row_id": "MRRH-07B", "expected_kind": "rejected", "expected_reason": "binding_mismatch", "barrier_calls": 1 },
+    { "row_id": "MRRH-07C", "expected_kind": "rejected", "expected_reason": "binding_mismatch", "barrier_calls": 1 },
+    { "row_id": "MRRH-07D", "expected_kind": "rejected", "expected_reason": "binding_mismatch", "barrier_calls": 1 },
+    { "row_id": "MRRH-08A", "expected_kind": "rejected", "expected_reason": "duplicate_invocation", "barrier_calls": 0 },
+    { "row_id": "MRRH-08B", "expected_kind": "rejected", "expected_reason": "duplicate_invocation", "barrier_calls": 0 },
+    { "row_id": "MRRH-09A", "expected_kind": "rejected", "expected_reason": "input_invalid", "barrier_calls": 0 },
+    { "row_id": "MRRH-09B", "expected_kind": "rejected", "expected_reason": "input_invalid", "barrier_calls": 0 },
+    { "row_id": "MRRH-10", "expected_kind": "merge_blocked", "expected_reason": "review_unknown", "barrier_calls": 1 }
+  ],
+  "rows": [
+    {
+      "row_id": "MRRB-01-merge-allowed",
+      "operation": "evaluate_barrier",
+      "artifact_case": "review_after_ready_clean",
+      "timeout_reached": false,
+      "expected": { "decision": "merge_allowed", "reason": null }
+    },
+    {
+      "row_id": "MRRB-02-review-not-observed",
+      "operation": "evaluate_barrier",
+      "artifact_case": "missing",
+      "timeout_reached": false,
+      "expected": { "decision": "blocked", "reason": "review_not_observed" }
+    },
+    {
+      "row_id": "MRRB-03-unsealed-artifact-rejected",
+      "operation": "evaluate_barrier",
+      "artifact_case": "unsealed",
+      "timeout_reached": false,
+      "expected": { "decision": "blocked", "reason": "review_unknown" }
+    },
+    {
+      "row_id": "MRRB-04-review-timeout",
+      "operation": "evaluate_barrier",
+      "artifact_case": "missing",
+      "timeout_reached": true,
+      "expected": { "decision": "blocked", "reason": "review_timeout" }
+    },
+    {
+      "row_id": "MRRB-05-observed-after-timeout",
+      "operation": "evaluate_barrier",
+      "artifact_case": "review_after_ready_clean",
+      "timeout_reached": true,
+      "expected": { "decision": "blocked", "reason": "review_timeout" }
+    },
+    {
+      "row_id": "MRRB-06-same-second-review",
+      "operation": "evaluate_barrier",
+      "artifact_case": "review_same_second_clean",
+      "timeout_reached": false,
+      "expected": { "decision": "merge_allowed", "reason": null }
+    },
+    {
+      "row_id": "MRRB-07-unresolved-non-outdated-thread",
+      "operation": "evaluate_barrier",
+      "artifact_case": "review_after_ready_open_thread",
+      "timeout_reached": false,
+      "expected": { "decision": "blocked", "reason": "unresolved_non_outdated_thread" }
+    },
+    {
+      "row_id": "MRRB-08-post-completion-thread",
+      "operation": "reconcile_completion",
+      "artifact_case": "review_after_completion_new_thread",
+      "timeout_reached": false,
+      "expected": {
+        "result": "completion_invalidated",
+        "reason": "new_same_head_technical_thread",
+        "new_thread_ids": ["THREAD-NEW-08"]
+      }
+    }
+  ]
+}

@@ -11,10 +11,15 @@ import {
   validateReadyReviewGenerationRecordV1,
   validateReadyReviewProducerRosterV1,
 } from '../src/continuous-orchestration/ready-review-terminal-observation-artifact-v1.ts'
+import {
+  HOST_LEVEL_READY_REVIEW_BARRIER_INPUT_V1,
+  evaluateHostLevelReadyReviewBarrierV1,
+} from '../src/continuous-orchestration/minimal-ready-review-barrier-v1.ts'
 
 const fixture = JSON.parse(await readFile('scripts/fixtures/ready-review-terminal-observation-collector-v1.json', 'utf8'))
 const productionSource = await readFile('scripts/run-ready-review-terminal-observation-collector-v1.mjs', 'utf8')
 const moduleSource = await readFile('src/continuous-orchestration/ready-review-terminal-observation-artifact-v1.ts', 'utf8')
+const barrierSource = await readFile('src/continuous-orchestration/minimal-ready-review-barrier-v1.ts', 'utf8')
 const packageJson = JSON.parse(await readFile('package.json', 'utf8'))
 const initialHead = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
 let assertions = 0
@@ -193,15 +198,100 @@ const betweenPages = clone(fixture.thread_pages)
 betweenPages[0].source_observed_at = '2026-08-01T00:20:00.300Z'
 await assertRejected(await buildCoreInput({ producerSources: mixedSources, pageSources: betweenPages, snapshotObservedAt: '2026-08-01T00:20:00.700Z' }), 'temporal_binding_invalid', 'threads', 'page between lexical and temporal maxima rejected')
 
+const executeLiteralHostRow = (row) => {
+  const transport = row.input.transport
+  const request = row.input.cli_args
+  const calls = { timeline_api: 0, pr_api: 0, reviews_api: 0, thread_graphql: 0, host_evaluator: 0, reactions_api: 0, legacy_core: 0 }
+  let selectedReviewId = null
+  const finish = (input) => {
+    calls.host_evaluator += 1
+    return { result: evaluateHostLevelReadyReviewBarrierV1(input), selectedReviewId, calls }
+  }
+  const failure = (stage, code) => finish({
+    input_version: HOST_LEVEL_READY_REVIEW_BARRIER_INPUT_V1,
+    observation: 'observation_failed', failure_stage: stage, failure_code: code,
+  })
+
+  calls.timeline_api += 1
+  if (transport.timeline.result !== 'ok') return failure('timeline', 'github_read_failed')
+  const timeline = transport.timeline.pages.flat()
+  const ready = timeline.find((event) => String(event.id) === request.ready_event_id && event.event === 'ready_for_review')
+  if (!ready) return failure('timeline', 'ready_event_missing_or_invalid')
+
+  calls.pr_api += 1
+  if (transport.pr.result !== 'ok') return failure('pr', 'github_read_failed')
+  const pull = transport.pr.value
+  if (pull.state !== 'open') return failure('pr', 'not_open')
+  if (pull.draft !== false) return failure('pr', 'draft')
+  if (pull.head_sha !== request.head) return failure('pr', 'head_mismatch')
+
+  calls.reviews_api += 1
+  if (transport.reviews.result !== 'ok') return failure('reviews', 'github_read_failed')
+  const reviews = transport.reviews.pages.flat()
+  const codex = reviews.filter((review) => review?.user?.login === 'chatgpt-codex-connector[bot]')
+  const headBound = codex.filter((review) => review.commit_id === request.head)
+  const qualified = headBound.filter((review) => Date.parse(review.submitted_at) >= Date.parse(ready.created_at))
+  if (qualified.length === 0) {
+    if (codex.some((review) => review.commit_id !== request.head)) return failure('reviews', 'review_head_mismatch')
+    if (headBound.some((review) => Date.parse(review.submitted_at) < Date.parse(ready.created_at))) return failure('reviews', 'review_before_ready')
+    return failure('reviews', 'review_not_observed')
+  }
+  qualified.sort((left, right) => Date.parse(left.submitted_at) - Date.parse(right.submitted_at) || Number(left.id) - Number(right.id))
+  const latest = qualified.at(-1)
+  selectedReviewId = String(latest.id)
+
+  calls.thread_graphql += 1
+  if (transport.threads.result === 'malformed') return failure('threads', 'page_malformed')
+  if (transport.threads.result !== 'ok') return failure('threads', 'github_read_failed')
+  calls.thread_graphql = transport.threads.pages.length
+  const pages = clone(transport.threads.pages)
+  const observedAt = pages.reduce((maximum, page) => Date.parse(page.source_observed_at) > Date.parse(maximum) ? page.source_observed_at : maximum, pages[0].source_observed_at)
+  return finish({
+    input_version: HOST_LEVEL_READY_REVIEW_BARRIER_INPUT_V1,
+    observation: 'observation_complete',
+    request: { repository: request.repository, pr_number: request.pr, pr_url: pull.html_url, exact_head: request.head },
+    ready_event: { event_id: request.ready_event_id, event_type: 'ready_for_review', occurred_at: ready.created_at, source_observed_at: transport.timeline.source_observed_at },
+    pull_request: { state: pull.state, draft: pull.draft, head_sha: pull.head_sha, source_observed_at: pull.source_observed_at },
+    review_observation: {
+      acquisition_completed_at: transport.reviews.source_observed_at,
+      latest: {
+        producer: latest.user.login, review_id: String(latest.id), review_url: latest.html_url,
+        reviewed_head: latest.commit_id, submitted_at: latest.submitted_at, source_observed_at: transport.reviews.source_observed_at,
+      },
+    },
+    thread_snapshot: { observed_at: observedAt, pages },
+  })
+}
+
+check(fixture.host_level_contract_version === 'host-level-ready-review-barrier-validation-v1', 'host-level contract version')
+check(fixture.host_level_rows.length === 18, '18 literal host rows present')
+check(fixture.host_level_rows.map((row) => row.row_id).join(',') === Array.from({ length: 18 }, (_, index) => `SFRG-${String(index + 1).padStart(3, '0')}`).join(','), 'host rows ordered and contiguous')
+for (const row of fixture.host_level_rows) {
+  const execution = executeLiteralHostRow(row)
+  check(JSON.stringify(execution.result) === JSON.stringify(row.expected.result), `${row.row_id} exact result`)
+  check(execution.selectedReviewId === row.expected.selected_review_id, `${row.row_id} selected review`)
+  check(JSON.stringify(execution.calls) === JSON.stringify(row.calls), `${row.row_id} exact call counts`)
+  check(frozen(execution.result), `${row.row_id} immutable result`)
+  check(Object.hasOwn(row.input, 'cli_args') && Object.hasOwn(row.input, 'transport'), `${row.row_id} standalone input`)
+}
+
 const badCli = spawnSync(process.execPath, ['scripts/run-ready-review-terminal-observation-collector-v1.mjs', '--repository', 'whatrune/sd-prompt-studio', '--pr', '220', '--head', '1'.repeat(40), '--fixture', 'x'], { encoding: 'utf8' })
 check(badCli.status !== 0 && badCli.stdout === '', 'caller fixture option rejected with no artifact')
+const legacyCli = spawnSync(process.execPath, ['scripts/run-ready-review-terminal-observation-collector-v1.mjs', '--repository', 'whatrune/sd-prompt-studio', '--pr', '229', '--head', '1'.repeat(40), '--ready-record', 'https://github.com/whatrune/sd-prompt-studio/issues/228#issuecomment-1'], { encoding: 'utf8' })
+check(legacyCli.status !== 0 && legacyCli.stdout === '', 'legacy --ready-record rejected with no second mode')
+check(/--ready-event-id/.test(productionSource) && !/allowed = new Set\([^\n]*--ready-record/.test(productionSource), 'replacement CLI argument surface')
+check(/ghPaginated\(`repos\/\$\{request\.repository\}\/issues\/\$\{request\.prNumber\}\/timeline/.test(productionSource), 'existing timeline read retained')
+check(/reviewThreads\(first:100,after:\$cursor\)/.test(productionSource), 'GraphQL all-page thread path retained')
+check(/evaluateHostLevelReadyReviewBarrierV1/.test(productionSource), 'CLI necessarily invokes host-level pure evaluator')
+check(!/evaluateReadyReviewTerminalObservationCoreV1|canonicalizeReadyReviewObservationJcsV1|parseYaml|reactions\?per_page|producer_roster_source/.test(productionSource), 'legacy artifact Core roster Ready-record reaction authority unreachable')
 check(!/--import|preload|COLLECTOR_V1_SCENARIO|process\.env|globalThis\[[^\]]+\]/.test(productionSource), 'production transport has no preload, global, or environment scenario hook')
 check(!/ownerPorts|owner_ports|callback|transportOption|fixturePath|testMode/.test(productionSource), 'production transport has no caller-supplied owner seam')
-check(!/export\s+(?:class|function|const)\s+OwnerOnlyReadyReviewObservationTransportAdapterV1/.test(productionSource), 'owner adapter construction is module-private')
-check((productionSource.match(/new OwnerOnlyReadyReviewObservationTransportAdapterV1\(/g) ?? []).length === 1, 'one production CLI constructs the owner adapter exactly once')
-check(productionSource.includes('evaluateReadyReviewTerminalObservationCoreV1(coreInput)'), 'production CLI adapter necessarily invokes pure Core')
+check(!/OwnerOnlyReadyReviewObservationTransportAdapterV1/.test(productionSource), 'historical adapter is unreachable from replacement CLI')
+check(productionSource.includes('JSON.stringify(await runHost(request))'), 'one production CLI invokes the replacement host exactly once')
+check(!productionSource.includes('evaluateReadyReviewTerminalObservationCoreV1'), 'replacement CLI does not invoke historical artifact Core')
 check(!productionSource.includes('scripts/fixtures/'), 'production graph has no fixture reachability')
 check(!/node:child_process|process\.|Date\.now\(|new Date\(|fetch\(|XMLHttpRequest/.test(moduleSource), 'pure Core module has no transport, environment, or clock read')
+check(!/node:child_process|process\.|Date\.now\(|new Date\(|fetch\(|XMLHttpRequest|ghJson|ghPaginated/.test(barrierSource), 'host-level evaluator module has no transport, environment, or clock read')
 check(!/Completion|GateStatus|merge_allowed|stop_reason|violation_classification/.test(moduleSource), 'Core module excludes evaluator responsibilities')
 check(packageJson.scripts['test:ready-review-terminal-observation-collector'] === 'node scripts/test-ready-review-terminal-observation-collector-v1.mjs', 'focused package script registered')
 check(execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim() === initialHead, 'focused test does not change HEAD')
