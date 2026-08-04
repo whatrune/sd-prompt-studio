@@ -9,125 +9,49 @@ uses: assignment_shape, result_handoff_shape, handoff_status, shared_admission, 
 
 ## Purpose
 
-このContractはDevelopment routing dependencyとgateだけを定義する。共通実行規則は[Shared Role Execution Contract](13-shared-role-execution-contract.md)、Review規則は[Review Execution Contract](14-review-execution-contract.md)をconsumeし、completion semanticsを再定義しない。
+This document selects the development Role and routing path. It does not redefine shared execution, assignment fields, handoff fields, or review behavior.
 
 ## Standard Flow
 
-```text
-Product Owner Request
-        |
-        v
-Integrated Lead intake and classification
-        |
-        v
-Repository Reality Check
-        |
-        v
-Architect Team design / freeze
-        |
-        v
-Integrated Lead verifies implementation-ready freeze
-        |
-        +--> Backend Implementer
-        +--> Frontend Implementer
-        +--> Worker
-        |
-        v
-Architect Review
-        |
-        v
-Integrated Lead verifies integrated completion
-        |
-        v
-Product Owner merge decision
-        |
-        v
-Authorized Merge operation
-```
+1. Integrated Lead classifies the request and preserves the canonical objective and Issue Scope.
+2. Architect Team performs the Repository Reality Check and freezes external contracts when architecture meaning is involved.
+3. Integrated Lead creates or verifies the canonical Task Assignment and routes it to one Implementer or Worker Role.
+4. The assignee works within the frozen scope and publishes a Result Handoff.
+5. The assigned independent reviewer applies the Review Execution Contract.
+6. Corrections return to the same task until the review and validation gates are terminal.
+7. Protected actions follow the Shared Role Execution Contract.
 
-Contract変更とImplementationは別Taskとする。Architecture前のRepository Reality Checkが未完了、必要項目が`UNKNOWN`、Freezeが存在しない、外部Contractに複数解釈が残る、またはFreezeとRealityが衝突する場合はImplementationへRoutingしない。
+Implementation MUST NOT be routed when the Repository Reality Check is incomplete, a required fact is `UNKNOWN`, no applicable freeze exists, an external contract has multiple meanings, or frozen architecture conflicts with fresh Repository Reality.
 
 ## Routing Matrix
 
-| Work | Primary role | Review / consultation |
+| Work | Primary Role | Independent review |
 | --- | --- | --- |
-| Architecture、Contract、PR分割 | Architect Team | 影響を受けるImplementer |
-| Backend Architecture、API境界、Backend技術判断 | Backend Architect | Architect Team |
-| Freeze済みBackend仕様の実装 | Backend Implementer | Backend Architect |
-| UI、React、State、UX、Frontend Test | Frontend Implementer | Design Reviewer、API影響時Backend Architect |
-| 調査、一覧化、Markdown整理、Test Matrix、定型更新 | Worker | Assigning Role |
-| PR Contract Review | Architect Team | 必要に応じ専門Reviewer |
-| Merge判断 | Product Owner | Integrated Leadが状態を統合報告 |
+| Architecture, public API boundary, contract meaning, responsibility ownership | Architect Team | separate Architect reviewer |
+| Backend implementation, validator, storage, artifact processing | Backend Implementer | Backend Architect or assigned implementation reviewer |
+| Frontend implementation, interaction, accessibility, UI state | Frontend Implementer | Design Reviewer; Backend Architect also when backend contracts are affected |
+| Mechanical documentation, inventory, metadata-only correction | Worker | assigned reviewer appropriate to the artifact |
+| Research observation or claim work | applicable Research Operations Role | applicable Research reviewer |
 
-## Intake Rules
+A Role MUST NOT be selected merely because it can technically edit the target file. Selection follows decision ownership and frozen scope.
 
-Integrated Leadは依頼を受けたら次を順に確認する。
+## Task Boundaries
 
-1. Product上の目的と観測可能な成功条件
-2. Contract変更かFreeze済み仕様の実装か
-3. Backend、Frontend、Workerの作業境界
-4. 依存PR、Normative Source、Review Owner
-5. Product Ownerへ戻す判断の有無
-6. Repository Reality Checkに必要なowner、host、entrypoint、caller、consumer、file、symbolと`UNKNOWN`の有無
+- Contract change and implementation are separate assignments.
+- Architecture Review and Implementation Review are separate review responsibilities.
+- A task MUST identify one primary objective, allowed and forbidden scope, exact base or HEAD, branch and worktree, expected outputs, validation, and review owner.
+- Issue Scope MUST NOT expand during correction.
+- A same-purpose, same-scope gap or review correction MUST return to the same task, branch, worktree, and PR.
+- A genuinely new objective or externally visible contract change requires Architect Team and Product Owner routing; this contract does not authorize creation of that new task.
 
-## Freeze Verification Gate
+## Return Routes
 
-Implementation Assignment前に次を確認する。
+| Condition | Route |
+| --- | --- |
+| Missing or conflicting external contract; Reality mismatch | Architect Team as `architecture_gap` |
+| Internal implementation choice within frozen behavior | assigned Implementer |
+| Review finding | same task and assignee, then the same review authority for closure |
+| Missing authority or unavailable external system | responsible owner as `external_blocker` |
+| Product trade-off or Merge decision | Product Owner |
 
-- Normative ContractとVersionが一意
-- Allowed / Forbidden Changesが明示
-- Required BehaviorとFailure Behaviorが決定的
-- Acceptance CriteriaとValidation commandが存在
-- 未決定事項がImplementerへ委譲されていない
-- Existing Run、Research Artifact、Schemaへの影響が明記
-- owner、runtime host、public production entrypoint、caller、consumer、file、symbolが実在するrepository evidenceへbindingされている
-- 必要項目に`UNKNOWN`がない
-
-不成立の場合はArchitect Teamへ返却する。
-
-## Assignment Rules
-
-- 一つのTaskに一つのPrimary Roleを割り当てる。
-- BackendとFrontendの両変更が必要な場合は、Contract依存関係を確定して別Taskへ分割する。
-- WorkerへArchitecture、Contract、Product判断を割り当てない。
-- public Contractを変えない内部実装詳細は該当Implementerへ委ね、Architecture Taskへ戻さない。
-- Reviewは実装担当と分離する。
-- 各Taskは[`11-delegation-and-result-contract.md`](11-delegation-and-result-contract.md)に従う。
-
-## Completion Gate
-
-Development Taskのcompletion semanticsとevidenceはShared Role Execution Contract、Review completionはReview Execution Contractが所有する。本Routing Contractでは、Product Ownerへ統合報告する前に次のrouting dependencyが閉じていることだけを確認する。
-
-- Freeze済み仕様が参照可能
-- 必要なImplementation HandoffとReview Decisionがcanonical locationに存在
-- open findingと未確認事項がHandoff statusから隠されていない
-- Product Owner判断事項が明示
-- Ready for Review completion、current Ready-triggered review terminal、terminal後のthread snapshot、exact HEAD一致が確認済み
-
-Checks未完了、current Ready-triggered Review未terminal、thread未取得、exact HEAD不一致、Critical Findingありの場合はMerge Readyと報告しない。Review Taskが`completed + needs_followup`でも、review対象のfindingがopenならProduct Ownerへfollow-upとしてRoutingする。`Ready < Merge < Review terminal`となる操作順序を禁止する。
-
-## Prohibited Routing
-
-- Integrated LeadがArchitectureやContractを確定する
-- Integrated Leadが実装を引き取る
-- Implementerが未定義仕様を補完する
-- WorkerがArchitecture判断する
-- Frontend都合でBackend Contractを変更する
-- Backend都合でResearch Contractを変更する
-- Product Owner承認なしでMergeまたはRevertする
-- Product OwnerのMerge判断とMerge操作を同一authorityとして扱う
-- Gap対応でIssue Scopeを拡張し、同じ目的とScopeの作業を新Taskへ分割する
-
-## Example
-
-依頼「この機能をマージ可能な状態まで進めて」は、次のように分解する。
-
-1. Integrated Leadが目的、現状、未決定事項を確認する。
-2. Contract未FreezeならArchitect TeamへRoutingする。
-3. Freeze後、BackendまたはFrontend ImplementerへTask Assignmentする。
-4. 専門ReviewerへReviewを依頼する。
-5. Ready完了、Ready-triggered review terminal、全thread、exact HEAD、Checks、Mergeability、Critical Findingを統合する。
-6. Merge可否と判断事項をProduct Ownerへ返す。
-7. Product Ownerがexact HEADのMergeを許可した後、別のauthorized Merge operatorが操作する。
-
-Integrated LeadはStep 3の実装、Step 6のMerge判断、Step 7のMerge操作を代行しない。ただしStep 7のoperatorとして明示的に指定された場合だけ、判断記録を変更せず操作できる。
+Stop reason, Resume authority, completion evidence, canonical record admission, and protected actions MUST use the [Shared Role Execution Contract](13-shared-role-execution-contract.md). Review MUST use the [Review Execution Contract](14-review-execution-contract.md). Assignment and Result Handoff fields MUST use the [Delegation and Result Contract](11-delegation-and-result-contract.md).

@@ -9,107 +9,36 @@ uses: role_taxonomy, decision_ownership, shared_admission, protected_actions, te
 
 ## Mission
 
-Frontend Implementerは、承認済みUI ContractとBackend API Contractに従い、ユーザーが目的の操作を安全に完了できるUIを実装する。FrontendはResearch判断、Backend Validation、Canonical Data Mutationを代替しない。
-
-本CharterはFrontend Implementer固有のUI、API、Preview、escalation、evidence deltaだけを定義し、共通実行規則は[Shared Role Execution Contract](13-shared-role-execution-contract.md)をconsumeする。
+Frontend Implementer delivers the assigned user-facing behavior, accessibility, state handling, and frontend validation without changing frozen backend or research contracts.
 
 ## Required Inputs
 
-- Roleが`Frontend Implementer`であるTask Assignment
-- User objectiveと操作単位のAcceptance Criteria
-- UI DesignまたはComponent Boundary
-- Backend API / Read Model Contract
-- FixtureまたはPreview data boundary
-- Allowed / Forbidden Changes
-- PreviewとTest要件
-- Repository Reality Check済みで、対象UI host、entrypoint、caller、consumer、file、symbolに必要な`UNKNOWN`がないFreeze evidence
+Work MUST NOT begin without the canonical Task Assignment, user-visible objective, acceptance actions and expected results, frozen data and API contracts, exact base, branch and worktree binding, allowed and forbidden scope, validation requirements, review owner, and required Repository Reality evidence. Shared admission and stop behavior come from the [Shared Role Execution Contract](13-shared-role-execution-contract.md).
 
-外部Contractの不足またはFreeze済みArchitectureとRepository Realityの不一致がある場合は実装を開始せず、Issue Scopeを変えずに同じTaskへ`architecture_gap`として返却する。authority recordやruntimeを取得できない外部条件は`external_blocker`として区別する。
+## Frontend Responsibilities
 
-## Responsibilities
+- Implement the assigned interaction, rendering, state transitions, persistence, restoration, loading, empty, and error behavior.
+- Preserve existing responsive behavior, active state, scrolling, keyboard access, semantic structure, synchronization, saved data, and compatibility.
+- Keep UI adaptation separate from backend contract meaning.
+- Validate the user action sequence and expected result, not only component structure.
+- Record Preview or screenshot evidence when the task requires it and bind that evidence to the reviewed exact HEAD.
 
-### UI and React
+## Implementation Discretion
 
-- Component責務とDOM hierarchyの実装
-- Accessibilityと操作可能性の維持
-- Loading、Empty、Unavailable、Error状態の表示
-- Dark / Light Modeとresponsive behaviorの維持
-- Existing Component、Theme、UI Frameworkの再利用
-
-### State Management
-
-- Domain Stateと表示上の一時Stateを分離する。
-- Server/Index由来StatusをFrontendで再計算しない。
-- 保存・復元・対象切替時のState同期を確認する。
-- Prompt Builder StateとResearch Workspace Stateを混在させない。
-
-### API Integration
-
-- Backendが定義したField、Version、Error、Statusだけを利用する。
-- API unavailableとArtifact unavailableを区別して表示する。
-- Backend Hashを表示する場合は既存名称と値をそのまま扱う。
-- Research Explorerなどread-onlyと定義されたAPIへMutationを追加しない。
-
-### Frontend Tests
-
-- User操作と観測可能な結果でTestを書く。
-- Active、scroll、state restore、error、empty stateを確認する。
-- UI Contract regression testを維持する。
-- UI変更では可能な限りPreviewを実操作して確認する。
-
-Component分割、private state helper、module配置、同値なevent handling、test fixture構成など、承認済みUI/API Contractとobservable behaviorを変更しない内部実装詳細はFrontend Implementerが決定する。これらをArchitecture Gapとして扱わない。
+When observable behavior and public contracts are frozen, Frontend Implementer MAY choose internal component boundaries, hooks, local state organization, private types, CSS structure, and equivalent interaction implementation. These choices MUST NOT change backend fields, status, identity, research meaning, persistence format, or cross-Role authority.
 
 ## Prohibited Actions
 
-- 表示都合でBackend Contract、Schema、Status、Error codeを変更する。
-- API仕様を独自拡張し、Backend未定義Fieldへ依存する。
-- 未定義のDomain Data構造やUI専用Research Hashを作成する。
-- ValidatorやPipeline Status判定をFrontendで再実装する。
-- Canonical Knowledge、Observation、Evidence、Research Artifactを直接編集する。
-- Fixtureを実Research Dataとして公開bundleへ含める。
-- UIでClaim、Interpretation、Human Resolutionを暗黙生成する。
+Frontend Implementer MUST NOT:
 
-## Backend Contract Change Request
+- redefine backend, research, or product meaning to simplify the UI;
+- hide invalid or unresolved state through presentation;
+- use overlays, fixed heights, negative offsets, or excessive stacking as a substitute for correcting the responsible DOM or scroll structure;
+- expand Issue Scope or move a same-scope correction to a new task; or
+- claim validation from a stale Preview or a different HEAD.
 
-Frontend要件が現在のAPIで満たせない場合、APIを独自拡張せず次をArchitect Teamへ返す。
+## Escalation and Completion
 
-```markdown
-## Frontend-to-Backend Contract Request
+A missing external contract or fresh Repository Reality mismatch MUST be returned as an `architecture_gap` on the same task. An unavailable Preview, authority source, or required environment MUST be reported as an `external_blocker`. Internal UI implementation choices remain with the Frontend Implementer.
 
-- User operation:
-- Current API limitation:
-- Required information or behavior:
-- Why a frontend-only solution is unsafe:
-- Backward-compatibility concern:
-- Proposed acceptance case:
-```
-
-Backend API、Schema、新しいData Contract / Status / Error / Hash、またはUIだけでは決められないfallbackが必要な場合は、exact gapとuser operationへの影響を記録する。確認先は、UI判断ならDesign Reviewer、Backend APIまたはSchemaならBackend Architect、Role横断判断ならArchitect Teamとする。stop reasonとresume条件はShared Role Execution Contractを再掲せず適用する。
-
-freshなUI実装調査がFreeze済みhost、entrypoint、caller、consumer、file、symbolと一致しない場合もReality mismatchとして同じTaskへ返す。Gap対応でIssue Scopeを拡張しない。
-
-## Review Evidence
-
-Frontend完了報告には、該当する範囲で次を添付する。
-
-- Preview URLと対象commit SHA
-- 実施した操作
-- Screenshotまたは目視確認結果
-- Console warning/error
-- Dark / Light Mode
-- 狭い画面幅
-- scroll containerとactive state
-- Test / build結果
-
-実際に確認していない項目は`未確認`と記載し、成功と断定しない。
-
-## Frontend Completion Gate
-
-- [ ] Shared Role Execution Contractのcompletion evidenceとtesting baselineを満たしている。
-- [ ] User objectiveを操作として完了できる。
-- [ ] Backend Contractを変更または再実装していない。
-- [ ] Existing Stateと保存互換性を維持している。
-- [ ] Error / Empty / Loading状態を確認している。
-- [ ] Preview確認結果または未確認理由がある。
-
-完了報告は[Handoff Template](06-handoff-template.md)を使用する。
+Completion requires the assigned behavior, focused tests, required regression and accessibility checks, applicable exact-HEAD Preview evidence, changed-file scope check, and canonical Result Handoff. UI review applies the UI delta in [AGENTS.md](../../AGENTS.md#ui-review-delta) and the [Review Execution Contract](14-review-execution-contract.md).

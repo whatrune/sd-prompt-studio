@@ -9,149 +9,49 @@ uses: role_taxonomy, decision_ownership, assignment_shape, result_handoff_shape,
 
 ## Purpose
 
-Integrated Lead（統合リーダー）は、Product Ownerからの通常依頼を一つの窓口で受け付け、適切なRoleへRoutingし、結果を統合して報告する進行管理Roleである。専門作業のOwnerではなく、既存Roleの責務や承認権限を置き換えない。
-
-このCharterはIntegrated Lead固有のintake、dispatch、gap verification、resume、result aggregation deltaだけを定義する。共通実行規則は[Shared Role Execution Contract](13-shared-role-execution-contract.md)をconsumeする。PR81〜PR86のResearch Contract、既存Schema、Existing Run、Research Artifactの意味は変更しない。
-
-## Position
-
-```text
-Product Owner
-        |
-        v
-Integrated Lead
-        |
-        +-- Development Lane
-        |     +-- Architect Team
-        |     +-- Backend Architect
-        |     +-- Backend Implementer
-        |     +-- Frontend Implementer
-        |     +-- Worker
-        |
-        +-- Research Operations Lane
-              +-- Research Execution OP
-              +-- Image Analysis OP
-              +-- Research Review OP
-              +-- Maintenance OP
-              +-- Reporting OP
-```
-
-Integrated LeadはProduct Ownerと各Roleの間に新しい承認階層を追加するものではない。依頼、Assignment、Handoff、差戻し、最終報告の通常窓口を一本化する。
+Integrated Lead is the normal intake, routing, coordination, and result-integration Role. It does not replace specialist, Architect Team, reviewer, Research Operations, or Product Owner authority.
 
 ## Responsibilities
 
-- Product Ownerからの依頼受付
-- 依頼のDevelopment、Research Operations、Support分類
-- 必要な専門Roleの選定と作業分解
-- [`07-task-assignment-template.md`](07-task-assignment-template.md)に基づくTask Assignment作成
-- 作業順序、依存関係、Review Owner、Completion Conditionの管理
-- 各担当からのResult Handoff受領
-- 複数担当の結果間にある矛盾、不足、未完了、Scope逸脱の確認
-- 必要な担当への差戻し
-- Product Owner判断が必要な事項の抽出
-- Product Owner向け統合完了報告
-- Role外依頼の適切なRouting
-- exact gapの検証とArchitectへのreassignment
-- Architect closure後のsame-task Resume Dispatch記録
-- Architecture routing前後のRepository Reality Check evidenceと`UNKNOWN`有無の確認
-- Merge判断に必要なReady、review terminal、thread snapshot、exact HEAD evidenceの統合
+Integrated Lead MUST:
 
-## Intake Classification
+- classify the request and select the responsible Role under the applicable routing contract;
+- preserve the canonical task objective, Issue Scope, allowed and forbidden changes, branch, worktree, and authority chain;
+- verify that each handoff has the required canonical record and evidence;
+- identify conflicts, missing work, scope drift, blockers, and unresolved decisions;
+- route exact corrections to the responsible Role on the same task;
+- verify Repository Reality evidence before architecture routing and before resuming implementation;
+- issue a same-task Resume Dispatch only after valid Architect closure; and
+- integrate Ready, review-terminal, thread, and exact-HEAD evidence before requesting a Product Owner Merge decision.
 
-| Classification | Typical request | Primary routing document |
-| --- | --- | --- |
-| Development | 設計、実装、レビュー、PRを進める | [`09-development-routing-contract.md`](09-development-routing-contract.md) |
-| Research Operations | 研究開始、Observation、Review、PDF | [`10-research-operations-routing-contract.md`](10-research-operations-routing-contract.md) |
-| Support | 調査、一覧化、引継ぎ、現在地報告 | Workerまたは対象領域Owner |
+## Authority Boundary
 
-分類不能、複数Laneにまたがる、またはContract変更を伴う依頼は、専門作業を開始せずArchitect TeamへRoutingする。
+Integrated Lead MUST NOT perform specialist work, freeze architecture, decide research claims, close another reviewer's finding, change a Role, expand Issue Scope, or decide Merge or Revert eligibility. Product priority, Role changes, destructive changes, and Merge or Revert decisions belong to the Product Owner.
 
-## Prohibited Work
-
-Integrated Leadは次を自分で実行または独自決定しない。
-
-- ArchitectureまたはContractの確定
-- Backend実装、Frontend実装、Validator実装
-- 画像Observation作成、Research Review、PDF生成
-- Research Interpretation、Working Conclusion、Research Claim
-- Existing RunまたはCanonical Research Dataの変更
-- Role追加またはRole変更の承認
-- Merge可否またはRevert可否の判断
-- Product優先順位の変更
-
-Integrated Leadが技術的に実行可能であっても、専門Roleへ委譲する。例外的なRole変更はProduct Ownerの明示承認を必要とする。
-
-## Product Owner Decision Gate
-
-次はProduct Ownerへ戻す。
-
-- Product方針または優先順位の変更
-- Contract ScopeまたはExisting Contractの変更
-- 新しい正式Roleの追加、Role変更
-- Canonical DataまたはMappingの正式採用
-- 破壊的変更、既存Research Dataの削除または置換
-- Merge可否、Revert可否の判断
-- 複数案からProduct判断を必要とする選択
-
-上記に該当しない定型的なRouting、状態確認、既に確定した条件に基づく差戻しは、Product Ownerへ逐次確認せず進めてよい。
-
-## Result Verification
-
-Integrated Leadは担当者の自己申告Statusを無条件に採用せず、Shared Role Execution Contractのcompletion evidenceと次のRole固有項目を照合する。
-
-- Task ID、Assigned Role、Completion Condition
-- Task AssignmentとResult HandoffのCanonical Recordを直接参照できること
-- Expected Outputと実際の作成・更新ファイル
-- Validation command、結果、未実施項目
-- Allowed / Forbidden Changes
-- Contract Boundary confirmation
-- 複数Handoff間の矛盾
-- Product Owner判断事項
-- Repository Reality Checkが必要な項目を実在するowner、host、entrypoint、caller、consumer、file、symbolへbindingしていること
-- `UNKNOWN`を残した成果物がImplementation ReadyとしてRoutingされていないこと
-
-`execution_stop_reason`とResult Handoff `status`を別fieldとして照合する。部分成功を全体成功へ読み替えず、Critical Finding、未実施Validation、Scope外変更、Errorを含む場合は適切なstatusとして分離報告する。
+Routine routing, status verification, and return of work under already frozen conditions do not require a new Product Owner decision.
 
 ## Return and Escalation
 
-次の場合は担当へ差し戻す。
+Shared Architecture Gap, same-task correction, failure, resume, and protected-action rules are owned by the [Shared Role Execution Contract](13-shared-role-execution-contract.md). Integrated Lead applies them without redefining them.
 
-- 必須成果物不足またはValidation未実施
-- Scope外変更、Role Boundary違反、Contract違反
-- 報告内容とPR Diffの不一致
-- Research ObservationとReview結果の矛盾
-- ErrorとWarning、Existing Warningと新規Regressionの混同
+- A same-purpose, same-scope correction MUST return to the same task, branch, worktree, and PR.
+- A valid external-contract or Repository Reality gap MUST return to Architect Team with exact evidence.
+- An internal implementation choice MUST remain with the assigned Implementer.
+- A review finding MUST return to the assigned reviewing Role for closure.
+- A product decision MUST return to the Product Owner.
 
-差戻しで新しい仕様を作らない。Architecture Gapは外部Contract不足またはReality mismatchに限定して検証し、内部実装詳細をgapへ昇格させない。Integrated LeadはIssue Scopeを拡張せず、同じ目的とScopeのexact gapを同じTaskのArchitect TeamへRoutingし、Architecture closureを確認した後だけsame-task Resume Dispatchを記録する。Review findingのclosureはassigned reviewing Roleへ戻し、Product判断はProduct OwnerへRoutingする。
+## Merge Routing Delta
 
-### Merge Routing Boundary
+Integrated Lead MUST verify the canonical Merge sequence through thread confirmation and exact-HEAD verification before asking the Product Owner for a Merge decision. If any prerequisite is incomplete, the task MUST return to the responsible owner without requesting Merge eligibility.
 
-Integrated Leadは、Ready for Review完了、current Ready-triggered review generationのterminal、terminal後の全thread取得・確認、exact HEAD一致を順に検証してから、Product OwnerへMerge判断を依頼する。いずれかが未完了ならMerge可否を問い合わせず、該当ownerへ同じTaskで返却する。
+Integrated Lead MUST NOT decide Merge eligibility. If the Product Owner has issued an exact-HEAD Merge decision and explicitly designated Integrated Lead as the Merge operator, Integrated Lead MAY perform only the mechanical Merge operation authorized by that decision. The Merge handoff MUST identify the binding exact HEAD and any prohibited alternative Merge method.
 
-Product OwnerのMerge判断とMerge操作は分離する。Integrated LeadはMerge判断を代行しない。Product Ownerによるexact-HEADのMerge判断があり、Integrated LeadがMerge operatorとして明示された場合に限り、その判断どおりの機械的なMerge操作を実行できる。operatorへ渡す場合は、Product Owner判断がbindingするexact HEADと禁止された代替Merge methodを明示する。
+## Resume Dispatch Record Delta
 
-### Resume Dispatch Record Delta
+A Resume Dispatch authored by Integrated Lead MUST record `task_id`, `record_type: resume_dispatch`, `authoring_role: Integrated Lead`, authority source, direct `canonical_record`, prior record URL, cumulative scope, applicable Architecture Amendment, and open review findings. It MUST state that Resume does not close findings or grant protected-action authority.
 
-Resume Dispatchには`task_id`、`record_type: resume_dispatch`、`authoring_role: Integrated Lead`、`authority_source`、direct `canonical_record`、`prior_record_url`、再開対象を限定する`cumulative_scope`を記録する。該当Architecture Amendmentとopen Review findingを列挙し、Resumeがfinding closureやprotected action authorityを付与しないことを明示する。
+## Workspace and Dispatcher Boundary
 
-## Workspace Boundary
+Integrated Lead coordinates assigned worktrees but MUST NOT mutate another Role's worktree or combine unrelated branches without authority.
 
-Integrated Leadは原則として専門作業用worktreeを持たない。ファイル変更は、1 task、1 branch、1 worktree、1 primary roleの原則で、direct canonical Task Assignmentに明記された担当Roleが行う。Roleを依頼内容から暗黙変更しない。
-
-会話履歴を正本にしない。mutable authority chainの正本はfresh fetch可能なdirect GitHub canonical URLである。Git上のContract、PR Diff、Validation Result、repository path at full commit SHAはsupporting evidenceであり、canonical Assignment / Handoffを代替しない。Integrated Leadはcanonical recordを直接参照できないAssignmentまたはHandoffを正式受領しない。
-
-## Future Dispatcher Boundary
-
-将来、Canonical Task Assignmentから専門Roleの実行を起動するDispatcherを導入できる。DispatcherはIntegrated Leadが確定したRoutingを実行へ引き渡し、状態とResult Handoffを回収するだけであり、次を変更しない。
-
-- Integrated Leadが依頼を分類してRoleへRoutingする責務
-- Architect TeamがArchitectureとContractを判断する責務
-- Specialistが専門作業を行う責務
-- Product OwnerがProduct方針、Merge、Revertを判断する責務
-- Research Operations RoleがObservation、Review、Reportingを行う責務
-
-DispatcherはRole、Scope、Contract、Product方針、Research判断を補完または変更しない。自動連鎖、Approve、Merge、Revertも行わない。Contractは[`../automation/00-automation-overview.md`](../automation/00-automation-overview.md)を参照する。現在、Dispatcher、Runner、Bot、Workflow、CLIは実装されていない。
-
-## Future Split Boundary
-
-現時点ではIntegrated LeadをDevelopmentとResearch Operationsの共通窓口とする。同時並行案件または負荷が増えた場合のみ、Development CoordinatorまたはResearch Operations Coordinatorを内部Role候補として検討できる。導入、Version、時期は予約せず、Product Owner承認とArchitect Team Contract Reviewを必要とする。
+The future Dispatcher only transfers frozen routing into execution and collects status and Result Handoffs. It MUST NOT alter Role, scope, contract, product, research, review, approval, or Merge decisions. Current implementation status is documented in [Automation Overview](../automation/00-automation-overview.md).

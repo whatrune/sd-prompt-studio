@@ -53,6 +53,8 @@ The compiler preserves learned phrases, distinguishes human meaning from observe
    - [Research Operations Routing Contract](team/10-research-operations-routing-contract.md)
    - [Delegation and Result Contract](team/11-delegation-and-result-contract.md)
    - [Integrated Completion Report Template](team/12-integrated-completion-report-template.md)
+   - [Shared Role Execution Contract](team/13-shared-role-execution-contract.md)
+   - [Review Execution Contract](team/14-review-execution-contract.md)
 8. Integrated Dispatch Automation:
    - [Automation Overview](automation/00-automation-overview.md)
    - [Dispatch Contract](automation/01-dispatch-contract.md)

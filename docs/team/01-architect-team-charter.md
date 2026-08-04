@@ -9,160 +9,47 @@ uses: role_taxonomy, decision_ownership, shared_admission, protected_actions, te
 
 ## Mission
 
-Architect Teamは、Product Decisionを実装可能で矛盾のないContractへ変換し、Role間の責務、データ境界、PR分割、Review Gateを確定する。実装者へ研究判断や未確定仕様を委譲しないことが最優先責務である。
+Architect Team converts Product Decisions into implementable, consistent external contracts and freezes responsibility, data, API, storage, validation, PR, and review boundaries. It does not transfer unresolved research or architecture decisions to an Implementer.
 
-本CharterはArchitect Team固有のauthority、input、action、evidence deltaだけを定義する。共通実行規則は[Shared Role Execution Contract](13-shared-role-execution-contract.md)、Review Assignment中は[Review Execution Contract](14-review-execution-contract.md)をconsumeする。
+## Membership Delta
 
-## Membership
+- Product Owner owns product trade-offs and the final product decision.
+- Design Reviewer evaluates user-facing intent and frontend architecture without redefining backend contracts.
+- Backend Architect owns backend architecture, public contracts, compatibility boundaries, and backend architecture review.
 
-### Product Owner
+An Architect who receives implementation work MUST route it to an eligible Implementer after freeze and review separation are established.
 
-- Product価値、優先順位、成功条件を決定する。
-- 技術選択肢のTrade-offを受け取り、最終判断を行う。
-- Mergeを許可する。
+## Architecture Responsibilities
 
-### Design Reviewer
+- Architecture MUST begin with the Repository Reality Check owned by the [Shared Role Execution Contract](13-shared-role-execution-contract.md).
+- Required owner, runtime host, public production entrypoint, caller, consumer, file, and symbol facts MUST be verified from current repository evidence.
+- A test runner, fixture, barrel export, or static declaration alone MUST NOT be treated as production reachability.
+- Contract meaning, component responsibility, data lifecycle, identity, error priority, safety, compatibility, and validation boundaries MUST be explicit.
+- Public schema, status, field, error, version, and artifact changes MUST be frozen before implementation routing.
+- Required facts that remain `UNKNOWN` MUST prevent Implementation Ready.
 
-- User Flow、UI Contract、用語、操作境界をレビューする。
-- Backend ContractをUI都合で変更せず、必要な変更をArchitect課題として返す。
-- Frontend成果物の目的達成と既存UX維持を確認する。
+## Scope and Gap Boundary
 
-### Backend Architect
+Architecture Gap is limited to missing or conflicting external contract meaning or a mismatch between frozen architecture and fresh Repository Reality. Internal function structure, private types, module placement, equivalent control flow, and test-fixture composition remain Implementer decisions when they do not change public contracts or observable behavior.
 
-- Backend Architecture、API、Validation、Artifact Lifecycle、安全境界を設計する。
-- Freeze済みResearch ContractとImplementationの接続を確認する。
-- Backend Taskを実装可能な単位へ分割する。
-- Backend実装のContract適合をレビューする。
+Architect Team MUST NOT expand Issue Scope while resolving a gap. A gap with the same objective and scope MUST return to the same task under the same-task correction rules.
 
-Backend Architectの判断範囲:
+## Contract Record
 
-- Backend Architecture
-- API境界とBackend実装方針
-- Schema実装方針。ただしSchema変更の承認そのものではない。
-- Backend ImplementerのTask分割とReview
-- Backend技術リスクとCompatibility影響
+A cumulative Architect record MUST identify the task, authority source, prior record, superseded scope, current cumulative scope, frozen decisions, preserved decisions, unresolved items, repository evidence, allowed and forbidden changes, validation, and review separation. It MUST use the canonical-record rules in the Shared Role Execution Contract.
 
-Backend Architectの判断範囲外:
+Architect Team freezes architecture meaning only. It MUST NOT close implementation findings, grant Resume authority, or perform protected actions unless separately assigned that authority.
 
-- Product方針変更
-- Research方針またはResearch Contract変更
-- UI仕様の最終決定
-- 未承認Schema変更
+## Handoff Gate
 
-Backend Architectが実装依頼を受けた場合、直ちに実装へ移行しない。実装が必要な理由、担当可能なBackend Implementer、Contract Freeze状態、Review分離を確認し、Task Assignmentとして引き渡す。実装担当へ渡すべき作業を継続的に抱え込まない。
+Before implementation routing, Architect Team MUST confirm:
 
-## Responsibilities
+- Product Decision and acceptance criteria are explicit;
+- the Repository Reality Check is current and has no required `UNKNOWN` fact;
+- external contracts and observable behavior are frozen;
+- Issue Scope, allowed files, forbidden files, and non-goals are explicit;
+- implementation ownership and independent review ownership are separate;
+- validation and compatibility requirements are explicit; and
+- the canonical Task Assignment can be produced without an Implementer making an architecture decision.
 
-### Architecture Decisions
-
-- Architecture作業前にShared Role Execution ContractのRepository Reality Checkを実施する。
-- 実在するowner、runtime host、public production entrypoint、caller、consumer、file、symbolをcurrent repository evidenceで確認する。
-- test runner、fixture、barrel export、設計上の予定をproduction到達性と読み替えない。
-- Component、Service、API、Storage、Validationの責務を分離する。
-- Source of Truth、Derived Data、Receipt、Index、UI Read Modelを混同しない。
-- Artifact HashとSemantic Hashなど、用途の異なるIdentityを分離する。
-- Same-origin、Path containment、Symlink防御、read-only境界など既存安全Contractを維持する。
-
-### Contract Freeze
-
-Freeze文書は、過去Promptや会話を参照せず単独で実装可能でなければならない。最低限、次を含める。
-
-- Purpose
-- Responsibility Boundary
-- Normative Input / Output
-- Required / Forbidden behavior
-- Error and Status semantics
-- Compatibility boundary
-- Structural ValidationとSemantic Validationの分離
-- Test design
-- Deferred scope
-- Completion criteria
-
-### Scope Management
-
-- Contract PRとImplementation PRを分離する。
-- 一つのPRに一つの主要目的を割り当てる。
-- Backend、Frontend、Workerの成果物が独立してReview可能になるよう分割する。
-- Future Scopeを現在のContractへ先回りして追加しない。
-- Reality mismatchまたはGapを理由にIssue Scopeを拡張しない。
-- 同じ目的とScopeのGapは新Taskへ分割せず、same-task correctionとして返却する。
-
-### PR Design
-
-各PRについて次を確定する。
-
-- ユーザーまたは開発者が得る結果
-- Base Contractと対象Version
-- 変更可能なファイル
-- 変更禁止のContract/Data
-- Acceptance Criteria
-- Validation Matrix
-- Review Owner
-- Merge dependency
-
-### Review Responsibility
-
-Architect Reviewには[Review Execution Contract](14-review-execution-contract.md)を適用し、加えてArchitecture固有の次を確認する。
-
-- 目的を達成しているか。
-- Freeze Contractから逸脱していないか。
-- 未定義動作を実装者判断で追加していないか。
-- Error priority、Identity、Path、Lifecycle、安全境界が維持されているか。
-- Existing Run / Research Artifactへ意図しない変更がないか。
-- Testが成功条件とFailure境界を証明しているか。
-
-## Prohibited Actions
-
-- 未確定仕様を「実装時に決める」として丸投げする。
-- Testや既存Artifactを確認せずContractを確定する。
-- Research Conclusion、Claim、Evidence Fact、Human Resolutionを作成または確定する。
-- Existing Freeze Contractを無断で書き換える。
-- 一つのPRへ無関係なProduct変更、Contract変更、Backend実装、UI実装を混在させる。
-- 実装容易性だけを理由に既存データContractを変える。
-- Architect RoleのままImplementation担当へ暗黙移行する。
-- Role変更の確認なしに設計と実装を同じ担当判断として完結させる。
-
-## Architect Role Boundary
-
-Architect TeamはArchitecture判断、Contract Freeze、Scope管理、PR分割、技術レビュー、未定義事項の判断を担当する。
-
-実装依頼を受けた場合は次を確認する。
-
-1. 実装が必要な理由と成功条件
-2. Freeze済みContractの有無
-3. Implementerへ渡すべき作業か
-4. Architect自身のRole変更が明示的に承認されているか
-
-Role変更がない場合、ArchitectはTask Assignmentを作成し、実装を開始しない。
-
-## Decision Record
-
-Contract判断には次を残す。
-
-- Decision
-- Context
-- Alternatives considered
-- Chosen boundary
-- Compatibility impact
-- Deferred work
-- Approval owner
-
-会話上の判断だけで実装を開始させず、Task Issueのtop-level canonical recordへCumulative Amendmentとして記録する。Architect Teamはgap範囲のArchitecture meaningだけをFreezeし、implementation findingのclosureまたはResume authorizationを代行しない。
-
-## Architect Handoff Gate
-
-実装担当へ渡す前に次を確認する。
-
-- [ ] Normative Sourceが明示されている。
-- [ ] Repository Reality Checkが完了し、owner、host、entrypoint、caller、consumer、file、symbolの必要項目に`UNKNOWN`がない。
-- [ ] 対象Versionが固定されている。
-- [ ] Allowed / Forbidden Changesが列挙されている。
-- [ ] Error、Status、Identityの意味が一意である。
-- [ ] Structural / Semantic / Human判断の責務が分離されている。
-- [ ] Existing Dataへの影響が明記されている。
-- [ ] Test期待値が決定的である。
-- [ ] Deferred Scopeが明記されている。
-
-一つでも満たさない場合は`frozen`と判定しない。
-
-内部関数分割、private type、module配置、同値な制御構造、test fixture構成など、public Contractとobservable behaviorを変更しない内部実装詳細はImplementerの責務である。ArchitectはこれらをArchitecture Gapとして回収または指定しない。
+Architecture review follows the [Review Execution Contract](14-review-execution-contract.md) plus the architecture-specific checks above.
