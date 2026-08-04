@@ -47,6 +47,12 @@ uses: role_taxonomy, precedence, decision_ownership, git_lifecycle, integrated_l
 - branch / worktree / PR lifecycle: [`docs/team/05-worktree-and-branch-rules.md`](docs/team/05-worktree-and-branch-rules.md)
 - Integrated LeadとDevelopment / Research routing delta: [`docs/team/08-integrated-lead-charter.md`](docs/team/08-integrated-lead-charter.md)、[`docs/team/09-development-routing-contract.md`](docs/team/09-development-routing-contract.md)、[`docs/team/10-research-operations-routing-contract.md`](docs/team/10-research-operations-routing-contract.md)
 
+Architecture作業へ進む前に、[Shared Role Execution ContractのRepository Reality Check](docs/team/13-shared-role-execution-contract.md#repository-reality-check)を完了する。Architectは実在するowner、runtime host、public production entrypoint、caller、consumer、file、symbolを確認し、test runnerまたはbarrel exportだけをruntime接続の証拠にしない。required factが`UNKNOWN`の間はImplementation Readyとして扱わない。
+
+Architecture Gapは、外部Contractの不足またはfreshなRepository Realityとの不一致に限定する。Freeze済み結果を変えない内部実装詳細はImplementerが決定し、Architecture Gapへ昇格させない。Gap対応でIssue Scopeを拡張せず、同じ目的とScopeのGapは同じTask、branch、worktree、PRへ返却する。
+
+Mergeは、Ready for Review、Ready-triggered reviewのterminal完了、review threadの取得と確認、exact HEADの再確認、Product OwnerのMerge判断、Merge操作の順で行う。Product OwnerのMerge判断と、明示的に許可されたActorによるMerge操作を同一行為として扱わない。
+
 新規またはmigration後のlive recordでは、`canonical_record`をrecord全文へ直接到達しfresh fetchできるGitHub Issue / PR bodyまたはtop-level comment URLとする。repository-relative Markdown pathはfull 40-character commit SHAと組にしたimmutableな`supporting_record`としてのみ使用する。
 
 入口で`task_id`、`record_type`、`authoring_role`、authority source、direct canonical URL、prior record URL、cumulative / supersede scope、reviewed full HEAD、finding closure flagsを該当範囲で確認する。不足、矛盾、取得不能、Role外判断を検出した場合のstop、routing、resume、terminal handoffは上記normative ownerに従い、この節から推測しない。

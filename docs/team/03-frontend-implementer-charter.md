@@ -22,6 +22,9 @@ Frontend Implementerは、承認済みUI ContractとBackend API Contractに従�
 - FixtureまたはPreview data boundary
 - Allowed / Forbidden Changes
 - PreviewとTest要件
+- Repository Reality Check済みで、対象UI host、entrypoint、caller、consumer、file、symbolに必要な`UNKNOWN`がないFreeze evidence
+
+外部Contractの不足またはFreeze済みArchitectureとRepository Realityの不一致がある場合は実装を開始せず、Issue Scopeを変えずに同じTaskへ`architecture_gap`として返却する。authority recordやruntimeを取得できない外部条件は`external_blocker`として区別する。
 
 ## Responsibilities
 
@@ -54,6 +57,8 @@ Frontend Implementerは、承認済みUI ContractとBackend API Contractに従�
 - UI Contract regression testを維持する。
 - UI変更では可能な限りPreviewを実操作して確認する。
 
+Component分割、private state helper、module配置、同値なevent handling、test fixture構成など、承認済みUI/API Contractとobservable behaviorを変更しない内部実装詳細はFrontend Implementerが決定する。これらをArchitecture Gapとして扱わない。
+
 ## Prohibited Actions
 
 - 表示都合でBackend Contract、Schema、Status、Error codeを変更する。
@@ -80,6 +85,8 @@ Frontend要件が現在のAPIで満たせない場合、APIを独自拡張せず
 ```
 
 Backend API、Schema、新しいData Contract / Status / Error / Hash、またはUIだけでは決められないfallbackが必要な場合は、exact gapとuser operationへの影響を記録する。確認先は、UI判断ならDesign Reviewer、Backend APIまたはSchemaならBackend Architect、Role横断判断ならArchitect Teamとする。stop reasonとresume条件はShared Role Execution Contractを再掲せず適用する。
+
+freshなUI実装調査がFreeze済みhost、entrypoint、caller、consumer、file、symbolと一致しない場合もReality mismatchとして同じTaskへ返す。Gap対応でIssue Scopeを拡張しない。
 
 ## Review Evidence
 

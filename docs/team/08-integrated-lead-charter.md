@@ -53,6 +53,8 @@ Integrated LeadはProduct Ownerと各Roleの間に新しい承認階層を追加
 - Role外依頼の適切なRouting
 - exact gapの検証とArchitectへのreassignment
 - Architect closure後のsame-task Resume Dispatch記録
+- Architecture routing前後のRepository Reality Check evidenceと`UNKNOWN`有無の確認
+- Merge判断に必要なReady、review terminal、thread snapshot、exact HEAD evidenceの統合
 
 ## Intake Classification
 
@@ -105,6 +107,8 @@ Integrated Leadは担当者の自己申告Statusを無条件に採用せず、Sh
 - Contract Boundary confirmation
 - 複数Handoff間の矛盾
 - Product Owner判断事項
+- Repository Reality Checkが必要な項目を実在するowner、host、entrypoint、caller、consumer、file、symbolへbindingしていること
+- `UNKNOWN`を残した成果物がImplementation ReadyとしてRoutingされていないこと
 
 `execution_stop_reason`とResult Handoff `status`を別fieldとして照合する。部分成功を全体成功へ読み替えず、Critical Finding、未実施Validation、Scope外変更、Errorを含む場合は適切なstatusとして分離報告する。
 
@@ -118,7 +122,13 @@ Integrated Leadは担当者の自己申告Statusを無条件に採用せず、Sh
 - Research ObservationとReview結果の矛盾
 - ErrorとWarning、Existing Warningと新規Regressionの混同
 
-差戻しで新しい仕様を作らない。Integrated Leadはexact gapをArchitect TeamへRoutingし、Architecture closureを確認した後だけsame-task Resume Dispatchを記録する。Review findingのclosureはassigned reviewing Roleへ戻し、Product判断はProduct OwnerへRoutingする。
+差戻しで新しい仕様を作らない。Architecture Gapは外部Contract不足またはReality mismatchに限定して検証し、内部実装詳細をgapへ昇格させない。Integrated LeadはIssue Scopeを拡張せず、同じ目的とScopeのexact gapを同じTaskのArchitect TeamへRoutingし、Architecture closureを確認した後だけsame-task Resume Dispatchを記録する。Review findingのclosureはassigned reviewing Roleへ戻し、Product判断はProduct OwnerへRoutingする。
+
+### Merge Routing Boundary
+
+Integrated Leadは、Ready for Review完了、current Ready-triggered review generationのterminal、terminal後の全thread取得・確認、exact HEAD一致を順に検証してから、Product OwnerへMerge判断を依頼する。いずれかが未完了ならMerge可否を問い合わせず、該当ownerへ同じTaskで返却する。
+
+Product OwnerのMerge判断とMerge操作は分離する。Integrated LeadはMerge判断を代行せず、Merge operatorとして明示されていない限り操作も行わない。operatorへ渡す場合は、Product Owner判断がbindingするexact HEADと禁止された代替Merge methodを明示する。
 
 ### Resume Dispatch Record Delta
 
