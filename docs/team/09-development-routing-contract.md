@@ -23,6 +23,17 @@ This document selects the development Role and routing path. It does not redefin
 
 Implementation MUST NOT be routed when the Repository Reality Check is incomplete, a required fact is `UNKNOWN`, no applicable freeze exists, an external contract has multiple meanings, or frozen architecture conflicts with fresh Repository Reality.
 
+## Validation Routing
+
+Each development task MUST select the applicable Validation profile from the [Shared Role Execution Contract](13-shared-role-execution-contract.md#proportional-validation-and-evidence-reuse). Precedence is `external Contract`, `runtime／integration`, `source-only`, then `documentation-only`. When more than one profile applies, the highest profile controls and applicable lower-profile focused checks are added.
+
+- The assigned Implementer or Worker produces the required command evidence once for the implementation full HEAD.
+- The assigned reviewer evaluates semantic coverage and findings from admissible evidence and uses only the limited rerun conditions in the Review Execution Contract.
+- Integrated Lead verifies identity, authority, completeness, dependency, and state; it does not repeat specialist Validation or semantic review.
+- A protected-action operator performs only the fresh mutable-state and exact-HEAD check required immediately before the authorized action; it does not repeat implementation Validation.
+
+An `external Contract` change always requires separate Architecture Review. A `source-only` task MUST be promoted to `runtime／integration` when production consumers or impact are `UNKNOWN`; routing MUST NOT use static source or test-only evidence as runtime proof.
+
 ## Routing Matrix
 
 | Work | Primary Role | Independent review |

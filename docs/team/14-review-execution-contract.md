@@ -46,11 +46,26 @@ If the objective, acceptance criteria, or required matrix is incomplete, the rev
 - Unperformed checks MUST remain unperformed.
 - An unconsumed architecture matrix row is a blocking finding.
 
+## Validation Evidence Review and Focused Rerun
+
+The reviewer independently fresh-fetches and assesses evidence under the proportional Validation and reuse rules owned by the [Shared Role Execution Contract](13-shared-role-execution-contract.md#proportional-validation-and-evidence-reuse). Independent review means an independent semantic coverage and finding decision; it does not mean routinely repeating the Implementer's command.
+
+The reviewer MUST NOT require the same command to be rerun when its evidence is admissible and covers the reviewed acceptance condition. A reviewer rerun is limited to:
+
+- evidence不足: a required command, case, result, exit state, binding, or unperformed item is missing;
+- contradiction: direct evidence conflicts with another admitted record or observed state;
+- stale: HEAD, Scope, Contract, validator, fixture, workflow, lockfile, toolchain, or applicable mutable state invalidated the evidence; or
+- reviewer-specific focused proof: a focused observation is necessary to decide semantic coverage or a finding and is not supplied by the implementation evidence.
+
+The reviewer MUST record the applicable condition and scope of any rerun. A rerun for one condition MUST NOT cause unrelated specialist Validation to be repeated. The final decision remains bound to the fresh reviewed full HEAD.
+
 ## Gate Status Overlay
 
 Before relying on Gate Status, the reviewer MUST fresh-fetch the PR body and every cited canonical record. The reviewer MUST verify current HEAD, applicable Final Regression and Operational Validation results, Draft or Ready state, independent Ready, Approve, and Merge fields, current blocker, and next gate.
 
-A stale, missing, or conflicting Gate Status entry is a review finding. The reviewer MUST require same-task metadata-only correction and the dependent read-only gate MUST be rerun. The reviewer MUST NOT silently repair metadata or treat CI success as completion.
+A stale, missing, or conflicting Gate Status entry is a review finding. The reviewer MUST require same-task metadata-only correction. The dependent read-only gate MUST be rerun unless the Shared Role Execution Contract's projection-only reuse admission conditions are all satisfied. The reviewer MUST NOT silently repair metadata or treat CI success as completion.
+
+The dependent read-only gate MAY reuse verified post-write evidence only under the Gate Status projection-only conditions in the Shared Role Execution Contract. Any HEAD or cumulative-authority change, non-projection edit, missing digest, failed post-write re-fetch, concurrent edit, or mismatch requires rerun and fail-closed handling.
 
 After a HEAD change, prior Ready and approval evidence become historical at the prior HEAD. If the PR was Ready, a recorded return to Draft and fresh applicable gates, review, and Ready are required. A completed Merge combined with a later open-PR HEAD is a blocking canonical conflict.
 
@@ -89,6 +104,8 @@ The reviewer MAY inspect and report within assigned review authority. The review
 Role-specific review vocabulary and authority remain with the applicable reviewing Role.
 
 ## Ready-Triggered Review Observation
+
+Collector V1 required and not-required applicability is selected by the Shared Role Execution Contract. This section defines review use when Collector V1 is required; it does not make Collector V1 mandatory for ordinary command Validation, pre-Ready implementation review, one direct check or known-thread read, metadata-only correction without a review-terminal claim, or ordinary status reporting.
 
 Ready Review Terminal Observation Collector V1 has exactly two layers. Its owner-only production CLI adapter accepts exactly a repository identity, pull request number, full pull-request HEAD, and the direct canonical Ready Generation Record URL. The adapter privately constructs authenticated GitHub acquisition, normalizes observations, and invokes the pure observation core once. Callers MUST NOT inject or replace a port, callback, adapter, fixture, test mode, producer roster, policy option, preload hook, global hook, or environment-selected scenario.
 

@@ -139,6 +139,139 @@ Only the Role holding the original review authority MAY close that finding. Clos
 
 Review execution details are owned by `docs/team/14-review-execution-contract.md`.
 
+## Proportional Validation and Evidence Reuse
+
+This section is the normative owner for Validation profile selection, authoritative evidence reuse, evidence invalidation, Collector V1 applicability, and Gate Status projection-only reuse. It does not create a Role, Status, Schema, Evaluator, Host, authority, protected action, stop reason, or finding state.
+
+### Profile Selection and Precedence
+
+Every change MUST use exactly one controlling profile. Precedence is:
+
+1. `external Contract`;
+2. `runtime／integration`;
+3. `source-only`; and
+4. `documentation-only`.
+
+When a change matches more than one profile, the highest applicable profile controls. Applicable focused checks from a lower profile MUST still be included. An entry condition that cannot be established MUST use the highest plausible profile, including `external Contract` when Contract meaning may change; it MUST NOT be inferred from a filename or test presence.
+
+#### documentation-only
+
+This profile applies only when every changed path is documentation and the change does not alter an external Contract. Minimum Validation is:
+
+- exact changed-file allowlist;
+- `git diff --check`;
+- applicable Markdown link and structure validation; and
+- confirmation that JSON, YAML, source, workflow, script, test, package, lockfile, fixture, or other non-documentation paths did not change.
+
+Application full test and build are not required by this profile alone. Normative documentation that changes external Contract meaning uses the external Contract profile.
+
+#### source-only
+
+This profile applies only to a pure or library source change with no incoming edge from the production composition host and with a directly verified, closed consumer and impact set. Minimum Validation is:
+
+- exact changed-file allowlist;
+- direct focused tests;
+- focused regression for every known consumer;
+- TypeScript or equivalent static check when applicable; and
+- `git diff --check`.
+
+If a production consumer, incoming production edge, or impact remains `UNKNOWN`, the change MUST use `runtime／integration`. Static source, an export, a fixture, or a test-only caller MUST NOT establish runtime non-impact.
+
+#### runtime／integration
+
+This profile applies when production behavior, a production entrypoint or incoming edge, integration behavior, state, persistence, or runtime compatibility changes or may be affected. Minimum Validation is:
+
+- direct focused positive, negative, and failure-path Validation;
+- one full regression run;
+- one build;
+- runtime or Preview evidence bound to the exact full HEAD; and
+- applicable state, persistence, compatibility, and `git diff --check` evidence.
+
+Runtime evidence MUST use the public production entrypoint. Static or test-only evidence MUST NOT substitute for it.
+
+#### external Contract
+
+This profile applies to normative Role, authority, routing, API, Schema, Freeze, ownership, or other external Contract meaning. Minimum Validation is:
+
+- `node scripts/test-role-execution-contracts.mjs` when Team Contract ownership or links are in scope;
+- every applicable contract-specific fixture or validator;
+- exact scope, literal-link, structure, and diff validation;
+- `git diff --check`; and
+- separate Architecture Review at the exact full HEAD.
+
+If runtime mapping or a production consumer also changes, `runtime／integration` Validation MUST be added.
+
+### Evidence Production and Role Boundaries
+
+- The assigned Implementer or Worker MUST generate required command evidence once for the applicable implementation full HEAD and publish it in the Result Handoff.
+- The reviewer MUST independently fresh-fetch the evidence and decide semantic coverage and findings. The reviewer MUST NOT routinely require the same command to be rerun.
+- A reviewer rerun is permitted only for missing evidence, contradiction, stale evidence, or reviewer-specific focused proof.
+- Integrated Lead verifies only identity, authority, completeness, dependency, and state. Integrated Lead MUST NOT repeat specialist Validation or semantic review.
+- A protected-action operator performs only the fresh mutable-state and exact-HEAD check required immediately before the authorized action, followed by that action. The operator MUST NOT repeat implementation or review Validation unless a separate applicable task requires it.
+
+Evidence reuse never transfers Role authority. Command evidence does not make the Implementer a reviewer, semantic review does not grant Integrated Lead finding authority, and admitted evidence does not authorize a protected action.
+
+### Authoritative Evidence Reuse Admission
+
+Evidence MAY be reused across Roles only when every condition below is satisfied:
+
+- the evidence has a direct canonical URL or direct check-run URL;
+- its authoring or reviewing authority is valid;
+- it is bound to the exact repository, task, scope, Contract, PR, branch, and full HEAD;
+- it records the command or observation, result, exit state, and timestamp when relevant;
+- it is bound to the applicable validator, fixture, artifact, and workflow revision or digest;
+- every required case is present and every unperformed item is explicit;
+- no newer cumulative authority conflicts with it; and
+- it remains applicable to the same acceptance condition.
+
+Failure of any admission condition requires fresh evidence or fail-closed routing. A summary, PR description, Gate Status projection, static source presence, or CI success without these bindings is not reusable authoritative evidence.
+
+### Evidence Invalidation and HEAD Change
+
+Evidence is invalidated by:
+
+- a HEAD change;
+- missing, conflicting, inaccessible, or stale evidence;
+- Scope or Contract change;
+- validator, fixture, workflow, lockfile, or required toolchain change; or
+- the protected-action mutable-state boundary for evidence whose state can change.
+
+After a HEAD change, prior evidence is historical and MUST NOT be promoted to PASS for the new HEAD. A changed-path impact review MUST identify affected Validation. When an unaffected command is not rerun, that decision MUST be recorded as new-HEAD non-applicability evidence with the new full HEAD, changed paths, affected acceptance condition, and rationale. The prior command result remains bound only to its prior HEAD.
+
+At a protected-action boundary, immutable admitted command evidence MAY remain reusable only if every admission condition still holds. Mutable PR state, authority state, review-thread state, and exact HEAD MUST be fresh-fetched immediately before the action.
+
+### Collector V1 Boundary
+
+Ready Review Terminal Observation Collector V1 is required when:
+
+- current Ready-triggered generation terminality is a Merge-gate input;
+- roster-wide terminal receipts and complete post-terminal review threads are claimed;
+- Ready, Merge, and terminal sequencing is audited; or
+- a Completion or Gate Status decision depends on review-terminal observation.
+
+Collector V1 is not required for:
+
+- documentation, source, or runtime command Validation;
+- ordinary implementation review before Ready;
+- one direct check or one known-thread read;
+- a metadata-only correction that makes no review-terminal claim; or
+- ordinary status reporting.
+
+The not-required boundary never permits skipping a current-HEAD or current-thread fresh check required by the applicable review. Collector V1 remains observation evidence only; it does not classify or close findings and does not authorize a protected action.
+
+### Gate Status Projection-only Reuse
+
+After an authorized metadata Role changes only an admitted Gate Status projection, a dependent read-only gate MAY consume the publisher's verified post-write evidence without repeating the same read only when:
+
+- HEAD is unchanged;
+- cumulative authority is unchanged;
+- only the admitted projection changed;
+- a before/after digest is present;
+- post-write re-fetch succeeded; and
+- no concurrent edit or mismatch exists.
+
+If any condition fails, the dependent read-only gate MUST rerun and fail closed. Projection-only reuse does not close findings, change completion authority, replace semantic review, or remove a required Collector V1 or protected-action fresh check.
+
 ## Completion Evidence
 
 Completion MUST be supported by direct evidence for:

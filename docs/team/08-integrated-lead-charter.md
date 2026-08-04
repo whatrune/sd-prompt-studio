@@ -40,6 +40,18 @@ Shared Architecture Gap, same-task correction, failure, resume, and protected-ac
 - A review finding MUST return to the assigned reviewing Role for closure.
 - A product decision MUST return to the Product Owner.
 
+## Validation Evidence Integration
+
+When admitting validation evidence, Integrated Lead verifies only identity, authority, completeness, dependency, and state under the [Shared Role Execution Contract](13-shared-role-execution-contract.md#proportional-validation-and-evidence-reuse).
+
+- Identity covers the repository, task, scope, Contract, PR, branch, and full HEAD binding.
+- Authority covers the direct canonical source or direct check-run source and the Role authorized to produce or decide the evidence.
+- Completeness covers required cases, command result and exit state, timestamps when relevant, revision or digest binding, and explicit unperformed items.
+- Dependency covers predecessor evidence and required review or validation gates.
+- State covers Current versus historical evidence and any invalidation at the protected-action mutable-state boundary.
+
+Integrated Lead MUST NOT repeat specialist Validation or the reviewing Role's semantic coverage and finding analysis. Missing, conflicting, stale, or incomplete evidence MUST be returned to the Role that owns the command, review, or authority record; it MUST NOT be repaired by Integrated Lead through an independent rerun or substituted semantic decision.
+
 ## Merge Routing Delta
 
 Integrated Lead MUST verify the canonical Merge sequence through thread confirmation and exact-HEAD verification before asking the Product Owner for a Merge decision. If any prerequisite is incomplete, the task MUST return to the responsible owner without requesting Merge eligibility.
