@@ -193,7 +193,7 @@ Runtime evidence MUST use the public production entrypoint. Static or test-only 
 
 This profile applies to normative Role, authority, routing, API, Schema, Freeze, ownership, or other external Contract meaning. Minimum Validation is:
 
-- `node scripts/test-role-execution-contracts.mjs` when Team Contract ownership or links are in scope;
+- `node scripts/test-role-execution-contracts.mjs`;
 - every applicable contract-specific fixture or validator;
 - exact scope, literal-link, structure, and diff validation;
 - `git diff --check`; and
