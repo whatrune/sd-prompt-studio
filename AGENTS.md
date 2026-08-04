@@ -41,7 +41,9 @@ Lower-precedence documents MUST NOT weaken these canonical rules. A conflict tha
 
 - Existing contracts, public behavior, compatibility, data, and research artifacts MUST be preserved unless the task explicitly changes them.
 - Internal structure that does not change a frozen public contract or observable behavior MAY be selected by the assigned Implementer.
-- Validation MUST be proportional to the change and MUST include the task-required commands, focused checks, regression checks when applicable, and `git diff --check`.
+- Validation MUST use the closed profiles and precedence in the [Shared Role Execution Contract](docs/team/13-shared-role-execution-contract.md#proportional-validation-and-evidence-reuse): `external Contract`, `runtime／integration`, `source-only`, then `documentation-only`. The highest applicable profile controls, with any applicable lower-profile focused check added.
+- The assigned Implementer or Worker MUST generate the required command evidence once for the applicable exact HEAD. Review and integration MUST reuse admissible evidence under the Shared Role Execution Contract instead of routinely repeating the same command.
+- Validation MUST remain proportional to the change and MUST include the task-required commands, focused checks, regression checks when applicable, and `git diff --check` required by the selected profile.
 - Unperformed validation MUST be reported as unperformed; it MUST NOT be represented as passing.
 - Preview evidence MUST use the deployment for the target exact HEAD. A stale display requires the latest deployment URL or an explicit cache-busting query.
 
