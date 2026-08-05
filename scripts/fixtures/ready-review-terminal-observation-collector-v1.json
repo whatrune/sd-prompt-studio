@@ -101,6 +101,19 @@
       "source_observed_at": "2026-08-01T00:31:01Z"
     }
   ],
+  "post_snapshot_head_recheck": {
+    "observation_version": "post-snapshot-head-recheck-v1",
+    "repository": "whatrune/sd-prompt-studio",
+    "pr_number": 220,
+    "pr_url": "https://github.com/whatrune/sd-prompt-studio/pull/220",
+    "ready_generation_record_url": "https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000001",
+    "ready_event_id": "READY-220-01",
+    "expected_head": "1111111111111111111111111111111111111111",
+    "observed_head": "1111111111111111111111111111111111111111",
+    "snapshot_observed_at": "2026-08-01T00:32:00Z",
+    "observed_at": "2026-08-01T00:33:00Z",
+    "source_url": "https://github.com/whatrune/sd-prompt-studio/pull/220"
+  },
   "negative_cases": [
     "core_input_unknown_field",
     "core_input_missing_field",
@@ -134,6 +147,14 @@
     "thread_page_digest_mismatch",
     "pre_terminal_snapshot",
     "pre_terminal_page",
+    "post_snapshot_recheck_missing",
+    "post_snapshot_recheck_unknown_field",
+    "post_snapshot_recheck_malformed",
+    "post_snapshot_recheck_mixed_binding",
+    "post_snapshot_recheck_changed_head",
+    "post_snapshot_recheck_not_later",
+    "post_snapshot_recheck_before_final_page",
+    "post_snapshot_recheck_nested_digest_mutation",
     "artifact_non_jcs_bytes",
     "caller_fixture_option"
   ]

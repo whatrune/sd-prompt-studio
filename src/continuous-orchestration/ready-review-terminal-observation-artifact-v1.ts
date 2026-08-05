@@ -2,6 +2,7 @@ export const READY_REVIEW_TERMINAL_OBSERVATION_ARTIFACT_V1 = 'ready-review-termi
 export const PRODUCER_TERMINAL_RECEIPT_OBSERVATION_V1 = 'producer-terminal-receipt-observation-v1' as const
 export const POST_TERMINAL_THREAD_SNAPSHOT_V1 = 'post-terminal-thread-snapshot-v1' as const
 export const READY_REVIEW_TERMINAL_OBSERVATION_CORE_INPUT_V1 = 'ready-review-terminal-observation-core-input-v1' as const
+const POST_SNAPSHOT_HEAD_RECHECK_V1 = 'post-snapshot-head-recheck-v1' as const
 
 type JsonObject = Record<string, unknown>
 
@@ -101,6 +102,20 @@ export type ThreadPageObservationV1 = Readonly<{
   page_digest: string
 }>
 
+type PostSnapshotHeadRecheckV1 = Readonly<{
+  observation_version: typeof POST_SNAPSHOT_HEAD_RECHECK_V1
+  repository: string
+  pr_number: number
+  pr_url: string
+  ready_generation_record_url: string
+  ready_event_id: string
+  expected_head: string
+  observed_head: string
+  snapshot_observed_at: string
+  observed_at: string
+  source_url: string
+}>
+
 export type PostTerminalThreadSnapshotV1 = Readonly<{
   snapshot_version: typeof POST_TERMINAL_THREAD_SNAPSHOT_V1
   query_identity: Readonly<{ connection: 'PullRequest.reviewThreads'; query_sha256: string }>
@@ -111,6 +126,7 @@ export type PostTerminalThreadSnapshotV1 = Readonly<{
   last_terminal_receipt_at: string
   observed_at: string
   source_observation_urls: readonly string[]
+  post_snapshot_head_recheck: PostSnapshotHeadRecheckV1
   snapshot_digest: string
 }>
 
@@ -169,6 +185,7 @@ export type ReadyReviewTerminalObservationCoreInputV1 = Readonly<{
   thread_pages: readonly ThreadPageObservationV1[]
   receipts_observed_at: string
   thread_snapshot_observed_at: string
+  post_snapshot_head_recheck: PostSnapshotHeadRecheckV1
 }>
 
 export type ReadyReviewTerminalObservationFailureCodeV1 =
@@ -342,22 +359,35 @@ const validateThreadPage = async (value: unknown): Promise<boolean> => {
   return await digestReadyReviewObservationProjectionV1(without(value, 'page_digest')) === value.page_digest
 }
 
+const validatePostSnapshotHeadRecheckV1 = (value: unknown): value is PostSnapshotHeadRecheckV1 =>
+  exactKeys(value, ['observation_version', 'repository', 'pr_number', 'pr_url', 'ready_generation_record_url', 'ready_event_id', 'expected_head', 'observed_head', 'snapshot_observed_at', 'observed_at', 'source_url']) &&
+  value.observation_version === POST_SNAPSHOT_HEAD_RECHECK_V1 && nonEmpty(value.repository) &&
+  /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value.repository) && Number.isSafeInteger(value.pr_number) && Number(value.pr_number) > 0 &&
+  directPrUrl(value.pr_url) && directCommentUrl(value.ready_generation_record_url) && nonEmpty(value.ready_event_id) &&
+  fullHead(value.expected_head) && fullHead(value.observed_head) && value.observed_head === value.expected_head &&
+  isoTime(value.snapshot_observed_at) && isoTime(value.observed_at) && directPrUrl(value.source_url) && value.source_url === value.pr_url
+
 export const validatePostTerminalThreadSnapshotV1 = async (value: unknown): Promise<boolean> => {
-  const keys = ['snapshot_version', 'query_identity', 'variables_identity', 'pages', 'terminal_receipt_ids', 'terminal_receipts_digest', 'last_terminal_receipt_at', 'observed_at', 'source_observation_urls', 'snapshot_digest']
+  const keys = ['snapshot_version', 'query_identity', 'variables_identity', 'pages', 'terminal_receipt_ids', 'terminal_receipts_digest', 'last_terminal_receipt_at', 'observed_at', 'source_observation_urls', 'post_snapshot_head_recheck', 'snapshot_digest']
   if (!exactKeys(value, keys) || value.snapshot_version !== POST_TERMINAL_THREAD_SNAPSHOT_V1 ||
       !exactKeys(value.query_identity, ['connection', 'query_sha256']) || value.query_identity.connection !== 'PullRequest.reviewThreads' || !sha256Value(value.query_identity.query_sha256) ||
       !exactKeys(value.variables_identity, ['repository', 'pr_number', 'exact_head', 'variables_sha256']) || !nonEmpty(value.variables_identity.repository) ||
       !Number.isSafeInteger(value.variables_identity.pr_number) || Number(value.variables_identity.pr_number) <= 0 || !fullHead(value.variables_identity.exact_head) || !sha256Value(value.variables_identity.variables_sha256) ||
       !Array.isArray(value.pages) || value.pages.length === 0 || !stringArray(value.terminal_receipt_ids) || value.terminal_receipt_ids.length === 0 || !unique(value.terminal_receipt_ids) ||
       !sha256Value(value.terminal_receipts_digest) || !isoTime(value.last_terminal_receipt_at) || !isoTime(value.observed_at) ||
-      !stringArray(value.source_observation_urls) || value.source_observation_urls.length !== value.pages.length || !sha256Value(value.snapshot_digest)) return false
+      !stringArray(value.source_observation_urls) || value.source_observation_urls.length !== value.pages.length ||
+      !validatePostSnapshotHeadRecheckV1(value.post_snapshot_head_recheck) || !sha256Value(value.snapshot_digest)) return false
   if (Date.parse(value.observed_at) < Date.parse(value.last_terminal_receipt_at)) return false
+  if (value.post_snapshot_head_recheck.snapshot_observed_at !== value.observed_at ||
+      Date.parse(value.post_snapshot_head_recheck.observed_at) <= Date.parse(value.observed_at)) return false
   if (await digestReadyReviewObservationProjectionV1(value.terminal_receipt_ids) !== value.terminal_receipts_digest) return false
   const threadIds = new Set<string>()
   for (let index = 0; index < value.pages.length; index += 1) {
     const page = value.pages[index]
     if (!await validateThreadPage(page) || page.page_ordinal !== index || value.source_observation_urls[index] !== page.source_url ||
-        Date.parse(page.source_observed_at) < Date.parse(value.last_terminal_receipt_at)) return false
+        Date.parse(page.source_observed_at) < Date.parse(value.last_terminal_receipt_at) ||
+        Date.parse(page.source_observed_at) > Date.parse(value.observed_at) ||
+        Date.parse(value.post_snapshot_head_recheck.observed_at) <= Date.parse(page.source_observed_at)) return false
     if (index === 0 ? page.start_cursor !== null : page.start_cursor !== value.pages[index - 1].end_cursor) return false
     if (index < value.pages.length - 1 ? (!page.has_next_page || page.end_cursor === null) : page.has_next_page) return false
     for (const node of page.nodes) {
@@ -390,7 +420,11 @@ export const buildReadyReviewTerminalObservationArtifactV1 = async (input: unkno
   if (derivedLast !== input.last_terminal_receipt_at || !await validatePostTerminalThreadSnapshotV1(input.thread_snapshot)) return null
   const snapshot = input.thread_snapshot as PostTerminalThreadSnapshotV1
   if (snapshot.variables_identity.repository !== input.repository || snapshot.variables_identity.pr_number !== input.pr_number || snapshot.variables_identity.exact_head !== input.exact_head ||
-      JSON.stringify(snapshot.terminal_receipt_ids) !== JSON.stringify(input.terminal_receipt_ids) || snapshot.terminal_receipts_digest !== input.terminal_receipts_digest || snapshot.last_terminal_receipt_at !== input.last_terminal_receipt_at) return null
+      JSON.stringify(snapshot.terminal_receipt_ids) !== JSON.stringify(input.terminal_receipt_ids) || snapshot.terminal_receipts_digest !== input.terminal_receipts_digest || snapshot.last_terminal_receipt_at !== input.last_terminal_receipt_at ||
+      snapshot.post_snapshot_head_recheck.repository !== input.repository || snapshot.post_snapshot_head_recheck.pr_number !== input.pr_number ||
+      snapshot.post_snapshot_head_recheck.pr_url !== input.pr_url || snapshot.post_snapshot_head_recheck.ready_generation_record_url !== input.ready_generation_record_url ||
+      snapshot.post_snapshot_head_recheck.ready_event_id !== input.ready_event_id || snapshot.post_snapshot_head_recheck.expected_head !== input.exact_head ||
+      snapshot.post_snapshot_head_recheck.observed_head !== input.exact_head) return null
   const projection = structuredClone(input) as ArtifactInputV1
   const artifact = { ...projection, artifact_digest: await digestReadyReviewObservationProjectionV1(projection) }
   return deepFreezeReadyReviewObservationV1(artifact) as ReadyReviewTerminalObservationArtifactV1
@@ -416,6 +450,7 @@ const CORE_INPUT_KEYS = [
   'thread_pages',
   'receipts_observed_at',
   'thread_snapshot_observed_at',
+  'post_snapshot_head_recheck',
 ] as const
 
 const REQUEST_IDENTITY_KEYS = ['repository', 'pr_number', 'pr_url', 'exact_head', 'ready_record_url'] as const
@@ -461,7 +496,8 @@ const validateCoreInputEnvelopeV1 = (value: unknown): value is ReadyReviewTermin
   Array.isArray(value.producer_source_observations) &&
   Array.isArray(value.thread_pages) && value.thread_pages.length > 0 &&
   isoTime(value.receipts_observed_at) &&
-  isoTime(value.thread_snapshot_observed_at)
+  isoTime(value.thread_snapshot_observed_at) &&
+  isObject(value.post_snapshot_head_recheck)
 
 export const selectCurrentReadyReviewAuthorityObservationsV1 = async (
   observations: unknown,
@@ -694,9 +730,26 @@ export const evaluateReadyReviewTerminalObservationCoreV1 = async (
     return rejectObservationV1('temporal_binding_invalid', 'threads')
   }
 
+  const postSnapshotHeadRecheck = input.post_snapshot_head_recheck
+  if (!validatePostSnapshotHeadRecheckV1(postSnapshotHeadRecheck) ||
+      postSnapshotHeadRecheck.repository !== request.repository || postSnapshotHeadRecheck.pr_number !== request.pr_number ||
+      postSnapshotHeadRecheck.pr_url !== request.pr_url || postSnapshotHeadRecheck.ready_generation_record_url !== readyRecord.canonical_record ||
+      postSnapshotHeadRecheck.ready_event_id !== readyRecord.ready_event_id || postSnapshotHeadRecheck.expected_head !== request.exact_head ||
+      postSnapshotHeadRecheck.observed_head !== request.exact_head || postSnapshotHeadRecheck.source_url !== request.pr_url ||
+      postSnapshotHeadRecheck.snapshot_observed_at !== input.thread_snapshot_observed_at) {
+    return rejectObservationV1('thread_snapshot_invalid', 'threads')
+  }
+  if (Date.parse(postSnapshotHeadRecheck.observed_at) <= Date.parse(input.thread_snapshot_observed_at)) {
+    return rejectObservationV1('temporal_binding_invalid', 'threads')
+  }
+
   for (const page of input.thread_pages) {
     if (!await validateThreadPage(page)) return rejectObservationV1('thread_snapshot_invalid', 'threads')
-    if (Date.parse(page.source_observed_at) < Date.parse(lastTerminalReceiptAt)) return rejectObservationV1('temporal_binding_invalid', 'threads')
+    if (Date.parse(page.source_observed_at) < Date.parse(lastTerminalReceiptAt) ||
+        Date.parse(page.source_observed_at) > Date.parse(input.thread_snapshot_observed_at) ||
+        Date.parse(postSnapshotHeadRecheck.observed_at) <= Date.parse(page.source_observed_at)) {
+      return rejectObservationV1('temporal_binding_invalid', 'threads')
+    }
   }
   const terminalReceiptsDigest = await digestReadyReviewObservationProjectionV1(terminalReceiptIds)
   const querySha256 = await digestReadyReviewObservationProjectionV1(REVIEW_THREADS_QUERY_V1)
@@ -715,6 +768,7 @@ export const evaluateReadyReviewTerminalObservationCoreV1 = async (
     last_terminal_receipt_at: lastTerminalReceiptAt,
     observed_at: input.thread_snapshot_observed_at,
     source_observation_urls: input.thread_pages.map((page) => page.source_url),
+    post_snapshot_head_recheck: structuredClone(postSnapshotHeadRecheck),
   }
   const threadSnapshot = {
     ...snapshotProjection,
