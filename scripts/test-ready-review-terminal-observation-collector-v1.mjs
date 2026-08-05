@@ -8,6 +8,7 @@ import {
   digestReadyReviewObservationProjectionV1,
   evaluateReadyReviewTerminalObservationCoreV1,
   parseReadyReviewTerminalObservationArtifactV1,
+  selectCurrentReadyReviewProducerSourcesV1,
   validateReadyReviewGenerationRecordV1,
   validateReadyReviewProducerRosterV1,
 } from '../src/continuous-orchestration/ready-review-terminal-observation-artifact-v1.ts'
@@ -68,6 +69,76 @@ const assertRejected = async (input, failureCode, stage, label) => {
 check(fixture.contract_version === 'ready-review-terminal-observation-collector-validation-v1', 'fixture contract version')
 check(await validateReadyReviewProducerRosterV1(roster), 'valid roster record')
 check(await validateReadyReviewGenerationRecordV1(readyRecord), 'valid Ready generation record')
+
+const selectCurrent = (
+  observations = fixture.receipt_sources,
+  producerIds = roster.producer_ids,
+  readyEventId = readyRecord.ready_event_id,
+  exactHead = readyRecord.exact_head,
+  readyOccurredAt = readyRecord.ready_occurred_at,
+  receiptsObservedAt = '2026-08-01T00:30:00Z',
+) => selectCurrentReadyReviewProducerSourcesV1(
+  observations,
+  producerIds,
+  readyEventId,
+  exactHead,
+  readyOccurredAt,
+  receiptsObservedAt,
+)
+
+const baselineSelectorInput = clone(fixture.receipt_sources).reverse()
+const baselineSelectorSnapshot = clone(baselineSelectorInput)
+const baselineSelection = selectCurrent(baselineSelectorInput)
+check(baselineSelection?.map((source) => source.producer_id).join(',') === roster.producer_ids.join(','), 'selector returns exact-one multi-producer sources in frozen roster order')
+check(frozen(baselineSelection), 'selector output is recursively immutable')
+check(JSON.stringify(baselineSelectorInput) === JSON.stringify(baselineSelectorSnapshot), 'selector leaves input unchanged')
+assert.throws(() => { baselineSelection[0].producer_id = 'mutated' }, TypeError)
+check(baselineSelection[0].producer_id === roster.producer_ids[0], 'selector output rejects mutation attempts')
+
+const currentReactionOne = {
+  ...clone(fixture.receipt_sources[1]),
+  producer_id: 'reviewer-one',
+  reaction_id: '7000000003',
+  reaction_actor: 'reviewer-one',
+  reaction_created_at: '2026-08-01T00:12:00Z',
+}
+const oldSameHeadReview = {
+  ...clone(fixture.receipt_sources[0]),
+  submitted_at: '2026-07-31T23:59:59Z',
+}
+const historicalPlusCurrentSelection = selectCurrent([oldSameHeadReview, currentReactionOne, fixture.receipt_sources[1]])
+check(historicalPlusCurrentSelection?.[0].kind === 'no_findings_correlation' && historicalPlusCurrentSelection[0].reaction_id === currentReactionOne.reaction_id, 'old same-HEAD review excluded while current post-Ready reaction selected')
+const historicalPlusCurrentCore = await evaluateReadyReviewTerminalObservationCoreV1(await buildCoreInput({ producerSources: historicalPlusCurrentSelection }))
+check(historicalPlusCurrentCore.branch === 'artifact_produced', 'selected current reactions continue through the existing Core and thread path')
+
+const wrongHead = { ...clone(fixture.receipt_sources[0]), reviewed_head: '2'.repeat(40) }
+check(selectCurrent([wrongHead, fixture.receipt_sources[1]]) === null, 'wrong-HEAD source excluded and zero-current producer fails closed')
+const wrongReady = { ...clone(fixture.receipt_sources[0]), ready_event_id: 'READY-OLD' }
+check(selectCurrent([wrongReady, fixture.receipt_sources[1]]) === null, 'Ready-ID mismatch excluded and fails closed')
+const stale = { ...clone(fixture.receipt_sources[0]), submitted_at: '2026-07-31T23:59:59Z' }
+check(selectCurrent([stale, fixture.receipt_sources[1]]) === null, 'stale pre-Ready source excluded and fails closed')
+const future = { ...clone(fixture.receipt_sources[0]), submitted_at: '2026-08-01T00:30:01Z' }
+check(selectCurrent([future, fixture.receipt_sources[1]]) === null, 'future source excluded and fails closed')
+check(selectCurrent([fixture.receipt_sources[0]]) === null, 'missing roster producer fails closed')
+check(selectCurrent([], roster.producer_ids) === null, 'zero current sources fail closed')
+check(selectCurrent(fixture.receipt_sources, ['reviewer-one', 'reviewer-one']) === null, 'duplicate roster producer fails closed')
+check(selectCurrent(fixture.receipt_sources, ['reviewer-one', 7]) === null, 'malformed roster producer scalar fails closed')
+check(selectCurrent([...fixture.receipt_sources, currentReactionOne]) === null, 'two current source kinds for one producer fail closed without precedence')
+const duplicateCurrentReview = { ...clone(fixture.receipt_sources[0]), review_id: '7000000004' }
+check(selectCurrent([...fixture.receipt_sources, duplicateCurrentReview]) === null, 'two same-kind current sources fail closed without latest-wins or deduplication')
+const extraProducer = { ...clone(fixture.receipt_sources[0]), producer_id: 'reviewer-three', review_id: '7000000005' }
+check(selectCurrent([...fixture.receipt_sources, extraProducer]) === null, 'extra non-roster producer fails closed')
+const malformedProjection = clone(fixture.receipt_sources)
+malformedProjection[0].unknown = true
+check(selectCurrent(malformedProjection) === null, 'malformed projection fails closed')
+check(selectCurrent(fixture.receipt_sources, roster.producer_ids, '', readyRecord.exact_head) === null, 'malformed Ready-event scalar fails closed')
+check(selectCurrent(fixture.receipt_sources, roster.producer_ids, readyRecord.ready_event_id, 'short') === null, 'malformed exact-HEAD scalar fails closed')
+check(selectCurrent(fixture.receipt_sources, roster.producer_ids, readyRecord.ready_event_id, readyRecord.exact_head, 'not-time') === null, 'malformed Ready timestamp fails closed')
+check(selectCurrent(fixture.receipt_sources, roster.producer_ids, readyRecord.ready_event_id, readyRecord.exact_head, readyRecord.ready_occurred_at, 'not-time') === null, 'malformed observation timestamp fails closed')
+check(selectCurrent(fixture.receipt_sources, roster.producer_ids, readyRecord.ready_event_id, readyRecord.exact_head, '2026-08-01T00:30:01Z', '2026-08-01T00:30:00Z') === null, 'reversed selection interval fails closed')
+const inclusiveStart = { ...clone(fixture.receipt_sources[0]), submitted_at: readyRecord.ready_occurred_at }
+const inclusiveEnd = { ...clone(fixture.receipt_sources[1]), reaction_created_at: '2026-08-01T00:30:00Z' }
+check(selectCurrent([inclusiveStart, inclusiveEnd])?.length === 2, 'native receipt interval is inclusive at Ready and observation bounds')
 
 const validInput = await buildCoreInput()
 check(Object.keys(validInput).join(',') === 'input_version,request_identity,ready_record_observations,ready_event_observations,roster_record_observation,producer_source_observations,thread_pages,receipts_observed_at,thread_snapshot_observed_at', 'Core Input has exact ordered nine fields')
@@ -200,6 +271,12 @@ check(!/ownerPorts|owner_ports|callback|transportOption|fixturePath|testMode/.te
 check(!/export\s+(?:class|function|const)\s+OwnerOnlyReadyReviewObservationTransportAdapterV1/.test(productionSource), 'owner adapter construction is module-private')
 check((productionSource.match(/new OwnerOnlyReadyReviewObservationTransportAdapterV1\(/g) ?? []).length === 1, 'one production CLI constructs the owner adapter exactly once')
 check(productionSource.includes('evaluateReadyReviewTerminalObservationCoreV1(coreInput)'), 'production CLI adapter necessarily invokes pure Core')
+check((moduleSource.match(/export const selectCurrentReadyReviewProducerSourcesV1\s*=/g) ?? []).length === 1, 'one pure generation-aware selection helper is defined')
+check((productionSource.match(/selectCurrentReadyReviewProducerSourcesV1\(/g) ?? []).length === 1, 'owner adapter invokes generation-aware selection exactly once')
+check(productionSource.includes('const producerIds = Array.isArray(roster?.producer_ids) ? roster.producer_ids : []'), 'owner adapter forwards literal roster scalars to fail-closed selection')
+check(productionSource.indexOf('selectCurrentReadyReviewProducerSourcesV1(') < productionSource.indexOf('const hasOneSourcePerProducer'), 'selection occurs before existing per-producer admission and thread acquisition')
+check(productionSource.includes('currentProducerSourceObservations.filter((source) => source.producer_id === producerId)') && productionSource.includes('producer_source_observations: currentProducerSourceObservations'), 'only selected current sources reach per-producer check and Core input')
+check((moduleSource.match(/export const parseReadyReviewTerminalObservationArtifactV1\s*=/g) ?? []).length === 1, 'one existing artifact parser remains')
 check(!productionSource.includes('scripts/fixtures/'), 'production graph has no fixture reachability')
 check(!/node:child_process|process\.|Date\.now\(|new Date\(|fetch\(|XMLHttpRequest/.test(moduleSource), 'pure Core module has no transport, environment, or clock read')
 check(!/Completion|GateStatus|merge_allowed|stop_reason|violation_classification/.test(moduleSource), 'Core module excludes evaluator responsibilities')

@@ -6,6 +6,7 @@ import {
   canonicalizeReadyReviewObservationJcsV1,
   digestReadyReviewObservationProjectionV1,
   evaluateReadyReviewTerminalObservationCoreV1,
+  selectCurrentReadyReviewProducerSourcesV1,
 } from '../src/continuous-orchestration/ready-review-terminal-observation-artifact-v1.ts'
 
 const execFileAsync = promisify(execFile)
@@ -134,7 +135,7 @@ class OwnerOnlyReadyReviewObservationTransportAdapterV1 {
         ghPaginated(`repos/${request.repository}/issues/${request.prNumber}/reactions?per_page=100`),
       ])
       const receiptsObservedAt = new Date().toISOString()
-      const producerIds = Array.isArray(roster?.producer_ids) ? roster.producer_ids.filter((value) => typeof value === 'string') : []
+      const producerIds = Array.isArray(roster?.producer_ids) ? roster.producer_ids : []
       const producerSourceObservations = []
       for (const producerId of producerIds) {
         for (const review of reviews.filter((item) => item?.user?.login === producerId)) {
@@ -181,8 +182,16 @@ class OwnerOnlyReadyReviewObservationTransportAdapterV1 {
         }
       }
 
+      const currentProducerSourceObservations = selectCurrentReadyReviewProducerSourcesV1(
+        producerSourceObservations,
+        producerIds,
+        readyRecord?.ready_event_id,
+        request.exactHead,
+        readyRecord?.ready_occurred_at,
+        receiptsObservedAt,
+      ) ?? []
       const hasOneSourcePerProducer = producerIds.length > 0 && producerIds.every((producerId) =>
-        producerSourceObservations.filter((source) => source.producer_id === producerId).length === 1)
+        currentProducerSourceObservations.filter((source) => source.producer_id === producerId).length === 1)
       const threadPages = hasOneSourcePerProducer
         ? await this.#collectThreadPages({ request, repositoryOwner, repositoryName })
         : []
@@ -200,7 +209,7 @@ class OwnerOnlyReadyReviewObservationTransportAdapterV1 {
           .filter((event) => event?.event === 'ready_for_review')
           .map((event) => ({ event_id: String(event.id), event: event.event, created_at: event.created_at })),
         roster_record_observation: rosterRecordObservation,
-        producer_source_observations: producerSourceObservations,
+        producer_source_observations: currentProducerSourceObservations,
         thread_pages: threadPages,
         receipts_observed_at: receiptsObservedAt,
         thread_snapshot_observed_at: new Date().toISOString(),
