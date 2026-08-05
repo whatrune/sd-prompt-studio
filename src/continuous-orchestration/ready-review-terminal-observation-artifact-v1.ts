@@ -380,6 +380,10 @@ export const validatePostTerminalThreadSnapshotV1 = async (value: unknown): Prom
   if (Date.parse(value.observed_at) < Date.parse(value.last_terminal_receipt_at)) return false
   if (value.post_snapshot_head_recheck.snapshot_observed_at !== value.observed_at ||
       Date.parse(value.post_snapshot_head_recheck.observed_at) <= Date.parse(value.observed_at)) return false
+  if (value.post_snapshot_head_recheck.repository !== value.variables_identity.repository ||
+      value.post_snapshot_head_recheck.pr_number !== value.variables_identity.pr_number ||
+      value.post_snapshot_head_recheck.expected_head !== value.variables_identity.exact_head ||
+      value.post_snapshot_head_recheck.observed_head !== value.variables_identity.exact_head) return false
   if (await digestReadyReviewObservationProjectionV1(value.terminal_receipt_ids) !== value.terminal_receipts_digest) return false
   const threadIds = new Set<string>()
   for (let index = 0; index < value.pages.length; index += 1) {

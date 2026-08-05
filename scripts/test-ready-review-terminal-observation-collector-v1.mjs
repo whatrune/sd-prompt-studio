@@ -10,6 +10,7 @@ import {
   parseReadyReviewTerminalObservationArtifactV1,
   selectCurrentReadyReviewAuthorityObservationsV1,
   selectCurrentReadyReviewProducerSourcesV1,
+  validatePostTerminalThreadSnapshotV1,
   validateReadyReviewGenerationRecordV1,
   validateReadyReviewProducerRosterV1,
 } from '../src/continuous-orchestration/ready-review-terminal-observation-artifact-v1.ts'
@@ -26,6 +27,7 @@ const frozen = (value) => value === null || typeof value !== 'object' || (Object
 const seal = async (value, digestField) => ({ ...clone(value), [digestField]: await digestReadyReviewObservationProjectionV1(value) })
 const resealPage = async (page) => seal(Object.fromEntries(Object.entries(page).filter(([key]) => key !== 'page_digest')), 'page_digest')
 const resealRecord = async (record) => seal(Object.fromEntries(Object.entries(record).filter(([key]) => key !== 'record_digest')), 'record_digest')
+const resealSnapshot = async (snapshot) => seal(Object.fromEntries(Object.entries(snapshot).filter(([key]) => key !== 'snapshot_digest')), 'snapshot_digest')
 
 const restReadyEventId = '28990179212'
 const roster = await seal({ ...fixture.roster_record, ready_event_id: restReadyEventId }, 'record_digest')
@@ -271,6 +273,23 @@ check(Object.keys(artifact).length === 16, 'artifact has exact 16 top-level fiel
 check(frozen(validResult), 'Core Result and artifact are recursively immutable')
 check(Object.keys(artifact.thread_snapshot.post_snapshot_head_recheck).join(',') === 'observation_version,repository,pr_number,pr_url,ready_generation_record_url,ready_event_id,expected_head,observed_head,snapshot_observed_at,observed_at,source_url', 'sealed thread snapshot contains exact closed post-snapshot recheck projection')
 check(artifact.thread_snapshot.post_snapshot_head_recheck.observed_head === artifact.exact_head, 'sealed post-snapshot recheck binds unchanged exact HEAD')
+check(await validatePostTerminalThreadSnapshotV1(artifact.thread_snapshot), 'standalone snapshot validator admits exact identity-bound snapshot')
+const standaloneSnapshotIdentityMismatches = [
+  ['repository', 'other/repository', 'repository'],
+  ['pr_number', 221, 'PR number'],
+  ['expected_head', '2'.repeat(40), 'expected HEAD'],
+  ['observed_head', '2'.repeat(40), 'observed HEAD'],
+]
+for (const [field, replacement, label] of standaloneSnapshotIdentityMismatches) {
+  const mismatchedSnapshot = clone(artifact.thread_snapshot)
+  mismatchedSnapshot.post_snapshot_head_recheck[field] = replacement
+  const resealedMismatchedSnapshot = await resealSnapshot(mismatchedSnapshot)
+  check(!await validatePostTerminalThreadSnapshotV1(resealedMismatchedSnapshot), `standalone snapshot validator rejects resealed ${label} mismatch`)
+}
+const internallyConsistentWrongHeadSnapshot = clone(artifact.thread_snapshot)
+internallyConsistentWrongHeadSnapshot.post_snapshot_head_recheck.expected_head = '2'.repeat(40)
+internallyConsistentWrongHeadSnapshot.post_snapshot_head_recheck.observed_head = '2'.repeat(40)
+check(!await validatePostTerminalThreadSnapshotV1(await resealSnapshot(internallyConsistentWrongHeadSnapshot)), 'standalone snapshot validator rejects resealed internally consistent wrong HEAD identity')
 check(artifact.thread_snapshot.pages[1].end_cursor === 'cursor-terminal', 'non-null terminal end cursor admitted')
 check(artifact.thread_snapshot.pages[0].nodes[0].is_resolved === false && artifact.thread_snapshot.pages[0].nodes[0].is_outdated === false, 'unresolved non-outdated thread preserved without policy judgment')
 const artifactJcs = canonicalizeReadyReviewObservationJcsV1(artifact)
