@@ -6,6 +6,7 @@ import {
   canonicalizeReadyReviewObservationJcsV1,
   digestReadyReviewObservationProjectionV1,
   evaluateReadyReviewTerminalObservationCoreV1,
+  selectCurrentReadyReviewProducerSourcesV1,
 } from '../src/continuous-orchestration/ready-review-terminal-observation-artifact-v1.ts'
 
 const execFileAsync = promisify(execFile)
@@ -134,7 +135,7 @@ class OwnerOnlyReadyReviewObservationTransportAdapterV1 {
         ghPaginated(`repos/${request.repository}/issues/${request.prNumber}/reactions?per_page=100`),
       ])
       const receiptsObservedAt = new Date().toISOString()
-      const producerIds = Array.isArray(roster?.producer_ids) ? roster.producer_ids.filter((value) => typeof value === 'string') : []
+      const producerIds = Array.isArray(roster?.producer_ids) ? roster.producer_ids : []
       const producerSourceObservations = []
       for (const producerId of producerIds) {
         for (const review of reviews.filter((item) => item?.user?.login === producerId)) {
@@ -181,11 +182,23 @@ class OwnerOnlyReadyReviewObservationTransportAdapterV1 {
         }
       }
 
+      const currentProducerSourceObservations = selectCurrentReadyReviewProducerSourcesV1(
+        producerSourceObservations,
+        producerIds,
+        readyRecord?.ready_event_id,
+        request.exactHead,
+        readyRecord?.ready_occurred_at,
+        receiptsObservedAt,
+      ) ?? []
       const hasOneSourcePerProducer = producerIds.length > 0 && producerIds.every((producerId) =>
-        producerSourceObservations.filter((source) => source.producer_id === producerId).length === 1)
+        currentProducerSourceObservations.filter((source) => source.producer_id === producerId).length === 1)
       const threadPages = hasOneSourcePerProducer
         ? await this.#collectThreadPages({ request, repositoryOwner, repositoryName })
         : []
+      const threadSnapshotObservedAt = new Date().toISOString()
+      const postSnapshotHeadRecheck = hasOneSourcePerProducer
+        ? await this.#collectPostSnapshotHeadRecheck({ request, readyRecord, snapshotObservedAt: threadSnapshotObservedAt })
+        : null
       const coreInput = {
         input_version: READY_REVIEW_TERMINAL_OBSERVATION_CORE_INPUT_V1,
         request_identity: {
@@ -200,10 +213,11 @@ class OwnerOnlyReadyReviewObservationTransportAdapterV1 {
           .filter((event) => event?.event === 'ready_for_review')
           .map((event) => ({ event_id: String(event.id), event: event.event, created_at: event.created_at })),
         roster_record_observation: rosterRecordObservation,
-        producer_source_observations: producerSourceObservations,
+        producer_source_observations: currentProducerSourceObservations,
         thread_pages: threadPages,
         receipts_observed_at: receiptsObservedAt,
-        thread_snapshot_observed_at: new Date().toISOString(),
+        thread_snapshot_observed_at: threadSnapshotObservedAt,
+        post_snapshot_head_recheck: postSnapshotHeadRecheck,
       }
       return await evaluateReadyReviewTerminalObservationCoreV1(coreInput)
     } catch (error) {
@@ -252,6 +266,28 @@ class OwnerOnlyReadyReviewObservationTransportAdapterV1 {
       if (connection.pageInfo.hasNextPage && cursor === null) throw new TransportFailureV1('pagination_incomplete', 'reviewThreads cursor chain is broken')
     } while (pages.at(-1).has_next_page)
     return pages
+  }
+
+  async #collectPostSnapshotHeadRecheck({ request, readyRecord, snapshotObservedAt }) {
+    const pullRequest = await ghJson([`repos/${request.repository}/pulls/${request.prNumber}`])
+    const observedAt = new Date().toISOString()
+    if (pullRequest?.head?.sha !== request.exactHead) {
+      throw new TransportFailureV1('head_changed_during_collection', 'exact PR HEAD changed after thread snapshot')
+    }
+    const prUrl = `https://github.com/${request.repository}/pull/${request.prNumber}`
+    return {
+      observation_version: 'post-snapshot-head-recheck-v1',
+      repository: request.repository,
+      pr_number: request.prNumber,
+      pr_url: prUrl,
+      ready_generation_record_url: request.readyRecordUrl,
+      ready_event_id: readyRecord?.ready_event_id,
+      expected_head: request.exactHead,
+      observed_head: pullRequest.head.sha,
+      snapshot_observed_at: snapshotObservedAt,
+      observed_at: observedAt,
+      source_url: prUrl,
+    }
   }
 }
 
