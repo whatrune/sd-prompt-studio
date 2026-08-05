@@ -1,0 +1,45 @@
+{
+  "contract_version": "protected-transition-admission-validation-v1",
+  "repository": "whatrune/sd-prompt-studio",
+  "repository_id": "948271635",
+  "task_record_url": "https://github.com/whatrune/sd-prompt-studio/issues/259",
+  "task_scope_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "pr_number": 260,
+  "pr_url": "https://github.com/whatrune/sd-prompt-studio/pull/260",
+  "exact_head": "1111111111111111111111111111111111111111",
+  "ready_generation": {
+    "record_url": "https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-6000000001",
+    "record_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "event_id": "29000000001",
+    "occurred_at": "2026-08-05T10:00:00Z",
+    "actor_login": "whatrune"
+  },
+  "actor_login": "whatrune",
+  "workflow": {
+    "path": ".github/workflows/protected-transition-admission-v1.yml",
+    "ref": "whatrune/sd-prompt-studio/.github/workflows/protected-transition-admission-v1.yml@refs/heads/main",
+    "sha": "2222222222222222222222222222222222222222",
+    "invocation_ref": "refs/heads/main",
+    "run_id": "31010000001",
+    "run_attempt": 1,
+    "server_url": "https://github.com",
+    "run_url": "https://github.com/whatrune/sd-prompt-studio/actions/runs/31010000001",
+    "default_branch": "main"
+  },
+  "terminal_artifact": {
+    "receipt_id": "4900000001",
+    "receipt_created_at": "2026-08-05T10:05:00Z",
+    "snapshot_observed_at": "2026-08-05T10:09:00Z",
+    "post_snapshot_observed_at": "2026-08-05T10:09:01Z"
+  },
+  "terminal_evaluated_at": "2026-08-05T10:10:00Z",
+  "terminal_review_record_url": "https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-6000000002",
+  "terminal_review_published_at": "2026-08-05T10:12:00Z",
+  "merge_artifact": {
+    "receipt_id": "4900000002",
+    "receipt_created_at": "2026-08-05T10:15:00Z",
+    "snapshot_observed_at": "2026-08-05T10:19:00Z",
+    "post_snapshot_observed_at": "2026-08-05T10:19:01Z"
+  },
+  "merge_evaluated_at": "2026-08-05T10:20:00Z"
+}

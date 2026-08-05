@@ -2,50 +2,138 @@ name: Protected Transition Admission V1
 
 "on":
   workflow_dispatch:
+    inputs:
+      transition:
+        description: Protected transition admission surface
+        required: true
+        type: choice
+        options:
+          - terminal_review_admission
+          - merge_decision_admission
+      pr_number:
+        description: Pull request number
+        required: true
+        type: string
+      exact_head:
+        description: Full exact pull request HEAD SHA
+        required: true
+        type: string
+      task_record_url:
+        description: Direct canonical Task or Issue record URL
+        required: true
+        type: string
+      ready_generation_record_url:
+        description: Direct current Ready Generation record URL
+        required: true
+        type: string
+      terminal_review_record_url:
+        description: Direct Terminal Review record URL; empty for Terminal Review Admission
+        required: false
+        default: ""
+        type: string
 
-permissions: {}
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
 
 jobs:
-  phase_0_non_admitting:
+  protected_transition_admission_v1:
     runs-on: ubuntu-latest
-    timeout-minutes: 1
+    timeout-minutes: 15
     env:
-      PTA_REPOSITORY: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
       PTA_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-      PTA_WORKFLOW_REF: ${{ github.workflow_ref }}
-      PTA_WORKFLOW_SHA: ${{ github.workflow_sha }}
-      PTA_REF: ${{ github.ref }}
-      PTA_REF_NAME: ${{ github.ref_name }}
-      PTA_SHA: ${{ github.sha }}
-      PTA_RUN_ID: ${{ github.run_id }}
-      PTA_RUN_ATTEMPT: ${{ github.run_attempt }}
-      PTA_ACTOR: ${{ github.actor }}
       PTA_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      PTA_OUTPUT_DIRECTORY: ${{ runner.temp }}/protected-transition-admission-v1
     steps:
-      - name: Diagnose runtime identity and fail closed
+      - name: Admit exact default-branch host identity
         shell: bash
         run: |
-          set -u
+          set -euo pipefail
+          expected_workflow_ref="${GITHUB_REPOSITORY}/.github/workflows/protected-transition-admission-v1.yml@refs/heads/main"
+          [[ "$PTA_DEFAULT_BRANCH" == "main" ]]
+          [[ "$GITHUB_REF" == "refs/heads/main" ]]
+          [[ "$GITHUB_WORKFLOW_REF" == "$expected_workflow_ref" ]]
+          [[ "$GITHUB_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
 
-          printf '%s\n' 'protected-transition-admission-v1 phase_0_non_admitting'
-          printf 'repository=%s\n' "$PTA_REPOSITORY"
-          printf 'default_branch=%s\n' "$PTA_DEFAULT_BRANCH"
-          printf 'workflow_ref=%s\n' "$PTA_WORKFLOW_REF"
-          printf 'workflow_sha=%s\n' "$PTA_WORKFLOW_SHA"
-          printf 'ref=%s\n' "$PTA_REF"
-          printf 'ref_name=%s\n' "$PTA_REF_NAME"
-          printf 'sha=%s\n' "$PTA_SHA"
-          printf 'run_id=%s\n' "$PTA_RUN_ID"
-          printf 'run_attempt=%s\n' "$PTA_RUN_ATTEMPT"
-          printf 'actor=%s\n' "$PTA_ACTOR"
-          printf 'run_url=%s\n' "$PTA_RUN_URL"
+      - name: Checkout exact workflow SHA
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
 
-          if [[ "$PTA_REF" != "refs/heads/$PTA_DEFAULT_BRANCH" ]]; then
-            printf '%s\n' 'default_branch_check=failed'
-            printf '%s\n' 'phase_0_result=non_admitting_failure'
-            exit 1
+      - name: Use Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24"
+
+      - name: Install frozen dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global pnpm@11.13.1
+          pnpm install --frozen-lockfile
+
+      - name: Evaluate protected transition admission
+        id: admission
+        shell: bash
+        env:
+          PTA_INPUT_TRANSITION: ${{ inputs.transition }}
+          PTA_INPUT_PR_NUMBER: ${{ inputs.pr_number }}
+          PTA_INPUT_EXACT_HEAD: ${{ inputs.exact_head }}
+          PTA_INPUT_TASK_RECORD_URL: ${{ inputs.task_record_url }}
+          PTA_INPUT_READY_RECORD_URL: ${{ inputs.ready_generation_record_url }}
+          PTA_INPUT_TERMINAL_RECORD_URL: ${{ inputs.terminal_review_record_url }}
+        run: |
+          set +e
+          node scripts/run-protected-transition-admission-v1.mjs \
+            --transition "$PTA_INPUT_TRANSITION" \
+            --pr-number "$PTA_INPUT_PR_NUMBER" \
+            --exact-head "$PTA_INPUT_EXACT_HEAD" \
+            --task-record-url "$PTA_INPUT_TASK_RECORD_URL" \
+            --ready-generation-record-url "$PTA_INPUT_READY_RECORD_URL" \
+            --terminal-review-record-url "$PTA_INPUT_TERMINAL_RECORD_URL"
+          admission_exit=$?
+          set -e
+          if [[ "$admission_exit" -eq 0 ]]; then
+            admission_result=accepted
+          elif [[ "$admission_exit" -eq 2 ]]; then
+            admission_result=rejected
+          else
+            admission_result=failed
           fi
+          printf 'exit_code=%s\n' "$admission_exit" >> "$GITHUB_OUTPUT"
+          printf 'result=%s\n' "$admission_result" >> "$GITHUB_OUTPUT"
 
-          printf '%s\n' 'default_branch_check=passed'
-          printf '%s\n' 'phase_0_result=non_admitting_failure'
+      - name: Persist accepted artifact or rejected diagnostic receipt
+        id: persistence
+        if: steps.admission.outputs.result != 'failed'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: protected-transition-admission-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/protected-transition-admission-v1/*.jcs
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+      - name: Terminate with exact admission result
+        if: always()
+        shell: bash
+        env:
+          PTA_RESULT: ${{ steps.admission.outputs.result }}
+          PTA_EXIT_CODE: ${{ steps.admission.outputs.exit_code }}
+          PTA_PERSISTENCE_OUTCOME: ${{ steps.persistence.outcome }}
+          PTA_ARTIFACT_ID: ${{ steps.persistence.outputs.artifact-id }}
+          PTA_ARTIFACT_URL: ${{ steps.persistence.outputs.artifact-url }}
+          PTA_ARCHIVE_SHA256: ${{ steps.persistence.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          printf 'protected-transition-admission-v1 result=%s\n' "$PTA_RESULT"
+          printf 'artifact_id=%s\n' "$PTA_ARTIFACT_ID"
+          printf 'artifact_url=%s\n' "$PTA_ARTIFACT_URL"
+          printf 'archive_sha256=%s\n' "$PTA_ARCHIVE_SHA256"
+          if [[ "$PTA_RESULT" == "accepted" && "$PTA_EXIT_CODE" == "0" && "$PTA_PERSISTENCE_OUTCOME" == "success" ]]; then
+            exit 0
+          fi
           exit 1
