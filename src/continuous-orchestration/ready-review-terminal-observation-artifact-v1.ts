@@ -423,6 +423,20 @@ const RECORD_OBSERVATION_KEYS = ['source_url', 'author_login', 'author_associati
 const READY_EVENT_OBSERVATION_KEYS = ['event_id', 'event', 'created_at'] as const
 const REVIEW_THREADS_QUERY_V1 = 'query($owner:String!,$name:String!,$number:Int!,$cursor:String){repository(owner:$owner,name:$name){pullRequest(number:$number){headRefOid reviewThreads(first:100,after:$cursor){nodes{id isResolved isOutdated path line startLine comments(last:1){nodes{id createdAt}}}pageInfo{hasNextPage endCursor}}}}}'
 
+type ReadyReviewRecordObservationEnvelopeV1 = Readonly<{
+  source_url: string
+  author_login: string
+  author_association: 'OWNER'
+  record: unknown
+}>
+
+const readyReviewRecordObservationEnvelopeV1 = (value: unknown): value is ReadyReviewRecordObservationEnvelopeV1 =>
+  exactKeys(value, RECORD_OBSERVATION_KEYS) && nonEmpty(value.source_url) && nonEmpty(value.author_login) &&
+  value.author_association === 'OWNER'
+
+const admitReadyReviewGenerationRecordV1 = async (value: unknown): Promise<ReadyReviewGenerationRecordV1 | null> =>
+  await validateReadyReviewGenerationRecordV1(value) ? value as ReadyReviewGenerationRecordV1 : null
+
 const rejectObservationV1 = (
   failureCode: ReadyReviewTerminalObservationFailureCodeV1,
   stage: ReadyReviewTerminalObservationFailureStageV1,
@@ -468,11 +482,11 @@ export const selectCurrentReadyReviewAuthorityObservationsV1 = async (
   })
   if (anchorCandidates.length !== 1) return null
   const anchorObservation = anchorCandidates[0]
-  if (!exactKeys(anchorObservation, RECORD_OBSERVATION_KEYS) || anchorObservation.author_association !== 'OWNER') return null
+  if (!readyReviewRecordObservationEnvelopeV1(anchorObservation)) return null
   const repositoryOwner = requestIdentity.repository.split('/')[0]
+  const anchor = await admitReadyReviewGenerationRecordV1(anchorObservation.record)
   if (anchorObservation.author_login !== repositoryOwner || anchorObservation.source_url !== requestIdentity.ready_record_url ||
-      !await validateReadyReviewGenerationRecordV1(anchorObservation.record)) return null
-  const anchor = anchorObservation.record
+      anchor === null) return null
   if (anchor.canonical_record !== requestIdentity.ready_record_url || anchor.repository !== requestIdentity.repository ||
       anchor.pr_number !== requestIdentity.pr_number || anchor.pr_url !== requestIdentity.pr_url ||
       anchor.exact_head !== requestIdentity.exact_head || !/^[1-9]\d*$/.test(anchor.ready_event_id)) return null
@@ -494,10 +508,11 @@ export const selectCurrentReadyReviewAuthorityObservationsV1 = async (
 
   const byCanonicalUrl = new Map<string, ReadyReviewRecordObservationV1>()
   for (const observation of currentTupleObservations) {
-    if (!exactKeys(observation, RECORD_OBSERVATION_KEYS) || observation.author_association !== 'OWNER' ||
-        observation.author_login !== repositoryOwner || !await validateReadyReviewGenerationRecordV1(observation.record) ||
-        observation.source_url !== observation.record.canonical_record || byCanonicalUrl.has(observation.record.canonical_record)) return null
-    byCanonicalUrl.set(observation.record.canonical_record, observation)
+    if (!readyReviewRecordObservationEnvelopeV1(observation)) return null
+    const record = await admitReadyReviewGenerationRecordV1(observation.record)
+    if (record === null || observation.author_login !== repositoryOwner || observation.source_url !== record.canonical_record ||
+        byCanonicalUrl.has(record.canonical_record)) return null
+    byCanonicalUrl.set(record.canonical_record, { ...observation, record })
   }
 
   const reversedLineage: ReadyReviewRecordObservationV1[] = []
