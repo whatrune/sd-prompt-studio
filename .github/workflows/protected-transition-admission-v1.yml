@@ -40,7 +40,7 @@ jobs:
           printf 'actor=%s\n' "$PTA_ACTOR"
           printf 'run_url=%s\n' "$PTA_RUN_URL"
 
-          if [[ "$PTA_REF_NAME" != "$PTA_DEFAULT_BRANCH" ]]; then
+          if [[ "$PTA_REF" != "refs/heads/$PTA_DEFAULT_BRANCH" ]]; then
             printf '%s\n' 'default_branch_check=failed'
             printf '%s\n' 'phase_0_result=non_admitting_failure'
             exit 1
