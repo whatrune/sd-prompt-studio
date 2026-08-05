@@ -452,6 +452,40 @@ const validateCoreInputEnvelopeV1 = (value: unknown): value is ReadyReviewTermin
 const sourceProjectionIsAdmittedV1 = (value: unknown): value is SubmittedReviewSourceProjectionV1 | NoFindingsCorrelationSourceProjectionV1 =>
   validateSubmittedReviewProjection(value) || validateNoFindingsProjection(value)
 
+export const selectCurrentReadyReviewProducerSourcesV1 = (
+  observations: unknown,
+  producerIds: unknown,
+  readyEventId: unknown,
+  exactHead: unknown,
+  readyOccurredAt: unknown,
+  receiptsObservedAt: unknown,
+): readonly (SubmittedReviewSourceProjectionV1 | NoFindingsCorrelationSourceProjectionV1)[] | null => {
+  if (!Array.isArray(observations) || !observations.every(sourceProjectionIsAdmittedV1) ||
+      !stringArray(producerIds) || producerIds.length === 0 || !unique(producerIds) ||
+      !nonEmpty(readyEventId) || !fullHead(exactHead) || !isoTime(readyOccurredAt) || !isoTime(receiptsObservedAt) ||
+      Date.parse(readyOccurredAt) > Date.parse(receiptsObservedAt)) return null
+
+  const roster = new Set(producerIds)
+  if (observations.some((source) => !roster.has(source.producer_id))) return null
+
+  const readyTime = Date.parse(readyOccurredAt)
+  const observedTime = Date.parse(receiptsObservedAt)
+  const currentSources = observations.filter((source) => {
+    const receiptCreatedAt = source.kind === 'submitted_review' ? source.submitted_at : source.reaction_created_at
+    const receiptTime = Date.parse(receiptCreatedAt)
+    return source.ready_event_id === readyEventId && source.reviewed_head === exactHead &&
+      receiptTime >= readyTime && receiptTime <= observedTime
+  })
+  const selected: (SubmittedReviewSourceProjectionV1 | NoFindingsCorrelationSourceProjectionV1)[] = []
+  for (const producerId of producerIds) {
+    const candidates = currentSources.filter((source) => source.producer_id === producerId)
+    if (candidates.length !== 1) return null
+    selected.push(structuredClone(candidates[0]))
+  }
+  if (selected.length !== currentSources.length || selected.length !== producerIds.length) return null
+  return deepFreezeReadyReviewObservationV1(selected)
+}
+
 const makeTerminalReceiptV1 = async (
   projection: SubmittedReviewSourceProjectionV1 | NoFindingsCorrelationSourceProjectionV1,
 ): Promise<ProducerTerminalReceiptObservationV1> => {
