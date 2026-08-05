@@ -449,6 +449,82 @@ const validateCoreInputEnvelopeV1 = (value: unknown): value is ReadyReviewTermin
   isoTime(value.receipts_observed_at) &&
   isoTime(value.thread_snapshot_observed_at)
 
+export const selectCurrentReadyReviewAuthorityObservationsV1 = async (
+  observations: unknown,
+  readyEventObservations: unknown,
+  requestIdentity: unknown,
+): Promise<readonly ReadyReviewRecordObservationV1[] | null> => {
+  if (!Array.isArray(observations) || !Array.isArray(readyEventObservations) ||
+      !exactKeys(requestIdentity, REQUEST_IDENTITY_KEYS) || !nonEmpty(requestIdentity.repository) ||
+      !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(requestIdentity.repository) ||
+      !Number.isSafeInteger(requestIdentity.pr_number) || Number(requestIdentity.pr_number) <= 0 ||
+      !directPrUrl(requestIdentity.pr_url) || !fullHead(requestIdentity.exact_head) ||
+      !directCommentUrl(requestIdentity.ready_record_url)) return null
+
+  const anchorCandidates = observations.filter((observation) => {
+    if (!isObject(observation)) return false
+    const record = isObject(observation.record) ? observation.record : null
+    return observation.source_url === requestIdentity.ready_record_url || record?.canonical_record === requestIdentity.ready_record_url
+  })
+  if (anchorCandidates.length !== 1) return null
+  const anchorObservation = anchorCandidates[0]
+  if (!exactKeys(anchorObservation, RECORD_OBSERVATION_KEYS) || anchorObservation.author_association !== 'OWNER') return null
+  const repositoryOwner = requestIdentity.repository.split('/')[0]
+  if (anchorObservation.author_login !== repositoryOwner || anchorObservation.source_url !== requestIdentity.ready_record_url ||
+      !await validateReadyReviewGenerationRecordV1(anchorObservation.record)) return null
+  const anchor = anchorObservation.record
+  if (anchor.canonical_record !== requestIdentity.ready_record_url || anchor.repository !== requestIdentity.repository ||
+      anchor.pr_number !== requestIdentity.pr_number || anchor.pr_url !== requestIdentity.pr_url ||
+      anchor.exact_head !== requestIdentity.exact_head || !/^[1-9]\d*$/.test(anchor.ready_event_id)) return null
+
+  const matchingEvents = readyEventObservations.filter((event) =>
+    exactKeys(event, READY_EVENT_OBSERVATION_KEYS) && event.event === 'ready_for_review' &&
+    event.event_id === anchor.ready_event_id && event.created_at === anchor.ready_occurred_at,
+  )
+  if (matchingEvents.length !== 1) return null
+
+  const currentTupleObservations = observations.filter((observation) => {
+    if (!isObject(observation) || !isObject(observation.record)) return false
+    const record = observation.record
+    return record.repository === requestIdentity.repository && record.pr_number === requestIdentity.pr_number &&
+      record.pr_url === requestIdentity.pr_url && record.exact_head === requestIdentity.exact_head &&
+      record.ready_event_id === anchor.ready_event_id && record.ready_occurred_at === anchor.ready_occurred_at
+  })
+  if (currentTupleObservations.length === 0) return null
+
+  const byCanonicalUrl = new Map<string, ReadyReviewRecordObservationV1>()
+  for (const observation of currentTupleObservations) {
+    if (!exactKeys(observation, RECORD_OBSERVATION_KEYS) || observation.author_association !== 'OWNER' ||
+        observation.author_login !== repositoryOwner || !await validateReadyReviewGenerationRecordV1(observation.record) ||
+        observation.source_url !== observation.record.canonical_record || byCanonicalUrl.has(observation.record.canonical_record)) return null
+    byCanonicalUrl.set(observation.record.canonical_record, observation)
+  }
+
+  const reversedLineage: ReadyReviewRecordObservationV1[] = []
+  const visited = new Set<string>()
+  let cursor: ReadyReviewRecordObservationV1 | undefined = byCanonicalUrl.get(requestIdentity.ready_record_url)
+  while (cursor !== undefined) {
+    const record = cursor.record
+    if (visited.has(record.canonical_record) || record.revision !== anchor.revision - reversedLineage.length) return null
+    visited.add(record.canonical_record)
+    reversedLineage.push(cursor)
+    if (record.prior_record_url === null) {
+      if (record.revision !== 1) return null
+      break
+    }
+    cursor = byCanonicalUrl.get(record.prior_record_url)
+    if (cursor === undefined) return null
+  }
+  if (reversedLineage.length !== currentTupleObservations.length || reversedLineage.length !== anchor.revision) return null
+  const lineage = reversedLineage.reverse()
+  for (let index = 0; index < lineage.length; index += 1) {
+    const expectedRevision = index + 1
+    const expectedPrior = index === 0 ? null : lineage[index - 1].record.canonical_record
+    if (lineage[index].record.revision !== expectedRevision || lineage[index].record.prior_record_url !== expectedPrior) return null
+  }
+  return deepFreezeReadyReviewObservationV1(structuredClone(lineage)) as readonly ReadyReviewRecordObservationV1[]
+}
+
 const sourceProjectionIsAdmittedV1 = (value: unknown): value is SubmittedReviewSourceProjectionV1 | NoFindingsCorrelationSourceProjectionV1 =>
   validateSubmittedReviewProjection(value) || validateNoFindingsProjection(value)
 
@@ -513,8 +589,15 @@ export const evaluateReadyReviewTerminalObservationCoreV1 = async (
   const request = input.request_identity
   const repositoryOwner = request.repository.split('/')[0]
 
+  const currentReadyRecordObservations = await selectCurrentReadyReviewAuthorityObservationsV1(
+    input.ready_record_observations,
+    input.ready_event_observations,
+    request,
+  )
+  if (currentReadyRecordObservations === null) return rejectObservationV1('ready_authority_invalid', 'ready_authority')
+
   const admittedReadyRecords: ReadyReviewGenerationRecordV1[] = []
-  for (const observation of input.ready_record_observations) {
+  for (const observation of currentReadyRecordObservations) {
     if (!exactKeys(observation, RECORD_OBSERVATION_KEYS) || observation.author_association !== 'OWNER' ||
         observation.author_login !== repositoryOwner || observation.source_url !== (isObject(observation.record) ? observation.record.canonical_record : undefined) ||
         !await validateReadyReviewGenerationRecordV1(observation.record)) {

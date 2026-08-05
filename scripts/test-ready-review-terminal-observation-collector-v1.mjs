@@ -8,6 +8,7 @@ import {
   digestReadyReviewObservationProjectionV1,
   evaluateReadyReviewTerminalObservationCoreV1,
   parseReadyReviewTerminalObservationArtifactV1,
+  selectCurrentReadyReviewAuthorityObservationsV1,
   selectCurrentReadyReviewProducerSourcesV1,
   validateReadyReviewGenerationRecordV1,
   validateReadyReviewProducerRosterV1,
@@ -26,8 +27,9 @@ const seal = async (value, digestField) => ({ ...clone(value), [digestField]: aw
 const resealPage = async (page) => seal(Object.fromEntries(Object.entries(page).filter(([key]) => key !== 'page_digest')), 'page_digest')
 const resealRecord = async (record) => seal(Object.fromEntries(Object.entries(record).filter(([key]) => key !== 'record_digest')), 'record_digest')
 
-const roster = await seal(fixture.roster_record, 'record_digest')
-const readyRecord = await seal({ ...fixture.ready_record, producer_roster_source_digest: roster.record_digest }, 'record_digest')
+const restReadyEventId = '28990179212'
+const roster = await seal({ ...fixture.roster_record, ready_event_id: restReadyEventId }, 'record_digest')
+const readyRecord = await seal({ ...fixture.ready_record, ready_event_id: restReadyEventId, producer_roster_source_digest: roster.record_digest }, 'record_digest')
 const ownerObservation = (record) => ({
   source_url: record.canonical_record,
   author_login: 'whatrune',
@@ -55,7 +57,7 @@ const buildCoreInput = async ({
   ready_record_observations: readyRecords.map(ownerObservation),
   ready_event_observations: clone(readyEvents),
   roster_record_observation: ownerObservation(rosterRecord),
-  producer_source_observations: clone(producerSources),
+  producer_source_observations: clone(producerSources).map((source) => ({ ...source, ready_event_id: readyRecord.ready_event_id })),
   thread_pages: await Promise.all(pageSources.map((page) => seal(page, 'page_digest'))),
   receipts_observed_at: receiptsObservedAt,
   thread_snapshot_observed_at: snapshotObservedAt,
@@ -73,7 +75,7 @@ check(await validateReadyReviewGenerationRecordV1(readyRecord), 'valid Ready gen
 const selectCurrent = (
   observations = fixture.receipt_sources,
   producerIds = roster.producer_ids,
-  readyEventId = readyRecord.ready_event_id,
+  readyEventId = fixture.ready_record.ready_event_id,
   exactHead = readyRecord.exact_head,
   readyOccurredAt = readyRecord.ready_occurred_at,
   receiptsObservedAt = '2026-08-01T00:30:00Z',
@@ -140,6 +142,96 @@ const inclusiveStart = { ...clone(fixture.receipt_sources[0]), submitted_at: rea
 const inclusiveEnd = { ...clone(fixture.receipt_sources[1]), reaction_created_at: '2026-08-01T00:30:00Z' }
 check(selectCurrent([inclusiveStart, inclusiveEnd])?.length === 2, 'native receipt interval is inclusive at Ready and observation bounds')
 
+const readyEvent = { event_id: readyRecord.ready_event_id, event: 'ready_for_review', created_at: readyRecord.ready_occurred_at }
+const authorityRequest = (record = readyRecord, overrides = {}) => ({
+  repository: record.repository,
+  pr_number: record.pr_number,
+  pr_url: record.pr_url,
+  exact_head: record.exact_head,
+  ready_record_url: record.canonical_record,
+  ...overrides,
+})
+const selectAuthority = (records, events = [readyEvent], request = authorityRequest(records.at(-1))) =>
+  selectCurrentReadyReviewAuthorityObservationsV1(records.map(ownerObservation), events, request)
+
+const priorHeadRecord = await resealRecord({
+  ...clone(readyRecord),
+  canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-5999999991',
+  exact_head: '2'.repeat(40),
+  ready_event_id: '28990170001',
+  ready_occurred_at: '2026-07-31T22:00:00Z',
+})
+const historicalSameHeadRecord = await resealRecord({
+  ...clone(readyRecord),
+  canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-5999999992',
+  ready_event_id: '28990170002',
+  ready_occurred_at: '2026-07-31T23:00:00Z',
+})
+const authorityInput = [ownerObservation(priorHeadRecord), ownerObservation(historicalSameHeadRecord), ownerObservation(readyRecord)]
+const authorityInputSnapshot = clone(authorityInput)
+const selectedAuthority = await selectCurrentReadyReviewAuthorityObservationsV1(authorityInput, [readyEvent], authorityRequest())
+check(selectedAuthority?.length === 1 && selectedAuthority[0].record.canonical_record === readyRecord.canonical_record, 'prior-HEAD and same-HEAD prior-Ready generations are excluded in favor of exact current REST authority')
+check(JSON.stringify(authorityInput) === JSON.stringify(authorityInputSnapshot), 'Ready authority selector leaves input unchanged')
+check(frozen(selectedAuthority), 'Ready authority selector returns recursively immutable observations')
+assert.throws(() => { selectedAuthority[0].record.ready_event_id = 'mutated' }, TypeError)
+
+const revisionTwo = await resealRecord({
+  ...clone(readyRecord),
+  canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000002',
+  revision: 2,
+  prior_record_url: readyRecord.canonical_record,
+})
+const revisionTwoRequest = authorityRequest(revisionTwo)
+const selectedRevisionChain = await selectAuthority([readyRecord, revisionTwo], [readyEvent], revisionTwoRequest)
+check(selectedRevisionChain?.map(({ record }) => record.revision).join(',') === '1,2' && frozen(selectedRevisionChain), 'current revision lineage is returned frozen in contiguous revision order')
+const revisionChainCore = await buildCoreInput({ readyRecords: [priorHeadRecord, readyRecord, revisionTwo] })
+revisionChainCore.request_identity = revisionTwoRequest
+check((await evaluateReadyReviewTerminalObservationCoreV1(revisionChainCore)).branch === 'artifact_produced', 'selected multi-revision authority is independently revalidated by the existing Core')
+
+check(await selectAuthority([priorHeadRecord], [readyEvent], authorityRequest()) === null, 'historical-only authority is never promoted')
+const graphQlOnly = await resealRecord({ ...clone(readyRecord), ready_event_id: 'RFRE_lADOTUu8Qs8AAAABLfyJJc8AAAAGv_MHjA' })
+check(await selectAuthority([graphQlOnly], [readyEvent], authorityRequest(graphQlOnly)) === null, 'GraphQL-only Ready event identity fails closed without conversion')
+const zeroReadyEvent = await resealRecord({ ...clone(readyRecord), ready_event_id: '0' })
+check(await selectAuthority([zeroReadyEvent], [{ ...readyEvent, event_id: '0' }], authorityRequest(zeroReadyEvent)) === null, 'zero REST Ready event identity fails closed')
+const leadingZeroReadyEvent = await resealRecord({ ...clone(readyRecord), ready_event_id: '028990179212' })
+check(await selectAuthority([leadingZeroReadyEvent], [{ ...readyEvent, event_id: '028990179212' }], authorityRequest(leadingZeroReadyEvent)) === null, 'non-canonical leading-zero REST Ready event identity fails closed')
+check(await selectAuthority([readyRecord], [], authorityRequest()) === null, 'zero matching REST Ready event fails closed')
+check(await selectAuthority([readyRecord], [readyEvent, clone(readyEvent)], authorityRequest()) === null, 'multiple matching REST Ready events fail closed')
+check(await selectAuthority([readyRecord], [{ ...readyEvent, created_at: '2026-08-01T00:00:01Z' }], authorityRequest()) === null, 'Ready event timestamp mismatch fails closed')
+check(await selectAuthority([readyRecord], [readyEvent], authorityRequest(readyRecord, { exact_head: '2'.repeat(40) })) === null, 'request exact-HEAD mismatch fails closed')
+check(await selectAuthority([readyRecord], [readyEvent], authorityRequest(readyRecord, { repository: 'other/repository' })) === null, 'request repository mismatch fails closed')
+check(await selectAuthority([readyRecord], [readyEvent], authorityRequest(readyRecord, { pr_number: 221 })) === null, 'request PR mismatch fails closed')
+check(await selectAuthority([readyRecord], [readyEvent], authorityRequest(readyRecord, { pr_url: 'https://github.com/whatrune/sd-prompt-studio/pull/221' })) === null, 'request PR URL mismatch fails closed')
+check(await selectCurrentReadyReviewAuthorityObservationsV1([ownerObservation(readyRecord), ownerObservation(readyRecord)], [readyEvent], authorityRequest()) === null, 'duplicate requested anchor fails closed')
+
+const competingRevisionOne = await resealRecord({ ...clone(readyRecord), canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000010' })
+check(await selectAuthority([readyRecord, competingRevisionOne], [readyEvent], authorityRequest()) === null, 'second current lineage and duplicate revision fail closed')
+const competingRevisionTwo = await resealRecord({ ...clone(revisionTwo), canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000011' })
+check(await selectAuthority([readyRecord, revisionTwo, competingRevisionTwo], [readyEvent], revisionTwoRequest) === null, 'competing current leaf fails closed')
+const missingRevision = await resealRecord({ ...clone(revisionTwo), revision: 3 })
+check(await selectAuthority([readyRecord, missingRevision], [readyEvent], authorityRequest(missingRevision)) === null, 'missing revision fails closed')
+const brokenPredecessor = await resealRecord({ ...clone(revisionTwo), prior_record_url: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6999999999' })
+check(await selectAuthority([readyRecord, brokenPredecessor], [readyEvent], authorityRequest(brokenPredecessor)) === null, 'broken predecessor and orphan fail closed')
+const cycleMember = await resealRecord({ ...clone(revisionTwo), canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000012', revision: 3, prior_record_url: revisionTwo.canonical_record })
+const cyclicAnchor = await resealRecord({ ...clone(revisionTwo), prior_record_url: cycleMember.canonical_record })
+check(await selectAuthority([readyRecord, cyclicAnchor, cycleMember], [readyEvent], authorityRequest(cyclicAnchor)) === null, 'cyclic current lineage fails closed')
+
+const invalidDigestObservation = ownerObservation(readyRecord)
+invalidDigestObservation.record.record_digest = '0'.repeat(64)
+check(await selectCurrentReadyReviewAuthorityObservationsV1([invalidDigestObservation], [readyEvent], authorityRequest()) === null, 'invalid current record digest fails closed')
+const unauthorizedObservation = ownerObservation(readyRecord)
+unauthorizedObservation.author_login = 'not-owner'
+check(await selectCurrentReadyReviewAuthorityObservationsV1([unauthorizedObservation], [readyEvent], authorityRequest()) === null, 'unauthorized current author fails closed')
+const wrongAssociationObservation = ownerObservation(readyRecord)
+wrongAssociationObservation.author_association = 'CONTRIBUTOR'
+check(await selectCurrentReadyReviewAuthorityObservationsV1([wrongAssociationObservation], [readyEvent], authorityRequest()) === null, 'wrong current author association fails closed')
+const sourceMismatchObservation = ownerObservation(readyRecord)
+sourceMismatchObservation.source_url = 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000099'
+check(await selectCurrentReadyReviewAuthorityObservationsV1([sourceMismatchObservation], [readyEvent], authorityRequest()) === null, 'current source and canonical URL mismatch fails closed')
+const malformedCurrentObservation = ownerObservation(readyRecord)
+malformedCurrentObservation.record.unknown = true
+check(await selectCurrentReadyReviewAuthorityObservationsV1([malformedCurrentObservation], [readyEvent], authorityRequest()) === null, 'unknown current record field fails closed')
+
 const validInput = await buildCoreInput()
 check(Object.keys(validInput).join(',') === 'input_version,request_identity,ready_record_observations,ready_event_observations,roster_record_observation,producer_source_observations,thread_pages,receipts_observed_at,thread_snapshot_observed_at', 'Core Input has exact ordered nine fields')
 const validResult = await evaluateReadyReviewTerminalObservationCoreV1(validInput)
@@ -183,16 +275,19 @@ await assertRejected(badReadyDigest, 'ready_authority_invalid', 'ready_authority
 const successor = await resealRecord({ ...clone(readyRecord), canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000002', revision: 2, prior_record_url: readyRecord.canonical_record })
 const staleLeaf = await buildCoreInput({ readyRecords: [readyRecord, successor] })
 staleLeaf.request_identity.ready_record_url = readyRecord.canonical_record
-await assertRejected(staleLeaf, 'ready_chain_invalid', 'ready_chain', 'stale non-leaf Ready revision rejected')
+await assertRejected(staleLeaf, 'ready_authority_invalid', 'ready_authority', 'stale requested non-leaf Ready revision rejected during current authority selection')
 const competing = await resealRecord({ ...clone(readyRecord), canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000002' })
-await assertRejected(await buildCoreInput({ readyRecords: [readyRecord, competing] }), 'ready_chain_invalid', 'ready_chain', 'competing Ready leaf rejected')
+await assertRejected(await buildCoreInput({ readyRecords: [readyRecord, competing] }), 'ready_authority_invalid', 'ready_authority', 'competing Ready leaf rejected during current authority selection')
 const broken = await resealRecord({ ...clone(successor), prior_record_url: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6999999999' })
-await assertRejected(await buildCoreInput({ readyRecords: [readyRecord, broken] }), 'ready_chain_invalid', 'ready_chain', 'broken Ready chain rejected')
+await assertRejected(await buildCoreInput({ readyRecords: [readyRecord, broken] }), 'ready_authority_invalid', 'ready_authority', 'broken Ready chain rejected during current authority selection')
 const missingEvent = await buildCoreInput({ readyEvents: [{ event_id: 'OTHER', event: 'ready_for_review', created_at: readyRecord.ready_occurred_at }] })
-await assertRejected(missingEvent, 'ready_event_invalid', 'ready_event', 'missing bound Ready event rejected')
+await assertRejected(missingEvent, 'ready_authority_invalid', 'ready_authority', 'missing bound Ready event rejected during current authority selection')
 const eventUnknown = await buildCoreInput()
 eventUnknown.ready_event_observations[0].unknown = true
-await assertRejected(eventUnknown, 'ready_event_invalid', 'ready_event', 'Ready event unknown field rejected')
+await assertRejected(eventUnknown, 'ready_authority_invalid', 'ready_authority', 'malformed matching Ready event rejected during current authority selection')
+const unrelatedEventUnknown = await buildCoreInput()
+unrelatedEventUnknown.ready_event_observations.push({ event_id: 'OTHER', event: 'ready_for_review', created_at: readyRecord.ready_occurred_at, unknown: true })
+await assertRejected(unrelatedEventUnknown, 'ready_event_invalid', 'ready_event', 'existing Core still rejects malformed unrelated Ready event after current authority selection')
 
 const rosterUnknown = await buildCoreInput()
 rosterUnknown.roster_record_observation.unknown = true
@@ -273,6 +368,11 @@ check((productionSource.match(/new OwnerOnlyReadyReviewObservationTransportAdapt
 check(productionSource.includes('evaluateReadyReviewTerminalObservationCoreV1(coreInput)'), 'production CLI adapter necessarily invokes pure Core')
 check((moduleSource.match(/export const selectCurrentReadyReviewProducerSourcesV1\s*=/g) ?? []).length === 1, 'one pure generation-aware selection helper is defined')
 check((productionSource.match(/selectCurrentReadyReviewProducerSourcesV1\(/g) ?? []).length === 1, 'owner adapter invokes generation-aware selection exactly once')
+check((moduleSource.match(/export const selectCurrentReadyReviewAuthorityObservationsV1\s*=/g) ?? []).length === 1, 'one pure current Ready authority selector is defined')
+check((moduleSource.match(/await selectCurrentReadyReviewAuthorityObservationsV1\(/g) ?? []).length === 1, 'Core invokes current Ready authority selector exactly once')
+check(moduleSource.indexOf('await selectCurrentReadyReviewAuthorityObservationsV1(') < moduleSource.indexOf('const admittedReadyRecords:'), 'current Ready authority selection occurs before the existing admitted Ready record loop')
+check(moduleSource.includes("!/^[1-9]\\d*$/.test(anchor.ready_event_id)"), 'current authority selector requires a positive-decimal REST Ready event ID')
+check(!/graphql.*rest|rest.*graphql|node.?id.*event.?id/i.test(moduleSource), 'Core contains no GraphQL-to-REST Ready identity conversion path')
 check(productionSource.includes('const producerIds = Array.isArray(roster?.producer_ids) ? roster.producer_ids : []'), 'owner adapter forwards literal roster scalars to fail-closed selection')
 check(productionSource.indexOf('selectCurrentReadyReviewProducerSourcesV1(') < productionSource.indexOf('const hasOneSourcePerProducer'), 'selection occurs before existing per-producer admission and thread acquisition')
 check(productionSource.includes('currentProducerSourceObservations.filter((source) => source.producer_id === producerId)') && productionSource.includes('producer_source_observations: currentProducerSourceObservations'), 'only selected current sources reach per-producer check and Core input')
