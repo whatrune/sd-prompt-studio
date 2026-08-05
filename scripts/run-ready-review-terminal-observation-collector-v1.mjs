@@ -195,6 +195,10 @@ class OwnerOnlyReadyReviewObservationTransportAdapterV1 {
       const threadPages = hasOneSourcePerProducer
         ? await this.#collectThreadPages({ request, repositoryOwner, repositoryName })
         : []
+      const threadSnapshotObservedAt = new Date().toISOString()
+      const postSnapshotHeadRecheck = hasOneSourcePerProducer
+        ? await this.#collectPostSnapshotHeadRecheck({ request, readyRecord, snapshotObservedAt: threadSnapshotObservedAt })
+        : null
       const coreInput = {
         input_version: READY_REVIEW_TERMINAL_OBSERVATION_CORE_INPUT_V1,
         request_identity: {
@@ -212,7 +216,8 @@ class OwnerOnlyReadyReviewObservationTransportAdapterV1 {
         producer_source_observations: currentProducerSourceObservations,
         thread_pages: threadPages,
         receipts_observed_at: receiptsObservedAt,
-        thread_snapshot_observed_at: new Date().toISOString(),
+        thread_snapshot_observed_at: threadSnapshotObservedAt,
+        post_snapshot_head_recheck: postSnapshotHeadRecheck,
       }
       return await evaluateReadyReviewTerminalObservationCoreV1(coreInput)
     } catch (error) {
@@ -261,6 +266,28 @@ class OwnerOnlyReadyReviewObservationTransportAdapterV1 {
       if (connection.pageInfo.hasNextPage && cursor === null) throw new TransportFailureV1('pagination_incomplete', 'reviewThreads cursor chain is broken')
     } while (pages.at(-1).has_next_page)
     return pages
+  }
+
+  async #collectPostSnapshotHeadRecheck({ request, readyRecord, snapshotObservedAt }) {
+    const pullRequest = await ghJson([`repos/${request.repository}/pulls/${request.prNumber}`])
+    const observedAt = new Date().toISOString()
+    if (pullRequest?.head?.sha !== request.exactHead) {
+      throw new TransportFailureV1('head_changed_during_collection', 'exact PR HEAD changed after thread snapshot')
+    }
+    const prUrl = `https://github.com/${request.repository}/pull/${request.prNumber}`
+    return {
+      observation_version: 'post-snapshot-head-recheck-v1',
+      repository: request.repository,
+      pr_number: request.prNumber,
+      pr_url: prUrl,
+      ready_generation_record_url: request.readyRecordUrl,
+      ready_event_id: readyRecord?.ready_event_id,
+      expected_head: request.exactHead,
+      observed_head: pullRequest.head.sha,
+      snapshot_observed_at: snapshotObservedAt,
+      observed_at: observedAt,
+      source_url: prUrl,
+    }
   }
 }
 

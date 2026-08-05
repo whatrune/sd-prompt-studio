@@ -10,6 +10,7 @@ import {
   parseReadyReviewTerminalObservationArtifactV1,
   selectCurrentReadyReviewAuthorityObservationsV1,
   selectCurrentReadyReviewProducerSourcesV1,
+  validatePostTerminalThreadSnapshotV1,
   validateReadyReviewGenerationRecordV1,
   validateReadyReviewProducerRosterV1,
 } from '../src/continuous-orchestration/ready-review-terminal-observation-artifact-v1.ts'
@@ -26,6 +27,7 @@ const frozen = (value) => value === null || typeof value !== 'object' || (Object
 const seal = async (value, digestField) => ({ ...clone(value), [digestField]: await digestReadyReviewObservationProjectionV1(value) })
 const resealPage = async (page) => seal(Object.fromEntries(Object.entries(page).filter(([key]) => key !== 'page_digest')), 'page_digest')
 const resealRecord = async (record) => seal(Object.fromEntries(Object.entries(record).filter(([key]) => key !== 'record_digest')), 'record_digest')
+const resealSnapshot = async (snapshot) => seal(Object.fromEntries(Object.entries(snapshot).filter(([key]) => key !== 'snapshot_digest')), 'snapshot_digest')
 
 const restReadyEventId = '28990179212'
 const roster = await seal({ ...fixture.roster_record, ready_event_id: restReadyEventId }, 'record_digest')
@@ -45,6 +47,8 @@ const buildCoreInput = async ({
   pageSources = fixture.thread_pages,
   receiptsObservedAt = '2026-08-01T00:30:00Z',
   snapshotObservedAt = '2026-08-01T00:32:00Z',
+  postSnapshotHeadRecheck,
+  recheckObservedAt = '2026-08-01T00:33:00Z',
 } = {}) => ({
   input_version: READY_REVIEW_TERMINAL_OBSERVATION_CORE_INPUT_V1,
   request_identity: {
@@ -61,6 +65,19 @@ const buildCoreInput = async ({
   thread_pages: await Promise.all(pageSources.map((page) => seal(page, 'page_digest'))),
   receipts_observed_at: receiptsObservedAt,
   thread_snapshot_observed_at: snapshotObservedAt,
+  post_snapshot_head_recheck: postSnapshotHeadRecheck === undefined ? {
+    ...clone(fixture.post_snapshot_head_recheck),
+    repository: readyRecord.repository,
+    pr_number: readyRecord.pr_number,
+    pr_url: readyRecord.pr_url,
+    ready_generation_record_url: readyRecords.at(-1).canonical_record,
+    ready_event_id: readyRecord.ready_event_id,
+    expected_head: readyRecord.exact_head,
+    observed_head: readyRecord.exact_head,
+    snapshot_observed_at: snapshotObservedAt,
+    observed_at: recheckObservedAt,
+    source_url: readyRecord.pr_url,
+  } : clone(postSnapshotHeadRecheck),
 })
 
 const assertRejected = async (input, failureCode, stage, label) => {
@@ -246,18 +263,44 @@ malformedCurrentObservation.record.unknown = true
 check(await selectCurrentReadyReviewAuthorityObservationsV1([malformedCurrentObservation], [readyEvent], authorityRequest()) === null, 'unknown current record field fails closed')
 
 const validInput = await buildCoreInput()
-check(Object.keys(validInput).join(',') === 'input_version,request_identity,ready_record_observations,ready_event_observations,roster_record_observation,producer_source_observations,thread_pages,receipts_observed_at,thread_snapshot_observed_at', 'Core Input has exact ordered nine fields')
+const validInputSnapshot = clone(validInput)
+check(Object.keys(validInput).join(',') === 'input_version,request_identity,ready_record_observations,ready_event_observations,roster_record_observation,producer_source_observations,thread_pages,receipts_observed_at,thread_snapshot_observed_at,post_snapshot_head_recheck', 'Core Input has exact ordered ten fields')
 const validResult = await evaluateReadyReviewTerminalObservationCoreV1(validInput)
 check(validResult.branch === 'artifact_produced', 'valid literal Core Input produces artifact')
+check(JSON.stringify(validInput) === JSON.stringify(validInputSnapshot), 'Core leaves literal input including post-snapshot recheck unmodified')
 const artifact = validResult.artifact
 check(Object.keys(artifact).length === 16, 'artifact has exact 16 top-level fields')
 check(frozen(validResult), 'Core Result and artifact are recursively immutable')
+check(Object.keys(artifact.thread_snapshot.post_snapshot_head_recheck).join(',') === 'observation_version,repository,pr_number,pr_url,ready_generation_record_url,ready_event_id,expected_head,observed_head,snapshot_observed_at,observed_at,source_url', 'sealed thread snapshot contains exact closed post-snapshot recheck projection')
+check(artifact.thread_snapshot.post_snapshot_head_recheck.observed_head === artifact.exact_head, 'sealed post-snapshot recheck binds unchanged exact HEAD')
+check(await validatePostTerminalThreadSnapshotV1(artifact.thread_snapshot), 'standalone snapshot validator admits exact identity-bound snapshot')
+const standaloneSnapshotIdentityMismatches = [
+  ['repository', 'other/repository', 'repository'],
+  ['pr_number', 221, 'PR number'],
+  ['expected_head', '2'.repeat(40), 'expected HEAD'],
+  ['observed_head', '2'.repeat(40), 'observed HEAD'],
+]
+for (const [field, replacement, label] of standaloneSnapshotIdentityMismatches) {
+  const mismatchedSnapshot = clone(artifact.thread_snapshot)
+  mismatchedSnapshot.post_snapshot_head_recheck[field] = replacement
+  const resealedMismatchedSnapshot = await resealSnapshot(mismatchedSnapshot)
+  check(!await validatePostTerminalThreadSnapshotV1(resealedMismatchedSnapshot), `standalone snapshot validator rejects resealed ${label} mismatch`)
+}
+const internallyConsistentWrongHeadSnapshot = clone(artifact.thread_snapshot)
+internallyConsistentWrongHeadSnapshot.post_snapshot_head_recheck.expected_head = '2'.repeat(40)
+internallyConsistentWrongHeadSnapshot.post_snapshot_head_recheck.observed_head = '2'.repeat(40)
+check(!await validatePostTerminalThreadSnapshotV1(await resealSnapshot(internallyConsistentWrongHeadSnapshot)), 'standalone snapshot validator rejects resealed internally consistent wrong HEAD identity')
 check(artifact.thread_snapshot.pages[1].end_cursor === 'cursor-terminal', 'non-null terminal end cursor admitted')
 check(artifact.thread_snapshot.pages[0].nodes[0].is_resolved === false && artifact.thread_snapshot.pages[0].nodes[0].is_outdated === false, 'unresolved non-outdated thread preserved without policy judgment')
 const artifactJcs = canonicalizeReadyReviewObservationJcsV1(artifact)
 const parsed = await parseReadyReviewTerminalObservationArtifactV1(artifactJcs)
 check(parsed?.artifact_digest === artifact.artifact_digest && frozen(parsed), 'artifact parser admits exact JCS bytes')
 check(await parseReadyReviewTerminalObservationArtifactV1(`${artifactJcs}\n`) === null, 'second artifact byte representation rejected')
+const nestedMutation = clone(artifact)
+nestedMutation.thread_snapshot.post_snapshot_head_recheck.observed_at = '2026-08-01T00:34:00Z'
+const nestedMutationProjection = Object.fromEntries(Object.entries(nestedMutation).filter(([key]) => key !== 'artifact_digest'))
+nestedMutation.artifact_digest = await digestReadyReviewObservationProjectionV1(nestedMutationProjection)
+check(await parseReadyReviewTerminalObservationArtifactV1(canonicalizeReadyReviewObservationJcsV1(nestedMutation)) === null, 'nested recheck mutation remains rejected after outer artifact reseal because snapshot digest is stale')
 
 const forbiddenFields = ['merge_allowed', 'stop_reason', 'violation', 'precedence', 'completion', 'gsp', 'policy']
 const allKeys = []
@@ -271,6 +314,9 @@ await assertRejected(unknownTop, 'input_shape_invalid', 'input', 'Core Input unk
 const missingTop = await buildCoreInput()
 delete missingTop.receipts_observed_at
 await assertRejected(missingTop, 'input_shape_invalid', 'input', 'Core Input missing top-level field rejected')
+const missingRecheckTop = await buildCoreInput()
+delete missingRecheckTop.post_snapshot_head_recheck
+await assertRejected(missingRecheckTop, 'input_shape_invalid', 'input', 'Core Input missing post-snapshot recheck rejected')
 const requestUnknown = await buildCoreInput()
 requestUnknown.request_identity.unknown = true
 await assertRejected(requestUnknown, 'input_shape_invalid', 'input', 'request identity unknown field rejected')
@@ -361,6 +407,92 @@ const pageDigestMismatch = await buildCoreInput()
 pageDigestMismatch.thread_pages[0].page_digest = '0'.repeat(64)
 await assertRejected(pageDigestMismatch, 'thread_snapshot_invalid', 'threads', 'thread page digest mismatch rejected')
 
+const recheckUnknown = await buildCoreInput()
+recheckUnknown.post_snapshot_head_recheck.unknown = true
+await assertRejected(recheckUnknown, 'thread_snapshot_invalid', 'threads', 'post-snapshot recheck unknown field rejected')
+const recheckMissing = await buildCoreInput()
+delete recheckMissing.post_snapshot_head_recheck.repository
+await assertRejected(recheckMissing, 'thread_snapshot_invalid', 'threads', 'post-snapshot recheck missing field rejected')
+const malformedRecheckCases = [
+  ['observation_version', 'wrong-version'],
+  ['repository', 'not-a-repository'],
+  ['pr_number', 0],
+  ['pr_url', 'not-a-pr-url'],
+  ['ready_generation_record_url', 'not-a-comment-url'],
+  ['ready_event_id', ''],
+  ['expected_head', 'short'],
+  ['observed_head', 'short'],
+  ['snapshot_observed_at', 'not-time'],
+  ['observed_at', 'not-time'],
+  ['source_url', 'not-a-pr-url'],
+]
+for (const [field, value] of malformedRecheckCases) {
+  const malformedRecheck = await buildCoreInput()
+  malformedRecheck.post_snapshot_head_recheck[field] = value
+  await assertRejected(malformedRecheck, 'thread_snapshot_invalid', 'threads', `post-snapshot recheck malformed ${field} rejected`)
+}
+const mixedRecheckBindings = [
+  ['repository', 'other/repository'],
+  ['pr_number', 221],
+  ['pr_url', 'https://github.com/whatrune/sd-prompt-studio/pull/221'],
+  ['ready_generation_record_url', 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000099'],
+  ['ready_event_id', '28990179999'],
+]
+for (const [field, value] of mixedRecheckBindings) {
+  const mixedRecheck = await buildCoreInput()
+  mixedRecheck.post_snapshot_head_recheck[field] = value
+  if (field === 'pr_url') mixedRecheck.post_snapshot_head_recheck.source_url = value
+  await assertRejected(mixedRecheck, 'thread_snapshot_invalid', 'threads', `post-snapshot recheck mixed ${field} binding rejected`)
+}
+const wrongRecheckSource = await buildCoreInput()
+wrongRecheckSource.post_snapshot_head_recheck.source_url = 'https://github.com/whatrune/sd-prompt-studio/pull/221'
+await assertRejected(wrongRecheckSource, 'thread_snapshot_invalid', 'threads', 'post-snapshot recheck wrong source URL rejected')
+const changedRecheckHead = await buildCoreInput()
+changedRecheckHead.post_snapshot_head_recheck.observed_head = '2'.repeat(40)
+await assertRejected(changedRecheckHead, 'thread_snapshot_invalid', 'threads', 'post-snapshot changed HEAD rejected')
+const mixedRecheckHead = await buildCoreInput()
+mixedRecheckHead.post_snapshot_head_recheck.expected_head = '2'.repeat(40)
+mixedRecheckHead.post_snapshot_head_recheck.observed_head = '2'.repeat(40)
+await assertRejected(mixedRecheckHead, 'thread_snapshot_invalid', 'threads', 'post-snapshot mixed expected HEAD binding rejected')
+const staleRecheckSnapshot = await buildCoreInput()
+staleRecheckSnapshot.post_snapshot_head_recheck.snapshot_observed_at = '2026-08-01T00:31:59Z'
+await assertRejected(staleRecheckSnapshot, 'thread_snapshot_invalid', 'threads', 'post-snapshot recheck stale snapshot binding rejected')
+const equalRecheckTime = await buildCoreInput({ recheckObservedAt: '2026-08-01T00:32:00Z' })
+await assertRejected(equalRecheckTime, 'temporal_binding_invalid', 'threads', 'post-snapshot recheck equal to snapshot time rejected')
+const earlierRecheckTime = await buildCoreInput({ recheckObservedAt: '2026-08-01T00:31:59Z' })
+await assertRejected(earlierRecheckTime, 'temporal_binding_invalid', 'threads', 'post-snapshot recheck earlier than snapshot rejected')
+
+const earlyZeroThreadPage = {
+  ...clone(fixture.thread_pages[0]),
+  page_ordinal: 0,
+  end_cursor: 'cursor-early-zero-terminal',
+  has_next_page: false,
+  nodes: [],
+  source_observed_at: '2026-08-01T00:15:00Z',
+}
+await assertRejected(await buildCoreInput({
+  producerSources: [fixture.receipt_sources[0]],
+  pageSources: [earlyZeroThreadPage],
+  snapshotObservedAt: '2026-08-01T00:16:00Z',
+  recheckObservedAt: '2026-08-01T00:17:00Z',
+}), 'producer_receipt_incomplete', 'receipts', 'early zero-thread snapshot before delayed producer remains blocked')
+await assertRejected(await buildCoreInput({
+  pageSources: [earlyZeroThreadPage],
+  snapshotObservedAt: '2026-08-01T00:16:00Z',
+  recheckObservedAt: '2026-08-01T00:17:00Z',
+}), 'temporal_binding_invalid', 'threads', 'later delayed-producer receipt cannot reuse earlier zero-thread snapshot')
+const laterZeroThreadPage = { ...earlyZeroThreadPage, end_cursor: 'cursor-zero-terminal', source_observed_at: '2026-08-01T00:31:00Z' }
+const laterZeroThreadResult = await evaluateReadyReviewTerminalObservationCoreV1(await buildCoreInput({ pageSources: [laterZeroThreadPage] }))
+check(laterZeroThreadResult.branch === 'artifact_produced' && laterZeroThreadResult.artifact.thread_snapshot.pages[0].nodes.length === 0, 'zero-thread terminal snapshot admitted only after all receipts and stable later recheck')
+const incompletePaginationPage = { ...clone(fixture.thread_pages[0]), page_ordinal: 0, end_cursor: 'cursor-more', has_next_page: true }
+await assertRejected(await buildCoreInput({ pageSources: [incompletePaginationPage] }), 'thread_snapshot_invalid', 'threads', 'incomplete terminal pagination rejected')
+const pageAfterSnapshot = clone(fixture.thread_pages)
+pageAfterSnapshot[1].source_observed_at = '2026-08-01T00:32:01Z'
+await assertRejected(await buildCoreInput({ pageSources: pageAfterSnapshot, snapshotObservedAt: '2026-08-01T00:32:00Z', recheckObservedAt: '2026-08-01T00:33:00Z' }), 'temporal_binding_invalid', 'threads', 'snapshot before final page rejected')
+const recheckBeforeFinalPage = clone(fixture.thread_pages)
+recheckBeforeFinalPage[1].source_observed_at = '2026-08-01T00:34:00Z'
+await assertRejected(await buildCoreInput({ pageSources: recheckBeforeFinalPage, snapshotObservedAt: '2026-08-01T00:33:00Z', recheckObservedAt: '2026-08-01T00:33:30Z' }), 'temporal_binding_invalid', 'threads', 'post-snapshot recheck before final page rejected')
+
 const mixedSources = clone(fixture.receipt_sources)
 mixedSources[0].submitted_at = '2026-08-01T00:20:00.500Z'
 mixedSources[1].reaction_created_at = '2026-08-01T00:20:00Z'
@@ -389,6 +521,11 @@ check(!/graphql.*rest|rest.*graphql|node.?id.*event.?id/i.test(moduleSource), 'C
 check(productionSource.includes('const producerIds = Array.isArray(roster?.producer_ids) ? roster.producer_ids : []'), 'owner adapter forwards literal roster scalars to fail-closed selection')
 check(productionSource.indexOf('selectCurrentReadyReviewProducerSourcesV1(') < productionSource.indexOf('const hasOneSourcePerProducer'), 'selection occurs before existing per-producer admission and thread acquisition')
 check(productionSource.includes('currentProducerSourceObservations.filter((source) => source.producer_id === producerId)') && productionSource.includes('producer_source_observations: currentProducerSourceObservations'), 'only selected current sources reach per-producer check and Core input')
+check(productionSource.indexOf('await this.#collectThreadPages(') < productionSource.indexOf('const threadSnapshotObservedAt = new Date().toISOString()') && productionSource.indexOf('const threadSnapshotObservedAt = new Date().toISOString()') < productionSource.indexOf('await this.#collectPostSnapshotHeadRecheck(') && productionSource.indexOf('await this.#collectPostSnapshotHeadRecheck(') < productionSource.indexOf('const coreInput = {'), 'private adapter acquires complete pages, snapshot time, one post-snapshot HEAD recheck, then constructs Core input')
+check((productionSource.match(/#collectPostSnapshotHeadRecheck\(/g) ?? []).length === 2, 'one private post-snapshot HEAD recheck helper has one call site')
+check((productionSource.match(/head_changed_during_collection/g) ?? []).length === 3, 'initial, page-level, and post-snapshot HEAD changes share existing transport failure vocabulary')
+check(productionSource.includes('post_snapshot_head_recheck: postSnapshotHeadRecheck'), 'private adapter passes acquired recheck into the single Core input')
+check(!/export\s+(?:class|function|const|type)\s+PostSnapshotHeadRecheck/.test(moduleSource), 'post-snapshot projection remains module-local')
 check((moduleSource.match(/export const parseReadyReviewTerminalObservationArtifactV1\s*=/g) ?? []).length === 1, 'one existing artifact parser remains')
 check(!productionSource.includes('scripts/fixtures/'), 'production graph has no fixture reachability')
 check(!/node:child_process|process\.|Date\.now\(|new Date\(|fetch\(|XMLHttpRequest/.test(moduleSource), 'pure Core module has no transport, environment, or clock read')
