@@ -175,6 +175,19 @@ check(JSON.stringify(authorityInput) === JSON.stringify(authorityInputSnapshot),
 check(frozen(selectedAuthority), 'Ready authority selector returns recursively immutable observations')
 assert.throws(() => { selectedAuthority[0].record.ready_event_id = 'mutated' }, TypeError)
 
+const repeatedSameHeadReadyEvent = { event_id: '28990179213', event: 'ready_for_review', created_at: '2026-08-01T00:05:00Z' }
+const repeatedSameHeadReadyRecord = await resealRecord({
+  ...clone(readyRecord),
+  canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-5999999993',
+  ready_event_id: repeatedSameHeadReadyEvent.event_id,
+  ready_occurred_at: repeatedSameHeadReadyEvent.created_at,
+})
+const repeatedSameHeadRecords = [readyRecord, repeatedSameHeadReadyRecord]
+const repeatedSameHeadEvents = [readyEvent, repeatedSameHeadReadyEvent]
+check(await selectAuthority(repeatedSameHeadRecords, repeatedSameHeadEvents, authorityRequest(readyRecord)) === null, 'same-HEAD stale Ready generation is rejected after a later Ready event')
+const selectedRepeatedSameHeadAuthority = await selectAuthority(repeatedSameHeadRecords, repeatedSameHeadEvents, authorityRequest(repeatedSameHeadReadyRecord))
+check(selectedRepeatedSameHeadAuthority?.length === 1 && selectedRepeatedSameHeadAuthority[0].record.canonical_record === repeatedSameHeadReadyRecord.canonical_record, 'same-HEAD current Ready generation is selected after repeated Ready')
+
 const revisionTwo = await resealRecord({
   ...clone(readyRecord),
   canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000002',

@@ -497,6 +497,15 @@ export const selectCurrentReadyReviewAuthorityObservationsV1 = async (
   )
   if (matchingEvents.length !== 1) return null
 
+  const admittedReadyEvents = readyEventObservations.filter((event) =>
+    exactKeys(event, READY_EVENT_OBSERVATION_KEYS) && event.event === 'ready_for_review' &&
+    nonEmpty(event.event_id) && isoTime(event.created_at),
+  )
+  const latestReadyOccurredAt = Math.max(...admittedReadyEvents.map((event) => Date.parse(event.created_at)))
+  const currentReadyEvents = admittedReadyEvents.filter((event) => Date.parse(event.created_at) === latestReadyOccurredAt)
+  if (currentReadyEvents.length !== 1 || currentReadyEvents[0].event_id !== anchor.ready_event_id ||
+      currentReadyEvents[0].created_at !== anchor.ready_occurred_at) return null
+
   const currentTupleObservations = observations.filter((observation) => {
     if (!isObject(observation) || !isObject(observation.record)) return false
     const record = observation.record
