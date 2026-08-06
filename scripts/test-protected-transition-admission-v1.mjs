@@ -18,6 +18,7 @@ import {
 import {
   admitArtifactZipExecResultV1,
   classifyTerminalLeafAuthorBindingV1,
+  verifyTerminalArtifactZipProvenanceV1,
 } from './run-protected-transition-admission-v1.mjs'
 
 const fixture = JSON.parse(await readFile('scripts/fixtures/protected-transition-admission-v1.json', 'utf8'))
@@ -29,6 +30,77 @@ const clone = structuredClone
 let assertions = 0
 const check = (condition, message) => { assertions += 1; assert.ok(condition, message) }
 const frozen = (value) => value === null || typeof value !== 'object' || (Object.isFrozen(value) && Object.values(value).every(frozen))
+const crc32 = (bytes) => {
+  let crc = 0xffffffff
+  for (const byte of bytes) {
+    crc ^= byte
+    for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1))
+  }
+  return (crc ^ 0xffffffff) >>> 0
+}
+const buildStoredZip = (entries) => {
+  const locals = []
+  const centrals = []
+  let offset = 0
+  for (const [name, value] of Object.entries(entries)) {
+    const nameBytes = Buffer.from(name, 'utf8')
+    const data = Buffer.isBuffer(value) ? value : Buffer.from(value, 'utf8')
+    const checksum = crc32(data)
+    const local = Buffer.alloc(30)
+    local.writeUInt32LE(0x04034b50, 0)
+    local.writeUInt16LE(20, 4)
+    local.writeUInt32LE(checksum, 14)
+    local.writeUInt32LE(data.length, 18)
+    local.writeUInt32LE(data.length, 22)
+    local.writeUInt16LE(nameBytes.length, 26)
+    locals.push(local, nameBytes, data)
+    const central = Buffer.alloc(46)
+    central.writeUInt32LE(0x02014b50, 0)
+    central.writeUInt16LE(20, 4)
+    central.writeUInt16LE(20, 6)
+    central.writeUInt32LE(checksum, 16)
+    central.writeUInt32LE(data.length, 20)
+    central.writeUInt32LE(data.length, 24)
+    central.writeUInt16LE(nameBytes.length, 28)
+    central.writeUInt32LE(offset, 42)
+    centrals.push(central, nameBytes)
+    offset += local.length + nameBytes.length + data.length
+  }
+  const centralBytes = Buffer.concat(centrals)
+  const end = Buffer.alloc(22)
+  end.writeUInt32LE(0x06054b50, 0)
+  end.writeUInt16LE(Object.keys(entries).length, 8)
+  end.writeUInt16LE(Object.keys(entries).length, 10)
+  end.writeUInt32LE(centralBytes.length, 12)
+  end.writeUInt32LE(offset, 16)
+  return Buffer.concat([...locals, centralBytes, end])
+}
+const readStoredZipEntries = (archive) => {
+  const endOffset = archive.length - 22
+  assert.equal(archive.readUInt32LE(endOffset), 0x06054b50)
+  const entryCount = archive.readUInt16LE(endOffset + 10)
+  let cursor = archive.readUInt32LE(endOffset + 16)
+  const entries = new Map()
+  for (let index = 0; index < entryCount; index += 1) {
+    assert.equal(archive.readUInt32LE(cursor), 0x02014b50)
+    assert.equal(archive.readUInt16LE(cursor + 10), 0)
+    const size = archive.readUInt32LE(cursor + 20)
+    const nameLength = archive.readUInt16LE(cursor + 28)
+    const extraLength = archive.readUInt16LE(cursor + 30)
+    const commentLength = archive.readUInt16LE(cursor + 32)
+    const localOffset = archive.readUInt32LE(cursor + 42)
+    const name = archive.subarray(cursor + 46, cursor + 46 + nameLength).toString('utf8')
+    assert.equal(archive.readUInt32LE(localOffset), 0x04034b50)
+    const localNameLength = archive.readUInt16LE(localOffset + 26)
+    const localExtraLength = archive.readUInt16LE(localOffset + 28)
+    const dataOffset = localOffset + 30 + localNameLength + localExtraLength
+    const data = archive.subarray(dataOffset, dataOffset + size)
+    assert.equal(crc32(data), archive.readUInt32LE(cursor + 16))
+    entries.set(name, Buffer.from(data))
+    cursor += 46 + nameLength + extraLength + commentLength
+  }
+  return entries
+}
 const resealTerminal = async (value) => {
   const projection = Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'record_digest'))
   return { ...projection, record_digest: await digestReadyReviewObservationProjectionV1(projection) }
@@ -236,7 +308,65 @@ check(terminalAccepted.result === 'accepted' && terminalAccepted.receipt.trust_r
 check(frozen(terminalAccepted), 'accepted result is recursively immutable')
 
 assert.equal(terminalAccepted.result, 'accepted')
-const terminalReceiptJcsSha = await sha256ReadyReviewObservationV1(canonicalizeReadyReviewObservationJcsV1(terminalAccepted.receipt))
+const terminalReceiptJcs = canonicalizeReadyReviewObservationJcsV1(terminalAccepted.receipt)
+const terminalReceiptJcsSha = await sha256ReadyReviewObservationV1(terminalReceiptJcs)
+const terminalArtifactZipEntries = {
+  [PROTECTED_TRANSITION_COLLECTOR_FILE_V1]: terminalCollector.jcs,
+  [PROTECTED_TRANSITION_RECEIPT_FILE_V1]: terminalReceiptJcs,
+}
+const verifyBehavioralArtifactZip = async (archive, overrides = {}) => {
+  const acquired = admitArtifactZipExecResultV1({ stdout: archive, stderr: Buffer.alloc(0) })
+  const entries = readStoredZipEntries(acquired)
+  return await verifyTerminalArtifactZipProvenanceV1({
+    archive: acquired,
+    apiDigest: `sha256:${createHash('sha256').update(acquired).digest('hex')}`,
+    embeddedReceipt: terminalAccepted.receipt,
+    leafCollectorDigest: terminalCollector.artifact.artifact_digest,
+    listMembers: async () => [...entries.keys()],
+    readMember: async (name) => entries.get(name),
+    ...overrides,
+  })
+}
+const terminalArtifactZip = buildStoredZip(terminalArtifactZipEntries)
+const verifiedTerminalArtifactZip = await verifyBehavioralArtifactZip(terminalArtifactZip)
+check(verifiedTerminalArtifactZip.receipt.admission_digest === terminalAccepted.receipt.admission_digest &&
+  verifiedTerminalArtifactZip.receiptSha === terminalReceiptJcsSha &&
+  verifiedTerminalArtifactZip.collectorArtifact.artifact_digest === terminalCollector.artifact.artifact_digest,
+'actual artifact ZIP executes binary acquisition, exact membership, receipt JCS/digest/seal, and Collector parse/digest/provenance successfully')
+const behavioralZipFailure = async (operation, expected) => {
+  try {
+    await operation()
+    return false
+  } catch (error) {
+    return expected.test(String(error?.message))
+  }
+}
+check(await behavioralZipFailure(
+  async () => await verifyBehavioralArtifactZip(terminalArtifactZip, { apiDigest: `sha256:${'0'.repeat(64)}` }),
+  /archive digest mismatch/,
+), 'actual artifact ZIP integrity mismatch fails before member admission')
+const extraMemberZip = buildStoredZip({ ...terminalArtifactZipEntries, 'unexpected.txt': 'unexpected' })
+check(await behavioralZipFailure(
+  async () => await verifyBehavioralArtifactZip(extraMemberZip),
+  /archive membership invalid/,
+), 'actual artifact ZIP with unexpected membership fails closed')
+const unsealedReceipt = { ...terminalAccepted.receipt, admission_digest: '0'.repeat(64) }
+const unsealedReceiptZip = buildStoredZip({
+  ...terminalArtifactZipEntries,
+  [PROTECTED_TRANSITION_RECEIPT_FILE_V1]: canonicalizeReadyReviewObservationJcsV1(unsealedReceipt),
+})
+check(await behavioralZipFailure(
+  async () => await verifyBehavioralArtifactZip(unsealedReceiptZip),
+  /receipt canonical JCS or admission digest invalid/,
+), 'actual artifact ZIP with an invalid receipt seal fails closed')
+const wrongCollectorZip = buildStoredZip({
+  ...terminalArtifactZipEntries,
+  [PROTECTED_TRANSITION_COLLECTOR_FILE_V1]: mergeCollector.jcs,
+})
+check(await behavioralZipFailure(
+  async () => await verifyBehavioralArtifactZip(wrongCollectorZip),
+  /Collector artifact integrity invalid/,
+), 'actual artifact ZIP with mismatched Collector provenance fails closed')
 const terminalRecord = await resealTerminal({
   record_url: fixture.terminal_review_record_url,
   lineage_id: fixture.terminal_review_lineage_id,

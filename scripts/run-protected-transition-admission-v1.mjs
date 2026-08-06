@@ -459,6 +459,49 @@ const artifactMember = async (archivePath, member) => {
   return stdout
 }
 
+export const verifyTerminalArtifactZipProvenanceV1 = async ({
+  archive,
+  apiDigest,
+  embeddedReceipt,
+  leafCollectorDigest,
+  listMembers,
+  readMember,
+}) => {
+  if (!Buffer.isBuffer(archive) || typeof apiDigest !== 'string') throw new Error('Terminal artifact archive evidence malformed')
+  const archiveSha = sha256Buffer(archive)
+  if (`sha256:${archiveSha}` !== apiDigest) throw new Error('Terminal artifact archive digest mismatch')
+  const names = [...await listMembers()].sort()
+  const expectedNames = [...TERMINAL_ACCEPTED_FILES].sort()
+  if (names.length !== expectedNames.length || names.some((name, index) => name !== expectedNames[index])) {
+    throw new Error('Terminal artifact archive membership invalid')
+  }
+  const receiptBytes = await readMember(PROTECTED_TRANSITION_RECEIPT_FILE_V1)
+  const collectorBytes = await readMember('ready-review-terminal-observation-artifact-v1.jcs')
+  if (!Buffer.isBuffer(receiptBytes) || !Buffer.isBuffer(collectorBytes)) throw new Error('Terminal artifact member bytes malformed')
+  const receiptText = strictUtf8(receiptBytes)
+  const collectorText = strictUtf8(collectorBytes)
+  let receipt
+  try {
+    receipt = JSON.parse(receiptText)
+  } catch {
+    throw new Error('Terminal receipt JSON malformed')
+  }
+  if (canonicalizeReadyReviewObservationJcsV1(receipt) !== receiptText || !await validateProtectedTransitionAdmissionReceiptV1(receipt)) {
+    throw new Error('Terminal receipt canonical JCS or admission digest invalid')
+  }
+  const receiptSha = await sha256ReadyReviewObservationV1(receiptText)
+  const collectorArtifact = await parseReadyReviewTerminalObservationArtifactV1(collectorText)
+  const collectorSha = await sha256ReadyReviewObservationV1(collectorText)
+  if (collectorArtifact === null || collectorSha !== receipt.collector_artifact_jcs_sha256 ||
+      collectorArtifact.artifact_digest !== receipt.collector_artifact_digest || receipt.collector_artifact_digest !== leafCollectorDigest) {
+    throw new Error('Terminal Collector artifact integrity invalid')
+  }
+  if (canonicalizeReadyReviewObservationJcsV1(receipt) !== canonicalizeReadyReviewObservationJcsV1(embeddedReceipt)) {
+    throw new IdentityRejection(['terminal_embedded_receipt_mismatch'])
+  }
+  return Object.freeze({ archiveSha, receipt, receiptSha, collectorArtifact })
+}
+
 const acquireTerminalArtifactReceipt = async (request, host, readySource, readyEvent, terminalAssignment, leaf) => {
   const embedded = leaf.record.accepted_receipts[0]
   if (!await validateProtectedTransitionAdmissionReceiptV1(embedded)) throw new Error('embedded Terminal receipt locator malformed')
@@ -482,41 +525,25 @@ const acquireTerminalArtifactReceipt = async (request, host, readySource, readyE
     throw new Error('Terminal workflow artifact metadata malformed')
   }
   const archive = await ghBuffer([`repos/${host.repository}/actions/artifacts/${artifact.id}/zip`])
-  const archiveSha = sha256Buffer(archive)
-  if (`sha256:${archiveSha}` !== artifact.digest) throw new Error('Terminal artifact archive digest mismatch')
   const runnerTemp = process.env.RUNNER_TEMP
   if (typeof runnerTemp !== 'string' || runnerTemp.length === 0) throw new Error('workflow temporary directory unavailable')
   const temporary = await mkdtemp(path.join(path.resolve(runnerTemp), 'pta-terminal-'))
   try {
     const archivePath = path.join(temporary, 'artifact.zip')
     await writeFile(archivePath, archive, { flag: 'wx' })
-    const { stdout: namesStdout, stderr: namesStderr } = await execFileAsync('unzip', ['-Z1', archivePath], { encoding: 'utf8', windowsHide: true })
-    if (namesStderr !== '') throw new Error('artifact membership acquisition failed')
-    const names = namesStdout.split(/\r?\n/).filter((name) => name.length > 0).sort()
-    if (names.length !== TERMINAL_ACCEPTED_FILES.length || names.some((name, index) => name !== [...TERMINAL_ACCEPTED_FILES].sort()[index])) {
-      throw new Error('Terminal artifact archive membership invalid')
-    }
-    const receiptText = strictUtf8(await artifactMember(archivePath, PROTECTED_TRANSITION_RECEIPT_FILE_V1))
-    const collectorText = strictUtf8(await artifactMember(archivePath, 'ready-review-terminal-observation-artifact-v1.jcs'))
-    let receipt
-    try {
-      receipt = JSON.parse(receiptText)
-    } catch {
-      throw new Error('Terminal receipt JSON malformed')
-    }
-    if (canonicalizeReadyReviewObservationJcsV1(receipt) !== receiptText || !await validateProtectedTransitionAdmissionReceiptV1(receipt)) {
-      throw new Error('Terminal receipt canonical JCS or admission digest invalid')
-    }
-    const receiptSha = await sha256ReadyReviewObservationV1(receiptText)
-    const collectorArtifact = await parseReadyReviewTerminalObservationArtifactV1(collectorText)
-    const collectorSha = await sha256ReadyReviewObservationV1(collectorText)
-    if (collectorArtifact === null || collectorSha !== receipt.collector_artifact_jcs_sha256 ||
-        collectorArtifact.artifact_digest !== receipt.collector_artifact_digest || receipt.collector_artifact_digest !== leaf.record.collector_artifact_digest) {
-      throw new Error('Terminal Collector artifact integrity invalid')
-    }
-    if (canonicalizeReadyReviewObservationJcsV1(receipt) !== canonicalizeReadyReviewObservationJcsV1(embedded)) {
-      throw new IdentityRejection(['terminal_embedded_receipt_mismatch'])
-    }
+    const verified = await verifyTerminalArtifactZipProvenanceV1({
+      archive,
+      apiDigest: artifact.digest,
+      embeddedReceipt: embedded,
+      leafCollectorDigest: leaf.record.collector_artifact_digest,
+      listMembers: async () => {
+        const { stdout, stderr } = await execFileAsync('unzip', ['-Z1', archivePath], { encoding: 'utf8', windowsHide: true })
+        if (stderr !== '') throw new Error('artifact membership acquisition failed')
+        return stdout.split(/\r?\n/).filter((name) => name.length > 0)
+      },
+      readMember: async (member) => await artifactMember(archivePath, member),
+    })
+    const { archiveSha, receipt, receiptSha } = verified
     const trustedReceiptMismatch = receipt.result !== 'accepted' || receipt.transition !== 'terminal_review_admission' ||
       receipt.rejection_codes.length !== 0 || receipt.state_changed !== false || receipt.repository !== host.repository ||
       receipt.task_record_url !== request.taskRecordUrl || receipt.pr_number !== request.prNumber ||
