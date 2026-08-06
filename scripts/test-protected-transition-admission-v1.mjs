@@ -10,6 +10,8 @@ import {
   sha256ReadyReviewObservationV1,
 } from '../src/continuous-orchestration/ready-review-terminal-observation-artifact-v1.ts'
 import {
+  CANONICAL_FINALIZATION_BINDING_V1,
+  CANONICAL_FINALIZATION_BINDING_V1_FIELD_COUNT,
   PROTECTED_TRANSITION_ADMISSION_INPUT_V1,
   PROTECTED_TRANSITION_COLLECTOR_FILE_V1,
   PROTECTED_TRANSITION_RECEIPT_FILE_V1,
@@ -17,7 +19,10 @@ import {
 } from '../src/continuous-orchestration/protected-transition-admission-v1.ts'
 import {
   admitArtifactZipExecResultV1,
+  canonicalFinalizationBindingIdV1,
   classifyTerminalLeafAuthorBindingV1,
+  resolveFinalizationBindingV1,
+  validateCanonicalFinalizationBindingV1,
   validateGenerationAwareAssignmentLineageV1,
   validateReadyGenerationCollectorBindingV1,
   verifyTerminalArtifactZipProvenanceV1,
@@ -155,6 +160,8 @@ const assignmentLineageHarness = async (transition) => {
     record,
     generationSource: { url: generationRecord.canonical_record, record: generationRecord, createdAt: generationRecord.ready_occurred_at, updatedAt: generationRecord.ready_occurred_at },
     generationEvent: { event_id: String(generationRecord.ready_event_id), occurred_at: generationRecord.ready_occurred_at, commit_id: commitId, actor_login: 'whatrune' },
+    assignmentBinding: { target_url: sourceUrl },
+    generationBinding: { target_url: generationRecord.canonical_record },
   })
   const records = [
     evidence(oldAssignmentUrl, oldIssuedAt, oldAssignment, oldReadyRecord, oldHead),
@@ -575,6 +582,204 @@ check(nonAdmitting.every((result) => result.state_changed === false && result.pr
 check(nonAdmitting.filter((result) => result.result === 'rejected').every((result) => result.receipt_count === 1 && result.admitted_artifact_count === 0), 'every rejected result has exactly one non-admitting receipt')
 check(nonAdmitting.filter((result) => result.result === 'failed').every((result) => result.receipt_count === 0 && result.admitted_artifact_count === 0), 'every failed result has no receipt or admitted artifact')
 
+const taskBindingSource = {
+  url: fixture.task_record_url,
+  bodyDigest: fixture.task_scope_digest,
+}
+const bindingIssuerRole = (targetType) => targetType === 'merge_decision_actor_assignment_v1' ? 'Product Owner' : 'Integrated Lead'
+const bindingTargetSource = async (record, { edited = true } = {}) => {
+  const body = canonicalizeReadyReviewObservationJcsV1(record)
+  return {
+    url: record.canonical_record,
+    body,
+    bodyDigest: await sha256ReadyReviewObservationV1(body),
+    record,
+    authorLogin: 'whatrune',
+    createdAt: '2026-08-05T10:00:00Z',
+    updatedAt: edited ? '2026-08-05T10:00:01Z' : '2026-08-05T10:00:00Z',
+  }
+}
+const buildFinalizationBindingHarness = async (targetSource, bindingMode = 'contemporaneous') => {
+  const targetType = targetSource.record.record_type
+  const projection = {
+    record_type: CANONICAL_FINALIZATION_BINDING_V1,
+    binding_id: '',
+    binding_mode: bindingMode,
+    target_canonical_url: targetSource.url,
+    target_record_type: targetType,
+    target_record_digest: targetSource.record.record_digest,
+    target_final_body_sha256: targetSource.bodyDigest,
+    target_author_login: targetSource.authorLogin,
+    repository: fixture.repository,
+    task_record_url: fixture.task_record_url,
+    task_scope_digest: fixture.task_scope_digest,
+    pr_number: fixture.pr_number,
+    pr_url: fixture.pr_url,
+    target_revision: targetType === 'ready_review_producer_roster_v1' ? null : targetSource.record.revision,
+    target_ready_event_id: String(targetSource.record.ready_event_id),
+    issuer_login: 'whatrune',
+    issuer_role: bindingIssuerRole(targetType),
+    issuer_trust_root_record_url: fixture.canonical_finalization_binding.issuer_trust_root_record_url,
+    issuer_trust_root_record_digest: fixture.canonical_finalization_binding.issuer_trust_root_record_digest,
+  }
+  projection.binding_id = await canonicalFinalizationBindingIdV1(projection)
+  const record = {
+    ...projection,
+    binding_record_digest: await digestReadyReviewObservationProjectionV1(projection),
+  }
+  const body = canonicalizeReadyReviewObservationJcsV1(record)
+  const source = {
+    url: 'https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-6999999999',
+    body,
+    bodyDigest: await sha256ReadyReviewObservationV1(body),
+    authorLogin: 'whatrune',
+    createdAt: '2026-08-06T10:30:00Z',
+    updatedAt: '2026-08-06T10:30:00Z',
+  }
+  return { body, source, targetSource, taskSource: taskBindingSource, repository: fixture.repository, prNumber: fixture.pr_number, record }
+}
+const resealFinalizationBindingHarness = async (harness) => {
+  harness.record.binding_id = await canonicalFinalizationBindingIdV1(harness.record)
+  const projection = Object.fromEntries(Object.entries(harness.record).filter(([key]) => key !== 'binding_record_digest'))
+  harness.record.binding_record_digest = await digestReadyReviewObservationProjectionV1(projection)
+  harness.body = canonicalizeReadyReviewObservationJcsV1(harness.record)
+  harness.source.body = harness.body
+  harness.source.bodyDigest = await sha256ReadyReviewObservationV1(harness.body)
+}
+const validateBindingHarness = async (harness) => await validateCanonicalFinalizationBindingV1(harness)
+const expectBindingFailure = async (harness, message, rejectionCode = null) => {
+  let matched = false
+  try {
+    await validateBindingHarness(harness)
+  } catch (error) {
+    matched = rejectionCode === null ? !Array.isArray(error?.codes) : error.codes?.includes(rejectionCode)
+  }
+  check(matched, message)
+}
+
+const bindingLineageHarness = await assignmentLineageHarness('terminal_review_admission')
+const generationTarget = await bindingTargetSource(bindingLineageHarness.readySource.record)
+const validBinding = await buildFinalizationBindingHarness(generationTarget)
+const admittedBinding = await validateBindingHarness(validBinding)
+check(Object.keys(admittedBinding).length === CANONICAL_FINALIZATION_BINDING_V1_FIELD_COUNT && admittedBinding.binding_id.startsWith('CFB1-'), 'one-shot canonical Finalization Binding admits with exact 20 fields and deterministic ID')
+check(generationTarget.createdAt !== generationTarget.updatedAt, 'self-binding target may have a finalization edit while its one-shot Binding remains immutable')
+const validBindingContext = {
+  declarations: [{ source: validBinding.source, record: admittedBinding }],
+  taskSource: taskBindingSource,
+  host: { repository: fixture.repository },
+  request: { prNumber: fixture.pr_number },
+}
+const uniqueBinding = await resolveFinalizationBindingV1(validBindingContext, generationTarget, generationTarget.record.record_type)
+check(uniqueBinding.binding_record_digest === admittedBinding.binding_record_digest, 'exactly one target-scoped Binding resolves deterministically')
+let missingBindingRejected = false
+try {
+  await resolveFinalizationBindingV1({ ...validBindingContext, declarations: [] }, generationTarget, generationTarget.record.record_type)
+} catch (error) {
+  missingBindingRejected = error.codes?.includes('finalization_binding_missing')
+}
+check(missingBindingRejected, 'zero Finalization Bindings reject before authority use')
+let ambiguousBindingRejected = false
+try {
+  await resolveFinalizationBindingV1({ ...validBindingContext, declarations: [...validBindingContext.declarations, ...validBindingContext.declarations] }, generationTarget, generationTarget.record.record_type)
+} catch (error) {
+  ambiguousBindingRejected = error.codes?.includes('finalization_binding_ambiguous')
+}
+check(ambiguousBindingRejected, 'two Finalization Bindings reject without chronological winner selection')
+
+const trailingBinding = clone(validBinding)
+trailingBinding.body += '\n'
+trailingBinding.source.body = trailingBinding.body
+await expectBindingFailure(trailingBinding, 'trailing newline makes Binding non-canonical and fails closed')
+const duplicateKeyBinding = clone(validBinding)
+duplicateKeyBinding.body = duplicateKeyBinding.body.replace('{', '{"record_type":"canonical_finalization_binding_v1",')
+duplicateKeyBinding.source.body = duplicateKeyBinding.body
+await expectBindingFailure(duplicateKeyBinding, 'duplicate JSON key makes Binding non-canonical and fails closed')
+const proseBinding = clone(validBinding)
+proseBinding.body = `Finalization Binding\n${proseBinding.body}`
+proseBinding.source.body = proseBinding.body
+await expectBindingFailure(proseBinding, 'Markdown or prose around Binding JSON fails closed')
+const extraFieldBinding = clone(validBinding)
+extraFieldBinding.record.extra = true
+await resealFinalizationBindingHarness(extraFieldBinding)
+await expectBindingFailure(extraFieldBinding, 'unknown Binding field fails exact-field validation')
+const missingFieldBinding = clone(validBinding)
+delete missingFieldBinding.record.target_revision
+await resealFinalizationBindingHarness(missingFieldBinding)
+await expectBindingFailure(missingFieldBinding, 'missing Binding field fails exact-field validation')
+const editedBinding = clone(validBinding)
+editedBinding.source.updatedAt = '2026-08-06T10:30:01Z'
+await expectBindingFailure(editedBinding, 'edited Binding fails one-shot createdAt and updatedAt integrity')
+const wrongIssuerBinding = clone(validBinding)
+wrongIssuerBinding.record.issuer_login = 'untrusted-user'
+wrongIssuerBinding.record.binding_id = await canonicalFinalizationBindingIdV1(wrongIssuerBinding.record)
+const wrongIssuerProjection = Object.fromEntries(Object.entries(wrongIssuerBinding.record).filter(([key]) => key !== 'binding_record_digest'))
+wrongIssuerBinding.record.binding_record_digest = await digestReadyReviewObservationProjectionV1(wrongIssuerProjection)
+wrongIssuerBinding.body = canonicalizeReadyReviewObservationJcsV1(wrongIssuerBinding.record)
+wrongIssuerBinding.source.body = wrongIssuerBinding.body
+wrongIssuerBinding.source.authorLogin = 'untrusted-user'
+await expectBindingFailure(wrongIssuerBinding, 'wrong issuer trust mapping rejects', 'finalization_binding_issuer_mismatch')
+const wrongRoleBinding = clone(validBinding)
+wrongRoleBinding.record.issuer_role = 'Product Owner'
+await resealFinalizationBindingHarness(wrongRoleBinding)
+await expectBindingFailure(wrongRoleBinding, 'cross-role Ready Binding rejects', 'finalization_binding_issuer_mismatch')
+const wrongRootBinding = clone(validBinding)
+wrongRootBinding.record.issuer_trust_root_record_digest = '0'.repeat(64)
+await resealFinalizationBindingHarness(wrongRootBinding)
+await expectBindingFailure(wrongRootBinding, 'wrong Finalization Binding trust root fails closed')
+const wrongTaskDigestBinding = clone(validBinding)
+wrongTaskDigestBinding.record.task_scope_digest = '0'.repeat(64)
+await resealFinalizationBindingHarness(wrongTaskDigestBinding)
+await expectBindingFailure(wrongTaskDigestBinding, 'wrong Task body digest fails closed')
+const wrongPrBinding = clone(validBinding)
+wrongPrBinding.record.pr_number += 1
+wrongPrBinding.record.pr_url = 'https://github.com/whatrune/sd-prompt-studio/pull/261'
+await resealFinalizationBindingHarness(wrongPrBinding)
+await expectBindingFailure(wrongPrBinding, 'wrong PR scope fails closed')
+for (const [field, value, message] of [
+  ['target_record_digest', '0'.repeat(64), 'target record digest mismatch rejects'],
+  ['target_final_body_sha256', '0'.repeat(64), 'target full-body SHA mismatch rejects'],
+  ['target_author_login', 'other-author', 'target author mismatch rejects'],
+  ['target_revision', 99, 'target revision mismatch rejects'],
+  ['target_ready_event_id', '99999999999', 'target Ready event mismatch rejects'],
+]) {
+  const mismatch = clone(validBinding)
+  mismatch.record[field] = value
+  await resealFinalizationBindingHarness(mismatch)
+  await expectBindingFailure(mismatch, message, 'finalization_binding_target_integrity_mismatch')
+}
+const targetEditedBinding = clone(validBinding)
+targetEditedBinding.targetSource.record = await resealRecord({ ...targetEditedBinding.targetSource.record, exact_head: '9'.repeat(40) })
+targetEditedBinding.targetSource.body = canonicalizeReadyReviewObservationJcsV1(targetEditedBinding.targetSource.record)
+targetEditedBinding.targetSource.bodyDigest = await sha256ReadyReviewObservationV1(targetEditedBinding.targetSource.body)
+await expectBindingFailure(targetEditedBinding, 'target edit and internal reseal cannot redefine the finalized Binding', 'finalization_binding_target_integrity_mismatch')
+const unlistedRetroactiveBinding = await buildFinalizationBindingHarness(generationTarget, 'retroactive')
+await expectBindingFailure(unlistedRetroactiveBinding, 'retroactive Binding outside the exact five-target allowlist rejects', 'retroactive_finalization_binding_not_eligible')
+
+check(fixture.canonical_finalization_binding.retroactive_targets.length === 5, 'retroactive Finalization Binding fixture is limited to the exact five frozen targets')
+for (const frozenTarget of fixture.canonical_finalization_binding.retroactive_targets) {
+  const targetSource = {
+    url: frozenTarget.record.canonical_record,
+    body: 'frozen canonical target body is represented by its direct-refetch SHA-256',
+    bodyDigest: frozenTarget.body_sha256,
+    record: frozenTarget.record,
+    authorLogin: 'whatrune',
+    createdAt: '2026-08-06T00:00:00Z',
+    updatedAt: '2026-08-06T00:00:01Z',
+  }
+  const retroactiveBinding = await buildFinalizationBindingHarness(targetSource, 'retroactive')
+  const admitted = await validateBindingHarness(retroactiveBinding)
+  check(admitted.binding_mode === 'retroactive' && admitted.target_canonical_url === targetSource.url,
+    `exact retroactive target ${targetSource.url} admits only at its frozen body and record digests`)
+}
+
+for (const transition of ['terminal_review_admission', 'merge_decision_admission']) {
+  const targetHarness = await assignmentLineageHarness(transition)
+  const assignmentTarget = await bindingTargetSource(targetHarness.records[1].record)
+  const assignmentBinding = await buildFinalizationBindingHarness(assignmentTarget)
+  const admitted = await validateBindingHarness(assignmentBinding)
+  check(admitted.issuer_role === bindingIssuerRole(assignmentTarget.record.record_type), `${transition} uses the identical Binding algorithm with its frozen issuer role`)
+}
+
 for (const transition of ['terminal_review_admission', 'merge_decision_admission']) {
   const harness = await assignmentLineageHarness(transition)
   const current = await validateGenerationAwareAssignmentLineageV1(harness)
@@ -631,13 +836,8 @@ try {
 check(predecessorDigestFailed, 'historical predecessor self-digest mismatch fails integrity validation')
 const editedGenerationHarness = await assignmentLineageHarness('terminal_review_admission')
 editedGenerationHarness.records[0].generationSource.updatedAt = '2026-08-05T09:00:01Z'
-let editedGenerationFailed = false
-try {
-  await validateGenerationAwareAssignmentLineageV1(editedGenerationHarness)
-} catch (error) {
-  editedGenerationFailed = /Ready Generation evidence edited/.test(String(error?.message))
-}
-check(editedGenerationFailed, 'edited historical Ready Generation evidence fails integrity validation')
+const editedGenerationAccepted = await validateGenerationAwareAssignmentLineageV1(editedGenerationHarness)
+check(editedGenerationAccepted.revision === 2, 'self-binding target timestamp equality is not used as immutability authority after Finalization Binding admission')
 await expectLineageRejection(async ({ records }) => {
   records[0].record.ready_generation_record_digest = '0'.repeat(64)
   await resealAssignmentEvidence(records[0])
@@ -710,7 +910,7 @@ check(runnerSource.includes('actor_login: readyEvent.actor_login') && !runnerSou
 check(runnerSource.includes('issues/${taskIdentity[3]}/comments') && runnerSource.includes('acquireCanonicalRecord(candidate.listed.html_url'), 'production paginates Task assignments and directly re-fetches the selected canonical record')
 check(runnerSource.includes('source.authorLogin !== trustRoot.issuer_login') && runnerSource.includes('record.authority_owner_login !== trustRoot.issuer_login'), 'assignment issuer is authenticated by the independent trust root instead of self-assertion')
 check(runnerSource.includes("declared.length === 0") && runnerSource.includes("assignment_missing"), 'missing canonical assignment rejects before Collector execution')
-check(runnerSource.includes("source.createdAt !== source.updatedAt") && runnerSource.includes("assignment_edited"), 'edited assignment records fail closed')
+check(!runnerSource.includes("assignment_edited") && runnerSource.includes('assignmentBinding'), 'self-binding assignment timestamp equality is replaced by Finalization Binding integrity')
 check(runnerSource.includes("record.assignment_id !== first.assignment_id") && runnerSource.includes("assignment_chain_ambiguous"), 'multiple assignment chains fail closed')
 check(runnerSource.includes("byRevision.has(item.record.revision)") && runnerSource.includes("assignment_chain_forked"), 'assignment revision forks fail closed')
 check(runnerSource.includes("byRevision.size !== maximum") && runnerSource.includes("assignment_chain_gapped"), 'assignment revision gaps fail closed')
@@ -719,6 +919,16 @@ check(runnerSource.includes("tip.record.status !== 'assigned'") && runnerSource.
 check(runnerSource.includes('generationSource.record.exact_head !== record.exact_head') && runnerSource.includes('tip.record.exact_head !== request.exactHead'), 'historical assignments bind issuance-era generation while only current leaf binds current HEAD')
 check(runnerSource.includes("pr?.base?.ref !== host.defaultBranch") && runnerSource.includes("pr?.base?.sha !== host.workflowSha"), 'base SHA remains an independent live PR/default-branch observation outside assignment schema')
 check(runnerSource.includes('validateReadyGenerationCollectorBindingV1') && runnerSource.includes('producer_roster_source_digest !== readyGeneration.producer_roster_source_digest'), 'Producer Roster remains separately bound through Ready Generation and the one existing Collector')
+check(runnerSource.includes('FINALIZATION_BINDING_KEYS') && runnerSource.includes('exact 20-field canonical JCS'), 'Finalization Binding parser enforces the exact 20-field canonical-JCS body')
+check(runnerSource.includes('canonicalFinalizationBindingIdV1') && runnerSource.includes("filter(([key]) => key !== 'binding_record_digest')"), 'Binding ID selector and non-circular Binding record digest are deterministic')
+check(runnerSource.includes('FINALIZATION_BINDING_TRUST_ROOT') && runnerSource.includes("review.record?.decision !== 'APPROVE'"), 'implementation pins the reviewed Finalization Binding issuer trust root')
+check(runnerSource.includes('listed?.body !== direct.body') && runnerSource.includes('listed?.updated_at !== direct.updatedAt'), 'every declared Binding is directly re-fetched and compared to its paginated observation')
+check(runnerSource.includes('source?.createdAt !== source?.updatedAt') && runnerSource.includes('Finalization Binding one-shot source integrity failed'), 'createdAt equality remains mandatory only for the non-self-binding Binding record')
+check(runnerSource.includes("finalization_binding_missing") && runnerSource.includes("finalization_binding_ambiguous"), 'zero and multiple target Binding cardinalities fail closed')
+check((runnerSource.match(/refreshFinalizationSnapshot\(\{/g) ?? []).length === 2 && runnerSource.indexOf('refreshFinalizationSnapshot({') < runnerSource.indexOf('const collector = await execFileAsync(process.execPath'), 'complete target and Binding snapshots run before and after the single Collector')
+check(runnerSource.includes("finalization_binding_snapshot_drift") && runnerSource.includes("finalization_binding_head_drift"), 'target, Binding, duplicate-insertion, and exact-HEAD drift are non-admitting')
+check(runnerSource.includes('acquireFinalizedGeneration(generationSource') && runnerSource.includes('assignmentBinding'), 'every historical assignment predecessor resolves its own Binding and issuance-era Generation/roster Bindings')
+check(runnerSource.includes('RETROACTIVE_FINALIZATION_BINDING_TARGETS') && fixture.canonical_finalization_binding.retroactive_target_urls.every((url) => runnerSource.includes(url)), 'retroactive admission is pinned to exactly the five reviewed canonical target URLs')
 check(runnerSource.includes('host.triggeringActor !== assignment.assigned_login') && runnerSource.includes("workflow_actor_assignment_mismatch"), 'physical current-attempt workflow caller must equal the independently assigned login')
 check(runnerSource.includes('GITHUB_ACTOR') && runnerSource.includes('GITHUB_TRIGGERING_ACTOR') && runnerSource.includes('host.triggeringActor !== host.originalActor'), 'same-actor reruns are admitted and cross-actor reruns reject from trusted run context')
 check(runnerSource.includes('paginatedArtifacts') && runnerSource.includes('/actions/artifacts/${artifact.id}/zip') && runnerSource.includes("unzip', ['-Z1'") && runnerSource.includes('TERMINAL_ACCEPTED_FILES'), 'Terminal authority is reacquired from a fully paginated exact two-file Actions artifact')

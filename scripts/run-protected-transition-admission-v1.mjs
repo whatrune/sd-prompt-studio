@@ -10,6 +10,7 @@ import {
   parseReadyReviewTerminalObservationArtifactV1,
   sha256ReadyReviewObservationV1,
   validateReadyReviewGenerationRecordV1,
+  validateReadyReviewProducerRosterV1,
 } from '../src/continuous-orchestration/ready-review-terminal-observation-artifact-v1.ts'
 import {
   PROTECTED_TRANSITION_ADMISSION_INPUT_V1,
@@ -66,6 +67,32 @@ const AUTHORITY_ANCHORS = Object.freeze({
     assignedRole: 'Product Owner',
     transition: 'merge_decision_admission',
   }),
+})
+const FINALIZATION_BINDING_TRUST_ROOT = Object.freeze({
+  recordUrl: 'https://github.com/whatrune/sd-prompt-studio/issues/251#issuecomment-5203226004',
+  recordDigest: '6b5a2b8e5066532bf62930ce83a38daa4bedfc5490afcd9416d14b245f0f6d79',
+  reviewUrl: 'https://github.com/whatrune/sd-prompt-studio/issues/251#issuecomment-5203281050',
+  reviewDigest: 'fac0be572207b1944a1adfcedc2c0f932ef9d454fed4023432ec9889a5740f62',
+  authorLogin: 'whatrune',
+})
+const FINALIZATION_BINDING_KEYS = [
+  'record_type', 'binding_id', 'binding_record_digest', 'binding_mode', 'target_canonical_url', 'target_record_type',
+  'target_record_digest', 'target_final_body_sha256', 'target_author_login', 'repository', 'task_record_url',
+  'task_scope_digest', 'pr_number', 'pr_url', 'target_revision', 'target_ready_event_id', 'issuer_login', 'issuer_role',
+  'issuer_trust_root_record_url', 'issuer_trust_root_record_digest',
+]
+const FINALIZATION_BINDING_ISSUERS = Object.freeze({
+  ready_review_generation_record_v1: Object.freeze({ login: 'whatrune', role: 'Integrated Lead' }),
+  ready_review_producer_roster_v1: Object.freeze({ login: 'whatrune', role: 'Integrated Lead' }),
+  terminal_review_actor_assignment_v1: Object.freeze({ login: 'whatrune', role: 'Integrated Lead' }),
+  merge_decision_actor_assignment_v1: Object.freeze({ login: 'whatrune', role: 'Product Owner' }),
+})
+const RETROACTIVE_FINALIZATION_BINDING_TARGETS = Object.freeze({
+  'https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-5199802089': Object.freeze({ recordType: 'ready_review_producer_roster_v1', revision: null, readyEventId: '29044304312', bodyDigest: 'c4417de50a29f08461a7bf7964b1afa2e1a25631c8a68a0fb64b34bb9e53947b', recordDigest: 'dbd7689ef71669d4deb9c589e104cd9ccbf382dd50740b78d8203b8a99c55125' }),
+  'https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-5199802201': Object.freeze({ recordType: 'ready_review_generation_record_v1', revision: 1, readyEventId: '29044304312', bodyDigest: '7aae7e2735ec6e1a1d6db65b14b501fe905d59b43da705e95231b25affb9d475', recordDigest: 'df86b68a470f2763f2793bfbee5f63e2b877aa3e5fefc031824f042ead34de4c' }),
+  'https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-5200119580': Object.freeze({ recordType: 'terminal_review_actor_assignment_v1', revision: 1, readyEventId: '29044304312', bodyDigest: '6055cfc70790f1d8b8cabdb3663ea2a56baae7656d9c8a1d3a5f289f0c25724d', recordDigest: '074a60efa79b036202a61965160202c125229ab8a01c5c6acabe1cce0e3c21db' }),
+  'https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-5202785625': Object.freeze({ recordType: 'ready_review_producer_roster_v1', revision: null, readyEventId: '29059119053', bodyDigest: '97669b895b81e5da59c31cfd3a7b29dc8e0b7098f71ab3b86bdbd2982bb4c121', recordDigest: '661301f12c1aa00dfdad28784cb5990eec5a7807727c69339b5bc62d39d49c28' }),
+  'https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-5202790162': Object.freeze({ recordType: 'ready_review_generation_record_v1', revision: 3, readyEventId: '29059119053', bodyDigest: 'c79d3d2d4e74067b6062f829720109f62ea3faf57481d70e0ac286d28211442f', recordDigest: 'b970c2e71a1ca9d61ae76ce1c62569a121d8e76705e83d3b6eae06d3fb569add' }),
 })
 const ASSIGNMENT_KEYS = [
   'record_type', 'canonical_record', 'record_digest', 'assignment_id', 'revision', 'supersedes_record_url', 'status',
@@ -219,6 +246,211 @@ const sha256Buffer = (value) => createHash('sha256').update(value).digest('hex')
 const recordTypeClaim = (body, recordType) => typeof body === 'string' &&
   new RegExp(`(?:^|\\n)\\s*record_type\\s*:\\s*["']?${recordType}["']?\\s*(?:\\r?\\n|$)`).test(body)
 
+const finalizationBindingClaim = (body) => typeof body === 'string' &&
+  /(?:^|[,{\n])\s*["']?record_type["']?\s*:\s*["']canonical_finalization_binding_v1["']/.test(body)
+
+const sha256Jcs = async (value) => await sha256ReadyReviewObservationV1(canonicalizeReadyReviewObservationJcsV1(value))
+
+export const canonicalFinalizationBindingIdV1 = async (record) => `CFB1-${await sha256Jcs({
+  repository: record.repository,
+  task_record_url: record.task_record_url,
+  pr_number: record.pr_number,
+  target_canonical_url: record.target_canonical_url,
+  target_record_type: record.target_record_type,
+})}`
+
+const parseCanonicalFinalizationBindingBodyV1 = (body) => {
+  if (typeof body !== 'string' || body.length === 0) throw new Error('Finalization Binding body missing')
+  let record
+  try {
+    record = JSON.parse(body)
+  } catch {
+    throw new Error('Finalization Binding JSON malformed')
+  }
+  if (!exactObjectKeys(record, FINALIZATION_BINDING_KEYS) || canonicalizeReadyReviewObservationJcsV1(record) !== body) {
+    throw new Error('Finalization Binding must be exact 20-field canonical JCS')
+  }
+  return record
+}
+
+const finalizationBindingRevision = (record) => record.record_type === 'ready_review_producer_roster_v1' ? null : record.revision
+
+const validateFinalizationTargetRecordV1 = async (source, expectedType) => {
+  const record = source?.record
+  if (record?.record_type !== expectedType || record?.canonical_record !== source.url || !/^[0-9a-f]{64}$/.test(record?.record_digest ?? '')) {
+    throw new Error('Finalization target type, URL, or record digest malformed')
+  }
+  if (expectedType === 'ready_review_generation_record_v1') {
+    if (!await validateReadyReviewGenerationRecordV1(record)) throw new Error('Finalization target Ready Generation malformed')
+  } else if (expectedType === 'ready_review_producer_roster_v1') {
+    if (!await validateReadyReviewProducerRosterV1(record)) throw new Error('Finalization target Producer Roster malformed')
+  } else {
+    if (!exactObjectKeys(record, ASSIGNMENT_KEYS)) throw new Error('Finalization target assignment malformed')
+    const projection = Object.fromEntries(Object.entries(record).filter(([key]) => key !== 'record_digest'))
+    if (await sha256Jcs(projection) !== record.record_digest) throw new Error('Finalization target assignment record digest mismatch')
+  }
+  return record
+}
+
+export const validateCanonicalFinalizationBindingV1 = async ({ body, source, targetSource, taskSource, repository, prNumber }) => {
+  const binding = parseCanonicalFinalizationBindingBodyV1(body)
+  const issuer = FINALIZATION_BINDING_ISSUERS[binding.target_record_type]
+  const prUrl = `https://github.com/${repository}/pull/${prNumber}`
+  const taskIdentity = ISSUE_URL.exec(taskSource?.url ?? '')
+  const targetIdentity = COMMENT_URL.exec(binding.target_canonical_url ?? '')
+  if (binding.record_type !== 'canonical_finalization_binding_v1' || !/^CFB1-[0-9a-f]{64}$/.test(binding.binding_id) ||
+      !/^[0-9a-f]{64}$/.test(binding.binding_record_digest ?? '') || !['contemporaneous', 'retroactive'].includes(binding.binding_mode) ||
+      issuer === undefined || !/^[0-9a-f]{64}$/.test(binding.target_record_digest ?? '') ||
+      !/^[0-9a-f]{64}$/.test(binding.target_final_body_sha256 ?? '') || typeof binding.target_author_login !== 'string' || binding.target_author_login.length === 0 ||
+      binding.repository !== repository || binding.task_record_url !== taskSource?.url || binding.task_scope_digest !== taskSource?.bodyDigest ||
+      binding.pr_number !== prNumber || binding.pr_url !== prUrl ||
+      !(binding.target_revision === null || (Number.isSafeInteger(binding.target_revision) && binding.target_revision > 0)) ||
+      !/^[0-9]+$/.test(binding.target_ready_event_id ?? '') || typeof binding.issuer_login !== 'string' || typeof binding.issuer_role !== 'string' ||
+      binding.issuer_trust_root_record_url !== FINALIZATION_BINDING_TRUST_ROOT.recordUrl ||
+      binding.issuer_trust_root_record_digest !== FINALIZATION_BINDING_TRUST_ROOT.recordDigest ||
+      taskIdentity === null || targetIdentity === null || `${targetIdentity[1]}/${targetIdentity[2]}` !== repository || targetIdentity[3] !== taskIdentity[3]) {
+    throw new Error('Finalization Binding exact fields, root, or scope malformed')
+  }
+  if ((binding.target_record_type === 'ready_review_producer_roster_v1') !== (binding.target_revision === null)) {
+    throw new Error('Finalization Binding target revision nullability malformed')
+  }
+  const bindingProjection = Object.fromEntries(Object.entries(binding).filter(([key]) => key !== 'binding_record_digest'))
+  if (await canonicalFinalizationBindingIdV1(binding) !== binding.binding_id || await sha256Jcs(bindingProjection) !== binding.binding_record_digest) {
+    throw new Error('Finalization Binding deterministic digest mismatch')
+  }
+  if (source?.createdAt !== source?.updatedAt || source?.authorLogin !== binding.issuer_login || source?.body !== body) {
+    throw new Error('Finalization Binding one-shot source integrity failed')
+  }
+  if (binding.issuer_login !== issuer.login || binding.issuer_role !== issuer.role) {
+    throw new IdentityRejection(['finalization_binding_issuer_mismatch'])
+  }
+  if (targetSource === undefined) return Object.freeze(binding)
+  if (targetSource.url !== binding.target_canonical_url) throw new IdentityRejection(['finalization_binding_target_url_mismatch'])
+  const target = await validateFinalizationTargetRecordV1(targetSource, binding.target_record_type)
+  if (binding.target_record_digest !== target.record_digest || binding.target_final_body_sha256 !== targetSource.bodyDigest ||
+      binding.target_author_login !== targetSource.authorLogin || targetSource.authorLogin !== issuer.login ||
+      binding.target_revision !== finalizationBindingRevision(target) || String(target.ready_event_id) !== binding.target_ready_event_id) {
+    throw new IdentityRejection(['finalization_binding_target_integrity_mismatch'])
+  }
+  if (target.repository !== repository || target.pr_number !== prNumber ||
+      (target.pr_url !== undefined && target.pr_url !== prUrl) ||
+      (target.task_issue_url !== undefined && target.task_issue_url !== taskSource.url) ||
+      (target.task_record_url !== undefined && target.task_record_url !== taskSource.url) ||
+      (target.task_scope_digest !== undefined && target.task_scope_digest !== taskSource.bodyDigest)) {
+    throw new IdentityRejection(['finalization_binding_target_scope_mismatch'])
+  }
+  if (binding.binding_mode === 'retroactive') {
+    const pin = RETROACTIVE_FINALIZATION_BINDING_TARGETS[targetSource.url]
+    if (pin === undefined || pin.recordType !== binding.target_record_type || pin.revision !== binding.target_revision ||
+        pin.readyEventId !== binding.target_ready_event_id || pin.bodyDigest !== targetSource.bodyDigest || pin.recordDigest !== target.record_digest ||
+        targetSource.authorLogin !== 'whatrune') {
+      throw new IdentityRejection(['retroactive_finalization_binding_not_eligible'])
+    }
+  }
+  return Object.freeze(binding)
+}
+
+const acquireFinalizationBindingRoot = async (repository) => {
+  const root = await acquireCanonicalRecord(FINALIZATION_BINDING_TRUST_ROOT.recordUrl, repository)
+  const review = await acquireCanonicalRecord(FINALIZATION_BINDING_TRUST_ROOT.reviewUrl, repository)
+  if (root.bodyDigest !== FINALIZATION_BINDING_TRUST_ROOT.recordDigest || root.authorLogin !== FINALIZATION_BINDING_TRUST_ROOT.authorLogin ||
+      review.bodyDigest !== FINALIZATION_BINDING_TRUST_ROOT.reviewDigest || review.authorLogin !== FINALIZATION_BINDING_TRUST_ROOT.authorLogin ||
+      review.record?.record_type !== 'independent_architecture_review_decision' || review.record?.reviewed_amendment !== root.url ||
+      review.record?.reviewed_amendment_body_sha256 !== root.bodyDigest || review.record?.decision !== 'APPROVE' ||
+      review.record?.blocking_finding_count !== 0 || review.record?.unknown_count !== 0 || review.record?.implementation_ready !== true) {
+    throw new Error('Finalization Binding pinned root or Review integrity failed')
+  }
+}
+
+const acquireFinalizationBindingContext = async (request, host, taskSource) => {
+  const taskIdentity = ISSUE_URL.exec(request.taskRecordUrl)
+  if (taskIdentity === null) throw new IdentityRejection(['finalization_binding_task_issue_required'])
+  await acquireFinalizationBindingRoot(host.repository)
+  const comments = await paginated(`repos/${host.repository}/issues/${taskIdentity[3]}/comments`)
+  const declarations = []
+  for (const listed of comments) {
+    if (!finalizationBindingClaim(listed?.body)) continue
+    const direct = await acquireCanonicalRecord(listed?.html_url, host.repository, { requireOwner: false })
+    if (listed?.html_url !== direct.url || listed?.body !== direct.body || listed?.user?.login !== direct.authorLogin ||
+        listed?.created_at !== direct.createdAt || listed?.updated_at !== direct.updatedAt) {
+      throw new Error('listed/direct Finalization Binding evidence drifted')
+    }
+    const record = await validateCanonicalFinalizationBindingV1({
+      body: direct.body, source: direct, taskSource, repository: host.repository, prNumber: request.prNumber,
+    })
+    declarations.push(Object.freeze({ source: direct, record }))
+  }
+  return Object.freeze({ request, host, taskSource, declarations: Object.freeze(declarations) })
+}
+
+export const resolveFinalizationBindingV1 = async (context, targetSource, expectedType) => {
+  const selected = context.declarations.filter(({ record }) => record.target_canonical_url === targetSource.url)
+  if (selected.length === 0) throw new IdentityRejection(['finalization_binding_missing'])
+  if (selected.length !== 1) throw new IdentityRejection(['finalization_binding_ambiguous'])
+  const candidate = selected[0]
+  if (candidate.record.target_record_type !== expectedType) throw new IdentityRejection(['finalization_binding_target_type_mismatch'])
+  const record = await validateCanonicalFinalizationBindingV1({
+    body: candidate.source.body,
+    source: candidate.source,
+    targetSource,
+    taskSource: context.taskSource,
+    repository: context.host.repository,
+    prNumber: context.request.prNumber,
+  })
+  return Object.freeze({
+    target_url: targetSource.url,
+    target_record_type: expectedType,
+    target_body_digest: targetSource.bodyDigest,
+    target_record_digest: targetSource.record.record_digest,
+    binding_url: candidate.source.url,
+    binding_body_digest: candidate.source.bodyDigest,
+    binding_record_digest: record.binding_record_digest,
+  })
+}
+
+const registerFinalizationSnapshot = (registry, evidence) => {
+  const prior = registry.get(evidence.target_url)
+  if (prior !== undefined && canonicalizeReadyReviewObservationJcsV1(prior) !== canonicalizeReadyReviewObservationJcsV1(evidence)) {
+    throw new IdentityRejection(['finalization_binding_snapshot_drift'])
+  }
+  registry.set(evidence.target_url, evidence)
+}
+
+const acquireFinalizedGeneration = async (source, context, registry) => {
+  const generationBinding = await resolveFinalizationBindingV1(context, source, 'ready_review_generation_record_v1')
+  registerFinalizationSnapshot(registry, generationBinding)
+  const rosterSource = await acquireCanonicalRecord(source.record.producer_roster_source_url, context.host.repository, { requireOwner: false })
+  const rosterBinding = await resolveFinalizationBindingV1(context, rosterSource, 'ready_review_producer_roster_v1')
+  registerFinalizationSnapshot(registry, rosterBinding)
+  const roster = rosterSource.record
+  if (roster.record_digest !== source.record.producer_roster_source_digest || roster.repository !== source.record.repository ||
+      roster.pr_number !== source.record.pr_number || roster.exact_head !== source.record.exact_head ||
+      String(roster.ready_event_id) !== String(source.record.ready_event_id)) {
+    throw new IdentityRejection(['ready_generation_roster_binding_mismatch'])
+  }
+  return Object.freeze({ generationSource: source, rosterSource })
+}
+
+const refreshFinalizationSnapshot = async ({ baseline, request, host, exactTaskDigest }) => {
+  const taskSource = await acquireCanonicalRecord(request.taskRecordUrl, host.repository)
+  if (taskSource.bodyDigest !== exactTaskDigest) throw new IdentityRejection(['finalization_binding_task_scope_drift'])
+  const pr = await ghJson([`repos/${host.repository}/pulls/${request.prNumber}`])
+  if (pr?.head?.sha !== request.exactHead || pr?.base?.ref !== host.defaultBranch || pr?.base?.sha !== host.workflowSha) {
+    throw new IdentityRejection(['finalization_binding_head_drift'])
+  }
+  const context = await acquireFinalizationBindingContext(request, host, taskSource)
+  const refreshed = new Map()
+  for (const expected of [...baseline.values()].sort((left, right) => left.target_url.localeCompare(right.target_url))) {
+    const target = await acquireCanonicalRecord(expected.target_url, host.repository, { requireOwner: false })
+    const observed = await resolveFinalizationBindingV1(context, target, expected.target_record_type)
+    registerFinalizationSnapshot(refreshed, observed)
+  }
+  const baselineJcs = canonicalizeReadyReviewObservationJcsV1([...baseline.values()].sort((left, right) => left.target_url.localeCompare(right.target_url)))
+  const refreshedJcs = canonicalizeReadyReviewObservationJcsV1([...refreshed.values()].sort((left, right) => left.target_url.localeCompare(right.target_url)))
+  if (baselineJcs !== refreshedJcs) throw new IdentityRejection(['finalization_binding_snapshot_drift'])
+  return Object.freeze({ context, taskSource, registry: refreshed })
+}
+
 const expectedAssignment = (transition) => transition === 'terminal_review_admission'
   ? Object.freeze({ recordType: 'terminal_review_actor_assignment_v1', ...AUTHORITY_ANCHORS.terminal_review_actor_assignment_v1 })
   : Object.freeze({ recordType: 'merge_decision_actor_assignment_v1', ...AUTHORITY_ANCHORS.merge_decision_actor_assignment_v1 })
@@ -315,9 +547,10 @@ const acquireReadyEvent = async (request, host, readySource) => {
 export const validateGenerationAwareAssignmentLineageV1 = async ({ records, request, host, taskScopeDigest, readySource, readyEvent, trustRoot, spec }) => {
   if (!Array.isArray(records) || records.length === 0) throw new IdentityRejection(['assignment_missing'])
   for (const item of records) {
-    const { source, record, generationSource, generationEvent } = item ?? {}
-    if (!source || !record || !generationSource || !generationEvent) throw new Error('assignment lineage evidence malformed')
-    if (source.createdAt !== source.updatedAt) throw new IdentityRejection(['assignment_edited'])
+    const { source, record, generationSource, generationEvent, assignmentBinding, generationBinding } = item ?? {}
+    if (!source || !record || !generationSource || !generationEvent || !assignmentBinding || !generationBinding) {
+      throw new Error('assignment lineage evidence malformed')
+    }
     if (!exactObjectKeys(record, ASSIGNMENT_KEYS)) throw new Error('assignment record contract malformed')
     const projection = Object.fromEntries(Object.entries(record).filter(([key]) => key !== 'record_digest'))
     const projectionDigest = await sha256ReadyReviewObservationV1(canonicalizeReadyReviewObservationJcsV1(projection))
@@ -325,7 +558,6 @@ export const validateGenerationAwareAssignmentLineageV1 = async ({ records, requ
     if (record.canonical_record !== source.url) throw new IdentityRejection(['assignment_source_url_mismatch'])
     if (source.authorLogin !== trustRoot.issuer_login || record.authority_owner_login !== trustRoot.issuer_login ||
         record.authority_owner_role !== trustRoot.issuer_role) throw new IdentityRejection(['assignment_issuer_not_admitted'])
-    if (generationSource.createdAt !== generationSource.updatedAt) throw new Error('assignment Ready Generation evidence edited')
     if (!await validateReadyReviewGenerationRecordV1(generationSource.record) || generationSource.record.canonical_record !== generationSource.url) {
       throw new Error('assignment Ready Generation evidence malformed')
     }
@@ -393,7 +625,7 @@ export const validateGenerationAwareAssignmentLineageV1 = async ({ records, requ
   })
 }
 
-const acquireAssignment = async (request, host, taskSource, readySource, readyEvent, trustRoot, spec) => {
+const acquireAssignment = async (request, host, taskSource, readySource, readyEvent, trustRoot, spec, bindingContext, bindingRegistry) => {
   const taskIdentity = ISSUE_URL.exec(request.taskRecordUrl)
   if (taskIdentity === null) throw new IdentityRejection(['task_issue_required_for_assignment_discovery'])
   const comments = await paginated(`repos/${host.repository}/issues/${taskIdentity[3]}/comments`)
@@ -410,13 +642,23 @@ const acquireAssignment = async (request, host, taskSource, readySource, readyEv
     const direct = await acquireCanonicalRecord(candidate.listed.html_url, host.repository, { requireOwner: false })
     const record = direct.record
     if (!exactObjectKeys(record, ASSIGNMENT_KEYS)) throw new Error('assignment record contract malformed')
+    const assignmentBinding = await resolveFinalizationBindingV1(bindingContext, direct, spec.recordType)
+    registerFinalizationSnapshot(bindingRegistry, assignmentBinding)
     const generationSource = record.ready_generation_record_url === readySource.url
       ? readySource
       : await acquireCanonicalRecord(record.ready_generation_record_url, host.repository)
+    const finalizedGeneration = await acquireFinalizedGeneration(generationSource, bindingContext, bindingRegistry)
     const generationEvent = generationSource.url === readySource.url
       ? readyEvent
       : await acquireReadyEventEvidence(host, request.prNumber, generationSource)
-    records.push({ source: direct, record, generationSource, generationEvent })
+    records.push({
+      source: direct,
+      record,
+      generationSource,
+      generationEvent,
+      assignmentBinding,
+      generationBinding: finalizedGeneration,
+    })
   }
   const taskScopeDigest = await bodyDigest(taskSource.body)
   return await validateGenerationAwareAssignmentLineageV1({ records, request, host, taskScopeDigest, readySource, readyEvent, trustRoot, spec })
@@ -776,6 +1018,10 @@ const main = async () => {
         readySource.record.repository !== host.repository || readySource.record.pr_number !== request.prNumber || readySource.record.exact_head !== request.exactHead) {
       throw new Error('Ready Generation record failed admission')
     }
+    const taskScopeDigest = await bodyDigest(taskSource.body)
+    const bindingRegistry = new Map()
+    const bindingContext = await acquireFinalizationBindingContext(request, host, taskSource)
+    await acquireFinalizedGeneration(readySource, bindingContext, bindingRegistry)
     const assignmentSpec = expectedAssignment(request.transition)
     const readyEvent = await acquireReadyEvent(request, host, readySource)
     Object.assign(observedAuthority, {
@@ -785,7 +1031,9 @@ const main = async () => {
     })
     const trustRoot = await acquireTrustRoot(taskSource, host.repository, assignmentSpec)
     observedAuthority.trust_root_record_url = trustRoot.record_url
-    const assignment = await acquireAssignment(request, host, taskSource, readySource, readyEvent, trustRoot, assignmentSpec)
+    const assignment = await acquireAssignment(
+      request, host, taskSource, readySource, readyEvent, trustRoot, assignmentSpec, bindingContext, bindingRegistry,
+    )
     Object.assign(observedAuthority, {
       assignment_record_url: assignment.record_url,
       assignment_record_digest: assignment.record_digest,
@@ -802,13 +1050,17 @@ const main = async () => {
       const terminalSpec = expectedAssignment('terminal_review_admission')
       const terminalTrustRoot = await acquireTrustRoot(taskSource, host.repository, terminalSpec)
       const terminalAssignment = await acquireAssignment(
-        terminalRequest, host, taskSource, readySource, readyEvent, terminalTrustRoot, terminalSpec,
+        terminalRequest, host, taskSource, readySource, readyEvent, terminalTrustRoot, terminalSpec, bindingContext, bindingRegistry,
       )
       const terminalLeaf = await acquireCurrentTerminalLeaf(request, host, readySource, readyEvent, terminalAssignment)
       terminalRecord = await acquireTerminalArtifactReceipt(
         request, host, readySource, readyEvent, terminalAssignment, terminalLeaf,
       )
     }
+
+    await refreshFinalizationSnapshot({
+      baseline: bindingRegistry, request, host, exactTaskDigest: taskScopeDigest,
+    })
 
     const collector = await execFileAsync(process.execPath, [
       COLLECTOR_PATH,
@@ -821,7 +1073,9 @@ const main = async () => {
     if (typeof collectorJcs !== 'string' || collectorJcs.length === 0 || collector.stderr !== '') throw new Error('Collector did not return one exact JCS artifact')
     const collectorProjection = JSON.parse(collectorJcs)
     validateReadyGenerationCollectorBindingV1({ readyGeneration: readySource.record, collectorArtifact: collectorProjection })
-    const taskScopeDigest = await sha256ReadyReviewObservationV1(taskSource.body)
+    await refreshFinalizationSnapshot({
+      baseline: bindingRegistry, request, host, exactTaskDigest: taskScopeDigest,
+    })
     const evaluatedAt = new Date().toISOString()
     const input = {
       input_version: PROTECTED_TRANSITION_ADMISSION_INPUT_V1,

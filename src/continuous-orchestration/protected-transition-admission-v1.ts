@@ -15,6 +15,31 @@ export const PROTECTED_TRANSITION_ADMISSION_RECEIPT_V1 = 'protected-transition-a
 export const PROTECTED_TRANSITION_ADMISSION_RESULT_V1 = 'protected-transition-admission-result-v1' as const
 export const PROTECTED_TRANSITION_COLLECTOR_FILE_V1 = 'ready-review-terminal-observation-artifact-v1.jcs' as const
 export const PROTECTED_TRANSITION_RECEIPT_FILE_V1 = 'protected-transition-admission-v1-receipt.jcs' as const
+export const CANONICAL_FINALIZATION_BINDING_V1 = 'canonical_finalization_binding_v1' as const
+export const CANONICAL_FINALIZATION_BINDING_V1_FIELD_COUNT = 20 as const
+
+export type CanonicalFinalizationBindingV1 = Readonly<{
+  record_type: typeof CANONICAL_FINALIZATION_BINDING_V1
+  binding_id: string
+  binding_record_digest: string
+  binding_mode: 'contemporaneous' | 'retroactive'
+  target_canonical_url: string
+  target_record_type: 'ready_review_generation_record_v1' | 'ready_review_producer_roster_v1' | 'terminal_review_actor_assignment_v1' | 'merge_decision_actor_assignment_v1'
+  target_record_digest: string
+  target_final_body_sha256: string
+  target_author_login: string
+  repository: string
+  task_record_url: string
+  task_scope_digest: string
+  pr_number: number
+  pr_url: string
+  target_revision: number | null
+  target_ready_event_id: string
+  issuer_login: string
+  issuer_role: 'Integrated Lead' | 'Product Owner'
+  issuer_trust_root_record_url: string
+  issuer_trust_root_record_digest: string
+}>
 
 export type ProtectedTransitionV1 = 'terminal_review_admission' | 'merge_decision_admission'
 export type ProtectedTransitionActorRoleV1 = 'Independent PR Reviewer' | 'Product Owner'
