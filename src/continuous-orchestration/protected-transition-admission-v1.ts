@@ -58,6 +58,14 @@ export type ProtectedTransitionAdmissionReceiptV1 = Readonly<{
   terminal_review_record_digest: string | null
   terminal_review_decision: 'APPROVE' | null
   terminal_review_accepted_receipt_digest: string | null
+  terminal_review_lineage_id: string | null
+  terminal_review_revision: number | null
+  terminal_review_assignment_record_url: string | null
+  terminal_review_assignment_record_digest: string | null
+  terminal_workflow_artifact_id: string | null
+  terminal_workflow_artifact_name: string | null
+  terminal_workflow_artifact_archive_sha256: string | null
+  terminal_receipt_jcs_sha256: string | null
   default_branch: 'main'
   workflow_path: '.github/workflows/protected-transition-admission-v1.yml'
   workflow_ref: string
@@ -76,6 +84,8 @@ export type ProtectedTransitionAdmissionReceiptV1 = Readonly<{
 type TerminalReviewBindingV1 = Readonly<{
   record_url: string
   record_digest: string
+  lineage_id: string
+  revision: number
   task_record_url: string
   repository: string
   pr_number: number
@@ -85,8 +95,14 @@ type TerminalReviewBindingV1 = Readonly<{
   ready_event_id: string
   decision: 'APPROVE'
   actor_login: string
+  assignment_record_url: string
+  assignment_record_digest: string
   published_at: string
   collector_artifact_digest: string
+  workflow_artifact_id: string
+  workflow_artifact_name: string
+  workflow_artifact_archive_sha256: string
+  receipt_jcs_sha256: string
   accepted_receipts: readonly ProtectedTransitionAdmissionReceiptV1[]
 }>
 
@@ -243,8 +259,10 @@ const CURRENT_KEYS = [
 ] as const
 const PERSISTENCE_KEYS = ['owner', 'available'] as const
 const TERMINAL_KEYS = [
-  'record_url', 'record_digest', 'task_record_url', 'repository', 'pr_number', 'pr_url', 'exact_head', 'ready_generation_record_url',
-  'ready_event_id', 'decision', 'actor_login', 'published_at', 'collector_artifact_digest', 'accepted_receipts',
+  'record_url', 'record_digest', 'lineage_id', 'revision', 'task_record_url', 'repository', 'pr_number', 'pr_url', 'exact_head',
+  'ready_generation_record_url', 'ready_event_id', 'decision', 'actor_login', 'assignment_record_url', 'assignment_record_digest',
+  'published_at', 'collector_artifact_digest', 'workflow_artifact_id', 'workflow_artifact_name', 'workflow_artifact_archive_sha256',
+  'receipt_jcs_sha256', 'accepted_receipts',
 ] as const
 const RECEIPT_KEYS = [
   'receipt_version', 'result', 'transition', 'repository', 'repository_id', 'task_record_url', 'task_scope_digest', 'pr_number', 'pr_url', 'exact_head',
@@ -252,7 +270,9 @@ const RECEIPT_KEYS = [
   'ready_actor_login', 'actor_login', 'actor_role', 'trust_root_record_url', 'trust_root_record_digest', 'trust_root_review_url', 'trust_root_review_digest',
   'assignment_record_url', 'assignment_record_digest', 'assignment_id', 'assignment_revision', 'assignment_issuer_login', 'assignment_issuer_role',
   'collector_artifact_version', 'collector_artifact_digest', 'collector_artifact_jcs_sha256', 'thread_snapshot_digest', 'terminal_review_record_url',
-  'terminal_review_record_digest', 'terminal_review_decision', 'terminal_review_accepted_receipt_digest', 'default_branch', 'workflow_path', 'workflow_ref',
+  'terminal_review_record_digest', 'terminal_review_decision', 'terminal_review_accepted_receipt_digest', 'terminal_review_lineage_id',
+  'terminal_review_revision', 'terminal_review_assignment_record_url', 'terminal_review_assignment_record_digest', 'terminal_workflow_artifact_id',
+  'terminal_workflow_artifact_name', 'terminal_workflow_artifact_archive_sha256', 'terminal_receipt_jcs_sha256', 'default_branch', 'workflow_path', 'workflow_ref',
   'workflow_sha', 'workflow_run_id', 'workflow_run_attempt', 'workflow_actor', 'workflow_run_url', 'evaluated_at', 'expires_at', 'rejection_codes',
   'state_changed', 'admission_digest',
 ] as const
@@ -300,23 +320,37 @@ const validateReceiptV1 = async (value: unknown): Promise<boolean> => {
     (value.transition === 'terminal_review_admission' && value.assignment_issuer_role !== 'Integrated Lead') ||
     (value.transition === 'merge_decision_admission' && value.assignment_issuer_role !== 'Product Owner')
   )) return false
-  const terminalFields = [value.terminal_review_record_url, value.terminal_review_record_digest, value.terminal_review_decision, value.terminal_review_accepted_receipt_digest]
+  const terminalFields = [
+    value.terminal_review_record_url, value.terminal_review_record_digest, value.terminal_review_decision,
+    value.terminal_review_accepted_receipt_digest, value.terminal_review_lineage_id, value.terminal_review_revision,
+    value.terminal_review_assignment_record_url, value.terminal_review_assignment_record_digest, value.terminal_workflow_artifact_id,
+    value.terminal_workflow_artifact_name, value.terminal_workflow_artifact_archive_sha256, value.terminal_receipt_jcs_sha256,
+  ]
   if (value.transition === 'terminal_review_admission') {
     if (!terminalFields.every((field) => field === null)) return false
   } else if (!commentUrl(value.terminal_review_record_url) || !sha256(value.terminal_review_record_digest) ||
-      value.terminal_review_decision !== 'APPROVE' || !sha256(value.terminal_review_accepted_receipt_digest)) return false
+      value.terminal_review_decision !== 'APPROVE' || !sha256(value.terminal_review_accepted_receipt_digest) ||
+      !nonEmpty(value.terminal_review_lineage_id) || !Number.isSafeInteger(value.terminal_review_revision) || Number(value.terminal_review_revision) <= 0 ||
+      !commentUrl(value.terminal_review_assignment_record_url) || !sha256(value.terminal_review_assignment_record_digest) ||
+      !nonEmpty(value.terminal_workflow_artifact_id) || !nonEmpty(value.terminal_workflow_artifact_name) ||
+      !sha256(value.terminal_workflow_artifact_archive_sha256) || !sha256(value.terminal_receipt_jcs_sha256)) return false
   return await digestReadyReviewObservationProjectionV1(without(value, 'admission_digest')) === value.admission_digest
 }
 
 const validateTerminalReviewBindingV1 = async (value: unknown): Promise<boolean> => {
-  if (!exactKeys(value, TERMINAL_KEYS) || !commentUrl(value.record_url) || !sha256(value.record_digest) || !issueOrCommentUrl(value.task_record_url) ||
+  if (!exactKeys(value, TERMINAL_KEYS) || !commentUrl(value.record_url) || !sha256(value.record_digest) || !nonEmpty(value.lineage_id) ||
+      !Number.isSafeInteger(value.revision) || Number(value.revision) <= 0 || !issueOrCommentUrl(value.task_record_url) ||
       !repository(value.repository) || !Number.isSafeInteger(value.pr_number) || Number(value.pr_number) <= 0 || !prUrl(value.pr_url) ||
       !fullHead(value.exact_head) || !commentUrl(value.ready_generation_record_url) || !nonEmpty(value.ready_event_id) || value.decision !== 'APPROVE' ||
-      !nonEmpty(value.actor_login) || !isoTime(value.published_at) || !sha256(value.collector_artifact_digest) || !Array.isArray(value.accepted_receipts)) return false
-  if (await digestReadyReviewObservationProjectionV1(without(value, 'record_digest')) !== value.record_digest) return false
+      !nonEmpty(value.actor_login) || !commentUrl(value.assignment_record_url) || !sha256(value.assignment_record_digest) ||
+      !isoTime(value.published_at) || !sha256(value.collector_artifact_digest) || !nonEmpty(value.workflow_artifact_id) ||
+      !nonEmpty(value.workflow_artifact_name) || !sha256(value.workflow_artifact_archive_sha256) || !sha256(value.receipt_jcs_sha256) ||
+      !Array.isArray(value.accepted_receipts)) return false
   for (const receipt of value.accepted_receipts) if (!await validateReceiptV1(receipt)) return false
   return true
 }
+
+export const validateProtectedTransitionAdmissionReceiptV1 = async (value: unknown): Promise<boolean> => await validateReceiptV1(value)
 
 const admittedInput = (value: unknown): value is ProtectedTransitionAdmissionInputV1 => {
   if (!exactKeys(value, INPUT_KEYS) || value.input_version !== PROTECTED_TRANSITION_ADMISSION_INPUT_V1 ||
@@ -428,6 +462,14 @@ const buildReceipt = async (
     terminal_review_record_digest: terminal?.record_digest ?? null,
     terminal_review_decision: terminal?.decision ?? null,
     terminal_review_accepted_receipt_digest: priorReceiptBindingDigest,
+    terminal_review_lineage_id: terminal?.lineage_id ?? null,
+    terminal_review_revision: terminal?.revision ?? null,
+    terminal_review_assignment_record_url: terminal?.assignment_record_url ?? null,
+    terminal_review_assignment_record_digest: terminal?.assignment_record_digest ?? null,
+    terminal_workflow_artifact_id: terminal?.workflow_artifact_id ?? null,
+    terminal_workflow_artifact_name: terminal?.workflow_artifact_name ?? null,
+    terminal_workflow_artifact_archive_sha256: terminal?.workflow_artifact_archive_sha256 ?? null,
+    terminal_receipt_jcs_sha256: terminal?.receipt_jcs_sha256 ?? null,
     default_branch: 'main' as const,
     workflow_path: '.github/workflows/protected-transition-admission-v1.yml' as const,
     workflow_ref: input.workflow_identity.ref,
@@ -513,9 +555,14 @@ export const evaluateProtectedTransitionAdmissionV1 = async (raw: unknown): Prom
             prior.pr_url !== input.pr_url || prior.exact_head !== input.exact_head || prior.ready_generation_record_url !== input.ready_generation.record_url ||
             prior.ready_event_id !== input.ready_generation.event_id || prior.ready_occurred_at !== input.ready_generation.occurred_at ||
             prior.actor_login !== terminal.actor_login || prior.collector_artifact_digest !== terminal.collector_artifact_digest ||
+            prior.assignment_record_url !== terminal.assignment_record_url || prior.assignment_record_digest !== terminal.assignment_record_digest ||
             terminal.task_record_url !== input.task_record_url || terminal.repository !== input.repository || terminal.pr_number !== input.pr_number ||
             terminal.pr_url !== input.pr_url || terminal.exact_head !== input.exact_head || terminal.ready_generation_record_url !== input.ready_generation.record_url ||
             terminal.ready_event_id !== input.ready_generation.event_id) rejectionCodes.push('terminal_review_binding_mismatch')
+        if (terminal.workflow_artifact_name !== `protected-transition-admission-v1-${prior.workflow_run_id}-${prior.workflow_run_attempt}` ||
+            await sha256ReadyReviewObservationV1(canonicalizeReadyReviewObservationJcsV1(prior)) !== terminal.receipt_jcs_sha256) {
+          rejectionCodes.push('terminal_receipt_provenance_mismatch')
+        }
         if (Date.parse(terminal.published_at) < Date.parse(prior.evaluated_at) || Date.parse(terminal.published_at) > Date.parse(prior.expires_at) ||
             Date.parse(input.evaluated_at) > Date.parse(prior.expires_at)) rejectionCodes.push('terminal_receipt_expired')
       }

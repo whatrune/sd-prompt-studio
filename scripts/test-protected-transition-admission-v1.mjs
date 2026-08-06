@@ -208,8 +208,11 @@ check(terminalAccepted.result === 'accepted' && terminalAccepted.receipt.trust_r
 check(frozen(terminalAccepted), 'accepted result is recursively immutable')
 
 assert.equal(terminalAccepted.result, 'accepted')
+const terminalReceiptJcsSha = await sha256ReadyReviewObservationV1(canonicalizeReadyReviewObservationJcsV1(terminalAccepted.receipt))
 const terminalRecord = await resealTerminal({
   record_url: fixture.terminal_review_record_url,
+  lineage_id: fixture.terminal_review_lineage_id,
+  revision: 1,
   task_record_url: fixture.task_record_url,
   repository: fixture.repository,
   pr_number: fixture.pr_number,
@@ -219,8 +222,14 @@ const terminalRecord = await resealTerminal({
   ready_event_id: fixture.ready_generation.event_id,
   decision: 'APPROVE',
   actor_login: fixture.actor_login,
+  assignment_record_url: fixture.terminal_authority.assignment_record_url,
+  assignment_record_digest: fixture.terminal_authority.assignment_record_digest,
   published_at: fixture.terminal_review_published_at,
   collector_artifact_digest: terminalCollector.artifact.artifact_digest,
+  workflow_artifact_id: fixture.terminal_workflow_artifact.id,
+  workflow_artifact_name: `protected-transition-admission-v1-${terminalAccepted.receipt.workflow_run_id}-${terminalAccepted.receipt.workflow_run_attempt}`,
+  workflow_artifact_archive_sha256: fixture.terminal_workflow_artifact.archive_sha256,
+  receipt_jcs_sha256: terminalReceiptJcsSha,
   accepted_receipts: [terminalAccepted.receipt],
 })
 const mergeInput = baseInput('merge_decision_admission', mergeCollector)
@@ -232,6 +241,9 @@ check(mergeAccepted.result === 'accepted', 'Merge Decision Admission accepts dis
 check(mergeAccepted.result === 'accepted' && mergeAccepted.receipt.terminal_review_accepted_receipt_digest === terminalAccepted.receipt.admission_digest, 'Merge receipt links the Terminal accepted-receipt digest')
 check(mergeAccepted.result === 'accepted' && mergeAccepted.receipt.collector_artifact_digest !== terminalAccepted.receipt.collector_artifact_digest, 'Merge receipt binds a distinct Collector artifact')
 check(mergeAccepted.result === 'accepted' && mergeAccepted.receipt.actor_role === 'Product Owner', 'Merge receipt binds Product Owner role')
+check(mergeAccepted.result === 'accepted' && mergeAccepted.receipt.terminal_review_lineage_id === fixture.terminal_review_lineage_id &&
+  mergeAccepted.receipt.terminal_workflow_artifact_id === fixture.terminal_workflow_artifact.id &&
+  mergeAccepted.receipt.terminal_receipt_jcs_sha256 === terminalReceiptJcsSha, 'Merge receipt seals the current Terminal leaf and actual artifact-byte provenance')
 
 const nonAdmitting = []
 const rejectedCase = async (mutate, expectedCode, label, source = terminalInput) => {
@@ -297,6 +309,18 @@ const staleTerminalResult = await evaluateProtectedTransitionAdmissionV1(staleTe
 nonAdmitting.push(staleTerminalResult)
 check(staleTerminalResult.result === 'rejected' && staleTerminalResult.rejection_codes.includes('terminal_receipt_expired'), 'Merge rejects an expired Terminal accepted receipt')
 
+const wrongTerminalArtifactName = clone(mergeInput)
+wrongTerminalArtifactName.terminal_review.workflow_artifact_name = 'protected-transition-admission-v1-wrong-attempt'
+const wrongTerminalArtifactNameResult = await evaluateProtectedTransitionAdmissionV1(wrongTerminalArtifactName)
+nonAdmitting.push(wrongTerminalArtifactNameResult)
+check(wrongTerminalArtifactNameResult.result === 'rejected' && wrongTerminalArtifactNameResult.rejection_codes.includes('terminal_receipt_provenance_mismatch'), 'Merge rejects a Terminal workflow artifact name not derived from the verified run and attempt')
+
+const wrongTerminalReceiptBytes = clone(mergeInput)
+wrongTerminalReceiptBytes.terminal_review.receipt_jcs_sha256 = '7'.repeat(64)
+const wrongTerminalReceiptBytesResult = await evaluateProtectedTransitionAdmissionV1(wrongTerminalReceiptBytes)
+nonAdmitting.push(wrongTerminalReceiptBytesResult)
+check(wrongTerminalReceiptBytesResult.result === 'rejected' && wrongTerminalReceiptBytesResult.rejection_codes.includes('terminal_receipt_provenance_mismatch'), 'Merge rejects a Terminal receipt byte digest mismatch')
+
 for (const count of [0, 2]) {
   const cardinalityInput = clone(mergeInput)
   cardinalityInput.terminal_review.accepted_receipts = count === 0 ? [] : [clone(terminalAccepted.receipt), clone(terminalAccepted.receipt)]
@@ -321,7 +345,7 @@ const inputs = workflow.on.workflow_dispatch.inputs
 check(Object.keys(workflow.on).join(',') === 'workflow_dispatch', 'workflow has only workflow_dispatch')
 check(Object.keys(inputs).join(',') === 'transition,pr_number,exact_head,task_record_url,ready_generation_record_url,terminal_review_record_url', 'workflow exposes exactly the six frozen caller inputs')
 check(inputs.transition.type === 'choice' && inputs.transition.options.join(',') === 'terminal_review_admission,merge_decision_admission', 'transition input has only the two protected admission surfaces')
-check(Object.keys(workflow.permissions).sort().join(',') === 'contents,issues,pull-requests' && Object.values(workflow.permissions).every((value) => value === 'read'), 'workflow has minimum read permissions only')
+check(Object.keys(workflow.permissions).sort().join(',') === 'actions,contents,issues,pull-requests' && Object.values(workflow.permissions).every((value) => value === 'read'), 'workflow has minimum read permissions including only the approved Actions read delta')
 check(Object.keys(workflow.jobs).length === 1 && Object.keys(workflow.jobs)[0] === 'protected_transition_admission_v1', 'workflow has one finite Phase 1 job')
 check((workflowSource.match(/actions\/checkout@[0-9a-f]{40}/g) ?? []).length === 1 && (workflowSource.match(/actions\/setup-node@[0-9a-f]{40}/g) ?? []).length === 1 && (workflowSource.match(/actions\/upload-artifact@[0-9a-f]{40}/g) ?? []).length === 1, 'all external Actions are pinned once to full commit SHAs')
 check((runnerSource.match(/run-ready-review-terminal-observation-collector-v1\.mjs/g) ?? []).length === 1, 'production composition names the existing Collector CLI exactly once')
@@ -339,7 +363,11 @@ check(runnerSource.includes("byRevision.has(item.record.revision)") && runnerSou
 check(runnerSource.includes("byRevision.size !== maximum") && runnerSource.includes("assignment_chain_gapped"), 'assignment revision gaps fail closed')
 check(runnerSource.includes("item.record.supersedes_record_url !== predecessor") && runnerSource.includes("assignment_chain_invalid"), 'assignment supersession mismatches fail closed')
 check(runnerSource.includes("tip.record.status !== 'assigned'") && runnerSource.includes("assignment_revoked"), 'revoked current assignment fails closed')
-check(runnerSource.includes("tip.record.assigned_login !== host.actor") && runnerSource.includes("workflow_actor_assignment_mismatch"), 'physical workflow caller must equal the independently assigned login')
+check(runnerSource.includes('host.triggeringActor !== assignment.assigned_login') && runnerSource.includes("workflow_actor_assignment_mismatch"), 'physical current-attempt workflow caller must equal the independently assigned login')
+check(runnerSource.includes('GITHUB_ACTOR') && runnerSource.includes('GITHUB_TRIGGERING_ACTOR') && runnerSource.includes('host.triggeringActor !== host.originalActor'), 'same-actor reruns are admitted and cross-actor reruns reject from trusted run context')
+check(runnerSource.includes('paginatedArtifacts') && runnerSource.includes('/actions/artifacts/${artifact.id}/zip') && runnerSource.includes("unzip', ['-Z1'") && runnerSource.includes('TERMINAL_ACCEPTED_FILES'), 'Terminal authority is reacquired from a fully paginated exact two-file Actions artifact')
+check(runnerSource.includes('canonicalizeReadyReviewObservationJcsV1(receipt) !== receiptText') && runnerSource.includes('validateProtectedTransitionAdmissionReceiptV1(receipt)'), 'actual Terminal receipt bytes require canonical JCS and a valid admission seal')
+check(runnerSource.includes('terminal_lineage_candidate_not_current_leaf') && runnerSource.includes('predecessor_record_digest !== predecessor.source.bodyDigest'), 'Terminal caller locator must be the unique explicitly linked current leaf')
 check(runnerSource.indexOf('const assignment = await acquireAssignment') < runnerSource.indexOf('const collector = await execFileAsync(process.execPath'), 'authority admission completes before the single Collector invocation')
 check(runnerSource.includes("collector_artifact: 'not_acquired'") && runnerSource.includes("diagnostic_version: 'protected-transition-identity-rejection-v1'"), 'pre-Collector semantic rejection persists one explicit non-admitting diagnostic')
 check(!runnerSource.includes('taskSource.authorLogin !== host.actor'), 'Task record author is not treated as transition actor authority')

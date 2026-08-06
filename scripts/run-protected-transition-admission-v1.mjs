@@ -1,10 +1,12 @@
 import { execFile } from 'node:child_process'
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { parse as parseYaml } from 'yaml'
 import {
   canonicalizeReadyReviewObservationJcsV1,
+  parseReadyReviewTerminalObservationArtifactV1,
   sha256ReadyReviewObservationV1,
   validateReadyReviewGenerationRecordV1,
 } from '../src/continuous-orchestration/ready-review-terminal-observation-artifact-v1.ts'
@@ -12,6 +14,7 @@ import {
   PROTECTED_TRANSITION_ADMISSION_INPUT_V1,
   PROTECTED_TRANSITION_RECEIPT_FILE_V1,
   evaluateProtectedTransitionAdmissionV1,
+  validateProtectedTransitionAdmissionReceiptV1,
 } from '../src/continuous-orchestration/protected-transition-admission-v1.ts'
 
 const execFileAsync = promisify(execFile)
@@ -68,6 +71,17 @@ const ASSIGNMENT_KEYS = [
   'authority_owner_role', 'authority_owner_login', 'repository', 'task_record_url', 'task_scope_digest', 'pr_number', 'pr_url',
   'exact_head', 'ready_generation_record_url', 'ready_generation_record_digest', 'ready_event_id', 'ready_occurred_at', 'transition',
   'assigned_login', 'assigned_role', 'issued_at',
+]
+const TERMINAL_LINEAGE_RECORD_TYPE = 'terminal_review_admission_lineage_v1'
+const TERMINAL_LINEAGE_KEYS = [
+  'record_type', 'canonical_record', 'record_digest', 'lineage_id', 'revision', 'predecessor_record_url', 'predecessor_record_digest',
+  'effect', 'api_author_login', 'task_record_url', 'repository', 'pr_number', 'pr_url', 'exact_head', 'ready_generation_record_url',
+  'ready_generation_record_digest', 'ready_event_id', 'ready_occurred_at', 'transition', 'assignment_record_url', 'assignment_record_digest',
+  'actor_login', 'actor_role', 'published_at', 'collector_artifact_digest', 'accepted_receipts',
+]
+const TERMINAL_ACCEPTED_FILES = [
+  'protected-transition-admission-v1-receipt.jcs',
+  'ready-review-terminal-observation-artifact-v1.jcs',
 ]
 
 class IdentityRejection extends Error {
@@ -168,6 +182,33 @@ const paginated = async (endpoint) => {
   }
   throw new Error('pagination did not terminate')
 }
+
+const paginatedArtifacts = async (repository, runId) => {
+  const artifacts = []
+  let totalCount = null
+  for (let page = 1; page <= 1000; page += 1) {
+    const response = await ghJson([`repos/${repository}/actions/runs/${runId}/artifacts?per_page=100&page=${page}`])
+    if (!Number.isSafeInteger(response?.total_count) || !Array.isArray(response?.artifacts)) {
+      throw new Error('artifact pagination response malformed')
+    }
+    if (totalCount === null) totalCount = response.total_count
+    if (response.total_count !== totalCount) throw new Error('artifact pagination changed during acquisition')
+    artifacts.push(...response.artifacts)
+    if (response.artifacts.length < 100) {
+      if (artifacts.length !== totalCount) throw new Error('artifact pagination incomplete')
+      return artifacts
+    }
+  }
+  throw new Error('artifact pagination did not terminate')
+}
+
+const ghBuffer = async (args) => {
+  const { stdout, stderr } = await execFileAsync('gh', ['api', ...args], { maxBuffer: 256 * 1024 * 1024, windowsHide: true })
+  if (!Buffer.isBuffer(stdout) || (Buffer.isBuffer(stderr) ? stderr.length !== 0 : stderr !== '')) throw new Error('binary GitHub API response malformed')
+  return stdout
+}
+
+const sha256Buffer = (value) => createHash('sha256').update(value).digest('hex')
 
 const recordTypeClaim = (body, recordType) => typeof body === 'string' &&
   new RegExp(`(?:^|\\n)\\s*record_type\\s*:\\s*["']?${recordType}["']?\\s*(?:\\r?\\n|$)`).test(body)
@@ -307,7 +348,6 @@ const acquireAssignment = async (request, host, taskSource, readySource, readyEv
   }
   const tip = byRevision.get(maximum)
   if (tip.record.status !== 'assigned') throw new IdentityRejection(['assignment_revoked'])
-  if (tip.record.assigned_login !== host.actor) throw new IdentityRejection(['workflow_actor_assignment_mismatch'])
   return Object.freeze({
     record_url: tip.source.url,
     record_digest: tip.source.bodyDigest,
@@ -321,6 +361,182 @@ const acquireAssignment = async (request, host, taskSource, readySource, readyEv
   })
 }
 
+const terminalTupleMatches = (record, request, host, readySource, readyEvent, assignment) =>
+  record.task_record_url === request.taskRecordUrl && record.repository === host.repository && record.pr_number === request.prNumber &&
+  record.pr_url === `https://github.com/${host.repository}/pull/${request.prNumber}` && record.exact_head === request.exactHead &&
+  record.ready_generation_record_url === request.readyRecordUrl && record.ready_generation_record_digest === readySource.record.record_digest &&
+  String(record.ready_event_id) === readyEvent.event_id && record.ready_occurred_at === readyEvent.occurred_at &&
+  record.transition === 'terminal_review_admission' && record.assignment_record_url === assignment.record_url &&
+  record.assignment_record_digest === assignment.record_digest && record.actor_login === assignment.assigned_login &&
+  record.actor_role === assignment.assigned_role
+
+const acquireCurrentTerminalLeaf = async (request, host, readySource, readyEvent, assignment) => {
+  const taskIdentity = ISSUE_URL.exec(request.taskRecordUrl)
+  if (taskIdentity === null) throw new IdentityRejection(['terminal_lineage_task_issue_required'])
+  const comments = await paginated(`repos/${host.repository}/issues/${taskIdentity[3]}/comments`)
+  const declared = comments.filter((comment) => recordTypeClaim(comment?.body, TERMINAL_LINEAGE_RECORD_TYPE))
+  if (declared.length === 0) throw new IdentityRejection(['terminal_lineage_missing'])
+  const sameTuple = []
+  for (const listed of declared) {
+    const parsed = parseRecordBody(listed?.body)
+    if (parsed === null) throw new Error('malformed declared Terminal lineage record')
+    const source = await acquireCanonicalRecord(listed.html_url, host.repository, { requireOwner: false })
+    const record = source.record
+    if (source.createdAt !== source.updatedAt || !exactObjectKeys(record, TERMINAL_LINEAGE_KEYS)) {
+      throw new Error('Terminal lineage record integrity malformed')
+    }
+    const projection = Object.fromEntries(Object.entries(record).filter(([key]) => key !== 'record_digest'))
+    if (record.record_digest !== await sha256ReadyReviewObservationV1(canonicalizeReadyReviewObservationJcsV1(projection)) ||
+        record.canonical_record !== source.url || record.api_author_login !== source.authorLogin || record.published_at !== source.createdAt) {
+      throw new Error('Terminal lineage URL, author, publication, or digest integrity failed')
+    }
+    if (!terminalTupleMatches(record, request, host, readySource, readyEvent, assignment)) continue
+    if (typeof record.lineage_id !== 'string' || record.lineage_id.length === 0 || !Number.isSafeInteger(record.revision) || record.revision <= 0 ||
+        !['APPROVE', 'REVOKED', 'BLOCKED', 'CHANGES_REQUIRED', 'SUPERSEDED'].includes(record.effect) ||
+        !(record.predecessor_record_url === null || COMMENT_URL.test(record.predecessor_record_url)) ||
+        !(record.predecessor_record_digest === null || /^[0-9a-f]{64}$/.test(record.predecessor_record_digest)) ||
+        !/^[0-9a-f]{64}$/.test(record.collector_artifact_digest) || !Array.isArray(record.accepted_receipts)) {
+      throw new Error('Terminal lineage tuple contract malformed')
+    }
+    sameTuple.push({ source, record })
+  }
+  if (sameTuple.length === 0 || !sameTuple.some(({ source }) => source.url === request.terminalReviewRecordUrl)) {
+    throw new IdentityRejection(['terminal_lineage_candidate_absent'])
+  }
+  if (new Set(sameTuple.map(({ record }) => record.lineage_id)).size !== 1) {
+    throw new IdentityRejection(['terminal_lineage_disconnected'])
+  }
+  const byRevision = new Map()
+  for (const item of sameTuple) {
+    if (byRevision.has(item.record.revision)) throw new IdentityRejection(['terminal_lineage_forked'])
+    byRevision.set(item.record.revision, item)
+  }
+  const maximum = Math.max(...byRevision.keys())
+  if (byRevision.size !== maximum) throw new IdentityRejection(['terminal_lineage_gapped'])
+  for (let revision = 1; revision <= maximum; revision += 1) {
+    const item = byRevision.get(revision)
+    const predecessor = revision === 1 ? null : byRevision.get(revision - 1)
+    if ((revision === 1 && (item.record.predecessor_record_url !== null || item.record.predecessor_record_digest !== null)) ||
+        (revision > 1 && (item.record.predecessor_record_url !== predecessor.source.url ||
+          item.record.predecessor_record_digest !== predecessor.source.bodyDigest ||
+          Date.parse(item.record.published_at) <= Date.parse(predecessor.record.published_at)))) {
+      throw new IdentityRejection(['terminal_lineage_chain_invalid'])
+    }
+  }
+  const leaf = byRevision.get(maximum)
+  if (leaf.source.url !== request.terminalReviewRecordUrl) throw new IdentityRejection(['terminal_lineage_candidate_not_current_leaf'])
+  if (leaf.record.effect !== 'APPROVE') throw new IdentityRejection(['terminal_lineage_leaf_not_approve'])
+  if (leaf.record.accepted_receipts.length !== 1) throw new IdentityRejection(['terminal_lineage_receipt_cardinality_invalid'])
+  return Object.freeze(leaf)
+}
+
+const strictUtf8 = (value) => new TextDecoder('utf-8', { fatal: true }).decode(value)
+
+const artifactMember = async (archivePath, member) => {
+  const { stdout, stderr } = await execFileAsync('unzip', ['-p', archivePath, member], { maxBuffer: 128 * 1024 * 1024, windowsHide: true })
+  if (!Buffer.isBuffer(stdout) || (Buffer.isBuffer(stderr) ? stderr.length !== 0 : stderr !== '')) throw new Error('artifact extraction failed')
+  return stdout
+}
+
+const acquireTerminalArtifactReceipt = async (request, host, readySource, readyEvent, terminalAssignment, leaf) => {
+  const embedded = leaf.record.accepted_receipts[0]
+  if (!await validateProtectedTransitionAdmissionReceiptV1(embedded)) throw new Error('embedded Terminal receipt locator malformed')
+  const run = await ghJson([`repos/${host.repository}/actions/runs/${embedded.workflow_run_id}`])
+  if (typeof run?.actor?.login !== 'string' || typeof run?.triggering_actor?.login !== 'string') {
+    throw new Error('Terminal workflow actor provenance unavailable')
+  }
+  const trustedRunMismatch = run?.id === undefined || String(run.id) !== embedded.workflow_run_id || run?.run_attempt !== embedded.workflow_run_attempt ||
+    run?.path !== WORKFLOW_PATH || run?.event !== 'workflow_dispatch' || run?.head_branch !== 'main' || run?.head_sha !== embedded.workflow_sha ||
+    run?.status !== 'completed' || run?.conclusion !== 'success' || run?.html_url !== embedded.workflow_run_url ||
+    run.actor.login !== embedded.workflow_actor || run.triggering_actor.login !== embedded.workflow_actor ||
+    embedded.workflow_ref !== `${host.repository}/${WORKFLOW_PATH}@refs/heads/main`
+  if (trustedRunMismatch) throw new IdentityRejection(['terminal_workflow_run_mismatch'])
+  const expectedName = `protected-transition-admission-v1-${embedded.workflow_run_id}-${embedded.workflow_run_attempt}`
+  const artifacts = await paginatedArtifacts(host.repository, embedded.workflow_run_id)
+  const named = artifacts.filter((artifact) => artifact?.name === expectedName)
+  if (named.length !== 1 || named[0]?.expired !== false) throw new Error('Terminal workflow artifact is missing, ambiguous, or expired')
+  const artifact = named[0]
+  if (!Number.isSafeInteger(artifact.id) || artifact.id <= 0 || artifact?.workflow_run?.id !== run.id ||
+      typeof artifact.archive_download_url !== 'string' || !/^sha256:[0-9a-f]{64}$/.test(artifact.digest ?? '')) {
+    throw new Error('Terminal workflow artifact metadata malformed')
+  }
+  const archive = await ghBuffer([`repos/${host.repository}/actions/artifacts/${artifact.id}/zip`])
+  const archiveSha = sha256Buffer(archive)
+  if (`sha256:${archiveSha}` !== artifact.digest) throw new Error('Terminal artifact archive digest mismatch')
+  const runnerTemp = process.env.RUNNER_TEMP
+  if (typeof runnerTemp !== 'string' || runnerTemp.length === 0) throw new Error('workflow temporary directory unavailable')
+  const temporary = await mkdtemp(path.join(path.resolve(runnerTemp), 'pta-terminal-'))
+  try {
+    const archivePath = path.join(temporary, 'artifact.zip')
+    await writeFile(archivePath, archive, { flag: 'wx' })
+    const { stdout: namesStdout, stderr: namesStderr } = await execFileAsync('unzip', ['-Z1', archivePath], { encoding: 'utf8', windowsHide: true })
+    if (namesStderr !== '') throw new Error('artifact membership acquisition failed')
+    const names = namesStdout.split(/\r?\n/).filter((name) => name.length > 0).sort()
+    if (names.length !== TERMINAL_ACCEPTED_FILES.length || names.some((name, index) => name !== [...TERMINAL_ACCEPTED_FILES].sort()[index])) {
+      throw new Error('Terminal artifact archive membership invalid')
+    }
+    const receiptText = strictUtf8(await artifactMember(archivePath, PROTECTED_TRANSITION_RECEIPT_FILE_V1))
+    const collectorText = strictUtf8(await artifactMember(archivePath, 'ready-review-terminal-observation-artifact-v1.jcs'))
+    let receipt
+    try {
+      receipt = JSON.parse(receiptText)
+    } catch {
+      throw new Error('Terminal receipt JSON malformed')
+    }
+    if (canonicalizeReadyReviewObservationJcsV1(receipt) !== receiptText || !await validateProtectedTransitionAdmissionReceiptV1(receipt)) {
+      throw new Error('Terminal receipt canonical JCS or admission digest invalid')
+    }
+    const receiptSha = await sha256ReadyReviewObservationV1(receiptText)
+    const collectorArtifact = await parseReadyReviewTerminalObservationArtifactV1(collectorText)
+    const collectorSha = await sha256ReadyReviewObservationV1(collectorText)
+    if (collectorArtifact === null || collectorSha !== receipt.collector_artifact_jcs_sha256 ||
+        collectorArtifact.artifact_digest !== receipt.collector_artifact_digest || receipt.collector_artifact_digest !== leaf.record.collector_artifact_digest) {
+      throw new Error('Terminal Collector artifact integrity invalid')
+    }
+    if (canonicalizeReadyReviewObservationJcsV1(receipt) !== canonicalizeReadyReviewObservationJcsV1(embedded)) {
+      throw new IdentityRejection(['terminal_embedded_receipt_mismatch'])
+    }
+    const trustedReceiptMismatch = receipt.result !== 'accepted' || receipt.transition !== 'terminal_review_admission' ||
+      receipt.rejection_codes.length !== 0 || receipt.state_changed !== false || receipt.repository !== host.repository ||
+      receipt.task_record_url !== request.taskRecordUrl || receipt.pr_number !== request.prNumber ||
+      receipt.pr_url !== `https://github.com/${host.repository}/pull/${request.prNumber}` || receipt.exact_head !== request.exactHead ||
+      receipt.ready_generation_record_url !== request.readyRecordUrl || receipt.ready_generation_record_digest !== readySource.record.record_digest ||
+      receipt.ready_event_id !== readyEvent.event_id || receipt.ready_occurred_at !== readyEvent.occurred_at ||
+      receipt.actor_login !== terminalAssignment.assigned_login || receipt.actor_role !== terminalAssignment.assigned_role ||
+      receipt.assignment_record_url !== terminalAssignment.record_url || receipt.assignment_record_digest !== terminalAssignment.record_digest ||
+      receipt.workflow_run_id !== embedded.workflow_run_id || receipt.workflow_run_attempt !== embedded.workflow_run_attempt ||
+      receipt.workflow_path !== WORKFLOW_PATH || receipt.workflow_ref !== embedded.workflow_ref || receipt.workflow_sha !== embedded.workflow_sha ||
+      receipt.workflow_actor !== embedded.workflow_actor || receipt.workflow_run_url !== embedded.workflow_run_url || Date.parse(receipt.expires_at) < Date.now()
+    if (trustedReceiptMismatch) throw new IdentityRejection(['terminal_receipt_scope_mismatch'])
+    return Object.freeze({
+      record_url: leaf.source.url,
+      record_digest: leaf.source.bodyDigest,
+      lineage_id: leaf.record.lineage_id,
+      revision: leaf.record.revision,
+      task_record_url: leaf.record.task_record_url,
+      repository: leaf.record.repository,
+      pr_number: leaf.record.pr_number,
+      pr_url: leaf.record.pr_url,
+      exact_head: leaf.record.exact_head,
+      ready_generation_record_url: leaf.record.ready_generation_record_url,
+      ready_event_id: String(leaf.record.ready_event_id),
+      decision: 'APPROVE',
+      actor_login: leaf.record.actor_login,
+      assignment_record_url: leaf.record.assignment_record_url,
+      assignment_record_digest: leaf.record.assignment_record_digest,
+      published_at: leaf.record.published_at,
+      collector_artifact_digest: leaf.record.collector_artifact_digest,
+      workflow_artifact_id: String(artifact.id),
+      workflow_artifact_name: artifact.name,
+      workflow_artifact_archive_sha256: archiveSha,
+      receipt_jcs_sha256: receiptSha,
+      accepted_receipts: [receipt],
+    })
+  } finally {
+    await rm(temporary, { recursive: true, force: true })
+  }
+}
+
 const admittedHostIdentity = () => {
   const repository = process.env.GITHUB_REPOSITORY
   const repositoryId = process.env.GITHUB_REPOSITORY_ID
@@ -329,15 +545,20 @@ const admittedHostIdentity = () => {
   const workflowRef = process.env.GITHUB_WORKFLOW_REF
   const runId = process.env.GITHUB_RUN_ID
   const runAttempt = Number(process.env.GITHUB_RUN_ATTEMPT)
-  const actor = process.env.GITHUB_ACTOR
+  const originalActor = process.env.GITHUB_ACTOR
+  const triggeringActor = process.env.GITHUB_TRIGGERING_ACTOR
   const serverUrl = process.env.GITHUB_SERVER_URL
   const runUrl = process.env.PTA_RUN_URL
   const defaultBranch = process.env.PTA_DEFAULT_BRANCH
   if (!REPOSITORY.test(repository ?? '') || typeof repositoryId !== 'string' || repositoryId.length === 0 || invocationRef !== 'refs/heads/main' ||
       !FULL_HEAD.test(workflowSha ?? '') || workflowRef !== `${repository}/${WORKFLOW_PATH}@refs/heads/main` || typeof runId !== 'string' || runId.length === 0 ||
-      !Number.isSafeInteger(runAttempt) || runAttempt <= 0 || typeof actor !== 'string' || actor.length === 0 || serverUrl !== 'https://github.com' ||
+      !Number.isSafeInteger(runAttempt) || runAttempt <= 0 || typeof originalActor !== 'string' || originalActor.length === 0 ||
+      typeof triggeringActor !== 'string' || triggeringActor.length === 0 || serverUrl !== 'https://github.com' ||
       runUrl !== `${serverUrl}/${repository}/actions/runs/${runId}` || defaultBranch !== 'main') return null
-  return Object.freeze({ repository, repositoryId, invocationRef, workflowSha, workflowRef, runId, runAttempt, actor, serverUrl, runUrl, defaultBranch })
+  return Object.freeze({
+    repository, repositoryId, invocationRef, workflowSha, workflowRef, runId, runAttempt,
+    originalActor, triggeringActor, actor: triggeringActor, serverUrl, runUrl, defaultBranch,
+  })
 }
 
 const persistFiles = async (result) => {
@@ -385,6 +606,8 @@ const persistIdentityRejection = async (request, host, rejection, observed = {})
     assignment_record_digest: observed.assignment_record_digest ?? 'not_acquired',
     assigned_login: observed.assigned_login ?? 'not_acquired',
     assigned_role: observed.assigned_role ?? 'not_acquired',
+    workflow_original_actor: host.originalActor,
+    workflow_triggering_actor: host.triggeringActor,
     workflow_actor: host.actor,
     workflow_sha: host.workflowSha,
     workflow_run_url: host.runUrl,
@@ -429,9 +652,6 @@ if (request === null || host === null) {
     const taskSource = await acquireCanonicalRecord(request.taskRecordUrl, host.repository)
     const readySource = await acquireCanonicalRecord(request.readyRecordUrl, host.repository)
     if (request.transition === 'merge_decision_admission' && request.terminalReviewRecordUrl === '') throw new Error('terminal review record is required')
-    const terminalSource = request.transition === 'merge_decision_admission'
-      ? await acquireCanonicalRecord(request.terminalReviewRecordUrl, host.repository)
-      : null
     if (!await validateReadyReviewGenerationRecordV1(readySource.record) || readySource.record.canonical_record !== request.readyRecordUrl ||
         readySource.record.repository !== host.repository || readySource.record.pr_number !== request.prNumber || readySource.record.exact_head !== request.exactHead) {
       throw new Error('Ready Generation record failed admission')
@@ -453,6 +673,23 @@ if (request === null || host === null) {
       assigned_role: assignment.assigned_role,
     })
 
+    if (host.triggeringActor !== host.originalActor) throw new IdentityRejection(['workflow_rerun_actor_mismatch'])
+    if (host.triggeringActor !== assignment.assigned_login) throw new IdentityRejection(['workflow_actor_assignment_mismatch'])
+
+    let terminalRecord = null
+    if (request.transition === 'merge_decision_admission') {
+      const terminalRequest = Object.freeze({ ...request, transition: 'terminal_review_admission' })
+      const terminalSpec = expectedAssignment('terminal_review_admission')
+      const terminalTrustRoot = await acquireTrustRoot(taskSource, host.repository, terminalSpec)
+      const terminalAssignment = await acquireAssignment(
+        terminalRequest, host, taskSource, readySource, readyEvent, terminalTrustRoot, terminalSpec,
+      )
+      const terminalLeaf = await acquireCurrentTerminalLeaf(request, host, readySource, readyEvent, terminalAssignment)
+      terminalRecord = await acquireTerminalArtifactReceipt(
+        request, host, readySource, readyEvent, terminalAssignment, terminalLeaf,
+      )
+    }
+
     const collector = await execFileAsync(process.execPath, [
       COLLECTOR_PATH,
       '--repository', host.repository,
@@ -464,7 +701,6 @@ if (request === null || host === null) {
     if (typeof collectorJcs !== 'string' || collectorJcs.length === 0 || collector.stderr !== '') throw new Error('Collector did not return one exact JCS artifact')
     const collectorProjection = JSON.parse(collectorJcs)
     const taskScopeDigest = await sha256ReadyReviewObservationV1(taskSource.body)
-    const terminalRecord = terminalSource?.record ?? null
     const evaluatedAt = new Date().toISOString()
     const input = {
       input_version: PROTECTED_TRANSITION_ADMISSION_INPUT_V1,

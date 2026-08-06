@@ -33,6 +33,7 @@ name: Protected Transition Admission V1
         type: string
 
 permissions:
+  actions: read
   contents: read
   issues: read
   pull-requests: read
