@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -20,6 +21,7 @@ import {
 } from '../src/continuous-orchestration/protected-transition-admission-v1.ts'
 
 const execFileAsync = promisify(execFile)
+const adapterContext = new AsyncLocalStorage()
 const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/
 const FULL_HEAD = /^[0-9a-f]{40}$/
 const ISSUE_URL = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/issues\/(\d+)$/
@@ -101,6 +103,14 @@ const ASSIGNMENT_KEYS = [
   'assigned_login', 'assigned_role', 'issued_at',
 ]
 const TERMINAL_LINEAGE_RECORD_TYPE = 'terminal_review_admission_lineage_v1'
+const TASK_AUTHORITY_RECORD_TYPES = Object.freeze(new Set([
+  'ready_review_generation_record_v1',
+  'ready_review_producer_roster_v1',
+  'terminal_review_actor_assignment_v1',
+  'merge_decision_actor_assignment_v1',
+  'terminal_review_admission_lineage_v1',
+  'canonical_finalization_binding_v1',
+]))
 const TERMINAL_LINEAGE_KEYS = [
   'record_type', 'canonical_record', 'record_digest', 'lineage_id', 'revision', 'predecessor_record_url', 'predecessor_record_digest',
   'effect', 'api_author_login', 'task_record_url', 'repository', 'pr_number', 'pr_url', 'exact_head', 'ready_generation_record_url',
@@ -125,6 +135,34 @@ const fail = (code, message) => {
   process.exitCode = 1
 }
 
+const exactKeys = (value, keys) => value !== null && typeof value === 'object' && !Array.isArray(value) &&
+  Object.keys(value).length === keys.length && keys.every((key) => Object.prototype.hasOwnProperty.call(value, key))
+
+const admittedAdapters = (adapters) => {
+  const groups = {
+    github: ['readJson', 'readBuffer'],
+    clock: ['nowIso'],
+    collector: ['runOnce'],
+    artifact: ['listMembers', 'readMember'],
+    persistence: ['persistExact'],
+  }
+  if (!exactKeys(adapters, Object.keys(groups))) throw new Error('adapter capability groups malformed')
+  const admitted = {}
+  for (const [group, methods] of Object.entries(groups)) {
+    if (!exactKeys(adapters[group], methods) || methods.some((method) => typeof adapters[group][method] !== 'function')) {
+      throw new Error('adapter capability methods malformed')
+    }
+    admitted[group] = Object.freeze(Object.fromEntries(methods.map((method) => [method, adapters[group][method]])))
+  }
+  return Object.freeze(admitted)
+}
+
+const activeAdapters = () => {
+  const adapters = adapterContext.getStore()
+  if (adapters === undefined) throw new Error('orchestration adapters unavailable')
+  return adapters
+}
+
 const exactArgs = (argv) => {
   const allowed = new Set(['--transition', '--pr-number', '--exact-head', '--task-record-url', '--ready-generation-record-url', '--terminal-review-record-url'])
   if (argv.length !== 12) return null
@@ -147,10 +185,7 @@ const exactArgs = (argv) => {
   return Object.freeze({ transition, prNumber, exactHead, taskRecordUrl, readyRecordUrl, terminalReviewRecordUrl })
 }
 
-const parseRecordBody = (body) => {
-  if (typeof body !== 'string') return null
-  const fenced = /```(?:yaml|yml|json)\r?\n([\s\S]*?)\r?\n```/i.exec(body)
-  const source = fenced ? fenced[1] : body.trim()
+const parseRecordCandidate = (source) => {
   try {
     const parsed = parseYaml(source)
     return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null
@@ -159,14 +194,53 @@ const parseRecordBody = (body) => {
   }
 }
 
+const supportedRecordCandidates = (body) => {
+  const candidates = []
+  const fence = /```(?:yaml|yml|json)[^\S\r\n]*\r?\n([\s\S]*?)\r?\n```/gi
+  for (const match of body.matchAll(fence)) candidates.push(match[1])
+  return candidates.length === 0 ? [body.trim()] : candidates
+}
+
+const lexicalTaskAuthorityClaims = (body) => {
+  const claims = []
+  const claim = /(?:^|[,\n{])\s*["']?record_type["']?\s*:\s*["']?([A-Za-z0-9_-]+)["']?(?=\s*[,}\r\n]|\s*$)/gim
+  for (const match of body.matchAll(claim)) {
+    if (TASK_AUTHORITY_RECORD_TYPES.has(match[1])) claims.push(match[1])
+  }
+  return claims
+}
+
+const inspectTaskAuthorityBody = (body) => {
+  if (typeof body !== 'string') return Object.freeze({ authorityBearing: false, record: null })
+  const candidates = supportedRecordCandidates(body)
+  const parsed = candidates.map(parseRecordCandidate)
+  const claims = lexicalTaskAuthorityClaims(body)
+  const parsedInScope = parsed.filter((value) => TASK_AUTHORITY_RECORD_TYPES.has(value?.record_type))
+  const authorityBearing = claims.length > 0 || parsedInScope.length > 0
+  if (!authorityBearing) return Object.freeze({ authorityBearing: false, record: null })
+  if (candidates.length !== 1 || claims.length !== 1 || parsed.length !== 1 || parsed[0] === null ||
+      parsedInScope.length !== 1 || parsed[0].record_type !== claims[0]) {
+    throw new Error('authority-bearing comment candidate cardinality or claim mismatch')
+  }
+  return Object.freeze({ authorityBearing: true, record: parsed[0] })
+}
+
+const parseRecordBody = (body) => {
+  if (typeof body !== 'string') return null
+  const inspected = inspectTaskAuthorityBody(body)
+  if (inspected.authorityBearing) return inspected.record
+  const candidates = supportedRecordCandidates(body)
+  return candidates.length === 1 ? parseRecordCandidate(candidates[0]) : null
+}
+
 const exactObjectKeys = (value, keys) => value !== null && typeof value === 'object' && !Array.isArray(value) &&
   Object.keys(value).length === keys.length && keys.every((key) => Object.prototype.hasOwnProperty.call(value, key))
 
 const bodyDigest = async (body) => await sha256ReadyReviewObservationV1(body)
 
 const ghJson = async (args) => {
-  const { stdout } = await execFileAsync('gh', ['api', ...args], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, windowsHide: true })
-  return JSON.parse(stdout)
+  if (!Array.isArray(args) || args.length !== 1 || typeof args[0] !== 'string') throw new Error('GitHub read endpoint malformed')
+  return await activeAdapters().github.readJson(args[0])
 }
 
 const sourceIdentity = (url, repository) => {
@@ -175,11 +249,11 @@ const sourceIdentity = (url, repository) => {
   const match = comment ?? issue
   if (match === null || `${match[1]}/${match[2]}` !== repository) return null
   return comment === null
-    ? { endpoint: `repos/${repository}/issues/${match[3]}` }
-    : { endpoint: `repos/${repository}/issues/comments/${match[4]}` }
+    ? { endpoint: `repos/${repository}/issues/${match[3]}`, comment: false }
+    : { endpoint: `repos/${repository}/issues/comments/${match[4]}`, comment: true }
 }
 
-const acquireCanonicalRecord = async (url, repository, { requireOwner = true } = {}) => {
+const acquireCanonicalRecord = async (url, repository, { requireOwner = true, totalAuthority = false } = {}) => {
   const identity = sourceIdentity(url, repository)
   if (identity === null) throw new Error('canonical source repository mismatch')
   const response = await ghJson([identity.endpoint])
@@ -195,7 +269,7 @@ const acquireCanonicalRecord = async (url, repository, { requireOwner = true } =
     updatedAt: response.updated_at,
     body: response.body,
     bodyDigest: await bodyDigest(response.body),
-    record: parseRecordBody(response.body),
+    record: totalAuthority ? inspectTaskAuthorityBody(response.body).record : parseRecordCandidate(supportedRecordCandidates(response.body)[0]),
   })
 }
 
@@ -235,19 +309,17 @@ export const admitArtifactZipExecResultV1 = ({ stdout, stderr }) => {
   return stdout
 }
 
-const ghBuffer = async (args) => admitArtifactZipExecResultV1(await execFileAsync('gh', ['api', ...args], {
-  encoding: 'buffer',
-  maxBuffer: 256 * 1024 * 1024,
-  windowsHide: true,
-}))
+const ghBuffer = async (args) => {
+  if (!Array.isArray(args) || args.length !== 1 || typeof args[0] !== 'string') throw new Error('GitHub binary read endpoint malformed')
+  const value = await activeAdapters().github.readBuffer(args[0])
+  if (!Buffer.isBuffer(value)) throw new Error('binary GitHub API response malformed')
+  return value
+}
 
 const sha256Buffer = (value) => createHash('sha256').update(value).digest('hex')
 
 const recordTypeClaim = (body, recordType) => typeof body === 'string' &&
   new RegExp(`(?:^|\\n)\\s*record_type\\s*:\\s*["']?${recordType}["']?\\s*(?:\\r?\\n|$)`).test(body)
-
-const finalizationBindingClaim = (body) => typeof body === 'string' &&
-  /(?:^|[,{\n])\s*["']?record_type["']?\s*:\s*["']canonical_finalization_binding_v1["']/.test(body)
 
 const sha256Jcs = async (value) => await sha256ReadyReviewObservationV1(canonicalizeReadyReviewObservationJcsV1(value))
 
@@ -369,8 +441,9 @@ const acquireFinalizationBindingContext = async (request, host, taskSource) => {
   const comments = await paginated(`repos/${host.repository}/issues/${taskIdentity[3]}/comments`)
   const declarations = []
   for (const listed of comments) {
-    if (!finalizationBindingClaim(listed?.body)) continue
-    const direct = await acquireCanonicalRecord(listed?.html_url, host.repository, { requireOwner: false })
+    const inspected = inspectTaskAuthorityBody(listed?.body)
+    if (!inspected.authorityBearing || inspected.record.record_type !== 'canonical_finalization_binding_v1') continue
+    const direct = await acquireCanonicalRecord(listed?.html_url, host.repository, { requireOwner: false, totalAuthority: true })
     if (listed?.html_url !== direct.url || listed?.body !== direct.body || listed?.user?.login !== direct.authorLogin ||
         listed?.created_at !== direct.createdAt || listed?.updated_at !== direct.updatedAt) {
       throw new Error('listed/direct Finalization Binding evidence drifted')
@@ -419,7 +492,7 @@ const registerFinalizationSnapshot = (registry, evidence) => {
 const acquireFinalizedGeneration = async (source, context, registry) => {
   const generationBinding = await resolveFinalizationBindingV1(context, source, 'ready_review_generation_record_v1')
   registerFinalizationSnapshot(registry, generationBinding)
-  const rosterSource = await acquireCanonicalRecord(source.record.producer_roster_source_url, context.host.repository, { requireOwner: false })
+  const rosterSource = await acquireCanonicalRecord(source.record.producer_roster_source_url, context.host.repository, { requireOwner: false, totalAuthority: true })
   const rosterBinding = await resolveFinalizationBindingV1(context, rosterSource, 'ready_review_producer_roster_v1')
   registerFinalizationSnapshot(registry, rosterBinding)
   const roster = rosterSource.record
@@ -441,7 +514,7 @@ const refreshFinalizationSnapshot = async ({ baseline, request, host, exactTaskD
   const context = await acquireFinalizationBindingContext(request, host, taskSource)
   const refreshed = new Map()
   for (const expected of [...baseline.values()].sort((left, right) => left.target_url.localeCompare(right.target_url))) {
-    const target = await acquireCanonicalRecord(expected.target_url, host.repository, { requireOwner: false })
+    const target = await acquireCanonicalRecord(expected.target_url, host.repository, { requireOwner: false, totalAuthority: true })
     const observed = await resolveFinalizationBindingV1(context, target, expected.target_record_type)
     registerFinalizationSnapshot(refreshed, observed)
   }
@@ -533,16 +606,24 @@ const acquireReadyEventEvidence = async (host, prNumber, readySource) => {
   })
 }
 
-const acquireReadyEvent = async (request, host, readySource) => {
+const acquirePrSnapshot = async (request, host, { initial }) => {
   const pr = await ghJson([`repos/${host.repository}/pulls/${request.prNumber}`])
-  if (pr?.html_url !== `https://github.com/${host.repository}/pull/${request.prNumber}` || pr?.head?.sha !== request.exactHead) {
+  if (pr?.html_url !== `https://github.com/${host.repository}/pull/${request.prNumber}` || typeof pr?.state !== 'string' ||
+      typeof pr?.draft !== 'boolean' || typeof pr?.head?.sha !== 'string' || typeof pr?.base?.ref !== 'string' || typeof pr?.base?.sha !== 'string') {
+    throw new Error('current PR lifecycle evidence malformed')
+  }
+  if (initial && pr.state !== 'open') throw new IdentityRejection(['current_pr_not_open'])
+  if (initial && pr.draft) throw new IdentityRejection(['current_pr_is_draft'])
+  if (initial && pr.head.sha !== request.exactHead) {
     throw new IdentityRejection(['current_pr_head_mismatch'])
   }
-  if (pr?.base?.ref !== host.defaultBranch || pr?.base?.sha !== host.workflowSha) {
+  if (initial && (pr.base.ref !== host.defaultBranch || pr.base.sha !== host.workflowSha)) {
     throw new IdentityRejection(['current_pr_base_mismatch'])
   }
-  return await acquireReadyEventEvidence(host, request.prNumber, readySource)
+  return Object.freeze({ state: pr.state, draft: pr.draft, headSha: pr.head.sha, baseRef: pr.base.ref, baseSha: pr.base.sha })
 }
+
+const acquireReadyEvent = async (request, host, readySource) => await acquireReadyEventEvidence(host, request.prNumber, readySource)
 
 export const validateGenerationAwareAssignmentLineageV1 = async ({ records, request, host, taskScopeDigest, readySource, readyEvent, trustRoot, spec }) => {
   if (!Array.isArray(records) || records.length === 0) throw new IdentityRejection(['assignment_missing'])
@@ -631,22 +712,21 @@ const acquireAssignment = async (request, host, taskSource, readySource, readyEv
   const comments = await paginated(`repos/${host.repository}/issues/${taskIdentity[3]}/comments`)
   const declared = []
   for (const comment of comments) {
-    if (!recordTypeClaim(comment?.body, spec.recordType)) continue
-    const parsed = parseRecordBody(comment.body)
-    if (parsed === null) throw new Error('malformed declared assignment record')
-    declared.push({ listed: comment, parsed })
+    const inspected = inspectTaskAuthorityBody(comment?.body)
+    if (!inspected.authorityBearing || inspected.record.record_type !== spec.recordType) continue
+    declared.push({ listed: comment, parsed: inspected.record })
   }
   if (declared.length === 0) throw new IdentityRejection(['assignment_missing'])
   const records = []
   for (const candidate of declared) {
-    const direct = await acquireCanonicalRecord(candidate.listed.html_url, host.repository, { requireOwner: false })
+    const direct = await acquireCanonicalRecord(candidate.listed.html_url, host.repository, { requireOwner: false, totalAuthority: true })
     const record = direct.record
     if (!exactObjectKeys(record, ASSIGNMENT_KEYS)) throw new Error('assignment record contract malformed')
     const assignmentBinding = await resolveFinalizationBindingV1(bindingContext, direct, spec.recordType)
     registerFinalizationSnapshot(bindingRegistry, assignmentBinding)
     const generationSource = record.ready_generation_record_url === readySource.url
       ? readySource
-      : await acquireCanonicalRecord(record.ready_generation_record_url, host.repository)
+      : await acquireCanonicalRecord(record.ready_generation_record_url, host.repository, { totalAuthority: true })
     const finalizedGeneration = await acquireFinalizedGeneration(generationSource, bindingContext, bindingRegistry)
     const generationEvent = generationSource.url === readySource.url
       ? readyEvent
@@ -695,17 +775,26 @@ const terminalTupleMatches = (record, request, host, readySource, readyEvent, as
   record.transition === 'terminal_review_admission' && record.assignment_record_url === assignment.record_url &&
   record.assignment_record_digest === assignment.record_digest && record.actor_role === assignment.assigned_role
 
-const acquireCurrentTerminalLeaf = async (request, host, readySource, readyEvent, assignment) => {
+const acquireCurrentTerminalLeaf = async (request, host, readySource, readyEvent, assignment, { required = true } = {}) => {
   const taskIdentity = ISSUE_URL.exec(request.taskRecordUrl)
   if (taskIdentity === null) throw new IdentityRejection(['terminal_lineage_task_issue_required'])
   const comments = await paginated(`repos/${host.repository}/issues/${taskIdentity[3]}/comments`)
-  const declared = comments.filter((comment) => recordTypeClaim(comment?.body, TERMINAL_LINEAGE_RECORD_TYPE))
-  if (declared.length === 0) throw new IdentityRejection(['terminal_lineage_missing'])
+  const declared = comments.filter((comment) => {
+    const inspected = inspectTaskAuthorityBody(comment?.body)
+    return inspected.authorityBearing && inspected.record.record_type === TERMINAL_LINEAGE_RECORD_TYPE
+  })
+  if (declared.length === 0) {
+    if (required) throw new IdentityRejection(['terminal_lineage_missing'])
+    return null
+  }
+  if (new Set(declared.map((comment) => comment?.html_url)).size !== declared.length) {
+    throw new IdentityRejection(['terminal_lineage_duplicate_url'])
+  }
   const sameTuple = []
   for (const listed of declared) {
     const parsed = parseRecordBody(listed?.body)
     if (parsed === null) throw new Error('malformed declared Terminal lineage record')
-    const source = await acquireCanonicalRecord(listed.html_url, host.repository, { requireOwner: false })
+    const source = await acquireCanonicalRecord(listed.html_url, host.repository, { requireOwner: false, totalAuthority: true })
     const record = source.record
     if (source.createdAt !== source.updatedAt || !exactObjectKeys(record, TERMINAL_LINEAGE_KEYS)) {
       throw new Error('Terminal lineage record integrity malformed')
@@ -733,7 +822,11 @@ const acquireCurrentTerminalLeaf = async (request, host, readySource, readyEvent
     }
     sameTuple.push({ source, record })
   }
-  if (sameTuple.length === 0 || !sameTuple.some(({ source }) => source.url === request.terminalReviewRecordUrl)) {
+  if (sameTuple.length === 0) {
+    if (required) throw new IdentityRejection(['terminal_lineage_candidate_absent'])
+    return null
+  }
+  if (required && !sameTuple.some(({ source }) => source.url === request.terminalReviewRecordUrl)) {
     throw new IdentityRejection(['terminal_lineage_candidate_absent'])
   }
   if (new Set(sameTuple.map(({ record }) => record.lineage_id)).size !== 1) {
@@ -746,6 +839,19 @@ const acquireCurrentTerminalLeaf = async (request, host, readySource, readyEvent
   }
   const maximum = Math.max(...byRevision.keys())
   if (byRevision.size !== maximum) throw new IdentityRejection(['terminal_lineage_gapped'])
+  if (sameTuple.some(({ source, record }) => record.predecessor_record_url === source.url)) {
+    throw new IdentityRejection(['terminal_lineage_chain_invalid'])
+  }
+  const successorCounts = new Map(sameTuple.map(({ source }) => [source.url, 0]))
+  for (const { record } of sameTuple) {
+    if (record.predecessor_record_url !== null && successorCounts.has(record.predecessor_record_url)) {
+      successorCounts.set(record.predecessor_record_url, successorCounts.get(record.predecessor_record_url) + 1)
+    }
+  }
+  if ([...successorCounts.values()].some((count) => count > 1)) throw new IdentityRejection(['terminal_lineage_forked'])
+  const rootCount = sameTuple.filter(({ record }) => record.predecessor_record_url === null).length
+  const leafCount = [...successorCounts.values()].filter((count) => count === 0).length
+  if (rootCount !== 1 || leafCount !== 1) throw new IdentityRejection(['terminal_lineage_multiple_leaf'])
   for (let revision = 1; revision <= maximum; revision += 1) {
     const item = byRevision.get(revision)
     const predecessor = revision === 1 ? null : byRevision.get(revision - 1)
@@ -757,6 +863,7 @@ const acquireCurrentTerminalLeaf = async (request, host, readySource, readyEvent
     }
   }
   const leaf = byRevision.get(maximum)
+  if (!required) return Object.freeze(leaf)
   if (leaf.source.url !== request.terminalReviewRecordUrl) throw new IdentityRejection(['terminal_lineage_candidate_not_current_leaf'])
   if (leaf.record.effect !== 'APPROVE') throw new IdentityRejection(['terminal_lineage_leaf_not_approve'])
   if (leaf.record.accepted_receipts.length !== 1) throw new IdentityRejection(['terminal_lineage_receipt_cardinality_invalid'])
@@ -821,6 +928,8 @@ const acquireTerminalArtifactReceipt = async (request, host, readySource, readyE
   if (typeof run?.actor?.login !== 'string' || typeof run?.triggering_actor?.login !== 'string') {
     throw new Error('Terminal workflow actor provenance unavailable')
   }
+  if (embedded.workflow_sha !== host.workflowSha) throw new IdentityRejection(['terminal_workflow_revision_mismatch'])
+  if (run?.head_sha !== host.workflowSha) throw new IdentityRejection(['terminal_workflow_revision_mismatch'])
   const trustedRunMismatch = run?.id === undefined || String(run.id) !== embedded.workflow_run_id || run?.run_attempt !== embedded.workflow_run_attempt ||
     run?.path !== WORKFLOW_PATH || run?.event !== 'workflow_dispatch' || run?.head_branch !== 'main' || run?.head_sha !== embedded.workflow_sha ||
     run?.status !== 'completed' || run?.conclusion !== 'success' || run?.html_url !== embedded.workflow_run_url ||
@@ -837,25 +946,16 @@ const acquireTerminalArtifactReceipt = async (request, host, readySource, readyE
     throw new Error('Terminal workflow artifact metadata malformed')
   }
   const archive = await ghBuffer([`repos/${host.repository}/actions/artifacts/${artifact.id}/zip`])
-  const runnerTemp = process.env.RUNNER_TEMP
-  if (typeof runnerTemp !== 'string' || runnerTemp.length === 0) throw new Error('workflow temporary directory unavailable')
-  const temporary = await mkdtemp(path.join(path.resolve(runnerTemp), 'pta-terminal-'))
-  try {
-    const archivePath = path.join(temporary, 'artifact.zip')
-    await writeFile(archivePath, archive, { flag: 'wx' })
-    const verified = await verifyTerminalArtifactZipProvenanceV1({
-      archive,
-      apiDigest: artifact.digest,
-      embeddedReceipt: embedded,
-      leafCollectorDigest: leaf.record.collector_artifact_digest,
-      listMembers: async () => {
-        const { stdout, stderr } = await execFileAsync('unzip', ['-Z1', archivePath], { encoding: 'utf8', windowsHide: true })
-        if (stderr !== '') throw new Error('artifact membership acquisition failed')
-        return stdout.split(/\r?\n/).filter((name) => name.length > 0)
-      },
-      readMember: async (member) => await artifactMember(archivePath, member),
-    })
+  const verified = await verifyTerminalArtifactZipProvenanceV1({
+    archive,
+    apiDigest: artifact.digest,
+    embeddedReceipt: embedded,
+    leafCollectorDigest: leaf.record.collector_artifact_digest,
+    listMembers: async () => await activeAdapters().artifact.listMembers(archive),
+    readMember: async (member) => await activeAdapters().artifact.readMember(archive, member),
+  })
     const { archiveSha, receipt, receiptSha } = verified
+    if (receipt.workflow_sha !== host.workflowSha) throw new IdentityRejection(['terminal_workflow_revision_mismatch'])
     const trustedReceiptMismatch = receipt.result !== 'accepted' || receipt.transition !== 'terminal_review_admission' ||
       receipt.rejection_codes.length !== 0 || receipt.state_changed !== false || receipt.repository !== host.repository ||
       receipt.task_record_url !== request.taskRecordUrl || receipt.pr_number !== request.prNumber ||
@@ -866,7 +966,7 @@ const acquireTerminalArtifactReceipt = async (request, host, readySource, readyE
       receipt.assignment_record_url !== terminalAssignment.record_url || receipt.assignment_record_digest !== terminalAssignment.record_digest ||
       receipt.workflow_run_id !== embedded.workflow_run_id || receipt.workflow_run_attempt !== embedded.workflow_run_attempt ||
       receipt.workflow_path !== WORKFLOW_PATH || receipt.workflow_ref !== embedded.workflow_ref || receipt.workflow_sha !== embedded.workflow_sha ||
-      receipt.workflow_actor !== embedded.workflow_actor || receipt.workflow_run_url !== embedded.workflow_run_url || Date.parse(receipt.expires_at) < Date.now()
+      receipt.workflow_actor !== embedded.workflow_actor || receipt.workflow_run_url !== embedded.workflow_run_url
     if (trustedReceiptMismatch) throw new IdentityRejection(['terminal_receipt_scope_mismatch'])
     return Object.freeze({
       record_url: leaf.source.url,
@@ -892,9 +992,6 @@ const acquireTerminalArtifactReceipt = async (request, host, readySource, readyE
       receipt_jcs_sha256: receiptSha,
       accepted_receipts: [receipt],
     })
-  } finally {
-    await rm(temporary, { recursive: true, force: true })
-  }
 }
 
 const admittedHostIdentity = () => {
@@ -918,32 +1015,95 @@ const admittedHostIdentity = () => {
   return Object.freeze({
     repository, repositoryId, invocationRef, workflowSha, workflowRef, runId, runAttempt,
     originalActor, triggeringActor, actor: triggeringActor, serverUrl, runUrl, defaultBranch,
+    persistenceAvailable: typeof process.env.ACTIONS_RUNTIME_TOKEN === 'string' && process.env.ACTIONS_RUNTIME_TOKEN.length > 0 &&
+      typeof process.env.ACTIONS_RESULTS_URL === 'string' && process.env.ACTIONS_RESULTS_URL.length > 0,
   })
 }
 
-const persistFiles = async (result) => {
-  if (result.files_to_persist.length === 0) return true
+const productionReadJson = async (endpoint) => {
+  const { stdout } = await execFileAsync('gh', ['api', endpoint], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, windowsHide: true })
+  return JSON.parse(stdout)
+}
+
+const productionReadBuffer = async (endpoint) => admitArtifactZipExecResultV1(await execFileAsync('gh', ['api', endpoint], {
+  encoding: 'buffer', maxBuffer: 256 * 1024 * 1024, windowsHide: true,
+}))
+
+const withProductionArchive = async (archive, callback) => {
+  const runnerTemp = process.env.RUNNER_TEMP
+  if (typeof runnerTemp !== 'string' || runnerTemp.length === 0) throw new Error('workflow temporary directory unavailable')
+  const temporary = await mkdtemp(path.join(path.resolve(runnerTemp), 'pta-terminal-'))
+  try {
+    const archivePath = path.join(temporary, 'artifact.zip')
+    await writeFile(archivePath, archive, { flag: 'wx' })
+    return await callback(archivePath)
+  } finally {
+    await rm(temporary, { recursive: true, force: true })
+  }
+}
+
+const productionListMembers = async (archive) => await withProductionArchive(archive, async (archivePath) => {
+  const { stdout, stderr } = await execFileAsync('unzip', ['-Z1', archivePath], { encoding: 'utf8', windowsHide: true })
+  if (stderr !== '') throw new Error('artifact membership acquisition failed')
+  return stdout.split(/\r?\n/).filter((name) => name.length > 0)
+})
+
+const productionReadMember = async (archive, member) => await withProductionArchive(archive, async (archivePath) => await artifactMember(archivePath, member))
+
+const productionPersistExact = async (files) => {
+  if (!Array.isArray(files) || files.length === 0) return Object.freeze({ ok: false, retainedFileCount: 0 })
   const runnerTemp = process.env.RUNNER_TEMP
   const configured = process.env.PTA_OUTPUT_DIRECTORY
-  if (typeof runnerTemp !== 'string' || runnerTemp.length === 0 || typeof configured !== 'string' || configured.length === 0) return false
+  if (typeof runnerTemp !== 'string' || runnerTemp.length === 0 || typeof configured !== 'string' || configured.length === 0) return Object.freeze({ ok: false, retainedFileCount: 0 })
   const root = path.resolve(runnerTemp)
   const output = path.resolve(configured)
-  if (output === root || !output.startsWith(`${root}${path.sep}`)) return false
+  if (output === root || !output.startsWith(`${root}${path.sep}`)) return Object.freeze({ ok: false, retainedFileCount: 0 })
   try {
     await mkdir(output, { recursive: false })
-    for (const file of result.files_to_persist) {
+    for (const file of files) {
       if (path.basename(file.file_name) !== file.file_name) throw new Error('invalid output file name')
       const target = path.join(output, file.file_name)
       await writeFile(target, file.utf8_jcs, { encoding: 'utf8', flag: 'wx' })
       const persisted = await readFile(target, 'utf8')
       if (persisted !== file.utf8_jcs || await sha256ReadyReviewObservationV1(persisted) !== file.sha256) throw new Error('persisted bytes mismatch')
     }
-    return true
+    return Object.freeze({ ok: true, retainedFileCount: files.length })
   } catch {
     await rm(output, { recursive: true, force: true }).catch(() => undefined)
-    return false
+    return Object.freeze({ ok: false, retainedFileCount: 0 })
   }
 }
+
+const persistFiles = async (result) => {
+  const files = result?.files_to_persist
+  if (!Array.isArray(files) || files.length === 0) return true
+  const persisted = await activeAdapters().persistence.persistExact(Object.freeze([...files]))
+  return persisted?.ok === true && persisted?.retainedFileCount === files.length
+}
+
+const productionAdapters = () => admittedAdapters({
+  github: { readJson: productionReadJson, readBuffer: productionReadBuffer },
+  clock: { nowIso: () => new Date().toISOString() },
+  collector: {
+    runOnce: async (args) => {
+      const completed = await execFileAsync.call(undefined, process.execPath, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, windowsHide: true })
+      return Object.freeze({ exitCode: 0, stdout: completed.stdout, stderr: completed.stderr })
+    },
+  },
+  artifact: { listMembers: productionListMembers, readMember: productionReadMember },
+  persistence: { persistExact: productionPersistExact },
+})
+
+const failureExecutionResult = (transition, code, safeMessage) => Object.freeze({
+  result: 'failed',
+  transition,
+  state_changed: false,
+  protected_transition_performed: false,
+  receipt_count: 0,
+  admitted_artifact_count: 0,
+  files_to_persist: Object.freeze([]),
+  failure: Object.freeze({ code, safe_message: safeMessage }),
+})
 
 const persistIdentityRejection = async (request, host, rejection, observed = {}) => {
   const evaluatedAt = new Date().toISOString()
@@ -984,22 +1144,229 @@ const persistIdentityRejection = async (request, host, rejection, observed = {})
   }
   const jcs = canonicalizeReadyReviewObservationJcsV1(receipt)
   const result = {
+    result: 'rejected',
+    transition: request.transition,
+    state_changed: false,
+    protected_transition_performed: false,
+    receipt,
+    receipt_count: 1,
+    admitted_artifact_count: 0,
     files_to_persist: [{ file_name: PROTECTED_TRANSITION_RECEIPT_FILE_V1, utf8_jcs: jcs, sha256: await sha256ReadyReviewObservationV1(jcs) }],
   }
   if (!await persistFiles(result)) {
-    fail('persistence_failed', 'identity rejection diagnostic persistence failed closed')
-    return
+    return failureExecutionResult(request.transition, 'persistence_failed', 'identity rejection diagnostic persistence failed closed')
   }
-  process.stdout.write(`${canonicalizeReadyReviewObservationJcsV1({
-    result: 'rejected',
-    transition: request.transition,
-    diagnostic_digest: receipt.diagnostic_digest,
-    receipt_count: 1,
-    admitted_artifact_count: 0,
-    state_changed: false,
-    protected_transition_performed: false,
-  })}\n`)
-  process.exitCode = 2
+  return Object.freeze(result)
+}
+
+const acquireAuthoritySnapshot = async (request, host, { initial, baseline = null }) => {
+  const pr = await acquirePrSnapshot(request, host, { initial })
+  if (baseline !== null && (pr.state !== baseline.pr.state || pr.draft !== baseline.pr.draft)) {
+    throw new IdentityRejection(['current_pr_lifecycle_drift'])
+  }
+  if (baseline !== null && (pr.headSha !== baseline.pr.headSha || pr.baseRef !== baseline.pr.baseRef || pr.baseSha !== baseline.pr.baseSha)) {
+    throw new IdentityRejection(['mutable_authority_snapshot_drift'])
+  }
+  const taskSource = await acquireCanonicalRecord(request.taskRecordUrl, host.repository)
+  if (baseline !== null && taskSource.bodyDigest !== baseline.taskSource.bodyDigest) {
+    throw new IdentityRejection(['mutable_authority_snapshot_drift'])
+  }
+  if (request.transition === 'merge_decision_admission' && request.terminalReviewRecordUrl === '') throw new Error('terminal review record is required')
+  const assignmentSpec = expectedAssignment(request.transition)
+  const trustRoot = await acquireTrustRoot(taskSource, host.repository, assignmentSpec)
+  const bindingRegistry = new Map()
+  const bindingContext = await acquireFinalizationBindingContext(request, host, taskSource)
+  const readySource = await acquireCanonicalRecord(request.readyRecordUrl, host.repository, { totalAuthority: true })
+  if (!await validateReadyReviewGenerationRecordV1(readySource.record) || readySource.record.canonical_record !== request.readyRecordUrl ||
+      readySource.record.repository !== host.repository || readySource.record.pr_number !== request.prNumber || readySource.record.exact_head !== request.exactHead) {
+    throw new Error('Ready Generation record failed admission')
+  }
+  const taskScopeDigest = await bodyDigest(taskSource.body)
+  await acquireFinalizedGeneration(readySource, bindingContext, bindingRegistry)
+  const readyEvent = await acquireReadyEvent(request, host, readySource)
+  if (baseline !== null && canonicalizeReadyReviewObservationJcsV1({ readySource: { bodyDigest: readySource.bodyDigest, record: readySource.record }, readyEvent }) !==
+      canonicalizeReadyReviewObservationJcsV1({ readySource: { bodyDigest: baseline.readySource.bodyDigest, record: baseline.readySource.record }, readyEvent: baseline.readyEvent })) {
+    throw new IdentityRejection(['mutable_authority_snapshot_drift'])
+  }
+  const assignment = await acquireAssignment(
+    request, host, taskSource, readySource, readyEvent, trustRoot, assignmentSpec, bindingContext, bindingRegistry,
+  )
+  if (baseline !== null && canonicalizeReadyReviewObservationJcsV1(assignment) !== canonicalizeReadyReviewObservationJcsV1(baseline.assignment)) {
+    throw new IdentityRejection(['mutable_authority_snapshot_drift'])
+  }
+
+  let terminalLeaf = null
+  let terminalRecord = null
+  let terminalTrustRoot = null
+  let terminalAssignment = null
+  if (request.transition === 'merge_decision_admission') {
+    const terminalRequest = Object.freeze({ ...request, transition: 'terminal_review_admission' })
+    const terminalSpec = expectedAssignment('terminal_review_admission')
+    terminalTrustRoot = await acquireTrustRoot(taskSource, host.repository, terminalSpec)
+    terminalAssignment = await acquireAssignment(
+      terminalRequest, host, taskSource, readySource, readyEvent, terminalTrustRoot, terminalSpec, bindingContext, bindingRegistry,
+    )
+    terminalLeaf = await acquireCurrentTerminalLeaf(request, host, readySource, readyEvent, terminalAssignment)
+    terminalRecord = await acquireTerminalArtifactReceipt(request, host, readySource, readyEvent, terminalAssignment, terminalLeaf)
+  } else {
+    terminalLeaf = await acquireCurrentTerminalLeaf(request, host, readySource, readyEvent, assignment, { required: false })
+  }
+  if (baseline !== null && canonicalizeReadyReviewObservationJcsV1({ terminalLeaf: terminalLeaf?.record ?? null, terminalRecord }) !==
+      canonicalizeReadyReviewObservationJcsV1({ terminalLeaf: baseline.terminalLeaf?.record ?? null, terminalRecord: baseline.terminalRecord })) {
+    throw new IdentityRejection(['mutable_authority_snapshot_drift'])
+  }
+
+  const identity = Object.freeze({
+    pr,
+    task: Object.freeze({ url: taskSource.url, bodyDigest: taskSource.bodyDigest }),
+    ready: Object.freeze({ url: readySource.url, bodyDigest: readySource.bodyDigest, recordDigest: readySource.record.record_digest }),
+    readyEvent,
+    trustRoot,
+    assignment,
+    terminalTrustRoot,
+    terminalAssignment,
+    terminalLeaf: terminalLeaf === null ? null : Object.freeze({ url: terminalLeaf.source.url, bodyDigest: terminalLeaf.source.bodyDigest, record: terminalLeaf.record }),
+    terminalRecord,
+    finalizationBindings: Object.freeze([...bindingRegistry.values()].sort((left, right) => left.target_url.localeCompare(right.target_url))),
+  })
+  return Object.freeze({
+    pr, taskSource, readySource, taskScopeDigest, readyEvent, trustRoot, assignment, terminalLeaf, terminalRecord,
+    bindingRegistry, identity,
+  })
+}
+
+const assertPostSnapshotEquality = (before, after) => {
+  if (before.pr.state !== after.pr.state || before.pr.draft !== after.pr.draft) {
+    throw new IdentityRejection(['current_pr_lifecycle_drift'])
+  }
+  if (canonicalizeReadyReviewObservationJcsV1(before.identity) !== canonicalizeReadyReviewObservationJcsV1(after.identity)) {
+    throw new IdentityRejection(['mutable_authority_snapshot_drift'])
+  }
+}
+
+export const executeProtectedTransitionAdmissionV1 = async ({ request, host, adapters }) => {
+  let admitted
+  try {
+    admitted = admittedAdapters(adapters)
+  } catch {
+    return failureExecutionResult(request?.transition ?? null, 'acquisition_or_collector_failed', 'canonical acquisition or Collector execution failed closed')
+  }
+  return await adapterContext.run(admitted, async () => {
+    const observedAuthority = {}
+    try {
+      const before = await acquireAuthoritySnapshot(request, host, { initial: true })
+      Object.assign(observedAuthority, {
+        ready_event_id: before.readyEvent.event_id,
+        ready_occurred_at: before.readyEvent.occurred_at,
+        ready_actor_login: before.readyEvent.actor_login,
+        trust_root_record_url: before.trustRoot.record_url,
+        assignment_record_url: before.assignment.record_url,
+        assignment_record_digest: before.assignment.record_digest,
+        assigned_login: before.assignment.assigned_login,
+        assigned_role: before.assignment.assigned_role,
+      })
+      if (host.triggeringActor !== host.originalActor) throw new IdentityRejection(['workflow_rerun_actor_mismatch'])
+      if (host.triggeringActor !== before.assignment.assigned_login) throw new IdentityRejection(['workflow_actor_assignment_mismatch'])
+      if (request.transition === 'terminal_review_admission' && before.terminalLeaf !== null) {
+        throw new IdentityRejection(['protected_event_order_invalid'])
+      }
+
+      const collector = await admitted.collector.runOnce(Object.freeze([
+        COLLECTOR_PATH,
+        '--repository', host.repository,
+        '--pr', String(request.prNumber),
+        '--head', request.exactHead,
+        '--ready-record', request.readyRecordUrl,
+      ]))
+      if (collector?.exitCode !== 0 || typeof collector?.stdout !== 'string' || collector.stdout.length === 0 || collector?.stderr !== '') {
+        throw new Error('Collector did not return one exact JCS artifact')
+      }
+      const collectorJcs = collector.stdout
+      const collectorProjection = JSON.parse(collectorJcs)
+      validateReadyGenerationCollectorBindingV1({ readyGeneration: before.readySource.record, collectorArtifact: collectorProjection })
+
+      let after
+      try {
+        after = await acquireAuthoritySnapshot(request, host, { initial: false, baseline: before })
+      } catch (error) {
+        if (error instanceof IdentityRejection && !error.codes.includes('current_pr_lifecycle_drift') && !error.codes.includes('mutable_authority_snapshot_drift')) {
+          throw new IdentityRejection(['mutable_authority_snapshot_drift'])
+        }
+        throw error
+      }
+      assertPostSnapshotEquality(before, after)
+      const evaluatedAt = admitted.clock.nowIso()
+      if (typeof evaluatedAt !== 'string' || !Number.isFinite(Date.parse(evaluatedAt))) throw new Error('evaluation clock malformed')
+      const input = {
+        input_version: PROTECTED_TRANSITION_ADMISSION_INPUT_V1,
+        transition: request.transition,
+        repository: host.repository,
+        repository_id: host.repositoryId,
+        task_record_url: request.taskRecordUrl,
+        task_scope_digest: after.taskScopeDigest,
+        pr_number: request.prNumber,
+        pr_url: `https://github.com/${host.repository}/pull/${request.prNumber}`,
+        exact_head: request.exactHead,
+        ready_generation: {
+          record_url: request.readyRecordUrl,
+          record_digest: after.readySource.record.record_digest,
+          endpoint: after.readyEvent.endpoint,
+          event_id: after.readyEvent.event_id,
+          occurred_at: after.readyEvent.occurred_at,
+          commit_id: after.readyEvent.commit_id,
+          actor_login: after.readyEvent.actor_login,
+        },
+        actor: { login: host.actor },
+        authority: { trust_root: after.trustRoot, assignment: after.assignment },
+        collector_artifact_jcs: collectorJcs,
+        collector_artifact_jcs_sha256: await sha256ReadyReviewObservationV1(collectorJcs),
+        terminal_review: after.terminalRecord,
+        workflow_identity: {
+          path: WORKFLOW_PATH,
+          ref: host.workflowRef,
+          sha: host.workflowSha,
+          invocation_ref: host.invocationRef,
+          run_id: host.runId,
+          run_attempt: host.runAttempt,
+          actor: host.actor,
+          server_url: host.serverUrl,
+          run_url: host.runUrl,
+          default_branch: host.defaultBranch,
+        },
+        current_state: {
+          repository: host.repository,
+          pr_number: request.prNumber,
+          exact_head: request.exactHead,
+          task_scope_digest: after.taskScopeDigest,
+          ready_generation_record_url: request.readyRecordUrl,
+          ready_event_id: after.readyEvent.event_id,
+          ready_occurred_at: after.readyEvent.occurred_at,
+          ready_actor_login: after.readyEvent.actor_login,
+          actor_login: host.actor,
+          actor_role: after.assignment.assigned_role,
+          assignment_record_url: after.assignment.record_url,
+          assignment_record_digest: after.assignment.record_digest,
+          trust_root_record_url: after.trustRoot.record_url,
+          trust_root_record_digest: after.trustRoot.record_digest,
+          default_branch: host.defaultBranch,
+          workflow_sha: host.workflowSha,
+          thread_snapshot_digest: collectorProjection?.thread_snapshot?.snapshot_digest,
+          terminal_review_decision: after.terminalRecord?.decision ?? null,
+          latest_protected_event_at: after.terminalRecord?.published_at ?? after.readySource.record.ready_occurred_at,
+        },
+        persistence: { owner: 'github_actions_artifact_service', available: host.persistenceAvailable === true },
+        evaluated_at: evaluatedAt,
+      }
+      const result = await evaluateProtectedTransitionAdmissionV1(input)
+      if (!await persistFiles(result)) return failureExecutionResult(request.transition, 'persistence_failed', 'admission output persistence failed closed')
+      return result
+    } catch (error) {
+      if (error instanceof IdentityRejection) {
+        return await persistIdentityRejection(request, host, error, { ...observedAuthority, ...error.observation })
+      }
+      return failureExecutionResult(request.transition, 'acquisition_or_collector_failed', 'canonical acquisition or Collector execution failed closed')
+    }
+  })
 }
 
 const main = async () => {
@@ -1009,163 +1376,23 @@ const main = async () => {
     fail('caller_or_host_identity_invalid', 'caller arguments or host-derived identity failed admission')
     return
   }
-  const observedAuthority = {}
-  try {
-    const taskSource = await acquireCanonicalRecord(request.taskRecordUrl, host.repository)
-    const readySource = await acquireCanonicalRecord(request.readyRecordUrl, host.repository)
-    if (request.transition === 'merge_decision_admission' && request.terminalReviewRecordUrl === '') throw new Error('terminal review record is required')
-    if (!await validateReadyReviewGenerationRecordV1(readySource.record) || readySource.record.canonical_record !== request.readyRecordUrl ||
-        readySource.record.repository !== host.repository || readySource.record.pr_number !== request.prNumber || readySource.record.exact_head !== request.exactHead) {
-      throw new Error('Ready Generation record failed admission')
-    }
-    const taskScopeDigest = await bodyDigest(taskSource.body)
-    const bindingRegistry = new Map()
-    const bindingContext = await acquireFinalizationBindingContext(request, host, taskSource)
-    await acquireFinalizedGeneration(readySource, bindingContext, bindingRegistry)
-    const assignmentSpec = expectedAssignment(request.transition)
-    const readyEvent = await acquireReadyEvent(request, host, readySource)
-    Object.assign(observedAuthority, {
-      ready_event_id: readyEvent.event_id,
-      ready_occurred_at: readyEvent.occurred_at,
-      ready_actor_login: readyEvent.actor_login,
-    })
-    const trustRoot = await acquireTrustRoot(taskSource, host.repository, assignmentSpec)
-    observedAuthority.trust_root_record_url = trustRoot.record_url
-    const assignment = await acquireAssignment(
-      request, host, taskSource, readySource, readyEvent, trustRoot, assignmentSpec, bindingContext, bindingRegistry,
-    )
-    Object.assign(observedAuthority, {
-      assignment_record_url: assignment.record_url,
-      assignment_record_digest: assignment.record_digest,
-      assigned_login: assignment.assigned_login,
-      assigned_role: assignment.assigned_role,
-    })
-
-    if (host.triggeringActor !== host.originalActor) throw new IdentityRejection(['workflow_rerun_actor_mismatch'])
-    if (host.triggeringActor !== assignment.assigned_login) throw new IdentityRejection(['workflow_actor_assignment_mismatch'])
-
-    let terminalRecord = null
-    if (request.transition === 'merge_decision_admission') {
-      const terminalRequest = Object.freeze({ ...request, transition: 'terminal_review_admission' })
-      const terminalSpec = expectedAssignment('terminal_review_admission')
-      const terminalTrustRoot = await acquireTrustRoot(taskSource, host.repository, terminalSpec)
-      const terminalAssignment = await acquireAssignment(
-        terminalRequest, host, taskSource, readySource, readyEvent, terminalTrustRoot, terminalSpec, bindingContext, bindingRegistry,
-      )
-      const terminalLeaf = await acquireCurrentTerminalLeaf(request, host, readySource, readyEvent, terminalAssignment)
-      terminalRecord = await acquireTerminalArtifactReceipt(
-        request, host, readySource, readyEvent, terminalAssignment, terminalLeaf,
-      )
-    }
-
-    await refreshFinalizationSnapshot({
-      baseline: bindingRegistry, request, host, exactTaskDigest: taskScopeDigest,
-    })
-
-    const collector = await execFileAsync(process.execPath, [
-      COLLECTOR_PATH,
-      '--repository', host.repository,
-      '--pr', String(request.prNumber),
-      '--head', request.exactHead,
-      '--ready-record', request.readyRecordUrl,
-    ], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, windowsHide: true })
-    const collectorJcs = collector.stdout
-    if (typeof collectorJcs !== 'string' || collectorJcs.length === 0 || collector.stderr !== '') throw new Error('Collector did not return one exact JCS artifact')
-    const collectorProjection = JSON.parse(collectorJcs)
-    validateReadyGenerationCollectorBindingV1({ readyGeneration: readySource.record, collectorArtifact: collectorProjection })
-    await refreshFinalizationSnapshot({
-      baseline: bindingRegistry, request, host, exactTaskDigest: taskScopeDigest,
-    })
-    const evaluatedAt = new Date().toISOString()
-    const input = {
-      input_version: PROTECTED_TRANSITION_ADMISSION_INPUT_V1,
-      transition: request.transition,
-      repository: host.repository,
-      repository_id: host.repositoryId,
-      task_record_url: request.taskRecordUrl,
-      task_scope_digest: taskScopeDigest,
-      pr_number: request.prNumber,
-      pr_url: `https://github.com/${host.repository}/pull/${request.prNumber}`,
-      exact_head: request.exactHead,
-      ready_generation: {
-        record_url: request.readyRecordUrl,
-        record_digest: readySource.record.record_digest,
-        endpoint: readyEvent.endpoint,
-        event_id: readyEvent.event_id,
-        occurred_at: readyEvent.occurred_at,
-        commit_id: readyEvent.commit_id,
-        actor_login: readyEvent.actor_login,
-      },
-      actor: { login: host.actor },
-      authority: { trust_root: trustRoot, assignment },
-      collector_artifact_jcs: collectorJcs,
-      collector_artifact_jcs_sha256: await sha256ReadyReviewObservationV1(collectorJcs),
-      terminal_review: terminalRecord,
-      workflow_identity: {
-        path: WORKFLOW_PATH,
-        ref: host.workflowRef,
-        sha: host.workflowSha,
-        invocation_ref: host.invocationRef,
-        run_id: host.runId,
-        run_attempt: host.runAttempt,
-        actor: host.actor,
-        server_url: host.serverUrl,
-        run_url: host.runUrl,
-        default_branch: host.defaultBranch,
-      },
-      current_state: {
-        repository: host.repository,
-        pr_number: request.prNumber,
-        exact_head: request.exactHead,
-        task_scope_digest: taskScopeDigest,
-        ready_generation_record_url: request.readyRecordUrl,
-        ready_event_id: readyEvent.event_id,
-        ready_occurred_at: readyEvent.occurred_at,
-        ready_actor_login: readyEvent.actor_login,
-        actor_login: host.actor,
-        actor_role: assignment.assigned_role,
-        assignment_record_url: assignment.record_url,
-        assignment_record_digest: assignment.record_digest,
-        trust_root_record_url: trustRoot.record_url,
-        trust_root_record_digest: trustRoot.record_digest,
-        default_branch: host.defaultBranch,
-        workflow_sha: host.workflowSha,
-        thread_snapshot_digest: collectorProjection?.thread_snapshot?.snapshot_digest,
-        terminal_review_decision: terminalRecord?.decision ?? null,
-        latest_protected_event_at: terminalRecord?.published_at ?? readySource.record.ready_occurred_at,
-      },
-      persistence: {
-        owner: 'github_actions_artifact_service',
-        available: typeof process.env.ACTIONS_RUNTIME_TOKEN === 'string' && process.env.ACTIONS_RUNTIME_TOKEN.length > 0 &&
-          typeof process.env.ACTIONS_RESULTS_URL === 'string' && process.env.ACTIONS_RESULTS_URL.length > 0,
-      },
-      evaluated_at: evaluatedAt,
-    }
-    const result = await evaluateProtectedTransitionAdmissionV1(input)
-    if (!await persistFiles(result)) {
-      fail('persistence_failed', 'admission output persistence failed closed')
-    } else if (result.result === 'failed') {
-      fail(result.failure.code, result.failure.safe_message)
-    } else {
-      process.stdout.write(`${canonicalizeReadyReviewObservationJcsV1({
-        result: result.result,
-        transition: result.transition,
-        admission_digest: result.receipt.admission_digest,
-        expires_at: result.receipt.expires_at,
-        receipt_count: result.receipt_count,
-        admitted_artifact_count: result.admitted_artifact_count,
-        state_changed: false,
-        protected_transition_performed: false,
-      })}\n`)
-      process.exitCode = result.result === 'accepted' ? 0 : 2
-    }
-  } catch (error) {
-    if (error instanceof IdentityRejection) {
-      await persistIdentityRejection(request, host, error, { ...observedAuthority, ...error.observation })
-    } else {
-      fail('acquisition_or_collector_failed', 'canonical acquisition or Collector execution failed closed')
-    }
+  const result = await executeProtectedTransitionAdmissionV1({ request, host, adapters: productionAdapters() })
+  if (result.result === 'failed') {
+    fail(result.failure.code, result.failure.safe_message)
+    return
   }
+  process.stdout.write(`${canonicalizeReadyReviewObservationJcsV1({
+    result: result.result,
+    transition: result.transition,
+    ...(result.result === 'rejected' && result.receipt?.diagnostic_digest !== undefined
+      ? { diagnostic_digest: result.receipt.diagnostic_digest }
+      : { admission_digest: result.receipt.admission_digest, expires_at: result.receipt.expires_at }),
+    receipt_count: result.receipt_count,
+    admitted_artifact_count: result.admitted_artifact_count,
+    state_changed: false,
+    protected_transition_performed: false,
+  })}\n`)
+  process.exitCode = result.result === 'accepted' ? 0 : 2
 }
 
 if (typeof process.argv[1] === 'string' && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) await main()

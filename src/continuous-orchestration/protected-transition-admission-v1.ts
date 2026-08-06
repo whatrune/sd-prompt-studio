@@ -587,6 +587,9 @@ export const evaluateProtectedTransitionAdmissionV1 = async (raw: unknown): Prom
             terminal.task_record_url !== input.task_record_url || terminal.repository !== input.repository || terminal.pr_number !== input.pr_number ||
             terminal.pr_url !== input.pr_url || terminal.exact_head !== input.exact_head || terminal.ready_generation_record_url !== input.ready_generation.record_url ||
             terminal.ready_event_id !== input.ready_generation.event_id) rejectionCodes.push('terminal_review_binding_mismatch')
+        if (prior.workflow_sha !== input.workflow_identity.sha || prior.workflow_sha !== input.current_state.workflow_sha) {
+          rejectionCodes.push('terminal_workflow_revision_mismatch')
+        }
         if (terminal.workflow_artifact_name !== `protected-transition-admission-v1-${prior.workflow_run_id}-${prior.workflow_run_attempt}` ||
             await sha256ReadyReviewObservationV1(canonicalizeReadyReviewObservationJcsV1(prior)) !== terminal.receipt_jcs_sha256) {
           rejectionCodes.push('terminal_receipt_provenance_mismatch')
