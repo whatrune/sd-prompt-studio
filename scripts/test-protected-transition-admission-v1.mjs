@@ -18,6 +18,8 @@ import {
 import {
   admitArtifactZipExecResultV1,
   classifyTerminalLeafAuthorBindingV1,
+  validateGenerationAwareAssignmentLineageV1,
+  validateReadyGenerationCollectorBindingV1,
   verifyTerminalArtifactZipProvenanceV1,
 } from './run-protected-transition-admission-v1.mjs'
 
@@ -104,6 +106,75 @@ const readStoredZipEntries = (archive) => {
 const resealTerminal = async (value) => {
   const projection = Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'record_digest'))
   return { ...projection, record_digest: await digestReadyReviewObservationProjectionV1(projection) }
+}
+
+const resealRecord = async (value) => {
+  const projection = Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'record_digest'))
+  return { ...projection, record_digest: await digestReadyReviewObservationProjectionV1(projection) }
+}
+
+const assignmentLineageHarness = async (transition) => {
+  const terminal = transition === 'terminal_review_admission'
+  const recordType = terminal ? 'terminal_review_actor_assignment_v1' : 'merge_decision_actor_assignment_v1'
+  const ownerRole = terminal ? 'Integrated Lead' : 'Product Owner'
+  const assignedRole = terminal ? 'Independent PR Reviewer' : 'Product Owner'
+  const assignmentId = terminal ? 'PTA-259-TERMINAL-REVIEW-ACTOR' : 'PTA-259-MERGE-DECISION-ACTOR'
+  const oldHead = '0'.repeat(40)
+  const oldReadyUrl = `https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-${terminal ? '6000000101' : '6000000201'}`
+  const currentReadyUrl = `https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-${terminal ? '6000000102' : '6000000202'}`
+  const oldAssignmentUrl = `https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-${terminal ? '6000000111' : '6000000211'}`
+  const currentAssignmentUrl = `https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-${terminal ? '6000000112' : '6000000212'}`
+  const oldReadyRecord = await resealRecord({
+    record_type: 'ready_review_generation_record_v1', canonical_record: oldReadyUrl, repository: fixture.repository,
+    pr_number: fixture.pr_number, pr_url: fixture.pr_url, exact_head: oldHead, ready_event_id: terminal ? '29000001001' : '29000002001',
+    ready_occurred_at: '2026-08-05T09:00:00Z', task_issue_url: fixture.task_record_url, revision: 1, prior_record_url: null,
+    producer_roster_source_url: 'https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-6000000301',
+    producer_roster_source_digest: '3'.repeat(64),
+  })
+  const currentReadyRecord = await resealRecord({
+    record_type: 'ready_review_generation_record_v1', canonical_record: currentReadyUrl, repository: fixture.repository,
+    pr_number: fixture.pr_number, pr_url: fixture.pr_url, exact_head: fixture.exact_head, ready_event_id: terminal ? '29000001002' : '29000002002',
+    ready_occurred_at: '2026-08-05T10:00:00Z', task_issue_url: fixture.task_record_url, revision: 2, prior_record_url: oldReadyUrl,
+    producer_roster_source_url: 'https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-6000000302',
+    producer_roster_source_digest: '4'.repeat(64),
+  })
+  const makeAssignment = async ({ url, revision, supersedes, head, ready, issuedAt }) => await resealRecord({
+    record_type: recordType, canonical_record: url, assignment_id: assignmentId, revision, supersedes_record_url: supersedes,
+    status: 'assigned', authority_owner_role: ownerRole, authority_owner_login: 'whatrune', repository: fixture.repository,
+    task_record_url: fixture.task_record_url, task_scope_digest: fixture.task_scope_digest, pr_number: fixture.pr_number, pr_url: fixture.pr_url,
+    exact_head: head, ready_generation_record_url: ready.canonical_record, ready_generation_record_digest: ready.record_digest,
+    ready_event_id: ready.ready_event_id, ready_occurred_at: ready.ready_occurred_at, transition, assigned_login: fixture.actor_login,
+    assigned_role: assignedRole, issued_at: issuedAt,
+  })
+  const oldIssuedAt = '2026-08-05T09:01:00Z'
+  const currentIssuedAt = '2026-08-05T10:01:00Z'
+  const oldAssignment = await makeAssignment({ url: oldAssignmentUrl, revision: 1, supersedes: null, head: oldHead, ready: oldReadyRecord, issuedAt: oldIssuedAt })
+  const currentAssignment = await makeAssignment({ url: currentAssignmentUrl, revision: 2, supersedes: oldAssignmentUrl, head: fixture.exact_head, ready: currentReadyRecord, issuedAt: currentIssuedAt })
+  const evidence = (sourceUrl, sourceCreatedAt, record, generationRecord, commitId) => ({
+    source: { url: sourceUrl, bodyDigest: createHash('sha256').update(`body:${sourceUrl}`).digest('hex'), authorLogin: 'whatrune', createdAt: sourceCreatedAt, updatedAt: sourceCreatedAt },
+    record,
+    generationSource: { url: generationRecord.canonical_record, record: generationRecord, createdAt: generationRecord.ready_occurred_at, updatedAt: generationRecord.ready_occurred_at },
+    generationEvent: { event_id: String(generationRecord.ready_event_id), occurred_at: generationRecord.ready_occurred_at, commit_id: commitId, actor_login: 'whatrune' },
+  })
+  const records = [
+    evidence(oldAssignmentUrl, oldIssuedAt, oldAssignment, oldReadyRecord, oldHead),
+    evidence(currentAssignmentUrl, currentIssuedAt, currentAssignment, currentReadyRecord, null),
+  ]
+  return {
+    records,
+    request: { transition, prNumber: fixture.pr_number, exactHead: fixture.exact_head, taskRecordUrl: fixture.task_record_url, readyRecordUrl: currentReadyUrl },
+    host: { repository: fixture.repository },
+    taskScopeDigest: fixture.task_scope_digest,
+    readySource: { url: currentReadyUrl, record: currentReadyRecord },
+    readyEvent: records[1].generationEvent,
+    trustRoot: { issuer_login: 'whatrune', issuer_role: ownerRole },
+    spec: { recordType, transition, assignedRole },
+  }
+}
+
+const resealAssignmentEvidence = async (evidence) => {
+  evidence.record = await resealRecord(evidence.record)
+  evidence.source.bodyDigest = createHash('sha256').update(`body:${evidence.source.url}`).digest('hex')
 }
 
 const buildCollector = async (timing) => {
@@ -297,6 +368,11 @@ check(classifyTerminalLeafAuthorBindingV1({ directApiAuthorLogin: 'other-reviewe
 const terminalInput = baseInput('terminal_review_admission', terminalCollector)
 const terminalAccepted = await evaluateProtectedTransitionAdmissionV1(terminalInput)
 check(terminalAccepted.result === 'accepted', 'Terminal Review Admission accepts exact current bindings')
+const nullableReadyCommitInput = clone(terminalInput)
+nullableReadyCommitInput.ready_generation.commit_id = null
+const nullableReadyCommitAccepted = await evaluateProtectedTransitionAdmissionV1(nullableReadyCommitInput)
+check(nullableReadyCommitAccepted.result === 'accepted' && nullableReadyCommitAccepted.receipt.ready_event_commit_id === null,
+  'nullable REST Ready commit identity is preserved while exact HEAD remains independently bound')
 check(terminalAccepted.result === 'accepted' && terminalAccepted.receipt_count === 1 && terminalAccepted.admitted_artifact_count === 1, 'accepted result has exactly one receipt and one admitted Collector artifact')
 check(terminalAccepted.result === 'accepted' && terminalAccepted.files_to_persist.map((file) => file.file_name).join(',') === `${PROTECTED_TRANSITION_COLLECTOR_FILE_V1},${PROTECTED_TRANSITION_RECEIPT_FILE_V1}`, 'accepted result persists the two frozen file names')
 check(terminalAccepted.result === 'accepted' && Date.parse(terminalAccepted.receipt.expires_at) - Date.parse(terminalAccepted.receipt.evaluated_at) === 30 * 60 * 1000, 'accepted receipt expires exactly 30 minutes after evaluation')
@@ -499,6 +575,125 @@ check(nonAdmitting.every((result) => result.state_changed === false && result.pr
 check(nonAdmitting.filter((result) => result.result === 'rejected').every((result) => result.receipt_count === 1 && result.admitted_artifact_count === 0), 'every rejected result has exactly one non-admitting receipt')
 check(nonAdmitting.filter((result) => result.result === 'failed').every((result) => result.receipt_count === 0 && result.admitted_artifact_count === 0), 'every failed result has no receipt or admitted artifact')
 
+for (const transition of ['terminal_review_admission', 'merge_decision_admission']) {
+  const harness = await assignmentLineageHarness(transition)
+  const current = await validateGenerationAwareAssignmentLineageV1(harness)
+  check(current.revision === 2 && current.record_url === harness.records[1].source.url && current.transition === transition,
+    `${transition} admits only the revision-2 current leaf while revision 1 remains issuance-era evidence`)
+}
+
+const expectLineageRejection = async (mutate, code, message) => {
+  const harness = await assignmentLineageHarness('terminal_review_admission')
+  await mutate(harness)
+  let rejected = false
+  try {
+    await validateGenerationAwareAssignmentLineageV1(harness)
+  } catch (error) {
+    rejected = Array.isArray(error?.codes) && error.codes.includes(code)
+  }
+  check(rejected, message)
+}
+
+await expectLineageRejection(async ({ records }) => {
+  records[1].record.supersedes_record_url = records[1].source.url
+  await resealAssignmentEvidence(records[1])
+}, 'assignment_chain_invalid', 'assignment lineage cycle is rejected')
+await expectLineageRejection(async ({ records }) => {
+  records[1].record.revision = 3
+  await resealAssignmentEvidence(records[1])
+}, 'assignment_chain_gapped', 'assignment revision gap is rejected')
+await expectLineageRejection(async ({ records }) => {
+  const fork = clone(records[1])
+  fork.source.url = 'https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-6000000113'
+  fork.source.createdAt = '2026-08-05T10:02:00Z'
+  fork.source.updatedAt = fork.source.createdAt
+  fork.record.canonical_record = fork.source.url
+  fork.record.issued_at = fork.source.createdAt
+  await resealAssignmentEvidence(fork)
+  records.push(fork)
+}, 'assignment_chain_forked', 'branching assignment successors and multiple current leaves are rejected')
+await expectLineageRejection(async ({ records }) => {
+  records[1].record.assignment_id = 'PTA-259-OTHER-ACTOR'
+  await resealAssignmentEvidence(records[1])
+}, 'assignment_chain_ambiguous', 'multiple assignment identity series are rejected')
+await expectLineageRejection(async ({ records }) => {
+  records[1].record.supersedes_record_url = 'https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-6000000999'
+  await resealAssignmentEvidence(records[1])
+}, 'assignment_chain_invalid', 'predecessor URL mismatch is rejected after predecessor digest validation')
+const predecessorDigestHarness = await assignmentLineageHarness('terminal_review_admission')
+predecessorDigestHarness.records[0].record.record_digest = '0'.repeat(64)
+let predecessorDigestFailed = false
+try {
+  await validateGenerationAwareAssignmentLineageV1(predecessorDigestHarness)
+} catch (error) {
+  predecessorDigestFailed = /assignment record digest mismatch/.test(String(error?.message))
+}
+check(predecessorDigestFailed, 'historical predecessor self-digest mismatch fails integrity validation')
+const editedGenerationHarness = await assignmentLineageHarness('terminal_review_admission')
+editedGenerationHarness.records[0].generationSource.updatedAt = '2026-08-05T09:00:01Z'
+let editedGenerationFailed = false
+try {
+  await validateGenerationAwareAssignmentLineageV1(editedGenerationHarness)
+} catch (error) {
+  editedGenerationFailed = /Ready Generation evidence edited/.test(String(error?.message))
+}
+check(editedGenerationFailed, 'edited historical Ready Generation evidence fails integrity validation')
+await expectLineageRejection(async ({ records }) => {
+  records[0].record.ready_generation_record_digest = '0'.repeat(64)
+  await resealAssignmentEvidence(records[0])
+}, 'assignment_issuance_generation_mismatch', 'historical predecessor Ready Generation digest mismatch is rejected')
+await expectLineageRejection(async ({ records }) => {
+  records[0].record.exact_head = records[1].record.exact_head
+  await resealAssignmentEvidence(records[0])
+}, 'assignment_issuance_generation_mismatch', 'historical predecessor cannot substitute current-generation HEAD for its issuance-era binding')
+await expectLineageRejection(async ({ records }) => {
+  records[0].generationEvent.event_id = '29000009999'
+}, 'assignment_issuance_generation_mismatch', 'historical predecessor Ready event mismatch is rejected')
+await expectLineageRejection(async ({ records }) => {
+  records[1].record.assigned_role = 'Product Owner'
+  await resealAssignmentEvidence(records[1])
+}, 'assignment_scope_mismatch', 'stable role and transition scope mismatch is rejected')
+await expectLineageRejection(async ({ records }) => {
+  records[1].source.authorLogin = 'self-reviewer'
+  records[1].record.authority_owner_login = 'self-reviewer'
+  records[1].record.assigned_login = 'self-reviewer'
+  await resealAssignmentEvidence(records[1])
+}, 'assignment_issuer_not_admitted', 'self-authenticated assignment issuer is rejected by the independent trust root')
+
+for (const extraField of ['base_sha', 'producer_roster_record_digest']) {
+  const harness = await assignmentLineageHarness('terminal_review_admission')
+  harness.records[1].record[extraField] = '5'.repeat(64)
+  let failed = false
+  try {
+    await validateGenerationAwareAssignmentLineageV1(harness)
+  } catch (error) {
+    failed = /assignment record contract malformed/.test(String(error?.message))
+  }
+  check(failed, `${extraField} remains forbidden by the exact 23-field assignment schema`)
+}
+
+const rosterBindingHarness = await assignmentLineageHarness('terminal_review_admission')
+const readyGeneration = rosterBindingHarness.readySource.record
+const collectorBinding = {
+  ready_generation_record_url: readyGeneration.canonical_record,
+  repository: readyGeneration.repository,
+  pr_number: readyGeneration.pr_number,
+  pr_url: readyGeneration.pr_url,
+  exact_head: readyGeneration.exact_head,
+  ready_event_id: readyGeneration.ready_event_id,
+  ready_occurred_at: readyGeneration.ready_occurred_at,
+  producer_roster_source_digest: readyGeneration.producer_roster_source_digest,
+}
+check(validateReadyGenerationCollectorBindingV1({ readyGeneration, collectorArtifact: collectorBinding }),
+  'Producer Roster remains a separate Ready Generation to Collector binding')
+let rosterMismatchRejected = false
+try {
+  validateReadyGenerationCollectorBindingV1({ readyGeneration, collectorArtifact: { ...collectorBinding, producer_roster_source_digest: 'f'.repeat(64) } })
+} catch (error) {
+  rosterMismatchRejected = Array.isArray(error?.codes) && error.codes.includes('ready_generation_collector_binding_mismatch')
+}
+check(rosterMismatchRejected, 'Ready Generation and Collector Producer Roster digest mismatch is rejected outside assignment schema')
+
 const inputs = workflow.on.workflow_dispatch.inputs
 check(Object.keys(workflow.on).join(',') === 'workflow_dispatch', 'workflow has only workflow_dispatch')
 check(Object.keys(inputs).join(',') === 'transition,pr_number,exact_head,task_record_url,ready_generation_record_url,terminal_review_record_url', 'workflow exposes exactly the six frozen caller inputs')
@@ -508,19 +703,22 @@ check(Object.keys(workflow.jobs).length === 1 && Object.keys(workflow.jobs)[0] =
 check((workflowSource.match(/actions\/checkout@[0-9a-f]{40}/g) ?? []).length === 1 && (workflowSource.match(/actions\/setup-node@[0-9a-f]{40}/g) ?? []).length === 1 && (workflowSource.match(/actions\/upload-artifact@[0-9a-f]{40}/g) ?? []).length === 1, 'all external Actions are pinned once to full commit SHAs')
 check((runnerSource.match(/run-ready-review-terminal-observation-collector-v1\.mjs/g) ?? []).length === 1, 'production composition names the existing Collector CLI exactly once')
 check((runnerSource.match(/execFileAsync\(process\.execPath/g) ?? []).length === 1, 'production composition invokes the existing Collector CLI exactly once')
-check(runnerSource.includes("event?.event === 'ready_for_review'") && runnerSource.includes('event?.commit_id === request.exactHead') && runnerSource.includes('event?.actor?.login'), 'production binds Ready authority to the exact paginated REST ready_for_review event actor')
-check(runnerSource.includes('issues/${request.prNumber}/timeline') && runnerSource.includes('response.length < 100'), 'production fully paginates the Ready REST timeline before authority selection')
+check(runnerSource.includes("event?.event === 'ready_for_review'") && runnerSource.includes('event.commit_id !== null && event.commit_id !== readySource.record.exact_head') && runnerSource.includes('event?.actor?.login'), 'production binds Ready authority to the exact paginated REST ready_for_review event actor while preserving nullable REST commit identity')
+check(runnerSource.includes('issues/${prNumber}/timeline') && runnerSource.includes('response.length < 100'), 'production fully paginates each issuance-era Ready REST timeline before authority selection')
 check(runnerSource.includes("matches.length !== 1") && runnerSource.includes("ready_event_cardinality_invalid"), 'zero or multiple exact Ready events reject before Collector execution')
 check(runnerSource.includes('actor_login: readyEvent.actor_login') && !runnerSource.includes('actor_login: readySource.authorLogin'), 'Ready Generation publisher is never substituted for the REST Ready actor')
 check(runnerSource.includes('issues/${taskIdentity[3]}/comments') && runnerSource.includes('acquireCanonicalRecord(candidate.listed.html_url'), 'production paginates Task assignments and directly re-fetches the selected canonical record')
 check(runnerSource.includes('source.authorLogin !== trustRoot.issuer_login') && runnerSource.includes('record.authority_owner_login !== trustRoot.issuer_login'), 'assignment issuer is authenticated by the independent trust root instead of self-assertion')
 check(runnerSource.includes("declared.length === 0") && runnerSource.includes("assignment_missing"), 'missing canonical assignment rejects before Collector execution')
-check(runnerSource.includes("direct.createdAt !== direct.updatedAt") && runnerSource.includes("assignment_edited"), 'edited assignment records fail closed')
-check(runnerSource.includes("assignmentIds.size !== 1") && runnerSource.includes("assignment_chain_ambiguous"), 'multiple assignment chains fail closed')
+check(runnerSource.includes("source.createdAt !== source.updatedAt") && runnerSource.includes("assignment_edited"), 'edited assignment records fail closed')
+check(runnerSource.includes("record.assignment_id !== first.assignment_id") && runnerSource.includes("assignment_chain_ambiguous"), 'multiple assignment chains fail closed')
 check(runnerSource.includes("byRevision.has(item.record.revision)") && runnerSource.includes("assignment_chain_forked"), 'assignment revision forks fail closed')
 check(runnerSource.includes("byRevision.size !== maximum") && runnerSource.includes("assignment_chain_gapped"), 'assignment revision gaps fail closed')
 check(runnerSource.includes("item.record.supersedes_record_url !== predecessor") && runnerSource.includes("assignment_chain_invalid"), 'assignment supersession mismatches fail closed')
 check(runnerSource.includes("tip.record.status !== 'assigned'") && runnerSource.includes("assignment_revoked"), 'revoked current assignment fails closed')
+check(runnerSource.includes('generationSource.record.exact_head !== record.exact_head') && runnerSource.includes('tip.record.exact_head !== request.exactHead'), 'historical assignments bind issuance-era generation while only current leaf binds current HEAD')
+check(runnerSource.includes("pr?.base?.ref !== host.defaultBranch") && runnerSource.includes("pr?.base?.sha !== host.workflowSha"), 'base SHA remains an independent live PR/default-branch observation outside assignment schema')
+check(runnerSource.includes('validateReadyGenerationCollectorBindingV1') && runnerSource.includes('producer_roster_source_digest !== readyGeneration.producer_roster_source_digest'), 'Producer Roster remains separately bound through Ready Generation and the one existing Collector')
 check(runnerSource.includes('host.triggeringActor !== assignment.assigned_login') && runnerSource.includes("workflow_actor_assignment_mismatch"), 'physical current-attempt workflow caller must equal the independently assigned login')
 check(runnerSource.includes('GITHUB_ACTOR') && runnerSource.includes('GITHUB_TRIGGERING_ACTOR') && runnerSource.includes('host.triggeringActor !== host.originalActor'), 'same-actor reruns are admitted and cross-actor reruns reject from trusted run context')
 check(runnerSource.includes('paginatedArtifacts') && runnerSource.includes('/actions/artifacts/${artifact.id}/zip') && runnerSource.includes("unzip', ['-Z1'") && runnerSource.includes('TERMINAL_ACCEPTED_FILES'), 'Terminal authority is reacquired from a fully paginated exact two-file Actions artifact')

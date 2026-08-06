@@ -281,24 +281,115 @@ const acquireTrustRoot = async (taskSource, repository, assignmentSpec) => {
   })
 }
 
+const acquireReadyEventEvidence = async (host, prNumber, readySource) => {
+  const endpoint = `repos/${host.repository}/issues/${prNumber}/timeline`
+  const timeline = await paginated(endpoint)
+  const matches = timeline.filter((event) => event?.event === 'ready_for_review' && String(event?.id) === String(readySource.record.ready_event_id) &&
+    event?.created_at === readySource.record.ready_occurred_at)
+  if (matches.length !== 1) throw new IdentityRejection(['ready_event_cardinality_invalid'])
+  const event = matches[0]
+  if (typeof event?.actor?.login !== 'string' || event.actor.login.length === 0) throw new Error('matching Ready event actor is malformed')
+  if (event.commit_id !== null && event.commit_id !== readySource.record.exact_head) {
+    throw new IdentityRejection(['ready_event_head_mismatch'])
+  }
+  return Object.freeze({
+    endpoint: `https://api.github.com/repos/${host.repository}/issues/${prNumber}/timeline`,
+    event_id: String(event.id),
+    occurred_at: event.created_at,
+    commit_id: event.commit_id,
+    actor_login: event.actor.login,
+  })
+}
+
 const acquireReadyEvent = async (request, host, readySource) => {
   const pr = await ghJson([`repos/${host.repository}/pulls/${request.prNumber}`])
   if (pr?.html_url !== `https://github.com/${host.repository}/pull/${request.prNumber}` || pr?.head?.sha !== request.exactHead) {
     throw new IdentityRejection(['current_pr_head_mismatch'])
   }
-  const endpoint = `repos/${host.repository}/issues/${request.prNumber}/timeline`
-  const timeline = await paginated(endpoint)
-  const matches = timeline.filter((event) => event?.event === 'ready_for_review' && String(event?.id) === String(readySource.record.ready_event_id) &&
-    event?.created_at === readySource.record.ready_occurred_at && event?.commit_id === request.exactHead)
-  if (matches.length !== 1) throw new IdentityRejection(['ready_event_cardinality_invalid'])
-  const event = matches[0]
-  if (typeof event?.actor?.login !== 'string' || event.actor.login.length === 0) throw new Error('matching Ready event actor is malformed')
+  if (pr?.base?.ref !== host.defaultBranch || pr?.base?.sha !== host.workflowSha) {
+    throw new IdentityRejection(['current_pr_base_mismatch'])
+  }
+  return await acquireReadyEventEvidence(host, request.prNumber, readySource)
+}
+
+export const validateGenerationAwareAssignmentLineageV1 = async ({ records, request, host, taskScopeDigest, readySource, readyEvent, trustRoot, spec }) => {
+  if (!Array.isArray(records) || records.length === 0) throw new IdentityRejection(['assignment_missing'])
+  for (const item of records) {
+    const { source, record, generationSource, generationEvent } = item ?? {}
+    if (!source || !record || !generationSource || !generationEvent) throw new Error('assignment lineage evidence malformed')
+    if (source.createdAt !== source.updatedAt) throw new IdentityRejection(['assignment_edited'])
+    if (!exactObjectKeys(record, ASSIGNMENT_KEYS)) throw new Error('assignment record contract malformed')
+    const projection = Object.fromEntries(Object.entries(record).filter(([key]) => key !== 'record_digest'))
+    const projectionDigest = await sha256ReadyReviewObservationV1(canonicalizeReadyReviewObservationJcsV1(projection))
+    if (record.record_digest !== projectionDigest) throw new Error('assignment record digest mismatch')
+    if (record.canonical_record !== source.url) throw new IdentityRejection(['assignment_source_url_mismatch'])
+    if (source.authorLogin !== trustRoot.issuer_login || record.authority_owner_login !== trustRoot.issuer_login ||
+        record.authority_owner_role !== trustRoot.issuer_role) throw new IdentityRejection(['assignment_issuer_not_admitted'])
+    if (generationSource.createdAt !== generationSource.updatedAt) throw new Error('assignment Ready Generation evidence edited')
+    if (!await validateReadyReviewGenerationRecordV1(generationSource.record) || generationSource.record.canonical_record !== generationSource.url) {
+      throw new Error('assignment Ready Generation evidence malformed')
+    }
+    if (generationSource.url !== record.ready_generation_record_url || generationSource.record.record_digest !== record.ready_generation_record_digest ||
+        generationSource.record.repository !== record.repository || generationSource.record.pr_number !== record.pr_number ||
+        generationSource.record.pr_url !== record.pr_url || generationSource.record.task_issue_url !== record.task_record_url ||
+        generationSource.record.exact_head !== record.exact_head || String(generationSource.record.ready_event_id) !== String(record.ready_event_id) ||
+        generationSource.record.ready_occurred_at !== record.ready_occurred_at || generationEvent.event_id !== String(record.ready_event_id) ||
+        generationEvent.occurred_at !== record.ready_occurred_at ||
+        (generationEvent.commit_id !== null && generationEvent.commit_id !== record.exact_head)) {
+      throw new IdentityRejection(['assignment_issuance_generation_mismatch'])
+    }
+  }
+
+  const stableScope = (record) => record.record_type === spec.recordType && record.repository === host.repository &&
+    record.task_record_url === request.taskRecordUrl && record.task_scope_digest === taskScopeDigest && record.pr_number === request.prNumber &&
+    record.pr_url === `https://github.com/${host.repository}/pull/${request.prNumber}` && record.transition === spec.transition &&
+    record.assigned_role === spec.assignedRole && typeof record.assigned_login === 'string' && record.assigned_login.length > 0 &&
+    Number.isSafeInteger(record.revision) && record.revision > 0 && (record.status === 'assigned' || record.status === 'revoked') &&
+    typeof record.assignment_id === 'string' && record.assignment_id.length > 0 &&
+    (record.supersedes_record_url === null || COMMENT_URL.test(record.supersedes_record_url)) &&
+    record.issued_at === records.find((item) => item.record === record)?.source.createdAt
+  if (records.some(({ record }) => !stableScope(record))) throw new IdentityRejection(['assignment_scope_mismatch'])
+
+  const first = records[0].record
+  if (records.some(({ record }) => record.assignment_id !== first.assignment_id || record.repository !== first.repository ||
+      record.task_record_url !== first.task_record_url || record.task_scope_digest !== first.task_scope_digest || record.pr_number !== first.pr_number ||
+      record.pr_url !== first.pr_url || record.transition !== first.transition || record.assigned_role !== first.assigned_role ||
+      record.authority_owner_login !== first.authority_owner_login || record.authority_owner_role !== first.authority_owner_role)) {
+    throw new IdentityRejection(['assignment_chain_ambiguous'])
+  }
+  const byRevision = new Map()
+  for (const item of records) {
+    if (byRevision.has(item.record.revision)) throw new IdentityRejection(['assignment_chain_forked'])
+    byRevision.set(item.record.revision, item)
+  }
+  const maximum = Math.max(...byRevision.keys())
+  if (byRevision.size !== maximum || !byRevision.has(1)) throw new IdentityRejection(['assignment_chain_gapped'])
+  const successorCounts = new Map()
+  for (let revision = 1; revision <= maximum; revision += 1) {
+    const item = byRevision.get(revision)
+    const predecessor = revision === 1 ? null : byRevision.get(revision - 1)?.source.url
+    if (item.record.supersedes_record_url !== predecessor) throw new IdentityRejection(['assignment_chain_invalid'])
+    if (predecessor !== null) successorCounts.set(predecessor, (successorCounts.get(predecessor) ?? 0) + 1)
+  }
+  if ([...successorCounts.values()].some((count) => count !== 1)) throw new IdentityRejection(['assignment_chain_forked'])
+  const tip = byRevision.get(maximum)
+  if (tip.record.status !== 'assigned') throw new IdentityRejection(['assignment_revoked'])
+  if (tip.record.exact_head !== request.exactHead || tip.record.ready_generation_record_url !== request.readyRecordUrl ||
+      tip.record.ready_generation_record_digest !== readySource.record.record_digest || String(tip.record.ready_event_id) !== readyEvent.event_id ||
+      tip.record.ready_occurred_at !== readyEvent.occurred_at || tip.generationSource.url !== readySource.url ||
+      tip.generationSource.record.record_digest !== readySource.record.record_digest) {
+    throw new IdentityRejection(['assignment_current_leaf_mismatch'])
+  }
   return Object.freeze({
-    endpoint: `https://api.github.com/repos/${host.repository}/issues/${request.prNumber}/timeline`,
-    event_id: String(event.id),
-    occurred_at: event.created_at,
-    commit_id: event.commit_id,
-    actor_login: event.actor.login,
+    record_url: tip.source.url,
+    record_digest: tip.source.bodyDigest,
+    assignment_id: tip.record.assignment_id,
+    revision: tip.record.revision,
+    issuer_login: trustRoot.issuer_login,
+    issuer_role: trustRoot.issuer_role,
+    assigned_login: tip.record.assigned_login,
+    assigned_role: tip.record.assigned_role,
+    transition: tip.record.transition,
   })
 }
 
@@ -317,54 +408,18 @@ const acquireAssignment = async (request, host, taskSource, readySource, readyEv
   const records = []
   for (const candidate of declared) {
     const direct = await acquireCanonicalRecord(candidate.listed.html_url, host.repository, { requireOwner: false })
-    if (direct.createdAt !== direct.updatedAt) throw new IdentityRejection(['assignment_edited'])
     const record = direct.record
     if (!exactObjectKeys(record, ASSIGNMENT_KEYS)) throw new Error('assignment record contract malformed')
-    const projection = Object.fromEntries(Object.entries(record).filter(([key]) => key !== 'record_digest'))
-    const projectionDigest = await sha256ReadyReviewObservationV1(canonicalizeReadyReviewObservationJcsV1(projection))
-    if (record.record_digest !== projectionDigest) throw new Error('assignment record digest mismatch')
-    if (record.canonical_record !== direct.url) throw new IdentityRejection(['assignment_source_url_mismatch'])
-    records.push({ source: direct, record })
+    const generationSource = record.ready_generation_record_url === readySource.url
+      ? readySource
+      : await acquireCanonicalRecord(record.ready_generation_record_url, host.repository)
+    const generationEvent = generationSource.url === readySource.url
+      ? readyEvent
+      : await acquireReadyEventEvidence(host, request.prNumber, generationSource)
+    records.push({ source: direct, record, generationSource, generationEvent })
   }
-  if (records.some(({ source, record }) => source.authorLogin !== trustRoot.issuer_login || record.authority_owner_login !== trustRoot.issuer_login ||
-      record.authority_owner_role !== trustRoot.issuer_role)) throw new IdentityRejection(['assignment_issuer_not_admitted'])
   const taskScopeDigest = await bodyDigest(taskSource.body)
-  const expectedScope = (record) => record.record_type === spec.recordType && record.repository === host.repository && record.task_record_url === request.taskRecordUrl &&
-    record.task_scope_digest === taskScopeDigest && record.pr_number === request.prNumber && record.pr_url === `https://github.com/${host.repository}/pull/${request.prNumber}` &&
-    record.exact_head === request.exactHead && record.ready_generation_record_url === request.readyRecordUrl &&
-    record.ready_generation_record_digest === readySource.record.record_digest && String(record.ready_event_id) === readyEvent.event_id &&
-    record.ready_occurred_at === readyEvent.occurred_at && record.transition === spec.transition && record.assigned_role === spec.assignedRole &&
-    typeof record.assigned_login === 'string' && record.assigned_login.length > 0 && Number.isSafeInteger(record.revision) && record.revision > 0 &&
-    (record.status === 'assigned' || record.status === 'revoked') && typeof record.assignment_id === 'string' && record.assignment_id.length > 0 &&
-    (record.supersedes_record_url === null || COMMENT_URL.test(record.supersedes_record_url)) && record.issued_at === records.find((item) => item.record === record)?.source.createdAt
-  if (records.some(({ record }) => !expectedScope(record))) throw new IdentityRejection(['assignment_scope_mismatch'])
-  const assignmentIds = new Set(records.map(({ record }) => record.assignment_id))
-  if (assignmentIds.size !== 1) throw new IdentityRejection(['assignment_chain_ambiguous'])
-  const byRevision = new Map()
-  for (const item of records) {
-    if (byRevision.has(item.record.revision)) throw new IdentityRejection(['assignment_chain_forked'])
-    byRevision.set(item.record.revision, item)
-  }
-  const maximum = Math.max(...byRevision.keys())
-  if (byRevision.size !== maximum) throw new IdentityRejection(['assignment_chain_gapped'])
-  for (let revision = 1; revision <= maximum; revision += 1) {
-    const item = byRevision.get(revision)
-    const predecessor = revision === 1 ? null : byRevision.get(revision - 1)?.source.url
-    if (item.record.supersedes_record_url !== predecessor) throw new IdentityRejection(['assignment_chain_invalid'])
-  }
-  const tip = byRevision.get(maximum)
-  if (tip.record.status !== 'assigned') throw new IdentityRejection(['assignment_revoked'])
-  return Object.freeze({
-    record_url: tip.source.url,
-    record_digest: tip.source.bodyDigest,
-    assignment_id: tip.record.assignment_id,
-    revision: tip.record.revision,
-    issuer_login: trustRoot.issuer_login,
-    issuer_role: trustRoot.issuer_role,
-    assigned_login: tip.record.assigned_login,
-    assigned_role: tip.record.assigned_role,
-    transition: tip.record.transition,
-  })
+  return await validateGenerationAwareAssignmentLineageV1({ records, request, host, taskScopeDigest, readySource, readyEvent, trustRoot, spec })
 }
 
 export const classifyTerminalLeafAuthorBindingV1 = ({ directApiAuthorLogin, declaredApiAuthorLogin, recordActorLogin, assignedLogin }) => {
@@ -373,6 +428,21 @@ export const classifyTerminalLeafAuthorBindingV1 = ({ directApiAuthorLogin, decl
   if (directApiAuthorLogin !== declaredApiAuthorLogin) return 'failed'
   if (declaredApiAuthorLogin !== recordActorLogin || recordActorLogin !== assignedLogin) return 'rejected'
   return 'accepted'
+}
+
+export const validateReadyGenerationCollectorBindingV1 = ({ readyGeneration, collectorArtifact }) => {
+  if (readyGeneration === null || typeof readyGeneration !== 'object' || collectorArtifact === null || typeof collectorArtifact !== 'object') {
+    throw new Error('Ready Generation or Collector evidence malformed')
+  }
+  if (collectorArtifact.ready_generation_record_url !== readyGeneration.canonical_record ||
+      collectorArtifact.repository !== readyGeneration.repository || collectorArtifact.pr_number !== readyGeneration.pr_number ||
+      collectorArtifact.pr_url !== readyGeneration.pr_url || collectorArtifact.exact_head !== readyGeneration.exact_head ||
+      String(collectorArtifact.ready_event_id) !== String(readyGeneration.ready_event_id) ||
+      collectorArtifact.ready_occurred_at !== readyGeneration.ready_occurred_at ||
+      collectorArtifact.producer_roster_source_digest !== readyGeneration.producer_roster_source_digest) {
+    throw new IdentityRejection(['ready_generation_collector_binding_mismatch'])
+  }
+  return true
 }
 
 const terminalTupleMatches = (record, request, host, readySource, readyEvent, assignment) =>
@@ -750,6 +820,7 @@ const main = async () => {
     const collectorJcs = collector.stdout
     if (typeof collectorJcs !== 'string' || collectorJcs.length === 0 || collector.stderr !== '') throw new Error('Collector did not return one exact JCS artifact')
     const collectorProjection = JSON.parse(collectorJcs)
+    validateReadyGenerationCollectorBindingV1({ readyGeneration: readySource.record, collectorArtifact: collectorProjection })
     const taskScopeDigest = await sha256ReadyReviewObservationV1(taskSource.body)
     const evaluatedAt = new Date().toISOString()
     const input = {

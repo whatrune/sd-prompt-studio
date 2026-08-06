@@ -36,7 +36,7 @@ export type ProtectedTransitionAdmissionReceiptV1 = Readonly<{
   ready_event_endpoint: string
   ready_event_id: string
   ready_occurred_at: string
-  ready_event_commit_id: string
+  ready_event_commit_id: string | null
   ready_actor_login: string
   actor_login: string
   actor_role: ProtectedTransitionActorRoleV1
@@ -122,7 +122,7 @@ export type ProtectedTransitionAdmissionInputV1 = Readonly<{
     endpoint: string
     event_id: string
     occurred_at: string
-    commit_id: string
+    commit_id: string | null
     actor_login: string
   }>
   actor: Readonly<{
@@ -301,7 +301,8 @@ const validateReceiptV1 = async (value: unknown): Promise<boolean> => {
       !repository(value.repository) || !nonEmpty(value.repository_id) || !issueOrCommentUrl(value.task_record_url) || !sha256(value.task_scope_digest) ||
       !Number.isSafeInteger(value.pr_number) || Number(value.pr_number) <= 0 || !prUrl(value.pr_url) || !fullHead(value.exact_head) ||
       !commentUrl(value.ready_generation_record_url) || !sha256(value.ready_generation_record_digest) || !readyTimelineUrl(value.ready_event_endpoint) ||
-      !nonEmpty(value.ready_event_id) || !isoTime(value.ready_occurred_at) || !fullHead(value.ready_event_commit_id) || !nonEmpty(value.ready_actor_login) ||
+      !nonEmpty(value.ready_event_id) || !isoTime(value.ready_occurred_at) ||
+      !(value.ready_event_commit_id === null || fullHead(value.ready_event_commit_id)) || !nonEmpty(value.ready_actor_login) ||
       !nonEmpty(value.actor_login) || (value.actor_role !== 'Independent PR Reviewer' && value.actor_role !== 'Product Owner') || !commentUrl(value.trust_root_record_url) ||
       !sha256(value.trust_root_record_digest) || !commentUrl(value.trust_root_review_url) || !sha256(value.trust_root_review_digest) ||
       !commentUrl(value.assignment_record_url) || !sha256(value.assignment_record_digest) || !nonEmpty(value.assignment_id) ||
@@ -316,7 +317,7 @@ const validateReceiptV1 = async (value: unknown): Promise<boolean> => {
       !value.rejection_codes.every(nonEmpty) || !sortedUnique(value.rejection_codes as string[]) || value.state_changed !== false || !sha256(value.admission_digest)) return false
   if ((value.result === 'accepted') !== (value.rejection_codes.length === 0)) return false
   if (value.result === 'accepted' && (
-    value.ready_event_commit_id !== value.exact_head || value.actor_role !== roleFor(value.transition) ||
+    (value.ready_event_commit_id !== null && value.ready_event_commit_id !== value.exact_head) || value.actor_role !== roleFor(value.transition) ||
     (value.transition === 'terminal_review_admission' && value.assignment_issuer_role !== 'Integrated Lead') ||
     (value.transition === 'merge_decision_admission' && value.assignment_issuer_role !== 'Product Owner')
   )) return false
@@ -359,7 +360,8 @@ const admittedInput = (value: unknown): value is ProtectedTransitionAdmissionInp
       !Number.isSafeInteger(value.pr_number) || Number(value.pr_number) <= 0 || !prUrl(value.pr_url) || !fullHead(value.exact_head) ||
       !exactKeys(value.ready_generation, READY_KEYS) || !commentUrl(value.ready_generation.record_url) || !sha256(value.ready_generation.record_digest) ||
       !readyTimelineUrl(value.ready_generation.endpoint) || !nonEmpty(value.ready_generation.event_id) || !isoTime(value.ready_generation.occurred_at) ||
-      !fullHead(value.ready_generation.commit_id) || !nonEmpty(value.ready_generation.actor_login) || !exactKeys(value.actor, ACTOR_KEYS) || !nonEmpty(value.actor.login) ||
+      !(value.ready_generation.commit_id === null || fullHead(value.ready_generation.commit_id)) || !nonEmpty(value.ready_generation.actor_login) ||
+      !exactKeys(value.actor, ACTOR_KEYS) || !nonEmpty(value.actor.login) ||
       !exactKeys(value.authority, AUTHORITY_KEYS) || !exactKeys(value.authority.trust_root, TRUST_ROOT_KEYS) ||
       !commentUrl(value.authority.trust_root.record_url) || !sha256(value.authority.trust_root.record_digest) ||
       !commentUrl(value.authority.trust_root.review_url) || !sha256(value.authority.trust_root.review_digest) || value.authority.trust_root.revision !== 1 ||
@@ -513,7 +515,8 @@ const semanticRejections = (
   if (input.ready_generation.record_url !== current.ready_generation_record_url || input.ready_generation.record_url !== artifact.ready_generation_record_url ||
       input.ready_generation.event_id !== current.ready_event_id || input.ready_generation.event_id !== artifact.ready_event_id ||
       input.ready_generation.occurred_at !== current.ready_occurred_at || input.ready_generation.occurred_at !== artifact.ready_occurred_at ||
-      input.ready_generation.actor_login !== current.ready_actor_login || input.ready_generation.commit_id !== input.exact_head ||
+      input.ready_generation.actor_login !== current.ready_actor_login ||
+      (input.ready_generation.commit_id !== null && input.ready_generation.commit_id !== input.exact_head) ||
       input.ready_generation.endpoint !== `https://api.github.com/repos/${input.repository}/issues/${input.pr_number}/timeline`) codes.push('ready_generation_mismatch')
   if (input.workflow_identity.path !== '.github/workflows/protected-transition-admission-v1.yml' || input.workflow_identity.ref !== expectedWorkflowRef ||
       input.workflow_identity.invocation_ref !== 'refs/heads/main' || input.workflow_identity.default_branch !== 'main' ||
