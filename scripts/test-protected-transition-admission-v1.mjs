@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { parse as parseYaml } from 'yaml'
 import {
@@ -14,6 +15,10 @@ import {
   PROTECTED_TRANSITION_RECEIPT_FILE_V1,
   evaluateProtectedTransitionAdmissionV1,
 } from '../src/continuous-orchestration/protected-transition-admission-v1.ts'
+import {
+  admitArtifactZipExecResultV1,
+  classifyTerminalLeafAuthorBindingV1,
+} from './run-protected-transition-admission-v1.mjs'
 
 const fixture = JSON.parse(await readFile('scripts/fixtures/protected-transition-admission-v1.json', 'utf8'))
 const workflowSource = await readFile('.github/workflows/protected-transition-admission-v1.yml', 'utf8')
@@ -194,6 +199,29 @@ const baseInput = (transition, collector) => ({
 })
 
 check(fixture.contract_version === 'protected-transition-admission-validation-v1', 'fixture contract version')
+const syntheticArtifactZip = Buffer.from('UEsDBBQAAAAIAMRyBl1Dv6ajBwAAAAIAAAAxAAAAcmVhZHktcmV2aWV3LXRlcm1pbmFsLW9ic2VydmF0aW9uLWFydGlmYWN0LXYxLmpjcwECAP3/e31QSwMEFAAAAAgAxHIGXUO/pqMHAAAAAgAAAC0AAABwcm90ZWN0ZWQtdHJhbnNpdGlvbi1hZG1pc3Npb24tdjEtcmVjZWlwdC5qY3MBAgD9/3t9UEsBAhQAFAAAAAgAxHIGXUO/pqMHAAAAAgAAADEAAAAAAAAAAAAAAAAAAAAAAHJlYWR5LXJldmlldy10ZXJtaW5hbC1vYnNlcnZhdGlvbi1hcnRpZmFjdC12MS5qY3NQSwECFAAUAAAACADEcgZdQ7+mowcAAAACAAAALQAAAAAAAAAAAAAAAABWAAAAcHJvdGVjdGVkLXRyYW5zaXRpb24tYWRtaXNzaW9uLXYxLXJlY2VpcHQuamNzUEsFBgAAAAACAAIAugAAAKgAAAAAAA==', 'base64')
+const acquiredSyntheticArtifactZip = admitArtifactZipExecResultV1({ stdout: syntheticArtifactZip, stderr: Buffer.alloc(0) })
+check(Buffer.isBuffer(acquiredSyntheticArtifactZip) && acquiredSyntheticArtifactZip.equals(syntheticArtifactZip) &&
+  acquiredSyntheticArtifactZip.subarray(0, 4).toString('hex') === '504b0304', 'actual synthetic artifact ZIP bytes survive the production binary acquisition boundary exactly')
+check(createHash('sha256').update(acquiredSyntheticArtifactZip).digest('hex') === createHash('sha256').update(syntheticArtifactZip).digest('hex'), 'artifact ZIP provenance SHA-256 is over the exact acquired binary bytes')
+let stringDecodedArtifactRejected = false
+try {
+  admitArtifactZipExecResultV1({ stdout: syntheticArtifactZip.toString('utf8'), stderr: '' })
+} catch (error) {
+  stringDecodedArtifactRejected = /binary GitHub API response malformed/.test(String(error?.message))
+}
+check(stringDecodedArtifactRejected, 'string-decoded artifact output is rejected before provenance hashing')
+let stringDecodedArtifactStderrRejected = false
+try {
+  admitArtifactZipExecResultV1({ stdout: syntheticArtifactZip, stderr: '' })
+} catch (error) {
+  stringDecodedArtifactStderrRejected = /binary GitHub API response malformed/.test(String(error?.message))
+}
+check(stringDecodedArtifactStderrRejected, 'string-decoded artifact stderr is rejected even when empty')
+check(classifyTerminalLeafAuthorBindingV1({ directApiAuthorLogin: fixture.actor_login, declaredApiAuthorLogin: fixture.actor_login, recordActorLogin: fixture.actor_login, assignedLogin: fixture.actor_login }) === 'accepted', 'Terminal leaf author binding admits one assigned reviewer across all four identities')
+check(classifyTerminalLeafAuthorBindingV1({ directApiAuthorLogin: '', declaredApiAuthorLogin: fixture.actor_login, recordActorLogin: fixture.actor_login, assignedLogin: fixture.actor_login }) === 'failed', 'missing direct Terminal API author evidence fails closed')
+check(classifyTerminalLeafAuthorBindingV1({ directApiAuthorLogin: 'api-author', declaredApiAuthorLogin: 'declared-author', recordActorLogin: fixture.actor_login, assignedLogin: fixture.actor_login }) === 'failed', 'Terminal API and declared author integrity mismatch fails closed')
+check(classifyTerminalLeafAuthorBindingV1({ directApiAuthorLogin: 'other-reviewer', declaredApiAuthorLogin: 'other-reviewer', recordActorLogin: 'other-reviewer', assignedLogin: fixture.actor_login }) === 'rejected', 'trustworthy APPROVE leaf authored by a non-assigned reviewer is rejected')
 const terminalInput = baseInput('terminal_review_admission', terminalCollector)
 const terminalAccepted = await evaluateProtectedTransitionAdmissionV1(terminalInput)
 check(terminalAccepted.result === 'accepted', 'Terminal Review Admission accepts exact current bindings')
@@ -366,8 +394,10 @@ check(runnerSource.includes("tip.record.status !== 'assigned'") && runnerSource.
 check(runnerSource.includes('host.triggeringActor !== assignment.assigned_login') && runnerSource.includes("workflow_actor_assignment_mismatch"), 'physical current-attempt workflow caller must equal the independently assigned login')
 check(runnerSource.includes('GITHUB_ACTOR') && runnerSource.includes('GITHUB_TRIGGERING_ACTOR') && runnerSource.includes('host.triggeringActor !== host.originalActor'), 'same-actor reruns are admitted and cross-actor reruns reject from trusted run context')
 check(runnerSource.includes('paginatedArtifacts') && runnerSource.includes('/actions/artifacts/${artifact.id}/zip') && runnerSource.includes("unzip', ['-Z1'") && runnerSource.includes('TERMINAL_ACCEPTED_FILES'), 'Terminal authority is reacquired from a fully paginated exact two-file Actions artifact')
+check(runnerSource.includes("encoding: 'buffer'") && runnerSource.includes('admitArtifactZipExecResultV1'), 'artifact ZIP acquisition explicitly requests Buffer stdout and stderr')
 check(runnerSource.includes('canonicalizeReadyReviewObservationJcsV1(receipt) !== receiptText') && runnerSource.includes('validateProtectedTransitionAdmissionReceiptV1(receipt)'), 'actual Terminal receipt bytes require canonical JCS and a valid admission seal')
 check(runnerSource.includes('terminal_lineage_candidate_not_current_leaf') && runnerSource.includes('predecessor_record_digest !== predecessor.source.bodyDigest'), 'Terminal caller locator must be the unique explicitly linked current leaf')
+check(runnerSource.includes('directApiAuthorLogin: source.authorLogin') && runnerSource.includes("terminal_leaf_author_assignment_mismatch"), 'current Terminal leaf binds direct API author, declared author, record actor, and canonical assignment login')
 check(runnerSource.indexOf('const assignment = await acquireAssignment') < runnerSource.indexOf('const collector = await execFileAsync(process.execPath'), 'authority admission completes before the single Collector invocation')
 check(runnerSource.includes("collector_artifact: 'not_acquired'") && runnerSource.includes("diagnostic_version: 'protected-transition-identity-rejection-v1'"), 'pre-Collector semantic rejection persists one explicit non-admitting diagnostic')
 check(!runnerSource.includes('taskSource.authorLogin !== host.actor'), 'Task record author is not treated as transition actor authority')

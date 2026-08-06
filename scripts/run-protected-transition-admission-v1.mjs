@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { promisify } from 'node:util'
 import { parse as parseYaml } from 'yaml'
 import {
@@ -202,11 +203,16 @@ const paginatedArtifacts = async (repository, runId) => {
   throw new Error('artifact pagination did not terminate')
 }
 
-const ghBuffer = async (args) => {
-  const { stdout, stderr } = await execFileAsync('gh', ['api', ...args], { maxBuffer: 256 * 1024 * 1024, windowsHide: true })
-  if (!Buffer.isBuffer(stdout) || (Buffer.isBuffer(stderr) ? stderr.length !== 0 : stderr !== '')) throw new Error('binary GitHub API response malformed')
+export const admitArtifactZipExecResultV1 = ({ stdout, stderr }) => {
+  if (!Buffer.isBuffer(stdout) || !Buffer.isBuffer(stderr) || stderr.length !== 0) throw new Error('binary GitHub API response malformed')
   return stdout
 }
+
+const ghBuffer = async (args) => admitArtifactZipExecResultV1(await execFileAsync('gh', ['api', ...args], {
+  encoding: 'buffer',
+  maxBuffer: 256 * 1024 * 1024,
+  windowsHide: true,
+}))
 
 const sha256Buffer = (value) => createHash('sha256').update(value).digest('hex')
 
@@ -361,14 +367,21 @@ const acquireAssignment = async (request, host, taskSource, readySource, readyEv
   })
 }
 
+export const classifyTerminalLeafAuthorBindingV1 = ({ directApiAuthorLogin, declaredApiAuthorLogin, recordActorLogin, assignedLogin }) => {
+  const values = [directApiAuthorLogin, declaredApiAuthorLogin, recordActorLogin, assignedLogin]
+  if (!values.every((value) => typeof value === 'string' && value.length > 0)) return 'failed'
+  if (directApiAuthorLogin !== declaredApiAuthorLogin) return 'failed'
+  if (declaredApiAuthorLogin !== recordActorLogin || recordActorLogin !== assignedLogin) return 'rejected'
+  return 'accepted'
+}
+
 const terminalTupleMatches = (record, request, host, readySource, readyEvent, assignment) =>
   record.task_record_url === request.taskRecordUrl && record.repository === host.repository && record.pr_number === request.prNumber &&
   record.pr_url === `https://github.com/${host.repository}/pull/${request.prNumber}` && record.exact_head === request.exactHead &&
   record.ready_generation_record_url === request.readyRecordUrl && record.ready_generation_record_digest === readySource.record.record_digest &&
   String(record.ready_event_id) === readyEvent.event_id && record.ready_occurred_at === readyEvent.occurred_at &&
   record.transition === 'terminal_review_admission' && record.assignment_record_url === assignment.record_url &&
-  record.assignment_record_digest === assignment.record_digest && record.actor_login === assignment.assigned_login &&
-  record.actor_role === assignment.assigned_role
+  record.assignment_record_digest === assignment.record_digest && record.actor_role === assignment.assigned_role
 
 const acquireCurrentTerminalLeaf = async (request, host, readySource, readyEvent, assignment) => {
   const taskIdentity = ISSUE_URL.exec(request.taskRecordUrl)
@@ -387,10 +400,18 @@ const acquireCurrentTerminalLeaf = async (request, host, readySource, readyEvent
     }
     const projection = Object.fromEntries(Object.entries(record).filter(([key]) => key !== 'record_digest'))
     if (record.record_digest !== await sha256ReadyReviewObservationV1(canonicalizeReadyReviewObservationJcsV1(projection)) ||
-        record.canonical_record !== source.url || record.api_author_login !== source.authorLogin || record.published_at !== source.createdAt) {
-      throw new Error('Terminal lineage URL, author, publication, or digest integrity failed')
+        record.canonical_record !== source.url || record.published_at !== source.createdAt) {
+      throw new Error('Terminal lineage URL, publication, or digest integrity failed')
     }
     if (!terminalTupleMatches(record, request, host, readySource, readyEvent, assignment)) continue
+    const authorBinding = classifyTerminalLeafAuthorBindingV1({
+      directApiAuthorLogin: source.authorLogin,
+      declaredApiAuthorLogin: record.api_author_login,
+      recordActorLogin: record.actor_login,
+      assignedLogin: assignment.assigned_login,
+    })
+    if (authorBinding === 'failed') throw new Error('Terminal lineage author evidence unavailable or integrity-invalid')
+    if (authorBinding === 'rejected') throw new IdentityRejection(['terminal_leaf_author_assignment_mismatch'])
     if (typeof record.lineage_id !== 'string' || record.lineage_id.length === 0 || !Number.isSafeInteger(record.revision) || record.revision <= 0 ||
         !['APPROVE', 'REVOKED', 'BLOCKED', 'CHANGES_REQUIRED', 'SUPERSEDED'].includes(record.effect) ||
         !(record.predecessor_record_url === null || COMMENT_URL.test(record.predecessor_record_url)) ||
@@ -642,11 +663,13 @@ const persistIdentityRejection = async (request, host, rejection, observed = {})
   process.exitCode = 2
 }
 
-const request = exactArgs(process.argv.slice(2))
-const host = admittedHostIdentity()
-if (request === null || host === null) {
-  fail('caller_or_host_identity_invalid', 'caller arguments or host-derived identity failed admission')
-} else {
+const main = async () => {
+  const request = exactArgs(process.argv.slice(2))
+  const host = admittedHostIdentity()
+  if (request === null || host === null) {
+    fail('caller_or_host_identity_invalid', 'caller arguments or host-derived identity failed admission')
+    return
+  }
   const observedAuthority = {}
   try {
     const taskSource = await acquireCanonicalRecord(request.taskRecordUrl, host.repository)
@@ -792,3 +815,5 @@ if (request === null || host === null) {
     }
   }
 }
+
+if (typeof process.argv[1] === 'string' && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) await main()
