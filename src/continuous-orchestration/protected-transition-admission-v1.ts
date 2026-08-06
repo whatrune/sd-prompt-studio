@@ -33,11 +33,23 @@ export type ProtectedTransitionAdmissionReceiptV1 = Readonly<{
   exact_head: string
   ready_generation_record_url: string
   ready_generation_record_digest: string
+  ready_event_endpoint: string
   ready_event_id: string
   ready_occurred_at: string
+  ready_event_commit_id: string
   ready_actor_login: string
   actor_login: string
   actor_role: ProtectedTransitionActorRoleV1
+  trust_root_record_url: string
+  trust_root_record_digest: string
+  trust_root_review_url: string
+  trust_root_review_digest: string
+  assignment_record_url: string
+  assignment_record_digest: string
+  assignment_id: string
+  assignment_revision: number
+  assignment_issuer_login: string
+  assignment_issuer_role: 'Integrated Lead' | 'Product Owner'
   collector_artifact_version: typeof READY_REVIEW_TERMINAL_OBSERVATION_ARTIFACT_V1
   collector_artifact_digest: string
   collector_artifact_jcs_sha256: string
@@ -91,14 +103,40 @@ export type ProtectedTransitionAdmissionInputV1 = Readonly<{
   ready_generation: Readonly<{
     record_url: string
     record_digest: string
+    endpoint: string
     event_id: string
     occurred_at: string
+    commit_id: string
     actor_login: string
   }>
   actor: Readonly<{
     login: string
-    role: ProtectedTransitionActorRoleV1
-    authorized_login: string
+  }>
+  authority: Readonly<{
+    trust_root: Readonly<{
+      record_url: string
+      record_digest: string
+      review_url: string
+      review_digest: string
+      revision: 1
+      issuer_anchor_url: string
+      issuer_anchor_digest: string
+      issuer_login: string
+      issuer_role: 'Integrated Lead' | 'Product Owner'
+      anchor_review_url: string | null
+      anchor_review_digest: string | null
+    }>
+    assignment: Readonly<{
+      record_url: string
+      record_digest: string
+      assignment_id: string
+      revision: number
+      issuer_login: string
+      issuer_role: 'Integrated Lead' | 'Product Owner'
+      assigned_login: string
+      assigned_role: ProtectedTransitionActorRoleV1
+      transition: ProtectedTransitionV1
+    }>
   }>
   collector_artifact_jcs: string
   collector_artifact_jcs_sha256: string
@@ -126,6 +164,10 @@ export type ProtectedTransitionAdmissionInputV1 = Readonly<{
     ready_actor_login: string
     actor_login: string
     actor_role: ProtectedTransitionActorRoleV1
+    assignment_record_url: string
+    assignment_record_digest: string
+    trust_root_record_url: string
+    trust_root_record_digest: string
     default_branch: string
     workflow_sha: string
     thread_snapshot_digest: string
@@ -179,15 +221,24 @@ export type ProtectedTransitionAdmissionResultV1 =
 
 const INPUT_KEYS = [
   'input_version', 'transition', 'repository', 'repository_id', 'task_record_url', 'task_scope_digest', 'pr_number', 'pr_url', 'exact_head',
-  'ready_generation', 'actor', 'collector_artifact_jcs', 'collector_artifact_jcs_sha256', 'terminal_review', 'workflow_identity', 'current_state',
+  'ready_generation', 'actor', 'authority', 'collector_artifact_jcs', 'collector_artifact_jcs_sha256', 'terminal_review', 'workflow_identity', 'current_state',
   'persistence', 'evaluated_at',
 ] as const
-const READY_KEYS = ['record_url', 'record_digest', 'event_id', 'occurred_at', 'actor_login'] as const
-const ACTOR_KEYS = ['login', 'role', 'authorized_login'] as const
+const READY_KEYS = ['record_url', 'record_digest', 'endpoint', 'event_id', 'occurred_at', 'commit_id', 'actor_login'] as const
+const ACTOR_KEYS = ['login'] as const
+const AUTHORITY_KEYS = ['trust_root', 'assignment'] as const
+const TRUST_ROOT_KEYS = [
+  'record_url', 'record_digest', 'review_url', 'review_digest', 'revision', 'issuer_anchor_url', 'issuer_anchor_digest', 'issuer_login', 'issuer_role',
+  'anchor_review_url', 'anchor_review_digest',
+] as const
+const ASSIGNMENT_KEYS = [
+  'record_url', 'record_digest', 'assignment_id', 'revision', 'issuer_login', 'issuer_role', 'assigned_login', 'assigned_role', 'transition',
+] as const
 const WORKFLOW_KEYS = ['path', 'ref', 'sha', 'invocation_ref', 'run_id', 'run_attempt', 'actor', 'server_url', 'run_url', 'default_branch'] as const
 const CURRENT_KEYS = [
   'repository', 'pr_number', 'exact_head', 'task_scope_digest', 'ready_generation_record_url', 'ready_event_id', 'ready_occurred_at',
-  'ready_actor_login', 'actor_login', 'actor_role', 'default_branch', 'workflow_sha', 'thread_snapshot_digest', 'terminal_review_decision',
+  'ready_actor_login', 'actor_login', 'actor_role', 'assignment_record_url', 'assignment_record_digest', 'trust_root_record_url',
+  'trust_root_record_digest', 'default_branch', 'workflow_sha', 'thread_snapshot_digest', 'terminal_review_decision',
   'latest_protected_event_at',
 ] as const
 const PERSISTENCE_KEYS = ['owner', 'available'] as const
@@ -197,7 +248,9 @@ const TERMINAL_KEYS = [
 ] as const
 const RECEIPT_KEYS = [
   'receipt_version', 'result', 'transition', 'repository', 'repository_id', 'task_record_url', 'task_scope_digest', 'pr_number', 'pr_url', 'exact_head',
-  'ready_generation_record_url', 'ready_generation_record_digest', 'ready_event_id', 'ready_occurred_at', 'ready_actor_login', 'actor_login', 'actor_role',
+  'ready_generation_record_url', 'ready_generation_record_digest', 'ready_event_endpoint', 'ready_event_id', 'ready_occurred_at', 'ready_event_commit_id',
+  'ready_actor_login', 'actor_login', 'actor_role', 'trust_root_record_url', 'trust_root_record_digest', 'trust_root_review_url', 'trust_root_review_digest',
+  'assignment_record_url', 'assignment_record_digest', 'assignment_id', 'assignment_revision', 'assignment_issuer_login', 'assignment_issuer_role',
   'collector_artifact_version', 'collector_artifact_digest', 'collector_artifact_jcs_sha256', 'thread_snapshot_digest', 'terminal_review_record_url',
   'terminal_review_record_digest', 'terminal_review_decision', 'terminal_review_accepted_receipt_digest', 'default_branch', 'workflow_path', 'workflow_ref',
   'workflow_sha', 'workflow_run_id', 'workflow_run_attempt', 'workflow_actor', 'workflow_run_url', 'evaluated_at', 'expires_at', 'rejection_codes',
@@ -214,6 +267,7 @@ const repository = (value: unknown): value is string => typeof value === 'string
 const commentUrl = (value: unknown): value is string => typeof value === 'string' && /^https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/\d+#issuecomment-\d+$/.test(value)
 const issueOrCommentUrl = (value: unknown): value is string => typeof value === 'string' && /^https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/\d+(?:#issuecomment-\d+)?$/.test(value)
 const prUrl = (value: unknown): value is string => typeof value === 'string' && /^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+$/.test(value)
+const readyTimelineUrl = (value: unknown): value is string => typeof value === 'string' && /^https:\/\/api\.github\.com\/repos\/[^/]+\/[^/]+\/issues\/\d+\/timeline$/.test(value)
 const isoTime = (value: unknown): value is string => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value) && !Number.isNaN(Date.parse(value))
 const roleFor = (transition: ProtectedTransitionV1): ProtectedTransitionActorRoleV1 =>
   transition === 'terminal_review_admission' ? 'Independent PR Reviewer' : 'Product Owner'
@@ -226,8 +280,13 @@ const validateReceiptV1 = async (value: unknown): Promise<boolean> => {
       (value.transition !== 'terminal_review_admission' && value.transition !== 'merge_decision_admission') ||
       !repository(value.repository) || !nonEmpty(value.repository_id) || !issueOrCommentUrl(value.task_record_url) || !sha256(value.task_scope_digest) ||
       !Number.isSafeInteger(value.pr_number) || Number(value.pr_number) <= 0 || !prUrl(value.pr_url) || !fullHead(value.exact_head) ||
-      !commentUrl(value.ready_generation_record_url) || !sha256(value.ready_generation_record_digest) || !nonEmpty(value.ready_event_id) ||
-      !isoTime(value.ready_occurred_at) || !nonEmpty(value.ready_actor_login) || !nonEmpty(value.actor_login) || value.actor_role !== roleFor(value.transition) ||
+      !commentUrl(value.ready_generation_record_url) || !sha256(value.ready_generation_record_digest) || !readyTimelineUrl(value.ready_event_endpoint) ||
+      !nonEmpty(value.ready_event_id) || !isoTime(value.ready_occurred_at) || !fullHead(value.ready_event_commit_id) || !nonEmpty(value.ready_actor_login) ||
+      !nonEmpty(value.actor_login) || (value.actor_role !== 'Independent PR Reviewer' && value.actor_role !== 'Product Owner') || !commentUrl(value.trust_root_record_url) ||
+      !sha256(value.trust_root_record_digest) || !commentUrl(value.trust_root_review_url) || !sha256(value.trust_root_review_digest) ||
+      !commentUrl(value.assignment_record_url) || !sha256(value.assignment_record_digest) || !nonEmpty(value.assignment_id) ||
+      !Number.isSafeInteger(value.assignment_revision) || Number(value.assignment_revision) <= 0 || !nonEmpty(value.assignment_issuer_login) ||
+      (value.assignment_issuer_role !== 'Integrated Lead' && value.assignment_issuer_role !== 'Product Owner') ||
       value.collector_artifact_version !== READY_REVIEW_TERMINAL_OBSERVATION_ARTIFACT_V1 || !sha256(value.collector_artifact_digest) ||
       !sha256(value.collector_artifact_jcs_sha256) || !sha256(value.thread_snapshot_digest) || value.default_branch !== 'main' ||
       value.workflow_path !== '.github/workflows/protected-transition-admission-v1.yml' || !nonEmpty(value.workflow_ref) || !fullHead(value.workflow_sha) ||
@@ -236,6 +295,11 @@ const validateReceiptV1 = async (value: unknown): Promise<boolean> => {
       Date.parse(value.expires_at) - Date.parse(value.evaluated_at) !== 30 * 60 * 1000 || !Array.isArray(value.rejection_codes) ||
       !value.rejection_codes.every(nonEmpty) || !sortedUnique(value.rejection_codes as string[]) || value.state_changed !== false || !sha256(value.admission_digest)) return false
   if ((value.result === 'accepted') !== (value.rejection_codes.length === 0)) return false
+  if (value.result === 'accepted' && (
+    value.ready_event_commit_id !== value.exact_head || value.actor_role !== roleFor(value.transition) ||
+    (value.transition === 'terminal_review_admission' && value.assignment_issuer_role !== 'Integrated Lead') ||
+    (value.transition === 'merge_decision_admission' && value.assignment_issuer_role !== 'Product Owner')
+  )) return false
   const terminalFields = [value.terminal_review_record_url, value.terminal_review_record_digest, value.terminal_review_decision, value.terminal_review_accepted_receipt_digest]
   if (value.transition === 'terminal_review_admission') {
     if (!terminalFields.every((field) => field === null)) return false
@@ -260,9 +324,25 @@ const admittedInput = (value: unknown): value is ProtectedTransitionAdmissionInp
       !nonEmpty(value.repository_id) || !issueOrCommentUrl(value.task_record_url) || !sha256(value.task_scope_digest) ||
       !Number.isSafeInteger(value.pr_number) || Number(value.pr_number) <= 0 || !prUrl(value.pr_url) || !fullHead(value.exact_head) ||
       !exactKeys(value.ready_generation, READY_KEYS) || !commentUrl(value.ready_generation.record_url) || !sha256(value.ready_generation.record_digest) ||
-      !nonEmpty(value.ready_generation.event_id) || !isoTime(value.ready_generation.occurred_at) || !nonEmpty(value.ready_generation.actor_login) ||
-      !exactKeys(value.actor, ACTOR_KEYS) || !nonEmpty(value.actor.login) || !nonEmpty(value.actor.authorized_login) ||
-      (value.actor.role !== 'Independent PR Reviewer' && value.actor.role !== 'Product Owner') || !nonEmpty(value.collector_artifact_jcs) ||
+      !readyTimelineUrl(value.ready_generation.endpoint) || !nonEmpty(value.ready_generation.event_id) || !isoTime(value.ready_generation.occurred_at) ||
+      !fullHead(value.ready_generation.commit_id) || !nonEmpty(value.ready_generation.actor_login) || !exactKeys(value.actor, ACTOR_KEYS) || !nonEmpty(value.actor.login) ||
+      !exactKeys(value.authority, AUTHORITY_KEYS) || !exactKeys(value.authority.trust_root, TRUST_ROOT_KEYS) ||
+      !commentUrl(value.authority.trust_root.record_url) || !sha256(value.authority.trust_root.record_digest) ||
+      !commentUrl(value.authority.trust_root.review_url) || !sha256(value.authority.trust_root.review_digest) || value.authority.trust_root.revision !== 1 ||
+      !commentUrl(value.authority.trust_root.issuer_anchor_url) || !sha256(value.authority.trust_root.issuer_anchor_digest) ||
+      !nonEmpty(value.authority.trust_root.issuer_login) ||
+      (value.authority.trust_root.issuer_role !== 'Integrated Lead' && value.authority.trust_root.issuer_role !== 'Product Owner') ||
+      !((value.authority.trust_root.anchor_review_url === null && value.authority.trust_root.anchor_review_digest === null) ||
+        (commentUrl(value.authority.trust_root.anchor_review_url) && sha256(value.authority.trust_root.anchor_review_digest))) ||
+      !exactKeys(value.authority.assignment, ASSIGNMENT_KEYS) || !commentUrl(value.authority.assignment.record_url) ||
+      !sha256(value.authority.assignment.record_digest) || !nonEmpty(value.authority.assignment.assignment_id) ||
+      !Number.isSafeInteger(value.authority.assignment.revision) || Number(value.authority.assignment.revision) <= 0 ||
+      !nonEmpty(value.authority.assignment.issuer_login) ||
+      (value.authority.assignment.issuer_role !== 'Integrated Lead' && value.authority.assignment.issuer_role !== 'Product Owner') ||
+      !nonEmpty(value.authority.assignment.assigned_login) ||
+      (value.authority.assignment.assigned_role !== 'Independent PR Reviewer' && value.authority.assignment.assigned_role !== 'Product Owner') ||
+      (value.authority.assignment.transition !== 'terminal_review_admission' && value.authority.assignment.transition !== 'merge_decision_admission') ||
+      !nonEmpty(value.collector_artifact_jcs) ||
       !sha256(value.collector_artifact_jcs_sha256) || !(value.terminal_review === null || isObject(value.terminal_review)) ||
       !exactKeys(value.workflow_identity, WORKFLOW_KEYS) || value.workflow_identity.path !== '.github/workflows/protected-transition-admission-v1.yml' ||
       !nonEmpty(value.workflow_identity.ref) || !fullHead(value.workflow_identity.sha) || !nonEmpty(value.workflow_identity.invocation_ref) ||
@@ -273,6 +353,8 @@ const admittedInput = (value: unknown): value is ProtectedTransitionAdmissionInp
       !sha256(value.current_state.task_scope_digest) || !commentUrl(value.current_state.ready_generation_record_url) || !nonEmpty(value.current_state.ready_event_id) ||
       !isoTime(value.current_state.ready_occurred_at) || !nonEmpty(value.current_state.ready_actor_login) || !nonEmpty(value.current_state.actor_login) ||
       (value.current_state.actor_role !== 'Independent PR Reviewer' && value.current_state.actor_role !== 'Product Owner') ||
+      !commentUrl(value.current_state.assignment_record_url) || !sha256(value.current_state.assignment_record_digest) ||
+      !commentUrl(value.current_state.trust_root_record_url) || !sha256(value.current_state.trust_root_record_digest) ||
       !nonEmpty(value.current_state.default_branch) || !fullHead(value.current_state.workflow_sha) || !sha256(value.current_state.thread_snapshot_digest) ||
       !(value.current_state.terminal_review_decision === null || value.current_state.terminal_review_decision === 'APPROVE') ||
       !isoTime(value.current_state.latest_protected_event_at) || !exactKeys(value.persistence, PERSISTENCE_KEYS) ||
@@ -321,11 +403,23 @@ const buildReceipt = async (
     exact_head: input.exact_head,
     ready_generation_record_url: input.ready_generation.record_url,
     ready_generation_record_digest: input.ready_generation.record_digest,
+    ready_event_endpoint: input.ready_generation.endpoint,
     ready_event_id: input.ready_generation.event_id,
     ready_occurred_at: input.ready_generation.occurred_at,
+    ready_event_commit_id: input.ready_generation.commit_id,
     ready_actor_login: input.ready_generation.actor_login,
     actor_login: input.actor.login,
-    actor_role: roleFor(input.transition),
+    actor_role: input.authority.assignment.assigned_role,
+    trust_root_record_url: input.authority.trust_root.record_url,
+    trust_root_record_digest: input.authority.trust_root.record_digest,
+    trust_root_review_url: input.authority.trust_root.review_url,
+    trust_root_review_digest: input.authority.trust_root.review_digest,
+    assignment_record_url: input.authority.assignment.record_url,
+    assignment_record_digest: input.authority.assignment.record_digest,
+    assignment_id: input.authority.assignment.assignment_id,
+    assignment_revision: input.authority.assignment.revision,
+    assignment_issuer_login: input.authority.assignment.issuer_login,
+    assignment_issuer_role: input.authority.assignment.issuer_role,
     collector_artifact_version: READY_REVIEW_TERMINAL_OBSERVATION_ARTIFACT_V1,
     collector_artifact_digest: artifact.artifact_digest,
     collector_artifact_jcs_sha256: input.collector_artifact_jcs_sha256,
@@ -361,8 +455,15 @@ const semanticRejections = (
   const expectedPrUrl = `https://github.com/${input.repository}/pull/${input.pr_number}`
   const expectedWorkflowRef = `${input.repository}/.github/workflows/protected-transition-admission-v1.yml@refs/heads/main`
   const current = input.current_state
-  if (input.actor.login !== input.actor.authorized_login || input.actor.login !== input.workflow_identity.actor || input.actor.login !== current.actor_login) codes.push('actor_mismatch')
-  if (input.actor.role !== roleFor(input.transition) || input.actor.role !== current.actor_role) codes.push('actor_role_mismatch')
+  const assignment = input.authority.assignment
+  const root = input.authority.trust_root
+  if (input.actor.login !== assignment.assigned_login || input.actor.login !== input.workflow_identity.actor || input.actor.login !== current.actor_login) codes.push('actor_mismatch')
+  if (assignment.assigned_role !== roleFor(input.transition) || assignment.assigned_role !== current.actor_role || assignment.transition !== input.transition) codes.push('actor_role_mismatch')
+  if (assignment.issuer_login !== root.issuer_login || assignment.issuer_role !== root.issuer_role ||
+      (input.transition === 'terminal_review_admission' && root.issuer_role !== 'Integrated Lead') ||
+      (input.transition === 'merge_decision_admission' && root.issuer_role !== 'Product Owner')) codes.push('assignment_issuer_mismatch')
+  if (assignment.record_url !== current.assignment_record_url || assignment.record_digest !== current.assignment_record_digest ||
+      root.record_url !== current.trust_root_record_url || root.record_digest !== current.trust_root_record_digest) codes.push('authority_binding_mismatch')
   if (input.repository !== current.repository || input.repository !== artifact.repository) codes.push('repository_mismatch')
   if (input.pr_number !== current.pr_number || input.pr_number !== artifact.pr_number || input.pr_url !== expectedPrUrl || input.pr_url !== artifact.pr_url) codes.push('pr_mismatch')
   if (input.exact_head !== current.exact_head || input.exact_head !== artifact.exact_head) codes.push('head_mismatch')
@@ -370,7 +471,8 @@ const semanticRejections = (
   if (input.ready_generation.record_url !== current.ready_generation_record_url || input.ready_generation.record_url !== artifact.ready_generation_record_url ||
       input.ready_generation.event_id !== current.ready_event_id || input.ready_generation.event_id !== artifact.ready_event_id ||
       input.ready_generation.occurred_at !== current.ready_occurred_at || input.ready_generation.occurred_at !== artifact.ready_occurred_at ||
-      input.ready_generation.actor_login !== current.ready_actor_login) codes.push('ready_generation_mismatch')
+      input.ready_generation.actor_login !== current.ready_actor_login || input.ready_generation.commit_id !== input.exact_head ||
+      input.ready_generation.endpoint !== `https://api.github.com/repos/${input.repository}/issues/${input.pr_number}/timeline`) codes.push('ready_generation_mismatch')
   if (input.workflow_identity.path !== '.github/workflows/protected-transition-admission-v1.yml' || input.workflow_identity.ref !== expectedWorkflowRef ||
       input.workflow_identity.invocation_ref !== 'refs/heads/main' || input.workflow_identity.default_branch !== 'main' ||
       input.workflow_identity.sha !== current.workflow_sha || input.workflow_identity.actor !== input.actor.login) codes.push('workflow_identity_mismatch')

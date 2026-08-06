@@ -141,10 +141,28 @@ const baseInput = (transition, collector) => ({
   pr_url: fixture.pr_url,
   exact_head: fixture.exact_head,
   ready_generation: clone(fixture.ready_generation),
-  actor: {
-    login: fixture.actor_login,
-    role: transition === 'terminal_review_admission' ? 'Independent PR Reviewer' : 'Product Owner',
-    authorized_login: fixture.actor_login,
+  actor: { login: fixture.actor_login },
+  authority: {
+    trust_root: {
+      ...clone(fixture.trust_root),
+      issuer_anchor_url: (transition === 'terminal_review_admission' ? fixture.terminal_authority : fixture.merge_authority).issuer_anchor_url,
+      issuer_anchor_digest: (transition === 'terminal_review_admission' ? fixture.terminal_authority : fixture.merge_authority).issuer_anchor_digest,
+      issuer_login: (transition === 'terminal_review_admission' ? fixture.terminal_authority : fixture.merge_authority).issuer_login,
+      issuer_role: (transition === 'terminal_review_admission' ? fixture.terminal_authority : fixture.merge_authority).issuer_role,
+      anchor_review_url: (transition === 'terminal_review_admission' ? fixture.terminal_authority : fixture.merge_authority).anchor_review_url,
+      anchor_review_digest: (transition === 'terminal_review_admission' ? fixture.terminal_authority : fixture.merge_authority).anchor_review_digest,
+    },
+    assignment: {
+      record_url: (transition === 'terminal_review_admission' ? fixture.terminal_authority : fixture.merge_authority).assignment_record_url,
+      record_digest: (transition === 'terminal_review_admission' ? fixture.terminal_authority : fixture.merge_authority).assignment_record_digest,
+      assignment_id: (transition === 'terminal_review_admission' ? fixture.terminal_authority : fixture.merge_authority).assignment_id,
+      revision: (transition === 'terminal_review_admission' ? fixture.terminal_authority : fixture.merge_authority).assignment_revision,
+      issuer_login: (transition === 'terminal_review_admission' ? fixture.terminal_authority : fixture.merge_authority).issuer_login,
+      issuer_role: (transition === 'terminal_review_admission' ? fixture.terminal_authority : fixture.merge_authority).issuer_role,
+      assigned_login: fixture.actor_login,
+      assigned_role: (transition === 'terminal_review_admission' ? fixture.terminal_authority : fixture.merge_authority).assigned_role,
+      transition,
+    },
   },
   collector_artifact_jcs: collector.jcs,
   collector_artifact_jcs_sha256: collector.sha256,
@@ -161,6 +179,10 @@ const baseInput = (transition, collector) => ({
     ready_actor_login: fixture.ready_generation.actor_login,
     actor_login: fixture.actor_login,
     actor_role: transition === 'terminal_review_admission' ? 'Independent PR Reviewer' : 'Product Owner',
+    assignment_record_url: (transition === 'terminal_review_admission' ? fixture.terminal_authority : fixture.merge_authority).assignment_record_url,
+    assignment_record_digest: (transition === 'terminal_review_admission' ? fixture.terminal_authority : fixture.merge_authority).assignment_record_digest,
+    trust_root_record_url: fixture.trust_root.record_url,
+    trust_root_record_digest: fixture.trust_root.record_digest,
     default_branch: 'main',
     workflow_sha: fixture.workflow.sha,
     thread_snapshot_digest: collector.artifact.thread_snapshot.snapshot_digest,
@@ -180,6 +202,9 @@ check(terminalAccepted.result === 'accepted' && terminalAccepted.files_to_persis
 check(terminalAccepted.result === 'accepted' && Date.parse(terminalAccepted.receipt.expires_at) - Date.parse(terminalAccepted.receipt.evaluated_at) === 30 * 60 * 1000, 'accepted receipt expires exactly 30 minutes after evaluation')
 check(terminalAccepted.result === 'accepted' && terminalAccepted.receipt.actor_login === fixture.actor_login && terminalAccepted.receipt.actor_role === 'Independent PR Reviewer', 'Terminal receipt binds actor and assigned role')
 check(terminalAccepted.result === 'accepted' && terminalAccepted.receipt.exact_head === fixture.exact_head && terminalAccepted.receipt.ready_generation_record_url === fixture.ready_generation.record_url, 'Terminal receipt binds exact HEAD and Ready Generation')
+check(terminalAccepted.result === 'accepted' && terminalAccepted.receipt.ready_event_endpoint === fixture.ready_generation.endpoint && terminalAccepted.receipt.ready_event_commit_id === fixture.exact_head && terminalAccepted.receipt.ready_actor_login === fixture.ready_generation.actor_login, 'Terminal receipt binds the exact REST Ready event identity and actor')
+check(terminalAccepted.result === 'accepted' && terminalAccepted.receipt.assignment_record_url === fixture.terminal_authority.assignment_record_url && terminalAccepted.receipt.assignment_issuer_role === 'Integrated Lead', 'Terminal receipt binds the independently issued canonical assignment')
+check(terminalAccepted.result === 'accepted' && terminalAccepted.receipt.trust_root_record_url === fixture.trust_root.record_url && terminalAccepted.receipt.trust_root_review_url === fixture.trust_root.review_url, 'Terminal receipt binds the independently reviewed trust root')
 check(frozen(terminalAccepted), 'accepted result is recursively immutable')
 
 assert.equal(terminalAccepted.result, 'accepted')
@@ -228,12 +253,19 @@ const failedCase = async (mutate, expectedCode, label, source = terminalInput) =
 
 const actorRejected = await rejectedCase((input) => { input.actor.login = 'wrong-actor'; input.workflow_identity.actor = 'wrong-actor' }, 'actor_mismatch', 'wrong actor is rejected')
 check(actorRejected.result === 'rejected' && actorRejected.receipt_count === 1 && actorRejected.admitted_artifact_count === 0 && actorRejected.files_to_persist.length === 1, 'rejected result persists exactly one diagnostic receipt and no admitted artifact')
-await rejectedCase((input) => { input.actor.role = 'Product Owner'; input.current_state.actor_role = 'Product Owner' }, 'actor_role_mismatch', 'wrong transition actor role is rejected')
+await rejectedCase((input) => { input.authority.assignment.assigned_role = 'Product Owner'; input.current_state.actor_role = 'Product Owner' }, 'actor_role_mismatch', 'wrong canonical assignment role is rejected')
+await rejectedCase((input) => { input.authority.assignment.issuer_login = 'self-issued'; input.authority.assignment.assigned_login = 'self-issued' }, 'actor_mismatch', 'self-authenticating assignment does not authorize the caller')
+await rejectedCase((input) => { input.authority.assignment.issuer_login = 'self-issued' }, 'assignment_issuer_mismatch', 'assignment issuer must equal the independently admitted trust-root login')
+await rejectedCase((input) => { input.authority.assignment.issuer_role = 'Product Owner' }, 'assignment_issuer_mismatch', 'cross-role assignment issuer is rejected')
+await rejectedCase((input) => { input.authority.assignment.record_url = 'https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-6000000099' }, 'authority_binding_mismatch', 'stale or ambiguous assignment record binding is rejected')
+await rejectedCase((input) => { input.authority.trust_root.record_digest = '9'.repeat(64) }, 'authority_binding_mismatch', 'wrong independently reviewed trust-root binding is rejected')
 await rejectedCase((input) => { input.repository = 'other/repository' }, 'repository_mismatch', 'wrong repository is rejected')
 await rejectedCase((input) => { input.pr_number = 261 }, 'pr_mismatch', 'wrong PR is rejected')
 await rejectedCase((input) => { input.exact_head = '3'.repeat(40) }, 'head_mismatch', 'wrong exact HEAD is rejected')
 await rejectedCase((input) => { input.task_scope_digest = 'f'.repeat(64) }, 'task_scope_mismatch', 'wrong Task scope digest is rejected')
 await rejectedCase((input) => { input.ready_generation.event_id = '29000000009' }, 'ready_generation_mismatch', 'wrong Ready Generation is rejected')
+await rejectedCase((input) => { input.ready_generation.actor_login = 'ready-event-actor'; }, 'ready_generation_mismatch', 'Ready REST event actor remains independently bound from record publisher or caller')
+await rejectedCase((input) => { input.ready_generation.commit_id = '8'.repeat(40) }, 'ready_generation_mismatch', 'Ready REST event commit must equal exact HEAD')
 await rejectedCase((input) => { input.workflow_identity.invocation_ref = 'refs/heads/feature' }, 'workflow_identity_mismatch', 'non-default ref is rejected')
 await rejectedCase((input) => { input.workflow_identity.sha = '4'.repeat(40) }, 'workflow_identity_mismatch', 'wrong workflow SHA is rejected')
 await rejectedCase((input) => { input.current_state.thread_snapshot_digest = '5'.repeat(64) }, 'thread_snapshot_mismatch', 'changed thread snapshot is rejected')
@@ -294,6 +326,24 @@ check(Object.keys(workflow.jobs).length === 1 && Object.keys(workflow.jobs)[0] =
 check((workflowSource.match(/actions\/checkout@[0-9a-f]{40}/g) ?? []).length === 1 && (workflowSource.match(/actions\/setup-node@[0-9a-f]{40}/g) ?? []).length === 1 && (workflowSource.match(/actions\/upload-artifact@[0-9a-f]{40}/g) ?? []).length === 1, 'all external Actions are pinned once to full commit SHAs')
 check((runnerSource.match(/run-ready-review-terminal-observation-collector-v1\.mjs/g) ?? []).length === 1, 'production composition names the existing Collector CLI exactly once')
 check((runnerSource.match(/execFileAsync\(process\.execPath/g) ?? []).length === 1, 'production composition invokes the existing Collector CLI exactly once')
+check(runnerSource.includes("event?.event === 'ready_for_review'") && runnerSource.includes('event?.commit_id === request.exactHead') && runnerSource.includes('event?.actor?.login'), 'production binds Ready authority to the exact paginated REST ready_for_review event actor')
+check(runnerSource.includes('issues/${request.prNumber}/timeline') && runnerSource.includes('response.length < 100'), 'production fully paginates the Ready REST timeline before authority selection')
+check(runnerSource.includes("matches.length !== 1") && runnerSource.includes("ready_event_cardinality_invalid"), 'zero or multiple exact Ready events reject before Collector execution')
+check(runnerSource.includes('actor_login: readyEvent.actor_login') && !runnerSource.includes('actor_login: readySource.authorLogin'), 'Ready Generation publisher is never substituted for the REST Ready actor')
+check(runnerSource.includes('issues/${taskIdentity[3]}/comments') && runnerSource.includes('acquireCanonicalRecord(candidate.listed.html_url'), 'production paginates Task assignments and directly re-fetches the selected canonical record')
+check(runnerSource.includes('source.authorLogin !== trustRoot.issuer_login') && runnerSource.includes('record.authority_owner_login !== trustRoot.issuer_login'), 'assignment issuer is authenticated by the independent trust root instead of self-assertion')
+check(runnerSource.includes("declared.length === 0") && runnerSource.includes("assignment_missing"), 'missing canonical assignment rejects before Collector execution')
+check(runnerSource.includes("direct.createdAt !== direct.updatedAt") && runnerSource.includes("assignment_edited"), 'edited assignment records fail closed')
+check(runnerSource.includes("assignmentIds.size !== 1") && runnerSource.includes("assignment_chain_ambiguous"), 'multiple assignment chains fail closed')
+check(runnerSource.includes("byRevision.has(item.record.revision)") && runnerSource.includes("assignment_chain_forked"), 'assignment revision forks fail closed')
+check(runnerSource.includes("byRevision.size !== maximum") && runnerSource.includes("assignment_chain_gapped"), 'assignment revision gaps fail closed')
+check(runnerSource.includes("item.record.supersedes_record_url !== predecessor") && runnerSource.includes("assignment_chain_invalid"), 'assignment supersession mismatches fail closed')
+check(runnerSource.includes("tip.record.status !== 'assigned'") && runnerSource.includes("assignment_revoked"), 'revoked current assignment fails closed')
+check(runnerSource.includes("tip.record.assigned_login !== host.actor") && runnerSource.includes("workflow_actor_assignment_mismatch"), 'physical workflow caller must equal the independently assigned login')
+check(runnerSource.indexOf('const assignment = await acquireAssignment') < runnerSource.indexOf('const collector = await execFileAsync(process.execPath'), 'authority admission completes before the single Collector invocation')
+check(runnerSource.includes("collector_artifact: 'not_acquired'") && runnerSource.includes("diagnostic_version: 'protected-transition-identity-rejection-v1'"), 'pre-Collector semantic rejection persists one explicit non-admitting diagnostic')
+check(!runnerSource.includes('taskSource.authorLogin !== host.actor'), 'Task record author is not treated as transition actor authority')
+check(!runnerSource.includes("const actorRole = request.transition ==="), 'transition does not synthesize an actor role')
 check((evaluatorSource.match(/parseReadyReviewTerminalObservationArtifactV1\(/g) ?? []).length === 1, 'pure evaluator reuses the existing exact-byte parser exactly once')
 check((evaluatorSource.match(/export const evaluateProtectedTransitionAdmissionV1\s*=/g) ?? []).length === 1, 'one pure protected-transition evaluator is exported')
 check(!/markPullRequestReadyForReview|mergePullRequest|enablePullRequestAutoMerge|\/merge\b|gh\s+pr\s+(ready|merge|review)/.test(`${runnerSource}\n${evaluatorSource}`), 'implementation has no Ready, Review publication, Merge Decision publication, or Merge capability')

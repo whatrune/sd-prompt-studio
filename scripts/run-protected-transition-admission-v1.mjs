@@ -10,6 +10,7 @@ import {
 } from '../src/continuous-orchestration/ready-review-terminal-observation-artifact-v1.ts'
 import {
   PROTECTED_TRANSITION_ADMISSION_INPUT_V1,
+  PROTECTED_TRANSITION_RECEIPT_FILE_V1,
   evaluateProtectedTransitionAdmissionV1,
 } from '../src/continuous-orchestration/protected-transition-admission-v1.ts'
 
@@ -20,6 +21,62 @@ const ISSUE_URL = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/issues\/(\d+)$/
 const COMMENT_URL = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/issues\/(\d+)#issuecomment-(\d+)$/
 const WORKFLOW_PATH = '.github/workflows/protected-transition-admission-v1.yml'
 const COLLECTOR_PATH = 'scripts/run-ready-review-terminal-observation-collector-v1.mjs'
+const TRUST_ROOT_ID = 'PTA-V1-PHASE-1-ASSIGNMENT-ISSUER-TRUST-ROOT'
+const TRUST_ROOT = Object.freeze({
+  recordUrl: 'https://github.com/whatrune/sd-prompt-studio/issues/251#issuecomment-5198987697',
+  recordDigest: '9b8f59daae1c4b305791e8932444a53e72ede3e14565c3e776ae70569f32c260',
+  recordAuthor: 'whatrune',
+  recordCreatedAt: '2026-08-06T00:28:28Z',
+  recordUpdatedAt: '2026-08-06T00:28:28Z',
+  reviewUrl: 'https://github.com/whatrune/sd-prompt-studio/issues/251#issuecomment-5199026857',
+  reviewDigest: 'c17cf283ef02479ccce177c45311f01bd4b82b69aa464c658ab63d50f17267d1',
+  reviewAuthor: 'whatrune',
+  reviewCreatedAt: '2026-08-06T00:34:02Z',
+  reviewUpdatedAt: '2026-08-06T00:34:02Z',
+  revision: 1,
+  parentIssueUrl: 'https://github.com/whatrune/sd-prompt-studio/issues/251',
+})
+const AUTHORITY_ANCHORS = Object.freeze({
+  terminal_review_actor_assignment_v1: Object.freeze({
+    ownerRole: 'Integrated Lead',
+    ownerLogin: 'whatrune',
+    url: 'https://github.com/whatrune/sd-prompt-studio/issues/251#issuecomment-5198928778',
+    bodyDigest: '955b897e2af8b569e3d0e496df5bed76efa7fbf97db94ed3386a1ac89102ca42',
+    createdAt: '2026-08-06T00:19:15Z',
+    updatedAt: '2026-08-06T00:19:15Z',
+    assignedRole: 'Independent PR Reviewer',
+    transition: 'terminal_review_admission',
+  }),
+  merge_decision_actor_assignment_v1: Object.freeze({
+    ownerRole: 'Product Owner',
+    ownerLogin: 'whatrune',
+    url: 'https://github.com/whatrune/sd-prompt-studio/issues/251#issuecomment-5186163757',
+    bodyDigest: '385ca7a9701a3e5dc1db8e2f26a89d0d8d29fc3e9ea7609e604d873e0e633bd3',
+    createdAt: '2026-08-05T00:36:01Z',
+    updatedAt: '2026-08-05T00:36:02Z',
+    reviewUrl: 'https://github.com/whatrune/sd-prompt-studio/issues/251#issuecomment-5186264557',
+    reviewDigest: 'c347f9f8d43c83f3af55d9c139028b7c4b88560d93401d742a55a3cd19d6b293',
+    reviewAuthor: 'whatrune',
+    reviewCreatedAt: '2026-08-05T00:52:23Z',
+    reviewUpdatedAt: '2026-08-05T00:52:55Z',
+    assignedRole: 'Product Owner',
+    transition: 'merge_decision_admission',
+  }),
+})
+const ASSIGNMENT_KEYS = [
+  'record_type', 'canonical_record', 'record_digest', 'assignment_id', 'revision', 'supersedes_record_url', 'status',
+  'authority_owner_role', 'authority_owner_login', 'repository', 'task_record_url', 'task_scope_digest', 'pr_number', 'pr_url',
+  'exact_head', 'ready_generation_record_url', 'ready_generation_record_digest', 'ready_event_id', 'ready_occurred_at', 'transition',
+  'assigned_login', 'assigned_role', 'issued_at',
+]
+
+class IdentityRejection extends Error {
+  constructor (codes, observation = {}) {
+    super('canonical identity rejected')
+    this.codes = [...new Set(codes)].sort()
+    this.observation = observation
+  }
+}
 
 const fail = (code, message) => {
   process.stderr.write(`${canonicalizeReadyReviewObservationJcsV1({ result: 'failed', code, state_changed: false, protected_transition_performed: false, safe_message: message })}\n`)
@@ -60,6 +117,11 @@ const parseRecordBody = (body) => {
   }
 }
 
+const exactObjectKeys = (value, keys) => value !== null && typeof value === 'object' && !Array.isArray(value) &&
+  Object.keys(value).length === keys.length && keys.every((key) => Object.prototype.hasOwnProperty.call(value, key))
+
+const bodyDigest = async (body) => await sha256ReadyReviewObservationV1(body)
+
 const ghJson = async (args) => {
   const { stdout } = await execFileAsync('gh', ['api', ...args], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, windowsHide: true })
   return JSON.parse(stdout)
@@ -75,14 +137,188 @@ const sourceIdentity = (url, repository) => {
     : { endpoint: `repos/${repository}/issues/comments/${match[4]}` }
 }
 
-const acquireCanonicalRecord = async (url, repository) => {
+const acquireCanonicalRecord = async (url, repository, { requireOwner = true } = {}) => {
   const identity = sourceIdentity(url, repository)
   if (identity === null) throw new Error('canonical source repository mismatch')
   const response = await ghJson([identity.endpoint])
-  if (response?.html_url !== url || response?.author_association !== 'OWNER' || typeof response?.user?.login !== 'string' || typeof response?.body !== 'string') {
+  if (response?.html_url !== url || (requireOwner && response?.author_association !== 'OWNER') ||
+      typeof response?.user?.login !== 'string' || typeof response?.body !== 'string') {
     throw new Error('canonical source authority mismatch')
   }
-  return Object.freeze({ url, authorLogin: response.user.login, body: response.body, record: parseRecordBody(response.body) })
+  return Object.freeze({
+    url,
+    authorLogin: response.user.login,
+    authorAssociation: response.author_association,
+    createdAt: response.created_at,
+    updatedAt: response.updated_at,
+    body: response.body,
+    bodyDigest: await bodyDigest(response.body),
+    record: parseRecordBody(response.body),
+  })
+}
+
+const paginated = async (endpoint) => {
+  const rows = []
+  for (let page = 1; page <= 1000; page += 1) {
+    const separator = endpoint.includes('?') ? '&' : '?'
+    const response = await ghJson([`${endpoint}${separator}per_page=100&page=${page}`])
+    if (!Array.isArray(response)) throw new Error('paginated endpoint returned a non-array')
+    rows.push(...response)
+    if (response.length < 100) return rows
+  }
+  throw new Error('pagination did not terminate')
+}
+
+const recordTypeClaim = (body, recordType) => typeof body === 'string' &&
+  new RegExp(`(?:^|\\n)\\s*record_type\\s*:\\s*["']?${recordType}["']?\\s*(?:\\r?\\n|$)`).test(body)
+
+const expectedAssignment = (transition) => transition === 'terminal_review_admission'
+  ? Object.freeze({ recordType: 'terminal_review_actor_assignment_v1', ...AUTHORITY_ANCHORS.terminal_review_actor_assignment_v1 })
+  : Object.freeze({ recordType: 'merge_decision_actor_assignment_v1', ...AUTHORITY_ANCHORS.merge_decision_actor_assignment_v1 })
+
+const validatePinnedSource = (source, pin) => source.url === pin.url && source.authorLogin === pin.ownerLogin &&
+  source.createdAt === pin.createdAt && source.updatedAt === pin.updatedAt && source.bodyDigest === pin.bodyDigest
+
+const acquireTrustRoot = async (taskSource, repository, assignmentSpec) => {
+  if (taskSource.record?.parent_issue !== TRUST_ROOT.parentIssueUrl) throw new IdentityRejection(['task_parent_authority_mismatch'])
+  const root = await acquireCanonicalRecord(TRUST_ROOT.recordUrl, repository)
+  const review = await acquireCanonicalRecord(TRUST_ROOT.reviewUrl, repository)
+  if (root.bodyDigest !== TRUST_ROOT.recordDigest || root.authorLogin !== TRUST_ROOT.recordAuthor || root.createdAt !== TRUST_ROOT.recordCreatedAt ||
+      root.updatedAt !== TRUST_ROOT.recordUpdatedAt || root.record?.record_type !== 'phase_1_assignment_issuer_trust_root_architecture_amendment' ||
+      root.record?.trust_root_id !== TRUST_ROOT_ID || root.record?.trust_root_revision !== TRUST_ROOT.revision || root.record?.decision !== 'AMENDMENT_COMPLETE' ||
+      review.bodyDigest !== TRUST_ROOT.reviewDigest || review.authorLogin !== TRUST_ROOT.reviewAuthor || review.createdAt !== TRUST_ROOT.reviewCreatedAt ||
+      review.updatedAt !== TRUST_ROOT.reviewUpdatedAt || review.record?.record_type !== 'independent_architecture_review_decision' ||
+      review.record?.reviewed_amendment !== TRUST_ROOT.recordUrl || review.record?.reviewed_amendment_body_sha256 !== TRUST_ROOT.recordDigest ||
+      review.record?.decision !== 'APPROVE' || review.record?.blocking_finding_count !== 0 || review.record?.unknown_count !== 0) {
+    throw new Error('pinned trust root or Review integrity failed')
+  }
+  const anchor = await acquireCanonicalRecord(assignmentSpec.url, repository)
+  if (!validatePinnedSource(anchor, assignmentSpec)) throw new Error('assignment authority anchor integrity failed')
+  let anchorReview = null
+  if (assignmentSpec.reviewUrl !== undefined) {
+    anchorReview = await acquireCanonicalRecord(assignmentSpec.reviewUrl, repository)
+    if (anchorReview.bodyDigest !== assignmentSpec.reviewDigest || anchorReview.authorLogin !== assignmentSpec.reviewAuthor ||
+        anchorReview.createdAt !== assignmentSpec.reviewCreatedAt || anchorReview.updatedAt !== assignmentSpec.reviewUpdatedAt) {
+      throw new Error('assignment authority anchor Review integrity failed')
+    }
+  }
+  const parentComments = await paginated(`repos/${repository}/issues/251/comments`)
+  const exactRoots = parentComments.filter((comment) => comment?.html_url === TRUST_ROOT.recordUrl)
+  if (exactRoots.length !== 1) throw new IdentityRejection(['trust_root_cardinality_invalid'])
+  for (const comment of parentComments) {
+    const parsed = parseRecordBody(comment?.body)
+    if (recordTypeClaim(comment?.body, 'phase_1_assignment_issuer_trust_root_revocation_v1') && parsed === null) {
+      throw new Error('malformed trust-root revocation record')
+    }
+    if (parsed?.record_type === 'phase_1_assignment_issuer_trust_root_revocation_v1' && parsed?.trust_root_id === TRUST_ROOT_ID &&
+        parsed?.trust_root_revision === TRUST_ROOT.revision && comment?.user?.login === assignmentSpec.ownerLogin) {
+      throw new IdentityRejection(['trust_root_revoked'])
+    }
+    if (parsed?.record_type === 'phase_1_assignment_issuer_trust_root_architecture_amendment' && parsed?.trust_root_id === TRUST_ROOT_ID &&
+        parsed?.trust_root_revision === TRUST_ROOT.revision && comment?.html_url !== TRUST_ROOT.recordUrl) {
+      throw new IdentityRejection(['trust_root_ambiguous'])
+    }
+  }
+  return Object.freeze({
+    record_url: TRUST_ROOT.recordUrl,
+    record_digest: TRUST_ROOT.recordDigest,
+    review_url: TRUST_ROOT.reviewUrl,
+    review_digest: TRUST_ROOT.reviewDigest,
+    revision: TRUST_ROOT.revision,
+    issuer_anchor_url: anchor.url,
+    issuer_anchor_digest: anchor.bodyDigest,
+    issuer_login: assignmentSpec.ownerLogin,
+    issuer_role: assignmentSpec.ownerRole,
+    anchor_review_url: anchorReview?.url ?? null,
+    anchor_review_digest: anchorReview?.bodyDigest ?? null,
+  })
+}
+
+const acquireReadyEvent = async (request, host, readySource) => {
+  const pr = await ghJson([`repos/${host.repository}/pulls/${request.prNumber}`])
+  if (pr?.html_url !== `https://github.com/${host.repository}/pull/${request.prNumber}` || pr?.head?.sha !== request.exactHead) {
+    throw new IdentityRejection(['current_pr_head_mismatch'])
+  }
+  const endpoint = `repos/${host.repository}/issues/${request.prNumber}/timeline`
+  const timeline = await paginated(endpoint)
+  const matches = timeline.filter((event) => event?.event === 'ready_for_review' && String(event?.id) === String(readySource.record.ready_event_id) &&
+    event?.created_at === readySource.record.ready_occurred_at && event?.commit_id === request.exactHead)
+  if (matches.length !== 1) throw new IdentityRejection(['ready_event_cardinality_invalid'])
+  const event = matches[0]
+  if (typeof event?.actor?.login !== 'string' || event.actor.login.length === 0) throw new Error('matching Ready event actor is malformed')
+  return Object.freeze({
+    endpoint: `https://api.github.com/repos/${host.repository}/issues/${request.prNumber}/timeline`,
+    event_id: String(event.id),
+    occurred_at: event.created_at,
+    commit_id: event.commit_id,
+    actor_login: event.actor.login,
+  })
+}
+
+const acquireAssignment = async (request, host, taskSource, readySource, readyEvent, trustRoot, spec) => {
+  const taskIdentity = ISSUE_URL.exec(request.taskRecordUrl)
+  if (taskIdentity === null) throw new IdentityRejection(['task_issue_required_for_assignment_discovery'])
+  const comments = await paginated(`repos/${host.repository}/issues/${taskIdentity[3]}/comments`)
+  const declared = []
+  for (const comment of comments) {
+    if (!recordTypeClaim(comment?.body, spec.recordType)) continue
+    const parsed = parseRecordBody(comment.body)
+    if (parsed === null) throw new Error('malformed declared assignment record')
+    declared.push({ listed: comment, parsed })
+  }
+  if (declared.length === 0) throw new IdentityRejection(['assignment_missing'])
+  const records = []
+  for (const candidate of declared) {
+    const direct = await acquireCanonicalRecord(candidate.listed.html_url, host.repository, { requireOwner: false })
+    if (direct.createdAt !== direct.updatedAt) throw new IdentityRejection(['assignment_edited'])
+    const record = direct.record
+    if (!exactObjectKeys(record, ASSIGNMENT_KEYS)) throw new Error('assignment record contract malformed')
+    const projection = Object.fromEntries(Object.entries(record).filter(([key]) => key !== 'record_digest'))
+    const projectionDigest = await sha256ReadyReviewObservationV1(canonicalizeReadyReviewObservationJcsV1(projection))
+    if (record.record_digest !== projectionDigest) throw new Error('assignment record digest mismatch')
+    if (record.canonical_record !== direct.url) throw new IdentityRejection(['assignment_source_url_mismatch'])
+    records.push({ source: direct, record })
+  }
+  if (records.some(({ source, record }) => source.authorLogin !== trustRoot.issuer_login || record.authority_owner_login !== trustRoot.issuer_login ||
+      record.authority_owner_role !== trustRoot.issuer_role)) throw new IdentityRejection(['assignment_issuer_not_admitted'])
+  const taskScopeDigest = await bodyDigest(taskSource.body)
+  const expectedScope = (record) => record.record_type === spec.recordType && record.repository === host.repository && record.task_record_url === request.taskRecordUrl &&
+    record.task_scope_digest === taskScopeDigest && record.pr_number === request.prNumber && record.pr_url === `https://github.com/${host.repository}/pull/${request.prNumber}` &&
+    record.exact_head === request.exactHead && record.ready_generation_record_url === request.readyRecordUrl &&
+    record.ready_generation_record_digest === readySource.record.record_digest && String(record.ready_event_id) === readyEvent.event_id &&
+    record.ready_occurred_at === readyEvent.occurred_at && record.transition === spec.transition && record.assigned_role === spec.assignedRole &&
+    typeof record.assigned_login === 'string' && record.assigned_login.length > 0 && Number.isSafeInteger(record.revision) && record.revision > 0 &&
+    (record.status === 'assigned' || record.status === 'revoked') && typeof record.assignment_id === 'string' && record.assignment_id.length > 0 &&
+    (record.supersedes_record_url === null || COMMENT_URL.test(record.supersedes_record_url)) && record.issued_at === records.find((item) => item.record === record)?.source.createdAt
+  if (records.some(({ record }) => !expectedScope(record))) throw new IdentityRejection(['assignment_scope_mismatch'])
+  const assignmentIds = new Set(records.map(({ record }) => record.assignment_id))
+  if (assignmentIds.size !== 1) throw new IdentityRejection(['assignment_chain_ambiguous'])
+  const byRevision = new Map()
+  for (const item of records) {
+    if (byRevision.has(item.record.revision)) throw new IdentityRejection(['assignment_chain_forked'])
+    byRevision.set(item.record.revision, item)
+  }
+  const maximum = Math.max(...byRevision.keys())
+  if (byRevision.size !== maximum) throw new IdentityRejection(['assignment_chain_gapped'])
+  for (let revision = 1; revision <= maximum; revision += 1) {
+    const item = byRevision.get(revision)
+    const predecessor = revision === 1 ? null : byRevision.get(revision - 1)?.source.url
+    if (item.record.supersedes_record_url !== predecessor) throw new IdentityRejection(['assignment_chain_invalid'])
+  }
+  const tip = byRevision.get(maximum)
+  if (tip.record.status !== 'assigned') throw new IdentityRejection(['assignment_revoked'])
+  if (tip.record.assigned_login !== host.actor) throw new IdentityRejection(['workflow_actor_assignment_mismatch'])
+  return Object.freeze({
+    record_url: tip.source.url,
+    record_digest: tip.source.bodyDigest,
+    assignment_id: tip.record.assignment_id,
+    revision: tip.record.revision,
+    issuer_login: trustRoot.issuer_login,
+    issuer_role: trustRoot.issuer_role,
+    assigned_login: tip.record.assigned_login,
+    assigned_role: tip.record.assigned_role,
+    transition: tip.record.transition,
+  })
 }
 
 const admittedHostIdentity = () => {
@@ -128,11 +364,67 @@ const persistFiles = async (result) => {
   }
 }
 
+const persistIdentityRejection = async (request, host, rejection, observed = {}) => {
+  const evaluatedAt = new Date().toISOString()
+  const projection = {
+    diagnostic_version: 'protected-transition-identity-rejection-v1',
+    result: 'rejected',
+    transition: request.transition,
+    repository: host.repository,
+    repository_id: host.repositoryId,
+    task_record_url: request.taskRecordUrl,
+    pr_number: request.prNumber,
+    pr_url: `https://github.com/${host.repository}/pull/${request.prNumber}`,
+    exact_head: request.exactHead,
+    ready_generation_record_url: request.readyRecordUrl,
+    ready_event_id: observed.ready_event_id ?? 'not_acquired',
+    ready_occurred_at: observed.ready_occurred_at ?? 'not_acquired',
+    ready_actor_login: observed.ready_actor_login ?? 'not_acquired',
+    trust_root_record_url: observed.trust_root_record_url ?? 'not_acquired',
+    assignment_record_url: observed.assignment_record_url ?? 'not_acquired',
+    assignment_record_digest: observed.assignment_record_digest ?? 'not_acquired',
+    assigned_login: observed.assigned_login ?? 'not_acquired',
+    assigned_role: observed.assigned_role ?? 'not_acquired',
+    workflow_actor: host.actor,
+    workflow_sha: host.workflowSha,
+    workflow_run_url: host.runUrl,
+    collector_artifact: 'not_acquired',
+    rejection_codes: rejection.codes,
+    evaluated_at: evaluatedAt,
+    expires_at: new Date(Date.parse(evaluatedAt) + 30 * 60 * 1000).toISOString(),
+    state_changed: false,
+    protected_transition_performed: false,
+  }
+  const receipt = {
+    ...projection,
+    diagnostic_digest: await sha256ReadyReviewObservationV1(canonicalizeReadyReviewObservationJcsV1(projection)),
+  }
+  const jcs = canonicalizeReadyReviewObservationJcsV1(receipt)
+  const result = {
+    files_to_persist: [{ file_name: PROTECTED_TRANSITION_RECEIPT_FILE_V1, utf8_jcs: jcs, sha256: await sha256ReadyReviewObservationV1(jcs) }],
+  }
+  if (!await persistFiles(result)) {
+    fail('persistence_failed', 'identity rejection diagnostic persistence failed closed')
+    return
+  }
+  process.stdout.write(`${canonicalizeReadyReviewObservationJcsV1({
+    result: 'rejected',
+    transition: request.transition,
+    diagnostic_digest: receipt.diagnostic_digest,
+    receipt_count: 1,
+    admitted_artifact_count: 0,
+    state_changed: false,
+    protected_transition_performed: false,
+  })}\n`)
+  process.exitCode = 2
+}
+
 const request = exactArgs(process.argv.slice(2))
 const host = admittedHostIdentity()
 if (request === null || host === null) {
   fail('caller_or_host_identity_invalid', 'caller arguments or host-derived identity failed admission')
 } else {
+  const observedAuthority = {}
   try {
     const taskSource = await acquireCanonicalRecord(request.taskRecordUrl, host.repository)
     const readySource = await acquireCanonicalRecord(request.readyRecordUrl, host.repository)
@@ -144,7 +436,22 @@ if (request === null || host === null) {
         readySource.record.repository !== host.repository || readySource.record.pr_number !== request.prNumber || readySource.record.exact_head !== request.exactHead) {
       throw new Error('Ready Generation record failed admission')
     }
-    if (taskSource.authorLogin !== host.actor) throw new Error('workflow actor is not the canonical Task authority actor')
+    const assignmentSpec = expectedAssignment(request.transition)
+    const readyEvent = await acquireReadyEvent(request, host, readySource)
+    Object.assign(observedAuthority, {
+      ready_event_id: readyEvent.event_id,
+      ready_occurred_at: readyEvent.occurred_at,
+      ready_actor_login: readyEvent.actor_login,
+    })
+    const trustRoot = await acquireTrustRoot(taskSource, host.repository, assignmentSpec)
+    observedAuthority.trust_root_record_url = trustRoot.record_url
+    const assignment = await acquireAssignment(request, host, taskSource, readySource, readyEvent, trustRoot, assignmentSpec)
+    Object.assign(observedAuthority, {
+      assignment_record_url: assignment.record_url,
+      assignment_record_digest: assignment.record_digest,
+      assigned_login: assignment.assigned_login,
+      assigned_role: assignment.assigned_role,
+    })
 
     const collector = await execFileAsync(process.execPath, [
       COLLECTOR_PATH,
@@ -156,7 +463,6 @@ if (request === null || host === null) {
     const collectorJcs = collector.stdout
     if (typeof collectorJcs !== 'string' || collectorJcs.length === 0 || collector.stderr !== '') throw new Error('Collector did not return one exact JCS artifact')
     const collectorProjection = JSON.parse(collectorJcs)
-    const actorRole = request.transition === 'terminal_review_admission' ? 'Independent PR Reviewer' : 'Product Owner'
     const taskScopeDigest = await sha256ReadyReviewObservationV1(taskSource.body)
     const terminalRecord = terminalSource?.record ?? null
     const evaluatedAt = new Date().toISOString()
@@ -173,11 +479,14 @@ if (request === null || host === null) {
       ready_generation: {
         record_url: request.readyRecordUrl,
         record_digest: readySource.record.record_digest,
-        event_id: readySource.record.ready_event_id,
-        occurred_at: readySource.record.ready_occurred_at,
-        actor_login: readySource.authorLogin,
+        endpoint: readyEvent.endpoint,
+        event_id: readyEvent.event_id,
+        occurred_at: readyEvent.occurred_at,
+        commit_id: readyEvent.commit_id,
+        actor_login: readyEvent.actor_login,
       },
-      actor: { login: host.actor, role: actorRole, authorized_login: taskSource.authorLogin },
+      actor: { login: host.actor },
+      authority: { trust_root: trustRoot, assignment },
       collector_artifact_jcs: collectorJcs,
       collector_artifact_jcs_sha256: await sha256ReadyReviewObservationV1(collectorJcs),
       terminal_review: terminalRecord,
@@ -199,11 +508,15 @@ if (request === null || host === null) {
         exact_head: request.exactHead,
         task_scope_digest: taskScopeDigest,
         ready_generation_record_url: request.readyRecordUrl,
-        ready_event_id: readySource.record.ready_event_id,
-        ready_occurred_at: readySource.record.ready_occurred_at,
-        ready_actor_login: readySource.authorLogin,
+        ready_event_id: readyEvent.event_id,
+        ready_occurred_at: readyEvent.occurred_at,
+        ready_actor_login: readyEvent.actor_login,
         actor_login: host.actor,
-        actor_role: actorRole,
+        actor_role: assignment.assigned_role,
+        assignment_record_url: assignment.record_url,
+        assignment_record_digest: assignment.record_digest,
+        trust_root_record_url: trustRoot.record_url,
+        trust_root_record_digest: trustRoot.record_digest,
         default_branch: host.defaultBranch,
         workflow_sha: host.workflowSha,
         thread_snapshot_digest: collectorProjection?.thread_snapshot?.snapshot_digest,
@@ -235,7 +548,11 @@ if (request === null || host === null) {
       })}\n`)
       process.exitCode = result.result === 'accepted' ? 0 : 2
     }
-  } catch {
-    fail('acquisition_or_collector_failed', 'canonical acquisition or Collector execution failed closed')
+  } catch (error) {
+    if (error instanceof IdentityRejection) {
+      await persistIdentityRejection(request, host, error, { ...observedAuthority, ...error.observation })
+    } else {
+      fail('acquisition_or_collector_failed', 'canonical acquisition or Collector execution failed closed')
+    }
   }
 }

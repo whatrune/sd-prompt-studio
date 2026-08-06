@@ -10,11 +10,46 @@
   "ready_generation": {
     "record_url": "https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-6000000001",
     "record_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "endpoint": "https://api.github.com/repos/whatrune/sd-prompt-studio/issues/260/timeline",
     "event_id": "29000000001",
     "occurred_at": "2026-08-05T10:00:00Z",
+    "commit_id": "1111111111111111111111111111111111111111",
     "actor_login": "whatrune"
   },
   "actor_login": "whatrune",
+  "trust_root": {
+    "record_url": "https://github.com/whatrune/sd-prompt-studio/issues/251#issuecomment-5198987697",
+    "record_digest": "9b8f59daae1c4b305791e8932444a53e72ede3e14565c3e776ae70569f32c260",
+    "review_url": "https://github.com/whatrune/sd-prompt-studio/issues/251#issuecomment-5199026857",
+    "review_digest": "c17cf283ef02479ccce177c45311f01bd4b82b69aa464c658ab63d50f17267d1",
+    "revision": 1
+  },
+  "terminal_authority": {
+    "issuer_anchor_url": "https://github.com/whatrune/sd-prompt-studio/issues/251#issuecomment-5198928778",
+    "issuer_anchor_digest": "955b897e2af8b569e3d0e496df5bed76efa7fbf97db94ed3386a1ac89102ca42",
+    "issuer_login": "whatrune",
+    "issuer_role": "Integrated Lead",
+    "anchor_review_url": null,
+    "anchor_review_digest": null,
+    "assignment_record_url": "https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-6000000010",
+    "assignment_record_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "assignment_id": "PTA-259-TERMINAL-REVIEW-ACTOR",
+    "assignment_revision": 1,
+    "assigned_role": "Independent PR Reviewer"
+  },
+  "merge_authority": {
+    "issuer_anchor_url": "https://github.com/whatrune/sd-prompt-studio/issues/251#issuecomment-5186163757",
+    "issuer_anchor_digest": "385ca7a9701a3e5dc1db8e2f26a89d0d8d29fc3e9ea7609e604d873e0e633bd3",
+    "issuer_login": "whatrune",
+    "issuer_role": "Product Owner",
+    "anchor_review_url": "https://github.com/whatrune/sd-prompt-studio/issues/251#issuecomment-5186264557",
+    "anchor_review_digest": "c347f9f8d43c83f3af55d9c139028b7c4b88560d93401d742a55a3cd19d6b293",
+    "assignment_record_url": "https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-6000000011",
+    "assignment_record_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "assignment_id": "PTA-259-MERGE-DECISION-ACTOR",
+    "assignment_revision": 1,
+    "assigned_role": "Product Owner"
+  },
   "workflow": {
     "path": ".github/workflows/protected-transition-admission-v1.yml",
     "ref": "whatrune/sd-prompt-studio/.github/workflows/protected-transition-admission-v1.yml@refs/heads/main",
