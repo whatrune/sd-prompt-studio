@@ -39,9 +39,11 @@ Product Owner
 
 ### Current Protected Transition Host
 
-- Exact base `017c329546f16d59440014846c48d5773a63a321`では、`.github/workflows/protected-transition-admission-v1.yml`がdefault branch上のactive hostとして存在し、`scripts/run-protected-transition-admission-v1.mjs`を実行する。
-- workflow inputは`transition`、`task_issue_number`、`pr_number`、`exact_head`の4件に限定される。
-- この実在確認はProtected Transition Admission V1 hostだけに適用する。一般的なproduction dispatch／controller hostのincoming edgeを証明せず、次節の`UNKNOWN`境界を変更しない。
+- Exact base `91082793fa2f2d376d482fc1e4cdeb3a8d1fb0d1`では、`.github/workflows/protected-transition-admission-v1.yml`がdefault branch上のactive hostとして存在し、`scripts/run-protected-transition-admission-v1.mjs`を実行する。
+- 通常経路はTask Issueへ投稿された`independent_review_decision_v1`を`issue_comment` triggerで受け取る。exact reviewed HEADとcurrent PR HEADが一致し、blocker／remaining／UNKNOWNがすべて0の場合だけ、single 10-field stateのreview関連fieldと`observed_head`を同じcurrent HEADへ更新し、そのHEADに対するadmissionを1回評価する。
+- HEAD mismatch、nonzero finding count、invalid state、またはauthorized path外の変更ではstateを進めず停止する。同一HEADと同一Review Decisionの再処理は重複state mutationおよび重複admissionを行わない。
+- 通常経路ではReview後の手動state更新および手動workflow dispatchを要求しない。`workflow_dispatch`の4 inputs（`transition`、`task_issue_number`、`pr_number`、`exact_head`）は障害時のmanual recovery surfaceとしてのみ維持する。
+- この実在確認はProtected Transition Admission V1 hostのpublished sourceとtriggerにだけ適用する。個別Taskでの自動経路の成功は各Taskのcurrent HEADに対するrun結果で確認し、一般的なproduction dispatch／controller hostのincoming edgeを証明せず、次節の`UNKNOWN`境界を変更しない。
 
 ## Preserved UNKNOWN
 
