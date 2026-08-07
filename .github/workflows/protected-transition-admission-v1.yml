@@ -2,50 +2,72 @@ name: Protected Transition Admission V1
 
 "on":
   workflow_dispatch:
+    inputs:
+      transition:
+        description: Protected transition admission surface
+        required: true
+        type: choice
+        options:
+          - terminal_review_admission
+          - merge_decision_admission
+      task_issue_number:
+        description: Current implementation Task Issue number
+        required: true
+        type: string
+      pr_number:
+        description: Current pull request number
+        required: true
+        type: string
+      exact_head:
+        description: Full current pull request HEAD SHA
+        required: true
+        type: string
 
-permissions: {}
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
 
 jobs:
-  phase_0_non_admitting:
+  protected_transition_admission_v1:
     runs-on: ubuntu-latest
-    timeout-minutes: 1
+    timeout-minutes: 10
     env:
-      PTA_REPOSITORY: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
       PTA_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-      PTA_WORKFLOW_REF: ${{ github.workflow_ref }}
-      PTA_WORKFLOW_SHA: ${{ github.workflow_sha }}
-      PTA_REF: ${{ github.ref }}
-      PTA_REF_NAME: ${{ github.ref_name }}
-      PTA_SHA: ${{ github.sha }}
-      PTA_RUN_ID: ${{ github.run_id }}
-      PTA_RUN_ATTEMPT: ${{ github.run_attempt }}
-      PTA_ACTOR: ${{ github.actor }}
-      PTA_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
-      - name: Diagnose runtime identity and fail closed
+      - name: Admit exact default-branch host identity
         shell: bash
         run: |
-          set -u
+          set -euo pipefail
+          expected_workflow_ref="${GITHUB_REPOSITORY}/.github/workflows/protected-transition-admission-v1.yml@refs/heads/main"
+          [[ "$PTA_DEFAULT_BRANCH" == "main" ]]
+          [[ "$GITHUB_REF" == "refs/heads/main" ]]
+          [[ "$GITHUB_WORKFLOW_REF" == "$expected_workflow_ref" ]]
+          [[ "$GITHUB_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
 
-          printf '%s\n' 'protected-transition-admission-v1 phase_0_non_admitting'
-          printf 'repository=%s\n' "$PTA_REPOSITORY"
-          printf 'default_branch=%s\n' "$PTA_DEFAULT_BRANCH"
-          printf 'workflow_ref=%s\n' "$PTA_WORKFLOW_REF"
-          printf 'workflow_sha=%s\n' "$PTA_WORKFLOW_SHA"
-          printf 'ref=%s\n' "$PTA_REF"
-          printf 'ref_name=%s\n' "$PTA_REF_NAME"
-          printf 'sha=%s\n' "$PTA_SHA"
-          printf 'run_id=%s\n' "$PTA_RUN_ID"
-          printf 'run_attempt=%s\n' "$PTA_RUN_ATTEMPT"
-          printf 'actor=%s\n' "$PTA_ACTOR"
-          printf 'run_url=%s\n' "$PTA_RUN_URL"
+      - name: Checkout exact workflow SHA
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
 
-          if [[ "$PTA_REF" != "refs/heads/$PTA_DEFAULT_BRANCH" ]]; then
-            printf '%s\n' 'default_branch_check=failed'
-            printf '%s\n' 'phase_0_result=non_admitting_failure'
-            exit 1
-          fi
+      - name: Use Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24"
 
-          printf '%s\n' 'default_branch_check=passed'
-          printf '%s\n' 'phase_0_result=non_admitting_failure'
-          exit 1
+      - name: Evaluate protected transition admission
+        shell: bash
+        env:
+          PTA_INPUT_TRANSITION: ${{ inputs.transition }}
+          PTA_INPUT_TASK_ISSUE_NUMBER: ${{ inputs.task_issue_number }}
+          PTA_INPUT_PR_NUMBER: ${{ inputs.pr_number }}
+          PTA_INPUT_EXACT_HEAD: ${{ inputs.exact_head }}
+        run: |
+          set -euo pipefail
+          node scripts/run-protected-transition-admission-v1.mjs \
+            --transition "$PTA_INPUT_TRANSITION" \
+            --task-issue-number "$PTA_INPUT_TASK_ISSUE_NUMBER" \
+            --pr-number "$PTA_INPUT_PR_NUMBER" \
+            --exact-head "$PTA_INPUT_EXACT_HEAD"
