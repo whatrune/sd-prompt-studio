@@ -68,6 +68,16 @@ export type ProtectedTransitionAdmissionResultV1 = Readonly<{
   state_changed: false
 }>
 
+export type ProtectedTransitionReviewDecisionV1 = Readonly<{
+  task_issue_number: number
+  pr_number: number
+  reviewed_head: string
+  decision: 'APPROVE' | 'CHANGES_REQUIRED' | 'BLOCKED'
+  blocking_finding_count: number
+  remaining_finding_count: number
+  unknown_count: number
+}>
+
 type JsonObject = Record<string, unknown>
 
 const STATE_FIELDS = [
@@ -243,6 +253,49 @@ export const parseProtectedTransitionTaskStateJsonV1 = (text: string): Protected
   if (typeof text !== 'string') throw new Error('state_json_invalid')
   scanUniqueJsonKeys(text)
   return parseProtectedTransitionTaskStateV1(JSON.parse(text) as unknown)
+}
+
+export const projectProtectedTransitionApprovedReviewStateV1 = (
+  rawState: unknown,
+  review: ProtectedTransitionReviewDecisionV1,
+): ProtectedTransitionTaskStateV1 => {
+  const state = parseProtectedTransitionTaskStateV1(rawState)
+  if (
+    !isObject(review) ||
+    !isPositiveSafeInteger(review.task_issue_number) ||
+    !isPositiveSafeInteger(review.pr_number) ||
+    typeof review.reviewed_head !== 'string' ||
+    !FULL_HEAD.test(review.reviewed_head) ||
+    !isNonNegativeSafeInteger(review.blocking_finding_count) ||
+    !isNonNegativeSafeInteger(review.remaining_finding_count) ||
+    !isNonNegativeSafeInteger(review.unknown_count)
+  ) {
+    throw new Error('review_projection_invalid')
+  }
+  if (review.task_issue_number !== state.task_issue_number || review.pr_number !== state.pr_number) {
+    throw new Error('review_execution_tuple_mismatch')
+  }
+  if (
+    review.decision !== 'APPROVE' ||
+    review.blocking_finding_count !== 0 ||
+    review.remaining_finding_count !== 0 ||
+    review.unknown_count !== 0
+  ) {
+    throw new Error('review_not_approvable')
+  }
+
+  return deepFreezeState({
+    record_type: state.record_type,
+    task_issue_number: state.task_issue_number,
+    pr_number: state.pr_number,
+    observed_head: review.reviewed_head,
+    authorized_paths: [...state.authorized_paths],
+    architecture_status: state.architecture_status,
+    implementation_authorized: state.implementation_authorized,
+    review_status: 'APPROVE',
+    reviewed_head: review.reviewed_head,
+    review_blocker_count: 0,
+  })
 }
 
 type Classification = Readonly<{
