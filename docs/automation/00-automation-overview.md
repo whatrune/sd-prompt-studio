@@ -37,6 +37,12 @@ Product Owner
 - `scripts/run-ready-review-terminal-observation-collector-v1.mjs`はCollector V1のproduction CLI adapter sourceとして存在し、`src/continuous-orchestration/ready-review-terminal-observation-artifact-v1.ts`のpure coreを直接importして呼び出す。ただし、このsource edgeはphysical operator、scheduler／automatic trigger、Cloudflare設定、またはrepository外の実行経路の存在を証明しない。
 - Source、public export、fixture、test runner、internal library／module consumerの存在は、それだけではproduction runtime reachabilityの証拠にならない。
 
+### Current Protected Transition Host
+
+- Exact base `017c329546f16d59440014846c48d5773a63a321`では、`.github/workflows/protected-transition-admission-v1.yml`がdefault branch上のactive hostとして存在し、`scripts/run-protected-transition-admission-v1.mjs`を実行する。
+- workflow inputは`transition`、`task_issue_number`、`pr_number`、`exact_head`の4件に限定される。
+- この実在確認はProtected Transition Admission V1 hostだけに適用する。一般的なproduction dispatch／controller hostのincoming edgeを証明せず、次節の`UNKNOWN`境界を変更しない。
+
 ## Preserved UNKNOWN
 
 次はcanonical runtime recordまたはproduction composition／execution hostからのincoming edgeで実証されるまで`UNKNOWN`のまま維持する。
