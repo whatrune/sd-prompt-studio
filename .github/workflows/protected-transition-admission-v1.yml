@@ -13,7 +13,7 @@ name: Protected Transition Admission V1
       task_issue_number:
         description: Current implementation Task Issue number
         required: true
-        type: string
+        type: number
       pr_number:
         description: Current pull request number
         required: true

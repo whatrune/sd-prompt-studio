@@ -250,7 +250,7 @@ const runnerSource = readFileSync(runnerPath, 'utf8')
 const coreSource = readFileSync(corePath, 'utf8')
 const workflow = parseYaml(workflowSource)
 check(Object.keys(workflow.on).join(',') === 'workflow_dispatch,issue_comment' && workflow.on.issue_comment.types.join(',') === 'created', 'workflow has manual recovery and created Review triggers')
-check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head', 'workflow has exactly four inputs')
+check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number', 'workflow has exactly four inputs and canonicalizes the Task input as a number')
 check(Object.keys(workflow.permissions).join(',') === 'contents,issues,pull-requests' && workflow.permissions.contents === 'read' && workflow.permissions.issues === 'read' && workflow.permissions['pull-requests'] === 'write', 'workflow has exactly three permissions and only PR write')
 
 const changedPaths = execFileSync('git', ['diff', '--name-only', BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
@@ -587,7 +587,7 @@ const preservedBodyAutomation = automationHost({
   bodyAtPullRead: { 2: `concurrent-note\n${stateBlock(state())}\nconcurrent-footer` },
 })
 const preservedBodyResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: preservedBodyAutomation.host })
-check(concurrencyGroup === 'protected-transition-admission-v1-${{ github.repository }}-${{ github.event.issue.number || inputs.task_issue_number }}' && workflow.concurrency['cancel-in-progress'] === false, 'both triggers share one repository and Task queue')
+check(concurrencyGroup === 'protected-transition-admission-v1-${{ github.repository }}-${{ github.event.issue.number || inputs.task_issue_number }}' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number' && workflow.concurrency['cancel-in-progress'] === false, 'both triggers share one repository and canonical numeric Task queue')
 check(!concurrencyGroup.includes('comment.id') && !concurrencyGroup.includes('run_id'), 'comment and run IDs do not partition serialization')
 check(preservedBodyResult.allowed && preservedBodyAutomation.body().startsWith('concurrent-note\n') && preservedBodyAutomation.body().endsWith('\nconcurrent-footer'), 'canonical writer preserves fresh non-state body bytes')
 
