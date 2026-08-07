@@ -22,11 +22,18 @@ name: Protected Transition Admission V1
         description: Full current pull request HEAD SHA
         required: true
         type: string
+  issue_comment:
+    types:
+      - created
 
 permissions:
   contents: read
   issues: read
-  pull-requests: read
+  pull-requests: write
+
+concurrency:
+  group: protected-transition-admission-v1-${{ github.repository }}-${{ github.event.issue.number || inputs.task_issue_number }}-${{ github.event.comment.id || github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   protected_transition_admission_v1:
@@ -60,14 +67,21 @@ jobs:
       - name: Evaluate protected transition admission
         shell: bash
         env:
+          PTA_EVENT_NAME: ${{ github.event_name }}
+          PTA_EVENT_PATH: ${{ github.event_path }}
           PTA_INPUT_TRANSITION: ${{ inputs.transition }}
           PTA_INPUT_TASK_ISSUE_NUMBER: ${{ inputs.task_issue_number }}
           PTA_INPUT_PR_NUMBER: ${{ inputs.pr_number }}
           PTA_INPUT_EXACT_HEAD: ${{ inputs.exact_head }}
         run: |
           set -euo pipefail
-          node scripts/run-protected-transition-admission-v1.mjs \
-            --transition "$PTA_INPUT_TRANSITION" \
-            --task-issue-number "$PTA_INPUT_TASK_ISSUE_NUMBER" \
-            --pr-number "$PTA_INPUT_PR_NUMBER" \
-            --exact-head "$PTA_INPUT_EXACT_HEAD"
+          if [[ "$PTA_EVENT_NAME" == "issue_comment" ]]; then
+            node scripts/run-protected-transition-admission-v1.mjs \
+              --review-event-file "$PTA_EVENT_PATH"
+          else
+            node scripts/run-protected-transition-admission-v1.mjs \
+              --transition "$PTA_INPUT_TRANSITION" \
+              --task-issue-number "$PTA_INPUT_TASK_ISSUE_NUMBER" \
+              --pr-number "$PTA_INPUT_PR_NUMBER" \
+              --exact-head "$PTA_INPUT_EXACT_HEAD"
+          fi
