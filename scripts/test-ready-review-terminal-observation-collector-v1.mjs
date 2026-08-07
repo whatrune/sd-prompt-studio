@@ -171,93 +171,54 @@ const authorityRequest = (record = readyRecord, overrides = {}) => ({
 const selectAuthority = (records, events = [readyEvent], request = authorityRequest(records.at(-1))) =>
   selectCurrentReadyReviewAuthorityObservationsV1(records.map(ownerObservation), events, request)
 
-const lineageEventOne = { event_id: '29050000001', event: 'ready_for_review', created_at: '2026-08-06T07:00:00Z' }
-const lineageEventTwo = { event_id: '29055000002', event: 'ready_for_review', created_at: '2026-08-06T08:00:00Z' }
-const lineageEventThree = { event_id: '29059119053', event: 'ready_for_review', created_at: '2026-08-06T09:22:37Z' }
-const lineageEventFour = { event_id: '29065266997', event: 'ready_for_review', created_at: '2026-08-06T11:38:22Z' }
-const lineageRevisionOne = await resealRecord({
+const priorHeadRecord = await resealRecord({
   ...clone(readyRecord),
-  canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6100000001',
-  exact_head: '1'.repeat(40),
-  ready_event_id: lineageEventOne.event_id,
-  ready_occurred_at: lineageEventOne.created_at,
-})
-const lineageRevisionTwo = await resealRecord({
-  ...clone(readyRecord),
-  canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6100000002',
+  canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-5999999991',
   exact_head: '2'.repeat(40),
-  ready_event_id: lineageEventTwo.event_id,
-  ready_occurred_at: lineageEventTwo.created_at,
-  revision: 2,
-  prior_record_url: lineageRevisionOne.canonical_record,
+  ready_event_id: '28990170001',
+  ready_occurred_at: '2026-07-31T22:00:00Z',
 })
-const lineageRevisionThree = await resealRecord({
+const historicalSameHeadRecord = await resealRecord({
   ...clone(readyRecord),
-  canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6100000003',
-  exact_head: '164a6ec65155d7498f111ef66721acb16e22a189',
-  ready_event_id: lineageEventThree.event_id,
-  ready_occurred_at: lineageEventThree.created_at,
-  revision: 3,
-  prior_record_url: lineageRevisionTwo.canonical_record,
+  canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-5999999992',
+  ready_event_id: '28990170002',
+  ready_occurred_at: '2026-07-31T23:00:00Z',
 })
-const lineageRevisionFour = await resealRecord({
-  ...clone(readyRecord),
-  canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6100000004',
-  exact_head: '6c324a6c52fbbd14916ddf83071744da488256bb',
-  ready_event_id: lineageEventFour.event_id,
-  ready_occurred_at: lineageEventFour.created_at,
-  revision: 4,
-  prior_record_url: lineageRevisionThree.canonical_record,
-})
-const regressionLineage = [lineageRevisionOne, lineageRevisionTwo, lineageRevisionThree, lineageRevisionFour]
-const regressionEvents = [lineageEventThree, lineageEventOne, lineageEventFour, lineageEventTwo]
-const authorityInput = [lineageRevisionThree, lineageRevisionOne, lineageRevisionFour, lineageRevisionTwo].map(ownerObservation)
+const authorityInput = [ownerObservation(priorHeadRecord), ownerObservation(historicalSameHeadRecord), ownerObservation(readyRecord)]
 const authorityInputSnapshot = clone(authorityInput)
-const selectedAuthority = await selectCurrentReadyReviewAuthorityObservationsV1(authorityInput, regressionEvents, authorityRequest(lineageRevisionFour))
-check(selectedAuthority?.map(({ record }) => record.revision).join(',') === '1,2,3,4', 'cross-generation lineage is selected by links and returned in ascending revision order')
-check(selectedAuthority?.[3].record.exact_head === '6c324a6c52fbbd14916ddf83071744da488256bb' && selectedAuthority[3].record.ready_event_id === '29065266997', 'exact current revision 4 regression tuple is the unique leaf')
-check(selectedAuthority?.[2].record.exact_head === '164a6ec65155d7498f111ef66721acb16e22a189' && selectedAuthority[2].record.ready_event_id === '29059119053', 'exact historical revision 3 regression tuple remains issuance-era evidence')
+const selectedAuthority = await selectCurrentReadyReviewAuthorityObservationsV1(authorityInput, [readyEvent], authorityRequest())
+check(selectedAuthority?.length === 1 && selectedAuthority[0].record.canonical_record === readyRecord.canonical_record, 'prior-HEAD and same-HEAD prior-Ready generations are excluded in favor of exact current REST authority')
 check(JSON.stringify(authorityInput) === JSON.stringify(authorityInputSnapshot), 'Ready authority selector leaves input unchanged')
 check(frozen(selectedAuthority), 'Ready authority selector returns recursively immutable observations')
 assert.throws(() => { selectedAuthority[0].record.ready_event_id = 'mutated' }, TypeError)
 
-const repeatedSameHeadHistoricalEvent = { event_id: '28990179211', event: 'ready_for_review', created_at: '2026-07-31T23:55:00Z' }
-const repeatedSameHeadHistoricalRecord = await resealRecord({
+const repeatedSameHeadReadyEvent = { event_id: '28990179213', event: 'ready_for_review', created_at: '2026-08-01T00:05:00Z' }
+const repeatedSameHeadReadyRecord = await resealRecord({
   ...clone(readyRecord),
   canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-5999999993',
-  ready_event_id: repeatedSameHeadHistoricalEvent.event_id,
-  ready_occurred_at: repeatedSameHeadHistoricalEvent.created_at,
+  ready_event_id: repeatedSameHeadReadyEvent.event_id,
+  ready_occurred_at: repeatedSameHeadReadyEvent.created_at,
 })
-const repeatedSameHeadCurrentRecord = await resealRecord({
+const repeatedSameHeadRecords = [readyRecord, repeatedSameHeadReadyRecord]
+const repeatedSameHeadEvents = [readyEvent, repeatedSameHeadReadyEvent]
+check(await selectAuthority(repeatedSameHeadRecords, repeatedSameHeadEvents, authorityRequest(readyRecord)) === null, 'same-HEAD stale Ready generation is rejected after a later Ready event')
+const selectedRepeatedSameHeadAuthority = await selectAuthority(repeatedSameHeadRecords, repeatedSameHeadEvents, authorityRequest(repeatedSameHeadReadyRecord))
+check(selectedRepeatedSameHeadAuthority?.length === 1 && selectedRepeatedSameHeadAuthority[0].record.canonical_record === repeatedSameHeadReadyRecord.canonical_record, 'same-HEAD current Ready generation is selected after repeated Ready')
+
+const revisionTwo = await resealRecord({
   ...clone(readyRecord),
-  canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-5999999994',
+  canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000002',
   revision: 2,
-  prior_record_url: repeatedSameHeadHistoricalRecord.canonical_record,
+  prior_record_url: readyRecord.canonical_record,
 })
-const repeatedSameHeadRecords = [repeatedSameHeadHistoricalRecord, repeatedSameHeadCurrentRecord]
-const repeatedSameHeadEvents = [repeatedSameHeadHistoricalEvent, readyEvent]
-check(await selectAuthority(repeatedSameHeadRecords, repeatedSameHeadEvents, authorityRequest(repeatedSameHeadHistoricalRecord)) === null, 'same-HEAD stale Ready generation is rejected after a later Ready event')
-const selectedRepeatedSameHeadAuthority = await selectAuthority(repeatedSameHeadRecords, repeatedSameHeadEvents, authorityRequest(repeatedSameHeadCurrentRecord))
-check(selectedRepeatedSameHeadAuthority?.map(({ record }) => record.ready_event_id).join(',') === `${repeatedSameHeadHistoricalEvent.event_id},${readyEvent.event_id}`, 'same-HEAD repeated Ready generations remain event-specific and only the latest event is current')
+const revisionTwoRequest = authorityRequest(revisionTwo)
+const selectedRevisionChain = await selectAuthority([readyRecord, revisionTwo], [readyEvent], revisionTwoRequest)
+check(selectedRevisionChain?.map(({ record }) => record.revision).join(',') === '1,2' && frozen(selectedRevisionChain), 'current revision lineage is returned frozen in contiguous revision order')
+const revisionChainCore = await buildCoreInput({ readyRecords: [priorHeadRecord, readyRecord, revisionTwo] })
+revisionChainCore.request_identity = revisionTwoRequest
+check((await evaluateReadyReviewTerminalObservationCoreV1(revisionChainCore)).branch === 'artifact_produced', 'selected multi-revision authority is independently revalidated by the existing Core')
 
-const coreRevisionOne = await resealRecord({ ...clone(lineageRevisionOne), ready_occurred_at: '2026-07-31T20:00:00Z', ready_event_id: '28990170001' })
-const coreRevisionTwo = await resealRecord({ ...clone(lineageRevisionTwo), ready_occurred_at: '2026-07-31T21:00:00Z', ready_event_id: '28990170002', prior_record_url: coreRevisionOne.canonical_record })
-const coreRevisionThree = await resealRecord({ ...clone(lineageRevisionThree), ready_occurred_at: '2026-07-31T22:00:00Z', ready_event_id: '28990170003', prior_record_url: coreRevisionTwo.canonical_record })
-const coreRevisionFour = await resealRecord({ ...clone(readyRecord), revision: 4, prior_record_url: coreRevisionThree.canonical_record })
-const coreLineage = [coreRevisionOne, coreRevisionTwo, coreRevisionThree, coreRevisionFour]
-const coreLineageEvents = [
-  { event_id: coreRevisionOne.ready_event_id, event: 'ready_for_review', created_at: coreRevisionOne.ready_occurred_at },
-  { event_id: coreRevisionTwo.ready_event_id, event: 'ready_for_review', created_at: coreRevisionTwo.ready_occurred_at },
-  { event_id: coreRevisionThree.ready_event_id, event: 'ready_for_review', created_at: coreRevisionThree.ready_occurred_at },
-  readyEvent,
-]
-const lineageCoreResult = await evaluateReadyReviewTerminalObservationCoreV1(await buildCoreInput({ readyRecords: coreLineage, readyEvents: coreLineageEvents }))
-check(lineageCoreResult.branch === 'artifact_produced', 'ascending cross-generation lineage reaches the existing Core artifact path')
-check(lineageCoreResult.branch === 'artifact_produced' && lineageCoreResult.artifact.producer_roster.length === roster.producer_ids.length, 'one admitted receipt per roster producer survives lineage validation')
-check(lineageCoreResult.branch === 'artifact_produced' && lineageCoreResult.artifact.thread_snapshot.pages.length === fixture.thread_pages.length, 'complete thread pages and post-snapshot HEAD recheck survive lineage validation')
-check(lineageCoreResult.branch === 'artifact_produced' && Object.keys(lineageCoreResult.artifact).length === 16 && frozen(lineageCoreResult), 'cross-generation path produces the sealed immutable 16-field artifact')
-
-check(await selectAuthority(regressionLineage.slice(0, 3), regressionEvents, authorityRequest(lineageRevisionThree)) === null, 'historical predecessor is never substituted as current while a later Ready event exists')
+check(await selectAuthority([priorHeadRecord], [readyEvent], authorityRequest()) === null, 'historical-only authority is never promoted')
 const graphQlOnly = await resealRecord({ ...clone(readyRecord), ready_event_id: 'RFRE_lADOTUu8Qs8AAAABLfyJJc8AAAAGv_MHjA' })
 check(await selectAuthority([graphQlOnly], [readyEvent], authorityRequest(graphQlOnly)) === null, 'GraphQL-only Ready event identity fails closed without conversion')
 const zeroReadyEvent = await resealRecord({ ...clone(readyRecord), ready_event_id: '0' })
@@ -273,22 +234,17 @@ check(await selectAuthority([readyRecord], [readyEvent], authorityRequest(readyR
 check(await selectAuthority([readyRecord], [readyEvent], authorityRequest(readyRecord, { pr_url: 'https://github.com/whatrune/sd-prompt-studio/pull/221' })) === null, 'request PR URL mismatch fails closed')
 check(await selectCurrentReadyReviewAuthorityObservationsV1([ownerObservation(readyRecord), ownerObservation(readyRecord)], [readyEvent], authorityRequest()) === null, 'duplicate requested anchor fails closed')
 
-const competingRevisionOne = await resealRecord({ ...clone(readyRecord), canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000010', ready_event_id: '28990179990', ready_occurred_at: '2026-07-31T23:50:00Z' })
-check(await selectAuthority([readyRecord, competingRevisionOne], [readyEvent, { event_id: competingRevisionOne.ready_event_id, event: 'ready_for_review', created_at: competingRevisionOne.ready_occurred_at }], authorityRequest()) === null, 'second current lineage and duplicate revision fail closed')
-const competingRevisionTwo = await resealRecord({ ...clone(lineageRevisionTwo), canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000011', ready_event_id: '29055000003' })
-check(await selectAuthority([...regressionLineage, competingRevisionTwo], [...regressionEvents, { ...lineageEventTwo, event_id: competingRevisionTwo.ready_event_id }], authorityRequest(lineageRevisionFour)) === null, 'fork and duplicate revision fail closed')
-const missingRevision = await resealRecord({ ...clone(lineageRevisionFour), revision: 5 })
-check(await selectAuthority([lineageRevisionOne, lineageRevisionTwo, lineageRevisionThree, missingRevision], regressionEvents, authorityRequest(missingRevision)) === null, 'revision gap fails closed')
-const brokenPredecessor = await resealRecord({ ...clone(lineageRevisionFour), prior_record_url: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6999999999' })
-check(await selectAuthority([...regressionLineage.slice(0, 3), brokenPredecessor], regressionEvents, authorityRequest(brokenPredecessor)) === null, 'broken predecessor and orphan fail closed')
-const cycleRevisionTwo = await resealRecord({ ...clone(lineageRevisionTwo), prior_record_url: lineageRevisionThree.canonical_record })
-check(await selectAuthority([lineageRevisionOne, cycleRevisionTwo, lineageRevisionThree, lineageRevisionFour], regressionEvents, authorityRequest(lineageRevisionFour)) === null, 'cycle fails closed')
-const unrelatedStrictClaim = await resealRecord({ ...clone(readyRecord), canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000013', task_issue_url: 'https://github.com/whatrune/sd-prompt-studio/issues/999', ready_event_id: '28990179991', ready_occurred_at: '2026-07-31T23:51:00Z' })
-check(await selectAuthority([readyRecord, unrelatedStrictClaim], [readyEvent, { event_id: unrelatedStrictClaim.ready_event_id, event: 'ready_for_review', created_at: unrelatedStrictClaim.ready_occurred_at }], authorityRequest()) === null, 'unrelated strict Ready claim fails closed')
-const currentInHistoricalSlot = await resealRecord({ ...clone(lineageRevisionThree), exact_head: lineageRevisionFour.exact_head, ready_event_id: lineageRevisionFour.ready_event_id, ready_occurred_at: lineageRevisionFour.ready_occurred_at })
-check(await selectAuthority([lineageRevisionOne, lineageRevisionTwo, currentInHistoricalSlot, lineageRevisionFour], regressionEvents, authorityRequest(lineageRevisionFour)) === null, 'current record substituted into a historical slot fails closed')
-const chronologyTrapLeaf = await resealRecord({ ...clone(lineageRevisionFour), ready_event_id: '29050000000', ready_occurred_at: '2026-08-06T06:59:59Z' })
-check(await selectAuthority([...regressionLineage.slice(0, 3), chronologyTrapLeaf], [...regressionEvents, { event_id: chronologyTrapLeaf.ready_event_id, event: 'ready_for_review', created_at: chronologyTrapLeaf.ready_occurred_at }], authorityRequest(chronologyTrapLeaf)) === null, 'highest revision alone cannot override the latest bound Ready event')
+const competingRevisionOne = await resealRecord({ ...clone(readyRecord), canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000010' })
+check(await selectAuthority([readyRecord, competingRevisionOne], [readyEvent], authorityRequest()) === null, 'second current lineage and duplicate revision fail closed')
+const competingRevisionTwo = await resealRecord({ ...clone(revisionTwo), canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000011' })
+check(await selectAuthority([readyRecord, revisionTwo, competingRevisionTwo], [readyEvent], revisionTwoRequest) === null, 'competing current leaf fails closed')
+const missingRevision = await resealRecord({ ...clone(revisionTwo), revision: 3 })
+check(await selectAuthority([readyRecord, missingRevision], [readyEvent], authorityRequest(missingRevision)) === null, 'missing revision fails closed')
+const brokenPredecessor = await resealRecord({ ...clone(revisionTwo), prior_record_url: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6999999999' })
+check(await selectAuthority([readyRecord, brokenPredecessor], [readyEvent], authorityRequest(brokenPredecessor)) === null, 'broken predecessor and orphan fail closed')
+const cycleMember = await resealRecord({ ...clone(revisionTwo), canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6000000012', revision: 3, prior_record_url: revisionTwo.canonical_record })
+const cyclicAnchor = await resealRecord({ ...clone(revisionTwo), prior_record_url: cycleMember.canonical_record })
+check(await selectAuthority([readyRecord, cyclicAnchor, cycleMember], [readyEvent], authorityRequest(cyclicAnchor)) === null, 'cyclic current lineage fails closed')
 
 const invalidDigestObservation = ownerObservation(readyRecord)
 invalidDigestObservation.record.record_digest = '0'.repeat(64)
@@ -305,125 +261,6 @@ check(await selectCurrentReadyReviewAuthorityObservationsV1([sourceMismatchObser
 const malformedCurrentObservation = ownerObservation(readyRecord)
 malformedCurrentObservation.record.unknown = true
 check(await selectCurrentReadyReviewAuthorityObservationsV1([malformedCurrentObservation], [readyEvent], authorityRequest()) === null, 'unknown current record field fails closed')
-
-const historicalMissingEvent = regressionEvents.filter((event) => event.event_id !== lineageRevisionThree.ready_event_id)
-check(await selectAuthority(regressionLineage, historicalMissingEvent, authorityRequest(lineageRevisionFour)) === null, 'historical predecessor missing issuance-era REST event fails closed')
-check(await selectAuthority(regressionLineage, [...regressionEvents, clone(lineageEventThree)], authorityRequest(lineageRevisionFour)) === null, 'historical predecessor multiple issuance-era REST events fail closed')
-check(await selectAuthority(regressionLineage, regressionEvents.map((event) => event.event_id === lineageRevisionThree.ready_event_id ? { ...event, created_at: '2026-08-06T09:22:38Z' } : event), authorityRequest(lineageRevisionFour)) === null, 'historical predecessor Ready timestamp mismatch fails closed')
-const malformedHistoricalHead = await resealRecord({ ...clone(lineageRevisionThree), exact_head: 'short' })
-check(await selectAuthority([lineageRevisionOne, lineageRevisionTwo, malformedHistoricalHead, lineageRevisionFour], regressionEvents, authorityRequest(lineageRevisionFour)) === null, 'historical predecessor malformed full HEAD fails closed')
-const historicalSourceMismatch = regressionLineage.map(ownerObservation)
-historicalSourceMismatch[2].source_url = 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6999999998'
-check(await selectCurrentReadyReviewAuthorityObservationsV1(historicalSourceMismatch, regressionEvents, authorityRequest(lineageRevisionFour)) === null, 'historical predecessor canonical source mismatch fails closed')
-const historicalAuthorMismatch = regressionLineage.map(ownerObservation)
-historicalAuthorMismatch[2].author_login = 'not-owner'
-check(await selectCurrentReadyReviewAuthorityObservationsV1(historicalAuthorMismatch, regressionEvents, authorityRequest(lineageRevisionFour)) === null, 'historical predecessor author mismatch fails closed')
-const historicalAssociationMismatch = regressionLineage.map(ownerObservation)
-historicalAssociationMismatch[2].author_association = 'CONTRIBUTOR'
-check(await selectCurrentReadyReviewAuthorityObservationsV1(historicalAssociationMismatch, regressionEvents, authorityRequest(lineageRevisionFour)) === null, 'historical predecessor association mismatch fails closed')
-const historicalDigestMismatch = regressionLineage.map(ownerObservation)
-historicalDigestMismatch[2].record.record_digest = '0'.repeat(64)
-check(await selectCurrentReadyReviewAuthorityObservationsV1(historicalDigestMismatch, regressionEvents, authorityRequest(lineageRevisionFour)) === null, 'historical predecessor internal digest mismatch fails closed')
-
-const guardDownstreamStages = (input) => {
-  const counters = { roster: 0, receipts: 0, threads: 0, recheck: 0, receipt_time_reads: 0, snapshot_time_reads: 0 }
-  input.roster_record_observation = new Proxy(input.roster_record_observation, {
-    get(target, property, receiver) { counters.roster += 1; return Reflect.get(target, property, receiver) },
-  })
-  input.producer_source_observations = new Proxy(input.producer_source_observations, {
-    get(target, property, receiver) {
-      if (property !== 'length') counters.receipts += 1
-      return Reflect.get(target, property, receiver)
-    },
-  })
-  input.thread_pages = new Proxy(input.thread_pages, {
-    get(target, property, receiver) {
-      if (property !== 'length') counters.threads += 1
-      return Reflect.get(target, property, receiver)
-    },
-  })
-  input.post_snapshot_head_recheck = new Proxy(input.post_snapshot_head_recheck, {
-    get(target, property, receiver) { counters.recheck += 1; return Reflect.get(target, property, receiver) },
-  })
-  const receiptsObservedAt = input.receipts_observed_at
-  const snapshotObservedAt = input.thread_snapshot_observed_at
-  Object.defineProperty(input, 'receipts_observed_at', {
-    enumerable: true,
-    configurable: true,
-    get() { counters.receipt_time_reads += 1; return receiptsObservedAt },
-  })
-  Object.defineProperty(input, 'thread_snapshot_observed_at', {
-    enumerable: true,
-    configurable: true,
-    get() { counters.snapshot_time_reads += 1; return snapshotObservedAt },
-  })
-  return counters
-}
-const assertLineageStopsBeforeDownstream = async (input, label) => {
-  const counters = guardDownstreamStages(input)
-  const result = await evaluateReadyReviewTerminalObservationCoreV1(input)
-  check(result.branch === 'observation_rejected' && result.failure.stage === 'ready_authority', `${label}: lineage rejects at authority boundary`)
-  check(counters.roster === 0 && counters.receipts === 0 && counters.threads === 0 && counters.recheck === 0 &&
-    counters.receipt_time_reads === 1 && counters.snapshot_time_reads === 1 && !('artifact' in result),
-  `${label}: zero receipt, thread, snapshot, post-snapshot recheck, and artifact work after input admission`)
-}
-
-const currentWrongHeadCore = await buildCoreInput({ readyRecords: coreLineage, readyEvents: coreLineageEvents })
-currentWrongHeadCore.request_identity.exact_head = '2'.repeat(40)
-await assertLineageStopsBeforeDownstream(currentWrongHeadCore, 'current leaf wrong HEAD')
-const currentWrongEventCore = await buildCoreInput({ readyRecords: coreLineage, readyEvents: coreLineageEvents.filter((event) => event.event_id !== readyEvent.event_id) })
-await assertLineageStopsBeforeDownstream(currentWrongEventCore, 'current leaf missing Ready event')
-const currentSourceCore = await buildCoreInput({ readyRecords: coreLineage, readyEvents: coreLineageEvents })
-currentSourceCore.ready_record_observations.at(-1).source_url = 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6999999901'
-await assertLineageStopsBeforeDownstream(currentSourceCore, 'current leaf source mismatch')
-const currentAuthorCore = await buildCoreInput({ readyRecords: coreLineage, readyEvents: coreLineageEvents })
-currentAuthorCore.ready_record_observations.at(-1).author_login = 'not-owner'
-await assertLineageStopsBeforeDownstream(currentAuthorCore, 'current leaf author mismatch')
-const currentAssociationCore = await buildCoreInput({ readyRecords: coreLineage, readyEvents: coreLineageEvents })
-currentAssociationCore.ready_record_observations.at(-1).author_association = 'CONTRIBUTOR'
-await assertLineageStopsBeforeDownstream(currentAssociationCore, 'current leaf association mismatch')
-const currentDigestCore = await buildCoreInput({ readyRecords: coreLineage, readyEvents: coreLineageEvents })
-currentDigestCore.ready_record_observations.at(-1).record.record_digest = '0'.repeat(64)
-await assertLineageStopsBeforeDownstream(currentDigestCore, 'current leaf digest mismatch')
-const currentTimestampCore = await buildCoreInput({ readyRecords: coreLineage, readyEvents: coreLineageEvents.map((event) => event.event_id === readyEvent.event_id ? { ...event, created_at: '2026-08-01T00:00:01Z' } : event) })
-await assertLineageStopsBeforeDownstream(currentTimestampCore, 'current leaf Ready timestamp mismatch')
-const predecessorMissingEventCore = await buildCoreInput({ readyRecords: coreLineage, readyEvents: coreLineageEvents.filter((event) => event.event_id !== coreRevisionThree.ready_event_id) })
-await assertLineageStopsBeforeDownstream(predecessorMissingEventCore, 'predecessor missing issuance-era event')
-const predecessorMultipleEventCore = await buildCoreInput({ readyRecords: coreLineage, readyEvents: [...coreLineageEvents, clone(coreLineageEvents[2])] })
-await assertLineageStopsBeforeDownstream(predecessorMultipleEventCore, 'predecessor multiple issuance-era events')
-const predecessorTimestampCore = await buildCoreInput({ readyRecords: coreLineage, readyEvents: coreLineageEvents.map((event) => event.event_id === coreRevisionThree.ready_event_id ? { ...event, created_at: '2026-07-31T22:00:01Z' } : event) })
-await assertLineageStopsBeforeDownstream(predecessorTimestampCore, 'predecessor issuance-era timestamp mismatch')
-const coreMalformedHistoricalHead = await resealRecord({ ...clone(coreRevisionThree), exact_head: 'short' })
-await assertLineageStopsBeforeDownstream(await buildCoreInput({ readyRecords: [coreRevisionOne, coreRevisionTwo, coreMalformedHistoricalHead, coreRevisionFour], readyEvents: coreLineageEvents }), 'predecessor malformed full HEAD')
-const predecessorSourceCore = await buildCoreInput({ readyRecords: coreLineage, readyEvents: coreLineageEvents })
-predecessorSourceCore.ready_record_observations[2].source_url = 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6999999902'
-await assertLineageStopsBeforeDownstream(predecessorSourceCore, 'predecessor source mismatch')
-const predecessorAuthorCore = await buildCoreInput({ readyRecords: coreLineage, readyEvents: coreLineageEvents })
-predecessorAuthorCore.ready_record_observations[2].author_login = 'not-owner'
-await assertLineageStopsBeforeDownstream(predecessorAuthorCore, 'predecessor author mismatch')
-const predecessorAssociationCore = await buildCoreInput({ readyRecords: coreLineage, readyEvents: coreLineageEvents })
-predecessorAssociationCore.ready_record_observations[2].author_association = 'CONTRIBUTOR'
-await assertLineageStopsBeforeDownstream(predecessorAssociationCore, 'predecessor association mismatch')
-const predecessorDigestCore = await buildCoreInput({ readyRecords: coreLineage, readyEvents: coreLineageEvents })
-predecessorDigestCore.ready_record_observations[2].record.record_digest = '0'.repeat(64)
-await assertLineageStopsBeforeDownstream(predecessorDigestCore, 'predecessor digest mismatch')
-await assertLineageStopsBeforeDownstream(await buildCoreInput({ readyRecords: [coreRevisionOne, coreRevisionThree, coreRevisionFour], readyEvents: coreLineageEvents }), 'revision gap')
-const brokenCorePredecessor = await resealRecord({ ...clone(coreRevisionThree), prior_record_url: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6999999903' })
-await assertLineageStopsBeforeDownstream(await buildCoreInput({ readyRecords: [coreRevisionOne, coreRevisionTwo, brokenCorePredecessor, coreRevisionFour], readyEvents: coreLineageEvents }), 'broken predecessor URL')
-const coreFork = await resealRecord({ ...clone(coreRevisionTwo), canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6200000002', ready_event_id: '28990170012', ready_occurred_at: '2026-07-31T21:30:00Z' })
-await assertLineageStopsBeforeDownstream(await buildCoreInput({ readyRecords: [coreRevisionOne, coreRevisionTwo, coreFork, coreRevisionThree, coreRevisionFour], readyEvents: [...coreLineageEvents, { event_id: coreFork.ready_event_id, event: 'ready_for_review', created_at: coreFork.ready_occurred_at }] }), 'fork and duplicate revision')
-const coreCycleRevisionTwo = await resealRecord({ ...clone(coreRevisionTwo), prior_record_url: coreRevisionThree.canonical_record })
-await assertLineageStopsBeforeDownstream(await buildCoreInput({ readyRecords: [coreRevisionOne, coreCycleRevisionTwo, coreRevisionThree, coreRevisionFour], readyEvents: coreLineageEvents }), 'cycle')
-const coreOrphan = await resealRecord({ ...clone(coreRevisionThree), canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6200000005', revision: 5, prior_record_url: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6999999905', ready_event_id: '28990170005', ready_occurred_at: '2026-07-31T22:30:00Z' })
-await assertLineageStopsBeforeDownstream(await buildCoreInput({ readyRecords: [coreRevisionOne, coreRevisionTwo, coreRevisionThree, coreOrphan, coreRevisionFour], readyEvents: [...coreLineageEvents, { event_id: coreOrphan.ready_event_id, event: 'ready_for_review', created_at: coreOrphan.ready_occurred_at }] }), 'orphan')
-const coreUnrelated = await resealRecord({ ...clone(coreRevisionThree), canonical_record: 'https://github.com/whatrune/sd-prompt-studio/issues/226#issuecomment-6200000006', revision: 6, task_issue_url: 'https://github.com/whatrune/sd-prompt-studio/issues/999', ready_event_id: '28990170006', ready_occurred_at: '2026-07-31T22:40:00Z' })
-await assertLineageStopsBeforeDownstream(await buildCoreInput({ readyRecords: [coreRevisionOne, coreRevisionTwo, coreRevisionThree, coreUnrelated, coreRevisionFour], readyEvents: [...coreLineageEvents, { event_id: coreUnrelated.ready_event_id, event: 'ready_for_review', created_at: coreUnrelated.ready_occurred_at }] }), 'unrelated strict claim')
-const staleCurrentCore = await buildCoreInput({ readyRecords: coreLineage, readyEvents: coreLineageEvents })
-staleCurrentCore.request_identity.ready_record_url = coreRevisionThree.canonical_record
-await assertLineageStopsBeforeDownstream(staleCurrentCore, 'historical record substituted as current')
-const coreCurrentInHistoricalSlot = await resealRecord({ ...clone(coreRevisionThree), exact_head: coreRevisionFour.exact_head, ready_event_id: coreRevisionFour.ready_event_id, ready_occurred_at: coreRevisionFour.ready_occurred_at })
-await assertLineageStopsBeforeDownstream(await buildCoreInput({ readyRecords: [coreRevisionOne, coreRevisionTwo, coreCurrentInHistoricalSlot, coreRevisionFour], readyEvents: coreLineageEvents }), 'current record substituted into historical slot')
-await assertLineageStopsBeforeDownstream(await buildCoreInput({ readyRecords: [coreRevisionOne, coreRevisionTwo, coreRevisionThree, coreRevisionFour, coreRevisionFour], readyEvents: coreLineageEvents }), 'duplicate canonical URL')
 
 const validInput = await buildCoreInput()
 const validInputSnapshot = clone(validInput)
@@ -509,7 +346,7 @@ eventUnknown.ready_event_observations[0].unknown = true
 await assertRejected(eventUnknown, 'ready_authority_invalid', 'ready_authority', 'malformed matching Ready event rejected during current authority selection')
 const unrelatedEventUnknown = await buildCoreInput()
 unrelatedEventUnknown.ready_event_observations.push({ event_id: 'OTHER', event: 'ready_for_review', created_at: readyRecord.ready_occurred_at, unknown: true })
-await assertRejected(unrelatedEventUnknown, 'ready_authority_invalid', 'ready_authority', 'malformed unrelated Ready event is rejected before downstream authority stages')
+await assertRejected(unrelatedEventUnknown, 'ready_event_invalid', 'ready_event', 'existing Core still rejects malformed unrelated Ready event after current authority selection')
 
 const rosterUnknown = await buildCoreInput()
 rosterUnknown.roster_record_observation.unknown = true

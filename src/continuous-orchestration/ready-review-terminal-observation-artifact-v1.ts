@@ -531,36 +531,38 @@ export const selectCurrentReadyReviewAuthorityObservationsV1 = async (
       anchor.pr_number !== requestIdentity.pr_number || anchor.pr_url !== requestIdentity.pr_url ||
       anchor.exact_head !== requestIdentity.exact_head || !/^[1-9]\d*$/.test(anchor.ready_event_id)) return null
 
-  if (!readyEventObservations.every((event) =>
+  const matchingEvents = readyEventObservations.filter((event) =>
     exactKeys(event, READY_EVENT_OBSERVATION_KEYS) && event.event === 'ready_for_review' &&
-    /^[1-9]\d*$/.test(String(event.event_id)) && isoTime(event.created_at),
-  )) return null
-  const admittedReadyEvents = readyEventObservations as readonly ReadyReviewEventObservationV1[]
+    event.event_id === anchor.ready_event_id && event.created_at === anchor.ready_occurred_at,
+  )
+  if (matchingEvents.length !== 1) return null
+
+  const admittedReadyEvents = readyEventObservations.filter((event) =>
+    exactKeys(event, READY_EVENT_OBSERVATION_KEYS) && event.event === 'ready_for_review' &&
+    nonEmpty(event.event_id) && isoTime(event.created_at),
+  )
   const latestReadyOccurredAt = Math.max(...admittedReadyEvents.map((event) => Date.parse(event.created_at)))
   const currentReadyEvents = admittedReadyEvents.filter((event) => Date.parse(event.created_at) === latestReadyOccurredAt)
   if (currentReadyEvents.length !== 1 || currentReadyEvents[0].event_id !== anchor.ready_event_id ||
       currentReadyEvents[0].created_at !== anchor.ready_occurred_at) return null
 
+  const currentTupleObservations = observations.filter((observation) => {
+    if (!isObject(observation) || !isObject(observation.record)) return false
+    const record = observation.record
+    return record.repository === requestIdentity.repository && record.pr_number === requestIdentity.pr_number &&
+      record.pr_url === requestIdentity.pr_url && record.exact_head === requestIdentity.exact_head &&
+      record.ready_event_id === anchor.ready_event_id && record.ready_occurred_at === anchor.ready_occurred_at
+  })
+  if (currentTupleObservations.length === 0) return null
+
   const byCanonicalUrl = new Map<string, ReadyReviewRecordObservationV1>()
-  const byRevision = new Map<number, ReadyReviewRecordObservationV1>()
-  const boundReadyEventIds = new Set<string>()
-  for (const observation of observations) {
+  for (const observation of currentTupleObservations) {
     if (!readyReviewRecordObservationEnvelopeV1(observation)) return null
     const record = await admitReadyReviewGenerationRecordV1(observation.record)
     if (record === null || observation.author_login !== repositoryOwner || observation.source_url !== record.canonical_record ||
-        record.repository !== anchor.repository || record.pr_number !== anchor.pr_number || record.pr_url !== anchor.pr_url ||
-        record.task_issue_url !== anchor.task_issue_url || byCanonicalUrl.has(record.canonical_record) ||
-        byRevision.has(record.revision) || boundReadyEventIds.has(record.ready_event_id)) return null
-    const matchingEvents = admittedReadyEvents.filter((event) =>
-      event.event_id === record.ready_event_id && event.created_at === record.ready_occurred_at,
-    )
-    if (matchingEvents.length !== 1) return null
-    const admittedObservation = { ...observation, record } as ReadyReviewRecordObservationV1
-    byCanonicalUrl.set(record.canonical_record, admittedObservation)
-    byRevision.set(record.revision, admittedObservation)
-    boundReadyEventIds.add(record.ready_event_id)
+        byCanonicalUrl.has(record.canonical_record)) return null
+    byCanonicalUrl.set(record.canonical_record, { ...observation, record })
   }
-  if (byCanonicalUrl.size !== observations.length || byRevision.size !== anchor.revision) return null
 
   const reversedLineage: ReadyReviewRecordObservationV1[] = []
   const visited = new Set<string>()
@@ -577,16 +579,13 @@ export const selectCurrentReadyReviewAuthorityObservationsV1 = async (
     cursor = byCanonicalUrl.get(record.prior_record_url)
     if (cursor === undefined) return null
   }
-  if (reversedLineage.length !== observations.length || reversedLineage.length !== anchor.revision) return null
+  if (reversedLineage.length !== currentTupleObservations.length || reversedLineage.length !== anchor.revision) return null
   const lineage = reversedLineage.reverse()
   for (let index = 0; index < lineage.length; index += 1) {
     const expectedRevision = index + 1
     const expectedPrior = index === 0 ? null : lineage[index - 1].record.canonical_record
     if (lineage[index].record.revision !== expectedRevision || lineage[index].record.prior_record_url !== expectedPrior) return null
   }
-  const referenced = new Set(lineage.flatMap(({ record }) => record.prior_record_url === null ? [] : [record.prior_record_url]))
-  const leaves = lineage.filter(({ record }) => !referenced.has(record.canonical_record))
-  if (leaves.length !== 1 || leaves[0].record.canonical_record !== anchor.canonical_record) return null
   return deepFreezeReadyReviewObservationV1(structuredClone(lineage)) as readonly ReadyReviewRecordObservationV1[]
 }
 
@@ -661,10 +660,8 @@ export const evaluateReadyReviewTerminalObservationCoreV1 = async (
   )
   if (currentReadyRecordObservations === null) return rejectObservationV1('ready_authority_invalid', 'ready_authority')
 
-  const currentReadyObservation = currentReadyRecordObservations[currentReadyRecordObservations.length - 1]
-  if (currentReadyObservation === undefined) return rejectObservationV1('ready_chain_invalid', 'ready_chain')
   const admittedReadyRecords: ReadyReviewGenerationRecordV1[] = []
-  for (const [index, observation] of currentReadyRecordObservations.entries()) {
+  for (const observation of currentReadyRecordObservations) {
     if (!exactKeys(observation, RECORD_OBSERVATION_KEYS) || observation.author_association !== 'OWNER' ||
         observation.author_login !== repositoryOwner || observation.source_url !== (isObject(observation.record) ? observation.record.canonical_record : undefined) ||
         !await validateReadyReviewGenerationRecordV1(observation.record)) {
@@ -672,10 +669,7 @@ export const evaluateReadyReviewTerminalObservationCoreV1 = async (
     }
     const record = observation.record
     if (record.repository !== request.repository || record.pr_number !== request.pr_number || record.pr_url !== request.pr_url ||
-        record.task_issue_url !== currentReadyObservation.record.task_issue_url ||
-        (index === currentReadyRecordObservations.length - 1 && record.exact_head !== request.exact_head)) {
-      return rejectObservationV1('ready_authority_invalid', 'ready_authority')
-    }
+        record.exact_head !== request.exact_head) return rejectObservationV1('ready_authority_invalid', 'ready_authority')
     admittedReadyRecords.push(record)
   }
 
@@ -698,18 +692,14 @@ export const evaluateReadyReviewTerminalObservationCoreV1 = async (
   if (leaves.length !== 1 || leaves[0].canonical_record !== request.ready_record_url) return rejectObservationV1('ready_chain_invalid', 'ready_chain')
   const readyRecord = leaves[0]
 
+  let matchingReadyEvents = 0
   for (const event of input.ready_event_observations) {
-    if (!exactKeys(event, READY_EVENT_OBSERVATION_KEYS) || event.event !== 'ready_for_review' ||
-        !/^[1-9]\d*$/.test(String(event.event_id)) || !isoTime(event.created_at)) {
+    if (!exactKeys(event, READY_EVENT_OBSERVATION_KEYS) || event.event !== 'ready_for_review' || !nonEmpty(event.event_id) || !isoTime(event.created_at)) {
       return rejectObservationV1('ready_event_invalid', 'ready_event')
     }
+    if (event.event_id === readyRecord.ready_event_id && event.created_at === readyRecord.ready_occurred_at) matchingReadyEvents += 1
   }
-  for (const record of admittedReadyRecords) {
-    const matchingReadyEvents = input.ready_event_observations.filter((event) =>
-      event.event_id === record.ready_event_id && event.created_at === record.ready_occurred_at,
-    )
-    if (matchingReadyEvents.length !== 1) return rejectObservationV1('ready_event_invalid', 'ready_event')
-  }
+  if (matchingReadyEvents !== 1) return rejectObservationV1('ready_event_invalid', 'ready_event')
 
   const rosterObservation = input.roster_record_observation
   if (!exactKeys(rosterObservation, RECORD_OBSERVATION_KEYS) || rosterObservation.author_association !== 'OWNER' ||

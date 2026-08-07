@@ -10,30 +10,20 @@ name: Protected Transition Admission V1
         options:
           - terminal_review_admission
           - merge_decision_admission
+      task_issue_number:
+        description: Current implementation Task Issue number
+        required: true
+        type: string
       pr_number:
-        description: Pull request number
+        description: Current pull request number
         required: true
         type: string
       exact_head:
-        description: Full exact pull request HEAD SHA
+        description: Full current pull request HEAD SHA
         required: true
-        type: string
-      task_record_url:
-        description: Direct canonical Task or Issue record URL
-        required: true
-        type: string
-      ready_generation_record_url:
-        description: Direct current Ready Generation record URL
-        required: true
-        type: string
-      terminal_review_record_url:
-        description: Direct Terminal Review record URL; empty for Terminal Review Admission
-        required: false
-        default: ""
         type: string
 
 permissions:
-  actions: read
   contents: read
   issues: read
   pull-requests: read
@@ -41,12 +31,10 @@ permissions:
 jobs:
   protected_transition_admission_v1:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     env:
       GH_TOKEN: ${{ github.token }}
       PTA_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-      PTA_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-      PTA_OUTPUT_DIRECTORY: ${{ runner.temp }}/protected-transition-admission-v1
     steps:
       - name: Admit exact default-branch host identity
         shell: bash
@@ -69,72 +57,17 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Install frozen dependencies
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm install --global pnpm@11.13.1
-          pnpm install --frozen-lockfile
-
       - name: Evaluate protected transition admission
-        id: admission
         shell: bash
         env:
           PTA_INPUT_TRANSITION: ${{ inputs.transition }}
+          PTA_INPUT_TASK_ISSUE_NUMBER: ${{ inputs.task_issue_number }}
           PTA_INPUT_PR_NUMBER: ${{ inputs.pr_number }}
           PTA_INPUT_EXACT_HEAD: ${{ inputs.exact_head }}
-          PTA_INPUT_TASK_RECORD_URL: ${{ inputs.task_record_url }}
-          PTA_INPUT_READY_RECORD_URL: ${{ inputs.ready_generation_record_url }}
-          PTA_INPUT_TERMINAL_RECORD_URL: ${{ inputs.terminal_review_record_url }}
-        run: |
-          set +e
-          node scripts/run-protected-transition-admission-v1.mjs \
-            --transition "$PTA_INPUT_TRANSITION" \
-            --pr-number "$PTA_INPUT_PR_NUMBER" \
-            --exact-head "$PTA_INPUT_EXACT_HEAD" \
-            --task-record-url "$PTA_INPUT_TASK_RECORD_URL" \
-            --ready-generation-record-url "$PTA_INPUT_READY_RECORD_URL" \
-            --terminal-review-record-url "$PTA_INPUT_TERMINAL_RECORD_URL"
-          admission_exit=$?
-          set -e
-          if [[ "$admission_exit" -eq 0 ]]; then
-            admission_result=accepted
-          elif [[ "$admission_exit" -eq 2 ]]; then
-            admission_result=rejected
-          else
-            admission_result=failed
-          fi
-          printf 'exit_code=%s\n' "$admission_exit" >> "$GITHUB_OUTPUT"
-          printf 'result=%s\n' "$admission_result" >> "$GITHUB_OUTPUT"
-
-      - name: Persist accepted artifact or rejected diagnostic receipt
-        id: persistence
-        if: steps.admission.outputs.result != 'failed'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: protected-transition-admission-v1-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/protected-transition-admission-v1/*.jcs
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-
-      - name: Terminate with exact admission result
-        if: always()
-        shell: bash
-        env:
-          PTA_RESULT: ${{ steps.admission.outputs.result }}
-          PTA_EXIT_CODE: ${{ steps.admission.outputs.exit_code }}
-          PTA_PERSISTENCE_OUTCOME: ${{ steps.persistence.outcome }}
-          PTA_ARTIFACT_ID: ${{ steps.persistence.outputs.artifact-id }}
-          PTA_ARTIFACT_URL: ${{ steps.persistence.outputs.artifact-url }}
-          PTA_ARCHIVE_SHA256: ${{ steps.persistence.outputs.artifact-digest }}
         run: |
           set -euo pipefail
-          printf 'protected-transition-admission-v1 result=%s\n' "$PTA_RESULT"
-          printf 'artifact_id=%s\n' "$PTA_ARTIFACT_ID"
-          printf 'artifact_url=%s\n' "$PTA_ARTIFACT_URL"
-          printf 'archive_sha256=%s\n' "$PTA_ARCHIVE_SHA256"
-          if [[ "$PTA_RESULT" == "accepted" && "$PTA_EXIT_CODE" == "0" && "$PTA_PERSISTENCE_OUTCOME" == "success" ]]; then
-            exit 0
-          fi
-          exit 1
+          node scripts/run-protected-transition-admission-v1.mjs \
+            --transition "$PTA_INPUT_TRANSITION" \
+            --task-issue-number "$PTA_INPUT_TASK_ISSUE_NUMBER" \
+            --pr-number "$PTA_INPUT_PR_NUMBER" \
+            --exact-head "$PTA_INPUT_EXACT_HEAD"
