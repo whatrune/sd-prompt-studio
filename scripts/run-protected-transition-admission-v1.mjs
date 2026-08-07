@@ -111,6 +111,9 @@ const TASK_AUTHORITY_RECORD_TYPES = Object.freeze(new Set([
   'terminal_review_admission_lineage_v1',
   'canonical_finalization_binding_v1',
 ]))
+const TRUST_ROOT_REVOCATION_RECORD_TYPES = Object.freeze(new Set([
+  'phase_1_assignment_issuer_trust_root_revocation_v1',
+]))
 const TERMINAL_LINEAGE_KEYS = [
   'record_type', 'canonical_record', 'record_digest', 'lineage_id', 'revision', 'predecessor_record_url', 'predecessor_record_digest',
   'effect', 'api_author_login', 'task_record_url', 'repository', 'pr_number', 'pr_url', 'exact_head', 'ready_generation_record_url',
@@ -201,21 +204,21 @@ const supportedRecordCandidates = (body) => {
   return candidates.length === 0 ? [body.trim()] : candidates
 }
 
-const lexicalTaskAuthorityClaims = (body) => {
+const lexicalTaskAuthorityClaims = (body, admittedRecordTypes = TASK_AUTHORITY_RECORD_TYPES) => {
   const claims = []
   const claim = /(?:^|[,\n{])\s*["']?record_type["']?\s*:\s*["']?([A-Za-z0-9_-]+)["']?(?=\s*[,}\r\n]|\s*$)/gim
   for (const match of body.matchAll(claim)) {
-    if (TASK_AUTHORITY_RECORD_TYPES.has(match[1])) claims.push(match[1])
+    if (admittedRecordTypes.has(match[1])) claims.push(match[1])
   }
   return claims
 }
 
-const inspectTaskAuthorityBody = (body) => {
+const inspectTaskAuthorityBody = (body, admittedRecordTypes = TASK_AUTHORITY_RECORD_TYPES) => {
   if (typeof body !== 'string') return Object.freeze({ authorityBearing: false, record: null })
+  const claims = lexicalTaskAuthorityClaims(body, admittedRecordTypes)
   const candidates = supportedRecordCandidates(body)
   const parsed = candidates.map(parseRecordCandidate)
-  const claims = lexicalTaskAuthorityClaims(body)
-  const parsedInScope = parsed.filter((value) => TASK_AUTHORITY_RECORD_TYPES.has(value?.record_type))
+  const parsedInScope = parsed.filter((value) => admittedRecordTypes.has(value?.record_type))
   const authorityBearing = claims.length > 0 || parsedInScope.length > 0
   if (!authorityBearing) return Object.freeze({ authorityBearing: false, record: null })
   if (candidates.length !== 1 || claims.length !== 1 || parsed.length !== 1 || parsed[0] === null ||
@@ -317,9 +320,6 @@ const ghBuffer = async (args) => {
 }
 
 const sha256Buffer = (value) => createHash('sha256').update(value).digest('hex')
-
-const recordTypeClaim = (body, recordType) => typeof body === 'string' &&
-  new RegExp(`(?:^|\\n)\\s*record_type\\s*:\\s*["']?${recordType}["']?\\s*(?:\\r?\\n|$)`).test(body)
 
 const sha256Jcs = async (value) => await sha256ReadyReviewObservationV1(canonicalizeReadyReviewObservationJcsV1(value))
 
@@ -558,10 +558,8 @@ const acquireTrustRoot = async (taskSource, repository, assignmentSpec) => {
   const exactRoots = parentComments.filter((comment) => comment?.html_url === TRUST_ROOT.recordUrl)
   if (exactRoots.length !== 1) throw new IdentityRejection(['trust_root_cardinality_invalid'])
   for (const comment of parentComments) {
-    const parsed = parseRecordBody(comment?.body)
-    if (recordTypeClaim(comment?.body, 'phase_1_assignment_issuer_trust_root_revocation_v1') && parsed === null) {
-      throw new Error('malformed trust-root revocation record')
-    }
+    const inspectedRevocation = inspectTaskAuthorityBody(comment?.body, TRUST_ROOT_REVOCATION_RECORD_TYPES)
+    const parsed = inspectedRevocation.authorityBearing ? inspectedRevocation.record : parseRecordBody(comment?.body)
     if (parsed?.record_type === 'phase_1_assignment_issuer_trust_root_revocation_v1' && parsed?.trust_root_id === TRUST_ROOT_ID &&
         parsed?.trust_root_revision === TRUST_ROOT.revision && comment?.user?.login === assignmentSpec.ownerLogin) {
       throw new IdentityRejection(['trust_root_revoked'])

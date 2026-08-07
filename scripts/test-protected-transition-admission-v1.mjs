@@ -924,6 +924,12 @@ check(runnerSource.includes("matches.length !== 1") && runnerSource.includes("re
 check(runnerSource.includes('actor_login: after.readyEvent.actor_login') && !runnerSource.includes('actor_login: readySource.authorLogin'), 'Ready Generation publisher is never substituted for the REST Ready actor')
 check(runnerSource.includes('issues/${taskIdentity[3]}/comments') && runnerSource.includes('acquireCanonicalRecord(candidate.listed.html_url'), 'production paginates Task assignments and directly re-fetches the selected canonical record')
 check(runnerSource.includes('source.authorLogin !== trustRoot.issuer_login') && runnerSource.includes('record.authority_owner_login !== trustRoot.issuer_login'), 'assignment issuer is authenticated by the independent trust root instead of self-assertion')
+const taskAuthoritySetSource = /const TASK_AUTHORITY_RECORD_TYPES = Object\.freeze\(new Set\(\[([\s\S]*?)\]\)\)/.exec(runnerSource)?.[1] ?? ''
+check(runnerSource.includes("const TRUST_ROOT_REVOCATION_RECORD_TYPES = Object.freeze(new Set([\n  'phase_1_assignment_issuer_trust_root_revocation_v1',\n]))") &&
+  !taskAuthoritySetSource.includes('phase_1_assignment_issuer_trust_root_revocation_v1'), 'revocation uses a dedicated singleton without expanding Task authority record types')
+check(!runnerSource.includes('recordTypeClaim') &&
+  (runnerSource.match(/inspectTaskAuthorityBody\(comment\?\.body, TRUST_ROOT_REVOCATION_RECORD_TYPES\)/g) ?? []).length === 1,
+  'acquireTrustRoot uses the total inspector exactly once per comment with no fallback revocation selector')
 check(runnerSource.includes("declared.length === 0") && runnerSource.includes("assignment_missing"), 'missing canonical assignment rejects before Collector execution')
 check(!runnerSource.includes("assignment_edited") && runnerSource.includes('assignmentBinding'), 'self-binding assignment timestamp equality is replaced by Finalization Binding integrity')
 check(runnerSource.includes("record.assignment_id !== first.assignment_id") && runnerSource.includes("assignment_chain_ambiguous"), 'multiple assignment chains fail closed')
@@ -1047,8 +1053,12 @@ const buildSyntheticHarness = async ({ transition = 'terminal_review_admission',
     artifactArchive = buildStoredZip({ [PROTECTED_TRANSITION_RECEIPT_FILE_V1]: canonicalizeReadyReviewObservationJcsV1(receipt), [PROTECTED_TRANSITION_COLLECTOR_FILE_V1]: terminalFixture.harness.state.collector.jcs })
     artifactEntries = readStoredZipEntries(artifactArchive)
   }
+  const trustRootUrl = 'https://github.com/whatrune/sd-prompt-studio/issues/251#issuecomment-5198987697'
+  const [trustRootCreatedAt, trustRootUpdatedAt] = PINNED_METADATA[commentId(trustRootUrl)]
+  const trustRootSource = apiSource(trustRootUrl, PINNED_COMMENT_BODIES[trustRootUrl], { createdAt: trustRootCreatedAt, updatedAt: trustRootUpdatedAt })
   const state = { transition, taskDigest, roster, ready, assignment, targets, bindings,
     collector: await buildSyntheticCollector(roster.record_digest, terminal ? fixture.terminal_artifact : fixture.merge_artifact), terminalLineage, artifactArchive, artifactEntries,
+    authorityComments: [listedSource(trustRootSource)],
     taskCommentsPre: [...targets.map(({ source }) => listedSource(source)), ...bindings.map(({ source }) => listedSource(source))], taskCommentsPost: null,
     prPre: { html_url: fixture.pr_url, state: 'open', draft: false, head: { sha: fixture.exact_head }, base: { ref: 'main', sha: fixture.workflow.sha } },
     prPost: null, taskBodyPost: SYNTHETIC_TASK_BODY, extraDirect: [], directPost: new Map(), postCommentsFailure: false,
@@ -1070,7 +1080,7 @@ const buildSyntheticHarness = async ({ transition = 'terminal_review_admission',
       const phase = state.collectorCount === 0 ? 0 : 1; const suffix = String(phase)
       if (endpoint === `repos/${fixture.repository}/pulls/${fixture.pr_number}`) { push(phase, `JP${suffix}`); return clone(phase === 0 ? state.prPre : state.prPost) }
       if (endpoint === `repos/${fixture.repository}/issues/${fixture.pr_number - 1}`) { push(phase, `JT${suffix}`); return phase === 0 ? clone(direct.get(endpoint)) : apiSource(fixture.task_record_url, state.taskBodyPost) }
-      if (endpoint.startsWith(`repos/${fixture.repository}/issues/251/comments?`)) { push(phase, `JA${suffix}`); return [listedSource(direct.get(`repos/${fixture.repository}/issues/comments/5198987697`))] }
+      if (endpoint.startsWith(`repos/${fixture.repository}/issues/251/comments?`)) { push(phase, `JA${suffix}`); return clone(state.authorityComments) }
       if (endpoint.startsWith(`repos/${fixture.repository}/issues/${fixture.pr_number - 1}/comments?`)) { pageCalls[phase] += 1; if (pageCalls[phase] === 1) push(phase, `JC${suffix}`); if (phase === 1 && state.postCommentsFailure) throw new Error('synthetic pagination unavailable'); if (pageCalls[phase] === (terminal ? 3 : 4)) push(phase, `JL${suffix}`); return clone(phase === 0 ? state.taskCommentsPre : state.taskCommentsPost) }
       if (endpoint.startsWith(`repos/${fixture.repository}/issues/${fixture.pr_number}/timeline?`)) { push(phase, `JR${suffix}`); return [{ event: 'ready_for_review', id: fixture.ready_generation.event_id, created_at: fixture.ready_generation.occurred_at, commit_id: fixture.exact_head, actor: { login: fixture.actor_login } }] }
       if (endpoint === `repos/${fixture.repository}/issues/comments/${commentId(assignmentUrl)}`) push(phase, `JS${suffix}`)
@@ -1115,6 +1125,18 @@ const addRawTaskComment = (state, body, serial = 90) => {
   const source = apiSource(url, body)
   state.taskCommentsPre.push(listedSource(source)); state.taskCommentsPost.push(listedSource(source)); state.extraDirect.push({ url, source })
 }
+const addRawAuthorityComment = (state, body, serial, author = 'whatrune') => {
+  const url = `https://github.com/whatrune/sd-prompt-studio/issues/251#issuecomment-${7400000000 + serial}`
+  const source = apiSource(url, body, { author })
+  state.authorityComments.push(listedSource(source)); state.extraDirect.push({ url, source })
+}
+const TRUST_ROOT_REVOCATION_TYPE = 'phase_1_assignment_issuer_trust_root_revocation_v1'
+const TRUST_ROOT_REVOCATION_ID = 'PTA-V1-PHASE-1-ASSIGNMENT-ISSUER-TRUST-ROOT'
+const revocationBody = ({ representation, rootId = TRUST_ROOT_REVOCATION_ID, revision = 1 }) => {
+  if (representation === 'json') return JSON.stringify({ record_type: TRUST_ROOT_REVOCATION_TYPE, trust_root_id: rootId, trust_root_revision: revision })
+  if (representation === 'quoted_yaml') return `\`\`\`yaml\n"record_type": "${TRUST_ROOT_REVOCATION_TYPE}"\n"trust_root_id": "${rootId}"\n"trust_root_revision": ${revision}\n\`\`\``
+  return `\`\`\`yaml\nrecord_type: ${TRUST_ROOT_REVOCATION_TYPE}\ntrust_root_id: ${rootId}\ntrust_root_revision: ${revision}\n\`\`\``
+}
 const addTerminalLeaf = async (state, effect, representation = 'json') => {
   const url = `https://github.com/whatrune/sd-prompt-studio/issues/259#issuecomment-${7100000000 + ['APPROVE', 'CHANGES_REQUIRED', 'BLOCKED', 'REVOKED', 'SUPERSEDED'].indexOf(effect)}`
   const record = await resealRecord({ record_type: 'terminal_review_admission_lineage_v1', canonical_record: url,
@@ -1141,6 +1163,44 @@ await runSyntheticUnit('P02', { transition: 'merge_decision_admission', terminal
 await runSyntheticUnit('P03', { assignmentRepresentation: 'json' }, acceptedTerminal)
 await runSyntheticUnit('P04', { assignmentRepresentation: 'yaml' }, acceptedTerminal)
 await runSyntheticUnit('P05', { mutate: async (state) => addRawTaskComment(state, 'unrelated prose without authority', 91) }, acceptedTerminal)
+
+const revokedBeforeCollector = {
+  result: 'rejected', code: 'trust_root_revoked', collector: 0, persistence: 1, receipts: 1, artifacts: 0, mutations: 0,
+  trace: 'JP0>JT0>JA0>P',
+}
+const malformedRevocationBeforeCollector = {
+  result: 'failed', code: 'acquisition_or_collector_failed', collector: 0, persistence: 0, receipts: 0, artifacts: 0, mutations: 0,
+  trace: 'JP0>JT0>JA0',
+}
+await runSyntheticUnit('R01', { mutate: async (state) => addRawAuthorityComment(state, revocationBody({ representation: 'unquoted_yaml' }), 1) }, revokedBeforeCollector)
+await runSyntheticUnit('R02', { mutate: async (state) => addRawAuthorityComment(state, revocationBody({ representation: 'quoted_yaml' }), 2) }, revokedBeforeCollector)
+await runSyntheticUnit('R03', { mutate: async (state) => addRawAuthorityComment(state, revocationBody({ representation: 'json' }), 3) }, revokedBeforeCollector)
+await runSyntheticUnit('R04', { mutate: async (state) => addRawAuthorityComment(state,
+  `\`\`\`yaml\nrecord_type: ${TRUST_ROOT_REVOCATION_TYPE}\ntrust_root_id: [\n\`\`\``, 4) }, malformedRevocationBeforeCollector)
+await runSyntheticUnit('R05', { mutate: async (state) => addRawAuthorityComment(state,
+  `\`\`\`yaml\n"record_type": "${TRUST_ROOT_REVOCATION_TYPE}"\n"trust_root_id": [\n\`\`\``, 5) }, malformedRevocationBeforeCollector)
+await runSyntheticUnit('R06', { mutate: async (state) => addRawAuthorityComment(state,
+  `{"record_type":"${TRUST_ROOT_REVOCATION_TYPE}",`, 6) }, malformedRevocationBeforeCollector)
+await runSyntheticUnit('R07', { mutate: async (state) => addRawAuthorityComment(state,
+  `\`\`\`yaml\nrecord_type: ${TRUST_ROOT_REVOCATION_TYPE}\nrecord_type: ${TRUST_ROOT_REVOCATION_TYPE}\ntrust_root_id: ${TRUST_ROOT_REVOCATION_ID}\ntrust_root_revision: 1\n\`\`\``, 7) }, malformedRevocationBeforeCollector)
+await runSyntheticUnit('R08', { mutate: async (state) => addRawAuthorityComment(state,
+  `${revocationBody({ representation: 'unquoted_yaml' })}\n\n\`\`\`yaml\nrecord_type: ordinary_record_v1\n\`\`\``, 8) }, malformedRevocationBeforeCollector)
+await runSyntheticUnit('R09', { mutate: async (state) => addRawAuthorityComment(state,
+  `record_type: ${TRUST_ROOT_REVOCATION_TYPE}\n\n\`\`\`yaml\nrecord_type: ordinary_record_v1\n\`\`\``, 9) }, malformedRevocationBeforeCollector)
+await runSyntheticUnit('R10', { mutate: async (state) => addRawAuthorityComment(state, revocationBody({ representation: 'json' }), 10, 'untrusted-reviewer') }, acceptedTerminal)
+await runSyntheticUnit('R11', { mutate: async (state) => addRawAuthorityComment(state,
+  revocationBody({ representation: 'unquoted_yaml', rootId: 'WRONG-TRUST-ROOT' }), 11) }, acceptedTerminal)
+await runSyntheticUnit('R12', { mutate: async (state) => addRawAuthorityComment(state,
+  revocationBody({ representation: 'json', revision: 2 }), 12) }, acceptedTerminal)
+await runSyntheticUnit('R13', { mutate: async (state) => addRawTaskComment(state, JSON.stringify({
+  record_type: TRUST_ROOT_REVOCATION_TYPE, trust_root_id: TRUST_ROOT_REVOCATION_ID, trust_root_revision: 1,
+  repository: 'other/repository', parent_issue: 'https://github.com/whatrune/sd-prompt-studio/issues/250',
+  contract: 'other-contract', assignment_record_types: ['other_assignment_v1'],
+}), 93) }, acceptedTerminal)
+await runSyntheticUnit('R14', { mutate: async (state) => {
+  addRawAuthorityComment(state, '{"record_type":"ordinary_record_v1"}', 14)
+  addRawAuthorityComment(state, '\`\`\`yaml\n"record_type": "ordinary_record_v1"\n\`\`\`', 15)
+} }, acceptedTerminal)
 
 for (const [id, effect] of [['T01', 'APPROVE'], ['T02', 'CHANGES_REQUIRED'], ['T03', 'BLOCKED'], ['T04', 'REVOKED'], ['T05', 'SUPERSEDED']]) {
   await runSyntheticUnit(id, { mutate: async (state) => await addTerminalLeaf(state, effect) }, {
