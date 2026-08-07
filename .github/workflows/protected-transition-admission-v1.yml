@@ -32,7 +32,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: protected-transition-admission-v1-${{ github.repository }}-${{ github.event.issue.number || inputs.task_issue_number }}-${{ github.event.comment.id || github.run_id }}
+  group: protected-transition-admission-v1-${{ github.repository }}-${{ github.event.issue.number || inputs.task_issue_number }}
   cancel-in-progress: false
 
 jobs:

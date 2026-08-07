@@ -17,6 +17,8 @@ import {
   extractProtectedTransitionTaskStateV1,
   parseIndependentReviewDecisionProjectionV1,
   parseReviewApprovalEventV1,
+  projectProtectedTransitionReviewStateV1,
+  resolveEffectiveReviewDecisionV1,
 } from './run-protected-transition-admission-v1.mjs'
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -261,7 +263,7 @@ const expectedPaths = [
 check(changedPaths.join('\n') === expectedPaths.join('\n'), 'final cumulative diff is exactly four paths')
 const productionSource = `${workflowSource}\n${runnerSource}\n${coreSource}`
 check(!/(trust_root|revocation|ready_generation|producer_roster|assignment_record|finalization_binding|collector|\.jcs|upload-artifact)/i.test(productionSource), 'retired mechanisms are absent')
-check(!/\/comments(?:\?|`|')/.test(runnerSource), 'runner performs no Issue-comment pagination')
+check(runnerSource.includes('/comments?since=') && runnerSource.includes('pageNumber > 32'), 'runner uses bounded forward-only Review pagination')
 check(runnerSource.includes('acquireTaskIdentityV1') && runnerSource.includes('acquireChangedPathScopeV1'), 'runner owns direct Task and scope acquisition')
 check(runnerSource.includes('previous_filename') && runnerSource.includes('state_changed_during_evaluation'), 'runner checks rename and late state change')
 check(!workflowSource.includes('pnpm install') && !workflowSource.includes('actions: read') && !workflowSource.includes('upload-artifact') && !workflowSource.includes('gh workflow run'), 'workflow has no dependency install, nested dispatch, or artifact permission/persistence')
@@ -297,6 +299,7 @@ const reviewEvent = ({ body = reviewDecisionBody(), association = 'MEMBER', issu
   },
   comment: {
     id: 9001,
+    created_at: '2026-08-07T00:00:00Z',
     author_association: association,
     body,
     ...comment,
@@ -309,12 +312,9 @@ check(validReviewEvent.taskIssueNumber === TASK && validReviewEvent.prNumber ===
 check(validReviewEvent.exactHead === HEAD && validReviewEvent.review.decision === 'APPROVE', 'valid Review event binds exact APPROVE HEAD')
 
 const nonApproveReview = parseReviewApprovalEventV1(reviewEvent({ body: reviewDecisionBody({ decision: 'CHANGES_REQUIRED' }) }))
-const nonApproveResult = await executeReviewApprovalAutomationV1({
-  event: reviewEvent({ body: reviewDecisionBody({ decision: 'CHANGES_REQUIRED' }) }),
-  host: { api: async () => { throw new Error('host_must_not_be_called') } },
-})
-check(nonApproveReview.review.decision === 'CHANGES_REQUIRED' && nonApproveResult.automation_status === 'SKIPPED', 'non-APPROVE Review is skipped')
-check(nonApproveResult.state_changed === false && nonApproveResult.admission_executed === false, 'non-APPROVE Review has no effect')
+const nonApproveProjection = projectProtectedTransitionReviewStateV1(approvedState(), nonApproveReview.review)
+check(nonApproveProjection.review_status === 'CHANGES_REQUIRED' && nonApproveProjection.reviewed_head === HEAD, 'non-APPROVE Review projects the exact status and HEAD')
+check(nonApproveProjection.review_blocker_count === 0 && nonApproveProjection.observed_head === HEAD, 'non-APPROVE projection preserves current binding')
 
 const blockingReview = parseReviewApprovalEventV1(reviewEvent({ body: reviewDecisionBody({ blocking_finding_count: 1 }) }))
 const blockingReviewResult = await executeReviewApprovalAutomationV1({
@@ -365,12 +365,13 @@ const automationHost = ({
   initialState = state(),
   changedFiles = 0,
   filePages = [[]],
+  commentPages = [[reviewEvent().comment]],
   headAtPullRead = {},
   bodyAtPullRead = {},
   patchFailure = false,
   applyPatch = true,
 } = {}) => {
-  const metrics = { patchCalls: 0, pullReads: 0, fileReads: 0 }
+  const metrics = { patchCalls: 0, pullReads: 0, fileReads: 0, commentReads: 0 }
   let currentHead = HEAD
   let currentBody = stateBlock(initialState)
   const currentPull = () => ({
@@ -386,6 +387,11 @@ const automationHost = ({
     body: () => currentBody,
     host: {
       api: async (endpoint, options = undefined) => {
+        if (endpoint.includes('/comments?')) {
+          metrics.commentReads += 1
+          const page = Number(new URL(`https://api.github.com/${endpoint}`).searchParams.get('page') ?? '1')
+          return structuredClone(commentPages[page - 1] ?? [])
+        }
         if (endpoint.includes('/issues/')) return issueObject()
         if (endpoint.includes('/files?')) {
           metrics.fileReads += 1
@@ -446,7 +452,7 @@ check(preWriteHeadResult.admission_executed === false && preWriteHeadResult.stat
 
 const preWriteBodyAutomation = automationHost({ bodyAtPullRead: { 2: stateBlock(state({ architecture_status: 'NOT_APPROVED' })) } })
 const preWriteBodyResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: preWriteBodyAutomation.host })
-check(preWriteBodyResult.state === 'INDETERMINATE' && preWriteBodyResult.reason === 'state_body_changed_before_write', 'pre-write body race is indeterminate')
+check(preWriteBodyResult.state === 'INDETERMINATE' && preWriteBodyResult.reason === 'state_changed_before_state_write', 'pre-write state race is indeterminate')
 check(preWriteBodyAutomation.metrics.patchCalls === 0, 'pre-write body race performs no PATCH')
 check(preWriteBodyResult.admission_executed === false && preWriteBodyResult.state_changed === false, 'pre-write body race performs no admission')
 
@@ -456,11 +462,11 @@ check(patchFailureResult.state === 'INDETERMINATE' && patchFailureResult.reason 
 check(patchFailureAutomation.metrics.patchCalls === 1, 'PATCH failure is attempted once')
 check(patchFailureResult.admission_executed === false && patchFailureResult.state_changed === false, 'PATCH failure performs no admission')
 
-const postPatchHeadAutomation = automationHost({ headAtPullRead: { 5: OTHER_HEAD } })
+const postPatchHeadAutomation = automationHost({ headAtPullRead: { 3: OTHER_HEAD } })
 const postPatchHeadResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: postPatchHeadAutomation.host })
-check(postPatchHeadResult.state === 'STALE' && postPatchHeadResult.reason === 'head_changed_during_evaluation', 'post-PATCH HEAD race is stale')
-check(postPatchHeadAutomation.metrics.patchCalls === 1 && postPatchHeadResult.admission_executed === true, 'post-PATCH HEAD race reaches one admission only')
-check(postPatchHeadResult.state_changed === true && postPatchHeadResult.allowed === false, 'post-PATCH HEAD race preserves mutation and stops')
+check(postPatchHeadResult.state === 'STALE' && postPatchHeadResult.reason === 'head_changed_after_state_write', 'post-PATCH HEAD race is stale')
+check(postPatchHeadAutomation.metrics.patchCalls === 1 && postPatchHeadResult.admission_executed === false, 'post-PATCH HEAD race performs no admission')
+check(postPatchHeadResult.state_changed === false && postPatchHeadResult.allowed === false, 'post-PATCH HEAD race stops without retry')
 
 const falseAdmissionAutomation = automationHost({
   changedFiles: 1,
@@ -474,5 +480,124 @@ check(falseAdmissionResult.state === 'IMPLEMENTATION_BLOCKED' && falseAdmissionR
 check(falseAdmissionAutomation.metrics.patchCalls === 1 && falseAdmissionResult.admission_executed === true, 'false admission follows one verified PATCH')
 check(falseAdmissionAutomation.metrics.fileReads === 2 && falseAdmissionResult.next_action === 'STOP', 'false admission is not retried')
 
-if (assertions !== 165) throw new Error(`expected exactly 165 assertions, observed ${assertions}`)
+// Eleven corrected-Architecture units x three assertions = 33.
+const staleOriginalAutomation = automationHost({ initialState: state({ observed_head: OTHER_HEAD }) })
+const staleOriginalResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: staleOriginalAutomation.host })
+check(staleOriginalResult.state === 'STALE' && staleOriginalResult.reason === 'head_binding_stale', 'stale original state is not masked by projection')
+check(staleOriginalAutomation.metrics.patchCalls === 0, 'stale original state performs no PATCH')
+check(staleOriginalResult.admission_executed === false && staleOriginalResult.state_changed === false, 'stale original state performs no admission')
+
+const changesRequiredEvent = reviewEvent({
+  body: reviewDecisionBody({ decision: 'CHANGES_REQUIRED', blocking_finding_count: 1 }),
+  comment: { id: 9002, created_at: '2026-08-07T00:00:01Z' },
+})
+const changesRequiredAutomation = automationHost({
+  initialState: approvedState(),
+  commentPages: [[changesRequiredEvent.comment]],
+})
+const changesRequiredResult = await executeReviewApprovalAutomationV1({ event: changesRequiredEvent, host: changesRequiredAutomation.host })
+const changesRequiredWritten = extractProtectedTransitionTaskStateV1(changesRequiredAutomation.body())
+check(changesRequiredResult.state === 'REVIEW_BLOCKED' && changesRequiredResult.next_action === 'STOP', 'later CHANGES_REQUIRED revokes eligibility')
+check(changesRequiredAutomation.metrics.patchCalls === 1 && changesRequiredResult.admission_executed === false, 'later CHANGES_REQUIRED writes once without admission')
+check(changesRequiredWritten.review_status === 'CHANGES_REQUIRED' && changesRequiredWritten.review_blocker_count === 1, 'later CHANGES_REQUIRED is the stored effective Decision')
+
+const blockedEvent = reviewEvent({
+  body: reviewDecisionBody({ decision: 'BLOCKED', blocking_finding_count: 2 }),
+  comment: { id: 9003, created_at: '2026-08-07T00:00:02Z' },
+})
+const blockedAutomation = automationHost({
+  initialState: approvedState(),
+  commentPages: [[blockedEvent.comment]],
+})
+const blockedResult = await executeReviewApprovalAutomationV1({ event: blockedEvent, host: blockedAutomation.host })
+const blockedWritten = extractProtectedTransitionTaskStateV1(blockedAutomation.body())
+check(blockedResult.state === 'REVIEW_BLOCKED' && blockedResult.allowed === false, 'later BLOCKED revokes eligibility')
+check(blockedAutomation.metrics.patchCalls === 1 && blockedResult.admission_executed === false, 'later BLOCKED writes once without admission')
+check(blockedWritten.review_status === 'BLOCKED' && blockedWritten.review_blocker_count === 2, 'later BLOCKED is the stored effective Decision')
+
+const recoveryEvent = reviewEvent({ comment: { id: 9004, created_at: '2026-08-07T00:00:03Z' } })
+const recoveryAutomation = automationHost({
+  initialState: blockedReviewState(),
+  commentPages: [[recoveryEvent.comment]],
+})
+const recoveryResult = await executeReviewApprovalAutomationV1({ event: recoveryEvent, host: recoveryAutomation.host })
+const recoveryWritten = extractProtectedTransitionTaskStateV1(recoveryAutomation.body())
+check(recoveryResult.allowed && recoveryResult.automation_status === 'UPDATED_AND_ADMITTED', 'later valid APPROVE restores eligibility')
+check(recoveryAutomation.metrics.patchCalls === 1 && recoveryResult.admission_executed === true, 'later valid APPROVE writes and admits once')
+check(recoveryWritten.review_status === 'APPROVE' && recoveryWritten.review_blocker_count === 0, 'later APPROVE becomes the stored effective Decision')
+
+const olderEvent = reviewEvent()
+const laterDecision = reviewEvent({
+  body: reviewDecisionBody({ decision: 'CHANGES_REQUIRED', blocking_finding_count: 1 }),
+  comment: { id: 9010, created_at: '2026-08-07T00:00:10Z' },
+})
+const supersededAutomation = automationHost({ commentPages: [[olderEvent.comment, laterDecision.comment]] })
+const supersededResult = await executeReviewApprovalAutomationV1({ event: olderEvent, host: supersededAutomation.host })
+check(supersededResult.reason === 'review_event_superseded' && supersededResult.automation_status === 'SKIPPED', 'older Review event is superseded')
+check(supersededAutomation.metrics.patchCalls === 0 && supersededAutomation.metrics.pullReads === 0, 'superseded event performs no state acquisition or PATCH')
+check(supersededResult.admission_executed === false && supersededResult.next_action === 'NONE', 'superseded event performs no admission')
+
+const sameTimeOlder = reviewEvent({ comment: { id: 9100, created_at: '2026-08-07T00:01:00Z' } })
+const sameTimeNewer = reviewEvent({
+  body: reviewDecisionBody({ decision: 'BLOCKED', blocking_finding_count: 1 }),
+  comment: { id: 9101, created_at: '2026-08-07T00:01:00Z' },
+})
+const tiedAutomation = automationHost({ commentPages: [[sameTimeOlder.comment, sameTimeNewer.comment]] })
+const tiedResult = await executeReviewApprovalAutomationV1({ event: sameTimeOlder, host: tiedAutomation.host })
+check(tiedResult.reason === 'review_event_superseded', 'same-time greatest comment ID wins')
+check(tiedAutomation.metrics.patchCalls === 0, 'same-time older comment performs no PATCH')
+check(tiedAutomation.metrics.commentReads === 1 && tiedResult.admission_executed === false, 'same-time tie is resolved in one forward scan')
+
+const pagedEvent = reviewEvent({ comment: { id: 9200, created_at: '2026-08-07T00:02:00Z' } })
+const fillerComments = Array.from({ length: 99 }, (_, index) => ({
+  id: 9300 + index,
+  created_at: '2026-08-07T00:02:00Z',
+  author_association: 'MEMBER',
+  body: `non-review-${index}`,
+}))
+const pagedLeaf = reviewEvent({ comment: { id: 9400, created_at: '2026-08-07T00:02:01Z' } })
+const pagedAutomation = automationHost({ commentPages: [[pagedEvent.comment, ...fillerComments], [pagedLeaf.comment]] })
+const pagedParsed = parseReviewApprovalEventV1(pagedEvent)
+const pagedEffective = await resolveEffectiveReviewDecisionV1({ request, parsedEvent: pagedParsed, host: pagedAutomation.host })
+check(pagedEffective.commentId === 9400, 'forward pagination resolves the later current leaf')
+check(pagedAutomation.metrics.commentReads === 2, 'forward pagination reads through the terminal page')
+check(pagedEffective.review.pr_number === PR && pagedEffective.review.reviewed_head === HEAD, 'forward pagination preserves Task/PR/HEAD filtering')
+
+const malformedBody = reviewDecisionBody({}, ['decision: APPROVE'])
+const malformedComment = reviewEvent({
+  body: malformedBody,
+  comment: { id: 9500, created_at: '2026-08-07T00:03:01Z' },
+}).comment
+const malformedAutomation = automationHost({ commentPages: [[reviewEvent().comment, malformedComment]] })
+const malformedResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: malformedAutomation.host })
+check(malformedResult.state === 'INDETERMINATE' && malformedResult.reason === 'review_decision_candidate_invalid', 'malformed applicable leaf fails closed')
+check(malformedAutomation.metrics.patchCalls === 0, 'malformed applicable leaf performs no PATCH')
+check(malformedResult.admission_executed === false && malformedResult.next_action === 'STOP', 'malformed applicable leaf performs no admission')
+
+const productionPaths = execFileSync('git', ['ls-files', '.github', 'scripts', 'src'], { cwd: repositoryRoot, encoding: 'utf8' })
+  .trim().split(/\r?\n/).filter((value) => value && !/^scripts\/test-/.test(value))
+const repositoryProductionSource = productionPaths.map((value) => readFileSync(path.join(repositoryRoot, value), 'utf8')).join('\n')
+const patchCallsites = repositoryProductionSource.match(/method:\s*['"]PATCH['"]/g) ?? []
+check(patchCallsites.length === 1, 'repository production has exactly one PATCH callsite')
+check(/export const writeProtectedTransitionTaskStateV1[\s\S]*?method:\s*['"]PATCH['"]/.test(runnerSource), 'canonical writer owns the PATCH callsite')
+check(!/(?:gh\s+pr\s+edit|updatePullRequest|mutatePullRequest)/.test(repositoryProductionSource), 'repository production has no alternate PR-body writer')
+
+const concurrencyGroup = workflow.concurrency.group
+const preservedBodyAutomation = automationHost({
+  bodyAtPullRead: { 2: `concurrent-note\n${stateBlock(state())}\nconcurrent-footer` },
+})
+const preservedBodyResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: preservedBodyAutomation.host })
+check(concurrencyGroup === 'protected-transition-admission-v1-${{ github.repository }}-${{ github.event.issue.number || inputs.task_issue_number }}' && workflow.concurrency['cancel-in-progress'] === false, 'both triggers share one repository and Task queue')
+check(!concurrencyGroup.includes('comment.id') && !concurrencyGroup.includes('run_id'), 'comment and run IDs do not partition serialization')
+check(preservedBodyResult.allowed && preservedBodyAutomation.body().startsWith('concurrent-note\n') && preservedBodyAutomation.body().endsWith('\nconcurrent-footer'), 'canonical writer preserves fresh non-state body bytes')
+
+const exactConvergedAutomation = automationHost({ initialState: approvedState() })
+const exactConvergedResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: exactConvergedAutomation.host })
+const ambiguousAutomation = automationHost({ applyPatch: false })
+const ambiguousResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: ambiguousAutomation.host })
+check(exactConvergedAutomation.metrics.patchCalls === 0 && exactConvergedResult.admission_executed === false, 'same-state retry has zero duplicate effects')
+check(ambiguousResult.reason === 'state_write_verification_failed' && ambiguousResult.admission_executed === false, 'ambiguous PATCH verification performs no admission')
+check(ambiguousAutomation.metrics.patchCalls === 1 && ambiguousResult.state_changed === false, 'ambiguous PATCH is not retried')
+
+if (assertions !== 198) throw new Error(`expected exactly 198 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

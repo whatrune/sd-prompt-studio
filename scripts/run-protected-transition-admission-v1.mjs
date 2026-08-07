@@ -5,6 +5,7 @@ import {
   evaluateProtectedTransitionAdmissionV1,
   isNormalizedRepositoryPathV1,
   parseProtectedTransitionTaskStateJsonV1,
+  parseProtectedTransitionTaskStateV1,
   projectProtectedTransitionApprovedReviewStateV1,
 } from '../src/continuous-orchestration/protected-transition-admission-v1.ts'
 
@@ -17,6 +18,7 @@ const PAGE_SIZE = 100
 const REVIEW_RECORD_TYPE = 'independent_review_decision_v1'
 const REVIEW_AUTHORING_ROLE = 'Independent Reviewer'
 const REVIEW_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
+const STRICT_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/
 
 const positiveInteger = (value) => Number.isSafeInteger(value) && value > 0
 const occurrenceCount = (text, needle) => text.split(needle).length - 1
@@ -123,6 +125,8 @@ export const parseReviewApprovalEventV1 = (event) => {
     Object.prototype.hasOwnProperty.call(event.issue ?? {}, 'pull_request') ||
     event.issue?.html_url !== `https://github.com/${repository}/issues/${taskIssueNumber}` ||
     !positiveInteger(event.comment?.id) ||
+    typeof event.comment?.created_at !== 'string' ||
+    !STRICT_UTC.test(event.comment.created_at) ||
     !REVIEW_ASSOCIATIONS.has(event.comment?.author_association) ||
     typeof event.comment?.body !== 'string'
   ) {
@@ -135,8 +139,96 @@ export const parseReviewApprovalEventV1 = (event) => {
     prNumber: review.pr_number,
     exactHead: review.reviewed_head,
     commentId: event.comment.id,
+    commentCreatedAt: event.comment.created_at,
+    reviewBody: event.comment.body,
+    authorAssociation: event.comment.author_association,
     review,
   })
+}
+
+const compareReviewDecisionCandidateV1 = (left, right) =>
+  left.createdAt.localeCompare(right.createdAt) || left.commentId - right.commentId
+
+const parseReviewDecisionCommentV1 = ({ comment, repository, taskIssueNumber, prNumber, exactHead }) => {
+  if (
+    !comment ||
+    !positiveInteger(comment.id) ||
+    typeof comment.created_at !== 'string' ||
+    !STRICT_UTC.test(comment.created_at) ||
+    !REVIEW_ASSOCIATIONS.has(comment.author_association) ||
+    typeof comment.body !== 'string'
+  ) {
+    throw new Error('review_decision_candidate_invalid')
+  }
+  let review
+  try {
+    review = parseIndependentReviewDecisionProjectionV1(comment.body, repository, taskIssueNumber)
+  } catch {
+    throw new Error('review_decision_candidate_invalid')
+  }
+  if (review.pr_number !== prNumber || review.reviewed_head !== exactHead) return null
+  return Object.freeze({
+    commentId: comment.id,
+    createdAt: comment.created_at,
+    body: comment.body,
+    authorAssociation: comment.author_association,
+    review,
+  })
+}
+
+export const resolveEffectiveReviewDecisionV1 = async ({ request, parsedEvent, host }) => {
+  const candidates = new Map()
+  const addCandidate = (candidate) => {
+    if (!candidate) return
+    const prior = candidates.get(candidate.commentId)
+    if (prior && (
+      prior.createdAt !== candidate.createdAt ||
+      prior.body !== candidate.body ||
+      prior.authorAssociation !== candidate.authorAssociation
+    )) {
+      throw new Error('review_decision_candidate_identity_conflict')
+    }
+    candidates.set(candidate.commentId, candidate)
+  }
+
+  addCandidate(Object.freeze({
+    commentId: parsedEvent.commentId,
+    createdAt: parsedEvent.commentCreatedAt,
+    body: parsedEvent.reviewBody,
+    authorAssociation: parsedEvent.authorAssociation,
+    review: parsedEvent.review,
+  }))
+
+  const pageFingerprints = new Set()
+  let pageNumber = 1
+  let terminal = false
+  while (!terminal) {
+    const endpoint = `repos/${request.repository}/issues/${request.taskIssueNumber}/comments?since=${encodeURIComponent(parsedEvent.commentCreatedAt)}&per_page=${PAGE_SIZE}&page=${pageNumber}`
+    const page = await api(host, endpoint)
+    if (!Array.isArray(page) || page.length > PAGE_SIZE) throw new Error('review_decision_page_invalid')
+    const fingerprint = JSON.stringify(page.map((comment) => [comment?.id, comment?.created_at, comment?.author_association, comment?.body]))
+    if (page.length > 0 && pageFingerprints.has(fingerprint)) throw new Error('review_decision_page_repeated')
+    pageFingerprints.add(fingerprint)
+
+    for (const comment of page) {
+      if (!isReviewDecisionCandidateV1(comment?.body)) continue
+      addCandidate(parseReviewDecisionCommentV1({
+        comment,
+        repository: request.repository,
+        taskIssueNumber: request.taskIssueNumber,
+        prNumber: request.prNumber,
+        exactHead: request.exactHead,
+      }))
+    }
+
+    terminal = page.length < PAGE_SIZE
+    pageNumber += 1
+    if (pageNumber > 32) throw new Error('review_decision_terminal_page_missing')
+  }
+
+  const ordered = [...candidates.values()].sort(compareReviewDecisionCandidateV1)
+  if (ordered.length === 0) throw new Error('review_decision_current_leaf_missing')
+  return ordered.at(-1)
 }
 
 const api = async (host, endpoint, options = undefined) => {
@@ -294,17 +386,38 @@ const skippedAutomationResult = (request, reason) => Object.freeze({
 const isReviewDecisionCandidateV1 = (body) => typeof body === 'string' &&
   /(?:^|\r?\n)record_type:[ \t]+(?:"independent_review_decision_v1"|independent_review_decision_v1)(?:\r?$)/m.test(body)
 
+export const projectProtectedTransitionReviewStateV1 = (taskState, review) => {
+  const parsed = parseProtectedTransitionTaskStateV1(taskState)
+  if (
+    !review ||
+    review.task_issue_number !== parsed.task_issue_number ||
+    review.pr_number !== parsed.pr_number ||
+    typeof review.reviewed_head !== 'string' ||
+    !FULL_HEAD.test(review.reviewed_head) ||
+    !['APPROVE', 'CHANGES_REQUIRED', 'BLOCKED'].includes(review.decision) ||
+    !Number.isSafeInteger(review.blocking_finding_count) ||
+    review.blocking_finding_count < 0 ||
+    !Number.isSafeInteger(review.remaining_finding_count) ||
+    review.remaining_finding_count < 0 ||
+    !Number.isSafeInteger(review.unknown_count) ||
+    review.unknown_count < 0
+  ) {
+    throw new Error('review_execution_tuple_mismatch')
+  }
+  if (review.decision === 'APPROVE') {
+    return projectProtectedTransitionApprovedReviewStateV1(parsed, review)
+  }
+  return Object.freeze({
+    ...parsed,
+    review_status: review.decision,
+    reviewed_head: review.reviewed_head,
+    review_blocker_count: review.blocking_finding_count,
+  })
+}
+
 export const replaceProtectedTransitionTaskStateV1 = (body, candidateState) => {
   extractProtectedTransitionTaskStateV1(body)
-  const projected = projectProtectedTransitionApprovedReviewStateV1(candidateState, {
-    task_issue_number: candidateState.task_issue_number,
-    pr_number: candidateState.pr_number,
-    reviewed_head: candidateState.reviewed_head,
-    decision: 'APPROVE',
-    blocking_finding_count: 0,
-    remaining_finding_count: 0,
-    unknown_count: 0,
-  })
+  const projected = parseProtectedTransitionTaskStateV1(candidateState)
   const start = body.indexOf(STATE_START)
   const end = body.indexOf(STATE_END)
   const newline = body.includes('\r\n') ? '\r\n' : '\n'
@@ -312,8 +425,19 @@ export const replaceProtectedTransitionTaskStateV1 = (body, candidateState) => {
   return `${body.slice(0, start)}${replacement}${body.slice(end + STATE_END.length)}`
 }
 
-export const writeProtectedTransitionTaskStateV1 = async ({ request, host, currentBody, candidateState }) => {
-  const candidateBody = replaceProtectedTransitionTaskStateV1(currentBody, candidateState)
+export const writeProtectedTransitionTaskStateV1 = async ({ request, host, expectedState, candidateState }) => {
+  const freshPull = await acquirePull(request, host)
+  if (freshPull.head.sha !== request.exactHead) {
+    throw new ReviewAutomationStop('STALE', 'head_changed_before_state_write', 2, freshPull.head.sha)
+  }
+  const freshState = extractProtectedTransitionTaskStateV1(freshPull.body)
+  if (JSON.stringify(freshState) !== JSON.stringify(expectedState)) {
+    throw new ReviewAutomationStop('INDETERMINATE', 'state_changed_before_state_write', 1, freshPull.head.sha)
+  }
+  const candidateBody = replaceProtectedTransitionTaskStateV1(freshPull.body, candidateState)
+  if (candidateBody === freshPull.body) {
+    return Object.freeze({ pull: freshPull, body: candidateBody, changed: false })
+  }
   await api(host, `repos/${request.repository}/pulls/${request.prNumber}`, {
     method: 'PATCH',
     body: Object.freeze({ body: candidateBody }),
@@ -325,7 +449,18 @@ export const writeProtectedTransitionTaskStateV1 = async ({ request, host, curre
   if (verified.body !== candidateBody) {
     throw new ReviewAutomationStop('INDETERMINATE', 'state_write_verification_failed', 1, verified.head.sha)
   }
-  return Object.freeze({ pull: verified, body: candidateBody })
+  return Object.freeze({ pull: verified, body: candidateBody, changed: true })
+}
+
+const ensureOriginalStateCurrentV1 = (initial, request) => {
+  const original = initial.task_state
+  if (
+    initial.pull.head !== request.exactHead ||
+    original.observed_head !== initial.pull.head ||
+    (original.review_status !== 'PENDING' && original.reviewed_head !== initial.pull.head)
+  ) {
+    throw new ReviewAutomationStop('STALE', 'head_binding_stale', 2, initial.pull.head)
+  }
 }
 
 export const executeReviewApprovalAutomationV1 = async ({ event, host }) => {
@@ -348,23 +483,30 @@ export const executeReviewApprovalAutomationV1 = async ({ event, host }) => {
       prNumber: parsedEvent.prNumber,
       exactHead: parsedEvent.exactHead,
     })
-    const review = parsedEvent.review
-    if (review.decision !== 'APPROVE') {
-      return skippedAutomationResult(request, 'review_decision_not_approved')
-    }
+    const triggeringReview = parsedEvent.review
     if (
-      review.blocking_finding_count !== 0 ||
-      review.remaining_finding_count !== 0 ||
-      review.unknown_count !== 0
+      triggeringReview.decision === 'APPROVE' && (
+        triggeringReview.blocking_finding_count !== 0 ||
+        triggeringReview.remaining_finding_count !== 0 ||
+        triggeringReview.unknown_count !== 0
+      )
     ) {
       return stoppedAutomationResult(request, 'REVIEW_BLOCKED', 'review_not_approvable', 2)
     }
 
+    const effective = await resolveEffectiveReviewDecisionV1({ request, parsedEvent, host })
+    if (effective.commentId !== parsedEvent.commentId) {
+      return skippedAutomationResult(request, 'review_event_superseded')
+    }
+    const review = effective.review
+
     const initial = await acquireTransitionStateSnapshotV1(request, host)
-    const candidateState = projectProtectedTransitionApprovedReviewStateV1(initial.task_state, review)
+    ensureOriginalStateCurrentV1(initial, request)
+    const candidateState = projectProtectedTransitionReviewStateV1(initial.task_state, review)
     const candidateInput = Object.freeze({ ...initial, task_state: candidateState })
     const preflight = evaluateProtectedTransitionAdmissionV1(candidateInput)
-    if (!preflight.allowed) {
+    const expectedState = review.decision === 'APPROVE' ? 'MERGE_ELIGIBLE' : 'REVIEW_BLOCKED'
+    if (preflight.state !== expectedState || (review.decision === 'APPROVE' && !preflight.allowed)) {
       return Object.freeze({
         ...preflight,
         automation_status: 'STOPPED',
@@ -374,43 +516,43 @@ export const executeReviewApprovalAutomationV1 = async ({ event, host }) => {
     }
 
     const alreadyConverged = JSON.stringify(initial.task_state) === JSON.stringify(candidateState)
-    const stablePull = await acquirePull(request, host)
-    if (stablePull.head.sha !== initial.pull.head) {
-      return stoppedAutomationResult(request, 'STALE', 'head_changed_before_state_write', 2, stablePull.head.sha)
-    }
-    if (stablePull.body !== initial.pull_body) {
-      return stoppedAutomationResult(request, 'INDETERMINATE', 'state_body_changed_before_write', 1, stablePull.head.sha)
-    }
-
     if (alreadyConverged) {
-      const stableState = extractProtectedTransitionTaskStateV1(stablePull.body)
-      const stable = evaluateProtectedTransitionAdmissionV1(Object.freeze({
-        ...initial,
-        pull: Object.freeze({ ...initial.pull, head: stablePull.head.sha }),
-        task_state: stableState,
-      }))
-      if (!stable.allowed) {
-        return Object.freeze({
-          ...stable,
-          automation_status: 'STOPPED',
-          admission_executed: false,
-          next_action: 'STOP',
-        })
-      }
       return Object.freeze({
-        ...stable,
+        ...preflight,
         automation_status: 'ALREADY_CONVERGED',
         admission_executed: false,
-        next_action: 'MERGE_DECISION',
+        next_action: preflight.allowed ? 'MERGE_DECISION' : 'STOP',
       })
     }
 
-    await writeProtectedTransitionTaskStateV1({
+    const confirmed = await resolveEffectiveReviewDecisionV1({ request, parsedEvent, host })
+    if (confirmed.commentId !== effective.commentId) {
+      return skippedAutomationResult(request, 'review_event_superseded_before_write')
+    }
+
+    const written = await writeProtectedTransitionTaskStateV1({
       request,
       host,
-      currentBody: stablePull.body,
+      expectedState: initial.task_state,
       candidateState,
     })
+    if (!written.changed) {
+      return Object.freeze({
+        ...preflight,
+        automation_status: 'ALREADY_CONVERGED',
+        admission_executed: false,
+        next_action: preflight.allowed ? 'MERGE_DECISION' : 'STOP',
+      })
+    }
+    if (review.decision !== 'APPROVE') {
+      return Object.freeze({
+        ...preflight,
+        state_changed: true,
+        automation_status: 'UPDATED_AND_STOPPED',
+        admission_executed: false,
+        next_action: 'STOP',
+      })
+    }
     const admitted = await executeProtectedTransitionAdmissionV1({ request, host })
     return Object.freeze({
       ...admitted,
