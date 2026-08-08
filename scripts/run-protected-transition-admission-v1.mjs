@@ -682,6 +682,13 @@ const mergeGateStoppedResultV1 = (request, state, reason, exitCode, currentHead 
   next_action: 'STOP',
 })
 
+const mergeGateFreshAdmissionStoppedResultV1 = (result) => Object.freeze({
+  ...result,
+  automation_status: 'STOPPED',
+  admission_executed: true,
+  next_action: 'STOP',
+})
+
 const classifyMergeGatePullV1 = (request, pull) => {
   if (pull.head.sha !== request.exactHead) {
     return mergeGateStoppedResultV1(request, 'STALE', 'head_changed_during_merge_gate', 2, pull.head.sha)
@@ -708,6 +715,14 @@ export const evaluateMergeAllowedAutomationV1 = async ({ request, admitted, host
     const initialPullStop = classifyMergeGatePullV1(request, initialPull)
     if (initialPullStop) return initialPullStop
     const initialState = extractProtectedTransitionTaskStateV1(initialPull.body)
+    const freshAdmissionSnapshot = await acquireTransitionStateSnapshotV1(request, host)
+    const freshAdmission = evaluateProtectedTransitionAdmissionV1(freshAdmissionSnapshot)
+    if (freshAdmission.state !== 'MERGE_ELIGIBLE' || freshAdmission.allowed !== true) {
+      return mergeGateFreshAdmissionStoppedResultV1(freshAdmission)
+    }
+    if (JSON.stringify(initialState) !== JSON.stringify(freshAdmissionSnapshot.task_state)) {
+      return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'state_changed_after_fresh_admission', 1, initialPull.head.sha)
+    }
     if (initialState.observed_head !== request.exactHead || initialState.reviewed_head !== request.exactHead) {
       return mergeGateStoppedResultV1(request, 'STALE', 'head_binding_stale', 2, initialPull.head.sha)
     }
