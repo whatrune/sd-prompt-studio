@@ -25,6 +25,9 @@ name: Protected Transition Admission V1
   issue_comment:
     types:
       - created
+  pull_request:
+    types:
+      - ready_for_review
 
 permissions:
   contents: read
@@ -34,7 +37,7 @@ permissions:
   statuses: read
 
 concurrency:
-  group: protected-transition-admission-v1-${{ github.repository }}-${{ github.event.issue.number || inputs.task_issue_number }}
+  group: protected-transition-admission-v1-${{ github.repository }}-${{ github.event.issue.number || github.event.pull_request.number || inputs.task_issue_number }}
   cancel-in-progress: false
 
 jobs:
@@ -47,11 +50,20 @@ jobs:
     steps:
       - name: Admit exact default-branch host identity
         shell: bash
+        env:
+          PTA_EVENT_NAME: ${{ github.event_name }}
+          PTA_EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+          PTA_BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
           expected_workflow_ref="${GITHUB_REPOSITORY}/.github/workflows/protected-transition-admission-v1.yml@refs/heads/main"
           [[ "$PTA_DEFAULT_BRANCH" == "main" ]]
-          [[ "$GITHUB_REF" == "refs/heads/main" ]]
+          if [[ "$PTA_EVENT_NAME" == "pull_request" ]]; then
+            [[ "$PTA_BASE_REF" == "main" ]]
+            [[ "$GITHUB_REF" == "refs/pull/${PTA_EVENT_PR_NUMBER}/merge" ]]
+          else
+            [[ "$GITHUB_REF" == "refs/heads/main" ]]
+          fi
           [[ "$GITHUB_WORKFLOW_REF" == "$expected_workflow_ref" ]]
           [[ "$GITHUB_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
 
@@ -80,6 +92,9 @@ jobs:
           if [[ "$PTA_EVENT_NAME" == "issue_comment" ]]; then
             node scripts/run-protected-transition-admission-v1.mjs \
               --review-event-file "$PTA_EVENT_PATH"
+          elif [[ "$PTA_EVENT_NAME" == "pull_request" ]]; then
+            node scripts/run-protected-transition-admission-v1.mjs \
+              --ready-event-file "$PTA_EVENT_PATH"
           else
             node scripts/run-protected-transition-admission-v1.mjs \
               --transition "$PTA_INPUT_TRANSITION" \
