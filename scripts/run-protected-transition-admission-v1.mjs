@@ -35,7 +35,7 @@ query MergeAllowedChecks($owner: String!, $name: String!, $pr: Int!, $head: GitO
             totalCount
             nodes {
               __typename
-              ... on CheckRun { id name status conclusion detailsUrl }
+              ... on CheckRun { id name status conclusion detailsUrl startedAt checkSuite { app { id } } }
               ... on StatusContext { id context state }
             }
             pageInfo { hasNextPage endCursor }
@@ -361,6 +361,8 @@ const acquireMergeCheckRollupSnapshotV1 = async (request, host, { stopOnPullHead
           status: node.status,
           conclusion: node.conclusion,
           details_url: detailsUrl,
+          app_id: node.checkSuite?.app?.id ?? null,
+          started_at: node.startedAt ?? null,
         }))
       } else if (node.__typename === 'StatusContext') {
         if (typeof node.context !== 'string' || node.context.length === 0 || typeof node.state !== 'string') {
@@ -414,18 +416,26 @@ const waitForReadyTerminalChecksV1 = async (request, host) => {
       throw new ReviewAutomationStop('STALE', 'head_changed_while_waiting_for_checks', 2, pull.head.sha)
     }
 
-    const partitioned = partitionReadyRunChecksV1(request, await acquireMergeCheckRollupV1(request, host))
-    if (partitioned.current.length === 1 && partitioned.remaining.length > 0) {
-      if (partitioned.remaining.some(readyCheckHasFailedV1)) {
+    const rollup = await acquireMergeCheckRollupV1(request, host)
+    const rawPartition = partitionReadyRunChecksV1(request, rollup)
+    const selectedPartition = partitionReadyRunChecksV1(request, selectCurrentCheckGenerationsV1(rollup))
+    if (
+      rawPartition.current.length === 1 &&
+      (selectedPartition.current.length !== 1 || selectedPartition.current[0].id !== rawPartition.current[0].id)
+    ) {
+      throw new Error('ready_current_check_not_selected_generation')
+    }
+    if (rawPartition.current.length === 1 && selectedPartition.remaining.length > 0) {
+      if (selectedPartition.remaining.some(readyCheckHasFailedV1)) {
         throw new ReviewAutomationStop('IMPLEMENTATION_BLOCKED', 'checks_not_successful', 2, pull.head.sha)
       }
-      if (!partitioned.remaining.some(readyCheckIsPendingV1)) return
+      if (!selectedPartition.remaining.some(readyCheckIsPendingV1)) return
     }
 
     if (attempt === READY_CHECK_WAIT_ATTEMPTS) {
-      const reason = partitioned.current.length === 0
+      const reason = rawPartition.current.length === 0
         ? 'ready_current_check_missing'
-        : partitioned.remaining.length === 0
+        : selectedPartition.remaining.length === 0
           ? 'checks_missing'
           : 'checks_not_terminal'
       throw new ReviewAutomationStop('INDETERMINATE', reason, 1, pull.head.sha)
@@ -1033,14 +1043,52 @@ const classifyMergeGatePullV1 = (request, pull) => {
   return null
 }
 
+const selectCurrentCheckGenerationsV1 = (rollup) => {
+  const groups = new Map()
+  for (const item of rollup) {
+    if (item.type !== 'CheckRun') continue
+    const startedAt = Date.parse(item.started_at ?? '')
+    if (
+      typeof item.app_id !== 'string' ||
+      item.app_id.trim().length === 0 ||
+      typeof item.name !== 'string' ||
+      item.name.length === 0 ||
+      typeof item.started_at !== 'string' ||
+      item.started_at.length === 0 ||
+      !Number.isFinite(startedAt)
+    ) {
+      throw new Error('check_generation_identity_invalid')
+    }
+    const identity = JSON.stringify([item.app_id, item.name])
+    const group = groups.get(identity) ?? []
+    group.push(Object.freeze({ item, startedAt }))
+    groups.set(identity, group)
+  }
+
+  const selectedIds = new Set()
+  for (const group of groups.values()) {
+    const greatest = Math.max(...group.map((candidate) => candidate.startedAt))
+    const selected = group.filter((candidate) => candidate.startedAt === greatest)
+    if (selected.length !== 1) throw new Error('check_generation_ambiguous')
+    selectedIds.add(selected[0].item.id)
+  }
+
+  return Object.freeze(rollup.filter((item) => item.type === 'StatusContext' || selectedIds.has(item.id)))
+}
+
 const mergeGateChecksStopV1 = (request, rollup, currentHead) => {
+  const rawPartition = request.currentWorkflowRunId ? partitionReadyRunChecksV1(request, rollup) : null
+  if (rawPartition && rawPartition.current.length !== 1) throw new Error('ready_current_check_cardinality_invalid')
+  const selectedGenerations = selectCurrentCheckGenerationsV1(rollup)
   const checks = request.currentWorkflowRunId
     ? (() => {
-        const partitioned = partitionReadyRunChecksV1(request, rollup)
-        if (partitioned.current.length !== 1) throw new Error('ready_current_check_cardinality_invalid')
-        return partitioned.remaining
+        const selectedPartition = partitionReadyRunChecksV1(request, selectedGenerations)
+        if (selectedPartition.current.length !== 1 || selectedPartition.current[0].id !== rawPartition.current[0].id) {
+          throw new Error('ready_current_check_not_selected_generation')
+        }
+        return selectedPartition.remaining
       })()
-    : rollup
+    : selectedGenerations
   if (checks.length === 0) {
     return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'checks_missing', 1, currentHead)
   }
