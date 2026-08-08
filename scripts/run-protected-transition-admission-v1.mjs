@@ -763,6 +763,65 @@ export const executeManualProgressionControllerV1 = async ({ request, host }) =>
   })
 }
 
+export const executeReadyForReviewProgressionV1 = async ({ event, host }) => {
+  let request = Object.freeze({
+    transition: 'merge_decision_admission',
+    repository: event?.repository?.full_name ?? null,
+    taskIssueNumber: null,
+    prNumber: event?.pull_request?.number ?? null,
+    exactHead: event?.pull_request?.head?.sha ?? null,
+  })
+  try {
+    const pull = event?.pull_request
+    if (
+      event?.action !== 'ready_for_review' ||
+      !REPOSITORY.test(request.repository ?? '') ||
+      !positiveInteger(request.prNumber) ||
+      !FULL_HEAD.test(request.exactHead ?? '') ||
+      !pull ||
+      pull.state !== 'open' ||
+      typeof pull.draft !== 'boolean' ||
+      typeof pull.body !== 'string'
+    ) {
+      throw new Error('ready_event_invalid')
+    }
+
+    const taskState = extractProtectedTransitionTaskStateV1(pull.body)
+    request = Object.freeze({
+      ...request,
+      taskIssueNumber: taskState.task_issue_number,
+    })
+    if (taskState.pr_number !== request.prNumber) throw new Error('ready_event_pr_binding_mismatch')
+    if (taskState.observed_head !== request.exactHead) {
+      return evaluateProgressionControllerV1(stoppedAutomationResult(
+        request,
+        'STALE',
+        'head_binding_stale',
+        2,
+        request.exactHead,
+      ))
+    }
+    if (pull.draft) {
+      return evaluateProgressionControllerV1(stoppedAutomationResult(
+        request,
+        'REVIEW_PENDING',
+        'pull_not_ready',
+        2,
+        request.exactHead,
+      ))
+    }
+    return executeManualProgressionControllerV1({ request, host })
+  } catch (error) {
+    return evaluateProgressionControllerV1(stoppedAutomationResult(
+      request,
+      'INDETERMINATE',
+      error instanceof Error ? error.message : 'ready_event_invalid',
+      1,
+      request.exactHead,
+    ))
+  }
+}
+
 const isReviewDecisionCandidateV1 = (body) => typeof body === 'string' &&
   /(?:^|\r?\n)record_type:[ \t]+(?:"independent_review_decision_v1"|independent_review_decision_v1)(?:\r?$)/m.test(body)
 
@@ -1163,6 +1222,9 @@ const parseInvocation = (argv, environment) => {
   if (argv.length === 2 && argv[0] === '--review-event-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
     return Object.freeze({ mode: 'review_event', eventFile: argv[1] })
   }
+  if (argv.length === 2 && argv[0] === '--ready-event-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
+    return Object.freeze({ mode: 'ready_event', eventFile: argv[1] })
+  }
   return Object.freeze({ mode: 'manual', request: parseManualCli(argv, environment) })
 }
 
@@ -1217,7 +1279,12 @@ const main = async () => {
           event: JSON.parse(readFileSync(invocation.eventFile, 'utf8')),
           host,
         })
-      : await executeManualProgressionControllerV1({ request: invocation.request, host })
+      : invocation.mode === 'ready_event'
+        ? await executeReadyForReviewProgressionV1({
+            event: JSON.parse(readFileSync(invocation.eventFile, 'utf8')),
+            host,
+          })
+        : await executeManualProgressionControllerV1({ request: invocation.request, host })
     process.stdout.write(`${JSON.stringify(result)}\n`)
     process.exitCode = result.exit_code
   } catch (error) {

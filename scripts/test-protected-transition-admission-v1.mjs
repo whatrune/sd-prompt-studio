@@ -14,6 +14,7 @@ import {
   acquireChangedPathScopeV1,
   evaluateProgressionControllerV1,
   evaluateMergeAllowedAutomationV1,
+  executeReadyForReviewProgressionV1,
   executeReviewApprovalAutomationV1,
   executeProtectedTransitionAdmissionV1,
   extractProtectedTransitionTaskStateV1,
@@ -327,7 +328,7 @@ const workflowSource = readFileSync(workflowPath, 'utf8')
 const runnerSource = readFileSync(runnerPath, 'utf8')
 const coreSource = readFileSync(corePath, 'utf8')
 const workflow = parseYaml(workflowSource)
-check(Object.keys(workflow.on).join(',') === 'workflow_dispatch,issue_comment' && workflow.on.issue_comment.types.join(',') === 'created', 'workflow has manual recovery and created Review triggers')
+check(Object.keys(workflow.on).join(',') === 'workflow_dispatch,issue_comment,pull_request' && workflow.on.issue_comment.types.join(',') === 'created' && workflow.on.pull_request.types.join(',') === 'ready_for_review', 'workflow has manual recovery, created Review, and Ready triggers')
 check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number', 'workflow has exactly four inputs and canonicalizes the Task input as a number')
 check(Object.keys(workflow.permissions).join(',') === 'contents,checks,issues,pull-requests,statuses' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'read' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read', 'workflow adds only read access for checks and statuses')
 
@@ -381,6 +382,19 @@ const reviewEvent = ({ body = reviewDecisionBody(), association = 'MEMBER', issu
     author_association: association,
     body,
     ...comment,
+  },
+})
+
+const readyEvent = ({ action = 'ready_for_review', repository = REPOSITORY, pull = {} } = {}) => ({
+  action,
+  repository: { full_name: repository },
+  pull_request: {
+    number: PR,
+    state: 'open',
+    draft: false,
+    body: stateBlock(approvedState()),
+    head: { sha: HEAD },
+    ...pull,
   },
 })
 
@@ -547,6 +561,64 @@ const automationHost = ({
     },
   }
 }
+
+// Seven Ready-for-Review bridge units x three assertions = 21.
+check(workflow.on.pull_request.types.join(',') === 'ready_for_review' && workflowSource.includes('--ready-event-file "$PTA_EVENT_PATH"'), 'RFR-01 workflow routes only Ready events to the Ready adapter')
+check(workflowSource.includes('[[ "$PTA_BASE_REF" == "main" ]]') && workflowSource.includes('refs/pull/${PTA_EVENT_PR_NUMBER}/merge'), 'RFR-01 Ready host binds main base and exact PR merge ref')
+check(Object.keys(workflow.on.workflow_dispatch.inputs).length === 4 && workflow.concurrency.group.includes('github.event.pull_request.number'), 'RFR-01 preserves four recovery inputs and adds only the PR fallback queue key')
+
+const validReadyAutomation = automationHost({ initialState: approvedState() })
+const validReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: validReadyAutomation.host })
+check(validReadyResult.allowed === true && validReadyResult.automation_status === 'HANDOFF_READY' && validReadyResult.next_action === 'MERGE_OPERATOR', 'RFR-02 valid Ready event reaches the existing Controller handoff')
+check(validReadyResult.task_issue_number === TASK && validReadyResult.pr_number === PR && validReadyResult.current_head === HEAD, 'RFR-02 derives exact Task, PR, and HEAD')
+check(validReadyAutomation.metrics.patchCalls === 0 && validReadyAutomation.metrics.checkReads === 1 && validReadyAutomation.metrics.threadReads === 1, 'RFR-02 Ready adapter is read-only and reuses the terminal gate')
+
+const wrongReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ action: 'opened' }), host: { api: async () => { throw new Error('host_must_not_be_called') } } })
+const missingReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ repository: null }), host: { api: async () => { throw new Error('host_must_not_be_called') } } })
+const malformedReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ pull: { body: 'no state' } }), host: { api: async () => { throw new Error('host_must_not_be_called') } } })
+check(wrongReadyResult.state === 'INDETERMINATE' && wrongReadyResult.reason === 'ready_event_invalid', 'RFR-03 wrong Ready action fails closed')
+check(missingReadyResult.state === 'INDETERMINATE' && missingReadyResult.reason === 'ready_event_invalid', 'RFR-03 missing repository identity fails closed')
+check(malformedReadyResult.state === 'INDETERMINATE' && malformedReadyResult.reason === 'state_block_cardinality_invalid', 'RFR-03 malformed state fails closed before acquisition')
+
+const readyPrMismatch = automationHost({ initialState: approvedState() })
+const readyPrMismatchResult = await executeReadyForReviewProgressionV1({
+  event: readyEvent({ pull: { body: stateBlock(state({ pr_number: PR + 1, review_status: 'APPROVE', reviewed_head: HEAD, review_blocker_count: 0 })) } }),
+  host: readyPrMismatch.host,
+})
+const readyTaskMismatch = automationHost({ initialState: approvedState() })
+const readyTaskMismatchResult = await executeReadyForReviewProgressionV1({
+  event: readyEvent({ pull: { body: stateBlock(state({ task_issue_number: TASK + 1, review_status: 'APPROVE', reviewed_head: HEAD, review_blocker_count: 0 })) } }),
+  host: readyTaskMismatch.host,
+})
+check(readyPrMismatchResult.state === 'INDETERMINATE' && readyPrMismatchResult.reason === 'ready_event_pr_binding_mismatch', 'RFR-04 event/state PR mismatch fails closed')
+check(readyTaskMismatchResult.state === 'INDETERMINATE' && readyTaskMismatchResult.reason === 'task_identity_invalid', 'RFR-04 event-derived Task must match fresh repository reality')
+check(readyPrMismatch.metrics.patchCalls === 0 && readyTaskMismatch.metrics.patchCalls === 0, 'RFR-04 identity mismatch performs no state mutation')
+
+const readyHeadMismatch = automationHost({ initialState: approvedState() })
+const readyHeadMismatchResult = await executeReadyForReviewProgressionV1({
+  event: readyEvent({ pull: { body: stateBlock(state({ observed_head: OTHER_HEAD, review_status: 'APPROVE', reviewed_head: OTHER_HEAD, review_blocker_count: 0 })) } }),
+  host: readyHeadMismatch.host,
+})
+check(readyHeadMismatchResult.state === 'STALE' && readyHeadMismatchResult.reason === 'head_binding_stale', 'RFR-05 event/state HEAD mismatch is stale')
+check(readyHeadMismatchResult.allowed === false && readyHeadMismatchResult.next_action === 'STOP', 'RFR-05 stale Ready event cannot advance')
+check(readyHeadMismatch.metrics.pullReads === 0 && readyHeadMismatch.metrics.patchCalls === 0, 'RFR-05 stale Ready event stops before acquisition or mutation')
+
+const draftReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ pull: { draft: true } }), host: { api: async () => { throw new Error('host_must_not_be_called') } } })
+const pendingReadyAutomation = automationHost({ initialState: state() })
+const pendingReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ pull: { body: stateBlock(state()) } }), host: pendingReadyAutomation.host })
+const scopeReadyAutomation = automationHost({ initialState: approvedState(), changedFiles: 1, filePages: [[{ filename: 'outside.ts', status: 'modified' }]] })
+const scopeReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: scopeReadyAutomation.host })
+check(draftReadyResult.state === 'REVIEW_PENDING' && draftReadyResult.next_action === 'NONE' && draftReadyResult.reason === 'pull_not_ready', 'RFR-06 Draft Ready event reuses waiting behavior')
+check(pendingReadyResult.state === 'REVIEW_PENDING' && pendingReadyResult.next_action === 'NONE' && pendingReadyAutomation.metrics.patchCalls === 0, 'RFR-06 pending Review reuses existing stop behavior')
+check(scopeReadyResult.state === 'IMPLEMENTATION_BLOCKED' && scopeReadyResult.reason === 'scope_outside_authorized_paths' && scopeReadyAutomation.metrics.patchCalls === 0, 'RFR-06 scope overflow reuses existing fail-closed behavior')
+
+const duplicateReadyAutomation = automationHost({ initialState: approvedState() })
+const duplicateReadyFirst = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: duplicateReadyAutomation.host })
+const duplicateReadyBody = duplicateReadyAutomation.body()
+const duplicateReadySecond = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: duplicateReadyAutomation.host })
+check(JSON.stringify(duplicateReadyFirst) === JSON.stringify(duplicateReadySecond), 'RFR-07 duplicate Ready event converges to the same result')
+check(duplicateReadyAutomation.metrics.patchCalls === 0 && duplicateReadyAutomation.metrics.checkReads === 2 && duplicateReadyAutomation.metrics.threadReads === 2, 'RFR-07 duplicate Ready event remains read-only with one gate evaluation per event')
+check(duplicateReadyAutomation.body() === duplicateReadyBody, 'RFR-07 duplicate Ready event does not mutate state')
 
 // Ten writer/orchestration/idempotency/race units x three assertions = 30.
 const validAutomation = automationHost()
@@ -734,7 +806,7 @@ const preservedBodyAutomation = automationHost({
   bodyAtPullRead: { 2: `concurrent-note\n${stateBlock(state())}\nconcurrent-footer` },
 })
 const preservedBodyResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: preservedBodyAutomation.host })
-check(concurrencyGroup === 'protected-transition-admission-v1-${{ github.repository }}-${{ github.event.issue.number || inputs.task_issue_number }}' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number' && workflow.concurrency['cancel-in-progress'] === false, 'both triggers share one repository and canonical numeric Task queue')
+check(concurrencyGroup === 'protected-transition-admission-v1-${{ github.repository }}-${{ github.event.issue.number || github.event.pull_request.number || inputs.task_issue_number }}' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number' && workflow.concurrency['cancel-in-progress'] === false, 'all triggers share one repository and canonical Task or PR queue')
 check(!concurrencyGroup.includes('comment.id') && !concurrencyGroup.includes('run_id'), 'comment and run IDs do not partition serialization')
 check(preservedBodyResult.allowed && preservedBodyAutomation.body().startsWith('concurrent-note\n') && preservedBodyAutomation.body().endsWith('\nconcurrent-footer'), 'canonical writer preserves fresh non-state body bytes')
 
@@ -905,5 +977,5 @@ check(postAdmissionStateDriftResult.state === 'INDETERMINATE' && postAdmissionSt
 check(postAdmissionStateDriftResult.allowed === false && postAdmissionStateDriftResult.next_action === 'STOP', 'post-admission state drift cannot advance')
 check(postAdmissionStateDriftGate.metrics.checkReads === 0 && postAdmissionStateDriftGate.metrics.threadReads === 0, 'post-admission state drift stops before terminal acquisition')
 
-if (assertions !== 273) throw new Error(`expected exactly 273 assertions, observed ${assertions}`)
+if (assertions !== 294) throw new Error(`expected exactly 294 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
