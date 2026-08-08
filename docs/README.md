@@ -62,6 +62,8 @@ The compiler preserves learned phrases, distinguishes human meaning from observe
    - [Approval Gate](automation/03-approval-gate.md)
    - [Security Boundary](automation/04-security-boundary.md)
    - [Automation Result Handoff Contract](automation/05-automation-handoff-contract.md)
+   - [Automatic Gate Progression Contract](automation/23-automatic-gate-progression-contract.md)
+   - [Pure Automatic Gate Progression Evaluator](automation/24-pure-automatic-gate-progression-evaluator-design.md)
 
 ## Status vocabulary
 
