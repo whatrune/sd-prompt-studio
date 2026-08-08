@@ -716,6 +716,90 @@ check(waitingHeadDriftResult.state === 'STALE' && waitingHeadDriftResult.reason 
 check(waitingHeadDriftResult.current_head === OTHER_HEAD && waitingHeadDriftResult.allowed === false, 'RFR-11 reports the fresh drifted HEAD and stops')
 check(waitingHeadDriftAutomation.metrics.checkReads === 0 && waitingHeadDriftAutomation.metrics.waitCalls === 0, 'RFR-11 stops before check polling or waiting')
 
+// Four current-generation Ready terminal-wait units x three assertions = 12.
+const historicalReadyGeneration = ({ id, conclusion, startedAt }) => currentReadyCheck({
+  id,
+  status: 'COMPLETED',
+  conclusion,
+  detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/31261170331/job/${id}`,
+  startedAt,
+})
+const historicalReadyPage = connectionPage([
+  historicalReadyGeneration({ id: 'ready-history-failure', conclusion: 'FAILURE', startedAt: '2026-08-08T00:00:00Z' }),
+  historicalReadyGeneration({ id: 'ready-history-success', conclusion: 'SUCCESS', startedAt: '2026-08-08T01:00:00Z' }),
+  currentReadyCheck(),
+  successfulCheck('ready-effective-success'),
+])
+const historicalReadyAutomation = automationHost({
+  initialState: approvedState(),
+  checkPages: [historicalReadyPage],
+})
+const historicalReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: historicalReadyAutomation.host, runId: READY_RUN_ID })
+check(historicalReadyResult.allowed && historicalReadyResult.next_action === 'MERGE_OPERATOR', 'RFR-12 historical same-identity success and failure do not block the selected current generation')
+check(historicalReadyAutomation.metrics.waitCalls === 0 && historicalReadyAutomation.metrics.checkReads === 3, 'RFR-12 selected terminal success reaches the unchanged gate without waiting')
+check(historicalReadyAutomation.metrics.threadReads === 1 && historicalReadyAutomation.metrics.patchCalls === 0, 'RFR-12 remains read-only and reaches terminal thread acquisition')
+
+const otherAppReadyFailure = automationHost({
+  initialState: approvedState(),
+  checkPages: [connectionPage([
+    currentReadyCheck(),
+    currentReadyCheck({ id: 'ready-other-app-failure', status: 'COMPLETED', conclusion: 'FAILURE', detailsUrl: null, appId: 'other-check-app' }),
+    successfulCheck(),
+  ])],
+})
+const unrelatedReadyFailure = automationHost({
+  initialState: approvedState(),
+  checkPages: [readyCheckPage({ ...successfulCheck('ready-unrelated-failure'), conclusion: 'FAILURE' })],
+})
+const otherAppReadyFailureResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: otherAppReadyFailure.host, runId: READY_RUN_ID })
+const unrelatedReadyFailureResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: unrelatedReadyFailure.host, runId: READY_RUN_ID })
+check(otherAppReadyFailureResult.state === 'IMPLEMENTATION_BLOCKED' && otherAppReadyFailureResult.reason === 'checks_not_successful', 'RFR-13 same-name check from another app remains effective')
+check(unrelatedReadyFailureResult.state === 'IMPLEMENTATION_BLOCKED' && unrelatedReadyFailureResult.reason === 'checks_not_successful', 'RFR-13 selected unrelated failure remains effective')
+check(otherAppReadyFailure.metrics.threadReads === 0 && unrelatedReadyFailure.metrics.threadReads === 0 && otherAppReadyFailure.metrics.waitCalls === 0 && unrelatedReadyFailure.metrics.waitCalls === 0, 'RFR-13 effective failures stop before waiting or thread acquisition')
+
+const selectedPendingPage = readyCheckPage({ ...successfulCheck('ready-selected-pending'), status: 'IN_PROGRESS', conclusion: null })
+const selectedPendingAutomation = automationHost({
+  initialState: approvedState(),
+  checkPages: Array.from({ length: 3 }, () => selectedPendingPage),
+})
+const selectedPendingResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: selectedPendingAutomation.host, runId: READY_RUN_ID })
+check(selectedPendingResult.state === 'INDETERMINATE' && selectedPendingResult.reason === 'checks_not_terminal', 'RFR-14 selected unrelated pending check retains the terminal-wait timeout')
+check(selectedPendingAutomation.metrics.waitCalls === 2 && selectedPendingAutomation.metrics.checkReads === 3, 'RFR-14 retains exactly three attempts and two bounded waits')
+check(!selectedPendingResult.allowed && selectedPendingAutomation.metrics.threadReads === 0 && selectedPendingAutomation.metrics.patchCalls === 0, 'RFR-14 pending timeout cannot advance or mutate state')
+
+const newerReadyGeneration = automationHost({
+  initialState: approvedState(),
+  checkPages: [connectionPage([
+    currentReadyCheck(),
+    currentReadyCheck({ id: 'ready-newer-non-self', detailsUrl: null, startedAt: '2026-08-08T03:00:00Z' }),
+    successfulCheck(),
+  ])],
+})
+const tiedReadyGeneration = automationHost({
+  initialState: approvedState(),
+  checkPages: [connectionPage([currentReadyCheck(), currentReadyCheck({ id: 'ready-tied-non-self', detailsUrl: null }), successfulCheck()])],
+})
+const malformedReadyGeneration = automationHost({
+  initialState: approvedState(),
+  checkPages: [connectionPage([currentReadyCheck(), { ...successfulCheck('ready-malformed-generation'), startedAt: null }])],
+})
+const missingRawReadySelf = automationHost({
+  initialState: approvedState(),
+  checkPages: [connectionPage([successfulCheck('ready-missing-self')])],
+})
+const duplicateRawReadySelf = automationHost({
+  initialState: approvedState(),
+  checkPages: [connectionPage([currentReadyCheck(), currentReadyCheck({ id: 'ready-duplicate-self' }), successfulCheck()])],
+})
+const newerReadyGenerationResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: newerReadyGeneration.host, runId: READY_RUN_ID })
+const tiedReadyGenerationResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: tiedReadyGeneration.host, runId: READY_RUN_ID })
+const malformedReadyGenerationResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: malformedReadyGeneration.host, runId: READY_RUN_ID })
+const missingRawReadySelfResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: missingRawReadySelf.host, runId: READY_RUN_ID })
+const duplicateRawReadySelfResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: duplicateRawReadySelf.host, runId: READY_RUN_ID })
+check(newerReadyGenerationResult.reason === 'ready_current_check_not_selected_generation' && tiedReadyGenerationResult.reason === 'check_generation_ambiguous' && malformedReadyGenerationResult.reason === 'check_generation_identity_invalid', 'RFR-15 newer non-self, tied latest, and malformed generations fail closed')
+check(missingRawReadySelfResult.reason === 'ready_current_check_missing' && duplicateRawReadySelfResult.reason === 'ready_current_check_cardinality_invalid', 'RFR-15 raw missing and duplicate self semantics remain unchanged')
+check([newerReadyGenerationResult, tiedReadyGenerationResult, malformedReadyGenerationResult, missingRawReadySelfResult, duplicateRawReadySelfResult].every((result) => !result.allowed) && [newerReadyGeneration, tiedReadyGeneration, malformedReadyGeneration, missingRawReadySelf, duplicateRawReadySelf].every((automation) => automation.metrics.threadReads === 0), 'RFR-15 no generation or raw-self boundary can advance to thread acquisition')
+
 // Ten writer/orchestration/idempotency/race units x three assertions = 30.
 const validAutomation = automationHost()
 const validAutomationResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: validAutomation.host })
@@ -1215,5 +1299,5 @@ check(postAdmissionStateDriftResult.state === 'INDETERMINATE' && postAdmissionSt
 check(postAdmissionStateDriftResult.allowed === false && postAdmissionStateDriftResult.next_action === 'STOP', 'post-admission state drift cannot advance')
 check(postAdmissionStateDriftGate.metrics.checkReads === 0 && postAdmissionStateDriftGate.metrics.threadReads === 0, 'post-admission state drift stops before terminal acquisition')
 
-if (assertions !== 324) throw new Error(`expected exactly 324 assertions, observed ${assertions}`)
+if (assertions !== 336) throw new Error(`expected exactly 336 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
