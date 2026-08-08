@@ -482,15 +482,27 @@ const successfulCheck = (id = 'check-1') => ({
   status: 'COMPLETED',
   conclusion: 'SUCCESS',
   detailsUrl: null,
+  startedAt: '2026-08-08T00:00:00Z',
+  checkSuite: { app: { id: 'github-actions-app' } },
 })
 
-const currentReadyCheck = ({ id = 'ready-current-check', status = 'IN_PROGRESS', conclusion = null } = {}) => ({
+const currentReadyCheck = ({
+  id = 'ready-current-check',
+  name = 'protected_transition_admission_v1',
+  status = 'IN_PROGRESS',
+  conclusion = null,
+  detailsUrl = `https://github.com/${REPOSITORY}/actions/runs/${READY_RUN_ID}/job/93075431467`,
+  startedAt = '2026-08-08T02:00:00Z',
+  appId = 'github-actions-app',
+} = {}) => ({
   __typename: 'CheckRun',
   id,
-  name: 'protected_transition_admission_v1',
+  name,
   status,
   conclusion,
-  detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${READY_RUN_ID}/job/93075431467`,
+  detailsUrl,
+  startedAt,
+  checkSuite: { app: { id: appId } },
 })
 
 const readyCheckPage = (other = successfulCheck()) => connectionPage([currentReadyCheck(), other])
@@ -1025,17 +1037,38 @@ check(JSON.stringify(retryGateFirst) === JSON.stringify(retryGateSecond), 'ident
 check(retryGate.metrics.patchCalls === 0 && retryGate.metrics.pullReads === 6 && retryGate.metrics.fileReads === 2 && retryGate.metrics.checkReads === 4 && retryGate.metrics.threadReads === 2, 'identical retry remains read-only')
 check(taskChangedPaths.join('\n') === ['.github/workflows/protected-transition-admission-v1.yml', 'scripts/run-protected-transition-admission-v1.mjs', 'scripts/test-protected-transition-admission-v1.mjs'].join('\n'), 'current Task diff is exactly three paths')
 
-// Four self-aware final-rollup units x three assertions = 12.
+// Four current-generation Merge Gate units x three assertions = 12.
 const selfAwareMergeRequest = Object.freeze({ ...mergeRequest, currentWorkflowRunId: READY_RUN_ID })
+const historicalReadyCheck = ({ id, conclusion }) => currentReadyCheck({
+  id,
+  status: 'COMPLETED',
+  conclusion,
+  detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/31261170331/job/${id}`,
+  startedAt: id.endsWith('failure') ? '2026-08-08T00:00:00Z' : '2026-08-08T01:00:00Z',
+})
+const stableGenerationPage = () => connectionPage([
+  historicalReadyCheck({ id: 'stale-failure', conclusion: 'FAILURE' }),
+  historicalReadyCheck({ id: 'stale-success', conclusion: 'SUCCESS' }),
+  currentReadyCheck(),
+  currentReadyCheck({
+    id: 'other-app-same-name',
+    status: 'COMPLETED',
+    conclusion: 'SUCCESS',
+    detailsUrl: null,
+    startedAt: '2026-08-08T01:30:00Z',
+    appId: 'other-check-app',
+  }),
+  successfulCheck(),
+])
 const selfAwareUnstable = automationHost({
   initialState: approvedState(),
   mergeableState: 'unstable',
-  checkPages: [readyCheckPage(), readyCheckPage()],
+  checkPages: [stableGenerationPage(), stableGenerationPage()],
 })
 const selfAwareUnstableResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: selfAwareUnstable.host })
-check(selfAwareUnstableResult.state === 'MERGE_ELIGIBLE' && selfAwareUnstableResult.allowed, 'MGA-01 exact self exclusion admits structurally mergeable UNSTABLE')
-check(selfAwareUnstableResult.automation_status === 'MERGE_ALLOWED' && selfAwareUnstableResult.reason === 'merge_gate_satisfied', 'MGA-01 final fresh successful rollup establishes effective clean')
-check(selfAwareUnstable.metrics.checkReads === 2 && selfAwareUnstable.metrics.threadReads === 1 && selfAwareUnstable.metrics.pullReads === 3, 'MGA-01 acquires initial and final rollups without retry')
+check(selfAwareUnstableResult.state === 'MERGE_ELIGIBLE' && selfAwareUnstableResult.allowed, 'MGA-01 older same-identity success and failure generations are excluded')
+check(selfAwareUnstableResult.automation_status === 'MERGE_ALLOWED' && selfAwareUnstableResult.reason === 'merge_gate_satisfied', 'MGA-01 selected self and other-app same-name success establish effective clean')
+check(selfAwareUnstable.metrics.checkReads === 2 && selfAwareUnstable.metrics.threadReads === 1 && selfAwareUnstable.metrics.pullReads === 3, 'MGA-01 independently reduces initial and final complete snapshots')
 
 const missingInitialSelf = automationHost({
   initialState: approvedState(),
@@ -1050,11 +1083,33 @@ const duplicateFinalSelf = automationHost({
     connectionPage([currentReadyCheck(), currentReadyCheck({ id: 'ready-current-check-2' }), successfulCheck()]),
   ],
 })
+const newerInitialGeneration = automationHost({
+  initialState: approvedState(),
+  mergeableState: 'unstable',
+  checkPages: [connectionPage([
+    currentReadyCheck(),
+    currentReadyCheck({ id: 'newer-non-self', detailsUrl: null, startedAt: '2026-08-08T03:00:00Z' }),
+    successfulCheck(),
+  ])],
+})
+const tiedInitialGeneration = automationHost({
+  initialState: approvedState(),
+  mergeableState: 'unstable',
+  checkPages: [connectionPage([currentReadyCheck(), currentReadyCheck({ id: 'tied-non-self', detailsUrl: null }), successfulCheck()])],
+})
+const malformedInitialGeneration = automationHost({
+  initialState: approvedState(),
+  mergeableState: 'unstable',
+  checkPages: [connectionPage([currentReadyCheck(), { ...successfulCheck('malformed-generation'), startedAt: null }])],
+})
 const missingInitialSelfResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: missingInitialSelf.host })
 const duplicateFinalSelfResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: duplicateFinalSelf.host })
-check(missingInitialSelfResult.state === 'INDETERMINATE' && missingInitialSelfResult.reason === 'ready_current_check_cardinality_invalid', 'MGA-02 missing initial self check fails closed')
-check(duplicateFinalSelfResult.state === 'INDETERMINATE' && duplicateFinalSelfResult.reason === 'ready_current_check_cardinality_invalid', 'MGA-02 duplicate final self check fails closed')
-check(missingInitialSelf.metrics.threadReads === 0 && duplicateFinalSelf.metrics.threadReads === 1 && duplicateFinalSelf.metrics.checkReads === 2, 'MGA-02 cardinality is enforced independently at both snapshots')
+const newerInitialGenerationResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: newerInitialGeneration.host })
+const tiedInitialGenerationResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: tiedInitialGeneration.host })
+const malformedInitialGenerationResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: malformedInitialGeneration.host })
+check(missingInitialSelfResult.state === 'INDETERMINATE' && missingInitialSelfResult.reason === 'ready_current_check_cardinality_invalid' && missingInitialSelf.metrics.threadReads === 0, 'MGA-02 missing initial raw self fails closed')
+check(duplicateFinalSelfResult.state === 'INDETERMINATE' && duplicateFinalSelfResult.reason === 'ready_current_check_cardinality_invalid' && duplicateFinalSelf.metrics.threadReads === 1, 'MGA-02 duplicate final raw self fails closed')
+check(newerInitialGenerationResult.reason === 'ready_current_check_not_selected_generation' && tiedInitialGenerationResult.reason === 'check_generation_ambiguous' && malformedInitialGenerationResult.reason === 'check_generation_identity_invalid', 'MGA-02 newer non-self, tied latest, and malformed generation identity fail closed')
 
 const latePendingCheck = automationHost({
   initialState: approvedState(),
@@ -1069,11 +1124,37 @@ const lateFailedCheck = automationHost({
   mergeableState: 'unstable',
   checkPages: [readyCheckPage(), readyCheckPage({ ...successfulCheck('late-failed'), conclusion: 'FAILURE' })],
 })
+const otherAppSameNameFailure = automationHost({
+  initialState: approvedState(),
+  mergeableState: 'unstable',
+  checkPages: [connectionPage([
+    currentReadyCheck(),
+    currentReadyCheck({ id: 'other-app-failure', status: 'COMPLETED', conclusion: 'FAILURE', detailsUrl: null, appId: 'other-check-app' }),
+    successfulCheck(),
+  ])],
+})
+const finalNewerGeneration = automationHost({
+  initialState: approvedState(),
+  mergeableState: 'unstable',
+  checkPages: [readyCheckPage(), connectionPage([
+    currentReadyCheck(),
+    currentReadyCheck({ id: 'final-newer-non-self', detailsUrl: null, startedAt: '2026-08-08T03:00:00Z' }),
+    successfulCheck(),
+  ])],
+})
+const finalTiedGeneration = automationHost({
+  initialState: approvedState(),
+  mergeableState: 'unstable',
+  checkPages: [readyCheckPage(), connectionPage([currentReadyCheck(), currentReadyCheck({ id: 'final-tied-non-self', detailsUrl: null }), successfulCheck()])],
+})
 const latePendingCheckResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: latePendingCheck.host })
 const lateFailedCheckResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: lateFailedCheck.host })
-check(latePendingCheckResult.state === 'INDETERMINATE' && latePendingCheckResult.reason === 'checks_not_terminal', 'MGA-03 late pending check fails closed at the final snapshot')
-check(lateFailedCheckResult.state === 'IMPLEMENTATION_BLOCKED' && lateFailedCheckResult.reason === 'checks_not_successful', 'MGA-03 late failed check blocks at the final snapshot')
-check(!latePendingCheckResult.allowed && !lateFailedCheckResult.allowed && latePendingCheck.metrics.checkReads === 2 && lateFailedCheck.metrics.checkReads === 2, 'MGA-03 no late non-success context can reach MERGE_ALLOWED')
+const otherAppSameNameFailureResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: otherAppSameNameFailure.host })
+const finalNewerGenerationResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: finalNewerGeneration.host })
+const finalTiedGenerationResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: finalTiedGeneration.host })
+check(otherAppSameNameFailureResult.reason === 'checks_not_successful' && otherAppSameNameFailureResult.state === 'IMPLEMENTATION_BLOCKED', 'MGA-03 same-name check from another app remains independently enforced')
+check(latePendingCheckResult.reason === 'checks_not_terminal' && lateFailedCheckResult.reason === 'checks_not_successful' && !latePendingCheckResult.allowed && !lateFailedCheckResult.allowed, 'MGA-03 selected unrelated pending and failed checks remain blocking')
+check(finalNewerGenerationResult.reason === 'ready_current_check_not_selected_generation' && finalTiedGenerationResult.reason === 'check_generation_ambiguous' && finalNewerGeneration.metrics.checkReads === 2 && finalTiedGeneration.metrics.checkReads === 2, 'MGA-03 final snapshot independently rejects newer or tied generations')
 
 const finalCheckHeadDrift = automationHost({
   initialState: approvedState(),
