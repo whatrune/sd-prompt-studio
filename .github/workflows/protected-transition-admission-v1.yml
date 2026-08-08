@@ -56,16 +56,16 @@ jobs:
           PTA_BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
-          expected_workflow_ref="${GITHUB_REPOSITORY}/.github/workflows/protected-transition-admission-v1.yml@refs/heads/main"
+          workflow_ref_prefix="${GITHUB_REPOSITORY}/.github/workflows/protected-transition-admission-v1.yml@"
           [[ "$PTA_DEFAULT_BRANCH" == "main" ]]
           if [[ "$PTA_EVENT_NAME" == "pull_request" ]]; then
             [[ "$PTA_BASE_REF" == "main" ]]
             [[ "$GITHUB_REF" == "refs/pull/${PTA_EVENT_PR_NUMBER}/merge" ]]
-            expected_workflow_ref="${GITHUB_REPOSITORY}/.github/workflows/protected-transition-admission-v1.yml@refs/pull/${PTA_EVENT_PR_NUMBER}/merge"
+            [[ "$GITHUB_WORKFLOW_REF" == "${workflow_ref_prefix}refs/"?* ]]
           else
             [[ "$GITHUB_REF" == "refs/heads/main" ]]
+            [[ "$GITHUB_WORKFLOW_REF" == "${workflow_ref_prefix}refs/heads/main" ]]
           fi
-          [[ "$GITHUB_WORKFLOW_REF" == "$expected_workflow_ref" ]]
           [[ "$GITHUB_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
 
       - name: Checkout exact workflow SHA

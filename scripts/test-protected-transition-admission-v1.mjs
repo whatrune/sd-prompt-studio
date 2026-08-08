@@ -338,14 +338,15 @@ const hostIdentityStep = admissionJob.steps.find((step) => step.name === 'Admit 
 const hostIdentityRun = hostIdentityStep?.run ?? ''
 const pullRequestBranch = 'if [[ "$PTA_EVENT_NAME" == "pull_request" ]]; then'
 const pullRequestRef = 'refs/pull/${PTA_EVENT_PR_NUMBER}/merge'
-const pullRequestWorkflowRef = 'expected_workflow_ref="${GITHUB_REPOSITORY}/.github/workflows/protected-transition-admission-v1.yml@refs/pull/${PTA_EVENT_PR_NUMBER}/merge"'
-const mainWorkflowRef = 'expected_workflow_ref="${GITHUB_REPOSITORY}/.github/workflows/protected-transition-admission-v1.yml@refs/heads/main"'
-const commonWorkflowRefCheck = '[[ "$GITHUB_WORKFLOW_REF" == "$expected_workflow_ref" ]]'
+const workflowRefPrefix = 'workflow_ref_prefix="${GITHUB_REPOSITORY}/.github/workflows/protected-transition-admission-v1.yml@"'
+const runtimeWorkflowRefCheck = '[[ "$GITHUB_WORKFLOW_REF" == "${workflow_ref_prefix}refs/"?* ]]'
+const mainWorkflowRefCheck = '[[ "$GITHUB_WORKFLOW_REF" == "${workflow_ref_prefix}refs/heads/main" ]]'
+const pullRequestBlock = hostIdentityRun.slice(hostIdentityRun.indexOf(pullRequestBranch), hostIdentityRun.indexOf('else'))
 check(hostIdentityStep?.shell === 'bash' && hostIdentityRun.trimStart().startsWith('set -euo pipefail'), 'HID-01 host identity remains one fail-closed bash step')
-check(hostIdentityRun.indexOf(pullRequestBranch) < hostIdentityRun.indexOf(pullRequestWorkflowRef) && hostIdentityRun.indexOf(pullRequestWorkflowRef) < hostIdentityRun.indexOf(commonWorkflowRefCheck), 'HID-02 Ready PR selects its exact merge workflow ref before admission')
-check(hostIdentityRun.includes('[[ "$PTA_BASE_REF" == "main" ]]') && (hostIdentityRun.match(/\$\{PTA_EVENT_PR_NUMBER\}/g) ?? []).length === 2, 'HID-03 missing, wrong, or off-base PR identity cannot construct an admitted pair')
-check(hostIdentityRun.includes(`[[ "$GITHUB_REF" == "${pullRequestRef}" ]]`) && hostIdentityRun.includes(commonWorkflowRefCheck) && (hostIdentityRun.match(/GITHUB_WORKFLOW_REF/g) ?? []).length === 1, 'HID-04 PR ref and workflow-ref mismatches fail closed at one common comparison')
-check(hostIdentityRun.indexOf(mainWorkflowRef) < hostIdentityRun.indexOf(pullRequestBranch) && hostIdentityRun.includes('else\n  [[ "$GITHUB_REF" == "refs/heads/main" ]]'), 'HID-05 non-PR events retain the exact main-ref identity path')
+check(pullRequestBlock.includes(`[[ "$GITHUB_REF" == "${pullRequestRef}" ]]`) && pullRequestBlock.includes(runtimeWorkflowRefCheck), 'HID-02 Ready PR accepts the exact execution ref with a runtime-derived workflow source ref')
+check(pullRequestBlock.includes('[[ "$PTA_BASE_REF" == "main" ]]') && (hostIdentityRun.match(/\$\{PTA_EVENT_PR_NUMBER\}/g) ?? []).length === 1, 'HID-03 wrong PR number, execution ref, or base fails closed')
+check(hostIdentityRun.includes(workflowRefPrefix) && pullRequestBlock.includes(runtimeWorkflowRefCheck) && !pullRequestBlock.includes('refs/heads/main') && (hostIdentityRun.match(/workflow_ref_prefix=/g) ?? []).length === 1, 'HID-04 wrong workflow repository/path, delimiter, or empty or malformed ref suffix fails closed')
+check(hostIdentityRun.includes('else\n  [[ "$GITHUB_REF" == "refs/heads/main" ]]\n  ' + mainWorkflowRefCheck), 'HID-05 non-PR events retain exact main execution and workflow source identity')
 check(hostIdentityRun.includes('[[ "$GITHUB_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]') && admissionJob.steps.some((step) => step.name === 'Checkout exact workflow SHA' && step.with?.ref === '${{ github.workflow_sha }}') && admissionJob.steps.some((step) => step.name === 'Evaluate protected transition admission'), 'HID-06 common SHA, checkout, and Controller routing remain unchanged')
 
 const changedPaths = execFileSync('git', ['diff', '--name-only', BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
