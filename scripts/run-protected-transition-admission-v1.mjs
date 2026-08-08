@@ -452,12 +452,13 @@ export const writeProtectedTransitionTaskStateV1 = async ({ request, host, expec
   return Object.freeze({ pull: verified, body: candidateBody, changed: true })
 }
 
-const ensureOriginalStateCurrentV1 = (initial, request) => {
+const ensureOriginalStateCurrentV1 = (initial, request, review) => {
   const original = initial.task_state
+  const originalBindingStale = original.observed_head !== initial.pull.head ||
+    (original.review_status !== 'PENDING' && original.reviewed_head !== initial.pull.head)
   if (
     initial.pull.head !== request.exactHead ||
-    original.observed_head !== initial.pull.head ||
-    (original.review_status !== 'PENDING' && original.reviewed_head !== initial.pull.head)
+    (review.decision !== 'APPROVE' && originalBindingStale)
   ) {
     throw new ReviewAutomationStop('STALE', 'head_binding_stale', 2, initial.pull.head)
   }
@@ -501,7 +502,7 @@ export const executeReviewApprovalAutomationV1 = async ({ event, host }) => {
     const review = effective.review
 
     const initial = await acquireTransitionStateSnapshotV1(request, host)
-    ensureOriginalStateCurrentV1(initial, request)
+    ensureOriginalStateCurrentV1(initial, request, review)
     const candidateState = projectProtectedTransitionReviewStateV1(initial.task_state, review)
     const candidateInput = Object.freeze({ ...initial, task_state: candidateState })
     const preflight = evaluateProtectedTransitionAdmissionV1(candidateInput)

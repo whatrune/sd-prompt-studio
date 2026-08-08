@@ -480,12 +480,23 @@ check(falseAdmissionResult.state === 'IMPLEMENTATION_BLOCKED' && falseAdmissionR
 check(falseAdmissionAutomation.metrics.patchCalls === 1 && falseAdmissionResult.admission_executed === true, 'false admission follows one verified PATCH')
 check(falseAdmissionAutomation.metrics.fileReads === 2 && falseAdmissionResult.next_action === 'STOP', 'false admission is not retried')
 
-// Eleven corrected-Architecture units x three assertions = 33.
+// Twelve corrected-Architecture units x three assertions = 36.
 const staleOriginalAutomation = automationHost({ initialState: state({ observed_head: OTHER_HEAD }) })
 const staleOriginalResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: staleOriginalAutomation.host })
-check(staleOriginalResult.state === 'STALE' && staleOriginalResult.reason === 'head_binding_stale', 'stale original state is not masked by projection')
-check(staleOriginalAutomation.metrics.patchCalls === 0, 'stale original state performs no PATCH')
-check(staleOriginalResult.admission_executed === false && staleOriginalResult.state_changed === false, 'stale original state performs no admission')
+const staleOriginalWritten = extractProtectedTransitionTaskStateV1(staleOriginalAutomation.body())
+check(staleOriginalResult.allowed && staleOriginalResult.automation_status === 'UPDATED_AND_ADMITTED', 'fresh APPROVE rebinds a stale original state before admission')
+check(staleOriginalAutomation.metrics.patchCalls === 1 && staleOriginalResult.admission_executed === true, 'stale original state is written once before one admission')
+check(staleOriginalWritten.observed_head === HEAD && staleOriginalWritten.reviewed_head === HEAD, 'fresh APPROVE rebinds both HEAD fields to the current HEAD')
+
+const staleReviewedHeadEvent = reviewEvent({
+  body: reviewDecisionBody({ reviewed_head: OTHER_HEAD }),
+  comment: { id: 9005, created_at: '2026-08-07T00:00:04Z' },
+})
+const staleReviewedHeadAutomation = automationHost({ commentPages: [[staleReviewedHeadEvent.comment]] })
+const staleReviewedHeadResult = await executeReviewApprovalAutomationV1({ event: staleReviewedHeadEvent, host: staleReviewedHeadAutomation.host })
+check(staleReviewedHeadResult.state === 'STALE' && staleReviewedHeadResult.reason === 'head_binding_stale', 'reviewed HEAD mismatch remains stale')
+check(staleReviewedHeadAutomation.metrics.patchCalls === 0, 'reviewed HEAD mismatch performs no PATCH')
+check(staleReviewedHeadResult.admission_executed === false && staleReviewedHeadResult.state_changed === false, 'reviewed HEAD mismatch performs no admission')
 
 const changesRequiredEvent = reviewEvent({
   body: reviewDecisionBody({ decision: 'CHANGES_REQUIRED', blocking_finding_count: 1 }),
@@ -599,5 +610,5 @@ check(exactConvergedAutomation.metrics.patchCalls === 0 && exactConvergedResult.
 check(ambiguousResult.reason === 'state_write_verification_failed' && ambiguousResult.admission_executed === false, 'ambiguous PATCH verification performs no admission')
 check(ambiguousAutomation.metrics.patchCalls === 1 && ambiguousResult.state_changed === false, 'ambiguous PATCH is not retried')
 
-if (assertions !== 198) throw new Error(`expected exactly 198 assertions, observed ${assertions}`)
+if (assertions !== 201) throw new Error(`expected exactly 201 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
