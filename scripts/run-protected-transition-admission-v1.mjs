@@ -416,18 +416,26 @@ const waitForReadyTerminalChecksV1 = async (request, host) => {
       throw new ReviewAutomationStop('STALE', 'head_changed_while_waiting_for_checks', 2, pull.head.sha)
     }
 
-    const partitioned = partitionReadyRunChecksV1(request, await acquireMergeCheckRollupV1(request, host))
-    if (partitioned.current.length === 1 && partitioned.remaining.length > 0) {
-      if (partitioned.remaining.some(readyCheckHasFailedV1)) {
+    const rollup = await acquireMergeCheckRollupV1(request, host)
+    const rawPartition = partitionReadyRunChecksV1(request, rollup)
+    const selectedPartition = partitionReadyRunChecksV1(request, selectCurrentCheckGenerationsV1(rollup))
+    if (
+      rawPartition.current.length === 1 &&
+      (selectedPartition.current.length !== 1 || selectedPartition.current[0].id !== rawPartition.current[0].id)
+    ) {
+      throw new Error('ready_current_check_not_selected_generation')
+    }
+    if (rawPartition.current.length === 1 && selectedPartition.remaining.length > 0) {
+      if (selectedPartition.remaining.some(readyCheckHasFailedV1)) {
         throw new ReviewAutomationStop('IMPLEMENTATION_BLOCKED', 'checks_not_successful', 2, pull.head.sha)
       }
-      if (!partitioned.remaining.some(readyCheckIsPendingV1)) return
+      if (!selectedPartition.remaining.some(readyCheckIsPendingV1)) return
     }
 
     if (attempt === READY_CHECK_WAIT_ATTEMPTS) {
-      const reason = partitioned.current.length === 0
+      const reason = rawPartition.current.length === 0
         ? 'ready_current_check_missing'
-        : partitioned.remaining.length === 0
+        : selectedPartition.remaining.length === 0
           ? 'checks_missing'
           : 'checks_not_terminal'
       throw new ReviewAutomationStop('INDETERMINATE', reason, 1, pull.head.sha)
