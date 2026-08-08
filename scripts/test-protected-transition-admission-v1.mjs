@@ -333,6 +333,21 @@ check(Object.keys(workflow.on).join(',') === 'workflow_dispatch,issue_comment,pu
 check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number', 'workflow has exactly four inputs and canonicalizes the Task input as a number')
 check(Object.keys(workflow.permissions).join(',') === 'contents,checks,issues,pull-requests,statuses' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'read' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read', 'workflow adds only read access for checks and statuses')
 
+const admissionJob = workflow.jobs.protected_transition_admission_v1
+const hostIdentityStep = admissionJob.steps.find((step) => step.name === 'Admit exact default-branch host identity')
+const hostIdentityRun = hostIdentityStep?.run ?? ''
+const pullRequestBranch = 'if [[ "$PTA_EVENT_NAME" == "pull_request" ]]; then'
+const pullRequestRef = 'refs/pull/${PTA_EVENT_PR_NUMBER}/merge'
+const pullRequestWorkflowRef = 'expected_workflow_ref="${GITHUB_REPOSITORY}/.github/workflows/protected-transition-admission-v1.yml@refs/pull/${PTA_EVENT_PR_NUMBER}/merge"'
+const mainWorkflowRef = 'expected_workflow_ref="${GITHUB_REPOSITORY}/.github/workflows/protected-transition-admission-v1.yml@refs/heads/main"'
+const commonWorkflowRefCheck = '[[ "$GITHUB_WORKFLOW_REF" == "$expected_workflow_ref" ]]'
+check(hostIdentityStep?.shell === 'bash' && hostIdentityRun.trimStart().startsWith('set -euo pipefail'), 'HID-01 host identity remains one fail-closed bash step')
+check(hostIdentityRun.indexOf(pullRequestBranch) < hostIdentityRun.indexOf(pullRequestWorkflowRef) && hostIdentityRun.indexOf(pullRequestWorkflowRef) < hostIdentityRun.indexOf(commonWorkflowRefCheck), 'HID-02 Ready PR selects its exact merge workflow ref before admission')
+check(hostIdentityRun.includes('[[ "$PTA_BASE_REF" == "main" ]]') && (hostIdentityRun.match(/\$\{PTA_EVENT_PR_NUMBER\}/g) ?? []).length === 2, 'HID-03 missing, wrong, or off-base PR identity cannot construct an admitted pair')
+check(hostIdentityRun.includes(`[[ "$GITHUB_REF" == "${pullRequestRef}" ]]`) && hostIdentityRun.includes(commonWorkflowRefCheck) && (hostIdentityRun.match(/GITHUB_WORKFLOW_REF/g) ?? []).length === 1, 'HID-04 PR ref and workflow-ref mismatches fail closed at one common comparison')
+check(hostIdentityRun.indexOf(mainWorkflowRef) < hostIdentityRun.indexOf(pullRequestBranch) && hostIdentityRun.includes('else\n  [[ "$GITHUB_REF" == "refs/heads/main" ]]'), 'HID-05 non-PR events retain the exact main-ref identity path')
+check(hostIdentityRun.includes('[[ "$GITHUB_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]') && admissionJob.steps.some((step) => step.name === 'Checkout exact workflow SHA' && step.with?.ref === '${{ github.workflow_sha }}') && admissionJob.steps.some((step) => step.name === 'Evaluate protected transition admission'), 'HID-06 common SHA, checkout, and Controller routing remain unchanged')
+
 const changedPaths = execFileSync('git', ['diff', '--name-only', BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
 const expectedPaths = [
   '.github/workflows/protected-transition-admission-v1.yml',
@@ -1042,5 +1057,5 @@ check(postAdmissionStateDriftResult.state === 'INDETERMINATE' && postAdmissionSt
 check(postAdmissionStateDriftResult.allowed === false && postAdmissionStateDriftResult.next_action === 'STOP', 'post-admission state drift cannot advance')
 check(postAdmissionStateDriftGate.metrics.checkReads === 0 && postAdmissionStateDriftGate.metrics.threadReads === 0, 'post-admission state drift stops before terminal acquisition')
 
-if (assertions !== 306) throw new Error(`expected exactly 306 assertions, observed ${assertions}`)
+if (assertions !== 312) throw new Error(`expected exactly 312 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
