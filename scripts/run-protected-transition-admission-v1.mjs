@@ -19,6 +19,45 @@ const REVIEW_RECORD_TYPE = 'independent_review_decision_v1'
 const REVIEW_AUTHORING_ROLE = 'Independent Reviewer'
 const REVIEW_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 const STRICT_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/
+const MERGE_CHECKS_QUERY = `
+query MergeAllowedChecks($owner: String!, $name: String!, $head: GitObjectID!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    object(oid: $head) {
+      ... on Commit {
+        oid
+        statusCheckRollup {
+          contexts(first: 100, after: $after) {
+            totalCount
+            nodes {
+              __typename
+              ... on CheckRun { id name status conclusion }
+              ... on StatusContext { id context state }
+            }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
+      }
+    }
+  }
+}`
+const MERGE_THREADS_QUERY = `
+query MergeAllowedThreads($owner: String!, $name: String!, $pr: Int!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $pr) {
+      number
+      state
+      isDraft
+      mergeable
+      mergeStateStatus
+      headRefOid
+      reviewThreads(first: 100, after: $after) {
+        totalCount
+        nodes { id isResolved isOutdated }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+}`
 
 const positiveInteger = (value) => Number.isSafeInteger(value) && value > 0
 const occurrenceCount = (text, needle) => text.split(needle).length - 1
@@ -236,6 +275,159 @@ const api = async (host, endpoint, options = undefined) => {
   return host.api(endpoint, options)
 }
 
+const graphql = async (host, query, variables) => {
+  if (!host || typeof host.graphql !== 'function') throw new Error('host_graphql_unavailable')
+  return host.graphql(query, variables)
+}
+
+const repositoryPartsV1 = (repository) => {
+  if (!REPOSITORY.test(repository ?? '')) throw new Error('repository_invalid')
+  const [owner, name] = repository.split('/')
+  return Object.freeze({ owner, name })
+}
+
+const validatePageInfoV1 = (pageInfo, hasNextCursors) => {
+  if (!pageInfo || typeof pageInfo.hasNextPage !== 'boolean') throw new Error('graphql_page_info_invalid')
+  if (!pageInfo.hasNextPage) return null
+  if (typeof pageInfo.endCursor !== 'string' || pageInfo.endCursor.length === 0 || hasNextCursors.has(pageInfo.endCursor)) {
+    throw new Error('graphql_page_cursor_invalid')
+  }
+  hasNextCursors.add(pageInfo.endCursor)
+  return pageInfo.endCursor
+}
+
+export const acquireMergeCheckRollupV1 = async (request, host) => {
+  const { owner, name } = repositoryPartsV1(request.repository)
+  const nodes = []
+  const nodeIds = new Set()
+  const cursors = new Set()
+  let expectedTotal = null
+  let after = null
+  let pageNumber = 1
+
+  while (true) {
+    const data = await graphql(host, MERGE_CHECKS_QUERY, { owner, name, head: request.exactHead, after })
+    const commit = data?.repository?.object
+    const connection = commit?.statusCheckRollup?.contexts
+    if (
+      commit?.oid !== request.exactHead ||
+      !connection ||
+      !Number.isSafeInteger(connection.totalCount) ||
+      connection.totalCount < 0 ||
+      !Array.isArray(connection.nodes) ||
+      connection.nodes.length > PAGE_SIZE
+    ) {
+      throw new Error('check_rollup_page_invalid')
+    }
+    if (expectedTotal === null) expectedTotal = connection.totalCount
+    if (expectedTotal !== connection.totalCount) throw new Error('check_rollup_total_changed')
+
+    for (const node of connection.nodes) {
+      if (!node || typeof node.id !== 'string' || node.id.length === 0 || nodeIds.has(node.id)) {
+        throw new Error('check_rollup_context_invalid')
+      }
+      nodeIds.add(node.id)
+      if (node.__typename === 'CheckRun') {
+        if (
+          typeof node.name !== 'string' ||
+          node.name.length === 0 ||
+          typeof node.status !== 'string' ||
+          (node.conclusion !== null && typeof node.conclusion !== 'string')
+        ) {
+          throw new Error('check_rollup_context_invalid')
+        }
+        nodes.push(Object.freeze({ type: 'CheckRun', id: node.id, name: node.name, status: node.status, conclusion: node.conclusion }))
+      } else if (node.__typename === 'StatusContext') {
+        if (typeof node.context !== 'string' || node.context.length === 0 || typeof node.state !== 'string') {
+          throw new Error('check_rollup_context_invalid')
+        }
+        nodes.push(Object.freeze({ type: 'StatusContext', id: node.id, context: node.context, state: node.state }))
+      } else {
+        throw new Error('check_rollup_context_invalid')
+      }
+    }
+
+    const next = validatePageInfoV1(connection.pageInfo, cursors)
+    if (next === null) break
+    after = next
+    pageNumber += 1
+    if (pageNumber > 32) throw new Error('check_rollup_terminal_page_missing')
+  }
+
+  if (nodes.length !== expectedTotal) throw new Error('check_rollup_count_mismatch')
+  return Object.freeze(nodes)
+}
+
+export const acquireMergeReviewThreadsV1 = async (request, host) => {
+  const { owner, name } = repositoryPartsV1(request.repository)
+  const nodes = []
+  const nodeIds = new Set()
+  const cursors = new Set()
+  let expectedTotal = null
+  let expectedPull = null
+  let after = null
+  let pageNumber = 1
+
+  while (true) {
+    const data = await graphql(host, MERGE_THREADS_QUERY, { owner, name, pr: request.prNumber, after })
+    const pull = data?.repository?.pullRequest
+    const connection = pull?.reviewThreads
+    const pullIdentity = pull && Object.freeze({
+      number: pull.number,
+      state: pull.state,
+      isDraft: pull.isDraft,
+      mergeable: pull.mergeable,
+      mergeStateStatus: pull.mergeStateStatus,
+      headRefOid: pull.headRefOid,
+    })
+    if (
+      !pullIdentity ||
+      pullIdentity.number !== request.prNumber ||
+      typeof pullIdentity.state !== 'string' ||
+      typeof pullIdentity.isDraft !== 'boolean' ||
+      typeof pullIdentity.mergeable !== 'string' ||
+      typeof pullIdentity.mergeStateStatus !== 'string' ||
+      typeof pullIdentity.headRefOid !== 'string' ||
+      !FULL_HEAD.test(pullIdentity.headRefOid) ||
+      !connection ||
+      !Number.isSafeInteger(connection.totalCount) ||
+      connection.totalCount < 0 ||
+      !Array.isArray(connection.nodes) ||
+      connection.nodes.length > PAGE_SIZE
+    ) {
+      throw new Error('review_threads_page_invalid')
+    }
+    if (expectedPull === null) expectedPull = pullIdentity
+    if (JSON.stringify(expectedPull) !== JSON.stringify(pullIdentity)) throw new Error('review_threads_pull_changed')
+    if (expectedTotal === null) expectedTotal = connection.totalCount
+    if (expectedTotal !== connection.totalCount) throw new Error('review_threads_total_changed')
+
+    for (const node of connection.nodes) {
+      if (
+        !node ||
+        typeof node.id !== 'string' ||
+        node.id.length === 0 ||
+        nodeIds.has(node.id) ||
+        typeof node.isResolved !== 'boolean' ||
+        typeof node.isOutdated !== 'boolean'
+      ) {
+        throw new Error('review_thread_invalid')
+      }
+      nodeIds.add(node.id)
+      nodes.push(Object.freeze({ id: node.id, isResolved: node.isResolved, isOutdated: node.isOutdated }))
+    }
+
+    const next = validatePageInfoV1(connection.pageInfo, cursors)
+    if (next === null) break
+    after = next
+    pageNumber += 1
+    if (pageNumber > 32) throw new Error('review_threads_terminal_page_missing')
+  }
+
+  if (nodes.length !== expectedTotal) throw new Error('review_threads_count_mismatch')
+  return Object.freeze({ pull: expectedPull, threads: Object.freeze(nodes) })
+}
+
 export const acquireTaskIdentityV1 = async (request, host) => {
   const raw = await api(host, `repos/${request.repository}/issues/${request.taskIssueNumber}`)
   const expectedRepositoryUrl = `https://api.github.com/repos/${request.repository}`
@@ -272,6 +464,25 @@ const acquirePull = async (request, host) => {
     raw.changed_files < 0
   ) {
     throw new Error('pull_identity_invalid')
+  }
+  return raw
+}
+
+const acquireMergeGatePullV1 = async (request, host) => {
+  const raw = await api(host, `repos/${request.repository}/pulls/${request.prNumber}`)
+  if (
+    !raw ||
+    raw.number !== request.prNumber ||
+    typeof raw.state !== 'string' ||
+    raw.base?.repo?.full_name !== request.repository ||
+    typeof raw.draft !== 'boolean' ||
+    (raw.mergeable !== null && typeof raw.mergeable !== 'boolean') ||
+    typeof raw.mergeable_state !== 'string' ||
+    typeof raw.body !== 'string' ||
+    typeof raw.head?.sha !== 'string' ||
+    !FULL_HEAD.test(raw.head.sha)
+  ) {
+    throw new Error('merge_gate_pull_invalid')
   }
   return raw
 }
@@ -464,6 +675,120 @@ const ensureOriginalStateCurrentV1 = (initial, request, review) => {
   }
 }
 
+const mergeGateStoppedResultV1 = (request, state, reason, exitCode, currentHead = request.exactHead) => Object.freeze({
+  ...stoppedResult(request, state, reason, exitCode, currentHead),
+  automation_status: 'STOPPED',
+  admission_executed: true,
+  next_action: 'STOP',
+})
+
+const classifyMergeGatePullV1 = (request, pull) => {
+  if (pull.head.sha !== request.exactHead) {
+    return mergeGateStoppedResultV1(request, 'STALE', 'head_changed_during_merge_gate', 2, pull.head.sha)
+  }
+  if (pull.state !== 'open' || pull.draft) {
+    return mergeGateStoppedResultV1(request, 'REVIEW_PENDING', 'pull_not_ready', 2, pull.head.sha)
+  }
+  if (pull.mergeable === null || pull.mergeable_state === 'unknown') {
+    return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'pull_mergeability_indeterminate', 1, pull.head.sha)
+  }
+  if (!pull.mergeable || pull.mergeable_state !== 'clean') {
+    return mergeGateStoppedResultV1(request, 'IMPLEMENTATION_BLOCKED', 'pull_not_mergeable', 2, pull.head.sha)
+  }
+  return null
+}
+
+export const evaluateMergeAllowedAutomationV1 = async ({ request, admitted, host }) => {
+  try {
+    if (!admitted || admitted.state !== 'MERGE_ELIGIBLE' || admitted.allowed !== true) {
+      return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'merge_gate_not_admitted', 1)
+    }
+
+    const initialPull = await acquireMergeGatePullV1(request, host)
+    const initialPullStop = classifyMergeGatePullV1(request, initialPull)
+    if (initialPullStop) return initialPullStop
+    const initialState = extractProtectedTransitionTaskStateV1(initialPull.body)
+    if (initialState.observed_head !== request.exactHead || initialState.reviewed_head !== request.exactHead) {
+      return mergeGateStoppedResultV1(request, 'STALE', 'head_binding_stale', 2, initialPull.head.sha)
+    }
+    if (initialState.review_status !== 'APPROVE' || initialState.review_blocker_count !== 0) {
+      return mergeGateStoppedResultV1(request, 'REVIEW_BLOCKED', 'review_not_approved', 2, initialPull.head.sha)
+    }
+
+    const checks = await acquireMergeCheckRollupV1(request, host)
+    if (checks.length === 0) {
+      return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'checks_missing', 1, initialPull.head.sha)
+    }
+    if (checks.some((item) => item.type === 'CheckRun' && item.status !== 'COMPLETED')) {
+      return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'checks_not_terminal', 1, initialPull.head.sha)
+    }
+    if (checks.some((item) =>
+      (item.type === 'CheckRun' && item.conclusion !== 'SUCCESS') ||
+      (item.type === 'StatusContext' && item.state !== 'SUCCESS')
+    )) {
+      return mergeGateStoppedResultV1(request, 'IMPLEMENTATION_BLOCKED', 'checks_not_successful', 2, initialPull.head.sha)
+    }
+
+    const reviewSnapshot = await acquireMergeReviewThreadsV1(request, host)
+    if (reviewSnapshot.pull.headRefOid !== request.exactHead) {
+      return mergeGateStoppedResultV1(request, 'STALE', 'head_changed_during_merge_gate', 2, reviewSnapshot.pull.headRefOid)
+    }
+    if (reviewSnapshot.pull.state !== 'OPEN' || reviewSnapshot.pull.isDraft) {
+      return mergeGateStoppedResultV1(request, 'REVIEW_PENDING', 'pull_not_ready', 2, reviewSnapshot.pull.headRefOid)
+    }
+    if (reviewSnapshot.pull.mergeable === 'UNKNOWN' || reviewSnapshot.pull.mergeStateStatus === 'UNKNOWN') {
+      return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'pull_mergeability_indeterminate', 1, reviewSnapshot.pull.headRefOid)
+    }
+    if (reviewSnapshot.pull.mergeable !== 'MERGEABLE' || reviewSnapshot.pull.mergeStateStatus !== 'CLEAN') {
+      return mergeGateStoppedResultV1(request, 'IMPLEMENTATION_BLOCKED', 'pull_not_mergeable', 2, reviewSnapshot.pull.headRefOid)
+    }
+    if (reviewSnapshot.threads.some((thread) => !thread.isResolved && !thread.isOutdated)) {
+      return mergeGateStoppedResultV1(request, 'REVIEW_BLOCKED', 'blocking_review_threads_present', 2, reviewSnapshot.pull.headRefOid)
+    }
+
+    const finalPull = await acquireMergeGatePullV1(request, host)
+    const finalPullStop = classifyMergeGatePullV1(request, finalPull)
+    if (finalPullStop) return finalPullStop
+    const finalState = extractProtectedTransitionTaskStateV1(finalPull.body)
+    if (JSON.stringify(finalState) !== JSON.stringify(initialState)) {
+      return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'state_changed_during_merge_gate', 1, finalPull.head.sha)
+    }
+
+    return Object.freeze({
+      ...admitted,
+      reason: 'merge_gate_satisfied',
+      automation_status: 'MERGE_ALLOWED',
+      admission_executed: true,
+      next_action: 'MERGE_OPERATOR',
+    })
+  } catch (error) {
+    return mergeGateStoppedResultV1(
+      request,
+      'INDETERMINATE',
+      error instanceof Error ? error.message : 'merge_gate_acquisition_failed',
+      1,
+    )
+  }
+}
+
+const completeApprovedAutomationV1 = async ({ request, host, stateChanged }) => {
+  const admitted = await executeProtectedTransitionAdmissionV1({ request, host })
+  if (!admitted.allowed) {
+    return Object.freeze({
+      ...admitted,
+      state_changed: stateChanged,
+      automation_status: 'UPDATED_AND_STOPPED',
+      admission_executed: true,
+      next_action: 'STOP',
+    })
+  }
+  const mergeAllowed = await evaluateMergeAllowedAutomationV1({ request, admitted, host })
+  return Object.freeze({
+    ...mergeAllowed,
+    state_changed: stateChanged,
+  })
+}
+
 export const executeReviewApprovalAutomationV1 = async ({ event, host }) => {
   let parsedEvent
   let request
@@ -518,6 +843,9 @@ export const executeReviewApprovalAutomationV1 = async ({ event, host }) => {
 
     const alreadyConverged = JSON.stringify(initial.task_state) === JSON.stringify(candidateState)
     if (alreadyConverged) {
+      if (review.decision === 'APPROVE') {
+        return completeApprovedAutomationV1({ request, host, stateChanged: false })
+      }
       return Object.freeze({
         ...preflight,
         automation_status: 'ALREADY_CONVERGED',
@@ -538,6 +866,9 @@ export const executeReviewApprovalAutomationV1 = async ({ event, host }) => {
       candidateState,
     })
     if (!written.changed) {
+      if (review.decision === 'APPROVE') {
+        return completeApprovedAutomationV1({ request, host, stateChanged: false })
+      }
       return Object.freeze({
         ...preflight,
         automation_status: 'ALREADY_CONVERGED',
@@ -554,14 +885,7 @@ export const executeReviewApprovalAutomationV1 = async ({ event, host }) => {
         next_action: 'STOP',
       })
     }
-    const admitted = await executeProtectedTransitionAdmissionV1({ request, host })
-    return Object.freeze({
-      ...admitted,
-      state_changed: true,
-      automation_status: admitted.allowed ? 'UPDATED_AND_ADMITTED' : 'UPDATED_AND_STOPPED',
-      admission_executed: true,
-      next_action: admitted.allowed ? 'MERGE_DECISION' : 'STOP',
-    })
+    return completeApprovedAutomationV1({ request, host, stateChanged: true })
   } catch (error) {
     const fallbackRequest = request ?? Object.freeze({
       transition: 'merge_decision_admission',
@@ -665,6 +989,25 @@ const productionHost = (environment) => {
       })
       if (!response.ok) throw new Error(`github_api_${response.status}`)
       return response.status === 204 ? null : response.json()
+    },
+    graphql: async (query, variables) => {
+      const response = await fetch('https://api.github.com/graphql', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/vnd.github+json',
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'X-GitHub-Api-Version': '2022-11-28',
+          'User-Agent': 'protected-transition-admission-v1',
+        },
+        body: JSON.stringify({ query, variables }),
+      })
+      if (!response.ok) throw new Error(`github_graphql_${response.status}`)
+      const payload = await response.json()
+      if (!payload || !payload.data || (Array.isArray(payload.errors) && payload.errors.length > 0)) {
+        throw new Error('github_graphql_invalid')
+      }
+      return payload.data
     },
   })
 }
