@@ -61,7 +61,6 @@ jobs:
           if [[ "$PTA_EVENT_NAME" == "pull_request" ]]; then
             [[ "$PTA_BASE_REF" == "main" ]]
             [[ "$GITHUB_REF" == "refs/pull/${PTA_EVENT_PR_NUMBER}/merge" ]]
-            expected_workflow_ref="${GITHUB_REPOSITORY}/.github/workflows/protected-transition-admission-v1.yml@refs/pull/${PTA_EVENT_PR_NUMBER}/merge"
           else
             [[ "$GITHUB_REF" == "refs/heads/main" ]]
           fi
