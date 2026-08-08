@@ -28,8 +28,10 @@ name: Protected Transition Admission V1
 
 permissions:
   contents: read
+  checks: read
   issues: read
   pull-requests: write
+  statuses: read
 
 concurrency:
   group: protected-transition-admission-v1-${{ github.repository }}-${{ github.event.issue.number || inputs.task_issue_number }}

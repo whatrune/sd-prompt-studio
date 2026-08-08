@@ -12,6 +12,7 @@ import {
 } from '../src/continuous-orchestration/protected-transition-admission-v1.ts'
 import {
   acquireChangedPathScopeV1,
+  evaluateMergeAllowedAutomationV1,
   executeReviewApprovalAutomationV1,
   executeProtectedTransitionAdmissionV1,
   extractProtectedTransitionTaskStateV1,
@@ -251,7 +252,7 @@ const coreSource = readFileSync(corePath, 'utf8')
 const workflow = parseYaml(workflowSource)
 check(Object.keys(workflow.on).join(',') === 'workflow_dispatch,issue_comment' && workflow.on.issue_comment.types.join(',') === 'created', 'workflow has manual recovery and created Review triggers')
 check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number', 'workflow has exactly four inputs and canonicalizes the Task input as a number')
-check(Object.keys(workflow.permissions).join(',') === 'contents,issues,pull-requests' && workflow.permissions.contents === 'read' && workflow.permissions.issues === 'read' && workflow.permissions['pull-requests'] === 'write', 'workflow has exactly three permissions and only PR write')
+check(Object.keys(workflow.permissions).join(',') === 'contents,checks,issues,pull-requests,statuses' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'read' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read', 'workflow adds only read access for checks and statuses')
 
 const changedPaths = execFileSync('git', ['diff', '--name-only', BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
 const expectedPaths = [
@@ -361,6 +362,19 @@ const associationError = await errorOf(() => parseReviewApprovalEventV1(reviewEv
 check(associationError instanceof Error, 'invalid event association fails')
 check(associationError?.message === 'review_event_invalid', 'invalid event association reason')
 
+const connectionPage = (nodes, { totalCount = nodes.length, hasNextPage = false, endCursor = null } = {}) => ({
+  totalCount,
+  nodes,
+  pageInfo: { hasNextPage, endCursor },
+})
+const successfulCheck = (id = 'check-1') => ({
+  __typename: 'CheckRun',
+  id,
+  name: `check-${id}`,
+  status: 'COMPLETED',
+  conclusion: 'SUCCESS',
+})
+
 const automationHost = ({
   initialState = state(),
   changedFiles = 0,
@@ -368,19 +382,30 @@ const automationHost = ({
   commentPages = [[reviewEvent().comment]],
   headAtPullRead = {},
   bodyAtPullRead = {},
+  pullState = 'open',
+  draft = false,
+  mergeable = true,
+  mergeableState = 'clean',
+  checkPages = [connectionPage([successfulCheck()])],
+  threadPages = [connectionPage([])],
+  graphqlPull = {},
+  graphqlFailure = null,
   patchFailure = false,
   applyPatch = true,
 } = {}) => {
-  const metrics = { patchCalls: 0, pullReads: 0, fileReads: 0, commentReads: 0 }
+  const metrics = { patchCalls: 0, pullReads: 0, fileReads: 0, commentReads: 0, checkReads: 0, threadReads: 0 }
   let currentHead = HEAD
   let currentBody = stateBlock(initialState)
   const currentPull = () => ({
     number: PR,
-    state: 'open',
+    state: pullState,
     base: { repo: { full_name: REPOSITORY } },
     head: { sha: currentHead },
     body: currentBody,
     changed_files: changedFiles,
+    draft,
+    mergeable,
+    mergeable_state: mergeableState,
   })
   return {
     metrics,
@@ -408,6 +433,40 @@ const automationHost = ({
         if (bodyAtPullRead[metrics.pullReads]) currentBody = bodyAtPullRead[metrics.pullReads]
         return structuredClone(currentPull())
       },
+      graphql: async (query) => {
+        if (graphqlFailure) throw graphqlFailure
+        if (query.includes('statusCheckRollup')) {
+          metrics.checkReads += 1
+          const page = checkPages[metrics.checkReads - 1] ?? checkPages.at(-1)
+          return structuredClone({
+            repository: {
+              object: {
+                oid: currentHead,
+                statusCheckRollup: page === null ? null : { contexts: page },
+              },
+            },
+          })
+        }
+        if (query.includes('reviewThreads')) {
+          metrics.threadReads += 1
+          const page = threadPages[metrics.threadReads - 1] ?? threadPages.at(-1)
+          return structuredClone({
+            repository: {
+              pullRequest: {
+                number: PR,
+                state: pullState === 'open' ? 'OPEN' : 'CLOSED',
+                isDraft: draft,
+                mergeable: mergeable === null ? 'UNKNOWN' : mergeable ? 'MERGEABLE' : 'CONFLICTING',
+                mergeStateStatus: mergeableState.toUpperCase(),
+                headRefOid: currentHead,
+                ...graphqlPull,
+                reviewThreads: page,
+              },
+            },
+          })
+        }
+        throw new Error('unexpected_graphql_query')
+      },
     },
   }
 }
@@ -416,15 +475,15 @@ const automationHost = ({
 const validAutomation = automationHost()
 const validAutomationResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: validAutomation.host })
 const validWrittenState = extractProtectedTransitionTaskStateV1(validAutomation.body())
-check(validAutomationResult.allowed && validAutomationResult.automation_status === 'UPDATED_AND_ADMITTED' && validAutomationResult.next_action === 'MERGE_DECISION', 'valid Review updates and admits')
-check(validAutomation.metrics.patchCalls === 1 && validAutomationResult.admission_executed === true, 'valid Review performs one PATCH and one admission')
+check(validAutomationResult.allowed && validAutomationResult.automation_status === 'MERGE_ALLOWED' && validAutomationResult.next_action === 'MERGE_OPERATOR', 'valid Review reaches the merge operator automatically')
+check(validAutomation.metrics.patchCalls === 1 && validAutomationResult.admission_executed === true && validAutomation.metrics.checkReads === 1 && validAutomation.metrics.threadReads === 1, 'valid Review performs one PATCH, admission, and terminal gate')
 check(validWrittenState.observed_head === HEAD && validWrittenState.review_status === 'APPROVE' && validWrittenState.reviewed_head === HEAD && validWrittenState.review_blocker_count === 0 && validWrittenState.record_type === state().record_type && validWrittenState.task_issue_number === TASK && validWrittenState.pr_number === PR && validWrittenState.authorized_paths.join(',') === ALLOWED.join(',') && validWrittenState.architecture_status === 'APPROVED' && validWrittenState.implementation_authorized === true, 'valid Review changes four fields and preserves six')
 
 const convergedAutomation = automationHost({ initialState: approvedState() })
 const convergedResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: convergedAutomation.host })
-check(convergedResult.allowed && convergedResult.automation_status === 'ALREADY_CONVERGED', 'converged Review returns stable admission result')
-check(convergedAutomation.metrics.patchCalls === 0 && convergedResult.admission_executed === false, 'converged Review performs no duplicate effect')
-check(convergedResult.next_action === 'MERGE_DECISION' && convergedResult.state_changed === false, 'converged Review keeps next action without mutation')
+check(convergedResult.allowed && convergedResult.automation_status === 'MERGE_ALLOWED', 'converged Review returns stable merge-gate result')
+check(convergedAutomation.metrics.patchCalls === 0 && convergedResult.admission_executed === true && convergedAutomation.metrics.checkReads === 1 && convergedAutomation.metrics.threadReads === 1, 'converged Review performs no duplicate mutation and re-evaluates the read-only gate')
+check(convergedResult.next_action === 'MERGE_OPERATOR' && convergedResult.state_changed === false, 'converged Review advances without mutation')
 
 const architectureAutomation = automationHost({ initialState: state({ architecture_status: 'NOT_APPROVED' }) })
 const architectureResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: architectureAutomation.host })
@@ -484,7 +543,7 @@ check(falseAdmissionAutomation.metrics.fileReads === 2 && falseAdmissionResult.n
 const staleOriginalAutomation = automationHost({ initialState: state({ observed_head: OTHER_HEAD }) })
 const staleOriginalResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: staleOriginalAutomation.host })
 const staleOriginalWritten = extractProtectedTransitionTaskStateV1(staleOriginalAutomation.body())
-check(staleOriginalResult.allowed && staleOriginalResult.automation_status === 'UPDATED_AND_ADMITTED', 'fresh APPROVE rebinds a stale original state before admission')
+check(staleOriginalResult.allowed && staleOriginalResult.automation_status === 'MERGE_ALLOWED', 'fresh APPROVE rebinds a stale original state before admission')
 check(staleOriginalAutomation.metrics.patchCalls === 1 && staleOriginalResult.admission_executed === true, 'stale original state is written once before one admission')
 check(staleOriginalWritten.observed_head === HEAD && staleOriginalWritten.reviewed_head === HEAD, 'fresh APPROVE rebinds both HEAD fields to the current HEAD')
 
@@ -533,7 +592,7 @@ const recoveryAutomation = automationHost({
 })
 const recoveryResult = await executeReviewApprovalAutomationV1({ event: recoveryEvent, host: recoveryAutomation.host })
 const recoveryWritten = extractProtectedTransitionTaskStateV1(recoveryAutomation.body())
-check(recoveryResult.allowed && recoveryResult.automation_status === 'UPDATED_AND_ADMITTED', 'later valid APPROVE restores eligibility')
+check(recoveryResult.allowed && recoveryResult.automation_status === 'MERGE_ALLOWED', 'later valid APPROVE restores eligibility')
 check(recoveryAutomation.metrics.patchCalls === 1 && recoveryResult.admission_executed === true, 'later valid APPROVE writes and admits once')
 check(recoveryWritten.review_status === 'APPROVE' && recoveryWritten.review_blocker_count === 0, 'later APPROVE becomes the stored effective Decision')
 
@@ -606,9 +665,168 @@ const exactConvergedAutomation = automationHost({ initialState: approvedState() 
 const exactConvergedResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: exactConvergedAutomation.host })
 const ambiguousAutomation = automationHost({ applyPatch: false })
 const ambiguousResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: ambiguousAutomation.host })
-check(exactConvergedAutomation.metrics.patchCalls === 0 && exactConvergedResult.admission_executed === false, 'same-state retry has zero duplicate effects')
+check(exactConvergedAutomation.metrics.patchCalls === 0 && exactConvergedResult.admission_executed === true && exactConvergedResult.state_changed === false, 'same-state retry has zero duplicate mutation')
 check(ambiguousResult.reason === 'state_write_verification_failed' && ambiguousResult.admission_executed === false, 'ambiguous PATCH verification performs no admission')
 check(ambiguousAutomation.metrics.patchCalls === 1 && ambiguousResult.state_changed === false, 'ambiguous PATCH is not retried')
 
-if (assertions !== 201) throw new Error(`expected exactly 201 assertions, observed ${assertions}`)
+// Twelve MERGE_ALLOWED terminal-gate units x three assertions = 36.
+const mergeRequest = Object.freeze({ ...request, transition: 'merge_decision_admission' })
+const mergeAdmitted = evaluateProtectedTransitionAdmissionV1(input({
+  transition: 'merge_decision_admission',
+  task_state: approvedState(),
+}))
+
+const mergeSuccess = automationHost({ initialState: approvedState() })
+const mergeSuccessResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: mergeSuccess.host })
+check(mergeSuccessResult.state === 'MERGE_ELIGIBLE' && mergeSuccessResult.allowed, 'stable exact-HEAD gate remains merge eligible')
+check(mergeSuccessResult.automation_status === 'MERGE_ALLOWED' && mergeSuccessResult.reason === 'merge_gate_satisfied' && mergeSuccessResult.next_action === 'MERGE_OPERATOR', 'stable exact-HEAD gate reaches merge operator')
+check(mergeSuccess.metrics.pullReads === 3 && mergeSuccess.metrics.fileReads === 1 && mergeSuccess.metrics.checkReads === 1 && mergeSuccess.metrics.threadReads === 1 && mergeSuccess.metrics.patchCalls === 0, 'merge gate is read-only and freshly re-admits one complete snapshot')
+
+const initialHeadDrift = automationHost({ initialState: approvedState(), headAtPullRead: { 1: OTHER_HEAD } })
+const initialHeadDriftResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: initialHeadDrift.host })
+check(initialHeadDriftResult.state === 'STALE' && initialHeadDriftResult.reason === 'head_changed_during_merge_gate', 'initial merge-gate HEAD drift is stale')
+check(initialHeadDriftResult.current_head === OTHER_HEAD && initialHeadDriftResult.allowed === false, 'initial merge-gate HEAD drift reports the observed HEAD')
+check(initialHeadDrift.metrics.checkReads === 0 && initialHeadDrift.metrics.threadReads === 0, 'initial HEAD drift stops before GraphQL acquisition')
+
+const draftGate = automationHost({ initialState: approvedState(), draft: true })
+const closedGate = automationHost({ initialState: approvedState(), pullState: 'closed' })
+const dirtyGate = automationHost({ initialState: approvedState(), mergeableState: 'dirty' })
+const draftGateResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: draftGate.host })
+const closedGateResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: closedGate.host })
+const dirtyGateResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: dirtyGate.host })
+check(draftGateResult.state === 'REVIEW_PENDING' && draftGateResult.reason === 'pull_not_ready', 'Draft PR stops as Review pending')
+check(closedGateResult.state === 'REVIEW_PENDING' && closedGateResult.reason === 'pull_not_ready', 'closed PR stops as Review pending')
+check(dirtyGateResult.state === 'IMPLEMENTATION_BLOCKED' && dirtyGateResult.reason === 'pull_not_mergeable', 'non-clean PR blocks implementation')
+
+const missingChecks = automationHost({ initialState: approvedState(), checkPages: [null] })
+const zeroChecks = automationHost({ initialState: approvedState(), checkPages: [connectionPage([])] })
+const missingChecksResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: missingChecks.host })
+const zeroChecksResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: zeroChecks.host })
+check(missingChecksResult.state === 'INDETERMINATE' && missingChecksResult.reason === 'check_rollup_page_invalid', 'missing check rollup fails closed')
+check(zeroChecksResult.state === 'INDETERMINATE' && zeroChecksResult.reason === 'checks_missing', 'zero current check contexts fail closed')
+check(missingChecks.metrics.threadReads === 0 && zeroChecks.metrics.threadReads === 0, 'missing checks stop before thread acquisition')
+
+const pendingChecks = automationHost({
+  initialState: approvedState(),
+  checkPages: [connectionPage([{ ...successfulCheck(), status: 'IN_PROGRESS', conclusion: null }])],
+})
+const pendingChecksResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: pendingChecks.host })
+check(pendingChecksResult.state === 'INDETERMINATE' && pendingChecksResult.reason === 'checks_not_terminal', 'non-terminal check is indeterminate')
+check(pendingChecksResult.allowed === false && pendingChecksResult.next_action === 'STOP', 'non-terminal check cannot advance')
+check(pendingChecks.metrics.checkReads === 1 && pendingChecks.metrics.threadReads === 0, 'non-terminal check stops before threads')
+
+const failedChecks = automationHost({
+  initialState: approvedState(),
+  checkPages: [connectionPage([{ ...successfulCheck(), conclusion: 'FAILURE' }])],
+})
+const failedChecksResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: failedChecks.host })
+check(failedChecksResult.state === 'IMPLEMENTATION_BLOCKED' && failedChecksResult.reason === 'checks_not_successful', 'failed terminal check blocks implementation')
+check(failedChecksResult.allowed === false && failedChecksResult.automation_status === 'STOPPED', 'failed terminal check cannot advance')
+check(failedChecks.metrics.checkReads === 1 && failedChecks.metrics.threadReads === 0, 'failed terminal check stops before threads')
+
+const pagedChecks = automationHost({
+  initialState: approvedState(),
+  checkPages: [
+    connectionPage([successfulCheck('check-a')], { totalCount: 2, hasNextPage: true, endCursor: 'checks-1' }),
+    connectionPage([successfulCheck('check-b')], { totalCount: 2 }),
+  ],
+})
+const pagedChecksResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: pagedChecks.host })
+check(pagedChecksResult.allowed && pagedChecksResult.automation_status === 'MERGE_ALLOWED', 'complete multi-page checks can advance')
+check(pagedChecks.metrics.checkReads === 2 && pagedChecks.metrics.threadReads === 1, 'check pagination reaches its terminal page')
+check(pagedChecksResult.reason === 'merge_gate_satisfied', 'multi-page checks preserve success reason')
+
+const blockingThreads = automationHost({
+  initialState: approvedState(),
+  threadPages: [connectionPage([{ id: 'thread-1', isResolved: false, isOutdated: false }])],
+})
+const blockingThreadsResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: blockingThreads.host })
+check(blockingThreadsResult.state === 'REVIEW_BLOCKED' && blockingThreadsResult.reason === 'blocking_review_threads_present', 'current unresolved thread blocks Review')
+check(blockingThreadsResult.allowed === false && blockingThreadsResult.next_action === 'STOP', 'current unresolved thread cannot advance')
+check(blockingThreads.metrics.threadReads === 1 && blockingThreads.metrics.pullReads === 2, 'blocking thread stops before final pull refetch')
+
+const ignoredThreads = automationHost({
+  initialState: approvedState(),
+  threadPages: [connectionPage([
+    { id: 'thread-resolved', isResolved: true, isOutdated: false },
+    { id: 'thread-outdated', isResolved: false, isOutdated: true },
+  ])],
+})
+const ignoredThreadsResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: ignoredThreads.host })
+check(ignoredThreadsResult.allowed && ignoredThreadsResult.automation_status === 'MERGE_ALLOWED', 'resolved and outdated threads are non-blocking')
+check(ignoredThreads.metrics.threadReads === 1 && ignoredThreads.metrics.pullReads === 3, 'non-blocking threads permit final pull refetch')
+check(ignoredThreadsResult.next_action === 'MERGE_OPERATOR', 'non-blocking threads advance to merge operator')
+
+const pagedThreads = automationHost({
+  initialState: approvedState(),
+  threadPages: [
+    connectionPage([{ id: 'thread-resolved', isResolved: true, isOutdated: false }], { totalCount: 2, hasNextPage: true, endCursor: 'threads-1' }),
+    connectionPage([{ id: 'thread-late', isResolved: false, isOutdated: false }], { totalCount: 2 }),
+  ],
+})
+const pagedThreadsResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: pagedThreads.host })
+check(pagedThreadsResult.state === 'REVIEW_BLOCKED' && pagedThreadsResult.reason === 'blocking_review_threads_present', 'late paginated thread blocks Review')
+check(pagedThreads.metrics.threadReads === 2, 'thread pagination reaches the late blocker')
+check(pagedThreadsResult.allowed === false && pagedThreads.metrics.pullReads === 2, 'late blocker stops before final pull refetch')
+
+const finalHeadDrift = automationHost({ initialState: approvedState(), headAtPullRead: { 3: OTHER_HEAD } })
+const finalStateDrift = automationHost({
+  initialState: approvedState(),
+  bodyAtPullRead: {
+    3: stateBlock(state({ architecture_status: 'NOT_APPROVED', review_status: 'APPROVE', reviewed_head: HEAD, review_blocker_count: 0 })),
+  },
+})
+const finalHeadDriftResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: finalHeadDrift.host })
+const finalStateDriftResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: finalStateDrift.host })
+check(finalHeadDriftResult.state === 'STALE' && finalHeadDriftResult.reason === 'head_changed_during_merge_gate', 'post-snapshot HEAD drift is stale')
+check(finalStateDriftResult.state === 'INDETERMINATE' && finalStateDriftResult.reason === 'state_changed_during_merge_gate', 'post-snapshot state drift is indeterminate')
+check(!finalHeadDriftResult.allowed && !finalStateDriftResult.allowed, 'post-snapshot drift cannot advance')
+
+const retryGate = automationHost({ initialState: approvedState() })
+const retryGateFirst = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: retryGate.host })
+const retryGateSecond = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: retryGate.host })
+const taskChangedPaths = execFileSync('git', ['diff', '--name-only', 'd39c58329eb8e0b52aabc831be024b940b6d41df'], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
+check(JSON.stringify(retryGateFirst) === JSON.stringify(retryGateSecond), 'identical retry converges to the same result')
+check(retryGate.metrics.patchCalls === 0 && retryGate.metrics.pullReads === 6 && retryGate.metrics.fileReads === 2 && retryGate.metrics.checkReads === 2 && retryGate.metrics.threadReads === 2, 'identical retry remains read-only')
+check(taskChangedPaths.join('\n') === ['.github/workflows/protected-transition-admission-v1.yml', 'scripts/run-protected-transition-admission-v1.mjs', 'scripts/test-protected-transition-admission-v1.mjs'].join('\n'), 'current Task diff is exactly three paths')
+
+// Four fresh-admission binding repair units x three assertions = 12.
+const revokedArchitectureGate = automationHost({
+  initialState: state({ architecture_status: 'NOT_APPROVED', review_status: 'APPROVE', reviewed_head: HEAD, review_blocker_count: 0 }),
+})
+const revokedArchitectureResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: revokedArchitectureGate.host })
+check(revokedArchitectureResult.state === 'ARCHITECTURE_BLOCKED' && revokedArchitectureResult.reason === 'architecture_not_approved', 'fresh Architecture revocation blocks stale admission reuse')
+check(revokedArchitectureResult.allowed === false && revokedArchitectureResult.next_action === 'STOP', 'fresh Architecture revocation cannot advance')
+check(revokedArchitectureGate.metrics.checkReads === 0 && revokedArchitectureGate.metrics.threadReads === 0, 'fresh Architecture revocation stops before terminal acquisition')
+
+const revokedImplementationGate = automationHost({
+  initialState: state({ implementation_authorized: false, review_status: 'APPROVE', reviewed_head: HEAD, review_blocker_count: 0 }),
+})
+const revokedImplementationResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: revokedImplementationGate.host })
+check(revokedImplementationResult.state === 'IMPLEMENTATION_BLOCKED' && revokedImplementationResult.reason === 'implementation_not_authorized', 'fresh implementation revocation blocks stale admission reuse')
+check(revokedImplementationResult.allowed === false && revokedImplementationResult.next_action === 'STOP', 'fresh implementation revocation cannot advance')
+check(revokedImplementationGate.metrics.checkReads === 0 && revokedImplementationGate.metrics.threadReads === 0, 'fresh implementation revocation stops before terminal acquisition')
+
+const narrowedScopeGate = automationHost({
+  initialState: state({ authorized_paths: [ALLOWED[0]], review_status: 'APPROVE', reviewed_head: HEAD, review_blocker_count: 0 }),
+  changedFiles: 1,
+  filePages: [[{ filename: ALLOWED[1], status: 'modified' }]],
+})
+const narrowedScopeResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: narrowedScopeGate.host })
+check(narrowedScopeResult.state === 'IMPLEMENTATION_BLOCKED' && narrowedScopeResult.reason === 'scope_outside_authorized_paths', 'fresh authorized-path narrowing blocks stale admission reuse')
+check(narrowedScopeResult.allowed === false && narrowedScopeResult.out_of_scope_paths.join(',') === ALLOWED[1], 'fresh scope revocation reports the current out-of-scope path')
+check(narrowedScopeGate.metrics.checkReads === 0 && narrowedScopeGate.metrics.threadReads === 0, 'fresh scope revocation stops before terminal acquisition')
+
+const postAdmissionStateDriftGate = automationHost({
+  initialState: approvedState(),
+  bodyAtPullRead: {
+    2: stateBlock(state({ authorized_paths: [...ALLOWED, 'docs/extra.md'], review_status: 'APPROVE', reviewed_head: HEAD, review_blocker_count: 0 })),
+  },
+})
+const postAdmissionStateDriftResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: postAdmissionStateDriftGate.host })
+check(postAdmissionStateDriftResult.state === 'INDETERMINATE' && postAdmissionStateDriftResult.reason === 'state_changed_after_fresh_admission', 'state drift after fresh admission fails closed')
+check(postAdmissionStateDriftResult.allowed === false && postAdmissionStateDriftResult.next_action === 'STOP', 'post-admission state drift cannot advance')
+check(postAdmissionStateDriftGate.metrics.checkReads === 0 && postAdmissionStateDriftGate.metrics.threadReads === 0, 'post-admission state drift stops before terminal acquisition')
+
+if (assertions !== 249) throw new Error(`expected exactly 249 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
