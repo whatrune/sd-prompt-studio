@@ -15,6 +15,9 @@ const STATE_START = '<!-- protected-transition-task-state-v1:start -->'
 const STATE_END = '<!-- protected-transition-task-state-v1:end -->'
 const MAX_PULL_FILES = 3000
 const PAGE_SIZE = 100
+const READY_CHECK_WAIT_ATTEMPTS = 3
+const READY_CHECK_WAIT_MS = 10_000
+const WORKFLOW_RUN_ID = /^[1-9]\d*$/
 const REVIEW_RECORD_TYPE = 'independent_review_decision_v1'
 const REVIEW_AUTHORING_ROLE = 'Independent Reviewer'
 const REVIEW_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
@@ -31,7 +34,7 @@ query MergeAllowedChecks($owner: String!, $name: String!, $head: GitObjectID!, $
             totalCount
             nodes {
               __typename
-              ... on CheckRun { id name status conclusion }
+              ... on CheckRun { id name status conclusion detailsUrl }
               ... on StatusContext { id context state }
             }
             pageInfo { hasNextPage endCursor }
@@ -329,15 +332,24 @@ export const acquireMergeCheckRollupV1 = async (request, host) => {
       }
       nodeIds.add(node.id)
       if (node.__typename === 'CheckRun') {
+        const detailsUrl = node.detailsUrl ?? null
         if (
           typeof node.name !== 'string' ||
           node.name.length === 0 ||
           typeof node.status !== 'string' ||
-          (node.conclusion !== null && typeof node.conclusion !== 'string')
+          (node.conclusion !== null && typeof node.conclusion !== 'string') ||
+          (detailsUrl !== null && typeof detailsUrl !== 'string')
         ) {
           throw new Error('check_rollup_context_invalid')
         }
-        nodes.push(Object.freeze({ type: 'CheckRun', id: node.id, name: node.name, status: node.status, conclusion: node.conclusion }))
+        nodes.push(Object.freeze({
+          type: 'CheckRun',
+          id: node.id,
+          name: node.name,
+          status: node.status,
+          conclusion: node.conclusion,
+          details_url: detailsUrl,
+        }))
       } else if (node.__typename === 'StatusContext') {
         if (typeof node.context !== 'string' || node.context.length === 0 || typeof node.state !== 'string') {
           throw new Error('check_rollup_context_invalid')
@@ -357,6 +369,55 @@ export const acquireMergeCheckRollupV1 = async (request, host) => {
 
   if (nodes.length !== expectedTotal) throw new Error('check_rollup_count_mismatch')
   return Object.freeze(nodes)
+}
+
+const partitionReadyRunChecksV1 = (request, checks) => {
+  const runId = request.currentWorkflowRunId
+  if (!WORKFLOW_RUN_ID.test(runId ?? '')) throw new Error('ready_workflow_run_id_invalid')
+  const prefix = `https://github.com/${request.repository}/actions/runs/${runId}/`
+  const current = checks.filter((item) => item.type === 'CheckRun' && item.details_url?.startsWith(prefix))
+  if (current.length > 1) throw new Error('ready_current_check_cardinality_invalid')
+  const currentIds = new Set(current.map((item) => item.id))
+  return Object.freeze({
+    current: Object.freeze(current),
+    remaining: Object.freeze(checks.filter((item) => !currentIds.has(item.id))),
+  })
+}
+
+const readyCheckIsPendingV1 = (item) =>
+  (item.type === 'CheckRun' && item.status !== 'COMPLETED') ||
+  (item.type === 'StatusContext' && ['PENDING', 'EXPECTED'].includes(item.state))
+
+const readyCheckHasFailedV1 = (item) =>
+  (item.type === 'CheckRun' && item.status === 'COMPLETED' && item.conclusion !== 'SUCCESS') ||
+  (item.type === 'StatusContext' && !['SUCCESS', 'PENDING', 'EXPECTED'].includes(item.state))
+
+const waitForReadyTerminalChecksV1 = async (request, host) => {
+  for (let attempt = 1; attempt <= READY_CHECK_WAIT_ATTEMPTS; attempt += 1) {
+    const pull = await acquirePull(request, host)
+    if (pull.head.sha !== request.exactHead) {
+      throw new ReviewAutomationStop('STALE', 'head_changed_while_waiting_for_checks', 2, pull.head.sha)
+    }
+
+    const partitioned = partitionReadyRunChecksV1(request, await acquireMergeCheckRollupV1(request, host))
+    if (partitioned.current.length === 1 && partitioned.remaining.length > 0) {
+      if (partitioned.remaining.some(readyCheckHasFailedV1)) {
+        throw new ReviewAutomationStop('IMPLEMENTATION_BLOCKED', 'checks_not_successful', 2, pull.head.sha)
+      }
+      if (!partitioned.remaining.some(readyCheckIsPendingV1)) return
+    }
+
+    if (attempt === READY_CHECK_WAIT_ATTEMPTS) {
+      const reason = partitioned.current.length === 0
+        ? 'ready_current_check_missing'
+        : partitioned.remaining.length === 0
+          ? 'checks_missing'
+          : 'checks_not_terminal'
+      throw new ReviewAutomationStop('INDETERMINATE', reason, 1, pull.head.sha)
+    }
+    if (typeof host.wait === 'function') await host.wait(READY_CHECK_WAIT_MS)
+    else await new Promise((resolve) => setTimeout(resolve, READY_CHECK_WAIT_MS))
+  }
 }
 
 export const acquireMergeReviewThreadsV1 = async (request, host) => {
@@ -763,13 +824,14 @@ export const executeManualProgressionControllerV1 = async ({ request, host }) =>
   })
 }
 
-export const executeReadyForReviewProgressionV1 = async ({ event, host }) => {
+export const executeReadyForReviewProgressionV1 = async ({ event, host, runId }) => {
   let request = Object.freeze({
     transition: 'merge_decision_admission',
     repository: event?.repository?.full_name ?? null,
     taskIssueNumber: null,
     prNumber: event?.pull_request?.number ?? null,
     exactHead: event?.pull_request?.head?.sha ?? null,
+    currentWorkflowRunId: runId ?? null,
   })
   try {
     const pull = event?.pull_request
@@ -778,6 +840,7 @@ export const executeReadyForReviewProgressionV1 = async ({ event, host }) => {
       !REPOSITORY.test(request.repository ?? '') ||
       !positiveInteger(request.prNumber) ||
       !FULL_HEAD.test(request.exactHead ?? '') ||
+      !WORKFLOW_RUN_ID.test(request.currentWorkflowRunId ?? '') ||
       !pull ||
       pull.state !== 'open' ||
       typeof pull.draft !== 'boolean' ||
@@ -810,8 +873,29 @@ export const executeReadyForReviewProgressionV1 = async ({ event, host }) => {
         request.exactHead,
       ))
     }
-    return executeManualProgressionControllerV1({ request, host })
+    const admitted = await executeProtectedTransitionAdmissionV1({ request, host })
+    const currentResult = Object.freeze({
+      ...admitted,
+      automation_status: 'ADMISSION_EVALUATED',
+      admission_executed: true,
+      next_action: admitted.allowed && admitted.state === 'MERGE_ELIGIBLE' ? 'MERGE_DECISION' : 'STOP',
+    })
+    if (currentResult.next_action === 'MERGE_DECISION') await waitForReadyTerminalChecksV1(request, host)
+    return executeProgressionControllerV1({
+      currentResult,
+      currentContext: Object.freeze({ request }),
+      host,
+    })
   } catch (error) {
+    if (error instanceof ReviewAutomationStop) {
+      return evaluateProgressionControllerV1(stoppedAutomationResult(
+        request,
+        error.state,
+        error.message,
+        error.exitCode,
+        error.currentHead ?? request.exactHead,
+      ))
+    }
     return evaluateProgressionControllerV1(stoppedAutomationResult(
       request,
       'INDETERMINATE',
@@ -958,7 +1042,14 @@ export const evaluateMergeAllowedAutomationV1 = async ({ request, admitted, host
       return mergeGateStoppedResultV1(request, 'REVIEW_BLOCKED', 'review_not_approved', 2, initialPull.head.sha)
     }
 
-    const checks = await acquireMergeCheckRollupV1(request, host)
+    const rollup = await acquireMergeCheckRollupV1(request, host)
+    const checks = request.currentWorkflowRunId
+      ? (() => {
+          const partitioned = partitionReadyRunChecksV1(request, rollup)
+          if (partitioned.current.length !== 1) throw new Error('ready_current_check_cardinality_invalid')
+          return partitioned.remaining
+        })()
+      : rollup
     if (checks.length === 0) {
       return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'checks_missing', 1, initialPull.head.sha)
     }
@@ -1283,6 +1374,7 @@ const main = async () => {
         ? await executeReadyForReviewProgressionV1({
             event: JSON.parse(readFileSync(invocation.eventFile, 'utf8')),
             host,
+            runId: process.env.GITHUB_RUN_ID,
           })
         : await executeManualProgressionControllerV1({ request: invocation.request, host })
     process.stdout.write(`${JSON.stringify(result)}\n`)
