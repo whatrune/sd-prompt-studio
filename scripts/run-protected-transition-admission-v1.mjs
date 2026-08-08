@@ -24,8 +24,9 @@ const REVIEW_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 const STRICT_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/
 const REPAIR_EXECUTOR_INSTRUCTION = 'Fix current blocking findings only; use current authorized_paths; stop on Architecture gap; run focused validation.'
 const MERGE_CHECKS_QUERY = `
-query MergeAllowedChecks($owner: String!, $name: String!, $head: GitObjectID!, $after: String) {
+query MergeAllowedChecks($owner: String!, $name: String!, $pr: Int!, $head: GitObjectID!, $after: String) {
   repository(owner: $owner, name: $name) {
+    pullRequest(number: $pr) { headRefOid }
     object(oid: $head) {
       ... on Commit {
         oid
@@ -300,20 +301,24 @@ const validatePageInfoV1 = (pageInfo, hasNextCursors) => {
   return pageInfo.endCursor
 }
 
-export const acquireMergeCheckRollupV1 = async (request, host) => {
+const acquireMergeCheckRollupSnapshotV1 = async (request, host, { stopOnPullHeadDrift = false } = {}) => {
   const { owner, name } = repositoryPartsV1(request.repository)
   const nodes = []
   const nodeIds = new Set()
   const cursors = new Set()
   let expectedTotal = null
+  let expectedPullHead = null
   let after = null
   let pageNumber = 1
 
   while (true) {
-    const data = await graphql(host, MERGE_CHECKS_QUERY, { owner, name, head: request.exactHead, after })
+    const data = await graphql(host, MERGE_CHECKS_QUERY, { owner, name, pr: request.prNumber, head: request.exactHead, after })
+    const pullHead = data?.repository?.pullRequest?.headRefOid
     const commit = data?.repository?.object
     const connection = commit?.statusCheckRollup?.contexts
     if (
+      typeof pullHead !== 'string' ||
+      !FULL_HEAD.test(pullHead) ||
       commit?.oid !== request.exactHead ||
       !connection ||
       !Number.isSafeInteger(connection.totalCount) ||
@@ -322,6 +327,13 @@ export const acquireMergeCheckRollupV1 = async (request, host) => {
       connection.nodes.length > PAGE_SIZE
     ) {
       throw new Error('check_rollup_page_invalid')
+    }
+    if (expectedPullHead === null) expectedPullHead = pullHead
+    if (expectedPullHead !== pullHead) {
+      if (stopOnPullHeadDrift) {
+        throw new ReviewAutomationStop('STALE', 'head_changed_during_merge_gate', 2, pullHead)
+      }
+      throw new Error('check_rollup_pull_head_changed')
     }
     if (expectedTotal === null) expectedTotal = connection.totalCount
     if (expectedTotal !== connection.totalCount) throw new Error('check_rollup_total_changed')
@@ -368,8 +380,11 @@ export const acquireMergeCheckRollupV1 = async (request, host) => {
   }
 
   if (nodes.length !== expectedTotal) throw new Error('check_rollup_count_mismatch')
-  return Object.freeze(nodes)
+  return Object.freeze({ headRefOid: expectedPullHead, checks: Object.freeze(nodes) })
 }
+
+export const acquireMergeCheckRollupV1 = async (request, host) =>
+  (await acquireMergeCheckRollupSnapshotV1(request, host)).checks
 
 const partitionReadyRunChecksV1 = (request, checks) => {
   const runId = request.currentWorkflowRunId
@@ -1011,8 +1026,29 @@ const classifyMergeGatePullV1 = (request, pull) => {
   if (pull.mergeable === null || pull.mergeable_state === 'unknown') {
     return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'pull_mergeability_indeterminate', 1, pull.head.sha)
   }
-  if (!pull.mergeable || pull.mergeable_state !== 'clean') {
+  const selfAwareUnstable = WORKFLOW_RUN_ID.test(request.currentWorkflowRunId ?? '') && pull.mergeable_state === 'unstable'
+  if (!pull.mergeable || (pull.mergeable_state !== 'clean' && !selfAwareUnstable)) {
     return mergeGateStoppedResultV1(request, 'IMPLEMENTATION_BLOCKED', 'pull_not_mergeable', 2, pull.head.sha)
+  }
+  return null
+}
+
+const mergeGateChecksStopV1 = (request, rollup, currentHead) => {
+  const checks = request.currentWorkflowRunId
+    ? (() => {
+        const partitioned = partitionReadyRunChecksV1(request, rollup)
+        if (partitioned.current.length !== 1) throw new Error('ready_current_check_cardinality_invalid')
+        return partitioned.remaining
+      })()
+    : rollup
+  if (checks.length === 0) {
+    return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'checks_missing', 1, currentHead)
+  }
+  if (checks.some(readyCheckIsPendingV1)) {
+    return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'checks_not_terminal', 1, currentHead)
+  }
+  if (checks.some(readyCheckHasFailedV1)) {
+    return mergeGateStoppedResultV1(request, 'IMPLEMENTATION_BLOCKED', 'checks_not_successful', 2, currentHead)
   }
   return null
 }
@@ -1042,26 +1078,12 @@ export const evaluateMergeAllowedAutomationV1 = async ({ request, admitted, host
       return mergeGateStoppedResultV1(request, 'REVIEW_BLOCKED', 'review_not_approved', 2, initialPull.head.sha)
     }
 
-    const rollup = await acquireMergeCheckRollupV1(request, host)
-    const checks = request.currentWorkflowRunId
-      ? (() => {
-          const partitioned = partitionReadyRunChecksV1(request, rollup)
-          if (partitioned.current.length !== 1) throw new Error('ready_current_check_cardinality_invalid')
-          return partitioned.remaining
-        })()
-      : rollup
-    if (checks.length === 0) {
-      return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'checks_missing', 1, initialPull.head.sha)
+    const initialCheckSnapshot = await acquireMergeCheckRollupSnapshotV1(request, host, { stopOnPullHeadDrift: true })
+    if (initialCheckSnapshot.headRefOid !== request.exactHead) {
+      return mergeGateStoppedResultV1(request, 'STALE', 'head_changed_during_merge_gate', 2, initialCheckSnapshot.headRefOid)
     }
-    if (checks.some((item) => item.type === 'CheckRun' && item.status !== 'COMPLETED')) {
-      return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'checks_not_terminal', 1, initialPull.head.sha)
-    }
-    if (checks.some((item) =>
-      (item.type === 'CheckRun' && item.conclusion !== 'SUCCESS') ||
-      (item.type === 'StatusContext' && item.state !== 'SUCCESS')
-    )) {
-      return mergeGateStoppedResultV1(request, 'IMPLEMENTATION_BLOCKED', 'checks_not_successful', 2, initialPull.head.sha)
-    }
+    const initialChecksStop = mergeGateChecksStopV1(request, initialCheckSnapshot.checks, initialPull.head.sha)
+    if (initialChecksStop) return initialChecksStop
 
     const reviewSnapshot = await acquireMergeReviewThreadsV1(request, host)
     if (reviewSnapshot.pull.headRefOid !== request.exactHead) {
@@ -1073,7 +1095,8 @@ export const evaluateMergeAllowedAutomationV1 = async ({ request, admitted, host
     if (reviewSnapshot.pull.mergeable === 'UNKNOWN' || reviewSnapshot.pull.mergeStateStatus === 'UNKNOWN') {
       return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'pull_mergeability_indeterminate', 1, reviewSnapshot.pull.headRefOid)
     }
-    if (reviewSnapshot.pull.mergeable !== 'MERGEABLE' || reviewSnapshot.pull.mergeStateStatus !== 'CLEAN') {
+    const selfAwareUnstable = WORKFLOW_RUN_ID.test(request.currentWorkflowRunId ?? '') && reviewSnapshot.pull.mergeStateStatus === 'UNSTABLE'
+    if (reviewSnapshot.pull.mergeable !== 'MERGEABLE' || (reviewSnapshot.pull.mergeStateStatus !== 'CLEAN' && !selfAwareUnstable)) {
       return mergeGateStoppedResultV1(request, 'IMPLEMENTATION_BLOCKED', 'pull_not_mergeable', 2, reviewSnapshot.pull.headRefOid)
     }
     if (reviewSnapshot.threads.some((thread) => !thread.isResolved && !thread.isOutdated)) {
@@ -1088,6 +1111,13 @@ export const evaluateMergeAllowedAutomationV1 = async ({ request, admitted, host
       return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'state_changed_during_merge_gate', 1, finalPull.head.sha)
     }
 
+    const finalCheckSnapshot = await acquireMergeCheckRollupSnapshotV1(request, host, { stopOnPullHeadDrift: true })
+    if (finalCheckSnapshot.headRefOid !== request.exactHead) {
+      return mergeGateStoppedResultV1(request, 'STALE', 'head_changed_during_merge_gate', 2, finalCheckSnapshot.headRefOid)
+    }
+    const finalChecksStop = mergeGateChecksStopV1(request, finalCheckSnapshot.checks, finalCheckSnapshot.headRefOid)
+    if (finalChecksStop) return finalChecksStop
+
     return Object.freeze({
       ...admitted,
       reason: 'merge_gate_satisfied',
@@ -1096,6 +1126,15 @@ export const evaluateMergeAllowedAutomationV1 = async ({ request, admitted, host
       next_action: 'MERGE_OPERATOR',
     })
   } catch (error) {
+    if (error instanceof ReviewAutomationStop) {
+      return mergeGateStoppedResultV1(
+        request,
+        error.state,
+        error.message,
+        error.exitCode,
+        error.currentHead ?? request.exactHead,
+      )
+    }
     return mergeGateStoppedResultV1(
       request,
       'INDETERMINATE',
