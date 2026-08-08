@@ -19,6 +19,7 @@ const REVIEW_RECORD_TYPE = 'independent_review_decision_v1'
 const REVIEW_AUTHORING_ROLE = 'Independent Reviewer'
 const REVIEW_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 const STRICT_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/
+const REPAIR_EXECUTOR_INSTRUCTION = 'Fix current blocking findings only; use current authorized_paths; stop on Architecture gap; run focused validation.'
 const MERGE_CHECKS_QUERY = `
 query MergeAllowedChecks($owner: String!, $name: String!, $head: GitObjectID!, $after: String) {
   repository(owner: $owner, name: $name) {
@@ -594,6 +595,174 @@ const skippedAutomationResult = (request, reason) => Object.freeze({
   next_action: 'NONE',
 })
 
+const progressionBlockedResultV1 = (currentResult, reason) => Object.freeze({
+  ...currentResult,
+  allowed: false,
+  exit_code: currentResult?.state === 'INDETERMINATE' ? 1 : 2,
+  reason,
+  automation_status: 'BLOCKED',
+  next_action: 'STOP',
+})
+
+export const projectRepairExecutorDispatchV1 = (currentContext) => {
+  const request = currentContext?.request
+  const review = currentContext?.review
+  const commentId = currentContext?.review_comment_id
+  const scope = currentContext?.scope
+  let taskState
+  try {
+    taskState = parseProtectedTransitionTaskStateV1(currentContext?.task_state)
+  } catch {
+    throw new Error('repair_task_state_invalid')
+  }
+
+  if (
+    !request ||
+    !REPOSITORY.test(request.repository ?? '') ||
+    !positiveInteger(request.taskIssueNumber) ||
+    !positiveInteger(request.prNumber) ||
+    !FULL_HEAD.test(request.exactHead ?? '') ||
+    currentContext?.effective_review_current !== true ||
+    !positiveInteger(commentId)
+  ) {
+    throw new Error('repair_current_tuple_invalid')
+  }
+  if (
+    taskState.task_issue_number !== request.taskIssueNumber ||
+    taskState.pr_number !== request.prNumber ||
+    taskState.observed_head !== request.exactHead ||
+    taskState.reviewed_head !== request.exactHead
+  ) {
+    throw new Error('repair_head_binding_stale')
+  }
+  if (taskState.architecture_status !== 'APPROVED') throw new Error('repair_architecture_not_approved')
+  if (taskState.implementation_authorized !== true) throw new Error('repair_implementation_not_authorized')
+  if (
+    !review ||
+    review.task_issue_number !== request.taskIssueNumber ||
+    review.pr_number !== request.prNumber ||
+    review.reviewed_head !== request.exactHead
+  ) {
+    throw new Error('repair_review_tuple_mismatch')
+  }
+  if (review.decision !== 'CHANGES_REQUIRED') throw new Error('repair_decision_not_changes_required')
+  if (!positiveInteger(review.blocking_finding_count)) throw new Error('repair_blocker_count_invalid')
+  if (review.remaining_finding_count !== review.blocking_finding_count) throw new Error('repair_remaining_count_mismatch')
+  if (review.unknown_count !== 0) throw new Error('repair_review_unknown')
+  if (
+    scope?.complete !== true ||
+    !Array.isArray(scope.actual_paths) ||
+    scope.actual_paths.some((value) => !isNormalizedRepositoryPathV1(value)) ||
+    new Set(scope.actual_paths).size !== scope.actual_paths.length
+  ) {
+    throw new Error('repair_scope_incomplete')
+  }
+  const authorizedPaths = new Set(taskState.authorized_paths)
+  if (scope.actual_paths.some((value) => !authorizedPaths.has(value))) {
+    throw new Error('repair_scope_outside_authorized_paths')
+  }
+
+  return Object.freeze({
+    repository: request.repository,
+    task_issue_number: request.taskIssueNumber,
+    pr_number: request.prNumber,
+    exact_head: request.exactHead,
+    review_decision_url: `https://github.com/${request.repository}/issues/${request.taskIssueNumber}#issuecomment-${commentId}`,
+    authorized_paths: Object.freeze([...taskState.authorized_paths]),
+    next_action: 'REPAIR_EXECUTOR',
+    instruction: REPAIR_EXECUTOR_INSTRUCTION,
+  })
+}
+
+export const evaluateProgressionControllerV1 = (currentResult, currentContext = undefined) => {
+  if (!currentResult || typeof currentResult !== 'object') {
+    return progressionBlockedResultV1({}, 'progression_result_invalid')
+  }
+  if (currentResult.next_action === 'NONE') {
+    return Object.freeze({
+      ...currentResult,
+      exit_code: 0,
+      automation_status: 'COMPLETED_NOOP',
+      next_action: 'NONE',
+    })
+  }
+  if (currentResult.state === 'REVIEW_PENDING' && currentResult.next_action !== 'MERGE_DECISION') {
+    return Object.freeze({
+      ...currentResult,
+      exit_code: 0,
+      automation_status: 'WAITING',
+      next_action: 'NONE',
+    })
+  }
+  if (currentResult.next_action === 'MERGE_DECISION') {
+    if (currentResult.state !== 'MERGE_ELIGIBLE' || currentResult.allowed !== true) {
+      return progressionBlockedResultV1(currentResult, 'merge_decision_not_eligible')
+    }
+    return Object.freeze({
+      ...currentResult,
+      exit_code: 0,
+      automation_status: 'MERGE_DECISION_PENDING',
+      next_action: 'MERGE_DECISION',
+    })
+  }
+  if (currentResult.next_action === 'MERGE_OPERATOR') {
+    if (currentResult.state !== 'MERGE_ELIGIBLE' || currentResult.allowed !== true) {
+      return progressionBlockedResultV1(currentResult, 'merge_operator_not_eligible')
+    }
+    return Object.freeze({
+      ...currentResult,
+      exit_code: 0,
+      automation_status: 'HANDOFF_READY',
+      next_action: 'MERGE_OPERATOR',
+    })
+  }
+  if (currentContext?.review?.decision === 'CHANGES_REQUIRED') {
+    try {
+      if (currentResult.state !== 'REVIEW_BLOCKED') throw new Error('repair_state_not_review_blocked')
+      const repairDispatch = projectRepairExecutorDispatchV1(currentContext)
+      return Object.freeze({
+        ...currentResult,
+        exit_code: 0,
+        automation_status: 'DISPATCH_READY',
+        next_action: 'REPAIR_EXECUTOR',
+        repair_dispatch: repairDispatch,
+      })
+    } catch (error) {
+      return progressionBlockedResultV1(
+        currentResult,
+        error instanceof Error ? error.message : 'repair_dispatch_invalid',
+      )
+    }
+  }
+  return progressionBlockedResultV1(currentResult, currentResult.reason ?? 'progression_not_safe')
+}
+
+export const executeProgressionControllerV1 = async ({ currentResult, currentContext, host }) => {
+  const projected = evaluateProgressionControllerV1(currentResult, currentContext)
+  if (projected.next_action !== 'MERGE_DECISION') return projected
+  const gated = await evaluateMergeAllowedAutomationV1({
+    request: currentContext.request,
+    admitted: currentResult,
+    host,
+  })
+  return evaluateProgressionControllerV1(gated, currentContext)
+}
+
+export const executeManualProgressionControllerV1 = async ({ request, host }) => {
+  const admitted = await executeProtectedTransitionAdmissionV1({ request, host })
+  const currentResult = Object.freeze({
+    ...admitted,
+    automation_status: 'ADMISSION_EVALUATED',
+    admission_executed: true,
+    next_action: admitted.allowed && admitted.state === 'MERGE_ELIGIBLE' ? 'MERGE_DECISION' : 'STOP',
+  })
+  return executeProgressionControllerV1({
+    currentResult,
+    currentContext: Object.freeze({ request }),
+    host,
+  })
+}
+
 const isReviewDecisionCandidateV1 = (body) => typeof body === 'string' &&
   /(?:^|\r?\n)record_type:[ \t]+(?:"independent_review_decision_v1"|independent_review_decision_v1)(?:\r?$)/m.test(body)
 
@@ -786,35 +955,38 @@ export const evaluateMergeAllowedAutomationV1 = async ({ request, admitted, host
   }
 }
 
-const completeApprovedAutomationV1 = async ({ request, host, stateChanged }) => {
+const completeApprovedAutomationV1 = async ({ request, host, stateChanged, currentContext }) => {
   const admitted = await executeProtectedTransitionAdmissionV1({ request, host })
   if (!admitted.allowed) {
-    return Object.freeze({
+    return executeProgressionControllerV1({ currentContext, host, currentResult: Object.freeze({
       ...admitted,
       state_changed: stateChanged,
       automation_status: 'UPDATED_AND_STOPPED',
       admission_executed: true,
       next_action: 'STOP',
-    })
+    }) })
   }
-  const mergeAllowed = await evaluateMergeAllowedAutomationV1({ request, admitted, host })
-  return Object.freeze({
-    ...mergeAllowed,
+  return executeProgressionControllerV1({ currentContext, host, currentResult: Object.freeze({
+    ...admitted,
     state_changed: stateChanged,
-  })
+    automation_status: 'ADMISSION_ACCEPTED',
+    admission_executed: true,
+    next_action: 'MERGE_DECISION',
+  }) })
 }
 
 export const executeReviewApprovalAutomationV1 = async ({ event, host }) => {
   let parsedEvent
   let request
+  let progressionContext
   try {
     if (!isReviewDecisionCandidateV1(event?.comment?.body)) {
-      return skippedAutomationResult(Object.freeze({
+      return evaluateProgressionControllerV1(skippedAutomationResult(Object.freeze({
         transition: 'merge_decision_admission',
         taskIssueNumber: event?.issue?.number ?? null,
         prNumber: null,
         exactHead: null,
-      }), 'review_event_not_applicable')
+      }), 'review_event_not_applicable'))
     }
     parsedEvent = parseReviewApprovalEventV1(event)
     request = Object.freeze({
@@ -832,46 +1004,54 @@ export const executeReviewApprovalAutomationV1 = async ({ event, host }) => {
         triggeringReview.unknown_count !== 0
       )
     ) {
-      return stoppedAutomationResult(request, 'REVIEW_BLOCKED', 'review_not_approvable', 2)
+      return evaluateProgressionControllerV1(stoppedAutomationResult(request, 'REVIEW_BLOCKED', 'review_not_approvable', 2))
     }
 
     const effective = await resolveEffectiveReviewDecisionV1({ request, parsedEvent, host })
     if (effective.commentId !== parsedEvent.commentId) {
-      return skippedAutomationResult(request, 'review_event_superseded')
+      return evaluateProgressionControllerV1(skippedAutomationResult(request, 'review_event_superseded'))
     }
     const review = effective.review
 
     const initial = await acquireTransitionStateSnapshotV1(request, host)
     ensureOriginalStateCurrentV1(initial, request, review)
     const candidateState = projectProtectedTransitionReviewStateV1(initial.task_state, review)
+    progressionContext = Object.freeze({
+      request,
+      task_state: candidateState,
+      scope: initial.scope,
+      review,
+      review_comment_id: effective.commentId,
+      effective_review_current: true,
+    })
     const candidateInput = Object.freeze({ ...initial, task_state: candidateState })
     const preflight = evaluateProtectedTransitionAdmissionV1(candidateInput)
     const expectedState = review.decision === 'APPROVE' ? 'MERGE_ELIGIBLE' : 'REVIEW_BLOCKED'
     if (preflight.state !== expectedState || (review.decision === 'APPROVE' && !preflight.allowed)) {
-      return Object.freeze({
+      return evaluateProgressionControllerV1(Object.freeze({
         ...preflight,
         automation_status: 'STOPPED',
         admission_executed: false,
         next_action: 'STOP',
-      })
+      }), progressionContext)
     }
 
     const alreadyConverged = JSON.stringify(initial.task_state) === JSON.stringify(candidateState)
     if (alreadyConverged) {
       if (review.decision === 'APPROVE') {
-        return completeApprovedAutomationV1({ request, host, stateChanged: false })
+        return completeApprovedAutomationV1({ request, host, stateChanged: false, currentContext: progressionContext })
       }
-      return Object.freeze({
+      return evaluateProgressionControllerV1(Object.freeze({
         ...preflight,
         automation_status: 'ALREADY_CONVERGED',
         admission_executed: false,
         next_action: preflight.allowed ? 'MERGE_DECISION' : 'STOP',
-      })
+      }), progressionContext)
     }
 
     const confirmed = await resolveEffectiveReviewDecisionV1({ request, parsedEvent, host })
     if (confirmed.commentId !== effective.commentId) {
-      return skippedAutomationResult(request, 'review_event_superseded_before_write')
+      return evaluateProgressionControllerV1(skippedAutomationResult(request, 'review_event_superseded_before_write'))
     }
 
     const written = await writeProtectedTransitionTaskStateV1({
@@ -882,25 +1062,25 @@ export const executeReviewApprovalAutomationV1 = async ({ event, host }) => {
     })
     if (!written.changed) {
       if (review.decision === 'APPROVE') {
-        return completeApprovedAutomationV1({ request, host, stateChanged: false })
+        return completeApprovedAutomationV1({ request, host, stateChanged: false, currentContext: progressionContext })
       }
-      return Object.freeze({
+      return evaluateProgressionControllerV1(Object.freeze({
         ...preflight,
         automation_status: 'ALREADY_CONVERGED',
         admission_executed: false,
         next_action: preflight.allowed ? 'MERGE_DECISION' : 'STOP',
-      })
+      }), progressionContext)
     }
     if (review.decision !== 'APPROVE') {
-      return Object.freeze({
+      return evaluateProgressionControllerV1(Object.freeze({
         ...preflight,
         state_changed: true,
         automation_status: 'UPDATED_AND_STOPPED',
         admission_executed: false,
         next_action: 'STOP',
-      })
+      }), progressionContext)
     }
-    return completeApprovedAutomationV1({ request, host, stateChanged: true })
+    return completeApprovedAutomationV1({ request, host, stateChanged: true, currentContext: progressionContext })
   } catch (error) {
     const fallbackRequest = request ?? Object.freeze({
       transition: 'merge_decision_admission',
@@ -910,20 +1090,20 @@ export const executeReviewApprovalAutomationV1 = async ({ event, host }) => {
       exactHead: parsedEvent?.exactHead ?? null,
     })
     if (error instanceof ReviewAutomationStop) {
-      return stoppedAutomationResult(
+      return evaluateProgressionControllerV1(stoppedAutomationResult(
         fallbackRequest,
         error.state,
         error.message,
         error.exitCode,
         error.currentHead ?? fallbackRequest.exactHead,
-      )
+      ), progressionContext)
     }
-    return stoppedAutomationResult(
+    return evaluateProgressionControllerV1(stoppedAutomationResult(
       fallbackRequest,
       'INDETERMINATE',
       error instanceof Error ? error.message : 'review_automation_failed',
       1,
-    )
+    ), progressionContext)
   }
 }
 
@@ -1037,7 +1217,7 @@ const main = async () => {
           event: JSON.parse(readFileSync(invocation.eventFile, 'utf8')),
           host,
         })
-      : await executeProtectedTransitionAdmissionV1({ request: invocation.request, host })
+      : await executeManualProgressionControllerV1({ request: invocation.request, host })
     process.stdout.write(`${JSON.stringify(result)}\n`)
     process.exitCode = result.exit_code
   } catch (error) {

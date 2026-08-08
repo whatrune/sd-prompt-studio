@@ -12,6 +12,7 @@ import {
 } from '../src/continuous-orchestration/protected-transition-admission-v1.ts'
 import {
   acquireChangedPathScopeV1,
+  evaluateProgressionControllerV1,
   evaluateMergeAllowedAutomationV1,
   executeReviewApprovalAutomationV1,
   executeProtectedTransitionAdmissionV1,
@@ -132,6 +133,82 @@ const request = Object.freeze({
   prNumber: PR,
   exactHead: HEAD,
 })
+
+const progressionResult = (overrides = {}) => Object.freeze({
+  transition: 'merge_decision_admission',
+  state: 'REVIEW_BLOCKED',
+  allowed: false,
+  exit_code: 2,
+  reason: 'review_not_approved',
+  task_issue_number: TASK,
+  pr_number: PR,
+  current_head: HEAD,
+  out_of_scope_paths: Object.freeze([]),
+  state_changed: false,
+  admission_executed: false,
+  next_action: 'STOP',
+  ...overrides,
+})
+const repairReview = (overrides = {}) => Object.freeze({
+  task_issue_number: TASK,
+  pr_number: PR,
+  reviewed_head: HEAD,
+  decision: 'CHANGES_REQUIRED',
+  blocking_finding_count: 1,
+  remaining_finding_count: 1,
+  unknown_count: 0,
+  ...overrides,
+})
+const progressionContext = (overrides = {}) => Object.freeze({
+  request: Object.freeze({ ...request, transition: 'merge_decision_admission' }),
+  task_state: blockedReviewState(),
+  scope: Object.freeze({ complete: true, actual_paths: Object.freeze([ALLOWED[0]]), failure_reason: null }),
+  review: repairReview(),
+  review_comment_id: 9002,
+  effective_review_current: true,
+  ...overrides,
+})
+
+// Eight deterministic Progression Controller units x three assertions = 24.
+const progressionUnits = [
+  {
+    result: evaluateProgressionControllerV1(progressionResult({ state: 'INDETERMINATE', next_action: 'NONE', exit_code: 0 })),
+    status: 'COMPLETED_NOOP', next: 'NONE', evidence: (value) => value.exit_code === 0,
+  },
+  {
+    result: evaluateProgressionControllerV1(progressionResult({ state: 'REVIEW_PENDING' })),
+    status: 'WAITING', next: 'NONE', evidence: (value) => value.exit_code === 0,
+  },
+  {
+    result: evaluateProgressionControllerV1(progressionResult({ state: 'MERGE_ELIGIBLE', allowed: true, exit_code: 0, next_action: 'MERGE_DECISION' })),
+    status: 'MERGE_DECISION_PENDING', next: 'MERGE_DECISION', evidence: (value) => value.allowed === true,
+  },
+  {
+    result: evaluateProgressionControllerV1(progressionResult({ state: 'MERGE_ELIGIBLE', allowed: true, exit_code: 0, next_action: 'MERGE_OPERATOR' })),
+    status: 'HANDOFF_READY', next: 'MERGE_OPERATOR', evidence: (value) => value.allowed === true,
+  },
+  {
+    result: evaluateProgressionControllerV1(progressionResult(), progressionContext()),
+    status: 'DISPATCH_READY', next: 'REPAIR_EXECUTOR', evidence: (value) => value.repair_dispatch.review_decision_url.endsWith('#issuecomment-9002'),
+  },
+  {
+    result: evaluateProgressionControllerV1(progressionResult(), progressionContext({ scope: Object.freeze({ complete: true, actual_paths: Object.freeze(['outside.ts']), failure_reason: null }) })),
+    status: 'BLOCKED', next: 'STOP', evidence: (value) => value.reason === 'repair_scope_outside_authorized_paths',
+  },
+  {
+    result: evaluateProgressionControllerV1(progressionResult(), progressionContext({ review: repairReview({ unknown_count: 1 }) })),
+    status: 'BLOCKED', next: 'STOP', evidence: (value) => value.reason === 'repair_review_unknown',
+  },
+  {
+    result: evaluateProgressionControllerV1(progressionResult(), progressionContext({ review: repairReview({ decision: 'BLOCKED' }) })),
+    status: 'BLOCKED', next: 'STOP', evidence: (value) => value.reason === 'review_not_approved',
+  },
+]
+for (const unit of progressionUnits) {
+  check(unit.result.automation_status === unit.status, `${unit.status} progression status`)
+  check(unit.result.next_action === unit.next, `${unit.status} next action`)
+  check(unit.evidence(unit.result), `${unit.status} deterministic evidence`)
+}
 const issueObject = () => ({
   number: TASK,
   state: 'open',
@@ -265,7 +342,7 @@ check(changedPaths.join('\n') === expectedPaths.join('\n'), 'final cumulative di
 const productionSource = `${workflowSource}\n${runnerSource}\n${coreSource}`
 check(!/(trust_root|revocation|ready_generation|producer_roster|assignment_record|finalization_binding|collector|\.jcs|upload-artifact)/i.test(productionSource), 'retired mechanisms are absent')
 check(runnerSource.includes('/comments?since=') && runnerSource.includes('pageNumber > 32'), 'runner uses bounded forward-only Review pagination')
-check(runnerSource.includes('acquireTaskIdentityV1') && runnerSource.includes('acquireChangedPathScopeV1'), 'runner owns direct Task and scope acquisition')
+check(runnerSource.includes('acquireTaskIdentityV1') && runnerSource.includes('acquireChangedPathScopeV1') && runnerSource.includes('executeManualProgressionControllerV1'), 'runner owns direct Task, scope, and manual progression composition')
 check(runnerSource.includes('previous_filename') && runnerSource.includes('state_changed_during_evaluation'), 'runner checks rename and late state change')
 check(!workflowSource.includes('pnpm install') && !workflowSource.includes('actions: read') && !workflowSource.includes('upload-artifact') && !workflowSource.includes('gh workflow run'), 'workflow has no dependency install, nested dispatch, or artifact permission/persistence')
 check(coreSource.includes('export const evaluateProtectedTransitionAdmissionV1') && !/\b(fetch|writeFile|execFile)\b/.test(coreSource), 'one pure evaluator owns classification')
@@ -475,13 +552,13 @@ const automationHost = ({
 const validAutomation = automationHost()
 const validAutomationResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: validAutomation.host })
 const validWrittenState = extractProtectedTransitionTaskStateV1(validAutomation.body())
-check(validAutomationResult.allowed && validAutomationResult.automation_status === 'MERGE_ALLOWED' && validAutomationResult.next_action === 'MERGE_OPERATOR', 'valid Review reaches the merge operator automatically')
+check(validAutomationResult.allowed && validAutomationResult.automation_status === 'HANDOFF_READY' && validAutomationResult.next_action === 'MERGE_OPERATOR', 'valid Review reaches the merge operator handoff')
 check(validAutomation.metrics.patchCalls === 1 && validAutomationResult.admission_executed === true && validAutomation.metrics.checkReads === 1 && validAutomation.metrics.threadReads === 1, 'valid Review performs one PATCH, admission, and terminal gate')
 check(validWrittenState.observed_head === HEAD && validWrittenState.review_status === 'APPROVE' && validWrittenState.reviewed_head === HEAD && validWrittenState.review_blocker_count === 0 && validWrittenState.record_type === state().record_type && validWrittenState.task_issue_number === TASK && validWrittenState.pr_number === PR && validWrittenState.authorized_paths.join(',') === ALLOWED.join(',') && validWrittenState.architecture_status === 'APPROVED' && validWrittenState.implementation_authorized === true, 'valid Review changes four fields and preserves six')
 
 const convergedAutomation = automationHost({ initialState: approvedState() })
 const convergedResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: convergedAutomation.host })
-check(convergedResult.allowed && convergedResult.automation_status === 'MERGE_ALLOWED', 'converged Review returns stable merge-gate result')
+check(convergedResult.allowed && convergedResult.automation_status === 'HANDOFF_READY', 'converged Review returns stable merge-gate handoff')
 check(convergedAutomation.metrics.patchCalls === 0 && convergedResult.admission_executed === true && convergedAutomation.metrics.checkReads === 1 && convergedAutomation.metrics.threadReads === 1, 'converged Review performs no duplicate mutation and re-evaluates the read-only gate')
 check(convergedResult.next_action === 'MERGE_OPERATOR' && convergedResult.state_changed === false, 'converged Review advances without mutation')
 
@@ -543,7 +620,7 @@ check(falseAdmissionAutomation.metrics.fileReads === 2 && falseAdmissionResult.n
 const staleOriginalAutomation = automationHost({ initialState: state({ observed_head: OTHER_HEAD }) })
 const staleOriginalResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: staleOriginalAutomation.host })
 const staleOriginalWritten = extractProtectedTransitionTaskStateV1(staleOriginalAutomation.body())
-check(staleOriginalResult.allowed && staleOriginalResult.automation_status === 'MERGE_ALLOWED', 'fresh APPROVE rebinds a stale original state before admission')
+check(staleOriginalResult.allowed && staleOriginalResult.automation_status === 'HANDOFF_READY', 'fresh APPROVE rebinds a stale original state before admission')
 check(staleOriginalAutomation.metrics.patchCalls === 1 && staleOriginalResult.admission_executed === true, 'stale original state is written once before one admission')
 check(staleOriginalWritten.observed_head === HEAD && staleOriginalWritten.reviewed_head === HEAD, 'fresh APPROVE rebinds both HEAD fields to the current HEAD')
 
@@ -558,7 +635,7 @@ check(staleReviewedHeadAutomation.metrics.patchCalls === 0, 'reviewed HEAD misma
 check(staleReviewedHeadResult.admission_executed === false && staleReviewedHeadResult.state_changed === false, 'reviewed HEAD mismatch performs no admission')
 
 const changesRequiredEvent = reviewEvent({
-  body: reviewDecisionBody({ decision: 'CHANGES_REQUIRED', blocking_finding_count: 1 }),
+  body: reviewDecisionBody({ decision: 'CHANGES_REQUIRED', blocking_finding_count: 1, remaining_finding_count: 1 }),
   comment: { id: 9002, created_at: '2026-08-07T00:00:01Z' },
 })
 const changesRequiredAutomation = automationHost({
@@ -567,7 +644,7 @@ const changesRequiredAutomation = automationHost({
 })
 const changesRequiredResult = await executeReviewApprovalAutomationV1({ event: changesRequiredEvent, host: changesRequiredAutomation.host })
 const changesRequiredWritten = extractProtectedTransitionTaskStateV1(changesRequiredAutomation.body())
-check(changesRequiredResult.state === 'REVIEW_BLOCKED' && changesRequiredResult.next_action === 'STOP', 'later CHANGES_REQUIRED revokes eligibility')
+check(changesRequiredResult.state === 'REVIEW_BLOCKED' && changesRequiredResult.next_action === 'REPAIR_EXECUTOR' && changesRequiredResult.automation_status === 'DISPATCH_READY', 'later CHANGES_REQUIRED revokes eligibility and projects repair dispatch')
 check(changesRequiredAutomation.metrics.patchCalls === 1 && changesRequiredResult.admission_executed === false, 'later CHANGES_REQUIRED writes once without admission')
 check(changesRequiredWritten.review_status === 'CHANGES_REQUIRED' && changesRequiredWritten.review_blocker_count === 1, 'later CHANGES_REQUIRED is the stored effective Decision')
 
@@ -592,7 +669,7 @@ const recoveryAutomation = automationHost({
 })
 const recoveryResult = await executeReviewApprovalAutomationV1({ event: recoveryEvent, host: recoveryAutomation.host })
 const recoveryWritten = extractProtectedTransitionTaskStateV1(recoveryAutomation.body())
-check(recoveryResult.allowed && recoveryResult.automation_status === 'MERGE_ALLOWED', 'later valid APPROVE restores eligibility')
+check(recoveryResult.allowed && recoveryResult.automation_status === 'HANDOFF_READY', 'later valid APPROVE restores eligibility')
 check(recoveryAutomation.metrics.patchCalls === 1 && recoveryResult.admission_executed === true, 'later valid APPROVE writes and admits once')
 check(recoveryWritten.review_status === 'APPROVE' && recoveryWritten.review_blocker_count === 0, 'later APPROVE becomes the stored effective Decision')
 
@@ -603,7 +680,7 @@ const laterDecision = reviewEvent({
 })
 const supersededAutomation = automationHost({ commentPages: [[olderEvent.comment, laterDecision.comment]] })
 const supersededResult = await executeReviewApprovalAutomationV1({ event: olderEvent, host: supersededAutomation.host })
-check(supersededResult.reason === 'review_event_superseded' && supersededResult.automation_status === 'SKIPPED', 'older Review event is superseded')
+check(supersededResult.reason === 'review_event_superseded' && supersededResult.automation_status === 'COMPLETED_NOOP', 'older Review event is superseded')
 check(supersededAutomation.metrics.patchCalls === 0 && supersededAutomation.metrics.pullReads === 0, 'superseded event performs no state acquisition or PATCH')
 check(supersededResult.admission_executed === false && supersededResult.next_action === 'NONE', 'superseded event performs no admission')
 
@@ -828,5 +905,5 @@ check(postAdmissionStateDriftResult.state === 'INDETERMINATE' && postAdmissionSt
 check(postAdmissionStateDriftResult.allowed === false && postAdmissionStateDriftResult.next_action === 'STOP', 'post-admission state drift cannot advance')
 check(postAdmissionStateDriftGate.metrics.checkReads === 0 && postAdmissionStateDriftGate.metrics.threadReads === 0, 'post-admission state drift stops before terminal acquisition')
 
-if (assertions !== 249) throw new Error(`expected exactly 249 assertions, observed ${assertions}`)
+if (assertions !== 273) throw new Error(`expected exactly 273 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
