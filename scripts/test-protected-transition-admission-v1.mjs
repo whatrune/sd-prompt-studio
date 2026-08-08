@@ -483,9 +483,9 @@ const successfulCheck = (id = 'check-1') => ({
   detailsUrl: null,
 })
 
-const currentReadyCheck = ({ status = 'IN_PROGRESS', conclusion = null } = {}) => ({
+const currentReadyCheck = ({ id = 'ready-current-check', status = 'IN_PROGRESS', conclusion = null } = {}) => ({
   __typename: 'CheckRun',
-  id: 'ready-current-check',
+  id,
   name: 'protected_transition_admission_v1',
   status,
   conclusion,
@@ -500,6 +500,7 @@ const automationHost = ({
   filePages = [[]],
   commentPages = [[reviewEvent().comment]],
   headAtPullRead = {},
+  headAtCheckRead = {},
   bodyAtPullRead = {},
   pullState = 'open',
   draft = false,
@@ -553,15 +554,17 @@ const automationHost = ({
         if (bodyAtPullRead[metrics.pullReads]) currentBody = bodyAtPullRead[metrics.pullReads]
         return structuredClone(currentPull())
       },
-      graphql: async (query) => {
+      graphql: async (query, variables = {}) => {
         if (graphqlFailure) throw graphqlFailure
         if (query.includes('statusCheckRollup')) {
           metrics.checkReads += 1
           const page = checkPages[metrics.checkReads - 1] ?? checkPages.at(-1)
+          const snapshotHead = headAtCheckRead[metrics.checkReads] ?? currentHead
           return structuredClone({
             repository: {
+              pullRequest: { headRefOid: snapshotHead },
               object: {
-                oid: currentHead,
+                oid: variables.head,
                 statusCheckRollup: page === null ? null : { contexts: page },
               },
             },
@@ -603,7 +606,7 @@ const validReadyAutomation = automationHost({
 const validReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: validReadyAutomation.host, runId: READY_RUN_ID })
 check(validReadyResult.allowed === true && validReadyResult.automation_status === 'HANDOFF_READY' && validReadyResult.next_action === 'MERGE_OPERATOR', 'RFR-02 valid Ready event reaches the existing Controller handoff')
 check(validReadyResult.task_issue_number === TASK && validReadyResult.pr_number === PR && validReadyResult.current_head === HEAD, 'RFR-02 derives exact Task, PR, and HEAD')
-check(validReadyAutomation.metrics.patchCalls === 0 && validReadyAutomation.metrics.checkReads === 2 && validReadyAutomation.metrics.threadReads === 1 && validReadyAutomation.metrics.waitCalls === 0, 'RFR-02 Ready adapter excludes its own running check and reuses the terminal gate read-only')
+check(validReadyAutomation.metrics.patchCalls === 0 && validReadyAutomation.metrics.checkReads === 3 && validReadyAutomation.metrics.threadReads === 1 && validReadyAutomation.metrics.waitCalls === 0, 'RFR-02 Ready adapter excludes its own running check and rechecks the final rollup read-only')
 
 const wrongReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ action: 'opened' }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
 const missingReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ repository: null }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
@@ -655,7 +658,7 @@ const duplicateReadyFirst = await executeReadyForReviewProgressionV1({ event: re
 const duplicateReadyBody = duplicateReadyAutomation.body()
 const duplicateReadySecond = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: duplicateReadyAutomation.host, runId: READY_RUN_ID })
 check(JSON.stringify(duplicateReadyFirst) === JSON.stringify(duplicateReadySecond), 'RFR-07 duplicate Ready event converges to the same result')
-check(duplicateReadyAutomation.metrics.patchCalls === 0 && duplicateReadyAutomation.metrics.checkReads === 4 && duplicateReadyAutomation.metrics.threadReads === 2, 'RFR-07 duplicate Ready event remains read-only with one gate evaluation per event')
+check(duplicateReadyAutomation.metrics.patchCalls === 0 && duplicateReadyAutomation.metrics.checkReads === 6 && duplicateReadyAutomation.metrics.threadReads === 2, 'RFR-07 duplicate Ready event remains read-only with one gate evaluation per event')
 check(duplicateReadyAutomation.body() === duplicateReadyBody, 'RFR-07 duplicate Ready event does not mutate state')
 
 // Four Ready terminal-wait repair units x three assertions = 12.
@@ -669,7 +672,7 @@ const delayedReadyAutomation = automationHost({
 })
 const delayedReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: delayedReadyAutomation.host, runId: READY_RUN_ID })
 check(delayedReadyResult.allowed && delayedReadyResult.next_action === 'MERGE_OPERATOR', 'RFR-08 delayed exact-HEAD check reaches the existing Controller after terminal success')
-check(delayedReadyAutomation.metrics.waitCalls === 1 && delayedReadyAutomation.metrics.checkReads === 3, 'RFR-08 performs one bounded wait and one final gate evaluation')
+check(delayedReadyAutomation.metrics.waitCalls === 1 && delayedReadyAutomation.metrics.checkReads === 4, 'RFR-08 performs one bounded wait and one final gate evaluation')
 check(delayedReadyAutomation.metrics.patchCalls === 0 && delayedReadyAutomation.metrics.threadReads === 1, 'RFR-08 remains read-only and reaches terminal thread acquisition')
 
 const failedReadyAutomation = automationHost({
@@ -705,13 +708,13 @@ const validAutomation = automationHost()
 const validAutomationResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: validAutomation.host })
 const validWrittenState = extractProtectedTransitionTaskStateV1(validAutomation.body())
 check(validAutomationResult.allowed && validAutomationResult.automation_status === 'HANDOFF_READY' && validAutomationResult.next_action === 'MERGE_OPERATOR', 'valid Review reaches the merge operator handoff')
-check(validAutomation.metrics.patchCalls === 1 && validAutomationResult.admission_executed === true && validAutomation.metrics.checkReads === 1 && validAutomation.metrics.threadReads === 1, 'valid Review performs one PATCH, admission, and terminal gate')
+check(validAutomation.metrics.patchCalls === 1 && validAutomationResult.admission_executed === true && validAutomation.metrics.checkReads === 2 && validAutomation.metrics.threadReads === 1, 'valid Review performs one PATCH, admission, and terminal gate')
 check(validWrittenState.observed_head === HEAD && validWrittenState.review_status === 'APPROVE' && validWrittenState.reviewed_head === HEAD && validWrittenState.review_blocker_count === 0 && validWrittenState.record_type === state().record_type && validWrittenState.task_issue_number === TASK && validWrittenState.pr_number === PR && validWrittenState.authorized_paths.join(',') === ALLOWED.join(',') && validWrittenState.architecture_status === 'APPROVED' && validWrittenState.implementation_authorized === true, 'valid Review changes four fields and preserves six')
 
 const convergedAutomation = automationHost({ initialState: approvedState() })
 const convergedResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: convergedAutomation.host })
 check(convergedResult.allowed && convergedResult.automation_status === 'HANDOFF_READY', 'converged Review returns stable merge-gate handoff')
-check(convergedAutomation.metrics.patchCalls === 0 && convergedResult.admission_executed === true && convergedAutomation.metrics.checkReads === 1 && convergedAutomation.metrics.threadReads === 1, 'converged Review performs no duplicate mutation and re-evaluates the read-only gate')
+check(convergedAutomation.metrics.patchCalls === 0 && convergedResult.admission_executed === true && convergedAutomation.metrics.checkReads === 2 && convergedAutomation.metrics.threadReads === 1, 'converged Review performs no duplicate mutation and re-evaluates the read-only gate')
 check(convergedResult.next_action === 'MERGE_OPERATOR' && convergedResult.state_changed === false, 'converged Review advances without mutation')
 
 const architectureAutomation = automationHost({ initialState: state({ architecture_status: 'NOT_APPROVED' }) })
@@ -909,7 +912,7 @@ const mergeSuccess = automationHost({ initialState: approvedState() })
 const mergeSuccessResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: mergeSuccess.host })
 check(mergeSuccessResult.state === 'MERGE_ELIGIBLE' && mergeSuccessResult.allowed, 'stable exact-HEAD gate remains merge eligible')
 check(mergeSuccessResult.automation_status === 'MERGE_ALLOWED' && mergeSuccessResult.reason === 'merge_gate_satisfied' && mergeSuccessResult.next_action === 'MERGE_OPERATOR', 'stable exact-HEAD gate reaches merge operator')
-check(mergeSuccess.metrics.pullReads === 3 && mergeSuccess.metrics.fileReads === 1 && mergeSuccess.metrics.checkReads === 1 && mergeSuccess.metrics.threadReads === 1 && mergeSuccess.metrics.patchCalls === 0, 'merge gate is read-only and freshly re-admits one complete snapshot')
+check(mergeSuccess.metrics.pullReads === 3 && mergeSuccess.metrics.fileReads === 1 && mergeSuccess.metrics.checkReads === 2 && mergeSuccess.metrics.threadReads === 1 && mergeSuccess.metrics.patchCalls === 0, 'merge gate is read-only and reacquires checks at the final decision')
 
 const initialHeadDrift = automationHost({ initialState: approvedState(), headAtPullRead: { 1: OTHER_HEAD } })
 const initialHeadDriftResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: initialHeadDrift.host })
@@ -958,11 +961,13 @@ const pagedChecks = automationHost({
   checkPages: [
     connectionPage([successfulCheck('check-a')], { totalCount: 2, hasNextPage: true, endCursor: 'checks-1' }),
     connectionPage([successfulCheck('check-b')], { totalCount: 2 }),
+    connectionPage([successfulCheck('check-a')], { totalCount: 2, hasNextPage: true, endCursor: 'checks-1-final' }),
+    connectionPage([successfulCheck('check-b')], { totalCount: 2 }),
   ],
 })
 const pagedChecksResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: pagedChecks.host })
 check(pagedChecksResult.allowed && pagedChecksResult.automation_status === 'MERGE_ALLOWED', 'complete multi-page checks can advance')
-check(pagedChecks.metrics.checkReads === 2 && pagedChecks.metrics.threadReads === 1, 'check pagination reaches its terminal page')
+check(pagedChecks.metrics.checkReads === 4 && pagedChecks.metrics.threadReads === 1, 'both check snapshots reach their terminal page')
 check(pagedChecksResult.reason === 'merge_gate_satisfied', 'multi-page checks preserve success reason')
 
 const blockingThreads = automationHost({
@@ -1016,8 +1021,79 @@ const retryGateFirst = await evaluateMergeAllowedAutomationV1({ request: mergeRe
 const retryGateSecond = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: retryGate.host })
 const taskChangedPaths = execFileSync('git', ['diff', '--name-only', 'd39c58329eb8e0b52aabc831be024b940b6d41df'], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
 check(JSON.stringify(retryGateFirst) === JSON.stringify(retryGateSecond), 'identical retry converges to the same result')
-check(retryGate.metrics.patchCalls === 0 && retryGate.metrics.pullReads === 6 && retryGate.metrics.fileReads === 2 && retryGate.metrics.checkReads === 2 && retryGate.metrics.threadReads === 2, 'identical retry remains read-only')
+check(retryGate.metrics.patchCalls === 0 && retryGate.metrics.pullReads === 6 && retryGate.metrics.fileReads === 2 && retryGate.metrics.checkReads === 4 && retryGate.metrics.threadReads === 2, 'identical retry remains read-only')
 check(taskChangedPaths.join('\n') === ['.github/workflows/protected-transition-admission-v1.yml', 'scripts/run-protected-transition-admission-v1.mjs', 'scripts/test-protected-transition-admission-v1.mjs'].join('\n'), 'current Task diff is exactly three paths')
+
+// Four self-aware final-rollup units x three assertions = 12.
+const selfAwareMergeRequest = Object.freeze({ ...mergeRequest, currentWorkflowRunId: READY_RUN_ID })
+const selfAwareUnstable = automationHost({
+  initialState: approvedState(),
+  mergeableState: 'unstable',
+  checkPages: [readyCheckPage(), readyCheckPage()],
+})
+const selfAwareUnstableResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: selfAwareUnstable.host })
+check(selfAwareUnstableResult.state === 'MERGE_ELIGIBLE' && selfAwareUnstableResult.allowed, 'MGA-01 exact self exclusion admits structurally mergeable UNSTABLE')
+check(selfAwareUnstableResult.automation_status === 'MERGE_ALLOWED' && selfAwareUnstableResult.reason === 'merge_gate_satisfied', 'MGA-01 final fresh successful rollup establishes effective clean')
+check(selfAwareUnstable.metrics.checkReads === 2 && selfAwareUnstable.metrics.threadReads === 1 && selfAwareUnstable.metrics.pullReads === 3, 'MGA-01 acquires initial and final rollups without retry')
+
+const missingInitialSelf = automationHost({
+  initialState: approvedState(),
+  mergeableState: 'unstable',
+  checkPages: [connectionPage([successfulCheck()])],
+})
+const duplicateFinalSelf = automationHost({
+  initialState: approvedState(),
+  mergeableState: 'unstable',
+  checkPages: [
+    readyCheckPage(),
+    connectionPage([currentReadyCheck(), currentReadyCheck({ id: 'ready-current-check-2' }), successfulCheck()]),
+  ],
+})
+const missingInitialSelfResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: missingInitialSelf.host })
+const duplicateFinalSelfResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: duplicateFinalSelf.host })
+check(missingInitialSelfResult.state === 'INDETERMINATE' && missingInitialSelfResult.reason === 'ready_current_check_cardinality_invalid', 'MGA-02 missing initial self check fails closed')
+check(duplicateFinalSelfResult.state === 'INDETERMINATE' && duplicateFinalSelfResult.reason === 'ready_current_check_cardinality_invalid', 'MGA-02 duplicate final self check fails closed')
+check(missingInitialSelf.metrics.threadReads === 0 && duplicateFinalSelf.metrics.threadReads === 1 && duplicateFinalSelf.metrics.checkReads === 2, 'MGA-02 cardinality is enforced independently at both snapshots')
+
+const latePendingCheck = automationHost({
+  initialState: approvedState(),
+  mergeableState: 'unstable',
+  checkPages: [
+    readyCheckPage(),
+    readyCheckPage({ ...successfulCheck('late-pending'), status: 'IN_PROGRESS', conclusion: null }),
+  ],
+})
+const lateFailedCheck = automationHost({
+  initialState: approvedState(),
+  mergeableState: 'unstable',
+  checkPages: [readyCheckPage(), readyCheckPage({ ...successfulCheck('late-failed'), conclusion: 'FAILURE' })],
+})
+const latePendingCheckResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: latePendingCheck.host })
+const lateFailedCheckResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: lateFailedCheck.host })
+check(latePendingCheckResult.state === 'INDETERMINATE' && latePendingCheckResult.reason === 'checks_not_terminal', 'MGA-03 late pending check fails closed at the final snapshot')
+check(lateFailedCheckResult.state === 'IMPLEMENTATION_BLOCKED' && lateFailedCheckResult.reason === 'checks_not_successful', 'MGA-03 late failed check blocks at the final snapshot')
+check(!latePendingCheckResult.allowed && !lateFailedCheckResult.allowed && latePendingCheck.metrics.checkReads === 2 && lateFailedCheck.metrics.checkReads === 2, 'MGA-03 no late non-success context can reach MERGE_ALLOWED')
+
+const finalCheckHeadDrift = automationHost({
+  initialState: approvedState(),
+  mergeableState: 'unstable',
+  checkPages: [readyCheckPage(), readyCheckPage()],
+  headAtCheckRead: { 2: OTHER_HEAD },
+})
+const finalCheckPaginationFailure = automationHost({
+  initialState: approvedState(),
+  mergeableState: 'unstable',
+  checkPages: [readyCheckPage(), null],
+})
+const selfAwareConflict = automationHost({ initialState: approvedState(), mergeable: false, mergeableState: 'dirty' })
+const nonSelfUnstable = automationHost({ initialState: approvedState(), mergeableState: 'unstable' })
+const finalCheckHeadDriftResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: finalCheckHeadDrift.host })
+const finalCheckPaginationFailureResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: finalCheckPaginationFailure.host })
+const selfAwareConflictResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: selfAwareConflict.host })
+const nonSelfUnstableResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: nonSelfUnstable.host })
+check(finalCheckHeadDriftResult.state === 'STALE' && finalCheckHeadDriftResult.reason === 'head_changed_during_merge_gate', 'MGA-04 final check snapshot HEAD drift is stale')
+check(finalCheckPaginationFailureResult.state === 'INDETERMINATE' && finalCheckPaginationFailureResult.reason === 'check_rollup_page_invalid', 'MGA-04 final check pagination failure is indeterminate')
+check(selfAwareConflictResult.state === 'IMPLEMENTATION_BLOCKED' && nonSelfUnstableResult.state === 'IMPLEMENTATION_BLOCKED' && selfAwareConflict.metrics.checkReads === 0 && nonSelfUnstable.metrics.checkReads === 0, 'MGA-04 conflict and non-self-aware UNSTABLE remain blocked')
 
 // Four fresh-admission binding repair units x three assertions = 12.
 const revokedArchitectureGate = automationHost({
@@ -1057,5 +1133,5 @@ check(postAdmissionStateDriftResult.state === 'INDETERMINATE' && postAdmissionSt
 check(postAdmissionStateDriftResult.allowed === false && postAdmissionStateDriftResult.next_action === 'STOP', 'post-admission state drift cannot advance')
 check(postAdmissionStateDriftGate.metrics.checkReads === 0 && postAdmissionStateDriftGate.metrics.threadReads === 0, 'post-admission state drift stops before terminal acquisition')
 
-if (assertions !== 312) throw new Error(`expected exactly 312 assertions, observed ${assertions}`)
+if (assertions !== 324) throw new Error(`expected exactly 324 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
