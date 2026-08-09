@@ -1487,7 +1487,7 @@ const completedRepairRetry = await executeRepairExecutorV1({
 })
 // Twenty fixed Repair Executor units x three assertions = 60.
 const repairUnits = [
-  { name: 'current CHANGES_REQUIRED dispatch', result: preflightResult, reason: 'repair_preflight_satisfied', next: 'REPAIR_AGENT', evidence: (value) => value.validation_profile === 'protected_transition' },
+  { name: 'current CHANGES_REQUIRED dispatch', result: preflightResult, reason: 'repair_preflight_satisfied', next: 'REPAIR_AGENT', evidence: (value) => value.validation_profile === 'protected_transition' && value.prompt === `${repairDispatch().instruction}\n\nCurrent authorized_paths:\n${JSON.stringify([...REPAIR_PATHS].sort())}\n\nCurrent review decision:\ncurrent blocking findings` },
   { name: 'APPROVE does not repair', result: approveNoRepair, reason: 'review_not_approved', next: 'STOP', evidence: (value) => !('repair_dispatch' in value) },
   { name: 'stale HEAD', result: staleRepairResult, reason: 'repair_pull_binding_invalid', next: 'STOP', evidence: () => staleRepair.metrics.fileReads === 0 },
   { name: 'UNKNOWN review', result: unknownNoRepair, reason: 'repair_review_unknown', next: 'STOP', evidence: (value) => !('repair_dispatch' in value) },

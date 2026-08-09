@@ -915,7 +915,7 @@ export const executeRepairExecutorV1 = async ({ phase, dispatch, host, providerR
         current_paths: profile.current_paths,
         validation_profile: profile.name,
         validation_commands: profile.commands,
-        prompt: `${dispatch.instruction}\n\nCurrent review decision:\n${dispatch.review_body}`,
+        prompt: `${dispatch.instruction}\n\nCurrent authorized_paths:\n${JSON.stringify(profile.authorized_paths)}\n\nCurrent review decision:\n${dispatch.review_body}`,
       })
     }
 
