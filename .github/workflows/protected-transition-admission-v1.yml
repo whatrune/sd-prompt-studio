@@ -191,7 +191,7 @@ jobs:
           }
 
           $gitCommand = (Get-Command git.exe -ErrorAction Stop).Source
-          New-Item -ItemType Directory -LiteralPath $hostWorktree -ErrorAction Stop | Out-Null
+          New-Item -ItemType Directory -Path $hostWorktree -ErrorAction Stop | Out-Null
           $null = Invoke-NativeSeparated -Command $gitCommand -Arguments @('-C', $hostWorktree, 'init', '--quiet') -Failure 'repair_host_materialization_failed'
           $null = Invoke-NativeSeparated -Command $gitCommand -Arguments @('-C', $hostWorktree, 'remote', 'add', 'origin', "https://github.com/$($env:GITHUB_REPOSITORY).git") -Failure 'repair_host_materialization_failed'
           $null = Invoke-NativeSeparated -Command $gitCommand -Arguments @('-C', $hostWorktree, 'fetch', '--no-tags', '--depth=1', 'origin', $env:GITHUB_WORKFLOW_SHA) -Failure 'repair_host_fetch_failed'
