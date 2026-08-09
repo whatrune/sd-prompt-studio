@@ -144,6 +144,51 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Materialize exact protected-transition host runner
+        id: repair_host_runner
+        shell: powershell
+        env:
+          REPAIR_HEAD: ${{ needs.protected_transition_admission_v1.outputs.repair_exact_head }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $utf8NoBom = [Text.UTF8Encoding]::new($false)
+          if ($env:GITHUB_WORKFLOW_SHA -notmatch '^[0-9a-f]{40}$') { throw 'repair_host_sha_invalid' }
+          if ($env:REPAIR_HEAD -notmatch '^[0-9a-f]{40}$') { throw 'repair_target_sha_invalid' }
+          $trimSeparators = [char[]]@('\', '/')
+          $runnerTempRoot = [IO.Path]::GetFullPath($env:RUNNER_TEMP).TrimEnd($trimSeparators)
+          $workspaceRoot = [IO.Path]::GetFullPath($env:GITHUB_WORKSPACE).TrimEnd($trimSeparators)
+          $hostWorktree = [IO.Path]::GetFullPath((Join-Path $runnerTempRoot ("protected-transition-host-{0}" -f [Guid]::NewGuid().ToString('N'))))
+          $pathComparison = [StringComparison]::OrdinalIgnoreCase
+          if (-not $hostWorktree.StartsWith($runnerTempRoot + [IO.Path]::DirectorySeparatorChar, $pathComparison)) { throw 'repair_host_path_escape' }
+          if ($hostWorktree.StartsWith($workspaceRoot + [IO.Path]::DirectorySeparatorChar, $pathComparison)) { throw 'repair_host_inside_target_workspace' }
+          if (Test-Path -LiteralPath $hostWorktree) { throw 'repair_host_path_collision' }
+
+          function Invoke-GitCapture {
+            param([string[]]$Arguments, [string]$Failure)
+            $priorErrorActionPreference = $ErrorActionPreference
+            try {
+              $ErrorActionPreference = 'Continue'
+              $LASTEXITCODE = $null
+              $output = [string[]]@(& git @Arguments 2>&1)
+              $nativeExit = $LASTEXITCODE
+            } finally {
+              $ErrorActionPreference = $priorErrorActionPreference
+            }
+            $output | ForEach-Object { [Console]::Out.WriteLine($_) }
+            if ($nativeExit -ne 0) { throw $Failure }
+            return ,$output
+          }
+
+          $null = Invoke-GitCapture -Arguments @('fetch', '--no-tags', 'origin', $env:GITHUB_WORKFLOW_SHA) -Failure 'repair_host_fetch_failed'
+          $null = Invoke-GitCapture -Arguments @('worktree', 'add', '--detach', $hostWorktree, $env:GITHUB_WORKFLOW_SHA) -Failure 'repair_host_materialization_failed'
+          $hostHead = ((Invoke-GitCapture -Arguments @('-C', $hostWorktree, 'rev-parse', 'HEAD') -Failure 'repair_host_head_unavailable') -join "`n").Trim()
+          $targetHead = ((Invoke-GitCapture -Arguments @('-C', $workspaceRoot, 'rev-parse', 'HEAD') -Failure 'repair_target_head_unavailable') -join "`n").Trim()
+          if ($hostHead -cne $env:GITHUB_WORKFLOW_SHA) { throw 'repair_host_sha_mismatch' }
+          if ($targetHead -cne $env:REPAIR_HEAD) { throw 'repair_target_sha_mismatch' }
+          $hostRunner = Join-Path $hostWorktree 'scripts/run-protected-transition-admission-v1.mjs'
+          if (-not (Test-Path -LiteralPath $hostRunner -PathType Leaf)) { throw 'repair_host_runner_missing' }
+          [IO.File]::AppendAllText($env:GITHUB_ENV, "PTA_HOST_RUNNER=$hostRunner$([Environment]::NewLine)", $utf8NoBom)
+
       - name: Verify pinned ChatGPT-authenticated Codex CLI
         id: repair_provider_probe
         shell: powershell
@@ -203,7 +248,7 @@ jobs:
             [Console]::OutputEncoding = $utf8NoBom
             $ErrorActionPreference = 'Continue'
             $LASTEXITCODE = $null
-            $preflightOutput = [string[]]@(node scripts/run-protected-transition-admission-v1.mjs --repair-preflight-file $dispatchPath 2>&1)
+            $preflightOutput = [string[]]@(node $env:PTA_HOST_RUNNER --repair-preflight-file $dispatchPath 2>&1)
             $preflightExit = $LASTEXITCODE
           } finally {
             [Console]::OutputEncoding = $priorConsoleOutputEncoding
@@ -236,7 +281,7 @@ jobs:
             [Console]::OutputEncoding = $utf8NoBom
             $ErrorActionPreference = 'Continue'
             $LASTEXITCODE = $null
-            $bindingOutput = [string[]]@(node scripts/run-protected-transition-admission-v1.mjs --repair-provider-exec-bind-file $dispatchPath 2>&1)
+            $bindingOutput = [string[]]@(node $env:PTA_HOST_RUNNER --repair-provider-exec-bind-file $dispatchPath 2>&1)
             $bindingExit = $LASTEXITCODE
           } finally {
             [Console]::OutputEncoding = $priorConsoleOutputEncoding
@@ -298,7 +343,7 @@ jobs:
             [Console]::OutputEncoding = $utf8NoBom
             $ErrorActionPreference = 'Continue'
             $LASTEXITCODE = $null
-            $postExecOutput = [string[]]@(node scripts/run-protected-transition-admission-v1.mjs --repair-provider-post-exec-bind-file $dispatchPath --provider-binding-file $bindingPath 2>&1)
+            $postExecOutput = [string[]]@(node $env:PTA_HOST_RUNNER --repair-provider-post-exec-bind-file $dispatchPath --provider-binding-file $bindingPath 2>&1)
             $postExecExit = $LASTEXITCODE
           } finally {
             [Console]::OutputEncoding = $priorConsoleOutputEncoding
@@ -331,7 +376,7 @@ jobs:
             [Console]::OutputEncoding = $utf8NoBom
             $ErrorActionPreference = 'Continue'
             $LASTEXITCODE = $null
-            $postAgentOutput = [string[]]@(node scripts/run-protected-transition-admission-v1.mjs --repair-post-agent-file $dispatchPath --provider-result-file $providerResultPath 2>&1)
+            $postAgentOutput = [string[]]@(node $env:PTA_HOST_RUNNER --repair-post-agent-file $dispatchPath --provider-result-file $providerResultPath 2>&1)
             $postAgentExit = $LASTEXITCODE
           } finally {
             [Console]::OutputEncoding = $priorConsoleOutputEncoding
@@ -361,7 +406,7 @@ jobs:
             $focusedOutput = @(node scripts/test-protected-transition-admission-v1.mjs)
             if ($LASTEXITCODE -ne 0) { throw 'focused_validation_failed' }
             $focusedOutput | ForEach-Object { Write-Output $_ }
-            if ($focusedOutput[-1] -cne 'protected-transition-admission-v1: 420 assertions passed') { throw 'focused_assertion_total_invalid' }
+            if ($focusedOutput[-1] -cne 'protected-transition-admission-v1: 432 assertions passed') { throw 'focused_assertion_total_invalid' }
             node scripts/test-role-execution-contracts.mjs
             if ($LASTEXITCODE -ne 0) { throw 'role_contract_validation_failed' }
             pnpm.cmd run validate:dictionary
@@ -393,7 +438,7 @@ jobs:
             [Console]::OutputEncoding = $utf8NoBom
             $ErrorActionPreference = 'Continue'
             $LASTEXITCODE = $null
-            $planOutput = [string[]]@(node scripts/run-protected-transition-admission-v1.mjs --repair-commit-plan-file $dispatchPath 2>&1)
+            $planOutput = [string[]]@(node $env:PTA_HOST_RUNNER --repair-commit-plan-file $dispatchPath 2>&1)
             $planExit = $LASTEXITCODE
           } finally {
             [Console]::OutputEncoding = $priorConsoleOutputEncoding
@@ -445,7 +490,7 @@ jobs:
             [Console]::OutputEncoding = $utf8NoBom
             $ErrorActionPreference = 'Continue'
             $LASTEXITCODE = $null
-            $resultOutput = [string[]]@(node scripts/run-protected-transition-admission-v1.mjs --repair-result-file $dispatchPath --repair-evidence-file $evidencePath --new-head $env:REPAIR_NEW_HEAD 2>&1)
+            $resultOutput = [string[]]@(node $env:PTA_HOST_RUNNER --repair-result-file $dispatchPath --repair-evidence-file $evidencePath --new-head $env:REPAIR_NEW_HEAD 2>&1)
             $resultExit = $LASTEXITCODE
           } finally {
             [Console]::OutputEncoding = $priorConsoleOutputEncoding

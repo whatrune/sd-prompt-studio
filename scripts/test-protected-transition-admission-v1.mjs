@@ -38,6 +38,9 @@ const HEAD = 'a'.repeat(40)
 const OTHER_HEAD = 'b'.repeat(40)
 const READY_RUN_ID = '31246327840'
 const BASE = '5c6885a4f76712fde940e39587f3a88f9d4697a6'
+const HOST_RUNNER_BINDING_BASE = '3631d84351a49088baaadb5b3445751a7bf0b44e'
+const HOST_RUNNER_BINDING_HEAD = '35b7849840a2a9191f4ebf56bf83e145725a6dfa'
+const CURRENT_GENERATION_REDUCER_BASE = HOST_RUNNER_BINDING_HEAD
 const ALLOWED = ['scripts/run-protected-transition-admission-v1.mjs', 'src/continuous-orchestration/protected-transition-admission-v1.ts']
 let assertions = 0
 
@@ -803,7 +806,7 @@ const malformedReadyGenerationResult = await executeReadyForReviewProgressionV1(
 const missingRawReadySelfResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: missingRawReadySelf.host, runId: READY_RUN_ID })
 const duplicateRawReadySelfResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: duplicateRawReadySelf.host, runId: READY_RUN_ID })
 check(newerReadyGenerationResult.reason === 'ready_current_check_not_selected_generation' && tiedReadyGenerationResult.reason === 'check_generation_ambiguous' && malformedReadyGenerationResult.reason === 'check_generation_identity_invalid', 'RFR-15 newer non-self, tied latest, and malformed generations fail closed')
-check(missingRawReadySelfResult.reason === 'ready_current_check_missing' && duplicateRawReadySelfResult.reason === 'ready_current_check_cardinality_invalid', 'RFR-15 raw missing and duplicate self semantics remain unchanged')
+check(missingRawReadySelfResult.reason === 'ready_current_check_missing' && duplicateRawReadySelfResult.reason === 'check_generation_ambiguous', 'RFR-15 raw missing or duplicate self fails closed before classification')
 check([newerReadyGenerationResult, tiedReadyGenerationResult, malformedReadyGenerationResult, missingRawReadySelfResult, duplicateRawReadySelfResult].every((result) => !result.allowed) && [newerReadyGeneration, tiedReadyGeneration, malformedReadyGeneration, missingRawReadySelf, duplicateRawReadySelf].every((automation) => automation.metrics.threadReads === 0), 'RFR-15 no generation or raw-self boundary can advance to thread acquisition')
 
 // Ten writer/orchestration/idempotency/race units x three assertions = 30.
@@ -1197,8 +1200,8 @@ const duplicateFinalSelfResult = await evaluateMergeAllowedAutomationV1({ reques
 const newerInitialGenerationResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: newerInitialGeneration.host })
 const tiedInitialGenerationResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: tiedInitialGeneration.host })
 const malformedInitialGenerationResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: malformedInitialGeneration.host })
-check(missingInitialSelfResult.state === 'INDETERMINATE' && missingInitialSelfResult.reason === 'ready_current_check_cardinality_invalid' && missingInitialSelf.metrics.threadReads === 0, 'MGA-02 missing initial raw self fails closed')
-check(duplicateFinalSelfResult.state === 'INDETERMINATE' && duplicateFinalSelfResult.reason === 'ready_current_check_cardinality_invalid' && duplicateFinalSelf.metrics.threadReads === 1, 'MGA-02 duplicate final raw self fails closed')
+check(missingInitialSelfResult.state === 'INDETERMINATE' && missingInitialSelfResult.reason === 'ready_current_check_missing' && missingInitialSelf.metrics.threadReads === 0, 'MGA-02 missing initial raw self fails closed')
+check(duplicateFinalSelfResult.state === 'INDETERMINATE' && duplicateFinalSelfResult.reason === 'check_generation_ambiguous' && duplicateFinalSelf.metrics.threadReads === 1, 'MGA-02 duplicate final raw self fails closed during generation selection')
 check(newerInitialGenerationResult.reason === 'ready_current_check_not_selected_generation' && tiedInitialGenerationResult.reason === 'check_generation_ambiguous' && malformedInitialGenerationResult.reason === 'check_generation_identity_invalid', 'MGA-02 newer non-self, tied latest, and malformed generation identity fail closed')
 
 const latePendingCheck = automationHost({
@@ -1266,6 +1269,125 @@ const nonSelfUnstableResult = await evaluateMergeAllowedAutomationV1({ request: 
 check(finalCheckHeadDriftResult.state === 'STALE' && finalCheckHeadDriftResult.reason === 'head_changed_during_merge_gate', 'MGA-04 final check snapshot HEAD drift is stale')
 check(finalCheckPaginationFailureResult.state === 'INDETERMINATE' && finalCheckPaginationFailureResult.reason === 'check_rollup_page_invalid', 'MGA-04 final check pagination failure is indeterminate')
 check(selfAwareConflictResult.state === 'IMPLEMENTATION_BLOCKED' && nonSelfUnstableResult.state === 'IMPLEMENTATION_BLOCKED' && selfAwareConflict.metrics.checkReads === 0 && nonSelfUnstable.metrics.checkReads === 0, 'MGA-04 conflict and non-self-aware UNSTABLE remain blocked')
+
+// Shared current-generation self-sibling reduction: 12 assertions.
+const priorRepairSibling = ({
+  id = 'prior-repair-sibling',
+  conclusion = 'SKIPPED',
+  runId = '31314694508',
+  detailsUrl = `https://github.com/${REPOSITORY}/actions/runs/${runId}/job/${id}`,
+  startedAt = '2026-08-08T01:00:00Z',
+  appId = 'github-actions-app',
+} = {}) => currentReadyCheck({
+  id,
+  name: 'protected_transition_repair_executor_v1',
+  status: 'COMPLETED',
+  conclusion,
+  detailsUrl,
+  startedAt,
+  appId,
+})
+const selfSiblingPage = ({ repair = priorRepairSibling(), external = successfulCheck('shared-external-success') } = {}) =>
+  connectionPage([currentReadyCheck(), repair, external])
+
+const skippedSiblingLifecycle = automationHost({
+  initialState: approvedState(),
+  mergeableState: 'unstable',
+  checkPages: [selfSiblingPage(), selfSiblingPage(), selfSiblingPage()],
+})
+const skippedSiblingLifecycleResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: skippedSiblingLifecycle.host, runId: READY_RUN_ID })
+check(skippedSiblingLifecycleResult.allowed && skippedSiblingLifecycleResult.reason === 'merge_gate_satisfied', 'SGR-01 Ready-wait excludes a prior SKIPPED Repair Executor sibling')
+
+const conclusionIndependentResults = await Promise.all(['SUCCESS', 'FAILURE', 'SKIPPED'].map(async (conclusion) => {
+  const automation = automationHost({
+    initialState: approvedState(),
+    mergeableState: 'unstable',
+    checkPages: [selfSiblingPage({ repair: priorRepairSibling({ id: `repair-${conclusion.toLowerCase()}`, conclusion }) })],
+  })
+  return executeReadyForReviewProgressionV1({ event: readyEvent(), host: automation.host, runId: READY_RUN_ID })
+}))
+check(conclusionIndependentResults.every((result) => result.allowed && result.reason === 'merge_gate_satisfied'), 'SGR-02 prior self-sibling exclusion is conclusion-independent')
+check(skippedSiblingLifecycle.metrics.waitCalls === 0 && skippedSiblingLifecycle.metrics.threadReads === 1, 'SGR-03 all-success external checks progress from Ready-wait')
+
+const differentAppRepair = automationHost({
+  initialState: approvedState(),
+  checkPages: [selfSiblingPage({ repair: priorRepairSibling({ id: 'different-app-repair', conclusion: 'FAILURE', detailsUrl: null, appId: 'other-check-app' }) })],
+})
+const differentAppRepairResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: differentAppRepair.host, runId: READY_RUN_ID })
+check(differentAppRepairResult.state === 'IMPLEMENTATION_BLOCKED' && differentAppRepairResult.reason === 'checks_not_successful', 'SGR-04 same-name different-app failure remains effective')
+
+const malformedRepair = automationHost({
+  initialState: approvedState(),
+  checkPages: [selfSiblingPage({ repair: priorRepairSibling({ detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/not-a-run/job/malformed` }) })],
+})
+const ambiguousRepair = automationHost({
+  initialState: approvedState(),
+  checkPages: [connectionPage([
+    currentReadyCheck(),
+    priorRepairSibling({ id: 'ambiguous-repair-a', runId: '31314694508' }),
+    priorRepairSibling({ id: 'ambiguous-repair-b', runId: '31314694509' }),
+    successfulCheck('ambiguous-external-success'),
+  ])],
+})
+const malformedRepairResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: malformedRepair.host, runId: READY_RUN_ID })
+const ambiguousRepairResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: ambiguousRepair.host, runId: READY_RUN_ID })
+check(malformedRepairResult.reason === 'ready_self_sibling_identity_invalid' && ambiguousRepairResult.reason === 'check_generation_ambiguous', 'SGR-05 malformed or ambiguous same-app sibling identity fails closed')
+
+const currentRunRepair = automationHost({
+  initialState: approvedState(),
+  checkPages: [selfSiblingPage({ repair: priorRepairSibling({ id: 'current-run-repair', runId: READY_RUN_ID }) })],
+})
+const currentRunRepairResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: currentRunRepair.host, runId: READY_RUN_ID })
+check(currentRunRepairResult.reason === 'ready_current_repair_check_present' && !currentRunRepairResult.allowed, 'SGR-06 current-run Repair Executor presence fails closed')
+
+const initialSiblingGate = automationHost({
+  initialState: approvedState(),
+  mergeableState: 'unstable',
+  checkPages: [selfSiblingPage(), readyCheckPage()],
+})
+const finalSiblingGate = automationHost({
+  initialState: approvedState(),
+  mergeableState: 'unstable',
+  checkPages: [readyCheckPage(), selfSiblingPage()],
+})
+const initialSiblingGateResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: initialSiblingGate.host })
+const finalSiblingGateResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: finalSiblingGate.host })
+check(initialSiblingGateResult.automation_status === 'MERGE_ALLOWED' && initialSiblingGate.metrics.threadReads === 1, 'SGR-07 Merge Gate initial snapshot excludes the prior self sibling')
+check(finalSiblingGateResult.automation_status === 'MERGE_ALLOWED' && finalSiblingGate.metrics.checkReads === 2, 'SGR-08 Merge Gate final snapshot excludes the prior self sibling')
+check(skippedSiblingLifecycleResult.allowed && skippedSiblingLifecycleResult.reason === 'merge_gate_satisfied' && skippedSiblingLifecycle.metrics.checkReads === 3, 'SGR-09 one positive traverses Ready-wait and both Merge Gate snapshots')
+
+const lateSharedFailure = automationHost({
+  initialState: approvedState(),
+  mergeableState: 'unstable',
+  checkPages: [
+    selfSiblingPage(),
+    selfSiblingPage(),
+    selfSiblingPage({ external: { ...successfulCheck('late-shared-failure'), conclusion: 'FAILURE' } }),
+  ],
+})
+const lateSharedPending = automationHost({
+  initialState: approvedState(),
+  mergeableState: 'unstable',
+  checkPages: [
+    selfSiblingPage(),
+    selfSiblingPage(),
+    selfSiblingPage({ external: { ...successfulCheck('late-shared-pending'), status: 'IN_PROGRESS', conclusion: null } }),
+  ],
+})
+const lateSharedFailureResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: lateSharedFailure.host, runId: READY_RUN_ID })
+const lateSharedPendingResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: lateSharedPending.host, runId: READY_RUN_ID })
+check(lateSharedFailureResult.reason === 'checks_not_successful' && lateSharedFailure.metrics.checkReads === 3, 'SGR-10 newly failed external final-snapshot check blocks')
+check(lateSharedPendingResult.reason === 'checks_not_terminal' && lateSharedPending.metrics.checkReads === 3, 'SGR-11 newly pending external final-snapshot check blocks')
+
+const currentGenerationCorrectionPaths = execFileSync('git', ['diff', '--name-only', CURRENT_GENERATION_REDUCER_BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
+check(
+  currentGenerationCorrectionPaths.join('\n') === ['scripts/run-protected-transition-admission-v1.mjs', 'scripts/test-protected-transition-admission-v1.mjs'].join('\n') &&
+  taskChangedPaths.join('\n') === ['.github/workflows/protected-transition-admission-v1.yml', 'scripts/run-protected-transition-admission-v1.mjs', 'scripts/test-protected-transition-admission-v1.mjs'].join('\n') &&
+  (runnerSource.match(/const reduceSelfAwareCurrentChecksV1 =/g) ?? []).length === 1 &&
+  (runnerSource.match(/reduceSelfAwareCurrentChecksV1\(/g) ?? []).length === 2 &&
+  (runnerSource.match(/partitionReadyRunChecksV1\(/g) ?? []).length === 2,
+  'SGR-12 shared-helper use and correction/cumulative allowlists hold without duplicate sibling filters',
+)
 
 // Four fresh-admission binding repair units x three assertions = 12.
 const revokedArchitectureGate = automationHost({
@@ -1587,8 +1709,18 @@ const repairJob = workflow.jobs.protected_transition_repair_executor_v1
 const repairRunSteps = repairJob.steps.filter((step) => typeof step.run === 'string')
 const repairRunSource = repairRunSteps.map((step) => step.run).join('\n')
 const repairStepByName = new Map(repairRunSteps.map((step) => [step.name, step]))
+const hostRunnerStep = repairJob.steps.find((step) => step.name === 'Materialize exact protected-transition host runner')
+const hostRunnerRun = hostRunnerStep?.run ?? ''
 const providerExecutionStep = repairJob.steps.find((step) => step.name === 'Execute one local blocking repair')
 const providerProbeStep = repairJob.steps.find((step) => step.name === 'Verify pinned ChatGPT-authenticated Codex CLI')
+const hostOrchestrationSteps = [
+  'Prepare current repair tuple',
+  'Bind reviewed HEAD immediately before local execution',
+  'Rebind reviewed HEAD and project local provider completion',
+  'Rebind repair paths and validation profile',
+  'Recheck current HEAD and prepare one commit',
+  'Rebind existing state and hand off fresh review',
+].map((name) => repairStepByName.get(name))
 const nativeBoundarySteps = [
   'Verify pinned ChatGPT-authenticated Codex CLI',
   'Prepare current repair tuple',
@@ -1651,7 +1783,7 @@ const providerUnits = [
     name: 'exact self-hosted Windows PowerShell boundary',
     evidence: [
       repairJob['runs-on'].join('|') === 'self-hosted|Windows|X64',
-      repairRunSteps.length === 11 && repairRunSteps.every((step) => step.shell === 'powershell') && repairRunSteps.every((step) => step.shell !== 'pwsh'),
+      repairRunSteps.length === 12 && repairRunSteps.every((step) => step.shell === 'powershell') && repairRunSteps.every((step) => step.shell !== 'pwsh'),
       providerExec.provider_projection.runner_labels.join('|') === 'self-hosted|Windows|X64' && providerExec.provider === undefined,
     ],
   },
@@ -1708,7 +1840,7 @@ const providerUnits = [
     evidence: [
       providerPost.reason === 'repair_provider_post_exec_binding_satisfied' && providerPost.next_action === 'PROJECT_PROVIDER_COMPLETION',
       postAgentAllowed.next_action === 'VALIDATE_REPAIR' && postAgentAllowed.repair_paths.join('|') === [...REPAIR_PATHS].sort().join('|') && parsedIntermediarySteps.every((step) => step?.run.includes('[IO.File]::WriteAllLines') && step.run.includes('encoding_invalid') && step.run.includes('-Raw -Encoding utf8') && step.run.includes('$priorConsoleOutputEncoding = [Console]::OutputEncoding') && step.run.includes('[Console]::OutputEncoding = $utf8NoBom') && step.run.includes('[Console]::OutputEncoding = $priorConsoleOutputEncoding') && !step.run.includes('Tee-Object')),
-      commitPlan.next_action === 'COMMIT_AND_PUSH' && completedRepair.next_action === 'REVIEW' && forbiddenProviderMechanisms.every((needle) => !providerProductionSource.includes(needle)) && nativeBoundarySteps.every((step) => step?.run.includes("$ErrorActionPreference = 'Continue'") && step.run.includes('$LASTEXITCODE = $null') && step.run.includes('finally {') && step.run.includes('$ErrorActionPreference = $priorErrorActionPreference') && /\$\w+Exit = \$LASTEXITCODE/.test(step.run)) && nativeJsonCaptureSteps.every((step) => step?.run.includes('[Console]::OutputEncoding = $utf8NoBom') && step.run.includes('[Console]::OutputEncoding = $priorConsoleOutputEncoding')) && nonAsciiNativeDecoded === nonAsciiNativeJson && nonAsciiNativeReencoded.equals(nonAsciiNativeBytes) && powershell51NativeUtf8RoundTrip && !repairRunSource.includes('Tee-Object') && !repairRunSource.includes('Add-Content') && repairRunSource.split('[IO.File]::AppendAllText').length === 7 && repairRunSource.split('[Text.UTF8Encoding]::new($false)').length === 9 && repairRunSource.includes('$persistedBytes[0] -eq 0xff') && repairRunSource.includes('$persistedBytes[0] -eq 0xef'),
+      commitPlan.next_action === 'COMMIT_AND_PUSH' && completedRepair.next_action === 'REVIEW' && forbiddenProviderMechanisms.every((needle) => !providerProductionSource.includes(needle)) && nativeBoundarySteps.every((step) => step?.run.includes("$ErrorActionPreference = 'Continue'") && step.run.includes('$LASTEXITCODE = $null') && step.run.includes('finally {') && step.run.includes('$ErrorActionPreference = $priorErrorActionPreference') && /\$\w+Exit = \$LASTEXITCODE/.test(step.run)) && nativeJsonCaptureSteps.every((step) => step?.run.includes('[Console]::OutputEncoding = $utf8NoBom') && step.run.includes('[Console]::OutputEncoding = $priorConsoleOutputEncoding')) && nonAsciiNativeDecoded === nonAsciiNativeJson && nonAsciiNativeReencoded.equals(nonAsciiNativeBytes) && powershell51NativeUtf8RoundTrip && !repairRunSource.includes('Tee-Object') && !repairRunSource.includes('Add-Content') && repairRunSource.split('[IO.File]::AppendAllText').length === 8 && repairRunSource.split('[Text.UTF8Encoding]::new($false)').length === 10 && repairRunSource.includes('$persistedBytes[0] -eq 0xff') && repairRunSource.includes('$persistedBytes[0] -eq 0xef'),
     ],
   },
 ]
@@ -1716,5 +1848,26 @@ for (const unit of providerUnits) {
   for (const [index, evidence] of unit.evidence.entries()) check(evidence, `${unit.name} evidence ${index + 1}`)
 }
 
-if (assertions !== 420) throw new Error(`expected exactly 420 assertions, observed ${assertions}`)
+const hostBindingChangedPaths = execFileSync('git', ['diff', '--name-only', HOST_RUNNER_BINDING_BASE, HOST_RUNNER_BINDING_HEAD], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
+const hostBindingExpectedPaths = [
+  '.github/workflows/protected-transition-admission-v1.yml',
+  'scripts/test-protected-transition-admission-v1.mjs',
+]
+const hostRunnerBindingMatrix = [
+  hostRunnerRun.includes("@('fetch', '--no-tags', 'origin', $env:GITHUB_WORKFLOW_SHA)") && hostRunnerRun.split("'fetch'").length === 2,
+  hostRunnerRun.includes("@('worktree', 'add', '--detach', $hostWorktree, $env:GITHUB_WORKFLOW_SHA)") && hostRunnerRun.includes('$env:RUNNER_TEMP') && hostRunnerRun.includes('[Guid]::NewGuid()'),
+  hostRunnerRun.includes("if ($hostHead -cne $env:GITHUB_WORKFLOW_SHA) { throw 'repair_host_sha_mismatch' }"),
+  hostRunnerRun.includes("if ($targetHead -cne $env:REPAIR_HEAD) { throw 'repair_target_sha_mismatch' }"),
+  hostRunnerRun.includes('[IO.File]::AppendAllText($env:GITHUB_ENV, "PTA_HOST_RUNNER=$hostRunner$([Environment]::NewLine)", $utf8NoBom)'),
+  hostOrchestrationSteps.length === 6 && hostOrchestrationSteps.every((step) => step?.run.includes('node $env:PTA_HOST_RUNNER')),
+  hostOrchestrationSteps.every((step) => !step?.run.includes('node scripts/run-protected-transition-admission-v1.mjs')) && !repairRunSource.includes('node scripts/run-protected-transition-admission-v1.mjs'),
+  providerExecutionStep?.run.includes('$prompt | & codex.cmd exec --ignore-user-config --sandbox workspace-write --approve-for-me --ephemeral --json --cd $env:GITHUB_WORKSPACE -') && workflowSource.split('& codex.cmd exec').length === 2,
+  hostRunnerRun.includes("throw 'repair_host_inside_target_workspace'") && !repairRunSource.includes('Set-Location') && hostOrchestrationSteps.every((step) => !step?.['working-directory']),
+  hostOrchestrationSteps.every((step) => step?.run.includes('$env:PTA_HOST_RUNNER')) && hostOrchestrationSteps.every((step) => !step?.run.includes('$env:GITHUB_WORKSPACE/scripts/run-protected-transition-admission-v1.mjs')),
+  repairJob.steps.indexOf(hostRunnerStep) < repairJob.steps.indexOf(providerProbeStep) && repairJob.steps.indexOf(hostRunnerStep) < repairJob.steps.indexOf(providerExecutionStep) && !hostRunnerStep?.['continue-on-error'] && hostRunnerRun.includes("-Failure 'repair_host_fetch_failed'") && hostRunnerRun.includes("throw 'repair_host_runner_missing'"),
+  hostBindingChangedPaths.join('\n') === hostBindingExpectedPaths.join('\n') && changedPaths.join('\n') === expectedPaths.join('\n'),
+]
+for (const [index, evidence] of hostRunnerBindingMatrix.entries()) check(evidence, `host-runner binding matrix ${index + 1}`)
+
+if (assertions !== 444) throw new Error(`expected exactly 444 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
