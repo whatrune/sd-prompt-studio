@@ -41,6 +41,7 @@ const BASE = '5c6885a4f76712fde940e39587f3a88f9d4697a6'
 const HOST_RUNNER_BINDING_BASE = '3631d84351a49088baaadb5b3445751a7bf0b44e'
 const HOST_RUNNER_BINDING_HEAD = '35b7849840a2a9191f4ebf56bf83e145725a6dfa'
 const CURRENT_GENERATION_REDUCER_BASE = HOST_RUNNER_BINDING_HEAD
+const HOST_ACQUISITION_PREFLIGHT_BASE = 'c0cba56a53d9e394d85383b6e305a4a59e212401'
 const ALLOWED = ['scripts/run-protected-transition-admission-v1.mjs', 'src/continuous-orchestration/protected-transition-admission-v1.ts']
 let assertions = 0
 
@@ -1379,7 +1380,7 @@ const lateSharedPendingResult = await executeReadyForReviewProgressionV1({ event
 check(lateSharedFailureResult.reason === 'checks_not_successful' && lateSharedFailure.metrics.checkReads === 3, 'SGR-10 newly failed external final-snapshot check blocks')
 check(lateSharedPendingResult.reason === 'checks_not_terminal' && lateSharedPending.metrics.checkReads === 3, 'SGR-11 newly pending external final-snapshot check blocks')
 
-const currentGenerationCorrectionPaths = execFileSync('git', ['diff', '--name-only', CURRENT_GENERATION_REDUCER_BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
+const currentGenerationCorrectionPaths = execFileSync('git', ['diff', '--name-only', CURRENT_GENERATION_REDUCER_BASE, HOST_ACQUISITION_PREFLIGHT_BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
 check(
   currentGenerationCorrectionPaths.join('\n') === ['scripts/run-protected-transition-admission-v1.mjs', 'scripts/test-protected-transition-admission-v1.mjs'].join('\n') &&
   taskChangedPaths.join('\n') === ['.github/workflows/protected-transition-admission-v1.yml', 'scripts/run-protected-transition-admission-v1.mjs', 'scripts/test-protected-transition-admission-v1.mjs'].join('\n') &&
@@ -1712,7 +1713,8 @@ const repairStepByName = new Map(repairRunSteps.map((step) => [step.name, step])
 const hostRunnerStep = repairJob.steps.find((step) => step.name === 'Materialize exact protected-transition host runner')
 const hostRunnerRun = hostRunnerStep?.run ?? ''
 const providerExecutionStep = repairJob.steps.find((step) => step.name === 'Execute one local blocking repair')
-const providerProbeStep = repairJob.steps.find((step) => step.name === 'Verify pinned ChatGPT-authenticated Codex CLI')
+const providerProbeStep = repairJob.steps.find((step) => step.name === 'Preflight exact Repair Executor environment')
+const providerProbeRun = providerProbeStep?.run ?? ''
 const hostOrchestrationSteps = [
   'Prepare current repair tuple',
   'Bind reviewed HEAD immediately before local execution',
@@ -1722,7 +1724,7 @@ const hostOrchestrationSteps = [
   'Rebind existing state and hand off fresh review',
 ].map((name) => repairStepByName.get(name))
 const nativeBoundarySteps = [
-  'Verify pinned ChatGPT-authenticated Codex CLI',
+  'Preflight exact Repair Executor environment',
   'Prepare current repair tuple',
   'Bind reviewed HEAD immediately before local execution',
   'Execute one local blocking repair',
@@ -1792,7 +1794,7 @@ const providerUnits = [
     evidence: [
       providerExec.provider_projection.cli_version === 'codex-cli 0.147.0' && providerExec.provider_projection.login_status === 'Logged in using ChatGPT',
       missingCliError?.message === 'repair_provider_cli_version_invalid' && wrongCliError?.message === 'repair_provider_cli_version_invalid' && apiLoginError?.message === 'repair_provider_chatgpt_login_required',
-      providerProbeStep?.run.includes('Get-Command codex.cmd') && providerProbeStep.run.includes("$version -cne 'codex-cli 0.147.0'") && providerProbeStep.run.includes("$loginStatus -cne 'Logged in using ChatGPT'") && providerProbeStep.run.includes('$versionExit = $LASTEXITCODE') && providerProbeStep.run.includes('$loginExit = $LASTEXITCODE') && providerProbeStep.run.split("$ErrorActionPreference = 'Continue'").length === 3 && providerProbeStep.run.split('finally {').length === 3,
+      providerProbeRun.includes('Get-Command codex.cmd') && providerProbeRun.includes("$version -cne 'codex-cli 0.147.0'") && providerProbeRun.includes("$loginStatus -cne 'Logged in using ChatGPT'") && providerProbeRun.includes('Invoke-NativeSeparated') && providerProbeRun.includes('1> $stdoutPath') && providerProbeRun.includes('2> $stderrPath') && !providerProbeRun.includes('2>&1'),
     ],
   },
   {
@@ -1840,7 +1842,7 @@ const providerUnits = [
     evidence: [
       providerPost.reason === 'repair_provider_post_exec_binding_satisfied' && providerPost.next_action === 'PROJECT_PROVIDER_COMPLETION',
       postAgentAllowed.next_action === 'VALIDATE_REPAIR' && postAgentAllowed.repair_paths.join('|') === [...REPAIR_PATHS].sort().join('|') && parsedIntermediarySteps.every((step) => step?.run.includes('[IO.File]::WriteAllLines') && step.run.includes('encoding_invalid') && step.run.includes('-Raw -Encoding utf8') && step.run.includes('$priorConsoleOutputEncoding = [Console]::OutputEncoding') && step.run.includes('[Console]::OutputEncoding = $utf8NoBom') && step.run.includes('[Console]::OutputEncoding = $priorConsoleOutputEncoding') && !step.run.includes('Tee-Object')),
-      commitPlan.next_action === 'COMMIT_AND_PUSH' && completedRepair.next_action === 'REVIEW' && forbiddenProviderMechanisms.every((needle) => !providerProductionSource.includes(needle)) && nativeBoundarySteps.every((step) => step?.run.includes("$ErrorActionPreference = 'Continue'") && step.run.includes('$LASTEXITCODE = $null') && step.run.includes('finally {') && step.run.includes('$ErrorActionPreference = $priorErrorActionPreference') && /\$\w+Exit = \$LASTEXITCODE/.test(step.run)) && nativeJsonCaptureSteps.every((step) => step?.run.includes('[Console]::OutputEncoding = $utf8NoBom') && step.run.includes('[Console]::OutputEncoding = $priorConsoleOutputEncoding')) && nonAsciiNativeDecoded === nonAsciiNativeJson && nonAsciiNativeReencoded.equals(nonAsciiNativeBytes) && powershell51NativeUtf8RoundTrip && !repairRunSource.includes('Tee-Object') && !repairRunSource.includes('Add-Content') && repairRunSource.split('[IO.File]::AppendAllText').length === 8 && repairRunSource.split('[Text.UTF8Encoding]::new($false)').length === 10 && repairRunSource.includes('$persistedBytes[0] -eq 0xff') && repairRunSource.includes('$persistedBytes[0] -eq 0xef'),
+      commitPlan.next_action === 'COMMIT_AND_PUSH' && completedRepair.next_action === 'REVIEW' && forbiddenProviderMechanisms.every((needle) => !providerProductionSource.includes(needle)) && nativeBoundarySteps.every((step) => step?.run.includes("$ErrorActionPreference = 'Continue'") && step.run.includes('$LASTEXITCODE = $null') && step.run.includes('finally {') && step.run.includes('$ErrorActionPreference = $priorErrorActionPreference') && /\$\w+Exit = \$LASTEXITCODE/.test(step.run)) && nativeJsonCaptureSteps.every((step) => step?.run.includes('[Console]::OutputEncoding = $utf8NoBom') && step.run.includes('[Console]::OutputEncoding = $priorConsoleOutputEncoding')) && nonAsciiNativeDecoded === nonAsciiNativeJson && nonAsciiNativeReencoded.equals(nonAsciiNativeBytes) && powershell51NativeUtf8RoundTrip && !repairRunSource.includes('Tee-Object') && !repairRunSource.includes('Add-Content') && repairRunSource.split('[IO.File]::AppendAllText').length === 9 && repairRunSource.split('[Text.UTF8Encoding]::new($false)').length === 10 && repairRunSource.includes('$persistedBytes[0] -eq 0xff') && repairRunSource.includes('$persistedBytes[0] -eq 0xef'),
     ],
   },
 ]
@@ -1854,10 +1856,10 @@ const hostBindingExpectedPaths = [
   'scripts/test-protected-transition-admission-v1.mjs',
 ]
 const hostRunnerBindingMatrix = [
-  hostRunnerRun.includes("@('fetch', '--no-tags', 'origin', $env:GITHUB_WORKFLOW_SHA)") && hostRunnerRun.split("'fetch'").length === 2,
-  hostRunnerRun.includes("@('worktree', 'add', '--detach', $hostWorktree, $env:GITHUB_WORKFLOW_SHA)") && hostRunnerRun.includes('$env:RUNNER_TEMP') && hostRunnerRun.includes('[Guid]::NewGuid()'),
+  hostRunnerRun.includes("@('-C', $hostWorktree, 'fetch', '--no-tags', '--depth=1', 'origin', $env:GITHUB_WORKFLOW_SHA)") && hostRunnerRun.split("'fetch'").length === 2,
+  hostRunnerRun.includes("protected-transition-host-{0}-{1}") && hostRunnerRun.includes('$env:GITHUB_RUN_ID') && hostRunnerRun.includes('$env:GITHUB_RUN_ATTEMPT'),
   hostRunnerRun.includes("if ($hostHead -cne $env:GITHUB_WORKFLOW_SHA) { throw 'repair_host_sha_mismatch' }"),
-  hostRunnerRun.includes("if ($targetHead -cne $env:REPAIR_HEAD) { throw 'repair_target_sha_mismatch' }"),
+  providerProbeRun.includes("if ($targetHead -cne $env:REPAIR_HEAD) { throw 'repair_worktree_head_changed' }"),
   hostRunnerRun.includes('[IO.File]::AppendAllText($env:GITHUB_ENV, "PTA_HOST_RUNNER=$hostRunner$([Environment]::NewLine)", $utf8NoBom)'),
   hostOrchestrationSteps.length === 6 && hostOrchestrationSteps.every((step) => step?.run.includes('node $env:PTA_HOST_RUNNER')),
   hostOrchestrationSteps.every((step) => !step?.run.includes('node scripts/run-protected-transition-admission-v1.mjs')) && !repairRunSource.includes('node scripts/run-protected-transition-admission-v1.mjs'),
@@ -1869,5 +1871,36 @@ const hostRunnerBindingMatrix = [
 ]
 for (const [index, evidence] of hostRunnerBindingMatrix.entries()) check(evidence, `host-runner binding matrix ${index + 1}`)
 
-if (assertions !== 444) throw new Error(`expected exactly 444 assertions, observed ${assertions}`)
+const hostAcquisitionPreflightChangedPaths = execFileSync('git', ['diff', '--name-only', HOST_ACQUISITION_PREFLIGHT_BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
+const hostAcquisitionPreflightExpectedPaths = [
+  '.github/workflows/protected-transition-admission-v1.yml',
+  'scripts/test-protected-transition-admission-v1.mjs',
+]
+const providerBindingStep = repairJob.steps.find((step) => step.name === 'Bind reviewed HEAD immediately before local execution')
+const providerPreflightIndex = repairJob.steps.indexOf(providerProbeStep)
+const protectedSideEffectSteps = [
+  providerBindingStep,
+  providerExecutionStep,
+  repairJob.steps.find((step) => step.name === 'Run exact repair validation profile'),
+  repairJob.steps.find((step) => step.name === 'Recheck current HEAD and prepare one commit'),
+  repairJob.steps.find((step) => step.name === 'Push one normal non-force repair commit'),
+  repairJob.steps.find((step) => step.name === 'Rebind existing state and hand off fresh review'),
+]
+const hostAcquisitionPreflightMatrix = [
+  hostRunnerRun.includes('1> $stdoutPath') && hostRunnerRun.includes('2> $stderrPath') && hostRunnerRun.includes('[Console]::Error.WriteLine($_)') && hostRunnerRun.includes('if ($nativeExit -ne 0) { throw $Failure }') && !hostRunnerRun.includes('2>&1'),
+  hostRunnerRun.split("'fetch'").length === 2 && hostRunnerRun.includes("'--no-tags', '--depth=1'") && hostRunnerRun.includes("-Failure 'repair_host_fetch_failed'") && !hostRunnerRun.includes('while (') && !hostRunnerRun.includes('Start-Sleep'),
+  hostRunnerRun.includes("'checkout', '--quiet', '--detach', 'FETCH_HEAD'") && hostRunnerRun.includes("throw 'repair_host_sha_mismatch'") && hostRunnerRun.includes("throw 'repair_host_runner_missing'"),
+  hostRunnerRun.includes('protected-transition-host-{0}-{1}') && hostRunnerRun.includes("throw 'repair_host_path_escape'") && hostRunnerRun.includes("throw 'repair_host_inside_target_workspace'") && hostRunnerRun.includes("throw 'repair_host_path_collision'") && !hostRunnerRun.includes("'worktree', 'add'"),
+  repairJob.steps.indexOf(repairStepByName.get('Prepare current repair tuple')) < providerPreflightIndex && providerPreflightIndex < repairJob.steps.indexOf(providerBindingStep) && protectedSideEffectSteps.every((step) => providerPreflightIndex < repairJob.steps.indexOf(step) && !step?.['continue-on-error']),
+  providerProbeRun.includes('$actualHostRunner -cne $expectedHostRunner') && providerProbeRun.includes("'-C', $hostRoot, 'rev-parse', 'HEAD'") && providerProbeRun.includes("$hostHead -cne $env:GITHUB_WORKFLOW_SHA"),
+  providerProbeRun.includes('Get-Command codex.cmd -ErrorAction Stop') && providerProbeRun.includes("@('--version')") && providerProbeRun.includes("$version -cne 'codex-cli 0.147.0'") && providerProbeRun.split("throw 'repair_provider_cli_version_invalid'").length === 3,
+  providerProbeRun.includes("@('login', 'status')") && providerProbeRun.includes("$loginStatus -cne 'Logged in using ChatGPT'") && providerProbeRun.includes("throw 'repair_provider_chatgpt_login_required'"),
+  providerProbeRun.includes("'rev-parse', '--show-toplevel'") && !providerProbeRun.includes("'symbolic-ref'") && !providerProbeRun.includes("repair_provider_branch_changed") && repairJob.steps.find((step) => step.name === 'Checkout exact repair HEAD')?.with?.ref === '${{ needs.protected_transition_admission_v1.outputs.repair_exact_head }}' && providerProbeRun.includes("'status', '--porcelain=v1', '--untracked-files=all'") && providerProbeRun.split("'status', '--porcelain=v1', '--untracked-files=all'").length === 3 && providerProbeRun.includes('[IO.File]::WriteAllBytes($sentinelPath, $sentinelBytes)') && providerProbeRun.includes("throw 'repair_target_worktree_not_writable'"),
+  providerProbeRun.includes("throw 'repair_push_token_missing'") && providerProbeRun.includes("@('ls-remote', '--heads', $pushTransport") && providerProbeRun.split("'ls-remote'").length === 2 && providerProbeRun.includes("-Failure 'repair_push_transport_failed' -SuppressOutput"),
+  providerProbeRun.includes('$remoteLines.Count -ne 1') && providerProbeRun.includes("$remoteFields.Count -ne 2") && providerProbeRun.includes("$remoteFields[0] -cne $env:REPAIR_HEAD") && providerProbeRun.includes("$remoteFields[1] -cne \"refs/heads/$($env:REPAIR_HEAD_REF)\"") && providerProbeRun.split("throw 'repair_push_remote_head_mismatch'").length === 3,
+  hostAcquisitionPreflightChangedPaths.join('\n') === hostAcquisitionPreflightExpectedPaths.join('\n') && workflowSource.includes('protected-transition-admission-v1: 456 assertions passed') && !repairRunSource.includes('retry') && !repairRunSource.includes('fallback') && !repairRunSource.includes('default branch'),
+]
+for (const [index, evidence] of hostAcquisitionPreflightMatrix.entries()) check(evidence, `host acquisition and provider preflight matrix ${index + 1}`)
+
+if (assertions !== 456) throw new Error(`expected exactly 456 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

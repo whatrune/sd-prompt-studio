@@ -147,81 +147,60 @@ jobs:
       - name: Materialize exact protected-transition host runner
         id: repair_host_runner
         shell: powershell
-        env:
-          REPAIR_HEAD: ${{ needs.protected_transition_admission_v1.outputs.repair_exact_head }}
         run: |
           $ErrorActionPreference = 'Stop'
           $utf8NoBom = [Text.UTF8Encoding]::new($false)
           if ($env:GITHUB_WORKFLOW_SHA -notmatch '^[0-9a-f]{40}$') { throw 'repair_host_sha_invalid' }
-          if ($env:REPAIR_HEAD -notmatch '^[0-9a-f]{40}$') { throw 'repair_target_sha_invalid' }
           $trimSeparators = [char[]]@('\', '/')
           $runnerTempRoot = [IO.Path]::GetFullPath($env:RUNNER_TEMP).TrimEnd($trimSeparators)
           $workspaceRoot = [IO.Path]::GetFullPath($env:GITHUB_WORKSPACE).TrimEnd($trimSeparators)
-          $hostWorktree = [IO.Path]::GetFullPath((Join-Path $runnerTempRoot ("protected-transition-host-{0}" -f [Guid]::NewGuid().ToString('N'))))
+          $hostWorktree = [IO.Path]::GetFullPath((Join-Path $runnerTempRoot ("protected-transition-host-{0}-{1}" -f $env:GITHUB_RUN_ID, $env:GITHUB_RUN_ATTEMPT)))
           $pathComparison = [StringComparison]::OrdinalIgnoreCase
           if (-not $hostWorktree.StartsWith($runnerTempRoot + [IO.Path]::DirectorySeparatorChar, $pathComparison)) { throw 'repair_host_path_escape' }
           if ($hostWorktree.StartsWith($workspaceRoot + [IO.Path]::DirectorySeparatorChar, $pathComparison)) { throw 'repair_host_inside_target_workspace' }
           if (Test-Path -LiteralPath $hostWorktree) { throw 'repair_host_path_collision' }
 
-          function Invoke-GitCapture {
-            param([string[]]$Arguments, [string]$Failure)
+          function Invoke-NativeSeparated {
+            param([string]$Command, [string[]]$Arguments, [string]$Failure, [switch]$SuppressOutput)
+            $captureId = [Guid]::NewGuid().ToString('N')
+            $stdoutPath = Join-Path $env:RUNNER_TEMP ("repair-native-{0}.stdout" -f $captureId)
+            $stderrPath = Join-Path $env:RUNNER_TEMP ("repair-native-{0}.stderr" -f $captureId)
             $priorErrorActionPreference = $ErrorActionPreference
             try {
               $ErrorActionPreference = 'Continue'
               $LASTEXITCODE = $null
-              $output = [string[]]@(& git @Arguments 2>&1)
+              & $Command @Arguments 1> $stdoutPath 2> $stderrPath
               $nativeExit = $LASTEXITCODE
             } finally {
               $ErrorActionPreference = $priorErrorActionPreference
             }
-            $output | ForEach-Object { [Console]::Out.WriteLine($_) }
-            if ($nativeExit -ne 0) { throw $Failure }
-            return ,$output
+            $stdout = [string[]]@()
+            $stderr = [string[]]@()
+            if (Test-Path -LiteralPath $stdoutPath) { $stdout = [string[]]@(Get-Content -LiteralPath $stdoutPath) }
+            if (Test-Path -LiteralPath $stderrPath) { $stderr = [string[]]@(Get-Content -LiteralPath $stderrPath) }
+            try {
+              if (-not $SuppressOutput) {
+                $stdout | ForEach-Object { [Console]::Out.WriteLine($_) }
+                $stderr | ForEach-Object { [Console]::Error.WriteLine($_) }
+              }
+              if ($nativeExit -ne 0) { throw $Failure }
+              return ,$stdout
+            } finally {
+              Remove-Item -LiteralPath $stdoutPath, $stderrPath -Force -ErrorAction SilentlyContinue
+            }
           }
 
-          $null = Invoke-GitCapture -Arguments @('fetch', '--no-tags', 'origin', $env:GITHUB_WORKFLOW_SHA) -Failure 'repair_host_fetch_failed'
-          $null = Invoke-GitCapture -Arguments @('worktree', 'add', '--detach', $hostWorktree, $env:GITHUB_WORKFLOW_SHA) -Failure 'repair_host_materialization_failed'
-          $hostHead = ((Invoke-GitCapture -Arguments @('-C', $hostWorktree, 'rev-parse', 'HEAD') -Failure 'repair_host_head_unavailable') -join "`n").Trim()
-          $targetHead = ((Invoke-GitCapture -Arguments @('-C', $workspaceRoot, 'rev-parse', 'HEAD') -Failure 'repair_target_head_unavailable') -join "`n").Trim()
+          $gitCommand = (Get-Command git.exe -ErrorAction Stop).Source
+          New-Item -ItemType Directory -LiteralPath $hostWorktree -ErrorAction Stop | Out-Null
+          $null = Invoke-NativeSeparated -Command $gitCommand -Arguments @('-C', $hostWorktree, 'init', '--quiet') -Failure 'repair_host_materialization_failed'
+          $null = Invoke-NativeSeparated -Command $gitCommand -Arguments @('-C', $hostWorktree, 'remote', 'add', 'origin', "https://github.com/$($env:GITHUB_REPOSITORY).git") -Failure 'repair_host_materialization_failed'
+          $null = Invoke-NativeSeparated -Command $gitCommand -Arguments @('-C', $hostWorktree, 'fetch', '--no-tags', '--depth=1', 'origin', $env:GITHUB_WORKFLOW_SHA) -Failure 'repair_host_fetch_failed'
+          $null = Invoke-NativeSeparated -Command $gitCommand -Arguments @('-C', $hostWorktree, 'checkout', '--quiet', '--detach', 'FETCH_HEAD') -Failure 'repair_host_materialization_failed'
+          $hostHead = ((Invoke-NativeSeparated -Command $gitCommand -Arguments @('-C', $hostWorktree, 'rev-parse', 'HEAD') -Failure 'repair_host_head_unavailable') -join "`n").Trim()
           if ($hostHead -cne $env:GITHUB_WORKFLOW_SHA) { throw 'repair_host_sha_mismatch' }
-          if ($targetHead -cne $env:REPAIR_HEAD) { throw 'repair_target_sha_mismatch' }
           $hostRunner = Join-Path $hostWorktree 'scripts/run-protected-transition-admission-v1.mjs'
           if (-not (Test-Path -LiteralPath $hostRunner -PathType Leaf)) { throw 'repair_host_runner_missing' }
           [IO.File]::AppendAllText($env:GITHUB_ENV, "PTA_HOST_RUNNER=$hostRunner$([Environment]::NewLine)", $utf8NoBom)
-
-      - name: Verify pinned ChatGPT-authenticated Codex CLI
-        id: repair_provider_probe
-        shell: powershell
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $utf8NoBom = [Text.UTF8Encoding]::new($false)
-          $null = Get-Command codex.cmd -ErrorAction Stop
-          $priorErrorActionPreference = $ErrorActionPreference
-          try {
-            $ErrorActionPreference = 'Continue'
-            $LASTEXITCODE = $null
-            $versionOutput = [string[]]@(& codex.cmd --version 2>&1)
-            $versionExit = $LASTEXITCODE
-          } finally {
-            $ErrorActionPreference = $priorErrorActionPreference
-          }
-          $versionOutput | ForEach-Object { Write-Output $_ }
-          $version = ($versionOutput -join "`n").Trim()
-          if ($versionExit -ne 0 -or $version -cne 'codex-cli 0.147.0') { throw 'repair_provider_cli_version_invalid' }
-          $priorErrorActionPreference = $ErrorActionPreference
-          try {
-            $ErrorActionPreference = 'Continue'
-            $LASTEXITCODE = $null
-            $loginOutput = [string[]]@(& codex.cmd login status 2>&1)
-            $loginExit = $LASTEXITCODE
-          } finally {
-            $ErrorActionPreference = $priorErrorActionPreference
-          }
-          $loginOutput | ForEach-Object { Write-Output $_ }
-          $loginStatus = ($loginOutput -join "`n").Trim()
-          if ($loginExit -ne 0 -or $loginStatus -cne 'Logged in using ChatGPT') { throw 'repair_provider_chatgpt_login_required' }
-          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "cli_version=$version$([Environment]::NewLine)", $utf8NoBom)
-          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "login_status=$loginStatus$([Environment]::NewLine)", $utf8NoBom)
 
       - name: Install frozen dependencies
         shell: powershell
@@ -261,6 +240,109 @@ jobs:
           if (($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xff -and $persistedBytes[1] -eq 0xfe) -or ($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xfe -and $persistedBytes[1] -eq 0xff) -or ($persistedBytes.Length -ge 3 -and $persistedBytes[0] -eq 0xef -and $persistedBytes[1] -eq 0xbb -and $persistedBytes[2] -eq 0xbf)) { throw 'repair_preflight_encoding_invalid' }
           $result = Get-Content -LiteralPath $preflightPath -Raw -Encoding utf8 | ConvertFrom-Json
           if ($result.next_action -cne 'REPAIR_AGENT') { throw 'repair_preflight_not_ready' }
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "head_ref=$($result.head_ref)$([Environment]::NewLine)", $utf8NoBom)
+
+      - name: Preflight exact Repair Executor environment
+        id: repair_provider_probe
+        shell: powershell
+        env:
+          REPAIR_HEAD: ${{ needs.protected_transition_admission_v1.outputs.repair_exact_head }}
+          REPAIR_HEAD_REF: ${{ steps.repair_preflight.outputs.head_ref }}
+          REPAIR_EXECUTOR_PUSH_TOKEN: ${{ secrets.REPAIR_EXECUTOR_PUSH_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $utf8NoBom = [Text.UTF8Encoding]::new($false)
+          $trimSeparators = [char[]]@('\', '/')
+          $pathComparison = [StringComparison]::OrdinalIgnoreCase
+          $runnerTempRoot = [IO.Path]::GetFullPath($env:RUNNER_TEMP).TrimEnd($trimSeparators)
+          $workspaceRoot = [IO.Path]::GetFullPath($env:GITHUB_WORKSPACE).TrimEnd($trimSeparators)
+          $hostRoot = [IO.Path]::GetFullPath((Join-Path $runnerTempRoot ("protected-transition-host-{0}-{1}" -f $env:GITHUB_RUN_ID, $env:GITHUB_RUN_ATTEMPT)))
+          $expectedHostRunner = [IO.Path]::GetFullPath((Join-Path $hostRoot 'scripts/run-protected-transition-admission-v1.mjs'))
+          $actualHostRunner = [IO.Path]::GetFullPath($env:PTA_HOST_RUNNER)
+
+          function Invoke-NativeSeparated {
+            param([string]$Command, [string[]]$Arguments, [string]$Failure, [switch]$SuppressOutput)
+            $captureId = [Guid]::NewGuid().ToString('N')
+            $stdoutPath = Join-Path $env:RUNNER_TEMP ("repair-native-{0}.stdout" -f $captureId)
+            $stderrPath = Join-Path $env:RUNNER_TEMP ("repair-native-{0}.stderr" -f $captureId)
+            $priorErrorActionPreference = $ErrorActionPreference
+            try {
+              $ErrorActionPreference = 'Continue'
+              $LASTEXITCODE = $null
+              & $Command @Arguments 1> $stdoutPath 2> $stderrPath
+              $nativeExit = $LASTEXITCODE
+            } finally {
+              $ErrorActionPreference = $priorErrorActionPreference
+            }
+            $stdout = [string[]]@()
+            $stderr = [string[]]@()
+            if (Test-Path -LiteralPath $stdoutPath) { $stdout = [string[]]@(Get-Content -LiteralPath $stdoutPath) }
+            if (Test-Path -LiteralPath $stderrPath) { $stderr = [string[]]@(Get-Content -LiteralPath $stderrPath) }
+            try {
+              if (-not $SuppressOutput) {
+                $stdout | ForEach-Object { [Console]::Out.WriteLine($_) }
+                $stderr | ForEach-Object { [Console]::Error.WriteLine($_) }
+              }
+              if ($nativeExit -ne 0) { throw $Failure }
+              return ,$stdout
+            } finally {
+              Remove-Item -LiteralPath $stdoutPath, $stderrPath -Force -ErrorAction SilentlyContinue
+            }
+          }
+
+          $gitCommand = (Get-Command git.exe -ErrorAction Stop).Source
+          if (-not $hostRoot.StartsWith($runnerTempRoot + [IO.Path]::DirectorySeparatorChar, $pathComparison)) { throw 'repair_host_path_escape' }
+          if ($hostRoot.StartsWith($workspaceRoot + [IO.Path]::DirectorySeparatorChar, $pathComparison)) { throw 'repair_host_inside_target_workspace' }
+          if ($actualHostRunner -cne $expectedHostRunner -or -not (Test-Path -LiteralPath $actualHostRunner -PathType Leaf)) { throw 'repair_host_runner_missing' }
+          $hostHead = ((Invoke-NativeSeparated -Command $gitCommand -Arguments @('-C', $hostRoot, 'rev-parse', 'HEAD') -Failure 'repair_host_head_unavailable') -join "`n").Trim()
+          if ($hostHead -cne $env:GITHUB_WORKFLOW_SHA) { throw 'repair_host_sha_mismatch' }
+
+          try {
+            $codexCommand = (Get-Command codex.cmd -ErrorAction Stop).Source
+          } catch {
+            throw 'repair_provider_cli_version_invalid'
+          }
+          $version = ((Invoke-NativeSeparated -Command $codexCommand -Arguments @('--version') -Failure 'repair_provider_cli_version_invalid') -join "`n").Trim()
+          if ($version -cne 'codex-cli 0.147.0') { throw 'repair_provider_cli_version_invalid' }
+          $loginStatus = ((Invoke-NativeSeparated -Command $codexCommand -Arguments @('login', 'status') -Failure 'repair_provider_chatgpt_login_required') -join "`n").Trim()
+          if ($loginStatus -cne 'Logged in using ChatGPT') { throw 'repair_provider_chatgpt_login_required' }
+
+          $targetTopLevel = ((Invoke-NativeSeparated -Command $gitCommand -Arguments @('-C', $workspaceRoot, 'rev-parse', '--show-toplevel') -Failure 'repair_provider_worktree_invalid') -join "`n").Trim()
+          if ([IO.Path]::GetFullPath($targetTopLevel).TrimEnd($trimSeparators) -cne $workspaceRoot) { throw 'repair_provider_worktree_invalid' }
+          $targetHead = ((Invoke-NativeSeparated -Command $gitCommand -Arguments @('-C', $workspaceRoot, 'rev-parse', 'HEAD') -Failure 'repair_worktree_head_changed') -join "`n").Trim()
+          if ($targetHead -cne $env:REPAIR_HEAD) { throw 'repair_worktree_head_changed' }
+          $statusBefore = ((Invoke-NativeSeparated -Command $gitCommand -Arguments @('-C', $workspaceRoot, 'status', '--porcelain=v1', '--untracked-files=all') -Failure 'repair_provider_worktree_invalid') -join "`n").Trim()
+          if ($statusBefore.Length -ne 0) { throw 'repair_provider_worktree_not_clean' }
+
+          $sentinelPath = Join-Path $workspaceRoot (".protected-transition-write-{0}.tmp" -f [Guid]::NewGuid().ToString('N'))
+          $sentinelBytes = [Text.Encoding]::UTF8.GetBytes([Guid]::NewGuid().ToString('N'))
+          $sentinelVerified = $false
+          try {
+            [IO.File]::WriteAllBytes($sentinelPath, $sentinelBytes)
+            $sentinelVerified = [Convert]::ToBase64String([IO.File]::ReadAllBytes($sentinelPath)) -ceq [Convert]::ToBase64String($sentinelBytes)
+          } catch {
+            $sentinelVerified = $false
+          } finally {
+            try {
+              if (Test-Path -LiteralPath $sentinelPath) { Remove-Item -LiteralPath $sentinelPath -Force -ErrorAction Stop }
+            } catch {
+              $sentinelVerified = $false
+            }
+          }
+          if (-not $sentinelVerified -or (Test-Path -LiteralPath $sentinelPath)) { throw 'repair_target_worktree_not_writable' }
+          $statusAfter = ((Invoke-NativeSeparated -Command $gitCommand -Arguments @('-C', $workspaceRoot, 'status', '--porcelain=v1', '--untracked-files=all') -Failure 'repair_provider_worktree_invalid') -join "`n").Trim()
+          if ($statusAfter.Length -ne 0) { throw 'repair_provider_worktree_not_clean' }
+
+          if ([string]::IsNullOrWhiteSpace($env:REPAIR_EXECUTOR_PUSH_TOKEN)) { throw 'repair_push_token_missing' }
+          $pushTransport = "https://x-access-token:$($env:REPAIR_EXECUTOR_PUSH_TOKEN)@github.com/$($env:GITHUB_REPOSITORY).git"
+          $remoteProjection = [string[]]@(Invoke-NativeSeparated -Command $gitCommand -Arguments @('ls-remote', '--heads', $pushTransport, "refs/heads/$($env:REPAIR_HEAD_REF)") -Failure 'repair_push_transport_failed' -SuppressOutput)
+          $remoteLines = [string[]]@($remoteProjection | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+          if ($remoteLines.Count -ne 1) { throw 'repair_push_remote_head_mismatch' }
+          $remoteFields = [string[]]@($remoteLines[0] -split '\s+')
+          if ($remoteFields.Count -ne 2 -or $remoteFields[0] -cne $env:REPAIR_HEAD -or $remoteFields[1] -cne "refs/heads/$($env:REPAIR_HEAD_REF)") { throw 'repair_push_remote_head_mismatch' }
+
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "cli_version=$version$([Environment]::NewLine)", $utf8NoBom)
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "login_status=$loginStatus$([Environment]::NewLine)", $utf8NoBom)
 
       - name: Bind reviewed HEAD immediately before local execution
         id: repair_provider_binding
@@ -406,7 +488,7 @@ jobs:
             $focusedOutput = @(node scripts/test-protected-transition-admission-v1.mjs)
             if ($LASTEXITCODE -ne 0) { throw 'focused_validation_failed' }
             $focusedOutput | ForEach-Object { Write-Output $_ }
-            if ($focusedOutput[-1] -cne 'protected-transition-admission-v1: 432 assertions passed') { throw 'focused_assertion_total_invalid' }
+            if ($focusedOutput[-1] -cne 'protected-transition-admission-v1: 456 assertions passed') { throw 'focused_assertion_total_invalid' }
             node scripts/test-role-execution-contracts.mjs
             if ($LASTEXITCODE -ne 0) { throw 'role_contract_validation_failed' }
             pnpm.cmd run validate:dictionary
