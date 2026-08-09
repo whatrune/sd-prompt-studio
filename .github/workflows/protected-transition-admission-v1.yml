@@ -311,8 +311,6 @@ jobs:
           if ([IO.Path]::GetFullPath($targetTopLevel).TrimEnd($trimSeparators) -cne $workspaceRoot) { throw 'repair_provider_worktree_invalid' }
           $targetHead = ((Invoke-NativeSeparated -Command $gitCommand -Arguments @('-C', $workspaceRoot, 'rev-parse', 'HEAD') -Failure 'repair_worktree_head_changed') -join "`n").Trim()
           if ($targetHead -cne $env:REPAIR_HEAD) { throw 'repair_worktree_head_changed' }
-          $targetBranch = ((Invoke-NativeSeparated -Command $gitCommand -Arguments @('-C', $workspaceRoot, 'symbolic-ref', '--quiet', '--short', 'HEAD') -Failure 'repair_provider_branch_changed') -join "`n").Trim()
-          if ($targetBranch -cne $env:REPAIR_HEAD_REF) { throw 'repair_provider_branch_changed' }
           $statusBefore = ((Invoke-NativeSeparated -Command $gitCommand -Arguments @('-C', $workspaceRoot, 'status', '--porcelain=v1', '--untracked-files=all') -Failure 'repair_provider_worktree_invalid') -join "`n").Trim()
           if ($statusBefore.Length -ne 0) { throw 'repair_provider_worktree_not_clean' }
 
