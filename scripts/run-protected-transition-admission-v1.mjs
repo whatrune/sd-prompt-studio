@@ -891,7 +891,7 @@ const repairRequestV1 = (dispatch, exactHead = dispatch.exact_head) => Object.fr
 })
 
 const repairProviderPromptV2 = (dispatch, authorizedPaths) => {
-  const prompt = `${dispatch.instruction}\n\nCurrent authorized_paths:\n${JSON.stringify(authorizedPaths)}\n\nCurrent review decision:\n${dispatch.review_body}`
+  const prompt = `${dispatch.instruction}\n\nCurrent repair tuple:\nRepository: ${dispatch.repository}\nTask: #${dispatch.task_issue_number}\nPR: #${dispatch.pr_number}\nExact HEAD: ${dispatch.exact_head}\n\nCurrent authorized_paths:\n${JSON.stringify(authorizedPaths)}\n\nCurrent review decision:\n${dispatch.review_body}`
   if (Buffer.byteLength(prompt, 'utf8') > REPAIR_PROVIDER_PROMPT_MAX_BYTES_V2) {
     throw new Error('repair_provider_prompt_too_large')
   }

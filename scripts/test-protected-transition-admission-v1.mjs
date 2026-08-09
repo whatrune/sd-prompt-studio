@@ -1324,6 +1324,7 @@ const repairDispatch = (overrides = {}) => Object.freeze({
   instruction: 'Fix current blocking findings only; use current authorized_paths; stop on Architecture gap; run focused validation.',
   ...overrides,
 })
+const expectedRepairPrompt = `${repairDispatch().instruction}\n\nCurrent repair tuple:\nRepository: ${REPOSITORY}\nTask: #${TASK}\nPR: #${PR}\nExact HEAD: ${HEAD}\n\nCurrent authorized_paths:\n${JSON.stringify([...REPAIR_PATHS].sort())}\n\nCurrent review decision:\ncurrent blocking findings`
 const repairTaskState = (overrides = {}) => state({
   authorized_paths: [...REPAIR_PATHS],
   review_status: 'CHANGES_REQUIRED',
@@ -1491,7 +1492,7 @@ const completedRepairRetry = await executeRepairExecutorV1({
 })
 // Twenty fixed Repair Executor units x three assertions = 60.
 const repairUnits = [
-  { name: 'current CHANGES_REQUIRED dispatch', result: preflightResult, reason: 'repair_preflight_satisfied', next: 'REPAIR_AGENT', evidence: (value) => value.validation_profile === 'protected_transition' && value.prompt === `${repairDispatch().instruction}\n\nCurrent authorized_paths:\n${JSON.stringify([...REPAIR_PATHS].sort())}\n\nCurrent review decision:\ncurrent blocking findings` },
+  { name: 'current CHANGES_REQUIRED dispatch', result: preflightResult, reason: 'repair_preflight_satisfied', next: 'REPAIR_AGENT', evidence: (value) => value.validation_profile === 'protected_transition' && value.prompt === expectedRepairPrompt },
   { name: 'APPROVE does not repair', result: approveNoRepair, reason: 'review_not_approved', next: 'STOP', evidence: (value) => !('repair_dispatch' in value) },
   { name: 'stale HEAD', result: staleRepairResult, reason: 'repair_pull_binding_invalid', next: 'STOP', evidence: () => staleRepair.metrics.fileReads === 0 },
   { name: 'UNKNOWN review', result: unknownNoRepair, reason: 'repair_review_unknown', next: 'STOP', evidence: (value) => !('repair_dispatch' in value) },
@@ -1606,8 +1607,8 @@ const providerUnits = [
   {
     name: 'bounded current-only prompt and exact tuple',
     evidence: [
-      providerSubmit.prompt === preflightResult.prompt && providerSubmit.provider_projection.prompt_bytes <= 4096,
-      oversizedPrompt.reason === 'repair_provider_prompt_too_large' && oversizedPrompt.next_action === 'STOP',
+      Buffer.from(providerSubmit.prompt, 'utf8').equals(Buffer.from(expectedRepairPrompt, 'utf8')) && providerSubmit.provider_projection.prompt_bytes === Buffer.byteLength(expectedRepairPrompt, 'utf8'),
+      providerSubmit.prompt.includes(`Current repair tuple:\nRepository: ${REPOSITORY}\nTask: #${TASK}\nPR: #${PR}\nExact HEAD: ${HEAD}\n`) && providerSubmit.provider_projection.prompt_bytes <= 4096 && oversizedPrompt.reason === 'repair_provider_prompt_too_large' && oversizedPrompt.next_action === 'STOP',
       providerSubmit.exact_head === HEAD && providerSubmitHost.metrics.pullReads === 1 && providerSubmitHost.metrics.branchReads === 1,
     ],
   },
