@@ -26,8 +26,9 @@ const STRICT_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/
 const REPAIR_EXECUTOR_INSTRUCTION = 'Fix current blocking findings only; use current authorized_paths; stop on Architecture gap; run focused validation.'
 const REPAIR_COMMIT_MESSAGE = 'fix current protected transition blockers'
 const REPAIR_PROVIDER_PROMPT_MAX_BYTES_V2 = 4096
-const CODEX_CLOUD_CLI_VERSION_V2 = '0.147.0'
-const CODEX_CLOUD_TASK_URL_V2 = /^https:\/\/chatgpt\.com\/codex\/tasks\/([A-Za-z0-9_-]+)$/
+const CODEX_CLI_VERSION_V3 = 'codex-cli 0.147.0'
+const CODEX_CHATGPT_LOGIN_STATUS_V3 = 'Logged in using ChatGPT'
+const REPAIR_PROVIDER_CONSTRAINTS_V3 = 'Do not commit, push, stage, mutate PR/state, or redesign Architecture; leave a non-empty unstaged diff; stop on an Architecture gap.'
 const PROTECTED_TRANSITION_REPAIR_PATHS_V1 = Object.freeze([
   '.github/workflows/protected-transition-admission-v1.yml',
   'scripts/run-protected-transition-admission-v1.mjs',
@@ -891,20 +892,20 @@ const repairRequestV1 = (dispatch, exactHead = dispatch.exact_head) => Object.fr
 })
 
 const repairProviderPromptV2 = (dispatch, authorizedPaths) => {
-  const prompt = `${dispatch.instruction}\n\nCurrent repair tuple:\nRepository: ${dispatch.repository}\nTask: #${dispatch.task_issue_number}\nPR: #${dispatch.pr_number}\nExact HEAD: ${dispatch.exact_head}\n\nCurrent authorized_paths:\n${JSON.stringify(authorizedPaths)}\n\nCurrent review decision:\n${dispatch.review_body}`
+  const prompt = `${dispatch.instruction}\n${REPAIR_PROVIDER_CONSTRAINTS_V3}\n\nCurrent repair tuple:\nRepository: ${dispatch.repository}\nTask: #${dispatch.task_issue_number}\nPR: #${dispatch.pr_number}\nExact HEAD: ${dispatch.exact_head}\n\nCurrent authorized_paths:\n${JSON.stringify(authorizedPaths)}\n\nCurrent review decision:\n${dispatch.review_body}`
   if (Buffer.byteLength(prompt, 'utf8') > REPAIR_PROVIDER_PROMPT_MAX_BYTES_V2) {
     throw new Error('repair_provider_prompt_too_large')
   }
   return prompt
 }
 
-export const projectCodexCloudRepairProviderV2 = ({
+export const projectSelfHostedWindowsRepairProviderV3 = ({
   providerBranch,
   prompt,
-  environmentId,
-  credentialPresent,
+  cliVersion,
+  loginStatus,
   runAttempt,
-  taskId = undefined,
+  workspacePath,
 }) => {
   if (
     typeof providerBranch !== 'string' ||
@@ -912,102 +913,76 @@ export const projectCodexCloudRepairProviderV2 = ({
     /[\u0000-\u001f\u007f]/u.test(providerBranch) ||
     typeof prompt !== 'string' ||
     prompt.length === 0 ||
-    Buffer.byteLength(prompt, 'utf8') > REPAIR_PROVIDER_PROMPT_MAX_BYTES_V2
+    Buffer.byteLength(prompt, 'utf8') > REPAIR_PROVIDER_PROMPT_MAX_BYTES_V2 ||
+    typeof workspacePath !== 'string' ||
+    workspacePath.length === 0 ||
+    /[\u0000-\u001f\u007f]/u.test(workspacePath)
   ) {
     throw new Error('repair_provider_projection_invalid')
   }
-  if (credentialPresent !== true) throw new Error('repair_provider_credential_missing')
-  if (typeof environmentId !== 'string' || environmentId.trim().length === 0) {
-    throw new Error('repair_provider_environment_missing')
-  }
+  if (cliVersion !== CODEX_CLI_VERSION_V3) throw new Error('repair_provider_cli_version_invalid')
+  if (loginStatus !== CODEX_CHATGPT_LOGIN_STATUS_V3) throw new Error('repair_provider_chatgpt_login_required')
   if (runAttempt !== 1) throw new Error('repair_provider_rerun_forbidden')
-  if (taskId !== undefined && (typeof taskId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(taskId))) {
-    throw new Error('repair_provider_task_identity_invalid')
-  }
   return Object.freeze({
-    provider: 'codex_cloud_diff_provider_v2',
-    cli_version: CODEX_CLOUD_CLI_VERSION_V2,
+    provider: 'self_hosted_windows_chatgpt_codex_cli_v3',
+    runner_labels: Object.freeze(['self-hosted', 'Windows', 'X64']),
+    cli_version: CODEX_CLI_VERSION_V3,
+    login_status: CODEX_CHATGPT_LOGIN_STATUS_V3,
     provider_branch: providerBranch,
     prompt_bytes: Buffer.byteLength(prompt, 'utf8'),
-    submit_argv: Object.freeze(['cloud', 'exec', '--env', environmentId, '--attempts', '1', '--branch', providerBranch, '-']),
-    ...(taskId === undefined
-      ? {}
-      : {
-          status_argv: Object.freeze(['cloud', 'status', taskId]),
-          apply_argv: Object.freeze(['apply', taskId]),
-        }),
+    invocation_count: 1,
+    exec_argv: Object.freeze(['exec', '--ignore-user-config', '--sandbox', 'workspace-write', '--approve-for-me', '--ephemeral', '--json', '--cd', workspacePath, '-']),
   })
 }
 
-export const parseCodexCloudTaskSubmissionV2 = (output) => {
-  if (typeof output !== 'string') throw new Error('repair_provider_task_identity_invalid')
-  const lines = output.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean)
-  if (lines.length !== 1) throw new Error('repair_provider_task_identity_invalid')
-  const match = CODEX_CLOUD_TASK_URL_V2.exec(lines[0])
-  if (!match) throw new Error('repair_provider_task_identity_invalid')
-  return Object.freeze({ task_id: match[1], task_url: lines[0] })
-}
-
-export const evaluateCodexCloudTaskStatusV2 = ({ output, exitCode, timedOut = false }) => {
-  if (timedOut) return Object.freeze({ reason: 'repair_provider_timeout', next_action: 'STOP' })
-  if (typeof output !== 'string' || !Number.isSafeInteger(exitCode)) {
-    return Object.freeze({ reason: 'repair_provider_status_invalid', next_action: 'STOP' })
-  }
-  const firstLine = output.split(/\r?\n/u).map((line) => line.trim()).find(Boolean) ?? ''
-  if (/^\[READY\](?:\s|$)/u.test(firstLine) && exitCode === 0) {
-    return Object.freeze({ reason: 'repair_provider_task_ready', next_action: 'APPLY_REPAIR_TASK' })
-  }
-  if (/^\[PENDING\](?:\s|$)/u.test(firstLine) && exitCode !== 0) {
-    return Object.freeze({ reason: 'repair_provider_task_pending', next_action: 'WAIT' })
-  }
-  if (/^\[ERROR\](?:\s|$)/u.test(firstLine) && exitCode !== 0) {
-    return Object.freeze({ reason: 'repair_provider_task_failed', next_action: 'STOP' })
-  }
-  return Object.freeze({ reason: 'repair_provider_status_invalid', next_action: 'STOP' })
-}
-
-export const executeRepairProviderBindingV2 = async ({
+export const executeRepairProviderBindingV3 = async ({
   boundary,
   dispatch,
   host,
   localPaths,
   providerBranch = undefined,
-  environmentId,
-  credentialPresent,
+  cliVersion = undefined,
+  loginStatus = undefined,
   runAttempt,
+  workspacePath = undefined,
 }) => {
   try {
     validateRepairDispatchV1(dispatch)
-    if (boundary !== 'pre_submit' && boundary !== 'pre_apply') throw new Error('repair_provider_boundary_invalid')
+    if (boundary !== 'pre_exec' && boundary !== 'post_exec') throw new Error('repair_provider_boundary_invalid')
     const request = repairRequestV1(dispatch)
     const pull = validateRepairPullV1(dispatch, await acquirePull(request, host))
     const canonicalBranch = pull.head.ref
-    if (boundary === 'pre_apply' && providerBranch !== canonicalBranch) {
+    if (boundary === 'post_exec' && providerBranch !== canonicalBranch) {
       throw new Error('repair_provider_branch_changed')
     }
     if (await host.branchHead(dispatch.repository, canonicalBranch) !== dispatch.exact_head) {
       throw new Error('repair_remote_head_changed')
     }
-    if (!Array.isArray(localPaths) || localPaths.length !== 0) throw new Error('repair_provider_worktree_not_clean')
+    if (!Array.isArray(localPaths)) throw new Error('repair_provider_worktree_invalid')
+    if (boundary === 'pre_exec' && localPaths.length !== 0) throw new Error('repair_provider_worktree_not_clean')
+    if (boundary === 'post_exec' && localPaths.length === 0) throw new Error('repair_provider_diff_missing')
     const prompt = repairProviderPromptV2(dispatch, repairPathSetV1(dispatch.authorized_paths, 'authorized_paths'))
-    const projection = projectCodexCloudRepairProviderV2({
-      providerBranch: canonicalBranch,
-      prompt,
-      environmentId,
-      credentialPresent,
-      runAttempt,
-    })
+    const projection = boundary === 'pre_exec'
+      ? projectSelfHostedWindowsRepairProviderV3({
+          providerBranch: canonicalBranch,
+          prompt,
+          cliVersion,
+          loginStatus,
+          runAttempt,
+          workspacePath,
+        })
+      : undefined
     return Object.freeze({
       state: 'REVIEW_BLOCKED',
       allowed: false,
       exit_code: 0,
-      reason: boundary === 'pre_submit' ? 'repair_provider_submit_binding_satisfied' : 'repair_provider_apply_binding_satisfied',
-      automation_status: boundary === 'pre_submit' ? 'PROVIDER_SUBMIT_READY' : 'PROVIDER_APPLY_READY',
-      next_action: boundary === 'pre_submit' ? 'SUBMIT_REPAIR_TASK' : 'APPLY_REPAIR_TASK',
+      reason: boundary === 'pre_exec' ? 'repair_provider_exec_binding_satisfied' : 'repair_provider_post_exec_binding_satisfied',
+      automation_status: boundary === 'pre_exec' ? 'PROVIDER_EXEC_READY' : 'PROVIDER_DIFF_READY',
+      next_action: boundary === 'pre_exec' ? 'EXECUTE_REPAIR_AGENT' : 'PROJECT_PROVIDER_COMPLETION',
       exact_head: dispatch.exact_head,
       provider_branch: canonicalBranch,
       prompt,
-      provider_projection: projection,
+      ...(projection ? { provider_projection: projection } : {}),
     })
   } catch (error) {
     return Object.freeze({
@@ -1884,32 +1859,19 @@ const parseInvocation = (argv, environment) => {
   if (argv.length === 2 && argv[0] === '--repair-preflight-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
     return Object.freeze({ mode: 'repair_preflight', dispatchFile: argv[1] })
   }
-  if (argv.length === 2 && argv[0] === '--repair-provider-submit-bind-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
-    return Object.freeze({ mode: 'repair_provider_submit_bind', dispatchFile: argv[1] })
+  if (argv.length === 2 && argv[0] === '--repair-provider-exec-bind-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
+    return Object.freeze({ mode: 'repair_provider_exec_bind', dispatchFile: argv[1] })
   }
   if (
     argv.length === 4 &&
-    argv[0] === '--repair-provider-apply-bind-file' &&
+    argv[0] === '--repair-provider-post-exec-bind-file' &&
     typeof argv[1] === 'string' &&
     argv[1].length > 0 &&
     argv[2] === '--provider-binding-file' &&
     typeof argv[3] === 'string' &&
     argv[3].length > 0
   ) {
-    return Object.freeze({ mode: 'repair_provider_apply_bind', dispatchFile: argv[1], providerBindingFile: argv[3] })
-  }
-  if (argv.length === 2 && argv[0] === '--repair-provider-submission-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
-    return Object.freeze({ mode: 'repair_provider_submission', submissionFile: argv[1] })
-  }
-  if (
-    argv.length === 4 &&
-    argv[0] === '--repair-provider-status-file' &&
-    typeof argv[1] === 'string' &&
-    argv[1].length > 0 &&
-    argv[2] === '--provider-status-exit' &&
-    /^(?:0|1)$/u.test(argv[3] ?? '')
-  ) {
-    return Object.freeze({ mode: 'repair_provider_status', statusFile: argv[1], statusExit: Number(argv[3]) })
+    return Object.freeze({ mode: 'repair_provider_post_exec_bind', dispatchFile: argv[1], providerBindingFile: argv[3] })
   }
   if (
     argv.length === 4 &&
@@ -2030,56 +1992,29 @@ const main = async () => {
               dispatch: readJsonFileV1(invocation.dispatchFile),
               host,
             })
-          : invocation.mode === 'repair_provider_submit_bind'
-            ? await executeRepairProviderBindingV2({
-                boundary: 'pre_submit',
+          : invocation.mode === 'repair_provider_exec_bind'
+            ? await executeRepairProviderBindingV3({
+                boundary: 'pre_exec',
                 dispatch: readJsonFileV1(invocation.dispatchFile),
                 host,
                 localPaths: repairWorkingTreePathsV1(readJsonFileV1(invocation.dispatchFile).exact_head),
-                environmentId: process.env.CODEX_REPAIR_ENV_ID,
-                credentialPresent: process.env.REPAIR_PROVIDER_TOKEN_PRESENT === 'true',
+                cliVersion: process.env.REPAIR_PROVIDER_CLI_VERSION,
+                loginStatus: process.env.REPAIR_PROVIDER_LOGIN_STATUS,
                 runAttempt: Number(process.env.GITHUB_RUN_ATTEMPT),
+                workspacePath: process.env.GITHUB_WORKSPACE,
               })
-            : invocation.mode === 'repair_provider_apply_bind'
+            : invocation.mode === 'repair_provider_post_exec_bind'
               ? await (() => {
                   const dispatch = readJsonFileV1(invocation.dispatchFile)
                   const providerBinding = readJsonFileV1(invocation.providerBindingFile)
-                  return executeRepairProviderBindingV2({
-                    boundary: 'pre_apply',
+                  return executeRepairProviderBindingV3({
+                    boundary: 'post_exec',
                     dispatch,
                     host,
                     localPaths: repairWorkingTreePathsV1(dispatch.exact_head),
                     providerBranch: providerBinding.provider_branch,
-                    environmentId: process.env.CODEX_REPAIR_ENV_ID,
-                    credentialPresent: process.env.REPAIR_PROVIDER_TOKEN_PRESENT === 'true',
-                    runAttempt: Number(process.env.GITHUB_RUN_ATTEMPT),
                   })
                 })()
-              : invocation.mode === 'repair_provider_submission'
-                ? Object.freeze({
-                    state: 'REVIEW_BLOCKED',
-                    allowed: false,
-                    exit_code: 0,
-                    reason: 'repair_provider_task_identity_satisfied',
-                    automation_status: 'PROVIDER_TASK_SUBMITTED',
-                    next_action: 'POLL_REPAIR_TASK',
-                    ...parseCodexCloudTaskSubmissionV2(readFileSync(invocation.submissionFile, 'utf8')),
-                  })
-                : invocation.mode === 'repair_provider_status'
-                  ? (() => {
-                      const status = evaluateCodexCloudTaskStatusV2({
-                        output: readFileSync(invocation.statusFile, 'utf8'),
-                        exitCode: invocation.statusExit,
-                      })
-                      return Object.freeze({
-                        state: status.next_action === 'STOP' ? 'INDETERMINATE' : 'REVIEW_BLOCKED',
-                        allowed: false,
-                        exit_code: status.next_action === 'STOP' ? 1 : 0,
-                        reason: status.reason,
-                        automation_status: status.next_action === 'STOP' ? 'BLOCKED' : 'PROVIDER_TASK_ACTIVE',
-                        next_action: status.next_action,
-                      })
-                    })()
           : invocation.mode === 'repair_post_agent'
             ? await executeRepairExecutorV1({
                 phase: 'post_agent',

@@ -12,21 +12,19 @@ import {
 } from '../src/continuous-orchestration/protected-transition-admission-v1.ts'
 import {
   acquireChangedPathScopeV1,
-  evaluateCodexCloudTaskStatusV2,
   evaluateProgressionControllerV1,
   evaluateMergeAllowedAutomationV1,
   executeRepairExecutorV1,
   executeReadyForReviewProgressionV1,
   executeReviewApprovalAutomationV1,
   executeProtectedTransitionAdmissionV1,
-  executeRepairProviderBindingV2,
+  executeRepairProviderBindingV3,
   extractProtectedTransitionTaskStateV1,
   isRepairProfilePathV1,
   parseIndependentReviewDecisionProjectionV1,
-  parseCodexCloudTaskSubmissionV2,
   parseReviewApprovalEventV1,
   projectProtectedTransitionReviewStateV1,
-  projectCodexCloudRepairProviderV2,
+  projectSelfHostedWindowsRepairProviderV3,
   repairWorkingTreePathsV1,
   resolveEffectiveReviewDecisionV1,
   selectRepairValidationProfileV1,
@@ -370,7 +368,7 @@ check(!/(trust_root|revocation|ready_generation|producer_roster|assignment_recor
 check(runnerSource.includes('/comments?since=') && runnerSource.includes('pageNumber > 32'), 'runner uses bounded forward-only Review pagination')
 check(runnerSource.includes('acquireTaskIdentityV1') && runnerSource.includes('acquireChangedPathScopeV1') && runnerSource.includes('executeManualProgressionControllerV1'), 'runner owns direct Task, scope, and manual progression composition')
 check(runnerSource.includes('previous_filename') && runnerSource.includes('state_changed_during_evaluation'), 'runner checks rename and late state change')
-check(workflowSource.includes('pnpm install --frozen-lockfile') && !workflowSource.includes('actions: read') && !workflowSource.includes('upload-artifact') && !workflowSource.includes('gh workflow run'), 'workflow uses frozen repair dependencies without nested dispatch or artifact permission/persistence')
+check(workflowSource.includes('pnpm.cmd install --frozen-lockfile') && !workflowSource.includes('actions: read') && !workflowSource.includes('upload-artifact') && !workflowSource.includes('gh workflow run'), 'workflow uses frozen repair dependencies without nested dispatch or artifact permission/persistence')
 check(coreSource.includes('export const evaluateProtectedTransitionAdmissionV1') && !/\b(fetch|writeFile|execFile)\b/.test(coreSource), 'one pure evaluator owns classification')
 
 const reviewDecisionBody = (overrides = {}, extraLines = []) => {
@@ -1324,7 +1322,7 @@ const repairDispatch = (overrides = {}) => Object.freeze({
   instruction: 'Fix current blocking findings only; use current authorized_paths; stop on Architecture gap; run focused validation.',
   ...overrides,
 })
-const expectedRepairPrompt = `${repairDispatch().instruction}\n\nCurrent repair tuple:\nRepository: ${REPOSITORY}\nTask: #${TASK}\nPR: #${PR}\nExact HEAD: ${HEAD}\n\nCurrent authorized_paths:\n${JSON.stringify([...REPAIR_PATHS].sort())}\n\nCurrent review decision:\ncurrent blocking findings`
+const expectedRepairPrompt = `${repairDispatch().instruction}\nDo not commit, push, stage, mutate PR/state, or redesign Architecture; leave a non-empty unstaged diff; stop on an Architecture gap.\n\nCurrent repair tuple:\nRepository: ${REPOSITORY}\nTask: #${TASK}\nPR: #${PR}\nExact HEAD: ${HEAD}\n\nCurrent authorized_paths:\n${JSON.stringify([...REPAIR_PATHS].sort())}\n\nCurrent review decision:\ncurrent blocking findings`
 const repairTaskState = (overrides = {}) => state({
   authorized_paths: [...REPAIR_PATHS],
   review_status: 'CHANGES_REQUIRED',
@@ -1519,145 +1517,143 @@ for (const unit of repairUnits) {
   check(unit.evidence(unit.result), `${unit.name} exact evidence`)
 }
 
-const providerSubmitHost = repairHost()
-const providerSubmit = await executeRepairProviderBindingV2({
-  boundary: 'pre_submit',
+const WINDOWS_WORKSPACE = 'C:\\actions-runner\\_work\\sd-prompt-studio\\sd-prompt-studio'
+const providerExecHost = repairHost()
+const providerExec = await executeRepairProviderBindingV3({
+  boundary: 'pre_exec',
   dispatch: repairDispatch(),
-  host: providerSubmitHost.host,
+  host: providerExecHost.host,
   localPaths: [],
-  environmentId: 'env_repair',
-  credentialPresent: true,
+  cliVersion: 'codex-cli 0.147.0',
+  loginStatus: 'Logged in using ChatGPT',
   runAttempt: 1,
+  workspacePath: WINDOWS_WORKSPACE,
 })
 const oversizedPromptHost = repairHost()
-const oversizedPrompt = await executeRepairProviderBindingV2({
-  boundary: 'pre_submit',
+const oversizedPrompt = await executeRepairProviderBindingV3({
+  boundary: 'pre_exec',
   dispatch: repairDispatch({ review_body: 'x'.repeat(4096) }),
   host: oversizedPromptHost.host,
   localPaths: [],
-  environmentId: 'env_repair',
-  credentialPresent: true,
+  cliVersion: 'codex-cli 0.147.0',
+  loginStatus: 'Logged in using ChatGPT',
   runAttempt: 1,
+  workspacePath: WINDOWS_WORKSPACE,
 })
-const missingCredentialHost = repairHost()
-const missingCredential = await executeRepairProviderBindingV2({
-  boundary: 'pre_submit',
-  dispatch: repairDispatch(),
-  host: missingCredentialHost.host,
-  localPaths: [],
-  environmentId: 'env_repair',
-  credentialPresent: false,
+const providerProjectionInput = {
+  providerBranch: 'codex/repair',
+  prompt: 'current repair',
+  cliVersion: 'codex-cli 0.147.0',
+  loginStatus: 'Logged in using ChatGPT',
   runAttempt: 1,
-})
-const missingEnvironmentHost = repairHost()
-const missingEnvironment = await executeRepairProviderBindingV2({
-  boundary: 'pre_submit',
-  dispatch: repairDispatch(),
-  host: missingEnvironmentHost.host,
-  localPaths: [],
-  environmentId: '',
-  credentialPresent: true,
-  runAttempt: 1,
-})
+  workspacePath: WINDOWS_WORKSPACE,
+}
+const missingCliError = await errorOf(async () => projectSelfHostedWindowsRepairProviderV3({ ...providerProjectionInput, cliVersion: undefined }))
+const wrongCliError = await errorOf(async () => projectSelfHostedWindowsRepairProviderV3({ ...providerProjectionInput, cliVersion: 'codex-cli 0.148.0' }))
+const apiLoginError = await errorOf(async () => projectSelfHostedWindowsRepairProviderV3({ ...providerProjectionInput, loginStatus: 'Logged in using an API key' }))
 const providerRemoteDriftHost = repairHost({ remoteHead: OTHER_HEAD })
-const providerRemoteDrift = await executeRepairProviderBindingV2({
-  boundary: 'pre_submit', dispatch: repairDispatch(), host: providerRemoteDriftHost.host, localPaths: [], environmentId: 'env_repair', credentialPresent: true, runAttempt: 1,
+const providerRemoteDrift = await executeRepairProviderBindingV3({
+  boundary: 'pre_exec', dispatch: repairDispatch(), host: providerRemoteDriftHost.host, localPaths: [], cliVersion: 'codex-cli 0.147.0', loginStatus: 'Logged in using ChatGPT', runAttempt: 1, workspacePath: WINDOWS_WORKSPACE,
 })
 const providerDirtyHost = repairHost()
-const providerDirty = await executeRepairProviderBindingV2({
-  boundary: 'pre_submit', dispatch: repairDispatch(), host: providerDirtyHost.host, localPaths: [REPAIR_PATHS[0]], environmentId: 'env_repair', credentialPresent: true, runAttempt: 1,
+const providerDirty = await executeRepairProviderBindingV3({
+  boundary: 'pre_exec', dispatch: repairDispatch(), host: providerDirtyHost.host, localPaths: [REPAIR_PATHS[0]], cliVersion: 'codex-cli 0.147.0', loginStatus: 'Logged in using ChatGPT', runAttempt: 1, workspacePath: WINDOWS_WORKSPACE,
 })
 const providerPullDriftHost = repairHost({ head: OTHER_HEAD })
-const providerPullDrift = await executeRepairProviderBindingV2({
-  boundary: 'pre_submit', dispatch: repairDispatch(), host: providerPullDriftHost.host, localPaths: [], environmentId: 'env_repair', credentialPresent: true, runAttempt: 1,
+const providerPullDrift = await executeRepairProviderBindingV3({
+  boundary: 'pre_exec', dispatch: repairDispatch(), host: providerPullDriftHost.host, localPaths: [], cliVersion: 'codex-cli 0.147.0', loginStatus: 'Logged in using ChatGPT', runAttempt: 1, workspacePath: WINDOWS_WORKSPACE,
 })
 const rerunProviderHost = repairHost()
-const rerunProvider = await executeRepairProviderBindingV2({
-  boundary: 'pre_submit', dispatch: repairDispatch(), host: rerunProviderHost.host, localPaths: [], environmentId: 'env_repair', credentialPresent: true, runAttempt: 2,
+const rerunProvider = await executeRepairProviderBindingV3({
+  boundary: 'pre_exec', dispatch: repairDispatch(), host: rerunProviderHost.host, localPaths: [], cliVersion: 'codex-cli 0.147.0', loginStatus: 'Logged in using ChatGPT', runAttempt: 2, workspacePath: WINDOWS_WORKSPACE,
 })
-const exactTask = parseCodexCloudTaskSubmissionV2('https://chatgpt.com/codex/tasks/task_i_exact\n')
-const ambiguousTaskError = await errorOf(async () => parseCodexCloudTaskSubmissionV2('https://chatgpt.com/codex/tasks/task_a\nhttps://chatgpt.com/codex/tasks/task_b\n'))
-const pendingTask = evaluateCodexCloudTaskStatusV2({ output: '[PENDING] current repair\n', exitCode: 1 })
-const readyTask = evaluateCodexCloudTaskStatusV2({ output: '[READY] current repair\n', exitCode: 0 })
-const failedTask = evaluateCodexCloudTaskStatusV2({ output: '[ERROR] current repair\n', exitCode: 1 })
-const timedOutTask = evaluateCodexCloudTaskStatusV2({ output: '[PENDING] current repair\n', exitCode: 1, timedOut: true })
-const providerApplyBranchHost = repairHost()
-const providerApplyBranchDrift = await executeRepairProviderBindingV2({
-  boundary: 'pre_apply', dispatch: repairDispatch(), host: providerApplyBranchHost.host, providerBranch: 'codex/stale', localPaths: [], environmentId: 'env_repair', credentialPresent: true, runAttempt: 1,
+const providerPostBranchHost = repairHost()
+const providerPostBranchDrift = await executeRepairProviderBindingV3({
+  boundary: 'post_exec', dispatch: repairDispatch(), host: providerPostBranchHost.host, providerBranch: 'codex/stale', localPaths: REPAIR_PATHS,
 })
-const providerApplyHost = repairHost()
-const providerApply = await executeRepairProviderBindingV2({
-  boundary: 'pre_apply', dispatch: repairDispatch(), host: providerApplyHost.host, providerBranch: 'codex/repair', localPaths: [], environmentId: 'env_repair', credentialPresent: true, runAttempt: 1,
+const providerPostEmptyHost = repairHost()
+const providerPostEmpty = await executeRepairProviderBindingV3({
+  boundary: 'post_exec', dispatch: repairDispatch(), host: providerPostEmptyHost.host, providerBranch: 'codex/repair', localPaths: [],
 })
-const taskProjection = projectCodexCloudRepairProviderV2({
-  providerBranch: 'codex/repair', prompt: 'current repair', environmentId: 'env_repair', credentialPresent: true, runAttempt: 1, taskId: exactTask.task_id,
+const providerPostRemoteHost = repairHost({ remoteHead: OTHER_HEAD })
+const providerPostRemote = await executeRepairProviderBindingV3({
+  boundary: 'post_exec', dispatch: repairDispatch(), host: providerPostRemoteHost.host, providerBranch: 'codex/repair', localPaths: REPAIR_PATHS,
 })
-const forbiddenProviderMechanisms = ['task_source_sha', 'provider_receipt', 'provider_digest', 'provider_branch_lock']
+const providerPostHost = repairHost()
+const providerPost = await executeRepairProviderBindingV3({
+  boundary: 'post_exec', dispatch: repairDispatch(), host: providerPostHost.host, providerBranch: 'codex/repair', localPaths: REPAIR_PATHS,
+})
+const repairJob = workflow.jobs.protected_transition_repair_executor_v1
+const repairRunSteps = repairJob.steps.filter((step) => typeof step.run === 'string')
+const providerExecutionStep = repairJob.steps.find((step) => step.name === 'Execute one local blocking repair')
+const providerProbeStep = repairJob.steps.find((step) => step.name === 'Verify pinned ChatGPT-authenticated Codex CLI')
+const forbiddenProviderMechanisms = ['OPENAI_API_KEY', 'CODEX_API_KEY', 'CODEX_ACCESS_TOKEN', 'CODEX_REPAIR_ENV_ID', 'codex cloud', 'codex apply', 'task_source_sha', 'provider_receipt', 'provider_digest', 'provider_branch_lock']
+const providerProductionSource = `${workflowSource}\n${runnerSource}`
 
-// Eight Codex Cloud provider-boundary units x three assertions = 24.
+// Eight self-hosted Windows provider-boundary units x three assertions = 24.
 const providerUnits = [
   {
-    name: 'mandatory explicit canonical PR branch',
+    name: 'exact self-hosted Windows PowerShell boundary',
     evidence: [
-      providerSubmit.reason === 'repair_provider_submit_binding_satisfied' && providerSubmit.provider_branch === 'codex/repair',
-      providerSubmit.provider_projection.submit_argv.join('|') === 'cloud|exec|--env|env_repair|--attempts|1|--branch|codex/repair|-',
-      workflowSource.split('--branch "$REPAIR_PROVIDER_BRANCH"').length === 2 && !workflowSource.includes('--branch main'),
+      repairJob['runs-on'].join('|') === 'self-hosted|Windows|X64',
+      repairRunSteps.length > 0 && repairRunSteps.every((step) => step.shell === 'pwsh'),
+      providerExec.provider_projection.runner_labels.join('|') === 'self-hosted|Windows|X64' && providerExec.provider === undefined,
     ],
   },
   {
-    name: 'bounded current-only prompt and exact tuple',
+    name: 'pinned CLI and ChatGPT login probe',
     evidence: [
-      Buffer.from(providerSubmit.prompt, 'utf8').equals(Buffer.from(expectedRepairPrompt, 'utf8')) && providerSubmit.provider_projection.prompt_bytes === Buffer.byteLength(expectedRepairPrompt, 'utf8'),
-      providerSubmit.prompt.includes(`Current repair tuple:\nRepository: ${REPOSITORY}\nTask: #${TASK}\nPR: #${PR}\nExact HEAD: ${HEAD}\n`) && providerSubmit.provider_projection.prompt_bytes <= 4096 && oversizedPrompt.reason === 'repair_provider_prompt_too_large' && oversizedPrompt.next_action === 'STOP',
-      providerSubmit.exact_head === HEAD && providerSubmitHost.metrics.pullReads === 1 && providerSubmitHost.metrics.branchReads === 1,
+      providerExec.provider_projection.cli_version === 'codex-cli 0.147.0' && providerExec.provider_projection.login_status === 'Logged in using ChatGPT',
+      missingCliError?.message === 'repair_provider_cli_version_invalid' && wrongCliError?.message === 'repair_provider_cli_version_invalid' && apiLoginError?.message === 'repair_provider_chatgpt_login_required',
+      providerProbeStep?.run.includes('Get-Command codex.cmd') && providerProbeStep.run.includes("$version -cne 'codex-cli 0.147.0'") && providerProbeStep.run.includes("$loginStatus -cne 'Logged in using ChatGPT'"),
     ],
   },
   {
-    name: 'credential and environment stop before submit',
+    name: 'API cloud secret retry and fallback absence',
     evidence: [
-      missingCredential.reason === 'repair_provider_credential_missing' && missingCredential.next_action === 'STOP',
-      missingEnvironment.reason === 'repair_provider_environment_missing' && missingEnvironment.next_action === 'STOP',
-      !workflowSource.includes('CODEX_API_KEY') && !workflowSource.includes('OPENAI_API_KEY') && !workflowSource.includes('openai/codex-action'),
+      forbiddenProviderMechanisms.every((needle) => !providerProductionSource.includes(needle)),
+      !workflowSource.includes('npm install --global @openai/codex') && workflowSource.includes('REPAIR_EXECUTOR_PUSH_TOKEN'),
+      providerExecutionStep?.run.split('& codex.cmd exec').length === 2 && !providerExecutionStep.run.includes('while (') && !providerExecutionStep.run.includes('Start-Sleep'),
     ],
   },
   {
-    name: 'pre-submit reviewed tuple and clean checkout',
+    name: 'bounded exact prompt and UTF-8 stdin',
+    evidence: [
+      Buffer.from(providerExec.prompt, 'utf8').equals(Buffer.from(expectedRepairPrompt, 'utf8')) && providerExec.provider_projection.prompt_bytes === Buffer.byteLength(expectedRepairPrompt, 'utf8'),
+      providerExec.prompt.includes(`Current repair tuple:\nRepository: ${REPOSITORY}\nTask: #${TASK}\nPR: #${PR}\nExact HEAD: ${HEAD}\n`) && providerExec.prompt.includes('Do not commit, push, stage, mutate PR/state') && providerExec.provider_projection.prompt_bytes <= 4096,
+      oversizedPrompt.reason === 'repair_provider_prompt_too_large' && workflowSource.includes('[Text.UTF8Encoding]::new($false)') && providerExecutionStep?.run.includes('$prompt | & codex.cmd exec'),
+    ],
+  },
+  {
+    name: 'pre-exec reviewed tuple and clean checkout',
     evidence: [
       providerPullDrift.reason === 'repair_pull_binding_invalid' && providerPullDriftHost.metrics.branchReads === 0,
-      providerRemoteDrift.reason === 'repair_remote_head_changed' && providerRemoteDriftHost.metrics.branchReads === 1,
-      providerDirty.reason === 'repair_provider_worktree_not_clean' && providerDirty.next_action === 'STOP',
-    ],
-  },
-  {
-    name: 'one exact task serialization and no resubmit',
-    evidence: [
-      exactTask.task_id === 'task_i_exact' && ambiguousTaskError?.message === 'repair_provider_task_identity_invalid',
+      providerRemoteDrift.reason === 'repair_remote_head_changed' && providerRemoteDriftHost.metrics.branchReads === 1 && providerDirty.reason === 'repair_provider_worktree_not_clean',
       rerunProvider.reason === 'repair_provider_rerun_forbidden' && rerunProvider.next_action === 'STOP',
-      workflowSource.split('codex cloud exec').length === 2 && workflowSource.split('--attempts 1').length === 2 && workflowSource.includes('cancel-in-progress: false'),
     ],
   },
   {
-    name: 'terminal timeout quota failure without apply',
+    name: 'one sandboxed ephemeral local execution',
     evidence: [
-      pendingTask.next_action === 'WAIT' && readyTask.next_action === 'APPLY_REPAIR_TASK',
-      failedTask.reason === 'repair_provider_task_failed' && failedTask.next_action === 'STOP',
-      timedOutTask.reason === 'repair_provider_timeout' && timedOutTask.next_action === 'STOP' && workflowSource.includes('deadline=$((SECONDS + 1200))'),
+      providerExec.reason === 'repair_provider_exec_binding_satisfied' && providerExec.next_action === 'EXECUTE_REPAIR_AGENT' && providerExec.provider_projection.invocation_count === 1,
+      providerExec.provider_projection.exec_argv.join('|') === `exec|--ignore-user-config|--sandbox|workspace-write|--approve-for-me|--ephemeral|--json|--cd|${WINDOWS_WORKSPACE}|-`,
+      workflowSource.split('& codex.cmd exec').length === 2 && providerExecutionStep?.['timeout-minutes'] === 20 && !providerExecutionStep.run.includes('danger-full-access') && !providerExecutionStep.run.includes('bypass'),
     ],
   },
   {
-    name: 'pre-apply tuple and exact local apply failures',
+    name: 'nonzero timeout or invalid post-exec workspace stops',
     evidence: [
-      providerApplyBranchDrift.reason === 'repair_provider_branch_changed' && providerApplyBranchDrift.next_action === 'STOP',
-      taskProjection.status_argv.join('|') === 'cloud|status|task_i_exact' && taskProjection.apply_argv.join('|') === 'apply|task_i_exact',
-      postAgentEmpty.next_action === 'STOP' && postAgentEscape.next_action === 'STOP',
+      providerExecutionStep?.run.includes("if ($providerExit -ne 0)") && providerExecutionStep?.['timeout-minutes'] === 20,
+      providerPostBranchDrift.reason === 'repair_provider_branch_changed' && providerPostRemote.reason === 'repair_remote_head_changed',
+      providerPostEmpty.reason === 'repair_provider_diff_missing' && malformedProvider.next_action === 'STOP' && postAgentEscape.next_action === 'STOP',
     ],
   },
   {
     name: 'successful uncommitted exact-scope lifecycle return',
     evidence: [
-      providerApply.reason === 'repair_provider_apply_binding_satisfied' && providerApply.next_action === 'APPLY_REPAIR_TASK',
+      providerPost.reason === 'repair_provider_post_exec_binding_satisfied' && providerPost.next_action === 'PROJECT_PROVIDER_COMPLETION',
       postAgentAllowed.next_action === 'VALIDATE_REPAIR' && postAgentAllowed.repair_paths.join('|') === [...REPAIR_PATHS].sort().join('|'),
-      forbiddenProviderMechanisms.every((needle) => !workflowSource.includes(needle) && !runnerSource.includes(needle)) && workflowSource.includes('codex apply "$REPAIR_PROVIDER_TASK_ID"'),
+      commitPlan.next_action === 'COMMIT_AND_PUSH' && completedRepair.next_action === 'REVIEW' && forbiddenProviderMechanisms.every((needle) => !providerProductionSource.includes(needle)),
     ],
   },
 ]

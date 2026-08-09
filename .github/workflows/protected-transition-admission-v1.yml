@@ -123,7 +123,7 @@ jobs:
   protected_transition_repair_executor_v1:
     needs: protected_transition_admission_v1
     if: needs.protected_transition_admission_v1.outputs.repair_next_action == 'REPAIR_EXECUTOR'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 30
     outputs:
       state: ${{ steps.repair_result.outputs.state }}
@@ -144,258 +144,209 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Install frozen dependencies
-        shell: bash
+      - name: Verify pinned ChatGPT-authenticated Codex CLI
+        id: repair_provider_probe
+        shell: pwsh
         run: |
-          set -euo pipefail
-          corepack enable
-          pnpm install --frozen-lockfile
+          $ErrorActionPreference = 'Stop'
+          $null = Get-Command codex.cmd -ErrorAction Stop
+          $versionOutput = @(& codex.cmd --version 2>&1)
+          $versionExit = $LASTEXITCODE
+          $version = ($versionOutput -join "`n").Trim()
+          if ($versionExit -ne 0 -or $version -cne 'codex-cli 0.147.0') { throw 'repair_provider_cli_version_invalid' }
+          $loginOutput = @(& codex.cmd login status 2>&1)
+          $loginExit = $LASTEXITCODE
+          $loginStatus = ($loginOutput -join "`n").Trim()
+          if ($loginExit -ne 0 -or $loginStatus -cne 'Logged in using ChatGPT') { throw 'repair_provider_chatgpt_login_required' }
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Value "cli_version=$version"
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Value "login_status=$loginStatus"
+
+      - name: Install frozen dependencies
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pnpm.cmd install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { throw 'dependency_install_failed' }
 
       - name: Prepare current repair tuple
         id: repair_preflight
-        shell: bash
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           REPAIR_DISPATCH_B64: ${{ needs.protected_transition_admission_v1.outputs.repair_dispatch_b64 }}
         run: |
-          set -euo pipefail
-          printf '%s' "$REPAIR_DISPATCH_B64" | base64 --decode > "$RUNNER_TEMP/repair-dispatch.json"
-          node scripts/run-protected-transition-admission-v1.mjs \
-            --repair-preflight-file "$RUNNER_TEMP/repair-dispatch.json" | tee "$RUNNER_TEMP/repair-preflight.json"
-          node -e '
-            const fs = require("node:fs");
-            const result = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/repair-preflight.json", "utf8"));
-            if (result.next_action !== "REPAIR_AGENT") process.exit(1);
-          '
+          $ErrorActionPreference = 'Stop'
+          $dispatchPath = Join-Path $env:RUNNER_TEMP 'repair-dispatch.json'
+          $preflightPath = Join-Path $env:RUNNER_TEMP 'repair-preflight.json'
+          [IO.File]::WriteAllBytes($dispatchPath, [Convert]::FromBase64String($env:REPAIR_DISPATCH_B64))
+          node scripts/run-protected-transition-admission-v1.mjs --repair-preflight-file $dispatchPath |
+            Tee-Object -FilePath $preflightPath
+          if ($LASTEXITCODE -ne 0) { throw 'repair_preflight_failed' }
+          $result = Get-Content -LiteralPath $preflightPath -Raw -Encoding utf8 | ConvertFrom-Json
+          if ($result.next_action -cne 'REPAIR_AGENT') { throw 'repair_preflight_not_ready' }
 
-      - name: Install pinned Codex CLI
-        shell: bash
-        run: npm install --global @openai/codex@0.147.0
-
-      - name: Bind reviewed HEAD immediately before provider submission
+      - name: Bind reviewed HEAD immediately before local execution
         id: repair_provider_binding
-        shell: bash
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          CODEX_REPAIR_ENV_ID: ${{ vars.CODEX_REPAIR_ENV_ID }}
-          REPAIR_PROVIDER_TOKEN_PRESENT: ${{ secrets.CODEX_ACCESS_TOKEN != '' }}
+          REPAIR_PROVIDER_CLI_VERSION: ${{ steps.repair_provider_probe.outputs.cli_version }}
+          REPAIR_PROVIDER_LOGIN_STATUS: ${{ steps.repair_provider_probe.outputs.login_status }}
         run: |
-          set -euo pipefail
-          node scripts/run-protected-transition-admission-v1.mjs \
-            --repair-provider-submit-bind-file "$RUNNER_TEMP/repair-dispatch.json" | tee "$RUNNER_TEMP/repair-provider-binding.json"
-          node -e '
-            const fs = require("node:fs");
-            const result = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/repair-provider-binding.json", "utf8"));
-            if (result.next_action !== "SUBMIT_REPAIR_TASK") process.exit(1);
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `provider_branch=${result.provider_branch}\n`);
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `prompt<<PTA_REPAIR_PROMPT\n${result.prompt}\nPTA_REPAIR_PROMPT\n`);
-          '
+          $ErrorActionPreference = 'Stop'
+          $dispatchPath = Join-Path $env:RUNNER_TEMP 'repair-dispatch.json'
+          $bindingPath = Join-Path $env:RUNNER_TEMP 'repair-provider-binding.json'
+          $promptPath = Join-Path $env:RUNNER_TEMP 'repair-provider-prompt.txt'
+          node scripts/run-protected-transition-admission-v1.mjs --repair-provider-exec-bind-file $dispatchPath |
+            Tee-Object -FilePath $bindingPath
+          if ($LASTEXITCODE -ne 0) { throw 'repair_provider_binding_failed' }
+          $result = Get-Content -LiteralPath $bindingPath -Raw -Encoding utf8 | ConvertFrom-Json
+          if ($result.next_action -cne 'EXECUTE_REPAIR_AGENT') { throw 'repair_provider_not_ready' }
+          [IO.File]::WriteAllText($promptPath, [string]$result.prompt, [Text.UTF8Encoding]::new($false))
+          if ((Get-Item -LiteralPath $promptPath).Length -ne [int64]$result.provider_projection.prompt_bytes) { throw 'repair_provider_prompt_bytes_changed' }
 
-      - name: Submit one Codex Cloud repair task
-        shell: bash
-        env:
-          CODEX_ACCESS_TOKEN: ${{ secrets.CODEX_ACCESS_TOKEN }}
-          CODEX_REPAIR_ENV_ID: ${{ vars.CODEX_REPAIR_ENV_ID }}
-          REPAIR_PROVIDER_BRANCH: ${{ steps.repair_provider_binding.outputs.provider_branch }}
-          REPAIR_PROMPT: ${{ steps.repair_provider_binding.outputs.prompt }}
+      - name: Execute one local blocking repair
+        shell: pwsh
+        timeout-minutes: 20
         run: |
-          set -euo pipefail
-          printf '%s' "$REPAIR_PROMPT" |
-            env CODEX_ACCESS_TOKEN="$CODEX_ACCESS_TOKEN" \
-            codex cloud exec \
-              --env "$CODEX_REPAIR_ENV_ID" \
-              --attempts 1 \
-              --branch "$REPAIR_PROVIDER_BRANCH" \
-              - | tee "$RUNNER_TEMP/repair-provider-submission.txt"
+          $ErrorActionPreference = 'Stop'
+          $promptPath = Join-Path $env:RUNNER_TEMP 'repair-provider-prompt.txt'
+          $outputPath = Join-Path $env:RUNNER_TEMP 'repair-provider-output.jsonl'
+          $prompt = [IO.File]::ReadAllText($promptPath, [Text.UTF8Encoding]::new($false))
+          $priorOutputEncoding = $OutputEncoding
+          $OutputEncoding = [Text.UTF8Encoding]::new($false)
+          try {
+            $prompt | & codex.cmd exec --ignore-user-config --sandbox workspace-write --approve-for-me --ephemeral --json --cd $env:GITHUB_WORKSPACE - 2>&1 |
+              Tee-Object -FilePath $outputPath
+            $providerExit = $LASTEXITCODE
+          } finally {
+            $OutputEncoding = $priorOutputEncoding
+          }
+          if ($providerExit -ne 0) { throw "repair_provider_exec_failed_$providerExit" }
 
-      - name: Capture exact Codex Cloud task identity
-        id: repair_provider_task
-        shell: bash
-        run: |
-          set -euo pipefail
-          node scripts/run-protected-transition-admission-v1.mjs \
-            --repair-provider-submission-file "$RUNNER_TEMP/repair-provider-submission.txt" | tee "$RUNNER_TEMP/repair-provider-task.json"
-          node -e '
-            const fs = require("node:fs");
-            const result = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/repair-provider-task.json", "utf8"));
-            if (result.next_action !== "POLL_REPAIR_TASK") process.exit(1);
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `task_id=${result.task_id}\n`);
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `task_url=${result.task_url}\n`);
-          '
-
-      - name: Poll only the exact Codex Cloud task
-        shell: bash
-        env:
-          CODEX_ACCESS_TOKEN: ${{ secrets.CODEX_ACCESS_TOKEN }}
-          REPAIR_PROVIDER_TASK_ID: ${{ steps.repair_provider_task.outputs.task_id }}
-        run: |
-          set -euo pipefail
-          deadline=$((SECONDS + 1200))
-          while (( SECONDS < deadline )); do
-            set +e
-            env CODEX_ACCESS_TOKEN="$CODEX_ACCESS_TOKEN" \
-              codex cloud status "$REPAIR_PROVIDER_TASK_ID" > "$RUNNER_TEMP/repair-provider-status.txt"
-            provider_status_exit=$?
-            set -e
-            if (( provider_status_exit == 0 )); then
-              normalized_status_exit=0
-            else
-              normalized_status_exit=1
-            fi
-            set +e
-            provider_status_json="$(env -u CODEX_ACCESS_TOKEN node scripts/run-protected-transition-admission-v1.mjs \
-              --repair-provider-status-file "$RUNNER_TEMP/repair-provider-status.txt" \
-              --provider-status-exit "$normalized_status_exit")"
-            provider_projection_exit=$?
-            set -e
-            printf '%s\n' "$provider_status_json"
-            provider_next_action="$(printf '%s' "$provider_status_json" | node -e '
-              let raw = "";
-              process.stdin.setEncoding("utf8");
-              process.stdin.on("data", (chunk) => { raw += chunk; });
-              process.stdin.on("end", () => { process.stdout.write(JSON.parse(raw).next_action ?? "STOP"); });
-            ')"
-            if [[ "$provider_next_action" == "APPLY_REPAIR_TASK" && $provider_projection_exit -eq 0 ]]; then
-              exit 0
-            fi
-            if [[ "$provider_next_action" != "WAIT" || $provider_projection_exit -ne 0 ]]; then
-              exit 1
-            fi
-            sleep 15
-          done
-          exit 1
-
-      - name: Rebind reviewed HEAD immediately before local apply
-        shell: bash
+      - name: Rebind reviewed HEAD and project local provider completion
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          CODEX_REPAIR_ENV_ID: ${{ vars.CODEX_REPAIR_ENV_ID }}
-          REPAIR_PROVIDER_TOKEN_PRESENT: ${{ secrets.CODEX_ACCESS_TOKEN != '' }}
         run: |
-          set -euo pipefail
-          node scripts/run-protected-transition-admission-v1.mjs \
-            --repair-provider-apply-bind-file "$RUNNER_TEMP/repair-dispatch.json" \
-            --provider-binding-file "$RUNNER_TEMP/repair-provider-binding.json" | tee "$RUNNER_TEMP/repair-provider-apply-binding.json"
-          node -e '
-            const fs = require("node:fs");
-            const result = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/repair-provider-apply-binding.json", "utf8"));
-            if (result.next_action !== "APPLY_REPAIR_TASK") process.exit(1);
-          '
-
-      - name: Apply exact Codex Cloud task locally
-        shell: bash
-        env:
-          CODEX_ACCESS_TOKEN: ${{ secrets.CODEX_ACCESS_TOKEN }}
-          REPAIR_PROVIDER_TASK_ID: ${{ steps.repair_provider_task.outputs.task_id }}
-        run: |
-          set -euo pipefail
-          env CODEX_ACCESS_TOKEN="$CODEX_ACCESS_TOKEN" codex apply "$REPAIR_PROVIDER_TASK_ID"
-
-      - name: Project local provider completion
-        shell: bash
-        run: |
-          set -euo pipefail
-          printf '%s\n' '{"status":"completed","summary":"Codex Cloud task applied locally."}' > "$RUNNER_TEMP/repair-provider-result.json"
+          $ErrorActionPreference = 'Stop'
+          $dispatchPath = Join-Path $env:RUNNER_TEMP 'repair-dispatch.json'
+          $bindingPath = Join-Path $env:RUNNER_TEMP 'repair-provider-binding.json'
+          $postExecPath = Join-Path $env:RUNNER_TEMP 'repair-provider-post-exec.json'
+          node scripts/run-protected-transition-admission-v1.mjs --repair-provider-post-exec-bind-file $dispatchPath --provider-binding-file $bindingPath |
+            Tee-Object -FilePath $postExecPath
+          if ($LASTEXITCODE -ne 0) { throw 'repair_provider_post_exec_binding_failed' }
+          $result = Get-Content -LiteralPath $postExecPath -Raw -Encoding utf8 | ConvertFrom-Json
+          if ($result.next_action -cne 'PROJECT_PROVIDER_COMPLETION') { throw 'repair_provider_diff_not_ready' }
+          $providerResultPath = Join-Path $env:RUNNER_TEMP 'repair-provider-result.json'
+          [IO.File]::WriteAllText($providerResultPath, '{"status":"completed","summary":"Local ChatGPT-authenticated Codex repair completed."}', [Text.UTF8Encoding]::new($false))
 
       - name: Rebind repair paths and validation profile
         id: repair_post_agent
-        shell: bash
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
-          node scripts/run-protected-transition-admission-v1.mjs \
-            --repair-post-agent-file "$RUNNER_TEMP/repair-dispatch.json" \
-            --provider-result-file "$RUNNER_TEMP/repair-provider-result.json" | tee "$RUNNER_TEMP/repair-post-agent.json"
-          node -e '
-            const fs = require("node:fs");
-            const result = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/repair-post-agent.json", "utf8"));
-            if (result.next_action !== "VALIDATE_REPAIR") process.exit(1);
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `profile=${result.validation_profile}\n`);
-          '
+          $ErrorActionPreference = 'Stop'
+          $dispatchPath = Join-Path $env:RUNNER_TEMP 'repair-dispatch.json'
+          $providerResultPath = Join-Path $env:RUNNER_TEMP 'repair-provider-result.json'
+          $postAgentPath = Join-Path $env:RUNNER_TEMP 'repair-post-agent.json'
+          node scripts/run-protected-transition-admission-v1.mjs --repair-post-agent-file $dispatchPath --provider-result-file $providerResultPath |
+            Tee-Object -FilePath $postAgentPath
+          if ($LASTEXITCODE -ne 0) { throw 'repair_post_agent_failed' }
+          $result = Get-Content -LiteralPath $postAgentPath -Raw -Encoding utf8 | ConvertFrom-Json
+          if ($result.next_action -cne 'VALIDATE_REPAIR') { throw 'repair_validation_not_ready' }
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Value "profile=$($result.validation_profile)"
 
       - name: Run exact repair validation profile
-        shell: bash
+        shell: pwsh
         env:
           REPAIR_VALIDATION_PROFILE: ${{ steps.repair_post_agent.outputs.profile }}
         run: |
-          set -euo pipefail
-          if [[ "$REPAIR_VALIDATION_PROFILE" == "docs_only" ]]; then
+          $ErrorActionPreference = 'Stop'
+          if ($env:REPAIR_VALIDATION_PROFILE -ceq 'docs_only') {
             node scripts/test-role-execution-contracts.mjs
+            if ($LASTEXITCODE -ne 0) { throw 'role_contract_validation_failed' }
             git diff --check
-          elif [[ "$REPAIR_VALIDATION_PROFILE" == "protected_transition" ]]; then
-            focused_output="$(node scripts/test-protected-transition-admission-v1.mjs)"
-            printf '%s\n' "$focused_output"
-            [[ "$(printf '%s\n' "$focused_output" | tail -n 1)" == "protected-transition-admission-v1: 420 assertions passed" ]]
+            if ($LASTEXITCODE -ne 0) { throw 'repair_diff_check_failed' }
+          } elseif ($env:REPAIR_VALIDATION_PROFILE -ceq 'protected_transition') {
+            $focusedOutput = @(node scripts/test-protected-transition-admission-v1.mjs)
+            if ($LASTEXITCODE -ne 0) { throw 'focused_validation_failed' }
+            $focusedOutput | ForEach-Object { Write-Output $_ }
+            if ($focusedOutput[-1] -cne 'protected-transition-admission-v1: 420 assertions passed') { throw 'focused_assertion_total_invalid' }
             node scripts/test-role-execution-contracts.mjs
-            pnpm run validate:dictionary
-            pnpm test
-            pnpm run build
+            if ($LASTEXITCODE -ne 0) { throw 'role_contract_validation_failed' }
+            pnpm.cmd run validate:dictionary
+            if ($LASTEXITCODE -ne 0) { throw 'dictionary_validation_failed' }
+            pnpm.cmd test
+            if ($LASTEXITCODE -ne 0) { throw 'full_test_failed' }
+            pnpm.cmd run build
+            if ($LASTEXITCODE -ne 0) { throw 'build_failed' }
             git diff --check
-          else
-            exit 1
-          fi
+            if ($LASTEXITCODE -ne 0) { throw 'repair_diff_check_failed' }
+          } else {
+            throw 'repair_validation_profile_invalid'
+          }
 
       - name: Recheck current HEAD and prepare one commit
         id: repair_commit
-        shell: bash
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           REPAIR_VALIDATION_SUCCEEDED: "true"
         run: |
-          set -euo pipefail
-          node scripts/run-protected-transition-admission-v1.mjs \
-            --repair-commit-plan-file "$RUNNER_TEMP/repair-dispatch.json" | tee "$RUNNER_TEMP/repair-commit-plan.json"
-          node -e '
-            const fs = require("node:fs");
-            const plan = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/repair-commit-plan.json", "utf8"));
-            if (plan.next_action !== "COMMIT_AND_PUSH" || plan.force || plan.commit_count !== 1) process.exit(1);
-            fs.writeFileSync(process.env.RUNNER_TEMP + "/repair-paths.txt", `${plan.paths.join("\n")}\n`);
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `head_ref=${plan.head_ref}\n`);
-          '
-          mapfile -t repair_paths < "$RUNNER_TEMP/repair-paths.txt"
-          git add -- "${repair_paths[@]}"
-          [[ -n "$(git diff --cached --name-only)" ]]
-          [[ "$(git diff --cached --name-only | sort)" == "$(sort "$RUNNER_TEMP/repair-paths.txt")" ]]
-          git -c user.name='protected-transition-repair-v1' \
-            -c user.email='protected-transition-repair-v1@users.noreply.github.com' \
-            commit -m 'fix current protected transition blockers'
-          [[ "$(git rev-list --count HEAD^..HEAD)" == "1" ]]
-          echo "new_head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          $ErrorActionPreference = 'Stop'
+          $dispatchPath = Join-Path $env:RUNNER_TEMP 'repair-dispatch.json'
+          $planPath = Join-Path $env:RUNNER_TEMP 'repair-commit-plan.json'
+          node scripts/run-protected-transition-admission-v1.mjs --repair-commit-plan-file $dispatchPath |
+            Tee-Object -FilePath $planPath
+          if ($LASTEXITCODE -ne 0) { throw 'repair_commit_plan_failed' }
+          $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json
+          if ($plan.next_action -cne 'COMMIT_AND_PUSH' -or $plan.force -or $plan.commit_count -ne 1) { throw 'repair_commit_plan_invalid' }
+          $repairPaths = @($plan.paths)
+          git add -- $repairPaths
+          if ($LASTEXITCODE -ne 0) { throw 'repair_stage_failed' }
+          $stagedPaths = @(git diff --cached --name-only)
+          if ($stagedPaths.Count -eq 0 -or (Compare-Object ($repairPaths | Sort-Object) ($stagedPaths | Sort-Object))) { throw 'repair_staged_scope_invalid' }
+          git -c user.name='protected-transition-repair-v1' -c user.email='protected-transition-repair-v1@users.noreply.github.com' commit -m 'fix current protected transition blockers'
+          if ($LASTEXITCODE -ne 0) { throw 'repair_commit_failed' }
+          if ((git rev-list --count HEAD^..HEAD) -ne '1') { throw 'repair_commit_count_invalid' }
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Value "head_ref=$($plan.head_ref)"
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Value "new_head=$(git rev-parse HEAD)"
 
       - name: Push one normal non-force repair commit
-        shell: bash
+        shell: pwsh
         env:
           REPAIR_EXECUTOR_PUSH_TOKEN: ${{ secrets.REPAIR_EXECUTOR_PUSH_TOKEN }}
           REPAIR_HEAD_REF: ${{ steps.repair_commit.outputs.head_ref }}
         run: |
-          set -euo pipefail
-          git push --porcelain \
-            "https://x-access-token:${REPAIR_EXECUTOR_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
-            "HEAD:refs/heads/${REPAIR_HEAD_REF}"
+          $ErrorActionPreference = 'Stop'
+          git push --porcelain "https://x-access-token:$($env:REPAIR_EXECUTOR_PUSH_TOKEN)@github.com/$($env:GITHUB_REPOSITORY).git" "HEAD:refs/heads/$($env:REPAIR_HEAD_REF)"
+          if ($LASTEXITCODE -ne 0) { throw 'repair_push_failed' }
 
       - name: Rebind existing state and hand off fresh review
         id: repair_result
-        shell: bash
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           REPAIR_NEW_HEAD: ${{ steps.repair_commit.outputs.new_head }}
         run: |
-          set -euo pipefail
-          node scripts/run-protected-transition-admission-v1.mjs \
-            --repair-result-file "$RUNNER_TEMP/repair-dispatch.json" \
-            --repair-evidence-file "$RUNNER_TEMP/repair-post-agent.json" \
-            --new-head "$REPAIR_NEW_HEAD" | tee "$RUNNER_TEMP/repair-result.json"
-          node -e '
-            const fs = require("node:fs");
-            const result = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/repair-result.json", "utf8"));
-            if (result.state !== "REVIEW_PENDING" || result.reason !== "fresh_review_required" || result.next_action !== "REVIEW" || result.current_head !== process.env.REPAIR_NEW_HEAD) process.exit(1);
-            for (const [key, value] of Object.entries({
-              state: result.state,
-              reason: result.reason,
-              next_action: result.next_action,
-              task_issue_number: result.task_issue_number,
-              pr_number: result.pr_number,
-              new_head: result.current_head,
-            })) fs.appendFileSync(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
-          '
+          $ErrorActionPreference = 'Stop'
+          $dispatchPath = Join-Path $env:RUNNER_TEMP 'repair-dispatch.json'
+          $evidencePath = Join-Path $env:RUNNER_TEMP 'repair-post-agent.json'
+          $resultPath = Join-Path $env:RUNNER_TEMP 'repair-result.json'
+          node scripts/run-protected-transition-admission-v1.mjs --repair-result-file $dispatchPath --repair-evidence-file $evidencePath --new-head $env:REPAIR_NEW_HEAD |
+            Tee-Object -FilePath $resultPath
+          if ($LASTEXITCODE -ne 0) { throw 'repair_result_failed' }
+          $result = Get-Content -LiteralPath $resultPath -Raw -Encoding utf8 | ConvertFrom-Json
+          if ($result.state -cne 'REVIEW_PENDING' -or $result.reason -cne 'fresh_review_required' -or $result.next_action -cne 'REVIEW' -or $result.current_head -cne $env:REPAIR_NEW_HEAD) { throw 'repair_result_invalid' }
+          @{
+            state = $result.state
+            reason = $result.reason
+            next_action = $result.next_action
+            task_issue_number = $result.task_issue_number
+            pr_number = $result.pr_number
+            new_head = $result.current_head
+          }.GetEnumerator() | ForEach-Object {
+            Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Value "$($_.Key)=$($_.Value)"
+          }
