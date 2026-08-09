@@ -146,23 +146,40 @@ jobs:
 
       - name: Verify pinned ChatGPT-authenticated Codex CLI
         id: repair_provider_probe
-        shell: pwsh
+        shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
+          $utf8NoBom = [Text.UTF8Encoding]::new($false)
           $null = Get-Command codex.cmd -ErrorAction Stop
-          $versionOutput = @(& codex.cmd --version 2>&1)
-          $versionExit = $LASTEXITCODE
+          $priorErrorActionPreference = $ErrorActionPreference
+          try {
+            $ErrorActionPreference = 'Continue'
+            $LASTEXITCODE = $null
+            $versionOutput = [string[]]@(& codex.cmd --version 2>&1)
+            $versionExit = $LASTEXITCODE
+          } finally {
+            $ErrorActionPreference = $priorErrorActionPreference
+          }
+          $versionOutput | ForEach-Object { Write-Output $_ }
           $version = ($versionOutput -join "`n").Trim()
           if ($versionExit -ne 0 -or $version -cne 'codex-cli 0.147.0') { throw 'repair_provider_cli_version_invalid' }
-          $loginOutput = @(& codex.cmd login status 2>&1)
-          $loginExit = $LASTEXITCODE
+          $priorErrorActionPreference = $ErrorActionPreference
+          try {
+            $ErrorActionPreference = 'Continue'
+            $LASTEXITCODE = $null
+            $loginOutput = [string[]]@(& codex.cmd login status 2>&1)
+            $loginExit = $LASTEXITCODE
+          } finally {
+            $ErrorActionPreference = $priorErrorActionPreference
+          }
+          $loginOutput | ForEach-Object { Write-Output $_ }
           $loginStatus = ($loginOutput -join "`n").Trim()
           if ($loginExit -ne 0 -or $loginStatus -cne 'Logged in using ChatGPT') { throw 'repair_provider_chatgpt_login_required' }
-          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Value "cli_version=$version"
-          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Value "login_status=$loginStatus"
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "cli_version=$version$([Environment]::NewLine)", $utf8NoBom)
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "login_status=$loginStatus$([Environment]::NewLine)", $utf8NoBom)
 
       - name: Install frozen dependencies
-        shell: pwsh
+        shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
           pnpm.cmd install --frozen-lockfile
@@ -170,96 +187,167 @@ jobs:
 
       - name: Prepare current repair tuple
         id: repair_preflight
-        shell: pwsh
+        shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
           REPAIR_DISPATCH_B64: ${{ needs.protected_transition_admission_v1.outputs.repair_dispatch_b64 }}
         run: |
           $ErrorActionPreference = 'Stop'
+          $utf8NoBom = [Text.UTF8Encoding]::new($false)
           $dispatchPath = Join-Path $env:RUNNER_TEMP 'repair-dispatch.json'
           $preflightPath = Join-Path $env:RUNNER_TEMP 'repair-preflight.json'
           [IO.File]::WriteAllBytes($dispatchPath, [Convert]::FromBase64String($env:REPAIR_DISPATCH_B64))
-          node scripts/run-protected-transition-admission-v1.mjs --repair-preflight-file $dispatchPath |
-            Tee-Object -FilePath $preflightPath
-          if ($LASTEXITCODE -ne 0) { throw 'repair_preflight_failed' }
+          $priorErrorActionPreference = $ErrorActionPreference
+          $priorConsoleOutputEncoding = [Console]::OutputEncoding
+          try {
+            [Console]::OutputEncoding = $utf8NoBom
+            $ErrorActionPreference = 'Continue'
+            $LASTEXITCODE = $null
+            $preflightOutput = [string[]]@(node scripts/run-protected-transition-admission-v1.mjs --repair-preflight-file $dispatchPath 2>&1)
+            $preflightExit = $LASTEXITCODE
+          } finally {
+            [Console]::OutputEncoding = $priorConsoleOutputEncoding
+            $ErrorActionPreference = $priorErrorActionPreference
+          }
+          $preflightOutput | ForEach-Object { Write-Output $_ }
+          [IO.File]::WriteAllLines($preflightPath, [string[]]$preflightOutput, $utf8NoBom)
+          if ($preflightExit -ne 0) { throw 'repair_preflight_failed' }
+          $persistedBytes = [IO.File]::ReadAllBytes($preflightPath)
+          if (($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xff -and $persistedBytes[1] -eq 0xfe) -or ($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xfe -and $persistedBytes[1] -eq 0xff) -or ($persistedBytes.Length -ge 3 -and $persistedBytes[0] -eq 0xef -and $persistedBytes[1] -eq 0xbb -and $persistedBytes[2] -eq 0xbf)) { throw 'repair_preflight_encoding_invalid' }
           $result = Get-Content -LiteralPath $preflightPath -Raw -Encoding utf8 | ConvertFrom-Json
           if ($result.next_action -cne 'REPAIR_AGENT') { throw 'repair_preflight_not_ready' }
 
       - name: Bind reviewed HEAD immediately before local execution
         id: repair_provider_binding
-        shell: pwsh
+        shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
           REPAIR_PROVIDER_CLI_VERSION: ${{ steps.repair_provider_probe.outputs.cli_version }}
           REPAIR_PROVIDER_LOGIN_STATUS: ${{ steps.repair_provider_probe.outputs.login_status }}
         run: |
           $ErrorActionPreference = 'Stop'
+          $utf8NoBom = [Text.UTF8Encoding]::new($false)
           $dispatchPath = Join-Path $env:RUNNER_TEMP 'repair-dispatch.json'
           $bindingPath = Join-Path $env:RUNNER_TEMP 'repair-provider-binding.json'
           $promptPath = Join-Path $env:RUNNER_TEMP 'repair-provider-prompt.txt'
-          node scripts/run-protected-transition-admission-v1.mjs --repair-provider-exec-bind-file $dispatchPath |
-            Tee-Object -FilePath $bindingPath
-          if ($LASTEXITCODE -ne 0) { throw 'repair_provider_binding_failed' }
+          $priorErrorActionPreference = $ErrorActionPreference
+          $priorConsoleOutputEncoding = [Console]::OutputEncoding
+          try {
+            [Console]::OutputEncoding = $utf8NoBom
+            $ErrorActionPreference = 'Continue'
+            $LASTEXITCODE = $null
+            $bindingOutput = [string[]]@(node scripts/run-protected-transition-admission-v1.mjs --repair-provider-exec-bind-file $dispatchPath 2>&1)
+            $bindingExit = $LASTEXITCODE
+          } finally {
+            [Console]::OutputEncoding = $priorConsoleOutputEncoding
+            $ErrorActionPreference = $priorErrorActionPreference
+          }
+          $bindingOutput | ForEach-Object { Write-Output $_ }
+          [IO.File]::WriteAllLines($bindingPath, [string[]]$bindingOutput, $utf8NoBom)
+          if ($bindingExit -ne 0) { throw 'repair_provider_binding_failed' }
+          $persistedBytes = [IO.File]::ReadAllBytes($bindingPath)
+          if (($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xff -and $persistedBytes[1] -eq 0xfe) -or ($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xfe -and $persistedBytes[1] -eq 0xff) -or ($persistedBytes.Length -ge 3 -and $persistedBytes[0] -eq 0xef -and $persistedBytes[1] -eq 0xbb -and $persistedBytes[2] -eq 0xbf)) { throw 'repair_provider_binding_encoding_invalid' }
           $result = Get-Content -LiteralPath $bindingPath -Raw -Encoding utf8 | ConvertFrom-Json
           if ($result.next_action -cne 'EXECUTE_REPAIR_AGENT') { throw 'repair_provider_not_ready' }
-          [IO.File]::WriteAllText($promptPath, [string]$result.prompt, [Text.UTF8Encoding]::new($false))
+          [IO.File]::WriteAllText($promptPath, [string]$result.prompt, $utf8NoBom)
           if ((Get-Item -LiteralPath $promptPath).Length -ne [int64]$result.provider_projection.prompt_bytes) { throw 'repair_provider_prompt_bytes_changed' }
 
       - name: Execute one local blocking repair
-        shell: pwsh
+        shell: powershell
         timeout-minutes: 20
         run: |
           $ErrorActionPreference = 'Stop'
+          $utf8NoBom = [Text.UTF8Encoding]::new($false)
           $promptPath = Join-Path $env:RUNNER_TEMP 'repair-provider-prompt.txt'
           $outputPath = Join-Path $env:RUNNER_TEMP 'repair-provider-output.jsonl'
-          $prompt = [IO.File]::ReadAllText($promptPath, [Text.UTF8Encoding]::new($false))
+          $prompt = [IO.File]::ReadAllText($promptPath, $utf8NoBom)
           $priorOutputEncoding = $OutputEncoding
-          $OutputEncoding = [Text.UTF8Encoding]::new($false)
+          $priorConsoleOutputEncoding = [Console]::OutputEncoding
+          $priorErrorActionPreference = $ErrorActionPreference
           try {
-            $prompt | & codex.cmd exec --ignore-user-config --sandbox workspace-write --approve-for-me --ephemeral --json --cd $env:GITHUB_WORKSPACE - 2>&1 |
-              Tee-Object -FilePath $outputPath
+            $OutputEncoding = $utf8NoBom
+            [Console]::OutputEncoding = $utf8NoBom
+            $ErrorActionPreference = 'Continue'
+            $LASTEXITCODE = $null
+            $providerOutput = [string[]]@($prompt | & codex.cmd exec --ignore-user-config --sandbox workspace-write --approve-for-me --ephemeral --json --cd $env:GITHUB_WORKSPACE - 2>&1)
             $providerExit = $LASTEXITCODE
           } finally {
             $OutputEncoding = $priorOutputEncoding
+            [Console]::OutputEncoding = $priorConsoleOutputEncoding
+            $ErrorActionPreference = $priorErrorActionPreference
           }
+          $providerOutput | ForEach-Object { Write-Output $_ }
+          [IO.File]::WriteAllLines($outputPath, [string[]]$providerOutput, $utf8NoBom)
           if ($providerExit -ne 0) { throw "repair_provider_exec_failed_$providerExit" }
+          $persistedBytes = [IO.File]::ReadAllBytes($outputPath)
+          if (($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xff -and $persistedBytes[1] -eq 0xfe) -or ($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xfe -and $persistedBytes[1] -eq 0xff) -or ($persistedBytes.Length -ge 3 -and $persistedBytes[0] -eq 0xef -and $persistedBytes[1] -eq 0xbb -and $persistedBytes[2] -eq 0xbf)) { throw 'repair_provider_output_encoding_invalid' }
 
       - name: Rebind reviewed HEAD and project local provider completion
-        shell: pwsh
+        shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = 'Stop'
+          $utf8NoBom = [Text.UTF8Encoding]::new($false)
           $dispatchPath = Join-Path $env:RUNNER_TEMP 'repair-dispatch.json'
           $bindingPath = Join-Path $env:RUNNER_TEMP 'repair-provider-binding.json'
           $postExecPath = Join-Path $env:RUNNER_TEMP 'repair-provider-post-exec.json'
-          node scripts/run-protected-transition-admission-v1.mjs --repair-provider-post-exec-bind-file $dispatchPath --provider-binding-file $bindingPath |
-            Tee-Object -FilePath $postExecPath
-          if ($LASTEXITCODE -ne 0) { throw 'repair_provider_post_exec_binding_failed' }
+          $priorErrorActionPreference = $ErrorActionPreference
+          $priorConsoleOutputEncoding = [Console]::OutputEncoding
+          try {
+            [Console]::OutputEncoding = $utf8NoBom
+            $ErrorActionPreference = 'Continue'
+            $LASTEXITCODE = $null
+            $postExecOutput = [string[]]@(node scripts/run-protected-transition-admission-v1.mjs --repair-provider-post-exec-bind-file $dispatchPath --provider-binding-file $bindingPath 2>&1)
+            $postExecExit = $LASTEXITCODE
+          } finally {
+            [Console]::OutputEncoding = $priorConsoleOutputEncoding
+            $ErrorActionPreference = $priorErrorActionPreference
+          }
+          $postExecOutput | ForEach-Object { Write-Output $_ }
+          [IO.File]::WriteAllLines($postExecPath, [string[]]$postExecOutput, $utf8NoBom)
+          if ($postExecExit -ne 0) { throw 'repair_provider_post_exec_binding_failed' }
+          $persistedBytes = [IO.File]::ReadAllBytes($postExecPath)
+          if (($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xff -and $persistedBytes[1] -eq 0xfe) -or ($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xfe -and $persistedBytes[1] -eq 0xff) -or ($persistedBytes.Length -ge 3 -and $persistedBytes[0] -eq 0xef -and $persistedBytes[1] -eq 0xbb -and $persistedBytes[2] -eq 0xbf)) { throw 'repair_provider_post_exec_encoding_invalid' }
           $result = Get-Content -LiteralPath $postExecPath -Raw -Encoding utf8 | ConvertFrom-Json
           if ($result.next_action -cne 'PROJECT_PROVIDER_COMPLETION') { throw 'repair_provider_diff_not_ready' }
           $providerResultPath = Join-Path $env:RUNNER_TEMP 'repair-provider-result.json'
-          [IO.File]::WriteAllText($providerResultPath, '{"status":"completed","summary":"Local ChatGPT-authenticated Codex repair completed."}', [Text.UTF8Encoding]::new($false))
+          [IO.File]::WriteAllText($providerResultPath, '{"status":"completed","summary":"Local ChatGPT-authenticated Codex repair completed."}', $utf8NoBom)
 
       - name: Rebind repair paths and validation profile
         id: repair_post_agent
-        shell: pwsh
+        shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = 'Stop'
+          $utf8NoBom = [Text.UTF8Encoding]::new($false)
           $dispatchPath = Join-Path $env:RUNNER_TEMP 'repair-dispatch.json'
           $providerResultPath = Join-Path $env:RUNNER_TEMP 'repair-provider-result.json'
           $postAgentPath = Join-Path $env:RUNNER_TEMP 'repair-post-agent.json'
-          node scripts/run-protected-transition-admission-v1.mjs --repair-post-agent-file $dispatchPath --provider-result-file $providerResultPath |
-            Tee-Object -FilePath $postAgentPath
-          if ($LASTEXITCODE -ne 0) { throw 'repair_post_agent_failed' }
+          $priorErrorActionPreference = $ErrorActionPreference
+          $priorConsoleOutputEncoding = [Console]::OutputEncoding
+          try {
+            [Console]::OutputEncoding = $utf8NoBom
+            $ErrorActionPreference = 'Continue'
+            $LASTEXITCODE = $null
+            $postAgentOutput = [string[]]@(node scripts/run-protected-transition-admission-v1.mjs --repair-post-agent-file $dispatchPath --provider-result-file $providerResultPath 2>&1)
+            $postAgentExit = $LASTEXITCODE
+          } finally {
+            [Console]::OutputEncoding = $priorConsoleOutputEncoding
+            $ErrorActionPreference = $priorErrorActionPreference
+          }
+          $postAgentOutput | ForEach-Object { Write-Output $_ }
+          [IO.File]::WriteAllLines($postAgentPath, [string[]]$postAgentOutput, $utf8NoBom)
+          if ($postAgentExit -ne 0) { throw 'repair_post_agent_failed' }
+          $persistedBytes = [IO.File]::ReadAllBytes($postAgentPath)
+          if (($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xff -and $persistedBytes[1] -eq 0xfe) -or ($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xfe -and $persistedBytes[1] -eq 0xff) -or ($persistedBytes.Length -ge 3 -and $persistedBytes[0] -eq 0xef -and $persistedBytes[1] -eq 0xbb -and $persistedBytes[2] -eq 0xbf)) { throw 'repair_post_agent_encoding_invalid' }
           $result = Get-Content -LiteralPath $postAgentPath -Raw -Encoding utf8 | ConvertFrom-Json
           if ($result.next_action -cne 'VALIDATE_REPAIR') { throw 'repair_validation_not_ready' }
-          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Value "profile=$($result.validation_profile)"
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "profile=$($result.validation_profile)$([Environment]::NewLine)", $utf8NoBom)
 
       - name: Run exact repair validation profile
-        shell: pwsh
+        shell: powershell
         env:
           REPAIR_VALIDATION_PROFILE: ${{ steps.repair_post_agent.outputs.profile }}
         run: |
@@ -290,17 +378,32 @@ jobs:
 
       - name: Recheck current HEAD and prepare one commit
         id: repair_commit
-        shell: pwsh
+        shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
           REPAIR_VALIDATION_SUCCEEDED: "true"
         run: |
           $ErrorActionPreference = 'Stop'
+          $utf8NoBom = [Text.UTF8Encoding]::new($false)
           $dispatchPath = Join-Path $env:RUNNER_TEMP 'repair-dispatch.json'
           $planPath = Join-Path $env:RUNNER_TEMP 'repair-commit-plan.json'
-          node scripts/run-protected-transition-admission-v1.mjs --repair-commit-plan-file $dispatchPath |
-            Tee-Object -FilePath $planPath
-          if ($LASTEXITCODE -ne 0) { throw 'repair_commit_plan_failed' }
+          $priorErrorActionPreference = $ErrorActionPreference
+          $priorConsoleOutputEncoding = [Console]::OutputEncoding
+          try {
+            [Console]::OutputEncoding = $utf8NoBom
+            $ErrorActionPreference = 'Continue'
+            $LASTEXITCODE = $null
+            $planOutput = [string[]]@(node scripts/run-protected-transition-admission-v1.mjs --repair-commit-plan-file $dispatchPath 2>&1)
+            $planExit = $LASTEXITCODE
+          } finally {
+            [Console]::OutputEncoding = $priorConsoleOutputEncoding
+            $ErrorActionPreference = $priorErrorActionPreference
+          }
+          $planOutput | ForEach-Object { Write-Output $_ }
+          [IO.File]::WriteAllLines($planPath, [string[]]$planOutput, $utf8NoBom)
+          if ($planExit -ne 0) { throw 'repair_commit_plan_failed' }
+          $persistedBytes = [IO.File]::ReadAllBytes($planPath)
+          if (($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xff -and $persistedBytes[1] -eq 0xfe) -or ($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xfe -and $persistedBytes[1] -eq 0xff) -or ($persistedBytes.Length -ge 3 -and $persistedBytes[0] -eq 0xef -and $persistedBytes[1] -eq 0xbb -and $persistedBytes[2] -eq 0xbf)) { throw 'repair_commit_plan_encoding_invalid' }
           $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json
           if ($plan.next_action -cne 'COMMIT_AND_PUSH' -or $plan.force -or $plan.commit_count -ne 1) { throw 'repair_commit_plan_invalid' }
           $repairPaths = @($plan.paths)
@@ -311,11 +414,11 @@ jobs:
           git -c user.name='protected-transition-repair-v1' -c user.email='protected-transition-repair-v1@users.noreply.github.com' commit -m 'fix current protected transition blockers'
           if ($LASTEXITCODE -ne 0) { throw 'repair_commit_failed' }
           if ((git rev-list --count HEAD^..HEAD) -ne '1') { throw 'repair_commit_count_invalid' }
-          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Value "head_ref=$($plan.head_ref)"
-          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Value "new_head=$(git rev-parse HEAD)"
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "head_ref=$($plan.head_ref)$([Environment]::NewLine)", $utf8NoBom)
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "new_head=$(git rev-parse HEAD)$([Environment]::NewLine)", $utf8NoBom)
 
       - name: Push one normal non-force repair commit
-        shell: pwsh
+        shell: powershell
         env:
           REPAIR_EXECUTOR_PUSH_TOKEN: ${{ secrets.REPAIR_EXECUTOR_PUSH_TOKEN }}
           REPAIR_HEAD_REF: ${{ steps.repair_commit.outputs.head_ref }}
@@ -326,18 +429,33 @@ jobs:
 
       - name: Rebind existing state and hand off fresh review
         id: repair_result
-        shell: pwsh
+        shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
           REPAIR_NEW_HEAD: ${{ steps.repair_commit.outputs.new_head }}
         run: |
           $ErrorActionPreference = 'Stop'
+          $utf8NoBom = [Text.UTF8Encoding]::new($false)
           $dispatchPath = Join-Path $env:RUNNER_TEMP 'repair-dispatch.json'
           $evidencePath = Join-Path $env:RUNNER_TEMP 'repair-post-agent.json'
           $resultPath = Join-Path $env:RUNNER_TEMP 'repair-result.json'
-          node scripts/run-protected-transition-admission-v1.mjs --repair-result-file $dispatchPath --repair-evidence-file $evidencePath --new-head $env:REPAIR_NEW_HEAD |
-            Tee-Object -FilePath $resultPath
-          if ($LASTEXITCODE -ne 0) { throw 'repair_result_failed' }
+          $priorErrorActionPreference = $ErrorActionPreference
+          $priorConsoleOutputEncoding = [Console]::OutputEncoding
+          try {
+            [Console]::OutputEncoding = $utf8NoBom
+            $ErrorActionPreference = 'Continue'
+            $LASTEXITCODE = $null
+            $resultOutput = [string[]]@(node scripts/run-protected-transition-admission-v1.mjs --repair-result-file $dispatchPath --repair-evidence-file $evidencePath --new-head $env:REPAIR_NEW_HEAD 2>&1)
+            $resultExit = $LASTEXITCODE
+          } finally {
+            [Console]::OutputEncoding = $priorConsoleOutputEncoding
+            $ErrorActionPreference = $priorErrorActionPreference
+          }
+          $resultOutput | ForEach-Object { Write-Output $_ }
+          [IO.File]::WriteAllLines($resultPath, [string[]]$resultOutput, $utf8NoBom)
+          if ($resultExit -ne 0) { throw 'repair_result_failed' }
+          $persistedBytes = [IO.File]::ReadAllBytes($resultPath)
+          if (($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xff -and $persistedBytes[1] -eq 0xfe) -or ($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xfe -and $persistedBytes[1] -eq 0xff) -or ($persistedBytes.Length -ge 3 -and $persistedBytes[0] -eq 0xef -and $persistedBytes[1] -eq 0xbb -and $persistedBytes[2] -eq 0xbf)) { throw 'repair_result_encoding_invalid' }
           $result = Get-Content -LiteralPath $resultPath -Raw -Encoding utf8 | ConvertFrom-Json
           if ($result.state -cne 'REVIEW_PENDING' -or $result.reason -cne 'fresh_review_required' -or $result.next_action -cne 'REVIEW' -or $result.current_head -cne $env:REPAIR_NEW_HEAD) { throw 'repair_result_invalid' }
           @{
@@ -348,5 +466,5 @@ jobs:
             pr_number = $result.pr_number
             new_head = $result.current_head
           }.GetEnumerator() | ForEach-Object {
-            Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Value "$($_.Key)=$($_.Value)"
+            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "$($_.Key)=$($_.Value)$([Environment]::NewLine)", $utf8NoBom)
           }
