@@ -14,14 +14,18 @@ import {
   acquireChangedPathScopeV1,
   evaluateProgressionControllerV1,
   evaluateMergeAllowedAutomationV1,
+  executeRepairExecutorV1,
   executeReadyForReviewProgressionV1,
   executeReviewApprovalAutomationV1,
   executeProtectedTransitionAdmissionV1,
   extractProtectedTransitionTaskStateV1,
+  isRepairProfilePathV1,
   parseIndependentReviewDecisionProjectionV1,
   parseReviewApprovalEventV1,
   projectProtectedTransitionReviewStateV1,
+  repairWorkingTreePathsV1,
   resolveEffectiveReviewDecisionV1,
+  selectRepairValidationProfileV1,
 } from './run-protected-transition-admission-v1.mjs'
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -31,7 +35,7 @@ const PR = 260
 const HEAD = 'a'.repeat(40)
 const OTHER_HEAD = 'b'.repeat(40)
 const READY_RUN_ID = '31246327840'
-const BASE = 'bc5c745c9b772c38a68d2e49a155710212711184'
+const BASE = '5c6885a4f76712fde940e39587f3a88f9d4697a6'
 const ALLOWED = ['scripts/run-protected-transition-admission-v1.mjs', 'src/continuous-orchestration/protected-transition-admission-v1.ts']
 let assertions = 0
 
@@ -167,6 +171,7 @@ const progressionContext = (overrides = {}) => Object.freeze({
   scope: Object.freeze({ complete: true, actual_paths: Object.freeze([ALLOWED[0]]), failure_reason: null }),
   review: repairReview(),
   review_comment_id: 9002,
+  review_body: 'current blocking findings',
   effective_review_current: true,
   ...overrides,
 })
@@ -354,15 +359,14 @@ const expectedPaths = [
   '.github/workflows/protected-transition-admission-v1.yml',
   'scripts/run-protected-transition-admission-v1.mjs',
   'scripts/test-protected-transition-admission-v1.mjs',
-  'src/continuous-orchestration/protected-transition-admission-v1.ts',
 ]
-check(changedPaths.join('\n') === expectedPaths.join('\n'), 'final cumulative diff is exactly four paths')
+check(changedPaths.join('\n') === expectedPaths.join('\n'), 'Repair Executor diff is exactly three paths')
 const productionSource = `${workflowSource}\n${runnerSource}\n${coreSource}`
 check(!/(trust_root|revocation|ready_generation|producer_roster|assignment_record|finalization_binding|collector|\.jcs|upload-artifact)/i.test(productionSource), 'retired mechanisms are absent')
 check(runnerSource.includes('/comments?since=') && runnerSource.includes('pageNumber > 32'), 'runner uses bounded forward-only Review pagination')
 check(runnerSource.includes('acquireTaskIdentityV1') && runnerSource.includes('acquireChangedPathScopeV1') && runnerSource.includes('executeManualProgressionControllerV1'), 'runner owns direct Task, scope, and manual progression composition')
 check(runnerSource.includes('previous_filename') && runnerSource.includes('state_changed_during_evaluation'), 'runner checks rename and late state change')
-check(!workflowSource.includes('pnpm install') && !workflowSource.includes('actions: read') && !workflowSource.includes('upload-artifact') && !workflowSource.includes('gh workflow run'), 'workflow has no dependency install, nested dispatch, or artifact permission/persistence')
+check(workflowSource.includes('pnpm install --frozen-lockfile') && !workflowSource.includes('actions: read') && !workflowSource.includes('upload-artifact') && !workflowSource.includes('gh workflow run'), 'workflow uses frozen repair dependencies without nested dispatch or artifact permission/persistence')
 check(coreSource.includes('export const evaluateProtectedTransitionAdmissionV1') && !/\b(fetch|writeFile|execFile)\b/.test(coreSource), 'one pure evaluator owns classification')
 
 const reviewDecisionBody = (overrides = {}, extraLines = []) => {
@@ -1116,7 +1120,7 @@ check(!finalHeadDriftResult.allowed && !finalStateDriftResult.allowed, 'post-sna
 const retryGate = automationHost({ initialState: approvedState() })
 const retryGateFirst = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: retryGate.host })
 const retryGateSecond = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: retryGate.host })
-const taskChangedPaths = execFileSync('git', ['diff', '--name-only', 'd39c58329eb8e0b52aabc831be024b940b6d41df'], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
+const taskChangedPaths = execFileSync('git', ['diff', '--name-only', BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
 check(JSON.stringify(retryGateFirst) === JSON.stringify(retryGateSecond), 'identical retry converges to the same result')
 check(retryGate.metrics.patchCalls === 0 && retryGate.metrics.pullReads === 6 && retryGate.metrics.fileReads === 2 && retryGate.metrics.checkReads === 4 && retryGate.metrics.threadReads === 2, 'identical retry remains read-only')
 check(taskChangedPaths.join('\n') === ['.github/workflows/protected-transition-admission-v1.yml', 'scripts/run-protected-transition-admission-v1.mjs', 'scripts/test-protected-transition-admission-v1.mjs'].join('\n'), 'current Task diff is exactly three paths')
@@ -1299,5 +1303,216 @@ check(postAdmissionStateDriftResult.state === 'INDETERMINATE' && postAdmissionSt
 check(postAdmissionStateDriftResult.allowed === false && postAdmissionStateDriftResult.next_action === 'STOP', 'post-admission state drift cannot advance')
 check(postAdmissionStateDriftGate.metrics.checkReads === 0 && postAdmissionStateDriftGate.metrics.threadReads === 0, 'post-admission state drift stops before terminal acquisition')
 
-if (assertions !== 336) throw new Error(`expected exactly 336 assertions, observed ${assertions}`)
+const REPAIR_PATHS = Object.freeze([
+  '.github/workflows/protected-transition-admission-v1.yml',
+  'scripts/run-protected-transition-admission-v1.mjs',
+  'scripts/test-protected-transition-admission-v1.mjs',
+])
+const repairDispatch = (overrides = {}) => Object.freeze({
+  repository: REPOSITORY,
+  task_issue_number: TASK,
+  pr_number: PR,
+  exact_head: HEAD,
+  review_decision_url: `https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-9002`,
+  review_body: 'current blocking findings',
+  authorized_paths: [...REPAIR_PATHS],
+  next_action: 'REPAIR_EXECUTOR',
+  instruction: 'Fix current blocking findings only; use current authorized_paths; stop on Architecture gap; run focused validation.',
+  ...overrides,
+})
+const repairTaskState = (overrides = {}) => state({
+  authorized_paths: [...REPAIR_PATHS],
+  review_status: 'CHANGES_REQUIRED',
+  reviewed_head: HEAD,
+  review_blocker_count: 1,
+  ...overrides,
+})
+const repairPull = ({ head = HEAD, headRepository = REPOSITORY, headRef = 'codex/repair', paths = REPAIR_PATHS, body = stateBlock(repairTaskState()) } = {}) => ({
+  number: PR,
+  state: 'open',
+  base: { repo: { full_name: REPOSITORY } },
+  head: { sha: head, ref: headRef, repo: { full_name: headRepository } },
+  body,
+  changed_files: paths.length,
+})
+const repairHost = ({ head = HEAD, remoteHead = head, headRepository = REPOSITORY, paths = REPAIR_PATHS, body = stateBlock(repairTaskState()) } = {}) => {
+  const metrics = { pullReads: 0, fileReads: 0, branchReads: 0, patches: 0 }
+  let currentBody = body
+  const host = {
+    api: async (endpoint, options) => {
+      if (endpoint === `repos/${REPOSITORY}/pulls/${PR}`) {
+        if (options?.method === 'PATCH') {
+          metrics.patches += 1
+          currentBody = options.body.body
+        } else {
+          metrics.pullReads += 1
+        }
+        return repairPull({ head, headRepository, paths, body: currentBody })
+      }
+      if (endpoint.includes(`/pulls/${PR}/files?`)) {
+        metrics.fileReads += 1
+        const page = Number(new URL(`https://api.github.com/${endpoint}`).searchParams.get('page'))
+        return page === 1 ? paths.map((filename) => ({ filename, status: 'modified' })) : []
+      }
+      throw new Error(`unexpected repair endpoint: ${endpoint}`)
+    },
+    branchHead: async () => {
+      metrics.branchReads += 1
+      return remoteHead
+    },
+  }
+  return Object.freeze({ host, metrics, currentBody: () => currentBody })
+}
+
+const validRepair = repairHost()
+const preflightResult = await executeRepairExecutorV1({ phase: 'preflight', dispatch: repairDispatch(), host: validRepair.host })
+const approveNoRepair = evaluateProgressionControllerV1(progressionResult(), progressionContext({ review: repairReview({ decision: 'APPROVE', blocking_finding_count: 0, remaining_finding_count: 0 }) }))
+const staleRepair = repairHost({ head: OTHER_HEAD })
+const staleRepairResult = await executeRepairExecutorV1({ phase: 'preflight', dispatch: repairDispatch(), host: staleRepair.host })
+const unknownNoRepair = evaluateProgressionControllerV1(progressionResult(), progressionContext({ review: repairReview({ unknown_count: 1 }) }))
+const overflowRepair = repairHost({ paths: [...REPAIR_PATHS, 'outside.ts'] })
+const overflowRepairResult = await executeRepairExecutorV1({ phase: 'preflight', dispatch: repairDispatch(), host: overflowRepair.host })
+const forkRepair = repairHost({ headRepository: 'fork/repository' })
+const forkRepairResult = await executeRepairExecutorV1({ phase: 'preflight', dispatch: repairDispatch(), host: forkRepair.host })
+const docsProfile = selectRepairValidationProfileV1({
+  authorizedPaths: ['docs/a.md'],
+  currentPaths: ['docs/a.md'],
+  repairPaths: ['docs/a.md'],
+})
+const controls = ['\t', '\n', '\r', String.fromCodePoint(0x1F), String.fromCodePoint(0x7F)]
+const controlMatrixRejected = controls.every((control) =>
+  ['authorizedPaths', 'currentPaths', 'repairPaths'].every((position) => {
+    const values = { authorizedPaths: ['docs/a.md'], currentPaths: ['docs/a.md'], repairPaths: ['docs/a.md'] }
+    values[position] = [`docs/a${control}.md`]
+    return selectRepairValidationProfileV1(values).reason === 'repair_validation_profile_architecture_gap'
+  }))
+const protectedProfile = selectRepairValidationProfileV1({
+  authorizedPaths: REPAIR_PATHS,
+  currentPaths: REPAIR_PATHS,
+  repairPaths: REPAIR_PATHS,
+})
+const protectedNearName = selectRepairValidationProfileV1({
+  authorizedPaths: [...REPAIR_PATHS, 'scripts/test-protected-transition-admission-v1.mjs.bak'],
+  currentPaths: REPAIR_PATHS,
+  repairPaths: REPAIR_PATHS,
+})
+const zeroProfile = selectRepairValidationProfileV1({ authorizedPaths: [], currentPaths: [], repairPaths: [] })
+const mixedProfile = selectRepairValidationProfileV1({
+  authorizedPaths: ['docs/a.md', REPAIR_PATHS[0]],
+  currentPaths: ['docs/a.md'],
+  repairPaths: ['docs/a.md'],
+})
+const duplicateProfile = selectRepairValidationProfileV1({
+  authorizedPaths: [REPAIR_PATHS[0], REPAIR_PATHS[0]],
+  currentPaths: [REPAIR_PATHS[0]],
+  repairPaths: [REPAIR_PATHS[0]],
+})
+const postAgentAllowedHost = repairHost()
+const postAgentAllowed = await executeRepairExecutorV1({
+  phase: 'post_agent',
+  dispatch: repairDispatch(),
+  providerResult: { status: 'completed', summary: 'repaired current findings' },
+  repairPaths: REPAIR_PATHS,
+  host: postAgentAllowedHost.host,
+})
+const postAgentEscapeHost = repairHost()
+const postAgentEscape = await executeRepairExecutorV1({
+  phase: 'post_agent',
+  dispatch: repairDispatch(),
+  providerResult: { status: 'completed', summary: 'repaired current findings' },
+  repairPaths: [...REPAIR_PATHS, 'outside.ts'],
+  host: postAgentEscapeHost.host,
+})
+const postAgentEmptyHost = repairHost()
+const postAgentEmpty = await executeRepairExecutorV1({
+  phase: 'post_agent',
+  dispatch: repairDispatch(),
+  providerResult: { status: 'completed', summary: 'no change' },
+  repairPaths: [],
+  host: postAgentEmptyHost.host,
+})
+const malformedProviderHost = repairHost()
+const malformedProvider = await executeRepairExecutorV1({
+  phase: 'post_agent',
+  dispatch: repairDispatch(),
+  providerResult: { status: 'failed', summary: '' },
+  repairPaths: REPAIR_PATHS,
+  host: malformedProviderHost.host,
+})
+const validationFailureHost = repairHost()
+const validationFailure = await executeRepairExecutorV1({
+  phase: 'commit_plan', dispatch: repairDispatch(), repairPaths: REPAIR_PATHS, validationSucceeded: false, host: validationFailureHost.host,
+})
+const commitHeadDriftHost = repairHost({ head: OTHER_HEAD })
+const commitHeadDrift = await executeRepairExecutorV1({
+  phase: 'commit_plan', dispatch: repairDispatch(), repairPaths: REPAIR_PATHS, validationSucceeded: true, host: commitHeadDriftHost.host,
+})
+const localHeadCommands = []
+const localHeadDriftError = await errorOf(async () => repairWorkingTreePathsV1(HEAD, (args) => {
+  localHeadCommands.push(args.join(' '))
+  if (args[0] === 'rev-parse') return `${OTHER_HEAD}\n`
+  throw new Error('downstream_git_command_reached')
+}))
+const remoteDriftHost = repairHost({ remoteHead: OTHER_HEAD })
+const remoteDrift = await executeRepairExecutorV1({
+  phase: 'commit_plan', dispatch: repairDispatch(), repairPaths: REPAIR_PATHS, validationSucceeded: true, host: remoteDriftHost.host,
+})
+const commitPlanHost = repairHost()
+const commitPlan = await executeRepairExecutorV1({
+  phase: 'commit_plan', dispatch: repairDispatch(), repairPaths: REPAIR_PATHS, validationSucceeded: true, host: commitPlanHost.host,
+})
+const completedHost = repairHost({
+  head: OTHER_HEAD,
+  remoteHead: OTHER_HEAD,
+  body: stateBlock(repairTaskState()),
+})
+const completedRepair = await executeRepairExecutorV1({
+  phase: 'complete',
+  dispatch: repairDispatch(),
+  newHead: OTHER_HEAD,
+  repairPaths: REPAIR_PATHS,
+  validationProfile: 'protected_transition',
+  headRef: 'codex/repair',
+  host: completedHost.host,
+})
+const reboundState = extractProtectedTransitionTaskStateV1(completedHost.currentBody())
+const completedRepairRetry = await executeRepairExecutorV1({
+  phase: 'complete',
+  dispatch: repairDispatch(),
+  newHead: OTHER_HEAD,
+  repairPaths: REPAIR_PATHS,
+  validationProfile: 'protected_transition',
+  headRef: 'codex/repair',
+  host: completedHost.host,
+})
+// Twenty fixed Repair Executor units x three assertions = 60.
+const repairUnits = [
+  { name: 'current CHANGES_REQUIRED dispatch', result: preflightResult, reason: 'repair_preflight_satisfied', next: 'REPAIR_AGENT', evidence: (value) => value.validation_profile === 'protected_transition' && value.prompt === `${repairDispatch().instruction}\n\nCurrent authorized_paths:\n${JSON.stringify([...REPAIR_PATHS].sort())}\n\nCurrent review decision:\ncurrent blocking findings` },
+  { name: 'APPROVE does not repair', result: approveNoRepair, reason: 'review_not_approved', next: 'STOP', evidence: (value) => !('repair_dispatch' in value) },
+  { name: 'stale HEAD', result: staleRepairResult, reason: 'repair_pull_binding_invalid', next: 'STOP', evidence: () => staleRepair.metrics.fileReads === 0 },
+  { name: 'UNKNOWN review', result: unknownNoRepair, reason: 'repair_review_unknown', next: 'STOP', evidence: (value) => !('repair_dispatch' in value) },
+  { name: 'current PR scope overflow', result: overflowRepairResult, reason: 'repair_validation_profile_architecture_gap', next: 'STOP', evidence: () => overflowRepair.metrics.branchReads === 0 },
+  { name: 'fork PR', result: forkRepairResult, reason: 'repair_pull_binding_invalid', next: 'STOP', evidence: () => forkRepair.metrics.fileReads === 0 },
+  { name: 'docs profile and control matrix', result: docsProfile, reason: undefined, next: undefined, evidence: (value) => value.name === 'docs_only' && value.commands.join('|') === 'node scripts/test-role-execution-contracts.mjs|git diff --check' && controlMatrixRejected },
+  { name: 'protected profile and near-name rejection', result: protectedProfile, reason: undefined, next: undefined, evidence: (value) => value.name === 'protected_transition' && value.commands.length === 6 && protectedNearName.next_action === 'STOP' && REPAIR_PATHS.every(isRepairProfilePathV1) },
+  { name: 'zero or mixed profile', result: zeroProfile, reason: 'repair_validation_profile_architecture_gap', next: 'STOP', evidence: () => mixedProfile.reason === 'repair_validation_profile_architecture_gap' },
+  { name: 'duplicate tuple and handoff convergence', result: duplicateProfile, reason: 'repair_validation_profile_architecture_gap', next: 'STOP', evidence: (value) => value.detail === 'authorized_paths_duplicate' && completedRepairRetry.reason === completedRepair.reason && completedRepairRetry.current_head === completedRepair.current_head },
+  { name: 'allowed post-agent diff', result: postAgentAllowed, reason: 'repair_post_agent_satisfied', next: 'VALIDATE_REPAIR', evidence: (value) => value.repair_paths.join('|') === [...REPAIR_PATHS].sort().join('|') },
+  { name: 'post-agent scope escape', result: postAgentEscape, reason: 'repair_validation_profile_architecture_gap', next: 'STOP', evidence: () => postAgentEscapeHost.metrics.branchReads === 0 },
+  { name: 'empty post-agent diff', result: postAgentEmpty, reason: 'repair_validation_profile_architecture_gap', next: 'STOP', evidence: (value) => value.detail === 'repair_paths_invalid' },
+  { name: 'malformed provider result', result: malformedProvider, reason: 'repair_provider_result_invalid', next: 'STOP', evidence: () => malformedProviderHost.metrics.pullReads === 0 },
+  { name: 'focused validation failure', result: validationFailure, reason: 'repair_validation_failed', next: 'STOP', evidence: () => validationFailureHost.metrics.pullReads === 0 },
+  { name: 'PR or local HEAD drift before commit', result: commitHeadDrift, reason: 'repair_pull_binding_invalid', next: 'STOP', evidence: () => commitHeadDriftHost.metrics.branchReads === 0 && localHeadDriftError?.message === 'repair_worktree_head_changed' && localHeadCommands.join('|') === 'rev-parse --verify HEAD' && runnerSource.split('repairWorkingTreePathsV1(readJsonFileV1(invocation.dispatchFile).exact_head)').length === 3 },
+  { name: 'remote branch drift before push', result: remoteDrift, reason: 'repair_remote_head_changed', next: 'STOP', evidence: () => remoteDriftHost.metrics.branchReads === 1 },
+  { name: 'one normal commit plan', result: commitPlan, reason: 'repair_commit_plan_satisfied', next: 'COMMIT_AND_PUSH', evidence: (value) => value.commit_count === 1 && value.force === false && workflowSource.split('openai/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56').length === 2 },
+  { name: 'post-push exact HEAD', result: completedRepair, reason: 'fresh_review_required', next: 'REVIEW', evidence: (value) => value.current_head === OTHER_HEAD && value.validation_profile === 'protected_transition' && completedHost.metrics.branchReads === 2 },
+  { name: 'PENDING rebind and fresh review handoff', result: completedRepair, reason: 'fresh_review_required', next: 'REVIEW', evidence: (value) => value.automation_status === 'HANDOFF_READY' && value.repair_paths.length === 3 && reboundState.observed_head === OTHER_HEAD && reboundState.review_status === 'PENDING' && reboundState.reviewed_head === null && reboundState.review_blocker_count === null && completedHost.metrics.patches === 1 },
+]
+for (const unit of repairUnits) {
+  check(unit.result.reason === unit.reason, `${unit.name} reason`)
+  check(unit.result.next_action === unit.next, `${unit.name} next action`)
+  check(unit.evidence(unit.result), `${unit.name} exact evidence`)
+}
+
+if (assertions !== 396) throw new Error(`expected exactly 396 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

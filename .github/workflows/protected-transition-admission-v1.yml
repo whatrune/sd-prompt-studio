@@ -47,6 +47,10 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       PTA_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+    outputs:
+      repair_dispatch_b64: ${{ steps.evaluate.outputs.repair_dispatch_b64 }}
+      repair_exact_head: ${{ steps.evaluate.outputs.repair_exact_head }}
+      repair_next_action: ${{ steps.evaluate.outputs.repair_next_action }}
     steps:
       - name: Admit exact default-branch host identity
         shell: bash
@@ -80,6 +84,7 @@ jobs:
           node-version: "24"
 
       - name: Evaluate protected transition admission
+        id: evaluate
         shell: bash
         env:
           PTA_EVENT_NAME: ${{ github.event_name }}
@@ -90,16 +95,192 @@ jobs:
           PTA_INPUT_EXACT_HEAD: ${{ inputs.exact_head }}
         run: |
           set -euo pipefail
+          result_file="$(mktemp)"
           if [[ "$PTA_EVENT_NAME" == "issue_comment" ]]; then
             node scripts/run-protected-transition-admission-v1.mjs \
-              --review-event-file "$PTA_EVENT_PATH"
+              --review-event-file "$PTA_EVENT_PATH" | tee "$result_file"
           elif [[ "$PTA_EVENT_NAME" == "pull_request" ]]; then
             node scripts/run-protected-transition-admission-v1.mjs \
-              --ready-event-file "$PTA_EVENT_PATH"
+              --ready-event-file "$PTA_EVENT_PATH" | tee "$result_file"
           else
             node scripts/run-protected-transition-admission-v1.mjs \
               --transition "$PTA_INPUT_TRANSITION" \
               --task-issue-number "$PTA_INPUT_TASK_ISSUE_NUMBER" \
               --pr-number "$PTA_INPUT_PR_NUMBER" \
-              --exact-head "$PTA_INPUT_EXACT_HEAD"
+              --exact-head "$PTA_INPUT_EXACT_HEAD" | tee "$result_file"
           fi
+          node -e '
+            const fs = require("node:fs");
+            const result = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            const output = process.env.GITHUB_OUTPUT;
+            fs.appendFileSync(output, `repair_next_action=${result.next_action ?? "NONE"}\n`);
+            if (result.next_action === "REPAIR_EXECUTOR") {
+              fs.appendFileSync(output, `repair_exact_head=${result.repair_dispatch.exact_head}\n`);
+              fs.appendFileSync(output, `repair_dispatch_b64=${Buffer.from(JSON.stringify(result.repair_dispatch)).toString("base64")}\n`);
+            }
+          ' "$result_file"
+
+  protected_transition_repair_executor_v1:
+    needs: protected_transition_admission_v1
+    if: needs.protected_transition_admission_v1.outputs.repair_next_action == 'REPAIR_EXECUTOR'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      state: ${{ steps.repair_result.outputs.state }}
+      reason: ${{ steps.repair_result.outputs.reason }}
+      next_action: ${{ steps.repair_result.outputs.next_action }}
+      task_issue_number: ${{ steps.repair_result.outputs.task_issue_number }}
+      pr_number: ${{ steps.repair_result.outputs.pr_number }}
+      new_head: ${{ steps.repair_result.outputs.new_head }}
+    steps:
+      - name: Checkout exact repair HEAD
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ needs.protected_transition_admission_v1.outputs.repair_exact_head }}
+          persist-credentials: false
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24"
+
+      - name: Install frozen dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          pnpm install --frozen-lockfile
+
+      - name: Prepare current repair tuple
+        id: repair_preflight
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPAIR_DISPATCH_B64: ${{ needs.protected_transition_admission_v1.outputs.repair_dispatch_b64 }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$REPAIR_DISPATCH_B64" | base64 --decode > "$RUNNER_TEMP/repair-dispatch.json"
+          node scripts/run-protected-transition-admission-v1.mjs \
+            --repair-preflight-file "$RUNNER_TEMP/repair-dispatch.json" | tee "$RUNNER_TEMP/repair-preflight.json"
+          node -e '
+            const fs = require("node:fs");
+            const result = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/repair-preflight.json", "utf8"));
+            if (result.next_action !== "REPAIR_AGENT") process.exit(1);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `prompt<<PTA_REPAIR_PROMPT\n${result.prompt}\nPTA_REPAIR_PROMPT\n`);
+          '
+
+      - name: Execute current blocking repair
+        id: repair_agent
+        uses: openai/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt: ${{ steps.repair_preflight.outputs.prompt }}
+          output-file: ${{ runner.temp }}/repair-provider-result.json
+          output-schema: '{"type":"object","additionalProperties":false,"required":["status","summary"],"properties":{"status":{"type":"string","const":"completed"},"summary":{"type":"string","minLength":1}}}'
+          working-directory: ${{ github.workspace }}
+          sandbox: workspace-write
+          safety-strategy: drop-sudo
+          codex-version: 0.147.0
+
+      - name: Rebind repair paths and validation profile
+        id: repair_post_agent
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node scripts/run-protected-transition-admission-v1.mjs \
+            --repair-post-agent-file "$RUNNER_TEMP/repair-dispatch.json" \
+            --provider-result-file "$RUNNER_TEMP/repair-provider-result.json" | tee "$RUNNER_TEMP/repair-post-agent.json"
+          node -e '
+            const fs = require("node:fs");
+            const result = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/repair-post-agent.json", "utf8"));
+            if (result.next_action !== "VALIDATE_REPAIR") process.exit(1);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `profile=${result.validation_profile}\n`);
+          '
+
+      - name: Run exact repair validation profile
+        shell: bash
+        env:
+          REPAIR_VALIDATION_PROFILE: ${{ steps.repair_post_agent.outputs.profile }}
+        run: |
+          set -euo pipefail
+          if [[ "$REPAIR_VALIDATION_PROFILE" == "docs_only" ]]; then
+            node scripts/test-role-execution-contracts.mjs
+            git diff --check
+          elif [[ "$REPAIR_VALIDATION_PROFILE" == "protected_transition" ]]; then
+            focused_output="$(node scripts/test-protected-transition-admission-v1.mjs)"
+            printf '%s\n' "$focused_output"
+            [[ "$(printf '%s\n' "$focused_output" | tail -n 1)" == "protected-transition-admission-v1: 396 assertions passed" ]]
+            node scripts/test-role-execution-contracts.mjs
+            pnpm run validate:dictionary
+            pnpm test
+            pnpm run build
+            git diff --check
+          else
+            exit 1
+          fi
+
+      - name: Recheck current HEAD and prepare one commit
+        id: repair_commit
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPAIR_VALIDATION_SUCCEEDED: "true"
+        run: |
+          set -euo pipefail
+          node scripts/run-protected-transition-admission-v1.mjs \
+            --repair-commit-plan-file "$RUNNER_TEMP/repair-dispatch.json" | tee "$RUNNER_TEMP/repair-commit-plan.json"
+          node -e '
+            const fs = require("node:fs");
+            const plan = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/repair-commit-plan.json", "utf8"));
+            if (plan.next_action !== "COMMIT_AND_PUSH" || plan.force || plan.commit_count !== 1) process.exit(1);
+            fs.writeFileSync(process.env.RUNNER_TEMP + "/repair-paths.txt", `${plan.paths.join("\n")}\n`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `head_ref=${plan.head_ref}\n`);
+          '
+          mapfile -t repair_paths < "$RUNNER_TEMP/repair-paths.txt"
+          git add -- "${repair_paths[@]}"
+          [[ -n "$(git diff --cached --name-only)" ]]
+          [[ "$(git diff --cached --name-only | sort)" == "$(sort "$RUNNER_TEMP/repair-paths.txt")" ]]
+          git -c user.name='protected-transition-repair-v1' \
+            -c user.email='protected-transition-repair-v1@users.noreply.github.com' \
+            commit -m 'fix current protected transition blockers'
+          [[ "$(git rev-list --count HEAD^..HEAD)" == "1" ]]
+          echo "new_head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Push one normal non-force repair commit
+        shell: bash
+        env:
+          REPAIR_EXECUTOR_PUSH_TOKEN: ${{ secrets.REPAIR_EXECUTOR_PUSH_TOKEN }}
+          REPAIR_HEAD_REF: ${{ steps.repair_commit.outputs.head_ref }}
+        run: |
+          set -euo pipefail
+          git push --porcelain \
+            "https://x-access-token:${REPAIR_EXECUTOR_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            "HEAD:refs/heads/${REPAIR_HEAD_REF}"
+
+      - name: Rebind existing state and hand off fresh review
+        id: repair_result
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPAIR_NEW_HEAD: ${{ steps.repair_commit.outputs.new_head }}
+        run: |
+          set -euo pipefail
+          node scripts/run-protected-transition-admission-v1.mjs \
+            --repair-result-file "$RUNNER_TEMP/repair-dispatch.json" \
+            --repair-evidence-file "$RUNNER_TEMP/repair-post-agent.json" \
+            --new-head "$REPAIR_NEW_HEAD" | tee "$RUNNER_TEMP/repair-result.json"
+          node -e '
+            const fs = require("node:fs");
+            const result = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/repair-result.json", "utf8"));
+            if (result.state !== "REVIEW_PENDING" || result.reason !== "fresh_review_required" || result.next_action !== "REVIEW" || result.current_head !== process.env.REPAIR_NEW_HEAD) process.exit(1);
+            for (const [key, value] of Object.entries({
+              state: result.state,
+              reason: result.reason,
+              next_action: result.next_action,
+              task_issue_number: result.task_issue_number,
+              pr_number: result.pr_number,
+              new_head: result.current_head,
+            })) fs.appendFileSync(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
+          '

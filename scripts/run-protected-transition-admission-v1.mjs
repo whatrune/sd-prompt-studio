@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -23,6 +24,27 @@ const REVIEW_AUTHORING_ROLE = 'Independent Reviewer'
 const REVIEW_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 const STRICT_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/
 const REPAIR_EXECUTOR_INSTRUCTION = 'Fix current blocking findings only; use current authorized_paths; stop on Architecture gap; run focused validation.'
+const REPAIR_COMMIT_MESSAGE = 'fix current protected transition blockers'
+const PROTECTED_TRANSITION_REPAIR_PATHS_V1 = Object.freeze([
+  '.github/workflows/protected-transition-admission-v1.yml',
+  'scripts/run-protected-transition-admission-v1.mjs',
+  'scripts/test-protected-transition-admission-v1.mjs',
+  'src/continuous-orchestration/protected-transition-admission-v1.ts',
+])
+const REPAIR_VALIDATION_COMMANDS_V1 = Object.freeze({
+  docs_only: Object.freeze([
+    'node scripts/test-role-execution-contracts.mjs',
+    'git diff --check',
+  ]),
+  protected_transition: Object.freeze([
+    'node scripts/test-protected-transition-admission-v1.mjs',
+    'node scripts/test-role-execution-contracts.mjs',
+    'pnpm run validate:dictionary',
+    'pnpm test',
+    'pnpm run build',
+    'git diff --check',
+  ]),
+})
 const MERGE_CHECKS_QUERY = `
 query MergeAllowedChecks($owner: String!, $name: String!, $pr: Int!, $head: GitObjectID!, $after: String) {
   repository(owner: $owner, name: $name) {
@@ -709,7 +731,9 @@ export const projectRepairExecutorDispatchV1 = (currentContext) => {
     !positiveInteger(request.prNumber) ||
     !FULL_HEAD.test(request.exactHead ?? '') ||
     currentContext?.effective_review_current !== true ||
-    !positiveInteger(commentId)
+    !positiveInteger(commentId) ||
+    typeof currentContext?.review_body !== 'string' ||
+    currentContext.review_body.length === 0
   ) {
     throw new Error('repair_current_tuple_invalid')
   }
@@ -754,10 +778,291 @@ export const projectRepairExecutorDispatchV1 = (currentContext) => {
     pr_number: request.prNumber,
     exact_head: request.exactHead,
     review_decision_url: `https://github.com/${request.repository}/issues/${request.taskIssueNumber}#issuecomment-${commentId}`,
+    review_body: currentContext.review_body,
     authorized_paths: Object.freeze([...taskState.authorized_paths]),
     next_action: 'REPAIR_EXECUTOR',
     instruction: REPAIR_EXECUTOR_INSTRUCTION,
   })
+}
+
+const isRepairProfileControlV1 = (character) => {
+  const codePoint = character.codePointAt(0)
+  return codePoint <= 0x1F || codePoint === 0x7F
+}
+
+export const isRepairProfilePathV1 = (value) =>
+  isNormalizedRepositoryPathV1(value) &&
+  !Array.from(value).some(isRepairProfileControlV1)
+
+const repairArchitectureGapV1 = (detail) => Object.freeze({
+  state: 'INDETERMINATE',
+  allowed: false,
+  exit_code: 1,
+  reason: 'repair_validation_profile_architecture_gap',
+  detail,
+  automation_status: 'BLOCKED',
+  next_action: 'STOP',
+})
+
+const repairPathSetV1 = (value, label) => {
+  if (!Array.isArray(value) || value.length === 0 || value.some((item) => !isRepairProfilePathV1(item))) {
+    throw new Error(`${label}_invalid`)
+  }
+  if (new Set(value).size !== value.length) throw new Error(`${label}_duplicate`)
+  return Object.freeze([...value].sort())
+}
+
+export const selectRepairValidationProfileV1 = ({ authorizedPaths, currentPaths, repairPaths = currentPaths }) => {
+  try {
+    const authorized = repairPathSetV1(authorizedPaths, 'authorized_paths')
+    const current = repairPathSetV1(currentPaths, 'current_paths')
+    const repair = repairPathSetV1(repairPaths, 'repair_paths')
+    const authorizedSet = new Set(authorized)
+    if (current.some((item) => !authorizedSet.has(item)) || repair.some((item) => !authorizedSet.has(item))) {
+      throw new Error('repair_scope_outside_authorized_paths')
+    }
+    const allPaths = [...authorized, ...current, ...repair]
+    const docsOnly = allPaths.every((item) => item.startsWith('docs/') && item.endsWith('.md'))
+    const protectedPaths = new Set(PROTECTED_TRANSITION_REPAIR_PATHS_V1)
+    const protectedTransition = allPaths.every((item) => protectedPaths.has(item))
+    const profiles = [
+      ...(docsOnly ? ['docs_only'] : []),
+      ...(protectedTransition ? ['protected_transition'] : []),
+    ]
+    if (profiles.length !== 1) throw new Error('profile_cardinality_invalid')
+    const name = profiles[0]
+    return Object.freeze({
+      name,
+      commands: REPAIR_VALIDATION_COMMANDS_V1[name],
+      authorized_paths: authorized,
+      current_paths: current,
+      repair_paths: repair,
+    })
+  } catch (error) {
+    return repairArchitectureGapV1(error instanceof Error ? error.message : 'profile_selection_failed')
+  }
+}
+
+const validateRepairDispatchV1 = (dispatch) => {
+  if (
+    !dispatch ||
+    !REPOSITORY.test(dispatch.repository ?? '') ||
+    !positiveInteger(dispatch.task_issue_number) ||
+    !positiveInteger(dispatch.pr_number) ||
+    !FULL_HEAD.test(dispatch.exact_head ?? '') ||
+    typeof dispatch.review_decision_url !== 'string' ||
+    typeof dispatch.review_body !== 'string' ||
+    dispatch.review_body.length === 0 ||
+    dispatch.next_action !== 'REPAIR_EXECUTOR' ||
+    dispatch.instruction !== REPAIR_EXECUTOR_INSTRUCTION
+  ) {
+    throw new Error('repair_dispatch_invalid')
+  }
+  repairPathSetV1(dispatch.authorized_paths, 'authorized_paths')
+  return dispatch
+}
+
+const validateRepairPullV1 = (dispatch, pull, expectedHead = dispatch.exact_head) => {
+  if (
+    pull?.number !== dispatch.pr_number ||
+    pull.state !== 'open' ||
+    pull.base?.repo?.full_name !== dispatch.repository ||
+    pull.head?.repo?.full_name !== dispatch.repository ||
+    pull.head?.sha !== expectedHead ||
+    typeof pull.head?.ref !== 'string' ||
+    pull.head.ref.length === 0 ||
+    !Number.isSafeInteger(pull.changed_files) ||
+    pull.changed_files < 0
+  ) {
+    throw new Error('repair_pull_binding_invalid')
+  }
+  return pull
+}
+
+const repairRequestV1 = (dispatch, exactHead = dispatch.exact_head) => Object.freeze({
+  transition: 'merge_decision_admission',
+  repository: dispatch.repository,
+  taskIssueNumber: dispatch.task_issue_number,
+  prNumber: dispatch.pr_number,
+  exactHead,
+})
+
+export const executeRepairExecutorV1 = async ({ phase, dispatch, host, providerResult, repairPaths, validationProfile, validationSucceeded, newHead, headRef }) => {
+  try {
+    validateRepairDispatchV1(dispatch)
+    const request = repairRequestV1(dispatch)
+    if (phase === 'preflight') {
+      const pull = validateRepairPullV1(dispatch, await acquirePull(request, host))
+      const scope = await acquireChangedPathScopeV1(request, pull, host)
+      const profile = selectRepairValidationProfileV1({
+        authorizedPaths: dispatch.authorized_paths,
+        currentPaths: scope.actual_paths,
+      })
+      if (profile.next_action === 'STOP') return profile
+      return Object.freeze({
+        state: 'REVIEW_BLOCKED',
+        allowed: false,
+        exit_code: 0,
+        reason: 'repair_preflight_satisfied',
+        automation_status: 'REPAIR_READY',
+        next_action: 'REPAIR_AGENT',
+        repository: dispatch.repository,
+        task_issue_number: dispatch.task_issue_number,
+        pr_number: dispatch.pr_number,
+        exact_head: dispatch.exact_head,
+        head_ref: pull.head.ref,
+        authorized_paths: profile.authorized_paths,
+        current_paths: profile.current_paths,
+        validation_profile: profile.name,
+        validation_commands: profile.commands,
+        prompt: `${dispatch.instruction}\n\nCurrent authorized_paths:\n${JSON.stringify(profile.authorized_paths)}\n\nCurrent review decision:\n${dispatch.review_body}`,
+      })
+    }
+
+    if (phase === 'post_agent') {
+      if (
+        !providerResult ||
+        providerResult.status !== 'completed' ||
+        typeof providerResult.summary !== 'string' ||
+        providerResult.summary.length === 0
+      ) {
+        throw new Error('repair_provider_result_invalid')
+      }
+      const pull = validateRepairPullV1(dispatch, await acquirePull(request, host))
+      const scope = await acquireChangedPathScopeV1(request, pull, host)
+      const profile = selectRepairValidationProfileV1({
+        authorizedPaths: dispatch.authorized_paths,
+        currentPaths: scope.actual_paths,
+        repairPaths,
+      })
+      if (profile.next_action === 'STOP') return profile
+      return Object.freeze({
+        state: 'REVIEW_BLOCKED',
+        allowed: false,
+        exit_code: 0,
+        reason: 'repair_post_agent_satisfied',
+        automation_status: 'VALIDATION_REQUIRED',
+        next_action: 'VALIDATE_REPAIR',
+        exact_head: dispatch.exact_head,
+        head_ref: pull.head.ref,
+        repair_paths: profile.repair_paths,
+        validation_profile: profile.name,
+        validation_commands: profile.commands,
+      })
+    }
+
+    if (phase === 'commit_plan') {
+      if (validationSucceeded !== true) throw new Error('repair_validation_failed')
+      const pull = validateRepairPullV1(dispatch, await acquirePull(request, host))
+      const scope = await acquireChangedPathScopeV1(request, pull, host)
+      const remoteHead = await host.branchHead(dispatch.repository, pull.head.ref)
+      if (remoteHead !== dispatch.exact_head) throw new Error('repair_remote_head_changed')
+      const profile = selectRepairValidationProfileV1({
+        authorizedPaths: dispatch.authorized_paths,
+        currentPaths: scope.actual_paths,
+        repairPaths,
+      })
+      if (profile.next_action === 'STOP') return profile
+      return Object.freeze({
+        state: 'REVIEW_BLOCKED',
+        allowed: false,
+        exit_code: 0,
+        reason: 'repair_commit_plan_satisfied',
+        automation_status: 'COMMIT_READY',
+        next_action: 'COMMIT_AND_PUSH',
+        exact_head: dispatch.exact_head,
+        head_ref: pull.head.ref,
+        message: REPAIR_COMMIT_MESSAGE,
+        commit_count: 1,
+        force: false,
+        paths: profile.repair_paths,
+      })
+    }
+
+    if (phase === 'complete') {
+      if (
+        !FULL_HEAD.test(newHead ?? '') ||
+        newHead === dispatch.exact_head ||
+        typeof headRef !== 'string' ||
+        headRef.length === 0
+      ) {
+        throw new Error('repair_new_head_invalid')
+      }
+      const nextRequest = repairRequestV1(dispatch, newHead)
+      const pull = validateRepairPullV1(dispatch, await acquirePull(nextRequest, host), newHead)
+      if (pull.head.ref !== headRef) throw new Error('repair_branch_binding_changed')
+      if (await host.branchHead(dispatch.repository, pull.head.ref) !== newHead) throw new Error('repair_remote_head_changed')
+      const scope = await acquireChangedPathScopeV1(nextRequest, pull, host)
+      const profile = selectRepairValidationProfileV1({
+        authorizedPaths: dispatch.authorized_paths,
+        currentPaths: scope.actual_paths,
+        repairPaths,
+      })
+      if (profile.next_action === 'STOP') return profile
+      if (profile.name !== validationProfile) throw new Error('repair_validation_profile_changed')
+      const previousState = extractProtectedTransitionTaskStateV1(pull.body)
+      const alreadyRebound =
+        previousState.observed_head === newHead &&
+        previousState.review_status === 'PENDING' &&
+        previousState.reviewed_head === null &&
+        previousState.review_blocker_count === null
+      if (!alreadyRebound && (
+        previousState.observed_head !== dispatch.exact_head ||
+        previousState.review_status !== 'CHANGES_REQUIRED' ||
+        previousState.reviewed_head !== dispatch.exact_head
+      )) {
+        throw new Error('repair_previous_state_invalid')
+      }
+      const candidateState = alreadyRebound
+        ? previousState
+        : parseProtectedTransitionTaskStateV1({
+            ...previousState,
+            observed_head: newHead,
+            review_status: 'PENDING',
+            reviewed_head: null,
+            review_blocker_count: null,
+          })
+      const written = await writeProtectedTransitionTaskStateV1({
+        request: nextRequest,
+        host,
+        expectedState: previousState,
+        candidateState,
+      })
+      const currentResult = Object.freeze({
+        transition: 'merge_decision_admission',
+        state: 'REVIEW_PENDING',
+        allowed: false,
+        exit_code: 0,
+        reason: 'fresh_review_required',
+        task_issue_number: dispatch.task_issue_number,
+        pr_number: dispatch.pr_number,
+        current_head: newHead,
+        out_of_scope_paths: Object.freeze([]),
+        state_changed: written.changed,
+        admission_executed: false,
+        next_action: 'REVIEW',
+      })
+      return executeProgressionControllerV1({
+        currentResult,
+        currentContext: Object.freeze({ request: nextRequest, task_state: candidateState }),
+        host,
+      }).then((result) => Object.freeze({
+        ...result,
+        repair_paths: profile.repair_paths,
+        validation_profile: profile.name,
+      }))
+    }
+    throw new Error('repair_phase_invalid')
+  } catch (error) {
+    return Object.freeze({
+      state: 'INDETERMINATE',
+      allowed: false,
+      exit_code: 1,
+      reason: error instanceof Error ? error.message : 'repair_executor_failed',
+      automation_status: 'BLOCKED',
+      next_action: 'STOP',
+    })
+  }
 }
 
 export const evaluateProgressionControllerV1 = (currentResult, currentContext = undefined) => {
@@ -770,6 +1075,22 @@ export const evaluateProgressionControllerV1 = (currentResult, currentContext = 
       exit_code: 0,
       automation_status: 'COMPLETED_NOOP',
       next_action: 'NONE',
+    })
+  }
+  if (currentResult.next_action === 'REVIEW') {
+    if (
+      currentResult.state !== 'REVIEW_PENDING' ||
+      currentResult.allowed !== false ||
+      !FULL_HEAD.test(currentResult.current_head ?? '')
+    ) {
+      return progressionBlockedResultV1(currentResult, 'review_handoff_not_pending')
+    }
+    return Object.freeze({
+      ...currentResult,
+      exit_code: 0,
+      reason: 'fresh_review_required',
+      automation_status: 'HANDOFF_READY',
+      next_action: 'REVIEW',
     })
   }
   if (currentResult.state === 'REVIEW_PENDING' && currentResult.next_action !== 'MERGE_DECISION') {
@@ -825,6 +1146,28 @@ export const evaluateProgressionControllerV1 = (currentResult, currentContext = 
 
 export const executeProgressionControllerV1 = async ({ currentResult, currentContext, host }) => {
   const projected = evaluateProgressionControllerV1(currentResult, currentContext)
+  if (projected.next_action === 'REVIEW') {
+    try {
+      const request = currentContext?.request
+      const expectedState = parseProtectedTransitionTaskStateV1(currentContext?.task_state)
+      const pull = await acquirePull(request, host)
+      const actualState = extractProtectedTransitionTaskStateV1(pull.body)
+      if (
+        pull.head.sha !== request.exactHead ||
+        expectedState.observed_head !== request.exactHead ||
+        expectedState.review_status !== 'PENDING' ||
+        JSON.stringify(actualState) !== JSON.stringify(expectedState)
+      ) {
+        return progressionBlockedResultV1(projected, 'review_handoff_binding_changed')
+      }
+      return projected
+    } catch (error) {
+      return progressionBlockedResultV1(
+        projected,
+        error instanceof Error ? error.message : 'review_handoff_acquisition_failed',
+      )
+    }
+  }
   if (projected.next_action !== 'MERGE_DECISION') return projected
   const gated = await evaluateMergeAllowedAutomationV1({
     request: currentContext.request,
@@ -1259,6 +1602,7 @@ export const executeReviewApprovalAutomationV1 = async ({ event, host }) => {
       scope: initial.scope,
       review,
       review_comment_id: effective.commentId,
+      review_body: effective.body,
       effective_review_current: true,
     })
     const candidateInput = Object.freeze({ ...initial, task_state: candidateState })
@@ -1403,27 +1747,83 @@ const parseInvocation = (argv, environment) => {
   if (argv.length === 2 && argv[0] === '--ready-event-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
     return Object.freeze({ mode: 'ready_event', eventFile: argv[1] })
   }
+  if (argv.length === 2 && argv[0] === '--repair-preflight-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
+    return Object.freeze({ mode: 'repair_preflight', dispatchFile: argv[1] })
+  }
+  if (
+    argv.length === 4 &&
+    argv[0] === '--repair-post-agent-file' &&
+    typeof argv[1] === 'string' &&
+    argv[1].length > 0 &&
+    argv[2] === '--provider-result-file' &&
+    typeof argv[3] === 'string' &&
+    argv[3].length > 0
+  ) {
+    return Object.freeze({ mode: 'repair_post_agent', dispatchFile: argv[1], providerResultFile: argv[3] })
+  }
+  if (argv.length === 2 && argv[0] === '--repair-commit-plan-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
+    return Object.freeze({ mode: 'repair_commit_plan', dispatchFile: argv[1] })
+  }
+  if (
+    argv.length === 6 &&
+    argv[0] === '--repair-result-file' &&
+    typeof argv[1] === 'string' &&
+    argv[1].length > 0 &&
+    argv[2] === '--repair-evidence-file' &&
+    typeof argv[3] === 'string' &&
+    argv[3].length > 0 &&
+    argv[4] === '--new-head' &&
+    FULL_HEAD.test(argv[5] ?? '')
+  ) {
+    return Object.freeze({ mode: 'repair_complete', dispatchFile: argv[1], evidenceFile: argv[3], newHead: argv[5] })
+  }
   return Object.freeze({ mode: 'manual', request: parseManualCli(argv, environment) })
+}
+
+const readJsonFileV1 = (file) => JSON.parse(readFileSync(file, 'utf8'))
+
+export const repairWorkingTreePathsV1 = (
+  expectedHead,
+  executeGit = (args, options = undefined) => execFileSync('git', args, options),
+) => {
+  if (!FULL_HEAD.test(expectedHead ?? '')) throw new Error('repair_worktree_head_invalid')
+  const currentHead = executeGit(['rev-parse', '--verify', 'HEAD'], { encoding: 'utf8' }).trim()
+  if (currentHead !== expectedHead) throw new Error('repair_worktree_head_changed')
+  try {
+    executeGit(['diff', '--cached', '--quiet', '--'])
+  } catch {
+    throw new Error('repair_index_not_clean')
+  }
+  const split = (value) => value.split('\0').filter((item) => item.length > 0)
+  const tracked = split(executeGit(['diff', '--name-only', '-z', '--no-renames', 'HEAD', '--'], { encoding: 'utf8' }))
+  const untracked = split(executeGit(['ls-files', '--others', '--exclude-standard', '-z'], { encoding: 'utf8' }))
+  return Object.freeze([...new Set([...tracked, ...untracked])].sort())
 }
 
 const productionHost = (environment) => {
   const token = environment.GH_TOKEN
   if (!token) throw new Error('github_token_missing')
+  const apiCall = async (endpoint, options = undefined) => {
+    const response = await fetch(`https://api.github.com/${endpoint}`, {
+      method: options?.method ?? 'GET',
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${token}`,
+        ...(options?.body ? { 'Content-Type': 'application/json' } : {}),
+        'X-GitHub-Api-Version': '2022-11-28',
+        'User-Agent': 'protected-transition-admission-v1',
+      },
+      ...(options?.body ? { body: JSON.stringify(options.body) } : {}),
+    })
+    if (!response.ok) throw new Error(`github_api_${response.status}`)
+    return response.status === 204 ? null : response.json()
+  }
   return Object.freeze({
-    api: async (endpoint, options = undefined) => {
-      const response = await fetch(`https://api.github.com/${endpoint}`, {
-        method: options?.method ?? 'GET',
-        headers: {
-          Accept: 'application/vnd.github+json',
-          Authorization: `Bearer ${token}`,
-          ...(options?.body ? { 'Content-Type': 'application/json' } : {}),
-          'X-GitHub-Api-Version': '2022-11-28',
-          'User-Agent': 'protected-transition-admission-v1',
-        },
-        ...(options?.body ? { body: JSON.stringify(options.body) } : {}),
-      })
-      if (!response.ok) throw new Error(`github_api_${response.status}`)
-      return response.status === 204 ? null : response.json()
+    api: apiCall,
+    branchHead: async (repository, branch) => {
+      const ref = await apiCall(`repos/${repository}/git/ref/heads/${branch.split('/').map(encodeURIComponent).join('/')}`)
+      if (!FULL_HEAD.test(ref?.object?.sha ?? '')) throw new Error('repair_remote_ref_invalid')
+      return ref.object.sha
     },
     graphql: async (query, variables) => {
       const response = await fetch('https://api.github.com/graphql', {
@@ -1463,7 +1863,42 @@ const main = async () => {
             host,
             runId: process.env.GITHUB_RUN_ID,
           })
-        : await executeManualProgressionControllerV1({ request: invocation.request, host })
+        : invocation.mode === 'repair_preflight'
+          ? await executeRepairExecutorV1({
+              phase: 'preflight',
+              dispatch: readJsonFileV1(invocation.dispatchFile),
+              host,
+            })
+          : invocation.mode === 'repair_post_agent'
+            ? await executeRepairExecutorV1({
+                phase: 'post_agent',
+                dispatch: readJsonFileV1(invocation.dispatchFile),
+                providerResult: readJsonFileV1(invocation.providerResultFile),
+                repairPaths: repairWorkingTreePathsV1(readJsonFileV1(invocation.dispatchFile).exact_head),
+                host,
+              })
+            : invocation.mode === 'repair_commit_plan'
+              ? await executeRepairExecutorV1({
+                  phase: 'commit_plan',
+                  dispatch: readJsonFileV1(invocation.dispatchFile),
+                  repairPaths: repairWorkingTreePathsV1(readJsonFileV1(invocation.dispatchFile).exact_head),
+                  validationSucceeded: process.env.REPAIR_VALIDATION_SUCCEEDED === 'true',
+                  host,
+                })
+              : invocation.mode === 'repair_complete'
+                ? await (() => {
+                    const evidence = readJsonFileV1(invocation.evidenceFile)
+                    return executeRepairExecutorV1({
+                      phase: 'complete',
+                      dispatch: readJsonFileV1(invocation.dispatchFile),
+                      newHead: invocation.newHead,
+                      repairPaths: evidence.repair_paths,
+                      validationProfile: evidence.validation_profile,
+                      headRef: evidence.head_ref,
+                      host,
+                    })
+                  })()
+                : await executeManualProgressionControllerV1({ request: invocation.request, host })
     process.stdout.write(`${JSON.stringify(result)}\n`)
     process.exitCode = result.exit_code
   } catch (error) {
