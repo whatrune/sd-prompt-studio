@@ -38,6 +38,7 @@ const HEAD = 'a'.repeat(40)
 const OTHER_HEAD = 'b'.repeat(40)
 const READY_RUN_ID = '31246327840'
 const BASE = '5c6885a4f76712fde940e39587f3a88f9d4697a6'
+const HOST_RUNNER_BINDING_BASE = '3631d84351a49088baaadb5b3445751a7bf0b44e'
 const ALLOWED = ['scripts/run-protected-transition-admission-v1.mjs', 'src/continuous-orchestration/protected-transition-admission-v1.ts']
 let assertions = 0
 
@@ -1587,8 +1588,18 @@ const repairJob = workflow.jobs.protected_transition_repair_executor_v1
 const repairRunSteps = repairJob.steps.filter((step) => typeof step.run === 'string')
 const repairRunSource = repairRunSteps.map((step) => step.run).join('\n')
 const repairStepByName = new Map(repairRunSteps.map((step) => [step.name, step]))
+const hostRunnerStep = repairJob.steps.find((step) => step.name === 'Materialize exact protected-transition host runner')
+const hostRunnerRun = hostRunnerStep?.run ?? ''
 const providerExecutionStep = repairJob.steps.find((step) => step.name === 'Execute one local blocking repair')
 const providerProbeStep = repairJob.steps.find((step) => step.name === 'Verify pinned ChatGPT-authenticated Codex CLI')
+const hostOrchestrationSteps = [
+  'Prepare current repair tuple',
+  'Bind reviewed HEAD immediately before local execution',
+  'Rebind reviewed HEAD and project local provider completion',
+  'Rebind repair paths and validation profile',
+  'Recheck current HEAD and prepare one commit',
+  'Rebind existing state and hand off fresh review',
+].map((name) => repairStepByName.get(name))
 const nativeBoundarySteps = [
   'Verify pinned ChatGPT-authenticated Codex CLI',
   'Prepare current repair tuple',
@@ -1651,7 +1662,7 @@ const providerUnits = [
     name: 'exact self-hosted Windows PowerShell boundary',
     evidence: [
       repairJob['runs-on'].join('|') === 'self-hosted|Windows|X64',
-      repairRunSteps.length === 11 && repairRunSteps.every((step) => step.shell === 'powershell') && repairRunSteps.every((step) => step.shell !== 'pwsh'),
+      repairRunSteps.length === 12 && repairRunSteps.every((step) => step.shell === 'powershell') && repairRunSteps.every((step) => step.shell !== 'pwsh'),
       providerExec.provider_projection.runner_labels.join('|') === 'self-hosted|Windows|X64' && providerExec.provider === undefined,
     ],
   },
@@ -1708,7 +1719,7 @@ const providerUnits = [
     evidence: [
       providerPost.reason === 'repair_provider_post_exec_binding_satisfied' && providerPost.next_action === 'PROJECT_PROVIDER_COMPLETION',
       postAgentAllowed.next_action === 'VALIDATE_REPAIR' && postAgentAllowed.repair_paths.join('|') === [...REPAIR_PATHS].sort().join('|') && parsedIntermediarySteps.every((step) => step?.run.includes('[IO.File]::WriteAllLines') && step.run.includes('encoding_invalid') && step.run.includes('-Raw -Encoding utf8') && step.run.includes('$priorConsoleOutputEncoding = [Console]::OutputEncoding') && step.run.includes('[Console]::OutputEncoding = $utf8NoBom') && step.run.includes('[Console]::OutputEncoding = $priorConsoleOutputEncoding') && !step.run.includes('Tee-Object')),
-      commitPlan.next_action === 'COMMIT_AND_PUSH' && completedRepair.next_action === 'REVIEW' && forbiddenProviderMechanisms.every((needle) => !providerProductionSource.includes(needle)) && nativeBoundarySteps.every((step) => step?.run.includes("$ErrorActionPreference = 'Continue'") && step.run.includes('$LASTEXITCODE = $null') && step.run.includes('finally {') && step.run.includes('$ErrorActionPreference = $priorErrorActionPreference') && /\$\w+Exit = \$LASTEXITCODE/.test(step.run)) && nativeJsonCaptureSteps.every((step) => step?.run.includes('[Console]::OutputEncoding = $utf8NoBom') && step.run.includes('[Console]::OutputEncoding = $priorConsoleOutputEncoding')) && nonAsciiNativeDecoded === nonAsciiNativeJson && nonAsciiNativeReencoded.equals(nonAsciiNativeBytes) && powershell51NativeUtf8RoundTrip && !repairRunSource.includes('Tee-Object') && !repairRunSource.includes('Add-Content') && repairRunSource.split('[IO.File]::AppendAllText').length === 7 && repairRunSource.split('[Text.UTF8Encoding]::new($false)').length === 9 && repairRunSource.includes('$persistedBytes[0] -eq 0xff') && repairRunSource.includes('$persistedBytes[0] -eq 0xef'),
+      commitPlan.next_action === 'COMMIT_AND_PUSH' && completedRepair.next_action === 'REVIEW' && forbiddenProviderMechanisms.every((needle) => !providerProductionSource.includes(needle)) && nativeBoundarySteps.every((step) => step?.run.includes("$ErrorActionPreference = 'Continue'") && step.run.includes('$LASTEXITCODE = $null') && step.run.includes('finally {') && step.run.includes('$ErrorActionPreference = $priorErrorActionPreference') && /\$\w+Exit = \$LASTEXITCODE/.test(step.run)) && nativeJsonCaptureSteps.every((step) => step?.run.includes('[Console]::OutputEncoding = $utf8NoBom') && step.run.includes('[Console]::OutputEncoding = $priorConsoleOutputEncoding')) && nonAsciiNativeDecoded === nonAsciiNativeJson && nonAsciiNativeReencoded.equals(nonAsciiNativeBytes) && powershell51NativeUtf8RoundTrip && !repairRunSource.includes('Tee-Object') && !repairRunSource.includes('Add-Content') && repairRunSource.split('[IO.File]::AppendAllText').length === 8 && repairRunSource.split('[Text.UTF8Encoding]::new($false)').length === 10 && repairRunSource.includes('$persistedBytes[0] -eq 0xff') && repairRunSource.includes('$persistedBytes[0] -eq 0xef'),
     ],
   },
 ]
@@ -1716,5 +1727,26 @@ for (const unit of providerUnits) {
   for (const [index, evidence] of unit.evidence.entries()) check(evidence, `${unit.name} evidence ${index + 1}`)
 }
 
-if (assertions !== 420) throw new Error(`expected exactly 420 assertions, observed ${assertions}`)
+const hostBindingChangedPaths = execFileSync('git', ['diff', '--name-only', HOST_RUNNER_BINDING_BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
+const hostBindingExpectedPaths = [
+  '.github/workflows/protected-transition-admission-v1.yml',
+  'scripts/test-protected-transition-admission-v1.mjs',
+]
+const hostRunnerBindingMatrix = [
+  hostRunnerRun.includes("@('fetch', '--no-tags', 'origin', $env:GITHUB_WORKFLOW_SHA)") && hostRunnerRun.split("'fetch'").length === 2,
+  hostRunnerRun.includes("@('worktree', 'add', '--detach', $hostWorktree, $env:GITHUB_WORKFLOW_SHA)") && hostRunnerRun.includes('$env:RUNNER_TEMP') && hostRunnerRun.includes('[Guid]::NewGuid()'),
+  hostRunnerRun.includes("if ($hostHead -cne $env:GITHUB_WORKFLOW_SHA) { throw 'repair_host_sha_mismatch' }"),
+  hostRunnerRun.includes("if ($targetHead -cne $env:REPAIR_HEAD) { throw 'repair_target_sha_mismatch' }"),
+  hostRunnerRun.includes('[IO.File]::AppendAllText($env:GITHUB_ENV, "PTA_HOST_RUNNER=$hostRunner$([Environment]::NewLine)", $utf8NoBom)'),
+  hostOrchestrationSteps.length === 6 && hostOrchestrationSteps.every((step) => step?.run.includes('node $env:PTA_HOST_RUNNER')),
+  hostOrchestrationSteps.every((step) => !step?.run.includes('node scripts/run-protected-transition-admission-v1.mjs')) && !repairRunSource.includes('node scripts/run-protected-transition-admission-v1.mjs'),
+  providerExecutionStep?.run.includes('$prompt | & codex.cmd exec --ignore-user-config --sandbox workspace-write --approve-for-me --ephemeral --json --cd $env:GITHUB_WORKSPACE -') && workflowSource.split('& codex.cmd exec').length === 2,
+  hostRunnerRun.includes("throw 'repair_host_inside_target_workspace'") && !repairRunSource.includes('Set-Location') && hostOrchestrationSteps.every((step) => !step?.['working-directory']),
+  hostOrchestrationSteps.every((step) => step?.run.includes('$env:PTA_HOST_RUNNER')) && hostOrchestrationSteps.every((step) => !step?.run.includes('$env:GITHUB_WORKSPACE/scripts/run-protected-transition-admission-v1.mjs')),
+  repairJob.steps.indexOf(hostRunnerStep) < repairJob.steps.indexOf(providerProbeStep) && repairJob.steps.indexOf(hostRunnerStep) < repairJob.steps.indexOf(providerExecutionStep) && !hostRunnerStep?.['continue-on-error'] && hostRunnerRun.includes("-Failure 'repair_host_fetch_failed'") && hostRunnerRun.includes("throw 'repair_host_runner_missing'"),
+  hostBindingChangedPaths.join('\n') === hostBindingExpectedPaths.join('\n') && changedPaths.join('\n') === expectedPaths.join('\n'),
+]
+for (const [index, evidence] of hostRunnerBindingMatrix.entries()) check(evidence, `host-runner binding matrix ${index + 1}`)
+
+if (assertions !== 432) throw new Error(`expected exactly 432 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
