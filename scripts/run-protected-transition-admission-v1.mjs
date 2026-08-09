@@ -443,27 +443,21 @@ const waitForReadyTerminalChecksV1 = async (request, host) => {
     }
 
     const rollup = await acquireMergeCheckRollupV1(request, host)
-    const rawPartition = partitionReadyRunChecksV1(request, rollup)
-    const selectedPartition = partitionReadyRunChecksV1(request, selectCurrentCheckGenerationsV1(rollup))
-    if (
-      rawPartition.current.length === 1 &&
-      (selectedPartition.current.length !== 1 || selectedPartition.current[0].id !== rawPartition.current[0].id)
-    ) {
-      throw new Error('ready_current_check_not_selected_generation')
+    let checks = null
+    try {
+      checks = reduceSelfAwareCurrentChecksV1(request, rollup)
+    } catch (error) {
+      if (error?.message !== 'ready_current_check_missing') throw error
     }
-    if (rawPartition.current.length === 1 && selectedPartition.remaining.length > 0) {
-      if (selectedPartition.remaining.some(readyCheckHasFailedV1)) {
+    if (checks !== null && checks.length > 0) {
+      if (checks.some(readyCheckHasFailedV1)) {
         throw new ReviewAutomationStop('IMPLEMENTATION_BLOCKED', 'checks_not_successful', 2, pull.head.sha)
       }
-      if (!selectedPartition.remaining.some(readyCheckIsPendingV1)) return
+      if (!checks.some(readyCheckIsPendingV1)) return
     }
 
     if (attempt === READY_CHECK_WAIT_ATTEMPTS) {
-      const reason = rawPartition.current.length === 0
-        ? 'ready_current_check_missing'
-        : selectedPartition.remaining.length === 0
-          ? 'checks_missing'
-          : 'checks_not_terminal'
+      const reason = checks === null ? 'ready_current_check_missing' : checks.length === 0 ? 'checks_missing' : 'checks_not_terminal'
       throw new ReviewAutomationStop('INDETERMINATE', reason, 1, pull.head.sha)
     }
     if (typeof host.wait === 'function') await host.wait(READY_CHECK_WAIT_MS)
@@ -1528,19 +1522,47 @@ const selectCurrentCheckGenerationsV1 = (rollup) => {
   return Object.freeze(rollup.filter((item) => item.type === 'StatusContext' || selectedIds.has(item.id)))
 }
 
-const mergeGateChecksStopV1 = (request, rollup, currentHead) => {
-  const rawPartition = request.currentWorkflowRunId ? partitionReadyRunChecksV1(request, rollup) : null
-  if (rawPartition && rawPartition.current.length !== 1) throw new Error('ready_current_check_cardinality_invalid')
+const parseRepositoryActionsRunIdV1 = (request, check) => {
+  if (check.type !== 'CheckRun' || typeof check.details_url !== 'string') return null
+  const prefix = `https://github.com/${request.repository}/actions/runs/`
+  if (!check.details_url.startsWith(prefix)) return null
+  return /^([1-9][0-9]*)\/job\/[^/?#]+$/.exec(check.details_url.slice(prefix.length))?.[1] ?? null
+}
+
+const reduceSelfAwareCurrentChecksV1 = (request, rollup) => {
   const selectedGenerations = selectCurrentCheckGenerationsV1(rollup)
-  const checks = request.currentWorkflowRunId
-    ? (() => {
-        const selectedPartition = partitionReadyRunChecksV1(request, selectedGenerations)
-        if (selectedPartition.current.length !== 1 || selectedPartition.current[0].id !== rawPartition.current[0].id) {
-          throw new Error('ready_current_check_not_selected_generation')
-        }
-        return selectedPartition.remaining
-      })()
-    : selectedGenerations
+  if (request.currentWorkflowRunId === undefined || request.currentWorkflowRunId === null) return selectedGenerations
+
+  const admissionName = 'protected_transition_admission_v1'
+  const repairName = 'protected_transition_repair_executor_v1'
+  const currentRunPrefix = `https://github.com/${request.repository}/actions/runs/${request.currentWorkflowRunId}/`
+  if (rollup.some((item) => item.type === 'CheckRun' && item.name === repairName && item.details_url?.startsWith(currentRunPrefix))) {
+    throw new Error('ready_current_repair_check_present')
+  }
+  const rawPartition = partitionReadyRunChecksV1(request, rollup)
+  if (rawPartition.current.length === 0) throw new Error('ready_current_check_missing')
+  if (rawPartition.current.length !== 1) throw new Error('ready_current_check_cardinality_invalid')
+  if (rawPartition.current[0].name !== admissionName) throw new Error('ready_current_check_name_invalid')
+  if (parseRepositoryActionsRunIdV1(request, rawPartition.current[0]) !== request.currentWorkflowRunId) {
+    throw new Error('ready_current_check_identity_invalid')
+  }
+
+  const selectedPartition = partitionReadyRunChecksV1(request, selectedGenerations)
+  if (selectedPartition.current.length !== 1 || selectedPartition.current[0].id !== rawPartition.current[0].id) {
+    throw new Error('ready_current_check_not_selected_generation')
+  }
+
+  return Object.freeze(selectedPartition.remaining.filter((item) => {
+    if (item.type !== 'CheckRun' || item.app_id !== rawPartition.current[0].app_id || item.name !== repairName) return true
+    const siblingRunId = parseRepositoryActionsRunIdV1(request, item)
+    if (siblingRunId === null) throw new Error('ready_self_sibling_identity_invalid')
+    if (siblingRunId === request.currentWorkflowRunId) throw new Error('ready_current_repair_check_present')
+    return false
+  }))
+}
+
+const mergeGateChecksStopV1 = (request, rollup, currentHead) => {
+  const checks = reduceSelfAwareCurrentChecksV1(request, rollup)
   if (checks.length === 0) {
     return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'checks_missing', 1, currentHead)
   }
