@@ -12,17 +12,21 @@ import {
 } from '../src/continuous-orchestration/protected-transition-admission-v1.ts'
 import {
   acquireChangedPathScopeV1,
+  evaluateCodexCloudTaskStatusV2,
   evaluateProgressionControllerV1,
   evaluateMergeAllowedAutomationV1,
   executeRepairExecutorV1,
   executeReadyForReviewProgressionV1,
   executeReviewApprovalAutomationV1,
   executeProtectedTransitionAdmissionV1,
+  executeRepairProviderBindingV2,
   extractProtectedTransitionTaskStateV1,
   isRepairProfilePathV1,
   parseIndependentReviewDecisionProjectionV1,
+  parseCodexCloudTaskSubmissionV2,
   parseReviewApprovalEventV1,
   projectProtectedTransitionReviewStateV1,
+  projectCodexCloudRepairProviderV2,
   repairWorkingTreePathsV1,
   resolveEffectiveReviewDecisionV1,
   selectRepairValidationProfileV1,
@@ -1320,6 +1324,7 @@ const repairDispatch = (overrides = {}) => Object.freeze({
   instruction: 'Fix current blocking findings only; use current authorized_paths; stop on Architecture gap; run focused validation.',
   ...overrides,
 })
+const expectedRepairPrompt = `${repairDispatch().instruction}\n\nCurrent repair tuple:\nRepository: ${REPOSITORY}\nTask: #${TASK}\nPR: #${PR}\nExact HEAD: ${HEAD}\n\nCurrent authorized_paths:\n${JSON.stringify([...REPAIR_PATHS].sort())}\n\nCurrent review decision:\ncurrent blocking findings`
 const repairTaskState = (overrides = {}) => state({
   authorized_paths: [...REPAIR_PATHS],
   review_status: 'CHANGES_REQUIRED',
@@ -1487,7 +1492,7 @@ const completedRepairRetry = await executeRepairExecutorV1({
 })
 // Twenty fixed Repair Executor units x three assertions = 60.
 const repairUnits = [
-  { name: 'current CHANGES_REQUIRED dispatch', result: preflightResult, reason: 'repair_preflight_satisfied', next: 'REPAIR_AGENT', evidence: (value) => value.validation_profile === 'protected_transition' && value.prompt === `${repairDispatch().instruction}\n\nCurrent authorized_paths:\n${JSON.stringify([...REPAIR_PATHS].sort())}\n\nCurrent review decision:\ncurrent blocking findings` },
+  { name: 'current CHANGES_REQUIRED dispatch', result: preflightResult, reason: 'repair_preflight_satisfied', next: 'REPAIR_AGENT', evidence: (value) => value.validation_profile === 'protected_transition' && value.prompt === expectedRepairPrompt },
   { name: 'APPROVE does not repair', result: approveNoRepair, reason: 'review_not_approved', next: 'STOP', evidence: (value) => !('repair_dispatch' in value) },
   { name: 'stale HEAD', result: staleRepairResult, reason: 'repair_pull_binding_invalid', next: 'STOP', evidence: () => staleRepair.metrics.fileReads === 0 },
   { name: 'UNKNOWN review', result: unknownNoRepair, reason: 'repair_review_unknown', next: 'STOP', evidence: (value) => !('repair_dispatch' in value) },
@@ -1502,9 +1507,9 @@ const repairUnits = [
   { name: 'empty post-agent diff', result: postAgentEmpty, reason: 'repair_validation_profile_architecture_gap', next: 'STOP', evidence: (value) => value.detail === 'repair_paths_invalid' },
   { name: 'malformed provider result', result: malformedProvider, reason: 'repair_provider_result_invalid', next: 'STOP', evidence: () => malformedProviderHost.metrics.pullReads === 0 },
   { name: 'focused validation failure', result: validationFailure, reason: 'repair_validation_failed', next: 'STOP', evidence: () => validationFailureHost.metrics.pullReads === 0 },
-  { name: 'PR or local HEAD drift before commit', result: commitHeadDrift, reason: 'repair_pull_binding_invalid', next: 'STOP', evidence: () => commitHeadDriftHost.metrics.branchReads === 0 && localHeadDriftError?.message === 'repair_worktree_head_changed' && localHeadCommands.join('|') === 'rev-parse --verify HEAD' && runnerSource.split('repairWorkingTreePathsV1(readJsonFileV1(invocation.dispatchFile).exact_head)').length === 3 },
+  { name: 'PR or local HEAD drift before commit', result: commitHeadDrift, reason: 'repair_pull_binding_invalid', next: 'STOP', evidence: () => commitHeadDriftHost.metrics.branchReads === 0 && localHeadDriftError?.message === 'repair_worktree_head_changed' && localHeadCommands.join('|') === 'rev-parse --verify HEAD' && runnerSource.split('repairWorkingTreePathsV1(readJsonFileV1(invocation.dispatchFile).exact_head)').length === 4 },
   { name: 'remote branch drift before push', result: remoteDrift, reason: 'repair_remote_head_changed', next: 'STOP', evidence: () => remoteDriftHost.metrics.branchReads === 1 },
-  { name: 'one normal commit plan', result: commitPlan, reason: 'repair_commit_plan_satisfied', next: 'COMMIT_AND_PUSH', evidence: (value) => value.commit_count === 1 && value.force === false && workflowSource.split('openai/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56').length === 2 },
+  { name: 'one normal commit plan', result: commitPlan, reason: 'repair_commit_plan_satisfied', next: 'COMMIT_AND_PUSH', evidence: (value) => value.commit_count === 1 && value.force === false && !workflowSource.includes('openai/codex-action') && !workflowSource.includes('OPENAI_API_KEY') },
   { name: 'post-push exact HEAD', result: completedRepair, reason: 'fresh_review_required', next: 'REVIEW', evidence: (value) => value.current_head === OTHER_HEAD && value.validation_profile === 'protected_transition' && completedHost.metrics.branchReads === 2 },
   { name: 'PENDING rebind and fresh review handoff', result: completedRepair, reason: 'fresh_review_required', next: 'REVIEW', evidence: (value) => value.automation_status === 'HANDOFF_READY' && value.repair_paths.length === 3 && reboundState.observed_head === OTHER_HEAD && reboundState.review_status === 'PENDING' && reboundState.reviewed_head === null && reboundState.review_blocker_count === null && completedHost.metrics.patches === 1 },
 ]
@@ -1514,5 +1519,151 @@ for (const unit of repairUnits) {
   check(unit.evidence(unit.result), `${unit.name} exact evidence`)
 }
 
-if (assertions !== 396) throw new Error(`expected exactly 396 assertions, observed ${assertions}`)
+const providerSubmitHost = repairHost()
+const providerSubmit = await executeRepairProviderBindingV2({
+  boundary: 'pre_submit',
+  dispatch: repairDispatch(),
+  host: providerSubmitHost.host,
+  localPaths: [],
+  environmentId: 'env_repair',
+  credentialPresent: true,
+  runAttempt: 1,
+})
+const oversizedPromptHost = repairHost()
+const oversizedPrompt = await executeRepairProviderBindingV2({
+  boundary: 'pre_submit',
+  dispatch: repairDispatch({ review_body: 'x'.repeat(4096) }),
+  host: oversizedPromptHost.host,
+  localPaths: [],
+  environmentId: 'env_repair',
+  credentialPresent: true,
+  runAttempt: 1,
+})
+const missingCredentialHost = repairHost()
+const missingCredential = await executeRepairProviderBindingV2({
+  boundary: 'pre_submit',
+  dispatch: repairDispatch(),
+  host: missingCredentialHost.host,
+  localPaths: [],
+  environmentId: 'env_repair',
+  credentialPresent: false,
+  runAttempt: 1,
+})
+const missingEnvironmentHost = repairHost()
+const missingEnvironment = await executeRepairProviderBindingV2({
+  boundary: 'pre_submit',
+  dispatch: repairDispatch(),
+  host: missingEnvironmentHost.host,
+  localPaths: [],
+  environmentId: '',
+  credentialPresent: true,
+  runAttempt: 1,
+})
+const providerRemoteDriftHost = repairHost({ remoteHead: OTHER_HEAD })
+const providerRemoteDrift = await executeRepairProviderBindingV2({
+  boundary: 'pre_submit', dispatch: repairDispatch(), host: providerRemoteDriftHost.host, localPaths: [], environmentId: 'env_repair', credentialPresent: true, runAttempt: 1,
+})
+const providerDirtyHost = repairHost()
+const providerDirty = await executeRepairProviderBindingV2({
+  boundary: 'pre_submit', dispatch: repairDispatch(), host: providerDirtyHost.host, localPaths: [REPAIR_PATHS[0]], environmentId: 'env_repair', credentialPresent: true, runAttempt: 1,
+})
+const providerPullDriftHost = repairHost({ head: OTHER_HEAD })
+const providerPullDrift = await executeRepairProviderBindingV2({
+  boundary: 'pre_submit', dispatch: repairDispatch(), host: providerPullDriftHost.host, localPaths: [], environmentId: 'env_repair', credentialPresent: true, runAttempt: 1,
+})
+const rerunProviderHost = repairHost()
+const rerunProvider = await executeRepairProviderBindingV2({
+  boundary: 'pre_submit', dispatch: repairDispatch(), host: rerunProviderHost.host, localPaths: [], environmentId: 'env_repair', credentialPresent: true, runAttempt: 2,
+})
+const exactTask = parseCodexCloudTaskSubmissionV2('https://chatgpt.com/codex/tasks/task_i_exact\n')
+const ambiguousTaskError = await errorOf(async () => parseCodexCloudTaskSubmissionV2('https://chatgpt.com/codex/tasks/task_a\nhttps://chatgpt.com/codex/tasks/task_b\n'))
+const pendingTask = evaluateCodexCloudTaskStatusV2({ output: '[PENDING] current repair\n', exitCode: 1 })
+const readyTask = evaluateCodexCloudTaskStatusV2({ output: '[READY] current repair\n', exitCode: 0 })
+const failedTask = evaluateCodexCloudTaskStatusV2({ output: '[ERROR] current repair\n', exitCode: 1 })
+const timedOutTask = evaluateCodexCloudTaskStatusV2({ output: '[PENDING] current repair\n', exitCode: 1, timedOut: true })
+const providerApplyBranchHost = repairHost()
+const providerApplyBranchDrift = await executeRepairProviderBindingV2({
+  boundary: 'pre_apply', dispatch: repairDispatch(), host: providerApplyBranchHost.host, providerBranch: 'codex/stale', localPaths: [], environmentId: 'env_repair', credentialPresent: true, runAttempt: 1,
+})
+const providerApplyHost = repairHost()
+const providerApply = await executeRepairProviderBindingV2({
+  boundary: 'pre_apply', dispatch: repairDispatch(), host: providerApplyHost.host, providerBranch: 'codex/repair', localPaths: [], environmentId: 'env_repair', credentialPresent: true, runAttempt: 1,
+})
+const taskProjection = projectCodexCloudRepairProviderV2({
+  providerBranch: 'codex/repair', prompt: 'current repair', environmentId: 'env_repair', credentialPresent: true, runAttempt: 1, taskId: exactTask.task_id,
+})
+const forbiddenProviderMechanisms = ['task_source_sha', 'provider_receipt', 'provider_digest', 'provider_branch_lock']
+
+// Eight Codex Cloud provider-boundary units x three assertions = 24.
+const providerUnits = [
+  {
+    name: 'mandatory explicit canonical PR branch',
+    evidence: [
+      providerSubmit.reason === 'repair_provider_submit_binding_satisfied' && providerSubmit.provider_branch === 'codex/repair',
+      providerSubmit.provider_projection.submit_argv.join('|') === 'cloud|exec|--env|env_repair|--attempts|1|--branch|codex/repair|-',
+      workflowSource.split('--branch "$REPAIR_PROVIDER_BRANCH"').length === 2 && !workflowSource.includes('--branch main'),
+    ],
+  },
+  {
+    name: 'bounded current-only prompt and exact tuple',
+    evidence: [
+      Buffer.from(providerSubmit.prompt, 'utf8').equals(Buffer.from(expectedRepairPrompt, 'utf8')) && providerSubmit.provider_projection.prompt_bytes === Buffer.byteLength(expectedRepairPrompt, 'utf8'),
+      providerSubmit.prompt.includes(`Current repair tuple:\nRepository: ${REPOSITORY}\nTask: #${TASK}\nPR: #${PR}\nExact HEAD: ${HEAD}\n`) && providerSubmit.provider_projection.prompt_bytes <= 4096 && oversizedPrompt.reason === 'repair_provider_prompt_too_large' && oversizedPrompt.next_action === 'STOP',
+      providerSubmit.exact_head === HEAD && providerSubmitHost.metrics.pullReads === 1 && providerSubmitHost.metrics.branchReads === 1,
+    ],
+  },
+  {
+    name: 'credential and environment stop before submit',
+    evidence: [
+      missingCredential.reason === 'repair_provider_credential_missing' && missingCredential.next_action === 'STOP',
+      missingEnvironment.reason === 'repair_provider_environment_missing' && missingEnvironment.next_action === 'STOP',
+      !workflowSource.includes('CODEX_API_KEY') && !workflowSource.includes('OPENAI_API_KEY') && !workflowSource.includes('openai/codex-action'),
+    ],
+  },
+  {
+    name: 'pre-submit reviewed tuple and clean checkout',
+    evidence: [
+      providerPullDrift.reason === 'repair_pull_binding_invalid' && providerPullDriftHost.metrics.branchReads === 0,
+      providerRemoteDrift.reason === 'repair_remote_head_changed' && providerRemoteDriftHost.metrics.branchReads === 1,
+      providerDirty.reason === 'repair_provider_worktree_not_clean' && providerDirty.next_action === 'STOP',
+    ],
+  },
+  {
+    name: 'one exact task serialization and no resubmit',
+    evidence: [
+      exactTask.task_id === 'task_i_exact' && ambiguousTaskError?.message === 'repair_provider_task_identity_invalid',
+      rerunProvider.reason === 'repair_provider_rerun_forbidden' && rerunProvider.next_action === 'STOP',
+      workflowSource.split('codex cloud exec').length === 2 && workflowSource.split('--attempts 1').length === 2 && workflowSource.includes('cancel-in-progress: false'),
+    ],
+  },
+  {
+    name: 'terminal timeout quota failure without apply',
+    evidence: [
+      pendingTask.next_action === 'WAIT' && readyTask.next_action === 'APPLY_REPAIR_TASK',
+      failedTask.reason === 'repair_provider_task_failed' && failedTask.next_action === 'STOP',
+      timedOutTask.reason === 'repair_provider_timeout' && timedOutTask.next_action === 'STOP' && workflowSource.includes('deadline=$((SECONDS + 1200))'),
+    ],
+  },
+  {
+    name: 'pre-apply tuple and exact local apply failures',
+    evidence: [
+      providerApplyBranchDrift.reason === 'repair_provider_branch_changed' && providerApplyBranchDrift.next_action === 'STOP',
+      taskProjection.status_argv.join('|') === 'cloud|status|task_i_exact' && taskProjection.apply_argv.join('|') === 'apply|task_i_exact',
+      postAgentEmpty.next_action === 'STOP' && postAgentEscape.next_action === 'STOP',
+    ],
+  },
+  {
+    name: 'successful uncommitted exact-scope lifecycle return',
+    evidence: [
+      providerApply.reason === 'repair_provider_apply_binding_satisfied' && providerApply.next_action === 'APPLY_REPAIR_TASK',
+      postAgentAllowed.next_action === 'VALIDATE_REPAIR' && postAgentAllowed.repair_paths.join('|') === [...REPAIR_PATHS].sort().join('|'),
+      forbiddenProviderMechanisms.every((needle) => !workflowSource.includes(needle) && !runnerSource.includes(needle)) && workflowSource.includes('codex apply "$REPAIR_PROVIDER_TASK_ID"'),
+    ],
+  },
+]
+for (const unit of providerUnits) {
+  for (const [index, evidence] of unit.evidence.entries()) check(evidence, `${unit.name} evidence ${index + 1}`)
+}
+
+if (assertions !== 420) throw new Error(`expected exactly 420 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

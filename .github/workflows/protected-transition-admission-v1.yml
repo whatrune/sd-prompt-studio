@@ -166,21 +166,136 @@ jobs:
             const fs = require("node:fs");
             const result = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/repair-preflight.json", "utf8"));
             if (result.next_action !== "REPAIR_AGENT") process.exit(1);
+          '
+
+      - name: Install pinned Codex CLI
+        shell: bash
+        run: npm install --global @openai/codex@0.147.0
+
+      - name: Bind reviewed HEAD immediately before provider submission
+        id: repair_provider_binding
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CODEX_REPAIR_ENV_ID: ${{ vars.CODEX_REPAIR_ENV_ID }}
+          REPAIR_PROVIDER_TOKEN_PRESENT: ${{ secrets.CODEX_ACCESS_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          node scripts/run-protected-transition-admission-v1.mjs \
+            --repair-provider-submit-bind-file "$RUNNER_TEMP/repair-dispatch.json" | tee "$RUNNER_TEMP/repair-provider-binding.json"
+          node -e '
+            const fs = require("node:fs");
+            const result = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/repair-provider-binding.json", "utf8"));
+            if (result.next_action !== "SUBMIT_REPAIR_TASK") process.exit(1);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `provider_branch=${result.provider_branch}\n`);
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `prompt<<PTA_REPAIR_PROMPT\n${result.prompt}\nPTA_REPAIR_PROMPT\n`);
           '
 
-      - name: Execute current blocking repair
-        id: repair_agent
-        uses: openai/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56
-        with:
-          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          prompt: ${{ steps.repair_preflight.outputs.prompt }}
-          output-file: ${{ runner.temp }}/repair-provider-result.json
-          output-schema: '{"type":"object","additionalProperties":false,"required":["status","summary"],"properties":{"status":{"type":"string","const":"completed"},"summary":{"type":"string","minLength":1}}}'
-          working-directory: ${{ github.workspace }}
-          sandbox: workspace-write
-          safety-strategy: drop-sudo
-          codex-version: 0.147.0
+      - name: Submit one Codex Cloud repair task
+        shell: bash
+        env:
+          CODEX_ACCESS_TOKEN: ${{ secrets.CODEX_ACCESS_TOKEN }}
+          CODEX_REPAIR_ENV_ID: ${{ vars.CODEX_REPAIR_ENV_ID }}
+          REPAIR_PROVIDER_BRANCH: ${{ steps.repair_provider_binding.outputs.provider_branch }}
+          REPAIR_PROMPT: ${{ steps.repair_provider_binding.outputs.prompt }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$REPAIR_PROMPT" |
+            env CODEX_ACCESS_TOKEN="$CODEX_ACCESS_TOKEN" \
+            codex cloud exec \
+              --env "$CODEX_REPAIR_ENV_ID" \
+              --attempts 1 \
+              --branch "$REPAIR_PROVIDER_BRANCH" \
+              - | tee "$RUNNER_TEMP/repair-provider-submission.txt"
+
+      - name: Capture exact Codex Cloud task identity
+        id: repair_provider_task
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/run-protected-transition-admission-v1.mjs \
+            --repair-provider-submission-file "$RUNNER_TEMP/repair-provider-submission.txt" | tee "$RUNNER_TEMP/repair-provider-task.json"
+          node -e '
+            const fs = require("node:fs");
+            const result = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/repair-provider-task.json", "utf8"));
+            if (result.next_action !== "POLL_REPAIR_TASK") process.exit(1);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `task_id=${result.task_id}\n`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `task_url=${result.task_url}\n`);
+          '
+
+      - name: Poll only the exact Codex Cloud task
+        shell: bash
+        env:
+          CODEX_ACCESS_TOKEN: ${{ secrets.CODEX_ACCESS_TOKEN }}
+          REPAIR_PROVIDER_TASK_ID: ${{ steps.repair_provider_task.outputs.task_id }}
+        run: |
+          set -euo pipefail
+          deadline=$((SECONDS + 1200))
+          while (( SECONDS < deadline )); do
+            set +e
+            env CODEX_ACCESS_TOKEN="$CODEX_ACCESS_TOKEN" \
+              codex cloud status "$REPAIR_PROVIDER_TASK_ID" > "$RUNNER_TEMP/repair-provider-status.txt"
+            provider_status_exit=$?
+            set -e
+            if (( provider_status_exit == 0 )); then
+              normalized_status_exit=0
+            else
+              normalized_status_exit=1
+            fi
+            set +e
+            provider_status_json="$(env -u CODEX_ACCESS_TOKEN node scripts/run-protected-transition-admission-v1.mjs \
+              --repair-provider-status-file "$RUNNER_TEMP/repair-provider-status.txt" \
+              --provider-status-exit "$normalized_status_exit")"
+            provider_projection_exit=$?
+            set -e
+            printf '%s\n' "$provider_status_json"
+            provider_next_action="$(printf '%s' "$provider_status_json" | node -e '
+              let raw = "";
+              process.stdin.setEncoding("utf8");
+              process.stdin.on("data", (chunk) => { raw += chunk; });
+              process.stdin.on("end", () => { process.stdout.write(JSON.parse(raw).next_action ?? "STOP"); });
+            ')"
+            if [[ "$provider_next_action" == "APPLY_REPAIR_TASK" && $provider_projection_exit -eq 0 ]]; then
+              exit 0
+            fi
+            if [[ "$provider_next_action" != "WAIT" || $provider_projection_exit -ne 0 ]]; then
+              exit 1
+            fi
+            sleep 15
+          done
+          exit 1
+
+      - name: Rebind reviewed HEAD immediately before local apply
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CODEX_REPAIR_ENV_ID: ${{ vars.CODEX_REPAIR_ENV_ID }}
+          REPAIR_PROVIDER_TOKEN_PRESENT: ${{ secrets.CODEX_ACCESS_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          node scripts/run-protected-transition-admission-v1.mjs \
+            --repair-provider-apply-bind-file "$RUNNER_TEMP/repair-dispatch.json" \
+            --provider-binding-file "$RUNNER_TEMP/repair-provider-binding.json" | tee "$RUNNER_TEMP/repair-provider-apply-binding.json"
+          node -e '
+            const fs = require("node:fs");
+            const result = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/repair-provider-apply-binding.json", "utf8"));
+            if (result.next_action !== "APPLY_REPAIR_TASK") process.exit(1);
+          '
+
+      - name: Apply exact Codex Cloud task locally
+        shell: bash
+        env:
+          CODEX_ACCESS_TOKEN: ${{ secrets.CODEX_ACCESS_TOKEN }}
+          REPAIR_PROVIDER_TASK_ID: ${{ steps.repair_provider_task.outputs.task_id }}
+        run: |
+          set -euo pipefail
+          env CODEX_ACCESS_TOKEN="$CODEX_ACCESS_TOKEN" codex apply "$REPAIR_PROVIDER_TASK_ID"
+
+      - name: Project local provider completion
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' '{"status":"completed","summary":"Codex Cloud task applied locally."}' > "$RUNNER_TEMP/repair-provider-result.json"
 
       - name: Rebind repair paths and validation profile
         id: repair_post_agent
@@ -211,7 +326,7 @@ jobs:
           elif [[ "$REPAIR_VALIDATION_PROFILE" == "protected_transition" ]]; then
             focused_output="$(node scripts/test-protected-transition-admission-v1.mjs)"
             printf '%s\n' "$focused_output"
-            [[ "$(printf '%s\n' "$focused_output" | tail -n 1)" == "protected-transition-admission-v1: 396 assertions passed" ]]
+            [[ "$(printf '%s\n' "$focused_output" | tail -n 1)" == "protected-transition-admission-v1: 420 assertions passed" ]]
             node scripts/test-role-execution-contracts.mjs
             pnpm run validate:dictionary
             pnpm test
