@@ -1782,18 +1782,21 @@ const parseInvocation = (argv, environment) => {
 
 const readJsonFileV1 = (file) => JSON.parse(readFileSync(file, 'utf8'))
 
-const repairWorkingTreePathsV1 = () => {
-  if (execFileSync('git', ['rev-parse', '--verify', 'HEAD'], { encoding: 'utf8' }).trim().length !== 40) {
-    throw new Error('repair_worktree_head_invalid')
-  }
+export const repairWorkingTreePathsV1 = (
+  expectedHead,
+  executeGit = (args, options = undefined) => execFileSync('git', args, options),
+) => {
+  if (!FULL_HEAD.test(expectedHead ?? '')) throw new Error('repair_worktree_head_invalid')
+  const currentHead = executeGit(['rev-parse', '--verify', 'HEAD'], { encoding: 'utf8' }).trim()
+  if (currentHead !== expectedHead) throw new Error('repair_worktree_head_changed')
   try {
-    execFileSync('git', ['diff', '--cached', '--quiet', '--'])
+    executeGit(['diff', '--cached', '--quiet', '--'])
   } catch {
     throw new Error('repair_index_not_clean')
   }
   const split = (value) => value.split('\0').filter((item) => item.length > 0)
-  const tracked = split(execFileSync('git', ['diff', '--name-only', '-z', '--no-renames', 'HEAD', '--'], { encoding: 'utf8' }))
-  const untracked = split(execFileSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], { encoding: 'utf8' }))
+  const tracked = split(executeGit(['diff', '--name-only', '-z', '--no-renames', 'HEAD', '--'], { encoding: 'utf8' }))
+  const untracked = split(executeGit(['ls-files', '--others', '--exclude-standard', '-z'], { encoding: 'utf8' }))
   return Object.freeze([...new Set([...tracked, ...untracked])].sort())
 }
 
@@ -1871,14 +1874,14 @@ const main = async () => {
                 phase: 'post_agent',
                 dispatch: readJsonFileV1(invocation.dispatchFile),
                 providerResult: readJsonFileV1(invocation.providerResultFile),
-                repairPaths: repairWorkingTreePathsV1(),
+                repairPaths: repairWorkingTreePathsV1(readJsonFileV1(invocation.dispatchFile).exact_head),
                 host,
               })
             : invocation.mode === 'repair_commit_plan'
               ? await executeRepairExecutorV1({
                   phase: 'commit_plan',
                   dispatch: readJsonFileV1(invocation.dispatchFile),
-                  repairPaths: repairWorkingTreePathsV1(),
+                  repairPaths: repairWorkingTreePathsV1(readJsonFileV1(invocation.dispatchFile).exact_head),
                   validationSucceeded: process.env.REPAIR_VALIDATION_SUCCEEDED === 'true',
                   host,
                 })

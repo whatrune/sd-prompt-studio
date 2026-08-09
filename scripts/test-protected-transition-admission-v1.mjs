@@ -23,6 +23,7 @@ import {
   parseIndependentReviewDecisionProjectionV1,
   parseReviewApprovalEventV1,
   projectProtectedTransitionReviewStateV1,
+  repairWorkingTreePathsV1,
   resolveEffectiveReviewDecisionV1,
   selectRepairValidationProfileV1,
 } from './run-protected-transition-admission-v1.mjs'
@@ -1446,6 +1447,12 @@ const commitHeadDriftHost = repairHost({ head: OTHER_HEAD })
 const commitHeadDrift = await executeRepairExecutorV1({
   phase: 'commit_plan', dispatch: repairDispatch(), repairPaths: REPAIR_PATHS, validationSucceeded: true, host: commitHeadDriftHost.host,
 })
+const localHeadCommands = []
+const localHeadDriftError = await errorOf(async () => repairWorkingTreePathsV1(HEAD, (args) => {
+  localHeadCommands.push(args.join(' '))
+  if (args[0] === 'rev-parse') return `${OTHER_HEAD}\n`
+  throw new Error('downstream_git_command_reached')
+}))
 const remoteDriftHost = repairHost({ remoteHead: OTHER_HEAD })
 const remoteDrift = await executeRepairExecutorV1({
   phase: 'commit_plan', dispatch: repairDispatch(), repairPaths: REPAIR_PATHS, validationSucceeded: true, host: remoteDriftHost.host,
@@ -1495,7 +1502,7 @@ const repairUnits = [
   { name: 'empty post-agent diff', result: postAgentEmpty, reason: 'repair_validation_profile_architecture_gap', next: 'STOP', evidence: (value) => value.detail === 'repair_paths_invalid' },
   { name: 'malformed provider result', result: malformedProvider, reason: 'repair_provider_result_invalid', next: 'STOP', evidence: () => malformedProviderHost.metrics.pullReads === 0 },
   { name: 'focused validation failure', result: validationFailure, reason: 'repair_validation_failed', next: 'STOP', evidence: () => validationFailureHost.metrics.pullReads === 0 },
-  { name: 'PR HEAD drift before commit', result: commitHeadDrift, reason: 'repair_pull_binding_invalid', next: 'STOP', evidence: () => commitHeadDriftHost.metrics.branchReads === 0 },
+  { name: 'PR or local HEAD drift before commit', result: commitHeadDrift, reason: 'repair_pull_binding_invalid', next: 'STOP', evidence: () => commitHeadDriftHost.metrics.branchReads === 0 && localHeadDriftError?.message === 'repair_worktree_head_changed' && localHeadCommands.join('|') === 'rev-parse --verify HEAD' && runnerSource.split('repairWorkingTreePathsV1(readJsonFileV1(invocation.dispatchFile).exact_head)').length === 3 },
   { name: 'remote branch drift before push', result: remoteDrift, reason: 'repair_remote_head_changed', next: 'STOP', evidence: () => remoteDriftHost.metrics.branchReads === 1 },
   { name: 'one normal commit plan', result: commitPlan, reason: 'repair_commit_plan_satisfied', next: 'COMMIT_AND_PUSH', evidence: (value) => value.commit_count === 1 && value.force === false && workflowSource.split('openai/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56').length === 2 },
   { name: 'post-push exact HEAD', result: completedRepair, reason: 'fresh_review_required', next: 'REVIEW', evidence: (value) => value.current_head === OTHER_HEAD && value.validation_profile === 'protected_transition' && completedHost.metrics.branchReads === 2 },
