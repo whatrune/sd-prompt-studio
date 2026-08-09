@@ -198,12 +198,15 @@ jobs:
           $preflightPath = Join-Path $env:RUNNER_TEMP 'repair-preflight.json'
           [IO.File]::WriteAllBytes($dispatchPath, [Convert]::FromBase64String($env:REPAIR_DISPATCH_B64))
           $priorErrorActionPreference = $ErrorActionPreference
+          $priorConsoleOutputEncoding = [Console]::OutputEncoding
           try {
+            [Console]::OutputEncoding = $utf8NoBom
             $ErrorActionPreference = 'Continue'
             $LASTEXITCODE = $null
             $preflightOutput = [string[]]@(node scripts/run-protected-transition-admission-v1.mjs --repair-preflight-file $dispatchPath 2>&1)
             $preflightExit = $LASTEXITCODE
           } finally {
+            [Console]::OutputEncoding = $priorConsoleOutputEncoding
             $ErrorActionPreference = $priorErrorActionPreference
           }
           $preflightOutput | ForEach-Object { Write-Output $_ }
@@ -228,12 +231,15 @@ jobs:
           $bindingPath = Join-Path $env:RUNNER_TEMP 'repair-provider-binding.json'
           $promptPath = Join-Path $env:RUNNER_TEMP 'repair-provider-prompt.txt'
           $priorErrorActionPreference = $ErrorActionPreference
+          $priorConsoleOutputEncoding = [Console]::OutputEncoding
           try {
+            [Console]::OutputEncoding = $utf8NoBom
             $ErrorActionPreference = 'Continue'
             $LASTEXITCODE = $null
             $bindingOutput = [string[]]@(node scripts/run-protected-transition-admission-v1.mjs --repair-provider-exec-bind-file $dispatchPath 2>&1)
             $bindingExit = $LASTEXITCODE
           } finally {
+            [Console]::OutputEncoding = $priorConsoleOutputEncoding
             $ErrorActionPreference = $priorErrorActionPreference
           }
           $bindingOutput | ForEach-Object { Write-Output $_ }
@@ -256,15 +262,18 @@ jobs:
           $outputPath = Join-Path $env:RUNNER_TEMP 'repair-provider-output.jsonl'
           $prompt = [IO.File]::ReadAllText($promptPath, $utf8NoBom)
           $priorOutputEncoding = $OutputEncoding
+          $priorConsoleOutputEncoding = [Console]::OutputEncoding
           $priorErrorActionPreference = $ErrorActionPreference
           try {
             $OutputEncoding = $utf8NoBom
+            [Console]::OutputEncoding = $utf8NoBom
             $ErrorActionPreference = 'Continue'
             $LASTEXITCODE = $null
             $providerOutput = [string[]]@($prompt | & codex.cmd exec --ignore-user-config --sandbox workspace-write --approve-for-me --ephemeral --json --cd $env:GITHUB_WORKSPACE - 2>&1)
             $providerExit = $LASTEXITCODE
           } finally {
             $OutputEncoding = $priorOutputEncoding
+            [Console]::OutputEncoding = $priorConsoleOutputEncoding
             $ErrorActionPreference = $priorErrorActionPreference
           }
           $providerOutput | ForEach-Object { Write-Output $_ }
@@ -284,12 +293,15 @@ jobs:
           $bindingPath = Join-Path $env:RUNNER_TEMP 'repair-provider-binding.json'
           $postExecPath = Join-Path $env:RUNNER_TEMP 'repair-provider-post-exec.json'
           $priorErrorActionPreference = $ErrorActionPreference
+          $priorConsoleOutputEncoding = [Console]::OutputEncoding
           try {
+            [Console]::OutputEncoding = $utf8NoBom
             $ErrorActionPreference = 'Continue'
             $LASTEXITCODE = $null
             $postExecOutput = [string[]]@(node scripts/run-protected-transition-admission-v1.mjs --repair-provider-post-exec-bind-file $dispatchPath --provider-binding-file $bindingPath 2>&1)
             $postExecExit = $LASTEXITCODE
           } finally {
+            [Console]::OutputEncoding = $priorConsoleOutputEncoding
             $ErrorActionPreference = $priorErrorActionPreference
           }
           $postExecOutput | ForEach-Object { Write-Output $_ }
@@ -314,12 +326,15 @@ jobs:
           $providerResultPath = Join-Path $env:RUNNER_TEMP 'repair-provider-result.json'
           $postAgentPath = Join-Path $env:RUNNER_TEMP 'repair-post-agent.json'
           $priorErrorActionPreference = $ErrorActionPreference
+          $priorConsoleOutputEncoding = [Console]::OutputEncoding
           try {
+            [Console]::OutputEncoding = $utf8NoBom
             $ErrorActionPreference = 'Continue'
             $LASTEXITCODE = $null
             $postAgentOutput = [string[]]@(node scripts/run-protected-transition-admission-v1.mjs --repair-post-agent-file $dispatchPath --provider-result-file $providerResultPath 2>&1)
             $postAgentExit = $LASTEXITCODE
           } finally {
+            [Console]::OutputEncoding = $priorConsoleOutputEncoding
             $ErrorActionPreference = $priorErrorActionPreference
           }
           $postAgentOutput | ForEach-Object { Write-Output $_ }
@@ -373,12 +388,15 @@ jobs:
           $dispatchPath = Join-Path $env:RUNNER_TEMP 'repair-dispatch.json'
           $planPath = Join-Path $env:RUNNER_TEMP 'repair-commit-plan.json'
           $priorErrorActionPreference = $ErrorActionPreference
+          $priorConsoleOutputEncoding = [Console]::OutputEncoding
           try {
+            [Console]::OutputEncoding = $utf8NoBom
             $ErrorActionPreference = 'Continue'
             $LASTEXITCODE = $null
             $planOutput = [string[]]@(node scripts/run-protected-transition-admission-v1.mjs --repair-commit-plan-file $dispatchPath 2>&1)
             $planExit = $LASTEXITCODE
           } finally {
+            [Console]::OutputEncoding = $priorConsoleOutputEncoding
             $ErrorActionPreference = $priorErrorActionPreference
           }
           $planOutput | ForEach-Object { Write-Output $_ }
@@ -422,12 +440,15 @@ jobs:
           $evidencePath = Join-Path $env:RUNNER_TEMP 'repair-post-agent.json'
           $resultPath = Join-Path $env:RUNNER_TEMP 'repair-result.json'
           $priorErrorActionPreference = $ErrorActionPreference
+          $priorConsoleOutputEncoding = [Console]::OutputEncoding
           try {
+            [Console]::OutputEncoding = $utf8NoBom
             $ErrorActionPreference = 'Continue'
             $LASTEXITCODE = $null
             $resultOutput = [string[]]@(node scripts/run-protected-transition-admission-v1.mjs --repair-result-file $dispatchPath --repair-evidence-file $evidencePath --new-head $env:REPAIR_NEW_HEAD 2>&1)
             $resultExit = $LASTEXITCODE
           } finally {
+            [Console]::OutputEncoding = $priorConsoleOutputEncoding
             $ErrorActionPreference = $priorErrorActionPreference
           }
           $resultOutput | ForEach-Object { Write-Output $_ }
