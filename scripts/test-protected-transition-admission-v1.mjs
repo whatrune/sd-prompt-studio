@@ -1712,6 +1712,7 @@ const repairRunSource = repairRunSteps.map((step) => step.run).join('\n')
 const repairStepByName = new Map(repairRunSteps.map((step) => [step.name, step]))
 const hostRunnerStep = repairJob.steps.find((step) => step.name === 'Materialize exact protected-transition host runner')
 const hostRunnerRun = hostRunnerStep?.run ?? ''
+const powershellMajorGuard = "if ($PSVersionTable.PSVersion.Major -ne 7) { throw 'repair_powershell_major_invalid' }"
 const providerExecutionStep = repairJob.steps.find((step) => step.name === 'Execute one local blocking repair')
 const providerProbeStep = repairJob.steps.find((step) => step.name === 'Preflight exact Repair Executor environment')
 const providerProbeRun = providerProbeStep?.run ?? ''
@@ -1782,10 +1783,10 @@ const providerProductionSource = `${workflowSource}\n${runnerSource}`
 // Eight self-hosted Windows provider-boundary units x three assertions = 24.
 const providerUnits = [
   {
-    name: 'exact self-hosted Windows PowerShell boundary',
+    name: 'exact self-hosted Windows PowerShell 7 boundary',
     evidence: [
       repairJob['runs-on'].join('|') === 'self-hosted|Windows|X64',
-      repairRunSteps.length === 12 && repairRunSteps.every((step) => step.shell === 'powershell') && repairRunSteps.every((step) => step.shell !== 'pwsh'),
+      repairRunSteps.length === 12 && repairRunSteps.every((step) => step.shell === 'pwsh') && repairRunSteps.every((step) => step.shell !== 'powershell') && hostRunnerRun.includes(powershellMajorGuard) && repairRunSource.split(powershellMajorGuard).length === 2 && hostRunnerRun.indexOf(powershellMajorGuard) < hostRunnerRun.indexOf('$utf8NoBom'),
       providerExec.provider_projection.runner_labels.join('|') === 'self-hosted|Windows|X64' && providerExec.provider === undefined,
     ],
   },
@@ -1801,7 +1802,7 @@ const providerUnits = [
     name: 'API cloud secret retry and fallback absence',
     evidence: [
       forbiddenProviderMechanisms.every((needle) => !providerProductionSource.includes(needle)),
-      !workflowSource.includes('npm install --global @openai/codex') && !repairRunSource.includes('pwsh') && !repairRunSource.includes('PowerShell 7') && workflowSource.includes('REPAIR_EXECUTOR_PUSH_TOKEN'),
+      !workflowSource.includes('npm install --global @openai/codex') && repairRunSteps.every((step) => step.shell === 'pwsh') && !repairRunSource.includes('powershell.exe') && workflowSource.includes('REPAIR_EXECUTOR_PUSH_TOKEN'),
       providerExecutionStep?.run.split('& codex.cmd exec').length === 2 && !providerExecutionStep.run.includes('while (') && !providerExecutionStep.run.includes('Start-Sleep'),
     ],
   },
@@ -1890,7 +1891,7 @@ const hostAcquisitionPreflightMatrix = [
   hostRunnerRun.includes('1> $stdoutPath') && hostRunnerRun.includes('2> $stderrPath') && hostRunnerRun.includes('[Console]::Error.WriteLine($_)') && hostRunnerRun.includes('if ($nativeExit -ne 0) { throw $Failure }') && !hostRunnerRun.includes('2>&1'),
   hostRunnerRun.split("'fetch'").length === 2 && hostRunnerRun.includes("'--no-tags', '--depth=1'") && hostRunnerRun.includes("-Failure 'repair_host_fetch_failed'") && !hostRunnerRun.includes('while (') && !hostRunnerRun.includes('Start-Sleep'),
   hostRunnerRun.includes("'checkout', '--quiet', '--detach', 'FETCH_HEAD'") && hostRunnerRun.includes("throw 'repair_host_sha_mismatch'") && hostRunnerRun.includes("throw 'repair_host_runner_missing'"),
-  hostRunnerRun.includes('protected-transition-host-{0}-{1}') && hostRunnerRun.includes("throw 'repair_host_path_escape'") && hostRunnerRun.includes("throw 'repair_host_inside_target_workspace'") && hostRunnerRun.includes("throw 'repair_host_path_collision'") && !hostRunnerRun.includes("'worktree', 'add'"),
+  hostRunnerRun.includes('protected-transition-host-{0}-{1}') && hostRunnerRun.includes("throw 'repair_host_path_escape'") && hostRunnerRun.includes("throw 'repair_host_inside_target_workspace'") && hostRunnerRun.includes("throw 'repair_host_path_collision'") && hostRunnerRun.includes('New-Item -ItemType Directory -Path $hostWorktree -ErrorAction Stop') && !repairRunSource.includes('New-Item -ItemType Directory -LiteralPath') && (repairRunSource.match(/\bNew-Item\b/g) ?? []).length === 1 && !hostRunnerRun.includes("'worktree', 'add'"),
   repairJob.steps.indexOf(repairStepByName.get('Prepare current repair tuple')) < providerPreflightIndex && providerPreflightIndex < repairJob.steps.indexOf(providerBindingStep) && protectedSideEffectSteps.every((step) => providerPreflightIndex < repairJob.steps.indexOf(step) && !step?.['continue-on-error']),
   providerProbeRun.includes('$actualHostRunner -cne $expectedHostRunner') && providerProbeRun.includes("'-C', $hostRoot, 'rev-parse', 'HEAD'") && providerProbeRun.includes("$hostHead -cne $env:GITHUB_WORKFLOW_SHA"),
   providerProbeRun.includes('Get-Command codex.cmd -ErrorAction Stop') && providerProbeRun.includes("@('--version')") && providerProbeRun.includes("$version -cne 'codex-cli 0.147.0'") && providerProbeRun.split("throw 'repair_provider_cli_version_invalid'").length === 3,

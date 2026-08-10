@@ -146,9 +146,10 @@ jobs:
 
       - name: Materialize exact protected-transition host runner
         id: repair_host_runner
-        shell: powershell
+        shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion.Major -ne 7) { throw 'repair_powershell_major_invalid' }
           $utf8NoBom = [Text.UTF8Encoding]::new($false)
           if ($env:GITHUB_WORKFLOW_SHA -notmatch '^[0-9a-f]{40}$') { throw 'repair_host_sha_invalid' }
           $trimSeparators = [char[]]@('\', '/')
@@ -191,7 +192,7 @@ jobs:
           }
 
           $gitCommand = (Get-Command git.exe -ErrorAction Stop).Source
-          New-Item -ItemType Directory -LiteralPath $hostWorktree -ErrorAction Stop | Out-Null
+          New-Item -ItemType Directory -Path $hostWorktree -ErrorAction Stop | Out-Null
           $null = Invoke-NativeSeparated -Command $gitCommand -Arguments @('-C', $hostWorktree, 'init', '--quiet') -Failure 'repair_host_materialization_failed'
           $null = Invoke-NativeSeparated -Command $gitCommand -Arguments @('-C', $hostWorktree, 'remote', 'add', 'origin', "https://github.com/$($env:GITHUB_REPOSITORY).git") -Failure 'repair_host_materialization_failed'
           $null = Invoke-NativeSeparated -Command $gitCommand -Arguments @('-C', $hostWorktree, 'fetch', '--no-tags', '--depth=1', 'origin', $env:GITHUB_WORKFLOW_SHA) -Failure 'repair_host_fetch_failed'
@@ -203,7 +204,7 @@ jobs:
           [IO.File]::AppendAllText($env:GITHUB_ENV, "PTA_HOST_RUNNER=$hostRunner$([Environment]::NewLine)", $utf8NoBom)
 
       - name: Install frozen dependencies
-        shell: powershell
+        shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           pnpm.cmd install --frozen-lockfile
@@ -211,7 +212,7 @@ jobs:
 
       - name: Prepare current repair tuple
         id: repair_preflight
-        shell: powershell
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           REPAIR_DISPATCH_B64: ${{ needs.protected_transition_admission_v1.outputs.repair_dispatch_b64 }}
@@ -244,7 +245,7 @@ jobs:
 
       - name: Preflight exact Repair Executor environment
         id: repair_provider_probe
-        shell: powershell
+        shell: pwsh
         env:
           REPAIR_HEAD: ${{ needs.protected_transition_admission_v1.outputs.repair_exact_head }}
           REPAIR_HEAD_REF: ${{ steps.repair_preflight.outputs.head_ref }}
@@ -346,7 +347,7 @@ jobs:
 
       - name: Bind reviewed HEAD immediately before local execution
         id: repair_provider_binding
-        shell: powershell
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           REPAIR_PROVIDER_CLI_VERSION: ${{ steps.repair_provider_probe.outputs.cli_version }}
@@ -380,7 +381,7 @@ jobs:
           if ((Get-Item -LiteralPath $promptPath).Length -ne [int64]$result.provider_projection.prompt_bytes) { throw 'repair_provider_prompt_bytes_changed' }
 
       - name: Execute one local blocking repair
-        shell: powershell
+        shell: pwsh
         timeout-minutes: 20
         run: |
           $ErrorActionPreference = 'Stop'
@@ -410,7 +411,7 @@ jobs:
           if (($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xff -and $persistedBytes[1] -eq 0xfe) -or ($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xfe -and $persistedBytes[1] -eq 0xff) -or ($persistedBytes.Length -ge 3 -and $persistedBytes[0] -eq 0xef -and $persistedBytes[1] -eq 0xbb -and $persistedBytes[2] -eq 0xbf)) { throw 'repair_provider_output_encoding_invalid' }
 
       - name: Rebind reviewed HEAD and project local provider completion
-        shell: powershell
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -443,7 +444,7 @@ jobs:
 
       - name: Rebind repair paths and validation profile
         id: repair_post_agent
-        shell: powershell
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -474,7 +475,7 @@ jobs:
           [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "profile=$($result.validation_profile)$([Environment]::NewLine)", $utf8NoBom)
 
       - name: Run exact repair validation profile
-        shell: powershell
+        shell: pwsh
         env:
           REPAIR_VALIDATION_PROFILE: ${{ steps.repair_post_agent.outputs.profile }}
         run: |
@@ -505,7 +506,7 @@ jobs:
 
       - name: Recheck current HEAD and prepare one commit
         id: repair_commit
-        shell: powershell
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           REPAIR_VALIDATION_SUCCEEDED: "true"
@@ -545,7 +546,7 @@ jobs:
           [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "new_head=$(git rev-parse HEAD)$([Environment]::NewLine)", $utf8NoBom)
 
       - name: Push one normal non-force repair commit
-        shell: powershell
+        shell: pwsh
         env:
           REPAIR_EXECUTOR_PUSH_TOKEN: ${{ secrets.REPAIR_EXECUTOR_PUSH_TOKEN }}
           REPAIR_HEAD_REF: ${{ steps.repair_commit.outputs.head_ref }}
@@ -556,7 +557,7 @@ jobs:
 
       - name: Rebind existing state and hand off fresh review
         id: repair_result
-        shell: powershell
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           REPAIR_NEW_HEAD: ${{ steps.repair_commit.outputs.new_head }}
