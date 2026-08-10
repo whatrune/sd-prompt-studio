@@ -18,7 +18,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $scriptPath = Join-Path ([IO.Path]::GetTempPath()) ("local-worker-poc-$env:GITHUB_RUN_ID.ps1")
-          $raw = 'https://raw.githubusercontent.com/whatrune/sd-prompt-studio/poc/repair-executor-architecture-compare/poc/repair-executor/local-worker-poc.ps1'
+          $raw = "https://raw.githubusercontent.com/whatrune/sd-prompt-studio/$env:GITHUB_SHA/poc/repair-executor/local-worker-poc.ps1"
           Invoke-WebRequest -Uri $raw -OutFile $scriptPath -UseBasicParsing
 
           $names = [Environment]::GetEnvironmentVariables('Process').Keys | ForEach-Object { [string]$_ }
