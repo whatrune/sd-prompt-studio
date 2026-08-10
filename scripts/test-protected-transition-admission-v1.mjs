@@ -1716,6 +1716,36 @@ const powershellMajorGuard = "if ($PSVersionTable.PSVersion.Major -ne 7) { throw
 const providerExecutionStep = repairJob.steps.find((step) => step.name === 'Execute one local blocking repair')
 const providerProbeStep = repairJob.steps.find((step) => step.name === 'Preflight exact Repair Executor environment')
 const providerProbeRun = providerProbeStep?.run ?? ''
+const extractNativeHelper = (source) => {
+  const start = source.indexOf('function Invoke-NativeSeparated {')
+  const end = source.indexOf('\n}\n\n$gitCommand', start)
+  return start >= 0 && end > start ? source.slice(start, end + 2) : ''
+}
+const nativeHelperSources = [hostRunnerRun, providerProbeRun].map(extractNativeHelper)
+const nativeExitProbes = process.platform === 'win32' ? nativeHelperSources.map((helperSource, index) => {
+  const failure = `native_probe_failure_${index}`
+  const script = `
+$ErrorActionPreference = 'Stop'
+$env:RUNNER_TEMP = [IO.Path]::GetTempPath()
+${helperSource}
+$nodeCommand = (Get-Command node.exe -ErrorAction Stop).Source
+$successAccepted = $false
+try {
+  $null = Invoke-NativeSeparated -Command $nodeCommand -Arguments @('-e', 'process.exit(0)') -Failure 'native_probe_success_rejected' -SuppressOutput
+  $successAccepted = $true
+} catch {
+  $successAccepted = $false
+}
+$nonzeroFailure = $null
+try {
+  $null = Invoke-NativeSeparated -Command $nodeCommand -Arguments @('-e', 'process.exit(7)') -Failure '${failure}' -SuppressOutput
+} catch {
+  $nonzeroFailure = $_.Exception.Message
+}
+[Console]::Out.Write((@{ successAccepted = $successAccepted; nonzeroFailure = $nonzeroFailure } | ConvertTo-Json -Compress))
+`
+  return JSON.parse(execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' }))
+}) : null
 const hostOrchestrationSteps = [
   'Prepare current repair tuple',
   'Bind reviewed HEAD immediately before local execution',
@@ -1843,7 +1873,7 @@ const providerUnits = [
     evidence: [
       providerPost.reason === 'repair_provider_post_exec_binding_satisfied' && providerPost.next_action === 'PROJECT_PROVIDER_COMPLETION',
       postAgentAllowed.next_action === 'VALIDATE_REPAIR' && postAgentAllowed.repair_paths.join('|') === [...REPAIR_PATHS].sort().join('|') && parsedIntermediarySteps.every((step) => step?.run.includes('[IO.File]::WriteAllLines') && step.run.includes('encoding_invalid') && step.run.includes('-Raw -Encoding utf8') && step.run.includes('$priorConsoleOutputEncoding = [Console]::OutputEncoding') && step.run.includes('[Console]::OutputEncoding = $utf8NoBom') && step.run.includes('[Console]::OutputEncoding = $priorConsoleOutputEncoding') && !step.run.includes('Tee-Object')),
-      commitPlan.next_action === 'COMMIT_AND_PUSH' && completedRepair.next_action === 'REVIEW' && forbiddenProviderMechanisms.every((needle) => !providerProductionSource.includes(needle)) && nativeBoundarySteps.every((step) => step?.run.includes("$ErrorActionPreference = 'Continue'") && step.run.includes('$LASTEXITCODE = $null') && step.run.includes('finally {') && step.run.includes('$ErrorActionPreference = $priorErrorActionPreference') && /\$\w+Exit = \$LASTEXITCODE/.test(step.run)) && nativeJsonCaptureSteps.every((step) => step?.run.includes('[Console]::OutputEncoding = $utf8NoBom') && step.run.includes('[Console]::OutputEncoding = $priorConsoleOutputEncoding')) && nonAsciiNativeDecoded === nonAsciiNativeJson && nonAsciiNativeReencoded.equals(nonAsciiNativeBytes) && powershell51NativeUtf8RoundTrip && !repairRunSource.includes('Tee-Object') && !repairRunSource.includes('Add-Content') && repairRunSource.split('[IO.File]::AppendAllText').length === 9 && repairRunSource.split('[Text.UTF8Encoding]::new($false)').length === 10 && repairRunSource.includes('$persistedBytes[0] -eq 0xff') && repairRunSource.includes('$persistedBytes[0] -eq 0xef'),
+      commitPlan.next_action === 'COMMIT_AND_PUSH' && completedRepair.next_action === 'REVIEW' && forbiddenProviderMechanisms.every((needle) => !providerProductionSource.includes(needle)) && nativeBoundarySteps.every((step) => step?.run.includes("$ErrorActionPreference = 'Continue'") && step.run.includes('finally {') && step.run.includes('$ErrorActionPreference = $priorErrorActionPreference') && /\$\w+Exit = \$LASTEXITCODE/.test(step.run)) && nativeBoundarySteps.filter((step) => step !== providerProbeStep).every((step) => step.run.includes('$LASTEXITCODE = $null')) && !providerProbeRun.includes('$LASTEXITCODE = $null') && nativeJsonCaptureSteps.every((step) => step?.run.includes('[Console]::OutputEncoding = $utf8NoBom') && step.run.includes('[Console]::OutputEncoding = $priorConsoleOutputEncoding')) && nonAsciiNativeDecoded === nonAsciiNativeJson && nonAsciiNativeReencoded.equals(nonAsciiNativeBytes) && powershell51NativeUtf8RoundTrip && !repairRunSource.includes('Tee-Object') && !repairRunSource.includes('Add-Content') && repairRunSource.split('[IO.File]::AppendAllText').length === 9 && repairRunSource.split('[Text.UTF8Encoding]::new($false)').length === 10 && repairRunSource.includes('$persistedBytes[0] -eq 0xff') && repairRunSource.includes('$persistedBytes[0] -eq 0xef'),
     ],
   },
 ]
@@ -1899,9 +1929,16 @@ const hostAcquisitionPreflightMatrix = [
   providerProbeRun.includes("'rev-parse', '--show-toplevel'") && !providerProbeRun.includes("'symbolic-ref'") && !providerProbeRun.includes("repair_provider_branch_changed") && repairJob.steps.find((step) => step.name === 'Checkout exact repair HEAD')?.with?.ref === '${{ needs.protected_transition_admission_v1.outputs.repair_exact_head }}' && providerProbeRun.includes("'status', '--porcelain=v1', '--untracked-files=all'") && providerProbeRun.split("'status', '--porcelain=v1', '--untracked-files=all'").length === 3 && providerProbeRun.includes('[IO.File]::WriteAllBytes($sentinelPath, $sentinelBytes)') && providerProbeRun.includes("throw 'repair_target_worktree_not_writable'"),
   providerProbeRun.includes("throw 'repair_push_token_missing'") && providerProbeRun.includes("@('ls-remote', '--heads', $pushTransport") && providerProbeRun.split("'ls-remote'").length === 2 && providerProbeRun.includes("-Failure 'repair_push_transport_failed' -SuppressOutput"),
   providerProbeRun.includes('$remoteLines.Count -ne 1') && providerProbeRun.includes("$remoteFields.Count -ne 2") && providerProbeRun.includes("$remoteFields[0] -cne $env:REPAIR_HEAD") && providerProbeRun.includes("$remoteFields[1] -cne \"refs/heads/$($env:REPAIR_HEAD_REF)\"") && providerProbeRun.split("throw 'repair_push_remote_head_mismatch'").length === 3,
-  hostAcquisitionPreflightChangedPaths.join('\n') === hostAcquisitionPreflightExpectedPaths.join('\n') && workflowSource.includes('protected-transition-admission-v1: 456 assertions passed') && !repairRunSource.includes('retry') && !repairRunSource.includes('fallback') && !repairRunSource.includes('default branch'),
+  hostAcquisitionPreflightChangedPaths.join('\n') === hostAcquisitionPreflightExpectedPaths.join('\n') && workflowSource.includes('protected-transition-admission-v1: 459 assertions passed') && !repairRunSource.includes('retry') && !repairRunSource.includes('fallback') && !repairRunSource.includes('default branch'),
 ]
 for (const [index, evidence] of hostAcquisitionPreflightMatrix.entries()) check(evidence, `host acquisition and provider preflight matrix ${index + 1}`)
 
-if (assertions !== 456) throw new Error(`expected exactly 456 assertions, observed ${assertions}`)
+const nativeExitShadowingMatrix = [
+  nativeHelperSources.length === 2 && nativeHelperSources.every((source) => source.startsWith('function Invoke-NativeSeparated {') && !source.includes('$LASTEXITCODE = $null') && source.indexOf('& $Command @Arguments') < source.indexOf('$nativeExit = $LASTEXITCODE')),
+  nativeHelperSources.every((source) => source.includes('1> $stdoutPath 2> $stderrPath') && source.includes('if ($nativeExit -ne 0) { throw $Failure }') && source.includes('Remove-Item -LiteralPath $stdoutPath, $stderrPath')),
+  process.platform !== 'win32' || (nativeExitProbes.length === 2 && nativeExitProbes.every((probe, index) => probe.successAccepted === true && probe.nonzeroFailure === `native_probe_failure_${index}`)),
+]
+for (const [index, evidence] of nativeExitShadowingMatrix.entries()) check(evidence, `pwsh native exit shadowing matrix ${index + 1}`)
+
+if (assertions !== 459) throw new Error(`expected exactly 459 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
