@@ -290,6 +290,68 @@ jobs:
             }
           }
 
+          function Invoke-RepairPushPreflight {
+            param([string]$Command, [string[]]$Arguments, [string]$Token, [string]$ExpectedHead, [string]$ExpectedRef)
+            $captureId = [Guid]::NewGuid().ToString('N')
+            $stdoutPath = Join-Path $env:RUNNER_TEMP ("repair-push-preflight-{0}.stdout" -f $captureId)
+            $stderrPath = Join-Path $env:RUNNER_TEMP ("repair-push-preflight-{0}.stderr" -f $captureId)
+            $nativeExit = $null
+            try {
+              $priorErrorActionPreference = $ErrorActionPreference
+              try {
+                $ErrorActionPreference = 'Continue'
+                try {
+                  & $Command @Arguments 1> $stdoutPath 2> $stderrPath
+                  $nativeExit = $LASTEXITCODE
+                } catch {
+                  throw 'repair_push_preflight_execution_failed'
+                }
+              } finally {
+                $ErrorActionPreference = $priorErrorActionPreference
+              }
+              if ($null -eq $nativeExit) { throw 'repair_push_preflight_execution_failed' }
+
+              if ($nativeExit -eq 0) {
+                try {
+                  $stdout = if (Test-Path -LiteralPath $stdoutPath) { [string[]]@(Get-Content -LiteralPath $stdoutPath) } else { [string[]]@() }
+                } catch {
+                  throw 'repair_push_preflight_diagnostic_unavailable exit_code=0'
+                }
+                $remoteLines = [string[]]@($stdout | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+                if ($remoteLines.Count -ne 1) { throw 'repair_push_remote_head_mismatch exit_code=0' }
+                $remoteFields = [string[]]@($remoteLines[0] -split '\s+')
+                if ($remoteFields.Count -ne 2 -or $remoteFields[0] -cne $ExpectedHead -or $remoteFields[1] -cne $ExpectedRef) { throw 'repair_push_remote_head_mismatch exit_code=0' }
+                return 'PREFLIGHT_PUSH_CHECK_OK'
+              }
+
+              try {
+                if ([string]::IsNullOrWhiteSpace($Token) -or -not (Test-Path -LiteralPath $stderrPath)) { throw 'diagnostic_input_invalid' }
+                $redactedStderr = [IO.File]::ReadAllText($stderrPath).Replace($Token, '[REDACTED]')
+                $redactedStderr = [regex]::Replace($redactedStderr, '(?i)https://[^@\r\n]*@github\.com/', 'https://github.com/')
+                if ($redactedStderr.Contains($Token) -or [regex]::IsMatch($redactedStderr, '(?i)https://[^@\r\n]*@github\.com/')) { throw 'diagnostic_redaction_failed' }
+                $authFailure = [regex]::IsMatch($redactedStderr, '(?i)(Authentication failed|Invalid username or token|could not read Username|terminal prompts disabled|The requested URL returned error:\s*(?:401|403)\b|\bHTTP(?:/\d(?:\.\d)?)?[^\r\n]{0,32}\b(?:401|403)\b)')
+              } catch {
+                throw "repair_push_preflight_diagnostic_unavailable exit_code=$nativeExit"
+              }
+              if ($authFailure) { throw "repair_push_auth_failed exit_code=$nativeExit" }
+              throw "repair_push_transport_failed exit_code=$nativeExit"
+            } finally {
+              $cleanupFailed = $false
+              foreach ($capturePath in @($stdoutPath, $stderrPath)) {
+                try {
+                  if (Test-Path -LiteralPath $capturePath) { Remove-Item -LiteralPath $capturePath -Force -ErrorAction Stop }
+                } catch {
+                  $cleanupFailed = $true
+                }
+                if (Test-Path -LiteralPath $capturePath) { $cleanupFailed = $true }
+              }
+              if ($cleanupFailed) {
+                if ($null -eq $nativeExit) { throw 'repair_push_preflight_diagnostic_unavailable' }
+                throw "repair_push_preflight_diagnostic_unavailable exit_code=$nativeExit"
+              }
+            }
+          }
+
           $gitCommand = (Get-Command git.exe -ErrorAction Stop).Source
           if (-not $hostRoot.StartsWith($runnerTempRoot + [IO.Path]::DirectorySeparatorChar, $pathComparison)) { throw 'repair_host_path_escape' }
           if ($hostRoot.StartsWith($workspaceRoot + [IO.Path]::DirectorySeparatorChar, $pathComparison)) { throw 'repair_host_inside_target_workspace' }
@@ -335,11 +397,7 @@ jobs:
 
           if ([string]::IsNullOrWhiteSpace($env:REPAIR_EXECUTOR_PUSH_TOKEN)) { throw 'repair_push_token_missing' }
           $pushTransport = "https://x-access-token:$($env:REPAIR_EXECUTOR_PUSH_TOKEN)@github.com/$($env:GITHUB_REPOSITORY).git"
-          $remoteProjection = [string[]]@(Invoke-NativeSeparated -Command $gitCommand -Arguments @('ls-remote', '--heads', $pushTransport, "refs/heads/$($env:REPAIR_HEAD_REF)") -Failure 'repair_push_transport_failed' -SuppressOutput)
-          $remoteLines = [string[]]@($remoteProjection | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-          if ($remoteLines.Count -ne 1) { throw 'repair_push_remote_head_mismatch' }
-          $remoteFields = [string[]]@($remoteLines[0] -split '\s+')
-          if ($remoteFields.Count -ne 2 -or $remoteFields[0] -cne $env:REPAIR_HEAD -or $remoteFields[1] -cne "refs/heads/$($env:REPAIR_HEAD_REF)") { throw 'repair_push_remote_head_mismatch' }
+          $null = Invoke-RepairPushPreflight -Command $gitCommand -Arguments @('ls-remote', '--heads', $pushTransport, "refs/heads/$($env:REPAIR_HEAD_REF)") -Token $env:REPAIR_EXECUTOR_PUSH_TOKEN -ExpectedHead $env:REPAIR_HEAD -ExpectedRef "refs/heads/$($env:REPAIR_HEAD_REF)"
 
           [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "cli_version=$version$([Environment]::NewLine)", $utf8NoBom)
           [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "login_status=$loginStatus$([Environment]::NewLine)", $utf8NoBom)
@@ -488,7 +546,7 @@ jobs:
             $focusedOutput = @(node scripts/test-protected-transition-admission-v1.mjs)
             if ($LASTEXITCODE -ne 0) { throw 'focused_validation_failed' }
             $focusedOutput | ForEach-Object { Write-Output $_ }
-            if ($focusedOutput[-1] -cne 'protected-transition-admission-v1: 462 assertions passed') { throw 'focused_assertion_total_invalid' }
+            if ($focusedOutput[-1] -cne 'protected-transition-admission-v1: 471 assertions passed') { throw 'focused_assertion_total_invalid' }
             node scripts/test-role-execution-contracts.mjs
             if ($LASTEXITCODE -ne 0) { throw 'role_contract_validation_failed' }
             pnpm.cmd run validate:dictionary
