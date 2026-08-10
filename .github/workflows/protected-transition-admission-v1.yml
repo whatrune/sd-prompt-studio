@@ -169,7 +169,6 @@ jobs:
             $priorErrorActionPreference = $ErrorActionPreference
             try {
               $ErrorActionPreference = 'Continue'
-              $LASTEXITCODE = $null
               & $Command @Arguments 1> $stdoutPath 2> $stderrPath
               $nativeExit = $LASTEXITCODE
             } finally {
@@ -269,7 +268,6 @@ jobs:
             $priorErrorActionPreference = $ErrorActionPreference
             try {
               $ErrorActionPreference = 'Continue'
-              $LASTEXITCODE = $null
               & $Command @Arguments 1> $stdoutPath 2> $stderrPath
               $nativeExit = $LASTEXITCODE
             } finally {
@@ -489,7 +487,7 @@ jobs:
             $focusedOutput = @(node scripts/test-protected-transition-admission-v1.mjs)
             if ($LASTEXITCODE -ne 0) { throw 'focused_validation_failed' }
             $focusedOutput | ForEach-Object { Write-Output $_ }
-            if ($focusedOutput[-1] -cne 'protected-transition-admission-v1: 456 assertions passed') { throw 'focused_assertion_total_invalid' }
+            if ($focusedOutput[-1] -cne 'protected-transition-admission-v1: 459 assertions passed') { throw 'focused_assertion_total_invalid' }
             node scripts/test-role-execution-contracts.mjs
             if ($LASTEXITCODE -ne 0) { throw 'role_contract_validation_failed' }
             pnpm.cmd run validate:dictionary
