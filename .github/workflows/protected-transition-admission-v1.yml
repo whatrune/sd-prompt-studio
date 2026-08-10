@@ -329,7 +329,7 @@ jobs:
                 $redactedStderr = [IO.File]::ReadAllText($stderrPath).Replace($Token, '[REDACTED]')
                 $redactedStderr = [regex]::Replace($redactedStderr, '(?i)https://[^@\r\n]*@github\.com/', 'https://github.com/')
                 if ($redactedStderr.Contains($Token) -or [regex]::IsMatch($redactedStderr, '(?i)https://[^@\r\n]*@github\.com/')) { throw 'diagnostic_redaction_failed' }
-                $authFailure = [regex]::IsMatch($redactedStderr, '(?i)(Authentication failed|Invalid username or token|could not read Username|terminal prompts disabled|\bHTTP(?:/\d(?:\.\d)?)?[^\r\n]{0,32}\b(?:401|403)\b)')
+                $authFailure = [regex]::IsMatch($redactedStderr, '(?i)(Authentication failed|Invalid username or token|could not read Username|terminal prompts disabled|The requested URL returned error:\s*(?:401|403)\b|\bHTTP(?:/\d(?:\.\d)?)?[^\r\n]{0,32}\b(?:401|403)\b)')
               } catch {
                 throw "repair_push_preflight_diagnostic_unavailable exit_code=$nativeExit"
               }
@@ -546,7 +546,7 @@ jobs:
             $focusedOutput = @(node scripts/test-protected-transition-admission-v1.mjs)
             if ($LASTEXITCODE -ne 0) { throw 'focused_validation_failed' }
             $focusedOutput | ForEach-Object { Write-Output $_ }
-            if ($focusedOutput[-1] -cne 'protected-transition-admission-v1: 470 assertions passed') { throw 'focused_assertion_total_invalid' }
+            if ($focusedOutput[-1] -cne 'protected-transition-admission-v1: 471 assertions passed') { throw 'focused_assertion_total_invalid' }
             node scripts/test-role-execution-contracts.mjs
             if ($LASTEXITCODE -ne 0) { throw 'role_contract_validation_failed' }
             pnpm.cmd run validate:dictionary
