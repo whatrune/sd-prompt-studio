@@ -37,7 +37,7 @@ jobs:
             $content = [IO.File]::ReadAllText((Join-Path $root 'input.txt')) -replace "`r`n", "`n"
             if ($content -ne "beta`n") { throw "POC_CONTENT_INVALID:$content" }
             $status = (& $git status --porcelain=v1 --untracked-files=all) -join "`n"
-            if ($status.Trim() -ne ' M input.txt') { throw "POC_STATUS_INVALID:$status" }
+            if ($status -ne ' M input.txt') { throw "POC_STATUS_INVALID:$status" }
             Write-Host 'SELF_HOSTED_WORKSPACE_WRITE_POC_PASS'
           } finally {
             Pop-Location
