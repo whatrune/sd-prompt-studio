@@ -1746,6 +1746,19 @@ try {
 `
   return JSON.parse(execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' }))
 }) : null
+const loginStatusStreamProbe = process.platform === 'win32' ? (() => {
+  const script = `
+$ErrorActionPreference = 'Stop'
+$env:RUNNER_TEMP = [IO.Path]::GetTempPath()
+${nativeHelperSources[1]}
+$nodeCommand = (Get-Command node.exe -ErrorAction Stop).Source
+$arguments = @('-e', 'process.stdout.write("stdout-contract"); process.stderr.write("Logged in using ChatGPT")')
+$stdoutSelected = ((Invoke-NativeSeparated -Command $nodeCommand -Arguments $arguments -Failure 'login_stream_probe_failed' -SuppressOutput) -join [Environment]::NewLine).Trim()
+$stderrSelected = ((Invoke-NativeSeparated -Command $nodeCommand -Arguments $arguments -Failure 'login_stream_probe_failed' -SuppressOutput -ReturnStream 'stderr') -join [Environment]::NewLine).Trim()
+[Console]::Out.Write((@{ stdoutSelected = $stdoutSelected; stderrSelected = $stderrSelected } | ConvertTo-Json -Compress))
+`
+  return JSON.parse(execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' }))
+})() : null
 const hostOrchestrationSteps = [
   'Prepare current repair tuple',
   'Bind reviewed HEAD immediately before local execution',
@@ -1929,7 +1942,7 @@ const hostAcquisitionPreflightMatrix = [
   providerProbeRun.includes("'rev-parse', '--show-toplevel'") && !providerProbeRun.includes("'symbolic-ref'") && !providerProbeRun.includes("repair_provider_branch_changed") && repairJob.steps.find((step) => step.name === 'Checkout exact repair HEAD')?.with?.ref === '${{ needs.protected_transition_admission_v1.outputs.repair_exact_head }}' && providerProbeRun.includes("'status', '--porcelain=v1', '--untracked-files=all'") && providerProbeRun.split("'status', '--porcelain=v1', '--untracked-files=all'").length === 3 && providerProbeRun.includes('[IO.File]::WriteAllBytes($sentinelPath, $sentinelBytes)') && providerProbeRun.includes("throw 'repair_target_worktree_not_writable'"),
   providerProbeRun.includes("throw 'repair_push_token_missing'") && providerProbeRun.includes("@('ls-remote', '--heads', $pushTransport") && providerProbeRun.split("'ls-remote'").length === 2 && providerProbeRun.includes("-Failure 'repair_push_transport_failed' -SuppressOutput"),
   providerProbeRun.includes('$remoteLines.Count -ne 1') && providerProbeRun.includes("$remoteFields.Count -ne 2") && providerProbeRun.includes("$remoteFields[0] -cne $env:REPAIR_HEAD") && providerProbeRun.includes("$remoteFields[1] -cne \"refs/heads/$($env:REPAIR_HEAD_REF)\"") && providerProbeRun.split("throw 'repair_push_remote_head_mismatch'").length === 3,
-  hostAcquisitionPreflightChangedPaths.join('\n') === hostAcquisitionPreflightExpectedPaths.join('\n') && workflowSource.includes('protected-transition-admission-v1: 459 assertions passed') && !repairRunSource.includes('retry') && !repairRunSource.includes('fallback') && !repairRunSource.includes('default branch'),
+  hostAcquisitionPreflightChangedPaths.join('\n') === hostAcquisitionPreflightExpectedPaths.join('\n') && workflowSource.includes('protected-transition-admission-v1: 462 assertions passed') && !repairRunSource.includes('retry') && !repairRunSource.includes('fallback') && !repairRunSource.includes('default branch'),
 ]
 for (const [index, evidence] of hostAcquisitionPreflightMatrix.entries()) check(evidence, `host acquisition and provider preflight matrix ${index + 1}`)
 
@@ -1940,5 +1953,12 @@ const nativeExitShadowingMatrix = [
 ]
 for (const [index, evidence] of nativeExitShadowingMatrix.entries()) check(evidence, `pwsh native exit shadowing matrix ${index + 1}`)
 
-if (assertions !== 459) throw new Error(`expected exactly 459 assertions, observed ${assertions}`)
+const loginStatusStreamContractMatrix = [
+  !nativeHelperSources[0].includes('$ReturnStream') && nativeHelperSources[1].includes("[ValidateSet('stdout', 'stderr')][string]$ReturnStream = 'stdout'") && nativeHelperSources[1].includes("if ($ReturnStream -ceq 'stderr') { return ,$stderr }"),
+  providerProbeRun.includes("@('login', 'status')") && providerProbeRun.includes("-ReturnStream 'stderr'") && providerProbeRun.includes("$loginStatus -cne 'Logged in using ChatGPT'") && providerProbeRun.includes("if ($nativeExit -ne 0) { throw $Failure }"),
+  process.platform !== 'win32' || (loginStatusStreamProbe.stdoutSelected === 'stdout-contract' && loginStatusStreamProbe.stderrSelected === 'Logged in using ChatGPT'),
+]
+for (const [index, evidence] of loginStatusStreamContractMatrix.entries()) check(evidence, `codex login status stream contract matrix ${index + 1}`)
+
+if (assertions !== 462) throw new Error(`expected exactly 462 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
