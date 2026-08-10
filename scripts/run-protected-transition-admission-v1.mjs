@@ -925,7 +925,7 @@ export const projectSelfHostedWindowsRepairProviderV3 = ({
     provider_branch: providerBranch,
     prompt_bytes: Buffer.byteLength(prompt, 'utf8'),
     invocation_count: 1,
-    exec_argv: Object.freeze(['exec', '--ignore-user-config', '--sandbox', 'workspace-write', '--approve-for-me', '--ephemeral', '--json', '--cd', workspacePath, '-']),
+    exec_argv: Object.freeze(['exec', '--ignore-user-config', '--sandbox', 'workspace-write', '--ephemeral', '--json', '--cd', workspacePath, '-']),
   })
 }
 
