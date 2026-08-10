@@ -248,7 +248,6 @@ jobs:
         env:
           REPAIR_HEAD: ${{ needs.protected_transition_admission_v1.outputs.repair_exact_head }}
           REPAIR_HEAD_REF: ${{ steps.repair_preflight.outputs.head_ref }}
-          REPAIR_EXECUTOR_PUSH_TOKEN: ${{ secrets.REPAIR_EXECUTOR_PUSH_TOKEN }}
         run: |
           $ErrorActionPreference = 'Stop'
           $utf8NoBom = [Text.UTF8Encoding]::new($false)
@@ -291,7 +290,7 @@ jobs:
           }
 
           function Invoke-RepairPushPreflight {
-            param([string]$Command, [string[]]$Arguments, [string]$Token, [string]$ExpectedHead, [string]$ExpectedRef)
+            param([string]$Command, [string[]]$Arguments, [string]$ExpectedHead, [string]$ExpectedRef)
             $captureId = [Guid]::NewGuid().ToString('N')
             $stdoutPath = Join-Path $env:RUNNER_TEMP ("repair-push-preflight-{0}.stdout" -f $captureId)
             $stderrPath = Join-Path $env:RUNNER_TEMP ("repair-push-preflight-{0}.stderr" -f $captureId)
@@ -327,10 +326,10 @@ jobs:
               $diagnosticCategory = 'OTHER'
               $diagnosticUnavailable = $false
               try {
-                if ([string]::IsNullOrWhiteSpace($Token) -or -not (Test-Path -LiteralPath $stderrPath)) { throw 'diagnostic_input_invalid' }
-                $redactedStderr = [IO.File]::ReadAllText($stderrPath).Replace($Token, '[REDACTED]')
+                if (-not (Test-Path -LiteralPath $stderrPath)) { throw 'diagnostic_input_invalid' }
+                $redactedStderr = [IO.File]::ReadAllText($stderrPath)
                 $redactedStderr = [regex]::Replace($redactedStderr, '(?i)https://[^@\r\n]*@github\.com/', 'https://github.com/')
-                if ($redactedStderr.Contains($Token) -or [regex]::IsMatch($redactedStderr, '(?i)https://[^@\r\n]*@github\.com/')) { throw 'diagnostic_redaction_failed' }
+                if ([regex]::IsMatch($redactedStderr, '(?i)https://[^@\r\n]*@github\.com/')) { throw 'diagnostic_redaction_failed' }
                 if ([regex]::IsMatch($redactedStderr, '(?i)(Authentication failed|Invalid username or token|could not read Username|terminal prompts disabled|The requested URL returned error:\s*(?:401|403)\b|\bHTTP(?:/\d(?:\.\d)?)?[^\r\n]{0,32}\b(?:401|403)\b)')) {
                   $diagnosticCategory = 'GIT_AUTH'
                 } elseif ([regex]::IsMatch($redactedStderr, '(?i)(Repository not found|does not appear to be a git repository|The requested URL returned error:\s*404\b|\bHTTP(?:/\d(?:\.\d)?)?[^\r\n]{0,32}\b404\b)')) {
@@ -407,9 +406,8 @@ jobs:
           $statusAfter = ((Invoke-NativeSeparated -Command $gitCommand -Arguments @('-C', $workspaceRoot, 'status', '--porcelain=v1', '--untracked-files=all') -Failure 'repair_provider_worktree_invalid') -join "`n").Trim()
           if ($statusAfter.Length -ne 0) { throw 'repair_provider_worktree_not_clean' }
 
-          if ([string]::IsNullOrWhiteSpace($env:REPAIR_EXECUTOR_PUSH_TOKEN)) { throw 'repair_push_token_missing' }
-          $pushTransport = "https://x-access-token:$($env:REPAIR_EXECUTOR_PUSH_TOKEN)@github.com/$($env:GITHUB_REPOSITORY).git"
-          $null = Invoke-RepairPushPreflight -Command $gitCommand -Arguments @('ls-remote', '--heads', $pushTransport, "refs/heads/$($env:REPAIR_HEAD_REF)") -Token $env:REPAIR_EXECUTOR_PUSH_TOKEN -ExpectedHead $env:REPAIR_HEAD -ExpectedRef "refs/heads/$($env:REPAIR_HEAD_REF)"
+          $pushTransport = "https://github.com/$($env:GITHUB_REPOSITORY).git"
+          $null = Invoke-RepairPushPreflight -Command $gitCommand -Arguments @('ls-remote', '--heads', $pushTransport, "refs/heads/$($env:REPAIR_HEAD_REF)") -ExpectedHead $env:REPAIR_HEAD -ExpectedRef "refs/heads/$($env:REPAIR_HEAD_REF)"
 
           [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "cli_version=$version$([Environment]::NewLine)", $utf8NoBom)
           [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "login_status=$loginStatus$([Environment]::NewLine)", $utf8NoBom)
@@ -617,11 +615,10 @@ jobs:
       - name: Push one normal non-force repair commit
         shell: pwsh
         env:
-          REPAIR_EXECUTOR_PUSH_TOKEN: ${{ secrets.REPAIR_EXECUTOR_PUSH_TOKEN }}
           REPAIR_HEAD_REF: ${{ steps.repair_commit.outputs.head_ref }}
         run: |
           $ErrorActionPreference = 'Stop'
-          git push --porcelain "https://x-access-token:$($env:REPAIR_EXECUTOR_PUSH_TOKEN)@github.com/$($env:GITHUB_REPOSITORY).git" "HEAD:refs/heads/$($env:REPAIR_HEAD_REF)"
+          git push --porcelain "https://github.com/$($env:GITHUB_REPOSITORY).git" "HEAD:refs/heads/$($env:REPAIR_HEAD_REF)"
           if ($LASTEXITCODE -ne 0) { throw 'repair_push_failed' }
 
       - name: Rebind existing state and hand off fresh review

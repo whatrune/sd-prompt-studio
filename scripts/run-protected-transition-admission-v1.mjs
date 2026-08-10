@@ -23,12 +23,12 @@ const REVIEW_RECORD_TYPE = 'independent_review_decision_v1'
 const REVIEW_AUTHORING_ROLE = 'Independent Reviewer'
 const REVIEW_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 const STRICT_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/
-const REPAIR_EXECUTOR_INSTRUCTION = 'Fix current blocking findings only; use current authorized_paths; stop on Architecture gap; run focused validation.'
+const REPAIR_EXECUTOR_INSTRUCTION = 'Generate and apply the minimum repair for current blocking findings only within current authorized_paths; stop on an Architecture gap.'
 const REPAIR_COMMIT_MESSAGE = 'fix current protected transition blockers'
 const REPAIR_PROVIDER_PROMPT_MAX_BYTES_V2 = 4096
 const CODEX_CLI_VERSION_V3 = 'codex-cli 0.147.0'
 const CODEX_CHATGPT_LOGIN_STATUS_V3 = 'Logged in using ChatGPT'
-const REPAIR_PROVIDER_CONSTRAINTS_V3 = 'Do not commit, push, stage, mutate PR/state, or redesign Architecture; leave a non-empty unstaged diff; stop on an Architecture gap.'
+const REPAIR_PROVIDER_CONSTRAINTS_V3 = 'Do not run validation, stage, commit, push, mutate PR/state, or redesign Architecture; leave a non-empty unstaged diff; stop on an Architecture gap.'
 const PROTECTED_TRANSITION_REPAIR_PATHS_V1 = Object.freeze([
   '.github/workflows/protected-transition-admission-v1.yml',
   'scripts/run-protected-transition-admission-v1.mjs',
