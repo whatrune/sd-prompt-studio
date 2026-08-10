@@ -1722,7 +1722,7 @@ const extractNativeHelper = (source) => {
   return start >= 0 && end > start ? source.slice(start, end + 2) : ''
 }
 const nativeHelperSources = [hostRunnerRun, providerProbeRun].map(extractNativeHelper)
-const nativeExitProbes = nativeHelperSources.map((helperSource, index) => {
+const nativeExitProbes = process.platform === 'win32' ? nativeHelperSources.map((helperSource, index) => {
   const failure = `native_probe_failure_${index}`
   const script = `
 $ErrorActionPreference = 'Stop'
@@ -1745,7 +1745,7 @@ try {
 [Console]::Out.Write((@{ successAccepted = $successAccepted; nonzeroFailure = $nonzeroFailure } | ConvertTo-Json -Compress))
 `
   return JSON.parse(execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' }))
-})
+}) : null
 const hostOrchestrationSteps = [
   'Prepare current repair tuple',
   'Bind reviewed HEAD immediately before local execution',
@@ -1936,7 +1936,7 @@ for (const [index, evidence] of hostAcquisitionPreflightMatrix.entries()) check(
 const nativeExitShadowingMatrix = [
   nativeHelperSources.length === 2 && nativeHelperSources.every((source) => source.startsWith('function Invoke-NativeSeparated {') && !source.includes('$LASTEXITCODE = $null') && source.indexOf('& $Command @Arguments') < source.indexOf('$nativeExit = $LASTEXITCODE')),
   nativeHelperSources.every((source) => source.includes('1> $stdoutPath 2> $stderrPath') && source.includes('if ($nativeExit -ne 0) { throw $Failure }') && source.includes('Remove-Item -LiteralPath $stdoutPath, $stderrPath')),
-  nativeExitProbes.length === 2 && nativeExitProbes.every((probe, index) => probe.successAccepted === true && probe.nonzeroFailure === `native_probe_failure_${index}`),
+  process.platform !== 'win32' || (nativeExitProbes.length === 2 && nativeExitProbes.every((probe, index) => probe.successAccepted === true && probe.nonzeroFailure === `native_probe_failure_${index}`)),
 ]
 for (const [index, evidence] of nativeExitShadowingMatrix.entries()) check(evidence, `pwsh native exit shadowing matrix ${index + 1}`)
 
