@@ -1,0 +1,45 @@
+name: PoC Self Hosted Workspace Write
+
+on:
+  push:
+    branches:
+      - poc/repair-executor-architecture-compare
+
+permissions:
+  contents: read
+
+jobs:
+  workspace_write:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 15
+    steps:
+      - name: Probe Codex workspace-write in synthetic repo
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $git = (Get-Command git.exe -ErrorAction Stop).Source
+          $codex = (Get-Command codex.cmd -ErrorAction Stop).Source
+          $root = Join-Path ([IO.Path]::GetTempPath()) ("sdps-selfhosted-write-poc-" + [Guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Path $root | Out-Null
+          Push-Location $root
+          try {
+            & $git init --quiet
+            if ($LASTEXITCODE -ne 0) { throw 'POC_GIT_INIT_FAILED' }
+            [IO.File]::WriteAllText((Join-Path $root 'input.txt'), "alpha`n", [Text.UTF8Encoding]::new($false))
+            & $git add input.txt
+            & $git -c user.name=poc -c user.email=poc@local.invalid commit -m init --quiet
+            if ($LASTEXITCODE -ne 0) { throw 'POC_GIT_COMMIT_FAILED' }
+
+            $prompt = 'Edit input.txt so its entire content is exactly beta followed by a newline. Then run a shell command that reads input.txt and confirms it contains beta. Do not create any other files.'
+            & $codex exec --sandbox workspace-write --skip-git-repo-check $prompt
+            if ($LASTEXITCODE -ne 0) { throw 'POC_CODEX_EXEC_FAILED' }
+
+            $content = [IO.File]::ReadAllText((Join-Path $root 'input.txt')) -replace "`r`n", "`n"
+            if ($content -ne "beta`n") { throw "POC_CONTENT_INVALID:$content" }
+            $status = (& $git status --porcelain=v1 --untracked-files=all) -join "`n"
+            if ($status.Trim() -ne ' M input.txt') { throw "POC_STATUS_INVALID:$status" }
+            Write-Host 'SELF_HOSTED_WORKSPACE_WRITE_POC_PASS'
+          } finally {
+            Pop-Location
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
