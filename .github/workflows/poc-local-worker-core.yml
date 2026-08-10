@@ -1,0 +1,36 @@
+name: PoC Local Worker Core
+
+on:
+  push:
+    branches:
+      - poc/repair-executor-architecture-compare
+
+permissions:
+  contents: read
+
+jobs:
+  poc_local_worker_core:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 15
+    steps:
+      - name: Run isolated local-worker core probe
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $scriptPath = Join-Path ([IO.Path]::GetTempPath()) ("local-worker-poc-$env:GITHUB_RUN_ID.ps1")
+          $raw = 'https://raw.githubusercontent.com/whatrune/sd-prompt-studio/poc/repair-executor-architecture-compare/poc/repair-executor/local-worker-poc.ps1'
+          Invoke-WebRequest -Uri $raw -OutFile $scriptPath -UseBasicParsing
+
+          $names = [Environment]::GetEnvironmentVariables('Process').Keys | ForEach-Object { [string]$_ }
+          foreach ($name in $names) {
+            if ($name -like 'GITHUB_*' -or $name -like 'RUNNER_*' -or $name -like 'ACTIONS_*' -or $name -eq 'GH_TOKEN' -or $name -eq 'REPAIR_EXECUTOR_PUSH_TOKEN') {
+              [Environment]::SetEnvironmentVariable($name, $null, 'Process')
+            }
+          }
+          $env:GIT_TERMINAL_PROMPT = '0'
+          try {
+            & $scriptPath
+            if ($LASTEXITCODE -ne 0) { throw 'LOCAL_WORKER_CORE_POC_FAILED' }
+          } finally {
+            Remove-Item -LiteralPath $scriptPath -Force -ErrorAction SilentlyContinue
+          }
