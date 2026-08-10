@@ -20,6 +20,8 @@ Invoke-Native $codex @('--version')
 Invoke-Native $codex @('login','status')
 
 $root = Join-Path ([IO.Path]::GetTempPath()) ("sdps-local-worker-poc-" + [Guid]::NewGuid().ToString('N'))
+$remoteBranch = "poc/local-worker-roundtrip-" + [Guid]::NewGuid().ToString('N')
+$remoteCreated = $false
 try {
   Invoke-Native $git @('clone','--quiet','--depth=1','--branch',$Ref,$Repository,$root)
   Push-Location $root
@@ -37,8 +39,22 @@ try {
     $status = (& $git status --porcelain=v1 --untracked-files=all) -join "`n"
     if ($LASTEXITCODE -ne 0) { throw 'POC_STATUS_FAILED' }
     if (-not [string]::IsNullOrWhiteSpace($status)) { throw 'POC_CODEX_MODIFIED_WORKTREE' }
+
+    Invoke-Native $git @('checkout','-b',$remoteBranch)
+    [IO.File]::WriteAllText((Join-Path $root '.local-worker-poc'), "temporary proof`n", [Text.UTF8Encoding]::new($false))
+    Invoke-Native $git @('add','--','.local-worker-poc')
+    Invoke-Native $git @('-c','user.name=sd-prompt-studio-poc','-c','user.email=poc@local.invalid','commit','-m','poc: local worker push roundtrip')
+    Invoke-Native $git @('push','origin',"HEAD:refs/heads/$remoteBranch")
+    $remoteCreated = $true
+    Invoke-Native $git @('ls-remote','--exit-code','--heads','origin',"refs/heads/$remoteBranch")
+    Invoke-Native $git @('push','origin','--delete',$remoteBranch)
+    $remoteCreated = $false
+
     Write-Host 'LOCAL_WORKER_POC_PASS'
   } finally {
+    if ($remoteCreated) {
+      & $git push origin --delete $remoteBranch 2>$null | Out-Null
+    }
     Pop-Location
   }
 } finally {
