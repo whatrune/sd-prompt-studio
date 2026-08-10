@@ -34,12 +34,13 @@ jobs:
           & $codex login status
           if ($LASTEXITCODE -ne 0) { throw 'POC_CODEX_LOGIN_FAILED' }
 
-          & $git ls-remote --heads "https://github.com/$env:GITHUB_REPOSITORY.git" "refs/heads/$env:GITHUB_REF_NAME" | Out-Null
+          $repoUrl = "https://github.com/$env:GITHUB_REPOSITORY.git"
+          & $git ls-remote --heads $repoUrl "refs/heads/$env:GITHUB_REF_NAME" | Out-Null
           if ($LASTEXITCODE -ne 0) { throw 'POC_GIT_PUBLIC_READ_FAILED' }
 
           if ([string]::IsNullOrWhiteSpace($env:REPAIR_EXECUTOR_PUSH_TOKEN)) { throw 'POC_PUSH_TOKEN_MISSING' }
-          $remote = "https://x-access-token:$($env:REPAIR_EXECUTOR_PUSH_TOKEN)@github.com/$env:GITHUB_REPOSITORY.git"
-          & $git ls-remote --heads $remote "refs/heads/$env:GITHUB_REF_NAME" | Out-Null
+          $basic = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("x-access-token:$($env:REPAIR_EXECUTOR_PUSH_TOKEN)"))
+          & $git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $basic" ls-remote --heads $repoUrl "refs/heads/$env:GITHUB_REF_NAME" | Out-Null
           if ($LASTEXITCODE -ne 0) { throw 'POC_PUSH_TOKEN_READ_FAILED' }
 
           $before = (& $git status --porcelain=v1 --untracked-files=all) -join "`n"
