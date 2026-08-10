@@ -1442,10 +1442,10 @@ const repairDispatch = (overrides = {}) => Object.freeze({
   review_body: 'current blocking findings',
   authorized_paths: [...REPAIR_PATHS],
   next_action: 'REPAIR_EXECUTOR',
-  instruction: 'Fix current blocking findings only; use current authorized_paths; stop on Architecture gap; run focused validation.',
+  instruction: 'Generate and apply the minimum repair for current blocking findings only within current authorized_paths; stop on an Architecture gap.',
   ...overrides,
 })
-const expectedRepairPrompt = `${repairDispatch().instruction}\nDo not commit, push, stage, mutate PR/state, or redesign Architecture; leave a non-empty unstaged diff; stop on an Architecture gap.\n\nCurrent repair tuple:\nRepository: ${REPOSITORY}\nTask: #${TASK}\nPR: #${PR}\nExact HEAD: ${HEAD}\n\nCurrent authorized_paths:\n${JSON.stringify([...REPAIR_PATHS].sort())}\n\nCurrent review decision:\ncurrent blocking findings`
+const expectedRepairPrompt = `${repairDispatch().instruction}\nDo not run validation, stage, commit, push, mutate PR/state, or redesign Architecture; leave a non-empty unstaged diff; stop on an Architecture gap.\n\nCurrent repair tuple:\nRepository: ${REPOSITORY}\nTask: #${TASK}\nPR: #${PR}\nExact HEAD: ${HEAD}\n\nCurrent authorized_paths:\n${JSON.stringify([...REPAIR_PATHS].sort())}\n\nCurrent review decision:\ncurrent blocking findings`
 const repairTaskState = (overrides = {}) => state({
   authorized_paths: [...REPAIR_PATHS],
   review_status: 'CHANGES_REQUIRED',
@@ -1774,12 +1774,12 @@ $probeTemp = Join-Path ([IO.Path]::GetTempPath()) ('repair-push-preflight-probe-
 $env:RUNNER_TEMP = $probeTemp
 ${repairPushPreflightHelperSource}
 $nodeCommand = (Get-Command node.exe -ErrorAction Stop).Source
-$probeToken = 'probe-secret-token'
 $expectedHead = '${HEAD}'
 $otherHead = '${OTHER_HEAD}'
 $expectedRef = 'refs/heads/codex/repair'
 $script:forceCleanupFailure = $false
 $script:forceCleanupProbeFailure = $false
+$script:forceDiagnosticProbeFailure = $false
 
 function Remove-Item {
   param([string[]]$LiteralPath, [switch]$Force, [string]$ErrorAction)
@@ -1790,17 +1790,18 @@ function Remove-Item {
 function Test-Path {
   param([string]$LiteralPath)
   $exists = Microsoft.PowerShell.Management\\Test-Path -LiteralPath $LiteralPath
+  if ($script:forceDiagnosticProbeFailure -and $LiteralPath.EndsWith('.stderr')) { throw 'simulated_diagnostic_probe_failure' }
   if ($script:forceCleanupProbeFailure -and -not $exists) { throw 'simulated_cleanup_probe_failure' }
   return $exists
 }
 
 function Invoke-ProbeCase {
-  param([string]$Stdout, [string]$Stderr, [int]$ExitCode, [string]$Token)
+  param([string]$Stdout, [string]$Stderr, [int]$ExitCode)
   $stdoutBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Stdout))
   $stderrBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Stderr))
   $nodeScript = "process.stdout.write(Buffer.from('$stdoutBase64','base64')); process.stderr.write(Buffer.from('$stderrBase64','base64')); process.exit($ExitCode)"
   try {
-    $result = Invoke-RepairPushPreflight -Command $nodeCommand -Arguments @('-e', $nodeScript) -Token $Token -ExpectedHead $expectedHead -ExpectedRef $expectedRef
+    $result = Invoke-RepairPushPreflight -Command $nodeCommand -Arguments @('-e', $nodeScript) -ExpectedHead $expectedHead -ExpectedRef $expectedRef
     return @{ result = $result; error = $null }
   } catch {
     return @{ result = $null; error = $_.Exception.Message }
@@ -1809,26 +1810,34 @@ function Invoke-ProbeCase {
 
 $exactProjection = $expectedHead + [char]9 + $expectedRef + [Environment]::NewLine
 $wrongProjection = $otherHead + [char]9 + $expectedRef + [Environment]::NewLine
-$exact = Invoke-ProbeCase -Stdout $exactProjection -Stderr '' -ExitCode 0 -Token $probeToken
-$empty = Invoke-ProbeCase -Stdout '' -Stderr '' -ExitCode 0 -Token $probeToken
-$multiple = Invoke-ProbeCase -Stdout ($exactProjection + $exactProjection) -Stderr '' -ExitCode 0 -Token $probeToken
-$wrong = Invoke-ProbeCase -Stdout $wrongProjection -Stderr '' -ExitCode 0 -Token $probeToken
-$auth = Invoke-ProbeCase -Stdout '' -Stderr ("fatal: Authentication failed for 'https://x-access-token:$probeToken@github.com/whatrune/sd-prompt-studio.git/'") -ExitCode 128 -Token $probeToken
-$authGitCurl = Invoke-ProbeCase -Stdout '' -Stderr 'fatal: unable to access remote: The requested URL returned error: 403' -ExitCode 128 -Token $probeToken
-$authPrecedence = Invoke-ProbeCase -Stdout '' -Stderr 'remote rejected; Could not resolve host github.com; Repository not found; Authentication failed' -ExitCode 128 -Token $probeToken
-$repoNotFound = Invoke-ProbeCase -Stdout '' -Stderr 'permission denied; Could not resolve host github.com; Repository not found' -ExitCode 128 -Token $probeToken
-$repoHttp = Invoke-ProbeCase -Stdout '' -Stderr 'fatal: unable to access remote: The requested URL returned error: 404' -ExitCode 22 -Token $probeToken
-$network = Invoke-ProbeCase -Stdout '' -Stderr 'permission denied; Could not resolve host github.com' -ExitCode 7 -Token $probeToken
-$networkHttp = Invoke-ProbeCase -Stdout '' -Stderr 'fatal: unable to access remote: The requested URL returned error: 503' -ExitCode 22 -Token $probeToken
-$remoteAccess = Invoke-ProbeCase -Stdout '' -Stderr 'fatal: Could not read from remote repository' -ExitCode 128 -Token $probeToken
-$other = Invoke-ProbeCase -Stdout '' -Stderr 'fatal: transport unavailable' -ExitCode 9 -Token $probeToken
-$exit128 = Invoke-ProbeCase -Stdout '' -Stderr 'fatal: connection reset by peer' -ExitCode 128 -Token $probeToken
-$diagnostic = Invoke-ProbeCase -Stdout '' -Stderr 'fatal: transport unavailable' -ExitCode 9 -Token ''
-$diagnosticRedaction = Invoke-ProbeCase -Stdout '' -Stderr 'fatal: [REDACTED] response detail' -ExitCode 9 -Token '[REDACTED]'
+$exact = Invoke-ProbeCase -Stdout $exactProjection -Stderr '' -ExitCode 0
+$empty = Invoke-ProbeCase -Stdout '' -Stderr '' -ExitCode 0
+$multiple = Invoke-ProbeCase -Stdout ($exactProjection + $exactProjection) -Stderr '' -ExitCode 0
+$wrong = Invoke-ProbeCase -Stdout $wrongProjection -Stderr '' -ExitCode 0
+$auth = Invoke-ProbeCase -Stdout '' -Stderr "fatal: Authentication failed for 'https://github.com/whatrune/sd-prompt-studio.git/'" -ExitCode 128
+$authGitCurl = Invoke-ProbeCase -Stdout '' -Stderr 'fatal: unable to access remote: The requested URL returned error: 403' -ExitCode 128
+$authPrecedence = Invoke-ProbeCase -Stdout '' -Stderr 'remote rejected; Could not resolve host github.com; Repository not found; Authentication failed' -ExitCode 128
+$repoNotFound = Invoke-ProbeCase -Stdout '' -Stderr 'permission denied; Could not resolve host github.com; Repository not found' -ExitCode 128
+$repoHttp = Invoke-ProbeCase -Stdout '' -Stderr 'fatal: unable to access remote: The requested URL returned error: 404' -ExitCode 22
+$network = Invoke-ProbeCase -Stdout '' -Stderr 'permission denied; Could not resolve host github.com' -ExitCode 7
+$networkHttp = Invoke-ProbeCase -Stdout '' -Stderr 'fatal: unable to access remote: The requested URL returned error: 503' -ExitCode 22
+$remoteAccess = Invoke-ProbeCase -Stdout '' -Stderr 'fatal: Could not read from remote repository' -ExitCode 128
+$other = Invoke-ProbeCase -Stdout '' -Stderr 'fatal: transport unavailable' -ExitCode 9
+$exit128 = Invoke-ProbeCase -Stdout '' -Stderr 'fatal: connection reset by peer' -ExitCode 128
+$diagnostic = $null
+try {
+  $script:forceDiagnosticProbeFailure = $true
+  $diagnostic = Invoke-ProbeCase -Stdout '' -Stderr 'fatal: transport unavailable' -ExitCode 9
+} finally {
+  $script:forceDiagnosticProbeFailure = $false
+  @(Get-ChildItem -LiteralPath $probeTemp -Filter 'repair-push-preflight-*' -File) | ForEach-Object {
+    Microsoft.PowerShell.Management\\Remove-Item -LiteralPath $_.FullName -Force -ErrorAction Stop
+  }
+}
 $cleanupFailure = $null
 try {
   $script:forceCleanupFailure = $true
-  $cleanupFailure = Invoke-ProbeCase -Stdout '' -Stderr 'fatal: transport unavailable' -ExitCode 9 -Token $probeToken
+  $cleanupFailure = Invoke-ProbeCase -Stdout '' -Stderr 'fatal: transport unavailable' -ExitCode 9
 } finally {
   $script:forceCleanupFailure = $false
   @(Get-ChildItem -LiteralPath $probeTemp -Filter 'repair-push-preflight-*' -File) | ForEach-Object {
@@ -1838,7 +1847,7 @@ try {
 $cleanupProbeFailure = $null
 try {
   $script:forceCleanupProbeFailure = $true
-  $cleanupProbeFailure = Invoke-ProbeCase -Stdout '' -Stderr 'fatal: transport unavailable' -ExitCode 9 -Token $probeToken
+  $cleanupProbeFailure = Invoke-ProbeCase -Stdout '' -Stderr 'fatal: transport unavailable' -ExitCode 9
 } finally {
   $script:forceCleanupProbeFailure = $false
   @(Get-ChildItem -LiteralPath $probeTemp -Filter 'repair-push-preflight-*' -File) | ForEach-Object {
@@ -1847,12 +1856,12 @@ try {
 }
 $executionError = $null
 try {
-  $null = Invoke-RepairPushPreflight -Command (Join-Path $probeTemp 'missing-preflight-command.exe') -Arguments @() -Token $probeToken -ExpectedHead $expectedHead -ExpectedRef $expectedRef
+  $null = Invoke-RepairPushPreflight -Command (Join-Path $probeTemp 'missing-preflight-command.exe') -Arguments @() -ExpectedHead $expectedHead -ExpectedRef $expectedRef
 } catch {
   $executionError = $_.Exception.Message
 }
 $captureCount = @(Get-ChildItem -LiteralPath $probeTemp -Filter 'repair-push-preflight-*' -File).Count
-$observable = @($empty.error, $multiple.error, $wrong.error, $auth.error, $authGitCurl.error, $authPrecedence.error, $repoNotFound.error, $repoHttp.error, $network.error, $networkHttp.error, $remoteAccess.error, $other.error, $exit128.error, $diagnostic.error, $diagnosticRedaction.error, $cleanupFailure.error, $cleanupProbeFailure.error, $executionError) -join [Environment]::NewLine
+$observable = @($empty.error, $multiple.error, $wrong.error, $auth.error, $authGitCurl.error, $authPrecedence.error, $repoNotFound.error, $repoHttp.error, $network.error, $networkHttp.error, $remoteAccess.error, $other.error, $exit128.error, $diagnostic.error, $cleanupFailure.error, $cleanupProbeFailure.error, $executionError) -join [Environment]::NewLine
 [IO.Directory]::Delete($probeTemp, $true)
 [Console]::Out.Write((@{
   exact = $exact
@@ -1870,7 +1879,6 @@ $observable = @($empty.error, $multiple.error, $wrong.error, $auth.error, $authG
   other = $other
   exit128 = $exit128
   diagnostic = $diagnostic
-  diagnosticRedaction = $diagnosticRedaction
   cleanupFailure = $cleanupFailure
   cleanupProbeFailure = $cleanupProbeFailure
   executionError = $executionError
@@ -1942,6 +1950,8 @@ if ([Console]::OutputEncoding.CodePage -ne $priorConsoleOutputEncoding.CodePage)
   }
 })()
 const forbiddenProviderMechanisms = ['OPENAI_API_KEY', 'CODEX_API_KEY', 'CODEX_ACCESS_TOKEN', 'CODEX_REPAIR_ENV_ID', 'codex cloud', 'codex apply', 'task_source_sha', 'provider_receipt', 'provider_digest', 'provider_branch_lock']
+const repairPushSecretName = ['REPAIR', 'EXECUTOR', 'PUSH', 'TOKEN'].join('_')
+const tokenUserInfoMarker = ['x-access', 'token:'].join('-')
 const providerProductionSource = `${workflowSource}\n${runnerSource}`
 
 // Eight self-hosted Windows provider-boundary units x three assertions = 24.
@@ -1966,7 +1976,7 @@ const providerUnits = [
     name: 'API cloud secret retry and fallback absence',
     evidence: [
       forbiddenProviderMechanisms.every((needle) => !providerProductionSource.includes(needle)),
-      !workflowSource.includes('npm install --global @openai/codex') && repairRunSteps.every((step) => step.shell === 'pwsh') && !repairRunSource.includes('powershell.exe') && workflowSource.includes('REPAIR_EXECUTOR_PUSH_TOKEN'),
+      !workflowSource.includes('npm install --global @openai/codex') && repairRunSteps.every((step) => step.shell === 'pwsh') && !repairRunSource.includes('powershell.exe') && !workflowSource.includes(repairPushSecretName) && !workflowSource.includes(tokenUserInfoMarker),
       providerExecutionStep?.run.split('& codex.cmd exec').length === 2 && !providerExecutionStep.run.includes('while (') && !providerExecutionStep.run.includes('Start-Sleep'),
     ],
   },
@@ -1974,7 +1984,7 @@ const providerUnits = [
     name: 'bounded exact prompt and UTF-8 stdin',
     evidence: [
       Buffer.from(providerExec.prompt, 'utf8').equals(Buffer.from(expectedRepairPrompt, 'utf8')) && providerExec.provider_projection.prompt_bytes === Buffer.byteLength(expectedRepairPrompt, 'utf8'),
-      providerExec.prompt.includes(`Current repair tuple:\nRepository: ${REPOSITORY}\nTask: #${TASK}\nPR: #${PR}\nExact HEAD: ${HEAD}\n`) && providerExec.prompt.includes('Do not commit, push, stage, mutate PR/state') && providerExec.provider_projection.prompt_bytes <= 4096,
+      providerExec.prompt.includes(`Current repair tuple:\nRepository: ${REPOSITORY}\nTask: #${TASK}\nPR: #${PR}\nExact HEAD: ${HEAD}\n`) && providerExec.prompt.includes('Do not run validation, stage, commit, push, mutate PR/state') && providerExec.provider_projection.prompt_bytes <= 4096,
       oversizedPrompt.reason === 'repair_provider_prompt_too_large' && workflowSource.includes('[Text.UTF8Encoding]::new($false)') && providerExecutionStep?.run.includes('$prompt | & codex.cmd exec') && repairStepByName.get('Bind reviewed HEAD immediately before local execution')?.run.includes('[IO.File]::WriteAllText($promptPath, [string]$result.prompt, $utf8NoBom)'),
     ],
   },
@@ -2039,6 +2049,7 @@ for (const [index, evidence] of hostRunnerBindingMatrix.entries()) check(evidenc
 const hostAcquisitionPreflightChangedPaths = execFileSync('git', ['diff', '--name-only', HOST_ACQUISITION_PREFLIGHT_BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
 const hostAcquisitionPreflightExpectedPaths = [
   '.github/workflows/protected-transition-admission-v1.yml',
+  'scripts/run-protected-transition-admission-v1.mjs',
   'scripts/test-protected-transition-admission-v1.mjs',
 ]
 const providerBindingStep = repairJob.steps.find((step) => step.name === 'Bind reviewed HEAD immediately before local execution')
@@ -2061,7 +2072,7 @@ const hostAcquisitionPreflightMatrix = [
   providerProbeRun.includes('Get-Command codex.cmd -ErrorAction Stop') && providerProbeRun.includes("@('--version')") && providerProbeRun.includes("$version -cne 'codex-cli 0.147.0'") && providerProbeRun.split("throw 'repair_provider_cli_version_invalid'").length === 3,
   providerProbeRun.includes("@('login', 'status')") && providerProbeRun.includes("$loginStatus -cne 'Logged in using ChatGPT'") && providerProbeRun.includes("throw 'repair_provider_chatgpt_login_required'"),
   providerProbeRun.includes("'rev-parse', '--show-toplevel'") && !providerProbeRun.includes("'symbolic-ref'") && !providerProbeRun.includes("repair_provider_branch_changed") && repairJob.steps.find((step) => step.name === 'Checkout exact repair HEAD')?.with?.ref === '${{ needs.protected_transition_admission_v1.outputs.repair_exact_head }}' && providerProbeRun.includes("'status', '--porcelain=v1', '--untracked-files=all'") && providerProbeRun.split("'status', '--porcelain=v1', '--untracked-files=all'").length === 3 && providerProbeRun.includes('[IO.File]::WriteAllBytes($sentinelPath, $sentinelBytes)') && providerProbeRun.includes("throw 'repair_target_worktree_not_writable'"),
-  providerProbeRun.includes("throw 'repair_push_token_missing'") && providerProbeRun.includes("@('ls-remote', '--heads', $pushTransport") && providerProbeRun.split("'ls-remote'").length === 2 && providerProbeRun.includes('Invoke-RepairPushPreflight') && !providerProbeRun.includes("-Failure 'repair_push_transport_failed' -SuppressOutput"),
+  providerProbeRun.includes('$pushTransport = "https://github.com/$($env:GITHUB_REPOSITORY).git"') && providerProbeRun.includes("@('ls-remote', '--heads', $pushTransport") && providerProbeRun.split("'ls-remote'").length === 2 && providerProbeRun.includes('Invoke-RepairPushPreflight') && !providerProbeRun.includes("-Failure 'repair_push_transport_failed' -SuppressOutput") && !providerProbeRun.includes(repairPushSecretName) && !providerProbeRun.includes(tokenUserInfoMarker),
   repairPushPreflightHelperSource.includes('$remoteLines.Count -ne 1') && repairPushPreflightHelperSource.includes('$remoteFields.Count -ne 2') && repairPushPreflightHelperSource.includes('$remoteFields[0] -cne $ExpectedHead') && repairPushPreflightHelperSource.includes('$remoteFields[1] -cne $ExpectedRef') && repairPushPreflightHelperSource.split("throw 'repair_push_remote_head_mismatch exit_code=0'").length === 3,
   hostAcquisitionPreflightChangedPaths.join('\n') === hostAcquisitionPreflightExpectedPaths.join('\n') && workflowSource.includes('protected-transition-admission-v1: 477 assertions passed') && !repairRunSource.includes('retry') && !repairRunSource.includes('fallback') && !repairRunSource.includes('default branch'),
 ]
@@ -2083,7 +2094,7 @@ for (const [index, evidence] of loginStatusStreamContractMatrix.entries()) check
 
 const repairPushStep = repairJob.steps.find((step) => step.name === 'Push one normal non-force repair commit')
 const repairPushRun = repairPushStep?.run ?? ''
-const exactPushRun = 'git push --porcelain "https://x-access-token:$($env:REPAIR_EXECUTOR_PUSH_TOKEN)@github.com/$($env:GITHUB_REPOSITORY).git" "HEAD:refs/heads/$($env:REPAIR_HEAD_REF)"'
+const exactPushRun = 'git push --porcelain "https://github.com/$($env:GITHUB_REPOSITORY).git" "HEAD:refs/heads/$($env:REPAIR_HEAD_REF)"'
 const repairPushPreflightContractMatrix = [
   repairPushPreflightHelperSource.includes("return 'PREFLIGHT_PUSH_CHECK_OK'") && (process.platform !== 'win32' || (repairPushPreflightProbe.exact.result === 'PREFLIGHT_PUSH_CHECK_OK' && repairPushPreflightProbe.exact.error === null)),
   repairPushPreflightHelperSource.includes("throw 'repair_push_remote_head_mismatch exit_code=0'") && (process.platform !== 'win32' || repairPushPreflightProbe.empty.error === 'repair_push_remote_head_mismatch exit_code=0'),
@@ -2095,11 +2106,11 @@ const repairPushPreflightContractMatrix = [
   repairPushPreflightHelperSource.includes("$diagnosticCategory = 'OTHER'") && (process.platform !== 'win32' || repairPushPreflightProbe.other.error === 'repair_push_transport_failed category=OTHER exit_code=9'),
   repairPushPreflightHelperSource.indexOf("$diagnosticCategory = 'GIT_AUTH'") < repairPushPreflightHelperSource.indexOf("$diagnosticCategory = 'REPO_NOT_FOUND'") && repairPushPreflightHelperSource.indexOf("$diagnosticCategory = 'REPO_NOT_FOUND'") < repairPushPreflightHelperSource.indexOf("$diagnosticCategory = 'NETWORK'") && repairPushPreflightHelperSource.indexOf("$diagnosticCategory = 'NETWORK'") < repairPushPreflightHelperSource.indexOf("$diagnosticCategory = 'REMOTE_ACCESS'") && (process.platform !== 'win32' || (repairPushPreflightProbe.authPrecedence.error.includes('category=GIT_AUTH') && repairPushPreflightProbe.repoNotFound.error.includes('category=REPO_NOT_FOUND') && repairPushPreflightProbe.network.error.includes('category=NETWORK'))),
   !repairPushPreflightHelperSource.includes('$nativeExit -eq 128') && (process.platform !== 'win32' || repairPushPreflightProbe.exit128.error === 'repair_push_transport_failed category=NETWORK exit_code=128'),
-  repairPushPreflightHelperSource.includes('-not (Test-Path -LiteralPath $stderrPath)') && repairPushPreflightHelperSource.includes('[IO.File]::ReadAllText($stderrPath)') && repairPushPreflightHelperSource.includes('$diagnosticUnavailable = $true') && repairPushPreflightHelperSource.includes('repair_push_preflight_diagnostic_unavailable category=OTHER exit_code=$nativeExit') && (process.platform !== 'win32' || [repairPushPreflightProbe.diagnostic.error, repairPushPreflightProbe.diagnosticRedaction.error, repairPushPreflightProbe.cleanupFailure.error, repairPushPreflightProbe.cleanupProbeFailure.error].every((error) => error === 'repair_push_preflight_diagnostic_unavailable category=OTHER exit_code=9')),
+  repairPushPreflightHelperSource.includes('-not (Test-Path -LiteralPath $stderrPath)') && repairPushPreflightHelperSource.includes('[IO.File]::ReadAllText($stderrPath)') && repairPushPreflightHelperSource.includes('$diagnosticUnavailable = $true') && repairPushPreflightHelperSource.includes('repair_push_preflight_diagnostic_unavailable category=OTHER exit_code=$nativeExit') && (process.platform !== 'win32' || [repairPushPreflightProbe.diagnostic.error, repairPushPreflightProbe.cleanupFailure.error, repairPushPreflightProbe.cleanupProbeFailure.error].every((error) => error === 'repair_push_preflight_diagnostic_unavailable category=OTHER exit_code=9')),
   repairPushPreflightHelperSource.includes("if ($null -eq $nativeExit) { throw 'repair_push_preflight_execution_failed' }") && (process.platform !== 'win32' || repairPushPreflightProbe.executionError === 'repair_push_preflight_execution_failed'),
-  !repairPushPreflightHelperSource.includes('[Console]') && !repairPushPreflightHelperSource.includes('GITHUB_OUTPUT') && !repairPushPreflightHelperSource.includes('GITHUB_ENV') && !repairPushPreflightHelperSource.includes('GITHUB_STEP_SUMMARY') && (process.platform !== 'win32' || ['probe-secret-token', 'x-access-token:', 'Authentication failed', 'The requested URL returned error', 'Repository not found', 'Could not resolve host', 'Could not read from remote repository', 'transport unavailable', '[REDACTED]', 'repair-push-preflight-probe-', 'simulated_cleanup_probe_failure'].every((needle) => !repairPushPreflightProbe.observable.includes(needle))),
+  !repairPushPreflightHelperSource.includes('[Console]') && !repairPushPreflightHelperSource.includes('GITHUB_OUTPUT') && !repairPushPreflightHelperSource.includes('GITHUB_ENV') && !repairPushPreflightHelperSource.includes('GITHUB_STEP_SUMMARY') && (process.platform !== 'win32' || ['Authentication failed', 'The requested URL returned error', 'Repository not found', 'Could not resolve host', 'Could not read from remote repository', 'transport unavailable', 'repair-push-preflight-probe-', 'simulated_cleanup_probe_failure', 'simulated_diagnostic_probe_failure'].every((needle) => !repairPushPreflightProbe.observable.includes(needle))),
   repairPushPreflightHelperSource.includes('finally {') && repairPushPreflightHelperSource.includes('if (Test-Path -LiteralPath $capturePath) { Remove-Item -LiteralPath $capturePath -Force -ErrorAction Stop }\n        if (Test-Path -LiteralPath $capturePath) { $cleanupFailed = $true }\n      } catch {') && providerProbeRun.split("'ls-remote'").length === 2 && !repairPushPreflightHelperSource.includes('Start-Sleep') && !repairPushPreflightHelperSource.includes('retry') && !repairPushPreflightHelperSource.includes('fallback') && (process.platform !== 'win32' || repairPushPreflightProbe.captureCount === 0),
-  repairPushRun.includes(exactPushRun) && !repairPushRun.includes('--force') && protectedSideEffectSteps.every((step) => providerPreflightIndex < repairJob.steps.indexOf(step)) && !repairPushPreflightHelperSource.includes('GITHUB_REPOSITORY') && !repairPushPreflightHelperSource.includes('REPAIR_EXECUTOR_PUSH_TOKEN'),
+  repairPushRun.includes(exactPushRun) && !repairPushRun.includes('--force') && protectedSideEffectSteps.every((step) => providerPreflightIndex < repairJob.steps.indexOf(step)) && !repairPushPreflightHelperSource.includes('GITHUB_REPOSITORY') && !repairPushPreflightHelperSource.includes(repairPushSecretName) && !repairPushPreflightHelperSource.includes(tokenUserInfoMarker),
 ]
 for (const [index, evidence] of repairPushPreflightContractMatrix.entries()) check(evidence, `repair push preflight contract matrix ${index + 1}`)
 
