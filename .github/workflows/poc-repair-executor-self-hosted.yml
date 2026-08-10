@@ -1,0 +1,54 @@
+name: PoC Repair Executor Self Hosted
+
+on:
+  push:
+    branches:
+      - poc/repair-executor-architecture-compare
+
+permissions:
+  contents: read
+
+jobs:
+  poc_self_hosted:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: Probe runner, Codex, Git read and Codex exec
+        shell: pwsh
+        env:
+          REPAIR_EXECUTOR_PUSH_TOKEN: ${{ secrets.REPAIR_EXECUTOR_PUSH_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion.Major -ne 7) { throw 'POC_PWSH_MAJOR_INVALID' }
+          $git = (Get-Command git.exe -ErrorAction Stop).Source
+          $codex = (Get-Command codex.cmd -ErrorAction Stop).Source
+
+          Write-Host "POC user=$([Environment]::UserDomainName)\$([Environment]::UserName)"
+          & $codex --version
+          if ($LASTEXITCODE -ne 0) { throw 'POC_CODEX_VERSION_FAILED' }
+          & $codex login status
+          if ($LASTEXITCODE -ne 0) { throw 'POC_CODEX_LOGIN_FAILED' }
+
+          & $git ls-remote --heads "https://github.com/$env:GITHUB_REPOSITORY.git" "refs/heads/$env:GITHUB_REF_NAME" | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'POC_GIT_PUBLIC_READ_FAILED' }
+
+          if ([string]::IsNullOrWhiteSpace($env:REPAIR_EXECUTOR_PUSH_TOKEN)) { throw 'POC_PUSH_TOKEN_MISSING' }
+          $remote = "https://x-access-token:$($env:REPAIR_EXECUTOR_PUSH_TOKEN)@github.com/$env:GITHUB_REPOSITORY.git"
+          & $git ls-remote --heads $remote "refs/heads/$env:GITHUB_REF_NAME" | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'POC_PUSH_TOKEN_READ_FAILED' }
+
+          $before = (& $git status --porcelain=v1 --untracked-files=all) -join "`n"
+          if ($LASTEXITCODE -ne 0 -or -not [string]::IsNullOrWhiteSpace($before)) { throw 'POC_WORKTREE_NOT_CLEAN_BEFORE' }
+
+          $prompt = 'Do not modify files. Inspect the repository and respond with exactly SELF_HOSTED_POC_OK.'
+          & $codex exec $prompt
+          if ($LASTEXITCODE -ne 0) { throw 'POC_CODEX_EXEC_FAILED' }
+
+          $after = (& $git status --porcelain=v1 --untracked-files=all) -join "`n"
+          if ($LASTEXITCODE -ne 0 -or -not [string]::IsNullOrWhiteSpace($after)) { throw 'POC_WORKTREE_NOT_CLEAN_AFTER' }
+          Write-Host 'SELF_HOSTED_POC_PASS'
