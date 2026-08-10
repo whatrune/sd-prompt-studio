@@ -1712,6 +1712,7 @@ const repairRunSource = repairRunSteps.map((step) => step.run).join('\n')
 const repairStepByName = new Map(repairRunSteps.map((step) => [step.name, step]))
 const hostRunnerStep = repairJob.steps.find((step) => step.name === 'Materialize exact protected-transition host runner')
 const hostRunnerRun = hostRunnerStep?.run ?? ''
+const powershellMajorGuard = "if ($PSVersionTable.PSVersion.Major -ne 7) { throw 'repair_powershell_major_invalid' }"
 const providerExecutionStep = repairJob.steps.find((step) => step.name === 'Execute one local blocking repair')
 const providerProbeStep = repairJob.steps.find((step) => step.name === 'Preflight exact Repair Executor environment')
 const providerProbeRun = providerProbeStep?.run ?? ''
@@ -1782,10 +1783,10 @@ const providerProductionSource = `${workflowSource}\n${runnerSource}`
 // Eight self-hosted Windows provider-boundary units x three assertions = 24.
 const providerUnits = [
   {
-    name: 'exact self-hosted Windows PowerShell boundary',
+    name: 'exact self-hosted Windows PowerShell 7 boundary',
     evidence: [
       repairJob['runs-on'].join('|') === 'self-hosted|Windows|X64',
-      repairRunSteps.length === 12 && repairRunSteps.every((step) => step.shell === 'powershell') && repairRunSteps.every((step) => step.shell !== 'pwsh'),
+      repairRunSteps.length === 12 && repairRunSteps.every((step) => step.shell === 'pwsh') && repairRunSteps.every((step) => step.shell !== 'powershell') && hostRunnerRun.includes(powershellMajorGuard) && repairRunSource.split(powershellMajorGuard).length === 2 && hostRunnerRun.indexOf(powershellMajorGuard) < hostRunnerRun.indexOf('$utf8NoBom'),
       providerExec.provider_projection.runner_labels.join('|') === 'self-hosted|Windows|X64' && providerExec.provider === undefined,
     ],
   },
@@ -1801,7 +1802,7 @@ const providerUnits = [
     name: 'API cloud secret retry and fallback absence',
     evidence: [
       forbiddenProviderMechanisms.every((needle) => !providerProductionSource.includes(needle)),
-      !workflowSource.includes('npm install --global @openai/codex') && !repairRunSource.includes('pwsh') && !repairRunSource.includes('PowerShell 7') && workflowSource.includes('REPAIR_EXECUTOR_PUSH_TOKEN'),
+      !workflowSource.includes('npm install --global @openai/codex') && repairRunSteps.every((step) => step.shell === 'pwsh') && !repairRunSource.includes('powershell.exe') && workflowSource.includes('REPAIR_EXECUTOR_PUSH_TOKEN'),
       providerExecutionStep?.run.split('& codex.cmd exec').length === 2 && !providerExecutionStep.run.includes('while (') && !providerExecutionStep.run.includes('Start-Sleep'),
     ],
   },
