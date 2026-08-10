@@ -464,7 +464,7 @@ jobs:
             [Console]::OutputEncoding = $utf8NoBom
             $ErrorActionPreference = 'Continue'
             $LASTEXITCODE = $null
-            $providerOutput = [string[]]@($prompt | & codex.cmd exec --sandbox workspace-write --ephemeral --json --cd $env:GITHUB_WORKSPACE - 2>&1)
+            $providerOutput = [string[]]@($prompt | & codex.cmd exec -c sandbox_workspace_write.network_access=false -c sandbox_workspace_write.writable_roots=[] --sandbox workspace-write --ephemeral --json --cd $env:GITHUB_WORKSPACE - 2>&1)
             $providerExit = $LASTEXITCODE
           } finally {
             $OutputEncoding = $priorOutputEncoding

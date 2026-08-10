@@ -2000,7 +2000,7 @@ const providerUnits = [
     name: 'one sandboxed ephemeral local execution',
     evidence: [
       providerExec.reason === 'repair_provider_exec_binding_satisfied' && providerExec.next_action === 'EXECUTE_REPAIR_AGENT' && providerExec.provider_projection.invocation_count === 1,
-      providerExec.provider_projection.exec_argv.join('|') === `exec|--sandbox|workspace-write|--ephemeral|--json|--cd|${WINDOWS_WORKSPACE}|-`,
+      providerExec.provider_projection.exec_argv.join('|') === `exec|-c|sandbox_workspace_write.network_access=false|-c|sandbox_workspace_write.writable_roots=[]|--sandbox|workspace-write|--ephemeral|--json|--cd|${WINDOWS_WORKSPACE}|-`,
       workflowSource.split('& codex.cmd exec').length === 2 && providerExecutionStep?.['timeout-minutes'] === 20 && !providerExecutionStep.run.includes('danger-full-access') && !providerExecutionStep.run.includes('bypass'),
     ],
   },
@@ -2038,7 +2038,7 @@ const hostRunnerBindingMatrix = [
   hostRunnerRun.includes('[IO.File]::AppendAllText($env:GITHUB_ENV, "PTA_HOST_RUNNER=$hostRunner$([Environment]::NewLine)", $utf8NoBom)'),
   hostOrchestrationSteps.length === 6 && hostOrchestrationSteps.every((step) => step?.run.includes('node $env:PTA_HOST_RUNNER')),
   hostOrchestrationSteps.every((step) => !step?.run.includes('node scripts/run-protected-transition-admission-v1.mjs')) && !repairRunSource.includes('node scripts/run-protected-transition-admission-v1.mjs'),
-  providerExecutionStep?.run.includes('$prompt | & codex.cmd exec --sandbox workspace-write --ephemeral --json --cd $env:GITHUB_WORKSPACE -') && workflowSource.split('& codex.cmd exec').length === 2,
+  providerExecutionStep?.run.includes('$prompt | & codex.cmd exec -c sandbox_workspace_write.network_access=false -c sandbox_workspace_write.writable_roots=[] --sandbox workspace-write --ephemeral --json --cd $env:GITHUB_WORKSPACE -') && workflowSource.split('& codex.cmd exec').length === 2,
   hostRunnerRun.includes("throw 'repair_host_inside_target_workspace'") && !repairRunSource.includes('Set-Location') && hostOrchestrationSteps.every((step) => !step?.['working-directory']),
   hostOrchestrationSteps.every((step) => step?.run.includes('$env:PTA_HOST_RUNNER')) && hostOrchestrationSteps.every((step) => !step?.run.includes('$env:GITHUB_WORKSPACE/scripts/run-protected-transition-admission-v1.mjs')),
   repairJob.steps.indexOf(hostRunnerStep) < repairJob.steps.indexOf(providerProbeStep) && repairJob.steps.indexOf(hostRunnerStep) < repairJob.steps.indexOf(providerExecutionStep) && !hostRunnerStep?.['continue-on-error'] && hostRunnerRun.includes("-Failure 'repair_host_fetch_failed'") && hostRunnerRun.includes("throw 'repair_host_runner_missing'"),
