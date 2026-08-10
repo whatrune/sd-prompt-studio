@@ -9,7 +9,7 @@ if ($PSVersionTable.PSVersion.Major -ne 7) { throw 'POC_PWSH_MAJOR_INVALID' }
 function Invoke-Native {
   param([string]$Command,[string[]]$Arguments)
   & $Command @Arguments
-  if ($LASTEXITCODE -ne 0) { throw "POC_NATIVE_FAILED:$Command:$LASTEXITCODE" }
+  if ($LASTEXITCODE -ne 0) { throw "POC_NATIVE_FAILED:${Command}:$LASTEXITCODE" }
 }
 
 $git = (Get-Command git.exe -ErrorAction Stop).Source
