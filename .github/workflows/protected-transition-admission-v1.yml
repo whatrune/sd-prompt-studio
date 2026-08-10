@@ -351,10 +351,10 @@ jobs:
               foreach ($capturePath in @($stdoutPath, $stderrPath)) {
                 try {
                   if (Test-Path -LiteralPath $capturePath) { Remove-Item -LiteralPath $capturePath -Force -ErrorAction Stop }
+                  if (Test-Path -LiteralPath $capturePath) { $cleanupFailed = $true }
                 } catch {
                   $cleanupFailed = $true
                 }
-                if (Test-Path -LiteralPath $capturePath) { $cleanupFailed = $true }
               }
               if ($cleanupFailed) {
                 if ($null -eq $nativeExit) { throw 'repair_push_preflight_execution_failed' }
