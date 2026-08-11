@@ -1718,6 +1718,8 @@ const powershellMajorGuard = "if ($PSVersionTable.PSVersion.Major -ne 7) { throw
 const providerExecutionStep = repairJob.steps.find((step) => step.name === 'Execute one local blocking repair')
 const providerProbeStep = repairJob.steps.find((step) => step.name === 'Preflight exact Repair Executor environment')
 const providerProbeRun = providerProbeStep?.run ?? ''
+const providerPostExecStep = repairJob.steps.find((step) => step.name === 'Rebind reviewed HEAD and project local provider completion')
+const providerPostExecRun = providerPostExecStep?.run ?? ''
 const extractNativeHelper = (source) => {
   const start = source.indexOf('function Invoke-NativeSeparated {')
   const ends = [source.indexOf('\n}\n\nfunction Invoke-RepairPushPreflight', start), source.indexOf('\n}\n\n$gitCommand', start)].filter((index) => index > start)
@@ -1759,6 +1761,38 @@ $arguments = @('-e', 'process.stdout.write("stdout-contract"); process.stderr.wr
 $stdoutSelected = ((Invoke-NativeSeparated -Command $nodeCommand -Arguments $arguments -Failure 'login_stream_probe_failed' -SuppressOutput) -join [Environment]::NewLine).Trim()
 $stderrSelected = ((Invoke-NativeSeparated -Command $nodeCommand -Arguments $arguments -Failure 'login_stream_probe_failed' -SuppressOutput -ReturnStream 'stderr') -join [Environment]::NewLine).Trim()
 [Console]::Out.Write((@{ stdoutSelected = $stdoutSelected; stderrSelected = $stderrSelected } | ConvertTo-Json -Compress))
+`
+  return JSON.parse(execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' }))
+})() : null
+const postExecStreamSeparationProbe = process.platform === 'win32' ? (() => {
+  const script = `
+$ErrorActionPreference = 'Stop'
+$utf8NoBom = [Text.UTF8Encoding]::new($false)
+$stdoutPath = Join-Path ([IO.Path]::GetTempPath()) (([guid]::NewGuid().ToString('N')) + '.stdout.json')
+$stderrPath = Join-Path ([IO.Path]::GetTempPath()) (([guid]::NewGuid().ToString('N')) + '.stderr.log')
+try {
+  $LASTEXITCODE = $null
+  node -e 'process.stdout.write(JSON.stringify({next_action:"PROJECT_PROVIDER_COMPLETION"})); process.stderr.write("warning: LF will be replaced by CRLF\\n")' 1> $stdoutPath 2> $stderrPath
+  $nativeExit = $LASTEXITCODE
+  $stdout = [IO.File]::ReadAllText($stdoutPath, $utf8NoBom)
+  $stderr = [IO.File]::ReadAllText($stderrPath, $utf8NoBom)
+  $parsed = $stdout | ConvertFrom-Json
+  $mergedRejected = $false
+  try {
+    ($stderr + $stdout) | ConvertFrom-Json -ErrorAction Stop | Out-Null
+  } catch {
+    $mergedRejected = $true
+  }
+  [Console]::Out.Write((@{
+    nativeExit = $nativeExit
+    nextAction = $parsed.next_action
+    stderrWarning = $stderr.Trim()
+    mergedRejected = $mergedRejected
+  } | ConvertTo-Json -Compress))
+} finally {
+  Remove-Item -LiteralPath $stdoutPath -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath $stderrPath -Force -ErrorAction SilentlyContinue
+}
 `
   return JSON.parse(execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' }))
 })() : null
@@ -1916,6 +1950,7 @@ const parsedIntermediarySteps = [
   'Recheck current HEAD and prepare one commit',
   'Rebind existing state and hand off fresh review',
 ].map((name) => repairStepByName.get(name))
+const standardParsedIntermediarySteps = parsedIntermediarySteps.filter((step) => step !== providerPostExecStep)
 const nativeJsonCaptureSteps = [...parsedIntermediarySteps, providerExecutionStep]
 const nonAsciiNativeJson = JSON.stringify({ finding: '修復対象—café' })
 const nonAsciiNativeBytes = Buffer.from(nonAsciiNativeJson, 'utf8')
@@ -2011,14 +2046,14 @@ const providerUnits = [
     evidence: [
       providerExecutionStep?.run.includes("if ($providerExit -ne 0)") && providerExecutionStep?.['timeout-minutes'] === 20 && providerExecutionStep.run.includes("$ErrorActionPreference = 'Continue'") && providerExecutionStep.run.includes('$ErrorActionPreference = $priorErrorActionPreference') && providerExecutionStep.run.includes('[IO.File]::WriteAllLines($outputPath') && providerExecutionStep.run.includes('$priorConsoleOutputEncoding = [Console]::OutputEncoding') && providerExecutionStep.run.includes('[Console]::OutputEncoding = $utf8NoBom') && providerExecutionStep.run.includes('[Console]::OutputEncoding = $priorConsoleOutputEncoding'),
       providerPostBranchDrift.reason === 'repair_provider_branch_changed' && providerPostRemote.reason === 'repair_remote_head_changed',
-      providerPostEmpty.reason === 'repair_provider_diff_missing' && malformedProvider.next_action === 'STOP' && postAgentEscape.next_action === 'STOP',
+      providerPostEmpty.reason === 'repair_provider_diff_missing' && malformedProvider.next_action === 'STOP' && postAgentEscape.next_action === 'STOP' && providerPostExecRun.includes("if ($postExecExit -ne 0) { throw 'repair_provider_post_exec_binding_failed' }") && providerPostExecRun.indexOf('$postExecExit = $LASTEXITCODE') < providerPostExecRun.indexOf("if ($postExecExit -ne 0)") && providerPostExecRun.includes('repair_provider_post_exec_encoding_invalid') && providerPostExecRun.includes("if ($result.next_action -cne 'PROJECT_PROVIDER_COMPLETION')"),
     ],
   },
   {
     name: 'successful uncommitted exact-scope lifecycle return',
     evidence: [
-      providerPost.reason === 'repair_provider_post_exec_binding_satisfied' && providerPost.next_action === 'PROJECT_PROVIDER_COMPLETION',
-      postAgentAllowed.next_action === 'VALIDATE_REPAIR' && postAgentAllowed.repair_paths.join('|') === [...REPAIR_PATHS].sort().join('|') && parsedIntermediarySteps.every((step) => step?.run.includes('[IO.File]::WriteAllLines') && step.run.includes('encoding_invalid') && step.run.includes('-Raw -Encoding utf8') && step.run.includes('$priorConsoleOutputEncoding = [Console]::OutputEncoding') && step.run.includes('[Console]::OutputEncoding = $utf8NoBom') && step.run.includes('[Console]::OutputEncoding = $priorConsoleOutputEncoding') && !step.run.includes('Tee-Object')),
+      providerPost.reason === 'repair_provider_post_exec_binding_satisfied' && providerPost.next_action === 'PROJECT_PROVIDER_COMPLETION' && (process.platform !== 'win32' || (postExecStreamSeparationProbe.nativeExit === 0 && postExecStreamSeparationProbe.nextAction === 'PROJECT_PROVIDER_COMPLETION' && postExecStreamSeparationProbe.stderrWarning === 'warning: LF will be replaced by CRLF' && postExecStreamSeparationProbe.mergedRejected === true)),
+      postAgentAllowed.next_action === 'VALIDATE_REPAIR' && postAgentAllowed.repair_paths.join('|') === [...REPAIR_PATHS].sort().join('|') && standardParsedIntermediarySteps.every((step) => step?.run.includes('[IO.File]::WriteAllLines') && step.run.includes('encoding_invalid') && step.run.includes('-Raw -Encoding utf8') && step.run.includes('$priorConsoleOutputEncoding = [Console]::OutputEncoding') && step.run.includes('[Console]::OutputEncoding = $utf8NoBom') && step.run.includes('[Console]::OutputEncoding = $priorConsoleOutputEncoding') && !step.run.includes('Tee-Object')) && providerPostExecRun.split('--repair-provider-post-exec-bind-file').length === 2 && providerPostExecRun.includes('1> $postExecPath') && providerPostExecRun.includes('2> $postExecErrorPath') && !providerPostExecRun.includes('2>&1') && providerPostExecRun.includes('Get-Content -LiteralPath $postExecPath -Raw -Encoding utf8 | ConvertFrom-Json') && !providerPostExecRun.includes('Get-Content -LiteralPath $postExecErrorPath -Raw') && providerPostExecRun.includes('Remove-Item -LiteralPath $postExecPath') && providerPostExecRun.includes('Remove-Item -LiteralPath $postExecErrorPath'),
       commitPlan.next_action === 'COMMIT_AND_PUSH' && completedRepair.next_action === 'REVIEW' && forbiddenProviderMechanisms.every((needle) => !providerProductionSource.includes(needle)) && runnerSource.includes('Use Codex native file read only for current authorized_paths') && runnerSource.includes('apply_patch only') && !runnerSource.includes('materializeRepairAuthorizedFileSnapshotsV1') && !runnerSource.includes('readAuthorizedSnapshots') && nativeBoundarySteps.every((step) => step?.run.includes("$ErrorActionPreference = 'Continue'") && step.run.includes('finally {') && step.run.includes('$ErrorActionPreference = $priorErrorActionPreference') && /\$\w+Exit = \$LASTEXITCODE/.test(step.run)) && nativeBoundarySteps.filter((step) => step !== providerProbeStep).every((step) => step.run.includes('$LASTEXITCODE = $null')) && !providerProbeRun.includes('$LASTEXITCODE = $null') && nativeJsonCaptureSteps.every((step) => step?.run.includes('[Console]::OutputEncoding = $utf8NoBom') && step.run.includes('[Console]::OutputEncoding = $priorConsoleOutputEncoding')) && nonAsciiNativeDecoded === nonAsciiNativeJson && nonAsciiNativeReencoded.equals(nonAsciiNativeBytes) && powershell51NativeUtf8RoundTrip && !repairRunSource.includes('Tee-Object') && !repairRunSource.includes('Add-Content') && repairRunSource.split('[IO.File]::AppendAllText').length === 9 && repairRunSource.split('[Text.UTF8Encoding]::new($false)').length === 10 && repairRunSource.includes('$persistedBytes[0] -eq 0xff') && repairRunSource.includes('$persistedBytes[0] -eq 0xef'),
     ],
   },
