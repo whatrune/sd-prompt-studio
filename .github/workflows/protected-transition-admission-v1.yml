@@ -504,7 +504,12 @@ jobs:
             if (Test-Path -LiteralPath $postExecErrorPath) {
               [IO.File]::ReadAllLines($postExecErrorPath, $utf8NoBom) | ForEach-Object { [Console]::Error.WriteLine($_) }
             }
-            if ($postExecExit -ne 0) { throw 'repair_provider_post_exec_binding_failed' }
+            if ($postExecExit -ne 0) {
+              if (Test-Path -LiteralPath $postExecPath) {
+                [IO.File]::ReadAllLines($postExecPath, $utf8NoBom) | ForEach-Object { [Console]::Out.WriteLine($_) }
+              }
+              throw 'repair_provider_post_exec_binding_failed'
+            }
             $persistedBytes = [IO.File]::ReadAllBytes($postExecPath)
             if (($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xff -and $persistedBytes[1] -eq 0xfe) -or ($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xfe -and $persistedBytes[1] -eq 0xff) -or ($persistedBytes.Length -ge 3 -and $persistedBytes[0] -eq 0xef -and $persistedBytes[1] -eq 0xbb -and $persistedBytes[2] -eq 0xbf)) { throw 'repair_provider_post_exec_encoding_invalid' }
             $result = Get-Content -LiteralPath $postExecPath -Raw -Encoding utf8 | ConvertFrom-Json
