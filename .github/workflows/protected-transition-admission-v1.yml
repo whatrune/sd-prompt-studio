@@ -532,26 +532,36 @@ jobs:
           $dispatchPath = Join-Path $env:RUNNER_TEMP 'repair-dispatch.json'
           $providerResultPath = Join-Path $env:RUNNER_TEMP 'repair-provider-result.json'
           $postAgentPath = Join-Path $env:RUNNER_TEMP 'repair-post-agent.json'
+          $postAgentErrorPath = Join-Path $env:RUNNER_TEMP 'repair-post-agent.stderr.log'
           $priorErrorActionPreference = $ErrorActionPreference
           $priorConsoleOutputEncoding = [Console]::OutputEncoding
           try {
-            [Console]::OutputEncoding = $utf8NoBom
-            $ErrorActionPreference = 'Continue'
-            $LASTEXITCODE = $null
-            $postAgentOutput = [string[]]@(node $env:PTA_HOST_RUNNER --repair-post-agent-file $dispatchPath --provider-result-file $providerResultPath 2>&1)
-            $postAgentExit = $LASTEXITCODE
+            try {
+              [Console]::OutputEncoding = $utf8NoBom
+              $ErrorActionPreference = 'Continue'
+              $LASTEXITCODE = $null
+              node $env:PTA_HOST_RUNNER --repair-post-agent-file $dispatchPath --provider-result-file $providerResultPath 1> $postAgentPath 2> $postAgentErrorPath
+              $postAgentExit = $LASTEXITCODE
+            } finally {
+              [Console]::OutputEncoding = $priorConsoleOutputEncoding
+              $ErrorActionPreference = $priorErrorActionPreference
+            }
+            if (Test-Path -LiteralPath $postAgentErrorPath) {
+              [IO.File]::ReadAllLines($postAgentErrorPath, $utf8NoBom) | ForEach-Object { [Console]::Error.WriteLine($_) }
+            }
+            if (Test-Path -LiteralPath $postAgentPath) {
+              [IO.File]::ReadAllLines($postAgentPath, $utf8NoBom) | ForEach-Object { [Console]::Out.WriteLine($_) }
+            }
+            if ($postAgentExit -ne 0) { throw 'repair_post_agent_failed' }
+            $persistedBytes = [IO.File]::ReadAllBytes($postAgentPath)
+            if (($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xff -and $persistedBytes[1] -eq 0xfe) -or ($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xfe -and $persistedBytes[1] -eq 0xff) -or ($persistedBytes.Length -ge 3 -and $persistedBytes[0] -eq 0xef -and $persistedBytes[1] -eq 0xbb -and $persistedBytes[2] -eq 0xbf)) { throw 'repair_post_agent_encoding_invalid' }
+            $result = Get-Content -LiteralPath $postAgentPath -Raw -Encoding utf8 | ConvertFrom-Json
+            if ($result.next_action -cne 'VALIDATE_REPAIR') { throw 'repair_validation_not_ready' }
+            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "profile=$($result.validation_profile)$([Environment]::NewLine)", $utf8NoBom)
           } finally {
-            [Console]::OutputEncoding = $priorConsoleOutputEncoding
-            $ErrorActionPreference = $priorErrorActionPreference
+            Remove-Item -LiteralPath $postAgentPath -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $postAgentErrorPath -Force -ErrorAction SilentlyContinue
           }
-          $postAgentOutput | ForEach-Object { Write-Output $_ }
-          [IO.File]::WriteAllLines($postAgentPath, [string[]]$postAgentOutput, $utf8NoBom)
-          if ($postAgentExit -ne 0) { throw 'repair_post_agent_failed' }
-          $persistedBytes = [IO.File]::ReadAllBytes($postAgentPath)
-          if (($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xff -and $persistedBytes[1] -eq 0xfe) -or ($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xfe -and $persistedBytes[1] -eq 0xff) -or ($persistedBytes.Length -ge 3 -and $persistedBytes[0] -eq 0xef -and $persistedBytes[1] -eq 0xbb -and $persistedBytes[2] -eq 0xbf)) { throw 'repair_post_agent_encoding_invalid' }
-          $result = Get-Content -LiteralPath $postAgentPath -Raw -Encoding utf8 | ConvertFrom-Json
-          if ($result.next_action -cne 'VALIDATE_REPAIR') { throw 'repair_validation_not_ready' }
-          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "profile=$($result.validation_profile)$([Environment]::NewLine)", $utf8NoBom)
 
       - name: Run exact repair validation profile
         shell: pwsh
