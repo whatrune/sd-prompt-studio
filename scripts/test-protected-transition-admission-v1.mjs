@@ -21,6 +21,7 @@ import {
   executeRepairProviderBindingV3,
   extractProtectedTransitionTaskStateV1,
   isRepairProfilePathV1,
+  materializeRepairAuthorizedFileSnapshotsV1,
   parseIndependentReviewDecisionProjectionV1,
   parseReviewApprovalEventV1,
   projectProtectedTransitionReviewStateV1,
@@ -1445,7 +1446,7 @@ const repairDispatch = (overrides = {}) => Object.freeze({
   instruction: 'Generate and apply the minimum repair for current blocking findings only within current authorized_paths; stop on an Architecture gap.',
   ...overrides,
 })
-const expectedRepairPrompt = `${repairDispatch().instruction}\nDo not run validation, stage, commit, push, mutate PR/state, or redesign Architecture; leave a non-empty unstaged diff; stop on an Architecture gap.\n\nCurrent repair tuple:\nRepository: ${REPOSITORY}\nTask: #${TASK}\nPR: #${PR}\nExact HEAD: ${HEAD}\n\nCurrent authorized_paths:\n${JSON.stringify([...REPAIR_PATHS].sort())}\n\nCurrent review decision:\ncurrent blocking findings`
+const expectedRepairPrompt = `${repairDispatch().instruction}\nUse only the Executor-supplied authorized-file snapshots. Do not run repository discovery, git, pwsh, gh, validation, test, build, stage, commit, push, mutate PR/state, or redesign Architecture; generate and apply only the minimum authorized patch, leave a non-empty unstaged diff, and stop on an Architecture gap.\n\nCurrent repair tuple:\nRepository: ${REPOSITORY}\nTask: #${TASK}\nPR: #${PR}\nExact HEAD: ${HEAD}\n\nCurrent authorized_paths:\n${JSON.stringify([...REPAIR_PATHS].sort())}\n\nCurrent review decision:\ncurrent blocking findings`
 const repairTaskState = (overrides = {}) => state({
   authorized_paths: [...REPAIR_PATHS],
   review_status: 'CHANGES_REQUIRED',
@@ -1641,6 +1642,41 @@ for (const unit of repairUnits) {
 }
 
 const WINDOWS_WORKSPACE = 'C:\\actions-runner\\_work\\sd-prompt-studio\\sd-prompt-studio'
+const snapshotContentByPath = new Map([
+  [REPAIR_PATHS[0], 'workflow snapshot\n'],
+  [REPAIR_PATHS[1], '\uFEFFrunner Ω snapshot\n'],
+  [REPAIR_PATHS[2], 'focused test snapshot\n'],
+])
+const snapshotMaterializationInput = (overrides = {}) => ({
+  authorizedPaths: [...REPAIR_PATHS].reverse(),
+  workspacePath: WINDOWS_WORKSPACE,
+  realPath: (resolvedPath) => resolvedPath,
+  statPath: () => ({ isFile: () => true }),
+  readBytes: (_resolvedPath, repositoryPath) => Buffer.from(snapshotContentByPath.get(repositoryPath), 'utf8'),
+  ...overrides,
+})
+const materializedSnapshots = materializeRepairAuthorizedFileSnapshotsV1(snapshotMaterializationInput())
+const expectedProviderPrompt = `${expectedRepairPrompt}\n\nCurrent authorized-file snapshots (strict UTF-8 JSON):\n${JSON.stringify(materializedSnapshots)}`
+const snapshotMissingError = await errorOf(async () => materializeRepairAuthorizedFileSnapshotsV1(snapshotMaterializationInput({
+  statPath: () => { throw new Error('missing') },
+})))
+const snapshotNonRegularError = await errorOf(async () => materializeRepairAuthorizedFileSnapshotsV1(snapshotMaterializationInput({
+  statPath: () => ({ isFile: () => false }),
+})))
+const snapshotEscapeError = await errorOf(async () => materializeRepairAuthorizedFileSnapshotsV1(snapshotMaterializationInput({
+  resolvePath: (root) => path.resolve(root, '..', 'escaped.txt'),
+})))
+const snapshotPhysicalEscapeError = await errorOf(async () => materializeRepairAuthorizedFileSnapshotsV1(snapshotMaterializationInput({
+  realPath: (resolvedPath, repositoryPath) => repositoryPath === undefined ? resolvedPath : path.resolve(WINDOWS_WORKSPACE, '..', 'physical-escape.txt'),
+})))
+const snapshotUtf8Error = await errorOf(async () => materializeRepairAuthorizedFileSnapshotsV1(snapshotMaterializationInput({
+  readBytes: () => Buffer.from([0xC3, 0x28]),
+})))
+const providerSnapshotContexts = []
+const readAuthorizedSnapshots = async (context) => {
+  providerSnapshotContexts.push(context)
+  return materializedSnapshots
+}
 const providerExecHost = repairHost()
 const providerExec = await executeRepairProviderBindingV3({
   boundary: 'pre_exec',
@@ -1651,17 +1687,31 @@ const providerExec = await executeRepairProviderBindingV3({
   loginStatus: 'Logged in using ChatGPT',
   runAttempt: 1,
   workspacePath: WINDOWS_WORKSPACE,
+  readAuthorizedSnapshots,
 })
-const oversizedPromptHost = repairHost()
-const oversizedPrompt = await executeRepairProviderBindingV3({
+const emptySnapshots = materializedSnapshots.map((snapshot) => Object.freeze({ ...snapshot, content: '' }))
+const emptyPromptHost = repairHost()
+const emptyPrompt = await executeRepairProviderBindingV3({
   boundary: 'pre_exec',
-  dispatch: repairDispatch({ review_body: 'x'.repeat(4096) }),
-  host: oversizedPromptHost.host,
+  dispatch: repairDispatch(),
+  host: emptyPromptHost.host,
   localPaths: [],
   cliVersion: 'codex-cli 0.147.0',
   loginStatus: 'Logged in using ChatGPT',
   runAttempt: 1,
   workspacePath: WINDOWS_WORKSPACE,
+  readAuthorizedSnapshots: async () => emptySnapshots,
+})
+const snapshotCapPadding = 16_384 - Buffer.byteLength(emptyPrompt.prompt, 'utf8')
+const snapshotCap = emptySnapshots.map((snapshot, index) => Object.freeze({ ...snapshot, content: index === 0 ? 'x'.repeat(snapshotCapPadding) : '' }))
+const snapshotOverflow = emptySnapshots.map((snapshot, index) => Object.freeze({ ...snapshot, content: index === 0 ? 'x'.repeat(snapshotCapPadding + 1) : '' }))
+const capBoundaryHost = repairHost()
+const capBoundaryPrompt = await executeRepairProviderBindingV3({
+  boundary: 'pre_exec', dispatch: repairDispatch(), host: capBoundaryHost.host, localPaths: [], cliVersion: 'codex-cli 0.147.0', loginStatus: 'Logged in using ChatGPT', runAttempt: 1, workspacePath: WINDOWS_WORKSPACE, readAuthorizedSnapshots: async () => snapshotCap,
+})
+const oversizedPromptHost = repairHost()
+const oversizedPrompt = await executeRepairProviderBindingV3({
+  boundary: 'pre_exec', dispatch: repairDispatch(), host: oversizedPromptHost.host, localPaths: [], cliVersion: 'codex-cli 0.147.0', loginStatus: 'Logged in using ChatGPT', runAttempt: 1, workspacePath: WINDOWS_WORKSPACE, readAuthorizedSnapshots: async () => snapshotOverflow,
 })
 const providerProjectionInput = {
   providerBranch: 'codex/repair',
@@ -1675,20 +1725,29 @@ const missingCliError = await errorOf(async () => projectSelfHostedWindowsRepair
 const wrongCliError = await errorOf(async () => projectSelfHostedWindowsRepairProviderV3({ ...providerProjectionInput, cliVersion: 'codex-cli 0.148.0' }))
 const apiLoginError = await errorOf(async () => projectSelfHostedWindowsRepairProviderV3({ ...providerProjectionInput, loginStatus: 'Logged in using an API key' }))
 const providerRemoteDriftHost = repairHost({ remoteHead: OTHER_HEAD })
+let rejectedSnapshotReads = 0
+const rejectedSnapshotReader = async () => {
+  rejectedSnapshotReads += 1
+  return materializedSnapshots
+}
 const providerRemoteDrift = await executeRepairProviderBindingV3({
-  boundary: 'pre_exec', dispatch: repairDispatch(), host: providerRemoteDriftHost.host, localPaths: [], cliVersion: 'codex-cli 0.147.0', loginStatus: 'Logged in using ChatGPT', runAttempt: 1, workspacePath: WINDOWS_WORKSPACE,
+  boundary: 'pre_exec', dispatch: repairDispatch(), host: providerRemoteDriftHost.host, localPaths: [], cliVersion: 'codex-cli 0.147.0', loginStatus: 'Logged in using ChatGPT', runAttempt: 1, workspacePath: WINDOWS_WORKSPACE, readAuthorizedSnapshots: rejectedSnapshotReader,
 })
 const providerDirtyHost = repairHost()
 const providerDirty = await executeRepairProviderBindingV3({
-  boundary: 'pre_exec', dispatch: repairDispatch(), host: providerDirtyHost.host, localPaths: [REPAIR_PATHS[0]], cliVersion: 'codex-cli 0.147.0', loginStatus: 'Logged in using ChatGPT', runAttempt: 1, workspacePath: WINDOWS_WORKSPACE,
+  boundary: 'pre_exec', dispatch: repairDispatch(), host: providerDirtyHost.host, localPaths: [REPAIR_PATHS[0]], cliVersion: 'codex-cli 0.147.0', loginStatus: 'Logged in using ChatGPT', runAttempt: 1, workspacePath: WINDOWS_WORKSPACE, readAuthorizedSnapshots: rejectedSnapshotReader,
 })
 const providerPullDriftHost = repairHost({ head: OTHER_HEAD })
 const providerPullDrift = await executeRepairProviderBindingV3({
-  boundary: 'pre_exec', dispatch: repairDispatch(), host: providerPullDriftHost.host, localPaths: [], cliVersion: 'codex-cli 0.147.0', loginStatus: 'Logged in using ChatGPT', runAttempt: 1, workspacePath: WINDOWS_WORKSPACE,
+  boundary: 'pre_exec', dispatch: repairDispatch(), host: providerPullDriftHost.host, localPaths: [], cliVersion: 'codex-cli 0.147.0', loginStatus: 'Logged in using ChatGPT', runAttempt: 1, workspacePath: WINDOWS_WORKSPACE, readAuthorizedSnapshots: rejectedSnapshotReader,
 })
 const rerunProviderHost = repairHost()
 const rerunProvider = await executeRepairProviderBindingV3({
-  boundary: 'pre_exec', dispatch: repairDispatch(), host: rerunProviderHost.host, localPaths: [], cliVersion: 'codex-cli 0.147.0', loginStatus: 'Logged in using ChatGPT', runAttempt: 2, workspacePath: WINDOWS_WORKSPACE,
+  boundary: 'pre_exec', dispatch: repairDispatch(), host: rerunProviderHost.host, localPaths: [], cliVersion: 'codex-cli 0.147.0', loginStatus: 'Logged in using ChatGPT', runAttempt: 2, workspacePath: WINDOWS_WORKSPACE, readAuthorizedSnapshots: async () => materializedSnapshots,
+})
+const invalidSnapshotHost = repairHost()
+const invalidSnapshotResult = await executeRepairProviderBindingV3({
+  boundary: 'pre_exec', dispatch: repairDispatch(), host: invalidSnapshotHost.host, localPaths: [], cliVersion: 'codex-cli 0.147.0', loginStatus: 'Logged in using ChatGPT', runAttempt: 1, workspacePath: WINDOWS_WORKSPACE, readAuthorizedSnapshots: async () => [...materializedSnapshots].reverse(),
 })
 const providerPostBranchHost = repairHost()
 const providerPostBranchDrift = await executeRepairProviderBindingV3({
@@ -1983,24 +2042,24 @@ const providerUnits = [
   {
     name: 'bounded exact prompt and UTF-8 stdin',
     evidence: [
-      Buffer.from(providerExec.prompt, 'utf8').equals(Buffer.from(expectedRepairPrompt, 'utf8')) && providerExec.provider_projection.prompt_bytes === Buffer.byteLength(expectedRepairPrompt, 'utf8'),
-      providerExec.prompt.includes(`Current repair tuple:\nRepository: ${REPOSITORY}\nTask: #${TASK}\nPR: #${PR}\nExact HEAD: ${HEAD}\n`) && providerExec.prompt.includes('Do not run validation, stage, commit, push, mutate PR/state') && providerExec.provider_projection.prompt_bytes <= 4096,
-      oversizedPrompt.reason === 'repair_provider_prompt_too_large' && workflowSource.includes('[Text.UTF8Encoding]::new($false)') && providerExecutionStep?.run.includes('$prompt | & codex.cmd exec') && repairStepByName.get('Bind reviewed HEAD immediately before local execution')?.run.includes('[IO.File]::WriteAllText($promptPath, [string]$result.prompt, $utf8NoBom)'),
+      Buffer.from(providerExec.prompt, 'utf8').equals(Buffer.from(expectedProviderPrompt, 'utf8')) && providerExec.provider_projection.prompt_bytes === Buffer.byteLength(expectedProviderPrompt, 'utf8') && materializedSnapshots.map((snapshot) => snapshot.path).join('|') === [...REPAIR_PATHS].sort().join('|'),
+      providerExec.prompt.includes(`Current repair tuple:\nRepository: ${REPOSITORY}\nTask: #${TASK}\nPR: #${PR}\nExact HEAD: ${HEAD}\n`) && providerExec.prompt.includes('Use only the Executor-supplied authorized-file snapshots.') && providerExec.prompt.includes(JSON.stringify(materializedSnapshots)) && providerExec.provider_projection.prompt_bytes <= 16_384 && providerSnapshotContexts.length === 1 && providerSnapshotContexts[0].exactHead === HEAD && providerSnapshotContexts[0].workspacePath === WINDOWS_WORKSPACE,
+      capBoundaryPrompt.provider_projection.prompt_bytes === 16_384 && oversizedPrompt.reason === 'repair_provider_prompt_too_large' && workflowSource.includes('[Text.UTF8Encoding]::new($false)') && providerExecutionStep?.run.includes('$prompt | & codex.cmd exec') && repairStepByName.get('Bind reviewed HEAD immediately before local execution')?.run.includes('[IO.File]::WriteAllText($promptPath, [string]$result.prompt, $utf8NoBom)'),
     ],
   },
   {
     name: 'pre-exec reviewed tuple and clean checkout',
     evidence: [
       providerPullDrift.reason === 'repair_pull_binding_invalid' && providerPullDriftHost.metrics.branchReads === 0,
-      providerRemoteDrift.reason === 'repair_remote_head_changed' && providerRemoteDriftHost.metrics.branchReads === 1 && providerDirty.reason === 'repair_provider_worktree_not_clean',
-      rerunProvider.reason === 'repair_provider_rerun_forbidden' && rerunProvider.next_action === 'STOP',
+      providerRemoteDrift.reason === 'repair_remote_head_changed' && providerRemoteDriftHost.metrics.branchReads === 1 && providerDirty.reason === 'repair_provider_worktree_not_clean' && rejectedSnapshotReads === 0,
+      rerunProvider.reason === 'repair_provider_rerun_forbidden' && rerunProvider.next_action === 'STOP' && snapshotMissingError?.message === 'repair_snapshot_file_missing' && snapshotNonRegularError?.message === 'repair_snapshot_file_not_regular' && snapshotEscapeError?.message === 'repair_snapshot_path_escape' && snapshotPhysicalEscapeError?.message === 'repair_snapshot_path_escape' && snapshotUtf8Error?.message === 'repair_snapshot_utf8_invalid' && invalidSnapshotResult.reason === 'repair_authorized_snapshots_invalid',
     ],
   },
   {
     name: 'one sandboxed ephemeral local execution',
     evidence: [
       providerExec.reason === 'repair_provider_exec_binding_satisfied' && providerExec.next_action === 'EXECUTE_REPAIR_AGENT' && providerExec.provider_projection.invocation_count === 1,
-      providerExec.provider_projection.exec_argv.join('|') === `exec|-c|sandbox_workspace_write.network_access=false|-c|sandbox_workspace_write.writable_roots=[]|--sandbox|workspace-write|--ephemeral|--json|--cd|${WINDOWS_WORKSPACE}|-`,
+      providerExec.provider_projection.exec_argv.join('|') === `exec|-c|features.shell_tool=false|-c|sandbox_workspace_write.network_access=false|-c|sandbox_workspace_write.writable_roots=[]|--sandbox|workspace-write|--ephemeral|--json|--cd|${WINDOWS_WORKSPACE}|-`,
       workflowSource.split('& codex.cmd exec').length === 2 && providerExecutionStep?.['timeout-minutes'] === 20 && !providerExecutionStep.run.includes('danger-full-access') && !providerExecutionStep.run.includes('bypass'),
     ],
   },
@@ -2017,7 +2076,7 @@ const providerUnits = [
     evidence: [
       providerPost.reason === 'repair_provider_post_exec_binding_satisfied' && providerPost.next_action === 'PROJECT_PROVIDER_COMPLETION',
       postAgentAllowed.next_action === 'VALIDATE_REPAIR' && postAgentAllowed.repair_paths.join('|') === [...REPAIR_PATHS].sort().join('|') && parsedIntermediarySteps.every((step) => step?.run.includes('[IO.File]::WriteAllLines') && step.run.includes('encoding_invalid') && step.run.includes('-Raw -Encoding utf8') && step.run.includes('$priorConsoleOutputEncoding = [Console]::OutputEncoding') && step.run.includes('[Console]::OutputEncoding = $utf8NoBom') && step.run.includes('[Console]::OutputEncoding = $priorConsoleOutputEncoding') && !step.run.includes('Tee-Object')),
-      commitPlan.next_action === 'COMMIT_AND_PUSH' && completedRepair.next_action === 'REVIEW' && forbiddenProviderMechanisms.every((needle) => !providerProductionSource.includes(needle)) && nativeBoundarySteps.every((step) => step?.run.includes("$ErrorActionPreference = 'Continue'") && step.run.includes('finally {') && step.run.includes('$ErrorActionPreference = $priorErrorActionPreference') && /\$\w+Exit = \$LASTEXITCODE/.test(step.run)) && nativeBoundarySteps.filter((step) => step !== providerProbeStep).every((step) => step.run.includes('$LASTEXITCODE = $null')) && !providerProbeRun.includes('$LASTEXITCODE = $null') && nativeJsonCaptureSteps.every((step) => step?.run.includes('[Console]::OutputEncoding = $utf8NoBom') && step.run.includes('[Console]::OutputEncoding = $priorConsoleOutputEncoding')) && nonAsciiNativeDecoded === nonAsciiNativeJson && nonAsciiNativeReencoded.equals(nonAsciiNativeBytes) && powershell51NativeUtf8RoundTrip && !repairRunSource.includes('Tee-Object') && !repairRunSource.includes('Add-Content') && repairRunSource.split('[IO.File]::AppendAllText').length === 9 && repairRunSource.split('[Text.UTF8Encoding]::new($false)').length === 10 && repairRunSource.includes('$persistedBytes[0] -eq 0xff') && repairRunSource.includes('$persistedBytes[0] -eq 0xef'),
+      commitPlan.next_action === 'COMMIT_AND_PUSH' && completedRepair.next_action === 'REVIEW' && forbiddenProviderMechanisms.every((needle) => !providerProductionSource.includes(needle)) && runnerSource.includes('materializeRepairAuthorizedFileSnapshotsV1') && runnerSource.includes('readAuthorizedSnapshots: ({ authorizedPaths, workspacePath })') && nativeBoundarySteps.every((step) => step?.run.includes("$ErrorActionPreference = 'Continue'") && step.run.includes('finally {') && step.run.includes('$ErrorActionPreference = $priorErrorActionPreference') && /\$\w+Exit = \$LASTEXITCODE/.test(step.run)) && nativeBoundarySteps.filter((step) => step !== providerProbeStep).every((step) => step.run.includes('$LASTEXITCODE = $null')) && !providerProbeRun.includes('$LASTEXITCODE = $null') && nativeJsonCaptureSteps.every((step) => step?.run.includes('[Console]::OutputEncoding = $utf8NoBom') && step.run.includes('[Console]::OutputEncoding = $priorConsoleOutputEncoding')) && nonAsciiNativeDecoded === nonAsciiNativeJson && nonAsciiNativeReencoded.equals(nonAsciiNativeBytes) && powershell51NativeUtf8RoundTrip && !repairRunSource.includes('Tee-Object') && !repairRunSource.includes('Add-Content') && repairRunSource.split('[IO.File]::AppendAllText').length === 9 && repairRunSource.split('[Text.UTF8Encoding]::new($false)').length === 10 && repairRunSource.includes('$persistedBytes[0] -eq 0xff') && repairRunSource.includes('$persistedBytes[0] -eq 0xef'),
     ],
   },
 ]
@@ -2038,7 +2097,7 @@ const hostRunnerBindingMatrix = [
   hostRunnerRun.includes('[IO.File]::AppendAllText($env:GITHUB_ENV, "PTA_HOST_RUNNER=$hostRunner$([Environment]::NewLine)", $utf8NoBom)'),
   hostOrchestrationSteps.length === 6 && hostOrchestrationSteps.every((step) => step?.run.includes('node $env:PTA_HOST_RUNNER')),
   hostOrchestrationSteps.every((step) => !step?.run.includes('node scripts/run-protected-transition-admission-v1.mjs')) && !repairRunSource.includes('node scripts/run-protected-transition-admission-v1.mjs'),
-  providerExecutionStep?.run.includes('$prompt | & codex.cmd exec -c sandbox_workspace_write.network_access=false -c sandbox_workspace_write.writable_roots=[] --sandbox workspace-write --ephemeral --json --cd $env:GITHUB_WORKSPACE -') && workflowSource.split('& codex.cmd exec').length === 2,
+  providerExecutionStep?.run.includes('$prompt | & codex.cmd exec -c features.shell_tool=false -c sandbox_workspace_write.network_access=false -c sandbox_workspace_write.writable_roots=[] --sandbox workspace-write --ephemeral --json --cd $env:GITHUB_WORKSPACE -') && workflowSource.split('& codex.cmd exec').length === 2,
   hostRunnerRun.includes("throw 'repair_host_inside_target_workspace'") && !repairRunSource.includes('Set-Location') && hostOrchestrationSteps.every((step) => !step?.['working-directory']),
   hostOrchestrationSteps.every((step) => step?.run.includes('$env:PTA_HOST_RUNNER')) && hostOrchestrationSteps.every((step) => !step?.run.includes('$env:GITHUB_WORKSPACE/scripts/run-protected-transition-admission-v1.mjs')),
   repairJob.steps.indexOf(hostRunnerStep) < repairJob.steps.indexOf(providerProbeStep) && repairJob.steps.indexOf(hostRunnerStep) < repairJob.steps.indexOf(providerExecutionStep) && !hostRunnerStep?.['continue-on-error'] && hostRunnerRun.includes("-Failure 'repair_host_fetch_failed'") && hostRunnerRun.includes("throw 'repair_host_runner_missing'"),

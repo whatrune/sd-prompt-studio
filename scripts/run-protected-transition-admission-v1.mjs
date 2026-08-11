@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { lstatSync, readFileSync, realpathSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -25,10 +25,10 @@ const REVIEW_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 const STRICT_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/
 const REPAIR_EXECUTOR_INSTRUCTION = 'Generate and apply the minimum repair for current blocking findings only within current authorized_paths; stop on an Architecture gap.'
 const REPAIR_COMMIT_MESSAGE = 'fix current protected transition blockers'
-const REPAIR_PROVIDER_PROMPT_MAX_BYTES_V2 = 4096
+const REPAIR_PROVIDER_PROMPT_MAX_BYTES_V2 = 16_384
 const CODEX_CLI_VERSION_V3 = 'codex-cli 0.147.0'
 const CODEX_CHATGPT_LOGIN_STATUS_V3 = 'Logged in using ChatGPT'
-const REPAIR_PROVIDER_CONSTRAINTS_V3 = 'Do not run validation, stage, commit, push, mutate PR/state, or redesign Architecture; leave a non-empty unstaged diff; stop on an Architecture gap.'
+const REPAIR_PROVIDER_CONSTRAINTS_V3 = 'Use only the Executor-supplied authorized-file snapshots. Do not run repository discovery, git, pwsh, gh, validation, test, build, stage, commit, push, mutate PR/state, or redesign Architecture; generate and apply only the minimum authorized patch, leave a non-empty unstaged diff, and stop on an Architecture gap.'
 const PROTECTED_TRANSITION_REPAIR_PATHS_V1 = Object.freeze([
   '.github/workflows/protected-transition-admission-v1.yml',
   'scripts/run-protected-transition-admission-v1.mjs',
@@ -885,8 +885,109 @@ const repairRequestV1 = (dispatch, exactHead = dispatch.exact_head) => Object.fr
   exactHead,
 })
 
-const repairProviderPromptV2 = (dispatch, authorizedPaths) => {
-  const prompt = `${dispatch.instruction}\n${REPAIR_PROVIDER_CONSTRAINTS_V3}\n\nCurrent repair tuple:\nRepository: ${dispatch.repository}\nTask: #${dispatch.task_issue_number}\nPR: #${dispatch.pr_number}\nExact HEAD: ${dispatch.exact_head}\n\nCurrent authorized_paths:\n${JSON.stringify(authorizedPaths)}\n\nCurrent review decision:\n${dispatch.review_body}`
+const repairAuthorizedFileSnapshotsV1 = (authorizedPaths, snapshots) => {
+  if (!Array.isArray(snapshots) || snapshots.length !== authorizedPaths.length) {
+    throw new Error('repair_authorized_snapshots_invalid')
+  }
+  const normalized = snapshots.map((snapshot, index) => {
+    if (
+      !snapshot ||
+      snapshot.path !== authorizedPaths[index] ||
+      typeof snapshot.content !== 'string'
+    ) {
+      throw new Error('repair_authorized_snapshots_invalid')
+    }
+    return Object.freeze({ path: snapshot.path, content: snapshot.content })
+  })
+  return Object.freeze(normalized)
+}
+
+export const materializeRepairAuthorizedFileSnapshotsV1 = ({
+  authorizedPaths,
+  workspacePath,
+  resolvePath = (root, repositoryPath) => path.resolve(root, ...repositoryPath.split('/')),
+  realPath = (resolvedPath) => realpathSync(resolvedPath),
+  statPath = (resolvedPath) => lstatSync(resolvedPath),
+  readBytes = (resolvedPath) => readFileSync(resolvedPath),
+}) => {
+  const normalizedPaths = repairPathSetV1(authorizedPaths, 'authorized_paths')
+  if (
+    typeof workspacePath !== 'string' ||
+    workspacePath.length === 0 ||
+    /[\u0000-\u001f\u007f]/u.test(workspacePath) ||
+    !path.isAbsolute(workspacePath)
+  ) {
+    throw new Error('repair_snapshot_workspace_invalid')
+  }
+  const workspaceRoot = path.resolve(workspacePath)
+  let physicalWorkspaceRoot
+  try {
+    physicalWorkspaceRoot = realPath(workspaceRoot)
+  } catch {
+    throw new Error('repair_snapshot_workspace_invalid')
+  }
+  const snapshots = normalizedPaths.map((repositoryPath) => {
+    let resolvedPath
+    try {
+      resolvedPath = resolvePath(workspaceRoot, repositoryPath)
+    } catch {
+      throw new Error('repair_snapshot_path_escape')
+    }
+    if (typeof resolvedPath !== 'string' || resolvedPath.length === 0) {
+      throw new Error('repair_snapshot_path_escape')
+    }
+    const relativePath = path.relative(workspaceRoot, path.resolve(resolvedPath))
+    if (relativePath === '' || relativePath === '..' || relativePath.startsWith(`..${path.sep}`) || path.isAbsolute(relativePath)) {
+      throw new Error('repair_snapshot_path_escape')
+    }
+    let status
+    try {
+      status = statPath(resolvedPath, repositoryPath)
+    } catch {
+      throw new Error('repair_snapshot_file_missing')
+    }
+    if (!status || typeof status.isFile !== 'function' || !status.isFile()) {
+      throw new Error('repair_snapshot_file_not_regular')
+    }
+    let physicalResolvedPath
+    try {
+      physicalResolvedPath = realPath(resolvedPath, repositoryPath)
+    } catch {
+      throw new Error('repair_snapshot_file_unreadable')
+    }
+    const physicalRelativePath = path.relative(physicalWorkspaceRoot, path.resolve(physicalResolvedPath))
+    if (physicalRelativePath === '' || physicalRelativePath === '..' || physicalRelativePath.startsWith(`..${path.sep}`) || path.isAbsolute(physicalRelativePath)) {
+      throw new Error('repair_snapshot_path_escape')
+    }
+    let value
+    try {
+      value = readBytes(resolvedPath, repositoryPath)
+    } catch {
+      throw new Error('repair_snapshot_file_unreadable')
+    }
+    if (!Buffer.isBuffer(value) && !(value instanceof Uint8Array)) {
+      throw new Error('repair_snapshot_file_unreadable')
+    }
+    const bytes = Buffer.isBuffer(value) ? value : Buffer.from(value)
+    let content
+    try {
+      content = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes)
+    } catch {
+      throw new Error('repair_snapshot_utf8_invalid')
+    }
+    if (!Buffer.from(content, 'utf8').equals(bytes)) {
+      throw new Error('repair_snapshot_utf8_invalid')
+    }
+    return Object.freeze({ path: repositoryPath, content })
+  })
+  return repairAuthorizedFileSnapshotsV1(normalizedPaths, snapshots)
+}
+
+const repairProviderPromptV2 = (dispatch, authorizedPaths, authorizedFileSnapshots = undefined) => {
+  const snapshotSection = authorizedFileSnapshots === undefined
+    ? ''
+    : `\n\nCurrent authorized-file snapshots (strict UTF-8 JSON):\n${JSON.stringify(repairAuthorizedFileSnapshotsV1(authorizedPaths, authorizedFileSnapshots))}`
+  const prompt = `${dispatch.instruction}\n${REPAIR_PROVIDER_CONSTRAINTS_V3}\n\nCurrent repair tuple:\nRepository: ${dispatch.repository}\nTask: #${dispatch.task_issue_number}\nPR: #${dispatch.pr_number}\nExact HEAD: ${dispatch.exact_head}\n\nCurrent authorized_paths:\n${JSON.stringify(authorizedPaths)}\n\nCurrent review decision:\n${dispatch.review_body}${snapshotSection}`
   if (Buffer.byteLength(prompt, 'utf8') > REPAIR_PROVIDER_PROMPT_MAX_BYTES_V2) {
     throw new Error('repair_provider_prompt_too_large')
   }
@@ -925,7 +1026,7 @@ export const projectSelfHostedWindowsRepairProviderV3 = ({
     provider_branch: providerBranch,
     prompt_bytes: Buffer.byteLength(prompt, 'utf8'),
     invocation_count: 1,
-    exec_argv: Object.freeze(['exec', '-c', 'sandbox_workspace_write.network_access=false', '-c', 'sandbox_workspace_write.writable_roots=[]', '--sandbox', 'workspace-write', '--ephemeral', '--json', '--cd', workspacePath, '-']),
+    exec_argv: Object.freeze(['exec', '-c', 'features.shell_tool=false', '-c', 'sandbox_workspace_write.network_access=false', '-c', 'sandbox_workspace_write.writable_roots=[]', '--sandbox', 'workspace-write', '--ephemeral', '--json', '--cd', workspacePath, '-']),
   })
 }
 
@@ -939,6 +1040,7 @@ export const executeRepairProviderBindingV3 = async ({
   loginStatus = undefined,
   runAttempt,
   workspacePath = undefined,
+  readAuthorizedSnapshots = undefined,
 }) => {
   try {
     validateRepairDispatchV1(dispatch)
@@ -955,7 +1057,17 @@ export const executeRepairProviderBindingV3 = async ({
     if (!Array.isArray(localPaths)) throw new Error('repair_provider_worktree_invalid')
     if (boundary === 'pre_exec' && localPaths.length !== 0) throw new Error('repair_provider_worktree_not_clean')
     if (boundary === 'post_exec' && localPaths.length === 0) throw new Error('repair_provider_diff_missing')
-    const prompt = repairProviderPromptV2(dispatch, repairPathSetV1(dispatch.authorized_paths, 'authorized_paths'))
+    const authorizedPaths = repairPathSetV1(dispatch.authorized_paths, 'authorized_paths')
+    let authorizedFileSnapshots
+    if (boundary === 'pre_exec') {
+      if (typeof readAuthorizedSnapshots !== 'function') throw new Error('repair_snapshot_reader_invalid')
+      authorizedFileSnapshots = await readAuthorizedSnapshots({
+        authorizedPaths,
+        exactHead: dispatch.exact_head,
+        workspacePath,
+      })
+    }
+    const prompt = repairProviderPromptV2(dispatch, authorizedPaths, authorizedFileSnapshots)
     const projection = boundary === 'pre_exec'
       ? projectSelfHostedWindowsRepairProviderV3({
           providerBranch: canonicalBranch,
@@ -2024,6 +2136,10 @@ const main = async () => {
                 loginStatus: process.env.REPAIR_PROVIDER_LOGIN_STATUS,
                 runAttempt: Number(process.env.GITHUB_RUN_ATTEMPT),
                 workspacePath: process.env.GITHUB_WORKSPACE,
+                readAuthorizedSnapshots: ({ authorizedPaths, workspacePath }) => materializeRepairAuthorizedFileSnapshotsV1({
+                  authorizedPaths,
+                  workspacePath,
+                }),
               })
             : invocation.mode === 'repair_provider_post_exec_bind'
               ? await (() => {
