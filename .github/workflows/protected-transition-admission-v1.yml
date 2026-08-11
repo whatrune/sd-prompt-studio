@@ -559,7 +559,6 @@ jobs:
             if ($result.next_action -cne 'VALIDATE_REPAIR') { throw 'repair_validation_not_ready' }
             [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "profile=$($result.validation_profile)$([Environment]::NewLine)", $utf8NoBom)
           } finally {
-            Remove-Item -LiteralPath $postAgentPath -Force -ErrorAction SilentlyContinue
             Remove-Item -LiteralPath $postAgentErrorPath -Force -ErrorAction SilentlyContinue
           }
 
@@ -665,32 +664,36 @@ jobs:
           $dispatchPath = Join-Path $env:RUNNER_TEMP 'repair-dispatch.json'
           $evidencePath = Join-Path $env:RUNNER_TEMP 'repair-post-agent.json'
           $resultPath = Join-Path $env:RUNNER_TEMP 'repair-result.json'
-          $priorErrorActionPreference = $ErrorActionPreference
-          $priorConsoleOutputEncoding = [Console]::OutputEncoding
           try {
-            [Console]::OutputEncoding = $utf8NoBom
-            $ErrorActionPreference = 'Continue'
-            $LASTEXITCODE = $null
-            $resultOutput = [string[]]@(node $env:PTA_HOST_RUNNER --repair-result-file $dispatchPath --repair-evidence-file $evidencePath --new-head $env:REPAIR_NEW_HEAD 2>&1)
-            $resultExit = $LASTEXITCODE
+            $priorErrorActionPreference = $ErrorActionPreference
+            $priorConsoleOutputEncoding = [Console]::OutputEncoding
+            try {
+              [Console]::OutputEncoding = $utf8NoBom
+              $ErrorActionPreference = 'Continue'
+              $LASTEXITCODE = $null
+              $resultOutput = [string[]]@(node $env:PTA_HOST_RUNNER --repair-result-file $dispatchPath --repair-evidence-file $evidencePath --new-head $env:REPAIR_NEW_HEAD 2>&1)
+              $resultExit = $LASTEXITCODE
+            } finally {
+              [Console]::OutputEncoding = $priorConsoleOutputEncoding
+              $ErrorActionPreference = $priorErrorActionPreference
+            }
+            $resultOutput | ForEach-Object { Write-Output $_ }
+            [IO.File]::WriteAllLines($resultPath, [string[]]$resultOutput, $utf8NoBom)
+            if ($resultExit -ne 0) { throw 'repair_result_failed' }
+            $persistedBytes = [IO.File]::ReadAllBytes($resultPath)
+            if (($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xff -and $persistedBytes[1] -eq 0xfe) -or ($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xfe -and $persistedBytes[1] -eq 0xff) -or ($persistedBytes.Length -ge 3 -and $persistedBytes[0] -eq 0xef -and $persistedBytes[1] -eq 0xbb -and $persistedBytes[2] -eq 0xbf)) { throw 'repair_result_encoding_invalid' }
+            $result = Get-Content -LiteralPath $resultPath -Raw -Encoding utf8 | ConvertFrom-Json
+            if ($result.state -cne 'REVIEW_PENDING' -or $result.reason -cne 'fresh_review_required' -or $result.next_action -cne 'REVIEW' -or $result.current_head -cne $env:REPAIR_NEW_HEAD) { throw 'repair_result_invalid' }
+            @{
+              state = $result.state
+              reason = $result.reason
+              next_action = $result.next_action
+              task_issue_number = $result.task_issue_number
+              pr_number = $result.pr_number
+              new_head = $result.current_head
+            }.GetEnumerator() | ForEach-Object {
+              [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "$($_.Key)=$($_.Value)$([Environment]::NewLine)", $utf8NoBom)
+            }
           } finally {
-            [Console]::OutputEncoding = $priorConsoleOutputEncoding
-            $ErrorActionPreference = $priorErrorActionPreference
-          }
-          $resultOutput | ForEach-Object { Write-Output $_ }
-          [IO.File]::WriteAllLines($resultPath, [string[]]$resultOutput, $utf8NoBom)
-          if ($resultExit -ne 0) { throw 'repair_result_failed' }
-          $persistedBytes = [IO.File]::ReadAllBytes($resultPath)
-          if (($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xff -and $persistedBytes[1] -eq 0xfe) -or ($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xfe -and $persistedBytes[1] -eq 0xff) -or ($persistedBytes.Length -ge 3 -and $persistedBytes[0] -eq 0xef -and $persistedBytes[1] -eq 0xbb -and $persistedBytes[2] -eq 0xbf)) { throw 'repair_result_encoding_invalid' }
-          $result = Get-Content -LiteralPath $resultPath -Raw -Encoding utf8 | ConvertFrom-Json
-          if ($result.state -cne 'REVIEW_PENDING' -or $result.reason -cne 'fresh_review_required' -or $result.next_action -cne 'REVIEW' -or $result.current_head -cne $env:REPAIR_NEW_HEAD) { throw 'repair_result_invalid' }
-          @{
-            state = $result.state
-            reason = $result.reason
-            next_action = $result.next_action
-            task_issue_number = $result.task_issue_number
-            pr_number = $result.pr_number
-            new_head = $result.current_head
-          }.GetEnumerator() | ForEach-Object {
-            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "$($_.Key)=$($_.Value)$([Environment]::NewLine)", $utf8NoBom)
+            Remove-Item -LiteralPath $evidencePath -Force -ErrorAction SilentlyContinue
           }
