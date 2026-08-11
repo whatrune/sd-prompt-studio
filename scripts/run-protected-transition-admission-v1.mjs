@@ -25,10 +25,10 @@ const REVIEW_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 const STRICT_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/
 const REPAIR_EXECUTOR_INSTRUCTION = 'Generate and apply the minimum repair for current blocking findings only within current authorized_paths; stop on an Architecture gap.'
 const REPAIR_COMMIT_MESSAGE = 'fix current protected transition blockers'
-const REPAIR_PROVIDER_PROMPT_MAX_BYTES_V2 = 4096
+const REPAIR_PROVIDER_PROMPT_MAX_BYTES_V2 = 16_384
 const CODEX_CLI_VERSION_V3 = 'codex-cli 0.147.0'
 const CODEX_CHATGPT_LOGIN_STATUS_V3 = 'Logged in using ChatGPT'
-const REPAIR_PROVIDER_CONSTRAINTS_V3 = 'Do not run validation, stage, commit, push, mutate PR/state, or redesign Architecture; leave a non-empty unstaged diff; stop on an Architecture gap.'
+const REPAIR_PROVIDER_CONSTRAINTS_V3 = 'Use Codex native file read only for current authorized_paths, then generate and apply the minimum authorized repair with apply_patch only. Do not use shell execution, network, repository discovery outside authorized_paths, git, pwsh, gh, validation, test, build, stage, commit, push, mutate PR/state, or redesign Architecture; leave a non-empty unstaged diff and stop on an Architecture gap.'
 const PROTECTED_TRANSITION_REPAIR_PATHS_V1 = Object.freeze([
   '.github/workflows/protected-transition-admission-v1.yml',
   'scripts/run-protected-transition-admission-v1.mjs',
@@ -886,7 +886,7 @@ const repairRequestV1 = (dispatch, exactHead = dispatch.exact_head) => Object.fr
 })
 
 const repairProviderPromptV2 = (dispatch, authorizedPaths) => {
-  const prompt = `${dispatch.instruction}\n${REPAIR_PROVIDER_CONSTRAINTS_V3}\n\nCurrent repair tuple:\nRepository: ${dispatch.repository}\nTask: #${dispatch.task_issue_number}\nPR: #${dispatch.pr_number}\nExact HEAD: ${dispatch.exact_head}\n\nCurrent authorized_paths:\n${JSON.stringify(authorizedPaths)}\n\nCurrent review decision:\n${dispatch.review_body}`
+  const prompt = `${dispatch.instruction}\n${REPAIR_PROVIDER_CONSTRAINTS_V3}\n\nReviewed exact HEAD:\n${dispatch.exact_head}\n\nCurrent authorized_paths:\n${JSON.stringify(authorizedPaths)}\n\nCurrent blocking finding:\n${dispatch.review_body}`
   if (Buffer.byteLength(prompt, 'utf8') > REPAIR_PROVIDER_PROMPT_MAX_BYTES_V2) {
     throw new Error('repair_provider_prompt_too_large')
   }
@@ -925,7 +925,7 @@ export const projectSelfHostedWindowsRepairProviderV3 = ({
     provider_branch: providerBranch,
     prompt_bytes: Buffer.byteLength(prompt, 'utf8'),
     invocation_count: 1,
-    exec_argv: Object.freeze(['exec', '-c', 'sandbox_workspace_write.network_access=false', '-c', 'sandbox_workspace_write.writable_roots=[]', '--sandbox', 'workspace-write', '--ephemeral', '--json', '--cd', workspacePath, '-']),
+    exec_argv: Object.freeze(['exec', '-c', 'features.shell_tool=false', '-c', 'sandbox_workspace_write.network_access=false', '-c', 'sandbox_workspace_write.writable_roots=[]', '--sandbox', 'workspace-write', '--ephemeral', '--json', '--cd', workspacePath, '-']),
   })
 }
 
@@ -955,7 +955,8 @@ export const executeRepairProviderBindingV3 = async ({
     if (!Array.isArray(localPaths)) throw new Error('repair_provider_worktree_invalid')
     if (boundary === 'pre_exec' && localPaths.length !== 0) throw new Error('repair_provider_worktree_not_clean')
     if (boundary === 'post_exec' && localPaths.length === 0) throw new Error('repair_provider_diff_missing')
-    const prompt = repairProviderPromptV2(dispatch, repairPathSetV1(dispatch.authorized_paths, 'authorized_paths'))
+    const authorizedPaths = repairPathSetV1(dispatch.authorized_paths, 'authorized_paths')
+    const prompt = repairProviderPromptV2(dispatch, authorizedPaths)
     const projection = boundary === 'pre_exec'
       ? projectSelfHostedWindowsRepairProviderV3({
           providerBranch: canonicalBranch,
