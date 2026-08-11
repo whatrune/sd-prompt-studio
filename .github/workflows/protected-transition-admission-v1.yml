@@ -487,27 +487,39 @@ jobs:
           $dispatchPath = Join-Path $env:RUNNER_TEMP 'repair-dispatch.json'
           $bindingPath = Join-Path $env:RUNNER_TEMP 'repair-provider-binding.json'
           $postExecPath = Join-Path $env:RUNNER_TEMP 'repair-provider-post-exec.json'
-          $priorErrorActionPreference = $ErrorActionPreference
-          $priorConsoleOutputEncoding = [Console]::OutputEncoding
+          $postExecErrorPath = Join-Path $env:RUNNER_TEMP 'repair-provider-post-exec.stderr.log'
           try {
-            [Console]::OutputEncoding = $utf8NoBom
-            $ErrorActionPreference = 'Continue'
-            $LASTEXITCODE = $null
-            $postExecOutput = [string[]]@(node $env:PTA_HOST_RUNNER --repair-provider-post-exec-bind-file $dispatchPath --provider-binding-file $bindingPath 2>&1)
-            $postExecExit = $LASTEXITCODE
+            $priorErrorActionPreference = $ErrorActionPreference
+            $priorConsoleOutputEncoding = [Console]::OutputEncoding
+            try {
+              [Console]::OutputEncoding = $utf8NoBom
+              $ErrorActionPreference = 'Continue'
+              $LASTEXITCODE = $null
+              node $env:PTA_HOST_RUNNER --repair-provider-post-exec-bind-file $dispatchPath --provider-binding-file $bindingPath 1> $postExecPath 2> $postExecErrorPath
+              $postExecExit = $LASTEXITCODE
+            } finally {
+              [Console]::OutputEncoding = $priorConsoleOutputEncoding
+              $ErrorActionPreference = $priorErrorActionPreference
+            }
+            if (Test-Path -LiteralPath $postExecErrorPath) {
+              [IO.File]::ReadAllLines($postExecErrorPath, $utf8NoBom) | ForEach-Object { [Console]::Error.WriteLine($_) }
+            }
+            if ($postExecExit -ne 0) {
+              if (Test-Path -LiteralPath $postExecPath) {
+                [IO.File]::ReadAllLines($postExecPath, $utf8NoBom) | ForEach-Object { [Console]::Out.WriteLine($_) }
+              }
+              throw 'repair_provider_post_exec_binding_failed'
+            }
+            $persistedBytes = [IO.File]::ReadAllBytes($postExecPath)
+            if (($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xff -and $persistedBytes[1] -eq 0xfe) -or ($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xfe -and $persistedBytes[1] -eq 0xff) -or ($persistedBytes.Length -ge 3 -and $persistedBytes[0] -eq 0xef -and $persistedBytes[1] -eq 0xbb -and $persistedBytes[2] -eq 0xbf)) { throw 'repair_provider_post_exec_encoding_invalid' }
+            $result = Get-Content -LiteralPath $postExecPath -Raw -Encoding utf8 | ConvertFrom-Json
+            if ($result.next_action -cne 'PROJECT_PROVIDER_COMPLETION') { throw 'repair_provider_diff_not_ready' }
+            $providerResultPath = Join-Path $env:RUNNER_TEMP 'repair-provider-result.json'
+            [IO.File]::WriteAllText($providerResultPath, '{"status":"completed","summary":"Local ChatGPT-authenticated Codex repair completed."}', $utf8NoBom)
           } finally {
-            [Console]::OutputEncoding = $priorConsoleOutputEncoding
-            $ErrorActionPreference = $priorErrorActionPreference
+            Remove-Item -LiteralPath $postExecPath -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $postExecErrorPath -Force -ErrorAction SilentlyContinue
           }
-          $postExecOutput | ForEach-Object { Write-Output $_ }
-          [IO.File]::WriteAllLines($postExecPath, [string[]]$postExecOutput, $utf8NoBom)
-          if ($postExecExit -ne 0) { throw 'repair_provider_post_exec_binding_failed' }
-          $persistedBytes = [IO.File]::ReadAllBytes($postExecPath)
-          if (($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xff -and $persistedBytes[1] -eq 0xfe) -or ($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xfe -and $persistedBytes[1] -eq 0xff) -or ($persistedBytes.Length -ge 3 -and $persistedBytes[0] -eq 0xef -and $persistedBytes[1] -eq 0xbb -and $persistedBytes[2] -eq 0xbf)) { throw 'repair_provider_post_exec_encoding_invalid' }
-          $result = Get-Content -LiteralPath $postExecPath -Raw -Encoding utf8 | ConvertFrom-Json
-          if ($result.next_action -cne 'PROJECT_PROVIDER_COMPLETION') { throw 'repair_provider_diff_not_ready' }
-          $providerResultPath = Join-Path $env:RUNNER_TEMP 'repair-provider-result.json'
-          [IO.File]::WriteAllText($providerResultPath, '{"status":"completed","summary":"Local ChatGPT-authenticated Codex repair completed."}', $utf8NoBom)
 
       - name: Rebind repair paths and validation profile
         id: repair_post_agent
