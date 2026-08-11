@@ -604,25 +604,35 @@ jobs:
           $utf8NoBom = [Text.UTF8Encoding]::new($false)
           $dispatchPath = Join-Path $env:RUNNER_TEMP 'repair-dispatch.json'
           $planPath = Join-Path $env:RUNNER_TEMP 'repair-commit-plan.json'
+          $planErrorPath = Join-Path $env:RUNNER_TEMP 'repair-commit-plan.stderr.log'
           $priorErrorActionPreference = $ErrorActionPreference
           $priorConsoleOutputEncoding = [Console]::OutputEncoding
           try {
-            [Console]::OutputEncoding = $utf8NoBom
-            $ErrorActionPreference = 'Continue'
-            $LASTEXITCODE = $null
-            $planOutput = [string[]]@(node $env:PTA_HOST_RUNNER --repair-commit-plan-file $dispatchPath 2>&1)
-            $planExit = $LASTEXITCODE
+            try {
+              [Console]::OutputEncoding = $utf8NoBom
+              $ErrorActionPreference = 'Continue'
+              $LASTEXITCODE = $null
+              node $env:PTA_HOST_RUNNER --repair-commit-plan-file $dispatchPath 1> $planPath 2> $planErrorPath
+              $planExit = $LASTEXITCODE
+            } finally {
+              [Console]::OutputEncoding = $priorConsoleOutputEncoding
+              $ErrorActionPreference = $priorErrorActionPreference
+            }
+            if (Test-Path -LiteralPath $planErrorPath) {
+              [IO.File]::ReadAllLines($planErrorPath, $utf8NoBom) | ForEach-Object { [Console]::Error.WriteLine($_) }
+            }
+            if (Test-Path -LiteralPath $planPath) {
+              [IO.File]::ReadAllLines($planPath, $utf8NoBom) | ForEach-Object { [Console]::Out.WriteLine($_) }
+            }
+            if ($planExit -ne 0) { throw 'repair_commit_plan_failed' }
+            $persistedBytes = [IO.File]::ReadAllBytes($planPath)
+            if (($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xff -and $persistedBytes[1] -eq 0xfe) -or ($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xfe -and $persistedBytes[1] -eq 0xff) -or ($persistedBytes.Length -ge 3 -and $persistedBytes[0] -eq 0xef -and $persistedBytes[1] -eq 0xbb -and $persistedBytes[2] -eq 0xbf)) { throw 'repair_commit_plan_encoding_invalid' }
+            $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json
+            if ($plan.next_action -cne 'COMMIT_AND_PUSH' -or $plan.force -or $plan.commit_count -ne 1) { throw 'repair_commit_plan_invalid' }
           } finally {
-            [Console]::OutputEncoding = $priorConsoleOutputEncoding
-            $ErrorActionPreference = $priorErrorActionPreference
+            Remove-Item -LiteralPath $planPath -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $planErrorPath -Force -ErrorAction SilentlyContinue
           }
-          $planOutput | ForEach-Object { Write-Output $_ }
-          [IO.File]::WriteAllLines($planPath, [string[]]$planOutput, $utf8NoBom)
-          if ($planExit -ne 0) { throw 'repair_commit_plan_failed' }
-          $persistedBytes = [IO.File]::ReadAllBytes($planPath)
-          if (($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xff -and $persistedBytes[1] -eq 0xfe) -or ($persistedBytes.Length -ge 2 -and $persistedBytes[0] -eq 0xfe -and $persistedBytes[1] -eq 0xff) -or ($persistedBytes.Length -ge 3 -and $persistedBytes[0] -eq 0xef -and $persistedBytes[1] -eq 0xbb -and $persistedBytes[2] -eq 0xbf)) { throw 'repair_commit_plan_encoding_invalid' }
-          $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json
-          if ($plan.next_action -cne 'COMMIT_AND_PUSH' -or $plan.force -or $plan.commit_count -ne 1) { throw 'repair_commit_plan_invalid' }
           $repairPaths = @($plan.paths)
           git add -- $repairPaths
           if ($LASTEXITCODE -ne 0) { throw 'repair_stage_failed' }
