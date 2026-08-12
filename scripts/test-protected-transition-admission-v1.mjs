@@ -14,13 +14,16 @@ import {
   acquireChangedPathScopeV1,
   evaluateProgressionControllerV1,
   evaluateMergeAllowedAutomationV1,
+  evaluateRoleTransitionOrchestratorV1,
   executeRepairExecutorV1,
   executeReadyForReviewProgressionV1,
   executeReviewApprovalAutomationV1,
+  executeRoleTransitionOrchestratorV1,
   executeProtectedTransitionAdmissionV1,
   executeRepairProviderBindingV3,
   extractProtectedTransitionTaskStateV1,
   isRepairProfilePathV1,
+  normalizeRoleTransitionEventV1,
   parseIndependentReviewDecisionProjectionV1,
   parseReviewApprovalEventV1,
   projectProtectedTransitionReviewStateV1,
@@ -37,7 +40,7 @@ const PR = 260
 const HEAD = 'a'.repeat(40)
 const OTHER_HEAD = 'b'.repeat(40)
 const READY_RUN_ID = '31246327840'
-const BASE = '5c6885a4f76712fde940e39587f3a88f9d4697a6'
+const BASE = '65e84d3d787d4db871f34d4ab1ab452494a61605'
 const HOST_RUNNER_BINDING_BASE = '3631d84351a49088baaadb5b3445751a7bf0b44e'
 const HOST_RUNNER_BINDING_HEAD = '35b7849840a2a9191f4ebf56bf83e145725a6dfa'
 const CURRENT_GENERATION_REDUCER_BASE = HOST_RUNNER_BINDING_HEAD
@@ -340,6 +343,210 @@ const workflowSource = readFileSync(workflowPath, 'utf8')
 const runnerSource = readFileSync(runnerPath, 'utf8')
 const coreSource = readFileSync(corePath, 'utf8')
 const workflow = parseYaml(workflowSource)
+
+// Ten Role Transition Orchestrator V1 units x three assertions = 30.
+const rolePaths = Object.freeze([
+  '.github/workflows/protected-transition-admission-v1.yml',
+  'scripts/run-protected-transition-admission-v1.mjs',
+  'scripts/test-protected-transition-admission-v1.mjs',
+])
+const roleState = (overrides = {}) => state({ authorized_paths: [...rolePaths], ...overrides })
+const roleRequest = (overrides = {}) => Object.freeze({
+  transition: 'role_transition_orchestrator_v1',
+  repository: REPOSITORY,
+  taskIssueNumber: TASK,
+  prNumber: PR,
+  exactHead: OTHER_HEAD,
+  ...overrides,
+})
+const roleInput = (overrides = {}) => ({
+  terminalResult: 'IMPLEMENTATION_AUTHORIZED',
+  request: roleRequest(),
+  taskState: roleState({ observed_head: OTHER_HEAD }),
+  paths: [...rolePaths],
+  authorityValid: true,
+  ...overrides,
+})
+const repairRoute = Object.freeze({
+  transition: 'review_approval_automation_v1', state: 'REVIEW_BLOCKED', allowed: false, exit_code: 0,
+  reason: 'repair_dispatch_ready', task_issue_number: TASK, pr_number: PR, current_head: OTHER_HEAD,
+  out_of_scope_paths: Object.freeze([]), state_changed: true, automation_status: 'DISPATCH_READY',
+  next_action: 'REPAIR_EXECUTOR',
+})
+const mergeRoute = Object.freeze({
+  transition: 'merge_allowed_automation_v1', state: 'MERGE_ELIGIBLE', allowed: true, exit_code: 0,
+  reason: 'merge_allowed', task_issue_number: TASK, pr_number: PR, current_head: OTHER_HEAD,
+  out_of_scope_paths: Object.freeze([]), state_changed: false, automation_status: 'HANDOFF_READY',
+  next_action: 'MERGE_OPERATOR',
+})
+const rolePublicationAuthorityId = 9101
+const roleImplementationResultId = 9102
+const rolePublicationBody = `## Publication Handoff — Role Transition Orchestrator V1
+
+- Publication Authority: https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-${rolePublicationAuthorityId}
+- target PR: \`#${PR}\`
+- published HEAD: \`${OTHER_HEAD}\`
+- exact parent: \`${HEAD}\`
+- push mode: normal non-force fast-forward
+- local / remote HEAD equality: PASS
+
+### Published scope
+
+${rolePaths.map((value) => `- \`${value}\``).join('\n')}
+
+### Terminal state
+
+- status: \`completed\`
+- execution_stop_reason: \`completed\`
+`
+const rolePublicationAuthorityBody = `\`\`\`yaml
+record_type: commit_push_publication_authorization_v1
+authorizing_role: Product Owner / Implementation Lead
+consumer_pr: ${PR}
+publication_allowed: true
+expected_parent: ${HEAD}
+result_handoff_comment_id: ${roleImplementationResultId}
+exact_paths:
+${rolePaths.map((value) => `  - ${value}`).join('\n')}
+status: authorized_for_publication_only
+\`\`\``
+const roleImplementationResultBody = `## Backend Implementer Result Handoff — Role Transition Orchestrator V1
+
+- target PR: \`#${PR}\`
+- implementation HEAD: \`${HEAD}\`
+
+### Changed paths
+
+${rolePaths.map((value) => `- \`${value}\``).join('\n')}
+
+### Terminal state
+
+- status: \`completed\`
+- execution_stop_reason: \`completed\`
+- blocker / remaining / UNKNOWN: \`0 / 0 / 0\`
+`
+let rolePullReads = 0
+let roleStateWrites = 0
+let rolePullBody = stateBlock(roleState({
+  observed_head: HEAD,
+  review_status: 'APPROVE',
+  reviewed_head: HEAD,
+  review_blocker_count: 0,
+}))
+const rolePublicationHost = {
+  api: async (endpoint, options) => {
+    if (endpoint.endsWith(`/issues/comments/${rolePublicationAuthorityId}`)) {
+      return { id: rolePublicationAuthorityId, body: rolePublicationAuthorityBody, author_association: 'OWNER' }
+    }
+    if (endpoint.endsWith(`/issues/comments/${roleImplementationResultId}`)) {
+      return { id: roleImplementationResultId, body: roleImplementationResultBody, author_association: 'OWNER' }
+    }
+    if (endpoint.endsWith(`/pulls/${PR}`)) {
+      if (options?.method === 'PATCH') {
+        roleStateWrites += 1
+        rolePullBody = options.body.body
+      } else {
+        rolePullReads += 1
+      }
+      return { ...pullObject({ head: OTHER_HEAD, taskState: roleState({ observed_head: OTHER_HEAD }) }), body: rolePullBody }
+    }
+    throw new Error(`unexpected_role_endpoint:${endpoint}`)
+  },
+}
+const rolePublicationEvent = Object.freeze({
+  action: 'created',
+  repository: Object.freeze({ full_name: REPOSITORY }),
+  issue: Object.freeze({ number: TASK, state: 'open' }),
+  comment: Object.freeze({ id: 9103, author_association: 'OWNER', body: rolePublicationBody }),
+})
+const publishedRoute = await executeRoleTransitionOrchestratorV1({ event: rolePublicationEvent, host: rolePublicationHost })
+const reboundRoleState = extractProtectedTransitionTaskStateV1(rolePullBody)
+const ambiguousRoleError = await errorOf(() => normalizeRoleTransitionEventV1({
+  ...rolePublicationEvent,
+  comment: {
+    ...rolePublicationEvent.comment,
+    id: 9104,
+    body: `${rolePublicationBody}\nrecord_type: implementation_authorization_v1`,
+  },
+}))
+const roleUnits = [
+  {
+    name: 'IMPLEMENTATION_AUTHORIZED',
+    result: evaluateRoleTransitionOrchestratorV1(roleInput()),
+    status: 'HANDOFF_READY',
+    next: 'IMPLEMENTER',
+    evidence: (value) => value.reason === 'implementation_authorized' && value.terminal_result === 'IMPLEMENTATION_AUTHORIZED' && workflowSource.includes('next_action: ${{ steps.evaluate.outputs.next_action }}'),
+  },
+  {
+    name: 'IMPLEMENTATION_RESULT_READY',
+    result: evaluateRoleTransitionOrchestratorV1(roleInput({ terminalResult: 'IMPLEMENTATION_RESULT_READY' })),
+    status: 'HANDOFF_READY',
+    next: 'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
+    evidence: (value) => value.reason === 'implementation_result_ready' && value.terminal_result === 'IMPLEMENTATION_RESULT_READY',
+  },
+  {
+    name: 'PUBLISHED',
+    result: publishedRoute,
+    status: 'HANDOFF_READY',
+    next: 'INDEPENDENT_IMPLEMENTATION_REVIEWER',
+    evidence: (value) => value.reason === 'publication_state_rebound' && value.state_changed === true && roleStateWrites === 1 && rolePullReads === 3 && Object.keys(reboundRoleState).length === 10 && reboundRoleState.observed_head === OTHER_HEAD && reboundRoleState.review_status === 'PENDING' && reboundRoleState.reviewed_head === null && reboundRoleState.review_blocker_count === null,
+  },
+  {
+    name: 'CHANGES_REQUIRED',
+    result: evaluateRoleTransitionOrchestratorV1(roleInput({ terminalResult: 'CHANGES_REQUIRED', routeResult: repairRoute })),
+    status: 'DISPATCH_READY',
+    next: 'REPAIR_EXECUTOR',
+    evidence: (value) => value.reason === 'repair_dispatch_ready' && value.allowed === false && value.terminal_result === 'CHANGES_REQUIRED',
+  },
+  {
+    name: 'APPROVE and MERGE_ELIGIBLE',
+    result: evaluateRoleTransitionOrchestratorV1(roleInput({ terminalResult: 'APPROVE', routeResult: mergeRoute })),
+    status: 'HANDOFF_READY',
+    next: 'MERGE_OPERATOR',
+    evidence: (value) => value.reason === 'merge_allowed' && value.allowed === true && value.terminal_result === 'APPROVE',
+  },
+  {
+    name: 'HEAD mismatch',
+    result: evaluateRoleTransitionOrchestratorV1(roleInput({ taskState: roleState({ observed_head: HEAD }) })),
+    status: 'BLOCKED',
+    next: 'STOP',
+    evidence: (value) => value.state === 'STALE' && value.reason === 'head_binding_stale',
+  },
+  {
+    name: 'Task or PR mismatch',
+    result: evaluateRoleTransitionOrchestratorV1(roleInput({ taskState: roleState({ observed_head: OTHER_HEAD, pr_number: PR + 1 }) })),
+    status: 'BLOCKED',
+    next: 'STOP',
+    evidence: (value) => value.state === 'STALE' && value.reason === 'head_binding_stale',
+  },
+  {
+    name: 'authority missing or malformed',
+    result: evaluateRoleTransitionOrchestratorV1(roleInput({ authorityValid: false })),
+    status: 'BLOCKED',
+    next: 'STOP',
+    evidence: (value) => value.state === 'IMPLEMENTATION_BLOCKED' && value.reason === 'terminal_result_ambiguous_or_invalid',
+  },
+  {
+    name: 'ambiguous terminal marker',
+    result: evaluateRoleTransitionOrchestratorV1(roleInput({ terminalResult: null })),
+    status: 'BLOCKED',
+    next: 'STOP',
+    evidence: (value) => value.state === 'INDETERMINATE' && value.reason === 'terminal_result_ambiguous_or_invalid' && ambiguousRoleError?.message === 'terminal_result_ambiguous_or_invalid',
+  },
+  {
+    name: 'Merge not admitted',
+    result: evaluateRoleTransitionOrchestratorV1(roleInput({ terminalResult: 'APPROVE', routeResult: { ...mergeRoute, allowed: false, next_action: 'STOP' } })),
+    status: 'BLOCKED',
+    next: 'STOP',
+    evidence: (value) => value.state === 'IMPLEMENTATION_BLOCKED' && value.reason === 'review_not_approved',
+  },
+]
+for (const unit of roleUnits) {
+  check(unit.result.automation_status === unit.status, `${unit.name} automation status`)
+  check(unit.result.next_action === unit.next, `${unit.name} next action`)
+  check(unit.evidence(unit.result), `${unit.name} binding or reason`)
+}
+
 check(Object.keys(workflow.on).join(',') === 'workflow_dispatch,issue_comment,pull_request' && workflow.on.issue_comment.types.join(',') === 'created' && workflow.on.pull_request.types.join(',') === 'ready_for_review', 'workflow has manual recovery, created Review, and Ready triggers')
 check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number', 'workflow has exactly four inputs and canonicalizes the Task input as a number')
 check(Object.keys(workflow.permissions).join(',') === 'contents,checks,issues,pull-requests,statuses' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'read' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read', 'workflow adds only read access for checks and statuses')
@@ -2205,7 +2412,7 @@ const hostRunnerBindingMatrix = [
 ]
 for (const [index, evidence] of hostRunnerBindingMatrix.entries()) check(evidence, `host-runner binding matrix ${index + 1}`)
 
-const hostAcquisitionPreflightChangedPaths = execFileSync('git', ['diff', '--name-only', HOST_ACQUISITION_PREFLIGHT_BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
+const hostAcquisitionPreflightChangedPaths = execFileSync('git', ['diff', '--name-only', BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
 const hostAcquisitionPreflightExpectedPaths = [
   '.github/workflows/protected-transition-admission-v1.yml',
   'scripts/run-protected-transition-admission-v1.mjs',
@@ -2233,7 +2440,7 @@ const hostAcquisitionPreflightMatrix = [
   providerProbeRun.includes("'rev-parse', '--show-toplevel'") && !providerProbeRun.includes("'symbolic-ref'") && !providerProbeRun.includes("repair_provider_branch_changed") && repairJob.steps.find((step) => step.name === 'Checkout exact repair HEAD')?.with?.ref === '${{ needs.protected_transition_admission_v1.outputs.repair_exact_head }}' && providerProbeRun.includes("'status', '--porcelain=v1', '--untracked-files=all'") && providerProbeRun.split("'status', '--porcelain=v1', '--untracked-files=all'").length === 3 && providerProbeRun.includes('[IO.File]::WriteAllBytes($sentinelPath, $sentinelBytes)') && providerProbeRun.includes("throw 'repair_target_worktree_not_writable'"),
   providerProbeRun.includes('$pushTransport = "https://github.com/$($env:GITHUB_REPOSITORY).git"') && providerProbeRun.includes("@('ls-remote', '--heads', $pushTransport") && providerProbeRun.split("'ls-remote'").length === 2 && providerProbeRun.includes('Invoke-RepairPushPreflight') && !providerProbeRun.includes("-Failure 'repair_push_transport_failed' -SuppressOutput") && !providerProbeRun.includes(repairPushSecretName) && !providerProbeRun.includes(tokenUserInfoMarker),
   repairPushPreflightHelperSource.includes('$remoteLines.Count -ne 1') && repairPushPreflightHelperSource.includes('$remoteFields.Count -ne 2') && repairPushPreflightHelperSource.includes('$remoteFields[0] -cne $ExpectedHead') && repairPushPreflightHelperSource.includes('$remoteFields[1] -cne $ExpectedRef') && repairPushPreflightHelperSource.split("throw 'repair_push_remote_head_mismatch exit_code=0'").length === 3,
-  hostAcquisitionPreflightChangedPaths.join('\n') === hostAcquisitionPreflightExpectedPaths.join('\n') && workflowSource.includes('protected-transition-admission-v1: 486 assertions passed') && !repairRunSource.includes('retry') && !repairRunSource.includes('fallback') && !repairRunSource.includes('default branch'),
+  hostAcquisitionPreflightChangedPaths.join('\n') === hostAcquisitionPreflightExpectedPaths.join('\n') && workflowSource.includes('protected-transition-admission-v1: 516 assertions passed') && !repairRunSource.includes('retry') && !repairRunSource.includes('fallback') && !repairRunSource.includes('default branch'),
 ]
 for (const [index, evidence] of hostAcquisitionPreflightMatrix.entries()) check(evidence, `host acquisition and provider preflight matrix ${index + 1}`)
 
@@ -2273,5 +2480,5 @@ const repairPushPreflightContractMatrix = [
 ]
 for (const [index, evidence] of repairPushPreflightContractMatrix.entries()) check(evidence, `repair push preflight contract matrix ${index + 1}`)
 
-if (assertions !== 486) throw new Error(`expected exactly 486 assertions, observed ${assertions}`)
+if (assertions !== 516) throw new Error(`expected exactly 516 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

@@ -1842,6 +1842,331 @@ export const executeReviewApprovalAutomationV1 = async ({ event, host }) => {
   }
 }
 
+const ROLE_TERMINAL_RESULTS_V1 = Object.freeze([
+  'IMPLEMENTATION_AUTHORIZED',
+  'IMPLEMENTATION_RESULT_READY',
+  'PUBLISHED',
+  'CHANGES_REQUIRED',
+  'APPROVE',
+])
+
+const roleMarkdownScalarV1 = (value) => {
+  const trimmed = value.trim().replace(/^`|`$/g, '')
+  if (trimmed.length === 0 || trimmed.length > 4096 || /[\u0000-\u001f\u007f]/.test(trimmed)) {
+    throw new Error('terminal_result_ambiguous_or_invalid')
+  }
+  if (trimmed === 'true') return true
+  if (trimmed === 'false') return false
+  if (/^(?:0|[1-9]\d*)$/.test(trimmed)) return Number(trimmed)
+  return trimmed
+}
+
+const parseRoleYamlV1 = (body) => {
+  const blocks = [...body.matchAll(/```yaml\r?\n([\s\S]*?)\r?\n```/g)]
+  if (blocks.length !== 1) throw new Error('terminal_result_ambiguous_or_invalid')
+  const scalars = new Map()
+  const lists = new Map()
+  let listKey = null
+  for (const line of blocks[0][1].split(/\r?\n/)) {
+    if (line.trim().length === 0) continue
+    const listItem = line.match(/^  -[ \t]+(.+)$/)
+    if (listItem && listKey) {
+      lists.get(listKey).push(roleMarkdownScalarV1(listItem[1]))
+      continue
+    }
+    const listStart = line.match(/^([a-z][a-z0-9_]*):[ \t]*$/)
+    if (listStart && !scalars.has(listStart[1]) && !lists.has(listStart[1])) {
+      listKey = listStart[1]
+      lists.set(listKey, [])
+      continue
+    }
+    const scalar = line.match(/^([a-z][a-z0-9_]*):[ \t]+(.+)$/)
+    if (!scalar || scalars.has(scalar[1]) || lists.has(scalar[1])) throw new Error('terminal_result_ambiguous_or_invalid')
+    listKey = null
+    scalars.set(scalar[1], roleMarkdownScalarV1(scalar[2]))
+  }
+  return Object.freeze({ scalars, lists })
+}
+
+const roleLineValueV1 = (body, labels) => {
+  const matches = []
+  for (const label of labels) {
+    const expression = new RegExp(`^(?:-[ \\t]+)?${label.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}[^:\\r\\n]*:[ \\t]+(?:\\x60)?([^\\x60\\r\\n]+)(?:\\x60)?[ \\t]*$`, 'gmi')
+    for (const match of body.matchAll(expression)) matches.push(match[1].trim())
+  }
+  if (matches.length !== 1) throw new Error('terminal_result_ambiguous_or_invalid')
+  return matches[0]
+}
+
+const roleCommentIdV1 = (body, labels) => {
+  const value = roleLineValueV1(body, labels)
+  const match = /(?:issuecomment-|#)([1-9]\d*)$/.exec(value)
+  if (!match) throw new Error('terminal_result_ambiguous_or_invalid')
+  return Number(match[1])
+}
+
+const rolePathSectionV1 = (body, headings) => {
+  const headingPattern = headings.map((value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+  const match = new RegExp(`^###? (?:${headingPattern})[ \\t]*\\n([\\s\\S]*?)(?=^###? |(?![\\s\\S]))`, 'mi').exec(body.replace(/\r\n/g, '\n'))
+  if (!match) throw new Error('terminal_result_ambiguous_or_invalid')
+  const paths = [...match[1].matchAll(/^(?:[-*]|\d+\.)[ \t]+`([^`]+)`/gm)].map((item) => item[1])
+  if (paths.length === 0 || new Set(paths).size !== paths.length || paths.some((value) => !isNormalizedRepositoryPathV1(value))) {
+    throw new Error('terminal_result_ambiguous_or_invalid')
+  }
+  return Object.freeze([...paths].sort())
+}
+
+const roleEventEnvelopeV1 = (event) => {
+  const repository = event?.repository?.full_name
+  const taskIssueNumber = event?.issue?.number
+  if (
+    event?.action !== 'created' ||
+    !REPOSITORY.test(repository ?? '') ||
+    !positiveInteger(taskIssueNumber) ||
+    event.issue?.state !== 'open' ||
+    Object.prototype.hasOwnProperty.call(event.issue ?? {}, 'pull_request') ||
+    !positiveInteger(event.comment?.id) ||
+    !REVIEW_ASSOCIATIONS.has(event.comment?.author_association) ||
+    typeof event.comment?.body !== 'string'
+  ) {
+    throw new Error('terminal_result_ambiguous_or_invalid')
+  }
+  return Object.freeze({ repository, taskIssueNumber, commentId: event.comment.id, body: event.comment.body })
+}
+
+export const normalizeRoleTransitionEventV1 = (event) => {
+  const envelope = roleEventEnvelopeV1(event)
+  const body = envelope.body
+  const markers = [
+    ...(isReviewDecisionCandidateV1(body) ? ['REVIEW'] : []),
+    ...(/(?:^|\r?\n)record_type:[ \t]+implementation_authorization_v1(?:\r?$)/m.test(body) ? ['IMPLEMENTATION_AUTHORIZED'] : []),
+    ...(/^## Backend Implementer Result Handoff\b/m.test(body) ? ['IMPLEMENTATION_RESULT_READY'] : []),
+    ...(/^## Publication Handoff\b/m.test(body) ? ['PUBLISHED'] : []),
+  ]
+  if (markers.length !== 1) throw new Error('terminal_result_ambiguous_or_invalid')
+  if (markers[0] === 'REVIEW') {
+    const parsed = parseReviewApprovalEventV1(event)
+    if (parsed.review.decision !== 'APPROVE' && parsed.review.decision !== 'CHANGES_REQUIRED') {
+      throw new Error('terminal_result_ambiguous_or_invalid')
+    }
+    return Object.freeze({ ...envelope, terminalResult: parsed.review.decision, parsedReview: parsed })
+  }
+  if (markers[0] === 'IMPLEMENTATION_AUTHORIZED') {
+    const yaml = parseRoleYamlV1(body)
+    const paths = yaml.lists.get('exact_paths')
+    const prNumber = roleOneScalarV1(yaml, ['target_pr', 'consumer_pr'])
+    const candidateSha = roleOneScalarV1(yaml, ['candidate_payload_sha256', 'candidate_body_sha256'])
+    if (
+      yaml.scalars.get('record_type') !== 'implementation_authorization_v1' ||
+      yaml.scalars.get('implementation_allowed') !== true ||
+      yaml.scalars.get('status') !== 'authorized_for_implementation_only' ||
+      !positiveInteger(prNumber) ||
+      !FULL_HEAD.test(yaml.scalars.get('exact_base') ?? '') ||
+      !/^[0-9a-f]{64}$/.test(candidateSha) ||
+      !positiveInteger(yaml.scalars.get('architecture_review_comment_id')) ||
+      !Array.isArray(paths) || paths.length === 0 || new Set(paths).size !== paths.length || paths.some((value) => !isNormalizedRepositoryPathV1(value))
+    ) throw new Error('terminal_result_ambiguous_or_invalid')
+    return Object.freeze({
+      ...envelope,
+      terminalResult: markers[0],
+      prNumber,
+      exactHead: yaml.scalars.get('exact_base'),
+      paths: Object.freeze([...paths].sort()),
+      authorityCommentId: yaml.scalars.get('architecture_review_comment_id'),
+      candidateSha,
+    })
+  }
+  const prNumber = Number(roleLineValueV1(body, ['target PR', 'PR']).replace(/^#/, ''))
+  const paths = rolePathSectionV1(body, ['Changed paths', 'Published scope'])
+  if (!positiveInteger(prNumber)) throw new Error('terminal_result_ambiguous_or_invalid')
+  if (markers[0] === 'IMPLEMENTATION_RESULT_READY') {
+    if (!/(?:^|\r?\n)-?[ \t]*status:[ \t]+`?completed`?(?:\r?$)/mi.test(body) ||
+      !/(?:^|\r?\n)-?[ \t]*execution_stop_reason:[ \t]+`?completed`?(?:\r?$)/mi.test(body) ||
+      !/(?:blocker \/ remaining \/ UNKNOWN|blocker_count \/ remaining_count \/ unknown_count)[^\r\n]*`?0 \/ 0 \/ 0`?/i.test(body)) {
+      throw new Error('terminal_result_ambiguous_or_invalid')
+    }
+    return Object.freeze({
+      ...envelope,
+      terminalResult: markers[0],
+      prNumber,
+      exactHead: roleLineValueV1(body, ['implementation HEAD', 'HEAD']),
+      paths,
+      authorityCommentId: roleCommentIdV1(body, ['Implementation Authorization']),
+    })
+  }
+  if (!/(?:^|\r?\n)-?[ \t]*status:[ \t]+`?completed`?(?:\r?$)/mi.test(body) ||
+    !/(?:^|\r?\n)-?[ \t]*execution_stop_reason:[ \t]+`?completed`?(?:\r?$)/mi.test(body) ||
+    !/normal non-force/i.test(body) || !/(?:local \/ remote|remote_matches)[^\r\n]*(?:PASS|true)/i.test(body)) {
+    throw new Error('terminal_result_ambiguous_or_invalid')
+  }
+  return Object.freeze({
+    ...envelope,
+    terminalResult: markers[0],
+    prNumber,
+    exactHead: roleLineValueV1(body, ['published HEAD']),
+    parentHead: roleLineValueV1(body, ['exact parent', 'parent']),
+    paths,
+    authorityCommentId: roleCommentIdV1(body, ['Publication Authority']),
+  })
+}
+
+const roleStopV1 = (request, state, reason, currentHead = request?.exactHead ?? null) => Object.freeze({
+  transition: 'role_transition_orchestrator_v1',
+  state,
+  allowed: false,
+  exit_code: state === 'INDETERMINATE' ? 1 : 2,
+  reason,
+  task_issue_number: request?.taskIssueNumber ?? null,
+  pr_number: request?.prNumber ?? null,
+  current_head: currentHead,
+  out_of_scope_paths: Object.freeze([]),
+  state_changed: false,
+  automation_status: 'BLOCKED',
+  next_action: 'STOP',
+})
+
+export const evaluateRoleTransitionOrchestratorV1 = ({ terminalResult, request, taskState, paths, authorityValid, routeResult, rebindVerified = false, stateChanged = false }) => {
+  try {
+    if (!ROLE_TERMINAL_RESULTS_V1.includes(terminalResult)) throw new Error('terminal_result_ambiguous_or_invalid')
+    const parsedState = parseProtectedTransitionTaskStateV1(taskState)
+    if (
+      !request || !REPOSITORY.test(request.repository ?? '') || !positiveInteger(request.taskIssueNumber) ||
+      !positiveInteger(request.prNumber) || !FULL_HEAD.test(request.exactHead ?? '') ||
+      parsedState.task_issue_number !== request.taskIssueNumber || parsedState.pr_number !== request.prNumber ||
+      parsedState.observed_head !== request.exactHead
+    ) return roleStopV1(request, 'STALE', 'head_binding_stale')
+    if (parsedState.architecture_status !== 'APPROVED' || parsedState.implementation_authorized !== true || authorityValid !== true) {
+      return roleStopV1(request, 'IMPLEMENTATION_BLOCKED', 'terminal_result_ambiguous_or_invalid')
+    }
+    const authorized = new Set(parsedState.authorized_paths)
+    if (!Array.isArray(paths) || paths.length === 0 || paths.some((value) => !authorized.has(value))) {
+      return roleStopV1(request, 'IMPLEMENTATION_BLOCKED', 'repair_scope_outside_authorized_paths')
+    }
+    const handoff = (nextAction, reason) => Object.freeze({
+      transition: 'role_transition_orchestrator_v1', state: 'REVIEW_PENDING', allowed: false, exit_code: 0, reason,
+      task_issue_number: request.taskIssueNumber, pr_number: request.prNumber, current_head: request.exactHead,
+      out_of_scope_paths: Object.freeze([]), state_changed: stateChanged, automation_status: 'HANDOFF_READY',
+      next_action: nextAction, terminal_result: terminalResult,
+    })
+    if (terminalResult === 'IMPLEMENTATION_AUTHORIZED') return handoff('IMPLEMENTER', 'implementation_authorized')
+    if (terminalResult === 'IMPLEMENTATION_RESULT_READY') return handoff('PRODUCT_OWNER_IMPLEMENTATION_LEAD', 'implementation_result_ready')
+    if (terminalResult === 'PUBLISHED') {
+      return rebindVerified ? handoff('INDEPENDENT_IMPLEMENTATION_REVIEWER', 'publication_state_rebound') : roleStopV1(request, 'IMPLEMENTATION_BLOCKED', 'head_binding_stale')
+    }
+    if (terminalResult === 'CHANGES_REQUIRED' && routeResult?.next_action === 'REPAIR_EXECUTOR') return Object.freeze({ ...routeResult, terminal_result: terminalResult })
+    if (terminalResult === 'APPROVE' && routeResult?.allowed === true && routeResult?.next_action === 'MERGE_OPERATOR') return Object.freeze({ ...routeResult, terminal_result: terminalResult })
+    return roleStopV1(request, 'IMPLEMENTATION_BLOCKED', 'review_not_approved')
+  } catch (error) {
+    return roleStopV1(request, 'INDETERMINATE', error instanceof Error ? error.message : 'terminal_result_ambiguous_or_invalid')
+  }
+}
+
+const fetchRoleCommentV1 = async (repository, commentId, host) => {
+  const comment = await api(host, `repos/${repository}/issues/comments/${commentId}`)
+  if (!comment || comment.id !== commentId || typeof comment.body !== 'string' || !REVIEW_ASSOCIATIONS.has(comment.author_association)) {
+    throw new Error('terminal_result_ambiguous_or_invalid')
+  }
+  return comment.body
+}
+
+const roleOneScalarV1 = (yaml, keys) => {
+  const values = keys.filter((key) => yaml.scalars.has(key)).map((key) => yaml.scalars.get(key))
+  if (values.length !== 1) throw new Error('terminal_result_ambiguous_or_invalid')
+  return values[0]
+}
+
+const validateRoleArchitectureReviewV1 = (body, candidateSha) => {
+  const yaml = parseRoleYamlV1(body)
+  const reviewCandidateSha = roleOneScalarV1(yaml, ['candidate_payload_sha256', 'candidate_body_sha256'])
+  return yaml.scalars.get('record_type') === 'independent_architecture_review_decision_v1' &&
+    yaml.scalars.get('decision') === 'APPROVE' &&
+    yaml.scalars.get('blocking_finding_count') === 0 && yaml.scalars.get('remaining_finding_count') === 0 &&
+    yaml.scalars.get('unknown_count') === 0 &&
+    /^[0-9a-f]{64}$/.test(candidateSha) && reviewCandidateSha === candidateSha
+}
+
+const parseRoleAuthorizationV1 = (body) => {
+  const yaml = parseRoleYamlV1(body)
+  const paths = yaml.lists.get('exact_paths')
+  const prNumber = roleOneScalarV1(yaml, ['target_pr', 'consumer_pr'])
+  if (
+    yaml.scalars.get('record_type') !== 'implementation_authorization_v1' ||
+    yaml.scalars.get('implementation_allowed') !== true ||
+    yaml.scalars.get('status') !== 'authorized_for_implementation_only' ||
+    !positiveInteger(prNumber) || !FULL_HEAD.test(yaml.scalars.get('exact_base') ?? '') ||
+    !Array.isArray(paths) || paths.length === 0
+  ) throw new Error('terminal_result_ambiguous_or_invalid')
+  return Object.freeze({ prNumber, exactHead: yaml.scalars.get('exact_base'), paths: Object.freeze([...paths].sort()) })
+}
+
+const parseRoleResultHandoffV1 = (body) => Object.freeze({
+  prNumber: Number(roleLineValueV1(body, ['target PR', 'PR']).replace(/^#/, '')),
+  exactHead: roleLineValueV1(body, ['implementation HEAD', 'HEAD']),
+  paths: rolePathSectionV1(body, ['Changed paths']),
+})
+
+const sameRolePathsV1 = (left, right) => Array.isArray(left) && Array.isArray(right) && left.join('\n') === right.join('\n')
+
+export const executeRoleTransitionOrchestratorV1 = async ({ event, host }) => {
+  let normalized
+  let request
+  try {
+    normalized = normalizeRoleTransitionEventV1(event)
+    if (normalized.terminalResult === 'APPROVE' || normalized.terminalResult === 'CHANGES_REQUIRED') {
+      const result = await executeReviewApprovalAutomationV1({ event, host })
+      return Object.freeze({ ...result, terminal_result: normalized.terminalResult, source_comment_id: normalized.commentId })
+    }
+    request = Object.freeze({ transition: 'role_transition_orchestrator_v1', repository: normalized.repository, taskIssueNumber: normalized.taskIssueNumber, prNumber: normalized.prNumber, exactHead: normalized.exactHead })
+    const pull = await acquirePull(request, host)
+    if (pull.head.sha !== request.exactHead) return roleStopV1(request, 'STALE', 'head_binding_stale', pull.head.sha)
+    const priorState = extractProtectedTransitionTaskStateV1(pull.body)
+    if (normalized.terminalResult === 'IMPLEMENTATION_AUTHORIZED') {
+      const architectureBody = await fetchRoleCommentV1(normalized.repository, normalized.authorityCommentId, host)
+      const valid = validateRoleArchitectureReviewV1(architectureBody, normalized.candidateSha)
+      return Object.freeze({ ...evaluateRoleTransitionOrchestratorV1({ terminalResult: normalized.terminalResult, request, taskState: priorState, paths: normalized.paths, authorityValid: valid }), source_comment_id: normalized.commentId })
+    }
+    if (normalized.terminalResult === 'IMPLEMENTATION_RESULT_READY') {
+      const authorizationBody = await fetchRoleCommentV1(normalized.repository, normalized.authorityCommentId, host)
+      const authorization = parseRoleAuthorizationV1(authorizationBody)
+      const valid = authorization.prNumber === request.prNumber && authorization.exactHead === request.exactHead && sameRolePathsV1(authorization.paths, normalized.paths)
+      return Object.freeze({ ...evaluateRoleTransitionOrchestratorV1({ terminalResult: normalized.terminalResult, request, taskState: priorState, paths: normalized.paths, authorityValid: valid }), source_comment_id: normalized.commentId })
+    }
+    if (!FULL_HEAD.test(normalized.parentHead ?? '') || normalized.parentHead === normalized.exactHead) throw new Error('terminal_result_ambiguous_or_invalid')
+    const authorityBody = await fetchRoleCommentV1(normalized.repository, normalized.authorityCommentId, host)
+    const authority = parseRoleYamlV1(authorityBody)
+    const authorityPaths = authority.lists.get('exact_paths')
+    const resultCommentId = authority.scalars.get('result_handoff_comment_id')
+    const authorityPrNumber = roleOneScalarV1(authority, ['target_pr', 'consumer_pr'])
+    if (!positiveInteger(resultCommentId)) throw new Error('terminal_result_ambiguous_or_invalid')
+    const resultHandoff = parseRoleResultHandoffV1(await fetchRoleCommentV1(normalized.repository, resultCommentId, host))
+    const authorityValid = authority.scalars.get('record_type') === 'commit_push_publication_authorization_v1' &&
+      authority.scalars.get('publication_allowed') === true && authority.scalars.get('expected_parent') === normalized.parentHead &&
+      authorityPrNumber === request.prNumber && sameRolePathsV1(Object.freeze([...(authorityPaths ?? [])].sort()), normalized.paths) &&
+      resultHandoff.prNumber === request.prNumber && resultHandoff.exactHead === normalized.parentHead && sameRolePathsV1(resultHandoff.paths, normalized.paths)
+    const converged = priorState.observed_head === normalized.exactHead && priorState.review_status === 'PENDING' && priorState.reviewed_head === null && priorState.review_blocker_count === null
+    if (!converged && priorState.observed_head !== normalized.parentHead) return roleStopV1(request, 'STALE', 'head_binding_stale')
+    if (priorState.architecture_status !== 'APPROVED' || priorState.implementation_authorized !== true || !authorityValid) {
+      return roleStopV1(request, 'IMPLEMENTATION_BLOCKED', 'terminal_result_ambiguous_or_invalid')
+    }
+    if (!sameRolePathsV1(Object.freeze([...priorState.authorized_paths].sort()), normalized.paths)) {
+      return roleStopV1(request, 'IMPLEMENTATION_BLOCKED', 'repair_scope_outside_authorized_paths')
+    }
+    const candidateState = parseProtectedTransitionTaskStateV1({
+      ...priorState,
+      observed_head: normalized.exactHead,
+      review_status: 'PENDING',
+      reviewed_head: null,
+      review_blocker_count: null,
+    })
+    const written = await writeProtectedTransitionTaskStateV1({ request, host, expectedState: priorState, candidateState })
+    const verifiedState = extractProtectedTransitionTaskStateV1(written.body)
+    const verified = JSON.stringify(verifiedState) === JSON.stringify(candidateState)
+    return Object.freeze({ ...evaluateRoleTransitionOrchestratorV1({ terminalResult: normalized.terminalResult, request, taskState: verifiedState, paths: normalized.paths, authorityValid, rebindVerified: verified, stateChanged: written.changed }), source_comment_id: normalized.commentId })
+  } catch (error) {
+    return roleStopV1(request, error instanceof ReviewAutomationStop ? error.state : 'INDETERMINATE', error instanceof Error ? error.message : 'terminal_result_ambiguous_or_invalid', error instanceof ReviewAutomationStop ? error.currentHead : undefined)
+  }
+}
+
 export const executeProtectedTransitionAdmissionV1 = async ({ request, host }) => {
   try {
     const initial = await acquireTransitionStateSnapshotV1(request, host)
@@ -2021,7 +2346,7 @@ const main = async () => {
     invocation = parseInvocation(process.argv.slice(2), process.env)
     const host = productionHost(process.env)
     const result = invocation.mode === 'review_event'
-      ? await executeReviewApprovalAutomationV1({
+      ? await executeRoleTransitionOrchestratorV1({
           event: JSON.parse(readFileSync(invocation.eventFile, 'utf8')),
           host,
         })
