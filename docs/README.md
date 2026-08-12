@@ -57,7 +57,7 @@ The compiler preserves learned phrases, distinguishes human meaning from observe
    - [Review Execution Contract](team/14-review-execution-contract.md)
 8. Integrated Dispatch Automation:
    - [Automation Overview](automation/00-automation-overview.md)
-- [Repair Executor lifecycle](automation/00-automation-overview.md)
+   - [Repair Executor lifecycle](automation/00-automation-overview.md)
    - [Dispatch Contract](automation/01-dispatch-contract.md)
    - [Role and Runner Mapping](automation/02-role-runner-mapping.md)
    - [Approval Gate](automation/03-approval-gate.md)
