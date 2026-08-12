@@ -41,6 +41,8 @@ Product Owner
 
 - Exact base `017c329546f16d59440014846c48d5773a63a321`では、`.github/workflows/protected-transition-admission-v1.yml`がdefault branch上のactive hostとして存在し、`scripts/run-protected-transition-admission-v1.mjs`を実行する。
 - workflow inputは`transition`、`task_issue_number`、`pr_number`、`exact_head`の4件に限定される。
+- Historical main `2287943969ee408d74e61249be15db99a7ad3ba0`では、同じhostがscope内の`CHANGES_REQUIRED`を`REPAIR_EXECUTOR`へroutingする。Executorは許可済みpathだけを修正し、選択されたfocused validation profileの成功後に1件の通常commitをpushする。
+- Push後は既存state writerがPRのsingle 10-field stateをnew HEADの`REVIEW_PENDING`へrebindし、`next_action: REVIEW`（reason: `fresh_review_required`）としてfresh Reviewへ戻す。自動Mergeは行わない。
 - この実在確認はProtected Transition Admission V1 hostだけに適用する。一般的なproduction dispatch／controller hostのincoming edgeを証明せず、次節の`UNKNOWN`境界を変更しない。
 
 ## Preserved UNKNOWN
