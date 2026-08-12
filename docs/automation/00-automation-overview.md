@@ -4,16 +4,17 @@
 
 - Contract version: `0.1.0`
 - Status: Freeze candidate
-- Source / test component status: repository source and focused test components exist at supporting-record commit `ba5fc2a4395d2ac474ce95af3cd9b0e56cdb603a`
-- Production automation runtime status: `UNKNOWN`（production dispatch／controller hostからのincoming edgeは未証明）
+- Repository reality snapshot: supporting-record commit `65e84d3d787d4db871f34d4ab1ab452494a61605`; this immutable SHA is not labeled `Current main`
+- General production dispatch／controller status: `UNKNOWN`; no incoming production edge to the general Dispatcher, Automatic Gate Progression, or Role Transition / Continuous Orchestration controller is confirmed at that snapshot
+- Bounded production host status: Protected Transition Admission and its Repair Executor route are repository-reachable and have direct production execution evidence as described below
 
 ## Purpose
 
-Integrated Dispatch Automationは、Integrated Leadが作成したCanonical Task Assignmentを、判断を追加せずに専門Roleの実行環境へ引き渡し、実行状態とResult Handoffを回収するための将来Contractである。
+Integrated Dispatch Automation is the general target Contract for passing Canonical Task Assignments created by the Integrated Lead to specialist Role execution environments without adding decisions, and for collecting execution state and Result Handoffs. The bounded Protected Transition host that currently exists does not implement this Contract as a whole.
 
 このContractの目的は自動実行そのものではなく、自動化してよい実行管理と、人間に残す判断を分離することである。
 
-次の図は将来の論理責務フローであり、現在のproduction runtime topologyまたは実装済みhostを表さない。
+The following diagram shows the logical responsibility flow of the general target. It does not represent the current production runtime topology or an implemented host.
 
 ```text
 Product Owner
@@ -29,19 +30,30 @@ Integrated Lead
 Product Owner
 ```
 
-## Repository Reality at Exact Base
+## Repository Reality Snapshot
 
-- Canonical Task recordはdirect GitHub recordである[Issue #240](https://github.com/whatrune/sd-prompt-studio/issues/240)と[Resume Dispatch](https://github.com/whatrune/sd-prompt-studio/issues/240#issuecomment-5176584167)である。
-- 次の「Current Protected Transition Host」小節を除き、本節および本書のrepository-relative pathは、full commit SHA `ba5fc2a4395d2ac474ce95af3cd9b0e56cdb603a`に束縛されたsupporting recordとしてのみ扱う。repository-relative path自体をCanonical Recordまたはruntime proofにしない。
+- The original alignment authority consists of the direct GitHub records [Issue #240](https://github.com/whatrune/sd-prompt-studio/issues/240) and [Resume Dispatch](https://github.com/whatrune/sd-prompt-studio/issues/240#issuecomment-5176584167). The direct record for Repair Executor production evidence is [Issue #278](https://github.com/whatrune/sd-prompt-studio/issues/278).
+- Repository-relative paths in this section and document are supporting records only when bound to full commit SHA `65e84d3d787d4db871f34d4ab1ab452494a61605`. A repository-relative path is not itself a Canonical Record, authority, or runtime proof.
 - Production composition rootのsupporting recordは`src/main.tsx` → `src/appRouter.tsx` → `src/App.tsx`である。このrootから`src/dispatch/**`、`src/automatic-gate-progression/**`、`src/canonical-event-admission/**`、`src/gate-status-publisher/**`、`src/continuous-orchestration/**`へのincoming edgeは確認できない。
 - `scripts/run-ready-review-terminal-observation-collector-v1.mjs`はCollector V1のproduction CLI adapter sourceとして存在し、`src/continuous-orchestration/ready-review-terminal-observation-artifact-v1.ts`のpure coreを直接importして呼び出す。ただし、このsource edgeはphysical operator、scheduler／automatic trigger、Cloudflare設定、またはrepository外の実行経路の存在を証明しない。
 - Source、public export、fixture、test runner、internal library／module consumerの存在は、それだけではproduction runtime reachabilityの証拠にならない。
 
-### Current Protected Transition Host
+### Capability and Reachability Matrix
 
-- Exact base `017c329546f16d59440014846c48d5773a63a321`では、`.github/workflows/protected-transition-admission-v1.yml`がdefault branch上のactive hostとして存在し、`scripts/run-protected-transition-admission-v1.mjs`を実行する。
-- workflow inputは`transition`、`task_issue_number`、`pr_number`、`exact_head`の4件に限定される。
-- Historical main `2287943969ee408d74e61249be15db99a7ad3ba0`では、同じhostがscope内の`CHANGES_REQUIRED`を`REPAIR_EXECUTOR`へroutingする。Executorは許可済みpathだけを修正し、選択されたfocused validation profileの成功後に1件の通常commitをpushする。
+| Capability | Repository component at snapshot | Production incoming edge | Evidence state |
+| --- | --- | --- | --- |
+| General Dispatcher / controller | `src/dispatch/**` and continuous-orchestration libraries exist | none confirmed from the application root or an external production host | `UNKNOWN` |
+| Automatic Gate Progression / Role Transition | evaluator, admission, publisher, and reducer modules exist | none confirmed from the application root or Protected Transition host | `UNKNOWN` |
+| Protected Transition Admission | default-branch workflow invokes its owner CLI | `.github/workflows/protected-transition-admission-v1.yml` → `scripts/run-protected-transition-admission-v1.mjs` | production-reachable |
+| Repair Executor | the same workflow conditionally routes admitted `CHANGES_REQUIRED` to a self-hosted Windows job | Protected Transition Admission → `REPAIR_EXECUTOR` | production execution proven at the bound historical run below |
+| Collector V1 | owner CLI directly imports and invokes the pure core | repository source edge only; physical operator and scheduler are unproven | source-reachable; operation `UNKNOWN` |
+
+### Protected Transition Production Host
+
+- At snapshot `65e84d3d787d4db871f34d4ab1ab452494a61605`, `.github/workflows/protected-transition-admission-v1.yml` exists as a default-branch host. It evaluates `scripts/run-protected-transition-admission-v1.mjs` once for `workflow_dispatch`, created `issue_comment`, and `pull_request.ready_for_review` events.
+- A same-HEAD Review Decision is projected into state. An admissible `APPROVE` advances to one admission evaluation. `CHANGES_REQUIRED` or `BLOCKED` records blocking state and does not advance except to an authorized next action.
+- For admitted `CHANGES_REQUIRED`, the Repair Executor targets only authorized paths and produces the minimum repair for the current blocking findings. After the selected focused validation profile passes, it pushes one normal non-force commit.
+- [Production run 31554006864](https://github.com/whatrune/sd-prompt-studio/actions/runs/31554006864), at host SHA `21aeefd43156ea8ddb134e74141d3e69813705ad`, is historical exact-run evidence of successful self-hosted execution, Codex repair, validation, one commit, normal push, and fresh Review handoff. The static host path is confirmed at snapshot `65e84d3d787d4db871f34d4ab1ab452494a61605`, but Repair Executor E2E success with that exact snapshot as the host SHA remains `UNKNOWN`.
 - Push後は既存state writerがPRのsingle 10-field stateをnew HEADの`REVIEW_PENDING`へrebindし、`next_action: REVIEW`（reason: `fresh_review_required`）としてfresh Reviewへ戻す。自動Mergeは行わない。
 - この実在確認はProtected Transition Admission V1 hostだけに適用する。一般的なproduction dispatch／controller hostのincoming edgeを証明せず、次節の`UNKNOWN`境界を変更しない。
 
