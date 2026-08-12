@@ -484,6 +484,14 @@ const ambiguousRoleError = await errorOf(() => normalizeRoleTransitionEventV1({
     body: `${rolePublicationBody}\nrecord_type: implementation_authorization_v1`,
   },
 }))
+let zeroMarkerHostCalls = 0
+const zeroMarkerResult = await executeRoleTransitionOrchestratorV1({
+  event: {
+    ...rolePublicationEvent,
+    comment: { ...rolePublicationEvent.comment, id: 9105, body: 'ordinary project discussion without a supported terminal marker' },
+  },
+  host: { api: async () => { zeroMarkerHostCalls += 1; throw new Error('zero_marker_host_must_not_be_called') } },
+})
 const roleUnits = [
   {
     name: 'IMPLEMENTATION_AUTHORIZED',
@@ -542,11 +550,11 @@ const roleUnits = [
     evidence: (value) => value.state === 'IMPLEMENTATION_BLOCKED' && value.reason === 'terminal_result_ambiguous_or_invalid',
   },
   {
-    name: 'ambiguous terminal marker',
-    result: evaluateRoleTransitionOrchestratorV1(roleInput({ terminalResult: null })),
-    status: 'BLOCKED',
-    next: 'STOP',
-    evidence: (value) => value.state === 'INDETERMINATE' && value.reason === 'terminal_result_ambiguous_or_invalid' && ambiguousRoleError?.message === 'terminal_result_ambiguous_or_invalid',
+    name: 'event marker applicability',
+    result: zeroMarkerResult,
+    status: 'COMPLETED_NOOP',
+    next: 'NONE',
+    evidence: (value) => value.state === 'INDETERMINATE' && value.reason === 'review_event_not_applicable' && value.exit_code === 0 && zeroMarkerHostCalls === 0 && ambiguousRoleError?.message === 'terminal_result_ambiguous_or_invalid',
   },
   {
     name: 'Merge not admitted',

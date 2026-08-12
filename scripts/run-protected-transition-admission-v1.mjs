@@ -1953,15 +1953,17 @@ const roleEventEnvelopeV1 = (event) => {
   return Object.freeze({ repository, taskIssueNumber, commentId: event.comment.id, body: event.comment.body })
 }
 
+const roleTransitionMarkersV1 = (body) => Object.freeze([
+  ...(isReviewDecisionCandidateV1(body) ? ['REVIEW'] : []),
+  ...(/(?:^|\r?\n)record_type:[ \t]+implementation_authorization_v1(?:\r?$)/m.test(body) ? ['IMPLEMENTATION_AUTHORIZED'] : []),
+  ...(/^## Backend Implementer Result Handoff\b/m.test(body) ? ['IMPLEMENTATION_RESULT_READY'] : []),
+  ...(/^## Publication Handoff\b/m.test(body) ? ['PUBLISHED'] : []),
+])
+
 export const normalizeRoleTransitionEventV1 = (event) => {
   const envelope = roleEventEnvelopeV1(event)
   const body = envelope.body
-  const markers = [
-    ...(isReviewDecisionCandidateV1(body) ? ['REVIEW'] : []),
-    ...(/(?:^|\r?\n)record_type:[ \t]+implementation_authorization_v1(?:\r?$)/m.test(body) ? ['IMPLEMENTATION_AUTHORIZED'] : []),
-    ...(/^## Backend Implementer Result Handoff\b/m.test(body) ? ['IMPLEMENTATION_RESULT_READY'] : []),
-    ...(/^## Publication Handoff\b/m.test(body) ? ['PUBLISHED'] : []),
-  ]
+  const markers = roleTransitionMarkersV1(body)
   if (markers.length !== 1) throw new Error('terminal_result_ambiguous_or_invalid')
   if (markers[0] === 'REVIEW') {
     const parsed = parseReviewApprovalEventV1(event)
@@ -2143,6 +2145,14 @@ export const executeRoleTransitionOrchestratorV1 = async ({ event, host, runId }
   let normalized
   let request
   try {
+    if (event?.action === 'created' && typeof event?.comment?.body === 'string' && roleTransitionMarkersV1(event.comment.body).length === 0) {
+      return evaluateProgressionControllerV1(skippedAutomationResult(Object.freeze({
+        transition: 'role_transition_orchestrator_v1',
+        taskIssueNumber: event?.issue?.number ?? null,
+        prNumber: null,
+        exactHead: null,
+      }), 'review_event_not_applicable'))
+    }
     normalized = normalizeRoleTransitionEventV1(event)
     if (['APPROVE', 'CHANGES_REQUIRED', 'BLOCKED'].includes(normalized.terminalResult)) {
       const result = await executeReviewApprovalAutomationV1({ event, host, runId })
