@@ -39,7 +39,7 @@ The compiler preserves learned phrases, distinguishes human meaning from observe
    - [Architecture](research/research-explorer-design.md)
    - [Frontend UI Contract](research/research-explorer-ui-design.md)
    - [Integration Validation](research/research-explorer-integration-validation.md)
-7. Team development:
+7. Current Team governance:
    - [Operating Model](team/00-operating-model.md)
    - [Architect Team Charter](team/01-architect-team-charter.md)
    - [Backend Implementer Charter](team/02-backend-implementer-charter.md)
@@ -55,16 +55,13 @@ The compiler preserves learned phrases, distinguishes human meaning from observe
    - [Integrated Completion Report Template](team/12-integrated-completion-report-template.md)
    - [Shared Role Execution Contract](team/13-shared-role-execution-contract.md)
    - [Review Execution Contract](team/14-review-execution-contract.md)
-8. Integrated Dispatch Automation:
-   - [Automation Overview](automation/00-automation-overview.md)
-   - [Repair Executor lifecycle](automation/00-automation-overview.md)
-   - [Dispatch Contract](automation/01-dispatch-contract.md)
-   - [Role and Runner Mapping](automation/02-role-runner-mapping.md)
-   - [Approval Gate](automation/03-approval-gate.md)
-   - [Security Boundary](automation/04-security-boundary.md)
-   - [Automation Result Handoff Contract](automation/05-automation-handoff-contract.md)
-   - [Automatic Gate Progression Contract](automation/23-automatic-gate-progression-contract.md)
-   - [Pure Automatic Gate Progression Evaluator](automation/24-pure-automatic-gate-progression-evaluator-design.md)
+8. Automation governance and runtime reality:
+   - Current reality and bounded production hosts: [Automation Overview](automation/00-automation-overview.md)
+   - General target contracts: [Dispatch Contract](automation/01-dispatch-contract.md), [Role and Runner Mapping](automation/02-role-runner-mapping.md), [Approval Gate](automation/03-approval-gate.md), [Security Boundary](automation/04-security-boundary.md), and [Automation Result Handoff Contract](automation/05-automation-handoff-contract.md)
+   - Automatic progression semantics: [Automatic Gate Progression Contract](automation/23-automatic-gate-progression-contract.md)
+   - Source and production-reachability mapping: [Pure Automatic Gate Progression Evaluator](automation/24-pure-automatic-gate-progression-evaluator-design.md)
+   - Historical pre-production Dispatch designs: `automation/06` through `automation/11`. They remain design records and are not current runtime proof.
+   - Domain component designs: `automation/12` through `automation/22`. Source status varies by component; these documents do not establish production reachability without the current mapping above.
 
 ## Status vocabulary
 

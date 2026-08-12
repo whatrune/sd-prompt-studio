@@ -38,6 +38,12 @@ Architecture Review MUST also verify the Repository Reality Check. A required `U
 
 If the objective, acceptance criteria, or required matrix is incomplete, the reviewed artifact MUST NOT be marked complete, approval-equivalent, or merge-ready. A reviewer that completed the assigned review and recorded blocking findings MAY complete the Review Task as `completed + needs_followup`.
 
+## Single-Pass Finding Coverage
+
+For one admitted full HEAD, the reviewer MUST inspect the complete assigned scope and applicable acceptance matrix before publishing the terminal decision, and MUST enumerate every finding discoverable from that evidence in the same decision. The reviewer MUST NOT intentionally stop after the first blocker, reserve already-discoverable findings for a later cycle, or split one review into incremental hardening rounds.
+
+A later decision MAY introduce a new finding only when the correction created the defect, material evidence was unavailable during the prior review, or the reviewer explicitly records a prior omission against an existing contract or acceptance condition. A preference, optional hardening, or newly proposed requirement is not a blocking finding for the current task. Required correction MUST be the minimum sufficient change for the admitted finding and MUST NOT expand Issue Scope.
+
 ## Evidence Standard
 
 - Evidence MUST identify source, command or observation, result, timestamp when relevant, and exact HEAD.
@@ -107,21 +113,13 @@ Role-specific review vocabulary and authority remain with the applicable reviewi
 
 Collector V1 required and not-required applicability is selected by the Shared Role Execution Contract. This section defines review use when Collector V1 is required; it does not make Collector V1 mandatory for ordinary command Validation, pre-Ready implementation review, one direct check or known-thread read, metadata-only correction without a review-terminal claim, or ordinary status reporting.
 
-Ready Review Terminal Observation Collector V1 has exactly two layers. Its owner-only production CLI adapter accepts exactly a repository identity, pull request number, full pull-request HEAD, and the direct canonical Ready Generation Record URL. The adapter privately constructs authenticated GitHub acquisition, normalizes observations, and invokes the pure observation core once. Callers MUST NOT inject or replace a port, callback, adapter, fixture, test mode, producer roster, policy option, preload hook, global hook, or environment-selected scenario.
-
-The deterministic core accepts only the closed nine-field `ReadyReviewTerminalObservationCoreInputV1`. It performs no GitHub, filesystem, environment, clock-read, callback, or policy operation. Its closed result is either `artifact_produced` with the 16-field artifact or `observation_rejected` with the exact two-field failure and frozen input-to-artifact first-failure stage order. Transport failures remain private to the adapter and MUST NOT be represented as core rejections; core rejections MUST NOT be reported as transport failures. Only `artifact_produced` may emit stdout.
-
-The canonical Ready Generation Record and its referenced producer roster are owner-authored top-level Task Issue records. Collector V1 verifies their self-canonical URLs, closed projections, JCS/SHA-256 seals, exact repository, pull request, HEAD and Ready-event binding, contiguous Ready-record revision chain with one current leaf, and roster effective window. The frozen roster is observation authority; Collector V1 does not select or prioritize review producers.
-
-Collector V1 emits an artifact only after acquiring one exact terminal receipt for every roster producer and then traversing the complete `PullRequest.reviewThreads` connection. The post-terminal thread snapshot is acquired at or after the latest receipt time and preserves thread resolution and outdated state without interpreting either. Missing, duplicate, stale, mixed, malformed, or digest-inconsistent records produce no artifact.
-
-The single output is the exact 16-field `ReadyReviewTerminalObservationArtifactV1`, recursively immutable and sealed as RFC 8785 JCS bytes plus SHA-256. It is observation data only. Merge eligibility, rule evaluation, stop reasons, violation classes, evidence precedence, Completion/GSP binding, and policy decisions are outside V1. Collector V1 does not classify or close findings and does not authorize Ready, Merge, Completion, Gate Status publication, or any other protected action.
+When Collector V1 is required, the reviewer admits only the exact sealed artifact produced after one terminal receipt for every admitted roster producer and a complete post-terminal review-thread traversal. Missing, duplicate, stale, mixed, malformed, or digest-inconsistent evidence produces no admissible artifact. Collector V1 remains observation-only: it does not select producers, interpret thread state, classify or close findings, decide Merge eligibility, or authorize a protected action. Applicability and evidence-reuse meaning remain owned by the Shared Role Execution Contract; repository/runtime status is maintained in the [Automation Overview](../automation/00-automation-overview.md).
 
 For Merge-gate review, the current Ready-triggered generation MUST be terminal before its thread snapshot is complete. The reviewing Role then MUST inspect every returned thread and recheck the exact PR HEAD. A prior Ready generation, pre-terminal thread count, or earlier reviewed HEAD is insufficient.
 
 If Merge occurred before the current generation became terminal, the reviewer MUST record the exact Ready, Merge, terminal, and thread timestamps as a blocking sequencing finding. A later technical finding MUST NOT be reclassified as post-Merge-only when this ordering failure exists.
 
-Automated evaluation of review-terminal rules and Completion or Gate Status authority binding by a pure Evaluator V2 is a future candidate. Evaluator V2 is not a prerequisite for the current human-led Merge sequence. Any future evaluator MUST consume only the exact sealed Collector V1 artifact bytes and MUST NOT refetch GitHub data or reconstruct omitted evidence. The pure core MAY be imported directly for deterministic negative validation, but it is not a package, barrel, CLI, or alternative production transport authority. Negative validation MUST use literal closed Core Inputs and MUST NOT replace or patch the owner-only transport with a fixture, test runner, ambient lookup, preload, mutable global, environment-selected scenario, caller-supplied transport, or second production entrypoint.
+Pure evaluator and controller source components exist, but source presence and internal imports do not establish a production review controller. Unless a production host, exact task opt-in, and incoming edge are admitted, the reviewing Role performs the existing human-led decision. An automated evaluator MUST consume admitted sealed evidence without refetching or reconstructing omitted evidence and cannot acquire review, finding-closure, Completion, Gate Status, or protected-action authority.
 
 ## Terminal Review Result
 

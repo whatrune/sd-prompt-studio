@@ -108,16 +108,9 @@ git worktree add .worktrees/<task> -b codex/<role>-<purpose> origin/main
 
 ## Merge Gate
 
-Merge前に次を確認する。
+The [Shared Role Execution Contract](13-shared-role-execution-contract.md#merge-decision-and-merge-operation) is the sole normative owner of Merge sequencing, eligibility, exact-HEAD decisions, and operator authority. This document does not redefine them.
 
-- [ ] ScopeとPR目的が一致する。
-- [ ] Required Reviewが完了している。
-- [ ] 指定ValidationとGitHub Checksが成功している。
-- [ ] Existing Run / Research Artifactの意図しない変更がない。
-- [ ] 未確認事項がMerge判断者へ提示されている。
-- [ ] Product OwnerがMergeを許可している。
-
-Merge方式はRepository方針に従う。Squash mergeを使用する場合、PR titleまたはcommit messageが成果を表すことを確認する。
+The only additional Git lifecycle check is that an explicitly authorized operator uses the authorized exact HEAD and Merge method under Repository policy. For a squash merge, confirm that the PR title or commit message represents the result.
 
 ## Cleanup Procedure
 

@@ -4,11 +4,18 @@
 **Task:** `ARCH-AUTOMATIC-GATE-PROGRESSION-CONTRACT-001`
 **Canonical task assignment:** <https://github.com/whatrune/sd-prompt-studio/issues/175>
 
+## Status and Runtime Boundary
+
+- Operational contract status: design freeze candidate
+- Source / test status: evaluator and continuous-orchestration library modules exist at repository-reality supporting commit `65e84d3d787d4db871f34d4ab1ab452494a61605`
+- General production controller status: `UNKNOWN`; no incoming edge from the application composition root or the Protected Transition production host to the automatic progression evaluator/controller is confirmed at that commit
+- The live Protected Transition / Repair Executor path documented in the [Automation Overview](00-automation-overview.md) is a separate bounded host and does not prove that this general controller is production-reachable
+
 ## 1. Purpose and Ownership
 
 This document owns the operational meaning, responsibility boundary, logical inputs, logical outputs, precedence, progression states, and stop conditions for automatic gate progression. The [implementation mapping](24-pure-automatic-gate-progression-evaluator-design.md) owns source files, symbols, commands, and runtime entrypoints and does not redefine these rules.
 
-The controller advances one existing task from admitted canonical Result Handoffs, Review Decisions, Product Owner decisions, and fresh repository state. It removes routine prompt forwarding without granting a new decision right.
+A conforming controller advances one existing task from admitted canonical Result Handoffs, Review Decisions, Product Owner decisions, and fresh repository state. This operational description does not assert that a production controller host is reachable. The intended behavior removes routine prompt forwarding without granting a new decision right.
 
 ## 2. Normative Dependencies
 

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Automationが実行してよい定型操作と、人間の明示判断を必要とする操作を分離する。技術的に実行可能であることを承認済みと解釈しない。
+Separate routine operations that Automation may perform from operations that require an explicit human decision. Technical executability does not imply approval. [`../team/13-shared-role-execution-contract.md`](../team/13-shared-role-execution-contract.md) is the sole normative owner of protected actions, Merge sequencing, exact-HEAD decisions, and operator authority. This document defines only Automation-specific gate deltas.
 
 ## Approval Gates
 
@@ -10,10 +10,8 @@ Automationが実行してよい定型操作と、人間の明示判断を必要�
 | --- | --- | --- | --- |
 | Gate 1: Task start | Assignmentを起動してよいか | Product Ownerまたは明示的に委任されたActor | 未承認ならRunnerを起動しない |
 | Gate 2: Publish | 通常PushとDraft PR作成を許可するか | Task Assignmentで指定されたOwner | 許可範囲とValidation成功時だけ実行要求可能 |
-| Gate 3: Next role | 次Roleへ新Taskを割り当てるか | Integrated Lead、Contract判断時はArchitect Team | MVPでは自動連鎖しない |
+| Gate 3: Next role | Whether a new Task may be assigned to the next Role | Integrated Lead; Architect Team for Contract decisions | This general MVP trigger does not chain automatically. Opt-in automatic progression follows [`23-automatic-gate-progression-contract.md`](23-automatic-gate-progression-contract.md) |
 | Gate 4: Merge / Revert | mainへ導入または取消するか | Product Owner | 判断はexact HEADへbindingし、判断とは別に、明示的に許可されたOperatorだけが許可methodで操作する |
-
-Merge decisionへ進む前に、Ready for Review完了、current Ready-triggered review generationのterminal、terminal後の全review thread取得・確認、exact HEAD再確認をこの順で満たす。`Ready < Merge < Review terminal`となる実行を禁止する。
 
 ## Human-only Decisions
 
@@ -41,7 +39,7 @@ Merge decisionへ進む前に、Ready for Review完了、current Ready-triggered
 - Result Handoff投稿
 - Dispatch状態更新
 
-Automation可能であっても、必須情報不足、Scope外変更、Validation失敗を自動補正しない。
+This general Dispatcher does not infer corrections from missing required information, out-of-Scope changes, or Validation failures. The separately existing Protected Transition Repair Executor performs only minimum correction limited to admitted `CHANGES_REQUIRED` and authorized paths on the production host recorded in [`00-automation-overview.md`](00-automation-overview.md).
 
 Merge operatorはProduct Ownerの判断を作成または補完しない。Product Ownerの判断だけでもMerge操作は完了しておらず、操作可能なActorが存在するだけでもMerge判断済みとは扱わない。
 
@@ -55,7 +53,7 @@ Approvalは次へBindingする。
 - assigned role
 - base branchまたはbase revision
 - allowed / forbidden changes
-- Merge判断の場合はReady completion record、review terminal evidence、thread snapshot、exact PR HEAD、許可されたMerge method
+- Merge-decision binding follows the Shared Role Execution Contract's canonical sequence and exact-HEAD conditions
 
 承認後にBinding対象が変化した場合、既存Approvalは無効で`stale`となる。表記修正か実質変更かをDispatcherが判断して継続してはならず、再承認を必要とする。
 

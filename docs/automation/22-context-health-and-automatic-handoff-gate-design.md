@@ -8,7 +8,11 @@
 - Canonical Task Assignment: <https://github.com/whatrune/sd-prompt-studio/issues/154>
 - Dispatch Record: <https://github.com/whatrune/sd-prompt-studio/issues/154#issuecomment-5020331802>
 - Roadmap Record: <https://github.com/whatrune/sd-prompt-studio/issues/143>
-- Implementation status: not implemented
+- Original architecture task: design-only; it did not itself implement production source
+- Current repository source / test status: Context Health contracts, evaluator, artifact, Resume, component-validation, and integration modules exist at supporting-record commit `65e84d3d787d4db871f34d4ab1ab452494a61605`
+- Production runtime status: `UNKNOWN`; no incoming edge from the application composition root or the Protected Transition production host to this Gate is confirmed at that commit
+
+Repository-relative paths in this document describe design or source mappings only and are supporting records when bound to the full snapshot SHA above. They are not canonical authority or production runtime proof.
 
 ## 1. Problem statement
 
@@ -740,7 +744,7 @@ Unresolved items remain unresolved under every result. Resume cannot convert the
 
 ## 19. Dispatcher and Role integration points
 
-Future integration invokes the Gate without changing existing Role, Dispatch State, Result Handoff status, or Approval Gate semantics.
+The repository contains a source integration component for this Gate without changing existing Role, Dispatch State, Result Handoff status, or Approval Gate semantics. That source relationship does not establish a production host or runtime invocation.
 
 | Integration point | Checkpoint mapping | Enforcement |
 | --- | --- | --- |
@@ -822,7 +826,7 @@ Timestamps, IDs, counters, observations, source ordering, and policy are explici
 
 ## 23. Audit boundary
 
-The future audit trail records only safe, necessary metadata:
+The audit boundary records only safe, necessary metadata:
 
 - Task, Assignment revision, Role, execution, phase, and checkpoint identities;
 - input, policy, Decision, Checkpoint Record, and Handoff manifest refs;
@@ -981,7 +985,7 @@ Strict merge order is Step 1 → Step 2 → Step 3 → Step 4 → Step 5 → Ste
 
 ## 26. Rollout and rollback boundary
 
-Future rollout requires:
+Any production rollout requires:
 
 1. offline contract and evaluator fixtures;
 2. artifact builder validation with synthetic non-secret inputs;
@@ -1012,7 +1016,7 @@ This Architecture is review-ready when reviewers can confirm:
 - structural rejection, operational failure, Gate outcome, artifact failure, and Resume result are distinct;
 - existing Dispatcher, Role, Result Handoff, Approval, and Merge authority remain unchanged;
 - successor Tasks have non-overlapping owners, outputs, forbidden work, dependencies, and merge gates;
-- no production implementation is included.
+- the original architecture task included no production implementation; current source and runtime status are reported in the Status section.
 
 ## 28. Explicitly frozen decisions
 
@@ -1044,22 +1048,6 @@ This Architecture is review-ready when reviewers can confirm:
 
 Deferred items do not authorize implementation or hidden defaults.
 
-## 30. Non-implementation confirmation
+## 30. Historical Task-Scope Confirmation
 
-- Design document created: yes
-- Production source changed: no
-- Existing Contract changed: no
-- Schema created or changed: no
-- Evaluator implemented: no
-- Artifact generator implemented: no
-- Dispatcher or Role integration implemented: no
-- Resume Protocol implemented: no
-- Workflow changed: no
-- Context Planner changed: no
-- Model Router or Deployment Resolver changed: no
-- Adapter or Runner changed: no
-- Existing Run or Research Artifact changed: no
-- Secret or credential changed: no
-- Merge performed: no
-- Approve performed: no
-- Ready-for-review transition performed: no
+The Architecture task that created this document was design-only and performed no production source, Schema, workflow, adapter, Runner, Existing Run, Research Artifact, credential, Merge, Approve, or Ready mutation. That historical task boundary does not describe current repository implementation or production reachability; those are reported separately in the Status section.

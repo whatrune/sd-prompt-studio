@@ -8,20 +8,7 @@ DispatcherとSpecialist Runnerの実行情報を、PR #88のResult Handoffへ追
 
 ## Existing Result Contract
 
-Automation Handoffは[`../team/11-delegation-and-result-contract.md`](../team/11-delegation-and-result-contract.md)の全必須Fieldを保持する。
-
-- `task_id`
-- `canonical_record`
-- `role`
-- `status`
-- `completed_work`
-- `created_files`
-- `updated_files`
-- `validation_results`
-- `contract_boundary_confirmation`
-- `unresolved_items`
-- `escalation_required`
-- `recommended_next_action`
+Automation Handoffs use all required fields and Result Handoff statuses owned by [`../team/11-delegation-and-result-contract.md`](../team/11-delegation-and-result-contract.md) unchanged. This document does not enumerate, add, remove, or redefine them; it adds only the Automation-specific execution information in the next section.
 
 ## Automation Execution Fields
 
@@ -56,14 +43,7 @@ Execution Status候補:
 - `cancelled`
 - `timed_out`
 
-Result Handoff Statusは既存Contractの次を維持する。
-
-- `completed`
-- `completed_with_warnings`
-- `needs_followup`
-- `blocked`
-- `failed`
-- `not_applicable`
+Team document 11 is the sole normative owner of the closed Result Handoff status vocabulary and its meaning.
 
 Runnerが`succeeded`でも、必須Validation、Expected Output、Canonical Handoff保存が不足する場合、Result Handoffを`completed`にしない。
 

@@ -25,14 +25,15 @@ Implementation MUST NOT be routed when the Repository Reality Check is incomplet
 
 ## Validation Routing
 
-Each development task MUST select the applicable Validation profile from the [Shared Role Execution Contract](13-shared-role-execution-contract.md#proportional-validation-and-evidence-reuse). Precedence is `external Contract`, `runtime／integration`, `source-only`, then `documentation-only`. When more than one profile applies, the highest profile controls and applicable lower-profile focused checks are added.
-
-- The assigned Implementer or Worker produces the required command evidence once for the implementation full HEAD.
-- The assigned reviewer evaluates semantic coverage and findings from admissible evidence and uses only the limited rerun conditions in the Review Execution Contract.
-- Integrated Lead verifies identity, authority, completeness, dependency, and state; it does not repeat specialist Validation or semantic review.
-- A protected-action operator performs only the fresh mutable-state and exact-HEAD check required immediately before the authorized action; it does not repeat implementation Validation.
+Each development task MUST select and execute the applicable profile under the [Shared Role Execution Contract](13-shared-role-execution-contract.md#proportional-validation-and-evidence-reuse). Evidence production, reuse, invalidation, reviewer reruns, Integrated Lead verification, and protected-action fresh checks are owned there and MUST NOT be expanded by this routing contract.
 
 An `external Contract` change always requires separate Architecture Review. A `source-only` task MUST be promoted to `runtime／integration` when production consumers or impact are `UNKNOWN`; routing MUST NOT use static source or test-only evidence as runtime proof.
+
+## PoC First and Minimum Correction
+
+When the blocking uncertainty is an execution capability, provider, transport, compatibility, or production-edge predicate and a bounded non-mutating PoC can answer that exact question, routing MUST use that PoC before expanding Architecture, framework, ceremony, or implementation scope. The PoC MUST stay inside existing authority, use the closest safe production-equivalent boundary available, and report its limits through the existing Result Handoff; it does not prove an untested production path or grant authority.
+
+Correction routing MUST target the minimum change that closes the current admitted blocking findings. Optional hardening, unrelated cleanup, newly preferred structure, or a new objective MUST NOT be added to the same correction. Validation, model use, API reads, CI reruns, and agent dispatch remain limited to what the controlling profile and unresolved finding actually require.
 
 ## Routing Matrix
 
