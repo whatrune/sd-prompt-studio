@@ -14,13 +14,16 @@ import {
   acquireChangedPathScopeV1,
   evaluateProgressionControllerV1,
   evaluateMergeAllowedAutomationV1,
+  evaluateRoleTransitionOrchestratorV1,
   executeRepairExecutorV1,
   executeReadyForReviewProgressionV1,
-  executeReviewApprovalAutomationV1,
+  executeReviewApprovalAutomationV1 as executeReviewApprovalAutomationProductionV1,
+  executeRoleTransitionOrchestratorV1,
   executeProtectedTransitionAdmissionV1,
   executeRepairProviderBindingV3,
   extractProtectedTransitionTaskStateV1,
   isRepairProfilePathV1,
+  normalizeRoleTransitionEventV1,
   parseIndependentReviewDecisionProjectionV1,
   parseReviewApprovalEventV1,
   projectProtectedTransitionReviewStateV1,
@@ -37,13 +40,17 @@ const PR = 260
 const HEAD = 'a'.repeat(40)
 const OTHER_HEAD = 'b'.repeat(40)
 const READY_RUN_ID = '31246327840'
-const BASE = '5c6885a4f76712fde940e39587f3a88f9d4697a6'
+const REVIEW_RUN_ID = '31561746789'
+const BASE = '65e84d3d787d4db871f34d4ab1ab452494a61605'
 const HOST_RUNNER_BINDING_BASE = '3631d84351a49088baaadb5b3445751a7bf0b44e'
 const HOST_RUNNER_BINDING_HEAD = '35b7849840a2a9191f4ebf56bf83e145725a6dfa'
 const CURRENT_GENERATION_REDUCER_BASE = HOST_RUNNER_BINDING_HEAD
 const HOST_ACQUISITION_PREFLIGHT_BASE = 'c0cba56a53d9e394d85383b6e305a4a59e212401'
 const ALLOWED = ['scripts/run-protected-transition-admission-v1.mjs', 'src/continuous-orchestration/protected-transition-admission-v1.ts']
 let assertions = 0
+
+const executeReviewApprovalAutomationV1 = (options) =>
+  executeReviewApprovalAutomationProductionV1({ ...options, runId: REVIEW_RUN_ID })
 
 const check = (condition, message) => {
   assertions += 1
@@ -340,6 +347,288 @@ const workflowSource = readFileSync(workflowPath, 'utf8')
 const runnerSource = readFileSync(runnerPath, 'utf8')
 const coreSource = readFileSync(corePath, 'utf8')
 const workflow = parseYaml(workflowSource)
+
+// Ten Role Transition Orchestrator V1 units x three assertions = 30.
+const rolePaths = Object.freeze([
+  '.github/workflows/protected-transition-admission-v1.yml',
+  'scripts/run-protected-transition-admission-v1.mjs',
+  'scripts/test-protected-transition-admission-v1.mjs',
+])
+const roleState = (overrides = {}) => state({ authorized_paths: [...rolePaths], ...overrides })
+const roleRequest = (overrides = {}) => Object.freeze({
+  transition: 'role_transition_orchestrator_v1',
+  repository: REPOSITORY,
+  taskIssueNumber: TASK,
+  prNumber: PR,
+  exactHead: OTHER_HEAD,
+  ...overrides,
+})
+const roleInput = (overrides = {}) => ({
+  terminalResult: 'IMPLEMENTATION_AUTHORIZED',
+  request: roleRequest(),
+  taskState: roleState({ observed_head: OTHER_HEAD }),
+  paths: [...rolePaths],
+  authorityValid: true,
+  ...overrides,
+})
+const repairRoute = Object.freeze({
+  transition: 'review_approval_automation_v1', state: 'REVIEW_BLOCKED', allowed: false, exit_code: 0,
+  reason: 'repair_dispatch_ready', task_issue_number: TASK, pr_number: PR, current_head: OTHER_HEAD,
+  out_of_scope_paths: Object.freeze([]), state_changed: true, automation_status: 'DISPATCH_READY',
+  next_action: 'REPAIR_EXECUTOR',
+})
+const mergeRoute = Object.freeze({
+  transition: 'merge_allowed_automation_v1', state: 'MERGE_ELIGIBLE', allowed: true, exit_code: 0,
+  reason: 'merge_allowed', task_issue_number: TASK, pr_number: PR, current_head: OTHER_HEAD,
+  out_of_scope_paths: Object.freeze([]), state_changed: false, automation_status: 'HANDOFF_READY',
+  next_action: 'MERGE_OPERATOR',
+})
+const rolePublicationAuthorityId = 9101
+const roleImplementationResultId = 9102
+const rolePublicationBody = `## Publication Handoff — Role Transition Orchestrator V1
+
+- Publication Authority: https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-${rolePublicationAuthorityId}
+- target PR: \`#${PR}\`
+- published HEAD: \`${OTHER_HEAD}\`
+- exact parent: \`${HEAD}\`
+- push mode: normal non-force fast-forward
+- local / remote HEAD equality: PASS
+
+### Published scope
+
+${rolePaths.map((value) => `- \`${value}\``).join('\n')}
+
+### Terminal state
+
+- status: \`completed\`
+- execution_stop_reason: \`completed\`
+`
+const rolePublicationAuthorityBody = `\`\`\`yaml
+record_type: commit_push_publication_authorization_v1
+authorizing_role: Product Owner / Implementation Lead
+parent_issue: ${TASK}
+consumer_pr: ${PR}
+publication_allowed: true
+expected_parent: ${HEAD}
+result_handoff_comment_id: ${roleImplementationResultId}
+exact_paths:
+${rolePaths.map((value) => `  - ${value}`).join('\n')}
+status: authorized_for_publication_only
+\`\`\``
+const roleImplementationResultBody = `## Backend Implementer Result Handoff — Role Transition Orchestrator V1
+
+- target PR: \`#${PR}\`
+- implementation HEAD: \`${HEAD}\`
+
+### Changed paths
+
+${rolePaths.map((value) => `- \`${value}\``).join('\n')}
+
+### Terminal state
+
+- status: \`completed\`
+- execution_stop_reason: \`completed\`
+- blocker / remaining / UNKNOWN: \`0 / 0 / 0\`
+`
+let rolePullReads = 0
+let roleStateWrites = 0
+let roleTriggerReads = 0
+let roleCommitReads = 0
+let rolePullBody = stateBlock(roleState({
+  observed_head: HEAD,
+  review_status: 'APPROVE',
+  reviewed_head: HEAD,
+  review_blocker_count: 0,
+}))
+const rolePublicationHost = {
+  api: async (endpoint, options) => {
+    if (endpoint.endsWith(`/issues/comments/${rolePublicationEvent.comment.id}`)) {
+      roleTriggerReads += 1
+      return { id: rolePublicationEvent.comment.id, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, body: rolePublicationBody, author_association: 'OWNER' }
+    }
+    if (endpoint.endsWith(`/issues/comments/${rolePublicationAuthorityId}`)) {
+      return { id: rolePublicationAuthorityId, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, body: rolePublicationAuthorityBody, author_association: 'OWNER' }
+    }
+    if (endpoint.endsWith(`/issues/comments/${roleImplementationResultId}`)) {
+      return { id: roleImplementationResultId, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, body: roleImplementationResultBody, author_association: 'OWNER' }
+    }
+    if (endpoint.endsWith(`/commits/${OTHER_HEAD}`)) {
+      roleCommitReads += 1
+      return { sha: OTHER_HEAD, parents: [{ sha: HEAD }] }
+    }
+    if (endpoint.endsWith(`/pulls/${PR}`)) {
+      if (options?.method === 'PATCH') {
+        roleStateWrites += 1
+        rolePullBody = options.body.body
+      } else {
+        rolePullReads += 1
+      }
+      return { ...pullObject({ head: OTHER_HEAD, taskState: roleState({ observed_head: OTHER_HEAD }) }), body: rolePullBody }
+    }
+    throw new Error(`unexpected_role_endpoint:${endpoint}`)
+  },
+}
+const rolePublicationEvent = Object.freeze({
+  action: 'created',
+  repository: Object.freeze({ full_name: REPOSITORY }),
+  issue: Object.freeze({ number: TASK, state: 'open' }),
+  comment: Object.freeze({ id: 9103, author_association: 'OWNER', body: rolePublicationBody }),
+})
+const publishedRoute = await executeRoleTransitionOrchestratorV1({ event: rolePublicationEvent, host: rolePublicationHost })
+const reboundRoleState = extractProtectedTransitionTaskStateV1(rolePullBody)
+const publishedRolePullReads = rolePullReads
+const publishedRoleStateWrites = roleStateWrites
+const publishedRoleTriggerReads = roleTriggerReads
+const publishedRoleCommitReads = roleCommitReads
+const freshnessCase = async ({ body = rolePublicationBody, issueNumber = TASK, unavailable = false } = {}) => {
+  const metrics = { triggerReads: 0, downstreamCalls: 0 }
+  const result = await executeRoleTransitionOrchestratorV1({
+    event: rolePublicationEvent,
+    host: {
+      api: async (endpoint) => {
+        if (endpoint.endsWith(`/issues/comments/${rolePublicationEvent.comment.id}`)) {
+          metrics.triggerReads += 1
+          if (unavailable) throw new Error('synthetic_trigger_deleted')
+          return { id: rolePublicationEvent.comment.id, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${issueNumber}`, body, author_association: 'OWNER' }
+        }
+        metrics.downstreamCalls += 1
+        throw new Error(`freshness_downstream_must_not_be_called:${endpoint}`)
+      },
+    },
+  })
+  return Object.freeze({ result, metrics: Object.freeze(metrics) })
+}
+const deletedTrigger = await freshnessCase({ unavailable: true })
+const crossTaskTrigger = await freshnessCase({ issueNumber: TASK + 1 })
+const malformedTrigger = await freshnessCase({ body: '## Publication Handoff\n- malformed current record' })
+const disappearedTrigger = await freshnessCase({ body: 'current comment no longer contains a supported terminal marker' })
+const commitBindingCase = async ({ commit, unavailable = false }) => {
+  const metrics = { triggerReads: 0, pullReads: 0, commitReads: 0, downstreamCalls: 0, stateWrites: 0 }
+  const result = await executeRoleTransitionOrchestratorV1({
+    event: rolePublicationEvent,
+    host: {
+      api: async (endpoint, options) => {
+        if (endpoint.endsWith(`/issues/comments/${rolePublicationEvent.comment.id}`)) {
+          metrics.triggerReads += 1
+          return { id: rolePublicationEvent.comment.id, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, body: rolePublicationBody, author_association: 'OWNER' }
+        }
+        if (endpoint.endsWith(`/pulls/${PR}`)) {
+          if (options?.method === 'PATCH') metrics.stateWrites += 1
+          else metrics.pullReads += 1
+          return pullObject({ head: OTHER_HEAD, taskState: roleState({ observed_head: HEAD, review_status: 'APPROVE', reviewed_head: HEAD, review_blocker_count: 0 }) })
+        }
+        if (endpoint.endsWith(`/commits/${OTHER_HEAD}`)) {
+          metrics.commitReads += 1
+          if (unavailable) throw new Error('synthetic_commit_acquisition_failure')
+          return commit
+        }
+        metrics.downstreamCalls += 1
+        throw new Error(`commit_binding_downstream_must_not_be_called:${endpoint}`)
+      },
+    },
+  })
+  return Object.freeze({ result, metrics: Object.freeze(metrics) })
+}
+const commitAcquisitionFailure = await commitBindingCase({ unavailable: true })
+const commitShaMismatch = await commitBindingCase({ commit: { sha: HEAD, parents: [{ sha: HEAD }] } })
+const commitZeroParents = await commitBindingCase({ commit: { sha: OTHER_HEAD, parents: [] } })
+const commitMultipleParents = await commitBindingCase({ commit: { sha: OTHER_HEAD, parents: [{ sha: HEAD }, { sha: 'c'.repeat(40) }] } })
+const commitMalformedParent = await commitBindingCase({ commit: { sha: OTHER_HEAD, parents: [{}] } })
+const commitWrongParent = await commitBindingCase({ commit: { sha: OTHER_HEAD, parents: [{ sha: 'c'.repeat(40) }] } })
+const ambiguousRoleError = await errorOf(() => normalizeRoleTransitionEventV1({
+  ...rolePublicationEvent,
+  comment: {
+    ...rolePublicationEvent.comment,
+    id: 9104,
+    body: `${rolePublicationBody}\nrecord_type: implementation_authorization_v1`,
+  },
+}))
+let zeroMarkerHostCalls = 0
+const zeroMarkerResult = await executeRoleTransitionOrchestratorV1({
+  event: {
+    ...rolePublicationEvent,
+    comment: { ...rolePublicationEvent.comment, id: 9105, body: 'ordinary project discussion without a supported terminal marker' },
+  },
+  host: { api: async () => { zeroMarkerHostCalls += 1; throw new Error('zero_marker_host_must_not_be_called') } },
+})
+const roleUnits = [
+  {
+    name: 'IMPLEMENTATION_AUTHORIZED',
+    result: evaluateRoleTransitionOrchestratorV1(roleInput()),
+    status: 'HANDOFF_READY',
+    next: 'IMPLEMENTER',
+    evidence: (value) => value.reason === 'implementation_authorized' && value.terminal_result === 'IMPLEMENTATION_AUTHORIZED' && workflowSource.includes('next_action: ${{ steps.evaluate.outputs.next_action }}'),
+  },
+  {
+    name: 'IMPLEMENTATION_RESULT_READY',
+    result: evaluateRoleTransitionOrchestratorV1(roleInput({ terminalResult: 'IMPLEMENTATION_RESULT_READY' })),
+    status: 'HANDOFF_READY',
+    next: 'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
+    evidence: (value) => value.reason === 'implementation_result_ready' && value.terminal_result === 'IMPLEMENTATION_RESULT_READY',
+  },
+  {
+    name: 'PUBLISHED',
+    result: publishedRoute,
+    status: 'HANDOFF_READY',
+    next: 'INDEPENDENT_IMPLEMENTATION_REVIEWER',
+    evidence: (value) => value.reason === 'publication_state_rebound' && value.state_changed === true && publishedRoleTriggerReads === 1 && publishedRoleCommitReads === 1 && publishedRoleStateWrites === 1 && publishedRolePullReads === 3 && Object.keys(reboundRoleState).length === 10 && reboundRoleState.observed_head === OTHER_HEAD && reboundRoleState.review_status === 'PENDING' && reboundRoleState.reviewed_head === null && reboundRoleState.review_blocker_count === null,
+  },
+  {
+    name: 'CHANGES_REQUIRED',
+    result: evaluateRoleTransitionOrchestratorV1(roleInput({ terminalResult: 'CHANGES_REQUIRED', routeResult: repairRoute })),
+    status: 'DISPATCH_READY',
+    next: 'REPAIR_EXECUTOR',
+    evidence: (value) => value.reason === 'repair_dispatch_ready' && value.allowed === false && value.terminal_result === 'CHANGES_REQUIRED',
+  },
+  {
+    name: 'APPROVE and MERGE_ELIGIBLE',
+    result: evaluateRoleTransitionOrchestratorV1(roleInput({ terminalResult: 'APPROVE', routeResult: mergeRoute })),
+    status: 'HANDOFF_READY',
+    next: 'MERGE_OPERATOR',
+    evidence: (value) => value.reason === 'merge_allowed' && value.allowed === true && value.terminal_result === 'APPROVE',
+  },
+  {
+    name: 'HEAD mismatch',
+    result: evaluateRoleTransitionOrchestratorV1(roleInput({ taskState: roleState({ observed_head: HEAD }) })),
+    status: 'BLOCKED',
+    next: 'STOP',
+    evidence: (value) => value.state === 'STALE' && value.reason === 'head_binding_stale',
+  },
+  {
+    name: 'triggering comment freshness failures',
+    result: deletedTrigger.result,
+    status: 'BLOCKED',
+    next: 'STOP',
+    evidence: (value) => [value, crossTaskTrigger.result, malformedTrigger.result, disappearedTrigger.result].every((item) => item.state === 'INDETERMINATE' && item.reason === 'terminal_result_ambiguous_or_invalid' && item.state_changed === false) && [deletedTrigger, crossTaskTrigger, malformedTrigger, disappearedTrigger].every((item) => item.metrics.triggerReads === 1 && item.metrics.downstreamCalls === 0) && roleStateWrites === publishedRoleStateWrites,
+  },
+  {
+    name: 'PUBLISHED commit parent binding failures',
+    result: commitAcquisitionFailure.result,
+    status: 'BLOCKED',
+    next: 'STOP',
+    evidence: (value) => [value, commitShaMismatch.result, commitZeroParents.result, commitMultipleParents.result, commitMalformedParent.result, commitWrongParent.result].every((item) => item.state === 'INDETERMINATE' && item.reason === 'terminal_result_ambiguous_or_invalid' && item.state_changed === false) && [commitAcquisitionFailure, commitShaMismatch, commitZeroParents, commitMultipleParents, commitMalformedParent, commitWrongParent].every((item) => item.metrics.triggerReads === 1 && item.metrics.pullReads === 1 && item.metrics.commitReads === 1 && item.metrics.downstreamCalls === 0 && item.metrics.stateWrites === 0),
+  },
+  {
+    name: 'event marker applicability',
+    result: zeroMarkerResult,
+    status: 'COMPLETED_NOOP',
+    next: 'NONE',
+    evidence: (value) => value.state === 'INDETERMINATE' && value.reason === 'review_event_not_applicable' && value.exit_code === 0 && zeroMarkerHostCalls === 0 && ambiguousRoleError?.message === 'terminal_result_ambiguous_or_invalid',
+  },
+  {
+    name: 'Merge not admitted',
+    result: evaluateRoleTransitionOrchestratorV1(roleInput({ terminalResult: 'APPROVE', routeResult: { ...mergeRoute, allowed: false, next_action: 'STOP' } })),
+    status: 'BLOCKED',
+    next: 'STOP',
+    evidence: (value) => value.state === 'IMPLEMENTATION_BLOCKED' && value.reason === 'review_not_approved',
+  },
+]
+for (const unit of roleUnits) {
+  check(unit.result.automation_status === unit.status, `${unit.name} automation status`)
+  check(unit.result.next_action === unit.next, `${unit.name} next action`)
+  check(unit.evidence(unit.result), `${unit.name} binding or reason`)
+}
+
 check(Object.keys(workflow.on).join(',') === 'workflow_dispatch,issue_comment,pull_request' && workflow.on.issue_comment.types.join(',') === 'created' && workflow.on.pull_request.types.join(',') === 'ready_for_review', 'workflow has manual recovery, created Review, and Ready triggers')
 check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number', 'workflow has exactly four inputs and canonicalizes the Task input as a number')
 check(Object.keys(workflow.permissions).join(',') === 'contents,checks,issues,pull-requests,statuses' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'read' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read', 'workflow adds only read access for checks and statuses')
@@ -440,8 +729,13 @@ const blockingReviewResult = await executeReviewApprovalAutomationV1({
   event: reviewEvent({ body: reviewDecisionBody({ blocking_finding_count: 1 }) }),
   host: { api: async () => { throw new Error('host_must_not_be_called') } },
 })
+const invalidReviewRunResult = await executeReviewApprovalAutomationProductionV1({
+  event: reviewEvent(),
+  host: { api: async () => { throw new Error('host_must_not_be_called') } },
+  runId: '0',
+})
 check(blockingReview.review.blocking_finding_count === 1 && blockingReviewResult.state === 'REVIEW_BLOCKED', 'blocking count is retained and blocks')
-check(blockingReviewResult.state_changed === false && blockingReviewResult.admission_executed === false, 'blocking count prevents mutation and admission')
+check(blockingReviewResult.state_changed === false && blockingReviewResult.admission_executed === false && invalidReviewRunResult.reason === 'review_event_invalid', 'blocking count prevents mutation and invalid Review run identity fails closed')
 
 const remainingReview = parseReviewApprovalEventV1(reviewEvent({ body: reviewDecisionBody({ remaining_finding_count: 1 }) }))
 const remainingReviewError = await errorOf(() => projectProtectedTransitionApprovedReviewStateV1(state(), remainingReview.review))
@@ -536,7 +830,7 @@ const automationHost = ({
   patchFailure = false,
   applyPatch = true,
 } = {}) => {
-  const metrics = { patchCalls: 0, pullReads: 0, fileReads: 0, commentReads: 0, checkReads: 0, threadReads: 0, waitCalls: 0 }
+  const metrics = { patchCalls: 0, pullReads: 0, fileReads: 0, commentReads: 0, commitReads: 0, checkReads: 0, threadReads: 0, waitCalls: 0 }
   let currentHead = HEAD
   let currentBody = stateBlock(initialState)
   const currentPull = () => ({
@@ -556,6 +850,10 @@ const automationHost = ({
     host: {
       wait: async () => { metrics.waitCalls += 1 },
       api: async (endpoint, options = undefined) => {
+        if (endpoint.includes('/commits/')) {
+          metrics.commitReads += 1
+          throw new Error('unexpected_commit_read')
+        }
         if (endpoint.includes('/comments?')) {
           metrics.commentReads += 1
           const page = Number(new URL(`https://api.github.com/${endpoint}`).searchParams.get('page') ?? '1')
@@ -918,10 +1216,10 @@ const blockedAutomation = automationHost({
   initialState: approvedState(),
   commentPages: [[blockedEvent.comment]],
 })
-const blockedResult = await executeReviewApprovalAutomationV1({ event: blockedEvent, host: blockedAutomation.host })
+const blockedResult = await executeRoleTransitionOrchestratorV1({ event: blockedEvent, host: blockedAutomation.host, runId: REVIEW_RUN_ID })
 const blockedWritten = extractProtectedTransitionTaskStateV1(blockedAutomation.body())
-check(blockedResult.state === 'REVIEW_BLOCKED' && blockedResult.allowed === false, 'later BLOCKED revokes eligibility')
-check(blockedAutomation.metrics.patchCalls === 1 && blockedResult.admission_executed === false, 'later BLOCKED writes once without admission')
+check(blockedResult.state === 'REVIEW_BLOCKED' && blockedResult.allowed === false && blockedResult.next_action === 'STOP' && blockedResult.terminal_result === 'BLOCKED', 'central Orchestrator delegates later BLOCKED without Role dispatch')
+check(blockedAutomation.metrics.patchCalls === 1 && blockedAutomation.metrics.commitReads === 0 && blockedResult.admission_executed === false, 'later BLOCKED writes once without admission or PUBLISHED commit acquisition')
 check(blockedWritten.review_status === 'BLOCKED' && blockedWritten.review_blocker_count === 2, 'later BLOCKED is the stored effective Decision')
 
 const recoveryEvent = reviewEvent({ comment: { id: 9004, created_at: '2026-08-07T00:00:03Z' } })
@@ -1014,6 +1312,30 @@ const mergeAdmitted = evaluateProtectedTransitionAdmissionV1(input({
   transition: 'merge_decision_admission',
   task_state: approvedState(),
 }))
+const reviewDetachedMergeRequest = Object.freeze({
+  ...mergeRequest,
+  currentWorkflowRunId: REVIEW_RUN_ID,
+  selfCheckContext: 'DETACHED_SELF_CHECK_AWARE',
+})
+const historicalReviewSelfCheck = ({
+  id = 'historical-review-admission',
+  name = 'protected_transition_admission_v1',
+  conclusion = 'FAILURE',
+  runId = '31560744932',
+  detailsUrl = `https://github.com/${REPOSITORY}/actions/runs/${runId}/job/${id}`,
+  startedAt = '2026-08-12T03:39:26Z',
+  appId = 'github-actions-app',
+} = {}) => currentReadyCheck({ id, name, status: 'COMPLETED', conclusion, detailsUrl, startedAt, appId })
+const detachedReviewCheckPage = (external = successfulCheck('review-external-success')) => connectionPage([
+  historicalReviewSelfCheck(),
+  historicalReviewSelfCheck({
+    id: 'historical-review-repair',
+    name: 'protected_transition_repair_executor_v1',
+    conclusion: 'SKIPPED',
+    startedAt: '2026-08-12T03:39:32Z',
+  }),
+  ...(external === null ? [] : [external]),
+])
 
 const mergeSuccess = automationHost({ initialState: approvedState() })
 const mergeSuccessResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: mergeSuccess.host })
@@ -1038,27 +1360,29 @@ check(closedGateResult.state === 'REVIEW_PENDING' && closedGateResult.reason ===
 check(dirtyGateResult.state === 'IMPLEMENTATION_BLOCKED' && dirtyGateResult.reason === 'pull_not_mergeable', 'non-clean PR blocks implementation')
 
 const missingChecks = automationHost({ initialState: approvedState(), checkPages: [null] })
-const zeroChecks = automationHost({ initialState: approvedState(), checkPages: [connectionPage([])] })
+const zeroChecks = automationHost({ initialState: approvedState(), mergeableState: 'unstable', checkPages: [detachedReviewCheckPage(null)] })
 const missingChecksResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: missingChecks.host })
-const zeroChecksResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: zeroChecks.host })
+const zeroChecksResult = await evaluateMergeAllowedAutomationV1({ request: reviewDetachedMergeRequest, admitted: mergeAdmitted, host: zeroChecks.host })
 check(missingChecksResult.state === 'INDETERMINATE' && missingChecksResult.reason === 'check_rollup_page_invalid', 'missing check rollup fails closed')
 check(zeroChecksResult.state === 'INDETERMINATE' && zeroChecksResult.reason === 'checks_missing', 'zero current check contexts fail closed')
 check(missingChecks.metrics.threadReads === 0 && zeroChecks.metrics.threadReads === 0, 'missing checks stop before thread acquisition')
 
 const pendingChecks = automationHost({
   initialState: approvedState(),
-  checkPages: [connectionPage([{ ...successfulCheck(), status: 'IN_PROGRESS', conclusion: null }])],
+  mergeableState: 'unstable',
+  checkPages: [detachedReviewCheckPage({ ...successfulCheck(), status: 'IN_PROGRESS', conclusion: null })],
 })
-const pendingChecksResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: pendingChecks.host })
+const pendingChecksResult = await evaluateMergeAllowedAutomationV1({ request: reviewDetachedMergeRequest, admitted: mergeAdmitted, host: pendingChecks.host })
 check(pendingChecksResult.state === 'INDETERMINATE' && pendingChecksResult.reason === 'checks_not_terminal', 'non-terminal check is indeterminate')
 check(pendingChecksResult.allowed === false && pendingChecksResult.next_action === 'STOP', 'non-terminal check cannot advance')
 check(pendingChecks.metrics.checkReads === 1 && pendingChecks.metrics.threadReads === 0, 'non-terminal check stops before threads')
 
 const failedChecks = automationHost({
   initialState: approvedState(),
-  checkPages: [connectionPage([{ ...successfulCheck(), conclusion: 'FAILURE' }])],
+  mergeableState: 'unstable',
+  checkPages: [detachedReviewCheckPage({ ...successfulCheck(), conclusion: 'FAILURE' })],
 })
-const failedChecksResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: failedChecks.host })
+const failedChecksResult = await evaluateMergeAllowedAutomationV1({ request: reviewDetachedMergeRequest, admitted: mergeAdmitted, host: failedChecks.host })
 check(failedChecksResult.state === 'IMPLEMENTATION_BLOCKED' && failedChecksResult.reason === 'checks_not_successful', 'failed terminal check blocks implementation')
 check(failedChecksResult.allowed === false && failedChecksResult.automation_status === 'STOPPED', 'failed terminal check cannot advance')
 check(failedChecks.metrics.checkReads === 1 && failedChecks.metrics.threadReads === 0, 'failed terminal check stops before threads')
@@ -1079,9 +1403,11 @@ check(pagedChecksResult.reason === 'merge_gate_satisfied', 'multi-page checks pr
 
 const blockingThreads = automationHost({
   initialState: approvedState(),
+  mergeableState: 'unstable',
+  checkPages: [detachedReviewCheckPage()],
   threadPages: [connectionPage([{ id: 'thread-1', isResolved: false, isOutdated: false }])],
 })
-const blockingThreadsResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: blockingThreads.host })
+const blockingThreadsResult = await evaluateMergeAllowedAutomationV1({ request: reviewDetachedMergeRequest, admitted: mergeAdmitted, host: blockingThreads.host })
 check(blockingThreadsResult.state === 'REVIEW_BLOCKED' && blockingThreadsResult.reason === 'blocking_review_threads_present', 'current unresolved thread blocks Review')
 check(blockingThreadsResult.allowed === false && blockingThreadsResult.next_action === 'STOP', 'current unresolved thread cannot advance')
 check(blockingThreads.metrics.threadReads === 1 && blockingThreads.metrics.pullReads === 2, 'blocking thread stops before final pull refetch')
@@ -1132,7 +1458,11 @@ check(retryGate.metrics.patchCalls === 0 && retryGate.metrics.pullReads === 6 &&
 check(taskChangedPaths.join('\n') === ['.github/workflows/protected-transition-admission-v1.yml', 'scripts/run-protected-transition-admission-v1.mjs', 'scripts/test-protected-transition-admission-v1.mjs'].join('\n'), 'current Task diff is exactly three paths')
 
 // Four current-generation Merge Gate units x three assertions = 12.
-const selfAwareMergeRequest = Object.freeze({ ...mergeRequest, currentWorkflowRunId: READY_RUN_ID })
+const selfAwareMergeRequest = Object.freeze({
+  ...mergeRequest,
+  currentWorkflowRunId: READY_RUN_ID,
+  selfCheckContext: 'ATTACHED_CURRENT_CHECK_REQUIRED',
+})
 const historicalReadyCheck = ({ id, conclusion }) => currentReadyCheck({
   id,
   status: 'COMPLETED',
@@ -1157,12 +1487,12 @@ const stableGenerationPage = () => connectionPage([
 const selfAwareUnstable = automationHost({
   initialState: approvedState(),
   mergeableState: 'unstable',
-  checkPages: [stableGenerationPage(), stableGenerationPage()],
+  checkPages: [detachedReviewCheckPage(), detachedReviewCheckPage()],
 })
-const selfAwareUnstableResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: selfAwareUnstable.host })
-check(selfAwareUnstableResult.state === 'MERGE_ELIGIBLE' && selfAwareUnstableResult.allowed, 'MGA-01 older same-identity success and failure generations are excluded')
-check(selfAwareUnstableResult.automation_status === 'MERGE_ALLOWED' && selfAwareUnstableResult.reason === 'merge_gate_satisfied', 'MGA-01 selected self and other-app same-name success establish effective clean')
-check(selfAwareUnstable.metrics.checkReads === 2 && selfAwareUnstable.metrics.threadReads === 1 && selfAwareUnstable.metrics.pullReads === 3, 'MGA-01 independently reduces initial and final complete snapshots')
+const selfAwareUnstableResult = await evaluateMergeAllowedAutomationV1({ request: reviewDetachedMergeRequest, admitted: mergeAdmitted, host: selfAwareUnstable.host })
+check(selfAwareUnstableResult.state === 'MERGE_ELIGIBLE' && selfAwareUnstableResult.allowed, 'MGA-01 historical Review Admission and Repair self-checks are excluded')
+check(selfAwareUnstableResult.automation_status === 'MERGE_ALLOWED' && selfAwareUnstableResult.reason === 'merge_gate_satisfied', 'MGA-01 remaining external success establishes effective clean')
+check(selfAwareUnstable.metrics.checkReads === 2 && selfAwareUnstable.metrics.threadReads === 1 && selfAwareUnstable.metrics.pullReads === 3, 'MGA-01 independently reduces initial and final external snapshots before the thread gate')
 
 const missingInitialSelf = automationHost({
   initialState: approvedState(),
@@ -1209,20 +1539,21 @@ const latePendingCheck = automationHost({
   initialState: approvedState(),
   mergeableState: 'unstable',
   checkPages: [
-    readyCheckPage(),
-    readyCheckPage({ ...successfulCheck('late-pending'), status: 'IN_PROGRESS', conclusion: null }),
+    detachedReviewCheckPage(),
+    detachedReviewCheckPage({ ...successfulCheck('late-pending'), status: 'IN_PROGRESS', conclusion: null }),
   ],
 })
 const lateFailedCheck = automationHost({
   initialState: approvedState(),
   mergeableState: 'unstable',
-  checkPages: [readyCheckPage(), readyCheckPage({ ...successfulCheck('late-failed'), conclusion: 'FAILURE' })],
+  checkPages: [detachedReviewCheckPage(), detachedReviewCheckPage({ ...successfulCheck('late-failed'), conclusion: 'FAILURE' })],
 })
 const otherAppSameNameFailure = automationHost({
   initialState: approvedState(),
   mergeableState: 'unstable',
   checkPages: [connectionPage([
-    currentReadyCheck(),
+    historicalReviewSelfCheck(),
+    historicalReviewSelfCheck({ id: 'historical-review-repair', name: 'protected_transition_repair_executor_v1', conclusion: 'SKIPPED' }),
     currentReadyCheck({ id: 'other-app-failure', status: 'COMPLETED', conclusion: 'FAILURE', detailsUrl: null, appId: 'other-check-app' }),
     successfulCheck(),
   ])],
@@ -1241,9 +1572,9 @@ const finalTiedGeneration = automationHost({
   mergeableState: 'unstable',
   checkPages: [readyCheckPage(), connectionPage([currentReadyCheck(), currentReadyCheck({ id: 'final-tied-non-self', detailsUrl: null }), successfulCheck()])],
 })
-const latePendingCheckResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: latePendingCheck.host })
-const lateFailedCheckResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: lateFailedCheck.host })
-const otherAppSameNameFailureResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: otherAppSameNameFailure.host })
+const latePendingCheckResult = await evaluateMergeAllowedAutomationV1({ request: reviewDetachedMergeRequest, admitted: mergeAdmitted, host: latePendingCheck.host })
+const lateFailedCheckResult = await evaluateMergeAllowedAutomationV1({ request: reviewDetachedMergeRequest, admitted: mergeAdmitted, host: lateFailedCheck.host })
+const otherAppSameNameFailureResult = await evaluateMergeAllowedAutomationV1({ request: reviewDetachedMergeRequest, admitted: mergeAdmitted, host: otherAppSameNameFailure.host })
 const finalNewerGenerationResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: finalNewerGeneration.host })
 const finalTiedGenerationResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: finalTiedGeneration.host })
 check(otherAppSameNameFailureResult.reason === 'checks_not_successful' && otherAppSameNameFailureResult.state === 'IMPLEMENTATION_BLOCKED', 'MGA-03 same-name check from another app remains independently enforced')
@@ -1265,7 +1596,7 @@ const selfAwareConflict = automationHost({ initialState: approvedState(), mergea
 const nonSelfUnstable = automationHost({ initialState: approvedState(), mergeableState: 'unstable' })
 const finalCheckHeadDriftResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: finalCheckHeadDrift.host })
 const finalCheckPaginationFailureResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: finalCheckPaginationFailure.host })
-const selfAwareConflictResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: selfAwareConflict.host })
+const selfAwareConflictResult = await evaluateMergeAllowedAutomationV1({ request: reviewDetachedMergeRequest, admitted: mergeAdmitted, host: selfAwareConflict.host })
 const nonSelfUnstableResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: nonSelfUnstable.host })
 check(finalCheckHeadDriftResult.state === 'STALE' && finalCheckHeadDriftResult.reason === 'head_changed_during_merge_gate', 'MGA-04 final check snapshot HEAD drift is stale')
 check(finalCheckPaginationFailureResult.state === 'INDETERMINATE' && finalCheckPaginationFailureResult.reason === 'check_rollup_page_invalid', 'MGA-04 final check pagination failure is indeterminate')
@@ -1386,7 +1717,9 @@ check(
   taskChangedPaths.join('\n') === ['.github/workflows/protected-transition-admission-v1.yml', 'scripts/run-protected-transition-admission-v1.mjs', 'scripts/test-protected-transition-admission-v1.mjs'].join('\n') &&
   (runnerSource.match(/const reduceSelfAwareCurrentChecksV1 =/g) ?? []).length === 1 &&
   (runnerSource.match(/reduceSelfAwareCurrentChecksV1\(/g) ?? []).length === 2 &&
-  (runnerSource.match(/partitionReadyRunChecksV1\(/g) ?? []).length === 2,
+  (runnerSource.match(/partitionReadyRunChecksV1\(/g) ?? []).length === 2 &&
+  runnerSource.includes("const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'") &&
+  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 2,
   'SGR-12 shared-helper use and correction/cumulative allowlists hold without duplicate sibling filters',
 )
 
@@ -2205,7 +2538,7 @@ const hostRunnerBindingMatrix = [
 ]
 for (const [index, evidence] of hostRunnerBindingMatrix.entries()) check(evidence, `host-runner binding matrix ${index + 1}`)
 
-const hostAcquisitionPreflightChangedPaths = execFileSync('git', ['diff', '--name-only', HOST_ACQUISITION_PREFLIGHT_BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
+const hostAcquisitionPreflightChangedPaths = execFileSync('git', ['diff', '--name-only', BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
 const hostAcquisitionPreflightExpectedPaths = [
   '.github/workflows/protected-transition-admission-v1.yml',
   'scripts/run-protected-transition-admission-v1.mjs',
@@ -2233,7 +2566,7 @@ const hostAcquisitionPreflightMatrix = [
   providerProbeRun.includes("'rev-parse', '--show-toplevel'") && !providerProbeRun.includes("'symbolic-ref'") && !providerProbeRun.includes("repair_provider_branch_changed") && repairJob.steps.find((step) => step.name === 'Checkout exact repair HEAD')?.with?.ref === '${{ needs.protected_transition_admission_v1.outputs.repair_exact_head }}' && providerProbeRun.includes("'status', '--porcelain=v1', '--untracked-files=all'") && providerProbeRun.split("'status', '--porcelain=v1', '--untracked-files=all'").length === 3 && providerProbeRun.includes('[IO.File]::WriteAllBytes($sentinelPath, $sentinelBytes)') && providerProbeRun.includes("throw 'repair_target_worktree_not_writable'"),
   providerProbeRun.includes('$pushTransport = "https://github.com/$($env:GITHUB_REPOSITORY).git"') && providerProbeRun.includes("@('ls-remote', '--heads', $pushTransport") && providerProbeRun.split("'ls-remote'").length === 2 && providerProbeRun.includes('Invoke-RepairPushPreflight') && !providerProbeRun.includes("-Failure 'repair_push_transport_failed' -SuppressOutput") && !providerProbeRun.includes(repairPushSecretName) && !providerProbeRun.includes(tokenUserInfoMarker),
   repairPushPreflightHelperSource.includes('$remoteLines.Count -ne 1') && repairPushPreflightHelperSource.includes('$remoteFields.Count -ne 2') && repairPushPreflightHelperSource.includes('$remoteFields[0] -cne $ExpectedHead') && repairPushPreflightHelperSource.includes('$remoteFields[1] -cne $ExpectedRef') && repairPushPreflightHelperSource.split("throw 'repair_push_remote_head_mismatch exit_code=0'").length === 3,
-  hostAcquisitionPreflightChangedPaths.join('\n') === hostAcquisitionPreflightExpectedPaths.join('\n') && workflowSource.includes('protected-transition-admission-v1: 486 assertions passed') && !repairRunSource.includes('retry') && !repairRunSource.includes('fallback') && !repairRunSource.includes('default branch'),
+  hostAcquisitionPreflightChangedPaths.join('\n') === hostAcquisitionPreflightExpectedPaths.join('\n') && workflowSource.includes('protected-transition-admission-v1: 516 assertions passed') && !repairRunSource.includes('retry') && !repairRunSource.includes('fallback') && !repairRunSource.includes('default branch'),
 ]
 for (const [index, evidence] of hostAcquisitionPreflightMatrix.entries()) check(evidence, `host acquisition and provider preflight matrix ${index + 1}`)
 
@@ -2273,5 +2606,5 @@ const repairPushPreflightContractMatrix = [
 ]
 for (const [index, evidence] of repairPushPreflightContractMatrix.entries()) check(evidence, `repair push preflight contract matrix ${index + 1}`)
 
-if (assertions !== 486) throw new Error(`expected exactly 486 assertions, observed ${assertions}`)
+if (assertions !== 516) throw new Error(`expected exactly 516 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
