@@ -155,7 +155,7 @@ flowchart TD
 
 ## 8. Evaluator entry contract
 
-The pure evaluator contract accepts exactly two separately validated, deeply immutable values:
+The future pure evaluator accepts exactly two separately validated, deeply immutable values:
 
 ```text
 evaluateContextHealth(
@@ -614,7 +614,7 @@ Local-only files, conversation memory, logs, or an unlinked artifact are not can
 
 ### 17.1 ContextHandoffManifestV1 logical root
 
-The root manifest contract is closed and requires:
+The future root manifest is closed and requires:
 
 | Field | Required meaning |
 | --- | --- |
