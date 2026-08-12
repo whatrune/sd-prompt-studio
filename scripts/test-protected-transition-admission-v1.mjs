@@ -14,7 +14,10 @@ import {
   acquireChangedPathScopeV1,
   evaluateProgressionControllerV1,
   evaluateMergeAllowedAutomationV1,
+  evaluateProductOwnerMergeDecisionV1,
   evaluateRoleTransitionOrchestratorV1,
+  evaluateRoleDispatchOutputV1,
+  executeRoleDispatchConsumerV1,
   executeRepairExecutorV1,
   executeReadyForReviewProgressionV1,
   executeReviewApprovalAutomationV1 as executeReviewApprovalAutomationProductionV1,
@@ -24,10 +27,12 @@ import {
   extractProtectedTransitionTaskStateV1,
   isRepairProfilePathV1,
   normalizeRoleTransitionEventV1,
+  parseProductOwnerMergeDecisionV1,
   parseIndependentReviewDecisionProjectionV1,
   parseReviewApprovalEventV1,
   projectProtectedTransitionReviewStateV1,
   projectSelfHostedWindowsRepairProviderV3,
+  projectRoleDispatchEnvelopeV1,
   repairWorkingTreePathsV1,
   resolveEffectiveReviewDecisionV1,
   selectRepairValidationProfileV1,
@@ -41,7 +46,7 @@ const HEAD = 'a'.repeat(40)
 const OTHER_HEAD = 'b'.repeat(40)
 const READY_RUN_ID = '31246327840'
 const REVIEW_RUN_ID = '31561746789'
-const BASE = '65e84d3d787d4db871f34d4ab1ab452494a61605'
+const BASE = '9fda08907ff21c5c596146b779d7feeac5efbfa8'
 const HOST_RUNNER_BINDING_BASE = '3631d84351a49088baaadb5b3445751a7bf0b44e'
 const HOST_RUNNER_BINDING_HEAD = '35b7849840a2a9191f4ebf56bf83e145725a6dfa'
 const CURRENT_GENERATION_REDUCER_BASE = HOST_RUNNER_BINDING_HEAD
@@ -379,9 +384,9 @@ const repairRoute = Object.freeze({
 })
 const mergeRoute = Object.freeze({
   transition: 'merge_allowed_automation_v1', state: 'MERGE_ELIGIBLE', allowed: true, exit_code: 0,
-  reason: 'merge_allowed', task_issue_number: TASK, pr_number: PR, current_head: OTHER_HEAD,
+  reason: 'merge_gate_satisfied', task_issue_number: TASK, pr_number: PR, current_head: OTHER_HEAD,
   out_of_scope_paths: Object.freeze([]), state_changed: false, automation_status: 'HANDOFF_READY',
-  next_action: 'MERGE_OPERATOR',
+  next_action: 'MERGE_OPERATOR', external_check_success_count: 2, blocking_thread_count: 0,
 })
 const rolePublicationAuthorityId = 9101
 const roleImplementationResultId = 9102
@@ -584,8 +589,8 @@ const roleUnits = [
     name: 'APPROVE and MERGE_ELIGIBLE',
     result: evaluateRoleTransitionOrchestratorV1(roleInput({ terminalResult: 'APPROVE', routeResult: mergeRoute })),
     status: 'HANDOFF_READY',
-    next: 'MERGE_OPERATOR',
-    evidence: (value) => value.reason === 'merge_allowed' && value.allowed === true && value.terminal_result === 'APPROVE',
+    next: 'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
+    evidence: (value) => value.reason === 'merge_decision_required' && value.allowed === false && value.terminal_result === 'APPROVE',
   },
   {
     name: 'HEAD mismatch',
@@ -1716,7 +1721,7 @@ check(
   currentGenerationCorrectionPaths.join('\n') === ['scripts/run-protected-transition-admission-v1.mjs', 'scripts/test-protected-transition-admission-v1.mjs'].join('\n') &&
   taskChangedPaths.join('\n') === ['.github/workflows/protected-transition-admission-v1.yml', 'scripts/run-protected-transition-admission-v1.mjs', 'scripts/test-protected-transition-admission-v1.mjs'].join('\n') &&
   (runnerSource.match(/const reduceSelfAwareCurrentChecksV1 =/g) ?? []).length === 1 &&
-  (runnerSource.match(/reduceSelfAwareCurrentChecksV1\(/g) ?? []).length === 2 &&
+  (runnerSource.match(/reduceSelfAwareCurrentChecksV1\(/g) ?? []).length === 3 &&
   (runnerSource.match(/partitionReadyRunChecksV1\(/g) ?? []).length === 2 &&
   runnerSource.includes("const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'") &&
   (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 2,
@@ -2493,7 +2498,7 @@ const providerUnits = [
     evidence: [
       providerExec.reason === 'repair_provider_exec_binding_satisfied' && providerExec.next_action === 'EXECUTE_REPAIR_AGENT' && providerExec.provider_projection.invocation_count === 1,
       providerExec.provider_projection.exec_argv.join('|') === `exec|-c|features.shell_tool=false|-c|sandbox_workspace_write.network_access=false|-c|sandbox_workspace_write.writable_roots=[]|--sandbox|workspace-write|--ephemeral|--json|--cd|${WINDOWS_WORKSPACE}|-`,
-      workflowSource.split('& codex.cmd exec').length === 2 && providerExecutionStep?.['timeout-minutes'] === 20 && !providerExecutionStep.run.includes('danger-full-access') && !providerExecutionStep.run.includes('bypass'),
+      providerExecutionStep?.run.split('& codex.cmd exec').length === 2 && providerExecutionStep?.['timeout-minutes'] === 20 && !providerExecutionStep.run.includes('danger-full-access') && !providerExecutionStep.run.includes('bypass'),
     ],
   },
   {
@@ -2530,7 +2535,7 @@ const hostRunnerBindingMatrix = [
   hostRunnerRun.includes('[IO.File]::AppendAllText($env:GITHUB_ENV, "PTA_HOST_RUNNER=$hostRunner$([Environment]::NewLine)", $utf8NoBom)'),
   hostOrchestrationSteps.length === 6 && hostOrchestrationSteps.every((step) => step?.run.includes('node $env:PTA_HOST_RUNNER')),
   hostOrchestrationSteps.every((step) => !step?.run.includes('node scripts/run-protected-transition-admission-v1.mjs')) && !repairRunSource.includes('node scripts/run-protected-transition-admission-v1.mjs'),
-  providerExecutionStep?.run.includes('$prompt | & codex.cmd exec -c features.shell_tool=false -c sandbox_workspace_write.network_access=false -c sandbox_workspace_write.writable_roots=[] --sandbox workspace-write --ephemeral --json --cd $env:GITHUB_WORKSPACE -') && workflowSource.split('& codex.cmd exec').length === 2,
+  providerExecutionStep?.run.includes('$prompt | & codex.cmd exec -c features.shell_tool=false -c sandbox_workspace_write.network_access=false -c sandbox_workspace_write.writable_roots=[] --sandbox workspace-write --ephemeral --json --cd $env:GITHUB_WORKSPACE -') && providerExecutionStep.run.split('& codex.cmd exec').length === 2,
   hostRunnerRun.includes("throw 'repair_host_inside_target_workspace'") && !repairRunSource.includes('Set-Location') && hostOrchestrationSteps.every((step) => !step?.['working-directory']),
   hostOrchestrationSteps.every((step) => step?.run.includes('$env:PTA_HOST_RUNNER')) && hostOrchestrationSteps.every((step) => !step?.run.includes('$env:GITHUB_WORKSPACE/scripts/run-protected-transition-admission-v1.mjs')),
   repairJob.steps.indexOf(hostRunnerStep) < repairJob.steps.indexOf(providerProbeStep) && repairJob.steps.indexOf(hostRunnerStep) < repairJob.steps.indexOf(providerExecutionStep) && !hostRunnerStep?.['continue-on-error'] && hostRunnerRun.includes("-Failure 'repair_host_fetch_failed'") && hostRunnerRun.includes("throw 'repair_host_runner_missing'"),
@@ -2566,7 +2571,7 @@ const hostAcquisitionPreflightMatrix = [
   providerProbeRun.includes("'rev-parse', '--show-toplevel'") && !providerProbeRun.includes("'symbolic-ref'") && !providerProbeRun.includes("repair_provider_branch_changed") && repairJob.steps.find((step) => step.name === 'Checkout exact repair HEAD')?.with?.ref === '${{ needs.protected_transition_admission_v1.outputs.repair_exact_head }}' && providerProbeRun.includes("'status', '--porcelain=v1', '--untracked-files=all'") && providerProbeRun.split("'status', '--porcelain=v1', '--untracked-files=all'").length === 3 && providerProbeRun.includes('[IO.File]::WriteAllBytes($sentinelPath, $sentinelBytes)') && providerProbeRun.includes("throw 'repair_target_worktree_not_writable'"),
   providerProbeRun.includes('$pushTransport = "https://github.com/$($env:GITHUB_REPOSITORY).git"') && providerProbeRun.includes("@('ls-remote', '--heads', $pushTransport") && providerProbeRun.split("'ls-remote'").length === 2 && providerProbeRun.includes('Invoke-RepairPushPreflight') && !providerProbeRun.includes("-Failure 'repair_push_transport_failed' -SuppressOutput") && !providerProbeRun.includes(repairPushSecretName) && !providerProbeRun.includes(tokenUserInfoMarker),
   repairPushPreflightHelperSource.includes('$remoteLines.Count -ne 1') && repairPushPreflightHelperSource.includes('$remoteFields.Count -ne 2') && repairPushPreflightHelperSource.includes('$remoteFields[0] -cne $ExpectedHead') && repairPushPreflightHelperSource.includes('$remoteFields[1] -cne $ExpectedRef') && repairPushPreflightHelperSource.split("throw 'repair_push_remote_head_mismatch exit_code=0'").length === 3,
-  hostAcquisitionPreflightChangedPaths.join('\n') === hostAcquisitionPreflightExpectedPaths.join('\n') && workflowSource.includes('protected-transition-admission-v1: 516 assertions passed') && !repairRunSource.includes('retry') && !repairRunSource.includes('fallback') && !repairRunSource.includes('default branch'),
+  hostAcquisitionPreflightChangedPaths.join('\n') === hostAcquisitionPreflightExpectedPaths.join('\n') && workflowSource.includes('protected-transition-admission-v1: 576 assertions passed') && !repairRunSource.includes('retry') && !repairRunSource.includes('fallback') && !repairRunSource.includes('default branch'),
 ]
 for (const [index, evidence] of hostAcquisitionPreflightMatrix.entries()) check(evidence, `host acquisition and provider preflight matrix ${index + 1}`)
 
@@ -2606,5 +2611,192 @@ const repairPushPreflightContractMatrix = [
 ]
 for (const [index, evidence] of repairPushPreflightContractMatrix.entries()) check(evidence, `repair push preflight contract matrix ${index + 1}`)
 
-if (assertions !== 516) throw new Error(`expected exactly 516 assertions, observed ${assertions}`)
+// Twelve Role Dispatch Consumer V1 units x five assertions = 60.
+const mergeDecisionReviewId = 9201
+const mergeDecisionRunId = Number(REVIEW_RUN_ID)
+const mergeDecisionBody = (overrides = {}) => {
+  const values = {
+    record_type: 'product_owner_merge_decision_v1',
+    authoring_role: 'Product Owner / Implementation Lead',
+    parent_issue: `https://github.com/${REPOSITORY}/issues/${TASK}`,
+    pull_request: `https://github.com/${REPOSITORY}/pull/${PR}`,
+    review_decision_comment: `https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-${mergeDecisionReviewId}`,
+    reviewed_head: OTHER_HEAD,
+    review_decision: 'APPROVE',
+    blocking_finding_count: 0,
+    remaining_finding_count: 0,
+    unknown_count: 0,
+    admission_run_id: mergeDecisionRunId,
+    admission_run_url: `https://github.com/${REPOSITORY}/actions/runs/${mergeDecisionRunId}`,
+    admission_state: 'MERGE_ELIGIBLE',
+    admission_allowed: true,
+    admission_reason: 'merge_gate_satisfied',
+    admission_evaluated_head: OTHER_HEAD,
+    external_check_success_count: 2,
+    blocking_thread_count: 0,
+    decision: 'MERGE_ALLOWED',
+    merge_allowed: true,
+    status: 'completed',
+    execution_stop_reason: 'merge_allowed',
+    ...overrides,
+  }
+  return `# Product Owner Merge Decision\n\n\`\`\`yaml\n${Object.entries(values).map(([key, value]) => `${key}: ${value}`).join('\n')}\n\`\`\``
+}
+const parsedMergeDecision = parseProductOwnerMergeDecisionV1(mergeDecisionBody(), REPOSITORY, TASK)
+const mergeDecisionParseMatrix = [
+  parsedMergeDecision.prNumber === PR,
+  parsedMergeDecision.exactHead === OTHER_HEAD,
+  parsedMergeDecision.reviewCommentId === mergeDecisionReviewId,
+  parsedMergeDecision.admissionRunId === mergeDecisionRunId,
+  parsedMergeDecision.externalCheckSuccessCount === 2 && parsedMergeDecision.blockingThreadCount === 0,
+]
+for (const [index, evidence] of mergeDecisionParseMatrix.entries()) check(evidence, `RDC-01 merge decision parse ${index + 1}`)
+
+const mergeDecisionEvent = Object.freeze({
+  action: 'created', repository: Object.freeze({ full_name: REPOSITORY }),
+  issue: Object.freeze({ number: TASK, state: 'open' }),
+  comment: Object.freeze({ id: 9202, author_association: 'OWNER', body: mergeDecisionBody() }),
+})
+const normalizedMergeDecision = normalizeRoleTransitionEventV1(mergeDecisionEvent)
+const duplicateMergeMarkerError = await errorOf(() => normalizeRoleTransitionEventV1({
+  ...mergeDecisionEvent,
+  comment: { ...mergeDecisionEvent.comment, body: `${mergeDecisionBody()}\nrecord_type: implementation_authorization_v1` },
+}))
+const malformedMergeDecisionError = await errorOf(() => parseProductOwnerMergeDecisionV1(mergeDecisionBody({ admission_evaluated_head: HEAD }), REPOSITORY, TASK))
+const mergeDecisionNormalizationMatrix = [
+  normalizedMergeDecision.terminalResult === 'MERGE_ALLOWED',
+  normalizedMergeDecision.repository === REPOSITORY && normalizedMergeDecision.taskIssueNumber === TASK,
+  normalizedMergeDecision.commentId === 9202 && normalizedMergeDecision.prNumber === PR,
+  duplicateMergeMarkerError?.message === 'terminal_result_ambiguous_or_invalid',
+  malformedMergeDecisionError?.message === 'terminal_result_ambiguous_or_invalid',
+]
+for (const [index, evidence] of mergeDecisionNormalizationMatrix.entries()) check(evidence, `RDC-02 merge decision normalization ${index + 1}`)
+
+const correctedApproveRoute = evaluateRoleTransitionOrchestratorV1(roleInput({ terminalResult: 'APPROVE', routeResult: mergeRoute }))
+const approveRouteMatrix = [
+  correctedApproveRoute.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
+  correctedApproveRoute.automation_status === 'HANDOFF_READY',
+  correctedApproveRoute.reason === 'merge_decision_required',
+  correctedApproveRoute.allowed === false && correctedApproveRoute.terminal_result === 'APPROVE',
+  !/terminalResult === 'APPROVE' && routeResult\?\.allowed === true && routeResult\?\.next_action === 'MERGE_OPERATOR'/.test(runnerSource) && runnerSource.includes("routeResult?.reason === 'merge_gate_satisfied'"),
+]
+for (const [index, evidence] of approveRouteMatrix.entries()) check(evidence, `RDC-03 approve authority separation ${index + 1}`)
+
+const mergeDecisionRequest = roleRequest()
+const mergeDecisionState = roleState({ observed_head: OTHER_HEAD, review_status: 'APPROVE', reviewed_head: OTHER_HEAD, review_blocker_count: 0 })
+const mergeDecisionReview = Object.freeze({ pr_number: PR, reviewed_head: OTHER_HEAD, decision: 'APPROVE', blocking_finding_count: 0, remaining_finding_count: 0, unknown_count: 0 })
+const mergeDecisionRun = Object.freeze({ id: mergeDecisionRunId, html_url: parsedMergeDecision.admissionRunUrl, head_sha: OTHER_HEAD, path: '.github/workflows/protected-transition-admission-v1.yml', event: 'issue_comment', status: 'completed', conclusion: 'success' })
+const mergeDecisionGate = Object.freeze({ ...mergeRoute, reason: 'merge_gate_satisfied', external_check_success_count: 2, blocking_thread_count: 0 })
+const admittedMergeDecision = evaluateProductOwnerMergeDecisionV1({ decision: parsedMergeDecision, request: mergeDecisionRequest, taskState: mergeDecisionState, review: mergeDecisionReview, admissionRun: mergeDecisionRun, gateResult: mergeDecisionGate })
+const admittedMergeDecisionMatrix = [
+  admittedMergeDecision.next_action === 'MERGE_OPERATOR',
+  admittedMergeDecision.automation_status === 'HANDOFF_READY',
+  admittedMergeDecision.reason === 'merge_allowed',
+  admittedMergeDecision.decisionValid === true && admittedMergeDecision.terminal_result === 'MERGE_ALLOWED',
+  admittedMergeDecision.allowed === false && admittedMergeDecision.current_head === OTHER_HEAD,
+]
+for (const [index, evidence] of admittedMergeDecisionMatrix.entries()) check(evidence, `RDC-04 merge decision admission ${index + 1}`)
+
+const rejectedMergeDecisions = [
+  evaluateProductOwnerMergeDecisionV1({ decision: { ...parsedMergeDecision, exactHead: HEAD }, request: mergeDecisionRequest, taskState: mergeDecisionState, review: mergeDecisionReview, admissionRun: mergeDecisionRun, gateResult: mergeDecisionGate }),
+  evaluateProductOwnerMergeDecisionV1({ decision: parsedMergeDecision, request: mergeDecisionRequest, taskState: { ...mergeDecisionState, observed_head: HEAD }, review: mergeDecisionReview, admissionRun: mergeDecisionRun, gateResult: mergeDecisionGate }),
+  evaluateProductOwnerMergeDecisionV1({ decision: parsedMergeDecision, request: mergeDecisionRequest, taskState: mergeDecisionState, review: { ...mergeDecisionReview, decision: 'CHANGES_REQUIRED' }, admissionRun: mergeDecisionRun, gateResult: mergeDecisionGate }),
+  evaluateProductOwnerMergeDecisionV1({ decision: parsedMergeDecision, request: mergeDecisionRequest, taskState: mergeDecisionState, review: mergeDecisionReview, admissionRun: { ...mergeDecisionRun, conclusion: 'failure' }, gateResult: mergeDecisionGate }),
+  evaluateProductOwnerMergeDecisionV1({ decision: parsedMergeDecision, request: mergeDecisionRequest, taskState: mergeDecisionState, review: mergeDecisionReview, admissionRun: mergeDecisionRun, gateResult: { ...mergeDecisionGate, external_check_success_count: 1 } }),
+]
+for (const [index, rejected] of rejectedMergeDecisions.entries()) check(rejected.next_action === 'STOP' && rejected.allowed === false && rejected.state_changed === false, `RDC-05 merge decision fail closed ${index + 1}`)
+
+const implementerRoute = evaluateRoleTransitionOrchestratorV1(roleInput({ request: roleRequest({ exactHead: HEAD }), taskState: roleState({ observed_head: HEAD }) }))
+const implementerDispatch = projectRoleDispatchEnvelopeV1({ result: implementerRoute, repository: REPOSITORY, sourceCommentId: 9301, authorizedPaths: rolePaths })
+const implementerDispatchMatrix = [
+  implementerDispatch.next_action === 'IMPLEMENTER' && implementerDispatch.purpose === 'IMPLEMENTER',
+  implementerDispatch.repository === REPOSITORY && implementerDispatch.task_issue_number === TASK,
+  implementerDispatch.pr_number === PR && implementerDispatch.exact_head === HEAD,
+  implementerDispatch.source_comment_id === 9301,
+  implementerDispatch.authorized_paths.join('\n') === rolePaths.join('\n') && implementerDispatch.admission_run_id === null,
+]
+for (const [index, evidence] of implementerDispatchMatrix.entries()) check(evidence, `RDC-06 implementer envelope ${index + 1}`)
+
+const mergeDecisionDispatch = projectRoleDispatchEnvelopeV1({ result: correctedApproveRoute, repository: REPOSITORY, sourceCommentId: 9302, authorizedPaths: rolePaths, admissionRunId: REVIEW_RUN_ID })
+const mergeDecisionDispatchMatrix = [
+  mergeDecisionDispatch.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
+  mergeDecisionDispatch.purpose === 'MERGE_DECISION',
+  mergeDecisionDispatch.admission_run_id === REVIEW_RUN_ID,
+  mergeDecisionDispatch.admission_state === 'MERGE_ELIGIBLE' && mergeDecisionDispatch.admission_allowed === true && mergeDecisionDispatch.admission_reason === 'merge_gate_satisfied',
+  mergeDecisionDispatch.external_check_success_count === 2 && mergeDecisionDispatch.blocking_thread_count === 0,
+]
+for (const [index, evidence] of mergeDecisionDispatchMatrix.entries()) check(evidence, `RDC-07 Product Owner envelope ${index + 1}`)
+
+const roleDispatchHost = {
+  api: async (endpoint) => {
+    if (endpoint.endsWith(`/pulls/${PR}`)) return pullObject({ head: HEAD, taskState: roleState({ observed_head: HEAD }) })
+    throw new Error(`unexpected_role_dispatch_endpoint:${endpoint}`)
+  },
+}
+const implementerPlan = await executeRoleDispatchConsumerV1({ dispatch: implementerDispatch, host: roleDispatchHost })
+const implementerPlanMatrix = [
+  implementerPlan.next_action === 'EXECUTE_ROLE' && implementerPlan.role === 'IMPLEMENTER',
+  implementerPlan.read_only === false && implementerPlan.mutation_count === 0,
+  implementerPlan.prompt.includes(`Exact HEAD: ${HEAD}`) && implementerPlan.prompt.includes('Do not commit, push, comment, review, or mutate protected state.'),
+  implementerPlan.provider_projection.exec_argv.includes('features.shell_tool=false'),
+  implementerPlan.provider_projection.exec_argv.includes('workspace-write') && implementerPlan.provider_projection.exec_argv.includes('sandbox_workspace_write.network_access=false'),
+]
+for (const [index, evidence] of implementerPlanMatrix.entries()) check(evidence, `RDC-08 bounded Implementer consumer ${index + 1}`)
+
+const validMergeDecisionDispatch = mergeDecisionDispatch
+const poPlan = await executeRoleDispatchConsumerV1({ dispatch: validMergeDecisionDispatch, host: {
+  api: async (endpoint) => endpoint.endsWith(`/pulls/${PR}`)
+    ? pullObject({ head: OTHER_HEAD, taskState: mergeDecisionState })
+    : Promise.reject(new Error(`unexpected_po_endpoint:${endpoint}`)),
+} })
+const stalePoPlan = await executeRoleDispatchConsumerV1({ dispatch: { ...validMergeDecisionDispatch, exact_head: HEAD }, host: {
+  api: async () => pullObject({ head: OTHER_HEAD, taskState: mergeDecisionState }),
+} })
+const poPlanMatrix = [
+  poPlan.next_action === 'EXECUTE_ROLE' && poPlan.role === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
+  poPlan.read_only === true && poPlan.provider_projection.exec_argv.includes('read-only'),
+  poPlan.prompt.includes(`Admission run: ${REVIEW_RUN_ID}`) && poPlan.prompt.includes('You cannot perform or request the merge operation directly.'),
+  stalePoPlan.next_action === 'STOP' && stalePoPlan.reason === 'role_dispatch_binding_changed',
+  stalePoPlan.mutation_count === 0 && poPlan.mutation_count === 0,
+]
+for (const [index, evidence] of poPlanMatrix.entries()) check(evidence, `RDC-09 bounded Product Owner consumer ${index + 1}`)
+
+const reviewerDispatch = Object.freeze({ ...implementerDispatch, next_action: 'INDEPENDENT_IMPLEMENTATION_REVIEWER', purpose: 'INDEPENDENT_IMPLEMENTATION_REVIEWER' })
+const implementerOutput = evaluateRoleDispatchOutputV1({ dispatch: implementerDispatch, body: roleImplementationResultBody })
+const reviewerOutput = evaluateRoleDispatchOutputV1({ dispatch: reviewerDispatch, body: reviewDecisionBody() })
+const mergeDecisionOutput = evaluateRoleDispatchOutputV1({ dispatch: validMergeDecisionDispatch, body: mergeDecisionBody() })
+const invalidRoleOutput = evaluateRoleDispatchOutputV1({ dispatch: reviewerDispatch, body: 'not a canonical review' })
+const roleOutputMatrix = [
+  implementerOutput.next_action === 'VALIDATE_IMPLEMENTATION',
+  reviewerOutput.next_action === 'POST_REVIEW',
+  mergeDecisionOutput.next_action === 'POST_MERGE_DECISION',
+  invalidRoleOutput.next_action === 'STOP' && invalidRoleOutput.reason === 'review_yaml_block_cardinality_invalid',
+  [implementerOutput, reviewerOutput, mergeDecisionOutput, invalidRoleOutput].every((value) => value.mutation_count === 0),
+]
+for (const [index, evidence] of roleOutputMatrix.entries()) check(evidence, `RDC-10 role output boundary ${index + 1}`)
+
+const roleConsumerJob = workflow.jobs.protected_transition_role_dispatch_consumer_v1
+const mergeOperatorJob = workflow.jobs.protected_transition_merge_operator_v1
+const postRepairReviewJob = workflow.jobs.protected_transition_post_repair_review_v1
+const workflowTopologyMatrix = [
+  roleConsumerJob?.if.includes('IMPLEMENTER') && roleConsumerJob.if.includes('PRODUCT_OWNER_IMPLEMENTATION_LEAD') && roleConsumerJob.if.includes('INDEPENDENT_IMPLEMENTATION_REVIEWER'),
+  workflow.jobs.protected_transition_repair_executor_v1?.if === "needs.protected_transition_admission_v1.outputs.repair_next_action == 'REPAIR_EXECUTOR'",
+  postRepairReviewJob?.needs.join(',') === 'protected_transition_admission_v1,protected_transition_repair_executor_v1' && postRepairReviewJob.if.includes("outputs.next_action == 'REVIEW'"),
+  mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR'",
+  admissionJob.outputs.role_dispatch_b64 === '${{ steps.evaluate.outputs.role_dispatch_b64 }}' && admissionJob.outputs.role_exact_head === '${{ steps.evaluate.outputs.role_exact_head }}',
+]
+for (const [index, evidence] of workflowTopologyMatrix.entries()) check(evidence, `RDC-11 workflow consumer topology ${index + 1}`)
+
+const roleExecutionRun = roleConsumerJob.steps.find((step) => step.name === 'Execute bounded role and host operation')?.run ?? ''
+const mergeOperationRun = mergeOperatorJob.steps.find((step) => step.name === 'Perform one normal merge commit')?.run ?? ''
+const workflowBoundaryMatrix = [
+  roleExecutionRun.includes('features.shell_tool=false') && roleExecutionRun.includes('sandbox_workspace_write.network_access=false') && roleExecutionRun.includes('sandbox_workspace_write.writable_roots=[]'),
+  roleExecutionRun.includes("$sandbox = if ($plan.read_only) { 'read-only' } else { 'workspace-write' }") && !roleExecutionRun.includes('danger-full-access'),
+  roleExecutionRun.includes('git diff --check') && roleExecutionRun.includes('pnpm.cmd test') && roleExecutionRun.includes('pnpm.cmd run build') && roleExecutionRun.includes('git push --porcelain'),
+  mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('auto-merge') && !mergeOperationRun.includes('--force'),
+  workflowSource.includes('PTA_ROLE_HOST_RUNNER') && workflowSource.includes('PTA_REVIEW_HOST_RUNNER') && workflowSource.includes('PTA_MERGE_HOST_RUNNER') && !workflowSource.includes('gh workflow run'),
+]
+for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 protected operation boundaries ${index + 1}`)
+
+if (assertions !== 576) throw new Error(`expected exactly 576 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

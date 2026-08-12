@@ -52,6 +52,8 @@ jobs:
       repair_exact_head: ${{ steps.evaluate.outputs.repair_exact_head }}
       repair_next_action: ${{ steps.evaluate.outputs.repair_next_action }}
       next_action: ${{ steps.evaluate.outputs.next_action }}
+      role_dispatch_b64: ${{ steps.evaluate.outputs.role_dispatch_b64 }}
+      role_exact_head: ${{ steps.evaluate.outputs.role_exact_head }}
       terminal_result: ${{ steps.evaluate.outputs.terminal_result }}
       source_comment_id: ${{ steps.evaluate.outputs.source_comment_id }}
     steps:
@@ -120,11 +122,301 @@ jobs:
             fs.appendFileSync(output, `next_action=${result.next_action ?? "NONE"}\n`);
             fs.appendFileSync(output, `terminal_result=${result.terminal_result ?? "NONE"}\n`);
             fs.appendFileSync(output, `source_comment_id=${result.source_comment_id ?? ""}\n`);
+            if (["IMPLEMENTER", "PRODUCT_OWNER_IMPLEMENTATION_LEAD", "INDEPENDENT_IMPLEMENTATION_REVIEWER", "MERGE_OPERATOR"].includes(result.next_action)) {
+              if (!result.role_dispatch || result.role_dispatch.next_action !== result.next_action || result.role_dispatch.exact_head !== result.current_head) throw new Error("role_dispatch_projection_invalid");
+              fs.appendFileSync(output, `role_exact_head=${result.role_dispatch.exact_head}\n`);
+              fs.appendFileSync(output, `role_dispatch_b64=${Buffer.from(JSON.stringify(result.role_dispatch)).toString("base64")}\n`);
+            }
             if (result.next_action === "REPAIR_EXECUTOR") {
               fs.appendFileSync(output, `repair_exact_head=${result.repair_dispatch.exact_head}\n`);
               fs.appendFileSync(output, `repair_dispatch_b64=${Buffer.from(JSON.stringify(result.repair_dispatch)).toString("base64")}\n`);
             }
           ' "$result_file"
+
+  protected_transition_role_dispatch_consumer_v1:
+    needs: protected_transition_admission_v1
+    if: contains(fromJSON('["IMPLEMENTER","PRODUCT_OWNER_IMPLEMENTATION_LEAD","INDEPENDENT_IMPLEMENTATION_REVIEWER"]'), needs.protected_transition_admission_v1.outputs.next_action)
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact role HEAD
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ needs.protected_transition_admission_v1.outputs.role_exact_head }}
+          persist-credentials: false
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24"
+
+      - name: Materialize immutable role host runner
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion.Major -ne 7) { throw 'role_powershell_major_invalid' }
+          $utf8NoBom = [Text.UTF8Encoding]::new($false)
+          if ($env:GITHUB_WORKFLOW_SHA -notmatch '^[0-9a-f]{40}$') { throw 'role_host_sha_invalid' }
+          $runnerTempRoot = [IO.Path]::GetFullPath($env:RUNNER_TEMP).TrimEnd([char[]]@('\', '/'))
+          $workspaceRoot = [IO.Path]::GetFullPath($env:GITHUB_WORKSPACE).TrimEnd([char[]]@('\', '/'))
+          $hostRoot = [IO.Path]::GetFullPath((Join-Path $runnerTempRoot ("protected-transition-role-host-{0}-{1}" -f $env:GITHUB_RUN_ID, $env:GITHUB_RUN_ATTEMPT)))
+          if (-not $hostRoot.StartsWith($runnerTempRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'role_host_path_escape' }
+          if ($hostRoot.StartsWith($workspaceRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'role_host_inside_target_workspace' }
+          if (Test-Path -LiteralPath $hostRoot) { throw 'role_host_path_collision' }
+          New-Item -ItemType Directory -Path $hostRoot -ErrorAction Stop | Out-Null
+          git -C $hostRoot init --quiet
+          if ($LASTEXITCODE -ne 0) { throw 'role_host_materialization_failed' }
+          git -C $hostRoot remote add origin "https://github.com/$($env:GITHUB_REPOSITORY).git"
+          if ($LASTEXITCODE -ne 0) { throw 'role_host_materialization_failed' }
+          git -C $hostRoot fetch --no-tags --depth=1 origin $env:GITHUB_WORKFLOW_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'role_host_fetch_failed' }
+          git -C $hostRoot checkout --quiet --detach FETCH_HEAD
+          if ($LASTEXITCODE -ne 0 -or (git -C $hostRoot rev-parse HEAD) -cne $env:GITHUB_WORKFLOW_SHA) { throw 'role_host_sha_mismatch' }
+          $hostRunner = Join-Path $hostRoot 'scripts/run-protected-transition-admission-v1.mjs'
+          if (-not (Test-Path -LiteralPath $hostRunner -PathType Leaf)) { throw 'role_host_runner_missing' }
+          [IO.File]::AppendAllText($env:GITHUB_ENV, "PTA_ROLE_HOST_RUNNER=$hostRunner$([Environment]::NewLine)", $utf8NoBom)
+
+      - name: Bind bounded role dispatch
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROLE_DISPATCH_B64: ${{ needs.protected_transition_admission_v1.outputs.role_dispatch_b64 }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $utf8NoBom = [Text.UTF8Encoding]::new($false)
+          $dispatchPath = Join-Path $env:RUNNER_TEMP 'role-dispatch.json'
+          $planPath = Join-Path $env:RUNNER_TEMP 'role-plan.json'
+          $promptPath = Join-Path $env:RUNNER_TEMP 'role-prompt.txt'
+          [IO.File]::WriteAllBytes($dispatchPath, [Convert]::FromBase64String($env:ROLE_DISPATCH_B64))
+          node $env:PTA_ROLE_HOST_RUNNER --role-dispatch-file $dispatchPath 1> $planPath
+          if ($LASTEXITCODE -ne 0) { throw 'role_dispatch_binding_failed' }
+          $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json
+          if ($plan.next_action -cne 'EXECUTE_ROLE' -or $plan.exact_head -cne '${{ needs.protected_transition_admission_v1.outputs.role_exact_head }}') { throw 'role_dispatch_not_ready' }
+          [IO.File]::WriteAllText($promptPath, [string]$plan.prompt, $utf8NoBom)
+
+      - name: Execute bounded role and host operation
+        shell: pwsh
+        timeout-minutes: 35
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $utf8NoBom = [Text.UTF8Encoding]::new($false)
+          $dispatchPath = Join-Path $env:RUNNER_TEMP 'role-dispatch.json'
+          $planPath = Join-Path $env:RUNNER_TEMP 'role-plan.json'
+          $promptPath = Join-Path $env:RUNNER_TEMP 'role-prompt.txt'
+          $outputPath = Join-Path $env:RUNNER_TEMP 'role-output.jsonl'
+          $bodyPath = Join-Path $env:RUNNER_TEMP 'role-body.md'
+          $resultPath = Join-Path $env:RUNNER_TEMP 'role-result.json'
+          $dispatch = Get-Content -LiteralPath $dispatchPath -Raw -Encoding utf8 | ConvertFrom-Json
+          $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json
+
+          function Invoke-BoundedRole {
+            param([string]$PromptFile, [string]$Sandbox, [string]$JsonlFile, [string]$BodyFile)
+            $prompt = [IO.File]::ReadAllText($PromptFile, $utf8NoBom)
+            $priorOutputEncoding = $OutputEncoding
+            $priorConsoleOutputEncoding = [Console]::OutputEncoding
+            $priorErrorActionPreference = $ErrorActionPreference
+            try {
+              $OutputEncoding = $utf8NoBom
+              [Console]::OutputEncoding = $utf8NoBom
+              $ErrorActionPreference = 'Continue'
+              $LASTEXITCODE = $null
+              $events = [string[]]@($prompt | & codex.cmd exec -c features.shell_tool=false -c sandbox_workspace_write.network_access=false -c sandbox_workspace_write.writable_roots=[] --sandbox $Sandbox --ephemeral --json --cd $env:GITHUB_WORKSPACE - 2>&1)
+              $nativeExit = $LASTEXITCODE
+            } finally {
+              $OutputEncoding = $priorOutputEncoding
+              [Console]::OutputEncoding = $priorConsoleOutputEncoding
+              $ErrorActionPreference = $priorErrorActionPreference
+            }
+            [IO.File]::WriteAllLines($JsonlFile, $events, $utf8NoBom)
+            if ($nativeExit -ne 0) { throw "role_provider_exec_failed_$nativeExit" }
+            $messages = @()
+            foreach ($line in $events) {
+              try {
+                $event = $line | ConvertFrom-Json -ErrorAction Stop
+                if ($event.type -ceq 'item.completed' -and $event.item.type -ceq 'agent_message' -and -not [string]::IsNullOrWhiteSpace([string]$event.item.text)) { $messages += [string]$event.item.text }
+              } catch { }
+            }
+            if ($messages.Count -ne 1) { throw 'role_provider_result_cardinality_invalid' }
+            [IO.File]::WriteAllText($BodyFile, $messages[0], $utf8NoBom)
+          }
+
+          function Assert-RoleOutput {
+            param([string]$DispatchFile, [string]$BodyFile, [string]$ExpectedAction, [string]$ResultFile)
+            node $env:PTA_ROLE_HOST_RUNNER --role-output-file $BodyFile --role-dispatch-file $DispatchFile 1> $ResultFile
+            if ($LASTEXITCODE -ne 0) { throw 'role_output_validation_failed' }
+            $validated = Get-Content -LiteralPath $ResultFile -Raw -Encoding utf8 | ConvertFrom-Json
+            if ($validated.next_action -cne $ExpectedAction) { throw 'role_output_operation_invalid' }
+            return $validated
+          }
+
+          function Publish-CanonicalComment {
+            param([string]$BodyFile)
+            $priorToken = $env:GH_TOKEN
+            try {
+              Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
+              $payload = @{ body = [IO.File]::ReadAllText($BodyFile, $utf8NoBom) } | ConvertTo-Json -Compress
+              $posted = $payload | gh api --method POST "repos/$($dispatch.repository)/issues/$($dispatch.task_issue_number)/comments" --input - | ConvertFrom-Json
+              if ($LASTEXITCODE -ne 0 -or -not $posted.id) { throw 'role_comment_post_failed' }
+              $fresh = gh api "repos/$($dispatch.repository)/issues/comments/$($posted.id)" | ConvertFrom-Json
+              if ($LASTEXITCODE -ne 0 -or $fresh.issue_url -cne "https://api.github.com/repos/$($dispatch.repository)/issues/$($dispatch.task_issue_number)" -or $fresh.body -cne [IO.File]::ReadAllText($BodyFile, $utf8NoBom)) { throw 'role_comment_refetch_mismatch' }
+              return $fresh
+            } finally {
+              if ($null -eq $priorToken) { Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue } else { $env:GH_TOKEN = $priorToken }
+            }
+          }
+
+          $sandbox = if ($plan.read_only) { 'read-only' } else { 'workspace-write' }
+          Invoke-BoundedRole -PromptFile $promptPath -Sandbox $sandbox -JsonlFile $outputPath -BodyFile $bodyPath
+          $expected = if ($dispatch.next_action -ceq 'IMPLEMENTER') { 'VALIDATE_IMPLEMENTATION' } elseif ($dispatch.purpose -ceq 'MERGE_DECISION') { 'POST_MERGE_DECISION' } elseif ($dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER') { 'POST_REVIEW' } else { 'COMMIT_PUSH_PUBLISH' }
+          $validated = Assert-RoleOutput -DispatchFile $dispatchPath -BodyFile $bodyPath -ExpectedAction $expected -ResultFile $resultPath
+
+          if ($expected -in @('POST_REVIEW', 'POST_MERGE_DECISION')) {
+            $null = Publish-CanonicalComment -BodyFile $bodyPath
+            exit 0
+          }
+          if ($expected -ne 'VALIDATE_IMPLEMENTATION') { throw 'role_consumer_entry_invalid' }
+
+          $changed = [string[]]@(git status --porcelain=v1 --untracked-files=all | ForEach-Object { $_.Substring(3).Replace('\', '/') } | Sort-Object -Unique)
+          $authorized = [string[]]@($dispatch.authorized_paths | Sort-Object -Unique)
+          if ($changed.Count -eq 0 -or (Compare-Object $changed $authorized)) { throw 'role_implementation_scope_invalid' }
+          git diff --check
+          if ($LASTEXITCODE -ne 0) { throw 'role_diff_check_failed' }
+          pnpm.cmd install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { throw 'role_dependency_install_failed' }
+          pnpm.cmd run validate:dictionary
+          if ($LASTEXITCODE -ne 0) { throw 'role_dictionary_validation_failed' }
+          pnpm.cmd test
+          if ($LASTEXITCODE -ne 0) { throw 'role_test_failed' }
+          pnpm.cmd run build
+          if ($LASTEXITCODE -ne 0) { throw 'role_build_failed' }
+
+          $resultComment = Publish-CanonicalComment -BodyFile $bodyPath
+          $poDispatch = [ordered]@{}
+          $dispatch.psobject.Properties | ForEach-Object { $poDispatch[$_.Name] = $_.Value }
+          $poDispatch.next_action = 'PRODUCT_OWNER_IMPLEMENTATION_LEAD'
+          $poDispatch.purpose = 'PUBLICATION_DECISION'
+          $poDispatch.terminal_result = 'IMPLEMENTATION_RESULT_READY'
+          $poDispatch.source_comment_id = [int64]$resultComment.id
+          $poDispatchPath = Join-Path $env:RUNNER_TEMP 'role-publication-dispatch.json'
+          $poPlanPath = Join-Path $env:RUNNER_TEMP 'role-publication-plan.json'
+          $poPromptPath = Join-Path $env:RUNNER_TEMP 'role-publication-prompt.txt'
+          $poBodyPath = Join-Path $env:RUNNER_TEMP 'role-publication-body.md'
+          $poOutputPath = Join-Path $env:RUNNER_TEMP 'role-publication-output.jsonl'
+          $poResultPath = Join-Path $env:RUNNER_TEMP 'role-publication-result.json'
+          [IO.File]::WriteAllText($poDispatchPath, ($poDispatch | ConvertTo-Json -Depth 8 -Compress), $utf8NoBom)
+          node $env:PTA_ROLE_HOST_RUNNER --role-dispatch-file $poDispatchPath 1> $poPlanPath
+          if ($LASTEXITCODE -ne 0) { throw 'publication_dispatch_binding_failed' }
+          $poPlan = Get-Content -LiteralPath $poPlanPath -Raw -Encoding utf8 | ConvertFrom-Json
+          $poPrompt = "$($poPlan.prompt)`nResult Handoff comment: https://github.com/$($dispatch.repository)/issues/$($dispatch.task_issue_number)#issuecomment-$($resultComment.id)`nValidated changed paths: $($authorized -join ', ')"
+          [IO.File]::WriteAllText($poPromptPath, $poPrompt, $utf8NoBom)
+          Invoke-BoundedRole -PromptFile $poPromptPath -Sandbox 'read-only' -JsonlFile $poOutputPath -BodyFile $poBodyPath
+          $null = Assert-RoleOutput -DispatchFile $poDispatchPath -BodyFile $poBodyPath -ExpectedAction 'COMMIT_PUSH_PUBLISH' -ResultFile $poResultPath
+          $authorityComment = Publish-CanonicalComment -BodyFile $poBodyPath
+
+          $pull = gh api "repos/$($dispatch.repository)/pulls/$($dispatch.pr_number)" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $pull.state -cne 'open' -or $pull.head.sha -cne $dispatch.exact_head -or [string]::IsNullOrWhiteSpace([string]$pull.head.ref)) { throw 'publication_pull_binding_changed' }
+          $remote = git ls-remote --heads "https://github.com/$($dispatch.repository).git" "refs/heads/$($pull.head.ref)"
+          if ($LASTEXITCODE -ne 0 -or ($remote -split '\s+')[0] -cne $dispatch.exact_head) { throw 'publication_remote_binding_changed' }
+          git add -- $authorized
+          if ($LASTEXITCODE -ne 0 -or (Compare-Object ([string[]]@(git diff --cached --name-only | Sort-Object)) $authorized)) { throw 'publication_staged_scope_invalid' }
+          git -c user.name='protected-transition-role-consumer-v1' -c user.email='protected-transition-role-consumer-v1@users.noreply.github.com' commit -m 'implement authorized protected transition task'
+          if ($LASTEXITCODE -ne 0) { throw 'publication_commit_failed' }
+          $newHead = (git rev-parse HEAD).Trim()
+          git push --porcelain "https://github.com/$($dispatch.repository).git" "HEAD:refs/heads/$($pull.head.ref)"
+          if ($LASTEXITCODE -ne 0) { throw 'publication_push_failed' }
+          $remoteAfter = git ls-remote --heads "https://github.com/$($dispatch.repository).git" "refs/heads/$($pull.head.ref)"
+          if ($LASTEXITCODE -ne 0 -or ($remoteAfter -split '\s+')[0] -cne $newHead) { throw 'publication_remote_head_mismatch' }
+          $publicationPath = Join-Path $env:RUNNER_TEMP 'role-publication-handoff.md'
+          $pathLines = ($authorized | ForEach-Object { "- ``$_``" }) -join [Environment]::NewLine
+          $publication = "## Publication Handoff`n`n- Publication Authority: https://github.com/$($dispatch.repository)/issues/$($dispatch.task_issue_number)#issuecomment-$($authorityComment.id)`n- target PR: ``#$($dispatch.pr_number)```n- published HEAD: ``$newHead```n- exact parent: ``$($dispatch.exact_head)```n- push mode: normal non-force fast-forward`n- local / remote HEAD equality: PASS`n`n### Published scope`n`n$pathLines`n`n### Terminal state`n`n- status: ``completed```n- execution_stop_reason: ``completed```n"
+          [IO.File]::WriteAllText($publicationPath, $publication, $utf8NoBom)
+          $null = Publish-CanonicalComment -BodyFile $publicationPath
+
+  protected_transition_merge_operator_v1:
+    needs: protected_transition_admission_v1
+    if: needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR'
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact merge HEAD
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ needs.protected_transition_admission_v1.outputs.role_exact_head }}
+          persist-credentials: false
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24"
+
+      - name: Materialize immutable merge host runner
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion.Major -ne 7) { throw 'merge_powershell_major_invalid' }
+          $utf8NoBom = [Text.UTF8Encoding]::new($false)
+          if ($env:GITHUB_WORKFLOW_SHA -notmatch '^[0-9a-f]{40}$') { throw 'merge_host_sha_invalid' }
+          $runnerTempRoot = [IO.Path]::GetFullPath($env:RUNNER_TEMP).TrimEnd([char[]]@('\', '/'))
+          $workspaceRoot = [IO.Path]::GetFullPath($env:GITHUB_WORKSPACE).TrimEnd([char[]]@('\', '/'))
+          $hostRoot = [IO.Path]::GetFullPath((Join-Path $runnerTempRoot ("protected-transition-merge-host-{0}-{1}" -f $env:GITHUB_RUN_ID, $env:GITHUB_RUN_ATTEMPT)))
+          if (-not $hostRoot.StartsWith($runnerTempRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'merge_host_path_escape' }
+          if ($hostRoot.StartsWith($workspaceRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'merge_host_inside_target_workspace' }
+          if (Test-Path -LiteralPath $hostRoot) { throw 'merge_host_path_collision' }
+          New-Item -ItemType Directory -Path $hostRoot -ErrorAction Stop | Out-Null
+          git -C $hostRoot init --quiet
+          if ($LASTEXITCODE -ne 0) { throw 'merge_host_materialization_failed' }
+          git -C $hostRoot remote add origin "https://github.com/$($env:GITHUB_REPOSITORY).git"
+          git -C $hostRoot fetch --no-tags --depth=1 origin $env:GITHUB_WORKFLOW_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'merge_host_fetch_failed' }
+          git -C $hostRoot checkout --quiet --detach FETCH_HEAD
+          if ($LASTEXITCODE -ne 0 -or (git -C $hostRoot rev-parse HEAD) -cne $env:GITHUB_WORKFLOW_SHA) { throw 'merge_host_sha_mismatch' }
+          $hostRunner = Join-Path $hostRoot 'scripts/run-protected-transition-admission-v1.mjs'
+          if (-not (Test-Path -LiteralPath $hostRunner -PathType Leaf)) { throw 'merge_host_runner_missing' }
+          [IO.File]::AppendAllText($env:GITHUB_ENV, "PTA_MERGE_HOST_RUNNER=$hostRunner$([Environment]::NewLine)", $utf8NoBom)
+
+      - name: Rebind exact decision and prepare one merge
+        id: merge_plan
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROLE_DISPATCH_B64: ${{ needs.protected_transition_admission_v1.outputs.role_dispatch_b64 }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $utf8NoBom = [Text.UTF8Encoding]::new($false)
+          $dispatchPath = Join-Path $env:RUNNER_TEMP 'merge-dispatch.json'
+          $planPath = Join-Path $env:RUNNER_TEMP 'merge-plan.json'
+          [IO.File]::WriteAllBytes($dispatchPath, [Convert]::FromBase64String($env:ROLE_DISPATCH_B64))
+          node $env:PTA_MERGE_HOST_RUNNER --merge-operator-file $dispatchPath 1> $planPath
+          if ($LASTEXITCODE -ne 0) { throw 'merge_operator_preflight_failed' }
+          $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json
+          if ($plan.next_action -ceq 'NONE' -and $plan.reason -ceq 'already_merged') {
+            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "operation=NONE$([Environment]::NewLine)", $utf8NoBom)
+            exit 0
+          }
+          if ($plan.next_action -cne 'MERGE_PR' -or $plan.merge_method -cne 'merge' -or $plan.exact_head -cne '${{ needs.protected_transition_admission_v1.outputs.role_exact_head }}') { throw 'merge_operator_plan_invalid' }
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "operation=MERGE_PR$([Environment]::NewLine)", $utf8NoBom)
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "pr_number=$($plan.pr_number)$([Environment]::NewLine)", $utf8NoBom)
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "exact_head=$($plan.exact_head)$([Environment]::NewLine)", $utf8NoBom)
+
+      - name: Perform one normal merge commit
+        if: steps.merge_plan.outputs.operation == 'MERGE_PR'
+        shell: pwsh
+        env:
+          MERGE_PR_NUMBER: ${{ steps.merge_plan.outputs.pr_number }}
+          MERGE_EXACT_HEAD: ${{ steps.merge_plan.outputs.exact_head }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $priorToken = $env:GH_TOKEN
+          try {
+            Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
+            $payload = @{ sha = $env:MERGE_EXACT_HEAD; merge_method = 'merge' } | ConvertTo-Json -Compress
+            $merged = $payload | gh api --method PUT "repos/$($env:GITHUB_REPOSITORY)/pulls/$($env:MERGE_PR_NUMBER)/merge" --input - | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or $merged.merged -ne $true -or [string]::IsNullOrWhiteSpace([string]$merged.sha)) { throw 'merge_operation_failed' }
+            $fresh = gh api "repos/$($env:GITHUB_REPOSITORY)/pulls/$($env:MERGE_PR_NUMBER)" | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or $fresh.merged -ne $true -or $fresh.head.sha -cne $env:MERGE_EXACT_HEAD) { throw 'merge_operation_refetch_failed' }
+          } finally {
+            if ($null -eq $priorToken) { Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue } else { $env:GH_TOKEN = $priorToken }
+          }
 
   protected_transition_repair_executor_v1:
     needs: protected_transition_admission_v1
@@ -583,7 +875,7 @@ jobs:
             $focusedOutput = @(node scripts/test-protected-transition-admission-v1.mjs)
             if ($LASTEXITCODE -ne 0) { throw 'focused_validation_failed' }
             $focusedOutput | ForEach-Object { Write-Output $_ }
-            if ($focusedOutput[-1] -cne 'protected-transition-admission-v1: 516 assertions passed') { throw 'focused_assertion_total_invalid' }
+            if ($focusedOutput[-1] -cne 'protected-transition-admission-v1: 576 assertions passed') { throw 'focused_assertion_total_invalid' }
             node scripts/test-role-execution-contracts.mjs
             if ($LASTEXITCODE -ne 0) { throw 'role_contract_validation_failed' }
             pnpm.cmd run validate:dictionary
@@ -702,4 +994,137 @@ jobs:
             }
           } finally {
             Remove-Item -LiteralPath $evidencePath -Force -ErrorAction SilentlyContinue
+          }
+
+  protected_transition_post_repair_review_v1:
+    needs: [protected_transition_admission_v1, protected_transition_repair_executor_v1]
+    if: needs.protected_transition_repair_executor_v1.outputs.next_action == 'REVIEW'
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact repaired HEAD
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ needs.protected_transition_repair_executor_v1.outputs.new_head }}
+          persist-credentials: false
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24"
+
+      - name: Materialize immutable post-repair review host runner
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $utf8NoBom = [Text.UTF8Encoding]::new($false)
+          $runnerTempRoot = [IO.Path]::GetFullPath($env:RUNNER_TEMP).TrimEnd([char[]]@('\', '/'))
+          $workspaceRoot = [IO.Path]::GetFullPath($env:GITHUB_WORKSPACE).TrimEnd([char[]]@('\', '/'))
+          $hostRoot = [IO.Path]::GetFullPath((Join-Path $runnerTempRoot ("protected-transition-review-host-{0}-{1}" -f $env:GITHUB_RUN_ID, $env:GITHUB_RUN_ATTEMPT)))
+          if (-not $hostRoot.StartsWith($runnerTempRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or $hostRoot.StartsWith($workspaceRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or (Test-Path -LiteralPath $hostRoot)) { throw 'post_repair_review_host_invalid' }
+          New-Item -ItemType Directory -Path $hostRoot -ErrorAction Stop | Out-Null
+          git -C $hostRoot init --quiet
+          git -C $hostRoot remote add origin "https://github.com/$($env:GITHUB_REPOSITORY).git"
+          git -C $hostRoot fetch --no-tags --depth=1 origin $env:GITHUB_WORKFLOW_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'post_repair_review_host_fetch_failed' }
+          git -C $hostRoot checkout --quiet --detach FETCH_HEAD
+          if ($LASTEXITCODE -ne 0 -or (git -C $hostRoot rev-parse HEAD) -cne $env:GITHUB_WORKFLOW_SHA) { throw 'post_repair_review_host_sha_mismatch' }
+          $hostRunner = Join-Path $hostRoot 'scripts/run-protected-transition-admission-v1.mjs'
+          if (-not (Test-Path -LiteralPath $hostRunner -PathType Leaf)) { throw 'post_repair_review_host_runner_missing' }
+          [IO.File]::AppendAllText($env:GITHUB_ENV, "PTA_REVIEW_HOST_RUNNER=$hostRunner$([Environment]::NewLine)", $utf8NoBom)
+
+      - name: Bind post-repair Independent Reviewer
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TASK_NUMBER: ${{ needs.protected_transition_repair_executor_v1.outputs.task_issue_number }}
+          PR_NUMBER: ${{ needs.protected_transition_repair_executor_v1.outputs.pr_number }}
+          REPAIRED_HEAD: ${{ needs.protected_transition_repair_executor_v1.outputs.new_head }}
+          SOURCE_COMMENT_ID: ${{ needs.protected_transition_admission_v1.outputs.source_comment_id }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion.Major -ne 7) { throw 'post_repair_review_powershell_major_invalid' }
+          $utf8NoBom = [Text.UTF8Encoding]::new($false)
+          $pull = gh api "repos/$($env:GITHUB_REPOSITORY)/pulls/$env:PR_NUMBER" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $pull.state -cne 'open' -or $pull.head.sha -cne $env:REPAIRED_HEAD) { throw 'post_repair_review_binding_changed' }
+          $stateMatch = [regex]::Match([string]$pull.body, '(?s)<!-- protected-transition-task-state-v1:start -->\s*```json\s*(\{.*?\})\s*```\s*<!-- protected-transition-task-state-v1:end -->')
+          if (-not $stateMatch.Success) { throw 'post_repair_review_state_missing' }
+          $state = $stateMatch.Groups[1].Value | ConvertFrom-Json
+          if ($state.observed_head -cne $env:REPAIRED_HEAD -or $state.review_status -cne 'PENDING' -or $null -ne $state.reviewed_head -or $null -ne $state.review_blocker_count) { throw 'post_repair_review_state_invalid' }
+          $dispatch = [ordered]@{
+            repository = $env:GITHUB_REPOSITORY
+            task_issue_number = [int]$env:TASK_NUMBER
+            pr_number = [int]$env:PR_NUMBER
+            exact_head = $env:REPAIRED_HEAD
+            source_comment_id = [int64]$env:SOURCE_COMMENT_ID
+            terminal_result = 'PUBLISHED'
+            next_action = 'INDEPENDENT_IMPLEMENTATION_REVIEWER'
+            purpose = 'INDEPENDENT_IMPLEMENTATION_REVIEWER'
+            authorized_paths = @($state.authorized_paths)
+            admission_run_id = $null
+            admission_state = $null
+            admission_allowed = $null
+            admission_reason = $null
+            external_check_success_count = $null
+            blocking_thread_count = $null
+          }
+          $dispatchPath = Join-Path $env:RUNNER_TEMP 'post-repair-review-dispatch.json'
+          $planPath = Join-Path $env:RUNNER_TEMP 'post-repair-review-plan.json'
+          $promptPath = Join-Path $env:RUNNER_TEMP 'post-repair-review-prompt.txt'
+          [IO.File]::WriteAllText($dispatchPath, ($dispatch | ConvertTo-Json -Depth 8 -Compress), $utf8NoBom)
+          node $env:PTA_REVIEW_HOST_RUNNER --role-dispatch-file $dispatchPath 1> $planPath
+          if ($LASTEXITCODE -ne 0) { throw 'post_repair_review_dispatch_failed' }
+          $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json
+          if ($plan.next_action -cne 'EXECUTE_ROLE' -or $plan.role -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER' -or -not $plan.read_only) { throw 'post_repair_review_plan_invalid' }
+          [IO.File]::WriteAllText($promptPath, [string]$plan.prompt, $utf8NoBom)
+
+      - name: Execute and publish post-repair Review
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $utf8NoBom = [Text.UTF8Encoding]::new($false)
+          $dispatchPath = Join-Path $env:RUNNER_TEMP 'post-repair-review-dispatch.json'
+          $promptPath = Join-Path $env:RUNNER_TEMP 'post-repair-review-prompt.txt'
+          $bodyPath = Join-Path $env:RUNNER_TEMP 'post-repair-review-body.md'
+          $resultPath = Join-Path $env:RUNNER_TEMP 'post-repair-review-result.json'
+          $prompt = [IO.File]::ReadAllText($promptPath, $utf8NoBom)
+          $priorOutputEncoding = $OutputEncoding
+          $priorConsoleOutputEncoding = [Console]::OutputEncoding
+          $priorErrorActionPreference = $ErrorActionPreference
+          try {
+            $OutputEncoding = $utf8NoBom
+            [Console]::OutputEncoding = $utf8NoBom
+            $ErrorActionPreference = 'Continue'
+            $LASTEXITCODE = $null
+            $events = [string[]]@($prompt | & codex.cmd exec -c features.shell_tool=false -c sandbox_workspace_write.network_access=false -c sandbox_workspace_write.writable_roots=[] --sandbox read-only --ephemeral --json --cd $env:GITHUB_WORKSPACE - 2>&1)
+            $nativeExit = $LASTEXITCODE
+          } finally {
+            $OutputEncoding = $priorOutputEncoding
+            [Console]::OutputEncoding = $priorConsoleOutputEncoding
+            $ErrorActionPreference = $priorErrorActionPreference
+          }
+          if ($nativeExit -ne 0) { throw "post_repair_review_provider_failed_$nativeExit" }
+          $messages = @()
+          foreach ($line in $events) {
+            try {
+              $event = $line | ConvertFrom-Json -ErrorAction Stop
+              if ($event.type -ceq 'item.completed' -and $event.item.type -ceq 'agent_message' -and -not [string]::IsNullOrWhiteSpace([string]$event.item.text)) { $messages += [string]$event.item.text }
+            } catch { }
+          }
+          if ($messages.Count -ne 1) { throw 'post_repair_review_result_cardinality_invalid' }
+          [IO.File]::WriteAllText($bodyPath, $messages[0], $utf8NoBom)
+          node $env:PTA_REVIEW_HOST_RUNNER --role-output-file $bodyPath --role-dispatch-file $dispatchPath 1> $resultPath
+          if ($LASTEXITCODE -ne 0) { throw 'post_repair_review_result_invalid' }
+          $validated = Get-Content -LiteralPath $resultPath -Raw -Encoding utf8 | ConvertFrom-Json
+          if ($validated.next_action -cne 'POST_REVIEW') { throw 'post_repair_review_operation_invalid' }
+          $priorToken = $env:GH_TOKEN
+          try {
+            Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
+            $payload = @{ body = [IO.File]::ReadAllText($bodyPath, $utf8NoBom) } | ConvertTo-Json -Compress
+            $posted = $payload | gh api --method POST "repos/$($env:GITHUB_REPOSITORY)/issues/${{ needs.protected_transition_repair_executor_v1.outputs.task_issue_number }}/comments" --input - | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or -not $posted.id) { throw 'post_repair_review_comment_failed' }
+            $fresh = gh api "repos/$($env:GITHUB_REPOSITORY)/issues/comments/$($posted.id)" | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or $fresh.body -cne [IO.File]::ReadAllText($bodyPath, $utf8NoBom)) { throw 'post_repair_review_refetch_mismatch' }
+          } finally {
+            if ($null -eq $priorToken) { Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue } else { $env:GH_TOKEN = $priorToken }
           }
