@@ -177,6 +177,7 @@ jobs:
           [IO.File]::AppendAllText($env:GITHUB_ENV, "PTA_ROLE_HOST_RUNNER=$hostRunner$([Environment]::NewLine)", $utf8NoBom)
 
       - name: Bind bounded role dispatch
+        id: role_dispatch_plan
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -191,10 +192,16 @@ jobs:
           node $env:PTA_ROLE_HOST_RUNNER --role-dispatch-file $dispatchPath 1> $planPath
           if ($LASTEXITCODE -ne 0) { throw 'role_dispatch_binding_failed' }
           $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json
+          if ($plan.next_action -ceq 'CONVERGED_NOOP' -and $plan.exact_head -ceq '${{ needs.protected_transition_admission_v1.outputs.role_exact_head }}') {
+            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "operation=CONVERGED_NOOP$([Environment]::NewLine)", $utf8NoBom)
+            exit 0
+          }
           if ($plan.next_action -cne 'EXECUTE_ROLE' -or $plan.exact_head -cne '${{ needs.protected_transition_admission_v1.outputs.role_exact_head }}') { throw 'role_dispatch_not_ready' }
           [IO.File]::WriteAllText($promptPath, [string]$plan.prompt, $utf8NoBom)
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "operation=EXECUTE_ROLE$([Environment]::NewLine)", $utf8NoBom)
 
       - name: Execute bounded role and host operation
+        if: steps.role_dispatch_plan.outputs.operation == 'EXECUTE_ROLE'
         shell: pwsh
         timeout-minutes: 35
         run: |
@@ -249,6 +256,22 @@ jobs:
             return $validated
           }
 
+          function Assert-FreshRoleBinding {
+            param([string]$DispatchFile, [string]$Operation = 'canonical_write', [Nullable[Int64]]$AuthorityCommentId = $null, [string]$NewHead = $null)
+            $rebindPath = Join-Path $env:RUNNER_TEMP ("role-rebind-{0}.json" -f ([Guid]::NewGuid().ToString('N')))
+            $arguments = @('--role-rebind-file', $DispatchFile, '--operation', $Operation)
+            if ($null -ne $AuthorityCommentId) { $arguments += @('--authority-comment-id', [string]$AuthorityCommentId) }
+            if (-not [string]::IsNullOrWhiteSpace($NewHead)) { $arguments += @('--new-head', $NewHead) }
+            try {
+              node $env:PTA_ROLE_HOST_RUNNER @arguments 1> $rebindPath
+              if ($LASTEXITCODE -ne 0) { throw 'role_pre_operation_rebind_failed' }
+              $rebound = Get-Content -LiteralPath $rebindPath -Raw -Encoding utf8 | ConvertFrom-Json
+              if ($rebound.next_action -cne 'PROTECTED_OPERATION_READY' -or $rebound.mutation_count -ne 0) { throw 'role_pre_operation_rebind_invalid' }
+            } finally {
+              Remove-Item -LiteralPath $rebindPath -Force -ErrorAction SilentlyContinue
+            }
+          }
+
           function Publish-CanonicalComment {
             param([string]$BodyFile)
             $priorToken = $env:GH_TOKEN
@@ -271,6 +294,7 @@ jobs:
           $validated = Assert-RoleOutput -DispatchFile $dispatchPath -BodyFile $bodyPath -ExpectedAction $expected -ResultFile $resultPath
 
           if ($expected -in @('POST_REVIEW', 'POST_MERGE_DECISION')) {
+            Assert-FreshRoleBinding -DispatchFile $dispatchPath
             $null = Publish-CanonicalComment -BodyFile $bodyPath
             exit 0
           }
@@ -290,6 +314,7 @@ jobs:
           pnpm.cmd run build
           if ($LASTEXITCODE -ne 0) { throw 'role_build_failed' }
 
+          Assert-FreshRoleBinding -DispatchFile $dispatchPath
           $resultComment = Publish-CanonicalComment -BodyFile $bodyPath
           $poDispatch = [ordered]@{}
           $dispatch.psobject.Properties | ForEach-Object { $poDispatch[$_.Name] = $_.Value }
@@ -307,12 +332,16 @@ jobs:
           node $env:PTA_ROLE_HOST_RUNNER --role-dispatch-file $poDispatchPath 1> $poPlanPath
           if ($LASTEXITCODE -ne 0) { throw 'publication_dispatch_binding_failed' }
           $poPlan = Get-Content -LiteralPath $poPlanPath -Raw -Encoding utf8 | ConvertFrom-Json
+          if ($poPlan.next_action -ceq 'CONVERGED_NOOP') { exit 0 }
+          if ($poPlan.next_action -cne 'EXECUTE_ROLE') { throw 'publication_dispatch_not_ready' }
           $poPrompt = "$($poPlan.prompt)`nResult Handoff comment: https://github.com/$($dispatch.repository)/issues/$($dispatch.task_issue_number)#issuecomment-$($resultComment.id)`nValidated changed paths: $($authorized -join ', ')"
           [IO.File]::WriteAllText($poPromptPath, $poPrompt, $utf8NoBom)
           Invoke-BoundedRole -PromptFile $poPromptPath -Sandbox 'read-only' -JsonlFile $poOutputPath -BodyFile $poBodyPath
           $null = Assert-RoleOutput -DispatchFile $poDispatchPath -BodyFile $poBodyPath -ExpectedAction 'COMMIT_PUSH_PUBLISH' -ResultFile $poResultPath
+          Assert-FreshRoleBinding -DispatchFile $poDispatchPath
           $authorityComment = Publish-CanonicalComment -BodyFile $poBodyPath
 
+          Assert-FreshRoleBinding -DispatchFile $poDispatchPath -Operation 'commit_push' -AuthorityCommentId ([int64]$authorityComment.id)
           $pull = gh api "repos/$($dispatch.repository)/pulls/$($dispatch.pr_number)" | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or $pull.state -cne 'open' -or $pull.head.sha -cne $dispatch.exact_head -or [string]::IsNullOrWhiteSpace([string]$pull.head.ref)) { throw 'publication_pull_binding_changed' }
           $remote = git ls-remote --heads "https://github.com/$($dispatch.repository).git" "refs/heads/$($pull.head.ref)"
@@ -322,6 +351,7 @@ jobs:
           git -c user.name='protected-transition-role-consumer-v1' -c user.email='protected-transition-role-consumer-v1@users.noreply.github.com' commit -m 'implement authorized protected transition task'
           if ($LASTEXITCODE -ne 0) { throw 'publication_commit_failed' }
           $newHead = (git rev-parse HEAD).Trim()
+          Assert-FreshRoleBinding -DispatchFile $poDispatchPath -Operation 'commit_push' -AuthorityCommentId ([int64]$authorityComment.id)
           git push --porcelain "https://github.com/$($dispatch.repository).git" "HEAD:refs/heads/$($pull.head.ref)"
           if ($LASTEXITCODE -ne 0) { throw 'publication_push_failed' }
           $remoteAfter = git ls-remote --heads "https://github.com/$($dispatch.repository).git" "refs/heads/$($pull.head.ref)"
@@ -330,6 +360,7 @@ jobs:
           $pathLines = ($authorized | ForEach-Object { "- ``$_``" }) -join [Environment]::NewLine
           $publication = "## Publication Handoff`n`n- Publication Authority: https://github.com/$($dispatch.repository)/issues/$($dispatch.task_issue_number)#issuecomment-$($authorityComment.id)`n- target PR: ``#$($dispatch.pr_number)```n- published HEAD: ``$newHead```n- exact parent: ``$($dispatch.exact_head)```n- push mode: normal non-force fast-forward`n- local / remote HEAD equality: PASS`n`n### Published scope`n`n$pathLines`n`n### Terminal state`n`n- status: ``completed```n- execution_stop_reason: ``completed```n"
           [IO.File]::WriteAllText($publicationPath, $publication, $utf8NoBom)
+          Assert-FreshRoleBinding -DispatchFile $poDispatchPath -Operation 'publication_handoff' -AuthorityCommentId ([int64]$authorityComment.id) -NewHead $newHead
           $null = Publish-CanonicalComment -BodyFile $publicationPath
 
   protected_transition_merge_operator_v1:
@@ -1034,6 +1065,7 @@ jobs:
           [IO.File]::AppendAllText($env:GITHUB_ENV, "PTA_REVIEW_HOST_RUNNER=$hostRunner$([Environment]::NewLine)", $utf8NoBom)
 
       - name: Bind post-repair Independent Reviewer
+        id: post_repair_review_plan
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -1067,6 +1099,7 @@ jobs:
             admission_reason = $null
             external_check_success_count = $null
             blocking_thread_count = $null
+            task_state = $state
           }
           $dispatchPath = Join-Path $env:RUNNER_TEMP 'post-repair-review-dispatch.json'
           $planPath = Join-Path $env:RUNNER_TEMP 'post-repair-review-plan.json'
@@ -1075,10 +1108,16 @@ jobs:
           node $env:PTA_REVIEW_HOST_RUNNER --role-dispatch-file $dispatchPath 1> $planPath
           if ($LASTEXITCODE -ne 0) { throw 'post_repair_review_dispatch_failed' }
           $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json
+          if ($plan.next_action -ceq 'CONVERGED_NOOP') {
+            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "operation=CONVERGED_NOOP$([Environment]::NewLine)", $utf8NoBom)
+            exit 0
+          }
           if ($plan.next_action -cne 'EXECUTE_ROLE' -or $plan.role -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER' -or -not $plan.read_only) { throw 'post_repair_review_plan_invalid' }
           [IO.File]::WriteAllText($promptPath, [string]$plan.prompt, $utf8NoBom)
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "operation=EXECUTE_ROLE$([Environment]::NewLine)", $utf8NoBom)
 
       - name: Execute and publish post-repair Review
+        if: steps.post_repair_review_plan.outputs.operation == 'EXECUTE_ROLE'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -1117,6 +1156,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'post_repair_review_result_invalid' }
           $validated = Get-Content -LiteralPath $resultPath -Raw -Encoding utf8 | ConvertFrom-Json
           if ($validated.next_action -cne 'POST_REVIEW') { throw 'post_repair_review_operation_invalid' }
+          $rebindPath = Join-Path $env:RUNNER_TEMP 'post-repair-review-rebind.json'
+          node $env:PTA_REVIEW_HOST_RUNNER --role-rebind-file $dispatchPath --operation canonical_write 1> $rebindPath
+          if ($LASTEXITCODE -ne 0) { throw 'post_repair_review_rebind_failed' }
+          $rebound = Get-Content -LiteralPath $rebindPath -Raw -Encoding utf8 | ConvertFrom-Json
+          if ($rebound.next_action -cne 'PROTECTED_OPERATION_READY' -or $rebound.mutation_count -ne 0) { throw 'post_repair_review_rebind_invalid' }
           $priorToken = $env:GH_TOKEN
           try {
             Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue

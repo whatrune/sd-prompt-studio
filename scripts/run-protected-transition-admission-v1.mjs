@@ -2142,7 +2142,8 @@ const roleDispatchStopV1 = (reason) => Object.freeze({
   mutation_count: 0,
 })
 
-export const projectRoleDispatchEnvelopeV1 = ({ result, repository, sourceCommentId, authorizedPaths, admissionRunId = null }) => {
+export const projectRoleDispatchEnvelopeV1 = ({ result, repository, sourceCommentId, authorizedPaths, taskState, admissionRunId = null }) => {
+  const parsedTaskState = parseProtectedTransitionTaskStateV1(taskState)
   if (
     !result || !ROLE_DISPATCH_ACTIONS_V1.includes(result.next_action) || result.next_action === 'REPAIR_EXECUTOR' ||
     !REPOSITORY.test(repository ?? '') || !positiveInteger(result.task_issue_number) ||
@@ -2175,6 +2176,7 @@ export const projectRoleDispatchEnvelopeV1 = ({ result, repository, sourceCommen
     admission_reason: purpose === 'MERGE_DECISION' ? result.admission_reason ?? result.reason : null,
     external_check_success_count: purpose === 'MERGE_DECISION' ? result.external_check_success_count : null,
     blocking_thread_count: purpose === 'MERGE_DECISION' ? result.blocking_thread_count : null,
+    task_state: parsedTaskState,
   })
 }
 
@@ -2200,31 +2202,186 @@ const roleDispatchPromptV1 = (dispatch) => {
   return [...common, 'Act as Product Owner / Implementation Lead. Read only. Return the existing publication decision/authorization body. Do not edit, commit, push, review, or merge.'].join('\n')
 }
 
+const validateRoleDispatchEnvelopeV1 = (dispatch) => {
+  if (
+    !dispatch || !CENTRAL_ROLE_DISPATCH_ACTIONS_V1.includes(dispatch.next_action) ||
+    !REPOSITORY.test(dispatch.repository ?? '') || !positiveInteger(dispatch.task_issue_number) ||
+    !positiveInteger(dispatch.pr_number) || !FULL_HEAD.test(dispatch.exact_head ?? '') ||
+    !positiveInteger(dispatch.source_comment_id) || !Array.isArray(dispatch.authorized_paths) ||
+    dispatch.authorized_paths.length === 0 || new Set(dispatch.authorized_paths).size !== dispatch.authorized_paths.length ||
+    dispatch.authorized_paths.some((value) => !isNormalizedRepositoryPathV1(value))
+  ) throw new Error('role_dispatch_envelope_invalid')
+  const taskState = parseProtectedTransitionTaskStateV1(dispatch.task_state)
+  if (
+    taskState.task_issue_number !== dispatch.task_issue_number || taskState.pr_number !== dispatch.pr_number ||
+    taskState.observed_head !== dispatch.exact_head ||
+    !sameRolePathsV1(Object.freeze([...taskState.authorized_paths].sort()), Object.freeze([...dispatch.authorized_paths].sort()))
+  ) throw new Error('role_dispatch_envelope_invalid')
+  return taskState
+}
+
+const roleDispatchRequestV1 = (dispatch) => Object.freeze({
+  transition: 'role_dispatch_consumer_v1',
+  repository: dispatch.repository,
+  taskIssueNumber: dispatch.task_issue_number,
+  prNumber: dispatch.pr_number,
+  exactHead: dispatch.exact_head,
+})
+
+const acquireRoleDispatchBindingV1 = async (dispatch, host, expectedHead = dispatch.exact_head) => {
+  const expectedState = validateRoleDispatchEnvelopeV1(dispatch)
+  const request = roleDispatchRequestV1(dispatch)
+  const pull = await acquirePull(request, host)
+  const taskState = extractProtectedTransitionTaskStateV1(pull.body)
+  const scope = await acquireChangedPathScopeV1(request, pull, host)
+  if (
+    pull.head.sha !== expectedHead || JSON.stringify(taskState) !== JSON.stringify(expectedState) ||
+    taskState.architecture_status !== 'APPROVED' || taskState.implementation_authorized !== true ||
+    !sameRolePathsV1(scope.actual_paths, Object.freeze([...dispatch.authorized_paths].sort()))
+  ) throw new Error('role_dispatch_binding_changed')
+  return Object.freeze({ request, pull, taskState, scope })
+}
+
+const parseRolePublicationAuthorityV1 = (body, repository, taskIssueNumber) => {
+  const yaml = parseRoleYamlV1(body)
+  const paths = yaml.lists.get('exact_paths')
+  const prNumber = roleOneScalarV1(yaml, ['target_pr', 'consumer_pr'])
+  if (
+    yaml.scalars.get('record_type') !== 'commit_push_publication_authorization_v1' ||
+    !roleTaskIdentityMatchesV1(yaml, repository, taskIssueNumber) || yaml.scalars.get('publication_allowed') !== true ||
+    !FULL_HEAD.test(yaml.scalars.get('expected_parent') ?? '') || !positiveInteger(prNumber) ||
+    !positiveInteger(yaml.scalars.get('result_handoff_comment_id')) || !Array.isArray(paths) || paths.length === 0 ||
+    yaml.scalars.get('status') !== 'authorized_for_publication_only'
+  ) throw new Error('terminal_result_ambiguous_or_invalid')
+  return Object.freeze({
+    prNumber,
+    exactHead: yaml.scalars.get('expected_parent'),
+    resultCommentId: yaml.scalars.get('result_handoff_comment_id'),
+    paths: Object.freeze([...paths].sort()),
+  })
+}
+
+const isCompletedRoleResultV1 = (body) =>
+  /(?:^|\r?\n)-?[ \t]*status:[ \t]+`?completed`?(?:\r?$)/mi.test(body) &&
+  /(?:^|\r?\n)-?[ \t]*execution_stop_reason:[ \t]+`?completed`?(?:\r?$)/mi.test(body) &&
+  /(?:blocker \/ remaining \/ UNKNOWN|blocker_count \/ remaining_count \/ unknown_count)[^\r\n]*`?0 \/ 0 \/ 0`?/i.test(body)
+
+const roleEvidenceProjectionV1 = (dispatch, body) => {
+  try {
+    if (dispatch.next_action === 'IMPLEMENTER') {
+      const result = parseRoleResultHandoffV1(body)
+      return result.prNumber === dispatch.pr_number && result.exactHead === dispatch.exact_head &&
+        result.authorizationCommentId === dispatch.source_comment_id && sameRolePathsV1(result.paths, dispatch.authorized_paths) &&
+        isCompletedRoleResultV1(body)
+        ? Object.freeze({ kind: 'IMPLEMENTATION_RESULT', projection: result }) : null
+    }
+    if (dispatch.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER') {
+      const review = parseIndependentReviewDecisionProjectionV1(body, dispatch.repository, dispatch.task_issue_number)
+      return review.pr_number === dispatch.pr_number && review.reviewed_head === dispatch.exact_head
+        ? Object.freeze({ kind: 'REVIEW_DECISION', projection: review }) : null
+    }
+    if (dispatch.purpose === 'MERGE_DECISION') {
+      const decision = parseProductOwnerMergeDecisionV1(body, dispatch.repository, dispatch.task_issue_number)
+      return decision.prNumber === dispatch.pr_number && decision.exactHead === dispatch.exact_head &&
+        decision.reviewCommentId === dispatch.source_comment_id && String(decision.admissionRunId) === dispatch.admission_run_id &&
+        decision.externalCheckSuccessCount === dispatch.external_check_success_count && decision.blockingThreadCount === dispatch.blocking_thread_count
+        ? Object.freeze({ kind: 'MERGE_DECISION', projection: decision }) : null
+    }
+    const authority = parseRolePublicationAuthorityV1(body, dispatch.repository, dispatch.task_issue_number)
+    return authority.prNumber === dispatch.pr_number && authority.exactHead === dispatch.exact_head &&
+      authority.resultCommentId === dispatch.source_comment_id && sameRolePathsV1(authority.paths, dispatch.authorized_paths)
+      ? Object.freeze({ kind: 'PUBLICATION_AUTHORITY', projection: authority }) : null
+  } catch {
+    return null
+  }
+}
+
+const acquireRoleConvergedEvidenceV1 = async (dispatch, host) => {
+  const matches = []
+  const pageFingerprints = new Set()
+  for (let pageNumber = 1; pageNumber <= 32; pageNumber += 1) {
+    const page = await api(host, `repos/${dispatch.repository}/issues/${dispatch.task_issue_number}/comments?per_page=${PAGE_SIZE}&page=${pageNumber}`)
+    if (!Array.isArray(page) || page.length > PAGE_SIZE) throw new Error('role_evidence_page_invalid')
+    const fingerprint = JSON.stringify(page.map((comment) => [comment?.id, comment?.created_at, comment?.author_association, comment?.body]))
+    if (page.length > 0 && pageFingerprints.has(fingerprint)) throw new Error('role_evidence_page_repeated')
+    pageFingerprints.add(fingerprint)
+    for (const comment of page) {
+      if (!positiveInteger(comment?.id) || typeof comment?.created_at !== 'string' || !STRICT_UTC.test(comment.created_at) ||
+        !REVIEW_ASSOCIATIONS.has(comment?.author_association) || typeof comment?.body !== 'string') continue
+      const evidence = roleEvidenceProjectionV1(dispatch, comment.body)
+      if (evidence) matches.push(Object.freeze({ ...evidence, id: comment.id, createdAt: comment.created_at, body: comment.body, authorAssociation: comment.author_association }))
+    }
+    if (page.length < PAGE_SIZE) break
+    if (pageNumber === 32) throw new Error('role_evidence_terminal_page_missing')
+  }
+  if (matches.length === 0) return null
+  matches.sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id - right.id)
+  const selected = matches.at(-1)
+  const fresh = await fetchRoleCommentRecordV1(dispatch.repository, dispatch.task_issue_number, selected.id, host)
+  const freshEvidence = roleEvidenceProjectionV1(dispatch, fresh.body)
+  if (!freshEvidence || fresh.body !== selected.body || fresh.author_association !== selected.authorAssociation || freshEvidence.kind !== selected.kind) {
+    throw new Error('role_evidence_binding_changed')
+  }
+  return Object.freeze({ id: selected.id, kind: selected.kind })
+}
+
+const verifyRoleDispatchSourceV1 = async (dispatch, host) => {
+  if (dispatch.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER') return null
+  const source = await fetchRoleCommentRecordV1(dispatch.repository, dispatch.task_issue_number, dispatch.source_comment_id, host)
+  if (dispatch.next_action === 'IMPLEMENTER') {
+    const authorization = parseRoleAuthorizationV1(source.body, dispatch.repository, dispatch.task_issue_number)
+    if (authorization.prNumber !== dispatch.pr_number || authorization.exactHead !== dispatch.exact_head || !sameRolePathsV1(authorization.paths, dispatch.authorized_paths)) throw new Error('role_dispatch_source_binding_changed')
+  } else if (dispatch.purpose === 'MERGE_DECISION') {
+    const review = parseIndependentReviewDecisionProjectionV1(source.body, dispatch.repository, dispatch.task_issue_number)
+    if (review.pr_number !== dispatch.pr_number || review.reviewed_head !== dispatch.exact_head || review.decision !== 'APPROVE' || review.blocking_finding_count !== 0 || review.remaining_finding_count !== 0 || review.unknown_count !== 0) throw new Error('role_dispatch_source_binding_changed')
+  } else {
+    const result = parseRoleResultHandoffV1(source.body)
+    if (result.prNumber !== dispatch.pr_number || result.exactHead !== dispatch.exact_head || !sameRolePathsV1(result.paths, dispatch.authorized_paths) || !isCompletedRoleResultV1(source.body)) throw new Error('role_dispatch_source_binding_changed')
+  }
+  return source
+}
+
+const verifyMergeDecisionGateV1 = async (dispatch, host) => {
+  if (dispatch.purpose !== 'MERGE_DECISION') return null
+  const request = Object.freeze({
+    transition: 'merge_decision_admission', repository: dispatch.repository,
+    taskIssueNumber: dispatch.task_issue_number, prNumber: dispatch.pr_number,
+    exactHead: dispatch.exact_head, currentWorkflowRunId: dispatch.admission_run_id,
+    selfCheckContext: REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1,
+  })
+  const admitted = await executeProtectedTransitionAdmissionV1({ request, host })
+  const gate = await evaluateMergeAllowedAutomationV1({ request, admitted, host })
+  if (
+    gate.state !== 'MERGE_ELIGIBLE' || gate.allowed !== true || gate.reason !== 'merge_gate_satisfied' ||
+    gate.current_head !== dispatch.exact_head || gate.external_check_success_count !== dispatch.external_check_success_count ||
+    gate.blocking_thread_count !== dispatch.blocking_thread_count
+  ) throw new Error('role_dispatch_gate_changed')
+  return gate
+}
+
+export const executeRoleDispatchRebindV1 = async ({ dispatch, host, operation = 'canonical_write', authorityCommentId = null, newHead = null }) => {
+  try {
+    if (!['canonical_write', 'commit_push', 'publication_handoff'].includes(operation)) throw new Error('role_rebind_operation_invalid')
+    const expectedHead = operation === 'publication_handoff' ? newHead : dispatch.exact_head
+    if (operation === 'publication_handoff' && (!FULL_HEAD.test(newHead ?? '') || newHead === dispatch.exact_head)) throw new Error('role_rebind_operation_invalid')
+    await acquireRoleDispatchBindingV1(dispatch, host, expectedHead)
+    await verifyRoleDispatchSourceV1(dispatch, host)
+    await verifyMergeDecisionGateV1(dispatch, host)
+    if (operation !== 'canonical_write') {
+      if (!positiveInteger(authorityCommentId)) throw new Error('role_publication_authority_invalid')
+      const authorityRecord = await fetchRoleCommentRecordV1(dispatch.repository, dispatch.task_issue_number, authorityCommentId, host)
+      const authority = parseRolePublicationAuthorityV1(authorityRecord.body, dispatch.repository, dispatch.task_issue_number)
+      if (authority.prNumber !== dispatch.pr_number || authority.exactHead !== dispatch.exact_head || authority.resultCommentId !== dispatch.source_comment_id || !sameRolePathsV1(authority.paths, dispatch.authorized_paths)) throw new Error('role_publication_authority_invalid')
+    }
+    return Object.freeze({ state: 'READY', allowed: false, exit_code: 0, reason: 'role_dispatch_rebound', automation_status: 'OPERATION_READY', next_action: 'PROTECTED_OPERATION_READY', mutation_count: 0, exact_head: expectedHead })
+  } catch (error) {
+    return roleDispatchStopV1(error instanceof Error ? error.message : 'role_dispatch_rebind_failed')
+  }
+}
+
 export const executeRoleDispatchConsumerV1 = async ({ dispatch, host }) => {
   try {
-    if (
-      !dispatch || !CENTRAL_ROLE_DISPATCH_ACTIONS_V1.includes(dispatch.next_action) ||
-      !REPOSITORY.test(dispatch.repository ?? '') || !positiveInteger(dispatch.task_issue_number) ||
-      !positiveInteger(dispatch.pr_number) || !FULL_HEAD.test(dispatch.exact_head ?? '') ||
-      !positiveInteger(dispatch.source_comment_id) || !Array.isArray(dispatch.authorized_paths) ||
-      dispatch.authorized_paths.length === 0 || new Set(dispatch.authorized_paths).size !== dispatch.authorized_paths.length ||
-      dispatch.authorized_paths.some((value) => !isNormalizedRepositoryPathV1(value))
-    ) throw new Error('role_dispatch_envelope_invalid')
-    const request = Object.freeze({
-      transition: 'role_dispatch_consumer_v1',
-      repository: dispatch.repository,
-      taskIssueNumber: dispatch.task_issue_number,
-      prNumber: dispatch.pr_number,
-      exactHead: dispatch.exact_head,
-    })
-    const pull = await acquirePull(request, host)
-    const taskState = extractProtectedTransitionTaskStateV1(pull.body)
-    if (
-      pull.head.sha !== request.exactHead || taskState.task_issue_number !== request.taskIssueNumber ||
-      taskState.pr_number !== request.prNumber || taskState.observed_head !== request.exactHead ||
-      taskState.architecture_status !== 'APPROVED' || taskState.implementation_authorized !== true ||
-      JSON.stringify([...taskState.authorized_paths].sort()) !== JSON.stringify([...dispatch.authorized_paths].sort())
-    ) throw new Error('role_dispatch_binding_changed')
+    const { request, taskState } = await acquireRoleDispatchBindingV1(dispatch, host)
     if (dispatch.purpose === 'MERGE_DECISION' && (
       dispatch.next_action !== 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' || dispatch.terminal_result !== 'APPROVE' ||
       dispatch.admission_state !== 'MERGE_ELIGIBLE' || dispatch.admission_allowed !== true ||
@@ -2232,6 +2389,13 @@ export const executeRoleDispatchConsumerV1 = async ({ dispatch, host }) => {
       !positiveInteger(dispatch.external_check_success_count) || dispatch.blocking_thread_count !== 0 ||
       taskState.review_status !== 'APPROVE' || taskState.reviewed_head !== request.exactHead || taskState.review_blocker_count !== 0
     )) throw new Error('role_dispatch_merge_decision_invalid')
+    await verifyRoleDispatchSourceV1(dispatch, host)
+    const converged = await acquireRoleConvergedEvidenceV1(dispatch, host)
+    if (converged) return Object.freeze({
+      state: 'COMPLETED', allowed: false, exit_code: 0, reason: 'role_evidence_reused',
+      automation_status: 'COMPLETED_NOOP', next_action: 'CONVERGED_NOOP', mutation_count: 0,
+      exact_head: request.exactHead, evidence_comment_id: converged.id, evidence_kind: converged.kind,
+    })
     return Object.freeze({
       state: 'READY', allowed: false, exit_code: 0, reason: 'role_dispatch_bound',
       automation_status: 'DISPATCH_READY', next_action: 'EXECUTE_ROLE', mutation_count: 0,
@@ -2256,6 +2420,7 @@ export const evaluateRoleDispatchOutputV1 = ({ dispatch, body }) => {
       const parsed = parseRoleResultHandoffV1(body)
       if (
         parsed.prNumber !== dispatch.pr_number || parsed.exactHead !== dispatch.exact_head ||
+        parsed.authorizationCommentId !== dispatch.source_comment_id ||
         !sameRolePathsV1(parsed.paths, Object.freeze([...dispatch.authorized_paths].sort())) ||
         !/(?:^|\r?\n)-?[ \t]*status:[ \t]+`?completed`?(?:\r?$)/mi.test(body) ||
         !/(?:^|\r?\n)-?[ \t]*execution_stop_reason:[ \t]+`?completed`?(?:\r?$)/mi.test(body) ||
@@ -2272,22 +2437,18 @@ export const evaluateRoleDispatchOutputV1 = ({ dispatch, body }) => {
       const decision = parseProductOwnerMergeDecisionV1(body, dispatch.repository, dispatch.task_issue_number)
       if (
         decision.prNumber !== dispatch.pr_number || decision.exactHead !== dispatch.exact_head ||
+        decision.reviewCommentId !== dispatch.source_comment_id ||
         String(decision.admissionRunId) !== dispatch.admission_run_id ||
         decision.externalCheckSuccessCount !== dispatch.external_check_success_count ||
         decision.blockingThreadCount !== dispatch.blocking_thread_count
       ) throw new Error('role_output_invalid')
       return Object.freeze({ state: 'READY', allowed: false, exit_code: 0, reason: 'merge_decision_valid', next_action: 'POST_MERGE_DECISION', mutation_count: 0, comment_body: body })
     }
-    const yaml = parseRoleYamlV1(body)
-    const paths = yaml.lists.get('exact_paths')
-    const prNumber = roleOneScalarV1(yaml, ['target_pr', 'consumer_pr'])
+    const authority = parseRolePublicationAuthorityV1(body, dispatch.repository, dispatch.task_issue_number)
     if (
-      yaml.scalars.get('record_type') !== 'commit_push_publication_authorization_v1' ||
-      !roleTaskIdentityMatchesV1(yaml, dispatch.repository, dispatch.task_issue_number) ||
-      yaml.scalars.get('publication_allowed') !== true || yaml.scalars.get('expected_parent') !== dispatch.exact_head ||
-      prNumber !== dispatch.pr_number || !positiveInteger(yaml.scalars.get('result_handoff_comment_id')) ||
-      !sameRolePathsV1(Object.freeze([...(paths ?? [])].sort()), Object.freeze([...dispatch.authorized_paths].sort())) ||
-      yaml.scalars.get('status') !== 'authorized_for_publication_only'
+      authority.exactHead !== dispatch.exact_head || authority.prNumber !== dispatch.pr_number ||
+      authority.resultCommentId !== dispatch.source_comment_id ||
+      !sameRolePathsV1(authority.paths, Object.freeze([...dispatch.authorized_paths].sort()))
     ) throw new Error('role_output_invalid')
     return Object.freeze({ state: 'READY', allowed: false, exit_code: 0, reason: 'publication_decision_valid', next_action: 'COMMIT_PUSH_PUBLISH', mutation_count: 0, comment_body: body })
   } catch (error) {
@@ -2486,6 +2647,7 @@ const parseRoleResultHandoffV1 = (body) => Object.freeze({
   prNumber: Number(roleLineValueV1(body, ['target PR', 'PR']).replace(/^#/, '')),
   exactHead: roleLineValueV1(body, ['implementation HEAD', 'HEAD']),
   paths: rolePathSectionV1(body, ['Changed paths']),
+  authorizationCommentId: roleCommentIdV1(body, ['Implementation Authorization']),
 })
 
 const sameRolePathsV1 = (left, right) => Array.isArray(left) && Array.isArray(right) && left.join('\n') === right.join('\n')
@@ -2513,7 +2675,7 @@ export const executeRoleTransitionOrchestratorV1 = async ({ event, host, runId }
       const pull = await acquirePull(request, host)
       const taskState = extractProtectedTransitionTaskStateV1(pull.body)
       const routed = evaluateRoleTransitionOrchestratorV1({ terminalResult, request, taskState, paths: taskState.authorized_paths, authorityValid: true, routeResult: result })
-      const roleDispatch = projectRoleDispatchEnvelopeV1({ result: routed, repository: normalized.repository, sourceCommentId: normalized.commentId, authorizedPaths: taskState.authorized_paths, admissionRunId: runId })
+      const roleDispatch = projectRoleDispatchEnvelopeV1({ result: routed, repository: normalized.repository, sourceCommentId: normalized.commentId, authorizedPaths: taskState.authorized_paths, taskState, admissionRunId: runId })
       return Object.freeze({ ...routed, source_comment_id: normalized.commentId, role_dispatch: roleDispatch })
     }
     let currentBody
@@ -2550,7 +2712,7 @@ export const executeRoleTransitionOrchestratorV1 = async ({ event, host, runId }
       const gateResult = await evaluateMergeAllowedAutomationV1({ request: gateRequest, admitted, host })
       const routeResult = evaluateProductOwnerMergeDecisionV1({ decision: normalized, request, taskState, review, admissionRun, gateResult })
       if (routeResult.next_action !== 'MERGE_OPERATOR') return Object.freeze({ ...routeResult, source_comment_id: normalized.commentId })
-      const roleDispatch = projectRoleDispatchEnvelopeV1({ result: routeResult, repository: normalized.repository, sourceCommentId: normalized.commentId, authorizedPaths: taskState.authorized_paths, admissionRunId: normalized.admissionRunId })
+      const roleDispatch = projectRoleDispatchEnvelopeV1({ result: routeResult, repository: normalized.repository, sourceCommentId: normalized.commentId, authorizedPaths: taskState.authorized_paths, taskState, admissionRunId: normalized.admissionRunId })
       return Object.freeze({ ...routeResult, source_comment_id: normalized.commentId, role_dispatch: roleDispatch })
     }
     if (normalized.terminalResult === 'IMPLEMENTATION_AUTHORIZED') {
@@ -2559,7 +2721,7 @@ export const executeRoleTransitionOrchestratorV1 = async ({ event, host, runId }
       const valid = validateRoleArchitectureReviewV1(architectureBody, normalized.candidateSha, normalized.repository, normalized.taskIssueNumber)
       const routed = evaluateRoleTransitionOrchestratorV1({ terminalResult: normalized.terminalResult, request, taskState: priorState, paths: normalized.paths, authorityValid: valid })
       if (routed.next_action !== 'IMPLEMENTER') return Object.freeze({ ...routed, source_comment_id: normalized.commentId })
-      return Object.freeze({ ...routed, source_comment_id: normalized.commentId, role_dispatch: projectRoleDispatchEnvelopeV1({ result: routed, repository: normalized.repository, sourceCommentId: normalized.commentId, authorizedPaths: priorState.authorized_paths }) })
+      return Object.freeze({ ...routed, source_comment_id: normalized.commentId, role_dispatch: projectRoleDispatchEnvelopeV1({ result: routed, repository: normalized.repository, sourceCommentId: normalized.commentId, authorizedPaths: priorState.authorized_paths, taskState: priorState }) })
     }
     if (normalized.terminalResult === 'IMPLEMENTATION_RESULT_READY') {
       const priorState = extractProtectedTransitionTaskStateV1(pull.body)
@@ -2568,7 +2730,7 @@ export const executeRoleTransitionOrchestratorV1 = async ({ event, host, runId }
       const valid = authorization.prNumber === request.prNumber && authorization.exactHead === request.exactHead && sameRolePathsV1(authorization.paths, normalized.paths)
       const routed = evaluateRoleTransitionOrchestratorV1({ terminalResult: normalized.terminalResult, request, taskState: priorState, paths: normalized.paths, authorityValid: valid })
       if (routed.next_action !== 'PRODUCT_OWNER_IMPLEMENTATION_LEAD') return Object.freeze({ ...routed, source_comment_id: normalized.commentId })
-      return Object.freeze({ ...routed, source_comment_id: normalized.commentId, role_dispatch: projectRoleDispatchEnvelopeV1({ result: routed, repository: normalized.repository, sourceCommentId: normalized.commentId, authorizedPaths: priorState.authorized_paths }) })
+      return Object.freeze({ ...routed, source_comment_id: normalized.commentId, role_dispatch: projectRoleDispatchEnvelopeV1({ result: routed, repository: normalized.repository, sourceCommentId: normalized.commentId, authorizedPaths: priorState.authorized_paths, taskState: priorState }) })
     }
     if (!FULL_HEAD.test(normalized.parentHead ?? '') || normalized.parentHead === normalized.exactHead) throw new Error('terminal_result_ambiguous_or_invalid')
     let publishedCommit
@@ -2616,7 +2778,7 @@ export const executeRoleTransitionOrchestratorV1 = async ({ event, host, runId }
     const verified = JSON.stringify(verifiedState) === JSON.stringify(candidateState)
     const routed = evaluateRoleTransitionOrchestratorV1({ terminalResult: normalized.terminalResult, request, taskState: verifiedState, paths: normalized.paths, authorityValid, rebindVerified: verified, stateChanged: written.changed })
     if (routed.next_action !== 'INDEPENDENT_IMPLEMENTATION_REVIEWER') return Object.freeze({ ...routed, source_comment_id: normalized.commentId })
-    return Object.freeze({ ...routed, source_comment_id: normalized.commentId, role_dispatch: projectRoleDispatchEnvelopeV1({ result: routed, repository: normalized.repository, sourceCommentId: normalized.commentId, authorizedPaths: verifiedState.authorized_paths }) })
+    return Object.freeze({ ...routed, source_comment_id: normalized.commentId, role_dispatch: projectRoleDispatchEnvelopeV1({ result: routed, repository: normalized.repository, sourceCommentId: normalized.commentId, authorizedPaths: verifiedState.authorized_paths, taskState: verifiedState }) })
   } catch (error) {
     return roleStopV1(request, error instanceof ReviewAutomationStop ? error.state : 'INDETERMINATE', error instanceof Error ? error.message : 'terminal_result_ambiguous_or_invalid', error instanceof ReviewAutomationStop ? error.currentHead : undefined)
   }
@@ -2686,6 +2848,20 @@ const parseInvocation = (argv, environment) => {
   }
   if (argv.length === 2 && argv[0] === '--role-dispatch-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
     return Object.freeze({ mode: 'role_dispatch', dispatchFile: argv[1] })
+  }
+  if (
+    [4, 6, 8].includes(argv.length) && argv[0] === '--role-rebind-file' && typeof argv[1] === 'string' && argv[1].length > 0 &&
+    argv[2] === '--operation' && ['canonical_write', 'commit_push', 'publication_handoff'].includes(argv[3])
+  ) {
+    const values = new Map()
+    for (let index = 4; index < argv.length; index += 2) {
+      if (!['--authority-comment-id', '--new-head'].includes(argv[index]) || values.has(argv[index])) throw new Error('cli_arguments_invalid')
+      values.set(argv[index], argv[index + 1])
+    }
+    const authorityCommentId = values.has('--authority-comment-id') ? Number(values.get('--authority-comment-id')) : null
+    const newHead = values.get('--new-head') ?? null
+    if ((authorityCommentId !== null && !positiveInteger(authorityCommentId)) || (newHead !== null && !FULL_HEAD.test(newHead))) throw new Error('cli_arguments_invalid')
+    return Object.freeze({ mode: 'role_rebind', dispatchFile: argv[1], operation: argv[3], authorityCommentId, newHead })
   }
   if (argv.length === 2 && argv[0] === '--merge-operator-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
     return Object.freeze({ mode: 'merge_operator', dispatchFile: argv[1] })
@@ -2835,6 +3011,14 @@ const main = async () => {
                 dispatch: readJsonFileV1(invocation.dispatchFile),
                 host,
               })
+            : invocation.mode === 'role_rebind'
+              ? await executeRoleDispatchRebindV1({
+                  dispatch: readJsonFileV1(invocation.dispatchFile),
+                  host,
+                  operation: invocation.operation,
+                  authorityCommentId: invocation.authorityCommentId,
+                  newHead: invocation.newHead,
+                })
             : invocation.mode === 'merge_operator'
               ? await executeMergeOperatorV1({
                   dispatch: readJsonFileV1(invocation.dispatchFile),
