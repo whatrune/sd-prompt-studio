@@ -2158,29 +2158,45 @@ export const executeRoleTransitionOrchestratorV1 = async ({ event, host, runId }
       const result = await executeReviewApprovalAutomationV1({ event, host, runId })
       return Object.freeze({ ...result, terminal_result: normalized.terminalResult, source_comment_id: normalized.commentId })
     }
+    let currentBody
+    try {
+      currentBody = await fetchRoleCommentV1(normalized.repository, normalized.taskIssueNumber, normalized.commentId, host)
+    } catch {
+      throw new Error('terminal_result_ambiguous_or_invalid')
+    }
+    normalized = normalizeRoleTransitionEventV1({
+      ...event,
+      comment: Object.freeze({ ...event.comment, id: normalized.commentId, body: currentBody }),
+    })
+    if (['APPROVE', 'CHANGES_REQUIRED', 'BLOCKED'].includes(normalized.terminalResult)) {
+      throw new Error('terminal_result_ambiguous_or_invalid')
+    }
+    const fetchReferencedCommentV1 = (commentId) => commentId === normalized.commentId
+      ? Promise.resolve(currentBody)
+      : fetchRoleCommentV1(normalized.repository, normalized.taskIssueNumber, commentId, host)
     request = Object.freeze({ transition: 'role_transition_orchestrator_v1', repository: normalized.repository, taskIssueNumber: normalized.taskIssueNumber, prNumber: normalized.prNumber, exactHead: normalized.exactHead })
     const pull = await acquirePull(request, host)
     if (pull.head.sha !== request.exactHead) return roleStopV1(request, 'STALE', 'head_binding_stale', pull.head.sha)
     const priorState = extractProtectedTransitionTaskStateV1(pull.body)
     if (normalized.terminalResult === 'IMPLEMENTATION_AUTHORIZED') {
-      const architectureBody = await fetchRoleCommentV1(normalized.repository, normalized.taskIssueNumber, normalized.authorityCommentId, host)
+      const architectureBody = await fetchReferencedCommentV1(normalized.authorityCommentId)
       const valid = validateRoleArchitectureReviewV1(architectureBody, normalized.candidateSha, normalized.repository, normalized.taskIssueNumber)
       return Object.freeze({ ...evaluateRoleTransitionOrchestratorV1({ terminalResult: normalized.terminalResult, request, taskState: priorState, paths: normalized.paths, authorityValid: valid }), source_comment_id: normalized.commentId })
     }
     if (normalized.terminalResult === 'IMPLEMENTATION_RESULT_READY') {
-      const authorizationBody = await fetchRoleCommentV1(normalized.repository, normalized.taskIssueNumber, normalized.authorityCommentId, host)
+      const authorizationBody = await fetchReferencedCommentV1(normalized.authorityCommentId)
       const authorization = parseRoleAuthorizationV1(authorizationBody, normalized.repository, normalized.taskIssueNumber)
       const valid = authorization.prNumber === request.prNumber && authorization.exactHead === request.exactHead && sameRolePathsV1(authorization.paths, normalized.paths)
       return Object.freeze({ ...evaluateRoleTransitionOrchestratorV1({ terminalResult: normalized.terminalResult, request, taskState: priorState, paths: normalized.paths, authorityValid: valid }), source_comment_id: normalized.commentId })
     }
     if (!FULL_HEAD.test(normalized.parentHead ?? '') || normalized.parentHead === normalized.exactHead) throw new Error('terminal_result_ambiguous_or_invalid')
-    const authorityBody = await fetchRoleCommentV1(normalized.repository, normalized.taskIssueNumber, normalized.authorityCommentId, host)
+    const authorityBody = await fetchReferencedCommentV1(normalized.authorityCommentId)
     const authority = parseRoleYamlV1(authorityBody)
     const authorityPaths = authority.lists.get('exact_paths')
     const resultCommentId = authority.scalars.get('result_handoff_comment_id')
     const authorityPrNumber = roleOneScalarV1(authority, ['target_pr', 'consumer_pr'])
     if (!positiveInteger(resultCommentId)) throw new Error('terminal_result_ambiguous_or_invalid')
-    const resultHandoff = parseRoleResultHandoffV1(await fetchRoleCommentV1(normalized.repository, normalized.taskIssueNumber, resultCommentId, host))
+    const resultHandoff = parseRoleResultHandoffV1(await fetchReferencedCommentV1(resultCommentId))
     const authorityValid = authority.scalars.get('record_type') === 'commit_push_publication_authorization_v1' &&
       roleTaskIdentityMatchesV1(authority, normalized.repository, normalized.taskIssueNumber) &&
       authority.scalars.get('publication_allowed') === true && authority.scalars.get('expected_parent') === normalized.parentHead &&

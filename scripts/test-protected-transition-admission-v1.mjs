@@ -432,6 +432,7 @@ ${rolePaths.map((value) => `- \`${value}\``).join('\n')}
 `
 let rolePullReads = 0
 let roleStateWrites = 0
+let roleTriggerReads = 0
 let rolePullBody = stateBlock(roleState({
   observed_head: HEAD,
   review_status: 'APPROVE',
@@ -440,6 +441,10 @@ let rolePullBody = stateBlock(roleState({
 }))
 const rolePublicationHost = {
   api: async (endpoint, options) => {
+    if (endpoint.endsWith(`/issues/comments/${rolePublicationEvent.comment.id}`)) {
+      roleTriggerReads += 1
+      return { id: rolePublicationEvent.comment.id, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, body: rolePublicationBody, author_association: 'OWNER' }
+    }
     if (endpoint.endsWith(`/issues/comments/${rolePublicationAuthorityId}`)) {
       return { id: rolePublicationAuthorityId, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, body: rolePublicationAuthorityBody, author_association: 'OWNER' }
     }
@@ -468,14 +473,29 @@ const publishedRoute = await executeRoleTransitionOrchestratorV1({ event: rolePu
 const reboundRoleState = extractProtectedTransitionTaskStateV1(rolePullBody)
 const publishedRolePullReads = rolePullReads
 const publishedRoleStateWrites = roleStateWrites
-const crossTaskAuthorityRoute = await executeRoleTransitionOrchestratorV1({
-  event: rolePublicationEvent,
-  host: {
-    api: async (endpoint, options) => endpoint.endsWith(`/issues/comments/${rolePublicationAuthorityId}`)
-      ? { id: rolePublicationAuthorityId, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK + 1}`, body: rolePublicationAuthorityBody, author_association: 'OWNER' }
-      : rolePublicationHost.api(endpoint, options),
-  },
-})
+const publishedRoleTriggerReads = roleTriggerReads
+const freshnessCase = async ({ body = rolePublicationBody, issueNumber = TASK, unavailable = false } = {}) => {
+  const metrics = { triggerReads: 0, downstreamCalls: 0 }
+  const result = await executeRoleTransitionOrchestratorV1({
+    event: rolePublicationEvent,
+    host: {
+      api: async (endpoint) => {
+        if (endpoint.endsWith(`/issues/comments/${rolePublicationEvent.comment.id}`)) {
+          metrics.triggerReads += 1
+          if (unavailable) throw new Error('synthetic_trigger_deleted')
+          return { id: rolePublicationEvent.comment.id, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${issueNumber}`, body, author_association: 'OWNER' }
+        }
+        metrics.downstreamCalls += 1
+        throw new Error(`freshness_downstream_must_not_be_called:${endpoint}`)
+      },
+    },
+  })
+  return Object.freeze({ result, metrics: Object.freeze(metrics) })
+}
+const deletedTrigger = await freshnessCase({ unavailable: true })
+const crossTaskTrigger = await freshnessCase({ issueNumber: TASK + 1 })
+const malformedTrigger = await freshnessCase({ body: '## Publication Handoff\n- malformed current record' })
+const disappearedTrigger = await freshnessCase({ body: 'current comment no longer contains a supported terminal marker' })
 const ambiguousRoleError = await errorOf(() => normalizeRoleTransitionEventV1({
   ...rolePublicationEvent,
   comment: {
@@ -512,7 +532,7 @@ const roleUnits = [
     result: publishedRoute,
     status: 'HANDOFF_READY',
     next: 'INDEPENDENT_IMPLEMENTATION_REVIEWER',
-    evidence: (value) => value.reason === 'publication_state_rebound' && value.state_changed === true && publishedRoleStateWrites === 1 && publishedRolePullReads === 3 && Object.keys(reboundRoleState).length === 10 && reboundRoleState.observed_head === OTHER_HEAD && reboundRoleState.review_status === 'PENDING' && reboundRoleState.reviewed_head === null && reboundRoleState.review_blocker_count === null,
+    evidence: (value) => value.reason === 'publication_state_rebound' && value.state_changed === true && publishedRoleTriggerReads === 1 && publishedRoleStateWrites === 1 && publishedRolePullReads === 3 && Object.keys(reboundRoleState).length === 10 && reboundRoleState.observed_head === OTHER_HEAD && reboundRoleState.review_status === 'PENDING' && reboundRoleState.reviewed_head === null && reboundRoleState.review_blocker_count === null,
   },
   {
     name: 'CHANGES_REQUIRED',
@@ -536,11 +556,11 @@ const roleUnits = [
     evidence: (value) => value.state === 'STALE' && value.reason === 'head_binding_stale',
   },
   {
-    name: 'cross-Task authority mismatch',
-    result: crossTaskAuthorityRoute,
+    name: 'triggering comment freshness failures',
+    result: deletedTrigger.result,
     status: 'BLOCKED',
     next: 'STOP',
-    evidence: (value) => value.state === 'INDETERMINATE' && value.reason === 'terminal_result_ambiguous_or_invalid' && roleStateWrites === publishedRoleStateWrites,
+    evidence: (value) => [value, crossTaskTrigger.result, malformedTrigger.result, disappearedTrigger.result].every((item) => item.state === 'INDETERMINATE' && item.reason === 'terminal_result_ambiguous_or_invalid' && item.state_changed === false) && [deletedTrigger, crossTaskTrigger, malformedTrigger, disappearedTrigger].every((item) => item.metrics.triggerReads === 1 && item.metrics.downstreamCalls === 0) && roleStateWrites === publishedRoleStateWrites,
   },
   {
     name: 'authority missing or malformed',
