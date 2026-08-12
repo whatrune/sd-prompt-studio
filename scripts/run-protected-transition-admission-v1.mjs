@@ -19,6 +19,8 @@ const PAGE_SIZE = 100
 const READY_CHECK_WAIT_ATTEMPTS = 3
 const READY_CHECK_WAIT_MS = 10_000
 const WORKFLOW_RUN_ID = /^[1-9]\d*$/
+const READY_ATTACHED_SELF_CHECK_CONTEXT_V1 = 'ATTACHED_CURRENT_CHECK_REQUIRED'
+const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'
 const REVIEW_RECORD_TYPE = 'independent_review_decision_v1'
 const REVIEW_AUTHORING_ROLE = 'Independent Reviewer'
 const REVIEW_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
@@ -1326,6 +1328,7 @@ export const executeReadyForReviewProgressionV1 = async ({ event, host, runId })
     prNumber: event?.pull_request?.number ?? null,
     exactHead: event?.pull_request?.head?.sha ?? null,
     currentWorkflowRunId: runId ?? null,
+    selfCheckContext: READY_ATTACHED_SELF_CHECK_CONTEXT_V1,
   })
   try {
     const pull = event?.pull_request
@@ -1505,7 +1508,9 @@ const classifyMergeGatePullV1 = (request, pull) => {
   if (pull.mergeable === null || pull.mergeable_state === 'unknown') {
     return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'pull_mergeability_indeterminate', 1, pull.head.sha)
   }
-  const selfAwareUnstable = WORKFLOW_RUN_ID.test(request.currentWorkflowRunId ?? '') && pull.mergeable_state === 'unstable'
+  const selfAwareUnstable = WORKFLOW_RUN_ID.test(request.currentWorkflowRunId ?? '') &&
+    [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext) &&
+    pull.mergeable_state === 'unstable'
   if (!pull.mergeable || (pull.mergeable_state !== 'clean' && !selfAwareUnstable)) {
     return mergeGateStoppedResultV1(request, 'IMPLEMENTATION_BLOCKED', 'pull_not_mergeable', 2, pull.head.sha)
   }
@@ -1558,6 +1563,15 @@ const reduceSelfAwareCurrentChecksV1 = (request, rollup) => {
 
   const admissionName = 'protected_transition_admission_v1'
   const repairName = 'protected_transition_repair_executor_v1'
+  if (!WORKFLOW_RUN_ID.test(request.currentWorkflowRunId)) throw new Error('ready_event_invalid')
+  if (request.selfCheckContext === REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1) {
+    return Object.freeze(selectedGenerations.filter((item) => {
+      if (item.type !== 'CheckRun' || ![admissionName, repairName].includes(item.name)) return true
+      const historicalRunId = parseRepositoryActionsRunIdV1(request, item)
+      return historicalRunId === null || historicalRunId === request.currentWorkflowRunId
+    }))
+  }
+  if (request.selfCheckContext !== READY_ATTACHED_SELF_CHECK_CONTEXT_V1) throw new Error('ready_event_invalid')
   const currentRunPrefix = `https://github.com/${request.repository}/actions/runs/${request.currentWorkflowRunId}/`
   if (rollup.some((item) => item.type === 'CheckRun' && item.name === repairName && item.details_url?.startsWith(currentRunPrefix))) {
     throw new Error('ready_current_repair_check_present')
@@ -1640,7 +1654,9 @@ export const evaluateMergeAllowedAutomationV1 = async ({ request, admitted, host
     if (reviewSnapshot.pull.mergeable === 'UNKNOWN' || reviewSnapshot.pull.mergeStateStatus === 'UNKNOWN') {
       return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'pull_mergeability_indeterminate', 1, reviewSnapshot.pull.headRefOid)
     }
-    const selfAwareUnstable = WORKFLOW_RUN_ID.test(request.currentWorkflowRunId ?? '') && reviewSnapshot.pull.mergeStateStatus === 'UNSTABLE'
+    const selfAwareUnstable = WORKFLOW_RUN_ID.test(request.currentWorkflowRunId ?? '') &&
+      [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext) &&
+      reviewSnapshot.pull.mergeStateStatus === 'UNSTABLE'
     if (reviewSnapshot.pull.mergeable !== 'MERGEABLE' || (reviewSnapshot.pull.mergeStateStatus !== 'CLEAN' && !selfAwareUnstable)) {
       return mergeGateStoppedResultV1(request, 'IMPLEMENTATION_BLOCKED', 'pull_not_mergeable', 2, reviewSnapshot.pull.headRefOid)
     }
@@ -1709,7 +1725,7 @@ const completeApprovedAutomationV1 = async ({ request, host, stateChanged, curre
   }) })
 }
 
-export const executeReviewApprovalAutomationV1 = async ({ event, host }) => {
+export const executeReviewApprovalAutomationV1 = async ({ event, host, runId }) => {
   let parsedEvent
   let request
   let progressionContext
@@ -1722,6 +1738,7 @@ export const executeReviewApprovalAutomationV1 = async ({ event, host }) => {
         exactHead: null,
       }), 'review_event_not_applicable'))
     }
+    if (!WORKFLOW_RUN_ID.test(runId ?? '')) throw new Error('review_event_invalid')
     parsedEvent = parseReviewApprovalEventV1(event)
     request = Object.freeze({
       transition: 'merge_decision_admission',
@@ -1729,6 +1746,8 @@ export const executeReviewApprovalAutomationV1 = async ({ event, host }) => {
       taskIssueNumber: parsedEvent.taskIssueNumber,
       prNumber: parsedEvent.prNumber,
       exactHead: parsedEvent.exactHead,
+      currentWorkflowRunId: runId,
+      selfCheckContext: REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1,
     })
     const triggeringReview = parsedEvent.review
     if (
@@ -2120,13 +2139,13 @@ const parseRoleResultHandoffV1 = (body) => Object.freeze({
 
 const sameRolePathsV1 = (left, right) => Array.isArray(left) && Array.isArray(right) && left.join('\n') === right.join('\n')
 
-export const executeRoleTransitionOrchestratorV1 = async ({ event, host }) => {
+export const executeRoleTransitionOrchestratorV1 = async ({ event, host, runId }) => {
   let normalized
   let request
   try {
     normalized = normalizeRoleTransitionEventV1(event)
     if (['APPROVE', 'CHANGES_REQUIRED', 'BLOCKED'].includes(normalized.terminalResult)) {
-      const result = await executeReviewApprovalAutomationV1({ event, host })
+      const result = await executeReviewApprovalAutomationV1({ event, host, runId })
       return Object.freeze({ ...result, terminal_result: normalized.terminalResult, source_comment_id: normalized.commentId })
     }
     request = Object.freeze({ transition: 'role_transition_orchestrator_v1', repository: normalized.repository, taskIssueNumber: normalized.taskIssueNumber, prNumber: normalized.prNumber, exactHead: normalized.exactHead })
@@ -2363,6 +2382,7 @@ const main = async () => {
       ? await executeRoleTransitionOrchestratorV1({
           event: JSON.parse(readFileSync(invocation.eventFile, 'utf8')),
           host,
+          runId: process.env.GITHUB_RUN_ID,
         })
       : invocation.mode === 'ready_event'
         ? await executeReadyForReviewProgressionV1({

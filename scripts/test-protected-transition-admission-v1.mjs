@@ -17,7 +17,7 @@ import {
   evaluateRoleTransitionOrchestratorV1,
   executeRepairExecutorV1,
   executeReadyForReviewProgressionV1,
-  executeReviewApprovalAutomationV1,
+  executeReviewApprovalAutomationV1 as executeReviewApprovalAutomationProductionV1,
   executeRoleTransitionOrchestratorV1,
   executeProtectedTransitionAdmissionV1,
   executeRepairProviderBindingV3,
@@ -40,6 +40,7 @@ const PR = 260
 const HEAD = 'a'.repeat(40)
 const OTHER_HEAD = 'b'.repeat(40)
 const READY_RUN_ID = '31246327840'
+const REVIEW_RUN_ID = '31561746789'
 const BASE = '65e84d3d787d4db871f34d4ab1ab452494a61605'
 const HOST_RUNNER_BINDING_BASE = '3631d84351a49088baaadb5b3445751a7bf0b44e'
 const HOST_RUNNER_BINDING_HEAD = '35b7849840a2a9191f4ebf56bf83e145725a6dfa'
@@ -47,6 +48,9 @@ const CURRENT_GENERATION_REDUCER_BASE = HOST_RUNNER_BINDING_HEAD
 const HOST_ACQUISITION_PREFLIGHT_BASE = 'c0cba56a53d9e394d85383b6e305a4a59e212401'
 const ALLOWED = ['scripts/run-protected-transition-admission-v1.mjs', 'src/continuous-orchestration/protected-transition-admission-v1.ts']
 let assertions = 0
+
+const executeReviewApprovalAutomationV1 = (options) =>
+  executeReviewApprovalAutomationProductionV1({ ...options, runId: REVIEW_RUN_ID })
 
 const check = (condition, message) => {
   assertions += 1
@@ -658,8 +662,13 @@ const blockingReviewResult = await executeReviewApprovalAutomationV1({
   event: reviewEvent({ body: reviewDecisionBody({ blocking_finding_count: 1 }) }),
   host: { api: async () => { throw new Error('host_must_not_be_called') } },
 })
+const invalidReviewRunResult = await executeReviewApprovalAutomationProductionV1({
+  event: reviewEvent(),
+  host: { api: async () => { throw new Error('host_must_not_be_called') } },
+  runId: '0',
+})
 check(blockingReview.review.blocking_finding_count === 1 && blockingReviewResult.state === 'REVIEW_BLOCKED', 'blocking count is retained and blocks')
-check(blockingReviewResult.state_changed === false && blockingReviewResult.admission_executed === false, 'blocking count prevents mutation and admission')
+check(blockingReviewResult.state_changed === false && blockingReviewResult.admission_executed === false && invalidReviewRunResult.reason === 'review_event_invalid', 'blocking count prevents mutation and invalid Review run identity fails closed')
 
 const remainingReview = parseReviewApprovalEventV1(reviewEvent({ body: reviewDecisionBody({ remaining_finding_count: 1 }) }))
 const remainingReviewError = await errorOf(() => projectProtectedTransitionApprovedReviewStateV1(state(), remainingReview.review))
@@ -1136,7 +1145,7 @@ const blockedAutomation = automationHost({
   initialState: approvedState(),
   commentPages: [[blockedEvent.comment]],
 })
-const blockedResult = await executeRoleTransitionOrchestratorV1({ event: blockedEvent, host: blockedAutomation.host })
+const blockedResult = await executeRoleTransitionOrchestratorV1({ event: blockedEvent, host: blockedAutomation.host, runId: REVIEW_RUN_ID })
 const blockedWritten = extractProtectedTransitionTaskStateV1(blockedAutomation.body())
 check(blockedResult.state === 'REVIEW_BLOCKED' && blockedResult.allowed === false && blockedResult.next_action === 'STOP' && blockedResult.terminal_result === 'BLOCKED', 'central Orchestrator delegates later BLOCKED without Role dispatch')
 check(blockedAutomation.metrics.patchCalls === 1 && blockedResult.admission_executed === false, 'later BLOCKED writes once without admission')
@@ -1232,6 +1241,30 @@ const mergeAdmitted = evaluateProtectedTransitionAdmissionV1(input({
   transition: 'merge_decision_admission',
   task_state: approvedState(),
 }))
+const reviewDetachedMergeRequest = Object.freeze({
+  ...mergeRequest,
+  currentWorkflowRunId: REVIEW_RUN_ID,
+  selfCheckContext: 'DETACHED_SELF_CHECK_AWARE',
+})
+const historicalReviewSelfCheck = ({
+  id = 'historical-review-admission',
+  name = 'protected_transition_admission_v1',
+  conclusion = 'FAILURE',
+  runId = '31560744932',
+  detailsUrl = `https://github.com/${REPOSITORY}/actions/runs/${runId}/job/${id}`,
+  startedAt = '2026-08-12T03:39:26Z',
+  appId = 'github-actions-app',
+} = {}) => currentReadyCheck({ id, name, status: 'COMPLETED', conclusion, detailsUrl, startedAt, appId })
+const detachedReviewCheckPage = (external = successfulCheck('review-external-success')) => connectionPage([
+  historicalReviewSelfCheck(),
+  historicalReviewSelfCheck({
+    id: 'historical-review-repair',
+    name: 'protected_transition_repair_executor_v1',
+    conclusion: 'SKIPPED',
+    startedAt: '2026-08-12T03:39:32Z',
+  }),
+  ...(external === null ? [] : [external]),
+])
 
 const mergeSuccess = automationHost({ initialState: approvedState() })
 const mergeSuccessResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: mergeSuccess.host })
@@ -1256,27 +1289,29 @@ check(closedGateResult.state === 'REVIEW_PENDING' && closedGateResult.reason ===
 check(dirtyGateResult.state === 'IMPLEMENTATION_BLOCKED' && dirtyGateResult.reason === 'pull_not_mergeable', 'non-clean PR blocks implementation')
 
 const missingChecks = automationHost({ initialState: approvedState(), checkPages: [null] })
-const zeroChecks = automationHost({ initialState: approvedState(), checkPages: [connectionPage([])] })
+const zeroChecks = automationHost({ initialState: approvedState(), mergeableState: 'unstable', checkPages: [detachedReviewCheckPage(null)] })
 const missingChecksResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: missingChecks.host })
-const zeroChecksResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: zeroChecks.host })
+const zeroChecksResult = await evaluateMergeAllowedAutomationV1({ request: reviewDetachedMergeRequest, admitted: mergeAdmitted, host: zeroChecks.host })
 check(missingChecksResult.state === 'INDETERMINATE' && missingChecksResult.reason === 'check_rollup_page_invalid', 'missing check rollup fails closed')
 check(zeroChecksResult.state === 'INDETERMINATE' && zeroChecksResult.reason === 'checks_missing', 'zero current check contexts fail closed')
 check(missingChecks.metrics.threadReads === 0 && zeroChecks.metrics.threadReads === 0, 'missing checks stop before thread acquisition')
 
 const pendingChecks = automationHost({
   initialState: approvedState(),
-  checkPages: [connectionPage([{ ...successfulCheck(), status: 'IN_PROGRESS', conclusion: null }])],
+  mergeableState: 'unstable',
+  checkPages: [detachedReviewCheckPage({ ...successfulCheck(), status: 'IN_PROGRESS', conclusion: null })],
 })
-const pendingChecksResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: pendingChecks.host })
+const pendingChecksResult = await evaluateMergeAllowedAutomationV1({ request: reviewDetachedMergeRequest, admitted: mergeAdmitted, host: pendingChecks.host })
 check(pendingChecksResult.state === 'INDETERMINATE' && pendingChecksResult.reason === 'checks_not_terminal', 'non-terminal check is indeterminate')
 check(pendingChecksResult.allowed === false && pendingChecksResult.next_action === 'STOP', 'non-terminal check cannot advance')
 check(pendingChecks.metrics.checkReads === 1 && pendingChecks.metrics.threadReads === 0, 'non-terminal check stops before threads')
 
 const failedChecks = automationHost({
   initialState: approvedState(),
-  checkPages: [connectionPage([{ ...successfulCheck(), conclusion: 'FAILURE' }])],
+  mergeableState: 'unstable',
+  checkPages: [detachedReviewCheckPage({ ...successfulCheck(), conclusion: 'FAILURE' })],
 })
-const failedChecksResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: failedChecks.host })
+const failedChecksResult = await evaluateMergeAllowedAutomationV1({ request: reviewDetachedMergeRequest, admitted: mergeAdmitted, host: failedChecks.host })
 check(failedChecksResult.state === 'IMPLEMENTATION_BLOCKED' && failedChecksResult.reason === 'checks_not_successful', 'failed terminal check blocks implementation')
 check(failedChecksResult.allowed === false && failedChecksResult.automation_status === 'STOPPED', 'failed terminal check cannot advance')
 check(failedChecks.metrics.checkReads === 1 && failedChecks.metrics.threadReads === 0, 'failed terminal check stops before threads')
@@ -1297,9 +1332,11 @@ check(pagedChecksResult.reason === 'merge_gate_satisfied', 'multi-page checks pr
 
 const blockingThreads = automationHost({
   initialState: approvedState(),
+  mergeableState: 'unstable',
+  checkPages: [detachedReviewCheckPage()],
   threadPages: [connectionPage([{ id: 'thread-1', isResolved: false, isOutdated: false }])],
 })
-const blockingThreadsResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: blockingThreads.host })
+const blockingThreadsResult = await evaluateMergeAllowedAutomationV1({ request: reviewDetachedMergeRequest, admitted: mergeAdmitted, host: blockingThreads.host })
 check(blockingThreadsResult.state === 'REVIEW_BLOCKED' && blockingThreadsResult.reason === 'blocking_review_threads_present', 'current unresolved thread blocks Review')
 check(blockingThreadsResult.allowed === false && blockingThreadsResult.next_action === 'STOP', 'current unresolved thread cannot advance')
 check(blockingThreads.metrics.threadReads === 1 && blockingThreads.metrics.pullReads === 2, 'blocking thread stops before final pull refetch')
@@ -1350,7 +1387,11 @@ check(retryGate.metrics.patchCalls === 0 && retryGate.metrics.pullReads === 6 &&
 check(taskChangedPaths.join('\n') === ['.github/workflows/protected-transition-admission-v1.yml', 'scripts/run-protected-transition-admission-v1.mjs', 'scripts/test-protected-transition-admission-v1.mjs'].join('\n'), 'current Task diff is exactly three paths')
 
 // Four current-generation Merge Gate units x three assertions = 12.
-const selfAwareMergeRequest = Object.freeze({ ...mergeRequest, currentWorkflowRunId: READY_RUN_ID })
+const selfAwareMergeRequest = Object.freeze({
+  ...mergeRequest,
+  currentWorkflowRunId: READY_RUN_ID,
+  selfCheckContext: 'ATTACHED_CURRENT_CHECK_REQUIRED',
+})
 const historicalReadyCheck = ({ id, conclusion }) => currentReadyCheck({
   id,
   status: 'COMPLETED',
@@ -1375,12 +1416,12 @@ const stableGenerationPage = () => connectionPage([
 const selfAwareUnstable = automationHost({
   initialState: approvedState(),
   mergeableState: 'unstable',
-  checkPages: [stableGenerationPage(), stableGenerationPage()],
+  checkPages: [detachedReviewCheckPage(), detachedReviewCheckPage()],
 })
-const selfAwareUnstableResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: selfAwareUnstable.host })
-check(selfAwareUnstableResult.state === 'MERGE_ELIGIBLE' && selfAwareUnstableResult.allowed, 'MGA-01 older same-identity success and failure generations are excluded')
-check(selfAwareUnstableResult.automation_status === 'MERGE_ALLOWED' && selfAwareUnstableResult.reason === 'merge_gate_satisfied', 'MGA-01 selected self and other-app same-name success establish effective clean')
-check(selfAwareUnstable.metrics.checkReads === 2 && selfAwareUnstable.metrics.threadReads === 1 && selfAwareUnstable.metrics.pullReads === 3, 'MGA-01 independently reduces initial and final complete snapshots')
+const selfAwareUnstableResult = await evaluateMergeAllowedAutomationV1({ request: reviewDetachedMergeRequest, admitted: mergeAdmitted, host: selfAwareUnstable.host })
+check(selfAwareUnstableResult.state === 'MERGE_ELIGIBLE' && selfAwareUnstableResult.allowed, 'MGA-01 historical Review Admission and Repair self-checks are excluded')
+check(selfAwareUnstableResult.automation_status === 'MERGE_ALLOWED' && selfAwareUnstableResult.reason === 'merge_gate_satisfied', 'MGA-01 remaining external success establishes effective clean')
+check(selfAwareUnstable.metrics.checkReads === 2 && selfAwareUnstable.metrics.threadReads === 1 && selfAwareUnstable.metrics.pullReads === 3, 'MGA-01 independently reduces initial and final external snapshots before the thread gate')
 
 const missingInitialSelf = automationHost({
   initialState: approvedState(),
@@ -1427,20 +1468,21 @@ const latePendingCheck = automationHost({
   initialState: approvedState(),
   mergeableState: 'unstable',
   checkPages: [
-    readyCheckPage(),
-    readyCheckPage({ ...successfulCheck('late-pending'), status: 'IN_PROGRESS', conclusion: null }),
+    detachedReviewCheckPage(),
+    detachedReviewCheckPage({ ...successfulCheck('late-pending'), status: 'IN_PROGRESS', conclusion: null }),
   ],
 })
 const lateFailedCheck = automationHost({
   initialState: approvedState(),
   mergeableState: 'unstable',
-  checkPages: [readyCheckPage(), readyCheckPage({ ...successfulCheck('late-failed'), conclusion: 'FAILURE' })],
+  checkPages: [detachedReviewCheckPage(), detachedReviewCheckPage({ ...successfulCheck('late-failed'), conclusion: 'FAILURE' })],
 })
 const otherAppSameNameFailure = automationHost({
   initialState: approvedState(),
   mergeableState: 'unstable',
   checkPages: [connectionPage([
-    currentReadyCheck(),
+    historicalReviewSelfCheck(),
+    historicalReviewSelfCheck({ id: 'historical-review-repair', name: 'protected_transition_repair_executor_v1', conclusion: 'SKIPPED' }),
     currentReadyCheck({ id: 'other-app-failure', status: 'COMPLETED', conclusion: 'FAILURE', detailsUrl: null, appId: 'other-check-app' }),
     successfulCheck(),
   ])],
@@ -1459,9 +1501,9 @@ const finalTiedGeneration = automationHost({
   mergeableState: 'unstable',
   checkPages: [readyCheckPage(), connectionPage([currentReadyCheck(), currentReadyCheck({ id: 'final-tied-non-self', detailsUrl: null }), successfulCheck()])],
 })
-const latePendingCheckResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: latePendingCheck.host })
-const lateFailedCheckResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: lateFailedCheck.host })
-const otherAppSameNameFailureResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: otherAppSameNameFailure.host })
+const latePendingCheckResult = await evaluateMergeAllowedAutomationV1({ request: reviewDetachedMergeRequest, admitted: mergeAdmitted, host: latePendingCheck.host })
+const lateFailedCheckResult = await evaluateMergeAllowedAutomationV1({ request: reviewDetachedMergeRequest, admitted: mergeAdmitted, host: lateFailedCheck.host })
+const otherAppSameNameFailureResult = await evaluateMergeAllowedAutomationV1({ request: reviewDetachedMergeRequest, admitted: mergeAdmitted, host: otherAppSameNameFailure.host })
 const finalNewerGenerationResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: finalNewerGeneration.host })
 const finalTiedGenerationResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: finalTiedGeneration.host })
 check(otherAppSameNameFailureResult.reason === 'checks_not_successful' && otherAppSameNameFailureResult.state === 'IMPLEMENTATION_BLOCKED', 'MGA-03 same-name check from another app remains independently enforced')
@@ -1483,7 +1525,7 @@ const selfAwareConflict = automationHost({ initialState: approvedState(), mergea
 const nonSelfUnstable = automationHost({ initialState: approvedState(), mergeableState: 'unstable' })
 const finalCheckHeadDriftResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: finalCheckHeadDrift.host })
 const finalCheckPaginationFailureResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: finalCheckPaginationFailure.host })
-const selfAwareConflictResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: selfAwareConflict.host })
+const selfAwareConflictResult = await evaluateMergeAllowedAutomationV1({ request: reviewDetachedMergeRequest, admitted: mergeAdmitted, host: selfAwareConflict.host })
 const nonSelfUnstableResult = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: nonSelfUnstable.host })
 check(finalCheckHeadDriftResult.state === 'STALE' && finalCheckHeadDriftResult.reason === 'head_changed_during_merge_gate', 'MGA-04 final check snapshot HEAD drift is stale')
 check(finalCheckPaginationFailureResult.state === 'INDETERMINATE' && finalCheckPaginationFailureResult.reason === 'check_rollup_page_invalid', 'MGA-04 final check pagination failure is indeterminate')
@@ -1604,7 +1646,9 @@ check(
   taskChangedPaths.join('\n') === ['.github/workflows/protected-transition-admission-v1.yml', 'scripts/run-protected-transition-admission-v1.mjs', 'scripts/test-protected-transition-admission-v1.mjs'].join('\n') &&
   (runnerSource.match(/const reduceSelfAwareCurrentChecksV1 =/g) ?? []).length === 1 &&
   (runnerSource.match(/reduceSelfAwareCurrentChecksV1\(/g) ?? []).length === 2 &&
-  (runnerSource.match(/partitionReadyRunChecksV1\(/g) ?? []).length === 2,
+  (runnerSource.match(/partitionReadyRunChecksV1\(/g) ?? []).length === 2 &&
+  runnerSource.includes("const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'") &&
+  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 2,
   'SGR-12 shared-helper use and correction/cumulative allowlists hold without duplicate sibling filters',
 )
 
