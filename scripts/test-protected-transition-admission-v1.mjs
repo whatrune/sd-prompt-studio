@@ -402,6 +402,7 @@ ${rolePaths.map((value) => `- \`${value}\``).join('\n')}
 const rolePublicationAuthorityBody = `\`\`\`yaml
 record_type: commit_push_publication_authorization_v1
 authorizing_role: Product Owner / Implementation Lead
+parent_issue: ${TASK}
 consumer_pr: ${PR}
 publication_allowed: true
 expected_parent: ${HEAD}
@@ -436,10 +437,10 @@ let rolePullBody = stateBlock(roleState({
 const rolePublicationHost = {
   api: async (endpoint, options) => {
     if (endpoint.endsWith(`/issues/comments/${rolePublicationAuthorityId}`)) {
-      return { id: rolePublicationAuthorityId, body: rolePublicationAuthorityBody, author_association: 'OWNER' }
+      return { id: rolePublicationAuthorityId, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, body: rolePublicationAuthorityBody, author_association: 'OWNER' }
     }
     if (endpoint.endsWith(`/issues/comments/${roleImplementationResultId}`)) {
-      return { id: roleImplementationResultId, body: roleImplementationResultBody, author_association: 'OWNER' }
+      return { id: roleImplementationResultId, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, body: roleImplementationResultBody, author_association: 'OWNER' }
     }
     if (endpoint.endsWith(`/pulls/${PR}`)) {
       if (options?.method === 'PATCH') {
@@ -461,6 +462,16 @@ const rolePublicationEvent = Object.freeze({
 })
 const publishedRoute = await executeRoleTransitionOrchestratorV1({ event: rolePublicationEvent, host: rolePublicationHost })
 const reboundRoleState = extractProtectedTransitionTaskStateV1(rolePullBody)
+const publishedRolePullReads = rolePullReads
+const publishedRoleStateWrites = roleStateWrites
+const crossTaskAuthorityRoute = await executeRoleTransitionOrchestratorV1({
+  event: rolePublicationEvent,
+  host: {
+    api: async (endpoint, options) => endpoint.endsWith(`/issues/comments/${rolePublicationAuthorityId}`)
+      ? { id: rolePublicationAuthorityId, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK + 1}`, body: rolePublicationAuthorityBody, author_association: 'OWNER' }
+      : rolePublicationHost.api(endpoint, options),
+  },
+})
 const ambiguousRoleError = await errorOf(() => normalizeRoleTransitionEventV1({
   ...rolePublicationEvent,
   comment: {
@@ -489,7 +500,7 @@ const roleUnits = [
     result: publishedRoute,
     status: 'HANDOFF_READY',
     next: 'INDEPENDENT_IMPLEMENTATION_REVIEWER',
-    evidence: (value) => value.reason === 'publication_state_rebound' && value.state_changed === true && roleStateWrites === 1 && rolePullReads === 3 && Object.keys(reboundRoleState).length === 10 && reboundRoleState.observed_head === OTHER_HEAD && reboundRoleState.review_status === 'PENDING' && reboundRoleState.reviewed_head === null && reboundRoleState.review_blocker_count === null,
+    evidence: (value) => value.reason === 'publication_state_rebound' && value.state_changed === true && publishedRoleStateWrites === 1 && publishedRolePullReads === 3 && Object.keys(reboundRoleState).length === 10 && reboundRoleState.observed_head === OTHER_HEAD && reboundRoleState.review_status === 'PENDING' && reboundRoleState.reviewed_head === null && reboundRoleState.review_blocker_count === null,
   },
   {
     name: 'CHANGES_REQUIRED',
@@ -513,11 +524,11 @@ const roleUnits = [
     evidence: (value) => value.state === 'STALE' && value.reason === 'head_binding_stale',
   },
   {
-    name: 'Task or PR mismatch',
-    result: evaluateRoleTransitionOrchestratorV1(roleInput({ taskState: roleState({ observed_head: OTHER_HEAD, pr_number: PR + 1 }) })),
+    name: 'cross-Task authority mismatch',
+    result: crossTaskAuthorityRoute,
     status: 'BLOCKED',
     next: 'STOP',
-    evidence: (value) => value.state === 'STALE' && value.reason === 'head_binding_stale',
+    evidence: (value) => value.state === 'INDETERMINATE' && value.reason === 'terminal_result_ambiguous_or_invalid' && roleStateWrites === publishedRoleStateWrites,
   },
   {
     name: 'authority missing or malformed',
@@ -1125,9 +1136,9 @@ const blockedAutomation = automationHost({
   initialState: approvedState(),
   commentPages: [[blockedEvent.comment]],
 })
-const blockedResult = await executeReviewApprovalAutomationV1({ event: blockedEvent, host: blockedAutomation.host })
+const blockedResult = await executeRoleTransitionOrchestratorV1({ event: blockedEvent, host: blockedAutomation.host })
 const blockedWritten = extractProtectedTransitionTaskStateV1(blockedAutomation.body())
-check(blockedResult.state === 'REVIEW_BLOCKED' && blockedResult.allowed === false, 'later BLOCKED revokes eligibility')
+check(blockedResult.state === 'REVIEW_BLOCKED' && blockedResult.allowed === false && blockedResult.next_action === 'STOP' && blockedResult.terminal_result === 'BLOCKED', 'central Orchestrator delegates later BLOCKED without Role dispatch')
 check(blockedAutomation.metrics.patchCalls === 1 && blockedResult.admission_executed === false, 'later BLOCKED writes once without admission')
 check(blockedWritten.review_status === 'BLOCKED' && blockedWritten.review_blocker_count === 2, 'later BLOCKED is the stored effective Decision')
 
