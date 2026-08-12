@@ -885,6 +885,21 @@ const repairRequestV1 = (dispatch, exactHead = dispatch.exact_head) => Object.fr
   exactHead,
 })
 
+const acquireConvergedRepairPullV1 = async ({ dispatch, request, host, oldHead, newHead, headRef }) => {
+  for (let attempt = 1; attempt <= READY_CHECK_WAIT_ATTEMPTS; attempt += 1) {
+    const pull = await acquirePull(request, host)
+    const observedHead = pull?.head?.sha
+    if (observedHead !== oldHead && observedHead !== newHead) throw new Error('repair_pull_binding_invalid')
+    validateRepairPullV1(dispatch, pull, observedHead)
+    if (pull.head.ref !== headRef) throw new Error('repair_branch_binding_changed')
+    if (observedHead === newHead) return validateRepairPullV1(dispatch, pull, newHead)
+    if (attempt === READY_CHECK_WAIT_ATTEMPTS) throw new Error('repair_pull_binding_invalid')
+    if (typeof host.wait === 'function') await host.wait(READY_CHECK_WAIT_MS)
+    else await new Promise((resolve) => setTimeout(resolve, READY_CHECK_WAIT_MS))
+  }
+  throw new Error('repair_pull_binding_invalid')
+}
+
 const repairProviderPromptV2 = (dispatch, authorizedPaths) => {
   const prompt = `${dispatch.instruction}\n${REPAIR_PROVIDER_CONSTRAINTS_V3}\n\nReviewed exact HEAD:\n${dispatch.exact_head}\n\nCurrent authorized_paths:\n${JSON.stringify(authorizedPaths)}\n\nCurrent blocking finding:\n${dispatch.review_body}`
   if (Buffer.byteLength(prompt, 'utf8') > REPAIR_PROVIDER_PROMPT_MAX_BYTES_V2) {
@@ -1093,7 +1108,14 @@ export const executeRepairExecutorV1 = async ({ phase, dispatch, host, providerR
         throw new Error('repair_new_head_invalid')
       }
       const nextRequest = repairRequestV1(dispatch, newHead)
-      const pull = validateRepairPullV1(dispatch, await acquirePull(nextRequest, host), newHead)
+      const pull = await acquireConvergedRepairPullV1({
+        dispatch,
+        request: nextRequest,
+        host,
+        oldHead: dispatch.exact_head,
+        newHead,
+        headRef,
+      })
       if (pull.head.ref !== headRef) throw new Error('repair_branch_binding_changed')
       if (await host.branchHead(dispatch.repository, pull.head.ref) !== newHead) throw new Error('repair_remote_head_changed')
       const scope = await acquireChangedPathScopeV1(nextRequest, pull, host)

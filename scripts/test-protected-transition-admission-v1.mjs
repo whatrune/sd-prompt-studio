@@ -1462,9 +1462,10 @@ const repairPull = ({ head = HEAD, headRepository = REPOSITORY, headRef = 'codex
   body,
   changed_files: paths.length,
 })
-const repairHost = ({ head = HEAD, remoteHead = head, headRepository = REPOSITORY, paths = REPAIR_PATHS, body = stateBlock(repairTaskState()) } = {}) => {
-  const metrics = { pullReads: 0, fileReads: 0, branchReads: 0, patches: 0 }
+const repairHost = ({ head = HEAD, heads = [head], remoteHead = head, headRepository = REPOSITORY, paths = REPAIR_PATHS, body = stateBlock(repairTaskState()) } = {}) => {
+  const metrics = { pullReads: 0, fileReads: 0, branchReads: 0, patches: 0, waitCalls: 0 }
   let currentBody = body
+  let pullIndex = 0
   const host = {
     api: async (endpoint, options) => {
       if (endpoint === `repos/${REPOSITORY}/pulls/${PR}`) {
@@ -1473,8 +1474,9 @@ const repairHost = ({ head = HEAD, remoteHead = head, headRepository = REPOSITOR
           currentBody = options.body.body
         } else {
           metrics.pullReads += 1
+          pullIndex += 1
         }
-        return repairPull({ head, headRepository, paths, body: currentBody })
+        return repairPull({ head: heads[Math.min(Math.max(pullIndex - 1, 0), heads.length - 1)], headRepository, paths, body: currentBody })
       }
       if (endpoint.includes(`/pulls/${PR}/files?`)) {
         metrics.fileReads += 1
@@ -1487,6 +1489,7 @@ const repairHost = ({ head = HEAD, remoteHead = head, headRepository = REPOSITOR
       metrics.branchReads += 1
       return remoteHead
     },
+    wait: async () => { metrics.waitCalls += 1 },
   }
   return Object.freeze({ host, metrics, currentBody: () => currentBody })
 }
@@ -1612,7 +1615,49 @@ const completedRepairRetry = await executeRepairExecutorV1({
   headRef: 'codex/repair',
   host: completedHost.host,
 })
-// Twenty fixed Repair Executor units x three assertions = 60.
+const convergingRepairHost = repairHost({
+  heads: [HEAD, OTHER_HEAD],
+  remoteHead: OTHER_HEAD,
+  body: stateBlock(repairTaskState()),
+})
+const convergingRepair = await executeRepairExecutorV1({
+  phase: 'complete',
+  dispatch: repairDispatch(),
+  newHead: OTHER_HEAD,
+  repairPaths: REPAIR_PATHS,
+  validationProfile: 'protected_transition',
+  headRef: 'codex/repair',
+  host: convergingRepairHost.host,
+})
+const exhaustedRepairHost = repairHost({
+  heads: [HEAD, HEAD, HEAD],
+  remoteHead: OTHER_HEAD,
+  body: stateBlock(repairTaskState()),
+})
+const exhaustedRepair = await executeRepairExecutorV1({
+  phase: 'complete',
+  dispatch: repairDispatch(),
+  newHead: OTHER_HEAD,
+  repairPaths: REPAIR_PATHS,
+  validationProfile: 'protected_transition',
+  headRef: 'codex/repair',
+  host: exhaustedRepairHost.host,
+})
+const unexpectedRepairHost = repairHost({
+  heads: [HEAD, 'c'.repeat(40)],
+  remoteHead: OTHER_HEAD,
+  body: stateBlock(repairTaskState()),
+})
+const unexpectedRepair = await executeRepairExecutorV1({
+  phase: 'complete',
+  dispatch: repairDispatch(),
+  newHead: OTHER_HEAD,
+  repairPaths: REPAIR_PATHS,
+  validationProfile: 'protected_transition',
+  headRef: 'codex/repair',
+  host: unexpectedRepairHost.host,
+})
+// Twenty-three fixed Repair Executor units x three assertions = 69.
 const repairUnits = [
   { name: 'current CHANGES_REQUIRED dispatch', result: preflightResult, reason: 'repair_preflight_satisfied', next: 'REPAIR_AGENT', evidence: (value) => value.validation_profile === 'protected_transition' && value.prompt === expectedRepairPrompt },
   { name: 'APPROVE does not repair', result: approveNoRepair, reason: 'review_not_approved', next: 'STOP', evidence: (value) => !('repair_dispatch' in value) },
@@ -1634,6 +1679,9 @@ const repairUnits = [
   { name: 'one normal commit plan', result: commitPlan, reason: 'repair_commit_plan_satisfied', next: 'COMMIT_AND_PUSH', evidence: (value) => value.commit_count === 1 && value.force === false && !workflowSource.includes('openai/codex-action') && !workflowSource.includes('OPENAI_API_KEY') },
   { name: 'post-push exact HEAD', result: completedRepair, reason: 'fresh_review_required', next: 'REVIEW', evidence: (value) => value.current_head === OTHER_HEAD && value.validation_profile === 'protected_transition' && completedHost.metrics.branchReads === 2 },
   { name: 'PENDING rebind and fresh review handoff', result: completedRepair, reason: 'fresh_review_required', next: 'REVIEW', evidence: (value) => value.automation_status === 'HANDOFF_READY' && value.repair_paths.length === 3 && reboundState.observed_head === OTHER_HEAD && reboundState.review_status === 'PENDING' && reboundState.reviewed_head === null && reboundState.review_blocker_count === null && completedHost.metrics.patches === 1 },
+  { name: 'post-push old-to-new HEAD convergence', result: convergingRepair, reason: 'fresh_review_required', next: 'REVIEW', evidence: (value) => value.current_head === OTHER_HEAD && convergingRepairHost.metrics.pullReads === 5 && convergingRepairHost.metrics.waitCalls === 1 && convergingRepairHost.metrics.patches === 1 },
+  { name: 'post-push old HEAD exhaustion', result: exhaustedRepair, reason: 'repair_pull_binding_invalid', next: 'STOP', evidence: () => exhaustedRepairHost.metrics.pullReads === 3 && exhaustedRepairHost.metrics.waitCalls === 2 && exhaustedRepairHost.metrics.fileReads === 0 && exhaustedRepairHost.metrics.branchReads === 0 && exhaustedRepairHost.metrics.patches === 0 },
+  { name: 'post-push unexpected third HEAD', result: unexpectedRepair, reason: 'repair_pull_binding_invalid', next: 'STOP', evidence: () => unexpectedRepairHost.metrics.pullReads === 2 && unexpectedRepairHost.metrics.waitCalls === 1 && unexpectedRepairHost.metrics.fileReads === 0 && unexpectedRepairHost.metrics.branchReads === 0 && unexpectedRepairHost.metrics.patches === 0 },
 ]
 for (const unit of repairUnits) {
   check(unit.result.reason === unit.reason, `${unit.name} reason`)
@@ -2185,7 +2233,7 @@ const hostAcquisitionPreflightMatrix = [
   providerProbeRun.includes("'rev-parse', '--show-toplevel'") && !providerProbeRun.includes("'symbolic-ref'") && !providerProbeRun.includes("repair_provider_branch_changed") && repairJob.steps.find((step) => step.name === 'Checkout exact repair HEAD')?.with?.ref === '${{ needs.protected_transition_admission_v1.outputs.repair_exact_head }}' && providerProbeRun.includes("'status', '--porcelain=v1', '--untracked-files=all'") && providerProbeRun.split("'status', '--porcelain=v1', '--untracked-files=all'").length === 3 && providerProbeRun.includes('[IO.File]::WriteAllBytes($sentinelPath, $sentinelBytes)') && providerProbeRun.includes("throw 'repair_target_worktree_not_writable'"),
   providerProbeRun.includes('$pushTransport = "https://github.com/$($env:GITHUB_REPOSITORY).git"') && providerProbeRun.includes("@('ls-remote', '--heads', $pushTransport") && providerProbeRun.split("'ls-remote'").length === 2 && providerProbeRun.includes('Invoke-RepairPushPreflight') && !providerProbeRun.includes("-Failure 'repair_push_transport_failed' -SuppressOutput") && !providerProbeRun.includes(repairPushSecretName) && !providerProbeRun.includes(tokenUserInfoMarker),
   repairPushPreflightHelperSource.includes('$remoteLines.Count -ne 1') && repairPushPreflightHelperSource.includes('$remoteFields.Count -ne 2') && repairPushPreflightHelperSource.includes('$remoteFields[0] -cne $ExpectedHead') && repairPushPreflightHelperSource.includes('$remoteFields[1] -cne $ExpectedRef') && repairPushPreflightHelperSource.split("throw 'repair_push_remote_head_mismatch exit_code=0'").length === 3,
-  hostAcquisitionPreflightChangedPaths.join('\n') === hostAcquisitionPreflightExpectedPaths.join('\n') && workflowSource.includes('protected-transition-admission-v1: 477 assertions passed') && !repairRunSource.includes('retry') && !repairRunSource.includes('fallback') && !repairRunSource.includes('default branch'),
+  hostAcquisitionPreflightChangedPaths.join('\n') === hostAcquisitionPreflightExpectedPaths.join('\n') && workflowSource.includes('protected-transition-admission-v1: 486 assertions passed') && !repairRunSource.includes('retry') && !repairRunSource.includes('fallback') && !repairRunSource.includes('default branch'),
 ]
 for (const [index, evidence] of hostAcquisitionPreflightMatrix.entries()) check(evidence, `host acquisition and provider preflight matrix ${index + 1}`)
 
@@ -2225,5 +2273,5 @@ const repairPushPreflightContractMatrix = [
 ]
 for (const [index, evidence] of repairPushPreflightContractMatrix.entries()) check(evidence, `repair push preflight contract matrix ${index + 1}`)
 
-if (assertions !== 477) throw new Error(`expected exactly 477 assertions, observed ${assertions}`)
+if (assertions !== 486) throw new Error(`expected exactly 486 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
