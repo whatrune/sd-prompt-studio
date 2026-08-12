@@ -433,6 +433,7 @@ ${rolePaths.map((value) => `- \`${value}\``).join('\n')}
 let rolePullReads = 0
 let roleStateWrites = 0
 let roleTriggerReads = 0
+let roleCommitReads = 0
 let rolePullBody = stateBlock(roleState({
   observed_head: HEAD,
   review_status: 'APPROVE',
@@ -450,6 +451,10 @@ const rolePublicationHost = {
     }
     if (endpoint.endsWith(`/issues/comments/${roleImplementationResultId}`)) {
       return { id: roleImplementationResultId, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, body: roleImplementationResultBody, author_association: 'OWNER' }
+    }
+    if (endpoint.endsWith(`/commits/${OTHER_HEAD}`)) {
+      roleCommitReads += 1
+      return { sha: OTHER_HEAD, parents: [{ sha: HEAD }] }
     }
     if (endpoint.endsWith(`/pulls/${PR}`)) {
       if (options?.method === 'PATCH') {
@@ -474,6 +479,7 @@ const reboundRoleState = extractProtectedTransitionTaskStateV1(rolePullBody)
 const publishedRolePullReads = rolePullReads
 const publishedRoleStateWrites = roleStateWrites
 const publishedRoleTriggerReads = roleTriggerReads
+const publishedRoleCommitReads = roleCommitReads
 const freshnessCase = async ({ body = rolePublicationBody, issueNumber = TASK, unavailable = false } = {}) => {
   const metrics = { triggerReads: 0, downstreamCalls: 0 }
   const result = await executeRoleTransitionOrchestratorV1({
@@ -496,6 +502,39 @@ const deletedTrigger = await freshnessCase({ unavailable: true })
 const crossTaskTrigger = await freshnessCase({ issueNumber: TASK + 1 })
 const malformedTrigger = await freshnessCase({ body: '## Publication Handoff\n- malformed current record' })
 const disappearedTrigger = await freshnessCase({ body: 'current comment no longer contains a supported terminal marker' })
+const commitBindingCase = async ({ commit, unavailable = false }) => {
+  const metrics = { triggerReads: 0, pullReads: 0, commitReads: 0, downstreamCalls: 0, stateWrites: 0 }
+  const result = await executeRoleTransitionOrchestratorV1({
+    event: rolePublicationEvent,
+    host: {
+      api: async (endpoint, options) => {
+        if (endpoint.endsWith(`/issues/comments/${rolePublicationEvent.comment.id}`)) {
+          metrics.triggerReads += 1
+          return { id: rolePublicationEvent.comment.id, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, body: rolePublicationBody, author_association: 'OWNER' }
+        }
+        if (endpoint.endsWith(`/pulls/${PR}`)) {
+          if (options?.method === 'PATCH') metrics.stateWrites += 1
+          else metrics.pullReads += 1
+          return pullObject({ head: OTHER_HEAD, taskState: roleState({ observed_head: HEAD, review_status: 'APPROVE', reviewed_head: HEAD, review_blocker_count: 0 }) })
+        }
+        if (endpoint.endsWith(`/commits/${OTHER_HEAD}`)) {
+          metrics.commitReads += 1
+          if (unavailable) throw new Error('synthetic_commit_acquisition_failure')
+          return commit
+        }
+        metrics.downstreamCalls += 1
+        throw new Error(`commit_binding_downstream_must_not_be_called:${endpoint}`)
+      },
+    },
+  })
+  return Object.freeze({ result, metrics: Object.freeze(metrics) })
+}
+const commitAcquisitionFailure = await commitBindingCase({ unavailable: true })
+const commitShaMismatch = await commitBindingCase({ commit: { sha: HEAD, parents: [{ sha: HEAD }] } })
+const commitZeroParents = await commitBindingCase({ commit: { sha: OTHER_HEAD, parents: [] } })
+const commitMultipleParents = await commitBindingCase({ commit: { sha: OTHER_HEAD, parents: [{ sha: HEAD }, { sha: 'c'.repeat(40) }] } })
+const commitMalformedParent = await commitBindingCase({ commit: { sha: OTHER_HEAD, parents: [{}] } })
+const commitWrongParent = await commitBindingCase({ commit: { sha: OTHER_HEAD, parents: [{ sha: 'c'.repeat(40) }] } })
 const ambiguousRoleError = await errorOf(() => normalizeRoleTransitionEventV1({
   ...rolePublicationEvent,
   comment: {
@@ -532,7 +571,7 @@ const roleUnits = [
     result: publishedRoute,
     status: 'HANDOFF_READY',
     next: 'INDEPENDENT_IMPLEMENTATION_REVIEWER',
-    evidence: (value) => value.reason === 'publication_state_rebound' && value.state_changed === true && publishedRoleTriggerReads === 1 && publishedRoleStateWrites === 1 && publishedRolePullReads === 3 && Object.keys(reboundRoleState).length === 10 && reboundRoleState.observed_head === OTHER_HEAD && reboundRoleState.review_status === 'PENDING' && reboundRoleState.reviewed_head === null && reboundRoleState.review_blocker_count === null,
+    evidence: (value) => value.reason === 'publication_state_rebound' && value.state_changed === true && publishedRoleTriggerReads === 1 && publishedRoleCommitReads === 1 && publishedRoleStateWrites === 1 && publishedRolePullReads === 3 && Object.keys(reboundRoleState).length === 10 && reboundRoleState.observed_head === OTHER_HEAD && reboundRoleState.review_status === 'PENDING' && reboundRoleState.reviewed_head === null && reboundRoleState.review_blocker_count === null,
   },
   {
     name: 'CHANGES_REQUIRED',
@@ -563,11 +602,11 @@ const roleUnits = [
     evidence: (value) => [value, crossTaskTrigger.result, malformedTrigger.result, disappearedTrigger.result].every((item) => item.state === 'INDETERMINATE' && item.reason === 'terminal_result_ambiguous_or_invalid' && item.state_changed === false) && [deletedTrigger, crossTaskTrigger, malformedTrigger, disappearedTrigger].every((item) => item.metrics.triggerReads === 1 && item.metrics.downstreamCalls === 0) && roleStateWrites === publishedRoleStateWrites,
   },
   {
-    name: 'authority missing or malformed',
-    result: evaluateRoleTransitionOrchestratorV1(roleInput({ authorityValid: false })),
+    name: 'PUBLISHED commit parent binding failures',
+    result: commitAcquisitionFailure.result,
     status: 'BLOCKED',
     next: 'STOP',
-    evidence: (value) => value.state === 'IMPLEMENTATION_BLOCKED' && value.reason === 'terminal_result_ambiguous_or_invalid',
+    evidence: (value) => [value, commitShaMismatch.result, commitZeroParents.result, commitMultipleParents.result, commitMalformedParent.result, commitWrongParent.result].every((item) => item.state === 'INDETERMINATE' && item.reason === 'terminal_result_ambiguous_or_invalid' && item.state_changed === false) && [commitAcquisitionFailure, commitShaMismatch, commitZeroParents, commitMultipleParents, commitMalformedParent, commitWrongParent].every((item) => item.metrics.triggerReads === 1 && item.metrics.pullReads === 1 && item.metrics.commitReads === 1 && item.metrics.downstreamCalls === 0 && item.metrics.stateWrites === 0),
   },
   {
     name: 'event marker applicability',
@@ -791,7 +830,7 @@ const automationHost = ({
   patchFailure = false,
   applyPatch = true,
 } = {}) => {
-  const metrics = { patchCalls: 0, pullReads: 0, fileReads: 0, commentReads: 0, checkReads: 0, threadReads: 0, waitCalls: 0 }
+  const metrics = { patchCalls: 0, pullReads: 0, fileReads: 0, commentReads: 0, commitReads: 0, checkReads: 0, threadReads: 0, waitCalls: 0 }
   let currentHead = HEAD
   let currentBody = stateBlock(initialState)
   const currentPull = () => ({
@@ -811,6 +850,10 @@ const automationHost = ({
     host: {
       wait: async () => { metrics.waitCalls += 1 },
       api: async (endpoint, options = undefined) => {
+        if (endpoint.includes('/commits/')) {
+          metrics.commitReads += 1
+          throw new Error('unexpected_commit_read')
+        }
         if (endpoint.includes('/comments?')) {
           metrics.commentReads += 1
           const page = Number(new URL(`https://api.github.com/${endpoint}`).searchParams.get('page') ?? '1')
@@ -1176,7 +1219,7 @@ const blockedAutomation = automationHost({
 const blockedResult = await executeRoleTransitionOrchestratorV1({ event: blockedEvent, host: blockedAutomation.host, runId: REVIEW_RUN_ID })
 const blockedWritten = extractProtectedTransitionTaskStateV1(blockedAutomation.body())
 check(blockedResult.state === 'REVIEW_BLOCKED' && blockedResult.allowed === false && blockedResult.next_action === 'STOP' && blockedResult.terminal_result === 'BLOCKED', 'central Orchestrator delegates later BLOCKED without Role dispatch')
-check(blockedAutomation.metrics.patchCalls === 1 && blockedResult.admission_executed === false, 'later BLOCKED writes once without admission')
+check(blockedAutomation.metrics.patchCalls === 1 && blockedAutomation.metrics.commitReads === 0 && blockedResult.admission_executed === false, 'later BLOCKED writes once without admission or PUBLISHED commit acquisition')
 check(blockedWritten.review_status === 'BLOCKED' && blockedWritten.review_blocker_count === 2, 'later BLOCKED is the stored effective Decision')
 
 const recoveryEvent = reviewEvent({ comment: { id: 9004, created_at: '2026-08-07T00:00:03Z' } })

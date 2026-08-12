@@ -2177,19 +2177,33 @@ export const executeRoleTransitionOrchestratorV1 = async ({ event, host, runId }
     request = Object.freeze({ transition: 'role_transition_orchestrator_v1', repository: normalized.repository, taskIssueNumber: normalized.taskIssueNumber, prNumber: normalized.prNumber, exactHead: normalized.exactHead })
     const pull = await acquirePull(request, host)
     if (pull.head.sha !== request.exactHead) return roleStopV1(request, 'STALE', 'head_binding_stale', pull.head.sha)
-    const priorState = extractProtectedTransitionTaskStateV1(pull.body)
     if (normalized.terminalResult === 'IMPLEMENTATION_AUTHORIZED') {
+      const priorState = extractProtectedTransitionTaskStateV1(pull.body)
       const architectureBody = await fetchReferencedCommentV1(normalized.authorityCommentId)
       const valid = validateRoleArchitectureReviewV1(architectureBody, normalized.candidateSha, normalized.repository, normalized.taskIssueNumber)
       return Object.freeze({ ...evaluateRoleTransitionOrchestratorV1({ terminalResult: normalized.terminalResult, request, taskState: priorState, paths: normalized.paths, authorityValid: valid }), source_comment_id: normalized.commentId })
     }
     if (normalized.terminalResult === 'IMPLEMENTATION_RESULT_READY') {
+      const priorState = extractProtectedTransitionTaskStateV1(pull.body)
       const authorizationBody = await fetchReferencedCommentV1(normalized.authorityCommentId)
       const authorization = parseRoleAuthorizationV1(authorizationBody, normalized.repository, normalized.taskIssueNumber)
       const valid = authorization.prNumber === request.prNumber && authorization.exactHead === request.exactHead && sameRolePathsV1(authorization.paths, normalized.paths)
       return Object.freeze({ ...evaluateRoleTransitionOrchestratorV1({ terminalResult: normalized.terminalResult, request, taskState: priorState, paths: normalized.paths, authorityValid: valid }), source_comment_id: normalized.commentId })
     }
     if (!FULL_HEAD.test(normalized.parentHead ?? '') || normalized.parentHead === normalized.exactHead) throw new Error('terminal_result_ambiguous_or_invalid')
+    let publishedCommit
+    try {
+      publishedCommit = await api(host, `repos/${normalized.repository}/commits/${normalized.exactHead}`)
+    } catch {
+      throw new Error('terminal_result_ambiguous_or_invalid')
+    }
+    if (
+      !publishedCommit || typeof publishedCommit !== 'object' || publishedCommit.sha !== normalized.exactHead ||
+      !Array.isArray(publishedCommit.parents) || publishedCommit.parents.length !== 1 ||
+      !publishedCommit.parents[0] || typeof publishedCommit.parents[0] !== 'object' ||
+      !FULL_HEAD.test(publishedCommit.parents[0].sha ?? '') || publishedCommit.parents[0].sha !== normalized.parentHead
+    ) throw new Error('terminal_result_ambiguous_or_invalid')
+    const priorState = extractProtectedTransitionTaskStateV1(pull.body)
     const authorityBody = await fetchReferencedCommentV1(normalized.authorityCommentId)
     const authority = parseRoleYamlV1(authorityBody)
     const authorityPaths = authority.lists.get('exact_paths')
