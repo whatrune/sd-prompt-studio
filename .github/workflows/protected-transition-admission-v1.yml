@@ -322,6 +322,13 @@ jobs:
           $poDispatch.purpose = 'PUBLICATION_DECISION'
           $poDispatch.terminal_result = 'IMPLEMENTATION_RESULT_READY'
           $poDispatch.source_comment_id = [int64]$resultComment.id
+          $poDispatch.source_binding = [ordered]@{
+            kind = 'IMPLEMENTATION_RESULT'
+            comment_id = [int64]$resultComment.id
+            authorization_comment_id = [int64]$dispatch.source_comment_id
+            architecture_review_comment_id = [int64]$dispatch.source_binding.architecture_review_comment_id
+            candidate_sha256 = [string]$dispatch.source_binding.candidate_sha256
+          }
           $poDispatchPath = Join-Path $env:RUNNER_TEMP 'role-publication-dispatch.json'
           $poPlanPath = Join-Path $env:RUNNER_TEMP 'role-publication-plan.json'
           $poPromptPath = Join-Path $env:RUNNER_TEMP 'role-publication-prompt.txt'
@@ -433,12 +440,21 @@ jobs:
         if: steps.merge_plan.outputs.operation == 'MERGE_PR'
         shell: pwsh
         env:
+          GH_TOKEN: ${{ github.token }}
           MERGE_PR_NUMBER: ${{ steps.merge_plan.outputs.pr_number }}
           MERGE_EXACT_HEAD: ${{ steps.merge_plan.outputs.exact_head }}
+          ROLE_DISPATCH_B64: ${{ needs.protected_transition_admission_v1.outputs.role_dispatch_b64 }}
         run: |
           $ErrorActionPreference = 'Stop'
           $priorToken = $env:GH_TOKEN
           try {
+            $dispatchPath = Join-Path $env:RUNNER_TEMP 'merge-dispatch-final.json'
+            $planPath = Join-Path $env:RUNNER_TEMP 'merge-plan-final.json'
+            [IO.File]::WriteAllBytes($dispatchPath, [Convert]::FromBase64String($env:ROLE_DISPATCH_B64))
+            node $env:PTA_MERGE_HOST_RUNNER --merge-operator-file $dispatchPath 1> $planPath
+            if ($LASTEXITCODE -ne 0) { throw 'merge_operator_final_rebind_failed' }
+            $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json
+            if ($plan.next_action -cne 'MERGE_PR' -or $plan.merge_method -cne 'merge' -or $plan.pr_number -ne [int]$env:MERGE_PR_NUMBER -or $plan.exact_head -cne $env:MERGE_EXACT_HEAD) { throw 'merge_operator_final_plan_invalid' }
             Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
             $payload = @{ sha = $env:MERGE_EXACT_HEAD; merge_method = 'merge' } | ConvertTo-Json -Compress
             $merged = $payload | gh api --method PUT "repos/$($env:GITHUB_REPOSITORY)/pulls/$($env:MERGE_PR_NUMBER)/merge" --input - | ConvertFrom-Json
@@ -1073,6 +1089,7 @@ jobs:
           PR_NUMBER: ${{ needs.protected_transition_repair_executor_v1.outputs.pr_number }}
           REPAIRED_HEAD: ${{ needs.protected_transition_repair_executor_v1.outputs.new_head }}
           SOURCE_COMMENT_ID: ${{ needs.protected_transition_admission_v1.outputs.source_comment_id }}
+          SOURCE_REVIEW_HEAD: ${{ needs.protected_transition_admission_v1.outputs.repair_exact_head }}
         run: |
           $ErrorActionPreference = 'Stop'
           if ($PSVersionTable.PSVersion.Major -ne 7) { throw 'post_repair_review_powershell_major_invalid' }
@@ -1100,6 +1117,12 @@ jobs:
             external_check_success_count = $null
             blocking_thread_count = $null
             task_state = $state
+            source_binding = [ordered]@{
+              kind = 'REVIEW'
+              comment_id = [int64]$env:SOURCE_COMMENT_ID
+              reviewed_head = $env:SOURCE_REVIEW_HEAD
+              decision = 'CHANGES_REQUIRED'
+            }
           }
           $dispatchPath = Join-Path $env:RUNNER_TEMP 'post-repair-review-dispatch.json'
           $planPath = Join-Path $env:RUNNER_TEMP 'post-repair-review-plan.json'

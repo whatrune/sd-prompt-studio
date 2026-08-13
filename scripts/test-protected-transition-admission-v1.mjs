@@ -451,6 +451,15 @@ candidate_payload_sha256: ${'c'.repeat(64)}
 exact_paths:
 ${rolePaths.map((value) => `  - ${value}`).join('\n')}
 \`\`\``
+const roleArchitectureReviewBody = `\`\`\`yaml
+record_type: independent_architecture_review_decision_v1
+parent_issue: ${TASK}
+candidate_payload_sha256: ${'c'.repeat(64)}
+decision: APPROVE
+blocking_finding_count: 0
+remaining_finding_count: 0
+unknown_count: 0
+\`\`\``
 let rolePullReads = 0
 let roleStateWrites = 0
 let roleTriggerReads = 0
@@ -472,6 +481,12 @@ const rolePublicationHost = {
     }
     if (endpoint.endsWith(`/issues/comments/${roleImplementationResultId}`)) {
       return { id: roleImplementationResultId, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, body: roleImplementationResultBody, author_association: 'OWNER' }
+    }
+    if (endpoint.endsWith(`/issues/comments/${roleImplementationAuthorizationId}`)) {
+      return { id: roleImplementationAuthorizationId, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, body: roleImplementationAuthorizationBody, author_association: 'OWNER' }
+    }
+    if (endpoint.endsWith('/issues/comments/9000')) {
+      return { id: 9000, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, body: roleArchitectureReviewBody, author_association: 'OWNER' }
     }
     if (endpoint.endsWith(`/commits/${OTHER_HEAD}`)) {
       roleCommitReads += 1
@@ -880,6 +895,13 @@ const automationHost = ({
           const page = Number(new URL(`https://api.github.com/${endpoint}`).searchParams.get('page') ?? '1')
           return structuredClone(commentPages[page - 1] ?? [])
         }
+        const directComment = /\/issues\/comments\/(\d+)$/.exec(endpoint)
+        if (directComment) {
+          metrics.commentReads += 1
+          const comment = commentPages.flat().find((candidate) => candidate.id === Number(directComment[1]))
+          if (!comment) throw new Error('synthetic_comment_missing')
+          return structuredClone({ ...comment, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}` })
+        }
         if (endpoint.includes('/issues/')) return issueObject()
         if (endpoint.includes('/files?')) {
           metrics.fileReads += 1
@@ -946,8 +968,8 @@ const validReadyAutomation = automationHost({
   checkPages: [readyCheckPage(), readyCheckPage()],
 })
 const validReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: validReadyAutomation.host, runId: READY_RUN_ID })
-check(validReadyResult.allowed === true && validReadyResult.automation_status === 'HANDOFF_READY' && validReadyResult.next_action === 'MERGE_OPERATOR', 'RFR-02 valid Ready event reaches the existing Controller handoff')
-check(validReadyResult.task_issue_number === TASK && validReadyResult.pr_number === PR && validReadyResult.current_head === HEAD, 'RFR-02 derives exact Task, PR, and HEAD')
+check(validReadyResult.allowed === false && validReadyResult.automation_status === 'HANDOFF_READY' && validReadyResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD', 'RFR-02 valid Ready event reaches Product Owner decision handoff')
+check(validReadyResult.task_issue_number === TASK && validReadyResult.pr_number === PR && validReadyResult.current_head === HEAD && validReadyResult.role_dispatch?.source_comment_id === reviewEvent().comment.id, 'RFR-02 binds exact Task, PR, HEAD, and effective Review source')
 check(validReadyAutomation.metrics.patchCalls === 0 && validReadyAutomation.metrics.checkReads === 3 && validReadyAutomation.metrics.threadReads === 1 && validReadyAutomation.metrics.waitCalls === 0, 'RFR-02 Ready adapter excludes its own running check and rechecks the final rollup read-only')
 
 const wrongReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ action: 'opened' }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
@@ -1013,7 +1035,7 @@ const delayedReadyAutomation = automationHost({
   ],
 })
 const delayedReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: delayedReadyAutomation.host, runId: READY_RUN_ID })
-check(delayedReadyResult.allowed && delayedReadyResult.next_action === 'MERGE_OPERATOR', 'RFR-08 delayed exact-HEAD check reaches the existing Controller after terminal success')
+check(delayedReadyResult.allowed === false && delayedReadyResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD', 'RFR-08 delayed exact-HEAD check reaches Product Owner decision after terminal success')
 check(delayedReadyAutomation.metrics.waitCalls === 1 && delayedReadyAutomation.metrics.checkReads === 4, 'RFR-08 performs one bounded wait and one final gate evaluation')
 check(delayedReadyAutomation.metrics.patchCalls === 0 && delayedReadyAutomation.metrics.threadReads === 1, 'RFR-08 remains read-only and reaches terminal thread acquisition')
 
@@ -1064,7 +1086,7 @@ const historicalReadyAutomation = automationHost({
   checkPages: [historicalReadyPage],
 })
 const historicalReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: historicalReadyAutomation.host, runId: READY_RUN_ID })
-check(historicalReadyResult.allowed && historicalReadyResult.next_action === 'MERGE_OPERATOR', 'RFR-12 historical same-identity success and failure do not block the selected current generation')
+check(historicalReadyResult.allowed === false && historicalReadyResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD', 'RFR-12 historical same-identity success and failure still route the selected current generation through Product Owner')
 check(historicalReadyAutomation.metrics.waitCalls === 0 && historicalReadyAutomation.metrics.checkReads === 3, 'RFR-12 selected terminal success reaches the unchanged gate without waiting')
 check(historicalReadyAutomation.metrics.threadReads === 1 && historicalReadyAutomation.metrics.patchCalls === 0, 'RFR-12 remains read-only and reaches terminal thread acquisition')
 
@@ -1649,7 +1671,7 @@ const skippedSiblingLifecycle = automationHost({
   checkPages: [selfSiblingPage(), selfSiblingPage(), selfSiblingPage()],
 })
 const skippedSiblingLifecycleResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: skippedSiblingLifecycle.host, runId: READY_RUN_ID })
-check(skippedSiblingLifecycleResult.allowed && skippedSiblingLifecycleResult.reason === 'merge_gate_satisfied', 'SGR-01 Ready-wait excludes a prior SKIPPED Repair Executor sibling')
+check(!skippedSiblingLifecycleResult.allowed && skippedSiblingLifecycleResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD', 'SGR-01 Ready-wait excludes a prior SKIPPED Repair Executor sibling')
 
 const conclusionIndependentResults = await Promise.all(['SUCCESS', 'FAILURE', 'SKIPPED'].map(async (conclusion) => {
   const automation = automationHost({
@@ -1659,7 +1681,7 @@ const conclusionIndependentResults = await Promise.all(['SUCCESS', 'FAILURE', 'S
   })
   return executeReadyForReviewProgressionV1({ event: readyEvent(), host: automation.host, runId: READY_RUN_ID })
 }))
-check(conclusionIndependentResults.every((result) => result.allowed && result.reason === 'merge_gate_satisfied'), 'SGR-02 prior self-sibling exclusion is conclusion-independent')
+check(conclusionIndependentResults.every((result) => !result.allowed && result.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD'), 'SGR-02 prior self-sibling exclusion is conclusion-independent')
 check(skippedSiblingLifecycle.metrics.waitCalls === 0 && skippedSiblingLifecycle.metrics.threadReads === 1, 'SGR-03 all-success external checks progress from Ready-wait')
 
 const differentAppRepair = automationHost({
@@ -1707,7 +1729,7 @@ const initialSiblingGateResult = await evaluateMergeAllowedAutomationV1({ reques
 const finalSiblingGateResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: finalSiblingGate.host })
 check(initialSiblingGateResult.automation_status === 'MERGE_ALLOWED' && initialSiblingGate.metrics.threadReads === 1, 'SGR-07 Merge Gate initial snapshot excludes the prior self sibling')
 check(finalSiblingGateResult.automation_status === 'MERGE_ALLOWED' && finalSiblingGate.metrics.checkReads === 2, 'SGR-08 Merge Gate final snapshot excludes the prior self sibling')
-check(skippedSiblingLifecycleResult.allowed && skippedSiblingLifecycleResult.reason === 'merge_gate_satisfied' && skippedSiblingLifecycle.metrics.checkReads === 3, 'SGR-09 one positive traverses Ready-wait and both Merge Gate snapshots')
+check(!skippedSiblingLifecycleResult.allowed && skippedSiblingLifecycleResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' && skippedSiblingLifecycle.metrics.checkReads === 3, 'SGR-09 one positive traverses Ready-wait and both Merge Gate snapshots')
 
 const lateSharedFailure = automationHost({
   initialState: approvedState(),
@@ -2653,7 +2675,7 @@ const mergeDecisionBody = (overrides = {}) => {
     decision: 'MERGE_ALLOWED',
     merge_allowed: true,
     status: 'completed',
-    execution_stop_reason: 'merge_allowed',
+    execution_stop_reason: 'completed',
     ...overrides,
   }
   return `# Product Owner Merge Decision\n\n\`\`\`yaml\n${Object.entries(values).map(([key, value]) => `${key}: ${value}`).join('\n')}\n\`\`\``
@@ -2679,12 +2701,13 @@ const duplicateMergeMarkerError = await errorOf(() => normalizeRoleTransitionEve
   comment: { ...mergeDecisionEvent.comment, body: `${mergeDecisionBody()}\nrecord_type: implementation_authorization_v1` },
 }))
 const malformedMergeDecisionError = await errorOf(() => parseProductOwnerMergeDecisionV1(mergeDecisionBody({ admission_evaluated_head: HEAD }), REPOSITORY, TASK))
+const noncanonicalMergeStopError = await errorOf(() => parseProductOwnerMergeDecisionV1(mergeDecisionBody({ execution_stop_reason: 'merge_allowed' }), REPOSITORY, TASK))
 const mergeDecisionNormalizationMatrix = [
   normalizedMergeDecision.terminalResult === 'MERGE_ALLOWED',
   normalizedMergeDecision.repository === REPOSITORY && normalizedMergeDecision.taskIssueNumber === TASK,
   normalizedMergeDecision.commentId === 9202 && normalizedMergeDecision.prNumber === PR,
   duplicateMergeMarkerError?.message === 'terminal_result_ambiguous_or_invalid',
-  malformedMergeDecisionError?.message === 'terminal_result_ambiguous_or_invalid',
+  malformedMergeDecisionError?.message === 'terminal_result_ambiguous_or_invalid' && noncanonicalMergeStopError?.message === 'terminal_result_ambiguous_or_invalid',
 ]
 for (const [index, evidence] of mergeDecisionNormalizationMatrix.entries()) check(evidence, `RDC-02 merge decision normalization ${index + 1}`)
 
@@ -2724,32 +2747,57 @@ for (const [index, rejected] of rejectedMergeDecisions.entries()) check(rejected
 
 const implementerRoute = evaluateRoleTransitionOrchestratorV1(roleInput({ request: roleRequest({ exactHead: HEAD }), taskState: roleState({ observed_head: HEAD }) }))
 const implementerState = roleState({ observed_head: HEAD })
-const implementerDispatch = projectRoleDispatchEnvelopeV1({ result: implementerRoute, repository: REPOSITORY, sourceCommentId: roleImplementationAuthorizationId, authorizedPaths: rolePaths, taskState: implementerState })
+const implementerSourceBinding = Object.freeze({
+  kind: 'IMPLEMENTATION_AUTHORIZATION', comment_id: roleImplementationAuthorizationId,
+  architecture_review_comment_id: 9000, candidate_sha256: 'c'.repeat(64),
+})
+const implementerDispatch = projectRoleDispatchEnvelopeV1({
+  result: implementerRoute, repository: REPOSITORY, sourceCommentId: roleImplementationAuthorizationId,
+  authorizedPaths: rolePaths, taskState: implementerState, sourceBinding: implementerSourceBinding,
+})
 const implementerDispatchMatrix = [
   implementerDispatch.next_action === 'IMPLEMENTER' && implementerDispatch.purpose === 'IMPLEMENTER',
   implementerDispatch.repository === REPOSITORY && implementerDispatch.task_issue_number === TASK,
   implementerDispatch.pr_number === PR && implementerDispatch.exact_head === HEAD,
-  implementerDispatch.source_comment_id === roleImplementationAuthorizationId,
+  implementerDispatch.source_comment_id === roleImplementationAuthorizationId && implementerDispatch.source_binding.candidate_sha256 === 'c'.repeat(64),
   implementerDispatch.authorized_paths.join('\n') === rolePaths.join('\n') && JSON.stringify(implementerDispatch.task_state) === JSON.stringify(implementerState),
 ]
 for (const [index, evidence] of implementerDispatchMatrix.entries()) check(evidence, `RDC-06 implementer envelope ${index + 1}`)
 
-const mergeDecisionDispatch = projectRoleDispatchEnvelopeV1({ result: correctedApproveRoute, repository: REPOSITORY, sourceCommentId: mergeDecisionReviewId, authorizedPaths: rolePaths, taskState: mergeDecisionState, admissionRunId: REVIEW_RUN_ID })
+const mergeDecisionDispatch = projectRoleDispatchEnvelopeV1({
+  result: correctedApproveRoute, repository: REPOSITORY, sourceCommentId: mergeDecisionReviewId,
+  authorizedPaths: rolePaths, taskState: mergeDecisionState,
+  sourceBinding: Object.freeze({ kind: 'REVIEW', comment_id: mergeDecisionReviewId, reviewed_head: OTHER_HEAD, decision: 'APPROVE' }),
+  admissionRunId: REVIEW_RUN_ID,
+})
 const mergeDecisionDispatchMatrix = [
   mergeDecisionDispatch.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
   mergeDecisionDispatch.purpose === 'MERGE_DECISION',
   mergeDecisionDispatch.admission_run_id === REVIEW_RUN_ID,
   mergeDecisionDispatch.admission_state === 'MERGE_ELIGIBLE' && mergeDecisionDispatch.admission_allowed === true && mergeDecisionDispatch.admission_reason === 'merge_gate_satisfied',
-  mergeDecisionDispatch.source_comment_id === mergeDecisionReviewId && JSON.stringify(mergeDecisionDispatch.task_state) === JSON.stringify(mergeDecisionState),
+  mergeDecisionDispatch.source_comment_id === mergeDecisionReviewId && mergeDecisionDispatch.source_binding.kind === 'REVIEW' && JSON.stringify(mergeDecisionDispatch.task_state) === JSON.stringify(mergeDecisionState),
 ]
 for (const [index, evidence] of mergeDecisionDispatchMatrix.entries()) check(evidence, `RDC-07 Product Owner envelope ${index + 1}`)
 
-const publicationDispatch = Object.freeze({ ...implementerDispatch, source_comment_id: roleImplementationResultId, terminal_result: 'IMPLEMENTATION_RESULT_READY', next_action: 'PRODUCT_OWNER_IMPLEMENTATION_LEAD', purpose: 'PUBLICATION_DECISION' })
+const publicationDispatch = Object.freeze({
+  ...implementerDispatch,
+  source_comment_id: roleImplementationResultId,
+  terminal_result: 'IMPLEMENTATION_RESULT_READY',
+  next_action: 'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
+  purpose: 'PUBLICATION_DECISION',
+  source_binding: Object.freeze({
+    kind: 'IMPLEMENTATION_RESULT', comment_id: roleImplementationResultId,
+    authorization_comment_id: roleImplementationAuthorizationId,
+    architecture_review_comment_id: 9000, candidate_sha256: 'c'.repeat(64),
+  }),
+})
 const reviewerDispatch = publishedRoute.role_dispatch
 const roleComment = (id, body, createdAt) => Object.freeze({ id, created_at: createdAt, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, author_association: 'OWNER', body })
 const roleSourceRecords = new Map([
   [roleImplementationAuthorizationId, roleComment(roleImplementationAuthorizationId, roleImplementationAuthorizationBody, '2026-08-13T00:00:01Z')],
+  [9000, roleComment(9000, roleArchitectureReviewBody, '2026-08-13T00:00:00Z')],
   [roleImplementationResultId, roleComment(roleImplementationResultId, roleImplementationResultBody, '2026-08-13T00:00:02Z')],
+  [rolePublicationAuthorityId, roleComment(rolePublicationAuthorityId, rolePublicationAuthorityBody, '2026-08-13T00:00:03Z')],
   [mergeDecisionReviewId, roleComment(mergeDecisionReviewId, reviewDecisionBody({ reviewed_head: OTHER_HEAD }), '2026-08-13T00:00:03Z')],
   [rolePublicationEvent.comment.id, roleComment(rolePublicationEvent.comment.id, rolePublicationBody, '2026-08-13T00:00:04Z')],
 ])
@@ -2811,19 +2859,26 @@ const convergenceMatrix = [
 for (const [index, evidence] of convergenceMatrix.entries()) check(evidence, `RDC-10 idempotent evidence reuse ${index + 1}`)
 
 const reboundImplementer = await executeRoleDispatchRebindV1({ dispatch: implementerDispatch, host: roleHost() })
-const stateDriftRebind = await executeRoleDispatchRebindV1({ dispatch: implementerDispatch, host: roleHost({ taskState: roleState({ observed_head: HEAD, implementation_authorized: false }) }) })
-const scopeDriftRebind = await executeRoleDispatchRebindV1({ dispatch: implementerDispatch, host: roleHost({ paths: rolePaths.slice(0, 2) }) })
-const staleSourceRecords = new Map(roleSourceRecords)
-staleSourceRecords.set(roleImplementationAuthorizationId, roleComment(roleImplementationAuthorizationId, roleImplementationAuthorizationBody.replace(`exact_base: ${HEAD}`, `exact_base: ${OTHER_HEAD}`), '2026-08-13T00:00:01Z'))
-const sourceDriftRebind = await executeRoleDispatchRebindV1({ dispatch: implementerDispatch, host: roleHost({ sourceRecords: staleSourceRecords }) })
+const implementerAuthorityDriftRecords = new Map(roleSourceRecords)
+implementerAuthorityDriftRecords.set(roleImplementationAuthorizationId, roleComment(roleImplementationAuthorizationId, roleImplementationAuthorizationBody.replace('c'.repeat(64), 'd'.repeat(64)), '2026-08-13T00:00:01Z'))
+const implementerAuthorityDrift = await executeRoleDispatchConsumerV1({ dispatch: implementerDispatch, host: roleHost({ sourceRecords: implementerAuthorityDriftRecords }) })
+const publicationReferenceDriftRecords = new Map(roleSourceRecords)
+publicationReferenceDriftRecords.set(roleImplementationResultId, roleComment(roleImplementationResultId, roleImplementationResultBody.replace(`issuecomment-${roleImplementationAuthorizationId}`, 'issuecomment-9999'), '2026-08-13T00:00:02Z'))
+const publicationReferenceDrift = await executeRoleDispatchConsumerV1({ dispatch: publicationDispatch, host: roleHost({ sourceRecords: publicationReferenceDriftRecords }) })
+const reviewerDeletedRecords = new Map(roleSourceRecords)
+reviewerDeletedRecords.delete(rolePublicationEvent.comment.id)
+const reviewerDeletedSource = await executeRoleDispatchConsumerV1({ dispatch: reviewerDispatch, host: roleHost({ head: OTHER_HEAD, taskState: reviewerDispatch.task_state, sourceRecords: reviewerDeletedRecords }) })
+const mergeSourceDriftRecords = new Map(roleSourceRecords)
+mergeSourceDriftRecords.set(mergeDecisionReviewId, roleComment(mergeDecisionReviewId, reviewDecisionBody({ reviewed_head: OTHER_HEAD, decision: 'CHANGES_REQUIRED', blocking_finding_count: 1, remaining_finding_count: 1 }), '2026-08-13T00:00:03Z'))
+const mergeSourceDrift = await executeRoleDispatchConsumerV1({ dispatch: mergeDecisionDispatch, host: roleHost({ head: OTHER_HEAD, taskState: mergeDecisionState, sourceRecords: mergeSourceDriftRecords }) })
 const rebindMatrix = [
   reboundImplementer.next_action === 'PROTECTED_OPERATION_READY' && reboundImplementer.exact_head === HEAD,
-  stateDriftRebind.next_action === 'STOP' && stateDriftRebind.reason === 'role_dispatch_binding_changed',
-  scopeDriftRebind.next_action === 'STOP' && scopeDriftRebind.reason === 'role_dispatch_binding_changed',
-  sourceDriftRebind.next_action === 'STOP' && sourceDriftRebind.reason === 'role_dispatch_source_binding_changed',
-  [reboundImplementer, stateDriftRebind, scopeDriftRebind, sourceDriftRebind].every((value) => value.mutation_count === 0),
+  implementerAuthorityDrift.next_action === 'STOP' && implementerAuthorityDrift.reason === 'role_dispatch_source_binding_changed',
+  publicationReferenceDrift.next_action === 'STOP' && publicationReferenceDrift.reason === 'role_dispatch_source_binding_changed',
+  reviewerDeletedSource.next_action === 'STOP' && mergeSourceDrift.next_action === 'STOP',
+  [reboundImplementer, implementerAuthorityDrift, publicationReferenceDrift, reviewerDeletedSource, mergeSourceDrift].every((value) => value.mutation_count === 0),
 ]
-for (const [index, evidence] of rebindMatrix.entries()) check(evidence, `RDC-11 protected operation rebind ${index + 1}`)
+for (const [index, evidence] of rebindMatrix.entries()) check(evidence, `RDC-11 complete source authority revalidation ${index + 1}`)
 
 const roleConsumerJob = workflow.jobs.protected_transition_role_dispatch_consumer_v1
 const mergeOperatorJob = workflow.jobs.protected_transition_merge_operator_v1
@@ -2836,7 +2891,7 @@ const workflowBoundaryMatrix = [
   roleExecutionRun.split('Assert-FreshRoleBinding').length >= 7 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'"),
   postRepairReviewJob.steps.find((step) => step.name === 'Bind post-repair Independent Reviewer')?.run.includes('task_state = $state') && postRepairReviewJob.steps.find((step) => step.name === 'Execute and publish post-repair Review')?.run.includes('--role-rebind-file'),
   runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id'),
-  mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR'" && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force'),
+  mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR'" && mergeOperationRun.includes('--merge-operator-file $dispatchPath') && mergeOperationRun.indexOf('--merge-operator-file $dispatchPath') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force'),
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 protected operation boundaries ${index + 1}`)
 
