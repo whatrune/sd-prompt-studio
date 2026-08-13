@@ -460,6 +460,13 @@ blocking_finding_count: 0
 remaining_finding_count: 0
 unknown_count: 0
 \`\`\``
+const roleTaskTitle = 'Implement the authorized Role Dispatch correction'
+const roleTaskBody = 'Apply the approved correction to the exact authorized paths.\nPreserve every frozen authority boundary.'
+const roleImplementerContext = Object.freeze({
+  task_title: roleTaskTitle,
+  task_body: roleTaskBody,
+  approved_correction_context: roleImplementationAuthorizationBody,
+})
 let rolePullReads = 0
 let roleStateWrites = 0
 let roleTriggerReads = 0
@@ -2754,13 +2761,58 @@ const implementerSourceBinding = Object.freeze({
 const implementerDispatch = projectRoleDispatchEnvelopeV1({
   result: implementerRoute, repository: REPOSITORY, sourceCommentId: roleImplementationAuthorizationId,
   authorizedPaths: rolePaths, taskState: implementerState, sourceBinding: implementerSourceBinding,
+  implementerContext: roleImplementerContext,
 })
+const implementationRouteMetrics = { sourceReads: 0, taskReads: 0, architectureReads: 0, pullReads: 0 }
+const implementationAuthorizationEvent = Object.freeze({
+  action: 'created', repository: Object.freeze({ full_name: REPOSITORY }),
+  issue: Object.freeze({ number: TASK, state: 'open' }),
+  comment: Object.freeze({ id: roleImplementationAuthorizationId, author_association: 'OWNER', body: roleImplementationAuthorizationBody }),
+})
+const materializedImplementationRoute = await executeRoleTransitionOrchestratorV1({
+  event: implementationAuthorizationEvent,
+  host: {
+    api: async (endpoint) => {
+      if (endpoint.endsWith(`/issues/comments/${roleImplementationAuthorizationId}`)) {
+        implementationRouteMetrics.sourceReads += 1
+        return { id: roleImplementationAuthorizationId, created_at: '2026-08-13T00:00:01Z', issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, author_association: 'OWNER', body: roleImplementationAuthorizationBody }
+      }
+      if (endpoint.endsWith('/issues/comments/9000')) {
+        implementationRouteMetrics.architectureReads += 1
+        return { id: 9000, created_at: '2026-08-13T00:00:00Z', issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, author_association: 'OWNER', body: roleArchitectureReviewBody }
+      }
+      if (endpoint.endsWith(`/issues/${TASK}`)) {
+        implementationRouteMetrics.taskReads += 1
+        return { number: TASK, title: roleTaskTitle, body: roleTaskBody }
+      }
+      if (endpoint.endsWith(`/pulls/${PR}`)) {
+        implementationRouteMetrics.pullReads += 1
+        return pullObject({ head: HEAD, changedFiles: rolePaths.length, taskState: implementerState })
+      }
+      throw new Error(`unexpected_implementation_route_endpoint:${endpoint}`)
+    },
+  },
+})
+const invalidImplementerContexts = [
+  null,
+  { ...roleImplementerContext, task_title: '' },
+  { ...roleImplementerContext, task_body: 42 },
+  { ...roleImplementerContext, task_title: 'é'.repeat(129) },
+  { ...roleImplementerContext, task_body: 'b'.repeat(8193) },
+  { ...roleImplementerContext, approved_correction_context: 'c'.repeat(8193) },
+  { task_title: 't', task_body: 'b'.repeat(8192), approved_correction_context: 'c'.repeat(8192) },
+  { ...roleImplementerContext, extra: 'not allowed' },
+]
+const invalidImplementerContextErrors = await Promise.all(invalidImplementerContexts.map((implementerContext) => errorOf(() => projectRoleDispatchEnvelopeV1({
+  result: implementerRoute, repository: REPOSITORY, sourceCommentId: roleImplementationAuthorizationId,
+  authorizedPaths: rolePaths, taskState: implementerState, sourceBinding: implementerSourceBinding, implementerContext,
+}))))
 const implementerDispatchMatrix = [
-  implementerDispatch.next_action === 'IMPLEMENTER' && implementerDispatch.purpose === 'IMPLEMENTER',
-  implementerDispatch.repository === REPOSITORY && implementerDispatch.task_issue_number === TASK,
-  implementerDispatch.pr_number === PR && implementerDispatch.exact_head === HEAD,
-  implementerDispatch.source_comment_id === roleImplementationAuthorizationId && implementerDispatch.source_binding.candidate_sha256 === 'c'.repeat(64),
-  implementerDispatch.authorized_paths.join('\n') === rolePaths.join('\n') && JSON.stringify(implementerDispatch.task_state) === JSON.stringify(implementerState),
+  implementerDispatch.next_action === 'IMPLEMENTER' && implementerDispatch.purpose === 'IMPLEMENTER' && materializedImplementationRoute.next_action === 'IMPLEMENTER',
+  materializedImplementationRoute.role_dispatch?.implementer_context.task_title === roleTaskTitle && materializedImplementationRoute.role_dispatch?.implementer_context.task_body === roleTaskBody && materializedImplementationRoute.role_dispatch?.implementer_context.approved_correction_context === roleImplementationAuthorizationBody && Object.isFrozen(materializedImplementationRoute.role_dispatch.implementer_context),
+  implementerDispatch.repository === REPOSITORY && implementerDispatch.task_issue_number === TASK && implementerDispatch.pr_number === PR && implementerDispatch.exact_head === HEAD && implementerDispatch.source_comment_id === roleImplementationAuthorizationId && implementerDispatch.source_binding.candidate_sha256 === 'c'.repeat(64),
+  implementerDispatch.authorized_paths.join('\n') === rolePaths.join('\n') && JSON.stringify(implementerDispatch.task_state) === JSON.stringify(implementerState) && implementationRouteMetrics.sourceReads === 1 && implementationRouteMetrics.taskReads === 1 && implementationRouteMetrics.architectureReads === 1 && implementationRouteMetrics.pullReads === 1,
+  invalidImplementerContextErrors.every((error) => error?.message === 'role_dispatch_envelope_invalid'),
 ]
 for (const [index, evidence] of implementerDispatchMatrix.entries()) check(evidence, `RDC-06 implementer envelope ${index + 1}`)
 
@@ -2779,8 +2831,9 @@ const mergeDecisionDispatchMatrix = [
 ]
 for (const [index, evidence] of mergeDecisionDispatchMatrix.entries()) check(evidence, `RDC-07 Product Owner envelope ${index + 1}`)
 
+const { implementer_context: _unusedImplementerContext, ...nonImplementerDispatchBase } = implementerDispatch
 const publicationDispatch = Object.freeze({
-  ...implementerDispatch,
+  ...nonImplementerDispatchBase,
   source_comment_id: roleImplementationResultId,
   terminal_result: 'IMPLEMENTATION_RESULT_READY',
   next_action: 'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
@@ -2817,10 +2870,14 @@ const roleSourceRecords = new Map([
   [postRepairReviewSourceId, roleComment(postRepairReviewSourceId, postRepairReviewBody, '2026-08-13T00:00:03Z')],
   [rolePublicationEvent.comment.id, roleComment(rolePublicationEvent.comment.id, rolePublicationBody, '2026-08-13T00:00:04Z')],
 ])
-const roleHost = ({ head = HEAD, taskState = implementerState, paths = rolePaths, evidence = [], sourceRecords = roleSourceRecords } = {}) => ({
+const roleHost = ({ head = HEAD, taskState = implementerState, paths = rolePaths, evidence = [], sourceRecords = roleSourceRecords, taskTitle = roleTaskTitle, taskBody = roleTaskBody, metrics = null } = {}) => ({
   api: async (endpoint) => {
     if (endpoint.endsWith(`/pulls/${PR}`)) return pullObject({ head, changedFiles: paths.length, taskState })
     if (endpoint.includes(`/pulls/${PR}/files?`)) return paths.map((filename) => ({ filename, status: 'modified' }))
+    if (endpoint.endsWith(`/issues/${TASK}`)) {
+      if (metrics) metrics.taskReads += 1
+      return { number: TASK, title: taskTitle, body: taskBody }
+    }
     if (endpoint.includes(`/issues/${TASK}/comments?`)) return structuredClone(evidence)
     const sourceMatch = /\/issues\/comments\/(\d+)$/.exec(endpoint)
     if (sourceMatch) {
@@ -2831,14 +2888,17 @@ const roleHost = ({ head = HEAD, taskState = implementerState, paths = rolePaths
     throw new Error(`unexpected_role_dispatch_endpoint:${endpoint}`)
   },
 })
-const implementerPlan = await executeRoleDispatchConsumerV1({ dispatch: implementerDispatch, host: roleHost() })
-const mergeDecisionPlan = await executeRoleDispatchConsumerV1({ dispatch: mergeDecisionDispatch, host: roleHost({ head: OTHER_HEAD, taskState: mergeDecisionState }) })
+const implementerHostMetrics = { taskReads: 0 }
+const mergeDecisionHostMetrics = { taskReads: 0 }
+const implementerPlan = await executeRoleDispatchConsumerV1({ dispatch: implementerDispatch, host: roleHost({ metrics: implementerHostMetrics }) })
+const mergeDecisionPlan = await executeRoleDispatchConsumerV1({ dispatch: mergeDecisionDispatch, host: roleHost({ head: OTHER_HEAD, taskState: mergeDecisionState, metrics: mergeDecisionHostMetrics }) })
+const promptSection = (prompt, start, end) => prompt.split(`${start}\n`)[1]?.split(`\n${end}`)[0]
 const consumerBindingMatrix = [
-  implementerPlan.next_action === 'EXECUTE_ROLE' && implementerPlan.role === 'IMPLEMENTER' && implementerPlan.read_only === false,
-  implementerPlan.prompt.includes(`Source comment: #${roleImplementationAuthorizationId}`) && implementerPlan.provider_projection.exec_argv.includes('workspace-write'),
-  mergeDecisionPlan.next_action === 'EXECUTE_ROLE' && mergeDecisionPlan.role === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' && mergeDecisionPlan.read_only === true,
-  mergeDecisionPlan.prompt.includes(`Admission run: ${REVIEW_RUN_ID}`) && mergeDecisionPlan.provider_projection.exec_argv.includes('read-only'),
-  [implementerPlan, mergeDecisionPlan].every((value) => value.mutation_count === 0 && value.provider_projection.exec_argv.includes('features.shell_tool=false')),
+  implementerPlan.next_action === 'EXECUTE_ROLE' && implementerPlan.role === 'IMPLEMENTER' && implementerPlan.read_only === false && implementerHostMetrics.taskReads === 1,
+  implementerPlan.prompt.includes(`Source comment: #${roleImplementationAuthorizationId}`) && promptSection(implementerPlan.prompt, '--- BEGIN CURRENT TASK TITLE ---', '--- END CURRENT TASK TITLE ---') === roleTaskTitle && promptSection(implementerPlan.prompt, '--- BEGIN CURRENT TASK BODY ---', '--- END CURRENT TASK BODY ---') === roleTaskBody && promptSection(implementerPlan.prompt, '--- BEGIN APPROVED CORRECTION CONTEXT ---', '--- END APPROVED CORRECTION CONTEXT ---') === roleImplementationAuthorizationBody,
+  mergeDecisionPlan.next_action === 'EXECUTE_ROLE' && mergeDecisionPlan.role === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' && mergeDecisionPlan.read_only === true && !Object.hasOwn(mergeDecisionDispatch, 'implementer_context') && mergeDecisionHostMetrics.taskReads === 0,
+  mergeDecisionPlan.prompt.includes(`Admission run: ${REVIEW_RUN_ID}`) && mergeDecisionPlan.provider_projection.exec_argv.includes('read-only') && implementerPlan.prompt.includes('cannot expand the authorized paths') && implementerPlan.prompt.includes('Do not fetch GitHub context'),
+  [implementerPlan, mergeDecisionPlan].every((value) => value.mutation_count === 0 && value.provider_projection.exec_argv.includes('features.shell_tool=false') && value.provider_projection.exec_argv.includes('sandbox_workspace_write.network_access=false') && value.provider_projection.exec_argv.includes('sandbox_workspace_write.writable_roots=[]')) && implementerPlan.provider_projection.exec_argv.includes('workspace-write'),
 ]
 for (const [index, evidence] of consumerBindingMatrix.entries()) check(evidence, `RDC-08 bounded source and state binding ${index + 1}`)
 
@@ -2875,6 +2935,8 @@ const convergenceMatrix = [
 for (const [index, evidence] of convergenceMatrix.entries()) check(evidence, `RDC-10 idempotent evidence reuse ${index + 1}`)
 
 const reboundImplementer = await executeRoleDispatchRebindV1({ dispatch: implementerDispatch, host: roleHost() })
+const taskTitleDrift = await executeRoleDispatchConsumerV1({ dispatch: implementerDispatch, host: roleHost({ taskTitle: `${roleTaskTitle} changed` }) })
+const taskBodyDriftRebind = await executeRoleDispatchRebindV1({ dispatch: implementerDispatch, host: roleHost({ taskBody: `${roleTaskBody} changed` }) })
 const reboundPostRepairReviewer = await executeRoleDispatchRebindV1({
   dispatch: postRepairReviewerDispatch,
   host: roleHost({ head: postRepairReviewerDispatch.exact_head, taskState: postRepairReviewerDispatch.task_state }),
@@ -2920,11 +2982,11 @@ const postRepairBindingDrift = await executeRoleDispatchConsumerV1({
   host: roleHost({ head: postRepairReviewerDispatch.exact_head, taskState: postRepairReviewerDispatch.task_state }),
 })
 const rebindMatrix = [
-  reboundImplementer.next_action === 'PROTECTED_OPERATION_READY' && reboundImplementer.exact_head === HEAD && reboundPostRepairReviewer.next_action === 'PROTECTED_OPERATION_READY',
+  reboundImplementer.next_action === 'PROTECTED_OPERATION_READY' && reboundImplementer.exact_head === HEAD && reboundPostRepairReviewer.next_action === 'PROTECTED_OPERATION_READY' && taskTitleDrift.reason === 'role_dispatch_binding_changed' && taskBodyDriftRebind.reason === 'role_dispatch_binding_changed',
   implementerAuthorityDrift.next_action === 'STOP' && implementerAuthorityDrift.reason === 'role_dispatch_source_binding_changed' && postRepairDecisionDrift.next_action === 'STOP',
   publicationReferenceDrift.next_action === 'STOP' && publicationReferenceDrift.reason === 'role_dispatch_source_binding_changed' && postRepairCountDrifts.every((value) => value.next_action === 'STOP' && value.reason === 'role_dispatch_source_binding_changed'),
   reviewerDeletedSource.next_action === 'STOP' && mergeSourceDrift.next_action === 'STOP' && postRepairBindingDrift.next_action === 'STOP',
-  [reboundImplementer, reboundPostRepairReviewer, implementerAuthorityDrift, postRepairDecisionDrift, publicationReferenceDrift, ...postRepairCountDrifts, reviewerDeletedSource, mergeSourceDrift, postRepairBindingDrift].every((value) => value.mutation_count === 0),
+  [reboundImplementer, reboundPostRepairReviewer, taskTitleDrift, taskBodyDriftRebind, implementerAuthorityDrift, postRepairDecisionDrift, publicationReferenceDrift, ...postRepairCountDrifts, reviewerDeletedSource, mergeSourceDrift, postRepairBindingDrift].every((value) => value.mutation_count === 0),
 ]
 for (const [index, evidence] of rebindMatrix.entries()) check(evidence, `RDC-11 complete source authority revalidation ${index + 1}`)
 
