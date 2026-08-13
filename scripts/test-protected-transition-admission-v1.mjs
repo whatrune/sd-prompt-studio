@@ -14,7 +14,11 @@ import {
   acquireChangedPathScopeV1,
   evaluateProgressionControllerV1,
   evaluateMergeAllowedAutomationV1,
+  evaluateProductOwnerMergeDecisionV1,
   evaluateRoleTransitionOrchestratorV1,
+  evaluateRoleDispatchOutputV1,
+  executeRoleDispatchConsumerV1,
+  executeRoleDispatchRebindV1,
   executeRepairExecutorV1,
   executeReadyForReviewProgressionV1,
   executeReviewApprovalAutomationV1 as executeReviewApprovalAutomationProductionV1,
@@ -24,10 +28,12 @@ import {
   extractProtectedTransitionTaskStateV1,
   isRepairProfilePathV1,
   normalizeRoleTransitionEventV1,
+  parseProductOwnerMergeDecisionV1,
   parseIndependentReviewDecisionProjectionV1,
   parseReviewApprovalEventV1,
   projectProtectedTransitionReviewStateV1,
   projectSelfHostedWindowsRepairProviderV3,
+  projectRoleDispatchEnvelopeV1,
   repairWorkingTreePathsV1,
   resolveEffectiveReviewDecisionV1,
   selectRepairValidationProfileV1,
@@ -41,7 +47,7 @@ const HEAD = 'a'.repeat(40)
 const OTHER_HEAD = 'b'.repeat(40)
 const READY_RUN_ID = '31246327840'
 const REVIEW_RUN_ID = '31561746789'
-const BASE = '65e84d3d787d4db871f34d4ab1ab452494a61605'
+const BASE = '9fda08907ff21c5c596146b779d7feeac5efbfa8'
 const HOST_RUNNER_BINDING_BASE = '3631d84351a49088baaadb5b3445751a7bf0b44e'
 const HOST_RUNNER_BINDING_HEAD = '35b7849840a2a9191f4ebf56bf83e145725a6dfa'
 const CURRENT_GENERATION_REDUCER_BASE = HOST_RUNNER_BINDING_HEAD
@@ -379,12 +385,13 @@ const repairRoute = Object.freeze({
 })
 const mergeRoute = Object.freeze({
   transition: 'merge_allowed_automation_v1', state: 'MERGE_ELIGIBLE', allowed: true, exit_code: 0,
-  reason: 'merge_allowed', task_issue_number: TASK, pr_number: PR, current_head: OTHER_HEAD,
+  reason: 'merge_gate_satisfied', task_issue_number: TASK, pr_number: PR, current_head: OTHER_HEAD,
   out_of_scope_paths: Object.freeze([]), state_changed: false, automation_status: 'HANDOFF_READY',
-  next_action: 'MERGE_OPERATOR',
+  next_action: 'MERGE_OPERATOR', external_check_success_count: 2, blocking_thread_count: 0,
 })
 const rolePublicationAuthorityId = 9101
 const roleImplementationResultId = 9102
+const roleImplementationAuthorizationId = 9301
 const rolePublicationBody = `## Publication Handoff — Role Transition Orchestrator V1
 
 - Publication Authority: https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-${rolePublicationAuthorityId}
@@ -417,6 +424,7 @@ status: authorized_for_publication_only
 \`\`\``
 const roleImplementationResultBody = `## Backend Implementer Result Handoff — Role Transition Orchestrator V1
 
+- Implementation Authorization: https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-${roleImplementationAuthorizationId}
 - target PR: \`#${PR}\`
 - implementation HEAD: \`${HEAD}\`
 
@@ -430,6 +438,28 @@ ${rolePaths.map((value) => `- \`${value}\``).join('\n')}
 - execution_stop_reason: \`completed\`
 - blocker / remaining / UNKNOWN: \`0 / 0 / 0\`
 `
+const roleImplementationAuthorizationBody = `\`\`\`yaml
+record_type: implementation_authorization_v1
+authorizing_role: Product Owner / Implementation Lead
+parent_issue: ${TASK}
+consumer_pr: ${PR}
+implementation_allowed: true
+status: authorized_for_implementation_only
+exact_base: ${HEAD}
+architecture_review_comment_id: 9000
+candidate_payload_sha256: ${'c'.repeat(64)}
+exact_paths:
+${rolePaths.map((value) => `  - ${value}`).join('\n')}
+\`\`\``
+const roleArchitectureReviewBody = `\`\`\`yaml
+record_type: independent_architecture_review_decision_v1
+parent_issue: ${TASK}
+candidate_payload_sha256: ${'c'.repeat(64)}
+decision: APPROVE
+blocking_finding_count: 0
+remaining_finding_count: 0
+unknown_count: 0
+\`\`\``
 let rolePullReads = 0
 let roleStateWrites = 0
 let roleTriggerReads = 0
@@ -451,6 +481,12 @@ const rolePublicationHost = {
     }
     if (endpoint.endsWith(`/issues/comments/${roleImplementationResultId}`)) {
       return { id: roleImplementationResultId, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, body: roleImplementationResultBody, author_association: 'OWNER' }
+    }
+    if (endpoint.endsWith(`/issues/comments/${roleImplementationAuthorizationId}`)) {
+      return { id: roleImplementationAuthorizationId, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, body: roleImplementationAuthorizationBody, author_association: 'OWNER' }
+    }
+    if (endpoint.endsWith('/issues/comments/9000')) {
+      return { id: 9000, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, body: roleArchitectureReviewBody, author_association: 'OWNER' }
     }
     if (endpoint.endsWith(`/commits/${OTHER_HEAD}`)) {
       roleCommitReads += 1
@@ -584,8 +620,8 @@ const roleUnits = [
     name: 'APPROVE and MERGE_ELIGIBLE',
     result: evaluateRoleTransitionOrchestratorV1(roleInput({ terminalResult: 'APPROVE', routeResult: mergeRoute })),
     status: 'HANDOFF_READY',
-    next: 'MERGE_OPERATOR',
-    evidence: (value) => value.reason === 'merge_allowed' && value.allowed === true && value.terminal_result === 'APPROVE',
+    next: 'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
+    evidence: (value) => value.reason === 'merge_decision_required' && value.allowed === false && value.terminal_result === 'APPROVE',
   },
   {
     name: 'HEAD mismatch',
@@ -859,6 +895,13 @@ const automationHost = ({
           const page = Number(new URL(`https://api.github.com/${endpoint}`).searchParams.get('page') ?? '1')
           return structuredClone(commentPages[page - 1] ?? [])
         }
+        const directComment = /\/issues\/comments\/(\d+)$/.exec(endpoint)
+        if (directComment) {
+          metrics.commentReads += 1
+          const comment = commentPages.flat().find((candidate) => candidate.id === Number(directComment[1]))
+          if (!comment) throw new Error('synthetic_comment_missing')
+          return structuredClone({ ...comment, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}` })
+        }
         if (endpoint.includes('/issues/')) return issueObject()
         if (endpoint.includes('/files?')) {
           metrics.fileReads += 1
@@ -925,8 +968,8 @@ const validReadyAutomation = automationHost({
   checkPages: [readyCheckPage(), readyCheckPage()],
 })
 const validReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: validReadyAutomation.host, runId: READY_RUN_ID })
-check(validReadyResult.allowed === true && validReadyResult.automation_status === 'HANDOFF_READY' && validReadyResult.next_action === 'MERGE_OPERATOR', 'RFR-02 valid Ready event reaches the existing Controller handoff')
-check(validReadyResult.task_issue_number === TASK && validReadyResult.pr_number === PR && validReadyResult.current_head === HEAD, 'RFR-02 derives exact Task, PR, and HEAD')
+check(validReadyResult.allowed === false && validReadyResult.automation_status === 'HANDOFF_READY' && validReadyResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD', 'RFR-02 valid Ready event reaches Product Owner decision handoff')
+check(validReadyResult.task_issue_number === TASK && validReadyResult.pr_number === PR && validReadyResult.current_head === HEAD && validReadyResult.role_dispatch?.source_comment_id === reviewEvent().comment.id, 'RFR-02 binds exact Task, PR, HEAD, and effective Review source')
 check(validReadyAutomation.metrics.patchCalls === 0 && validReadyAutomation.metrics.checkReads === 3 && validReadyAutomation.metrics.threadReads === 1 && validReadyAutomation.metrics.waitCalls === 0, 'RFR-02 Ready adapter excludes its own running check and rechecks the final rollup read-only')
 
 const wrongReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ action: 'opened' }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
@@ -992,7 +1035,7 @@ const delayedReadyAutomation = automationHost({
   ],
 })
 const delayedReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: delayedReadyAutomation.host, runId: READY_RUN_ID })
-check(delayedReadyResult.allowed && delayedReadyResult.next_action === 'MERGE_OPERATOR', 'RFR-08 delayed exact-HEAD check reaches the existing Controller after terminal success')
+check(delayedReadyResult.allowed === false && delayedReadyResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD', 'RFR-08 delayed exact-HEAD check reaches Product Owner decision after terminal success')
 check(delayedReadyAutomation.metrics.waitCalls === 1 && delayedReadyAutomation.metrics.checkReads === 4, 'RFR-08 performs one bounded wait and one final gate evaluation')
 check(delayedReadyAutomation.metrics.patchCalls === 0 && delayedReadyAutomation.metrics.threadReads === 1, 'RFR-08 remains read-only and reaches terminal thread acquisition')
 
@@ -1043,7 +1086,7 @@ const historicalReadyAutomation = automationHost({
   checkPages: [historicalReadyPage],
 })
 const historicalReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: historicalReadyAutomation.host, runId: READY_RUN_ID })
-check(historicalReadyResult.allowed && historicalReadyResult.next_action === 'MERGE_OPERATOR', 'RFR-12 historical same-identity success and failure do not block the selected current generation')
+check(historicalReadyResult.allowed === false && historicalReadyResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD', 'RFR-12 historical same-identity success and failure still route the selected current generation through Product Owner')
 check(historicalReadyAutomation.metrics.waitCalls === 0 && historicalReadyAutomation.metrics.checkReads === 3, 'RFR-12 selected terminal success reaches the unchanged gate without waiting')
 check(historicalReadyAutomation.metrics.threadReads === 1 && historicalReadyAutomation.metrics.patchCalls === 0, 'RFR-12 remains read-only and reaches terminal thread acquisition')
 
@@ -1628,7 +1671,7 @@ const skippedSiblingLifecycle = automationHost({
   checkPages: [selfSiblingPage(), selfSiblingPage(), selfSiblingPage()],
 })
 const skippedSiblingLifecycleResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: skippedSiblingLifecycle.host, runId: READY_RUN_ID })
-check(skippedSiblingLifecycleResult.allowed && skippedSiblingLifecycleResult.reason === 'merge_gate_satisfied', 'SGR-01 Ready-wait excludes a prior SKIPPED Repair Executor sibling')
+check(!skippedSiblingLifecycleResult.allowed && skippedSiblingLifecycleResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD', 'SGR-01 Ready-wait excludes a prior SKIPPED Repair Executor sibling')
 
 const conclusionIndependentResults = await Promise.all(['SUCCESS', 'FAILURE', 'SKIPPED'].map(async (conclusion) => {
   const automation = automationHost({
@@ -1638,7 +1681,7 @@ const conclusionIndependentResults = await Promise.all(['SUCCESS', 'FAILURE', 'S
   })
   return executeReadyForReviewProgressionV1({ event: readyEvent(), host: automation.host, runId: READY_RUN_ID })
 }))
-check(conclusionIndependentResults.every((result) => result.allowed && result.reason === 'merge_gate_satisfied'), 'SGR-02 prior self-sibling exclusion is conclusion-independent')
+check(conclusionIndependentResults.every((result) => !result.allowed && result.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD'), 'SGR-02 prior self-sibling exclusion is conclusion-independent')
 check(skippedSiblingLifecycle.metrics.waitCalls === 0 && skippedSiblingLifecycle.metrics.threadReads === 1, 'SGR-03 all-success external checks progress from Ready-wait')
 
 const differentAppRepair = automationHost({
@@ -1686,7 +1729,7 @@ const initialSiblingGateResult = await evaluateMergeAllowedAutomationV1({ reques
 const finalSiblingGateResult = await evaluateMergeAllowedAutomationV1({ request: selfAwareMergeRequest, admitted: mergeAdmitted, host: finalSiblingGate.host })
 check(initialSiblingGateResult.automation_status === 'MERGE_ALLOWED' && initialSiblingGate.metrics.threadReads === 1, 'SGR-07 Merge Gate initial snapshot excludes the prior self sibling')
 check(finalSiblingGateResult.automation_status === 'MERGE_ALLOWED' && finalSiblingGate.metrics.checkReads === 2, 'SGR-08 Merge Gate final snapshot excludes the prior self sibling')
-check(skippedSiblingLifecycleResult.allowed && skippedSiblingLifecycleResult.reason === 'merge_gate_satisfied' && skippedSiblingLifecycle.metrics.checkReads === 3, 'SGR-09 one positive traverses Ready-wait and both Merge Gate snapshots')
+check(!skippedSiblingLifecycleResult.allowed && skippedSiblingLifecycleResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' && skippedSiblingLifecycle.metrics.checkReads === 3, 'SGR-09 one positive traverses Ready-wait and both Merge Gate snapshots')
 
 const lateSharedFailure = automationHost({
   initialState: approvedState(),
@@ -1716,7 +1759,7 @@ check(
   currentGenerationCorrectionPaths.join('\n') === ['scripts/run-protected-transition-admission-v1.mjs', 'scripts/test-protected-transition-admission-v1.mjs'].join('\n') &&
   taskChangedPaths.join('\n') === ['.github/workflows/protected-transition-admission-v1.yml', 'scripts/run-protected-transition-admission-v1.mjs', 'scripts/test-protected-transition-admission-v1.mjs'].join('\n') &&
   (runnerSource.match(/const reduceSelfAwareCurrentChecksV1 =/g) ?? []).length === 1 &&
-  (runnerSource.match(/reduceSelfAwareCurrentChecksV1\(/g) ?? []).length === 2 &&
+  (runnerSource.match(/reduceSelfAwareCurrentChecksV1\(/g) ?? []).length === 3 &&
   (runnerSource.match(/partitionReadyRunChecksV1\(/g) ?? []).length === 2 &&
   runnerSource.includes("const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'") &&
   (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 2,
@@ -2493,7 +2536,7 @@ const providerUnits = [
     evidence: [
       providerExec.reason === 'repair_provider_exec_binding_satisfied' && providerExec.next_action === 'EXECUTE_REPAIR_AGENT' && providerExec.provider_projection.invocation_count === 1,
       providerExec.provider_projection.exec_argv.join('|') === `exec|-c|features.shell_tool=false|-c|sandbox_workspace_write.network_access=false|-c|sandbox_workspace_write.writable_roots=[]|--sandbox|workspace-write|--ephemeral|--json|--cd|${WINDOWS_WORKSPACE}|-`,
-      workflowSource.split('& codex.cmd exec').length === 2 && providerExecutionStep?.['timeout-minutes'] === 20 && !providerExecutionStep.run.includes('danger-full-access') && !providerExecutionStep.run.includes('bypass'),
+      providerExecutionStep?.run.split('& codex.cmd exec').length === 2 && providerExecutionStep?.['timeout-minutes'] === 20 && !providerExecutionStep.run.includes('danger-full-access') && !providerExecutionStep.run.includes('bypass'),
     ],
   },
   {
@@ -2530,7 +2573,7 @@ const hostRunnerBindingMatrix = [
   hostRunnerRun.includes('[IO.File]::AppendAllText($env:GITHUB_ENV, "PTA_HOST_RUNNER=$hostRunner$([Environment]::NewLine)", $utf8NoBom)'),
   hostOrchestrationSteps.length === 6 && hostOrchestrationSteps.every((step) => step?.run.includes('node $env:PTA_HOST_RUNNER')),
   hostOrchestrationSteps.every((step) => !step?.run.includes('node scripts/run-protected-transition-admission-v1.mjs')) && !repairRunSource.includes('node scripts/run-protected-transition-admission-v1.mjs'),
-  providerExecutionStep?.run.includes('$prompt | & codex.cmd exec -c features.shell_tool=false -c sandbox_workspace_write.network_access=false -c sandbox_workspace_write.writable_roots=[] --sandbox workspace-write --ephemeral --json --cd $env:GITHUB_WORKSPACE -') && workflowSource.split('& codex.cmd exec').length === 2,
+  providerExecutionStep?.run.includes('$prompt | & codex.cmd exec -c features.shell_tool=false -c sandbox_workspace_write.network_access=false -c sandbox_workspace_write.writable_roots=[] --sandbox workspace-write --ephemeral --json --cd $env:GITHUB_WORKSPACE -') && providerExecutionStep.run.split('& codex.cmd exec').length === 2,
   hostRunnerRun.includes("throw 'repair_host_inside_target_workspace'") && !repairRunSource.includes('Set-Location') && hostOrchestrationSteps.every((step) => !step?.['working-directory']),
   hostOrchestrationSteps.every((step) => step?.run.includes('$env:PTA_HOST_RUNNER')) && hostOrchestrationSteps.every((step) => !step?.run.includes('$env:GITHUB_WORKSPACE/scripts/run-protected-transition-admission-v1.mjs')),
   repairJob.steps.indexOf(hostRunnerStep) < repairJob.steps.indexOf(providerProbeStep) && repairJob.steps.indexOf(hostRunnerStep) < repairJob.steps.indexOf(providerExecutionStep) && !hostRunnerStep?.['continue-on-error'] && hostRunnerRun.includes("-Failure 'repair_host_fetch_failed'") && hostRunnerRun.includes("throw 'repair_host_runner_missing'"),
@@ -2566,7 +2609,7 @@ const hostAcquisitionPreflightMatrix = [
   providerProbeRun.includes("'rev-parse', '--show-toplevel'") && !providerProbeRun.includes("'symbolic-ref'") && !providerProbeRun.includes("repair_provider_branch_changed") && repairJob.steps.find((step) => step.name === 'Checkout exact repair HEAD')?.with?.ref === '${{ needs.protected_transition_admission_v1.outputs.repair_exact_head }}' && providerProbeRun.includes("'status', '--porcelain=v1', '--untracked-files=all'") && providerProbeRun.split("'status', '--porcelain=v1', '--untracked-files=all'").length === 3 && providerProbeRun.includes('[IO.File]::WriteAllBytes($sentinelPath, $sentinelBytes)') && providerProbeRun.includes("throw 'repair_target_worktree_not_writable'"),
   providerProbeRun.includes('$pushTransport = "https://github.com/$($env:GITHUB_REPOSITORY).git"') && providerProbeRun.includes("@('ls-remote', '--heads', $pushTransport") && providerProbeRun.split("'ls-remote'").length === 2 && providerProbeRun.includes('Invoke-RepairPushPreflight') && !providerProbeRun.includes("-Failure 'repair_push_transport_failed' -SuppressOutput") && !providerProbeRun.includes(repairPushSecretName) && !providerProbeRun.includes(tokenUserInfoMarker),
   repairPushPreflightHelperSource.includes('$remoteLines.Count -ne 1') && repairPushPreflightHelperSource.includes('$remoteFields.Count -ne 2') && repairPushPreflightHelperSource.includes('$remoteFields[0] -cne $ExpectedHead') && repairPushPreflightHelperSource.includes('$remoteFields[1] -cne $ExpectedRef') && repairPushPreflightHelperSource.split("throw 'repair_push_remote_head_mismatch exit_code=0'").length === 3,
-  hostAcquisitionPreflightChangedPaths.join('\n') === hostAcquisitionPreflightExpectedPaths.join('\n') && workflowSource.includes('protected-transition-admission-v1: 516 assertions passed') && !repairRunSource.includes('retry') && !repairRunSource.includes('fallback') && !repairRunSource.includes('default branch'),
+  hostAcquisitionPreflightChangedPaths.join('\n') === hostAcquisitionPreflightExpectedPaths.join('\n') && workflowSource.includes('protected-transition-admission-v1: 576 assertions passed') && !repairRunSource.includes('retry') && !repairRunSource.includes('fallback') && !repairRunSource.includes('default branch'),
 ]
 for (const [index, evidence] of hostAcquisitionPreflightMatrix.entries()) check(evidence, `host acquisition and provider preflight matrix ${index + 1}`)
 
@@ -2606,5 +2649,299 @@ const repairPushPreflightContractMatrix = [
 ]
 for (const [index, evidence] of repairPushPreflightContractMatrix.entries()) check(evidence, `repair push preflight contract matrix ${index + 1}`)
 
-if (assertions !== 516) throw new Error(`expected exactly 516 assertions, observed ${assertions}`)
+// Twelve Role Dispatch Consumer V1 units x five assertions = 60.
+const mergeDecisionReviewId = 9201
+const mergeDecisionRunId = Number(REVIEW_RUN_ID)
+const mergeDecisionBody = (overrides = {}) => {
+  const values = {
+    record_type: 'product_owner_merge_decision_v1',
+    authoring_role: 'Product Owner / Implementation Lead',
+    parent_issue: `https://github.com/${REPOSITORY}/issues/${TASK}`,
+    pull_request: `https://github.com/${REPOSITORY}/pull/${PR}`,
+    review_decision_comment: `https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-${mergeDecisionReviewId}`,
+    reviewed_head: OTHER_HEAD,
+    review_decision: 'APPROVE',
+    blocking_finding_count: 0,
+    remaining_finding_count: 0,
+    unknown_count: 0,
+    admission_run_id: mergeDecisionRunId,
+    admission_run_url: `https://github.com/${REPOSITORY}/actions/runs/${mergeDecisionRunId}`,
+    admission_state: 'MERGE_ELIGIBLE',
+    admission_allowed: true,
+    admission_reason: 'merge_gate_satisfied',
+    admission_evaluated_head: OTHER_HEAD,
+    external_check_success_count: 2,
+    blocking_thread_count: 0,
+    decision: 'MERGE_ALLOWED',
+    merge_allowed: true,
+    status: 'completed',
+    execution_stop_reason: 'completed',
+    ...overrides,
+  }
+  return `# Product Owner Merge Decision\n\n\`\`\`yaml\n${Object.entries(values).map(([key, value]) => `${key}: ${value}`).join('\n')}\n\`\`\``
+}
+const parsedMergeDecision = parseProductOwnerMergeDecisionV1(mergeDecisionBody(), REPOSITORY, TASK)
+const mergeDecisionParseMatrix = [
+  parsedMergeDecision.prNumber === PR,
+  parsedMergeDecision.exactHead === OTHER_HEAD,
+  parsedMergeDecision.reviewCommentId === mergeDecisionReviewId,
+  parsedMergeDecision.admissionRunId === mergeDecisionRunId,
+  parsedMergeDecision.externalCheckSuccessCount === 2 && parsedMergeDecision.blockingThreadCount === 0,
+]
+for (const [index, evidence] of mergeDecisionParseMatrix.entries()) check(evidence, `RDC-01 merge decision parse ${index + 1}`)
+
+const mergeDecisionEvent = Object.freeze({
+  action: 'created', repository: Object.freeze({ full_name: REPOSITORY }),
+  issue: Object.freeze({ number: TASK, state: 'open' }),
+  comment: Object.freeze({ id: 9202, author_association: 'OWNER', body: mergeDecisionBody() }),
+})
+const normalizedMergeDecision = normalizeRoleTransitionEventV1(mergeDecisionEvent)
+const duplicateMergeMarkerError = await errorOf(() => normalizeRoleTransitionEventV1({
+  ...mergeDecisionEvent,
+  comment: { ...mergeDecisionEvent.comment, body: `${mergeDecisionBody()}\nrecord_type: implementation_authorization_v1` },
+}))
+const malformedMergeDecisionError = await errorOf(() => parseProductOwnerMergeDecisionV1(mergeDecisionBody({ admission_evaluated_head: HEAD }), REPOSITORY, TASK))
+const noncanonicalMergeStopError = await errorOf(() => parseProductOwnerMergeDecisionV1(mergeDecisionBody({ execution_stop_reason: 'merge_allowed' }), REPOSITORY, TASK))
+const mergeDecisionNormalizationMatrix = [
+  normalizedMergeDecision.terminalResult === 'MERGE_ALLOWED',
+  normalizedMergeDecision.repository === REPOSITORY && normalizedMergeDecision.taskIssueNumber === TASK,
+  normalizedMergeDecision.commentId === 9202 && normalizedMergeDecision.prNumber === PR,
+  duplicateMergeMarkerError?.message === 'terminal_result_ambiguous_or_invalid',
+  malformedMergeDecisionError?.message === 'terminal_result_ambiguous_or_invalid' && noncanonicalMergeStopError?.message === 'terminal_result_ambiguous_or_invalid',
+]
+for (const [index, evidence] of mergeDecisionNormalizationMatrix.entries()) check(evidence, `RDC-02 merge decision normalization ${index + 1}`)
+
+const correctedApproveRoute = evaluateRoleTransitionOrchestratorV1(roleInput({ terminalResult: 'APPROVE', routeResult: mergeRoute }))
+const approveRouteMatrix = [
+  correctedApproveRoute.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
+  correctedApproveRoute.automation_status === 'HANDOFF_READY',
+  correctedApproveRoute.reason === 'merge_decision_required',
+  correctedApproveRoute.allowed === false && correctedApproveRoute.terminal_result === 'APPROVE',
+  !/terminalResult === 'APPROVE' && routeResult\?\.allowed === true && routeResult\?\.next_action === 'MERGE_OPERATOR'/.test(runnerSource) && runnerSource.includes("routeResult?.reason === 'merge_gate_satisfied'"),
+]
+for (const [index, evidence] of approveRouteMatrix.entries()) check(evidence, `RDC-03 approve authority separation ${index + 1}`)
+
+const mergeDecisionRequest = roleRequest()
+const mergeDecisionState = roleState({ observed_head: OTHER_HEAD, review_status: 'APPROVE', reviewed_head: OTHER_HEAD, review_blocker_count: 0 })
+const mergeDecisionReview = Object.freeze({ pr_number: PR, reviewed_head: OTHER_HEAD, decision: 'APPROVE', blocking_finding_count: 0, remaining_finding_count: 0, unknown_count: 0 })
+const mergeDecisionRun = Object.freeze({ id: mergeDecisionRunId, html_url: parsedMergeDecision.admissionRunUrl, head_sha: OTHER_HEAD, path: '.github/workflows/protected-transition-admission-v1.yml', event: 'issue_comment', status: 'completed', conclusion: 'success' })
+const mergeDecisionGate = Object.freeze({ ...mergeRoute, reason: 'merge_gate_satisfied', external_check_success_count: 2, blocking_thread_count: 0 })
+const admittedMergeDecision = evaluateProductOwnerMergeDecisionV1({ decision: parsedMergeDecision, request: mergeDecisionRequest, taskState: mergeDecisionState, review: mergeDecisionReview, admissionRun: mergeDecisionRun, gateResult: mergeDecisionGate })
+const admittedMergeDecisionMatrix = [
+  admittedMergeDecision.next_action === 'MERGE_OPERATOR',
+  admittedMergeDecision.automation_status === 'HANDOFF_READY',
+  admittedMergeDecision.reason === 'merge_allowed',
+  admittedMergeDecision.decisionValid === true && admittedMergeDecision.terminal_result === 'MERGE_ALLOWED',
+  admittedMergeDecision.allowed === false && admittedMergeDecision.current_head === OTHER_HEAD,
+]
+for (const [index, evidence] of admittedMergeDecisionMatrix.entries()) check(evidence, `RDC-04 merge decision admission ${index + 1}`)
+
+const rejectedMergeDecisions = [
+  evaluateProductOwnerMergeDecisionV1({ decision: { ...parsedMergeDecision, exactHead: HEAD }, request: mergeDecisionRequest, taskState: mergeDecisionState, review: mergeDecisionReview, admissionRun: mergeDecisionRun, gateResult: mergeDecisionGate }),
+  evaluateProductOwnerMergeDecisionV1({ decision: parsedMergeDecision, request: mergeDecisionRequest, taskState: { ...mergeDecisionState, observed_head: HEAD }, review: mergeDecisionReview, admissionRun: mergeDecisionRun, gateResult: mergeDecisionGate }),
+  evaluateProductOwnerMergeDecisionV1({ decision: parsedMergeDecision, request: mergeDecisionRequest, taskState: mergeDecisionState, review: { ...mergeDecisionReview, decision: 'CHANGES_REQUIRED' }, admissionRun: mergeDecisionRun, gateResult: mergeDecisionGate }),
+  evaluateProductOwnerMergeDecisionV1({ decision: parsedMergeDecision, request: mergeDecisionRequest, taskState: mergeDecisionState, review: mergeDecisionReview, admissionRun: { ...mergeDecisionRun, conclusion: 'failure' }, gateResult: mergeDecisionGate }),
+  evaluateProductOwnerMergeDecisionV1({ decision: parsedMergeDecision, request: mergeDecisionRequest, taskState: mergeDecisionState, review: mergeDecisionReview, admissionRun: mergeDecisionRun, gateResult: { ...mergeDecisionGate, external_check_success_count: 1 } }),
+]
+for (const [index, rejected] of rejectedMergeDecisions.entries()) check(rejected.next_action === 'STOP' && rejected.allowed === false && rejected.state_changed === false, `RDC-05 merge decision fail closed ${index + 1}`)
+
+const implementerRoute = evaluateRoleTransitionOrchestratorV1(roleInput({ request: roleRequest({ exactHead: HEAD }), taskState: roleState({ observed_head: HEAD }) }))
+const implementerState = roleState({ observed_head: HEAD })
+const implementerSourceBinding = Object.freeze({
+  kind: 'IMPLEMENTATION_AUTHORIZATION', comment_id: roleImplementationAuthorizationId,
+  architecture_review_comment_id: 9000, candidate_sha256: 'c'.repeat(64),
+})
+const implementerDispatch = projectRoleDispatchEnvelopeV1({
+  result: implementerRoute, repository: REPOSITORY, sourceCommentId: roleImplementationAuthorizationId,
+  authorizedPaths: rolePaths, taskState: implementerState, sourceBinding: implementerSourceBinding,
+})
+const implementerDispatchMatrix = [
+  implementerDispatch.next_action === 'IMPLEMENTER' && implementerDispatch.purpose === 'IMPLEMENTER',
+  implementerDispatch.repository === REPOSITORY && implementerDispatch.task_issue_number === TASK,
+  implementerDispatch.pr_number === PR && implementerDispatch.exact_head === HEAD,
+  implementerDispatch.source_comment_id === roleImplementationAuthorizationId && implementerDispatch.source_binding.candidate_sha256 === 'c'.repeat(64),
+  implementerDispatch.authorized_paths.join('\n') === rolePaths.join('\n') && JSON.stringify(implementerDispatch.task_state) === JSON.stringify(implementerState),
+]
+for (const [index, evidence] of implementerDispatchMatrix.entries()) check(evidence, `RDC-06 implementer envelope ${index + 1}`)
+
+const mergeDecisionDispatch = projectRoleDispatchEnvelopeV1({
+  result: correctedApproveRoute, repository: REPOSITORY, sourceCommentId: mergeDecisionReviewId,
+  authorizedPaths: rolePaths, taskState: mergeDecisionState,
+  sourceBinding: Object.freeze({ kind: 'REVIEW', comment_id: mergeDecisionReviewId, reviewed_head: OTHER_HEAD, decision: 'APPROVE' }),
+  admissionRunId: REVIEW_RUN_ID,
+})
+const mergeDecisionDispatchMatrix = [
+  mergeDecisionDispatch.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
+  mergeDecisionDispatch.purpose === 'MERGE_DECISION',
+  mergeDecisionDispatch.admission_run_id === REVIEW_RUN_ID,
+  mergeDecisionDispatch.admission_state === 'MERGE_ELIGIBLE' && mergeDecisionDispatch.admission_allowed === true && mergeDecisionDispatch.admission_reason === 'merge_gate_satisfied',
+  mergeDecisionDispatch.source_comment_id === mergeDecisionReviewId && mergeDecisionDispatch.source_binding.kind === 'REVIEW' && JSON.stringify(mergeDecisionDispatch.task_state) === JSON.stringify(mergeDecisionState),
+]
+for (const [index, evidence] of mergeDecisionDispatchMatrix.entries()) check(evidence, `RDC-07 Product Owner envelope ${index + 1}`)
+
+const publicationDispatch = Object.freeze({
+  ...implementerDispatch,
+  source_comment_id: roleImplementationResultId,
+  terminal_result: 'IMPLEMENTATION_RESULT_READY',
+  next_action: 'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
+  purpose: 'PUBLICATION_DECISION',
+  source_binding: Object.freeze({
+    kind: 'IMPLEMENTATION_RESULT', comment_id: roleImplementationResultId,
+    authorization_comment_id: roleImplementationAuthorizationId,
+    architecture_review_comment_id: 9000, candidate_sha256: 'c'.repeat(64),
+  }),
+})
+const reviewerDispatch = publishedRoute.role_dispatch
+const postRepairReviewSourceId = 9204
+const postRepairReviewBody = reviewDecisionBody({
+  reviewed_head: HEAD,
+  decision: 'CHANGES_REQUIRED',
+  blocking_finding_count: 1,
+  remaining_finding_count: 1,
+  unknown_count: 0,
+})
+const postRepairReviewerDispatch = projectRoleDispatchEnvelopeV1({
+  result: publishedRoute, repository: REPOSITORY, sourceCommentId: postRepairReviewSourceId,
+  authorizedPaths: rolePaths, taskState: reviewerDispatch.task_state,
+  sourceBinding: Object.freeze({
+    kind: 'REVIEW', comment_id: postRepairReviewSourceId, reviewed_head: HEAD, decision: 'CHANGES_REQUIRED',
+  }),
+})
+const roleComment = (id, body, createdAt) => Object.freeze({ id, created_at: createdAt, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, author_association: 'OWNER', body })
+const roleSourceRecords = new Map([
+  [roleImplementationAuthorizationId, roleComment(roleImplementationAuthorizationId, roleImplementationAuthorizationBody, '2026-08-13T00:00:01Z')],
+  [9000, roleComment(9000, roleArchitectureReviewBody, '2026-08-13T00:00:00Z')],
+  [roleImplementationResultId, roleComment(roleImplementationResultId, roleImplementationResultBody, '2026-08-13T00:00:02Z')],
+  [rolePublicationAuthorityId, roleComment(rolePublicationAuthorityId, rolePublicationAuthorityBody, '2026-08-13T00:00:03Z')],
+  [mergeDecisionReviewId, roleComment(mergeDecisionReviewId, reviewDecisionBody({ reviewed_head: OTHER_HEAD }), '2026-08-13T00:00:03Z')],
+  [postRepairReviewSourceId, roleComment(postRepairReviewSourceId, postRepairReviewBody, '2026-08-13T00:00:03Z')],
+  [rolePublicationEvent.comment.id, roleComment(rolePublicationEvent.comment.id, rolePublicationBody, '2026-08-13T00:00:04Z')],
+])
+const roleHost = ({ head = HEAD, taskState = implementerState, paths = rolePaths, evidence = [], sourceRecords = roleSourceRecords } = {}) => ({
+  api: async (endpoint) => {
+    if (endpoint.endsWith(`/pulls/${PR}`)) return pullObject({ head, changedFiles: paths.length, taskState })
+    if (endpoint.includes(`/pulls/${PR}/files?`)) return paths.map((filename) => ({ filename, status: 'modified' }))
+    if (endpoint.includes(`/issues/${TASK}/comments?`)) return structuredClone(evidence)
+    const sourceMatch = /\/issues\/comments\/(\d+)$/.exec(endpoint)
+    if (sourceMatch) {
+      const id = Number(sourceMatch[1])
+      const record = sourceRecords.get(id) ?? evidence.find((comment) => comment.id === id)
+      if (record) return structuredClone(record)
+    }
+    throw new Error(`unexpected_role_dispatch_endpoint:${endpoint}`)
+  },
+})
+const implementerPlan = await executeRoleDispatchConsumerV1({ dispatch: implementerDispatch, host: roleHost() })
+const mergeDecisionPlan = await executeRoleDispatchConsumerV1({ dispatch: mergeDecisionDispatch, host: roleHost({ head: OTHER_HEAD, taskState: mergeDecisionState }) })
+const consumerBindingMatrix = [
+  implementerPlan.next_action === 'EXECUTE_ROLE' && implementerPlan.role === 'IMPLEMENTER' && implementerPlan.read_only === false,
+  implementerPlan.prompt.includes(`Source comment: #${roleImplementationAuthorizationId}`) && implementerPlan.provider_projection.exec_argv.includes('workspace-write'),
+  mergeDecisionPlan.next_action === 'EXECUTE_ROLE' && mergeDecisionPlan.role === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' && mergeDecisionPlan.read_only === true,
+  mergeDecisionPlan.prompt.includes(`Admission run: ${REVIEW_RUN_ID}`) && mergeDecisionPlan.provider_projection.exec_argv.includes('read-only'),
+  [implementerPlan, mergeDecisionPlan].every((value) => value.mutation_count === 0 && value.provider_projection.exec_argv.includes('features.shell_tool=false')),
+]
+for (const [index, evidence] of consumerBindingMatrix.entries()) check(evidence, `RDC-08 bounded source and state binding ${index + 1}`)
+
+const implementerOutput = evaluateRoleDispatchOutputV1({ dispatch: implementerDispatch, body: roleImplementationResultBody })
+const reviewerOutput = evaluateRoleDispatchOutputV1({ dispatch: reviewerDispatch, body: reviewDecisionBody({ reviewed_head: OTHER_HEAD }) })
+const mergeDecisionOutput = evaluateRoleDispatchOutputV1({ dispatch: mergeDecisionDispatch, body: mergeDecisionBody() })
+const invalidImplementerOutput = evaluateRoleDispatchOutputV1({ dispatch: { ...implementerDispatch, source_comment_id: 9991 }, body: roleImplementationResultBody })
+const invalidPublicationOutput = evaluateRoleDispatchOutputV1({ dispatch: { ...publicationDispatch, source_comment_id: 9992 }, body: rolePublicationAuthorityBody })
+const invalidMergeDecisionOutput = evaluateRoleDispatchOutputV1({ dispatch: { ...mergeDecisionDispatch, source_comment_id: 9993 }, body: mergeDecisionBody() })
+const roleOutputMatrix = [
+  implementerOutput.next_action === 'VALIDATE_IMPLEMENTATION',
+  reviewerOutput.next_action === 'POST_REVIEW',
+  mergeDecisionOutput.next_action === 'POST_MERGE_DECISION',
+  invalidImplementerOutput.next_action === 'STOP' && invalidPublicationOutput.next_action === 'STOP' && invalidMergeDecisionOutput.next_action === 'STOP',
+  [implementerOutput, reviewerOutput, mergeDecisionOutput, invalidImplementerOutput, invalidPublicationOutput, invalidMergeDecisionOutput].every((value) => value.mutation_count === 0),
+]
+for (const [index, evidence] of roleOutputMatrix.entries()) check(evidence, `RDC-09 source-record output binding ${index + 1}`)
+
+const implementerEvidence = roleComment(9401, roleImplementationResultBody, '2026-08-13T01:00:01Z')
+const reviewerEvidence = roleComment(9402, reviewDecisionBody({ reviewed_head: OTHER_HEAD }), '2026-08-13T01:00:02Z')
+const mergeDecisionEvidence = roleComment(9403, mergeDecisionBody(), '2026-08-13T01:00:03Z')
+const publicationEvidence = roleComment(9404, rolePublicationAuthorityBody, '2026-08-13T01:00:04Z')
+const convergedImplementer = await executeRoleDispatchConsumerV1({ dispatch: implementerDispatch, host: roleHost({ evidence: [implementerEvidence] }) })
+const convergedReviewer = await executeRoleDispatchConsumerV1({ dispatch: reviewerDispatch, host: roleHost({ head: OTHER_HEAD, taskState: reviewerDispatch.task_state, evidence: [reviewerEvidence] }) })
+const convergedMergeDecision = await executeRoleDispatchConsumerV1({ dispatch: mergeDecisionDispatch, host: roleHost({ head: OTHER_HEAD, taskState: mergeDecisionState, evidence: [mergeDecisionEvidence] }) })
+const convergedPublication = await executeRoleDispatchConsumerV1({ dispatch: publicationDispatch, host: roleHost({ evidence: [publicationEvidence] }) })
+const convergenceMatrix = [
+  convergedImplementer.next_action === 'CONVERGED_NOOP' && convergedImplementer.evidence_kind === 'IMPLEMENTATION_RESULT',
+  convergedReviewer.next_action === 'CONVERGED_NOOP' && convergedReviewer.evidence_kind === 'REVIEW_DECISION',
+  convergedMergeDecision.next_action === 'CONVERGED_NOOP' && convergedMergeDecision.evidence_kind === 'MERGE_DECISION',
+  convergedPublication.next_action === 'CONVERGED_NOOP' && convergedPublication.evidence_kind === 'PUBLICATION_AUTHORITY',
+  [convergedImplementer, convergedReviewer, convergedMergeDecision, convergedPublication].every((value) => value.reason === 'role_evidence_reused' && value.mutation_count === 0),
+]
+for (const [index, evidence] of convergenceMatrix.entries()) check(evidence, `RDC-10 idempotent evidence reuse ${index + 1}`)
+
+const reboundImplementer = await executeRoleDispatchRebindV1({ dispatch: implementerDispatch, host: roleHost() })
+const reboundPostRepairReviewer = await executeRoleDispatchRebindV1({
+  dispatch: postRepairReviewerDispatch,
+  host: roleHost({ head: postRepairReviewerDispatch.exact_head, taskState: postRepairReviewerDispatch.task_state }),
+})
+const implementerAuthorityDriftRecords = new Map(roleSourceRecords)
+implementerAuthorityDriftRecords.set(roleImplementationAuthorizationId, roleComment(roleImplementationAuthorizationId, roleImplementationAuthorizationBody.replace('c'.repeat(64), 'd'.repeat(64)), '2026-08-13T00:00:01Z'))
+const implementerAuthorityDrift = await executeRoleDispatchConsumerV1({ dispatch: implementerDispatch, host: roleHost({ sourceRecords: implementerAuthorityDriftRecords }) })
+const postRepairDecisionDriftRecords = new Map(roleSourceRecords)
+postRepairDecisionDriftRecords.set(postRepairReviewSourceId, roleComment(postRepairReviewSourceId, reviewDecisionBody({ reviewed_head: HEAD }), '2026-08-13T00:00:03Z'))
+const postRepairDecisionDrift = await executeRoleDispatchConsumerV1({
+  dispatch: postRepairReviewerDispatch,
+  host: roleHost({ head: postRepairReviewerDispatch.exact_head, taskState: postRepairReviewerDispatch.task_state, sourceRecords: postRepairDecisionDriftRecords }),
+})
+const publicationReferenceDriftRecords = new Map(roleSourceRecords)
+publicationReferenceDriftRecords.set(roleImplementationResultId, roleComment(roleImplementationResultId, roleImplementationResultBody.replace(`issuecomment-${roleImplementationAuthorizationId}`, 'issuecomment-9999'), '2026-08-13T00:00:02Z'))
+const publicationReferenceDrift = await executeRoleDispatchConsumerV1({ dispatch: publicationDispatch, host: roleHost({ sourceRecords: publicationReferenceDriftRecords }) })
+const postRepairCountDrifts = await Promise.all([
+  { blocking_finding_count: 0, remaining_finding_count: 0 },
+  { blocking_finding_count: 2, remaining_finding_count: 1 },
+  { blocking_finding_count: 1, remaining_finding_count: 1, unknown_count: 1 },
+].map(async (overrides) => {
+  const sourceRecords = new Map(roleSourceRecords)
+  sourceRecords.set(postRepairReviewSourceId, roleComment(postRepairReviewSourceId, reviewDecisionBody({
+    reviewed_head: HEAD, decision: 'CHANGES_REQUIRED', blocking_finding_count: 1,
+    remaining_finding_count: 1, unknown_count: 0, ...overrides,
+  }), '2026-08-13T00:00:03Z'))
+  return executeRoleDispatchConsumerV1({
+    dispatch: postRepairReviewerDispatch,
+    host: roleHost({ head: postRepairReviewerDispatch.exact_head, taskState: postRepairReviewerDispatch.task_state, sourceRecords }),
+  })
+}))
+const reviewerDeletedRecords = new Map(roleSourceRecords)
+reviewerDeletedRecords.delete(rolePublicationEvent.comment.id)
+const reviewerDeletedSource = await executeRoleDispatchConsumerV1({ dispatch: reviewerDispatch, host: roleHost({ head: OTHER_HEAD, taskState: reviewerDispatch.task_state, sourceRecords: reviewerDeletedRecords }) })
+const mergeSourceDriftRecords = new Map(roleSourceRecords)
+mergeSourceDriftRecords.set(mergeDecisionReviewId, roleComment(mergeDecisionReviewId, reviewDecisionBody({ reviewed_head: OTHER_HEAD, decision: 'CHANGES_REQUIRED', blocking_finding_count: 1, remaining_finding_count: 1 }), '2026-08-13T00:00:03Z'))
+const mergeSourceDrift = await executeRoleDispatchConsumerV1({ dispatch: mergeDecisionDispatch, host: roleHost({ head: OTHER_HEAD, taskState: mergeDecisionState, sourceRecords: mergeSourceDriftRecords }) })
+const postRepairBindingDrift = await executeRoleDispatchConsumerV1({
+  dispatch: Object.freeze({
+    ...postRepairReviewerDispatch,
+    source_binding: Object.freeze({ ...postRepairReviewerDispatch.source_binding, reviewed_head: OTHER_HEAD }),
+  }),
+  host: roleHost({ head: postRepairReviewerDispatch.exact_head, taskState: postRepairReviewerDispatch.task_state }),
+})
+const rebindMatrix = [
+  reboundImplementer.next_action === 'PROTECTED_OPERATION_READY' && reboundImplementer.exact_head === HEAD && reboundPostRepairReviewer.next_action === 'PROTECTED_OPERATION_READY',
+  implementerAuthorityDrift.next_action === 'STOP' && implementerAuthorityDrift.reason === 'role_dispatch_source_binding_changed' && postRepairDecisionDrift.next_action === 'STOP',
+  publicationReferenceDrift.next_action === 'STOP' && publicationReferenceDrift.reason === 'role_dispatch_source_binding_changed' && postRepairCountDrifts.every((value) => value.next_action === 'STOP' && value.reason === 'role_dispatch_source_binding_changed'),
+  reviewerDeletedSource.next_action === 'STOP' && mergeSourceDrift.next_action === 'STOP' && postRepairBindingDrift.next_action === 'STOP',
+  [reboundImplementer, reboundPostRepairReviewer, implementerAuthorityDrift, postRepairDecisionDrift, publicationReferenceDrift, ...postRepairCountDrifts, reviewerDeletedSource, mergeSourceDrift, postRepairBindingDrift].every((value) => value.mutation_count === 0),
+]
+for (const [index, evidence] of rebindMatrix.entries()) check(evidence, `RDC-11 complete source authority revalidation ${index + 1}`)
+
+const roleConsumerJob = workflow.jobs.protected_transition_role_dispatch_consumer_v1
+const mergeOperatorJob = workflow.jobs.protected_transition_merge_operator_v1
+const postRepairReviewJob = workflow.jobs.protected_transition_post_repair_review_v1
+const roleBindRun = roleConsumerJob.steps.find((step) => step.name === 'Bind bounded role dispatch')?.run ?? ''
+const roleExecutionRun = roleConsumerJob.steps.find((step) => step.name === 'Execute bounded role and host operation')?.run ?? ''
+const mergeOperationRun = mergeOperatorJob.steps.find((step) => step.name === 'Perform one normal merge commit')?.run ?? ''
+const workflowBoundaryMatrix = [
+  roleBindRun.includes("operation=CONVERGED_NOOP") && roleConsumerJob.steps.find((step) => step.name === 'Execute bounded role and host operation')?.if === "steps.role_dispatch_plan.outputs.operation == 'EXECUTE_ROLE'",
+  roleExecutionRun.split('Assert-FreshRoleBinding').length >= 7 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'"),
+  postRepairReviewJob.steps.find((step) => step.name === 'Bind post-repair Independent Reviewer')?.run.includes('task_state = $state') && postRepairReviewJob.steps.find((step) => step.name === 'Execute and publish post-repair Review')?.run.includes('--role-rebind-file'),
+  runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id'),
+  mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR'" && mergeOperationRun.includes('--merge-operator-file $dispatchPath') && mergeOperationRun.indexOf('--merge-operator-file $dispatchPath') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force'),
+]
+for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 protected operation boundaries ${index + 1}`)
+
+if (assertions !== 576) throw new Error(`expected exactly 576 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
