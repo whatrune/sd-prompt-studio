@@ -235,15 +235,15 @@ jobs:
             }
             [IO.File]::WriteAllLines($JsonlFile, $events, $utf8NoBom)
             if ($nativeExit -ne 0) { throw "role_provider_exec_failed_$nativeExit" }
-            $messages = @()
+            $terminalMessage = $null
             foreach ($line in $events) {
               try {
                 $event = $line | ConvertFrom-Json -ErrorAction Stop
-                if ($event.type -ceq 'item.completed' -and $event.item.type -ceq 'agent_message' -and -not [string]::IsNullOrWhiteSpace([string]$event.item.text)) { $messages += [string]$event.item.text }
+                if ($event.type -ceq 'item.completed' -and $event.item.type -ceq 'agent_message' -and -not [string]::IsNullOrWhiteSpace([string]$event.item.text)) { $terminalMessage = [string]$event.item.text }
               } catch { }
             }
-            if ($messages.Count -ne 1) { throw 'role_provider_result_cardinality_invalid' }
-            [IO.File]::WriteAllText($BodyFile, $messages[0], $utf8NoBom)
+            if ([string]::IsNullOrWhiteSpace($terminalMessage)) { throw 'role_provider_result_cardinality_invalid' }
+            [IO.File]::WriteAllText($BodyFile, $terminalMessage, $utf8NoBom)
           }
 
           function Assert-RoleOutput {
