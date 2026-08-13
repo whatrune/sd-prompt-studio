@@ -57,6 +57,7 @@ The compiler preserves learned phrases, distinguishes human meaning from observe
    - [Review Execution Contract](team/14-review-execution-contract.md)
 8. Automation governance and runtime reality:
    - Current reality and bounded production hosts: [Automation Overview](automation/00-automation-overview.md)
+   - Current protected-transition entrypoints: [production workflow](../.github/workflows/protected-transition-admission-v1.yml) and [host runner](../scripts/run-protected-transition-admission-v1.mjs). Source presence identifies the entrypoints; direct runtime evidence is still required to claim that a transition executed.
    - General target contracts: [Dispatch Contract](automation/01-dispatch-contract.md), [Role and Runner Mapping](automation/02-role-runner-mapping.md), [Approval Gate](automation/03-approval-gate.md), [Security Boundary](automation/04-security-boundary.md), and [Automation Result Handoff Contract](automation/05-automation-handoff-contract.md)
    - Automatic progression semantics: [Automatic Gate Progression Contract](automation/23-automatic-gate-progression-contract.md)
    - Source and production-reachability mapping: [Pure Automatic Gate Progression Evaluator](automation/24-pure-automatic-gate-progression-evaluator-design.md)
