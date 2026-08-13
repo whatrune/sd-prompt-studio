@@ -2430,9 +2430,15 @@ const verifyRoleDispatchSourceV1 = async (dispatch, host) => {
   const source = await fetchRoleCommentRecordV1(dispatch.repository, dispatch.task_issue_number, dispatch.source_comment_id, host)
   if (binding.kind === 'REVIEW') {
     const review = parseIndependentReviewDecisionProjectionV1(source.body, dispatch.repository, dispatch.task_issue_number)
+    const approveSourceValid = review.decision === 'APPROVE' && review.blocking_finding_count === 0 &&
+      review.remaining_finding_count === 0 && review.unknown_count === 0
+    const postRepairReviewerSourceValid = dispatch.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER' &&
+      dispatch.purpose === 'INDEPENDENT_IMPLEMENTATION_REVIEWER' && review.decision === 'CHANGES_REQUIRED' &&
+      positiveInteger(review.blocking_finding_count) && review.remaining_finding_count === review.blocking_finding_count &&
+      review.unknown_count === 0
     if (
       review.pr_number !== dispatch.pr_number || review.reviewed_head !== binding.reviewed_head || review.decision !== binding.decision ||
-      review.blocking_finding_count !== 0 || review.remaining_finding_count !== review.blocking_finding_count || review.unknown_count !== 0 ||
+      (!approveSourceValid && !postRepairReviewerSourceValid) ||
       (dispatch.purpose === 'MERGE_DECISION' && (review.reviewed_head !== dispatch.exact_head || review.decision !== 'APPROVE'))
     ) throw new Error('role_dispatch_source_binding_changed')
     return source

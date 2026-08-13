@@ -2792,6 +2792,21 @@ const publicationDispatch = Object.freeze({
   }),
 })
 const reviewerDispatch = publishedRoute.role_dispatch
+const postRepairReviewSourceId = 9204
+const postRepairReviewBody = reviewDecisionBody({
+  reviewed_head: HEAD,
+  decision: 'CHANGES_REQUIRED',
+  blocking_finding_count: 1,
+  remaining_finding_count: 1,
+  unknown_count: 0,
+})
+const postRepairReviewerDispatch = projectRoleDispatchEnvelopeV1({
+  result: publishedRoute, repository: REPOSITORY, sourceCommentId: postRepairReviewSourceId,
+  authorizedPaths: rolePaths, taskState: reviewerDispatch.task_state,
+  sourceBinding: Object.freeze({
+    kind: 'REVIEW', comment_id: postRepairReviewSourceId, reviewed_head: HEAD, decision: 'CHANGES_REQUIRED',
+  }),
+})
 const roleComment = (id, body, createdAt) => Object.freeze({ id, created_at: createdAt, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, author_association: 'OWNER', body })
 const roleSourceRecords = new Map([
   [roleImplementationAuthorizationId, roleComment(roleImplementationAuthorizationId, roleImplementationAuthorizationBody, '2026-08-13T00:00:01Z')],
@@ -2799,6 +2814,7 @@ const roleSourceRecords = new Map([
   [roleImplementationResultId, roleComment(roleImplementationResultId, roleImplementationResultBody, '2026-08-13T00:00:02Z')],
   [rolePublicationAuthorityId, roleComment(rolePublicationAuthorityId, rolePublicationAuthorityBody, '2026-08-13T00:00:03Z')],
   [mergeDecisionReviewId, roleComment(mergeDecisionReviewId, reviewDecisionBody({ reviewed_head: OTHER_HEAD }), '2026-08-13T00:00:03Z')],
+  [postRepairReviewSourceId, roleComment(postRepairReviewSourceId, postRepairReviewBody, '2026-08-13T00:00:03Z')],
   [rolePublicationEvent.comment.id, roleComment(rolePublicationEvent.comment.id, rolePublicationBody, '2026-08-13T00:00:04Z')],
 ])
 const roleHost = ({ head = HEAD, taskState = implementerState, paths = rolePaths, evidence = [], sourceRecords = roleSourceRecords } = {}) => ({
@@ -2859,24 +2875,56 @@ const convergenceMatrix = [
 for (const [index, evidence] of convergenceMatrix.entries()) check(evidence, `RDC-10 idempotent evidence reuse ${index + 1}`)
 
 const reboundImplementer = await executeRoleDispatchRebindV1({ dispatch: implementerDispatch, host: roleHost() })
+const reboundPostRepairReviewer = await executeRoleDispatchRebindV1({
+  dispatch: postRepairReviewerDispatch,
+  host: roleHost({ head: postRepairReviewerDispatch.exact_head, taskState: postRepairReviewerDispatch.task_state }),
+})
 const implementerAuthorityDriftRecords = new Map(roleSourceRecords)
 implementerAuthorityDriftRecords.set(roleImplementationAuthorizationId, roleComment(roleImplementationAuthorizationId, roleImplementationAuthorizationBody.replace('c'.repeat(64), 'd'.repeat(64)), '2026-08-13T00:00:01Z'))
 const implementerAuthorityDrift = await executeRoleDispatchConsumerV1({ dispatch: implementerDispatch, host: roleHost({ sourceRecords: implementerAuthorityDriftRecords }) })
+const postRepairDecisionDriftRecords = new Map(roleSourceRecords)
+postRepairDecisionDriftRecords.set(postRepairReviewSourceId, roleComment(postRepairReviewSourceId, reviewDecisionBody({ reviewed_head: HEAD }), '2026-08-13T00:00:03Z'))
+const postRepairDecisionDrift = await executeRoleDispatchConsumerV1({
+  dispatch: postRepairReviewerDispatch,
+  host: roleHost({ head: postRepairReviewerDispatch.exact_head, taskState: postRepairReviewerDispatch.task_state, sourceRecords: postRepairDecisionDriftRecords }),
+})
 const publicationReferenceDriftRecords = new Map(roleSourceRecords)
 publicationReferenceDriftRecords.set(roleImplementationResultId, roleComment(roleImplementationResultId, roleImplementationResultBody.replace(`issuecomment-${roleImplementationAuthorizationId}`, 'issuecomment-9999'), '2026-08-13T00:00:02Z'))
 const publicationReferenceDrift = await executeRoleDispatchConsumerV1({ dispatch: publicationDispatch, host: roleHost({ sourceRecords: publicationReferenceDriftRecords }) })
+const postRepairCountDrifts = await Promise.all([
+  { blocking_finding_count: 0, remaining_finding_count: 0 },
+  { blocking_finding_count: 2, remaining_finding_count: 1 },
+  { blocking_finding_count: 1, remaining_finding_count: 1, unknown_count: 1 },
+].map(async (overrides) => {
+  const sourceRecords = new Map(roleSourceRecords)
+  sourceRecords.set(postRepairReviewSourceId, roleComment(postRepairReviewSourceId, reviewDecisionBody({
+    reviewed_head: HEAD, decision: 'CHANGES_REQUIRED', blocking_finding_count: 1,
+    remaining_finding_count: 1, unknown_count: 0, ...overrides,
+  }), '2026-08-13T00:00:03Z'))
+  return executeRoleDispatchConsumerV1({
+    dispatch: postRepairReviewerDispatch,
+    host: roleHost({ head: postRepairReviewerDispatch.exact_head, taskState: postRepairReviewerDispatch.task_state, sourceRecords }),
+  })
+}))
 const reviewerDeletedRecords = new Map(roleSourceRecords)
 reviewerDeletedRecords.delete(rolePublicationEvent.comment.id)
 const reviewerDeletedSource = await executeRoleDispatchConsumerV1({ dispatch: reviewerDispatch, host: roleHost({ head: OTHER_HEAD, taskState: reviewerDispatch.task_state, sourceRecords: reviewerDeletedRecords }) })
 const mergeSourceDriftRecords = new Map(roleSourceRecords)
 mergeSourceDriftRecords.set(mergeDecisionReviewId, roleComment(mergeDecisionReviewId, reviewDecisionBody({ reviewed_head: OTHER_HEAD, decision: 'CHANGES_REQUIRED', blocking_finding_count: 1, remaining_finding_count: 1 }), '2026-08-13T00:00:03Z'))
 const mergeSourceDrift = await executeRoleDispatchConsumerV1({ dispatch: mergeDecisionDispatch, host: roleHost({ head: OTHER_HEAD, taskState: mergeDecisionState, sourceRecords: mergeSourceDriftRecords }) })
+const postRepairBindingDrift = await executeRoleDispatchConsumerV1({
+  dispatch: Object.freeze({
+    ...postRepairReviewerDispatch,
+    source_binding: Object.freeze({ ...postRepairReviewerDispatch.source_binding, reviewed_head: OTHER_HEAD }),
+  }),
+  host: roleHost({ head: postRepairReviewerDispatch.exact_head, taskState: postRepairReviewerDispatch.task_state }),
+})
 const rebindMatrix = [
-  reboundImplementer.next_action === 'PROTECTED_OPERATION_READY' && reboundImplementer.exact_head === HEAD,
-  implementerAuthorityDrift.next_action === 'STOP' && implementerAuthorityDrift.reason === 'role_dispatch_source_binding_changed',
-  publicationReferenceDrift.next_action === 'STOP' && publicationReferenceDrift.reason === 'role_dispatch_source_binding_changed',
-  reviewerDeletedSource.next_action === 'STOP' && mergeSourceDrift.next_action === 'STOP',
-  [reboundImplementer, implementerAuthorityDrift, publicationReferenceDrift, reviewerDeletedSource, mergeSourceDrift].every((value) => value.mutation_count === 0),
+  reboundImplementer.next_action === 'PROTECTED_OPERATION_READY' && reboundImplementer.exact_head === HEAD && reboundPostRepairReviewer.next_action === 'PROTECTED_OPERATION_READY',
+  implementerAuthorityDrift.next_action === 'STOP' && implementerAuthorityDrift.reason === 'role_dispatch_source_binding_changed' && postRepairDecisionDrift.next_action === 'STOP',
+  publicationReferenceDrift.next_action === 'STOP' && publicationReferenceDrift.reason === 'role_dispatch_source_binding_changed' && postRepairCountDrifts.every((value) => value.next_action === 'STOP' && value.reason === 'role_dispatch_source_binding_changed'),
+  reviewerDeletedSource.next_action === 'STOP' && mergeSourceDrift.next_action === 'STOP' && postRepairBindingDrift.next_action === 'STOP',
+  [reboundImplementer, reboundPostRepairReviewer, implementerAuthorityDrift, postRepairDecisionDrift, publicationReferenceDrift, ...postRepairCountDrifts, reviewerDeletedSource, mergeSourceDrift, postRepairBindingDrift].every((value) => value.mutation_count === 0),
 ]
 for (const [index, evidence] of rebindMatrix.entries()) check(evidence, `RDC-11 complete source authority revalidation ${index + 1}`)
 
