@@ -3033,9 +3033,26 @@ const postRepairReviewJob = workflow.jobs.protected_transition_post_repair_revie
 const roleBindRun = roleConsumerJob.steps.find((step) => step.name === 'Bind bounded role dispatch')?.run ?? ''
 const roleExecutionRun = roleConsumerJob.steps.find((step) => step.name === 'Execute bounded role and host operation')?.run ?? ''
 const mergeOperationRun = mergeOperatorJob.steps.find((step) => step.name === 'Perform one normal merge commit')?.run ?? ''
+const boundedRoleStart = roleExecutionRun.indexOf('function Invoke-BoundedRole {')
+const boundedRoleEnd = roleExecutionRun.indexOf('\n}\n\nfunction Assert-RoleOutput', boundedRoleStart)
+const boundedRoleSource = boundedRoleStart >= 0 && boundedRoleEnd > boundedRoleStart ? roleExecutionRun.slice(boundedRoleStart, boundedRoleEnd + 2) : ''
+const roleProviderNativeExitProbe = process.platform === 'win32' ? (() => {
+  const script = `
+function Invoke-NativeExitProbe {
+  param([int]$ExitCode)
+  node -e 'process.exit(Number(process.argv[1]))' $ExitCode
+  return $LASTEXITCODE
+}
+[Console]::Out.Write((@{
+  success = Invoke-NativeExitProbe -ExitCode 0
+  failure = Invoke-NativeExitProbe -ExitCode 37
+} | ConvertTo-Json -Compress))
+`
+  return JSON.parse(execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' }))
+})() : null
 const workflowBoundaryMatrix = [
   roleBindRun.includes("operation=CONVERGED_NOOP") && roleConsumerJob.steps.find((step) => step.name === 'Execute bounded role and host operation')?.if === "steps.role_dispatch_plan.outputs.operation == 'EXECUTE_ROLE'",
-  roleExecutionRun.split('Assert-FreshRoleBinding').length >= 7 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'"),
+  boundedRoleSource.startsWith('function Invoke-BoundedRole {') && !boundedRoleSource.includes('$LASTEXITCODE = $null') && boundedRoleSource.indexOf('codex.cmd exec') < boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') && (process.platform !== 'win32' || (roleProviderNativeExitProbe.success === 0 && roleProviderNativeExitProbe.failure === 37)) && roleExecutionRun.split('Assert-FreshRoleBinding').length >= 7 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'"),
   postRepairReviewJob.steps.find((step) => step.name === 'Bind post-repair Independent Reviewer')?.run.includes('task_state = $state') && postRepairReviewJob.steps.find((step) => step.name === 'Execute and publish post-repair Review')?.run.includes('--role-rebind-file'),
   runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id'),
   mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR'" && mergeOperationRun.includes('--merge-operator-file $dispatchPath') && mergeOperationRun.indexOf('--merge-operator-file $dispatchPath') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force'),
