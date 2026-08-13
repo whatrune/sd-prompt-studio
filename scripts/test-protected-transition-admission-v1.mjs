@@ -1393,6 +1393,24 @@ const detachedReviewCheckPage = (external = successfulCheck('review-external-suc
     conclusion: 'SKIPPED',
     startedAt: '2026-08-12T03:39:32Z',
   }),
+  historicalReviewSelfCheck({
+    id: 'historical-review-role-consumer',
+    name: 'protected_transition_role_dispatch_consumer_v1',
+    conclusion: 'SKIPPED',
+    startedAt: '2026-08-12T03:39:34Z',
+  }),
+  historicalReviewSelfCheck({
+    id: 'historical-review-merge-operator',
+    name: 'protected_transition_merge_operator_v1',
+    conclusion: 'SKIPPED',
+    startedAt: '2026-08-12T03:39:36Z',
+  }),
+  historicalReviewSelfCheck({
+    id: 'historical-review-post-repair-review',
+    name: 'protected_transition_post_repair_review_v1',
+    conclusion: 'SKIPPED',
+    startedAt: '2026-08-12T03:39:38Z',
+  }),
   ...(external === null ? [] : [external]),
 ])
 
@@ -1549,7 +1567,7 @@ const selfAwareUnstable = automationHost({
   checkPages: [detachedReviewCheckPage(), detachedReviewCheckPage()],
 })
 const selfAwareUnstableResult = await evaluateMergeAllowedAutomationV1({ request: reviewDetachedMergeRequest, admitted: mergeAdmitted, host: selfAwareUnstable.host })
-check(selfAwareUnstableResult.state === 'MERGE_ELIGIBLE' && selfAwareUnstableResult.allowed, 'MGA-01 historical Review Admission and Repair self-checks are excluded')
+check(selfAwareUnstableResult.state === 'MERGE_ELIGIBLE' && selfAwareUnstableResult.allowed, 'MGA-01 all five exact historical Review self-job checks are excluded')
 check(selfAwareUnstableResult.automation_status === 'MERGE_ALLOWED' && selfAwareUnstableResult.reason === 'merge_gate_satisfied', 'MGA-01 remaining external success establishes effective clean')
 check(selfAwareUnstable.metrics.checkReads === 2 && selfAwareUnstable.metrics.threadReads === 1 && selfAwareUnstable.metrics.pullReads === 3, 'MGA-01 independently reduces initial and final external snapshots before the thread gate')
 
