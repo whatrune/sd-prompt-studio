@@ -226,7 +226,6 @@ jobs:
               $OutputEncoding = $utf8NoBom
               [Console]::OutputEncoding = $utf8NoBom
               $ErrorActionPreference = 'Continue'
-              $LASTEXITCODE = $null
               $events = [string[]]@($prompt | & codex.cmd exec -c features.shell_tool=false -c sandbox_workspace_write.network_access=false -c sandbox_workspace_write.writable_roots=[] --sandbox $Sandbox --ephemeral --json --cd $env:GITHUB_WORKSPACE - 2>&1)
               $nativeExit = $LASTEXITCODE
             } finally {

@@ -577,8 +577,7 @@ export const acquireMergeReviewThreadsV1 = async (request, host) => {
   return Object.freeze({ pull: expectedPull, threads: Object.freeze(nodes) })
 }
 
-export const acquireTaskIdentityV1 = async (request, host) => {
-  const raw = await api(host, `repos/${request.repository}/issues/${request.taskIssueNumber}`)
+const validateTaskIdentityRawV1 = (raw, request) => {
   const expectedRepositoryUrl = `https://api.github.com/repos/${request.repository}`
   const expectedHtmlUrl = `https://github.com/${request.repository}/issues/${request.taskIssueNumber}`
   if (
@@ -591,6 +590,14 @@ export const acquireTaskIdentityV1 = async (request, host) => {
   ) {
     throw new Error('task_identity_invalid')
   }
+  return raw
+}
+
+export const acquireTaskIdentityV1 = async (request, host) => {
+  const raw = validateTaskIdentityRawV1(
+    await api(host, `repos/${request.repository}/issues/${request.taskIssueNumber}`),
+    request,
+  )
   return Object.freeze({
     repository: request.repository,
     number: raw.number,
@@ -2204,6 +2211,46 @@ const roleDispatchStopV1 = (reason) => Object.freeze({
   mutation_count: 0,
 })
 
+const IMPLEMENTER_CONTEXT_LIMITS_V1 = Object.freeze({
+  task_title: 256,
+  task_body: 8192,
+  approved_correction_context: 8192,
+  combined: 16384,
+})
+
+const projectImplementerContextV1 = (context) => {
+  const fields = ['task_title', 'task_body', 'approved_correction_context']
+  if (!context || typeof context !== 'object' || Array.isArray(context) ||
+    Object.keys(context).sort().join('\n') !== [...fields].sort().join('\n')) {
+    throw new Error('role_dispatch_envelope_invalid')
+  }
+  const byteLengths = fields.map((field) => {
+    const value = context[field]
+    if (typeof value !== 'string' || value.length === 0) throw new Error('role_dispatch_envelope_invalid')
+    const bytes = new TextEncoder().encode(value).byteLength
+    if (bytes > IMPLEMENTER_CONTEXT_LIMITS_V1[field]) throw new Error('role_dispatch_envelope_invalid')
+    return bytes
+  })
+  if (byteLengths.reduce((total, value) => total + value, 0) > IMPLEMENTER_CONTEXT_LIMITS_V1.combined) {
+    throw new Error('role_dispatch_envelope_invalid')
+  }
+  return Object.freeze({
+    task_title: context.task_title,
+    task_body: context.task_body,
+    approved_correction_context: context.approved_correction_context,
+  })
+}
+
+const materializeImplementerContextV1 = async ({ repository, taskIssueNumber, authorizationBody, host }) => {
+  const request = Object.freeze({ repository, taskIssueNumber })
+  const task = validateTaskIdentityRawV1(await api(host, `repos/${repository}/issues/${taskIssueNumber}`), request)
+  return projectImplementerContextV1({
+    task_title: task.title,
+    task_body: task.body,
+    approved_correction_context: authorizationBody,
+  })
+}
+
 const projectRoleSourceBindingV1 = (binding, sourceCommentId) => {
   if (!binding || !['REVIEW', 'IMPLEMENTATION_AUTHORIZATION', 'IMPLEMENTATION_RESULT', 'PUBLICATION_HANDOFF', 'MERGE_DECISION'].includes(binding.kind) || binding.comment_id !== sourceCommentId) {
     throw new Error('role_dispatch_source_binding_invalid')
@@ -2220,7 +2267,30 @@ const projectRoleSourceBindingV1 = (binding, sourceCommentId) => {
   return Object.freeze({ ...binding })
 }
 
-export const projectRoleDispatchEnvelopeV1 = ({ result, repository, sourceCommentId, authorizedPaths, taskState, sourceBinding, admissionRunId = null }) => {
+const ROLE_DISPATCH_FIELDS_V1 = Object.freeze(new Set([
+  'repository', 'task_issue_number', 'pr_number', 'exact_head', 'source_comment_id', 'terminal_result',
+  'next_action', 'purpose', 'authorized_paths', 'admission_run_id', 'admission_state', 'admission_allowed',
+  'admission_reason', 'external_check_success_count', 'blocking_thread_count', 'task_state', 'source_binding',
+  'implementer_context',
+]))
+
+const normalizeRoleDispatchConsumerV1 = (dispatch) => {
+  if (!dispatch || typeof dispatch !== 'object' || Array.isArray(dispatch) ||
+    Object.keys(dispatch).some((field) => !ROLE_DISPATCH_FIELDS_V1.has(field))) {
+    throw new Error('role_dispatch_envelope_invalid')
+  }
+  if (dispatch.next_action === 'IMPLEMENTER' || !Object.hasOwn(dispatch, 'implementer_context')) return dispatch
+  if (
+    dispatch.next_action !== 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' ||
+    dispatch.purpose !== 'PUBLICATION_DECISION' ||
+    dispatch.terminal_result !== 'IMPLEMENTATION_RESULT_READY' ||
+    dispatch.source_binding?.kind !== 'IMPLEMENTATION_RESULT'
+  ) throw new Error('role_dispatch_envelope_invalid')
+  const { implementer_context: _implementerContext, ...effectiveDispatch } = dispatch
+  return Object.freeze(effectiveDispatch)
+}
+
+export const projectRoleDispatchEnvelopeV1 = ({ result, repository, sourceCommentId, authorizedPaths, taskState, sourceBinding, admissionRunId = null, implementerContext = null }) => {
   const parsedTaskState = parseProtectedTransitionTaskStateV1(taskState)
   if (
     !result || !ROLE_DISPATCH_ACTIONS_V1.includes(result.next_action) || result.next_action === 'REPAIR_EXECUTOR' ||
@@ -2238,6 +2308,10 @@ export const projectRoleDispatchEnvelopeV1 = ({ result, repository, sourceCommen
   if ((purpose === 'MERGE_DECISION' || action === 'MERGE_OPERATOR') && !WORKFLOW_RUN_ID.test(String(admissionRunId ?? ''))) {
     throw new Error('role_dispatch_envelope_invalid')
   }
+  const projectedImplementerContext = action === 'IMPLEMENTER'
+    ? projectImplementerContextV1(implementerContext)
+    : null
+  if (action !== 'IMPLEMENTER' && implementerContext !== null) throw new Error('role_dispatch_envelope_invalid')
   return Object.freeze({
     repository,
     task_issue_number: result.task_issue_number,
@@ -2256,6 +2330,7 @@ export const projectRoleDispatchEnvelopeV1 = ({ result, repository, sourceCommen
     blocking_thread_count: purpose === 'MERGE_DECISION' ? result.blocking_thread_count : null,
     task_state: parsedTaskState,
     source_binding: projectRoleSourceBindingV1(sourceBinding, sourceCommentId),
+    ...(projectedImplementerContext ? { implementer_context: projectedImplementerContext } : {}),
   })
 }
 
@@ -2270,7 +2345,15 @@ const roleDispatchPromptV1 = (dispatch) => {
     'Do not call another agent. Do not merge. Return only the requested existing canonical record body.',
   ]
   if (dispatch.next_action === 'IMPLEMENTER') {
-    return [...common, 'Act as Backend Implementer. Edit only the authorized paths and return the existing Backend Implementer Result Handoff body. Do not commit, push, comment, review, or mutate protected state.'].join('\n')
+    const context = projectImplementerContextV1(dispatch.implementer_context)
+    return [
+      ...common,
+      '--- BEGIN CURRENT TASK TITLE ---', context.task_title, '--- END CURRENT TASK TITLE ---',
+      '--- BEGIN CURRENT TASK BODY ---', context.task_body, '--- END CURRENT TASK BODY ---',
+      '--- BEGIN APPROVED CORRECTION CONTEXT ---', context.approved_correction_context, '--- END APPROVED CORRECTION CONTEXT ---',
+      'The approved correction context may narrow the Task objective but cannot expand the authorized paths. If the bounded context is ambiguous or conflicting, return the existing BLOCKED Result Handoff without editing.',
+      'Act as Backend Implementer. Edit only the authorized paths and return the existing Backend Implementer Result Handoff body. Do not fetch GitHub context, call another agent, commit, push, comment, review, mutate protected state, or merge.',
+    ].join('\n')
   }
   if (dispatch.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER') {
     return [...common, 'Act as Independent Implementation Reviewer. Read only. Return the existing exact-HEAD Independent Review Decision body with one terminal decision and complete blocker, remaining, and UNKNOWN counts.'].join('\n')
@@ -2292,6 +2375,8 @@ const validateRoleDispatchEnvelopeV1 = (dispatch) => {
   ) throw new Error('role_dispatch_envelope_invalid')
   const taskState = parseProtectedTransitionTaskStateV1(dispatch.task_state)
   projectRoleSourceBindingV1(dispatch.source_binding, dispatch.source_comment_id)
+  if (dispatch.next_action === 'IMPLEMENTER') projectImplementerContextV1(dispatch.implementer_context)
+  else if (Object.hasOwn(dispatch, 'implementer_context')) throw new Error('role_dispatch_envelope_invalid')
   if (
     taskState.task_issue_number !== dispatch.task_issue_number || taskState.pr_number !== dispatch.pr_number ||
     taskState.observed_head !== dispatch.exact_head ||
@@ -2314,12 +2399,27 @@ const acquireRoleDispatchBindingV1 = async (dispatch, host, expectedHead = dispa
   const pull = await acquirePull(request, host)
   const taskState = extractProtectedTransitionTaskStateV1(pull.body)
   const scope = await acquireChangedPathScopeV1(request, pull, host)
+  let task = null
+  if (dispatch.next_action === 'IMPLEMENTER') {
+    try {
+      task = validateTaskIdentityRawV1(
+        await api(host, `repos/${dispatch.repository}/issues/${dispatch.task_issue_number}`),
+        request,
+      )
+    } catch {
+      throw new Error('role_dispatch_binding_changed')
+    }
+    const context = projectImplementerContextV1(dispatch.implementer_context)
+    if (task.title !== context.task_title || task.body !== context.task_body) {
+      throw new Error('role_dispatch_binding_changed')
+    }
+  }
   if (
     pull.head.sha !== expectedHead || JSON.stringify(taskState) !== JSON.stringify(expectedState) ||
     taskState.architecture_status !== 'APPROVED' || taskState.implementation_authorized !== true ||
     !sameRolePathsV1(scope.actual_paths, Object.freeze([...dispatch.authorized_paths].sort()))
   ) throw new Error('role_dispatch_binding_changed')
-  return Object.freeze({ request, pull, taskState, scope })
+  return Object.freeze({ request, pull, taskState, scope, task })
 }
 
 const parseRolePublicationAuthorityV1 = (body, repository, taskIssueNumber) => {
@@ -2428,6 +2528,9 @@ const verifyRoleAuthorizationChainV1 = async ({ body, dispatch, host, expected }
 const verifyRoleDispatchSourceV1 = async (dispatch, host) => {
   const binding = projectRoleSourceBindingV1(dispatch.source_binding, dispatch.source_comment_id)
   const source = await fetchRoleCommentRecordV1(dispatch.repository, dispatch.task_issue_number, dispatch.source_comment_id, host)
+  if (dispatch.next_action === 'IMPLEMENTER' && source.body !== projectImplementerContextV1(dispatch.implementer_context).approved_correction_context) {
+    throw new Error('role_dispatch_source_binding_changed')
+  }
   if (binding.kind === 'REVIEW') {
     const review = parseIndependentReviewDecisionProjectionV1(source.body, dispatch.repository, dispatch.task_issue_number)
     const approveSourceValid = review.decision === 'APPROVE' && review.blocking_finding_count === 0 &&
@@ -2520,6 +2623,7 @@ const verifyMergeDecisionGateV1 = async (dispatch, host) => {
 
 export const executeRoleDispatchRebindV1 = async ({ dispatch, host, operation = 'canonical_write', authorityCommentId = null, newHead = null }) => {
   try {
+    dispatch = normalizeRoleDispatchConsumerV1(dispatch)
     if (!['canonical_write', 'commit_push', 'publication_handoff'].includes(operation)) throw new Error('role_rebind_operation_invalid')
     const expectedHead = operation === 'publication_handoff' ? newHead : dispatch.exact_head
     if (operation === 'publication_handoff' && (!FULL_HEAD.test(newHead ?? '') || newHead === dispatch.exact_head)) throw new Error('role_rebind_operation_invalid')
@@ -2540,6 +2644,7 @@ export const executeRoleDispatchRebindV1 = async ({ dispatch, host, operation = 
 
 export const executeRoleDispatchConsumerV1 = async ({ dispatch, host }) => {
   try {
+    dispatch = normalizeRoleDispatchConsumerV1(dispatch)
     const { request, taskState } = await acquireRoleDispatchBindingV1(dispatch, host)
     if (dispatch.purpose === 'MERGE_DECISION' && (
       dispatch.next_action !== 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' || dispatch.terminal_result !== 'APPROVE' ||
@@ -2572,6 +2677,7 @@ export const executeRoleDispatchConsumerV1 = async ({ dispatch, host }) => {
 
 export const evaluateRoleDispatchOutputV1 = ({ dispatch, body }) => {
   try {
+    dispatch = normalizeRoleDispatchConsumerV1(dispatch)
     if (!dispatch || !CENTRAL_ROLE_DISPATCH_ACTIONS_V1.includes(dispatch.next_action) || typeof body !== 'string' || body.length === 0 || body.length > 65536) {
       throw new Error('role_output_invalid')
     }
@@ -2916,10 +3022,17 @@ export const executeRoleTransitionOrchestratorV1 = async ({ event, host, runId }
       const valid = validateRoleArchitectureReviewV1(architectureBody, normalized.candidateSha, normalized.repository, normalized.taskIssueNumber)
       const routed = evaluateRoleTransitionOrchestratorV1({ terminalResult: normalized.terminalResult, request, taskState: priorState, paths: normalized.paths, authorityValid: valid })
       if (routed.next_action !== 'IMPLEMENTER') return Object.freeze({ ...routed, source_comment_id: normalized.commentId })
+      const implementerContext = await materializeImplementerContextV1({
+        repository: normalized.repository,
+        taskIssueNumber: normalized.taskIssueNumber,
+        authorizationBody: currentBody,
+        host,
+      })
       return Object.freeze({ ...routed, source_comment_id: normalized.commentId, role_dispatch: projectRoleDispatchEnvelopeV1({
         result: routed, repository: normalized.repository, sourceCommentId: normalized.commentId,
         authorizedPaths: priorState.authorized_paths, taskState: priorState,
         sourceBinding: Object.freeze({ kind: 'IMPLEMENTATION_AUTHORIZATION', comment_id: normalized.commentId, architecture_review_comment_id: normalized.authorityCommentId, candidate_sha256: normalized.candidateSha }),
+        implementerContext,
       }) })
     }
     if (normalized.terminalResult === 'IMPLEMENTATION_RESULT_READY') {
