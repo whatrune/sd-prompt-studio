@@ -577,8 +577,7 @@ export const acquireMergeReviewThreadsV1 = async (request, host) => {
   return Object.freeze({ pull: expectedPull, threads: Object.freeze(nodes) })
 }
 
-export const acquireTaskIdentityV1 = async (request, host) => {
-  const raw = await api(host, `repos/${request.repository}/issues/${request.taskIssueNumber}`)
+const validateTaskIdentityRawV1 = (raw, request) => {
   const expectedRepositoryUrl = `https://api.github.com/repos/${request.repository}`
   const expectedHtmlUrl = `https://github.com/${request.repository}/issues/${request.taskIssueNumber}`
   if (
@@ -591,6 +590,14 @@ export const acquireTaskIdentityV1 = async (request, host) => {
   ) {
     throw new Error('task_identity_invalid')
   }
+  return raw
+}
+
+export const acquireTaskIdentityV1 = async (request, host) => {
+  const raw = validateTaskIdentityRawV1(
+    await api(host, `repos/${request.repository}/issues/${request.taskIssueNumber}`),
+    request,
+  )
   return Object.freeze({
     repository: request.repository,
     number: raw.number,
@@ -2235,8 +2242,8 @@ const projectImplementerContextV1 = (context) => {
 }
 
 const materializeImplementerContextV1 = async ({ repository, taskIssueNumber, authorizationBody, host }) => {
-  const task = await api(host, `repos/${repository}/issues/${taskIssueNumber}`)
-  if (!task || task.number !== taskIssueNumber) throw new Error('role_dispatch_envelope_invalid')
+  const request = Object.freeze({ repository, taskIssueNumber })
+  const task = validateTaskIdentityRawV1(await api(host, `repos/${repository}/issues/${taskIssueNumber}`), request)
   return projectImplementerContextV1({
     task_title: task.title,
     task_body: task.body,
@@ -2258,6 +2265,29 @@ const projectRoleSourceBindingV1 = (binding, sourceCommentId) => {
   )) throw new Error('role_dispatch_source_binding_invalid')
   if (binding.kind === 'MERGE_DECISION' && (!positiveInteger(binding.review_comment_id) || !WORKFLOW_RUN_ID.test(String(binding.admission_run_id ?? '')))) throw new Error('role_dispatch_source_binding_invalid')
   return Object.freeze({ ...binding })
+}
+
+const ROLE_DISPATCH_FIELDS_V1 = Object.freeze(new Set([
+  'repository', 'task_issue_number', 'pr_number', 'exact_head', 'source_comment_id', 'terminal_result',
+  'next_action', 'purpose', 'authorized_paths', 'admission_run_id', 'admission_state', 'admission_allowed',
+  'admission_reason', 'external_check_success_count', 'blocking_thread_count', 'task_state', 'source_binding',
+  'implementer_context',
+]))
+
+const normalizeRoleDispatchConsumerV1 = (dispatch) => {
+  if (!dispatch || typeof dispatch !== 'object' || Array.isArray(dispatch) ||
+    Object.keys(dispatch).some((field) => !ROLE_DISPATCH_FIELDS_V1.has(field))) {
+    throw new Error('role_dispatch_envelope_invalid')
+  }
+  if (dispatch.next_action === 'IMPLEMENTER' || !Object.hasOwn(dispatch, 'implementer_context')) return dispatch
+  if (
+    dispatch.next_action !== 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' ||
+    dispatch.purpose !== 'PUBLICATION_DECISION' ||
+    dispatch.terminal_result !== 'IMPLEMENTATION_RESULT_READY' ||
+    dispatch.source_binding?.kind !== 'IMPLEMENTATION_RESULT'
+  ) throw new Error('role_dispatch_envelope_invalid')
+  const { implementer_context: _implementerContext, ...effectiveDispatch } = dispatch
+  return Object.freeze(effectiveDispatch)
 }
 
 export const projectRoleDispatchEnvelopeV1 = ({ result, repository, sourceCommentId, authorizedPaths, taskState, sourceBinding, admissionRunId = null, implementerContext = null }) => {
@@ -2371,9 +2401,16 @@ const acquireRoleDispatchBindingV1 = async (dispatch, host, expectedHead = dispa
   const scope = await acquireChangedPathScopeV1(request, pull, host)
   let task = null
   if (dispatch.next_action === 'IMPLEMENTER') {
-    task = await api(host, `repos/${dispatch.repository}/issues/${dispatch.task_issue_number}`)
+    try {
+      task = validateTaskIdentityRawV1(
+        await api(host, `repos/${dispatch.repository}/issues/${dispatch.task_issue_number}`),
+        request,
+      )
+    } catch {
+      throw new Error('role_dispatch_binding_changed')
+    }
     const context = projectImplementerContextV1(dispatch.implementer_context)
-    if (!task || task.number !== dispatch.task_issue_number || task.title !== context.task_title || task.body !== context.task_body) {
+    if (task.title !== context.task_title || task.body !== context.task_body) {
       throw new Error('role_dispatch_binding_changed')
     }
   }
@@ -2586,6 +2623,7 @@ const verifyMergeDecisionGateV1 = async (dispatch, host) => {
 
 export const executeRoleDispatchRebindV1 = async ({ dispatch, host, operation = 'canonical_write', authorityCommentId = null, newHead = null }) => {
   try {
+    dispatch = normalizeRoleDispatchConsumerV1(dispatch)
     if (!['canonical_write', 'commit_push', 'publication_handoff'].includes(operation)) throw new Error('role_rebind_operation_invalid')
     const expectedHead = operation === 'publication_handoff' ? newHead : dispatch.exact_head
     if (operation === 'publication_handoff' && (!FULL_HEAD.test(newHead ?? '') || newHead === dispatch.exact_head)) throw new Error('role_rebind_operation_invalid')
@@ -2606,6 +2644,7 @@ export const executeRoleDispatchRebindV1 = async ({ dispatch, host, operation = 
 
 export const executeRoleDispatchConsumerV1 = async ({ dispatch, host }) => {
   try {
+    dispatch = normalizeRoleDispatchConsumerV1(dispatch)
     const { request, taskState } = await acquireRoleDispatchBindingV1(dispatch, host)
     if (dispatch.purpose === 'MERGE_DECISION' && (
       dispatch.next_action !== 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' || dispatch.terminal_result !== 'APPROVE' ||
@@ -2638,6 +2677,7 @@ export const executeRoleDispatchConsumerV1 = async ({ dispatch, host }) => {
 
 export const evaluateRoleDispatchOutputV1 = ({ dispatch, body }) => {
   try {
+    dispatch = normalizeRoleDispatchConsumerV1(dispatch)
     if (!dispatch || !CENTRAL_ROLE_DISPATCH_ACTIONS_V1.includes(dispatch.next_action) || typeof body !== 'string' || body.length === 0 || body.length > 65536) {
       throw new Error('role_output_invalid')
     }
