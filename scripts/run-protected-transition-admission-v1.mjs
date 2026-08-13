@@ -1632,10 +1632,17 @@ const reduceSelfAwareCurrentChecksV1 = (request, rollup) => {
 
   const admissionName = 'protected_transition_admission_v1'
   const repairName = 'protected_transition_repair_executor_v1'
+  const detachedReviewSelfJobNames = Object.freeze([
+    admissionName,
+    repairName,
+    'protected_transition_role_dispatch_consumer_v1',
+    'protected_transition_merge_operator_v1',
+    'protected_transition_post_repair_review_v1',
+  ])
   if (!WORKFLOW_RUN_ID.test(request.currentWorkflowRunId)) throw new Error('ready_event_invalid')
   if (request.selfCheckContext === REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1) {
     return Object.freeze(selectedGenerations.filter((item) => {
-      if (item.type !== 'CheckRun' || ![admissionName, repairName].includes(item.name)) return true
+      if (item.type !== 'CheckRun' || !detachedReviewSelfJobNames.includes(item.name)) return true
       const historicalRunId = parseRepositoryActionsRunIdV1(request, item)
       return historicalRunId === null || historicalRunId === request.currentWorkflowRunId
     }))

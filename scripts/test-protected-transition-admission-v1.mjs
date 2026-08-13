@@ -1393,6 +1393,24 @@ const detachedReviewCheckPage = (external = successfulCheck('review-external-suc
     conclusion: 'SKIPPED',
     startedAt: '2026-08-12T03:39:32Z',
   }),
+  historicalReviewSelfCheck({
+    id: 'historical-review-role-consumer',
+    name: 'protected_transition_role_dispatch_consumer_v1',
+    conclusion: 'SKIPPED',
+    startedAt: '2026-08-12T03:39:34Z',
+  }),
+  historicalReviewSelfCheck({
+    id: 'historical-review-merge-operator',
+    name: 'protected_transition_merge_operator_v1',
+    conclusion: 'SKIPPED',
+    startedAt: '2026-08-12T03:39:36Z',
+  }),
+  historicalReviewSelfCheck({
+    id: 'historical-review-post-repair-review',
+    name: 'protected_transition_post_repair_review_v1',
+    conclusion: 'SKIPPED',
+    startedAt: '2026-08-12T03:39:38Z',
+  }),
   ...(external === null ? [] : [external]),
 ])
 
@@ -1549,7 +1567,7 @@ const selfAwareUnstable = automationHost({
   checkPages: [detachedReviewCheckPage(), detachedReviewCheckPage()],
 })
 const selfAwareUnstableResult = await evaluateMergeAllowedAutomationV1({ request: reviewDetachedMergeRequest, admitted: mergeAdmitted, host: selfAwareUnstable.host })
-check(selfAwareUnstableResult.state === 'MERGE_ELIGIBLE' && selfAwareUnstableResult.allowed, 'MGA-01 historical Review Admission and Repair self-checks are excluded')
+check(selfAwareUnstableResult.state === 'MERGE_ELIGIBLE' && selfAwareUnstableResult.allowed, 'MGA-01 all five exact historical Review self-job checks are excluded')
 check(selfAwareUnstableResult.automation_status === 'MERGE_ALLOWED' && selfAwareUnstableResult.reason === 'merge_gate_satisfied', 'MGA-01 remaining external success establishes effective clean')
 check(selfAwareUnstable.metrics.checkReads === 2 && selfAwareUnstable.metrics.threadReads === 1 && selfAwareUnstable.metrics.pullReads === 3, 'MGA-01 independently reduces initial and final external snapshots before the thread gate')
 
@@ -3050,9 +3068,41 @@ function Invoke-NativeExitProbe {
 `
   return JSON.parse(execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' }))
 })() : null
+const terminalAgentSelectorStart = boundedRoleSource.indexOf('$terminalMessage = $null')
+const terminalAgentSelectorEnd = boundedRoleSource.indexOf('[IO.File]::WriteAllText($BodyFile', terminalAgentSelectorStart)
+const terminalAgentSelectorSource = terminalAgentSelectorStart >= 0 && terminalAgentSelectorEnd > terminalAgentSelectorStart ? boundedRoleSource.slice(terminalAgentSelectorStart, terminalAgentSelectorEnd) : ''
+const roleProviderTerminalMessageProbe = process.platform === 'win32' ? (() => {
+  const encodeLines = (lines) => Buffer.from(JSON.stringify(lines), 'utf8').toString('base64')
+  const intermediate = JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: 'intermediate transport message' } })
+  const canonical = JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: roleImplementationResultBody } })
+  const malformed = JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: '{not valid json' } })
+  const multipleEncoded = encodeLines([intermediate, intermediate, canonical, JSON.stringify({ type: 'turn.completed' })])
+  const zeroEncoded = encodeLines([JSON.stringify({ type: 'thread.started' }), JSON.stringify({ type: 'turn.completed' })])
+  const malformedEncoded = encodeLines([intermediate, malformed, JSON.stringify({ type: 'turn.completed' })])
+  const script = `
+$ErrorActionPreference = 'Stop'
+function Select-TerminalAgentMessage {
+  param([string[]]$events)
+${terminalAgentSelectorSource}
+  return $terminalMessage
+}
+function Read-Lines([string]$Encoded) {
+  return @([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Encoded)) | ConvertFrom-Json)
+}
+$zeroRejected = $false
+try { Select-TerminalAgentMessage -events (Read-Lines '${zeroEncoded}') | Out-Null } catch { $zeroRejected = $_.Exception.Message -ceq 'role_provider_result_cardinality_invalid' }
+[Console]::Out.Write((@{
+  multiple = Select-TerminalAgentMessage -events (Read-Lines '${multipleEncoded}')
+  malformed = Select-TerminalAgentMessage -events (Read-Lines '${malformedEncoded}')
+  zeroRejected = $zeroRejected
+} | ConvertTo-Json -Compress))
+`
+  return JSON.parse(execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' }))
+})() : null
+const malformedTerminalOutput = process.platform === 'win32' ? evaluateRoleDispatchOutputV1({ dispatch: implementerDispatch, body: roleProviderTerminalMessageProbe.malformed }) : null
 const workflowBoundaryMatrix = [
   roleBindRun.includes("operation=CONVERGED_NOOP") && roleConsumerJob.steps.find((step) => step.name === 'Execute bounded role and host operation')?.if === "steps.role_dispatch_plan.outputs.operation == 'EXECUTE_ROLE'",
-  boundedRoleSource.startsWith('function Invoke-BoundedRole {') && !boundedRoleSource.includes('$LASTEXITCODE = $null') && boundedRoleSource.indexOf('codex.cmd exec') < boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') && (process.platform !== 'win32' || (roleProviderNativeExitProbe.success === 0 && roleProviderNativeExitProbe.failure === 37)) && roleExecutionRun.split('Assert-FreshRoleBinding').length >= 7 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'"),
+  boundedRoleSource.startsWith('function Invoke-BoundedRole {') && !boundedRoleSource.includes('$LASTEXITCODE = $null') && boundedRoleSource.indexOf('codex.cmd exec') < boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') && terminalAgentSelectorSource.includes('$terminalMessage = [string]$event.item.text') && !terminalAgentSelectorSource.includes('$messages +=') && (process.platform !== 'win32' || (roleProviderNativeExitProbe.success === 0 && roleProviderNativeExitProbe.failure === 37 && roleProviderTerminalMessageProbe.multiple === roleImplementationResultBody && roleProviderTerminalMessageProbe.zeroRejected === true && malformedTerminalOutput.next_action === 'STOP')) && roleExecutionRun.split('Assert-FreshRoleBinding').length >= 7 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'"),
   postRepairReviewJob.steps.find((step) => step.name === 'Bind post-repair Independent Reviewer')?.run.includes('task_state = $state') && postRepairReviewJob.steps.find((step) => step.name === 'Execute and publish post-repair Review')?.run.includes('--role-rebind-file'),
   runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id'),
   mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR'" && mergeOperationRun.includes('--merge-operator-file $dispatchPath') && mergeOperationRun.indexOf('--merge-operator-file $dispatchPath') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force'),
