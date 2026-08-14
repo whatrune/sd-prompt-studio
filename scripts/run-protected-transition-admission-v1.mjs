@@ -2426,33 +2426,32 @@ const roleDispatchPromptV1 = (dispatch) => {
   return [...common, 'Act as Product Owner / Implementation Lead. Read only. Return the existing publication decision/authorization body. Do not edit, commit, push, review, or merge.'].join('\n')
 }
 
-export const projectRoleOutputFailureDiagnosticV1 = ({ dispatch, bodyBytes, jsonlBytes }) => {
+const EMPTY_ROLE_OUTPUT_FIELD_NAMES_V1 = Object.freeze([])
+const ROLE_OUTPUT_DIAGNOSTIC_UNAVAILABLE_V1 = 'ROLE_OUTPUT_DIAGNOSTIC_UNAVAILABLE'
+
+export const classifyRoleOutputFailureDiagnosticV1 = (metadata) => {
+  const fieldArrays = [
+    metadata?.missing_field_names,
+    metadata?.extra_field_names,
+    metadata?.type_mismatch_field_names,
+    metadata?.value_mismatch_field_names,
+  ]
   if (
-    dispatch?.purpose !== 'MERGE_DECISION' || !Buffer.isBuffer(bodyBytes) || !Buffer.isBuffer(jsonlBytes) ||
-    bodyBytes.length === 0
-  ) throw new Error('role_output_diagnostic_unavailable')
-  const body = bodyBytes.toString('utf8')
-  if (body.length === 0 || body.length > 65536) throw new Error('role_output_diagnostic_unavailable')
+    !/^[0-9a-f]{64}$/.test(metadata?.selected_body_sha256 ?? '') ||
+    !/^[0-9a-f]{64}$/.test(metadata?.expected_body_sha256 ?? '') ||
+    fieldArrays.some((names) => !Array.isArray(names))
+  ) return null
+  return metadata.selected_body_sha256 !== metadata.expected_body_sha256 &&
+    fieldArrays.every((names) => names.length === 0)
+    ? ROLE_OUTPUT_DIAGNOSTIC_UNAVAILABLE_V1
+    : null
+}
+
+export const projectRoleOutputFailureDiagnosticV1 = ({ dispatch, bodyBytes, jsonlBytes }) => {
+  if (dispatch?.purpose !== 'MERGE_DECISION' || !Buffer.isBuffer(bodyBytes) || !Buffer.isBuffer(jsonlBytes)) {
+    throw new Error('role_output_diagnostic_unavailable')
+  }
   const expectedBody = productOwnerMergeDecisionBodyV1(dispatch)
-  const expected = parseRoleYamlV1(expectedBody)
-  const actual = parseRoleYamlV1(body)
-  if (expected.lists.size !== 0 || actual.lists.size !== 0 || expected.scalars.size !== 22) {
-    throw new Error('role_output_diagnostic_unavailable')
-  }
-  const expectedNames = Object.freeze([...expected.scalars.keys()].sort())
-  if (expectedNames.join('\n') !== [...PRODUCT_OWNER_MERGE_DECISION_FIELDS_V1].sort().join('\n')) {
-    throw new Error('role_output_diagnostic_unavailable')
-  }
-  const actualNames = Object.freeze([...actual.scalars.keys()].sort())
-  const missingFieldNames = Object.freeze(expectedNames.filter((name) => !actual.scalars.has(name)))
-  const extraFieldNames = Object.freeze(actualNames.filter((name) => !expected.scalars.has(name)))
-  const typeMismatchFieldNames = Object.freeze(expectedNames.filter((name) => (
-    actual.scalars.has(name) && typeof actual.scalars.get(name) !== typeof expected.scalars.get(name)
-  )))
-  const valueMismatchFieldNames = Object.freeze(expectedNames.filter((name) => (
-    actual.scalars.has(name) && typeof actual.scalars.get(name) === typeof expected.scalars.get(name) &&
-    actual.scalars.get(name) !== expected.scalars.get(name)
-  )))
   const normalizedJsonl = jsonlBytes.toString('utf8').replace(/\r\n|\r/g, '\n')
   const lines = normalizedJsonl.length === 0 ? [] : normalizedJsonl.split('\n')
   if (lines.at(-1) === '') lines.pop()
@@ -2469,26 +2468,58 @@ export const projectRoleOutputFailureDiagnosticV1 = ({ dispatch, bodyBytes, json
       malformedJsonlLineCount += 1
     }
   }
-  const fieldArrays = [missingFieldNames, extraFieldNames, typeMismatchFieldNames, valueMismatchFieldNames]
   if (
     !Number.isSafeInteger(lines.length) || !Number.isSafeInteger(malformedJsonlLineCount) ||
     !Number.isSafeInteger(nonEmptyAgentMessageCount) || malformedJsonlLineCount > lines.length ||
-    nonEmptyAgentMessageCount > lines.length || fieldArrays.some((names) => (
-      names.length > 22 || new Set(names).size !== names.length ||
-      names.some((name) => !/^[a-z][a-z0-9_]*$/.test(name)) || names.join('\n') !== [...names].sort().join('\n')
-    ))
+    nonEmptyAgentMessageCount > lines.length
   ) throw new Error('role_output_diagnostic_unavailable')
-  return Object.freeze({
+  const core = Object.freeze({
     total_jsonl_line_count: lines.length,
     malformed_jsonl_line_count: malformedJsonlLineCount,
     non_empty_agent_message_count: nonEmptyAgentMessageCount,
     selected_body_sha256: createHash('sha256').update(bodyBytes).digest('hex'),
     expected_body_sha256: createHash('sha256').update(Buffer.from(expectedBody, 'utf8')).digest('hex'),
-    missing_field_names: missingFieldNames,
-    extra_field_names: extraFieldNames,
-    type_mismatch_field_names: typeMismatchFieldNames,
-    value_mismatch_field_names: valueMismatchFieldNames,
   })
+  const unavailable = () => Object.freeze({
+    ...core,
+    missing_field_names: EMPTY_ROLE_OUTPUT_FIELD_NAMES_V1,
+    extra_field_names: EMPTY_ROLE_OUTPUT_FIELD_NAMES_V1,
+    type_mismatch_field_names: EMPTY_ROLE_OUTPUT_FIELD_NAMES_V1,
+    value_mismatch_field_names: EMPTY_ROLE_OUTPUT_FIELD_NAMES_V1,
+  })
+  const body = bodyBytes.toString('utf8')
+  if (body.length === 0 || body.length > 65536) return unavailable()
+  try {
+    const expected = parseRoleYamlV1(expectedBody)
+    const actual = parseRoleYamlV1(body)
+    if (expected.lists.size !== 0 || actual.lists.size !== 0 || expected.scalars.size !== 22) return unavailable()
+    const expectedNames = Object.freeze([...expected.scalars.keys()].sort())
+    if (expectedNames.join('\n') !== [...PRODUCT_OWNER_MERGE_DECISION_FIELDS_V1].sort().join('\n')) return unavailable()
+    const actualNames = Object.freeze([...actual.scalars.keys()].sort())
+    const missingFieldNames = Object.freeze(expectedNames.filter((name) => !actual.scalars.has(name)))
+    const extraFieldNames = Object.freeze(actualNames.filter((name) => !expected.scalars.has(name)))
+    const typeMismatchFieldNames = Object.freeze(expectedNames.filter((name) => (
+      actual.scalars.has(name) && typeof actual.scalars.get(name) !== typeof expected.scalars.get(name)
+    )))
+    const valueMismatchFieldNames = Object.freeze(expectedNames.filter((name) => (
+      actual.scalars.has(name) && typeof actual.scalars.get(name) === typeof expected.scalars.get(name) &&
+      actual.scalars.get(name) !== expected.scalars.get(name)
+    )))
+    const fieldArrays = [missingFieldNames, extraFieldNames, typeMismatchFieldNames, valueMismatchFieldNames]
+    if (fieldArrays.some((names) => (
+      names.length > 22 || new Set(names).size !== names.length ||
+      names.some((name) => !/^[a-z][a-z0-9_]*$/.test(name)) || names.join('\n') !== [...names].sort().join('\n')
+    ))) return unavailable()
+    return Object.freeze({
+      ...core,
+      missing_field_names: missingFieldNames,
+      extra_field_names: extraFieldNames,
+      type_mismatch_field_names: typeMismatchFieldNames,
+      value_mismatch_field_names: valueMismatchFieldNames,
+    })
+  } catch {
+    return unavailable()
+  }
 }
 
 const evaluateRoleOutputInvocationV1 = (invocation) => {
