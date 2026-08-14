@@ -422,6 +422,8 @@ jobs:
           Invoke-BoundedRole -PromptFile $reviewPromptPath -Sandbox 'read-only' -JsonlFile $reviewOutputPath -BodyFile $reviewBodyPath
           $null = Assert-RoleOutput -DispatchFile $reviewDispatchPath -BodyFile $reviewBodyPath -ExpectedAction 'POST_REVIEW' -ResultFile $reviewResultPath
           Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath
+          $publicationTask = gh api "repos/$($dispatch.repository)/issues/$($dispatch.task_issue_number)" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $publicationTask.number -ne $dispatch.task_issue_number -or $publicationTask.state -cne 'open' -or $null -ne $publicationTask.pull_request) { throw 'publication_reviewer_task_binding_invalid' }
           $null = Publish-CanonicalComment -BodyFile $reviewBodyPath
 
   protected_transition_merge_operator_v1:
