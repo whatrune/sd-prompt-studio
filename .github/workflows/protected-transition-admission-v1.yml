@@ -367,7 +367,60 @@ jobs:
           $publication = "## Publication Handoff`n`n- Publication Authority: https://github.com/$($dispatch.repository)/issues/$($dispatch.task_issue_number)#issuecomment-$($authorityComment.id)`n- target PR: ``#$($dispatch.pr_number)```n- published HEAD: ``$newHead```n- exact parent: ``$($dispatch.exact_head)```n- push mode: normal non-force fast-forward`n- local / remote HEAD equality: PASS`n`n### Published scope`n`n$pathLines`n`n### Terminal state`n`n- status: ``completed```n- execution_stop_reason: ``completed```n"
           [IO.File]::WriteAllText($publicationPath, $publication, $utf8NoBom)
           Assert-FreshRoleBinding -DispatchFile $poDispatchPath -Operation 'publication_handoff' -AuthorityCommentId ([int64]$authorityComment.id) -NewHead $newHead
-          $null = Publish-CanonicalComment -BodyFile $publicationPath
+          $publicationComment = Publish-CanonicalComment -BodyFile $publicationPath
+          $task = gh api "repos/$($dispatch.repository)/issues/$($dispatch.task_issue_number)" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $task.number -ne $dispatch.task_issue_number -or $task.state -cne 'open' -or $null -ne $task.pull_request) { throw 'publication_continuation_task_binding_invalid' }
+
+          $publishedEventPath = Join-Path $env:RUNNER_TEMP 'role-published-event.json'
+          $publishedRoutePath = Join-Path $env:RUNNER_TEMP 'role-published-route.json'
+          $publishedEvent = [ordered]@{
+            action = 'created'
+            repository = [ordered]@{ full_name = [string]$dispatch.repository }
+            issue = [ordered]@{ number = [int64]$dispatch.task_issue_number; state = 'open' }
+            comment = [ordered]@{
+              id = [int64]$publicationComment.id
+              author_association = [string]$publicationComment.author_association
+              body = [string]$publicationComment.body
+            }
+          }
+          [IO.File]::WriteAllText($publishedEventPath, ($publishedEvent | ConvertTo-Json -Depth 8 -Compress), $utf8NoBom)
+          node $env:PTA_ROLE_HOST_RUNNER --review-event-file $publishedEventPath 1> $publishedRoutePath
+          if ($LASTEXITCODE -ne 0) { throw 'publication_continuation_route_failed' }
+          $publishedRoute = Get-Content -LiteralPath $publishedRoutePath -Raw -Encoding utf8 | ConvertFrom-Json
+          $reviewDispatch = $publishedRoute.role_dispatch
+          $reviewPaths = [string[]]@($reviewDispatch.authorized_paths | Sort-Object -Unique)
+          if (
+            $publishedRoute.terminal_result -cne 'PUBLISHED' -or $publishedRoute.reason -cne 'publication_state_rebound' -or
+            $publishedRoute.automation_status -cne 'HANDOFF_READY' -or $publishedRoute.next_action -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER' -or
+            $publishedRoute.current_head -cne $newHead -or $publishedRoute.task_issue_number -ne $dispatch.task_issue_number -or
+            $publishedRoute.pr_number -ne $dispatch.pr_number -or $publishedRoute.source_comment_id -ne $publicationComment.id -or
+            $null -eq $reviewDispatch -or $reviewDispatch.repository -cne $dispatch.repository -or
+            $reviewDispatch.task_issue_number -ne $dispatch.task_issue_number -or $reviewDispatch.pr_number -ne $dispatch.pr_number -or
+            $reviewDispatch.exact_head -cne $newHead -or $reviewDispatch.source_comment_id -ne $publicationComment.id -or
+            $reviewDispatch.terminal_result -cne 'PUBLISHED' -or $reviewDispatch.next_action -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER' -or
+            $reviewDispatch.purpose -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER' -or (Compare-Object $reviewPaths $authorized) -or
+            @($reviewDispatch.task_state.psobject.Properties).Count -ne 10 -or $reviewDispatch.task_state.observed_head -cne $newHead -or
+            $reviewDispatch.task_state.task_issue_number -ne $dispatch.task_issue_number -or $reviewDispatch.task_state.pr_number -ne $dispatch.pr_number -or
+            $reviewDispatch.source_binding.kind -cne 'PUBLICATION_HANDOFF' -or $reviewDispatch.source_binding.comment_id -ne $publicationComment.id -or
+            $reviewDispatch.source_binding.parent_head -cne $dispatch.exact_head
+          ) { throw 'publication_continuation_binding_invalid' }
+
+          $reviewDispatchPath = Join-Path $env:RUNNER_TEMP 'role-published-review-dispatch.json'
+          $reviewPlanPath = Join-Path $env:RUNNER_TEMP 'role-published-review-plan.json'
+          $reviewPromptPath = Join-Path $env:RUNNER_TEMP 'role-published-review-prompt.txt'
+          $reviewOutputPath = Join-Path $env:RUNNER_TEMP 'role-published-review-output.jsonl'
+          $reviewBodyPath = Join-Path $env:RUNNER_TEMP 'role-published-review-body.md'
+          $reviewResultPath = Join-Path $env:RUNNER_TEMP 'role-published-review-result.json'
+          [IO.File]::WriteAllText($reviewDispatchPath, ($reviewDispatch | ConvertTo-Json -Depth 8 -Compress), $utf8NoBom)
+          node $env:PTA_ROLE_HOST_RUNNER --role-dispatch-file $reviewDispatchPath 1> $reviewPlanPath
+          if ($LASTEXITCODE -ne 0) { throw 'publication_reviewer_dispatch_binding_failed' }
+          $reviewPlan = Get-Content -LiteralPath $reviewPlanPath -Raw -Encoding utf8 | ConvertFrom-Json
+          if ($reviewPlan.next_action -cne 'EXECUTE_ROLE' -or $reviewPlan.exact_head -cne $newHead -or -not $reviewPlan.read_only) { throw 'publication_reviewer_dispatch_not_ready' }
+          [IO.File]::WriteAllText($reviewPromptPath, [string]$reviewPlan.prompt, $utf8NoBom)
+          Invoke-BoundedRole -PromptFile $reviewPromptPath -Sandbox 'read-only' -JsonlFile $reviewOutputPath -BodyFile $reviewBodyPath
+          $null = Assert-RoleOutput -DispatchFile $reviewDispatchPath -BodyFile $reviewBodyPath -ExpectedAction 'POST_REVIEW' -ResultFile $reviewResultPath
+          Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath
+          $null = Publish-CanonicalComment -BodyFile $reviewBodyPath
 
   protected_transition_merge_operator_v1:
     needs: protected_transition_admission_v1
