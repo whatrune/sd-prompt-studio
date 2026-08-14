@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -31,6 +32,7 @@ import {
   parseProductOwnerMergeDecisionV1,
   parseIndependentReviewDecisionProjectionV1,
   parseReviewApprovalEventV1,
+  projectRoleOutputFailureDiagnosticV1,
   projectProtectedTransitionReviewStateV1,
   projectSelfHostedWindowsRepairProviderV3,
   projectRoleDispatchEnvelopeV1,
@@ -2959,12 +2961,45 @@ const mergeDecisionOutput = evaluateRoleDispatchOutputV1({ dispatch: mergeDecisi
 const invalidImplementerOutput = evaluateRoleDispatchOutputV1({ dispatch: { ...implementerDispatch, source_comment_id: 9991 }, body: roleImplementationResultBody })
 const invalidPublicationOutput = evaluateRoleDispatchOutputV1({ dispatch: { ...publicationDispatch, source_comment_id: 9992 }, body: rolePublicationAuthorityBody })
 const invalidMergeDecisionOutput = evaluateRoleDispatchOutputV1({ dispatch: { ...mergeDecisionDispatch, source_comment_id: 9993 }, body: mergeDecisionBody() })
+const diagnosticSelectedBody = mergeDecisionBody()
+  .replace('unknown_count: 0\n', '')
+  .replace('admission_allowed: true', 'admission_allowed: TRUE')
+  .replace('admission_reason: merge_gate_satisfied', 'admission_reason: not_satisfied')
+  .replace(/\n```$/, '\nunexpected_field: redacted\n```')
+const diagnosticJsonl = [
+  JSON.stringify({ type: 'thread.started' }),
+  '{malformed-jsonl',
+  JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: '' } }),
+  JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: 'intermediate transport message' } }),
+  JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: diagnosticSelectedBody } }),
+].join('\n')
+const roleOutputFailureDiagnostic = projectRoleOutputFailureDiagnosticV1({
+  dispatch: mergeDecisionDispatch,
+  bodyBytes: Buffer.from(diagnosticSelectedBody, 'utf8'),
+  jsonlBytes: Buffer.from(diagnosticJsonl, 'utf8'),
+})
+const roleOutputFailureDiagnosticKeys = Object.keys(roleOutputFailureDiagnostic).sort()
+const expectedRoleOutputFailureDiagnosticKeys = [
+  'expected_body_sha256', 'extra_field_names', 'malformed_jsonl_line_count', 'missing_field_names',
+  'non_empty_agent_message_count', 'selected_body_sha256', 'total_jsonl_line_count',
+  'type_mismatch_field_names', 'value_mismatch_field_names',
+].sort()
+const diagnosticLeakProbe = JSON.stringify(roleOutputFailureDiagnostic)
+const diagnosticOverflowBody = mergeDecisionBody().replace(
+  /\n```$/,
+  `\n${Array.from({ length: 23 }, (_, index) => `overflow_${String(index).padStart(2, '0')}: redacted`).join('\n')}\n\`\`\``,
+)
+const diagnosticOverflowError = await errorOf(() => projectRoleOutputFailureDiagnosticV1({
+  dispatch: mergeDecisionDispatch,
+  bodyBytes: Buffer.from(diagnosticOverflowBody, 'utf8'),
+  jsonlBytes: Buffer.from(diagnosticJsonl, 'utf8'),
+}))
 const roleOutputMatrix = [
-  implementerOutput.next_action === 'VALIDATE_IMPLEMENTATION',
-  reviewerOutput.next_action === 'POST_REVIEW',
-  mergeDecisionOutput.next_action === 'POST_MERGE_DECISION',
-  invalidImplementerOutput.next_action === 'STOP' && invalidPublicationOutput.next_action === 'STOP' && invalidMergeDecisionOutput.next_action === 'STOP',
-  [implementerOutput, reviewerOutput, mergeDecisionOutput, invalidImplementerOutput, invalidPublicationOutput, invalidMergeDecisionOutput].every((value) => value.mutation_count === 0),
+  implementerOutput.next_action === 'VALIDATE_IMPLEMENTATION' && !Object.hasOwn(implementerOutput, 'bounded_metadata') && runnerSource.includes("if (result.exit_code === 0 || !invocation.jsonlFile) return result") && runnerSource.includes("argv[4] === '--role-jsonl-file'") && runnerSource.includes('bounded_metadata: projectRoleOutputFailureDiagnosticV1'),
+  reviewerOutput.next_action === 'POST_REVIEW' && !Object.hasOwn(reviewerOutput, 'bounded_metadata'),
+  mergeDecisionOutput.next_action === 'POST_MERGE_DECISION' && !Object.hasOwn(mergeDecisionOutput, 'bounded_metadata') && roleOutputFailureDiagnosticKeys.join('\n') === expectedRoleOutputFailureDiagnosticKeys.join('\n') && roleOutputFailureDiagnostic.total_jsonl_line_count === 5 && roleOutputFailureDiagnostic.malformed_jsonl_line_count === 1 && roleOutputFailureDiagnostic.non_empty_agent_message_count === 2,
+  invalidImplementerOutput.next_action === 'STOP' && invalidPublicationOutput.next_action === 'STOP' && invalidMergeDecisionOutput.next_action === 'STOP' && roleOutputFailureDiagnostic.missing_field_names.join('\n') === 'unknown_count' && roleOutputFailureDiagnostic.extra_field_names.join('\n') === 'unexpected_field' && roleOutputFailureDiagnostic.type_mismatch_field_names.join('\n') === 'admission_allowed' && roleOutputFailureDiagnostic.value_mismatch_field_names.join('\n') === 'admission_reason' && roleOutputFailureDiagnostic.selected_body_sha256 === createHash('sha256').update(Buffer.from(diagnosticSelectedBody, 'utf8')).digest('hex') && roleOutputFailureDiagnostic.expected_body_sha256 === createHash('sha256').update(Buffer.from(mergeDecisionBody(), 'utf8')).digest('hex'),
+  [implementerOutput, reviewerOutput, mergeDecisionOutput, invalidImplementerOutput, invalidPublicationOutput, invalidMergeDecisionOutput].every((value) => value.mutation_count === 0) && ![diagnosticSelectedBody, mergeDecisionBody(), diagnosticJsonl, 'not_satisfied', 'redacted', mergeDecisionPlan.prompt, roleTaskBody].some((secret) => diagnosticLeakProbe.includes(secret)) && diagnosticOverflowError?.message === 'role_output_diagnostic_unavailable',
 ]
 for (const [index, evidence] of roleOutputMatrix.entries()) check(evidence, `RDC-09 source-record output binding ${index + 1}`)
 
@@ -3054,6 +3089,9 @@ const mergeOperationRun = mergeOperatorJob.steps.find((step) => step.name === 'P
 const boundedRoleStart = roleExecutionRun.indexOf('function Invoke-BoundedRole {')
 const boundedRoleEnd = roleExecutionRun.indexOf('\n}\n\nfunction Assert-RoleOutput', boundedRoleStart)
 const boundedRoleSource = boundedRoleStart >= 0 && boundedRoleEnd > boundedRoleStart ? roleExecutionRun.slice(boundedRoleStart, boundedRoleEnd + 2) : ''
+const assertRoleOutputStart = roleExecutionRun.indexOf('function Assert-RoleOutput {')
+const assertRoleOutputEnd = roleExecutionRun.indexOf('\n}\n\nfunction Assert-FreshRoleBinding', assertRoleOutputStart)
+const assertRoleOutputSource = assertRoleOutputStart >= 0 && assertRoleOutputEnd > assertRoleOutputStart ? roleExecutionRun.slice(assertRoleOutputStart, assertRoleOutputEnd + 2) : ''
 const roleProviderNativeExitProbe = process.platform === 'win32' ? (() => {
   const script = `
 function Invoke-NativeExitProbe {
@@ -3101,7 +3139,7 @@ try { Select-TerminalAgentMessage -events (Read-Lines '${zeroEncoded}') | Out-Nu
 })() : null
 const malformedTerminalOutput = process.platform === 'win32' ? evaluateRoleDispatchOutputV1({ dispatch: implementerDispatch, body: roleProviderTerminalMessageProbe.malformed }) : null
 const workflowBoundaryMatrix = [
-  roleBindRun.includes("operation=CONVERGED_NOOP") && roleConsumerJob.steps.find((step) => step.name === 'Execute bounded role and host operation')?.if === "steps.role_dispatch_plan.outputs.operation == 'EXECUTE_ROLE'" && roleExecutionRun.indexOf('$publicationComment = Publish-CanonicalComment -BodyFile $publicationPath') < roleExecutionRun.indexOf('--review-event-file $publishedEventPath') && roleExecutionRun.indexOf('--review-event-file $publishedEventPath') < roleExecutionRun.indexOf("-ExpectedAction 'POST_REVIEW'"),
+  roleBindRun.includes("operation=CONVERGED_NOOP") && roleConsumerJob.steps.find((step) => step.name === 'Execute bounded role and host operation')?.if === "steps.role_dispatch_plan.outputs.operation == 'EXECUTE_ROLE'" && roleExecutionRun.indexOf('$publicationComment = Publish-CanonicalComment -BodyFile $publicationPath') < roleExecutionRun.indexOf('--review-event-file $publishedEventPath') && roleExecutionRun.indexOf('--review-event-file $publishedEventPath') < roleExecutionRun.indexOf("-ExpectedAction 'POST_REVIEW'") && assertRoleOutputSource.includes('--role-jsonl-file $JsonlFile') && (roleExecutionRun.match(/Assert-RoleOutput[^\n]+-JsonlFile \$/g) ?? []).length === 3 && assertRoleOutputSource.includes('$failure.bounded_metadata') && expectedRoleOutputFailureDiagnosticKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes('-gt 9007199254740991') && assertRoleOutputSource.includes('-isnot [System.Array]') && assertRoleOutputSource.includes('$diagnosticLine = $null') && assertRoleOutputSource.split('[Console]::Error.WriteLine($diagnosticLine)').length === 2 && assertRoleOutputSource.includes("throw 'role_output_validation_failed'") && !assertRoleOutputSource.includes('Start-Sleep') && !assertRoleOutputSource.includes('retry'),
   boundedRoleSource.startsWith('function Invoke-BoundedRole {') && !boundedRoleSource.includes('$LASTEXITCODE = $null') && boundedRoleSource.indexOf('codex.cmd exec') < boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') && terminalAgentSelectorSource.includes('$terminalMessage = [string]$event.item.text') && !terminalAgentSelectorSource.includes('$messages +=') && (process.platform !== 'win32' || (roleProviderNativeExitProbe.success === 0 && roleProviderNativeExitProbe.failure === 37 && roleProviderTerminalMessageProbe.multiple === roleImplementationResultBody && roleProviderTerminalMessageProbe.zeroRejected === true && malformedTerminalOutput.next_action === 'STOP')) && roleExecutionRun.split('Assert-FreshRoleBinding').length >= 8 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'") && roleExecutionRun.includes("throw 'publication_continuation_task_binding_invalid'") && roleExecutionRun.includes("throw 'publication_continuation_route_failed'") && roleExecutionRun.includes("throw 'publication_continuation_binding_invalid'") && roleExecutionRun.includes("throw 'publication_reviewer_dispatch_not_ready'") && roleExecutionRun.indexOf("$reviewPlan = Get-Content -LiteralPath $reviewPlanPath") < roleExecutionRun.indexOf('$reviewTask = gh api') && roleExecutionRun.includes("$reviewTask.number -ne $dispatch.task_issue_number -or $reviewTask.state -cne 'open' -or $null -ne $reviewTask.pull_request") && roleExecutionRun.indexOf("throw 'publication_reviewer_task_binding_invalid'") < roleExecutionRun.indexOf('Invoke-BoundedRole -PromptFile $reviewPromptPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath') < roleExecutionRun.indexOf('$publicationTask = gh api') && roleExecutionRun.includes("$publicationTask.number -ne $dispatch.task_issue_number -or $publicationTask.state -cne 'open' -or $null -ne $publicationTask.pull_request") && roleExecutionRun.indexOf('$publicationTask = gh api') < roleExecutionRun.indexOf('$null = Publish-CanonicalComment -BodyFile $reviewBodyPath'),
   postRepairReviewJob.steps.find((step) => step.name === 'Bind post-repair Independent Reviewer')?.run.includes('task_state = $state') && postRepairReviewJob.steps.find((step) => step.name === 'Execute and publish post-repair Review')?.run.includes('--role-rebind-file'),
   runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id'),
