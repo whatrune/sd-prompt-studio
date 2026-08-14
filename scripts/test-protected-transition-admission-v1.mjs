@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parse as parseYaml } from 'yaml'
@@ -18,6 +19,7 @@ import {
   evaluateProductOwnerMergeDecisionV1,
   evaluateRoleTransitionOrchestratorV1,
   evaluateRoleDispatchOutputV1,
+  evaluateRoleOutputInvocationV1,
   classifyRoleOutputFailureDiagnosticV1,
   executeRoleDispatchConsumerV1,
   executeRoleDispatchRebindV1,
@@ -3014,12 +3016,49 @@ const invalidDiagnosticInputError = await errorOf(() => projectRoleOutputFailure
   bodyBytes: 'not-bytes',
   jsonlBytes: Buffer.alloc(0),
 }))
+const diagnosticWrapperTemp = mkdtempSync(path.join(tmpdir(), 'pta-diagnostic-wrapper-'))
+let diagnosticWrapperCoreCalls = 0
+let diagnosticWrapperMappingCalls = 0
+let diagnosticWrapperResult
+try {
+  const dispatchFile = path.join(diagnosticWrapperTemp, 'dispatch.json')
+  const outputFile = path.join(diagnosticWrapperTemp, 'output.md')
+  const jsonlFile = path.join(diagnosticWrapperTemp, 'output.jsonl')
+  writeFileSync(dispatchFile, JSON.stringify(mergeDecisionDispatch), 'utf8')
+  writeFileSync(outputFile, diagnosticParseFailureBody, 'utf8')
+  writeFileSync(jsonlFile, diagnosticJsonl, 'utf8')
+  const selectedBodyBytes = Buffer.from(diagnosticParseFailureBody, 'utf8')
+  const expectedBody = mergeDecisionBody()
+  diagnosticWrapperResult = evaluateRoleOutputInvocationV1(
+    { dispatchFile, outputFile, jsonlFile },
+    () => {
+      diagnosticWrapperCoreCalls += 1
+      if (diagnosticWrapperCoreCalls > 1) throw new Error('diagnostic_core_reentered')
+      return Object.freeze({
+        expectedBody,
+        metadata: Object.freeze({
+          total_jsonl_line_count: 5,
+          malformed_jsonl_line_count: 1,
+          non_empty_agent_message_count: 2,
+          selected_body_sha256: createHash('sha256').update(selectedBodyBytes).digest('hex'),
+          expected_body_sha256: createHash('sha256').update(Buffer.from(expectedBody, 'utf8')).digest('hex'),
+        }),
+      })
+    },
+    () => {
+      diagnosticWrapperMappingCalls += 1
+      throw new Error('induced_mapping_exception')
+    },
+  )
+} finally {
+  rmSync(diagnosticWrapperTemp, { recursive: true, force: true })
+}
 const roleOutputMatrix = [
-  implementerOutput.next_action === 'VALIDATE_IMPLEMENTATION' && !Object.hasOwn(implementerOutput, 'bounded_metadata') && runnerSource.includes("if (result.exit_code === 0 || !invocation.jsonlFile) return result") && runnerSource.includes("argv[4] === '--role-jsonl-file'") && runnerSource.includes('jsonlBytes = Buffer.alloc(0)') && runnerSource.includes('boundedMetadata = projectRoleOutputDiagnosticUnavailableV1({ dispatch, bodyBytes, jsonlBytes })') && runnerSource.includes('return Object.freeze({ ...result, bounded_metadata: boundedMetadata })') && !runnerSource.includes('catch {\n    return result\n  }'),
+  implementerOutput.next_action === 'VALIDATE_IMPLEMENTATION' && !Object.hasOwn(implementerOutput, 'bounded_metadata') && runnerSource.includes("if (result.exit_code === 0 || !invocation.jsonlFile) return result") && runnerSource.includes("argv[4] === '--role-jsonl-file'") && runnerSource.includes('jsonlBytes = Buffer.alloc(0)') && runnerSource.includes('boundedMetadata = projectRoleOutputDiagnosticUnavailableV1(core)') && runnerSource.includes('return Object.freeze({ ...result, bounded_metadata: boundedMetadata })') && !runnerSource.includes('catch {\n    return result\n  }'),
   reviewerOutput.next_action === 'POST_REVIEW' && !Object.hasOwn(reviewerOutput, 'bounded_metadata'),
   mergeDecisionOutput.next_action === 'POST_MERGE_DECISION' && !Object.hasOwn(mergeDecisionOutput, 'bounded_metadata') && roleOutputFailureDiagnosticKeys.join('\n') === expectedRoleOutputFailureDiagnosticKeys.join('\n') && roleOutputFailureDiagnostic.total_jsonl_line_count === 5 && roleOutputFailureDiagnostic.malformed_jsonl_line_count === 1 && roleOutputFailureDiagnostic.non_empty_agent_message_count === 2 && classifyRoleOutputFailureDiagnosticV1(roleOutputFailureDiagnostic) === null,
   invalidImplementerOutput.next_action === 'STOP' && invalidPublicationOutput.next_action === 'STOP' && invalidMergeDecisionOutput.next_action === 'STOP' && roleOutputFailureDiagnostic.missing_field_names.join('\n') === 'unknown_count' && roleOutputFailureDiagnostic.extra_field_names.join('\n') === 'unexpected_field' && roleOutputFailureDiagnostic.type_mismatch_field_names.join('\n') === 'admission_allowed' && roleOutputFailureDiagnostic.value_mismatch_field_names.join('\n') === 'admission_reason' && roleOutputFailureDiagnostic.selected_body_sha256 === createHash('sha256').update(Buffer.from(diagnosticSelectedBody, 'utf8')).digest('hex') && roleOutputFailureDiagnostic.expected_body_sha256 === createHash('sha256').update(Buffer.from(mergeDecisionBody(), 'utf8')).digest('hex'),
-  [implementerOutput, reviewerOutput, mergeDecisionOutput, invalidImplementerOutput, invalidPublicationOutput, invalidMergeDecisionOutput].every((value) => value.mutation_count === 0) && ![diagnosticSelectedBody, mergeDecisionBody(), diagnosticJsonl, 'not_satisfied', 'redacted', mergeDecisionPlan.prompt, roleTaskBody].some((secret) => diagnosticLeakProbe.includes(secret)) && unavailableDiagnosticFixtures.every(({ body, expectedBody, jsonlBytes, expectedCounts, metadata }) => Object.keys(metadata).sort().join('\n') === expectedRoleOutputFailureDiagnosticKeys.join('\n') && metadata.total_jsonl_line_count === expectedCounts[0] && metadata.malformed_jsonl_line_count === expectedCounts[1] && metadata.non_empty_agent_message_count === expectedCounts[2] && metadata.selected_body_sha256 === createHash('sha256').update(Buffer.from(body, 'utf8')).digest('hex') && metadata.expected_body_sha256 === createHash('sha256').update(Buffer.from(expectedBody, 'utf8')).digest('hex') && metadata.selected_body_sha256 !== metadata.expected_body_sha256 && [metadata.missing_field_names, metadata.extra_field_names, metadata.type_mismatch_field_names, metadata.value_mismatch_field_names].every((names) => names.length === 0) && classifyRoleOutputFailureDiagnosticV1(metadata) === 'ROLE_OUTPUT_DIAGNOSTIC_UNAVAILABLE' && ![body, expectedBody, ...(jsonlBytes.length > 0 ? [jsonlBytes.toString('utf8')] : []), 'redacted'].some((secret) => JSON.stringify(metadata).includes(secret))) && invalidDiagnosticInputError?.message === 'role_output_diagnostic_unavailable',
+  [implementerOutput, reviewerOutput, mergeDecisionOutput, invalidImplementerOutput, invalidPublicationOutput, invalidMergeDecisionOutput].every((value) => value.mutation_count === 0) && ![diagnosticSelectedBody, mergeDecisionBody(), diagnosticJsonl, 'not_satisfied', 'redacted', mergeDecisionPlan.prompt, roleTaskBody].some((secret) => diagnosticLeakProbe.includes(secret)) && unavailableDiagnosticFixtures.every(({ body, expectedBody, jsonlBytes, expectedCounts, metadata }) => Object.keys(metadata).sort().join('\n') === expectedRoleOutputFailureDiagnosticKeys.join('\n') && metadata.total_jsonl_line_count === expectedCounts[0] && metadata.malformed_jsonl_line_count === expectedCounts[1] && metadata.non_empty_agent_message_count === expectedCounts[2] && metadata.selected_body_sha256 === createHash('sha256').update(Buffer.from(body, 'utf8')).digest('hex') && metadata.expected_body_sha256 === createHash('sha256').update(Buffer.from(expectedBody, 'utf8')).digest('hex') && metadata.selected_body_sha256 !== metadata.expected_body_sha256 && [metadata.missing_field_names, metadata.extra_field_names, metadata.type_mismatch_field_names, metadata.value_mismatch_field_names].every((names) => names.length === 0) && classifyRoleOutputFailureDiagnosticV1(metadata) === 'ROLE_OUTPUT_DIAGNOSTIC_UNAVAILABLE' && ![body, expectedBody, ...(jsonlBytes.length > 0 ? [jsonlBytes.toString('utf8')] : []), 'redacted'].some((secret) => JSON.stringify(metadata).includes(secret))) && invalidDiagnosticInputError?.message === 'role_output_diagnostic_unavailable' && diagnosticWrapperCoreCalls === 1 && diagnosticWrapperMappingCalls === 1 && Object.keys(diagnosticWrapperResult.bounded_metadata).sort().join('\n') === expectedRoleOutputFailureDiagnosticKeys.join('\n') && diagnosticWrapperResult.bounded_metadata.total_jsonl_line_count === 5 && diagnosticWrapperResult.bounded_metadata.malformed_jsonl_line_count === 1 && diagnosticWrapperResult.bounded_metadata.non_empty_agent_message_count === 2 && [diagnosticWrapperResult.bounded_metadata.missing_field_names, diagnosticWrapperResult.bounded_metadata.extra_field_names, diagnosticWrapperResult.bounded_metadata.type_mismatch_field_names, diagnosticWrapperResult.bounded_metadata.value_mismatch_field_names].every((names) => names.length === 0) && classifyRoleOutputFailureDiagnosticV1(diagnosticWrapperResult.bounded_metadata) === 'ROLE_OUTPUT_DIAGNOSTIC_UNAVAILABLE',
 ]
 for (const [index, evidence] of roleOutputMatrix.entries()) check(evidence, `RDC-09 source-record output binding ${index + 1}`)
 
