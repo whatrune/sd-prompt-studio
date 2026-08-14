@@ -42,8 +42,9 @@ repository-root/
 ## Project-Local Filesystem Boundary
 
 - Before creating a worktree, a Worker or Implementer MUST freshly resolve the current repository root, inspect the registered worktrees, and confirm the project's existing worktree layout.
-- Worktrees, source copies, and build workspaces MUST remain within the current repository or project's existing managed area. The repository-local `.worktrees/<task>` convention above MUST be preferred when it is available.
-- A Worker or Implementer MUST NOT create a worktree, source copy, or build workspace outside the project, including under OneDrive, Desktop, Downloads, a temporary directory, or another drive, unless an external path is genuinely necessary and the reason and exact external path receive explicit prior Product Owner approval before creation or use. Convenience alone MUST NOT justify an external path.
+- A worktree, source copy, or build workspace that a Worker or Implementer selects or creates as the Task workspace MUST remain within the current repository or project's existing managed area. The repository-local `.worktrees/<task>` convention above MUST be preferred when it is available.
+- A Worker or Implementer MUST NOT select or create such a Task workspace outside the project, including under OneDrive, Desktop, Downloads, a temporary directory, or another drive, unless an external path is genuinely necessary and the reason and exact external path receive explicit prior Product Owner approval before creation or use. Convenience alone MUST NOT justify an external path.
+- An existing run-scoped immutable execution workspace created and controlled by the central production host, including role-host source materialization under `RUNNER_TEMP`, is not a Worker- or Implementer-selected Task workspace and is outside that external-path Product Owner approval rule. This is not a general `RUNNER_TEMP` exception for a Worker or Implementer, does not authorize an external Task workspace, and creates no per-run approval ceremony.
 - Retired paths, historical environment information, and guessed paths MUST NOT be reused. The target path MUST be derived from the freshly confirmed repository root and existing project-local convention.
 
 ## Branch Naming
