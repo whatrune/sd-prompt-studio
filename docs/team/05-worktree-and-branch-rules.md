@@ -39,6 +39,13 @@ repository-root/
 
 実際の名前はTaskまたはPRを識別できればよい。worktree Path自体をContract、Artifact ID、保存データへ含めない。
 
+## Project-Local Filesystem Boundary
+
+- Before creating a worktree, a Worker or Implementer MUST freshly resolve the current repository root, inspect the registered worktrees, and confirm the project's existing worktree layout.
+- Worktrees, source copies, and build workspaces MUST remain within the current repository or project's existing managed area. The repository-local `.worktrees/<task>` convention above MUST be preferred when it is available.
+- A Worker or Implementer MUST NOT create a worktree, source copy, or build workspace outside the project, including under OneDrive, Desktop, Downloads, a temporary directory, or another drive, unless an external path is genuinely necessary and the reason and exact external path receive explicit prior Product Owner approval before creation or use. Convenience alone MUST NOT justify an external path.
+- Retired paths, historical environment information, and guessed paths MUST NOT be reused. The target path MUST be derived from the freshly confirmed repository root and existing project-local convention.
+
 ## Branch Naming
 
 形式:
