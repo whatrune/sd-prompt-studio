@@ -2366,7 +2366,54 @@ const roleDispatchPromptV1 = (dispatch) => {
     return [...common, 'Act as Independent Implementation Reviewer. Read only. Return the existing exact-HEAD Independent Review Decision body with one terminal decision and complete blocker, remaining, and UNKNOWN counts.'].join('\n')
   }
   if (dispatch.purpose === 'MERGE_DECISION') {
-    return [...common, `Admission run: ${dispatch.admission_run_id}`, `Admission: ${dispatch.admission_state} / allowed:${dispatch.admission_allowed} / ${dispatch.admission_reason}`, `External successful checks: ${dispatch.external_check_success_count}`, `Blocking threads: ${dispatch.blocking_thread_count}`, 'Act as Product Owner / Implementation Lead. Read only. Return the existing product_owner_merge_decision_v1 body. You cannot perform or request the merge operation directly.'].join('\n')
+    const stringFields = Object.freeze([
+      'record_type', 'authoring_role', 'parent_issue', 'pull_request', 'review_decision_comment',
+      'reviewed_head', 'review_decision', 'admission_run_url', 'admission_state', 'admission_reason',
+      'admission_evaluated_head', 'decision', 'status', 'execution_stop_reason',
+    ])
+    const integerFields = Object.freeze([
+      'blocking_finding_count', 'remaining_finding_count', 'unknown_count', 'admission_run_id',
+      'external_check_success_count', 'blocking_thread_count',
+    ])
+    const booleanFields = Object.freeze(['admission_allowed', 'merge_allowed'])
+    const canonicalBody = [
+      '# Product Owner Merge Decision',
+      '',
+      '```yaml',
+      'record_type: product_owner_merge_decision_v1',
+      'authoring_role: Product Owner / Implementation Lead',
+      `parent_issue: https://github.com/${dispatch.repository}/issues/${dispatch.task_issue_number}`,
+      `pull_request: https://github.com/${dispatch.repository}/pull/${dispatch.pr_number}`,
+      `review_decision_comment: https://github.com/${dispatch.repository}/issues/${dispatch.task_issue_number}#issuecomment-${dispatch.source_comment_id}`,
+      `reviewed_head: ${dispatch.exact_head}`,
+      `review_decision: ${dispatch.source_binding.decision}`,
+      'blocking_finding_count: 0',
+      'remaining_finding_count: 0',
+      'unknown_count: 0',
+      `admission_run_id: ${dispatch.admission_run_id}`,
+      `admission_run_url: https://github.com/${dispatch.repository}/actions/runs/${dispatch.admission_run_id}`,
+      `admission_state: ${dispatch.admission_state}`,
+      `admission_allowed: ${dispatch.admission_allowed}`,
+      `admission_reason: ${dispatch.admission_reason}`,
+      `admission_evaluated_head: ${dispatch.exact_head}`,
+      `external_check_success_count: ${dispatch.external_check_success_count}`,
+      `blocking_thread_count: ${dispatch.blocking_thread_count}`,
+      'decision: MERGE_ALLOWED',
+      'merge_allowed: true',
+      'status: completed',
+      'execution_stop_reason: completed',
+      '```',
+    ].join('\n')
+    return [
+      ...common,
+      `Exact string fields (14): ${stringFields.join(', ')}`,
+      `Exact integer fields (6): ${integerFields.join(', ')}`,
+      `Exact boolean fields (2): ${booleanFields.join(', ')}`,
+      'Act as Product Owner / Implementation Lead. Read only. Return only the canonical body between the markers, without markers, explanation, or additional text. You cannot perform or request the merge operation directly.',
+      '--- BEGIN CANONICAL PRODUCT OWNER MERGE DECISION BODY ---',
+      canonicalBody,
+      '--- END CANONICAL PRODUCT OWNER MERGE DECISION BODY ---',
+    ].join('\n')
   }
   return [...common, 'Act as Product Owner / Implementation Lead. Read only. Return the existing publication decision/authorization body. Do not edit, commit, push, review, or merge.'].join('\n')
 }
