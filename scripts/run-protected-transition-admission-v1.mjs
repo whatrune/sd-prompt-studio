@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -2341,6 +2342,51 @@ export const projectRoleDispatchEnvelopeV1 = ({ result, repository, sourceCommen
   })
 }
 
+const PRODUCT_OWNER_MERGE_DECISION_STRING_FIELDS_V1 = Object.freeze([
+  'record_type', 'authoring_role', 'parent_issue', 'pull_request', 'review_decision_comment',
+  'reviewed_head', 'review_decision', 'admission_run_url', 'admission_state', 'admission_reason',
+  'admission_evaluated_head', 'decision', 'status', 'execution_stop_reason',
+])
+const PRODUCT_OWNER_MERGE_DECISION_INTEGER_FIELDS_V1 = Object.freeze([
+  'blocking_finding_count', 'remaining_finding_count', 'unknown_count', 'admission_run_id',
+  'external_check_success_count', 'blocking_thread_count',
+])
+const PRODUCT_OWNER_MERGE_DECISION_BOOLEAN_FIELDS_V1 = Object.freeze(['admission_allowed', 'merge_allowed'])
+const PRODUCT_OWNER_MERGE_DECISION_FIELDS_V1 = Object.freeze([
+  ...PRODUCT_OWNER_MERGE_DECISION_STRING_FIELDS_V1,
+  ...PRODUCT_OWNER_MERGE_DECISION_INTEGER_FIELDS_V1,
+  ...PRODUCT_OWNER_MERGE_DECISION_BOOLEAN_FIELDS_V1,
+])
+
+const productOwnerMergeDecisionBodyV1 = (dispatch) => [
+  '# Product Owner Merge Decision',
+  '',
+  '```yaml',
+  'record_type: product_owner_merge_decision_v1',
+  'authoring_role: Product Owner / Implementation Lead',
+  `parent_issue: https://github.com/${dispatch.repository}/issues/${dispatch.task_issue_number}`,
+  `pull_request: https://github.com/${dispatch.repository}/pull/${dispatch.pr_number}`,
+  `review_decision_comment: https://github.com/${dispatch.repository}/issues/${dispatch.task_issue_number}#issuecomment-${dispatch.source_comment_id}`,
+  `reviewed_head: ${dispatch.exact_head}`,
+  `review_decision: ${dispatch.source_binding.decision}`,
+  'blocking_finding_count: 0',
+  'remaining_finding_count: 0',
+  'unknown_count: 0',
+  `admission_run_id: ${dispatch.admission_run_id}`,
+  `admission_run_url: https://github.com/${dispatch.repository}/actions/runs/${dispatch.admission_run_id}`,
+  `admission_state: ${dispatch.admission_state}`,
+  `admission_allowed: ${dispatch.admission_allowed}`,
+  `admission_reason: ${dispatch.admission_reason}`,
+  `admission_evaluated_head: ${dispatch.exact_head}`,
+  `external_check_success_count: ${dispatch.external_check_success_count}`,
+  `blocking_thread_count: ${dispatch.blocking_thread_count}`,
+  'decision: MERGE_ALLOWED',
+  'merge_allowed: true',
+  'status: completed',
+  'execution_stop_reason: completed',
+  '```',
+].join('\n')
+
 const roleDispatchPromptV1 = (dispatch) => {
   const common = [
     `Repository: ${dispatch.repository}`,
@@ -2366,56 +2412,102 @@ const roleDispatchPromptV1 = (dispatch) => {
     return [...common, 'Act as Independent Implementation Reviewer. Read only. Return the existing exact-HEAD Independent Review Decision body with one terminal decision and complete blocker, remaining, and UNKNOWN counts.'].join('\n')
   }
   if (dispatch.purpose === 'MERGE_DECISION') {
-    const stringFields = Object.freeze([
-      'record_type', 'authoring_role', 'parent_issue', 'pull_request', 'review_decision_comment',
-      'reviewed_head', 'review_decision', 'admission_run_url', 'admission_state', 'admission_reason',
-      'admission_evaluated_head', 'decision', 'status', 'execution_stop_reason',
-    ])
-    const integerFields = Object.freeze([
-      'blocking_finding_count', 'remaining_finding_count', 'unknown_count', 'admission_run_id',
-      'external_check_success_count', 'blocking_thread_count',
-    ])
-    const booleanFields = Object.freeze(['admission_allowed', 'merge_allowed'])
-    const canonicalBody = [
-      '# Product Owner Merge Decision',
-      '',
-      '```yaml',
-      'record_type: product_owner_merge_decision_v1',
-      'authoring_role: Product Owner / Implementation Lead',
-      `parent_issue: https://github.com/${dispatch.repository}/issues/${dispatch.task_issue_number}`,
-      `pull_request: https://github.com/${dispatch.repository}/pull/${dispatch.pr_number}`,
-      `review_decision_comment: https://github.com/${dispatch.repository}/issues/${dispatch.task_issue_number}#issuecomment-${dispatch.source_comment_id}`,
-      `reviewed_head: ${dispatch.exact_head}`,
-      `review_decision: ${dispatch.source_binding.decision}`,
-      'blocking_finding_count: 0',
-      'remaining_finding_count: 0',
-      'unknown_count: 0',
-      `admission_run_id: ${dispatch.admission_run_id}`,
-      `admission_run_url: https://github.com/${dispatch.repository}/actions/runs/${dispatch.admission_run_id}`,
-      `admission_state: ${dispatch.admission_state}`,
-      `admission_allowed: ${dispatch.admission_allowed}`,
-      `admission_reason: ${dispatch.admission_reason}`,
-      `admission_evaluated_head: ${dispatch.exact_head}`,
-      `external_check_success_count: ${dispatch.external_check_success_count}`,
-      `blocking_thread_count: ${dispatch.blocking_thread_count}`,
-      'decision: MERGE_ALLOWED',
-      'merge_allowed: true',
-      'status: completed',
-      'execution_stop_reason: completed',
-      '```',
-    ].join('\n')
     return [
       ...common,
-      `Exact string fields (14): ${stringFields.join(', ')}`,
-      `Exact integer fields (6): ${integerFields.join(', ')}`,
-      `Exact boolean fields (2): ${booleanFields.join(', ')}`,
+      `Exact string fields (14): ${PRODUCT_OWNER_MERGE_DECISION_STRING_FIELDS_V1.join(', ')}`,
+      `Exact integer fields (6): ${PRODUCT_OWNER_MERGE_DECISION_INTEGER_FIELDS_V1.join(', ')}`,
+      `Exact boolean fields (2): ${PRODUCT_OWNER_MERGE_DECISION_BOOLEAN_FIELDS_V1.join(', ')}`,
       'Act as Product Owner / Implementation Lead. Read only. Return only the canonical body between the markers, without markers, explanation, or additional text. You cannot perform or request the merge operation directly.',
       '--- BEGIN CANONICAL PRODUCT OWNER MERGE DECISION BODY ---',
-      canonicalBody,
+      productOwnerMergeDecisionBodyV1(dispatch),
       '--- END CANONICAL PRODUCT OWNER MERGE DECISION BODY ---',
     ].join('\n')
   }
   return [...common, 'Act as Product Owner / Implementation Lead. Read only. Return the existing publication decision/authorization body. Do not edit, commit, push, review, or merge.'].join('\n')
+}
+
+export const projectRoleOutputFailureDiagnosticV1 = ({ dispatch, bodyBytes, jsonlBytes }) => {
+  if (
+    dispatch?.purpose !== 'MERGE_DECISION' || !Buffer.isBuffer(bodyBytes) || !Buffer.isBuffer(jsonlBytes) ||
+    bodyBytes.length === 0
+  ) throw new Error('role_output_diagnostic_unavailable')
+  const body = bodyBytes.toString('utf8')
+  if (body.length === 0 || body.length > 65536) throw new Error('role_output_diagnostic_unavailable')
+  const expectedBody = productOwnerMergeDecisionBodyV1(dispatch)
+  const expected = parseRoleYamlV1(expectedBody)
+  const actual = parseRoleYamlV1(body)
+  if (expected.lists.size !== 0 || actual.lists.size !== 0 || expected.scalars.size !== 22) {
+    throw new Error('role_output_diagnostic_unavailable')
+  }
+  const expectedNames = Object.freeze([...expected.scalars.keys()].sort())
+  if (expectedNames.join('\n') !== [...PRODUCT_OWNER_MERGE_DECISION_FIELDS_V1].sort().join('\n')) {
+    throw new Error('role_output_diagnostic_unavailable')
+  }
+  const actualNames = Object.freeze([...actual.scalars.keys()].sort())
+  const missingFieldNames = Object.freeze(expectedNames.filter((name) => !actual.scalars.has(name)))
+  const extraFieldNames = Object.freeze(actualNames.filter((name) => !expected.scalars.has(name)))
+  const typeMismatchFieldNames = Object.freeze(expectedNames.filter((name) => (
+    actual.scalars.has(name) && typeof actual.scalars.get(name) !== typeof expected.scalars.get(name)
+  )))
+  const valueMismatchFieldNames = Object.freeze(expectedNames.filter((name) => (
+    actual.scalars.has(name) && typeof actual.scalars.get(name) === typeof expected.scalars.get(name) &&
+    actual.scalars.get(name) !== expected.scalars.get(name)
+  )))
+  const normalizedJsonl = jsonlBytes.toString('utf8').replace(/\r\n|\r/g, '\n')
+  const lines = normalizedJsonl.length === 0 ? [] : normalizedJsonl.split('\n')
+  if (lines.at(-1) === '') lines.pop()
+  let malformedJsonlLineCount = 0
+  let nonEmptyAgentMessageCount = 0
+  for (const line of lines) {
+    try {
+      const event = JSON.parse(line)
+      if (
+        event?.type === 'item.completed' && event?.item?.type === 'agent_message' &&
+        typeof event.item.text === 'string' && event.item.text.trim().length > 0
+      ) nonEmptyAgentMessageCount += 1
+    } catch {
+      malformedJsonlLineCount += 1
+    }
+  }
+  const fieldArrays = [missingFieldNames, extraFieldNames, typeMismatchFieldNames, valueMismatchFieldNames]
+  if (
+    !Number.isSafeInteger(lines.length) || !Number.isSafeInteger(malformedJsonlLineCount) ||
+    !Number.isSafeInteger(nonEmptyAgentMessageCount) || malformedJsonlLineCount > lines.length ||
+    nonEmptyAgentMessageCount > lines.length || fieldArrays.some((names) => (
+      names.length > 22 || new Set(names).size !== names.length ||
+      names.some((name) => !/^[a-z][a-z0-9_]*$/.test(name)) || names.join('\n') !== [...names].sort().join('\n')
+    ))
+  ) throw new Error('role_output_diagnostic_unavailable')
+  return Object.freeze({
+    total_jsonl_line_count: lines.length,
+    malformed_jsonl_line_count: malformedJsonlLineCount,
+    non_empty_agent_message_count: nonEmptyAgentMessageCount,
+    selected_body_sha256: createHash('sha256').update(bodyBytes).digest('hex'),
+    expected_body_sha256: createHash('sha256').update(Buffer.from(expectedBody, 'utf8')).digest('hex'),
+    missing_field_names: missingFieldNames,
+    extra_field_names: extraFieldNames,
+    type_mismatch_field_names: typeMismatchFieldNames,
+    value_mismatch_field_names: valueMismatchFieldNames,
+  })
+}
+
+const evaluateRoleOutputInvocationV1 = (invocation) => {
+  const dispatch = readJsonFileV1(invocation.dispatchFile)
+  const bodyBytes = readFileSync(invocation.outputFile)
+  const result = evaluateRoleDispatchOutputV1({ dispatch, body: bodyBytes.toString('utf8') })
+  if (result.exit_code === 0 || !invocation.jsonlFile) return result
+  try {
+    return Object.freeze({
+      ...result,
+      bounded_metadata: projectRoleOutputFailureDiagnosticV1({
+        dispatch,
+        bodyBytes,
+        jsonlBytes: readFileSync(invocation.jsonlFile),
+      }),
+    })
+  } catch {
+    return result
+  }
 }
 
 const validateRoleDispatchEnvelopeV1 = (dispatch) => {
@@ -3254,10 +3346,19 @@ const parseInvocation = (argv, environment) => {
     return Object.freeze({ mode: 'merge_operator', dispatchFile: argv[1] })
   }
   if (
-    argv.length === 4 && argv[0] === '--role-output-file' && typeof argv[1] === 'string' && argv[1].length > 0 &&
-    argv[2] === '--role-dispatch-file' && typeof argv[3] === 'string' && argv[3].length > 0
+    (argv.length === 4 || argv.length === 6) &&
+    argv[0] === '--role-output-file' && typeof argv[1] === 'string' && argv[1].length > 0 &&
+    argv[2] === '--role-dispatch-file' && typeof argv[3] === 'string' && argv[3].length > 0 &&
+    (argv.length === 4 || (
+      argv[4] === '--role-jsonl-file' && typeof argv[5] === 'string' && argv[5].length > 0
+    ))
   ) {
-    return Object.freeze({ mode: 'role_output', outputFile: argv[1], dispatchFile: argv[3] })
+    return Object.freeze({
+      mode: 'role_output',
+      outputFile: argv[1],
+      dispatchFile: argv[3],
+      jsonlFile: argv.length === 6 ? argv[5] : null,
+    })
   }
   if (argv.length === 2 && argv[0] === '--repair-provider-exec-bind-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
     return Object.freeze({ mode: 'repair_provider_exec_bind', dispatchFile: argv[1] })
@@ -3412,10 +3513,7 @@ const main = async () => {
                   host,
                 })
             : invocation.mode === 'role_output'
-              ? evaluateRoleDispatchOutputV1({
-                  dispatch: readJsonFileV1(invocation.dispatchFile),
-                  body: readFileSync(invocation.outputFile, 'utf8'),
-                })
+              ? evaluateRoleOutputInvocationV1(invocation)
           : invocation.mode === 'repair_provider_exec_bind'
             ? await executeRepairProviderBindingV3({
                 boundary: 'pre_exec',

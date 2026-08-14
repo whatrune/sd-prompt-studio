@@ -247,9 +247,62 @@ jobs:
           }
 
           function Assert-RoleOutput {
-            param([string]$DispatchFile, [string]$BodyFile, [string]$ExpectedAction, [string]$ResultFile)
-            node $env:PTA_ROLE_HOST_RUNNER --role-output-file $BodyFile --role-dispatch-file $DispatchFile 1> $ResultFile
-            if ($LASTEXITCODE -ne 0) { throw 'role_output_validation_failed' }
+            param([string]$DispatchFile, [string]$BodyFile, [string]$ExpectedAction, [string]$ResultFile, [string]$JsonlFile)
+            node $env:PTA_ROLE_HOST_RUNNER --role-output-file $BodyFile --role-dispatch-file $DispatchFile --role-jsonl-file $JsonlFile 1> $ResultFile
+            $validationExit = $LASTEXITCODE
+            if ($validationExit -ne 0) {
+              $diagnosticLine = $null
+              try {
+                $failure = Get-Content -LiteralPath $ResultFile -Raw -Encoding utf8 | ConvertFrom-Json
+                $detail = $failure.bounded_metadata
+                $requiredNames = [string[]]@(
+                  'expected_body_sha256',
+                  'extra_field_names',
+                  'malformed_jsonl_line_count',
+                  'missing_field_names',
+                  'non_empty_agent_message_count',
+                  'selected_body_sha256',
+                  'total_jsonl_line_count',
+                  'type_mismatch_field_names',
+                  'value_mismatch_field_names'
+                )
+                $actualNames = [string[]]@($detail.psobject.Properties.Name | Sort-Object)
+                if ($null -eq $detail -or $actualNames.Count -ne 9 -or (Compare-Object $requiredNames $actualNames)) {
+                  throw 'role_output_diagnostic_shape_invalid'
+                }
+                foreach ($name in @('total_jsonl_line_count', 'malformed_jsonl_line_count', 'non_empty_agent_message_count')) {
+                  $value = $detail.$name
+                  if (($value -isnot [int] -and $value -isnot [long]) -or $value -lt 0 -or $value -gt 9007199254740991) {
+                    throw 'role_output_diagnostic_count_invalid'
+                  }
+                }
+                if (
+                  $detail.malformed_jsonl_line_count -gt $detail.total_jsonl_line_count -or
+                  $detail.non_empty_agent_message_count -gt $detail.total_jsonl_line_count
+                ) { throw 'role_output_diagnostic_count_invalid' }
+                foreach ($name in @('selected_body_sha256', 'expected_body_sha256')) {
+                  if ($detail.$name -isnot [string] -or $detail.$name -cnotmatch '^[0-9a-f]{64}$') {
+                    throw 'role_output_diagnostic_digest_invalid'
+                  }
+                }
+                foreach ($name in @('missing_field_names', 'extra_field_names', 'type_mismatch_field_names', 'value_mismatch_field_names')) {
+                  if ($detail.$name -isnot [System.Array]) { throw 'role_output_diagnostic_field_names_invalid' }
+                  $rawNames = @($detail.$name)
+                  if ($rawNames.Count -gt 22 -or @($rawNames | Where-Object { $_ -isnot [string] -or $_ -cnotmatch '^[a-z][a-z0-9_]*$' }).Count -ne 0) {
+                    throw 'role_output_diagnostic_field_names_invalid'
+                  }
+                  $sortedNames = [string[]]@($rawNames | Sort-Object -Unique)
+                  if ($sortedNames.Count -ne $rawNames.Count -or (Compare-Object ([string[]]$rawNames) $sortedNames -SyncWindow 0)) {
+                    throw 'role_output_diagnostic_field_names_invalid'
+                  }
+                }
+                $diagnosticLine = $detail | ConvertTo-Json -Compress -Depth 4
+              } catch {
+                $diagnosticLine = $null
+              }
+              if ($null -ne $diagnosticLine) { [Console]::Error.WriteLine($diagnosticLine) }
+              throw 'role_output_validation_failed'
+            }
             $validated = Get-Content -LiteralPath $ResultFile -Raw -Encoding utf8 | ConvertFrom-Json
             if ($validated.next_action -cne $ExpectedAction) { throw 'role_output_operation_invalid' }
             return $validated
@@ -290,7 +343,7 @@ jobs:
           $sandbox = if ($plan.read_only) { 'read-only' } else { 'workspace-write' }
           Invoke-BoundedRole -PromptFile $promptPath -Sandbox $sandbox -JsonlFile $outputPath -BodyFile $bodyPath
           $expected = if ($dispatch.next_action -ceq 'IMPLEMENTER') { 'VALIDATE_IMPLEMENTATION' } elseif ($dispatch.purpose -ceq 'MERGE_DECISION') { 'POST_MERGE_DECISION' } elseif ($dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER') { 'POST_REVIEW' } else { 'COMMIT_PUSH_PUBLISH' }
-          $validated = Assert-RoleOutput -DispatchFile $dispatchPath -BodyFile $bodyPath -ExpectedAction $expected -ResultFile $resultPath
+          $validated = Assert-RoleOutput -DispatchFile $dispatchPath -BodyFile $bodyPath -ExpectedAction $expected -ResultFile $resultPath -JsonlFile $outputPath
 
           if ($expected -in @('POST_REVIEW', 'POST_MERGE_DECISION')) {
             Assert-FreshRoleBinding -DispatchFile $dispatchPath
@@ -343,7 +396,7 @@ jobs:
           $poPrompt = "$($poPlan.prompt)`nResult Handoff comment: https://github.com/$($dispatch.repository)/issues/$($dispatch.task_issue_number)#issuecomment-$($resultComment.id)`nValidated changed paths: $($authorized -join ', ')"
           [IO.File]::WriteAllText($poPromptPath, $poPrompt, $utf8NoBom)
           Invoke-BoundedRole -PromptFile $poPromptPath -Sandbox 'read-only' -JsonlFile $poOutputPath -BodyFile $poBodyPath
-          $null = Assert-RoleOutput -DispatchFile $poDispatchPath -BodyFile $poBodyPath -ExpectedAction 'COMMIT_PUSH_PUBLISH' -ResultFile $poResultPath
+          $null = Assert-RoleOutput -DispatchFile $poDispatchPath -BodyFile $poBodyPath -ExpectedAction 'COMMIT_PUSH_PUBLISH' -ResultFile $poResultPath -JsonlFile $poOutputPath
           Assert-FreshRoleBinding -DispatchFile $poDispatchPath
           $authorityComment = Publish-CanonicalComment -BodyFile $poBodyPath
 
@@ -420,7 +473,7 @@ jobs:
           $reviewTask = gh api "repos/$($dispatch.repository)/issues/$($dispatch.task_issue_number)" | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or $reviewTask.number -ne $dispatch.task_issue_number -or $reviewTask.state -cne 'open' -or $null -ne $reviewTask.pull_request) { throw 'publication_reviewer_task_binding_invalid' }
           Invoke-BoundedRole -PromptFile $reviewPromptPath -Sandbox 'read-only' -JsonlFile $reviewOutputPath -BodyFile $reviewBodyPath
-          $null = Assert-RoleOutput -DispatchFile $reviewDispatchPath -BodyFile $reviewBodyPath -ExpectedAction 'POST_REVIEW' -ResultFile $reviewResultPath
+          $null = Assert-RoleOutput -DispatchFile $reviewDispatchPath -BodyFile $reviewBodyPath -ExpectedAction 'POST_REVIEW' -ResultFile $reviewResultPath -JsonlFile $reviewOutputPath
           Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath
           $publicationTask = gh api "repos/$($dispatch.repository)/issues/$($dispatch.task_issue_number)" | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or $publicationTask.number -ne $dispatch.task_issue_number -or $publicationTask.state -cne 'open' -or $null -ne $publicationTask.pull_request) { throw 'publication_reviewer_task_binding_invalid' }
