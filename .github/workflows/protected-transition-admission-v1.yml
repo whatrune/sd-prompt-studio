@@ -417,6 +417,8 @@ jobs:
           $reviewPlan = Get-Content -LiteralPath $reviewPlanPath -Raw -Encoding utf8 | ConvertFrom-Json
           if ($reviewPlan.next_action -cne 'EXECUTE_ROLE' -or $reviewPlan.exact_head -cne $newHead -or -not $reviewPlan.read_only) { throw 'publication_reviewer_dispatch_not_ready' }
           [IO.File]::WriteAllText($reviewPromptPath, [string]$reviewPlan.prompt, $utf8NoBom)
+          $reviewTask = gh api "repos/$($dispatch.repository)/issues/$($dispatch.task_issue_number)" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $reviewTask.number -ne $dispatch.task_issue_number -or $reviewTask.state -cne 'open' -or $null -ne $reviewTask.pull_request) { throw 'publication_reviewer_task_binding_invalid' }
           Invoke-BoundedRole -PromptFile $reviewPromptPath -Sandbox 'read-only' -JsonlFile $reviewOutputPath -BodyFile $reviewBodyPath
           $null = Assert-RoleOutput -DispatchFile $reviewDispatchPath -BodyFile $reviewBodyPath -ExpectedAction 'POST_REVIEW' -ResultFile $reviewResultPath
           Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath
