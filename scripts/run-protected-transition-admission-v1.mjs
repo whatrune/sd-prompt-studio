@@ -222,126 +222,139 @@ export const parseReviewApprovalEventV1 = (event) => {
 const compareReviewDecisionCandidateV1 = (left, right) =>
   left.createdAt.localeCompare(right.createdAt) || left.commentId - right.commentId
 
-const parseReviewDecisionCommentV1 = ({ comment, repository, taskIssueNumber, prNumber, exactHead }) => {
-  if (
-    !comment ||
-    !positiveInteger(comment.id) ||
-    typeof comment.created_at !== 'string' ||
-    !STRICT_UTC.test(comment.created_at) ||
-    !REVIEW_ASSOCIATIONS.has(comment.author_association) ||
-    typeof comment.body !== 'string'
-  ) {
-    throw new Error('review_decision_candidate_invalid')
+const sameReviewDecisionIdentityV1 = (left, right) =>
+  left.createdAt === right.createdAt && left.body === right.body && left.authorAssociation === right.authorAssociation
+
+const classifyReviewDecisionCommentV1 = ({ comment, repository, taskIssueNumber, prNumber, exactHead }) => {
+  if (!isReviewDecisionCandidateV1(comment?.body)) return Object.freeze({ kind: 'NON_MARKER' })
+  if (!positiveInteger(comment.id) || typeof comment.created_at !== 'string' || !STRICT_UTC.test(comment.created_at) ||
+    !REVIEW_ASSOCIATIONS.has(comment.author_association) || typeof comment.body !== 'string') {
+    return Object.freeze({ kind: 'MALFORMED_UNORDERABLE_MARKER' })
   }
-  let review
-  try {
-    review = parseIndependentReviewDecisionProjectionV1(comment.body, repository, taskIssueNumber)
-  } catch {
-    throw new Error('review_decision_candidate_invalid')
-  }
-  if (review.pr_number !== prNumber || review.reviewed_head !== exactHead) return null
-  return Object.freeze({
+  const identity = Object.freeze({
     commentId: comment.id,
     createdAt: comment.created_at,
     body: comment.body,
     authorAssociation: comment.author_association,
+  })
+  let review
+  try {
+    review = parseIndependentReviewDecisionProjectionV1(comment.body, repository, taskIssueNumber)
+  } catch {
+    return Object.freeze({ kind: 'MALFORMED_ORDERABLE_MARKER', ...identity })
+  }
+  if (review.pr_number !== prNumber || review.reviewed_head !== exactHead) {
+    return Object.freeze({ kind: 'VALID_OTHER_HEAD_OR_PR', ...identity, review })
+  }
+  return Object.freeze({
+    kind: 'VALID_TARGET_TUPLE',
+    ...identity,
     review,
   })
 }
 
-export const resolveEffectiveReviewDecisionV1 = async ({ request, parsedEvent, host }) => {
-  const candidates = new Map()
-  const addCandidate = (candidate) => {
-    if (!candidate) return
-    const prior = candidates.get(candidate.commentId)
-    if (prior && (
-      prior.createdAt !== candidate.createdAt ||
-      prior.body !== candidate.body ||
-      prior.authorAssociation !== candidate.authorAssociation
-    )) {
-      throw new Error('review_decision_candidate_identity_conflict')
+export const reduceCurrentLeafIndependentReviewDecisionV1 = ({ comments, repository, taskIssueNumber, prNumber, exactHead }) => {
+  if (!Array.isArray(comments)) throw new Error('review_decision_page_invalid')
+  const identities = new Map()
+  const classified = []
+  for (const comment of comments) {
+    const candidate = classifyReviewDecisionCommentV1({ comment, repository, taskIssueNumber, prNumber, exactHead })
+    if (candidate.kind === 'NON_MARKER') continue
+    if (positiveInteger(candidate.commentId)) {
+      const prior = identities.get(candidate.commentId)
+      if (prior && !sameReviewDecisionIdentityV1(prior, candidate)) {
+        throw new Error('review_decision_candidate_identity_conflict')
+      }
+      identities.set(candidate.commentId, candidate)
     }
-    candidates.set(candidate.commentId, candidate)
+    classified.push(candidate)
   }
-
-  addCandidate(Object.freeze({
-    commentId: parsedEvent.commentId,
-    createdAt: parsedEvent.commentCreatedAt,
-    body: parsedEvent.reviewBody,
-    authorAssociation: parsedEvent.authorAssociation,
-    review: parsedEvent.review,
-  }))
-
-  const pageFingerprints = new Set()
-  let pageNumber = 1
-  let terminal = false
-  while (!terminal) {
-    const endpoint = `repos/${request.repository}/issues/${request.taskIssueNumber}/comments?since=${encodeURIComponent(parsedEvent.commentCreatedAt)}&per_page=${PAGE_SIZE}&page=${pageNumber}`
-    const page = await api(host, endpoint)
-    if (!Array.isArray(page) || page.length > PAGE_SIZE) throw new Error('review_decision_page_invalid')
-    const fingerprint = JSON.stringify(page.map((comment) => [comment?.id, comment?.created_at, comment?.author_association, comment?.body]))
-    if (page.length > 0 && pageFingerprints.has(fingerprint)) throw new Error('review_decision_page_repeated')
-    pageFingerprints.add(fingerprint)
-
-    for (const comment of page) {
-      if (!isReviewDecisionCandidateV1(comment?.body)) continue
-      addCandidate(parseReviewDecisionCommentV1({
-        comment,
-        repository: request.repository,
-        taskIssueNumber: request.taskIssueNumber,
-        prNumber: request.prNumber,
-        exactHead: request.exactHead,
-      }))
-    }
-
-    terminal = page.length < PAGE_SIZE
-    pageNumber += 1
-    if (pageNumber > 32) throw new Error('review_decision_terminal_page_missing')
+  if (classified.some((candidate) => candidate.kind === 'MALFORMED_UNORDERABLE_MARKER')) {
+    throw new Error('review_decision_candidate_invalid')
   }
-
-  const ordered = [...candidates.values()].sort(compareReviewDecisionCandidateV1)
-  if (ordered.length === 0) throw new Error('review_decision_current_leaf_missing')
-  return ordered.at(-1)
+  const selected = classified
+    .filter((candidate) => candidate.kind === 'VALID_TARGET_TUPLE')
+    .sort(compareReviewDecisionCandidateV1)
+    .at(-1)
+  if (!selected) throw new Error('review_decision_current_leaf_missing')
+  if (classified.some((candidate) => candidate.kind === 'MALFORMED_ORDERABLE_MARKER' &&
+    compareReviewDecisionCandidateV1(candidate, selected) >= 0)) {
+    throw new Error('review_decision_candidate_invalid')
+  }
+  return selected
 }
 
-const acquireEffectiveReviewDecisionV1 = async ({ request, host }) => {
-  const candidates = []
-  const pageFingerprints = new Set()
-  for (let pageNumber = 1; pageNumber <= 32; pageNumber += 1) {
-    const page = await api(host, `repos/${request.repository}/issues/${request.taskIssueNumber}/comments?per_page=${PAGE_SIZE}&page=${pageNumber}`)
-    if (!Array.isArray(page) || page.length > PAGE_SIZE) throw new Error('review_decision_page_invalid')
-    const fingerprint = JSON.stringify(page.map((comment) => [comment?.id, comment?.created_at, comment?.author_association, comment?.body]))
-    if (page.length > 0 && pageFingerprints.has(fingerprint)) throw new Error('review_decision_page_repeated')
-    pageFingerprints.add(fingerprint)
-    for (const comment of page) {
-      if (!isReviewDecisionCandidateV1(comment?.body)) continue
-      const candidate = parseReviewDecisionCommentV1({
-        comment,
-        repository: request.repository,
-        taskIssueNumber: request.taskIssueNumber,
-        prNumber: request.prNumber,
-        exactHead: request.exactHead,
-      })
-      if (candidate) candidates.push(candidate)
-    }
-    if (page.length < PAGE_SIZE) break
-    if (pageNumber === 32) throw new Error('review_decision_terminal_page_missing')
-  }
-  candidates.sort(compareReviewDecisionCandidateV1)
-  const selected = candidates.at(-1)
-  if (!selected) throw new Error('review_decision_current_leaf_missing')
+const confirmCurrentLeafIndependentReviewDecisionV1 = async ({ selected, request, host }) => {
   const fresh = await fetchRoleCommentRecordV1(request.repository, request.taskIssueNumber, selected.commentId, host)
-  const confirmed = parseReviewDecisionCommentV1({
+  const confirmed = classifyReviewDecisionCommentV1({
     comment: fresh,
     repository: request.repository,
     taskIssueNumber: request.taskIssueNumber,
     prNumber: request.prNumber,
     exactHead: request.exactHead,
   })
-  if (!confirmed || confirmed.body !== selected.body || confirmed.createdAt !== selected.createdAt || confirmed.authorAssociation !== selected.authorAssociation) {
+  if (confirmed.kind !== 'VALID_TARGET_TUPLE' || !sameReviewDecisionIdentityV1(confirmed, selected)) {
     throw new Error('review_decision_candidate_identity_conflict')
   }
   return confirmed
+}
+
+export const resolveEffectiveReviewDecisionV1 = async ({ request, parsedEvent, host }) => {
+  const comments = [{
+    id: parsedEvent.commentId,
+    created_at: parsedEvent.commentCreatedAt,
+    body: parsedEvent.reviewBody,
+    author_association: parsedEvent.authorAssociation,
+  }]
+  const pageFingerprints = new Set()
+  let pageNumber = 1
+  let terminal = false
+  while (!terminal) {
+    const endpoint = `repos/${request.repository}/issues/${request.taskIssueNumber}/comments?since=${encodeURIComponent(parsedEvent.commentCreatedAt)}&sort=created&direction=asc&per_page=${PAGE_SIZE}&page=${pageNumber}`
+    const page = await api(host, endpoint)
+    if (!Array.isArray(page) || page.length > PAGE_SIZE) throw new Error('review_decision_page_invalid')
+    const fingerprint = JSON.stringify(page.map((comment) => [comment?.id, comment?.created_at, comment?.author_association, comment?.body]))
+    if (page.length > 0 && pageFingerprints.has(fingerprint)) throw new Error('review_decision_page_repeated')
+    pageFingerprints.add(fingerprint)
+
+    comments.push(...page)
+
+    terminal = page.length < PAGE_SIZE
+    pageNumber += 1
+    if (pageNumber > 32) throw new Error('review_decision_terminal_page_missing')
+  }
+
+  const selected = reduceCurrentLeafIndependentReviewDecisionV1({
+    comments,
+    repository: request.repository,
+    taskIssueNumber: request.taskIssueNumber,
+    prNumber: request.prNumber,
+    exactHead: request.exactHead,
+  })
+  return confirmCurrentLeafIndependentReviewDecisionV1({ selected, request, host })
+}
+
+const acquireEffectiveReviewDecisionV1 = async ({ request, host }) => {
+  const comments = []
+  const pageFingerprints = new Set()
+  for (let pageNumber = 1; pageNumber <= 32; pageNumber += 1) {
+    const page = await api(host, `repos/${request.repository}/issues/${request.taskIssueNumber}/comments?sort=created&direction=asc&per_page=${PAGE_SIZE}&page=${pageNumber}`)
+    if (!Array.isArray(page) || page.length > PAGE_SIZE) throw new Error('review_decision_page_invalid')
+    const fingerprint = JSON.stringify(page.map((comment) => [comment?.id, comment?.created_at, comment?.author_association, comment?.body]))
+    if (page.length > 0 && pageFingerprints.has(fingerprint)) throw new Error('review_decision_page_repeated')
+    pageFingerprints.add(fingerprint)
+    comments.push(...page)
+    if (page.length < PAGE_SIZE) break
+    if (pageNumber === 32) throw new Error('review_decision_terminal_page_missing')
+  }
+  const selected = reduceCurrentLeafIndependentReviewDecisionV1({
+    comments,
+    repository: request.repository,
+    taskIssueNumber: request.taskIssueNumber,
+    prNumber: request.prNumber,
+    exactHead: request.exactHead,
+  })
+  return confirmCurrentLeafIndependentReviewDecisionV1({ selected, request, host })
 }
 
 const api = async (host, endpoint, options = undefined) => {
@@ -2903,12 +2916,17 @@ const verifyRoleAuthorizationChainV1 = async ({ body, dispatch, host, expected }
 
 const verifyRoleDispatchSourceV1 = async (dispatch, host) => {
   const binding = projectRoleSourceBindingV1(dispatch.source_binding, dispatch.source_comment_id)
-  const source = await fetchRoleCommentRecordV1(dispatch.repository, dispatch.task_issue_number, dispatch.source_comment_id, host)
-  if (dispatch.next_action === 'IMPLEMENTER' && source.body !== projectImplementerContextV1(dispatch.implementer_context).approved_correction_context) {
-    throw new Error('role_dispatch_source_binding_changed')
-  }
   if (binding.kind === 'REVIEW') {
-    const review = parseIndependentReviewDecisionProjectionV1(source.body, dispatch.repository, dispatch.task_issue_number)
+    const effective = await acquireEffectiveReviewDecisionV1({
+      request: Object.freeze({
+        repository: dispatch.repository,
+        taskIssueNumber: dispatch.task_issue_number,
+        prNumber: dispatch.pr_number,
+        exactHead: binding.reviewed_head,
+      }),
+      host,
+    })
+    const review = effective.review
     const approveSourceValid = review.decision === 'APPROVE' && review.blocking_finding_count === 0 &&
       review.remaining_finding_count === 0 && review.unknown_count === 0
     const postRepairReviewerSourceValid = dispatch.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER' &&
@@ -2916,11 +2934,16 @@ const verifyRoleDispatchSourceV1 = async (dispatch, host) => {
       positiveInteger(review.blocking_finding_count) && review.remaining_finding_count === review.blocking_finding_count &&
       review.unknown_count === 0
     if (
+      effective.commentId !== dispatch.source_comment_id ||
       review.pr_number !== dispatch.pr_number || review.reviewed_head !== binding.reviewed_head || review.decision !== binding.decision ||
       (!approveSourceValid && !postRepairReviewerSourceValid) ||
       (dispatch.purpose === 'MERGE_DECISION' && (review.reviewed_head !== dispatch.exact_head || review.decision !== 'APPROVE'))
     ) throw new Error('role_dispatch_source_binding_changed')
-    return source
+    return effective
+  }
+  const source = await fetchRoleCommentRecordV1(dispatch.repository, dispatch.task_issue_number, dispatch.source_comment_id, host)
+  if (dispatch.next_action === 'IMPLEMENTER' && source.body !== projectImplementerContextV1(dispatch.implementer_context).approved_correction_context) {
+    throw new Error('role_dispatch_source_binding_changed')
   }
   if (binding.kind === 'IMPLEMENTATION_AUTHORIZATION') {
     await verifyRoleAuthorizationChainV1({ body: source.body, dispatch, host, expected: binding })
