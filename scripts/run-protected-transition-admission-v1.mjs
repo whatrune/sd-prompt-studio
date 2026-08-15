@@ -222,126 +222,139 @@ export const parseReviewApprovalEventV1 = (event) => {
 const compareReviewDecisionCandidateV1 = (left, right) =>
   left.createdAt.localeCompare(right.createdAt) || left.commentId - right.commentId
 
-const parseReviewDecisionCommentV1 = ({ comment, repository, taskIssueNumber, prNumber, exactHead }) => {
-  if (
-    !comment ||
-    !positiveInteger(comment.id) ||
-    typeof comment.created_at !== 'string' ||
-    !STRICT_UTC.test(comment.created_at) ||
-    !REVIEW_ASSOCIATIONS.has(comment.author_association) ||
-    typeof comment.body !== 'string'
-  ) {
-    throw new Error('review_decision_candidate_invalid')
+const sameReviewDecisionIdentityV1 = (left, right) =>
+  left.createdAt === right.createdAt && left.body === right.body && left.authorAssociation === right.authorAssociation
+
+const classifyReviewDecisionCommentV1 = ({ comment, repository, taskIssueNumber, prNumber, exactHead }) => {
+  if (!isReviewDecisionCandidateV1(comment?.body)) return Object.freeze({ kind: 'NON_MARKER' })
+  if (!positiveInteger(comment.id) || typeof comment.created_at !== 'string' || !STRICT_UTC.test(comment.created_at) ||
+    !REVIEW_ASSOCIATIONS.has(comment.author_association) || typeof comment.body !== 'string') {
+    return Object.freeze({ kind: 'MALFORMED_UNORDERABLE_MARKER' })
   }
-  let review
-  try {
-    review = parseIndependentReviewDecisionProjectionV1(comment.body, repository, taskIssueNumber)
-  } catch {
-    throw new Error('review_decision_candidate_invalid')
-  }
-  if (review.pr_number !== prNumber || review.reviewed_head !== exactHead) return null
-  return Object.freeze({
+  const identity = Object.freeze({
     commentId: comment.id,
     createdAt: comment.created_at,
     body: comment.body,
     authorAssociation: comment.author_association,
+  })
+  let review
+  try {
+    review = parseIndependentReviewDecisionProjectionV1(comment.body, repository, taskIssueNumber)
+  } catch {
+    return Object.freeze({ kind: 'MALFORMED_ORDERABLE_MARKER', ...identity })
+  }
+  if (review.pr_number !== prNumber || review.reviewed_head !== exactHead) {
+    return Object.freeze({ kind: 'VALID_OTHER_HEAD_OR_PR', ...identity, review })
+  }
+  return Object.freeze({
+    kind: 'VALID_TARGET_TUPLE',
+    ...identity,
     review,
   })
 }
 
-export const resolveEffectiveReviewDecisionV1 = async ({ request, parsedEvent, host }) => {
-  const candidates = new Map()
-  const addCandidate = (candidate) => {
-    if (!candidate) return
-    const prior = candidates.get(candidate.commentId)
-    if (prior && (
-      prior.createdAt !== candidate.createdAt ||
-      prior.body !== candidate.body ||
-      prior.authorAssociation !== candidate.authorAssociation
-    )) {
-      throw new Error('review_decision_candidate_identity_conflict')
+export const reduceCurrentLeafIndependentReviewDecisionV1 = ({ comments, repository, taskIssueNumber, prNumber, exactHead }) => {
+  if (!Array.isArray(comments)) throw new Error('review_decision_page_invalid')
+  const identities = new Map()
+  const classified = []
+  for (const comment of comments) {
+    const candidate = classifyReviewDecisionCommentV1({ comment, repository, taskIssueNumber, prNumber, exactHead })
+    if (candidate.kind === 'NON_MARKER') continue
+    if (positiveInteger(candidate.commentId)) {
+      const prior = identities.get(candidate.commentId)
+      if (prior && !sameReviewDecisionIdentityV1(prior, candidate)) {
+        throw new Error('review_decision_candidate_identity_conflict')
+      }
+      identities.set(candidate.commentId, candidate)
     }
-    candidates.set(candidate.commentId, candidate)
+    classified.push(candidate)
   }
-
-  addCandidate(Object.freeze({
-    commentId: parsedEvent.commentId,
-    createdAt: parsedEvent.commentCreatedAt,
-    body: parsedEvent.reviewBody,
-    authorAssociation: parsedEvent.authorAssociation,
-    review: parsedEvent.review,
-  }))
-
-  const pageFingerprints = new Set()
-  let pageNumber = 1
-  let terminal = false
-  while (!terminal) {
-    const endpoint = `repos/${request.repository}/issues/${request.taskIssueNumber}/comments?since=${encodeURIComponent(parsedEvent.commentCreatedAt)}&per_page=${PAGE_SIZE}&page=${pageNumber}`
-    const page = await api(host, endpoint)
-    if (!Array.isArray(page) || page.length > PAGE_SIZE) throw new Error('review_decision_page_invalid')
-    const fingerprint = JSON.stringify(page.map((comment) => [comment?.id, comment?.created_at, comment?.author_association, comment?.body]))
-    if (page.length > 0 && pageFingerprints.has(fingerprint)) throw new Error('review_decision_page_repeated')
-    pageFingerprints.add(fingerprint)
-
-    for (const comment of page) {
-      if (!isReviewDecisionCandidateV1(comment?.body)) continue
-      addCandidate(parseReviewDecisionCommentV1({
-        comment,
-        repository: request.repository,
-        taskIssueNumber: request.taskIssueNumber,
-        prNumber: request.prNumber,
-        exactHead: request.exactHead,
-      }))
-    }
-
-    terminal = page.length < PAGE_SIZE
-    pageNumber += 1
-    if (pageNumber > 32) throw new Error('review_decision_terminal_page_missing')
+  if (classified.some((candidate) => candidate.kind === 'MALFORMED_UNORDERABLE_MARKER')) {
+    throw new Error('review_decision_candidate_invalid')
   }
-
-  const ordered = [...candidates.values()].sort(compareReviewDecisionCandidateV1)
-  if (ordered.length === 0) throw new Error('review_decision_current_leaf_missing')
-  return ordered.at(-1)
+  const selected = classified
+    .filter((candidate) => candidate.kind === 'VALID_TARGET_TUPLE')
+    .sort(compareReviewDecisionCandidateV1)
+    .at(-1)
+  if (!selected) throw new Error('review_decision_current_leaf_missing')
+  if (classified.some((candidate) => candidate.kind === 'MALFORMED_ORDERABLE_MARKER' &&
+    compareReviewDecisionCandidateV1(candidate, selected) >= 0)) {
+    throw new Error('review_decision_candidate_invalid')
+  }
+  return selected
 }
 
-const acquireEffectiveReviewDecisionV1 = async ({ request, host }) => {
-  const candidates = []
-  const pageFingerprints = new Set()
-  for (let pageNumber = 1; pageNumber <= 32; pageNumber += 1) {
-    const page = await api(host, `repos/${request.repository}/issues/${request.taskIssueNumber}/comments?per_page=${PAGE_SIZE}&page=${pageNumber}`)
-    if (!Array.isArray(page) || page.length > PAGE_SIZE) throw new Error('review_decision_page_invalid')
-    const fingerprint = JSON.stringify(page.map((comment) => [comment?.id, comment?.created_at, comment?.author_association, comment?.body]))
-    if (page.length > 0 && pageFingerprints.has(fingerprint)) throw new Error('review_decision_page_repeated')
-    pageFingerprints.add(fingerprint)
-    for (const comment of page) {
-      if (!isReviewDecisionCandidateV1(comment?.body)) continue
-      const candidate = parseReviewDecisionCommentV1({
-        comment,
-        repository: request.repository,
-        taskIssueNumber: request.taskIssueNumber,
-        prNumber: request.prNumber,
-        exactHead: request.exactHead,
-      })
-      if (candidate) candidates.push(candidate)
-    }
-    if (page.length < PAGE_SIZE) break
-    if (pageNumber === 32) throw new Error('review_decision_terminal_page_missing')
-  }
-  candidates.sort(compareReviewDecisionCandidateV1)
-  const selected = candidates.at(-1)
-  if (!selected) throw new Error('review_decision_current_leaf_missing')
+const confirmCurrentLeafIndependentReviewDecisionV1 = async ({ selected, request, host }) => {
   const fresh = await fetchRoleCommentRecordV1(request.repository, request.taskIssueNumber, selected.commentId, host)
-  const confirmed = parseReviewDecisionCommentV1({
+  const confirmed = classifyReviewDecisionCommentV1({
     comment: fresh,
     repository: request.repository,
     taskIssueNumber: request.taskIssueNumber,
     prNumber: request.prNumber,
     exactHead: request.exactHead,
   })
-  if (!confirmed || confirmed.body !== selected.body || confirmed.createdAt !== selected.createdAt || confirmed.authorAssociation !== selected.authorAssociation) {
+  if (confirmed.kind !== 'VALID_TARGET_TUPLE' || !sameReviewDecisionIdentityV1(confirmed, selected)) {
     throw new Error('review_decision_candidate_identity_conflict')
   }
   return confirmed
+}
+
+export const resolveEffectiveReviewDecisionV1 = async ({ request, parsedEvent, host }) => {
+  const comments = [{
+    id: parsedEvent.commentId,
+    created_at: parsedEvent.commentCreatedAt,
+    body: parsedEvent.reviewBody,
+    author_association: parsedEvent.authorAssociation,
+  }]
+  const pageFingerprints = new Set()
+  let pageNumber = 1
+  let terminal = false
+  while (!terminal) {
+    const endpoint = `repos/${request.repository}/issues/${request.taskIssueNumber}/comments?since=${encodeURIComponent(parsedEvent.commentCreatedAt)}&sort=created&direction=asc&per_page=${PAGE_SIZE}&page=${pageNumber}`
+    const page = await api(host, endpoint)
+    if (!Array.isArray(page) || page.length > PAGE_SIZE) throw new Error('review_decision_page_invalid')
+    const fingerprint = JSON.stringify(page.map((comment) => [comment?.id, comment?.created_at, comment?.author_association, comment?.body]))
+    if (page.length > 0 && pageFingerprints.has(fingerprint)) throw new Error('review_decision_page_repeated')
+    pageFingerprints.add(fingerprint)
+
+    comments.push(...page)
+
+    terminal = page.length < PAGE_SIZE
+    pageNumber += 1
+    if (pageNumber > 32) throw new Error('review_decision_terminal_page_missing')
+  }
+
+  const selected = reduceCurrentLeafIndependentReviewDecisionV1({
+    comments,
+    repository: request.repository,
+    taskIssueNumber: request.taskIssueNumber,
+    prNumber: request.prNumber,
+    exactHead: request.exactHead,
+  })
+  return confirmCurrentLeafIndependentReviewDecisionV1({ selected, request, host })
+}
+
+const acquireEffectiveReviewDecisionV1 = async ({ request, host }) => {
+  const comments = []
+  const pageFingerprints = new Set()
+  for (let pageNumber = 1; pageNumber <= 32; pageNumber += 1) {
+    const page = await api(host, `repos/${request.repository}/issues/${request.taskIssueNumber}/comments?sort=created&direction=asc&per_page=${PAGE_SIZE}&page=${pageNumber}`)
+    if (!Array.isArray(page) || page.length > PAGE_SIZE) throw new Error('review_decision_page_invalid')
+    const fingerprint = JSON.stringify(page.map((comment) => [comment?.id, comment?.created_at, comment?.author_association, comment?.body]))
+    if (page.length > 0 && pageFingerprints.has(fingerprint)) throw new Error('review_decision_page_repeated')
+    pageFingerprints.add(fingerprint)
+    comments.push(...page)
+    if (page.length < PAGE_SIZE) break
+    if (pageNumber === 32) throw new Error('review_decision_terminal_page_missing')
+  }
+  const selected = reduceCurrentLeafIndependentReviewDecisionV1({
+    comments,
+    repository: request.repository,
+    taskIssueNumber: request.taskIssueNumber,
+    prNumber: request.prNumber,
+    exactHead: request.exactHead,
+  })
+  return confirmCurrentLeafIndependentReviewDecisionV1({ selected, request, host })
 }
 
 const api = async (host, endpoint, options = undefined) => {
@@ -2535,15 +2548,195 @@ export const projectRoleOutputFailureDiagnosticV1 = ({ dispatch, bodyBytes, json
   return projectRoleOutputFailureMappingV1({ expectedBody, core, bodyBytes })
 }
 
+const INDEPENDENT_REVIEWER_FAILURE_EVIDENCE_RECORD_TYPE_V1 = 'independent_reviewer_role_output_failure_evidence_v1'
+const INDEPENDENT_REVIEWER_FAILURE_BODY_CHUNK_RECORD_TYPE_V1 = 'independent_reviewer_role_output_failure_body_chunk_v1'
+const INDEPENDENT_REVIEWER_FAILURE_BODY_MAX_BYTES_V1 = 256 * 1024
+const INDEPENDENT_REVIEWER_FAILURE_BODY_CHUNK_BYTES_V1 = 4096
+const INDEPENDENT_REVIEWER_FAILURE_BODY_MAX_CHUNKS_V1 = 64
+const REVIEWER_FAILURE_BINDING_UNAVAILABLE_V1 = Object.freeze({
+  task_issue: 'UNAVAILABLE',
+  pull_request: 'UNAVAILABLE',
+  reviewed_head: 'UNAVAILABLE',
+})
+
+const observeReviewScalarV1 = (raw) => {
+  const value = raw.trim()
+  if (value.startsWith('"')) {
+    try {
+      const parsed = JSON.parse(value)
+      return typeof parsed === 'string'
+        ? Object.freeze({ type: 'string', value: parsed })
+        : Object.freeze({ type: 'invalid', value: null })
+    } catch {
+      return Object.freeze({ type: 'invalid', value: null })
+    }
+  }
+  if (value === 'true') return Object.freeze({ type: 'boolean', value: true })
+  if (value === 'false') return Object.freeze({ type: 'boolean', value: false })
+  if (/^(?:0|[1-9]\d*)$/.test(value)) return Object.freeze({ type: 'integer', value: Number(value) })
+  if (/^[A-Za-z][A-Za-z0-9_-]*$/.test(value)) return Object.freeze({ type: 'string', value })
+  return Object.freeze({ type: 'invalid', value: null })
+}
+
+const reviewerBindingStatusV1 = (actual, expected) => (
+  typeof actual !== 'string' ? 'UNAVAILABLE' : actual === expected ? 'MATCH' : 'MISMATCH'
+)
+
+const observeIndependentReviewerFailureV1 = (body, dispatch) => {
+  const fieldNames = []
+  const scalarTypes = []
+  const scalars = new Map()
+  const blocks = typeof body === 'string' ? [...body.matchAll(/```yaml\r?\n([\s\S]*?)\r?\n```/g)] : []
+  let parserFailureReason = null
+
+  if (typeof body !== 'string' || body.length === 0 || body.length > 65536) {
+    parserFailureReason = 'review_body_length_invalid'
+  } else if (blocks.length !== 1) {
+    parserFailureReason = 'review_yaml_block_cardinality_invalid'
+  } else {
+    for (const line of blocks[0][1].split(/\r?\n/)) {
+      if (line.trim().length === 0) continue
+      const match = line.match(/^([a-z][a-z0-9_]*):[ \t]+(.+)$/)
+      if (!match) {
+        parserFailureReason = 'review_yaml_scalar_invalid'
+        break
+      }
+      const scalar = observeReviewScalarV1(match[2])
+      fieldNames.push(match[1])
+      scalarTypes.push(scalar.type)
+      if (scalars.has(match[1])) {
+        parserFailureReason = 'review_yaml_scalar_invalid'
+        break
+      }
+      if (scalar.type === 'invalid') {
+        parserFailureReason = 'review_scalar_invalid'
+        break
+      }
+      scalars.set(match[1], scalar.value)
+    }
+  }
+
+  const expectedTaskUrl = `https://github.com/${dispatch.repository}/issues/${dispatch.task_issue_number}`
+  const expectedPullUrl = `https://github.com/${dispatch.repository}/pull/${dispatch.pr_number}`
+  const bindingMismatch = Object.freeze({
+    task_issue: reviewerBindingStatusV1(scalars.get('task_issue'), expectedTaskUrl),
+    pull_request: reviewerBindingStatusV1(scalars.get('pull_request'), expectedPullUrl),
+    reviewed_head: reviewerBindingStatusV1(scalars.get('reviewed_head'), dispatch.exact_head),
+  })
+
+  if (parserFailureReason === null) {
+    const pullUrl = scalars.get('pull_request')
+    const pullPrefix = `https://github.com/${dispatch.repository}/pull/`
+    const pullNumber = typeof pullUrl === 'string' && pullUrl.startsWith(pullPrefix)
+      ? Number(pullUrl.slice(pullPrefix.length))
+      : Number.NaN
+    const reviewedHead = scalars.get('reviewed_head')
+    const decision = scalars.get('decision')
+    const countNames = ['blocking_finding_count', 'remaining_finding_count', 'unknown_count']
+    const countValues = countNames.map((name) => scalars.get(name))
+    if (scalars.get('record_type') !== REVIEW_RECORD_TYPE) parserFailureReason = 'review_record_type_invalid'
+    else if (scalars.get('authoring_role') !== REVIEW_AUTHORING_ROLE) parserFailureReason = 'review_authoring_role_invalid'
+    else if (scalars.get('task_issue') !== expectedTaskUrl) parserFailureReason = 'review_task_issue_invalid'
+    else if (!positiveInteger(pullNumber)) parserFailureReason = 'review_pull_request_invalid'
+    else if (typeof reviewedHead !== 'string' || !FULL_HEAD.test(reviewedHead)) parserFailureReason = 'review_reviewed_head_invalid'
+    else if (!['APPROVE', 'CHANGES_REQUIRED', 'BLOCKED'].includes(decision)) parserFailureReason = 'review_decision_invalid'
+    else if (countValues.some((value) => !Number.isSafeInteger(value))) parserFailureReason = 'review_count_type_invalid'
+    else if (countValues.some((value) => value < 0)) parserFailureReason = 'review_count_value_invalid'
+    else if (scalars.get('status') !== 'completed') parserFailureReason = 'review_status_invalid'
+    else if (scalars.get('execution_stop_reason') !== 'completed') parserFailureReason = 'review_execution_stop_reason_invalid'
+    else if (pullNumber !== dispatch.pr_number) parserFailureReason = 'review_pr_binding_mismatch'
+    else if (reviewedHead !== dispatch.exact_head) parserFailureReason = 'review_head_binding_mismatch'
+    else parserFailureReason = 'role_output_invalid_unclassified'
+  }
+
+  return Object.freeze({
+    yaml_block_count: blocks.length,
+    parsed_field_count: fieldNames.length,
+    field_names: Object.freeze(fieldNames),
+    scalar_types: Object.freeze(scalarTypes),
+    binding_mismatch: bindingMismatch,
+    parser_failure_reason: parserFailureReason,
+  })
+}
+
+export const projectIndependentReviewerFailureEvidenceV1 = ({ dispatch, bodyBytes, runId, runAttempt }) => {
+  if (
+    dispatch?.next_action !== 'INDEPENDENT_IMPLEMENTATION_REVIEWER' || !Buffer.isBuffer(bodyBytes) ||
+    !WORKFLOW_RUN_ID.test(String(runId ?? '')) || !positiveInteger(runAttempt)
+  ) throw new Error('independent_reviewer_failure_evidence_unavailable')
+
+  const selectedBodyUtf8ByteCount = bodyBytes.length
+  const selectedBodySha256 = createHash('sha256').update(bodyBytes).digest('hex')
+  const bounded = selectedBodyUtf8ByteCount <= INDEPENDENT_REVIEWER_FAILURE_BODY_MAX_BYTES_V1
+  const observation = bounded
+    ? observeIndependentReviewerFailureV1(bodyBytes.toString('utf8'), dispatch)
+    : Object.freeze({
+        yaml_block_count: 0,
+        parsed_field_count: 0,
+        field_names: EMPTY_ROLE_OUTPUT_FIELD_NAMES_V1,
+        scalar_types: EMPTY_ROLE_OUTPUT_FIELD_NAMES_V1,
+        binding_mismatch: REVIEWER_FAILURE_BINDING_UNAVAILABLE_V1,
+        parser_failure_reason: 'selected_body_evidence_bound_exceeded',
+      })
+  const bodyChunkCount = bounded ? Math.ceil(selectedBodyUtf8ByteCount / INDEPENDENT_REVIEWER_FAILURE_BODY_CHUNK_BYTES_V1) : 0
+  if (bodyChunkCount > INDEPENDENT_REVIEWER_FAILURE_BODY_MAX_CHUNKS_V1) {
+    throw new Error('independent_reviewer_failure_evidence_unavailable')
+  }
+  const header = Object.freeze({
+    record_type: INDEPENDENT_REVIEWER_FAILURE_EVIDENCE_RECORD_TYPE_V1,
+    run_id: String(runId),
+    run_attempt: runAttempt,
+    task_issue_number: dispatch.task_issue_number,
+    pr_number: dispatch.pr_number,
+    exact_head: dispatch.exact_head,
+    source_comment_id: dispatch.source_comment_id,
+    selected_body_utf8_byte_count: selectedBodyUtf8ByteCount,
+    selected_body_sha256: selectedBodySha256,
+    body_capture_status: bounded ? 'CAPTURED' : 'BOUND_EXCEEDED',
+    body_chunk_count: bodyChunkCount,
+    ...observation,
+  })
+  const chunks = bounded
+    ? Object.freeze(Array.from({ length: bodyChunkCount }, (_, chunkIndex) => {
+        const start = chunkIndex * INDEPENDENT_REVIEWER_FAILURE_BODY_CHUNK_BYTES_V1
+        const bytes = bodyBytes.subarray(start, start + INDEPENDENT_REVIEWER_FAILURE_BODY_CHUNK_BYTES_V1)
+        return Object.freeze({
+          record_type: INDEPENDENT_REVIEWER_FAILURE_BODY_CHUNK_RECORD_TYPE_V1,
+          chunk_index: chunkIndex,
+          chunk_count: bodyChunkCount,
+          raw_byte_count: bytes.length,
+          body_base64: bytes.toString('base64'),
+        })
+      }))
+    : EMPTY_ROLE_OUTPUT_FIELD_NAMES_V1
+  return Object.freeze({ header, chunks })
+}
+
 export const evaluateRoleOutputInvocationV1 = (
   invocation,
   projectCore = projectRoleOutputDiagnosticCoreV1,
   projectMapping = projectRoleOutputFailureMappingV1,
+  projectReviewerEvidence = projectIndependentReviewerFailureEvidenceV1,
 ) => {
   const dispatch = readJsonFileV1(invocation.dispatchFile)
   const bodyBytes = readFileSync(invocation.outputFile)
   const result = evaluateRoleDispatchOutputV1({ dispatch, body: bodyBytes.toString('utf8') })
-  if (result.exit_code === 0 || !invocation.jsonlFile) return result
+  if (result.exit_code === 0) return result
+  if (dispatch.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER') {
+    let failureEvidence
+    try {
+      failureEvidence = projectReviewerEvidence({
+        dispatch,
+        bodyBytes,
+        runId: invocation.runId,
+        runAttempt: invocation.runAttempt,
+      })
+    } catch {
+      return result
+    }
+    return Object.freeze({ ...result, failure_evidence: failureEvidence })
+  }
+  if (!invocation.jsonlFile) return result
   let jsonlBytes
   try {
     jsonlBytes = readFileSync(invocation.jsonlFile)
@@ -2723,12 +2916,17 @@ const verifyRoleAuthorizationChainV1 = async ({ body, dispatch, host, expected }
 
 const verifyRoleDispatchSourceV1 = async (dispatch, host) => {
   const binding = projectRoleSourceBindingV1(dispatch.source_binding, dispatch.source_comment_id)
-  const source = await fetchRoleCommentRecordV1(dispatch.repository, dispatch.task_issue_number, dispatch.source_comment_id, host)
-  if (dispatch.next_action === 'IMPLEMENTER' && source.body !== projectImplementerContextV1(dispatch.implementer_context).approved_correction_context) {
-    throw new Error('role_dispatch_source_binding_changed')
-  }
   if (binding.kind === 'REVIEW') {
-    const review = parseIndependentReviewDecisionProjectionV1(source.body, dispatch.repository, dispatch.task_issue_number)
+    const effective = await acquireEffectiveReviewDecisionV1({
+      request: Object.freeze({
+        repository: dispatch.repository,
+        taskIssueNumber: dispatch.task_issue_number,
+        prNumber: dispatch.pr_number,
+        exactHead: binding.reviewed_head,
+      }),
+      host,
+    })
+    const review = effective.review
     const approveSourceValid = review.decision === 'APPROVE' && review.blocking_finding_count === 0 &&
       review.remaining_finding_count === 0 && review.unknown_count === 0
     const postRepairReviewerSourceValid = dispatch.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER' &&
@@ -2736,11 +2934,16 @@ const verifyRoleDispatchSourceV1 = async (dispatch, host) => {
       positiveInteger(review.blocking_finding_count) && review.remaining_finding_count === review.blocking_finding_count &&
       review.unknown_count === 0
     if (
+      effective.commentId !== dispatch.source_comment_id ||
       review.pr_number !== dispatch.pr_number || review.reviewed_head !== binding.reviewed_head || review.decision !== binding.decision ||
       (!approveSourceValid && !postRepairReviewerSourceValid) ||
       (dispatch.purpose === 'MERGE_DECISION' && (review.reviewed_head !== dispatch.exact_head || review.decision !== 'APPROVE'))
     ) throw new Error('role_dispatch_source_binding_changed')
-    return source
+    return effective
+  }
+  const source = await fetchRoleCommentRecordV1(dispatch.repository, dispatch.task_issue_number, dispatch.source_comment_id, host)
+  if (dispatch.next_action === 'IMPLEMENTER' && source.body !== projectImplementerContextV1(dispatch.implementer_context).approved_correction_context) {
+    throw new Error('role_dispatch_source_binding_changed')
   }
   if (binding.kind === 'IMPLEMENTATION_AUTHORIZATION') {
     await verifyRoleAuthorizationChainV1({ body: source.body, dispatch, host, expected: binding })
@@ -3408,6 +3611,8 @@ const parseInvocation = (argv, environment) => {
       outputFile: argv[1],
       dispatchFile: argv[3],
       jsonlFile: argv.length === 6 ? argv[5] : null,
+      runId: environment.GITHUB_RUN_ID ?? null,
+      runAttempt: Number(environment.GITHUB_RUN_ATTEMPT),
     })
   }
   if (argv.length === 2 && argv[0] === '--repair-provider-exec-bind-file' && typeof argv[1] === 'string' && argv[1].length > 0) {

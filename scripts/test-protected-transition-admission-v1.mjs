@@ -35,6 +35,7 @@ import {
   parseProductOwnerMergeDecisionV1,
   parseIndependentReviewDecisionProjectionV1,
   parseReviewApprovalEventV1,
+  projectIndependentReviewerFailureEvidenceV1,
   projectRoleOutputFailureDiagnosticV1,
   projectProtectedTransitionReviewStateV1,
   projectSelfHostedWindowsRepairProviderV3,
@@ -886,6 +887,7 @@ const automationHost = ({
   graphqlFailure = null,
   patchFailure = false,
   applyPatch = true,
+  directCommentRecords = new Map(),
 } = {}) => {
   const metrics = { patchCalls: 0, pullReads: 0, fileReads: 0, commentReads: 0, commitReads: 0, checkReads: 0, threadReads: 0, waitCalls: 0 }
   let currentHead = HEAD
@@ -919,7 +921,8 @@ const automationHost = ({
         const directComment = /\/issues\/comments\/(\d+)$/.exec(endpoint)
         if (directComment) {
           metrics.commentReads += 1
-          const comment = commentPages.flat().find((candidate) => candidate.id === Number(directComment[1]))
+          const commentId = Number(directComment[1])
+          const comment = directCommentRecords.get(commentId) ?? commentPages.flat().find((candidate) => candidate.id === commentId)
           if (!comment) throw new Error('synthetic_comment_missing')
           return structuredClone({ ...comment, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}` })
         }
@@ -1317,33 +1320,67 @@ const tiedAutomation = automationHost({ commentPages: [[sameTimeOlder.comment, s
 const tiedResult = await executeReviewApprovalAutomationV1({ event: sameTimeOlder, host: tiedAutomation.host })
 check(tiedResult.reason === 'review_event_superseded', 'same-time greatest comment ID wins')
 check(tiedAutomation.metrics.patchCalls === 0, 'same-time older comment performs no PATCH')
-check(tiedAutomation.metrics.commentReads === 1 && tiedResult.admission_executed === false, 'same-time tie is resolved in one forward scan')
-
-const pagedEvent = reviewEvent({ comment: { id: 9200, created_at: '2026-08-07T00:02:00Z' } })
-const fillerComments = Array.from({ length: 99 }, (_, index) => ({
-  id: 9300 + index,
-  created_at: '2026-08-07T00:02:00Z',
-  author_association: 'MEMBER',
-  body: `non-review-${index}`,
-}))
-const pagedLeaf = reviewEvent({ comment: { id: 9400, created_at: '2026-08-07T00:02:01Z' } })
-const pagedAutomation = automationHost({ commentPages: [[pagedEvent.comment, ...fillerComments], [pagedLeaf.comment]] })
-const pagedParsed = parseReviewApprovalEventV1(pagedEvent)
-const pagedEffective = await resolveEffectiveReviewDecisionV1({ request, parsedEvent: pagedParsed, host: pagedAutomation.host })
-check(pagedEffective.commentId === 9400, 'forward pagination resolves the later current leaf')
-check(pagedAutomation.metrics.commentReads === 2, 'forward pagination reads through the terminal page')
-check(pagedEffective.review.pr_number === PR && pagedEffective.review.reviewed_head === HEAD, 'forward pagination preserves Task/PR/HEAD filtering')
 
 const malformedBody = reviewDecisionBody({}, ['decision: APPROVE'])
-const malformedComment = reviewEvent({
+const historicalMalformedComment = reviewEvent({
   body: malformedBody,
-  comment: { id: 9500, created_at: '2026-08-07T00:03:01Z' },
+  comment: { id: 9200, created_at: '2026-08-07T00:02:00Z' },
 }).comment
-const malformedAutomation = automationHost({ commentPages: [[reviewEvent().comment, malformedComment]] })
-const malformedResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: malformedAutomation.host })
-check(malformedResult.state === 'INDETERMINATE' && malformedResult.reason === 'review_decision_candidate_invalid', 'malformed applicable leaf fails closed')
-check(malformedAutomation.metrics.patchCalls === 0, 'malformed applicable leaf performs no PATCH')
-check(malformedResult.admission_executed === false && malformedResult.next_action === 'STOP', 'malformed applicable leaf performs no admission')
+const currentMatrixEvent = reviewEvent({ comment: { id: 9201, created_at: '2026-08-07T00:02:01Z' } })
+const historicalMalformedAutomation = automationHost({ commentPages: [[historicalMalformedComment, currentMatrixEvent.comment]] })
+const historicalMalformedSelected = await resolveEffectiveReviewDecisionV1({ request, parsedEvent: parseReviewApprovalEventV1(currentMatrixEvent), host: historicalMalformedAutomation.host })
+check(historicalMalformedSelected.commentId === currentMatrixEvent.comment.id && historicalMalformedAutomation.metrics.patchCalls === 0, 'RRC-01 historical malformed marker is retained as harmless residue before the current valid leaf')
+
+const otherTupleComment = reviewEvent({
+  body: reviewDecisionBody({ reviewed_head: OTHER_HEAD }),
+  comment: { id: 9210, created_at: '2026-08-07T00:02:10Z' },
+}).comment
+const tupleMatrixEvent = reviewEvent({ comment: { id: 9211, created_at: '2026-08-07T00:02:11Z' } })
+const otherTupleAutomation = automationHost({ commentPages: [[otherTupleComment, tupleMatrixEvent.comment]] })
+const otherTupleSelected = await resolveEffectiveReviewDecisionV1({ request, parsedEvent: parseReviewApprovalEventV1(tupleMatrixEvent), host: otherTupleAutomation.host })
+check(otherTupleSelected.commentId === tupleMatrixEvent.comment.id && otherTupleSelected.review.reviewed_head === HEAD, 'RRC-02 parser-valid other PR or HEAD does not poison exact-tuple selection')
+
+const laterMalformedComment = reviewEvent({
+  body: malformedBody,
+  comment: { id: 9221, created_at: '2026-08-07T00:02:21Z' },
+}).comment
+const laterMalformedEvent = reviewEvent({ comment: { id: 9220, created_at: '2026-08-07T00:02:20Z' } })
+const laterMalformedAutomation = automationHost({ commentPages: [[laterMalformedEvent.comment, laterMalformedComment]] })
+const laterMalformedResult = await executeReviewApprovalAutomationV1({ event: laterMalformedEvent, host: laterMalformedAutomation.host })
+check(laterMalformedResult.state === 'INDETERMINATE' && laterMalformedResult.reason === 'review_decision_candidate_invalid' && laterMalformedAutomation.metrics.patchCalls === 0, 'RRC-03 malformed marker at or after the current valid leaf fails closed')
+
+const driftMatrixEvent = reviewEvent({ comment: { id: 9230, created_at: '2026-08-07T00:02:30Z' } })
+const driftedDirectComment = { ...driftMatrixEvent.comment, body: reviewDecisionBody({ decision: 'BLOCKED', blocking_finding_count: 1 }) }
+const driftAutomation = automationHost({
+  commentPages: [[driftMatrixEvent.comment]],
+  directCommentRecords: new Map([[driftMatrixEvent.comment.id, driftedDirectComment]]),
+})
+const driftError = await errorOf(() => resolveEffectiveReviewDecisionV1({ request, parsedEvent: parseReviewApprovalEventV1(driftMatrixEvent), host: driftAutomation.host }))
+check(driftError?.message === 'review_decision_candidate_identity_conflict', 'RRC-04 selected current leaf direct-refetch identity or body drift fails closed')
+
+let malformedTriggerHostCalled = false
+const malformedTriggerResult = await executeReviewApprovalAutomationV1({
+  event: reviewEvent({ body: malformedBody }),
+  host: { api: async () => { malformedTriggerHostCalled = true; throw new Error('host_must_not_be_called') } },
+})
+check(malformedTriggerResult.state === 'INDETERMINATE' && malformedTriggerResult.next_action === 'STOP' && malformedTriggerHostCalled === false, 'RRC-05 malformed triggering issue_comment fails closed before acquisition')
+
+const noTargetComment = reviewEvent({ body: reviewDecisionBody({ reviewed_head: OTHER_HEAD }) }).comment
+const noTargetAutomation = automationHost({
+  initialState: approvedState(),
+  commentPages: [[noTargetComment]],
+  checkPages: [readyCheckPage(), readyCheckPage()],
+})
+const noTargetResult = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: noTargetAutomation.host, runId: READY_RUN_ID })
+check(noTargetResult.state === 'INDETERMINATE' && noTargetResult.reason === 'review_decision_current_leaf_missing' && noTargetAutomation.metrics.patchCalls === 0, 'RRC-06 Ready full-history selection blocks when no valid exact tuple exists')
+
+check(
+  (runnerSource.match(/await resolveEffectiveReviewDecisionV1\(\{ request, parsedEvent, host \}\)/g) ?? []).length === 2 &&
+  (runnerSource.match(/await acquireEffectiveReviewDecisionV1\(\{/g) ?? []).length === 2 &&
+  (runnerSource.match(/reduceCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 2 &&
+  (runnerSource.match(/confirmCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 2,
+  'RRC-07 issue_comment initial, pre-write, Ready full-history, and fresh rebind converge through one reducer and confirmation contract',
+)
 
 const productionPaths = execFileSync('git', ['ls-files', '.github', 'scripts', 'src'], { cwd: repositoryRoot, encoding: 'utf8' })
   .trim().split(/\r?\n/).filter((value) => value && !/^scripts\/test-/.test(value))
@@ -2930,7 +2967,13 @@ const roleHost = ({ head = HEAD, taskState = implementerState, paths = rolePaths
         ...(taskPullRequest ? { pull_request: {} } : {}),
       })
     }
-    if (endpoint.includes(`/issues/${TASK}/comments?`)) return structuredClone(evidence)
+    if (endpoint.includes(`/issues/${TASK}/comments?`)) {
+      if (endpoint.includes('sort=created&direction=asc')) {
+        return structuredClone([...sourceRecords.values()].filter((comment) =>
+          typeof comment.body === 'string' && /(?:^|\r?\n)record_type:[ \t]+(?:"independent_review_decision_v1"|independent_review_decision_v1)(?:\r?$)/m.test(comment.body)))
+      }
+      return structuredClone(evidence)
+    }
     const sourceMatch = /\/issues\/comments\/(\d+)$/.exec(endpoint)
     if (sourceMatch) {
       const id = Number(sourceMatch[1])
@@ -3053,12 +3096,88 @@ try {
 } finally {
   rmSync(diagnosticWrapperTemp, { recursive: true, force: true })
 }
+const reviewerFailureBody = reviewDecisionBody({
+  pull_request: `https://github.com/${REPOSITORY}/pull/${PR + 1}`,
+  reviewed_head: OTHER_HEAD,
+})
+const reviewerFailureBodyBytes = Buffer.from(reviewerFailureBody, 'utf8')
+const reviewerFailureEvidence = projectIndependentReviewerFailureEvidenceV1({
+  dispatch: reviewerDispatch,
+  bodyBytes: reviewerFailureBodyBytes,
+  runId: REVIEW_RUN_ID,
+  runAttempt: 2,
+})
+const reviewerFailureReconstructedBody = Buffer.concat(
+  reviewerFailureEvidence.chunks.map((chunk) => Buffer.from(chunk.body_base64, 'base64')),
+)
+const reviewerScalarFailureEvidence = projectIndependentReviewerFailureEvidenceV1({
+  dispatch: reviewerDispatch,
+  bodyBytes: Buffer.from(reviewDecisionBody({ reviewed_head: OTHER_HEAD }).replace('decision: "APPROVE"', 'decision: [APPROVE]'), 'utf8'),
+  runId: REVIEW_RUN_ID,
+  runAttempt: 2,
+})
+const reviewerDuplicateScalarEvidence = projectIndependentReviewerFailureEvidenceV1({
+  dispatch: reviewerDispatch,
+  bodyBytes: Buffer.from(reviewDecisionBody({ reviewed_head: OTHER_HEAD }, ['unknown_count: true']), 'utf8'),
+  runId: REVIEW_RUN_ID,
+  runAttempt: 2,
+})
+const reviewerBoundaryEvidence = projectIndependentReviewerFailureEvidenceV1({
+  dispatch: reviewerDispatch,
+  bodyBytes: Buffer.alloc(256 * 1024, 0x61),
+  runId: REVIEW_RUN_ID,
+  runAttempt: 2,
+})
+const reviewerOverflowEvidence = projectIndependentReviewerFailureEvidenceV1({
+  dispatch: reviewerDispatch,
+  bodyBytes: Buffer.alloc((256 * 1024) + 1, 0x61),
+  runId: REVIEW_RUN_ID,
+  runAttempt: 2,
+})
+const reviewerEvidenceHeaderKeys = [
+  'binding_mismatch', 'body_capture_status', 'body_chunk_count', 'exact_head', 'field_names',
+  'parsed_field_count', 'parser_failure_reason', 'pr_number', 'record_type', 'run_attempt', 'run_id',
+  'scalar_types', 'selected_body_sha256', 'selected_body_utf8_byte_count', 'source_comment_id',
+  'task_issue_number', 'yaml_block_count',
+].sort()
+const reviewerWrapperTemp = mkdtempSync(path.join(tmpdir(), 'pta-reviewer-failure-wrapper-'))
+let reviewerSuccessProjectionCalls = 0
+let reviewerWrapperFailure
+let reviewerWrapperProjectionFailure
+let reviewerWrapperSuccess
+try {
+  const dispatchFile = path.join(reviewerWrapperTemp, 'dispatch.json')
+  const outputFile = path.join(reviewerWrapperTemp, 'output.md')
+  writeFileSync(dispatchFile, JSON.stringify(reviewerDispatch), 'utf8')
+  writeFileSync(outputFile, reviewerFailureBody, 'utf8')
+  reviewerWrapperFailure = evaluateRoleOutputInvocationV1({
+    dispatchFile, outputFile, runId: REVIEW_RUN_ID, runAttempt: 2,
+  })
+  reviewerWrapperProjectionFailure = evaluateRoleOutputInvocationV1(
+    { dispatchFile, outputFile, runId: REVIEW_RUN_ID, runAttempt: 2 },
+    undefined,
+    undefined,
+    () => { throw new Error('induced_reviewer_projection_failure') },
+  )
+  writeFileSync(outputFile, reviewDecisionBody({ reviewed_head: OTHER_HEAD }), 'utf8')
+  reviewerWrapperSuccess = evaluateRoleOutputInvocationV1(
+    { dispatchFile, outputFile, runId: REVIEW_RUN_ID, runAttempt: 2 },
+    undefined,
+    undefined,
+    () => {
+      reviewerSuccessProjectionCalls += 1
+      throw new Error('success_path_projection_called')
+    },
+  )
+} finally {
+  rmSync(reviewerWrapperTemp, { recursive: true, force: true })
+}
 const roleOutputMatrix = [
-  implementerOutput.next_action === 'VALIDATE_IMPLEMENTATION' && !Object.hasOwn(implementerOutput, 'bounded_metadata') && runnerSource.includes("if (result.exit_code === 0 || !invocation.jsonlFile) return result") && runnerSource.includes("argv[4] === '--role-jsonl-file'") && runnerSource.includes('jsonlBytes = Buffer.alloc(0)') && runnerSource.includes('boundedMetadata = projectRoleOutputDiagnosticUnavailableV1(core)') && runnerSource.includes('return Object.freeze({ ...result, bounded_metadata: boundedMetadata })') && !runnerSource.includes('catch {\n    return result\n  }'),
-  reviewerOutput.next_action === 'POST_REVIEW' && !Object.hasOwn(reviewerOutput, 'bounded_metadata'),
+  implementerOutput.next_action === 'VALIDATE_IMPLEMENTATION' && !Object.hasOwn(implementerOutput, 'bounded_metadata') && runnerSource.includes('if (result.exit_code === 0) return result') && runnerSource.indexOf("if (dispatch.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER')") < runnerSource.indexOf('if (!invocation.jsonlFile) return result') && runnerSource.includes("argv[4] === '--role-jsonl-file'") && runnerSource.includes('jsonlBytes = Buffer.alloc(0)') && runnerSource.includes('boundedMetadata = projectRoleOutputDiagnosticUnavailableV1(core)') && runnerSource.includes('return Object.freeze({ ...result, bounded_metadata: boundedMetadata })'),
+  reviewerOutput.next_action === 'POST_REVIEW' && !Object.hasOwn(reviewerOutput, 'bounded_metadata') && !Object.hasOwn(reviewerOutput, 'failure_evidence') && reviewerWrapperProjectionFailure.next_action === 'STOP' && !Object.hasOwn(reviewerWrapperProjectionFailure, 'failure_evidence') && reviewerWrapperSuccess.next_action === 'POST_REVIEW' && reviewerSuccessProjectionCalls === 0 && !Object.hasOwn(reviewerWrapperSuccess, 'failure_evidence') && !Object.hasOwn(reviewerWrapperSuccess, 'bounded_metadata'),
   mergeDecisionOutput.next_action === 'POST_MERGE_DECISION' && !Object.hasOwn(mergeDecisionOutput, 'bounded_metadata') && roleOutputFailureDiagnosticKeys.join('\n') === expectedRoleOutputFailureDiagnosticKeys.join('\n') && roleOutputFailureDiagnostic.total_jsonl_line_count === 5 && roleOutputFailureDiagnostic.malformed_jsonl_line_count === 1 && roleOutputFailureDiagnostic.non_empty_agent_message_count === 2 && classifyRoleOutputFailureDiagnosticV1(roleOutputFailureDiagnostic) === null,
   invalidImplementerOutput.next_action === 'STOP' && invalidPublicationOutput.next_action === 'STOP' && invalidMergeDecisionOutput.next_action === 'STOP' && roleOutputFailureDiagnostic.missing_field_names.join('\n') === 'unknown_count' && roleOutputFailureDiagnostic.extra_field_names.join('\n') === 'unexpected_field' && roleOutputFailureDiagnostic.type_mismatch_field_names.join('\n') === 'admission_allowed' && roleOutputFailureDiagnostic.value_mismatch_field_names.join('\n') === 'admission_reason' && roleOutputFailureDiagnostic.selected_body_sha256 === createHash('sha256').update(Buffer.from(diagnosticSelectedBody, 'utf8')).digest('hex') && roleOutputFailureDiagnostic.expected_body_sha256 === createHash('sha256').update(Buffer.from(mergeDecisionBody(), 'utf8')).digest('hex'),
-  [implementerOutput, reviewerOutput, mergeDecisionOutput, invalidImplementerOutput, invalidPublicationOutput, invalidMergeDecisionOutput].every((value) => value.mutation_count === 0) && ![diagnosticSelectedBody, mergeDecisionBody(), diagnosticJsonl, 'not_satisfied', 'redacted', mergeDecisionPlan.prompt, roleTaskBody].some((secret) => diagnosticLeakProbe.includes(secret)) && unavailableDiagnosticFixtures.every(({ body, expectedBody, jsonlBytes, expectedCounts, metadata }) => Object.keys(metadata).sort().join('\n') === expectedRoleOutputFailureDiagnosticKeys.join('\n') && metadata.total_jsonl_line_count === expectedCounts[0] && metadata.malformed_jsonl_line_count === expectedCounts[1] && metadata.non_empty_agent_message_count === expectedCounts[2] && metadata.selected_body_sha256 === createHash('sha256').update(Buffer.from(body, 'utf8')).digest('hex') && metadata.expected_body_sha256 === createHash('sha256').update(Buffer.from(expectedBody, 'utf8')).digest('hex') && metadata.selected_body_sha256 !== metadata.expected_body_sha256 && [metadata.missing_field_names, metadata.extra_field_names, metadata.type_mismatch_field_names, metadata.value_mismatch_field_names].every((names) => names.length === 0) && classifyRoleOutputFailureDiagnosticV1(metadata) === 'ROLE_OUTPUT_DIAGNOSTIC_UNAVAILABLE' && ![body, expectedBody, ...(jsonlBytes.length > 0 ? [jsonlBytes.toString('utf8')] : []), 'redacted'].some((secret) => JSON.stringify(metadata).includes(secret))) && invalidDiagnosticInputError?.message === 'role_output_diagnostic_unavailable' && diagnosticWrapperCoreCalls === 1 && diagnosticWrapperMappingCalls === 1 && Object.keys(diagnosticWrapperResult.bounded_metadata).sort().join('\n') === expectedRoleOutputFailureDiagnosticKeys.join('\n') && diagnosticWrapperResult.bounded_metadata.total_jsonl_line_count === 5 && diagnosticWrapperResult.bounded_metadata.malformed_jsonl_line_count === 1 && diagnosticWrapperResult.bounded_metadata.non_empty_agent_message_count === 2 && [diagnosticWrapperResult.bounded_metadata.missing_field_names, diagnosticWrapperResult.bounded_metadata.extra_field_names, diagnosticWrapperResult.bounded_metadata.type_mismatch_field_names, diagnosticWrapperResult.bounded_metadata.value_mismatch_field_names].every((names) => names.length === 0) && classifyRoleOutputFailureDiagnosticV1(diagnosticWrapperResult.bounded_metadata) === 'ROLE_OUTPUT_DIAGNOSTIC_UNAVAILABLE',
+  [implementerOutput, reviewerOutput, mergeDecisionOutput, invalidImplementerOutput, invalidPublicationOutput, invalidMergeDecisionOutput].every((value) => value.mutation_count === 0) && ![diagnosticSelectedBody, mergeDecisionBody(), diagnosticJsonl, 'not_satisfied', 'redacted', mergeDecisionPlan.prompt, roleTaskBody].some((secret) => diagnosticLeakProbe.includes(secret)) && unavailableDiagnosticFixtures.every(({ body, expectedBody, jsonlBytes, expectedCounts, metadata }) => Object.keys(metadata).sort().join('\n') === expectedRoleOutputFailureDiagnosticKeys.join('\n') && metadata.total_jsonl_line_count === expectedCounts[0] && metadata.malformed_jsonl_line_count === expectedCounts[1] && metadata.non_empty_agent_message_count === expectedCounts[2] && metadata.selected_body_sha256 === createHash('sha256').update(Buffer.from(body, 'utf8')).digest('hex') && metadata.expected_body_sha256 === createHash('sha256').update(Buffer.from(expectedBody, 'utf8')).digest('hex') && metadata.selected_body_sha256 !== metadata.expected_body_sha256 && [metadata.missing_field_names, metadata.extra_field_names, metadata.type_mismatch_field_names, metadata.value_mismatch_field_names].every((names) => names.length === 0) && classifyRoleOutputFailureDiagnosticV1(metadata) === 'ROLE_OUTPUT_DIAGNOSTIC_UNAVAILABLE' && ![body, expectedBody, ...(jsonlBytes.length > 0 ? [jsonlBytes.toString('utf8')] : []), 'redacted'].some((secret) => JSON.stringify(metadata).includes(secret))) && invalidDiagnosticInputError?.message === 'role_output_diagnostic_unavailable' && diagnosticWrapperCoreCalls === 1 && diagnosticWrapperMappingCalls === 1 && Object.keys(diagnosticWrapperResult.bounded_metadata).sort().join('\n') === expectedRoleOutputFailureDiagnosticKeys.join('\n') && diagnosticWrapperResult.bounded_metadata.total_jsonl_line_count === 5 && diagnosticWrapperResult.bounded_metadata.malformed_jsonl_line_count === 1 && diagnosticWrapperResult.bounded_metadata.non_empty_agent_message_count === 2 && [diagnosticWrapperResult.bounded_metadata.missing_field_names, diagnosticWrapperResult.bounded_metadata.extra_field_names, diagnosticWrapperResult.bounded_metadata.type_mismatch_field_names, diagnosticWrapperResult.bounded_metadata.value_mismatch_field_names].every((names) => names.length === 0) && classifyRoleOutputFailureDiagnosticV1(diagnosticWrapperResult.bounded_metadata) === 'ROLE_OUTPUT_DIAGNOSTIC_UNAVAILABLE' && reviewerWrapperFailure.next_action === 'STOP' && Object.keys(reviewerWrapperFailure.failure_evidence.header).sort().join('\n') === reviewerEvidenceHeaderKeys.join('\n') && reviewerFailureEvidence.header.record_type === 'independent_reviewer_role_output_failure_evidence_v1' && reviewerFailureEvidence.header.body_capture_status === 'CAPTURED' && reviewerFailureEvidence.header.parser_failure_reason === 'review_pr_binding_mismatch' && reviewerFailureEvidence.header.parsed_field_count === 11 && reviewerFailureEvidence.header.field_names.length === 11 && reviewerFailureEvidence.header.scalar_types.join('\n') === ['string', 'string', 'string', 'string', 'string', 'string', 'integer', 'integer', 'integer', 'string', 'string'].join('\n') && reviewerFailureEvidence.header.binding_mismatch.task_issue === 'MATCH' && reviewerFailureEvidence.header.binding_mismatch.pull_request === 'MISMATCH' && reviewerFailureEvidence.header.binding_mismatch.reviewed_head === 'MATCH' && reviewerFailureEvidence.header.selected_body_utf8_byte_count === reviewerFailureBodyBytes.length && reviewerFailureEvidence.header.selected_body_sha256 === createHash('sha256').update(reviewerFailureBodyBytes).digest('hex') && reviewerFailureReconstructedBody.equals(reviewerFailureBodyBytes) && reviewerFailureEvidence.chunks.every((chunk, index) => chunk.record_type === 'independent_reviewer_role_output_failure_body_chunk_v1' && chunk.chunk_index === index && chunk.chunk_count === reviewerFailureEvidence.chunks.length && chunk.raw_byte_count === Buffer.from(chunk.body_base64, 'base64').length && chunk.raw_byte_count <= 4096) && reviewerScalarFailureEvidence.header.parser_failure_reason === 'review_scalar_invalid' && reviewerScalarFailureEvidence.header.scalar_types.at(-1) === 'invalid' && reviewerDuplicateScalarEvidence.header.parser_failure_reason === 'review_yaml_scalar_invalid' && reviewerDuplicateScalarEvidence.header.parsed_field_count === 12 && reviewerDuplicateScalarEvidence.header.field_names.at(-1) === 'unknown_count' && reviewerDuplicateScalarEvidence.header.scalar_types.at(-1) === 'boolean' && reviewerDuplicateScalarEvidence.header.field_names.filter((name) => name === 'unknown_count').length === 2 && reviewerBoundaryEvidence.header.body_capture_status === 'CAPTURED' && reviewerBoundaryEvidence.header.body_chunk_count === 64 && reviewerBoundaryEvidence.chunks.length === 64 && reviewerBoundaryEvidence.chunks.every((chunk) => chunk.raw_byte_count === 4096) && reviewerBoundaryEvidence.header.parser_failure_reason === 'review_body_length_invalid' && reviewerOverflowEvidence.header.body_capture_status === 'BOUND_EXCEEDED' && reviewerOverflowEvidence.header.body_chunk_count === 0 && reviewerOverflowEvidence.chunks.length === 0 && reviewerOverflowEvidence.header.parser_failure_reason === 'selected_body_evidence_bound_exceeded' && reviewerOverflowEvidence.header.field_names.length === 0 && reviewerOverflowEvidence.header.scalar_types.length === 0 && Object.values(reviewerOverflowEvidence.header.binding_mismatch).every((value) => value === 'UNAVAILABLE'),
 ]
 for (const [index, evidence] of roleOutputMatrix.entries()) check(evidence, `RDC-09 source-record output binding ${index + 1}`)
 
@@ -3143,14 +3262,20 @@ const roleConsumerJob = workflow.jobs.protected_transition_role_dispatch_consume
 const mergeOperatorJob = workflow.jobs.protected_transition_merge_operator_v1
 const postRepairReviewJob = workflow.jobs.protected_transition_post_repair_review_v1
 const roleBindRun = roleConsumerJob.steps.find((step) => step.name === 'Bind bounded role dispatch')?.run ?? ''
-const roleExecutionRun = roleConsumerJob.steps.find((step) => step.name === 'Execute bounded role and host operation')?.run ?? ''
+const roleExecutionStep = roleConsumerJob.steps.find((step) => step.name === 'Execute bounded role and host operation')
+const roleExecutionRun = roleExecutionStep?.run ?? ''
 const mergeOperationRun = mergeOperatorJob.steps.find((step) => step.name === 'Perform one normal merge commit')?.run ?? ''
+const postRepairExecutionStep = postRepairReviewJob.steps.find((step) => step.name === 'Execute and publish post-repair Review')
+const postRepairExecutionRun = postRepairExecutionStep?.run ?? ''
 const boundedRoleStart = roleExecutionRun.indexOf('function Invoke-BoundedRole {')
 const boundedRoleEnd = roleExecutionRun.indexOf('\n}\n\nfunction Assert-RoleOutput', boundedRoleStart)
 const boundedRoleSource = boundedRoleStart >= 0 && boundedRoleEnd > boundedRoleStart ? roleExecutionRun.slice(boundedRoleStart, boundedRoleEnd + 2) : ''
 const assertRoleOutputStart = roleExecutionRun.indexOf('function Assert-RoleOutput {')
 const assertRoleOutputEnd = roleExecutionRun.indexOf('\n}\n\nfunction Assert-FreshRoleBinding', assertRoleOutputStart)
 const assertRoleOutputSource = assertRoleOutputStart >= 0 && assertRoleOutputEnd > assertRoleOutputStart ? roleExecutionRun.slice(assertRoleOutputStart, assertRoleOutputEnd + 2) : ''
+const assertFreshRoleBindingStart = roleExecutionRun.indexOf('function Assert-FreshRoleBinding {')
+const assertFreshRoleBindingEnd = roleExecutionRun.indexOf('\n}\n\nfunction Publish-CanonicalComment', assertFreshRoleBindingStart)
+const assertFreshRoleBindingSource = assertFreshRoleBindingStart >= 0 && assertFreshRoleBindingEnd > assertFreshRoleBindingStart ? roleExecutionRun.slice(assertFreshRoleBindingStart, assertFreshRoleBindingEnd + 2) : ''
 const roleProviderNativeExitProbe = process.platform === 'win32' ? (() => {
   const script = `
 function Invoke-NativeExitProbe {
@@ -3168,6 +3293,19 @@ function Invoke-NativeExitProbe {
 const terminalAgentSelectorStart = boundedRoleSource.indexOf('$terminalMessage = $null')
 const terminalAgentSelectorEnd = boundedRoleSource.indexOf('[IO.File]::WriteAllText($BodyFile', terminalAgentSelectorStart)
 const terminalAgentSelectorSource = terminalAgentSelectorStart >= 0 && terminalAgentSelectorEnd > terminalAgentSelectorStart ? boundedRoleSource.slice(terminalAgentSelectorStart, terminalAgentSelectorEnd) : ''
+const postRepairEvidenceValidatorStart = postRepairExecutionRun.indexOf('function Get-ValidatedReviewerFailureEvidenceLines {')
+const postRepairEvidenceValidatorEnd = postRepairExecutionRun.indexOf("\n\n$dispatchPath = Join-Path", postRepairEvidenceValidatorStart)
+const postRepairEvidenceValidatorSource = postRepairEvidenceValidatorStart >= 0 && postRepairEvidenceValidatorEnd > postRepairEvidenceValidatorStart
+  ? postRepairExecutionRun.slice(postRepairEvidenceValidatorStart, postRepairEvidenceValidatorEnd)
+  : ''
+const postRepairProviderStart = postRepairExecutionRun.indexOf("$prompt = [IO.File]::ReadAllText($promptPath, $utf8NoBom)")
+const postRepairCanonicalWriteTokenStart = postRepairExecutionRun.indexOf(
+  "$priorToken = $env:GH_TOKEN\ntry {\n  Remove-Item Env:GH_TOKEN",
+  postRepairProviderStart + 1,
+)
+const postRepairProviderThroughRebindSource = postRepairProviderStart >= 0 && postRepairCanonicalWriteTokenStart > postRepairProviderStart
+  ? postRepairExecutionRun.slice(postRepairProviderStart, postRepairCanonicalWriteTokenStart)
+  : ''
 const roleProviderTerminalMessageProbe = process.platform === 'win32' ? (() => {
   const encodeLines = (lines) => Buffer.from(JSON.stringify(lines), 'utf8').toString('base64')
   const intermediate = JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: 'intermediate transport message' } })
@@ -3197,14 +3335,160 @@ try { Select-TerminalAgentMessage -events (Read-Lines '${zeroEncoded}') | Out-Nu
   return JSON.parse(execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' }))
 })() : null
 const malformedTerminalOutput = process.platform === 'win32' ? evaluateRoleDispatchOutputV1({ dispatch: implementerDispatch, body: roleProviderTerminalMessageProbe.malformed }) : null
+const trustedHostCredentialProbe = process.platform === 'win32' ? (() => {
+  const probeRoot = mkdtempSync(path.join(tmpdir(), 'pta-role-token-'))
+  const providerProbePath = path.join(probeRoot, 'provider-token.txt')
+  const hostProbePath = path.join(probeRoot, 'host-token.txt')
+  const promptPath = path.join(probeRoot, 'prompt.txt')
+  const jsonlPath = path.join(probeRoot, 'output.jsonl')
+  const bodyPath = path.join(probeRoot, 'body.md')
+  const resultPath = path.join(probeRoot, 'result.json')
+  const dispatchPath = path.join(probeRoot, 'dispatch.json')
+  try {
+    writeFileSync(path.join(probeRoot, 'codex.cmd'), '@echo off\r\nif defined GH_TOKEN (> "%ROLE_PROVIDER_TOKEN_PROBE%" echo PRESENT) else (> "%ROLE_PROVIDER_TOKEN_PROBE%" echo ABSENT)\r\necho {"type":"item.completed","item":{"type":"agent_message","text":"provider-result"}}\r\nexit /b 0\r\n')
+    writeFileSync(path.join(probeRoot, 'node.cmd'), '@echo off\r\nif not defined GH_TOKEN (>> "%ROLE_HOST_TOKEN_PROBE%" echo MISSING& exit /b 51)\r\n>> "%ROLE_HOST_TOKEN_PROBE%" echo %GH_TOKEN%\r\necho %* | %SystemRoot%\\System32\\findstr.exe /C:"--role-rebind-file" >nul\r\nif not errorlevel 1 (echo {"next_action":"PROTECTED_OPERATION_READY","mutation_count":0}& exit /b 0)\r\necho {"next_action":"POST_MERGE_DECISION","mutation_count":0}\r\nexit /b 0\r\n')
+    writeFileSync(promptPath, 'bounded prompt', 'utf8')
+    writeFileSync(dispatchPath, '{}', 'utf8')
+    const script = `
+$ErrorActionPreference = 'Stop'
+$utf8NoBom = [Text.UTF8Encoding]::new($false)
+${boundedRoleSource}
+${assertRoleOutputSource}
+${assertFreshRoleBindingSource}
+Invoke-BoundedRole -PromptFile $env:ROLE_PROMPT_FILE -Sandbox 'read-only' -JsonlFile $env:ROLE_JSONL_FILE -BodyFile $env:ROLE_BODY_FILE
+$validated = Assert-RoleOutput -DispatchFile $env:ROLE_DISPATCH_FILE -BodyFile $env:ROLE_BODY_FILE -ExpectedAction 'POST_MERGE_DECISION' -ResultFile $env:ROLE_RESULT_FILE -JsonlFile $env:ROLE_JSONL_FILE
+Assert-FreshRoleBinding -DispatchFile $env:ROLE_DISPATCH_FILE
+[Console]::Out.Write((@{
+  restoredToken = $env:GH_TOKEN
+  validatedAction = $validated.next_action
+} | ConvertTo-Json -Compress))
+`
+    const result = JSON.parse(execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PATH: `${probeRoot};${process.env.PATH}`,
+        GH_TOKEN: 'trusted-host-token',
+        GITHUB_WORKSPACE: repositoryRoot,
+        RUNNER_TEMP: probeRoot,
+        PTA_ROLE_HOST_RUNNER: 'trusted-host-runner',
+        ROLE_PROVIDER_TOKEN_PROBE: providerProbePath,
+        ROLE_HOST_TOKEN_PROBE: hostProbePath,
+        ROLE_PROMPT_FILE: promptPath,
+        ROLE_JSONL_FILE: jsonlPath,
+        ROLE_BODY_FILE: bodyPath,
+        ROLE_RESULT_FILE: resultPath,
+        ROLE_DISPATCH_FILE: dispatchPath,
+      },
+    }))
+    return Object.freeze({
+      ...result,
+      providerToken: readFileSync(providerProbePath, 'utf8').trim(),
+      hostTokens: readFileSync(hostProbePath, 'utf8').trim().split(/\r?\n/),
+    })
+  } finally {
+    rmSync(probeRoot, { recursive: true, force: true })
+  }
+})() : null
+const postRepairFailureEvidenceProbe = process.platform === 'win32' ? (() => {
+  const encodeJson = (value) => Buffer.from(JSON.stringify(value), 'utf8').toString('base64')
+  const failure = Object.freeze({ failure_evidence: reviewerFailureEvidence })
+  const invalidFailure = structuredClone(failure)
+  invalidFailure.failure_evidence.header.selected_body_sha256 = '0'.repeat(64)
+  const script = `
+$ErrorActionPreference = 'Stop'
+${postRepairEvidenceValidatorSource}
+function Read-EncodedJson([string]$Encoded) {
+  return [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Encoded)) | ConvertFrom-Json
+}
+$dispatch = Read-EncodedJson '${encodeJson(reviewerDispatch)}'
+$validLines = @(Get-ValidatedReviewerFailureEvidenceLines -Failure (Read-EncodedJson '${encodeJson(failure)}') -Dispatch $dispatch)
+$invalidRejected = $false
+try { Get-ValidatedReviewerFailureEvidenceLines -Failure (Read-EncodedJson '${encodeJson(invalidFailure)}') -Dispatch $dispatch | Out-Null } catch { $invalidRejected = $true }
+[Console]::Out.Write((@{
+  lineCount = $validLines.Count
+  headerRecordType = ($validLines[0] | ConvertFrom-Json).record_type
+  chunkRecordTypesValid = @($validLines | Select-Object -Skip 1 | ForEach-Object { ($_ | ConvertFrom-Json).record_type } | Where-Object { $_ -cne 'independent_reviewer_role_output_failure_body_chunk_v1' }).Count -eq 0
+  invalidRejected = $invalidRejected
+} | ConvertTo-Json -Compress))
+`
+  return JSON.parse(execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' }))
+})() : null
+const postRepairTrustedHostCredentialProbe = process.platform === 'win32' ? (() => {
+  const runProbe = (mode) => {
+    const probeRoot = mkdtempSync(path.join(tmpdir(), `pta-post-repair-token-${mode}-`))
+    const providerProbePath = path.join(probeRoot, 'provider-token.txt')
+    const hostProbePath = path.join(probeRoot, 'host-token.txt')
+    const promptPath = path.join(probeRoot, 'prompt.txt')
+    const bodyPath = path.join(probeRoot, 'body.md')
+    const resultPath = path.join(probeRoot, 'result.json')
+    const dispatchPath = path.join(probeRoot, 'dispatch.json')
+    const failureResultPath = path.join(probeRoot, 'failure-result.json')
+    try {
+      writeFileSync(path.join(probeRoot, 'codex.cmd'), '@echo off\r\nif defined GH_TOKEN (> "%ROLE_PROVIDER_TOKEN_PROBE%" echo PRESENT) else (> "%ROLE_PROVIDER_TOKEN_PROBE%" echo ABSENT)\r\necho {"type":"item.completed","item":{"type":"agent_message","text":"review-body"}}\r\nexit /b 0\r\n')
+      writeFileSync(path.join(probeRoot, 'node.cmd'), '@echo off\r\nif not defined GH_TOKEN (>> "%ROLE_HOST_TOKEN_PROBE%" echo MISSING& exit /b 51)\r\n>> "%ROLE_HOST_TOKEN_PROBE%" echo PRESENT:%*\r\necho %* | %SystemRoot%\\System32\\findstr.exe /C:"--role-rebind-file" >nul\r\nif not errorlevel 1 (echo {"next_action":"PROTECTED_OPERATION_READY","mutation_count":0}& exit /b 0)\r\nif /I "%ROLE_OUTPUT_MODE%"=="invalid" (type "%ROLE_FAILURE_RESULT_FILE%"& exit /b 1)\r\necho {"next_action":"POST_REVIEW","mutation_count":0}\r\nexit /b 0\r\n')
+      writeFileSync(promptPath, 'bounded prompt', 'utf8')
+      writeFileSync(dispatchPath, JSON.stringify(reviewerDispatch), 'utf8')
+      writeFileSync(failureResultPath, JSON.stringify({ failure_evidence: reviewerFailureEvidence }), 'utf8')
+      const script = `
+$ErrorActionPreference = 'Stop'
+$utf8NoBom = [Text.UTF8Encoding]::new($false)
+${postRepairEvidenceValidatorSource}
+$dispatchPath = $env:ROLE_DISPATCH_FILE
+$promptPath = $env:ROLE_PROMPT_FILE
+$bodyPath = $env:ROLE_BODY_FILE
+$resultPath = $env:ROLE_RESULT_FILE
+$outcome = 'COMPLETED'
+try {
+${postRepairProviderThroughRebindSource}
+} catch {
+  $outcome = $_.Exception.Message
+}
+[Console]::Out.Write((@{
+  outcome = $outcome
+  restoredToken = $env:GH_TOKEN
+  validatedAction = $(if ($null -eq $validated) { $null } else { $validated.next_action })
+  reboundAction = $(if ($null -eq $rebound) { $null } else { $rebound.next_action })
+} | ConvertTo-Json -Compress))
+`
+      const result = JSON.parse(execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          PATH: `${probeRoot};${process.env.PATH}`,
+          GH_TOKEN: 'trusted-post-repair-host-token',
+          GITHUB_WORKSPACE: repositoryRoot,
+          RUNNER_TEMP: probeRoot,
+          PTA_REVIEW_HOST_RUNNER: 'trusted-post-repair-host-runner',
+          ROLE_OUTPUT_MODE: mode,
+          ROLE_PROVIDER_TOKEN_PROBE: providerProbePath,
+          ROLE_HOST_TOKEN_PROBE: hostProbePath,
+          ROLE_FAILURE_RESULT_FILE: failureResultPath,
+          ROLE_DISPATCH_FILE: dispatchPath,
+          ROLE_PROMPT_FILE: promptPath,
+          ROLE_BODY_FILE: bodyPath,
+          ROLE_RESULT_FILE: resultPath,
+        },
+      }))
+      return Object.freeze({
+        ...result,
+        providerToken: readFileSync(providerProbePath, 'utf8').trim(),
+        hostCalls: readFileSync(hostProbePath, 'utf8').trim().split(/\r?\n/),
+      })
+    } finally {
+      rmSync(probeRoot, { recursive: true, force: true })
+    }
+  }
+  return Object.freeze({ valid: runProbe('valid'), invalid: runProbe('invalid') })
+})() : null
 const workflowBoundaryMatrix = [
-  roleBindRun.includes("operation=CONVERGED_NOOP") && roleConsumerJob.steps.find((step) => step.name === 'Execute bounded role and host operation')?.if === "steps.role_dispatch_plan.outputs.operation == 'EXECUTE_ROLE'" && roleExecutionRun.indexOf('$publicationComment = Publish-CanonicalComment -BodyFile $publicationPath') < roleExecutionRun.indexOf('--review-event-file $publishedEventPath') && roleExecutionRun.indexOf('--review-event-file $publishedEventPath') < roleExecutionRun.indexOf("-ExpectedAction 'POST_REVIEW'") && assertRoleOutputSource.includes('--role-jsonl-file $JsonlFile') && (roleExecutionRun.match(/Assert-RoleOutput[^\n]+-JsonlFile \$/g) ?? []).length === 3 && assertRoleOutputSource.includes('$failure.bounded_metadata') && expectedRoleOutputFailureDiagnosticKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes('-gt 9007199254740991') && assertRoleOutputSource.includes('-isnot [System.Array]') && assertRoleOutputSource.includes('$diagnosticLine = $null') && assertRoleOutputSource.split('[Console]::Error.WriteLine($diagnosticLine)').length === 2 && assertRoleOutputSource.includes("throw 'role_output_validation_failed'") && !assertRoleOutputSource.includes('Start-Sleep') && !assertRoleOutputSource.includes('retry'),
-  boundedRoleSource.startsWith('function Invoke-BoundedRole {') && !boundedRoleSource.includes('$LASTEXITCODE = $null') && boundedRoleSource.indexOf('codex.cmd exec') < boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') && terminalAgentSelectorSource.includes('$terminalMessage = [string]$event.item.text') && !terminalAgentSelectorSource.includes('$messages +=') && (process.platform !== 'win32' || (roleProviderNativeExitProbe.success === 0 && roleProviderNativeExitProbe.failure === 37 && roleProviderTerminalMessageProbe.multiple === roleImplementationResultBody && roleProviderTerminalMessageProbe.zeroRejected === true && malformedTerminalOutput.next_action === 'STOP')) && roleExecutionRun.split('Assert-FreshRoleBinding').length >= 8 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'") && roleExecutionRun.includes("throw 'publication_continuation_task_binding_invalid'") && roleExecutionRun.includes("throw 'publication_continuation_route_failed'") && roleExecutionRun.includes("throw 'publication_continuation_binding_invalid'") && roleExecutionRun.includes("throw 'publication_reviewer_dispatch_not_ready'") && roleExecutionRun.indexOf("$reviewPlan = Get-Content -LiteralPath $reviewPlanPath") < roleExecutionRun.indexOf('$reviewTask = gh api') && roleExecutionRun.includes("$reviewTask.number -ne $dispatch.task_issue_number -or $reviewTask.state -cne 'open' -or $null -ne $reviewTask.pull_request") && roleExecutionRun.indexOf("throw 'publication_reviewer_task_binding_invalid'") < roleExecutionRun.indexOf('Invoke-BoundedRole -PromptFile $reviewPromptPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath') < roleExecutionRun.indexOf('$publicationTask = gh api') && roleExecutionRun.includes("$publicationTask.number -ne $dispatch.task_issue_number -or $publicationTask.state -cne 'open' -or $null -ne $publicationTask.pull_request") && roleExecutionRun.indexOf('$publicationTask = gh api') < roleExecutionRun.indexOf('$null = Publish-CanonicalComment -BodyFile $reviewBodyPath'),
-  postRepairReviewJob.steps.find((step) => step.name === 'Bind post-repair Independent Reviewer')?.run.includes('task_state = $state') && postRepairReviewJob.steps.find((step) => step.name === 'Execute and publish post-repair Review')?.run.includes('--role-rebind-file'),
-  runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id'),
-  mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR'" && mergeOperationRun.includes('--merge-operator-file $dispatchPath') && mergeOperationRun.indexOf('--merge-operator-file $dispatchPath') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force'),
+  roleBindRun.includes("operation=CONVERGED_NOOP") && roleExecutionStep?.if === "steps.role_dispatch_plan.outputs.operation == 'EXECUTE_ROLE'" && roleExecutionStep?.env?.GH_TOKEN === '${{ github.token }}' && mergeDecisionOutput.next_action === 'POST_MERGE_DECISION' && !Object.hasOwn(mergeDecisionOutput, 'bounded_metadata') && roleOutputFailureDiagnosticKeys.length === 9 && roleOutputFailureDiagnosticKeys.join('\n') === expectedRoleOutputFailureDiagnosticKeys.join('\n') && roleExecutionRun.indexOf('$publicationComment = Publish-CanonicalComment -BodyFile $publicationPath') < roleExecutionRun.indexOf('--review-event-file $publishedEventPath') && roleExecutionRun.indexOf('--review-event-file $publishedEventPath') < roleExecutionRun.indexOf("-ExpectedAction 'POST_REVIEW'") && assertRoleOutputSource.includes('--role-jsonl-file $JsonlFile') && (roleExecutionRun.match(/Assert-RoleOutput[^\n]+-JsonlFile \$/g) ?? []).length === 3 && assertRoleOutputSource.includes('$failure.bounded_metadata') && expectedRoleOutputFailureDiagnosticKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("$dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && assertRoleOutputSource.includes('$failure.failure_evidence') && reviewerEvidenceHeaderKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && assertRoleOutputSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && assertRoleOutputSource.includes('$header.selected_body_utf8_byte_count -gt 262144') && assertRoleOutputSource.includes('$header.body_chunk_count -gt 64') && assertRoleOutputSource.includes('$bytes.Length -ne 4096') && assertRoleOutputSource.includes('[Convert]::FromBase64String($chunk.body_base64)') && assertRoleOutputSource.includes('$sha256.ComputeHash($capturedBytes)') && assertRoleOutputSource.includes("$header.body_capture_status -ceq 'BOUND_EXCEEDED'") && assertRoleOutputSource.includes('$chunks.Count -ne 0') && assertRoleOutputSource.includes('-gt 9007199254740991') && assertRoleOutputSource.includes('-isnot [System.Array]') && assertRoleOutputSource.includes('$diagnosticLines = @()') && assertRoleOutputSource.includes('foreach ($diagnosticLine in $diagnosticLines)') && assertRoleOutputSource.split('[Console]::Error.WriteLine($diagnosticLine)').length === 2 && assertRoleOutputSource.includes("throw 'role_output_validation_failed'") && !assertRoleOutputSource.includes('Start-Sleep') && !assertRoleOutputSource.includes('retry') && !Object.hasOwn(workflow.concurrency, 'queue') && workflow.concurrency['cancel-in-progress'] === false && roleExecutionRun.includes("if ($expected -in @('POST_REVIEW', 'POST_MERGE_DECISION'))") && !roleExecutionRun.includes('Complete-ReviewerClosure'),
+  boundedRoleSource.startsWith('function Invoke-BoundedRole {') && !boundedRoleSource.includes('$LASTEXITCODE = $null') && boundedRoleSource.indexOf('$priorToken = $env:GH_TOKEN') < boundedRoleSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(boundedRoleSource) && boundedRoleSource.indexOf('codex.cmd exec') < boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') && boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') < boundedRoleSource.indexOf('if ($null -eq $priorToken)') && terminalAgentSelectorSource.includes('$terminalMessage = [string]$event.item.text') && !terminalAgentSelectorSource.includes('$messages +=') && (process.platform !== 'win32' || (roleProviderNativeExitProbe.success === 0 && roleProviderNativeExitProbe.failure === 37 && roleProviderTerminalMessageProbe.multiple === roleImplementationResultBody && roleProviderTerminalMessageProbe.zeroRejected === true && malformedTerminalOutput.next_action === 'STOP' && trustedHostCredentialProbe.providerToken === 'ABSENT' && trustedHostCredentialProbe.restoredToken === 'trusted-host-token' && trustedHostCredentialProbe.validatedAction === 'POST_MERGE_DECISION' && trustedHostCredentialProbe.hostTokens.join('\n') === 'trusted-host-token\ntrusted-host-token')) && roleExecutionRun.indexOf('Invoke-BoundedRole -PromptFile $promptPath') < roleExecutionRun.indexOf('$validated = Assert-RoleOutput') && roleExecutionRun.indexOf('$validated = Assert-RoleOutput') < roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') < roleExecutionRun.indexOf('$null = Publish-CanonicalComment -BodyFile $bodyPath') && roleExecutionRun.split('Assert-FreshRoleBinding').length >= 8 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'") && roleExecutionRun.includes("throw 'publication_continuation_task_binding_invalid'") && roleExecutionRun.includes("throw 'publication_continuation_route_failed'") && roleExecutionRun.includes("throw 'publication_continuation_binding_invalid'") && roleExecutionRun.includes("throw 'publication_reviewer_dispatch_not_ready'") && roleExecutionRun.indexOf("$reviewPlan = Get-Content -LiteralPath $reviewPlanPath") < roleExecutionRun.indexOf('$reviewTask = gh api') && roleExecutionRun.includes("$reviewTask.number -ne $dispatch.task_issue_number -or $reviewTask.state -cne 'open' -or $null -ne $reviewTask.pull_request") && roleExecutionRun.indexOf("throw 'publication_reviewer_task_binding_invalid'") < roleExecutionRun.indexOf('Invoke-BoundedRole -PromptFile $reviewPromptPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath') < roleExecutionRun.indexOf('$publicationTask = gh api') && roleExecutionRun.includes("$publicationTask.number -ne $dispatch.task_issue_number -or $publicationTask.state -cne 'open' -or $null -ne $publicationTask.pull_request") && roleExecutionRun.indexOf('$publicationTask = gh api') < roleExecutionRun.indexOf('$null = Publish-CanonicalComment -BodyFile $reviewBodyPath') && !roleExecutionRun.includes('Assert-FreshReviewerSnapshot') && !roleExecutionRun.includes('review_thread_snapshot'),
+  postRepairReviewJob.steps.find((step) => step.name === 'Bind post-repair Independent Reviewer')?.run.includes('task_state = $state') && postRepairExecutionStep?.env?.GH_TOKEN === '${{ github.token }}' && postRepairExecutionRun.includes('--role-rebind-file') && !postRepairExecutionRun.includes('--review-publication-rebind-file') && !postRepairExecutionRun.includes('--review-closure-file') && postRepairExecutionRun.includes('if ($nativeExit -ne 0) { throw "post_repair_review_provider_failed_$nativeExit" }') && postRepairExecutionRun.includes("if ($messages.Count -ne 1) { throw 'post_repair_review_result_cardinality_invalid' }") && postRepairProviderThroughRebindSource.indexOf('$priorToken = $env:GH_TOKEN') < postRepairProviderThroughRebindSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(postRepairProviderThroughRebindSource) && postRepairProviderThroughRebindSource.indexOf('codex.cmd exec') < postRepairProviderThroughRebindSource.indexOf('$nativeExit = $LASTEXITCODE') && postRepairProviderThroughRebindSource.indexOf('$nativeExit = $LASTEXITCODE') < postRepairProviderThroughRebindSource.indexOf('if ($null -eq $priorToken)') && postRepairProviderThroughRebindSource.indexOf('if ($null -eq $priorToken)') < postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-output-file') && postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-output-file') < postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-rebind-file') && postRepairExecutionRun.indexOf('if ($nativeExit -ne 0)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairExecutionRun.indexOf('if ($messages.Count -ne 1)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && postRepairEvidenceValidatorSource.includes('$sha256.ComputeHash($capturedBytes)') && !postRepairEvidenceValidatorSource.includes('post_repair') && postRepairExecutionRun.includes("$failureDispatch.next_action -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.indexOf('[Console]::Error.WriteLine($diagnosticLine)') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.includes('$diagnosticLines = @()') && (process.platform !== 'win32' || (postRepairFailureEvidenceProbe.lineCount === reviewerFailureEvidence.chunks.length + 1 && postRepairFailureEvidenceProbe.headerRecordType === 'independent_reviewer_role_output_failure_evidence_v1' && postRepairFailureEvidenceProbe.chunkRecordTypesValid === true && postRepairFailureEvidenceProbe.invalidRejected === true && postRepairTrustedHostCredentialProbe.valid.providerToken === 'ABSENT' && postRepairTrustedHostCredentialProbe.valid.restoredToken === 'trusted-post-repair-host-token' && postRepairTrustedHostCredentialProbe.valid.outcome === 'COMPLETED' && postRepairTrustedHostCredentialProbe.valid.validatedAction === 'POST_REVIEW' && postRepairTrustedHostCredentialProbe.valid.reboundAction === 'PROTECTED_OPERATION_READY' && postRepairTrustedHostCredentialProbe.valid.hostCalls.length === 2 && postRepairTrustedHostCredentialProbe.valid.hostCalls.every((call) => call.startsWith('PRESENT:')) && postRepairTrustedHostCredentialProbe.valid.hostCalls[1].includes('--role-rebind-file') && postRepairTrustedHostCredentialProbe.invalid.providerToken === 'ABSENT' && postRepairTrustedHostCredentialProbe.invalid.restoredToken === 'trusted-post-repair-host-token' && postRepairTrustedHostCredentialProbe.invalid.outcome === 'post_repair_review_result_invalid' && postRepairTrustedHostCredentialProbe.invalid.validatedAction === null && postRepairTrustedHostCredentialProbe.invalid.reboundAction === null && postRepairTrustedHostCredentialProbe.invalid.hostCalls.length === 1 && postRepairTrustedHostCredentialProbe.invalid.hostCalls[0].startsWith('PRESENT:'))),
+  runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id') && !runnerSource.includes('ADD_REVIEW_THREAD_REPLY_MUTATION') && !runnerSource.includes('RESOLVE_REVIEW_THREAD_MUTATION') && !runnerSource.includes('executeReviewerPublicationRebindV1') && !runnerSource.includes('executeReviewThreadClosureV1') && !runnerSource.includes("mode: 'review_publication_rebind'") && !runnerSource.includes("mode: 'review_closure'") && runnerSource.match(/parseIndependentReviewDecisionProjectionV1/g)?.length === 7,
+  mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR'" && mergeOperationRun.includes('--merge-operator-file $dispatchPath') && mergeOperationRun.indexOf('--merge-operator-file $dispatchPath') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force') && !workflowSource.includes('gh workflow run') && !runnerSource.includes('createWorkflowDispatch') && runnerSource.includes('acquireMergeCheckRollupSnapshotV1') && runnerSource.includes('acquireMergeReviewThreadsV1') && runnerSource.includes('executeProtectedTransitionAdmissionV1'),
 ]
-for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 protected operation boundaries ${index + 1}`)
+for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
 if (assertions !== 576) throw new Error(`expected exactly 576 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
