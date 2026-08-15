@@ -2584,13 +2584,17 @@ const observeIndependentReviewerFailureV1 = (body, dispatch) => {
     for (const line of blocks[0][1].split(/\r?\n/)) {
       if (line.trim().length === 0) continue
       const match = line.match(/^([a-z][a-z0-9_]*):[ \t]+(.+)$/)
-      if (!match || scalars.has(match[1])) {
+      if (!match) {
         parserFailureReason = 'review_yaml_scalar_invalid'
         break
       }
       const scalar = observeReviewScalarV1(match[2])
       fieldNames.push(match[1])
       scalarTypes.push(scalar.type)
+      if (scalars.has(match[1])) {
+        parserFailureReason = 'review_yaml_scalar_invalid'
+        break
+      }
       if (scalar.type === 'invalid') {
         parserFailureReason = 'review_scalar_invalid'
         break
