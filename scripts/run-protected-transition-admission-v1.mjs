@@ -2447,7 +2447,7 @@ export const classifyRoleOutputFailureDiagnosticV1 = (metadata) => {
     : null
 }
 
-export const projectRoleOutputFailureDiagnosticV1 = ({ dispatch, bodyBytes, jsonlBytes }) => {
+const projectRoleOutputDiagnosticCoreV1 = ({ dispatch, bodyBytes, jsonlBytes }) => {
   if (dispatch?.purpose !== 'MERGE_DECISION' || !Buffer.isBuffer(bodyBytes) || !Buffer.isBuffer(jsonlBytes)) {
     throw new Error('role_output_diagnostic_unavailable')
   }
@@ -2473,20 +2473,28 @@ export const projectRoleOutputFailureDiagnosticV1 = ({ dispatch, bodyBytes, json
     !Number.isSafeInteger(nonEmptyAgentMessageCount) || malformedJsonlLineCount > lines.length ||
     nonEmptyAgentMessageCount > lines.length
   ) throw new Error('role_output_diagnostic_unavailable')
-  const core = Object.freeze({
-    total_jsonl_line_count: lines.length,
-    malformed_jsonl_line_count: malformedJsonlLineCount,
-    non_empty_agent_message_count: nonEmptyAgentMessageCount,
-    selected_body_sha256: createHash('sha256').update(bodyBytes).digest('hex'),
-    expected_body_sha256: createHash('sha256').update(Buffer.from(expectedBody, 'utf8')).digest('hex'),
+  return Object.freeze({
+    expectedBody,
+    metadata: Object.freeze({
+      total_jsonl_line_count: lines.length,
+      malformed_jsonl_line_count: malformedJsonlLineCount,
+      non_empty_agent_message_count: nonEmptyAgentMessageCount,
+      selected_body_sha256: createHash('sha256').update(bodyBytes).digest('hex'),
+      expected_body_sha256: createHash('sha256').update(Buffer.from(expectedBody, 'utf8')).digest('hex'),
+    }),
   })
-  const unavailable = () => Object.freeze({
-    ...core,
-    missing_field_names: EMPTY_ROLE_OUTPUT_FIELD_NAMES_V1,
-    extra_field_names: EMPTY_ROLE_OUTPUT_FIELD_NAMES_V1,
-    type_mismatch_field_names: EMPTY_ROLE_OUTPUT_FIELD_NAMES_V1,
-    value_mismatch_field_names: EMPTY_ROLE_OUTPUT_FIELD_NAMES_V1,
-  })
+}
+
+const projectRoleOutputDiagnosticUnavailableV1 = (core) => Object.freeze({
+  ...core,
+  missing_field_names: EMPTY_ROLE_OUTPUT_FIELD_NAMES_V1,
+  extra_field_names: EMPTY_ROLE_OUTPUT_FIELD_NAMES_V1,
+  type_mismatch_field_names: EMPTY_ROLE_OUTPUT_FIELD_NAMES_V1,
+  value_mismatch_field_names: EMPTY_ROLE_OUTPUT_FIELD_NAMES_V1,
+})
+
+const projectRoleOutputFailureMappingV1 = ({ expectedBody, core, bodyBytes }) => {
+  const unavailable = () => projectRoleOutputDiagnosticUnavailableV1(core)
   const body = bodyBytes.toString('utf8')
   if (body.length === 0 || body.length > 65536) return unavailable()
   try {
@@ -2522,23 +2530,34 @@ export const projectRoleOutputFailureDiagnosticV1 = ({ dispatch, bodyBytes, json
   }
 }
 
-const evaluateRoleOutputInvocationV1 = (invocation) => {
+export const projectRoleOutputFailureDiagnosticV1 = ({ dispatch, bodyBytes, jsonlBytes }) => {
+  const { expectedBody, metadata: core } = projectRoleOutputDiagnosticCoreV1({ dispatch, bodyBytes, jsonlBytes })
+  return projectRoleOutputFailureMappingV1({ expectedBody, core, bodyBytes })
+}
+
+export const evaluateRoleOutputInvocationV1 = (
+  invocation,
+  projectCore = projectRoleOutputDiagnosticCoreV1,
+  projectMapping = projectRoleOutputFailureMappingV1,
+) => {
   const dispatch = readJsonFileV1(invocation.dispatchFile)
   const bodyBytes = readFileSync(invocation.outputFile)
   const result = evaluateRoleDispatchOutputV1({ dispatch, body: bodyBytes.toString('utf8') })
   if (result.exit_code === 0 || !invocation.jsonlFile) return result
+  let jsonlBytes
   try {
-    return Object.freeze({
-      ...result,
-      bounded_metadata: projectRoleOutputFailureDiagnosticV1({
-        dispatch,
-        bodyBytes,
-        jsonlBytes: readFileSync(invocation.jsonlFile),
-      }),
-    })
+    jsonlBytes = readFileSync(invocation.jsonlFile)
   } catch {
-    return result
+    jsonlBytes = Buffer.alloc(0)
   }
+  const { expectedBody, metadata: core } = projectCore({ dispatch, bodyBytes, jsonlBytes })
+  let boundedMetadata
+  try {
+    boundedMetadata = projectMapping({ expectedBody, core, bodyBytes })
+  } catch {
+    boundedMetadata = projectRoleOutputDiagnosticUnavailableV1(core)
+  }
+  return Object.freeze({ ...result, bounded_metadata: boundedMetadata })
 }
 
 const validateRoleDispatchEnvelopeV1 = (dispatch) => {
