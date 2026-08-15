@@ -86,38 +86,12 @@ query MergeAllowedThreads($owner: String!, $name: String!, $pr: Int!, $after: St
       headRefOid
       reviewThreads(first: 100, after: $after) {
         totalCount
-        nodes {
-          id isResolved isOutdated path line startLine diffSide startDiffSide
-          comments(first: 100) {
-            totalCount
-            nodes { id body createdAt url author { login } }
-            pageInfo { hasNextPage endCursor }
-          }
-        }
+        nodes { id isResolved isOutdated }
         pageInfo { hasNextPage endCursor }
       }
     }
   }
 }`
-const ADD_REVIEW_THREAD_REPLY_MUTATION = `
-mutation AddReviewThreadReply($thread: ID!, $body: String!) {
-  addPullRequestReviewThreadReply(input: { pullRequestReviewThreadId: $thread, body: $body }) {
-    comment { id body url }
-  }
-}`
-const RESOLVE_REVIEW_THREAD_MUTATION = `
-mutation ResolveReviewThread($thread: ID!) {
-  resolveReviewThread(input: { threadId: $thread }) {
-    thread { id isResolved isOutdated }
-  }
-}`
-const REVIEW_COMMENT_QUERY = `
-query ReviewComment($id: ID!) {
-  node(id: $id) {
-    ... on PullRequestReviewComment { id body url pullRequest { number headRefOid } }
-  }
-}`
-const REVIEW_THREAD_CONTEXT_MAX_BYTES_V1 = 65_536
 
 const positiveInteger = (value) => Number.isSafeInteger(value) && value > 0
 const occurrenceCount = (text, needle) => text.split(needle).length - 1
@@ -534,7 +508,7 @@ const waitForReadyTerminalChecksV1 = async (request, host) => {
   }
 }
 
-export const acquireMergeReviewThreadsV1 = async (request, host, { includeContext = false } = {}) => {
+export const acquireMergeReviewThreadsV1 = async (request, host) => {
   const { owner, name } = repositoryPartsV1(request.repository)
   const nodes = []
   const nodeIds = new Set()
@@ -590,33 +564,7 @@ export const acquireMergeReviewThreadsV1 = async (request, host, { includeContex
         throw new Error('review_thread_invalid')
       }
       nodeIds.add(node.id)
-      if (!includeContext || node.isResolved || node.isOutdated) {
-        nodes.push(Object.freeze({ id: node.id, isResolved: node.isResolved, isOutdated: node.isOutdated }))
-        continue
-      }
-      const comments = node.comments
-      if (
-        typeof node.path !== 'string' || node.path.length === 0 ||
-        ![null, 'LEFT', 'RIGHT'].includes(node.diffSide) || ![null, 'LEFT', 'RIGHT'].includes(node.startDiffSide) ||
-        ![node.line, node.startLine].every((value) => value === null || positiveInteger(value)) ||
-        !comments || !Number.isSafeInteger(comments.totalCount) || comments.totalCount < 1 ||
-        !Array.isArray(comments.nodes) || comments.nodes.length !== comments.totalCount || comments.nodes.length > PAGE_SIZE ||
-        comments.pageInfo?.hasNextPage !== false || comments.pageInfo?.endCursor !== null
-      ) throw new Error('review_thread_context_invalid')
-      const projectedComments = comments.nodes.map((comment) => {
-        if (
-          !comment || typeof comment.id !== 'string' || comment.id.length === 0 ||
-          typeof comment.body !== 'string' || typeof comment.createdAt !== 'string' || !STRICT_UTC.test(comment.createdAt) ||
-          typeof comment.url !== 'string' || typeof comment.author?.login !== 'string' || comment.author.login.length === 0
-        ) throw new Error('review_thread_context_invalid')
-        return Object.freeze({ id: comment.id, author: comment.author.login, created_at: comment.createdAt, url: comment.url, body: comment.body })
-      })
-      nodes.push(Object.freeze({
-        id: node.id, isResolved: node.isResolved, isOutdated: node.isOutdated,
-        path: node.path, line: node.line, start_line: node.startLine,
-        diff_side: node.diffSide, start_diff_side: node.startDiffSide,
-        comments: Object.freeze(projectedComments),
-      }))
+      nodes.push(Object.freeze({ id: node.id, isResolved: node.isResolved, isOutdated: node.isOutdated }))
     }
 
     const next = validatePageInfoV1(connection.pageInfo, cursors)
@@ -627,11 +575,7 @@ export const acquireMergeReviewThreadsV1 = async (request, host, { includeContex
   }
 
   if (nodes.length !== expectedTotal) throw new Error('review_threads_count_mismatch')
-  const result = Object.freeze({ pull: expectedPull, threads: Object.freeze(nodes) })
-  if (includeContext && Buffer.byteLength(JSON.stringify(result), 'utf8') > REVIEW_THREAD_CONTEXT_MAX_BYTES_V1) {
-    throw new Error('review_thread_context_bound_exceeded')
-  }
-  return result
+  return Object.freeze({ pull: expectedPull, threads: Object.freeze(nodes) })
 }
 
 const validateTaskIdentityRawV1 = (raw, request) => {
@@ -2443,50 +2387,7 @@ const productOwnerMergeDecisionBodyV1 = (dispatch) => [
   '```',
 ].join('\n')
 
-const validateReviewerThreadPlanV1 = (snapshot, dispatch) => {
-  if (
-    !snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot) ||
-    !snapshot.pull || snapshot.pull.number !== dispatch.pr_number || snapshot.pull.state !== 'OPEN' ||
-    snapshot.pull.is_draft !== false || snapshot.pull.head !== dispatch.exact_head ||
-    !Array.isArray(snapshot.threads) || new Set(snapshot.threads.map((thread) => thread?.id)).size !== snapshot.threads.length ||
-    snapshot.threads.some((thread) =>
-      !thread || typeof thread.id !== 'string' || thread.id.length === 0 || thread.isResolved !== false || thread.isOutdated !== false ||
-      typeof thread.path !== 'string' || thread.path.length === 0 ||
-      ![null, 'LEFT', 'RIGHT'].includes(thread.diff_side) || ![null, 'LEFT', 'RIGHT'].includes(thread.start_diff_side) ||
-      ![thread.line, thread.start_line].every((value) => value === null || positiveInteger(value)) ||
-      !Array.isArray(thread.comments) || thread.comments.length < 1 || thread.comments.some((comment) =>
-        !comment || typeof comment.id !== 'string' || comment.id.length === 0 ||
-        typeof comment.author !== 'string' || comment.author.length === 0 ||
-        typeof comment.created_at !== 'string' || !STRICT_UTC.test(comment.created_at) ||
-        typeof comment.url !== 'string' || typeof comment.body !== 'string'
-      )
-    ) || Buffer.byteLength(JSON.stringify(snapshot), 'utf8') > REVIEW_THREAD_CONTEXT_MAX_BYTES_V1
-  ) throw new Error('review_thread_plan_invalid')
-  return Object.freeze({
-    pull: Object.freeze({ ...snapshot.pull }),
-    threads: Object.freeze(snapshot.threads.map((thread) => Object.freeze({
-      ...thread,
-      comments: Object.freeze(thread.comments.map((comment) => Object.freeze({ ...comment }))),
-    }))),
-  })
-}
-
-const acquireBoundReviewerSnapshotV1 = async (dispatch, host) => {
-  const request = roleDispatchRequestV1(dispatch)
-  const acquired = await acquireMergeReviewThreadsV1(request, host, { includeContext: true })
-  const snapshot = {
-    pull: {
-      number: acquired.pull.number,
-      state: acquired.pull.state,
-      is_draft: acquired.pull.isDraft,
-      head: acquired.pull.headRefOid,
-    },
-    threads: acquired.threads.filter((thread) => !thread.isResolved && !thread.isOutdated),
-  }
-  return validateReviewerThreadPlanV1(snapshot, dispatch)
-}
-
-const roleDispatchPromptV1 = (dispatch, reviewerThreadSnapshot = null) => {
+const roleDispatchPromptV1 = (dispatch) => {
   const common = [
     `Repository: ${dispatch.repository}`,
     `Task: #${dispatch.task_issue_number}`,
@@ -2508,13 +2409,7 @@ const roleDispatchPromptV1 = (dispatch, reviewerThreadSnapshot = null) => {
     ].join('\n')
   }
   if (dispatch.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER') {
-    const snapshot = validateReviewerThreadPlanV1(reviewerThreadSnapshot, dispatch)
-    return [
-      ...common,
-      '--- BEGIN COMPLETE ACTIVE REVIEW THREAD SNAPSHOT ---', JSON.stringify(snapshot), '--- END COMPLETE ACTIVE REVIEW THREAD SNAPSHOT ---',
-      'Classify every thread in this complete active non-outdated snapshot. APPROVE is permitted only when every snapshotted finding is closed by the exact reviewed HEAD; otherwise return CHANGES_REQUIRED with complete counts.',
-      'Act as Independent Implementation Reviewer. Read only. Return the existing exact-HEAD Independent Review Decision body with one terminal decision and complete blocker, remaining, and UNKNOWN counts.',
-    ].join('\n')
+    return [...common, 'Act as Independent Implementation Reviewer. Read only. Return the existing exact-HEAD Independent Review Decision body with one terminal decision and complete blocker, remaining, and UNKNOWN counts.'].join('\n')
   }
   if (dispatch.purpose === 'MERGE_DECISION') {
     return [
@@ -3102,112 +2997,6 @@ const verifyMergeDecisionGateV1 = async (dispatch, host) => {
   return gate
 }
 
-const sameThreadIdsV1 = (left, right) =>
-  [...left].sort().join('\n') === [...right].sort().join('\n')
-
-const acquireReviewClosureBindingV1 = async ({ dispatch, host, reviewCommentId = null, reviewBody = null, expectedActiveIds = null }) => {
-  await acquireRoleDispatchBindingV1(dispatch, host)
-  await acquireTaskIdentityV1(roleDispatchRequestV1(dispatch), host)
-  await verifyRoleDispatchSourceV1(dispatch, host)
-  if (reviewCommentId !== null) {
-    if (!positiveInteger(reviewCommentId) || typeof reviewBody !== 'string' || reviewBody.length === 0) throw new Error('review_closure_authority_invalid')
-    const reviewRecord = await fetchRoleCommentRecordV1(dispatch.repository, dispatch.task_issue_number, reviewCommentId, host)
-    if (reviewRecord.body !== reviewBody) throw new Error('review_closure_authority_changed')
-    const review = parseIndependentReviewDecisionProjectionV1(reviewRecord.body, dispatch.repository, dispatch.task_issue_number)
-    if (review.pr_number !== dispatch.pr_number || review.reviewed_head !== dispatch.exact_head) throw new Error('review_closure_authority_changed')
-  }
-  const acquired = await acquireMergeReviewThreadsV1(roleDispatchRequestV1(dispatch), host)
-  if (acquired.pull.number !== dispatch.pr_number || acquired.pull.state !== 'OPEN' || acquired.pull.isDraft || acquired.pull.headRefOid !== dispatch.exact_head) {
-    throw new Error('review_closure_binding_changed')
-  }
-  const activeIds = acquired.threads.filter((thread) => !thread.isResolved && !thread.isOutdated).map((thread) => thread.id)
-  if (expectedActiveIds !== null && !sameThreadIdsV1(activeIds, expectedActiveIds)) throw new Error('review_closure_thread_set_changed')
-  return Object.freeze(activeIds)
-}
-
-export const executeReviewerPublicationRebindV1 = async ({ dispatch, reviewThreadSnapshot, host }) => {
-  try {
-    dispatch = normalizeRoleDispatchConsumerV1(dispatch)
-    if (dispatch.next_action !== 'INDEPENDENT_IMPLEMENTATION_REVIEWER') throw new Error('review_thread_plan_invalid')
-    const expected = validateReviewerThreadPlanV1(reviewThreadSnapshot, dispatch)
-    await acquireReviewClosureBindingV1({ dispatch, host, expectedActiveIds: expected.threads.map((thread) => thread.id) })
-    const fresh = await acquireBoundReviewerSnapshotV1(dispatch, host)
-    if (JSON.stringify(fresh) !== JSON.stringify(expected)) throw new Error('review_thread_snapshot_changed')
-    return Object.freeze({
-      state: 'READY', allowed: false, exit_code: 0, reason: 'review_thread_snapshot_rebound',
-      automation_status: 'OPERATION_READY', next_action: 'REVIEW_PUBLICATION_READY', mutation_count: 0,
-      exact_head: dispatch.exact_head, active_thread_count: fresh.threads.length,
-    })
-  } catch (error) {
-    return roleDispatchStopV1(error instanceof Error ? error.message : 'review_publication_rebind_failed')
-  }
-}
-
-export const executeReviewThreadClosureV1 = async ({ dispatch, reviewThreadSnapshot, reviewBody, reviewCommentId, host }) => {
-  let mutationCount = 0
-  try {
-    dispatch = normalizeRoleDispatchConsumerV1(dispatch)
-    if (dispatch.next_action !== 'INDEPENDENT_IMPLEMENTATION_REVIEWER') throw new Error('review_closure_dispatch_invalid')
-    const expected = validateReviewerThreadPlanV1(reviewThreadSnapshot, dispatch)
-    const validated = evaluateRoleDispatchOutputV1({ dispatch, body: reviewBody })
-    if (validated.next_action !== 'POST_REVIEW') throw new Error('review_closure_authority_invalid')
-    const review = parseIndependentReviewDecisionProjectionV1(reviewBody, dispatch.repository, dispatch.task_issue_number)
-    const initialIds = expected.threads.map((thread) => thread.id)
-    await acquireReviewClosureBindingV1({ dispatch, host, reviewCommentId, reviewBody, expectedActiveIds: initialIds })
-    const freshPublishedSnapshot = await acquireBoundReviewerSnapshotV1(dispatch, host)
-    if (JSON.stringify(freshPublishedSnapshot) !== JSON.stringify(expected)) throw new Error('review_thread_snapshot_changed')
-    if (review.decision !== 'APPROVE') return Object.freeze({
-      state: 'COMPLETED', allowed: false, exit_code: 0, reason: 'review_closure_not_authorized',
-      automation_status: 'COMPLETED_NOOP', next_action: 'REVIEW_CLOSURE_NOOP', mutation_count: 0,
-      exact_head: dispatch.exact_head, active_thread_count: initialIds.length,
-    })
-    if (review.blocking_finding_count !== 0 || review.remaining_finding_count !== 0 || review.unknown_count !== 0) {
-      throw new Error('review_closure_authority_invalid')
-    }
-
-    const closureBody = `Closure evidence: canonical Independent Review Decision #${reviewCommentId} is parser-valid APPROVE 0/0/0 for exact HEAD ${dispatch.exact_head}.`
-    for (let index = 0; index < initialIds.length; index += 1) {
-      const threadId = initialIds[index]
-      const remaining = initialIds.slice(index)
-      await acquireReviewClosureBindingV1({ dispatch, host, reviewCommentId, reviewBody, expectedActiveIds: remaining })
-      const freshRemainingSnapshot = await acquireBoundReviewerSnapshotV1(dispatch, host)
-      const expectedRemainingSnapshot = Object.freeze({ ...expected, threads: Object.freeze(expected.threads.slice(index)) })
-      if (JSON.stringify(freshRemainingSnapshot) !== JSON.stringify(expectedRemainingSnapshot)) throw new Error('review_thread_snapshot_changed')
-      const reply = await graphql(host, ADD_REVIEW_THREAD_REPLY_MUTATION, { thread: threadId, body: closureBody })
-      const posted = reply?.addPullRequestReviewThreadReply?.comment
-      if (!posted || typeof posted.id !== 'string' || posted.body !== closureBody || typeof posted.url !== 'string') throw new Error('review_closure_reply_invalid')
-      mutationCount += 1
-      const verifiedReply = await graphql(host, REVIEW_COMMENT_QUERY, { id: posted.id })
-      const verifiedComment = verifiedReply?.node
-      if (
-        !verifiedComment || verifiedComment.id !== posted.id || verifiedComment.body !== closureBody || verifiedComment.url !== posted.url ||
-        verifiedComment.pullRequest?.number !== dispatch.pr_number || verifiedComment.pullRequest?.headRefOid !== dispatch.exact_head
-      ) throw new Error('review_closure_reply_verify_failed')
-      await acquireReviewClosureBindingV1({ dispatch, host, reviewCommentId, reviewBody, expectedActiveIds: remaining })
-      const resolved = await graphql(host, RESOLVE_REVIEW_THREAD_MUTATION, { thread: threadId })
-      const resolvedThread = resolved?.resolveReviewThread?.thread
-      if (!resolvedThread || resolvedThread.id !== threadId || resolvedThread.isResolved !== true || resolvedThread.isOutdated !== false) {
-        throw new Error('review_closure_resolve_invalid')
-      }
-      mutationCount += 1
-      await acquireReviewClosureBindingV1({ dispatch, host, reviewCommentId, reviewBody, expectedActiveIds: initialIds.slice(index + 1) })
-    }
-    await acquireReviewClosureBindingV1({ dispatch, host, reviewCommentId, reviewBody, expectedActiveIds: [] })
-    const finalSnapshot = await acquireBoundReviewerSnapshotV1(dispatch, host)
-    if (finalSnapshot.threads.length !== 0) throw new Error('review_closure_thread_set_changed')
-    return Object.freeze({
-      state: 'COMPLETED', allowed: false, exit_code: 0, reason: 'review_closure_verified',
-      automation_status: 'COMPLETED', next_action: 'REVIEW_CLOSURE_COMPLETE', mutation_count: mutationCount,
-      exact_head: dispatch.exact_head, active_thread_count: 0,
-    })
-  } catch (error) {
-    return Object.freeze({
-      ...roleDispatchStopV1(error instanceof Error ? error.message : 'review_closure_failed'),
-      mutation_count: mutationCount,
-    })
-  }
-}
-
 export const executeRoleDispatchRebindV1 = async ({ dispatch, host, operation = 'canonical_write', authorityCommentId = null, newHead = null }) => {
   try {
     dispatch = normalizeRoleDispatchConsumerV1(dispatch)
@@ -3247,15 +3036,11 @@ export const executeRoleDispatchConsumerV1 = async ({ dispatch, host }) => {
       automation_status: 'COMPLETED_NOOP', next_action: 'CONVERGED_NOOP', mutation_count: 0,
       exact_head: request.exactHead, evidence_comment_id: converged.id, evidence_kind: converged.kind,
     })
-    const reviewerThreadSnapshot = dispatch.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER'
-      ? await acquireBoundReviewerSnapshotV1(dispatch, host)
-      : null
     return Object.freeze({
       state: 'READY', allowed: false, exit_code: 0, reason: 'role_dispatch_bound',
       automation_status: 'DISPATCH_READY', next_action: 'EXECUTE_ROLE', mutation_count: 0,
       role: dispatch.next_action, purpose: dispatch.purpose, exact_head: request.exactHead,
-      read_only: dispatch.next_action !== 'IMPLEMENTER', prompt: roleDispatchPromptV1(dispatch, reviewerThreadSnapshot),
-      ...(reviewerThreadSnapshot ? { review_thread_snapshot: reviewerThreadSnapshot } : {}),
+      read_only: dispatch.next_action !== 'IMPLEMENTER', prompt: roleDispatchPromptV1(dispatch),
       provider_projection: Object.freeze({
         command: 'codex.cmd',
         exec_argv: Object.freeze(['exec', '-c', 'features.shell_tool=false', '-c', 'sandbox_workspace_write.network_access=false', '-c', 'sandbox_workspace_write.writable_roots=[]', '--sandbox', dispatch.next_action === 'IMPLEMENTER' ? 'workspace-write' : 'read-only', '--ephemeral', '--json', '--cd', '<workspace>', '-']),
@@ -3774,16 +3559,6 @@ const parseInvocation = (argv, environment) => {
     return Object.freeze({ mode: 'role_dispatch', dispatchFile: argv[1] })
   }
   if (
-    argv.length === 4 && argv[0] === '--review-publication-rebind-file' && typeof argv[1] === 'string' && argv[1].length > 0 &&
-    argv[2] === '--review-plan-file' && typeof argv[3] === 'string' && argv[3].length > 0
-  ) return Object.freeze({ mode: 'review_publication_rebind', dispatchFile: argv[1], planFile: argv[3] })
-  if (
-    argv.length === 8 && argv[0] === '--review-closure-file' && typeof argv[1] === 'string' && argv[1].length > 0 &&
-    argv[2] === '--review-plan-file' && typeof argv[3] === 'string' && argv[3].length > 0 &&
-    argv[4] === '--review-body-file' && typeof argv[5] === 'string' && argv[5].length > 0 &&
-    argv[6] === '--review-comment-id' && positiveInteger(Number(argv[7]))
-  ) return Object.freeze({ mode: 'review_closure', dispatchFile: argv[1], planFile: argv[3], bodyFile: argv[5], reviewCommentId: Number(argv[7]) })
-  if (
     [4, 6, 8].includes(argv.length) && argv[0] === '--role-rebind-file' && typeof argv[1] === 'string' && argv[1].length > 0 &&
     argv[2] === '--operation' && ['canonical_write', 'commit_push', 'publication_handoff'].includes(argv[3])
   ) {
@@ -3956,20 +3731,6 @@ const main = async () => {
                 dispatch: readJsonFileV1(invocation.dispatchFile),
                 host,
               })
-            : invocation.mode === 'review_publication_rebind'
-              ? await executeReviewerPublicationRebindV1({
-                  dispatch: readJsonFileV1(invocation.dispatchFile),
-                  reviewThreadSnapshot: readJsonFileV1(invocation.planFile).review_thread_snapshot,
-                  host,
-                })
-              : invocation.mode === 'review_closure'
-                ? await executeReviewThreadClosureV1({
-                    dispatch: readJsonFileV1(invocation.dispatchFile),
-                    reviewThreadSnapshot: readJsonFileV1(invocation.planFile).review_thread_snapshot,
-                    reviewBody: readFileSync(invocation.bodyFile, 'utf8'),
-                    reviewCommentId: invocation.reviewCommentId,
-                    host,
-                  })
             : invocation.mode === 'role_rebind'
               ? await executeRoleDispatchRebindV1({
                   dispatch: readJsonFileV1(invocation.dispatchFile),

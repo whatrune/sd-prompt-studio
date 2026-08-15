@@ -39,7 +39,6 @@ permissions:
 concurrency:
   group: protected-transition-admission-v1-${{ github.repository }}-${{ github.event.issue.number || github.event.pull_request.number || inputs.task_issue_number }}
   cancel-in-progress: false
-  queue: max
 
 jobs:
   protected_transition_admission_v1:
@@ -428,44 +427,12 @@ jobs:
             }
           }
 
-          function Assert-FreshReviewerSnapshot {
-            param([string]$DispatchFile, [string]$PlanFile)
-            $rebindPath = Join-Path $env:RUNNER_TEMP ("review-publication-rebind-{0}.json" -f ([Guid]::NewGuid().ToString('N')))
-            try {
-              node $env:PTA_ROLE_HOST_RUNNER --review-publication-rebind-file $DispatchFile --review-plan-file $PlanFile 1> $rebindPath
-              if ($LASTEXITCODE -ne 0) { throw 'review_publication_rebind_failed' }
-              $rebound = Get-Content -LiteralPath $rebindPath -Raw -Encoding utf8 | ConvertFrom-Json
-              if ($rebound.next_action -cne 'REVIEW_PUBLICATION_READY' -or $rebound.mutation_count -ne 0) { throw 'review_publication_rebind_invalid' }
-            } finally {
-              Remove-Item -LiteralPath $rebindPath -Force -ErrorAction SilentlyContinue
-            }
-          }
-
-          function Complete-ReviewerClosure {
-            param([string]$DispatchFile, [string]$PlanFile, [string]$BodyFile, [Int64]$ReviewCommentId)
-            $closurePath = Join-Path $env:RUNNER_TEMP ("review-closure-{0}.json" -f ([Guid]::NewGuid().ToString('N')))
-            try {
-              node $env:PTA_ROLE_HOST_RUNNER --review-closure-file $DispatchFile --review-plan-file $PlanFile --review-body-file $BodyFile --review-comment-id ([string]$ReviewCommentId) 1> $closurePath
-              if ($LASTEXITCODE -ne 0) { throw 'review_closure_failed' }
-              $closure = Get-Content -LiteralPath $closurePath -Raw -Encoding utf8 | ConvertFrom-Json
-              if ($closure.next_action -notin @('REVIEW_CLOSURE_COMPLETE', 'REVIEW_CLOSURE_NOOP') -or $closure.active_thread_count -lt 0) { throw 'review_closure_invalid' }
-            } finally {
-              Remove-Item -LiteralPath $closurePath -Force -ErrorAction SilentlyContinue
-            }
-          }
-
           $sandbox = if ($plan.read_only) { 'read-only' } else { 'workspace-write' }
           Invoke-BoundedRole -PromptFile $promptPath -Sandbox $sandbox -JsonlFile $outputPath -BodyFile $bodyPath
           $expected = if ($dispatch.next_action -ceq 'IMPLEMENTER') { 'VALIDATE_IMPLEMENTATION' } elseif ($dispatch.purpose -ceq 'MERGE_DECISION') { 'POST_MERGE_DECISION' } elseif ($dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER') { 'POST_REVIEW' } else { 'COMMIT_PUSH_PUBLISH' }
           $validated = Assert-RoleOutput -DispatchFile $dispatchPath -BodyFile $bodyPath -ExpectedAction $expected -ResultFile $resultPath -JsonlFile $outputPath
 
-          if ($expected -ceq 'POST_REVIEW') {
-            Assert-FreshReviewerSnapshot -DispatchFile $dispatchPath -PlanFile $planPath
-            $reviewComment = Publish-CanonicalComment -BodyFile $bodyPath
-            Complete-ReviewerClosure -DispatchFile $dispatchPath -PlanFile $planPath -BodyFile $bodyPath -ReviewCommentId ([int64]$reviewComment.id)
-            exit 0
-          }
-          if ($expected -ceq 'POST_MERGE_DECISION') {
+          if ($expected -in @('POST_REVIEW', 'POST_MERGE_DECISION')) {
             Assert-FreshRoleBinding -DispatchFile $dispatchPath
             $null = Publish-CanonicalComment -BodyFile $bodyPath
             exit 0
@@ -594,11 +561,10 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $reviewTask.number -ne $dispatch.task_issue_number -or $reviewTask.state -cne 'open' -or $null -ne $reviewTask.pull_request) { throw 'publication_reviewer_task_binding_invalid' }
           Invoke-BoundedRole -PromptFile $reviewPromptPath -Sandbox 'read-only' -JsonlFile $reviewOutputPath -BodyFile $reviewBodyPath
           $null = Assert-RoleOutput -DispatchFile $reviewDispatchPath -BodyFile $reviewBodyPath -ExpectedAction 'POST_REVIEW' -ResultFile $reviewResultPath -JsonlFile $reviewOutputPath
-          Assert-FreshReviewerSnapshot -DispatchFile $reviewDispatchPath -PlanFile $reviewPlanPath
+          Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath
           $publicationTask = gh api "repos/$($dispatch.repository)/issues/$($dispatch.task_issue_number)" | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or $publicationTask.number -ne $dispatch.task_issue_number -or $publicationTask.state -cne 'open' -or $null -ne $publicationTask.pull_request) { throw 'publication_reviewer_task_binding_invalid' }
-          $publishedReview = Publish-CanonicalComment -BodyFile $reviewBodyPath
-          Complete-ReviewerClosure -DispatchFile $reviewDispatchPath -PlanFile $reviewPlanPath -BodyFile $reviewBodyPath -ReviewCommentId ([int64]$publishedReview.id)
+          $null = Publish-CanonicalComment -BodyFile $reviewBodyPath
 
   protected_transition_merge_operator_v1:
     needs: protected_transition_admission_v1
@@ -1480,7 +1446,6 @@ jobs:
           }
 
           $dispatchPath = Join-Path $env:RUNNER_TEMP 'post-repair-review-dispatch.json'
-          $planPath = Join-Path $env:RUNNER_TEMP 'post-repair-review-plan.json'
           $promptPath = Join-Path $env:RUNNER_TEMP 'post-repair-review-prompt.txt'
           $bodyPath = Join-Path $env:RUNNER_TEMP 'post-repair-review-body.md'
           $resultPath = Join-Path $env:RUNNER_TEMP 'post-repair-review-result.json'
@@ -1528,10 +1493,10 @@ jobs:
           $validated = Get-Content -LiteralPath $resultPath -Raw -Encoding utf8 | ConvertFrom-Json
           if ($validated.next_action -cne 'POST_REVIEW') { throw 'post_repair_review_operation_invalid' }
           $rebindPath = Join-Path $env:RUNNER_TEMP 'post-repair-review-rebind.json'
-          node $env:PTA_REVIEW_HOST_RUNNER --review-publication-rebind-file $dispatchPath --review-plan-file $planPath 1> $rebindPath
+          node $env:PTA_REVIEW_HOST_RUNNER --role-rebind-file $dispatchPath --operation canonical_write 1> $rebindPath
           if ($LASTEXITCODE -ne 0) { throw 'post_repair_review_rebind_failed' }
           $rebound = Get-Content -LiteralPath $rebindPath -Raw -Encoding utf8 | ConvertFrom-Json
-          if ($rebound.next_action -cne 'REVIEW_PUBLICATION_READY' -or $rebound.mutation_count -ne 0) { throw 'post_repair_review_rebind_invalid' }
+          if ($rebound.next_action -cne 'PROTECTED_OPERATION_READY' -or $rebound.mutation_count -ne 0) { throw 'post_repair_review_rebind_invalid' }
           $priorToken = $env:GH_TOKEN
           try {
             Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
@@ -1543,8 +1508,3 @@ jobs:
           } finally {
             if ($null -eq $priorToken) { Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue } else { $env:GH_TOKEN = $priorToken }
           }
-          $closurePath = Join-Path $env:RUNNER_TEMP 'post-repair-review-closure.json'
-          node $env:PTA_REVIEW_HOST_RUNNER --review-closure-file $dispatchPath --review-plan-file $planPath --review-body-file $bodyPath --review-comment-id ([string]$fresh.id) 1> $closurePath
-          if ($LASTEXITCODE -ne 0) { throw 'post_repair_review_closure_failed' }
-          $closure = Get-Content -LiteralPath $closurePath -Raw -Encoding utf8 | ConvertFrom-Json
-          if ($closure.next_action -notin @('REVIEW_CLOSURE_COMPLETE', 'REVIEW_CLOSURE_NOOP') -or $closure.active_thread_count -lt 0) { throw 'post_repair_review_closure_invalid' }
