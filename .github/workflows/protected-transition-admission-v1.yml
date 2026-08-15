@@ -1343,6 +1343,8 @@ jobs:
       - name: Execute and publish post-repair Review
         if: steps.post_repair_review_plan.outputs.operation == 'EXECUTE_ROLE'
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = 'Stop'
           $utf8NoBom = [Text.UTF8Encoding]::new($false)
@@ -1458,17 +1460,20 @@ jobs:
           $priorOutputEncoding = $OutputEncoding
           $priorConsoleOutputEncoding = [Console]::OutputEncoding
           $priorErrorActionPreference = $ErrorActionPreference
+          $priorToken = $env:GH_TOKEN
           try {
             $OutputEncoding = $utf8NoBom
             [Console]::OutputEncoding = $utf8NoBom
             $ErrorActionPreference = 'Continue'
             $LASTEXITCODE = $null
+            Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
             $events = [string[]]@($prompt | & codex.cmd exec -c features.shell_tool=false -c sandbox_workspace_write.network_access=false -c sandbox_workspace_write.writable_roots=[] --sandbox read-only --ephemeral --json --cd $env:GITHUB_WORKSPACE - 2>&1)
             $nativeExit = $LASTEXITCODE
           } finally {
             $OutputEncoding = $priorOutputEncoding
             [Console]::OutputEncoding = $priorConsoleOutputEncoding
             $ErrorActionPreference = $priorErrorActionPreference
+            if ($null -eq $priorToken) { Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue } else { $env:GH_TOKEN = $priorToken }
           }
           if ($nativeExit -ne 0) { throw "post_repair_review_provider_failed_$nativeExit" }
           $messages = @()
