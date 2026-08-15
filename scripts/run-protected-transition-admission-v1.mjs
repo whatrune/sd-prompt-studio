@@ -2708,7 +2708,7 @@ export const evaluateRoleOutputInvocationV1 = (
   const dispatch = readJsonFileV1(invocation.dispatchFile)
   const bodyBytes = readFileSync(invocation.outputFile)
   const result = evaluateRoleDispatchOutputV1({ dispatch, body: bodyBytes.toString('utf8') })
-  if (result.exit_code === 0 || !invocation.jsonlFile) return result
+  if (result.exit_code === 0) return result
   if (dispatch.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER') {
     let failureEvidence
     try {
@@ -2723,6 +2723,7 @@ export const evaluateRoleOutputInvocationV1 = (
     }
     return Object.freeze({ ...result, failure_evidence: failureEvidence })
   }
+  if (!invocation.jsonlFile) return result
   let jsonlBytes
   try {
     jsonlBytes = readFileSync(invocation.jsonlFile)
