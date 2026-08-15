@@ -2535,15 +2535,190 @@ export const projectRoleOutputFailureDiagnosticV1 = ({ dispatch, bodyBytes, json
   return projectRoleOutputFailureMappingV1({ expectedBody, core, bodyBytes })
 }
 
+const INDEPENDENT_REVIEWER_FAILURE_EVIDENCE_RECORD_TYPE_V1 = 'independent_reviewer_role_output_failure_evidence_v1'
+const INDEPENDENT_REVIEWER_FAILURE_BODY_CHUNK_RECORD_TYPE_V1 = 'independent_reviewer_role_output_failure_body_chunk_v1'
+const INDEPENDENT_REVIEWER_FAILURE_BODY_MAX_BYTES_V1 = 256 * 1024
+const INDEPENDENT_REVIEWER_FAILURE_BODY_CHUNK_BYTES_V1 = 4096
+const INDEPENDENT_REVIEWER_FAILURE_BODY_MAX_CHUNKS_V1 = 64
+const REVIEWER_FAILURE_BINDING_UNAVAILABLE_V1 = Object.freeze({
+  task_issue: 'UNAVAILABLE',
+  pull_request: 'UNAVAILABLE',
+  reviewed_head: 'UNAVAILABLE',
+})
+
+const observeReviewScalarV1 = (raw) => {
+  const value = raw.trim()
+  if (value.startsWith('"')) {
+    try {
+      const parsed = JSON.parse(value)
+      return typeof parsed === 'string'
+        ? Object.freeze({ type: 'string', value: parsed })
+        : Object.freeze({ type: 'invalid', value: null })
+    } catch {
+      return Object.freeze({ type: 'invalid', value: null })
+    }
+  }
+  if (value === 'true') return Object.freeze({ type: 'boolean', value: true })
+  if (value === 'false') return Object.freeze({ type: 'boolean', value: false })
+  if (/^(?:0|[1-9]\d*)$/.test(value)) return Object.freeze({ type: 'integer', value: Number(value) })
+  if (/^[A-Za-z][A-Za-z0-9_-]*$/.test(value)) return Object.freeze({ type: 'string', value })
+  return Object.freeze({ type: 'invalid', value: null })
+}
+
+const reviewerBindingStatusV1 = (actual, expected) => (
+  typeof actual !== 'string' ? 'UNAVAILABLE' : actual === expected ? 'MATCH' : 'MISMATCH'
+)
+
+const observeIndependentReviewerFailureV1 = (body, dispatch) => {
+  const fieldNames = []
+  const scalarTypes = []
+  const scalars = new Map()
+  const blocks = typeof body === 'string' ? [...body.matchAll(/```yaml\r?\n([\s\S]*?)\r?\n```/g)] : []
+  let parserFailureReason = null
+
+  if (typeof body !== 'string' || body.length === 0 || body.length > 65536) {
+    parserFailureReason = 'review_body_length_invalid'
+  } else if (blocks.length !== 1) {
+    parserFailureReason = 'review_yaml_block_cardinality_invalid'
+  } else {
+    for (const line of blocks[0][1].split(/\r?\n/)) {
+      if (line.trim().length === 0) continue
+      const match = line.match(/^([a-z][a-z0-9_]*):[ \t]+(.+)$/)
+      if (!match || scalars.has(match[1])) {
+        parserFailureReason = 'review_yaml_scalar_invalid'
+        break
+      }
+      const scalar = observeReviewScalarV1(match[2])
+      fieldNames.push(match[1])
+      scalarTypes.push(scalar.type)
+      if (scalar.type === 'invalid') {
+        parserFailureReason = 'review_scalar_invalid'
+        break
+      }
+      scalars.set(match[1], scalar.value)
+    }
+  }
+
+  const expectedTaskUrl = `https://github.com/${dispatch.repository}/issues/${dispatch.task_issue_number}`
+  const expectedPullUrl = `https://github.com/${dispatch.repository}/pull/${dispatch.pr_number}`
+  const bindingMismatch = Object.freeze({
+    task_issue: reviewerBindingStatusV1(scalars.get('task_issue'), expectedTaskUrl),
+    pull_request: reviewerBindingStatusV1(scalars.get('pull_request'), expectedPullUrl),
+    reviewed_head: reviewerBindingStatusV1(scalars.get('reviewed_head'), dispatch.exact_head),
+  })
+
+  if (parserFailureReason === null) {
+    const pullUrl = scalars.get('pull_request')
+    const pullPrefix = `https://github.com/${dispatch.repository}/pull/`
+    const pullNumber = typeof pullUrl === 'string' && pullUrl.startsWith(pullPrefix)
+      ? Number(pullUrl.slice(pullPrefix.length))
+      : Number.NaN
+    const reviewedHead = scalars.get('reviewed_head')
+    const decision = scalars.get('decision')
+    const countNames = ['blocking_finding_count', 'remaining_finding_count', 'unknown_count']
+    const countValues = countNames.map((name) => scalars.get(name))
+    if (scalars.get('record_type') !== REVIEW_RECORD_TYPE) parserFailureReason = 'review_record_type_invalid'
+    else if (scalars.get('authoring_role') !== REVIEW_AUTHORING_ROLE) parserFailureReason = 'review_authoring_role_invalid'
+    else if (scalars.get('task_issue') !== expectedTaskUrl) parserFailureReason = 'review_task_issue_invalid'
+    else if (!positiveInteger(pullNumber)) parserFailureReason = 'review_pull_request_invalid'
+    else if (typeof reviewedHead !== 'string' || !FULL_HEAD.test(reviewedHead)) parserFailureReason = 'review_reviewed_head_invalid'
+    else if (!['APPROVE', 'CHANGES_REQUIRED', 'BLOCKED'].includes(decision)) parserFailureReason = 'review_decision_invalid'
+    else if (countValues.some((value) => !Number.isSafeInteger(value))) parserFailureReason = 'review_count_type_invalid'
+    else if (countValues.some((value) => value < 0)) parserFailureReason = 'review_count_value_invalid'
+    else if (scalars.get('status') !== 'completed') parserFailureReason = 'review_status_invalid'
+    else if (scalars.get('execution_stop_reason') !== 'completed') parserFailureReason = 'review_execution_stop_reason_invalid'
+    else if (pullNumber !== dispatch.pr_number) parserFailureReason = 'review_pr_binding_mismatch'
+    else if (reviewedHead !== dispatch.exact_head) parserFailureReason = 'review_head_binding_mismatch'
+    else parserFailureReason = 'role_output_invalid_unclassified'
+  }
+
+  return Object.freeze({
+    yaml_block_count: blocks.length,
+    parsed_field_count: fieldNames.length,
+    field_names: Object.freeze(fieldNames),
+    scalar_types: Object.freeze(scalarTypes),
+    binding_mismatch: bindingMismatch,
+    parser_failure_reason: parserFailureReason,
+  })
+}
+
+export const projectIndependentReviewerFailureEvidenceV1 = ({ dispatch, bodyBytes, runId, runAttempt }) => {
+  if (
+    dispatch?.next_action !== 'INDEPENDENT_IMPLEMENTATION_REVIEWER' || !Buffer.isBuffer(bodyBytes) ||
+    !WORKFLOW_RUN_ID.test(String(runId ?? '')) || !positiveInteger(runAttempt)
+  ) throw new Error('independent_reviewer_failure_evidence_unavailable')
+
+  const selectedBodyUtf8ByteCount = bodyBytes.length
+  const selectedBodySha256 = createHash('sha256').update(bodyBytes).digest('hex')
+  const bounded = selectedBodyUtf8ByteCount <= INDEPENDENT_REVIEWER_FAILURE_BODY_MAX_BYTES_V1
+  const observation = bounded
+    ? observeIndependentReviewerFailureV1(bodyBytes.toString('utf8'), dispatch)
+    : Object.freeze({
+        yaml_block_count: 0,
+        parsed_field_count: 0,
+        field_names: EMPTY_ROLE_OUTPUT_FIELD_NAMES_V1,
+        scalar_types: EMPTY_ROLE_OUTPUT_FIELD_NAMES_V1,
+        binding_mismatch: REVIEWER_FAILURE_BINDING_UNAVAILABLE_V1,
+        parser_failure_reason: 'selected_body_evidence_bound_exceeded',
+      })
+  const bodyChunkCount = bounded ? Math.ceil(selectedBodyUtf8ByteCount / INDEPENDENT_REVIEWER_FAILURE_BODY_CHUNK_BYTES_V1) : 0
+  if (bodyChunkCount > INDEPENDENT_REVIEWER_FAILURE_BODY_MAX_CHUNKS_V1) {
+    throw new Error('independent_reviewer_failure_evidence_unavailable')
+  }
+  const header = Object.freeze({
+    record_type: INDEPENDENT_REVIEWER_FAILURE_EVIDENCE_RECORD_TYPE_V1,
+    run_id: String(runId),
+    run_attempt: runAttempt,
+    task_issue_number: dispatch.task_issue_number,
+    pr_number: dispatch.pr_number,
+    exact_head: dispatch.exact_head,
+    source_comment_id: dispatch.source_comment_id,
+    selected_body_utf8_byte_count: selectedBodyUtf8ByteCount,
+    selected_body_sha256: selectedBodySha256,
+    body_capture_status: bounded ? 'CAPTURED' : 'BOUND_EXCEEDED',
+    body_chunk_count: bodyChunkCount,
+    ...observation,
+  })
+  const chunks = bounded
+    ? Object.freeze(Array.from({ length: bodyChunkCount }, (_, chunkIndex) => {
+        const start = chunkIndex * INDEPENDENT_REVIEWER_FAILURE_BODY_CHUNK_BYTES_V1
+        const bytes = bodyBytes.subarray(start, start + INDEPENDENT_REVIEWER_FAILURE_BODY_CHUNK_BYTES_V1)
+        return Object.freeze({
+          record_type: INDEPENDENT_REVIEWER_FAILURE_BODY_CHUNK_RECORD_TYPE_V1,
+          chunk_index: chunkIndex,
+          chunk_count: bodyChunkCount,
+          raw_byte_count: bytes.length,
+          body_base64: bytes.toString('base64'),
+        })
+      }))
+    : EMPTY_ROLE_OUTPUT_FIELD_NAMES_V1
+  return Object.freeze({ header, chunks })
+}
+
 export const evaluateRoleOutputInvocationV1 = (
   invocation,
   projectCore = projectRoleOutputDiagnosticCoreV1,
   projectMapping = projectRoleOutputFailureMappingV1,
+  projectReviewerEvidence = projectIndependentReviewerFailureEvidenceV1,
 ) => {
   const dispatch = readJsonFileV1(invocation.dispatchFile)
   const bodyBytes = readFileSync(invocation.outputFile)
   const result = evaluateRoleDispatchOutputV1({ dispatch, body: bodyBytes.toString('utf8') })
   if (result.exit_code === 0 || !invocation.jsonlFile) return result
+  if (dispatch.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER') {
+    let failureEvidence
+    try {
+      failureEvidence = projectReviewerEvidence({
+        dispatch,
+        bodyBytes,
+        runId: invocation.runId,
+        runAttempt: invocation.runAttempt,
+      })
+    } catch {
+      return result
+    }
+    return Object.freeze({ ...result, failure_evidence: failureEvidence })
+  }
   let jsonlBytes
   try {
     jsonlBytes = readFileSync(invocation.jsonlFile)
@@ -3408,6 +3583,8 @@ const parseInvocation = (argv, environment) => {
       outputFile: argv[1],
       dispatchFile: argv[3],
       jsonlFile: argv.length === 6 ? argv[5] : null,
+      runId: environment.GITHUB_RUN_ID ?? null,
+      runAttempt: Number(environment.GITHUB_RUN_ATTEMPT),
     })
   }
   if (argv.length === 2 && argv[0] === '--repair-provider-exec-bind-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
