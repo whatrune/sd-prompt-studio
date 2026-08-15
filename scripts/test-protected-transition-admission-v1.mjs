@@ -23,6 +23,8 @@ import {
   classifyRoleOutputFailureDiagnosticV1,
   executeRoleDispatchConsumerV1,
   executeRoleDispatchRebindV1,
+  executeReviewerPublicationRebindV1,
+  executeReviewThreadClosureV1,
   executeRepairExecutorV1,
   executeReadyForReviewProgressionV1,
   executeReviewApprovalAutomationV1 as executeReviewApprovalAutomationProductionV1,
@@ -983,7 +985,7 @@ const automationHost = ({
 // Seven Ready-for-Review bridge units x three assertions = 21.
 check(workflow.on.pull_request.types.join(',') === 'ready_for_review' && workflowSource.includes('--ready-event-file "$PTA_EVENT_PATH"'), 'RFR-01 workflow routes only Ready events to the Ready adapter')
 check(workflowSource.includes('[[ "$PTA_BASE_REF" == "main" ]]') && workflowSource.includes('refs/pull/${PTA_EVENT_PR_NUMBER}/merge'), 'RFR-01 Ready host binds main base and exact PR merge ref')
-check(Object.keys(workflow.on.workflow_dispatch.inputs).length === 4 && workflow.concurrency.group.includes('github.event.pull_request.number'), 'RFR-01 preserves four recovery inputs and adds only the PR fallback queue key')
+check(Object.keys(workflow.on.workflow_dispatch.inputs).length === 4 && workflow.concurrency.group.includes('github.event.pull_request.number') && workflow.concurrency.queue === 'max', 'RFR-01 preserves four recovery inputs and the max same-Task queue')
 
 const validReadyAutomation = automationHost({
   initialState: approvedState(),
@@ -1359,7 +1361,7 @@ const preservedBodyAutomation = automationHost({
   bodyAtPullRead: { 2: `concurrent-note\n${stateBlock(state())}\nconcurrent-footer` },
 })
 const preservedBodyResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: preservedBodyAutomation.host })
-check(concurrencyGroup === 'protected-transition-admission-v1-${{ github.repository }}-${{ github.event.issue.number || github.event.pull_request.number || inputs.task_issue_number }}' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number' && workflow.concurrency['cancel-in-progress'] === false, 'all triggers share one repository and canonical Task or PR queue')
+check(concurrencyGroup === 'protected-transition-admission-v1-${{ github.repository }}-${{ github.event.issue.number || github.event.pull_request.number || inputs.task_issue_number }}' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number' && workflow.concurrency['cancel-in-progress'] === false && workflow.concurrency.queue === 'max', 'all triggers share one repository and canonical Task or PR max queue')
 check(!concurrencyGroup.includes('comment.id') && !concurrencyGroup.includes('run_id'), 'comment and run IDs do not partition serialization')
 check(preservedBodyResult.allowed && preservedBodyAutomation.body().startsWith('concurrent-note\n') && preservedBodyAutomation.body().endsWith('\nconcurrent-footer'), 'canonical writer preserves fresh non-state body bytes')
 
@@ -2941,6 +2943,106 @@ const roleHost = ({ head = HEAD, taskState = implementerState, paths = rolePaths
     throw new Error(`unexpected_role_dispatch_endpoint:${endpoint}`)
   },
 })
+const queuedReviewCommentId = 9401
+const queuedThread = (id, pathName, line) => ({
+  id, isResolved: false, isOutdated: false, path: pathName, line, startLine: null,
+  diffSide: 'RIGHT', startDiffSide: null,
+  comments: connectionPage([{
+    id: `${id}-comment`, body: `finding for ${pathName}`, createdAt: '2026-08-14T00:00:00Z',
+    url: `https://github.com/${REPOSITORY}/pull/${PR}#discussion_r${line}`, author: { login: 'reviewer' },
+  }]),
+})
+const queuedThreadFixtures = [queuedThread('PRRT-1', rolePaths[0], 11), queuedThread('PRRT-2', rolePaths[1], 22)]
+const reviewSequenceHost = ({ canonicalBody = null, threads = queuedThreadFixtures, failReplyVerification = false } = {}) => {
+  const currentThreads = structuredClone(threads)
+  const replies = new Map()
+  const metrics = { threadReads: 0, replies: 0, replyVerifications: 0, resolves: 0, taskReads: 0 }
+  const records = new Map(roleSourceRecords)
+  if (canonicalBody !== null) records.set(queuedReviewCommentId, roleComment(queuedReviewCommentId, canonicalBody, '2026-08-14T00:00:01Z'))
+  return {
+    metrics,
+    host: {
+      api: async (endpoint) => {
+        if (endpoint.endsWith(`/pulls/${PR}`)) return pullObject({ head: OTHER_HEAD, changedFiles: rolePaths.length, taskState: reviewerDispatch.task_state })
+        if (endpoint.includes(`/pulls/${PR}/files?`)) return rolePaths.map((filename) => ({ filename, status: 'modified' }))
+        if (endpoint.endsWith(`/issues/${TASK}`)) {
+          metrics.taskReads += 1
+          return roleTaskObject()
+        }
+        if (endpoint.includes(`/issues/${TASK}/comments?`)) return []
+        const sourceMatch = /\/issues\/comments\/(\d+)$/.exec(endpoint)
+        if (sourceMatch && records.has(Number(sourceMatch[1]))) return structuredClone(records.get(Number(sourceMatch[1])))
+        throw new Error(`unexpected_review_sequence_endpoint:${endpoint}`)
+      },
+      graphql: async (query, variables = {}) => {
+        if (query.includes('addPullRequestReviewThreadReply')) {
+          const thread = currentThreads.find((candidate) => candidate.id === variables.thread && !candidate.isResolved && !candidate.isOutdated)
+          if (!thread) throw new Error('synthetic_reply_target_invalid')
+          metrics.replies += 1
+          const comment = { id: `reply-${metrics.replies}`, body: variables.body, url: `https://github.com/${REPOSITORY}/pull/${PR}#discussion_reply_${metrics.replies}` }
+          replies.set(comment.id, comment)
+          return { addPullRequestReviewThreadReply: { comment } }
+        }
+        if (query.includes('query ReviewComment')) {
+          metrics.replyVerifications += 1
+          const comment = replies.get(variables.id)
+          if (!comment || failReplyVerification) return { node: null }
+          return { node: { ...comment, pullRequest: { number: PR, headRefOid: OTHER_HEAD } } }
+        }
+        if (query.includes('resolveReviewThread')) {
+          const thread = currentThreads.find((candidate) => candidate.id === variables.thread && !candidate.isResolved && !candidate.isOutdated)
+          if (!thread) throw new Error('synthetic_resolve_target_invalid')
+          thread.isResolved = true
+          metrics.resolves += 1
+          return { resolveReviewThread: { thread: { id: thread.id, isResolved: true, isOutdated: false } } }
+        }
+        if (query.includes('reviewThreads')) {
+          metrics.threadReads += 1
+          const pageIndex = variables.after === null ? 0 : variables.after === 'queued-thread-page-1' ? 1 : -1
+          if (pageIndex < 0) throw new Error('synthetic_thread_cursor_invalid')
+          const pageNodes = currentThreads.length > 1 ? [currentThreads[pageIndex]].filter(Boolean) : pageIndex === 0 ? currentThreads : []
+          const hasNextPage = currentThreads.length > 1 && pageIndex === 0
+          return {
+            repository: { pullRequest: {
+              number: PR, state: 'OPEN', isDraft: false, mergeable: 'MERGEABLE', mergeStateStatus: 'CLEAN', headRefOid: OTHER_HEAD,
+              reviewThreads: connectionPage(pageNodes, { totalCount: currentThreads.length, hasNextPage, endCursor: hasNextPage ? 'queued-thread-page-1' : null }),
+            } },
+          }
+        }
+        throw new Error('unexpected_review_sequence_graphql')
+      },
+    },
+  }
+}
+const queuedReviewerPlanHost = reviewSequenceHost()
+const queuedReviewerPlan = await executeRoleDispatchConsumerV1({ dispatch: reviewerDispatch, host: queuedReviewerPlanHost.host })
+const queuedPublicationRebindHost = reviewSequenceHost()
+const queuedPublicationRebind = await executeReviewerPublicationRebindV1({
+  dispatch: reviewerDispatch, reviewThreadSnapshot: queuedReviewerPlan.review_thread_snapshot, host: queuedPublicationRebindHost.host,
+})
+const queuedApproveBody = reviewDecisionBody({ reviewed_head: OTHER_HEAD })
+const queuedClosureHost = reviewSequenceHost({ canonicalBody: queuedApproveBody })
+const queuedClosure = await executeReviewThreadClosureV1({
+  dispatch: reviewerDispatch, reviewThreadSnapshot: queuedReviewerPlan.review_thread_snapshot,
+  reviewBody: queuedApproveBody, reviewCommentId: queuedReviewCommentId, host: queuedClosureHost.host,
+})
+const queuedChangesBody = reviewDecisionBody({
+  reviewed_head: OTHER_HEAD, decision: 'CHANGES_REQUIRED', blocking_finding_count: 1, remaining_finding_count: 1,
+})
+const queuedNonApproveHost = reviewSequenceHost({ canonicalBody: queuedChangesBody })
+const queuedNonApproveClosure = await executeReviewThreadClosureV1({
+  dispatch: reviewerDispatch, reviewThreadSnapshot: queuedReviewerPlan.review_thread_snapshot,
+  reviewBody: queuedChangesBody, reviewCommentId: queuedReviewCommentId, host: queuedNonApproveHost.host,
+})
+const queuedDriftHost = reviewSequenceHost({ threads: [queuedThread('PRRT-1', rolePaths[0], 12), queuedThreadFixtures[1]] })
+const queuedDriftRebind = await executeReviewerPublicationRebindV1({
+  dispatch: reviewerDispatch, reviewThreadSnapshot: queuedReviewerPlan.review_thread_snapshot, host: queuedDriftHost.host,
+})
+const queuedPartialHost = reviewSequenceHost({ canonicalBody: queuedApproveBody, failReplyVerification: true })
+const queuedPartialClosure = await executeReviewThreadClosureV1({
+  dispatch: reviewerDispatch, reviewThreadSnapshot: queuedReviewerPlan.review_thread_snapshot,
+  reviewBody: queuedApproveBody, reviewCommentId: queuedReviewCommentId, host: queuedPartialHost.host,
+})
 const implementerHostMetrics = { taskReads: 0 }
 const mergeDecisionHostMetrics = { taskReads: 0 }
 const publicationHostMetrics = { taskReads: 0 }
@@ -3305,13 +3407,13 @@ try { Get-ValidatedReviewerFailureEvidenceLines -Failure (Read-EncodedJson '${en
   return JSON.parse(execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' }))
 })() : null
 const workflowBoundaryMatrix = [
-  roleBindRun.includes("operation=CONVERGED_NOOP") && roleConsumerJob.steps.find((step) => step.name === 'Execute bounded role and host operation')?.if === "steps.role_dispatch_plan.outputs.operation == 'EXECUTE_ROLE'" && roleExecutionRun.indexOf('$publicationComment = Publish-CanonicalComment -BodyFile $publicationPath') < roleExecutionRun.indexOf('--review-event-file $publishedEventPath') && roleExecutionRun.indexOf('--review-event-file $publishedEventPath') < roleExecutionRun.indexOf("-ExpectedAction 'POST_REVIEW'") && assertRoleOutputSource.includes('--role-jsonl-file $JsonlFile') && (roleExecutionRun.match(/Assert-RoleOutput[^\n]+-JsonlFile \$/g) ?? []).length === 3 && assertRoleOutputSource.includes('$failure.bounded_metadata') && expectedRoleOutputFailureDiagnosticKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("$dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && assertRoleOutputSource.includes('$failure.failure_evidence') && reviewerEvidenceHeaderKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && assertRoleOutputSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && assertRoleOutputSource.includes('$header.selected_body_utf8_byte_count -gt 262144') && assertRoleOutputSource.includes('$header.body_chunk_count -gt 64') && assertRoleOutputSource.includes('$bytes.Length -ne 4096') && assertRoleOutputSource.includes('[Convert]::FromBase64String($chunk.body_base64)') && assertRoleOutputSource.includes('$sha256.ComputeHash($capturedBytes)') && assertRoleOutputSource.includes("$header.body_capture_status -ceq 'BOUND_EXCEEDED'") && assertRoleOutputSource.includes('$chunks.Count -ne 0') && assertRoleOutputSource.includes('-gt 9007199254740991') && assertRoleOutputSource.includes('-isnot [System.Array]') && assertRoleOutputSource.includes('$diagnosticLines = @()') && assertRoleOutputSource.includes('foreach ($diagnosticLine in $diagnosticLines)') && assertRoleOutputSource.split('[Console]::Error.WriteLine($diagnosticLine)').length === 2 && assertRoleOutputSource.includes("throw 'role_output_validation_failed'") && !assertRoleOutputSource.includes('Start-Sleep') && !assertRoleOutputSource.includes('retry'),
-  boundedRoleSource.startsWith('function Invoke-BoundedRole {') && !boundedRoleSource.includes('$LASTEXITCODE = $null') && boundedRoleSource.indexOf('codex.cmd exec') < boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') && terminalAgentSelectorSource.includes('$terminalMessage = [string]$event.item.text') && !terminalAgentSelectorSource.includes('$messages +=') && (process.platform !== 'win32' || (roleProviderNativeExitProbe.success === 0 && roleProviderNativeExitProbe.failure === 37 && roleProviderTerminalMessageProbe.multiple === roleImplementationResultBody && roleProviderTerminalMessageProbe.zeroRejected === true && malformedTerminalOutput.next_action === 'STOP')) && roleExecutionRun.split('Assert-FreshRoleBinding').length >= 8 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'") && roleExecutionRun.includes("throw 'publication_continuation_task_binding_invalid'") && roleExecutionRun.includes("throw 'publication_continuation_route_failed'") && roleExecutionRun.includes("throw 'publication_continuation_binding_invalid'") && roleExecutionRun.includes("throw 'publication_reviewer_dispatch_not_ready'") && roleExecutionRun.indexOf("$reviewPlan = Get-Content -LiteralPath $reviewPlanPath") < roleExecutionRun.indexOf('$reviewTask = gh api') && roleExecutionRun.includes("$reviewTask.number -ne $dispatch.task_issue_number -or $reviewTask.state -cne 'open' -or $null -ne $reviewTask.pull_request") && roleExecutionRun.indexOf("throw 'publication_reviewer_task_binding_invalid'") < roleExecutionRun.indexOf('Invoke-BoundedRole -PromptFile $reviewPromptPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath') < roleExecutionRun.indexOf('$publicationTask = gh api') && roleExecutionRun.includes("$publicationTask.number -ne $dispatch.task_issue_number -or $publicationTask.state -cne 'open' -or $null -ne $publicationTask.pull_request") && roleExecutionRun.indexOf('$publicationTask = gh api') < roleExecutionRun.indexOf('$null = Publish-CanonicalComment -BodyFile $reviewBodyPath'),
-  postRepairReviewJob.steps.find((step) => step.name === 'Bind post-repair Independent Reviewer')?.run.includes('task_state = $state') && postRepairExecutionRun.includes('--role-rebind-file') && postRepairExecutionRun.includes('if ($nativeExit -ne 0) { throw "post_repair_review_provider_failed_$nativeExit" }') && postRepairExecutionRun.includes("if ($messages.Count -ne 1) { throw 'post_repair_review_result_cardinality_invalid' }") && postRepairExecutionRun.indexOf('if ($nativeExit -ne 0)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairExecutionRun.indexOf('if ($messages.Count -ne 1)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && postRepairEvidenceValidatorSource.includes('$sha256.ComputeHash($capturedBytes)') && !postRepairEvidenceValidatorSource.includes('post_repair') && postRepairExecutionRun.includes("$failureDispatch.next_action -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.indexOf('[Console]::Error.WriteLine($diagnosticLine)') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.includes('$diagnosticLines = @()') && (process.platform !== 'win32' || (postRepairFailureEvidenceProbe.lineCount === reviewerFailureEvidence.chunks.length + 1 && postRepairFailureEvidenceProbe.headerRecordType === 'independent_reviewer_role_output_failure_evidence_v1' && postRepairFailureEvidenceProbe.chunkRecordTypesValid === true && postRepairFailureEvidenceProbe.invalidRejected === true)),
-  runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id'),
-  mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR'" && mergeOperationRun.includes('--merge-operator-file $dispatchPath') && mergeOperationRun.indexOf('--merge-operator-file $dispatchPath') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force'),
+  roleBindRun.includes("operation=CONVERGED_NOOP") && roleConsumerJob.steps.find((step) => step.name === 'Execute bounded role and host operation')?.if === "steps.role_dispatch_plan.outputs.operation == 'EXECUTE_ROLE'" && roleExecutionRun.indexOf('$publicationComment = Publish-CanonicalComment -BodyFile $publicationPath') < roleExecutionRun.indexOf('--review-event-file $publishedEventPath') && roleExecutionRun.indexOf('--review-event-file $publishedEventPath') < roleExecutionRun.indexOf("-ExpectedAction 'POST_REVIEW'") && assertRoleOutputSource.includes('--role-jsonl-file $JsonlFile') && (roleExecutionRun.match(/Assert-RoleOutput[^\n]+-JsonlFile \$/g) ?? []).length === 3 && assertRoleOutputSource.includes('$failure.bounded_metadata') && expectedRoleOutputFailureDiagnosticKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("$dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && assertRoleOutputSource.includes('$failure.failure_evidence') && reviewerEvidenceHeaderKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && assertRoleOutputSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && assertRoleOutputSource.includes('$header.selected_body_utf8_byte_count -gt 262144') && assertRoleOutputSource.includes('$header.body_chunk_count -gt 64') && assertRoleOutputSource.includes('$bytes.Length -ne 4096') && assertRoleOutputSource.includes('[Convert]::FromBase64String($chunk.body_base64)') && assertRoleOutputSource.includes('$sha256.ComputeHash($capturedBytes)') && assertRoleOutputSource.includes("$header.body_capture_status -ceq 'BOUND_EXCEEDED'") && assertRoleOutputSource.includes('$chunks.Count -ne 0') && assertRoleOutputSource.includes('-gt 9007199254740991') && assertRoleOutputSource.includes('-isnot [System.Array]') && assertRoleOutputSource.includes('$diagnosticLines = @()') && assertRoleOutputSource.includes('foreach ($diagnosticLine in $diagnosticLines)') && assertRoleOutputSource.split('[Console]::Error.WriteLine($diagnosticLine)').length === 2 && assertRoleOutputSource.includes("throw 'role_output_validation_failed'") && !assertRoleOutputSource.includes('Start-Sleep') && !assertRoleOutputSource.includes('retry') && workflow.concurrency.queue === 'max' && workflow.concurrency['cancel-in-progress'] === false && roleExecutionRun.indexOf('$reviewComment = Publish-CanonicalComment -BodyFile $bodyPath') < roleExecutionRun.indexOf('Complete-ReviewerClosure -DispatchFile $dispatchPath'),
+  boundedRoleSource.startsWith('function Invoke-BoundedRole {') && !boundedRoleSource.includes('$LASTEXITCODE = $null') && boundedRoleSource.indexOf('codex.cmd exec') < boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') && terminalAgentSelectorSource.includes('$terminalMessage = [string]$event.item.text') && !terminalAgentSelectorSource.includes('$messages +=') && (process.platform !== 'win32' || (roleProviderNativeExitProbe.success === 0 && roleProviderNativeExitProbe.failure === 37 && roleProviderTerminalMessageProbe.multiple === roleImplementationResultBody && roleProviderTerminalMessageProbe.zeroRejected === true && malformedTerminalOutput.next_action === 'STOP')) && roleExecutionRun.split('Assert-FreshRoleBinding').length >= 7 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'") && roleExecutionRun.includes("throw 'publication_continuation_task_binding_invalid'") && roleExecutionRun.includes("throw 'publication_continuation_route_failed'") && roleExecutionRun.includes("throw 'publication_continuation_binding_invalid'") && roleExecutionRun.includes("throw 'publication_reviewer_dispatch_not_ready'") && roleExecutionRun.indexOf("$reviewPlan = Get-Content -LiteralPath $reviewPlanPath") < roleExecutionRun.indexOf('$reviewTask = gh api') && roleExecutionRun.includes("$reviewTask.number -ne $dispatch.task_issue_number -or $reviewTask.state -cne 'open' -or $null -ne $reviewTask.pull_request") && roleExecutionRun.indexOf("throw 'publication_reviewer_task_binding_invalid'") < roleExecutionRun.indexOf('Invoke-BoundedRole -PromptFile $reviewPromptPath') && roleExecutionRun.indexOf('Assert-FreshReviewerSnapshot -DispatchFile $reviewDispatchPath') < roleExecutionRun.indexOf('$publicationTask = gh api') && roleExecutionRun.includes("$publicationTask.number -ne $dispatch.task_issue_number -or $publicationTask.state -cne 'open' -or $null -ne $publicationTask.pull_request") && roleExecutionRun.indexOf('$publicationTask = gh api') < roleExecutionRun.indexOf('$publishedReview = Publish-CanonicalComment -BodyFile $reviewBodyPath') && queuedReviewerPlan.next_action === 'EXECUTE_ROLE' && queuedReviewerPlan.review_thread_snapshot.threads.length === 2 && queuedReviewerPlan.prompt.includes('COMPLETE ACTIVE REVIEW THREAD SNAPSHOT') && queuedReviewerPlanHost.metrics.threadReads === 2 && queuedPublicationRebind.next_action === 'REVIEW_PUBLICATION_READY',
+  postRepairReviewJob.steps.find((step) => step.name === 'Bind post-repair Independent Reviewer')?.run.includes('task_state = $state') && postRepairExecutionRun.includes('--review-publication-rebind-file') && postRepairExecutionRun.includes('--review-closure-file') && postRepairExecutionRun.indexOf('$posted = $payload | gh api --method POST') < postRepairExecutionRun.indexOf('--review-closure-file') && postRepairExecutionRun.includes('if ($nativeExit -ne 0) { throw "post_repair_review_provider_failed_$nativeExit" }') && postRepairExecutionRun.includes("if ($messages.Count -ne 1) { throw 'post_repair_review_result_cardinality_invalid' }") && postRepairExecutionRun.indexOf('if ($nativeExit -ne 0)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairExecutionRun.indexOf('if ($messages.Count -ne 1)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && postRepairEvidenceValidatorSource.includes('$sha256.ComputeHash($capturedBytes)') && !postRepairEvidenceValidatorSource.includes('post_repair') && postRepairExecutionRun.includes("$failureDispatch.next_action -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.indexOf('[Console]::Error.WriteLine($diagnosticLine)') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.includes('$diagnosticLines = @()') && (process.platform !== 'win32' || (postRepairFailureEvidenceProbe.lineCount === reviewerFailureEvidence.chunks.length + 1 && postRepairFailureEvidenceProbe.headerRecordType === 'independent_reviewer_role_output_failure_evidence_v1' && postRepairFailureEvidenceProbe.chunkRecordTypesValid === true && postRepairFailureEvidenceProbe.invalidRejected === true)) && queuedClosure.next_action === 'REVIEW_CLOSURE_COMPLETE' && queuedClosure.active_thread_count === 0 && queuedClosure.mutation_count === 4 && queuedClosureHost.metrics.replies === 2 && queuedClosureHost.metrics.replyVerifications === 2 && queuedClosureHost.metrics.resolves === 2,
+  runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id') && queuedNonApproveClosure.next_action === 'REVIEW_CLOSURE_NOOP' && queuedNonApproveHost.metrics.replies === 0 && queuedNonApproveHost.metrics.resolves === 0 && queuedDriftRebind.next_action === 'STOP' && queuedDriftRebind.reason === 'review_thread_snapshot_changed' && queuedPartialClosure.next_action === 'STOP' && queuedPartialClosure.mutation_count === 1 && queuedPartialHost.metrics.replies === 1 && queuedPartialHost.metrics.resolves === 0,
+  mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR'" && mergeOperationRun.includes('--merge-operator-file $dispatchPath') && mergeOperationRun.indexOf('--merge-operator-file $dispatchPath') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force') && !workflowSource.includes('gh workflow run') && !runnerSource.includes('createWorkflowDispatch') && runnerSource.includes('acquireMergeCheckRollupSnapshotV1') && runnerSource.includes('acquireMergeReviewThreadsV1') && runnerSource.includes('executeProtectedTransitionAdmissionV1'),
 ]
-for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 protected operation boundaries ${index + 1}`)
+for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 queued ordering and protected operation boundaries ${index + 1}`)
 
 if (assertions !== 576) throw new Error(`expected exactly 576 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
