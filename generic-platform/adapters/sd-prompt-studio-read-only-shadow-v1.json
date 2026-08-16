@@ -1,0 +1,63 @@
+{
+  "api_version": "ai-development/v1",
+  "project_id": "sd-prompt-studio",
+  "repository": {
+    "provider": "github",
+    "name": "whatrune/sd-prompt-studio",
+    "default_branch": "main"
+  },
+  "records": {
+    "task_source": "github_issue",
+    "review_source": "task_issue_comment",
+    "decision_source": "task_issue_comment"
+  },
+  "paths": {
+    "writable": [],
+    "forbidden": [
+      ".github/workflows",
+      "scripts/run-protected-transition-admission-v1.mjs"
+    ]
+  },
+  "validation": {
+    "profile_ids": [
+      "sdps-focused-v1"
+    ],
+    "required_checks": [
+      "build-preview",
+      "cloudflare-pages"
+    ],
+    "current_generation_only": true
+  },
+  "commands": {
+    "invocations": []
+  },
+  "roles": {
+    "reviewer_profile_id": "sdps-reviewer-v1",
+    "implementer_profile_id": "sdps-implementer-v1",
+    "decision_authority_id": "product-owner-v1",
+    "merge_operator_profile_id": ""
+  },
+  "repair": {
+    "max_attempts": 0,
+    "max_files": 0,
+    "max_diff_bytes": 0,
+    "allowed_validation_ids": []
+  },
+  "runtime": {
+    "runner_labels": [
+      "self-hosted",
+      "windows"
+    ],
+    "toolchain_revision": "node-24",
+    "deployment_rule_ids": []
+  },
+  "credentials": {
+    "required_capability_ids": []
+  },
+  "protected_operation_ids": [],
+  "workspace": {
+    "branch_prefix": "codex/",
+    "bootstrap_command_id": "",
+    "cleanup": "terminal_only"
+  }
+}
