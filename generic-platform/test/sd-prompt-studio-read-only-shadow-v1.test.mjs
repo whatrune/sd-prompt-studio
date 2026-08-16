@@ -37,6 +37,7 @@ const completePagination = (fixture, metadataName, sourceId) => {
     : { state: 'NOT_APPLICABLE', page_count: 0, item_count: 0 }
 }
 const decorateCheckProvenance = (fixture, checkRecord) => {
+  const identity = source(fixture, 'identity')?.payload
   const selfNames = new Set([
     'protected_transition_admission_v1',
     'protected_transition_repair_executor_v1',
@@ -55,6 +56,14 @@ const decorateCheckProvenance = (fixture, checkRecord) => {
       classification: isSelf ? 'PRODUCTION_RTO_SELF' : 'EXTERNAL_REQUIRED',
       current_generation: true,
     })
+    if (!isSelf) {
+      Object.assign(checkRun, {
+        pr_number: identity.pr_number,
+        target_head: identity.target_head,
+        current_head: identity.current_head,
+        check_suite_head: identity.current_head,
+      })
+    }
   }
   redigestSource(checkRecord)
 }
@@ -149,6 +158,7 @@ check(
   evaluate(completeBlocked).boundaries.terminal_evidence.status === 'MATCH',
   'exactly identified failed production RTO self-check is excluded under the frozen rule',
 )
+check(evaluate(completeSuccess).overall === 'MATCH', 'exact-bound external checks preserve the recorded expected behavior')
 
 const historicalGeneration = clone(completeSuccess)
 const historicalChecks = source(historicalGeneration, 'checks')
@@ -172,6 +182,54 @@ unboundSelfCheck.actions_run_url = actionsRunUrl(unboundSelfCheck.actions_run_id
 redigestSource(source(identityUnboundSelf, 'checks'))
 resealCase(identityUnboundSelf)
 expectGlobalNotComparable(evaluate(identityUnboundSelf), 'self_check_identity_unknown', 'identity-unbound failed self-check is not silently excluded')
+
+const mutateExternalCheck = (mutate) => {
+  const fixture = clone(completeSuccess)
+  const checkRecord = source(fixture, 'checks')
+  const externalCheck = checkRecord.payload.find((entry) => entry.name === 'build-preview')
+  mutate(externalCheck, checkRecord, fixture)
+  redigestSource(checkRecord)
+  resealCase(fixture)
+  return fixture
+}
+
+expectGlobalNotComparable(
+  evaluate(mutateExternalCheck((externalCheck) => { externalCheck.pr_number += 1 })),
+  'check_provenance_ambiguous',
+  'successful external check from a different PR is not comparable',
+)
+expectGlobalNotComparable(
+  evaluate(mutateExternalCheck((externalCheck) => {
+    externalCheck.target_head = 'f'.repeat(40)
+    externalCheck.current_head = 'f'.repeat(40)
+    externalCheck.check_suite_head = 'f'.repeat(40)
+  })),
+  'check_provenance_ambiguous',
+  'successful external check from a different HEAD is not comparable',
+)
+expectGlobalNotComparable(
+  evaluate(mutateExternalCheck((externalCheck) => { delete externalCheck.pr_number })),
+  'check_evidence_invalid',
+  'external check without PR identity is not comparable',
+)
+expectGlobalNotComparable(
+  evaluate(mutateExternalCheck((externalCheck) => { delete externalCheck.check_suite_head })),
+  'check_evidence_invalid',
+  'external check without check-suite HEAD is not comparable',
+)
+expectGlobalNotComparable(
+  evaluate(mutateExternalCheck((externalCheck, checkRecord, fixture) => {
+    const competing = clone(externalCheck)
+    competing.generation_id = String(Number(externalCheck.generation_id) + 1)
+    competing.actions_run_id = Number(competing.generation_id)
+    competing.actions_run_url = actionsRunUrl(competing.actions_run_id)
+    competing.started_at = '2026-08-14T02:39:50Z'
+    checkRecord.payload.push(competing)
+    fixture.evidence_completeness.checks.item_count = checkRecord.payload.length
+  })),
+  'check_generation_ambiguous',
+  'multiple current external check generations are not comparable',
+)
 
 for (const [metadataName, reason] of [
   ['checks', 'checks_pagination_incomplete'],
@@ -266,6 +324,7 @@ for (const [state, reason, nextAction] of [
   })
   knownTuple.raw_production_result.progression.next_action = nextAction
   redigestProduction(knownTuple)
+  knownTuple.expected_overall = state === 'MERGE_ELIGIBLE' ? 'MATCH' : 'MISMATCH'
   resealCase(knownTuple)
   check(
     evaluate(knownTuple).boundaries.admission.status !== 'NOT_COMPARABLE',
@@ -304,10 +363,57 @@ expectGlobalNotComparable(evaluate(validSubdigestTamperedEnvelope), 'fixture_cas
 const deliberateMismatch = clone(completeSuccess)
 deliberateMismatch.production_result.payload.identity.binding_state = 'STALE'
 redigestProduction(deliberateMismatch)
+deliberateMismatch.expected_overall = 'MISMATCH'
 resealCase(deliberateMismatch)
 const mismatch = evaluate(deliberateMismatch)
 check(mismatch.overall === 'MISMATCH' && mismatch.proof_pass === false, 'validly sealed semantic difference is MISMATCH and fails proof')
 check(mismatch.authority === 'NONE' && mismatch.mutation_count === 0, 'MISMATCH remains zero-authority and cannot affect production')
+
+const declaredMismatchCalculatedMatch = clone(completeSuccess)
+declaredMismatchCalculatedMatch.expected_overall = 'MISMATCH'
+resealCase(declaredMismatchCalculatedMatch)
+expectGlobalNotComparable(
+  evaluate(declaredMismatchCalculatedMatch),
+  'fixture_expected_overall_mismatch',
+  'declared MISMATCH with calculated MATCH is not comparable',
+)
+
+const declaredNotComparableCalculatedMatch = clone(completeSuccess)
+declaredNotComparableCalculatedMatch.expected_overall = 'NOT_COMPARABLE'
+resealCase(declaredNotComparableCalculatedMatch)
+expectGlobalNotComparable(
+  evaluate(declaredNotComparableCalculatedMatch),
+  'fixture_expected_overall_mismatch',
+  'declared NOT_COMPARABLE with calculated MATCH is not comparable',
+)
+
+const declaredMatchCalculatedMismatch = clone(deliberateMismatch)
+declaredMatchCalculatedMismatch.expected_overall = 'MATCH'
+resealCase(declaredMatchCalculatedMismatch)
+expectGlobalNotComparable(
+  evaluate(declaredMatchCalculatedMismatch),
+  'fixture_expected_overall_mismatch',
+  'declared MATCH with calculated MISMATCH is not comparable',
+)
+
+const calculatedNotComparable = clone(completeSuccess)
+calculatedNotComparable.production_result.payload.current_leaf_review = null
+redigestProduction(calculatedNotComparable)
+resealCase(calculatedNotComparable)
+expectGlobalNotComparable(
+  evaluate(calculatedNotComparable),
+  'fixture_expected_overall_mismatch',
+  'declared MATCH with calculated NOT_COMPARABLE is not comparable',
+)
+
+const matchingNotComparable = clone(calculatedNotComparable)
+matchingNotComparable.expected_overall = 'NOT_COMPARABLE'
+resealCase(matchingNotComparable)
+const expectedNotComparable = evaluate(matchingNotComparable)
+check(
+  expectedNotComparable.overall === 'NOT_COMPARABLE' && expectedNotComparable.proof_pass === false,
+  'matching NOT_COMPARABLE declaration preserves the calculated result',
+)
 
 const missingEvidence = clone(completeSuccess)
 missingEvidence.source_records = missingEvidence.source_records.filter((record) => record.source_id !== 'threads')

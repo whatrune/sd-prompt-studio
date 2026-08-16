@@ -299,13 +299,16 @@ const reviewProjection = (leaf) => {
   })
 }
 
-const projectChecks = (checksInput, adapter, caseInput) => {
+const projectChecks = (checksInput, adapter, caseInput, identitySource) => {
   if (!Array.isArray(checksInput)) notComparable('terminal_evidence_missing')
   const candidates = checksInput.map((check) => {
-    exactKeys(check, [
+    const selfPolicy = SELF_CHECK_NAMES.get(check?.name)
+    const expectedFields = [
       'type', 'repository', 'actions_run_url', 'actions_run_id', 'source_run_relation', 'classification',
       'name', 'app_id', 'generation_id', 'current_generation', 'started_at', 'status', 'conclusion',
-    ], 'check_evidence_invalid')
+    ]
+    if (!selfPolicy) expectedFields.push('pr_number', 'target_head', 'current_head', 'check_suite_head')
+    exactKeys(check, expectedFields, 'check_evidence_invalid')
     if (
       check.type !== 'CheckRun' || check.repository !== PRODUCTION_REPOSITORY ||
       !positiveInteger(check.actions_run_id) ||
@@ -322,7 +325,6 @@ const projectChecks = (checksInput, adapter, caseInput) => {
         : check.conclusion !== null)
     ) notComparable('check_evidence_invalid')
     const requiredPolicy = REQUIRED_CHECK_NAMES.get(check.name)
-    const selfPolicy = SELF_CHECK_NAMES.get(check.name)
     if (selfPolicy) {
       if (
         check.classification !== 'PRODUCTION_RTO_SELF' || check.app_id !== selfPolicy.app_id ||
@@ -337,7 +339,12 @@ const projectChecks = (checksInput, adapter, caseInput) => {
     }
     if (
       check.classification !== 'EXTERNAL_REQUIRED' || check.app_id !== requiredPolicy.app_id ||
-      check.source_run_relation !== 'PR_HEAD_CHECK'
+      check.source_run_relation !== 'PR_HEAD_CHECK' ||
+      !positiveInteger(check.pr_number) || check.pr_number !== identitySource.pr_number ||
+      !FULL_HEAD.test(check.target_head ?? '') || check.target_head !== identitySource.target_head ||
+      !FULL_HEAD.test(check.current_head ?? '') || check.current_head !== identitySource.current_head ||
+      !FULL_HEAD.test(check.check_suite_head ?? '') ||
+      check.check_suite_head !== check.target_head || check.check_suite_head !== check.current_head
     ) notComparable('check_provenance_ambiguous')
     return { ...check, check_id: requiredPolicy.check_id, required: true }
   })
@@ -560,7 +567,7 @@ export const evaluateSdpsReadOnlyShadowV1 = ({ immutableEvidenceBundle: caseInpu
     let threads = null
     let terminal = null
     if (sources.has('checks') && sources.has('threads')) {
-      checks = projectChecks(sources.get('checks'), adapter, caseInput)
+      checks = projectChecks(sources.get('checks'), adapter, caseInput, identitySource)
       threads = projectThreads(sources.get('threads'))
       terminal = evaluateTerminalEvidenceV1({ checks, threads, requiredCheckIds: adapter.validation.required_checks })
     }
@@ -605,6 +612,9 @@ export const evaluateSdpsReadOnlyShadowV1 = ({ immutableEvidenceBundle: caseInpu
     const anyMismatch = BOUNDARIES.some((boundary) => boundaries[boundary].status === 'MISMATCH')
     const requiredNotComparable = caseInput.required_boundaries.some((boundary) => boundaries[boundary].status === 'NOT_COMPARABLE')
     const overall = anyMismatch ? 'MISMATCH' : requiredNotComparable ? 'NOT_COMPARABLE' : 'MATCH'
+    if (overall !== caseInput.expected_overall) {
+      return globalNotComparable(caseInput.fixture_id, 'fixture_expected_overall_mismatch')
+    }
     return deepFreeze({
       record_type: SDPS_SHADOW_RESULT_V1,
       fixture_id: caseInput.fixture_id,
