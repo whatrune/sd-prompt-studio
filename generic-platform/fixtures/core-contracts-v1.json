@@ -1,0 +1,67 @@
+{
+  "fixture_version": 1,
+  "identity": {
+    "record_type": "gadp_identity_v1",
+    "repository": "whatrune/sd-prompt-studio",
+    "task_issue_number": 251,
+    "pr_number": 316,
+    "exact_head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "attempt": 1
+  },
+  "review": {
+    "record_type": "gadp_review_v1",
+    "identity": {
+      "record_type": "gadp_identity_v1",
+      "repository": "whatrune/sd-prompt-studio",
+      "task_issue_number": 251,
+      "pr_number": 316,
+      "exact_head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "attempt": 1
+    },
+    "source_id": "issue-comment-5300000000",
+    "source_order": 5300000000,
+    "observed_at": "2026-08-16T00:00:00Z",
+    "decision": "APPROVE",
+    "blocking_finding_count": 0,
+    "remaining_finding_count": 0,
+    "unknown_count": 0
+  },
+  "admission": {
+    "record_type": "gadp_admission_result_v1",
+    "identity": {
+      "record_type": "gadp_identity_v1",
+      "repository": "whatrune/sd-prompt-studio",
+      "task_issue_number": 251,
+      "pr_number": 316,
+      "exact_head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "attempt": 1
+    },
+    "state": "MERGE_ELIGIBLE",
+    "allowed": true,
+    "reason": "merge_gate_satisfied",
+    "review_source_id": "issue-comment-5300000000",
+    "checks_terminal": true,
+    "external_check_success_count": 2,
+    "blocking_thread_count": 0
+  },
+  "dispatch": {
+    "record_type": "gadp_role_dispatch_v1",
+    "identity": {
+      "record_type": "gadp_identity_v1",
+      "repository": "whatrune/sd-prompt-studio",
+      "task_issue_number": 251,
+      "pr_number": 316,
+      "exact_head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "attempt": 1
+    },
+    "role_id": "independent-reviewer",
+    "profile_id": "sdps-reviewer-v1",
+    "purpose": "INDEPENDENT_REVIEW",
+    "source_review_id": "issue-comment-5300000000",
+    "authorized_paths": [
+      "generic-platform/src/core/contracts-v1.mjs"
+    ],
+    "capability_ids": [],
+    "prompt_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  }
+}
