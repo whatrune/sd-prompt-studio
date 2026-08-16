@@ -6,6 +6,9 @@ import { ContractViolationV1 } from '../core/contracts-v1.mjs'
 const ENVIRONMENT_KEY = /^[A-Z_][A-Z0-9_]*$/
 const SENSITIVE_KEY = /(?:TOKEN|SECRET|PASSWORD|CREDENTIAL|PRIVATE|BROKER|KEY)/
 const MAX_OUTPUT_BYTES = 262144
+const TERMINATION_GRACE_MS = 200
+const FORCE_TERMINATION_CONFIRM_MS = 1000
+const FINAL_TERMINATION_CONFIRM_MS = 1000
 const violation = (reason) => { throw new ContractViolationV1(reason) }
 const plainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value) &&
   (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)
@@ -69,17 +72,87 @@ export const runProviderSubprocessCredentialBoundaryV1 = ({
     let stderrBytes = 0
     let settled = false
     let timer
+    let gracefulTerminationTimer
+    let forceTerminationTimer
+    let finalTerminationTimer
+    let primaryFailure = null
+    let terminationFailure = null
+    let terminationStage = 'RUNNING'
+    let exitObserved = false
+    let closeObserved = false
+    let childProcessErrorObserved = false
+    const clearTimers = () => {
+      clearTimeout(timer)
+      clearTimeout(gracefulTerminationTimer)
+      clearTimeout(forceTerminationTimer)
+      clearTimeout(finalTerminationTimer)
+    }
     const fail = (error) => {
       if (settled) return
       settled = true
-      clearTimeout(timer)
+      clearTimers()
       reject(error)
     }
+    const childAbsenceEstablished = () => {
+      if (exitObserved || closeObserved || child.exitCode !== null || child.signalCode !== null) return true
+      if (!Number.isSafeInteger(child.pid) || child.pid <= 0) return childProcessErrorObserved
+      try {
+        process.kill(child.pid, 0)
+        return false
+      } catch (error) {
+        return error?.code === 'ESRCH'
+      }
+    }
+    const settleTermination = () => {
+      if (!primaryFailure || !childAbsenceEstablished()) return false
+      fail(terminationFailure ?? primaryFailure)
+      return true
+    }
+    const requestSignal = (signal) => {
+      try {
+        child.kill(signal)
+      } catch {
+        // The bounded lifecycle confirms absence or escalates to its dedicated failure.
+      }
+    }
+    const finalTerminate = () => {
+      if (settled || settleTermination()) return
+      terminationStage = 'FINAL_CONFIRMATION'
+      terminationFailure = new ContractViolationV1('provider_process_termination_failed')
+      try {
+        process.kill(child.pid, 'SIGKILL')
+      } catch {
+        // Absence is checked below; an unconfirmed process fails closed.
+      }
+      finalTerminationTimer = setTimeout(() => {
+        if (settled || settleTermination()) return
+        fail(terminationFailure)
+      }, FINAL_TERMINATION_CONFIRM_MS)
+    }
+    const forceTerminate = () => {
+      if (settled || settleTermination() || terminationStage !== 'GRACEFUL') return
+      terminationStage = 'FORCE'
+      requestSignal('SIGKILL')
+      forceTerminationTimer = setTimeout(() => {
+        if (settled || settleTermination()) return
+        finalTerminate()
+      }, FORCE_TERMINATION_CONFIRM_MS)
+    }
+    const requireTermination = (error) => {
+      if (settled) return
+      if (!primaryFailure) primaryFailure = error
+      clearTimeout(timer)
+      if (settleTermination() || terminationStage !== 'RUNNING') return
+      terminationStage = 'GRACEFUL'
+      child.stdin.destroy()
+      requestSignal('SIGTERM')
+      gracefulTerminationTimer = setTimeout(forceTerminate, TERMINATION_GRACE_MS)
+    }
     const append = (chunks, chunk, stream) => {
+      if (primaryFailure) return
       const nextBytes = stream === 'stdout' ? stdoutBytes + chunk.length : stderrBytes + chunk.length
       if (nextBytes > MAX_OUTPUT_BYTES) {
-        child.kill()
-        fail(new ContractViolationV1('provider_output_bound_exceeded'))
+        requireTermination(new ContractViolationV1('provider_output_bound_exceeded'))
         return
       }
       if (stream === 'stdout') stdoutBytes = nextBytes
@@ -88,11 +161,28 @@ export const runProviderSubprocessCredentialBoundaryV1 = ({
     }
     child.stdout.on('data', (chunk) => append(stdout, chunk, 'stdout'))
     child.stderr.on('data', (chunk) => append(stderr, chunk, 'stderr'))
-    child.on('error', fail)
+    child.on('error', () => {
+      childProcessErrorObserved = true
+      if (terminationStage === 'RUNNING') {
+        requireTermination(new ContractViolationV1('provider_process_error'))
+      } else {
+        settleTermination()
+      }
+    })
+    child.on('exit', () => {
+      exitObserved = true
+      settleTermination()
+    })
     child.on('close', (exitCode, signal) => {
       if (settled) return
+      closeObserved = true
+      exitObserved = true
+      if (primaryFailure) {
+        settleTermination()
+        return
+      }
       settled = true
-      clearTimeout(timer)
+      clearTimers()
       resolve(Object.freeze({
         exit_code: exitCode,
         signal: signal ?? null,
@@ -105,9 +195,16 @@ export const runProviderSubprocessCredentialBoundaryV1 = ({
       }))
     })
     timer = setTimeout(() => {
-      child.kill()
-      fail(new ContractViolationV1('provider_process_timeout'))
+      requireTermination(new ContractViolationV1('provider_process_timeout'))
     }, timeoutMs)
-    child.stdin.end(stdin)
+    const failStdin = () => requireTermination(new ContractViolationV1('provider_stdin_write_failed'))
+    child.stdin.on('error', failStdin)
+    try {
+      child.stdin.end(stdin, (error) => {
+        if (error) failStdin()
+      })
+    } catch {
+      failStdin()
+    }
   })
 }
