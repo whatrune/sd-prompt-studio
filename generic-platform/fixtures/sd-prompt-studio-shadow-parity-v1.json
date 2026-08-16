@@ -1,0 +1,489 @@
+{
+  "fixture_version": 1,
+  "record_type": "sdps_shadow_parity_fixture_set_v1",
+  "production_owner": {
+    "workflow": ".github/workflows/protected-transition-admission-v1.yml",
+    "runner": "scripts/run-protected-transition-admission-v1.mjs"
+  },
+  "cases": [
+    {
+      "fixture_id": "merge-eligible-31906618294",
+      "run_url": "https://github.com/whatrune/sd-prompt-studio/actions/runs/31906618294",
+      "run_id": 31906618294,
+      "run_attempt": 1,
+      "host_sha": "7b8d1376dc5b0654fc64636691fb4edcc1470568",
+      "source_records": [
+        {
+          "source_id": "identity",
+          "payload": {
+            "repository": "whatrune/sd-prompt-studio",
+            "task_issue_number": 309,
+            "pr_number": 310,
+            "target_head": "6cb4a2cb8a13339d5678c5502c682cb9f2308be9",
+            "current_head": "6cb4a2cb8a13339d5678c5502c682cb9f2308be9",
+            "attempt": 1
+          },
+          "sha256": "a48677eb19396092f5b1fe56c8c7cccae0c719a2c71ba3e7dd13ebabf9b7bdef"
+        },
+        {
+          "source_id": "authorized-paths",
+          "payload": [
+            "docs/team/05-worktree-and-branch-rules.md"
+          ],
+          "sha256": "4f44375a6e9a3c7db024ab4c0f8817fb5733490eca7ccbbfce2cdda9ade4eda6"
+        },
+        {
+          "source_id": "review-comments",
+          "payload": [
+            {
+              "kind": "VALID_TARGET_TUPLE",
+              "comment_id": 5304078969,
+              "created_at": "2026-08-15T20:24:49Z",
+              "review": {
+                "pr_number": 310,
+                "reviewed_head": "6cb4a2cb8a13339d5678c5502c682cb9f2308be9",
+                "decision": "APPROVE",
+                "blocking_finding_count": 0,
+                "remaining_finding_count": 0,
+                "unknown_count": 0
+              }
+            }
+          ],
+          "sha256": "72eb5310bfb653ad9eef445600d2c617cb2a49ae0ef4f4d965e9fb49acb46cb4"
+        },
+        {
+          "source_id": "checks",
+          "payload": [
+            {
+              "type": "CheckRun",
+              "name": "build-preview",
+              "app_id": "15368",
+              "generation_id": "94657181269",
+              "started_at": "2026-08-14T02:39:49Z",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "type": "CheckRun",
+              "name": "Cloudflare Pages",
+              "app_id": "85455",
+              "generation_id": "94657334622",
+              "started_at": "2026-08-14T02:40:49Z",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ],
+          "sha256": "679d9a4b567dfbc47824f517da13b7f9135a982e2991d27655424d9c4ae8d663"
+        },
+        {
+          "source_id": "threads",
+          "payload": [],
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      ],
+      "evidence_completeness": {
+        "review_history": { "state": "INCOMPLETE", "page_count": null, "item_count": 1 },
+        "checks": { "state": "INCOMPLETE", "page_count": null, "item_count": 2 },
+        "review_threads": { "state": "INCOMPLETE", "page_count": null, "item_count": 0 },
+        "raw_production_admission": { "state": "INCOMPLETE" }
+      },
+      "raw_production_result": {
+        "admission": null,
+        "progression": null
+      },
+      "production_result": {
+        "payload": {
+          "identity": {
+            "repository": "whatrune/sd-prompt-studio",
+            "task_issue_number": 309,
+            "pr_number": 310,
+            "target_head": "6cb4a2cb8a13339d5678c5502c682cb9f2308be9",
+            "current_head": "6cb4a2cb8a13339d5678c5502c682cb9f2308be9",
+            "attempt": 1,
+            "binding_state": "BOUND"
+          },
+          "current_leaf_review": {
+            "selected": true,
+            "source_id": "issue-comment-5304078969",
+            "reviewed_head": "6cb4a2cb8a13339d5678c5502c682cb9f2308be9",
+            "decision": "APPROVE",
+            "blocking_finding_count": 0,
+            "remaining_finding_count": 0,
+            "unknown_count": 0
+          },
+          "terminal_evidence": {
+            "checks_terminal": true,
+            "external_check_success_count": 2,
+            "blocking_thread_count": 0,
+            "reason": "terminal_evidence_satisfied"
+          },
+          "admission": {
+            "state": "MERGE_ELIGIBLE",
+            "allowed": true,
+            "reason": "merge_gate_satisfied",
+            "next_action": "MERGE_DECISION",
+            "external_check_success_count": 2,
+            "blocking_thread_count": 0
+          },
+          "role_dispatch_binding": {
+            "present": true,
+            "identity": {
+              "record_type": "gadp_identity_v1",
+              "repository": "whatrune/sd-prompt-studio",
+              "task_issue_number": 309,
+              "pr_number": 310,
+              "exact_head": "6cb4a2cb8a13339d5678c5502c682cb9f2308be9",
+              "attempt": 1
+            },
+            "role_id": "product-owner",
+            "profile_id": "product-owner-v1",
+            "purpose": "MERGE_DECISION",
+            "source_review_id": "issue-comment-5304078969",
+            "authorized_paths": [
+              "docs/team/05-worktree-and-branch-rules.md"
+            ],
+            "capability_ids": [],
+            "credential_free": true,
+            "repository_access": false,
+            "protected_operation_authorized": false
+          }
+        },
+        "sha256": "5bfd2a04b71093c8c9c4ceebb06112ab0cdc555a599512131c0735e9f2cb36a3"
+      },
+      "required_boundaries": [
+        "identity",
+        "current_leaf_review",
+        "terminal_evidence",
+        "admission",
+        "role_dispatch_binding"
+      ],
+      "expected_overall": "NOT_COMPARABLE",
+      "case_sha256": "e7fdff427d8a40df344087c0cd38c0cd22fc5dcea12741209ea11c2def4a2296"
+    },
+    {
+      "fixture_id": "blocking-review-thread-31891540356",
+      "run_url": "https://github.com/whatrune/sd-prompt-studio/actions/runs/31891540356",
+      "run_id": 31891540356,
+      "run_attempt": 1,
+      "host_sha": "47c68ba35451dafa976631bb66f5538a90daa791",
+      "source_records": [
+        {
+          "source_id": "identity",
+          "payload": {
+            "repository": "whatrune/sd-prompt-studio",
+            "task_issue_number": 251,
+            "pr_number": 315,
+            "target_head": "227e144afdda4b5c2cc92796d5b09bd2d8c7e970",
+            "current_head": "227e144afdda4b5c2cc92796d5b09bd2d8c7e970",
+            "attempt": 1
+          },
+          "sha256": "4ebc0b3c8bc90ba6a85f2ba8fad04a0c670a9bdcc734283899bb149cebf04a49"
+        },
+        {
+          "source_id": "authorized-paths",
+          "payload": [
+            ".github/workflows/protected-transition-admission-v1.yml",
+            "scripts/run-protected-transition-admission-v1.mjs",
+            "scripts/test-protected-transition-admission-v1.mjs"
+          ],
+          "sha256": "ae0c336f34b2abf6d461bade316d908271f09715efa5bc39cd4ce2f2635778cf"
+        },
+        {
+          "source_id": "review-comments",
+          "payload": [
+            {
+              "kind": "VALID_TARGET_TUPLE",
+              "comment_id": 5302802303,
+              "created_at": "2026-08-15T15:01:19Z",
+              "review": {
+                "pr_number": 315,
+                "reviewed_head": "227e144afdda4b5c2cc92796d5b09bd2d8c7e970",
+                "decision": "APPROVE",
+                "blocking_finding_count": 0,
+                "remaining_finding_count": 0,
+                "unknown_count": 0
+              }
+            }
+          ],
+          "sha256": "7e5647ab55880f98685dc78e0df303d7704a3d1c06554bc222965519aed88422"
+        },
+        {
+          "source_id": "checks",
+          "payload": [
+            {
+              "type": "CheckRun",
+              "name": "build-preview",
+              "app_id": "15368",
+              "generation_id": "95025571301",
+              "started_at": "2026-08-15T14:35:58Z",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "type": "CheckRun",
+              "name": "Cloudflare Pages",
+              "app_id": "85455",
+              "generation_id": "95025620509",
+              "started_at": "2026-08-15T14:36:21Z",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "type": "CheckRun",
+              "name": "protected_transition_admission_v1",
+              "app_id": "15368",
+              "generation_id": "95027267556",
+              "started_at": "2026-08-15T14:51:06Z",
+              "status": "completed",
+              "conclusion": "failure"
+            }
+          ],
+          "sha256": "8a1780031402197d6a5267cec1b0e49dc43fad9e0c97c29bf0665832e20f8c3a"
+        },
+        {
+          "source_id": "threads",
+          "payload": [
+            {
+              "thread_id": "recorded-active-thread-31891540356-1",
+              "is_resolved": false,
+              "is_outdated": false
+            }
+          ],
+          "sha256": "81baaa0cec7e6fa2814cb2f1235272fe90bf00e90375524cfa9c607e670991d3"
+        }
+      ],
+      "evidence_completeness": {
+        "review_history": { "state": "INCOMPLETE", "page_count": null, "item_count": 1 },
+        "checks": { "state": "INCOMPLETE", "page_count": null, "item_count": 3 },
+        "review_threads": { "state": "INCOMPLETE", "page_count": null, "item_count": 1 },
+        "raw_production_admission": { "state": "INCOMPLETE" }
+      },
+      "raw_production_result": {
+        "admission": null,
+        "progression": null
+      },
+      "production_result": {
+        "payload": {
+          "identity": {
+            "repository": "whatrune/sd-prompt-studio",
+            "task_issue_number": 251,
+            "pr_number": 315,
+            "target_head": "227e144afdda4b5c2cc92796d5b09bd2d8c7e970",
+            "current_head": "227e144afdda4b5c2cc92796d5b09bd2d8c7e970",
+            "attempt": 1,
+            "binding_state": "BOUND"
+          },
+          "current_leaf_review": {
+            "selected": true,
+            "source_id": "issue-comment-5302802303",
+            "reviewed_head": "227e144afdda4b5c2cc92796d5b09bd2d8c7e970",
+            "decision": "APPROVE",
+            "blocking_finding_count": 0,
+            "remaining_finding_count": 0,
+            "unknown_count": 0
+          },
+          "terminal_evidence": {
+            "checks_terminal": true,
+            "external_check_success_count": 2,
+            "blocking_thread_count": 1,
+            "reason": "blocking_review_threads_present"
+          },
+          "admission": {
+            "state": "REVIEW_BLOCKED",
+            "allowed": false,
+            "reason": "blocking_review_threads_present",
+            "next_action": "STOP",
+            "external_check_success_count": 2,
+            "blocking_thread_count": 1
+          },
+          "role_dispatch_binding": {
+            "present": false
+          }
+        },
+        "sha256": "46c2e2c632dbf7f2534e87816cb12cec98da8c2ac314a2382282a2b2ac619be1"
+      },
+      "required_boundaries": [
+        "identity",
+        "current_leaf_review",
+        "terminal_evidence",
+        "admission",
+        "role_dispatch_binding"
+      ],
+      "expected_overall": "NOT_COMPARABLE",
+      "case_sha256": "d266b03b097bb48c7b8ce407590b97510683090374495756e024bcb0313dcdde"
+    },
+    {
+      "fixture_id": "stale-binding-31367429466",
+      "run_url": "https://github.com/whatrune/sd-prompt-studio/actions/runs/31367429466",
+      "run_id": 31367429466,
+      "run_attempt": 1,
+      "host_sha": "76fe20e7f1f3254edb0d64b02f16ff6e04d864a6",
+      "source_records": [
+        {
+          "source_id": "identity",
+          "payload": {
+            "repository": "whatrune/sd-prompt-studio",
+            "task_issue_number": 251,
+            "pr_number": 288,
+            "target_head": "216b7296a826c7ada111402e6e803fcc9f39b17b",
+            "current_head": "76fe20e7f1f3254edb0d64b02f16ff6e04d864a6",
+            "attempt": 1
+          },
+          "sha256": "4c3a0110f9eb935cce433bda4edb8e08f4cdf36cf4f0caa032ea5f19657d3012"
+        }
+      ],
+      "evidence_completeness": {
+        "review_history": { "state": "NOT_APPLICABLE", "page_count": 0, "item_count": 0 },
+        "checks": { "state": "NOT_APPLICABLE", "page_count": 0, "item_count": 0 },
+        "review_threads": { "state": "NOT_APPLICABLE", "page_count": 0, "item_count": 0 },
+        "raw_production_admission": { "state": "INCOMPLETE" }
+      },
+      "raw_production_result": {
+        "admission": null,
+        "progression": null
+      },
+      "production_result": {
+        "payload": {
+          "identity": {
+            "repository": "whatrune/sd-prompt-studio",
+            "task_issue_number": 251,
+            "pr_number": 288,
+            "target_head": "216b7296a826c7ada111402e6e803fcc9f39b17b",
+            "current_head": "76fe20e7f1f3254edb0d64b02f16ff6e04d864a6",
+            "attempt": 1,
+            "binding_state": "STALE"
+          },
+          "current_leaf_review": null,
+          "terminal_evidence": null,
+          "admission": {
+            "state": "STALE",
+            "allowed": false,
+            "reason": "head_binding_stale",
+            "next_action": "STOP",
+            "external_check_success_count": 0,
+            "blocking_thread_count": 0
+          },
+          "role_dispatch_binding": {
+            "present": false
+          }
+        },
+        "sha256": "98f1c7c5bf2f9abb2aa9ba90b65d75243d217afba5a49166e87ae25699b13f98"
+      },
+      "required_boundaries": [
+        "identity",
+        "admission",
+        "role_dispatch_binding"
+      ],
+      "expected_overall": "NOT_COMPARABLE",
+      "case_sha256": "d431ac2e42a91dadc349c74c3b0c7459fdfde209a31119cc8724016f8fe94730"
+    },
+    {
+      "fixture_id": "current-leaf-selection-31905911731",
+      "run_url": "https://github.com/whatrune/sd-prompt-studio/actions/runs/31905911731",
+      "run_id": 31905911731,
+      "run_attempt": 1,
+      "host_sha": "7b8d1376dc5b0654fc64636691fb4edcc1470568",
+      "source_records": [
+        {
+          "source_id": "identity",
+          "payload": {
+            "repository": "whatrune/sd-prompt-studio",
+            "task_issue_number": 251,
+            "pr_number": 316,
+            "target_head": "bafb05305acc3402401f102a9f783773519eba6a",
+            "current_head": "bafb05305acc3402401f102a9f783773519eba6a",
+            "attempt": 1
+          },
+          "sha256": "433c028d3ac196426162820d472ce8792a1e064a6a748a40e57a7d36c74c29fc"
+        },
+        {
+          "source_id": "review-comments",
+          "payload": [
+            {
+              "kind": "VALID_OTHER_HEAD_OR_PR",
+              "comment_id": 5303580497,
+              "created_at": "2026-08-15T18:15:05Z",
+              "review": {
+                "pr_number": 316,
+                "reviewed_head": "72fad866a29697966a3252508f874841bae636da",
+                "decision": "APPROVE",
+                "blocking_finding_count": 0,
+                "remaining_finding_count": 0,
+                "unknown_count": 0
+              }
+            },
+            {
+              "kind": "VALID_TARGET_TUPLE",
+              "comment_id": 5303961807,
+              "created_at": "2026-08-15T19:53:47Z",
+              "review": {
+                "pr_number": 316,
+                "reviewed_head": "bafb05305acc3402401f102a9f783773519eba6a",
+                "decision": "APPROVE",
+                "blocking_finding_count": 0,
+                "remaining_finding_count": 0,
+                "unknown_count": 0
+              }
+            },
+            {
+              "kind": "VALID_TARGET_TUPLE",
+              "comment_id": 5304019412,
+              "created_at": "2026-08-15T20:09:11Z",
+              "review": {
+                "pr_number": 316,
+                "reviewed_head": "bafb05305acc3402401f102a9f783773519eba6a",
+                "decision": "APPROVE",
+                "blocking_finding_count": 0,
+                "remaining_finding_count": 0,
+                "unknown_count": 0
+              }
+            }
+          ],
+          "sha256": "a2dafedca9d925106e157b3ce7cd9bab4eeb40a7ae1dc9faffd90c906d11318c"
+        }
+      ],
+      "evidence_completeness": {
+        "review_history": { "state": "INCOMPLETE", "page_count": null, "item_count": 3 },
+        "checks": { "state": "NOT_APPLICABLE", "page_count": 0, "item_count": 0 },
+        "review_threads": { "state": "NOT_APPLICABLE", "page_count": 0, "item_count": 0 },
+        "raw_production_admission": { "state": "NOT_APPLICABLE" }
+      },
+      "raw_production_result": {
+        "admission": null,
+        "progression": null
+      },
+      "production_result": {
+        "payload": {
+          "identity": {
+            "repository": "whatrune/sd-prompt-studio",
+            "task_issue_number": 251,
+            "pr_number": 316,
+            "target_head": "bafb05305acc3402401f102a9f783773519eba6a",
+            "current_head": "bafb05305acc3402401f102a9f783773519eba6a",
+            "attempt": 1,
+            "binding_state": "BOUND"
+          },
+          "current_leaf_review": {
+            "selected": true,
+            "source_id": "issue-comment-5304019412",
+            "reviewed_head": "bafb05305acc3402401f102a9f783773519eba6a",
+            "decision": "APPROVE",
+            "blocking_finding_count": 0,
+            "remaining_finding_count": 0,
+            "unknown_count": 0
+          },
+          "terminal_evidence": null,
+          "admission": null,
+          "role_dispatch_binding": null
+        },
+        "sha256": "10e2a9027f94c27ea69abad9c06ba30ca539bb79443a47cdbf966a9928859e15"
+      },
+      "required_boundaries": [
+        "identity",
+        "current_leaf_review"
+      ],
+      "expected_overall": "NOT_COMPARABLE",
+      "case_sha256": "75f9912120f55dc1e6f360f780d731c7b6e436464f454afbf423eeef7403784f"
+    }
+  ]
+}
