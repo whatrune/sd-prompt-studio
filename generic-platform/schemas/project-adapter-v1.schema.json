@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://generic-ai-development-platform.invalid/schemas/project-adapter-v1.schema.json",
+  "title": "Generic AI Development Platform Project Adapter V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "api_version",
+    "project_id",
+    "repository",
+    "records",
+    "paths",
+    "validation",
+    "commands",
+    "roles",
+    "repair",
+    "runtime",
+    "credentials",
+    "protected_operation_ids",
+    "workspace"
+  ],
+  "properties": {
+    "api_version": { "const": "ai-development/v1" },
+    "project_id": { "$ref": "#/$defs/id" },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "name", "default_branch"],
+      "properties": {
+        "provider": { "const": "github" },
+        "name": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+        "default_branch": { "type": "string", "pattern": "^[A-Za-z0-9._/-]+$", "maxLength": 128 }
+      }
+    },
+    "records": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_source", "review_source", "decision_source"],
+      "properties": {
+        "task_source": { "const": "github_issue" },
+        "review_source": { "const": "task_issue_comment" },
+        "decision_source": { "const": "task_issue_comment" }
+      }
+    },
+    "paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["writable", "forbidden"],
+      "properties": {
+        "writable": { "$ref": "#/$defs/pathList" },
+        "forbidden": { "$ref": "#/$defs/pathList" }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile_ids", "required_checks", "current_generation_only"],
+      "properties": {
+        "profile_ids": { "$ref": "#/$defs/idList" },
+        "required_checks": { "$ref": "#/$defs/idList" },
+        "current_generation_only": { "const": true }
+      }
+    },
+    "commands": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["invocations"],
+      "properties": {
+        "invocations": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["command_id", "argv"],
+            "properties": {
+              "command_id": { "$ref": "#/$defs/id" },
+              "argv": {
+                "type": "array",
+                "maxItems": 16,
+                "items": { "type": "string", "maxLength": 512 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "roles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewer_profile_id", "implementer_profile_id", "decision_authority_id", "merge_operator_profile_id"],
+      "properties": {
+        "reviewer_profile_id": { "$ref": "#/$defs/optionalId" },
+        "implementer_profile_id": { "$ref": "#/$defs/optionalId" },
+        "decision_authority_id": { "$ref": "#/$defs/optionalId" },
+        "merge_operator_profile_id": { "$ref": "#/$defs/optionalId" }
+      }
+    },
+    "repair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_attempts", "max_files", "max_diff_bytes", "allowed_validation_ids"],
+      "properties": {
+        "max_attempts": { "const": 0 },
+        "max_files": { "const": 0 },
+        "max_diff_bytes": { "const": 0 },
+        "allowed_validation_ids": { "type": "array", "maxItems": 0 }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runner_labels", "toolchain_revision", "deployment_rule_ids"],
+      "properties": {
+        "runner_labels": { "$ref": "#/$defs/idList" },
+        "toolchain_revision": { "type": "string", "pattern": "^[A-Za-z0-9._-]*$", "maxLength": 128 },
+        "deployment_rule_ids": { "$ref": "#/$defs/idList" }
+      }
+    },
+    "credentials": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_capability_ids"],
+      "properties": {
+        "required_capability_ids": { "$ref": "#/$defs/idList" }
+      }
+    },
+    "protected_operation_ids": { "type": "array", "maxItems": 0 },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["branch_prefix", "bootstrap_command_id", "cleanup"],
+      "properties": {
+        "branch_prefix": { "type": "string", "pattern": "^[A-Za-z0-9._/-]*$", "maxLength": 128 },
+        "bootstrap_command_id": { "$ref": "#/$defs/optionalId" },
+        "cleanup": { "const": "terminal_only" }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$", "maxLength": 128 },
+    "optionalId": { "type": "string", "pattern": "^(?:|[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*)$", "maxLength": 128 },
+    "idList": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/id" }
+    },
+    "pathList": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^(?![A-Za-z]:)(?![\\\\/])(?!.*[\\\\:\\u0000-\\u001f\\u007f])(?!(?:.*\\/)?\\.{1,2}(?:\\/|$))(?!.*\\/\\/)[^/]+(?:\\/[^/]+)*$", "maxLength": 512 }
+    }
+  }
+}
