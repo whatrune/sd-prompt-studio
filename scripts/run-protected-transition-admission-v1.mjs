@@ -3482,22 +3482,30 @@ const verifyRoleDispatchSourceV1 = async (dispatch, host) => {
 
 const resolveAdmissionRunOriginV1 = async ({ repository, admissionRunId, prNumber, exactHead, host }) => {
   const expectedRunUrl = `https://github.com/${repository}/actions/runs/${admissionRunId}`
+  const expectedApiRepository = `https://api.github.com/repos/${repository}`
   const admissionRun = await api(host, `repos/${repository}/actions/runs/${admissionRunId}`)
   if (
     !admissionRun || String(admissionRun.id) !== admissionRunId || admissionRun.html_url !== expectedRunUrl ||
     admissionRun.path !== '.github/workflows/protected-transition-admission-v1.yml' ||
     admissionRun.repository?.full_name !== repository || !FULL_HEAD.test(admissionRun.head_sha ?? '') ||
-    !Array.isArray(admissionRun.pull_requests)
+    !Array.isArray(admissionRun.pull_requests) || admissionRun.status !== 'completed' || admissionRun.conclusion !== 'success'
   ) throw new Error('role_dispatch_origin_invalid')
 
   let selfCheckContext
   let currentWorkflowJobIds
   if (admissionRun.event === 'issue_comment') {
-    if (admissionRun.pull_requests.length !== 0) throw new Error('role_dispatch_origin_invalid')
+    const repositoryRecord = await api(host, `repos/${repository}`)
+    if (
+      admissionRun.pull_requests.length !== 0 || admissionRun.repository?.url !== expectedApiRepository ||
+      admissionRun.head_repository?.full_name !== repository || admissionRun.head_repository?.url !== expectedApiRepository ||
+      admissionRun.head_commit?.id !== admissionRun.head_sha ||
+      !repositoryRecord || repositoryRecord.full_name !== repository || repositoryRecord.url !== expectedApiRepository ||
+      typeof repositoryRecord.default_branch !== 'string' || repositoryRecord.default_branch.length === 0 ||
+      admissionRun.head_branch !== repositoryRecord.default_branch
+    ) throw new Error('role_dispatch_origin_invalid')
     selfCheckContext = REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1
   } else if (admissionRun.event === 'pull_request') {
     const pull = admissionRun.pull_requests[0]
-    const expectedApiRepository = `https://api.github.com/repos/${repository}`
     if (
       admissionRun.head_sha !== exactHead || admissionRun.pull_requests.length !== 1 ||
       pull?.number !== prNumber || pull?.url !== `${expectedApiRepository}/pulls/${prNumber}` ||
@@ -3776,6 +3784,7 @@ const fetchRoleCommentV1 = async (repository, taskIssueNumber, commentId, host) 
 export const evaluateProductOwnerMergeDecisionV1 = ({ decision, request, taskState, review, admissionRun, admissionOrigin = null, gateResult }) => {
   try {
     const parsedState = parseProtectedTransitionTaskStateV1(taskState)
+    const originHeadValid = admissionRun?.event === 'issue_comment' || admissionRun?.head_sha === request?.exactHead
     const originValid = admissionRun?.event === 'issue_comment'
       ? admissionOrigin === null || (
         VERIFIED_ADMISSION_ORIGINS_V1.has(admissionOrigin) && admissionOrigin.admissionRun === admissionRun &&
@@ -3795,7 +3804,7 @@ export const evaluateProductOwnerMergeDecisionV1 = ({ decision, request, taskSta
       parsedState.observed_head !== request.exactHead || parsedState.reviewed_head !== request.exactHead ||
       parsedState.review_status !== 'APPROVE' || parsedState.review_blocker_count !== 0 ||
       !admissionRun || admissionRun.id !== decision.admissionRunId ||
-      admissionRun.html_url !== decision.admissionRunUrl || admissionRun.head_sha !== request.exactHead ||
+      admissionRun.html_url !== decision.admissionRunUrl || !originHeadValid ||
       admissionRun.path !== '.github/workflows/protected-transition-admission-v1.yml' ||
       !originValid || admissionRun.status !== 'completed' || admissionRun.conclusion !== 'success' ||
       !gateResult || gateResult.state !== 'MERGE_ELIGIBLE' || gateResult.allowed !== true ||

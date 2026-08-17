@@ -51,9 +51,9 @@ const REPOSITORY = 'whatrune/sd-prompt-studio'
 const TASK = 259
 const PR = 260
 const HEAD = 'a'.repeat(40)
-const OTHER_HEAD = 'b'.repeat(40)
+const OTHER_HEAD = '3b19e86982701f7cffbe42d4d3568ad498bc016f'
 const READY_RUN_ID = '31246327840'
-const REVIEW_RUN_ID = '31561746789'
+const REVIEW_RUN_ID = '32025890230'
 const CUMULATIVE_PR_BASE = '3e3014d95680f3d3e34ec3696a1e3de4b1a03c03'
 const BASE = '9fda08907ff21c5c596146b779d7feeac5efbfa8'
 const HOST_RUNNER_BINDING_BASE = '3631d84351a49088baaadb5b3445751a7bf0b44e'
@@ -2806,7 +2806,7 @@ for (const [index, evidence] of approveRouteMatrix.entries()) check(evidence, `R
 const mergeDecisionRequest = roleRequest()
 const mergeDecisionState = roleState({ observed_head: OTHER_HEAD, review_status: 'APPROVE', reviewed_head: OTHER_HEAD, review_blocker_count: 0 })
 const mergeDecisionReview = Object.freeze({ pr_number: PR, reviewed_head: OTHER_HEAD, decision: 'APPROVE', blocking_finding_count: 0, remaining_finding_count: 0, unknown_count: 0 })
-const mergeDecisionRun = Object.freeze({ id: mergeDecisionRunId, html_url: parsedMergeDecision.admissionRunUrl, head_sha: OTHER_HEAD, path: '.github/workflows/protected-transition-admission-v1.yml', event: 'issue_comment', status: 'completed', conclusion: 'success' })
+const mergeDecisionRun = Object.freeze({ id: mergeDecisionRunId, html_url: parsedMergeDecision.admissionRunUrl, head_sha: CUMULATIVE_PR_BASE, path: '.github/workflows/protected-transition-admission-v1.yml', event: 'issue_comment', status: 'completed', conclusion: 'success' })
 const mergeDecisionGate = Object.freeze({ ...mergeRoute, reason: 'merge_gate_satisfied', external_check_success_count: 2, blocking_thread_count: 0 })
 const admittedMergeDecision = evaluateProductOwnerMergeDecisionV1({ decision: parsedMergeDecision, request: mergeDecisionRequest, taskState: mergeDecisionState, review: mergeDecisionReview, admissionRun: mergeDecisionRun, gateResult: mergeDecisionGate })
 const admittedMergeDecisionMatrix = [
@@ -3003,6 +3003,9 @@ const roleAdmissionRun = ({
   repository = REPOSITORY,
   prNumber = PR,
   head = OTHER_HEAD,
+  headBranch = event === 'issue_comment' ? 'main' : 'codex/ready-origin',
+  headRepository = repository,
+  headCommit = head,
   pullRequests = undefined,
   status = 'completed',
   conclusion = 'success',
@@ -3010,11 +3013,14 @@ const roleAdmissionRun = ({
   id: Number(runId),
   html_url: `https://github.com/${REPOSITORY}/actions/runs/${runId}`,
   head_sha: head,
+  head_branch: headBranch,
+  head_commit: Object.freeze({ id: headCommit }),
+  head_repository: Object.freeze({ full_name: headRepository, url: `https://api.github.com/repos/${headRepository}` }),
   path: '.github/workflows/protected-transition-admission-v1.yml',
   event,
   status,
   conclusion,
-  repository: Object.freeze({ full_name: repository }),
+  repository: Object.freeze({ full_name: repository, url: `https://api.github.com/repos/${repository}` }),
   pull_requests: pullRequests ?? (event === 'pull_request' ? [Object.freeze({
     number: prNumber,
     url: `https://api.github.com/repos/${REPOSITORY}/pulls/${prNumber}`,
@@ -3062,9 +3068,9 @@ const readyRoleCheckPage = ({
   { ...successfulCheck('ready-external-1'), conclusion: externalFailure ? 'FAILURE' : 'SUCCESS' },
   successfulCheck('ready-external-2'),
 ])
-const issueCommentRoleCheckPage = ({ sameRunConsumer = false } = {}) => connectionPage([
+const issueCommentRoleCheckPage = ({ sameRunConsumer = false, externalFailure = false } = {}) => connectionPage([
   ...detachedReviewCheckPage().nodes,
-  successfulCheck('review-external-success-2'),
+  { ...successfulCheck('review-external-success-2'), conclusion: externalFailure ? 'FAILURE' : 'SUCCESS' },
   ...(sameRunConsumer ? [historicalReviewSelfCheck({
     id: 'issue-comment-current-consumer',
     name: 'protected_transition_role_dispatch_consumer_v1',
@@ -3074,7 +3080,7 @@ const issueCommentRoleCheckPage = ({ sameRunConsumer = false } = {}) => connecti
     startedAt: '2026-08-17T09:33:19Z',
   })] : []),
 ])
-const roleMergeDecisionRebindHost = ({ dispatch, admissionRun, jobs = roleAdmissionJobs(), checkPage, changedJobPage = null, sourceRecords = roleSourceRecords } = {}) => {
+const roleMergeDecisionRebindHost = ({ dispatch, admissionRun, jobs = roleAdmissionJobs(), checkPage, changedJobPage = null, sourceRecords = roleSourceRecords, defaultBranch = 'main' } = {}) => {
   const headAtPullRead = Object.fromEntries(Array.from({ length: 12 }, (_, index) => [index + 1, dispatch.exact_head]))
   const automation = automationHost({
     initialState: dispatch.task_state,
@@ -3089,6 +3095,7 @@ const roleMergeDecisionRebindHost = ({ dispatch, admissionRun, jobs = roleAdmiss
   })
   automation.metrics.originReads = 0
   automation.metrics.jobReads = 0
+  automation.metrics.repositoryReads = 0
   const baseApi = automation.host.api
   return Object.freeze({
     metrics: automation.metrics,
@@ -3102,6 +3109,14 @@ const roleMergeDecisionRebindHost = ({ dispatch, admissionRun, jobs = roleAdmiss
         if (endpoint === `repos/${dispatch.repository}/actions/runs/${dispatch.admission_run_id}/jobs?per_page=100`) {
           automation.metrics.jobReads += 1
           return structuredClone(changedJobPage ?? jobs)
+        }
+        if (endpoint === `repos/${dispatch.repository}`) {
+          automation.metrics.repositoryReads += 1
+          return Object.freeze({
+            full_name: dispatch.repository,
+            url: `https://api.github.com/repos/${dispatch.repository}`,
+            default_branch: defaultBranch,
+          })
         }
         return baseApi(endpoint, options)
       },
@@ -3403,13 +3418,13 @@ const readyOriginRebind = roleMergeDecisionRebindHost({
 const readyOriginRebound = await executeRoleDispatchRebindV1({ dispatch: readyMergeDecisionDispatch, host: readyOriginRebind.host })
 const issueCommentOriginRebind = roleMergeDecisionRebindHost({
   dispatch: mergeDecisionDispatch,
-  admissionRun: roleAdmissionRun({ runId: REVIEW_RUN_ID, event: 'issue_comment', head: HEAD }),
+  admissionRun: roleAdmissionRun({ runId: REVIEW_RUN_ID, event: 'issue_comment', head: CUMULATIVE_PR_BASE }),
   checkPage: issueCommentRoleCheckPage(),
 })
 const issueCommentOriginRebound = await executeRoleDispatchRebindV1({ dispatch: mergeDecisionDispatch, host: issueCommentOriginRebind.host })
 const issueCommentSameRunRebind = roleMergeDecisionRebindHost({
   dispatch: mergeDecisionDispatch,
-  admissionRun: roleAdmissionRun({ runId: REVIEW_RUN_ID, event: 'issue_comment', head: HEAD }),
+  admissionRun: roleAdmissionRun({ runId: REVIEW_RUN_ID, event: 'issue_comment', head: CUMULATIVE_PR_BASE }),
   checkPage: issueCommentRoleCheckPage({ sameRunConsumer: true }),
 })
 const issueCommentSameRunStopped = await executeRoleDispatchRebindV1({ dispatch: mergeDecisionDispatch, host: issueCommentSameRunRebind.host })
@@ -3436,7 +3451,7 @@ const readyIdentityFailures = await Promise.all(readyIdentityFailureHosts.map(({
 const ambiguousIssueRun = roleAdmissionRun({
   runId: REVIEW_RUN_ID,
   event: 'issue_comment',
-  head: HEAD,
+  head: CUMULATIVE_PR_BASE,
   pullRequests: roleAdmissionRun().pull_requests,
 })
 const readyOriginMismatchRuns = [
@@ -3483,11 +3498,46 @@ const readyMergeAllowedRoute = await executeMergeAllowedRouteFixtureV1({
 })
 const issueCommentMergeAllowedRoute = await executeMergeAllowedRouteFixtureV1({
   dispatch: mergeDecisionDispatch,
-  admissionRun: roleAdmissionRun({ runId: REVIEW_RUN_ID, event: 'issue_comment', head: OTHER_HEAD }),
+  admissionRun: roleAdmissionRun({ runId: REVIEW_RUN_ID, event: 'issue_comment', head: CUMULATIVE_PR_BASE }),
   checkPage: issueCommentRoleCheckPage(),
   decisionBody: mergeDecisionBody(),
   decisionCommentId: mergeDecisionEvent.comment.id,
 })
+const issueCommentMergeAllowedExternalFailure = await executeMergeAllowedRouteFixtureV1({
+  dispatch: mergeDecisionDispatch,
+  admissionRun: roleAdmissionRun({ runId: REVIEW_RUN_ID, event: 'issue_comment', head: CUMULATIVE_PR_BASE }),
+  checkPage: issueCommentRoleCheckPage({ externalFailure: true }),
+  decisionBody: mergeDecisionBody(),
+  decisionCommentId: mergeDecisionEvent.comment.id,
+})
+const liveIssueCommentAdmissionRun = roleAdmissionRun({
+  runId: REVIEW_RUN_ID,
+  event: 'issue_comment',
+  head: CUMULATIVE_PR_BASE,
+})
+const issueCommentHostIdentityDrifts = [
+  { admissionRun: Object.freeze({ ...liveIssueCommentAdmissionRun, head_sha: HEAD }) },
+  { admissionRun: Object.freeze({ ...liveIssueCommentAdmissionRun, head_sha: 'not-a-full-sha' }) },
+  { admissionRun: Object.freeze({ ...liveIssueCommentAdmissionRun, head_commit: Object.freeze({ id: HEAD }) }) },
+  { admissionRun: Object.freeze({ ...liveIssueCommentAdmissionRun, head_branch: 'future-default' }) },
+  { admissionRun: Object.freeze({ ...liveIssueCommentAdmissionRun, head_branch: null }) },
+  { admissionRun: Object.freeze({ ...liveIssueCommentAdmissionRun, head_repository: Object.freeze({ full_name: `${REPOSITORY}-other`, url: `https://api.github.com/repos/${REPOSITORY}-other` }) }) },
+  { admissionRun: Object.freeze({ ...liveIssueCommentAdmissionRun, path: '.github/workflows/other.yml' }) },
+  { admissionRun: Object.freeze({ ...liveIssueCommentAdmissionRun, html_url: `https://github.com/${REPOSITORY}/actions/runs/${READY_RUN_ID}` }) },
+  { admissionRun: Object.freeze({ ...liveIssueCommentAdmissionRun, status: 'in_progress' }) },
+  { admissionRun: Object.freeze({ ...liveIssueCommentAdmissionRun, conclusion: 'failure' }) },
+  { admissionRun: liveIssueCommentAdmissionRun, defaultBranch: 'future-default' },
+  { admissionRun: liveIssueCommentAdmissionRun, defaultBranch: null },
+]
+const issueCommentHostIdentityDriftResults = await Promise.all(issueCommentHostIdentityDrifts.map(async ({ admissionRun, defaultBranch }) => {
+  const fixture = roleMergeDecisionRebindHost({
+    dispatch: mergeDecisionDispatch,
+    admissionRun,
+    checkPage: issueCommentRoleCheckPage(),
+    defaultBranch,
+  })
+  return executeRoleDispatchRebindV1({ dispatch: mergeDecisionDispatch, host: fixture.host })
+}))
 const readyMergeAllowedExternalFailure = await executeMergeAllowedRouteFixtureV1({
   dispatch: readyMergeDecisionDispatch,
   admissionRun: readyOriginRun,
@@ -3520,11 +3570,11 @@ const readyMergeAllowedManifestDrift = await executeMergeAllowedRouteFixtureV1({
   changedJobPage: readyManifestFailurePages[0],
 })
 const rebindMatrix = [
-  reboundImplementer.next_action === 'PROTECTED_OPERATION_READY' && reboundImplementer.exact_head === HEAD && reboundPostRepairReviewer.next_action === 'PROTECTED_OPERATION_READY' && readyOriginRebound.next_action === 'PROTECTED_OPERATION_READY' && readyOriginRebound.exact_head === OTHER_HEAD && readyOriginRebind.metrics.originReads === 1 && readyOriginRebind.metrics.jobReads === 1 && issueCommentOriginRebound.next_action === 'PROTECTED_OPERATION_READY' && issueCommentOriginRebind.metrics.originReads === 1 && issueCommentOriginRebind.metrics.jobReads === 0 && readyMergeAllowedRoute.result.next_action === 'MERGE_OPERATOR' && readyMergeAllowedRoute.result.terminal_result === 'MERGE_ALLOWED' && readyMergeAllowedRoute.result.role_dispatch?.next_action === 'MERGE_OPERATOR' && readyMergeAllowedRoute.metrics.originReads === 1 && readyMergeAllowedRoute.metrics.jobReads === 1 && issueCommentMergeAllowedRoute.result.next_action === 'MERGE_OPERATOR' && issueCommentMergeAllowedRoute.metrics.jobReads === 0 && Object.keys(parsedReadyMergeAllowed).join('\n') === Object.keys(parsedMergeDecision).join('\n') && [taskTitleDrift, taskBodyDriftRebind, closedTaskConsumer, pullRequestTaskRebind, mismatchedTaskConsumer, malformedTaskRebind].every((value) => value.reason === 'role_dispatch_binding_changed'),
-  implementerAuthorityDrift.next_action === 'STOP' && implementerAuthorityDrift.reason === 'role_dispatch_source_binding_changed' && postRepairDecisionDrift.next_action === 'STOP' && readyExternalFailure.reason === 'role_dispatch_gate_changed' && readyExternalFailureHost.metrics.checkReads === 1 && issueCommentSameRunStopped.reason === 'role_dispatch_gate_changed' && issueCommentSameRunRebind.metrics.jobReads === 0 && readyMergeAllowedExternalFailure.result.next_action === 'STOP' && readyMergeAllowedExternalFailure.result.reason === 'merge_decision_binding_invalid',
+  reboundImplementer.next_action === 'PROTECTED_OPERATION_READY' && reboundImplementer.exact_head === HEAD && reboundPostRepairReviewer.next_action === 'PROTECTED_OPERATION_READY' && readyOriginRebound.next_action === 'PROTECTED_OPERATION_READY' && readyOriginRebound.exact_head === OTHER_HEAD && readyOriginRebind.metrics.originReads === 1 && readyOriginRebind.metrics.jobReads === 1 && issueCommentOriginRebound.next_action === 'PROTECTED_OPERATION_READY' && issueCommentOriginRebind.metrics.originReads === 1 && issueCommentOriginRebind.metrics.repositoryReads === 1 && issueCommentOriginRebind.metrics.jobReads === 0 && readyMergeAllowedRoute.result.next_action === 'MERGE_OPERATOR' && readyMergeAllowedRoute.result.terminal_result === 'MERGE_ALLOWED' && readyMergeAllowedRoute.result.role_dispatch?.next_action === 'MERGE_OPERATOR' && readyMergeAllowedRoute.metrics.originReads === 1 && readyMergeAllowedRoute.metrics.jobReads === 1 && issueCommentMergeAllowedRoute.result.next_action === 'MERGE_OPERATOR' && issueCommentMergeAllowedRoute.result.terminal_result === 'MERGE_ALLOWED' && issueCommentMergeAllowedRoute.metrics.repositoryReads === 1 && issueCommentMergeAllowedRoute.metrics.jobReads === 0 && OTHER_HEAD === '3b19e86982701f7cffbe42d4d3568ad498bc016f' && CUMULATIVE_PR_BASE === '3e3014d95680f3d3e34ec3696a1e3de4b1a03c03' && OTHER_HEAD !== CUMULATIVE_PR_BASE && Object.keys(parsedReadyMergeAllowed).join('\n') === Object.keys(parsedMergeDecision).join('\n') && [taskTitleDrift, taskBodyDriftRebind, closedTaskConsumer, pullRequestTaskRebind, mismatchedTaskConsumer, malformedTaskRebind].every((value) => value.reason === 'role_dispatch_binding_changed'),
+  implementerAuthorityDrift.next_action === 'STOP' && implementerAuthorityDrift.reason === 'role_dispatch_source_binding_changed' && postRepairDecisionDrift.next_action === 'STOP' && readyExternalFailure.reason === 'role_dispatch_gate_changed' && readyExternalFailureHost.metrics.checkReads === 1 && issueCommentSameRunStopped.reason === 'role_dispatch_gate_changed' && issueCommentSameRunRebind.metrics.jobReads === 0 && readyMergeAllowedExternalFailure.result.next_action === 'STOP' && readyMergeAllowedExternalFailure.result.reason === 'merge_decision_binding_invalid' && issueCommentMergeAllowedExternalFailure.result.next_action === 'STOP' && issueCommentMergeAllowedExternalFailure.result.reason === 'merge_decision_binding_invalid' && issueCommentMergeAllowedExternalFailure.metrics.checkReads === 1,
   publicationReferenceDrift.next_action === 'STOP' && publicationReferenceDrift.reason === 'role_dispatch_source_binding_changed' && postRepairCountDrifts.every((value) => value.next_action === 'STOP' && value.reason === 'role_dispatch_source_binding_changed') && readyIdentityFailures.every((value) => value.next_action === 'STOP' && value.reason === 'role_dispatch_gate_changed') && readyManifestFailures.every((value) => value.next_action === 'STOP' && value.reason === 'ready_self_job_manifest_invalid') && readyMergeAllowedManifestDrift.result.next_action === 'STOP' && readyMergeAllowedManifestDrift.result.reason === 'ready_self_job_manifest_invalid' && readyMergeAllowedRoute.result.role_dispatch?.repository === REPOSITORY && readyMergeAllowedRoute.result.role_dispatch?.task_issue_number === TASK && readyMergeAllowedRoute.result.role_dispatch?.pr_number === PR && readyMergeAllowedRoute.result.role_dispatch?.exact_head === OTHER_HEAD && readyMergeAllowedRoute.result.role_dispatch?.source_comment_id === readyMergeAllowedCommentId && readyMergeAllowedRoute.result.role_dispatch?.source_binding?.kind === 'MERGE_DECISION' && readyMergeAllowedRoute.result.role_dispatch?.source_binding?.comment_id === readyMergeAllowedCommentId && readyMergeAllowedRoute.result.role_dispatch?.source_binding?.review_comment_id === mergeDecisionReviewId && readyMergeAllowedRoute.result.role_dispatch?.source_binding?.admission_run_id === READY_RUN_ID,
-  reviewerDeletedSource.next_action === 'STOP' && mergeSourceDrift.next_action === 'STOP' && postRepairBindingDrift.next_action === 'STOP' && readyOriginMismatchResults.every((value) => value.next_action === 'STOP' && value.reason === 'role_dispatch_origin_invalid') && readyMergeAllowedOriginDriftResults.every(({ result }) => result.next_action === 'STOP' && result.reason === 'role_dispatch_origin_invalid'),
-  [reboundImplementer, reboundPostRepairReviewer, taskTitleDrift, taskBodyDriftRebind, closedTaskConsumer, pullRequestTaskRebind, mismatchedTaskConsumer, malformedTaskRebind, implementerAuthorityDrift, postRepairDecisionDrift, publicationReferenceDrift, ...postRepairCountDrifts, reviewerDeletedSource, mergeSourceDrift, postRepairBindingDrift, readyOriginRebound, issueCommentOriginRebound, issueCommentSameRunStopped, readyExternalFailure, ...readyIdentityFailures, ...readyOriginMismatchResults, ...readyManifestFailures].every((value) => value.mutation_count === 0) && [readyMergeAllowedRoute.result, issueCommentMergeAllowedRoute.result, readyMergeAllowedExternalFailure.result, ...readyMergeAllowedOriginDriftResults.map(({ result }) => result), readyMergeAllowedManifestDrift.result].every((value) => value.state_changed === false),
+  reviewerDeletedSource.next_action === 'STOP' && mergeSourceDrift.next_action === 'STOP' && postRepairBindingDrift.next_action === 'STOP' && readyOriginMismatchResults.every((value) => value.next_action === 'STOP' && value.reason === 'role_dispatch_origin_invalid') && readyMergeAllowedOriginDriftResults.every(({ result }) => result.next_action === 'STOP' && result.reason === 'role_dispatch_origin_invalid') && issueCommentHostIdentityDriftResults.every((value) => value.next_action === 'STOP' && value.reason === 'role_dispatch_origin_invalid'),
+  [reboundImplementer, reboundPostRepairReviewer, taskTitleDrift, taskBodyDriftRebind, closedTaskConsumer, pullRequestTaskRebind, mismatchedTaskConsumer, malformedTaskRebind, implementerAuthorityDrift, postRepairDecisionDrift, publicationReferenceDrift, ...postRepairCountDrifts, reviewerDeletedSource, mergeSourceDrift, postRepairBindingDrift, readyOriginRebound, issueCommentOriginRebound, issueCommentSameRunStopped, readyExternalFailure, ...readyIdentityFailures, ...readyOriginMismatchResults, ...readyManifestFailures, ...issueCommentHostIdentityDriftResults].every((value) => value.mutation_count === 0) && [readyMergeAllowedRoute.result, issueCommentMergeAllowedRoute.result, issueCommentMergeAllowedExternalFailure.result, readyMergeAllowedExternalFailure.result, ...readyMergeAllowedOriginDriftResults.map(({ result }) => result), readyMergeAllowedManifestDrift.result].every((value) => value.state_changed === false),
 ]
 for (const [index, evidence] of rebindMatrix.entries()) check(evidence, `RDC-11 complete source authority revalidation ${index + 1}`)
 
