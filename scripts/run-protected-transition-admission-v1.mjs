@@ -28,7 +28,16 @@ const READY_CHECK_WAIT_ATTEMPTS = 3
 const READY_CHECK_WAIT_MS = 10_000
 const WORKFLOW_RUN_ID = /^[1-9]\d*$/
 const READY_ATTACHED_SELF_CHECK_CONTEXT_V1 = 'ATTACHED_CURRENT_CHECK_REQUIRED'
+const READY_REBIND_SELF_CHECK_CONTEXT_V1 = 'ATTACHED_SAME_RUN_FAMILY_EXCLUDED'
 const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'
+const RTO_SELF_JOB_NAMES_V1 = Object.freeze([
+  'protected_transition_admission_v1',
+  'protected_transition_repair_executor_v1',
+  'protected_transition_role_dispatch_consumer_v1',
+  'protected_transition_merge_operator_v1',
+  'protected_transition_post_repair_review_v1',
+])
+const VERIFIED_ADMISSION_ORIGINS_V1 = new WeakSet()
 const REVIEW_RECORD_TYPE = 'independent_review_decision_v1'
 const REVIEW_AUTHORING_ROLE = 'Independent Reviewer'
 const REVIEW_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
@@ -1814,11 +1823,7 @@ export const executeManualProgressionControllerV1 = async ({ request, host }) =>
     admission_executed: true,
     next_action: admitted.allowed && admitted.state === 'MERGE_ELIGIBLE' ? 'MERGE_DECISION' : 'STOP',
   })
-  return executeProgressionControllerV1({
-    currentResult,
-    currentContext: Object.freeze({ request }),
-    host,
-  })
+  return evaluateProgressionControllerV1(currentResult)
 }
 
 export const executeReadyForReviewProgressionV1 = async ({ event, host, runId }) => {
@@ -2032,7 +2037,7 @@ const classifyMergeGatePullV1 = (request, pull) => {
     return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'pull_mergeability_indeterminate', 1, pull.head.sha)
   }
   const selfAwareUnstable = WORKFLOW_RUN_ID.test(request.currentWorkflowRunId ?? '') &&
-    [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext) &&
+    [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, READY_REBIND_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext) &&
     pull.mergeable_state === 'unstable'
   if (!pull.mergeable || (pull.mergeable_state !== 'clean' && !selfAwareUnstable)) {
     return mergeGateStoppedResultV1(request, 'IMPLEMENTATION_BLOCKED', 'pull_not_mergeable', 2, pull.head.sha)
@@ -2080,25 +2085,58 @@ const parseRepositoryActionsRunIdV1 = (request, check) => {
   return /^([1-9][0-9]*)\/job\/[^/?#]+$/.exec(check.details_url.slice(prefix.length))?.[1] ?? null
 }
 
+const parseRepositoryActionsJobIdentityV1 = (request, check) => {
+  if (check.type !== 'CheckRun' || typeof check.details_url !== 'string') return null
+  const prefix = `https://github.com/${request.repository}/actions/runs/`
+  if (!check.details_url.startsWith(prefix)) return null
+  const matched = /^([1-9][0-9]*)\/job\/([1-9][0-9]*)$/.exec(check.details_url.slice(prefix.length))
+  return matched === null ? null : Object.freeze({ runId: matched[1], jobId: matched[2] })
+}
+
 const reduceSelfAwareCurrentChecksV1 = (request, rollup) => {
   const selectedGenerations = selectCurrentCheckGenerationsV1(rollup)
   if (request.currentWorkflowRunId === undefined || request.currentWorkflowRunId === null) return selectedGenerations
 
   const admissionName = 'protected_transition_admission_v1'
   const repairName = 'protected_transition_repair_executor_v1'
-  const detachedReviewSelfJobNames = Object.freeze([
-    admissionName,
-    repairName,
-    'protected_transition_role_dispatch_consumer_v1',
-    'protected_transition_merge_operator_v1',
-    'protected_transition_post_repair_review_v1',
-  ])
   if (!WORKFLOW_RUN_ID.test(request.currentWorkflowRunId)) throw new Error('ready_event_invalid')
   if (request.selfCheckContext === REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1) {
     return Object.freeze(selectedGenerations.filter((item) => {
-      if (item.type !== 'CheckRun' || !detachedReviewSelfJobNames.includes(item.name)) return true
+      if (item.type !== 'CheckRun' || !RTO_SELF_JOB_NAMES_V1.includes(item.name)) return true
       const historicalRunId = parseRepositoryActionsRunIdV1(request, item)
       return historicalRunId === null || historicalRunId === request.currentWorkflowRunId
+    }))
+  }
+  if (request.selfCheckContext === READY_REBIND_SELF_CHECK_CONTEXT_V1) {
+    const manifest = request.currentWorkflowJobIds
+    if (
+      manifest === null || typeof manifest !== 'object' || Array.isArray(manifest) ||
+      Object.keys(manifest).sort().join('\n') !== [...RTO_SELF_JOB_NAMES_V1].sort().join('\n') ||
+      Object.values(manifest).some((jobId) => !WORKFLOW_RUN_ID.test(jobId))
+    ) throw new Error('ready_self_job_manifest_invalid')
+
+    const currentChecks = []
+    for (const item of selectedGenerations) {
+      if (item.type !== 'CheckRun') continue
+      const identity = parseRepositoryActionsJobIdentityV1(request, item)
+      const currentPrefix = `https://github.com/${request.repository}/actions/runs/${request.currentWorkflowRunId}/`
+      if (item.details_url?.startsWith(currentPrefix) && identity === null) throw new Error('ready_self_job_identity_invalid')
+      if (identity?.runId !== request.currentWorkflowRunId) continue
+      if (manifest[item.name] !== identity.jobId) throw new Error('ready_self_job_identity_invalid')
+      currentChecks.push(item)
+    }
+    if (
+      !currentChecks.some((item) => item.name === admissionName) ||
+      !currentChecks.some((item) => item.name === 'protected_transition_role_dispatch_consumer_v1') ||
+      new Set(currentChecks.map((item) => item.app_id)).size !== 1
+    ) throw new Error('ready_self_job_identity_invalid')
+
+    return Object.freeze(selectedGenerations.filter((item) => {
+      if (item.type !== 'CheckRun') return true
+      const identity = parseRepositoryActionsJobIdentityV1(request, item)
+      if (identity?.runId === request.currentWorkflowRunId) return false
+      if (!RTO_SELF_JOB_NAMES_V1.includes(item.name)) return true
+      return parseRepositoryActionsRunIdV1(request, item) === null
     }))
   }
   if (request.selfCheckContext !== READY_ATTACHED_SELF_CHECK_CONTEXT_V1) throw new Error('ready_event_invalid')
@@ -2185,7 +2223,7 @@ export const evaluateMergeAllowedAutomationV1 = async ({ request, admitted, host
       return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'pull_mergeability_indeterminate', 1, reviewSnapshot.pull.headRefOid)
     }
     const selfAwareUnstable = WORKFLOW_RUN_ID.test(request.currentWorkflowRunId ?? '') &&
-      [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext) &&
+      [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, READY_REBIND_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext) &&
       reviewSnapshot.pull.mergeStateStatus === 'UNSTABLE'
     if (reviewSnapshot.pull.mergeable !== 'MERGEABLE' || (reviewSnapshot.pull.mergeStateStatus !== 'CLEAN' && !selfAwareUnstable)) {
       return mergeGateStoppedResultV1(request, 'IMPLEMENTATION_BLOCKED', 'pull_not_mergeable', 2, reviewSnapshot.pull.headRefOid)
@@ -3442,13 +3480,82 @@ const verifyRoleDispatchSourceV1 = async (dispatch, host) => {
   throw new Error('role_dispatch_source_binding_changed')
 }
 
+const resolveAdmissionRunOriginV1 = async ({ repository, admissionRunId, prNumber, exactHead, host }) => {
+  const expectedRunUrl = `https://github.com/${repository}/actions/runs/${admissionRunId}`
+  const expectedApiRepository = `https://api.github.com/repos/${repository}`
+  const admissionRun = await api(host, `repos/${repository}/actions/runs/${admissionRunId}`)
+  if (
+    !admissionRun || String(admissionRun.id) !== admissionRunId || admissionRun.html_url !== expectedRunUrl ||
+    admissionRun.path !== '.github/workflows/protected-transition-admission-v1.yml' ||
+    admissionRun.repository?.full_name !== repository || !FULL_HEAD.test(admissionRun.head_sha ?? '') ||
+    !Array.isArray(admissionRun.pull_requests) || admissionRun.status !== 'completed' || admissionRun.conclusion !== 'success'
+  ) throw new Error('role_dispatch_origin_invalid')
+
+  let selfCheckContext
+  let currentWorkflowJobIds
+  if (admissionRun.event === 'issue_comment') {
+    const repositoryRecord = await api(host, `repos/${repository}`)
+    if (
+      admissionRun.pull_requests.length !== 0 || admissionRun.repository?.url !== expectedApiRepository ||
+      admissionRun.head_repository?.full_name !== repository || admissionRun.head_repository?.url !== expectedApiRepository ||
+      admissionRun.head_commit?.id !== admissionRun.head_sha ||
+      !repositoryRecord || repositoryRecord.full_name !== repository || repositoryRecord.url !== expectedApiRepository ||
+      typeof repositoryRecord.default_branch !== 'string' || repositoryRecord.default_branch.length === 0 ||
+      admissionRun.head_branch !== repositoryRecord.default_branch
+    ) throw new Error('role_dispatch_origin_invalid')
+    selfCheckContext = REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1
+  } else if (admissionRun.event === 'pull_request') {
+    const pull = admissionRun.pull_requests[0]
+    if (
+      admissionRun.head_sha !== exactHead || admissionRun.pull_requests.length !== 1 ||
+      pull?.number !== prNumber || pull?.url !== `${expectedApiRepository}/pulls/${prNumber}` ||
+      pull?.head?.sha !== exactHead || pull?.head?.repo?.url !== expectedApiRepository ||
+      pull?.base?.repo?.url !== expectedApiRepository
+    ) throw new Error('role_dispatch_origin_invalid')
+
+    const page = await api(host, `repos/${repository}/actions/runs/${admissionRunId}/jobs?per_page=100`)
+    if (
+      !page || !Number.isSafeInteger(page.total_count) || page.total_count !== RTO_SELF_JOB_NAMES_V1.length ||
+      !Array.isArray(page.jobs) || page.jobs.length !== page.total_count
+    ) throw new Error('ready_self_job_manifest_invalid')
+    const pairs = []
+    const names = new Set()
+    const ids = new Set()
+    for (const job of page.jobs) {
+      const jobId = String(job?.id ?? '')
+      if (
+        !WORKFLOW_RUN_ID.test(jobId) || String(job?.run_id ?? '') !== admissionRunId ||
+        !RTO_SELF_JOB_NAMES_V1.includes(job?.name) || names.has(job.name) || ids.has(jobId) ||
+        job?.head_sha !== exactHead ||
+        job?.html_url !== `${expectedRunUrl}/job/${jobId}`
+      ) throw new Error('ready_self_job_manifest_invalid')
+      names.add(job.name)
+      ids.add(jobId)
+      pairs.push([job.name, jobId])
+    }
+    if (RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))) throw new Error('ready_self_job_manifest_invalid')
+    selfCheckContext = READY_REBIND_SELF_CHECK_CONTEXT_V1
+    currentWorkflowJobIds = Object.freeze(Object.fromEntries(pairs))
+  } else {
+    throw new Error('role_dispatch_origin_invalid')
+  }
+
+  const origin = Object.freeze({ admissionRun, selfCheckContext, currentWorkflowJobIds })
+  VERIFIED_ADMISSION_ORIGINS_V1.add(origin)
+  return origin
+}
+
 const verifyMergeDecisionGateV1 = async (dispatch, host) => {
   if (dispatch.purpose !== 'MERGE_DECISION') return null
+  const origin = await resolveAdmissionRunOriginV1({
+    repository: dispatch.repository, admissionRunId: dispatch.admission_run_id,
+    prNumber: dispatch.pr_number, exactHead: dispatch.exact_head, host,
+  })
   const request = Object.freeze({
     transition: 'merge_decision_admission', repository: dispatch.repository,
     taskIssueNumber: dispatch.task_issue_number, prNumber: dispatch.pr_number,
     exactHead: dispatch.exact_head, currentWorkflowRunId: dispatch.admission_run_id,
-    selfCheckContext: REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1,
+    selfCheckContext: origin.selfCheckContext, currentWorkflowJobIds: origin.currentWorkflowJobIds,
   })
   const admitted = await executeProtectedTransitionAdmissionV1({ request, host })
   const gate = await evaluateMergeAllowedAutomationV1({ request, admitted, host })
@@ -3674,9 +3781,17 @@ const fetchRoleCommentRecordV1 = async (repository, taskIssueNumber, commentId, 
 const fetchRoleCommentV1 = async (repository, taskIssueNumber, commentId, host) =>
   (await fetchRoleCommentRecordV1(repository, taskIssueNumber, commentId, host)).body
 
-export const evaluateProductOwnerMergeDecisionV1 = ({ decision, request, taskState, review, admissionRun, gateResult }) => {
+export const evaluateProductOwnerMergeDecisionV1 = ({ decision, request, taskState, review, admissionRun, admissionOrigin = null, gateResult }) => {
   try {
     const parsedState = parseProtectedTransitionTaskStateV1(taskState)
+    const originHeadValid = admissionRun?.event === 'issue_comment' || admissionRun?.head_sha === request?.exactHead
+    const originValid = admissionRun?.event === 'issue_comment'
+      ? admissionOrigin === null || (
+        VERIFIED_ADMISSION_ORIGINS_V1.has(admissionOrigin) && admissionOrigin.admissionRun === admissionRun &&
+        admissionOrigin.selfCheckContext === REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1
+      )
+      : admissionRun?.event === 'pull_request' && VERIFIED_ADMISSION_ORIGINS_V1.has(admissionOrigin) &&
+        admissionOrigin.admissionRun === admissionRun && admissionOrigin.selfCheckContext === READY_REBIND_SELF_CHECK_CONTEXT_V1
     if (
       !decision || !request || !REPOSITORY.test(request.repository ?? '') ||
       !positiveInteger(request.taskIssueNumber) || !positiveInteger(request.prNumber) ||
@@ -3689,9 +3804,9 @@ export const evaluateProductOwnerMergeDecisionV1 = ({ decision, request, taskSta
       parsedState.observed_head !== request.exactHead || parsedState.reviewed_head !== request.exactHead ||
       parsedState.review_status !== 'APPROVE' || parsedState.review_blocker_count !== 0 ||
       !admissionRun || admissionRun.id !== decision.admissionRunId ||
-      admissionRun.html_url !== decision.admissionRunUrl || admissionRun.head_sha !== request.exactHead ||
+      admissionRun.html_url !== decision.admissionRunUrl || !originHeadValid ||
       admissionRun.path !== '.github/workflows/protected-transition-admission-v1.yml' ||
-      admissionRun.event !== 'issue_comment' || admissionRun.status !== 'completed' || admissionRun.conclusion !== 'success' ||
+      !originValid || admissionRun.status !== 'completed' || admissionRun.conclusion !== 'success' ||
       !gateResult || gateResult.state !== 'MERGE_ELIGIBLE' || gateResult.allowed !== true ||
       gateResult.reason !== 'merge_gate_satisfied' || gateResult.current_head !== request.exactHead ||
       gateResult.external_check_success_count !== decision.externalCheckSuccessCount ||
@@ -3836,16 +3951,21 @@ export const executeRoleTransitionOrchestratorV1 = async ({ event, host, runId }
       const taskState = extractProtectedTransitionTaskStateV1(pull.body)
       const reviewComment = await fetchRoleCommentRecordV1(normalized.repository, normalized.taskIssueNumber, normalized.reviewCommentId, host)
       const review = parseIndependentReviewDecisionProjectionV1(reviewComment.body, normalized.repository, normalized.taskIssueNumber)
-      const admissionRun = await api(host, `repos/${normalized.repository}/actions/runs/${normalized.admissionRunId}`)
+      const admissionOrigin = await resolveAdmissionRunOriginV1({
+        repository: normalized.repository, admissionRunId: String(normalized.admissionRunId),
+        prNumber: normalized.prNumber, exactHead: normalized.exactHead, host,
+      })
+      const admissionRun = admissionOrigin.admissionRun
       const gateRequest = Object.freeze({
         transition: 'merge_decision_admission', repository: normalized.repository,
         taskIssueNumber: normalized.taskIssueNumber, prNumber: normalized.prNumber,
         exactHead: normalized.exactHead, currentWorkflowRunId: String(normalized.admissionRunId),
-        selfCheckContext: REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1,
+        selfCheckContext: admissionOrigin.selfCheckContext,
+        currentWorkflowJobIds: admissionOrigin.currentWorkflowJobIds,
       })
       const admitted = await executeProtectedTransitionAdmissionV1({ request: gateRequest, host })
       const gateResult = await evaluateMergeAllowedAutomationV1({ request: gateRequest, admitted, host })
-      const routeResult = evaluateProductOwnerMergeDecisionV1({ decision: normalized, request, taskState, review, admissionRun, gateResult })
+      const routeResult = evaluateProductOwnerMergeDecisionV1({ decision: normalized, request, taskState, review, admissionRun, admissionOrigin, gateResult })
       if (routeResult.next_action !== 'MERGE_OPERATOR') return Object.freeze({ ...routeResult, source_comment_id: normalized.commentId })
       const roleDispatch = projectRoleDispatchEnvelopeV1({
         result: routeResult, repository: normalized.repository, sourceCommentId: normalized.commentId,

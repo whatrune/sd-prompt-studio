@@ -592,7 +592,7 @@ jobs:
 
   protected_transition_merge_operator_v1:
     needs: protected_transition_admission_v1
-    if: needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR'
+    if: needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR' && needs.protected_transition_admission_v1.outputs.terminal_result == 'MERGE_ALLOWED'
     runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 15
     steps:
