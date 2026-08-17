@@ -98,6 +98,7 @@ jobs:
           PTA_INPUT_TASK_ISSUE_NUMBER: ${{ inputs.task_issue_number }}
           PTA_INPUT_PR_NUMBER: ${{ inputs.pr_number }}
           PTA_INPUT_EXACT_HEAD: ${{ inputs.exact_head }}
+          GADP_LIVE_SHADOW_DIR: ${{ runner.temp }}/gadp-live-shadow-v1
         run: |
           set -euo pipefail
           result_file="$(mktemp)"
@@ -132,6 +133,24 @@ jobs:
               fs.appendFileSync(output, `repair_dispatch_b64=${Buffer.from(JSON.stringify(result.repair_dispatch)).toString("base64")}\n`);
             }
           ' "$result_file"
+
+      - name: Run isolated non-authoritative GADP live shadow
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 1
+        shell: bash
+        env:
+          GH_TOKEN: ""
+        run: |
+          set +e
+          env -i \
+            PATH="$PATH" \
+            RUNNER_TEMP="$RUNNER_TEMP" \
+            node generic-platform/src/shadow/run-sd-prompt-studio-live-shadow-v1.mjs \
+              --record-a-file "$RUNNER_TEMP/gadp-live-shadow-v1/record-a.json" \
+              --record-b-file "$RUNNER_TEMP/gadp-live-shadow-v1/record-b.json" \
+              --record-c-file "$RUNNER_TEMP/gadp-live-shadow-v1/record-c.json"
+          exit 0
 
   protected_transition_role_dispatch_consumer_v1:
     needs: protected_transition_admission_v1

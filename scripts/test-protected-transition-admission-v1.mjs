@@ -693,6 +693,7 @@ check(Object.keys(workflow.permissions).join(',') === 'contents,checks,issues,pu
 
 const admissionJob = workflow.jobs.protected_transition_admission_v1
 const hostIdentityStep = admissionJob.steps.find((step) => step.name === 'Admit exact default-branch host identity')
+const liveShadowStep = admissionJob.steps.find((step) => step.name === 'Run isolated non-authoritative GADP live shadow')
 const hostIdentityRun = hostIdentityStep?.run ?? ''
 const pullRequestBranch = 'if [[ "$PTA_EVENT_NAME" == "pull_request" ]]; then'
 const pullRequestRef = 'refs/pull/${PTA_EVENT_PR_NUMBER}/merge'
@@ -705,19 +706,25 @@ check(pullRequestBlock.includes(`[[ "$GITHUB_REF" == "${pullRequestRef}" ]]`) &&
 check(pullRequestBlock.includes('[[ "$PTA_BASE_REF" == "main" ]]') && (hostIdentityRun.match(/\$\{PTA_EVENT_PR_NUMBER\}/g) ?? []).length === 1, 'HID-03 wrong PR number, execution ref, or base fails closed')
 check(hostIdentityRun.includes(workflowRefPrefix) && pullRequestBlock.includes(runtimeWorkflowRefCheck) && !pullRequestBlock.includes('refs/heads/main') && (hostIdentityRun.match(/workflow_ref_prefix=/g) ?? []).length === 1, 'HID-04 wrong workflow repository/path, delimiter, or empty or malformed ref suffix fails closed')
 check(hostIdentityRun.includes('else\n  [[ "$GITHUB_REF" == "refs/heads/main" ]]\n  ' + mainWorkflowRefCheck), 'HID-05 non-PR events retain exact main execution and workflow source identity')
-check(hostIdentityRun.includes('[[ "$GITHUB_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]') && admissionJob.steps.some((step) => step.name === 'Checkout exact workflow SHA' && step.with?.ref === '${{ github.workflow_sha }}') && admissionJob.steps.some((step) => step.name === 'Evaluate protected transition admission'), 'HID-06 common SHA, checkout, and Controller routing remain unchanged')
+check(hostIdentityRun.includes('[[ "$GITHUB_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]') && admissionJob.steps.some((step) => step.name === 'Checkout exact workflow SHA' && step.with?.ref === '${{ github.workflow_sha }}') && admissionJob.steps.some((step) => step.name === 'Evaluate protected transition admission') && admissionJob.steps.indexOf(liveShadowStep) > admissionJob.steps.findIndex((step) => step.name === 'Evaluate protected transition admission') && liveShadowStep?.['continue-on-error'] === true && liveShadowStep?.env?.GH_TOKEN === '' && liveShadowStep?.run.includes('env -i') && liveShadowStep?.run.trimEnd().endsWith('exit 0'), 'HID-06 common SHA, checkout, Controller routing, and post-decision isolated non-authoritative shadow remain fail-closed')
 
-const changedPaths = execFileSync('git', ['diff', '--name-only', BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
+const trackedChangedPaths = execFileSync('git', ['diff', '--name-only', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
+const untrackedChangedPaths = execFileSync('git', ['ls-files', '--others', '--exclude-standard'], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
+const changedPaths = [...new Set([...trackedChangedPaths, ...untrackedChangedPaths])].sort()
 const expectedPaths = [
   '.github/workflows/protected-transition-admission-v1.yml',
+  'generic-platform/src/core/shared-sealed-evidence-v1.mjs',
+  'generic-platform/src/shadow/run-sd-prompt-studio-live-shadow-v1.mjs',
+  'generic-platform/src/shadow/sd-prompt-studio-read-only-shadow-v1.mjs',
+  'generic-platform/test/sd-prompt-studio-read-only-shadow-v1.test.mjs',
   'scripts/run-protected-transition-admission-v1.mjs',
   'scripts/test-protected-transition-admission-v1.mjs',
 ]
-check(changedPaths.join('\n') === expectedPaths.join('\n'), 'Repair Executor diff is exactly three paths')
+check(changedPaths.join('\n') === expectedPaths.join('\n'), 'Live Shadow implementation diff is exactly seven authorized paths')
 const productionSource = `${workflowSource}\n${runnerSource}\n${coreSource}`
 check(!/(trust_root|revocation|ready_generation|producer_roster|assignment_record|finalization_binding|collector|\.jcs|upload-artifact)/i.test(productionSource), 'retired mechanisms are absent')
 check(runnerSource.includes('/comments?since=') && runnerSource.includes('pageNumber > 32'), 'runner uses bounded forward-only Review pagination')
-check(runnerSource.includes('acquireTaskIdentityV1') && runnerSource.includes('acquireChangedPathScopeV1') && runnerSource.includes('executeManualProgressionControllerV1'), 'runner owns direct Task, scope, and manual progression composition')
+check(runnerSource.includes('acquireTaskIdentityV1') && runnerSource.includes('acquireChangedPathScopeV1') && runnerSource.includes('executeManualProgressionControllerV1') && runnerSource.includes('createProductionEvidenceCaptureV1') && runnerSource.includes('captureProductionEvidenceSnapshotV1') && runnerSource.includes('projectProductionParityRecordBV1') && !runnerSource.includes('evaluateSharedEvidenceGenericV1'), 'runner carries production-consumed acquisition snapshots into Record A and owns Record B without Generic mapper reuse')
 check(runnerSource.includes('previous_filename') && runnerSource.includes('state_changed_during_evaluation'), 'runner checks rename and late state change')
 check(workflowSource.includes('pnpm.cmd install --frozen-lockfile') && !workflowSource.includes('actions: read') && !workflowSource.includes('upload-artifact') && !workflowSource.includes('gh workflow run'), 'workflow uses frozen repair dependencies without nested dispatch or artifact permission/persistence')
 check(coreSource.includes('export const evaluateProtectedTransitionAdmissionV1') && !/\b(fetch|writeFile|execFile)\b/.test(coreSource), 'one pure evaluator owns classification')
@@ -1571,10 +1578,10 @@ check(!finalHeadDriftResult.allowed && !finalStateDriftResult.allowed, 'post-sna
 const retryGate = automationHost({ initialState: approvedState() })
 const retryGateFirst = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: retryGate.host })
 const retryGateSecond = await evaluateMergeAllowedAutomationV1({ request: mergeRequest, admitted: mergeAdmitted, host: retryGate.host })
-const taskChangedPaths = execFileSync('git', ['diff', '--name-only', BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
+const taskChangedPaths = changedPaths
 check(JSON.stringify(retryGateFirst) === JSON.stringify(retryGateSecond), 'identical retry converges to the same result')
 check(retryGate.metrics.patchCalls === 0 && retryGate.metrics.pullReads === 6 && retryGate.metrics.fileReads === 2 && retryGate.metrics.checkReads === 4 && retryGate.metrics.threadReads === 2, 'identical retry remains read-only')
-check(taskChangedPaths.join('\n') === ['.github/workflows/protected-transition-admission-v1.yml', 'scripts/run-protected-transition-admission-v1.mjs', 'scripts/test-protected-transition-admission-v1.mjs'].join('\n'), 'current Task diff is exactly three paths')
+check(taskChangedPaths.join('\n') === expectedPaths.join('\n'), 'current Live Shadow Task diff is exactly seven authorized paths')
 
 // Four current-generation Merge Gate units x three assertions = 12.
 const selfAwareMergeRequest = Object.freeze({
@@ -1833,12 +1840,12 @@ check(lateSharedPendingResult.reason === 'checks_not_terminal' && lateSharedPend
 const currentGenerationCorrectionPaths = execFileSync('git', ['diff', '--name-only', CURRENT_GENERATION_REDUCER_BASE, HOST_ACQUISITION_PREFLIGHT_BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
 check(
   currentGenerationCorrectionPaths.join('\n') === ['scripts/run-protected-transition-admission-v1.mjs', 'scripts/test-protected-transition-admission-v1.mjs'].join('\n') &&
-  taskChangedPaths.join('\n') === ['.github/workflows/protected-transition-admission-v1.yml', 'scripts/run-protected-transition-admission-v1.mjs', 'scripts/test-protected-transition-admission-v1.mjs'].join('\n') &&
+  taskChangedPaths.join('\n') === expectedPaths.join('\n') &&
   (runnerSource.match(/const reduceSelfAwareCurrentChecksV1 =/g) ?? []).length === 1 &&
   (runnerSource.match(/reduceSelfAwareCurrentChecksV1\(/g) ?? []).length === 3 &&
   (runnerSource.match(/partitionReadyRunChecksV1\(/g) ?? []).length === 2 &&
   runnerSource.includes("const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'") &&
-  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 2,
+  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 3,
   'SGR-12 shared-helper use and correction/cumulative allowlists hold without duplicate sibling filters',
 )
 
@@ -2657,12 +2664,8 @@ const hostRunnerBindingMatrix = [
 ]
 for (const [index, evidence] of hostRunnerBindingMatrix.entries()) check(evidence, `host-runner binding matrix ${index + 1}`)
 
-const hostAcquisitionPreflightChangedPaths = execFileSync('git', ['diff', '--name-only', BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
-const hostAcquisitionPreflightExpectedPaths = [
-  '.github/workflows/protected-transition-admission-v1.yml',
-  'scripts/run-protected-transition-admission-v1.mjs',
-  'scripts/test-protected-transition-admission-v1.mjs',
-]
+const hostAcquisitionPreflightChangedPaths = changedPaths
+const hostAcquisitionPreflightExpectedPaths = expectedPaths
 const providerBindingStep = repairJob.steps.find((step) => step.name === 'Bind reviewed HEAD immediately before local execution')
 const providerPreflightIndex = repairJob.steps.indexOf(providerProbeStep)
 const protectedSideEffectSteps = [
