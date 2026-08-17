@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -10,6 +10,13 @@ import {
   parseProtectedTransitionTaskStateV1,
   projectProtectedTransitionApprovedReviewStateV1,
 } from '../src/continuous-orchestration/protected-transition-admission-v1.ts'
+import {
+  createProductionParityProjectionV1,
+  createSharedSealedEvidenceV1,
+  digestSharedEvidenceV1,
+  isSharedHeadBindingStaleV1,
+  validateSharedSealedEvidenceV1,
+} from '../generic-platform/src/core/shared-sealed-evidence-v1.mjs'
 
 const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/
 const FULL_HEAD = /^[0-9a-f]{40}$/
@@ -25,6 +32,15 @@ const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'
 const REVIEW_RECORD_TYPE = 'independent_review_decision_v1'
 const REVIEW_AUTHORING_ROLE = 'Independent Reviewer'
 const REVIEW_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
+const LIVE_SHADOW_REQUIRED_CHECKS_V1 = Object.freeze(new Map([
+  ['build-preview', Object.freeze({ check_id: 'build-preview', app_id: '15368', required: true })],
+  ['Cloudflare Pages', Object.freeze({ check_id: 'cloudflare-pages', app_id: '85455', required: true })],
+  ['protected_transition_admission_v1', Object.freeze({ check_id: 'rto-admission', app_id: '15368', required: false })],
+  ['protected_transition_repair_executor_v1', Object.freeze({ check_id: 'rto-repair', app_id: '15368', required: false })],
+  ['protected_transition_role_dispatch_consumer_v1', Object.freeze({ check_id: 'rto-role-dispatch', app_id: '15368', required: false })],
+  ['protected_transition_post_repair_review_v1', Object.freeze({ check_id: 'rto-post-repair-review', app_id: '15368', required: false })],
+  ['protected_transition_merge_operator_v1', Object.freeze({ check_id: 'rto-merge-operator', app_id: '15368', required: false })],
+]))
 const STRICT_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/
 const REPAIR_EXECUTOR_INSTRUCTION = 'Generate and apply the minimum repair for current blocking findings only within current authorized_paths; stop on an Architecture gap.'
 const REPAIR_COMMIT_MESSAGE = 'fix current protected transition blockers'
@@ -94,6 +110,7 @@ query MergeAllowedThreads($owner: String!, $name: String!, $pr: Int!, $after: St
 }`
 
 const positiveInteger = (value) => Number.isSafeInteger(value) && value > 0
+const nonNegativeInteger = (value) => Number.isSafeInteger(value) && value >= 0
 const occurrenceCount = (text, needle) => text.split(needle).length - 1
 
 export const extractProtectedTransitionTaskStateV1 = (body) => {
@@ -253,6 +270,78 @@ const classifyReviewDecisionCommentV1 = ({ comment, repository, taskIssueNumber,
   })
 }
 
+export const projectSharedReviewHistoryV1 = ({ comments, repository, taskIssueNumber, prNumber, exactHead, runAttempt }) => {
+  if (!Array.isArray(comments) || !positiveInteger(runAttempt)) throw new Error('review_decision_page_invalid')
+  const identities = new Map()
+  const classified = []
+  for (const comment of comments) {
+    let candidate = classifyReviewDecisionCommentV1({ comment, repository, taskIssueNumber, prNumber, exactHead })
+    if (candidate.kind === 'NON_MARKER') continue
+    if (positiveInteger(candidate.commentId)) {
+      const prior = identities.get(candidate.commentId)
+      if (prior && !sameReviewDecisionIdentityV1(prior, candidate)) throw new Error('review_decision_candidate_identity_conflict')
+      if (prior) continue
+      identities.set(candidate.commentId, candidate)
+    }
+    if (
+      ['VALID_TARGET_TUPLE', 'VALID_OTHER_HEAD_OR_PR'].includes(candidate.kind) &&
+      ((candidate.review.decision === 'APPROVE' && (
+        candidate.review.blocking_finding_count !== 0 || candidate.review.remaining_finding_count !== 0 || candidate.review.unknown_count !== 0
+      )) || (candidate.review.decision === 'CHANGES_REQUIRED' && candidate.review.blocking_finding_count === 0))
+    ) {
+      candidate = Object.freeze({
+        kind: 'MALFORMED_ORDERABLE_MARKER',
+        commentId: candidate.commentId,
+        createdAt: candidate.createdAt,
+        body: candidate.body,
+        authorAssociation: candidate.authorAssociation,
+      })
+    }
+    classified.push(candidate)
+  }
+  if (classified.some((candidate) => candidate.kind === 'MALFORMED_UNORDERABLE_MARKER')) {
+    return Object.freeze([Object.freeze({
+      kind: 'MALFORMED_UNORDERABLE', source_id: null, source_order: null, observed_at: null, review: null,
+    })])
+  }
+  classified.sort(compareReviewDecisionCandidateV1)
+  return Object.freeze(classified.map((candidate, index) => {
+    const sourceId = `issue-comment-${candidate.commentId}`
+    const sourceOrder = index + 1
+    if (candidate.kind === 'MALFORMED_ORDERABLE_MARKER') {
+      return Object.freeze({
+        kind: 'MALFORMED_ORDERABLE', source_id: sourceId, source_order: sourceOrder,
+        observed_at: candidate.createdAt, review: null,
+      })
+    }
+    const review = candidate.review
+    return Object.freeze({
+      kind: 'VALID',
+      source_id: sourceId,
+      source_order: sourceOrder,
+      observed_at: candidate.createdAt,
+      review: Object.freeze({
+        record_type: 'gadp_review_v1',
+        identity: Object.freeze({
+          record_type: 'gadp_identity_v1',
+          repository,
+          task_issue_number: taskIssueNumber,
+          pr_number: review.pr_number,
+          exact_head: review.reviewed_head,
+          attempt: runAttempt,
+        }),
+        source_id: sourceId,
+        source_order: sourceOrder,
+        observed_at: candidate.createdAt,
+        decision: review.decision,
+        blocking_finding_count: review.blocking_finding_count,
+        remaining_finding_count: review.remaining_finding_count,
+        unknown_count: review.unknown_count,
+      }),
+    })
+  }))
+}
+
 export const reduceCurrentLeafIndependentReviewDecisionV1 = ({ comments, repository, taskIssueNumber, prNumber, exactHead }) => {
   if (!Array.isArray(comments)) throw new Error('review_decision_page_invalid')
   const identities = new Map()
@@ -308,6 +397,7 @@ export const resolveEffectiveReviewDecisionV1 = async ({ request, parsedEvent, h
   }]
   const pageFingerprints = new Set()
   let pageNumber = 1
+  let pageCount = 0
   let terminal = false
   while (!terminal) {
     const endpoint = `repos/${request.repository}/issues/${request.taskIssueNumber}/comments?since=${encodeURIComponent(parsedEvent.commentCreatedAt)}&sort=created&direction=asc&per_page=${PAGE_SIZE}&page=${pageNumber}`
@@ -318,6 +408,7 @@ export const resolveEffectiveReviewDecisionV1 = async ({ request, parsedEvent, h
     pageFingerprints.add(fingerprint)
 
     comments.push(...page)
+    pageCount = pageNumber
 
     terminal = page.length < PAGE_SIZE
     pageNumber += 1
@@ -331,12 +422,19 @@ export const resolveEffectiveReviewDecisionV1 = async ({ request, parsedEvent, h
     prNumber: request.prNumber,
     exactHead: request.exactHead,
   })
-  return confirmCurrentLeafIndependentReviewDecisionV1({ selected, request, host })
+  const confirmed = await confirmCurrentLeafIndependentReviewDecisionV1({ selected, request, host })
+  captureProductionEvidenceSnapshotV1(host, 'review_history', Object.freeze({
+    comments: Object.freeze(comments),
+    page_count: pageCount,
+    selected_comment_id: confirmed.commentId,
+  }))
+  return confirmed
 }
 
 const acquireEffectiveReviewDecisionV1 = async ({ request, host }) => {
   const comments = []
   const pageFingerprints = new Set()
+  let pageCount = 0
   for (let pageNumber = 1; pageNumber <= 32; pageNumber += 1) {
     const page = await api(host, `repos/${request.repository}/issues/${request.taskIssueNumber}/comments?sort=created&direction=asc&per_page=${PAGE_SIZE}&page=${pageNumber}`)
     if (!Array.isArray(page) || page.length > PAGE_SIZE) throw new Error('review_decision_page_invalid')
@@ -344,6 +442,7 @@ const acquireEffectiveReviewDecisionV1 = async ({ request, host }) => {
     if (page.length > 0 && pageFingerprints.has(fingerprint)) throw new Error('review_decision_page_repeated')
     pageFingerprints.add(fingerprint)
     comments.push(...page)
+    pageCount = pageNumber
     if (page.length < PAGE_SIZE) break
     if (pageNumber === 32) throw new Error('review_decision_terminal_page_missing')
   }
@@ -354,7 +453,13 @@ const acquireEffectiveReviewDecisionV1 = async ({ request, host }) => {
     prNumber: request.prNumber,
     exactHead: request.exactHead,
   })
-  return confirmCurrentLeafIndependentReviewDecisionV1({ selected, request, host })
+  const confirmed = await confirmCurrentLeafIndependentReviewDecisionV1({ selected, request, host })
+  captureProductionEvidenceSnapshotV1(host, 'review_history', Object.freeze({
+    comments: Object.freeze(comments),
+    page_count: pageCount,
+    selected_comment_id: confirmed.commentId,
+  }))
+  return confirmed
 }
 
 const api = async (host, endpoint, options = undefined) => {
@@ -365,6 +470,15 @@ const api = async (host, endpoint, options = undefined) => {
 const graphql = async (host, query, variables) => {
   if (!host || typeof host.graphql !== 'function') throw new Error('host_graphql_unavailable')
   return host.graphql(query, variables)
+}
+
+const captureProductionEvidenceSnapshotV1 = (host, kind, value) => {
+  if (typeof host?.captureProductionEvidenceSnapshotV1 !== 'function') return
+  try {
+    host.captureProductionEvidenceSnapshotV1(kind, value)
+  } catch {
+    // Shadow evidence is observational and can never change production control flow.
+  }
 }
 
 const repositoryPartsV1 = (repository) => {
@@ -464,7 +578,9 @@ const acquireMergeCheckRollupSnapshotV1 = async (request, host, { stopOnPullHead
   }
 
   if (nodes.length !== expectedTotal) throw new Error('check_rollup_count_mismatch')
-  return Object.freeze({ headRefOid: expectedPullHead, checks: Object.freeze(nodes) })
+  const snapshot = Object.freeze({ headRefOid: expectedPullHead, checks: Object.freeze(nodes), page_count: pageNumber })
+  captureProductionEvidenceSnapshotV1(host, 'checks', snapshot)
+  return snapshot
 }
 
 export const acquireMergeCheckRollupV1 = async (request, host) =>
@@ -588,7 +704,329 @@ export const acquireMergeReviewThreadsV1 = async (request, host) => {
   }
 
   if (nodes.length !== expectedTotal) throw new Error('review_threads_count_mismatch')
-  return Object.freeze({ pull: expectedPull, threads: Object.freeze(nodes) })
+  const snapshot = Object.freeze({ pull: expectedPull, threads: Object.freeze(nodes), page_count: pageNumber })
+  captureProductionEvidenceSnapshotV1(host, 'threads', snapshot)
+  return snapshot
+}
+
+const frozenCapturedJsonV1 = (value) => {
+  if (Array.isArray(value)) return Object.freeze(value.map(frozenCapturedJsonV1))
+  if (value !== null && typeof value === 'object') {
+    return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, child]) => [key, frozenCapturedJsonV1(child)])))
+  }
+  if (value === null || ['string', 'number', 'boolean'].includes(typeof value)) return value
+  throw new Error('production_evidence_capture_invalid')
+}
+
+const PRODUCTION_EVIDENCE_CAPTURE_KINDS_V1 = new Set(['review_history', 'checks', 'threads', 'state'])
+
+const projectCapturedSharedReviewHistoryV1 = ({ capture, request, runAttempt }) => {
+  if (!capture) return Object.freeze({ completeness: 'INCOMPLETE', page_count: null, item_count: 0, observations: Object.freeze([]) })
+  const observations = projectSharedReviewHistoryV1({
+    comments: capture.comments,
+    repository: request.repository,
+    taskIssueNumber: request.taskIssueNumber,
+    prNumber: request.prNumber,
+    exactHead: request.exactHead,
+    runAttempt,
+  })
+  return Object.freeze({
+    completeness: 'COMPLETE',
+    page_count: capture.page_count,
+    item_count: observations.length,
+    observations,
+  })
+}
+
+const projectSharedChecksV1 = ({ request, snapshot }) => {
+  const selected = selectCurrentCheckGenerationsV1(snapshot.checks)
+  const selectedIds = new Set(selected.filter((item) => item.type === 'CheckRun').map((item) => item.id))
+  const ambiguities = []
+  const items = []
+  for (const item of snapshot.checks) {
+    if (item.type !== 'CheckRun') {
+      ambiguities.push('SOURCE_INCOMPLETE')
+      continue
+    }
+    const policy = LIVE_SHADOW_REQUIRED_CHECKS_V1.get(item.name)
+    if (!policy || item.app_id !== policy.app_id || typeof item.started_at !== 'string' || !STRICT_UTC.test(item.started_at)) {
+      ambiguities.push('SOURCE_INCOMPLETE')
+      continue
+    }
+    const actionsRunId = parseRepositoryActionsRunIdV1(request, item)
+    items.push(Object.freeze({
+      check_id: policy.check_id,
+      generation_id: item.id,
+      current: selectedIds.has(item.id),
+      required: policy.required,
+      status: item.status,
+      conclusion: item.conclusion,
+      provenance: Object.freeze({
+        repository: request.repository,
+        pr_number: request.prNumber,
+        target_head: request.exactHead,
+        current_head: snapshot.headRefOid,
+        check_suite_head: request.exactHead,
+        app_id: item.app_id,
+        name: item.name,
+        actions_run_id: actionsRunId,
+      }),
+    }))
+  }
+  return Object.freeze({
+    record: Object.freeze({
+      completeness: ambiguities.length === 0 ? 'COMPLETE' : 'AMBIGUOUS',
+      page_count: ambiguities.length === 0 ? snapshot.page_count : null,
+      item_count: items.length,
+      items: Object.freeze(items),
+    }),
+    ambiguities: Object.freeze([...new Set(ambiguities)]),
+  })
+}
+
+export const createSharedSealedEvidenceRecordAFromProductionV1 = ({
+  request, capturedSnapshots, captureTrace, captureFailed, runId, runAttempt, hostSha, productionExecutionInstance,
+}) => {
+  if (!WORKFLOW_RUN_ID.test(String(runId ?? '')) || !positiveInteger(runAttempt) || !FULL_HEAD.test(hostSha ?? '')) {
+    throw new Error('live_shadow_binding_invalid')
+  }
+  if (!capturedSnapshots || !Array.isArray(captureTrace) || !/^[0-9a-f]{64}$/.test(productionExecutionInstance ?? '')) {
+    throw new Error('live_shadow_capture_invalid')
+  }
+  const stateSnapshot = capturedSnapshots.state
+  if (!stateSnapshot) return null
+  const reviewHistory = projectCapturedSharedReviewHistoryV1({ capture: capturedSnapshots.review_history, request, runAttempt })
+  const projectedChecks = capturedSnapshots.checks
+    ? projectSharedChecksV1({ request, snapshot: capturedSnapshots.checks })
+    : Object.freeze({
+        record: Object.freeze({ completeness: 'INCOMPLETE', page_count: null, item_count: 0, items: Object.freeze([]) }),
+        ambiguities: Object.freeze(['SOURCE_INCOMPLETE']),
+      })
+  const threadSnapshot = capturedSnapshots.threads
+  const ambiguities = [...projectedChecks.ambiguities]
+  if (!capturedSnapshots.review_history || !threadSnapshot) ambiguities.push('SOURCE_INCOMPLETE')
+  if (captureFailed) ambiguities.push('ACQUISITION_FAILED')
+  if (reviewHistory.observations.some((item) => item.kind === 'MALFORMED_UNORDERABLE')) ambiguities.push('REVIEW_UNORDERABLE')
+  const acquisitionGeneration = digestSharedEvidenceV1(Object.freeze({
+    production_execution_instance: productionExecutionInstance,
+    capture_trace: captureTrace,
+  }))
+  return createSharedSealedEvidenceV1({
+    binding: {
+      repository: request.repository,
+      task_issue_number: request.taskIssueNumber,
+      pr_number: request.prNumber,
+      exact_head: request.exactHead,
+      run_id: String(runId),
+      run_attempt: runAttempt,
+      host_sha: hostSha,
+      acquisition_generation: acquisitionGeneration,
+      production_execution_instance: productionExecutionInstance,
+    },
+    review_history: reviewHistory,
+    checks: projectedChecks.record,
+    threads: threadSnapshot
+      ? {
+          completeness: 'COMPLETE',
+          page_count: threadSnapshot.page_count,
+          item_count: threadSnapshot.threads.length,
+          items: threadSnapshot.threads.map((item) => ({
+            thread_id: item.id,
+            resolved: item.isResolved,
+            outdated: item.isOutdated,
+          })),
+        }
+      : { completeness: 'INCOMPLETE', page_count: null, item_count: 0, items: [] },
+    state: {
+      completeness: 'COMPLETE',
+      task: stateSnapshot.task,
+      pull: stateSnapshot.pull,
+      task_state: stateSnapshot.task_state,
+    },
+    authorized_scope: {
+      completeness: stateSnapshot.scope.complete ? 'COMPLETE' : 'INCOMPLETE',
+      actual_paths: [...stateSnapshot.scope.actual_paths].sort(),
+      authorized_paths: [...stateSnapshot.task_state.authorized_paths].sort(),
+    },
+    admission_inputs: {
+      transition: request.transition,
+      required_check_ids: ['build-preview', 'cloudflare-pages'],
+      production_rto_owner: {
+        workflow: '.github/workflows/protected-transition-admission-v1.yml',
+        runner: 'scripts/run-protected-transition-admission-v1.mjs',
+      },
+    },
+    capture_ambiguities: [...new Set(ambiguities)].sort(),
+  })
+}
+
+export const createProductionEvidenceCaptureV1 = ({ request, host, runId, runAttempt, hostSha }) => {
+  if (!host || typeof host.api !== 'function' || typeof host.graphql !== 'function') throw new Error('live_shadow_host_invalid')
+  const productionExecutionInstance = digestSharedEvidenceV1(Object.freeze({
+    repository: request.repository,
+    task_issue_number: request.taskIssueNumber,
+    pr_number: request.prNumber,
+    exact_head: request.exactHead,
+    transition: request.transition,
+    run_id: String(runId),
+    run_attempt: runAttempt,
+    host_sha: hostSha,
+  }))
+  const snapshots = new Map()
+  const trace = []
+  let captureFailed = false
+  let sealed = false
+  let sealedRecord
+  const capture = (kind, value) => {
+    if (sealed) return
+    if (!PRODUCTION_EVIDENCE_CAPTURE_KINDS_V1.has(kind)) {
+      captureFailed = true
+      return
+    }
+    try {
+      const snapshot = frozenCapturedJsonV1(value)
+      trace.push(Object.freeze({ sequence: trace.length + 1, kind, sha256: digestSharedEvidenceV1(snapshot) }))
+      snapshots.set(kind, snapshot)
+    } catch {
+      captureFailed = true
+    }
+  }
+  const observedHost = Object.freeze({ ...host, captureProductionEvidenceSnapshotV1: capture })
+  const sealRecordA = () => {
+    if (sealed) return sealedRecord
+    sealed = true
+    sealedRecord = createSharedSealedEvidenceRecordAFromProductionV1({
+      request,
+      capturedSnapshots: Object.freeze(Object.fromEntries(snapshots)),
+      captureTrace: Object.freeze(trace),
+      captureFailed,
+      runId,
+      runAttempt,
+      hostSha,
+      productionExecutionInstance,
+    })
+    return sealedRecord
+  }
+  return Object.freeze({ host: observedHost, sealRecordA, production_execution_instance: productionExecutionInstance })
+}
+
+const productionParitySemanticV1 = ({ productionResult }) => {
+  const key = `${productionResult.state}\0${productionResult.reason}\0${productionResult.next_action}`
+  if (key === 'MERGE_ELIGIBLE\0merge_decision_required\0PRODUCT_OWNER_IMPLEMENTATION_LEAD') {
+    if (
+      productionResult.allowed !== false || productionResult.admission_state !== 'MERGE_ELIGIBLE' ||
+      productionResult.admission_allowed !== true || productionResult.admission_reason !== 'merge_gate_satisfied' ||
+      !nonNegativeInteger(productionResult.external_check_success_count) || productionResult.blocking_thread_count !== 0
+    ) return null
+    return Object.freeze({
+      state: 'MERGE_ELIGIBLE',
+      allowed: true,
+      reason_family: 'ADMISSION_ELIGIBLE',
+      next_action: 'MERGE_DECISION',
+      external_check_success_count: productionResult.external_check_success_count,
+      blocking_thread_count: 0,
+    })
+  }
+  if (key === 'REVIEW_BLOCKED\0blocking_review_threads_present\0STOP') {
+    if (
+      productionResult.allowed !== false || !nonNegativeInteger(productionResult.external_check_success_count) ||
+      !positiveInteger(productionResult.blocking_thread_count)
+    ) return null
+    return Object.freeze({
+      state: 'REVIEW_BLOCKED',
+      allowed: false,
+      reason_family: 'REVIEW_THREADS_BLOCKING',
+      next_action: 'STOP',
+      external_check_success_count: productionResult.external_check_success_count,
+      blocking_thread_count: productionResult.blocking_thread_count,
+    })
+  }
+  if (key === 'STALE\0head_binding_stale\0STOP') {
+    if (
+      productionResult.allowed !== false || !nonNegativeInteger(productionResult.external_check_success_count) ||
+      !nonNegativeInteger(productionResult.blocking_thread_count)
+    ) return null
+    return Object.freeze({
+      state: 'STALE', allowed: false, reason_family: 'HEAD_BINDING_STALE', next_action: 'STOP',
+      external_check_success_count: productionResult.external_check_success_count,
+      blocking_thread_count: productionResult.blocking_thread_count,
+    })
+  }
+  if (key === 'INDETERMINATE\0review_decision_candidate_invalid\0STOP') {
+    if (
+      productionResult.allowed !== false || !nonNegativeInteger(productionResult.external_check_success_count) ||
+      !nonNegativeInteger(productionResult.blocking_thread_count)
+    ) return null
+    return Object.freeze({
+      state: 'INDETERMINATE', allowed: false, reason_family: 'REVIEW_EVIDENCE_INVALID', next_action: 'STOP',
+      external_check_success_count: productionResult.external_check_success_count,
+      blocking_thread_count: productionResult.blocking_thread_count,
+    })
+  }
+  return null
+}
+
+export const projectProductionParityRecordBV1 = ({ recordA: recordAInput, productionResult }) => {
+  const recordA = validateSharedSealedEvidenceV1(recordAInput)
+  const staleTuple = productionResult?.state === 'STALE' && productionResult?.reason === 'head_binding_stale' && productionResult?.next_action === 'STOP'
+  const staleBinding = isSharedHeadBindingStaleV1(recordA)
+  if (
+    !productionResult || typeof productionResult !== 'object' ||
+    productionResult.task_issue_number !== recordA.payload.binding.task_issue_number ||
+    productionResult.pr_number !== recordA.payload.binding.pr_number ||
+    !FULL_HEAD.test(productionResult.current_head ?? '') ||
+    productionResult.current_head !== recordA.payload.state.pull.head ||
+    staleTuple !== staleBinding
+  ) throw new Error('production_parity_binding_invalid')
+  const semantics = recordA.payload.proof_capable ? productionParitySemanticV1({ productionResult }) : null
+  const projectionReason = !recordA.payload.proof_capable
+    ? 'RECORD_A_NON_PROOF_CAPABLE'
+    : semantics === null ? 'PRODUCTION_TUPLE_UNKNOWN' : 'PRODUCTION_TUPLE_MAPPED'
+  return createProductionParityProjectionV1({
+    record_a_sha256: recordA.sha256,
+    binding: recordA.payload.binding,
+    projection_status: semantics === null ? 'NOT_COMPARABLE' : 'COMPARABLE',
+    projection_reason: projectionReason,
+    semantics,
+    proof_capable: semantics !== null,
+    authority: 'NONE',
+    provider_invocation_count: 0,
+    protected_operation_count: 0,
+  })
+}
+
+const isolatedAttemptV1 = async (operation, timeoutMs) => {
+  let timer
+  try {
+    return await Promise.race([
+      Promise.resolve().then(operation),
+      new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeoutMs) }),
+    ])
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+export const executeProductionWithLiveShadowArtifactsV1 = async ({
+  createEvidenceCapture,
+  executeProduction,
+  writeRecordA,
+  writeRecordB,
+  captureSetupTimeoutMs = 1_000,
+  sealingTimeoutMs = 1_000,
+}) => {
+  const evidenceCapture = await isolatedAttemptV1(createEvidenceCapture, captureSetupTimeoutMs)
+  const productionResult = await executeProduction(evidenceCapture?.host)
+  const recordA = evidenceCapture === null
+    ? null
+    : await isolatedAttemptV1(() => evidenceCapture.sealRecordA(), sealingTimeoutMs)
+  if (recordA !== null) {
+    await isolatedAttemptV1(() => writeRecordA(recordA), 1_000)
+    await isolatedAttemptV1(() => writeRecordB(projectProductionParityRecordBV1({ recordA, productionResult })), 1_000)
+  }
+  return productionResult
 }
 
 const validateTaskIdentityRawV1 = (raw, request) => {
@@ -709,7 +1147,7 @@ export const acquireTransitionStateSnapshotV1 = async (request, host) => {
   const taskState = extractProtectedTransitionTaskStateV1(pull.body)
   const task = await acquireTaskIdentityV1(request, host)
   const scope = await acquireChangedPathScopeV1(request, pull, host)
-  return Object.freeze({
+  const snapshot = Object.freeze({
     transition: request.transition,
     repository: request.repository,
     task_issue_number: request.taskIssueNumber,
@@ -726,6 +1164,8 @@ export const acquireTransitionStateSnapshotV1 = async (request, host) => {
     task_state: taskState,
     scope,
   })
+  captureProductionEvidenceSnapshotV1(host, 'state', snapshot)
+  return snapshot
 }
 
 const stoppedResult = (request, state, reason, exitCode, currentHead = request.exactHead) => Object.freeze({
@@ -3661,6 +4101,46 @@ const parseInvocation = (argv, environment) => {
 
 const readJsonFileV1 = (file) => JSON.parse(readFileSync(file, 'utf8'))
 
+const liveShadowRequestV1 = (invocation, environment) => {
+  if (invocation.mode === 'manual') return invocation.request
+  if (!['review_event', 'ready_event'].includes(invocation.mode)) return null
+  const event = readJsonFileV1(invocation.eventFile)
+  if (invocation.mode === 'review_event') {
+    const parsed = parseReviewApprovalEventV1(event)
+    return Object.freeze({
+      transition: 'merge_decision_admission',
+      repository: parsed.repository,
+      taskIssueNumber: parsed.taskIssueNumber,
+      prNumber: parsed.prNumber,
+      exactHead: parsed.exactHead,
+      currentWorkflowRunId: environment.GITHUB_RUN_ID ?? null,
+      selfCheckContext: REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1,
+    })
+  }
+  const repository = event?.repository?.full_name
+  const pull = event?.pull_request
+  const state = extractProtectedTransitionTaskStateV1(pull?.body)
+  if (
+    event?.action !== 'ready_for_review' || !REPOSITORY.test(repository ?? '') ||
+    !positiveInteger(pull?.number) || !FULL_HEAD.test(pull?.head?.sha ?? '')
+  ) throw new Error('ready_event_invalid')
+  return Object.freeze({
+    transition: 'merge_decision_admission',
+    repository,
+    taskIssueNumber: state.task_issue_number,
+    prNumber: pull.number,
+    exactHead: pull.head.sha,
+    currentWorkflowRunId: environment.GITHUB_RUN_ID ?? null,
+    selfCheckContext: READY_ATTACHED_SELF_CHECK_CONTEXT_V1,
+  })
+}
+
+const liveShadowArtifactDirectoryV1 = (environment) => {
+  if (typeof environment.RUNNER_TEMP !== 'string' || typeof environment.GADP_LIVE_SHADOW_DIR !== 'string') return null
+  const expected = path.resolve(environment.RUNNER_TEMP, 'gadp-live-shadow-v1')
+  return path.resolve(environment.GADP_LIVE_SHADOW_DIR) === expected ? expected : null
+}
+
 export const repairWorkingTreePathsV1 = (
   expectedHead,
   executeGit = (args, options = undefined) => execFileSync('git', args, options),
@@ -3731,33 +4211,33 @@ const main = async () => {
   try {
     invocation = parseInvocation(process.argv.slice(2), process.env)
     const host = productionHost(process.env)
-    const result = invocation.mode === 'review_event'
+    const executeProduction = async (executionHost = host) => invocation.mode === 'review_event'
       ? await executeRoleTransitionOrchestratorV1({
           event: JSON.parse(readFileSync(invocation.eventFile, 'utf8')),
-          host,
+          host: executionHost,
           runId: process.env.GITHUB_RUN_ID,
         })
       : invocation.mode === 'ready_event'
         ? await executeReadyForReviewProgressionV1({
             event: JSON.parse(readFileSync(invocation.eventFile, 'utf8')),
-            host,
+            host: executionHost,
             runId: process.env.GITHUB_RUN_ID,
           })
         : invocation.mode === 'repair_preflight'
           ? await executeRepairExecutorV1({
               phase: 'preflight',
               dispatch: readJsonFileV1(invocation.dispatchFile),
-              host,
+              host: executionHost,
             })
           : invocation.mode === 'role_dispatch'
             ? await executeRoleDispatchConsumerV1({
                 dispatch: readJsonFileV1(invocation.dispatchFile),
-                host,
+                host: executionHost,
               })
             : invocation.mode === 'role_rebind'
               ? await executeRoleDispatchRebindV1({
                   dispatch: readJsonFileV1(invocation.dispatchFile),
-                  host,
+                  host: executionHost,
                   operation: invocation.operation,
                   authorityCommentId: invocation.authorityCommentId,
                   newHead: invocation.newHead,
@@ -3765,7 +4245,7 @@ const main = async () => {
             : invocation.mode === 'merge_operator'
               ? await executeMergeOperatorV1({
                   dispatch: readJsonFileV1(invocation.dispatchFile),
-                  host,
+                  host: executionHost,
                 })
             : invocation.mode === 'role_output'
               ? evaluateRoleOutputInvocationV1(invocation)
@@ -3773,7 +4253,7 @@ const main = async () => {
             ? await executeRepairProviderBindingV3({
                 boundary: 'pre_exec',
                 dispatch: readJsonFileV1(invocation.dispatchFile),
-                host,
+                host: executionHost,
                 localPaths: repairWorkingTreePathsV1(readJsonFileV1(invocation.dispatchFile).exact_head),
                 cliVersion: process.env.REPAIR_PROVIDER_CLI_VERSION,
                 loginStatus: process.env.REPAIR_PROVIDER_LOGIN_STATUS,
@@ -3787,7 +4267,7 @@ const main = async () => {
                   return executeRepairProviderBindingV3({
                     boundary: 'post_exec',
                     dispatch,
-                    host,
+                    host: executionHost,
                     localPaths: repairWorkingTreePathsV1(dispatch.exact_head),
                     providerBranch: providerBinding.provider_branch,
                   })
@@ -3798,7 +4278,7 @@ const main = async () => {
                 dispatch: readJsonFileV1(invocation.dispatchFile),
                 providerResult: readJsonFileV1(invocation.providerResultFile),
                 repairPaths: repairWorkingTreePathsV1(readJsonFileV1(invocation.dispatchFile).exact_head),
-                host,
+              host: executionHost,
               })
             : invocation.mode === 'repair_commit_plan'
               ? await executeRepairExecutorV1({
@@ -3806,7 +4286,7 @@ const main = async () => {
                   dispatch: readJsonFileV1(invocation.dispatchFile),
                   repairPaths: repairWorkingTreePathsV1(readJsonFileV1(invocation.dispatchFile).exact_head),
                   validationSucceeded: process.env.REPAIR_VALIDATION_SUCCEEDED === 'true',
-                  host,
+                  host: executionHost,
                 })
               : invocation.mode === 'repair_complete'
                 ? await (() => {
@@ -3818,10 +4298,39 @@ const main = async () => {
                       repairPaths: evidence.repair_paths,
                       validationProfile: evidence.validation_profile,
                       headRef: evidence.head_ref,
-                      host,
+                    host: executionHost,
                     })
                   })()
-                : await executeManualProgressionControllerV1({ request: invocation.request, host })
+                : await executeManualProgressionControllerV1({ request: invocation.request, host: executionHost })
+    const artifactDirectory = liveShadowArtifactDirectoryV1(process.env)
+    let shadowRequest = null
+    if (artifactDirectory !== null) {
+      try {
+        shadowRequest = liveShadowRequestV1(invocation, process.env)
+      } catch {
+        shadowRequest = null
+      }
+    }
+    const result = artifactDirectory !== null && shadowRequest !== null
+      ? await executeProductionWithLiveShadowArtifactsV1({
+          createEvidenceCapture: () => createProductionEvidenceCaptureV1({
+            request: shadowRequest,
+            host,
+            runId: process.env.GITHUB_RUN_ID,
+            runAttempt: Number(process.env.GITHUB_RUN_ATTEMPT),
+            hostSha: process.env.GITHUB_WORKFLOW_SHA,
+          }),
+          executeProduction,
+          writeRecordA: (record) => {
+            mkdirSync(artifactDirectory, { recursive: true })
+            writeFileSync(path.join(artifactDirectory, 'record-a.json'), JSON.stringify(record), 'utf8')
+          },
+          writeRecordB: (record) => {
+            mkdirSync(artifactDirectory, { recursive: true })
+            writeFileSync(path.join(artifactDirectory, 'record-b.json'), JSON.stringify(record), 'utf8')
+          },
+        })
+      : await executeProduction()
     process.stdout.write(`${JSON.stringify(result)}\n`)
     process.exitCode = result.exit_code
   } catch (error) {

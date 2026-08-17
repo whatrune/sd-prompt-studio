@@ -1,21 +1,52 @@
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { digestCanonicalV1 } from '../src/core/role-dispatch-v1.mjs'
+import { evaluateProtectedTransitionAdmissionV1 } from '../../src/continuous-orchestration/protected-transition-admission-v1.ts'
 import {
+  PARITY_REASON_FAMILIES_V1,
+  canonicalSerializeSharedEvidenceV1,
+  createGenericResultV1,
+  createSharedSealedEvidenceV1,
+  digestSharedEvidenceV1,
+  sharedEvidenceSourceManifestV1,
+  validateParityComparisonV1,
+  validateSharedSealedEvidenceV1,
+} from '../src/core/shared-sealed-evidence-v1.mjs'
+import {
+  compareProductionAndGenericV1,
+  evaluateSharedEvidenceGenericV1,
   evaluateSdpsReadOnlyShadowV1,
   sdpsShadowBoundaryNamesV1,
   sdpsShadowProductionOwnerV1,
 } from '../src/shadow/sd-prompt-studio-read-only-shadow-v1.mjs'
+import {
+  acquireMergeCheckRollupV1,
+  acquireMergeReviewThreadsV1,
+  acquireTransitionStateSnapshotV1,
+  createProductionEvidenceCaptureV1,
+  executeProductionWithLiveShadowArtifactsV1,
+  projectProductionParityRecordBV1,
+  resolveEffectiveReviewDecisionV1,
+} from '../../scripts/run-protected-transition-admission-v1.mjs'
 
 const adapterUrl = new URL('../adapters/sd-prompt-studio-read-only-shadow-v1.json', import.meta.url)
 const fixtureUrl = new URL('../fixtures/sd-prompt-studio-shadow-parity-v1.json', import.meta.url)
 const evaluatorUrl = new URL('../src/shadow/sd-prompt-studio-read-only-shadow-v1.mjs', import.meta.url)
+const liveRunnerUrl = new URL('../src/shadow/run-sd-prompt-studio-live-shadow-v1.mjs', import.meta.url)
 const adapter = JSON.parse(await readFile(adapterUrl, 'utf8'))
 const fixtures = JSON.parse(await readFile(fixtureUrl, 'utf8'))
 const evaluatorSource = await readFile(evaluatorUrl, 'utf8')
+const liveRunnerSource = await readFile(liveRunnerUrl, 'utf8')
+const productionRunnerSource = await readFile(new URL('../../scripts/run-protected-transition-admission-v1.mjs', import.meta.url), 'utf8')
 let assertions = 0
 const check = (condition, message) => { assertions += 1; assert.ok(condition, message) }
+const throws = (operation, message) => { assertions += 1; assert.throws(operation, undefined, message) }
 const clone = (value) => structuredClone(value)
 const evaluate = (fixture) => evaluateSdpsReadOnlyShadowV1({
   immutableEvidenceBundle: fixture,
@@ -427,6 +458,438 @@ redigestSource(unknownChecks)
 resealCase(unknownEvidence)
 expectGlobalNotComparable(evaluate(unknownEvidence), 'check_name_unknown', 'unknown check evidence fails closed')
 
+const liveBinding = {
+  repository: 'whatrune/sd-prompt-studio', task_issue_number: 251, pr_number: 318,
+  exact_head: 'a'.repeat(40), run_id: '5311220036', run_attempt: 1, host_sha: 'b'.repeat(40),
+  acquisition_generation: 'c'.repeat(64), production_execution_instance: 'd'.repeat(64),
+}
+const liveReview = {
+  record_type: 'gadp_review_v1',
+  identity: {
+    record_type: 'gadp_identity_v1', repository: liveBinding.repository,
+    task_issue_number: liveBinding.task_issue_number, pr_number: liveBinding.pr_number,
+    exact_head: liveBinding.exact_head, attempt: liveBinding.run_attempt,
+  },
+  source_id: 'issue-comment-100', source_order: 1, observed_at: '2026-08-17T00:00:00Z',
+  decision: 'APPROVE', blocking_finding_count: 0, remaining_finding_count: 0, unknown_count: 0,
+}
+const liveInput = {
+  binding: liveBinding,
+  review_history: {
+    completeness: 'COMPLETE', page_count: 1, item_count: 1,
+    observations: [{
+      kind: 'VALID', source_id: liveReview.source_id, source_order: liveReview.source_order,
+      observed_at: liveReview.observed_at, review: liveReview,
+    }],
+  },
+  checks: {
+    completeness: 'COMPLETE', page_count: 1, item_count: 2,
+    items: [
+      ['build-preview', '15368', 'build-preview'],
+      ['cloudflare-pages', '85455', 'Cloudflare Pages'],
+    ].map(([checkId, appId, name], index) => ({
+      check_id: checkId, generation_id: `generation-${index + 1}`, current: true, required: true,
+      status: 'COMPLETED', conclusion: 'SUCCESS',
+      provenance: {
+        repository: liveBinding.repository, pr_number: liveBinding.pr_number,
+        target_head: liveBinding.exact_head, current_head: liveBinding.exact_head,
+        check_suite_head: liveBinding.exact_head, app_id: appId, name,
+        actions_run_id: String(6000 + index),
+      },
+    })),
+  },
+  threads: {
+    completeness: 'COMPLETE', page_count: 1, item_count: 1,
+    items: [{ thread_id: 'thread-1', resolved: true, outdated: false }],
+  },
+  state: {
+    completeness: 'COMPLETE',
+    task: { repository: liveBinding.repository, number: liveBinding.task_issue_number, state: 'open', is_pull_request: false },
+    pull: { repository: liveBinding.repository, number: liveBinding.pr_number, state: 'open', head: liveBinding.exact_head },
+    task_state: {
+      record_type: 'protected_transition_task_state_v1', task_issue_number: liveBinding.task_issue_number,
+      pr_number: liveBinding.pr_number, observed_head: liveBinding.exact_head,
+      authorized_paths: ['generic-platform/src/core/shared-sealed-evidence-v1.mjs'],
+      architecture_status: 'APPROVED', implementation_authorized: true,
+      review_status: 'APPROVE', reviewed_head: liveBinding.exact_head, review_blocker_count: 0,
+    },
+  },
+  authorized_scope: {
+    completeness: 'COMPLETE',
+    actual_paths: ['generic-platform/src/core/shared-sealed-evidence-v1.mjs'],
+    authorized_paths: ['generic-platform/src/core/shared-sealed-evidence-v1.mjs'],
+  },
+  admission_inputs: {
+    transition: 'merge_decision_admission', required_check_ids: ['build-preview', 'cloudflare-pages'],
+    production_rto_owner: {
+      workflow: '.github/workflows/protected-transition-admission-v1.yml',
+      runner: 'scripts/run-protected-transition-admission-v1.mjs',
+    },
+  },
+  capture_ambiguities: [],
+}
+const makeRecordA = (mutate = () => {}) => {
+  const input = clone(liveInput)
+  mutate(input)
+  return createSharedSealedEvidenceV1(input)
+}
+const evaluateProductionAdmissionForRecordA = (recordAInput) => {
+  const { binding, state, authorized_scope: scope } = recordAInput.payload
+  return evaluateProtectedTransitionAdmissionV1({
+    transition: 'merge_decision_admission',
+    repository: binding.repository,
+    task_issue_number: binding.task_issue_number,
+    pr_number: binding.pr_number,
+    exact_head: binding.exact_head,
+    task: state.task,
+    pull: state.pull,
+    task_state: state.task_state,
+    scope: { complete: true, actual_paths: scope.actual_paths, failure_reason: null },
+  })
+}
+const productionSuccess = {
+  state: 'MERGE_ELIGIBLE', allowed: false, reason: 'merge_decision_required', next_action: 'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
+  admission_state: 'MERGE_ELIGIBLE', admission_allowed: true, admission_reason: 'merge_gate_satisfied',
+  task_issue_number: liveBinding.task_issue_number, pr_number: liveBinding.pr_number,
+  current_head: liveBinding.exact_head, external_check_success_count: 2, blocking_thread_count: 0,
+}
+const recordA = makeRecordA()
+const recordARepeat = makeRecordA()
+check(recordA.sha256 === recordARepeat.sha256 && canonicalSerializeSharedEvidenceV1(recordA.payload) === canonicalSerializeSharedEvidenceV1(recordARepeat.payload), 'Record A canonical serialization and SHA-256 seal are deterministic')
+check(recordA.payload.proof_capable && recordA.payload.authority === 'NONE', 'complete unambiguous Record A is proof-capable but grants no authority')
+check(recordA.payload.source_manifest.map((item) => item.source_id).join('\n') === sharedEvidenceSourceManifestV1().join('\n'), 'Record A source manifest is exact and complete')
+check(recordA.payload.source_manifest.every((item) => item.sha256 === digestSharedEvidenceV1(recordA.payload[item.source_id])), 'every Record A manifest digest binds its exact source')
+throws(() => validateSharedSealedEvidenceV1({ ...recordA, extra: true }), 'Record A outer schema rejects unknown fields')
+const corruptedA = clone(recordA)
+corruptedA.payload.binding.run_id = '5311220037'
+throws(() => validateSharedSealedEvidenceV1(corruptedA), 'Record A payload drift breaks the SHA-256 seal')
+const incompleteA = makeRecordA((input) => {
+  input.review_history.completeness = 'INCOMPLETE'
+  input.review_history.page_count = null
+  input.capture_ambiguities = ['SOURCE_INCOMPLETE']
+})
+check(!incompleteA.payload.proof_capable, 'incomplete capture remains non-proof-capable')
+
+const productionStateBody = `<!-- protected-transition-task-state-v1:start -->\n\`\`\`json\n${JSON.stringify(liveInput.state.task_state)}\n\`\`\`\n<!-- protected-transition-task-state-v1:end -->`
+const productionReviewBody = `# Independent Review Decision\n\n\`\`\`yaml\nrecord_type: independent_review_decision_v1\nauthoring_role: "Independent Reviewer"\ntask_issue: "https://github.com/${liveBinding.repository}/issues/${liveBinding.task_issue_number}"\npull_request: "https://github.com/${liveBinding.repository}/pull/${liveBinding.pr_number}"\nreviewed_head: "${liveBinding.exact_head}"\ndecision: APPROVE\nblocking_finding_count: 0\nremaining_finding_count: 0\nunknown_count: 0\nstatus: completed\nexecution_stop_reason: completed\n\`\`\``
+const productionRequest = {
+  transition: 'merge_decision_admission', repository: liveBinding.repository,
+  taskIssueNumber: liveBinding.task_issue_number, prNumber: liveBinding.pr_number,
+  exactHead: liveBinding.exact_head, currentWorkflowRunId: liveBinding.run_id,
+}
+let repositoryGeneration = 1
+let acquisitionCallCount = 0
+const acquisitionHost = {
+  api: async (endpoint) => {
+    acquisitionCallCount += 1
+    if (endpoint === `repos/${liveBinding.repository}/pulls/${liveBinding.pr_number}`) return {
+      number: liveBinding.pr_number, state: 'open', base: { repo: { full_name: liveBinding.repository } },
+      body: productionStateBody, head: { sha: liveBinding.exact_head }, changed_files: 1,
+    }
+    if (endpoint === `repos/${liveBinding.repository}/issues/${liveBinding.task_issue_number}`) return {
+      number: liveBinding.task_issue_number, state: 'open',
+      repository_url: `https://api.github.com/repos/${liveBinding.repository}`,
+      html_url: `https://github.com/${liveBinding.repository}/issues/${liveBinding.task_issue_number}`,
+    }
+    if (endpoint.startsWith(`repos/${liveBinding.repository}/pulls/${liveBinding.pr_number}/files?`)) return [
+      { filename: 'generic-platform/src/core/shared-sealed-evidence-v1.mjs', status: 'modified' },
+    ]
+    if (endpoint.startsWith(`repos/${liveBinding.repository}/issues/${liveBinding.task_issue_number}/comments?`)) return [
+      { id: 100, created_at: liveReview.observed_at, author_association: 'MEMBER', body: productionReviewBody },
+    ]
+    if (endpoint === `repos/${liveBinding.repository}/issues/comments/100`) return {
+      id: 100, issue_url: `https://api.github.com/repos/${liveBinding.repository}/issues/${liveBinding.task_issue_number}`,
+      created_at: liveReview.observed_at, author_association: 'MEMBER', body: productionReviewBody,
+    }
+    throw new Error(`unexpected_api_${endpoint}`)
+  },
+  graphql: async (query) => {
+    acquisitionCallCount += 1
+    return query.includes('statusCheckRollup') ? {
+    repository: {
+      pullRequest: { headRefOid: liveBinding.exact_head },
+      object: {
+        oid: liveBinding.exact_head,
+        statusCheckRollup: {
+          contexts: {
+            totalCount: 2,
+            nodes: [
+              { __typename: 'CheckRun', id: `check-${repositoryGeneration}-1`, name: 'build-preview', status: 'COMPLETED', conclusion: 'SUCCESS', detailsUrl: `https://github.com/${liveBinding.repository}/actions/runs/${6000 + repositoryGeneration}/job/1`, startedAt: '2026-08-17T00:00:01Z', checkSuite: { app: { id: '15368' } } },
+              { __typename: 'CheckRun', id: `check-${repositoryGeneration}-2`, name: 'Cloudflare Pages', status: 'COMPLETED', conclusion: 'SUCCESS', detailsUrl: `https://github.com/${liveBinding.repository}/actions/runs/${6100 + repositoryGeneration}/job/2`, startedAt: '2026-08-17T00:00:02Z', checkSuite: { app: { id: '85455' } } },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      },
+    },
+    } : {
+    repository: {
+      pullRequest: {
+        number: liveBinding.pr_number, state: 'OPEN', isDraft: false, mergeable: 'MERGEABLE',
+        mergeStateStatus: 'CLEAN', headRefOid: liveBinding.exact_head,
+        reviewThreads: { totalCount: 0, nodes: [], pageInfo: { hasNextPage: false, endCursor: null } },
+      },
+    },
+    }
+  },
+}
+const productionCapture = createProductionEvidenceCaptureV1({
+  request: productionRequest, host: acquisitionHost, runId: liveBinding.run_id,
+  runAttempt: liveBinding.run_attempt, hostSha: liveBinding.host_sha,
+})
+await resolveEffectiveReviewDecisionV1({
+  request: productionRequest,
+  parsedEvent: {
+    commentId: 100, commentCreatedAt: liveReview.observed_at, reviewBody: productionReviewBody,
+    authorAssociation: 'MEMBER',
+  },
+  host: productionCapture.host,
+})
+await acquireTransitionStateSnapshotV1(productionRequest, productionCapture.host)
+await acquireMergeCheckRollupV1(productionRequest, productionCapture.host)
+await acquireMergeReviewThreadsV1(productionRequest, productionCapture.host)
+const callsAtProductionBoundary = acquisitionCallCount
+repositoryGeneration = 2
+const acquiredA = productionCapture.sealRecordA()
+check(acquisitionCallCount === callsAtProductionBoundary, 'Record A sealing performs no second GitHub acquisition after production consumption')
+check(acquiredA.payload.proof_capable && acquiredA.payload.source_manifest.length === 7, 'production-consumed snapshots seal a proof-capable exact-manifest Record A')
+check(acquiredA.payload.review_history.page_count === 1 && acquiredA.payload.checks.page_count === 1 && acquiredA.payload.threads.page_count === 1, 'production-consumed snapshots retain complete pagination for Review, checks, and threads')
+check(acquiredA.payload.checks.items.every((item) => item.generation_id.startsWith('check-1-') && item.provenance.target_head === liveBinding.exact_head && item.provenance.check_suite_head === liveBinding.exact_head), 'Record A remains bound to consumed generation N after repository generation N+1 exists')
+
+const recordB = projectProductionParityRecordBV1({ recordA, productionResult: productionSuccess })
+const resultG = evaluateSharedEvidenceGenericV1({ recordA })
+const recordC = compareProductionAndGenericV1({ productionRecord: recordB, genericResult: resultG })
+check(recordB.payload.record_a_sha256 === recordA.sha256 && recordB.payload.projection_status === 'COMPARABLE', 'Record B binds Record A and uses a closed production projection')
+check(resultG.payload.record_a_sha256 === recordA.sha256 && resultG.payload.authority === 'NONE', 'Generic Result G consumes and binds Record A with authority NONE')
+check(recordC.payload.parity_binding === 'MATCHED' && recordC.payload.semantic === 'MATCH' && recordC.payload.proof_pass, 'Record C reports MATCH only under matched bindings and comparable semantics')
+check(validateParityComparisonV1(recordC).sha256 === recordC.sha256, 'Record C closed schema and digest validate')
+throws(() => evaluateSharedEvidenceGenericV1({ recordA, productionResult: productionSuccess }), 'Generic Result G rejects production-result input')
+
+const unknownB = projectProductionParityRecordBV1({
+  recordA,
+  productionResult: { ...productionSuccess, reason: 'future_reason' },
+})
+const unknownC = compareProductionAndGenericV1({ productionRecord: unknownB, genericResult: resultG })
+check(unknownB.payload.projection_status === 'NOT_COMPARABLE' && unknownC.payload.semantic === 'NOT_COMPARABLE', 'unknown production state/reason/next-action tuple is NOT_COMPARABLE')
+const incompleteB = projectProductionParityRecordBV1({ recordA: incompleteA, productionResult: productionSuccess })
+const incompleteG = evaluateSharedEvidenceGenericV1({ recordA: incompleteA })
+check(incompleteB.payload.projection_reason === 'RECORD_A_NON_PROOF_CAPABLE' && incompleteG.payload.projection_reason === 'RECORD_A_NON_PROOF_CAPABLE', 'B and G cannot upgrade incomplete Record A')
+
+const conflictingA = makeRecordA((input) => { input.binding.run_id = '5311220037' })
+const conflictingG = evaluateSharedEvidenceGenericV1({ recordA: conflictingA })
+const conflictC = compareProductionAndGenericV1({ productionRecord: recordB, genericResult: conflictingG })
+check(conflictC.payload.parity_binding === 'CONFLICT' && conflictC.payload.semantic === 'NOT_COMPARABLE' && !conflictC.payload.proof_pass, 'Record A digest/run binding conflict is explicit and not comparable')
+const laterGenerationA = makeRecordA((input) => { input.binding.acquisition_generation = 'e'.repeat(64) })
+const laterGenerationG = evaluateSharedEvidenceGenericV1({ recordA: laterGenerationA })
+const laterGenerationC = compareProductionAndGenericV1({ productionRecord: recordB, genericResult: laterGenerationG })
+check(laterGenerationC.payload.parity_binding === 'CONFLICT' && !laterGenerationC.payload.proof_pass, 'same normalized semantic tuple from a different acquisition generation is rejected')
+const invalidB = clone(recordB)
+invalidB.sha256 = '0'.repeat(64)
+const invalidC = compareProductionAndGenericV1({ productionRecord: invalidB, genericResult: resultG })
+check(invalidC.payload.parity_binding === 'INVALID' && invalidC.payload.semantic === 'NOT_COMPARABLE', 'invalid B input produces INVALID and not comparable')
+const mismatchG = createGenericResultV1({
+  ...resultG.payload,
+  semantics: {
+    state: 'STALE', allowed: false, reason_family: 'HEAD_BINDING_STALE', next_action: 'STOP',
+    external_check_success_count: 0, blocking_thread_count: 0,
+  },
+})
+const mismatchC = compareProductionAndGenericV1({ productionRecord: recordB, genericResult: mismatchG })
+check(mismatchC.payload.parity_binding === 'MATCHED' && mismatchC.payload.semantic === 'MISMATCH' && !mismatchC.payload.proof_pass, 'common binding with different semantics produces MISMATCH')
+throws(() => compareProductionAndGenericV1({ productionRecord: recordB, genericResult: resultG, networkResult: {} }), 'Record C comparator accepts only B and G')
+const staleA = makeRecordA((input) => { input.state.pull.head = 'c'.repeat(40) })
+const staleB = projectProductionParityRecordBV1({
+  recordA: staleA,
+  productionResult: {
+    ...productionSuccess, state: 'STALE', allowed: false, reason: 'head_binding_stale', next_action: 'STOP',
+    current_head: 'c'.repeat(40), external_check_success_count: 0,
+  },
+})
+const staleG = evaluateSharedEvidenceGenericV1({ recordA: staleA })
+const staleC = compareProductionAndGenericV1({ productionRecord: staleB, genericResult: staleG })
+check(staleC.payload.semantic === 'MATCH' && staleC.payload.proof_pass, 'stale current HEAD remains exactly bound and comparable to the target HEAD record')
+const observedHeadStaleA = makeRecordA((input) => { input.state.task_state.observed_head = 'd'.repeat(40) })
+const observedHeadStaleProduction = evaluateProductionAdmissionForRecordA(observedHeadStaleA)
+check(observedHeadStaleProduction.state === 'STALE' && observedHeadStaleProduction.reason === 'head_binding_stale' && observedHeadStaleProduction.current_head === liveBinding.exact_head, 'production classifies stale task-state observed_head at the current PR HEAD')
+const observedHeadStaleB = projectProductionParityRecordBV1({
+  recordA: observedHeadStaleA,
+  productionResult: {
+    ...productionSuccess, state: 'STALE', allowed: false, reason: 'head_binding_stale', next_action: 'STOP',
+    external_check_success_count: 0, blocking_thread_count: 0,
+  },
+})
+const observedHeadStaleG = evaluateSharedEvidenceGenericV1({ recordA: observedHeadStaleA })
+const observedHeadStaleC = compareProductionAndGenericV1({ productionRecord: observedHeadStaleB, genericResult: observedHeadStaleG })
+check(observedHeadStaleB.payload.projection_status === 'COMPARABLE' && observedHeadStaleB.payload.semantics.reason_family === 'HEAD_BINDING_STALE', 'Record B accepts production HEAD_BINDING_STALE from stale observed_head at the current PR HEAD')
+check(observedHeadStaleG.payload.semantics?.state === 'STALE' && observedHeadStaleG.payload.semantics.reason_family === 'HEAD_BINDING_STALE', 'Generic G normalizes stale observed_head to the existing HEAD_BINDING_STALE family')
+check(observedHeadStaleC.payload.semantic === 'MATCH' && observedHeadStaleC.payload.proof_pass, 'stale observed_head production and Generic result/reason parity matches')
+const reviewedHeadStaleA = makeRecordA((input) => { input.state.task_state.reviewed_head = 'e'.repeat(40) })
+const reviewedHeadStaleProduction = evaluateProductionAdmissionForRecordA(reviewedHeadStaleA)
+check(reviewedHeadStaleProduction.state === 'STALE' && reviewedHeadStaleProduction.reason === 'head_binding_stale' && reviewedHeadStaleProduction.current_head === liveBinding.exact_head, 'production classifies stale task-state reviewed_head at the current PR HEAD')
+const reviewedHeadStaleB = projectProductionParityRecordBV1({
+  recordA: reviewedHeadStaleA,
+  productionResult: {
+    ...productionSuccess, state: 'STALE', allowed: false, reason: 'head_binding_stale', next_action: 'STOP',
+    external_check_success_count: 0, blocking_thread_count: 0,
+  },
+})
+const reviewedHeadStaleG = evaluateSharedEvidenceGenericV1({ recordA: reviewedHeadStaleA })
+const reviewedHeadStaleC = compareProductionAndGenericV1({ productionRecord: reviewedHeadStaleB, genericResult: reviewedHeadStaleG })
+check(reviewedHeadStaleB.payload.projection_status === 'COMPARABLE' && reviewedHeadStaleB.payload.semantics.reason_family === 'HEAD_BINDING_STALE', 'Record B accepts production HEAD_BINDING_STALE from stale reviewed_head at the current PR HEAD')
+check(reviewedHeadStaleG.payload.semantics?.state === 'STALE' && reviewedHeadStaleG.payload.semantics.reason_family === 'HEAD_BINDING_STALE', 'Generic G normalizes stale reviewed_head to the existing HEAD_BINDING_STALE family')
+check(reviewedHeadStaleC.payload.semantic === 'MATCH' && reviewedHeadStaleC.payload.proof_pass, 'stale reviewed_head production and Generic result/reason parity matches')
+const currentBindingProduction = evaluateProductionAdmissionForRecordA(recordA)
+check(currentBindingProduction.state === 'MERGE_ELIGIBLE' && resultG.payload.semantics?.reason_family === 'ADMISSION_ELIGIBLE', 'current observed_head and reviewed_head remain non-stale in production and Generic G')
+throws(() => projectProductionParityRecordBV1({
+  recordA,
+  productionResult: {
+    ...productionSuccess, state: 'STALE', allowed: false, reason: 'head_binding_stale', next_action: 'STOP',
+    external_check_success_count: 0, blocking_thread_count: 0,
+  },
+}), 'Record B rejects a fabricated HEAD_BINDING_STALE result when all captured bindings are current')
+const blockedA = makeRecordA((input) => { input.threads.items[0].resolved = false })
+const blockedG = evaluateSharedEvidenceGenericV1({ recordA: blockedA })
+const productionBlocked = {
+  state: 'REVIEW_BLOCKED', allowed: false, reason: 'blocking_review_threads_present', next_action: 'STOP',
+  task_issue_number: liveBinding.task_issue_number, pr_number: liveBinding.pr_number,
+  current_head: liveBinding.exact_head, external_check_success_count: 2, blocking_thread_count: 1,
+}
+const blockedB = projectProductionParityRecordBV1({ recordA: blockedA, productionResult: productionBlocked })
+check(blockedB.payload.semantics.external_check_success_count === 2 && blockedB.payload.semantics.blocking_thread_count === 1, 'Record B uses exact production terminal counts instead of reconstructing them from Record A')
+check(compareProductionAndGenericV1({ productionRecord: blockedB, genericResult: blockedG }).payload.proof_pass, 'exact production REVIEW_BLOCKED fields compare against the same sealed generation')
+const missingProductionCountB = projectProductionParityRecordBV1({
+  recordA: blockedA,
+  productionResult: Object.fromEntries(Object.entries(productionBlocked).filter(([key]) => key !== 'blocking_thread_count')),
+})
+check(missingProductionCountB.payload.projection_status === 'NOT_COMPARABLE', 'missing production terminal count is not reconstructed from Record A')
+const driftedProductionCountB = projectProductionParityRecordBV1({
+  recordA: blockedA, productionResult: { ...productionBlocked, external_check_success_count: 1 },
+})
+check(compareProductionAndGenericV1({ productionRecord: driftedProductionCountB, genericResult: blockedG }).payload.semantic === 'MISMATCH', 'production terminal count drift remains visible as MISMATCH')
+check(PARITY_REASON_FAMILIES_V1.join('\n') === 'ADMISSION_ELIGIBLE\nHEAD_BINDING_STALE\nREVIEW_EVIDENCE_INVALID\nREVIEW_THREADS_BLOCKING', 'reason-family vocabulary is closed and total for frozen mappings')
+
+const historicalMalformedA = makeRecordA((input) => {
+  input.review_history.item_count = 2
+  input.review_history.observations.unshift({
+    kind: 'MALFORMED_ORDERABLE', source_id: 'issue-comment-090', source_order: 1,
+    observed_at: '2026-08-16T23:59:59Z', review: null,
+  })
+  input.review_history.observations[1].source_order = 2
+  input.review_history.observations[1].review.source_order = 2
+})
+check(evaluateSharedEvidenceGenericV1({ recordA: historicalMalformedA }).payload.projection_status === 'COMPARABLE', 'older orderable malformed marker remains harmless historical residue')
+const laterMalformedA = makeRecordA((input) => {
+  input.review_history.item_count = 2
+  input.review_history.observations.push({
+    kind: 'MALFORMED_ORDERABLE', source_id: 'issue-comment-110', source_order: 2,
+    observed_at: '2026-08-17T00:00:01Z', review: null,
+  })
+})
+const laterMalformedG = evaluateSharedEvidenceGenericV1({ recordA: laterMalformedA })
+check(laterMalformedG.payload.semantics?.reason_family === 'REVIEW_EVIDENCE_INVALID', 'malformed marker at or after current leaf fails closed under production-approved semantics')
+const unorderableA = makeRecordA((input) => {
+  input.review_history.item_count = 2
+  input.review_history.observations.push({ kind: 'MALFORMED_UNORDERABLE', source_id: null, source_order: null, observed_at: null, review: null })
+  input.capture_ambiguities = ['REVIEW_UNORDERABLE']
+})
+check(!unorderableA.payload.proof_capable && evaluateSharedEvidenceGenericV1({ recordA: unorderableA }).payload.projection_status === 'NOT_COMPARABLE', 'unorderable malformed marker cannot become proof-capable')
+throws(() => makeRecordA((input) => {
+  input.review_history.observations[0].review.blocking_finding_count = 1
+  input.review_history.observations[0].review.remaining_finding_count = 1
+}), 'APPROVE is valid only at 0/0/0')
+
+const productionInvariant = Object.freeze({ ...productionSuccess })
+const transportOrder = []
+let driftRecordA
+let driftRecordB
+let driftProductionCallCount
+repositoryGeneration = 3
+const orderedInvariant = await executeProductionWithLiveShadowArtifactsV1({
+  createEvidenceCapture: () => {
+    transportOrder.push('capture_created')
+    return createProductionEvidenceCaptureV1({
+      request: productionRequest, host: acquisitionHost, runId: liveBinding.run_id,
+      runAttempt: liveBinding.run_attempt, hostSha: liveBinding.host_sha,
+    })
+  },
+  executeProduction: async (productionHost) => {
+    transportOrder.push('production_acquisition')
+    await resolveEffectiveReviewDecisionV1({
+      request: productionRequest,
+      parsedEvent: {
+        commentId: 100, commentCreatedAt: liveReview.observed_at, reviewBody: productionReviewBody,
+        authorAssociation: 'MEMBER',
+      },
+      host: productionHost,
+    })
+    await acquireTransitionStateSnapshotV1(productionRequest, productionHost)
+    await acquireMergeCheckRollupV1(productionRequest, productionHost)
+    await acquireMergeReviewThreadsV1(productionRequest, productionHost)
+    driftProductionCallCount = acquisitionCallCount
+    repositoryGeneration = 4
+    transportOrder.push('production_decision')
+    return productionInvariant
+  },
+  writeRecordA: async (value) => { driftRecordA = value; transportOrder.push('record_a_seal_transport') },
+  writeRecordB: async (value) => { driftRecordB = value; transportOrder.push('record_b_seal_transport') },
+})
+check(orderedInvariant === productionInvariant && transportOrder.join('\n') === 'capture_created\nproduction_acquisition\nproduction_decision\nrecord_a_seal_transport\nrecord_b_seal_transport', 'transport seals A from production-consumed snapshots and projects B only after the production decision')
+check(acquisitionCallCount === driftProductionCallCount && driftRecordA.payload.checks.items.every((item) => item.generation_id.startsWith('check-3-')), 'inter-acquisition drift PoC uses sealed generation N with no post-production refetch')
+const driftGeneric = evaluateSharedEvidenceGenericV1({ recordA: driftRecordA })
+const driftComparison = compareProductionAndGenericV1({ productionRecord: driftRecordB, genericResult: driftGeneric })
+check(driftComparison.payload.parity_binding === 'MATCHED' && driftComparison.payload.proof_pass, 'Record B and Generic Result G remain bound to production generation N after repository generation N+1')
+const exceptionInvariant = await executeProductionWithLiveShadowArtifactsV1({
+  createEvidenceCapture: async () => { throw new Error('shadow_capture_failed') },
+  executeProduction: async () => productionInvariant,
+  writeRecordA: async () => { throw new Error('unexpected_write') },
+  writeRecordB: async () => { throw new Error('unexpected_write') },
+  captureSetupTimeoutMs: 10,
+})
+check(exceptionInvariant === productionInvariant, 'shadow capture setup exception cannot alter production result identity')
+const timeoutInvariant = await executeProductionWithLiveShadowArtifactsV1({
+  createEvidenceCapture: () => new Promise(() => {}),
+  executeProduction: async () => productionInvariant,
+  writeRecordA: async () => {},
+  writeRecordB: async () => {},
+  captureSetupTimeoutMs: 10,
+})
+check(timeoutInvariant === productionInvariant, 'shadow capture setup timeout cannot alter production result identity')
+const writeFailureInvariant = await executeProductionWithLiveShadowArtifactsV1({
+  createEvidenceCapture: async () => ({ host: acquisitionHost, sealRecordA: () => recordA }),
+  executeProduction: async () => productionInvariant,
+  writeRecordA: async () => { throw new Error('record_a_transport_failed') },
+  writeRecordB: async () => { throw new Error('record_b_transport_failed') },
+})
+check(writeFailureInvariant === productionInvariant, 'A/B transport exceptions cannot alter production result identity')
+
+const liveTemp = mkdtempSync(path.join(tmpdir(), 'gadp-live-shadow-'))
+try {
+  const transport = path.join(liveTemp, 'gadp-live-shadow-v1')
+  const recordAFile = path.join(transport, 'record-a.json')
+  const recordBFile = path.join(transport, 'record-b.json')
+  const recordCFile = path.join(transport, 'record-c.json')
+  await import('node:fs/promises').then(({ mkdir }) => mkdir(transport, { recursive: true }))
+  writeFileSync(recordAFile, JSON.stringify(recordA), 'utf8')
+  writeFileSync(recordBFile, JSON.stringify(recordB), 'utf8')
+  const execution = JSON.parse(execFileSync(process.execPath, [
+    fileURLToPath(liveRunnerUrl),
+    '--record-a-file', recordAFile,
+    '--record-b-file', recordBFile,
+    '--record-c-file', recordCFile,
+  ], {
+    encoding: 'utf8',
+    env: { ...process.env, RUNNER_TEMP: liveTemp, GH_TOKEN: 'forbidden', CLOUD_TOKEN: 'forbidden', BROKER_TOKEN: 'forbidden' },
+  }))
+  const transportedC = validateParityComparisonV1(JSON.parse(readFileSync(recordCFile, 'utf8')))
+  check(execution.credential_absent === true && execution.authority === 'NONE', 'actual isolated shadow child receives no repository/cloud/broker credential')
+  check(transportedC.payload.semantic === 'MATCH' && transportedC.payload.authority === 'NONE', 'deterministic RUNNER_TEMP transport produces non-authoritative Record C')
+} finally {
+  rmSync(liveTemp, { recursive: true, force: true })
+}
+check(!/\bfetch\s*\(|node:https|node:http/.test(liveRunnerSource) && !/\bfetch\s*\(/.test(evaluatorSource), 'shadow and comparator have no network edge')
+check(!productionRunnerSource.includes('evaluateSharedEvidenceGenericV1') && !productionRunnerSource.includes('compareProductionAndGenericV1'), 'Record B production projection has no Generic mapper/comparator reuse')
+check(!/projectProductionParityRecordBV1|productionResult/.test(evaluatorSource.split('export const evaluateSharedEvidenceGenericV1 =')[1].split('export const compareProductionAndGenericV1 =')[0]), 'Generic Result G path has no production result input or production mapper')
+
 const imports = [...evaluatorSource.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((match) => match[1])
 check(
   imports.join('\n') === [
@@ -435,6 +898,7 @@ check(
     '../core/project-adapter-v1.mjs',
     '../core/role-dispatch-v1.mjs',
     '../host/registered-command-catalog-v1.mjs',
+    '../core/shared-sealed-evidence-v1.mjs',
   ].join('\n'),
   'evaluator imports only merged Generic Core and the static command catalog',
 )

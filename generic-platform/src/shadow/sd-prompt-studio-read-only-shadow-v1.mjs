@@ -7,6 +7,15 @@ import {
 import { validateProjectAdapterV1 } from '../core/project-adapter-v1.mjs'
 import { digestCanonicalV1, sealRoleDispatchV1 } from '../core/role-dispatch-v1.mjs'
 import { registeredCatalogSnapshotV1 } from '../host/registered-command-catalog-v1.mjs'
+import {
+  createGenericResultV1,
+  createParityComparisonV1,
+  digestSharedEvidenceV1,
+  isSharedHeadBindingStaleV1,
+  validateGenericResultV1,
+  validateProductionParityProjectionV1,
+  validateSharedSealedEvidenceV1,
+} from '../core/shared-sealed-evidence-v1.mjs'
 
 export const SDPS_SHADOW_RESULT_V1 = 'sdps_shadow_parity_result_v1'
 
@@ -639,3 +648,162 @@ export const evaluateSdpsReadOnlyShadowV1 = ({ immutableEvidenceBundle: caseInpu
 
 export const sdpsShadowProductionOwnerV1 = () => PRODUCTION_OWNER
 export const sdpsShadowBoundaryNamesV1 = () => BOUNDARIES
+
+const sharedIdentityV1 = (binding, exactHead) => Object.freeze({
+  record_type: 'gadp_identity_v1',
+  repository: binding.repository,
+  task_issue_number: binding.task_issue_number,
+  pr_number: binding.pr_number,
+  exact_head: exactHead,
+  attempt: binding.run_attempt,
+})
+
+const sharedProjectionPayloadV1 = ({ recordA, projectionStatus, projectionReason, semantics }) => Object.freeze({
+  record_a_sha256: recordA.sha256,
+  binding: recordA.payload.binding,
+  projection_status: projectionStatus,
+  projection_reason: projectionReason,
+  semantics,
+  proof_capable: projectionStatus === 'COMPARABLE',
+  authority: 'NONE',
+  provider_invocation_count: 0,
+  protected_operation_count: 0,
+})
+
+const genericSemanticV1 = (admission) => {
+  const mapping = new Map([
+    ['MERGE_ELIGIBLE\0merge_gate_satisfied', ['MERGE_ELIGIBLE', 'ADMISSION_ELIGIBLE', 'MERGE_DECISION']],
+    ['IMPLEMENTATION_BLOCKED\0threads_not_resolved', ['REVIEW_BLOCKED', 'REVIEW_THREADS_BLOCKING', 'STOP']],
+    ['STALE\0head_binding_stale', ['STALE', 'HEAD_BINDING_STALE', 'STOP']],
+    ['INDETERMINATE\0review_current_leaf_invalid', ['INDETERMINATE', 'REVIEW_EVIDENCE_INVALID', 'STOP']],
+  ]).get(`${admission.state}\0${admission.reason}`)
+  if (!mapping) return null
+  return Object.freeze({
+    state: mapping[0],
+    allowed: admission.allowed,
+    reason_family: mapping[1],
+    next_action: mapping[2],
+    external_check_success_count: admission.external_check_success_count,
+    blocking_thread_count: admission.blocking_thread_count,
+  })
+}
+
+export const evaluateSharedEvidenceGenericV1 = (input) => {
+  exactKeys(input, ['recordA'], 'generic_shadow_input_invalid')
+  const recordA = validateSharedSealedEvidenceV1(input.recordA)
+  if (!recordA.payload.proof_capable) {
+    return createGenericResultV1(sharedProjectionPayloadV1({
+      recordA,
+      projectionStatus: 'NOT_COMPARABLE',
+      projectionReason: 'RECORD_A_NON_PROOF_CAPABLE',
+      semantics: null,
+    }))
+  }
+  try {
+    const binding = recordA.payload.binding
+    const identity = sharedIdentityV1(binding, binding.exact_head)
+    const currentIdentity = sharedIdentityV1(binding, recordA.payload.state.pull.head)
+    const checks = recordA.payload.checks.items.map((item) => Object.freeze({
+      check_id: item.check_id,
+      generation_id: item.generation_id,
+      current: item.current,
+      required: item.required,
+      status: item.status,
+      conclusion: item.conclusion,
+    }))
+    const threads = recordA.payload.threads.items
+      .filter((item) => !item.outdated)
+      .map((item) => Object.freeze({ thread_id: item.thread_id, resolved: item.resolved }))
+    const admission = isSharedHeadBindingStaleV1(recordA)
+      ? Object.freeze({
+          state: 'STALE', allowed: false, reason: 'head_binding_stale',
+          external_check_success_count: 0, blocking_thread_count: 0,
+        })
+      : evaluateAdmissionV1({
+          identity,
+          currentIdentity,
+          reviewObservations: recordA.payload.review_history.observations,
+          checks,
+          threads,
+          requiredCheckIds: recordA.payload.admission_inputs.required_check_ids,
+        })
+    const semantics = genericSemanticV1(admission)
+    return createGenericResultV1(sharedProjectionPayloadV1({
+      recordA,
+      projectionStatus: semantics === null ? 'NOT_COMPARABLE' : 'COMPARABLE',
+      projectionReason: semantics === null ? 'GENERIC_TUPLE_UNKNOWN' : 'GENERIC_TUPLE_MAPPED',
+      semantics,
+    }))
+  } catch {
+    return createGenericResultV1(sharedProjectionPayloadV1({
+      recordA,
+      projectionStatus: 'NOT_COMPARABLE',
+      projectionReason: 'GENERIC_EVALUATION_FAILED',
+      semantics: null,
+    }))
+  }
+}
+
+const invalidComparisonV1 = ({ productionRecord = null, genericResult = null }) => createParityComparisonV1({
+  record_a_sha256: null,
+  production_record_sha256: productionRecord?.sha256 ?? null,
+  generic_result_sha256: genericResult?.sha256 ?? null,
+  binding: null,
+  parity_binding: 'INVALID',
+  semantic: 'NOT_COMPARABLE',
+  reason: 'INPUT_INVALID',
+  proof_pass: false,
+  authority: 'NONE',
+  a_pass: 'NOT_OBSERVED',
+  cutover_ready: false,
+})
+
+export const compareProductionAndGenericV1 = (input) => {
+  exactKeys(input, ['productionRecord', 'genericResult'], 'parity_comparator_input_invalid')
+  const productionInput = input.productionRecord
+  const genericInput = input.genericResult
+  let productionRecord
+  let genericResult
+  try {
+    productionRecord = validateProductionParityProjectionV1(productionInput)
+    genericResult = validateGenericResultV1(genericInput)
+  } catch {
+    return invalidComparisonV1({ productionRecord, genericResult })
+  }
+  const production = productionRecord.payload
+  const generic = genericResult.payload
+  if (
+    production.record_a_sha256 !== generic.record_a_sha256 ||
+    digestSharedEvidenceV1(production.binding) !== digestSharedEvidenceV1(generic.binding)
+  ) {
+    return createParityComparisonV1({
+      record_a_sha256: null,
+      production_record_sha256: productionRecord.sha256,
+      generic_result_sha256: genericResult.sha256,
+      binding: null,
+      parity_binding: 'CONFLICT',
+      semantic: 'NOT_COMPARABLE',
+      reason: 'BINDING_CONFLICT',
+      proof_pass: false,
+      authority: 'NONE',
+      a_pass: 'NOT_OBSERVED',
+      cutover_ready: false,
+    })
+  }
+  const comparable = production.projection_status === 'COMPARABLE' && generic.projection_status === 'COMPARABLE'
+  const semanticMatch = comparable && digestSharedEvidenceV1(production.semantics) === digestSharedEvidenceV1(generic.semantics)
+  const semantic = !comparable ? 'NOT_COMPARABLE' : semanticMatch ? 'MATCH' : 'MISMATCH'
+  return createParityComparisonV1({
+    record_a_sha256: production.record_a_sha256,
+    production_record_sha256: productionRecord.sha256,
+    generic_result_sha256: genericResult.sha256,
+    binding: production.binding,
+    parity_binding: 'MATCHED',
+    semantic,
+    reason: semantic === 'MATCH' ? 'SEMANTIC_MATCH' : semantic === 'MISMATCH' ? 'SEMANTIC_MISMATCH' : 'PROJECTION_NOT_COMPARABLE',
+    proof_pass: semantic === 'MATCH',
+    authority: 'NONE',
+    a_pass: 'NOT_OBSERVED',
+    cutover_ready: false,
+  })
+}
