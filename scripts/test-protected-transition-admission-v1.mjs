@@ -24,6 +24,8 @@ import {
   executeRoleDispatchConsumerV1,
   executeRoleDispatchRebindV1,
   executeManualProgressionControllerV1,
+  executeMinimalGovernanceFinalDriftGuardV1,
+  executeMinimalGovernanceV1,
   executeRepairExecutorV1,
   executeReadyForReviewProgressionV1,
   executeReviewApprovalAutomationV1 as executeReviewApprovalAutomationProductionV1,
@@ -35,6 +37,7 @@ import {
   normalizeRoleTransitionEventV1,
   parseProductOwnerMergeDecisionV1,
   parseIndependentReviewDecisionProjectionV1,
+  parseMinimalGovernanceAuthorityV1,
   parseReviewApprovalEventV1,
   projectIndependentReviewerFailureEvidenceV1,
   projectRoleOutputFailureDiagnosticV1,
@@ -850,7 +853,7 @@ const successfulCheck = (id = 'check-1') => ({
   conclusion: 'SUCCESS',
   detailsUrl: null,
   startedAt: '2026-08-08T00:00:00Z',
-  checkSuite: { app: { id: 'github-actions-app' } },
+  checkSuite: { app: { id: 'github-actions-app', databaseId: 15368 } },
 })
 
 const currentReadyCheck = ({
@@ -861,6 +864,7 @@ const currentReadyCheck = ({
   detailsUrl = `https://github.com/${REPOSITORY}/actions/runs/${READY_RUN_ID}/job/93075431467`,
   startedAt = '2026-08-08T02:00:00Z',
   appId = 'github-actions-app',
+  appDatabaseId = 15368,
 } = {}) => ({
   __typename: 'CheckRun',
   id,
@@ -869,7 +873,7 @@ const currentReadyCheck = ({
   conclusion,
   detailsUrl,
   startedAt,
-  checkSuite: { app: { id: appId } },
+  checkSuite: { app: { id: appId, databaseId: appDatabaseId } },
 })
 
 const readyCheckPage = (other = successfulCheck()) => connectionPage([currentReadyCheck(), other])
@@ -1382,8 +1386,8 @@ check(noTargetResult.state === 'INDETERMINATE' && noTargetResult.reason === 'rev
 check(
   (runnerSource.match(/await resolveEffectiveReviewDecisionV1\(\{ request, parsedEvent, host \}\)/g) ?? []).length === 2 &&
   (runnerSource.match(/await acquireEffectiveReviewDecisionV1\(\{/g) ?? []).length === 2 &&
-  (runnerSource.match(/reduceCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 2 &&
-  (runnerSource.match(/confirmCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 2,
+  (runnerSource.match(/reduceCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 3 &&
+  (runnerSource.match(/confirmCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 3,
   'RRC-07 issue_comment initial, pre-write, Ready full-history, and fresh rebind converge through one reducer and confirmation contract',
 )
 
@@ -3146,6 +3150,328 @@ const issueCommentSameRunCheckPage = ({
     })] : []),
   ])
 }
+
+const MINIMAL_BASE = '22ebf20933c1942912b4e63199b6990736214f8f'
+const MINIMAL_REVIEW_COMMENT_ID = 9701
+const MINIMAL_AUTHORITY_COMMENT_ID = 9702
+const minimalProductOwner = Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' })
+const minimalPaths = Object.freeze([
+  '.github/workflows/protected-transition-admission-v1.yml',
+  'scripts/run-protected-transition-admission-v1.mjs',
+  'scripts/test-protected-transition-admission-v1.mjs',
+])
+const minimalReviewBody = reviewDecisionBody({ reviewed_head: OTHER_HEAD })
+const minimalReviewBodySha256 = createHash('sha256').update(Buffer.from(minimalReviewBody, 'utf8')).digest('hex')
+const minimalAuthorityBody = (overrides = {}, extraLines = []) => {
+  const values = {
+    record_type: 'minimal_governance_v1',
+    authoring_role: 'Product Owner',
+    authority_actor_login: minimalProductOwner.login,
+    authority_actor_id: minimalProductOwner.id,
+    authority_actor_type: minimalProductOwner.type,
+    task_issue: `https://github.com/${REPOSITORY}/issues/${TASK}`,
+    pull_request: `https://github.com/${REPOSITORY}/pull/${PR}`,
+    exact_head: OTHER_HEAD,
+    expected_base: MINIMAL_BASE,
+    base_impact: 'NO_MATERIAL_IMPACT',
+    review_comment: `https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-${MINIMAL_REVIEW_COMMENT_ID}`,
+    review_body_sha256: minimalReviewBodySha256,
+    merge_method: 'merge',
+    operation_count: 1,
+    ...overrides,
+  }
+  const lines = Object.entries(values).map(([key, value]) => `${key}: ${typeof value === 'number' ? value : JSON.stringify(value)}`)
+  return `# Minimal Governance V1\n\n\`\`\`yaml\n${[...lines, 'authorized_paths:', ...minimalPaths.map((value) => `  - ${JSON.stringify(value)}`), ...extraLines].join('\n')}\n\`\`\``
+}
+const minimalReviewComment = (overrides = {}) => Object.freeze({
+  id: MINIMAL_REVIEW_COMMENT_ID,
+  created_at: '2026-08-18T00:00:01Z',
+  author_association: 'MEMBER',
+  user: Object.freeze({ login: 'independent-reviewer', id: 97001, type: 'User' }),
+  body: minimalReviewBody,
+  issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`,
+  ...overrides,
+})
+const minimalAuthorityComment = (body = minimalAuthorityBody(), overrides = {}) => Object.freeze({
+  id: MINIMAL_AUTHORITY_COMMENT_ID,
+  created_at: '2026-08-18T00:00:02Z',
+  author_association: 'OWNER',
+  user: minimalProductOwner,
+  issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`,
+  body,
+  ...overrides,
+})
+const minimalEvent = (body = minimalAuthorityBody(), overrides = {}) => ({
+  action: 'created',
+  repository: { full_name: REPOSITORY },
+  issue: { number: TASK, state: 'open', html_url: `https://github.com/${REPOSITORY}/issues/${TASK}` },
+  comment: { ...minimalAuthorityComment(body), ...overrides },
+})
+const minimalApprovedState = () => state({
+  observed_head: OTHER_HEAD,
+  authorized_paths: [...minimalPaths],
+  review_status: 'APPROVE',
+  reviewed_head: OTHER_HEAD,
+  review_blocker_count: 0,
+})
+const minimalPull = (overrides = {}) => ({
+  number: PR,
+  state: 'open',
+  draft: false,
+  merged: false,
+  mergeable: true,
+  mergeable_state: 'unstable',
+  base: { ref: 'main', sha: MINIMAL_BASE, repo: { full_name: REPOSITORY } },
+  head: { sha: OTHER_HEAD },
+  body: stateBlock(minimalApprovedState()),
+  changed_files: minimalPaths.length,
+  ...overrides,
+})
+const minimalJobManifest = (overrides = {}) => roleAdmissionJobs({
+  runId: REVIEW_RUN_ID,
+  head: MINIMAL_BASE,
+  states: { protected_transition_admission_v1: { status: 'in_progress', conclusion: null } },
+  ...overrides,
+})
+const minimalSelfCheck = (overrides = {}) => currentReadyCheck({
+  id: 'minimal-admission-self-check',
+  name: 'protected_transition_admission_v1',
+  status: 'IN_PROGRESS',
+  conclusion: null,
+  detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/job/${readyRebindJobIds.protected_transition_admission_v1}`,
+  startedAt: '2026-08-18T00:00:03Z',
+  ...overrides,
+})
+const executeMinimalFixture = async ({
+  authorityBody = minimalAuthorityBody(),
+  authorityRefetchBody = authorityBody,
+  reviewRefetchBody = minimalReviewBody,
+  comments = undefined,
+  pull = minimalPull(),
+  mainHead = MINIMAL_BASE,
+  paths = minimalPaths,
+  jobs = minimalJobManifest(),
+  checks = connectionPage([successfulCheck('minimal-external-1'), successfulCheck('minimal-external-2')]),
+  threads = connectionPage([]),
+  eventOverrides = {},
+  authorityRefetchOverrides = {},
+  taskUser = minimalProductOwner,
+} = {}) => {
+  const authority = minimalAuthorityComment(authorityRefetchBody, authorityRefetchOverrides)
+  const review = minimalReviewComment({ body: reviewRefetchBody })
+  const history = comments ?? [minimalReviewComment(), minimalAuthorityComment(authorityBody)]
+  const metrics = { authority: 0, review: 0, pull: 0, task: 0, main: 0, comments: 0, scope: 0, jobs: 0, checks: 0, threads: 0 }
+  const host = {
+    branchHead: async () => { metrics.main += 1; return mainHead },
+    api: async (endpoint) => {
+      if (endpoint === `repos/${REPOSITORY}/issues/comments/${MINIMAL_AUTHORITY_COMMENT_ID}`) {
+        metrics.authority += 1
+        return structuredClone(authority)
+      }
+      if (endpoint === `repos/${REPOSITORY}/issues/comments/${MINIMAL_REVIEW_COMMENT_ID}`) {
+        metrics.review += 1
+        return structuredClone(review)
+      }
+      if (endpoint === `repos/${REPOSITORY}/pulls/${PR}`) {
+        metrics.pull += 1
+        return structuredClone(pull)
+      }
+      if (endpoint === `repos/${REPOSITORY}/issues/${TASK}`) {
+        metrics.task += 1
+        return { number: TASK, state: 'open', html_url: `https://github.com/${REPOSITORY}/issues/${TASK}`, repository_url: `https://api.github.com/repos/${REPOSITORY}`, user: taskUser }
+      }
+      if (endpoint.startsWith(`repos/${REPOSITORY}/issues/${TASK}/comments?`)) {
+        metrics.comments += 1
+        return structuredClone(history)
+      }
+      if (endpoint.startsWith(`repos/${REPOSITORY}/pulls/${PR}/files?`)) {
+        metrics.scope += 1
+        return paths.map((filename) => ({ filename, status: 'modified' }))
+      }
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/jobs?per_page=100`) {
+        metrics.jobs += 1
+        return structuredClone(jobs)
+      }
+      throw new Error(`unexpected_minimal_endpoint:${endpoint}`)
+    },
+    graphql: async (query, variables) => {
+      if (query.includes('statusCheckRollup')) {
+        metrics.checks += 1
+        return { repository: { pullRequest: { headRefOid: OTHER_HEAD }, object: { oid: variables.head, statusCheckRollup: { contexts: structuredClone(checks) } } } }
+      }
+      if (query.includes('reviewThreads')) {
+        metrics.threads += 1
+        return { repository: { pullRequest: { number: PR, state: 'OPEN', isDraft: false, mergeable: 'MERGEABLE', mergeStateStatus: 'UNSTABLE', headRefOid: OTHER_HEAD, reviewThreads: structuredClone(threads) } } }
+      }
+      throw new Error('unexpected_minimal_graphql')
+    },
+  }
+  const result = await executeMinimalGovernanceV1({
+    event: minimalEvent(authorityBody, eventOverrides), host, runId: REVIEW_RUN_ID, runAttempt: 1,
+    hostSha: MINIMAL_BASE, jobName: 'protected_transition_admission_v1',
+  })
+  return Object.freeze({ result, metrics, host })
+}
+
+const parsedMinimalAuthority = parseMinimalGovernanceAuthorityV1(minimalAuthorityBody(), REPOSITORY, TASK)
+check(parsedMinimalAuthority.prNumber === PR && parsedMinimalAuthority.exactHead === OTHER_HEAD && parsedMinimalAuthority.expectedBase === MINIMAL_BASE, 'MGV-01 strict authority parser binds Task, PR, HEAD, and base')
+check(parsedMinimalAuthority.authoringRole === 'Product Owner' && parsedMinimalAuthority.authorityActorLogin === 'whatrune' && parsedMinimalAuthority.authorityActorId === 47842632 && parsedMinimalAuthority.baseImpact === 'NO_MATERIAL_IMPACT' && parsedMinimalAuthority.mergeMethod === 'merge' && parsedMinimalAuthority.operationCount === 1 && parsedMinimalAuthority.authorizedPaths.join('\n') === minimalPaths.join('\n'), 'MGV-01 strict authority parser fixes Product Owner identity, impact, method, count, and scope')
+check(parsedMinimalAuthority.authorityActorType === 'User', 'MGV-01 authority body binds the complete Product Owner actor tuple including type')
+
+const minimalValid = await executeMinimalFixture()
+const minimalSnapshotBytes = Buffer.from(minimalValid.result.sealed_snapshot_b64, 'base64')
+const minimalSnapshot = JSON.parse(minimalSnapshotBytes.toString('utf8'))
+check(minimalValid.result.next_action === 'MERGE_OPERATOR' && minimalValid.result.terminal_result === 'MINIMAL_GOVERNANCE_V1' && minimalValid.result.authority_kind === 'MINIMAL_GOVERNANCE_V1', 'MGV-02 sole valid authority emits only a minimal-governance Merge Operator plan')
+check(minimalValid.result.merge_method === 'merge' && minimalValid.result.operation_count === 1 && minimalValid.result.exact_head === OTHER_HEAD && minimalValid.result.expected_base === MINIMAL_BASE, 'MGV-02 plan is exact-SHA, exact-base, one-operation merge')
+check(createHash('sha256').update(minimalSnapshotBytes).digest('hex') === minimalValid.result.snapshot_sha256 && minimalSnapshot.review_body_sha256 === minimalReviewBodySha256, 'MGV-02 sealed snapshot digest and reused Review body digest are exact')
+check(Object.values(minimalValid.metrics).every((count) => count === 1) && Object.values(minimalSnapshot.source_counts).every((count) => count === 1), 'MGV-03 every pre-operation snapshot source is acquired exactly once')
+check(minimalSnapshot.authority_actor.login === 'whatrune' && minimalSnapshot.authority_actor.id === 47842632 && minimalSnapshot.task.creator.login === 'whatrune' && minimalSnapshot.job_manifest.host_sha === MINIMAL_BASE, 'MGV-03 sealed snapshot binds Product Owner and detached same-run manifest')
+
+const malformedMinimalBodies = [
+  minimalAuthorityBody({}, ['unexpected_field: true']),
+  minimalAuthorityBody({ base_impact: 'UNKNOWN' }),
+  minimalAuthorityBody({ merge_method: 'squash' }),
+  minimalAuthorityBody({ operation_count: 2 }),
+  minimalAuthorityBody({ authoring_role: 'Backend Implementer' }),
+  minimalAuthorityBody({ authority_actor_login: 'collaborator' }),
+  minimalAuthorityBody({ authority_actor_id: 47842633 }),
+  minimalAuthorityBody({ task_issue: `https://github.com/${REPOSITORY}/issues/${TASK + 1}` }),
+  minimalAuthorityBody({ pull_request: `https://github.com/${REPOSITORY}/pull/${PR + 1}` }),
+  minimalAuthorityBody({ exact_head: HEAD }),
+  minimalAuthorityBody({ expected_base: HEAD }),
+  minimalAuthorityBody({ review_body_sha256: '0'.repeat(64) }),
+  minimalAuthorityBody().replace('  - ".github/workflows/protected-transition-admission-v1.yml"', '  - "../protected-transition-admission-v1.yml"'),
+  `${minimalAuthorityBody()}\n\n\`\`\`yaml\nrecord_type: "minimal_governance_v1"\n\`\`\``,
+]
+const malformedMinimalResults = await Promise.all(malformedMinimalBodies.map((authorityBody) => executeMinimalFixture({ authorityBody })))
+check(malformedMinimalResults.every(({ result }) => result.next_action === 'STOP' && result.protected_operation_count === 0), 'MGV-04 wrong fields, tuple, impact, method, or count fail closed')
+const missingActorType = await executeMinimalFixture({ authorityBody: minimalAuthorityBody().replace('\nauthority_actor_type: "User"', '') })
+const wrongActorType = await executeMinimalFixture({ authorityBody: minimalAuthorityBody({ authority_actor_type: 'Bot' }) })
+const malformedActorType = await executeMinimalFixture({ authorityBody: minimalAuthorityBody({ authority_actor_type: true }) })
+check(missingActorType.result.next_action === 'STOP' && missingActorType.result.protected_operation_count === 0, 'MGV-04 missing authority actor type fails closed')
+check(wrongActorType.result.next_action === 'STOP' && wrongActorType.result.protected_operation_count === 0, 'MGV-04 self-declared Product Owner with wrong authority actor type fails closed')
+check(malformedActorType.result.next_action === 'STOP' && malformedActorType.result.protected_operation_count === 0, 'MGV-04 non-string authority actor type fails closed')
+const duplicateMinimal = await executeMinimalFixture({ comments: [minimalReviewComment(), minimalAuthorityComment(), minimalAuthorityComment(minimalAuthorityBody(), { id: MINIMAL_AUTHORITY_COMMENT_ID + 1, created_at: '2026-08-18T00:00:03Z' })] })
+const mixedMinimal = await executeMinimalFixture({ authorityBody: `${minimalAuthorityBody()}\nrecord_type: product_owner_merge_decision_v1` })
+check(duplicateMinimal.result.reason === 'minimal_governance_authority_cardinality_invalid' && mixedMinimal.result.reason === 'minimal_governance_marker_conflict', 'MGV-04 duplicate or mixed authority fails closed')
+
+const authorityRefetchDrift = await executeMinimalFixture({ authorityRefetchBody: `${minimalAuthorityBody()}\n` })
+const reviewRefetchDrift = await executeMinimalFixture({ reviewRefetchBody: `${minimalReviewBody}\n` })
+check(authorityRefetchDrift.result.reason === 'minimal_governance_authority_body_changed' && reviewRefetchDrift.result.next_action === 'STOP', 'MGV-05 authority byte drift and Review body/hash drift fail closed')
+const laterMalformedReview = minimalReviewComment({ id: MINIMAL_REVIEW_COMMENT_ID + 5, created_at: '2026-08-18T00:00:04Z', body: reviewDecisionBody({ reviewed_head: OTHER_HEAD }, ['decision: APPROVE']) })
+const conflictingReview = await executeMinimalFixture({ comments: [minimalReviewComment(), minimalAuthorityComment(), laterMalformedReview] })
+check(conflictingReview.result.next_action === 'STOP', 'MGV-05 later malformed current-leaf Review state fails closed')
+
+const scopeMismatch = await executeMinimalFixture({ paths: minimalPaths.slice(1) })
+const baseMismatch = await executeMinimalFixture({ mainHead: HEAD })
+check(scopeMismatch.result.next_action === 'STOP' && baseMismatch.result.reason === 'minimal_governance_expected_base_mismatch', 'MGV-06 scope or current-main base mismatch fails closed')
+const pendingExternal = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck(), { ...successfulCheck('minimal-pending'), status: 'IN_PROGRESS', conclusion: null }]) })
+const failedExternal = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck(), { ...successfulCheck('minimal-failed'), conclusion: 'FAILURE' }]) })
+const missingExternal = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck()]) })
+const missingGeneration = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck(), { ...successfulCheck('minimal-generation-missing'), startedAt: null }]) })
+const ambiguousExternalBase = successfulCheck('minimal-generation-ambiguous-a')
+const ambiguousExternal = await executeMinimalFixture({ checks: connectionPage([ambiguousExternalBase, { ...ambiguousExternalBase, id: 'minimal-generation-ambiguous-b' }]) })
+check([pendingExternal, failedExternal, missingExternal, missingGeneration, ambiguousExternal].every(({ result }) => result.next_action === 'STOP'), 'MGV-07 pending, failed, missing, or generation-ambiguous external checks fail closed')
+const activeThread = await executeMinimalFixture({ threads: connectionPage([{ id: 'minimal-active-thread', isResolved: false, isOutdated: false }]) })
+check(activeThread.result.reason === 'minimal_governance_thread_or_pull_binding_invalid', 'MGV-07 active non-outdated thread fails closed')
+
+const exactBoundSelfCheck = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck(), successfulCheck('minimal-external')]) })
+const nameOnlySelfIdentity = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck({ detailsUrl: null }), successfulCheck('minimal-external')]) })
+const appMismatchedSelfIdentity = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck({ appDatabaseId: 999 }), successfulCheck('minimal-external')]) })
+const runMismatchedSelfIdentity = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck({ detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${READY_RUN_ID}/job/${readyRebindJobIds.protected_transition_admission_v1}` }), successfulCheck('minimal-external')]) })
+const mismatchedSelfIdentity = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck({ detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/job/99999999999` }), successfulCheck('minimal-external')]) })
+const mismatchedManifest = await executeMinimalFixture({ jobs: minimalJobManifest({ runAttempt: 2 }) })
+check(minimalValid.result.next_action === 'MERGE_OPERATOR' && exactBoundSelfCheck.result.next_action === 'MERGE_OPERATOR', 'MGV-08 zero same-run PR checks and exact-bound same-run PR checks both admit external SUCCESS')
+check([nameOnlySelfIdentity, appMismatchedSelfIdentity, runMismatchedSelfIdentity, mismatchedSelfIdentity, mismatchedManifest].every(({ result }) => result.next_action === 'STOP'), 'MGV-08 RTO name-only, app, run, job, attempt, or manifest mismatch fails closed')
+
+const memberAuthority = await executeMinimalFixture({ eventOverrides: { author_association: 'MEMBER' } })
+const collaboratorAuthority = await executeMinimalFixture({ eventOverrides: { author_association: 'COLLABORATOR' } })
+const eventActorDrift = await executeMinimalFixture({ eventOverrides: { user: { login: 'collaborator', id: 97003, type: 'User' } } })
+const refetchActorDrift = await executeMinimalFixture({ authorityRefetchOverrides: { user: { login: 'collaborator', id: 97003, type: 'User' } } })
+const refetchAssociationDrift = await executeMinimalFixture({ authorityRefetchOverrides: { author_association: 'MEMBER' } })
+const historyActorDrift = await executeMinimalFixture({ comments: [minimalReviewComment(), minimalAuthorityComment(minimalAuthorityBody(), { user: { login: 'collaborator', id: 97003, type: 'User' } })] })
+const historyAssociationDrift = await executeMinimalFixture({ comments: [minimalReviewComment(), minimalAuthorityComment(minimalAuthorityBody(), { author_association: 'COLLABORATOR' })] })
+const taskCreatorDrift = await executeMinimalFixture({ taskUser: { login: 'collaborator', id: 97003, type: 'User' } })
+check([memberAuthority, collaboratorAuthority, eventActorDrift, refetchActorDrift, refetchAssociationDrift, historyActorDrift, historyAssociationDrift, taskCreatorDrift].every(({ result }) => result.next_action === 'STOP'), 'MGV-09 MEMBER, COLLABORATOR, event/refetch/history actor drift, or non-Product-Owner Task creator stops')
+const actorTypeDrifts = await Promise.all([
+  executeMinimalFixture({ eventOverrides: { user: { ...minimalProductOwner, type: 'Bot' } } }),
+  executeMinimalFixture({ authorityRefetchOverrides: { user: { ...minimalProductOwner, type: 'Bot' } } }),
+  executeMinimalFixture({ comments: [minimalReviewComment(), minimalAuthorityComment(minimalAuthorityBody(), { user: { ...minimalProductOwner, type: 'Bot' } })] }),
+  executeMinimalFixture({ taskUser: { ...minimalProductOwner, type: 'Bot' } }),
+])
+check(actorTypeDrifts.every(({ result }) => result.next_action === 'STOP' && result.protected_operation_count === 0), 'MGV-09 event, refetch, history, or Task creator actor-type drift fails closed')
+const alreadyMerged = await executeMinimalFixture({ pull: minimalPull({ state: 'closed', merged: true }) })
+check(alreadyMerged.result.reason === 'already_merged' && alreadyMerged.result.protected_operation_count === 0 && alreadyMerged.metrics.pull === 1 && Object.values(alreadyMerged.metrics).filter((count) => count !== 0).length === 2, 'MGV-10 repeated event after merge performs zero protected operations')
+
+const executeMinimalFinalGuardFixture = async ({
+  plan = minimalValid.result,
+  mainHead = MINIMAL_BASE,
+  pull = minimalPull(),
+  taskUser = minimalProductOwner,
+  authority = minimalAuthorityComment(),
+  review = minimalReviewComment(),
+  comments = [minimalReviewComment(), minimalAuthorityComment()],
+  checks = connectionPage([successfulCheck('minimal-external-1'), successfulCheck('minimal-external-2')]),
+  threads = connectionPage([]),
+  incompleteChecks = false,
+} = {}) => {
+  const metrics = { main: 0, pull: 0, task: 0, authority: 0, review: 0, comments: 0, checks: 0, threads: 0, scope: 0, jobs: 0 }
+  const host = {
+    branchHead: async () => { metrics.main += 1; return mainHead },
+    api: async (endpoint) => {
+      if (endpoint === `repos/${REPOSITORY}/pulls/${PR}`) { metrics.pull += 1; return structuredClone(pull) }
+      if (endpoint === `repos/${REPOSITORY}/issues/${TASK}`) {
+        metrics.task += 1
+        return { number: TASK, state: 'open', html_url: `https://github.com/${REPOSITORY}/issues/${TASK}`, repository_url: `https://api.github.com/repos/${REPOSITORY}`, user: taskUser }
+      }
+      if (endpoint === `repos/${REPOSITORY}/issues/comments/${MINIMAL_AUTHORITY_COMMENT_ID}`) { metrics.authority += 1; return structuredClone(authority) }
+      if (endpoint === `repos/${REPOSITORY}/issues/comments/${MINIMAL_REVIEW_COMMENT_ID}`) { metrics.review += 1; return structuredClone(review) }
+      if (endpoint.startsWith(`repos/${REPOSITORY}/issues/${TASK}/comments?`)) { metrics.comments += 1; return structuredClone(comments) }
+      if (endpoint.includes('/files?')) { metrics.scope += 1; throw new Error('final_guard_scope_regeneration_forbidden') }
+      if (endpoint.includes('/jobs?')) { metrics.jobs += 1; throw new Error('final_guard_manifest_regeneration_forbidden') }
+      throw new Error(`unexpected_final_guard_endpoint:${endpoint}`)
+    },
+    graphql: async (query, variables) => {
+      if (query.includes('statusCheckRollup')) {
+        metrics.checks += 1
+        return { repository: { pullRequest: { headRefOid: OTHER_HEAD }, object: { oid: variables.head, statusCheckRollup: incompleteChecks ? null : { contexts: structuredClone(checks) } } } }
+      }
+      if (query.includes('reviewThreads')) {
+        metrics.threads += 1
+        return { repository: { pullRequest: { number: PR, state: 'OPEN', isDraft: false, mergeable: 'MERGEABLE', mergeStateStatus: 'UNSTABLE', headRefOid: OTHER_HEAD, reviewThreads: structuredClone(threads) } } }
+      }
+      throw new Error('unexpected_final_guard_graphql')
+    },
+  }
+  const result = await executeMinimalGovernanceFinalDriftGuardV1({ plan, host })
+  return Object.freeze({ result, metrics })
+}
+
+const minimalFinalGuardValid = await executeMinimalFinalGuardFixture()
+check(minimalFinalGuardValid.result.state === 'MATCH' && minimalFinalGuardValid.result.next_action === 'MERGE_PR' && minimalFinalGuardValid.result.exact_head === OTHER_HEAD, 'MGV-11 no-drift final guard returns only exact-head MATCH')
+check(Object.entries(minimalFinalGuardValid.metrics).filter(([name]) => !['scope', 'jobs'].includes(name)).every(([, count]) => count === 1) && minimalFinalGuardValid.metrics.scope === 0 && minimalFinalGuardValid.metrics.jobs === 0, 'MGV-11 final guard acquires exactly eight mutable sources once and regenerates neither scope nor job manifest')
+
+const finalGuardDrifts = await Promise.all([
+  executeMinimalFinalGuardFixture({ mainHead: HEAD }),
+  executeMinimalFinalGuardFixture({ pull: minimalPull({ draft: true }) }),
+  executeMinimalFinalGuardFixture({ pull: minimalPull({ body: stateBlock({ ...minimalApprovedState(), reviewed_head: HEAD }) }) }),
+  executeMinimalFinalGuardFixture({ checks: connectionPage([{ ...successfulCheck('minimal-external-1'), conclusion: 'FAILURE' }, successfulCheck('minimal-external-2')]) }),
+  executeMinimalFinalGuardFixture({ threads: connectionPage([{ id: 'minimal-final-active-thread', isResolved: false, isOutdated: false }]) }),
+  executeMinimalFinalGuardFixture({ taskUser: { login: 'collaborator', id: 97003, type: 'User' } }),
+  executeMinimalFinalGuardFixture({ authority: minimalAuthorityComment(`${minimalAuthorityBody()}\n`) }),
+  executeMinimalFinalGuardFixture({ authority: minimalAuthorityComment(minimalAuthorityBody(), { user: { login: 'collaborator', id: 97003, type: 'User' } }) }),
+  executeMinimalFinalGuardFixture({ review: minimalReviewComment({ body: `${minimalReviewBody}\n` }) }),
+  executeMinimalFinalGuardFixture({ comments: [minimalReviewComment(), minimalAuthorityComment(), { id: 9703, created_at: '2026-08-18T00:00:03Z', author_association: 'MEMBER', user: { login: 'observer', id: 97003, type: 'User' }, body: 'non-authoritative history drift' }] }),
+  executeMinimalFinalGuardFixture({ incompleteChecks: true }),
+])
+check(finalGuardDrifts.every(({ result }) => result.state === 'STOP' && result.next_action === 'STOP' && result.protected_operation_count === 0), 'MGV-12 main, PR, task-state, checks, threads, Task, authority, Review, history, or incomplete-source drift stops')
+const minimalGuardPutCount = (guardResult) => guardResult.next_action === 'MERGE_PR' ? 1 : 0
+check(minimalGuardPutCount(minimalFinalGuardValid.result) === 1 && finalGuardDrifts.every(({ result }) => minimalGuardPutCount(result) === 0), 'MGV-12 no-drift permits one PUT and every drift permits zero PUTs')
+const finalGuardSourceStart = runnerSource.indexOf('export const executeMinimalGovernanceFinalDriftGuardV1')
+const finalGuardSourceEnd = runnerSource.indexOf('\nconst ROLE_TERMINAL_RESULTS_V1', finalGuardSourceStart)
+const finalGuardSource = runnerSource.slice(finalGuardSourceStart, finalGuardSourceEnd)
+check(finalGuardSourceStart >= 0 && !finalGuardSource.includes('reduceCurrentLeafIndependentReviewDecisionV1') && !finalGuardSource.includes('confirmCurrentLeafIndependentReviewDecisionV1') && !finalGuardSource.includes('parseIndependentReviewDecisionProjectionV1') && !finalGuardSource.includes('acquireChangedPathScopeV1') && !finalGuardSource.includes('acquireMinimalGovernanceJobManifestV1') && !finalGuardSource.includes('minimal_governance_pre_operation_snapshot_v1'), 'MGV-13 final guard regenerates no semantic Review, validation, scope, manifest, or sealed snapshot')
+
 const roleMergeDecisionRebindHost = ({ dispatch, admissionRun, jobs = roleAdmissionJobs(), checkPage, changedJobPage = null, sourceRecords = roleSourceRecords, defaultBranch = 'main' } = {}) => {
   const headAtPullRead = Object.fromEntries(Array.from({ length: 12 }, (_, index) => [index + 1, dispatch.exact_head]))
   const automation = automationHost({
@@ -3778,9 +4104,12 @@ for (const [index, evidence] of rebindMatrix.entries()) check(evidence, `RDC-11 
 const roleConsumerJob = workflow.jobs.protected_transition_role_dispatch_consumer_v1
 const mergeOperatorJob = workflow.jobs.protected_transition_merge_operator_v1
 const postRepairReviewJob = workflow.jobs.protected_transition_post_repair_review_v1
+const mergeHostRunnerStep = mergeOperatorJob.steps.find((step) => step.name === 'Materialize immutable merge host runner')
 const roleBindRun = roleConsumerJob.steps.find((step) => step.name === 'Bind bounded role dispatch')?.run ?? ''
 const roleExecutionStep = roleConsumerJob.steps.find((step) => step.name === 'Execute bounded role and host operation')
 const roleExecutionRun = roleExecutionStep?.run ?? ''
+const admissionEvaluationRun = admissionJob.steps.find((step) => step.name === 'Evaluate protected transition admission')?.run ?? ''
+const mergePlanRun = mergeOperatorJob.steps.find((step) => step.name === 'Rebind exact decision and prepare one merge')?.run ?? ''
 const mergeOperationRun = mergeOperatorJob.steps.find((step) => step.name === 'Perform one normal merge commit')?.run ?? ''
 const postRepairExecutionStep = postRepairReviewJob.steps.find((step) => step.name === 'Execute and publish post-repair Review')
 const postRepairExecutionRun = postRepairExecutionStep?.run ?? ''
@@ -4003,9 +4332,10 @@ const workflowBoundaryMatrix = [
   boundedRoleSource.startsWith('function Invoke-BoundedRole {') && !boundedRoleSource.includes('$LASTEXITCODE = $null') && boundedRoleSource.indexOf('$priorToken = $env:GH_TOKEN') < boundedRoleSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(boundedRoleSource) && boundedRoleSource.indexOf('codex.cmd exec') < boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') && boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') < boundedRoleSource.indexOf('if ($null -eq $priorToken)') && terminalAgentSelectorSource.includes('$terminalMessage = [string]$event.item.text') && !terminalAgentSelectorSource.includes('$messages +=') && (process.platform !== 'win32' || (roleProviderNativeExitProbe.success === 0 && roleProviderNativeExitProbe.failure === 37 && roleProviderTerminalMessageProbe.multiple === roleImplementationResultBody && roleProviderTerminalMessageProbe.zeroRejected === true && malformedTerminalOutput.next_action === 'STOP' && trustedHostCredentialProbe.providerToken === 'ABSENT' && trustedHostCredentialProbe.restoredToken === 'trusted-host-token' && trustedHostCredentialProbe.validatedAction === 'POST_MERGE_DECISION' && trustedHostCredentialProbe.hostTokens.join('\n') === 'trusted-host-token\ntrusted-host-token')) && roleExecutionRun.indexOf('Invoke-BoundedRole -PromptFile $promptPath') < roleExecutionRun.indexOf('$validated = Assert-RoleOutput') && roleExecutionRun.indexOf('$validated = Assert-RoleOutput') < roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') < roleExecutionRun.indexOf('$null = Publish-CanonicalComment -BodyFile $bodyPath') && roleExecutionRun.split('Assert-FreshRoleBinding').length >= 8 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'") && roleExecutionRun.includes("throw 'publication_continuation_task_binding_invalid'") && roleExecutionRun.includes("throw 'publication_continuation_route_failed'") && roleExecutionRun.includes("throw 'publication_continuation_binding_invalid'") && roleExecutionRun.includes("throw 'publication_reviewer_dispatch_not_ready'") && roleExecutionRun.indexOf("$reviewPlan = Get-Content -LiteralPath $reviewPlanPath") < roleExecutionRun.indexOf('$reviewTask = gh api') && roleExecutionRun.includes("$reviewTask.number -ne $dispatch.task_issue_number -or $reviewTask.state -cne 'open' -or $null -ne $reviewTask.pull_request") && roleExecutionRun.indexOf("throw 'publication_reviewer_task_binding_invalid'") < roleExecutionRun.indexOf('Invoke-BoundedRole -PromptFile $reviewPromptPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath') < roleExecutionRun.indexOf('$publicationTask = gh api') && roleExecutionRun.includes("$publicationTask.number -ne $dispatch.task_issue_number -or $publicationTask.state -cne 'open' -or $null -ne $publicationTask.pull_request") && roleExecutionRun.indexOf('$publicationTask = gh api') < roleExecutionRun.indexOf('$null = Publish-CanonicalComment -BodyFile $reviewBodyPath') && !roleExecutionRun.includes('Assert-FreshReviewerSnapshot') && !roleExecutionRun.includes('review_thread_snapshot'),
   postRepairReviewJob.steps.find((step) => step.name === 'Bind post-repair Independent Reviewer')?.run.includes('task_state = $state') && postRepairExecutionStep?.env?.GH_TOKEN === '${{ github.token }}' && postRepairExecutionRun.includes('--role-rebind-file') && !postRepairExecutionRun.includes('--review-publication-rebind-file') && !postRepairExecutionRun.includes('--review-closure-file') && postRepairExecutionRun.includes('if ($nativeExit -ne 0) { throw "post_repair_review_provider_failed_$nativeExit" }') && postRepairExecutionRun.includes("if ($messages.Count -ne 1) { throw 'post_repair_review_result_cardinality_invalid' }") && postRepairProviderThroughRebindSource.indexOf('$priorToken = $env:GH_TOKEN') < postRepairProviderThroughRebindSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(postRepairProviderThroughRebindSource) && postRepairProviderThroughRebindSource.indexOf('codex.cmd exec') < postRepairProviderThroughRebindSource.indexOf('$nativeExit = $LASTEXITCODE') && postRepairProviderThroughRebindSource.indexOf('$nativeExit = $LASTEXITCODE') < postRepairProviderThroughRebindSource.indexOf('if ($null -eq $priorToken)') && postRepairProviderThroughRebindSource.indexOf('if ($null -eq $priorToken)') < postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-output-file') && postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-output-file') < postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-rebind-file') && postRepairExecutionRun.indexOf('if ($nativeExit -ne 0)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairExecutionRun.indexOf('if ($messages.Count -ne 1)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && postRepairEvidenceValidatorSource.includes('$sha256.ComputeHash($capturedBytes)') && !postRepairEvidenceValidatorSource.includes('post_repair') && postRepairExecutionRun.includes("$failureDispatch.next_action -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.indexOf('[Console]::Error.WriteLine($diagnosticLine)') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.includes('$diagnosticLines = @()') && (process.platform !== 'win32' || (postRepairFailureEvidenceProbe.lineCount === reviewerFailureEvidence.chunks.length + 1 && postRepairFailureEvidenceProbe.headerRecordType === 'independent_reviewer_role_output_failure_evidence_v1' && postRepairFailureEvidenceProbe.chunkRecordTypesValid === true && postRepairFailureEvidenceProbe.invalidRejected === true && postRepairTrustedHostCredentialProbe.valid.providerToken === 'ABSENT' && postRepairTrustedHostCredentialProbe.valid.restoredToken === 'trusted-post-repair-host-token' && postRepairTrustedHostCredentialProbe.valid.outcome === 'COMPLETED' && postRepairTrustedHostCredentialProbe.valid.validatedAction === 'POST_REVIEW' && postRepairTrustedHostCredentialProbe.valid.reboundAction === 'PROTECTED_OPERATION_READY' && postRepairTrustedHostCredentialProbe.valid.hostCalls.length === 2 && postRepairTrustedHostCredentialProbe.valid.hostCalls.every((call) => call.startsWith('PRESENT:')) && postRepairTrustedHostCredentialProbe.valid.hostCalls[1].includes('--role-rebind-file') && postRepairTrustedHostCredentialProbe.invalid.providerToken === 'ABSENT' && postRepairTrustedHostCredentialProbe.invalid.restoredToken === 'trusted-post-repair-host-token' && postRepairTrustedHostCredentialProbe.invalid.outcome === 'post_repair_review_result_invalid' && postRepairTrustedHostCredentialProbe.invalid.validatedAction === null && postRepairTrustedHostCredentialProbe.invalid.reboundAction === null && postRepairTrustedHostCredentialProbe.invalid.hostCalls.length === 1 && postRepairTrustedHostCredentialProbe.invalid.hostCalls[0].startsWith('PRESENT:'))),
   runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id') && runnerSource.includes("const ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'") && ['GITHUB_REPOSITORY', 'GITHUB_REF', 'GITHUB_WORKFLOW_REF', 'GITHUB_WORKFLOW_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_JOB'].every((name) => runnerSource.includes(`process.env.${name}`)) && !runnerSource.includes('ADD_REVIEW_THREAD_REPLY_MUTATION') && !runnerSource.includes('RESOLVE_REVIEW_THREAD_MUTATION') && !runnerSource.includes('executeReviewerPublicationRebindV1') && !runnerSource.includes('executeReviewThreadClosureV1') && !runnerSource.includes("mode: 'review_publication_rebind'") && !runnerSource.includes("mode: 'review_closure'") && runnerSource.match(/parseIndependentReviewDecisionProjectionV1/g)?.length === 7,
-  manualWorkflowDispatchResult.state === 'MERGE_ELIGIBLE' && manualWorkflowDispatchResult.allowed === true && manualWorkflowDispatchResult.next_action === 'MERGE_DECISION' && manualWorkflowDispatchResult.automation_status === 'MERGE_DECISION_PENDING' && !Object.hasOwn(manualWorkflowDispatchResult, 'role_dispatch') && manualWorkflowDispatchAdmission.metrics.checkReads === 0 && manualWorkflowDispatchAdmission.metrics.threadReads === 0 && mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR' && needs.protected_transition_admission_v1.outputs.terminal_result == 'MERGE_ALLOWED'" && mergeOperationRun.includes('--merge-operator-file $dispatchPath') && mergeOperationRun.indexOf('--merge-operator-file $dispatchPath') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force') && !workflowSource.includes('gh workflow run') && !runnerSource.includes('createWorkflowDispatch') && runnerSource.includes('acquireMergeCheckRollupSnapshotV1') && runnerSource.includes('acquireMergeReviewThreadsV1') && runnerSource.includes('executeProtectedTransitionAdmissionV1'),
+  manualWorkflowDispatchResult.state === 'MERGE_ELIGIBLE' && manualWorkflowDispatchResult.allowed === true && manualWorkflowDispatchResult.next_action === 'MERGE_DECISION' && manualWorkflowDispatchResult.automation_status === 'MERGE_DECISION_PENDING' && !Object.hasOwn(manualWorkflowDispatchResult, 'role_dispatch') && manualWorkflowDispatchAdmission.metrics.checkReads === 0 && manualWorkflowDispatchAdmission.metrics.threadReads === 0 && mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR' && (needs.protected_transition_admission_v1.outputs.terminal_result == 'MERGE_ALLOWED' || needs.protected_transition_admission_v1.outputs.terminal_result == 'MINIMAL_GOVERNANCE_V1')" && mergeOperationRun.includes('--merge-operator-file $dispatchPath') && mergeOperationRun.indexOf('--merge-operator-file $dispatchPath') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force') && !workflowSource.includes('gh workflow run') && !runnerSource.includes('createWorkflowDispatch') && runnerSource.includes('acquireMergeCheckRollupSnapshotV1') && runnerSource.includes('acquireMergeReviewThreadsV1') && runnerSource.includes('executeProtectedTransitionAdmissionV1'),
+  admissionJob.outputs.authority_kind === '${{ steps.evaluate.outputs.authority_kind }}' && admissionJob.outputs.minimal_merge_plan_b64 === '${{ steps.evaluate.outputs.minimal_merge_plan_b64 }}' && (admissionEvaluationRun.match(/--review-event-file/g) ?? []).length === 1 && !Object.hasOwn(mergeHostRunnerStep, 'if') && mergePlanRun.includes("if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1')") && mergePlanRun.indexOf("if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1')") < mergePlanRun.indexOf('node $env:PTA_MERGE_HOST_RUNNER') && (mergeOperationRun.match(/--minimal-governance-drift-guard-file/g) ?? []).length === 1 && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.indexOf('minimal_governance_final_drift_guard_matched') < mergeOperationRun.indexOf('--method PUT') && (workflowSource.match(/--method PUT/g) ?? []).length === 1 && !workflowSource.includes('Start-Sleep') && !workflowSource.includes('retry'),
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 576) throw new Error(`expected exactly 576 assertions, observed ${assertions}`)
+if (assertions !== 605) throw new Error(`expected exactly 605 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
