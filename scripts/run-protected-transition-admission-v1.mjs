@@ -1814,11 +1814,7 @@ export const executeManualProgressionControllerV1 = async ({ request, host }) =>
     admission_executed: true,
     next_action: admitted.allowed && admitted.state === 'MERGE_ELIGIBLE' ? 'MERGE_DECISION' : 'STOP',
   })
-  return executeProgressionControllerV1({
-    currentResult,
-    currentContext: Object.freeze({ request }),
-    host,
-  })
+  return evaluateProgressionControllerV1(currentResult)
 }
 
 export const executeReadyForReviewProgressionV1 = async ({ event, host, runId }) => {
