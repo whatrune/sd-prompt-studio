@@ -30,6 +30,7 @@ const WORKFLOW_RUN_ID = /^[1-9]\d*$/
 const READY_ATTACHED_SELF_CHECK_CONTEXT_V1 = 'ATTACHED_CURRENT_CHECK_REQUIRED'
 const READY_REBIND_SELF_CHECK_CONTEXT_V1 = 'ATTACHED_SAME_RUN_FAMILY_EXCLUDED'
 const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'
+const ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'
 const RTO_SELF_JOB_NAMES_V1 = Object.freeze([
   'protected_transition_admission_v1',
   'protected_transition_repair_executor_v1',
@@ -2037,7 +2038,7 @@ const classifyMergeGatePullV1 = (request, pull) => {
     return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'pull_mergeability_indeterminate', 1, pull.head.sha)
   }
   const selfAwareUnstable = WORKFLOW_RUN_ID.test(request.currentWorkflowRunId ?? '') &&
-    [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, READY_REBIND_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext) &&
+    [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, READY_REBIND_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1, ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext) &&
     pull.mergeable_state === 'unstable'
   if (!pull.mergeable || (pull.mergeable_state !== 'clean' && !selfAwareUnstable)) {
     return mergeGateStoppedResultV1(request, 'IMPLEMENTATION_BLOCKED', 'pull_not_mergeable', 2, pull.head.sha)
@@ -2105,6 +2106,33 @@ const reduceSelfAwareCurrentChecksV1 = (request, rollup) => {
       if (item.type !== 'CheckRun' || !RTO_SELF_JOB_NAMES_V1.includes(item.name)) return true
       const historicalRunId = parseRepositoryActionsRunIdV1(request, item)
       return historicalRunId === null || historicalRunId === request.currentWorkflowRunId
+    }))
+  }
+  if (request.selfCheckContext === ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1) {
+    const manifest = request.currentWorkflowJobIds
+    if (
+      manifest === null || typeof manifest !== 'object' || Array.isArray(manifest) ||
+      Object.keys(manifest).sort().join('\n') !== [...RTO_SELF_JOB_NAMES_V1].sort().join('\n') ||
+      Object.values(manifest).some((jobId) => !WORKFLOW_RUN_ID.test(jobId))
+    ) throw new Error('issue_comment_same_run_job_manifest_invalid')
+
+    return Object.freeze(selectedGenerations.filter((item) => {
+      if (item.type !== 'CheckRun') {
+        if (RTO_SELF_JOB_NAMES_V1.includes(item.name)) throw new Error('issue_comment_same_run_check_identity_invalid')
+        return true
+      }
+      const identity = parseRepositoryActionsJobIdentityV1(request, item)
+      const currentPrefix = `https://github.com/${request.repository}/actions/runs/${request.currentWorkflowRunId}/`
+      if (item.details_url?.startsWith(currentPrefix) && identity === null) {
+        throw new Error('issue_comment_same_run_check_identity_invalid')
+      }
+      if (identity?.runId === request.currentWorkflowRunId) {
+        if (manifest[item.name] !== identity.jobId) throw new Error('issue_comment_same_run_check_identity_invalid')
+        return false
+      }
+      if (!RTO_SELF_JOB_NAMES_V1.includes(item.name)) return true
+      if (identity === null) throw new Error('issue_comment_same_run_check_identity_invalid')
+      return false
     }))
   }
   if (request.selfCheckContext === READY_REBIND_SELF_CHECK_CONTEXT_V1) {
@@ -2223,7 +2251,7 @@ export const evaluateMergeAllowedAutomationV1 = async ({ request, admitted, host
       return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'pull_mergeability_indeterminate', 1, reviewSnapshot.pull.headRefOid)
     }
     const selfAwareUnstable = WORKFLOW_RUN_ID.test(request.currentWorkflowRunId ?? '') &&
-      [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, READY_REBIND_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext) &&
+      [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, READY_REBIND_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1, ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext) &&
       reviewSnapshot.pull.mergeStateStatus === 'UNSTABLE'
     if (reviewSnapshot.pull.mergeable !== 'MERGEABLE' || (reviewSnapshot.pull.mergeStateStatus !== 'CLEAN' && !selfAwareUnstable)) {
       return mergeGateStoppedResultV1(request, 'IMPLEMENTATION_BLOCKED', 'pull_not_mergeable', 2, reviewSnapshot.pull.headRefOid)
@@ -3480,7 +3508,7 @@ const verifyRoleDispatchSourceV1 = async (dispatch, host) => {
   throw new Error('role_dispatch_source_binding_changed')
 }
 
-const resolveAdmissionRunOriginV1 = async ({ repository, admissionRunId, prNumber, exactHead, host }) => {
+const resolveAdmissionRunOriginV1 = async ({ repository, admissionRunId, prNumber, exactHead, host, executionIdentity = null }) => {
   const expectedRunUrl = `https://github.com/${repository}/actions/runs/${admissionRunId}`
   const expectedApiRepository = `https://api.github.com/repos/${repository}`
   const admissionRun = await api(host, `repos/${repository}/actions/runs/${admissionRunId}`)
@@ -3488,7 +3516,7 @@ const resolveAdmissionRunOriginV1 = async ({ repository, admissionRunId, prNumbe
     !admissionRun || String(admissionRun.id) !== admissionRunId || admissionRun.html_url !== expectedRunUrl ||
     admissionRun.path !== '.github/workflows/protected-transition-admission-v1.yml' ||
     admissionRun.repository?.full_name !== repository || !FULL_HEAD.test(admissionRun.head_sha ?? '') ||
-    !Array.isArray(admissionRun.pull_requests) || admissionRun.status !== 'completed' || admissionRun.conclusion !== 'success'
+    !Array.isArray(admissionRun.pull_requests)
   ) throw new Error('role_dispatch_origin_invalid')
 
   let selfCheckContext
@@ -3503,10 +3531,65 @@ const resolveAdmissionRunOriginV1 = async ({ repository, admissionRunId, prNumbe
       typeof repositoryRecord.default_branch !== 'string' || repositoryRecord.default_branch.length === 0 ||
       admissionRun.head_branch !== repositoryRecord.default_branch
     ) throw new Error('role_dispatch_origin_invalid')
-    selfCheckContext = REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1
+    const sameRun = executionIdentity !== null && String(executionIdentity.runId ?? '') === admissionRunId
+    if (!sameRun) {
+      if (admissionRun.status !== 'completed' || admissionRun.conclusion !== 'success') {
+        throw new Error('role_dispatch_origin_invalid')
+      }
+      selfCheckContext = REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1
+    } else {
+      const expectedWorkflowRef = `${repository}/${admissionRun.path}@refs/heads/${repositoryRecord.default_branch}`
+      if (
+        executionIdentity.repository !== repository ||
+        executionIdentity.ref !== `refs/heads/${repositoryRecord.default_branch}` ||
+        executionIdentity.workflowRef !== expectedWorkflowRef ||
+        executionIdentity.workflowSha !== admissionRun.head_sha ||
+        !Number.isSafeInteger(executionIdentity.runAttempt) || executionIdentity.runAttempt < 1 ||
+        admissionRun.run_attempt !== executionIdentity.runAttempt ||
+        executionIdentity.jobName !== 'protected_transition_role_dispatch_consumer_v1' ||
+        admissionRun.status !== 'in_progress' || admissionRun.conclusion !== null
+      ) throw new Error('role_dispatch_origin_invalid')
+
+      const page = await api(host, `repos/${repository}/actions/runs/${admissionRunId}/jobs?per_page=100`)
+      if (
+        !page || !Number.isSafeInteger(page.total_count) || page.total_count !== RTO_SELF_JOB_NAMES_V1.length ||
+        !Array.isArray(page.jobs) || page.jobs.length !== page.total_count
+      ) throw new Error('issue_comment_same_run_job_manifest_invalid')
+      const jobs = new Map()
+      const ids = new Set()
+      for (const job of page.jobs) {
+        const jobId = String(job?.id ?? '')
+        if (
+          !WORKFLOW_RUN_ID.test(jobId) || String(job?.run_id ?? '') !== admissionRunId ||
+          job?.run_attempt !== executionIdentity.runAttempt || !RTO_SELF_JOB_NAMES_V1.includes(job?.name) ||
+          jobs.has(job.name) || ids.has(jobId) || job?.head_sha !== admissionRun.head_sha ||
+          job?.html_url !== `${expectedRunUrl}/job/${jobId}`
+        ) throw new Error('issue_comment_same_run_job_manifest_invalid')
+        jobs.set(job.name, job)
+        ids.add(jobId)
+      }
+      if (RTO_SELF_JOB_NAMES_V1.some((name) => !jobs.has(name))) {
+        throw new Error('issue_comment_same_run_job_manifest_invalid')
+      }
+      const admissionJob = jobs.get('protected_transition_admission_v1')
+      const consumerJob = jobs.get('protected_transition_role_dispatch_consumer_v1')
+      if (
+        admissionJob.status !== 'completed' || admissionJob.conclusion !== 'success' ||
+        consumerJob.status !== 'in_progress' || consumerJob.conclusion !== null ||
+        RTO_SELF_JOB_NAMES_V1.filter((name) => ![
+          'protected_transition_admission_v1',
+          'protected_transition_role_dispatch_consumer_v1',
+        ].includes(name)).some((name) => jobs.get(name).status !== 'completed' || jobs.get(name).conclusion !== 'skipped')
+      ) throw new Error('issue_comment_same_run_job_state_invalid')
+      selfCheckContext = ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1
+      currentWorkflowJobIds = Object.freeze(Object.fromEntries(
+        [...jobs.entries()].map(([name, job]) => [name, String(job.id)]),
+      ))
+    }
   } else if (admissionRun.event === 'pull_request') {
     const pull = admissionRun.pull_requests[0]
     if (
+      admissionRun.status !== 'completed' || admissionRun.conclusion !== 'success' ||
       admissionRun.head_sha !== exactHead || admissionRun.pull_requests.length !== 1 ||
       pull?.number !== prNumber || pull?.url !== `${expectedApiRepository}/pulls/${prNumber}` ||
       pull?.head?.sha !== exactHead || pull?.head?.repo?.url !== expectedApiRepository ||
@@ -3545,11 +3628,11 @@ const resolveAdmissionRunOriginV1 = async ({ repository, admissionRunId, prNumbe
   return origin
 }
 
-const verifyMergeDecisionGateV1 = async (dispatch, host) => {
+const verifyMergeDecisionGateV1 = async (dispatch, host, executionIdentity = null) => {
   if (dispatch.purpose !== 'MERGE_DECISION') return null
   const origin = await resolveAdmissionRunOriginV1({
     repository: dispatch.repository, admissionRunId: dispatch.admission_run_id,
-    prNumber: dispatch.pr_number, exactHead: dispatch.exact_head, host,
+    prNumber: dispatch.pr_number, exactHead: dispatch.exact_head, host, executionIdentity,
   })
   const request = Object.freeze({
     transition: 'merge_decision_admission', repository: dispatch.repository,
@@ -3567,7 +3650,7 @@ const verifyMergeDecisionGateV1 = async (dispatch, host) => {
   return gate
 }
 
-export const executeRoleDispatchRebindV1 = async ({ dispatch, host, operation = 'canonical_write', authorityCommentId = null, newHead = null }) => {
+export const executeRoleDispatchRebindV1 = async ({ dispatch, host, operation = 'canonical_write', authorityCommentId = null, newHead = null, executionIdentity = null }) => {
   try {
     dispatch = normalizeRoleDispatchConsumerV1(dispatch)
     if (!['canonical_write', 'commit_push', 'publication_handoff'].includes(operation)) throw new Error('role_rebind_operation_invalid')
@@ -3575,7 +3658,7 @@ export const executeRoleDispatchRebindV1 = async ({ dispatch, host, operation = 
     if (operation === 'publication_handoff' && (!FULL_HEAD.test(newHead ?? '') || newHead === dispatch.exact_head)) throw new Error('role_rebind_operation_invalid')
     await acquireRoleDispatchBindingV1(dispatch, host, expectedHead)
     await verifyRoleDispatchSourceV1(dispatch, host)
-    await verifyMergeDecisionGateV1(dispatch, host)
+    await verifyMergeDecisionGateV1(dispatch, host, executionIdentity)
     if (operation !== 'canonical_write') {
       if (!positiveInteger(authorityCommentId)) throw new Error('role_publication_authority_invalid')
       const authorityRecord = await fetchRoleCommentRecordV1(dispatch.repository, dispatch.task_issue_number, authorityCommentId, host)
@@ -4361,6 +4444,15 @@ const main = async () => {
                   operation: invocation.operation,
                   authorityCommentId: invocation.authorityCommentId,
                   newHead: invocation.newHead,
+                  executionIdentity: Object.freeze({
+                    repository: process.env.GITHUB_REPOSITORY ?? null,
+                    ref: process.env.GITHUB_REF ?? null,
+                    workflowRef: process.env.GITHUB_WORKFLOW_REF ?? null,
+                    workflowSha: process.env.GITHUB_WORKFLOW_SHA ?? null,
+                    runId: process.env.GITHUB_RUN_ID ?? null,
+                    runAttempt: Number(process.env.GITHUB_RUN_ATTEMPT),
+                    jobName: process.env.GITHUB_JOB ?? null,
+                  }),
                 })
             : invocation.mode === 'merge_operator'
               ? await executeMergeOperatorV1({
