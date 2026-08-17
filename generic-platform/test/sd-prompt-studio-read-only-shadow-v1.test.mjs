@@ -7,6 +7,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { digestCanonicalV1 } from '../src/core/role-dispatch-v1.mjs'
+import { evaluateProtectedTransitionAdmissionV1 } from '../../src/continuous-orchestration/protected-transition-admission-v1.ts'
 import {
   PARITY_REASON_FAMILIES_V1,
   canonicalSerializeSharedEvidenceV1,
@@ -532,6 +533,20 @@ const makeRecordA = (mutate = () => {}) => {
   mutate(input)
   return createSharedSealedEvidenceV1(input)
 }
+const evaluateProductionAdmissionForRecordA = (recordAInput) => {
+  const { binding, state, authorized_scope: scope } = recordAInput.payload
+  return evaluateProtectedTransitionAdmissionV1({
+    transition: 'merge_decision_admission',
+    repository: binding.repository,
+    task_issue_number: binding.task_issue_number,
+    pr_number: binding.pr_number,
+    exact_head: binding.exact_head,
+    task: state.task,
+    pull: state.pull,
+    task_state: state.task_state,
+    scope: { complete: true, actual_paths: scope.actual_paths, failure_reason: null },
+  })
+}
 const productionSuccess = {
   state: 'MERGE_ELIGIBLE', allowed: false, reason: 'merge_decision_required', next_action: 'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
   admission_state: 'MERGE_ELIGIBLE', admission_allowed: true, admission_reason: 'merge_gate_satisfied',
@@ -693,6 +708,45 @@ const staleB = projectProductionParityRecordBV1({
 const staleG = evaluateSharedEvidenceGenericV1({ recordA: staleA })
 const staleC = compareProductionAndGenericV1({ productionRecord: staleB, genericResult: staleG })
 check(staleC.payload.semantic === 'MATCH' && staleC.payload.proof_pass, 'stale current HEAD remains exactly bound and comparable to the target HEAD record')
+const observedHeadStaleA = makeRecordA((input) => { input.state.task_state.observed_head = 'd'.repeat(40) })
+const observedHeadStaleProduction = evaluateProductionAdmissionForRecordA(observedHeadStaleA)
+check(observedHeadStaleProduction.state === 'STALE' && observedHeadStaleProduction.reason === 'head_binding_stale' && observedHeadStaleProduction.current_head === liveBinding.exact_head, 'production classifies stale task-state observed_head at the current PR HEAD')
+const observedHeadStaleB = projectProductionParityRecordBV1({
+  recordA: observedHeadStaleA,
+  productionResult: {
+    ...productionSuccess, state: 'STALE', allowed: false, reason: 'head_binding_stale', next_action: 'STOP',
+    external_check_success_count: 0, blocking_thread_count: 0,
+  },
+})
+const observedHeadStaleG = evaluateSharedEvidenceGenericV1({ recordA: observedHeadStaleA })
+const observedHeadStaleC = compareProductionAndGenericV1({ productionRecord: observedHeadStaleB, genericResult: observedHeadStaleG })
+check(observedHeadStaleB.payload.projection_status === 'COMPARABLE' && observedHeadStaleB.payload.semantics.reason_family === 'HEAD_BINDING_STALE', 'Record B accepts production HEAD_BINDING_STALE from stale observed_head at the current PR HEAD')
+check(observedHeadStaleG.payload.semantics?.state === 'STALE' && observedHeadStaleG.payload.semantics.reason_family === 'HEAD_BINDING_STALE', 'Generic G normalizes stale observed_head to the existing HEAD_BINDING_STALE family')
+check(observedHeadStaleC.payload.semantic === 'MATCH' && observedHeadStaleC.payload.proof_pass, 'stale observed_head production and Generic result/reason parity matches')
+const reviewedHeadStaleA = makeRecordA((input) => { input.state.task_state.reviewed_head = 'e'.repeat(40) })
+const reviewedHeadStaleProduction = evaluateProductionAdmissionForRecordA(reviewedHeadStaleA)
+check(reviewedHeadStaleProduction.state === 'STALE' && reviewedHeadStaleProduction.reason === 'head_binding_stale' && reviewedHeadStaleProduction.current_head === liveBinding.exact_head, 'production classifies stale task-state reviewed_head at the current PR HEAD')
+const reviewedHeadStaleB = projectProductionParityRecordBV1({
+  recordA: reviewedHeadStaleA,
+  productionResult: {
+    ...productionSuccess, state: 'STALE', allowed: false, reason: 'head_binding_stale', next_action: 'STOP',
+    external_check_success_count: 0, blocking_thread_count: 0,
+  },
+})
+const reviewedHeadStaleG = evaluateSharedEvidenceGenericV1({ recordA: reviewedHeadStaleA })
+const reviewedHeadStaleC = compareProductionAndGenericV1({ productionRecord: reviewedHeadStaleB, genericResult: reviewedHeadStaleG })
+check(reviewedHeadStaleB.payload.projection_status === 'COMPARABLE' && reviewedHeadStaleB.payload.semantics.reason_family === 'HEAD_BINDING_STALE', 'Record B accepts production HEAD_BINDING_STALE from stale reviewed_head at the current PR HEAD')
+check(reviewedHeadStaleG.payload.semantics?.state === 'STALE' && reviewedHeadStaleG.payload.semantics.reason_family === 'HEAD_BINDING_STALE', 'Generic G normalizes stale reviewed_head to the existing HEAD_BINDING_STALE family')
+check(reviewedHeadStaleC.payload.semantic === 'MATCH' && reviewedHeadStaleC.payload.proof_pass, 'stale reviewed_head production and Generic result/reason parity matches')
+const currentBindingProduction = evaluateProductionAdmissionForRecordA(recordA)
+check(currentBindingProduction.state === 'MERGE_ELIGIBLE' && resultG.payload.semantics?.reason_family === 'ADMISSION_ELIGIBLE', 'current observed_head and reviewed_head remain non-stale in production and Generic G')
+throws(() => projectProductionParityRecordBV1({
+  recordA,
+  productionResult: {
+    ...productionSuccess, state: 'STALE', allowed: false, reason: 'head_binding_stale', next_action: 'STOP',
+    external_check_success_count: 0, blocking_thread_count: 0,
+  },
+}), 'Record B rejects a fabricated HEAD_BINDING_STALE result when all captured bindings are current')
 const blockedA = makeRecordA((input) => { input.threads.items[0].resolved = false })
 const blockedG = evaluateSharedEvidenceGenericV1({ recordA: blockedA })
 const productionBlocked = {

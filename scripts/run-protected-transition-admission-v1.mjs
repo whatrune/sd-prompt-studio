@@ -14,6 +14,7 @@ import {
   createProductionParityProjectionV1,
   createSharedSealedEvidenceV1,
   digestSharedEvidenceV1,
+  isSharedHeadBindingStaleV1,
   validateSharedSealedEvidenceV1,
 } from '../generic-platform/src/core/shared-sealed-evidence-v1.mjs'
 
@@ -968,13 +969,14 @@ const productionParitySemanticV1 = ({ productionResult }) => {
 export const projectProductionParityRecordBV1 = ({ recordA: recordAInput, productionResult }) => {
   const recordA = validateSharedSealedEvidenceV1(recordAInput)
   const staleTuple = productionResult?.state === 'STALE' && productionResult?.reason === 'head_binding_stale' && productionResult?.next_action === 'STOP'
+  const staleBinding = isSharedHeadBindingStaleV1(recordA)
   if (
     !productionResult || typeof productionResult !== 'object' ||
     productionResult.task_issue_number !== recordA.payload.binding.task_issue_number ||
     productionResult.pr_number !== recordA.payload.binding.pr_number ||
     !FULL_HEAD.test(productionResult.current_head ?? '') ||
-    (!staleTuple && productionResult.current_head !== recordA.payload.binding.exact_head) ||
-    (staleTuple && productionResult.current_head === recordA.payload.binding.exact_head)
+    productionResult.current_head !== recordA.payload.state.pull.head ||
+    staleTuple !== staleBinding
   ) throw new Error('production_parity_binding_invalid')
   const semantics = recordA.payload.proof_capable ? productionParitySemanticV1({ productionResult }) : null
   const projectionReason = !recordA.payload.proof_capable

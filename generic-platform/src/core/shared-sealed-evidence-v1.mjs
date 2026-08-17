@@ -326,6 +326,14 @@ export const validateSharedSealedEvidenceV1 = (record) => {
   return deepFreezeCopy({ ...record, payload: validateRecordAPayload(record.payload) })
 }
 
+export const isSharedHeadBindingStaleV1 = (recordInput) => {
+  const record = validateSharedSealedEvidenceV1(recordInput)
+  const { binding, state } = record.payload
+  return state.pull.head !== binding.exact_head ||
+    state.task_state.observed_head !== state.pull.head ||
+    (state.task_state.review_status !== 'PENDING' && state.task_state.reviewed_head !== state.pull.head)
+}
+
 export const validateParitySemanticV1 = (value) => {
   exactKeys(value, [
     'state', 'allowed', 'reason_family', 'next_action', 'external_check_success_count', 'blocking_thread_count',

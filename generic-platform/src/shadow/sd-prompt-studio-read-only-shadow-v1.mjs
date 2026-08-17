@@ -11,6 +11,7 @@ import {
   createGenericResultV1,
   createParityComparisonV1,
   digestSharedEvidenceV1,
+  isSharedHeadBindingStaleV1,
   validateGenericResultV1,
   validateProductionParityProjectionV1,
   validateSharedSealedEvidenceV1,
@@ -713,14 +714,19 @@ export const evaluateSharedEvidenceGenericV1 = (input) => {
     const threads = recordA.payload.threads.items
       .filter((item) => !item.outdated)
       .map((item) => Object.freeze({ thread_id: item.thread_id, resolved: item.resolved }))
-    const admission = evaluateAdmissionV1({
-      identity,
-      currentIdentity,
-      reviewObservations: recordA.payload.review_history.observations,
-      checks,
-      threads,
-      requiredCheckIds: recordA.payload.admission_inputs.required_check_ids,
-    })
+    const admission = isSharedHeadBindingStaleV1(recordA)
+      ? Object.freeze({
+          state: 'STALE', allowed: false, reason: 'head_binding_stale',
+          external_check_success_count: 0, blocking_thread_count: 0,
+        })
+      : evaluateAdmissionV1({
+          identity,
+          currentIdentity,
+          reviewObservations: recordA.payload.review_history.observations,
+          checks,
+          threads,
+          requiredCheckIds: recordA.payload.admission_inputs.required_check_ids,
+        })
     const semantics = genericSemanticV1(admission)
     return createGenericResultV1(sharedProjectionPayloadV1({
       recordA,
