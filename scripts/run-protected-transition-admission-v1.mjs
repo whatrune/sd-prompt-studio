@@ -44,8 +44,17 @@ const REVIEW_AUTHORING_ROLE = 'Independent Reviewer'
 const REVIEW_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 const MINIMAL_GOVERNANCE_RECORD_TYPE_V1 = 'minimal_governance_v1'
 const MINIMAL_GOVERNANCE_AUTHORITY_KIND_V1 = 'MINIMAL_GOVERNANCE_V1'
+const MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1 = Object.freeze({
+  login: 'whatrune',
+  id: 47842632,
+  type: 'User',
+  association: 'OWNER',
+})
+const GITHUB_ACTIONS_APP_DATABASE_ID_V1 = 15368
 const MINIMAL_GOVERNANCE_SCALAR_KEYS_V1 = Object.freeze([
-  'record_type', 'task_issue', 'pull_request', 'exact_head', 'expected_base', 'base_impact',
+  'record_type', 'authoring_role', 'authority_actor_login', 'authority_actor_id',
+  'authority_actor_type',
+  'task_issue', 'pull_request', 'exact_head', 'expected_base', 'base_impact',
   'review_comment', 'review_body_sha256', 'merge_method', 'operation_count',
 ])
 const LIVE_SHADOW_REQUIRED_CHECKS_V1 = Object.freeze(new Map([
@@ -96,7 +105,7 @@ query MergeAllowedChecks($owner: String!, $name: String!, $pr: Int!, $head: GitO
             totalCount
             nodes {
               __typename
-              ... on CheckRun { id name status conclusion detailsUrl startedAt checkSuite { app { id } } }
+              ... on CheckRun { id name status conclusion detailsUrl startedAt checkSuite { app { id databaseId } } }
               ... on StatusContext { id context state }
             }
             pageInfo { hasNextPage endCursor }
@@ -217,6 +226,10 @@ export const parseMinimalGovernanceAuthorityV1 = (body, repository, taskIssueNum
   const authorizedPaths = yaml.lists.get('authorized_paths')
   if (
     yaml.scalars.get('record_type') !== MINIMAL_GOVERNANCE_RECORD_TYPE_V1 ||
+    yaml.scalars.get('authoring_role') !== 'Product Owner' ||
+    yaml.scalars.get('authority_actor_login') !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.login ||
+    yaml.scalars.get('authority_actor_id') !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.id ||
+    yaml.scalars.get('authority_actor_type') !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.type ||
     yaml.scalars.get('task_issue') !== expectedTaskUrl ||
     !positiveInteger(prNumber) || !positiveInteger(reviewCommentId) ||
     !FULL_HEAD.test(exactHead ?? '') || !FULL_HEAD.test(expectedBase ?? '') || exactHead === expectedBase ||
@@ -229,6 +242,10 @@ export const parseMinimalGovernanceAuthorityV1 = (body, repository, taskIssueNum
   ) throw new Error('minimal_governance_authority_invalid')
   return Object.freeze({
     recordType: MINIMAL_GOVERNANCE_RECORD_TYPE_V1,
+    authoringRole: 'Product Owner',
+    authorityActorLogin: MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.login,
+    authorityActorId: MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.id,
+    authorityActorType: MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.type,
     taskIssueNumber,
     prNumber,
     exactHead,
@@ -655,6 +672,7 @@ const acquireMergeCheckRollupSnapshotV1 = async (request, host, { stopOnPullHead
           conclusion: node.conclusion,
           details_url: detailsUrl,
           app_id: node.checkSuite?.app?.id ?? null,
+          app_database_id: node.checkSuite?.app?.databaseId ?? null,
           started_at: node.startedAt ?? null,
         }))
       } else if (node.__typename === 'StatusContext') {
@@ -2557,6 +2575,29 @@ export const executeReviewApprovalAutomationV1 = async ({ event, host, runId }) 
 const isMinimalGovernanceCandidateV1 = (body) =>
   typeof body === 'string' && /(?:^|\r?\n)record_type:[ \t]+(?:"minimal_governance_v1"|minimal_governance_v1)(?:\r?$)/m.test(body)
 
+const minimalGovernanceProductOwnerIdentityV1 = (raw) => Object.freeze({
+  login: raw?.user?.login ?? null,
+  id: raw?.user?.id ?? null,
+  type: raw?.user?.type ?? null,
+})
+
+const minimalGovernanceAuthorityActorIdentityV1 = (authority) => Object.freeze({
+  login: authority?.authorityActorLogin ?? null,
+  id: authority?.authorityActorId ?? null,
+  type: authority?.authorityActorType ?? null,
+})
+
+const assertMinimalGovernanceProductOwnerV1 = (raw, { requireAssociation = false } = {}) => {
+  const identity = minimalGovernanceProductOwnerIdentityV1(raw)
+  if (
+    identity.login !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.login ||
+    identity.id !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.id ||
+    identity.type !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.type ||
+    (requireAssociation && raw?.author_association !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.association)
+  ) throw new Error('minimal_governance_product_owner_identity_invalid')
+  return identity
+}
+
 const acquireMinimalGovernanceCommentHistoryV1 = async (request, host) => {
   const comments = []
   const identities = new Map()
@@ -2565,15 +2606,16 @@ const acquireMinimalGovernanceCommentHistoryV1 = async (request, host) => {
   for (let pageNumber = 1; pageNumber <= 32; pageNumber += 1) {
     const page = await api(host, `repos/${request.repository}/issues/${request.taskIssueNumber}/comments?sort=created&direction=asc&per_page=${PAGE_SIZE}&page=${pageNumber}`)
     if (!Array.isArray(page) || page.length > PAGE_SIZE) throw new Error('minimal_governance_comment_page_invalid')
-    const fingerprint = JSON.stringify(page.map((comment) => [comment?.id, comment?.created_at, comment?.author_association, comment?.body]))
+    const fingerprint = JSON.stringify(page.map((comment) => [comment?.id, comment?.created_at, comment?.author_association, comment?.user?.login, comment?.user?.id, comment?.user?.type, comment?.body]))
     if (page.length > 0 && pageFingerprints.has(fingerprint)) throw new Error('minimal_governance_comment_page_repeated')
     pageFingerprints.add(fingerprint)
     for (const comment of page) {
       if (
         !positiveInteger(comment?.id) || typeof comment.created_at !== 'string' || !STRICT_UTC.test(comment.created_at) ||
-        typeof comment.author_association !== 'string' || typeof comment.body !== 'string'
+        typeof comment.author_association !== 'string' || typeof comment.body !== 'string' ||
+        typeof comment.user?.login !== 'string' || !positiveInteger(comment.user?.id) || typeof comment.user?.type !== 'string'
       ) throw new Error('minimal_governance_comment_invalid')
-      const identity = JSON.stringify([comment.created_at, comment.author_association, comment.body])
+      const identity = JSON.stringify([comment.created_at, comment.author_association, comment.user.login, comment.user.id, comment.user.type, comment.body])
       const prior = identities.get(comment.id)
       if (prior !== undefined && prior !== identity) throw new Error('minimal_governance_comment_identity_conflict')
       if (prior === undefined) {
@@ -2582,6 +2624,7 @@ const acquireMinimalGovernanceCommentHistoryV1 = async (request, host) => {
           id: comment.id,
           created_at: comment.created_at,
           author_association: comment.author_association,
+          user: Object.freeze({ login: comment.user.login, id: comment.user.id, type: comment.user.type }),
           body: comment.body,
         }))
       }
@@ -2590,7 +2633,30 @@ const acquireMinimalGovernanceCommentHistoryV1 = async (request, host) => {
     if (page.length < PAGE_SIZE) break
     if (pageNumber === 32) throw new Error('minimal_governance_comment_terminal_page_missing')
   }
-  return Object.freeze({ comments: Object.freeze(comments), page_count: pageCount })
+  const rawBytes = Buffer.from(JSON.stringify(comments.map((comment) => [
+    comment.id, comment.created_at, comment.author_association,
+    comment.user.login, comment.user.id, comment.user.type, comment.body,
+  ])), 'utf8')
+  return Object.freeze({
+    comments: Object.freeze(comments),
+    page_count: pageCount,
+    raw_fingerprint_sha256: createHash('sha256').update(rawBytes).digest('hex'),
+  })
+}
+
+const acquireMinimalGovernanceTaskIdentityV1 = async (request, host) => {
+  const raw = validateTaskIdentityRawV1(
+    await api(host, `repos/${request.repository}/issues/${request.taskIssueNumber}`),
+    request,
+  )
+  const creator = assertMinimalGovernanceProductOwnerV1(raw)
+  return Object.freeze({
+    repository: request.repository,
+    number: raw.number,
+    state: raw.state,
+    is_pull_request: false,
+    creator,
+  })
 }
 
 const acquireMinimalGovernanceJobManifestV1 = async ({ request, host, runId, runAttempt, hostSha, jobName }) => {
@@ -2619,7 +2685,54 @@ const acquireMinimalGovernanceJobManifestV1 = async ({ request, host, runId, run
   if (RTO_SELF_JOB_NAMES_V1.some((name) => !manifest.has(name))) {
     throw new Error('minimal_governance_job_manifest_invalid')
   }
-  return Object.freeze(Object.fromEntries(manifest))
+  return Object.freeze({
+    repository: request.repository,
+    run_id: String(runId),
+    run_attempt: runAttempt,
+    host_sha: hostSha,
+    jobs: Object.freeze(Object.fromEntries(manifest)),
+  })
+}
+
+const projectMinimalGovernanceExternalChecksV1 = ({ request, checks, jobManifest }) => {
+  if (
+    jobManifest?.repository !== request.repository || jobManifest?.run_id !== request.currentWorkflowRunId ||
+    !positiveInteger(jobManifest?.run_attempt) || jobManifest?.host_sha !== request.expectedBase ||
+    Object.keys(jobManifest?.jobs ?? {}).sort().join('\n') !== [...RTO_SELF_JOB_NAMES_V1].sort().join('\n') ||
+    Object.values(jobManifest.jobs).some((jobId) => !WORKFLOW_RUN_ID.test(jobId)) ||
+    new Set(Object.values(jobManifest.jobs)).size !== RTO_SELF_JOB_NAMES_V1.length
+  ) throw new Error('minimal_governance_job_manifest_invalid')
+  const selected = selectCurrentCheckGenerationsV1(checks)
+  const currentPrefix = `https://github.com/${request.repository}/actions/runs/${jobManifest.run_id}/`
+  const external = []
+  for (const item of selected) {
+    const name = item.type === 'CheckRun' ? item.name : item.context
+    const rtoNamed = RTO_SELF_JOB_NAMES_V1.includes(name)
+    if (item.type !== 'CheckRun') {
+      if (rtoNamed) throw new Error('minimal_governance_same_run_check_identity_invalid')
+      external.push(item)
+      continue
+    }
+    const identity = parseRepositoryActionsJobIdentityV1(request, item)
+    const currentRunUrl = item.details_url?.startsWith(currentPrefix) === true
+    if (rtoNamed || currentRunUrl) {
+      if (
+        !rtoNamed || item.app_database_id !== GITHUB_ACTIONS_APP_DATABASE_ID_V1 || identity === null ||
+        identity.runId !== jobManifest.run_id || jobManifest.jobs[name] !== identity.jobId
+      ) throw new Error('minimal_governance_same_run_check_identity_invalid')
+      continue
+    }
+    external.push(item)
+  }
+  if (external.length === 0) throw new Error('minimal_governance_external_checks_missing')
+  if (external.some(readyCheckIsPendingV1)) throw new Error('minimal_governance_external_checks_not_terminal')
+  if (external.some(readyCheckHasFailedV1)) throw new Error('minimal_governance_external_checks_not_successful')
+  return Object.freeze(external.map((item) => Object.freeze(item.type === 'CheckRun'
+    ? {
+        type: item.type, id: item.id, name: item.name, status: item.status, conclusion: item.conclusion,
+        details_url: item.details_url, app_id: item.app_id, app_database_id: item.app_database_id, started_at: item.started_at,
+      }
+    : { type: item.type, id: item.id, context: item.context, state: item.state })))
 }
 
 const minimalGovernanceStoppedV1 = (request, reason, currentHead = request?.exactHead ?? null) => Object.freeze({
@@ -2645,10 +2758,15 @@ export const executeMinimalGovernanceV1 = async ({ event, host, runId, runAttemp
     if (typeof event.comment?.created_at !== 'string' || !STRICT_UTC.test(event.comment.created_at)) {
       throw new Error('minimal_governance_event_invalid')
     }
+    const eventActor = assertMinimalGovernanceProductOwnerV1(event.comment, { requireAssociation: true })
     if (roleTransitionMarkersV1(envelope.body).join('\n') !== MINIMAL_GOVERNANCE_AUTHORITY_KIND_V1) {
       throw new Error('minimal_governance_marker_conflict')
     }
     const authority = parseMinimalGovernanceAuthorityV1(envelope.body, envelope.repository, envelope.taskIssueNumber)
+    const authorityBodyActor = minimalGovernanceAuthorityActorIdentityV1(authority)
+    if (JSON.stringify(authorityBodyActor) !== JSON.stringify(eventActor)) {
+      throw new Error('minimal_governance_authority_tuple_invalid')
+    }
     request = Object.freeze({
       transition: MINIMAL_GOVERNANCE_RECORD_TYPE_V1,
       repository: envelope.repository,
@@ -2661,7 +2779,14 @@ export const executeMinimalGovernanceV1 = async ({ event, host, runId, runAttemp
     })
 
     const authorityFresh = await fetchRoleCommentRecordV1(request.repository, request.taskIssueNumber, envelope.commentId, host)
-    if (authorityFresh.body !== envelope.body) throw new Error('minimal_governance_authority_body_changed')
+    const authorityFreshActor = assertMinimalGovernanceProductOwnerV1(authorityFresh, { requireAssociation: true })
+    if (
+      authorityFresh.body !== envelope.body ||
+      JSON.stringify(authorityFreshActor) !== JSON.stringify(eventActor) ||
+      JSON.stringify(authorityFreshActor) !== JSON.stringify(authorityBodyActor)
+    ) {
+      throw new Error('minimal_governance_authority_body_changed')
+    }
 
     const pull = await acquireMergeGatePullV1(request, host)
     if (pull.head.sha !== request.exactHead) throw new Error('head_binding_stale')
@@ -2680,7 +2805,10 @@ export const executeMinimalGovernanceV1 = async ({ event, host, runId, runAttemp
       !Number.isSafeInteger(pull.changed_files) || pull.changed_files < 1
     ) throw new Error('minimal_governance_pull_binding_invalid')
 
-    const task = await acquireTaskIdentityV1(request, host)
+    const task = await acquireMinimalGovernanceTaskIdentityV1(request, host)
+    if (JSON.stringify(task.creator) !== JSON.stringify(authorityBodyActor)) {
+      throw new Error('minimal_governance_authority_tuple_invalid')
+    }
     const currentMain = await host.branchHead(request.repository, 'main')
     if (currentMain !== request.expectedBase) throw new Error('minimal_governance_expected_base_mismatch')
 
@@ -2688,9 +2816,10 @@ export const executeMinimalGovernanceV1 = async ({ event, host, runId, runAttemp
     const authorityCandidates = []
     for (const comment of history.comments) {
       if (!isMinimalGovernanceCandidateV1(comment.body)) continue
-      if (!REVIEW_ASSOCIATIONS.has(comment.author_association) || roleTransitionMarkersV1(comment.body).join('\n') !== MINIMAL_GOVERNANCE_AUTHORITY_KIND_V1) {
+      if (roleTransitionMarkersV1(comment.body).join('\n') !== MINIMAL_GOVERNANCE_AUTHORITY_KIND_V1) {
         throw new Error('minimal_governance_authority_conflict')
       }
+      const actor = assertMinimalGovernanceProductOwnerV1(comment, { requireAssociation: true })
       let parsed
       try {
         parsed = parseMinimalGovernanceAuthorityV1(comment.body, request.repository, request.taskIssueNumber)
@@ -2702,6 +2831,7 @@ export const executeMinimalGovernanceV1 = async ({ event, host, runId, runAttemp
         createdAt: comment.created_at,
         body: comment.body,
         authorAssociation: comment.author_association,
+        actor,
         authority: parsed,
       }))
     }
@@ -2709,6 +2839,9 @@ export const executeMinimalGovernanceV1 = async ({ event, host, runId, runAttemp
     const selectedAuthority = authorityCandidates[0]
     if (
       selectedAuthority.commentId !== envelope.commentId || selectedAuthority.body !== envelope.body ||
+      JSON.stringify(selectedAuthority.actor) !== JSON.stringify(eventActor) ||
+      JSON.stringify(selectedAuthority.actor) !== JSON.stringify(authorityBodyActor) ||
+      JSON.stringify(minimalGovernanceAuthorityActorIdentityV1(selectedAuthority.authority)) !== JSON.stringify(authorityBodyActor) ||
       selectedAuthority.authority.prNumber !== request.prNumber || selectedAuthority.authority.exactHead !== request.exactHead ||
       selectedAuthority.authority.expectedBase !== request.expectedBase ||
       selectedAuthority.authority.reviewCommentId !== authority.reviewCommentId ||
@@ -2763,23 +2896,13 @@ export const executeMinimalGovernanceV1 = async ({ event, host, runId, runAttemp
       throw new Error('minimal_governance_scope_mismatch')
     }
 
-    const currentWorkflowJobIds = await acquireMinimalGovernanceJobManifestV1({
+    const jobManifest = await acquireMinimalGovernanceJobManifestV1({
       request, host, runId: String(runId ?? ''), runAttempt, hostSha, jobName,
     })
-    const checkRequest = Object.freeze({ ...request, currentWorkflowJobIds })
+    const checkRequest = Object.freeze({ ...request, currentWorkflowJobIds: jobManifest.jobs })
     const checkSnapshot = await acquireMergeCheckRollupSnapshotV1(checkRequest, host, { stopOnPullHeadDrift: true })
     if (checkSnapshot.headRefOid !== request.exactHead) throw new Error('head_binding_stale')
-    const selectedChecks = selectCurrentCheckGenerationsV1(checkSnapshot.checks)
-    const currentChecks = selectedChecks.filter((item) => parseRepositoryActionsJobIdentityV1(checkRequest, item)?.runId === String(runId))
-    if (currentChecks.length === 0 || currentChecks.some((item) => {
-      const identity = parseRepositoryActionsJobIdentityV1(checkRequest, item)
-      return identity === null || currentWorkflowJobIds[item.name] !== identity.jobId
-    })) throw new Error('minimal_governance_same_run_check_identity_invalid')
-    const effectiveChecks = reduceSelfAwareCurrentChecksV1(checkRequest, checkSnapshot.checks)
-    const externalChecks = effectiveChecks.filter((item) => item.type !== 'CheckRun' || !RTO_SELF_JOB_NAMES_V1.includes(item.name))
-    if (externalChecks.length === 0) throw new Error('minimal_governance_external_checks_missing')
-    if (externalChecks.some(readyCheckIsPendingV1)) throw new Error('minimal_governance_external_checks_not_terminal')
-    if (externalChecks.some(readyCheckHasFailedV1)) throw new Error('minimal_governance_external_checks_not_successful')
+    const externalChecks = projectMinimalGovernanceExternalChecksV1({ request: checkRequest, checks: checkSnapshot.checks, jobManifest })
 
     const threadSnapshot = await acquireMergeReviewThreadsV1(request, host)
     if (
@@ -2801,17 +2924,16 @@ export const executeMinimalGovernanceV1 = async ({ event, host, runId, runAttemp
       expected_base: request.expectedBase,
       authority_comment_id: envelope.commentId,
       authority_body_sha256: createHash('sha256').update(Buffer.from(envelope.body, 'utf8')).digest('hex'),
+      authority_actor: eventActor,
       review_comment_id: confirmedReview.commentId,
       review_body_sha256: authority.reviewBodySha256,
       authorized_paths: authority.authorizedPaths,
       task_state: taskState,
       pull: Object.freeze({ state: pull.state, draft: pull.draft, merged: pull.merged, head: pull.head.sha, base: pull.base.sha, mergeable: pull.mergeable, mergeable_state: pull.mergeable_state }),
       task,
-      external_checks: Object.freeze(externalChecks.map((item) => Object.freeze({
-        id: item.id,
-        name: item.type === 'CheckRun' ? item.name : item.context,
-        state: item.type === 'CheckRun' ? item.conclusion : item.state,
-      }))),
+      external_checks: externalChecks,
+      job_manifest: jobManifest,
+      comment_history_fingerprint_sha256: history.raw_fingerprint_sha256,
       active_thread_count: 0,
       source_counts: Object.freeze({
         authority_refetch: 1, pull: 1, task: 1, main: 1, comment_history: 1, review_refetch: 1,
@@ -2838,6 +2960,173 @@ export const executeMinimalGovernanceV1 = async ({ event, host, runId, runAttemp
     })
   } catch (error) {
     return minimalGovernanceStoppedV1(request, error instanceof Error ? error.message : 'minimal_governance_failed')
+  }
+}
+
+const MINIMAL_GOVERNANCE_PLAN_KEYS_V1 = Object.freeze([
+  'allowed', 'authority_comment_id', 'authority_kind', 'authorized_paths', 'automation_status', 'current_head',
+  'exact_head', 'expected_base', 'exit_code', 'merge_method', 'mutation_count', 'next_action', 'operation_count',
+  'pr_number', 'protected_operation_count', 'reason', 'repository', 'sealed_snapshot_b64', 'snapshot_sha256',
+  'state', 'task_issue_number', 'terminal_result', 'transition',
+])
+const MINIMAL_GOVERNANCE_SNAPSHOT_KEYS_V1 = Object.freeze([
+  'active_thread_count', 'authority_actor', 'authority_body_sha256', 'authority_comment_id', 'authority_kind',
+  'authorized_paths', 'comment_history_fingerprint_sha256', 'exact_head', 'expected_base', 'external_checks',
+  'job_manifest', 'pr_number', 'pull', 'record_type', 'repository', 'review_body_sha256', 'review_comment_id',
+  'source_counts', 'task', 'task_issue_number', 'task_state',
+])
+
+const exactObjectKeysV1 = (value, expected) =>
+  value !== null && typeof value === 'object' && !Array.isArray(value) &&
+  Object.keys(value).sort().join('\n') === [...expected].sort().join('\n')
+
+const parseMinimalGovernanceMergePlanV1 = (plan) => {
+  if (
+    !exactObjectKeysV1(plan, MINIMAL_GOVERNANCE_PLAN_KEYS_V1) ||
+    plan.transition !== MINIMAL_GOVERNANCE_RECORD_TYPE_V1 || plan.state !== 'READY' || plan.allowed !== false ||
+    plan.exit_code !== 0 || plan.reason !== 'minimal_governance_satisfied' || plan.automation_status !== 'OPERATION_READY' ||
+    plan.next_action !== 'MERGE_OPERATOR' || plan.terminal_result !== MINIMAL_GOVERNANCE_AUTHORITY_KIND_V1 ||
+    plan.authority_kind !== MINIMAL_GOVERNANCE_AUTHORITY_KIND_V1 || !REPOSITORY.test(plan.repository ?? '') ||
+    !positiveInteger(plan.task_issue_number) || !positiveInteger(plan.pr_number) || !positiveInteger(plan.authority_comment_id) ||
+    !FULL_HEAD.test(plan.exact_head ?? '') || plan.current_head !== plan.exact_head ||
+    !FULL_HEAD.test(plan.expected_base ?? '') || plan.expected_base === plan.exact_head ||
+    !Array.isArray(plan.authorized_paths) || plan.authorized_paths.length === 0 ||
+    plan.authorized_paths.some((value) => !isNormalizedRepositoryPathV1(value)) ||
+    new Set(plan.authorized_paths).size !== plan.authorized_paths.length ||
+    plan.merge_method !== 'merge' || plan.operation_count !== 1 || plan.mutation_count !== 0 ||
+    plan.protected_operation_count !== 0 || !/^[0-9a-f]{64}$/.test(plan.snapshot_sha256 ?? '') ||
+    typeof plan.sealed_snapshot_b64 !== 'string' || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(plan.sealed_snapshot_b64)
+  ) throw new Error('minimal_governance_plan_invalid')
+  const snapshotBytes = Buffer.from(plan.sealed_snapshot_b64, 'base64')
+  if (snapshotBytes.length === 0 || createHash('sha256').update(snapshotBytes).digest('hex') !== plan.snapshot_sha256) {
+    throw new Error('minimal_governance_snapshot_seal_invalid')
+  }
+  let snapshot
+  try {
+    snapshot = JSON.parse(snapshotBytes.toString('utf8'))
+  } catch {
+    throw new Error('minimal_governance_snapshot_invalid')
+  }
+  if (
+    !exactObjectKeysV1(snapshot, MINIMAL_GOVERNANCE_SNAPSHOT_KEYS_V1) ||
+    snapshot.record_type !== 'minimal_governance_pre_operation_snapshot_v1' ||
+    snapshot.authority_kind !== MINIMAL_GOVERNANCE_AUTHORITY_KIND_V1 || snapshot.repository !== plan.repository ||
+    snapshot.task_issue_number !== plan.task_issue_number || snapshot.pr_number !== plan.pr_number ||
+    snapshot.exact_head !== plan.exact_head || snapshot.expected_base !== plan.expected_base ||
+    snapshot.authority_comment_id !== plan.authority_comment_id || snapshot.active_thread_count !== 0 ||
+    !exactObjectKeysV1(snapshot.authority_actor, ['login', 'id', 'type']) ||
+    snapshot.authority_actor?.login !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.login ||
+    snapshot.authority_actor?.id !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.id ||
+    snapshot.authority_actor?.type !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.type ||
+    !/^[0-9a-f]{64}$/.test(snapshot.authority_body_sha256 ?? '') ||
+    !/^[0-9a-f]{64}$/.test(snapshot.review_body_sha256 ?? '') ||
+    !/^[0-9a-f]{64}$/.test(snapshot.comment_history_fingerprint_sha256 ?? '') ||
+    !positiveInteger(snapshot.review_comment_id) ||
+    JSON.stringify(snapshot.authorized_paths) !== JSON.stringify(plan.authorized_paths) ||
+    !exactObjectKeysV1(snapshot.pull, ['state', 'draft', 'merged', 'head', 'base', 'mergeable', 'mergeable_state']) ||
+    snapshot.pull.state !== 'open' || snapshot.pull.draft !== false || snapshot.pull.merged !== false ||
+    snapshot.pull.head !== plan.exact_head || snapshot.pull.base !== plan.expected_base || snapshot.pull.mergeable !== true ||
+    !exactObjectKeysV1(snapshot.task, ['repository', 'number', 'state', 'is_pull_request', 'creator']) ||
+    !exactObjectKeysV1(snapshot.task?.creator, ['login', 'id', 'type']) ||
+    snapshot.task.repository !== plan.repository || snapshot.task.number !== plan.task_issue_number ||
+    snapshot.task.state !== 'open' || snapshot.task.is_pull_request !== false ||
+    snapshot.task.creator.login !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.login ||
+    snapshot.task.creator.id !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.id ||
+    snapshot.task.creator.type !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.type ||
+    !Array.isArray(snapshot.external_checks) || snapshot.external_checks.length === 0 ||
+    !exactObjectKeysV1(snapshot.job_manifest, ['repository', 'run_id', 'run_attempt', 'host_sha', 'jobs']) ||
+    snapshot.job_manifest.repository !== plan.repository || snapshot.job_manifest.host_sha !== plan.expected_base ||
+    !WORKFLOW_RUN_ID.test(snapshot.job_manifest.run_id ?? '') || !positiveInteger(snapshot.job_manifest.run_attempt) ||
+    snapshot.task_state?.task_issue_number !== plan.task_issue_number || snapshot.task_state?.pr_number !== plan.pr_number ||
+    snapshot.task_state?.observed_head !== plan.exact_head || snapshot.task_state?.reviewed_head !== plan.exact_head ||
+    snapshot.task_state?.review_status !== 'APPROVE' || snapshot.task_state?.review_blocker_count !== 0 ||
+    !exactObjectKeysV1(snapshot.source_counts, ['authority_refetch', 'pull', 'task', 'main', 'comment_history', 'review_refetch', 'scope', 'job_manifest', 'checks', 'threads']) ||
+    Object.values(snapshot.source_counts).some((value) => value !== 1)
+  ) throw new Error('minimal_governance_snapshot_binding_invalid')
+  return Object.freeze({ plan: Object.freeze(plan), snapshot: Object.freeze(snapshot) })
+}
+
+const minimalGovernanceFinalGuardStoppedV1 = (plan, reason) => Object.freeze({
+  transition: 'minimal_governance_final_drift_guard_v1',
+  state: 'STOP',
+  allowed: false,
+  exit_code: 1,
+  reason,
+  task_issue_number: plan?.task_issue_number ?? null,
+  pr_number: plan?.pr_number ?? null,
+  exact_head: plan?.exact_head ?? null,
+  next_action: 'STOP',
+  mutation_count: 0,
+  protected_operation_count: 0,
+})
+
+export const executeMinimalGovernanceFinalDriftGuardV1 = async ({ plan: planInput, host }) => {
+  let plan = null
+  try {
+    const parsed = parseMinimalGovernanceMergePlanV1(planInput)
+    plan = parsed.plan
+    const snapshot = parsed.snapshot
+    const request = Object.freeze({
+      repository: plan.repository,
+      taskIssueNumber: plan.task_issue_number,
+      prNumber: plan.pr_number,
+      exactHead: plan.exact_head,
+      expectedBase: plan.expected_base,
+      currentWorkflowRunId: snapshot.job_manifest?.run_id,
+    })
+    if (await host.branchHead(request.repository, 'main') !== request.expectedBase) {
+      throw new Error('minimal_governance_final_main_drift')
+    }
+    const pull = await acquireMergeGatePullV1(request, host)
+    if (
+      pull.state !== 'open' || pull.draft || pull.merged !== false || pull.head.sha !== request.exactHead ||
+      pull.base?.ref !== 'main' || pull.base?.sha !== request.expectedBase || pull.mergeable !== true ||
+      !['clean', 'unstable'].includes(pull.mergeable_state)
+    ) throw new Error('minimal_governance_final_pull_drift')
+    const taskState = extractProtectedTransitionTaskStateV1(pull.body)
+    if (JSON.stringify(taskState) !== JSON.stringify(snapshot.task_state)) {
+      throw new Error('minimal_governance_final_task_state_drift')
+    }
+    const task = await acquireMinimalGovernanceTaskIdentityV1(request, host)
+    if (JSON.stringify(task) !== JSON.stringify(snapshot.task)) throw new Error('minimal_governance_final_task_drift')
+
+    const authority = await fetchRoleCommentRecordV1(request.repository, request.taskIssueNumber, plan.authority_comment_id, host)
+    const authorityActor = assertMinimalGovernanceProductOwnerV1(authority, { requireAssociation: true })
+    if (
+      JSON.stringify(authorityActor) !== JSON.stringify(snapshot.authority_actor) ||
+      createHash('sha256').update(Buffer.from(authority.body, 'utf8')).digest('hex') !== snapshot.authority_body_sha256
+    ) throw new Error('minimal_governance_final_authority_drift')
+    const review = await fetchRoleCommentRecordV1(request.repository, request.taskIssueNumber, snapshot.review_comment_id, host)
+    if (createHash('sha256').update(Buffer.from(review.body, 'utf8')).digest('hex') !== snapshot.review_body_sha256) {
+      throw new Error('minimal_governance_final_review_drift')
+    }
+    const history = await acquireMinimalGovernanceCommentHistoryV1(request, host)
+    if (history.raw_fingerprint_sha256 !== snapshot.comment_history_fingerprint_sha256) {
+      throw new Error('minimal_governance_final_history_drift')
+    }
+    const checkSnapshot = await acquireMergeCheckRollupSnapshotV1(request, host, { stopOnPullHeadDrift: true })
+    const externalChecks = projectMinimalGovernanceExternalChecksV1({
+      request,
+      checks: checkSnapshot.checks,
+      jobManifest: snapshot.job_manifest,
+    })
+    if (JSON.stringify(externalChecks) !== JSON.stringify(snapshot.external_checks)) {
+      throw new Error('minimal_governance_final_checks_drift')
+    }
+    const threads = await acquireMergeReviewThreadsV1(request, host)
+    if (
+      threads.pull.state !== 'OPEN' || threads.pull.isDraft || threads.pull.headRefOid !== request.exactHead ||
+      threads.pull.mergeable !== 'MERGEABLE' || !['CLEAN', 'UNSTABLE'].includes(threads.pull.mergeStateStatus) ||
+      threads.threads.some((thread) => !thread.isResolved && !thread.isOutdated)
+    ) throw new Error('minimal_governance_final_threads_drift')
+    return Object.freeze({
+      transition: 'minimal_governance_final_drift_guard_v1', state: 'MATCH', allowed: false, exit_code: 0,
+      reason: 'minimal_governance_final_drift_guard_matched', task_issue_number: request.taskIssueNumber,
+      pr_number: request.prNumber, exact_head: request.exactHead, next_action: 'MERGE_PR', merge_method: 'merge',
+      mutation_count: 0, protected_operation_count: 0,
+    })
+  } catch (error) {
+    return minimalGovernanceFinalGuardStoppedV1(plan, error instanceof Error ? error.message : 'minimal_governance_final_guard_failed')
   }
 }
 
@@ -4623,6 +4912,9 @@ const parseInvocation = (argv, environment) => {
   if (argv.length === 2 && argv[0] === '--merge-operator-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
     return Object.freeze({ mode: 'merge_operator', dispatchFile: argv[1] })
   }
+  if (argv.length === 2 && argv[0] === '--minimal-governance-drift-guard-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
+    return Object.freeze({ mode: 'minimal_governance_drift_guard', planFile: argv[1] })
+  }
   if (
     (argv.length === 4 || argv.length === 6) &&
     argv[0] === '--role-output-file' && typeof argv[1] === 'string' && argv[1].length > 0 &&
@@ -4842,6 +5134,11 @@ const main = async () => {
             : invocation.mode === 'merge_operator'
               ? await executeMergeOperatorV1({
                   dispatch: readJsonFileV1(invocation.dispatchFile),
+                  host: executionHost,
+                })
+            : invocation.mode === 'minimal_governance_drift_guard'
+              ? await executeMinimalGovernanceFinalDriftGuardV1({
+                  plan: readJsonFileV1(invocation.planFile),
                   host: executionHost,
                 })
             : invocation.mode === 'role_output'
