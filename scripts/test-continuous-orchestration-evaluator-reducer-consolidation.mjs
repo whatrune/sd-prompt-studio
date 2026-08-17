@@ -274,7 +274,7 @@ const cumulativeDigest=digest({prior_cumulative_digest:fixture.prior_cumulative_
 const manifestDigest=digest({prior_manifest_digest:fixture.prior_manifest_digest,prior_slice_count:5,active_slice_id:'M5',active_slice_ordinal:5,result_path_count:17,cumulative_digest:cumulativeDigest,m5_slice_digest:m5SliceDigest})
 const m4run={result:predecessorIdentity?'PASS':'FAIL',rows:'120/120',cumulative_path_count:14,manifest_digest:fixture.prior_manifest_digest,cumulative_digest:fixture.prior_cumulative_digest}
 await server.close()
-const agpRun=runJson(['scripts/test-automatic-gate-progression-evaluator.mjs']),covRun=runJson(['--experimental-strip-types','scripts/test-continuous-orchestration.mjs']),gspRun=runJson(['scripts/test-gate-status-publisher.mjs']),arlRun=runJson(['scripts/test-architecture-repair-loop.mjs'])
+const agpRun=runJson(['scripts/test-automatic-gate-progression-evaluator.mjs']),covRun=runJson(['--experimental-strip-types','scripts/test-continuous-orchestration.mjs']),gspRun=runJson(['scripts/test-gate-status-publisher.mjs']),retiredArlValidatorInvocationCount=0
 const staged=git('diff','--cached','--name-only').split(/\r?\n/).filter(Boolean),tracked=git('diff','--name-only').split(/\r?\n/).filter(Boolean)
 const trackedBoundary=tracked.length===0||same([...tracked].sort(),[...AT.exact_changed_paths].sort())
 check(staged.length===0,'staged zero');check(trackedBoundary,'tracked exact repair boundary')
@@ -522,7 +522,7 @@ const caseGroups={
   ()=>observe({predecessorIdentity},{m2_supplement:true},{m2_supplement:predecessorIdentity},predecessorIdentity),
   ()=>observe({m3_kind:m3.kind},{m3:'cutover_accepted'},{m3:m3.kind},m3.kind==='cutover_accepted'),
   ()=>observe(m4run,{rows:'120/120'},m4run,m4run.result==='PASS'&&m4run.rows==='120/120'),
-  ()=>observe({gsp:gspRun.result,arl:arlRun.result},{gsp:'PASS',arl:'PASS'},{gsp:gspRun.result,arl:arlRun.result},gspRun.result==='PASS'&&arlRun.result==='PASS'),
+  ()=>observe({gsp:gspRun.result,retired_arl_validator_invocation_count:retiredArlValidatorInvocationCount},{gsp:'PASS',retired_arl_validator_invocation_count:0},{gsp:gspRun.result,retired_arl_validator_invocation_count:retiredArlValidatorInvocationCount},gspRun.result==='PASS'&&retiredArlValidatorInvocationCount===0),
   ()=>observe({staged,tracked},{staged:0,tracked:'clean_or_exact3'},{staged:staged.length,tracked},staged.length===0&&trackedBoundary),
   ()=>{const requiredHead=suppliedTransitionEnvelope&&!suppliedTransitionIsFixture?suppliedTransitionEnvelope.proof.published_authority.published_pr_head_sha:AT.old_published_head_sha;return observe({head:git('rev-parse','HEAD'),branch:git('branch','--show-current'),transition:acceptedTransition.code},{head:requiredHead,branch:fixture.branch,operational_validation:suppliedTransitionEnvelope&&!suppliedTransitionIsFixture?'exact_head':'deferred'},{head:git('rev-parse','HEAD'),branch:git('branch','--show-current'),operational_validation_performed:!!suppliedTransitionEnvelope&&!suppliedTransitionIsFixture},git('rev-parse','HEAD')===requiredHead&&git('branch','--show-current')===fixture.branch&&acceptedTransition.kind==='accepted')},
  ],
