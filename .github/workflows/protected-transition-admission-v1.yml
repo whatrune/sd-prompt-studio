@@ -30,6 +30,7 @@ name: Protected Transition Admission V1
       - ready_for_review
 
 permissions:
+  actions: read
   contents: read
   checks: read
   issues: read
@@ -56,6 +57,8 @@ jobs:
       role_exact_head: ${{ steps.evaluate.outputs.role_exact_head }}
       terminal_result: ${{ steps.evaluate.outputs.terminal_result }}
       source_comment_id: ${{ steps.evaluate.outputs.source_comment_id }}
+      authority_kind: ${{ steps.evaluate.outputs.authority_kind }}
+      minimal_merge_plan_b64: ${{ steps.evaluate.outputs.minimal_merge_plan_b64 }}
     steps:
       - name: Admit exact default-branch host identity
         shell: bash
@@ -123,7 +126,13 @@ jobs:
             fs.appendFileSync(output, `next_action=${result.next_action ?? "NONE"}\n`);
             fs.appendFileSync(output, `terminal_result=${result.terminal_result ?? "NONE"}\n`);
             fs.appendFileSync(output, `source_comment_id=${result.source_comment_id ?? ""}\n`);
-            if (["IMPLEMENTER", "PRODUCT_OWNER_IMPLEMENTATION_LEAD", "INDEPENDENT_IMPLEMENTATION_REVIEWER", "MERGE_OPERATOR"].includes(result.next_action)) {
+            if (result.next_action === "MERGE_OPERATOR" && result.authority_kind === "MINIMAL_GOVERNANCE_V1") {
+              const exactKeys = ["allowed", "authority_comment_id", "authority_kind", "authorized_paths", "automation_status", "current_head", "exact_head", "expected_base", "exit_code", "merge_method", "mutation_count", "next_action", "operation_count", "pr_number", "protected_operation_count", "reason", "repository", "sealed_snapshot_b64", "snapshot_sha256", "state", "task_issue_number", "terminal_result", "transition"];
+              if (Object.keys(result).sort().join("\n") !== exactKeys.sort().join("\n") || result.terminal_result !== "MINIMAL_GOVERNANCE_V1" || result.exact_head !== result.current_head || result.merge_method !== "merge" || result.operation_count !== 1) throw new Error("minimal_governance_projection_invalid");
+              fs.appendFileSync(output, `authority_kind=MINIMAL_GOVERNANCE_V1\n`);
+              fs.appendFileSync(output, `role_exact_head=${result.exact_head}\n`);
+              fs.appendFileSync(output, `minimal_merge_plan_b64=${Buffer.from(JSON.stringify(result)).toString("base64")}\n`);
+            } else if (["IMPLEMENTER", "PRODUCT_OWNER_IMPLEMENTATION_LEAD", "INDEPENDENT_IMPLEMENTATION_REVIEWER", "MERGE_OPERATOR"].includes(result.next_action)) {
               if (!result.role_dispatch || result.role_dispatch.next_action !== result.next_action || result.role_dispatch.exact_head !== result.current_head) throw new Error("role_dispatch_projection_invalid");
               fs.appendFileSync(output, `role_exact_head=${result.role_dispatch.exact_head}\n`);
               fs.appendFileSync(output, `role_dispatch_b64=${Buffer.from(JSON.stringify(result.role_dispatch)).toString("base64")}\n`);
@@ -592,7 +601,7 @@ jobs:
 
   protected_transition_merge_operator_v1:
     needs: protected_transition_admission_v1
-    if: needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR'
+    if: needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR' && (needs.protected_transition_admission_v1.outputs.terminal_result == 'MERGE_ALLOWED' || needs.protected_transition_admission_v1.outputs.terminal_result == 'MINIMAL_GOVERNANCE_V1')
     runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 15
     steps:
@@ -638,9 +647,43 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ROLE_DISPATCH_B64: ${{ needs.protected_transition_admission_v1.outputs.role_dispatch_b64 }}
+          MINIMAL_MERGE_PLAN_B64: ${{ needs.protected_transition_admission_v1.outputs.minimal_merge_plan_b64 }}
+          MERGE_TERMINAL_RESULT: ${{ needs.protected_transition_admission_v1.outputs.terminal_result }}
+          MERGE_AUTHORITY_KIND: ${{ needs.protected_transition_admission_v1.outputs.authority_kind }}
         run: |
           $ErrorActionPreference = 'Stop'
           $utf8NoBom = [Text.UTF8Encoding]::new($false)
+          function Read-MinimalGovernancePlan {
+            if ($env:MERGE_TERMINAL_RESULT -cne 'MINIMAL_GOVERNANCE_V1' -or $env:MERGE_AUTHORITY_KIND -cne 'MINIMAL_GOVERNANCE_V1' -or [string]::IsNullOrWhiteSpace($env:MINIMAL_MERGE_PLAN_B64)) { throw 'minimal_governance_plan_missing' }
+            $planBytes = [Convert]::FromBase64String($env:MINIMAL_MERGE_PLAN_B64)
+            $plan = [Text.Encoding]::UTF8.GetString($planBytes) | ConvertFrom-Json
+            $expectedPlanFields = @('allowed','authority_comment_id','authority_kind','authorized_paths','automation_status','current_head','exact_head','expected_base','exit_code','merge_method','mutation_count','next_action','operation_count','pr_number','protected_operation_count','reason','repository','sealed_snapshot_b64','snapshot_sha256','state','task_issue_number','terminal_result','transition') | Sort-Object
+            $actualPlanFields = @($plan.psobject.Properties.Name | Sort-Object)
+            if (($actualPlanFields -join "`n") -cne ($expectedPlanFields -join "`n")) { throw 'minimal_governance_plan_fields_invalid' }
+            if ($plan.transition -cne 'minimal_governance_v1' -or $plan.authority_kind -cne 'MINIMAL_GOVERNANCE_V1' -or $plan.terminal_result -cne 'MINIMAL_GOVERNANCE_V1' -or $plan.next_action -cne 'MERGE_OPERATOR' -or $plan.automation_status -cne 'OPERATION_READY' -or $plan.state -cne 'READY' -or $plan.reason -cne 'minimal_governance_satisfied' -or $plan.allowed -ne $false -or $plan.exit_code -ne 0 -or $plan.merge_method -cne 'merge' -or $plan.operation_count -ne 1 -or $plan.mutation_count -ne 0 -or $plan.protected_operation_count -ne 0 -or $plan.repository -cne $env:GITHUB_REPOSITORY -or $plan.task_issue_number -lt 1 -or $plan.pr_number -lt 1 -or $plan.authority_comment_id -lt 1 -or $plan.exact_head -cne '${{ needs.protected_transition_admission_v1.outputs.role_exact_head }}' -or $plan.current_head -cne $plan.exact_head -or $plan.expected_base -cnotmatch '^[0-9a-f]{40}$' -or $plan.snapshot_sha256 -cnotmatch '^[0-9a-f]{64}$') { throw 'minimal_governance_plan_invalid' }
+            $snapshotBytes = [Convert]::FromBase64String([string]$plan.sealed_snapshot_b64)
+            $sha256 = [Security.Cryptography.SHA256]::Create()
+            try { $snapshotSha = ([BitConverter]::ToString($sha256.ComputeHash($snapshotBytes))).Replace('-', '').ToLowerInvariant() } finally { $sha256.Dispose() }
+            if ($snapshotSha -cne $plan.snapshot_sha256) { throw 'minimal_governance_snapshot_seal_invalid' }
+            $snapshot = [Text.Encoding]::UTF8.GetString($snapshotBytes) | ConvertFrom-Json
+            $expectedSnapshotFields = @('active_thread_count','authority_actor','authority_body_sha256','authority_comment_id','authority_kind','authorized_paths','comment_history_fingerprint_sha256','exact_head','expected_base','external_checks','job_manifest','pr_number','pull','record_type','repository','review_body_sha256','review_comment_id','source_counts','task','task_issue_number','task_state') | Sort-Object
+            $actualSnapshotFields = @($snapshot.psobject.Properties.Name | Sort-Object)
+            if (($actualSnapshotFields -join "`n") -cne ($expectedSnapshotFields -join "`n") -or $snapshot.record_type -cne 'minimal_governance_pre_operation_snapshot_v1' -or $snapshot.authority_kind -cne 'MINIMAL_GOVERNANCE_V1' -or $snapshot.repository -cne $plan.repository -or $snapshot.task_issue_number -ne $plan.task_issue_number -or $snapshot.pr_number -ne $plan.pr_number -or $snapshot.exact_head -cne $plan.exact_head -or $snapshot.expected_base -cne $plan.expected_base -or $snapshot.authority_comment_id -ne $plan.authority_comment_id -or $snapshot.active_thread_count -ne 0 -or $snapshot.pull.state -cne 'open' -or $snapshot.pull.draft -ne $false -or $snapshot.pull.merged -ne $false -or $snapshot.pull.head -cne $plan.exact_head -or $snapshot.pull.base -cnotmatch '^[0-9a-f]{40}$' -or $snapshot.pull.mergeable -ne $true) { throw 'minimal_governance_snapshot_binding_invalid' }
+            $expectedSourceCountFields = @('authority_refetch','pull','task','main','comment_history','review_refetch','scope','job_manifest','checks','threads') | Sort-Object
+            $actualSourceCountFields = @($snapshot.source_counts.psobject.Properties.Name | Sort-Object)
+            if (($actualSourceCountFields -join "`n") -cne ($expectedSourceCountFields -join "`n") -or @($snapshot.source_counts.psobject.Properties.Value | Where-Object { $_ -ne 1 }).Count -ne 0) { throw 'minimal_governance_snapshot_source_count_invalid' }
+            if ($snapshot.authority_body_sha256 -cnotmatch '^[0-9a-f]{64}$' -or $snapshot.review_body_sha256 -cnotmatch '^[0-9a-f]{64}$' -or $snapshot.comment_history_fingerprint_sha256 -cnotmatch '^[0-9a-f]{64}$' -or $snapshot.review_comment_id -lt 1 -or $snapshot.authority_actor.login -cne 'whatrune' -or $snapshot.authority_actor.id -ne 47842632 -or $snapshot.authority_actor.type -cne 'User' -or @($snapshot.external_checks).Count -lt 1 -or @($snapshot.external_checks | Where-Object { ($_.type -ceq 'CheckRun' -and ($_.status -cne 'COMPLETED' -or $_.conclusion -cne 'SUCCESS')) -or ($_.type -ceq 'StatusContext' -and $_.state -cne 'SUCCESS') -or $_.type -cnotin @('CheckRun','StatusContext') }).Count -ne 0 -or $snapshot.task.number -ne $plan.task_issue_number -or $snapshot.task.state -cne 'open' -or $snapshot.task.is_pull_request -ne $false -or $snapshot.task.creator.login -cne 'whatrune' -or $snapshot.task.creator.id -ne 47842632 -or $snapshot.task.creator.type -cne 'User' -or $snapshot.task_state.task_issue_number -ne $plan.task_issue_number -or $snapshot.task_state.pr_number -ne $plan.pr_number -or $snapshot.task_state.observed_head -cne $plan.exact_head -or $snapshot.task_state.reviewed_head -cne $plan.exact_head -or $snapshot.task_state.review_status -cne 'APPROVE' -or $snapshot.task_state.review_blocker_count -ne 0 -or $snapshot.job_manifest.repository -cne $plan.repository -or $snapshot.job_manifest.run_id -cnotmatch '^[1-9][0-9]*$' -or $snapshot.job_manifest.run_attempt -lt 1 -or $snapshot.job_manifest.host_sha -cne $plan.expected_base) { throw 'minimal_governance_snapshot_evidence_invalid' }
+            if (@($plan.authorized_paths).Count -eq 0 -or (@($plan.authorized_paths | Sort-Object) -join "`n") -cne (@($snapshot.authorized_paths | Sort-Object) -join "`n")) { throw 'minimal_governance_scope_binding_invalid' }
+            return $plan
+          }
+          if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1') {
+            $plan = Read-MinimalGovernancePlan
+            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "operation=MERGE_PR$([Environment]::NewLine)", $utf8NoBom)
+            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "pr_number=$($plan.pr_number)$([Environment]::NewLine)", $utf8NoBom)
+            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "exact_head=$($plan.exact_head)$([Environment]::NewLine)", $utf8NoBom)
+            exit 0
+          }
+          if ($env:MERGE_TERMINAL_RESULT -cne 'MERGE_ALLOWED' -or -not [string]::IsNullOrWhiteSpace($env:MINIMAL_MERGE_PLAN_B64) -or -not [string]::IsNullOrWhiteSpace($env:MERGE_AUTHORITY_KIND)) { throw 'merge_operator_authority_projection_invalid' }
           $dispatchPath = Join-Path $env:RUNNER_TEMP 'merge-dispatch.json'
           $planPath = Join-Path $env:RUNNER_TEMP 'merge-plan.json'
           [IO.File]::WriteAllBytes($dispatchPath, [Convert]::FromBase64String($env:ROLE_DISPATCH_B64))
@@ -664,17 +707,39 @@ jobs:
           MERGE_PR_NUMBER: ${{ steps.merge_plan.outputs.pr_number }}
           MERGE_EXACT_HEAD: ${{ steps.merge_plan.outputs.exact_head }}
           ROLE_DISPATCH_B64: ${{ needs.protected_transition_admission_v1.outputs.role_dispatch_b64 }}
+          MINIMAL_MERGE_PLAN_B64: ${{ needs.protected_transition_admission_v1.outputs.minimal_merge_plan_b64 }}
+          MERGE_TERMINAL_RESULT: ${{ needs.protected_transition_admission_v1.outputs.terminal_result }}
+          MERGE_AUTHORITY_KIND: ${{ needs.protected_transition_admission_v1.outputs.authority_kind }}
         run: |
           $ErrorActionPreference = 'Stop'
           $priorToken = $env:GH_TOKEN
           try {
-            $dispatchPath = Join-Path $env:RUNNER_TEMP 'merge-dispatch-final.json'
-            $planPath = Join-Path $env:RUNNER_TEMP 'merge-plan-final.json'
-            [IO.File]::WriteAllBytes($dispatchPath, [Convert]::FromBase64String($env:ROLE_DISPATCH_B64))
-            node $env:PTA_MERGE_HOST_RUNNER --merge-operator-file $dispatchPath 1> $planPath
-            if ($LASTEXITCODE -ne 0) { throw 'merge_operator_final_rebind_failed' }
-            $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json
-            if ($plan.next_action -cne 'MERGE_PR' -or $plan.merge_method -cne 'merge' -or $plan.pr_number -ne [int]$env:MERGE_PR_NUMBER -or $plan.exact_head -cne $env:MERGE_EXACT_HEAD) { throw 'merge_operator_final_plan_invalid' }
+            if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1') {
+              if ($env:MERGE_AUTHORITY_KIND -cne 'MINIMAL_GOVERNANCE_V1' -or [string]::IsNullOrWhiteSpace($env:MINIMAL_MERGE_PLAN_B64)) { throw 'minimal_governance_final_plan_missing' }
+              $plan = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:MINIMAL_MERGE_PLAN_B64)) | ConvertFrom-Json
+              $snapshotBytes = [Convert]::FromBase64String([string]$plan.sealed_snapshot_b64)
+              $sha256 = [Security.Cryptography.SHA256]::Create()
+              try { $snapshotSha = ([BitConverter]::ToString($sha256.ComputeHash($snapshotBytes))).Replace('-', '').ToLowerInvariant() } finally { $sha256.Dispose() }
+              if ($plan.authority_kind -cne 'MINIMAL_GOVERNANCE_V1' -or $plan.terminal_result -cne 'MINIMAL_GOVERNANCE_V1' -or $plan.next_action -cne 'MERGE_OPERATOR' -or $plan.merge_method -cne 'merge' -or $plan.operation_count -ne 1 -or $plan.pr_number -ne [int]$env:MERGE_PR_NUMBER -or $plan.exact_head -cne $env:MERGE_EXACT_HEAD -or $snapshotSha -cne $plan.snapshot_sha256) { throw 'minimal_governance_final_plan_invalid' }
+              $guardPlanPath = Join-Path $env:RUNNER_TEMP 'minimal-governance-final-guard-plan.json'
+              $guardResultPath = Join-Path $env:RUNNER_TEMP 'minimal-governance-final-guard-result.json'
+              [IO.File]::WriteAllBytes($guardPlanPath, [Convert]::FromBase64String($env:MINIMAL_MERGE_PLAN_B64))
+              node $env:PTA_MERGE_HOST_RUNNER --minimal-governance-drift-guard-file $guardPlanPath 1> $guardResultPath
+              if ($LASTEXITCODE -ne 0) { throw 'minimal_governance_final_drift_guard_failed' }
+              $guard = Get-Content -LiteralPath $guardResultPath -Raw -Encoding utf8 | ConvertFrom-Json
+              $expectedGuardFields = @('allowed','exact_head','exit_code','merge_method','mutation_count','next_action','pr_number','protected_operation_count','reason','state','task_issue_number','transition') | Sort-Object
+              $actualGuardFields = @($guard.psobject.Properties.Name | Sort-Object)
+              if (($actualGuardFields -join "`n") -cne ($expectedGuardFields -join "`n") -or $guard.transition -cne 'minimal_governance_final_drift_guard_v1' -or $guard.state -cne 'MATCH' -or $guard.allowed -ne $false -or $guard.exit_code -ne 0 -or $guard.reason -cne 'minimal_governance_final_drift_guard_matched' -or $guard.next_action -cne 'MERGE_PR' -or $guard.merge_method -cne 'merge' -or $guard.pr_number -ne [int]$env:MERGE_PR_NUMBER -or $guard.exact_head -cne $env:MERGE_EXACT_HEAD -or $guard.mutation_count -ne 0 -or $guard.protected_operation_count -ne 0) { throw 'minimal_governance_final_drift_guard_invalid' }
+            } else {
+              if ($env:MERGE_TERMINAL_RESULT -cne 'MERGE_ALLOWED' -or -not [string]::IsNullOrWhiteSpace($env:MINIMAL_MERGE_PLAN_B64) -or -not [string]::IsNullOrWhiteSpace($env:MERGE_AUTHORITY_KIND)) { throw 'merge_operator_authority_projection_invalid' }
+              $dispatchPath = Join-Path $env:RUNNER_TEMP 'merge-dispatch-final.json'
+              $planPath = Join-Path $env:RUNNER_TEMP 'merge-plan-final.json'
+              [IO.File]::WriteAllBytes($dispatchPath, [Convert]::FromBase64String($env:ROLE_DISPATCH_B64))
+              node $env:PTA_MERGE_HOST_RUNNER --merge-operator-file $dispatchPath 1> $planPath
+              if ($LASTEXITCODE -ne 0) { throw 'merge_operator_final_rebind_failed' }
+              $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json
+              if ($plan.next_action -cne 'MERGE_PR' -or $plan.merge_method -cne 'merge' -or $plan.pr_number -ne [int]$env:MERGE_PR_NUMBER -or $plan.exact_head -cne $env:MERGE_EXACT_HEAD) { throw 'merge_operator_final_plan_invalid' }
+            }
             Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
             $payload = @{ sha = $env:MERGE_EXACT_HEAD; merge_method = 'merge' } | ConvertTo-Json -Compress
             $merged = $payload | gh api --method PUT "repos/$($env:GITHUB_REPOSITORY)/pulls/$($env:MERGE_PR_NUMBER)/merge" --input - | ConvertFrom-Json

@@ -23,6 +23,9 @@ import {
   classifyRoleOutputFailureDiagnosticV1,
   executeRoleDispatchConsumerV1,
   executeRoleDispatchRebindV1,
+  executeManualProgressionControllerV1,
+  executeMinimalGovernanceFinalDriftGuardV1,
+  executeMinimalGovernanceV1,
   executeRepairExecutorV1,
   executeReadyForReviewProgressionV1,
   executeReviewApprovalAutomationV1 as executeReviewApprovalAutomationProductionV1,
@@ -34,6 +37,7 @@ import {
   normalizeRoleTransitionEventV1,
   parseProductOwnerMergeDecisionV1,
   parseIndependentReviewDecisionProjectionV1,
+  parseMinimalGovernanceAuthorityV1,
   parseReviewApprovalEventV1,
   projectIndependentReviewerFailureEvidenceV1,
   projectRoleOutputFailureDiagnosticV1,
@@ -50,9 +54,11 @@ const REPOSITORY = 'whatrune/sd-prompt-studio'
 const TASK = 259
 const PR = 260
 const HEAD = 'a'.repeat(40)
-const OTHER_HEAD = 'b'.repeat(40)
+const OTHER_HEAD = '3b19e86982701f7cffbe42d4d3568ad498bc016f'
 const READY_RUN_ID = '31246327840'
-const REVIEW_RUN_ID = '31561746789'
+const REVIEW_RUN_ID = '32025890230'
+const CUMULATIVE_PR_BASE = 'eaed40ca274b6d05e03e15c87cca00b3d8b1df68'
+const CORRECTION_REBASE_BASE = '817bbc7bdcff5b11fbe333053338fa33ce664350'
 const BASE = '9fda08907ff21c5c596146b779d7feeac5efbfa8'
 const HOST_RUNNER_BINDING_BASE = '3631d84351a49088baaadb5b3445751a7bf0b44e'
 const HOST_RUNNER_BINDING_HEAD = '35b7849840a2a9191f4ebf56bf83e145725a6dfa'
@@ -689,7 +695,7 @@ for (const unit of roleUnits) {
 
 check(Object.keys(workflow.on).join(',') === 'workflow_dispatch,issue_comment,pull_request' && workflow.on.issue_comment.types.join(',') === 'created' && workflow.on.pull_request.types.join(',') === 'ready_for_review', 'workflow has manual recovery, created Review, and Ready triggers')
 check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number', 'workflow has exactly four inputs and canonicalizes the Task input as a number')
-check(Object.keys(workflow.permissions).join(',') === 'contents,checks,issues,pull-requests,statuses' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'read' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read', 'workflow adds only read access for checks and statuses')
+check(Object.keys(workflow.permissions).join(',') === 'actions,contents,checks,issues,pull-requests,statuses' && workflow.permissions.actions === 'read' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'read' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read', 'workflow adds only read access for Actions, checks, and statuses')
 
 const admissionJob = workflow.jobs.protected_transition_admission_v1
 const hostIdentityStep = admissionJob.steps.find((step) => step.name === 'Admit exact default-branch host identity')
@@ -708,25 +714,20 @@ check(hostIdentityRun.includes(workflowRefPrefix) && pullRequestBlock.includes(r
 check(hostIdentityRun.includes('else\n  [[ "$GITHUB_REF" == "refs/heads/main" ]]\n  ' + mainWorkflowRefCheck), 'HID-05 non-PR events retain exact main execution and workflow source identity')
 check(hostIdentityRun.includes('[[ "$GITHUB_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]') && admissionJob.steps.some((step) => step.name === 'Checkout exact workflow SHA' && step.with?.ref === '${{ github.workflow_sha }}') && admissionJob.steps.some((step) => step.name === 'Evaluate protected transition admission') && admissionJob.steps.indexOf(liveShadowStep) > admissionJob.steps.findIndex((step) => step.name === 'Evaluate protected transition admission') && liveShadowStep?.['continue-on-error'] === true && liveShadowStep?.env?.GH_TOKEN === '' && liveShadowStep?.run.includes('env -i') && liveShadowStep?.run.trimEnd().endsWith('exit 0'), 'HID-06 common SHA, checkout, Controller routing, and post-decision isolated non-authoritative shadow remain fail-closed')
 
-const trackedChangedPaths = execFileSync('git', ['diff', '--name-only', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
+const trackedChangedPaths = execFileSync('git', ['diff', '--name-only', CORRECTION_REBASE_BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
 const untrackedChangedPaths = execFileSync('git', ['ls-files', '--others', '--exclude-standard'], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
 const changedPaths = [...new Set([...trackedChangedPaths, ...untrackedChangedPaths])].sort()
 const expectedPaths = [
-  '.github/workflows/protected-transition-admission-v1.yml',
-  'generic-platform/src/core/shared-sealed-evidence-v1.mjs',
-  'generic-platform/src/shadow/run-sd-prompt-studio-live-shadow-v1.mjs',
-  'generic-platform/src/shadow/sd-prompt-studio-read-only-shadow-v1.mjs',
-  'generic-platform/test/sd-prompt-studio-read-only-shadow-v1.test.mjs',
   'scripts/run-protected-transition-admission-v1.mjs',
   'scripts/test-protected-transition-admission-v1.mjs',
 ]
-check(changedPaths.join('\n') === expectedPaths.join('\n'), 'Live Shadow implementation diff is exactly seven authorized paths')
+check(changedPaths.join('\n') === expectedPaths.join('\n'), 'fresh-base correction diff is exactly two authorized paths')
 const productionSource = `${workflowSource}\n${runnerSource}\n${coreSource}`
 check(!/(trust_root|revocation|ready_generation|producer_roster|assignment_record|finalization_binding|collector|\.jcs|upload-artifact)/i.test(productionSource), 'retired mechanisms are absent')
 check(runnerSource.includes('/comments?since=') && runnerSource.includes('pageNumber > 32'), 'runner uses bounded forward-only Review pagination')
 check(runnerSource.includes('acquireTaskIdentityV1') && runnerSource.includes('acquireChangedPathScopeV1') && runnerSource.includes('executeManualProgressionControllerV1') && runnerSource.includes('createProductionEvidenceCaptureV1') && runnerSource.includes('captureProductionEvidenceSnapshotV1') && runnerSource.includes('projectProductionParityRecordBV1') && !runnerSource.includes('evaluateSharedEvidenceGenericV1'), 'runner carries production-consumed acquisition snapshots into Record A and owns Record B without Generic mapper reuse')
 check(runnerSource.includes('previous_filename') && runnerSource.includes('state_changed_during_evaluation'), 'runner checks rename and late state change')
-check(workflowSource.includes('pnpm.cmd install --frozen-lockfile') && !workflowSource.includes('actions: read') && !workflowSource.includes('upload-artifact') && !workflowSource.includes('gh workflow run'), 'workflow uses frozen repair dependencies without nested dispatch or artifact permission/persistence')
+check(workflowSource.includes('pnpm.cmd install --frozen-lockfile') && workflowSource.includes('actions: read') && !workflowSource.includes('upload-artifact') && !workflowSource.includes('gh workflow run'), 'workflow uses frozen repair dependencies and read-only Actions access without nested dispatch or artifact persistence')
 check(coreSource.includes('export const evaluateProtectedTransitionAdmissionV1') && !/\b(fetch|writeFile|execFile)\b/.test(coreSource), 'one pure evaluator owns classification')
 
 const reviewDecisionBody = (overrides = {}, extraLines = []) => {
@@ -847,12 +848,13 @@ const connectionPage = (nodes, { totalCount = nodes.length, hasNextPage = false,
 const successfulCheck = (id = 'check-1') => ({
   __typename: 'CheckRun',
   id,
+  databaseId: 900001,
   name: `check-${id}`,
   status: 'COMPLETED',
   conclusion: 'SUCCESS',
   detailsUrl: null,
   startedAt: '2026-08-08T00:00:00Z',
-  checkSuite: { app: { id: 'github-actions-app' } },
+  checkSuite: { databaseId: 900101, commit: { oid: HEAD }, app: { id: 'github-actions-app', databaseId: 15368 } },
 })
 
 const currentReadyCheck = ({
@@ -863,15 +865,20 @@ const currentReadyCheck = ({
   detailsUrl = `https://github.com/${REPOSITORY}/actions/runs/${READY_RUN_ID}/job/93075431467`,
   startedAt = '2026-08-08T02:00:00Z',
   appId = 'github-actions-app',
+  appDatabaseId = 15368,
+  databaseId = 93075431467,
+  checkSuiteDatabaseId = 93075430000,
+  checkSuiteCommitOid = HEAD,
 } = {}) => ({
   __typename: 'CheckRun',
   id,
+  databaseId,
   name,
   status,
   conclusion,
   detailsUrl,
   startedAt,
-  checkSuite: { app: { id: appId } },
+  checkSuite: { databaseId: checkSuiteDatabaseId, commit: { oid: checkSuiteCommitOid }, app: { id: appId, databaseId: appDatabaseId } },
 })
 
 const readyCheckPage = (other = successfulCheck()) => connectionPage([currentReadyCheck(), other])
@@ -1003,12 +1010,29 @@ check(validReadyResult.allowed === false && validReadyResult.automation_status =
 check(validReadyResult.task_issue_number === TASK && validReadyResult.pr_number === PR && validReadyResult.current_head === HEAD && validReadyResult.role_dispatch?.source_comment_id === reviewEvent().comment.id, 'RFR-02 binds exact Task, PR, HEAD, and effective Review source')
 check(validReadyAutomation.metrics.patchCalls === 0 && validReadyAutomation.metrics.checkReads === 3 && validReadyAutomation.metrics.threadReads === 1 && validReadyAutomation.metrics.waitCalls === 0, 'RFR-02 Ready adapter excludes its own running check and rechecks the final rollup read-only')
 
-const wrongReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ action: 'opened' }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
+const wrongReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ action: 'opened', pull: { body: 'no state' } }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
 const missingReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ repository: null }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
 const malformedReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ pull: { body: 'no state' } }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
-check(wrongReadyResult.state === 'INDETERMINATE' && wrongReadyResult.reason === 'ready_event_invalid', 'RFR-03 wrong Ready action fails closed')
+const partialStateReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ pull: { body: '<!-- protected-transition-task-state-v1:start -->' } }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
+const duplicateStateReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ pull: { body: `${stateBlock()}\n${stateBlock()}` } }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
+check(wrongReadyResult.state === 'INDETERMINATE' && wrongReadyResult.reason === 'ready_event_invalid' && !Object.hasOwn(wrongReadyResult, 'record_type'), 'RFR-03 zero markers under a non-Ready action do not receive expected legacy classification')
 check(missingReadyResult.state === 'INDETERMINATE' && missingReadyResult.reason === 'ready_event_invalid', 'RFR-03 missing repository identity fails closed')
-check(malformedReadyResult.state === 'INDETERMINATE' && malformedReadyResult.reason === 'state_block_cardinality_invalid', 'RFR-03 malformed state fails closed before acquisition')
+check(
+  malformedReadyResult.record_type === 'expected_legacy_ready_fail_closed_v1' && malformedReadyResult.version === 1 &&
+  malformedReadyResult.event === 'pull_request' && malformedReadyResult.action === 'ready_for_review' &&
+  malformedReadyResult.state === 'INDETERMINATE' && malformedReadyResult.reason === 'state_block_cardinality_invalid',
+  'RFR-03 zero-marker Ready emits the versioned expected legacy fail-closed result',
+)
+check(
+  malformedReadyResult.exit_code === 1 && malformedReadyResult.admission_executed === false &&
+  malformedReadyResult.mutation_count === 0 && malformedReadyResult.protected_operation_count === 0,
+  'RFR-03 expected legacy Ready result preserves failure with zero mutations and protected operations',
+)
+check(
+  partialStateReadyResult.reason === 'state_block_cardinality_invalid' && !Object.hasOwn(partialStateReadyResult, 'record_type') &&
+  duplicateStateReadyResult.reason === 'state_block_cardinality_invalid' && !Object.hasOwn(duplicateStateReadyResult, 'record_type'),
+  'RFR-03 partial or duplicate markers fail closed without expected legacy classification',
+)
 
 const readyPrMismatch = automationHost({ initialState: approvedState() })
 const readyPrMismatchResult = await executeReadyForReviewProgressionV1({
@@ -1384,8 +1408,8 @@ check(noTargetResult.state === 'INDETERMINATE' && noTargetResult.reason === 'rev
 check(
   (runnerSource.match(/await resolveEffectiveReviewDecisionV1\(\{ request, parsedEvent, host \}\)/g) ?? []).length === 2 &&
   (runnerSource.match(/await acquireEffectiveReviewDecisionV1\(\{/g) ?? []).length === 2 &&
-  (runnerSource.match(/reduceCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 2 &&
-  (runnerSource.match(/confirmCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 2,
+  (runnerSource.match(/reduceCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 3 &&
+  (runnerSource.match(/confirmCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 3,
   'RRC-07 issue_comment initial, pre-write, Ready full-history, and fresh rebind converge through one reducer and confirmation contract',
 )
 
@@ -1420,6 +1444,11 @@ const mergeAdmitted = evaluateProtectedTransitionAdmissionV1(input({
   transition: 'merge_decision_admission',
   task_state: approvedState(),
 }))
+const manualWorkflowDispatchAdmission = automationHost({ initialState: approvedState() })
+const manualWorkflowDispatchResult = await executeManualProgressionControllerV1({
+  request: mergeRequest,
+  host: manualWorkflowDispatchAdmission.host,
+})
 const reviewDetachedMergeRequest = Object.freeze({
   ...mergeRequest,
   currentWorkflowRunId: REVIEW_RUN_ID,
@@ -1845,7 +1874,7 @@ check(
   (runnerSource.match(/reduceSelfAwareCurrentChecksV1\(/g) ?? []).length === 3 &&
   (runnerSource.match(/partitionReadyRunChecksV1\(/g) ?? []).length === 2 &&
   runnerSource.includes("const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'") &&
-  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 3,
+  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 4,
   'SGR-12 shared-helper use and correction/cumulative allowlists hold without duplicate sibling filters',
 )
 
@@ -2803,7 +2832,7 @@ for (const [index, evidence] of approveRouteMatrix.entries()) check(evidence, `R
 const mergeDecisionRequest = roleRequest()
 const mergeDecisionState = roleState({ observed_head: OTHER_HEAD, review_status: 'APPROVE', reviewed_head: OTHER_HEAD, review_blocker_count: 0 })
 const mergeDecisionReview = Object.freeze({ pr_number: PR, reviewed_head: OTHER_HEAD, decision: 'APPROVE', blocking_finding_count: 0, remaining_finding_count: 0, unknown_count: 0 })
-const mergeDecisionRun = Object.freeze({ id: mergeDecisionRunId, html_url: parsedMergeDecision.admissionRunUrl, head_sha: OTHER_HEAD, path: '.github/workflows/protected-transition-admission-v1.yml', event: 'issue_comment', status: 'completed', conclusion: 'success' })
+const mergeDecisionRun = Object.freeze({ id: mergeDecisionRunId, html_url: parsedMergeDecision.admissionRunUrl, head_sha: CUMULATIVE_PR_BASE, path: '.github/workflows/protected-transition-admission-v1.yml', event: 'issue_comment', status: 'completed', conclusion: 'success' })
 const mergeDecisionGate = Object.freeze({ ...mergeRoute, reason: 'merge_gate_satisfied', external_check_success_count: 2, blocking_thread_count: 0 })
 const admittedMergeDecision = evaluateProductOwnerMergeDecisionV1({ decision: parsedMergeDecision, request: mergeDecisionRequest, taskState: mergeDecisionState, review: mergeDecisionReview, admissionRun: mergeDecisionRun, gateResult: mergeDecisionGate })
 const admittedMergeDecisionMatrix = [
@@ -2911,6 +2940,7 @@ const mergeDecisionDispatch = projectRoleDispatchEnvelopeV1({
   sourceBinding: Object.freeze({ kind: 'REVIEW', comment_id: mergeDecisionReviewId, reviewed_head: OTHER_HEAD, decision: 'APPROVE' }),
   admissionRunId: REVIEW_RUN_ID,
 })
+const readyMergeDecisionDispatch = Object.freeze({ ...mergeDecisionDispatch, admission_run_id: READY_RUN_ID })
 const mergeDecisionDispatchMatrix = [
   mergeDecisionDispatch.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
   mergeDecisionDispatch.purpose === 'MERGE_DECISION',
@@ -2986,6 +3016,1361 @@ const roleHost = ({ head = HEAD, taskState = implementerState, paths = rolePaths
     throw new Error(`unexpected_role_dispatch_endpoint:${endpoint}`)
   },
 })
+const readyRebindJobIds = Object.freeze({
+  protected_transition_admission_v1: '95344795281',
+  protected_transition_role_dispatch_consumer_v1: '95344877718',
+  protected_transition_merge_operator_v1: '95344878622',
+  protected_transition_repair_executor_v1: '95344878997',
+  protected_transition_post_repair_review_v1: '95344879635',
+})
+const roleAdmissionRun = ({
+  runId = READY_RUN_ID,
+  event = 'pull_request',
+  repository = REPOSITORY,
+  prNumber = PR,
+  head = OTHER_HEAD,
+  headBranch = event === 'issue_comment' ? 'main' : 'codex/ready-origin',
+  headRepository = repository,
+  headCommit = head,
+  pullRequests = undefined,
+  status = 'completed',
+  conclusion = 'success',
+  runAttempt = 1,
+} = {}) => Object.freeze({
+  id: Number(runId),
+  html_url: `https://github.com/${REPOSITORY}/actions/runs/${runId}`,
+  head_sha: head,
+  head_branch: headBranch,
+  head_commit: Object.freeze({ id: headCommit }),
+  head_repository: Object.freeze({ full_name: headRepository, url: `https://api.github.com/repos/${headRepository}` }),
+  path: '.github/workflows/protected-transition-admission-v1.yml',
+  event,
+  status,
+  conclusion,
+  run_attempt: runAttempt,
+  repository: Object.freeze({ full_name: repository, url: `https://api.github.com/repos/${repository}` }),
+  pull_requests: pullRequests ?? (event === 'pull_request' ? [Object.freeze({
+    number: prNumber,
+    url: `https://api.github.com/repos/${REPOSITORY}/pulls/${prNumber}`,
+    head: Object.freeze({ sha: head, repo: Object.freeze({ url: `https://api.github.com/repos/${REPOSITORY}` }) }),
+    base: Object.freeze({ repo: Object.freeze({ url: `https://api.github.com/repos/${REPOSITORY}` }) }),
+  })] : []),
+})
+const roleAdmissionJobs = ({ runId = READY_RUN_ID, head = OTHER_HEAD, runAttempt = 1, states = {}, jobs = undefined } = {}) => {
+  const values = jobs ?? Object.entries(readyRebindJobIds).map(([name, id]) => Object.freeze({
+    id: Number(id), run_id: Number(runId), run_attempt: runAttempt, name, head_sha: head,
+    html_url: `https://github.com/${REPOSITORY}/actions/runs/${runId}/job/${id}`,
+    status: states[name]?.status ?? 'completed',
+    conclusion: Object.hasOwn(states[name] ?? {}, 'conclusion')
+      ? states[name].conclusion
+      : name === 'protected_transition_admission_v1' || name === 'protected_transition_role_dispatch_consumer_v1'
+        ? 'success'
+        : 'skipped',
+  }))
+  return Object.freeze({ total_count: values.length, jobs: Object.freeze(values) })
+}
+const issueCommentSameRunExecution = Object.freeze({
+  repository: REPOSITORY,
+  ref: 'refs/heads/main',
+  workflowRef: `${REPOSITORY}/.github/workflows/protected-transition-admission-v1.yml@refs/heads/main`,
+  workflowSha: CUMULATIVE_PR_BASE,
+  runId: REVIEW_RUN_ID,
+  runAttempt: 1,
+  jobName: 'protected_transition_role_dispatch_consumer_v1',
+})
+const issueCommentSameRunJobs = ({ states = {}, jobs = undefined } = {}) => roleAdmissionJobs({
+  runId: REVIEW_RUN_ID,
+  head: CUMULATIVE_PR_BASE,
+  states: {
+    protected_transition_role_dispatch_consumer_v1: Object.freeze({ status: 'in_progress', conclusion: null }),
+    ...states,
+  },
+  jobs,
+})
+const roleReadyCheck = ({
+  name,
+  runId = READY_RUN_ID,
+  jobId = readyRebindJobIds[name],
+  status = 'COMPLETED',
+  conclusion = name === 'protected_transition_admission_v1' ? 'SUCCESS' : 'SKIPPED',
+  appId = 'github-actions-app',
+} = {}) => currentReadyCheck({
+  id: `ready-rebind-${name}`,
+  name,
+  status,
+  conclusion,
+  detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${runId}/job/${jobId}`,
+  startedAt: `2026-08-17T09:3${Object.keys(readyRebindJobIds).indexOf(name)}:00Z`,
+  appId,
+})
+const readyRoleCheckPage = ({
+  externalFailure = false,
+  consumerJobId = readyRebindJobIds.protected_transition_role_dispatch_consumer_v1,
+  consumerAppId = 'github-actions-app',
+  consumerStatus = 'IN_PROGRESS',
+  consumerConclusion = null,
+} = {}) => connectionPage([
+  ...Object.keys(readyRebindJobIds).map((name) => roleReadyCheck({
+    name,
+    jobId: name === 'protected_transition_role_dispatch_consumer_v1' ? consumerJobId : readyRebindJobIds[name],
+    status: name === 'protected_transition_role_dispatch_consumer_v1' ? consumerStatus : 'COMPLETED',
+    conclusion: name === 'protected_transition_role_dispatch_consumer_v1' ? consumerConclusion : undefined,
+    appId: name === 'protected_transition_role_dispatch_consumer_v1' ? consumerAppId : 'github-actions-app',
+  })),
+  { ...successfulCheck('ready-external-1'), conclusion: externalFailure ? 'FAILURE' : 'SUCCESS' },
+  successfulCheck('ready-external-2'),
+])
+const issueCommentRoleCheckPage = ({
+  sameRunConsumer = false,
+  sameRunConsumerName = 'protected_transition_role_dispatch_consumer_v1',
+  sameRunConsumerJobId = readyRebindJobIds.protected_transition_role_dispatch_consumer_v1,
+  sameRunConsumerDetailsUrl = `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/job/${sameRunConsumerJobId}`,
+  externalFailure = false,
+  externalPending = false,
+} = {}) => {
+  const external = successfulCheck('review-external-success-2')
+  return connectionPage([
+    ...detachedReviewCheckPage().nodes,
+    {
+      ...external,
+      status: externalPending ? 'IN_PROGRESS' : external.status,
+      conclusion: externalPending ? null : externalFailure ? 'FAILURE' : 'SUCCESS',
+    },
+    ...(sameRunConsumer ? [historicalReviewSelfCheck({
+      id: 'issue-comment-current-consumer',
+      name: sameRunConsumerName,
+      conclusion: null,
+      runId: REVIEW_RUN_ID,
+      detailsUrl: sameRunConsumerDetailsUrl,
+      startedAt: '2026-08-17T09:33:19Z',
+    })] : []),
+  ])
+}
+const issueCommentSameRunCheckPage = ({
+  sameRunConsumer = false,
+  sameRunConsumerName = 'protected_transition_role_dispatch_consumer_v1',
+  sameRunConsumerJobId = readyRebindJobIds.protected_transition_role_dispatch_consumer_v1,
+  sameRunConsumerDetailsUrl = `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/job/${sameRunConsumerJobId}`,
+  externalFailure = false,
+  externalPending = false,
+} = {}) => {
+  const secondExternal = successfulCheck('same-run-external-2')
+  return connectionPage([
+    successfulCheck('same-run-external-1'),
+    {
+      ...secondExternal,
+      status: externalPending ? 'IN_PROGRESS' : secondExternal.status,
+      conclusion: externalPending ? null : externalFailure ? 'FAILURE' : 'SUCCESS',
+    },
+    ...(sameRunConsumer ? [historicalReviewSelfCheck({
+      id: 'issue-comment-current-consumer',
+      name: sameRunConsumerName,
+      conclusion: null,
+      runId: REVIEW_RUN_ID,
+      detailsUrl: sameRunConsumerDetailsUrl,
+      startedAt: '2026-08-17T09:33:19Z',
+    })] : []),
+  ])
+}
+
+const CURRENT_MAIN_SHA = '22ebf20933c1942912b4e63199b6990736214f8f'
+const HISTORICAL_PR_BASE_SHA = '63cb1ed135edbe2e294230c024b65a5e671536c1'
+const MINIMAL_REVIEW_COMMENT_ID = 9701
+const MINIMAL_AUTHORITY_COMMENT_ID = 9702
+const minimalProductOwner = Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' })
+const minimalPaths = Object.freeze([
+  '.github/workflows/protected-transition-admission-v1.yml',
+  'scripts/run-protected-transition-admission-v1.mjs',
+  'scripts/test-protected-transition-admission-v1.mjs',
+])
+const minimalReviewBody = reviewDecisionBody({ reviewed_head: OTHER_HEAD })
+const minimalReviewBodySha256 = createHash('sha256').update(Buffer.from(minimalReviewBody, 'utf8')).digest('hex')
+const minimalAuthorityBody = (overrides = {}, extraLines = []) => {
+  const values = {
+    record_type: 'minimal_governance_v1',
+    authoring_role: 'Product Owner',
+    authority_actor_login: minimalProductOwner.login,
+    authority_actor_id: minimalProductOwner.id,
+    authority_actor_type: minimalProductOwner.type,
+    task_issue: `https://github.com/${REPOSITORY}/issues/${TASK}`,
+    pull_request: `https://github.com/${REPOSITORY}/pull/${PR}`,
+    exact_head: OTHER_HEAD,
+    expected_base: CURRENT_MAIN_SHA,
+    base_impact: 'NO_MATERIAL_IMPACT',
+    review_comment: `https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-${MINIMAL_REVIEW_COMMENT_ID}`,
+    review_body_sha256: minimalReviewBodySha256,
+    merge_method: 'merge',
+    operation_count: 1,
+    ...overrides,
+  }
+  const lines = Object.entries(values).map(([key, value]) => `${key}: ${typeof value === 'number' ? value : JSON.stringify(value)}`)
+  return `# Minimal Governance V1\n\n\`\`\`yaml\n${[...lines, 'authorized_paths:', ...minimalPaths.map((value) => `  - ${JSON.stringify(value)}`), ...extraLines].join('\n')}\n\`\`\``
+}
+const minimalReviewComment = (overrides = {}) => Object.freeze({
+  id: MINIMAL_REVIEW_COMMENT_ID,
+  created_at: '2026-08-18T00:00:01Z',
+  author_association: 'MEMBER',
+  user: Object.freeze({ login: 'independent-reviewer', id: 97001, type: 'User' }),
+  body: minimalReviewBody,
+  issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`,
+  ...overrides,
+})
+const minimalAuthorityComment = (body = minimalAuthorityBody(), overrides = {}) => Object.freeze({
+  id: MINIMAL_AUTHORITY_COMMENT_ID,
+  created_at: '2026-08-18T00:00:02Z',
+  author_association: 'OWNER',
+  user: minimalProductOwner,
+  issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`,
+  body,
+  ...overrides,
+})
+const minimalEvent = (body = minimalAuthorityBody(), overrides = {}) => ({
+  action: 'created',
+  repository: { full_name: REPOSITORY },
+  issue: { number: TASK, state: 'open', html_url: `https://github.com/${REPOSITORY}/issues/${TASK}` },
+  comment: { ...minimalAuthorityComment(body), ...overrides },
+})
+const minimalPull = (overrides = {}) => ({
+  number: PR,
+  state: 'open',
+  draft: false,
+  merged: false,
+  mergeable: true,
+  mergeable_state: 'unstable',
+  base: { ref: 'main', sha: HISTORICAL_PR_BASE_SHA, repo: { full_name: REPOSITORY } },
+  head: { sha: OTHER_HEAD },
+  body: 'Minimal governance PR body without legacy transition state.',
+  changed_files: minimalPaths.length,
+  ...overrides,
+})
+const minimalSelfCheck = (overrides = {}) => currentReadyCheck({
+  id: 'minimal-admission-self-check',
+  name: 'protected_transition_admission_v1',
+  status: 'IN_PROGRESS',
+  conclusion: null,
+  detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/job/${readyRebindJobIds.protected_transition_admission_v1}`,
+  startedAt: '2026-08-18T00:00:03Z',
+  checkSuiteCommitOid: CURRENT_MAIN_SHA,
+  ...overrides,
+})
+const CURRENT_EXECUTION_RTO_WORKFLOW_ID = 93075420000
+const CURRENT_EXECUTION_RTO_CHECK_SUITE_ID = 93075430000
+const currentExecutionRtoRun = (overrides = {}) => ({
+  id: Number(REVIEW_RUN_ID),
+  run_attempt: 1,
+  workflow_id: CURRENT_EXECUTION_RTO_WORKFLOW_ID,
+  check_suite_id: CURRENT_EXECUTION_RTO_CHECK_SUITE_ID,
+  repository: { full_name: REPOSITORY },
+  head_repository: { full_name: REPOSITORY },
+  path: '.github/workflows/protected-transition-admission-v1.yml',
+  event: 'issue_comment',
+  status: 'in_progress',
+  conclusion: null,
+  head_sha: CURRENT_MAIN_SHA,
+  head_commit: { id: CURRENT_MAIN_SHA },
+  head_branch: 'main',
+  url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}`,
+  html_url: `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}`,
+  jobs_url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/jobs`,
+  pull_requests: [],
+  ...overrides,
+})
+const currentExecutionRtoJobs = ({
+  runId = REVIEW_RUN_ID,
+  runAttempt = 1,
+  workflowSha = CURRENT_MAIN_SHA,
+  jobs = undefined,
+} = {}) => {
+  const values = jobs ?? historicalRtoJobNames.map((name) => ({
+    id: Number(readyRebindJobIds[name]),
+    run_id: Number(runId),
+    run_attempt: runAttempt,
+    name,
+    head_sha: workflowSha,
+    status: name === 'protected_transition_admission_v1' ? 'in_progress' : 'queued',
+    conclusion: null,
+    html_url: `https://github.com/${REPOSITORY}/actions/runs/${runId}/job/${readyRebindJobIds[name]}`,
+  }))
+  return { total_count: values.length, jobs: values }
+}
+const HISTORICAL_RTO_RUN_ID = '32097609793'
+const HISTORICAL_RTO_PR_NUMBER = 323
+const HISTORICAL_RTO_HEAD = '39af964928dbe0ba2e689897d596904599f19730'
+const HISTORICAL_RTO_WORKFLOW_ID = 327818524
+const HISTORICAL_RTO_CHECK_SUITE_ID = 87008787144
+const historicalRtoJobNames = Object.freeze([
+  'protected_transition_admission_v1',
+  'protected_transition_repair_executor_v1',
+  'protected_transition_role_dispatch_consumer_v1',
+  'protected_transition_merge_operator_v1',
+  'protected_transition_post_repair_review_v1',
+])
+const historicalRtoJobIds = Object.freeze({
+  protected_transition_admission_v1: '95591890192',
+  protected_transition_role_dispatch_consumer_v1: '95591918148',
+  protected_transition_merge_operator_v1: '95591918161',
+  protected_transition_repair_executor_v1: '95591918182',
+  protected_transition_post_repair_review_v1: '95591918420',
+})
+const historicalRtoCheckIds = Object.freeze(Object.fromEntries(historicalRtoJobNames.map((name, index) => [name, 984001 + index])))
+const historicalTerminalResult = (overrides = {}) => ({
+  transition: 'merge_decision_admission',
+  state: 'INDETERMINATE',
+  allowed: false,
+  exit_code: 1,
+  reason: 'state_block_cardinality_invalid',
+  task_issue_number: null,
+  pr_number: HISTORICAL_RTO_PR_NUMBER,
+  current_head: HISTORICAL_RTO_HEAD,
+  out_of_scope_paths: [],
+  state_changed: false,
+  automation_status: 'BLOCKED',
+  admission_executed: false,
+  next_action: 'STOP',
+  ...overrides,
+})
+const historicalLog = (results = [historicalTerminalResult()]) => Buffer.from(
+  results.map((result, index) => `2026-08-18T00:00:0${index}Z ${JSON.stringify(result)}`).join('\n'),
+  'utf8',
+)
+const historicalRtoChecks = ({
+  runId = HISTORICAL_RTO_RUN_ID,
+  checkSuiteId = HISTORICAL_RTO_CHECK_SUITE_ID,
+  head = HISTORICAL_RTO_HEAD,
+  appDatabaseId = 15368,
+  overrides = {},
+} = {}) => historicalRtoJobNames.map((name, index) => currentReadyCheck({
+  id: `historical-rto-${index}`,
+  databaseId: historicalRtoCheckIds[name],
+  name,
+  status: 'COMPLETED',
+  conclusion: name === 'protected_transition_admission_v1' ? 'FAILURE' : 'SKIPPED',
+  detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${runId}/job/${historicalRtoJobIds[name]}`,
+  startedAt: `2026-08-17T00:00:0${index}Z`,
+  appDatabaseId,
+  checkSuiteDatabaseId: checkSuiteId,
+  checkSuiteCommitOid: head,
+  ...(overrides[name] ?? {}),
+}))
+const historicalRunRecord = (overrides = {}) => ({
+  id: Number(HISTORICAL_RTO_RUN_ID),
+  run_attempt: 1,
+  workflow_id: HISTORICAL_RTO_WORKFLOW_ID,
+  check_suite_id: HISTORICAL_RTO_CHECK_SUITE_ID,
+  repository: { full_name: REPOSITORY },
+  path: '.github/workflows/protected-transition-admission-v1.yml',
+  event: 'pull_request',
+  created_at: '2026-08-18T09:00:00Z',
+  status: 'completed',
+  conclusion: 'failure',
+  head_sha: HISTORICAL_RTO_HEAD,
+  url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}`,
+  html_url: `https://github.com/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}`,
+  jobs_url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}/jobs`,
+  pull_requests: [{ number: HISTORICAL_RTO_PR_NUMBER, head: { sha: HISTORICAL_RTO_HEAD }, base: { ref: 'main' } }],
+  ...overrides,
+})
+const historicalJobPage = ({
+  runId = HISTORICAL_RTO_RUN_ID,
+  runAttempt = 1,
+  head = HISTORICAL_RTO_HEAD,
+  overrides = {},
+} = {}) => ({
+  total_count: historicalRtoJobNames.length,
+  jobs: historicalRtoJobNames.map((name) => {
+    const jobId = historicalRtoJobIds[name]
+    const checkId = historicalRtoCheckIds[name]
+    return {
+      id: Number(jobId),
+      run_id: Number(runId),
+      run_attempt: runAttempt,
+      name,
+      head_sha: head,
+      status: 'completed',
+      conclusion: name === 'protected_transition_admission_v1' ? 'failure' : 'skipped',
+      url: `https://api.github.com/repos/${REPOSITORY}/actions/jobs/${jobId}`,
+      html_url: `https://github.com/${REPOSITORY}/actions/runs/${runId}/job/${jobId}`,
+      check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/${checkId}`,
+      ...(overrides[name] ?? {}),
+    }
+  }),
+})
+const executeMinimalFixture = async ({
+  authorityBody = minimalAuthorityBody(),
+  authorityRefetchBody = authorityBody,
+  reviewRefetchBody = minimalReviewBody,
+  comments = undefined,
+  pull = minimalPull(),
+  mainHead = CURRENT_MAIN_SHA,
+  paths = minimalPaths,
+  checks = connectionPage([successfulCheck('minimal-external-1'), successfulCheck('minimal-external-2')]),
+  threads = connectionPage([]),
+  eventOverrides = {},
+  authorityRefetchOverrides = {},
+  taskUser = minimalProductOwner,
+  fixturePrNumber = PR,
+  fixtureExactHead = OTHER_HEAD,
+  runId = REVIEW_RUN_ID,
+  runAttempt = 1,
+  hostSha = CURRENT_MAIN_SHA,
+  jobName = 'protected_transition_admission_v1',
+  currentRun = null,
+  currentJobs = null,
+  historicalRun = null,
+  historicalJobs = null,
+  historicalLogBytes = null,
+  historicalLogUnavailable = false,
+} = {}) => {
+  const authority = minimalAuthorityComment(authorityRefetchBody, authorityRefetchOverrides)
+  const review = minimalReviewComment({ body: reviewRefetchBody })
+  const history = comments ?? [minimalReviewComment(), minimalAuthorityComment(authorityBody)]
+  const metrics = { authority: 0, review: 0, pull: 0, task: 0, main: 0, comments: 0, scope: 0, checks: 0, threads: 0 }
+  const currentMetrics = { run: 0, jobs: 0 }
+  const historicalMetrics = { run: 0, jobs: 0, log: 0 }
+  const historicalRunId = historicalRun === null ? null : String(historicalRun.id)
+  const historicalAdmissionJobId = historicalJobs?.jobs?.find((job) => job.name === 'protected_transition_admission_v1')?.id
+  const host = {
+    branchHead: async () => { metrics.main += 1; return mainHead },
+    api: async (endpoint) => {
+      if (endpoint === `repos/${REPOSITORY}/issues/comments/${MINIMAL_AUTHORITY_COMMENT_ID}`) {
+        metrics.authority += 1
+        return structuredClone(authority)
+      }
+      if (endpoint === `repos/${REPOSITORY}/issues/comments/${MINIMAL_REVIEW_COMMENT_ID}`) {
+        metrics.review += 1
+        return structuredClone(review)
+      }
+      if (endpoint === `repos/${REPOSITORY}/pulls/${fixturePrNumber}`) {
+        metrics.pull += 1
+        return structuredClone(pull)
+      }
+      if (endpoint === `repos/${REPOSITORY}/issues/${TASK}`) {
+        metrics.task += 1
+        return { number: TASK, state: 'open', html_url: `https://github.com/${REPOSITORY}/issues/${TASK}`, repository_url: `https://api.github.com/repos/${REPOSITORY}`, user: taskUser }
+      }
+      if (endpoint.startsWith(`repos/${REPOSITORY}/issues/${TASK}/comments?`)) {
+        metrics.comments += 1
+        return structuredClone(history)
+      }
+      if (endpoint.startsWith(`repos/${REPOSITORY}/pulls/${fixturePrNumber}/files?`)) {
+        metrics.scope += 1
+        return paths.map((filename) => ({ filename, status: 'modified' }))
+      }
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${runId}` && currentRun !== null) {
+        currentMetrics.run += 1
+        return structuredClone(currentRun)
+      }
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${runId}/jobs?per_page=100` && currentJobs !== null) {
+        currentMetrics.jobs += 1
+        return structuredClone(currentJobs)
+      }
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${historicalRunId}` && historicalRun !== null) {
+        historicalMetrics.run += 1
+        return structuredClone(historicalRun)
+      }
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${historicalRunId}/jobs?per_page=100` && historicalJobs !== null) {
+        historicalMetrics.jobs += 1
+        return structuredClone(historicalJobs)
+      }
+      throw new Error(`unexpected_minimal_endpoint:${endpoint}`)
+    },
+    apiBytes: async (endpoint) => {
+      historicalMetrics.log += 1
+      if (
+        historicalLogUnavailable || historicalLogBytes === null ||
+        endpoint !== `repos/${REPOSITORY}/actions/jobs/${historicalAdmissionJobId}/logs`
+      ) throw new Error('historical_log_unavailable')
+      return new Uint8Array(historicalLogBytes)
+    },
+    graphql: async (query, variables) => {
+      if (query.includes('statusCheckRollup')) {
+        metrics.checks += 1
+        return { repository: { pullRequest: { headRefOid: fixtureExactHead }, object: { oid: variables.head, statusCheckRollup: { contexts: structuredClone(checks) } } } }
+      }
+      if (query.includes('reviewThreads')) {
+        metrics.threads += 1
+        return { repository: { pullRequest: { number: fixturePrNumber, state: 'OPEN', isDraft: false, mergeable: 'MERGEABLE', mergeStateStatus: 'UNSTABLE', headRefOid: fixtureExactHead, reviewThreads: structuredClone(threads) } } }
+      }
+      throw new Error('unexpected_minimal_graphql')
+    },
+  }
+  const result = await executeMinimalGovernanceV1({
+    event: minimalEvent(authorityBody, eventOverrides), host, runId, runAttempt, hostSha, jobName,
+  })
+  return Object.freeze({ result, metrics, currentMetrics, historicalMetrics, host })
+}
+
+const parsedMinimalAuthority = parseMinimalGovernanceAuthorityV1(minimalAuthorityBody(), REPOSITORY, TASK)
+check(parsedMinimalAuthority.prNumber === PR && parsedMinimalAuthority.exactHead === OTHER_HEAD && parsedMinimalAuthority.expectedBase === CURRENT_MAIN_SHA, 'MGV-01 strict authority parser binds Task, PR, HEAD, and base')
+check(parsedMinimalAuthority.authoringRole === 'Product Owner' && parsedMinimalAuthority.authorityActorLogin === 'whatrune' && parsedMinimalAuthority.authorityActorId === 47842632 && parsedMinimalAuthority.baseImpact === 'NO_MATERIAL_IMPACT' && parsedMinimalAuthority.mergeMethod === 'merge' && parsedMinimalAuthority.operationCount === 1 && parsedMinimalAuthority.authorizedPaths.join('\n') === minimalPaths.join('\n'), 'MGV-01 strict authority parser fixes Product Owner identity, impact, method, count, and scope')
+check(parsedMinimalAuthority.authorityActorType === 'User', 'MGV-01 authority body binds the complete Product Owner actor tuple including type')
+
+const minimalValid = await executeMinimalFixture()
+const minimalSnapshotBytes = Buffer.from(minimalValid.result.sealed_snapshot_b64, 'base64')
+const minimalSnapshot = JSON.parse(minimalSnapshotBytes.toString('utf8'))
+check(minimalValid.result.next_action === 'MERGE_OPERATOR' && minimalValid.result.terminal_result === 'MINIMAL_GOVERNANCE_V1' && minimalValid.result.authority_kind === 'MINIMAL_GOVERNANCE_V1', 'MGV-02 sole valid authority emits only a minimal-governance Merge Operator plan')
+check(minimalValid.result.merge_method === 'merge' && minimalValid.result.operation_count === 1 && minimalValid.result.exact_head === OTHER_HEAD && minimalValid.result.expected_base === CURRENT_MAIN_SHA, 'MGV-02 plan is exact-SHA, exact-base, one-operation merge')
+check(createHash('sha256').update(minimalSnapshotBytes).digest('hex') === minimalValid.result.snapshot_sha256 && minimalSnapshot.review_body_sha256 === minimalReviewBodySha256, 'MGV-02 sealed snapshot digest and reused Review body digest are exact')
+check(Object.values(minimalValid.metrics).every((count) => count === 1) && Object.values(minimalSnapshot.source_counts).every((count) => count === 1), 'MGV-03 every pre-operation snapshot source is acquired exactly once')
+check(minimalSnapshot.authority_actor.login === 'whatrune' && minimalSnapshot.authority_actor.id === 47842632 && minimalSnapshot.task.creator.login === 'whatrune' && minimalSnapshot.job_manifest.host_sha === CURRENT_MAIN_SHA, 'MGV-03 sealed snapshot binds Product Owner and detached same-run manifest')
+check(minimalValid.result.automation_status === 'OPERATION_READY' && !minimalPull().body.includes('protected-transition-task-state-v1') && minimalSnapshot.task_state.observed_head === OTHER_HEAD && minimalSnapshot.task_state.reviewed_head === OTHER_HEAD, 'MGV-16 A minimal governance proceeds without a legacy PR-body state block')
+const malformedLegacyStateBody = 'before\n<!-- protected-transition-task-state-v1:start -->\nmalformed legacy state\n<!-- protected-transition-task-state-v1:end -->\nafter'
+const malformedLegacyStateIgnored = await executeMinimalFixture({ pull: minimalPull({ body: malformedLegacyStateBody }) })
+check(malformedLegacyStateIgnored.result.automation_status === 'OPERATION_READY' && malformedLegacyStateIgnored.result.next_action === 'MERGE_OPERATOR', 'MGV-16 B malformed legacy PR-body state does not affect minimal governance')
+const missingLegacyStateError = await errorOf(() => extractProtectedTransitionTaskStateV1('no legacy state'))
+const duplicateLegacyStateError = await errorOf(() => extractProtectedTransitionTaskStateV1(`${stateBlock()}\n${stateBlock()}`))
+check(missingLegacyStateError?.message === 'state_block_cardinality_invalid' && duplicateLegacyStateError?.message === 'state_block_cardinality_invalid', 'MGV-16 C legacy state extraction still rejects zero or multiple blocks')
+const minimalExecutionSource = runnerSource.slice(
+  runnerSource.indexOf('export const executeMinimalGovernanceV1'),
+  runnerSource.indexOf('\nconst MINIMAL_GOVERNANCE_PLAN_KEYS_V1'),
+)
+check(!minimalExecutionSource.includes('extractProtectedTransitionTaskStateV1'), 'MGV-16 minimal governance execution has no legacy PR-body state extractor dependency')
+check(minimalValid.result.next_action === 'MERGE_OPERATOR' && !minimalExecutionSource.includes('/jobs?per_page=100') && !minimalExecutionSource.includes('RTO_SELF_JOB_NAMES_V1.length'), 'MGV-17 run 32088538847 proceeds without requiring a five-job pre-operation manifest')
+
+const malformedMinimalBodies = [
+  minimalAuthorityBody({}, ['unexpected_field: true']),
+  minimalAuthorityBody({ base_impact: 'UNKNOWN' }),
+  minimalAuthorityBody({ merge_method: 'squash' }),
+  minimalAuthorityBody({ operation_count: 2 }),
+  minimalAuthorityBody({ authoring_role: 'Backend Implementer' }),
+  minimalAuthorityBody({ authority_actor_login: 'collaborator' }),
+  minimalAuthorityBody({ authority_actor_id: 47842633 }),
+  minimalAuthorityBody({ task_issue: `https://github.com/${REPOSITORY}/issues/${TASK + 1}` }),
+  minimalAuthorityBody({ pull_request: `https://github.com/${REPOSITORY}/pull/${PR + 1}` }),
+  minimalAuthorityBody({ exact_head: HEAD }),
+  minimalAuthorityBody({ expected_base: HEAD }),
+  minimalAuthorityBody({ review_body_sha256: '0'.repeat(64) }),
+  minimalAuthorityBody().replace('  - ".github/workflows/protected-transition-admission-v1.yml"', '  - "../protected-transition-admission-v1.yml"'),
+  `${minimalAuthorityBody()}\n\n\`\`\`yaml\nrecord_type: "minimal_governance_v1"\n\`\`\``,
+]
+const malformedMinimalResults = await Promise.all(malformedMinimalBodies.map((authorityBody) => executeMinimalFixture({ authorityBody })))
+check(malformedMinimalResults.every(({ result }) => result.next_action === 'STOP' && result.protected_operation_count === 0), 'MGV-04 wrong fields, tuple, impact, method, or count fail closed')
+const missingActorType = await executeMinimalFixture({ authorityBody: minimalAuthorityBody().replace('\nauthority_actor_type: "User"', '') })
+const wrongActorType = await executeMinimalFixture({ authorityBody: minimalAuthorityBody({ authority_actor_type: 'Bot' }) })
+const malformedActorType = await executeMinimalFixture({ authorityBody: minimalAuthorityBody({ authority_actor_type: true }) })
+check(missingActorType.result.next_action === 'STOP' && missingActorType.result.protected_operation_count === 0, 'MGV-04 missing authority actor type fails closed')
+check(wrongActorType.result.next_action === 'STOP' && wrongActorType.result.protected_operation_count === 0, 'MGV-04 self-declared Product Owner with wrong authority actor type fails closed')
+check(malformedActorType.result.next_action === 'STOP' && malformedActorType.result.protected_operation_count === 0, 'MGV-04 non-string authority actor type fails closed')
+const duplicateMinimal = await executeMinimalFixture({ comments: [minimalReviewComment(), minimalAuthorityComment(), minimalAuthorityComment(minimalAuthorityBody(), { id: MINIMAL_AUTHORITY_COMMENT_ID + 1, created_at: '2026-08-18T00:00:03Z' })] })
+const mixedMinimal = await executeMinimalFixture({ authorityBody: `${minimalAuthorityBody()}\nrecord_type: product_owner_merge_decision_v1` })
+check(duplicateMinimal.result.reason === 'minimal_governance_authority_cardinality_invalid' && mixedMinimal.result.reason === 'minimal_governance_marker_conflict', 'MGV-04 duplicate or mixed authority fails closed')
+
+const authorityRefetchDrift = await executeMinimalFixture({ authorityRefetchBody: `${minimalAuthorityBody()}\n` })
+const reviewRefetchDrift = await executeMinimalFixture({ reviewRefetchBody: `${minimalReviewBody}\n` })
+check(authorityRefetchDrift.result.reason === 'minimal_governance_authority_body_changed' && reviewRefetchDrift.result.next_action === 'STOP', 'MGV-05 authority byte drift and Review body/hash drift fail closed')
+const minimalInitialHeadDrift = await executeMinimalFixture({ pull: minimalPull({ head: { sha: HEAD } }) })
+check(authorityRefetchDrift.result.next_action === 'STOP' && reviewRefetchDrift.result.next_action === 'STOP' && minimalInitialHeadDrift.result.reason === 'head_binding_stale', 'MGV-16 D authority, Review, or exact-HEAD drift stops minimal governance')
+const laterMalformedReview = minimalReviewComment({ id: MINIMAL_REVIEW_COMMENT_ID + 5, created_at: '2026-08-18T00:00:04Z', body: reviewDecisionBody({ reviewed_head: OTHER_HEAD }, ['decision: APPROVE']) })
+const conflictingReview = await executeMinimalFixture({ comments: [minimalReviewComment(), minimalAuthorityComment(), laterMalformedReview] })
+check(conflictingReview.result.next_action === 'STOP', 'MGV-05 later malformed current-leaf Review state fails closed')
+
+const scopeMismatch = await executeMinimalFixture({ paths: minimalPaths.slice(1) })
+const baseMismatch = await executeMinimalFixture({ mainHead: HEAD })
+check(scopeMismatch.result.next_action === 'STOP' && baseMismatch.result.reason === 'minimal_governance_expected_base_mismatch', 'MGV-06 scope or current-main base mismatch fails closed')
+check(baseMismatch.result.reason === 'minimal_governance_expected_base_mismatch', 'MGV-14 B initial current-main drift fails with expected-base mismatch')
+const initialBaseRefMismatch = await executeMinimalFixture({ pull: minimalPull({ base: { ...minimalPull().base, ref: 'release' } }) })
+const initialInvalidHistoricalBase = await executeMinimalFixture({ pull: minimalPull({ base: { ...minimalPull().base, sha: 'not-a-full-head' } }) })
+check(initialBaseRefMismatch.result.reason === 'minimal_governance_pull_binding_invalid' && initialInvalidHistoricalBase.result.reason === 'minimal_governance_pull_binding_invalid', 'MGV-14 C initial non-main base ref or invalid historical base SHA fails pull binding')
+const pendingExternal = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck(), { ...successfulCheck('minimal-pending'), status: 'IN_PROGRESS', conclusion: null }]) })
+const failedExternal = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck(), { ...successfulCheck('minimal-failed'), conclusion: 'FAILURE' }]) })
+const missingExternal = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck()]) })
+const missingGeneration = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck(), { ...successfulCheck('minimal-generation-missing'), startedAt: null }]) })
+const ambiguousExternalBase = successfulCheck('minimal-generation-ambiguous-a')
+const ambiguousExternal = await executeMinimalFixture({ checks: connectionPage([ambiguousExternalBase, { ...ambiguousExternalBase, id: 'minimal-generation-ambiguous-b' }]) })
+check([pendingExternal, failedExternal, missingExternal, missingGeneration, ambiguousExternal].every(({ result }) => result.next_action === 'STOP'), 'MGV-07 pending, failed, missing, or generation-ambiguous external checks fail closed')
+const activeThread = await executeMinimalFixture({ threads: connectionPage([{ id: 'minimal-active-thread', isResolved: false, isOutdated: false }]) })
+check(activeThread.result.reason === 'minimal_governance_thread_or_pull_binding_invalid', 'MGV-07 active non-outdated thread fails closed')
+
+const exactBoundSelfCheck = await executeMinimalFixture({
+  checks: connectionPage([minimalSelfCheck(), successfulCheck('minimal-external')]),
+  currentRun: currentExecutionRtoRun(),
+  currentJobs: currentExecutionRtoJobs(),
+})
+const nameOnlySelfIdentity = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck({ detailsUrl: null }), successfulCheck('minimal-external')]) })
+const appMismatchedSelfIdentity = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck({ appDatabaseId: 999 }), successfulCheck('minimal-external')]) })
+const runMismatchedSelfIdentity = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck({ detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${READY_RUN_ID}/job/${readyRebindJobIds.protected_transition_admission_v1}` }), successfulCheck('minimal-external')]) })
+const executionIdentityDrifts = await Promise.all([
+  executeMinimalFixture({ runId: '0' }),
+  executeMinimalFixture({ runAttempt: 0 }),
+  executeMinimalFixture({ hostSha: HEAD }),
+  executeMinimalFixture({ jobName: 'protected_transition_merge_operator_v1' }),
+])
+check(minimalValid.result.next_action === 'MERGE_OPERATOR' && exactBoundSelfCheck.result.next_action === 'MERGE_OPERATOR', 'MGV-08 zero same-run PR checks and exact-bound current execution RTO checks admit external SUCCESS')
+check([nameOnlySelfIdentity, appMismatchedSelfIdentity, runMismatchedSelfIdentity, ...executionIdentityDrifts].every(({ result }) => result.next_action === 'STOP'), 'MGV-08 RTO name-only, app, run, attempt, workflow SHA, or job identity drift fails closed')
+
+const currentExecutionBaseJobs = currentExecutionRtoJobs().jobs
+const currentExecutionFixture = (overrides = {}) => executeMinimalFixture({
+  checks: connectionPage([minimalSelfCheck(), successfulCheck('minimal-current-external')]),
+  currentRun: currentExecutionRtoRun(),
+  currentJobs: currentExecutionRtoJobs(),
+  ...overrides,
+})
+const arbitraryCurrentJob = await currentExecutionFixture({
+  checks: connectionPage([
+    minimalSelfCheck({ detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/job/99999999999` }),
+    successfulCheck('minimal-current-external'),
+  ]),
+})
+const missingCurrentManifest = await currentExecutionFixture({ currentJobs: null })
+const incompleteCurrentManifest = await currentExecutionFixture({
+  currentJobs: currentExecutionRtoJobs({ jobs: currentExecutionBaseJobs.slice(0, 4) }),
+})
+const duplicateCurrentManifest = await currentExecutionFixture({
+  currentJobs: currentExecutionRtoJobs({ jobs: currentExecutionBaseJobs.map((job, index) =>
+    index === 1 ? { ...job, name: currentExecutionBaseJobs[0].name } : job) }),
+})
+const unknownCurrentManifest = await currentExecutionFixture({
+  currentJobs: currentExecutionRtoJobs({ jobs: currentExecutionBaseJobs.map((job, index) =>
+    index === 1 ? { ...job, name: 'unknown_rto_job_v1' } : job) }),
+})
+const mismatchedAdmissionJobId = '95344799999'
+const mismatchedNameJobManifest = await currentExecutionFixture({
+  currentJobs: currentExecutionRtoJobs({ jobs: currentExecutionBaseJobs.map((job) =>
+    job.name === 'protected_transition_admission_v1'
+      ? {
+          ...job,
+          id: Number(mismatchedAdmissionJobId),
+          html_url: `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/job/${mismatchedAdmissionJobId}`,
+        }
+      : job) }),
+})
+const currentExecutionOriginDrifts = await Promise.all([
+  currentExecutionFixture({ currentRun: currentExecutionRtoRun({ run_attempt: 2 }) }),
+  currentExecutionFixture({ currentJobs: currentExecutionRtoJobs({ runId: READY_RUN_ID }) }),
+  currentExecutionFixture({ currentJobs: currentExecutionRtoJobs({ runAttempt: 2 }) }),
+  currentExecutionFixture({
+    currentRun: currentExecutionRtoRun({ head_sha: HEAD, head_commit: { id: HEAD } }),
+  }),
+])
+const currentExecutionCheckIdentityDrifts = await Promise.all([
+  currentExecutionFixture({
+    checks: connectionPage([minimalSelfCheck({ appDatabaseId: 999 }), successfulCheck('minimal-current-external')]),
+  }),
+  currentExecutionFixture({
+    checks: connectionPage([minimalSelfCheck({ checkSuiteDatabaseId: CURRENT_EXECUTION_RTO_CHECK_SUITE_ID + 1 }), successfulCheck('minimal-current-external')]),
+  }),
+  currentExecutionFixture({
+    checks: connectionPage([minimalSelfCheck({ checkSuiteCommitOid: OTHER_HEAD }), successfulCheck('minimal-current-external')]),
+  }),
+])
+const exactBoundSnapshot = JSON.parse(Buffer.from(exactBoundSelfCheck.result.sealed_snapshot_b64, 'base64').toString('utf8'))
+check(
+  exactBoundSelfCheck.result.next_action === 'MERGE_OPERATOR' &&
+  exactBoundSnapshot.job_manifest.current_execution_rto_manifest.job_ids.protected_transition_admission_v1 ===
+    readyRebindJobIds.protected_transition_admission_v1 &&
+  Object.values(exactBoundSelfCheck.currentMetrics).every((count) => count === 1),
+  'CERM-A exact five-job current manifest and exact name/job ID permit bounded exclusion',
+)
+check(arbitraryCurrentJob.result.next_action === 'STOP', 'CERM-B arbitrary positive current-run job ID stops')
+check(missingCurrentManifest.result.next_action === 'STOP', 'CERM-C missing current-run manifest stops')
+check(incompleteCurrentManifest.result.next_action === 'STOP', 'CERM-D incomplete five-job current manifest stops')
+check(
+  duplicateCurrentManifest.result.next_action === 'STOP' && unknownCurrentManifest.result.next_action === 'STOP',
+  'CERM-E duplicate or unknown current-run job stops',
+)
+check(mismatchedNameJobManifest.result.next_action === 'STOP', 'CERM-F manifest name to job ID mismatch stops')
+check(currentExecutionOriginDrifts.every(({ result }) => result.next_action === 'STOP'), 'CERM-G run, attempt, or host/workflow SHA drift stops')
+check(currentExecutionCheckIdentityDrifts.every(({ result }) => result.next_action === 'STOP'), 'CERM-H app or check-suite identity drift stops')
+check(minimalValid.result.next_action === 'MERGE_OPERATOR', 'CERM-K ordinary external SUCCESS behavior remains unchanged')
+check(pendingExternal.result.next_action === 'STOP' && failedExternal.result.next_action === 'STOP', 'CERM-L ordinary external FAILURE or PENDING stops')
+
+const minimalExternalCheck = (name, overrides = {}) => currentReadyCheck({
+  id: `minimal-external-${name.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}`,
+  databaseId: 985001,
+  name,
+  status: 'COMPLETED',
+  conclusion: 'SUCCESS',
+  detailsUrl: null,
+  startedAt: '2026-08-18T00:00:20Z',
+  checkSuiteDatabaseId: 985101,
+  checkSuiteCommitOid: OTHER_HEAD,
+  ...overrides,
+})
+const historicalExternalSuccess = Object.freeze([
+  minimalExternalCheck('build-preview'),
+  minimalExternalCheck('Cloudflare Pages', { databaseId: 985002 }),
+  minimalExternalCheck('ordinary-external', { databaseId: 985003 }),
+])
+const historicalCheckPage = (historical = historicalRtoChecks(), external = historicalExternalSuccess) =>
+  connectionPage([...historical, ...external])
+const frozenHistoricalReviewBody = reviewDecisionBody({
+  pull_request: `https://github.com/${REPOSITORY}/pull/${HISTORICAL_RTO_PR_NUMBER}`,
+  reviewed_head: HISTORICAL_RTO_HEAD,
+})
+const frozenHistoricalReviewBodySha256 = createHash('sha256')
+  .update(Buffer.from(frozenHistoricalReviewBody, 'utf8')).digest('hex')
+const frozenHistoricalAuthorityBody = minimalAuthorityBody({
+  pull_request: `https://github.com/${REPOSITORY}/pull/${HISTORICAL_RTO_PR_NUMBER}`,
+  exact_head: HISTORICAL_RTO_HEAD,
+  review_body_sha256: frozenHistoricalReviewBodySha256,
+})
+const frozenHistoricalReviewComment = minimalReviewComment({ body: frozenHistoricalReviewBody })
+const frozenHistoricalAuthorityComment = minimalAuthorityComment(frozenHistoricalAuthorityBody)
+const historicalFixture = (overrides = {}) => executeMinimalFixture({
+  authorityBody: frozenHistoricalAuthorityBody,
+  authorityRefetchBody: frozenHistoricalAuthorityBody,
+  reviewRefetchBody: frozenHistoricalReviewBody,
+  comments: [frozenHistoricalReviewComment, frozenHistoricalAuthorityComment],
+  pull: minimalPull({ number: HISTORICAL_RTO_PR_NUMBER, head: { sha: HISTORICAL_RTO_HEAD } }),
+  fixturePrNumber: HISTORICAL_RTO_PR_NUMBER,
+  fixtureExactHead: HISTORICAL_RTO_HEAD,
+  checks: historicalCheckPage(),
+  historicalRun: historicalRunRecord(),
+  historicalJobs: historicalJobPage(),
+  historicalLogBytes: historicalLog(),
+  ...overrides,
+})
+
+const EXPECTED_LEGACY_READY_RUN_ID = '32124514254'
+const EXPECTED_LEGACY_READY_MIGRATION_RUN_ID = '32124504254'
+const EXPECTED_LEGACY_READY_CREATED_AT = '2026-08-18T10:00:00Z'
+const EXPECTED_LEGACY_READY_MIGRATION_CREATED_AT = '2026-08-18T09:59:58Z'
+const expectedLegacyReadyTerminalResult = (overrides = {}) => ({
+  record_type: 'expected_legacy_ready_fail_closed_v1',
+  version: 1,
+  event: 'pull_request',
+  action: 'ready_for_review',
+  transition: 'merge_decision_admission',
+  state: 'INDETERMINATE',
+  allowed: false,
+  exit_code: 1,
+  reason: 'state_block_cardinality_invalid',
+  task_issue_number: null,
+  pr_number: PR,
+  current_head: OTHER_HEAD,
+  out_of_scope_paths: [],
+  state_changed: false,
+  automation_status: 'BLOCKED',
+  admission_executed: false,
+  next_action: 'STOP',
+  mutation_count: 0,
+  protected_operation_count: 0,
+  ...overrides,
+})
+const expectedLegacyReadyFixture = ({
+  runId = EXPECTED_LEGACY_READY_RUN_ID,
+  createdAt = EXPECTED_LEGACY_READY_CREATED_AT,
+  terminalResults = [expectedLegacyReadyTerminalResult()],
+  runOverrides = {},
+  checkOverrides = {},
+  jobOverrides = {},
+  externalChecks = historicalExternalSuccess,
+  ...fixtureOverrides
+} = {}) => executeMinimalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({ runId, head: OTHER_HEAD, overrides: checkOverrides }), externalChecks),
+  historicalRun: historicalRunRecord({
+    id: Number(runId),
+    created_at: createdAt,
+    head_sha: OTHER_HEAD,
+    url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${runId}`,
+    html_url: `https://github.com/${REPOSITORY}/actions/runs/${runId}`,
+    jobs_url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${runId}/jobs`,
+    pull_requests: [{ number: PR, head: { sha: OTHER_HEAD }, base: { ref: 'main' } }],
+    ...runOverrides,
+  }),
+  historicalJobs: historicalJobPage({ runId, head: OTHER_HEAD, overrides: jobOverrides }),
+  historicalLogBytes: historicalLog(terminalResults),
+  ...fixtureOverrides,
+})
+
+const expectedLegacyReadyInitial = await expectedLegacyReadyFixture()
+if (typeof expectedLegacyReadyInitial.result.sealed_snapshot_b64 !== 'string') {
+  throw new Error(`expected legacy Ready fixture failed: ${JSON.stringify(expectedLegacyReadyInitial.result)}`)
+}
+const expectedLegacyReadySnapshot = JSON.parse(Buffer.from(expectedLegacyReadyInitial.result.sealed_snapshot_b64, 'base64').toString('utf8'))
+check(
+  expectedLegacyReadyInitial.result.next_action === 'MERGE_OPERATOR' &&
+  expectedLegacyReadySnapshot.job_manifest.expected_legacy_ready_checks.length === 1 &&
+  expectedLegacyReadySnapshot.job_manifest.historical_rto_checks.length === 0 &&
+  Object.values(expectedLegacyReadyInitial.historicalMetrics).every((count) => count === 1),
+  'ELRF-01 exact versioned Ready fail-closed family is neutral only during MINIMAL authority evaluation',
+)
+check(
+  expectedLegacyReadySnapshot.job_manifest.expected_legacy_ready_checks[0].terminal_contract === 'expected_legacy_ready_fail_closed_v1' &&
+  expectedLegacyReadySnapshot.job_manifest.expected_legacy_ready_checks[0].terminal_result.mutation_count === 0 &&
+  expectedLegacyReadySnapshot.job_manifest.expected_legacy_ready_checks[0].terminal_result.protected_operation_count === 0,
+  'ELRF-02 snapshot seals the exact versioned zero-operation terminal evidence',
+)
+const expectedLegacyMigrationValid = await expectedLegacyReadyFixture({
+  runId: EXPECTED_LEGACY_READY_MIGRATION_RUN_ID,
+  createdAt: EXPECTED_LEGACY_READY_MIGRATION_CREATED_AT,
+  terminalResults: [historicalTerminalResult({ pr_number: PR, current_head: OTHER_HEAD })],
+})
+const expectedLegacyMigrationSnapshot = JSON.parse(Buffer.from(expectedLegacyMigrationValid.result.sealed_snapshot_b64, 'base64').toString('utf8'))
+check(
+  expectedLegacyMigrationValid.result.next_action === 'MERGE_OPERATOR' &&
+  expectedLegacyMigrationSnapshot.job_manifest.expected_legacy_ready_checks[0].terminal_contract === 'legacy_state_block_cardinality_invalid_v1',
+  'ELRF-03 old state-block failure is neutral only at the exact dual migration cutoff',
+)
+const expectedLegacyMigrationCutoffStops = await Promise.all([
+  expectedLegacyReadyFixture({
+    runId: String(Number(EXPECTED_LEGACY_READY_MIGRATION_RUN_ID) + 1),
+    createdAt: EXPECTED_LEGACY_READY_MIGRATION_CREATED_AT,
+    terminalResults: [historicalTerminalResult({ pr_number: PR, current_head: OTHER_HEAD })],
+  }),
+  expectedLegacyReadyFixture({
+    runId: EXPECTED_LEGACY_READY_MIGRATION_RUN_ID,
+    createdAt: '2026-08-18T09:59:59Z',
+    terminalResults: [historicalTerminalResult({ pr_number: PR, current_head: OTHER_HEAD })],
+  }),
+  expectedLegacyReadyFixture({
+    runId: EXPECTED_LEGACY_READY_MIGRATION_RUN_ID,
+    createdAt: EXPECTED_LEGACY_READY_MIGRATION_CREATED_AT,
+    terminalResults: [historicalTerminalResult({ pr_number: PR, current_head: OTHER_HEAD })],
+    runOverrides: { workflow_id: HISTORICAL_RTO_WORKFLOW_ID + 1 },
+  }),
+  expectedLegacyReadyFixture({
+    runId: EXPECTED_LEGACY_READY_MIGRATION_RUN_ID,
+    createdAt: EXPECTED_LEGACY_READY_MIGRATION_CREATED_AT,
+    terminalResults: [historicalTerminalResult({ pr_number: PR, current_head: OTHER_HEAD })],
+    runOverrides: { run_attempt: 2 },
+    jobOverrides: Object.fromEntries(historicalRtoJobNames.map((name) => [name, { run_attempt: 2 }])),
+  }),
+])
+check(expectedLegacyMigrationCutoffStops.every(({ result }) => result.next_action === 'STOP'), 'ELRF-04 old format after either cutoff or with workflow/attempt drift stops')
+const expectedLegacyTerminalDrifts = await Promise.all([
+  expectedLegacyReadyFixture({ terminalResults: [expectedLegacyReadyTerminalResult({ event: 'issue_comment' })] }),
+  expectedLegacyReadyFixture({ terminalResults: [expectedLegacyReadyTerminalResult({ action: 'opened' })] }),
+  expectedLegacyReadyFixture({ terminalResults: [expectedLegacyReadyTerminalResult({ version: 2 })] }),
+  expectedLegacyReadyFixture({ terminalResults: [expectedLegacyReadyTerminalResult({ reason: 'pull_not_ready' })] }),
+  expectedLegacyReadyFixture({ terminalResults: [expectedLegacyReadyTerminalResult({ admission_executed: true })] }),
+  expectedLegacyReadyFixture({ terminalResults: [expectedLegacyReadyTerminalResult({ mutation_count: 1 })] }),
+  expectedLegacyReadyFixture({ terminalResults: [expectedLegacyReadyTerminalResult({ protected_operation_count: 1 })] }),
+])
+check(expectedLegacyTerminalDrifts.every(({ result }) => result.next_action === 'STOP'), 'ELRF-05 event, action, version, reason, execution, or operation drift stops')
+const expectedLegacyDownstreamDrift = await expectedLegacyReadyFixture({
+  checkOverrides: { protected_transition_repair_executor_v1: { conclusion: 'SUCCESS' } },
+  jobOverrides: { protected_transition_repair_executor_v1: { conclusion: 'success' } },
+})
+check(expectedLegacyDownstreamDrift.result.next_action === 'STOP', 'ELRF-06 any downstream non-SKIPPED result stops')
+const expectedLegacyExternalStops = await Promise.all([
+  expectedLegacyReadyFixture({ externalChecks: [] }),
+  expectedLegacyReadyFixture({ externalChecks: [minimalExternalCheck('build-preview', { conclusion: 'FAILURE' })] }),
+  expectedLegacyReadyFixture({ externalChecks: [minimalExternalCheck('build-preview', { status: 'IN_PROGRESS', conclusion: null })] }),
+])
+check(expectedLegacyExternalStops.every(({ result }) => result.next_action === 'STOP'), 'ELRF-07 missing, failed, or pending external checks remain authoritative')
+
+const historicalInitialValid = await historicalFixture()
+if (typeof historicalInitialValid.result.sealed_snapshot_b64 !== 'string') {
+  throw new Error(`frozen historical fixture failed: ${JSON.stringify(historicalInitialValid.result)}`)
+}
+const historicalInitialSnapshot = JSON.parse(Buffer.from(historicalInitialValid.result.sealed_snapshot_b64, 'base64').toString('utf8'))
+const frozenHistoricalEvidence = historicalInitialSnapshot.job_manifest.historical_rto_checks[0]
+check(
+  runnerSource.includes('checkSuite { databaseId commit { oid } app { id databaseId } }') &&
+  !runnerSource.includes('checkSuite { databaseId headSha'),
+  'HRTN-GQL-01 check rollup query uses the GitHub-compatible CheckSuite commit oid field',
+)
+check(
+  historicalInitialValid.result.automation_status === 'OPERATION_READY' && historicalInitialValid.result.next_action === 'MERGE_OPERATOR' &&
+  historicalInitialSnapshot.external_checks.length === 3 && historicalInitialSnapshot.job_manifest.historical_rto_checks.length === 1 &&
+  Object.values(historicalInitialValid.historicalMetrics).every((count) => count === 1),
+  'HRTN-01 exact historical legacy tuple plus all external SUCCESS produces READY snapshot',
+)
+check(
+  historicalRtoChecks().every((item) => item.checkSuite.commit.oid === HISTORICAL_RTO_HEAD) &&
+  historicalInitialValid.result.next_action === 'MERGE_OPERATOR',
+  'HRTN-GQL-02 GitHub-compatible CheckSuite commit oid response preserves exact-head historical classification',
+)
+const missingCheckSuiteCommitOid = await historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({ head: null })),
+})
+const wrongCheckSuiteCommitOid = await historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({ head: HEAD })),
+})
+check(missingCheckSuiteCommitOid.result.next_action === 'STOP', 'HRTN-GQL-03 missing CheckSuite commit oid stops exact-head identity classification')
+check(wrongCheckSuiteCommitOid.result.next_action === 'STOP', 'HRTN-GQL-04 wrong CheckSuite commit oid stops exact-head identity classification')
+check(historicalInitialValid.result.next_action === 'MERGE_OPERATOR', 'CERM-I exact historical family Snapshot READY remains unchanged')
+const singletonAllowlistSource = runnerSource.slice(
+  runnerSource.indexOf('const HISTORICAL_LEGACY_RTO_SINGLETON_ALLOWLIST_V1'),
+  runnerSource.indexOf('\nconst MINIMAL_GOVERNANCE_SCALAR_KEYS_V1'),
+)
+check(
+  singletonAllowlistSource.includes('Object.freeze([Object.freeze({') &&
+  (singletonAllowlistSource.match(/pr_number:/g) ?? []).length === 1,
+  'HRTN-FROZEN-00 historical allowlist source cardinality is exactly one',
+)
+check(
+  frozenHistoricalEvidence.pr_number === HISTORICAL_RTO_PR_NUMBER &&
+  frozenHistoricalEvidence.head_sha === HISTORICAL_RTO_HEAD &&
+  frozenHistoricalEvidence.workflow_id === String(HISTORICAL_RTO_WORKFLOW_ID) &&
+  frozenHistoricalEvidence.run_id === HISTORICAL_RTO_RUN_ID && frozenHistoricalEvidence.run_attempt === 1 &&
+  frozenHistoricalEvidence.check_suite_id === String(HISTORICAL_RTO_CHECK_SUITE_ID) &&
+  frozenHistoricalEvidence.checks.every((item) => historicalRtoJobIds[item.name] === item.job_id),
+  'HRTN-FROZEN-01 sealed historical evidence exactly matches the singleton tuple',
+)
+const outsideAllowlistedRunId = '32097619793'
+const outsideAllowlistedRun = await historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({ runId: outsideAllowlistedRunId })),
+})
+check(outsideAllowlistedRun.result.next_action === 'STOP', 'HRTN-FROZEN-02 allowlist-external run stops')
+const rerunAttempt = await historicalFixture({
+  historicalRun: historicalRunRecord({ run_attempt: 2 }),
+  historicalJobs: historicalJobPage({ runAttempt: 2 }),
+})
+check(rerunAttempt.result.next_action === 'STOP', 'HRTN-FROZEN-03 rerun attempt stops')
+const frozenMetadataDrifts = await Promise.all([
+  historicalFixture({ historicalRun: historicalRunRecord({ workflow_id: HISTORICAL_RTO_WORKFLOW_ID + 1 }) }),
+  historicalFixture({
+    checks: historicalCheckPage(historicalRtoChecks({ checkSuiteId: HISTORICAL_RTO_CHECK_SUITE_ID + 1 })),
+    historicalRun: historicalRunRecord({ check_suite_id: HISTORICAL_RTO_CHECK_SUITE_ID + 1 }),
+  }),
+])
+check(frozenMetadataDrifts.every(({ result }) => result.next_action === 'STOP'), 'HRTN-FROZEN-04 workflow or check-suite drift stops')
+const driftedAdmissionJobId = '95591899999'
+const frozenJobDrift = await historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({ overrides: {
+    protected_transition_admission_v1: {
+      detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}/job/${driftedAdmissionJobId}`,
+    },
+  } })),
+  historicalJobs: historicalJobPage({ overrides: {
+    protected_transition_admission_v1: {
+      id: Number(driftedAdmissionJobId),
+      html_url: `https://github.com/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}/job/${driftedAdmissionJobId}`,
+    },
+  } }),
+})
+check(frozenJobDrift.result.next_action === 'STOP', 'HRTN-FROZEN-05 any frozen job ID drift stops')
+const historicalRequestBindingFixture = ({ prNumber, exactHead }) => {
+  const reviewBody = reviewDecisionBody({
+    pull_request: `https://github.com/${REPOSITORY}/pull/${prNumber}`,
+    reviewed_head: exactHead,
+  })
+  const reviewBodySha256 = createHash('sha256').update(Buffer.from(reviewBody, 'utf8')).digest('hex')
+  const authorityBody = minimalAuthorityBody({
+    pull_request: `https://github.com/${REPOSITORY}/pull/${prNumber}`,
+    exact_head: exactHead,
+    review_body_sha256: reviewBodySha256,
+  })
+  const reviewComment = minimalReviewComment({ body: reviewBody })
+  const authorityComment = minimalAuthorityComment(authorityBody)
+  return historicalFixture({
+    authorityBody,
+    authorityRefetchBody: authorityBody,
+    reviewRefetchBody: reviewBody,
+    comments: [reviewComment, authorityComment],
+    pull: minimalPull({ number: prNumber, head: { sha: exactHead } }),
+    fixturePrNumber: prNumber,
+    fixtureExactHead: exactHead,
+    checks: historicalCheckPage(historicalRtoChecks({ head: exactHead })),
+    historicalRun: historicalRunRecord({
+      head_sha: exactHead,
+      pull_requests: [{ number: prNumber, head: { sha: exactHead }, base: { ref: 'main' } }],
+    }),
+    historicalJobs: historicalJobPage({ head: exactHead }),
+    historicalLogBytes: historicalLog([historicalTerminalResult({ pr_number: prNumber, current_head: exactHead })]),
+  })
+}
+const frozenRequestBindingDrifts = await Promise.all([
+  historicalRequestBindingFixture({ prNumber: HISTORICAL_RTO_PR_NUMBER + 1, exactHead: HISTORICAL_RTO_HEAD }),
+  historicalRequestBindingFixture({ prNumber: HISTORICAL_RTO_PR_NUMBER, exactHead: HEAD }),
+])
+check(frozenRequestBindingDrifts.every(({ result }) => result.next_action === 'STOP'), 'HRTN-FROZEN-06 PR or HEAD drift stops')
+const currentAnalogousRun = await historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({ runId: REVIEW_RUN_ID })),
+})
+check(currentAnalogousRun.result.next_action === 'STOP', 'HRTN-FROZEN-07 current or new analogous run remains authoritative and stops')
+const historicalDifferentReason = await historicalFixture({ historicalLogBytes: historicalLog([historicalTerminalResult({ reason: 'pull_not_ready' })]) })
+check(historicalDifferentReason.result.next_action === 'STOP', 'HRTN-03 historical terminal reason drift stops')
+const historicalBindingMismatches = await Promise.all([
+  historicalFixture({ historicalLogBytes: historicalLog([historicalTerminalResult({ transition: 'terminal_review_admission' })]) }),
+  historicalFixture({ historicalRun: historicalRunRecord({ event: 'workflow_dispatch' }) }),
+  historicalFixture({ historicalRun: historicalRunRecord({ path: '.github/workflows/other.yml' }) }),
+])
+check(historicalBindingMismatches.every(({ result }) => result.next_action === 'STOP'), 'HRTN-04 transition, event, or workflow mismatch stops')
+const historicalTerminalCardinality = await Promise.all([
+  historicalFixture({ historicalLogBytes: historicalLog([]) }),
+  historicalFixture({ historicalLogBytes: historicalLog([historicalTerminalResult(), historicalTerminalResult()]) }),
+])
+check(historicalTerminalCardinality.every(({ result }) => result.next_action === 'STOP'), 'HRTN-05 missing or multiple admission terminal results stop')
+const historicalAdmissionExecuted = await historicalFixture({ historicalLogBytes: historicalLog([historicalTerminalResult({ admission_executed: true })]) })
+check(historicalAdmissionExecuted.result.next_action === 'STOP', 'HRTN-06 admission_executed true stops')
+const historicalDownstreamNotSkipped = await historicalFixture({
+  historicalJobs: historicalJobPage({ overrides: { protected_transition_repair_executor_v1: { conclusion: 'success' } } }),
+})
+check(historicalDownstreamNotSkipped.result.next_action === 'STOP', 'HRTN-07 downstream job not SKIPPED stops')
+const historicalIdentityMismatches = await Promise.all([
+  historicalFixture({ historicalRun: historicalRunRecord({ check_suite_id: HISTORICAL_RTO_CHECK_SUITE_ID + 1 }) }),
+  historicalFixture({ historicalJobs: historicalJobPage({ overrides: { protected_transition_admission_v1: { run_attempt: 2 } } }) }),
+  historicalFixture({ checks: historicalCheckPage(historicalRtoChecks({ overrides: { protected_transition_admission_v1: { checkSuiteDatabaseId: HISTORICAL_RTO_CHECK_SUITE_ID + 1 } } })) }),
+])
+check(historicalIdentityMismatches.every(({ result }) => result.next_action === 'STOP'), 'HRTN-08 run, job attempt, or check-suite identity mismatch stops')
+const historicalSplitRun = await historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({
+    overrides: { protected_transition_post_repair_review_v1: { detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${READY_RUN_ID}/job/${historicalRtoJobIds.protected_transition_post_repair_review_v1}` } },
+  })),
+})
+check(historicalSplitRun.result.next_action === 'STOP', 'HRTN-09 historical five-job family split across runs stops')
+const historicalPending = await historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({ overrides: { protected_transition_post_repair_review_v1: { status: 'IN_PROGRESS', conclusion: null } } })),
+})
+check(historicalPending.result.next_action === 'STOP', 'HRTN-10 pending historical check stops')
+const historicalLogUnavailable = await historicalFixture({ historicalLogUnavailable: true })
+check(historicalLogUnavailable.result.next_action === 'STOP', 'HRTN-11 unavailable admission log stops')
+const historicalOversizedLog = await historicalFixture({
+  historicalLogBytes: new Uint8Array(262_145),
+})
+check(historicalOversizedLog.result.next_action === 'STOP', 'HRTN-11A oversized admission log stops at bounded acquisition')
+const buildPreviewFailure = await historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks(), [
+    minimalExternalCheck('build-preview', { conclusion: 'FAILURE' }),
+    minimalExternalCheck('Cloudflare Pages', { databaseId: 985002 }),
+    minimalExternalCheck('ordinary-external', { databaseId: 985003 }),
+  ]),
+})
+check(buildPreviewFailure.result.next_action === 'STOP', 'HRTN-13 build-preview FAILURE remains authoritative')
+const cloudflareStops = await Promise.all(['FAILURE', null].map((conclusion) => historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks(), [
+    minimalExternalCheck('build-preview'),
+    minimalExternalCheck('Cloudflare Pages', { databaseId: 985002, status: conclusion === null ? 'IN_PROGRESS' : 'COMPLETED', conclusion }),
+    minimalExternalCheck('ordinary-external', { databaseId: 985003 }),
+  ]),
+})))
+check(cloudflareStops.every(({ result }) => result.next_action === 'STOP'), 'HRTN-14 Cloudflare FAILURE or PENDING remains authoritative')
+const ordinaryExternalStops = await Promise.all(['FAILURE', null].map((conclusion) => historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks(), [
+    minimalExternalCheck('build-preview'),
+    minimalExternalCheck('Cloudflare Pages', { databaseId: 985002 }),
+    minimalExternalCheck('ordinary-external', { databaseId: 985003, status: conclusion === null ? 'IN_PROGRESS' : 'COMPLETED', conclusion }),
+  ]),
+})))
+check(ordinaryExternalStops.every(({ result }) => result.next_action === 'STOP'), 'HRTN-15 ordinary external FAILURE or PENDING remains authoritative')
+check(nameOnlySelfIdentity.result.next_action === 'STOP', 'HRTN-16 current-run RTO check is never excluded by name alone')
+check(
+  validReadyResult.automation_status === 'HANDOFF_READY' && validReadyResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' &&
+  malformedReadyResult.reason === 'state_block_cardinality_invalid',
+  'HRTN-18 non-minimal legacy Ready behavior remains exact',
+)
+
+const memberAuthority = await executeMinimalFixture({ eventOverrides: { author_association: 'MEMBER' } })
+const collaboratorAuthority = await executeMinimalFixture({ eventOverrides: { author_association: 'COLLABORATOR' } })
+const eventActorDrift = await executeMinimalFixture({ eventOverrides: { user: { login: 'collaborator', id: 97003, type: 'User' } } })
+const refetchActorDrift = await executeMinimalFixture({ authorityRefetchOverrides: { user: { login: 'collaborator', id: 97003, type: 'User' } } })
+const refetchAssociationDrift = await executeMinimalFixture({ authorityRefetchOverrides: { author_association: 'MEMBER' } })
+const historyActorDrift = await executeMinimalFixture({ comments: [minimalReviewComment(), minimalAuthorityComment(minimalAuthorityBody(), { user: { login: 'collaborator', id: 97003, type: 'User' } })] })
+const historyAssociationDrift = await executeMinimalFixture({ comments: [minimalReviewComment(), minimalAuthorityComment(minimalAuthorityBody(), { author_association: 'COLLABORATOR' })] })
+const taskCreatorDrift = await executeMinimalFixture({ taskUser: { login: 'collaborator', id: 97003, type: 'User' } })
+check([memberAuthority, collaboratorAuthority, eventActorDrift, refetchActorDrift, refetchAssociationDrift, historyActorDrift, historyAssociationDrift, taskCreatorDrift].every(({ result }) => result.next_action === 'STOP'), 'MGV-09 MEMBER, COLLABORATOR, event/refetch/history actor drift, or non-Product-Owner Task creator stops')
+const actorTypeDrifts = await Promise.all([
+  executeMinimalFixture({ eventOverrides: { user: { ...minimalProductOwner, type: 'Bot' } } }),
+  executeMinimalFixture({ authorityRefetchOverrides: { user: { ...minimalProductOwner, type: 'Bot' } } }),
+  executeMinimalFixture({ comments: [minimalReviewComment(), minimalAuthorityComment(minimalAuthorityBody(), { user: { ...minimalProductOwner, type: 'Bot' } })] }),
+  executeMinimalFixture({ taskUser: { ...minimalProductOwner, type: 'Bot' } }),
+])
+check(actorTypeDrifts.every(({ result }) => result.next_action === 'STOP' && result.protected_operation_count === 0), 'MGV-09 event, refetch, history, or Task creator actor-type drift fails closed')
+const alreadyMerged = await executeMinimalFixture({ pull: minimalPull({ state: 'closed', merged: true }) })
+check(alreadyMerged.result.reason === 'already_merged' && alreadyMerged.result.protected_operation_count === 0 && alreadyMerged.metrics.pull === 1 && Object.values(alreadyMerged.metrics).filter((count) => count !== 0).length === 2, 'MGV-10 repeated event after merge performs zero protected operations')
+
+const executeMinimalFinalGuardFixture = async ({
+  plan = minimalValid.result,
+  mainHead = CURRENT_MAIN_SHA,
+  pull = minimalPull(),
+  taskUser = minimalProductOwner,
+  authority = minimalAuthorityComment(),
+  review = minimalReviewComment(),
+  comments = [minimalReviewComment(), minimalAuthorityComment()],
+  checks = connectionPage([successfulCheck('minimal-external-1'), successfulCheck('minimal-external-2')]),
+  threads = connectionPage([]),
+  incompleteChecks = false,
+  currentRun = null,
+  currentJobs = null,
+  historicalRun = null,
+  historicalJobs = null,
+  historicalLogBytes = null,
+  historicalLogUnavailable = false,
+} = {}) => {
+  const metrics = { main: 0, pull: 0, task: 0, authority: 0, review: 0, comments: 0, checks: 0, threads: 0, scope: 0, jobs: 0 }
+  const currentMetrics = { run: 0, jobs: 0 }
+  const historicalMetrics = { run: 0, jobs: 0, log: 0 }
+  const historicalRunId = historicalRun === null ? null : String(historicalRun.id)
+  const historicalAdmissionJobId = historicalJobs?.jobs?.find((job) => job.name === 'protected_transition_admission_v1')?.id
+  const host = {
+    branchHead: async () => { metrics.main += 1; return mainHead },
+    api: async (endpoint) => {
+      if (endpoint === `repos/${REPOSITORY}/pulls/${plan.pr_number}`) { metrics.pull += 1; return structuredClone(pull) }
+      if (endpoint === `repos/${REPOSITORY}/issues/${TASK}`) {
+        metrics.task += 1
+        return { number: TASK, state: 'open', html_url: `https://github.com/${REPOSITORY}/issues/${TASK}`, repository_url: `https://api.github.com/repos/${REPOSITORY}`, user: taskUser }
+      }
+      if (endpoint === `repos/${REPOSITORY}/issues/comments/${MINIMAL_AUTHORITY_COMMENT_ID}`) { metrics.authority += 1; return structuredClone(authority) }
+      if (endpoint === `repos/${REPOSITORY}/issues/comments/${MINIMAL_REVIEW_COMMENT_ID}`) { metrics.review += 1; return structuredClone(review) }
+      if (endpoint.startsWith(`repos/${REPOSITORY}/issues/${TASK}/comments?`)) { metrics.comments += 1; return structuredClone(comments) }
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}` && currentRun !== null) {
+        currentMetrics.run += 1
+        return structuredClone(currentRun)
+      }
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/jobs?per_page=100` && currentJobs !== null) {
+        currentMetrics.jobs += 1
+        return structuredClone(currentJobs)
+      }
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${historicalRunId}` && historicalRun !== null) {
+        historicalMetrics.run += 1
+        return structuredClone(historicalRun)
+      }
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${historicalRunId}/jobs?per_page=100` && historicalJobs !== null) {
+        historicalMetrics.jobs += 1
+        return structuredClone(historicalJobs)
+      }
+      if (endpoint.includes('/files?')) { metrics.scope += 1; throw new Error('final_guard_scope_regeneration_forbidden') }
+      if (endpoint.includes('/jobs?')) { metrics.jobs += 1; throw new Error('final_guard_manifest_regeneration_forbidden') }
+      throw new Error(`unexpected_final_guard_endpoint:${endpoint}`)
+    },
+    apiBytes: async (endpoint) => {
+      historicalMetrics.log += 1
+      if (
+        historicalLogUnavailable || historicalLogBytes === null ||
+        endpoint !== `repos/${REPOSITORY}/actions/jobs/${historicalAdmissionJobId}/logs`
+      ) throw new Error('historical_log_unavailable')
+      return new Uint8Array(historicalLogBytes)
+    },
+    graphql: async (query, variables) => {
+      if (query.includes('statusCheckRollup')) {
+        metrics.checks += 1
+        return { repository: { pullRequest: { headRefOid: plan.exact_head }, object: { oid: variables.head, statusCheckRollup: incompleteChecks ? null : { contexts: structuredClone(checks) } } } }
+      }
+      if (query.includes('reviewThreads')) {
+        metrics.threads += 1
+        return { repository: { pullRequest: { number: plan.pr_number, state: 'OPEN', isDraft: false, mergeable: 'MERGEABLE', mergeStateStatus: 'UNSTABLE', headRefOid: plan.exact_head, reviewThreads: structuredClone(threads) } } }
+      }
+      throw new Error('unexpected_final_guard_graphql')
+    },
+  }
+  const result = await executeMinimalGovernanceFinalDriftGuardV1({ plan, host })
+  return Object.freeze({ result, metrics, currentMetrics, historicalMetrics })
+}
+
+const minimalFinalGuardValid = await executeMinimalFinalGuardFixture()
+const currentExecutionFinalValid = await executeMinimalFinalGuardFixture({
+  plan: exactBoundSelfCheck.result,
+  checks: connectionPage([minimalSelfCheck(), successfulCheck('minimal-external')]),
+  currentRun: currentExecutionRtoRun(),
+  currentJobs: currentExecutionRtoJobs(),
+})
+const finalMalformedLegacyStateIgnored = await executeMinimalFinalGuardFixture({ pull: minimalPull({ body: malformedLegacyStateBody }) })
+check(minimalFinalGuardValid.result.state === 'MATCH' && minimalFinalGuardValid.result.next_action === 'MERGE_PR' && minimalFinalGuardValid.result.exact_head === OTHER_HEAD, 'MGV-11 no-drift final guard returns only exact-head MATCH')
+check(
+  currentExecutionFinalValid.result.state === 'MATCH' &&
+  Object.values(currentExecutionFinalValid.currentMetrics).every((count) => count === 1),
+  'CERM-A2 final guard reacquires the exact current-execution manifest proof',
+)
+check(finalMalformedLegacyStateIgnored.result.state === 'MATCH' && finalMalformedLegacyStateIgnored.result.next_action === 'MERGE_PR', 'MGV-16 B final drift guard ignores malformed legacy PR-body state')
+const historicalFinalFixture = (overrides = {}) => executeMinimalFinalGuardFixture({
+  plan: historicalInitialValid.result,
+  pull: minimalPull({ number: HISTORICAL_RTO_PR_NUMBER, head: { sha: HISTORICAL_RTO_HEAD } }),
+  authority: frozenHistoricalAuthorityComment,
+  review: frozenHistoricalReviewComment,
+  comments: [frozenHistoricalReviewComment, frozenHistoricalAuthorityComment],
+  checks: historicalCheckPage(),
+  historicalRun: historicalRunRecord(),
+  historicalJobs: historicalJobPage(),
+  historicalLogBytes: historicalLog(),
+  ...overrides,
+})
+const historicalFinalValid = await historicalFinalFixture()
+check(
+  historicalFinalValid.result.state === 'MATCH' && historicalFinalValid.result.next_action === 'MERGE_PR' &&
+  Object.values(historicalFinalValid.historicalMetrics).every((count) => count === 1),
+  'HRTN-02 unchanged historical evidence final guard returns MATCH and MERGE_PR',
+)
+check(historicalFinalValid.result.state === 'MATCH', 'CERM-J historical final guard MATCH remains unchanged')
+const historicalFinalLogDigestDrift = await historicalFinalFixture({
+  historicalLogBytes: Buffer.concat([historicalLog(), Buffer.from('\nnon-terminal log drift', 'utf8')]),
+})
+check(historicalFinalLogDigestDrift.result.next_action === 'STOP', 'HRTN-12 admission log digest drift before merge stops')
+const historicalFinalDisappeared = await historicalFinalFixture({
+  checks: connectionPage([...historicalExternalSuccess]),
+})
+check(historicalFinalDisappeared.result.next_action === 'STOP', 'HRTN-17 historical classification disappearance before final guard stops')
+const expectedLegacyReadyFinalFixture = (overrides = {}) => executeMinimalFinalGuardFixture({
+  plan: expectedLegacyReadyInitial.result,
+  checks: historicalCheckPage(historicalRtoChecks({ runId: EXPECTED_LEGACY_READY_RUN_ID, head: OTHER_HEAD })),
+  historicalRun: historicalRunRecord({
+    id: Number(EXPECTED_LEGACY_READY_RUN_ID),
+    created_at: EXPECTED_LEGACY_READY_CREATED_AT,
+    head_sha: OTHER_HEAD,
+    url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${EXPECTED_LEGACY_READY_RUN_ID}`,
+    html_url: `https://github.com/${REPOSITORY}/actions/runs/${EXPECTED_LEGACY_READY_RUN_ID}`,
+    jobs_url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${EXPECTED_LEGACY_READY_RUN_ID}/jobs`,
+    pull_requests: [{ number: PR, head: { sha: OTHER_HEAD }, base: { ref: 'main' } }],
+  }),
+  historicalJobs: historicalJobPage({ runId: EXPECTED_LEGACY_READY_RUN_ID, head: OTHER_HEAD }),
+  historicalLogBytes: historicalLog([expectedLegacyReadyTerminalResult()]),
+  ...overrides,
+})
+const expectedLegacyReadyFinalValid = await expectedLegacyReadyFinalFixture()
+check(
+  expectedLegacyReadyFinalValid.result.state === 'MATCH' && expectedLegacyReadyFinalValid.result.next_action === 'MERGE_PR' &&
+  Object.values(expectedLegacyReadyFinalValid.historicalMetrics).every((count) => count === 1),
+  'ELRF-08 final guard freshly reacquires exact expected legacy Ready evidence and matches',
+)
+const expectedLegacyReadyFinalDrifts = await Promise.all([
+  expectedLegacyReadyFinalFixture({
+    historicalLogBytes: Buffer.concat([historicalLog([expectedLegacyReadyTerminalResult()]), Buffer.from('\nlog drift', 'utf8')]),
+  }),
+  expectedLegacyReadyFinalFixture({ checks: connectionPage([...historicalExternalSuccess]) }),
+  expectedLegacyReadyFinalFixture({
+    historicalRun: historicalRunRecord({
+      id: Number(EXPECTED_LEGACY_READY_RUN_ID),
+      created_at: '2026-08-18T10:00:01Z',
+      head_sha: OTHER_HEAD,
+      url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${EXPECTED_LEGACY_READY_RUN_ID}`,
+      html_url: `https://github.com/${REPOSITORY}/actions/runs/${EXPECTED_LEGACY_READY_RUN_ID}`,
+      jobs_url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${EXPECTED_LEGACY_READY_RUN_ID}/jobs`,
+      pull_requests: [{ number: PR, head: { sha: OTHER_HEAD }, base: { ref: 'main' } }],
+    }),
+  }),
+])
+check(expectedLegacyReadyFinalDrifts.every(({ result }) => result.next_action === 'STOP'), 'ELRF-09 log, classification, or run metadata drift stops before merge')
+check(Object.entries(minimalFinalGuardValid.metrics).filter(([name]) => !['scope', 'jobs'].includes(name)).every(([, count]) => count === 1) && minimalFinalGuardValid.metrics.scope === 0 && minimalFinalGuardValid.metrics.jobs === 0, 'MGV-11 final guard acquires exactly eight mutable sources once and regenerates neither scope nor job manifest')
+check(minimalValid.result.automation_status === 'OPERATION_READY' && minimalSnapshot.expected_base === CURRENT_MAIN_SHA && minimalSnapshot.pull.base === HISTORICAL_PR_BASE_SHA && minimalSnapshot.pull.base !== minimalSnapshot.expected_base && minimalFinalGuardValid.result.state === 'MATCH', 'MGV-14 A historical PR base differs from current-main authority while snapshot and final guard pass')
+const resealMinimalSnapshotPlan = (mutate) => {
+  const snapshot = JSON.parse(Buffer.from(minimalValid.result.sealed_snapshot_b64, 'base64').toString('utf8'))
+  mutate(snapshot)
+  const bytes = Buffer.from(JSON.stringify(snapshot), 'utf8')
+  return Object.freeze({
+    ...minimalValid.result,
+    sealed_snapshot_b64: bytes.toString('base64'),
+    snapshot_sha256: createHash('sha256').update(bytes).digest('hex'),
+  })
+}
+const resealHistoricalSnapshotPlan = (mutate) => {
+  const snapshot = JSON.parse(Buffer.from(historicalInitialValid.result.sealed_snapshot_b64, 'base64').toString('utf8'))
+  mutate(snapshot)
+  const bytes = Buffer.from(JSON.stringify(snapshot), 'utf8')
+  return Object.freeze({
+    ...historicalInitialValid.result,
+    sealed_snapshot_b64: bytes.toString('base64'),
+    snapshot_sha256: createHash('sha256').update(bytes).digest('hex'),
+  })
+}
+const resealExpectedLegacyReadySnapshotPlan = (mutate) => {
+  const snapshot = JSON.parse(Buffer.from(expectedLegacyReadyInitial.result.sealed_snapshot_b64, 'base64').toString('utf8'))
+  mutate(snapshot)
+  const bytes = Buffer.from(JSON.stringify(snapshot), 'utf8')
+  return Object.freeze({
+    ...expectedLegacyReadyInitial.result,
+    sealed_snapshot_b64: bytes.toString('base64'),
+    snapshot_sha256: createHash('sha256').update(bytes).digest('hex'),
+  })
+}
+const duplicateExpectedLegacyReadySnapshot = await executeMinimalFinalGuardFixture({
+  plan: resealExpectedLegacyReadySnapshotPlan((snapshot) => {
+    snapshot.job_manifest.expected_legacy_ready_checks.push(structuredClone(snapshot.job_manifest.expected_legacy_ready_checks[0]))
+  }),
+})
+check(duplicateExpectedLegacyReadySnapshot.result.next_action === 'STOP', 'ELRF-10 duplicate sealed expected legacy Ready evidence stops at snapshot validation')
+const sealedHistoricalTupleDrift = await executeMinimalFinalGuardFixture({
+  plan: resealHistoricalSnapshotPlan((snapshot) => {
+    snapshot.job_manifest.historical_rto_checks[0].run_attempt = 2
+  }),
+})
+check(sealedHistoricalTupleDrift.result.next_action === 'STOP', 'HRTN-FROZEN-08 sealed snapshot tuple drift stops before final acquisition')
+const finalAnalogousRun = await historicalFinalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({ runId: REVIEW_RUN_ID })),
+})
+check(finalAnalogousRun.result.next_action === 'STOP', 'HRTN-FROZEN-09 final guard rejects a new analogous run')
+const invalidSnapshotHistoricalBase = await executeMinimalFinalGuardFixture({ plan: resealMinimalSnapshotPlan((snapshot) => { snapshot.pull.base = 'not-a-full-head' }) })
+const missingSnapshotHistoricalBase = await executeMinimalFinalGuardFixture({ plan: resealMinimalSnapshotPlan((snapshot) => { delete snapshot.pull.base }) })
+check(invalidSnapshotHistoricalBase.result.state === 'STOP' && invalidSnapshotHistoricalBase.result.reason === 'minimal_governance_snapshot_binding_invalid', 'MGV-15 B invalid sealed historical PR base SHA stops')
+check(missingSnapshotHistoricalBase.result.state === 'STOP' && missingSnapshotHistoricalBase.result.reason === 'minimal_governance_snapshot_binding_invalid', 'MGV-15 C missing sealed historical PR base SHA stops')
+
+const finalMainDrift = await executeMinimalFinalGuardFixture({ mainHead: HEAD })
+const finalBaseRefDrift = await executeMinimalFinalGuardFixture({ pull: minimalPull({ base: { ...minimalPull().base, ref: 'release' } }) })
+const finalInvalidHistoricalBase = await executeMinimalFinalGuardFixture({ pull: minimalPull({ base: { ...minimalPull().base, sha: 'not-a-full-head' } }) })
+const minimalFinalHeadDrift = await executeMinimalFinalGuardFixture({ pull: minimalPull({ head: { sha: HEAD } }) })
+const finalMergeabilityDrift = await executeMinimalFinalGuardFixture({ pull: minimalPull({ mergeable: false }) })
+const finalGuardDrifts = await Promise.all([
+  finalMainDrift,
+  finalBaseRefDrift,
+  finalInvalidHistoricalBase,
+  minimalFinalHeadDrift,
+  finalMergeabilityDrift,
+  executeMinimalFinalGuardFixture({ pull: minimalPull({ draft: true }) }),
+  executeMinimalFinalGuardFixture({ checks: connectionPage([{ ...successfulCheck('minimal-external-1'), conclusion: 'FAILURE' }, successfulCheck('minimal-external-2')]) }),
+  executeMinimalFinalGuardFixture({ threads: connectionPage([{ id: 'minimal-final-active-thread', isResolved: false, isOutdated: false }]) }),
+  executeMinimalFinalGuardFixture({ taskUser: { login: 'collaborator', id: 97003, type: 'User' } }),
+  executeMinimalFinalGuardFixture({ authority: minimalAuthorityComment(`${minimalAuthorityBody()}\n`) }),
+  executeMinimalFinalGuardFixture({ authority: minimalAuthorityComment(minimalAuthorityBody(), { user: { login: 'collaborator', id: 97003, type: 'User' } }) }),
+  executeMinimalFinalGuardFixture({ review: minimalReviewComment({ body: `${minimalReviewBody}\n` }) }),
+  executeMinimalFinalGuardFixture({ comments: [minimalReviewComment(), minimalAuthorityComment(), { id: 9703, created_at: '2026-08-18T00:00:03Z', author_association: 'MEMBER', user: { login: 'observer', id: 97003, type: 'User' }, body: 'non-authoritative history drift' }] }),
+  executeMinimalFinalGuardFixture({ incompleteChecks: true }),
+])
+check(finalGuardDrifts.every(({ result }) => result.state === 'STOP' && result.next_action === 'STOP' && result.protected_operation_count === 0), 'MGV-12 main, PR, checks, threads, Task, authority, Review, history, or incomplete-source drift stops')
+check(finalMainDrift.result.reason === 'minimal_governance_final_main_drift', 'MGV-14 D final current-main drift fails before pull rebind')
+check(finalBaseRefDrift.result.reason === 'minimal_governance_final_pull_drift' && finalInvalidHistoricalBase.result.reason === 'minimal_governance_final_pull_drift', 'MGV-14 E final non-main base ref or invalid historical base SHA fails pull rebind')
+check(minimalFinalHeadDrift.result.state === 'STOP' && minimalFinalHeadDrift.result.protected_operation_count === 0, 'MGV-14 F final exact PR HEAD drift stops')
+check(finalMergeabilityDrift.result.state === 'STOP' && finalMergeabilityDrift.result.protected_operation_count === 0, 'MGV-14 G final mergeability drift stops')
+const minimalGuardPutCount = (guardResult) => guardResult.next_action === 'MERGE_PR' ? 1 : 0
+check(minimalGuardPutCount(minimalFinalGuardValid.result) === 1 && finalGuardDrifts.every(({ result }) => minimalGuardPutCount(result) === 0), 'MGV-12 no-drift permits one PUT and every drift permits zero PUTs')
+const finalGuardSourceStart = runnerSource.indexOf('export const executeMinimalGovernanceFinalDriftGuardV1')
+const finalGuardSourceEnd = runnerSource.indexOf('\nconst ROLE_TERMINAL_RESULTS_V1', finalGuardSourceStart)
+const finalGuardSource = runnerSource.slice(finalGuardSourceStart, finalGuardSourceEnd)
+check(finalGuardSourceStart >= 0 && !finalGuardSource.includes('extractProtectedTransitionTaskStateV1') && !finalGuardSource.includes('reduceCurrentLeafIndependentReviewDecisionV1') && !finalGuardSource.includes('confirmCurrentLeafIndependentReviewDecisionV1') && !finalGuardSource.includes('parseIndependentReviewDecisionProjectionV1') && !finalGuardSource.includes('acquireChangedPathScopeV1') && !finalGuardSource.includes('bindMinimalGovernanceExecutionIdentityV1') && !finalGuardSource.includes('minimal_governance_pre_operation_snapshot_v1'), 'MGV-13 final guard regenerates no legacy task state, semantic Review, validation, scope, execution identity, or sealed snapshot')
+
+const roleMergeDecisionRebindHost = ({ dispatch, admissionRun, jobs = roleAdmissionJobs(), checkPage, changedJobPage = null, sourceRecords = roleSourceRecords, defaultBranch = 'main' } = {}) => {
+  const headAtPullRead = Object.fromEntries(Array.from({ length: 12 }, (_, index) => [index + 1, dispatch.exact_head]))
+  const automation = automationHost({
+    initialState: dispatch.task_state,
+    changedFiles: dispatch.authorized_paths.length,
+    filePages: [dispatch.authorized_paths.map((filename) => ({ filename, status: 'modified' }))],
+    commentPages: [[...sourceRecords.values()].filter((comment) =>
+      typeof comment.body === 'string' && comment.body.includes('record_type: "independent_review_decision_v1"'))],
+    directCommentRecords: sourceRecords,
+    headAtPullRead,
+    mergeableState: 'unstable',
+    checkPages: [checkPage, checkPage],
+  })
+  automation.metrics.originReads = 0
+  automation.metrics.jobReads = 0
+  automation.metrics.repositoryReads = 0
+  const baseApi = automation.host.api
+  return Object.freeze({
+    metrics: automation.metrics,
+    host: Object.freeze({
+      ...automation.host,
+      api: async (endpoint, options = undefined) => {
+        if (endpoint === `repos/${dispatch.repository}/actions/runs/${dispatch.admission_run_id}`) {
+          automation.metrics.originReads += 1
+          return structuredClone(admissionRun)
+        }
+        if (endpoint === `repos/${dispatch.repository}/actions/runs/${dispatch.admission_run_id}/jobs?per_page=100`) {
+          automation.metrics.jobReads += 1
+          return structuredClone(changedJobPage ?? jobs)
+        }
+        if (endpoint === `repos/${dispatch.repository}`) {
+          automation.metrics.repositoryReads += 1
+          return Object.freeze({
+            full_name: dispatch.repository,
+            url: `https://api.github.com/repos/${dispatch.repository}`,
+            default_branch: defaultBranch,
+          })
+        }
+        return baseApi(endpoint, options)
+      },
+    }),
+  })
+}
+const executeMergeAllowedRouteFixtureV1 = async ({
+  dispatch,
+  admissionRun,
+  checkPage,
+  decisionBody,
+  decisionCommentId,
+  jobs = roleAdmissionJobs(),
+  changedJobPage = null,
+}) => {
+  const sourceRecords = new Map(roleSourceRecords)
+  sourceRecords.set(decisionCommentId, roleComment(decisionCommentId, decisionBody, '2026-08-17T10:00:00Z'))
+  const fixture = roleMergeDecisionRebindHost({ dispatch, admissionRun, jobs, checkPage, changedJobPage, sourceRecords })
+  const event = Object.freeze({
+    action: 'created', repository: Object.freeze({ full_name: REPOSITORY }),
+    issue: Object.freeze({ number: TASK, state: 'open' }),
+    comment: Object.freeze({ id: decisionCommentId, author_association: 'OWNER', body: decisionBody }),
+  })
+  const result = await executeRoleTransitionOrchestratorV1({ event, host: fixture.host })
+  return Object.freeze({ result, metrics: fixture.metrics })
+}
 const implementerHostMetrics = { taskReads: 0 }
 const mergeDecisionHostMetrics = { taskReads: 0 }
 const publicationHostMetrics = { taskReads: 0 }
@@ -3252,21 +4637,315 @@ const postRepairBindingDrift = await executeRoleDispatchConsumerV1({
   }),
   host: roleHost({ head: postRepairReviewerDispatch.exact_head, taskState: postRepairReviewerDispatch.task_state }),
 })
+const readyOriginRun = roleAdmissionRun()
+const readyOriginRebind = roleMergeDecisionRebindHost({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: readyRoleCheckPage(),
+})
+const readyOriginRebound = await executeRoleDispatchRebindV1({ dispatch: readyMergeDecisionDispatch, host: readyOriginRebind.host })
+const issueCommentOriginRebind = roleMergeDecisionRebindHost({
+  dispatch: mergeDecisionDispatch,
+  admissionRun: roleAdmissionRun({ runId: REVIEW_RUN_ID, event: 'issue_comment', head: CUMULATIVE_PR_BASE }),
+  checkPage: issueCommentRoleCheckPage(),
+})
+const issueCommentOriginRebound = await executeRoleDispatchRebindV1({ dispatch: mergeDecisionDispatch, host: issueCommentOriginRebind.host })
+const issueCommentSameRunRebind = roleMergeDecisionRebindHost({
+  dispatch: mergeDecisionDispatch,
+  admissionRun: roleAdmissionRun({ runId: REVIEW_RUN_ID, event: 'issue_comment', head: CUMULATIVE_PR_BASE }),
+  checkPage: issueCommentRoleCheckPage({ sameRunConsumer: true }),
+})
+const issueCommentSameRunStopped = await executeRoleDispatchRebindV1({ dispatch: mergeDecisionDispatch, host: issueCommentSameRunRebind.host })
+const issueCommentSameRunAdmission = roleAdmissionRun({
+  runId: REVIEW_RUN_ID,
+  event: 'issue_comment',
+  head: CUMULATIVE_PR_BASE,
+  status: 'in_progress',
+  conclusion: null,
+})
+const executeIssueCommentSameRunRebindFixtureV1 = async ({
+  admissionRun = issueCommentSameRunAdmission,
+  jobs = issueCommentSameRunJobs(),
+  checkPage = issueCommentSameRunCheckPage(),
+  executionIdentity = issueCommentSameRunExecution,
+} = {}) => {
+  const fixture = roleMergeDecisionRebindHost({ dispatch: mergeDecisionDispatch, admissionRun, jobs, checkPage })
+  const result = await executeRoleDispatchRebindV1({
+    dispatch: mergeDecisionDispatch,
+    host: fixture.host,
+    executionIdentity,
+  })
+  return Object.freeze({ result, metrics: fixture.metrics })
+}
+const issueCommentProductionEquivalentSameRun = await executeIssueCommentSameRunRebindFixtureV1()
+const issueCommentExactSameRunCheck = await executeIssueCommentSameRunRebindFixtureV1({
+  checkPage: issueCommentSameRunCheckPage({ sameRunConsumer: true }),
+})
+const issueCommentSameRunExternalStops = await Promise.all([
+  issueCommentSameRunCheckPage({ externalFailure: true }),
+  issueCommentSameRunCheckPage({ externalPending: true }),
+].map((checkPage) => executeIssueCommentSameRunRebindFixtureV1({ checkPage })))
+const issueCommentSameRunExecutionDrifts = [
+  null,
+  Object.freeze({ ...issueCommentSameRunExecution, repository: `${REPOSITORY}-other` }),
+  Object.freeze({ ...issueCommentSameRunExecution, ref: 'refs/heads/future-default' }),
+  Object.freeze({ ...issueCommentSameRunExecution, workflowRef: `${REPOSITORY}/.github/workflows/other.yml@refs/heads/main` }),
+  Object.freeze({ ...issueCommentSameRunExecution, workflowSha: HEAD }),
+  Object.freeze({ ...issueCommentSameRunExecution, runId: READY_RUN_ID }),
+  Object.freeze({ ...issueCommentSameRunExecution, runAttempt: 2 }),
+  Object.freeze({ ...issueCommentSameRunExecution, jobName: 'protected_transition_merge_operator_v1' }),
+]
+const issueCommentSameRunExecutionDriftResults = await Promise.all(issueCommentSameRunExecutionDrifts.map((executionIdentity) =>
+  executeIssueCommentSameRunRebindFixtureV1({ executionIdentity })))
+const issueCommentSameRunOriginDrifts = [
+  Object.freeze({ ...issueCommentSameRunAdmission, html_url: `https://github.com/${REPOSITORY}/actions/runs/${READY_RUN_ID}` }),
+  Object.freeze({
+    ...issueCommentSameRunAdmission,
+    head_sha: HEAD,
+    head_commit: Object.freeze({ id: HEAD }),
+  }),
+]
+const issueCommentSameRunOriginDriftResults = await Promise.all(issueCommentSameRunOriginDrifts.map((admissionRun) =>
+  executeIssueCommentSameRunRebindFixtureV1({ admissionRun })))
+const issueCommentSameRunJobStatePages = [
+  issueCommentSameRunJobs({
+    states: { protected_transition_admission_v1: Object.freeze({ status: 'completed', conclusion: 'failure' }) },
+  }),
+  issueCommentSameRunJobs({
+    states: { protected_transition_role_dispatch_consumer_v1: Object.freeze({ status: 'completed', conclusion: 'success' }) },
+  }),
+]
+const issueCommentSameRunJobStateResults = await Promise.all(issueCommentSameRunJobStatePages.map((jobs) =>
+  executeIssueCommentSameRunRebindFixtureV1({ jobs })))
+const sameRunJobs = issueCommentSameRunJobs().jobs
+const issueCommentSameRunManifestPages = [
+  issueCommentSameRunJobs({ jobs: sameRunJobs.map((job, index) => index === 0 ? Object.freeze({ ...job, name: 'unknown_rto_job_v1' }) : job) }),
+  issueCommentSameRunJobs({ jobs: sameRunJobs.map((job, index) => index === 1 ? Object.freeze({ ...job, run_attempt: 2 }) : job) }),
+  issueCommentSameRunJobs({ jobs: sameRunJobs.map((job, index) => index === 1 ? Object.freeze({ ...job, id: 95344877719 }) : job) }),
+]
+const issueCommentSameRunManifestResults = await Promise.all(issueCommentSameRunManifestPages.map((jobs) =>
+  executeIssueCommentSameRunRebindFixtureV1({ jobs })))
+const issueCommentSameRunCheckIdentityResults = await Promise.all([
+  issueCommentSameRunCheckPage({ sameRunConsumer: true, sameRunConsumerJobId: '95344877719' }),
+  issueCommentSameRunCheckPage({ sameRunConsumer: true, sameRunConsumerDetailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}` }),
+  issueCommentSameRunCheckPage({ sameRunConsumer: true, sameRunConsumerName: 'unknown_rto_job_v1' }),
+].map((checkPage) => executeIssueCommentSameRunRebindFixtureV1({ checkPage })))
+const readyExternalFailureHost = roleMergeDecisionRebindHost({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: readyRoleCheckPage({ externalFailure: true }),
+})
+const readyExternalFailure = await executeRoleDispatchRebindV1({ dispatch: readyMergeDecisionDispatch, host: readyExternalFailureHost.host })
+const readyIdentityFailureHosts = [
+  roleMergeDecisionRebindHost({
+    dispatch: readyMergeDecisionDispatch,
+    admissionRun: readyOriginRun,
+    checkPage: readyRoleCheckPage({ consumerJobId: '95344877719' }),
+  }),
+  roleMergeDecisionRebindHost({
+    dispatch: readyMergeDecisionDispatch,
+    admissionRun: readyOriginRun,
+    checkPage: readyRoleCheckPage({ consumerAppId: 'other-check-app' }),
+  }),
+]
+const readyIdentityFailures = await Promise.all(readyIdentityFailureHosts.map(({ host }) =>
+  executeRoleDispatchRebindV1({ dispatch: readyMergeDecisionDispatch, host })))
+const ambiguousIssueRun = roleAdmissionRun({
+  runId: REVIEW_RUN_ID,
+  event: 'issue_comment',
+  head: CUMULATIVE_PR_BASE,
+  pullRequests: roleAdmissionRun().pull_requests,
+})
+const readyOriginMismatchRuns = [
+  Object.freeze({ ...readyOriginRun, id: Number(REVIEW_RUN_ID) }),
+  roleAdmissionRun({ event: 'workflow_dispatch', pullRequests: [] }),
+  roleAdmissionRun({ repository: `${REPOSITORY}-other` }),
+  roleAdmissionRun({ prNumber: PR + 1 }),
+  roleAdmissionRun({ head: HEAD }),
+  ambiguousIssueRun,
+]
+const readyOriginMismatchResults = await Promise.all(readyOriginMismatchRuns.map(async (admissionRun, index) => {
+  const dispatch = index === readyOriginMismatchRuns.length - 1 ? mergeDecisionDispatch : readyMergeDecisionDispatch
+  const host = roleMergeDecisionRebindHost({ dispatch, admissionRun, checkPage: index === readyOriginMismatchRuns.length - 1 ? issueCommentRoleCheckPage() : readyRoleCheckPage() })
+  return executeRoleDispatchRebindV1({ dispatch, host: host.host })
+}))
+const readyJobs = roleAdmissionJobs().jobs
+const readyManifestFailurePages = [
+  roleAdmissionJobs({ jobs: readyJobs.map((job, index) => index === 0 ? Object.freeze({ ...job, name: 'unknown_rto_job_v1' }) : job) }),
+  roleAdmissionJobs({ jobs: readyJobs.map((job, index) => index === 0 ? Object.freeze({ ...job, run_id: Number(REVIEW_RUN_ID) }) : job) }),
+  roleAdmissionJobs({ jobs: readyJobs.map((job, index) => index === 0 ? Object.freeze({ ...job, head_sha: HEAD }) : job) }),
+]
+const readyManifestFailures = await Promise.all(readyManifestFailurePages.map(async (changedJobPage) => {
+  const host = roleMergeDecisionRebindHost({
+    dispatch: readyMergeDecisionDispatch,
+    admissionRun: readyOriginRun,
+    checkPage: readyRoleCheckPage(),
+    changedJobPage,
+  })
+  return executeRoleDispatchRebindV1({ dispatch: readyMergeDecisionDispatch, host: host.host })
+}))
+const readyMergeAllowedCommentId = 9210
+const readyMergeAllowedBody = mergeDecisionBody({
+  admission_run_id: Number(READY_RUN_ID),
+  admission_run_url: `https://github.com/${REPOSITORY}/actions/runs/${READY_RUN_ID}`,
+})
+const parsedReadyMergeAllowed = parseProductOwnerMergeDecisionV1(readyMergeAllowedBody, REPOSITORY, TASK)
+const completedReadyCheckPage = readyRoleCheckPage({ consumerStatus: 'COMPLETED', consumerConclusion: 'SUCCESS' })
+const readyMergeAllowedRoute = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+})
+const issueCommentMergeAllowedRoute = await executeMergeAllowedRouteFixtureV1({
+  dispatch: mergeDecisionDispatch,
+  admissionRun: roleAdmissionRun({ runId: REVIEW_RUN_ID, event: 'issue_comment', head: CUMULATIVE_PR_BASE }),
+  checkPage: issueCommentRoleCheckPage(),
+  decisionBody: mergeDecisionBody(),
+  decisionCommentId: mergeDecisionEvent.comment.id,
+})
+const issueCommentMergeAllowedExternalFailure = await executeMergeAllowedRouteFixtureV1({
+  dispatch: mergeDecisionDispatch,
+  admissionRun: roleAdmissionRun({ runId: REVIEW_RUN_ID, event: 'issue_comment', head: CUMULATIVE_PR_BASE }),
+  checkPage: issueCommentRoleCheckPage({ externalFailure: true }),
+  decisionBody: mergeDecisionBody(),
+  decisionCommentId: mergeDecisionEvent.comment.id,
+})
+const liveIssueCommentAdmissionRun = roleAdmissionRun({
+  runId: REVIEW_RUN_ID,
+  event: 'issue_comment',
+  head: CUMULATIVE_PR_BASE,
+})
+const issueCommentHostIdentityDrifts = [
+  { admissionRun: Object.freeze({ ...liveIssueCommentAdmissionRun, head_sha: HEAD }) },
+  { admissionRun: Object.freeze({ ...liveIssueCommentAdmissionRun, head_sha: 'not-a-full-sha' }) },
+  { admissionRun: Object.freeze({ ...liveIssueCommentAdmissionRun, head_commit: Object.freeze({ id: HEAD }) }) },
+  { admissionRun: Object.freeze({ ...liveIssueCommentAdmissionRun, head_branch: 'future-default' }) },
+  { admissionRun: Object.freeze({ ...liveIssueCommentAdmissionRun, head_branch: null }) },
+  { admissionRun: Object.freeze({ ...liveIssueCommentAdmissionRun, head_repository: Object.freeze({ full_name: `${REPOSITORY}-other`, url: `https://api.github.com/repos/${REPOSITORY}-other` }) }) },
+  { admissionRun: Object.freeze({ ...liveIssueCommentAdmissionRun, path: '.github/workflows/other.yml' }) },
+  { admissionRun: Object.freeze({ ...liveIssueCommentAdmissionRun, html_url: `https://github.com/${REPOSITORY}/actions/runs/${READY_RUN_ID}` }) },
+  { admissionRun: Object.freeze({ ...liveIssueCommentAdmissionRun, status: 'in_progress' }) },
+  { admissionRun: Object.freeze({ ...liveIssueCommentAdmissionRun, conclusion: 'failure' }) },
+  { admissionRun: liveIssueCommentAdmissionRun, defaultBranch: 'future-default' },
+  { admissionRun: liveIssueCommentAdmissionRun, defaultBranch: null },
+]
+const issueCommentHostIdentityDriftResults = await Promise.all(issueCommentHostIdentityDrifts.map(async ({ admissionRun, defaultBranch }) => {
+  const fixture = roleMergeDecisionRebindHost({
+    dispatch: mergeDecisionDispatch,
+    admissionRun,
+    checkPage: issueCommentRoleCheckPage(),
+    defaultBranch,
+  })
+  return executeRoleDispatchRebindV1({ dispatch: mergeDecisionDispatch, host: fixture.host })
+}))
+const readyMergeAllowedExternalFailure = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: readyRoleCheckPage({ consumerStatus: 'COMPLETED', consumerConclusion: 'SUCCESS', externalFailure: true }),
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+})
+const readyMergeAllowedOriginDrifts = [
+  Object.freeze({ ...readyOriginRun, id: Number(REVIEW_RUN_ID) }),
+  Object.freeze({ ...readyOriginRun, html_url: `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}` }),
+  roleAdmissionRun({ event: 'workflow_dispatch', pullRequests: [] }),
+  roleAdmissionRun({ repository: `${REPOSITORY}-other` }),
+  roleAdmissionRun({ prNumber: PR + 1 }),
+  roleAdmissionRun({ head: HEAD }),
+]
+const readyMergeAllowedOriginDriftResults = await Promise.all(readyMergeAllowedOriginDrifts.map(({ ...admissionRun }) =>
+  executeMergeAllowedRouteFixtureV1({
+    dispatch: readyMergeDecisionDispatch,
+    admissionRun,
+    checkPage: completedReadyCheckPage,
+    decisionBody: readyMergeAllowedBody,
+    decisionCommentId: readyMergeAllowedCommentId,
+  })))
+const readyMergeAllowedManifestDrift = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  changedJobPage: readyManifestFailurePages[0],
+})
 const rebindMatrix = [
-  reboundImplementer.next_action === 'PROTECTED_OPERATION_READY' && reboundImplementer.exact_head === HEAD && reboundPostRepairReviewer.next_action === 'PROTECTED_OPERATION_READY' && [taskTitleDrift, taskBodyDriftRebind, closedTaskConsumer, pullRequestTaskRebind, mismatchedTaskConsumer, malformedTaskRebind].every((value) => value.reason === 'role_dispatch_binding_changed'),
-  implementerAuthorityDrift.next_action === 'STOP' && implementerAuthorityDrift.reason === 'role_dispatch_source_binding_changed' && postRepairDecisionDrift.next_action === 'STOP',
-  publicationReferenceDrift.next_action === 'STOP' && publicationReferenceDrift.reason === 'role_dispatch_source_binding_changed' && postRepairCountDrifts.every((value) => value.next_action === 'STOP' && value.reason === 'role_dispatch_source_binding_changed'),
-  reviewerDeletedSource.next_action === 'STOP' && mergeSourceDrift.next_action === 'STOP' && postRepairBindingDrift.next_action === 'STOP',
-  [reboundImplementer, reboundPostRepairReviewer, taskTitleDrift, taskBodyDriftRebind, closedTaskConsumer, pullRequestTaskRebind, mismatchedTaskConsumer, malformedTaskRebind, implementerAuthorityDrift, postRepairDecisionDrift, publicationReferenceDrift, ...postRepairCountDrifts, reviewerDeletedSource, mergeSourceDrift, postRepairBindingDrift].every((value) => value.mutation_count === 0),
+  reboundImplementer.next_action === 'PROTECTED_OPERATION_READY' && reboundImplementer.exact_head === HEAD &&
+    reboundPostRepairReviewer.next_action === 'PROTECTED_OPERATION_READY' &&
+    readyOriginRebound.next_action === 'PROTECTED_OPERATION_READY' && readyOriginRebound.exact_head === OTHER_HEAD &&
+    readyOriginRebind.metrics.originReads === 1 && readyOriginRebind.metrics.jobReads === 1 &&
+    issueCommentOriginRebound.next_action === 'PROTECTED_OPERATION_READY' && issueCommentOriginRebind.metrics.originReads === 1 &&
+    issueCommentOriginRebind.metrics.repositoryReads === 1 && issueCommentOriginRebind.metrics.jobReads === 0 &&
+    issueCommentProductionEquivalentSameRun.result.state === 'READY' && issueCommentProductionEquivalentSameRun.result.allowed === false &&
+    issueCommentProductionEquivalentSameRun.result.exit_code === 0 && issueCommentProductionEquivalentSameRun.result.reason === 'role_dispatch_rebound' &&
+    issueCommentProductionEquivalentSameRun.result.automation_status === 'OPERATION_READY' &&
+    issueCommentProductionEquivalentSameRun.result.next_action === 'PROTECTED_OPERATION_READY' &&
+    issueCommentProductionEquivalentSameRun.result.mutation_count === 0 && issueCommentProductionEquivalentSameRun.result.exact_head === OTHER_HEAD &&
+    issueCommentProductionEquivalentSameRun.metrics.originReads === 1 && issueCommentProductionEquivalentSameRun.metrics.repositoryReads === 1 &&
+    issueCommentProductionEquivalentSameRun.metrics.jobReads === 1 && issueCommentExactSameRunCheck.result.next_action === 'PROTECTED_OPERATION_READY' &&
+    readyMergeAllowedRoute.result.next_action === 'MERGE_OPERATOR' && readyMergeAllowedRoute.result.terminal_result === 'MERGE_ALLOWED' &&
+    readyMergeAllowedRoute.result.role_dispatch?.next_action === 'MERGE_OPERATOR' && readyMergeAllowedRoute.metrics.originReads === 1 && readyMergeAllowedRoute.metrics.jobReads === 1 &&
+    issueCommentMergeAllowedRoute.result.next_action === 'MERGE_OPERATOR' && issueCommentMergeAllowedRoute.result.terminal_result === 'MERGE_ALLOWED' &&
+    issueCommentMergeAllowedRoute.metrics.repositoryReads === 1 && issueCommentMergeAllowedRoute.metrics.jobReads === 0 &&
+    OTHER_HEAD === '3b19e86982701f7cffbe42d4d3568ad498bc016f' && CUMULATIVE_PR_BASE === 'eaed40ca274b6d05e03e15c87cca00b3d8b1df68' &&
+    OTHER_HEAD !== CUMULATIVE_PR_BASE && Object.keys(parsedReadyMergeAllowed).join('\n') === Object.keys(parsedMergeDecision).join('\n') &&
+    [taskTitleDrift, taskBodyDriftRebind, closedTaskConsumer, pullRequestTaskRebind, mismatchedTaskConsumer, malformedTaskRebind]
+      .every((value) => value.reason === 'role_dispatch_binding_changed'),
+  implementerAuthorityDrift.next_action === 'STOP' && implementerAuthorityDrift.reason === 'role_dispatch_source_binding_changed' &&
+    postRepairDecisionDrift.next_action === 'STOP' && readyExternalFailure.reason === 'role_dispatch_gate_changed' &&
+    readyExternalFailureHost.metrics.checkReads === 1 && issueCommentSameRunStopped.reason === 'role_dispatch_gate_changed' &&
+    issueCommentSameRunRebind.metrics.jobReads === 0 && issueCommentSameRunExternalStops.every(({ result }) => result.next_action === 'STOP' && result.reason === 'role_dispatch_gate_changed') &&
+    readyMergeAllowedExternalFailure.result.next_action === 'STOP' && readyMergeAllowedExternalFailure.result.reason === 'merge_decision_binding_invalid' &&
+    issueCommentMergeAllowedExternalFailure.result.next_action === 'STOP' && issueCommentMergeAllowedExternalFailure.result.reason === 'merge_decision_binding_invalid' &&
+    issueCommentMergeAllowedExternalFailure.metrics.checkReads === 1,
+  publicationReferenceDrift.next_action === 'STOP' && publicationReferenceDrift.reason === 'role_dispatch_source_binding_changed' &&
+    postRepairCountDrifts.every((value) => value.next_action === 'STOP' && value.reason === 'role_dispatch_source_binding_changed') &&
+    readyIdentityFailures.every((value) => value.next_action === 'STOP' && value.reason === 'role_dispatch_gate_changed') &&
+    readyManifestFailures.every((value) => value.next_action === 'STOP' && value.reason === 'ready_self_job_manifest_invalid') &&
+    issueCommentSameRunJobStateResults.every(({ result }) => result.next_action === 'STOP' && result.reason === 'issue_comment_same_run_job_state_invalid') &&
+    issueCommentSameRunManifestResults.every(({ result }) => result.next_action === 'STOP' && result.reason === 'issue_comment_same_run_job_manifest_invalid') &&
+    issueCommentSameRunCheckIdentityResults.every(({ result }) => result.next_action === 'STOP' && result.reason === 'role_dispatch_gate_changed') &&
+    readyMergeAllowedManifestDrift.result.next_action === 'STOP' && readyMergeAllowedManifestDrift.result.reason === 'ready_self_job_manifest_invalid' &&
+    readyMergeAllowedRoute.result.role_dispatch?.repository === REPOSITORY && readyMergeAllowedRoute.result.role_dispatch?.task_issue_number === TASK &&
+    readyMergeAllowedRoute.result.role_dispatch?.pr_number === PR && readyMergeAllowedRoute.result.role_dispatch?.exact_head === OTHER_HEAD &&
+    readyMergeAllowedRoute.result.role_dispatch?.source_comment_id === readyMergeAllowedCommentId && readyMergeAllowedRoute.result.role_dispatch?.source_binding?.kind === 'MERGE_DECISION' &&
+    readyMergeAllowedRoute.result.role_dispatch?.source_binding?.comment_id === readyMergeAllowedCommentId &&
+    readyMergeAllowedRoute.result.role_dispatch?.source_binding?.review_comment_id === mergeDecisionReviewId &&
+    readyMergeAllowedRoute.result.role_dispatch?.source_binding?.admission_run_id === READY_RUN_ID,
+  reviewerDeletedSource.next_action === 'STOP' && mergeSourceDrift.next_action === 'STOP' && postRepairBindingDrift.next_action === 'STOP' &&
+    readyOriginMismatchResults.every((value) => value.next_action === 'STOP' && value.reason === 'role_dispatch_origin_invalid') &&
+    readyMergeAllowedOriginDriftResults.every(({ result }) => result.next_action === 'STOP' && result.reason === 'role_dispatch_origin_invalid') &&
+    issueCommentHostIdentityDriftResults.every((value) => value.next_action === 'STOP' && value.reason === 'role_dispatch_origin_invalid') &&
+    issueCommentSameRunExecutionDriftResults.every(({ result }) => result.next_action === 'STOP' && result.reason === 'role_dispatch_origin_invalid') &&
+    issueCommentSameRunOriginDriftResults.every(({ result }) => result.next_action === 'STOP' && result.reason === 'role_dispatch_origin_invalid'),
+  [
+    reboundImplementer, reboundPostRepairReviewer, taskTitleDrift, taskBodyDriftRebind, closedTaskConsumer,
+    pullRequestTaskRebind, mismatchedTaskConsumer, malformedTaskRebind, implementerAuthorityDrift, postRepairDecisionDrift,
+    publicationReferenceDrift, ...postRepairCountDrifts, reviewerDeletedSource, mergeSourceDrift, postRepairBindingDrift,
+    readyOriginRebound, issueCommentOriginRebound, issueCommentSameRunStopped, readyExternalFailure, ...readyIdentityFailures,
+    ...readyOriginMismatchResults, ...readyManifestFailures, ...issueCommentHostIdentityDriftResults,
+    issueCommentProductionEquivalentSameRun.result, issueCommentExactSameRunCheck.result,
+    ...issueCommentSameRunExternalStops.map(({ result }) => result), ...issueCommentSameRunExecutionDriftResults.map(({ result }) => result),
+    ...issueCommentSameRunOriginDriftResults.map(({ result }) => result), ...issueCommentSameRunJobStateResults.map(({ result }) => result),
+    ...issueCommentSameRunManifestResults.map(({ result }) => result), ...issueCommentSameRunCheckIdentityResults.map(({ result }) => result),
+  ].every((value) => value.mutation_count === 0) && [
+    readyMergeAllowedRoute.result, issueCommentMergeAllowedRoute.result, issueCommentMergeAllowedExternalFailure.result,
+    readyMergeAllowedExternalFailure.result, ...readyMergeAllowedOriginDriftResults.map(({ result }) => result), readyMergeAllowedManifestDrift.result,
+  ].every((value) => value.state_changed === false),
 ]
 for (const [index, evidence] of rebindMatrix.entries()) check(evidence, `RDC-11 complete source authority revalidation ${index + 1}`)
 
 const roleConsumerJob = workflow.jobs.protected_transition_role_dispatch_consumer_v1
 const mergeOperatorJob = workflow.jobs.protected_transition_merge_operator_v1
 const postRepairReviewJob = workflow.jobs.protected_transition_post_repair_review_v1
+const mergeHostRunnerStep = mergeOperatorJob.steps.find((step) => step.name === 'Materialize immutable merge host runner')
 const roleBindRun = roleConsumerJob.steps.find((step) => step.name === 'Bind bounded role dispatch')?.run ?? ''
 const roleExecutionStep = roleConsumerJob.steps.find((step) => step.name === 'Execute bounded role and host operation')
 const roleExecutionRun = roleExecutionStep?.run ?? ''
+const admissionEvaluationRun = admissionJob.steps.find((step) => step.name === 'Evaluate protected transition admission')?.run ?? ''
+const mergePlanRun = mergeOperatorJob.steps.find((step) => step.name === 'Rebind exact decision and prepare one merge')?.run ?? ''
 const mergeOperationRun = mergeOperatorJob.steps.find((step) => step.name === 'Perform one normal merge commit')?.run ?? ''
 const postRepairExecutionStep = postRepairReviewJob.steps.find((step) => step.name === 'Execute and publish post-repair Review')
 const postRepairExecutionRun = postRepairExecutionStep?.run ?? ''
@@ -3488,10 +5167,12 @@ const workflowBoundaryMatrix = [
   roleBindRun.includes("operation=CONVERGED_NOOP") && roleExecutionStep?.if === "steps.role_dispatch_plan.outputs.operation == 'EXECUTE_ROLE'" && roleExecutionStep?.env?.GH_TOKEN === '${{ github.token }}' && mergeDecisionOutput.next_action === 'POST_MERGE_DECISION' && !Object.hasOwn(mergeDecisionOutput, 'bounded_metadata') && roleOutputFailureDiagnosticKeys.length === 9 && roleOutputFailureDiagnosticKeys.join('\n') === expectedRoleOutputFailureDiagnosticKeys.join('\n') && roleExecutionRun.indexOf('$publicationComment = Publish-CanonicalComment -BodyFile $publicationPath') < roleExecutionRun.indexOf('--review-event-file $publishedEventPath') && roleExecutionRun.indexOf('--review-event-file $publishedEventPath') < roleExecutionRun.indexOf("-ExpectedAction 'POST_REVIEW'") && assertRoleOutputSource.includes('--role-jsonl-file $JsonlFile') && (roleExecutionRun.match(/Assert-RoleOutput[^\n]+-JsonlFile \$/g) ?? []).length === 3 && assertRoleOutputSource.includes('$failure.bounded_metadata') && expectedRoleOutputFailureDiagnosticKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("$dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && assertRoleOutputSource.includes('$failure.failure_evidence') && reviewerEvidenceHeaderKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && assertRoleOutputSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && assertRoleOutputSource.includes('$header.selected_body_utf8_byte_count -gt 262144') && assertRoleOutputSource.includes('$header.body_chunk_count -gt 64') && assertRoleOutputSource.includes('$bytes.Length -ne 4096') && assertRoleOutputSource.includes('[Convert]::FromBase64String($chunk.body_base64)') && assertRoleOutputSource.includes('$sha256.ComputeHash($capturedBytes)') && assertRoleOutputSource.includes("$header.body_capture_status -ceq 'BOUND_EXCEEDED'") && assertRoleOutputSource.includes('$chunks.Count -ne 0') && assertRoleOutputSource.includes('-gt 9007199254740991') && assertRoleOutputSource.includes('-isnot [System.Array]') && assertRoleOutputSource.includes('$diagnosticLines = @()') && assertRoleOutputSource.includes('foreach ($diagnosticLine in $diagnosticLines)') && assertRoleOutputSource.split('[Console]::Error.WriteLine($diagnosticLine)').length === 2 && assertRoleOutputSource.includes("throw 'role_output_validation_failed'") && !assertRoleOutputSource.includes('Start-Sleep') && !assertRoleOutputSource.includes('retry') && !Object.hasOwn(workflow.concurrency, 'queue') && workflow.concurrency['cancel-in-progress'] === false && roleExecutionRun.includes("if ($expected -in @('POST_REVIEW', 'POST_MERGE_DECISION'))") && !roleExecutionRun.includes('Complete-ReviewerClosure'),
   boundedRoleSource.startsWith('function Invoke-BoundedRole {') && !boundedRoleSource.includes('$LASTEXITCODE = $null') && boundedRoleSource.indexOf('$priorToken = $env:GH_TOKEN') < boundedRoleSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(boundedRoleSource) && boundedRoleSource.indexOf('codex.cmd exec') < boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') && boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') < boundedRoleSource.indexOf('if ($null -eq $priorToken)') && terminalAgentSelectorSource.includes('$terminalMessage = [string]$event.item.text') && !terminalAgentSelectorSource.includes('$messages +=') && (process.platform !== 'win32' || (roleProviderNativeExitProbe.success === 0 && roleProviderNativeExitProbe.failure === 37 && roleProviderTerminalMessageProbe.multiple === roleImplementationResultBody && roleProviderTerminalMessageProbe.zeroRejected === true && malformedTerminalOutput.next_action === 'STOP' && trustedHostCredentialProbe.providerToken === 'ABSENT' && trustedHostCredentialProbe.restoredToken === 'trusted-host-token' && trustedHostCredentialProbe.validatedAction === 'POST_MERGE_DECISION' && trustedHostCredentialProbe.hostTokens.join('\n') === 'trusted-host-token\ntrusted-host-token')) && roleExecutionRun.indexOf('Invoke-BoundedRole -PromptFile $promptPath') < roleExecutionRun.indexOf('$validated = Assert-RoleOutput') && roleExecutionRun.indexOf('$validated = Assert-RoleOutput') < roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') < roleExecutionRun.indexOf('$null = Publish-CanonicalComment -BodyFile $bodyPath') && roleExecutionRun.split('Assert-FreshRoleBinding').length >= 8 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'") && roleExecutionRun.includes("throw 'publication_continuation_task_binding_invalid'") && roleExecutionRun.includes("throw 'publication_continuation_route_failed'") && roleExecutionRun.includes("throw 'publication_continuation_binding_invalid'") && roleExecutionRun.includes("throw 'publication_reviewer_dispatch_not_ready'") && roleExecutionRun.indexOf("$reviewPlan = Get-Content -LiteralPath $reviewPlanPath") < roleExecutionRun.indexOf('$reviewTask = gh api') && roleExecutionRun.includes("$reviewTask.number -ne $dispatch.task_issue_number -or $reviewTask.state -cne 'open' -or $null -ne $reviewTask.pull_request") && roleExecutionRun.indexOf("throw 'publication_reviewer_task_binding_invalid'") < roleExecutionRun.indexOf('Invoke-BoundedRole -PromptFile $reviewPromptPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath') < roleExecutionRun.indexOf('$publicationTask = gh api') && roleExecutionRun.includes("$publicationTask.number -ne $dispatch.task_issue_number -or $publicationTask.state -cne 'open' -or $null -ne $publicationTask.pull_request") && roleExecutionRun.indexOf('$publicationTask = gh api') < roleExecutionRun.indexOf('$null = Publish-CanonicalComment -BodyFile $reviewBodyPath') && !roleExecutionRun.includes('Assert-FreshReviewerSnapshot') && !roleExecutionRun.includes('review_thread_snapshot'),
   postRepairReviewJob.steps.find((step) => step.name === 'Bind post-repair Independent Reviewer')?.run.includes('task_state = $state') && postRepairExecutionStep?.env?.GH_TOKEN === '${{ github.token }}' && postRepairExecutionRun.includes('--role-rebind-file') && !postRepairExecutionRun.includes('--review-publication-rebind-file') && !postRepairExecutionRun.includes('--review-closure-file') && postRepairExecutionRun.includes('if ($nativeExit -ne 0) { throw "post_repair_review_provider_failed_$nativeExit" }') && postRepairExecutionRun.includes("if ($messages.Count -ne 1) { throw 'post_repair_review_result_cardinality_invalid' }") && postRepairProviderThroughRebindSource.indexOf('$priorToken = $env:GH_TOKEN') < postRepairProviderThroughRebindSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(postRepairProviderThroughRebindSource) && postRepairProviderThroughRebindSource.indexOf('codex.cmd exec') < postRepairProviderThroughRebindSource.indexOf('$nativeExit = $LASTEXITCODE') && postRepairProviderThroughRebindSource.indexOf('$nativeExit = $LASTEXITCODE') < postRepairProviderThroughRebindSource.indexOf('if ($null -eq $priorToken)') && postRepairProviderThroughRebindSource.indexOf('if ($null -eq $priorToken)') < postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-output-file') && postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-output-file') < postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-rebind-file') && postRepairExecutionRun.indexOf('if ($nativeExit -ne 0)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairExecutionRun.indexOf('if ($messages.Count -ne 1)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && postRepairEvidenceValidatorSource.includes('$sha256.ComputeHash($capturedBytes)') && !postRepairEvidenceValidatorSource.includes('post_repair') && postRepairExecutionRun.includes("$failureDispatch.next_action -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.indexOf('[Console]::Error.WriteLine($diagnosticLine)') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.includes('$diagnosticLines = @()') && (process.platform !== 'win32' || (postRepairFailureEvidenceProbe.lineCount === reviewerFailureEvidence.chunks.length + 1 && postRepairFailureEvidenceProbe.headerRecordType === 'independent_reviewer_role_output_failure_evidence_v1' && postRepairFailureEvidenceProbe.chunkRecordTypesValid === true && postRepairFailureEvidenceProbe.invalidRejected === true && postRepairTrustedHostCredentialProbe.valid.providerToken === 'ABSENT' && postRepairTrustedHostCredentialProbe.valid.restoredToken === 'trusted-post-repair-host-token' && postRepairTrustedHostCredentialProbe.valid.outcome === 'COMPLETED' && postRepairTrustedHostCredentialProbe.valid.validatedAction === 'POST_REVIEW' && postRepairTrustedHostCredentialProbe.valid.reboundAction === 'PROTECTED_OPERATION_READY' && postRepairTrustedHostCredentialProbe.valid.hostCalls.length === 2 && postRepairTrustedHostCredentialProbe.valid.hostCalls.every((call) => call.startsWith('PRESENT:')) && postRepairTrustedHostCredentialProbe.valid.hostCalls[1].includes('--role-rebind-file') && postRepairTrustedHostCredentialProbe.invalid.providerToken === 'ABSENT' && postRepairTrustedHostCredentialProbe.invalid.restoredToken === 'trusted-post-repair-host-token' && postRepairTrustedHostCredentialProbe.invalid.outcome === 'post_repair_review_result_invalid' && postRepairTrustedHostCredentialProbe.invalid.validatedAction === null && postRepairTrustedHostCredentialProbe.invalid.reboundAction === null && postRepairTrustedHostCredentialProbe.invalid.hostCalls.length === 1 && postRepairTrustedHostCredentialProbe.invalid.hostCalls[0].startsWith('PRESENT:'))),
-  runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id') && !runnerSource.includes('ADD_REVIEW_THREAD_REPLY_MUTATION') && !runnerSource.includes('RESOLVE_REVIEW_THREAD_MUTATION') && !runnerSource.includes('executeReviewerPublicationRebindV1') && !runnerSource.includes('executeReviewThreadClosureV1') && !runnerSource.includes("mode: 'review_publication_rebind'") && !runnerSource.includes("mode: 'review_closure'") && runnerSource.match(/parseIndependentReviewDecisionProjectionV1/g)?.length === 7,
-  mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR'" && mergeOperationRun.includes('--merge-operator-file $dispatchPath') && mergeOperationRun.indexOf('--merge-operator-file $dispatchPath') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force') && !workflowSource.includes('gh workflow run') && !runnerSource.includes('createWorkflowDispatch') && runnerSource.includes('acquireMergeCheckRollupSnapshotV1') && runnerSource.includes('acquireMergeReviewThreadsV1') && runnerSource.includes('executeProtectedTransitionAdmissionV1'),
+  runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id') && runnerSource.includes("const ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'") && ['GITHUB_REPOSITORY', 'GITHUB_REF', 'GITHUB_WORKFLOW_REF', 'GITHUB_WORKFLOW_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_JOB'].every((name) => runnerSource.includes(`process.env.${name}`)) && !runnerSource.includes('ADD_REVIEW_THREAD_REPLY_MUTATION') && !runnerSource.includes('RESOLVE_REVIEW_THREAD_MUTATION') && !runnerSource.includes('executeReviewerPublicationRebindV1') && !runnerSource.includes('executeReviewThreadClosureV1') && !runnerSource.includes("mode: 'review_publication_rebind'") && !runnerSource.includes("mode: 'review_closure'") && runnerSource.match(/parseIndependentReviewDecisionProjectionV1/g)?.length === 7,
+  manualWorkflowDispatchResult.state === 'MERGE_ELIGIBLE' && manualWorkflowDispatchResult.allowed === true && manualWorkflowDispatchResult.next_action === 'MERGE_DECISION' && manualWorkflowDispatchResult.automation_status === 'MERGE_DECISION_PENDING' && !Object.hasOwn(manualWorkflowDispatchResult, 'role_dispatch') && manualWorkflowDispatchAdmission.metrics.checkReads === 0 && manualWorkflowDispatchAdmission.metrics.threadReads === 0 && mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR' && (needs.protected_transition_admission_v1.outputs.terminal_result == 'MERGE_ALLOWED' || needs.protected_transition_admission_v1.outputs.terminal_result == 'MINIMAL_GOVERNANCE_V1')" && mergeOperationRun.includes('--merge-operator-file $dispatchPath') && mergeOperationRun.indexOf('--merge-operator-file $dispatchPath') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force') && !workflowSource.includes('gh workflow run') && !runnerSource.includes('createWorkflowDispatch') && runnerSource.includes('acquireMergeCheckRollupSnapshotV1') && runnerSource.includes('acquireMergeReviewThreadsV1') && runnerSource.includes('executeProtectedTransitionAdmissionV1'),
+  admissionJob.outputs.authority_kind === '${{ steps.evaluate.outputs.authority_kind }}' && admissionJob.outputs.minimal_merge_plan_b64 === '${{ steps.evaluate.outputs.minimal_merge_plan_b64 }}' && (admissionEvaluationRun.match(/--review-event-file/g) ?? []).length === 1 && !Object.hasOwn(mergeHostRunnerStep, 'if') && mergePlanRun.includes("if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1')") && mergePlanRun.indexOf("if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1')") < mergePlanRun.indexOf('node $env:PTA_MERGE_HOST_RUNNER') && (mergeOperationRun.match(/--minimal-governance-drift-guard-file/g) ?? []).length === 1 && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.indexOf('minimal_governance_final_drift_guard_matched') < mergeOperationRun.indexOf('--method PUT') && (workflowSource.match(/--method PUT/g) ?? []).length === 1 && !workflowSource.includes('Start-Sleep') && !workflowSource.includes('retry'),
+  workflow.permissions.actions === 'read' && mergePlanRun.includes("$snapshot.pull.base -cnotmatch '^[0-9a-f]{40}$'") && !mergePlanRun.includes('$snapshot.pull.base -cne $plan.expected_base') && mergePlanRun.includes("$plan.expected_base -cnotmatch '^[0-9a-f]{40}$'") && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT'),
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 576) throw new Error(`expected exactly 576 assertions, observed ${assertions}`)
+if (assertions !== 680) throw new Error(`expected exactly 680 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

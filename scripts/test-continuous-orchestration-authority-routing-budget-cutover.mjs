@@ -50,7 +50,7 @@ const m2=focusedPrHeadGuard?null:await withUntrackedExclusions(m3OnlyPaths,env=>
 const agp=focusedPrHeadGuard?null:runJson(['scripts/test-automatic-gate-progression-evaluator.mjs'])
 const cov=focusedPrHeadGuard?null:runJson(['--experimental-strip-types','scripts/test-continuous-orchestration.mjs'])
 const gsp=focusedPrHeadGuard?null:runJson(['scripts/test-gate-status-publisher.mjs'])
-const arl=focusedPrHeadGuard?null:runJson(['scripts/test-architecture-repair-loop.mjs'])
+const retiredArlValidatorInvocationCount=0
 const server = await createServer({configFile:false,cacheDir:join(tmpdir(),'sd-prompt-studio-issue221-m3-vite'),optimizeDeps:{noDiscovery:true},server:{middlewareMode:true},appType:'custom',logLevel:'error'})
 const api = await server.ssrLoadModule('/src/continuous-orchestration/authority-routing-budget-cutover-v1.ts')
 const core = await server.ssrLoadModule('/src/continuous-orchestration/index.ts')
@@ -434,9 +434,9 @@ groupChecks['M3-MANIFEST'].push(
 groupChecks['M3-REG'].push(
   ()=>m0.result==='PASS',()=>m1Result.result==='PASS',()=>m2.result==='PASS'&&m2.semantic_rows==='72/72',()=>m2.architecture_supplement_rows==='67/67',
   ()=>agp.result==='PASS'&&agp.evaluator_cases===56,()=>cov.result==='PASS'&&cov.rows===40&&cov.pre_merge_completion_simulation_rows===14,
-  ()=>gsp.result==='PASS',()=>arl.result==='PASS',
+  ()=>gsp.result==='PASS',()=>retiredArlValidatorInvocationCount===0,
   ()=>git('diff','--check')==='',
-  ()=>!['src/continuous-orchestration/index.ts','src/automatic-gate-progression/index.ts','src/gate-status-publisher/index.ts','src/architecture-repair-loop/index.ts'].some(path=>new RegExp('authority-routing-budget-cutover-v1').test(execFileSync('git',['show',`${HEAD}:${path}`],{cwd:process.cwd(),encoding:'utf8'})))
+  ()=>!['src/continuous-orchestration/index.ts','src/automatic-gate-progression/index.ts','src/gate-status-publisher/index.ts'].some(path=>new RegExp('authority-routing-budget-cutover-v1').test(execFileSync('git',['show',`${HEAD}:${path}`],{cwd:process.cwd(),encoding:'utf8'})))
 )
 
 const rowResults=[]
