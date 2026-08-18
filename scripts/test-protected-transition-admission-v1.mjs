@@ -57,7 +57,7 @@ const HEAD = 'a'.repeat(40)
 const OTHER_HEAD = '3b19e86982701f7cffbe42d4d3568ad498bc016f'
 const READY_RUN_ID = '31246327840'
 const REVIEW_RUN_ID = '32025890230'
-const CUMULATIVE_PR_BASE = '3e3014d95680f3d3e34ec3696a1e3de4b1a03c03'
+const CUMULATIVE_PR_BASE = 'eaed40ca274b6d05e03e15c87cca00b3d8b1df68'
 const BASE = '9fda08907ff21c5c596146b779d7feeac5efbfa8'
 const HOST_RUNNER_BINDING_BASE = '3631d84351a49088baaadb5b3445751a7bf0b44e'
 const HOST_RUNNER_BINDING_HEAD = '35b7849840a2a9191f4ebf56bf83e145725a6dfa'
@@ -694,7 +694,7 @@ for (const unit of roleUnits) {
 
 check(Object.keys(workflow.on).join(',') === 'workflow_dispatch,issue_comment,pull_request' && workflow.on.issue_comment.types.join(',') === 'created' && workflow.on.pull_request.types.join(',') === 'ready_for_review', 'workflow has manual recovery, created Review, and Ready triggers')
 check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number', 'workflow has exactly four inputs and canonicalizes the Task input as a number')
-check(Object.keys(workflow.permissions).join(',') === 'contents,checks,issues,pull-requests,statuses' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'read' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read', 'workflow adds only read access for checks and statuses')
+check(Object.keys(workflow.permissions).join(',') === 'actions,contents,checks,issues,pull-requests,statuses' && workflow.permissions.actions === 'read' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'read' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read', 'workflow adds only read access for Actions, checks, and statuses')
 
 const admissionJob = workflow.jobs.protected_transition_admission_v1
 const hostIdentityStep = admissionJob.steps.find((step) => step.name === 'Admit exact default-branch host identity')
@@ -727,7 +727,7 @@ check(!/(trust_root|revocation|ready_generation|producer_roster|assignment_recor
 check(runnerSource.includes('/comments?since=') && runnerSource.includes('pageNumber > 32'), 'runner uses bounded forward-only Review pagination')
 check(runnerSource.includes('acquireTaskIdentityV1') && runnerSource.includes('acquireChangedPathScopeV1') && runnerSource.includes('executeManualProgressionControllerV1') && runnerSource.includes('createProductionEvidenceCaptureV1') && runnerSource.includes('captureProductionEvidenceSnapshotV1') && runnerSource.includes('projectProductionParityRecordBV1') && !runnerSource.includes('evaluateSharedEvidenceGenericV1'), 'runner carries production-consumed acquisition snapshots into Record A and owns Record B without Generic mapper reuse')
 check(runnerSource.includes('previous_filename') && runnerSource.includes('state_changed_during_evaluation'), 'runner checks rename and late state change')
-check(workflowSource.includes('pnpm.cmd install --frozen-lockfile') && !workflowSource.includes('actions: read') && !workflowSource.includes('upload-artifact') && !workflowSource.includes('gh workflow run'), 'workflow uses frozen repair dependencies without nested dispatch or artifact permission/persistence')
+check(workflowSource.includes('pnpm.cmd install --frozen-lockfile') && workflowSource.includes('actions: read') && !workflowSource.includes('upload-artifact') && !workflowSource.includes('gh workflow run'), 'workflow uses frozen repair dependencies and read-only Actions access without nested dispatch or artifact persistence')
 check(coreSource.includes('export const evaluateProtectedTransitionAdmissionV1') && !/\b(fetch|writeFile|execFile)\b/.test(coreSource), 'one pure evaluator owns classification')
 
 const reviewDecisionBody = (overrides = {}, extraLines = []) => {
@@ -848,12 +848,13 @@ const connectionPage = (nodes, { totalCount = nodes.length, hasNextPage = false,
 const successfulCheck = (id = 'check-1') => ({
   __typename: 'CheckRun',
   id,
+  databaseId: 900001,
   name: `check-${id}`,
   status: 'COMPLETED',
   conclusion: 'SUCCESS',
   detailsUrl: null,
   startedAt: '2026-08-08T00:00:00Z',
-  checkSuite: { app: { id: 'github-actions-app', databaseId: 15368 } },
+  checkSuite: { databaseId: 900101, headSha: HEAD, app: { id: 'github-actions-app', databaseId: 15368 } },
 })
 
 const currentReadyCheck = ({
@@ -865,15 +866,19 @@ const currentReadyCheck = ({
   startedAt = '2026-08-08T02:00:00Z',
   appId = 'github-actions-app',
   appDatabaseId = 15368,
+  databaseId = 93075431467,
+  checkSuiteDatabaseId = 93075430000,
+  checkSuiteHeadSha = HEAD,
 } = {}) => ({
   __typename: 'CheckRun',
   id,
+  databaseId,
   name,
   status,
   conclusion,
   detailsUrl,
   startedAt,
-  checkSuite: { app: { id: appId, databaseId: appDatabaseId } },
+  checkSuite: { databaseId: checkSuiteDatabaseId, headSha: checkSuiteHeadSha, app: { id: appId, databaseId: appDatabaseId } },
 })
 
 const readyCheckPage = (other = successfulCheck()) => connectionPage([currentReadyCheck(), other])
@@ -3230,7 +3235,149 @@ const minimalSelfCheck = (overrides = {}) => currentReadyCheck({
   conclusion: null,
   detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/job/${readyRebindJobIds.protected_transition_admission_v1}`,
   startedAt: '2026-08-18T00:00:03Z',
+  checkSuiteHeadSha: CURRENT_MAIN_SHA,
   ...overrides,
+})
+const CURRENT_EXECUTION_RTO_WORKFLOW_ID = 93075420000
+const CURRENT_EXECUTION_RTO_CHECK_SUITE_ID = 93075430000
+const currentExecutionRtoRun = (overrides = {}) => ({
+  id: Number(REVIEW_RUN_ID),
+  run_attempt: 1,
+  workflow_id: CURRENT_EXECUTION_RTO_WORKFLOW_ID,
+  check_suite_id: CURRENT_EXECUTION_RTO_CHECK_SUITE_ID,
+  repository: { full_name: REPOSITORY },
+  head_repository: { full_name: REPOSITORY },
+  path: '.github/workflows/protected-transition-admission-v1.yml',
+  event: 'issue_comment',
+  status: 'in_progress',
+  conclusion: null,
+  head_sha: CURRENT_MAIN_SHA,
+  head_commit: { id: CURRENT_MAIN_SHA },
+  head_branch: 'main',
+  url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}`,
+  html_url: `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}`,
+  jobs_url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/jobs`,
+  pull_requests: [],
+  ...overrides,
+})
+const currentExecutionRtoJobs = ({
+  runId = REVIEW_RUN_ID,
+  runAttempt = 1,
+  workflowSha = CURRENT_MAIN_SHA,
+  jobs = undefined,
+} = {}) => {
+  const values = jobs ?? historicalRtoJobNames.map((name) => ({
+    id: Number(readyRebindJobIds[name]),
+    run_id: Number(runId),
+    run_attempt: runAttempt,
+    name,
+    head_sha: workflowSha,
+    status: name === 'protected_transition_admission_v1' ? 'in_progress' : 'queued',
+    conclusion: null,
+    html_url: `https://github.com/${REPOSITORY}/actions/runs/${runId}/job/${readyRebindJobIds[name]}`,
+  }))
+  return { total_count: values.length, jobs: values }
+}
+const HISTORICAL_RTO_RUN_ID = '32097609793'
+const HISTORICAL_RTO_PR_NUMBER = 323
+const HISTORICAL_RTO_HEAD = '39af964928dbe0ba2e689897d596904599f19730'
+const HISTORICAL_RTO_WORKFLOW_ID = 327818524
+const HISTORICAL_RTO_CHECK_SUITE_ID = 87008787144
+const historicalRtoJobNames = Object.freeze([
+  'protected_transition_admission_v1',
+  'protected_transition_repair_executor_v1',
+  'protected_transition_role_dispatch_consumer_v1',
+  'protected_transition_merge_operator_v1',
+  'protected_transition_post_repair_review_v1',
+])
+const historicalRtoJobIds = Object.freeze({
+  protected_transition_admission_v1: '95591890192',
+  protected_transition_role_dispatch_consumer_v1: '95591918148',
+  protected_transition_merge_operator_v1: '95591918161',
+  protected_transition_repair_executor_v1: '95591918182',
+  protected_transition_post_repair_review_v1: '95591918420',
+})
+const historicalRtoCheckIds = Object.freeze(Object.fromEntries(historicalRtoJobNames.map((name, index) => [name, 984001 + index])))
+const historicalTerminalResult = (overrides = {}) => ({
+  transition: 'merge_decision_admission',
+  state: 'INDETERMINATE',
+  allowed: false,
+  exit_code: 1,
+  reason: 'state_block_cardinality_invalid',
+  task_issue_number: null,
+  pr_number: HISTORICAL_RTO_PR_NUMBER,
+  current_head: HISTORICAL_RTO_HEAD,
+  out_of_scope_paths: [],
+  state_changed: false,
+  automation_status: 'BLOCKED',
+  admission_executed: false,
+  next_action: 'STOP',
+  ...overrides,
+})
+const historicalLog = (results = [historicalTerminalResult()]) => Buffer.from(
+  results.map((result, index) => `2026-08-18T00:00:0${index}Z ${JSON.stringify(result)}`).join('\n'),
+  'utf8',
+)
+const historicalRtoChecks = ({
+  runId = HISTORICAL_RTO_RUN_ID,
+  checkSuiteId = HISTORICAL_RTO_CHECK_SUITE_ID,
+  head = HISTORICAL_RTO_HEAD,
+  appDatabaseId = 15368,
+  overrides = {},
+} = {}) => historicalRtoJobNames.map((name, index) => currentReadyCheck({
+  id: `historical-rto-${index}`,
+  databaseId: historicalRtoCheckIds[name],
+  name,
+  status: 'COMPLETED',
+  conclusion: name === 'protected_transition_admission_v1' ? 'FAILURE' : 'SKIPPED',
+  detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${runId}/job/${historicalRtoJobIds[name]}`,
+  startedAt: `2026-08-17T00:00:0${index}Z`,
+  appDatabaseId,
+  checkSuiteDatabaseId: checkSuiteId,
+  checkSuiteHeadSha: head,
+  ...(overrides[name] ?? {}),
+}))
+const historicalRunRecord = (overrides = {}) => ({
+  id: Number(HISTORICAL_RTO_RUN_ID),
+  run_attempt: 1,
+  workflow_id: HISTORICAL_RTO_WORKFLOW_ID,
+  check_suite_id: HISTORICAL_RTO_CHECK_SUITE_ID,
+  repository: { full_name: REPOSITORY },
+  path: '.github/workflows/protected-transition-admission-v1.yml',
+  event: 'pull_request',
+  status: 'completed',
+  conclusion: 'failure',
+  head_sha: HISTORICAL_RTO_HEAD,
+  url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}`,
+  html_url: `https://github.com/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}`,
+  jobs_url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}/jobs`,
+  pull_requests: [{ number: HISTORICAL_RTO_PR_NUMBER, head: { sha: HISTORICAL_RTO_HEAD }, base: { ref: 'main' } }],
+  ...overrides,
+})
+const historicalJobPage = ({
+  runId = HISTORICAL_RTO_RUN_ID,
+  runAttempt = 1,
+  head = HISTORICAL_RTO_HEAD,
+  overrides = {},
+} = {}) => ({
+  total_count: historicalRtoJobNames.length,
+  jobs: historicalRtoJobNames.map((name) => {
+    const jobId = historicalRtoJobIds[name]
+    const checkId = historicalRtoCheckIds[name]
+    return {
+      id: Number(jobId),
+      run_id: Number(runId),
+      run_attempt: runAttempt,
+      name,
+      head_sha: head,
+      status: 'completed',
+      conclusion: name === 'protected_transition_admission_v1' ? 'failure' : 'skipped',
+      url: `https://api.github.com/repos/${REPOSITORY}/actions/jobs/${jobId}`,
+      html_url: `https://github.com/${REPOSITORY}/actions/runs/${runId}/job/${jobId}`,
+      check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/${checkId}`,
+      ...(overrides[name] ?? {}),
+    }
+  }),
 })
 const executeMinimalFixture = async ({
   authorityBody = minimalAuthorityBody(),
@@ -3245,15 +3392,25 @@ const executeMinimalFixture = async ({
   eventOverrides = {},
   authorityRefetchOverrides = {},
   taskUser = minimalProductOwner,
+  fixturePrNumber = PR,
+  fixtureExactHead = OTHER_HEAD,
   runId = REVIEW_RUN_ID,
   runAttempt = 1,
   hostSha = CURRENT_MAIN_SHA,
   jobName = 'protected_transition_admission_v1',
+  currentRun = null,
+  currentJobs = null,
+  historicalRun = null,
+  historicalJobs = null,
+  historicalLogBytes = null,
+  historicalLogUnavailable = false,
 } = {}) => {
   const authority = minimalAuthorityComment(authorityRefetchBody, authorityRefetchOverrides)
   const review = minimalReviewComment({ body: reviewRefetchBody })
   const history = comments ?? [minimalReviewComment(), minimalAuthorityComment(authorityBody)]
   const metrics = { authority: 0, review: 0, pull: 0, task: 0, main: 0, comments: 0, scope: 0, checks: 0, threads: 0 }
+  const currentMetrics = { run: 0, jobs: 0 }
+  const historicalMetrics = { run: 0, jobs: 0, log: 0 }
   const host = {
     branchHead: async () => { metrics.main += 1; return mainHead },
     api: async (endpoint) => {
@@ -3265,7 +3422,7 @@ const executeMinimalFixture = async ({
         metrics.review += 1
         return structuredClone(review)
       }
-      if (endpoint === `repos/${REPOSITORY}/pulls/${PR}`) {
+      if (endpoint === `repos/${REPOSITORY}/pulls/${fixturePrNumber}`) {
         metrics.pull += 1
         return structuredClone(pull)
       }
@@ -3277,20 +3434,44 @@ const executeMinimalFixture = async ({
         metrics.comments += 1
         return structuredClone(history)
       }
-      if (endpoint.startsWith(`repos/${REPOSITORY}/pulls/${PR}/files?`)) {
+      if (endpoint.startsWith(`repos/${REPOSITORY}/pulls/${fixturePrNumber}/files?`)) {
         metrics.scope += 1
         return paths.map((filename) => ({ filename, status: 'modified' }))
       }
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${runId}` && currentRun !== null) {
+        currentMetrics.run += 1
+        return structuredClone(currentRun)
+      }
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${runId}/jobs?per_page=100` && currentJobs !== null) {
+        currentMetrics.jobs += 1
+        return structuredClone(currentJobs)
+      }
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}` && historicalRun !== null) {
+        historicalMetrics.run += 1
+        return structuredClone(historicalRun)
+      }
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}/jobs?per_page=100` && historicalJobs !== null) {
+        historicalMetrics.jobs += 1
+        return structuredClone(historicalJobs)
+      }
       throw new Error(`unexpected_minimal_endpoint:${endpoint}`)
+    },
+    apiBytes: async (endpoint) => {
+      historicalMetrics.log += 1
+      if (
+        historicalLogUnavailable || historicalLogBytes === null ||
+        endpoint !== `repos/${REPOSITORY}/actions/jobs/${historicalRtoJobIds.protected_transition_admission_v1}/logs`
+      ) throw new Error('historical_log_unavailable')
+      return new Uint8Array(historicalLogBytes)
     },
     graphql: async (query, variables) => {
       if (query.includes('statusCheckRollup')) {
         metrics.checks += 1
-        return { repository: { pullRequest: { headRefOid: OTHER_HEAD }, object: { oid: variables.head, statusCheckRollup: { contexts: structuredClone(checks) } } } }
+        return { repository: { pullRequest: { headRefOid: fixtureExactHead }, object: { oid: variables.head, statusCheckRollup: { contexts: structuredClone(checks) } } } }
       }
       if (query.includes('reviewThreads')) {
         metrics.threads += 1
-        return { repository: { pullRequest: { number: PR, state: 'OPEN', isDraft: false, mergeable: 'MERGEABLE', mergeStateStatus: 'UNSTABLE', headRefOid: OTHER_HEAD, reviewThreads: structuredClone(threads) } } }
+        return { repository: { pullRequest: { number: fixturePrNumber, state: 'OPEN', isDraft: false, mergeable: 'MERGEABLE', mergeStateStatus: 'UNSTABLE', headRefOid: fixtureExactHead, reviewThreads: structuredClone(threads) } } }
       }
       throw new Error('unexpected_minimal_graphql')
     },
@@ -3298,7 +3479,7 @@ const executeMinimalFixture = async ({
   const result = await executeMinimalGovernanceV1({
     event: minimalEvent(authorityBody, eventOverrides), host, runId, runAttempt, hostSha, jobName,
   })
-  return Object.freeze({ result, metrics, host })
+  return Object.freeze({ result, metrics, currentMetrics, historicalMetrics, host })
 }
 
 const parsedMinimalAuthority = parseMinimalGovernanceAuthorityV1(minimalAuthorityBody(), REPOSITORY, TASK)
@@ -3382,19 +3563,320 @@ check([pendingExternal, failedExternal, missingExternal, missingGeneration, ambi
 const activeThread = await executeMinimalFixture({ threads: connectionPage([{ id: 'minimal-active-thread', isResolved: false, isOutdated: false }]) })
 check(activeThread.result.reason === 'minimal_governance_thread_or_pull_binding_invalid', 'MGV-07 active non-outdated thread fails closed')
 
-const exactBoundSelfCheck = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck(), successfulCheck('minimal-external')]) })
+const exactBoundSelfCheck = await executeMinimalFixture({
+  checks: connectionPage([minimalSelfCheck(), successfulCheck('minimal-external')]),
+  currentRun: currentExecutionRtoRun(),
+  currentJobs: currentExecutionRtoJobs(),
+})
 const nameOnlySelfIdentity = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck({ detailsUrl: null }), successfulCheck('minimal-external')]) })
 const appMismatchedSelfIdentity = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck({ appDatabaseId: 999 }), successfulCheck('minimal-external')]) })
 const runMismatchedSelfIdentity = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck({ detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${READY_RUN_ID}/job/${readyRebindJobIds.protected_transition_admission_v1}` }), successfulCheck('minimal-external')]) })
-const mismatchedSelfIdentity = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck({ detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/job/99999999999` }), successfulCheck('minimal-external')]) })
 const executionIdentityDrifts = await Promise.all([
   executeMinimalFixture({ runId: '0' }),
   executeMinimalFixture({ runAttempt: 0 }),
   executeMinimalFixture({ hostSha: HEAD }),
   executeMinimalFixture({ jobName: 'protected_transition_merge_operator_v1' }),
 ])
-check(minimalValid.result.next_action === 'MERGE_OPERATOR' && exactBoundSelfCheck.result.next_action === 'STOP', 'MGV-08 zero same-run PR checks admit external SUCCESS while same-run RTO checks without a manifest fail closed')
-check([nameOnlySelfIdentity, appMismatchedSelfIdentity, runMismatchedSelfIdentity, mismatchedSelfIdentity, ...executionIdentityDrifts].every(({ result }) => result.next_action === 'STOP'), 'MGV-08 RTO check identity or current run, attempt, workflow SHA, and job identity drift fail closed')
+check(minimalValid.result.next_action === 'MERGE_OPERATOR' && exactBoundSelfCheck.result.next_action === 'MERGE_OPERATOR', 'MGV-08 zero same-run PR checks and exact-bound current execution RTO checks admit external SUCCESS')
+check([nameOnlySelfIdentity, appMismatchedSelfIdentity, runMismatchedSelfIdentity, ...executionIdentityDrifts].every(({ result }) => result.next_action === 'STOP'), 'MGV-08 RTO name-only, app, run, attempt, workflow SHA, or job identity drift fails closed')
+
+const currentExecutionBaseJobs = currentExecutionRtoJobs().jobs
+const currentExecutionFixture = (overrides = {}) => executeMinimalFixture({
+  checks: connectionPage([minimalSelfCheck(), successfulCheck('minimal-current-external')]),
+  currentRun: currentExecutionRtoRun(),
+  currentJobs: currentExecutionRtoJobs(),
+  ...overrides,
+})
+const arbitraryCurrentJob = await currentExecutionFixture({
+  checks: connectionPage([
+    minimalSelfCheck({ detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/job/99999999999` }),
+    successfulCheck('minimal-current-external'),
+  ]),
+})
+const missingCurrentManifest = await currentExecutionFixture({ currentJobs: null })
+const incompleteCurrentManifest = await currentExecutionFixture({
+  currentJobs: currentExecutionRtoJobs({ jobs: currentExecutionBaseJobs.slice(0, 4) }),
+})
+const duplicateCurrentManifest = await currentExecutionFixture({
+  currentJobs: currentExecutionRtoJobs({ jobs: currentExecutionBaseJobs.map((job, index) =>
+    index === 1 ? { ...job, name: currentExecutionBaseJobs[0].name } : job) }),
+})
+const unknownCurrentManifest = await currentExecutionFixture({
+  currentJobs: currentExecutionRtoJobs({ jobs: currentExecutionBaseJobs.map((job, index) =>
+    index === 1 ? { ...job, name: 'unknown_rto_job_v1' } : job) }),
+})
+const mismatchedAdmissionJobId = '95344799999'
+const mismatchedNameJobManifest = await currentExecutionFixture({
+  currentJobs: currentExecutionRtoJobs({ jobs: currentExecutionBaseJobs.map((job) =>
+    job.name === 'protected_transition_admission_v1'
+      ? {
+          ...job,
+          id: Number(mismatchedAdmissionJobId),
+          html_url: `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/job/${mismatchedAdmissionJobId}`,
+        }
+      : job) }),
+})
+const currentExecutionOriginDrifts = await Promise.all([
+  currentExecutionFixture({ currentRun: currentExecutionRtoRun({ run_attempt: 2 }) }),
+  currentExecutionFixture({ currentJobs: currentExecutionRtoJobs({ runId: READY_RUN_ID }) }),
+  currentExecutionFixture({ currentJobs: currentExecutionRtoJobs({ runAttempt: 2 }) }),
+  currentExecutionFixture({
+    currentRun: currentExecutionRtoRun({ head_sha: HEAD, head_commit: { id: HEAD } }),
+  }),
+])
+const currentExecutionCheckIdentityDrifts = await Promise.all([
+  currentExecutionFixture({
+    checks: connectionPage([minimalSelfCheck({ appDatabaseId: 999 }), successfulCheck('minimal-current-external')]),
+  }),
+  currentExecutionFixture({
+    checks: connectionPage([minimalSelfCheck({ checkSuiteDatabaseId: CURRENT_EXECUTION_RTO_CHECK_SUITE_ID + 1 }), successfulCheck('minimal-current-external')]),
+  }),
+  currentExecutionFixture({
+    checks: connectionPage([minimalSelfCheck({ checkSuiteHeadSha: OTHER_HEAD }), successfulCheck('minimal-current-external')]),
+  }),
+])
+const exactBoundSnapshot = JSON.parse(Buffer.from(exactBoundSelfCheck.result.sealed_snapshot_b64, 'base64').toString('utf8'))
+check(
+  exactBoundSelfCheck.result.next_action === 'MERGE_OPERATOR' &&
+  exactBoundSnapshot.job_manifest.current_execution_rto_manifest.job_ids.protected_transition_admission_v1 ===
+    readyRebindJobIds.protected_transition_admission_v1 &&
+  Object.values(exactBoundSelfCheck.currentMetrics).every((count) => count === 1),
+  'CERM-A exact five-job current manifest and exact name/job ID permit bounded exclusion',
+)
+check(arbitraryCurrentJob.result.next_action === 'STOP', 'CERM-B arbitrary positive current-run job ID stops')
+check(missingCurrentManifest.result.next_action === 'STOP', 'CERM-C missing current-run manifest stops')
+check(incompleteCurrentManifest.result.next_action === 'STOP', 'CERM-D incomplete five-job current manifest stops')
+check(
+  duplicateCurrentManifest.result.next_action === 'STOP' && unknownCurrentManifest.result.next_action === 'STOP',
+  'CERM-E duplicate or unknown current-run job stops',
+)
+check(mismatchedNameJobManifest.result.next_action === 'STOP', 'CERM-F manifest name to job ID mismatch stops')
+check(currentExecutionOriginDrifts.every(({ result }) => result.next_action === 'STOP'), 'CERM-G run, attempt, or host/workflow SHA drift stops')
+check(currentExecutionCheckIdentityDrifts.every(({ result }) => result.next_action === 'STOP'), 'CERM-H app or check-suite identity drift stops')
+check(minimalValid.result.next_action === 'MERGE_OPERATOR', 'CERM-K ordinary external SUCCESS behavior remains unchanged')
+check(pendingExternal.result.next_action === 'STOP' && failedExternal.result.next_action === 'STOP', 'CERM-L ordinary external FAILURE or PENDING stops')
+
+const minimalExternalCheck = (name, overrides = {}) => currentReadyCheck({
+  id: `minimal-external-${name.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}`,
+  databaseId: 985001,
+  name,
+  status: 'COMPLETED',
+  conclusion: 'SUCCESS',
+  detailsUrl: null,
+  startedAt: '2026-08-18T00:00:20Z',
+  checkSuiteDatabaseId: 985101,
+  checkSuiteHeadSha: OTHER_HEAD,
+  ...overrides,
+})
+const historicalExternalSuccess = Object.freeze([
+  minimalExternalCheck('build-preview'),
+  minimalExternalCheck('Cloudflare Pages', { databaseId: 985002 }),
+  minimalExternalCheck('ordinary-external', { databaseId: 985003 }),
+])
+const historicalCheckPage = (historical = historicalRtoChecks(), external = historicalExternalSuccess) =>
+  connectionPage([...historical, ...external])
+const frozenHistoricalReviewBody = reviewDecisionBody({
+  pull_request: `https://github.com/${REPOSITORY}/pull/${HISTORICAL_RTO_PR_NUMBER}`,
+  reviewed_head: HISTORICAL_RTO_HEAD,
+})
+const frozenHistoricalReviewBodySha256 = createHash('sha256')
+  .update(Buffer.from(frozenHistoricalReviewBody, 'utf8')).digest('hex')
+const frozenHistoricalAuthorityBody = minimalAuthorityBody({
+  pull_request: `https://github.com/${REPOSITORY}/pull/${HISTORICAL_RTO_PR_NUMBER}`,
+  exact_head: HISTORICAL_RTO_HEAD,
+  review_body_sha256: frozenHistoricalReviewBodySha256,
+})
+const frozenHistoricalReviewComment = minimalReviewComment({ body: frozenHistoricalReviewBody })
+const frozenHistoricalAuthorityComment = minimalAuthorityComment(frozenHistoricalAuthorityBody)
+const historicalFixture = (overrides = {}) => executeMinimalFixture({
+  authorityBody: frozenHistoricalAuthorityBody,
+  authorityRefetchBody: frozenHistoricalAuthorityBody,
+  reviewRefetchBody: frozenHistoricalReviewBody,
+  comments: [frozenHistoricalReviewComment, frozenHistoricalAuthorityComment],
+  pull: minimalPull({ number: HISTORICAL_RTO_PR_NUMBER, head: { sha: HISTORICAL_RTO_HEAD } }),
+  fixturePrNumber: HISTORICAL_RTO_PR_NUMBER,
+  fixtureExactHead: HISTORICAL_RTO_HEAD,
+  checks: historicalCheckPage(),
+  historicalRun: historicalRunRecord(),
+  historicalJobs: historicalJobPage(),
+  historicalLogBytes: historicalLog(),
+  ...overrides,
+})
+
+const historicalInitialValid = await historicalFixture()
+if (typeof historicalInitialValid.result.sealed_snapshot_b64 !== 'string') {
+  throw new Error(`frozen historical fixture failed: ${JSON.stringify(historicalInitialValid.result)}`)
+}
+const historicalInitialSnapshot = JSON.parse(Buffer.from(historicalInitialValid.result.sealed_snapshot_b64, 'base64').toString('utf8'))
+const frozenHistoricalEvidence = historicalInitialSnapshot.job_manifest.historical_rto_checks[0]
+check(
+  historicalInitialValid.result.automation_status === 'OPERATION_READY' && historicalInitialValid.result.next_action === 'MERGE_OPERATOR' &&
+  historicalInitialSnapshot.external_checks.length === 3 && historicalInitialSnapshot.job_manifest.historical_rto_checks.length === 1 &&
+  Object.values(historicalInitialValid.historicalMetrics).every((count) => count === 1),
+  'HRTN-01 exact historical legacy tuple plus all external SUCCESS produces READY snapshot',
+)
+check(historicalInitialValid.result.next_action === 'MERGE_OPERATOR', 'CERM-I exact historical family Snapshot READY remains unchanged')
+const singletonAllowlistSource = runnerSource.slice(
+  runnerSource.indexOf('const HISTORICAL_LEGACY_RTO_SINGLETON_ALLOWLIST_V1'),
+  runnerSource.indexOf('\nconst MINIMAL_GOVERNANCE_SCALAR_KEYS_V1'),
+)
+check(
+  singletonAllowlistSource.includes('Object.freeze([Object.freeze({') &&
+  (singletonAllowlistSource.match(/pr_number:/g) ?? []).length === 1,
+  'HRTN-FROZEN-00 historical allowlist source cardinality is exactly one',
+)
+check(
+  frozenHistoricalEvidence.pr_number === HISTORICAL_RTO_PR_NUMBER &&
+  frozenHistoricalEvidence.head_sha === HISTORICAL_RTO_HEAD &&
+  frozenHistoricalEvidence.workflow_id === String(HISTORICAL_RTO_WORKFLOW_ID) &&
+  frozenHistoricalEvidence.run_id === HISTORICAL_RTO_RUN_ID && frozenHistoricalEvidence.run_attempt === 1 &&
+  frozenHistoricalEvidence.check_suite_id === String(HISTORICAL_RTO_CHECK_SUITE_ID) &&
+  frozenHistoricalEvidence.checks.every((item) => historicalRtoJobIds[item.name] === item.job_id),
+  'HRTN-FROZEN-01 sealed historical evidence exactly matches the singleton tuple',
+)
+const outsideAllowlistedRunId = '32097619793'
+const outsideAllowlistedRun = await historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({ runId: outsideAllowlistedRunId })),
+})
+check(outsideAllowlistedRun.result.next_action === 'STOP', 'HRTN-FROZEN-02 allowlist-external run stops')
+const rerunAttempt = await historicalFixture({
+  historicalRun: historicalRunRecord({ run_attempt: 2 }),
+  historicalJobs: historicalJobPage({ runAttempt: 2 }),
+})
+check(rerunAttempt.result.next_action === 'STOP', 'HRTN-FROZEN-03 rerun attempt stops')
+const frozenMetadataDrifts = await Promise.all([
+  historicalFixture({ historicalRun: historicalRunRecord({ workflow_id: HISTORICAL_RTO_WORKFLOW_ID + 1 }) }),
+  historicalFixture({
+    checks: historicalCheckPage(historicalRtoChecks({ checkSuiteId: HISTORICAL_RTO_CHECK_SUITE_ID + 1 })),
+    historicalRun: historicalRunRecord({ check_suite_id: HISTORICAL_RTO_CHECK_SUITE_ID + 1 }),
+  }),
+])
+check(frozenMetadataDrifts.every(({ result }) => result.next_action === 'STOP'), 'HRTN-FROZEN-04 workflow or check-suite drift stops')
+const driftedAdmissionJobId = '95591899999'
+const frozenJobDrift = await historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({ overrides: {
+    protected_transition_admission_v1: {
+      detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}/job/${driftedAdmissionJobId}`,
+    },
+  } })),
+  historicalJobs: historicalJobPage({ overrides: {
+    protected_transition_admission_v1: {
+      id: Number(driftedAdmissionJobId),
+      html_url: `https://github.com/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}/job/${driftedAdmissionJobId}`,
+    },
+  } }),
+})
+check(frozenJobDrift.result.next_action === 'STOP', 'HRTN-FROZEN-05 any frozen job ID drift stops')
+const historicalRequestBindingFixture = ({ prNumber, exactHead }) => {
+  const reviewBody = reviewDecisionBody({
+    pull_request: `https://github.com/${REPOSITORY}/pull/${prNumber}`,
+    reviewed_head: exactHead,
+  })
+  const reviewBodySha256 = createHash('sha256').update(Buffer.from(reviewBody, 'utf8')).digest('hex')
+  const authorityBody = minimalAuthorityBody({
+    pull_request: `https://github.com/${REPOSITORY}/pull/${prNumber}`,
+    exact_head: exactHead,
+    review_body_sha256: reviewBodySha256,
+  })
+  const reviewComment = minimalReviewComment({ body: reviewBody })
+  const authorityComment = minimalAuthorityComment(authorityBody)
+  return historicalFixture({
+    authorityBody,
+    authorityRefetchBody: authorityBody,
+    reviewRefetchBody: reviewBody,
+    comments: [reviewComment, authorityComment],
+    pull: minimalPull({ number: prNumber, head: { sha: exactHead } }),
+    fixturePrNumber: prNumber,
+    fixtureExactHead: exactHead,
+    checks: historicalCheckPage(historicalRtoChecks({ head: exactHead })),
+    historicalRun: historicalRunRecord({
+      head_sha: exactHead,
+      pull_requests: [{ number: prNumber, head: { sha: exactHead }, base: { ref: 'main' } }],
+    }),
+    historicalJobs: historicalJobPage({ head: exactHead }),
+    historicalLogBytes: historicalLog([historicalTerminalResult({ pr_number: prNumber, current_head: exactHead })]),
+  })
+}
+const frozenRequestBindingDrifts = await Promise.all([
+  historicalRequestBindingFixture({ prNumber: HISTORICAL_RTO_PR_NUMBER + 1, exactHead: HISTORICAL_RTO_HEAD }),
+  historicalRequestBindingFixture({ prNumber: HISTORICAL_RTO_PR_NUMBER, exactHead: HEAD }),
+])
+check(frozenRequestBindingDrifts.every(({ result }) => result.next_action === 'STOP'), 'HRTN-FROZEN-06 PR or HEAD drift stops')
+const currentAnalogousRun = await historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({ runId: REVIEW_RUN_ID })),
+})
+check(currentAnalogousRun.result.next_action === 'STOP', 'HRTN-FROZEN-07 current or new analogous run remains authoritative and stops')
+const historicalDifferentReason = await historicalFixture({ historicalLogBytes: historicalLog([historicalTerminalResult({ reason: 'pull_not_ready' })]) })
+check(historicalDifferentReason.result.next_action === 'STOP', 'HRTN-03 historical terminal reason drift stops')
+const historicalBindingMismatches = await Promise.all([
+  historicalFixture({ historicalLogBytes: historicalLog([historicalTerminalResult({ transition: 'terminal_review_admission' })]) }),
+  historicalFixture({ historicalRun: historicalRunRecord({ event: 'workflow_dispatch' }) }),
+  historicalFixture({ historicalRun: historicalRunRecord({ path: '.github/workflows/other.yml' }) }),
+])
+check(historicalBindingMismatches.every(({ result }) => result.next_action === 'STOP'), 'HRTN-04 transition, event, or workflow mismatch stops')
+const historicalTerminalCardinality = await Promise.all([
+  historicalFixture({ historicalLogBytes: historicalLog([]) }),
+  historicalFixture({ historicalLogBytes: historicalLog([historicalTerminalResult(), historicalTerminalResult()]) }),
+])
+check(historicalTerminalCardinality.every(({ result }) => result.next_action === 'STOP'), 'HRTN-05 missing or multiple admission terminal results stop')
+const historicalAdmissionExecuted = await historicalFixture({ historicalLogBytes: historicalLog([historicalTerminalResult({ admission_executed: true })]) })
+check(historicalAdmissionExecuted.result.next_action === 'STOP', 'HRTN-06 admission_executed true stops')
+const historicalDownstreamNotSkipped = await historicalFixture({
+  historicalJobs: historicalJobPage({ overrides: { protected_transition_repair_executor_v1: { conclusion: 'success' } } }),
+})
+check(historicalDownstreamNotSkipped.result.next_action === 'STOP', 'HRTN-07 downstream job not SKIPPED stops')
+const historicalIdentityMismatches = await Promise.all([
+  historicalFixture({ historicalRun: historicalRunRecord({ check_suite_id: HISTORICAL_RTO_CHECK_SUITE_ID + 1 }) }),
+  historicalFixture({ historicalJobs: historicalJobPage({ overrides: { protected_transition_admission_v1: { run_attempt: 2 } } }) }),
+  historicalFixture({ checks: historicalCheckPage(historicalRtoChecks({ overrides: { protected_transition_admission_v1: { checkSuiteDatabaseId: HISTORICAL_RTO_CHECK_SUITE_ID + 1 } } })) }),
+])
+check(historicalIdentityMismatches.every(({ result }) => result.next_action === 'STOP'), 'HRTN-08 run, job attempt, or check-suite identity mismatch stops')
+const historicalSplitRun = await historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({
+    overrides: { protected_transition_post_repair_review_v1: { detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${READY_RUN_ID}/job/${historicalRtoJobIds.protected_transition_post_repair_review_v1}` } },
+  })),
+})
+check(historicalSplitRun.result.next_action === 'STOP', 'HRTN-09 historical five-job family split across runs stops')
+const historicalPending = await historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({ overrides: { protected_transition_post_repair_review_v1: { status: 'IN_PROGRESS', conclusion: null } } })),
+})
+check(historicalPending.result.next_action === 'STOP', 'HRTN-10 pending historical check stops')
+const historicalLogUnavailable = await historicalFixture({ historicalLogUnavailable: true })
+check(historicalLogUnavailable.result.next_action === 'STOP', 'HRTN-11 unavailable admission log stops')
+const historicalOversizedLog = await historicalFixture({
+  historicalLogBytes: new Uint8Array(262_145),
+})
+check(historicalOversizedLog.result.next_action === 'STOP', 'HRTN-11A oversized admission log stops at bounded acquisition')
+const buildPreviewFailure = await historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks(), [
+    minimalExternalCheck('build-preview', { conclusion: 'FAILURE' }),
+    minimalExternalCheck('Cloudflare Pages', { databaseId: 985002 }),
+    minimalExternalCheck('ordinary-external', { databaseId: 985003 }),
+  ]),
+})
+check(buildPreviewFailure.result.next_action === 'STOP', 'HRTN-13 build-preview FAILURE remains authoritative')
+const cloudflareStops = await Promise.all(['FAILURE', null].map((conclusion) => historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks(), [
+    minimalExternalCheck('build-preview'),
+    minimalExternalCheck('Cloudflare Pages', { databaseId: 985002, status: conclusion === null ? 'IN_PROGRESS' : 'COMPLETED', conclusion }),
+    minimalExternalCheck('ordinary-external', { databaseId: 985003 }),
+  ]),
+})))
+check(cloudflareStops.every(({ result }) => result.next_action === 'STOP'), 'HRTN-14 Cloudflare FAILURE or PENDING remains authoritative')
+const ordinaryExternalStops = await Promise.all(['FAILURE', null].map((conclusion) => historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks(), [
+    minimalExternalCheck('build-preview'),
+    minimalExternalCheck('Cloudflare Pages', { databaseId: 985002 }),
+    minimalExternalCheck('ordinary-external', { databaseId: 985003, status: conclusion === null ? 'IN_PROGRESS' : 'COMPLETED', conclusion }),
+  ]),
+})))
+check(ordinaryExternalStops.every(({ result }) => result.next_action === 'STOP'), 'HRTN-15 ordinary external FAILURE or PENDING remains authoritative')
+check(nameOnlySelfIdentity.result.next_action === 'STOP', 'HRTN-16 current-run RTO check is never excluded by name alone')
+check(
+  validReadyResult.automation_status === 'HANDOFF_READY' && validReadyResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' &&
+  malformedReadyResult.reason === 'state_block_cardinality_invalid',
+  'HRTN-18 non-minimal legacy Ready behavior remains exact',
+)
 
 const memberAuthority = await executeMinimalFixture({ eventOverrides: { author_association: 'MEMBER' } })
 const collaboratorAuthority = await executeMinimalFixture({ eventOverrides: { author_association: 'COLLABORATOR' } })
@@ -3426,12 +3908,20 @@ const executeMinimalFinalGuardFixture = async ({
   checks = connectionPage([successfulCheck('minimal-external-1'), successfulCheck('minimal-external-2')]),
   threads = connectionPage([]),
   incompleteChecks = false,
+  currentRun = null,
+  currentJobs = null,
+  historicalRun = null,
+  historicalJobs = null,
+  historicalLogBytes = null,
+  historicalLogUnavailable = false,
 } = {}) => {
   const metrics = { main: 0, pull: 0, task: 0, authority: 0, review: 0, comments: 0, checks: 0, threads: 0, scope: 0, jobs: 0 }
+  const currentMetrics = { run: 0, jobs: 0 }
+  const historicalMetrics = { run: 0, jobs: 0, log: 0 }
   const host = {
     branchHead: async () => { metrics.main += 1; return mainHead },
     api: async (endpoint) => {
-      if (endpoint === `repos/${REPOSITORY}/pulls/${PR}`) { metrics.pull += 1; return structuredClone(pull) }
+      if (endpoint === `repos/${REPOSITORY}/pulls/${plan.pr_number}`) { metrics.pull += 1; return structuredClone(pull) }
       if (endpoint === `repos/${REPOSITORY}/issues/${TASK}`) {
         metrics.task += 1
         return { number: TASK, state: 'open', html_url: `https://github.com/${REPOSITORY}/issues/${TASK}`, repository_url: `https://api.github.com/repos/${REPOSITORY}`, user: taskUser }
@@ -3439,30 +3929,92 @@ const executeMinimalFinalGuardFixture = async ({
       if (endpoint === `repos/${REPOSITORY}/issues/comments/${MINIMAL_AUTHORITY_COMMENT_ID}`) { metrics.authority += 1; return structuredClone(authority) }
       if (endpoint === `repos/${REPOSITORY}/issues/comments/${MINIMAL_REVIEW_COMMENT_ID}`) { metrics.review += 1; return structuredClone(review) }
       if (endpoint.startsWith(`repos/${REPOSITORY}/issues/${TASK}/comments?`)) { metrics.comments += 1; return structuredClone(comments) }
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}` && currentRun !== null) {
+        currentMetrics.run += 1
+        return structuredClone(currentRun)
+      }
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/jobs?per_page=100` && currentJobs !== null) {
+        currentMetrics.jobs += 1
+        return structuredClone(currentJobs)
+      }
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}` && historicalRun !== null) {
+        historicalMetrics.run += 1
+        return structuredClone(historicalRun)
+      }
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}/jobs?per_page=100` && historicalJobs !== null) {
+        historicalMetrics.jobs += 1
+        return structuredClone(historicalJobs)
+      }
       if (endpoint.includes('/files?')) { metrics.scope += 1; throw new Error('final_guard_scope_regeneration_forbidden') }
       if (endpoint.includes('/jobs?')) { metrics.jobs += 1; throw new Error('final_guard_manifest_regeneration_forbidden') }
       throw new Error(`unexpected_final_guard_endpoint:${endpoint}`)
     },
+    apiBytes: async (endpoint) => {
+      historicalMetrics.log += 1
+      if (
+        historicalLogUnavailable || historicalLogBytes === null ||
+        endpoint !== `repos/${REPOSITORY}/actions/jobs/${historicalRtoJobIds.protected_transition_admission_v1}/logs`
+      ) throw new Error('historical_log_unavailable')
+      return new Uint8Array(historicalLogBytes)
+    },
     graphql: async (query, variables) => {
       if (query.includes('statusCheckRollup')) {
         metrics.checks += 1
-        return { repository: { pullRequest: { headRefOid: OTHER_HEAD }, object: { oid: variables.head, statusCheckRollup: incompleteChecks ? null : { contexts: structuredClone(checks) } } } }
+        return { repository: { pullRequest: { headRefOid: plan.exact_head }, object: { oid: variables.head, statusCheckRollup: incompleteChecks ? null : { contexts: structuredClone(checks) } } } }
       }
       if (query.includes('reviewThreads')) {
         metrics.threads += 1
-        return { repository: { pullRequest: { number: PR, state: 'OPEN', isDraft: false, mergeable: 'MERGEABLE', mergeStateStatus: 'UNSTABLE', headRefOid: OTHER_HEAD, reviewThreads: structuredClone(threads) } } }
+        return { repository: { pullRequest: { number: plan.pr_number, state: 'OPEN', isDraft: false, mergeable: 'MERGEABLE', mergeStateStatus: 'UNSTABLE', headRefOid: plan.exact_head, reviewThreads: structuredClone(threads) } } }
       }
       throw new Error('unexpected_final_guard_graphql')
     },
   }
   const result = await executeMinimalGovernanceFinalDriftGuardV1({ plan, host })
-  return Object.freeze({ result, metrics })
+  return Object.freeze({ result, metrics, currentMetrics, historicalMetrics })
 }
 
 const minimalFinalGuardValid = await executeMinimalFinalGuardFixture()
+const currentExecutionFinalValid = await executeMinimalFinalGuardFixture({
+  plan: exactBoundSelfCheck.result,
+  checks: connectionPage([minimalSelfCheck(), successfulCheck('minimal-external')]),
+  currentRun: currentExecutionRtoRun(),
+  currentJobs: currentExecutionRtoJobs(),
+})
 const finalMalformedLegacyStateIgnored = await executeMinimalFinalGuardFixture({ pull: minimalPull({ body: malformedLegacyStateBody }) })
 check(minimalFinalGuardValid.result.state === 'MATCH' && minimalFinalGuardValid.result.next_action === 'MERGE_PR' && minimalFinalGuardValid.result.exact_head === OTHER_HEAD, 'MGV-11 no-drift final guard returns only exact-head MATCH')
+check(
+  currentExecutionFinalValid.result.state === 'MATCH' &&
+  Object.values(currentExecutionFinalValid.currentMetrics).every((count) => count === 1),
+  'CERM-A2 final guard reacquires the exact current-execution manifest proof',
+)
 check(finalMalformedLegacyStateIgnored.result.state === 'MATCH' && finalMalformedLegacyStateIgnored.result.next_action === 'MERGE_PR', 'MGV-16 B final drift guard ignores malformed legacy PR-body state')
+const historicalFinalFixture = (overrides = {}) => executeMinimalFinalGuardFixture({
+  plan: historicalInitialValid.result,
+  pull: minimalPull({ number: HISTORICAL_RTO_PR_NUMBER, head: { sha: HISTORICAL_RTO_HEAD } }),
+  authority: frozenHistoricalAuthorityComment,
+  review: frozenHistoricalReviewComment,
+  comments: [frozenHistoricalReviewComment, frozenHistoricalAuthorityComment],
+  checks: historicalCheckPage(),
+  historicalRun: historicalRunRecord(),
+  historicalJobs: historicalJobPage(),
+  historicalLogBytes: historicalLog(),
+  ...overrides,
+})
+const historicalFinalValid = await historicalFinalFixture()
+check(
+  historicalFinalValid.result.state === 'MATCH' && historicalFinalValid.result.next_action === 'MERGE_PR' &&
+  Object.values(historicalFinalValid.historicalMetrics).every((count) => count === 1),
+  'HRTN-02 unchanged historical evidence final guard returns MATCH and MERGE_PR',
+)
+check(historicalFinalValid.result.state === 'MATCH', 'CERM-J historical final guard MATCH remains unchanged')
+const historicalFinalLogDigestDrift = await historicalFinalFixture({
+  historicalLogBytes: Buffer.concat([historicalLog(), Buffer.from('\nnon-terminal log drift', 'utf8')]),
+})
+check(historicalFinalLogDigestDrift.result.next_action === 'STOP', 'HRTN-12 admission log digest drift before merge stops')
+const historicalFinalDisappeared = await historicalFinalFixture({
+  checks: connectionPage([...historicalExternalSuccess]),
+})
+check(historicalFinalDisappeared.result.next_action === 'STOP', 'HRTN-17 historical classification disappearance before final guard stops')
 check(Object.entries(minimalFinalGuardValid.metrics).filter(([name]) => !['scope', 'jobs'].includes(name)).every(([, count]) => count === 1) && minimalFinalGuardValid.metrics.scope === 0 && minimalFinalGuardValid.metrics.jobs === 0, 'MGV-11 final guard acquires exactly eight mutable sources once and regenerates neither scope nor job manifest')
 check(minimalValid.result.automation_status === 'OPERATION_READY' && minimalSnapshot.expected_base === CURRENT_MAIN_SHA && minimalSnapshot.pull.base === HISTORICAL_PR_BASE_SHA && minimalSnapshot.pull.base !== minimalSnapshot.expected_base && minimalFinalGuardValid.result.state === 'MATCH', 'MGV-14 A historical PR base differs from current-main authority while snapshot and final guard pass')
 const resealMinimalSnapshotPlan = (mutate) => {
@@ -3475,6 +4027,26 @@ const resealMinimalSnapshotPlan = (mutate) => {
     snapshot_sha256: createHash('sha256').update(bytes).digest('hex'),
   })
 }
+const resealHistoricalSnapshotPlan = (mutate) => {
+  const snapshot = JSON.parse(Buffer.from(historicalInitialValid.result.sealed_snapshot_b64, 'base64').toString('utf8'))
+  mutate(snapshot)
+  const bytes = Buffer.from(JSON.stringify(snapshot), 'utf8')
+  return Object.freeze({
+    ...historicalInitialValid.result,
+    sealed_snapshot_b64: bytes.toString('base64'),
+    snapshot_sha256: createHash('sha256').update(bytes).digest('hex'),
+  })
+}
+const sealedHistoricalTupleDrift = await executeMinimalFinalGuardFixture({
+  plan: resealHistoricalSnapshotPlan((snapshot) => {
+    snapshot.job_manifest.historical_rto_checks[0].run_attempt = 2
+  }),
+})
+check(sealedHistoricalTupleDrift.result.next_action === 'STOP', 'HRTN-FROZEN-08 sealed snapshot tuple drift stops before final acquisition')
+const finalAnalogousRun = await historicalFinalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({ runId: REVIEW_RUN_ID })),
+})
+check(finalAnalogousRun.result.next_action === 'STOP', 'HRTN-FROZEN-09 final guard rejects a new analogous run')
 const invalidSnapshotHistoricalBase = await executeMinimalFinalGuardFixture({ plan: resealMinimalSnapshotPlan((snapshot) => { snapshot.pull.base = 'not-a-full-head' }) })
 const missingSnapshotHistoricalBase = await executeMinimalFinalGuardFixture({ plan: resealMinimalSnapshotPlan((snapshot) => { delete snapshot.pull.base }) })
 check(invalidSnapshotHistoricalBase.result.state === 'STOP' && invalidSnapshotHistoricalBase.result.reason === 'minimal_governance_snapshot_binding_invalid', 'MGV-15 B invalid sealed historical PR base SHA stops')
@@ -4094,7 +4666,7 @@ const rebindMatrix = [
     readyMergeAllowedRoute.result.role_dispatch?.next_action === 'MERGE_OPERATOR' && readyMergeAllowedRoute.metrics.originReads === 1 && readyMergeAllowedRoute.metrics.jobReads === 1 &&
     issueCommentMergeAllowedRoute.result.next_action === 'MERGE_OPERATOR' && issueCommentMergeAllowedRoute.result.terminal_result === 'MERGE_ALLOWED' &&
     issueCommentMergeAllowedRoute.metrics.repositoryReads === 1 && issueCommentMergeAllowedRoute.metrics.jobReads === 0 &&
-    OTHER_HEAD === '3b19e86982701f7cffbe42d4d3568ad498bc016f' && CUMULATIVE_PR_BASE === '3e3014d95680f3d3e34ec3696a1e3de4b1a03c03' &&
+    OTHER_HEAD === '3b19e86982701f7cffbe42d4d3568ad498bc016f' && CUMULATIVE_PR_BASE === 'eaed40ca274b6d05e03e15c87cca00b3d8b1df68' &&
     OTHER_HEAD !== CUMULATIVE_PR_BASE && Object.keys(parsedReadyMergeAllowed).join('\n') === Object.keys(parsedMergeDecision).join('\n') &&
     [taskTitleDrift, taskBodyDriftRebind, closedTaskConsumer, pullRequestTaskRebind, mismatchedTaskConsumer, malformedTaskRebind]
       .every((value) => value.reason === 'role_dispatch_binding_changed'),
@@ -4375,9 +4947,9 @@ const workflowBoundaryMatrix = [
   runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id') && runnerSource.includes("const ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'") && ['GITHUB_REPOSITORY', 'GITHUB_REF', 'GITHUB_WORKFLOW_REF', 'GITHUB_WORKFLOW_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_JOB'].every((name) => runnerSource.includes(`process.env.${name}`)) && !runnerSource.includes('ADD_REVIEW_THREAD_REPLY_MUTATION') && !runnerSource.includes('RESOLVE_REVIEW_THREAD_MUTATION') && !runnerSource.includes('executeReviewerPublicationRebindV1') && !runnerSource.includes('executeReviewThreadClosureV1') && !runnerSource.includes("mode: 'review_publication_rebind'") && !runnerSource.includes("mode: 'review_closure'") && runnerSource.match(/parseIndependentReviewDecisionProjectionV1/g)?.length === 7,
   manualWorkflowDispatchResult.state === 'MERGE_ELIGIBLE' && manualWorkflowDispatchResult.allowed === true && manualWorkflowDispatchResult.next_action === 'MERGE_DECISION' && manualWorkflowDispatchResult.automation_status === 'MERGE_DECISION_PENDING' && !Object.hasOwn(manualWorkflowDispatchResult, 'role_dispatch') && manualWorkflowDispatchAdmission.metrics.checkReads === 0 && manualWorkflowDispatchAdmission.metrics.threadReads === 0 && mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR' && (needs.protected_transition_admission_v1.outputs.terminal_result == 'MERGE_ALLOWED' || needs.protected_transition_admission_v1.outputs.terminal_result == 'MINIMAL_GOVERNANCE_V1')" && mergeOperationRun.includes('--merge-operator-file $dispatchPath') && mergeOperationRun.indexOf('--merge-operator-file $dispatchPath') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force') && !workflowSource.includes('gh workflow run') && !runnerSource.includes('createWorkflowDispatch') && runnerSource.includes('acquireMergeCheckRollupSnapshotV1') && runnerSource.includes('acquireMergeReviewThreadsV1') && runnerSource.includes('executeProtectedTransitionAdmissionV1'),
   admissionJob.outputs.authority_kind === '${{ steps.evaluate.outputs.authority_kind }}' && admissionJob.outputs.minimal_merge_plan_b64 === '${{ steps.evaluate.outputs.minimal_merge_plan_b64 }}' && (admissionEvaluationRun.match(/--review-event-file/g) ?? []).length === 1 && !Object.hasOwn(mergeHostRunnerStep, 'if') && mergePlanRun.includes("if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1')") && mergePlanRun.indexOf("if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1')") < mergePlanRun.indexOf('node $env:PTA_MERGE_HOST_RUNNER') && (mergeOperationRun.match(/--minimal-governance-drift-guard-file/g) ?? []).length === 1 && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.indexOf('minimal_governance_final_drift_guard_matched') < mergeOperationRun.indexOf('--method PUT') && (workflowSource.match(/--method PUT/g) ?? []).length === 1 && !workflowSource.includes('Start-Sleep') && !workflowSource.includes('retry'),
-  mergePlanRun.includes("$snapshot.pull.base -cnotmatch '^[0-9a-f]{40}$'") && !mergePlanRun.includes('$snapshot.pull.base -cne $plan.expected_base') && mergePlanRun.includes("$plan.expected_base -cnotmatch '^[0-9a-f]{40}$'") && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT'),
+  workflow.permissions.actions === 'read' && mergePlanRun.includes("$snapshot.pull.base -cnotmatch '^[0-9a-f]{40}$'") && !mergePlanRun.includes('$snapshot.pull.base -cne $plan.expected_base') && mergePlanRun.includes("$plan.expected_base -cnotmatch '^[0-9a-f]{40}$'") && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT'),
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 623) throw new Error(`expected exactly 623 assertions, observed ${assertions}`)
+if (assertions !== 665) throw new Error(`expected exactly 665 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

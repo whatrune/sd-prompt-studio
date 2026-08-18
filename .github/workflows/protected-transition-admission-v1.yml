@@ -30,6 +30,7 @@ name: Protected Transition Admission V1
       - ready_for_review
 
 permissions:
+  actions: read
   contents: read
   checks: read
   issues: read
