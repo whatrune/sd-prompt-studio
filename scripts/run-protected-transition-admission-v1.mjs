@@ -124,7 +124,7 @@ query MergeAllowedChecks($owner: String!, $name: String!, $pr: Int!, $head: GitO
             totalCount
             nodes {
               __typename
-              ... on CheckRun { id databaseId name status conclusion detailsUrl startedAt checkSuite { databaseId headSha app { id databaseId } } }
+              ... on CheckRun { id databaseId name status conclusion detailsUrl startedAt checkSuite { databaseId commit { oid } app { id databaseId } } }
               ... on StatusContext { id context state }
             }
             pageInfo { hasNextPage endCursor }
@@ -699,7 +699,7 @@ const acquireMergeCheckRollupSnapshotV1 = async (request, host, { stopOnPullHead
           app_id: node.checkSuite?.app?.id ?? null,
           app_database_id: node.checkSuite?.app?.databaseId ?? null,
           check_suite_database_id: node.checkSuite?.databaseId ?? null,
-          check_suite_head_sha: node.checkSuite?.headSha ?? null,
+          check_suite_head_sha: node.checkSuite?.commit?.oid ?? null,
           started_at: node.startedAt ?? null,
         }))
       } else if (node.__typename === 'StatusContext') {
