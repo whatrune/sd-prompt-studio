@@ -2801,7 +2801,7 @@ export const executeMinimalGovernanceV1 = async ({ event, host, runId, runAttemp
     }
     if (
       pull.state !== 'open' || pull.draft || pull.merged !== false || pull.head.sha !== request.exactHead ||
-      pull.base?.ref !== 'main' || pull.base?.sha !== request.expectedBase ||
+      pull.base?.ref !== 'main' || !FULL_HEAD.test(pull.base?.sha ?? '') ||
       !Number.isSafeInteger(pull.changed_files) || pull.changed_files < 1
     ) throw new Error('minimal_governance_pull_binding_invalid')
 
@@ -3025,7 +3025,7 @@ const parseMinimalGovernanceMergePlanV1 = (plan) => {
     JSON.stringify(snapshot.authorized_paths) !== JSON.stringify(plan.authorized_paths) ||
     !exactObjectKeysV1(snapshot.pull, ['state', 'draft', 'merged', 'head', 'base', 'mergeable', 'mergeable_state']) ||
     snapshot.pull.state !== 'open' || snapshot.pull.draft !== false || snapshot.pull.merged !== false ||
-    snapshot.pull.head !== plan.exact_head || snapshot.pull.base !== plan.expected_base || snapshot.pull.mergeable !== true ||
+    snapshot.pull.head !== plan.exact_head || !FULL_HEAD.test(snapshot.pull.base ?? '') || snapshot.pull.mergeable !== true ||
     !exactObjectKeysV1(snapshot.task, ['repository', 'number', 'state', 'is_pull_request', 'creator']) ||
     !exactObjectKeysV1(snapshot.task?.creator, ['login', 'id', 'type']) ||
     snapshot.task.repository !== plan.repository || snapshot.task.number !== plan.task_issue_number ||
@@ -3080,7 +3080,7 @@ export const executeMinimalGovernanceFinalDriftGuardV1 = async ({ plan: planInpu
     const pull = await acquireMergeGatePullV1(request, host)
     if (
       pull.state !== 'open' || pull.draft || pull.merged !== false || pull.head.sha !== request.exactHead ||
-      pull.base?.ref !== 'main' || pull.base?.sha !== request.expectedBase || pull.mergeable !== true ||
+      pull.base?.ref !== 'main' || !FULL_HEAD.test(pull.base?.sha ?? '') || pull.mergeable !== true ||
       !['clean', 'unstable'].includes(pull.mergeable_state)
     ) throw new Error('minimal_governance_final_pull_drift')
     const taskState = extractProtectedTransitionTaskStateV1(pull.body)

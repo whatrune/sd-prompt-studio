@@ -3151,7 +3151,8 @@ const issueCommentSameRunCheckPage = ({
   ])
 }
 
-const MINIMAL_BASE = '22ebf20933c1942912b4e63199b6990736214f8f'
+const CURRENT_MAIN_SHA = '22ebf20933c1942912b4e63199b6990736214f8f'
+const HISTORICAL_PR_BASE_SHA = '63cb1ed135edbe2e294230c024b65a5e671536c1'
 const MINIMAL_REVIEW_COMMENT_ID = 9701
 const MINIMAL_AUTHORITY_COMMENT_ID = 9702
 const minimalProductOwner = Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' })
@@ -3172,7 +3173,7 @@ const minimalAuthorityBody = (overrides = {}, extraLines = []) => {
     task_issue: `https://github.com/${REPOSITORY}/issues/${TASK}`,
     pull_request: `https://github.com/${REPOSITORY}/pull/${PR}`,
     exact_head: OTHER_HEAD,
-    expected_base: MINIMAL_BASE,
+    expected_base: CURRENT_MAIN_SHA,
     base_impact: 'NO_MATERIAL_IMPACT',
     review_comment: `https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-${MINIMAL_REVIEW_COMMENT_ID}`,
     review_body_sha256: minimalReviewBodySha256,
@@ -3221,7 +3222,7 @@ const minimalPull = (overrides = {}) => ({
   merged: false,
   mergeable: true,
   mergeable_state: 'unstable',
-  base: { ref: 'main', sha: MINIMAL_BASE, repo: { full_name: REPOSITORY } },
+  base: { ref: 'main', sha: HISTORICAL_PR_BASE_SHA, repo: { full_name: REPOSITORY } },
   head: { sha: OTHER_HEAD },
   body: stateBlock(minimalApprovedState()),
   changed_files: minimalPaths.length,
@@ -3229,7 +3230,7 @@ const minimalPull = (overrides = {}) => ({
 })
 const minimalJobManifest = (overrides = {}) => roleAdmissionJobs({
   runId: REVIEW_RUN_ID,
-  head: MINIMAL_BASE,
+  head: CURRENT_MAIN_SHA,
   states: { protected_transition_admission_v1: { status: 'in_progress', conclusion: null } },
   ...overrides,
 })
@@ -3248,7 +3249,7 @@ const executeMinimalFixture = async ({
   reviewRefetchBody = minimalReviewBody,
   comments = undefined,
   pull = minimalPull(),
-  mainHead = MINIMAL_BASE,
+  mainHead = CURRENT_MAIN_SHA,
   paths = minimalPaths,
   jobs = minimalJobManifest(),
   checks = connectionPage([successfulCheck('minimal-external-1'), successfulCheck('minimal-external-2')]),
@@ -3308,13 +3309,13 @@ const executeMinimalFixture = async ({
   }
   const result = await executeMinimalGovernanceV1({
     event: minimalEvent(authorityBody, eventOverrides), host, runId: REVIEW_RUN_ID, runAttempt: 1,
-    hostSha: MINIMAL_BASE, jobName: 'protected_transition_admission_v1',
+    hostSha: CURRENT_MAIN_SHA, jobName: 'protected_transition_admission_v1',
   })
   return Object.freeze({ result, metrics, host })
 }
 
 const parsedMinimalAuthority = parseMinimalGovernanceAuthorityV1(minimalAuthorityBody(), REPOSITORY, TASK)
-check(parsedMinimalAuthority.prNumber === PR && parsedMinimalAuthority.exactHead === OTHER_HEAD && parsedMinimalAuthority.expectedBase === MINIMAL_BASE, 'MGV-01 strict authority parser binds Task, PR, HEAD, and base')
+check(parsedMinimalAuthority.prNumber === PR && parsedMinimalAuthority.exactHead === OTHER_HEAD && parsedMinimalAuthority.expectedBase === CURRENT_MAIN_SHA, 'MGV-01 strict authority parser binds Task, PR, HEAD, and base')
 check(parsedMinimalAuthority.authoringRole === 'Product Owner' && parsedMinimalAuthority.authorityActorLogin === 'whatrune' && parsedMinimalAuthority.authorityActorId === 47842632 && parsedMinimalAuthority.baseImpact === 'NO_MATERIAL_IMPACT' && parsedMinimalAuthority.mergeMethod === 'merge' && parsedMinimalAuthority.operationCount === 1 && parsedMinimalAuthority.authorizedPaths.join('\n') === minimalPaths.join('\n'), 'MGV-01 strict authority parser fixes Product Owner identity, impact, method, count, and scope')
 check(parsedMinimalAuthority.authorityActorType === 'User', 'MGV-01 authority body binds the complete Product Owner actor tuple including type')
 
@@ -3322,10 +3323,10 @@ const minimalValid = await executeMinimalFixture()
 const minimalSnapshotBytes = Buffer.from(minimalValid.result.sealed_snapshot_b64, 'base64')
 const minimalSnapshot = JSON.parse(minimalSnapshotBytes.toString('utf8'))
 check(minimalValid.result.next_action === 'MERGE_OPERATOR' && minimalValid.result.terminal_result === 'MINIMAL_GOVERNANCE_V1' && minimalValid.result.authority_kind === 'MINIMAL_GOVERNANCE_V1', 'MGV-02 sole valid authority emits only a minimal-governance Merge Operator plan')
-check(minimalValid.result.merge_method === 'merge' && minimalValid.result.operation_count === 1 && minimalValid.result.exact_head === OTHER_HEAD && minimalValid.result.expected_base === MINIMAL_BASE, 'MGV-02 plan is exact-SHA, exact-base, one-operation merge')
+check(minimalValid.result.merge_method === 'merge' && minimalValid.result.operation_count === 1 && minimalValid.result.exact_head === OTHER_HEAD && minimalValid.result.expected_base === CURRENT_MAIN_SHA, 'MGV-02 plan is exact-SHA, exact-base, one-operation merge')
 check(createHash('sha256').update(minimalSnapshotBytes).digest('hex') === minimalValid.result.snapshot_sha256 && minimalSnapshot.review_body_sha256 === minimalReviewBodySha256, 'MGV-02 sealed snapshot digest and reused Review body digest are exact')
 check(Object.values(minimalValid.metrics).every((count) => count === 1) && Object.values(minimalSnapshot.source_counts).every((count) => count === 1), 'MGV-03 every pre-operation snapshot source is acquired exactly once')
-check(minimalSnapshot.authority_actor.login === 'whatrune' && minimalSnapshot.authority_actor.id === 47842632 && minimalSnapshot.task.creator.login === 'whatrune' && minimalSnapshot.job_manifest.host_sha === MINIMAL_BASE, 'MGV-03 sealed snapshot binds Product Owner and detached same-run manifest')
+check(minimalSnapshot.authority_actor.login === 'whatrune' && minimalSnapshot.authority_actor.id === 47842632 && minimalSnapshot.task.creator.login === 'whatrune' && minimalSnapshot.job_manifest.host_sha === CURRENT_MAIN_SHA, 'MGV-03 sealed snapshot binds Product Owner and detached same-run manifest')
 
 const malformedMinimalBodies = [
   minimalAuthorityBody({}, ['unexpected_field: true']),
@@ -3365,6 +3366,10 @@ check(conflictingReview.result.next_action === 'STOP', 'MGV-05 later malformed c
 const scopeMismatch = await executeMinimalFixture({ paths: minimalPaths.slice(1) })
 const baseMismatch = await executeMinimalFixture({ mainHead: HEAD })
 check(scopeMismatch.result.next_action === 'STOP' && baseMismatch.result.reason === 'minimal_governance_expected_base_mismatch', 'MGV-06 scope or current-main base mismatch fails closed')
+check(baseMismatch.result.reason === 'minimal_governance_expected_base_mismatch', 'MGV-14 B initial current-main drift fails with expected-base mismatch')
+const initialBaseRefMismatch = await executeMinimalFixture({ pull: minimalPull({ base: { ...minimalPull().base, ref: 'release' } }) })
+const initialInvalidHistoricalBase = await executeMinimalFixture({ pull: minimalPull({ base: { ...minimalPull().base, sha: 'not-a-full-head' } }) })
+check(initialBaseRefMismatch.result.reason === 'minimal_governance_pull_binding_invalid' && initialInvalidHistoricalBase.result.reason === 'minimal_governance_pull_binding_invalid', 'MGV-14 C initial non-main base ref or invalid historical base SHA fails pull binding')
 const pendingExternal = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck(), { ...successfulCheck('minimal-pending'), status: 'IN_PROGRESS', conclusion: null }]) })
 const failedExternal = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck(), { ...successfulCheck('minimal-failed'), conclusion: 'FAILURE' }]) })
 const missingExternal = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck()]) })
@@ -3405,7 +3410,7 @@ check(alreadyMerged.result.reason === 'already_merged' && alreadyMerged.result.p
 
 const executeMinimalFinalGuardFixture = async ({
   plan = minimalValid.result,
-  mainHead = MINIMAL_BASE,
+  mainHead = CURRENT_MAIN_SHA,
   pull = minimalPull(),
   taskUser = minimalProductOwner,
   authority = minimalAuthorityComment(),
@@ -3450,9 +3455,19 @@ const executeMinimalFinalGuardFixture = async ({
 const minimalFinalGuardValid = await executeMinimalFinalGuardFixture()
 check(minimalFinalGuardValid.result.state === 'MATCH' && minimalFinalGuardValid.result.next_action === 'MERGE_PR' && minimalFinalGuardValid.result.exact_head === OTHER_HEAD, 'MGV-11 no-drift final guard returns only exact-head MATCH')
 check(Object.entries(minimalFinalGuardValid.metrics).filter(([name]) => !['scope', 'jobs'].includes(name)).every(([, count]) => count === 1) && minimalFinalGuardValid.metrics.scope === 0 && minimalFinalGuardValid.metrics.jobs === 0, 'MGV-11 final guard acquires exactly eight mutable sources once and regenerates neither scope nor job manifest')
+check(minimalValid.result.automation_status === 'OPERATION_READY' && minimalSnapshot.expected_base === CURRENT_MAIN_SHA && minimalSnapshot.pull.base === HISTORICAL_PR_BASE_SHA && minimalSnapshot.pull.base !== minimalSnapshot.expected_base && minimalFinalGuardValid.result.state === 'MATCH', 'MGV-14 A historical PR base differs from current-main authority while snapshot and final guard pass')
 
+const finalMainDrift = await executeMinimalFinalGuardFixture({ mainHead: HEAD })
+const finalBaseRefDrift = await executeMinimalFinalGuardFixture({ pull: minimalPull({ base: { ...minimalPull().base, ref: 'release' } }) })
+const finalInvalidHistoricalBase = await executeMinimalFinalGuardFixture({ pull: minimalPull({ base: { ...minimalPull().base, sha: 'not-a-full-head' } }) })
+const minimalFinalHeadDrift = await executeMinimalFinalGuardFixture({ pull: minimalPull({ head: { sha: HEAD } }) })
+const finalMergeabilityDrift = await executeMinimalFinalGuardFixture({ pull: minimalPull({ mergeable: false }) })
 const finalGuardDrifts = await Promise.all([
-  executeMinimalFinalGuardFixture({ mainHead: HEAD }),
+  finalMainDrift,
+  finalBaseRefDrift,
+  finalInvalidHistoricalBase,
+  minimalFinalHeadDrift,
+  finalMergeabilityDrift,
   executeMinimalFinalGuardFixture({ pull: minimalPull({ draft: true }) }),
   executeMinimalFinalGuardFixture({ pull: minimalPull({ body: stateBlock({ ...minimalApprovedState(), reviewed_head: HEAD }) }) }),
   executeMinimalFinalGuardFixture({ checks: connectionPage([{ ...successfulCheck('minimal-external-1'), conclusion: 'FAILURE' }, successfulCheck('minimal-external-2')]) }),
@@ -3465,6 +3480,10 @@ const finalGuardDrifts = await Promise.all([
   executeMinimalFinalGuardFixture({ incompleteChecks: true }),
 ])
 check(finalGuardDrifts.every(({ result }) => result.state === 'STOP' && result.next_action === 'STOP' && result.protected_operation_count === 0), 'MGV-12 main, PR, task-state, checks, threads, Task, authority, Review, history, or incomplete-source drift stops')
+check(finalMainDrift.result.reason === 'minimal_governance_final_main_drift', 'MGV-14 D final current-main drift fails before pull rebind')
+check(finalBaseRefDrift.result.reason === 'minimal_governance_final_pull_drift' && finalInvalidHistoricalBase.result.reason === 'minimal_governance_final_pull_drift', 'MGV-14 E final non-main base ref or invalid historical base SHA fails pull rebind')
+check(minimalFinalHeadDrift.result.state === 'STOP' && minimalFinalHeadDrift.result.protected_operation_count === 0, 'MGV-14 F final exact PR HEAD drift stops')
+check(finalMergeabilityDrift.result.state === 'STOP' && finalMergeabilityDrift.result.protected_operation_count === 0, 'MGV-14 G final mergeability drift stops')
 const minimalGuardPutCount = (guardResult) => guardResult.next_action === 'MERGE_PR' ? 1 : 0
 check(minimalGuardPutCount(minimalFinalGuardValid.result) === 1 && finalGuardDrifts.every(({ result }) => minimalGuardPutCount(result) === 0), 'MGV-12 no-drift permits one PUT and every drift permits zero PUTs')
 const finalGuardSourceStart = runnerSource.indexOf('export const executeMinimalGovernanceFinalDriftGuardV1')
@@ -4337,5 +4356,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 605) throw new Error(`expected exactly 605 assertions, observed ${assertions}`)
+if (assertions !== 612) throw new Error(`expected exactly 612 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
