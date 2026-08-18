@@ -58,6 +58,7 @@ const OTHER_HEAD = '3b19e86982701f7cffbe42d4d3568ad498bc016f'
 const READY_RUN_ID = '31246327840'
 const REVIEW_RUN_ID = '32025890230'
 const CUMULATIVE_PR_BASE = 'eaed40ca274b6d05e03e15c87cca00b3d8b1df68'
+const CORRECTION_REBASE_BASE = '817bbc7bdcff5b11fbe333053338fa33ce664350'
 const BASE = '9fda08907ff21c5c596146b779d7feeac5efbfa8'
 const HOST_RUNNER_BINDING_BASE = '3631d84351a49088baaadb5b3445751a7bf0b44e'
 const HOST_RUNNER_BINDING_HEAD = '35b7849840a2a9191f4ebf56bf83e145725a6dfa'
@@ -713,15 +714,14 @@ check(hostIdentityRun.includes(workflowRefPrefix) && pullRequestBlock.includes(r
 check(hostIdentityRun.includes('else\n  [[ "$GITHUB_REF" == "refs/heads/main" ]]\n  ' + mainWorkflowRefCheck), 'HID-05 non-PR events retain exact main execution and workflow source identity')
 check(hostIdentityRun.includes('[[ "$GITHUB_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]') && admissionJob.steps.some((step) => step.name === 'Checkout exact workflow SHA' && step.with?.ref === '${{ github.workflow_sha }}') && admissionJob.steps.some((step) => step.name === 'Evaluate protected transition admission') && admissionJob.steps.indexOf(liveShadowStep) > admissionJob.steps.findIndex((step) => step.name === 'Evaluate protected transition admission') && liveShadowStep?.['continue-on-error'] === true && liveShadowStep?.env?.GH_TOKEN === '' && liveShadowStep?.run.includes('env -i') && liveShadowStep?.run.trimEnd().endsWith('exit 0'), 'HID-06 common SHA, checkout, Controller routing, and post-decision isolated non-authoritative shadow remain fail-closed')
 
-const trackedChangedPaths = execFileSync('git', ['diff', '--name-only', CUMULATIVE_PR_BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
+const trackedChangedPaths = execFileSync('git', ['diff', '--name-only', CORRECTION_REBASE_BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
 const untrackedChangedPaths = execFileSync('git', ['ls-files', '--others', '--exclude-standard'], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
 const changedPaths = [...new Set([...trackedChangedPaths, ...untrackedChangedPaths])].sort()
 const expectedPaths = [
-  '.github/workflows/protected-transition-admission-v1.yml',
   'scripts/run-protected-transition-admission-v1.mjs',
   'scripts/test-protected-transition-admission-v1.mjs',
 ]
-check(changedPaths.join('\n') === expectedPaths.join('\n'), 'cumulative PR-to-main correction diff is exactly three authorized paths')
+check(changedPaths.join('\n') === expectedPaths.join('\n'), 'fresh-base correction diff is exactly two authorized paths')
 const productionSource = `${workflowSource}\n${runnerSource}\n${coreSource}`
 check(!/(trust_root|revocation|ready_generation|producer_roster|assignment_record|finalization_binding|collector|\.jcs|upload-artifact)/i.test(productionSource), 'retired mechanisms are absent')
 check(runnerSource.includes('/comments?since=') && runnerSource.includes('pageNumber > 32'), 'runner uses bounded forward-only Review pagination')
@@ -1010,14 +1010,29 @@ check(validReadyResult.allowed === false && validReadyResult.automation_status =
 check(validReadyResult.task_issue_number === TASK && validReadyResult.pr_number === PR && validReadyResult.current_head === HEAD && validReadyResult.role_dispatch?.source_comment_id === reviewEvent().comment.id, 'RFR-02 binds exact Task, PR, HEAD, and effective Review source')
 check(validReadyAutomation.metrics.patchCalls === 0 && validReadyAutomation.metrics.checkReads === 3 && validReadyAutomation.metrics.threadReads === 1 && validReadyAutomation.metrics.waitCalls === 0, 'RFR-02 Ready adapter excludes its own running check and rechecks the final rollup read-only')
 
-const wrongReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ action: 'opened' }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
+const wrongReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ action: 'opened', pull: { body: 'no state' } }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
 const missingReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ repository: null }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
 const malformedReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ pull: { body: 'no state' } }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
+const partialStateReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ pull: { body: '<!-- protected-transition-task-state-v1:start -->' } }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
 const duplicateStateReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ pull: { body: `${stateBlock()}\n${stateBlock()}` } }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
-check(wrongReadyResult.state === 'INDETERMINATE' && wrongReadyResult.reason === 'ready_event_invalid', 'RFR-03 wrong Ready action fails closed')
+check(wrongReadyResult.state === 'INDETERMINATE' && wrongReadyResult.reason === 'ready_event_invalid' && !Object.hasOwn(wrongReadyResult, 'record_type'), 'RFR-03 zero markers under a non-Ready action do not receive expected legacy classification')
 check(missingReadyResult.state === 'INDETERMINATE' && missingReadyResult.reason === 'ready_event_invalid', 'RFR-03 missing repository identity fails closed')
-check(malformedReadyResult.state === 'INDETERMINATE' && malformedReadyResult.reason === 'state_block_cardinality_invalid', 'RFR-03 malformed state fails closed before acquisition')
-check(duplicateStateReadyResult.state === 'INDETERMINATE' && duplicateStateReadyResult.reason === 'state_block_cardinality_invalid', 'RFR-03 legacy Ready transition rejects multiple state blocks')
+check(
+  malformedReadyResult.record_type === 'expected_legacy_ready_fail_closed_v1' && malformedReadyResult.version === 1 &&
+  malformedReadyResult.event === 'pull_request' && malformedReadyResult.action === 'ready_for_review' &&
+  malformedReadyResult.state === 'INDETERMINATE' && malformedReadyResult.reason === 'state_block_cardinality_invalid',
+  'RFR-03 zero-marker Ready emits the versioned expected legacy fail-closed result',
+)
+check(
+  malformedReadyResult.exit_code === 1 && malformedReadyResult.admission_executed === false &&
+  malformedReadyResult.mutation_count === 0 && malformedReadyResult.protected_operation_count === 0,
+  'RFR-03 expected legacy Ready result preserves failure with zero mutations and protected operations',
+)
+check(
+  partialStateReadyResult.reason === 'state_block_cardinality_invalid' && !Object.hasOwn(partialStateReadyResult, 'record_type') &&
+  duplicateStateReadyResult.reason === 'state_block_cardinality_invalid' && !Object.hasOwn(duplicateStateReadyResult, 'record_type'),
+  'RFR-03 partial or duplicate markers fail closed without expected legacy classification',
+)
 
 const readyPrMismatch = automationHost({ initialState: approvedState() })
 const readyPrMismatchResult = await executeReadyForReviewProgressionV1({
@@ -3345,6 +3360,7 @@ const historicalRunRecord = (overrides = {}) => ({
   repository: { full_name: REPOSITORY },
   path: '.github/workflows/protected-transition-admission-v1.yml',
   event: 'pull_request',
+  created_at: '2026-08-18T09:00:00Z',
   status: 'completed',
   conclusion: 'failure',
   head_sha: HISTORICAL_RTO_HEAD,
@@ -3411,6 +3427,8 @@ const executeMinimalFixture = async ({
   const metrics = { authority: 0, review: 0, pull: 0, task: 0, main: 0, comments: 0, scope: 0, checks: 0, threads: 0 }
   const currentMetrics = { run: 0, jobs: 0 }
   const historicalMetrics = { run: 0, jobs: 0, log: 0 }
+  const historicalRunId = historicalRun === null ? null : String(historicalRun.id)
+  const historicalAdmissionJobId = historicalJobs?.jobs?.find((job) => job.name === 'protected_transition_admission_v1')?.id
   const host = {
     branchHead: async () => { metrics.main += 1; return mainHead },
     api: async (endpoint) => {
@@ -3446,11 +3464,11 @@ const executeMinimalFixture = async ({
         currentMetrics.jobs += 1
         return structuredClone(currentJobs)
       }
-      if (endpoint === `repos/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}` && historicalRun !== null) {
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${historicalRunId}` && historicalRun !== null) {
         historicalMetrics.run += 1
         return structuredClone(historicalRun)
       }
-      if (endpoint === `repos/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}/jobs?per_page=100` && historicalJobs !== null) {
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${historicalRunId}/jobs?per_page=100` && historicalJobs !== null) {
         historicalMetrics.jobs += 1
         return structuredClone(historicalJobs)
       }
@@ -3460,7 +3478,7 @@ const executeMinimalFixture = async ({
       historicalMetrics.log += 1
       if (
         historicalLogUnavailable || historicalLogBytes === null ||
-        endpoint !== `repos/${REPOSITORY}/actions/jobs/${historicalRtoJobIds.protected_transition_admission_v1}/logs`
+        endpoint !== `repos/${REPOSITORY}/actions/jobs/${historicalAdmissionJobId}/logs`
       ) throw new Error('historical_log_unavailable')
       return new Uint8Array(historicalLogBytes)
     },
@@ -3703,6 +3721,135 @@ const historicalFixture = (overrides = {}) => executeMinimalFixture({
   ...overrides,
 })
 
+const EXPECTED_LEGACY_READY_RUN_ID = '32124514254'
+const EXPECTED_LEGACY_READY_MIGRATION_RUN_ID = '32124504254'
+const EXPECTED_LEGACY_READY_CREATED_AT = '2026-08-18T10:00:00Z'
+const EXPECTED_LEGACY_READY_MIGRATION_CREATED_AT = '2026-08-18T09:59:58Z'
+const expectedLegacyReadyTerminalResult = (overrides = {}) => ({
+  record_type: 'expected_legacy_ready_fail_closed_v1',
+  version: 1,
+  event: 'pull_request',
+  action: 'ready_for_review',
+  transition: 'merge_decision_admission',
+  state: 'INDETERMINATE',
+  allowed: false,
+  exit_code: 1,
+  reason: 'state_block_cardinality_invalid',
+  task_issue_number: null,
+  pr_number: PR,
+  current_head: OTHER_HEAD,
+  out_of_scope_paths: [],
+  state_changed: false,
+  automation_status: 'BLOCKED',
+  admission_executed: false,
+  next_action: 'STOP',
+  mutation_count: 0,
+  protected_operation_count: 0,
+  ...overrides,
+})
+const expectedLegacyReadyFixture = ({
+  runId = EXPECTED_LEGACY_READY_RUN_ID,
+  createdAt = EXPECTED_LEGACY_READY_CREATED_AT,
+  terminalResults = [expectedLegacyReadyTerminalResult()],
+  runOverrides = {},
+  checkOverrides = {},
+  jobOverrides = {},
+  externalChecks = historicalExternalSuccess,
+  ...fixtureOverrides
+} = {}) => executeMinimalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({ runId, head: OTHER_HEAD, overrides: checkOverrides }), externalChecks),
+  historicalRun: historicalRunRecord({
+    id: Number(runId),
+    created_at: createdAt,
+    head_sha: OTHER_HEAD,
+    url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${runId}`,
+    html_url: `https://github.com/${REPOSITORY}/actions/runs/${runId}`,
+    jobs_url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${runId}/jobs`,
+    pull_requests: [{ number: PR, head: { sha: OTHER_HEAD }, base: { ref: 'main' } }],
+    ...runOverrides,
+  }),
+  historicalJobs: historicalJobPage({ runId, head: OTHER_HEAD, overrides: jobOverrides }),
+  historicalLogBytes: historicalLog(terminalResults),
+  ...fixtureOverrides,
+})
+
+const expectedLegacyReadyInitial = await expectedLegacyReadyFixture()
+if (typeof expectedLegacyReadyInitial.result.sealed_snapshot_b64 !== 'string') {
+  throw new Error(`expected legacy Ready fixture failed: ${JSON.stringify(expectedLegacyReadyInitial.result)}`)
+}
+const expectedLegacyReadySnapshot = JSON.parse(Buffer.from(expectedLegacyReadyInitial.result.sealed_snapshot_b64, 'base64').toString('utf8'))
+check(
+  expectedLegacyReadyInitial.result.next_action === 'MERGE_OPERATOR' &&
+  expectedLegacyReadySnapshot.job_manifest.expected_legacy_ready_checks.length === 1 &&
+  expectedLegacyReadySnapshot.job_manifest.historical_rto_checks.length === 0 &&
+  Object.values(expectedLegacyReadyInitial.historicalMetrics).every((count) => count === 1),
+  'ELRF-01 exact versioned Ready fail-closed family is neutral only during MINIMAL authority evaluation',
+)
+check(
+  expectedLegacyReadySnapshot.job_manifest.expected_legacy_ready_checks[0].terminal_contract === 'expected_legacy_ready_fail_closed_v1' &&
+  expectedLegacyReadySnapshot.job_manifest.expected_legacy_ready_checks[0].terminal_result.mutation_count === 0 &&
+  expectedLegacyReadySnapshot.job_manifest.expected_legacy_ready_checks[0].terminal_result.protected_operation_count === 0,
+  'ELRF-02 snapshot seals the exact versioned zero-operation terminal evidence',
+)
+const expectedLegacyMigrationValid = await expectedLegacyReadyFixture({
+  runId: EXPECTED_LEGACY_READY_MIGRATION_RUN_ID,
+  createdAt: EXPECTED_LEGACY_READY_MIGRATION_CREATED_AT,
+  terminalResults: [historicalTerminalResult({ pr_number: PR, current_head: OTHER_HEAD })],
+})
+const expectedLegacyMigrationSnapshot = JSON.parse(Buffer.from(expectedLegacyMigrationValid.result.sealed_snapshot_b64, 'base64').toString('utf8'))
+check(
+  expectedLegacyMigrationValid.result.next_action === 'MERGE_OPERATOR' &&
+  expectedLegacyMigrationSnapshot.job_manifest.expected_legacy_ready_checks[0].terminal_contract === 'legacy_state_block_cardinality_invalid_v1',
+  'ELRF-03 old state-block failure is neutral only at the exact dual migration cutoff',
+)
+const expectedLegacyMigrationCutoffStops = await Promise.all([
+  expectedLegacyReadyFixture({
+    runId: String(Number(EXPECTED_LEGACY_READY_MIGRATION_RUN_ID) + 1),
+    createdAt: EXPECTED_LEGACY_READY_MIGRATION_CREATED_AT,
+    terminalResults: [historicalTerminalResult({ pr_number: PR, current_head: OTHER_HEAD })],
+  }),
+  expectedLegacyReadyFixture({
+    runId: EXPECTED_LEGACY_READY_MIGRATION_RUN_ID,
+    createdAt: '2026-08-18T09:59:59Z',
+    terminalResults: [historicalTerminalResult({ pr_number: PR, current_head: OTHER_HEAD })],
+  }),
+  expectedLegacyReadyFixture({
+    runId: EXPECTED_LEGACY_READY_MIGRATION_RUN_ID,
+    createdAt: EXPECTED_LEGACY_READY_MIGRATION_CREATED_AT,
+    terminalResults: [historicalTerminalResult({ pr_number: PR, current_head: OTHER_HEAD })],
+    runOverrides: { workflow_id: HISTORICAL_RTO_WORKFLOW_ID + 1 },
+  }),
+  expectedLegacyReadyFixture({
+    runId: EXPECTED_LEGACY_READY_MIGRATION_RUN_ID,
+    createdAt: EXPECTED_LEGACY_READY_MIGRATION_CREATED_AT,
+    terminalResults: [historicalTerminalResult({ pr_number: PR, current_head: OTHER_HEAD })],
+    runOverrides: { run_attempt: 2 },
+    jobOverrides: Object.fromEntries(historicalRtoJobNames.map((name) => [name, { run_attempt: 2 }])),
+  }),
+])
+check(expectedLegacyMigrationCutoffStops.every(({ result }) => result.next_action === 'STOP'), 'ELRF-04 old format after either cutoff or with workflow/attempt drift stops')
+const expectedLegacyTerminalDrifts = await Promise.all([
+  expectedLegacyReadyFixture({ terminalResults: [expectedLegacyReadyTerminalResult({ event: 'issue_comment' })] }),
+  expectedLegacyReadyFixture({ terminalResults: [expectedLegacyReadyTerminalResult({ action: 'opened' })] }),
+  expectedLegacyReadyFixture({ terminalResults: [expectedLegacyReadyTerminalResult({ version: 2 })] }),
+  expectedLegacyReadyFixture({ terminalResults: [expectedLegacyReadyTerminalResult({ reason: 'pull_not_ready' })] }),
+  expectedLegacyReadyFixture({ terminalResults: [expectedLegacyReadyTerminalResult({ admission_executed: true })] }),
+  expectedLegacyReadyFixture({ terminalResults: [expectedLegacyReadyTerminalResult({ mutation_count: 1 })] }),
+  expectedLegacyReadyFixture({ terminalResults: [expectedLegacyReadyTerminalResult({ protected_operation_count: 1 })] }),
+])
+check(expectedLegacyTerminalDrifts.every(({ result }) => result.next_action === 'STOP'), 'ELRF-05 event, action, version, reason, execution, or operation drift stops')
+const expectedLegacyDownstreamDrift = await expectedLegacyReadyFixture({
+  checkOverrides: { protected_transition_repair_executor_v1: { conclusion: 'SUCCESS' } },
+  jobOverrides: { protected_transition_repair_executor_v1: { conclusion: 'success' } },
+})
+check(expectedLegacyDownstreamDrift.result.next_action === 'STOP', 'ELRF-06 any downstream non-SKIPPED result stops')
+const expectedLegacyExternalStops = await Promise.all([
+  expectedLegacyReadyFixture({ externalChecks: [] }),
+  expectedLegacyReadyFixture({ externalChecks: [minimalExternalCheck('build-preview', { conclusion: 'FAILURE' })] }),
+  expectedLegacyReadyFixture({ externalChecks: [minimalExternalCheck('build-preview', { status: 'IN_PROGRESS', conclusion: null })] }),
+])
+check(expectedLegacyExternalStops.every(({ result }) => result.next_action === 'STOP'), 'ELRF-07 missing, failed, or pending external checks remain authoritative')
+
 const historicalInitialValid = await historicalFixture()
 if (typeof historicalInitialValid.result.sealed_snapshot_b64 !== 'string') {
   throw new Error(`frozen historical fixture failed: ${JSON.stringify(historicalInitialValid.result)}`)
@@ -3936,6 +4083,8 @@ const executeMinimalFinalGuardFixture = async ({
   const metrics = { main: 0, pull: 0, task: 0, authority: 0, review: 0, comments: 0, checks: 0, threads: 0, scope: 0, jobs: 0 }
   const currentMetrics = { run: 0, jobs: 0 }
   const historicalMetrics = { run: 0, jobs: 0, log: 0 }
+  const historicalRunId = historicalRun === null ? null : String(historicalRun.id)
+  const historicalAdmissionJobId = historicalJobs?.jobs?.find((job) => job.name === 'protected_transition_admission_v1')?.id
   const host = {
     branchHead: async () => { metrics.main += 1; return mainHead },
     api: async (endpoint) => {
@@ -3955,11 +4104,11 @@ const executeMinimalFinalGuardFixture = async ({
         currentMetrics.jobs += 1
         return structuredClone(currentJobs)
       }
-      if (endpoint === `repos/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}` && historicalRun !== null) {
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${historicalRunId}` && historicalRun !== null) {
         historicalMetrics.run += 1
         return structuredClone(historicalRun)
       }
-      if (endpoint === `repos/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}/jobs?per_page=100` && historicalJobs !== null) {
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${historicalRunId}/jobs?per_page=100` && historicalJobs !== null) {
         historicalMetrics.jobs += 1
         return structuredClone(historicalJobs)
       }
@@ -3971,7 +4120,7 @@ const executeMinimalFinalGuardFixture = async ({
       historicalMetrics.log += 1
       if (
         historicalLogUnavailable || historicalLogBytes === null ||
-        endpoint !== `repos/${REPOSITORY}/actions/jobs/${historicalRtoJobIds.protected_transition_admission_v1}/logs`
+        endpoint !== `repos/${REPOSITORY}/actions/jobs/${historicalAdmissionJobId}/logs`
       ) throw new Error('historical_log_unavailable')
       return new Uint8Array(historicalLogBytes)
     },
@@ -4033,6 +4182,46 @@ const historicalFinalDisappeared = await historicalFinalFixture({
   checks: connectionPage([...historicalExternalSuccess]),
 })
 check(historicalFinalDisappeared.result.next_action === 'STOP', 'HRTN-17 historical classification disappearance before final guard stops')
+const expectedLegacyReadyFinalFixture = (overrides = {}) => executeMinimalFinalGuardFixture({
+  plan: expectedLegacyReadyInitial.result,
+  checks: historicalCheckPage(historicalRtoChecks({ runId: EXPECTED_LEGACY_READY_RUN_ID, head: OTHER_HEAD })),
+  historicalRun: historicalRunRecord({
+    id: Number(EXPECTED_LEGACY_READY_RUN_ID),
+    created_at: EXPECTED_LEGACY_READY_CREATED_AT,
+    head_sha: OTHER_HEAD,
+    url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${EXPECTED_LEGACY_READY_RUN_ID}`,
+    html_url: `https://github.com/${REPOSITORY}/actions/runs/${EXPECTED_LEGACY_READY_RUN_ID}`,
+    jobs_url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${EXPECTED_LEGACY_READY_RUN_ID}/jobs`,
+    pull_requests: [{ number: PR, head: { sha: OTHER_HEAD }, base: { ref: 'main' } }],
+  }),
+  historicalJobs: historicalJobPage({ runId: EXPECTED_LEGACY_READY_RUN_ID, head: OTHER_HEAD }),
+  historicalLogBytes: historicalLog([expectedLegacyReadyTerminalResult()]),
+  ...overrides,
+})
+const expectedLegacyReadyFinalValid = await expectedLegacyReadyFinalFixture()
+check(
+  expectedLegacyReadyFinalValid.result.state === 'MATCH' && expectedLegacyReadyFinalValid.result.next_action === 'MERGE_PR' &&
+  Object.values(expectedLegacyReadyFinalValid.historicalMetrics).every((count) => count === 1),
+  'ELRF-08 final guard freshly reacquires exact expected legacy Ready evidence and matches',
+)
+const expectedLegacyReadyFinalDrifts = await Promise.all([
+  expectedLegacyReadyFinalFixture({
+    historicalLogBytes: Buffer.concat([historicalLog([expectedLegacyReadyTerminalResult()]), Buffer.from('\nlog drift', 'utf8')]),
+  }),
+  expectedLegacyReadyFinalFixture({ checks: connectionPage([...historicalExternalSuccess]) }),
+  expectedLegacyReadyFinalFixture({
+    historicalRun: historicalRunRecord({
+      id: Number(EXPECTED_LEGACY_READY_RUN_ID),
+      created_at: '2026-08-18T10:00:01Z',
+      head_sha: OTHER_HEAD,
+      url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${EXPECTED_LEGACY_READY_RUN_ID}`,
+      html_url: `https://github.com/${REPOSITORY}/actions/runs/${EXPECTED_LEGACY_READY_RUN_ID}`,
+      jobs_url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${EXPECTED_LEGACY_READY_RUN_ID}/jobs`,
+      pull_requests: [{ number: PR, head: { sha: OTHER_HEAD }, base: { ref: 'main' } }],
+    }),
+  }),
+])
+check(expectedLegacyReadyFinalDrifts.every(({ result }) => result.next_action === 'STOP'), 'ELRF-09 log, classification, or run metadata drift stops before merge')
 check(Object.entries(minimalFinalGuardValid.metrics).filter(([name]) => !['scope', 'jobs'].includes(name)).every(([, count]) => count === 1) && minimalFinalGuardValid.metrics.scope === 0 && minimalFinalGuardValid.metrics.jobs === 0, 'MGV-11 final guard acquires exactly eight mutable sources once and regenerates neither scope nor job manifest')
 check(minimalValid.result.automation_status === 'OPERATION_READY' && minimalSnapshot.expected_base === CURRENT_MAIN_SHA && minimalSnapshot.pull.base === HISTORICAL_PR_BASE_SHA && minimalSnapshot.pull.base !== minimalSnapshot.expected_base && minimalFinalGuardValid.result.state === 'MATCH', 'MGV-14 A historical PR base differs from current-main authority while snapshot and final guard pass')
 const resealMinimalSnapshotPlan = (mutate) => {
@@ -4055,6 +4244,22 @@ const resealHistoricalSnapshotPlan = (mutate) => {
     snapshot_sha256: createHash('sha256').update(bytes).digest('hex'),
   })
 }
+const resealExpectedLegacyReadySnapshotPlan = (mutate) => {
+  const snapshot = JSON.parse(Buffer.from(expectedLegacyReadyInitial.result.sealed_snapshot_b64, 'base64').toString('utf8'))
+  mutate(snapshot)
+  const bytes = Buffer.from(JSON.stringify(snapshot), 'utf8')
+  return Object.freeze({
+    ...expectedLegacyReadyInitial.result,
+    sealed_snapshot_b64: bytes.toString('base64'),
+    snapshot_sha256: createHash('sha256').update(bytes).digest('hex'),
+  })
+}
+const duplicateExpectedLegacyReadySnapshot = await executeMinimalFinalGuardFixture({
+  plan: resealExpectedLegacyReadySnapshotPlan((snapshot) => {
+    snapshot.job_manifest.expected_legacy_ready_checks.push(structuredClone(snapshot.job_manifest.expected_legacy_ready_checks[0]))
+  }),
+})
+check(duplicateExpectedLegacyReadySnapshot.result.next_action === 'STOP', 'ELRF-10 duplicate sealed expected legacy Ready evidence stops at snapshot validation')
 const sealedHistoricalTupleDrift = await executeMinimalFinalGuardFixture({
   plan: resealHistoricalSnapshotPlan((snapshot) => {
     snapshot.job_manifest.historical_rto_checks[0].run_attempt = 2
@@ -4969,5 +5174,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 669) throw new Error(`expected exactly 669 assertions, observed ${assertions}`)
+if (assertions !== 680) throw new Error(`expected exactly 680 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
