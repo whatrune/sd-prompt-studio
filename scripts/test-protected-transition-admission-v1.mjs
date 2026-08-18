@@ -3279,8 +3279,10 @@ const currentExecutionRtoJobs = ({
   return { total_count: values.length, jobs: values }
 }
 const HISTORICAL_RTO_RUN_ID = '32097609793'
-const HISTORICAL_RTO_WORKFLOW_ID = 981001
-const HISTORICAL_RTO_CHECK_SUITE_ID = 982001
+const HISTORICAL_RTO_PR_NUMBER = 323
+const HISTORICAL_RTO_HEAD = '39af964928dbe0ba2e689897d596904599f19730'
+const HISTORICAL_RTO_WORKFLOW_ID = 327818524
+const HISTORICAL_RTO_CHECK_SUITE_ID = 87008787144
 const historicalRtoJobNames = Object.freeze([
   'protected_transition_admission_v1',
   'protected_transition_repair_executor_v1',
@@ -3288,7 +3290,13 @@ const historicalRtoJobNames = Object.freeze([
   'protected_transition_merge_operator_v1',
   'protected_transition_post_repair_review_v1',
 ])
-const historicalRtoJobIds = Object.freeze(Object.fromEntries(historicalRtoJobNames.map((name, index) => [name, String(983001 + index)])))
+const historicalRtoJobIds = Object.freeze({
+  protected_transition_admission_v1: '95591890192',
+  protected_transition_role_dispatch_consumer_v1: '95591918148',
+  protected_transition_merge_operator_v1: '95591918161',
+  protected_transition_repair_executor_v1: '95591918182',
+  protected_transition_post_repair_review_v1: '95591918420',
+})
 const historicalRtoCheckIds = Object.freeze(Object.fromEntries(historicalRtoJobNames.map((name, index) => [name, 984001 + index])))
 const historicalTerminalResult = (overrides = {}) => ({
   transition: 'merge_decision_admission',
@@ -3297,8 +3305,8 @@ const historicalTerminalResult = (overrides = {}) => ({
   exit_code: 1,
   reason: 'state_block_cardinality_invalid',
   task_issue_number: null,
-  pr_number: PR,
-  current_head: OTHER_HEAD,
+  pr_number: HISTORICAL_RTO_PR_NUMBER,
+  current_head: HISTORICAL_RTO_HEAD,
   out_of_scope_paths: [],
   state_changed: false,
   automation_status: 'BLOCKED',
@@ -3313,7 +3321,7 @@ const historicalLog = (results = [historicalTerminalResult()]) => Buffer.from(
 const historicalRtoChecks = ({
   runId = HISTORICAL_RTO_RUN_ID,
   checkSuiteId = HISTORICAL_RTO_CHECK_SUITE_ID,
-  head = OTHER_HEAD,
+  head = HISTORICAL_RTO_HEAD,
   appDatabaseId = 15368,
   overrides = {},
 } = {}) => historicalRtoJobNames.map((name, index) => currentReadyCheck({
@@ -3339,17 +3347,17 @@ const historicalRunRecord = (overrides = {}) => ({
   event: 'pull_request',
   status: 'completed',
   conclusion: 'failure',
-  head_sha: OTHER_HEAD,
+  head_sha: HISTORICAL_RTO_HEAD,
   url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}`,
   html_url: `https://github.com/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}`,
   jobs_url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}/jobs`,
-  pull_requests: [{ number: PR, head: { sha: OTHER_HEAD }, base: { ref: 'main' } }],
+  pull_requests: [{ number: HISTORICAL_RTO_PR_NUMBER, head: { sha: HISTORICAL_RTO_HEAD }, base: { ref: 'main' } }],
   ...overrides,
 })
 const historicalJobPage = ({
   runId = HISTORICAL_RTO_RUN_ID,
   runAttempt = 1,
-  head = OTHER_HEAD,
+  head = HISTORICAL_RTO_HEAD,
   overrides = {},
 } = {}) => ({
   total_count: historicalRtoJobNames.length,
@@ -3384,6 +3392,8 @@ const executeMinimalFixture = async ({
   eventOverrides = {},
   authorityRefetchOverrides = {},
   taskUser = minimalProductOwner,
+  fixturePrNumber = PR,
+  fixtureExactHead = OTHER_HEAD,
   runId = REVIEW_RUN_ID,
   runAttempt = 1,
   hostSha = CURRENT_MAIN_SHA,
@@ -3412,7 +3422,7 @@ const executeMinimalFixture = async ({
         metrics.review += 1
         return structuredClone(review)
       }
-      if (endpoint === `repos/${REPOSITORY}/pulls/${PR}`) {
+      if (endpoint === `repos/${REPOSITORY}/pulls/${fixturePrNumber}`) {
         metrics.pull += 1
         return structuredClone(pull)
       }
@@ -3424,7 +3434,7 @@ const executeMinimalFixture = async ({
         metrics.comments += 1
         return structuredClone(history)
       }
-      if (endpoint.startsWith(`repos/${REPOSITORY}/pulls/${PR}/files?`)) {
+      if (endpoint.startsWith(`repos/${REPOSITORY}/pulls/${fixturePrNumber}/files?`)) {
         metrics.scope += 1
         return paths.map((filename) => ({ filename, status: 'modified' }))
       }
@@ -3457,11 +3467,11 @@ const executeMinimalFixture = async ({
     graphql: async (query, variables) => {
       if (query.includes('statusCheckRollup')) {
         metrics.checks += 1
-        return { repository: { pullRequest: { headRefOid: OTHER_HEAD }, object: { oid: variables.head, statusCheckRollup: { contexts: structuredClone(checks) } } } }
+        return { repository: { pullRequest: { headRefOid: fixtureExactHead }, object: { oid: variables.head, statusCheckRollup: { contexts: structuredClone(checks) } } } }
       }
       if (query.includes('reviewThreads')) {
         metrics.threads += 1
-        return { repository: { pullRequest: { number: PR, state: 'OPEN', isDraft: false, mergeable: 'MERGEABLE', mergeStateStatus: 'UNSTABLE', headRefOid: OTHER_HEAD, reviewThreads: structuredClone(threads) } } }
+        return { repository: { pullRequest: { number: fixturePrNumber, state: 'OPEN', isDraft: false, mergeable: 'MERGEABLE', mergeStateStatus: 'UNSTABLE', headRefOid: fixtureExactHead, reviewThreads: structuredClone(threads) } } }
       }
       throw new Error('unexpected_minimal_graphql')
     },
@@ -3665,7 +3675,27 @@ const historicalExternalSuccess = Object.freeze([
 ])
 const historicalCheckPage = (historical = historicalRtoChecks(), external = historicalExternalSuccess) =>
   connectionPage([...historical, ...external])
+const frozenHistoricalReviewBody = reviewDecisionBody({
+  pull_request: `https://github.com/${REPOSITORY}/pull/${HISTORICAL_RTO_PR_NUMBER}`,
+  reviewed_head: HISTORICAL_RTO_HEAD,
+})
+const frozenHistoricalReviewBodySha256 = createHash('sha256')
+  .update(Buffer.from(frozenHistoricalReviewBody, 'utf8')).digest('hex')
+const frozenHistoricalAuthorityBody = minimalAuthorityBody({
+  pull_request: `https://github.com/${REPOSITORY}/pull/${HISTORICAL_RTO_PR_NUMBER}`,
+  exact_head: HISTORICAL_RTO_HEAD,
+  review_body_sha256: frozenHistoricalReviewBodySha256,
+})
+const frozenHistoricalReviewComment = minimalReviewComment({ body: frozenHistoricalReviewBody })
+const frozenHistoricalAuthorityComment = minimalAuthorityComment(frozenHistoricalAuthorityBody)
 const historicalFixture = (overrides = {}) => executeMinimalFixture({
+  authorityBody: frozenHistoricalAuthorityBody,
+  authorityRefetchBody: frozenHistoricalAuthorityBody,
+  reviewRefetchBody: frozenHistoricalReviewBody,
+  comments: [frozenHistoricalReviewComment, frozenHistoricalAuthorityComment],
+  pull: minimalPull({ number: HISTORICAL_RTO_PR_NUMBER, head: { sha: HISTORICAL_RTO_HEAD } }),
+  fixturePrNumber: HISTORICAL_RTO_PR_NUMBER,
+  fixtureExactHead: HISTORICAL_RTO_HEAD,
   checks: historicalCheckPage(),
   historicalRun: historicalRunRecord(),
   historicalJobs: historicalJobPage(),
@@ -3674,7 +3704,11 @@ const historicalFixture = (overrides = {}) => executeMinimalFixture({
 })
 
 const historicalInitialValid = await historicalFixture()
+if (typeof historicalInitialValid.result.sealed_snapshot_b64 !== 'string') {
+  throw new Error(`frozen historical fixture failed: ${JSON.stringify(historicalInitialValid.result)}`)
+}
 const historicalInitialSnapshot = JSON.parse(Buffer.from(historicalInitialValid.result.sealed_snapshot_b64, 'base64').toString('utf8'))
+const frozenHistoricalEvidence = historicalInitialSnapshot.job_manifest.historical_rto_checks[0]
 check(
   historicalInitialValid.result.automation_status === 'OPERATION_READY' && historicalInitialValid.result.next_action === 'MERGE_OPERATOR' &&
   historicalInitialSnapshot.external_checks.length === 3 && historicalInitialSnapshot.job_manifest.historical_rto_checks.length === 1 &&
@@ -3682,6 +3716,96 @@ check(
   'HRTN-01 exact historical legacy tuple plus all external SUCCESS produces READY snapshot',
 )
 check(historicalInitialValid.result.next_action === 'MERGE_OPERATOR', 'CERM-I exact historical family Snapshot READY remains unchanged')
+const singletonAllowlistSource = runnerSource.slice(
+  runnerSource.indexOf('const HISTORICAL_LEGACY_RTO_SINGLETON_ALLOWLIST_V1'),
+  runnerSource.indexOf('\nconst MINIMAL_GOVERNANCE_SCALAR_KEYS_V1'),
+)
+check(
+  singletonAllowlistSource.includes('Object.freeze([Object.freeze({') &&
+  (singletonAllowlistSource.match(/pr_number:/g) ?? []).length === 1,
+  'HRTN-FROZEN-00 historical allowlist source cardinality is exactly one',
+)
+check(
+  frozenHistoricalEvidence.pr_number === HISTORICAL_RTO_PR_NUMBER &&
+  frozenHistoricalEvidence.head_sha === HISTORICAL_RTO_HEAD &&
+  frozenHistoricalEvidence.workflow_id === String(HISTORICAL_RTO_WORKFLOW_ID) &&
+  frozenHistoricalEvidence.run_id === HISTORICAL_RTO_RUN_ID && frozenHistoricalEvidence.run_attempt === 1 &&
+  frozenHistoricalEvidence.check_suite_id === String(HISTORICAL_RTO_CHECK_SUITE_ID) &&
+  frozenHistoricalEvidence.checks.every((item) => historicalRtoJobIds[item.name] === item.job_id),
+  'HRTN-FROZEN-01 sealed historical evidence exactly matches the singleton tuple',
+)
+const outsideAllowlistedRunId = '32097619793'
+const outsideAllowlistedRun = await historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({ runId: outsideAllowlistedRunId })),
+})
+check(outsideAllowlistedRun.result.next_action === 'STOP', 'HRTN-FROZEN-02 allowlist-external run stops')
+const rerunAttempt = await historicalFixture({
+  historicalRun: historicalRunRecord({ run_attempt: 2 }),
+  historicalJobs: historicalJobPage({ runAttempt: 2 }),
+})
+check(rerunAttempt.result.next_action === 'STOP', 'HRTN-FROZEN-03 rerun attempt stops')
+const frozenMetadataDrifts = await Promise.all([
+  historicalFixture({ historicalRun: historicalRunRecord({ workflow_id: HISTORICAL_RTO_WORKFLOW_ID + 1 }) }),
+  historicalFixture({
+    checks: historicalCheckPage(historicalRtoChecks({ checkSuiteId: HISTORICAL_RTO_CHECK_SUITE_ID + 1 })),
+    historicalRun: historicalRunRecord({ check_suite_id: HISTORICAL_RTO_CHECK_SUITE_ID + 1 }),
+  }),
+])
+check(frozenMetadataDrifts.every(({ result }) => result.next_action === 'STOP'), 'HRTN-FROZEN-04 workflow or check-suite drift stops')
+const driftedAdmissionJobId = '95591899999'
+const frozenJobDrift = await historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({ overrides: {
+    protected_transition_admission_v1: {
+      detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}/job/${driftedAdmissionJobId}`,
+    },
+  } })),
+  historicalJobs: historicalJobPage({ overrides: {
+    protected_transition_admission_v1: {
+      id: Number(driftedAdmissionJobId),
+      html_url: `https://github.com/${REPOSITORY}/actions/runs/${HISTORICAL_RTO_RUN_ID}/job/${driftedAdmissionJobId}`,
+    },
+  } }),
+})
+check(frozenJobDrift.result.next_action === 'STOP', 'HRTN-FROZEN-05 any frozen job ID drift stops')
+const historicalRequestBindingFixture = ({ prNumber, exactHead }) => {
+  const reviewBody = reviewDecisionBody({
+    pull_request: `https://github.com/${REPOSITORY}/pull/${prNumber}`,
+    reviewed_head: exactHead,
+  })
+  const reviewBodySha256 = createHash('sha256').update(Buffer.from(reviewBody, 'utf8')).digest('hex')
+  const authorityBody = minimalAuthorityBody({
+    pull_request: `https://github.com/${REPOSITORY}/pull/${prNumber}`,
+    exact_head: exactHead,
+    review_body_sha256: reviewBodySha256,
+  })
+  const reviewComment = minimalReviewComment({ body: reviewBody })
+  const authorityComment = minimalAuthorityComment(authorityBody)
+  return historicalFixture({
+    authorityBody,
+    authorityRefetchBody: authorityBody,
+    reviewRefetchBody: reviewBody,
+    comments: [reviewComment, authorityComment],
+    pull: minimalPull({ number: prNumber, head: { sha: exactHead } }),
+    fixturePrNumber: prNumber,
+    fixtureExactHead: exactHead,
+    checks: historicalCheckPage(historicalRtoChecks({ head: exactHead })),
+    historicalRun: historicalRunRecord({
+      head_sha: exactHead,
+      pull_requests: [{ number: prNumber, head: { sha: exactHead }, base: { ref: 'main' } }],
+    }),
+    historicalJobs: historicalJobPage({ head: exactHead }),
+    historicalLogBytes: historicalLog([historicalTerminalResult({ pr_number: prNumber, current_head: exactHead })]),
+  })
+}
+const frozenRequestBindingDrifts = await Promise.all([
+  historicalRequestBindingFixture({ prNumber: HISTORICAL_RTO_PR_NUMBER + 1, exactHead: HISTORICAL_RTO_HEAD }),
+  historicalRequestBindingFixture({ prNumber: HISTORICAL_RTO_PR_NUMBER, exactHead: HEAD }),
+])
+check(frozenRequestBindingDrifts.every(({ result }) => result.next_action === 'STOP'), 'HRTN-FROZEN-06 PR or HEAD drift stops')
+const currentAnalogousRun = await historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({ runId: REVIEW_RUN_ID })),
+})
+check(currentAnalogousRun.result.next_action === 'STOP', 'HRTN-FROZEN-07 current or new analogous run remains authoritative and stops')
 const historicalDifferentReason = await historicalFixture({ historicalLogBytes: historicalLog([historicalTerminalResult({ reason: 'pull_not_ready' })]) })
 check(historicalDifferentReason.result.next_action === 'STOP', 'HRTN-03 historical terminal reason drift stops')
 const historicalBindingMismatches = await Promise.all([
@@ -3797,7 +3921,7 @@ const executeMinimalFinalGuardFixture = async ({
   const host = {
     branchHead: async () => { metrics.main += 1; return mainHead },
     api: async (endpoint) => {
-      if (endpoint === `repos/${REPOSITORY}/pulls/${PR}`) { metrics.pull += 1; return structuredClone(pull) }
+      if (endpoint === `repos/${REPOSITORY}/pulls/${plan.pr_number}`) { metrics.pull += 1; return structuredClone(pull) }
       if (endpoint === `repos/${REPOSITORY}/issues/${TASK}`) {
         metrics.task += 1
         return { number: TASK, state: 'open', html_url: `https://github.com/${REPOSITORY}/issues/${TASK}`, repository_url: `https://api.github.com/repos/${REPOSITORY}`, user: taskUser }
@@ -3836,11 +3960,11 @@ const executeMinimalFinalGuardFixture = async ({
     graphql: async (query, variables) => {
       if (query.includes('statusCheckRollup')) {
         metrics.checks += 1
-        return { repository: { pullRequest: { headRefOid: OTHER_HEAD }, object: { oid: variables.head, statusCheckRollup: incompleteChecks ? null : { contexts: structuredClone(checks) } } } }
+        return { repository: { pullRequest: { headRefOid: plan.exact_head }, object: { oid: variables.head, statusCheckRollup: incompleteChecks ? null : { contexts: structuredClone(checks) } } } }
       }
       if (query.includes('reviewThreads')) {
         metrics.threads += 1
-        return { repository: { pullRequest: { number: PR, state: 'OPEN', isDraft: false, mergeable: 'MERGEABLE', mergeStateStatus: 'UNSTABLE', headRefOid: OTHER_HEAD, reviewThreads: structuredClone(threads) } } }
+        return { repository: { pullRequest: { number: plan.pr_number, state: 'OPEN', isDraft: false, mergeable: 'MERGEABLE', mergeStateStatus: 'UNSTABLE', headRefOid: plan.exact_head, reviewThreads: structuredClone(threads) } } }
       }
       throw new Error('unexpected_final_guard_graphql')
     },
@@ -3864,29 +3988,30 @@ check(
   'CERM-A2 final guard reacquires the exact current-execution manifest proof',
 )
 check(finalMalformedLegacyStateIgnored.result.state === 'MATCH' && finalMalformedLegacyStateIgnored.result.next_action === 'MERGE_PR', 'MGV-16 B final drift guard ignores malformed legacy PR-body state')
-const historicalFinalValid = await executeMinimalFinalGuardFixture({
+const historicalFinalFixture = (overrides = {}) => executeMinimalFinalGuardFixture({
   plan: historicalInitialValid.result,
+  pull: minimalPull({ number: HISTORICAL_RTO_PR_NUMBER, head: { sha: HISTORICAL_RTO_HEAD } }),
+  authority: frozenHistoricalAuthorityComment,
+  review: frozenHistoricalReviewComment,
+  comments: [frozenHistoricalReviewComment, frozenHistoricalAuthorityComment],
   checks: historicalCheckPage(),
   historicalRun: historicalRunRecord(),
   historicalJobs: historicalJobPage(),
   historicalLogBytes: historicalLog(),
+  ...overrides,
 })
+const historicalFinalValid = await historicalFinalFixture()
 check(
   historicalFinalValid.result.state === 'MATCH' && historicalFinalValid.result.next_action === 'MERGE_PR' &&
   Object.values(historicalFinalValid.historicalMetrics).every((count) => count === 1),
   'HRTN-02 unchanged historical evidence final guard returns MATCH and MERGE_PR',
 )
 check(historicalFinalValid.result.state === 'MATCH', 'CERM-J historical final guard MATCH remains unchanged')
-const historicalFinalLogDigestDrift = await executeMinimalFinalGuardFixture({
-  plan: historicalInitialValid.result,
-  checks: historicalCheckPage(),
-  historicalRun: historicalRunRecord(),
-  historicalJobs: historicalJobPage(),
+const historicalFinalLogDigestDrift = await historicalFinalFixture({
   historicalLogBytes: Buffer.concat([historicalLog(), Buffer.from('\nnon-terminal log drift', 'utf8')]),
 })
 check(historicalFinalLogDigestDrift.result.next_action === 'STOP', 'HRTN-12 admission log digest drift before merge stops')
-const historicalFinalDisappeared = await executeMinimalFinalGuardFixture({
-  plan: historicalInitialValid.result,
+const historicalFinalDisappeared = await historicalFinalFixture({
   checks: connectionPage([...historicalExternalSuccess]),
 })
 check(historicalFinalDisappeared.result.next_action === 'STOP', 'HRTN-17 historical classification disappearance before final guard stops')
@@ -3902,6 +4027,26 @@ const resealMinimalSnapshotPlan = (mutate) => {
     snapshot_sha256: createHash('sha256').update(bytes).digest('hex'),
   })
 }
+const resealHistoricalSnapshotPlan = (mutate) => {
+  const snapshot = JSON.parse(Buffer.from(historicalInitialValid.result.sealed_snapshot_b64, 'base64').toString('utf8'))
+  mutate(snapshot)
+  const bytes = Buffer.from(JSON.stringify(snapshot), 'utf8')
+  return Object.freeze({
+    ...historicalInitialValid.result,
+    sealed_snapshot_b64: bytes.toString('base64'),
+    snapshot_sha256: createHash('sha256').update(bytes).digest('hex'),
+  })
+}
+const sealedHistoricalTupleDrift = await executeMinimalFinalGuardFixture({
+  plan: resealHistoricalSnapshotPlan((snapshot) => {
+    snapshot.job_manifest.historical_rto_checks[0].run_attempt = 2
+  }),
+})
+check(sealedHistoricalTupleDrift.result.next_action === 'STOP', 'HRTN-FROZEN-08 sealed snapshot tuple drift stops before final acquisition')
+const finalAnalogousRun = await historicalFinalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({ runId: REVIEW_RUN_ID })),
+})
+check(finalAnalogousRun.result.next_action === 'STOP', 'HRTN-FROZEN-09 final guard rejects a new analogous run')
 const invalidSnapshotHistoricalBase = await executeMinimalFinalGuardFixture({ plan: resealMinimalSnapshotPlan((snapshot) => { snapshot.pull.base = 'not-a-full-head' }) })
 const missingSnapshotHistoricalBase = await executeMinimalFinalGuardFixture({ plan: resealMinimalSnapshotPlan((snapshot) => { delete snapshot.pull.base }) })
 check(invalidSnapshotHistoricalBase.result.state === 'STOP' && invalidSnapshotHistoricalBase.result.reason === 'minimal_governance_snapshot_binding_invalid', 'MGV-15 B invalid sealed historical PR base SHA stops')
@@ -4806,5 +4951,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 655) throw new Error(`expected exactly 655 assertions, observed ${assertions}`)
+if (assertions !== 665) throw new Error(`expected exactly 665 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

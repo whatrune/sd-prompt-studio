@@ -55,6 +55,21 @@ const CURRENT_EXECUTION_RTO_MANIFEST_RECORD_TYPE_V1 = 'current_execution_rto_job
 const HISTORICAL_LEGACY_RTO_RECORD_TYPE_V1 = 'historical_legacy_rto_terminal_neutral_v1'
 const HISTORICAL_LEGACY_RTO_WORKFLOW_PATH_V1 = '.github/workflows/protected-transition-admission-v1.yml'
 const HISTORICAL_LEGACY_RTO_MAX_LOG_BYTES_V1 = 262_144
+const HISTORICAL_LEGACY_RTO_SINGLETON_ALLOWLIST_V1 = Object.freeze([Object.freeze({
+  pr_number: 323,
+  head_sha: '39af964928dbe0ba2e689897d596904599f19730',
+  workflow_id: '327818524',
+  run_id: '32097609793',
+  run_attempt: 1,
+  check_suite_id: '87008787144',
+  job_ids: Object.freeze({
+    protected_transition_admission_v1: '95591890192',
+    protected_transition_role_dispatch_consumer_v1: '95591918148',
+    protected_transition_merge_operator_v1: '95591918161',
+    protected_transition_repair_executor_v1: '95591918182',
+    protected_transition_post_repair_review_v1: '95591918420',
+  }),
+})])
 const MINIMAL_GOVERNANCE_SCALAR_KEYS_V1 = Object.freeze([
   'record_type', 'authoring_role', 'authority_actor_login', 'authority_actor_id',
   'authority_actor_type',
@@ -2790,6 +2805,26 @@ const acquireCurrentExecutionRtoManifestV1 = async ({ request, executionIdentity
   return assertCurrentExecutionRtoManifestV1(manifest, request, executionIdentity)
 }
 
+const resolveHistoricalLegacyRtoAllowlistEntryV1 = (request) => {
+  if (HISTORICAL_LEGACY_RTO_SINGLETON_ALLOWLIST_V1.length !== 1) {
+    throw new Error('minimal_governance_historical_rto_allowlist_invalid')
+  }
+  const entry = HISTORICAL_LEGACY_RTO_SINGLETON_ALLOWLIST_V1[0]
+  if (
+    !exactObjectKeysV1(entry, [
+      'pr_number', 'head_sha', 'workflow_id', 'run_id', 'run_attempt', 'check_suite_id', 'job_ids',
+    ]) ||
+    entry.pr_number !== request.prNumber || entry.head_sha !== request.exactHead ||
+    !positiveInteger(entry.pr_number) || !FULL_HEAD.test(entry.head_sha) ||
+    !WORKFLOW_RUN_ID.test(entry.workflow_id) || !WORKFLOW_RUN_ID.test(entry.run_id) ||
+    !positiveInteger(entry.run_attempt) || !WORKFLOW_RUN_ID.test(entry.check_suite_id) ||
+    !exactObjectKeysV1(entry.job_ids, RTO_SELF_JOB_NAMES_V1) ||
+    Object.values(entry.job_ids).some((jobId) => !WORKFLOW_RUN_ID.test(jobId)) ||
+    new Set(Object.values(entry.job_ids)).size !== RTO_SELF_JOB_NAMES_V1.length
+  ) throw new Error('minimal_governance_historical_rto_allowlist_invalid')
+  return entry
+}
+
 const assertHistoricalLegacyRtoTerminalResultV1 = (value, request) => {
   if (
     !exactObjectKeysV1(value, [
@@ -2854,6 +2889,11 @@ const assertHistoricalLegacyRtoEvidenceV1 = (evidence, request) => {
     !Array.isArray(evidence.checks) || evidence.checks.length !== RTO_SELF_JOB_NAMES_V1.length ||
     !/^[0-9a-f]{64}$/.test(evidence.raw_log_sha256 ?? '')
   ) throw new Error('minimal_governance_historical_rto_evidence_invalid')
+  const allowlisted = resolveHistoricalLegacyRtoAllowlistEntryV1(request)
+  if (
+    evidence.run_id !== allowlisted.run_id || evidence.run_attempt !== allowlisted.run_attempt ||
+    evidence.workflow_id !== allowlisted.workflow_id || evidence.check_suite_id !== allowlisted.check_suite_id
+  ) throw new Error('minimal_governance_historical_rto_allowlist_mismatch')
   const names = new Set()
   const jobIds = new Set()
   const checkIds = new Set()
@@ -2866,6 +2906,7 @@ const assertHistoricalLegacyRtoEvidenceV1 = (evidence, request) => {
       typeof check.check_id !== 'string' || check.check_id.length === 0 ||
       !WORKFLOW_RUN_ID.test(check.check_database_id ?? '') || check.check_suite_id !== evidence.check_suite_id ||
       !WORKFLOW_RUN_ID.test(check.job_id ?? '') || !RTO_SELF_JOB_NAMES_V1.includes(check.name) ||
+      allowlisted.job_ids[check.name] !== check.job_id ||
       names.has(check.name) || jobIds.has(check.job_id) || checkIds.has(check.check_database_id) ||
       check.status !== 'COMPLETED' ||
       (check.name === 'protected_transition_admission_v1' ? check.conclusion !== 'FAILURE' : check.conclusion !== 'SKIPPED') ||
@@ -2910,6 +2951,8 @@ const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host }) =
     RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))
   ) throw new Error('minimal_governance_historical_rto_family_invalid')
   const runId = identities[0].runId
+  const allowlisted = resolveHistoricalLegacyRtoAllowlistEntryV1(request)
+  if (runId !== allowlisted.run_id) throw new Error('minimal_governance_historical_rto_allowlist_mismatch')
   const run = await api(host, `repos/${request.repository}/actions/runs/${runId}`)
   const expectedApiRunUrl = `https://api.github.com/repos/${request.repository}/actions/runs/${runId}`
   const expectedRunUrl = `https://github.com/${request.repository}/actions/runs/${runId}`
