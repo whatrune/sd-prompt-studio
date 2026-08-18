@@ -8,7 +8,6 @@
     {"path":"docs/team/14-review-execution-contract.md","blob_sha":"711a049731716fe7c82ca001ac7fc0e500f36671"},
     {"path":"scripts/fixtures/continuous-orchestration-v1.json","blob_sha":"afe2b2f58fbac61d7a4231c171cdc2e9aeeae0da"},
     {"path":"scripts/test-continuous-orchestration.mjs","blob_sha":"f7b2694b47041f872bf651b70673b4eb1e633304"},
-    {"path":"src/architecture-repair-loop/index.ts","blob_sha":"06ab8e78621604492d395c633d82ca6eb7a865a8"},
     {"path":"src/automatic-gate-progression/index.ts","blob_sha":"0c93f16fee741f4dd49457249c7c79147afcbc4d"},
     {"path":"src/continuous-orchestration/index.ts","blob_sha":"396ae3cce1f5bbb487d7154872f1b3883f391741"},
     {"path":"src/gate-status-publisher/index.ts","blob_sha":"7d9b8ac4febf2e38af2b1daf962dee4bf6939e40"}
@@ -403,8 +402,6 @@
   },
   "test_owner_map": [
     {"test_path":"scripts/fixtures/continuous-orchestration-v1.json","primary_owner_ids":["OWN-COV"],"coverage":"frozen COV1/PMCS corpus input","semantic_authority":false},
-    {"test_path":"scripts/test-architecture-repair-loop-operations.mjs","primary_owner_ids":["OWN-ARL"],"coverage":"operation isolation and failure seams","semantic_authority":false},
-    {"test_path":"scripts/test-architecture-repair-loop.mjs","primary_owner_ids":["OWN-ARL"],"coverage":"materialization and repair evidence","semantic_authority":false},
     {"test_path":"scripts/test-automatic-gate-progression-evaluator.mjs","primary_owner_ids":["OWN-AGP"],"coverage":"AGP branch/precedence and structural admission","semantic_authority":false},
     {"test_path":"scripts/test-continuous-orchestration-core-consolidation-m0.mjs","primary_owner_ids":[],"coverage":"cross-owner inventory completeness only; owns no product semantics","semantic_authority":false},
     {"test_path":"scripts/test-continuous-orchestration.mjs","primary_owner_ids":["OWN-COV"],"coverage":"COV rows, PMCS 14 rows, replay/CAS/no-mutation, final-regression and operational-validation paths","semantic_authority":false},
@@ -437,5 +434,5 @@
     "rollback_unit":["scripts/fixtures/continuous-orchestration-core-consolidation-m0-v1.json","scripts/test-continuous-orchestration-core-consolidation-m0.mjs"],
     "m1_gate":"PASS Independent Implementation Review + PASS executable validation + PASS Completion Preflight"
   },
-  "inventory_digest": "977d7e213221a4a79322b1d67d20699f4b18e9b5b1769882385af6ab2561c635"
+  "inventory_digest": "5e9165d7504a5f50d4f2675aa66262e141af4b21f1a4945206fa3c7623f033bc"
 }

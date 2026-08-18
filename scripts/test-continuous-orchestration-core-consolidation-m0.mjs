@@ -192,7 +192,6 @@ const EXPECTED_AUTHORITY_BINDINGS = {
   'docs/team/14-review-execution-contract.md': '711a049731716fe7c82ca001ac7fc0e500f36671',
   'scripts/fixtures/continuous-orchestration-v1.json': 'afe2b2f58fbac61d7a4231c171cdc2e9aeeae0da',
   'scripts/test-continuous-orchestration.mjs': 'f7b2694b47041f872bf651b70673b4eb1e633304',
-  'src/architecture-repair-loop/index.ts': '06ab8e78621604492d395c633d82ca6eb7a865a8',
   'src/automatic-gate-progression/index.ts': '0c93f16fee741f4dd49457249c7c79147afcbc4d',
   'src/continuous-orchestration/index.ts': '396ae3cce1f5bbb487d7154872f1b3883f391741',
   'src/gate-status-publisher/index.ts': '7d9b8ac4febf2e38af2b1daf962dee4bf6939e40',
@@ -272,12 +271,11 @@ assert.deepEqual(Object.fromEntries(artifact.branch_reason_stop_matrix.cov_conti
 
 const agpSource = readFileSync(join(repoRoot, 'src', 'automatic-gate-progression', 'index.ts'), 'utf8')
 const covSource = readFileSync(join(repoRoot, 'src', 'continuous-orchestration', 'index.ts'), 'utf8')
-const arlSource = readFileSync(join(repoRoot, 'src', 'architecture-repair-loop', 'index.ts'), 'utf8')
 const gspSource = readFileSync(join(repoRoot, 'src', 'gate-status-publisher', 'index.ts'), 'utf8')
 const sourceByFwr = new Map([
   ['FWR-01', agpSource], ['FWR-02', agpSource], ['FWR-03', covSource], ['FWR-04', covSource],
   ['FWR-05', covSource], ['FWR-06', covSource], ['FWR-07', covSource], ['FWR-08', covSource],
-  ['FWR-09', arlSource], ['FWR-10', `${gspSource}\n${covSource}`],
+  ['FWR-10', `${gspSource}\n${covSource}`],
 ])
 for (const row of artifact.field_writer_reader_map) {
   const source = sourceByFwr.get(row.map_id)

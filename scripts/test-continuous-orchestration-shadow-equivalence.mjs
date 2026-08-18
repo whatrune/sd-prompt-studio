@@ -378,7 +378,7 @@ supplementChecks['M2A-REG'].push(
   ()=>covExecution.result==='PASS'&&covExecution.rows===40&&covExecution.pre_merge_completion_simulation_rows===14,
   async()=>{const expected={'scripts/fixtures/continuous-orchestration-core-consolidation-m0-v1.json':'0bb2903dabec3416657361fccf3984b697ee73fe7bf8c3c46bd51725dc854983','scripts/test-continuous-orchestration-core-consolidation-m0.mjs':'f13fabceee6571b9915f7a323b5fa1ced950bef026a07c199e88f7046675044d','src/continuous-orchestration/shared-proof-interfaces-v1.ts':'6ee6de35b634edf0481b679e003f7cdc19572e3a29aee139bb36252944cdb094','scripts/fixtures/continuous-orchestration-shared-proof-interfaces-v1.json':'7d2a3d9b3f94a5ac4d9874fbc1faf9a9d04a1a7f7849d421384675e44a810039','scripts/test-continuous-orchestration-shared-proof-interfaces.mjs':'5810c429bdd9e40b975154c030f09c442dbc66a3e87e3cd808f507349a34b79c'};return (await Promise.all(Object.entries(expected).map(async([path,value])=>sha(await readFile(path))===value))).every(Boolean)},
   ()=>git('diff','--cached','--name-only')===''&&git('diff','--name-only')===''&&git('ls-files','--others','--exclude-standard').split(/\r?\n/).filter(Boolean).length===8,
-  async()=>{const sources=await Promise.all(['src/continuous-orchestration/index.ts','src/automatic-gate-progression/index.ts','src/gate-status-publisher/index.ts','src/architecture-repair-loop/index.ts'].map(path=>readFile(path,'utf8')));return sources.every(source=>!source.includes('shadow-equivalence-v1'))&&[...agpRuntimeCases.values()].every(item=>item.localResult.classification==='accepted_projection')},
+  async()=>{const sources=await Promise.all(['src/continuous-orchestration/index.ts','src/automatic-gate-progression/index.ts','src/gate-status-publisher/index.ts'].map(path=>readFile(path,'utf8')));return sources.every(source=>!source.includes('shadow-equivalence-v1'))&&[...agpRuntimeCases.values()].every(item=>item.localResult.classification==='accepted_projection')},
 )
 const supplementRows=[]
 const supplementGroups=[]
@@ -434,7 +434,7 @@ check(git('rev-parse','HEAD')===HEAD&&git('branch','--show-current')==='codex/is
 check(git('diff','--cached','--name-only')===''&&git('diff','--name-only')==='','staged0 tracked0')
 const untracked=git('ls-files','--others','--exclude-standard').split(/\r?\n/).filter(Boolean).map(path=>path.replaceAll('\\','/'))
 check(jcs(ordered(untracked))===jcs(ordered(allPaths)),'exact cumulative 8 untracked paths')
-const productionSources=await Promise.all(['src/continuous-orchestration/index.ts','src/automatic-gate-progression/index.ts','src/gate-status-publisher/index.ts','src/architecture-repair-loop/index.ts'].map(path=>readFile(path,'utf8')))
+const productionSources=await Promise.all(['src/continuous-orchestration/index.ts','src/automatic-gate-progression/index.ts','src/gate-status-publisher/index.ts'].map(path=>readFile(path,'utf8')))
 check(productionSources.every(source=>!source.includes('shadow-equivalence-v1')),'M2 not imported by production')
 
 await server.close()

@@ -235,7 +235,7 @@ groupChecks['M1-REG'].push(
   ()=>compatibility.verified_path_count===5,()=>sameSet(fixture.candidate_declared_paths,fixture.canonical_observation_paths),
   ()=>fixture.m0_historical_binding.paths.every(item=>contentHashes[item.path]===item.byte_sha256),
   ()=>noEcho({manifest,observation,compatibility}),
-  async()=>{const sources=await Promise.all(['src/continuous-orchestration/index.ts','src/automatic-gate-progression/index.ts','src/gate-status-publisher/index.ts','src/architecture-repair-loop/index.ts'].map(path=>readFile(path)));return sources.every(source=>!source.toString().includes('shared-proof-interfaces-v1'))},
+  async()=>{const sources=await Promise.all(['src/continuous-orchestration/index.ts','src/automatic-gate-progression/index.ts','src/gate-status-publisher/index.ts'].map(path=>readFile(path)));return sources.every(source=>!source.toString().includes('shared-proof-interfaces-v1'))},
 )
 function sameSet(a,b){return a.length===b.length&&a.every(item=>b.includes(item))}
 
