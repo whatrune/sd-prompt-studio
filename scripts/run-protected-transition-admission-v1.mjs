@@ -55,6 +55,11 @@ const CURRENT_EXECUTION_RTO_MANIFEST_RECORD_TYPE_V1 = 'current_execution_rto_job
 const HISTORICAL_LEGACY_RTO_RECORD_TYPE_V1 = 'historical_legacy_rto_terminal_neutral_v1'
 const HISTORICAL_LEGACY_RTO_WORKFLOW_PATH_V1 = '.github/workflows/protected-transition-admission-v1.yml'
 const HISTORICAL_LEGACY_RTO_MAX_LOG_BYTES_V1 = 262_144
+const EXPECTED_LEGACY_READY_FAIL_CLOSED_RECORD_TYPE_V1 = 'expected_legacy_ready_fail_closed_v1'
+const EXPECTED_LEGACY_READY_EVIDENCE_RECORD_TYPE_V1 = 'expected_legacy_ready_check_family_v1'
+const EXPECTED_LEGACY_READY_WORKFLOW_ID_V1 = '327818524'
+const EXPECTED_LEGACY_READY_MIGRATION_RUN_ID_CUTOFF_V1 = '32124504254'
+const EXPECTED_LEGACY_READY_MIGRATION_CREATED_AT_CUTOFF_V1 = '2026-08-18T09:59:58Z'
 const HISTORICAL_LEGACY_RTO_SINGLETON_ALLOWLIST_V1 = Object.freeze([Object.freeze({
   pr_number: 323,
   head_sha: '39af964928dbe0ba2e689897d596904599f19730',
@@ -1346,6 +1351,19 @@ const skippedAutomationResult = (request, reason) => Object.freeze({
   next_action: 'NONE',
 })
 
+const expectedLegacyReadyFailClosedResultV1 = (request) => Object.freeze({
+  record_type: EXPECTED_LEGACY_READY_FAIL_CLOSED_RECORD_TYPE_V1,
+  version: 1,
+  event: 'pull_request',
+  action: 'ready_for_review',
+  ...stoppedResult(request, 'INDETERMINATE', 'state_block_cardinality_invalid', 1, request.exactHead),
+  automation_status: 'BLOCKED',
+  admission_executed: false,
+  next_action: 'STOP',
+  mutation_count: 0,
+  protected_operation_count: 0,
+})
+
 const progressionBlockedResultV1 = (currentResult, reason) => Object.freeze({
   ...currentResult,
   allowed: false,
@@ -1985,6 +2003,9 @@ export const executeReadyForReviewProgressionV1 = async ({ event, host, runId })
       throw new Error('ready_event_invalid')
     }
 
+    if (occurrenceCount(pull.body, STATE_START) === 0 && occurrenceCount(pull.body, STATE_END) === 0) {
+      return evaluateProgressionControllerV1(expectedLegacyReadyFailClosedResultV1(request))
+    }
     const taskState = extractProtectedTransitionTaskStateV1(pull.body)
     request = Object.freeze({
       ...request,
@@ -2841,7 +2862,7 @@ const assertHistoricalLegacyRtoTerminalResultV1 = (value, request) => {
   return value
 }
 
-const extractHistoricalLegacyRtoTerminalResultV1 = (rawLog, request) => {
+const extractRtoTerminalResultCandidateV1 = (rawLog) => {
   const bytes = rawLog instanceof Uint8Array ? rawLog : null
   if (bytes === null || bytes.byteLength === 0 || bytes.byteLength > HISTORICAL_LEGACY_RTO_MAX_LOG_BYTES_V1) {
     throw new Error('minimal_governance_historical_rto_log_invalid')
@@ -2866,11 +2887,56 @@ const extractHistoricalLegacyRtoTerminalResultV1 = (rawLog, request) => {
     }
   }
   if (candidates.length !== 1) throw new Error('minimal_governance_historical_rto_terminal_cardinality_invalid')
-  const terminalResult = assertHistoricalLegacyRtoTerminalResultV1(candidates[0], request)
   return Object.freeze({
-    terminal_result: Object.freeze({ ...terminalResult, out_of_scope_paths: Object.freeze([]) }),
+    terminal_result: candidates[0],
     raw_log_sha256: createHash('sha256').update(bytes).digest('hex'),
   })
+}
+
+const extractHistoricalLegacyRtoTerminalResultV1 = (rawLog, request) => {
+  const extracted = extractRtoTerminalResultCandidateV1(rawLog)
+  const terminalResult = assertHistoricalLegacyRtoTerminalResultV1(extracted.terminal_result, request)
+  return Object.freeze({
+    terminal_result: Object.freeze({ ...terminalResult, out_of_scope_paths: Object.freeze([]) }),
+    raw_log_sha256: extracted.raw_log_sha256,
+  })
+}
+
+const assertExpectedLegacyReadyFailClosedTerminalResultV1 = (value, request) => {
+  if (
+    !exactObjectKeysV1(value, [
+      'record_type', 'version', 'event', 'action', 'transition', 'state', 'allowed', 'exit_code', 'reason',
+      'task_issue_number', 'pr_number', 'current_head', 'out_of_scope_paths', 'state_changed',
+      'automation_status', 'admission_executed', 'next_action', 'mutation_count', 'protected_operation_count',
+    ]) ||
+    value.record_type !== EXPECTED_LEGACY_READY_FAIL_CLOSED_RECORD_TYPE_V1 || value.version !== 1 ||
+    value.event !== 'pull_request' || value.action !== 'ready_for_review' ||
+    value.transition !== 'merge_decision_admission' || value.state !== 'INDETERMINATE' || value.allowed !== false ||
+    value.exit_code !== 1 || value.reason !== 'state_block_cardinality_invalid' || value.task_issue_number !== null ||
+    value.pr_number !== request.prNumber || value.current_head !== request.exactHead ||
+    !Array.isArray(value.out_of_scope_paths) || value.out_of_scope_paths.length !== 0 || value.state_changed !== false ||
+    value.automation_status !== 'BLOCKED' || value.admission_executed !== false || value.next_action !== 'STOP' ||
+    value.mutation_count !== 0 || value.protected_operation_count !== 0
+  ) throw new Error('minimal_governance_expected_legacy_ready_terminal_invalid')
+  return value
+}
+
+const assertExpectedLegacyReadyTerminalResultV1 = (value, request, run) => {
+  if (value?.record_type === EXPECTED_LEGACY_READY_FAIL_CLOSED_RECORD_TYPE_V1) {
+    return Object.freeze({
+      contract: EXPECTED_LEGACY_READY_FAIL_CLOSED_RECORD_TYPE_V1,
+      value: assertExpectedLegacyReadyFailClosedTerminalResultV1(value, request),
+    })
+  }
+  const legacy = assertHistoricalLegacyRtoTerminalResultV1(value, request)
+  if (
+    String(run?.workflow_id ?? '') !== EXPECTED_LEGACY_READY_WORKFLOW_ID_V1 || run?.run_attempt !== 1 ||
+    !WORKFLOW_RUN_ID.test(String(run?.id ?? '')) ||
+    BigInt(String(run.id)) > BigInt(EXPECTED_LEGACY_READY_MIGRATION_RUN_ID_CUTOFF_V1) ||
+    typeof run?.created_at !== 'string' || !STRICT_UTC.test(run.created_at) ||
+    run.created_at > EXPECTED_LEGACY_READY_MIGRATION_CREATED_AT_CUTOFF_V1
+  ) throw new Error('minimal_governance_expected_legacy_ready_migration_invalid')
+  return Object.freeze({ contract: 'legacy_state_block_cardinality_invalid_v1', value: legacy })
 }
 
 const assertHistoricalLegacyRtoEvidenceV1 = (evidence, request) => {
@@ -2938,7 +3004,76 @@ const assertHistoricalLegacyRtoEvidenceV1 = (evidence, request) => {
   return evidence
 }
 
-const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host }) => {
+const assertExpectedLegacyReadyEvidenceV1 = (evidence, request) => {
+  if (
+    !exactObjectKeysV1(evidence, [
+      'record_type', 'repository', 'run_id', 'run_attempt', 'workflow_id', 'workflow_path', 'check_suite_id',
+      'event', 'created_at', 'status', 'conclusion', 'head_sha', 'pr_number', 'base_ref', 'checks', 'admission_job',
+      'terminal_contract', 'terminal_result', 'raw_log_sha256',
+    ]) ||
+    evidence.record_type !== EXPECTED_LEGACY_READY_EVIDENCE_RECORD_TYPE_V1 || evidence.repository !== request.repository ||
+    !WORKFLOW_RUN_ID.test(evidence.run_id ?? '') || !positiveInteger(evidence.run_attempt) ||
+    evidence.workflow_id !== EXPECTED_LEGACY_READY_WORKFLOW_ID_V1 ||
+    evidence.workflow_path !== HISTORICAL_LEGACY_RTO_WORKFLOW_PATH_V1 ||
+    !WORKFLOW_RUN_ID.test(evidence.check_suite_id ?? '') || evidence.event !== 'pull_request' ||
+    typeof evidence.created_at !== 'string' || !STRICT_UTC.test(evidence.created_at) ||
+    evidence.status !== 'COMPLETED' || evidence.conclusion !== 'FAILURE' || evidence.head_sha !== request.exactHead ||
+    evidence.pr_number !== request.prNumber || evidence.base_ref !== 'main' ||
+    !Array.isArray(evidence.checks) || evidence.checks.length !== RTO_SELF_JOB_NAMES_V1.length ||
+    !/^[0-9a-f]{64}$/.test(evidence.raw_log_sha256 ?? '')
+  ) throw new Error('minimal_governance_expected_legacy_ready_evidence_invalid')
+  const terminal = assertExpectedLegacyReadyTerminalResultV1(evidence.terminal_result, request, {
+    id: evidence.run_id,
+    run_attempt: evidence.run_attempt,
+    workflow_id: Number(evidence.workflow_id),
+    created_at: evidence.created_at,
+  })
+  if (terminal.contract !== evidence.terminal_contract) {
+    throw new Error('minimal_governance_expected_legacy_ready_evidence_invalid')
+  }
+  const names = new Set()
+  const jobIds = new Set()
+  const checkIds = new Set()
+  for (const check of evidence.checks) {
+    if (
+      !exactObjectKeysV1(check, [
+        'check_id', 'check_database_id', 'check_suite_id', 'job_id', 'name', 'status', 'conclusion',
+        'details_url', 'app_id', 'app_database_id',
+      ]) ||
+      typeof check.check_id !== 'string' || check.check_id.length === 0 ||
+      !WORKFLOW_RUN_ID.test(check.check_database_id ?? '') || check.check_suite_id !== evidence.check_suite_id ||
+      !WORKFLOW_RUN_ID.test(check.job_id ?? '') || !RTO_SELF_JOB_NAMES_V1.includes(check.name) ||
+      names.has(check.name) || jobIds.has(check.job_id) || checkIds.has(check.check_database_id) ||
+      check.status !== 'COMPLETED' ||
+      (check.name === 'protected_transition_admission_v1' ? check.conclusion !== 'FAILURE' : check.conclusion !== 'SKIPPED') ||
+      check.details_url !== `https://github.com/${request.repository}/actions/runs/${evidence.run_id}/job/${check.job_id}` ||
+      typeof check.app_id !== 'string' || check.app_id.length === 0 ||
+      check.app_database_id !== TRUSTED_GITHUB_ACTIONS_APP_DATABASE_ID_V1
+    ) throw new Error('minimal_governance_expected_legacy_ready_evidence_invalid')
+    names.add(check.name)
+    jobIds.add(check.job_id)
+    checkIds.add(check.check_database_id)
+  }
+  if (RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))) {
+    throw new Error('minimal_governance_expected_legacy_ready_evidence_invalid')
+  }
+  const admission = evidence.admission_job
+  if (
+    !exactObjectKeysV1(admission, [
+      'job_id', 'check_database_id', 'run_id', 'run_attempt', 'name', 'status', 'conclusion', 'head_sha',
+      'html_url', 'check_run_url',
+    ]) ||
+    !WORKFLOW_RUN_ID.test(admission?.job_id ?? '') || !WORKFLOW_RUN_ID.test(admission?.check_database_id ?? '') ||
+    admission.run_id !== evidence.run_id || admission.run_attempt !== evidence.run_attempt ||
+    admission.name !== 'protected_transition_admission_v1' || admission.status !== 'COMPLETED' ||
+    admission.conclusion !== 'FAILURE' || admission.head_sha !== request.exactHead ||
+    admission.html_url !== `https://github.com/${request.repository}/actions/runs/${evidence.run_id}/job/${admission.job_id}` ||
+    admission.check_run_url !== `https://api.github.com/repos/${request.repository}/check-runs/${admission.check_database_id}`
+  ) throw new Error('minimal_governance_expected_legacy_ready_evidence_invalid')
+  return evidence
+}
+
+const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host, expectedLegacyReady = false }) => {
   if (checks.length !== RTO_SELF_JOB_NAMES_V1.length) throw new Error('minimal_governance_historical_rto_family_invalid')
   const identities = checks.map((check) => parseRepositoryActionsJobIdentityV1(request, check))
   if (identities.some((identity) => identity === null)) throw new Error('minimal_governance_historical_rto_family_invalid')
@@ -2951,8 +3086,8 @@ const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host }) =
     RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))
   ) throw new Error('minimal_governance_historical_rto_family_invalid')
   const runId = identities[0].runId
-  const allowlisted = resolveHistoricalLegacyRtoAllowlistEntryV1(request)
-  if (runId !== allowlisted.run_id) throw new Error('minimal_governance_historical_rto_allowlist_mismatch')
+  const allowlisted = expectedLegacyReady ? null : resolveHistoricalLegacyRtoAllowlistEntryV1(request)
+  if (allowlisted !== null && runId !== allowlisted.run_id) throw new Error('minimal_governance_historical_rto_allowlist_mismatch')
   const run = await api(host, `repos/${request.repository}/actions/runs/${runId}`)
   const expectedApiRunUrl = `https://api.github.com/repos/${request.repository}/actions/runs/${runId}`
   const expectedRunUrl = `https://github.com/${request.repository}/actions/runs/${runId}`
@@ -2964,7 +3099,9 @@ const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host }) =
     run?.url !== expectedApiRunUrl || run?.html_url !== expectedRunUrl ||
     run?.jobs_url !== `${expectedApiRunUrl}/jobs` || !Array.isArray(run?.pull_requests) || run.pull_requests.length !== 1 ||
     run.pull_requests[0]?.number !== request.prNumber || run.pull_requests[0]?.head?.sha !== request.exactHead ||
-    run.pull_requests[0]?.base?.ref !== 'main' || String(run.check_suite_id) !== [...checkSuiteIds][0]
+    run.pull_requests[0]?.base?.ref !== 'main' || String(run.check_suite_id) !== [...checkSuiteIds][0] ||
+    (expectedLegacyReady && (String(run.workflow_id) !== EXPECTED_LEGACY_READY_WORKFLOW_ID_V1 ||
+      typeof run.created_at !== 'string' || !STRICT_UTC.test(run.created_at)))
   ) throw new Error('minimal_governance_historical_rto_run_invalid')
 
   const page = await api(host, `repos/${request.repository}/actions/runs/${runId}/jobs?per_page=100`)
@@ -2995,10 +3132,18 @@ const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host }) =
     throw new Error('minimal_governance_historical_rto_jobs_invalid')
   }
   const admissionJob = jobsByName.get('protected_transition_admission_v1')
-  const log = extractHistoricalLegacyRtoTerminalResultV1(
-    await apiBytes(host, `repos/${request.repository}/actions/jobs/${admissionJob.id}/logs`),
-    request,
-  )
+  const rawLog = await apiBytes(host, `repos/${request.repository}/actions/jobs/${admissionJob.id}/logs`)
+  const log = expectedLegacyReady
+    ? (() => {
+        const extracted = extractRtoTerminalResultCandidateV1(rawLog)
+        const terminal = assertExpectedLegacyReadyTerminalResultV1(extracted.terminal_result, request, run)
+        return Object.freeze({
+          terminal_contract: terminal.contract,
+          terminal_result: Object.freeze({ ...terminal.value, out_of_scope_paths: Object.freeze([]) }),
+          raw_log_sha256: extracted.raw_log_sha256,
+        })
+      })()
+    : extractHistoricalLegacyRtoTerminalResultV1(rawLog, request)
   const checkEvidence = Object.freeze([...checks]
     .sort((left, right) => left.name.localeCompare(right.name))
     .map((check) => {
@@ -3017,7 +3162,7 @@ const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host }) =
       })
     }))
   const evidence = Object.freeze({
-    record_type: HISTORICAL_LEGACY_RTO_RECORD_TYPE_V1,
+    record_type: expectedLegacyReady ? EXPECTED_LEGACY_READY_EVIDENCE_RECORD_TYPE_V1 : HISTORICAL_LEGACY_RTO_RECORD_TYPE_V1,
     repository: request.repository,
     run_id: runId,
     run_attempt: run.run_attempt,
@@ -3025,6 +3170,7 @@ const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host }) =
     workflow_path: run.path,
     check_suite_id: String(run.check_suite_id),
     event: 'pull_request',
+    ...(expectedLegacyReady ? { created_at: run.created_at } : {}),
     status: 'COMPLETED',
     conclusion: 'FAILURE',
     head_sha: request.exactHead,
@@ -3043,10 +3189,13 @@ const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host }) =
       html_url: admissionJob.html_url,
       check_run_url: admissionJob.check_run_url,
     }),
+    ...(expectedLegacyReady ? { terminal_contract: log.terminal_contract } : {}),
     terminal_result: log.terminal_result,
     raw_log_sha256: log.raw_log_sha256,
   })
-  return assertHistoricalLegacyRtoEvidenceV1(evidence, request)
+  return expectedLegacyReady
+    ? assertExpectedLegacyReadyEvidenceV1(evidence, request)
+    : assertHistoricalLegacyRtoEvidenceV1(evidence, request)
 }
 
 const classifyMinimalGovernanceChecksV1 = async ({ request, checks, executionIdentity, host }) => {
@@ -3103,13 +3252,32 @@ const classifyMinimalGovernanceChecksV1 = async ({ request, checks, executionIde
       ) throw new Error('minimal_governance_same_run_check_identity_invalid')
     }
   }
-  const historicalRtoChecks = historical.length === 0
-    ? Object.freeze([])
-    : Object.freeze([await acquireHistoricalLegacyRtoEvidenceV1({ request, checks: historical, host })])
+  let historicalRtoChecks = Object.freeze([])
+  let expectedLegacyReadyChecks = Object.freeze([])
+  if (historical.length !== 0) {
+    if (HISTORICAL_LEGACY_RTO_SINGLETON_ALLOWLIST_V1.length !== 1) {
+      throw new Error('minimal_governance_historical_rto_allowlist_invalid')
+    }
+    const singleton = HISTORICAL_LEGACY_RTO_SINGLETON_ALLOWLIST_V1[0]
+    const identities = historical.map((check) => parseRepositoryActionsJobIdentityV1(request, check))
+    const referencesSingletonRun = identities.some((identity) => identity?.runId === singleton.run_id)
+    const isSingleton = request.prNumber === singleton.pr_number && request.exactHead === singleton.head_sha &&
+      identities.every((identity) => identity?.runId === singleton.run_id)
+    if (isSingleton) {
+      historicalRtoChecks = Object.freeze([await acquireHistoricalLegacyRtoEvidenceV1({ request, checks: historical, host })])
+    } else if (referencesSingletonRun) {
+      throw new Error('minimal_governance_historical_rto_allowlist_mismatch')
+    } else {
+      expectedLegacyReadyChecks = Object.freeze([await acquireHistoricalLegacyRtoEvidenceV1({
+        request, checks: historical, host, expectedLegacyReady: true,
+      })])
+    }
+  }
   return Object.freeze({
     external_checks: Object.freeze(external.map(projectMinimalGovernanceExternalCheckV1)),
     current_execution_rto_manifest: currentExecutionRtoManifest,
     historical_rto_checks: historicalRtoChecks,
+    expected_legacy_ready_checks: expectedLegacyReadyChecks,
   })
 }
 
@@ -3319,6 +3487,7 @@ export const executeMinimalGovernanceV1 = async ({ event, host, runId, runAttemp
         ...executionIdentity,
         current_execution_rto_manifest: classifiedChecks.current_execution_rto_manifest,
         historical_rto_checks: classifiedChecks.historical_rto_checks,
+        expected_legacy_ready_checks: classifiedChecks.expected_legacy_ready_checks,
       }),
       comment_history_fingerprint_sha256: history.raw_fingerprint_sha256,
       active_thread_count: 0,
@@ -3423,7 +3592,7 @@ const parseMinimalGovernanceMergePlanV1 = (plan) => {
     !Array.isArray(snapshot.external_checks) || snapshot.external_checks.length === 0 ||
     !exactObjectKeysV1(snapshot.job_manifest, [
       'repository', 'run_id', 'run_attempt', 'host_sha', 'job_name',
-      'current_execution_rto_manifest', 'historical_rto_checks',
+      'current_execution_rto_manifest', 'historical_rto_checks', 'expected_legacy_ready_checks',
     ]) ||
     snapshot.job_manifest.repository !== plan.repository || snapshot.job_manifest.host_sha !== plan.expected_base ||
     !WORKFLOW_RUN_ID.test(snapshot.job_manifest.run_id ?? '') || !positiveInteger(snapshot.job_manifest.run_attempt) ||
@@ -3437,6 +3606,12 @@ const parseMinimalGovernanceMergePlanV1 = (plan) => {
       assertHistoricalLegacyRtoEvidenceV1(snapshot.job_manifest.historical_rto_checks[0], {
         repository: plan.repository, prNumber: plan.pr_number, exactHead: plan.exact_head,
       }) !== snapshot.job_manifest.historical_rto_checks[0]) ||
+    !Array.isArray(snapshot.job_manifest.expected_legacy_ready_checks) || snapshot.job_manifest.expected_legacy_ready_checks.length > 1 ||
+    (snapshot.job_manifest.expected_legacy_ready_checks.length === 1 &&
+      assertExpectedLegacyReadyEvidenceV1(snapshot.job_manifest.expected_legacy_ready_checks[0], {
+        repository: plan.repository, prNumber: plan.pr_number, exactHead: plan.exact_head,
+      }) !== snapshot.job_manifest.expected_legacy_ready_checks[0]) ||
+    snapshot.job_manifest.historical_rto_checks.length + snapshot.job_manifest.expected_legacy_ready_checks.length > 1 ||
     !exactObjectKeysV1(snapshot.task_state, ['task_issue_number', 'pr_number', 'observed_head', 'authorized_paths', 'review_status', 'reviewed_head', 'review_blocker_count']) ||
     snapshot.task_state?.task_issue_number !== plan.task_issue_number || snapshot.task_state?.pr_number !== plan.pr_number ||
     snapshot.task_state?.observed_head !== plan.exact_head || snapshot.task_state?.reviewed_head !== plan.exact_head ||
@@ -3513,7 +3688,8 @@ export const executeMinimalGovernanceFinalDriftGuardV1 = async ({ plan: planInpu
       JSON.stringify(classifiedChecks.external_checks) !== JSON.stringify(snapshot.external_checks) ||
       JSON.stringify(classifiedChecks.current_execution_rto_manifest) !==
         JSON.stringify(snapshot.job_manifest.current_execution_rto_manifest) ||
-      JSON.stringify(classifiedChecks.historical_rto_checks) !== JSON.stringify(snapshot.job_manifest.historical_rto_checks)
+      JSON.stringify(classifiedChecks.historical_rto_checks) !== JSON.stringify(snapshot.job_manifest.historical_rto_checks) ||
+      JSON.stringify(classifiedChecks.expected_legacy_ready_checks) !== JSON.stringify(snapshot.job_manifest.expected_legacy_ready_checks)
     ) {
       throw new Error('minimal_governance_final_checks_drift')
     }
