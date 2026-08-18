@@ -1008,9 +1008,11 @@ check(validReadyAutomation.metrics.patchCalls === 0 && validReadyAutomation.metr
 const wrongReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ action: 'opened' }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
 const missingReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ repository: null }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
 const malformedReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ pull: { body: 'no state' } }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
+const duplicateStateReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ pull: { body: `${stateBlock()}\n${stateBlock()}` } }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
 check(wrongReadyResult.state === 'INDETERMINATE' && wrongReadyResult.reason === 'ready_event_invalid', 'RFR-03 wrong Ready action fails closed')
 check(missingReadyResult.state === 'INDETERMINATE' && missingReadyResult.reason === 'ready_event_invalid', 'RFR-03 missing repository identity fails closed')
 check(malformedReadyResult.state === 'INDETERMINATE' && malformedReadyResult.reason === 'state_block_cardinality_invalid', 'RFR-03 malformed state fails closed before acquisition')
+check(duplicateStateReadyResult.state === 'INDETERMINATE' && duplicateStateReadyResult.reason === 'state_block_cardinality_invalid', 'RFR-03 legacy Ready transition rejects multiple state blocks')
 
 const readyPrMismatch = automationHost({ initialState: approvedState() })
 const readyPrMismatchResult = await executeReadyForReviewProgressionV1({
@@ -3208,13 +3210,6 @@ const minimalEvent = (body = minimalAuthorityBody(), overrides = {}) => ({
   issue: { number: TASK, state: 'open', html_url: `https://github.com/${REPOSITORY}/issues/${TASK}` },
   comment: { ...minimalAuthorityComment(body), ...overrides },
 })
-const minimalApprovedState = () => state({
-  observed_head: OTHER_HEAD,
-  authorized_paths: [...minimalPaths],
-  review_status: 'APPROVE',
-  reviewed_head: OTHER_HEAD,
-  review_blocker_count: 0,
-})
 const minimalPull = (overrides = {}) => ({
   number: PR,
   state: 'open',
@@ -3224,7 +3219,7 @@ const minimalPull = (overrides = {}) => ({
   mergeable_state: 'unstable',
   base: { ref: 'main', sha: HISTORICAL_PR_BASE_SHA, repo: { full_name: REPOSITORY } },
   head: { sha: OTHER_HEAD },
-  body: stateBlock(minimalApprovedState()),
+  body: 'Minimal governance PR body without legacy transition state.',
   changed_files: minimalPaths.length,
   ...overrides,
 })
@@ -3327,6 +3322,18 @@ check(minimalValid.result.merge_method === 'merge' && minimalValid.result.operat
 check(createHash('sha256').update(minimalSnapshotBytes).digest('hex') === minimalValid.result.snapshot_sha256 && minimalSnapshot.review_body_sha256 === minimalReviewBodySha256, 'MGV-02 sealed snapshot digest and reused Review body digest are exact')
 check(Object.values(minimalValid.metrics).every((count) => count === 1) && Object.values(minimalSnapshot.source_counts).every((count) => count === 1), 'MGV-03 every pre-operation snapshot source is acquired exactly once')
 check(minimalSnapshot.authority_actor.login === 'whatrune' && minimalSnapshot.authority_actor.id === 47842632 && minimalSnapshot.task.creator.login === 'whatrune' && minimalSnapshot.job_manifest.host_sha === CURRENT_MAIN_SHA, 'MGV-03 sealed snapshot binds Product Owner and detached same-run manifest')
+check(minimalValid.result.automation_status === 'OPERATION_READY' && !minimalPull().body.includes('protected-transition-task-state-v1') && minimalSnapshot.task_state.observed_head === OTHER_HEAD && minimalSnapshot.task_state.reviewed_head === OTHER_HEAD, 'MGV-16 A minimal governance proceeds without a legacy PR-body state block')
+const malformedLegacyStateBody = 'before\n<!-- protected-transition-task-state-v1:start -->\nmalformed legacy state\n<!-- protected-transition-task-state-v1:end -->\nafter'
+const malformedLegacyStateIgnored = await executeMinimalFixture({ pull: minimalPull({ body: malformedLegacyStateBody }) })
+check(malformedLegacyStateIgnored.result.automation_status === 'OPERATION_READY' && malformedLegacyStateIgnored.result.next_action === 'MERGE_OPERATOR', 'MGV-16 B malformed legacy PR-body state does not affect minimal governance')
+const missingLegacyStateError = await errorOf(() => extractProtectedTransitionTaskStateV1('no legacy state'))
+const duplicateLegacyStateError = await errorOf(() => extractProtectedTransitionTaskStateV1(`${stateBlock()}\n${stateBlock()}`))
+check(missingLegacyStateError?.message === 'state_block_cardinality_invalid' && duplicateLegacyStateError?.message === 'state_block_cardinality_invalid', 'MGV-16 C legacy state extraction still rejects zero or multiple blocks')
+const minimalExecutionSource = runnerSource.slice(
+  runnerSource.indexOf('export const executeMinimalGovernanceV1'),
+  runnerSource.indexOf('\nconst MINIMAL_GOVERNANCE_PLAN_KEYS_V1'),
+)
+check(!minimalExecutionSource.includes('extractProtectedTransitionTaskStateV1'), 'MGV-16 minimal governance execution has no legacy PR-body state extractor dependency')
 
 const malformedMinimalBodies = [
   minimalAuthorityBody({}, ['unexpected_field: true']),
@@ -3359,6 +3366,8 @@ check(duplicateMinimal.result.reason === 'minimal_governance_authority_cardinali
 const authorityRefetchDrift = await executeMinimalFixture({ authorityRefetchBody: `${minimalAuthorityBody()}\n` })
 const reviewRefetchDrift = await executeMinimalFixture({ reviewRefetchBody: `${minimalReviewBody}\n` })
 check(authorityRefetchDrift.result.reason === 'minimal_governance_authority_body_changed' && reviewRefetchDrift.result.next_action === 'STOP', 'MGV-05 authority byte drift and Review body/hash drift fail closed')
+const minimalInitialHeadDrift = await executeMinimalFixture({ pull: minimalPull({ head: { sha: HEAD } }) })
+check(authorityRefetchDrift.result.next_action === 'STOP' && reviewRefetchDrift.result.next_action === 'STOP' && minimalInitialHeadDrift.result.reason === 'head_binding_stale', 'MGV-16 D authority, Review, or exact-HEAD drift stops minimal governance')
 const laterMalformedReview = minimalReviewComment({ id: MINIMAL_REVIEW_COMMENT_ID + 5, created_at: '2026-08-18T00:00:04Z', body: reviewDecisionBody({ reviewed_head: OTHER_HEAD }, ['decision: APPROVE']) })
 const conflictingReview = await executeMinimalFixture({ comments: [minimalReviewComment(), minimalAuthorityComment(), laterMalformedReview] })
 check(conflictingReview.result.next_action === 'STOP', 'MGV-05 later malformed current-leaf Review state fails closed')
@@ -3453,7 +3462,9 @@ const executeMinimalFinalGuardFixture = async ({
 }
 
 const minimalFinalGuardValid = await executeMinimalFinalGuardFixture()
+const finalMalformedLegacyStateIgnored = await executeMinimalFinalGuardFixture({ pull: minimalPull({ body: malformedLegacyStateBody }) })
 check(minimalFinalGuardValid.result.state === 'MATCH' && minimalFinalGuardValid.result.next_action === 'MERGE_PR' && minimalFinalGuardValid.result.exact_head === OTHER_HEAD, 'MGV-11 no-drift final guard returns only exact-head MATCH')
+check(finalMalformedLegacyStateIgnored.result.state === 'MATCH' && finalMalformedLegacyStateIgnored.result.next_action === 'MERGE_PR', 'MGV-16 B final drift guard ignores malformed legacy PR-body state')
 check(Object.entries(minimalFinalGuardValid.metrics).filter(([name]) => !['scope', 'jobs'].includes(name)).every(([, count]) => count === 1) && minimalFinalGuardValid.metrics.scope === 0 && minimalFinalGuardValid.metrics.jobs === 0, 'MGV-11 final guard acquires exactly eight mutable sources once and regenerates neither scope nor job manifest')
 check(minimalValid.result.automation_status === 'OPERATION_READY' && minimalSnapshot.expected_base === CURRENT_MAIN_SHA && minimalSnapshot.pull.base === HISTORICAL_PR_BASE_SHA && minimalSnapshot.pull.base !== minimalSnapshot.expected_base && minimalFinalGuardValid.result.state === 'MATCH', 'MGV-14 A historical PR base differs from current-main authority while snapshot and final guard pass')
 const resealMinimalSnapshotPlan = (mutate) => {
@@ -3483,7 +3494,6 @@ const finalGuardDrifts = await Promise.all([
   minimalFinalHeadDrift,
   finalMergeabilityDrift,
   executeMinimalFinalGuardFixture({ pull: minimalPull({ draft: true }) }),
-  executeMinimalFinalGuardFixture({ pull: minimalPull({ body: stateBlock({ ...minimalApprovedState(), reviewed_head: HEAD }) }) }),
   executeMinimalFinalGuardFixture({ checks: connectionPage([{ ...successfulCheck('minimal-external-1'), conclusion: 'FAILURE' }, successfulCheck('minimal-external-2')]) }),
   executeMinimalFinalGuardFixture({ threads: connectionPage([{ id: 'minimal-final-active-thread', isResolved: false, isOutdated: false }]) }),
   executeMinimalFinalGuardFixture({ taskUser: { login: 'collaborator', id: 97003, type: 'User' } }),
@@ -3493,7 +3503,7 @@ const finalGuardDrifts = await Promise.all([
   executeMinimalFinalGuardFixture({ comments: [minimalReviewComment(), minimalAuthorityComment(), { id: 9703, created_at: '2026-08-18T00:00:03Z', author_association: 'MEMBER', user: { login: 'observer', id: 97003, type: 'User' }, body: 'non-authoritative history drift' }] }),
   executeMinimalFinalGuardFixture({ incompleteChecks: true }),
 ])
-check(finalGuardDrifts.every(({ result }) => result.state === 'STOP' && result.next_action === 'STOP' && result.protected_operation_count === 0), 'MGV-12 main, PR, task-state, checks, threads, Task, authority, Review, history, or incomplete-source drift stops')
+check(finalGuardDrifts.every(({ result }) => result.state === 'STOP' && result.next_action === 'STOP' && result.protected_operation_count === 0), 'MGV-12 main, PR, checks, threads, Task, authority, Review, history, or incomplete-source drift stops')
 check(finalMainDrift.result.reason === 'minimal_governance_final_main_drift', 'MGV-14 D final current-main drift fails before pull rebind')
 check(finalBaseRefDrift.result.reason === 'minimal_governance_final_pull_drift' && finalInvalidHistoricalBase.result.reason === 'minimal_governance_final_pull_drift', 'MGV-14 E final non-main base ref or invalid historical base SHA fails pull rebind')
 check(minimalFinalHeadDrift.result.state === 'STOP' && minimalFinalHeadDrift.result.protected_operation_count === 0, 'MGV-14 F final exact PR HEAD drift stops')
@@ -3503,7 +3513,7 @@ check(minimalGuardPutCount(minimalFinalGuardValid.result) === 1 && finalGuardDri
 const finalGuardSourceStart = runnerSource.indexOf('export const executeMinimalGovernanceFinalDriftGuardV1')
 const finalGuardSourceEnd = runnerSource.indexOf('\nconst ROLE_TERMINAL_RESULTS_V1', finalGuardSourceStart)
 const finalGuardSource = runnerSource.slice(finalGuardSourceStart, finalGuardSourceEnd)
-check(finalGuardSourceStart >= 0 && !finalGuardSource.includes('reduceCurrentLeafIndependentReviewDecisionV1') && !finalGuardSource.includes('confirmCurrentLeafIndependentReviewDecisionV1') && !finalGuardSource.includes('parseIndependentReviewDecisionProjectionV1') && !finalGuardSource.includes('acquireChangedPathScopeV1') && !finalGuardSource.includes('acquireMinimalGovernanceJobManifestV1') && !finalGuardSource.includes('minimal_governance_pre_operation_snapshot_v1'), 'MGV-13 final guard regenerates no semantic Review, validation, scope, manifest, or sealed snapshot')
+check(finalGuardSourceStart >= 0 && !finalGuardSource.includes('extractProtectedTransitionTaskStateV1') && !finalGuardSource.includes('reduceCurrentLeafIndependentReviewDecisionV1') && !finalGuardSource.includes('confirmCurrentLeafIndependentReviewDecisionV1') && !finalGuardSource.includes('parseIndependentReviewDecisionProjectionV1') && !finalGuardSource.includes('acquireChangedPathScopeV1') && !finalGuardSource.includes('acquireMinimalGovernanceJobManifestV1') && !finalGuardSource.includes('minimal_governance_pre_operation_snapshot_v1'), 'MGV-13 final guard regenerates no legacy task state, semantic Review, validation, scope, manifest, or sealed snapshot')
 
 const roleMergeDecisionRebindHost = ({ dispatch, admissionRun, jobs = roleAdmissionJobs(), checkPage, changedJobPage = null, sourceRecords = roleSourceRecords, defaultBranch = 'main' } = {}) => {
   const headAtPullRead = Object.fromEntries(Array.from({ length: 12 }, (_, index) => [index + 1, dispatch.exact_head]))
@@ -4371,5 +4381,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 615) throw new Error(`expected exactly 615 assertions, observed ${assertions}`)
+if (assertions !== 622) throw new Error(`expected exactly 622 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

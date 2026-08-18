@@ -2751,6 +2751,16 @@ const minimalGovernanceStoppedV1 = (request, reason, currentHead = request?.exac
   protected_operation_count: 0,
 })
 
+const projectMinimalGovernanceTaskBindingV1 = ({ request, authority, review }) => Object.freeze({
+  task_issue_number: request.taskIssueNumber,
+  pr_number: request.prNumber,
+  observed_head: request.exactHead,
+  authorized_paths: authority.authorizedPaths,
+  review_status: review.review.decision,
+  reviewed_head: review.review.reviewed_head,
+  review_blocker_count: review.review.blocking_finding_count,
+})
+
 export const executeMinimalGovernanceV1 = async ({ event, host, runId, runAttempt, hostSha, jobName }) => {
   let request = null
   try {
@@ -2882,14 +2892,7 @@ export const executeMinimalGovernanceV1 = async ({ event, host, runId, runAttemp
       createHash('sha256').update(Buffer.from(confirmedReview.body, 'utf8')).digest('hex') !== authority.reviewBodySha256
     ) throw new Error('minimal_governance_review_binding_invalid')
 
-    const taskState = extractProtectedTransitionTaskStateV1(pull.body)
-    if (
-      taskState.task_issue_number !== request.taskIssueNumber || taskState.pr_number !== request.prNumber ||
-      taskState.observed_head !== request.exactHead || taskState.reviewed_head !== request.exactHead ||
-      taskState.review_status !== 'APPROVE' || taskState.review_blocker_count !== 0 ||
-      taskState.architecture_status !== 'APPROVED' || taskState.implementation_authorized !== true ||
-      [...taskState.authorized_paths].sort().join('\n') !== authority.authorizedPaths.join('\n')
-    ) throw new Error('minimal_governance_task_state_binding_invalid')
+    const minimalBinding = projectMinimalGovernanceTaskBindingV1({ request, authority, review: confirmedReview })
 
     const scope = await acquireChangedPathScopeV1(request, pull, host)
     if (!scope.complete || scope.actual_paths.join('\n') !== authority.authorizedPaths.join('\n')) {
@@ -2928,7 +2931,7 @@ export const executeMinimalGovernanceV1 = async ({ event, host, runId, runAttemp
       review_comment_id: confirmedReview.commentId,
       review_body_sha256: authority.reviewBodySha256,
       authorized_paths: authority.authorizedPaths,
-      task_state: taskState,
+      task_state: minimalBinding,
       pull: Object.freeze({ state: pull.state, draft: pull.draft, merged: pull.merged, head: pull.head.sha, base: pull.base.sha, mergeable: pull.mergeable, mergeable_state: pull.mergeable_state }),
       task,
       external_checks: externalChecks,
@@ -3037,9 +3040,11 @@ const parseMinimalGovernanceMergePlanV1 = (plan) => {
     !exactObjectKeysV1(snapshot.job_manifest, ['repository', 'run_id', 'run_attempt', 'host_sha', 'jobs']) ||
     snapshot.job_manifest.repository !== plan.repository || snapshot.job_manifest.host_sha !== plan.expected_base ||
     !WORKFLOW_RUN_ID.test(snapshot.job_manifest.run_id ?? '') || !positiveInteger(snapshot.job_manifest.run_attempt) ||
+    !exactObjectKeysV1(snapshot.task_state, ['task_issue_number', 'pr_number', 'observed_head', 'authorized_paths', 'review_status', 'reviewed_head', 'review_blocker_count']) ||
     snapshot.task_state?.task_issue_number !== plan.task_issue_number || snapshot.task_state?.pr_number !== plan.pr_number ||
     snapshot.task_state?.observed_head !== plan.exact_head || snapshot.task_state?.reviewed_head !== plan.exact_head ||
     snapshot.task_state?.review_status !== 'APPROVE' || snapshot.task_state?.review_blocker_count !== 0 ||
+    JSON.stringify(snapshot.task_state?.authorized_paths) !== JSON.stringify(plan.authorized_paths) ||
     !exactObjectKeysV1(snapshot.source_counts, ['authority_refetch', 'pull', 'task', 'main', 'comment_history', 'review_refetch', 'scope', 'job_manifest', 'checks', 'threads']) ||
     Object.values(snapshot.source_counts).some((value) => value !== 1)
   ) throw new Error('minimal_governance_snapshot_binding_invalid')
@@ -3083,10 +3088,6 @@ export const executeMinimalGovernanceFinalDriftGuardV1 = async ({ plan: planInpu
       pull.base?.ref !== 'main' || !FULL_HEAD.test(pull.base?.sha ?? '') || pull.mergeable !== true ||
       !['clean', 'unstable'].includes(pull.mergeable_state)
     ) throw new Error('minimal_governance_final_pull_drift')
-    const taskState = extractProtectedTransitionTaskStateV1(pull.body)
-    if (JSON.stringify(taskState) !== JSON.stringify(snapshot.task_state)) {
-      throw new Error('minimal_governance_final_task_state_drift')
-    }
     const task = await acquireMinimalGovernanceTaskIdentityV1(request, host)
     if (JSON.stringify(task) !== JSON.stringify(snapshot.task)) throw new Error('minimal_governance_final_task_drift')
 
