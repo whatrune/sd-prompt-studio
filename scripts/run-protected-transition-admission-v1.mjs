@@ -50,7 +50,6 @@ const MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1 = Object.freeze({
   type: 'User',
   association: 'OWNER',
 })
-const GITHUB_ACTIONS_APP_DATABASE_ID_V1 = 15368
 const MINIMAL_GOVERNANCE_SCALAR_KEYS_V1 = Object.freeze([
   'record_type', 'authoring_role', 'authority_actor_login', 'authority_actor_id',
   'authority_actor_type',
@@ -2659,51 +2658,28 @@ const acquireMinimalGovernanceTaskIdentityV1 = async (request, host) => {
   })
 }
 
-const acquireMinimalGovernanceJobManifestV1 = async ({ request, host, runId, runAttempt, hostSha, jobName }) => {
+const bindMinimalGovernanceExecutionIdentityV1 = ({ request, runId, runAttempt, hostSha, jobName }) => {
   if (
     !WORKFLOW_RUN_ID.test(String(runId ?? '')) || !positiveInteger(runAttempt) ||
     hostSha !== request.expectedBase || jobName !== 'protected_transition_admission_v1'
   ) throw new Error('minimal_governance_execution_identity_invalid')
-  const page = await api(host, `repos/${request.repository}/actions/runs/${runId}/jobs?per_page=100`)
-  if (
-    !page || page.total_count !== RTO_SELF_JOB_NAMES_V1.length ||
-    !Array.isArray(page.jobs) || page.jobs.length !== page.total_count
-  ) throw new Error('minimal_governance_job_manifest_invalid')
-  const manifest = new Map()
-  const ids = new Set()
-  for (const job of page.jobs) {
-    const jobId = String(job?.id ?? '')
-    if (
-      !WORKFLOW_RUN_ID.test(jobId) || String(job?.run_id ?? '') !== String(runId) ||
-      job?.run_attempt !== runAttempt || !RTO_SELF_JOB_NAMES_V1.includes(job?.name) ||
-      manifest.has(job.name) || ids.has(jobId) || job?.head_sha !== hostSha ||
-      job?.html_url !== `https://github.com/${request.repository}/actions/runs/${runId}/job/${jobId}`
-    ) throw new Error('minimal_governance_job_manifest_invalid')
-    manifest.set(job.name, jobId)
-    ids.add(jobId)
-  }
-  if (RTO_SELF_JOB_NAMES_V1.some((name) => !manifest.has(name))) {
-    throw new Error('minimal_governance_job_manifest_invalid')
-  }
   return Object.freeze({
     repository: request.repository,
     run_id: String(runId),
     run_attempt: runAttempt,
     host_sha: hostSha,
-    jobs: Object.freeze(Object.fromEntries(manifest)),
+    job_name: jobName,
   })
 }
 
-const projectMinimalGovernanceExternalChecksV1 = ({ request, checks, jobManifest }) => {
+const projectMinimalGovernanceExternalChecksV1 = ({ request, checks, executionIdentity }) => {
   if (
-    jobManifest?.repository !== request.repository || jobManifest?.run_id !== request.currentWorkflowRunId ||
-    !positiveInteger(jobManifest?.run_attempt) || jobManifest?.host_sha !== request.expectedBase ||
-    Object.keys(jobManifest?.jobs ?? {}).sort().join('\n') !== [...RTO_SELF_JOB_NAMES_V1].sort().join('\n') ||
-    Object.values(jobManifest.jobs).some((jobId) => !WORKFLOW_RUN_ID.test(jobId)) ||
-    new Set(Object.values(jobManifest.jobs)).size !== RTO_SELF_JOB_NAMES_V1.length
-  ) throw new Error('minimal_governance_job_manifest_invalid')
+    executionIdentity?.repository !== request.repository || executionIdentity?.run_id !== request.currentWorkflowRunId ||
+    !positiveInteger(executionIdentity?.run_attempt) || executionIdentity?.host_sha !== request.expectedBase ||
+    executionIdentity?.job_name !== 'protected_transition_admission_v1'
+  ) throw new Error('minimal_governance_execution_identity_invalid')
   const selected = selectCurrentCheckGenerationsV1(checks)
-  const currentPrefix = `https://github.com/${request.repository}/actions/runs/${jobManifest.run_id}/`
+  const currentPrefix = `https://github.com/${request.repository}/actions/runs/${executionIdentity.run_id}/`
   const external = []
   for (const item of selected) {
     const name = item.type === 'CheckRun' ? item.name : item.context
@@ -2713,14 +2689,9 @@ const projectMinimalGovernanceExternalChecksV1 = ({ request, checks, jobManifest
       external.push(item)
       continue
     }
-    const identity = parseRepositoryActionsJobIdentityV1(request, item)
     const currentRunUrl = item.details_url?.startsWith(currentPrefix) === true
     if (rtoNamed || currentRunUrl) {
-      if (
-        !rtoNamed || item.app_database_id !== GITHUB_ACTIONS_APP_DATABASE_ID_V1 || identity === null ||
-        identity.runId !== jobManifest.run_id || jobManifest.jobs[name] !== identity.jobId
-      ) throw new Error('minimal_governance_same_run_check_identity_invalid')
-      continue
+      throw new Error('minimal_governance_same_run_check_identity_invalid')
     }
     external.push(item)
   }
@@ -2899,13 +2870,13 @@ export const executeMinimalGovernanceV1 = async ({ event, host, runId, runAttemp
       throw new Error('minimal_governance_scope_mismatch')
     }
 
-    const jobManifest = await acquireMinimalGovernanceJobManifestV1({
-      request, host, runId: String(runId ?? ''), runAttempt, hostSha, jobName,
+    const executionIdentity = bindMinimalGovernanceExecutionIdentityV1({
+      request, runId: String(runId ?? ''), runAttempt, hostSha, jobName,
     })
-    const checkRequest = Object.freeze({ ...request, currentWorkflowJobIds: jobManifest.jobs })
+    const checkRequest = request
     const checkSnapshot = await acquireMergeCheckRollupSnapshotV1(checkRequest, host, { stopOnPullHeadDrift: true })
     if (checkSnapshot.headRefOid !== request.exactHead) throw new Error('head_binding_stale')
-    const externalChecks = projectMinimalGovernanceExternalChecksV1({ request: checkRequest, checks: checkSnapshot.checks, jobManifest })
+    const externalChecks = projectMinimalGovernanceExternalChecksV1({ request: checkRequest, checks: checkSnapshot.checks, executionIdentity })
 
     const threadSnapshot = await acquireMergeReviewThreadsV1(request, host)
     if (
@@ -2935,7 +2906,7 @@ export const executeMinimalGovernanceV1 = async ({ event, host, runId, runAttemp
       pull: Object.freeze({ state: pull.state, draft: pull.draft, merged: pull.merged, head: pull.head.sha, base: pull.base.sha, mergeable: pull.mergeable, mergeable_state: pull.mergeable_state }),
       task,
       external_checks: externalChecks,
-      job_manifest: jobManifest,
+      job_manifest: executionIdentity,
       comment_history_fingerprint_sha256: history.raw_fingerprint_sha256,
       active_thread_count: 0,
       source_counts: Object.freeze({
@@ -3037,9 +3008,10 @@ const parseMinimalGovernanceMergePlanV1 = (plan) => {
     snapshot.task.creator.id !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.id ||
     snapshot.task.creator.type !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.type ||
     !Array.isArray(snapshot.external_checks) || snapshot.external_checks.length === 0 ||
-    !exactObjectKeysV1(snapshot.job_manifest, ['repository', 'run_id', 'run_attempt', 'host_sha', 'jobs']) ||
+    !exactObjectKeysV1(snapshot.job_manifest, ['repository', 'run_id', 'run_attempt', 'host_sha', 'job_name']) ||
     snapshot.job_manifest.repository !== plan.repository || snapshot.job_manifest.host_sha !== plan.expected_base ||
     !WORKFLOW_RUN_ID.test(snapshot.job_manifest.run_id ?? '') || !positiveInteger(snapshot.job_manifest.run_attempt) ||
+    snapshot.job_manifest.job_name !== 'protected_transition_admission_v1' ||
     !exactObjectKeysV1(snapshot.task_state, ['task_issue_number', 'pr_number', 'observed_head', 'authorized_paths', 'review_status', 'reviewed_head', 'review_blocker_count']) ||
     snapshot.task_state?.task_issue_number !== plan.task_issue_number || snapshot.task_state?.pr_number !== plan.pr_number ||
     snapshot.task_state?.observed_head !== plan.exact_head || snapshot.task_state?.reviewed_head !== plan.exact_head ||
@@ -3109,7 +3081,7 @@ export const executeMinimalGovernanceFinalDriftGuardV1 = async ({ plan: planInpu
     const externalChecks = projectMinimalGovernanceExternalChecksV1({
       request,
       checks: checkSnapshot.checks,
-      jobManifest: snapshot.job_manifest,
+      executionIdentity: snapshot.job_manifest,
     })
     if (JSON.stringify(externalChecks) !== JSON.stringify(snapshot.external_checks)) {
       throw new Error('minimal_governance_final_checks_drift')

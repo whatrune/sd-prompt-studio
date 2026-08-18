@@ -3223,12 +3223,6 @@ const minimalPull = (overrides = {}) => ({
   changed_files: minimalPaths.length,
   ...overrides,
 })
-const minimalJobManifest = (overrides = {}) => roleAdmissionJobs({
-  runId: REVIEW_RUN_ID,
-  head: CURRENT_MAIN_SHA,
-  states: { protected_transition_admission_v1: { status: 'in_progress', conclusion: null } },
-  ...overrides,
-})
 const minimalSelfCheck = (overrides = {}) => currentReadyCheck({
   id: 'minimal-admission-self-check',
   name: 'protected_transition_admission_v1',
@@ -3246,17 +3240,20 @@ const executeMinimalFixture = async ({
   pull = minimalPull(),
   mainHead = CURRENT_MAIN_SHA,
   paths = minimalPaths,
-  jobs = minimalJobManifest(),
   checks = connectionPage([successfulCheck('minimal-external-1'), successfulCheck('minimal-external-2')]),
   threads = connectionPage([]),
   eventOverrides = {},
   authorityRefetchOverrides = {},
   taskUser = minimalProductOwner,
+  runId = REVIEW_RUN_ID,
+  runAttempt = 1,
+  hostSha = CURRENT_MAIN_SHA,
+  jobName = 'protected_transition_admission_v1',
 } = {}) => {
   const authority = minimalAuthorityComment(authorityRefetchBody, authorityRefetchOverrides)
   const review = minimalReviewComment({ body: reviewRefetchBody })
   const history = comments ?? [minimalReviewComment(), minimalAuthorityComment(authorityBody)]
-  const metrics = { authority: 0, review: 0, pull: 0, task: 0, main: 0, comments: 0, scope: 0, jobs: 0, checks: 0, threads: 0 }
+  const metrics = { authority: 0, review: 0, pull: 0, task: 0, main: 0, comments: 0, scope: 0, checks: 0, threads: 0 }
   const host = {
     branchHead: async () => { metrics.main += 1; return mainHead },
     api: async (endpoint) => {
@@ -3284,10 +3281,6 @@ const executeMinimalFixture = async ({
         metrics.scope += 1
         return paths.map((filename) => ({ filename, status: 'modified' }))
       }
-      if (endpoint === `repos/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/jobs?per_page=100`) {
-        metrics.jobs += 1
-        return structuredClone(jobs)
-      }
       throw new Error(`unexpected_minimal_endpoint:${endpoint}`)
     },
     graphql: async (query, variables) => {
@@ -3303,8 +3296,7 @@ const executeMinimalFixture = async ({
     },
   }
   const result = await executeMinimalGovernanceV1({
-    event: minimalEvent(authorityBody, eventOverrides), host, runId: REVIEW_RUN_ID, runAttempt: 1,
-    hostSha: CURRENT_MAIN_SHA, jobName: 'protected_transition_admission_v1',
+    event: minimalEvent(authorityBody, eventOverrides), host, runId, runAttempt, hostSha, jobName,
   })
   return Object.freeze({ result, metrics, host })
 }
@@ -3334,6 +3326,7 @@ const minimalExecutionSource = runnerSource.slice(
   runnerSource.indexOf('\nconst MINIMAL_GOVERNANCE_PLAN_KEYS_V1'),
 )
 check(!minimalExecutionSource.includes('extractProtectedTransitionTaskStateV1'), 'MGV-16 minimal governance execution has no legacy PR-body state extractor dependency')
+check(minimalValid.result.next_action === 'MERGE_OPERATOR' && !minimalExecutionSource.includes('/jobs?per_page=100') && !minimalExecutionSource.includes('RTO_SELF_JOB_NAMES_V1.length'), 'MGV-17 run 32088538847 proceeds without requiring a five-job pre-operation manifest')
 
 const malformedMinimalBodies = [
   minimalAuthorityBody({}, ['unexpected_field: true']),
@@ -3394,9 +3387,14 @@ const nameOnlySelfIdentity = await executeMinimalFixture({ checks: connectionPag
 const appMismatchedSelfIdentity = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck({ appDatabaseId: 999 }), successfulCheck('minimal-external')]) })
 const runMismatchedSelfIdentity = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck({ detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${READY_RUN_ID}/job/${readyRebindJobIds.protected_transition_admission_v1}` }), successfulCheck('minimal-external')]) })
 const mismatchedSelfIdentity = await executeMinimalFixture({ checks: connectionPage([minimalSelfCheck({ detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/job/99999999999` }), successfulCheck('minimal-external')]) })
-const mismatchedManifest = await executeMinimalFixture({ jobs: minimalJobManifest({ runAttempt: 2 }) })
-check(minimalValid.result.next_action === 'MERGE_OPERATOR' && exactBoundSelfCheck.result.next_action === 'MERGE_OPERATOR', 'MGV-08 zero same-run PR checks and exact-bound same-run PR checks both admit external SUCCESS')
-check([nameOnlySelfIdentity, appMismatchedSelfIdentity, runMismatchedSelfIdentity, mismatchedSelfIdentity, mismatchedManifest].every(({ result }) => result.next_action === 'STOP'), 'MGV-08 RTO name-only, app, run, job, attempt, or manifest mismatch fails closed')
+const executionIdentityDrifts = await Promise.all([
+  executeMinimalFixture({ runId: '0' }),
+  executeMinimalFixture({ runAttempt: 0 }),
+  executeMinimalFixture({ hostSha: HEAD }),
+  executeMinimalFixture({ jobName: 'protected_transition_merge_operator_v1' }),
+])
+check(minimalValid.result.next_action === 'MERGE_OPERATOR' && exactBoundSelfCheck.result.next_action === 'STOP', 'MGV-08 zero same-run PR checks admit external SUCCESS while same-run RTO checks without a manifest fail closed')
+check([nameOnlySelfIdentity, appMismatchedSelfIdentity, runMismatchedSelfIdentity, mismatchedSelfIdentity, ...executionIdentityDrifts].every(({ result }) => result.next_action === 'STOP'), 'MGV-08 RTO check identity or current run, attempt, workflow SHA, and job identity drift fail closed')
 
 const memberAuthority = await executeMinimalFixture({ eventOverrides: { author_association: 'MEMBER' } })
 const collaboratorAuthority = await executeMinimalFixture({ eventOverrides: { author_association: 'COLLABORATOR' } })
@@ -3513,7 +3511,7 @@ check(minimalGuardPutCount(minimalFinalGuardValid.result) === 1 && finalGuardDri
 const finalGuardSourceStart = runnerSource.indexOf('export const executeMinimalGovernanceFinalDriftGuardV1')
 const finalGuardSourceEnd = runnerSource.indexOf('\nconst ROLE_TERMINAL_RESULTS_V1', finalGuardSourceStart)
 const finalGuardSource = runnerSource.slice(finalGuardSourceStart, finalGuardSourceEnd)
-check(finalGuardSourceStart >= 0 && !finalGuardSource.includes('extractProtectedTransitionTaskStateV1') && !finalGuardSource.includes('reduceCurrentLeafIndependentReviewDecisionV1') && !finalGuardSource.includes('confirmCurrentLeafIndependentReviewDecisionV1') && !finalGuardSource.includes('parseIndependentReviewDecisionProjectionV1') && !finalGuardSource.includes('acquireChangedPathScopeV1') && !finalGuardSource.includes('acquireMinimalGovernanceJobManifestV1') && !finalGuardSource.includes('minimal_governance_pre_operation_snapshot_v1'), 'MGV-13 final guard regenerates no legacy task state, semantic Review, validation, scope, manifest, or sealed snapshot')
+check(finalGuardSourceStart >= 0 && !finalGuardSource.includes('extractProtectedTransitionTaskStateV1') && !finalGuardSource.includes('reduceCurrentLeafIndependentReviewDecisionV1') && !finalGuardSource.includes('confirmCurrentLeafIndependentReviewDecisionV1') && !finalGuardSource.includes('parseIndependentReviewDecisionProjectionV1') && !finalGuardSource.includes('acquireChangedPathScopeV1') && !finalGuardSource.includes('bindMinimalGovernanceExecutionIdentityV1') && !finalGuardSource.includes('minimal_governance_pre_operation_snapshot_v1'), 'MGV-13 final guard regenerates no legacy task state, semantic Review, validation, scope, execution identity, or sealed snapshot')
 
 const roleMergeDecisionRebindHost = ({ dispatch, admissionRun, jobs = roleAdmissionJobs(), checkPage, changedJobPage = null, sourceRecords = roleSourceRecords, defaultBranch = 'main' } = {}) => {
   const headAtPullRead = Object.fromEntries(Array.from({ length: 12 }, (_, index) => [index + 1, dispatch.exact_head]))
@@ -4381,5 +4379,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 622) throw new Error(`expected exactly 622 assertions, observed ${assertions}`)
+if (assertions !== 623) throw new Error(`expected exactly 623 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
