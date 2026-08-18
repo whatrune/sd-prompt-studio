@@ -854,7 +854,7 @@ const successfulCheck = (id = 'check-1') => ({
   conclusion: 'SUCCESS',
   detailsUrl: null,
   startedAt: '2026-08-08T00:00:00Z',
-  checkSuite: { databaseId: 900101, headSha: HEAD, app: { id: 'github-actions-app', databaseId: 15368 } },
+  checkSuite: { databaseId: 900101, commit: { oid: HEAD }, app: { id: 'github-actions-app', databaseId: 15368 } },
 })
 
 const currentReadyCheck = ({
@@ -868,7 +868,7 @@ const currentReadyCheck = ({
   appDatabaseId = 15368,
   databaseId = 93075431467,
   checkSuiteDatabaseId = 93075430000,
-  checkSuiteHeadSha = HEAD,
+  checkSuiteCommitOid = HEAD,
 } = {}) => ({
   __typename: 'CheckRun',
   id,
@@ -878,7 +878,7 @@ const currentReadyCheck = ({
   conclusion,
   detailsUrl,
   startedAt,
-  checkSuite: { databaseId: checkSuiteDatabaseId, headSha: checkSuiteHeadSha, app: { id: appId, databaseId: appDatabaseId } },
+  checkSuite: { databaseId: checkSuiteDatabaseId, commit: { oid: checkSuiteCommitOid }, app: { id: appId, databaseId: appDatabaseId } },
 })
 
 const readyCheckPage = (other = successfulCheck()) => connectionPage([currentReadyCheck(), other])
@@ -3235,7 +3235,7 @@ const minimalSelfCheck = (overrides = {}) => currentReadyCheck({
   conclusion: null,
   detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/job/${readyRebindJobIds.protected_transition_admission_v1}`,
   startedAt: '2026-08-18T00:00:03Z',
-  checkSuiteHeadSha: CURRENT_MAIN_SHA,
+  checkSuiteCommitOid: CURRENT_MAIN_SHA,
   ...overrides,
 })
 const CURRENT_EXECUTION_RTO_WORKFLOW_ID = 93075420000
@@ -3334,7 +3334,7 @@ const historicalRtoChecks = ({
   startedAt: `2026-08-17T00:00:0${index}Z`,
   appDatabaseId,
   checkSuiteDatabaseId: checkSuiteId,
-  checkSuiteHeadSha: head,
+  checkSuiteCommitOid: head,
   ...(overrides[name] ?? {}),
 }))
 const historicalRunRecord = (overrides = {}) => ({
@@ -3632,7 +3632,7 @@ const currentExecutionCheckIdentityDrifts = await Promise.all([
     checks: connectionPage([minimalSelfCheck({ checkSuiteDatabaseId: CURRENT_EXECUTION_RTO_CHECK_SUITE_ID + 1 }), successfulCheck('minimal-current-external')]),
   }),
   currentExecutionFixture({
-    checks: connectionPage([minimalSelfCheck({ checkSuiteHeadSha: OTHER_HEAD }), successfulCheck('minimal-current-external')]),
+    checks: connectionPage([minimalSelfCheck({ checkSuiteCommitOid: OTHER_HEAD }), successfulCheck('minimal-current-external')]),
   }),
 ])
 const exactBoundSnapshot = JSON.parse(Buffer.from(exactBoundSelfCheck.result.sealed_snapshot_b64, 'base64').toString('utf8'))
@@ -3665,7 +3665,7 @@ const minimalExternalCheck = (name, overrides = {}) => currentReadyCheck({
   detailsUrl: null,
   startedAt: '2026-08-18T00:00:20Z',
   checkSuiteDatabaseId: 985101,
-  checkSuiteHeadSha: OTHER_HEAD,
+  checkSuiteCommitOid: OTHER_HEAD,
   ...overrides,
 })
 const historicalExternalSuccess = Object.freeze([
@@ -3710,11 +3710,29 @@ if (typeof historicalInitialValid.result.sealed_snapshot_b64 !== 'string') {
 const historicalInitialSnapshot = JSON.parse(Buffer.from(historicalInitialValid.result.sealed_snapshot_b64, 'base64').toString('utf8'))
 const frozenHistoricalEvidence = historicalInitialSnapshot.job_manifest.historical_rto_checks[0]
 check(
+  runnerSource.includes('checkSuite { databaseId commit { oid } app { id databaseId } }') &&
+  !runnerSource.includes('checkSuite { databaseId headSha'),
+  'HRTN-GQL-01 check rollup query uses the GitHub-compatible CheckSuite commit oid field',
+)
+check(
   historicalInitialValid.result.automation_status === 'OPERATION_READY' && historicalInitialValid.result.next_action === 'MERGE_OPERATOR' &&
   historicalInitialSnapshot.external_checks.length === 3 && historicalInitialSnapshot.job_manifest.historical_rto_checks.length === 1 &&
   Object.values(historicalInitialValid.historicalMetrics).every((count) => count === 1),
   'HRTN-01 exact historical legacy tuple plus all external SUCCESS produces READY snapshot',
 )
+check(
+  historicalRtoChecks().every((item) => item.checkSuite.commit.oid === HISTORICAL_RTO_HEAD) &&
+  historicalInitialValid.result.next_action === 'MERGE_OPERATOR',
+  'HRTN-GQL-02 GitHub-compatible CheckSuite commit oid response preserves exact-head historical classification',
+)
+const missingCheckSuiteCommitOid = await historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({ head: null })),
+})
+const wrongCheckSuiteCommitOid = await historicalFixture({
+  checks: historicalCheckPage(historicalRtoChecks({ head: HEAD })),
+})
+check(missingCheckSuiteCommitOid.result.next_action === 'STOP', 'HRTN-GQL-03 missing CheckSuite commit oid stops exact-head identity classification')
+check(wrongCheckSuiteCommitOid.result.next_action === 'STOP', 'HRTN-GQL-04 wrong CheckSuite commit oid stops exact-head identity classification')
 check(historicalInitialValid.result.next_action === 'MERGE_OPERATOR', 'CERM-I exact historical family Snapshot READY remains unchanged')
 const singletonAllowlistSource = runnerSource.slice(
   runnerSource.indexOf('const HISTORICAL_LEGACY_RTO_SINGLETON_ALLOWLIST_V1'),
@@ -4951,5 +4969,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 665) throw new Error(`expected exactly 665 assertions, observed ${assertions}`)
+if (assertions !== 669) throw new Error(`expected exactly 669 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
