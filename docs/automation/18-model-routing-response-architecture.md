@@ -1,6 +1,10 @@
 # AI Model Routing and Response Policy Architecture
 
-Status: Design review candidate
+Status: Retired design context (non-normative)
+
+Retirement notice: The Model Routing and Deployment Resolver implementation stack was retired by PR #333. This document is preserved only as historical design context. It does not define a current Routing or Resolver contract, API, implementation, dependency, or implementation plan.
+
+Unless explicitly stated otherwise, component names, type names, requirements, and implementation steps below describe that retired historical design only.
 
 Task: `ARCH-MODEL-ROUTING-DESIGN-001`
 
@@ -8,26 +12,26 @@ Canonical assignment: [GitHub Issue #125](https://github.com/whatrune/sd-prompt-
 
 Target logical contract: `model_routing_response_architecture_v1`
 
-Relationship to PR #107: separate follow-up; the approved policies from PR #107 remain authoritative and unchanged.
+Historical relationship to PR #107: this was designed as a separate follow-up to the policies approved at that time.
 
 ## 1. Purpose
 
-This document defines the upstream architecture that converts a trusted Task Assignment and approved classification inputs into deterministic model capability requirements, response requirements, and context requirements for a future Execution Context producer.
+This document preserves the historical upstream architecture that was intended to convert a trusted Task Assignment and approved classification inputs into deterministic model capability requirements, response requirements, and context requirements for a proposed Execution Context producer.
 
-The architecture exists so that automation can answer these questions without choosing a provider, model, deployment, or Binding:
+The historical architecture was intended to answer these questions without choosing a provider, model, deployment, or Binding:
 
 - What is the minimum Logical Model Tier required by the Task?
 - What is the minimum reasoning level required by the Task?
 - Which approved response profile applies to the assigned Role and output requirement?
 - Which context is required, optional, or forbidden?
-- Which requirements must be passed unchanged toward Deployment Resolver?
+- Which requirements would have been passed unchanged toward the historical Deployment Resolver design?
 - When must routing stop for missing input, conflicting policy, or an authority boundary?
 
-This task is design only. It does not implement a Model Router, Context Loader, token estimator, Response Renderer, Deployment Resolver, Provider Adapter, Execution Adapter, or Runner.
+The original task was design only. It did not implement a Model Router, Context Loader, token estimator, Response Renderer, Deployment Resolver, Provider Adapter, Execution Adapter, or Runner.
 
-## 2. Normative sources and precedence
+## 2. Historical source context
 
-This architecture is subordinate to the following existing contracts and implementations:
+The retired design was based on the following documents and then-existing implementation context:
 
 1. [AI Model Routing Policy Design](12-model-routing-policy.md)
 2. [Automation Response Policy Design](13-response-policy.md)
@@ -38,15 +42,15 @@ This architecture is subordinate to the following existing contracts and impleme
 7. [Task Assignment Template](../team/07-task-assignment-template.md)
 8. [Delegation and Result Contract](../team/11-delegation-and-result-contract.md)
 9. [Repository working rules](../../AGENTS.md)
-10. Deployment Resolver contract and core under `src/deployment-resolver/`
+10. the then-existing Deployment Resolver contract and core, which PR #333 retired
 
-This document integrates the boundaries above. It does not change their Role names, Status vocabulary, Logical Tier meaning, reasoning vocabulary, Result Handoff fields, approval authority, or Resolver input contract.
+The historical document integrated those boundaries without changing their Role names, Status vocabulary, Logical Tier meaning, reasoning vocabulary, Result Handoff fields, approval authority, or then-defined Resolver input contract.
 
-If this document conflicts with a normative source, routing stops and returns to Architect review. A future implementation must not resolve such a conflict by silently preferring the newest file or the most permissive interpretation.
+This document has no current normative precedence. Any reuse of its design intent requires a new Architect-reviewed contract and implementation; the deleted Routing or Resolver APIs must not be reconstructed from this document.
 
 ## 3. Scope
 
-This design defines:
+This retired design preserves historical descriptions of:
 
 - Model Routing responsibility and non-responsibility;
 - trusted logical inputs and their provenance requirements;
@@ -119,11 +123,11 @@ The arrows mean validated data transfer, not authority transfer. No downstream c
 
 ### 6.1 Admission and Role Binding
 
-The existing Dispatcher and Role contracts establish that the Task Assignment is canonical, approved, current, and assigned to one exact supported Role. Model Routing consumes this result; it does not repeat admission or infer aliases.
+The historical design assumed that Dispatcher and Role contracts established a canonical, approved, current Task Assignment for one exact supported Role. The proposed Model Routing boundary would have consumed that result without repeating admission or inferring aliases.
 
-### 6.2 Model Routing
+### 6.2 Historical Model Routing boundary
 
-Model Routing is a pure deterministic decision boundary. It:
+Model Routing was designed as a pure deterministic decision boundary. It would have:
 
 - validates the presence and provenance of routing inputs;
 - obtains approved Role, Complexity, and Risk floors;
@@ -132,9 +136,9 @@ Model Routing is a pure deterministic decision boundary. It:
 - records applied rule references and sanitized rationale;
 - returns one Routing Decision or a fail-closed outcome.
 
-Model Routing does not load context, estimate token counts, resolve compatibility profiles, or select a Binding.
+The proposed Model Routing boundary did not load context, estimate token counts, resolve compatibility profiles, or select a Binding.
 
-At the subsystem level, Model Routing is accountable for supplying the routing-controlled fields of a complete Resolver Execution Context. The pure Router produces those requirements in `RoutingDecision`; the separately reviewed planner, estimator, profile resolver, and assembler provide the non-routing fields. This decomposition satisfies the Execution Context generation responsibility without moving I/O, capacity estimation, or execution-environment selection into the pure decision core.
+In the historical design, Model Routing was accountable for supplying the routing-controlled fields of a proposed Resolver Execution Context. The proposed pure Router produced those requirements in the then-defined `RoutingDecision`; separately reviewed planner, estimator, profile-resolver, and assembler concepts supplied the non-routing fields.
 
 ### 6.3 Context Planner and Estimator
 
@@ -163,11 +167,11 @@ It does not select a provider or Binding. This component is outside this task an
 
 ### 6.5 Execution Context Assembler
 
-The assembler combines a valid Routing Decision with valid context estimates and compatibility references into the exact `ResolverExecutionContext` already defined by Deployment Resolver. It may validate equality and completeness but may not raise, lower, infer, or repair routing requirements.
+The historical assembler concept combined a valid Routing Decision with valid context estimates and compatibility references into the retired `ResolverExecutionContext` shape. This is not a current API or integration requirement.
 
-### 6.6 Deployment Resolver
+### 6.6 Historical Deployment Resolver boundary
 
-Deployment Resolver receives the completed trusted Execution Context and an already validated Binding Set. It selects one approved Binding revision or fails closed. It does not classify the Task or change routing requirements.
+The historical Deployment Resolver design would have received the completed trusted Execution Context and an already validated Binding Set, selected one approved Binding revision or failed closed, and avoided reclassifying the Task. That implementation and its API are retired.
 
 ### 6.7 Response processing
 
@@ -270,7 +274,7 @@ Forbidden overrides include:
 
 ## 9. Routing Decision model
 
-`RoutingDecision` is a logical, immutable output of successful Model Routing. It is not a Deployment Binding, Resolver Result, Result Handoff, or new persistent Artifact.
+In this historical model, `RoutingDecision` was the logical, immutable output of successful Model Routing. It was not a Deployment Binding, Resolver Result, Result Handoff, or new persistent Artifact.
 
 | Field | Meaning |
 | --- | --- |
@@ -353,7 +357,7 @@ The model's raw response is provisional. It becomes a Canonical Handoff only aft
 
 ## 11. Context Loading Policy architecture
 
-Model Routing selects a `context_policy_ref`; it does not perform context I/O.
+The proposed Model Routing boundary selected a `context_policy_ref`; it did not perform context I/O.
 
 ### 11.1 Required context
 
@@ -397,9 +401,9 @@ If the required context exceeds an approved capability boundary, the system must
 
 ## 12. Execution Context assembly boundary
 
-Deployment Resolver already requires `ResolverExecutionContext`. The future assembler must populate its fields as follows.
+The retired Deployment Resolver design used a historical `ResolverExecutionContext` shape. The table below preserves how the proposed assembler would have populated that shape; it is not current implementation guidance.
 
-| Resolver field | Authoritative producer |
+| Historical Resolver field | Historical producer |
 | --- | --- |
 | `routing_contract_version` | Routing Decision |
 | `resolution_scope_ref` | Approved routing/deployment governance configuration |
@@ -419,7 +423,7 @@ Deployment Resolver already requires `ResolverExecutionContext`. The future asse
 | `cost_policy_ref` | Routing Decision, unchanged |
 | `availability_policy_ref` | Approved operational policy configuration |
 
-The assembler must fail closed when:
+The historical assembler design required fail-closed behavior when:
 
 - an authoritative producer is absent, stale, incompatible, or ambiguous;
 - two producers disagree on an exact reference;
@@ -471,7 +475,7 @@ An escalation must identify the failed stage, affected reference, decision owner
 
 ## 15. Security boundary
 
-Model Routing operates on trusted normalized metadata only.
+The historical Model Routing concept operated on trusted normalized metadata only.
 
 Required safeguards for a future implementation:
 
@@ -501,9 +505,9 @@ A future caller may record routing evidence within an already approved execution
 
 This design does not define a new audit Artifact, Receipt, hash, database, retention policy, or persistence mechanism. The evidence must use an existing approved Canonical Location when implementation is authorized.
 
-## 17. Future implementation split
+## 17. Historical implementation split (not current guidance)
 
-Implementation must remain separate from this design PR.
+The following sequence is retained solely as historical design intent. It does not authorize implementation or restoration of the retired stack.
 
 1. **Model Routing Contract and types**
    - Freeze structural input/output types and policy-version compatibility.
@@ -514,19 +518,19 @@ Implementation must remain separate from this design PR.
 3. **Context Plan and Estimator contracts**
    - Freeze context source binding, estimator evidence, token requirements, and truncation prohibition.
 4. **Compatibility Profile and Execution Context Assembler**
-   - Resolve approved compatibility references and produce the existing `ResolverExecutionContext`.
+   - Resolve approved compatibility references and produce the then-defined, now-retired `ResolverExecutionContext` shape.
 5. **Response Profile contract and parser/renderer**
    - Freeze structured output compatibility and preserve existing Handoff semantics.
 6. **Resolver integration**
-   - Connect the trusted assembled context to the existing Deployment Resolver without changing Resolver selection rules.
+   - Connect the trusted assembled context to the then-existing, now-retired Deployment Resolver without changing its selection rules.
 7. **Automation integration and pilot**
    - Integrate with Dispatcher/Adapter/Runner under separate security and rollout review.
 
-Each implementation PR requires its own Task Assignment, tests, independent review, rollback plan, and explicit merge decision.
+No current implementation task is authorized by this retired sequence. Any successor requires a new Task Assignment and Architect-reviewed contract.
 
-## 18. Acceptance and test design
+## 18. Historical acceptance and test design
 
-A future implementation is acceptable only when tests prove at least:
+The retired design's proposed implementation would have required tests proving at least:
 
 - exact same normalized inputs and policy versions produce the same Routing Decision;
 - input and collection order do not change the decision;

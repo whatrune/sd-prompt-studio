@@ -1,6 +1,10 @@
 # Context Planner Entry Admission and Category Binding Design
 
-Status: Design review candidate
+Status: Retired design context (non-normative)
+
+Retirement notice: The Model Routing implementation and Deployment Resolver stack consumed by this design were retired by PR #333. This document is preserved only as historical design context. It does not define a current Routing contract, validator, API, dependency, implementation sequence, or authority.
+
+Unless explicitly stated otherwise, component names, type names, requirements, and implementation steps below describe that retired historical design only.
 
 Task: `ARCH-CONTEXT-PLANNER-ENTRY-ADMISSION-001`
 
@@ -8,15 +12,15 @@ Canonical assignment: [GitHub Issue #141](https://github.com/whatrune/sd-prompt-
 
 Dispatch record: [Backend Architect Dispatch](https://github.com/whatrune/sd-prompt-studio/issues/141#issuecomment-5018560965)
 
-Selected category boundary: **Option A — approved Context Category Binding Snapshot supplied at Planner Entry and identity-bound through a successor Context Policy contract**
+Historical category-boundary selection: **Option A — approved Context Category Binding Snapshot supplied at Planner Entry and identity-bound through a successor Context Policy contract**
 
 Implementation: not included
 
 ## 1. Purpose
 
-This document freezes the admission, category, identity, failure, validation, and rank boundaries required to correct Draft PR #140 without allowing Backend Implementer inference.
+This document preserves the historical admission, category, identity, failure, validation, and rank boundaries that were proposed to correct Draft PR #140 without allowing Backend Implementer inference.
 
-It closes seven review gaps:
+The historical proposal addressed seven review gaps:
 
 1. exact approved binding between Context references and forbidden categories;
 2. immutable identity and provenance for that binding;
@@ -26,27 +30,27 @@ It closes seven review gaps:
 6. fail-closed rank invariants after ordering validation;
 7. an exact implementation and merge sequence before Draft PR #140 can resume.
 
-The result is a pure Planner boundary in which every value affecting planning is either projected directly into `ContextPlan` identity or bound indirectly through an immutable projected reference.
+The proposed result was a pure Planner boundary in which every value affecting planning was either projected directly into `ContextPlan` identity or bound indirectly through an immutable projected reference.
 
-## 2. Normative sources and precedence
+## 2. Historical source context
 
-This design is subordinate to:
+The retired design was based on:
 
 1. [Context Planning and Execution Context Assembly Architecture](19-context-planning-execution-context-assembly-architecture.md)
 2. [Context Planner Supporting Contracts Design](20-context-planner-supporting-contracts-design.md)
 3. merged PR #139 supporting contracts under `src/context-planning/`
 4. the frozen Context Plan contract and validator introduced by PR #134
-5. the frozen Model Routing contract and implementation introduced by PR #128 and PR #130
+5. the then-frozen Model Routing contract and implementation introduced by PR #128 and PR #130, now retired by PR #333
 6. Issue #135 and its cumulative Task Assignment amendments
 7. Draft PR #140 at review anchor `49afb5fb6e01a812c68322e886ba734ae89946c7`
 8. [Delegation and Result Contract](../team/11-delegation-and-result-contract.md)
 9. [Repository working rules](../../AGENTS.md)
 
-Existing merged contracts remain authoritative. This design does not modify their code or silently widen their meaning. A successor contract is used where the current closed shape cannot represent the new identity relationship.
+At the time of this design, the listed merged contracts were treated as authoritative and were not modified or widened here. This document has no current normative precedence; any successor must define its own current contracts rather than depend on the retired Routing or Resolver APIs.
 
 ## 3. Scope
 
-This design defines:
+This retired design preserves historical descriptions of:
 
 - the selected Category Boundary architecture;
 - `ContextCategoryBindingSnapshotV1` and its content identity;
@@ -67,7 +71,7 @@ This design does not:
 - change `src/**`, `scripts/**`, `package.json`, `.github/**`, Schema, or Workflow;
 - modify Draft PR #140 or the Issue #135 implementation branch;
 - implement Entry Admission, Category Binding, Policy v2, a validator, Planner Core, or integration wiring;
-- change `RoutingDecision`, `ContextPlan`, `ContextPolicyV1`, or `ContextPlanningFailureV1`;
+- change the then-defined `RoutingDecision`, `ContextPlan`, `ContextPolicyV1`, or `ContextPlanningFailureV1` shapes;
 - read a file, Repository, URL, network response, source body, or file metadata;
 - infer a category from a reference, path, filename, prefix, suffix, substring, regular expression, glob, or case-folded value;
 - generate fake, guessed, fallback, or placeholder identity;
@@ -99,11 +103,11 @@ These are Contract gaps, not implementation style findings. PR #140 must remain 
 | B | Upstream Admission screens categories and wraps `RoutingDecision` | Keeps screening before Planner | Either changes the meaning of `routing_decision_ref` or creates Admission Evidence not projected into Plan identity; risks changing Model Routing authority | Rejected |
 | C | Separate semantic admission component screens categories | Strong component separation | Still needs an Evidence reference carried into Plan identity; creates another failure and correlation boundary and can overlap Planner or Materializer | Rejected for v1 |
 
-### 6.1 Normative selection
+### 6.1 Historical selection
 
-Option A is normative.
+Option A was the selected option within this retired design; it is not a current normative requirement.
 
-Planner Entry receives one validated `ContextCategoryBindingSnapshotV1` in addition to the six values previously authorized by Issue #135 Amendment 2. A successor `ContextPolicyV2` contains the exact `category_binding_snapshot_ref`. The validated `RoutingDecision.context_policy_ref`, `ContextPolicyV2.context_policy_ref`, and output `ContextPlan.context_policy_ref` must be equal.
+The historical Planner Entry proposal received one validated `ContextCategoryBindingSnapshotV1` in addition to the six values then authorized by Issue #135 Amendment 2. Its proposed successor `ContextPolicyV2` contained the exact `category_binding_snapshot_ref`; the then-defined `RoutingDecision.context_policy_ref`, `ContextPolicyV2.context_policy_ref`, and output `ContextPlan.context_policy_ref` were required to be equal.
 
 `ContextPolicyV2.context_policy_ref` is the immutable identity of the complete Policy v2 projection, including `category_binding_snapshot_ref`. Therefore:
 
@@ -123,7 +127,7 @@ new ContextPlan.context_policy_ref
 new context_plan_ref
 ```
 
-No new field is added to `RoutingDecision` or `ContextPlan`. No semantic input is hidden from Plan identity.
+The historical proposal added no new field to the then-defined `RoutingDecision` or `ContextPlan` shapes and hid no semantic input from Plan identity.
 
 ## 7. Architecture and component boundary
 
@@ -159,7 +163,7 @@ The public Entry value is a closed object. Unknown fields are rejected.
 | Field | Type | Req. | Immutable identity meaning | Producer | Validator | Consumer | Treatment | Failure behavior |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `entry_admission_contract_version` | constant `context_planner_entry_admission_v1` | yes | Selects the closed admission shape only | approved caller | Entry validator | Entry Admission | validated, not passed to Core | Structural Rejection |
-| `routing_decision` | `RoutingDecision` | yes | Exact routed requirements and timestamp | Model Routing boundary | existing strict Routing Decision validator | Operational Core | deep-cloned and referenced | Structural Rejection |
+| `routing_decision` | historical `RoutingDecision` shape | yes | Exact routed requirements and timestamp | then-existing Model Routing boundary | then-existing strict Routing Decision validator | proposed Operational Core | deep-cloned and referenced | Structural Rejection |
 | `routing_decision_ref` | immutable reference | yes | Identity of the exact Decision | approved caller | Entry reference validator | Operational Core | copied | Structural Rejection |
 | `context_policy` | `ContextPolicyV2` | yes | Exact Policy v2 Snapshot, including Category Snapshot identity | Context Policy owner | Policy v2 validator and identity verifier | Operational Core | deep-cloned and referenced | Structural Rejection |
 | `context_category_binding` | `ContextCategoryBindingSnapshotV1` | yes | Exact approved Context-to-category Snapshot | Context Policy owner | Category Snapshot validator and identity verifier | Operational Core | deep-cloned and referenced through Policy v2 | Structural Rejection |
@@ -167,7 +171,7 @@ The public Entry value is a closed object. Unknown fields are rejected.
 | `materialization_policy_ref` | immutable reference | yes | Exact caller-approved Materialization policy | approved caller | Entry reference validator | Operational Core | copied unchanged | Structural Rejection |
 | `planner_version` | opaque supported version | yes | Exact Planner implementation contract version | execution configuration owner | Entry version validator | Operational Core | copied unchanged | Structural Rejection |
 
-The Entry validator reuses the existing strict `validateRoutingDecision` timestamp and reference validation. It does not use `Date.parse`, wall clock, locale parsing, or a default timestamp.
+The historical Entry-validator proposal reused the then-existing `validateRoutingDecision` timestamp and reference validation. That validator was retired by PR #333 and is not a current dependency or implementation requirement. The preserved design intent was to avoid `Date.parse`, wall clock, locale parsing, and default timestamps.
 
 ## 9. Structural Admission Result contract
 
@@ -226,7 +230,7 @@ Admission produces exactly seven Core fields.
 
 | Field | Type | Req. | Immutable identity meaning | Producer | Validator | Consumer | Treatment | Failure behavior after admission |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `routing_decision` | deep-readonly `RoutingDecision` | yes | Exact admitted Decision | Entry Admission | existing Routing Decision validator | Operational Core | referenced and projected through its fields/ref | Identity mismatch is FailureV1 |
+| `routing_decision` | deep-readonly historical `RoutingDecision` shape | yes | Exact admitted Decision | proposed Entry Admission | then-existing Routing Decision validator | proposed Operational Core | referenced and projected through its fields/ref | Identity mismatch is FailureV1 |
 | `routing_decision_ref` | immutable reference | yes | Exact Decision identity | Entry Admission | Entry reference validator | Operational Core | copied to Plan | Identity mismatch is FailureV1 |
 | `context_policy` | deep-readonly `ContextPolicyV2` | yes | Exact Policy v2 identity | Entry Admission | Policy v2 validator/verifier | Operational Core | its ref is copied to Plan | Policy mismatch is FailureV1 |
 | `context_category_binding` | deep-readonly `ContextCategoryBindingSnapshotV1` | yes | Exact Category Snapshot identity | Entry Admission | Category validator/verifier | Operational Core | indirectly bound through Policy ref | Coverage/conflict is FailureV1 |
@@ -409,7 +413,7 @@ admit(value):
   if value is not a closed object:
     return StructuralRejection
   validate exact root fields
-  validate RoutingDecision with frozen strict validator
+  validate the historical RoutingDecision shape with the then-frozen strict validator
   validate routing_decision_ref and supplied profile/policy refs
   validate supported planner_version
   validate and verify ContextPolicyV2 identity
@@ -707,12 +711,12 @@ Logs and Result Handoffs must not contain source content, Secret, Credential, pe
 - no File, Repository, URL, network, wall-clock, random, or environment access;
 - no Provider, model, Deployment, or Binding selection;
 - no Context Materialization;
-- no change to Model Router or Deployment Resolver;
+- no change to the then-existing Model Router or Deployment Resolver;
 - no Secret or Credential access.
 
-## 22. Required implementation tasks and merge order
+## 22. Historical implementation plan (not current guidance)
 
-This Architecture PR is merge step 0. No implementation starts before Product Owner merge decision.
+The following retired sequence records the implementation plan proposed at the time. It does not authorize current work or restoration of deleted Routing or Resolver APIs.
 
 ### Step 1 — Category Binding and ContextPolicyV2 contracts
 
@@ -801,9 +805,9 @@ This Architecture PR is merge step 0. No implementation starts before Product Ow
 - completion: all section 21 scenarios, cumulative Issue #135 tests, purity guards, legacy compatibility, deterministic references
 - merge gate: Backend Architect review and Product Owner decision
 
-The merge order is strict: Architecture → Step 1 → Step 2 → Step 3 → PR #140 correction → Step 5 → Step 6. Parallel merge of Steps 1–3 is forbidden because later contracts depend on earlier frozen identities.
+The historical plan required this merge order: Architecture → Step 1 → Step 2 → Step 3 → PR #140 correction → Step 5 → Step 6. This sequence is non-normative and must not be executed as current guidance.
 
-PR #140 cannot be corrected safely within its current cumulative Assignment until Steps 1–3 are merged and Issue #135 is explicitly amended. After that amendment, its existing branch and PR must be reused.
+The historical plan considered PR #140 blocked until Steps 1–3 and an Issue #135 amendment. This statement does not describe a current dependency or authorize reuse of that branch or PR.
 
 ## 23. Rollout and rollback boundary
 
@@ -818,13 +822,13 @@ Rollout is offline and fail-closed:
 
 Rollback removes or disables the newest unmerged integration layer and returns to the last approved boundary. It never restores path inference, fake identity, default rank, or an older mutable Policy value. Existing v1 contracts and prior valid Plans remain unchanged.
 
-## 24. Acceptance criteria
+## 24. Historical acceptance criteria
 
-The Architecture is implementation-ready only when reviewers can confirm:
+The historical architecture would have been considered implementation-ready only when reviewers confirmed:
 
 - Option A is the sole normative Category Boundary;
 - every planning-relevant input is directly projected or indirectly identity-bound;
-- existing `RoutingDecision` and `ContextPlan` shapes remain unchanged;
+- the then-existing `RoutingDecision` and `ContextPlan` shapes remained unchanged;
 - Category decisions use exact approved metadata only;
 - arbitrary caller values cannot reach Operational Core;
 - Structural Rejection cannot contain FailureV1 or fake identity;
@@ -842,7 +846,7 @@ The Architecture is implementation-ready only when reviewers can confirm:
 - eventual deprecation or versioned replacement of legacy `validateContextPlan`;
 - integration beyond the Context Planner Entry façade.
 
-The exact Repository-relative implementation file scopes for Steps 1, 2, 3, 5, and 6 are frozen in section 22. The remaining deferred decisions do not authorize implementation in this Task.
+The Repository-relative file scopes in section 22 were frozen only for the retired historical plan. They do not authorize current implementation.
 
 ## 26. Explicit non-implementation confirmation
 
