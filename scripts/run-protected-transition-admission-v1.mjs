@@ -5214,6 +5214,898 @@ const parseRolePublicationHandoffV1 = (body) => {
 
 const sameRolePathsV1 = (left, right) => Array.isArray(left) && Array.isArray(right) && left.join('\n') === right.join('\n')
 
+const LIFECYCLE_BODY_SHA256_V1 = /^[0-9a-f]{64}$/
+const LIFECYCLE_FINDING_DISPOSITIONS_V1 = new Set(['NONE', 'VALID_FINDING', 'REJECT_FINDING'])
+const LIFECYCLE_EVIDENCE_STATES_V1 = new Set(['PRESENT', 'MISSING', 'INCOMPLETE'])
+const lifecycleCompletionEvidenceBrandV1 = new WeakSet()
+
+const lifecycleSortedPathsV1 = (value) => {
+  if (!Array.isArray(value) || value.some((item) => !isNormalizedRepositoryPathV1(item))) {
+    throw new Error('lifecycle_path_set_invalid')
+  }
+  const sorted = [...value].sort()
+  if (new Set(sorted).size !== sorted.length) throw new Error('lifecycle_path_set_invalid')
+  return Object.freeze(sorted)
+}
+
+const lifecycleCanonicalValueV1 = (value) => {
+  if (Array.isArray(value)) return value.map(lifecycleCanonicalValueV1)
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, lifecycleCanonicalValueV1(value[key])]))
+  }
+  if (value === null || ['string', 'number', 'boolean'].includes(typeof value)) return value
+  throw new Error('lifecycle_snapshot_invalid')
+}
+
+const lifecycleSameValueV1 = (left, right) =>
+  JSON.stringify(lifecycleCanonicalValueV1(left)) === JSON.stringify(lifecycleCanonicalValueV1(right))
+
+const validateLifecycleReplaySnapshotV1 = (input) => {
+  if (
+    !input || typeof input !== 'object' || Array.isArray(input) ||
+    !REPOSITORY.test(input.repository ?? '') || !positiveInteger(input.task_issue_number) ||
+    !positiveInteger(input.pr_number) || input.target_branch !== 'main' ||
+    !FULL_HEAD.test(input.exact_head ?? '') || !FULL_HEAD.test(input.current_head ?? '') ||
+    !FULL_HEAD.test(input.current_base ?? '') || !['open', 'closed'].includes(input.pull_state) ||
+    typeof input.pull_draft !== 'boolean' || typeof input.pull_merged !== 'boolean' ||
+    ![true, false, null].includes(input.mergeable)
+  ) throw new Error('lifecycle_snapshot_invalid')
+
+  const changedPaths = lifecycleSortedPathsV1(input.changed_paths)
+  const authorizedPaths = input.authorized_paths === null ? null : lifecycleSortedPathsV1(input.authorized_paths)
+  const scopeContract = input.scope_contract
+  if (scopeContract !== null && (
+    typeof scopeContract !== 'object' ||
+    typeof scopeContract.authority_id !== 'string' || scopeContract.authority_id.length === 0 ||
+    !LIFECYCLE_BODY_SHA256_V1.test(scopeContract.body_sha256 ?? '')
+  )) throw new Error('lifecycle_scope_binding_invalid')
+
+  const baseImpact = input.base_impact
+  if (baseImpact !== null && (
+    typeof baseImpact !== 'object' || typeof baseImpact.complete !== 'boolean' ||
+    !FULL_HEAD.test(baseImpact.reviewed_base ?? '') || !FULL_HEAD.test(baseImpact.current_base ?? '') ||
+    !FULL_HEAD.test(baseImpact.merge_base ?? '') || baseImpact.current_base !== input.current_base
+  )) throw new Error('lifecycle_base_impact_invalid')
+  const relevantOverlapPaths = baseImpact === null ? null : lifecycleSortedPathsV1(baseImpact.relevant_overlap_paths)
+
+  const evidenceStatus = input.evidence_status
+  if (
+    !evidenceStatus || typeof evidenceStatus !== 'object' ||
+    !LIFECYCLE_EVIDENCE_STATES_V1.has(evidenceStatus.base_impact) ||
+    !LIFECYCLE_EVIDENCE_STATES_V1.has(evidenceStatus.validation) ||
+    !LIFECYCLE_EVIDENCE_STATES_V1.has(evidenceStatus.authority) ||
+    !LIFECYCLE_EVIDENCE_STATES_V1.has(evidenceStatus.review) ||
+    !LIFECYCLE_EVIDENCE_STATES_V1.has(evidenceStatus.checks) ||
+    !LIFECYCLE_EVIDENCE_STATES_V1.has(evidenceStatus.threads)
+  ) throw new Error('lifecycle_evidence_status_invalid')
+
+  let validation = null
+  if (input.validation !== null) {
+    validation = input.validation
+    if (
+      !validation || typeof validation !== 'object' || validation.status !== 'PASS' ||
+      !FULL_HEAD.test(validation.exact_head ?? '') || !FULL_HEAD.test(validation.current_base ?? '') ||
+      typeof validation.profile !== 'string' || validation.profile.length === 0 ||
+      !Array.isArray(validation.commands) || validation.commands.length === 0 ||
+      validation.commands.some((command) => typeof command !== 'string' || command.length === 0) ||
+      !Array.isArray(validation.input_revisions) || validation.input_revisions.length === 0 ||
+      validation.input_revisions.some((revision) => typeof revision !== 'string' || revision.length === 0)
+    ) throw new Error('lifecycle_validation_evidence_invalid')
+    validation = Object.freeze({ ...validation, paths: lifecycleSortedPathsV1(validation.paths), commands: Object.freeze([...validation.commands]), input_revisions: Object.freeze([...validation.input_revisions]) })
+  }
+
+  let review = null
+  if (input.review !== null) {
+    review = input.review
+    if (
+      !review || typeof review !== 'object' || !positiveInteger(review.comment_id) ||
+      !FULL_HEAD.test(review.reviewed_head ?? '') || !['APPROVE', 'CHANGES_REQUIRED'].includes(review.decision) ||
+      !nonNegativeInteger(review.blocking_finding_count) || !nonNegativeInteger(review.remaining_finding_count) ||
+      !nonNegativeInteger(review.unknown_count) || !positiveInteger(review.source_order) ||
+      !LIFECYCLE_BODY_SHA256_V1.test(review.body_sha256 ?? '')
+    ) throw new Error('lifecycle_review_evidence_invalid')
+    review = Object.freeze({ ...review, paths: lifecycleSortedPathsV1(review.paths) })
+  }
+
+  if (!Array.isArray(input.checks)) throw new Error('lifecycle_checks_invalid')
+  const checkIds = new Set()
+  const checks = Object.freeze(input.checks.map((check) => {
+    if (
+      !check || typeof check !== 'object' || typeof check.id !== 'string' || check.id.length === 0 ||
+      checkIds.has(check.id) || !FULL_HEAD.test(check.exact_head ?? '') ||
+      !['QUEUED', 'IN_PROGRESS', 'COMPLETED'].includes(check.status) ||
+      (check.conclusion !== null && typeof check.conclusion !== 'string') ||
+      typeof check.provenance !== 'string' || check.provenance.length === 0
+    ) throw new Error('lifecycle_checks_invalid')
+    checkIds.add(check.id)
+    return Object.freeze({ ...check })
+  }))
+
+  if (!Array.isArray(input.threads)) throw new Error('lifecycle_threads_invalid')
+  const threadIds = new Set()
+  const threads = Object.freeze(input.threads.map((thread) => {
+    if (
+      !thread || typeof thread !== 'object' || typeof thread.id !== 'string' || thread.id.length === 0 ||
+      threadIds.has(thread.id) || typeof thread.is_resolved !== 'boolean' || typeof thread.is_outdated !== 'boolean' ||
+      !LIFECYCLE_FINDING_DISPOSITIONS_V1.has(thread.finding_disposition) ||
+      (thread.latest_comment_id !== null && typeof thread.latest_comment_id !== 'string')
+    ) throw new Error('lifecycle_threads_invalid')
+    threadIds.add(thread.id)
+    return Object.freeze({ ...thread })
+  }))
+
+  let readyEvidence = null
+  if (input.ready_evidence !== null) {
+    readyEvidence = input.ready_evidence
+    if (
+      !readyEvidence || typeof readyEvidence !== 'object' ||
+      typeof readyEvidence.event_id !== 'string' || readyEvidence.event_id.length === 0 ||
+      !FULL_HEAD.test(readyEvidence.exact_head ?? '') ||
+      !positiveInteger(readyEvidence.review_comment_id)
+    ) throw new Error('lifecycle_ready_evidence_invalid')
+    readyEvidence = Object.freeze({ ...readyEvidence })
+  }
+
+  let authority = null
+  if (input.authority !== null) {
+    authority = input.authority
+    if (!authority || typeof authority !== 'object' || !['PUBLICATION_AUTHORITY', 'MINIMAL_GOVERNANCE_CANDIDATE'].includes(authority.kind)) {
+      throw new Error('lifecycle_authority_invalid')
+    }
+    if (authority.kind === 'MINIMAL_GOVERNANCE_CANDIDATE') {
+      if (
+        !positiveInteger(authority.comment_id) ||
+        authority.source_url !== `https://github.com/${input.repository}/issues/${input.task_issue_number}#issuecomment-${authority.comment_id}` ||
+        !LIFECYCLE_BODY_SHA256_V1.test(authority.body_sha256 ?? '') ||
+        authority.task_issue_number !== input.task_issue_number || authority.pr_number !== input.pr_number ||
+        !FULL_HEAD.test(authority.exact_head ?? '') || typeof authority.event_bound !== 'boolean'
+      ) throw new Error('lifecycle_authority_invalid')
+      authority = Object.freeze({ ...authority })
+    } else {
+      if (
+        typeof authority.id !== 'string' || !positiveInteger(Number(authority.id)) ||
+        authority.comment_id !== Number(authority.id) ||
+        authority.source_url !== `https://github.com/${input.repository}/issues/${input.task_issue_number}#issuecomment-${authority.comment_id}` ||
+        typeof authority.actor !== 'string' || authority.actor.length === 0 ||
+        typeof authority.actor_login !== 'string' || authority.actor_login.length === 0 ||
+        !positiveInteger(authority.actor_id) || typeof authority.actor_type !== 'string' || authority.actor_type.length === 0 ||
+        !REVIEW_ASSOCIATIONS.has(authority.actor_association) ||
+        authority.actor !== `${authority.actor_login}:${authority.actor_id}:${authority.actor_type}:${authority.actor_association}` ||
+        !LIFECYCLE_BODY_SHA256_V1.test(authority.body_sha256 ?? '') || !FULL_HEAD.test(authority.exact_head ?? '') ||
+        authority.pr_number !== input.pr_number ||
+        !positiveInteger(authority.result_comment_id) ||
+        authority.result_source_url !== `https://github.com/${input.repository}/issues/${input.task_issue_number}#issuecomment-${authority.result_comment_id}` ||
+        !LIFECYCLE_BODY_SHA256_V1.test(authority.result_body_sha256 ?? '')
+      ) throw new Error('lifecycle_authority_invalid')
+      authority = Object.freeze({ ...authority, paths: lifecycleSortedPathsV1(authority.paths) })
+    }
+  }
+
+  return Object.freeze({
+    repository: input.repository,
+    task_issue_number: input.task_issue_number,
+    pr_number: input.pr_number,
+    target_branch: input.target_branch,
+    exact_head: input.exact_head,
+    current_head: input.current_head,
+    current_base: input.current_base,
+    pull_state: input.pull_state,
+    pull_draft: input.pull_draft,
+    pull_merged: input.pull_merged,
+    mergeable: input.mergeable,
+    changed_paths: changedPaths,
+    authorized_paths: authorizedPaths,
+    scope_contract: scopeContract === null ? null : Object.freeze({ ...scopeContract }),
+    base_impact: baseImpact === null ? null : Object.freeze({ ...baseImpact, relevant_overlap_paths: relevantOverlapPaths }),
+    evidence_status: Object.freeze({ ...evidenceStatus }),
+    validation,
+    review,
+    checks,
+    threads,
+    ready_evidence: readyEvidence,
+    authority,
+  })
+}
+
+const lifecycleEquivalenceTupleV1 = (snapshot, completionEvidenceIdentity = 'NONE') => Object.freeze({
+  repository: snapshot.repository,
+  task_issue_number: snapshot.task_issue_number,
+  pr_number: snapshot.pr_number,
+  exact_head: snapshot.exact_head,
+  target_branch: snapshot.target_branch,
+  changed_paths: snapshot.changed_paths,
+  authorized_paths: snapshot.authorized_paths,
+  scope_contract: snapshot.scope_contract,
+  validation: snapshot.validation,
+  review: snapshot.review,
+  checks: snapshot.checks,
+  threads: snapshot.threads,
+  ready_evidence: snapshot.ready_evidence,
+  authority: snapshot.authority,
+  base_impact: snapshot.base_impact,
+  evidence_status: snapshot.evidence_status,
+  completion_evidence: completionEvidenceIdentity,
+  pull: Object.freeze({ state: snapshot.pull_state, draft: snapshot.pull_draft, merged: snapshot.pull_merged, mergeable: snapshot.mergeable }),
+})
+
+const lifecycleTupleDigestV1 = (snapshot, completionEvidenceIdentity = 'NONE') => createHash('sha256')
+  .update(Buffer.from(JSON.stringify(lifecycleCanonicalValueV1(lifecycleEquivalenceTupleV1(snapshot, completionEvidenceIdentity))), 'utf8'))
+  .digest('hex')
+
+const lifecycleProjectionV1 = (snapshot, phase, state, reason, nextAction, automationStatus = 'HANDOFF_READY') => Object.freeze({
+  transition: 'lifecycle_orchestrator_v1',
+  state,
+  allowed: false,
+  exit_code: nextAction === 'STOP' ? 1 : 0,
+  reason,
+  task_issue_number: snapshot?.task_issue_number ?? null,
+  pr_number: snapshot?.pr_number ?? null,
+  current_head: snapshot?.current_head ?? null,
+  phase,
+  automation_status: automationStatus,
+  next_action: nextAction,
+  mutation_count: 0,
+})
+
+const lifecycleConvergedProjectionV1 = (snapshot, projection, completionEvidence) => {
+  if (projection.next_action === 'STOP' || projection.next_action === 'CONVERGED_NOOP') return projection
+  if (
+    !completionEvidence || typeof completionEvidence !== 'object' || !lifecycleCompletionEvidenceBrandV1.has(completionEvidence) ||
+    completionEvidence.action !== projection.next_action || completionEvidence.repository !== snapshot.repository ||
+    completionEvidence.task_issue_number !== snapshot.task_issue_number || completionEvidence.pr_number !== snapshot.pr_number ||
+    completionEvidence.exact_head !== snapshot.exact_head ||
+    !sameRolePathsV1(completionEvidence.scope, snapshot.changed_paths) ||
+    completionEvidence.snapshot_digest !== lifecycleTupleDigestV1(snapshot) ||
+    completionEvidence.completion_tuple_digest !== lifecycleTupleDigestV1(snapshot, completionEvidence.identity)
+  ) return projection
+  return lifecycleProjectionV1(snapshot, projection.phase, 'COMPLETED', 'lifecycle_evidence_converged', 'CONVERGED_NOOP', 'COMPLETED_NOOP')
+}
+
+export const acquireLifecycleCompletionEvidenceV1 = async ({ snapshot: input, candidateAction, evidenceKind, sourceCommentId, host }) => {
+  try {
+    const snapshot = validateLifecycleReplaySnapshotV1(input)
+    if (
+      candidateAction !== 'COMMIT_PUSH_PUBLISH' || evidenceKind !== 'PUBLICATION_HANDOFF_V1' ||
+      !positiveInteger(sourceCommentId) || snapshot.authority?.kind !== 'PUBLICATION_AUTHORITY'
+    ) throw new Error('lifecycle_completion_evidence_invalid')
+    const authorityRecord = await fetchRoleCommentRecordV1(
+      snapshot.repository,
+      snapshot.task_issue_number,
+      snapshot.authority.comment_id,
+      host,
+    )
+    const authority = parseRolePublicationAuthorityV1(authorityRecord.body, snapshot.repository, snapshot.task_issue_number)
+    const authorityBodySha256 = createHash('sha256').update(Buffer.from(authorityRecord.body, 'utf8')).digest('hex')
+    if (
+      authority.prNumber !== snapshot.pr_number || authority.exactHead !== snapshot.authority.exact_head ||
+      authority.resultCommentId !== snapshot.authority.result_comment_id || !sameRolePathsV1(authority.paths, snapshot.authority.paths) ||
+      authorityBodySha256 !== snapshot.authority.body_sha256 ||
+      authorityRecord.author_association !== snapshot.authority.actor_association ||
+      authorityRecord.user?.login !== snapshot.authority.actor_login || authorityRecord.user?.id !== snapshot.authority.actor_id ||
+      authorityRecord.user?.type !== snapshot.authority.actor_type
+    ) throw new Error('lifecycle_completion_evidence_invalid')
+    const resultRecord = await fetchRoleCommentRecordV1(
+      snapshot.repository,
+      snapshot.task_issue_number,
+      snapshot.authority.result_comment_id,
+      host,
+    )
+    const result = parseRoleResultHandoffV1(resultRecord.body)
+    const resultBodySha256 = createHash('sha256').update(Buffer.from(resultRecord.body, 'utf8')).digest('hex')
+    if (
+      result.prNumber !== snapshot.pr_number || result.exactHead !== authority.exactHead ||
+      !sameRolePathsV1(result.paths, authority.paths) || !isCompletedRoleResultV1(resultRecord.body) ||
+      resultBodySha256 !== snapshot.authority.result_body_sha256
+    ) throw new Error('lifecycle_completion_evidence_invalid')
+    const direct = await fetchRoleCommentRecordV1(snapshot.repository, snapshot.task_issue_number, sourceCommentId, host)
+    const publication = parseRolePublicationHandoffV1(direct.body)
+    if (
+      publication.prNumber !== snapshot.pr_number || publication.exactHead !== snapshot.exact_head ||
+      publication.authorityCommentId !== snapshot.authority.comment_id || publication.parentHead !== authority.exactHead ||
+      !sameRolePathsV1(publication.paths, snapshot.changed_paths) || !sameRolePathsV1(publication.paths, authority.paths) ||
+      typeof direct.user?.login !== 'string' || !positiveInteger(direct.user?.id) || typeof direct.user?.type !== 'string'
+    ) throw new Error('lifecycle_completion_evidence_invalid')
+    const publishedCommit = await api(host, `repos/${snapshot.repository}/commits/${publication.exactHead}`)
+    if (
+      publishedCommit?.sha !== publication.exactHead || !Array.isArray(publishedCommit.parents) || publishedCommit.parents.length !== 1 ||
+      publishedCommit.parents[0]?.sha !== authority.exactHead
+    ) throw new Error('lifecycle_completion_evidence_invalid')
+    const request = Object.freeze({
+      transition: 'lifecycle_orchestrator_v1',
+      repository: snapshot.repository,
+      taskIssueNumber: snapshot.task_issue_number,
+      prNumber: snapshot.pr_number,
+      exactHead: publication.exactHead,
+    })
+    const pull = await acquireMergeGatePullV1(request, host)
+    if (
+      pull.head.sha !== publication.exactHead || pull.head?.repo?.full_name !== snapshot.repository ||
+      typeof pull.head.ref !== 'string' || pull.head.ref.length === 0
+    ) throw new Error('lifecycle_completion_evidence_invalid')
+    const remoteHead = await host.branchHead(snapshot.repository, pull.head.ref)
+    if (remoteHead !== publication.exactHead) throw new Error('lifecycle_completion_evidence_invalid')
+    const publishedScope = await acquireChangedPathScopeV1(request, pull, host)
+    if (!sameRolePathsV1(publishedScope.actual_paths, snapshot.changed_paths) || !sameRolePathsV1(publishedScope.actual_paths, authority.paths)) {
+      throw new Error('lifecycle_completion_evidence_invalid')
+    }
+    const bodySha256 = createHash('sha256').update(Buffer.from(direct.body, 'utf8')).digest('hex')
+    const sourceUrl = `https://github.com/${snapshot.repository}/issues/${snapshot.task_issue_number}#issuecomment-${sourceCommentId}`
+    const identity = Object.freeze({
+      kind: evidenceKind,
+      source_url: sourceUrl,
+      source_comment_id: sourceCommentId,
+      action: candidateAction,
+      authority_comment_id: publication.authorityCommentId,
+      parent_head: publication.parentHead,
+      published_head: publication.exactHead,
+      remote_branch: pull.head.ref,
+      source_actor: `${direct.user.login}:${direct.user.id}:${direct.user.type}:${direct.author_association}`,
+      authority_body_sha256: authorityBodySha256,
+      result_body_sha256: resultBodySha256,
+      body_sha256: bodySha256,
+    })
+    const evidence = Object.freeze({
+      ...identity,
+      identity,
+      repository: snapshot.repository,
+      task_issue_number: snapshot.task_issue_number,
+      pr_number: snapshot.pr_number,
+      exact_head: snapshot.exact_head,
+      scope: snapshot.changed_paths,
+      snapshot_digest: lifecycleTupleDigestV1(snapshot),
+      completion_tuple_digest: lifecycleTupleDigestV1(snapshot, identity),
+    })
+    lifecycleCompletionEvidenceBrandV1.add(evidence)
+    return evidence
+  } catch {
+    throw new Error('lifecycle_completion_evidence_invalid')
+  }
+}
+
+export const reduceLifecycleReplayV1 = (input, completionEvidence = null) => {
+  let snapshot
+  try {
+    snapshot = validateLifecycleReplaySnapshotV1(input)
+  } catch (error) {
+    return lifecycleProjectionV1(input, 'ACQUIRE', 'INDETERMINATE', error instanceof Error ? error.message : 'lifecycle_snapshot_invalid', 'STOP', 'BLOCKED')
+  }
+  const project = (phase, state, reason, nextAction, automationStatus = 'HANDOFF_READY') =>
+    lifecycleConvergedProjectionV1(snapshot, lifecycleProjectionV1(snapshot, phase, state, reason, nextAction, automationStatus), completionEvidence)
+
+  if (snapshot.current_head !== snapshot.exact_head) return project('ACQUIRE', 'STALE', 'head_binding_stale', 'STOP', 'BLOCKED')
+  if (snapshot.pull_state !== 'open' || snapshot.pull_merged) return project('POST_MERGE', 'COMPLETED', 'already_merged', 'ISSUE_CLOSE_CANDIDATE')
+  if (snapshot.target_branch !== 'main') return project('ACQUIRE', 'INDETERMINATE', 'pull_binding_invalid', 'STOP', 'BLOCKED')
+  if (snapshot.evidence_status.authority === 'INCOMPLETE') {
+    return project('MERGE_DECISION', 'INDETERMINATE', 'minimal_governance_routing_ambiguous', 'STOP', 'BLOCKED')
+  }
+  if (snapshot.authority?.kind === 'MINIMAL_GOVERNANCE_CANDIDATE') {
+    if (
+      !snapshot.authority.event_bound || snapshot.authority.task_issue_number !== snapshot.task_issue_number ||
+      snapshot.authority.pr_number !== snapshot.pr_number || snapshot.authority.exact_head !== snapshot.exact_head
+    ) return project('MERGE_DECISION', 'STALE', 'minimal_governance_routing_invalid', 'STOP', 'BLOCKED')
+    return project('MINIMAL_GOVERNANCE', 'READY', 'minimal_governance_handoff_required', 'MINIMAL_GOVERNANCE_HANDOFF_REQUIRED')
+  }
+  if (snapshot.authority?.kind === 'PUBLICATION_AUTHORITY' && lifecycleCompletionEvidenceBrandV1.has(completionEvidence)) {
+    const converged = project('PUBLICATION', 'READY', 'publication_authority_observed', 'COMMIT_PUSH_PUBLISH')
+    if (converged.next_action === 'CONVERGED_NOOP') return converged
+  }
+  if (snapshot.authorized_paths === null || snapshot.scope_contract === null) {
+    return project('VALIDATION', 'INDETERMINATE', 'scope_evidence_missing', 'STOP', 'BLOCKED')
+  }
+  if (snapshot.changed_paths.some((pathValue) => !snapshot.authorized_paths.includes(pathValue))) {
+    return project('VALIDATION', 'IMPLEMENTATION_BLOCKED', 'repair_scope_outside_authorized_paths', 'STOP', 'BLOCKED')
+  }
+  if (snapshot.base_impact === null || snapshot.evidence_status.base_impact !== 'PRESENT' || !snapshot.base_impact.complete) {
+    return project('VALIDATION', 'INDETERMINATE', 'base_impact_evidence_missing', 'VALIDATE_IMPLEMENTATION')
+  }
+
+  const validationCurrent = snapshot.validation !== null &&
+    snapshot.validation.exact_head === snapshot.exact_head && snapshot.validation.current_base === snapshot.current_base &&
+    sameRolePathsV1(snapshot.validation.paths, snapshot.changed_paths)
+  if (!validationCurrent) return project('VALIDATION', 'REVIEW_PENDING', 'fresh_validation_required', 'VALIDATE_IMPLEMENTATION')
+
+  if (snapshot.evidence_status.review === 'INCOMPLETE') {
+    return project('REVIEW', 'INDETERMINATE', 'review_evidence_incomplete', 'STOP', 'BLOCKED')
+  }
+  const reviewCurrent = snapshot.review !== null && snapshot.review.reviewed_head === snapshot.exact_head &&
+    sameRolePathsV1(snapshot.review.paths, snapshot.changed_paths)
+  if (!reviewCurrent) return project('REVIEW', 'REVIEW_PENDING', 'fresh_review_required', 'INDEPENDENT_IMPLEMENTATION_REVIEWER')
+
+  if (snapshot.evidence_status.threads !== 'PRESENT') {
+    return project('FINDING_DISPOSITION', 'INDETERMINATE', 'thread_evidence_incomplete', 'STOP', 'BLOCKED')
+  }
+  const activeThreads = snapshot.threads.filter((thread) => !thread.is_resolved && !thread.is_outdated)
+  const dispositions = new Set(activeThreads.map((thread) => thread.finding_disposition))
+  if (dispositions.has('VALID_FINDING') && dispositions.has('REJECT_FINDING')) {
+    return project('FINDING_DISPOSITION', 'REVIEW_BLOCKED', 'review_finding_disposition_conflict', 'STOP', 'BLOCKED')
+  }
+  if (dispositions.has('VALID_FINDING')) return project('IMPLEMENTATION', 'REVIEW_BLOCKED', 'review_correction_required', 'IMPLEMENTER')
+  if (dispositions.has('REJECT_FINDING')) return project('FINDING_DISPOSITION', 'REVIEW_BLOCKED', 'rejected_finding_thread_resolution_required', 'THREAD_RESOLUTION_REQUIRED')
+  if (activeThreads.length > 0) return project('FINDING_DISPOSITION', 'REVIEW_BLOCKED', 'review_finding_disposition_required', 'STOP', 'BLOCKED')
+
+  if (
+    snapshot.review.decision !== 'APPROVE' || snapshot.review.blocking_finding_count !== 0 ||
+    snapshot.review.remaining_finding_count !== 0 || snapshot.review.unknown_count !== 0
+  ) return project('REVIEW', 'REVIEW_BLOCKED', 'review_not_approved', 'STOP', 'BLOCKED')
+
+  if (snapshot.evidence_status.checks !== 'PRESENT' || snapshot.checks.length === 0) return project('READY', 'INDETERMINATE', 'external_checks_missing', 'STOP', 'BLOCKED')
+  if (snapshot.checks.some((check) => check.exact_head !== snapshot.exact_head)) return project('READY', 'STALE', 'check_head_binding_stale', 'STOP', 'BLOCKED')
+  if (snapshot.checks.some((check) => check.status !== 'COMPLETED')) return project('READY', 'INDETERMINATE', 'external_checks_pending', 'STOP', 'BLOCKED')
+  if (snapshot.checks.some((check) => check.conclusion !== 'SUCCESS')) return project('READY', 'INDETERMINATE', 'external_checks_failed', 'STOP', 'BLOCKED')
+
+  if (snapshot.pull_draft) return project('READY', 'READY', 'ready_transition_required', 'READY_TRANSITION_REQUIRED')
+  if (snapshot.ready_evidence === null || snapshot.ready_evidence.exact_head !== snapshot.exact_head || snapshot.ready_evidence.review_comment_id !== snapshot.review.comment_id) {
+    return project('READY', 'STALE', 'stale_ready_evidence', 'STOP', 'BLOCKED')
+  }
+  if (snapshot.mergeable !== true) return project('MERGE_DECISION', 'INDETERMINATE', 'pull_not_mergeable', 'STOP', 'BLOCKED')
+  if (snapshot.authority === null) return project('MERGE_DECISION', 'MERGE_ELIGIBLE', 'merge_decision_required', 'MERGE_DECISION')
+  if (
+    snapshot.authority.exact_head !== snapshot.exact_head ||
+    !sameRolePathsV1(snapshot.authority.paths, snapshot.changed_paths)
+  ) return project('MERGE_DECISION', 'STALE', 'authority_binding_stale', 'STOP', 'BLOCKED')
+  return project('PUBLICATION', 'READY', 'publication_authority_observed', 'COMMIT_PUSH_PUBLISH')
+}
+
+const lifecycleIdentityFromProductionV1 = ({ event, sourceResult }) => {
+  const repository = event?.repository?.full_name
+  const taskIssueNumber = sourceResult?.task_issue_number ?? event?.issue?.number
+  const prNumber = sourceResult?.pr_number ?? event?.pull_request?.number
+  const exactHead = sourceResult?.current_head ?? event?.pull_request?.head?.sha
+  if (!REPOSITORY.test(repository ?? '') || !positiveInteger(taskIssueNumber) || !positiveInteger(prNumber) || !FULL_HEAD.test(exactHead ?? '')) {
+    throw new Error('lifecycle_production_identity_invalid')
+  }
+  return Object.freeze({ repository, taskIssueNumber, prNumber, exactHead })
+}
+
+const projectLifecycleMinimalCandidateV1 = ({ comment, identity, eventCommentId }) => {
+  if (!isMinimalGovernanceCandidateV1(comment?.body)) return null
+  const yaml = parseMinimalGovernanceYamlV1(comment.body)
+  if (
+    yaml.scalars.get('record_type') !== MINIMAL_GOVERNANCE_RECORD_TYPE_V1 ||
+    typeof yaml.scalars.get('task_issue') !== 'string' || typeof yaml.scalars.get('pull_request') !== 'string' ||
+    !FULL_HEAD.test(yaml.scalars.get('exact_head') ?? '')
+  ) throw new Error('minimal_governance_routing_invalid')
+  return Object.freeze({
+    kind: 'MINIMAL_GOVERNANCE_CANDIDATE',
+    comment_id: comment.id,
+    source_url: `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-${comment.id}`,
+    body_sha256: createHash('sha256').update(Buffer.from(comment.body, 'utf8')).digest('hex'),
+    routing_task_issue: yaml.scalars.get('task_issue'),
+    routing_pull_request: yaml.scalars.get('pull_request'),
+    exact_head: yaml.scalars.get('exact_head'),
+    event_bound: comment.id === eventCommentId,
+  })
+}
+
+const lifecycleMinimalCandidateApplicableV1 = (projection, identity) =>
+  projection?.routing_task_issue === `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}` &&
+  projection?.routing_pull_request === `https://github.com/${identity.repository}/pull/${identity.prNumber}` &&
+  projection?.exact_head === identity.exactHead
+
+const bindLifecycleMinimalCandidateV1 = (projection, identity) => Object.freeze({
+  kind: projection.kind,
+  comment_id: projection.comment_id,
+  source_url: projection.source_url,
+  body_sha256: projection.body_sha256,
+  task_issue_number: identity.taskIssueNumber,
+  pr_number: identity.prNumber,
+  exact_head: projection.exact_head,
+  event_bound: projection.event_bound,
+})
+
+const isLifecyclePublicationAuthorityCandidateV1 = (body) =>
+  typeof body === 'string' && /(?:^|\r?\n)[ \t]*record_type:[ \t]+["']?commit_push_publication_authorization_v1["']?[ \t]*(?:\r?$)/m.test(body)
+
+const projectLifecyclePublicationAuthorityV1 = ({ comment, identity }) => {
+  if (!isLifecyclePublicationAuthorityCandidateV1(comment?.body)) return null
+  const parsed = parseRolePublicationAuthorityV1(comment.body, identity.repository, identity.taskIssueNumber)
+  if (
+    !positiveInteger(comment?.id) ||
+    typeof comment.user?.login !== 'string' || !positiveInteger(comment.user?.id) || typeof comment.user?.type !== 'string' ||
+    !REVIEW_ASSOCIATIONS.has(comment.author_association)
+  ) throw new Error('lifecycle_publication_authority_invalid')
+  return Object.freeze({
+    kind: 'PUBLICATION_AUTHORITY',
+    id: String(comment.id),
+    comment_id: comment.id,
+    source_url: `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-${comment.id}`,
+    actor: `${comment.user.login}:${comment.user.id}:${comment.user.type}:${comment.author_association}`,
+    actor_login: comment.user.login,
+    actor_id: comment.user.id,
+    actor_type: comment.user.type,
+    actor_association: comment.author_association,
+    body_sha256: createHash('sha256').update(Buffer.from(comment.body, 'utf8')).digest('hex'),
+    pr_number: parsed.prNumber,
+    exact_head: parsed.exactHead,
+    result_comment_id: parsed.resultCommentId,
+    paths: parsed.paths,
+  })
+}
+
+const projectLifecycleValidationEvidenceV1 = ({ comment, identity, changedPaths }) => {
+  if (!/^##(?:#)? .*Result Handoff\b/m.test(comment.body)) return null
+  try {
+    const result = parseRoleResultHandoffV1(comment.body)
+    const base = roleLineValueV1(comment.body, ['Validated base', 'Base / current HEAD', 'Base / HEAD'])
+    const profile = roleLineValueV1(comment.body, ['Validation profile'])
+    const commandMatches = [...comment.body.matchAll(/^(?:[-*]|\d+\.)[ \t]+`([^`]+)`[ \t]*:[ \t]+PASS[ \t]*$/gmi)]
+    const commands = commandMatches.map((match) => match[1])
+    if (
+      result.prNumber !== identity.prNumber || result.exactHead !== identity.exactHead ||
+      !FULL_HEAD.test(base) || profile.length === 0 || commands.length === 0 ||
+      !sameRolePathsV1(result.paths, changedPaths) || !isCompletedRoleResultV1(comment.body)
+    ) return null
+    const bodySha256 = createHash('sha256').update(Buffer.from(comment.body, 'utf8')).digest('hex')
+    return Object.freeze({
+      status: 'PASS',
+      exact_head: identity.exactHead,
+      current_base: base,
+      paths: changedPaths,
+      profile,
+      commands: Object.freeze(commands),
+      input_revisions: Object.freeze([`issue-comment-${comment.id}:${bodySha256}`]),
+      source_comment_id: comment.id,
+      source_url: `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-${comment.id}`,
+      body_sha256: bodySha256,
+    })
+  } catch {
+    return null
+  }
+}
+
+const acquireLifecycleValidationEvidenceV1 = async ({ history, identity, changedPaths, host }) => {
+  const candidates = history.comments
+    .map((comment) => Object.freeze({ comment, projection: projectLifecycleValidationEvidenceV1({ comment, identity, changedPaths }) }))
+    .filter((candidate) => candidate.projection !== null)
+    .sort((left, right) => left.comment.created_at.localeCompare(right.comment.created_at) || left.comment.id - right.comment.id)
+  if (candidates.length === 0) return Object.freeze({ status: 'MISSING', evidence: null })
+  const selected = candidates.at(-1)
+  const fresh = await fetchRoleCommentRecordV1(identity.repository, identity.taskIssueNumber, selected.comment.id, host)
+  const confirmed = projectLifecycleValidationEvidenceV1({ comment: fresh, identity, changedPaths })
+  if (
+    confirmed === null || fresh.body !== selected.comment.body || fresh.author_association !== selected.comment.author_association ||
+    !lifecycleSameValueV1(confirmed, selected.projection)
+  ) return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+  return Object.freeze({ status: 'PRESENT', evidence: confirmed })
+}
+
+const acquireLifecycleBaseImpactV1 = async ({ repository, currentBase, changedPaths, validation, host }) => {
+  if (validation === null) return Object.freeze({ status: 'MISSING', evidence: null })
+  const reviewedBase = validation.current_base
+  if (reviewedBase === currentBase) return Object.freeze({
+    status: 'PRESENT',
+    evidence: Object.freeze({ reviewed_base: reviewedBase, current_base: currentBase, merge_base: currentBase, relevant_overlap_paths: Object.freeze([]), complete: true }),
+  })
+  try {
+    const compare = await api(host, `repos/${repository}/compare/${encodeURIComponent(reviewedBase)}...${encodeURIComponent(currentBase)}?per_page=${PAGE_SIZE}&page=1`)
+    if (
+      compare?.status !== 'ahead' || compare?.base_commit?.sha !== reviewedBase ||
+      compare?.merge_base_commit?.sha !== reviewedBase || !Array.isArray(compare.files) ||
+      !Number.isSafeInteger(compare.total_commits) || compare.total_commits < 0 || !Array.isArray(compare.commits) ||
+      !Number.isSafeInteger(compare.ahead_by) || compare.ahead_by !== compare.total_commits ||
+      !Number.isSafeInteger(compare.behind_by) || compare.behind_by !== 0 ||
+      compare.total_commits !== compare.commits.length || compare.commits.length === 0 ||
+      compare.commits.some((commit) => !FULL_HEAD.test(commit?.sha ?? '')) || compare.commits.at(-1).sha !== currentBase ||
+      compare.files.length >= 300
+    ) return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+    const baseChangedPaths = new Set()
+    for (const file of compare.files) {
+      if (!isNormalizedRepositoryPathV1(file?.filename)) return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+      baseChangedPaths.add(file.filename)
+      if (file.previous_filename !== undefined) {
+        if (!isNormalizedRepositoryPathV1(file.previous_filename)) return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+        baseChangedPaths.add(file.previous_filename)
+      }
+    }
+    return Object.freeze({
+      status: 'PRESENT',
+      evidence: Object.freeze({
+        reviewed_base: reviewedBase,
+        current_base: currentBase,
+        merge_base: compare.merge_base_commit.sha,
+        relevant_overlap_paths: Object.freeze(changedPaths.filter((pathValue) => baseChangedPaths.has(pathValue))),
+        complete: true,
+      }),
+    })
+  } catch {
+    return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+  }
+}
+
+const acquireLifecycleAuthorityCandidateV1 = async ({ history, identity, changedPaths, event, host }) => {
+  const eventCommentId = positiveInteger(event?.comment?.id) ? event.comment.id : null
+  if (eventCommentId !== null && isMinimalGovernanceCandidateV1(event?.comment?.body)) {
+    const applicableMinimalCandidates = []
+    for (const comment of history.comments) {
+      if (!isMinimalGovernanceCandidateV1(comment.body)) continue
+      try {
+        const projection = projectLifecycleMinimalCandidateV1({ comment, identity, eventCommentId })
+        if (lifecycleMinimalCandidateApplicableV1(projection, identity)) {
+          applicableMinimalCandidates.push(Object.freeze({ comment, projection }))
+        }
+      } catch {
+        if (comment.id === eventCommentId) return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+      }
+    }
+    if (applicableMinimalCandidates.length !== 1) {
+      return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+    }
+    const selected = applicableMinimalCandidates[0]
+    if (
+      selected.comment.id !== eventCommentId || selected.comment.body !== event.comment.body ||
+      selected.comment.author_association !== event.comment.author_association ||
+      selected.comment.user.login !== event.comment.user?.login || selected.comment.user.id !== event.comment.user?.id ||
+      selected.comment.user.type !== event.comment.user?.type
+    ) {
+      return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+    }
+    try {
+      const fresh = await fetchRoleCommentRecordV1(identity.repository, identity.taskIssueNumber, selected.comment.id, host)
+      const confirmed = projectLifecycleMinimalCandidateV1({ comment: fresh, identity, eventCommentId })
+      if (
+        confirmed === null || !lifecycleMinimalCandidateApplicableV1(confirmed, identity) || !confirmed.event_bound ||
+        fresh.body !== selected.comment.body || fresh.author_association !== selected.comment.author_association ||
+        fresh.user?.login !== selected.comment.user.login || fresh.user?.id !== selected.comment.user.id || fresh.user?.type !== selected.comment.user.type ||
+        !lifecycleSameValueV1(confirmed, selected.projection)
+      ) return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+      return Object.freeze({ status: 'PRESENT', evidence: bindLifecycleMinimalCandidateV1(confirmed, identity) })
+    } catch {
+      return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+    }
+  }
+
+  const applicablePublicationAuthorities = []
+  try {
+    for (const comment of history.comments) {
+      const projection = projectLifecyclePublicationAuthorityV1({ comment, identity })
+      if (
+        projection !== null && projection.pr_number === identity.prNumber && projection.exact_head === identity.exactHead &&
+        sameRolePathsV1(projection.paths, changedPaths)
+      ) applicablePublicationAuthorities.push(Object.freeze({ comment, projection }))
+    }
+  } catch {
+    return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+  }
+  if (applicablePublicationAuthorities.length === 0) return Object.freeze({ status: 'MISSING', evidence: null })
+  if (applicablePublicationAuthorities.length !== 1) return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+  const selected = applicablePublicationAuthorities[0]
+  try {
+    const fresh = await fetchRoleCommentRecordV1(identity.repository, identity.taskIssueNumber, selected.comment.id, host)
+    const confirmed = projectLifecyclePublicationAuthorityV1({ comment: fresh, identity })
+    if (
+      confirmed === null || confirmed.pr_number !== identity.prNumber || confirmed.exact_head !== identity.exactHead ||
+      !sameRolePathsV1(confirmed.paths, changedPaths) || fresh.body !== selected.comment.body ||
+      fresh.author_association !== selected.comment.author_association || fresh.user?.login !== selected.comment.user.login ||
+      fresh.user?.id !== selected.comment.user.id || fresh.user?.type !== selected.comment.user.type ||
+      !lifecycleSameValueV1(confirmed, selected.projection)
+    ) return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+    const resultRecord = await fetchRoleCommentRecordV1(identity.repository, identity.taskIssueNumber, confirmed.result_comment_id, host)
+    const result = parseRoleResultHandoffV1(resultRecord.body)
+    if (
+      result.prNumber !== identity.prNumber || result.exactHead !== confirmed.exact_head ||
+      !sameRolePathsV1(result.paths, changedPaths) || !isCompletedRoleResultV1(resultRecord.body)
+    ) return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+    return Object.freeze({
+      status: 'PRESENT',
+      evidence: Object.freeze({
+        ...confirmed,
+        result_source_url: `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-${confirmed.result_comment_id}`,
+        result_body_sha256: createHash('sha256').update(Buffer.from(resultRecord.body, 'utf8')).digest('hex'),
+      }),
+    })
+  } catch {
+    return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+  }
+}
+
+const LIFECYCLE_THREADS_QUERY_V1 = `
+query LifecycleReplayThreads($owner: String!, $name: String!, $pr: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $pr) {
+      number
+      headRefOid
+      reviewThreads(first: 100) {
+        totalCount
+        nodes {
+          id
+          isResolved
+          isOutdated
+          comments(last: 1) {
+            totalCount
+            nodes { id body createdAt }
+          }
+        }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+}`
+
+const lifecycleFindingDispositionV1 = (body) => {
+  const valid = /\bVALID_FINDING\b/.test(body)
+  const rejected = /\bREJECT_FINDING\b/.test(body)
+  if (valid && rejected) throw new Error('lifecycle_finding_disposition_conflict')
+  return valid ? 'VALID_FINDING' : rejected ? 'REJECT_FINDING' : 'NONE'
+}
+
+const acquireLifecycleReviewThreadsV1 = async (request, host) => {
+  const { owner, name } = repositoryPartsV1(request.repository)
+  const data = await graphql(host, LIFECYCLE_THREADS_QUERY_V1, { owner, name, pr: request.prNumber })
+  const pull = data?.repository?.pullRequest
+  const connection = pull?.reviewThreads
+  if (
+    pull?.number !== request.prNumber || pull?.headRefOid !== request.exactHead || !connection ||
+    !Number.isSafeInteger(connection.totalCount) || connection.totalCount < 0 ||
+    !Array.isArray(connection.nodes) || connection.nodes.length !== connection.totalCount ||
+    connection.pageInfo?.hasNextPage !== false
+  ) throw new Error('lifecycle_threads_incomplete')
+  const ids = new Set()
+  return Object.freeze(connection.nodes.map((thread) => {
+    const comments = thread?.comments
+    if (
+      typeof thread?.id !== 'string' || thread.id.length === 0 || ids.has(thread.id) ||
+      typeof thread.isResolved !== 'boolean' || typeof thread.isOutdated !== 'boolean' ||
+      !comments || !Number.isSafeInteger(comments.totalCount) || comments.totalCount < 1 ||
+      !Array.isArray(comments.nodes) || comments.nodes.length !== 1 ||
+      typeof comments.nodes[0]?.id !== 'string' || comments.nodes[0].id.length === 0 ||
+      typeof comments.nodes[0]?.body !== 'string' || typeof comments.nodes[0]?.createdAt !== 'string'
+    ) throw new Error('lifecycle_threads_incomplete')
+    ids.add(thread.id)
+    return Object.freeze({
+      id: thread.id,
+      is_resolved: thread.isResolved,
+      is_outdated: thread.isOutdated,
+      latest_comment_id: comments.nodes[0].id,
+      finding_disposition: lifecycleFindingDispositionV1(comments.nodes[0].body),
+    })
+  }))
+}
+
+const acquireLifecycleReplaySnapshotV1 = async ({ event, sourceResult, host }) => {
+  const identity = lifecycleIdentityFromProductionV1({ event, sourceResult })
+  const request = Object.freeze({ transition: 'lifecycle_orchestrator_v1', ...identity })
+  const task = await acquireTaskIdentityV1(request, host)
+  if (task.state !== 'open') throw new Error('task_identity_invalid')
+  const pull = await acquireMergeGatePullV1(request, host)
+  if (!Number.isSafeInteger(pull.changed_files) || pull.changed_files < 0 || pull.base?.ref !== 'main' || !FULL_HEAD.test(pull.base?.sha ?? '')) {
+    throw new Error('lifecycle_pull_binding_invalid')
+  }
+  const scope = await acquireChangedPathScopeV1(request, pull, host)
+  const currentBase = await host.branchHead(identity.repository, 'main')
+  if (!FULL_HEAD.test(currentBase ?? '')) throw new Error('lifecycle_current_base_invalid')
+
+  let history = null
+  let historyStatus = 'PRESENT'
+  try {
+    history = await acquireMinimalGovernanceCommentHistoryV1(request, host)
+  } catch {
+    historyStatus = 'INCOMPLETE'
+    history = Object.freeze({ comments: Object.freeze([]), page_count: 0, raw_fingerprint_sha256: null })
+  }
+
+  let review = null
+  let reviewStatus = historyStatus
+  try {
+    if (historyStatus !== 'PRESENT') throw new Error('review_history_incomplete')
+    const selected = reduceCurrentLeafIndependentReviewDecisionV1({
+      comments: history.comments,
+      repository: identity.repository,
+      taskIssueNumber: identity.taskIssueNumber,
+      prNumber: identity.prNumber,
+      exactHead: identity.exactHead,
+    })
+    const confirmed = await confirmCurrentLeafIndependentReviewDecisionV1({ selected, request, host })
+    review = Object.freeze({
+      comment_id: confirmed.commentId,
+      reviewed_head: confirmed.review.reviewed_head,
+      decision: confirmed.review.decision,
+      blocking_finding_count: confirmed.review.blocking_finding_count,
+      remaining_finding_count: confirmed.review.remaining_finding_count,
+      unknown_count: confirmed.review.unknown_count,
+      source_order: history.comments.findIndex((comment) => comment.id === confirmed.commentId) + 1,
+      body_sha256: createHash('sha256').update(Buffer.from(confirmed.body, 'utf8')).digest('hex'),
+      paths: scope.actual_paths,
+    })
+    reviewStatus = 'PRESENT'
+  } catch (error) {
+    reviewStatus = error instanceof Error && error.message === 'review_decision_current_leaf_missing' ? 'MISSING' : 'INCOMPLETE'
+  }
+
+  const validationProjection = historyStatus === 'PRESENT'
+    ? await acquireLifecycleValidationEvidenceV1({ history, identity, changedPaths: scope.actual_paths, host })
+    : Object.freeze({ status: 'INCOMPLETE', evidence: null })
+  const baseImpactProjection = await acquireLifecycleBaseImpactV1({
+    repository: identity.repository,
+    currentBase,
+    changedPaths: scope.actual_paths,
+    validation: validationProjection.evidence,
+    host,
+  })
+  const authorityProjection = historyStatus === 'PRESENT'
+    ? await acquireLifecycleAuthorityCandidateV1({ history, identity, changedPaths: scope.actual_paths, event, host })
+    : Object.freeze({ status: 'INCOMPLETE', evidence: null })
+
+  let checkSnapshot = null
+  let checksStatus = 'PRESENT'
+  try {
+    checkSnapshot = await acquireMergeCheckRollupSnapshotV1(request, host)
+  } catch {
+    checksStatus = 'INCOMPLETE'
+    checkSnapshot = Object.freeze({ checks: Object.freeze([]) })
+  }
+  let threadSnapshot = null
+  let threadsStatus = 'PRESENT'
+  try {
+    threadSnapshot = await acquireLifecycleReviewThreadsV1(request, host)
+  } catch {
+    threadsStatus = 'INCOMPLETE'
+    threadSnapshot = Object.freeze([])
+  }
+
+  let taskState = null
+  try {
+    taskState = extractProtectedTransitionTaskStateV1(pull.body)
+  } catch {
+    taskState = null
+  }
+  const readyEvidence = event?.action === 'ready_for_review' && review !== null
+    ? Object.freeze({ event_id: String(event?.pull_request?.updated_at ?? event?.pull_request?.head?.sha), exact_head: identity.exactHead, review_comment_id: review.comment_id })
+    : null
+  return Object.freeze({
+    repository: identity.repository,
+    task_issue_number: identity.taskIssueNumber,
+    pr_number: identity.prNumber,
+    target_branch: 'main',
+    exact_head: identity.exactHead,
+    current_head: pull.head.sha,
+    current_base: currentBase,
+    pull_state: pull.state,
+    pull_draft: pull.draft,
+    pull_merged: pull.merged === true,
+    mergeable: pull.mergeable,
+    changed_paths: scope.actual_paths,
+    authorized_paths: taskState?.authorized_paths ?? null,
+    scope_contract: taskState === null ? null : Object.freeze({ authority_id: `task-state:${identity.taskIssueNumber}:${identity.prNumber}`, body_sha256: createHash('sha256').update(Buffer.from(pull.body, 'utf8')).digest('hex') }),
+    base_impact: baseImpactProjection.evidence,
+    evidence_status: Object.freeze({
+      base_impact: baseImpactProjection.status,
+      validation: validationProjection.status,
+      authority: authorityProjection.status,
+      review: reviewStatus,
+      checks: checksStatus,
+      threads: threadsStatus,
+    }),
+    validation: validationProjection.evidence,
+    review,
+    checks: Object.freeze(checkSnapshot.checks.map((check) => Object.freeze({
+      id: check.id,
+      exact_head: identity.exactHead,
+      status: check.type === 'CheckRun' ? check.status : (check.state === 'PENDING' ? 'IN_PROGRESS' : 'COMPLETED'),
+      conclusion: check.type === 'CheckRun' ? check.conclusion : (check.state === 'SUCCESS' ? 'SUCCESS' : check.state),
+      provenance: check.type === 'CheckRun' ? `${check.app_database_id ?? 'UNKNOWN'}:${check.details_url ?? 'NONE'}` : `status:${check.context}`,
+    }))),
+    threads: threadSnapshot,
+    ready_evidence: readyEvidence,
+    authority: authorityProjection.evidence,
+  })
+}
+
+export const executeLifecycleOrchestratorV1 = async ({ event = null, sourceResult = null, host = null, snapshot = null, completionEvidence = null }) => {
+  if (snapshot !== null) return reduceLifecycleReplayV1(snapshot, completionEvidence)
+  let identity = null
+  try {
+    identity = lifecycleIdentityFromProductionV1({ event, sourceResult })
+    const acquired = await acquireLifecycleReplaySnapshotV1({ event, sourceResult, host })
+    return reduceLifecycleReplayV1(acquired, completionEvidence)
+  } catch (error) {
+    return lifecycleProjectionV1({
+      task_issue_number: identity?.taskIssueNumber ?? sourceResult?.task_issue_number ?? event?.issue?.number ?? null,
+      pr_number: identity?.prNumber ?? sourceResult?.pr_number ?? event?.pull_request?.number ?? null,
+      current_head: identity?.exactHead ?? sourceResult?.current_head ?? event?.pull_request?.head?.sha ?? null,
+    }, 'ACQUIRE', 'INDETERMINATE', error instanceof Error ? error.message : 'lifecycle_acquisition_failed', 'STOP', 'BLOCKED')
+  }
+}
+
 export const executeRoleTransitionOrchestratorV1 = async ({ event, host, runId, runAttempt = null, hostSha = null, jobName = null }) => {
   let normalized
   let request
@@ -5689,13 +6581,27 @@ const productionHost = (environment) => {
   })
 }
 
+const executeReviewEventWithLifecycleReplayV1 = async ({ event, host, runId, runAttempt, hostSha, jobName }) => {
+  const result = await executeRoleTransitionOrchestratorV1({ event, host, runId, runAttempt, hostSha, jobName })
+  if (!isMinimalGovernanceCandidateV1(event?.comment?.body)) {
+    await executeLifecycleOrchestratorV1({ event, sourceResult: result, host })
+  }
+  return result
+}
+
+const executeReadyEventWithLifecycleReplayV1 = async ({ event, host, runId }) => {
+  const result = await executeReadyForReviewProgressionV1({ event, host, runId })
+  await executeLifecycleOrchestratorV1({ event, sourceResult: result, host })
+  return result
+}
+
 const main = async () => {
   let invocation
   try {
     invocation = parseInvocation(process.argv.slice(2), process.env)
     const host = productionHost(process.env)
     const executeProduction = async (executionHost = host) => invocation.mode === 'review_event'
-      ? await executeRoleTransitionOrchestratorV1({
+      ? await executeReviewEventWithLifecycleReplayV1({
           event: JSON.parse(readFileSync(invocation.eventFile, 'utf8')),
           host: executionHost,
           runId: process.env.GITHUB_RUN_ID,
@@ -5704,7 +6610,7 @@ const main = async () => {
           jobName: process.env.GITHUB_JOB ?? null,
         })
       : invocation.mode === 'ready_event'
-        ? await executeReadyForReviewProgressionV1({
+        ? await executeReadyEventWithLifecycleReplayV1({
             event: JSON.parse(readFileSync(invocation.eventFile, 'utf8')),
             host: executionHost,
             runId: process.env.GITHUB_RUN_ID,
