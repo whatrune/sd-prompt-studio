@@ -1,6 +1,8 @@
 # Context Planning and Execution Context Assembly Architecture
 
-Status: Design review candidate
+Status: Retired design context (non-normative)
+
+Retirement notice: The Model Routing and Deployment Resolver implementations consumed by this architecture were retired by PR #333. This document is preserved only as historical design context and does not define current runtime contracts or integration requirements.
 
 Task: `ARCH-CONTEXT-ASSEMBLY-DESIGN-001`
 
@@ -12,7 +14,7 @@ Implementation: not included
 
 ## 1. Purpose
 
-This document defines the architecture between a validated Model Routing Decision and the existing Deployment Resolver `ResolverExecutionContext`, plus the immutable outer boundary that preserves requirements not represented by that existing type through later execution integration.
+This document preserves the historical architecture between a validated Model Routing Decision and the retired Deployment Resolver `ResolverExecutionContext`, plus the immutable outer boundary that would have preserved requirements not represented by that retired type.
 
 It separates four decisions that must not be conflated:
 
@@ -21,11 +23,11 @@ It separates four decisions that must not be conflated:
 3. which approved execution-environment profiles satisfy the routed requirements;
 4. how those independently validated results are assembled without reinterpretation.
 
-The result is one fail-closed creation boundary for `ExecutionPreparationEnvelope` and its nested `ResolverExecutionContext`. The Envelope preserves security, validation, latency, provenance, and materialization references while the unchanged nested Context carries only the existing Resolver requirements. The design prevents Context Planning, cost optimization, compatibility mapping, assembly, or downstream correlation from selecting a provider, model, deployment, Binding, priority, or fallback.
+The historical result was one fail-closed creation boundary for `ExecutionPreparationEnvelope` and its nested `ResolverExecutionContext`. The Envelope preserved security, validation, latency, provenance, and materialization references while the nested Context carried only the then-defined Resolver requirements. The design prevented Context Planning, cost optimization, compatibility mapping, assembly, or downstream correlation from selecting a provider, model, deployment, Binding, priority, or fallback.
 
-## 2. Normative sources and precedence
+## 2. Historical source context
 
-This architecture is subordinate to:
+The retired architecture was based on:
 
 1. [AI Model Routing Policy Design](12-model-routing-policy.md)
 2. [Automation Response Policy Design](13-response-policy.md)
@@ -34,16 +36,14 @@ This architecture is subordinate to:
 5. [Binding Set Semantic Validation Policy](16-binding-set-semantic-validation-policy.md)
 6. [Deployment Resolver Design](17-deployment-resolver-design.md)
 7. [AI Model Routing and Response Policy Architecture](18-model-routing-response-architecture.md)
-8. Model Routing contract and implementation under `src/model-routing/`
-9. Deployment Resolver contract and implementation under `src/deployment-resolver/`
-10. [Delegation and Result Contract](../team/11-delegation-and-result-contract.md)
-11. [Repository working rules](../../AGENTS.md)
+8. [Delegation and Result Contract](../team/11-delegation-and-result-contract.md)
+9. [Repository working rules](../../AGENTS.md)
 
-PR #126 defines the upstream architecture. PR #128 defines the frozen Model Routing types. PR #130 implements the pure Model Router. PR #122 defines the Resolver types, and PR #124 implements the Resolver core.
+PRs #122, #124, #128, and #130 formerly defined and implemented the Resolver and Model Routing contracts consumed by this design. Those implementations are retired.
 
-The implemented `RoutingDecision` and `ResolverExecutionContext` types are fixed inputs to this design. This document does not add fields to, remove fields from, or reinterpret either type.
+The historical design treated `RoutingDecision` and `ResolverExecutionContext` as fixed logical inputs. They are not current runtime APIs.
 
-If a conflict exists, the existing frozen contract remains authoritative and this design returns to Backend Architect review. Components must not repair a conflict by choosing the most permissive interpretation.
+This document has no current normative precedence. Any reuse of its design intent requires a new Backend Architect-reviewed contract and implementation.
 
 ## 3. Scope
 
@@ -90,9 +90,9 @@ The following components must not create it:
 
 No other component may complete, modify, extend, or repair either value. This prevents multiple creation paths from applying different defaults, dropping non-projected requirements, or weakening different requirements.
 
-### 5.2 Existing Routing Decision remains authoritative
+### 5.2 Historical Routing Decision boundary
 
-The implemented `RoutingDecision` already contains:
+The retired `RoutingDecision` contract contained:
 
 - `context_policy_ref`;
 - `required_context_refs`;
@@ -106,7 +106,7 @@ The implemented `RoutingDecision` already contains:
 - `security_policy_refs`;
 - `validation_policy_ref`.
 
-Context Planner applies these values. It does not generate a replacement `context_policy_ref`, add new required context, or remove a required or forbidden entry.
+The historical Context Planner design applied these values without generating a replacement `context_policy_ref`, adding required context, or removing a required or forbidden entry.
 
 ### 5.3 Context requirement and context acquisition are separate
 
@@ -120,7 +120,7 @@ Compatibility Profile Resolver maps approved logical requirements to exact execu
 
 ### 5.5 Assembly is validation and projection, not inference
 
-Assembler verifies identity and cross-object consistency, projects authoritative values into the existing `ResolverExecutionContext`, and wraps that value with non-projected requirements and provenance in one `ExecutionPreparationEnvelope`. It has no defaulting, upgrade, downgrade, repair, or selection authority.
+The historical Assembler design verified identity and cross-object consistency, projected values into the then-defined `ResolverExecutionContext`, and wrapped that value with non-projected requirements and provenance in one `ExecutionPreparationEnvelope`.
 
 ### 5.6 Materialization visibility uses ContextEstimate binding
 
@@ -134,7 +134,7 @@ Assembler receives no Materialization content and performs no Evidence Store, Re
 
 ### 5.7 Non-projected requirements use an outer Envelope
 
-`security_policy_refs`, `validation_policy_ref`, and `latency_policy_ref` are not added to the frozen `ResolverExecutionContext`. Assembler instead preserves them in `ExecutionPreparationEnvelope`. A future Execution Coordinator holds the Envelope unchanged while passing only its nested Context in the existing Resolver Request, then correlates the same Envelope with the pinned Resolution Result for future Adapter and Runner integration.
+`security_policy_refs`, `validation_policy_ref`, and `latency_policy_ref` were not added to the retired logical `ResolverExecutionContext`. The historical Assembler design instead preserved them in `ExecutionPreparationEnvelope` for a then-proposed Resolver Request and later integration.
 
 ## 6. End-to-end flow
 
@@ -161,7 +161,7 @@ flowchart TD
   ENVELOPE --> CONTEXT["nested ResolverExecutionContext"]
   ENVELOPE --> COORDINATOR["Future Execution Coordinator holds immutable Envelope"]
   CONTEXT --> COORDINATOR
-  COORDINATOR -->|"existing Resolver Request gets nested Context"| RESOLVER["Deployment Resolver"]
+  COORDINATOR -->|"historical Resolver Request gets nested Context"| RESOLVER["Deployment Resolver"]
   RESOLVER --> RESULT["Pinned Resolution Result"]
   RESULT --> INTEGRATION["Future Execution Integration Boundary"]
   COORDINATOR --> INTEGRATION
@@ -187,7 +187,7 @@ Every intermediate result must be traceable to:
 
 An intermediate result from another Task, Assignment revision, routing contract, or Routing Decision must be rejected. Equality is exact; suffix, path, timestamp, or conversation inference is forbidden.
 
-This design does not define a new hash or persistent identity format. Future structural contracts must choose immutable references without changing existing Model Routing or Resolver fields.
+This design did not define a new hash or persistent identity format. Its proposed structural contracts would have chosen immutable references without changing the retired Model Routing or Resolver fields.
 
 ## 8. Context Planner
 
@@ -507,7 +507,7 @@ Any mismatch or missing proof blocks assembly. Assembler does not choose which i
 
 ### 12.3 Exact field projection
 
-| `ResolverExecutionContext` field | Authoritative source |
+| Historical `ResolverExecutionContext` field | Design source |
 | --- | --- |
 | `routing_contract_version` | Routing Decision |
 | `resolution_scope_ref` | Compatibility Resolution |
@@ -531,7 +531,7 @@ No default value is permitted. Empty tool or structured-output arrays are valid 
 
 ### 12.4 Logical ExecutionPreparationEnvelope output
 
-`ExecutionPreparationEnvelope` is a logical design model, not a change to an Existing Contract and not a new persistent Schema in this task.
+`ExecutionPreparationEnvelope` is a historical logical design model, not a current Contract or persistent Schema.
 
 | Field | Meaning |
 | --- | --- |
@@ -545,7 +545,7 @@ No default value is permitted. Empty tool or structured-output arrays are valid 
 | `materialization_validation_ref` | Exact successful proof reference carried by Context Estimate |
 | `context_estimate_ref` | Exact validated Estimate reference |
 | `compatibility_resolution_ref` | Exact validated Compatibility Resolution reference |
-| `resolver_execution_context` | Existing `ResolverExecutionContext` projected by this Assembler |
+| `resolver_execution_context` | Retired logical `ResolverExecutionContext` projected by the historical Assembler design |
 | `security_policy_refs` | Exact routed security requirements |
 | `validation_policy_ref` | Exact routed validation requirement |
 | `latency_policy_ref` | Exact routed latency requirement |
@@ -560,7 +560,7 @@ Only Assembler creates this Envelope and its nested Context. Other components do
 
 ### 12.5 Projected and carried values
 
-The nested `resolver_execution_context` contains only the exact fields in the existing Resolver contract. The following requirements are not projected into that Context and instead remain in the Envelope:
+The nested `resolver_execution_context` contained only the fields in the retired Resolver contract. The following requirements remained in the historical Envelope design:
 
 - `security_policy_refs`;
 - `validation_policy_ref`;
@@ -577,7 +577,7 @@ Omission from `ResolverExecutionContext` does not cancel a requirement. The immu
 
 #### Deployment Resolver input
 
-Deployment Resolver receives only the existing `ResolverExecutionContext` inside its existing Resolver Request. It does not receive, parse, or modify `ExecutionPreparationEnvelope`.
+The historical Deployment Resolver design received only `ResolverExecutionContext` inside its then-defined Resolver Request and did not receive, parse, or modify `ExecutionPreparationEnvelope`.
 
 #### Resolver processing
 
@@ -868,11 +868,11 @@ A future implementation must prove at least:
 - empty requirement arrays remain explicit empty arrays;
 - Envelope preserves security, validation, latency, Evidence, Estimate, and compatibility references;
 - output Envelope and nested Context are deeply immutable and reproducible;
-- existing Resolver accepts a valid assembled context without contract changes.
+- the retired Resolver design would have accepted a valid assembled context without contract changes.
 
 ### Downstream carry-through
 
-- Resolver receives only the existing nested `ResolverExecutionContext` in its existing Request;
+- the historical Resolver design received only the nested `ResolverExecutionContext` in its then-defined Request;
 - Coordinator holds the exact Envelope unchanged during Resolver processing;
 - Resolver Result cannot be paired with another Task or Assignment Envelope;
 - missing or mismatched Envelope blocks Adapter integration;

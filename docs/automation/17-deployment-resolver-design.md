@@ -1,6 +1,8 @@
 # Deployment Resolver Design
 
-Status: Design review candidate
+Status: Retired design context (non-normative)
+
+Retirement notice: The Deployment Binding, Deployment Resolver, and Model Routing implementation stack was retired by PR #333. This document is preserved only as historical design context. It does not define a current Resolver contract, API, or implementation requirement.
 
 Task: `ARCH-DEPLOYMENT-RESOLVER-DESIGN-001`
 
@@ -10,27 +12,26 @@ Target logical contract: `deployment_resolver_v1`
 
 ## 1. Purpose
 
-This document defines the architecture and decision boundary for resolving one executable Deployment Binding revision from an already validated Binding Set Snapshot and a trusted Execution Context.
+This document preserves the historical architecture and decision boundary for resolving one executable Deployment Binding revision from an already validated Binding Set Snapshot and a trusted Execution Context.
 
-The Resolver is the last pure decision layer before a future Execution Adapter receives a pinned Binding revision. It preserves Logical Model Tier and risk decisions, rejects ambiguous or incomplete inputs, produces reproducible decision evidence, and fails closed without selecting a provider or model through unapproved runtime inference.
+The historical Resolver design placed a pure decision layer before a proposed Execution Adapter received a pinned Binding revision. It preserved Logical Model Tier and risk decisions, rejected ambiguous or incomplete inputs, produced reproducible decision evidence, and failed closed without unapproved runtime inference.
 
-This task is design only. It does not implement the Resolver, change a Schema, call a provider, operate a Runner, manage credentials, or add fields to existing Execution Request or Result Handoff contracts.
+The original task was design-only and did not implement the Resolver, change a Schema, call a provider, operate a Runner, manage credentials, or add fields to Execution Request or Result Handoff contracts.
 
-## 2. Normative sources
+## 2. Historical source context
 
-This design is subordinate to:
+The retired design was based on:
 
 - [AI Model Routing Policy](12-model-routing-policy.md)
 - [Deployment Binding Policy](14-deployment-binding-policy.md)
 - [Deployment Binding Schema Design](15-deployment-binding-schema-design.md)
-- [Deployment Binding Record JSON Schema](../../src/deployment-binding/deployment-binding.schema.json)
 - [Binding Set Semantic Validation Policy](16-binding-set-semantic-validation-policy.md)
 - [Runner Provisioning Architecture Design](10-runner-provisioning-design.md)
 - [Delegation and Result Contract](../team/11-delegation-and-result-contract.md)
 
-PR #116 structural validation and the future Binding Set Semantic Validator are mandatory preconditions. Resolver does not repeat or weaken either validation boundary.
+The historical Resolver design assumed the retired PR #116 structural validator and a future Binding Set Semantic Validator as preconditions. No current implementation is required to consume those retired results.
 
-If this document conflicts with a normative source, the source remains authoritative and this design returns to Architect review.
+This document has no current normative precedence. Any reuse of its design intent requires a new Architect-reviewed contract and implementation.
 
 ## 3. Scope
 

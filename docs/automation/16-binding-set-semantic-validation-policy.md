@@ -1,6 +1,8 @@
 # Binding Set Semantic Validation Policy
 
-Status: Design review candidate
+Status: Retired design context (non-normative)
+
+Retirement notice: The Deployment Binding, Deployment Resolver, and Model Routing implementation stack was retired by PR #333. This document is preserved only as historical design context. It does not define a current schema, validator, API, or implementation requirement.
 
 Task: `ARCH-BINDING-SET-SEMANTIC-VALIDATION-001`
 
@@ -10,26 +12,25 @@ Target logical contract: `deployment_binding_set_v1`
 
 ## 1. Purpose
 
-This document defines semantic validation for a set of structurally valid Deployment Binding Records before that set can be used by a future Deployment Resolver.
+This document preserves the historical semantic-validation design for a set of Deployment Binding Records before that set would have been used by the retired Deployment Resolver design.
 
-The policy prevents ambiguous selection, duplicate lineage, invalid fallback graphs, capability downgrade, unreproducible snapshots, and unapproved or stale Binding use without changing existing Model Routing, Deployment Binding Record, dispatch, Role, Execution Request, Result Handoff, Runner, or research contracts.
+The historical policy was intended to prevent ambiguous selection, duplicate lineage, invalid fallback graphs, capability downgrade, unreproducible snapshots, and unapproved or stale Binding use without changing the then-current surrounding contracts.
 
-This task is design only. It does not implement a Binding Set Schema, Semantic Validator, Resolver, provider connection, Runner integration, registry, database, or hash.
+The original task was design-only and did not implement a Binding Set Schema, Semantic Validator, Resolver, provider connection, Runner integration, registry, database, or hash.
 
-## 2. Normative sources
+## 2. Historical source context
 
-This policy is subordinate to:
+The retired design was based on:
 
 - [AI Model Routing Policy](12-model-routing-policy.md)
 - [Deployment Binding Policy](14-deployment-binding-policy.md)
 - [Deployment Binding Schema Design](15-deployment-binding-schema-design.md)
-- [Deployment Binding Record JSON Schema](../../src/deployment-binding/deployment-binding.schema.json)
 - [Runner Provisioning Architecture Design](10-runner-provisioning-design.md)
 - [Delegation and Result Contract](../team/11-delegation-and-result-contract.md)
 
-PR #116 implements structural validation for one Deployment Binding Record. Its accepted `DeploymentBinding` value is a precondition for this policy, not a substitute for set-level validation.
+PR #116 formerly implemented structural validation for one Deployment Binding Record. That implementation and its `DeploymentBinding` API are retired; references below describe the historical design boundary only.
 
-If this document conflicts with a normative source, the source remains authoritative and this design returns to Architect review.
+This document has no current normative precedence. Any reuse of its design intent requires a new Architect-reviewed contract and implementation.
 
 ## 3. Scope
 
@@ -61,9 +62,9 @@ This policy does not:
 
 ## 5. Responsibility boundary
 
-### 5.1 Single Record Validation
+### 5.1 Historical Single Record Validation
 
-PR #116 remains responsible for one Deployment Binding Record:
+The retired PR #116 design formerly assigned these responsibilities to single-record validation:
 
 - required and unknown fields;
 - primitive type, format, enum, timestamp, and reference shape;
@@ -147,11 +148,11 @@ List order has no selection meaning. A future serialized representation must use
 
 ## 7. Validation inputs and preconditions
 
-Semantic validation requires:
+The retired semantic-validation design required:
 
 - one logically valid Binding Set envelope;
 - the exact Record collection referenced by the Snapshot;
-- a successful PR #116 structural-validation result for every Record;
+- a successful result from the then-current single-record structural validator for every Record;
 - a fixed UTC `evaluation_time`;
 - evidence-verification results supplied by an approved external boundary;
 - approval-verification results supplied by an approved external boundary;
@@ -163,11 +164,11 @@ If any precondition is missing, ambiguous, untrusted, or structurally invalid, s
 
 ## 8. Validation order
 
-The future validator must evaluate in this order:
+The historical validator design evaluated in this order:
 
 1. validate the Set envelope structurally under its future Schema;
 2. resolve exact membership and reject missing or extra Records;
-3. confirm every Record passed PR #116 structural validation;
+3. confirm every Record passed the then-current single-record structural validation;
 4. validate Set identity, revision, approval, and effective-time boundary;
 5. validate duplicate, lineage, and deployment-identity rules;
 6. validate shared routing and resolution scope;
@@ -250,7 +251,7 @@ Within the same `routing_contract_version` and `logical_tier`, every member must
 
 Different floor references for the same tier make the Set invalid because Resolver cannot determine which tier definition is authoritative.
 
-Each member must also satisfy the within-record rule that its `required_reasoning_level` is supported by its declared capability set. PR #116 enforces the local relationship; set validation relies on the accepted Record and compares it across fallback edges.
+Each member was also required to satisfy the within-record rule that its `required_reasoning_level` was supported by its declared capability set. The retired single-record design enforced the local relationship; set validation relied on the admitted Record and compared it across fallback edges.
 
 ### 11.3 No downgrade
 
@@ -328,7 +329,7 @@ A -> B -> A
 A -> B -> C -> A
 ```
 
-Cycle detection is global. Direct self-reference detection in PR #116 does not replace set-level graph validation.
+Cycle detection was global. Direct self-reference detection in the retired single-record design did not replace set-level graph validation.
 
 ### 13.3 Provider and scope boundary
 
@@ -460,7 +461,7 @@ The Semantic Validator may validate the identity and trust boundary of supplied 
 
 ### 16.1 Structural presence versus semantic verification
 
-PR #116 verifies required approval and evidence fields are structurally present for approved Records. Set validation verifies that external approval and evidence verification results bind to the exact identities and remain current.
+The retired single-record design verified that required approval and evidence fields were structurally present for approved Records. The historical set-validation design then verified that external approval and evidence results bound to the exact identities and remained current.
 
 Presence of a URL or repository path alone is not proof that evidence exists, matches, or remains valid.
 
@@ -714,9 +715,9 @@ Merge gate: Resolver, Provider Adapter, and approved Runner profile available; n
 
 ## 22. Implementation acceptance criteria
 
-Future Semantic Validator implementation is acceptable only when:
+The historical Semantic Validator acceptance criteria were:
 
-1. every Record passed PR #116 structural validation before set semantics;
+1. every Record passed the then-current single-record structural validation before set semantics;
 2. exact membership is one-to-one with supplied Records;
 3. one Snapshot contains at most one revision per Binding lineage;
 4. same numeric revision across different lineages remains valid;
@@ -751,9 +752,9 @@ These require separate Architect decisions and Task Assignments.
 
 ## 24. Design confirmation
 
-This design confirms:
+This historical design recorded:
 
-- Single Record Structural Validation remains PR #116 responsibility.
+- Single Record Structural Validation was assigned to the now-retired PR #116 implementation.
 - Binding Set Semantic Validation is atomic and fail-closed.
 - Snapshot membership and identity are exact and reproducible without defining a hash.
 - Duplicate lineage, priority ambiguity, invalid fallback, downgrade, lifecycle, and evidence failures are detected before Resolver use.

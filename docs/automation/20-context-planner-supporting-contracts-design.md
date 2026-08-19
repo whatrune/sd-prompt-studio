@@ -1,6 +1,8 @@
 # Context Planner Supporting Contracts Design
 
-Status: Design review candidate
+Status: Retired design context (non-normative)
+
+Retirement notice: The Model Routing implementation consumed by this design was retired by PR #333. This document is preserved only as historical design context and does not define a current Routing contract, validator, API, or implementation requirement.
 
 Task: `ARCH-CONTEXT-PLANNER-SUPPORTING-CONTRACTS-001`
 
@@ -18,28 +20,27 @@ Implementation: not included
 
 ## 1. Purpose
 
-This document freezes the supporting contracts required before a pure Context Planner Core can be implemented. It closes three boundaries that the existing Context Planning architecture and Context Plan structural contract intentionally did not implement:
+This document preserves the historical supporting-contract design that preceded a proposed pure Context Planner Core. It described three boundaries that the then-existing Context Planning architecture and Context Plan structural contract did not implement:
 
 1. a Planner outcome failure that distinguishes expected fail-closed conditions from unexpected implementation defects;
 2. a closed, deterministic Context Policy Rule model for optional-context inclusion, exclusion, and canonical ordering;
 3. a deterministic, immutable `context_plan_ref` strategy that does not require persistence or source I/O.
 
-The goal is to let a Backend Implementer implement the Planner without inventing statuses, rules, precedence, references, hash projections, or repair behavior.
+The historical goal was to let a Backend Implementer implement the proposed Planner without inventing statuses, rules, precedence, references, hash projections, or repair behavior.
 
-## 2. Normative sources and precedence
+## 2. Historical source context
 
-This design is subordinate to:
+The retired design was based on:
 
 1. [Context Planning and Execution Context Assembly Architecture](19-context-planning-execution-context-assembly-architecture.md)
 2. the frozen Context Plan types and validators under `src/context-planning/`
-3. the frozen Model Routing types and core under `src/model-routing/`
-4. [AI Model Routing and Response Policy Architecture](18-model-routing-response-architecture.md)
-5. [Delegation and Result Contract](../team/11-delegation-and-result-contract.md)
-6. [Repository working rules](../../AGENTS.md)
+3. [AI Model Routing and Response Policy Architecture](18-model-routing-response-architecture.md)
+4. [Delegation and Result Contract](../team/11-delegation-and-result-contract.md)
+5. [Repository working rules](../../AGENTS.md)
 
-PR #132 freezes the Context Planning architecture. PR #134 freezes `context_plan_v1` and its existing structural validators. PR #128 and PR #130 freeze and implement `model_routing_v1`.
+PRs #128 and #130 formerly defined and implemented `model_routing_v1`; that implementation is retired. PRs #132 and #134 are retained here only as historical context for this retired design.
 
-This document adds no field to an existing type and changes no existing validator. If this design conflicts with an existing frozen contract, the existing contract remains authoritative and implementation returns to Architect review.
+This document has no current normative precedence. Any reuse of its design intent requires a new Architect-reviewed contract and implementation.
 
 ## 3. Scope
 
@@ -115,9 +116,9 @@ The diagram describes pure validated data flow. Policy and source resolution occ
 
 ## 7. Planner entry preconditions
 
-The formal Planner Core supports only:
+The historical Planner Core design supported only:
 
-- a `RoutingDecision` that passed the PR #128 structural validator;
+- a `RoutingDecision` admitted by the then-current PR #128 structural validator;
 - a Context Policy Snapshot that passed its future structural validator;
 - exact immutable references for both inputs;
 - one supported Planner and supporting-contract version.
@@ -126,7 +127,7 @@ Arbitrary Issue prose, unvalidated objects, source content, filesystem enumerati
 
 The caller resolves the exact `context_policy_ref` outside the pure core and passes the validated immutable Policy Snapshot. Planner Core does not read the reference itself.
 
-Structural rejection of an arbitrary malformed value occurs before Planner Core. `ContextPlanningFailureV1` covers cross-input and semantic failures after trusted structural admission, plus sanitized unexpected defects inside the Planner. It does not replace the existing PR #128 or PR #134 structural validation results.
+In the historical design, structural rejection of an arbitrary malformed value occurred before Planner Core. `ContextPlanningFailureV1` covered cross-input and semantic failures after trusted structural admission; it did not replace the then-current PR #128 or PR #134 structural validation results.
 
 ## 8. ContextPlanningFailureV1 contract
 
@@ -320,7 +321,7 @@ The following are forbidden:
 - matching on runtime state, availability, cost, provider, or filesystem order;
 - model judgment or natural-language policy interpretation.
 
-Policy selection already occurred upstream. Rule matching does not re-evaluate Role or Task type, because those values are not fields of the frozen `RoutingDecision` and must not be inferred.
+In the historical design, policy selection occurred upstream. Rule matching did not re-evaluate Role or Task type because those values were not fields of the retired logical `RoutingDecision`.
 
 ### 10.3 Optional-context evaluation algorithm
 
@@ -575,9 +576,9 @@ No failure path emits a partial Context Plan. No failure path defaults an action
 
 ## 17. Validation boundaries
 
-### 17.1 Existing validation retained
+### 17.1 Historical validation boundary
 
-PR #128 continues to validate `RoutingDecision`. PR #134 continues to validate `ContextPlan` and its existing blocked-only structural failure. Neither is modified by this design.
+At the time of this design, PR #128 validated `RoutingDecision` and PR #134 validated `ContextPlan`. The PR #128 Model Routing validator is now retired; this document imposes no current requirement on either API.
 
 ### 17.2 Future supporting structural validation
 
