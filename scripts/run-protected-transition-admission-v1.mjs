@@ -3736,7 +3736,14 @@ const parseRoleUrlNumberV1 = (value, prefix, reason = 'terminal_result_ambiguous
 }
 
 const roleMarkdownScalarV1 = (value) => {
-  const trimmed = value.trim().replace(/^`|`$/g, '')
+  let trimmed = value.trim().replace(/^`|`$/g, '')
+  if (trimmed.startsWith('"') || trimmed.endsWith('"')) {
+    if (!/^"[^"\\\u0000-\u001f\u007f]*"$/.test(trimmed)) throw new Error('terminal_result_ambiguous_or_invalid')
+    trimmed = trimmed.slice(1, -1)
+  } else if (trimmed.startsWith("'") || trimmed.endsWith("'")) {
+    if (!/^'[^'\u0000-\u001f\u007f]*'$/.test(trimmed)) throw new Error('terminal_result_ambiguous_or_invalid')
+    trimmed = trimmed.slice(1, -1)
+  }
   if (trimmed.length === 0 || trimmed.length > 4096 || /[\u0000-\u001f\u007f]/.test(trimmed)) {
     throw new Error('terminal_result_ambiguous_or_invalid')
   }
@@ -5764,6 +5771,129 @@ const projectLifecyclePublicationAuthorityV1 = ({ comment, identity }) => {
   })
 }
 
+export const parseLifecyclePublicationTaskBindingV1 = (rawValue, repository) => {
+  if (typeof rawValue !== 'string' || rawValue.length === 0 || rawValue !== rawValue.trim()) {
+    throw new Error('lifecycle_publication_authority_task_binding_invalid')
+  }
+  let value = rawValue
+  if (value.startsWith('"') || value.startsWith("'")) {
+    const quote = value[0]
+    if (value.length < 3 || value.at(-1) !== quote || value.slice(1, -1).includes(quote)) {
+      throw new Error('lifecycle_publication_authority_task_binding_invalid')
+    }
+    value = value.slice(1, -1)
+  } else if (value.endsWith('"') || value.endsWith("'")) {
+    throw new Error('lifecycle_publication_authority_task_binding_invalid')
+  }
+  if (/^[1-9]\d*$/.test(value)) {
+    const issueNumber = Number(value)
+    if (positiveInteger(issueNumber)) return issueNumber
+    throw new Error('lifecycle_publication_authority_task_binding_invalid')
+  }
+  const prefix = `https://github.com/${repository}/issues/`
+  if (!value.startsWith(prefix)) throw new Error('lifecycle_publication_authority_task_binding_invalid')
+  const suffix = value.slice(prefix.length)
+  if (!/^[1-9]\d*$/.test(suffix)) throw new Error('lifecycle_publication_authority_task_binding_invalid')
+  const issueNumber = Number(suffix)
+  if (!positiveInteger(issueNumber)) throw new Error('lifecycle_publication_authority_task_binding_invalid')
+  return issueNumber
+}
+
+const classifyLifecyclePublicationAuthorityApplicabilityV1 = ({ comment, identity, changedPaths }) => {
+  if (!isLifecyclePublicationAuthorityCandidateV1(comment?.body)) return 'NOT_CANDIDATE'
+  const blocks = [...comment.body.matchAll(/```yaml\r?\n([\s\S]*?)\r?\n```/g)]
+  if (blocks.length !== 1) return 'POTENTIALLY_CURRENT_MALFORMED'
+
+  const scalarKeys = new Set(['record_type', 'parent_issue', 'target_pr', 'consumer_pr', 'expected_parent'])
+  const rawScalars = new Map([...scalarKeys].map((key) => [key, []]))
+  const rawPaths = []
+  let exactPathsCount = 0
+  let collectingPaths = false
+  let identitySyntaxInvalid = false
+  for (const line of blocks[0][1].split(/\r?\n/)) {
+    const keyMatch = /^([a-z][a-z0-9_]*):/.exec(line)
+    const key = keyMatch?.[1] ?? null
+    if (key !== null && scalarKeys.has(key)) {
+      collectingPaths = false
+      const scalar = new RegExp(`^${key}:([ \\t]+)(.+)$`).exec(line)
+      if (scalar === null) identitySyntaxInvalid = true
+      else {
+        if (key === 'parent_issue' && scalar[1] !== ' ') identitySyntaxInvalid = true
+        rawScalars.get(key).push(scalar[2])
+      }
+      continue
+    }
+    if (key === 'exact_paths') {
+      collectingPaths = false
+      exactPathsCount += 1
+      if (!/^exact_paths:[ \t]*$/.test(line)) identitySyntaxInvalid = true
+      else collectingPaths = true
+      continue
+    }
+    if (collectingPaths) {
+      if (line.trim().length === 0) continue
+      const listItem = /^  -[ \t]+(.+)$/.exec(line)
+      if (listItem !== null) {
+        rawPaths.push(listItem[1])
+        continue
+      }
+      collectingPaths = false
+    }
+  }
+
+  const scalars = new Map()
+  const requiredScalarKeys = new Set(['record_type', 'parent_issue', 'expected_parent'])
+  for (const key of scalarKeys) {
+    const values = rawScalars.get(key)
+    if (values.length > 1 || (values.length === 0 && requiredScalarKeys.has(key))) {
+      identitySyntaxInvalid = true
+      continue
+    }
+    if (values.length === 0) continue
+    try {
+      scalars.set(key, roleMarkdownScalarV1(values[0]))
+    } catch {
+      identitySyntaxInvalid = true
+    }
+  }
+  const paths = []
+  if (exactPathsCount !== 1 || rawPaths.length === 0) identitySyntaxInvalid = true
+  for (const rawPath of rawPaths) {
+    try {
+      paths.push(roleMarkdownScalarV1(rawPath))
+    } catch {
+      identitySyntaxInvalid = true
+    }
+  }
+
+  let identityMismatch = false
+  if (scalars.get('record_type') !== 'commit_push_publication_authorization_v1') identitySyntaxInvalid = true
+  const rawTaskValues = rawScalars.get('parent_issue')
+  if (rawTaskValues.length === 1) {
+    try {
+      if (parseLifecyclePublicationTaskBindingV1(rawTaskValues[0], identity.repository) !== identity.taskIssueNumber) {
+        identityMismatch = true
+      }
+    } catch {
+      identitySyntaxInvalid = true
+    }
+  }
+  const prKeys = ['target_pr', 'consumer_pr'].filter((key) => scalars.has(key))
+  if (prKeys.length !== 1 || !positiveInteger(scalars.get(prKeys[0]))) identitySyntaxInvalid = true
+  else if (scalars.get(prKeys[0]) !== identity.prNumber) identityMismatch = true
+  const expectedParent = scalars.get('expected_parent')
+  if (!FULL_HEAD.test(expectedParent ?? '')) identitySyntaxInvalid = true
+  else if (expectedParent !== identity.exactHead) identityMismatch = true
+  if (
+    paths.length === 0 || new Set(paths).size !== paths.length ||
+    paths.some((value) => !isNormalizedRepositoryPathV1(value))
+  ) identitySyntaxInvalid = true
+  else if (!sameRolePathsV1(Object.freeze([...paths].sort()), changedPaths)) identityMismatch = true
+
+  if (identitySyntaxInvalid) return 'POTENTIALLY_CURRENT_MALFORMED'
+  return identityMismatch ? 'NON_APPLICABLE' : 'CURRENT_APPLICABLE'
+}
+
 const projectLifecycleValidationEvidenceV1 = ({ comment, identity, changedPaths }) => {
   if (!/^##(?:#)? .*Result Handoff\b/m.test(comment.body)) return null
   try {
@@ -5897,17 +6027,23 @@ const acquireLifecycleAuthorityCandidateV1 = async ({ history, identity, changed
   }
 
   const applicablePublicationAuthorities = []
-  try {
-    for (const comment of history.comments) {
-      const projection = projectLifecyclePublicationAuthorityV1({ comment, identity })
-      if (
-        projection !== null && projection.pr_number === identity.prNumber && projection.exact_head === identity.exactHead &&
-        sameRolePathsV1(projection.paths, changedPaths)
-      ) applicablePublicationAuthorities.push(Object.freeze({ comment, projection }))
+  let malformedApplicablePublicationAuthority = false
+  for (const comment of history.comments) {
+    const applicability = classifyLifecyclePublicationAuthorityApplicabilityV1({ comment, identity, changedPaths })
+    if (applicability === 'NOT_CANDIDATE' || applicability === 'NON_APPLICABLE') continue
+    if (applicability === 'POTENTIALLY_CURRENT_MALFORMED') {
+      malformedApplicablePublicationAuthority = true
+      continue
     }
-  } catch {
-    return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+    try {
+      const projection = projectLifecyclePublicationAuthorityV1({ comment, identity })
+      if (projection === null) malformedApplicablePublicationAuthority = true
+      else applicablePublicationAuthorities.push(Object.freeze({ comment, projection }))
+    } catch {
+      malformedApplicablePublicationAuthority = true
+    }
   }
+  if (malformedApplicablePublicationAuthority) return Object.freeze({ status: 'INCOMPLETE', evidence: null })
   if (applicablePublicationAuthorities.length === 0) return Object.freeze({ status: 'MISSING', evidence: null })
   if (applicablePublicationAuthorities.length !== 1) return Object.freeze({ status: 'INCOMPLETE', evidence: null })
   const selected = applicablePublicationAuthorities[0]

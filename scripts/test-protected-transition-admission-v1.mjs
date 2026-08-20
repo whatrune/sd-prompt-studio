@@ -41,6 +41,7 @@ import {
   parseProductOwnerMergeDecisionV1,
   parseIndependentReviewDecisionProjectionV1,
   parseMinimalGovernanceAuthorityV1,
+  parseLifecyclePublicationTaskBindingV1,
   parseReviewApprovalEventV1,
   projectIndependentReviewerFailureEvidenceV1,
   projectRoleOutputFailureDiagnosticV1,
@@ -5381,18 +5382,18 @@ task_issue: "https://github.com/${REPOSITORY}/issues/${task}"
 pull_request: "https://github.com/${REPOSITORY}/pull/${pr}"
 exact_head: "${head}"
 \`\`\``
-const lifecyclePublicationAuthorityBodyV1 = ({ task, pr, parent, resultCommentId, paths }) => `# Publication Authority
+const lifecyclePublicationAuthorityBodyV1 = ({ task, pr, parent, resultCommentId, paths, quoted = false }) => `# Publication Authority
 
 \`\`\`yaml
-record_type: commit_push_publication_authorization_v1
-parent_issue: ${task}
-target_pr: ${pr}
-expected_parent: ${parent}
-result_handoff_comment_id: ${resultCommentId}
-publication_allowed: true
-status: authorized_for_publication_only
+record_type: ${quoted ? '"commit_push_publication_authorization_v1"' : 'commit_push_publication_authorization_v1'}
+parent_issue: ${quoted ? `"${task}"` : task}
+target_pr: ${quoted ? `"${pr}"` : pr}
+expected_parent: ${quoted ? `"${parent}"` : parent}
+result_handoff_comment_id: ${quoted ? `"${resultCommentId}"` : resultCommentId}
+publication_allowed: ${quoted ? '"true"' : 'true'}
+status: ${quoted ? '"authorized_for_publication_only"' : 'authorized_for_publication_only'}
 exact_paths:
-${paths.map((pathValue) => `  - ${pathValue}`).join('\n')}
+${paths.map((pathValue) => `  - ${quoted ? `"${pathValue}"` : pathValue}`).join('\n')}
 \`\`\``
 const lifecyclePublicationHandoffBodyV1 = ({ task, pr, head, parent, authorityId, paths }) => `## Publication Handoff
 
@@ -5428,6 +5429,7 @@ const lifecycleProductionFixtureV1 = ({
   publicationAuthority = false,
   publicationAuthorityHead = head,
   publicationAuthorityPaths = paths,
+  publicationAuthorityQuoted = false,
   publicationAuthorityDirectBody = null,
   threadDisposition = null,
   ready = false,
@@ -5470,6 +5472,7 @@ const lifecycleProductionFixtureV1 = ({
       parent: publicationAuthorityHead,
       resultCommentId: validationId,
       paths: publicationAuthorityPaths,
+      quoted: publicationAuthorityQuoted,
     }),
   })
   const comments = minimalCandidate
@@ -5909,6 +5912,333 @@ const lifecyclePublicationAcquisitionMatrix = [
 ]
 for (const [evidence, label] of lifecyclePublicationAcquisitionMatrix) check(evidence, `LOV1 Publication Authority acquisition ${label}`)
 
+const lifecycleQuotedAuthorityIdentity = lifecycleHistoricalIdentityV1[325]
+const lifecycleQuotedAuthorityResultId = lifecycleQuotedAuthorityIdentity.reviewId - 1
+check(parseLifecyclePublicationTaskBindingV1('352', REPOSITORY) === 352, 'LOV1 Stage-A parent_issue canonical integer accepted')
+check(
+  parseLifecyclePublicationTaskBindingV1(`https://github.com/${REPOSITORY}/issues/352`, REPOSITORY) === 352,
+  'LOV1 Stage-A parent_issue canonical repository Issue URL accepted',
+)
+check(parseLifecyclePublicationTaskBindingV1('353', REPOSITORY) === 353, 'LOV1 Stage-A parent_issue valid different Task remains distinguishable')
+for (const [rawTask, label] of [
+  ['0352', 'leading zero'],
+  ['garbage', 'garbage'],
+  ['0', 'zero'],
+  ['https://github.com/whatrune/other-repository/issues/352', 'malformed repository Issue URL'],
+]) {
+  const failure = await errorOf(() => parseLifecyclePublicationTaskBindingV1(rawTask, REPOSITORY))
+  check(failure?.message === 'lifecycle_publication_authority_task_binding_invalid', `LOV1 Stage-A parent_issue rejects ${label}`)
+}
+const lifecycleQuotedStaleAuthorityOne = lifecycleCommentV1({
+  id: lifecycleQuotedAuthorityIdentity.authorityId + 510,
+  createdAt: '2026-08-17T23:40:00Z',
+  body: lifecyclePublicationAuthorityBodyV1({
+    task: lifecycleQuotedAuthorityIdentity.task,
+    pr: 325,
+    parent: OTHER_HEAD,
+    resultCommentId: lifecycleQuotedAuthorityResultId,
+    paths: lifecycleHistoricalPathsV1[325],
+    quoted: true,
+  }),
+})
+const lifecycleQuotedStaleAuthorityTwo = lifecycleCommentV1({
+  id: lifecycleQuotedAuthorityIdentity.authorityId + 511,
+  createdAt: '2026-08-17T23:41:00Z',
+  body: lifecyclePublicationAuthorityBodyV1({
+    task: lifecycleQuotedAuthorityIdentity.task,
+    pr: 325,
+    parent: HEAD,
+    resultCommentId: lifecycleQuotedAuthorityResultId,
+    paths: lifecycleHistoricalPathsV1[325],
+    quoted: true,
+  }),
+})
+const lifecycleQuotedCurrentAuthorityDuplicate = lifecycleCommentV1({
+  id: lifecycleQuotedAuthorityIdentity.authorityId + 512,
+  createdAt: '2026-08-18T00:01:30Z',
+  body: lifecyclePublicationAuthorityBodyV1({
+    task: lifecycleQuotedAuthorityIdentity.task,
+    pr: 325,
+    parent: lifecycleQuotedAuthorityIdentity.head,
+    resultCommentId: lifecycleQuotedAuthorityResultId,
+    paths: lifecycleHistoricalPathsV1[325],
+    quoted: true,
+  }),
+})
+const lifecycleMalformedQuotedCurrentAuthorityBody = lifecyclePublicationAuthorityBodyV1({
+  task: lifecycleQuotedAuthorityIdentity.task,
+  pr: 325,
+  parent: lifecycleQuotedAuthorityIdentity.head,
+  resultCommentId: lifecycleQuotedAuthorityResultId,
+  paths: lifecycleHistoricalPathsV1[325],
+  quoted: true,
+}).replace('publication_allowed: "true"', 'publication_allowed: "false"')
+const lifecycleMalformedQuotedCurrentAuthority = lifecycleCommentV1({
+  id: lifecycleQuotedAuthorityIdentity.authorityId + 514,
+  createdAt: '2026-08-18T00:01:35Z',
+  body: lifecycleMalformedQuotedCurrentAuthorityBody,
+})
+const lifecycleMalformedQuotedSyntaxAuthority = lifecycleCommentV1({
+  id: lifecycleQuotedAuthorityIdentity.authorityId + 515,
+  createdAt: '2026-08-18T00:01:36Z',
+  body: lifecyclePublicationAuthorityBodyV1({
+    task: lifecycleQuotedAuthorityIdentity.task,
+    pr: 325,
+    parent: lifecycleQuotedAuthorityIdentity.head,
+    resultCommentId: lifecycleQuotedAuthorityResultId,
+    paths: lifecycleHistoricalPathsV1[325],
+    quoted: true,
+  }).replace('status: "authorized_for_publication_only"', 'status: "authorized_for_publication_only'),
+})
+const lifecycleOldHeadMalformedStatusAuthority = lifecycleCommentV1({
+  id: lifecycleQuotedAuthorityIdentity.authorityId + 516,
+  createdAt: '2026-08-17T23:43:00Z',
+  body: lifecyclePublicationAuthorityBodyV1({
+    task: lifecycleQuotedAuthorityIdentity.task,
+    pr: 325,
+    parent: OTHER_HEAD,
+    resultCommentId: lifecycleQuotedAuthorityResultId,
+    paths: lifecycleHistoricalPathsV1[325],
+    quoted: true,
+  }).replace('status: "authorized_for_publication_only"', 'status: "authorized_for_publication_only'),
+})
+const lifecycleWrongPrMalformedAllowedAuthority = lifecycleCommentV1({
+  id: lifecycleQuotedAuthorityIdentity.authorityId + 517,
+  createdAt: '2026-08-17T23:44:00Z',
+  body: lifecyclePublicationAuthorityBodyV1({
+    task: lifecycleQuotedAuthorityIdentity.task,
+    pr: 326,
+    parent: lifecycleQuotedAuthorityIdentity.head,
+    resultCommentId: lifecycleQuotedAuthorityResultId,
+    paths: lifecycleHistoricalPathsV1[325],
+    quoted: true,
+  }).replace('publication_allowed: "true"', 'publication_allowed: "true'),
+})
+const lifecycleWrongTaskMalformedActorAuthority = lifecycleCommentV1({
+  id: lifecycleQuotedAuthorityIdentity.authorityId + 518,
+  createdAt: '2026-08-17T23:45:00Z',
+  body: lifecyclePublicationAuthorityBodyV1({
+    task: lifecycleQuotedAuthorityIdentity.task + 1,
+    pr: 325,
+    parent: lifecycleQuotedAuthorityIdentity.head,
+    resultCommentId: lifecycleQuotedAuthorityResultId,
+    paths: lifecycleHistoricalPathsV1[325],
+    quoted: true,
+  }).replace('status:', 'authority_actor_login: "unterminated\nstatus:'),
+})
+const lifecycleMalformedCurrentIdentityAuthority = lifecycleCommentV1({
+  id: lifecycleQuotedAuthorityIdentity.authorityId + 519,
+  createdAt: '2026-08-18T00:01:37Z',
+  body: lifecyclePublicationAuthorityBodyV1({
+    task: lifecycleQuotedAuthorityIdentity.task,
+    pr: 325,
+    parent: lifecycleQuotedAuthorityIdentity.head,
+    resultCommentId: lifecycleQuotedAuthorityResultId,
+    paths: lifecycleHistoricalPathsV1[325],
+    quoted: true,
+  }).replace(`expected_parent: "${lifecycleQuotedAuthorityIdentity.head}"`, `expected_parent: "${lifecycleQuotedAuthorityIdentity.head}`),
+})
+const lifecycleWrongPathMalformedStatusAuthority = lifecycleCommentV1({
+  id: lifecycleQuotedAuthorityIdentity.authorityId + 520,
+  createdAt: '2026-08-17T23:46:00Z',
+  body: lifecyclePublicationAuthorityBodyV1({
+    task: lifecycleQuotedAuthorityIdentity.task,
+    pr: 325,
+    parent: lifecycleQuotedAuthorityIdentity.head,
+    resultCommentId: lifecycleQuotedAuthorityResultId,
+    paths: ['wrong-path'],
+    quoted: true,
+  }).replace('status: "authorized_for_publication_only"', 'status: "authorized_for_publication_only'),
+})
+const lifecycleMalformedTaskOldHeadAuthority = lifecycleCommentV1({
+  id: lifecycleQuotedAuthorityIdentity.authorityId + 521,
+  createdAt: '2026-08-17T23:47:00Z',
+  body: lifecyclePublicationAuthorityBodyV1({
+    task: lifecycleQuotedAuthorityIdentity.task,
+    pr: 325,
+    parent: OTHER_HEAD,
+    resultCommentId: lifecycleQuotedAuthorityResultId,
+    paths: lifecycleHistoricalPathsV1[325],
+    quoted: true,
+  }).replace(`parent_issue: "${lifecycleQuotedAuthorityIdentity.task}"`, `parent_issue: "0${lifecycleQuotedAuthorityIdentity.task}"`),
+})
+const lifecycleMalformedTaskWrongPrAuthority = lifecycleCommentV1({
+  id: lifecycleQuotedAuthorityIdentity.authorityId + 522,
+  createdAt: '2026-08-17T23:47:10Z',
+  body: lifecyclePublicationAuthorityBodyV1({
+    task: lifecycleQuotedAuthorityIdentity.task,
+    pr: 326,
+    parent: lifecycleQuotedAuthorityIdentity.head,
+    resultCommentId: lifecycleQuotedAuthorityResultId,
+    paths: lifecycleHistoricalPathsV1[325],
+    quoted: true,
+  }).replace(`parent_issue: "${lifecycleQuotedAuthorityIdentity.task}"`, 'parent_issue: "garbage"'),
+})
+const lifecycleMalformedParentDifferentTaskAuthority = lifecycleCommentV1({
+  id: lifecycleQuotedAuthorityIdentity.authorityId + 523,
+  createdAt: '2026-08-17T23:47:20Z',
+  body: lifecyclePublicationAuthorityBodyV1({
+    task: lifecycleQuotedAuthorityIdentity.task + 1,
+    pr: 325,
+    parent: lifecycleQuotedAuthorityIdentity.head,
+    resultCommentId: lifecycleQuotedAuthorityResultId,
+    paths: lifecycleHistoricalPathsV1[325],
+    quoted: true,
+  }).replace(`expected_parent: "${lifecycleQuotedAuthorityIdentity.head}"`, 'expected_parent: "not-a-full-head"'),
+})
+const lifecycleMalformedPathsOldHeadAuthority = lifecycleCommentV1({
+  id: lifecycleQuotedAuthorityIdentity.authorityId + 524,
+  createdAt: '2026-08-17T23:47:30Z',
+  body: lifecyclePublicationAuthorityBodyV1({
+    task: lifecycleQuotedAuthorityIdentity.task,
+    pr: 325,
+    parent: OTHER_HEAD,
+    resultCommentId: lifecycleQuotedAuthorityResultId,
+    paths: ['../outside'],
+    quoted: true,
+  }),
+})
+const lifecycleValidWrongPrAuthority = lifecycleCommentV1({
+  id: lifecycleQuotedAuthorityIdentity.authorityId + 525,
+  createdAt: '2026-08-17T23:47:40Z',
+  body: lifecyclePublicationAuthorityBodyV1({
+    task: lifecycleQuotedAuthorityIdentity.task,
+    pr: 326,
+    parent: lifecycleQuotedAuthorityIdentity.head,
+    resultCommentId: lifecycleQuotedAuthorityResultId,
+    paths: lifecycleHistoricalPathsV1[325],
+    quoted: true,
+  }),
+})
+const lifecycleMalformedQuotedStaleAuthority = lifecycleCommentV1({
+  id: lifecycleQuotedAuthorityIdentity.authorityId + 513,
+  createdAt: '2026-08-17T23:42:00Z',
+  body: lifecyclePublicationAuthorityBodyV1({
+    task: lifecycleQuotedAuthorityIdentity.task,
+    pr: 325,
+    parent: OTHER_HEAD,
+    resultCommentId: lifecycleQuotedAuthorityResultId,
+    paths: lifecycleHistoricalPathsV1[325],
+    quoted: true,
+  }).replace('publication_allowed: "true"', 'publication_allowed: "false"'),
+})
+const lifecycleQuotedStaleOnlyFixture = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  reviewedBase: lifecycleQuotedAuthorityIdentity.expectedBase,
+  historicalComments: [lifecycleQuotedStaleAuthorityOne, lifecycleQuotedStaleAuthorityTwo],
+})
+const lifecycleQuotedCurrentFixture = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  reviewedBase: lifecycleQuotedAuthorityIdentity.expectedBase,
+  publicationAuthority: true,
+  publicationAuthorityQuoted: true,
+})
+const lifecycleQuotedDuplicateCurrentFixture = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  reviewedBase: lifecycleQuotedAuthorityIdentity.expectedBase,
+  publicationAuthority: true,
+  publicationAuthorityQuoted: true,
+  historicalComments: [lifecycleQuotedCurrentAuthorityDuplicate],
+})
+const lifecycleMalformedQuotedCurrentFixture = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  reviewedBase: lifecycleQuotedAuthorityIdentity.expectedBase,
+  historicalComments: [lifecycleMalformedQuotedCurrentAuthority],
+})
+const lifecycleMalformedQuotedStaleFixture = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  reviewedBase: lifecycleQuotedAuthorityIdentity.expectedBase,
+  historicalComments: [lifecycleMalformedQuotedStaleAuthority],
+})
+const lifecycleMalformedQuotedSyntaxFixture = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  reviewedBase: lifecycleQuotedAuthorityIdentity.expectedBase,
+  historicalComments: [lifecycleMalformedQuotedSyntaxAuthority],
+})
+const lifecycleOldHeadMalformedStatusFixture = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  reviewedBase: lifecycleQuotedAuthorityIdentity.expectedBase,
+  historicalComments: [lifecycleOldHeadMalformedStatusAuthority],
+})
+const lifecycleWrongPrMalformedAllowedFixture = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  reviewedBase: lifecycleQuotedAuthorityIdentity.expectedBase,
+  historicalComments: [lifecycleWrongPrMalformedAllowedAuthority],
+})
+const lifecycleWrongTaskMalformedActorFixture = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  reviewedBase: lifecycleQuotedAuthorityIdentity.expectedBase,
+  historicalComments: [lifecycleWrongTaskMalformedActorAuthority],
+})
+const lifecycleMalformedCurrentIdentityFixture = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  reviewedBase: lifecycleQuotedAuthorityIdentity.expectedBase,
+  historicalComments: [lifecycleMalformedCurrentIdentityAuthority],
+})
+const lifecycleTwoStaleMalformedFixture = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  reviewedBase: lifecycleQuotedAuthorityIdentity.expectedBase,
+  historicalComments: [lifecycleOldHeadMalformedStatusAuthority, lifecycleWrongPrMalformedAllowedAuthority],
+})
+const lifecycleWrongPathMalformedStatusFixture = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  reviewedBase: lifecycleQuotedAuthorityIdentity.expectedBase,
+  historicalComments: [lifecycleWrongPathMalformedStatusAuthority],
+})
+const lifecycleStageAPrecedenceMatrix = [
+  [lifecycleMalformedTaskOldHeadAuthority, 'STOP', 'A malformed parent_issue outranks old HEAD mismatch'],
+  [lifecycleMalformedTaskWrongPrAuthority, 'STOP', 'B malformed parent_issue outranks wrong PR mismatch'],
+  [lifecycleMalformedParentDifferentTaskAuthority, 'STOP', 'C malformed expected_parent outranks valid different Task mismatch'],
+  [lifecycleMalformedPathsOldHeadAuthority, 'STOP', 'D malformed exact_paths outranks old HEAD mismatch'],
+  [lifecycleQuotedStaleAuthorityOne, 'MERGE_DECISION', 'E all identity syntax valid plus old HEAD is non-applicable'],
+  [lifecycleValidWrongPrAuthority, 'MERGE_DECISION', 'F all identity syntax valid plus wrong PR is non-applicable'],
+  [null, 'COMMIT_PUSH_PUBLISH', 'G exact current identity proceeds to Stage B'],
+]
+for (const [authority, expectedAction, label] of lifecycleStageAPrecedenceMatrix) {
+  const fixture = authority === null
+    ? lifecycleQuotedCurrentFixture
+    : lifecycleProductionFixtureV1({
+        pr: 325,
+        ready: true,
+        reviewedBase: lifecycleQuotedAuthorityIdentity.expectedBase,
+        historicalComments: [authority],
+      })
+  const result = await executeLifecycleOrchestratorV1({ event: fixture.event, sourceResult: fixture.sourceResult, host: fixture.host })
+  check(result.next_action === expectedAction, `LOV1 Publication Authority Stage A precedence ${label}`)
+  check(result.mutation_count === 0 && fixture.metrics.mutation === 0, `LOV1 Publication Authority Stage A precedence zero mutation ${label}`)
+}
+const lifecycleQuotedAuthorityMatrix = [
+  [lifecycleQuotedStaleOnlyFixture, 'MERGE_DECISION', 'A two quoted stale Publication Authorities remain MISSING without routing ambiguity'],
+  [lifecycleQuotedCurrentFixture, 'COMMIT_PUSH_PUBLISH', 'B and F quoted exact-current scalars parse to exact current values'],
+  [lifecycleQuotedDuplicateCurrentFixture, 'STOP', 'C two quoted exact-current Publication Authorities are ambiguous'],
+  [lifecycleMalformedQuotedCurrentFixture, 'STOP', 'D malformed exact-current Publication Authority fails closed'],
+  [lifecycleMalformedQuotedStaleFixture, 'MERGE_DECISION', 'E malformed clearly stale Publication Authority does not poison current routing'],
+  [lifecycleMalformedQuotedSyntaxFixture, 'STOP', 'D current identity plus unterminated status remains fail closed'],
+  [lifecycleOldHeadMalformedStatusFixture, 'MERGE_DECISION', 'A old HEAD plus unterminated status is historical'],
+  [lifecycleWrongPrMalformedAllowedFixture, 'MERGE_DECISION', 'B wrong PR plus malformed publication_allowed is historical'],
+  [lifecycleWrongTaskMalformedActorFixture, 'MERGE_DECISION', 'C wrong Task plus malformed actor field is historical'],
+  [lifecycleMalformedCurrentIdentityFixture, 'STOP', 'E malformed current identity is potentially current and fails closed'],
+  [lifecycleTwoStaleMalformedFixture, 'MERGE_DECISION', 'F two stale malformed historical candidates do not create routing ambiguity'],
+  [lifecycleWrongPathMalformedStatusFixture, 'MERGE_DECISION', 'wrong exact path plus malformed status is non-applicable'],
+]
+for (const [fixture, expectedAction, label] of lifecycleQuotedAuthorityMatrix) {
+  const result = await executeLifecycleOrchestratorV1({ event: fixture.event, sourceResult: fixture.sourceResult, host: fixture.host })
+  check(result.next_action === expectedAction, `LOV1 quoted Publication Authority ${label}`)
+  check(result.mutation_count === 0 && fixture.metrics.mutation === 0, `LOV1 quoted Publication Authority zero mutation ${label}`)
+}
+
 const lifecycleCoexistenceIdentity = lifecycleHistoricalIdentityV1[325]
 const lifecycleCoexistencePriorHead = OTHER_HEAD
 const lifecycleCoexistencePublishedHead = CURRENT_MAIN_SHA
@@ -6288,5 +6618,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 841) throw new Error(`expected exactly 841 assertions, observed ${assertions}`)
+if (assertions !== 886) throw new Error(`expected exactly 886 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
