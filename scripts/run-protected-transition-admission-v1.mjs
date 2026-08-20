@@ -5646,15 +5646,56 @@ export const reduceLifecycleReplayV1 = (input, completionEvidence = null) => {
   return project('PUBLICATION', 'READY', 'publication_authority_observed', 'COMMIT_PUSH_PUBLISH')
 }
 
-const lifecycleIdentityFromProductionV1 = ({ event, sourceResult }) => {
+const lifecycleRoutingIdentityFromProductionV1 = ({ event, sourceResult }) => {
   const repository = event?.repository?.full_name
-  const taskIssueNumber = sourceResult?.task_issue_number ?? event?.issue?.number
   const prNumber = sourceResult?.pr_number ?? event?.pull_request?.number
   const exactHead = sourceResult?.current_head ?? event?.pull_request?.head?.sha
-  if (!REPOSITORY.test(repository ?? '') || !positiveInteger(taskIssueNumber) || !positiveInteger(prNumber) || !FULL_HEAD.test(exactHead ?? '')) {
+  if (!REPOSITORY.test(repository ?? '') || !positiveInteger(prNumber) || !FULL_HEAD.test(exactHead ?? '')) {
     throw new Error('lifecycle_production_identity_invalid')
   }
-  return Object.freeze({ repository, taskIssueNumber, prNumber, exactHead })
+  return Object.freeze({ repository, prNumber, exactHead })
+}
+
+const lifecycleReadyTaskBindingCandidatesV1 = ({ pull, routing }) => {
+  const candidates = new Set()
+  try {
+    const taskState = extractProtectedTransitionTaskStateV1(pull.body)
+    if (taskState.pr_number === routing.prNumber && taskState.observed_head === routing.exactHead) {
+      candidates.add(taskState.task_issue_number)
+    }
+  } catch {
+    // The legacy state block is optional for Lifecycle Ready acquisition.
+  }
+  for (const match of pull.body.matchAll(/^Task:[ \t]+#([1-9][0-9]*)[ \t]*$/gm)) {
+    const taskIssueNumber = Number(match[1])
+    if (positiveInteger(taskIssueNumber)) candidates.add(taskIssueNumber)
+  }
+  return Object.freeze([...candidates])
+}
+
+const resolveLifecycleProductionIdentityV1 = async ({ event, sourceResult, host }) => {
+  const routing = lifecycleRoutingIdentityFromProductionV1({ event, sourceResult })
+  if (event?.action === 'ready_for_review' && event?.pull_request?.number === routing.prNumber) {
+    const pull = await acquireMergeGatePullV1(Object.freeze({ ...routing, taskIssueNumber: null }), host)
+    if (pull.head.sha !== routing.exactHead) throw new Error('lifecycle_production_identity_invalid')
+    const candidates = lifecycleReadyTaskBindingCandidatesV1({ pull, routing })
+    if (candidates.length === 0) throw new Error('lifecycle_task_binding_missing')
+    if (candidates.length !== 1) throw new Error('lifecycle_task_binding_ambiguous')
+    const taskIssueNumber = candidates[0]
+    if (positiveInteger(sourceResult?.task_issue_number) && sourceResult.task_issue_number !== taskIssueNumber) {
+      throw new Error('lifecycle_task_binding_ambiguous')
+    }
+    return Object.freeze({
+      identity: Object.freeze({ ...routing, taskIssueNumber }),
+      pull,
+    })
+  }
+  const taskIssueNumber = sourceResult?.task_issue_number ?? event?.issue?.number
+  if (!positiveInteger(taskIssueNumber)) throw new Error('lifecycle_production_identity_invalid')
+  return Object.freeze({
+    identity: Object.freeze({ ...routing, taskIssueNumber }),
+    pull: null,
+  })
 }
 
 const projectLifecycleMinimalCandidateV1 = ({ comment, identity, eventCommentId }) => {
@@ -5961,12 +6002,11 @@ const acquireLifecycleReviewThreadsV1 = async (request, host) => {
   }))
 }
 
-const acquireLifecycleReplaySnapshotV1 = async ({ event, sourceResult, host }) => {
-  const identity = lifecycleIdentityFromProductionV1({ event, sourceResult })
+const acquireLifecycleReplaySnapshotV1 = async ({ event, host, identity, resolvedPull = null }) => {
   const request = Object.freeze({ transition: 'lifecycle_orchestrator_v1', ...identity })
   const task = await acquireTaskIdentityV1(request, host)
   if (task.state !== 'open') throw new Error('task_identity_invalid')
-  const pull = await acquireMergeGatePullV1(request, host)
+  const pull = resolvedPull ?? await acquireMergeGatePullV1(request, host)
   if (!Number.isSafeInteger(pull.changed_files) || pull.changed_files < 0 || pull.base?.ref !== 'main' || !FULL_HEAD.test(pull.base?.sha ?? '')) {
     throw new Error('lifecycle_pull_binding_invalid')
   }
@@ -6094,8 +6134,14 @@ export const executeLifecycleOrchestratorV1 = async ({ event = null, sourceResul
   if (snapshot !== null) return reduceLifecycleReplayV1(snapshot, completionEvidence)
   let identity = null
   try {
-    identity = lifecycleIdentityFromProductionV1({ event, sourceResult })
-    const acquired = await acquireLifecycleReplaySnapshotV1({ event, sourceResult, host })
+    const routing = lifecycleRoutingIdentityFromProductionV1({ event, sourceResult })
+    identity = Object.freeze({
+      ...routing,
+      taskIssueNumber: sourceResult?.task_issue_number ?? event?.issue?.number ?? null,
+    })
+    const resolved = await resolveLifecycleProductionIdentityV1({ event, sourceResult, host })
+    identity = resolved.identity
+    const acquired = await acquireLifecycleReplaySnapshotV1({ event, host, identity, resolvedPull: resolved.pull })
     return reduceLifecycleReplayV1(acquired, completionEvidence)
   } catch (error) {
     return lifecycleProjectionV1({
@@ -6581,18 +6627,35 @@ const productionHost = (environment) => {
   })
 }
 
-const executeReviewEventWithLifecycleReplayV1 = async ({ event, host, runId, runAttempt, hostSha, jobName }) => {
+const lifecycleDiagnosticProjectionV1 = (projection) => Object.freeze({
+  task_issue_number: projection.task_issue_number,
+  pr_number: projection.pr_number,
+  current_head: projection.current_head,
+  phase: projection.phase,
+  state: projection.state,
+  next_action: projection.next_action,
+  execution_stop_reason: projection.reason,
+  mutation_count: projection.mutation_count,
+})
+
+const withLifecycleDiagnosticProjectionV1 = (result, projection) => Object.freeze({
+  ...result,
+  lifecycle_projection: lifecycleDiagnosticProjectionV1(projection),
+})
+
+export const executeReviewEventWithLifecycleReplayV1 = async ({ event, host, runId, runAttempt, hostSha, jobName }) => {
   const result = await executeRoleTransitionOrchestratorV1({ event, host, runId, runAttempt, hostSha, jobName })
   if (!isMinimalGovernanceCandidateV1(event?.comment?.body)) {
-    await executeLifecycleOrchestratorV1({ event, sourceResult: result, host })
+    const lifecycleProjection = await executeLifecycleOrchestratorV1({ event, sourceResult: result, host })
+    return withLifecycleDiagnosticProjectionV1(result, lifecycleProjection)
   }
   return result
 }
 
-const executeReadyEventWithLifecycleReplayV1 = async ({ event, host, runId }) => {
+export const executeReadyEventWithLifecycleReplayV1 = async ({ event, host, runId }) => {
   const result = await executeReadyForReviewProgressionV1({ event, host, runId })
-  await executeLifecycleOrchestratorV1({ event, sourceResult: result, host })
-  return result
+  const lifecycleProjection = await executeLifecycleOrchestratorV1({ event, sourceResult: result, host })
+  return withLifecycleDiagnosticProjectionV1(result, lifecycleProjection)
 }
 
 const main = async () => {

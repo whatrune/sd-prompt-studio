@@ -26,6 +26,7 @@ import {
   executeRoleDispatchRebindV1,
   executeManualProgressionControllerV1,
   executeLifecycleOrchestratorV1,
+  executeReadyEventWithLifecycleReplayV1,
   executeMinimalGovernanceFinalDriftGuardV1,
   executeMinimalGovernanceV1,
   executeRepairExecutorV1,
@@ -5434,6 +5435,7 @@ const lifecycleProductionFixtureV1 = ({
   compareFiles = [],
   historicalComments = [],
   eventCommentOverride = null,
+  readyTaskBindings = null,
 }) => {
   const identity = lifecycleHistoricalIdentityV1[pr]
   const authorizationId = identity.reviewId - 2
@@ -5480,6 +5482,9 @@ const lifecycleProductionFixtureV1 = ({
     reviewed_head: head,
     review_blocker_count: 0,
   })
+  const pullBody = readyTaskBindings === null
+    ? stateBlock(taskState)
+    : readyTaskBindings.map((taskIssueNumber) => `Task: #${taskIssueNumber}`).join('\n')
   const metrics = { task: 0, pull: 0, files: 0, history: 0, direct: 0, compare: 0, checks: 0, threads: 0, branch: 0, mutation: 0 }
   const direct = new Map(comments.map((comment) => [comment.id, comment]))
   if (publicationAuthority && publicationAuthorityDirectBody !== null) {
@@ -5497,7 +5502,7 @@ const lifecycleProductionFixtureV1 = ({
     comments: { totalCount: 1, nodes: [{ id: `PRRC-${pr}`, body: threadDisposition, createdAt: '2026-08-18T00:02:30Z' }] },
   }]
   const event = ready
-    ? { action: 'ready_for_review', repository: { full_name: REPOSITORY }, pull_request: { number: pr, head: { sha: head }, updated_at: '2026-08-18T00:03:00Z' } }
+    ? { action: 'ready_for_review', repository: { full_name: REPOSITORY }, pull_request: { number: pr, state: 'open', draft: false, head: { sha: head }, body: pullBody, updated_at: '2026-08-18T00:03:00Z' } }
     : { action: 'created', repository: { full_name: REPOSITORY }, issue: { number: identity.task }, comment: eventComment }
   const host = Object.freeze({
     branchHead: async (repository, branch) => {
@@ -5516,7 +5521,7 @@ const lifecycleProductionFixtureV1 = ({
       }
       if (endpoint === `repos/${REPOSITORY}/pulls/${pr}`) {
         metrics.pull += 1
-        return { number: pr, state: 'open', draft, merged: false, mergeable: true, mergeable_state: 'clean', changed_files: paths.length, base: { repo: { full_name: REPOSITORY }, ref: 'main', sha: identity.base }, head: { sha: head }, body: stateBlock(taskState) }
+        return { number: pr, state: 'open', draft, merged: false, mergeable: true, mergeable_state: 'clean', changed_files: paths.length, base: { repo: { full_name: REPOSITORY }, ref: 'main', sha: identity.base }, head: { sha: head }, body: pullBody }
       }
       if (endpoint.startsWith(`repos/${REPOSITORY}/pulls/${pr}/files?`)) {
         metrics.files += 1
@@ -5560,7 +5565,16 @@ const lifecycleProductionFixtureV1 = ({
       throw new Error('unexpected_lifecycle_graphql')
     },
   })
-  return Object.freeze({ event, host, metrics, sourceResult: { task_issue_number: identity.task, pr_number: pr, current_head: head } })
+  return Object.freeze({
+    event,
+    host,
+    metrics,
+    sourceResult: {
+      task_issue_number: readyTaskBindings === null ? identity.task : null,
+      pr_number: pr,
+      current_head: head,
+    },
+  })
 }
 
 const lifecycleProductionCases = [
@@ -5582,6 +5596,119 @@ for (const [fixture, nextAction] of lifecycleProductionCases) {
   check(result.mutation_count === 0 && fixture.metrics.mutation === 0, `LOV1 production replay zero mutation ${nextAction}`)
   check(fixture.metrics.task === 1 && fixture.metrics.pull === 1 && fixture.metrics.files === 1 && fixture.metrics.history === 1 && fixture.metrics.checks === 1 && fixture.metrics.threads === 1 && fixture.metrics.branch === 1, `LOV1 production replay bounded acquisition ${nextAction}`)
 }
+
+const lifecycleReadyBoundFixture = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  readyTaskBindings: [lifecycleHistoricalIdentityV1[325].task],
+})
+const lifecycleReadyBoundResult = await executeReadyEventWithLifecycleReplayV1({
+  event: lifecycleReadyBoundFixture.event,
+  host: lifecycleReadyBoundFixture.host,
+  runId: READY_RUN_ID,
+})
+check(
+  lifecycleReadyBoundResult.record_type === 'expected_legacy_ready_fail_closed_v1' &&
+  lifecycleReadyBoundResult.reason === 'state_block_cardinality_invalid' &&
+  lifecycleReadyBoundResult.task_issue_number === null,
+  'LOV1 Ready Task binding preserves expected legacy Ready fail-closed result',
+)
+check(
+  lifecycleReadyBoundResult.lifecycle_projection.task_issue_number === lifecycleHistoricalIdentityV1[325].task &&
+  lifecycleReadyBoundResult.lifecycle_projection.pr_number === 325 &&
+  lifecycleReadyBoundResult.lifecycle_projection.current_head === lifecycleHistoricalIdentityV1[325].head,
+  'LOV1 Ready Task binding resolves exact Task, PR, and HEAD from fresh PR body',
+)
+check(
+  Object.keys(lifecycleReadyBoundResult.lifecycle_projection).sort().join('\n') === [
+    'current_head', 'execution_stop_reason', 'mutation_count', 'next_action', 'phase', 'pr_number', 'state', 'task_issue_number',
+  ].sort().join('\n') && lifecycleReadyBoundResult.lifecycle_projection.mutation_count === 0,
+  'LOV1 Ready lifecycle diagnostic projection is bounded and observable',
+)
+
+const lifecyclePr353Head = 'dd72df4e46eabcdef8eaf35078aa3a2824b619d7'
+const lifecyclePr353Host = Object.freeze({
+  branchHead: async (repository, branch) => {
+    if (repository !== REPOSITORY || branch !== 'main') throw new Error('unexpected_lifecycle_pr353_branch')
+    return lifecycleHistoricalIdentityV1[325].expectedBase
+  },
+  api: async (endpoint, options = undefined) => {
+    if (options?.method && options.method !== 'GET') throw new Error('lifecycle_mutation_forbidden')
+    if (endpoint === `repos/${REPOSITORY}/issues/352`) {
+      return { number: 352, repository_url: `https://api.github.com/repos/${REPOSITORY}`, html_url: `https://github.com/${REPOSITORY}/issues/352`, state: 'open' }
+    }
+    if (endpoint === `repos/${REPOSITORY}/pulls/353`) {
+      return {
+        number: 353, state: 'open', draft: false, merged: false, mergeable: true, mergeable_state: 'clean', changed_files: 0,
+        base: { repo: { full_name: REPOSITORY }, ref: 'main', sha: lifecycleHistoricalIdentityV1[325].base },
+        head: { sha: lifecyclePr353Head }, body: 'Task: #352',
+      }
+    }
+    if (endpoint.startsWith(`repos/${REPOSITORY}/pulls/353/files?`) || endpoint.startsWith(`repos/${REPOSITORY}/issues/352/comments?`)) return []
+    throw new Error(`unexpected_lifecycle_pr353_api:${endpoint}`)
+  },
+  graphql: async () => { throw new Error('lifecycle_pr353_optional_evidence_unavailable') },
+})
+const lifecyclePr353Result = await executeReadyEventWithLifecycleReplayV1({
+  event: {
+    action: 'ready_for_review', repository: { full_name: REPOSITORY },
+    pull_request: { number: 353, state: 'open', draft: false, head: { sha: lifecyclePr353Head }, body: 'Task: #352', updated_at: '2026-08-20T00:33:00Z' },
+  },
+  host: lifecyclePr353Host,
+  runId: '32317766744',
+})
+check(
+  lifecyclePr353Result.lifecycle_projection.task_issue_number === 352 &&
+  lifecyclePr353Result.lifecycle_projection.pr_number === 353 &&
+  lifecyclePr353Result.lifecycle_projection.current_head === lifecyclePr353Head &&
+  lifecyclePr353Result.lifecycle_projection.mutation_count === 0,
+  'LOV1 live-proof tuple resolves Task 352, PR 353, and exact HEAD from canonical PR body binding',
+)
+
+const lifecycleReadyMissingFixture = lifecycleProductionFixtureV1({ pr: 325, ready: true, readyTaskBindings: [] })
+const lifecycleReadyMissingResult = await executeReadyEventWithLifecycleReplayV1({
+  event: lifecycleReadyMissingFixture.event,
+  host: lifecycleReadyMissingFixture.host,
+  runId: READY_RUN_ID,
+})
+check(
+  lifecycleReadyMissingResult.record_type === 'expected_legacy_ready_fail_closed_v1' &&
+  lifecycleReadyMissingResult.lifecycle_projection.execution_stop_reason === 'lifecycle_task_binding_missing' &&
+  lifecycleReadyMissingResult.lifecycle_projection.next_action === 'STOP' &&
+  lifecycleReadyMissingResult.lifecycle_projection.mutation_count === 0,
+  'LOV1 Ready missing Task binding stops Lifecycle while preserving legacy result',
+)
+
+const lifecycleReadyAmbiguousFixture = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  readyTaskBindings: [lifecycleHistoricalIdentityV1[325].task, lifecycleHistoricalIdentityV1[325].task + 100],
+})
+const lifecycleReadyAmbiguousResult = await executeReadyEventWithLifecycleReplayV1({
+  event: lifecycleReadyAmbiguousFixture.event,
+  host: lifecycleReadyAmbiguousFixture.host,
+  runId: READY_RUN_ID,
+})
+check(
+  lifecycleReadyAmbiguousResult.record_type === 'expected_legacy_ready_fail_closed_v1' &&
+  lifecycleReadyAmbiguousResult.lifecycle_projection.execution_stop_reason === 'lifecycle_task_binding_ambiguous' &&
+  lifecycleReadyAmbiguousResult.lifecycle_projection.next_action === 'STOP' &&
+  lifecycleReadyAmbiguousResult.lifecycle_projection.mutation_count === 0,
+  'LOV1 Ready ambiguous Task bindings stop Lifecycle while preserving legacy result',
+)
+
+const lifecycleIssueCommentIdentityFixture = lifecycleProductionFixtureV1({ pr: 331 })
+const lifecycleIssueCommentIdentityResult = await executeLifecycleOrchestratorV1({
+  event: lifecycleIssueCommentIdentityFixture.event,
+  sourceResult: lifecycleIssueCommentIdentityFixture.sourceResult,
+  host: lifecycleIssueCommentIdentityFixture.host,
+})
+check(
+  lifecycleIssueCommentIdentityResult.task_issue_number === lifecycleHistoricalIdentityV1[331].task &&
+  lifecycleIssueCommentIdentityResult.pr_number === 331 &&
+  lifecycleIssueCommentIdentityResult.current_head === lifecycleHistoricalIdentityV1[331].head,
+  'LOV1 issue_comment Task identity handling remains unchanged',
+)
 
 const lifecycleMissingPublicationAuthority = lifecycleProductionFixtureV1({ pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase })
 const lifecycleStalePublicationAuthority = lifecycleProductionFixtureV1({ pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase, publicationAuthority: true, publicationAuthorityHead: OTHER_HEAD })
@@ -5968,5 +6095,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 823) throw new Error(`expected exactly 823 assertions, observed ${assertions}`)
+if (assertions !== 830) throw new Error(`expected exactly 830 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
