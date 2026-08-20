@@ -5573,7 +5573,8 @@ export const reduceLifecycleReplayV1 = (input, completionEvidence = null) => {
     lifecycleConvergedProjectionV1(snapshot, lifecycleProjectionV1(snapshot, phase, state, reason, nextAction, automationStatus), completionEvidence)
 
   if (snapshot.current_head !== snapshot.exact_head) return project('ACQUIRE', 'STALE', 'head_binding_stale', 'STOP', 'BLOCKED')
-  if (snapshot.pull_state !== 'open' || snapshot.pull_merged) return project('POST_MERGE', 'COMPLETED', 'already_merged', 'ISSUE_CLOSE_CANDIDATE')
+  if (snapshot.pull_merged) return project('POST_MERGE', 'COMPLETED', 'already_merged', 'ISSUE_CLOSE_CANDIDATE')
+  if (snapshot.pull_state === 'closed') return project('ACQUIRE', 'INDETERMINATE', 'lifecycle_pr_closed_unmerged', 'STOP', 'BLOCKED')
   if (snapshot.target_branch !== 'main') return project('ACQUIRE', 'INDETERMINATE', 'pull_binding_invalid', 'STOP', 'BLOCKED')
   if (snapshot.evidence_status.authority === 'INCOMPLETE') {
     return project('MERGE_DECISION', 'INDETERMINATE', 'minimal_governance_routing_ambiguous', 'STOP', 'BLOCKED')
@@ -6002,12 +6003,102 @@ const acquireLifecycleReviewThreadsV1 = async (request, host) => {
   }))
 }
 
-const acquireLifecycleReplaySnapshotV1 = async ({ event, host, identity, resolvedPull = null }) => {
+const reduceLifecycleCurrentExecutionChecksV1 = async ({ event, request, checks, executionIdentity, currentBase, host }) => {
+  const selected = selectCurrentCheckGenerationsV1(checks)
+  const rtoChecks = selected.filter((item) => {
+    const name = item.type === 'CheckRun' ? item.name : item.context
+    return RTO_SELF_JOB_NAMES_V1.includes(name)
+  })
+  if (rtoChecks.length === 0) return selected
+  if (
+    executionIdentity?.repository !== request.repository ||
+    !WORKFLOW_RUN_ID.test(String(executionIdentity?.runId ?? '')) ||
+    !positiveInteger(executionIdentity?.runAttempt) ||
+    executionIdentity?.workflowSha !== currentBase ||
+    executionIdentity?.jobName !== 'protected_transition_admission_v1'
+  ) throw new Error('lifecycle_current_execution_identity_invalid')
+
+  const runId = String(executionIdentity.runId)
+  const expectedApiRunUrl = `https://api.github.com/repos/${request.repository}/actions/runs/${runId}`
+  const expectedRunUrl = `https://github.com/${request.repository}/actions/runs/${runId}`
+  const run = await api(host, `repos/${request.repository}/actions/runs/${runId}`)
+  const readyOrigin = event?.action === 'ready_for_review'
+  const expectedRunHead = readyOrigin ? request.exactHead : executionIdentity.workflowSha
+  const pullAssociation = run?.pull_requests?.[0]
+  if (
+    String(run?.id ?? '') !== runId || run?.run_attempt !== executionIdentity.runAttempt ||
+    !positiveInteger(run?.workflow_id) || !positiveInteger(run?.check_suite_id) ||
+    run?.repository?.full_name !== request.repository || run?.head_repository?.full_name !== request.repository ||
+    run?.path !== HISTORICAL_LEGACY_RTO_WORKFLOW_PATH_V1 ||
+    run?.event !== (readyOrigin ? 'pull_request' : 'issue_comment') ||
+    run?.status !== 'in_progress' || run?.conclusion !== null || run?.head_sha !== expectedRunHead ||
+    run?.head_commit?.id !== expectedRunHead || run?.url !== expectedApiRunUrl ||
+    run?.html_url !== expectedRunUrl || run?.jobs_url !== `${expectedApiRunUrl}/jobs` ||
+    !Array.isArray(run?.pull_requests) ||
+    (readyOrigin && (
+      run.pull_requests.length !== 1 || pullAssociation?.number !== request.prNumber ||
+      pullAssociation?.url !== `https://api.github.com/repos/${request.repository}/pulls/${request.prNumber}` ||
+      pullAssociation?.head?.sha !== request.exactHead ||
+      pullAssociation?.head?.repo?.url !== `https://api.github.com/repos/${request.repository}` ||
+      pullAssociation?.base?.repo?.url !== `https://api.github.com/repos/${request.repository}`
+    )) ||
+    (!readyOrigin && run.pull_requests.length !== 0)
+  ) throw new Error('lifecycle_current_execution_origin_invalid')
+
+  const strictManifest = await acquireStrictBoundedRtoJobManifestV1({
+    repository: request.repository,
+    runId,
+    runAttempt: executionIdentity.runAttempt,
+    workflowSha: expectedRunHead,
+    host,
+    errorReason: 'lifecycle_current_execution_manifest_invalid',
+  })
+  const currentJob = strictManifest.jobs.get(executionIdentity.jobName)
+  if (currentJob.status !== 'in_progress' || currentJob.conclusion !== null) {
+    throw new Error('lifecycle_current_execution_job_state_invalid')
+  }
+
+  const currentPrefix = `${expectedRunUrl}/`
+  let excluded = 0
+  let currentRunChecks = 0
+  const external = selected.filter((item) => {
+    if (item.type !== 'CheckRun') return true
+    const checkIdentity = parseRepositoryActionsJobIdentityV1(request, item)
+    if (item.details_url?.startsWith(currentPrefix) && checkIdentity === null) {
+      throw new Error('lifecycle_current_execution_check_identity_invalid')
+    }
+    if (checkIdentity?.runId !== runId) return true
+    currentRunChecks += 1
+    if (
+      !RTO_SELF_JOB_NAMES_V1.includes(item.name) ||
+      strictManifest.jobIds[item.name] !== checkIdentity.jobId ||
+      item.app_database_id !== TRUSTED_GITHUB_ACTIONS_APP_DATABASE_ID_V1 ||
+      typeof item.app_id !== 'string' || item.app_id.length === 0 ||
+      !positiveInteger(item.database_id) || item.check_suite_database_id !== run.check_suite_id ||
+      item.check_suite_head_sha !== request.exactHead
+    ) throw new Error('lifecycle_current_execution_check_identity_invalid')
+    if (item.name !== executionIdentity.jobName || checkIdentity.jobId !== strictManifest.jobIds[executionIdentity.jobName]) {
+      return true
+    }
+    if (item.status !== 'IN_PROGRESS' || item.conclusion !== null || excluded !== 0) {
+      throw new Error('lifecycle_current_execution_check_identity_invalid')
+    }
+    excluded += 1
+    return false
+  })
+  if (currentRunChecks > 0 && excluded !== 1) throw new Error('lifecycle_current_execution_check_identity_invalid')
+  return Object.freeze(external)
+}
+
+const acquireLifecycleReplaySnapshotV1 = async ({ event, host, identity, resolvedPull = null, executionIdentity = null }) => {
   const request = Object.freeze({ transition: 'lifecycle_orchestrator_v1', ...identity })
   const task = await acquireTaskIdentityV1(request, host)
   if (task.state !== 'open') throw new Error('task_identity_invalid')
   const pull = resolvedPull ?? await acquireMergeGatePullV1(request, host)
-  if (!Number.isSafeInteger(pull.changed_files) || pull.changed_files < 0 || pull.base?.ref !== 'main' || !FULL_HEAD.test(pull.base?.sha ?? '')) {
+  if (
+    !Number.isSafeInteger(pull.changed_files) || pull.changed_files < 0 || pull.base?.ref !== 'main' ||
+    !FULL_HEAD.test(pull.base?.sha ?? '') || typeof pull.merged !== 'boolean'
+  ) {
     throw new Error('lifecycle_pull_binding_invalid')
   }
   const scope = await acquireChangedPathScopeV1(request, pull, host)
@@ -6069,6 +6160,12 @@ const acquireLifecycleReplaySnapshotV1 = async ({ event, host, identity, resolve
   let checksStatus = 'PRESENT'
   try {
     checkSnapshot = await acquireMergeCheckRollupSnapshotV1(request, host)
+    checkSnapshot = Object.freeze({
+      ...checkSnapshot,
+      checks: await reduceLifecycleCurrentExecutionChecksV1({
+        event, request, checks: checkSnapshot.checks, executionIdentity, currentBase, host,
+      }),
+    })
   } catch {
     checksStatus = 'INCOMPLETE'
     checkSnapshot = Object.freeze({ checks: Object.freeze([]) })
@@ -6101,7 +6198,7 @@ const acquireLifecycleReplaySnapshotV1 = async ({ event, host, identity, resolve
     current_base: currentBase,
     pull_state: pull.state,
     pull_draft: pull.draft,
-    pull_merged: pull.merged === true,
+    pull_merged: pull.merged,
     mergeable: pull.mergeable,
     changed_paths: scope.actual_paths,
     authorized_paths: taskState?.authorized_paths ?? null,
@@ -6130,7 +6227,9 @@ const acquireLifecycleReplaySnapshotV1 = async ({ event, host, identity, resolve
   })
 }
 
-export const executeLifecycleOrchestratorV1 = async ({ event = null, sourceResult = null, host = null, snapshot = null, completionEvidence = null }) => {
+export const executeLifecycleOrchestratorV1 = async ({
+  event = null, sourceResult = null, host = null, snapshot = null, completionEvidence = null, executionIdentity = null,
+}) => {
   if (snapshot !== null) return reduceLifecycleReplayV1(snapshot, completionEvidence)
   let identity = null
   try {
@@ -6141,7 +6240,9 @@ export const executeLifecycleOrchestratorV1 = async ({ event = null, sourceResul
     })
     const resolved = await resolveLifecycleProductionIdentityV1({ event, sourceResult, host })
     identity = resolved.identity
-    const acquired = await acquireLifecycleReplaySnapshotV1({ event, host, identity, resolvedPull: resolved.pull })
+    const acquired = await acquireLifecycleReplaySnapshotV1({
+      event, host, identity, resolvedPull: resolved.pull, executionIdentity,
+    })
     return reduceLifecycleReplayV1(acquired, completionEvidence)
   } catch (error) {
     return lifecycleProjectionV1({
@@ -6646,15 +6747,21 @@ const withLifecycleDiagnosticProjectionV1 = (result, projection) => Object.freez
 export const executeReviewEventWithLifecycleReplayV1 = async ({ event, host, runId, runAttempt, hostSha, jobName }) => {
   const result = await executeRoleTransitionOrchestratorV1({ event, host, runId, runAttempt, hostSha, jobName })
   if (!isMinimalGovernanceCandidateV1(event?.comment?.body)) {
-    const lifecycleProjection = await executeLifecycleOrchestratorV1({ event, sourceResult: result, host })
+    const lifecycleProjection = await executeLifecycleOrchestratorV1({
+      event, sourceResult: result, host,
+      executionIdentity: Object.freeze({ repository: event?.repository?.full_name, runId, runAttempt, workflowSha: hostSha, jobName }),
+    })
     return withLifecycleDiagnosticProjectionV1(result, lifecycleProjection)
   }
   return result
 }
 
-export const executeReadyEventWithLifecycleReplayV1 = async ({ event, host, runId }) => {
+export const executeReadyEventWithLifecycleReplayV1 = async ({ event, host, runId, runAttempt = null, hostSha = null, jobName = null }) => {
   const result = await executeReadyForReviewProgressionV1({ event, host, runId })
-  const lifecycleProjection = await executeLifecycleOrchestratorV1({ event, sourceResult: result, host })
+  const lifecycleProjection = await executeLifecycleOrchestratorV1({
+    event, sourceResult: result, host,
+    executionIdentity: Object.freeze({ repository: event?.repository?.full_name, runId, runAttempt, workflowSha: hostSha, jobName }),
+  })
   return withLifecycleDiagnosticProjectionV1(result, lifecycleProjection)
 }
 
@@ -6677,6 +6784,9 @@ const main = async () => {
             event: JSON.parse(readFileSync(invocation.eventFile, 'utf8')),
             host: executionHost,
             runId: process.env.GITHUB_RUN_ID,
+            runAttempt: Number(process.env.GITHUB_RUN_ATTEMPT),
+            hostSha: process.env.GITHUB_WORKFLOW_SHA ?? null,
+            jobName: process.env.GITHUB_JOB ?? null,
           })
         : invocation.mode === 'repair_preflight'
           ? await executeRepairExecutorV1({

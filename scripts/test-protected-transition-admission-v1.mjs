@@ -5436,6 +5436,11 @@ const lifecycleProductionFixtureV1 = ({
   historicalComments = [],
   eventCommentOverride = null,
   readyTaskBindings = null,
+  currentExecution = false,
+  currentCheckOverrides = {},
+  additionalChecks = [],
+  currentRunOverrides = {},
+  currentJobOverrides = {},
 }) => {
   const identity = lifecycleHistoricalIdentityV1[pr]
   const authorizationId = identity.reviewId - 2
@@ -5495,6 +5500,29 @@ const lifecycleProductionFixtureV1 = ({
     name: 'build-preview',
     checkSuite: { ...successfulCheck().checkSuite, commit: { oid: head } },
   }
+  const lifecycleRunId = '32317766744'
+  const lifecycleRunAttempt = 1
+  const lifecycleRtoJobNames = Object.freeze([
+    'protected_transition_admission_v1',
+    'protected_transition_repair_executor_v1',
+    'protected_transition_role_dispatch_consumer_v1',
+    'protected_transition_merge_operator_v1',
+    'protected_transition_post_repair_review_v1',
+  ])
+  const lifecycleJobIds = Object.freeze(Object.fromEntries(
+    ['95591890192', '95591918182', '95591918148', '95591918161', '95591918420'].map((jobId, index) => [lifecycleRtoJobNames[index], jobId]),
+  ))
+  const lifecycleCheckSuiteId = 87008787144
+  const lifecycleCurrentCheck = currentReadyCheck({
+    id: `lifecycle-current-rto-${pr}`,
+    name: 'protected_transition_admission_v1',
+    detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${lifecycleRunId}/job/${lifecycleJobIds.protected_transition_admission_v1}`,
+    databaseId: 95591880000,
+    checkSuiteDatabaseId: lifecycleCheckSuiteId,
+    checkSuiteCommitOid: head,
+    ...currentCheckOverrides,
+  })
+  const checkNodes = [check, ...(currentExecution ? [lifecycleCurrentCheck] : []), ...additionalChecks]
   const threadNodes = threadDisposition === null ? [] : [{
     id: `PRRT-${pr}`,
     isResolved: false,
@@ -5551,12 +5579,39 @@ const lifecycleProductionFixtureV1 = ({
           files: structuredClone(compareFiles),
         }
       }
+      if (currentExecution && endpoint === `repos/${REPOSITORY}/actions/runs/${lifecycleRunId}`) {
+        const apiRepository = `https://api.github.com/repos/${REPOSITORY}`
+        const apiRun = `${apiRepository}/actions/runs/${lifecycleRunId}`
+        return {
+          id: Number(lifecycleRunId), run_attempt: lifecycleRunAttempt, workflow_id: 327818524,
+          check_suite_id: lifecycleCheckSuiteId, repository: { full_name: REPOSITORY },
+          head_repository: { full_name: REPOSITORY }, path: '.github/workflows/protected-transition-admission-v1.yml',
+          event: 'pull_request', status: 'in_progress', conclusion: null, head_sha: head, head_commit: { id: head },
+          url: apiRun, html_url: `https://github.com/${REPOSITORY}/actions/runs/${lifecycleRunId}`, jobs_url: `${apiRun}/jobs`,
+          pull_requests: [{
+            number: pr, url: `${apiRepository}/pulls/${pr}`,
+            head: { sha: head, repo: { url: apiRepository } }, base: { repo: { url: apiRepository } },
+          }],
+          ...currentRunOverrides,
+        }
+      }
+      if (currentExecution && endpoint === `repos/${REPOSITORY}/actions/runs/${lifecycleRunId}/jobs?per_page=100`) {
+        const jobs = lifecycleRtoJobNames.map((name) => ({
+          id: Number(lifecycleJobIds[name]), run_id: Number(lifecycleRunId), run_attempt: lifecycleRunAttempt,
+          name, head_sha: head,
+          html_url: `https://github.com/${REPOSITORY}/actions/runs/${lifecycleRunId}/job/${lifecycleJobIds[name]}`,
+          status: name === 'protected_transition_admission_v1' ? 'in_progress' : 'queued',
+          conclusion: null,
+          ...(currentJobOverrides[name] ?? {}),
+        }))
+        return { total_count: jobs.length, jobs }
+      }
       throw new Error(`unexpected_lifecycle_api:${endpoint}`)
     },
     graphql: async (query) => {
       if (query.includes('statusCheckRollup')) {
         metrics.checks += 1
-        return { repository: { pullRequest: { headRefOid: head }, object: { oid: head, statusCheckRollup: { contexts: connectionPage([check]) } } } }
+        return { repository: { pullRequest: { headRefOid: head }, object: { oid: head, statusCheckRollup: { contexts: connectionPage(checkNodes) } } } }
       }
       if (query.includes('LifecycleReplayThreads')) {
         metrics.threads += 1
@@ -5574,6 +5629,13 @@ const lifecycleProductionFixtureV1 = ({
       pr_number: pr,
       current_head: head,
     },
+    executionIdentity: Object.freeze({
+      repository: REPOSITORY,
+      runId: lifecycleRunId,
+      runAttempt: lifecycleRunAttempt,
+      workflowSha: currentBase,
+      jobName: 'protected_transition_admission_v1',
+    }),
   })
 }
 
@@ -5596,6 +5658,119 @@ for (const [fixture, nextAction] of lifecycleProductionCases) {
   check(result.mutation_count === 0 && fixture.metrics.mutation === 0, `LOV1 production replay zero mutation ${nextAction}`)
   check(fixture.metrics.task === 1 && fixture.metrics.pull === 1 && fixture.metrics.files === 1 && fixture.metrics.history === 1 && fixture.metrics.checks === 1 && fixture.metrics.threads === 1 && fixture.metrics.branch === 1, `LOV1 production replay bounded acquisition ${nextAction}`)
 }
+
+const lifecycleCurrentExecutionFixture = lifecycleProductionFixtureV1({
+  pr: 325, ready: true, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+})
+const lifecycleCurrentExecutionResult = await executeLifecycleOrchestratorV1({
+  event: lifecycleCurrentExecutionFixture.event,
+  sourceResult: lifecycleCurrentExecutionFixture.sourceResult,
+  host: lifecycleCurrentExecutionFixture.host,
+  executionIdentity: lifecycleCurrentExecutionFixture.executionIdentity,
+})
+check(
+  lifecycleCurrentExecutionResult.next_action === 'MERGE_DECISION' &&
+  lifecycleCurrentExecutionResult.reason !== 'external_checks_pending',
+  'LOV1 exact current executing RTO check is excluded after strict run and five-job manifest binding',
+)
+
+const lifecycleOlderRtoCheck = currentReadyCheck({
+  id: 'lifecycle-older-rto',
+  status: 'COMPLETED',
+  conclusion: 'FAILURE',
+  detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/32317760000/job/95591870000`,
+  databaseId: 95591870000,
+  checkSuiteDatabaseId: 87008770000,
+  checkSuiteCommitOid: lifecycleHistoricalIdentityV1[325].head,
+  startedAt: '2026-08-08T01:00:00Z',
+})
+const lifecycleOlderRtoFixture = lifecycleProductionFixtureV1({
+  pr: 325, ready: true, currentExecution: true, additionalChecks: [lifecycleOlderRtoCheck],
+  reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+})
+const lifecycleOlderRtoResult = await executeLifecycleOrchestratorV1({
+  event: lifecycleOlderRtoFixture.event,
+  sourceResult: lifecycleOlderRtoFixture.sourceResult,
+  host: lifecycleOlderRtoFixture.host,
+  executionIdentity: lifecycleOlderRtoFixture.executionIdentity,
+})
+check(
+  lifecycleOlderRtoResult.next_action === 'MERGE_DECISION',
+  'LOV1 older RTO generation follows existing current-generation selection',
+)
+
+const lifecyclePendingExternalCheck = {
+  ...successfulCheck('lifecycle-current-external-pending'),
+  name: 'current-external-pending',
+  status: 'IN_PROGRESS',
+  conclusion: null,
+  startedAt: '2026-08-08T03:00:00Z',
+  checkSuite: { ...successfulCheck().checkSuite, commit: { oid: lifecycleHistoricalIdentityV1[325].head } },
+}
+const lifecyclePendingExternalFixture = lifecycleProductionFixtureV1({
+  pr: 325, ready: true, currentExecution: true, additionalChecks: [lifecyclePendingExternalCheck],
+  reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+})
+const lifecyclePendingExternalResult = await executeLifecycleOrchestratorV1({
+  event: lifecyclePendingExternalFixture.event,
+  sourceResult: lifecyclePendingExternalFixture.sourceResult,
+  host: lifecyclePendingExternalFixture.host,
+  executionIdentity: lifecyclePendingExternalFixture.executionIdentity,
+})
+check(
+  lifecyclePendingExternalResult.reason === 'external_checks_pending' && lifecyclePendingExternalResult.next_action === 'STOP',
+  'LOV1 another current external pending check remains authoritative',
+)
+
+const lifecycleDifferentRunCheck = currentReadyCheck({
+  id: 'lifecycle-same-name-different-run',
+  detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/32317760001/job/95591870001`,
+  databaseId: 95591870001,
+  checkSuiteDatabaseId: 87008770001,
+  checkSuiteCommitOid: lifecycleHistoricalIdentityV1[325].head,
+  startedAt: '2026-08-08T03:00:00Z',
+})
+const lifecycleDifferentRunFixture = lifecycleProductionFixtureV1({
+  pr: 325, ready: true, currentExecution: true, additionalChecks: [lifecycleDifferentRunCheck],
+  reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+})
+const lifecycleDifferentRunResult = await executeLifecycleOrchestratorV1({
+  event: lifecycleDifferentRunFixture.event,
+  sourceResult: lifecycleDifferentRunFixture.sourceResult,
+  host: lifecycleDifferentRunFixture.host,
+  executionIdentity: lifecycleDifferentRunFixture.executionIdentity,
+})
+check(
+  lifecycleDifferentRunResult.next_action === 'STOP' && lifecycleDifferentRunResult.reason === 'external_checks_pending',
+  'LOV1 same-name check from a different run is not excluded by display name',
+)
+
+const lifecycleAttemptDriftFixture = lifecycleProductionFixtureV1({
+  pr: 325, ready: true, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+})
+const lifecycleAttemptDriftResult = await executeLifecycleOrchestratorV1({
+  event: lifecycleAttemptDriftFixture.event,
+  sourceResult: lifecycleAttemptDriftFixture.sourceResult,
+  host: lifecycleAttemptDriftFixture.host,
+  executionIdentity: Object.freeze({ ...lifecycleAttemptDriftFixture.executionIdentity, runAttempt: 2 }),
+})
+check(
+  lifecycleAttemptDriftResult.next_action === 'STOP' && lifecycleAttemptDriftResult.reason === 'external_checks_missing',
+  'LOV1 same run with a different attempt is not excluded',
+)
+
+const lifecycleMissingExecutionIdentityFixture = lifecycleProductionFixtureV1({
+  pr: 325, ready: true, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+})
+const lifecycleMissingExecutionIdentityResult = await executeLifecycleOrchestratorV1({
+  event: lifecycleMissingExecutionIdentityFixture.event,
+  sourceResult: lifecycleMissingExecutionIdentityFixture.sourceResult,
+  host: lifecycleMissingExecutionIdentityFixture.host,
+})
+check(
+  lifecycleMissingExecutionIdentityResult.next_action === 'STOP' && lifecycleMissingExecutionIdentityResult.reason === 'external_checks_missing',
+  'LOV1 current RTO check without immutable current-run identity fails closed',
+)
 
 const lifecycleReadyBoundFixture = lifecycleProductionFixtureV1({
   pr: 325,
@@ -5884,6 +6059,24 @@ const lifecycleMerged = lifecycleReplaySnapshotV1({ pr: 325 })
 lifecycleMerged.pull_state = 'closed'
 lifecycleMerged.pull_merged = true
 const lifecycleMergedProjection = reduceLifecycleReplayV1(lifecycleMerged)
+const lifecycleOpenUnmergedProjection = reduceLifecycleReplayV1(lifecycleReplaySnapshotV1({ pr: 325 }))
+const lifecycleClosedUnmerged = lifecycleReplaySnapshotV1({ pr: 325 })
+lifecycleClosedUnmerged.pull_state = 'closed'
+lifecycleClosedUnmerged.pull_merged = false
+const lifecycleClosedUnmergedProjection = reduceLifecycleReplayV1(lifecycleClosedUnmerged)
+const lifecycleUnknownMergeProjection = reduceLifecycleReplayV1({
+  ...lifecycleReplaySnapshotV1({ pr: 325 }), pull_merged: null,
+})
+const lifecycleClosedUnmergedMatrix = [
+  lifecycleOpenUnmergedProjection.reason !== 'already_merged' && lifecycleOpenUnmergedProjection.reason !== 'lifecycle_pr_closed_unmerged',
+  lifecycleMergedProjection.next_action === 'ISSUE_CLOSE_CANDIDATE' && lifecycleMergedProjection.reason === 'already_merged',
+  lifecycleClosedUnmergedProjection.next_action === 'STOP' && lifecycleClosedUnmergedProjection.reason === 'lifecycle_pr_closed_unmerged',
+  lifecycleClosedUnmergedProjection.next_action !== 'ISSUE_CLOSE_CANDIDATE',
+  lifecycleUnknownMergeProjection.next_action === 'STOP' && lifecycleUnknownMergeProjection.reason === 'lifecycle_snapshot_invalid',
+]
+for (const [index, evidence] of lifecycleClosedUnmergedMatrix.entries()) {
+  check(evidence, `LOV1 explicit closed-unmerged classification ${index + 1}`)
+}
 
 const lifecycleMinimalPredicateVariants = [
   { ...lifecycleReplaySnapshotV1({ pr: 325 }), review: { ...lifecycleReplaySnapshotV1({ pr: 325 }).review, decision: 'CHANGES_REQUIRED', blocking_finding_count: 1 } },
@@ -6095,5 +6288,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 830) throw new Error(`expected exactly 830 assertions, observed ${assertions}`)
+if (assertions !== 841) throw new Error(`expected exactly 841 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
