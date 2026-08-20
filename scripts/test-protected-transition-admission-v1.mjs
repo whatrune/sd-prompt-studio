@@ -5245,6 +5245,10 @@ const lifecycleHistoricalPathsV1 = Object.freeze({
     'src/deployment-resolver/core.ts', 'src/deployment-resolver/index.ts', 'src/deployment-resolver/types.ts', 'src/deployment-resolver/validation.ts',
     'src/model-routing/core.ts', 'src/model-routing/index.ts', 'src/model-routing/types.ts', 'src/model-routing/validation.ts',
   ].sort()),
+  353: Object.freeze([
+    'scripts/run-protected-transition-admission-v1.mjs',
+    'scripts/test-protected-transition-admission-v1.mjs',
+  ]),
 })
 const lifecycleHistoricalIdentityV1 = Object.freeze({
   323: Object.freeze({ task: 322, head: '39af964928dbe0ba2e689897d596904599f19730', base: 'eaed40ca274b6d05e03e15c87cca00b3d8b1df68', expectedBase: 'd9ad54082c37da7805ec6b660365a3619a4ed7a5', reviewId: 5323385957, reviewSha: '75268cfd6abe68b115f76d9c579351eb282dceda8f6aca76c57965487e67e742', authorityId: 5326332337, authoritySha: 'acad518ad2d9b6b2d158d2fa0e092fd79a5de4a6b02857f9b2db39e91fdf5c61' }),
@@ -5253,6 +5257,7 @@ const lifecycleHistoricalIdentityV1 = Object.freeze({
   329: Object.freeze({ task: 328, head: 'f2164a4ab5b671cac504adf11f02872cf5860d2f', base: '8d1c6bae9460de361b41734f6d2b1092e68e9ff5', expectedBase: '8d1c6bae9460de361b41734f6d2b1092e68e9ff5', reviewId: 5331468226, reviewSha: 'aefec218fd243bd8ae287cab055976d50f7c5de022fbd4c68ea833231b923ab4', authorityId: 5335453739, authoritySha: 'eec4547a72698005c04ab1c8b3dfb9899bd5c4db9fb4c11dbf98dc989a890342' }),
   331: Object.freeze({ task: 330, head: '71c56497ca7afba99679e0120e05168f9de51b80', base: '7e0259340c946103ea1860327ddea21fb7bf865a', expectedBase: '7e0259340c946103ea1860327ddea21fb7bf865a', reviewId: 5335692180, reviewSha: '0394fd5753d697baad978f1eca565151f9d3c4ae94532d648af6a79825d580c8', authorityId: 5335823890, authoritySha: 'a7b0728e26a8fac96e08a22265098a9a17d585fb248f129752a271de5937278f' }),
   333: Object.freeze({ task: 332, head: '4f0154002ee0139c54cba177dea52f68a3259e87', priorHead: '6e775019a13da21afa00d6bedd48bcf7e457130d', initialHead: '8a408bac921ead4951bdaea426b24302bee598f6', base: '149d0fb238b3efc61e122fa5b7015eed33e5b4c7', expectedBase: '149d0fb238b3efc61e122fa5b7015eed33e5b4c7', reviewId: 5337939702, reviewSha: '91a33819b3c7fbf1f48ea4d9a4b607e1e2dd6d0d7678605b0cd21189b8f897db', priorReviewId: 5337621944, priorReviewSha: 'c6d31dbda1f10f04a2f045c7f5c0f9d2729ff3106ca32c6998b52809d3e37c97', initialReviewId: 5335916732, initialReviewSha: 'ccbd2221b2d5a581c9a530519febc769ed8a5ff7b7c18da67600b82fc523813e', authorityId: 5338002673, authoritySha: '4cfd45189945321c37c9e53e19b842a71c09d0cbd3246d6a5911979fba8746c8' }),
+  353: Object.freeze({ task: 352, head: '96f26aec207f4405f680d9fe112827d45ce6024f', base: '3cfc645ecbad07f9ef0e858605a0acdf3f7b11ba', expectedBase: '3cfc645ecbad07f9ef0e858605a0acdf3f7b11ba', reviewId: 5351700000, reviewSha: '3333333333333333333333333333333333333333333333333333333333333333', authorityId: 5351658059, authoritySha: '4444444444444444444444444444444444444444444444444444444444444444' }),
 })
 const lifecycleReplaySnapshotV1 = ({ pr, head = lifecycleHistoricalIdentityV1[pr].head, paths = lifecycleHistoricalPathsV1[pr], currentBase = lifecycleHistoricalIdentityV1[pr].expectedBase, reviewedBase = lifecycleHistoricalIdentityV1[pr].base, overrides = {} }) => {
   const identity = lifecycleHistoricalIdentityV1[pr]
@@ -5382,10 +5387,14 @@ task_issue: "https://github.com/${REPOSITORY}/issues/${task}"
 pull_request: "https://github.com/${REPOSITORY}/pull/${pr}"
 exact_head: "${head}"
 \`\`\``
-const lifecyclePublicationAuthorityBodyV1 = ({ task, pr, parent, resultCommentId, paths, quoted = false }) => `# Publication Authority
+const lifecyclePublicationAuthorityBodyV1 = ({ task, pr, parent, resultCommentId, paths, quoted = false, canonicalSource = false, resultBodySha256 = null }) => `# Publication Authority
 
 \`\`\`yaml
 record_type: ${quoted ? '"commit_push_publication_authorization_v1"' : 'commit_push_publication_authorization_v1'}
+${canonicalSource ? `repository: "${REPOSITORY}"
+canonical_record: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-${lifecycleHistoricalIdentityV1[pr].authorityId}"
+result_handoff: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-${resultCommentId}"
+result_handoff_body_sha256: "${resultBodySha256}"` : ''}
 parent_issue: ${quoted ? `"${task}"` : task}
 target_pr: ${quoted ? `"${pr}"` : pr}
 expected_parent: ${quoted ? `"${parent}"` : parent}
@@ -5409,6 +5418,109 @@ const lifecyclePublicationHandoffBodyV1 = ({ task, pr, head, parent, authorityId
 ### Published scope
 
 ${paths.map((pathValue) => `- \`${pathValue}\``).join('\n')}`
+const lifecycleArchitectureCandidateBodyV1 = ({ task, base }) => `# Lifecycle Orchestrator V1 - Architecture Candidate V2
+
+\`\`\`yaml
+record_type: "lifecycle_orchestrator_v1_architecture_candidate"
+version: 2
+candidate_id: "LOV1-ARCH-CANDIDATE-002"
+task_issue: "https://github.com/${REPOSITORY}/issues/${task}"
+repository: "${REPOSITORY}"
+canonical_record: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-5341716163"
+evidence_main_head: "${base}"
+\`\`\`
+
+## 3. Exact implementation scope
+
+1. \`.github/workflows/protected-transition-admission-v1.yml\`
+2. \`scripts/run-protected-transition-admission-v1.mjs\`
+3. \`scripts/test-protected-transition-admission-v1.mjs\``
+const lifecycleArchitectureAmendmentBodyV1 = ({ task }) => `# Lifecycle Orchestrator V1 — Architecture Amendment 001
+
+\`\`\`yaml
+record_type: "lifecycle_orchestrator_v1_architecture_amendment"
+amendment_id: "LOV1-ARCH-AMENDMENT-001"
+task_issue: "https://github.com/${REPOSITORY}/issues/${task}"
+canonical_record: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-5345423423"
+prior_record_url: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-5341716163"
+amends: "LOV1-ARCH-CANDIDATE-002"
+\`\`\`
+
+## 2. Strict-subset interpretation of the three-path allowlist
+
+1. \`.github/workflows/protected-transition-admission-v1.yml\`
+2. \`scripts/run-protected-transition-admission-v1.mjs\`
+3. \`scripts/test-protected-transition-admission-v1.mjs\``
+const lifecyclePublishedResultHandoffBodyV1 = ({ task, pr, parent, paths, fileBindings }) => `# Lifecycle Orchestrator V1 Phase 1 — Current-generation Implementation Result Handoff
+
+\`\`\`yaml
+record_type: "result_handoff"
+authoring_role: "Backend Implementer"
+repository: "${REPOSITORY}"
+task_issue: "https://github.com/${REPOSITORY}/issues/${task}"
+pull_request: "https://github.com/${REPOSITORY}/pull/${pr}"
+canonical_record: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-5351631698"
+exact_parent: "${parent}"
+current_head: "${parent}"
+status: "completed"
+execution_stop_reason: "completed"
+blocking_finding_count: 0
+remaining_finding_count: 0
+unknown_count: 0
+runner_sha256: "${fileBindings['scripts/run-protected-transition-admission-v1.mjs'].sha256}"
+runner_git_blob_oid: "${fileBindings['scripts/run-protected-transition-admission-v1.mjs'].blob_oid}"
+test_sha256: "${fileBindings['scripts/test-protected-transition-admission-v1.mjs'].sha256}"
+test_git_blob_oid: "${fileBindings['scripts/test-protected-transition-admission-v1.mjs'].blob_oid}"
+validation_results:
+  focused_rto_pta: "886/886 PASS"
+  git_diff_check: "PASS"
+validation_evidence_reused: true
+\`\`\`
+
+## Exact correction bytes
+
+${paths.map((pathValue) => `- \`${pathValue}\``).join('\n')}`
+
+const lifecyclePr353CanonicalResultHandoffBodyV1 = ({ task, pr, parent, paths, fileBindings }) => {
+  if (
+    task !== 352 || pr !== 353 || parent !== lifecycleReviewedParentV1 ||
+    paths.length !== lifecyclePublishedScopeV1.length || paths.some((pathValue, index) => pathValue !== lifecyclePublishedScopeV1[index])
+  ) {
+    throw new Error('pr353_canonical_result_handoff_fixture_binding_invalid')
+  }
+  return `# Lifecycle Orchestrator V1 Phase 1 — Current-generation Implementation Result Handoff
+
+\`\`\`yaml
+record_type: "result_handoff"
+authoring_role: "Backend Implementer"
+repository: "${REPOSITORY}"
+task_issue: "https://github.com/${REPOSITORY}/issues/352"
+pull_request: "https://github.com/${REPOSITORY}/pull/353"
+canonical_record: "https://github.com/${REPOSITORY}/issues/352#issuecomment-5351631698"
+exact_parent: "${lifecycleReviewedParentV1}"
+current_head: "${lifecycleReviewedParentV1}"
+status: "completed"
+execution_stop_reason: "completed"
+blocking_finding_count: 0
+remaining_finding_count: 0
+unknown_count: 0
+runner_sha256: "${fileBindings['scripts/run-protected-transition-admission-v1.mjs'].sha256}"
+runner_git_blob_oid: "${fileBindings['scripts/run-protected-transition-admission-v1.mjs'].blob_oid}"
+test_sha256: "${fileBindings['scripts/test-protected-transition-admission-v1.mjs'].sha256}"
+test_git_blob_oid: "${fileBindings['scripts/test-protected-transition-admission-v1.mjs'].blob_oid}"
+finding_disposition:
+  B-LOV1-PUBLICATION-AUTHORITY-PARSER-006: "CLOSED_BY_CODE"
+validation_results:
+  focused_rto_pta: "886/886 PASS"
+  git_diff_check: "PASS"
+validation_evidence_reused: true
+\`\`\`
+
+## Exact correction bytes
+
+- \`scripts/run-protected-transition-admission-v1.mjs\`
+- \`scripts/test-protected-transition-admission-v1.mjs\``
+}
 const lifecycleCommentV1 = ({ id, createdAt, body }) => Object.freeze({
   id,
   created_at: createdAt,
@@ -5443,6 +5555,16 @@ const lifecycleProductionFixtureV1 = ({
   additionalChecks = [],
   currentRunOverrides = {},
   currentJobOverrides = {},
+  publicationChain = false,
+  publicationChainParent = OTHER_HEAD,
+  publicationChainCommitParent = publicationChainParent,
+  publicationChainAuthorityPaths = paths,
+  publicationChainHandoffPaths = publicationChainAuthorityPaths,
+  publicationChainRemoteHead = head,
+  publicationChainValidationInputDrift = false,
+  publicationChainResultBodyFactory = lifecyclePublishedResultHandoffBodyV1,
+  publicationChainResultBodyTransform = (body) => body,
+  legacyStateBlock = true,
 }) => {
   const identity = lifecycleHistoricalIdentityV1[pr]
   const authorizationId = identity.reviewId - 2
@@ -5475,7 +5597,63 @@ const lifecycleProductionFixtureV1 = ({
       quoted: publicationAuthorityQuoted,
     }),
   })
-  const comments = minimalCandidate
+  const publicationChainFileBytes = Object.freeze({
+    'scripts/run-protected-transition-admission-v1.mjs': Buffer.from('reviewed lifecycle runner bytes', 'utf8'),
+    'scripts/test-protected-transition-admission-v1.mjs': Buffer.from('reviewed lifecycle test bytes', 'utf8'),
+  })
+  const publicationChainFileBindings = Object.freeze({
+    'scripts/run-protected-transition-admission-v1.mjs': Object.freeze({ blob_oid: '5c7697ca5bacdf744d4298e39247b8d679b8e2e2', sha256: createHash('sha256').update(publicationChainFileBytes['scripts/run-protected-transition-admission-v1.mjs']).digest('hex') }),
+    'scripts/test-protected-transition-admission-v1.mjs': Object.freeze({ blob_oid: '18dce0fad825f21fa9db0970d2b0bb509a5db111', sha256: createHash('sha256').update(publicationChainFileBytes['scripts/test-protected-transition-admission-v1.mjs']).digest('hex') }),
+  })
+  const architectureCandidate = lifecycleCommentV1({
+    id: 5341716163,
+    createdAt: '2026-08-17T22:00:00Z',
+    body: lifecycleArchitectureCandidateBodyV1({ task: identity.task, base: currentBase }),
+  })
+  const historicalArchitectureCandidate = lifecycleCommentV1({
+    id: 5341105323,
+    createdAt: '2026-08-17T21:59:00Z',
+    body: `# Historical Lifecycle Orchestrator V1 Architecture Candidate
+
+\`\`\`yaml
+record_type: "lifecycle_orchestrator_v1_architecture_candidate"
+version: 1
+candidate_id: "LOV1-ARCH-CANDIDATE-001"
+\`\`\``,
+  })
+  const architectureAmendment = lifecycleCommentV1({
+    id: 5345423423,
+    createdAt: '2026-08-17T22:01:00Z',
+    body: lifecycleArchitectureAmendmentBodyV1({ task: identity.task }),
+  })
+  const publishedResult = lifecycleCommentV1({
+    id: 5351631698,
+    createdAt: '2026-08-18T00:01:30Z',
+    body: publicationChainResultBodyTransform(publicationChainResultBodyFactory({
+      task: identity.task,
+      pr,
+      parent: publicationChainParent,
+      paths: publicationChainHandoffPaths,
+      fileBindings: publicationChainFileBindings,
+    })),
+  })
+  const publishedAuthority = lifecycleCommentV1({
+    id: identity.authorityId,
+    createdAt: '2026-08-18T00:02:00Z',
+    body: lifecyclePublicationAuthorityBodyV1({
+      task: identity.task,
+      pr,
+      parent: publicationChainParent,
+      resultCommentId: publishedResult.id,
+      paths: publicationChainAuthorityPaths,
+      quoted: true,
+      canonicalSource: true,
+      resultBodySha256: createHash('sha256').update(Buffer.from(publishedResult.body, 'utf8')).digest('hex'),
+    }),
+  })
+  const comments = publicationChain
+    ? [historicalArchitectureCandidate, architectureCandidate, architectureAmendment, ...historicalComments, validation, review, publishedResult, publishedAuthority]
+    : minimalCandidate
     ? [...historicalComments, validation, review, minimalAuthority]
     : publicationAuthority ? [...historicalComments, validation, review, publicationAuthorityRecord] : [...historicalComments, validation, review]
   const eventComment = eventCommentOverride ?? (minimalCandidate
@@ -5490,7 +5668,9 @@ const lifecycleProductionFixtureV1 = ({
     reviewed_head: head,
     review_blocker_count: 0,
   })
-  const pullBody = readyTaskBindings === null
+  const pullBody = !legacyStateBlock
+    ? `Task: #${identity.task}`
+    : readyTaskBindings === null
     ? stateBlock(taskState)
     : readyTaskBindings.map((taskIssueNumber) => `Task: #${taskIssueNumber}`).join('\n')
   const metrics = { task: 0, pull: 0, files: 0, history: 0, direct: 0, compare: 0, checks: 0, threads: 0, branch: 0, mutation: 0 }
@@ -5538,8 +5718,10 @@ const lifecycleProductionFixtureV1 = ({
   const host = Object.freeze({
     branchHead: async (repository, branch) => {
       metrics.branch += 1
-      if (repository !== REPOSITORY || branch !== 'main') throw new Error('unexpected_lifecycle_branch')
-      return currentBase
+      if (repository !== REPOSITORY) throw new Error('unexpected_lifecycle_branch')
+      if (branch === 'main') return currentBase
+      if (publicationChain && branch === 'codex/lifecycle-publication') return publicationChainRemoteHead
+      throw new Error('unexpected_lifecycle_branch')
     },
     api: async (endpoint, options = undefined) => {
       if (options?.method && options.method !== 'GET') {
@@ -5552,7 +5734,7 @@ const lifecycleProductionFixtureV1 = ({
       }
       if (endpoint === `repos/${REPOSITORY}/pulls/${pr}`) {
         metrics.pull += 1
-        return { number: pr, state: 'open', draft, merged: false, mergeable: true, mergeable_state: 'clean', changed_files: paths.length, base: { repo: { full_name: REPOSITORY }, ref: 'main', sha: identity.base }, head: { sha: head }, body: pullBody }
+        return { number: pr, state: 'open', draft, merged: false, mergeable: true, mergeable_state: 'clean', changed_files: paths.length, base: { repo: { full_name: REPOSITORY }, ref: 'main', sha: identity.base }, head: { sha: head, ref: 'codex/lifecycle-publication', repo: { full_name: REPOSITORY } }, body: pullBody }
       }
       if (endpoint.startsWith(`repos/${REPOSITORY}/pulls/${pr}/files?`)) {
         metrics.files += 1
@@ -5581,6 +5763,27 @@ const lifecycleProductionFixtureV1 = ({
           commits: [{ sha: currentBase }],
           files: structuredClone(compareFiles),
         }
+      }
+      if (publicationChain && endpoint === `repos/${REPOSITORY}/commits/${head}`) {
+        return {
+          sha: head,
+          parents: [{ sha: publicationChainCommitParent }],
+          files: paths.map((filename) => ({
+            filename,
+            status: 'modified',
+            sha: publicationChainFileBindings[filename]?.blob_oid ?? '3333333333333333333333333333333333333333',
+          })),
+        }
+      }
+      const publicationBlob = new RegExp(`^repos/${REPOSITORY}/git/blobs/([0-9a-f]{40})$`).exec(endpoint)
+      if (publicationChain && publicationBlob) {
+        const entry = Object.entries(publicationChainFileBindings).find(([, binding]) => binding.blob_oid === publicationBlob[1])
+        if (!entry) throw new Error('unexpected_lifecycle_blob')
+        const original = publicationChainFileBytes[entry[0]]
+        const bytes = publicationChainValidationInputDrift && entry[0] === 'scripts/test-protected-transition-admission-v1.mjs'
+          ? Buffer.from('drifted lifecycle test bytes', 'utf8')
+          : original
+        return { sha: publicationBlob[1], encoding: 'base64', size: bytes.length, content: bytes.toString('base64') }
       }
       if (currentExecution && endpoint === `repos/${REPOSITORY}/actions/runs/${lifecycleRunId}`) {
         const apiRepository = `https://api.github.com/repos/${REPOSITORY}`
@@ -5660,6 +5863,324 @@ for (const [fixture, nextAction] of lifecycleProductionCases) {
   check(result.next_action === nextAction, `LOV1 production replay acquisition ${nextAction}`)
   check(result.mutation_count === 0 && fixture.metrics.mutation === 0, `LOV1 production replay zero mutation ${nextAction}`)
   check(fixture.metrics.task === 1 && fixture.metrics.pull === 1 && fixture.metrics.files === 1 && fixture.metrics.history === 1 && fixture.metrics.checks === 1 && fixture.metrics.threads === 1 && fixture.metrics.branch === 1, `LOV1 production replay bounded acquisition ${nextAction}`)
+}
+
+const lifecyclePublishedHeadV1 = '96f26aec207f4405f680d9fe112827d45ce6024f'
+const lifecycleReviewedParentV1 = 'b85805ee8d79211738ab3c4925ff89749c8384cf'
+const lifecyclePublishedScopeV1 = Object.freeze([
+  'scripts/run-protected-transition-admission-v1.mjs',
+  'scripts/test-protected-transition-admission-v1.mjs',
+])
+const lifecyclePublicationChainCases = [
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+    }),
+    'MERGE_DECISION',
+    'A no legacy state plus exact Architecture Handoff Authority commit remote PR and Files chain presents scope',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, head: lifecyclePublishedHeadV1,
+      paths: [...lifecyclePublishedScopeV1, '.github/workflows/protected-transition-admission-v1.yml'], ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1,
+      publicationChainAuthorityPaths: lifecyclePublishedScopeV1, publicationChainHandoffPaths: lifecyclePublishedScopeV1,
+      legacyStateBlock: false,
+    }),
+    'STOP',
+    'B absent legacy state plus PR Files path drift stops',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1,
+      publicationChainHandoffPaths: [lifecyclePublishedScopeV1[0]], legacyStateBlock: false,
+    }),
+    'STOP',
+    'C Publication Authority and Result Handoff path mismatch stops',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1,
+      publicationChainCommitParent: OTHER_HEAD, legacyStateBlock: false,
+    }),
+    'STOP',
+    'D published commit parent mismatch stops',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1,
+      publicationChainRemoteHead: OTHER_HEAD, legacyStateBlock: false,
+    }),
+    'STOP',
+    'E remote branch and PR HEAD mismatch stops',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      legacyStateBlock: false,
+    }),
+    'STOP',
+    'F historical validation without matching current publication chain cannot authorize current scope',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+    }),
+    'MERGE_DECISION',
+    'G reviewed-parent validation is reusable through exact publication applicability binding',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1,
+      publicationChainValidationInputDrift: true, legacyStateBlock: false,
+    }),
+    'STOP',
+    'H validation input blob drift makes validation and scope incomplete',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+    }),
+    'MERGE_DECISION',
+    'I no proof-only Result Handoff at published current HEAD is normal and accepted',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyFactory: lifecyclePr353CanonicalResultHandoffBodyV1,
+    }),
+    'MERGE_DECISION',
+    'J Task 352 PR 353 direct canonical Result Handoff shape progresses beyond scope evidence missing',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace(
+        'validation_results:\n  focused_rto_pta: "886/886 PASS"\n  git_diff_check: "PASS"\n',
+        '',
+      ),
+    }),
+    'STOP',
+    'K missing validation_results mapping is incomplete',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace('  focused_rto_pta: "886/886 PASS"\n', ''),
+    }),
+    'STOP',
+    'L missing nested focused_rto_pta is incomplete',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace('  git_diff_check: "PASS"\n', ''),
+    }),
+    'STOP',
+    'M missing nested git_diff_check is incomplete',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace(
+        '  focused_rto_pta: "886/886 PASS"\n',
+        '  focused_rto_pta: "886/886 PASS"\n  focused_rto_pta: "886/886 PASS"\n',
+      ),
+    }),
+    'STOP',
+    'N duplicate nested validation field is incomplete',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace(
+        '  focused_rto_pta: "886/886 PASS"',
+        '    focused_rto_pta: "886/886 PASS"',
+      ),
+    }),
+    'STOP',
+    'O malformed nested validation field is incomplete',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace(
+        'validation_results:\n  focused_rto_pta: "886/886 PASS"\n  git_diff_check: "PASS"',
+        'focused_rto_pta: "886/886 PASS"\ngit_diff_check: "PASS"',
+      ),
+    }),
+    'STOP',
+    'P flattened-only synthetic validation shape is rejected',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace(
+        'validation_evidence_reused: true',
+        'focused_rto_pta: "886/886 PASS"\ngit_diff_check: "PASS"\nvalidation_evidence_reused: true',
+      ),
+    }),
+    'STOP',
+    'Q simultaneous nested and flattened validation shapes are rejected',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace(
+        'validation_evidence_reused: true',
+        'alternate_validation:\n  focused_rto_pta: "0/0 PASS"\nvalidation_evidence_reused: true',
+      ),
+    }),
+    'STOP',
+    'R duplicate required key under alternate mapping is rejected',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace(
+        'validation_results:',
+        'focused_rto_pta: "0/0 PASS"\nvalidation_results:',
+      ),
+    }),
+    'STOP',
+    'S duplicate required key before validation_results is rejected',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace(
+        'validation_evidence_reused: true',
+        'validation_evidence_reused: true\nfocused_rto_pta: "0/0 PASS"',
+      ),
+    }),
+    'STOP',
+    'T duplicate required key after validation_results is rejected',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace(
+        'validation_evidence_reused: true',
+        'alternate_validation:\n  focused_rto_pta:"0/0 PASS"\nvalidation_evidence_reused: true',
+      ),
+    }),
+    'STOP',
+    'U alternate no-space focused_rto_pta attempt is detected and rejected',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace(
+        'validation_evidence_reused: true',
+        'alternate_validation:\n  focused_rto_pta : "0/0 PASS"\nvalidation_evidence_reused: true',
+      ),
+    }),
+    'STOP',
+    'V space-before-colon focused_rto_pta attempt is detected and rejected',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace(
+        'validation_evidence_reused: true',
+        'alternate_validation:\n\tfocused_rto_pta\t:"0/0 PASS"\nvalidation_evidence_reused: true',
+      ),
+    }),
+    'STOP',
+    'W tabbed focused_rto_pta attempt is detected and rejected',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace(
+        '  focused_rto_pta: "886/886 PASS"',
+        '  focused_rto_pta:  "886/886 PASS"',
+      ),
+    }),
+    'STOP',
+    'X extra-space canonical focused_rto_pta syntax is rejected',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace(
+        'validation_results:',
+        'focused_rto_pta:"0/0 PASS"\nvalidation_results:',
+      ),
+    }),
+    'STOP',
+    'Y malformed focused_rto_pta attempt before validation_results is rejected',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace(
+        'validation_evidence_reused: true',
+        'validation_evidence_reused: true\nfocused_rto_pta :"0/0 PASS"',
+      ),
+    }),
+    'STOP',
+    'Z malformed focused_rto_pta attempt after validation_results is rejected',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace(
+        'validation_evidence_reused: true',
+        'alternate_validation:\n  git_diff_check:"FAIL"\nvalidation_evidence_reused: true',
+      ),
+    }),
+    'STOP',
+    'AA alternate malformed git_diff_check attempt is detected and rejected',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace(
+        '  git_diff_check: "PASS"',
+        '  git_diff_check : "PASS"',
+      ),
+    }),
+    'STOP',
+    'AB malformed canonical git_diff_check colon spacing is rejected',
+  ],
+]
+for (const [fixture, expectedAction, label] of lifecyclePublicationChainCases) {
+  const result = await executeLifecycleOrchestratorV1({ event: fixture.event, sourceResult: fixture.sourceResult, host: fixture.host })
+  check(
+    result.next_action === expectedAction && (expectedAction === 'STOP' || result.reason !== 'scope_evidence_missing'),
+    `LOV1 publication-chain scope and validation reuse ${label}: observed ${result.next_action}/${result.reason}`,
+  )
+  check(
+    result.mutation_count === 0 && fixture.metrics.mutation === 0,
+    `LOV1 publication-chain scope and validation reuse zero mutation ${label}`,
+  )
 }
 
 const lifecycleCurrentExecutionFixture = lifecycleProductionFixtureV1({
@@ -6618,5 +7139,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 886) throw new Error(`expected exactly 886 assertions, observed ${assertions}`)
+if (assertions !== 942) throw new Error(`expected exactly 942 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
