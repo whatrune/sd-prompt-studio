@@ -5369,14 +5369,14 @@ unknown_count: 0
 status: "completed"
 execution_stop_reason: "completed"
 \`\`\``
-const lifecycleValidationBodyV1 = ({ task, pr, head, paths, commentId }) => `## Backend Implementer Result Handoff
+const lifecycleValidationBodyV1 = ({ task, pr, head, paths, commentId, taskAssignmentId }) => `## Backend Implementer Result Handoff
 
 \`\`\`yaml
 task_id: "ARCH-LIFECYCLE-ORCHESTRATOR-V1-001"
 record_type: "result_handoff"
 authoring_role: "Backend Implementer"
 role: "Implementer"
-authority_source: "https://github.com/${REPOSITORY}/issues/${task}"
+authority_source: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-${taskAssignmentId}"
 canonical_record: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-${commentId}"
 repository: "${REPOSITORY}"
 task_issue: "https://github.com/${REPOSITORY}/issues/${task}"
@@ -5571,14 +5571,14 @@ amends: "LOV1-ARCH-CANDIDATE-002"
 1. \`.github/workflows/protected-transition-admission-v1.yml\`
 2. \`scripts/run-protected-transition-admission-v1.mjs\`
 3. \`scripts/test-protected-transition-admission-v1.mjs\``
-const lifecyclePublishedResultHandoffBodyV1 = ({ task, pr, parent, paths, fileBindings, commentId = 5351631698 }) => `# Lifecycle Orchestrator V1 Phase 1 — Current-generation Implementation Result Handoff
+const lifecyclePublishedResultHandoffBodyV1 = ({ task, pr, parent, paths, fileBindings, taskAssignmentId, commentId = 5351631698 }) => `# Lifecycle Orchestrator V1 Phase 1 — Current-generation Implementation Result Handoff
 
 \`\`\`yaml
 task_id: "ARCH-LIFECYCLE-ORCHESTRATOR-V1-001"
 record_type: "result_handoff"
 authoring_role: "Backend Implementer"
 role: "Implementer"
-authority_source: "https://github.com/${REPOSITORY}/issues/${task}"
+authority_source: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-${taskAssignmentId}"
 repository: "${REPOSITORY}"
 task_issue: "https://github.com/${REPOSITORY}/issues/${task}"
 pull_request: "https://github.com/${REPOSITORY}/pull/${pr}"
@@ -5604,7 +5604,7 @@ validation_evidence_reused: true
 
 ${paths.map((pathValue) => `- \`${pathValue}\``).join('\n')}`
 
-const lifecyclePr353CanonicalResultHandoffBodyV1 = ({ task, pr, parent, paths, fileBindings }) => {
+const lifecyclePr353CanonicalResultHandoffBodyV1 = ({ task, pr, parent, paths, fileBindings, taskAssignmentId }) => {
   if (
     task !== 352 || pr !== 353 || parent !== lifecycleReviewedParentV1 ||
     paths.length !== lifecyclePublishedScopeV1.length || paths.some((pathValue, index) => pathValue !== lifecyclePublishedScopeV1[index])
@@ -5619,7 +5619,7 @@ record_type: "result_handoff"
 result_generation: 4
 authoring_role: "Backend Implementer"
 role: "Implementer"
-authority_source: "https://github.com/${REPOSITORY}/issues/352"
+authority_source: "https://github.com/${REPOSITORY}/issues/352#issuecomment-${taskAssignmentId}"
 prior_record_url: "https://github.com/${REPOSITORY}/issues/352#issuecomment-5351012392"
 cumulative_scope: "Lifecycle Orchestrator V1 Phase 1 READ_ONLY_REPLAY Publication Authority parser correction"
 repository: "${REPOSITORY}"
@@ -5730,7 +5730,7 @@ const lifecycleProductionFixtureV1 = ({
     id: validationId,
     createdAt: '2026-08-18T00:00:00Z',
     body: validationBodyTransform(lifecycleValidationBodyV1({
-      task: identity.task, pr, head: validationHead, paths: validationPaths, commentId: validationId,
+      task: identity.task, pr, head: validationHead, paths: validationPaths, commentId: validationId, taskAssignmentId,
     })),
     user: validationActor,
   })
@@ -5808,6 +5808,7 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
       paths: publicationChainHandoffPaths,
       fileBindings: publicationChainFileBindings,
       commentId: publicationChainResultId,
+      taskAssignmentId,
     })),
     user: publicationChainResultActor,
   })
@@ -6660,12 +6661,49 @@ const lifecycleResultAuthorityChainCases = [
       pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
       publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
       publicationChainResultBodyTransform: (body) => body.replace(
-        `authority_source: "https://github.com/${REPOSITORY}/issues/352"`,
-        `authority_source: "https://github.com/${REPOSITORY}/issues/999"`,
+        `authority_source: "https://github.com/${REPOSITORY}/issues/352#issuecomment-5345944519"`,
+        `authority_source: "https://github.com/${REPOSITORY}/issues/999#issuecomment-5345944519"`,
       ),
     }),
     'STOP',
-    'wrong Result Handoff authority source is incomplete',
+    'another Task comment URL in Result Handoff authority source is incomplete',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace(
+        `authority_source: "https://github.com/${REPOSITORY}/issues/352#issuecomment-5345944519"`,
+        `authority_source: "https://github.com/${REPOSITORY}/issues/352"`,
+      ),
+    }),
+    'STOP',
+    'bare Task URL cannot replace the direct applicable Task Assignment source',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace(
+        '#issuecomment-5345944519"',
+        '#issuecomment-5345944518"',
+      ),
+    }),
+    'STOP',
+    'wrong same-Task assignment comment URL cannot authorize the Result Handoff',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      historicalComments: [lifecycleBootstrapPublicationAssignmentV1],
+      publicationChainResultBodyTransform: (body) => body.replace(
+        '#issuecomment-5345944519"',
+        '#issuecomment-5349172299"',
+      ),
+    }),
+    'STOP',
+    'Bootstrap Publication assignment URL cannot authorize the implementation Result Handoff',
   ],
   [
     lifecycleProductionFixtureV1({
@@ -6717,6 +6755,43 @@ for (const [fixture, expectedAction, label] of lifecycleResultAuthorityChainCase
     `LOV1 Result Handoff authority chain ${label}: observed ${result.next_action}/${result.reason}`,
   )
 }
+
+const lifecycleAuthoritySourceCompatParentV1 = 'cc055b5eed8e807ba0ffe5daca55388e974994a1'
+const lifecycleAuthoritySourceCompatHeadV1 = '9c19eb1165537a02fa8b7b6459b4c9bd8b88d2c4'
+const lifecycleAuthoritySourceCompatFixtureV1 = lifecycleProductionFixtureV1({
+  pr: 353,
+  head: lifecycleAuthoritySourceCompatHeadV1,
+  paths: lifecyclePublishedScopeV1,
+  ready: true,
+  publicationChain: true,
+  publicationChainParent: lifecycleAuthoritySourceCompatParentV1,
+  publicationChainResultId: 5359110476,
+  publicationChainAuthorityId: 5359161590,
+  publicationChainTaskAssignmentId: 5345944519,
+  legacyStateBlock: false,
+})
+const lifecycleAuthoritySourceCompatResultV1 = await executeLifecycleOrchestratorV1({
+  event: lifecycleAuthoritySourceCompatFixtureV1.event,
+  sourceResult: lifecycleAuthoritySourceCompatFixtureV1.sourceResult,
+  host: lifecycleAuthoritySourceCompatFixtureV1.host,
+  executionIdentity: lifecycleAuthoritySourceCompatFixtureV1.executionIdentity,
+})
+check(
+  lifecycleAuthoritySourceCompatResultV1.next_action === 'MERGE_DECISION' &&
+  lifecycleAuthoritySourceCompatResultV1.reason === 'merge_decision_required',
+  `LOV1 #5345944519 -> #5359110476 -> #5359161590 canonical authority chain reaches MERGE_DECISION; observed ${lifecycleAuthoritySourceCompatResultV1.next_action}/${lifecycleAuthoritySourceCompatResultV1.reason}`,
+)
+check(
+  lifecycleAuthoritySourceCompatResultV1.reason !== 'scope_evidence_missing' &&
+  lifecycleAuthoritySourceCompatResultV1.mutation_count === 0 && lifecycleAuthoritySourceCompatFixtureV1.metrics.mutation === 0,
+  'LOV1 current canonical authority chain acquires complete publication scope with zero mutation',
+)
+check(
+  lifecycleAuthoritySourceCompatFixtureV1.metrics.directIds.includes(5345944519) &&
+  lifecycleAuthoritySourceCompatFixtureV1.metrics.directIds.includes(5359110476) &&
+  lifecycleAuthoritySourceCompatFixtureV1.metrics.directIds.includes(5359161590),
+  'LOV1 current canonical chain directly refetches Task Assignment, Result Handoff, and Publication Authority identities',
+)
 
 const lifecycleCurrentExecutionFixture = lifecycleProductionFixtureV1({
   pr: 325, ready: true, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
@@ -7780,6 +7855,7 @@ const lifecyclePublicationResultBody = lifecycleValidationBodyV1({
   head: lifecyclePublicationParentHead,
   paths: lifecyclePublicationSnapshot.changed_paths,
   commentId: lifecyclePublicationResultCommentId,
+  taskAssignmentId: lifecycleHistoricalIdentityV1[325].reviewId - 2,
 })
 const lifecyclePublicationAuthorityBody = lifecyclePublicationAuthorityBodyV1({
   task: lifecyclePublicationSnapshot.task_issue_number,
@@ -7965,5 +8041,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 992) throw new Error(`expected exactly 992 assertions, observed ${assertions}`)
+if (assertions !== 998) throw new Error(`expected exactly 998 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

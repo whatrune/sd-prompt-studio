@@ -6193,6 +6193,11 @@ const projectLifecycleResultHandoffCoreV1 = ({ comment, identity, parentHead, ch
   const currentHead = lifecycleTopLevelScalarV1(comment.body, 'current_head')
   const taskId = lifecycleTopLevelScalarV1(comment.body, 'task_id')
   const authoritySource = lifecycleTopLevelScalarV1(comment.body, 'authority_source')
+  parseRoleUrlNumberV1(
+    authoritySource,
+    `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-`,
+    'lifecycle_result_handoff_invalid',
+  )
   const paths = rolePathSectionV1(comment.body, ['Exact correction bytes'])
   const validationResults = lifecycleResultHandoffValidationResultsV1(comment.body)
   const focusedResult = validationResults.focused_rto_pta
@@ -6203,7 +6208,6 @@ const projectLifecycleResultHandoffCoreV1 = ({ comment, identity, parentHead, ch
     lifecycleTopLevelScalarV1(comment.body, 'record_type') !== 'result_handoff' ||
     lifecycleTopLevelScalarV1(comment.body, 'repository') !== identity.repository ||
     typeof taskId !== 'string' || taskId.length === 0 ||
-    authoritySource !== `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}` ||
     lifecycleTopLevelScalarV1(comment.body, 'canonical_record') !== sourceUrl ||
     lifecycleTopLevelScalarV1(comment.body, 'authoring_role') !== 'Backend Implementer' ||
     lifecycleTopLevelScalarV1(comment.body, 'role') !== 'Implementer' ||
@@ -6327,7 +6331,7 @@ const acquireLifecycleResultHandoffTaskAssignmentV1 = async ({
     !lifecycleSameValueV1(confirmedTaskAssignment, selectedTaskAssignment.projection) ||
     resultProjection.authoring_role !== confirmedTaskAssignment.assigned_role ||
     resultProjection.source_actor !== confirmedTaskAssignment.source_actor ||
-    resultProjection.authority_source_url !== `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}` ||
+    resultProjection.authority_source_url !== confirmedTaskAssignment.source_url ||
     resultRecord.user?.login !== freshTaskAssignmentRecord.user?.login ||
     resultRecord.user?.id !== freshTaskAssignmentRecord.user?.id ||
     resultRecord.user?.type !== freshTaskAssignmentRecord.user?.type ||
