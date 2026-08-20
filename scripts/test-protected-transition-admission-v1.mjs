@@ -26,6 +26,7 @@ import {
   executeRoleDispatchRebindV1,
   executeManualProgressionControllerV1,
   executeLifecycleOrchestratorV1,
+  executeReviewEventWithLifecycleReplayV1,
   executeReadyEventWithLifecycleReplayV1,
   executeMinimalGovernanceFinalDriftGuardV1,
   executeMinimalGovernanceV1,
@@ -5287,7 +5288,15 @@ const lifecycleReplaySnapshotV1 = ({ pr, head = lifecycleHistoricalIdentityV1[pr
       { id: `cloudflare-pages-${pr}`, exact_head: head, status: 'COMPLETED', conclusion: 'SUCCESS', provenance: 'cloudflare-pages:85455' },
     ],
     threads: [],
-    ready_evidence: { event_id: `ready-${pr}-${head}`, exact_head: head, review_comment_id: reviewCommentId },
+    ready_evidence: {
+      event_id: `actions-run:${REVIEW_RUN_ID}:1`, repository: REPOSITORY,
+      task_issue_number: identity.task, pr_number: pr, exact_head: head, review_comment_id: reviewCommentId,
+      event: 'pull_request', action: 'ready_for_review', run_id: REVIEW_RUN_ID, run_attempt: 1,
+      workflow_id: '327818524', workflow_path: '.github/workflows/protected-transition-admission-v1.yml',
+      check_suite_id: '87008787144', terminal_contract: 'legacy_ready_result_v1',
+      terminal_result_sha256: lifecycleReplayShaV1(`ready-terminal-${pr}-${head}`),
+      provenance_sha256: lifecycleReplayShaV1(`ready-provenance-${pr}-${head}`),
+    },
     authority: { kind: 'MINIMAL_GOVERNANCE_CANDIDATE', comment_id: identity.authorityId, source_url: `https://github.com/${REPOSITORY}/issues/${identity.task}#issuecomment-${identity.authorityId}`, body_sha256: identity.authoritySha, task_issue_number: identity.task, pr_number: pr, exact_head: head, event_bound: true },
   }
   return { ...snapshot, ...overrides }
@@ -5360,25 +5369,74 @@ unknown_count: 0
 status: "completed"
 execution_stop_reason: "completed"
 \`\`\``
-const lifecycleValidationBodyV1 = ({ task, pr, head, base, paths, authorizationId }) => `## Backend Implementer Result Handoff
+const lifecycleValidationBodyV1 = ({ task, pr, head, paths, commentId }) => `## Backend Implementer Result Handoff
 
-- PR: #${pr}
-- HEAD: ${head}
-- Implementation Authorization: https://github.com/${REPOSITORY}/issues/${task}#issuecomment-${authorizationId}
-- Validated base: ${base}
-- Validation profile: runtime/integration
-- status: completed
-- execution_stop_reason: completed
-- blocker / remaining / UNKNOWN: 0 / 0 / 0
+\`\`\`yaml
+task_id: "ARCH-LIFECYCLE-ORCHESTRATOR-V1-001"
+record_type: "result_handoff"
+authoring_role: "Backend Implementer"
+role: "Implementer"
+authority_source: "https://github.com/${REPOSITORY}/issues/${task}"
+canonical_record: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-${commentId}"
+repository: "${REPOSITORY}"
+task_issue: "https://github.com/${REPOSITORY}/issues/${task}"
+pull_request: "https://github.com/${REPOSITORY}/pull/${pr}"
+exact_parent: "${head}"
+current_head: "${head}"
+status: "completed"
+execution_stop_reason: "completed"
+blocking_finding_count: 0
+remaining_finding_count: 0
+unknown_count: 0
+validation_results:
+  focused_rto_pta: "886/886 PASS"
+  git_diff_check: "PASS"
+validation_evidence_reused: true
+\`\`\`
 
-### Changed paths
+### Exact correction bytes
 
-${paths.map((pathValue) => `- \`${pathValue}\``).join('\n')}
+${paths.map((pathValue) => `- \`${pathValue}\``).join('\n')}`
+const lifecycleTaskAssignmentBodyV1 = ({ task, commentId, paths, exactBase = AUTHORIZED_IMPLEMENTATION_BASE }) => `# Product Owner Pre-PR Implementation Authority — Lifecycle Orchestrator V1 Phase 1
 
-### Validation
-
-- \`node scripts/test-protected-transition-admission-v1.mjs\`: PASS
-- \`git diff --check\`: PASS`
+\`\`\`yaml
+task_id: "ARCH-LIFECYCLE-ORCHESTRATOR-V1-001"
+record_type: "task_assignment"
+authoring_role: "Product Owner"
+authority_source: "https://github.com/${REPOSITORY}/issues/${task}"
+canonical_record: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-${commentId}"
+prior_record_url: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-5345893370"
+cumulative_scope: "Candidate V2 plus Amendments 001-003; Phase 1 READ_ONLY_REPLAY exact two-path pre-PR implementation authority"
+repository: "${REPOSITORY}"
+task_issue: "https://github.com/${REPOSITORY}/issues/${task}"
+requested_by: "Product Owner"
+assigned_role: "Backend Implementer"
+assigned_implementer: "Backend Implementer"
+assigned_independent_reviewer: "Independent Implementation Reviewer"
+purpose: "Phase 1 READ_ONLY_REPLAY"
+phase: "PHASE_1_READ_ONLY_REPLAY"
+exact_base: "${exactBase}"
+branch: "codex/lifecycle-orchestrator-v1-read-only-replay"
+worktree: "C:\\Users\\defma\\Documents\\sd-prompt-studio\\.worktrees\\lifecycle-orchestrator-v1-read-only-replay"
+architecture_status: "ARCHITECTURE_APPROVED"
+architecture_review: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-5345893370"
+architecture_review_body_sha256: "732767f682bd3cbdd9b66f2e776403c6bcd756cd04babda12a9690ba45aa1128"
+blocking_finding_count: 0
+remaining_finding_count: 0
+unknown_count: 0
+implementation_ready: true
+implementation_ready_scope: "PHASE_1_ONLY"
+implementation_allowed: true
+publication_allowed: false
+ready_transition_allowed: false
+admission_allowed: false
+minimal_governance_allowed: false
+merge_allowed: false
+authority_lifetime: "PRE_PR_IMPLEMENTATION_ONLY"
+authorized_paths:
+${paths.map((pathValue) => `  - "${pathValue}"`).join('\n')}
+status: "authorized_for_pre_pr_implementation_only"
+\`\`\``
 const lifecycleMinimalCandidateBodyV1 = ({ task, pr, head }) => `# Minimal governance authority candidate
 
 \`\`\`yaml
@@ -5454,8 +5512,11 @@ amends: "LOV1-ARCH-CANDIDATE-002"
 const lifecyclePublishedResultHandoffBodyV1 = ({ task, pr, parent, paths, fileBindings }) => `# Lifecycle Orchestrator V1 Phase 1 — Current-generation Implementation Result Handoff
 
 \`\`\`yaml
+task_id: "ARCH-LIFECYCLE-ORCHESTRATOR-V1-001"
 record_type: "result_handoff"
 authoring_role: "Backend Implementer"
+role: "Implementer"
+authority_source: "https://github.com/${REPOSITORY}/issues/${task}"
 repository: "${REPOSITORY}"
 task_issue: "https://github.com/${REPOSITORY}/issues/${task}"
 pull_request: "https://github.com/${REPOSITORY}/pull/${pr}"
@@ -5491,14 +5552,22 @@ const lifecyclePr353CanonicalResultHandoffBodyV1 = ({ task, pr, parent, paths, f
   return `# Lifecycle Orchestrator V1 Phase 1 — Current-generation Implementation Result Handoff
 
 \`\`\`yaml
+task_id: "ARCH-LIFECYCLE-ORCHESTRATOR-V1-001"
 record_type: "result_handoff"
+result_generation: 4
 authoring_role: "Backend Implementer"
+role: "Implementer"
+authority_source: "https://github.com/${REPOSITORY}/issues/352"
+prior_record_url: "https://github.com/${REPOSITORY}/issues/352#issuecomment-5351012392"
+cumulative_scope: "Lifecycle Orchestrator V1 Phase 1 READ_ONLY_REPLAY Publication Authority parser correction"
 repository: "${REPOSITORY}"
 task_issue: "https://github.com/${REPOSITORY}/issues/352"
 pull_request: "https://github.com/${REPOSITORY}/pull/353"
 canonical_record: "https://github.com/${REPOSITORY}/issues/352#issuecomment-5351631698"
 exact_parent: "${lifecycleReviewedParentV1}"
 current_head: "${lifecycleReviewedParentV1}"
+branch: "codex/lifecycle-orchestrator-v1-read-only-replay"
+phase: "PHASE_1_READ_ONLY_REPLAY"
 status: "completed"
 execution_stop_reason: "completed"
 blocking_finding_count: 0
@@ -5521,11 +5590,15 @@ validation_evidence_reused: true
 - \`scripts/run-protected-transition-admission-v1.mjs\`
 - \`scripts/test-protected-transition-admission-v1.mjs\``
 }
-const lifecycleCommentV1 = ({ id, createdAt, body }) => Object.freeze({
+const lifecycleCommentV1 = ({
+  id, createdAt, body,
+  authorAssociation = 'OWNER',
+  user = Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
+}) => Object.freeze({
   id,
   created_at: createdAt,
-  author_association: 'OWNER',
-  user: Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
+  author_association: authorAssociation,
+  user: Object.freeze({ ...user }),
   body,
 })
 const lifecycleProductionFixtureV1 = ({
@@ -5534,6 +5607,10 @@ const lifecycleProductionFixtureV1 = ({
   paths = lifecycleHistoricalPathsV1[pr],
   validationHead = head,
   validationPaths = paths,
+  validationBodyTransform = (body) => body,
+  validationDirectBody = null,
+  validationDirectBodyTransform = null,
+  validationActor = Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
   reviewedBase = lifecycleHistoricalIdentityV1[pr].base,
   currentBase = lifecycleHistoricalIdentityV1[pr].expectedBase,
   minimalCandidate = false,
@@ -5550,7 +5627,7 @@ const lifecycleProductionFixtureV1 = ({
   historicalComments = [],
   eventCommentOverride = null,
   readyTaskBindings = null,
-  currentExecution = false,
+  currentExecution = ready,
   currentCheckOverrides = {},
   additionalChecks = [],
   currentRunOverrides = {},
@@ -5564,16 +5641,27 @@ const lifecycleProductionFixtureV1 = ({
   publicationChainValidationInputDrift = false,
   publicationChainResultBodyFactory = lifecyclePublishedResultHandoffBodyV1,
   publicationChainResultBodyTransform = (body) => body,
+  publicationChainResultActor = Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
+  publicationChainTaskAssignment = true,
+  publicationChainTaskAssignmentBodyTransform = (body) => body,
+  publicationChainTaskAssignmentDirectBody = null,
+  publicationChainTaskAssignmentActor = Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
+  publicationChainTaskAssignmentId = null,
+  completedReadyEvidence = null,
+  additionalReadyEvidenceFamilies = [],
   legacyStateBlock = true,
 }) => {
   const identity = lifecycleHistoricalIdentityV1[pr]
-  const authorizationId = identity.reviewId - 2
+  const taskAssignmentId = publicationChainTaskAssignmentId ?? (pr === 353 ? 5345944519 : identity.reviewId - 2)
   const validationId = identity.reviewId - 1
   const reviewId = head === identity.priorHead ? identity.priorReviewId : head === identity.initialHead ? identity.initialReviewId : identity.reviewId
   const validation = lifecycleCommentV1({
     id: validationId,
     createdAt: '2026-08-18T00:00:00Z',
-    body: lifecycleValidationBodyV1({ task: identity.task, pr, head: validationHead, base: reviewedBase, paths: validationPaths, authorizationId }),
+    body: validationBodyTransform(lifecycleValidationBodyV1({
+      task: identity.task, pr, head: validationHead, paths: validationPaths, commentId: validationId,
+    })),
+    user: validationActor,
   })
   const review = lifecycleCommentV1({
     id: reviewId,
@@ -5626,6 +5714,18 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
     createdAt: '2026-08-17T22:01:00Z',
     body: lifecycleArchitectureAmendmentBodyV1({ task: identity.task }),
   })
+  const taskAssignmentBody = publicationChainTaskAssignmentBodyTransform(lifecycleTaskAssignmentBodyV1({
+    task: identity.task,
+    commentId: taskAssignmentId,
+    paths: publicationChainHandoffPaths,
+    exactBase: reviewedBase,
+  }))
+  const taskAssignment = lifecycleCommentV1({
+    id: taskAssignmentId,
+    createdAt: '2026-08-17T23:59:00Z',
+    body: taskAssignmentBody,
+    user: publicationChainTaskAssignmentActor,
+  })
   const publishedResult = lifecycleCommentV1({
     id: 5351631698,
     createdAt: '2026-08-18T00:01:30Z',
@@ -5636,6 +5736,7 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
       paths: publicationChainHandoffPaths,
       fileBindings: publicationChainFileBindings,
     })),
+    user: publicationChainResultActor,
   })
   const publishedAuthority = lifecycleCommentV1({
     id: identity.authorityId,
@@ -5651,11 +5752,12 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
       resultBodySha256: createHash('sha256').update(Buffer.from(publishedResult.body, 'utf8')).digest('hex'),
     }),
   })
+  const assignmentComments = publicationChainTaskAssignment ? [taskAssignment] : []
   const comments = publicationChain
-    ? [historicalArchitectureCandidate, architectureCandidate, architectureAmendment, ...historicalComments, validation, review, publishedResult, publishedAuthority]
+    ? [historicalArchitectureCandidate, architectureCandidate, architectureAmendment, ...assignmentComments, ...historicalComments, validation, review, publishedResult, publishedAuthority]
     : minimalCandidate
-    ? [...historicalComments, validation, review, minimalAuthority]
-    : publicationAuthority ? [...historicalComments, validation, review, publicationAuthorityRecord] : [...historicalComments, validation, review]
+    ? [...assignmentComments, ...historicalComments, validation, review, minimalAuthority]
+    : publicationAuthority ? [...assignmentComments, ...historicalComments, validation, review, publicationAuthorityRecord] : [...assignmentComments, ...historicalComments, validation, review]
   const eventComment = eventCommentOverride ?? (minimalCandidate
     ? minimalAuthority
     : publicationAuthority ? publicationAuthorityRecord : lifecycleCommentV1({ id: identity.authorityId + 1, createdAt: '2026-08-18T00:03:00Z', body: 'ordinary lifecycle replay event' }))
@@ -5677,6 +5779,15 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
   const direct = new Map(comments.map((comment) => [comment.id, comment]))
   if (publicationAuthority && publicationAuthorityDirectBody !== null) {
     direct.set(publicationAuthorityRecord.id, Object.freeze({ ...publicationAuthorityRecord, body: publicationAuthorityDirectBody }))
+  }
+  if (validationDirectBody !== null || validationDirectBodyTransform !== null) {
+    direct.set(validation.id, Object.freeze({
+      ...validation,
+      body: validationDirectBodyTransform === null ? validationDirectBody : validationDirectBodyTransform(validation.body),
+    }))
+  }
+  if (publicationChain && publicationChainTaskAssignment && publicationChainTaskAssignmentDirectBody !== null) {
+    direct.set(taskAssignment.id, Object.freeze({ ...taskAssignment, body: publicationChainTaskAssignmentDirectBody }))
   }
   const check = {
     ...successfulCheck(`lifecycle-${pr}`),
@@ -5705,7 +5816,19 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
     checkSuiteCommitOid: head,
     ...currentCheckOverrides,
   })
-  const checkNodes = [check, ...(currentExecution ? [lifecycleCurrentCheck] : []), ...additionalChecks]
+  const completedReadyFamilies = [
+    ...(completedReadyEvidence === null ? [] : [completedReadyEvidence]),
+    ...additionalReadyEvidenceFamilies,
+  ]
+  const completedReadyChecks = completedReadyFamilies.flatMap((family, familyIndex) => historicalRtoChecks({
+    runId: family.runId,
+    head: family.head,
+    overrides: familyIndex === 0 ? {} : Object.fromEntries(historicalRtoJobNames.map((name, nameIndex) => [name, {
+      id: `lifecycle-ready-${familyIndex}-${nameIndex}`,
+      databaseId: Number(historicalRtoCheckIds[name]) + familyIndex * 100,
+    }])),
+  }))
+  const checkNodes = [check, ...(currentExecution ? [lifecycleCurrentCheck] : []), ...completedReadyChecks, ...additionalChecks]
   const threadNodes = threadDisposition === null ? [] : [{
     id: `PRRT-${pr}`,
     isResolved: false,
@@ -5788,23 +5911,26 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
       if (currentExecution && endpoint === `repos/${REPOSITORY}/actions/runs/${lifecycleRunId}`) {
         const apiRepository = `https://api.github.com/repos/${REPOSITORY}`
         const apiRun = `${apiRepository}/actions/runs/${lifecycleRunId}`
+        const workflowHead = ready ? head : currentBase
         return {
           id: Number(lifecycleRunId), run_attempt: lifecycleRunAttempt, workflow_id: 327818524,
           check_suite_id: lifecycleCheckSuiteId, repository: { full_name: REPOSITORY },
           head_repository: { full_name: REPOSITORY }, path: '.github/workflows/protected-transition-admission-v1.yml',
-          event: 'pull_request', status: 'in_progress', conclusion: null, head_sha: head, head_commit: { id: head },
+          event: ready ? 'pull_request' : 'issue_comment', status: 'in_progress', conclusion: null,
+          head_sha: workflowHead, head_commit: { id: workflowHead },
           url: apiRun, html_url: `https://github.com/${REPOSITORY}/actions/runs/${lifecycleRunId}`, jobs_url: `${apiRun}/jobs`,
-          pull_requests: [{
+          pull_requests: ready ? [{
             number: pr, url: `${apiRepository}/pulls/${pr}`,
             head: { sha: head, repo: { url: apiRepository } }, base: { repo: { url: apiRepository } },
-          }],
+          }] : [],
           ...currentRunOverrides,
         }
       }
       if (currentExecution && endpoint === `repos/${REPOSITORY}/actions/runs/${lifecycleRunId}/jobs?per_page=100`) {
+        const workflowHead = ready ? head : currentBase
         const jobs = lifecycleRtoJobNames.map((name) => ({
           id: Number(lifecycleJobIds[name]), run_id: Number(lifecycleRunId), run_attempt: lifecycleRunAttempt,
-          name, head_sha: head,
+          name, head_sha: workflowHead,
           html_url: `https://github.com/${REPOSITORY}/actions/runs/${lifecycleRunId}/job/${lifecycleJobIds[name]}`,
           status: name === 'protected_transition_admission_v1' ? 'in_progress' : 'queued',
           conclusion: null,
@@ -5812,7 +5938,35 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
         }))
         return { total_count: jobs.length, jobs }
       }
+      const completedReadyFamily = completedReadyFamilies.find((family) => endpoint === `repos/${REPOSITORY}/actions/runs/${family.runId}`)
+      if (completedReadyFamily) {
+        return historicalRunRecord({
+          id: Number(completedReadyFamily.runId),
+          created_at: completedReadyFamily.createdAt ?? EXPECTED_LEGACY_READY_CREATED_AT,
+          head_sha: completedReadyFamily.head,
+          url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${completedReadyFamily.runId}`,
+          html_url: `https://github.com/${REPOSITORY}/actions/runs/${completedReadyFamily.runId}`,
+          jobs_url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${completedReadyFamily.runId}/jobs`,
+          pull_requests: [{ number: completedReadyFamily.pr ?? pr, head: { sha: completedReadyFamily.head }, base: { ref: 'main' } }],
+          ...(completedReadyFamily.runOverrides ?? {}),
+        })
+      }
+      const completedReadyJobsFamily = completedReadyFamilies.find((family) => endpoint === `repos/${REPOSITORY}/actions/runs/${family.runId}/jobs?per_page=100`)
+      if (completedReadyJobsFamily) {
+        return historicalJobPage({ runId: completedReadyJobsFamily.runId, head: completedReadyJobsFamily.head })
+      }
       throw new Error(`unexpected_lifecycle_api:${endpoint}`)
+    },
+    apiBytes: async (endpoint) => {
+      const primary = completedReadyEvidence
+      const admissionJobId = historicalRtoJobIds.protected_transition_admission_v1
+      if (primary !== null && endpoint === `repos/${REPOSITORY}/actions/jobs/${admissionJobId}/logs`) {
+        return new Uint8Array(historicalLog([expectedLegacyReadyTerminalResult({
+          pr_number: primary.pr ?? pr,
+          current_head: primary.head,
+        })]))
+      }
+      throw new Error('unexpected_lifecycle_api_bytes')
     },
     graphql: async (query) => {
       if (query.includes('statusCheckRollup')) {
@@ -5830,11 +5984,13 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
     event,
     host,
     metrics,
-    sourceResult: {
-      task_issue_number: readyTaskBindings === null ? identity.task : null,
-      pr_number: pr,
-      current_head: head,
-    },
+    sourceResult: ready
+      ? expectedLegacyReadyTerminalResult({ pr_number: pr, current_head: head })
+      : {
+          task_issue_number: readyTaskBindings === null ? identity.task : null,
+          pr_number: pr,
+          current_head: head,
+        },
     executionIdentity: Object.freeze({
       repository: REPOSITORY,
       runId: lifecycleRunId,
@@ -5859,10 +6015,81 @@ const lifecycleProductionCases = [
   [lifecycleProductionFixtureV1({ pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase, publicationAuthority: true }), 'COMMIT_PUSH_PUBLISH'],
 ]
 for (const [fixture, nextAction] of lifecycleProductionCases) {
-  const result = await executeLifecycleOrchestratorV1({ event: fixture.event, sourceResult: fixture.sourceResult, host: fixture.host })
-  check(result.next_action === nextAction, `LOV1 production replay acquisition ${nextAction}`)
+  const result = await executeLifecycleOrchestratorV1({ event: fixture.event, sourceResult: fixture.sourceResult, host: fixture.host, executionIdentity: fixture.executionIdentity })
+  check(result.next_action === nextAction, `LOV1 production replay acquisition ${nextAction}; got ${JSON.stringify(result)}`)
   check(result.mutation_count === 0 && fixture.metrics.mutation === 0, `LOV1 production replay zero mutation ${nextAction}`)
   check(fixture.metrics.task === 1 && fixture.metrics.pull === 1 && fixture.metrics.files === 1 && fixture.metrics.history === 1 && fixture.metrics.checks === 1 && fixture.metrics.threads === 1 && fixture.metrics.branch === 1, `LOV1 production replay bounded acquisition ${nextAction}`)
+}
+
+const lifecycleDirectValidationAuthorityCases = [
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+    }),
+    'MERGE_DECISION',
+    'A canonical authorized Result Handoff is PRESENT',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+      validationActor: Object.freeze({ login: 'unauthorized-implementer', id: 90001, type: 'User' }),
+    }),
+    'STOP',
+    'B identical Result Handoff from unauthorized actor is rejected',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+      publicationChainTaskAssignmentBodyTransform: (body) => body.replace(
+        'assigned_role: "Backend Implementer"',
+        'assigned_role: "Frontend Implementer"',
+      ),
+    }),
+    'STOP',
+    'C wrong assigned Role is rejected',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+      publicationChainTaskAssignment: false,
+    }),
+    'STOP',
+    'D missing Task Assignment is rejected',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+      publicationChainTaskAssignmentBodyTransform: (body) => body.replace(
+        '  - "package.json"',
+        '  - "scripts/wrong-lifecycle-scope.mjs"',
+      ),
+    }),
+    'STOP',
+    'E Task Assignment with wrong scope is rejected',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+      validationDirectBodyTransform: (body) => body.replace(
+        'validation_evidence_reused: true',
+        'validation_evidence_reused: false',
+      ),
+    }),
+    'STOP',
+    'F direct Result Handoff body drift is rejected',
+  ],
+]
+for (const [fixture, expectedAction, label] of lifecycleDirectValidationAuthorityCases) {
+  const result = await executeLifecycleOrchestratorV1({
+    event: fixture.event,
+    sourceResult: fixture.sourceResult,
+    host: fixture.host,
+    executionIdentity: fixture.executionIdentity,
+  })
+  check(
+    result.next_action === expectedAction && result.mutation_count === 0 && fixture.metrics.mutation === 0,
+    `LOV1 direct validation authority chain ${label}: observed ${result.next_action}/${result.reason}`,
+  )
 }
 
 const lifecyclePublishedHeadV1 = '96f26aec207f4405f680d9fe112827d45ce6024f'
@@ -6172,7 +6399,7 @@ const lifecyclePublicationChainCases = [
   ],
 ]
 for (const [fixture, expectedAction, label] of lifecyclePublicationChainCases) {
-  const result = await executeLifecycleOrchestratorV1({ event: fixture.event, sourceResult: fixture.sourceResult, host: fixture.host })
+  const result = await executeLifecycleOrchestratorV1({ event: fixture.event, sourceResult: fixture.sourceResult, host: fixture.host, executionIdentity: fixture.executionIdentity })
   check(
     result.next_action === expectedAction && (expectedAction === 'STOP' || result.reason !== 'scope_evidence_missing'),
     `LOV1 publication-chain scope and validation reuse ${label}: observed ${result.next_action}/${result.reason}`,
@@ -6180,6 +6407,108 @@ for (const [fixture, expectedAction, label] of lifecyclePublicationChainCases) {
   check(
     result.mutation_count === 0 && fixture.metrics.mutation === 0,
     `LOV1 publication-chain scope and validation reuse zero mutation ${label}`,
+  )
+}
+
+const lifecycleResultAuthorityChainCases = [
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+    }),
+    'MERGE_DECISION',
+    'exact direct Implementation Authorization chain admits the Result Handoff',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultActor: Object.freeze({ login: 'unauthorized-implementer', id: 90001, type: 'User' }),
+    }),
+    'STOP',
+    'unauthorized Result Handoff actor is incomplete',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainTaskAssignmentBodyTransform: (body) => body.replace(
+        'assigned_role: "Backend Implementer"',
+        'assigned_role: "Frontend Implementer"',
+      ),
+    }),
+    'STOP',
+    'wrong assigned Role is incomplete',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainTaskAssignment: false,
+    }),
+    'STOP',
+    'missing applicable Task Assignment authority is incomplete',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace(
+        `authority_source: "https://github.com/${REPOSITORY}/issues/352"`,
+        `authority_source: "https://github.com/${REPOSITORY}/issues/999"`,
+      ),
+    }),
+    'STOP',
+    'wrong Result Handoff authority source is incomplete',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainTaskAssignmentBodyTransform: (body) => body.replace(
+        `task_issue: "https://github.com/${REPOSITORY}/issues/352"`,
+        `task_issue: "https://github.com/${REPOSITORY}/issues/999"`,
+      ),
+    }),
+    'STOP',
+    'wrong Task binding in the applicable Task Assignment is incomplete',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultBodyTransform: (body) => body.replace(
+        `pull_request: "https://github.com/${REPOSITORY}/pull/353"`,
+        `pull_request: "https://github.com/${REPOSITORY}/pull/354"`,
+      ),
+    }),
+    'STOP',
+    'wrong PR binding in the Result Handoff is incomplete',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainTaskAssignmentDirectBody: lifecycleTaskAssignmentBodyV1({
+        task: 352,
+        commentId: 5345944519,
+        paths: lifecyclePublishedScopeV1,
+      }).replace('implementation_allowed: true', 'implementation_allowed: false'),
+    }),
+    'STOP',
+    'direct-refetched Task Assignment source drift is incomplete',
+  ],
+]
+for (const [fixture, expectedAction, label] of lifecycleResultAuthorityChainCases) {
+  const result = await executeLifecycleOrchestratorV1({
+    event: fixture.event,
+    sourceResult: fixture.sourceResult,
+    host: fixture.host,
+    executionIdentity: fixture.executionIdentity,
+  })
+  check(
+    result.next_action === expectedAction && result.mutation_count === 0 && fixture.metrics.mutation === 0,
+    `LOV1 Result Handoff authority chain ${label}: observed ${result.next_action}/${result.reason}`,
   )
 }
 
@@ -6409,6 +6738,145 @@ check(
   'LOV1 issue_comment Task identity handling remains unchanged',
 )
 
+const lifecycleReadyEvidenceCases = [
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+    }),
+    'MERGE_DECISION',
+    'natural ready_for_review run binds current Ready evidence',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, ready: false, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+      completedReadyEvidence: {
+        runId: EXPECTED_LEGACY_READY_RUN_ID,
+        head: lifecycleHistoricalIdentityV1[325].head,
+        pr: 325,
+      },
+    }),
+    'MERGE_DECISION',
+    'later issue_comment reuses exact current-HEAD Ready completion evidence',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, ready: false, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+      completedReadyEvidence: { runId: EXPECTED_LEGACY_READY_RUN_ID, head: OTHER_HEAD, pr: 325 },
+    }),
+    'STOP',
+    'old-HEAD Ready completion evidence is stale',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, ready: false, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+      completedReadyEvidence: {
+        runId: EXPECTED_LEGACY_READY_RUN_ID,
+        head: lifecycleHistoricalIdentityV1[325].head,
+        pr: 325,
+      },
+      additionalReadyEvidenceFamilies: [{
+        runId: String(Number(EXPECTED_LEGACY_READY_RUN_ID) - 1),
+        head: lifecycleHistoricalIdentityV1[325].head,
+        pr: 325,
+      }],
+    }),
+    'STOP',
+    'multiple applicable Ready families are ambiguous',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, ready: false, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+    }),
+    'STOP',
+    'later event without current Ready evidence fails closed',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, ready: false, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+      additionalReadyEvidenceFamilies: [{
+        runId: String(Number(EXPECTED_LEGACY_READY_RUN_ID) - 2),
+        head: lifecycleHistoricalIdentityV1[325].head,
+        pr: 325,
+        runOverrides: { event: 'workflow_dispatch', pull_requests: [] },
+      }],
+    }),
+    'STOP',
+    'unrelated non-pull_request RTO family is not a Ready candidate',
+  ],
+]
+for (const [fixture, expectedAction, label] of lifecycleReadyEvidenceCases) {
+  const result = await executeLifecycleOrchestratorV1({
+    event: fixture.event,
+    sourceResult: fixture.sourceResult,
+    host: fixture.host,
+    executionIdentity: fixture.executionIdentity,
+  })
+  check(
+    result.next_action === expectedAction && result.mutation_count === 0 && fixture.metrics.mutation === 0,
+    `LOV1 Ready evidence ${label}: observed ${result.next_action}/${result.reason}`,
+  )
+}
+
+const lifecycleMinimalWrapperValidFixture = await executeMinimalFixture()
+const lifecycleMinimalWrapperValid = await executeReviewEventWithLifecycleReplayV1({
+  event: minimalEvent(),
+  host: lifecycleMinimalWrapperValidFixture.host,
+  runId: REVIEW_RUN_ID,
+  runAttempt: 1,
+  hostSha: CURRENT_MAIN_SHA,
+  jobName: 'protected_transition_admission_v1',
+})
+check(
+  lifecycleMinimalWrapperValid.next_action === lifecycleMinimalWrapperValidFixture.result.next_action &&
+  lifecycleMinimalWrapperValid.terminal_result === lifecycleMinimalWrapperValidFixture.result.terminal_result &&
+  lifecycleMinimalWrapperValid.lifecycle_projection.next_action === 'MINIMAL_GOVERNANCE_HANDOFF_REQUIRED',
+  'LOV1 valid MINIMAL remains authoritative while exposing the diagnostic handoff projection',
+)
+
+const lifecycleMinimalMalformedBody = minimalAuthorityBody({ exact_head: HEAD })
+const lifecycleMinimalWrapperMalformedFixture = await executeMinimalFixture({ authorityBody: lifecycleMinimalMalformedBody })
+const lifecycleMinimalWrapperMalformed = await executeReviewEventWithLifecycleReplayV1({
+  event: minimalEvent(lifecycleMinimalMalformedBody),
+  host: lifecycleMinimalWrapperMalformedFixture.host,
+  runId: REVIEW_RUN_ID,
+  runAttempt: 1,
+  hostSha: CURRENT_MAIN_SHA,
+  jobName: 'protected_transition_admission_v1',
+})
+check(
+  lifecycleMinimalWrapperMalformed.next_action === lifecycleMinimalWrapperMalformedFixture.result.next_action &&
+  lifecycleMinimalWrapperMalformed.reason === lifecycleMinimalWrapperMalformedFixture.result.reason &&
+  lifecycleMinimalWrapperMalformed.lifecycle_projection.next_action === 'STOP',
+  'LOV1 malformed MINIMAL remains fail-closed and exposes a diagnostic STOP projection',
+)
+
+const lifecycleMinimalDuplicateComments = [
+  minimalReviewComment(),
+  minimalAuthorityComment(),
+  minimalAuthorityComment(minimalAuthorityBody(), { id: MINIMAL_AUTHORITY_COMMENT_ID + 1, created_at: '2026-08-18T00:00:03Z' }),
+]
+const lifecycleMinimalWrapperDuplicateFixture = await executeMinimalFixture({ comments: lifecycleMinimalDuplicateComments })
+const lifecycleMinimalWrapperDuplicate = await executeReviewEventWithLifecycleReplayV1({
+  event: minimalEvent(),
+  host: lifecycleMinimalWrapperDuplicateFixture.host,
+  runId: REVIEW_RUN_ID,
+  runAttempt: 1,
+  hostSha: CURRENT_MAIN_SHA,
+  jobName: 'protected_transition_admission_v1',
+})
+check(
+  lifecycleMinimalWrapperDuplicate.next_action === lifecycleMinimalWrapperDuplicateFixture.result.next_action &&
+  lifecycleMinimalWrapperDuplicate.reason === lifecycleMinimalWrapperDuplicateFixture.result.reason &&
+  lifecycleMinimalWrapperDuplicate.lifecycle_projection.next_action === 'STOP',
+  'LOV1 duplicate MINIMAL authority remains fail-closed and exposes a diagnostic STOP projection',
+)
+check(
+  [lifecycleMinimalWrapperValid, lifecycleMinimalWrapperMalformed, lifecycleMinimalWrapperDuplicate].every((result) =>
+    result.lifecycle_projection.mutation_count === 0 && result.protected_operation_count === 0 &&
+    !Object.hasOwn(result.lifecycle_projection, 'role_dispatch') && !Object.hasOwn(result.lifecycle_projection, 'publication')),
+  'LOV1 MINIMAL wrapper diagnostic never adds mutation or duplicate canonical evidence',
+)
+
 const lifecycleMissingPublicationAuthority = lifecycleProductionFixtureV1({ pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase })
 const lifecycleStalePublicationAuthority = lifecycleProductionFixtureV1({ pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase, publicationAuthority: true, publicationAuthorityHead: OTHER_HEAD })
 const lifecycleWrongPathPublicationAuthority = lifecycleProductionFixtureV1({ pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase, publicationAuthority: true, publicationAuthorityPaths: ['wrong-path'] })
@@ -6426,10 +6894,10 @@ const lifecycleSourceDriftPublicationAuthority = lifecycleProductionFixtureV1({
   }).replace('publication_allowed: true', 'publication_allowed: false'),
 })
 const lifecyclePublicationAcquisitionMatrix = [
-  [(await executeLifecycleOrchestratorV1({ event: lifecycleMissingPublicationAuthority.event, sourceResult: lifecycleMissingPublicationAuthority.sourceResult, host: lifecycleMissingPublicationAuthority.host })).next_action === 'MERGE_DECISION', 'missing authority remains not publication-ready'],
-  [(await executeLifecycleOrchestratorV1({ event: lifecycleStalePublicationAuthority.event, sourceResult: lifecycleStalePublicationAuthority.sourceResult, host: lifecycleStalePublicationAuthority.host })).next_action === 'MERGE_DECISION', 'stale authority HEAD is non-applicable'],
-  [(await executeLifecycleOrchestratorV1({ event: lifecycleWrongPathPublicationAuthority.event, sourceResult: lifecycleWrongPathPublicationAuthority.sourceResult, host: lifecycleWrongPathPublicationAuthority.host })).next_action === 'MERGE_DECISION', 'wrong authority path is non-applicable'],
-  [(await executeLifecycleOrchestratorV1({ event: lifecycleSourceDriftPublicationAuthority.event, sourceResult: lifecycleSourceDriftPublicationAuthority.sourceResult, host: lifecycleSourceDriftPublicationAuthority.host })).next_action === 'STOP', 'authority direct source drift rejected'],
+  [(await executeLifecycleOrchestratorV1({ event: lifecycleMissingPublicationAuthority.event, sourceResult: lifecycleMissingPublicationAuthority.sourceResult, host: lifecycleMissingPublicationAuthority.host, executionIdentity: lifecycleMissingPublicationAuthority.executionIdentity })).next_action === 'MERGE_DECISION', 'missing authority remains not publication-ready'],
+  [(await executeLifecycleOrchestratorV1({ event: lifecycleStalePublicationAuthority.event, sourceResult: lifecycleStalePublicationAuthority.sourceResult, host: lifecycleStalePublicationAuthority.host, executionIdentity: lifecycleStalePublicationAuthority.executionIdentity })).next_action === 'MERGE_DECISION', 'stale authority HEAD is non-applicable'],
+  [(await executeLifecycleOrchestratorV1({ event: lifecycleWrongPathPublicationAuthority.event, sourceResult: lifecycleWrongPathPublicationAuthority.sourceResult, host: lifecycleWrongPathPublicationAuthority.host, executionIdentity: lifecycleWrongPathPublicationAuthority.executionIdentity })).next_action === 'MERGE_DECISION', 'wrong authority path is non-applicable'],
+  [(await executeLifecycleOrchestratorV1({ event: lifecycleSourceDriftPublicationAuthority.event, sourceResult: lifecycleSourceDriftPublicationAuthority.sourceResult, host: lifecycleSourceDriftPublicationAuthority.host, executionIdentity: lifecycleSourceDriftPublicationAuthority.executionIdentity })).next_action === 'STOP', 'authority direct source drift rejected'],
 ]
 for (const [evidence, label] of lifecyclePublicationAcquisitionMatrix) check(evidence, `LOV1 Publication Authority acquisition ${label}`)
 
@@ -6736,7 +7204,7 @@ for (const [authority, expectedAction, label] of lifecycleStageAPrecedenceMatrix
         reviewedBase: lifecycleQuotedAuthorityIdentity.expectedBase,
         historicalComments: [authority],
       })
-  const result = await executeLifecycleOrchestratorV1({ event: fixture.event, sourceResult: fixture.sourceResult, host: fixture.host })
+  const result = await executeLifecycleOrchestratorV1({ event: fixture.event, sourceResult: fixture.sourceResult, host: fixture.host, executionIdentity: fixture.executionIdentity })
   check(result.next_action === expectedAction, `LOV1 Publication Authority Stage A precedence ${label}`)
   check(result.mutation_count === 0 && fixture.metrics.mutation === 0, `LOV1 Publication Authority Stage A precedence zero mutation ${label}`)
 }
@@ -6755,7 +7223,7 @@ const lifecycleQuotedAuthorityMatrix = [
   [lifecycleWrongPathMalformedStatusFixture, 'MERGE_DECISION', 'wrong exact path plus malformed status is non-applicable'],
 ]
 for (const [fixture, expectedAction, label] of lifecycleQuotedAuthorityMatrix) {
-  const result = await executeLifecycleOrchestratorV1({ event: fixture.event, sourceResult: fixture.sourceResult, host: fixture.host })
+  const result = await executeLifecycleOrchestratorV1({ event: fixture.event, sourceResult: fixture.sourceResult, host: fixture.host, executionIdentity: fixture.executionIdentity })
   check(result.next_action === expectedAction, `LOV1 quoted Publication Authority ${label}`)
   check(result.mutation_count === 0 && fixture.metrics.mutation === 0, `LOV1 quoted Publication Authority zero mutation ${label}`)
 }
@@ -6850,7 +7318,7 @@ const lifecycleMinimalCardinalityCases = [
   [lifecycleDuplicateMinimalCurrent, 'STOP', 'G duplicate MINIMAL marker inside one comment'],
 ]
 for (const [fixture, expectedAction, label] of lifecycleMinimalCardinalityCases) {
-  const result = await executeLifecycleOrchestratorV1({ event: fixture.event, sourceResult: fixture.sourceResult, host: fixture.host })
+  const result = await executeLifecycleOrchestratorV1({ event: fixture.event, sourceResult: fixture.sourceResult, host: fixture.host, executionIdentity: fixture.executionIdentity })
   check(result.next_action === expectedAction, `LOV1 separate-comment MINIMAL cardinality ${label}`)
   check(result.mutation_count === 0 && fixture.metrics.mutation === 0, `LOV1 separate-comment MINIMAL cardinality zero mutation ${label}`)
 }
@@ -6868,7 +7336,7 @@ const lifecycleMixedAuthorityResults = [
   [lifecycleOnlyStalePriorAuthority, 'MERGE_DECISION', 'stale prior-stage authorities are non-applicable'],
 ]
 for (const [fixture, expectedAction, label] of lifecycleMixedAuthorityResults) {
-  const result = await executeLifecycleOrchestratorV1({ event: fixture.event, sourceResult: fixture.sourceResult, host: fixture.host })
+  const result = await executeLifecycleOrchestratorV1({ event: fixture.event, sourceResult: fixture.sourceResult, host: fixture.host, executionIdentity: fixture.executionIdentity })
   check(result.next_action === expectedAction, `LOV1 mixed authority coexistence ${label}`)
   check(result.mutation_count === 0 && fixture.metrics.mutation === 0, `LOV1 mixed authority coexistence zero mutation ${label}`)
 }
@@ -6951,9 +7419,8 @@ const lifecyclePublicationResultBody = lifecycleValidationBodyV1({
   task: lifecyclePublicationSnapshot.task_issue_number,
   pr: lifecyclePublicationSnapshot.pr_number,
   head: lifecyclePublicationParentHead,
-  base: lifecyclePublicationSnapshot.current_base,
   paths: lifecyclePublicationSnapshot.changed_paths,
-  authorizationId: lifecycleHistoricalIdentityV1[325].authorityId - 2,
+  commentId: lifecyclePublicationResultCommentId,
 })
 const lifecyclePublicationAuthorityBody = lifecyclePublicationAuthorityBodyV1({
   task: lifecyclePublicationSnapshot.task_issue_number,
@@ -7139,5 +7606,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 942) throw new Error(`expected exactly 942 assertions, observed ${assertions}`)
+if (assertions !== 966) throw new Error(`expected exactly 966 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
