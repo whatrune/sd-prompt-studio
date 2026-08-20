@@ -5483,14 +5483,30 @@ minimal_governance_allowed: false
 merge_allowed: false
 status: "authorized_for_bootstrap_publication_only"
 \`\`\``
-const lifecycleMinimalCandidateBodyV1 = ({ task, pr, head }) => `# Minimal governance authority candidate
+const lifecycleMinimalCandidateBodyV1 = ({ task, pr, head, paths = null, actor = minimalProductOwner, expectedBase = null }) => {
+  const knownIdentity = lifecycleHistoricalIdentityV1[pr] ?? lifecycleHistoricalIdentityV1[325]
+  const effectivePaths = paths ?? lifecycleHistoricalPathsV1[pr] ?? lifecycleHistoricalPathsV1[325]
+  return `# Minimal governance authority candidate
 
 \`\`\`yaml
 record_type: "minimal_governance_v1"
+authoring_role: "Product Owner"
+authority_actor_login: "${actor.login}"
+authority_actor_id: ${actor.id}
+authority_actor_type: "${actor.type}"
 task_issue: "https://github.com/${REPOSITORY}/issues/${task}"
 pull_request: "https://github.com/${REPOSITORY}/pull/${pr}"
 exact_head: "${head}"
+expected_base: "${expectedBase ?? knownIdentity.expectedBase}"
+base_impact: "NO_MATERIAL_IMPACT"
+review_comment: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-${knownIdentity.reviewId}"
+review_body_sha256: "${lifecycleReplayShaV1(`minimal-review-${task}-${pr}-${head}`)}"
+merge_method: "merge"
+operation_count: 1
+authorized_paths:
+${effectivePaths.map((pathValue) => `  - ${JSON.stringify(pathValue)}`).join('\n')}
 \`\`\``
+}
 const lifecyclePublicationAuthorityBodyV1 = ({ task, pr, parent, resultCommentId, paths, quoted = false, canonicalSource = false, resultBodySha256 = null, canonicalRecordId = null }) => `# Publication Authority
 
 \`\`\`yaml
@@ -5661,12 +5677,17 @@ const lifecycleProductionFixtureV1 = ({
   currentBase = lifecycleHistoricalIdentityV1[pr].expectedBase,
   minimalCandidate = false,
   minimalCandidateBody = null,
+  minimalCandidateActor = minimalProductOwner,
+  minimalCandidateDirectActor = null,
+  minimalCandidateDirectBody = null,
   publicationAuthority = false,
   publicationAuthorityHead = head,
   publicationAuthorityPaths = paths,
   publicationAuthorityQuoted = false,
   publicationAuthorityDirectBody = null,
   threadDisposition = null,
+  threadPages = null,
+  threadPullOverrides = [],
   ready = false,
   draft = false,
   compareFiles = [],
@@ -5698,6 +5719,7 @@ const lifecycleProductionFixtureV1 = ({
   completedReadyEvidence = null,
   additionalReadyEvidenceFamilies = [],
   legacyStateBlock = true,
+  legacyTaskStateOverrides = {},
 }) => {
   const identity = lifecycleHistoricalIdentityV1[pr]
   const effectivePublicationChainAuthorityId = publicationChainAuthorityId ?? identity.authorityId
@@ -5720,7 +5742,8 @@ const lifecycleProductionFixtureV1 = ({
   const minimalAuthority = lifecycleCommentV1({
     id: identity.authorityId,
     createdAt: '2026-08-18T00:02:00Z',
-    body: minimalCandidateBody ?? lifecycleMinimalCandidateBodyV1({ task: identity.task, pr, head }),
+    body: minimalCandidateBody ?? lifecycleMinimalCandidateBodyV1({ task: identity.task, pr, head, paths }),
+    user: minimalCandidateActor,
   })
   const publicationAuthorityRecord = lifecycleCommentV1({
     id: identity.authorityId,
@@ -5820,6 +5843,7 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
     review_status: 'APPROVE',
     reviewed_head: head,
     review_blocker_count: 0,
+    ...legacyTaskStateOverrides,
   })
   const pullBody = !legacyStateBlock
     ? `Task: #${identity.task}`
@@ -5828,6 +5852,13 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
     : readyTaskBindings.map((taskIssueNumber) => `Task: #${taskIssueNumber}`).join('\n')
   const metrics = { task: 0, pull: 0, files: 0, history: 0, direct: 0, directIds: [], compare: 0, checks: 0, threads: 0, branch: 0, mutation: 0 }
   const direct = new Map(comments.map((comment) => [comment.id, comment]))
+  if (minimalCandidate && (minimalCandidateDirectActor !== null || minimalCandidateDirectBody !== null)) {
+    direct.set(minimalAuthority.id, Object.freeze({
+      ...minimalAuthority,
+      ...(minimalCandidateDirectActor === null ? {} : { user: minimalCandidateDirectActor }),
+      ...(minimalCandidateDirectBody === null ? {} : { body: minimalCandidateDirectBody }),
+    }))
+  }
   if (publicationAuthority && publicationAuthorityDirectBody !== null) {
     direct.set(publicationAuthorityRecord.id, Object.freeze({ ...publicationAuthorityRecord, body: publicationAuthorityDirectBody }))
   }
@@ -6020,14 +6051,27 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
       }
       throw new Error('unexpected_lifecycle_api_bytes')
     },
-    graphql: async (query) => {
+    graphql: async (query, variables = {}) => {
       if (query.includes('statusCheckRollup')) {
         metrics.checks += 1
         return { repository: { pullRequest: { headRefOid: head }, object: { oid: head, statusCheckRollup: { contexts: connectionPage(checkNodes) } } } }
       }
       if (query.includes('LifecycleReplayThreads')) {
         metrics.threads += 1
-        return { repository: { pullRequest: { number: pr, headRefOid: head, reviewThreads: connectionPage(threadNodes) } } }
+        const pages = threadPages ?? [connectionPage(threadNodes)]
+        const requestedAfter = variables.after ?? null
+        const priorPageIndex = requestedAfter === null ? null : pages.findIndex((page) => page.pageInfo.endCursor === requestedAfter)
+        if (priorPageIndex !== null && priorPageIndex < 0) throw new Error('unexpected_lifecycle_thread_cursor')
+        const pageIndex = priorPageIndex === null ? 0 : priorPageIndex + 1
+        if (pageIndex >= pages.length) throw new Error('unexpected_lifecycle_thread_page')
+        const expectedAfter = pageIndex === 0 ? null : pages[pageIndex - 1].pageInfo.endCursor
+        if (requestedAfter !== expectedAfter) throw new Error('unexpected_lifecycle_thread_cursor')
+        return { repository: { pullRequest: {
+          number: pr,
+          headRefOid: head,
+          ...(threadPullOverrides[pageIndex] ?? {}),
+          reviewThreads: structuredClone(pages[pageIndex]),
+        } } }
       }
       throw new Error('unexpected_lifecycle_graphql')
     },
@@ -7039,6 +7083,159 @@ check(
   'LOV1 MINIMAL wrapper diagnostic never adds mutation or duplicate canonical evidence',
 )
 
+const executeLifecycleFixtureV1 = (fixture) => executeLifecycleOrchestratorV1({
+  event: fixture.event,
+  sourceResult: fixture.sourceResult,
+  host: fixture.host,
+  executionIdentity: fixture.executionIdentity,
+})
+
+const lifecycleCanonicalMinimalActorFixture = lifecycleProductionFixtureV1({ pr: 325, minimalCandidate: true })
+const lifecycleUnauthorizedMinimalActorFixture = lifecycleProductionFixtureV1({
+  pr: 325,
+  minimalCandidate: true,
+  minimalCandidateActor: Object.freeze({ login: 'unauthorized-product-owner', id: 147842632, type: 'User' }),
+})
+const lifecycleMinimalBodyActorDriftFixture = lifecycleProductionFixtureV1({
+  pr: 325,
+  minimalCandidate: true,
+  minimalCandidateBody: lifecycleMinimalCandidateBodyV1({
+    task: lifecycleHistoricalIdentityV1[325].task,
+    pr: 325,
+    head: lifecycleHistoricalIdentityV1[325].head,
+    actor: Object.freeze({ login: 'unauthorized-product-owner', id: 147842632, type: 'User' }),
+  }),
+})
+const lifecycleMinimalRefetchDriftFixture = lifecycleProductionFixtureV1({
+  pr: 325,
+  minimalCandidate: true,
+  minimalCandidateDirectActor: Object.freeze({ login: 'whatrune', id: 47842632, type: 'Bot' }),
+})
+const lifecycleMinimalActorResults = await Promise.all([
+  executeLifecycleFixtureV1(lifecycleCanonicalMinimalActorFixture),
+  executeLifecycleFixtureV1(lifecycleUnauthorizedMinimalActorFixture),
+  executeLifecycleFixtureV1(lifecycleMinimalBodyActorDriftFixture),
+  executeLifecycleFixtureV1(lifecycleMinimalRefetchDriftFixture),
+])
+check(lifecycleMinimalActorResults[0].next_action === 'MINIMAL_GOVERNANCE_HANDOFF_REQUIRED', 'LOV1 canonical Product Owner tuple admits diagnostic MINIMAL handoff')
+check(lifecycleMinimalActorResults[1].next_action === 'STOP' && lifecycleMinimalActorResults[1].reason === 'minimal_governance_routing_ambiguous', 'LOV1 unauthorized MINIMAL comment actor stops diagnostic routing')
+check(lifecycleMinimalActorResults[2].next_action === 'STOP' && lifecycleMinimalActorResults[2].reason === 'minimal_governance_routing_ambiguous', 'LOV1 MINIMAL body actor tuple drift stops diagnostic routing')
+check(lifecycleMinimalActorResults[3].next_action === 'STOP' && lifecycleMinimalActorResults[3].reason === 'minimal_governance_routing_ambiguous', 'LOV1 MINIMAL direct-refetch actor drift stops diagnostic routing')
+
+const lifecycleCurrentTaskStateFixture = lifecycleProductionFixtureV1({
+  pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+})
+const lifecycleStaleTaskStateFixture = lifecycleProductionFixtureV1({
+  pr: 325, legacyTaskStateOverrides: { observed_head: OTHER_HEAD, reviewed_head: OTHER_HEAD },
+})
+const lifecycleForeignTaskStateFixture = lifecycleProductionFixtureV1({
+  pr: 325, legacyTaskStateOverrides: { task_issue_number: lifecycleHistoricalIdentityV1[325].task + 1 },
+})
+const lifecycleForeignPrStateFixture = lifecycleProductionFixtureV1({
+  pr: 325, legacyTaskStateOverrides: { pr_number: 326 },
+})
+const lifecycleMissingTaskStateFixture = lifecycleProductionFixtureV1({ pr: 325, legacyStateBlock: false })
+const lifecyclePendingTaskStateFixture = lifecycleProductionFixtureV1({
+  pr: 325,
+  legacyTaskStateOverrides: {
+    authorized_paths: ['unrelated-current-scope.ts'],
+    review_status: 'PENDING', reviewed_head: null, review_blocker_count: null,
+  },
+})
+const lifecyclePendingMatchingPathsTaskStateFixture = lifecycleProductionFixtureV1({
+  pr: 325,
+  legacyTaskStateOverrides: { review_status: 'PENDING', reviewed_head: null, review_blocker_count: null },
+})
+const lifecycleOldReviewedHeadTaskStateFixture = lifecycleProductionFixtureV1({
+  pr: 325, legacyTaskStateOverrides: { reviewed_head: OTHER_HEAD },
+})
+const lifecyclePublishedGenerationPendingStateFixture = lifecycleProductionFixtureV1({
+  pr: 353,
+  head: lifecyclePublishedHeadV1,
+  paths: lifecyclePublishedScopeV1,
+  ready: true,
+  publicationChain: true,
+  publicationChainParent: lifecycleReviewedParentV1,
+  legacyTaskStateOverrides: { review_status: 'PENDING', reviewed_head: null, review_blocker_count: null },
+})
+const lifecycleTaskStateResults = await Promise.all([
+  executeLifecycleFixtureV1(lifecycleCurrentTaskStateFixture),
+  executeLifecycleFixtureV1(lifecycleStaleTaskStateFixture),
+  executeLifecycleFixtureV1(lifecycleForeignTaskStateFixture),
+  executeLifecycleFixtureV1(lifecycleForeignPrStateFixture),
+  executeLifecycleFixtureV1(lifecycleMissingTaskStateFixture),
+  executeLifecycleFixtureV1(lifecyclePendingTaskStateFixture),
+  executeLifecycleFixtureV1(lifecyclePendingMatchingPathsTaskStateFixture),
+  executeLifecycleFixtureV1(lifecycleOldReviewedHeadTaskStateFixture),
+  executeLifecycleFixtureV1(lifecyclePublishedGenerationPendingStateFixture),
+])
+check(lifecycleTaskStateResults[0].reason !== 'scope_evidence_missing' && lifecycleTaskStateResults[0].next_action === 'MERGE_DECISION', 'LOV1 exact-current legacy task-state identity remains a usable scope fallback')
+check(lifecycleTaskStateResults[1].reason === 'scope_evidence_missing' && lifecycleTaskStateResults[1].next_action === 'STOP', 'LOV1 stale-head task state with matching paths cannot synthesize current scope')
+check(lifecycleTaskStateResults[2].reason === 'scope_evidence_missing' && lifecycleTaskStateResults[2].next_action === 'STOP', 'LOV1 foreign-Task task state cannot supply current scope')
+check(lifecycleTaskStateResults[3].reason === 'scope_evidence_missing' && lifecycleTaskStateResults[3].next_action === 'STOP', 'LOV1 foreign-PR task state cannot supply current scope')
+check(lifecycleTaskStateResults[4].reason === 'scope_evidence_missing' && lifecycleTaskStateResults[4].next_action === 'STOP', 'LOV1 missing published generation and current task state projects scope_evidence_missing')
+check(lifecycleTaskStateResults[5].reason === 'scope_evidence_missing' && lifecycleTaskStateResults[5].next_action === 'STOP', 'LOV1 PENDING task state without reviewed HEAD cannot supply fallback scope')
+check(lifecycleTaskStateResults[6].reason === 'scope_evidence_missing' && lifecycleTaskStateResults[6].next_action === 'STOP', 'LOV1 PENDING task state remains inadmissible even when authorized paths match the exact diff')
+check(lifecycleTaskStateResults[7].reason === 'scope_evidence_missing' && lifecycleTaskStateResults[7].next_action === 'STOP', 'LOV1 old reviewed HEAD is rejected even when Task, PR, observed HEAD, and paths are current')
+check(lifecycleTaskStateResults[8].reason !== 'scope_evidence_missing' && lifecycleTaskStateResults[8].next_action === 'MERGE_DECISION', 'LOV1 published-generation scope remains preferred over a PENDING legacy task state')
+
+const lifecyclePagedThreadV1 = (index, { resolved = true, body = 'resolved review discussion' } = {}) => Object.freeze({
+  id: `PRRT-PAGED-${index}`,
+  isResolved: resolved,
+  isOutdated: false,
+  comments: Object.freeze({
+    totalCount: 1,
+    nodes: Object.freeze([{ id: `PRRC-PAGED-${index}`, body, createdAt: '2026-08-18T00:02:30Z' }]),
+  }),
+})
+const lifecycleFirstHundredThreads = Object.freeze(Array.from({ length: 100 }, (_, index) => lifecyclePagedThreadV1(index + 1)))
+const lifecycleResolvedLaterThread = lifecyclePagedThreadV1(101)
+const lifecycleActiveLaterThread = lifecyclePagedThreadV1(101, { resolved: false, body: 'VALID_FINDING' })
+const lifecycleThreadPagesV1 = (laterThread, { secondTotal = 101, firstCursor = 'cursor-100' } = {}) => Object.freeze([
+  connectionPage(lifecycleFirstHundredThreads, { totalCount: 101, hasNextPage: true, endCursor: firstCursor }),
+  connectionPage([laterThread], { totalCount: secondTotal, hasNextPage: false, endCursor: null }),
+])
+const lifecycleSinglePageThreadFixture = lifecycleProductionFixtureV1({
+  pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+  threadPages: [connectionPage([lifecyclePagedThreadV1(1)])],
+})
+const lifecycleResolvedPagedThreadFixture = lifecycleProductionFixtureV1({
+  pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+  threadPages: lifecycleThreadPagesV1(lifecycleResolvedLaterThread),
+})
+const lifecycleActivePagedThreadFixture = lifecycleProductionFixtureV1({
+  pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+  threadPages: lifecycleThreadPagesV1(lifecycleActiveLaterThread),
+})
+const lifecycleThreadCountDriftFixture = lifecycleProductionFixtureV1({
+  pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+  threadPages: lifecycleThreadPagesV1(lifecycleResolvedLaterThread, { secondTotal: 102 }),
+})
+const lifecycleThreadCursorFailureFixture = lifecycleProductionFixtureV1({
+  pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+  threadPages: lifecycleThreadPagesV1(lifecycleResolvedLaterThread, { firstCursor: null }),
+})
+const lifecycleThreadIdentityDriftFixture = lifecycleProductionFixtureV1({
+  pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+  threadPages: lifecycleThreadPagesV1(lifecycleResolvedLaterThread),
+  threadPullOverrides: [{}, { headRefOid: OTHER_HEAD }],
+})
+const lifecycleThreadResults = await Promise.all([
+  executeLifecycleFixtureV1(lifecycleSinglePageThreadFixture),
+  executeLifecycleFixtureV1(lifecycleResolvedPagedThreadFixture),
+  executeLifecycleFixtureV1(lifecycleActivePagedThreadFixture),
+  executeLifecycleFixtureV1(lifecycleThreadCountDriftFixture),
+  executeLifecycleFixtureV1(lifecycleThreadCursorFailureFixture),
+  executeLifecycleFixtureV1(lifecycleThreadIdentityDriftFixture),
+])
+check(lifecycleThreadResults[0].next_action === 'MERGE_DECISION', 'LOV1 at-most-100 review-thread acquisition remains complete')
+check(lifecycleThreadResults[1].next_action === 'MERGE_DECISION' && lifecycleResolvedPagedThreadFixture.metrics.threads === 2, 'LOV1 more-than-100 resolved review threads acquire completely with active count zero')
+check(lifecycleThreadResults[2].next_action === 'IMPLEMENTER' && lifecycleThreadResults[2].reason === 'review_correction_required', 'LOV1 active review thread on a later page is detected')
+check(lifecycleThreadResults[3].next_action === 'STOP' && lifecycleThreadResults[3].reason === 'thread_evidence_incomplete', 'LOV1 review-thread totalCount drift fails closed')
+check(lifecycleThreadResults[4].next_action === 'STOP' && lifecycleThreadResults[4].reason === 'thread_evidence_incomplete', 'LOV1 missing/repeated review-thread cursor identity fails closed')
+check(lifecycleThreadResults[5].next_action === 'STOP' && lifecycleThreadResults[5].reason === 'thread_evidence_incomplete', 'LOV1 paginated review-thread PR or HEAD identity drift fails closed')
+check([...lifecycleMinimalActorResults, ...lifecycleTaskStateResults, ...lifecycleThreadResults].every((result) => result.mutation_count === 0), 'LOV1 actor, task-state, and thread corrections remain read-only')
+
 const lifecycleMissingPublicationAuthority = lifecycleProductionFixtureV1({ pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase })
 const lifecycleStalePublicationAuthority = lifecycleProductionFixtureV1({ pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase, publicationAuthority: true, publicationAuthorityHead: OTHER_HEAD })
 const lifecycleWrongPathPublicationAuthority = lifecycleProductionFixtureV1({ pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase, publicationAuthority: true, publicationAuthorityPaths: ['wrong-path'] })
@@ -7768,5 +7965,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 972) throw new Error(`expected exactly 972 assertions, observed ${assertions}`)
+if (assertions !== 992) throw new Error(`expected exactly 992 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

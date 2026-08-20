@@ -5774,20 +5774,19 @@ const resolveLifecycleProductionIdentityV1 = async ({ event, sourceResult, host 
 
 const projectLifecycleMinimalCandidateV1 = ({ comment, identity, eventCommentId }) => {
   if (!isMinimalGovernanceCandidateV1(comment?.body)) return null
-  const yaml = parseMinimalGovernanceYamlV1(comment.body)
+  const authority = parseMinimalGovernanceAuthorityV1(comment.body, identity.repository, identity.taskIssueNumber)
+  const commentActor = assertMinimalGovernanceProductOwnerV1(comment, { requireAssociation: true })
   if (
-    yaml.scalars.get('record_type') !== MINIMAL_GOVERNANCE_RECORD_TYPE_V1 ||
-    typeof yaml.scalars.get('task_issue') !== 'string' || typeof yaml.scalars.get('pull_request') !== 'string' ||
-    !FULL_HEAD.test(yaml.scalars.get('exact_head') ?? '')
-  ) throw new Error('minimal_governance_routing_invalid')
+    JSON.stringify(commentActor) !== JSON.stringify(minimalGovernanceAuthorityActorIdentityV1(authority))
+  ) throw new Error('minimal_governance_authority_tuple_invalid')
   return Object.freeze({
     kind: 'MINIMAL_GOVERNANCE_CANDIDATE',
     comment_id: comment.id,
     source_url: `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-${comment.id}`,
     body_sha256: createHash('sha256').update(Buffer.from(comment.body, 'utf8')).digest('hex'),
-    routing_task_issue: yaml.scalars.get('task_issue'),
-    routing_pull_request: yaml.scalars.get('pull_request'),
-    exact_head: yaml.scalars.get('exact_head'),
+    routing_task_issue: `https://github.com/${identity.repository}/issues/${authority.taskIssueNumber}`,
+    routing_pull_request: `https://github.com/${identity.repository}/pull/${authority.prNumber}`,
+    exact_head: authority.exactHead,
     event_bound: comment.id === eventCommentId,
   })
 }
@@ -6830,12 +6829,12 @@ const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, change
 }
 
 const LIFECYCLE_THREADS_QUERY_V1 = `
-query LifecycleReplayThreads($owner: String!, $name: String!, $pr: Int!) {
+query LifecycleReplayThreads($owner: String!, $name: String!, $pr: Int!, $after: String) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $pr) {
       number
       headRefOid
-      reviewThreads(first: 100) {
+      reviewThreads(first: 100, after: $after) {
         totalCount
         nodes {
           id
@@ -6861,35 +6860,61 @@ const lifecycleFindingDispositionV1 = (body) => {
 
 const acquireLifecycleReviewThreadsV1 = async (request, host) => {
   const { owner, name } = repositoryPartsV1(request.repository)
-  const data = await graphql(host, LIFECYCLE_THREADS_QUERY_V1, { owner, name, pr: request.prNumber })
-  const pull = data?.repository?.pullRequest
-  const connection = pull?.reviewThreads
-  if (
-    pull?.number !== request.prNumber || pull?.headRefOid !== request.exactHead || !connection ||
-    !Number.isSafeInteger(connection.totalCount) || connection.totalCount < 0 ||
-    !Array.isArray(connection.nodes) || connection.nodes.length !== connection.totalCount ||
-    connection.pageInfo?.hasNextPage !== false
-  ) throw new Error('lifecycle_threads_incomplete')
+  const nodes = []
   const ids = new Set()
-  return Object.freeze(connection.nodes.map((thread) => {
-    const comments = thread?.comments
+  const cursors = new Set()
+  let expectedTotal = null
+  let after = null
+  let pageNumber = 1
+  while (true) {
+    const data = await graphql(host, LIFECYCLE_THREADS_QUERY_V1, { owner, name, pr: request.prNumber, after })
+    const pull = data?.repository?.pullRequest
+    const connection = pull?.reviewThreads
     if (
-      typeof thread?.id !== 'string' || thread.id.length === 0 || ids.has(thread.id) ||
-      typeof thread.isResolved !== 'boolean' || typeof thread.isOutdated !== 'boolean' ||
-      !comments || !Number.isSafeInteger(comments.totalCount) || comments.totalCount < 1 ||
-      !Array.isArray(comments.nodes) || comments.nodes.length !== 1 ||
-      typeof comments.nodes[0]?.id !== 'string' || comments.nodes[0].id.length === 0 ||
-      typeof comments.nodes[0]?.body !== 'string' || typeof comments.nodes[0]?.createdAt !== 'string'
+      pull?.number !== request.prNumber || pull?.headRefOid !== request.exactHead || !connection ||
+      !Number.isSafeInteger(connection.totalCount) || connection.totalCount < 0 ||
+      !Array.isArray(connection.nodes) || connection.nodes.length > PAGE_SIZE
     ) throw new Error('lifecycle_threads_incomplete')
-    ids.add(thread.id)
-    return Object.freeze({
-      id: thread.id,
-      is_resolved: thread.isResolved,
-      is_outdated: thread.isOutdated,
-      latest_comment_id: comments.nodes[0].id,
-      finding_disposition: lifecycleFindingDispositionV1(comments.nodes[0].body),
-    })
-  }))
+    if (expectedTotal === null) expectedTotal = connection.totalCount
+    if (expectedTotal !== connection.totalCount) throw new Error('lifecycle_threads_total_changed')
+    for (const thread of connection.nodes) {
+      const comments = thread?.comments
+      if (
+        typeof thread?.id !== 'string' || thread.id.length === 0 || ids.has(thread.id) ||
+        typeof thread.isResolved !== 'boolean' || typeof thread.isOutdated !== 'boolean' ||
+        !comments || !Number.isSafeInteger(comments.totalCount) || comments.totalCount < 1 ||
+        !Array.isArray(comments.nodes) || comments.nodes.length !== 1 ||
+        typeof comments.nodes[0]?.id !== 'string' || comments.nodes[0].id.length === 0 ||
+        typeof comments.nodes[0]?.body !== 'string' || typeof comments.nodes[0]?.createdAt !== 'string'
+      ) throw new Error('lifecycle_threads_incomplete')
+      ids.add(thread.id)
+      nodes.push(Object.freeze({
+        id: thread.id,
+        is_resolved: thread.isResolved,
+        is_outdated: thread.isOutdated,
+        latest_comment_id: comments.nodes[0].id,
+        finding_disposition: lifecycleFindingDispositionV1(comments.nodes[0].body),
+      }))
+    }
+    const next = validatePageInfoV1(connection.pageInfo, cursors)
+    if (next === null) break
+    after = next
+    pageNumber += 1
+    if (pageNumber > 32) throw new Error('lifecycle_threads_terminal_page_missing')
+  }
+  if (nodes.length !== expectedTotal) throw new Error('lifecycle_threads_count_mismatch')
+  return Object.freeze(nodes)
+}
+
+const lifecycleCurrentTaskStateScopeV1 = ({ taskState, identity }) => {
+  if (
+    taskState === null || taskState.task_issue_number !== identity.taskIssueNumber ||
+    taskState.pr_number !== identity.prNumber || taskState.observed_head !== identity.exactHead ||
+    taskState.architecture_status !== 'APPROVED' || taskState.implementation_authorized !== true ||
+    !['APPROVE', 'CHANGES_REQUIRED', 'BLOCKED'].includes(taskState.review_status) ||
+    taskState.reviewed_head !== identity.exactHead
+  ) return null
+  return taskState
 }
 
 const reduceLifecycleCurrentExecutionChecksV1 = async ({ event, request, checks, executionIdentity, currentBase, host }) => {
@@ -7165,6 +7190,7 @@ const acquireLifecycleReplaySnapshotV1 = async ({ event, sourceResult, host, ide
   } catch {
     taskState = null
   }
+  const currentTaskState = lifecycleCurrentTaskStateScopeV1({ taskState, identity })
 
   let review = null
   let reviewStatus = historyStatus
@@ -7202,7 +7228,7 @@ const acquireLifecycleReplaySnapshotV1 = async ({ event, sourceResult, host, ide
     : Object.freeze({ status: 'INCOMPLETE', authorizedPaths: null, scopeContract: null, validation: null })
   const validationProjection = publishedGenerationProjection.status === 'PRESENT'
     ? Object.freeze({ status: 'PRESENT', evidence: publishedGenerationProjection.validation })
-    : publishedGenerationProjection.status === 'INCOMPLETE' && taskState === null
+    : publishedGenerationProjection.status === 'INCOMPLETE' && currentTaskState === null
       ? Object.freeze({ status: 'INCOMPLETE', evidence: null })
       : directValidationProjection
   const baseImpactProjection = await acquireLifecycleBaseImpactV1({
@@ -7274,10 +7300,10 @@ const acquireLifecycleReplaySnapshotV1 = async ({ event, sourceResult, host, ide
     changed_paths: scope.actual_paths,
     authorized_paths: publishedGenerationProjection.status === 'PRESENT'
       ? publishedGenerationProjection.authorizedPaths
-      : taskState?.authorized_paths ?? null,
+      : currentTaskState?.authorized_paths ?? null,
     scope_contract: publishedGenerationProjection.status === 'PRESENT'
       ? publishedGenerationProjection.scopeContract
-      : taskState === null ? null : Object.freeze({ authority_id: `task-state:${identity.taskIssueNumber}:${identity.prNumber}`, body_sha256: createHash('sha256').update(Buffer.from(pull.body, 'utf8')).digest('hex') }),
+      : currentTaskState === null ? null : Object.freeze({ authority_id: `task-state:${identity.taskIssueNumber}:${identity.prNumber}`, body_sha256: createHash('sha256').update(Buffer.from(pull.body, 'utf8')).digest('hex') }),
     base_impact: baseImpactProjection.evidence,
     evidence_status: Object.freeze({
       base_impact: baseImpactProjection.status,
