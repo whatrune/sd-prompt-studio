@@ -5437,6 +5437,52 @@ authorized_paths:
 ${paths.map((pathValue) => `  - "${pathValue}"`).join('\n')}
 status: "authorized_for_pre_pr_implementation_only"
 \`\`\``
+const lifecycleBootstrapPublicationTaskAssignmentBodyV1 = ({ task, commentId, paths, exactParent }) => `# Product Owner Bootstrap Publication Authority — Lifecycle Orchestrator V1 Phase 1
+
+\`\`\`yaml
+task_id: "ARCH-LIFECYCLE-ORCHESTRATOR-V1-001"
+record_type: "task_assignment"
+authoring_role: "Product Owner"
+authority_source: "https://github.com/${REPOSITORY}/issues/${task}"
+canonical_record: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-${commentId}"
+prior_record_url: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-5349038662"
+cumulative_scope: "Lifecycle Orchestrator V1 Phase 1 READ_ONLY_REPLAY exact two-path bootstrap publication"
+repository: "${REPOSITORY}"
+task_issue: "https://github.com/${REPOSITORY}/issues/${task}"
+requested_by: "Product Owner"
+assigned_role: "Publication Executor"
+purpose: "One bounded external bootstrap publication for Phase 1 READ_ONLY_REPLAY"
+authority_kind: "BOOTSTRAP_PUBLICATION"
+exact_parent: "${exactParent}"
+target_base_ref: "main"
+branch: "codex/lifecycle-orchestrator-v1-read-only-replay"
+worktree: "C:\\Users\\defma\\Documents\\sd-prompt-studio\\.worktrees\\lifecycle-orchestrator-v1-read-only-replay"
+implementation_authority: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-5345944519"
+implementation_result_handoff: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-5345996014"
+implementation_result_handoff_body_sha256: "d59af711391de1ac6a6ba7ac1be46081ac707d9ddf31658acf417298490389c1"
+terminal_implementation_review: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-5349038662"
+terminal_implementation_review_body_sha256: "faa1e55c77e2ac5e07dda4d518c68ace3b4b840dbff74742e8e55fa87e968aab"
+review_decision: "APPROVE"
+blocking_finding_count: 0
+remaining_finding_count: 0
+unknown_count: 0
+publication_allowed: true
+bootstrap_publication_count: 1
+commit_count: 1
+push_count: 1
+draft_pr_creation_count: 1
+push_method: "normal_non_force_branch_creation"
+pr_state_after_creation: "DRAFT"
+authorized_paths:
+${paths.map((pathValue) => `  - "${pathValue}"`).join('\n')}
+ready_allowed: false
+review_repost_allowed: false
+workflow_rerun_allowed: false
+manual_admission_allowed: false
+minimal_governance_allowed: false
+merge_allowed: false
+status: "authorized_for_bootstrap_publication_only"
+\`\`\``
 const lifecycleMinimalCandidateBodyV1 = ({ task, pr, head }) => `# Minimal governance authority candidate
 
 \`\`\`yaml
@@ -5445,12 +5491,12 @@ task_issue: "https://github.com/${REPOSITORY}/issues/${task}"
 pull_request: "https://github.com/${REPOSITORY}/pull/${pr}"
 exact_head: "${head}"
 \`\`\``
-const lifecyclePublicationAuthorityBodyV1 = ({ task, pr, parent, resultCommentId, paths, quoted = false, canonicalSource = false, resultBodySha256 = null }) => `# Publication Authority
+const lifecyclePublicationAuthorityBodyV1 = ({ task, pr, parent, resultCommentId, paths, quoted = false, canonicalSource = false, resultBodySha256 = null, canonicalRecordId = null }) => `# Publication Authority
 
 \`\`\`yaml
 record_type: ${quoted ? '"commit_push_publication_authorization_v1"' : 'commit_push_publication_authorization_v1'}
 ${canonicalSource ? `repository: "${REPOSITORY}"
-canonical_record: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-${lifecycleHistoricalIdentityV1[pr].authorityId}"
+canonical_record: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-${canonicalRecordId ?? lifecycleHistoricalIdentityV1[pr].authorityId}"
 result_handoff: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-${resultCommentId}"
 result_handoff_body_sha256: "${resultBodySha256}"` : ''}
 parent_issue: ${quoted ? `"${task}"` : task}
@@ -5509,7 +5555,7 @@ amends: "LOV1-ARCH-CANDIDATE-002"
 1. \`.github/workflows/protected-transition-admission-v1.yml\`
 2. \`scripts/run-protected-transition-admission-v1.mjs\`
 3. \`scripts/test-protected-transition-admission-v1.mjs\``
-const lifecyclePublishedResultHandoffBodyV1 = ({ task, pr, parent, paths, fileBindings }) => `# Lifecycle Orchestrator V1 Phase 1 — Current-generation Implementation Result Handoff
+const lifecyclePublishedResultHandoffBodyV1 = ({ task, pr, parent, paths, fileBindings, commentId = 5351631698 }) => `# Lifecycle Orchestrator V1 Phase 1 — Current-generation Implementation Result Handoff
 
 \`\`\`yaml
 task_id: "ARCH-LIFECYCLE-ORCHESTRATOR-V1-001"
@@ -5520,7 +5566,7 @@ authority_source: "https://github.com/${REPOSITORY}/issues/${task}"
 repository: "${REPOSITORY}"
 task_issue: "https://github.com/${REPOSITORY}/issues/${task}"
 pull_request: "https://github.com/${REPOSITORY}/pull/${pr}"
-canonical_record: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-5351631698"
+canonical_record: "https://github.com/${REPOSITORY}/issues/${task}#issuecomment-${commentId}"
 exact_parent: "${parent}"
 current_head: "${parent}"
 status: "completed"
@@ -5642,6 +5688,8 @@ const lifecycleProductionFixtureV1 = ({
   publicationChainResultBodyFactory = lifecyclePublishedResultHandoffBodyV1,
   publicationChainResultBodyTransform = (body) => body,
   publicationChainResultActor = Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
+  publicationChainResultId = 5351631698,
+  publicationChainAuthorityId = null,
   publicationChainTaskAssignment = true,
   publicationChainTaskAssignmentBodyTransform = (body) => body,
   publicationChainTaskAssignmentDirectBody = null,
@@ -5652,6 +5700,7 @@ const lifecycleProductionFixtureV1 = ({
   legacyStateBlock = true,
 }) => {
   const identity = lifecycleHistoricalIdentityV1[pr]
+  const effectivePublicationChainAuthorityId = publicationChainAuthorityId ?? identity.authorityId
   const taskAssignmentId = publicationChainTaskAssignmentId ?? (pr === 353 ? 5345944519 : identity.reviewId - 2)
   const validationId = identity.reviewId - 1
   const reviewId = head === identity.priorHead ? identity.priorReviewId : head === identity.initialHead ? identity.initialReviewId : identity.reviewId
@@ -5727,7 +5776,7 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
     user: publicationChainTaskAssignmentActor,
   })
   const publishedResult = lifecycleCommentV1({
-    id: 5351631698,
+    id: publicationChainResultId,
     createdAt: '2026-08-18T00:01:30Z',
     body: publicationChainResultBodyTransform(publicationChainResultBodyFactory({
       task: identity.task,
@@ -5735,11 +5784,12 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
       parent: publicationChainParent,
       paths: publicationChainHandoffPaths,
       fileBindings: publicationChainFileBindings,
+      commentId: publicationChainResultId,
     })),
     user: publicationChainResultActor,
   })
   const publishedAuthority = lifecycleCommentV1({
-    id: identity.authorityId,
+    id: effectivePublicationChainAuthorityId,
     createdAt: '2026-08-18T00:02:00Z',
     body: lifecyclePublicationAuthorityBodyV1({
       task: identity.task,
@@ -5750,6 +5800,7 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
       quoted: true,
       canonicalSource: true,
       resultBodySha256: createHash('sha256').update(Buffer.from(publishedResult.body, 'utf8')).digest('hex'),
+      canonicalRecordId: effectivePublicationChainAuthorityId,
     }),
   })
   const assignmentComments = publicationChainTaskAssignment ? [taskAssignment] : []
@@ -5775,7 +5826,7 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
     : readyTaskBindings === null
     ? stateBlock(taskState)
     : readyTaskBindings.map((taskIssueNumber) => `Task: #${taskIssueNumber}`).join('\n')
-  const metrics = { task: 0, pull: 0, files: 0, history: 0, direct: 0, compare: 0, checks: 0, threads: 0, branch: 0, mutation: 0 }
+  const metrics = { task: 0, pull: 0, files: 0, history: 0, direct: 0, directIds: [], compare: 0, checks: 0, threads: 0, branch: 0, mutation: 0 }
   const direct = new Map(comments.map((comment) => [comment.id, comment]))
   if (publicationAuthority && publicationAuthorityDirectBody !== null) {
     direct.set(publicationAuthorityRecord.id, Object.freeze({ ...publicationAuthorityRecord, body: publicationAuthorityDirectBody }))
@@ -5870,6 +5921,7 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
       const directMatch = new RegExp(`^repos/${REPOSITORY}/issues/comments/(\\d+)$`).exec(endpoint)
       if (directMatch) {
         metrics.direct += 1
+        metrics.directIds.push(Number(directMatch[1]))
         const comment = direct.get(Number(directMatch[1]))
         if (!comment) throw new Error('lifecycle_direct_comment_missing')
         return { ...structuredClone(comment), issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${identity.task}` }
@@ -6408,6 +6460,116 @@ for (const [fixture, expectedAction, label] of lifecyclePublicationChainCases) {
     result.mutation_count === 0 && fixture.metrics.mutation === 0,
     `LOV1 publication-chain scope and validation reuse zero mutation ${label}`,
   )
+}
+
+const lifecycleStageLocalPublishedHeadV1 = 'a07aafe0d7754dbca171316c25056cbbb2984763'
+const lifecycleStageLocalParentHeadV1 = 'e6f4d04498264456d0a3e0114097b77ae214bb1c'
+const lifecycleBootstrapPublicationAssignmentV1 = lifecycleCommentV1({
+  id: 5349172299,
+  createdAt: '2026-08-19T22:00:00Z',
+  body: lifecycleBootstrapPublicationTaskAssignmentBodyV1({
+    task: 352,
+    commentId: 5349172299,
+    paths: lifecyclePublishedScopeV1,
+    exactParent: AUTHORIZED_IMPLEMENTATION_BASE,
+  }),
+})
+const lifecycleDuplicateImplementationAssignmentV1 = lifecycleCommentV1({
+  id: 5345944520,
+  createdAt: '2026-08-19T22:01:00Z',
+  body: lifecycleTaskAssignmentBodyV1({
+    task: 352,
+    commentId: 5345944520,
+    paths: lifecyclePublishedScopeV1,
+  }),
+})
+const lifecycleMalformedPotentialImplementationAssignmentV1 = lifecycleCommentV1({
+  id: 5345944521,
+  createdAt: '2026-08-19T22:02:00Z',
+  body: lifecycleTaskAssignmentBodyV1({
+    task: 352,
+    commentId: 5345944521,
+    paths: lifecyclePublishedScopeV1,
+  }).replace('phase: "PHASE_1_READ_ONLY_REPLAY"', 'phase: "UNKNOWN"'),
+})
+const lifecycleStageCollisionAssignmentV1 = lifecycleCommentV1({
+  id: 5349172300,
+  createdAt: '2026-08-19T22:03:00Z',
+  body: lifecycleBootstrapPublicationTaskAssignmentBodyV1({
+    task: 352,
+    commentId: 5349172300,
+    paths: lifecyclePublishedScopeV1,
+    exactParent: AUTHORIZED_IMPLEMENTATION_BASE,
+  }).replace(
+    'status: "authorized_for_bootstrap_publication_only"',
+    `assigned_implementer: "Backend Implementer"
+phase: "PHASE_1_READ_ONLY_REPLAY"
+implementation_ready: true
+implementation_allowed: true
+authority_lifetime: "PRE_PR_IMPLEMENTATION_ONLY"
+status: "authorized_for_bootstrap_publication_only"`,
+  ),
+})
+const lifecycleStageLocalProductionFixtureV1 = (overrides = {}) => lifecycleProductionFixtureV1({
+  pr: 353,
+  head: lifecycleStageLocalPublishedHeadV1,
+  paths: lifecyclePublishedScopeV1,
+  ready: true,
+  publicationChain: true,
+  publicationChainParent: lifecycleStageLocalParentHeadV1,
+  publicationChainResultId: 5353324339,
+  publicationChainAuthorityId: 5353478930,
+  legacyStateBlock: false,
+  ...overrides,
+})
+const lifecycleStageLocalTaskAssignmentCases = [
+  [
+    lifecycleStageLocalProductionFixtureV1({ historicalComments: [lifecycleBootstrapPublicationAssignmentV1] }),
+    'MERGE_DECISION',
+    'real #5345944519 implementation plus #5349172299 bootstrap coexistence selects the implementation assignment',
+  ],
+  [
+    lifecycleStageLocalProductionFixtureV1({ historicalComments: [lifecycleDuplicateImplementationAssignmentV1] }),
+    'STOP',
+    'two implementation assignments are ambiguous',
+  ],
+  [
+    lifecycleStageLocalProductionFixtureV1({ historicalComments: [lifecycleMalformedPotentialImplementationAssignmentV1] }),
+    'STOP',
+    'malformed potentially-implementation assignment fails closed',
+  ],
+  [
+    lifecycleStageLocalProductionFixtureV1({ historicalComments: [lifecycleStageCollisionAssignmentV1] }),
+    'STOP',
+    'bootstrap assignment carrying implementation-only markers is a stage collision',
+  ],
+  [
+    lifecycleStageLocalProductionFixtureV1({
+      publicationChainTaskAssignment: false,
+      historicalComments: [lifecycleBootstrapPublicationAssignmentV1],
+    }),
+    'STOP',
+    'bootstrap publication assignment alone leaves implementation authority missing',
+  ],
+]
+for (const [fixture, expectedAction, label] of lifecycleStageLocalTaskAssignmentCases) {
+  const result = await executeLifecycleOrchestratorV1({
+    event: fixture.event,
+    sourceResult: fixture.sourceResult,
+    host: fixture.host,
+    executionIdentity: fixture.executionIdentity,
+  })
+  check(
+    result.next_action === expectedAction && result.mutation_count === 0 && fixture.metrics.mutation === 0,
+    `LOV1 stage-local Task Assignment ${label}: observed ${result.next_action}/${result.reason}`,
+  )
+  if (expectedAction === 'MERGE_DECISION') {
+    check(
+      result.reason === 'merge_decision_required' &&
+      fixture.metrics.directIds.includes(5345944519) && fixture.metrics.directIds.includes(5349172299),
+      'LOV1 production coexistence acquisition is complete, selects #5345944519, and directly confirms #5349172299 as non-applicable',
+    )
+  }
 }
 
 const lifecycleResultAuthorityChainCases = [
@@ -7606,5 +7768,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 966) throw new Error(`expected exactly 966 assertions, observed ${assertions}`)
+if (assertions !== 972) throw new Error(`expected exactly 972 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
