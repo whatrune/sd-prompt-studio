@@ -5721,6 +5721,8 @@ const lifecycleProductionFixtureV1 = ({
   publicationChainTaskAssignmentDirectBody = null,
   publicationChainTaskAssignmentActor = Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
   publicationChainTaskAssignmentId = null,
+  publicationChainArchitectureCandidateBodyTransform = (body) => body,
+  publicationChainArchitectureAmendmentBodyTransform = (body) => body,
   completedReadyEvidence = null,
   additionalReadyEvidenceFamilies = [],
   legacyStateBlock = true,
@@ -5774,7 +5776,9 @@ const lifecycleProductionFixtureV1 = ({
   const architectureCandidate = lifecycleCommentV1({
     id: 5341716163,
     createdAt: '2026-08-17T22:00:00Z',
-    body: lifecycleArchitectureCandidateBodyV1({ task: identity.task, base: currentBase }),
+    body: publicationChainArchitectureCandidateBodyTransform(
+      lifecycleArchitectureCandidateBodyV1({ task: identity.task, base: currentBase }),
+    ),
   })
   const historicalArchitectureCandidate = lifecycleCommentV1({
     id: 5341105323,
@@ -5790,7 +5794,9 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
   const architectureAmendment = lifecycleCommentV1({
     id: 5345423423,
     createdAt: '2026-08-17T22:01:00Z',
-    body: lifecycleArchitectureAmendmentBodyV1({ task: identity.task }),
+    body: publicationChainArchitectureAmendmentBodyTransform(
+      lifecycleArchitectureAmendmentBodyV1({ task: identity.task }),
+    ),
   })
   const taskAssignmentBody = publicationChainTaskAssignmentBodyTransform(lifecycleTaskAssignmentBodyV1({
     task: identity.task,
@@ -6920,6 +6926,69 @@ check(
   lifecycleIdenticalOwnerBaseFixtureV1.metrics.compare === 0,
   'LOV1 identical admitted Task Assignment and current bases preserve the existing publication projection',
 )
+
+const lifecycleArchitecturePresentationCasesV1 = [
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353,
+      head: lifecycleOwnerReuseHeadV1,
+      paths: lifecyclePublishedScopeV1,
+      ready: true,
+      publicationChain: true,
+      publicationChainParent: lifecycleOwnerReuseParentV1,
+      publicationChainArchitectureCandidateBodyTransform: (body) => `${body}\n\n## Non-normative example\n\n\`\`\`yaml\nexample_count: 2\nexample_only: true\n\`\`\``,
+      publicationChainArchitectureAmendmentBodyTransform: (body) => `${body}\n\n## Historical example\n\n\`\`\`yaml\nexample_count: 1\nexample_only: true\n\`\`\``,
+      legacyStateBlock: false,
+    }),
+    'MERGE_DECISION',
+    'multi-YAML Candidate and Amendment prose does not gate admitted published-generation validation',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353,
+      head: lifecycleOwnerReuseHeadV1,
+      paths: lifecyclePublishedScopeV1,
+      ready: true,
+      publicationChain: true,
+      publicationChainParent: lifecycleOwnerReuseParentV1,
+      publicationChainArchitectureCandidateBodyTransform: (body) => body
+        .replace('## 3. Exact implementation scope', '## Historical implementation-scope wording')
+        .replace('candidate_id: "LOV1-ARCH-CANDIDATE-002"', 'candidate_id: "HISTORICAL-PRESENTATION-ONLY"'),
+      publicationChainArchitectureAmendmentBodyTransform: (body) => body
+        .replace('## 2. Strict-subset interpretation of the three-path allowlist', '## Historical examples and wording')
+        .replace('amends: "LOV1-ARCH-CANDIDATE-002"', 'amends: "HISTORICAL-PRESENTATION-ONLY"'),
+      legacyStateBlock: false,
+    }),
+    'MERGE_DECISION',
+    'Architecture presentation wording and example identity do not alter already-admitted validation reuse',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353,
+      head: lifecycleOwnerReuseHeadV1,
+      paths: lifecyclePublishedScopeV1,
+      ready: true,
+      publicationChain: true,
+      publicationChainParent: lifecycleOwnerReuseParentV1,
+      publicationChainValidationInputDrift: true,
+      legacyStateBlock: false,
+    }),
+    'STOP',
+    'published Handoff blob binding drift remains fail closed',
+  ],
+]
+for (const [fixture, expectedAction, label] of lifecycleArchitecturePresentationCasesV1) {
+  const result = await executeLifecycleOrchestratorV1({
+    event: fixture.event,
+    sourceResult: fixture.sourceResult,
+    host: fixture.host,
+    executionIdentity: fixture.executionIdentity,
+  })
+  check(
+    result.next_action === expectedAction && result.mutation_count === 0 && fixture.metrics.mutation === 0,
+    `LOV1 Architecture-independent validation reuse ${label}: observed ${result.next_action}/${result.reason}`,
+  )
+}
 
 const lifecyclePublicationScopeOwnerCasesV1 = [
   [
@@ -8320,5 +8389,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 1015) throw new Error(`expected exactly 1015 assertions, observed ${assertions}`)
+if (assertions !== 1018) throw new Error(`expected exactly 1018 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

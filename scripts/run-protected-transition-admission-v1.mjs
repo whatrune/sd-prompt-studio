@@ -5223,11 +5223,6 @@ const sameRolePathsV1 = (left, right) => Array.isArray(left) && Array.isArray(ri
 
 const LIFECYCLE_BODY_SHA256_V1 = /^[0-9a-f]{64}$/
 const LIFECYCLE_EVIDENCE_STATES_V1 = new Set(['PRESENT', 'MISSING', 'INCOMPLETE'])
-const LIFECYCLE_PHASE_ONE_ARCHITECTURE_SCOPE_V1 = Object.freeze([
-  '.github/workflows/protected-transition-admission-v1.yml',
-  'scripts/run-protected-transition-admission-v1.mjs',
-  'scripts/test-protected-transition-admission-v1.mjs',
-])
 const lifecycleCompletionEvidenceBrandV1 = new WeakSet()
 
 const lifecycleSortedPathsV1 = (value) => {
@@ -5271,10 +5266,6 @@ const validateLifecycleReplaySnapshotV1 = (input) => {
     !LIFECYCLE_BODY_SHA256_V1.test(scopeContract.body_sha256 ?? '')
   )) throw new Error('lifecycle_scope_binding_invalid')
   if (scopeContract?.kind === 'PUBLICATION_CHAIN' && (
-    !positiveInteger(scopeContract.architecture_candidate_comment_id) ||
-    !Array.isArray(scopeContract.architecture_amendment_comment_ids) || scopeContract.architecture_amendment_comment_ids.length === 0 ||
-    scopeContract.architecture_amendment_comment_ids.some((value) => !positiveInteger(value)) ||
-    new Set(scopeContract.architecture_amendment_comment_ids).size !== scopeContract.architecture_amendment_comment_ids.length ||
     !positiveInteger(scopeContract.result_handoff_comment_id) ||
     !positiveInteger(scopeContract.task_assignment_comment_id) ||
     !LIFECYCLE_BODY_SHA256_V1.test(scopeContract.task_assignment_body_sha256 ?? '') ||
@@ -5283,7 +5274,6 @@ const validateLifecycleReplaySnapshotV1 = (input) => {
     scopeContract.commit_parent !== scopeContract.authorized_parent || scopeContract.remote_head !== scopeContract.published_head ||
     scopeContract.pr_head !== scopeContract.published_head || scopeContract.published_head !== input.exact_head ||
     scopeContract.pr_head !== input.current_head || !sameRolePathsV1(authorizedPaths, changedPaths) ||
-    !LIFECYCLE_BODY_SHA256_V1.test(scopeContract.architecture_chain_sha256 ?? '') ||
     !LIFECYCLE_BODY_SHA256_V1.test(scopeContract.result_handoff_body_sha256 ?? '') ||
     !LIFECYCLE_BODY_SHA256_V1.test(scopeContract.publication_chain_sha256 ?? '')
   )) throw new Error('lifecycle_scope_binding_invalid')
@@ -6204,92 +6194,6 @@ const acquireLifecycleResultHandoffTaskAssignmentV1 = async ({
   return confirmedTaskAssignment
 }
 
-const projectLifecycleArchitectureCandidateV1 = ({ comment, identity }) => {
-  if (!/(?:^|\r?\n)record_type:[ \t]+["']?lifecycle_orchestrator_v1_architecture_candidate["']?[ \t]*(?:\r?$)/m.test(comment?.body ?? '')) return null
-  const yaml = parseRoleYamlV1(comment.body)
-  if (!positiveInteger(yaml.scalars.get('version')) || typeof yaml.scalars.get('candidate_id') !== 'string') {
-    throw new Error('lifecycle_architecture_scope_invalid')
-  }
-  if (yaml.scalars.get('version') !== 2 || yaml.scalars.get('candidate_id') !== 'LOV1-ARCH-CANDIDATE-002') return null
-  const sourceUrl = `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-${comment.id}`
-  const paths = rolePathSectionV1(comment.body, ['3. Exact implementation scope'])
-  if (
-    !positiveInteger(comment?.id) || typeof comment.user?.login !== 'string' || !positiveInteger(comment.user?.id) ||
-    typeof comment.user?.type !== 'string' || !REVIEW_ASSOCIATIONS.has(comment.author_association) ||
-    yaml.scalars.get('record_type') !== 'lifecycle_orchestrator_v1_architecture_candidate' || yaml.scalars.get('repository') !== identity.repository ||
-    yaml.scalars.get('task_issue') !== `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}` ||
-    yaml.scalars.get('canonical_record') !== sourceUrl || !FULL_HEAD.test(yaml.scalars.get('evidence_main_head') ?? '') ||
-    !sameRolePathsV1(paths, LIFECYCLE_PHASE_ONE_ARCHITECTURE_SCOPE_V1)
-  ) throw new Error('lifecycle_architecture_scope_invalid')
-  return Object.freeze({
-    comment_id: comment.id,
-    source_url: sourceUrl,
-    source_actor: `${comment.user.login}:${comment.user.id}:${comment.user.type}:${comment.author_association}`,
-    body_sha256: createHash('sha256').update(Buffer.from(comment.body, 'utf8')).digest('hex'),
-    reviewed_base: yaml.scalars.get('evidence_main_head'),
-    paths,
-  })
-}
-
-const projectLifecycleArchitectureAmendmentV1 = ({ comment, identity, candidate }) => {
-  if (!/(?:^|\r?\n)record_type:[ \t]+["']?lifecycle_orchestrator_v1_architecture_amendment["']?[ \t]*(?:\r?$)/m.test(comment?.body ?? '')) return null
-  const yaml = parseRoleYamlV1(comment.body)
-  const sourceUrl = `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-${comment.id}`
-  const amendmentId = yaml.scalars.get('amendment_id')
-  if (
-    !positiveInteger(comment?.id) || typeof comment.user?.login !== 'string' || !positiveInteger(comment.user?.id) ||
-    typeof comment.user?.type !== 'string' || !REVIEW_ASSOCIATIONS.has(comment.author_association) ||
-    yaml.scalars.get('record_type') !== 'lifecycle_orchestrator_v1_architecture_amendment' ||
-    typeof amendmentId !== 'string' || !/^LOV1-ARCH-AMENDMENT-\d{3}$/.test(amendmentId) ||
-    yaml.scalars.get('task_issue') !== `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}` ||
-    yaml.scalars.get('canonical_record') !== sourceUrl || yaml.scalars.get('amends') !== 'LOV1-ARCH-CANDIDATE-002'
-  ) throw new Error('lifecycle_architecture_scope_invalid')
-  if (amendmentId === 'LOV1-ARCH-AMENDMENT-001') {
-    const paths = rolePathSectionV1(comment.body, ['2. Strict-subset interpretation of the three-path allowlist'])
-    if (
-      yaml.scalars.get('prior_record_url') !== candidate.source_url ||
-      !sameRolePathsV1(paths, LIFECYCLE_PHASE_ONE_ARCHITECTURE_SCOPE_V1)
-    ) throw new Error('lifecycle_architecture_scope_invalid')
-  }
-  return Object.freeze({
-    amendment_id: amendmentId,
-    comment_id: comment.id,
-    source_url: sourceUrl,
-    source_actor: `${comment.user.login}:${comment.user.id}:${comment.user.type}:${comment.author_association}`,
-    body_sha256: createHash('sha256').update(Buffer.from(comment.body, 'utf8')).digest('hex'),
-  })
-}
-
-const acquireLifecycleArchitectureScopeV1 = async ({ history, identity, changedPaths, host }) => {
-  const candidates = history.comments.map((comment) => projectLifecycleArchitectureCandidateV1({ comment, identity })).filter(Boolean)
-  if (candidates.length !== 1) throw new Error('lifecycle_architecture_scope_invalid')
-  const candidate = candidates[0]
-  const amendments = history.comments
-    .map((comment) => projectLifecycleArchitectureAmendmentV1({ comment, identity, candidate }))
-    .filter(Boolean)
-    .sort((left, right) => left.amendment_id.localeCompare(right.amendment_id))
-  if (
-    amendments.length === 0 || new Set(amendments.map((item) => item.amendment_id)).size !== amendments.length ||
-    amendments.filter((item) => item.amendment_id === 'LOV1-ARCH-AMENDMENT-001').length !== 1 ||
-    changedPaths.length === 0 || changedPaths.some((pathValue) => !candidate.paths.includes(pathValue))
-  ) throw new Error('lifecycle_architecture_scope_invalid')
-  for (const projection of [candidate, ...amendments]) {
-    const fresh = await fetchRoleCommentRecordV1(identity.repository, identity.taskIssueNumber, projection.comment_id, host)
-    const confirmed = projection === candidate
-      ? projectLifecycleArchitectureCandidateV1({ comment: fresh, identity })
-      : projectLifecycleArchitectureAmendmentV1({ comment: fresh, identity, candidate })
-    if (fresh.body !== history.comments.find((comment) => comment.id === projection.comment_id)?.body || !lifecycleSameValueV1(confirmed, projection)) {
-      throw new Error('lifecycle_architecture_scope_invalid')
-    }
-  }
-  const chain = Object.freeze([candidate, ...amendments].map((item) => Object.freeze({ comment_id: item.comment_id, body_sha256: item.body_sha256 })))
-  return Object.freeze({
-    candidate,
-    amendments: Object.freeze(amendments),
-    chain_sha256: createHash('sha256').update(Buffer.from(JSON.stringify(chain), 'utf8')).digest('hex'),
-  })
-}
-
 const projectLifecycleValidationEvidenceV1 = ({ comment, identity, changedPaths }) => {
   if (!isLifecycleResultHandoffCandidateV1(comment?.body)) return null
   try {
@@ -6643,9 +6547,7 @@ const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, change
       ) throw new Error('lifecycle_validation_input_changed')
     }
 
-    const architecture = await acquireLifecycleArchitectureScopeV1({ history, identity, changedPaths, host })
     const chainIdentity = Object.freeze({
-      architecture_chain_sha256: architecture.chain_sha256,
       result_handoff_comment_id: confirmedResult.comment_id,
       result_handoff_body_sha256: confirmedResult.body_sha256,
       task_assignment_comment_id: confirmedTaskAssignment.comment_id,
@@ -6668,9 +6570,6 @@ const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, change
       scopeContract: Object.freeze({
         ...admittedPublicationScope.scopeContract,
         kind: 'PUBLICATION_CHAIN',
-        architecture_candidate_comment_id: architecture.candidate.comment_id,
-        architecture_amendment_comment_ids: Object.freeze(architecture.amendments.map((item) => item.comment_id)),
-        architecture_chain_sha256: architecture.chain_sha256,
         result_handoff_comment_id: confirmedResult.comment_id,
         result_handoff_body_sha256: confirmedResult.body_sha256,
         task_assignment_comment_id: confirmedTaskAssignment.comment_id,
