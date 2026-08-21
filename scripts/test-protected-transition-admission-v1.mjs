@@ -5715,6 +5715,7 @@ const lifecycleProductionFixtureV1 = ({
   publicationChainResultActor = Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
   publicationChainResultId = 5351631698,
   publicationChainAuthorityId = null,
+  publicationChainAuthorityBodyTransform = (body) => body,
   publicationChainTaskAssignment = true,
   publicationChainTaskAssignmentBodyTransform = (body) => body,
   publicationChainTaskAssignmentDirectBody = null,
@@ -5820,7 +5821,7 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
   const publishedAuthority = lifecycleCommentV1({
     id: effectivePublicationChainAuthorityId,
     createdAt: '2026-08-18T00:02:00Z',
-    body: lifecyclePublicationAuthorityBodyV1({
+    body: publicationChainAuthorityBodyTransform(lifecyclePublicationAuthorityBodyV1({
       task: identity.task,
       pr,
       parent: publicationChainParent,
@@ -5830,7 +5831,7 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
       canonicalSource: true,
       resultBodySha256: createHash('sha256').update(Buffer.from(publishedResult.body, 'utf8')).digest('hex'),
       canonicalRecordId: effectivePublicationChainAuthorityId,
-    }),
+    })),
   })
   const assignmentComments = publicationChainTaskAssignment ? [taskAssignment] : []
   const comments = publicationChain
@@ -6867,6 +6868,85 @@ check(
   lifecycleOwnerReuseRenamedHeadingResultV1.reason === 'merge_decision_required',
   'LOV1 published-generation scope is independent of Result Handoff narrative heading text after Publication owner admission',
 )
+
+const lifecyclePublicationScopeOwnerCasesV1 = [
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353,
+      head: '4d915961fc2fbf77f80022a9ead339ef29681162',
+      paths: lifecyclePublishedScopeV1,
+      ready: true,
+      publicationChain: true,
+      publicationChainParent: '03775408b9f9391a44dcb1830cead82dba323c54',
+      publicationChainAuthorityBodyTransform: (body) => body.replace(
+        'status: "authorized_for_publication_only"',
+        'worktree: "C:\\Users\\defma\\Documents\\sd-prompt-studio\\.worktrees\\lifecycle-orchestrator-v1-read-only-replay"\nstatus: "authorized_for_publication_only"',
+      ),
+      legacyStateBlock: false,
+    }),
+    'MERGE_DECISION',
+    'real Publication Authority Windows worktree presentation does not gate admitted publication scope',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353,
+      head: '4d915961fc2fbf77f80022a9ead339ef29681162',
+      paths: lifecyclePublishedScopeV1,
+      ready: true,
+      publicationChain: true,
+      publicationChainParent: '03775408b9f9391a44dcb1830cead82dba323c54',
+      publicationChainAuthorityBodyTransform: (body) => body
+        .replace('# Publication Authority', '# Publication Authority\n\nPresentation prose changed without changing the authority tuple.')
+        .replace(
+          'status: "authorized_for_publication_only"',
+          'worktree: "C:\\Users\\alternate\\reviewed-worktree"\nstatus: "authorized_for_publication_only"',
+        ),
+      legacyStateBlock: false,
+    }),
+    'MERGE_DECISION',
+    'unrelated Publication Authority presentation changes do not alter admitted scope projection',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353,
+      head: '4d915961fc2fbf77f80022a9ead339ef29681162',
+      paths: lifecyclePublishedScopeV1,
+      ready: true,
+      publicationChain: true,
+      publicationChainParent: '03775408b9f9391a44dcb1830cead82dba323c54',
+      publicationChainAuthorityPaths: ['scripts/run-protected-transition-admission-v1.mjs'],
+      legacyStateBlock: false,
+    }),
+    'STOP',
+    'wrong Publication Authority tuple remains non-applicable',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353,
+      head: '4d915961fc2fbf77f80022a9ead339ef29681162',
+      paths: lifecyclePublishedScopeV1,
+      ready: true,
+      publicationChain: true,
+      publicationChainParent: '03775408b9f9391a44dcb1830cead82dba323c54',
+      publicationChainRemoteHead: OTHER_HEAD,
+      legacyStateBlock: false,
+    }),
+    'STOP',
+    'publication relationship drift remains fail closed',
+  ],
+]
+for (const [fixture, expectedAction, label] of lifecyclePublicationScopeOwnerCasesV1) {
+  const result = await executeLifecycleOrchestratorV1({
+    event: fixture.event,
+    sourceResult: fixture.sourceResult,
+    host: fixture.host,
+    executionIdentity: fixture.executionIdentity,
+  })
+  check(
+    result.next_action === expectedAction && result.mutation_count === 0 && fixture.metrics.mutation === 0,
+    `LOV1 Publication owner scope ${label}: observed ${result.next_action}/${result.reason}`,
+  )
+}
 
 const lifecycleCurrentExecutionFixture = lifecycleProductionFixtureV1({
   pr: 325, ready: true, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
@@ -8191,5 +8271,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 1009) throw new Error(`expected exactly 1009 assertions, observed ${assertions}`)
+if (assertions !== 1013) throw new Error(`expected exactly 1013 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

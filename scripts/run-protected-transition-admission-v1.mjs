@@ -5800,9 +5800,26 @@ const bindLifecycleMinimalCandidateV1 = (projection, identity) => Object.freeze(
 const isLifecyclePublicationAuthorityCandidateV1 = (body) =>
   typeof body === 'string' && /(?:^|\r?\n)[ \t]*record_type:[ \t]+["']?commit_push_publication_authorization_v1["']?[ \t]*(?:\r?$)/m.test(body)
 
-const projectLifecyclePublicationAuthorityV1 = ({ comment, identity }) => {
+const projectLifecyclePublicationAuthorityV1 = ({ comment, identity, changedPaths, applicability = null }) => {
   if (!isLifecyclePublicationAuthorityCandidateV1(comment?.body)) return null
-  const parsed = parseRolePublicationAuthorityV1(comment.body, identity.repository, identity.taskIssueNumber)
+  const parsed = applicability === null
+    ? parseRolePublicationAuthorityV1(comment.body, identity.repository, identity.taskIssueNumber)
+    : (() => {
+        if (applicability !== 'CURRENT_APPLICABLE') throw new Error('lifecycle_publication_authority_invalid')
+        const publicationAllowed = lifecycleTopLevelScalarV1(comment.body, 'publication_allowed')
+        const status = lifecycleTopLevelScalarV1(comment.body, 'status')
+        const resultCommentId = lifecycleTopLevelScalarV1(comment.body, 'result_handoff_comment_id')
+        if (
+          publicationAllowed !== true || status !== 'authorized_for_publication_only' ||
+          !positiveInteger(resultCommentId)
+        ) throw new Error('lifecycle_publication_authority_invalid')
+        return Object.freeze({
+          prNumber: identity.prNumber,
+          exactHead: identity.exactHead,
+          resultCommentId,
+          paths: Object.freeze([...changedPaths].sort()),
+        })
+      })()
   assertMinimalGovernanceProductOwnerV1(comment, { requireAssociation: true })
   if (!positiveInteger(comment?.id)) throw new Error('lifecycle_publication_authority_invalid')
   return Object.freeze({
@@ -6482,18 +6499,6 @@ const acquireLifecycleAuthorityCandidateV1 = async ({ history, identity, changed
 }
 
 const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, changedPaths, pull, host }) => {
-  const historicalPublicationCandidates = history.comments.filter((comment) => {
-    if (!isLifecyclePublicationAuthorityCandidateV1(comment.body)) return false
-    try {
-      const parsed = parseRolePublicationAuthorityV1(comment.body, identity.repository, identity.taskIssueNumber)
-      return parsed.prNumber === identity.prNumber && parsed.exactHead !== identity.exactHead && sameRolePathsV1(parsed.paths, changedPaths)
-    } catch {
-      return false
-    }
-  })
-  if (historicalPublicationCandidates.length === 0) {
-    return Object.freeze({ status: 'MISSING', authorizedPaths: null, scopeContract: null, validation: null })
-  }
   let admittedPublicationScope = null
   try {
     const publishedCommit = await api(host, `repos/${identity.repository}/commits/${identity.exactHead}`)
@@ -6532,7 +6537,9 @@ const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, change
         continue
       }
       try {
-        const projection = projectLifecyclePublicationAuthorityV1({ comment, identity: parentIdentity })
+        const projection = projectLifecyclePublicationAuthorityV1({
+          comment, identity: parentIdentity, changedPaths, applicability,
+        })
         if (projection === null) malformedApplicableAuthority = true
         else authorities.push(Object.freeze({ comment, projection }))
       } catch {
@@ -6544,7 +6551,12 @@ const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, change
     const freshAuthorityRecord = await fetchRoleCommentRecordV1(
       identity.repository, identity.taskIssueNumber, selectedAuthority.comment.id, host,
     )
-    const confirmedAuthority = projectLifecyclePublicationAuthorityV1({ comment: freshAuthorityRecord, identity: parentIdentity })
+    const confirmedApplicability = classifyLifecyclePublicationAuthorityApplicabilityV1({
+      comment: freshAuthorityRecord, identity: parentIdentity, changedPaths,
+    })
+    const confirmedAuthority = projectLifecyclePublicationAuthorityV1({
+      comment: freshAuthorityRecord, identity: parentIdentity, changedPaths, applicability: confirmedApplicability,
+    })
     if (
       confirmedAuthority === null || freshAuthorityRecord.body !== selectedAuthority.comment.body ||
       freshAuthorityRecord.author_association !== selectedAuthority.comment.author_association ||
