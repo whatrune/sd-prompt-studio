@@ -6025,13 +6025,13 @@ const isLifecycleTaskAssignmentCandidateV1 = (body) =>
 
 const projectLifecycleTaskAssignmentV1 = ({ comment, identity, taskId, changedPaths }) => {
   if (!isLifecycleTaskAssignmentCandidateV1(comment?.body)) return null
+  const productOwner = assertMinimalGovernanceProductOwnerV1(comment, { requireAssociation: true })
   const sourceUrl = `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-${comment.id}`
   const taskUrl = `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}`
   const paths = lifecycleTopLevelListV1(comment.body, 'authorized_paths')
   const exactBase = lifecycleTopLevelScalarV1(comment.body, 'exact_base')
   if (
-    !positiveInteger(comment?.id) || typeof comment.user?.login !== 'string' || !positiveInteger(comment.user?.id) ||
-    typeof comment.user?.type !== 'string' || !REVIEW_ASSOCIATIONS.has(comment.author_association) ||
+    !positiveInteger(comment?.id) ||
     lifecycleTopLevelScalarV1(comment.body, 'task_id') !== taskId ||
     lifecycleTopLevelScalarV1(comment.body, 'record_type') !== 'task_assignment' ||
     lifecycleTopLevelScalarV1(comment.body, 'authoring_role') !== 'Product Owner' ||
@@ -6056,7 +6056,7 @@ const projectLifecycleTaskAssignmentV1 = ({ comment, identity, taskId, changedPa
   return Object.freeze({
     comment_id: comment.id,
     source_url: sourceUrl,
-    source_actor: `${comment.user.login}:${comment.user.id}:${comment.user.type}:${comment.author_association}`,
+    source_actor: `${productOwner.login}:${productOwner.id}:${productOwner.type}:${comment.author_association}`,
     body_sha256: createHash('sha256').update(Buffer.from(comment.body, 'utf8')).digest('hex'),
     task_id: taskId,
     assigned_role: 'Backend Implementer',
@@ -6087,7 +6087,6 @@ const projectLifecycleResultHandoffCoreV1 = ({ comment, identity, parentHead, ch
   )
   const paths = admittedPaths === null ? rolePathSectionV1(comment.body, ['Exact correction bytes']) : lifecycleSortedPathsV1(admittedPaths)
   const validationResults = lifecycleResultHandoffValidationResultsV1(comment.body)
-  const focusedResult = validationResults.focused_rto_pta
   const gitDiffResult = validationResults.git_diff_check
   if (
     !positiveInteger(comment?.id) || typeof comment.user?.login !== 'string' || !positiveInteger(comment.user?.id) ||
@@ -6120,9 +6119,11 @@ const projectLifecycleResultHandoffCoreV1 = ({ comment, identity, parentHead, ch
     authoring_role: 'Backend Implementer',
     authority_source_url: authoritySource,
     paths,
-    focused_result: focusedResult,
-    validation_results: validationResults,
-    validation_evidence_reused: true,
+    validation: Object.freeze({
+      status: gitDiffResult,
+      ...validationResults,
+      validation_evidence_reused: true,
+    }),
     commands: Object.freeze(['node scripts/test-protected-transition-admission-v1.mjs', 'git diff --check']),
   })
 }
@@ -6152,7 +6153,7 @@ const projectLifecyclePublishedResultHandoffV1 = ({ comment, identity, parentHea
 }
 
 const acquireLifecycleResultHandoffTaskAssignmentV1 = async ({
-  history, identity, changedPaths, resultRecord, resultProjection, host,
+  history, identity, changedPaths, resultProjection, host,
 }) => {
   const referencedTaskAssignmentId = parseRoleUrlNumberV1(
     resultProjection.authority_source_url,
@@ -6186,12 +6187,7 @@ const acquireLifecycleResultHandoffTaskAssignmentV1 = async ({
     freshTaskAssignmentRecord.user?.type !== referencedTaskAssignment.user.type ||
     !lifecycleSameValueV1(confirmedTaskAssignment, admittedTaskAssignment) ||
     resultProjection.authoring_role !== confirmedTaskAssignment.assigned_role ||
-    resultProjection.source_actor !== confirmedTaskAssignment.source_actor ||
-    resultProjection.authority_source_url !== confirmedTaskAssignment.source_url ||
-    resultRecord.user?.login !== freshTaskAssignmentRecord.user?.login ||
-    resultRecord.user?.id !== freshTaskAssignmentRecord.user?.id ||
-    resultRecord.user?.type !== freshTaskAssignmentRecord.user?.type ||
-    resultRecord.author_association !== freshTaskAssignmentRecord.author_association
+    resultProjection.authority_source_url !== confirmedTaskAssignment.source_url
   ) throw new Error('lifecycle_result_handoff_authority_invalid')
   return confirmedTaskAssignment
 }
@@ -6206,7 +6202,7 @@ const projectLifecycleValidationEvidenceV1 = ({ comment, identity, changedPaths 
     return Object.freeze({
       result,
       evidence: Object.freeze({
-        status: 'PASS',
+        ...result.validation,
         exact_head: identity.exactHead,
         current_base: identity.exactHead,
         paths: changedPaths,
@@ -6239,7 +6235,7 @@ const acquireLifecycleValidationEvidenceV1 = async ({ history, identity, changed
   ) return Object.freeze({ status: 'INCOMPLETE', evidence: null })
   try {
     const taskAssignment = await acquireLifecycleResultHandoffTaskAssignmentV1({
-      history, identity, changedPaths, resultRecord: fresh, resultProjection: confirmed.result, host,
+      history, identity, changedPaths, resultProjection: confirmed.result, host,
     })
     return Object.freeze({
       status: 'PRESENT',
@@ -6389,7 +6385,7 @@ const acquireLifecycleAuthorityCandidateV1 = async ({ history, identity, changed
       resultRecord.user?.id !== historicalResultRecord.user?.id || resultRecord.user?.type !== historicalResultRecord.user?.type
     ) return Object.freeze({ status: 'INCOMPLETE', evidence: null })
     await acquireLifecycleResultHandoffTaskAssignmentV1({
-      history, identity, changedPaths, resultRecord, resultProjection: result, host,
+      history, identity, changedPaths, resultProjection: result, host,
     })
     return Object.freeze({
       status: 'PRESENT',
@@ -6529,7 +6525,6 @@ const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, change
       history,
       identity,
       changedPaths,
-      resultRecord: freshResultRecord,
       resultProjection: confirmedResult,
       host,
     })
@@ -6579,9 +6574,7 @@ const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, change
         publication_chain_sha256: publicationChainSha256,
       }),
       validation: Object.freeze({
-        ...confirmedResult.validation_results,
-        validation_evidence_reused: confirmedResult.validation_evidence_reused,
-        status: 'PASS',
+        ...confirmedResult.validation,
         exact_head: authorizedParent,
         publication_applicable_head: identity.exactHead,
         reuse_kind: 'PUBLICATION_CHAIN',

@@ -6131,8 +6131,17 @@ const lifecycleDirectValidationAuthorityCases = [
       pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
       validationActor: Object.freeze({ login: 'unauthorized-implementer', id: 90001, type: 'User' }),
     }),
+    'MERGE_DECISION',
+    'B admitted Product Owner Task Assignment does not depend on Result Handoff same-commenter equality',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+      validationActor: Object.freeze({ login: 'unauthorized-implementer', id: 90001, type: 'User' }),
+      publicationChainTaskAssignmentActor: Object.freeze({ login: 'unauthorized-implementer', id: 90001, type: 'User' }),
+    }),
     'STOP',
-    'B identical Result Handoff from unauthorized actor is rejected',
+    'C same-commenter equality cannot admit a non-Product-Owner Task Assignment',
   ],
   [
     lifecycleProductionFixtureV1({
@@ -6636,8 +6645,18 @@ const lifecycleResultAuthorityChainCases = [
       publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
       publicationChainResultActor: Object.freeze({ login: 'unauthorized-implementer', id: 90001, type: 'User' }),
     }),
+    'MERGE_DECISION',
+    'admitted Product Owner Task Assignment does not depend on same-commenter equality',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 353, head: lifecyclePublishedHeadV1, paths: lifecyclePublishedScopeV1, ready: true,
+      publicationChain: true, publicationChainParent: lifecycleReviewedParentV1, legacyStateBlock: false,
+      publicationChainResultActor: Object.freeze({ login: 'unauthorized-implementer', id: 90001, type: 'User' }),
+      publicationChainTaskAssignmentActor: Object.freeze({ login: 'unauthorized-implementer', id: 90001, type: 'User' }),
+    }),
     'STOP',
-    'unauthorized Result Handoff actor is incomplete',
+    'same-commenter equality cannot admit a non-Product-Owner Task Assignment',
   ],
   [
     lifecycleProductionFixtureV1({
@@ -8242,6 +8261,14 @@ for (const [index, evidence] of lifecycleInvalidationMatrix.entries()) check(evi
 const lifecycleSourceStart = runnerSource.indexOf('const LIFECYCLE_BODY_SHA256_V1')
 const lifecycleSourceEnd = runnerSource.indexOf('\nexport const executeRoleTransitionOrchestratorV1', lifecycleSourceStart)
 const lifecycleSource = runnerSource.slice(lifecycleSourceStart, lifecycleSourceEnd)
+const lifecycleValidationOwnerProjectionSource = lifecycleSource.slice(
+  lifecycleSource.indexOf('const projectLifecycleValidationEvidenceV1'),
+  lifecycleSource.indexOf('\nconst acquireLifecycleBaseImpactV1'),
+)
+const lifecyclePublishedGenerationSource = lifecycleSource.slice(
+  lifecycleSource.indexOf('const acquireLifecyclePublishedGenerationV1'),
+  lifecycleSource.indexOf('\nconst LIFECYCLE_THREADS_QUERY_V1'),
+)
 const lifecycleAllResults = lifecycleReplayCases.map(([result]) => result)
 const lifecycleStructuralMatrix = [
   lifecycleSourceStart >= 0 && lifecycleSource.includes('export const executeLifecycleOrchestratorV1') && lifecycleSource.includes('export const reduceLifecycleReplayV1'),
@@ -8255,6 +8282,10 @@ const lifecycleStructuralMatrix = [
   workflow.permissions.actions === 'read' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'read' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read',
   lifecycleHistoricalPathsV1[323].length === 11 && lifecycleHistoricalPathsV1[325].length === 20 && lifecycleHistoricalPathsV1[327].length === 35 && lifecycleHistoricalPathsV1[329].length === 32 && lifecycleHistoricalPathsV1[331].length === 4 && lifecycleHistoricalPathsV1[333].length === 24,
   pr333InitialPaths.length === 18 && pr333TwentyTwoPaths.length === 22 && lifecycleHistoricalIdentityV1[333].head === '4f0154002ee0139c54cba177dea52f68a3259e87',
+  lifecycleValidationOwnerProjectionSource.includes('...result.validation') &&
+    lifecyclePublishedGenerationSource.includes('...confirmedResult.validation') &&
+    !lifecycleValidationOwnerProjectionSource.includes("status: 'PASS'") &&
+    !lifecyclePublishedGenerationSource.includes("status: 'PASS'"),
 ]
 for (const [index, evidence] of lifecycleStructuralMatrix.entries()) check(evidence, `LOV1 production boundary ${index + 1}`)
 
@@ -8269,5 +8300,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 1013) throw new Error(`expected exactly 1013 assertions, observed ${assertions}`)
+if (assertions !== 1016) throw new Error(`expected exactly 1016 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
