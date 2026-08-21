@@ -6683,7 +6683,7 @@ const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, change
         publication_applicable_head: identity.exactHead,
         reuse_kind: 'PUBLICATION_CHAIN',
         publication_chain_sha256: publicationChainSha256,
-        current_base: architecture.candidate.reviewed_base,
+        current_base: confirmedTaskAssignment.exact_base,
         paths: confirmedAuthority.paths,
         profile: 'focused-rto-pta',
         commands: confirmedResult.commands,
@@ -7682,6 +7682,7 @@ const withLifecycleDiagnosticProjectionV1 = (result, projection) => Object.freez
 
 export const executeReviewEventWithLifecycleReplayV1 = async ({ event, host, runId, runAttempt, hostSha, jobName }) => {
   const result = await executeRoleTransitionOrchestratorV1({ event, host, runId, runAttempt, hostSha, jobName })
+  if (isMinimalGovernanceCandidateV1(event?.comment?.body)) return result
   const lifecycleProjection = await executeLifecycleOrchestratorV1({
     event, sourceResult: result, host,
     executionIdentity: Object.freeze({ repository: event?.repository?.full_name, runId, runAttempt, workflowSha: hostSha, jobName }),

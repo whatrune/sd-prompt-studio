@@ -5857,7 +5857,7 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
     : readyTaskBindings === null
     ? stateBlock(taskState)
     : readyTaskBindings.map((taskIssueNumber) => `Task: #${taskIssueNumber}`).join('\n')
-  const metrics = { task: 0, pull: 0, files: 0, history: 0, direct: 0, directIds: [], compare: 0, checks: 0, threads: 0, branch: 0, mutation: 0 }
+  const metrics = { task: 0, pull: 0, files: 0, history: 0, direct: 0, directIds: [], compare: 0, compareEndpoints: [], checks: 0, threads: 0, branch: 0, mutation: 0 }
   const direct = new Map(comments.map((comment) => [comment.id, comment]))
   if (minimalCandidate && (minimalCandidateDirectActor !== null || minimalCandidateDirectBody !== null)) {
     direct.set(minimalAuthority.id, Object.freeze({
@@ -5974,6 +5974,7 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
       }
       if (endpoint.startsWith(`repos/${REPOSITORY}/compare/`)) {
         metrics.compare += 1
+        metrics.compareEndpoints.push(endpoint)
         return {
           status: 'ahead',
           ahead_by: 1,
@@ -6869,6 +6870,57 @@ check(
   'LOV1 published-generation scope is independent of Result Handoff narrative heading text after Publication owner admission',
 )
 
+const lifecycleTaskAssignmentBaseV1 = '3cfc645ecbad07f9ef0e858605a0acdf3f7b11ba'
+const lifecycleArchitectureReviewedBaseV1 = '4078c43e55ebcb297f23b5f7e08d43bd30786a99'
+const lifecycleTaskAssignmentBaseFixtureV1 = lifecycleProductionFixtureV1({
+  pr: 353,
+  head: lifecycleOwnerReuseHeadV1,
+  paths: lifecyclePublishedScopeV1,
+  ready: true,
+  publicationChain: true,
+  publicationChainParent: lifecycleOwnerReuseParentV1,
+  reviewedBase: lifecycleTaskAssignmentBaseV1,
+  currentBase: lifecycleArchitectureReviewedBaseV1,
+  legacyStateBlock: false,
+})
+const lifecycleTaskAssignmentBaseResultV1 = await executeLifecycleOrchestratorV1({
+  event: lifecycleTaskAssignmentBaseFixtureV1.event,
+  sourceResult: lifecycleTaskAssignmentBaseFixtureV1.sourceResult,
+  host: lifecycleTaskAssignmentBaseFixtureV1.host,
+  executionIdentity: lifecycleTaskAssignmentBaseFixtureV1.executionIdentity,
+})
+check(
+  lifecycleTaskAssignmentBaseResultV1.next_action === 'MERGE_DECISION' &&
+  lifecycleTaskAssignmentBaseFixtureV1.metrics.compare === 1 &&
+  lifecycleTaskAssignmentBaseFixtureV1.metrics.compareEndpoints[0]?.includes(
+    `${lifecycleTaskAssignmentBaseV1}...${lifecycleArchitectureReviewedBaseV1}`,
+  ),
+  'LOV1 publication validation base impact starts from the admitted Task Assignment exact_base rather than Architecture reviewed_base',
+)
+
+const lifecycleIdenticalOwnerBaseFixtureV1 = lifecycleProductionFixtureV1({
+  pr: 353,
+  head: lifecycleOwnerReuseHeadV1,
+  paths: lifecyclePublishedScopeV1,
+  ready: true,
+  publicationChain: true,
+  publicationChainParent: lifecycleOwnerReuseParentV1,
+  reviewedBase: lifecycleArchitectureReviewedBaseV1,
+  currentBase: lifecycleArchitectureReviewedBaseV1,
+  legacyStateBlock: false,
+})
+const lifecycleIdenticalOwnerBaseResultV1 = await executeLifecycleOrchestratorV1({
+  event: lifecycleIdenticalOwnerBaseFixtureV1.event,
+  sourceResult: lifecycleIdenticalOwnerBaseFixtureV1.sourceResult,
+  host: lifecycleIdenticalOwnerBaseFixtureV1.host,
+  executionIdentity: lifecycleIdenticalOwnerBaseFixtureV1.executionIdentity,
+})
+check(
+  lifecycleIdenticalOwnerBaseResultV1.next_action === 'MERGE_DECISION' &&
+  lifecycleIdenticalOwnerBaseFixtureV1.metrics.compare === 0,
+  'LOV1 identical admitted Task Assignment and current bases preserve the existing publication projection',
+)
+
 const lifecyclePublicationScopeOwnerCasesV1 = [
   [
     lifecycleProductionFixtureV1({
@@ -7323,10 +7375,10 @@ const lifecycleMinimalWrapperValid = await executeReviewEventWithLifecycleReplay
   jobName: 'protected_transition_admission_v1',
 })
 check(
-  lifecycleMinimalWrapperValid.next_action === lifecycleMinimalWrapperValidFixture.result.next_action &&
-  lifecycleMinimalWrapperValid.terminal_result === lifecycleMinimalWrapperValidFixture.result.terminal_result &&
-  lifecycleMinimalWrapperValid.lifecycle_projection.next_action === 'MINIMAL_GOVERNANCE_HANDOFF_REQUIRED',
-  'LOV1 valid MINIMAL remains authoritative while exposing the diagnostic handoff projection',
+  JSON.stringify(lifecycleMinimalWrapperValid) === JSON.stringify(lifecycleMinimalWrapperValidFixture.result) &&
+  lifecycleMinimalWrapperValid.next_action === 'MERGE_OPERATOR' &&
+  !Object.hasOwn(lifecycleMinimalWrapperValid, 'lifecycle_projection'),
+  'LOV1 valid MINIMAL MERGE_OPERATOR result remains byte/shape-compatible with the authoritative owner result',
 )
 
 const lifecycleMinimalMalformedBody = minimalAuthorityBody({ exact_head: HEAD })
@@ -7340,10 +7392,9 @@ const lifecycleMinimalWrapperMalformed = await executeReviewEventWithLifecycleRe
   jobName: 'protected_transition_admission_v1',
 })
 check(
-  lifecycleMinimalWrapperMalformed.next_action === lifecycleMinimalWrapperMalformedFixture.result.next_action &&
-  lifecycleMinimalWrapperMalformed.reason === lifecycleMinimalWrapperMalformedFixture.result.reason &&
-  lifecycleMinimalWrapperMalformed.lifecycle_projection.next_action === 'STOP',
-  'LOV1 malformed MINIMAL remains fail-closed and exposes a diagnostic STOP projection',
+  JSON.stringify(lifecycleMinimalWrapperMalformed) === JSON.stringify(lifecycleMinimalWrapperMalformedFixture.result) &&
+  !Object.hasOwn(lifecycleMinimalWrapperMalformed, 'lifecycle_projection'),
+  'LOV1 malformed MINIMAL remains the unchanged authoritative fail-closed result',
 )
 
 const lifecycleMinimalDuplicateComments = [
@@ -7361,16 +7412,14 @@ const lifecycleMinimalWrapperDuplicate = await executeReviewEventWithLifecycleRe
   jobName: 'protected_transition_admission_v1',
 })
 check(
-  lifecycleMinimalWrapperDuplicate.next_action === lifecycleMinimalWrapperDuplicateFixture.result.next_action &&
-  lifecycleMinimalWrapperDuplicate.reason === lifecycleMinimalWrapperDuplicateFixture.result.reason &&
-  lifecycleMinimalWrapperDuplicate.lifecycle_projection.next_action === 'STOP',
-  'LOV1 duplicate MINIMAL authority remains fail-closed and exposes a diagnostic STOP projection',
+  JSON.stringify(lifecycleMinimalWrapperDuplicate) === JSON.stringify(lifecycleMinimalWrapperDuplicateFixture.result) &&
+  !Object.hasOwn(lifecycleMinimalWrapperDuplicate, 'lifecycle_projection'),
+  'LOV1 duplicate MINIMAL authority remains the unchanged authoritative fail-closed result',
 )
 check(
   [lifecycleMinimalWrapperValid, lifecycleMinimalWrapperMalformed, lifecycleMinimalWrapperDuplicate].every((result) =>
-    result.lifecycle_projection.mutation_count === 0 && result.protected_operation_count === 0 &&
-    !Object.hasOwn(result.lifecycle_projection, 'role_dispatch') && !Object.hasOwn(result.lifecycle_projection, 'publication')),
-  'LOV1 MINIMAL wrapper diagnostic never adds mutation or duplicate canonical evidence',
+    result.mutation_count === 0 && result.protected_operation_count === 0 && !Object.hasOwn(result, 'lifecycle_projection')),
+  'LOV1 MINIMAL wrapper does not augment or duplicate the sealed authoritative result',
 )
 
 const executeLifecycleFixtureV1 = (fixture) => executeLifecycleOrchestratorV1({
@@ -8271,5 +8320,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 1013) throw new Error(`expected exactly 1013 assertions, observed ${assertions}`)
+if (assertions !== 1015) throw new Error(`expected exactly 1015 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
