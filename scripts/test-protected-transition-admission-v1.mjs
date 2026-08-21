@@ -6593,22 +6593,22 @@ const lifecycleStageLocalTaskAssignmentCases = [
   [
     lifecycleStageLocalProductionFixtureV1({ historicalComments: [lifecycleBootstrapPublicationAssignmentV1] }),
     'MERGE_DECISION',
-    'real #5345944519 implementation plus #5349172299 bootstrap coexistence selects the implementation assignment',
+    'Result Handoff reference selects #5345944519 while historical #5349172299 remains irrelevant',
   ],
   [
     lifecycleStageLocalProductionFixtureV1({ historicalComments: [lifecycleDuplicateImplementationAssignmentV1] }),
-    'STOP',
-    'two implementation assignments are ambiguous',
+    'MERGE_DECISION',
+    'unreferenced historical implementation assignment does not affect current selection',
   ],
   [
     lifecycleStageLocalProductionFixtureV1({ historicalComments: [lifecycleMalformedPotentialImplementationAssignmentV1] }),
-    'STOP',
-    'malformed potentially-implementation assignment fails closed',
+    'MERGE_DECISION',
+    'unreferenced malformed historical assignment does not affect current selection',
   ],
   [
     lifecycleStageLocalProductionFixtureV1({ historicalComments: [lifecycleStageCollisionAssignmentV1] }),
-    'STOP',
-    'bootstrap assignment carrying implementation-only markers is a stage collision',
+    'MERGE_DECISION',
+    'unreferenced mixed-stage historical assignment does not affect current selection',
   ],
   [
     lifecycleStageLocalProductionFixtureV1({
@@ -6633,8 +6633,9 @@ for (const [fixture, expectedAction, label] of lifecycleStageLocalTaskAssignment
   if (expectedAction === 'MERGE_DECISION') {
     check(
       result.reason === 'merge_decision_required' &&
-      fixture.metrics.directIds.includes(5345944519) && fixture.metrics.directIds.includes(5349172299),
-      'LOV1 production coexistence acquisition is complete, selects #5345944519, and directly confirms #5349172299 as non-applicable',
+      fixture.metrics.directIds.includes(5345944519) &&
+      [5349172299, 5345944520, 5345944521, 5349172300].every((commentId) => !fixture.metrics.directIds.includes(commentId)),
+      'LOV1 Result Handoff authority source directly confirms only referenced #5345944519',
     )
   }
 }
@@ -8190,5 +8191,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 1006) throw new Error(`expected exactly 1006 assertions, observed ${assertions}`)
+if (assertions !== 1009) throw new Error(`expected exactly 1009 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

@@ -6016,108 +6016,6 @@ const isLifecycleResultHandoffCandidateV1 = (body) =>
 const isLifecycleTaskAssignmentCandidateV1 = (body) =>
   typeof body === 'string' && /(?:^|\r?\n)record_type:[ \t]+["']?task_assignment["']?[ \t]*(?:\r?$)/m.test(body)
 
-const lifecycleTaskAssignmentHasTopLevelFieldV1 = (body, field) =>
-  new RegExp(`^${field}(?=[ \\t]*(?::|$))`, 'm').test(body)
-
-const classifyLifecycleTaskAssignmentStageV1 = ({ comment, identity, taskId, changedPaths }) => {
-  if (!isLifecycleTaskAssignmentCandidateV1(comment?.body)) return 'NOT_CANDIDATE'
-  let candidateTaskId
-  try {
-    candidateTaskId = lifecycleTopLevelScalarV1(comment.body, 'task_id')
-    if (
-      typeof candidateTaskId !== 'string' || candidateTaskId.length === 0 ||
-      lifecycleTopLevelScalarV1(comment.body, 'record_type') !== 'task_assignment'
-    ) return 'POTENTIALLY_IMPLEMENTATION_MALFORMED'
-  } catch {
-    return 'POTENTIALLY_IMPLEMENTATION_MALFORMED'
-  }
-  if (candidateTaskId !== taskId) return 'NON_APPLICABLE_IDENTITY'
-
-  const implementationMarkersPresent = [
-    'assigned_implementer', 'assigned_independent_reviewer', 'phase', 'architecture_status', 'architecture_review',
-    'architecture_review_body_sha256', 'implementation_ready', 'implementation_ready_scope', 'implementation_allowed',
-    'authority_lifetime',
-  ].some((field) => lifecycleTaskAssignmentHasTopLevelFieldV1(comment.body, field))
-  const bootstrapPublicationMarkersPresent = [
-    'authority_kind', 'exact_parent', 'target_base_ref', 'implementation_authority', 'implementation_result_handoff',
-    'implementation_result_handoff_body_sha256', 'terminal_implementation_review',
-    'terminal_implementation_review_body_sha256', 'bootstrap_publication_count', 'commit_count', 'push_count',
-    'draft_pr_creation_count', 'push_method', 'pr_state_after_creation',
-  ].some((field) => lifecycleTaskAssignmentHasTopLevelFieldV1(comment.body, field))
-  if (implementationMarkersPresent && bootstrapPublicationMarkersPresent) return 'STAGE_COLLISION'
-  if (!implementationMarkersPresent && !bootstrapPublicationMarkersPresent) return 'POTENTIALLY_IMPLEMENTATION_MALFORMED'
-
-  let assignedRole
-  let purpose
-  let status
-  try {
-    assignedRole = lifecycleTopLevelScalarV1(comment.body, 'assigned_role')
-    purpose = lifecycleTopLevelScalarV1(comment.body, 'purpose')
-    status = lifecycleTopLevelScalarV1(comment.body, 'status')
-  } catch {
-    return 'POTENTIALLY_IMPLEMENTATION_MALFORMED'
-  }
-  if (implementationMarkersPresent) {
-    return assignedRole === 'Backend Implementer' &&
-      purpose === 'Phase 1 READ_ONLY_REPLAY' &&
-      status === 'authorized_for_pre_pr_implementation_only'
-      ? 'IMPLEMENTATION_APPLICABLE'
-      : 'POTENTIALLY_IMPLEMENTATION_MALFORMED'
-  }
-
-  const bootstrapPublicationClass =
-    assignedRole === 'Publication Executor' &&
-    purpose === 'One bounded external bootstrap publication for Phase 1 READ_ONLY_REPLAY' &&
-    status === 'authorized_for_bootstrap_publication_only'
-  if (!bootstrapPublicationClass) return 'POTENTIALLY_IMPLEMENTATION_MALFORMED'
-
-  try {
-    const sourceUrl = `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-${comment.id}`
-    const taskUrl = `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}`
-    const commentUrl = new RegExp(`^https://github\\.com/${identity.repository.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/issues/${identity.taskIssueNumber}#issuecomment-[1-9]\\d*$`)
-    const paths = lifecycleTopLevelListV1(comment.body, 'authorized_paths')
-    if (
-      !positiveInteger(comment?.id) || typeof comment.user?.login !== 'string' || !positiveInteger(comment.user?.id) ||
-      typeof comment.user?.type !== 'string' || !REVIEW_ASSOCIATIONS.has(comment.author_association) ||
-      lifecycleTopLevelScalarV1(comment.body, 'authoring_role') !== 'Product Owner' ||
-      lifecycleTopLevelScalarV1(comment.body, 'authority_source') !== taskUrl ||
-      lifecycleTopLevelScalarV1(comment.body, 'canonical_record') !== sourceUrl ||
-      lifecycleTopLevelScalarV1(comment.body, 'repository') !== identity.repository ||
-      lifecycleTopLevelScalarV1(comment.body, 'task_issue') !== taskUrl ||
-      lifecycleTopLevelScalarV1(comment.body, 'requested_by') !== 'Product Owner' ||
-      lifecycleTopLevelScalarV1(comment.body, 'authority_kind') !== 'BOOTSTRAP_PUBLICATION' ||
-      !FULL_HEAD.test(lifecycleTopLevelScalarV1(comment.body, 'exact_parent') ?? '') ||
-      lifecycleTopLevelScalarV1(comment.body, 'target_base_ref') !== 'main' ||
-      !commentUrl.test(lifecycleTopLevelScalarV1(comment.body, 'implementation_authority') ?? '') ||
-      !commentUrl.test(lifecycleTopLevelScalarV1(comment.body, 'implementation_result_handoff') ?? '') ||
-      !LIFECYCLE_BODY_SHA256_V1.test(lifecycleTopLevelScalarV1(comment.body, 'implementation_result_handoff_body_sha256') ?? '') ||
-      !commentUrl.test(lifecycleTopLevelScalarV1(comment.body, 'terminal_implementation_review') ?? '') ||
-      !LIFECYCLE_BODY_SHA256_V1.test(lifecycleTopLevelScalarV1(comment.body, 'terminal_implementation_review_body_sha256') ?? '') ||
-      lifecycleTopLevelScalarV1(comment.body, 'review_decision') !== 'APPROVE' ||
-      lifecycleTopLevelScalarV1(comment.body, 'blocking_finding_count') !== 0 ||
-      lifecycleTopLevelScalarV1(comment.body, 'remaining_finding_count') !== 0 ||
-      lifecycleTopLevelScalarV1(comment.body, 'unknown_count') !== 0 ||
-      lifecycleTopLevelScalarV1(comment.body, 'publication_allowed') !== true ||
-      lifecycleTopLevelScalarV1(comment.body, 'bootstrap_publication_count') !== 1 ||
-      lifecycleTopLevelScalarV1(comment.body, 'commit_count') !== 1 ||
-      lifecycleTopLevelScalarV1(comment.body, 'push_count') !== 1 ||
-      lifecycleTopLevelScalarV1(comment.body, 'draft_pr_creation_count') !== 1 ||
-      lifecycleTopLevelScalarV1(comment.body, 'push_method') !== 'normal_non_force_branch_creation' ||
-      lifecycleTopLevelScalarV1(comment.body, 'pr_state_after_creation') !== 'DRAFT' ||
-      lifecycleTopLevelScalarV1(comment.body, 'ready_allowed') !== false ||
-      lifecycleTopLevelScalarV1(comment.body, 'review_repost_allowed') !== false ||
-      lifecycleTopLevelScalarV1(comment.body, 'workflow_rerun_allowed') !== false ||
-      lifecycleTopLevelScalarV1(comment.body, 'manual_admission_allowed') !== false ||
-      lifecycleTopLevelScalarV1(comment.body, 'minimal_governance_allowed') !== false ||
-      lifecycleTopLevelScalarV1(comment.body, 'merge_allowed') !== false ||
-      !sameRolePathsV1(paths, changedPaths)
-    ) return 'POTENTIALLY_IMPLEMENTATION_MALFORMED'
-  } catch {
-    return 'POTENTIALLY_IMPLEMENTATION_MALFORMED'
-  }
-  return 'NON_APPLICABLE_STAGE'
-}
-
 const projectLifecycleTaskAssignmentV1 = ({ comment, identity, taskId, changedPaths }) => {
   if (!isLifecycleTaskAssignmentCandidateV1(comment?.body)) return null
   const sourceUrl = `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-${comment.id}`
@@ -6247,56 +6145,23 @@ const projectLifecyclePublishedResultHandoffV1 = ({ comment, identity, parentHea
 const acquireLifecycleResultHandoffTaskAssignmentV1 = async ({
   history, identity, changedPaths, resultRecord, resultProjection, host,
 }) => {
-  const taskAssignments = []
-  const nonApplicableStageAssignments = []
-  let malformedApplicableTaskAssignment = false
-  for (const comment of history.comments) {
-    const classification = classifyLifecycleTaskAssignmentStageV1({
-      comment, identity, taskId: resultProjection.task_id, changedPaths,
-    })
-    if (classification === 'NOT_CANDIDATE' || classification === 'NON_APPLICABLE_IDENTITY') continue
-    if (classification === 'NON_APPLICABLE_STAGE') {
-      nonApplicableStageAssignments.push(comment)
-      continue
-    }
-    if (classification === 'POTENTIALLY_IMPLEMENTATION_MALFORMED' || classification === 'STAGE_COLLISION') {
-      malformedApplicableTaskAssignment = true
-      continue
-    }
-    try {
-      const projection = projectLifecycleTaskAssignmentV1({
-        comment, identity, taskId: resultProjection.task_id, changedPaths,
-      })
-      if (projection === null) malformedApplicableTaskAssignment = true
-      else taskAssignments.push(Object.freeze({ comment, projection }))
-    } catch {
-      malformedApplicableTaskAssignment = true
-    }
-  }
-  for (const historicalRecord of nonApplicableStageAssignments) {
-    try {
-      const freshRecord = await fetchRoleCommentRecordV1(
-        identity.repository, identity.taskIssueNumber, historicalRecord.id, host,
-      )
-      const freshClassification = classifyLifecycleTaskAssignmentStageV1({
-        comment: freshRecord, identity, taskId: resultProjection.task_id, changedPaths,
-      })
-      if (
-        freshClassification !== 'NON_APPLICABLE_STAGE' || freshRecord.body !== historicalRecord.body ||
-        freshRecord.author_association !== historicalRecord.author_association ||
-        freshRecord.user?.login !== historicalRecord.user?.login || freshRecord.user?.id !== historicalRecord.user?.id ||
-        freshRecord.user?.type !== historicalRecord.user?.type
-      ) malformedApplicableTaskAssignment = true
-    } catch {
-      malformedApplicableTaskAssignment = true
-    }
-  }
-  if (malformedApplicableTaskAssignment || taskAssignments.length !== 1) {
-    throw new Error('lifecycle_result_handoff_authority_invalid')
-  }
-  const selectedTaskAssignment = taskAssignments[0]
+  const referencedTaskAssignmentId = parseRoleUrlNumberV1(
+    resultProjection.authority_source_url,
+    `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-`,
+    'lifecycle_result_handoff_authority_invalid',
+  )
+  const referencedTaskAssignments = history.comments.filter((comment) => comment.id === referencedTaskAssignmentId)
+  if (referencedTaskAssignments.length !== 1) throw new Error('lifecycle_result_handoff_authority_invalid')
+  const referencedTaskAssignment = referencedTaskAssignments[0]
+  const admittedTaskAssignment = projectLifecycleTaskAssignmentV1({
+    comment: referencedTaskAssignment,
+    identity,
+    taskId: resultProjection.task_id,
+    changedPaths,
+  })
+  if (admittedTaskAssignment === null) throw new Error('lifecycle_result_handoff_authority_invalid')
   const freshTaskAssignmentRecord = await fetchRoleCommentRecordV1(
-    identity.repository, identity.taskIssueNumber, selectedTaskAssignment.comment.id, host,
+    identity.repository, identity.taskIssueNumber, referencedTaskAssignmentId, host,
   )
   const confirmedTaskAssignment = projectLifecycleTaskAssignmentV1({
     comment: freshTaskAssignmentRecord,
@@ -6305,12 +6170,12 @@ const acquireLifecycleResultHandoffTaskAssignmentV1 = async ({
     changedPaths,
   })
   if (
-    confirmedTaskAssignment === null || freshTaskAssignmentRecord.body !== selectedTaskAssignment.comment.body ||
-    freshTaskAssignmentRecord.author_association !== selectedTaskAssignment.comment.author_association ||
-    freshTaskAssignmentRecord.user?.login !== selectedTaskAssignment.comment.user.login ||
-    freshTaskAssignmentRecord.user?.id !== selectedTaskAssignment.comment.user.id ||
-    freshTaskAssignmentRecord.user?.type !== selectedTaskAssignment.comment.user.type ||
-    !lifecycleSameValueV1(confirmedTaskAssignment, selectedTaskAssignment.projection) ||
+    confirmedTaskAssignment === null || freshTaskAssignmentRecord.body !== referencedTaskAssignment.body ||
+    freshTaskAssignmentRecord.author_association !== referencedTaskAssignment.author_association ||
+    freshTaskAssignmentRecord.user?.login !== referencedTaskAssignment.user.login ||
+    freshTaskAssignmentRecord.user?.id !== referencedTaskAssignment.user.id ||
+    freshTaskAssignmentRecord.user?.type !== referencedTaskAssignment.user.type ||
+    !lifecycleSameValueV1(confirmedTaskAssignment, admittedTaskAssignment) ||
     resultProjection.authoring_role !== confirmedTaskAssignment.assigned_role ||
     resultProjection.source_actor !== confirmedTaskAssignment.source_actor ||
     resultProjection.authority_source_url !== confirmedTaskAssignment.source_url ||
