@@ -5314,11 +5314,12 @@ pr323BaseConvergenceSnapshot.validation.current_base = pr323BaseConvergenceSnaps
 const pr323BaseConvergence = reduceLifecycleReplayV1(pr323BaseConvergenceSnapshot)
 const pr325Happy = await executeLifecycleOrchestratorV1({ snapshot: lifecycleReplaySnapshotV1({ pr: 325 }) })
 const pr327FindingSnapshot = lifecycleWithoutMinimalAuthorityV1(lifecycleReplaySnapshotV1({ pr: 327, head: lifecycleHistoricalIdentityV1[327].priorHead, paths: lifecycleHistoricalPathsV1[327].slice(0, 25) }))
-pr327FindingSnapshot.threads = [{ id: 'PRRT-pr327-valid', is_resolved: false, is_outdated: false, latest_comment_id: 'PRRC-3804853510', finding_disposition: 'VALID_FINDING' }]
+pr327FindingSnapshot.review = { ...pr327FindingSnapshot.review, decision: 'CHANGES_REQUIRED', blocking_finding_count: 1, remaining_finding_count: 1 }
+pr327FindingSnapshot.threads = [{ id: 'PRRT-pr327-valid', is_resolved: false, is_outdated: false, latest_comment_id: 'PRRC-3804853510' }]
 const pr327ValidFinding = reduceLifecycleReplayV1(pr327FindingSnapshot)
 const pr327FreshReview = reduceLifecycleReplayV1(lifecycleWithoutMinimalAuthorityV1(lifecycleReplaySnapshotV1({ pr: 327 })))
 const pr329RejectSnapshot = lifecycleWithoutMinimalAuthorityV1(lifecycleReplaySnapshotV1({ pr: 329 }))
-pr329RejectSnapshot.threads = [{ id: 'PRRT-pr329-reject', is_resolved: false, is_outdated: false, latest_comment_id: 'PRRC-3808837607', finding_disposition: 'REJECT_FINDING' }]
+pr329RejectSnapshot.threads = [{ id: 'PRRT-pr329-reject', is_resolved: false, is_outdated: false, latest_comment_id: 'PRRC-3808837607' }]
 const pr329RejectedFinding = reduceLifecycleReplayV1(pr329RejectSnapshot)
 const pr331Happy = reduceLifecycleReplayV1(lifecycleReplaySnapshotV1({ pr: 331 }))
 const pr333InitialPaths = lifecycleHistoricalPathsV1[333].filter((pathValue) => !pathValue.startsWith('docs/automation/'))
@@ -5673,6 +5674,7 @@ const lifecycleProductionFixtureV1 = ({
   validationDirectBody = null,
   validationDirectBodyTransform = null,
   validationActor = Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
+  reviewBodyTransform = (body) => body,
   reviewedBase = lifecycleHistoricalIdentityV1[pr].base,
   currentBase = lifecycleHistoricalIdentityV1[pr].expectedBase,
   minimalCandidate = false,
@@ -5685,6 +5687,8 @@ const lifecycleProductionFixtureV1 = ({
   publicationAuthorityPaths = paths,
   publicationAuthorityQuoted = false,
   publicationAuthorityDirectBody = null,
+  publicationAuthorityActor = minimalProductOwner,
+  publicationAuthorityDirectActor = null,
   threadDisposition = null,
   threadPages = null,
   threadPullOverrides = [],
@@ -5737,7 +5741,7 @@ const lifecycleProductionFixtureV1 = ({
   const review = lifecycleCommentV1({
     id: reviewId,
     createdAt: '2026-08-18T00:01:00Z',
-    body: lifecycleReviewBodyV1({ task: identity.task, pr, head }),
+    body: reviewBodyTransform(lifecycleReviewBodyV1({ task: identity.task, pr, head })),
   })
   const minimalAuthority = lifecycleCommentV1({
     id: identity.authorityId,
@@ -5756,6 +5760,7 @@ const lifecycleProductionFixtureV1 = ({
       paths: publicationAuthorityPaths,
       quoted: publicationAuthorityQuoted,
     }),
+    user: publicationAuthorityActor,
   })
   const publicationChainFileBytes = Object.freeze({
     'scripts/run-protected-transition-admission-v1.mjs': Buffer.from('reviewed lifecycle runner bytes', 'utf8'),
@@ -5860,8 +5865,12 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
       ...(minimalCandidateDirectBody === null ? {} : { body: minimalCandidateDirectBody }),
     }))
   }
-  if (publicationAuthority && publicationAuthorityDirectBody !== null) {
-    direct.set(publicationAuthorityRecord.id, Object.freeze({ ...publicationAuthorityRecord, body: publicationAuthorityDirectBody }))
+  if (publicationAuthority && (publicationAuthorityDirectBody !== null || publicationAuthorityDirectActor !== null)) {
+    direct.set(publicationAuthorityRecord.id, Object.freeze({
+      ...publicationAuthorityRecord,
+      ...(publicationAuthorityDirectBody === null ? {} : { body: publicationAuthorityDirectBody }),
+      ...(publicationAuthorityDirectActor === null ? {} : { user: publicationAuthorityDirectActor }),
+    }))
   }
   if (validationDirectBody !== null || validationDirectBodyTransform !== null) {
     direct.set(validation.id, Object.freeze({
@@ -5906,9 +5915,12 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
   const completedReadyChecks = completedReadyFamilies.flatMap((family, familyIndex) => historicalRtoChecks({
     runId: family.runId,
     head: family.head,
-    overrides: familyIndex === 0 ? {} : Object.fromEntries(historicalRtoJobNames.map((name, nameIndex) => [name, {
-      id: `lifecycle-ready-${familyIndex}-${nameIndex}`,
-      databaseId: Number(historicalRtoCheckIds[name]) + familyIndex * 100,
+    overrides: Object.fromEntries(historicalRtoJobNames.map((name, nameIndex) => [name, {
+      ...(familyIndex === 0 ? {} : {
+        id: `lifecycle-ready-${familyIndex}-${nameIndex}`,
+        databaseId: Number(historicalRtoCheckIds[name]) + familyIndex * 100,
+      }),
+      ...(family.checkOverrides?.[name] ?? {}),
     }])),
   }))
   const checkNodes = [check, ...(currentExecution ? [lifecycleCurrentCheck] : []), ...completedReadyChecks, ...additionalChecks]
@@ -5918,6 +5930,7 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
     isOutdated: false,
     comments: { totalCount: 1, nodes: [{ id: `PRRC-${pr}`, body: threadDisposition, createdAt: '2026-08-18T00:02:30Z' }] },
   }]
+  const effectiveThreadPages = threadPages ?? [connectionPage(threadNodes)]
   const event = ready
     ? { action: 'ready_for_review', repository: { full_name: REPOSITORY }, pull_request: { number: pr, state: 'open', draft: false, head: { sha: head }, body: pullBody, updated_at: '2026-08-18T00:03:00Z' } }
     : { action: 'created', repository: { full_name: REPOSITORY }, issue: { number: identity.task }, comment: eventComment }
@@ -6059,7 +6072,7 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
       }
       if (query.includes('LifecycleReplayThreads')) {
         metrics.threads += 1
-        const pages = threadPages ?? [connectionPage(threadNodes)]
+        const pages = effectiveThreadPages
         const requestedAfter = variables.after ?? null
         const priorPageIndex = requestedAfter === null ? null : pages.findIndex((page) => page.pageInfo.endCursor === requestedAfter)
         if (priorPageIndex !== null && priorPageIndex < 0) throw new Error('unexpected_lifecycle_thread_cursor')
@@ -6101,7 +6114,16 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
 const lifecycleProductionCases = [
   [lifecycleProductionFixtureV1({ pr: 323, minimalCandidate: true }), 'MINIMAL_GOVERNANCE_HANDOFF_REQUIRED'],
   [lifecycleProductionFixtureV1({ pr: 325, minimalCandidate: true }), 'MINIMAL_GOVERNANCE_HANDOFF_REQUIRED'],
-  [lifecycleProductionFixtureV1({ pr: 327, head: lifecycleHistoricalIdentityV1[327].priorHead, paths: lifecycleHistoricalPathsV1[327].slice(0, 25), threadDisposition: 'VALID_FINDING' }), 'IMPLEMENTER'],
+  [lifecycleProductionFixtureV1({
+    pr: 327,
+    head: lifecycleHistoricalIdentityV1[327].priorHead,
+    paths: lifecycleHistoricalPathsV1[327].slice(0, 25),
+    threadDisposition: 'review discussion',
+    reviewBodyTransform: (body) => body
+      .replace('decision: "APPROVE"', 'decision: "CHANGES_REQUIRED"')
+      .replace('blocking_finding_count: 0', 'blocking_finding_count: 1')
+      .replace('remaining_finding_count: 0', 'remaining_finding_count: 1'),
+  }), 'IMPLEMENTER'],
   [lifecycleProductionFixtureV1({ pr: 327, draft: true }), 'READY_TRANSITION_REQUIRED'],
   [lifecycleProductionFixtureV1({ pr: 329, threadDisposition: 'REJECT_FINDING' }), 'THREAD_RESOLUTION_REQUIRED'],
   [lifecycleProductionFixtureV1({ pr: 331, minimalCandidate: true }), 'MINIMAL_GOVERNANCE_HANDOFF_REQUIRED'],
@@ -7019,6 +7041,9 @@ check(
   'LOV1 issue_comment Task identity handling remains unchanged',
 )
 
+const lifecycleOlderReadyCheckOverridesV1 = (day) => Object.fromEntries(historicalRtoJobNames.map((name, index) => [name, {
+  startedAt: `2026-08-${day}T00:00:0${index}Z`,
+}]))
 const lifecycleReadyEvidenceCases = [
   [
     lifecycleProductionFixtureV1({
@@ -7057,12 +7082,69 @@ const lifecycleReadyEvidenceCases = [
       },
       additionalReadyEvidenceFamilies: [{
         runId: String(Number(EXPECTED_LEGACY_READY_RUN_ID) - 1),
+        head: OTHER_HEAD,
+        pr: 325,
+        checkOverrides: lifecycleOlderReadyCheckOverridesV1('15'),
+      }],
+    }),
+    'MERGE_DECISION',
+    'old-HEAD Ready family is non-applicable when one current generation exists',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, ready: false, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+      completedReadyEvidence: {
+        runId: EXPECTED_LEGACY_READY_RUN_ID,
+        head: lifecycleHistoricalIdentityV1[325].head,
+        pr: 325,
+      },
+      additionalReadyEvidenceFamilies: [
+        { runId: String(Number(EXPECTED_LEGACY_READY_RUN_ID) - 1), head: OTHER_HEAD, pr: 325, checkOverrides: lifecycleOlderReadyCheckOverridesV1('15') },
+        { runId: String(Number(EXPECTED_LEGACY_READY_RUN_ID) - 2), head: OTHER_HEAD, pr: 325, checkOverrides: lifecycleOlderReadyCheckOverridesV1('14') },
+      ],
+    }),
+    'MERGE_DECISION',
+    'multiple historical Ready families do not poison the sole current generation',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, ready: false, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+      completedReadyEvidence: {
+        runId: EXPECTED_LEGACY_READY_RUN_ID,
+        head: lifecycleHistoricalIdentityV1[325].head,
+        pr: 325,
+      },
+      additionalReadyEvidenceFamilies: [{
+        runId: EXPECTED_LEGACY_READY_RUN_ID,
+        head: lifecycleHistoricalIdentityV1[325].head,
+        pr: 325,
+        checkOverrides: Object.fromEntries(historicalRtoJobNames.map((name, index) => [name, {
+          id: `lifecycle-ready-prior-attempt-${index}`,
+          databaseId: 88000000 + index,
+          detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${EXPECTED_LEGACY_READY_RUN_ID}/job/${88000100 + index}`,
+          startedAt: `2026-08-16T00:00:0${index}Z`,
+        }])),
+      }],
+    }),
+    'MERGE_DECISION',
+    'older rerun attempt is reduced before exact current run-attempt manifest binding',
+  ],
+  [
+    lifecycleProductionFixtureV1({
+      pr: 325, ready: false, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+      completedReadyEvidence: {
+        runId: EXPECTED_LEGACY_READY_RUN_ID,
+        head: lifecycleHistoricalIdentityV1[325].head,
+        pr: 325,
+      },
+      additionalReadyEvidenceFamilies: [{
+        runId: String(Number(EXPECTED_LEGACY_READY_RUN_ID) - 1),
         head: lifecycleHistoricalIdentityV1[325].head,
         pr: 325,
       }],
     }),
     'STOP',
-    'multiple applicable Ready families are ambiguous',
+    'two genuinely current-equivalent Ready generations are ambiguous',
   ],
   [
     lifecycleProductionFixtureV1({
@@ -7305,11 +7387,14 @@ const lifecycleThreadResults = await Promise.all([
 ])
 check(lifecycleThreadResults[0].next_action === 'MERGE_DECISION', 'LOV1 at-most-100 review-thread acquisition remains complete')
 check(lifecycleThreadResults[1].next_action === 'MERGE_DECISION' && lifecycleResolvedPagedThreadFixture.metrics.threads === 2, 'LOV1 more-than-100 resolved review threads acquire completely with active count zero')
-check(lifecycleThreadResults[2].next_action === 'IMPLEMENTER' && lifecycleThreadResults[2].reason === 'review_correction_required', 'LOV1 active review thread on a later page is detected')
+check(lifecycleThreadResults[2].next_action === 'THREAD_RESOLUTION_REQUIRED' && lifecycleThreadResults[2].reason === 'rejected_finding_thread_resolution_required', 'LOV1 approved Review with an active later-page thread projects thread resolution')
 check(lifecycleThreadResults[3].next_action === 'STOP' && lifecycleThreadResults[3].reason === 'thread_evidence_incomplete', 'LOV1 review-thread totalCount drift fails closed')
 check(lifecycleThreadResults[4].next_action === 'STOP' && lifecycleThreadResults[4].reason === 'thread_evidence_incomplete', 'LOV1 missing/repeated review-thread cursor identity fails closed')
 check(lifecycleThreadResults[5].next_action === 'STOP' && lifecycleThreadResults[5].reason === 'thread_evidence_incomplete', 'LOV1 paginated review-thread PR or HEAD identity drift fails closed')
-check([...lifecycleMinimalActorResults, ...lifecycleTaskStateResults, ...lifecycleThreadResults].every((result) => result.mutation_count === 0), 'LOV1 actor, task-state, and thread corrections remain read-only')
+check(
+  [...lifecycleMinimalActorResults, ...lifecycleTaskStateResults, ...lifecycleThreadResults].every((result) => result.mutation_count === 0),
+  'LOV1 actor, task-state, and thread corrections remain read-only',
+)
 
 const lifecycleMissingPublicationAuthority = lifecycleProductionFixtureV1({ pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase })
 const lifecycleStalePublicationAuthority = lifecycleProductionFixtureV1({ pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase, publicationAuthority: true, publicationAuthorityHead: OTHER_HEAD })
@@ -7327,11 +7412,28 @@ const lifecycleSourceDriftPublicationAuthority = lifecycleProductionFixtureV1({
     paths: lifecycleHistoricalPathsV1[325],
   }).replace('publication_allowed: true', 'publication_allowed: false'),
 })
+const lifecycleUnauthorizedPublicationAuthority = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+  publicationAuthority: true,
+  publicationAuthorityActor: Object.freeze({ login: 'unauthorized-authority', id: 90000001, type: 'User' }),
+})
+const lifecycleRefetchActorDriftPublicationAuthority = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+  publicationAuthority: true,
+  publicationAuthorityDirectActor: Object.freeze({ login: 'unauthorized-authority', id: 90000001, type: 'User' }),
+})
 const lifecyclePublicationAcquisitionMatrix = [
+  [(await executeLifecycleOrchestratorV1({ event: lifecycleProductionCases[10][0].event, sourceResult: lifecycleProductionCases[10][0].sourceResult, host: lifecycleProductionCases[10][0].host, executionIdentity: lifecycleProductionCases[10][0].executionIdentity })).next_action === 'COMMIT_PUSH_PUBLISH', 'canonical Product Owner authority is present'],
   [(await executeLifecycleOrchestratorV1({ event: lifecycleMissingPublicationAuthority.event, sourceResult: lifecycleMissingPublicationAuthority.sourceResult, host: lifecycleMissingPublicationAuthority.host, executionIdentity: lifecycleMissingPublicationAuthority.executionIdentity })).next_action === 'MERGE_DECISION', 'missing authority remains not publication-ready'],
   [(await executeLifecycleOrchestratorV1({ event: lifecycleStalePublicationAuthority.event, sourceResult: lifecycleStalePublicationAuthority.sourceResult, host: lifecycleStalePublicationAuthority.host, executionIdentity: lifecycleStalePublicationAuthority.executionIdentity })).next_action === 'MERGE_DECISION', 'stale authority HEAD is non-applicable'],
   [(await executeLifecycleOrchestratorV1({ event: lifecycleWrongPathPublicationAuthority.event, sourceResult: lifecycleWrongPathPublicationAuthority.sourceResult, host: lifecycleWrongPathPublicationAuthority.host, executionIdentity: lifecycleWrongPathPublicationAuthority.executionIdentity })).next_action === 'MERGE_DECISION', 'wrong authority path is non-applicable'],
   [(await executeLifecycleOrchestratorV1({ event: lifecycleSourceDriftPublicationAuthority.event, sourceResult: lifecycleSourceDriftPublicationAuthority.sourceResult, host: lifecycleSourceDriftPublicationAuthority.host, executionIdentity: lifecycleSourceDriftPublicationAuthority.executionIdentity })).next_action === 'STOP', 'authority direct source drift rejected'],
+  [(await executeLifecycleOrchestratorV1({ event: lifecycleUnauthorizedPublicationAuthority.event, sourceResult: lifecycleUnauthorizedPublicationAuthority.sourceResult, host: lifecycleUnauthorizedPublicationAuthority.host, executionIdentity: lifecycleUnauthorizedPublicationAuthority.executionIdentity })).next_action === 'STOP', 'identical authority body from unauthorized actor rejected'],
+  [(await executeLifecycleOrchestratorV1({ event: lifecycleRefetchActorDriftPublicationAuthority.event, sourceResult: lifecycleRefetchActorDriftPublicationAuthority.sourceResult, host: lifecycleRefetchActorDriftPublicationAuthority.host, executionIdentity: lifecycleRefetchActorDriftPublicationAuthority.executionIdentity })).next_action === 'STOP', 'canonical body actor with direct-refetch commenter drift rejected'],
 ]
 for (const [evidence, label] of lifecyclePublicationAcquisitionMatrix) check(evidence, `LOV1 Publication Authority acquisition ${label}`)
 
@@ -7834,7 +7936,7 @@ for (const [index, evidence] of lifecycleClosedUnmergedMatrix.entries()) {
 const lifecycleMinimalPredicateVariants = [
   { ...lifecycleReplaySnapshotV1({ pr: 325 }), review: { ...lifecycleReplaySnapshotV1({ pr: 325 }).review, decision: 'CHANGES_REQUIRED', blocking_finding_count: 1 } },
   { ...lifecycleReplaySnapshotV1({ pr: 325 }), checks: [] },
-  { ...lifecycleReplaySnapshotV1({ pr: 325 }), threads: [{ id: 'minimal-active-thread', is_resolved: false, is_outdated: false, latest_comment_id: 'minimal-comment', finding_disposition: 'VALID_FINDING' }] },
+  { ...lifecycleReplaySnapshotV1({ pr: 325 }), threads: [{ id: 'minimal-active-thread', is_resolved: false, is_outdated: false, latest_comment_id: 'minimal-comment' }] },
   { ...lifecycleReplaySnapshotV1({ pr: 325 }), mergeable: false },
   { ...lifecycleReplaySnapshotV1({ pr: 325 }), authorized_paths: null, scope_contract: null },
   { ...lifecycleReplaySnapshotV1({ pr: 325 }), base_impact: null, evidence_status: { ...lifecycleReplaySnapshotV1({ pr: 325 }).evidence_status, base_impact: 'INCOMPLETE', checks: 'INCOMPLETE', threads: 'INCOMPLETE', review: 'INCOMPLETE' } },
@@ -7871,11 +7973,6 @@ lifecyclePublicationSnapshot.authority = {
   id: String(lifecycleHistoricalIdentityV1[325].authorityId),
   comment_id: lifecycleHistoricalIdentityV1[325].authorityId,
   source_url: `https://github.com/${REPOSITORY}/issues/${lifecyclePublicationSnapshot.task_issue_number}#issuecomment-${lifecycleHistoricalIdentityV1[325].authorityId}`,
-  actor: 'whatrune:47842632:User:OWNER',
-  actor_login: 'whatrune',
-  actor_id: 47842632,
-  actor_type: 'User',
-  actor_association: 'OWNER',
   body_sha256: lifecycleReplayShaV1(lifecyclePublicationAuthorityBody),
   exact_head: lifecyclePublicationParentHead,
   result_comment_id: lifecyclePublicationResultCommentId,
@@ -8041,5 +8138,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 998) throw new Error(`expected exactly 998 assertions, observed ${assertions}`)
+if (assertions !== 1004) throw new Error(`expected exactly 1004 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

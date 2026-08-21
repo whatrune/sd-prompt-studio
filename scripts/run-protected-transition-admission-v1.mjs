@@ -5222,7 +5222,6 @@ const parseRolePublicationHandoffV1 = (body) => {
 const sameRolePathsV1 = (left, right) => Array.isArray(left) && Array.isArray(right) && left.join('\n') === right.join('\n')
 
 const LIFECYCLE_BODY_SHA256_V1 = /^[0-9a-f]{64}$/
-const LIFECYCLE_FINDING_DISPOSITIONS_V1 = new Set(['NONE', 'VALID_FINDING', 'REJECT_FINDING'])
 const LIFECYCLE_EVIDENCE_STATES_V1 = new Set(['PRESENT', 'MISSING', 'INCOMPLETE'])
 const LIFECYCLE_PHASE_ONE_ARCHITECTURE_SCOPE_V1 = Object.freeze([
   '.github/workflows/protected-transition-admission-v1.yml',
@@ -5364,7 +5363,6 @@ const validateLifecycleReplaySnapshotV1 = (input) => {
     if (
       !thread || typeof thread !== 'object' || typeof thread.id !== 'string' || thread.id.length === 0 ||
       threadIds.has(thread.id) || typeof thread.is_resolved !== 'boolean' || typeof thread.is_outdated !== 'boolean' ||
-      !LIFECYCLE_FINDING_DISPOSITIONS_V1.has(thread.finding_disposition) ||
       (thread.latest_comment_id !== null && typeof thread.latest_comment_id !== 'string')
     ) throw new Error('lifecycle_threads_invalid')
     threadIds.add(thread.id)
@@ -5417,11 +5415,6 @@ const validateLifecycleReplaySnapshotV1 = (input) => {
         typeof authority.id !== 'string' || !positiveInteger(Number(authority.id)) ||
         authority.comment_id !== Number(authority.id) ||
         authority.source_url !== `https://github.com/${input.repository}/issues/${input.task_issue_number}#issuecomment-${authority.comment_id}` ||
-        typeof authority.actor !== 'string' || authority.actor.length === 0 ||
-        typeof authority.actor_login !== 'string' || authority.actor_login.length === 0 ||
-        !positiveInteger(authority.actor_id) || typeof authority.actor_type !== 'string' || authority.actor_type.length === 0 ||
-        !REVIEW_ASSOCIATIONS.has(authority.actor_association) ||
-        authority.actor !== `${authority.actor_login}:${authority.actor_id}:${authority.actor_type}:${authority.actor_association}` ||
         !LIFECYCLE_BODY_SHA256_V1.test(authority.body_sha256 ?? '') || !FULL_HEAD.test(authority.exact_head ?? '') ||
         authority.pr_number !== input.pr_number ||
         !positiveInteger(authority.result_comment_id) ||
@@ -5526,14 +5519,12 @@ export const acquireLifecycleCompletionEvidenceV1 = async ({ snapshot: input, ca
       host,
     )
     const authority = parseRolePublicationAuthorityV1(authorityRecord.body, snapshot.repository, snapshot.task_issue_number)
+    assertMinimalGovernanceProductOwnerV1(authorityRecord, { requireAssociation: true })
     const authorityBodySha256 = createHash('sha256').update(Buffer.from(authorityRecord.body, 'utf8')).digest('hex')
     if (
       authority.prNumber !== snapshot.pr_number || authority.exactHead !== snapshot.authority.exact_head ||
       authority.resultCommentId !== snapshot.authority.result_comment_id || !sameRolePathsV1(authority.paths, snapshot.authority.paths) ||
-      authorityBodySha256 !== snapshot.authority.body_sha256 ||
-      authorityRecord.author_association !== snapshot.authority.actor_association ||
-      authorityRecord.user?.login !== snapshot.authority.actor_login || authorityRecord.user?.id !== snapshot.authority.actor_id ||
-      authorityRecord.user?.type !== snapshot.authority.actor_type
+      authorityBodySha256 !== snapshot.authority.body_sha256
     ) throw new Error('lifecycle_completion_evidence_invalid')
     const resultRecord = await fetchRoleCommentRecordV1(
       snapshot.repository,
@@ -5685,22 +5676,21 @@ export const reduceLifecycleReplayV1 = (input, completionEvidence = null) => {
     sameRolePathsV1(snapshot.review.paths, snapshot.changed_paths)
   if (!reviewCurrent) return project('REVIEW', 'REVIEW_PENDING', 'fresh_review_required', 'INDEPENDENT_IMPLEMENTATION_REVIEWER')
 
-  if (snapshot.evidence_status.threads !== 'PRESENT') {
-    return project('FINDING_DISPOSITION', 'INDETERMINATE', 'thread_evidence_incomplete', 'STOP', 'BLOCKED')
+  if (snapshot.review.decision === 'CHANGES_REQUIRED') {
+    return project('IMPLEMENTATION', 'REVIEW_BLOCKED', 'review_correction_required', 'IMPLEMENTER')
   }
-  const activeThreads = snapshot.threads.filter((thread) => !thread.is_resolved && !thread.is_outdated)
-  const dispositions = new Set(activeThreads.map((thread) => thread.finding_disposition))
-  if (dispositions.has('VALID_FINDING') && dispositions.has('REJECT_FINDING')) {
-    return project('FINDING_DISPOSITION', 'REVIEW_BLOCKED', 'review_finding_disposition_conflict', 'STOP', 'BLOCKED')
-  }
-  if (dispositions.has('VALID_FINDING')) return project('IMPLEMENTATION', 'REVIEW_BLOCKED', 'review_correction_required', 'IMPLEMENTER')
-  if (dispositions.has('REJECT_FINDING')) return project('FINDING_DISPOSITION', 'REVIEW_BLOCKED', 'rejected_finding_thread_resolution_required', 'THREAD_RESOLUTION_REQUIRED')
-  if (activeThreads.length > 0) return project('FINDING_DISPOSITION', 'REVIEW_BLOCKED', 'review_finding_disposition_required', 'STOP', 'BLOCKED')
-
   if (
     snapshot.review.decision !== 'APPROVE' || snapshot.review.blocking_finding_count !== 0 ||
     snapshot.review.remaining_finding_count !== 0 || snapshot.review.unknown_count !== 0
   ) return project('REVIEW', 'REVIEW_BLOCKED', 'review_not_approved', 'STOP', 'BLOCKED')
+
+  if (snapshot.evidence_status.threads !== 'PRESENT') {
+    return project('FINDING_DISPOSITION', 'INDETERMINATE', 'thread_evidence_incomplete', 'STOP', 'BLOCKED')
+  }
+  const activeThreads = snapshot.threads.filter((thread) => !thread.is_resolved && !thread.is_outdated)
+  if (activeThreads.length > 0) {
+    return project('FINDING_DISPOSITION', 'REVIEW_BLOCKED', 'rejected_finding_thread_resolution_required', 'THREAD_RESOLUTION_REQUIRED')
+  }
 
   if (snapshot.evidence_status.checks !== 'PRESENT' || snapshot.checks.length === 0) return project('READY', 'INDETERMINATE', 'external_checks_missing', 'STOP', 'BLOCKED')
   if (snapshot.checks.some((check) => check.exact_head !== snapshot.exact_head)) return project('READY', 'STALE', 'check_head_binding_stale', 'STOP', 'BLOCKED')
@@ -5813,21 +5803,13 @@ const isLifecyclePublicationAuthorityCandidateV1 = (body) =>
 const projectLifecyclePublicationAuthorityV1 = ({ comment, identity }) => {
   if (!isLifecyclePublicationAuthorityCandidateV1(comment?.body)) return null
   const parsed = parseRolePublicationAuthorityV1(comment.body, identity.repository, identity.taskIssueNumber)
-  if (
-    !positiveInteger(comment?.id) ||
-    typeof comment.user?.login !== 'string' || !positiveInteger(comment.user?.id) || typeof comment.user?.type !== 'string' ||
-    !REVIEW_ASSOCIATIONS.has(comment.author_association)
-  ) throw new Error('lifecycle_publication_authority_invalid')
+  assertMinimalGovernanceProductOwnerV1(comment, { requireAssociation: true })
+  if (!positiveInteger(comment?.id)) throw new Error('lifecycle_publication_authority_invalid')
   return Object.freeze({
     kind: 'PUBLICATION_AUTHORITY',
     id: String(comment.id),
     comment_id: comment.id,
     source_url: `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-${comment.id}`,
-    actor: `${comment.user.login}:${comment.user.id}:${comment.user.type}:${comment.author_association}`,
-    actor_login: comment.user.login,
-    actor_id: comment.user.id,
-    actor_type: comment.user.type,
-    actor_association: comment.author_association,
     body_sha256: createHash('sha256').update(Buffer.from(comment.body, 'utf8')).digest('hex'),
     pr_number: parsed.prNumber,
     exact_head: parsed.exactHead,
@@ -6855,13 +6837,6 @@ query LifecycleReplayThreads($owner: String!, $name: String!, $pr: Int!, $after:
   }
 }`
 
-const lifecycleFindingDispositionV1 = (body) => {
-  const valid = /\bVALID_FINDING\b/.test(body)
-  const rejected = /\bREJECT_FINDING\b/.test(body)
-  if (valid && rejected) throw new Error('lifecycle_finding_disposition_conflict')
-  return valid ? 'VALID_FINDING' : rejected ? 'REJECT_FINDING' : 'NONE'
-}
-
 const acquireLifecycleReviewThreadsV1 = async (request, host) => {
   const { owner, name } = repositoryPartsV1(request.repository)
   const nodes = []
@@ -6897,7 +6872,6 @@ const acquireLifecycleReviewThreadsV1 = async (request, host) => {
         is_resolved: thread.isResolved,
         is_outdated: thread.isOutdated,
         latest_comment_id: comments.nodes[0].id,
-        finding_disposition: lifecycleFindingDispositionV1(comments.nodes[0].body),
       }))
     }
     const next = validatePageInfoV1(connection.pageInfo, cursors)
@@ -6922,12 +6896,11 @@ const lifecycleCurrentTaskStateScopeV1 = ({ taskState, identity }) => {
 }
 
 const reduceLifecycleCurrentExecutionChecksV1 = async ({ event, request, checks, executionIdentity, currentBase, host }) => {
-  const selected = selectCurrentCheckGenerationsV1(checks)
-  const rtoChecks = selected.filter((item) => {
+  const rtoChecks = checks.filter((item) => {
     const name = item.type === 'CheckRun' ? item.name : item.context
     return RTO_SELF_JOB_NAMES_V1.includes(name)
   })
-  if (rtoChecks.length === 0) return Object.freeze({ checks: selected, current_execution: null })
+  if (rtoChecks.length === 0) return Object.freeze({ checks: selectCurrentCheckGenerationsV1(checks), current_execution: null })
   const executionRunId = String(executionIdentity?.runId ?? '')
   const hasCurrentExecutionCheck = WORKFLOW_RUN_ID.test(executionRunId) && checks.some((item) => {
     const name = item.type === 'CheckRun' ? item.name : item.context
@@ -6936,7 +6909,7 @@ const reduceLifecycleCurrentExecutionChecksV1 = async ({ event, request, checks,
     return parseRepositoryActionsJobIdentityV1(request, item)?.runId === executionRunId ||
       item.details_url?.startsWith(`https://github.com/${request.repository}/actions/runs/${executionRunId}/`) === true
   })
-  if (!hasCurrentExecutionCheck) return Object.freeze({ checks: selected, current_execution: null })
+  if (!hasCurrentExecutionCheck) return Object.freeze({ checks: selectCurrentCheckGenerationsV1(checks), current_execution: null })
   if (
     executionIdentity?.repository !== request.repository ||
     !WORKFLOW_RUN_ID.test(String(executionIdentity?.runId ?? '')) ||
@@ -6986,9 +6959,10 @@ const reduceLifecycleCurrentExecutionChecksV1 = async ({ event, request, checks,
   }
 
   const currentPrefix = `${expectedRunUrl}/`
-  let excluded = 0
+  let currentJobExcluded = 0
   let currentRunChecks = 0
-  const external = selected.filter((item) => {
+  const executionCheckInput = readyOrigin ? selectCurrentCheckGenerationsV1(checks) : checks
+  const external = executionCheckInput.filter((item) => {
     if (item.type !== 'CheckRun') return true
     const checkIdentity = parseRepositoryActionsJobIdentityV1(request, item)
     if (item.details_url?.startsWith(currentPrefix) && checkIdentity === null) {
@@ -7004,16 +6978,15 @@ const reduceLifecycleCurrentExecutionChecksV1 = async ({ event, request, checks,
       !positiveInteger(item.database_id) || item.check_suite_database_id !== run.check_suite_id ||
       item.check_suite_head_sha !== request.exactHead
     ) throw new Error('lifecycle_current_execution_check_identity_invalid')
-    if (item.name !== executionIdentity.jobName || checkIdentity.jobId !== strictManifest.jobIds[executionIdentity.jobName]) {
-      return true
+    if (item.name === executionIdentity.jobName) {
+      if (item.status !== 'IN_PROGRESS' || item.conclusion !== null || currentJobExcluded !== 0) {
+        throw new Error('lifecycle_current_execution_check_identity_invalid')
+      }
+      currentJobExcluded += 1
     }
-    if (item.status !== 'IN_PROGRESS' || item.conclusion !== null || excluded !== 0) {
-      throw new Error('lifecycle_current_execution_check_identity_invalid')
-    }
-    excluded += 1
     return false
   })
-  if (currentRunChecks > 0 && excluded !== 1) throw new Error('lifecycle_current_execution_check_identity_invalid')
+  if (currentRunChecks > 0 && currentJobExcluded !== 1) throw new Error('lifecycle_current_execution_check_identity_invalid')
   const manifestIdentity = Object.freeze({
     repository: request.repository,
     run_id: runId,
@@ -7028,7 +7001,7 @@ const reduceLifecycleCurrentExecutionChecksV1 = async ({ event, request, checks,
     job_ids: strictManifest.jobIds,
   })
   return Object.freeze({
-    checks: Object.freeze(external),
+    checks: readyOrigin ? Object.freeze(external) : selectCurrentCheckGenerationsV1(external),
     current_execution: Object.freeze({
       ...manifestIdentity,
       manifest_sha256: createHash('sha256')
@@ -7065,7 +7038,7 @@ const lifecycleReadyEvidenceProjectionV1 = ({ request, review, provenance, termi
   })
 }
 
-const acquireLifecycleReadyEvidenceV1 = async ({ event, sourceResult, request, review, checks, readyChecks, currentExecution, host }) => {
+const acquireLifecycleReadyEvidenceV1 = async ({ event, sourceResult, request, review, checks, currentExecution, host }) => {
   if (review === null) return Object.freeze({ evidence: null, checks })
   if (event?.action === 'ready_for_review') {
     if (
@@ -7090,56 +7063,27 @@ const acquireLifecycleReadyEvidenceV1 = async ({ event, sourceResult, request, r
         terminalContract,
         terminalResult: sourceResult,
       }),
-      checks,
+      checks: selectCurrentCheckGenerationsV1(checks),
     })
   }
 
+  const selectedReadyChecks = selectCurrentCheckGenerationsV1(checks)
   const families = new Map()
-  const currentControllerRunId = currentExecution?.event === 'issue_comment'
-    ? String(currentExecution.run_id ?? '')
-    : null
-  for (const check of readyChecks) {
+  for (const check of selectedReadyChecks) {
     const name = check.type === 'CheckRun' ? check.name : check.context
     if (!RTO_SELF_JOB_NAMES_V1.includes(name)) continue
     if (check.type !== 'CheckRun') throw new Error('lifecycle_ready_evidence_ambiguous')
     const checkIdentity = parseRepositoryActionsJobIdentityV1(request, check)
     if (checkIdentity === null) throw new Error('lifecycle_ready_evidence_ambiguous')
-    if (checkIdentity.runId === currentControllerRunId) {
-      if (
-        currentExecution.repository !== request.repository || currentExecution.pr_number !== request.prNumber ||
-        currentExecution.exact_head !== request.exactHead || currentExecution.workflow_path !== HISTORICAL_LEGACY_RTO_WORKFLOW_PATH_V1 ||
-        currentExecution.job_ids?.[name] !== checkIdentity.jobId ||
-        check.app_database_id !== TRUSTED_GITHUB_ACTIONS_APP_DATABASE_ID_V1 ||
-        typeof check.app_id !== 'string' || check.app_id.length === 0 ||
-        !positiveInteger(check.database_id) || check.check_suite_database_id !== Number(currentExecution.check_suite_id) ||
-        check.check_suite_head_sha !== request.exactHead
-      ) throw new Error('lifecycle_ready_evidence_ambiguous')
-      continue
-    }
     if (!families.has(checkIdentity.runId)) families.set(checkIdentity.runId, [])
     families.get(checkIdentity.runId).push(check)
   }
-  const applicableReadyFamilies = []
-  for (const [runId, family] of families) {
-    const run = await api(host, `repos/${request.repository}/actions/runs/${runId}`)
-    if (
-      String(run?.id ?? '') !== runId || run?.repository?.full_name !== request.repository ||
-      !Array.isArray(run?.pull_requests)
-    ) throw new Error('lifecycle_ready_evidence_ambiguous')
-    if (run.event !== 'pull_request' || run.path !== HISTORICAL_LEGACY_RTO_WORKFLOW_PATH_V1) continue
-    if (
-      run.head_sha !== request.exactHead || run.pull_requests.length !== 1 ||
-      run.pull_requests[0]?.number !== request.prNumber || run.pull_requests[0]?.head?.sha !== request.exactHead
-    ) continue
-    applicableReadyFamilies.push(family)
-  }
-  if (applicableReadyFamilies.length === 0) return Object.freeze({ evidence: null, checks })
-  if (applicableReadyFamilies.length !== 1) throw new Error('lifecycle_ready_evidence_ambiguous')
-  const family = applicableReadyFamilies[0]
+  if (families.size === 0) return Object.freeze({ evidence: null, checks: selectedReadyChecks })
+  if (families.size !== 1) throw new Error('lifecycle_ready_evidence_ambiguous')
+  const family = [...families.values()][0]
   if (family.length !== RTO_SELF_JOB_NAMES_V1.length) throw new Error('lifecycle_ready_evidence_incomplete')
   const evidence = await acquireHistoricalLegacyRtoEvidenceV1({ request, checks: family, host, expectedLegacyReady: true })
   const familyIds = new Set(evidence.checks.map((check) => check.check_id))
-  const externalChecks = Object.freeze(checks.filter((check) => !familyIds.has(check.id)))
   return Object.freeze({
     evidence: lifecycleReadyEvidenceProjectionV1({
       request,
@@ -7160,7 +7104,7 @@ const acquireLifecycleReadyEvidenceV1 = async ({ event, sourceResult, request, r
       terminalContract: evidence.terminal_contract,
       terminalResult: evidence.terminal_result,
     }),
-    checks: externalChecks,
+    checks: Object.freeze(selectedReadyChecks.filter((check) => !familyIds.has(check.id))),
   })
 }
 
@@ -7247,12 +7191,10 @@ const acquireLifecycleReplaySnapshotV1 = async ({ event, sourceResult, host, ide
     : Object.freeze({ status: 'INCOMPLETE', evidence: null })
 
   let checkSnapshot = null
-  let readyCheckSnapshot = Object.freeze([])
   let currentExecutionProjection = null
   let checksStatus = 'PRESENT'
   try {
     checkSnapshot = await acquireMergeCheckRollupSnapshotV1(request, host)
-    readyCheckSnapshot = checkSnapshot.checks
     const reducedChecks = await reduceLifecycleCurrentExecutionChecksV1({
       event, request, checks: checkSnapshot.checks, executionIdentity, currentBase, host,
     })
@@ -7278,7 +7220,7 @@ const acquireLifecycleReplaySnapshotV1 = async ({ event, sourceResult, host, ide
   if (checksStatus === 'PRESENT') {
     try {
       const readyProjection = await acquireLifecycleReadyEvidenceV1({
-        event, sourceResult, request, review, checks: checkSnapshot.checks, readyChecks: readyCheckSnapshot,
+        event, sourceResult, request, review, checks: checkSnapshot.checks,
         currentExecution: currentExecutionProjection, host,
       })
       readyEvidence = readyProjection.evidence
