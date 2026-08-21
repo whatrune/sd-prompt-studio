@@ -6840,6 +6840,9 @@ const acquireLifecycleReadyEvidenceV1 = async ({ event, sourceResult, request, r
       sourceResult?.task_issue_number !== request.taskIssueNumber || typeof sourceResult?.next_action !== 'string' ||
       sourceResult.next_action.length === 0
     ) throw new Error('lifecycle_ready_evidence_invalid')
+    if (sourceResult.source_comment_id === undefined || sourceResult.source_comment_id === null) {
+      return Object.freeze({ evidence: null, checks })
+    }
     return Object.freeze({
       evidence: lifecycleReadyEvidenceProjectionV1({
         request,
@@ -7062,7 +7065,15 @@ export const executeLifecycleOrchestratorV1 = async ({
       const stale = stoppedResult(request, 'STALE', 'head_changed_during_evaluation', 2, finalPull.head.sha)
       return lifecycleProjectionV1(stale, 'ACQUIRE', stale.state, stale.reason, 'STOP', 'BLOCKED')
     }
-    return reduceLifecycleReplayV1(Object.freeze({ ...acquired, current_head: finalPull.head.sha }), completionEvidence)
+    return reduceLifecycleReplayV1(Object.freeze({
+      ...acquired,
+      target_branch: finalPull.base?.ref,
+      current_head: finalPull.head.sha,
+      pull_state: finalPull.state,
+      pull_draft: finalPull.draft,
+      pull_merged: finalPull.merged,
+      mergeable: finalPull.mergeable,
+    }), completionEvidence)
   } catch (error) {
     return lifecycleProjectionV1({
       task_issue_number: identity?.taskIssueNumber ?? sourceResult?.task_issue_number ?? event?.issue?.number ?? null,

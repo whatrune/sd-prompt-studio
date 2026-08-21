@@ -5727,6 +5727,7 @@ const lifecycleProductionFixtureV1 = ({
   publicationChainArchitectureAmendmentBodyTransform = (body) => body,
   legacyStateBlock = true,
   legacyTaskStateOverrides = {},
+  finalPullOverrides = {},
 }) => {
   const identity = lifecycleHistoricalIdentityV1[pr]
   const effectivePublicationChainAuthorityId = publicationChainAuthorityId ?? identity.authorityId
@@ -5946,7 +5947,8 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
       if (endpoint === `repos/${REPOSITORY}/pulls/${pr}`) {
         metrics.pull += 1
         const pullHead = metrics.pull === 1 ? head : finalPullHead
-        return { number: pr, state: 'open', draft, merged: false, mergeable: true, mergeable_state: 'clean', changed_files: paths.length, base: { repo: { full_name: REPOSITORY }, ref: 'main', sha: identity.base }, head: { sha: pullHead, ref: 'codex/lifecycle-publication', repo: { full_name: REPOSITORY } }, body: pullBody }
+        const pull = { number: pr, state: 'open', draft, merged: false, mergeable: true, mergeable_state: 'clean', changed_files: paths.length, base: { repo: { full_name: REPOSITORY }, ref: 'main', sha: identity.base }, head: { sha: pullHead, ref: 'codex/lifecycle-publication', repo: { full_name: REPOSITORY } }, body: pullBody }
+        return metrics.pull === 1 ? pull : { ...pull, ...finalPullOverrides }
       }
       if (endpoint.startsWith(`repos/${REPOSITORY}/pulls/${pr}/files?`)) {
         metrics.files += 1
@@ -6133,6 +6135,72 @@ check(
   lifecycleLateHeadResultV1.current_head === lifecycleLateHeadV1 && lifecycleLateHeadResultV1.next_action === 'STOP' &&
   lifecycleLateHeadResultV1.mutation_count === 0 && lifecycleLateHeadFixtureV1.metrics.pull === 2 && lifecycleLateHeadFixtureV1.metrics.mutation === 0,
   'LOV1 final authoritative pull reuses existing late HEAD drift STOP before reduction',
+)
+
+const lifecycleFinalPullStateFixtureV1 = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+  finalPullOverrides: { draft: true },
+})
+const lifecycleFinalPullStateResultV1 = await executeLifecycleOrchestratorV1({
+  event: lifecycleFinalPullStateFixtureV1.event,
+  sourceResult: lifecycleFinalPullStateFixtureV1.sourceResult,
+  host: lifecycleFinalPullStateFixtureV1.host,
+  executionIdentity: lifecycleFinalPullStateFixtureV1.executionIdentity,
+})
+check(
+  lifecycleFinalPullStateResultV1.next_action === 'READY_TRANSITION_REQUIRED' &&
+  lifecycleFinalPullStateResultV1.reason === 'ready_transition_required',
+  `LOV1 final pull owner supplies final PR state to reduction; observed ${lifecycleFinalPullStateResultV1.next_action}/${lifecycleFinalPullStateResultV1.reason}`,
+)
+
+const lifecycleReadyWithoutSourceFixtureV1 = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+})
+const lifecycleReadyWithoutSourceResultV1 = { ...lifecycleReadyWithoutSourceFixtureV1.sourceResult }
+delete lifecycleReadyWithoutSourceResultV1.source_comment_id
+const lifecycleReadyWithoutSourceProjectionV1 = await executeLifecycleOrchestratorV1({
+  event: lifecycleReadyWithoutSourceFixtureV1.event,
+  sourceResult: lifecycleReadyWithoutSourceResultV1,
+  host: lifecycleReadyWithoutSourceFixtureV1.host,
+  executionIdentity: lifecycleReadyWithoutSourceFixtureV1.executionIdentity,
+})
+check(
+  lifecycleReadyWithoutSourceProjectionV1.next_action === 'STOP' &&
+  lifecycleReadyWithoutSourceProjectionV1.reason === 'stale_ready_evidence',
+  `LOV1 Ready owner without source binding yields no synthetic evidence; observed ${lifecycleReadyWithoutSourceProjectionV1.next_action}/${lifecycleReadyWithoutSourceProjectionV1.reason}`,
+)
+
+const lifecyclePendingExternalWithoutReadySourceV1 = {
+  ...successfulCheck('lifecycle-pending-without-ready-source'),
+  status: 'IN_PROGRESS',
+  conclusion: null,
+  checkSuite: {
+    ...successfulCheck().checkSuite,
+    commit: { oid: lifecycleHistoricalIdentityV1[325].head },
+  },
+}
+const lifecycleReadyWithoutSourcePendingFixtureV1 = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+  additionalChecks: [lifecyclePendingExternalWithoutReadySourceV1],
+})
+const lifecycleReadyWithoutSourcePendingResultV1 = { ...lifecycleReadyWithoutSourcePendingFixtureV1.sourceResult }
+delete lifecycleReadyWithoutSourcePendingResultV1.source_comment_id
+const lifecycleReadyWithoutSourcePendingProjectionV1 = await executeLifecycleOrchestratorV1({
+  event: lifecycleReadyWithoutSourcePendingFixtureV1.event,
+  sourceResult: lifecycleReadyWithoutSourcePendingResultV1,
+  host: lifecycleReadyWithoutSourcePendingFixtureV1.host,
+  executionIdentity: lifecycleReadyWithoutSourcePendingFixtureV1.executionIdentity,
+})
+check(
+  lifecycleReadyWithoutSourcePendingProjectionV1.next_action === 'STOP' &&
+  lifecycleReadyWithoutSourcePendingProjectionV1.reason === 'external_checks_pending',
+  `LOV1 Ready owner without source binding preserves selected external checks; observed ${lifecycleReadyWithoutSourcePendingProjectionV1.next_action}/${lifecycleReadyWithoutSourcePendingProjectionV1.reason}`,
 )
 
 const lifecycleDirectValidationAuthorityCases = [
@@ -8317,5 +8385,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 1017) throw new Error(`expected exactly 1017 assertions, observed ${assertions}`)
+if (assertions !== 1020) throw new Error(`expected exactly 1020 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
