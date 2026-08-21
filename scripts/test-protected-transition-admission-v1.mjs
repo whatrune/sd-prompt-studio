@@ -6815,6 +6815,58 @@ check(
   'LOV1 current canonical chain directly refetches Task Assignment, Result Handoff, and Publication Authority identities',
 )
 
+const lifecycleOwnerReuseParentV1 = '4078c43e55ebcb297f23b5f7e08d43bd30786a99'
+const lifecycleOwnerReuseHeadV1 = 'a0b0da2bccb66fbdc389bcc53869a8e9a53fdd3a'
+const lifecycleOwnerReuseFixtureV1 = lifecycleProductionFixtureV1({
+  pr: 353,
+  head: lifecycleOwnerReuseHeadV1,
+  paths: lifecyclePublishedScopeV1,
+  ready: true,
+  publicationChain: true,
+  publicationChainParent: lifecycleOwnerReuseParentV1,
+  publicationChainResultId: 5364207142,
+  publicationChainAuthorityId: 5364242405,
+  publicationChainTaskAssignmentId: 5345944519,
+  publicationChainResultBodyTransform: (body) => body.replace('## Exact correction bytes', '## Exact simplification bytes'),
+  legacyStateBlock: false,
+})
+const lifecycleOwnerReuseResultV1 = await executeLifecycleOrchestratorV1({
+  event: lifecycleOwnerReuseFixtureV1.event,
+  sourceResult: lifecycleOwnerReuseFixtureV1.sourceResult,
+  host: lifecycleOwnerReuseFixtureV1.host,
+  executionIdentity: lifecycleOwnerReuseFixtureV1.executionIdentity,
+})
+check(
+  lifecycleOwnerReuseResultV1.next_action === 'MERGE_DECISION' &&
+  lifecycleOwnerReuseResultV1.reason === 'merge_decision_required' &&
+  lifecycleOwnerReuseResultV1.mutation_count === 0,
+  `LOV1 #5364207142 -> #5364242405 admitted Publication owner paths project current published scope; observed ${lifecycleOwnerReuseResultV1.next_action}/${lifecycleOwnerReuseResultV1.reason}`,
+)
+const lifecycleOwnerReuseRenamedHeadingFixtureV1 = lifecycleProductionFixtureV1({
+  pr: 353,
+  head: lifecycleOwnerReuseHeadV1,
+  paths: lifecyclePublishedScopeV1,
+  ready: true,
+  publicationChain: true,
+  publicationChainParent: lifecycleOwnerReuseParentV1,
+  publicationChainResultId: 5364207142,
+  publicationChainAuthorityId: 5364242405,
+  publicationChainTaskAssignmentId: 5345944519,
+  publicationChainResultBodyTransform: (body) => body.replace('## Exact correction bytes', '## Renamed narrative bytes'),
+  legacyStateBlock: false,
+})
+const lifecycleOwnerReuseRenamedHeadingResultV1 = await executeLifecycleOrchestratorV1({
+  event: lifecycleOwnerReuseRenamedHeadingFixtureV1.event,
+  sourceResult: lifecycleOwnerReuseRenamedHeadingFixtureV1.sourceResult,
+  host: lifecycleOwnerReuseRenamedHeadingFixtureV1.host,
+  executionIdentity: lifecycleOwnerReuseRenamedHeadingFixtureV1.executionIdentity,
+})
+check(
+  lifecycleOwnerReuseRenamedHeadingResultV1.next_action === 'MERGE_DECISION' &&
+  lifecycleOwnerReuseRenamedHeadingResultV1.reason === 'merge_decision_required',
+  'LOV1 published-generation scope is independent of Result Handoff narrative heading text after Publication owner admission',
+)
+
 const lifecycleCurrentExecutionFixture = lifecycleProductionFixtureV1({
   pr: 325, ready: true, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
 })
@@ -8138,5 +8190,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 1004) throw new Error(`expected exactly 1004 assertions, observed ${assertions}`)
+if (assertions !== 1006) throw new Error(`expected exactly 1006 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

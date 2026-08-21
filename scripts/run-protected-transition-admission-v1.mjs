@@ -6160,7 +6160,7 @@ const projectLifecycleTaskAssignmentV1 = ({ comment, identity, taskId, changedPa
   })
 }
 
-const projectLifecycleResultHandoffCoreV1 = ({ comment, identity, parentHead, changedPaths }) => {
+const projectLifecycleResultHandoffCoreV1 = ({ comment, identity, parentHead, changedPaths, admittedPaths = null }) => {
   if (!isLifecycleResultHandoffCandidateV1(comment?.body)) return null
   const sourceUrl = `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-${comment.id}`
   const prNumber = parseRoleUrlNumberV1(
@@ -6180,7 +6180,7 @@ const projectLifecycleResultHandoffCoreV1 = ({ comment, identity, parentHead, ch
     `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-`,
     'lifecycle_result_handoff_invalid',
   )
-  const paths = rolePathSectionV1(comment.body, ['Exact correction bytes'])
+  const paths = admittedPaths === null ? rolePathSectionV1(comment.body, ['Exact correction bytes']) : lifecycleSortedPathsV1(admittedPaths)
   const validationResults = lifecycleResultHandoffValidationResultsV1(comment.body)
   const focusedResult = validationResults.focused_rto_pta
   const gitDiffResult = validationResults.git_diff_check
@@ -6220,8 +6220,8 @@ const projectLifecycleResultHandoffCoreV1 = ({ comment, identity, parentHead, ch
   })
 }
 
-const projectLifecyclePublishedResultHandoffV1 = ({ comment, identity, parentHead, changedPaths }) => {
-  const core = projectLifecycleResultHandoffCoreV1({ comment, identity, parentHead, changedPaths })
+const projectLifecyclePublishedResultHandoffV1 = ({ comment, identity, parentHead, changedPaths, admittedPaths }) => {
+  const core = projectLifecycleResultHandoffCoreV1({ comment, identity, parentHead, changedPaths, admittedPaths })
   if (core === null) return null
   const fileFields = new Map([
     ['scripts/run-protected-transition-admission-v1.mjs', Object.freeze({
@@ -6629,6 +6629,7 @@ const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, change
   if (historicalPublicationCandidates.length === 0) {
     return Object.freeze({ status: 'MISSING', authorizedPaths: null, scopeContract: null, validation: null })
   }
+  let admittedPublicationScope = null
   try {
     const publishedCommit = await api(host, `repos/${identity.repository}/commits/${identity.exactHead}`)
     if (
@@ -6687,6 +6688,19 @@ const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, change
       !lifecycleSameValueV1(confirmedAuthority, selectedAuthority.projection) ||
       !sameRolePathsV1(confirmedAuthority.paths, changedPaths)
     ) throw new Error('lifecycle_publication_chain_invalid')
+    admittedPublicationScope = Object.freeze({
+      authorizedPaths: confirmedAuthority.paths,
+      scopeContract: Object.freeze({
+        ...confirmedAuthority,
+        authority_id: String(confirmedAuthority.comment_id),
+        publication_authority_comment_id: confirmedAuthority.comment_id,
+        authorized_parent: authorizedParent,
+        published_head: identity.exactHead,
+        commit_parent: authorizedParent,
+        remote_head: remoteHead,
+        pr_head: pull.head.sha,
+      }),
+    })
 
     const resultCandidates = []
     let malformedApplicableResult = false
@@ -6694,7 +6708,7 @@ const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, change
       if (!isLifecycleResultHandoffCandidateV1(comment.body)) continue
       try {
         const projection = projectLifecyclePublishedResultHandoffV1({
-          comment, identity, parentHead: authorizedParent, changedPaths,
+          comment, identity, parentHead: authorizedParent, changedPaths, admittedPaths: confirmedAuthority.paths,
         })
         if (projection !== null) resultCandidates.push(Object.freeze({ comment, projection }))
       } catch {
@@ -6711,7 +6725,7 @@ const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, change
       identity.repository, identity.taskIssueNumber, selectedResult.comment.id, host,
     )
     const confirmedResult = projectLifecyclePublishedResultHandoffV1({
-      comment: freshResultRecord, identity, parentHead: authorizedParent, changedPaths,
+      comment: freshResultRecord, identity, parentHead: authorizedParent, changedPaths, admittedPaths: confirmedAuthority.paths,
     })
     if (
       freshResultRecord.body !== selectedResult.comment.body ||
@@ -6765,7 +6779,7 @@ const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, change
       published_head: identity.exactHead,
       remote_head: remoteHead,
       pr_head: pull.head.sha,
-      paths: changedPaths,
+      paths: confirmedAuthority.paths,
       file_bindings: confirmedResult.file_bindings,
     })
     const publicationChainSha256 = createHash('sha256')
@@ -6773,11 +6787,10 @@ const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, change
       .digest('hex')
     return Object.freeze({
       status: 'PRESENT',
-      authorizedPaths: changedPaths,
+      authorizedPaths: confirmedAuthority.paths,
       scopeContract: Object.freeze({
+        ...admittedPublicationScope.scopeContract,
         kind: 'PUBLICATION_CHAIN',
-        authority_id: String(confirmedAuthority.comment_id),
-        body_sha256: confirmedAuthority.body_sha256,
         architecture_candidate_comment_id: architecture.candidate.comment_id,
         architecture_amendment_comment_ids: Object.freeze(architecture.amendments.map((item) => item.comment_id)),
         architecture_chain_sha256: architecture.chain_sha256,
@@ -6785,12 +6798,6 @@ const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, change
         result_handoff_body_sha256: confirmedResult.body_sha256,
         task_assignment_comment_id: confirmedTaskAssignment.comment_id,
         task_assignment_body_sha256: confirmedTaskAssignment.body_sha256,
-        publication_authority_comment_id: confirmedAuthority.comment_id,
-        authorized_parent: authorizedParent,
-        published_head: identity.exactHead,
-        commit_parent: authorizedParent,
-        remote_head: remoteHead,
-        pr_head: pull.head.sha,
         publication_chain_sha256: publicationChainSha256,
       }),
       validation: Object.freeze({
@@ -6800,7 +6807,7 @@ const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, change
         reuse_kind: 'PUBLICATION_CHAIN',
         publication_chain_sha256: publicationChainSha256,
         current_base: architecture.candidate.reviewed_base,
-        paths: changedPaths,
+        paths: confirmedAuthority.paths,
         profile: 'focused-rto-pta',
         commands: confirmedResult.commands,
         input_revisions: Object.freeze([
@@ -6810,7 +6817,12 @@ const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, change
       }),
     })
   } catch {
-    return Object.freeze({ status: 'INCOMPLETE', authorizedPaths: null, scopeContract: null, validation: null })
+    return Object.freeze({
+      status: 'INCOMPLETE',
+      authorizedPaths: admittedPublicationScope?.authorizedPaths ?? null,
+      scopeContract: admittedPublicationScope?.scopeContract ?? null,
+      validation: null,
+    })
   }
 }
 
@@ -7244,10 +7256,10 @@ const acquireLifecycleReplaySnapshotV1 = async ({ event, sourceResult, host, ide
     pull_merged: pull.merged,
     mergeable: pull.mergeable,
     changed_paths: scope.actual_paths,
-    authorized_paths: publishedGenerationProjection.status === 'PRESENT'
+    authorized_paths: publishedGenerationProjection.authorizedPaths !== null
       ? publishedGenerationProjection.authorizedPaths
       : currentTaskState?.authorized_paths ?? null,
-    scope_contract: publishedGenerationProjection.status === 'PRESENT'
+    scope_contract: publishedGenerationProjection.scopeContract !== null
       ? publishedGenerationProjection.scopeContract
       : currentTaskState === null ? null : Object.freeze({ authority_id: `task-state:${identity.taskIssueNumber}:${identity.prNumber}`, body_sha256: createHash('sha256').update(Buffer.from(pull.body, 'utf8')).digest('hex') }),
     base_impact: baseImpactProjection.evidence,
