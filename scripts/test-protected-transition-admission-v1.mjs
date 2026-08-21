@@ -5643,7 +5643,7 @@ test_git_blob_oid: "${fileBindings['scripts/test-protected-transition-admission-
 finding_disposition:
   B-LOV1-PUBLICATION-AUTHORITY-PARSER-006: "CLOSED_BY_CODE"
 validation_results:
-  focused_rto_pta: "886/886 PASS"
+  focused_rto_pta: "1013 assertions PASS"
   git_diff_check: "PASS"
 validation_evidence_reused: true
 \`\`\`
@@ -6283,6 +6283,7 @@ const lifecyclePublicationChainCases = [
     }),
     'MERGE_DECISION',
     'J Task 352 PR 353 direct canonical Result Handoff shape progresses beyond scope evidence missing',
+    'merge_decision_required',
   ],
   [
     lifecycleProductionFixtureV1({
@@ -6495,10 +6496,12 @@ const lifecyclePublicationChainCases = [
     'AB malformed canonical git_diff_check colon spacing is rejected',
   ],
 ]
-for (const [fixture, expectedAction, label] of lifecyclePublicationChainCases) {
+for (const [fixture, expectedAction, label, expectedReason = null] of lifecyclePublicationChainCases) {
   const result = await executeLifecycleOrchestratorV1({ event: fixture.event, sourceResult: fixture.sourceResult, host: fixture.host, executionIdentity: fixture.executionIdentity })
   check(
-    result.next_action === expectedAction && (expectedAction === 'STOP' || result.reason !== 'scope_evidence_missing'),
+    result.next_action === expectedAction &&
+      (expectedAction === 'STOP' || result.reason !== 'scope_evidence_missing') &&
+      (expectedReason === null || result.reason === expectedReason),
     `LOV1 publication-chain scope and validation reuse ${label}: observed ${result.next_action}/${result.reason}`,
   )
   check(

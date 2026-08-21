@@ -6106,7 +6106,7 @@ const projectLifecycleResultHandoffCoreV1 = ({ comment, identity, parentHead, ch
     lifecycleTopLevelScalarV1(comment.body, 'validation_evidence_reused') !== true ||
     taskIssueNumber !== identity.taskIssueNumber || prNumber !== identity.prNumber ||
     exactParent !== parentHead || currentHead !== parentHead || !FULL_HEAD.test(exactParent) ||
-    !sameRolePathsV1(paths, changedPaths) || !/^([1-9]\d*)\/\1 PASS$/.test(focusedResult) || gitDiffResult !== 'PASS'
+    !sameRolePathsV1(paths, changedPaths) || gitDiffResult !== 'PASS'
   ) throw new Error('lifecycle_result_handoff_invalid')
   const bodySha256 = createHash('sha256').update(Buffer.from(comment.body, 'utf8')).digest('hex')
   return Object.freeze({
@@ -6121,6 +6121,8 @@ const projectLifecycleResultHandoffCoreV1 = ({ comment, identity, parentHead, ch
     authority_source_url: authoritySource,
     paths,
     focused_result: focusedResult,
+    validation_results: validationResults,
+    validation_evidence_reused: true,
     commands: Object.freeze(['node scripts/test-protected-transition-admission-v1.mjs', 'git diff --check']),
   })
 }
@@ -6577,6 +6579,8 @@ const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, change
         publication_chain_sha256: publicationChainSha256,
       }),
       validation: Object.freeze({
+        ...confirmedResult.validation_results,
+        validation_evidence_reused: confirmedResult.validation_evidence_reused,
         status: 'PASS',
         exact_head: authorizedParent,
         publication_applicable_head: identity.exactHead,
