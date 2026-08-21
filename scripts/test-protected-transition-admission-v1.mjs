@@ -5698,6 +5698,7 @@ const lifecycleProductionFixtureV1 = ({
   historicalComments = [],
   eventCommentOverride = null,
   readyTaskBindings = null,
+  readyOwnerReviewId = null,
   currentExecution = ready,
   currentCheckOverrides = {},
   additionalChecks = [],
@@ -5723,8 +5724,6 @@ const lifecycleProductionFixtureV1 = ({
   publicationChainTaskAssignmentId = null,
   publicationChainArchitectureCandidateBodyTransform = (body) => body,
   publicationChainArchitectureAmendmentBodyTransform = (body) => body,
-  completedReadyEvidence = null,
-  additionalReadyEvidenceFamilies = [],
   legacyStateBlock = true,
   legacyTaskStateOverrides = {},
 }) => {
@@ -5915,22 +5914,7 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
     checkSuiteCommitOid: head,
     ...currentCheckOverrides,
   })
-  const completedReadyFamilies = [
-    ...(completedReadyEvidence === null ? [] : [completedReadyEvidence]),
-    ...additionalReadyEvidenceFamilies,
-  ]
-  const completedReadyChecks = completedReadyFamilies.flatMap((family, familyIndex) => historicalRtoChecks({
-    runId: family.runId,
-    head: family.head,
-    overrides: Object.fromEntries(historicalRtoJobNames.map((name, nameIndex) => [name, {
-      ...(familyIndex === 0 ? {} : {
-        id: `lifecycle-ready-${familyIndex}-${nameIndex}`,
-        databaseId: Number(historicalRtoCheckIds[name]) + familyIndex * 100,
-      }),
-      ...(family.checkOverrides?.[name] ?? {}),
-    }])),
-  }))
-  const checkNodes = [check, ...(currentExecution ? [lifecycleCurrentCheck] : []), ...completedReadyChecks, ...additionalChecks]
+  const checkNodes = [check, ...(currentExecution ? [lifecycleCurrentCheck] : []), ...additionalChecks]
   const threadNodes = threadDisposition === null ? [] : [{
     id: `PRRT-${pr}`,
     isResolved: false,
@@ -6043,35 +6027,7 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
         }))
         return { total_count: jobs.length, jobs }
       }
-      const completedReadyFamily = completedReadyFamilies.find((family) => endpoint === `repos/${REPOSITORY}/actions/runs/${family.runId}`)
-      if (completedReadyFamily) {
-        return historicalRunRecord({
-          id: Number(completedReadyFamily.runId),
-          created_at: completedReadyFamily.createdAt ?? EXPECTED_LEGACY_READY_CREATED_AT,
-          head_sha: completedReadyFamily.head,
-          url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${completedReadyFamily.runId}`,
-          html_url: `https://github.com/${REPOSITORY}/actions/runs/${completedReadyFamily.runId}`,
-          jobs_url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${completedReadyFamily.runId}/jobs`,
-          pull_requests: [{ number: completedReadyFamily.pr ?? pr, head: { sha: completedReadyFamily.head }, base: { ref: 'main' } }],
-          ...(completedReadyFamily.runOverrides ?? {}),
-        })
-      }
-      const completedReadyJobsFamily = completedReadyFamilies.find((family) => endpoint === `repos/${REPOSITORY}/actions/runs/${family.runId}/jobs?per_page=100`)
-      if (completedReadyJobsFamily) {
-        return historicalJobPage({ runId: completedReadyJobsFamily.runId, head: completedReadyJobsFamily.head })
-      }
       throw new Error(`unexpected_lifecycle_api:${endpoint}`)
-    },
-    apiBytes: async (endpoint) => {
-      const primary = completedReadyEvidence
-      const admissionJobId = historicalRtoJobIds.protected_transition_admission_v1
-      if (primary !== null && endpoint === `repos/${REPOSITORY}/actions/jobs/${admissionJobId}/logs`) {
-        return new Uint8Array(historicalLog([expectedLegacyReadyTerminalResult({
-          pr_number: primary.pr ?? pr,
-          current_head: primary.head,
-        })]))
-      }
-      throw new Error('unexpected_lifecycle_api_bytes')
     },
     graphql: async (query, variables = {}) => {
       if (query.includes('statusCheckRollup')) {
@@ -6103,7 +6059,21 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
     host,
     metrics,
     sourceResult: ready
-      ? expectedLegacyReadyTerminalResult({ pr_number: pr, current_head: head })
+      ? {
+          task_issue_number: identity.task,
+          pr_number: pr,
+          current_head: head,
+          next_action: 'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
+          source_comment_id: readyOwnerReviewId ?? reviewId,
+          role_dispatch: Object.freeze({
+            source_binding: Object.freeze({
+              kind: 'REVIEW',
+              comment_id: readyOwnerReviewId ?? reviewId,
+              reviewed_head: head,
+              decision: 'APPROVE',
+            }),
+          }),
+        }
       : {
           task_issue_number: readyTaskBindings === null ? identity.task : null,
           pr_number: pr,
@@ -7295,130 +7265,34 @@ check(
   'LOV1 issue_comment Task identity handling remains unchanged',
 )
 
-const lifecycleOlderReadyCheckOverridesV1 = (day) => Object.fromEntries(historicalRtoJobNames.map((name, index) => [name, {
-  startedAt: `2026-08-${day}T00:00:0${index}Z`,
-}]))
 const lifecycleReadyEvidenceCases = [
   [
     lifecycleProductionFixtureV1({
       pr: 325, ready: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
     }),
     'MERGE_DECISION',
-    'natural ready_for_review run binds current Ready evidence',
+    'Ready owner result reuses its bound Review as-is',
   ],
   [
     lifecycleProductionFixtureV1({
-      pr: 325, ready: false, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
-      completedReadyEvidence: {
-        runId: EXPECTED_LEGACY_READY_RUN_ID,
-        head: lifecycleHistoricalIdentityV1[325].head,
-        pr: 325,
-      },
-    }),
-    'MERGE_DECISION',
-    'later issue_comment reuses exact current-HEAD Ready completion evidence',
-  ],
-  [
-    lifecycleProductionFixtureV1({
-      pr: 325, ready: false, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
-      completedReadyEvidence: { runId: EXPECTED_LEGACY_READY_RUN_ID, head: OTHER_HEAD, pr: 325 },
+      pr: 325,
+      ready: true,
+      readyOwnerReviewId: lifecycleHistoricalIdentityV1[325].reviewId - 100,
+      reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
     }),
     'STOP',
-    'old-HEAD Ready completion evidence is stale',
+    'Ready owner bound to R1 remains stale when the current Review is R2',
   ],
   [
     lifecycleProductionFixtureV1({
       pr: 325, ready: false, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
-      completedReadyEvidence: {
+      additionalChecks: historicalRtoChecks({
         runId: EXPECTED_LEGACY_READY_RUN_ID,
         head: lifecycleHistoricalIdentityV1[325].head,
-        pr: 325,
-      },
-      additionalReadyEvidenceFamilies: [{
-        runId: String(Number(EXPECTED_LEGACY_READY_RUN_ID) - 1),
-        head: OTHER_HEAD,
-        pr: 325,
-        checkOverrides: lifecycleOlderReadyCheckOverridesV1('15'),
-      }],
-    }),
-    'MERGE_DECISION',
-    'old-HEAD Ready family is non-applicable when one current generation exists',
-  ],
-  [
-    lifecycleProductionFixtureV1({
-      pr: 325, ready: false, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
-      completedReadyEvidence: {
-        runId: EXPECTED_LEGACY_READY_RUN_ID,
-        head: lifecycleHistoricalIdentityV1[325].head,
-        pr: 325,
-      },
-      additionalReadyEvidenceFamilies: [
-        { runId: String(Number(EXPECTED_LEGACY_READY_RUN_ID) - 1), head: OTHER_HEAD, pr: 325, checkOverrides: lifecycleOlderReadyCheckOverridesV1('15') },
-        { runId: String(Number(EXPECTED_LEGACY_READY_RUN_ID) - 2), head: OTHER_HEAD, pr: 325, checkOverrides: lifecycleOlderReadyCheckOverridesV1('14') },
-      ],
-    }),
-    'MERGE_DECISION',
-    'multiple historical Ready families do not poison the sole current generation',
-  ],
-  [
-    lifecycleProductionFixtureV1({
-      pr: 325, ready: false, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
-      completedReadyEvidence: {
-        runId: EXPECTED_LEGACY_READY_RUN_ID,
-        head: lifecycleHistoricalIdentityV1[325].head,
-        pr: 325,
-      },
-      additionalReadyEvidenceFamilies: [{
-        runId: EXPECTED_LEGACY_READY_RUN_ID,
-        head: lifecycleHistoricalIdentityV1[325].head,
-        pr: 325,
-        checkOverrides: Object.fromEntries(historicalRtoJobNames.map((name, index) => [name, {
-          id: `lifecycle-ready-prior-attempt-${index}`,
-          databaseId: 88000000 + index,
-          detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${EXPECTED_LEGACY_READY_RUN_ID}/job/${88000100 + index}`,
-          startedAt: `2026-08-16T00:00:0${index}Z`,
-        }])),
-      }],
-    }),
-    'MERGE_DECISION',
-    'older rerun attempt is reduced before exact current run-attempt manifest binding',
-  ],
-  [
-    lifecycleProductionFixtureV1({
-      pr: 325, ready: false, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
-      completedReadyEvidence: {
-        runId: EXPECTED_LEGACY_READY_RUN_ID,
-        head: lifecycleHistoricalIdentityV1[325].head,
-        pr: 325,
-      },
-      additionalReadyEvidenceFamilies: [{
-        runId: String(Number(EXPECTED_LEGACY_READY_RUN_ID) - 1),
-        head: lifecycleHistoricalIdentityV1[325].head,
-        pr: 325,
-      }],
+      }),
     }),
     'STOP',
-    'two genuinely current-equivalent Ready generations are ambiguous',
-  ],
-  [
-    lifecycleProductionFixtureV1({
-      pr: 325, ready: false, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
-    }),
-    'STOP',
-    'later event without current Ready evidence fails closed',
-  ],
-  [
-    lifecycleProductionFixtureV1({
-      pr: 325, ready: false, currentExecution: true, reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
-      additionalReadyEvidenceFamilies: [{
-        runId: String(Number(EXPECTED_LEGACY_READY_RUN_ID) - 2),
-        head: lifecycleHistoricalIdentityV1[325].head,
-        pr: 325,
-        runOverrides: { event: 'workflow_dispatch', pull_requests: [] },
-      }],
-    }),
-    'STOP',
-    'unrelated non-pull_request RTO family is not a Ready candidate',
+    'later Review issue_comment cannot fabricate a new review_comment_id from historical Ready checks',
   ],
 ]
 for (const [fixture, expectedAction, label] of lifecycleReadyEvidenceCases) {
@@ -7429,7 +7303,9 @@ for (const [fixture, expectedAction, label] of lifecycleReadyEvidenceCases) {
     executionIdentity: fixture.executionIdentity,
   })
   check(
-    result.next_action === expectedAction && result.mutation_count === 0 && fixture.metrics.mutation === 0,
+    result.next_action === expectedAction &&
+    (expectedAction !== 'STOP' || result.reason === 'stale_ready_evidence') &&
+    result.mutation_count === 0 && fixture.metrics.mutation === 0,
     `LOV1 Ready evidence ${label}: observed ${result.next_action}/${result.reason}`,
   )
 }
@@ -8369,6 +8245,7 @@ const lifecycleStructuralMatrix = [
   runnerSource.includes('executeReviewEventWithLifecycleReplayV1') && runnerSource.includes('executeReadyEventWithLifecycleReplayV1') && runnerSource.indexOf('executeReviewEventWithLifecycleReplayV1') < runnerSource.indexOf('const main = async () =>'),
   !runnerSource.includes('--lifecycle-orchestrator-event-file') && !workflowSource.includes('lifecycle-orchestrator-event-file'),
   !lifecycleSource.includes('executeRoleDispatchConsumerV1(') && !lifecycleSource.includes('executeMinimalGovernanceV1(') && !lifecycleSource.includes('writeProtectedTransitionTaskStateV1('),
+  !lifecycleSource.includes('acquireHistoricalLegacyRtoEvidenceV1('),
   !lifecycleSource.includes('role_dispatch:') && !lifecycleSource.includes('provider_projection') && !lifecycleSource.includes("method: 'POST'") && !lifecycleSource.includes("method: 'PUT'"),
   lifecycleAllResults.every((result) => result.mutation_count === 0 && !Object.hasOwn(result, 'comment_body') && !Object.hasOwn(result, 'authority') && !Object.hasOwn(result, 'review')),
   workflow.on.issue_comment.types.join(',') === 'created' && workflow.on.pull_request.types.join(',') === 'ready_for_review' && Object.keys(workflow.jobs).length === 5,
@@ -8389,5 +8266,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 1018) throw new Error(`expected exactly 1018 assertions, observed ${assertions}`)
+if (assertions !== 1013) throw new Error(`expected exactly 1013 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

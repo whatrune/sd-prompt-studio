@@ -6799,7 +6799,7 @@ const reduceLifecycleCurrentExecutionChecksV1 = async ({ event, request, checks,
   })
 }
 
-const lifecycleReadyEvidenceProjectionV1 = ({ request, review, provenance, terminalContract, terminalResult }) => {
+const lifecycleReadyEvidenceProjectionV1 = ({ request, reviewCommentId, provenance, terminalContract, terminalResult }) => {
   const terminalResultSha256 = createHash('sha256')
     .update(Buffer.from(JSON.stringify(lifecycleCanonicalValueV1(terminalResult)), 'utf8'))
     .digest('hex')
@@ -6812,7 +6812,7 @@ const lifecycleReadyEvidenceProjectionV1 = ({ request, review, provenance, termi
     task_issue_number: request.taskIssueNumber,
     pr_number: request.prNumber,
     exact_head: request.exactHead,
-    review_comment_id: review.comment_id,
+    review_comment_id: reviewCommentId,
     event: 'pull_request',
     action: 'ready_for_review',
     run_id: provenance.run_id,
@@ -6826,7 +6826,7 @@ const lifecycleReadyEvidenceProjectionV1 = ({ request, review, provenance, termi
   })
 }
 
-const acquireLifecycleReadyEvidenceV1 = async ({ event, sourceResult, request, review, checks, currentExecution, host }) => {
+const acquireLifecycleReadyEvidenceV1 = async ({ event, sourceResult, request, review, checks, currentExecution }) => {
   if (review === null) return Object.freeze({ evidence: null, checks })
   if (event?.action === 'ready_for_review') {
     if (
@@ -6837,7 +6837,7 @@ const acquireLifecycleReadyEvidenceV1 = async ({ event, sourceResult, request, r
     let terminalContract = 'legacy_ready_result_v1'
     if (sourceResult?.record_type === EXPECTED_LEGACY_READY_FAIL_CLOSED_RECORD_TYPE_V1) {
       assertExpectedLegacyReadyFailClosedTerminalResultV1(sourceResult, request)
-      terminalContract = EXPECTED_LEGACY_READY_FAIL_CLOSED_RECORD_TYPE_V1
+      return Object.freeze({ evidence: null, checks: selectCurrentCheckGenerationsV1(checks) })
     } else if (
       sourceResult?.pr_number !== request.prNumber || sourceResult?.current_head !== request.exactHead ||
       sourceResult?.task_issue_number !== request.taskIssueNumber || typeof sourceResult?.next_action !== 'string' ||
@@ -6846,7 +6846,7 @@ const acquireLifecycleReadyEvidenceV1 = async ({ event, sourceResult, request, r
     return Object.freeze({
       evidence: lifecycleReadyEvidenceProjectionV1({
         request,
-        review,
+        reviewCommentId: sourceResult.source_comment_id,
         provenance: currentExecution,
         terminalContract,
         terminalResult: sourceResult,
@@ -6870,28 +6870,9 @@ const acquireLifecycleReadyEvidenceV1 = async ({ event, sourceResult, request, r
   if (families.size !== 1) throw new Error('lifecycle_ready_evidence_ambiguous')
   const family = [...families.values()][0]
   if (family.length !== RTO_SELF_JOB_NAMES_V1.length) throw new Error('lifecycle_ready_evidence_incomplete')
-  const evidence = await acquireHistoricalLegacyRtoEvidenceV1({ request, checks: family, host, expectedLegacyReady: true })
-  const familyIds = new Set(evidence.checks.map((check) => check.check_id))
+  const familyIds = new Set(family.map((check) => check.id))
   return Object.freeze({
-    evidence: lifecycleReadyEvidenceProjectionV1({
-      request,
-      review,
-      provenance: Object.freeze({
-        repository: evidence.repository,
-        run_id: evidence.run_id,
-        run_attempt: evidence.run_attempt,
-        workflow_id: evidence.workflow_id,
-        workflow_path: evidence.workflow_path,
-        check_suite_id: evidence.check_suite_id,
-        exact_head: evidence.head_sha,
-        pr_number: evidence.pr_number,
-        raw_log_sha256: evidence.raw_log_sha256,
-        checks: evidence.checks,
-        admission_job: evidence.admission_job,
-      }),
-      terminalContract: evidence.terminal_contract,
-      terminalResult: evidence.terminal_result,
-    }),
+    evidence: null,
     checks: Object.freeze(selectedReadyChecks.filter((check) => !familyIds.has(check.id))),
   })
 }
@@ -7009,7 +6990,7 @@ const acquireLifecycleReplaySnapshotV1 = async ({ event, sourceResult, host, ide
     try {
       const readyProjection = await acquireLifecycleReadyEvidenceV1({
         event, sourceResult, request, review, checks: checkSnapshot.checks,
-        currentExecution: currentExecutionProjection, host,
+        currentExecution: currentExecutionProjection,
       })
       readyEvidence = readyProjection.evidence
       checkSnapshot = Object.freeze({ ...checkSnapshot, checks: readyProjection.checks })
