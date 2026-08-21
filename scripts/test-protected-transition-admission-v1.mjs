@@ -5667,6 +5667,7 @@ const lifecycleCommentV1 = ({
 const lifecycleProductionFixtureV1 = ({
   pr,
   head = lifecycleHistoricalIdentityV1[pr].head,
+  finalPullHead = head,
   paths = lifecycleHistoricalPathsV1[pr],
   validationHead = head,
   validationPaths = paths,
@@ -5944,7 +5945,8 @@ candidate_id: "LOV1-ARCH-CANDIDATE-001"
       }
       if (endpoint === `repos/${REPOSITORY}/pulls/${pr}`) {
         metrics.pull += 1
-        return { number: pr, state: 'open', draft, merged: false, mergeable: true, mergeable_state: 'clean', changed_files: paths.length, base: { repo: { full_name: REPOSITORY }, ref: 'main', sha: identity.base }, head: { sha: head, ref: 'codex/lifecycle-publication', repo: { full_name: REPOSITORY } }, body: pullBody }
+        const pullHead = metrics.pull === 1 ? head : finalPullHead
+        return { number: pr, state: 'open', draft, merged: false, mergeable: true, mergeable_state: 'clean', changed_files: paths.length, base: { repo: { full_name: REPOSITORY }, ref: 'main', sha: identity.base }, head: { sha: pullHead, ref: 'codex/lifecycle-publication', repo: { full_name: REPOSITORY } }, body: pullBody }
       }
       if (endpoint.startsWith(`repos/${REPOSITORY}/pulls/${pr}/files?`)) {
         metrics.files += 1
@@ -6115,8 +6117,23 @@ for (const [fixture, nextAction] of lifecycleProductionCases) {
   const result = await executeLifecycleOrchestratorV1({ event: fixture.event, sourceResult: fixture.sourceResult, host: fixture.host, executionIdentity: fixture.executionIdentity })
   check(result.next_action === nextAction, `LOV1 production replay acquisition ${nextAction}; got ${JSON.stringify(result)}`)
   check(result.mutation_count === 0 && fixture.metrics.mutation === 0, `LOV1 production replay zero mutation ${nextAction}`)
-  check(fixture.metrics.task === 1 && fixture.metrics.pull === 1 && fixture.metrics.files === 1 && fixture.metrics.history === 1 && fixture.metrics.checks === 1 && fixture.metrics.threads === 1 && fixture.metrics.branch === 1, `LOV1 production replay bounded acquisition ${nextAction}`)
+  check(fixture.metrics.task === 1 && fixture.metrics.pull === 2 && fixture.metrics.files === 1 && fixture.metrics.history === 1 && fixture.metrics.checks === 1 && fixture.metrics.threads === 1 && fixture.metrics.branch === 1, `LOV1 production replay bounded acquisition ${nextAction}`)
 }
+
+const lifecycleLateHeadV1 = 'f'.repeat(40)
+const lifecycleLateHeadFixtureV1 = lifecycleProductionFixtureV1({ pr: 325, ready: true, finalPullHead: lifecycleLateHeadV1 })
+const lifecycleLateHeadResultV1 = await executeLifecycleOrchestratorV1({
+  event: lifecycleLateHeadFixtureV1.event,
+  sourceResult: lifecycleLateHeadFixtureV1.sourceResult,
+  host: lifecycleLateHeadFixtureV1.host,
+  executionIdentity: lifecycleLateHeadFixtureV1.executionIdentity,
+})
+check(
+  lifecycleLateHeadResultV1.state === 'STALE' && lifecycleLateHeadResultV1.reason === 'head_changed_during_evaluation' &&
+  lifecycleLateHeadResultV1.current_head === lifecycleLateHeadV1 && lifecycleLateHeadResultV1.next_action === 'STOP' &&
+  lifecycleLateHeadResultV1.mutation_count === 0 && lifecycleLateHeadFixtureV1.metrics.pull === 2 && lifecycleLateHeadFixtureV1.metrics.mutation === 0,
+  'LOV1 final authoritative pull reuses existing late HEAD drift STOP before reduction',
+)
 
 const lifecycleDirectValidationAuthorityCases = [
   [
@@ -8300,5 +8317,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 1016) throw new Error(`expected exactly 1016 assertions, observed ${assertions}`)
+if (assertions !== 1017) throw new Error(`expected exactly 1017 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

@@ -7056,7 +7056,13 @@ export const executeLifecycleOrchestratorV1 = async ({
     const acquired = await acquireLifecycleReplaySnapshotV1({
       event, sourceResult, host, identity, resolvedPull: resolved.pull, executionIdentity,
     })
-    return reduceLifecycleReplayV1(acquired, completionEvidence)
+    const request = Object.freeze({ transition: 'lifecycle_orchestrator_v1', ...identity })
+    const finalPull = await acquireMergeGatePullV1(request, host)
+    if (finalPull.head.sha !== acquired.exact_head) {
+      const stale = stoppedResult(request, 'STALE', 'head_changed_during_evaluation', 2, finalPull.head.sha)
+      return lifecycleProjectionV1(stale, 'ACQUIRE', stale.state, stale.reason, 'STOP', 'BLOCKED')
+    }
+    return reduceLifecycleReplayV1(Object.freeze({ ...acquired, current_head: finalPull.head.sha }), completionEvidence)
   } catch (error) {
     return lifecycleProjectionV1({
       task_issue_number: identity?.taskIssueNumber ?? sourceResult?.task_issue_number ?? event?.issue?.number ?? null,
