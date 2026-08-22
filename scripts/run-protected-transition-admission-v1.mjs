@@ -42,6 +42,14 @@ const VERIFIED_ADMISSION_ORIGINS_V1 = new WeakSet()
 const REVIEW_RECORD_TYPE = 'independent_review_decision_v1'
 const REVIEW_AUTHORING_ROLE = 'Independent Reviewer'
 const REVIEW_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
+const REVIEW_THREAD_ACTION_SEMANTIC_FIELDS_V1 = Object.freeze([
+  'repository', 'task_issue_number', 'pr_number', 'reviewed_head', 'review_thread_node_id',
+  'finding_id', 'disposition',
+])
+const REVIEW_THREAD_ACTION_FIELDS_V1 = Object.freeze([
+  ...REVIEW_THREAD_ACTION_SEMANTIC_FIELDS_V1, 'review_decision_comment_id', 'review_decision_url',
+])
+const REVIEW_THREAD_ACTION_DISPOSITIONS_V1 = new Set(['RESOLVE_ONLY'])
 const MINIMAL_GOVERNANCE_RECORD_TYPE_V1 = 'minimal_governance_v1'
 const MINIMAL_GOVERNANCE_AUTHORITY_KIND_V1 = 'MINIMAL_GOVERNANCE_V1'
 const MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1 = Object.freeze({
@@ -155,6 +163,26 @@ query MergeAllowedThreads($owner: String!, $name: String!, $pr: Int!, $after: St
         pageInfo { hasNextPage endCursor }
       }
     }
+  }
+}`
+
+const REVIEW_CLOSURE_THREAD_QUERY = `
+query ReviewClosureThread($owner: String!, $name: String!, $pr: Int!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $pr) {
+      number
+      headRefOid
+      reviewThreads(first: 100, after: $after) {
+        nodes { id isResolved isOutdated }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+}`
+const RESOLVE_REVIEW_THREAD_MUTATION = `
+mutation ResolveReviewThread($threadId: ID!) {
+  resolveReviewThread(input: { threadId: $threadId }) {
+    thread { id isResolved }
   }
 }`
 
@@ -291,10 +319,38 @@ export const parseIndependentReviewDecisionProjectionV1 = (body, repository, tas
   if (blocks.length !== 1) throw new Error('review_yaml_block_cardinality_invalid')
 
   const scalars = new Map()
+  const rawThreadActions = []
+  let threadActionsSeen = false
+  let threadActionsInlineEmpty = false
+  let currentThreadAction = null
   for (const line of blocks[0][1].split(/\r?\n/)) {
     if (line.trim().length === 0) continue
+    if (line === 'thread_actions:' || line === 'thread_actions: []') {
+      if (threadActionsSeen || scalars.has('thread_actions')) throw new Error('review_thread_action_invalid')
+      threadActionsSeen = true
+      threadActionsInlineEmpty = line === 'thread_actions: []'
+      currentThreadAction = null
+      continue
+    }
+    const actionStart = line.match(/^  -[ \t]+([a-z][a-z0-9_]*):[ \t]+(.+)$/)
+    if (actionStart) {
+      if (!threadActionsSeen || threadActionsInlineEmpty) throw new Error('review_thread_action_invalid')
+      currentThreadAction = new Map()
+      rawThreadActions.push(currentThreadAction)
+      if (rawThreadActions.length > 1) throw new Error('review_thread_action_cardinality_invalid')
+      currentThreadAction.set(actionStart[1], parseReviewScalarV1(actionStart[2]))
+      continue
+    }
+    const actionField = line.match(/^    ([a-z][a-z0-9_]*):[ \t]+(.+)$/)
+    if (actionField) {
+      if (currentThreadAction === null || currentThreadAction.has(actionField[1])) throw new Error('review_thread_action_invalid')
+      currentThreadAction.set(actionField[1], parseReviewScalarV1(actionField[2]))
+      continue
+    }
     const match = line.match(/^([a-z][a-z0-9_]*):[ \t]+(.+)$/)
     if (!match || scalars.has(match[1])) throw new Error('review_yaml_scalar_invalid')
+    if (match[1] === 'thread_actions') throw new Error('review_thread_action_invalid')
+    currentThreadAction = null
     scalars.set(match[1], parseReviewScalarV1(match[2]))
   }
 
@@ -309,6 +365,23 @@ export const parseIndependentReviewDecisionProjectionV1 = (body, repository, tas
   const blockingCount = scalars.get('blocking_finding_count')
   const remainingCount = scalars.get('remaining_finding_count')
   const unknownCount = scalars.get('unknown_count')
+  const threadActions = rawThreadActions.map((rawAction) => {
+    if (
+      rawAction.size !== REVIEW_THREAD_ACTION_SEMANTIC_FIELDS_V1.length ||
+      REVIEW_THREAD_ACTION_SEMANTIC_FIELDS_V1.some((field) => !rawAction.has(field))
+    ) throw new Error('review_thread_action_invalid')
+    const action = Object.fromEntries(REVIEW_THREAD_ACTION_SEMANTIC_FIELDS_V1.map((field) => [field, rawAction.get(field)]))
+    if (
+      action.repository !== repository ||
+      action.task_issue_number !== taskIssueNumber ||
+      action.pr_number !== prNumber ||
+      action.reviewed_head !== reviewedHead ||
+      typeof action.review_thread_node_id !== 'string' || action.review_thread_node_id.length === 0 ||
+      typeof action.finding_id !== 'string' || action.finding_id.length === 0 ||
+      !REVIEW_THREAD_ACTION_DISPOSITIONS_V1.has(action.disposition)
+    ) throw new Error('review_thread_action_invalid')
+    return Object.freeze(action)
+  })
 
   if (
     scalars.get('record_type') !== REVIEW_RECORD_TYPE ||
@@ -338,6 +411,7 @@ export const parseIndependentReviewDecisionProjectionV1 = (body, repository, tas
     blocking_finding_count: blockingCount,
     remaining_finding_count: remainingCount,
     unknown_count: unknownCount,
+    thread_actions: Object.freeze(threadActions),
   })
 }
 
@@ -356,6 +430,7 @@ export const parseReviewApprovalEventV1 = (event) => {
     typeof event.comment?.created_at !== 'string' ||
     !STRICT_UTC.test(event.comment.created_at) ||
     !REVIEW_ASSOCIATIONS.has(event.comment?.author_association) ||
+    event.comment?.html_url !== `https://github.com/${repository}/issues/${taskIssueNumber}#issuecomment-${event.comment?.id}` ||
     typeof event.comment?.body !== 'string'
   ) {
     throw new Error('review_event_invalid')
@@ -367,6 +442,7 @@ export const parseReviewApprovalEventV1 = (event) => {
     prNumber: review.pr_number,
     exactHead: review.reviewed_head,
     commentId: event.comment.id,
+    commentUrl: event.comment.html_url,
     commentCreatedAt: event.comment.created_at,
     reviewBody: event.comment.body,
     authorAssociation: event.comment.author_association,
@@ -4978,7 +5054,11 @@ export const evaluateRoleDispatchOutputV1 = ({ dispatch, body }) => {
     if (dispatch.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER') {
       const review = parseIndependentReviewDecisionProjectionV1(body, dispatch.repository, dispatch.task_issue_number)
       if (review.pr_number !== dispatch.pr_number || review.reviewed_head !== dispatch.exact_head) throw new Error('role_output_invalid')
-      return Object.freeze({ state: 'READY', allowed: false, exit_code: 0, reason: 'review_result_valid', next_action: 'POST_REVIEW', mutation_count: 0, comment_body: body })
+      return Object.freeze({
+        state: 'READY', allowed: false, exit_code: 0, reason: 'review_result_valid',
+        next_action: 'POST_REVIEW', mutation_count: 0, comment_body: body,
+        ...(review.thread_actions.length === 1 ? { thread_action: review.thread_actions[0] } : {}),
+      })
     }
     if (dispatch.purpose === 'MERGE_DECISION') {
       const decision = parseProductOwnerMergeDecisionV1(body, dispatch.repository, dispatch.task_issue_number)
@@ -5116,6 +5196,141 @@ const fetchRoleCommentRecordV1 = async (repository, taskIssueNumber, commentId, 
 
 const fetchRoleCommentV1 = async (repository, taskIssueNumber, commentId, host) =>
   (await fetchRoleCommentRecordV1(repository, taskIssueNumber, commentId, host)).body
+
+const normalizeReviewThreadActionV1 = (action) => {
+  if (
+    !action || typeof action !== 'object' || Array.isArray(action) ||
+    Object.keys(action).sort().join('\n') !== [...REVIEW_THREAD_ACTION_FIELDS_V1].sort().join('\n') ||
+    !REPOSITORY.test(action.repository ?? '') ||
+    !positiveInteger(action.task_issue_number) || !positiveInteger(action.pr_number) ||
+    !FULL_HEAD.test(action.reviewed_head ?? '') ||
+    typeof action.review_thread_node_id !== 'string' || action.review_thread_node_id.length === 0 ||
+    typeof action.finding_id !== 'string' || action.finding_id.length === 0 ||
+    !REVIEW_THREAD_ACTION_DISPOSITIONS_V1.has(action.disposition) ||
+    !positiveInteger(action.review_decision_comment_id) ||
+    action.review_decision_url !== `https://github.com/${action.repository}/issues/${action.task_issue_number}#issuecomment-${action.review_decision_comment_id}`
+  ) throw new Error('review_closure_projection_invalid')
+  return Object.freeze({ ...action })
+}
+
+const projectReviewThreadActionSemanticV1 = (action) => Object.freeze(Object.fromEntries(
+  REVIEW_THREAD_ACTION_SEMANTIC_FIELDS_V1.map((field) => [field, action[field]]),
+))
+
+const reviewClosureResultV1 = (action, {
+  state, exitCode, reason, nextAction, mutationCount, automationStatus,
+}) => Object.freeze({
+  transition: 'review_closure',
+  state,
+  allowed: false,
+  exit_code: exitCode,
+  reason,
+  automation_status: automationStatus,
+  next_action: nextAction,
+  mutation_attempted: mutationCount > 0,
+  mutation_count: mutationCount,
+  repository: action?.repository ?? null,
+  task_issue_number: action?.task_issue_number ?? null,
+  pr_number: action?.pr_number ?? null,
+  current_head: action?.reviewed_head ?? null,
+  review_thread_node_id: action?.review_thread_node_id ?? null,
+})
+
+const reviewClosureStopV1 = (action, reason, mutationCount = 0) => reviewClosureResultV1(action, {
+  state: 'INDETERMINATE',
+  exitCode: 1,
+  reason,
+  nextAction: 'STOP',
+  mutationCount,
+  automationStatus: 'STOPPED',
+})
+
+export const executeReviewThreadClosureV1 = async ({ action: input, host }) => {
+  let action = null
+  try {
+    action = normalizeReviewThreadActionV1(input)
+    const pull = await api(host, `repos/${action.repository}/pulls/${action.pr_number}`)
+    if (
+      !pull || pull.number !== action.pr_number || pull.state !== 'open' ||
+      pull.head?.sha !== action.reviewed_head ||
+      pull.head?.repo?.full_name !== action.repository
+    ) return reviewClosureStopV1(action, 'head_binding_stale')
+
+    const [owner, name] = action.repository.split('/')
+    let after = null
+    let target = null
+    for (let page = 1; page <= 32; page += 1) {
+      const data = await graphql(host, REVIEW_CLOSURE_THREAD_QUERY, {
+        owner, name, pr: action.pr_number, after,
+      })
+      const pullProjection = data?.repository?.pullRequest
+      const connection = pullProjection?.reviewThreads
+      if (
+        pullProjection?.number !== action.pr_number ||
+        pullProjection?.headRefOid !== action.reviewed_head ||
+        !connection || !Array.isArray(connection.nodes) ||
+        typeof connection.pageInfo?.hasNextPage !== 'boolean'
+      ) throw new Error('review_closure_thread_lookup_invalid')
+      for (const thread of connection.nodes) {
+        if (
+          typeof thread?.id !== 'string' || typeof thread.isResolved !== 'boolean' ||
+          typeof thread.isOutdated !== 'boolean'
+        ) throw new Error('review_closure_thread_lookup_invalid')
+        if (thread.id === action.review_thread_node_id) target = thread
+      }
+      if (target !== null || !connection.pageInfo.hasNextPage) break
+      if (typeof connection.pageInfo.endCursor !== 'string' || connection.pageInfo.endCursor.length === 0) {
+        throw new Error('review_closure_thread_lookup_invalid')
+      }
+      after = connection.pageInfo.endCursor
+      if (page === 32) throw new Error('review_closure_thread_lookup_invalid')
+    }
+    if (target === null) return reviewClosureStopV1(action, 'review_closure_thread_missing')
+    if (target.isResolved || target.isOutdated) return reviewClosureStopV1(action, 'review_closure_thread_not_open')
+
+    const request = Object.freeze({
+      transition: 'review_closure',
+      repository: action.repository,
+      taskIssueNumber: action.task_issue_number,
+      prNumber: action.pr_number,
+      exactHead: action.reviewed_head,
+    })
+    const effective = await acquireEffectiveReviewDecisionV1({ request, host })
+    if (
+      effective.commentId !== action.review_decision_comment_id ||
+      effective.review.task_issue_number !== action.task_issue_number ||
+      effective.review.pr_number !== action.pr_number ||
+      effective.review.reviewed_head !== action.reviewed_head ||
+      effective.review.thread_actions.length !== 1 ||
+      JSON.stringify(effective.review.thread_actions[0]) !== JSON.stringify(projectReviewThreadActionSemanticV1(action))
+    ) return reviewClosureStopV1(action, 'review_closure_review_binding_invalid')
+
+    const mutationCount = 1
+    let resolved
+    try {
+      resolved = await graphql(host, RESOLVE_REVIEW_THREAD_MUTATION, {
+        threadId: action.review_thread_node_id,
+      })
+    } catch {
+      return reviewClosureStopV1(action, 'review_closure_resolve_failed', mutationCount)
+    }
+    if (
+      resolved?.resolveReviewThread?.thread?.id !== action.review_thread_node_id ||
+      resolved.resolveReviewThread.thread.isResolved !== true
+    ) return reviewClosureStopV1(action, 'review_closure_resolve_failed', mutationCount)
+
+    return reviewClosureResultV1(action, {
+      state: 'COMPLETED',
+      exitCode: 0,
+      reason: 'review_thread_closed',
+      nextAction: 'NONE',
+      mutationCount,
+      automationStatus: 'COMPLETED',
+    })
+  } catch (error) {
+    return reviewClosureStopV1(action, error instanceof Error ? error.message : 'review_closure_failed')
+  }
+}
 
 export const evaluateProductOwnerMergeDecisionV1 = ({ decision, request, taskState, review, admissionRun, admissionOrigin = null, gateResult }) => {
   try {
@@ -5453,6 +5668,11 @@ const lifecycleProjectionV1 = (snapshot, phase, state, reason, nextAction, autom
   automation_status: automationStatus,
   next_action: nextAction,
   mutation_count: 0,
+})
+
+const lifecycleThreadResolutionProjectionV1 = (sourceResult) => Object.freeze({
+  ...lifecycleProjectionV1(sourceResult, 'REVIEW', 'READY', 'review_thread_action_admitted', 'THREAD_RESOLUTION'),
+  thread_action: sourceResult.thread_action,
 })
 
 const lifecycleConvergedProjectionV1 = (snapshot, projection, completionEvidence) => {
@@ -6650,6 +6870,7 @@ export const executeLifecycleOrchestratorV1 = async ({
 }) => {
   if (snapshot !== null) return reduceLifecycleReplayV1(snapshot, completionEvidence)
   if (isMinimalGovernanceCandidateV1(event?.comment?.body)) return sourceResult
+  if (sourceResult?.next_action === 'THREAD_RESOLUTION') return lifecycleThreadResolutionProjectionV1(sourceResult)
   let identity = null
   try {
     const routing = lifecycleRoutingIdentityFromProductionV1({ event, sourceResult })
@@ -6713,7 +6934,32 @@ export const executeLifecycleOrchestratorV1 = async ({
   }
 }
 
-export const executeRoleTransitionOrchestratorV1 = async ({ event, host, runId, runAttempt = null, hostSha = null, jobName = null }) => {
+const bindPublishedReviewingRoleThreadActionV1 = ({ normalized, ownerDispatch, ownerResult }) => {
+  const semanticAction = normalized.parsedReview.review.thread_actions[0]
+  if (
+    !ownerDispatch || !ownerResult ||
+    ownerDispatch.next_action !== 'INDEPENDENT_IMPLEMENTATION_REVIEWER' ||
+    ownerDispatch.purpose !== 'INDEPENDENT_IMPLEMENTATION_REVIEWER' ||
+    ownerDispatch.repository !== normalized.repository ||
+    ownerDispatch.task_issue_number !== normalized.taskIssueNumber ||
+    ownerDispatch.pr_number !== normalized.parsedReview.prNumber ||
+    ownerDispatch.exact_head !== normalized.parsedReview.exactHead ||
+    ownerResult.state !== 'READY' || ownerResult.allowed !== false || ownerResult.exit_code !== 0 ||
+    ownerResult.reason !== 'review_result_valid' || ownerResult.next_action !== 'POST_REVIEW' ||
+    ownerResult.mutation_count !== 0 || ownerResult.comment_body !== normalized.parsedReview.reviewBody ||
+    JSON.stringify(ownerResult.thread_action) !== JSON.stringify(semanticAction)
+  ) return null
+  return normalizeReviewThreadActionV1(Object.freeze({
+    ...semanticAction,
+    review_decision_comment_id: normalized.commentId,
+    review_decision_url: normalized.parsedReview.commentUrl,
+  }))
+}
+
+export const executeRoleTransitionOrchestratorV1 = async ({
+  event, host, runId, runAttempt = null, hostSha = null, jobName = null,
+  reviewingRoleDispatch = null, reviewingRoleOwnerResult = null,
+}) => {
   let normalized
   let request
   try {
@@ -6729,6 +6975,42 @@ export const executeRoleTransitionOrchestratorV1 = async ({ event, host, runId, 
       return executeMinimalGovernanceV1({ event, host, runId, runAttempt, hostSha, jobName })
     }
     normalized = normalizeRoleTransitionEventV1(event)
+    if (normalized.parsedReview?.review.thread_actions.length === 1) {
+      request = Object.freeze({
+        transition: 'role_transition_orchestrator_v1',
+        repository: normalized.repository,
+        taskIssueNumber: normalized.taskIssueNumber,
+        prNumber: normalized.parsedReview.prNumber,
+        exactHead: normalized.parsedReview.exactHead,
+      })
+      const finalAction = bindPublishedReviewingRoleThreadActionV1({
+        normalized,
+        ownerDispatch: reviewingRoleDispatch,
+        ownerResult: reviewingRoleOwnerResult,
+      })
+      if (finalAction === null) {
+        return roleStopV1(request, 'INDETERMINATE', 'review_thread_action_owner_missing')
+      }
+      const effective = await resolveEffectiveReviewDecisionV1({ request, parsedEvent: normalized.parsedReview, host })
+      if (effective.commentId !== normalized.commentId) {
+        return roleStopV1(request, 'INDETERMINATE', 'review_event_superseded')
+      }
+      return Object.freeze({
+        transition: 'role_transition_orchestrator_v1',
+        state: 'READY',
+        allowed: false,
+        exit_code: 0,
+        reason: 'review_thread_action_admitted',
+        task_issue_number: request.taskIssueNumber,
+        pr_number: request.prNumber,
+        current_head: request.exactHead,
+        automation_status: 'HANDOFF_READY',
+        next_action: 'THREAD_RESOLUTION',
+        mutation_count: 0,
+        source_comment_id: normalized.commentId,
+        thread_action: finalAction,
+      })
+    }
     if (['APPROVE', 'CHANGES_REQUIRED', 'BLOCKED'].includes(normalized.terminalResult)) {
       const result = await executeReviewApprovalAutomationV1({ event, host, runId })
       const terminalResult = normalized.terminalResult
@@ -6948,8 +7230,26 @@ const parseManualCli = (argv, environment) => {
 }
 
 const parseInvocation = (argv, environment) => {
+  if (
+    argv.length === 6 &&
+    argv[0] === '--review-event-file' && typeof argv[1] === 'string' && argv[1].length > 0 &&
+    argv[2] === '--review-owner-dispatch-file' && typeof argv[3] === 'string' && argv[3].length > 0 &&
+    argv[4] === '--review-owner-result-file' && typeof argv[5] === 'string' && argv[5].length > 0
+  ) {
+    return Object.freeze({
+      mode: 'review_event',
+      eventFile: argv[1],
+      reviewOwnerDispatchFile: argv[3],
+      reviewOwnerResultFile: argv[5],
+    })
+  }
   if (argv.length === 2 && argv[0] === '--review-event-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
-    return Object.freeze({ mode: 'review_event', eventFile: argv[1] })
+    return Object.freeze({
+      mode: 'review_event',
+      eventFile: argv[1],
+      reviewOwnerDispatchFile: null,
+      reviewOwnerResultFile: null,
+    })
   }
   if (argv.length === 2 && argv[0] === '--ready-event-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
     return Object.freeze({ mode: 'ready_event', eventFile: argv[1] })
@@ -6959,6 +7259,9 @@ const parseInvocation = (argv, environment) => {
   }
   if (argv.length === 2 && argv[0] === '--role-dispatch-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
     return Object.freeze({ mode: 'role_dispatch', dispatchFile: argv[1] })
+  }
+  if (argv.length === 2 && argv[0] === '--review-closure-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
+    return Object.freeze({ mode: 'review_closure', actionFile: argv[1] })
   }
   if (
     [4, 6, 8].includes(argv.length) && argv[0] === '--role-rebind-file' && typeof argv[1] === 'string' && argv[1].length > 0 &&
@@ -7197,6 +7500,7 @@ const lifecycleDiagnosticProjectionV1 = (projection) => Object.freeze({
   next_action: projection.next_action,
   execution_stop_reason: projection.reason,
   mutation_count: projection.mutation_count,
+  ...(projection.next_action === 'THREAD_RESOLUTION' ? { thread_action: projection.thread_action } : {}),
 })
 
 const withLifecycleDiagnosticProjectionV1 = (result, projection) => Object.freeze({
@@ -7204,8 +7508,15 @@ const withLifecycleDiagnosticProjectionV1 = (result, projection) => Object.freez
   lifecycle_projection: lifecycleDiagnosticProjectionV1(projection),
 })
 
-export const executeReviewEventWithLifecycleReplayV1 = async ({ event, host, runId, runAttempt, hostSha, jobName }) => {
-  const result = await executeRoleTransitionOrchestratorV1({ event, host, runId, runAttempt, hostSha, jobName })
+export const executeReviewEventWithLifecycleReplayV1 = async ({
+  event, host, runId, runAttempt, hostSha, jobName,
+  reviewingRoleDispatch = null, reviewingRoleOwnerResult = null,
+}) => {
+  const result = await executeRoleTransitionOrchestratorV1({
+    event, host, runId, runAttempt, hostSha, jobName,
+    reviewingRoleDispatch,
+    reviewingRoleOwnerResult,
+  })
   if (isMinimalGovernanceCandidateV1(event?.comment?.body)) return result
   const lifecycleProjection = await executeLifecycleOrchestratorV1({
     event, sourceResult: result, host,
@@ -7229,14 +7540,20 @@ const main = async () => {
     invocation = parseInvocation(process.argv.slice(2), process.env)
     const host = productionHost(process.env)
     const executeProduction = async (executionHost = host) => invocation.mode === 'review_event'
-      ? await executeReviewEventWithLifecycleReplayV1({
-          event: JSON.parse(readFileSync(invocation.eventFile, 'utf8')),
-          host: executionHost,
-          runId: process.env.GITHUB_RUN_ID,
-          runAttempt: Number(process.env.GITHUB_RUN_ATTEMPT),
-          hostSha: process.env.GITHUB_WORKFLOW_SHA ?? null,
-          jobName: process.env.GITHUB_JOB ?? null,
-        })
+        ? await executeReviewEventWithLifecycleReplayV1({
+            event: JSON.parse(readFileSync(invocation.eventFile, 'utf8')),
+            host: executionHost,
+            runId: process.env.GITHUB_RUN_ID,
+            runAttempt: Number(process.env.GITHUB_RUN_ATTEMPT),
+            hostSha: process.env.GITHUB_WORKFLOW_SHA ?? null,
+            jobName: process.env.GITHUB_JOB ?? null,
+            reviewingRoleDispatch: invocation.reviewOwnerDispatchFile === null
+              ? null
+              : readJsonFileV1(invocation.reviewOwnerDispatchFile),
+            reviewingRoleOwnerResult: invocation.reviewOwnerResultFile === null
+              ? null
+              : readJsonFileV1(invocation.reviewOwnerResultFile),
+          })
       : invocation.mode === 'ready_event'
         ? await executeReadyEventWithLifecycleReplayV1({
             event: JSON.parse(readFileSync(invocation.eventFile, 'utf8')),
@@ -7257,6 +7574,11 @@ const main = async () => {
                 dispatch: readJsonFileV1(invocation.dispatchFile),
                 host: executionHost,
               })
+            : invocation.mode === 'review_closure'
+              ? await executeReviewThreadClosureV1({
+                  action: readJsonFileV1(invocation.actionFile),
+                  host: executionHost,
+                })
             : invocation.mode === 'role_rebind'
               ? await executeRoleDispatchRebindV1({
                   dispatch: readJsonFileV1(invocation.dispatchFile),
