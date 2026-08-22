@@ -569,20 +569,22 @@ export const resolveEffectiveReviewDecisionV1 = async ({ request, parsedEvent, h
   return confirmed
 }
 
-const acquireEffectiveReviewDecisionV1 = async ({ request, host }) => {
-  const comments = []
-  const pageFingerprints = new Set()
-  let pageCount = 0
-  for (let pageNumber = 1; pageNumber <= 32; pageNumber += 1) {
-    const page = await api(host, `repos/${request.repository}/issues/${request.taskIssueNumber}/comments?sort=created&direction=asc&per_page=${PAGE_SIZE}&page=${pageNumber}`)
-    if (!Array.isArray(page) || page.length > PAGE_SIZE) throw new Error('review_decision_page_invalid')
-    const fingerprint = JSON.stringify(page.map((comment) => [comment?.id, comment?.created_at, comment?.author_association, comment?.body]))
-    if (page.length > 0 && pageFingerprints.has(fingerprint)) throw new Error('review_decision_page_repeated')
-    pageFingerprints.add(fingerprint)
-    comments.push(...page)
-    pageCount = pageNumber
-    if (page.length < PAGE_SIZE) break
-    if (pageNumber === 32) throw new Error('review_decision_terminal_page_missing')
+const acquireEffectiveReviewDecisionV1 = async ({ request, host, history = null }) => {
+  const comments = history === null ? [] : [...history.comments]
+  let pageCount = history?.page_count ?? 0
+  if (history === null) {
+    const pageFingerprints = new Set()
+    for (let pageNumber = 1; pageNumber <= 32; pageNumber += 1) {
+      const page = await api(host, `repos/${request.repository}/issues/${request.taskIssueNumber}/comments?sort=created&direction=asc&per_page=${PAGE_SIZE}&page=${pageNumber}`)
+      if (!Array.isArray(page) || page.length > PAGE_SIZE) throw new Error('review_decision_page_invalid')
+      const fingerprint = JSON.stringify(page.map((comment) => [comment?.id, comment?.created_at, comment?.author_association, comment?.body]))
+      if (page.length > 0 && pageFingerprints.has(fingerprint)) throw new Error('review_decision_page_repeated')
+      pageFingerprints.add(fingerprint)
+      comments.push(...page)
+      pageCount = pageNumber
+      if (page.length < PAGE_SIZE) break
+      if (pageNumber === 32) throw new Error('review_decision_terminal_page_missing')
+    }
   }
   const selected = reduceCurrentLeafIndependentReviewDecisionV1({
     comments,
@@ -3736,7 +3738,14 @@ const parseRoleUrlNumberV1 = (value, prefix, reason = 'terminal_result_ambiguous
 }
 
 const roleMarkdownScalarV1 = (value) => {
-  const trimmed = value.trim().replace(/^`|`$/g, '')
+  let trimmed = value.trim().replace(/^`|`$/g, '')
+  if (trimmed.startsWith('"') || trimmed.endsWith('"')) {
+    if (!/^"[^"\\\u0000-\u001f\u007f]*"$/.test(trimmed)) throw new Error('terminal_result_ambiguous_or_invalid')
+    trimmed = trimmed.slice(1, -1)
+  } else if (trimmed.startsWith("'") || trimmed.endsWith("'")) {
+    if (!/^'[^'\u0000-\u001f\u007f]*'$/.test(trimmed)) throw new Error('terminal_result_ambiguous_or_invalid')
+    trimmed = trimmed.slice(1, -1)
+  }
   if (trimmed.length === 0 || trimmed.length > 4096 || /[\u0000-\u001f\u007f]/.test(trimmed)) {
     throw new Error('terminal_result_ambiguous_or_invalid')
   }
@@ -5214,6 +5223,1486 @@ const parseRolePublicationHandoffV1 = (body) => {
 
 const sameRolePathsV1 = (left, right) => Array.isArray(left) && Array.isArray(right) && left.join('\n') === right.join('\n')
 
+const LIFECYCLE_BODY_SHA256_V1 = /^[0-9a-f]{64}$/
+const LIFECYCLE_EVIDENCE_STATES_V1 = new Set(['PRESENT', 'MISSING', 'INCOMPLETE'])
+const lifecycleCompletionEvidenceBrandV1 = new WeakSet()
+
+const lifecycleSortedPathsV1 = (value) => {
+  if (!Array.isArray(value) || value.some((item) => !isNormalizedRepositoryPathV1(item))) {
+    throw new Error('lifecycle_path_set_invalid')
+  }
+  const sorted = [...value].sort()
+  if (new Set(sorted).size !== sorted.length) throw new Error('lifecycle_path_set_invalid')
+  return Object.freeze(sorted)
+}
+
+const lifecycleCanonicalValueV1 = (value) => {
+  if (Array.isArray(value)) return value.map(lifecycleCanonicalValueV1)
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, lifecycleCanonicalValueV1(value[key])]))
+  }
+  if (value === null || ['string', 'number', 'boolean'].includes(typeof value)) return value
+  throw new Error('lifecycle_snapshot_invalid')
+}
+
+const lifecycleSameValueV1 = (left, right) =>
+  JSON.stringify(lifecycleCanonicalValueV1(left)) === JSON.stringify(lifecycleCanonicalValueV1(right))
+
+const validateLifecycleReplaySnapshotV1 = (input) => {
+  if (
+    !input || typeof input !== 'object' || Array.isArray(input) ||
+    !REPOSITORY.test(input.repository ?? '') || !positiveInteger(input.task_issue_number) ||
+    !positiveInteger(input.pr_number) || input.target_branch !== 'main' ||
+    !FULL_HEAD.test(input.exact_head ?? '') || !FULL_HEAD.test(input.current_head ?? '') ||
+    !FULL_HEAD.test(input.current_base ?? '') || !['open', 'closed'].includes(input.pull_state) ||
+    typeof input.pull_draft !== 'boolean' || typeof input.pull_merged !== 'boolean' ||
+    ![true, false, null].includes(input.mergeable)
+  ) throw new Error('lifecycle_snapshot_invalid')
+
+  const changedPaths = lifecycleSortedPathsV1(input.changed_paths)
+  const authorizedPaths = input.authorized_paths === null ? null : lifecycleSortedPathsV1(input.authorized_paths)
+  const scopeContract = input.scope_contract
+  if (scopeContract !== null && (
+    typeof scopeContract !== 'object' ||
+    typeof scopeContract.authority_id !== 'string' || scopeContract.authority_id.length === 0 ||
+    !LIFECYCLE_BODY_SHA256_V1.test(scopeContract.body_sha256 ?? '')
+  )) throw new Error('lifecycle_scope_binding_invalid')
+  if (scopeContract?.kind === 'PUBLICATION_CHAIN' && (
+    !positiveInteger(scopeContract.result_handoff_comment_id) ||
+    !positiveInteger(scopeContract.task_assignment_comment_id) ||
+    !LIFECYCLE_BODY_SHA256_V1.test(scopeContract.task_assignment_body_sha256 ?? '') ||
+    !positiveInteger(scopeContract.publication_authority_comment_id) ||
+    !FULL_HEAD.test(scopeContract.authorized_parent ?? '') || !FULL_HEAD.test(scopeContract.published_head ?? '') ||
+    scopeContract.commit_parent !== scopeContract.authorized_parent || scopeContract.remote_head !== scopeContract.published_head ||
+    scopeContract.pr_head !== scopeContract.published_head || scopeContract.published_head !== input.exact_head ||
+    scopeContract.pr_head !== input.current_head || !sameRolePathsV1(authorizedPaths, changedPaths) ||
+    !LIFECYCLE_BODY_SHA256_V1.test(scopeContract.result_handoff_body_sha256 ?? '') ||
+    !LIFECYCLE_BODY_SHA256_V1.test(scopeContract.publication_chain_sha256 ?? '')
+  )) throw new Error('lifecycle_scope_binding_invalid')
+
+  const evidenceStatus = input.evidence_status
+  if (
+    !evidenceStatus || typeof evidenceStatus !== 'object' ||
+    !LIFECYCLE_EVIDENCE_STATES_V1.has(evidenceStatus.validation) ||
+    !LIFECYCLE_EVIDENCE_STATES_V1.has(evidenceStatus.authority) ||
+    !LIFECYCLE_EVIDENCE_STATES_V1.has(evidenceStatus.review) ||
+    !LIFECYCLE_EVIDENCE_STATES_V1.has(evidenceStatus.checks)
+  ) throw new Error('lifecycle_evidence_status_invalid')
+
+  let validation = null
+  if (input.validation !== null) {
+    validation = input.validation
+    if (
+      !validation || typeof validation !== 'object' || validation.status !== 'PASS' ||
+      !FULL_HEAD.test(validation.exact_head ?? '') || !FULL_HEAD.test(validation.current_base ?? '') ||
+      typeof validation.profile !== 'string' || validation.profile.length === 0 ||
+      !Array.isArray(validation.commands) || validation.commands.length === 0 ||
+      validation.commands.some((command) => typeof command !== 'string' || command.length === 0) ||
+      !Array.isArray(validation.input_revisions) || validation.input_revisions.length === 0 ||
+      validation.input_revisions.some((revision) => typeof revision !== 'string' || revision.length === 0)
+    ) throw new Error('lifecycle_validation_evidence_invalid')
+    if (validation.reuse_kind === 'PUBLICATION_CHAIN' && (
+      !FULL_HEAD.test(validation.publication_applicable_head ?? '') ||
+      !LIFECYCLE_BODY_SHA256_V1.test(validation.publication_chain_sha256 ?? '') ||
+      validation.exact_head === validation.publication_applicable_head ||
+      validation.exact_head !== scopeContract?.authorized_parent ||
+      validation.publication_applicable_head !== input.exact_head ||
+      validation.publication_chain_sha256 !== scopeContract?.publication_chain_sha256
+    )) throw new Error('lifecycle_validation_evidence_invalid')
+    validation = Object.freeze({ ...validation, paths: lifecycleSortedPathsV1(validation.paths), commands: Object.freeze([...validation.commands]), input_revisions: Object.freeze([...validation.input_revisions]) })
+  }
+
+  let review = null
+  if (input.review !== null) {
+    review = input.review
+    if (
+      !review || typeof review !== 'object' || !positiveInteger(review.comment_id) ||
+      !FULL_HEAD.test(review.reviewed_head ?? '') || !['APPROVE', 'CHANGES_REQUIRED'].includes(review.decision) ||
+      !nonNegativeInteger(review.blocking_finding_count) || !nonNegativeInteger(review.remaining_finding_count) ||
+      !nonNegativeInteger(review.unknown_count)
+    ) throw new Error('lifecycle_review_evidence_invalid')
+    review = Object.freeze({ ...review })
+  }
+
+  if (!Array.isArray(input.checks)) throw new Error('lifecycle_checks_invalid')
+  const checkIds = new Set()
+  const checks = Object.freeze(input.checks.map((check) => {
+    if (
+      !check || typeof check !== 'object' || typeof check.id !== 'string' || check.id.length === 0 ||
+      checkIds.has(check.id) || !FULL_HEAD.test(check.exact_head ?? '') ||
+      !['QUEUED', 'IN_PROGRESS', 'COMPLETED'].includes(check.status) ||
+      (check.conclusion !== null && typeof check.conclusion !== 'string') ||
+      typeof check.provenance !== 'string' || check.provenance.length === 0
+    ) throw new Error('lifecycle_checks_invalid')
+    checkIds.add(check.id)
+    return Object.freeze({ ...check })
+  }))
+
+  let readyEvidence = null
+  if (input.ready_evidence !== null) {
+    readyEvidence = input.ready_evidence
+    if (
+      !readyEvidence || typeof readyEvidence !== 'object' ||
+      !exactObjectKeysV1(readyEvidence, [
+        'event_id', 'repository', 'task_issue_number', 'pr_number', 'exact_head', 'review_comment_id',
+        'event', 'action', 'run_id', 'run_attempt', 'workflow_id', 'workflow_path', 'check_suite_id',
+        'terminal_contract', 'terminal_result_sha256', 'provenance_sha256',
+      ]) ||
+      typeof readyEvidence.event_id !== 'string' || readyEvidence.event_id.length === 0 ||
+      readyEvidence.repository !== input.repository || readyEvidence.task_issue_number !== input.task_issue_number ||
+      readyEvidence.pr_number !== input.pr_number ||
+      !FULL_HEAD.test(readyEvidence.exact_head ?? '') ||
+      !positiveInteger(readyEvidence.review_comment_id) || readyEvidence.event !== 'pull_request' ||
+      readyEvidence.action !== 'ready_for_review' || !WORKFLOW_RUN_ID.test(readyEvidence.run_id ?? '') ||
+      !positiveInteger(readyEvidence.run_attempt) || !WORKFLOW_RUN_ID.test(readyEvidence.workflow_id ?? '') ||
+      readyEvidence.workflow_path !== HISTORICAL_LEGACY_RTO_WORKFLOW_PATH_V1 ||
+      !WORKFLOW_RUN_ID.test(readyEvidence.check_suite_id ?? '') ||
+      typeof readyEvidence.terminal_contract !== 'string' || readyEvidence.terminal_contract.length === 0 ||
+      !LIFECYCLE_BODY_SHA256_V1.test(readyEvidence.terminal_result_sha256 ?? '') ||
+      !LIFECYCLE_BODY_SHA256_V1.test(readyEvidence.provenance_sha256 ?? '')
+    ) throw new Error('lifecycle_ready_evidence_invalid')
+    readyEvidence = Object.freeze({ ...readyEvidence })
+  }
+
+  let authority = null
+  if (input.authority !== null) {
+    authority = input.authority
+    if (!authority || typeof authority !== 'object' || authority.kind !== 'PUBLICATION_AUTHORITY') {
+      throw new Error('lifecycle_authority_invalid')
+    }
+    if (
+      typeof authority.id !== 'string' || !positiveInteger(Number(authority.id)) ||
+      authority.comment_id !== Number(authority.id) ||
+      authority.source_url !== `https://github.com/${input.repository}/issues/${input.task_issue_number}#issuecomment-${authority.comment_id}` ||
+      !LIFECYCLE_BODY_SHA256_V1.test(authority.body_sha256 ?? '') || !FULL_HEAD.test(authority.exact_head ?? '') ||
+      authority.pr_number !== input.pr_number ||
+      !positiveInteger(authority.result_comment_id) ||
+      authority.result_source_url !== `https://github.com/${input.repository}/issues/${input.task_issue_number}#issuecomment-${authority.result_comment_id}` ||
+      !LIFECYCLE_BODY_SHA256_V1.test(authority.result_body_sha256 ?? '')
+    ) throw new Error('lifecycle_authority_invalid')
+    authority = Object.freeze({ ...authority, paths: lifecycleSortedPathsV1(authority.paths) })
+  }
+
+  return Object.freeze({
+    repository: input.repository,
+    task_issue_number: input.task_issue_number,
+    pr_number: input.pr_number,
+    target_branch: input.target_branch,
+    exact_head: input.exact_head,
+    current_head: input.current_head,
+    current_base: input.current_base,
+    pull_state: input.pull_state,
+    pull_draft: input.pull_draft,
+    pull_merged: input.pull_merged,
+    mergeable: input.mergeable,
+    changed_paths: changedPaths,
+    authorized_paths: authorizedPaths,
+    scope_contract: scopeContract === null ? null : Object.freeze({ ...scopeContract }),
+    evidence_status: Object.freeze({ ...evidenceStatus }),
+    validation,
+    review,
+    checks,
+    ready_evidence: readyEvidence,
+    authority,
+  })
+}
+
+const lifecycleEquivalenceTupleV1 = (snapshot, completionEvidenceIdentity = 'NONE') => Object.freeze({
+  repository: snapshot.repository,
+  task_issue_number: snapshot.task_issue_number,
+  pr_number: snapshot.pr_number,
+  exact_head: snapshot.exact_head,
+  target_branch: snapshot.target_branch,
+  changed_paths: snapshot.changed_paths,
+  authorized_paths: snapshot.authorized_paths,
+  scope_contract: snapshot.scope_contract,
+  validation: snapshot.validation,
+  review: snapshot.review,
+  checks: snapshot.checks,
+  ready_evidence: snapshot.ready_evidence,
+  authority: snapshot.authority,
+  evidence_status: snapshot.evidence_status,
+  completion_evidence: completionEvidenceIdentity,
+  pull: Object.freeze({ state: snapshot.pull_state, draft: snapshot.pull_draft, merged: snapshot.pull_merged, mergeable: snapshot.mergeable }),
+})
+
+const lifecycleTupleDigestV1 = (snapshot, completionEvidenceIdentity = 'NONE') => createHash('sha256')
+  .update(Buffer.from(JSON.stringify(lifecycleCanonicalValueV1(lifecycleEquivalenceTupleV1(snapshot, completionEvidenceIdentity))), 'utf8'))
+  .digest('hex')
+
+const lifecycleProjectionV1 = (snapshot, phase, state, reason, nextAction, automationStatus = 'HANDOFF_READY') => Object.freeze({
+  transition: 'lifecycle_orchestrator_v1',
+  state,
+  allowed: false,
+  exit_code: nextAction === 'STOP' ? 1 : 0,
+  reason,
+  task_issue_number: snapshot?.task_issue_number ?? null,
+  pr_number: snapshot?.pr_number ?? null,
+  current_head: snapshot?.current_head ?? null,
+  phase,
+  automation_status: automationStatus,
+  next_action: nextAction,
+  mutation_count: 0,
+})
+
+const lifecycleConvergedProjectionV1 = (snapshot, projection, completionEvidence) => {
+  if (projection.next_action === 'STOP' || projection.next_action === 'CONVERGED_NOOP') return projection
+  if (
+    !completionEvidence || typeof completionEvidence !== 'object' || !lifecycleCompletionEvidenceBrandV1.has(completionEvidence) ||
+    completionEvidence.action !== projection.next_action || completionEvidence.repository !== snapshot.repository ||
+    completionEvidence.task_issue_number !== snapshot.task_issue_number || completionEvidence.pr_number !== snapshot.pr_number ||
+    completionEvidence.exact_head !== snapshot.exact_head ||
+    !sameRolePathsV1(completionEvidence.scope, snapshot.changed_paths) ||
+    completionEvidence.snapshot_digest !== lifecycleTupleDigestV1(snapshot) ||
+    completionEvidence.completion_tuple_digest !== lifecycleTupleDigestV1(snapshot, completionEvidence.identity)
+  ) return projection
+  return lifecycleProjectionV1(snapshot, projection.phase, 'COMPLETED', 'lifecycle_evidence_converged', 'CONVERGED_NOOP', 'COMPLETED_NOOP')
+}
+
+export const acquireLifecycleCompletionEvidenceV1 = async ({
+  snapshot: input, publishedGeneration, candidateAction, evidenceKind, sourceCommentId, host,
+}) => {
+  try {
+    const snapshot = validateLifecycleReplaySnapshotV1(input)
+    const publicationChain = publishedGeneration?.scopeContract
+    if (
+      candidateAction !== 'COMMIT_PUSH_PUBLISH' || evidenceKind !== 'PUBLICATION_HANDOFF_V1' ||
+      !positiveInteger(sourceCommentId) || snapshot.authority?.kind !== 'PUBLICATION_AUTHORITY' ||
+      publishedGeneration?.status !== 'PRESENT' || publicationChain?.kind !== 'PUBLICATION_CHAIN' ||
+      publishedGeneration.validation?.reuse_kind !== 'PUBLICATION_CHAIN' ||
+      publishedGeneration.validation.publication_chain_sha256 !== publicationChain.publication_chain_sha256 ||
+      snapshot.scope_contract?.publication_chain_sha256 !== publicationChain.publication_chain_sha256 ||
+      snapshot.validation?.publication_chain_sha256 !== publicationChain.publication_chain_sha256 ||
+      !sameRolePathsV1(publishedGeneration.authorizedPaths, snapshot.changed_paths)
+    ) throw new Error('lifecycle_completion_evidence_invalid')
+    const direct = await fetchRoleCommentRecordV1(snapshot.repository, snapshot.task_issue_number, sourceCommentId, host)
+    const publication = parseRolePublicationHandoffV1(direct.body)
+    if (
+      publication.prNumber !== snapshot.pr_number || publication.exactHead !== snapshot.exact_head ||
+      publication.authorityCommentId !== publicationChain.publication_authority_comment_id ||
+      publication.parentHead !== publicationChain.authorized_parent ||
+      !sameRolePathsV1(publication.paths, snapshot.changed_paths) ||
+      !sameRolePathsV1(publication.paths, publishedGeneration.authorizedPaths) ||
+      typeof direct.user?.login !== 'string' || !positiveInteger(direct.user?.id) || typeof direct.user?.type !== 'string'
+    ) throw new Error('lifecycle_completion_evidence_invalid')
+    const bodySha256 = createHash('sha256').update(Buffer.from(direct.body, 'utf8')).digest('hex')
+    const sourceUrl = `https://github.com/${snapshot.repository}/issues/${snapshot.task_issue_number}#issuecomment-${sourceCommentId}`
+    const identity = Object.freeze({
+      kind: evidenceKind,
+      source_url: sourceUrl,
+      source_comment_id: sourceCommentId,
+      action: candidateAction,
+      authority_comment_id: publication.authorityCommentId,
+      parent_head: publication.parentHead,
+      published_head: publication.exactHead,
+      remote_branch: publishedGeneration.remoteBranch,
+      source_actor: `${direct.user.login}:${direct.user.id}:${direct.user.type}:${direct.author_association}`,
+      authority_body_sha256: publicationChain.body_sha256,
+      result_body_sha256: publicationChain.result_handoff_body_sha256,
+      body_sha256: bodySha256,
+    })
+    const evidence = Object.freeze({
+      ...identity,
+      identity,
+      repository: snapshot.repository,
+      task_issue_number: snapshot.task_issue_number,
+      pr_number: snapshot.pr_number,
+      exact_head: snapshot.exact_head,
+      scope: snapshot.changed_paths,
+      snapshot_digest: lifecycleTupleDigestV1(snapshot),
+      completion_tuple_digest: lifecycleTupleDigestV1(snapshot, identity),
+    })
+    lifecycleCompletionEvidenceBrandV1.add(evidence)
+    return evidence
+  } catch {
+    throw new Error('lifecycle_completion_evidence_invalid')
+  }
+}
+
+export const reduceLifecycleReplayV1 = (input, completionEvidence = null) => {
+  let snapshot
+  try {
+    snapshot = validateLifecycleReplaySnapshotV1(input)
+  } catch (error) {
+    return lifecycleProjectionV1(input, 'ACQUIRE', 'INDETERMINATE', error instanceof Error ? error.message : 'lifecycle_snapshot_invalid', 'STOP', 'BLOCKED')
+  }
+  const project = (phase, state, reason, nextAction, automationStatus = 'HANDOFF_READY') =>
+    lifecycleConvergedProjectionV1(snapshot, lifecycleProjectionV1(snapshot, phase, state, reason, nextAction, automationStatus), completionEvidence)
+
+  if (snapshot.current_head !== snapshot.exact_head) return project('ACQUIRE', 'STALE', 'head_binding_stale', 'STOP', 'BLOCKED')
+  if (snapshot.pull_merged) return project('POST_MERGE', 'COMPLETED', 'already_merged', 'ISSUE_CLOSE_CANDIDATE')
+  if (snapshot.pull_state === 'closed') return project('ACQUIRE', 'INDETERMINATE', 'lifecycle_pr_closed_unmerged', 'STOP', 'BLOCKED')
+  if (snapshot.target_branch !== 'main') return project('ACQUIRE', 'INDETERMINATE', 'pull_binding_invalid', 'STOP', 'BLOCKED')
+  if (snapshot.evidence_status.authority === 'INCOMPLETE') {
+    return project('MERGE_DECISION', 'INDETERMINATE', 'publication_authority_evidence_incomplete', 'STOP', 'BLOCKED')
+  }
+  if (snapshot.authority?.kind === 'PUBLICATION_AUTHORITY' && lifecycleCompletionEvidenceBrandV1.has(completionEvidence)) {
+    const converged = project('PUBLICATION', 'READY', 'publication_authority_observed', 'COMMIT_PUSH_PUBLISH')
+    if (converged.next_action === 'CONVERGED_NOOP') return converged
+  }
+  if (snapshot.evidence_status.validation === 'INCOMPLETE') {
+    return project('VALIDATION', 'INDETERMINATE', 'lifecycle_validation_evidence_invalid', 'STOP', 'BLOCKED')
+  }
+  if (snapshot.authorized_paths === null || snapshot.scope_contract === null) {
+    return project('VALIDATION', 'INDETERMINATE', 'architecture_gap_scope_owner_missing', 'STOP', 'BLOCKED')
+  }
+  if (snapshot.changed_paths.some((pathValue) => !snapshot.authorized_paths.includes(pathValue))) {
+    return project('VALIDATION', 'IMPLEMENTATION_BLOCKED', 'repair_scope_outside_authorized_paths', 'STOP', 'BLOCKED')
+  }
+  const validationDirect = snapshot.validation !== null &&
+    snapshot.validation.exact_head === snapshot.exact_head && snapshot.validation.current_base === snapshot.current_base
+  const validationReusedAcrossPublication = snapshot.validation !== null &&
+    snapshot.validation.reuse_kind === 'PUBLICATION_CHAIN' && snapshot.scope_contract?.kind === 'PUBLICATION_CHAIN' &&
+    snapshot.validation.exact_head === snapshot.scope_contract.authorized_parent &&
+    snapshot.validation.publication_applicable_head === snapshot.exact_head &&
+    snapshot.validation.publication_chain_sha256 === snapshot.scope_contract.publication_chain_sha256
+  const validationCurrent = (validationDirect || validationReusedAcrossPublication) &&
+    sameRolePathsV1(snapshot.validation.paths, snapshot.changed_paths)
+  if (!validationCurrent) return project('VALIDATION', 'REVIEW_PENDING', 'fresh_validation_required', 'VALIDATE_IMPLEMENTATION')
+
+  if (snapshot.evidence_status.review === 'INCOMPLETE') {
+    return project('REVIEW', 'INDETERMINATE', 'review_evidence_incomplete', 'STOP', 'BLOCKED')
+  }
+  const reviewCurrent = snapshot.review !== null && snapshot.review.reviewed_head === snapshot.exact_head
+  if (!reviewCurrent) return project('REVIEW', 'REVIEW_PENDING', 'fresh_review_required', 'INDEPENDENT_IMPLEMENTATION_REVIEWER')
+
+  if (snapshot.review.decision === 'CHANGES_REQUIRED') {
+    return project('IMPLEMENTATION', 'REVIEW_BLOCKED', 'review_correction_required', 'IMPLEMENTER')
+  }
+  if (
+    snapshot.review.decision !== 'APPROVE' || snapshot.review.blocking_finding_count !== 0 ||
+    snapshot.review.remaining_finding_count !== 0 || snapshot.review.unknown_count !== 0
+  ) return project('REVIEW', 'REVIEW_BLOCKED', 'review_not_approved', 'STOP', 'BLOCKED')
+
+  if (snapshot.evidence_status.checks !== 'PRESENT' || snapshot.checks.length === 0) return project('READY', 'INDETERMINATE', 'external_checks_missing', 'STOP', 'BLOCKED')
+  if (snapshot.checks.some((check) => check.exact_head !== snapshot.exact_head)) return project('READY', 'STALE', 'check_head_binding_stale', 'STOP', 'BLOCKED')
+  if (snapshot.checks.some((check) => check.status !== 'COMPLETED')) return project('READY', 'INDETERMINATE', 'external_checks_pending', 'STOP', 'BLOCKED')
+  if (snapshot.checks.some((check) => check.conclusion !== 'SUCCESS')) return project('READY', 'INDETERMINATE', 'external_checks_failed', 'STOP', 'BLOCKED')
+
+  if (snapshot.pull_draft) return project('READY', 'READY', 'ready_transition_required', 'READY_TRANSITION_REQUIRED')
+  if (snapshot.ready_evidence === null || snapshot.ready_evidence.exact_head !== snapshot.exact_head || snapshot.ready_evidence.review_comment_id !== snapshot.review.comment_id) {
+    return project('READY', 'STALE', 'stale_ready_evidence', 'STOP', 'BLOCKED')
+  }
+  if (snapshot.mergeable !== true) return project('MERGE_DECISION', 'INDETERMINATE', 'pull_not_mergeable', 'STOP', 'BLOCKED')
+  if (snapshot.authority === null) return project('MERGE_DECISION', 'MERGE_ELIGIBLE', 'merge_decision_required', 'MERGE_DECISION')
+  if (
+    snapshot.authority.exact_head !== snapshot.exact_head ||
+    !sameRolePathsV1(snapshot.authority.paths, snapshot.changed_paths)
+  ) return project('MERGE_DECISION', 'STALE', 'authority_binding_stale', 'STOP', 'BLOCKED')
+  return project('PUBLICATION', 'READY', 'publication_authority_observed', 'COMMIT_PUSH_PUBLISH')
+}
+
+const lifecycleRoutingIdentityFromProductionV1 = ({ event, sourceResult }) => {
+  const repository = event?.repository?.full_name
+  let prNumber = sourceResult?.pr_number ?? event?.pull_request?.number
+  let exactHead = sourceResult?.current_head ?? event?.pull_request?.head?.sha
+  if (event?.action === 'created' && isLifecyclePublicationAuthorityCandidateV1(event?.comment?.body)) {
+    const authority = parseRolePublicationAuthorityV1(event.comment.body, repository, event?.issue?.number)
+    prNumber = authority.prNumber
+    exactHead = authority.exactHead
+  }
+  if (!REPOSITORY.test(repository ?? '') || !positiveInteger(prNumber) || !FULL_HEAD.test(exactHead ?? '')) {
+    throw new Error('lifecycle_production_identity_invalid')
+  }
+  return Object.freeze({ repository, prNumber, exactHead })
+}
+
+const resolveLifecycleProductionIdentityV1 = async ({ event, sourceResult, host }) => {
+  const routing = lifecycleRoutingIdentityFromProductionV1({ event, sourceResult })
+  if (event?.action === 'ready_for_review' && event?.pull_request?.number === routing.prNumber) {
+    if (!positiveInteger(sourceResult?.task_issue_number)) {
+      throw new Error('architecture_gap_ready_owner_task_missing')
+    }
+    const pull = await acquireMergeGatePullV1(Object.freeze({ ...routing, taskIssueNumber: null }), host)
+    if (pull.head.sha !== routing.exactHead) throw new Error('lifecycle_production_identity_invalid')
+    return Object.freeze({
+      identity: Object.freeze({ ...routing, taskIssueNumber: sourceResult.task_issue_number }),
+      pull,
+    })
+  }
+  const taskIssueNumber = sourceResult?.task_issue_number ?? event?.issue?.number
+  if (!positiveInteger(taskIssueNumber)) throw new Error('lifecycle_production_identity_invalid')
+  return Object.freeze({
+    identity: Object.freeze({ ...routing, taskIssueNumber }),
+    pull: null,
+  })
+}
+
+const isLifecyclePublicationAuthorityCandidateV1 = (body) =>
+  typeof body === 'string' && /(?:^|\r?\n)[ \t]*record_type:[ \t]+["']?commit_push_publication_authorization_v1["']?[ \t]*(?:\r?$)/m.test(body)
+
+const projectLifecyclePublicationAuthorityV1 = ({ comment, identity, changedPaths, applicability = null }) => {
+  if (!isLifecyclePublicationAuthorityCandidateV1(comment?.body)) return null
+  const parsed = applicability === null
+    ? parseRolePublicationAuthorityV1(comment.body, identity.repository, identity.taskIssueNumber)
+    : (() => {
+        if (applicability !== 'CURRENT_APPLICABLE') throw new Error('lifecycle_publication_authority_invalid')
+        const publicationAllowed = lifecycleTopLevelScalarV1(comment.body, 'publication_allowed')
+        const status = lifecycleTopLevelScalarV1(comment.body, 'status')
+        const resultCommentId = lifecycleTopLevelScalarV1(comment.body, 'result_handoff_comment_id')
+        if (
+          publicationAllowed !== true || status !== 'authorized_for_publication_only' ||
+          !positiveInteger(resultCommentId)
+        ) throw new Error('lifecycle_publication_authority_invalid')
+        return Object.freeze({
+          prNumber: identity.prNumber,
+          exactHead: identity.exactHead,
+          resultCommentId,
+          paths: Object.freeze([...changedPaths].sort()),
+        })
+      })()
+  assertMinimalGovernanceProductOwnerV1(comment, { requireAssociation: true })
+  if (!positiveInteger(comment?.id)) throw new Error('lifecycle_publication_authority_invalid')
+  return Object.freeze({
+    kind: 'PUBLICATION_AUTHORITY',
+    id: String(comment.id),
+    comment_id: comment.id,
+    source_url: `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-${comment.id}`,
+    body_sha256: createHash('sha256').update(Buffer.from(comment.body, 'utf8')).digest('hex'),
+    pr_number: parsed.prNumber,
+    exact_head: parsed.exactHead,
+    result_comment_id: parsed.resultCommentId,
+    paths: parsed.paths,
+  })
+}
+
+export const parseLifecyclePublicationTaskBindingV1 = (rawValue, repository) => {
+  if (typeof rawValue !== 'string' || rawValue.length === 0 || rawValue !== rawValue.trim()) {
+    throw new Error('lifecycle_publication_authority_task_binding_invalid')
+  }
+  let value = rawValue
+  if (value.startsWith('"') || value.startsWith("'")) {
+    const quote = value[0]
+    if (value.length < 3 || value.at(-1) !== quote || value.slice(1, -1).includes(quote)) {
+      throw new Error('lifecycle_publication_authority_task_binding_invalid')
+    }
+    value = value.slice(1, -1)
+  } else if (value.endsWith('"') || value.endsWith("'")) {
+    throw new Error('lifecycle_publication_authority_task_binding_invalid')
+  }
+  if (/^[1-9]\d*$/.test(value)) {
+    const issueNumber = Number(value)
+    if (positiveInteger(issueNumber)) return issueNumber
+    throw new Error('lifecycle_publication_authority_task_binding_invalid')
+  }
+  const prefix = `https://github.com/${repository}/issues/`
+  if (!value.startsWith(prefix)) throw new Error('lifecycle_publication_authority_task_binding_invalid')
+  const suffix = value.slice(prefix.length)
+  if (!/^[1-9]\d*$/.test(suffix)) throw new Error('lifecycle_publication_authority_task_binding_invalid')
+  const issueNumber = Number(suffix)
+  if (!positiveInteger(issueNumber)) throw new Error('lifecycle_publication_authority_task_binding_invalid')
+  return issueNumber
+}
+
+const classifyLifecyclePublicationAuthorityApplicabilityV1 = ({ comment, identity, changedPaths }) => {
+  if (!isLifecyclePublicationAuthorityCandidateV1(comment?.body)) return 'NOT_CANDIDATE'
+  const blocks = [...comment.body.matchAll(/```yaml\r?\n([\s\S]*?)\r?\n```/g)]
+  if (blocks.length !== 1) return 'POTENTIALLY_CURRENT_MALFORMED'
+
+  const scalarKeys = new Set(['record_type', 'parent_issue', 'target_pr', 'consumer_pr', 'expected_parent'])
+  const rawScalars = new Map([...scalarKeys].map((key) => [key, []]))
+  const rawPaths = []
+  let exactPathsCount = 0
+  let collectingPaths = false
+  let identitySyntaxInvalid = false
+  for (const line of blocks[0][1].split(/\r?\n/)) {
+    const keyMatch = /^([a-z][a-z0-9_]*):/.exec(line)
+    const key = keyMatch?.[1] ?? null
+    if (key !== null && scalarKeys.has(key)) {
+      collectingPaths = false
+      const scalar = new RegExp(`^${key}:([ \\t]+)(.+)$`).exec(line)
+      if (scalar === null) identitySyntaxInvalid = true
+      else {
+        if (key === 'parent_issue' && scalar[1] !== ' ') identitySyntaxInvalid = true
+        rawScalars.get(key).push(scalar[2])
+      }
+      continue
+    }
+    if (key === 'exact_paths') {
+      collectingPaths = false
+      exactPathsCount += 1
+      if (!/^exact_paths:[ \t]*$/.test(line)) identitySyntaxInvalid = true
+      else collectingPaths = true
+      continue
+    }
+    if (collectingPaths) {
+      if (line.trim().length === 0) continue
+      const listItem = /^  -[ \t]+(.+)$/.exec(line)
+      if (listItem !== null) {
+        rawPaths.push(listItem[1])
+        continue
+      }
+      collectingPaths = false
+    }
+  }
+
+  const scalars = new Map()
+  const requiredScalarKeys = new Set(['record_type', 'parent_issue', 'expected_parent'])
+  for (const key of scalarKeys) {
+    const values = rawScalars.get(key)
+    if (values.length > 1 || (values.length === 0 && requiredScalarKeys.has(key))) {
+      identitySyntaxInvalid = true
+      continue
+    }
+    if (values.length === 0) continue
+    try {
+      scalars.set(key, roleMarkdownScalarV1(values[0]))
+    } catch {
+      identitySyntaxInvalid = true
+    }
+  }
+  const paths = []
+  if (exactPathsCount !== 1 || rawPaths.length === 0) identitySyntaxInvalid = true
+  for (const rawPath of rawPaths) {
+    try {
+      paths.push(roleMarkdownScalarV1(rawPath))
+    } catch {
+      identitySyntaxInvalid = true
+    }
+  }
+
+  let identityMismatch = false
+  if (scalars.get('record_type') !== 'commit_push_publication_authorization_v1') identitySyntaxInvalid = true
+  const rawTaskValues = rawScalars.get('parent_issue')
+  if (rawTaskValues.length === 1) {
+    try {
+      if (parseLifecyclePublicationTaskBindingV1(rawTaskValues[0], identity.repository) !== identity.taskIssueNumber) {
+        identityMismatch = true
+      }
+    } catch {
+      identitySyntaxInvalid = true
+    }
+  }
+  const prKeys = ['target_pr', 'consumer_pr'].filter((key) => scalars.has(key))
+  if (prKeys.length !== 1 || !positiveInteger(scalars.get(prKeys[0]))) identitySyntaxInvalid = true
+  else if (scalars.get(prKeys[0]) !== identity.prNumber) identityMismatch = true
+  const expectedParent = scalars.get('expected_parent')
+  if (!FULL_HEAD.test(expectedParent ?? '')) identitySyntaxInvalid = true
+  else if (expectedParent !== identity.exactHead) identityMismatch = true
+  if (
+    paths.length === 0 || new Set(paths).size !== paths.length ||
+    paths.some((value) => !isNormalizedRepositoryPathV1(value))
+  ) identitySyntaxInvalid = true
+  else if (!sameRolePathsV1(Object.freeze([...paths].sort()), changedPaths)) identityMismatch = true
+
+  if (identitySyntaxInvalid) return 'POTENTIALLY_CURRENT_MALFORMED'
+  return identityMismatch ? 'NON_APPLICABLE' : 'CURRENT_APPLICABLE'
+}
+
+const lifecycleTopLevelScalarV1 = (body, label) => {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const matches = [...body.matchAll(new RegExp(`^${escaped}:[ \\t]+(.+)$`, 'gm'))]
+  if (matches.length !== 1) throw new Error('terminal_result_ambiguous_or_invalid')
+  return roleMarkdownScalarV1(matches[0][1])
+}
+
+const lifecycleTopLevelListV1 = (body, label) => {
+  const blocks = [...body.matchAll(/```yaml[ \t]*\r?\n([\s\S]*?)\r?\n```/g)]
+  if (blocks.length !== 1) throw new Error('terminal_result_ambiguous_or_invalid')
+  const lines = blocks[0][1].split(/\r?\n/)
+  const indexes = lines.map((line, index) => line === `${label}:` ? index : -1).filter((index) => index >= 0)
+  if (indexes.length !== 1) throw new Error('terminal_result_ambiguous_or_invalid')
+  const values = []
+  for (let index = indexes[0] + 1; index < lines.length; index += 1) {
+    if (!lines[index].startsWith('  ')) break
+    const item = /^  -[ \t]+(.+)$/.exec(lines[index])
+    if (!item) throw new Error('terminal_result_ambiguous_or_invalid')
+    values.push(roleMarkdownScalarV1(item[1]))
+  }
+  if (
+    values.length === 0 || new Set(values).size !== values.length ||
+    values.some((value) => !isNormalizedRepositoryPathV1(value))
+  ) throw new Error('terminal_result_ambiguous_or_invalid')
+  return Object.freeze([...values].sort())
+}
+
+const lifecycleResultHandoffValidationResultsV1 = (body) => {
+  if (typeof body !== 'string') throw new Error('lifecycle_result_handoff_invalid')
+  const yamlBlocks = [...body.matchAll(/```yaml[ \t]*\r?\n([\s\S]*?)\r?\n```/g)]
+  if (yamlBlocks.length !== 1) throw new Error('lifecycle_result_handoff_invalid')
+  const lines = yamlBlocks[0][1].split(/\r?\n/)
+  const requiredKeys = Object.freeze(['focused_rto_pta', 'git_diff_check'])
+  const occurrences = new Map(requiredKeys.map((key) => [key, []]))
+  for (const [index, line] of lines.entries()) {
+    const attempt = /^[ \t]*(focused_rto_pta|git_diff_check)(?=[ \t]*(?::|$))/.exec(line)
+    if (attempt) occurrences.get(attempt[1]).push(Object.freeze({ index, line }))
+  }
+  if (requiredKeys.some((key) => occurrences.get(key).length !== 1)) {
+    throw new Error('lifecycle_result_handoff_invalid')
+  }
+  const mappingIndexes = lines
+    .map((line, index) => line === 'validation_results:' ? index : -1)
+    .filter((index) => index >= 0)
+  if (mappingIndexes.length !== 1) throw new Error('lifecycle_result_handoff_invalid')
+
+  const mappingIndex = mappingIndexes[0]
+  if (requiredKeys.some((key, offset) => {
+    const occurrence = occurrences.get(key)[0]
+    return occurrence.index !== mappingIndex + offset + 1 ||
+      !new RegExp(`^  ${key}: ([^ \\t].*)$`).test(occurrence.line)
+  })) throw new Error('lifecycle_result_handoff_invalid')
+
+  const values = new Map()
+  for (let index = mappingIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index]
+    if (!line.startsWith('  ')) break
+    const match = /^  ([a-z][a-z0-9_]*):[ \t]+(.+)$/.exec(line)
+    if (!match || !requiredKeys.includes(match[1]) || values.has(match[1])) {
+      throw new Error('lifecycle_result_handoff_invalid')
+    }
+    values.set(match[1], roleMarkdownScalarV1(match[2]))
+  }
+  if (values.size !== requiredKeys.length || requiredKeys.some((key) => !values.has(key))) {
+    throw new Error('lifecycle_result_handoff_invalid')
+  }
+  return Object.freeze(Object.fromEntries(values))
+}
+
+const isLifecycleResultHandoffCandidateV1 = (body) =>
+  typeof body === 'string' && /(?:^|\r?\n)record_type:[ \t]+["']?result_handoff["']?[ \t]*(?:\r?$)/m.test(body)
+
+const isLifecycleTaskAssignmentCandidateV1 = (body) =>
+  typeof body === 'string' && /(?:^|\r?\n)record_type:[ \t]+["']?task_assignment["']?[ \t]*(?:\r?$)/m.test(body)
+
+const projectLifecycleTaskAssignmentV1 = ({ comment, identity, taskId, changedPaths }) => {
+  if (!isLifecycleTaskAssignmentCandidateV1(comment?.body)) return null
+  const productOwner = assertMinimalGovernanceProductOwnerV1(comment, { requireAssociation: true })
+  const sourceUrl = `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-${comment.id}`
+  const taskUrl = `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}`
+  const paths = lifecycleTopLevelListV1(comment.body, 'authorized_paths')
+  const exactBase = lifecycleTopLevelScalarV1(comment.body, 'exact_base')
+  if (
+    !positiveInteger(comment?.id) ||
+    lifecycleTopLevelScalarV1(comment.body, 'task_id') !== taskId ||
+    lifecycleTopLevelScalarV1(comment.body, 'record_type') !== 'task_assignment' ||
+    lifecycleTopLevelScalarV1(comment.body, 'authoring_role') !== 'Product Owner' ||
+    lifecycleTopLevelScalarV1(comment.body, 'authority_source') !== taskUrl ||
+    lifecycleTopLevelScalarV1(comment.body, 'canonical_record') !== sourceUrl ||
+    lifecycleTopLevelScalarV1(comment.body, 'repository') !== identity.repository ||
+    lifecycleTopLevelScalarV1(comment.body, 'task_issue') !== taskUrl ||
+    lifecycleTopLevelScalarV1(comment.body, 'requested_by') !== 'Product Owner' ||
+    lifecycleTopLevelScalarV1(comment.body, 'assigned_role') !== 'Backend Implementer' ||
+    lifecycleTopLevelScalarV1(comment.body, 'assigned_implementer') !== 'Backend Implementer' ||
+    lifecycleTopLevelScalarV1(comment.body, 'purpose') !== 'Phase 1 READ_ONLY_REPLAY' ||
+    lifecycleTopLevelScalarV1(comment.body, 'phase') !== 'PHASE_1_READ_ONLY_REPLAY' ||
+    !FULL_HEAD.test(exactBase ?? '') ||
+    lifecycleTopLevelScalarV1(comment.body, 'architecture_status') !== 'ARCHITECTURE_APPROVED' ||
+    lifecycleTopLevelScalarV1(comment.body, 'implementation_ready') !== true ||
+    lifecycleTopLevelScalarV1(comment.body, 'implementation_allowed') !== true ||
+    lifecycleTopLevelScalarV1(comment.body, 'publication_allowed') !== false ||
+    lifecycleTopLevelScalarV1(comment.body, 'authority_lifetime') !== 'PRE_PR_IMPLEMENTATION_ONLY' ||
+    lifecycleTopLevelScalarV1(comment.body, 'status') !== 'authorized_for_pre_pr_implementation_only' ||
+    !sameRolePathsV1(paths, changedPaths)
+  ) throw new Error('lifecycle_result_handoff_authority_invalid')
+  return Object.freeze({
+    comment_id: comment.id,
+    source_url: sourceUrl,
+    source_actor: `${productOwner.login}:${productOwner.id}:${productOwner.type}:${comment.author_association}`,
+    body_sha256: createHash('sha256').update(Buffer.from(comment.body, 'utf8')).digest('hex'),
+    task_id: taskId,
+    assigned_role: 'Backend Implementer',
+    exact_base: exactBase,
+    paths,
+  })
+}
+
+const projectLifecycleResultHandoffCoreV1 = ({ comment, identity, parentHead, changedPaths, admittedPaths = null }) => {
+  if (!isLifecycleResultHandoffCandidateV1(comment?.body)) return null
+  const sourceUrl = `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-${comment.id}`
+  const prNumber = parseRoleUrlNumberV1(
+    lifecycleTopLevelScalarV1(comment.body, 'pull_request'),
+    `https://github.com/${identity.repository}/pull/`,
+  )
+  const taskIssueNumber = parseRoleUrlNumberV1(
+    lifecycleTopLevelScalarV1(comment.body, 'task_issue'),
+    `https://github.com/${identity.repository}/issues/`,
+  )
+  const exactParent = lifecycleTopLevelScalarV1(comment.body, 'exact_parent')
+  const currentHead = lifecycleTopLevelScalarV1(comment.body, 'current_head')
+  const taskId = lifecycleTopLevelScalarV1(comment.body, 'task_id')
+  const authoritySource = lifecycleTopLevelScalarV1(comment.body, 'authority_source')
+  parseRoleUrlNumberV1(
+    authoritySource,
+    `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-`,
+    'lifecycle_result_handoff_invalid',
+  )
+  const paths = admittedPaths === null ? rolePathSectionV1(comment.body, ['Exact correction bytes']) : lifecycleSortedPathsV1(admittedPaths)
+  const validationResults = lifecycleResultHandoffValidationResultsV1(comment.body)
+  const gitDiffResult = validationResults.git_diff_check
+  if (
+    !positiveInteger(comment?.id) || typeof comment.user?.login !== 'string' || !positiveInteger(comment.user?.id) ||
+    typeof comment.user?.type !== 'string' || !REVIEW_ASSOCIATIONS.has(comment.author_association) ||
+    lifecycleTopLevelScalarV1(comment.body, 'record_type') !== 'result_handoff' ||
+    lifecycleTopLevelScalarV1(comment.body, 'repository') !== identity.repository ||
+    typeof taskId !== 'string' || taskId.length === 0 ||
+    lifecycleTopLevelScalarV1(comment.body, 'canonical_record') !== sourceUrl ||
+    lifecycleTopLevelScalarV1(comment.body, 'authoring_role') !== 'Backend Implementer' ||
+    lifecycleTopLevelScalarV1(comment.body, 'role') !== 'Implementer' ||
+    lifecycleTopLevelScalarV1(comment.body, 'status') !== 'completed' ||
+    lifecycleTopLevelScalarV1(comment.body, 'execution_stop_reason') !== 'completed' ||
+    lifecycleTopLevelScalarV1(comment.body, 'blocking_finding_count') !== 0 ||
+    lifecycleTopLevelScalarV1(comment.body, 'remaining_finding_count') !== 0 ||
+    lifecycleTopLevelScalarV1(comment.body, 'unknown_count') !== 0 ||
+    lifecycleTopLevelScalarV1(comment.body, 'validation_evidence_reused') !== true ||
+    taskIssueNumber !== identity.taskIssueNumber || prNumber !== identity.prNumber ||
+    exactParent !== parentHead || currentHead !== parentHead || !FULL_HEAD.test(exactParent) ||
+    !sameRolePathsV1(paths, changedPaths) || gitDiffResult !== 'PASS'
+  ) throw new Error('lifecycle_result_handoff_invalid')
+  const bodySha256 = createHash('sha256').update(Buffer.from(comment.body, 'utf8')).digest('hex')
+  return Object.freeze({
+    comment_id: comment.id,
+    source_url: sourceUrl,
+    source_actor: `${comment.user.login}:${comment.user.id}:${comment.user.type}:${comment.author_association}`,
+    body_sha256: bodySha256,
+    pr_number: prNumber,
+    exact_head: exactParent,
+    task_id: taskId,
+    authoring_role: 'Backend Implementer',
+    authority_source_url: authoritySource,
+    paths,
+    validation: Object.freeze({
+      status: gitDiffResult,
+      ...validationResults,
+      validation_evidence_reused: true,
+    }),
+    commands: Object.freeze(['node scripts/test-protected-transition-admission-v1.mjs', 'git diff --check']),
+  })
+}
+
+const projectLifecyclePublishedResultHandoffV1 = ({ comment, identity, parentHead, changedPaths, admittedPaths }) => {
+  const core = projectLifecycleResultHandoffCoreV1({ comment, identity, parentHead, changedPaths, admittedPaths })
+  if (core === null) return null
+  const fileFields = new Map([
+    ['scripts/run-protected-transition-admission-v1.mjs', Object.freeze({
+      sha256: lifecycleTopLevelScalarV1(comment.body, 'runner_sha256'),
+      blob_oid: lifecycleTopLevelScalarV1(comment.body, 'runner_git_blob_oid'),
+    })],
+    ['scripts/test-protected-transition-admission-v1.mjs', Object.freeze({
+      sha256: lifecycleTopLevelScalarV1(comment.body, 'test_sha256'),
+      blob_oid: lifecycleTopLevelScalarV1(comment.body, 'test_git_blob_oid'),
+    })],
+  ])
+  if (
+    core.paths.some((pathValue) => !fileFields.has(pathValue)) ||
+    [...fileFields.values()].some((binding) =>
+      !LIFECYCLE_BODY_SHA256_V1.test(binding.sha256) || !/^[0-9a-f]{40}$/.test(binding.blob_oid))
+  ) throw new Error('lifecycle_result_handoff_invalid')
+  return Object.freeze({
+    ...core,
+    file_bindings: Object.freeze(Object.fromEntries([...fileFields].filter(([pathValue]) => core.paths.includes(pathValue)))),
+  })
+}
+
+const acquireLifecycleResultHandoffTaskAssignmentV1 = async ({
+  history, identity, changedPaths, resultProjection, host,
+}) => {
+  const referencedTaskAssignmentId = parseRoleUrlNumberV1(
+    resultProjection.authority_source_url,
+    `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-`,
+    'lifecycle_result_handoff_authority_invalid',
+  )
+  const referencedTaskAssignments = history.comments.filter((comment) => comment.id === referencedTaskAssignmentId)
+  if (referencedTaskAssignments.length !== 1) throw new Error('lifecycle_result_handoff_authority_invalid')
+  const referencedTaskAssignment = referencedTaskAssignments[0]
+  const admittedTaskAssignment = projectLifecycleTaskAssignmentV1({
+    comment: referencedTaskAssignment,
+    identity,
+    taskId: resultProjection.task_id,
+    changedPaths,
+  })
+  if (admittedTaskAssignment === null) throw new Error('lifecycle_result_handoff_authority_invalid')
+  const freshTaskAssignmentRecord = await fetchRoleCommentRecordV1(
+    identity.repository, identity.taskIssueNumber, referencedTaskAssignmentId, host,
+  )
+  const confirmedTaskAssignment = projectLifecycleTaskAssignmentV1({
+    comment: freshTaskAssignmentRecord,
+    identity,
+    taskId: resultProjection.task_id,
+    changedPaths,
+  })
+  if (
+    confirmedTaskAssignment === null || freshTaskAssignmentRecord.body !== referencedTaskAssignment.body ||
+    freshTaskAssignmentRecord.author_association !== referencedTaskAssignment.author_association ||
+    freshTaskAssignmentRecord.user?.login !== referencedTaskAssignment.user.login ||
+    freshTaskAssignmentRecord.user?.id !== referencedTaskAssignment.user.id ||
+    freshTaskAssignmentRecord.user?.type !== referencedTaskAssignment.user.type ||
+    !lifecycleSameValueV1(confirmedTaskAssignment, admittedTaskAssignment) ||
+    resultProjection.authoring_role !== confirmedTaskAssignment.assigned_role ||
+    resultProjection.authority_source_url !== confirmedTaskAssignment.source_url
+  ) throw new Error('lifecycle_result_handoff_authority_invalid')
+  return confirmedTaskAssignment
+}
+
+const projectLifecycleValidationEvidenceV1 = ({ comment, identity, changedPaths }) => {
+  if (!isLifecycleResultHandoffCandidateV1(comment?.body)) return null
+  try {
+    const result = projectLifecycleResultHandoffCoreV1({
+      comment, identity, parentHead: identity.exactHead, changedPaths,
+    })
+    if (result === null) return null
+    return Object.freeze({
+      result,
+      evidence: Object.freeze({
+        ...result.validation,
+        exact_head: identity.exactHead,
+        current_base: identity.exactHead,
+        paths: changedPaths,
+        profile: 'focused-rto-pta',
+        commands: result.commands,
+        input_revisions: Object.freeze([`issue-comment-${result.comment_id}:${result.body_sha256}`]),
+        source_comment_id: result.comment_id,
+        source_url: result.source_url,
+        body_sha256: result.body_sha256,
+      }),
+    })
+  } catch {
+    return null
+  }
+}
+
+const acquireLifecycleValidationEvidenceV1 = async ({ history, identity, changedPaths, host }) => {
+  const candidates = history.comments
+    .filter((comment) => {
+      if (
+        !isLifecycleResultHandoffCandidateV1(comment?.body) ||
+        !comment.body.includes(identity.exactHead) ||
+        !comment.body.includes(`https://github.com/${identity.repository}/pull/${identity.prNumber}`)
+      ) return false
+      try {
+        return sameRolePathsV1(rolePathSectionV1(comment.body, ['Exact correction bytes']), changedPaths)
+      } catch {
+        return true
+      }
+    })
+    .sort((left, right) => left.created_at.localeCompare(right.created_at) || left.id - right.id)
+  if (candidates.length === 0) return Object.freeze({ status: 'MISSING', evidence: null, authorizedPaths: null, scopeContract: null })
+  const selected = Object.freeze({
+    comment: candidates.at(-1),
+    projection: projectLifecycleValidationEvidenceV1({ comment: candidates.at(-1), identity, changedPaths }),
+  })
+  if (selected.projection === null) return Object.freeze({ status: 'INCOMPLETE', evidence: null, authorizedPaths: null, scopeContract: null })
+  const fresh = await fetchRoleCommentRecordV1(identity.repository, identity.taskIssueNumber, selected.comment.id, host)
+  const confirmed = projectLifecycleValidationEvidenceV1({ comment: fresh, identity, changedPaths })
+  if (
+    confirmed === null || fresh.body !== selected.comment.body || fresh.author_association !== selected.comment.author_association ||
+    fresh.user?.login !== selected.comment.user?.login || fresh.user?.id !== selected.comment.user?.id ||
+    fresh.user?.type !== selected.comment.user?.type || !lifecycleSameValueV1(confirmed, selected.projection)
+  ) return Object.freeze({ status: 'INCOMPLETE', evidence: null, authorizedPaths: null, scopeContract: null })
+  try {
+    const taskAssignment = await acquireLifecycleResultHandoffTaskAssignmentV1({
+      history, identity, changedPaths, resultProjection: confirmed.result, host,
+    })
+    return Object.freeze({
+      status: 'PRESENT',
+      authorizedPaths: changedPaths,
+      scopeContract: Object.freeze({
+        authority_id: String(taskAssignment.comment_id),
+        body_sha256: taskAssignment.body_sha256,
+      }),
+      evidence: Object.freeze({
+        ...confirmed.evidence,
+        current_base: taskAssignment.exact_base,
+        input_revisions: Object.freeze([
+          ...confirmed.evidence.input_revisions,
+          `issue-comment-${taskAssignment.comment_id}:${taskAssignment.body_sha256}`,
+        ]),
+      }),
+    })
+  } catch {
+    return Object.freeze({ status: 'INCOMPLETE', evidence: null, authorizedPaths: null, scopeContract: null })
+  }
+}
+
+const acquireLifecycleAuthorityCandidateV1 = async ({ history, identity, changedPaths, validation, host }) => {
+  const applicablePublicationAuthorities = []
+  let malformedApplicablePublicationAuthority = false
+  for (const comment of history.comments) {
+    const applicability = classifyLifecyclePublicationAuthorityApplicabilityV1({ comment, identity, changedPaths })
+    if (applicability === 'NOT_CANDIDATE' || applicability === 'NON_APPLICABLE') continue
+    if (applicability === 'POTENTIALLY_CURRENT_MALFORMED') {
+      malformedApplicablePublicationAuthority = true
+      continue
+    }
+    try {
+      const projection = projectLifecyclePublicationAuthorityV1({ comment, identity })
+      if (projection === null) malformedApplicablePublicationAuthority = true
+      else applicablePublicationAuthorities.push(Object.freeze({ comment, projection }))
+    } catch {
+      malformedApplicablePublicationAuthority = true
+    }
+  }
+  if (malformedApplicablePublicationAuthority) return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+  if (applicablePublicationAuthorities.length === 0) return Object.freeze({ status: 'MISSING', evidence: null })
+  if (applicablePublicationAuthorities.length !== 1) return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+  const selected = applicablePublicationAuthorities[0]
+  try {
+    const fresh = await fetchRoleCommentRecordV1(identity.repository, identity.taskIssueNumber, selected.comment.id, host)
+    const confirmed = projectLifecyclePublicationAuthorityV1({ comment: fresh, identity })
+    if (
+      confirmed === null || confirmed.pr_number !== identity.prNumber || confirmed.exact_head !== identity.exactHead ||
+      !sameRolePathsV1(confirmed.paths, changedPaths) || fresh.body !== selected.comment.body ||
+      fresh.author_association !== selected.comment.author_association || fresh.user?.login !== selected.comment.user.login ||
+      fresh.user?.id !== selected.comment.user.id || fresh.user?.type !== selected.comment.user.type ||
+      !lifecycleSameValueV1(confirmed, selected.projection)
+    ) return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+    if (
+      validation?.source_comment_id !== confirmed.result_comment_id ||
+      validation?.exact_head !== confirmed.exact_head ||
+      !sameRolePathsV1(validation?.paths, changedPaths)
+    ) return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+    return Object.freeze({
+      status: 'PRESENT',
+      evidence: Object.freeze({
+        ...confirmed,
+        result_source_url: `https://github.com/${identity.repository}/issues/${identity.taskIssueNumber}#issuecomment-${confirmed.result_comment_id}`,
+        result_body_sha256: validation.body_sha256,
+      }),
+    })
+  } catch {
+    return Object.freeze({ status: 'INCOMPLETE', evidence: null })
+  }
+}
+
+export const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, changedPaths, pull, host }) => {
+  let admittedPublicationScope = null
+  let publishedCommit
+  try {
+    publishedCommit = await api(host, `repos/${identity.repository}/commits/${identity.exactHead}`)
+  } catch {
+    return Object.freeze({
+      status: 'MISSING', remoteBranch: null, authorizedPaths: null, scopeContract: null, validation: null,
+    })
+  }
+  try {
+    if (
+      publishedCommit?.sha !== identity.exactHead || !Array.isArray(publishedCommit.parents) || publishedCommit.parents.length !== 1 ||
+      !FULL_HEAD.test(publishedCommit.parents[0]?.sha ?? '') || !Array.isArray(publishedCommit.files) ||
+      publishedCommit.files.length !== changedPaths.length
+    ) throw new Error('lifecycle_publication_chain_invalid')
+    const authorizedParent = publishedCommit.parents[0].sha
+    const commitFiles = new Map()
+    for (const file of publishedCommit.files) {
+      if (
+        !isNormalizedRepositoryPathV1(file?.filename) || !/^[0-9a-f]{40}$/.test(file?.sha ?? '') ||
+        commitFiles.has(file.filename)
+      ) throw new Error('lifecycle_publication_chain_invalid')
+      commitFiles.set(file.filename, Object.freeze({ blob_oid: file.sha, status: file.status }))
+    }
+    if (!sameRolePathsV1(Object.freeze([...commitFiles.keys()].sort()), changedPaths)) {
+      throw new Error('lifecycle_publication_chain_invalid')
+    }
+    if (
+      pull.head?.sha !== identity.exactHead || pull.head?.repo?.full_name !== identity.repository ||
+      typeof pull.head?.ref !== 'string' || pull.head.ref.length === 0
+    ) throw new Error('lifecycle_publication_chain_invalid')
+    const remoteHead = await host.branchHead(identity.repository, pull.head.ref)
+    if (remoteHead !== identity.exactHead) throw new Error('lifecycle_publication_chain_invalid')
+
+    const parentIdentity = Object.freeze({ ...identity, exactHead: authorizedParent })
+    const authorities = []
+    let malformedApplicableAuthority = false
+    for (const comment of history.comments) {
+      const applicability = classifyLifecyclePublicationAuthorityApplicabilityV1({ comment, identity: parentIdentity, changedPaths })
+      if (applicability === 'NOT_CANDIDATE' || applicability === 'NON_APPLICABLE') continue
+      if (applicability === 'POTENTIALLY_CURRENT_MALFORMED') {
+        malformedApplicableAuthority = true
+        continue
+      }
+      try {
+        const projection = projectLifecyclePublicationAuthorityV1({
+          comment, identity: parentIdentity, changedPaths, applicability,
+        })
+        if (projection === null) malformedApplicableAuthority = true
+        else authorities.push(Object.freeze({ comment, projection }))
+      } catch {
+        malformedApplicableAuthority = true
+      }
+    }
+    if (malformedApplicableAuthority || authorities.length !== 1) throw new Error('lifecycle_publication_chain_invalid')
+    const selectedAuthority = authorities[0]
+    const freshAuthorityRecord = await fetchRoleCommentRecordV1(
+      identity.repository, identity.taskIssueNumber, selectedAuthority.comment.id, host,
+    )
+    const confirmedApplicability = classifyLifecyclePublicationAuthorityApplicabilityV1({
+      comment: freshAuthorityRecord, identity: parentIdentity, changedPaths,
+    })
+    const confirmedAuthority = projectLifecyclePublicationAuthorityV1({
+      comment: freshAuthorityRecord, identity: parentIdentity, changedPaths, applicability: confirmedApplicability,
+    })
+    if (
+      confirmedAuthority === null || freshAuthorityRecord.body !== selectedAuthority.comment.body ||
+      freshAuthorityRecord.author_association !== selectedAuthority.comment.author_association ||
+      freshAuthorityRecord.user?.login !== selectedAuthority.comment.user.login ||
+      freshAuthorityRecord.user?.id !== selectedAuthority.comment.user.id || freshAuthorityRecord.user?.type !== selectedAuthority.comment.user.type ||
+      !lifecycleSameValueV1(confirmedAuthority, selectedAuthority.projection) ||
+      !sameRolePathsV1(confirmedAuthority.paths, changedPaths)
+    ) throw new Error('lifecycle_publication_chain_invalid')
+    admittedPublicationScope = Object.freeze({
+      authorizedPaths: confirmedAuthority.paths,
+      scopeContract: Object.freeze({
+        ...confirmedAuthority,
+        authority_id: String(confirmedAuthority.comment_id),
+        publication_authority_comment_id: confirmedAuthority.comment_id,
+        authorized_parent: authorizedParent,
+        published_head: identity.exactHead,
+        commit_parent: authorizedParent,
+        remote_head: remoteHead,
+        pr_head: pull.head.sha,
+      }),
+    })
+
+    const resultCandidates = []
+    let malformedApplicableResult = false
+    for (const comment of history.comments) {
+      if (!isLifecycleResultHandoffCandidateV1(comment.body)) continue
+      try {
+        const projection = projectLifecyclePublishedResultHandoffV1({
+          comment, identity, parentHead: authorizedParent, changedPaths, admittedPaths: confirmedAuthority.paths,
+        })
+        if (projection !== null) resultCandidates.push(Object.freeze({ comment, projection }))
+      } catch {
+        if (
+          comment.body.includes(authorizedParent) &&
+          comment.body.includes(`https://github.com/${identity.repository}/pull/${identity.prNumber}`)
+        ) malformedApplicableResult = true
+      }
+    }
+    if (malformedApplicableResult || resultCandidates.length !== 1) throw new Error('lifecycle_publication_chain_invalid')
+    const selectedResult = resultCandidates[0]
+    if (selectedResult.comment.id !== confirmedAuthority.result_comment_id) throw new Error('lifecycle_publication_chain_invalid')
+    const freshResultRecord = await fetchRoleCommentRecordV1(
+      identity.repository, identity.taskIssueNumber, selectedResult.comment.id, host,
+    )
+    const confirmedResult = projectLifecyclePublishedResultHandoffV1({
+      comment: freshResultRecord, identity, parentHead: authorizedParent, changedPaths, admittedPaths: confirmedAuthority.paths,
+    })
+    if (
+      freshResultRecord.body !== selectedResult.comment.body ||
+      freshResultRecord.author_association !== selectedResult.comment.author_association ||
+      freshResultRecord.user?.login !== selectedResult.comment.user.login ||
+      freshResultRecord.user?.id !== selectedResult.comment.user.id || freshResultRecord.user?.type !== selectedResult.comment.user.type ||
+      !lifecycleSameValueV1(confirmedResult, selectedResult.projection) ||
+      !sameRolePathsV1(confirmedResult.paths, confirmedAuthority.paths)
+    ) throw new Error('lifecycle_publication_chain_invalid')
+    if (
+      lifecycleTopLevelScalarV1(freshAuthorityRecord.body, 'repository') !== identity.repository ||
+      lifecycleTopLevelScalarV1(freshAuthorityRecord.body, 'canonical_record') !== confirmedAuthority.source_url ||
+      lifecycleTopLevelScalarV1(freshAuthorityRecord.body, 'result_handoff') !== confirmedResult.source_url ||
+      lifecycleTopLevelScalarV1(freshAuthorityRecord.body, 'result_handoff_body_sha256') !== confirmedResult.body_sha256
+    ) throw new Error('lifecycle_publication_chain_invalid')
+
+    const confirmedTaskAssignment = await acquireLifecycleResultHandoffTaskAssignmentV1({
+      history,
+      identity,
+      changedPaths,
+      resultProjection: confirmedResult,
+      host,
+    })
+
+    for (const pathValue of changedPaths) {
+      const binding = confirmedResult.file_bindings[pathValue]
+      if (commitFiles.get(pathValue)?.blob_oid !== binding?.blob_oid) throw new Error('lifecycle_validation_input_changed')
+      const blob = await api(host, `repos/${identity.repository}/git/blobs/${binding.blob_oid}`)
+      if (
+        blob?.sha !== binding.blob_oid || blob?.encoding !== 'base64' || typeof blob.content !== 'string' ||
+        !Number.isSafeInteger(blob.size) || blob.size < 0
+      ) throw new Error('lifecycle_validation_input_changed')
+      const bytes = Buffer.from(blob.content.replace(/\s/g, ''), 'base64')
+      if (
+        bytes.length !== blob.size ||
+        createHash('sha256').update(bytes).digest('hex') !== binding.sha256
+      ) throw new Error('lifecycle_validation_input_changed')
+    }
+
+    const chainIdentity = Object.freeze({
+      result_handoff_comment_id: confirmedResult.comment_id,
+      result_handoff_body_sha256: confirmedResult.body_sha256,
+      task_assignment_comment_id: confirmedTaskAssignment.comment_id,
+      task_assignment_body_sha256: confirmedTaskAssignment.body_sha256,
+      publication_authority_comment_id: confirmedAuthority.comment_id,
+      publication_authority_body_sha256: confirmedAuthority.body_sha256,
+      authorized_parent: authorizedParent,
+      published_head: identity.exactHead,
+      remote_head: remoteHead,
+      pr_head: pull.head.sha,
+      paths: confirmedAuthority.paths,
+      file_bindings: confirmedResult.file_bindings,
+    })
+    const publicationChainSha256 = createHash('sha256')
+      .update(Buffer.from(JSON.stringify(lifecycleCanonicalValueV1(chainIdentity)), 'utf8'))
+      .digest('hex')
+    return Object.freeze({
+      status: 'PRESENT',
+      remoteBranch: pull.head.ref,
+      authorizedPaths: confirmedAuthority.paths,
+      scopeContract: Object.freeze({
+        ...admittedPublicationScope.scopeContract,
+        kind: 'PUBLICATION_CHAIN',
+        result_handoff_comment_id: confirmedResult.comment_id,
+        result_handoff_body_sha256: confirmedResult.body_sha256,
+        task_assignment_comment_id: confirmedTaskAssignment.comment_id,
+        task_assignment_body_sha256: confirmedTaskAssignment.body_sha256,
+        publication_chain_sha256: publicationChainSha256,
+      }),
+      validation: Object.freeze({
+        ...confirmedResult.validation,
+        exact_head: authorizedParent,
+        publication_applicable_head: identity.exactHead,
+        reuse_kind: 'PUBLICATION_CHAIN',
+        publication_chain_sha256: publicationChainSha256,
+        current_base: confirmedTaskAssignment.exact_base,
+        paths: confirmedAuthority.paths,
+        profile: 'focused-rto-pta',
+        commands: confirmedResult.commands,
+        input_revisions: Object.freeze([
+          `issue-comment-${confirmedResult.comment_id}:${confirmedResult.body_sha256}`,
+          ...changedPaths.map((pathValue) => `${pathValue}:${confirmedResult.file_bindings[pathValue].blob_oid}`),
+        ]),
+      }),
+    })
+  } catch {
+    return Object.freeze({
+      status: 'INCOMPLETE',
+      remoteBranch: null,
+      authorizedPaths: admittedPublicationScope?.authorizedPaths ?? null,
+      scopeContract: admittedPublicationScope?.scopeContract ?? null,
+      validation: null,
+    })
+  }
+}
+
+const reduceLifecycleCurrentExecutionChecksV1 = async ({ event, request, checks, executionIdentity, currentBase, host }) => {
+  const rtoChecks = checks.filter((item) => {
+    const name = item.type === 'CheckRun' ? item.name : item.context
+    return RTO_SELF_JOB_NAMES_V1.includes(name)
+  })
+  if (rtoChecks.length === 0) return Object.freeze({ checks: selectCurrentCheckGenerationsV1(checks), current_execution: null })
+  const executionRunId = String(executionIdentity?.runId ?? '')
+  const hasCurrentExecutionCheck = WORKFLOW_RUN_ID.test(executionRunId) && checks.some((item) => {
+    const name = item.type === 'CheckRun' ? item.name : item.context
+    if (!RTO_SELF_JOB_NAMES_V1.includes(name)) return false
+    if (item.type !== 'CheckRun') return false
+    return parseRepositoryActionsJobIdentityV1(request, item)?.runId === executionRunId ||
+      item.details_url?.startsWith(`https://github.com/${request.repository}/actions/runs/${executionRunId}/`) === true
+  })
+  if (!hasCurrentExecutionCheck) return Object.freeze({ checks: selectCurrentCheckGenerationsV1(checks), current_execution: null })
+  if (
+    executionIdentity?.repository !== request.repository ||
+    !WORKFLOW_RUN_ID.test(String(executionIdentity?.runId ?? '')) ||
+    !positiveInteger(executionIdentity?.runAttempt) ||
+    executionIdentity?.workflowSha !== currentBase ||
+    executionIdentity?.jobName !== 'protected_transition_admission_v1'
+  ) throw new Error('lifecycle_current_execution_identity_invalid')
+
+  const runId = executionRunId
+  const expectedApiRunUrl = `https://api.github.com/repos/${request.repository}/actions/runs/${runId}`
+  const expectedRunUrl = `https://github.com/${request.repository}/actions/runs/${runId}`
+  const run = await api(host, `repos/${request.repository}/actions/runs/${runId}`)
+  const readyOrigin = event?.action === 'ready_for_review'
+  const expectedRunHead = readyOrigin ? request.exactHead : executionIdentity.workflowSha
+  const pullAssociation = run?.pull_requests?.[0]
+  if (
+    String(run?.id ?? '') !== runId || run?.run_attempt !== executionIdentity.runAttempt ||
+    !positiveInteger(run?.workflow_id) || !positiveInteger(run?.check_suite_id) ||
+    run?.repository?.full_name !== request.repository || run?.head_repository?.full_name !== request.repository ||
+    run?.path !== HISTORICAL_LEGACY_RTO_WORKFLOW_PATH_V1 ||
+    run?.event !== (readyOrigin ? 'pull_request' : 'issue_comment') ||
+    run?.status !== 'in_progress' || run?.conclusion !== null || run?.head_sha !== expectedRunHead ||
+    run?.head_commit?.id !== expectedRunHead || run?.url !== expectedApiRunUrl ||
+    run?.html_url !== expectedRunUrl || run?.jobs_url !== `${expectedApiRunUrl}/jobs` ||
+    !Array.isArray(run?.pull_requests) ||
+    (readyOrigin && (
+      run.pull_requests.length !== 1 || pullAssociation?.number !== request.prNumber ||
+      pullAssociation?.url !== `https://api.github.com/repos/${request.repository}/pulls/${request.prNumber}` ||
+      pullAssociation?.head?.sha !== request.exactHead ||
+      pullAssociation?.head?.repo?.url !== `https://api.github.com/repos/${request.repository}` ||
+      pullAssociation?.base?.repo?.url !== `https://api.github.com/repos/${request.repository}`
+    )) ||
+    (!readyOrigin && run.pull_requests.length !== 0)
+  ) throw new Error('lifecycle_current_execution_origin_invalid')
+
+  const strictManifest = await acquireStrictBoundedRtoJobManifestV1({
+    repository: request.repository,
+    runId,
+    runAttempt: executionIdentity.runAttempt,
+    workflowSha: expectedRunHead,
+    host,
+    errorReason: 'lifecycle_current_execution_manifest_invalid',
+  })
+  const currentJob = strictManifest.jobs.get(executionIdentity.jobName)
+  if (currentJob.status !== 'in_progress' || currentJob.conclusion !== null) {
+    throw new Error('lifecycle_current_execution_job_state_invalid')
+  }
+
+  const currentPrefix = `${expectedRunUrl}/`
+  let currentJobExcluded = 0
+  let currentRunChecks = 0
+  const executionCheckInput = readyOrigin ? selectCurrentCheckGenerationsV1(checks) : checks
+  const external = executionCheckInput.filter((item) => {
+    if (item.type !== 'CheckRun') return true
+    const checkIdentity = parseRepositoryActionsJobIdentityV1(request, item)
+    if (item.details_url?.startsWith(currentPrefix) && checkIdentity === null) {
+      throw new Error('lifecycle_current_execution_check_identity_invalid')
+    }
+    if (checkIdentity?.runId !== runId) return true
+    currentRunChecks += 1
+    if (
+      !RTO_SELF_JOB_NAMES_V1.includes(item.name) ||
+      strictManifest.jobIds[item.name] !== checkIdentity.jobId ||
+      item.app_database_id !== TRUSTED_GITHUB_ACTIONS_APP_DATABASE_ID_V1 ||
+      typeof item.app_id !== 'string' || item.app_id.length === 0 ||
+      !positiveInteger(item.database_id) || item.check_suite_database_id !== run.check_suite_id ||
+      item.check_suite_head_sha !== request.exactHead
+    ) throw new Error('lifecycle_current_execution_check_identity_invalid')
+    if (item.name === executionIdentity.jobName) {
+      if (item.status !== 'IN_PROGRESS' || item.conclusion !== null || currentJobExcluded !== 0) {
+        throw new Error('lifecycle_current_execution_check_identity_invalid')
+      }
+      currentJobExcluded += 1
+    }
+    return false
+  })
+  if (currentRunChecks > 0 && currentJobExcluded !== 1) throw new Error('lifecycle_current_execution_check_identity_invalid')
+  const manifestIdentity = Object.freeze({
+    repository: request.repository,
+    run_id: runId,
+    run_attempt: executionIdentity.runAttempt,
+    workflow_id: String(run.workflow_id),
+    workflow_path: run.path,
+    workflow_sha: expectedRunHead,
+    check_suite_id: String(run.check_suite_id),
+    event: run.event,
+    pr_number: request.prNumber,
+    exact_head: request.exactHead,
+    job_ids: strictManifest.jobIds,
+  })
+  return Object.freeze({
+    checks: readyOrigin ? Object.freeze(external) : selectCurrentCheckGenerationsV1(external),
+    current_execution: Object.freeze({
+      ...manifestIdentity,
+      manifest_sha256: createHash('sha256')
+        .update(Buffer.from(JSON.stringify(lifecycleCanonicalValueV1(manifestIdentity)), 'utf8'))
+        .digest('hex'),
+    }),
+  })
+}
+
+const lifecycleReadyEvidenceProjectionV1 = ({ request, reviewCommentId, provenance, terminalContract, terminalResult }) => {
+  const terminalResultSha256 = createHash('sha256')
+    .update(Buffer.from(JSON.stringify(lifecycleCanonicalValueV1(terminalResult)), 'utf8'))
+    .digest('hex')
+  const provenanceSha256 = createHash('sha256')
+    .update(Buffer.from(JSON.stringify(lifecycleCanonicalValueV1(provenance)), 'utf8'))
+    .digest('hex')
+  return Object.freeze({
+    event_id: `actions-run:${provenance.run_id}:${provenance.run_attempt}`,
+    repository: request.repository,
+    task_issue_number: request.taskIssueNumber,
+    pr_number: request.prNumber,
+    exact_head: request.exactHead,
+    review_comment_id: reviewCommentId,
+    event: 'pull_request',
+    action: 'ready_for_review',
+    run_id: provenance.run_id,
+    run_attempt: provenance.run_attempt,
+    workflow_id: provenance.workflow_id,
+    workflow_path: provenance.workflow_path,
+    check_suite_id: provenance.check_suite_id,
+    terminal_contract: terminalContract,
+    terminal_result_sha256: terminalResultSha256,
+    provenance_sha256: provenanceSha256,
+  })
+}
+
+const acquireLifecycleReadyEvidenceV1 = async ({ event, sourceResult, request, review, checks, currentExecution }) => {
+  if (review === null) return Object.freeze({ evidence: null, checks })
+  if (event?.action === 'ready_for_review') {
+    if (
+      currentExecution === null || currentExecution.event !== 'pull_request' ||
+      currentExecution.repository !== request.repository || currentExecution.pr_number !== request.prNumber ||
+      currentExecution.exact_head !== request.exactHead || !LIFECYCLE_BODY_SHA256_V1.test(currentExecution.manifest_sha256 ?? '')
+    ) throw new Error('lifecycle_ready_evidence_missing')
+    let terminalContract = 'legacy_ready_result_v1'
+    if (sourceResult?.record_type === EXPECTED_LEGACY_READY_FAIL_CLOSED_RECORD_TYPE_V1) {
+      assertExpectedLegacyReadyFailClosedTerminalResultV1(sourceResult, request)
+      return Object.freeze({ evidence: null, checks: selectCurrentCheckGenerationsV1(checks) })
+    } else if (
+      sourceResult?.pr_number !== request.prNumber || sourceResult?.current_head !== request.exactHead ||
+      sourceResult?.task_issue_number !== request.taskIssueNumber || typeof sourceResult?.next_action !== 'string' ||
+      sourceResult.next_action.length === 0
+    ) throw new Error('lifecycle_ready_evidence_invalid')
+    if (sourceResult.source_comment_id === undefined || sourceResult.source_comment_id === null) {
+      return Object.freeze({ evidence: null, checks })
+    }
+    return Object.freeze({
+      evidence: lifecycleReadyEvidenceProjectionV1({
+        request,
+        reviewCommentId: sourceResult.source_comment_id,
+        provenance: currentExecution,
+        terminalContract,
+        terminalResult: sourceResult,
+      }),
+      checks: selectCurrentCheckGenerationsV1(checks),
+    })
+  }
+
+  return Object.freeze({
+    evidence: null,
+    checks: selectCurrentCheckGenerationsV1(checks),
+  })
+}
+
+const acquireLifecycleReplaySnapshotV1 = async ({ event, sourceResult, host, identity, resolvedPull = null, executionIdentity = null }) => {
+  const request = Object.freeze({ transition: 'lifecycle_orchestrator_v1', ...identity })
+  const task = await acquireTaskIdentityV1(request, host)
+  if (task.state !== 'open') throw new Error('task_identity_invalid')
+  const pull = resolvedPull ?? await acquireMergeGatePullV1(request, host)
+  if (
+    !Number.isSafeInteger(pull.changed_files) || pull.changed_files < 0 || pull.base?.ref !== 'main' ||
+    !FULL_HEAD.test(pull.base?.sha ?? '') || typeof pull.merged !== 'boolean'
+  ) {
+    throw new Error('lifecycle_pull_binding_invalid')
+  }
+  const scope = await acquireChangedPathScopeV1(request, pull, host)
+  const currentBase = pull.base.sha
+
+  let history = null
+  let historyStatus = 'PRESENT'
+  try {
+    history = await acquireMinimalGovernanceCommentHistoryV1(request, host)
+  } catch {
+    historyStatus = 'INCOMPLETE'
+    history = Object.freeze({ comments: Object.freeze([]), page_count: 0, raw_fingerprint_sha256: null })
+  }
+
+  let review = null
+  let reviewStatus = 'PRESENT'
+  try {
+    if (historyStatus !== 'PRESENT') throw new Error('review_history_incomplete')
+    const confirmed = await acquireEffectiveReviewDecisionV1({ request, host, history })
+    review = Object.freeze({
+      comment_id: confirmed.commentId,
+      reviewed_head: confirmed.review.reviewed_head,
+      decision: confirmed.review.decision,
+      blocking_finding_count: confirmed.review.blocking_finding_count,
+      remaining_finding_count: confirmed.review.remaining_finding_count,
+      unknown_count: confirmed.review.unknown_count,
+    })
+  } catch (error) {
+    reviewStatus = error instanceof Error && error.message === 'review_decision_current_leaf_missing' ? 'MISSING' : 'INCOMPLETE'
+  }
+
+  const publishedGenerationProjection = historyStatus === 'PRESENT'
+    ? await acquireLifecyclePublishedGenerationV1({ history, identity, changedPaths: scope.actual_paths, pull, host })
+    : Object.freeze({ status: 'INCOMPLETE', remoteBranch: null, authorizedPaths: null, scopeContract: null, validation: null })
+  const directValidationProjection = publishedGenerationProjection.status === 'MISSING'
+    ? await acquireLifecycleValidationEvidenceV1({ history, identity, changedPaths: scope.actual_paths, host })
+    : Object.freeze({ status: publishedGenerationProjection.status, evidence: null, authorizedPaths: null, scopeContract: null })
+  const validationProjection = publishedGenerationProjection.status === 'PRESENT'
+    ? Object.freeze({ status: 'PRESENT', evidence: publishedGenerationProjection.validation })
+    : publishedGenerationProjection.status === 'INCOMPLETE'
+      ? Object.freeze({ status: 'INCOMPLETE', evidence: null })
+      : directValidationProjection
+  const authorityProjection = historyStatus === 'PRESENT'
+    ? await acquireLifecycleAuthorityCandidateV1({
+        history, identity, changedPaths: scope.actual_paths, validation: validationProjection.evidence, host,
+      })
+    : Object.freeze({ status: 'INCOMPLETE', evidence: null })
+  return Object.freeze({
+    repository: identity.repository,
+    task_issue_number: identity.taskIssueNumber,
+    pr_number: identity.prNumber,
+    target_branch: 'main',
+    exact_head: identity.exactHead,
+    current_head: pull.head.sha,
+    current_base: currentBase,
+    pull_state: pull.state,
+    pull_draft: pull.draft,
+    pull_merged: pull.merged,
+    mergeable: pull.mergeable,
+    changed_paths: scope.actual_paths,
+    authorized_paths: publishedGenerationProjection.authorizedPaths ?? directValidationProjection.authorizedPaths,
+    scope_contract: publishedGenerationProjection.scopeContract ?? directValidationProjection.scopeContract,
+    evidence_status: Object.freeze({
+      validation: validationProjection.status,
+      authority: authorityProjection.status,
+      review: reviewStatus,
+    }),
+    validation: validationProjection.evidence,
+    review,
+    published_generation: publishedGenerationProjection,
+    authority: authorityProjection.evidence,
+  })
+}
+
+export const executeLifecycleOrchestratorV1 = async ({
+  event = null, sourceResult = null, host = null, snapshot = null, completionEvidence = null, executionIdentity = null,
+}) => {
+  if (snapshot !== null) return reduceLifecycleReplayV1(snapshot, completionEvidence)
+  if (isMinimalGovernanceCandidateV1(event?.comment?.body)) return sourceResult
+  let identity = null
+  try {
+    const routing = lifecycleRoutingIdentityFromProductionV1({ event, sourceResult })
+    identity = Object.freeze({
+      ...routing,
+      taskIssueNumber: sourceResult?.task_issue_number ?? event?.issue?.number ?? null,
+    })
+    const resolved = await resolveLifecycleProductionIdentityV1({ event, sourceResult, host })
+    identity = resolved.identity
+    const acquired = await acquireLifecycleReplaySnapshotV1({
+      event, sourceResult, host, identity, resolvedPull: resolved.pull, executionIdentity,
+    })
+    const request = Object.freeze({ transition: 'lifecycle_orchestrator_v1', ...identity })
+    const finalPull = await acquireMergeGatePullV1(request, host)
+    if (finalPull.head.sha !== acquired.exact_head) {
+      const stale = stoppedResult(request, 'STALE', 'head_changed_during_evaluation', 2, finalPull.head.sha)
+      return lifecycleProjectionV1(stale, 'ACQUIRE', stale.state, stale.reason, 'STOP', 'BLOCKED')
+    }
+    let checksStatus = 'PRESENT'
+    let checks = Object.freeze([])
+    let readyEvidence = null
+    try {
+      const checkSnapshot = await acquireMergeCheckRollupSnapshotV1(request, host)
+      const reducedChecks = await reduceLifecycleCurrentExecutionChecksV1({
+        event, request, checks: checkSnapshot.checks, executionIdentity, currentBase: acquired.current_base, host,
+      })
+      const readyProjection = await acquireLifecycleReadyEvidenceV1({
+        event, sourceResult, request, review: acquired.review, checks: reducedChecks.checks,
+        currentExecution: reducedChecks.current_execution,
+      })
+      checks = Object.freeze(readyProjection.checks.map((check) => Object.freeze({
+        id: check.id,
+        exact_head: identity.exactHead,
+        status: check.type === 'CheckRun' ? check.status : (check.state === 'PENDING' ? 'IN_PROGRESS' : 'COMPLETED'),
+        conclusion: check.type === 'CheckRun' ? check.conclusion : (check.state === 'SUCCESS' ? 'SUCCESS' : check.state),
+        provenance: check.type === 'CheckRun' ? `${check.app_database_id ?? 'UNKNOWN'}:${check.details_url ?? 'NONE'}` : `status:${check.context}`,
+      })))
+      readyEvidence = readyProjection.evidence
+    } catch {
+      checksStatus = 'INCOMPLETE'
+    }
+    return reduceLifecycleReplayV1(Object.freeze({
+      ...acquired,
+      target_branch: finalPull.base?.ref,
+      current_base: finalPull.base?.sha,
+      current_head: finalPull.head.sha,
+      pull_state: finalPull.state,
+      pull_draft: finalPull.draft,
+      pull_merged: finalPull.merged,
+      mergeable: finalPull.mergeable,
+      evidence_status: Object.freeze({ ...acquired.evidence_status, checks: checksStatus }),
+      checks,
+      ready_evidence: readyEvidence,
+    }), completionEvidence)
+  } catch (error) {
+    return lifecycleProjectionV1({
+      task_issue_number: identity?.taskIssueNumber ?? sourceResult?.task_issue_number ?? event?.issue?.number ?? null,
+      pr_number: identity?.prNumber ?? sourceResult?.pr_number ?? event?.pull_request?.number ?? null,
+      current_head: identity?.exactHead ?? sourceResult?.current_head ?? event?.pull_request?.head?.sha ?? null,
+    }, 'ACQUIRE', 'INDETERMINATE', error instanceof Error ? error.message : 'lifecycle_acquisition_failed', 'STOP', 'BLOCKED')
+  }
+}
+
 export const executeRoleTransitionOrchestratorV1 = async ({ event, host, runId, runAttempt = null, hostSha = null, jobName = null }) => {
   let normalized
   let request
@@ -5689,13 +7178,48 @@ const productionHost = (environment) => {
   })
 }
 
+const lifecycleDiagnosticProjectionV1 = (projection) => Object.freeze({
+  task_issue_number: projection.task_issue_number,
+  pr_number: projection.pr_number,
+  current_head: projection.current_head,
+  phase: projection.phase,
+  state: projection.state,
+  next_action: projection.next_action,
+  execution_stop_reason: projection.reason,
+  mutation_count: projection.mutation_count,
+})
+
+const withLifecycleDiagnosticProjectionV1 = (result, projection) => Object.freeze({
+  ...result,
+  lifecycle_projection: lifecycleDiagnosticProjectionV1(projection),
+})
+
+export const executeReviewEventWithLifecycleReplayV1 = async ({ event, host, runId, runAttempt, hostSha, jobName }) => {
+  const result = await executeRoleTransitionOrchestratorV1({ event, host, runId, runAttempt, hostSha, jobName })
+  if (isMinimalGovernanceCandidateV1(event?.comment?.body)) return result
+  const lifecycleProjection = await executeLifecycleOrchestratorV1({
+    event, sourceResult: result, host,
+    executionIdentity: Object.freeze({ repository: event?.repository?.full_name, runId, runAttempt, workflowSha: hostSha, jobName }),
+  })
+  return withLifecycleDiagnosticProjectionV1(result, lifecycleProjection)
+}
+
+export const executeReadyEventWithLifecycleReplayV1 = async ({ event, host, runId, runAttempt = null, hostSha = null, jobName = null }) => {
+  const result = await executeReadyForReviewProgressionV1({ event, host, runId })
+  const lifecycleProjection = await executeLifecycleOrchestratorV1({
+    event, sourceResult: result, host,
+    executionIdentity: Object.freeze({ repository: event?.repository?.full_name, runId, runAttempt, workflowSha: hostSha, jobName }),
+  })
+  return withLifecycleDiagnosticProjectionV1(result, lifecycleProjection)
+}
+
 const main = async () => {
   let invocation
   try {
     invocation = parseInvocation(process.argv.slice(2), process.env)
     const host = productionHost(process.env)
     const executeProduction = async (executionHost = host) => invocation.mode === 'review_event'
-      ? await executeRoleTransitionOrchestratorV1({
+      ? await executeReviewEventWithLifecycleReplayV1({
           event: JSON.parse(readFileSync(invocation.eventFile, 'utf8')),
           host: executionHost,
           runId: process.env.GITHUB_RUN_ID,
@@ -5704,10 +7228,13 @@ const main = async () => {
           jobName: process.env.GITHUB_JOB ?? null,
         })
       : invocation.mode === 'ready_event'
-        ? await executeReadyForReviewProgressionV1({
+        ? await executeReadyEventWithLifecycleReplayV1({
             event: JSON.parse(readFileSync(invocation.eventFile, 'utf8')),
             host: executionHost,
             runId: process.env.GITHUB_RUN_ID,
+            runAttempt: Number(process.env.GITHUB_RUN_ATTEMPT),
+            hostSha: process.env.GITHUB_WORKFLOW_SHA ?? null,
+            jobName: process.env.GITHUB_JOB ?? null,
           })
         : invocation.mode === 'repair_preflight'
           ? await executeRepairExecutorV1({
