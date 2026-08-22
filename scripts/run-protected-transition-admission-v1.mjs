@@ -4947,6 +4947,29 @@ export const executeRoleDispatchConsumerV1 = async ({ dispatch, host }) => {
   }
 }
 
+const LIFECYCLE_ROLE_DISPATCH_ONLY_ACTIONS_V1 = Object.freeze([
+  'IMPLEMENTER',
+  'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
+  'INDEPENDENT_IMPLEMENTATION_REVIEWER',
+])
+
+export const executeLifecycleRoleDispatchOnlyV1 = async ({
+  ownerResult,
+  currentProjection,
+  host,
+}) => {
+  if (!LIFECYCLE_ROLE_DISPATCH_ONLY_ACTIONS_V1.includes(currentProjection?.next_action)) return currentProjection
+  if (!ownerResult.role_dispatch) return roleDispatchStopV1('lifecycle_role_dispatch_missing')
+  const consumerResult = await executeRoleDispatchConsumerV1({ dispatch: ownerResult.role_dispatch, host })
+  if (consumerResult.next_action === 'CONVERGED_NOOP') {
+    return Object.freeze({ ...consumerResult, mutation_attempted: false, mutation_count: 0 })
+  }
+  if (consumerResult.next_action === 'EXECUTE_ROLE') {
+    return Object.freeze({ ...consumerResult, mutation_attempted: true, mutation_count: 1 })
+  }
+  return consumerResult
+}
+
 export const evaluateRoleDispatchOutputV1 = ({ dispatch, body }) => {
   try {
     dispatch = normalizeRoleDispatchConsumerV1(dispatch)
@@ -7201,7 +7224,8 @@ export const executeReviewEventWithLifecycleReplayV1 = async ({ event, host, run
     event, sourceResult: result, host,
     executionIdentity: Object.freeze({ repository: event?.repository?.full_name, runId, runAttempt, workflowSha: hostSha, jobName }),
   })
-  return withLifecycleDiagnosticProjectionV1(result, lifecycleProjection)
+  const currentProjection = withLifecycleDiagnosticProjectionV1(result, lifecycleProjection)
+  return executeLifecycleRoleDispatchOnlyV1({ ownerResult: result, currentProjection, host })
 }
 
 export const executeReadyEventWithLifecycleReplayV1 = async ({ event, host, runId, runAttempt = null, hostSha = null, jobName = null }) => {
