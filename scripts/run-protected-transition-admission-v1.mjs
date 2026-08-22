@@ -5702,8 +5702,13 @@ export const reduceLifecycleReplayV1 = (input, completionEvidence = null) => {
 
 const lifecycleRoutingIdentityFromProductionV1 = ({ event, sourceResult }) => {
   const repository = event?.repository?.full_name
-  const prNumber = sourceResult?.pr_number ?? event?.pull_request?.number
-  const exactHead = sourceResult?.current_head ?? event?.pull_request?.head?.sha
+  let prNumber = sourceResult?.pr_number ?? event?.pull_request?.number
+  let exactHead = sourceResult?.current_head ?? event?.pull_request?.head?.sha
+  if (event?.action === 'created' && isLifecyclePublicationAuthorityCandidateV1(event?.comment?.body)) {
+    const authority = parseRolePublicationAuthorityV1(event.comment.body, repository, event?.issue?.number)
+    prNumber = authority.prNumber
+    exactHead = authority.exactHead
+  }
   if (!REPOSITORY.test(repository ?? '') || !positiveInteger(prNumber) || !FULL_HEAD.test(exactHead ?? '')) {
     throw new Error('lifecycle_production_identity_invalid')
   }
@@ -6221,11 +6226,25 @@ const projectLifecycleValidationEvidenceV1 = ({ comment, identity, changedPaths 
 
 const acquireLifecycleValidationEvidenceV1 = async ({ history, identity, changedPaths, host }) => {
   const candidates = history.comments
-    .map((comment) => Object.freeze({ comment, projection: projectLifecycleValidationEvidenceV1({ comment, identity, changedPaths }) }))
-    .filter((candidate) => candidate.projection !== null)
-    .sort((left, right) => left.comment.created_at.localeCompare(right.comment.created_at) || left.comment.id - right.comment.id)
+    .filter((comment) => {
+      if (
+        !isLifecycleResultHandoffCandidateV1(comment?.body) ||
+        !comment.body.includes(identity.exactHead) ||
+        !comment.body.includes(`https://github.com/${identity.repository}/pull/${identity.prNumber}`)
+      ) return false
+      try {
+        return sameRolePathsV1(rolePathSectionV1(comment.body, ['Exact correction bytes']), changedPaths)
+      } catch {
+        return true
+      }
+    })
+    .sort((left, right) => left.created_at.localeCompare(right.created_at) || left.id - right.id)
   if (candidates.length === 0) return Object.freeze({ status: 'MISSING', evidence: null })
-  const selected = candidates.at(-1)
+  const selected = Object.freeze({
+    comment: candidates.at(-1),
+    projection: projectLifecycleValidationEvidenceV1({ comment: candidates.at(-1), identity, changedPaths }),
+  })
+  if (selected.projection === null) return Object.freeze({ status: 'INCOMPLETE', evidence: null })
   const fresh = await fetchRoleCommentRecordV1(identity.repository, identity.taskIssueNumber, selected.comment.id, host)
   const confirmed = projectLifecycleValidationEvidenceV1({ comment: fresh, identity, changedPaths })
   if (

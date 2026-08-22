@@ -6283,6 +6283,107 @@ for (const [fixture, expectedAction, label] of lifecycleDirectValidationAuthorit
   )
 }
 
+const lifecycleValidationSelectionIdentityV1 = lifecycleHistoricalIdentityV1[325]
+const lifecycleValidationSelectionTaskAssignmentIdV1 = lifecycleValidationSelectionIdentityV1.reviewId - 2
+const lifecycleValidationSelectionCommentV1 = ({ id, createdAt, pr = 325, head = lifecycleValidationSelectionIdentityV1.head, transform = (body) => body }) => lifecycleCommentV1({
+  id,
+  createdAt,
+  body: transform(lifecycleValidationBodyV1({
+    task: lifecycleValidationSelectionIdentityV1.task,
+    pr,
+    head,
+    paths: lifecycleHistoricalPathsV1[325],
+    commentId: id,
+    taskAssignmentId: lifecycleValidationSelectionTaskAssignmentIdV1,
+  })),
+})
+const lifecycleNewerFailingValidationIdV1 = lifecycleValidationSelectionIdentityV1.reviewId + 100
+const lifecycleNewerFailingValidationV1 = lifecycleValidationSelectionCommentV1({
+  id: lifecycleNewerFailingValidationIdV1,
+  createdAt: '2026-08-18T00:00:30Z',
+  transform: (body) => body
+    .replace('status: "completed"', 'status: "needs_followup"')
+    .replace('  focused_rto_pta: "886/886 PASS"', '  focused_rto_pta: "886/886 FAIL"'),
+})
+const lifecycleNewerFailingValidationFixtureV1 = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  reviewedBase: lifecycleValidationSelectionIdentityV1.expectedBase,
+  historicalComments: [lifecycleNewerFailingValidationV1],
+})
+const lifecycleNewerFailingValidationResultV1 = await executeLifecycleOrchestratorV1({
+  event: lifecycleNewerFailingValidationFixtureV1.event,
+  sourceResult: lifecycleNewerFailingValidationFixtureV1.sourceResult,
+  host: lifecycleNewerFailingValidationFixtureV1.host,
+  executionIdentity: lifecycleNewerFailingValidationFixtureV1.executionIdentity,
+})
+check(
+  lifecycleNewerFailingValidationResultV1.next_action === 'STOP' &&
+  lifecycleNewerFailingValidationResultV1.reason === 'lifecycle_validation_evidence_invalid' &&
+  !lifecycleNewerFailingValidationFixtureV1.metrics.directIds.includes(lifecycleValidationSelectionIdentityV1.reviewId - 1) &&
+  lifecycleNewerFailingValidationResultV1.mutation_count === 0 && lifecycleNewerFailingValidationFixtureV1.metrics.mutation === 0,
+  'LOV1 latest applicable failing Result Handoff blocks fallback to the older PASS owner',
+)
+
+const lifecycleNewerPassingValidationIdV1 = lifecycleValidationSelectionIdentityV1.reviewId + 101
+const lifecycleNewerPassingValidationV1 = lifecycleValidationSelectionCommentV1({
+  id: lifecycleNewerPassingValidationIdV1,
+  createdAt: '2026-08-18T00:00:31Z',
+})
+const lifecycleNewerPassingValidationFixtureV1 = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  reviewedBase: lifecycleValidationSelectionIdentityV1.expectedBase,
+  historicalComments: [lifecycleNewerPassingValidationV1],
+})
+const lifecycleNewerPassingValidationResultV1 = await executeLifecycleOrchestratorV1({
+  event: lifecycleNewerPassingValidationFixtureV1.event,
+  sourceResult: lifecycleNewerPassingValidationFixtureV1.sourceResult,
+  host: lifecycleNewerPassingValidationFixtureV1.host,
+  executionIdentity: lifecycleNewerPassingValidationFixtureV1.executionIdentity,
+})
+check(
+  lifecycleNewerPassingValidationResultV1.next_action === 'MERGE_DECISION' &&
+  lifecycleNewerPassingValidationFixtureV1.metrics.directIds.includes(lifecycleNewerPassingValidationIdV1) &&
+  !lifecycleNewerPassingValidationFixtureV1.metrics.directIds.includes(lifecycleValidationSelectionIdentityV1.reviewId - 1) &&
+  lifecycleNewerPassingValidationResultV1.mutation_count === 0 && lifecycleNewerPassingValidationFixtureV1.metrics.mutation === 0,
+  'LOV1 latest applicable PASS Result Handoff remains the accepted validation owner',
+)
+
+const lifecycleNewerHistoricalHeadValidationIdV1 = lifecycleValidationSelectionIdentityV1.reviewId + 102
+const lifecycleNewerHistoricalPrValidationIdV1 = lifecycleValidationSelectionIdentityV1.reviewId + 103
+const lifecycleNewerHistoricalValidationFixtureV1 = lifecycleProductionFixtureV1({
+  pr: 325,
+  ready: true,
+  reviewedBase: lifecycleValidationSelectionIdentityV1.expectedBase,
+  historicalComments: [
+    lifecycleValidationSelectionCommentV1({
+      id: lifecycleNewerHistoricalHeadValidationIdV1,
+      createdAt: '2026-08-18T00:00:32Z',
+      head: OTHER_HEAD,
+    }),
+    lifecycleValidationSelectionCommentV1({
+      id: lifecycleNewerHistoricalPrValidationIdV1,
+      createdAt: '2026-08-18T00:00:33Z',
+      pr: 999,
+    }),
+  ],
+})
+const lifecycleNewerHistoricalValidationResultV1 = await executeLifecycleOrchestratorV1({
+  event: lifecycleNewerHistoricalValidationFixtureV1.event,
+  sourceResult: lifecycleNewerHistoricalValidationFixtureV1.sourceResult,
+  host: lifecycleNewerHistoricalValidationFixtureV1.host,
+  executionIdentity: lifecycleNewerHistoricalValidationFixtureV1.executionIdentity,
+})
+check(
+  lifecycleNewerHistoricalValidationResultV1.next_action === 'MERGE_DECISION' &&
+  lifecycleNewerHistoricalValidationFixtureV1.metrics.directIds.includes(lifecycleValidationSelectionIdentityV1.reviewId - 1) &&
+  !lifecycleNewerHistoricalValidationFixtureV1.metrics.directIds.includes(lifecycleNewerHistoricalHeadValidationIdV1) &&
+  !lifecycleNewerHistoricalValidationFixtureV1.metrics.directIds.includes(lifecycleNewerHistoricalPrValidationIdV1) &&
+  lifecycleNewerHistoricalValidationResultV1.mutation_count === 0 && lifecycleNewerHistoricalValidationFixtureV1.metrics.mutation === 0,
+  'LOV1 newer historical and non-applicable Result Handoffs remain irrelevant to the current owner',
+)
+
 const lifecyclePublishedHeadV1 = '96f26aec207f4405f680d9fe112827d45ce6024f'
 const lifecycleReviewedParentV1 = 'b85805ee8d79211738ab3c4925ff89749c8384cf'
 const lifecyclePublishedScopeV1 = Object.freeze([
@@ -7671,6 +7772,32 @@ const lifecyclePublicationAcquisitionMatrix = [
 ]
 for (const [evidence, label] of lifecyclePublicationAcquisitionMatrix) check(evidence, `LOV1 Publication Authority acquisition ${label}`)
 
+const lifecyclePublicationAuthorityEventFixtureV1 = lifecycleProductionFixtureV1({
+  pr: 325,
+  publicationAuthority: true,
+  reviewedBase: lifecycleHistoricalIdentityV1[325].expectedBase,
+})
+const lifecyclePublicationAuthorityEventResultV1 = await executeReviewEventWithLifecycleReplayV1({
+  event: lifecyclePublicationAuthorityEventFixtureV1.event,
+  host: lifecyclePublicationAuthorityEventFixtureV1.host,
+  runId: REVIEW_RUN_ID,
+  runAttempt: 1,
+  hostSha: lifecycleHistoricalIdentityV1[325].expectedBase,
+  jobName: 'protected_transition_admission_v1',
+})
+check(
+  lifecyclePublicationAuthorityEventResultV1.reason === 'review_event_not_applicable' &&
+  lifecyclePublicationAuthorityEventResultV1.pr_number === null &&
+  lifecyclePublicationAuthorityEventResultV1.current_head === null &&
+  lifecyclePublicationAuthorityEventResultV1.lifecycle_projection.task_issue_number === lifecycleHistoricalIdentityV1[325].task &&
+  lifecyclePublicationAuthorityEventResultV1.lifecycle_projection.pr_number === 325 &&
+  lifecyclePublicationAuthorityEventResultV1.lifecycle_projection.current_head === lifecycleHistoricalIdentityV1[325].head &&
+  lifecyclePublicationAuthorityEventResultV1.lifecycle_projection.execution_stop_reason !== 'lifecycle_production_identity_invalid' &&
+  lifecyclePublicationAuthorityEventFixtureV1.metrics.directIds.includes(lifecycleHistoricalIdentityV1[325].authorityId) &&
+  lifecyclePublicationAuthorityEventResultV1.lifecycle_projection.mutation_count === 0 && lifecyclePublicationAuthorityEventFixtureV1.metrics.mutation === 0,
+  'LOV1 Publication Authority issue_comment preserves the legacy not-applicable result while Lifecycle reuses the authority PR and HEAD identity',
+)
+
 const lifecycleQuotedAuthorityIdentity = lifecycleHistoricalIdentityV1[325]
 const lifecycleQuotedAuthorityResultId = lifecycleQuotedAuthorityIdentity.reviewId - 1
 check(parseLifecyclePublicationTaskBindingV1('352', REPOSITORY) === 352, 'LOV1 Stage-A parent_issue canonical integer accepted')
@@ -8385,5 +8512,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 1020) throw new Error(`expected exactly 1020 assertions, observed ${assertions}`)
+if (assertions !== 1024) throw new Error(`expected exactly 1024 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
