@@ -22,7 +22,6 @@ import {
   evaluateRoleOutputInvocationV1,
   classifyRoleOutputFailureDiagnosticV1,
   acquireLifecycleCompletionEvidenceV1,
-  executeLifecycleRoleDispatchOnlyV1,
   executeRoleDispatchConsumerV1,
   executeRoleDispatchRebindV1,
   executeManualProgressionControllerV1,
@@ -4593,94 +4592,15 @@ const convergenceMatrix = [
 ]
 for (const [index, evidence] of convergenceMatrix.entries()) check(evidence, `RDC-10 idempotent evidence reuse ${index + 1}`)
 
-const lifecycleImplementerDispatch = await executeLifecycleRoleDispatchOnlyV1({
-  ownerResult: Object.freeze({ next_action: 'IMPLEMENTER', role_dispatch: implementerDispatch, mutation_count: 0 }),
-  currentProjection: Object.freeze({ next_action: 'IMPLEMENTER', mutation_count: 0 }),
-  host: roleHost(),
-})
-const lifecycleProductOwnerDispatch = await executeLifecycleRoleDispatchOnlyV1({
-  ownerResult: Object.freeze({ next_action: 'PRODUCT_OWNER_IMPLEMENTATION_LEAD', role_dispatch: publicationDispatch, mutation_count: 0 }),
-  currentProjection: Object.freeze({ next_action: 'PRODUCT_OWNER_IMPLEMENTATION_LEAD', mutation_count: 0 }),
-  host: roleHost(),
-})
-const lifecycleReviewerDispatch = await executeLifecycleRoleDispatchOnlyV1({
-  ownerResult: Object.freeze({ next_action: 'INDEPENDENT_IMPLEMENTATION_REVIEWER', role_dispatch: reviewerDispatch, mutation_count: 0 }),
-  currentProjection: Object.freeze({ next_action: 'INDEPENDENT_IMPLEMENTATION_REVIEWER', mutation_count: 0 }),
-  host: roleHost({ head: OTHER_HEAD, taskState: reviewerDispatch.task_state }),
-})
-const lifecycleConvergedNoop = await executeLifecycleRoleDispatchOnlyV1({
-  ownerResult: Object.freeze({ next_action: 'IMPLEMENTER', role_dispatch: implementerDispatch, mutation_count: 0 }),
-  currentProjection: Object.freeze({ next_action: 'IMPLEMENTER', mutation_count: 0 }),
-  host: roleHost({ evidence: [implementerEvidence] }),
-})
-let missingDispatchConsumerCalls = 0
-const lifecycleMissingDispatch = await executeLifecycleRoleDispatchOnlyV1({
-  ownerResult: Object.freeze({ next_action: 'IMPLEMENTER', mutation_count: 0 }),
-  currentProjection: Object.freeze({ next_action: 'IMPLEMENTER', mutation_count: 0 }),
-  host: Object.freeze({ api: async () => {
-    missingDispatchConsumerCalls += 1
-    throw new Error('missing_dispatch_reached_consumer')
-  } }),
-})
-let nonAllowlistedConsumerCalls = 0
-const nonAllowlistedOwner = Object.freeze({ next_action: 'REPAIR_EXECUTOR', role_dispatch: implementerDispatch, mutation_count: 0 })
-const lifecycleNonAllowlisted = await executeLifecycleRoleDispatchOnlyV1({
-  ownerResult: nonAllowlistedOwner,
-  currentProjection: nonAllowlistedOwner,
-  host: Object.freeze({ api: async () => {
-    nonAllowlistedConsumerCalls += 1
-    throw new Error('non_allowlisted_dispatch_reached_consumer')
-  } }),
-})
-const lifecycleConsumerRejection = await executeLifecycleRoleDispatchOnlyV1({
-  ownerResult: Object.freeze({
-    next_action: 'IMPLEMENTER',
-    role_dispatch: Object.freeze({ ...implementerDispatch, unexpected_context: 'reject' }),
-    mutation_count: 0,
-  }),
-  currentProjection: Object.freeze({ next_action: 'IMPLEMENTER', mutation_count: 0 }),
-  host: roleHost(),
-})
-const singleDispatchMetrics = { taskReads: 0 }
-const lifecycleSingleDispatch = await executeLifecycleRoleDispatchOnlyV1({
-  ownerResult: Object.freeze({
-    next_action: 'IMPLEMENTER', role_dispatch: implementerDispatch, mutation_count: 0,
-  }),
-  currentProjection: Object.freeze({
-    next_action: 'IMPLEMENTER', mutation_count: 0,
-    lifecycle_projection: Object.freeze({ next_action: 'INDEPENDENT_IMPLEMENTATION_REVIEWER' }),
-  }),
-  host: roleHost({ metrics: singleDispatchMetrics }),
-})
-const lifecycleRoleDispatchOnlySource = runnerSource.slice(
-  runnerSource.indexOf('export const executeLifecycleRoleDispatchOnlyV1'),
-  runnerSource.indexOf('\nexport const evaluateRoleDispatchOutputV1'),
-)
-const lifecycleRoleDispatchOnlyMatrix = [
-  lifecycleImplementerDispatch.next_action === 'EXECUTE_ROLE' && lifecycleImplementerDispatch.role === 'IMPLEMENTER' && lifecycleImplementerDispatch.mutation_attempted === true && lifecycleImplementerDispatch.mutation_count === 1,
-  lifecycleProductOwnerDispatch.next_action === 'EXECUTE_ROLE' && lifecycleProductOwnerDispatch.role === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' && lifecycleProductOwnerDispatch.mutation_attempted === true && lifecycleProductOwnerDispatch.mutation_count === 1,
-  lifecycleReviewerDispatch.next_action === 'EXECUTE_ROLE' && lifecycleReviewerDispatch.role === 'INDEPENDENT_IMPLEMENTATION_REVIEWER' && lifecycleReviewerDispatch.mutation_attempted === true && lifecycleReviewerDispatch.mutation_count === 1,
-  lifecycleConvergedNoop.next_action === 'CONVERGED_NOOP' && lifecycleConvergedNoop.mutation_attempted === false && lifecycleConvergedNoop.mutation_count === 0,
-  lifecycleMissingDispatch.next_action === 'STOP' && lifecycleMissingDispatch.reason === 'lifecycle_role_dispatch_missing' && lifecycleMissingDispatch.mutation_count === 0 && missingDispatchConsumerCalls === 0,
-  lifecycleNonAllowlisted === nonAllowlistedOwner && lifecycleNonAllowlisted.mutation_count === 0 && nonAllowlistedConsumerCalls === 0,
-  lifecycleConsumerRejection.next_action === 'STOP' && lifecycleConsumerRejection.reason === 'role_dispatch_envelope_invalid' && lifecycleConsumerRejection.mutation_count === 0,
-  singleDispatchMetrics.taskReads === 1 && lifecycleSingleDispatch.next_action === 'EXECUTE_ROLE' && lifecycleSingleDispatch.mutation_attempted === true && lifecycleSingleDispatch.mutation_count === 1 && !Object.hasOwn(lifecycleSingleDispatch, 'lifecycle_projection') && (lifecycleRoleDispatchOnlySource.match(/executeRoleDispatchConsumerV1\(\{/g) ?? []).length === 1 && !lifecycleRoleDispatchOnlySource.includes('executeLifecycleOrchestratorV1('),
-]
-for (const [index, evidence] of lifecycleRoleDispatchOnlyMatrix.entries()) check(evidence, `LRO-01 role dispatch only ${index + 1}`)
-
-const lifecycleProductionDispatchMetrics = {
-  pullReads: 0, fileReads: 0, taskReads: 0, historyReads: 0,
-  directReads: 0, checkReads: 0, mutationCalls: 0,
+const lifecycleOwnerEnvelopeMetrics = {
+  pullReads: 0, fileReads: 0, taskReads: 0, historyReads: 0, directReads: 0, checkReads: 0,
 }
-const lifecycleProductionDispatchRoleHost = roleHost()
-const lifecycleProductionDispatchHost = Object.freeze({
+const lifecycleOwnerEnvelopeRoleHost = roleHost()
+const lifecycleOwnerEnvelopeHost = Object.freeze({
   api: async (endpoint, options = undefined) => {
-    if (options?.method && options.method !== 'GET') {
-      lifecycleProductionDispatchMetrics.mutationCalls += 1
-      throw new Error('lifecycle_production_dispatch_mutation_forbidden')
-    }
+    if (options?.method && options.method !== 'GET') throw new Error('lifecycle_owner_envelope_mutation_forbidden')
     if (endpoint.endsWith(`/pulls/${PR}`)) {
-      lifecycleProductionDispatchMetrics.pullReads += 1
+      lifecycleOwnerEnvelopeMetrics.pullReads += 1
       return Object.freeze({
         number: PR, state: 'open', draft: false, merged: false, mergeable: true, mergeable_state: 'clean',
         changed_files: rolePaths.length,
@@ -4690,20 +4610,20 @@ const lifecycleProductionDispatchHost = Object.freeze({
       })
     }
     if (endpoint.includes(`/pulls/${PR}/files?`)) {
-      lifecycleProductionDispatchMetrics.fileReads += 1
+      lifecycleOwnerEnvelopeMetrics.fileReads += 1
       return rolePaths.map((filename) => Object.freeze({ filename, status: 'modified' }))
     }
-    if (endpoint.endsWith(`/issues/${TASK}`)) lifecycleProductionDispatchMetrics.taskReads += 1
+    if (endpoint.endsWith(`/issues/${TASK}`)) lifecycleOwnerEnvelopeMetrics.taskReads += 1
     if (endpoint.includes(`/issues/${TASK}/comments?`)) {
-      lifecycleProductionDispatchMetrics.historyReads += 1
+      lifecycleOwnerEnvelopeMetrics.historyReads += 1
       return Object.freeze([])
     }
-    if (/\/issues\/comments\/\d+$/.test(endpoint)) lifecycleProductionDispatchMetrics.directReads += 1
-    return lifecycleProductionDispatchRoleHost.api(endpoint, options)
+    if (/\/issues\/comments\/\d+$/.test(endpoint)) lifecycleOwnerEnvelopeMetrics.directReads += 1
+    return lifecycleOwnerEnvelopeRoleHost.api(endpoint, options)
   },
   graphql: async (query) => {
-    if (!query.includes('statusCheckRollup')) throw new Error('unexpected_lifecycle_production_dispatch_graphql')
-    lifecycleProductionDispatchMetrics.checkReads += 1
+    if (!query.includes('statusCheckRollup')) throw new Error('unexpected_lifecycle_owner_envelope_graphql')
+    lifecycleOwnerEnvelopeMetrics.checkReads += 1
     return Object.freeze({
       repository: Object.freeze({
         pullRequest: Object.freeze({ headRefOid: HEAD }),
@@ -4715,36 +4635,35 @@ const lifecycleProductionDispatchHost = Object.freeze({
     })
   },
 })
-const lifecycleProductionDispatchResult = await executeReviewEventWithLifecycleReplayV1({
+const lifecycleOwnerEnvelopeResult = await executeReviewEventWithLifecycleReplayV1({
   event: implementationAuthorizationEvent,
-  host: lifecycleProductionDispatchHost,
+  host: lifecycleOwnerEnvelopeHost,
   runId: REVIEW_RUN_ID,
   runAttempt: 1,
   hostSha: AUTHORIZED_IMPLEMENTATION_BASE,
   jobName: 'protected_transition_admission_v1',
 })
-const lifecycleProductionReviewBoundarySource = runnerSource.slice(
+const lifecycleReviewBoundarySource = runnerSource.slice(
   runnerSource.indexOf('export const executeReviewEventWithLifecycleReplayV1'),
   runnerSource.indexOf('\nexport const executeReadyEventWithLifecycleReplayV1'),
 )
 check(
-  lifecycleProductionDispatchResult.next_action === 'EXECUTE_ROLE' &&
-  lifecycleProductionDispatchResult.role === 'IMPLEMENTER' &&
-  lifecycleProductionDispatchResult.mutation_attempted === true &&
-  lifecycleProductionDispatchResult.mutation_count === 1 &&
-  !Object.hasOwn(lifecycleProductionDispatchResult, 'lifecycle_projection') &&
-  !Object.hasOwn(lifecycleProductionDispatchResult, 'role_dispatch') &&
-  lifecycleProductionDispatchMetrics.pullReads === 4 &&
-  lifecycleProductionDispatchMetrics.fileReads === 2 &&
-  lifecycleProductionDispatchMetrics.taskReads === 3 &&
-  lifecycleProductionDispatchMetrics.historyReads === 2 &&
-  lifecycleProductionDispatchMetrics.directReads === 4 &&
-  lifecycleProductionDispatchMetrics.checkReads === 1 &&
-  lifecycleProductionDispatchMetrics.mutationCalls === 0 &&
-  (lifecycleProductionReviewBoundarySource.match(/executeLifecycleRoleDispatchOnlyV1\(\{/g) ?? []).length === 1 &&
-  lifecycleProductionReviewBoundarySource.indexOf('executeLifecycleOrchestratorV1({') <
-    lifecycleProductionReviewBoundarySource.indexOf('executeLifecycleRoleDispatchOnlyV1({'),
-  'LRO-02 production review-event boundary dispatches once and returns the terminal consumer result',
+  lifecycleOwnerEnvelopeResult.next_action === materializedImplementationRoute.next_action &&
+  JSON.stringify(lifecycleOwnerEnvelopeResult.role_dispatch) === JSON.stringify(materializedImplementationRoute.role_dispatch) &&
+  lifecycleOwnerEnvelopeResult.role_dispatch.next_action === lifecycleOwnerEnvelopeResult.next_action &&
+  lifecycleOwnerEnvelopeResult.role_dispatch.exact_head === lifecycleOwnerEnvelopeResult.current_head &&
+  lifecycleOwnerEnvelopeResult.mutation_count === materializedImplementationRoute.mutation_count &&
+  !Object.hasOwn(lifecycleOwnerEnvelopeResult, 'mutation_attempted') &&
+  Object.hasOwn(lifecycleOwnerEnvelopeResult, 'lifecycle_projection') &&
+  lifecycleOwnerEnvelopeMetrics.pullReads === 3 && lifecycleOwnerEnvelopeMetrics.fileReads === 1 &&
+  lifecycleOwnerEnvelopeMetrics.taskReads === 2 && lifecycleOwnerEnvelopeMetrics.historyReads === 1 &&
+  lifecycleOwnerEnvelopeMetrics.directReads === 2 && lifecycleOwnerEnvelopeMetrics.checkReads === 1 &&
+  !lifecycleReviewBoundarySource.includes('executeRoleDispatchConsumerV1(') &&
+  runnerSource.includes("invocation.mode === 'role_dispatch'") &&
+  runnerSource.includes('? await executeRoleDispatchConsumerV1({') &&
+  workflowSource.includes('protected_transition_role_dispatch_consumer_v1:') &&
+  workflowSource.includes('--role-dispatch-file $dispatchPath'),
+  'LRO-01 production review-event preserves the workflow-owned Role dispatch envelope',
 )
 
 const reboundImplementer = await executeRoleDispatchRebindV1({ dispatch: implementerDispatch, host: roleHost() })
@@ -8095,5 +8014,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 948) throw new Error(`expected exactly 948 assertions, observed ${assertions}`)
+if (assertions !== 940) throw new Error(`expected exactly 940 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
