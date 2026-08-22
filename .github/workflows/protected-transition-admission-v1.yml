@@ -126,10 +126,7 @@ jobs:
             fs.appendFileSync(output, `next_action=${result.next_action ?? "NONE"}\n`);
             fs.appendFileSync(output, `terminal_result=${result.terminal_result ?? "NONE"}\n`);
             fs.appendFileSync(output, `source_comment_id=${result.source_comment_id ?? ""}\n`);
-            if (result.next_action === "THREAD_RESOLUTION") {
-              if (!result.thread_action || result.thread_action.reviewed_head !== result.current_head) throw new Error("review_closure_projection_invalid");
-              fs.appendFileSync(output, `review_closure_b64=${Buffer.from(JSON.stringify(result.thread_action)).toString("base64")}\n`);
-            } else if (result.next_action === "MERGE_OPERATOR" && result.authority_kind === "MINIMAL_GOVERNANCE_V1") {
+            if (result.next_action === "MERGE_OPERATOR" && result.authority_kind === "MINIMAL_GOVERNANCE_V1") {
               const exactKeys = ["allowed", "authority_comment_id", "authority_kind", "authorized_paths", "automation_status", "current_head", "exact_head", "expected_base", "exit_code", "merge_method", "mutation_count", "next_action", "operation_count", "pr_number", "protected_operation_count", "reason", "repository", "sealed_snapshot_b64", "snapshot_sha256", "state", "task_issue_number", "terminal_result", "transition"];
               if (Object.keys(result).sort().join("\n") !== exactKeys.sort().join("\n") || result.terminal_result !== "MINIMAL_GOVERNANCE_V1" || result.exact_head !== result.current_head || result.merge_method !== "merge" || result.operation_count !== 1) throw new Error("minimal_governance_projection_invalid");
               fs.appendFileSync(output, `authority_kind=MINIMAL_GOVERNANCE_V1\n`);
@@ -143,30 +140,6 @@ jobs:
             if (result.next_action === "REPAIR_EXECUTOR") {
               fs.appendFileSync(output, `repair_exact_head=${result.repair_dispatch.exact_head}\n`);
               fs.appendFileSync(output, `repair_dispatch_b64=${Buffer.from(JSON.stringify(result.repair_dispatch)).toString("base64")}\n`);
-            }
-          ' "$result_file"
-
-      - name: Execute admitted review closure once
-        if: steps.evaluate.outputs.next_action == 'THREAD_RESOLUTION'
-        shell: bash
-        env:
-          REVIEW_CLOSURE_B64: ${{ steps.evaluate.outputs.review_closure_b64 }}
-        run: |
-          set -euo pipefail
-          action_file="$(mktemp)"
-          result_file="$(mktemp)"
-          node -e '
-            const fs = require("node:fs");
-            const action = JSON.parse(Buffer.from(process.env.REVIEW_CLOSURE_B64, "base64").toString("utf8"));
-            fs.writeFileSync(process.argv[1], JSON.stringify(action));
-          ' "$action_file"
-          node scripts/run-protected-transition-admission-v1.mjs \
-            --review-closure-file "$action_file" | tee "$result_file"
-          node -e '
-            const fs = require("node:fs");
-            const result = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-            if (result.transition !== "review_closure" || result.state !== "COMPLETED" || result.next_action !== "NONE") {
-              throw new Error("review_closure_result_invalid");
             }
           ' "$result_file"
 
@@ -487,6 +460,67 @@ jobs:
             }
           }
 
+          function Invoke-AdmittedReviewThreadClosure {
+            param(
+              [Parameter(Mandatory = $true)][string]$DispatchFile,
+              [Parameter(Mandatory = $true)][string]$OwnerResultFile,
+              [Parameter(Mandatory = $true)][object]$PublishedComment
+            )
+            $ownerResult = Get-Content -LiteralPath $OwnerResultFile -Raw -Encoding utf8 | ConvertFrom-Json
+            if ($null -eq $ownerResult.thread_action) { return }
+            $ownerDispatch = Get-Content -LiteralPath $DispatchFile -Raw -Encoding utf8 | ConvertFrom-Json
+            if (
+              $ownerDispatch.next_action -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER' -or
+              $ownerDispatch.purpose -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER' -or
+              $PublishedComment.html_url -cne "https://github.com/$($ownerDispatch.repository)/issues/$($ownerDispatch.task_issue_number)#issuecomment-$($PublishedComment.id)"
+            ) { throw 'review_thread_action_owner_publication_invalid' }
+            $eventPath = Join-Path $env:RUNNER_TEMP 'role-review-owner-event.json'
+            $routePath = Join-Path $env:RUNNER_TEMP 'role-review-owner-route.json'
+            $actionPath = Join-Path $env:RUNNER_TEMP 'role-review-owner-action.json'
+            $closurePath = Join-Path $env:RUNNER_TEMP 'role-review-owner-closure.json'
+            $reviewEvent = [ordered]@{
+              action = 'created'
+              repository = [ordered]@{ full_name = [string]$ownerDispatch.repository }
+              issue = [ordered]@{
+                number = [int64]$ownerDispatch.task_issue_number
+                state = 'open'
+                html_url = "https://github.com/$($ownerDispatch.repository)/issues/$($ownerDispatch.task_issue_number)"
+              }
+              comment = [ordered]@{
+                id = [int64]$PublishedComment.id
+                created_at = [string]$PublishedComment.created_at
+                author_association = [string]$PublishedComment.author_association
+                html_url = [string]$PublishedComment.html_url
+                body = [string]$PublishedComment.body
+              }
+            }
+            [IO.File]::WriteAllText($eventPath, ($reviewEvent | ConvertTo-Json -Depth 8 -Compress), $utf8NoBom)
+            node $env:PTA_ROLE_HOST_RUNNER --review-event-file $eventPath --review-owner-dispatch-file $DispatchFile --review-owner-result-file $OwnerResultFile 1> $routePath
+            if ($LASTEXITCODE -ne 0) { throw 'review_thread_action_owner_route_failed' }
+            $route = Get-Content -LiteralPath $routePath -Raw -Encoding utf8 | ConvertFrom-Json
+            if (
+              $route.next_action -cne 'THREAD_RESOLUTION' -or $route.mutation_count -ne 0 -or
+              @($route.thread_action.psobject.Properties).Count -ne 9 -or
+              $route.thread_action.repository -cne $ownerResult.thread_action.repository -or
+              $route.thread_action.task_issue_number -ne $ownerResult.thread_action.task_issue_number -or
+              $route.thread_action.pr_number -ne $ownerResult.thread_action.pr_number -or
+              $route.thread_action.reviewed_head -cne $ownerResult.thread_action.reviewed_head -or
+              $route.thread_action.review_thread_node_id -cne $ownerResult.thread_action.review_thread_node_id -or
+              $route.thread_action.finding_id -cne $ownerResult.thread_action.finding_id -or
+              $route.thread_action.disposition -cne $ownerResult.thread_action.disposition -or
+              $route.thread_action.review_decision_comment_id -ne $PublishedComment.id -or
+              $route.thread_action.review_decision_url -cne $PublishedComment.html_url
+            ) { throw 'review_thread_action_owner_route_invalid' }
+            [IO.File]::WriteAllText($actionPath, ($route.thread_action | ConvertTo-Json -Compress), $utf8NoBom)
+            node $env:PTA_ROLE_HOST_RUNNER --review-closure-file $actionPath 1> $closurePath
+            if ($LASTEXITCODE -ne 0) { throw 'review_thread_action_closure_failed' }
+            $closure = Get-Content -LiteralPath $closurePath -Raw -Encoding utf8 | ConvertFrom-Json
+            if (
+              $closure.transition -cne 'review_closure' -or $closure.state -cne 'COMPLETED' -or
+              $closure.next_action -cne 'NONE' -or $closure.mutation_count -ne 1
+            ) { throw 'review_thread_action_closure_invalid' }
+          }
+
           $sandbox = if ($plan.read_only) { 'read-only' } else { 'workspace-write' }
           Invoke-BoundedRole -PromptFile $promptPath -Sandbox $sandbox -JsonlFile $outputPath -BodyFile $bodyPath
           $expected = if ($dispatch.next_action -ceq 'IMPLEMENTER') { 'VALIDATE_IMPLEMENTATION' } elseif ($dispatch.purpose -ceq 'MERGE_DECISION') { 'POST_MERGE_DECISION' } elseif ($dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER') { 'POST_REVIEW' } else { 'COMMIT_PUSH_PUBLISH' }
@@ -494,7 +528,10 @@ jobs:
 
           if ($expected -in @('POST_REVIEW', 'POST_MERGE_DECISION')) {
             Assert-FreshRoleBinding -DispatchFile $dispatchPath
-            $null = Publish-CanonicalComment -BodyFile $bodyPath
+            $canonicalComment = Publish-CanonicalComment -BodyFile $bodyPath
+            if ($expected -ceq 'POST_REVIEW') {
+              Invoke-AdmittedReviewThreadClosure -DispatchFile $dispatchPath -OwnerResultFile $resultPath -PublishedComment $canonicalComment
+            }
             exit 0
           }
           if ($expected -ne 'VALIDATE_IMPLEMENTATION') { throw 'role_consumer_entry_invalid' }
@@ -624,7 +661,8 @@ jobs:
           Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath
           $publicationTask = gh api "repos/$($dispatch.repository)/issues/$($dispatch.task_issue_number)" | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or $publicationTask.number -ne $dispatch.task_issue_number -or $publicationTask.state -cne 'open' -or $null -ne $publicationTask.pull_request) { throw 'publication_reviewer_task_binding_invalid' }
-          $null = Publish-CanonicalComment -BodyFile $reviewBodyPath
+          $canonicalReviewComment = Publish-CanonicalComment -BodyFile $reviewBodyPath
+          Invoke-AdmittedReviewThreadClosure -DispatchFile $reviewDispatchPath -OwnerResultFile $reviewResultPath -PublishedComment $canonicalReviewComment
 
   protected_transition_merge_operator_v1:
     needs: protected_transition_admission_v1
