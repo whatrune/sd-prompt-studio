@@ -3191,7 +3191,7 @@ const minimalPaths = Object.freeze([
 ])
 const minimalReviewBody = reviewDecisionBody({ reviewed_head: OTHER_HEAD })
 const minimalReviewBodySha256 = createHash('sha256').update(Buffer.from(minimalReviewBody, 'utf8')).digest('hex')
-const minimalAuthorityBody = (overrides = {}, extraLines = []) => {
+const minimalAuthorityBody = (overrides = {}, extraLines = [], authorizedPaths = minimalPaths) => {
   const values = {
     record_type: 'minimal_governance_v1',
     authoring_role: 'Product Owner',
@@ -3210,7 +3210,7 @@ const minimalAuthorityBody = (overrides = {}, extraLines = []) => {
     ...overrides,
   }
   const lines = Object.entries(values).map(([key, value]) => `${key}: ${typeof value === 'number' ? value : JSON.stringify(value)}`)
-  return `# Minimal Governance V1\n\n\`\`\`yaml\n${[...lines, 'authorized_paths:', ...minimalPaths.map((value) => `  - ${JSON.stringify(value)}`), ...extraLines].join('\n')}\n\`\`\``
+  return `# Minimal Governance V1\n\n\`\`\`yaml\n${[...lines, 'authorized_paths:', ...authorizedPaths.map((value) => `  - ${JSON.stringify(value)}`), ...extraLines].join('\n')}\n\`\`\``
 }
 const minimalReviewComment = (overrides = {}) => Object.freeze({
   id: MINIMAL_REVIEW_COMMENT_ID,
@@ -3230,11 +3230,11 @@ const minimalAuthorityComment = (body = minimalAuthorityBody(), overrides = {}) 
   body,
   ...overrides,
 })
-const minimalEvent = (body = minimalAuthorityBody(), overrides = {}) => ({
+const minimalEvent = (body = minimalAuthorityBody(), overrides = {}, taskIssueNumber = TASK) => ({
   action: 'created',
   repository: { full_name: REPOSITORY },
-  issue: { number: TASK, state: 'open', html_url: `https://github.com/${REPOSITORY}/issues/${TASK}` },
-  comment: { ...minimalAuthorityComment(body), ...overrides },
+  issue: { number: taskIssueNumber, state: 'open', html_url: `https://github.com/${REPOSITORY}/issues/${taskIssueNumber}` },
+  comment: { ...minimalAuthorityComment(body), issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${taskIssueNumber}`, ...overrides },
 })
 const minimalPull = (overrides = {}) => ({
   number: PR,
@@ -3413,9 +3413,13 @@ const executeMinimalFixture = async ({
   threads = connectionPage([]),
   eventOverrides = {},
   authorityRefetchOverrides = {},
+  reviewRefetchOverrides = {},
   taskUser = minimalProductOwner,
+  fixtureTaskNumber = TASK,
   fixturePrNumber = PR,
   fixtureExactHead = OTHER_HEAD,
+  authorityCommentId = MINIMAL_AUTHORITY_COMMENT_ID,
+  reviewCommentId = MINIMAL_REVIEW_COMMENT_ID,
   runId = REVIEW_RUN_ID,
   runAttempt = 1,
   hostSha = CURRENT_MAIN_SHA,
@@ -3427,9 +3431,10 @@ const executeMinimalFixture = async ({
   historicalLogBytes = null,
   historicalLogUnavailable = false,
 } = {}) => {
-  const authority = minimalAuthorityComment(authorityRefetchBody, authorityRefetchOverrides)
-  const review = minimalReviewComment({ body: reviewRefetchBody })
-  const history = comments ?? [minimalReviewComment(), minimalAuthorityComment(authorityBody)]
+  const issueUrl = `https://api.github.com/repos/${REPOSITORY}/issues/${fixtureTaskNumber}`
+  const authority = minimalAuthorityComment(authorityRefetchBody, { id: authorityCommentId, issue_url: issueUrl, ...authorityRefetchOverrides })
+  const review = minimalReviewComment({ id: reviewCommentId, issue_url: issueUrl, body: reviewRefetchBody, ...reviewRefetchOverrides })
+  const history = comments ?? [review, minimalAuthorityComment(authorityBody, { id: authorityCommentId, issue_url: issueUrl })]
   const metrics = { authority: 0, review: 0, pull: 0, task: 0, main: 0, comments: 0, scope: 0, checks: 0, threads: 0 }
   const currentMetrics = { run: 0, jobs: 0 }
   const historicalMetrics = { run: 0, jobs: 0, log: 0 }
@@ -3438,11 +3443,11 @@ const executeMinimalFixture = async ({
   const host = {
     branchHead: async () => { metrics.main += 1; return mainHead },
     api: async (endpoint) => {
-      if (endpoint === `repos/${REPOSITORY}/issues/comments/${MINIMAL_AUTHORITY_COMMENT_ID}`) {
+      if (endpoint === `repos/${REPOSITORY}/issues/comments/${authorityCommentId}`) {
         metrics.authority += 1
         return structuredClone(authority)
       }
-      if (endpoint === `repos/${REPOSITORY}/issues/comments/${MINIMAL_REVIEW_COMMENT_ID}`) {
+      if (endpoint === `repos/${REPOSITORY}/issues/comments/${reviewCommentId}`) {
         metrics.review += 1
         return structuredClone(review)
       }
@@ -3450,11 +3455,11 @@ const executeMinimalFixture = async ({
         metrics.pull += 1
         return structuredClone(pull)
       }
-      if (endpoint === `repos/${REPOSITORY}/issues/${TASK}`) {
+      if (endpoint === `repos/${REPOSITORY}/issues/${fixtureTaskNumber}`) {
         metrics.task += 1
-        return { number: TASK, state: 'open', html_url: `https://github.com/${REPOSITORY}/issues/${TASK}`, repository_url: `https://api.github.com/repos/${REPOSITORY}`, user: taskUser }
+        return { number: fixtureTaskNumber, state: 'open', html_url: `https://github.com/${REPOSITORY}/issues/${fixtureTaskNumber}`, repository_url: `https://api.github.com/repos/${REPOSITORY}`, user: taskUser }
       }
-      if (endpoint.startsWith(`repos/${REPOSITORY}/issues/${TASK}/comments?`)) {
+      if (endpoint.startsWith(`repos/${REPOSITORY}/issues/${fixtureTaskNumber}/comments?`)) {
         metrics.comments += 1
         return structuredClone(history)
       }
@@ -3501,7 +3506,7 @@ const executeMinimalFixture = async ({
     },
   }
   const result = await executeMinimalGovernanceV1({
-    event: minimalEvent(authorityBody, eventOverrides), host, runId, runAttempt, hostSha, jobName,
+    event: minimalEvent(authorityBody, { id: authorityCommentId, ...eventOverrides }, fixtureTaskNumber), host, runId, runAttempt, hostSha, jobName,
   })
   return Object.freeze({ result, metrics, currentMetrics, historicalMetrics, host })
 }
@@ -3560,6 +3565,201 @@ check(malformedActorType.result.next_action === 'STOP' && malformedActorType.res
 const duplicateMinimal = await executeMinimalFixture({ comments: [minimalReviewComment(), minimalAuthorityComment(), minimalAuthorityComment(minimalAuthorityBody(), { id: MINIMAL_AUTHORITY_COMMENT_ID + 1, created_at: '2026-08-18T00:00:03Z' })] })
 const mixedMinimal = await executeMinimalFixture({ authorityBody: `${minimalAuthorityBody()}\nrecord_type: product_owner_merge_decision_v1` })
 check(duplicateMinimal.result.reason === 'minimal_governance_authority_cardinality_invalid' && mixedMinimal.result.reason === 'minimal_governance_marker_conflict', 'MGV-04 duplicate or mixed authority fails closed')
+
+const PHASE2_MINIMAL_TASK = 352
+const PHASE2_MINIMAL_PR = 354
+const PHASE2_MINIMAL_HEAD = '1b9ae0cec490ee6edb3537445da4ca27e533fd5a'
+const PHASE2_MINIMAL_BASE = '760d829b1aaf917b971127ad7856d8e636c2070f'
+const PHASE2_MINIMAL_REVIEW_ID = 5378884885
+const PHASE2_MINIMAL_AUTHORITY_ID = 5378915796
+const PHASE2_HISTORICAL_AUTHORITY_ID = 5377887170
+const phase2MinimalPaths = Object.freeze(['scripts/test-protected-transition-admission-v1.mjs'])
+const phase2MinimalReviewBody = [
+  '# Independent Review Decision — PR #354 ROLE_DISPATCH Boundary Regression',
+  '',
+  '```yaml',
+  'task_id: "ARCH-LIFECYCLE-ORCHESTRATOR-V1-001"',
+  'record_type: "independent_review_decision_v1"',
+  'review_id: "LOV1-PHASE2-TESTS-ONLY-REVIEW-1B9AE0C"',
+  'authoring_role: "Independent Reviewer"',
+  'reviewing_role: "Independent Reviewer"',
+  'authority_source: "https://github.com/whatrune/sd-prompt-studio/issues/352"',
+  'canonical_record: "https://github.com/whatrune/sd-prompt-studio/issues/352#issuecomment-5378884885"',
+  'prior_record_url: "https://github.com/whatrune/sd-prompt-studio/issues/352#issuecomment-5378384374"',
+  'repository: "whatrune/sd-prompt-studio"',
+  'task_issue: "https://github.com/whatrune/sd-prompt-studio/issues/352"',
+  'pull_request: "https://github.com/whatrune/sd-prompt-studio/pull/354"',
+  'branch: "codex/lifecycle-orchestrator-v1-role-dispatch-only"',
+  'reviewed_head: "1b9ae0cec490ee6edb3537445da4ca27e533fd5a"',
+  'phase: "PHASE_2_ROLE_DISPATCH_ONLY_TESTS_ONLY"',
+  'review_scope: "scripts/test-protected-transition-admission-v1.mjs"',
+  'objective: "Protect the existing production ROLE_DISPATCH owner boundary without changing production semantics"',
+  'acceptance_result: "PASS"',
+  'validation_evidence: "focused RTO/PTA 940 PASS reused; git diff --check PASS reused; broad validation not rerun"',
+  'active_non_outdated_thread_count: 0',
+  'tests_only_disposition: "APPROVED"',
+  'runner_diff_vs_main: 0',
+  'runner_blob_oid: "2746b4ebbce8c05a3ae567421740558a1cff94d3"',
+  'production_semantics_changed: false',
+  'role_valued_next_action_preserved: true',
+  'role_dispatch_preserved_unchanged: true',
+  'workflow_consumer_invocation_owner_preserved: true',
+  'lifecycle_direct_consumer_invocation: false',
+  'role_dispatch_file_path_preserved: true',
+  'finding_reference: "https://github.com/whatrune/sd-prompt-studio/pull/354#discussion_r3835365819"',
+  'finding_disposition: "CLOSED_BY_CURRENT_CODE"',
+  'new_validation_authentication_parser_cardinality_semantics: false',
+  'decision: "APPROVE"',
+  'blocking_finding_count: 0',
+  'remaining_finding_count: 0',
+  'unknown_count: 0',
+  'status: "completed"',
+  'execution_stop_reason: "completed"',
+  'result_handoff_status: "REUSED_EXISTING"',
+  'protected_action_state: "NOT_AUTHORIZED"',
+  'next_owner: "Product Owner"',
+  'unresolved_items: "NONE_WITHIN_TESTS_ONLY_REVIEW_SCOPE"',
+  'unperformed_items: "broad validation not rerun"',
+  '```',
+  '',
+  '## Exact binding and evidence',
+  '',
+  '- PR: #354.',
+  '- Exact reviewed HEAD: 1b9ae0cec490ee6edb3537445da4ca27e533fd5a.',
+  '- Exact changed path: scripts/test-protected-transition-admission-v1.mjs.',
+  '- Production runner diff versus main: 0.',
+  '- Production runner blob: 2746b4ebbce8c05a3ae567421740558a1cff94d3.',
+  '- Production semantics changed: no.',
+  '- Active non-outdated review threads: 0.',
+  '- Existing focused evidence reused: RTO/PTA 940 PASS and git diff --check PASS.',
+  '- Broad validation was not rerun.',
+  '',
+  '## Review result',
+  '',
+  'The retained regression test protects the existing production owner boundary: the authoritative role-valued next_action and unchanged role_dispatch survive Lifecycle projection, while the workflow remains the exclusive consumer-invocation owner through the existing --role-dispatch-file path. Lifecycle does not directly invoke executeRoleDispatchConsumerV1 or replace the owner envelope with an EXECUTE_ROLE plan.',
+  '',
+  'The regression reported by discussion_r3835365819 is closed by the current code and covered by the retained test. No validation, authentication, parser, cardinality, or production routing semantics were added.',
+  '',
+  'Material findings: none. Decision: APPROVE.',
+  '',
+  'No code modification, validation rerun, Ready toggle, Publication Authority, Merge authority, or Merge is authorized or performed by this record.',
+].join('\n')
+const phase2MinimalReviewSha256 = createHash('sha256').update(Buffer.from(phase2MinimalReviewBody, 'utf8')).digest('hex')
+const phase2MinimalAuthorityBody = ({
+  pr = PHASE2_MINIMAL_PR,
+  head = PHASE2_MINIMAL_HEAD,
+  base = PHASE2_MINIMAL_BASE,
+  reviewId = PHASE2_MINIMAL_REVIEW_ID,
+  reviewSha256 = phase2MinimalReviewSha256,
+  paths = phase2MinimalPaths,
+} = {}) => [
+  '```yaml',
+  'record_type: "minimal_governance_v1"',
+  'authoring_role: "Product Owner"',
+  'authority_actor_login: "whatrune"',
+  'authority_actor_id: 47842632',
+  'authority_actor_type: "User"',
+  'task_issue: "https://github.com/whatrune/sd-prompt-studio/issues/352"',
+  `pull_request: "https://github.com/whatrune/sd-prompt-studio/pull/${pr}"`,
+  `exact_head: "${head}"`,
+  `expected_base: "${base}"`,
+  'base_impact: "NO_MATERIAL_IMPACT"',
+  `review_comment: "https://github.com/whatrune/sd-prompt-studio/issues/352#issuecomment-${reviewId}"`,
+  `review_body_sha256: "${reviewSha256}"`,
+  'merge_method: "merge"',
+  'operation_count: 1',
+  'authorized_paths:',
+  ...paths.map((value) => `  - ${JSON.stringify(value)}`),
+  '```',
+].join('\n')
+const phase2HistoricalAuthorityBody = phase2MinimalAuthorityBody({
+  pr: 353,
+  head: 'e2f35c7aab1b73584dc713ec7e912759416d24eb',
+  base: '3cfc645ecbad07f9ef0e858605a0acdf3f7b11ba',
+  reviewId: 5377833208,
+  reviewSha256: 'e970a2a37c9a616e66729c6c8003330d95f055a7a74ba19e75a934de84a27bff',
+  paths: ['scripts/run-protected-transition-admission-v1.mjs', 'scripts/test-protected-transition-admission-v1.mjs'],
+})
+const phase2CurrentAuthorityBody = phase2MinimalAuthorityBody()
+const phase2MinimalComment = ({ id, createdAt, body, association = 'OWNER', user = minimalProductOwner }) => Object.freeze({
+  id,
+  created_at: createdAt,
+  author_association: association,
+  user,
+  issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${PHASE2_MINIMAL_TASK}`,
+  body,
+})
+const phase2CurrentReviewComment = phase2MinimalComment({
+  id: PHASE2_MINIMAL_REVIEW_ID,
+  createdAt: '2026-08-22T07:04:53Z',
+  body: phase2MinimalReviewBody,
+})
+const phase2HistoricalAuthorityComment = phase2MinimalComment({
+  id: PHASE2_HISTORICAL_AUTHORITY_ID,
+  createdAt: '2026-08-22T04:33:13Z',
+  body: phase2HistoricalAuthorityBody,
+})
+const phase2CurrentAuthorityComment = phase2MinimalComment({
+  id: PHASE2_MINIMAL_AUTHORITY_ID,
+  createdAt: '2026-08-22T07:07:17Z',
+  body: phase2CurrentAuthorityBody,
+})
+const executePhase2MinimalFixture = (overrides = {}) => executeMinimalFixture({
+  authorityBody: phase2CurrentAuthorityBody,
+  authorityRefetchBody: phase2CurrentAuthorityBody,
+  reviewRefetchBody: phase2MinimalReviewBody,
+  reviewRefetchOverrides: { created_at: '2026-08-22T07:04:53Z', author_association: 'OWNER' },
+  comments: [phase2HistoricalAuthorityComment, phase2CurrentReviewComment, phase2CurrentAuthorityComment],
+  pull: minimalPull({
+    number: PHASE2_MINIMAL_PR,
+    base: { ref: 'main', sha: PHASE2_MINIMAL_BASE, repo: { full_name: REPOSITORY } },
+    head: { sha: PHASE2_MINIMAL_HEAD },
+    changed_files: phase2MinimalPaths.length,
+  }),
+  mainHead: PHASE2_MINIMAL_BASE,
+  paths: phase2MinimalPaths,
+  fixtureTaskNumber: PHASE2_MINIMAL_TASK,
+  fixturePrNumber: PHASE2_MINIMAL_PR,
+  fixtureExactHead: PHASE2_MINIMAL_HEAD,
+  authorityCommentId: PHASE2_MINIMAL_AUTHORITY_ID,
+  reviewCommentId: PHASE2_MINIMAL_REVIEW_ID,
+  hostSha: PHASE2_MINIMAL_BASE,
+  ...overrides,
+})
+check(phase2MinimalReviewSha256 === 'c667cb3373dbf4724e3e9e8e0bb392a65873dfd635a825d3564c92ad58fa74fa', 'MGV-18 production-shaped PR 354 Review fixture preserves authority-bound body SHA-256')
+const phase2HistoricalAndCurrent = await executePhase2MinimalFixture()
+check(
+  phase2HistoricalAndCurrent.result.next_action === 'MERGE_OPERATOR' &&
+  phase2HistoricalAndCurrent.result.pr_number === PHASE2_MINIMAL_PR &&
+  phase2HistoricalAndCurrent.result.exact_head === PHASE2_MINIMAL_HEAD &&
+  phase2HistoricalAndCurrent.result.authority_comment_id === PHASE2_MINIMAL_AUTHORITY_ID,
+  'MGV-18 A/E historical PR 353 authority is non-applicable and production-shaped PR 354 authority 5378915796 is selected',
+)
+const phase2DuplicateCurrent = await executePhase2MinimalFixture({
+  comments: [
+    phase2HistoricalAuthorityComment,
+    phase2CurrentReviewComment,
+    phase2CurrentAuthorityComment,
+    phase2MinimalComment({ id: PHASE2_MINIMAL_AUTHORITY_ID + 1, createdAt: '2026-08-22T07:07:18Z', body: phase2CurrentAuthorityBody }),
+  ],
+})
+check(phase2DuplicateCurrent.result.reason === 'minimal_governance_authority_cardinality_invalid', 'MGV-18 B two current-tuple authorities retain existing cardinality failure')
+const phase2StaleAuthorities = [
+  phase2MinimalComment({ id: PHASE2_MINIMAL_AUTHORITY_ID - 3, createdAt: '2026-08-22T07:06:50Z', body: phase2MinimalAuthorityBody({ base: CURRENT_MAIN_SHA }) }),
+  phase2MinimalComment({ id: PHASE2_MINIMAL_AUTHORITY_ID - 2, createdAt: '2026-08-22T07:06:51Z', body: phase2MinimalAuthorityBody({ reviewId: PHASE2_MINIMAL_REVIEW_ID - 1, reviewSha256: '0'.repeat(64) }) }),
+  phase2MinimalComment({ id: PHASE2_MINIMAL_AUTHORITY_ID - 1, createdAt: '2026-08-22T07:06:52Z', body: phase2MinimalAuthorityBody({ paths: ['scripts/run-protected-transition-admission-v1.mjs'] }) }),
+]
+const phase2StaleNonApplicable = await executePhase2MinimalFixture({
+  comments: [phase2HistoricalAuthorityComment, ...phase2StaleAuthorities, phase2CurrentReviewComment, phase2CurrentAuthorityComment],
+})
+check(phase2StaleNonApplicable.result.next_action === 'MERGE_OPERATOR' && phase2StaleNonApplicable.result.authority_comment_id === PHASE2_MINIMAL_AUTHORITY_ID, 'MGV-18 C stale base, Review, and scope authorities are non-applicable')
+const phase2SelectedBodyDrift = await executePhase2MinimalFixture({ authorityRefetchBody: `${phase2CurrentAuthorityBody}\n` })
+const phase2SelectedActorDrift = await executePhase2MinimalFixture({ authorityRefetchOverrides: { user: { login: 'collaborator', id: 97003, type: 'User' } } })
+check(
+  phase2SelectedBodyDrift.result.reason === 'minimal_governance_authority_body_changed' &&
+  phase2SelectedActorDrift.result.next_action === 'STOP',
+  'MGV-18 D selected triggering authority body or actor drift retains existing failure',
+)
 
 const authorityRefetchDrift = await executeMinimalFixture({ authorityRefetchBody: `${minimalAuthorityBody()}\n` })
 const reviewRefetchDrift = await executeMinimalFixture({ reviewRefetchBody: `${minimalReviewBody}\n` })
@@ -4591,6 +4791,80 @@ const convergenceMatrix = [
   [convergedImplementer, convergedReviewer, convergedMergeDecision, convergedPublication].every((value) => value.reason === 'role_evidence_reused' && value.mutation_count === 0),
 ]
 for (const [index, evidence] of convergenceMatrix.entries()) check(evidence, `RDC-10 idempotent evidence reuse ${index + 1}`)
+
+const lifecycleOwnerEnvelopeMetrics = {
+  pullReads: 0, fileReads: 0, taskReads: 0, historyReads: 0, directReads: 0, checkReads: 0,
+}
+const lifecycleOwnerEnvelopeRoleHost = roleHost()
+const lifecycleOwnerEnvelopeHost = Object.freeze({
+  api: async (endpoint, options = undefined) => {
+    if (options?.method && options.method !== 'GET') throw new Error('lifecycle_owner_envelope_mutation_forbidden')
+    if (endpoint.endsWith(`/pulls/${PR}`)) {
+      lifecycleOwnerEnvelopeMetrics.pullReads += 1
+      return Object.freeze({
+        number: PR, state: 'open', draft: false, merged: false, mergeable: true, mergeable_state: 'clean',
+        changed_files: rolePaths.length,
+        base: Object.freeze({ repo: Object.freeze({ full_name: REPOSITORY }), ref: 'main', sha: AUTHORIZED_IMPLEMENTATION_BASE }),
+        head: Object.freeze({ sha: HEAD, ref: 'codex/lifecycle-role-dispatch-only', repo: Object.freeze({ full_name: REPOSITORY }) }),
+        body: stateBlock(implementerState),
+      })
+    }
+    if (endpoint.includes(`/pulls/${PR}/files?`)) {
+      lifecycleOwnerEnvelopeMetrics.fileReads += 1
+      return rolePaths.map((filename) => Object.freeze({ filename, status: 'modified' }))
+    }
+    if (endpoint.endsWith(`/issues/${TASK}`)) lifecycleOwnerEnvelopeMetrics.taskReads += 1
+    if (endpoint.includes(`/issues/${TASK}/comments?`)) {
+      lifecycleOwnerEnvelopeMetrics.historyReads += 1
+      return Object.freeze([])
+    }
+    if (/\/issues\/comments\/\d+$/.test(endpoint)) lifecycleOwnerEnvelopeMetrics.directReads += 1
+    return lifecycleOwnerEnvelopeRoleHost.api(endpoint, options)
+  },
+  graphql: async (query) => {
+    if (!query.includes('statusCheckRollup')) throw new Error('unexpected_lifecycle_owner_envelope_graphql')
+    lifecycleOwnerEnvelopeMetrics.checkReads += 1
+    return Object.freeze({
+      repository: Object.freeze({
+        pullRequest: Object.freeze({ headRefOid: HEAD }),
+        object: Object.freeze({
+          oid: HEAD,
+          statusCheckRollup: Object.freeze({ contexts: connectionPage([successfulCheck('lifecycle-production-dispatch')]) }),
+        }),
+      }),
+    })
+  },
+})
+const lifecycleOwnerEnvelopeResult = await executeReviewEventWithLifecycleReplayV1({
+  event: implementationAuthorizationEvent,
+  host: lifecycleOwnerEnvelopeHost,
+  runId: REVIEW_RUN_ID,
+  runAttempt: 1,
+  hostSha: AUTHORIZED_IMPLEMENTATION_BASE,
+  jobName: 'protected_transition_admission_v1',
+})
+const lifecycleReviewBoundarySource = runnerSource.slice(
+  runnerSource.indexOf('export const executeReviewEventWithLifecycleReplayV1'),
+  runnerSource.indexOf('\nexport const executeReadyEventWithLifecycleReplayV1'),
+)
+check(
+  lifecycleOwnerEnvelopeResult.next_action === materializedImplementationRoute.next_action &&
+  JSON.stringify(lifecycleOwnerEnvelopeResult.role_dispatch) === JSON.stringify(materializedImplementationRoute.role_dispatch) &&
+  lifecycleOwnerEnvelopeResult.role_dispatch.next_action === lifecycleOwnerEnvelopeResult.next_action &&
+  lifecycleOwnerEnvelopeResult.role_dispatch.exact_head === lifecycleOwnerEnvelopeResult.current_head &&
+  lifecycleOwnerEnvelopeResult.mutation_count === materializedImplementationRoute.mutation_count &&
+  !Object.hasOwn(lifecycleOwnerEnvelopeResult, 'mutation_attempted') &&
+  Object.hasOwn(lifecycleOwnerEnvelopeResult, 'lifecycle_projection') &&
+  lifecycleOwnerEnvelopeMetrics.pullReads === 3 && lifecycleOwnerEnvelopeMetrics.fileReads === 1 &&
+  lifecycleOwnerEnvelopeMetrics.taskReads === 2 && lifecycleOwnerEnvelopeMetrics.historyReads === 1 &&
+  lifecycleOwnerEnvelopeMetrics.directReads === 2 && lifecycleOwnerEnvelopeMetrics.checkReads === 1 &&
+  !lifecycleReviewBoundarySource.includes('executeRoleDispatchConsumerV1(') &&
+  runnerSource.includes("invocation.mode === 'role_dispatch'") &&
+  runnerSource.includes('? await executeRoleDispatchConsumerV1({') &&
+  workflowSource.includes('protected_transition_role_dispatch_consumer_v1:') &&
+  workflowSource.includes('--role-dispatch-file $dispatchPath'),
+  'LRO-01 production review-event preserves the workflow-owned Role dispatch envelope',
+)
 
 const reboundImplementer = await executeRoleDispatchRebindV1({ dispatch: implementerDispatch, host: roleHost() })
 const taskTitleDrift = await executeRoleDispatchConsumerV1({ dispatch: implementerDispatch, host: roleHost({ taskTitle: `${roleTaskTitle} changed` }) })
@@ -7940,5 +8214,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 939) throw new Error(`expected exactly 939 assertions, observed ${assertions}`)
+if (assertions !== 945) throw new Error(`expected exactly 945 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

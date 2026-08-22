@@ -3384,6 +3384,16 @@ export const executeMinimalGovernanceV1 = async ({ event, host, runId, runAttemp
       } catch {
         throw new Error('minimal_governance_authority_invalid')
       }
+      if (
+        parsed.taskIssueNumber !== request.taskIssueNumber || parsed.prNumber !== request.prNumber ||
+        parsed.exactHead !== request.exactHead || parsed.expectedBase !== request.expectedBase ||
+        parsed.baseImpact !== authority.baseImpact || parsed.reviewCommentId !== authority.reviewCommentId ||
+        parsed.reviewBodySha256 !== authority.reviewBodySha256 || parsed.mergeMethod !== authority.mergeMethod ||
+        parsed.operationCount !== authority.operationCount ||
+        parsed.authorizedPaths.join('\n') !== authority.authorizedPaths.join('\n') ||
+        JSON.stringify(actor) !== JSON.stringify(eventActor) ||
+        JSON.stringify(minimalGovernanceAuthorityActorIdentityV1(parsed)) !== JSON.stringify(authorityBodyActor)
+      ) continue
       authorityCandidates.push(Object.freeze({
         commentId: comment.id,
         createdAt: comment.created_at,
