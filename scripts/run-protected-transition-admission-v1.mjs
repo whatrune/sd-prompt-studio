@@ -31,16 +31,12 @@ const READY_ATTACHED_SELF_CHECK_CONTEXT_V1 = 'ATTACHED_CURRENT_CHECK_REQUIRED'
 const READY_REBIND_SELF_CHECK_CONTEXT_V1 = 'ATTACHED_SAME_RUN_FAMILY_EXCLUDED'
 const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'
 const ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'
-const LEGACY_RTO_SELF_JOB_NAMES_V1 = Object.freeze([
+const RTO_SELF_JOB_NAMES_V1 = Object.freeze([
   'protected_transition_admission_v1',
   'protected_transition_repair_executor_v1',
   'protected_transition_role_dispatch_consumer_v1',
   'protected_transition_merge_operator_v1',
   'protected_transition_post_repair_review_v1',
-])
-const RTO_SELF_JOB_NAMES_V1 = Object.freeze([
-  ...LEGACY_RTO_SELF_JOB_NAMES_V1,
-  'protected_transition_review_closure_v1',
 ])
 const VERIFIED_ADMISSION_ORIGINS_V1 = new WeakSet()
 const REVIEW_RECORD_TYPE = 'independent_review_decision_v1'
@@ -98,7 +94,6 @@ const LIVE_SHADOW_REQUIRED_CHECKS_V1 = Object.freeze(new Map([
   ['protected_transition_role_dispatch_consumer_v1', Object.freeze({ check_id: 'rto-role-dispatch', app_id: '15368', required: false })],
   ['protected_transition_post_repair_review_v1', Object.freeze({ check_id: 'rto-post-repair-review', app_id: '15368', required: false })],
   ['protected_transition_merge_operator_v1', Object.freeze({ check_id: 'rto-merge-operator', app_id: '15368', required: false })],
-  ['protected_transition_review_closure_v1', Object.freeze({ check_id: 'rto-review-closure', app_id: '15368', required: false })],
 ]))
 const STRICT_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/
 const REPAIR_EXECUTOR_INSTRUCTION = 'Generate and apply the minimum repair for current blocking findings only within current authorized_paths; stop on an Architecture gap.'
@@ -2927,9 +2922,9 @@ const resolveHistoricalLegacyRtoAllowlistEntryV1 = (request) => {
     !positiveInteger(entry.pr_number) || !FULL_HEAD.test(entry.head_sha) ||
     !WORKFLOW_RUN_ID.test(entry.workflow_id) || !WORKFLOW_RUN_ID.test(entry.run_id) ||
     !positiveInteger(entry.run_attempt) || !WORKFLOW_RUN_ID.test(entry.check_suite_id) ||
-    !exactObjectKeysV1(entry.job_ids, LEGACY_RTO_SELF_JOB_NAMES_V1) ||
+    !exactObjectKeysV1(entry.job_ids, RTO_SELF_JOB_NAMES_V1) ||
     Object.values(entry.job_ids).some((jobId) => !WORKFLOW_RUN_ID.test(jobId)) ||
-    new Set(Object.values(entry.job_ids)).size !== LEGACY_RTO_SELF_JOB_NAMES_V1.length
+    new Set(Object.values(entry.job_ids)).size !== RTO_SELF_JOB_NAMES_V1.length
   ) throw new Error('minimal_governance_historical_rto_allowlist_invalid')
   return entry
 }
@@ -3040,7 +3035,7 @@ const assertHistoricalLegacyRtoEvidenceV1 = (evidence, request) => {
     !WORKFLOW_RUN_ID.test(evidence.check_suite_id ?? '') || evidence.event !== 'pull_request' ||
     evidence.status !== 'COMPLETED' || evidence.conclusion !== 'FAILURE' || evidence.head_sha !== request.exactHead ||
     evidence.pr_number !== request.prNumber || evidence.base_ref !== 'main' ||
-    !Array.isArray(evidence.checks) || evidence.checks.length !== LEGACY_RTO_SELF_JOB_NAMES_V1.length ||
+    !Array.isArray(evidence.checks) || evidence.checks.length !== RTO_SELF_JOB_NAMES_V1.length ||
     !/^[0-9a-f]{64}$/.test(evidence.raw_log_sha256 ?? '')
   ) throw new Error('minimal_governance_historical_rto_evidence_invalid')
   const allowlisted = resolveHistoricalLegacyRtoAllowlistEntryV1(request)
@@ -3059,7 +3054,7 @@ const assertHistoricalLegacyRtoEvidenceV1 = (evidence, request) => {
       ]) ||
       typeof check.check_id !== 'string' || check.check_id.length === 0 ||
       !WORKFLOW_RUN_ID.test(check.check_database_id ?? '') || check.check_suite_id !== evidence.check_suite_id ||
-      !WORKFLOW_RUN_ID.test(check.job_id ?? '') || !LEGACY_RTO_SELF_JOB_NAMES_V1.includes(check.name) ||
+      !WORKFLOW_RUN_ID.test(check.job_id ?? '') || !RTO_SELF_JOB_NAMES_V1.includes(check.name) ||
       allowlisted.job_ids[check.name] !== check.job_id ||
       names.has(check.name) || jobIds.has(check.job_id) || checkIds.has(check.check_database_id) ||
       check.status !== 'COMPLETED' ||
@@ -3072,7 +3067,7 @@ const assertHistoricalLegacyRtoEvidenceV1 = (evidence, request) => {
     jobIds.add(check.job_id)
     checkIds.add(check.check_database_id)
   }
-  if (LEGACY_RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))) {
+  if (RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))) {
     throw new Error('minimal_governance_historical_rto_evidence_invalid')
   }
   const admission = evidence.admission_job
@@ -3107,7 +3102,7 @@ const assertExpectedLegacyReadyEvidenceV1 = (evidence, request) => {
     typeof evidence.created_at !== 'string' || !STRICT_UTC.test(evidence.created_at) ||
     evidence.status !== 'COMPLETED' || evidence.conclusion !== 'FAILURE' || evidence.head_sha !== request.exactHead ||
     evidence.pr_number !== request.prNumber || evidence.base_ref !== 'main' ||
-    !Array.isArray(evidence.checks) || evidence.checks.length !== LEGACY_RTO_SELF_JOB_NAMES_V1.length ||
+    !Array.isArray(evidence.checks) || evidence.checks.length !== RTO_SELF_JOB_NAMES_V1.length ||
     !/^[0-9a-f]{64}$/.test(evidence.raw_log_sha256 ?? '')
   ) throw new Error('minimal_governance_expected_legacy_ready_evidence_invalid')
   const terminal = assertExpectedLegacyReadyTerminalResultV1(evidence.terminal_result, request, {
@@ -3130,7 +3125,7 @@ const assertExpectedLegacyReadyEvidenceV1 = (evidence, request) => {
       ]) ||
       typeof check.check_id !== 'string' || check.check_id.length === 0 ||
       !WORKFLOW_RUN_ID.test(check.check_database_id ?? '') || check.check_suite_id !== evidence.check_suite_id ||
-      !WORKFLOW_RUN_ID.test(check.job_id ?? '') || !LEGACY_RTO_SELF_JOB_NAMES_V1.includes(check.name) ||
+      !WORKFLOW_RUN_ID.test(check.job_id ?? '') || !RTO_SELF_JOB_NAMES_V1.includes(check.name) ||
       names.has(check.name) || jobIds.has(check.job_id) || checkIds.has(check.check_database_id) ||
       check.status !== 'COMPLETED' ||
       (check.name === 'protected_transition_admission_v1' ? check.conclusion !== 'FAILURE' : check.conclusion !== 'SKIPPED') ||
@@ -3142,7 +3137,7 @@ const assertExpectedLegacyReadyEvidenceV1 = (evidence, request) => {
     jobIds.add(check.job_id)
     checkIds.add(check.check_database_id)
   }
-  if (LEGACY_RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))) {
+  if (RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))) {
     throw new Error('minimal_governance_expected_legacy_ready_evidence_invalid')
   }
   const admission = evidence.admission_job
@@ -3162,7 +3157,7 @@ const assertExpectedLegacyReadyEvidenceV1 = (evidence, request) => {
 }
 
 const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host, expectedLegacyReady = false }) => {
-  if (checks.length !== LEGACY_RTO_SELF_JOB_NAMES_V1.length) throw new Error('minimal_governance_historical_rto_family_invalid')
+  if (checks.length !== RTO_SELF_JOB_NAMES_V1.length) throw new Error('minimal_governance_historical_rto_family_invalid')
   const identities = checks.map((check) => parseRepositoryActionsJobIdentityV1(request, check))
   if (identities.some((identity) => identity === null)) throw new Error('minimal_governance_historical_rto_family_invalid')
   const runIds = new Set(identities.map((identity) => identity.runId))
@@ -3170,8 +3165,8 @@ const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host, exp
   const appIds = new Set(checks.map((check) => check.app_id))
   const checkSuiteIds = new Set(checks.map((check) => String(check.check_suite_database_id ?? '')))
   if (
-    runIds.size !== 1 || names.size !== LEGACY_RTO_SELF_JOB_NAMES_V1.length || appIds.size !== 1 || checkSuiteIds.size !== 1 ||
-    LEGACY_RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))
+    runIds.size !== 1 || names.size !== RTO_SELF_JOB_NAMES_V1.length || appIds.size !== 1 || checkSuiteIds.size !== 1 ||
+    RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))
   ) throw new Error('minimal_governance_historical_rto_family_invalid')
   const runId = identities[0].runId
   const allowlisted = expectedLegacyReady ? null : resolveHistoricalLegacyRtoAllowlistEntryV1(request)
@@ -3194,7 +3189,7 @@ const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host, exp
 
   const page = await api(host, `repos/${request.repository}/actions/runs/${runId}/jobs?per_page=100`)
   if (
-    !page || page.total_count !== LEGACY_RTO_SELF_JOB_NAMES_V1.length || !Array.isArray(page.jobs) ||
+    !page || page.total_count !== RTO_SELF_JOB_NAMES_V1.length || !Array.isArray(page.jobs) ||
     page.jobs.length !== page.total_count
   ) throw new Error('minimal_governance_historical_rto_jobs_invalid')
   const checksByName = new Map(checks.map((check) => [check.name, check]))
@@ -3216,7 +3211,7 @@ const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host, exp
     jobsByName.set(job.name, job)
     jobIds.add(jobId)
   }
-  if (LEGACY_RTO_SELF_JOB_NAMES_V1.some((name) => !jobsByName.has(name))) {
+  if (RTO_SELF_JOB_NAMES_V1.some((name) => !jobsByName.has(name))) {
     throw new Error('minimal_governance_historical_rto_jobs_invalid')
   }
   const admissionJob = jobsByName.get('protected_transition_admission_v1')
@@ -5251,22 +5246,6 @@ export const executeReviewThreadClosureV1 = async ({ action: input, host }) => {
   let action = null
   try {
     action = normalizeReviewThreadActionV1(input)
-    const reviewComment = await fetchRoleCommentRecordV1(
-      action.repository,
-      action.task_issue_number,
-      action.review_decision_comment_id,
-      host,
-    )
-    const review = parseIndependentReviewDecisionProjectionV1(
-      reviewComment.body,
-      action.repository,
-      action.task_issue_number,
-    )
-    if (
-      review.thread_actions.length !== 1 ||
-      JSON.stringify(review.thread_actions[0]) !== JSON.stringify(action)
-    ) return reviewClosureStopV1(action, 'review_closure_review_binding_invalid')
-
     const pull = await api(host, `repos/${action.repository}/pulls/${action.pr_number}`)
     if (
       !pull || pull.number !== action.pr_number || pull.state !== 'open' ||
@@ -5305,6 +5284,23 @@ export const executeReviewThreadClosureV1 = async ({ action: input, host }) => {
     }
     if (target === null) return reviewClosureStopV1(action, 'review_closure_thread_missing')
     if (target.isResolved || target.isOutdated) return reviewClosureStopV1(action, 'review_closure_thread_not_open')
+
+    const request = Object.freeze({
+      transition: 'review_closure',
+      repository: action.repository,
+      taskIssueNumber: action.task_issue_number,
+      prNumber: action.pr_number,
+      exactHead: action.reviewed_head,
+    })
+    const effective = await acquireEffectiveReviewDecisionV1({ request, host })
+    if (
+      effective.commentId !== action.review_decision_comment_id ||
+      effective.review.task_issue_number !== action.task_issue_number ||
+      effective.review.pr_number !== action.pr_number ||
+      effective.review.reviewed_head !== action.reviewed_head ||
+      effective.review.thread_actions.length !== 1 ||
+      JSON.stringify(effective.review.thread_actions[0]) !== JSON.stringify(action)
+    ) return reviewClosureStopV1(action, 'review_closure_review_binding_invalid')
 
     const mutationCount = 1
     let resolved
