@@ -27,6 +27,7 @@ import {
   executeManualProgressionControllerV1,
   executeLifecycleOrchestratorV1,
   executeReviewEventWithLifecycleReplayV1,
+  executeReviewThreadClosureV1,
   executeReadyEventWithLifecycleReplayV1,
   executeMinimalGovernanceFinalDriftGuardV1,
   executeMinimalGovernanceV1,
@@ -724,10 +725,11 @@ const trackedChangedPaths = execFileSync('git', ['diff', '--name-only', AUTHORIZ
 const untrackedChangedPaths = execFileSync('git', ['ls-files', '--others', '--exclude-standard'], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
 const changedPaths = [...new Set([...trackedChangedPaths, ...untrackedChangedPaths])].sort()
 const expectedPaths = [
+  '.github/workflows/protected-transition-admission-v1.yml',
   'scripts/run-protected-transition-admission-v1.mjs',
   'scripts/test-protected-transition-admission-v1.mjs',
 ]
-check(changedPaths.join('\n') === expectedPaths.join('\n'), 'fresh-base correction diff is exactly two authorized paths')
+check(changedPaths.join('\n') === expectedPaths.join('\n'), 'fresh-base correction diff is exactly three authorized paths')
 const productionSource = `${workflowSource}\n${runnerSource}\n${coreSource}`
 check(!/(trust_root|revocation|ready_generation|producer_roster|assignment_record|finalization_binding|collector|\.jcs|upload-artifact)/i.test(productionSource), 'retired mechanisms are absent')
 check(runnerSource.includes('/comments?since=') && runnerSource.includes('pageNumber > 32'), 'runner uses bounded forward-only Review pagination')
@@ -3028,6 +3030,7 @@ const readyRebindJobIds = Object.freeze({
   protected_transition_merge_operator_v1: '95344878622',
   protected_transition_repair_executor_v1: '95344878997',
   protected_transition_post_repair_review_v1: '95344879635',
+  protected_transition_review_closure_v1: '95344880101',
 })
 const roleAdmissionRun = ({
   runId = READY_RUN_ID,
@@ -3261,6 +3264,7 @@ const minimalSelfCheck = (overrides = {}) => currentReadyCheck({
 })
 const CURRENT_EXECUTION_RTO_WORKFLOW_ID = 93075420000
 const CURRENT_EXECUTION_RTO_CHECK_SUITE_ID = 93075430000
+const currentRtoJobNames = Object.freeze(Object.keys(readyRebindJobIds))
 const currentExecutionRtoRun = (overrides = {}) => ({
   id: Number(REVIEW_RUN_ID),
   run_attempt: 1,
@@ -3287,7 +3291,7 @@ const currentExecutionRtoJobs = ({
   workflowSha = CURRENT_MAIN_SHA,
   jobs = undefined,
 } = {}) => {
-  const values = jobs ?? historicalRtoJobNames.map((name) => ({
+  const values = jobs ?? currentRtoJobNames.map((name) => ({
     id: Number(readyRebindJobIds[name]),
     run_id: Number(runId),
     run_attempt: runAttempt,
@@ -3865,11 +3869,11 @@ check(
   exactBoundSnapshot.job_manifest.current_execution_rto_manifest.job_ids.protected_transition_admission_v1 ===
     readyRebindJobIds.protected_transition_admission_v1 &&
   Object.values(exactBoundSelfCheck.currentMetrics).every((count) => count === 1),
-  'CERM-A exact five-job current manifest and exact name/job ID permit bounded exclusion',
+  'CERM-A exact six-job current manifest and exact name/job ID permit bounded exclusion',
 )
 check(arbitraryCurrentJob.result.next_action === 'STOP', 'CERM-B arbitrary positive current-run job ID stops')
 check(missingCurrentManifest.result.next_action === 'STOP', 'CERM-C missing current-run manifest stops')
-check(incompleteCurrentManifest.result.next_action === 'STOP', 'CERM-D incomplete five-job current manifest stops')
+check(incompleteCurrentManifest.result.next_action === 'STOP', 'CERM-D incomplete six-job current manifest stops')
 check(
   duplicateCurrentManifest.result.next_action === 'STOP' && unknownCurrentManifest.result.next_action === 'STOP',
   'CERM-E duplicate or unknown current-run job stops',
@@ -6043,9 +6047,10 @@ const lifecycleProductionFixtureV1 = ({
     'protected_transition_role_dispatch_consumer_v1',
     'protected_transition_merge_operator_v1',
     'protected_transition_post_repair_review_v1',
+    'protected_transition_review_closure_v1',
   ])
   const lifecycleJobIds = Object.freeze(Object.fromEntries(
-    ['95591890192', '95591918182', '95591918148', '95591918161', '95591918420'].map((jobId, index) => [lifecycleRtoJobNames[index], jobId]),
+    ['95591890192', '95591918182', '95591918148', '95591918161', '95591918420', '95591919001'].map((jobId, index) => [lifecycleRtoJobNames[index], jobId]),
   ))
   const lifecycleCheckSuiteId = 87008787144
   const lifecycleCurrentCheck = currentReadyCheck({
@@ -7270,7 +7275,7 @@ const lifecycleCurrentExecutionResult = await executeLifecycleOrchestratorV1({
 check(
   lifecycleCurrentExecutionResult.next_action === 'MERGE_DECISION' &&
   lifecycleCurrentExecutionResult.reason !== 'external_checks_pending',
-  'LOV1 exact current executing RTO check is excluded after strict run and five-job manifest binding',
+  'LOV1 exact current executing RTO check is excluded after strict run and six-job manifest binding',
 )
 
 const lifecycleOlderRtoCheck = currentReadyCheck({
@@ -8169,6 +8174,233 @@ const lifecycleInvalidationMatrix = [
 ]
 for (const [index, evidence] of lifecycleInvalidationMatrix.entries()) check(evidence, `LOV1 fail-closed invalidation ${index + 1}`)
 
+const reviewClosureActionV1 = (overrides = {}) => Object.freeze({
+  repository: REPOSITORY,
+  task_issue_number: TASK,
+  pr_number: PR,
+  reviewed_head: HEAD,
+  review_thread_node_id: 'PRRT_kwDOReviewClosureTarget',
+  finding_id: 'B-THREAD-001',
+  disposition: 'RESOLVE_ONLY',
+  review_decision_comment_id: 9001,
+  review_decision_url: `https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-9001`,
+  ...overrides,
+})
+const reviewClosureBodyV1 = (actions) => {
+  const actionLines = actions.flatMap((action) => Object.entries(action).map(([key, value], index) =>
+    `${index === 0 ? '  -' : '   '} ${key}: ${typeof value === 'number' ? value : JSON.stringify(value)}`))
+  return reviewDecisionBody(
+    { decision: 'CHANGES_REQUIRED', blocking_finding_count: 1, remaining_finding_count: 1 },
+    ['thread_actions:', ...actionLines],
+  )
+}
+const reviewClosureProjectionHostV1 = (body) => Object.freeze({
+  api: async (endpoint) => {
+    if (endpoint.includes('/comments?')) return []
+    if (endpoint === `repos/${REPOSITORY}/issues/comments/9001`) {
+      return Object.freeze({
+        id: 9001,
+        created_at: '2026-08-07T00:00:00Z',
+        author_association: 'MEMBER',
+        issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`,
+        body,
+      })
+    }
+    throw new Error('review_closure_projection_host_unexpected')
+  },
+})
+const resolveOnlyActionV1 = reviewClosureActionV1()
+const resolveOnlyBodyV1 = reviewClosureBodyV1([resolveOnlyActionV1])
+const resolveOnlyEventV1 = reviewEvent({ body: resolveOnlyBodyV1 })
+const resolveOnlyProjectionV1 = await executeReviewEventWithLifecycleReplayV1({
+  event: resolveOnlyEventV1,
+  host: reviewClosureProjectionHostV1(resolveOnlyBodyV1),
+  runId: REVIEW_RUN_ID,
+  runAttempt: 1,
+  hostSha: CUMULATIVE_PR_BASE,
+  jobName: 'protected_transition_admission_v1',
+})
+check(
+  resolveOnlyProjectionV1.next_action === 'THREAD_RESOLUTION' &&
+  JSON.stringify(resolveOnlyProjectionV1.thread_action) === JSON.stringify(resolveOnlyActionV1) &&
+  JSON.stringify(resolveOnlyProjectionV1.lifecycle_projection.thread_action) === JSON.stringify(resolveOnlyActionV1),
+  'TRC-A canonical RESOLVE_ONLY action projects THREAD_RESOLUTION unchanged',
+)
+
+const aggregateOnlyReviewV1 = parseIndependentReviewDecisionProjectionV1(reviewDecisionBody(), REPOSITORY, TASK)
+const aggregateOnlyLifecycleV1 = reduceLifecycleReplayV1(lifecycleReplaySnapshotV1({ pr: 325 }))
+check(
+  aggregateOnlyReviewV1.blocking_finding_count === 0 && aggregateOnlyReviewV1.remaining_finding_count === 0 &&
+  aggregateOnlyReviewV1.unknown_count === 0 && aggregateOnlyReviewV1.thread_actions.length === 0 &&
+  aggregateOnlyLifecycleV1.next_action !== 'THREAD_RESOLUTION',
+  'TRC-B aggregate 0/0/0 without thread_action does not project THREAD_RESOLUTION',
+)
+
+const duplicateThreadActionErrorV1 = await errorOf(() => parseIndependentReviewDecisionProjectionV1(
+  reviewClosureBodyV1([resolveOnlyActionV1, reviewClosureActionV1({ review_thread_node_id: 'PRRT_kwDOSecondTarget', finding_id: 'B-THREAD-002' })]),
+  REPOSITORY,
+  TASK,
+))
+check(duplicateThreadActionErrorV1?.message === 'review_thread_action_cardinality_invalid', 'TRC-C more than one thread action fails closed')
+
+const unknownThreadActionErrorV1 = await errorOf(() => parseIndependentReviewDecisionProjectionV1(
+  reviewClosureBodyV1([{ ...resolveOnlyActionV1, unknown_field: 'forbidden' }]),
+  REPOSITORY,
+  TASK,
+))
+const malformedThreadActionErrorV1 = await errorOf(() => parseIndependentReviewDecisionProjectionV1(
+  reviewClosureBodyV1([{ ...resolveOnlyActionV1, review_thread_node_id: '' }]),
+  REPOSITORY,
+  TASK,
+))
+check(
+  unknownThreadActionErrorV1?.message === 'review_thread_action_invalid' &&
+  malformedThreadActionErrorV1?.message === 'review_thread_action_invalid',
+  'TRC-D malformed or unknown thread action fields fail closed',
+)
+const supersededDispositionErrorV1 = await errorOf(() => parseIndependentReviewDecisionProjectionV1(
+  reviewClosureBodyV1([{ ...resolveOnlyActionV1, disposition: 'UNSUPPORTED' }]),
+  REPOSITORY,
+  TASK,
+))
+check(supersededDispositionErrorV1?.message === 'review_thread_action_invalid', 'TRC-E any disposition other than RESOLVE_ONLY fails closed')
+
+const reviewClosureHostV1 = ({
+  boundAction = resolveOnlyActionV1,
+  target = Object.freeze({ id: resolveOnlyActionV1.review_thread_node_id, isResolved: false, isOutdated: false }),
+  extraThreads = [],
+  resolveFailure = false,
+} = {}) => {
+  const metrics = { api: 0, threadLookups: 0, resolves: 0, mutationTargets: [], calls: [] }
+  const body = reviewClosureBodyV1([boundAction])
+  return Object.freeze({
+    metrics,
+    host: Object.freeze({
+      api: async (endpoint) => {
+        metrics.api += 1
+        if (endpoint.includes('/issues/comments/')) {
+          return Object.freeze({
+            id: boundAction.review_decision_comment_id,
+            created_at: '2026-08-07T00:00:00Z',
+            author_association: 'MEMBER',
+            issue_url: `https://api.github.com/repos/${boundAction.repository}/issues/${boundAction.task_issue_number}`,
+            body,
+          })
+        }
+        if (endpoint === `repos/${boundAction.repository}/pulls/${boundAction.pr_number}`) {
+          return Object.freeze({
+            number: boundAction.pr_number,
+            state: 'open',
+            head: Object.freeze({
+              sha: boundAction.reviewed_head,
+              repo: Object.freeze({ full_name: boundAction.repository }),
+            }),
+          })
+        }
+        throw new Error('review_closure_api_unexpected')
+      },
+      graphql: async (query, variables) => {
+        if (query.includes('query ReviewClosureThread')) {
+          metrics.threadLookups += 1
+          metrics.calls.push('LOOKUP')
+          return Object.freeze({
+            repository: Object.freeze({
+              pullRequest: Object.freeze({
+                number: boundAction.pr_number,
+                headRefOid: boundAction.reviewed_head,
+                reviewThreads: Object.freeze({
+                  nodes: Object.freeze(target === null ? [...extraThreads] : [target, ...extraThreads]),
+                  pageInfo: Object.freeze({ hasNextPage: false, endCursor: null }),
+                }),
+              }),
+            }),
+          })
+        }
+        if (query.includes('mutation ResolveReviewThread')) {
+          metrics.resolves += 1
+          metrics.mutationTargets.push(variables.threadId)
+          metrics.calls.push('RESOLVE')
+          if (resolveFailure) throw new Error('synthetic_resolve_failure')
+          return Object.freeze({
+            resolveReviewThread: Object.freeze({
+              thread: Object.freeze({ id: variables.threadId, isResolved: true }),
+            }),
+          })
+        }
+        throw new Error('review_closure_graphql_unexpected')
+      },
+    }),
+  })
+}
+
+const closureBindingDriftsV1 = [
+  reviewClosureActionV1({
+    task_issue_number: TASK + 1,
+    review_decision_url: `https://github.com/${REPOSITORY}/issues/${TASK + 1}#issuecomment-9001`,
+  }),
+  reviewClosureActionV1({ pr_number: PR + 1 }),
+  reviewClosureActionV1({ reviewed_head: OTHER_HEAD }),
+  reviewClosureActionV1({
+    review_decision_comment_id: 9002,
+    review_decision_url: `https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-9002`,
+  }),
+]
+const closureBindingResultsV1 = await Promise.all(closureBindingDriftsV1.map((action) => {
+  const fixture = reviewClosureHostV1()
+  return executeReviewThreadClosureV1({ action, host: fixture.host })
+}))
+check(
+  closureBindingResultsV1.every((result) => result.next_action === 'STOP' && result.mutation_count === 0),
+  'TRC-F wrong Task, PR, HEAD, or Review binding stops before mutation',
+)
+
+const resolveOnlyOperatorHostV1 = reviewClosureHostV1({
+  extraThreads: [Object.freeze({ id: 'PRRT_kwDOUnselected', isResolved: false, isOutdated: false })],
+})
+const unavailableTargetResultsV1 = await Promise.all([
+  null,
+  Object.freeze({ id: resolveOnlyActionV1.review_thread_node_id, isResolved: true, isOutdated: false }),
+  Object.freeze({ id: resolveOnlyActionV1.review_thread_node_id, isResolved: false, isOutdated: true }),
+].map((target) => {
+  const fixture = reviewClosureHostV1({ target })
+  return executeReviewThreadClosureV1({ action: resolveOnlyActionV1, host: fixture.host })
+}))
+check(
+  unavailableTargetResultsV1.every((result) => result.next_action === 'STOP' && result.mutation_count === 0) &&
+  unavailableTargetResultsV1.map((result) => result.reason).join(',') ===
+    'review_closure_thread_missing,review_closure_thread_not_open,review_closure_thread_not_open',
+  'TRC-G missing, resolved, or outdated target stops before mutation',
+)
+
+const resolveOnlyOperatorResultV1 = await executeReviewThreadClosureV1({ action: resolveOnlyActionV1, host: resolveOnlyOperatorHostV1.host })
+check(
+  resolveOnlyOperatorResultV1.state === 'COMPLETED' && resolveOnlyOperatorResultV1.mutation_count === 1 &&
+  resolveOnlyOperatorHostV1.metrics.resolves === 1 && resolveOnlyOperatorHostV1.metrics.calls.join(',') === 'LOOKUP,RESOLVE',
+  'TRC-H exact unresolved non-outdated target resolves once',
+)
+
+check(
+  resolveOnlyOperatorHostV1.metrics.mutationTargets.join(',') === resolveOnlyActionV1.review_thread_node_id &&
+  resolveOnlyOperatorHostV1.metrics.threadLookups === 1,
+  'TRC-I no second thread is selected or mutated',
+)
+check(
+  resolveOnlyOperatorResultV1.next_action === 'NONE' &&
+  !Object.hasOwn(resolveOnlyOperatorResultV1, 'lifecycle_projection'),
+  'TRC-J successful closure is terminal without a chained protected action or Lifecycle callback',
+)
+
+const reviewClosureJobV1 = workflow.jobs.protected_transition_review_closure_v1
+const reviewClosureRunV1 = reviewClosureJobV1?.steps.find((step) => step.name === 'Execute admitted review closure once')?.run ?? ''
+check(
+  admissionJob.outputs.review_closure_b64 === '${{ steps.evaluate.outputs.review_closure_b64 }}' &&
+  reviewClosureJobV1?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'THREAD_RESOLUTION'" &&
+  (reviewClosureRunV1.match(/--review-closure-file/g) ?? []).length === 1 &&
+  !reviewClosureRunV1.includes('--role-dispatch-file') && !reviewClosureRunV1.includes('--merge-operator-file') &&
+  !reviewClosureRunV1.includes('REPAIR_EXECUTOR') && !reviewClosureRunV1.includes('MINIMAL_GOVERNANCE'),
+  'TRC-K workflow routes review_closure exactly once only for THREAD_RESOLUTION',
+)
+
 const lifecycleSourceStart = runnerSource.indexOf('const LIFECYCLE_BODY_SHA256_V1')
 const lifecycleSourceEnd = runnerSource.indexOf('\nexport const executeRoleTransitionOrchestratorV1', lifecycleSourceStart)
 const lifecycleSource = runnerSource.slice(lifecycleSourceStart, lifecycleSourceEnd)
@@ -8189,7 +8421,7 @@ const lifecycleStructuralMatrix = [
   !lifecycleSource.includes('acquireHistoricalLegacyRtoEvidenceV1('),
   !lifecycleSource.includes('role_dispatch:') && !lifecycleSource.includes('provider_projection') && !lifecycleSource.includes("method: 'POST'") && !lifecycleSource.includes("method: 'PUT'"),
   lifecycleAllResults.every((result) => result.mutation_count === 0 && !Object.hasOwn(result, 'comment_body') && !Object.hasOwn(result, 'authority') && !Object.hasOwn(result, 'review')),
-  workflow.on.issue_comment.types.join(',') === 'created' && workflow.on.pull_request.types.join(',') === 'ready_for_review' && Object.keys(workflow.jobs).length === 5,
+  workflow.on.issue_comment.types.join(',') === 'created' && workflow.on.pull_request.types.join(',') === 'ready_for_review' && Object.keys(workflow.jobs).length === 6,
   workflow.permissions.actions === 'read' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'read' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read',
   lifecycleHistoricalPathsV1[323].length === 11 && lifecycleHistoricalPathsV1[325].length === 20 && lifecycleHistoricalPathsV1[327].length === 35 && lifecycleHistoricalPathsV1[329].length === 32 && lifecycleHistoricalPathsV1[331].length === 4 && lifecycleHistoricalPathsV1[333].length === 24,
   pr333InitialPaths.length === 18 && pr333TwentyTwoPaths.length === 22 && lifecycleHistoricalIdentityV1[333].head === '4f0154002ee0139c54cba177dea52f68a3259e87',
@@ -8207,12 +8439,12 @@ const workflowBoundaryMatrix = [
   roleBindRun.includes("operation=CONVERGED_NOOP") && roleExecutionStep?.if === "steps.role_dispatch_plan.outputs.operation == 'EXECUTE_ROLE'" && roleExecutionStep?.env?.GH_TOKEN === '${{ github.token }}' && mergeDecisionOutput.next_action === 'POST_MERGE_DECISION' && !Object.hasOwn(mergeDecisionOutput, 'bounded_metadata') && roleOutputFailureDiagnosticKeys.length === 9 && roleOutputFailureDiagnosticKeys.join('\n') === expectedRoleOutputFailureDiagnosticKeys.join('\n') && roleExecutionRun.indexOf('$publicationComment = Publish-CanonicalComment -BodyFile $publicationPath') < roleExecutionRun.indexOf('--review-event-file $publishedEventPath') && roleExecutionRun.indexOf('--review-event-file $publishedEventPath') < roleExecutionRun.indexOf("-ExpectedAction 'POST_REVIEW'") && assertRoleOutputSource.includes('--role-jsonl-file $JsonlFile') && (roleExecutionRun.match(/Assert-RoleOutput[^\n]+-JsonlFile \$/g) ?? []).length === 3 && assertRoleOutputSource.includes('$failure.bounded_metadata') && expectedRoleOutputFailureDiagnosticKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("$dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && assertRoleOutputSource.includes('$failure.failure_evidence') && reviewerEvidenceHeaderKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && assertRoleOutputSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && assertRoleOutputSource.includes('$header.selected_body_utf8_byte_count -gt 262144') && assertRoleOutputSource.includes('$header.body_chunk_count -gt 64') && assertRoleOutputSource.includes('$bytes.Length -ne 4096') && assertRoleOutputSource.includes('[Convert]::FromBase64String($chunk.body_base64)') && assertRoleOutputSource.includes('$sha256.ComputeHash($capturedBytes)') && assertRoleOutputSource.includes("$header.body_capture_status -ceq 'BOUND_EXCEEDED'") && assertRoleOutputSource.includes('$chunks.Count -ne 0') && assertRoleOutputSource.includes('-gt 9007199254740991') && assertRoleOutputSource.includes('-isnot [System.Array]') && assertRoleOutputSource.includes('$diagnosticLines = @()') && assertRoleOutputSource.includes('foreach ($diagnosticLine in $diagnosticLines)') && assertRoleOutputSource.split('[Console]::Error.WriteLine($diagnosticLine)').length === 2 && assertRoleOutputSource.includes("throw 'role_output_validation_failed'") && !assertRoleOutputSource.includes('Start-Sleep') && !assertRoleOutputSource.includes('retry') && !Object.hasOwn(workflow.concurrency, 'queue') && workflow.concurrency['cancel-in-progress'] === false && roleExecutionRun.includes("if ($expected -in @('POST_REVIEW', 'POST_MERGE_DECISION'))") && !roleExecutionRun.includes('Complete-ReviewerClosure'),
   boundedRoleSource.startsWith('function Invoke-BoundedRole {') && !boundedRoleSource.includes('$LASTEXITCODE = $null') && boundedRoleSource.indexOf('$priorToken = $env:GH_TOKEN') < boundedRoleSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(boundedRoleSource) && boundedRoleSource.indexOf('codex.cmd exec') < boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') && boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') < boundedRoleSource.indexOf('if ($null -eq $priorToken)') && terminalAgentSelectorSource.includes('$terminalMessage = [string]$event.item.text') && !terminalAgentSelectorSource.includes('$messages +=') && (process.platform !== 'win32' || (roleProviderNativeExitProbe.success === 0 && roleProviderNativeExitProbe.failure === 37 && roleProviderTerminalMessageProbe.multiple === roleImplementationResultBody && roleProviderTerminalMessageProbe.zeroRejected === true && malformedTerminalOutput.next_action === 'STOP' && trustedHostCredentialProbe.providerToken === 'ABSENT' && trustedHostCredentialProbe.restoredToken === 'trusted-host-token' && trustedHostCredentialProbe.validatedAction === 'POST_MERGE_DECISION' && trustedHostCredentialProbe.hostTokens.join('\n') === 'trusted-host-token\ntrusted-host-token')) && roleExecutionRun.indexOf('Invoke-BoundedRole -PromptFile $promptPath') < roleExecutionRun.indexOf('$validated = Assert-RoleOutput') && roleExecutionRun.indexOf('$validated = Assert-RoleOutput') < roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') < roleExecutionRun.indexOf('$null = Publish-CanonicalComment -BodyFile $bodyPath') && roleExecutionRun.split('Assert-FreshRoleBinding').length >= 8 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'") && roleExecutionRun.includes("throw 'publication_continuation_task_binding_invalid'") && roleExecutionRun.includes("throw 'publication_continuation_route_failed'") && roleExecutionRun.includes("throw 'publication_continuation_binding_invalid'") && roleExecutionRun.includes("throw 'publication_reviewer_dispatch_not_ready'") && roleExecutionRun.indexOf("$reviewPlan = Get-Content -LiteralPath $reviewPlanPath") < roleExecutionRun.indexOf('$reviewTask = gh api') && roleExecutionRun.includes("$reviewTask.number -ne $dispatch.task_issue_number -or $reviewTask.state -cne 'open' -or $null -ne $reviewTask.pull_request") && roleExecutionRun.indexOf("throw 'publication_reviewer_task_binding_invalid'") < roleExecutionRun.indexOf('Invoke-BoundedRole -PromptFile $reviewPromptPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath') < roleExecutionRun.indexOf('$publicationTask = gh api') && roleExecutionRun.includes("$publicationTask.number -ne $dispatch.task_issue_number -or $publicationTask.state -cne 'open' -or $null -ne $publicationTask.pull_request") && roleExecutionRun.indexOf('$publicationTask = gh api') < roleExecutionRun.indexOf('$null = Publish-CanonicalComment -BodyFile $reviewBodyPath') && !roleExecutionRun.includes('Assert-FreshReviewerSnapshot') && !roleExecutionRun.includes('review_thread_snapshot'),
   postRepairReviewJob.steps.find((step) => step.name === 'Bind post-repair Independent Reviewer')?.run.includes('task_state = $state') && postRepairExecutionStep?.env?.GH_TOKEN === '${{ github.token }}' && postRepairExecutionRun.includes('--role-rebind-file') && !postRepairExecutionRun.includes('--review-publication-rebind-file') && !postRepairExecutionRun.includes('--review-closure-file') && postRepairExecutionRun.includes('if ($nativeExit -ne 0) { throw "post_repair_review_provider_failed_$nativeExit" }') && postRepairExecutionRun.includes("if ($messages.Count -ne 1) { throw 'post_repair_review_result_cardinality_invalid' }") && postRepairProviderThroughRebindSource.indexOf('$priorToken = $env:GH_TOKEN') < postRepairProviderThroughRebindSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(postRepairProviderThroughRebindSource) && postRepairProviderThroughRebindSource.indexOf('codex.cmd exec') < postRepairProviderThroughRebindSource.indexOf('$nativeExit = $LASTEXITCODE') && postRepairProviderThroughRebindSource.indexOf('$nativeExit = $LASTEXITCODE') < postRepairProviderThroughRebindSource.indexOf('if ($null -eq $priorToken)') && postRepairProviderThroughRebindSource.indexOf('if ($null -eq $priorToken)') < postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-output-file') && postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-output-file') < postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-rebind-file') && postRepairExecutionRun.indexOf('if ($nativeExit -ne 0)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairExecutionRun.indexOf('if ($messages.Count -ne 1)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && postRepairEvidenceValidatorSource.includes('$sha256.ComputeHash($capturedBytes)') && !postRepairEvidenceValidatorSource.includes('post_repair') && postRepairExecutionRun.includes("$failureDispatch.next_action -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.indexOf('[Console]::Error.WriteLine($diagnosticLine)') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.includes('$diagnosticLines = @()') && (process.platform !== 'win32' || (postRepairFailureEvidenceProbe.lineCount === reviewerFailureEvidence.chunks.length + 1 && postRepairFailureEvidenceProbe.headerRecordType === 'independent_reviewer_role_output_failure_evidence_v1' && postRepairFailureEvidenceProbe.chunkRecordTypesValid === true && postRepairFailureEvidenceProbe.invalidRejected === true && postRepairTrustedHostCredentialProbe.valid.providerToken === 'ABSENT' && postRepairTrustedHostCredentialProbe.valid.restoredToken === 'trusted-post-repair-host-token' && postRepairTrustedHostCredentialProbe.valid.outcome === 'COMPLETED' && postRepairTrustedHostCredentialProbe.valid.validatedAction === 'POST_REVIEW' && postRepairTrustedHostCredentialProbe.valid.reboundAction === 'PROTECTED_OPERATION_READY' && postRepairTrustedHostCredentialProbe.valid.hostCalls.length === 2 && postRepairTrustedHostCredentialProbe.valid.hostCalls.every((call) => call.startsWith('PRESENT:')) && postRepairTrustedHostCredentialProbe.valid.hostCalls[1].includes('--role-rebind-file') && postRepairTrustedHostCredentialProbe.invalid.providerToken === 'ABSENT' && postRepairTrustedHostCredentialProbe.invalid.restoredToken === 'trusted-post-repair-host-token' && postRepairTrustedHostCredentialProbe.invalid.outcome === 'post_repair_review_result_invalid' && postRepairTrustedHostCredentialProbe.invalid.validatedAction === null && postRepairTrustedHostCredentialProbe.invalid.reboundAction === null && postRepairTrustedHostCredentialProbe.invalid.hostCalls.length === 1 && postRepairTrustedHostCredentialProbe.invalid.hostCalls[0].startsWith('PRESENT:'))),
-  runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id') && runnerSource.includes("const ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'") && ['GITHUB_REPOSITORY', 'GITHUB_REF', 'GITHUB_WORKFLOW_REF', 'GITHUB_WORKFLOW_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_JOB'].every((name) => runnerSource.includes(`process.env.${name}`)) && !runnerSource.includes('ADD_REVIEW_THREAD_REPLY_MUTATION') && !runnerSource.includes('RESOLVE_REVIEW_THREAD_MUTATION') && !runnerSource.includes('executeReviewerPublicationRebindV1') && !runnerSource.includes('executeReviewThreadClosureV1') && !runnerSource.includes("mode: 'review_publication_rebind'") && !runnerSource.includes("mode: 'review_closure'") && runnerSource.match(/parseIndependentReviewDecisionProjectionV1/g)?.length === 7,
+  runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id') && runnerSource.includes("const ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'") && ['GITHUB_REPOSITORY', 'GITHUB_REF', 'GITHUB_WORKFLOW_REF', 'GITHUB_WORKFLOW_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_JOB'].every((name) => runnerSource.includes(`process.env.${name}`)) && runnerSource.includes('RESOLVE_REVIEW_THREAD_MUTATION') && !runnerSource.includes('executeReviewerPublicationRebindV1') && runnerSource.includes('executeReviewThreadClosureV1') && !runnerSource.includes("mode: 'review_publication_rebind'") && runnerSource.includes("mode: 'review_closure'") && runnerSource.match(/parseIndependentReviewDecisionProjectionV1/g)?.length === 8,
   manualWorkflowDispatchResult.state === 'MERGE_ELIGIBLE' && manualWorkflowDispatchResult.allowed === true && manualWorkflowDispatchResult.next_action === 'MERGE_DECISION' && manualWorkflowDispatchResult.automation_status === 'MERGE_DECISION_PENDING' && !Object.hasOwn(manualWorkflowDispatchResult, 'role_dispatch') && manualWorkflowDispatchAdmission.metrics.checkReads === 0 && manualWorkflowDispatchAdmission.metrics.threadReads === 0 && mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR' && (needs.protected_transition_admission_v1.outputs.terminal_result == 'MERGE_ALLOWED' || needs.protected_transition_admission_v1.outputs.terminal_result == 'MINIMAL_GOVERNANCE_V1')" && mergeOperationRun.includes('--merge-operator-file $dispatchPath') && mergeOperationRun.indexOf('--merge-operator-file $dispatchPath') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force') && !workflowSource.includes('gh workflow run') && !runnerSource.includes('createWorkflowDispatch') && runnerSource.includes('acquireMergeCheckRollupSnapshotV1') && runnerSource.includes('acquireMergeReviewThreadsV1') && runnerSource.includes('executeProtectedTransitionAdmissionV1'),
   admissionJob.outputs.authority_kind === '${{ steps.evaluate.outputs.authority_kind }}' && admissionJob.outputs.minimal_merge_plan_b64 === '${{ steps.evaluate.outputs.minimal_merge_plan_b64 }}' && (admissionEvaluationRun.match(/--review-event-file/g) ?? []).length === 1 && !Object.hasOwn(mergeHostRunnerStep, 'if') && mergePlanRun.includes("if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1')") && mergePlanRun.indexOf("if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1')") < mergePlanRun.indexOf('node $env:PTA_MERGE_HOST_RUNNER') && (mergeOperationRun.match(/--minimal-governance-drift-guard-file/g) ?? []).length === 1 && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.indexOf('minimal_governance_final_drift_guard_matched') < mergeOperationRun.indexOf('--method PUT') && (workflowSource.match(/--method PUT/g) ?? []).length === 1 && !workflowSource.includes('Start-Sleep') && !workflowSource.includes('retry'),
   workflow.permissions.actions === 'read' && mergePlanRun.includes("$snapshot.pull.base -cnotmatch '^[0-9a-f]{40}$'") && !mergePlanRun.includes('$snapshot.pull.base -cne $plan.expected_base') && mergePlanRun.includes("$plan.expected_base -cnotmatch '^[0-9a-f]{40}$'") && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT'),
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 945) throw new Error(`expected exactly 945 assertions, observed ${assertions}`)
+if (assertions !== 956) throw new Error(`expected exactly 956 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

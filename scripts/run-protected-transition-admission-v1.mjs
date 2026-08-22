@@ -31,17 +31,26 @@ const READY_ATTACHED_SELF_CHECK_CONTEXT_V1 = 'ATTACHED_CURRENT_CHECK_REQUIRED'
 const READY_REBIND_SELF_CHECK_CONTEXT_V1 = 'ATTACHED_SAME_RUN_FAMILY_EXCLUDED'
 const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'
 const ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'
-const RTO_SELF_JOB_NAMES_V1 = Object.freeze([
+const LEGACY_RTO_SELF_JOB_NAMES_V1 = Object.freeze([
   'protected_transition_admission_v1',
   'protected_transition_repair_executor_v1',
   'protected_transition_role_dispatch_consumer_v1',
   'protected_transition_merge_operator_v1',
   'protected_transition_post_repair_review_v1',
 ])
+const RTO_SELF_JOB_NAMES_V1 = Object.freeze([
+  ...LEGACY_RTO_SELF_JOB_NAMES_V1,
+  'protected_transition_review_closure_v1',
+])
 const VERIFIED_ADMISSION_ORIGINS_V1 = new WeakSet()
 const REVIEW_RECORD_TYPE = 'independent_review_decision_v1'
 const REVIEW_AUTHORING_ROLE = 'Independent Reviewer'
 const REVIEW_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
+const REVIEW_THREAD_ACTION_FIELDS_V1 = Object.freeze([
+  'repository', 'task_issue_number', 'pr_number', 'reviewed_head', 'review_thread_node_id',
+  'finding_id', 'disposition', 'review_decision_comment_id', 'review_decision_url',
+])
+const REVIEW_THREAD_ACTION_DISPOSITIONS_V1 = new Set(['RESOLVE_ONLY'])
 const MINIMAL_GOVERNANCE_RECORD_TYPE_V1 = 'minimal_governance_v1'
 const MINIMAL_GOVERNANCE_AUTHORITY_KIND_V1 = 'MINIMAL_GOVERNANCE_V1'
 const MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1 = Object.freeze({
@@ -89,6 +98,7 @@ const LIVE_SHADOW_REQUIRED_CHECKS_V1 = Object.freeze(new Map([
   ['protected_transition_role_dispatch_consumer_v1', Object.freeze({ check_id: 'rto-role-dispatch', app_id: '15368', required: false })],
   ['protected_transition_post_repair_review_v1', Object.freeze({ check_id: 'rto-post-repair-review', app_id: '15368', required: false })],
   ['protected_transition_merge_operator_v1', Object.freeze({ check_id: 'rto-merge-operator', app_id: '15368', required: false })],
+  ['protected_transition_review_closure_v1', Object.freeze({ check_id: 'rto-review-closure', app_id: '15368', required: false })],
 ]))
 const STRICT_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/
 const REPAIR_EXECUTOR_INSTRUCTION = 'Generate and apply the minimum repair for current blocking findings only within current authorized_paths; stop on an Architecture gap.'
@@ -155,6 +165,26 @@ query MergeAllowedThreads($owner: String!, $name: String!, $pr: Int!, $after: St
         pageInfo { hasNextPage endCursor }
       }
     }
+  }
+}`
+
+const REVIEW_CLOSURE_THREAD_QUERY = `
+query ReviewClosureThread($owner: String!, $name: String!, $pr: Int!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $pr) {
+      number
+      headRefOid
+      reviewThreads(first: 100, after: $after) {
+        nodes { id isResolved isOutdated }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+}`
+const RESOLVE_REVIEW_THREAD_MUTATION = `
+mutation ResolveReviewThread($threadId: ID!) {
+  resolveReviewThread(input: { threadId: $threadId }) {
+    thread { id isResolved }
   }
 }`
 
@@ -291,10 +321,38 @@ export const parseIndependentReviewDecisionProjectionV1 = (body, repository, tas
   if (blocks.length !== 1) throw new Error('review_yaml_block_cardinality_invalid')
 
   const scalars = new Map()
+  const rawThreadActions = []
+  let threadActionsSeen = false
+  let threadActionsInlineEmpty = false
+  let currentThreadAction = null
   for (const line of blocks[0][1].split(/\r?\n/)) {
     if (line.trim().length === 0) continue
+    if (line === 'thread_actions:' || line === 'thread_actions: []') {
+      if (threadActionsSeen || scalars.has('thread_actions')) throw new Error('review_thread_action_invalid')
+      threadActionsSeen = true
+      threadActionsInlineEmpty = line === 'thread_actions: []'
+      currentThreadAction = null
+      continue
+    }
+    const actionStart = line.match(/^  -[ \t]+([a-z][a-z0-9_]*):[ \t]+(.+)$/)
+    if (actionStart) {
+      if (!threadActionsSeen || threadActionsInlineEmpty) throw new Error('review_thread_action_invalid')
+      currentThreadAction = new Map()
+      rawThreadActions.push(currentThreadAction)
+      if (rawThreadActions.length > 1) throw new Error('review_thread_action_cardinality_invalid')
+      currentThreadAction.set(actionStart[1], parseReviewScalarV1(actionStart[2]))
+      continue
+    }
+    const actionField = line.match(/^    ([a-z][a-z0-9_]*):[ \t]+(.+)$/)
+    if (actionField) {
+      if (currentThreadAction === null || currentThreadAction.has(actionField[1])) throw new Error('review_thread_action_invalid')
+      currentThreadAction.set(actionField[1], parseReviewScalarV1(actionField[2]))
+      continue
+    }
     const match = line.match(/^([a-z][a-z0-9_]*):[ \t]+(.+)$/)
     if (!match || scalars.has(match[1])) throw new Error('review_yaml_scalar_invalid')
+    if (match[1] === 'thread_actions') throw new Error('review_thread_action_invalid')
+    currentThreadAction = null
     scalars.set(match[1], parseReviewScalarV1(match[2]))
   }
 
@@ -309,6 +367,26 @@ export const parseIndependentReviewDecisionProjectionV1 = (body, repository, tas
   const blockingCount = scalars.get('blocking_finding_count')
   const remainingCount = scalars.get('remaining_finding_count')
   const unknownCount = scalars.get('unknown_count')
+  const threadActions = rawThreadActions.map((rawAction) => {
+    if (
+      rawAction.size !== REVIEW_THREAD_ACTION_FIELDS_V1.length ||
+      REVIEW_THREAD_ACTION_FIELDS_V1.some((field) => !rawAction.has(field))
+    ) throw new Error('review_thread_action_invalid')
+    const action = Object.fromEntries(REVIEW_THREAD_ACTION_FIELDS_V1.map((field) => [field, rawAction.get(field)]))
+    const reviewDecisionUrl = `${expectedTaskUrl}#issuecomment-${action.review_decision_comment_id}`
+    if (
+      action.repository !== repository ||
+      action.task_issue_number !== taskIssueNumber ||
+      action.pr_number !== prNumber ||
+      action.reviewed_head !== reviewedHead ||
+      typeof action.review_thread_node_id !== 'string' || action.review_thread_node_id.length === 0 ||
+      typeof action.finding_id !== 'string' || action.finding_id.length === 0 ||
+      !REVIEW_THREAD_ACTION_DISPOSITIONS_V1.has(action.disposition) ||
+      !positiveInteger(action.review_decision_comment_id) ||
+      action.review_decision_url !== reviewDecisionUrl
+    ) throw new Error('review_thread_action_invalid')
+    return Object.freeze(action)
+  })
 
   if (
     scalars.get('record_type') !== REVIEW_RECORD_TYPE ||
@@ -338,6 +416,7 @@ export const parseIndependentReviewDecisionProjectionV1 = (body, repository, tas
     blocking_finding_count: blockingCount,
     remaining_finding_count: remainingCount,
     unknown_count: unknownCount,
+    thread_actions: Object.freeze(threadActions),
   })
 }
 
@@ -361,6 +440,13 @@ export const parseReviewApprovalEventV1 = (event) => {
     throw new Error('review_event_invalid')
   }
   const review = parseIndependentReviewDecisionProjectionV1(event.comment.body, repository, taskIssueNumber)
+  if (
+    review.thread_actions.length === 1 &&
+    (
+      review.thread_actions[0].review_decision_comment_id !== event.comment.id ||
+      review.thread_actions[0].review_decision_url !== `https://github.com/${repository}/issues/${taskIssueNumber}#issuecomment-${event.comment.id}`
+    )
+  ) throw new Error('review_thread_action_binding_invalid')
   return Object.freeze({
     repository,
     taskIssueNumber,
@@ -2841,9 +2927,9 @@ const resolveHistoricalLegacyRtoAllowlistEntryV1 = (request) => {
     !positiveInteger(entry.pr_number) || !FULL_HEAD.test(entry.head_sha) ||
     !WORKFLOW_RUN_ID.test(entry.workflow_id) || !WORKFLOW_RUN_ID.test(entry.run_id) ||
     !positiveInteger(entry.run_attempt) || !WORKFLOW_RUN_ID.test(entry.check_suite_id) ||
-    !exactObjectKeysV1(entry.job_ids, RTO_SELF_JOB_NAMES_V1) ||
+    !exactObjectKeysV1(entry.job_ids, LEGACY_RTO_SELF_JOB_NAMES_V1) ||
     Object.values(entry.job_ids).some((jobId) => !WORKFLOW_RUN_ID.test(jobId)) ||
-    new Set(Object.values(entry.job_ids)).size !== RTO_SELF_JOB_NAMES_V1.length
+    new Set(Object.values(entry.job_ids)).size !== LEGACY_RTO_SELF_JOB_NAMES_V1.length
   ) throw new Error('minimal_governance_historical_rto_allowlist_invalid')
   return entry
 }
@@ -2954,7 +3040,7 @@ const assertHistoricalLegacyRtoEvidenceV1 = (evidence, request) => {
     !WORKFLOW_RUN_ID.test(evidence.check_suite_id ?? '') || evidence.event !== 'pull_request' ||
     evidence.status !== 'COMPLETED' || evidence.conclusion !== 'FAILURE' || evidence.head_sha !== request.exactHead ||
     evidence.pr_number !== request.prNumber || evidence.base_ref !== 'main' ||
-    !Array.isArray(evidence.checks) || evidence.checks.length !== RTO_SELF_JOB_NAMES_V1.length ||
+    !Array.isArray(evidence.checks) || evidence.checks.length !== LEGACY_RTO_SELF_JOB_NAMES_V1.length ||
     !/^[0-9a-f]{64}$/.test(evidence.raw_log_sha256 ?? '')
   ) throw new Error('minimal_governance_historical_rto_evidence_invalid')
   const allowlisted = resolveHistoricalLegacyRtoAllowlistEntryV1(request)
@@ -2973,7 +3059,7 @@ const assertHistoricalLegacyRtoEvidenceV1 = (evidence, request) => {
       ]) ||
       typeof check.check_id !== 'string' || check.check_id.length === 0 ||
       !WORKFLOW_RUN_ID.test(check.check_database_id ?? '') || check.check_suite_id !== evidence.check_suite_id ||
-      !WORKFLOW_RUN_ID.test(check.job_id ?? '') || !RTO_SELF_JOB_NAMES_V1.includes(check.name) ||
+      !WORKFLOW_RUN_ID.test(check.job_id ?? '') || !LEGACY_RTO_SELF_JOB_NAMES_V1.includes(check.name) ||
       allowlisted.job_ids[check.name] !== check.job_id ||
       names.has(check.name) || jobIds.has(check.job_id) || checkIds.has(check.check_database_id) ||
       check.status !== 'COMPLETED' ||
@@ -2986,7 +3072,7 @@ const assertHistoricalLegacyRtoEvidenceV1 = (evidence, request) => {
     jobIds.add(check.job_id)
     checkIds.add(check.check_database_id)
   }
-  if (RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))) {
+  if (LEGACY_RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))) {
     throw new Error('minimal_governance_historical_rto_evidence_invalid')
   }
   const admission = evidence.admission_job
@@ -3021,7 +3107,7 @@ const assertExpectedLegacyReadyEvidenceV1 = (evidence, request) => {
     typeof evidence.created_at !== 'string' || !STRICT_UTC.test(evidence.created_at) ||
     evidence.status !== 'COMPLETED' || evidence.conclusion !== 'FAILURE' || evidence.head_sha !== request.exactHead ||
     evidence.pr_number !== request.prNumber || evidence.base_ref !== 'main' ||
-    !Array.isArray(evidence.checks) || evidence.checks.length !== RTO_SELF_JOB_NAMES_V1.length ||
+    !Array.isArray(evidence.checks) || evidence.checks.length !== LEGACY_RTO_SELF_JOB_NAMES_V1.length ||
     !/^[0-9a-f]{64}$/.test(evidence.raw_log_sha256 ?? '')
   ) throw new Error('minimal_governance_expected_legacy_ready_evidence_invalid')
   const terminal = assertExpectedLegacyReadyTerminalResultV1(evidence.terminal_result, request, {
@@ -3044,7 +3130,7 @@ const assertExpectedLegacyReadyEvidenceV1 = (evidence, request) => {
       ]) ||
       typeof check.check_id !== 'string' || check.check_id.length === 0 ||
       !WORKFLOW_RUN_ID.test(check.check_database_id ?? '') || check.check_suite_id !== evidence.check_suite_id ||
-      !WORKFLOW_RUN_ID.test(check.job_id ?? '') || !RTO_SELF_JOB_NAMES_V1.includes(check.name) ||
+      !WORKFLOW_RUN_ID.test(check.job_id ?? '') || !LEGACY_RTO_SELF_JOB_NAMES_V1.includes(check.name) ||
       names.has(check.name) || jobIds.has(check.job_id) || checkIds.has(check.check_database_id) ||
       check.status !== 'COMPLETED' ||
       (check.name === 'protected_transition_admission_v1' ? check.conclusion !== 'FAILURE' : check.conclusion !== 'SKIPPED') ||
@@ -3056,7 +3142,7 @@ const assertExpectedLegacyReadyEvidenceV1 = (evidence, request) => {
     jobIds.add(check.job_id)
     checkIds.add(check.check_database_id)
   }
-  if (RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))) {
+  if (LEGACY_RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))) {
     throw new Error('minimal_governance_expected_legacy_ready_evidence_invalid')
   }
   const admission = evidence.admission_job
@@ -3076,7 +3162,7 @@ const assertExpectedLegacyReadyEvidenceV1 = (evidence, request) => {
 }
 
 const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host, expectedLegacyReady = false }) => {
-  if (checks.length !== RTO_SELF_JOB_NAMES_V1.length) throw new Error('minimal_governance_historical_rto_family_invalid')
+  if (checks.length !== LEGACY_RTO_SELF_JOB_NAMES_V1.length) throw new Error('minimal_governance_historical_rto_family_invalid')
   const identities = checks.map((check) => parseRepositoryActionsJobIdentityV1(request, check))
   if (identities.some((identity) => identity === null)) throw new Error('minimal_governance_historical_rto_family_invalid')
   const runIds = new Set(identities.map((identity) => identity.runId))
@@ -3084,8 +3170,8 @@ const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host, exp
   const appIds = new Set(checks.map((check) => check.app_id))
   const checkSuiteIds = new Set(checks.map((check) => String(check.check_suite_database_id ?? '')))
   if (
-    runIds.size !== 1 || names.size !== RTO_SELF_JOB_NAMES_V1.length || appIds.size !== 1 || checkSuiteIds.size !== 1 ||
-    RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))
+    runIds.size !== 1 || names.size !== LEGACY_RTO_SELF_JOB_NAMES_V1.length || appIds.size !== 1 || checkSuiteIds.size !== 1 ||
+    LEGACY_RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))
   ) throw new Error('minimal_governance_historical_rto_family_invalid')
   const runId = identities[0].runId
   const allowlisted = expectedLegacyReady ? null : resolveHistoricalLegacyRtoAllowlistEntryV1(request)
@@ -3108,7 +3194,7 @@ const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host, exp
 
   const page = await api(host, `repos/${request.repository}/actions/runs/${runId}/jobs?per_page=100`)
   if (
-    !page || page.total_count !== RTO_SELF_JOB_NAMES_V1.length || !Array.isArray(page.jobs) ||
+    !page || page.total_count !== LEGACY_RTO_SELF_JOB_NAMES_V1.length || !Array.isArray(page.jobs) ||
     page.jobs.length !== page.total_count
   ) throw new Error('minimal_governance_historical_rto_jobs_invalid')
   const checksByName = new Map(checks.map((check) => [check.name, check]))
@@ -3130,7 +3216,7 @@ const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host, exp
     jobsByName.set(job.name, job)
     jobIds.add(jobId)
   }
-  if (RTO_SELF_JOB_NAMES_V1.some((name) => !jobsByName.has(name))) {
+  if (LEGACY_RTO_SELF_JOB_NAMES_V1.some((name) => !jobsByName.has(name))) {
     throw new Error('minimal_governance_historical_rto_jobs_invalid')
   }
   const admissionJob = jobsByName.get('protected_transition_admission_v1')
@@ -5117,6 +5203,136 @@ const fetchRoleCommentRecordV1 = async (repository, taskIssueNumber, commentId, 
 const fetchRoleCommentV1 = async (repository, taskIssueNumber, commentId, host) =>
   (await fetchRoleCommentRecordV1(repository, taskIssueNumber, commentId, host)).body
 
+const normalizeReviewThreadActionV1 = (action) => {
+  if (
+    !action || typeof action !== 'object' || Array.isArray(action) ||
+    Object.keys(action).sort().join('\n') !== [...REVIEW_THREAD_ACTION_FIELDS_V1].sort().join('\n') ||
+    !REPOSITORY.test(action.repository ?? '') ||
+    !positiveInteger(action.task_issue_number) || !positiveInteger(action.pr_number) ||
+    !FULL_HEAD.test(action.reviewed_head ?? '') ||
+    typeof action.review_thread_node_id !== 'string' || action.review_thread_node_id.length === 0 ||
+    typeof action.finding_id !== 'string' || action.finding_id.length === 0 ||
+    !REVIEW_THREAD_ACTION_DISPOSITIONS_V1.has(action.disposition) ||
+    !positiveInteger(action.review_decision_comment_id) ||
+    action.review_decision_url !== `https://github.com/${action.repository}/issues/${action.task_issue_number}#issuecomment-${action.review_decision_comment_id}`
+  ) throw new Error('review_closure_projection_invalid')
+  return Object.freeze({ ...action })
+}
+
+const reviewClosureResultV1 = (action, {
+  state, exitCode, reason, nextAction, mutationCount, automationStatus,
+}) => Object.freeze({
+  transition: 'review_closure',
+  state,
+  allowed: false,
+  exit_code: exitCode,
+  reason,
+  automation_status: automationStatus,
+  next_action: nextAction,
+  mutation_attempted: mutationCount > 0,
+  mutation_count: mutationCount,
+  repository: action?.repository ?? null,
+  task_issue_number: action?.task_issue_number ?? null,
+  pr_number: action?.pr_number ?? null,
+  current_head: action?.reviewed_head ?? null,
+  review_thread_node_id: action?.review_thread_node_id ?? null,
+})
+
+const reviewClosureStopV1 = (action, reason, mutationCount = 0) => reviewClosureResultV1(action, {
+  state: 'INDETERMINATE',
+  exitCode: 1,
+  reason,
+  nextAction: 'STOP',
+  mutationCount,
+  automationStatus: 'STOPPED',
+})
+
+export const executeReviewThreadClosureV1 = async ({ action: input, host }) => {
+  let action = null
+  try {
+    action = normalizeReviewThreadActionV1(input)
+    const reviewComment = await fetchRoleCommentRecordV1(
+      action.repository,
+      action.task_issue_number,
+      action.review_decision_comment_id,
+      host,
+    )
+    const review = parseIndependentReviewDecisionProjectionV1(
+      reviewComment.body,
+      action.repository,
+      action.task_issue_number,
+    )
+    if (
+      review.thread_actions.length !== 1 ||
+      JSON.stringify(review.thread_actions[0]) !== JSON.stringify(action)
+    ) return reviewClosureStopV1(action, 'review_closure_review_binding_invalid')
+
+    const pull = await api(host, `repos/${action.repository}/pulls/${action.pr_number}`)
+    if (
+      !pull || pull.number !== action.pr_number || pull.state !== 'open' ||
+      pull.head?.sha !== action.reviewed_head ||
+      pull.head?.repo?.full_name !== action.repository
+    ) return reviewClosureStopV1(action, 'head_binding_stale')
+
+    const [owner, name] = action.repository.split('/')
+    let after = null
+    let target = null
+    for (let page = 1; page <= 32; page += 1) {
+      const data = await graphql(host, REVIEW_CLOSURE_THREAD_QUERY, {
+        owner, name, pr: action.pr_number, after,
+      })
+      const pullProjection = data?.repository?.pullRequest
+      const connection = pullProjection?.reviewThreads
+      if (
+        pullProjection?.number !== action.pr_number ||
+        pullProjection?.headRefOid !== action.reviewed_head ||
+        !connection || !Array.isArray(connection.nodes) ||
+        typeof connection.pageInfo?.hasNextPage !== 'boolean'
+      ) throw new Error('review_closure_thread_lookup_invalid')
+      for (const thread of connection.nodes) {
+        if (
+          typeof thread?.id !== 'string' || typeof thread.isResolved !== 'boolean' ||
+          typeof thread.isOutdated !== 'boolean'
+        ) throw new Error('review_closure_thread_lookup_invalid')
+        if (thread.id === action.review_thread_node_id) target = thread
+      }
+      if (target !== null || !connection.pageInfo.hasNextPage) break
+      if (typeof connection.pageInfo.endCursor !== 'string' || connection.pageInfo.endCursor.length === 0) {
+        throw new Error('review_closure_thread_lookup_invalid')
+      }
+      after = connection.pageInfo.endCursor
+      if (page === 32) throw new Error('review_closure_thread_lookup_invalid')
+    }
+    if (target === null) return reviewClosureStopV1(action, 'review_closure_thread_missing')
+    if (target.isResolved || target.isOutdated) return reviewClosureStopV1(action, 'review_closure_thread_not_open')
+
+    const mutationCount = 1
+    let resolved
+    try {
+      resolved = await graphql(host, RESOLVE_REVIEW_THREAD_MUTATION, {
+        threadId: action.review_thread_node_id,
+      })
+    } catch {
+      return reviewClosureStopV1(action, 'review_closure_resolve_failed', mutationCount)
+    }
+    if (
+      resolved?.resolveReviewThread?.thread?.id !== action.review_thread_node_id ||
+      resolved.resolveReviewThread.thread.isResolved !== true
+    ) return reviewClosureStopV1(action, 'review_closure_resolve_failed', mutationCount)
+
+    return reviewClosureResultV1(action, {
+      state: 'COMPLETED',
+      exitCode: 0,
+      reason: 'review_thread_closed',
+      nextAction: 'NONE',
+      mutationCount,
+      automationStatus: 'COMPLETED',
+    })
+  } catch (error) {
+    return reviewClosureStopV1(action, error instanceof Error ? error.message : 'review_closure_failed')
+  }
+}
+
 export const evaluateProductOwnerMergeDecisionV1 = ({ decision, request, taskState, review, admissionRun, admissionOrigin = null, gateResult }) => {
   try {
     const parsedState = parseProtectedTransitionTaskStateV1(taskState)
@@ -5453,6 +5669,11 @@ const lifecycleProjectionV1 = (snapshot, phase, state, reason, nextAction, autom
   automation_status: automationStatus,
   next_action: nextAction,
   mutation_count: 0,
+})
+
+const lifecycleThreadResolutionProjectionV1 = (sourceResult) => Object.freeze({
+  ...lifecycleProjectionV1(sourceResult, 'REVIEW', 'READY', 'review_thread_action_admitted', 'THREAD_RESOLUTION'),
+  thread_action: sourceResult.thread_action,
 })
 
 const lifecycleConvergedProjectionV1 = (snapshot, projection, completionEvidence) => {
@@ -6650,6 +6871,7 @@ export const executeLifecycleOrchestratorV1 = async ({
 }) => {
   if (snapshot !== null) return reduceLifecycleReplayV1(snapshot, completionEvidence)
   if (isMinimalGovernanceCandidateV1(event?.comment?.body)) return sourceResult
+  if (sourceResult?.next_action === 'THREAD_RESOLUTION') return lifecycleThreadResolutionProjectionV1(sourceResult)
   let identity = null
   try {
     const routing = lifecycleRoutingIdentityFromProductionV1({ event, sourceResult })
@@ -6729,6 +6951,34 @@ export const executeRoleTransitionOrchestratorV1 = async ({ event, host, runId, 
       return executeMinimalGovernanceV1({ event, host, runId, runAttempt, hostSha, jobName })
     }
     normalized = normalizeRoleTransitionEventV1(event)
+    if (normalized.parsedReview?.review.thread_actions.length === 1) {
+      request = Object.freeze({
+        transition: 'role_transition_orchestrator_v1',
+        repository: normalized.repository,
+        taskIssueNumber: normalized.taskIssueNumber,
+        prNumber: normalized.parsedReview.prNumber,
+        exactHead: normalized.parsedReview.exactHead,
+      })
+      const effective = await resolveEffectiveReviewDecisionV1({ request, parsedEvent: normalized.parsedReview, host })
+      if (effective.commentId !== normalized.commentId) {
+        return roleStopV1(request, 'INDETERMINATE', 'review_event_superseded')
+      }
+      return Object.freeze({
+        transition: 'role_transition_orchestrator_v1',
+        state: 'READY',
+        allowed: false,
+        exit_code: 0,
+        reason: 'review_thread_action_admitted',
+        task_issue_number: request.taskIssueNumber,
+        pr_number: request.prNumber,
+        current_head: request.exactHead,
+        automation_status: 'HANDOFF_READY',
+        next_action: 'THREAD_RESOLUTION',
+        mutation_count: 0,
+        source_comment_id: normalized.commentId,
+        thread_action: effective.review.thread_actions[0],
+      })
+    }
     if (['APPROVE', 'CHANGES_REQUIRED', 'BLOCKED'].includes(normalized.terminalResult)) {
       const result = await executeReviewApprovalAutomationV1({ event, host, runId })
       const terminalResult = normalized.terminalResult
@@ -6959,6 +7209,9 @@ const parseInvocation = (argv, environment) => {
   }
   if (argv.length === 2 && argv[0] === '--role-dispatch-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
     return Object.freeze({ mode: 'role_dispatch', dispatchFile: argv[1] })
+  }
+  if (argv.length === 2 && argv[0] === '--review-closure-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
+    return Object.freeze({ mode: 'review_closure', actionFile: argv[1] })
   }
   if (
     [4, 6, 8].includes(argv.length) && argv[0] === '--role-rebind-file' && typeof argv[1] === 'string' && argv[1].length > 0 &&
@@ -7197,6 +7450,7 @@ const lifecycleDiagnosticProjectionV1 = (projection) => Object.freeze({
   next_action: projection.next_action,
   execution_stop_reason: projection.reason,
   mutation_count: projection.mutation_count,
+  ...(projection.next_action === 'THREAD_RESOLUTION' ? { thread_action: projection.thread_action } : {}),
 })
 
 const withLifecycleDiagnosticProjectionV1 = (result, projection) => Object.freeze({
@@ -7257,6 +7511,11 @@ const main = async () => {
                 dispatch: readJsonFileV1(invocation.dispatchFile),
                 host: executionHost,
               })
+            : invocation.mode === 'review_closure'
+              ? await executeReviewThreadClosureV1({
+                  action: readJsonFileV1(invocation.actionFile),
+                  host: executionHost,
+                })
             : invocation.mode === 'role_rebind'
               ? await executeRoleDispatchRebindV1({
                   dispatch: readJsonFileV1(invocation.dispatchFile),

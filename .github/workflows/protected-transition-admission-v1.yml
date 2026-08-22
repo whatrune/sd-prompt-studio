@@ -59,6 +59,8 @@ jobs:
       source_comment_id: ${{ steps.evaluate.outputs.source_comment_id }}
       authority_kind: ${{ steps.evaluate.outputs.authority_kind }}
       minimal_merge_plan_b64: ${{ steps.evaluate.outputs.minimal_merge_plan_b64 }}
+      review_closure_b64: ${{ steps.evaluate.outputs.review_closure_b64 }}
+      review_closure_exact_head: ${{ steps.evaluate.outputs.review_closure_exact_head }}
     steps:
       - name: Admit exact default-branch host identity
         shell: bash
@@ -126,7 +128,11 @@ jobs:
             fs.appendFileSync(output, `next_action=${result.next_action ?? "NONE"}\n`);
             fs.appendFileSync(output, `terminal_result=${result.terminal_result ?? "NONE"}\n`);
             fs.appendFileSync(output, `source_comment_id=${result.source_comment_id ?? ""}\n`);
-            if (result.next_action === "MERGE_OPERATOR" && result.authority_kind === "MINIMAL_GOVERNANCE_V1") {
+            if (result.next_action === "THREAD_RESOLUTION") {
+              if (!result.thread_action || result.thread_action.reviewed_head !== result.current_head) throw new Error("review_closure_projection_invalid");
+              fs.appendFileSync(output, `review_closure_exact_head=${result.thread_action.reviewed_head}\n`);
+              fs.appendFileSync(output, `review_closure_b64=${Buffer.from(JSON.stringify(result.thread_action)).toString("base64")}\n`);
+            } else if (result.next_action === "MERGE_OPERATOR" && result.authority_kind === "MINIMAL_GOVERNANCE_V1") {
               const exactKeys = ["allowed", "authority_comment_id", "authority_kind", "authorized_paths", "automation_status", "current_head", "exact_head", "expected_base", "exit_code", "merge_method", "mutation_count", "next_action", "operation_count", "pr_number", "protected_operation_count", "reason", "repository", "sealed_snapshot_b64", "snapshot_sha256", "state", "task_issue_number", "terminal_result", "transition"];
               if (Object.keys(result).sort().join("\n") !== exactKeys.sort().join("\n") || result.terminal_result !== "MINIMAL_GOVERNANCE_V1" || result.exact_head !== result.current_head || result.merge_method !== "merge" || result.operation_count !== 1) throw new Error("minimal_governance_projection_invalid");
               fs.appendFileSync(output, `authority_kind=MINIMAL_GOVERNANCE_V1\n`);
@@ -160,6 +166,50 @@ jobs:
               --record-b-file "$RUNNER_TEMP/gadp-live-shadow-v1/record-b.json" \
               --record-c-file "$RUNNER_TEMP/gadp-live-shadow-v1/record-c.json"
           exit 0
+
+  protected_transition_review_closure_v1:
+    needs: protected_transition_admission_v1
+    if: needs.protected_transition_admission_v1.outputs.next_action == 'THREAD_RESOLUTION'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout exact workflow SHA
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24"
+
+      - name: Execute admitted review closure once
+        shell: bash
+        env:
+          REVIEW_CLOSURE_B64: ${{ needs.protected_transition_admission_v1.outputs.review_closure_b64 }}
+          REVIEW_CLOSURE_EXACT_HEAD: ${{ needs.protected_transition_admission_v1.outputs.review_closure_exact_head }}
+        run: |
+          set -euo pipefail
+          action_file="$(mktemp)"
+          result_file="$(mktemp)"
+          node -e '
+            const fs = require("node:fs");
+            const action = JSON.parse(Buffer.from(process.env.REVIEW_CLOSURE_B64, "base64").toString("utf8"));
+            if (action.reviewed_head !== process.env.REVIEW_CLOSURE_EXACT_HEAD) throw new Error("review_closure_materialization_invalid");
+            fs.writeFileSync(process.argv[1], JSON.stringify(action));
+          ' "$action_file"
+          node scripts/run-protected-transition-admission-v1.mjs \
+            --review-closure-file "$action_file" | tee "$result_file"
+          node -e '
+            const fs = require("node:fs");
+            const result = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            if (result.transition !== "review_closure" || result.state !== "COMPLETED" || result.next_action !== "NONE") {
+              throw new Error("review_closure_result_invalid");
+            }
+          ' "$result_file"
 
   protected_transition_role_dispatch_consumer_v1:
     needs: protected_transition_admission_v1
