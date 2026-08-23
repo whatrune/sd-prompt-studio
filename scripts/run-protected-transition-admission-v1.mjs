@@ -2746,7 +2746,7 @@ const minimalGovernanceAuthorityActorIdentityV1 = (authority) => Object.freeze({
   type: authority?.authorityActorType ?? null,
 })
 
-const assertMinimalGovernanceProductOwnerV1 = (raw, { requireAssociation = false } = {}) => {
+export const assertMinimalGovernanceProductOwnerV1 = (raw, { requireAssociation = false } = {}) => {
   const identity = minimalGovernanceProductOwnerIdentityV1(raw)
   if (
     identity.login !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.login ||

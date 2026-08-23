@@ -3,7 +3,9 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { parseDocument } from 'yaml'
 import {
+  assertMinimalGovernanceProductOwnerV1,
   extractProtectedTransitionTaskStateV1,
   repairWorkingTreePathsV1,
 } from './run-protected-transition-admission-v1.mjs'
@@ -56,6 +58,91 @@ const normalizedFileSystemPathV1 = (value) => {
   const resolved = path.resolve(value).replaceAll('\\', '/').replace(/\/+$/, '')
   return process.platform === 'win32' ? resolved.toLowerCase() : resolved
 }
+
+const projectBootstrapPublicationOwnerV1 = (comment, request) => {
+  assertMinimalGovernanceProductOwnerV1(comment, { requireAssociation: true })
+  const blocks = typeof comment?.body === 'string'
+    ? [...comment.body.matchAll(/```yaml\r?\n([\s\S]*?)\r?\n```/g)]
+    : []
+  if (blocks.length !== 1) throw new Error('bootstrap_publication_owner_invalid')
+  const document = parseDocument(blocks[0][1], { uniqueKeys: true })
+  if (document.errors.length !== 0) throw new Error('bootstrap_publication_owner_invalid')
+  const owner = document.toJS()
+  const taskUrl = `https://github.com/${request.repository}/issues/${request.task_issue_number}`
+  const taskApiUrl = `https://api.github.com/repos/${request.repository}/issues/${request.task_issue_number}`
+  const paths = owner?.authorized_paths
+  if (
+    owner === null || typeof owner !== 'object' || Array.isArray(owner) ||
+    comment.id !== request.publication_authority_comment_id ||
+    comment.html_url !== request.publication_authority_url || comment.issue_url !== taskApiUrl ||
+    owner.task_id !== `TASK-${request.task_issue_number}-BOOTSTRAP-PUBLICATION-OPERATOR-V1` ||
+    owner.record_type !== 'task_assignment' ||
+    owner.authoring_role !== 'Product Owner / Publication Authorizer' ||
+    owner.authority_source !== taskUrl || owner.canonical_record !== comment.html_url ||
+    owner.repository !== request.repository || owner.task_issue !== taskUrl ||
+    owner.requested_by !== 'Product Owner' || owner.assigned_role !== 'Publication Operator' ||
+    owner.authority_kind !== 'BOOTSTRAP_PUBLICATION' ||
+    owner.exact_parent !== request.expected_parent_head || owner.target_base_ref !== request.base_branch ||
+    owner.branch !== request.branch ||
+    typeof owner.worktree !== 'string' || owner.worktree.length === 0 ||
+    normalizedFileSystemPathV1(owner.worktree ?? '') !== normalizedFileSystemPathV1(request.reviewed_worktree_path) ||
+    owner.publication_allowed !== true || owner.bootstrap_publication_count !== request.operation_count ||
+    owner.commit_count !== 1 || owner.push_count !== 1 ||
+    owner.pr_creation_allowed !== true || owner.pr_creation_count !== 1 ||
+    owner.status !== 'authorized_for_bootstrap_publication_only' ||
+    owner.review_decision !== 'APPROVE' || owner.blocking_finding_count !== 0 ||
+    owner.remaining_finding_count !== 0 || owner.unknown_count !== 0 ||
+    !positiveInteger(owner.focused_bootstrap_operator_assertions) ||
+    !['PASS', 'PASS_REUSED'].includes(owner.focused_bootstrap_operator_result) ||
+    !['PASS', 'PASS_REUSED'].includes(owner.git_diff_check) ||
+    owner.broad_validation_rerun_allowed !== false ||
+    !Array.isArray(paths) || paths.length === 0 || !paths.every(isNormalizedRepositoryPathV1) ||
+    new Set(paths).size !== paths.length ||
+    normalizedPathSetV1(paths) !== normalizedPathSetV1(request.authorized_paths)
+  ) throw new Error('bootstrap_publication_owner_invalid')
+  return Object.freeze({
+    comment_id: comment.id,
+    source_url: comment.html_url,
+    body_sha256: sha256V1(comment.body),
+    authorized_paths: Object.freeze([...paths]),
+    focused_assertions: owner.focused_bootstrap_operator_assertions,
+    focused_result: owner.focused_bootstrap_operator_result,
+    git_diff_check: owner.git_diff_check,
+    unresolved_items: 0,
+  })
+}
+
+const originRepositoryV1 = (output) => {
+  if (typeof output !== 'string') throw new Error('origin_repository_ambiguous')
+  const urls = output.trim().split(/\r?\n/).filter(Boolean)
+  if (urls.length !== 1) throw new Error('origin_repository_ambiguous')
+  const value = urls[0]
+  const match = value.match(/^(?:https:\/\/(?:[^/@]+@)?github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?$/i)
+  if (!match) throw new Error('origin_repository_unsupported')
+  return `${match[1]}/${match[2]}`.toLowerCase()
+}
+
+const bootstrapPullBodyV1 = (request, owner) => `## Purpose
+
+Bootstrap-publication operator implementation for Task #${request.task_issue_number}.
+
+## User impact
+
+Publishes the admitted bootstrap operator implementation through one commit, one create-only branch push, and one Draft PR.
+
+## Changes
+
+${request.authorized_paths.map((value) => `- \`${value}\``).join('\n')}
+
+## Validation
+
+- Focused bootstrap-publication operator: ${owner.focused_assertions} assertions ${owner.focused_result}
+- git diff --check: ${owner.git_diff_check}
+- Broad validation: not rerun
+
+## Unresolved items
+
+None.`
 
 const resultV1 = (status, reason, counters, extra = {}) => Object.freeze({
   status,
@@ -216,6 +303,7 @@ export const executeBootstrapPublicationOperatorV1 = async (rawRequest, host) =>
   ) return stop('host_invalid')
 
   let authority
+  let publicationOwner
   try {
     authority = await host.api(
       `repos/${request.repository}/issues/comments/${request.publication_authority_comment_id}`,
@@ -229,6 +317,11 @@ export const executeBootstrapPublicationOperatorV1 = async (rawRequest, host) =>
     typeof authority?.body !== 'string' ||
     sha256V1(authority.body) !== request.publication_authority_body_sha256
   ) return stop('publication_authority_binding_mismatch')
+  try {
+    publicationOwner = projectBootstrapPublicationOwnerV1(authority, request)
+  } catch {
+    return stop('bootstrap_publication_owner_invalid')
+  }
 
   let changedPaths
   try {
@@ -239,6 +332,11 @@ export const executeBootstrapPublicationOperatorV1 = async (rawRequest, host) =>
     ) throw new Error('worktree_binding_mismatch')
     const branch = host.git(['branch', '--show-current'], { encoding: 'utf8' }).trim()
     if (branch !== request.branch) throw new Error('branch_binding_mismatch')
+    const originRepository = originRepositoryV1(host.git(
+      ['remote', 'get-url', '--push', '--all', 'origin'],
+      { encoding: 'utf8' },
+    ))
+    if (originRepository !== request.repository.toLowerCase()) throw new Error('origin_repository_mismatch')
     changedPaths = repairWorkingTreePathsV1(
       request.expected_parent_head,
       (args, options = undefined) => host.git(args, options),
@@ -298,7 +396,13 @@ export const executeBootstrapPublicationOperatorV1 = async (rawRequest, host) =>
   let pushOutput
   try {
     pushOutput = host.git(
-      ['push', '--porcelain', 'origin', `HEAD:refs/heads/${request.branch}`],
+      [
+        'push',
+        '--porcelain',
+        `--force-with-lease=refs/heads/${request.branch}:`,
+        'origin',
+        `HEAD:refs/heads/${request.branch}`,
+      ],
       { encoding: 'utf8' },
     )
   } catch {
@@ -330,7 +434,7 @@ export const executeBootstrapPublicationOperatorV1 = async (rawRequest, host) =>
         title: `Task #${request.task_issue_number} bootstrap publication`,
         head: request.branch,
         base: 'main',
-        body: `Task #${request.task_issue_number}`,
+        body: bootstrapPullBodyV1(request, publicationOwner),
         draft: true,
       },
     })

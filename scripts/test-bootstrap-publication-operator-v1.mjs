@@ -8,7 +8,10 @@ import {
   executeBootstrapPublicationOperatorV1,
   insertInitialProtectedTransitionTaskStateV1,
 } from './run-bootstrap-publication-operator-v1.mjs'
-import { extractProtectedTransitionTaskStateV1 } from './run-protected-transition-admission-v1.mjs'
+import {
+  assertMinimalGovernanceProductOwnerV1,
+  extractProtectedTransitionTaskStateV1,
+} from './run-protected-transition-admission-v1.mjs'
 
 let assertions = 0
 const check = (condition, message) => {
@@ -26,16 +29,52 @@ const PARENT = '8abbb809218683372f43f56d206f1401d1b53824'
 const PUSHED = 'b'.repeat(40)
 const AUTHORITY_ID = 5_400_000_001
 const AUTHORITY_URL = `https://github.com/${REPOSITORY}/issues/359#issuecomment-${AUTHORITY_ID}`
-const AUTHORITY_BODY = 'canonical publication authority\n'
-const AUTHORITY_SHA = createHash('sha256').update(AUTHORITY_BODY, 'utf8').digest('hex')
 const BRANCH = 'codex/bootstrap-publication-operator-v1'
-const PR_NUMBER = 360
-const PR_URL = `https://github.com/${REPOSITORY}/pull/${PR_NUMBER}`
-const PR_NODE_ID = 'PR_kwDOTUu8Qs6bootstrap'
 const PATHS = Object.freeze([
   'scripts/run-bootstrap-publication-operator-v1.mjs',
   'scripts/test-bootstrap-publication-operator-v1.mjs',
 ])
+const authorityBodyV1 = ({ prCreationAllowed = true, prCreationCount = 1 } = {}) => `# Product Owner Publication Authority
+
+\`\`\`yaml
+task_id: "TASK-359-BOOTSTRAP-PUBLICATION-OPERATOR-V1"
+record_type: "task_assignment"
+authoring_role: "Product Owner / Publication Authorizer"
+authority_source: "https://github.com/${REPOSITORY}/issues/${TASK}"
+canonical_record: "${AUTHORITY_URL}"
+repository: "${REPOSITORY}"
+task_issue: "https://github.com/${REPOSITORY}/issues/${TASK}"
+requested_by: "Product Owner"
+assigned_role: "Publication Operator"
+authority_kind: "BOOTSTRAP_PUBLICATION"
+exact_parent: "${PARENT}"
+target_base_ref: "main"
+branch: "${BRANCH}"
+worktree: "${worktree.replaceAll('\\', '/')}"
+review_decision: "APPROVE"
+blocking_finding_count: 0
+remaining_finding_count: 0
+unknown_count: 0
+focused_bootstrap_operator_assertions: 107
+focused_bootstrap_operator_result: "PASS_REUSED"
+git_diff_check: "PASS_REUSED"
+broad_validation_rerun_allowed: false
+publication_allowed: true
+bootstrap_publication_count: 1
+commit_count: 1
+push_count: 1
+pr_creation_count: ${prCreationCount}
+pr_creation_allowed: ${prCreationAllowed}
+authorized_paths:
+  - "${PATHS[0]}"
+  - "${PATHS[1]}"
+status: "authorized_for_bootstrap_publication_only"
+\`\`\``
+const AUTHORITY_BODY = authorityBodyV1()
+const AUTHORITY_SHA = createHash('sha256').update(AUTHORITY_BODY, 'utf8').digest('hex')
+const PR_NUMBER = 360
+const PR_URL = `https://github.com/${REPOSITORY}/pull/${PR_NUMBER}`
+const PR_NODE_ID = 'PR_kwDOTUu8Qs6bootstrap'
 
 const requestV1 = () => ({
   record_type: 'bootstrap_publication_request_v1',
@@ -63,16 +102,20 @@ const makeHostV1 = (configuration = {}) => {
     stagedArguments: [],
     commit: 0,
     push: 0,
+    pushArguments: [],
+    originReads: 0,
     lsRemote: 0,
     createPull: 0,
     pullRefetch: 0,
     patch: 0,
     apiCalls: [],
+    createdPullBody: null,
+    racedRemoteHead: null,
   }
   let currentHead = configuration.currentHead ?? PARENT
   let remoteHead = null
   let stagedPaths = []
-  let pullBody = configuration.pullBody ?? `Task #${TASK}`
+  let pullBody = configuration.pullBody ?? null
   const prNumber = configuration.prNumber ?? PR_NUMBER
   const defaultPull = () => ({
     number: prNumber,
@@ -93,6 +136,10 @@ const makeHostV1 = (configuration = {}) => {
       metrics.gitCommands.push([...args])
       const command = args.join(' ')
       if (command === 'branch --show-current') return `${configuration.branch ?? BRANCH}\n`
+      if (command === 'remote get-url --push --all origin') {
+        metrics.originReads += 1
+        return configuration.originOutput ?? `git@github.com:${REPOSITORY}.git\n`
+      }
       if (command === 'rev-parse --verify HEAD') return `${currentHead}\n`
       if (command === 'diff --cached --quiet --') {
         if (configuration.dirtyIndex) throw new Error('index dirty')
@@ -124,6 +171,12 @@ const makeHostV1 = (configuration = {}) => {
       if (command === 'rev-parse HEAD^') return `${configuration.commitParent ?? PARENT}\n`
       if (args[0] === 'push') {
         metrics.push += 1
+        metrics.pushArguments = [...args]
+        if (configuration.raceRemoteBeforePush) {
+          remoteHead = configuration.racedRemoteHead ?? PARENT
+          metrics.racedRemoteHead = remoteHead
+          throw new Error('create-only lease rejected')
+        }
         if (configuration.pushReject) throw new Error('push rejected')
         remoteHead = configuration.remoteHead ?? currentHead
         return configuration.pushOutput ?? `*\tHEAD:refs/heads/${BRANCH}\t[new branch]\n`
@@ -144,11 +197,16 @@ const makeHostV1 = (configuration = {}) => {
           id: configuration.authorityId ?? AUTHORITY_ID,
           html_url: configuration.authorityUrl ?? AUTHORITY_URL,
           body: configuration.authorityBody ?? AUTHORITY_BODY,
+          issue_url: configuration.authorityIssueUrl ?? `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`,
+          author_association: configuration.authorityAssociation ?? 'OWNER',
+          user: configuration.authorityUser ?? { login: 'whatrune', id: 47842632, type: 'User' },
         }
       }
       if (endpoint === `repos/${REPOSITORY}/pulls` && options?.method === 'POST') {
         metrics.createPull += 1
         if (configuration.createPullReject) throw new Error('create rejected')
+        if (configuration.pullBody === undefined) pullBody = options.body.body
+        metrics.createdPullBody = options.body.body
         return {
           number: configuration.createdPrNumber ?? prNumber,
           html_url: configuration.createdPrUrl ?? PR_URL,
@@ -182,12 +240,47 @@ const runV1 = async (configuration = {}, request = requestV1()) => {
   return { result, host }
 }
 
+const runAuthorityBodyV1 = (body, configuration = {}) => runV1(
+  { ...configuration, authorityBody: body },
+  {
+    ...requestV1(),
+    publication_authority_body_sha256: createHash('sha256').update(body, 'utf8').digest('hex'),
+  },
+)
+
 const success = await runV1()
 check(success.result.status === 'SUCCESS', 'A exact 13-field request is accepted')
 check(success.host.metrics.authorityRefetch === 1, 'A accepted request starts with one authority refetch')
 check(success.host.metrics.commit === 1 && success.host.metrics.push === 1, 'A accepted request completes one commit and push')
 check(AUTHORITY_URL.includes('#issuecomment-') && success.result.status === 'SUCCESS', 'A actual canonical GitHub html_url form is accepted')
 check(!runnerSource.includes('request.publication_authority_url !== `https://github.com/'), 'B fabricated authority html_url prediction is absent')
+const unadmittedAuthority = await runV1({
+  authorityUser: { login: 'other-owner', id: 99, type: 'User' },
+})
+check(unadmittedAuthority.result.reason === 'bootstrap_publication_owner_invalid', 'A schema-valid comment without admitted Product Owner owner result stops')
+check(unadmittedAuthority.result.mutation_count === 0 && unadmittedAuthority.result.protected_operation_count === 0, 'A unadmitted comment stops with 0/0 counters')
+check(unadmittedAuthority.host.metrics.gitCommands.length === 0, 'A unadmitted comment stops before Git preflight')
+const admittedOwnerIdentity = assertMinimalGovernanceProductOwnerV1({
+  author_association: 'OWNER',
+  user: { login: 'whatrune', id: 47842632, type: 'User' },
+}, { requireAssociation: true })
+check(admittedOwnerIdentity.login === 'whatrune' && admittedOwnerIdentity.id === 47842632, 'B exported existing Product Owner validator preserves admitted owner identity')
+let rejectedOwner = false
+try {
+  assertMinimalGovernanceProductOwnerV1({
+    author_association: 'MEMBER',
+    user: { login: 'whatrune', id: 47842632, type: 'User' },
+  }, { requireAssociation: true })
+} catch (error) {
+  rejectedOwner = error.message === 'minimal_governance_product_owner_identity_invalid'
+}
+check(rejectedOwner, 'B exported existing Product Owner validator preserves association rejection')
+check(!runnerSource.includes('47842632') && !runnerSource.includes("login: 'whatrune'"), 'B bootstrap operator does not duplicate Product Owner authentication')
+const prCreationProhibitedBody = authorityBodyV1({ prCreationAllowed: false, prCreationCount: 0 })
+const prCreationProhibited = await runAuthorityBodyV1(prCreationProhibitedBody)
+check(prCreationProhibited.result.reason === 'bootstrap_publication_owner_invalid', 'C Product Owner authority prohibiting PR creation fails closed')
+check(prCreationProhibited.result.mutation_count === 0 && prCreationProhibited.result.protected_operation_count === 0, 'C prohibited PR creation stops with 0/0 counters')
+check(prCreationProhibited.host.metrics.gitCommands.length === 0, 'C historical prohibited authority stops before Git preflight')
 
 const missingRequest = requestV1()
 delete missingRequest.version
@@ -248,6 +341,17 @@ const wrongBranch = await runV1({ branch: 'codex/other' })
 check(wrongBranch.result.reason === 'branch_binding_mismatch' && wrongBranch.result.mutation_count === 0, 'G wrong branch stops before staging')
 const wrongParent = await runV1({ currentHead: 'c'.repeat(40) })
 check(wrongParent.result.reason === 'repair_worktree_head_changed' && wrongParent.result.mutation_count === 0, 'G wrong parent stops before staging')
+const originMismatch = await runV1({ originOutput: 'git@github.com:other/repository.git\n' })
+check(originMismatch.result.reason === 'origin_repository_mismatch', 'D origin repository mismatch stops')
+check(originMismatch.result.mutation_count === 0 && originMismatch.result.protected_operation_count === 0, 'D origin repository mismatch stops with 0/0 counters')
+check(originMismatch.host.metrics.lsRemote === 0 && originMismatch.host.metrics.stage === 0 && originMismatch.host.metrics.commit === 0, 'D origin mismatch stops before ls-remote or mutation')
+const unsupportedOrigin = await runV1({ originOutput: 'https://example.com/whatrune/sd-prompt-studio.git\n' })
+check(unsupportedOrigin.result.reason === 'origin_repository_unsupported' && unsupportedOrigin.result.mutation_count === 0, 'D unsupported origin stops with zero mutations')
+const ambiguousOrigin = await runV1({
+  originOutput: `git@github.com:${REPOSITORY}.git\nhttps://github.com/${REPOSITORY}.git\n`,
+})
+check(ambiguousOrigin.result.reason === 'origin_repository_ambiguous' && ambiguousOrigin.result.mutation_count === 0, 'D ambiguous origin stops with zero mutations')
+check(success.host.metrics.originReads === 1, 'D valid origin push URL is freshly resolved once before mutation')
 
 const dirtyIndex = await runV1({ dirtyIndex: true })
 check(dirtyIndex.result.reason === 'repair_index_not_clean', 'H dirty index is rejected by reused helper')
@@ -289,6 +393,18 @@ const pushRejected = await runV1({ pushReject: true })
 check(pushRejected.result.reason === 'push_failed', 'M push rejection stops')
 check(pushRejected.result.mutation_count === 2 && pushRejected.result.protected_operation_count === 1, 'M push attempt accounts 2/1')
 check(pushRejected.host.metrics.push === 1 && pushRejected.host.metrics.createPull === 0, 'M push rejection does not retry or create PR')
+check(JSON.stringify(success.host.metrics.pushArguments) === JSON.stringify([
+  'push',
+  '--porcelain',
+  `--force-with-lease=refs/heads/${BRANCH}:`,
+  'origin',
+  `HEAD:refs/heads/${BRANCH}`,
+]), 'E successful branch creation uses exact empty-lease CAS push')
+const racedRemoteBranch = await runV1({ raceRemoteBeforePush: true, racedRemoteHead: PARENT })
+check(racedRemoteBranch.result.reason === 'push_failed', 'F branch appearing after preflight causes CAS push failure')
+check(racedRemoteBranch.result.mutation_count === 2 && racedRemoteBranch.result.protected_operation_count === 1, 'F raced CAS push retains attempt accounting 2/1')
+check(racedRemoteBranch.host.metrics.push === 1 && racedRemoteBranch.host.metrics.createPull === 0, 'F raced CAS push is not retried and creates no PR')
+check(racedRemoteBranch.host.metrics.racedRemoteHead === PARENT, 'F raced existing remote ref is not updated')
 const remoteMismatch = await runV1({ remoteHead: 'c'.repeat(40) })
 check(remoteMismatch.result.reason === 'remote_head_mismatch', 'N remote HEAD mismatch stops')
 check(remoteMismatch.result.mutation_count === 2 && remoteMismatch.host.metrics.createPull === 0, 'N remote mismatch stops before PR creation')
@@ -302,6 +418,11 @@ const createdPullUrlMismatch = await runV1({ createdPrUrl: `${PR_URL}?creation=d
 check(createdPullUrlMismatch.result.reason === 'draft_pr_binding_mismatch', 'H first fresh PR refetch must match the creation-result URL and number')
 check(createdPullUrlMismatch.result.mutation_count === 3 && createdPullUrlMismatch.host.metrics.patch === 0, 'H creation-result identity mismatch stops before body PATCH')
 check(success.host.metrics.pullRefetch === 2, 'I first fresh refetch captures identity used by the final refetch')
+const requiredPrSections = ['## Purpose', '## User impact', '## Changes', '## Validation', '## Unresolved items']
+check(requiredPrSections.every((section) => success.host.metrics.createdPullBody.includes(section)), 'H generated Draft PR body contains every required prose section')
+check(PATHS.every((value) => success.host.metrics.createdPullBody.includes(`- \`${value}\``)), 'H generated Draft PR body lists the exact authorized path scope')
+check(success.host.metrics.createdPullBody.includes('107 assertions PASS_REUSED') && success.host.metrics.createdPullBody.includes('git diff --check: PASS_REUSED'), 'H generated Draft PR body uses admitted focused validation facts')
+check(success.host.metrics.createdPullBody.includes('## Unresolved items\n\nNone.'), 'H generated Draft PR body reports none only from admitted 0/0/0 Review state')
 
 const pullDrifts = [
   ['repository', (pull) => { pull.base.repo.full_name = 'other/repository'; return pull }],
@@ -346,6 +467,10 @@ check(!runnerSource.includes('writeProtectedTransitionTaskStateV1'), 'T insertio
 check(success.host.metrics.patch === 1, 'U PR body is patched exactly once')
 check(success.result.mutation_count === 4 && success.result.protected_operation_count === 1, 'U PATCH attempt accounts 4/1')
 check(success.host.metrics.apiCalls.map(({ method }) => method).join(',') === 'GET,POST,GET,PATCH,GET', 'U transaction uses exact authority/create/refetch/PATCH/refetch API order')
+const successPatchBody = success.host.metrics.apiCalls.find(({ method }) => method === 'PATCH').body.body
+check(successPatchBody.startsWith(success.host.metrics.createdPullBody), 'I Task-state insertion preserves all generated PR prose bytes')
+check(requiredPrSections.every((section) => successPatchBody.includes(section)), 'I patched PR body retains every required prose section')
+check(successPatchBody.includes('<!-- protected-transition-task-state-v1:start -->'), 'I patched PR body appends exactly one Task-state block')
 const finalMismatch = await runV1({
   finalPullMutator: (pull) => ({ ...pull, body: `${pull.body}\nDRIFT` }),
 })
@@ -368,17 +493,18 @@ check(!Object.hasOwn(requestV1(), 'pr_node_id') && !Object.hasOwn(requestV1(), '
 check(!Object.hasOwn(success.result.task_state, 'pr_node_id') && !Object.hasOwn(success.result.task_state, 'node_id'), 'L PR node identity is absent from Task-state schema')
 check(success.host.metrics.commit === 1 && success.host.metrics.push === 1 && success.host.metrics.createPull === 1 && success.host.metrics.patch === 1, 'X success performs every mutation once')
 check(!runnerSource.includes("['reset'") && !runnerSource.includes("['rebase'") && !runnerSource.includes("['commit', '--amend'"), 'X runner has no reset, rebase, or amend')
-check(!runnerSource.includes("'--force'") && !runnerSource.includes("'--force-with-lease'"), 'X runner has no force push')
+check(!runnerSource.includes("'--force'") && !runnerSource.includes("'+refs/heads/"), 'X runner has no unconditional force or plus-refspec push')
+check(runnerSource.includes('`--force-with-lease=refs/heads/${request.branch}:`'), 'X runner retains exact create-only empty-lease CAS')
 check(!/setTimeout|retry/i.test(runnerSource), 'X runner has no retry mechanism')
 check(runnerSource.includes('extractProtectedTransitionTaskStateV1'), 'Y existing Task-state extractor is imported and reused')
 check(!runnerSource.includes('parseProtectedTransitionTaskStateV1') && !runnerSource.includes('parseProtectedTransitionTaskStateJsonV1'), 'Y no second Task-state parser exists')
 
-const status = spawnSync('git', ['status', '--porcelain=v1', '--untracked-files=all'], {
+const scopeDiff = spawnSync('git', ['diff', '--name-only', '--no-renames', PARENT, '759918b6527c2b1fca3de924fa8042f413426822', '--'], {
   cwd: worktree,
   encoding: 'utf8',
 })
-check(status.status === 0, 'Z implementation delta can be inspected')
-const deltaPaths = status.stdout.trim().split(/\r?\n/).filter(Boolean).map((line) => line.slice(3)).sort()
-check(JSON.stringify(deltaPaths) === JSON.stringify([...PATHS].sort()), 'Z only the two authorized new files exist in implementation delta')
+check(scopeDiff.status === 0, 'J frozen historical implementation scope can be inspected')
+const deltaPaths = scopeDiff.stdout.trim().split(/\r?\n/).filter(Boolean).sort()
+check(JSON.stringify(deltaPaths) === JSON.stringify([...PATHS].sort()), 'J frozen historical implementation range proves exact two-file isolation')
 
 process.stdout.write(`${assertions} assertions passed\n`)
