@@ -460,6 +460,66 @@ jobs:
             }
           }
 
+          function Invoke-AdmittedReviewThreadClosure {
+            param(
+              [Parameter(Mandatory = $true)][string]$DispatchFile,
+              [Parameter(Mandatory = $true)][string]$OwnerResultFile,
+              [Parameter(Mandatory = $true)][object]$PublishedComment
+            )
+            $ownerResult = Get-Content -LiteralPath $OwnerResultFile -Raw -Encoding utf8 | ConvertFrom-Json
+            if ($null -eq $ownerResult.thread_action) { return }
+            $ownerDispatch = Get-Content -LiteralPath $DispatchFile -Raw -Encoding utf8 | ConvertFrom-Json
+            if (
+              $ownerDispatch.next_action -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER' -or
+              $ownerDispatch.purpose -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER' -or
+              $PublishedComment.html_url -cne "https://github.com/$($ownerDispatch.repository)/issues/$($ownerDispatch.task_issue_number)#issuecomment-$($PublishedComment.id)"
+            ) { throw 'review_thread_action_owner_publication_invalid' }
+            $eventPath = Join-Path $env:RUNNER_TEMP 'role-review-owner-event.json'
+            $routePath = Join-Path $env:RUNNER_TEMP 'role-review-owner-route.json'
+            $actionPath = Join-Path $env:RUNNER_TEMP 'role-review-owner-action.json'
+            $closurePath = Join-Path $env:RUNNER_TEMP 'role-review-owner-closure.json'
+            $reviewEvent = [ordered]@{
+              action = 'created'
+              repository = [ordered]@{ full_name = [string]$ownerDispatch.repository }
+              issue = [ordered]@{
+                number = [int64]$ownerDispatch.task_issue_number
+                state = 'open'
+                html_url = "https://github.com/$($ownerDispatch.repository)/issues/$($ownerDispatch.task_issue_number)"
+              }
+              comment = [ordered]@{
+                id = [int64]$PublishedComment.id
+                created_at = [string]$PublishedComment.created_at
+                author_association = [string]$PublishedComment.author_association
+                html_url = [string]$PublishedComment.html_url
+                body = [string]$PublishedComment.body
+              }
+            }
+            [IO.File]::WriteAllText($eventPath, ($reviewEvent | ConvertTo-Json -Depth 8 -Compress), $utf8NoBom)
+            node $env:PTA_ROLE_HOST_RUNNER --review-event-file $eventPath --review-owner-dispatch-file $DispatchFile --review-owner-result-file $OwnerResultFile 1> $routePath
+            if ($LASTEXITCODE -ne 0) { throw 'review_thread_action_owner_route_failed' }
+            $route = Get-Content -LiteralPath $routePath -Raw -Encoding utf8 | ConvertFrom-Json
+            if (
+              $route.next_action -cne 'THREAD_RESOLUTION' -or $route.mutation_count -ne 0 -or
+              @($route.thread_action.psobject.Properties).Count -ne 8 -or
+              $route.thread_action.repository -cne $ownerResult.thread_action.repository -or
+              $route.thread_action.task_issue_number -ne $ownerResult.thread_action.task_issue_number -or
+              $route.thread_action.pr_number -ne $ownerResult.thread_action.pr_number -or
+              $route.thread_action.reviewed_head -cne $ownerResult.thread_action.reviewed_head -or
+              $route.thread_action.review_thread_node_id -cne $ownerResult.thread_action.review_thread_node_id -or
+              $route.thread_action.disposition -cne $ownerResult.thread_action.disposition -or
+              $route.thread_action.review_decision_comment_id -ne $PublishedComment.id -or
+              $route.thread_action.review_decision_url -cne $PublishedComment.html_url
+            ) { throw 'review_thread_action_owner_route_invalid' }
+            [IO.File]::WriteAllText($actionPath, ($route.thread_action | ConvertTo-Json -Compress), $utf8NoBom)
+            node $env:PTA_ROLE_HOST_RUNNER --review-closure-file $actionPath 1> $closurePath
+            if ($LASTEXITCODE -ne 0) { throw 'review_thread_action_closure_failed' }
+            $closure = Get-Content -LiteralPath $closurePath -Raw -Encoding utf8 | ConvertFrom-Json
+            if (
+              $closure.transition -cne 'review_closure' -or $closure.state -cne 'COMPLETED' -or
+              $closure.next_action -cne 'NONE' -or $closure.mutation_count -ne 1
+            ) { throw 'review_thread_action_closure_invalid' }
+          }
+
           $sandbox = if ($plan.read_only) { 'read-only' } else { 'workspace-write' }
           Invoke-BoundedRole -PromptFile $promptPath -Sandbox $sandbox -JsonlFile $outputPath -BodyFile $bodyPath
           $expected = if ($dispatch.next_action -ceq 'IMPLEMENTER') { 'VALIDATE_IMPLEMENTATION' } elseif ($dispatch.purpose -ceq 'MERGE_DECISION') { 'POST_MERGE_DECISION' } elseif ($dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER') { 'POST_REVIEW' } else { 'COMMIT_PUSH_PUBLISH' }
@@ -467,7 +527,10 @@ jobs:
 
           if ($expected -in @('POST_REVIEW', 'POST_MERGE_DECISION')) {
             Assert-FreshRoleBinding -DispatchFile $dispatchPath
-            $null = Publish-CanonicalComment -BodyFile $bodyPath
+            $canonicalComment = Publish-CanonicalComment -BodyFile $bodyPath
+            if ($expected -ceq 'POST_REVIEW') {
+              Invoke-AdmittedReviewThreadClosure -DispatchFile $dispatchPath -OwnerResultFile $resultPath -PublishedComment $canonicalComment
+            }
             exit 0
           }
           if ($expected -ne 'VALIDATE_IMPLEMENTATION') { throw 'role_consumer_entry_invalid' }
@@ -597,7 +660,8 @@ jobs:
           Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath
           $publicationTask = gh api "repos/$($dispatch.repository)/issues/$($dispatch.task_issue_number)" | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or $publicationTask.number -ne $dispatch.task_issue_number -or $publicationTask.state -cne 'open' -or $null -ne $publicationTask.pull_request) { throw 'publication_reviewer_task_binding_invalid' }
-          $null = Publish-CanonicalComment -BodyFile $reviewBodyPath
+          $canonicalReviewComment = Publish-CanonicalComment -BodyFile $reviewBodyPath
+          Invoke-AdmittedReviewThreadClosure -DispatchFile $reviewDispatchPath -OwnerResultFile $reviewResultPath -PublishedComment $canonicalReviewComment
 
   protected_transition_merge_operator_v1:
     needs: protected_transition_admission_v1
