@@ -8184,7 +8184,6 @@ const reviewOwnerThreadActionV1 = (overrides = {}) => Object.freeze({
   pr_number: PR,
   reviewed_head: HEAD,
   review_thread_node_id: 'PRRT_kwDOReviewClosureTarget',
-  finding_id: 'B-THREAD-001',
   disposition: 'RESOLVE_ONLY',
   ...overrides,
 })
@@ -8194,7 +8193,6 @@ const reviewThreadActionSemanticV1 = (action) => reviewOwnerThreadActionV1({
   pr_number: action.pr_number,
   reviewed_head: action.reviewed_head,
   review_thread_node_id: action.review_thread_node_id,
-  finding_id: action.finding_id,
   disposition: action.disposition,
 })
 const reviewClosureActionV1 = (overrides = {}) => {
@@ -8270,14 +8268,16 @@ check(
   resolveOnlyProjectionV1.next_action === 'THREAD_RESOLUTION' &&
   JSON.stringify(resolveOnlyProjectionV1.thread_action) === JSON.stringify(admittedResolveOnlyActionV1) &&
   JSON.stringify(resolveOnlyProjectionV1.lifecycle_projection.thread_action) === JSON.stringify(admittedResolveOnlyActionV1) &&
+  Object.keys(resolveOnlyProjectionV1.thread_action).length === 8 &&
   resolveOnlyProjectionV1.thread_action.review_decision_comment_id === admittedPublicationCommentIdV1 &&
   resolveOnlyProjectionV1.thread_action.review_decision_url === admittedResolveOnlyEventV1.comment.html_url,
-  'TRC-OWNER-A seven-field owner action binds the actual canonical publication as a final nine-field action',
+  'TRC-OWNER-A six-field owner action binds the actual canonical publication as a final eight-field action',
 )
 check(
   JSON.stringify(admittedReviewingRoleOwnerResultV1.thread_action) === JSON.stringify(admittedResolveOnlyOwnerActionV1) &&
-  JSON.stringify(reviewThreadActionSemanticV1(resolveOnlyProjectionV1.thread_action)) === JSON.stringify(admittedResolveOnlyOwnerActionV1),
-  'TRC-OWNER-B all seven semantic fields remain unchanged through publication',
+  JSON.stringify(reviewThreadActionSemanticV1(resolveOnlyProjectionV1.thread_action)) === JSON.stringify(admittedResolveOnlyOwnerActionV1) &&
+  Object.keys(admittedResolveOnlyOwnerActionV1).length === 6,
+  'TRC-OWNER-B all six semantic fields remain unchanged through publication',
 )
 check(
   admittedPublicationCommentIdV1 !== 9001 &&
@@ -8371,7 +8371,7 @@ check(
 const duplicateThreadActionErrorV1 = await errorOf(() => parseIndependentReviewDecisionProjectionV1(
   reviewClosureBodyV1([
     reviewThreadActionSemanticV1(resolveOnlyActionV1),
-    reviewOwnerThreadActionV1({ review_thread_node_id: 'PRRT_kwDOSecondTarget', finding_id: 'B-THREAD-002' }),
+    reviewOwnerThreadActionV1({ review_thread_node_id: 'PRRT_kwDOSecondTarget' }),
   ]),
   REPOSITORY,
   TASK,
@@ -8383,6 +8383,11 @@ const unknownThreadActionErrorV1 = await errorOf(() => parseIndependentReviewDec
   REPOSITORY,
   TASK,
 ))
+const prohibitedFindingIdErrorV1 = await errorOf(() => parseIndependentReviewDecisionProjectionV1(
+  reviewClosureBodyV1([{ ...reviewThreadActionSemanticV1(resolveOnlyActionV1), finding_id: 'B-THREAD-FORBIDDEN' }]),
+  REPOSITORY,
+  TASK,
+))
 const malformedThreadActionErrorV1 = await errorOf(() => parseIndependentReviewDecisionProjectionV1(
   reviewClosureBodyV1([{ ...reviewThreadActionSemanticV1(resolveOnlyActionV1), review_thread_node_id: '' }]),
   REPOSITORY,
@@ -8390,8 +8395,9 @@ const malformedThreadActionErrorV1 = await errorOf(() => parseIndependentReviewD
 ))
 check(
   unknownThreadActionErrorV1?.message === 'review_thread_action_invalid' &&
+  prohibitedFindingIdErrorV1?.message === 'review_thread_action_invalid' &&
   malformedThreadActionErrorV1?.message === 'review_thread_action_invalid',
-  'TRC-D malformed or unknown thread action fields fail closed',
+  'TRC-D finding_id, malformed, or unknown thread action fields fail closed',
 )
 const supersededDispositionErrorV1 = await errorOf(() => parseIndependentReviewDecisionProjectionV1(
   reviewClosureBodyV1([{ ...reviewThreadActionSemanticV1(resolveOnlyActionV1), disposition: 'UNSUPPORTED' }]),
@@ -8545,7 +8551,7 @@ check(
   'TRC-H missing or ambiguous current Review owner stops before mutation',
 )
 
-const mismatchedCurrentActionV1 = reviewClosureActionV1({ finding_id: 'B-THREAD-CURRENT-MISMATCH' })
+const mismatchedCurrentActionV1 = reviewClosureActionV1({ review_thread_node_id: 'PRRT_kwDOCurrentSemanticMismatch' })
 const mismatchedCurrentActionHostV1 = reviewClosureHostV1({
   currentComments: [reviewClosureCommentV1({ action: mismatchedCurrentActionV1 })],
 })
@@ -8615,7 +8621,7 @@ check(
   reviewingRoleOwnerClosureSourceV1.includes('--review-owner-dispatch-file $DispatchFile') &&
   reviewingRoleOwnerClosureSourceV1.includes('--review-owner-result-file $OwnerResultFile') &&
   reviewingRoleOwnerClosureSourceV1.includes('html_url = [string]$PublishedComment.html_url') &&
-  reviewingRoleOwnerClosureSourceV1.includes('@($route.thread_action.psobject.Properties).Count -ne 9') &&
+  reviewingRoleOwnerClosureSourceV1.includes('@($route.thread_action.psobject.Properties).Count -ne 8') &&
   reviewingRoleOwnerClosureSourceV1.includes('$route.thread_action.review_decision_comment_id -ne $PublishedComment.id') &&
   reviewingRoleOwnerClosureSourceV1.includes('$route.thread_action.review_decision_url -cne $PublishedComment.html_url') &&
   !reviewingRoleOwnerClosureSourceV1.includes('$ownerResult.thread_action.review_decision_comment_id') &&

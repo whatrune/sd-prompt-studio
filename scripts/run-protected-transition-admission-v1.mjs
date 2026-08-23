@@ -44,7 +44,7 @@ const REVIEW_AUTHORING_ROLE = 'Independent Reviewer'
 const REVIEW_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 const REVIEW_THREAD_ACTION_SEMANTIC_FIELDS_V1 = Object.freeze([
   'repository', 'task_issue_number', 'pr_number', 'reviewed_head', 'review_thread_node_id',
-  'finding_id', 'disposition',
+  'disposition',
 ])
 const REVIEW_THREAD_ACTION_FIELDS_V1 = Object.freeze([
   ...REVIEW_THREAD_ACTION_SEMANTIC_FIELDS_V1, 'review_decision_comment_id', 'review_decision_url',
@@ -377,7 +377,6 @@ export const parseIndependentReviewDecisionProjectionV1 = (body, repository, tas
       action.pr_number !== prNumber ||
       action.reviewed_head !== reviewedHead ||
       typeof action.review_thread_node_id !== 'string' || action.review_thread_node_id.length === 0 ||
-      typeof action.finding_id !== 'string' || action.finding_id.length === 0 ||
       !REVIEW_THREAD_ACTION_DISPOSITIONS_V1.has(action.disposition)
     ) throw new Error('review_thread_action_invalid')
     return Object.freeze(action)
@@ -5205,7 +5204,6 @@ const normalizeReviewThreadActionV1 = (action) => {
     !positiveInteger(action.task_issue_number) || !positiveInteger(action.pr_number) ||
     !FULL_HEAD.test(action.reviewed_head ?? '') ||
     typeof action.review_thread_node_id !== 'string' || action.review_thread_node_id.length === 0 ||
-    typeof action.finding_id !== 'string' || action.finding_id.length === 0 ||
     !REVIEW_THREAD_ACTION_DISPOSITIONS_V1.has(action.disposition) ||
     !positiveInteger(action.review_decision_comment_id) ||
     action.review_decision_url !== `https://github.com/${action.repository}/issues/${action.task_issue_number}#issuecomment-${action.review_decision_comment_id}`

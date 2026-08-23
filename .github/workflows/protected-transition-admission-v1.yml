@@ -500,13 +500,12 @@ jobs:
             $route = Get-Content -LiteralPath $routePath -Raw -Encoding utf8 | ConvertFrom-Json
             if (
               $route.next_action -cne 'THREAD_RESOLUTION' -or $route.mutation_count -ne 0 -or
-              @($route.thread_action.psobject.Properties).Count -ne 9 -or
+              @($route.thread_action.psobject.Properties).Count -ne 8 -or
               $route.thread_action.repository -cne $ownerResult.thread_action.repository -or
               $route.thread_action.task_issue_number -ne $ownerResult.thread_action.task_issue_number -or
               $route.thread_action.pr_number -ne $ownerResult.thread_action.pr_number -or
               $route.thread_action.reviewed_head -cne $ownerResult.thread_action.reviewed_head -or
               $route.thread_action.review_thread_node_id -cne $ownerResult.thread_action.review_thread_node_id -or
-              $route.thread_action.finding_id -cne $ownerResult.thread_action.finding_id -or
               $route.thread_action.disposition -cne $ownerResult.thread_action.disposition -or
               $route.thread_action.review_decision_comment_id -ne $PublishedComment.id -or
               $route.thread_action.review_decision_url -cne $PublishedComment.html_url
