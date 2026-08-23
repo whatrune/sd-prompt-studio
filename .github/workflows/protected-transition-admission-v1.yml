@@ -132,7 +132,7 @@ jobs:
               fs.appendFileSync(output, `authority_kind=MINIMAL_GOVERNANCE_V1\n`);
               fs.appendFileSync(output, `role_exact_head=${result.exact_head}\n`);
               fs.appendFileSync(output, `minimal_merge_plan_b64=${Buffer.from(JSON.stringify(result)).toString("base64")}\n`);
-            } else if (["IMPLEMENTER", "PRODUCT_OWNER_IMPLEMENTATION_LEAD", "INDEPENDENT_IMPLEMENTATION_REVIEWER", "MERGE_OPERATOR"].includes(result.next_action)) {
+            } else if (["IMPLEMENTER", "PRODUCT_OWNER_IMPLEMENTATION_LEAD", "INDEPENDENT_IMPLEMENTATION_REVIEWER", "INTEGRATED_LEAD_READY_REVIEW", "MERGE_OPERATOR"].includes(result.next_action)) {
               if (!result.role_dispatch || result.role_dispatch.next_action !== result.next_action || result.role_dispatch.exact_head !== result.current_head) throw new Error("role_dispatch_projection_invalid");
               fs.appendFileSync(output, `role_exact_head=${result.role_dispatch.exact_head}\n`);
               fs.appendFileSync(output, `role_dispatch_b64=${Buffer.from(JSON.stringify(result.role_dispatch)).toString("base64")}\n`);
@@ -163,7 +163,7 @@ jobs:
 
   protected_transition_role_dispatch_consumer_v1:
     needs: protected_transition_admission_v1
-    if: contains(fromJSON('["IMPLEMENTER","PRODUCT_OWNER_IMPLEMENTATION_LEAD","INDEPENDENT_IMPLEMENTATION_REVIEWER"]'), needs.protected_transition_admission_v1.outputs.next_action)
+    if: contains(fromJSON('["IMPLEMENTER","PRODUCT_OWNER_IMPLEMENTATION_LEAD","INDEPENDENT_IMPLEMENTATION_REVIEWER","INTEGRATED_LEAD_READY_REVIEW"]'), needs.protected_transition_admission_v1.outputs.next_action)
     runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 45
     steps:
@@ -424,7 +424,10 @@ jobs:
               throw 'role_output_validation_failed'
             }
             $validated = Get-Content -LiteralPath $ResultFile -Raw -Encoding utf8 | ConvertFrom-Json
-            if ($validated.next_action -cne $ExpectedAction) { throw 'role_output_operation_invalid' }
+            if (
+              ($ExpectedAction -ceq 'PUBLISH_READY_AUTHORITY_OR_NONE' -and $validated.next_action -notin @('PUBLISH_READY_AUTHORITY', 'NONE')) -or
+              ($ExpectedAction -cne 'PUBLISH_READY_AUTHORITY_OR_NONE' -and $validated.next_action -cne $ExpectedAction)
+            ) { throw 'role_output_operation_invalid' }
             return $validated
           }
 
@@ -454,6 +457,36 @@ jobs:
               if ($LASTEXITCODE -ne 0 -or -not $posted.id) { throw 'role_comment_post_failed' }
               $fresh = gh api "repos/$($dispatch.repository)/issues/comments/$($posted.id)" | ConvertFrom-Json
               if ($LASTEXITCODE -ne 0 -or $fresh.issue_url -cne "https://api.github.com/repos/$($dispatch.repository)/issues/$($dispatch.task_issue_number)" -or $fresh.body -cne [IO.File]::ReadAllText($BodyFile, $utf8NoBom)) { throw 'role_comment_refetch_mismatch' }
+              return $fresh
+            } finally {
+              if ($null -eq $priorToken) { Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue } else { $env:GH_TOKEN = $priorToken }
+            }
+          }
+
+          function Publish-ReadyTransitionAuthority {
+            param([Parameter(Mandatory = $true)][string]$RoleBodyFile)
+            $roleBodyBytes = [IO.File]::ReadAllBytes($RoleBodyFile)
+            $sha256 = [Security.Cryptography.SHA256]::Create()
+            try { $roleBodySha256 = ([BitConverter]::ToString($sha256.ComputeHash($roleBodyBytes))).Replace('-', '').ToLowerInvariant() } finally { $sha256.Dispose() }
+            $priorToken = $env:GH_TOKEN
+            try {
+              Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
+              $placeholder = @{ body = '<!-- ready-transition-authority-v1:self-binding -->' } | ConvertTo-Json -Compress
+              $posted = $placeholder | gh api --method POST "repos/$($dispatch.repository)/issues/$($dispatch.task_issue_number)/comments" --input - | ConvertFrom-Json
+              if ($LASTEXITCODE -ne 0 -or -not $posted.id) { throw 'ready_authority_post_failed' }
+              $canonicalUrl = "https://github.com/$($dispatch.repository)/issues/$($dispatch.task_issue_number)#issuecomment-$($posted.id)"
+              $authoritySource = "https://github.com/$($dispatch.repository)/actions/runs/$($dispatch.admission_run_id)/attempts/$($dispatch.admission_run_attempt)#integrated-lead-result-sha256-$roleBodySha256"
+              $binding = $dispatch.source_binding
+              $authorityBody = "# Ready Transition Authority`n`n``````yaml`nrecord_type: ready_transition_authority_v1`nversion: 1`nauthoring_role: Integrated Lead`nauthority_source: $authoritySource`ncanonical_record: $canonicalUrl`nrepository: $($dispatch.repository)`ntask_issue: https://github.com/$($dispatch.repository)/issues/$($dispatch.task_issue_number)`npull_request: https://github.com/$($dispatch.repository)/pull/$($dispatch.pr_number)`nexact_head: $($dispatch.exact_head)`ntarget_branch: main`naction: READY_FOR_REVIEW`nmethod: markPullRequestReadyForReview`noperation_count: 1`nreview_decision: https://github.com/$($dispatch.repository)/issues/$($dispatch.task_issue_number)#issuecomment-$($binding.review_comment_id)`npublication_handoff: https://github.com/$($dispatch.repository)/issues/$($dispatch.task_issue_number)#issuecomment-$($binding.publication_handoff_comment_id)`nscope_contract_source: https://github.com/$($dispatch.repository)/issues/$($dispatch.task_issue_number)#issuecomment-$($binding.scope_contract_source_comment_id)`n```````n"
+              $payload = @{ body = $authorityBody } | ConvertTo-Json -Compress
+              $updated = $payload | gh api --method PATCH "repos/$($dispatch.repository)/issues/comments/$($posted.id)" --input - | ConvertFrom-Json
+              if ($LASTEXITCODE -ne 0 -or $updated.id -ne $posted.id) { throw 'ready_authority_bind_failed' }
+              $fresh = gh api "repos/$($dispatch.repository)/issues/comments/$($posted.id)" | ConvertFrom-Json
+              if (
+                $LASTEXITCODE -ne 0 -or $fresh.id -ne $posted.id -or $fresh.html_url -cne $canonicalUrl -or
+                $fresh.issue_url -cne "https://api.github.com/repos/$($dispatch.repository)/issues/$($dispatch.task_issue_number)" -or
+                $fresh.body -cne $authorityBody
+              ) { throw 'ready_authority_refetch_mismatch' }
               return $fresh
             } finally {
               if ($null -eq $priorToken) { Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue } else { $env:GH_TOKEN = $priorToken }
@@ -522,8 +555,39 @@ jobs:
 
           $sandbox = if ($plan.read_only) { 'read-only' } else { 'workspace-write' }
           Invoke-BoundedRole -PromptFile $promptPath -Sandbox $sandbox -JsonlFile $outputPath -BodyFile $bodyPath
-          $expected = if ($dispatch.next_action -ceq 'IMPLEMENTER') { 'VALIDATE_IMPLEMENTATION' } elseif ($dispatch.purpose -ceq 'MERGE_DECISION') { 'POST_MERGE_DECISION' } elseif ($dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER') { 'POST_REVIEW' } else { 'COMMIT_PUSH_PUBLISH' }
+          $expected = if ($dispatch.next_action -ceq 'IMPLEMENTER') { 'VALIDATE_IMPLEMENTATION' } elseif ($dispatch.purpose -ceq 'MERGE_DECISION') { 'POST_MERGE_DECISION' } elseif ($dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER') { 'POST_REVIEW' } elseif ($dispatch.next_action -ceq 'INTEGRATED_LEAD_READY_REVIEW') { 'PUBLISH_READY_AUTHORITY_OR_NONE' } else { 'COMMIT_PUSH_PUBLISH' }
           $validated = Assert-RoleOutput -DispatchFile $dispatchPath -BodyFile $bodyPath -ExpectedAction $expected -ResultFile $resultPath -JsonlFile $outputPath
+
+          if ($dispatch.next_action -ceq 'INTEGRATED_LEAD_READY_REVIEW') {
+            if ($validated.next_action -ceq 'NONE') { exit 0 }
+            Assert-FreshRoleBinding -DispatchFile $dispatchPath
+            $authorityComment = Publish-ReadyTransitionAuthority -RoleBodyFile $bodyPath
+            $actionPath = Join-Path $env:RUNNER_TEMP 'ready-transition-action.json'
+            $operatorPath = Join-Path $env:RUNNER_TEMP 'ready-transition-result.json'
+            $readyAction = [ordered]@{
+              repository = [string]$dispatch.repository
+              task_issue_number = [int64]$dispatch.task_issue_number
+              pr_number = [int64]$dispatch.pr_number
+              exact_head = [string]$dispatch.exact_head
+              action = 'READY_FOR_REVIEW'
+              method = 'markPullRequestReadyForReview'
+              operation_count = 1
+              authority_comment_id = [int64]$authorityComment.id
+              authority_url = [string]$authorityComment.html_url
+            }
+            [IO.File]::WriteAllText($actionPath, ($readyAction | ConvertTo-Json -Compress), $utf8NoBom)
+            node $env:PTA_ROLE_HOST_RUNNER --ready-transition-file $actionPath 1> $operatorPath
+            $operatorExit = $LASTEXITCODE
+            $operator = Get-Content -LiteralPath $operatorPath -Raw -Encoding utf8 | ConvertFrom-Json
+            if (
+              $operator.transition -cne 'ready_transition' -or $operator.next_action -notin @('NONE', 'STOP') -or
+              $operator.mutation_count -notin @(0, 1) -or ($operator.mutation_count -eq 0 -and $operator.mutation_attempted -ne $false) -or
+              ($operator.mutation_count -eq 1 -and $operator.mutation_attempted -ne $true) -or
+              ($operatorExit -eq 0 -and ($operator.state -cne 'COMPLETED' -or $operator.next_action -cne 'NONE' -or $operator.mutation_count -ne 1)) -or
+              ($operatorExit -ne 0 -and $operator.next_action -cne 'STOP')
+            ) { throw 'ready_transition_operator_invalid' }
+            exit $operatorExit
+          }
 
           if ($expected -in @('POST_REVIEW', 'POST_MERGE_DECISION')) {
             Assert-FreshRoleBinding -DispatchFile $dispatchPath
