@@ -28,6 +28,7 @@ import {
   executeLifecycleOrchestratorV1,
   executeReviewEventWithLifecycleReplayV1,
   executeReviewThreadClosureV1,
+  executeReadyTransitionOperatorV1,
   executeReadyEventWithLifecycleReplayV1,
   executeMinimalGovernanceFinalDriftGuardV1,
   executeMinimalGovernanceV1,
@@ -44,12 +45,14 @@ import {
   parseIndependentReviewDecisionProjectionV1,
   parseMinimalGovernanceAuthorityV1,
   parseLifecyclePublicationTaskBindingV1,
+  parseReadyTransitionAuthorityV1,
   parseReviewApprovalEventV1,
   projectIndependentReviewerFailureEvidenceV1,
   projectRoleOutputFailureDiagnosticV1,
   projectProtectedTransitionReviewStateV1,
   projectSelfHostedWindowsRepairProviderV3,
   projectRoleDispatchEnvelopeV1,
+  projectIntegratedLeadReadyReviewV1,
   repairWorkingTreePathsV1,
   reduceLifecycleReplayV1,
   resolveEffectiveReviewDecisionV1,
@@ -1421,7 +1424,7 @@ check(noTargetResult.state === 'INDETERMINATE' && noTargetResult.reason === 'rev
 
 check(
   (runnerSource.match(/await resolveEffectiveReviewDecisionV1\(\{ request, parsedEvent, host \}\)/g) ?? []).length === 2 &&
-  (runnerSource.match(/await acquireEffectiveReviewDecisionV1\(\{/g) ?? []).length === 4 &&
+  (runnerSource.match(/await acquireEffectiveReviewDecisionV1\(\{/g) ?? []).length === 5 &&
   (runnerSource.match(/reduceCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 3 &&
   (runnerSource.match(/confirmCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 3,
   'RRC-07 issue_comment, Ready, fresh rebind, and Lifecycle reuse the canonical aggregate Review owner',
@@ -5864,6 +5867,39 @@ const lifecycleCommentV1 = ({
   user: Object.freeze({ ...user }),
   body,
 })
+const readyTransitionAuthorityBodyV1 = ({
+  task = 352,
+  pr = 353,
+  head = lifecycleHistoricalIdentityV1[353].head,
+  authorityCommentId = 5379990001,
+  reviewCommentId = lifecycleHistoricalIdentityV1[353].reviewId,
+  publicationHandoffCommentId = 5351631698,
+  scopeContractSourceCommentId = 5345944519,
+  overrides = {},
+  extraLines = [],
+}) => {
+  const taskUrl = `https://github.com/${REPOSITORY}/issues/${task}`
+  const values = {
+    record_type: 'ready_transition_authority_v1',
+    version: 1,
+    authoring_role: 'Integrated Lead',
+    authority_source: taskUrl,
+    canonical_record: `${taskUrl}#issuecomment-${authorityCommentId}`,
+    repository: REPOSITORY,
+    task_issue: taskUrl,
+    pull_request: `https://github.com/${REPOSITORY}/pull/${pr}`,
+    exact_head: head,
+    target_branch: 'main',
+    action: 'READY_FOR_REVIEW',
+    method: 'markPullRequestReadyForReview',
+    operation_count: 1,
+    review_decision: `${taskUrl}#issuecomment-${reviewCommentId}`,
+    publication_handoff: `${taskUrl}#issuecomment-${publicationHandoffCommentId}`,
+    scope_contract_source: `${taskUrl}#issuecomment-${scopeContractSourceCommentId}`,
+    ...overrides,
+  }
+  return `# Ready Transition Authority\n\n\`\`\`yaml\n${Object.entries(values).map(([key, value]) => `${key}: ${JSON.stringify(value)}`).join('\n')}${extraLines.length === 0 ? '' : `\n${extraLines.join('\n')}`}\n\`\`\``
+}
 const lifecycleProductionFixtureV1 = ({
   pr,
   head = lifecycleHistoricalIdentityV1[pr].head,
@@ -6228,6 +6264,356 @@ for (const [fixture, nextAction] of lifecycleProductionCases) {
   check(result.mutation_count === 0 && fixture.metrics.mutation === 0, `LOV1 production replay zero mutation ${nextAction}`)
   check(fixture.metrics.task === 1 && fixture.metrics.pull === 2 && fixture.metrics.files === 1 && fixture.metrics.history === 1 && fixture.metrics.checks === 1 && fixture.metrics.threads === 0 && fixture.metrics.branch === 0, `LOV1 production replay owner-only acquisition ${nextAction}`)
 }
+
+const integratedLeadReviewBodyV1 = lifecycleReviewBodyV1({
+  task: 352,
+  pr: 353,
+  head: lifecycleHistoricalIdentityV1[353].head,
+})
+const integratedLeadPublicationBodyV1 = 'current Publication Handoff owner bytes'
+const integratedLeadScopeBodyV1 = 'current scope Contract source owner bytes'
+const integratedLeadPathsV1 = Object.freeze([
+  'scripts/run-protected-transition-admission-v1.mjs',
+  'scripts/test-protected-transition-admission-v1.mjs',
+])
+const integratedLeadReviewCommentIdV1 = lifecycleHistoricalIdentityV1[353].reviewId
+const integratedLeadPublicationCommentIdV1 = 5379991001
+const integratedLeadScopeCommentIdV1 = 5379991002
+const integratedLeadHeadV1 = lifecycleHistoricalIdentityV1[353].head
+const integratedLeadTaskStateV1 = state({
+  task_issue_number: 352,
+  pr_number: 353,
+  observed_head: integratedLeadHeadV1,
+  authorized_paths: integratedLeadPathsV1,
+  review_status: 'APPROVE',
+  reviewed_head: integratedLeadHeadV1,
+  review_blocker_count: 0,
+})
+const integratedLeadOwnerContextV1 = Object.freeze({
+  projection: Object.freeze({
+    task_issue_number: 352,
+    pr_number: 353,
+    current_head: integratedLeadHeadV1,
+    phase: 'READY',
+    state: 'READY',
+    reason: 'ready_transition_required',
+    next_action: 'READY_TRANSITION_REQUIRED',
+    mutation_count: 0,
+  }),
+  snapshot: Object.freeze({
+    repository: REPOSITORY,
+    task_issue_number: 352,
+    pr_number: 353,
+    exact_head: integratedLeadHeadV1,
+    authorized_paths: integratedLeadPathsV1,
+    review: Object.freeze({
+      comment_id: integratedLeadReviewCommentIdV1,
+      body_sha256: createHash('sha256').update(Buffer.from(integratedLeadReviewBodyV1, 'utf8')).digest('hex'),
+    }),
+    scope_contract: Object.freeze({
+      kind: 'PUBLICATION_CHAIN',
+      result_handoff_comment_id: integratedLeadPublicationCommentIdV1,
+      result_handoff_body_sha256: createHash('sha256').update(Buffer.from(integratedLeadPublicationBodyV1, 'utf8')).digest('hex'),
+      task_assignment_comment_id: integratedLeadScopeCommentIdV1,
+      task_assignment_body_sha256: createHash('sha256').update(Buffer.from(integratedLeadScopeBodyV1, 'utf8')).digest('hex'),
+    }),
+  }),
+  pull: Object.freeze({ body: stateBlock(integratedLeadTaskStateV1) }),
+})
+const integratedLeadSourceResultV1 = Object.freeze({
+  transition: 'role_transition_orchestrator_v1',
+  state: 'REVIEW_PENDING',
+  allowed: false,
+  exit_code: 0,
+  reason: 'review_approved',
+  task_issue_number: 352,
+  pr_number: 353,
+  current_head: integratedLeadHeadV1,
+  terminal_result: 'PUBLISHED',
+  next_action: 'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
+  mutation_count: 0,
+  source_comment_id: integratedLeadPublicationCommentIdV1,
+  role_dispatch: Object.freeze({
+    next_action: 'INDEPENDENT_IMPLEMENTATION_REVIEWER',
+    source_comment_id: integratedLeadPublicationCommentIdV1,
+    source_binding: Object.freeze({
+      kind: 'PUBLICATION_HANDOFF',
+      comment_id: integratedLeadPublicationCommentIdV1,
+      body_sha256: createHash('sha256').update(Buffer.from(integratedLeadPublicationBodyV1, 'utf8')).digest('hex'),
+    }),
+  }),
+})
+const integratedLeadRoutedV1 = projectIntegratedLeadReadyReviewV1({
+  result: integratedLeadSourceResultV1,
+  lifecycleOwnerContext: integratedLeadOwnerContextV1,
+  repository: REPOSITORY,
+  runId: REVIEW_RUN_ID,
+  runAttempt: 1,
+})
+const integratedLeadDispatchV1 = integratedLeadRoutedV1.role_dispatch
+check(
+  integratedLeadRoutedV1.next_action === 'INTEGRATED_LEAD_READY_REVIEW' &&
+  integratedLeadRoutedV1.terminal_result === 'READY_TRANSITION_REQUIRED' &&
+  integratedLeadDispatchV1.next_action === 'INTEGRATED_LEAD_READY_REVIEW' &&
+  integratedLeadDispatchV1.purpose === 'INTEGRATED_LEAD_READY_REVIEW',
+  'RTOV1-A exact READY projection creates one Integrated Lead Ready Review dispatch',
+)
+check(
+  ['phase', 'state', 'reason', 'next_action', 'mutation_count'].every((field) => {
+    const changed = {
+      ...integratedLeadOwnerContextV1,
+      projection: { ...integratedLeadOwnerContextV1.projection, [field]: field === 'mutation_count' ? 1 : 'OTHER' },
+    }
+    return projectIntegratedLeadReadyReviewV1({
+      result: integratedLeadSourceResultV1,
+      lifecycleOwnerContext: changed,
+      repository: REPOSITORY,
+      runId: REVIEW_RUN_ID,
+      runAttempt: 1,
+    }) === integratedLeadSourceResultV1
+  }),
+  'RTOV1-B every non-exact Lifecycle projection preserves the existing result without IL dispatch',
+)
+const expectedIntegratedLeadBindingKeysV1 = [
+  'kind', 'comment_id', 'repository', 'task_issue_number', 'pr_number', 'exact_head',
+  'review_comment_id', 'review_body_sha256', 'publication_handoff_comment_id',
+  'publication_handoff_body_sha256', 'scope_contract_source_comment_id',
+  'scope_contract_source_body_sha256', 'admission_run_id', 'admission_run_attempt',
+]
+check(
+  Object.keys(integratedLeadDispatchV1.source_binding).sort().join('\n') === expectedIntegratedLeadBindingKeysV1.sort().join('\n') &&
+  integratedLeadDispatchV1.source_binding.review_body_sha256 === createHash('sha256').update(integratedLeadReviewBodyV1).digest('hex') &&
+  integratedLeadDispatchV1.source_binding.publication_handoff_body_sha256 === createHash('sha256').update(integratedLeadPublicationBodyV1).digest('hex') &&
+  integratedLeadDispatchV1.source_binding.scope_contract_source_body_sha256 === createHash('sha256').update(integratedLeadScopeBodyV1).digest('hex') &&
+  integratedLeadDispatchV1.admission_run_id === REVIEW_RUN_ID && integratedLeadDispatchV1.admission_run_attempt === 1,
+  'RTOV1-C exact source identities, hashes, and admitted execution identity are bound',
+)
+check(
+  !integratedLeadRoutedV1.role_dispatch.source_binding.review_body &&
+  !integratedLeadRoutedV1.role_dispatch.source_binding.scope_content &&
+  !integratedLeadRoutedV1.role_dispatch.source_binding.validation &&
+  !integratedLeadRoutedV1.role_dispatch.source_binding.checks,
+  'RTOV1-C provider source binding contains identities only',
+)
+
+const integratedLeadResultBodyV1 = (decision = 'READY_FOR_REVIEW', extras = '') => `# Integrated Lead Ready Review
+
+\`\`\`yaml
+decision: ${decision}
+repository: ${REPOSITORY}
+task_issue: https://github.com/${REPOSITORY}/issues/352
+pull_request: https://github.com/${REPOSITORY}/pull/353
+exact_head: ${integratedLeadHeadV1}
+review_decision: https://github.com/${REPOSITORY}/issues/352#issuecomment-${integratedLeadReviewCommentIdV1}
+publication_handoff: https://github.com/${REPOSITORY}/issues/352#issuecomment-${integratedLeadPublicationCommentIdV1}
+scope_contract_source: https://github.com/${REPOSITORY}/issues/352#issuecomment-${integratedLeadScopeCommentIdV1}${extras}
+\`\`\``
+const integratedLeadReadyResultV1 = evaluateRoleDispatchOutputV1({
+  dispatch: integratedLeadDispatchV1,
+  body: integratedLeadResultBodyV1(),
+})
+const integratedLeadStopResultV1 = evaluateRoleDispatchOutputV1({
+  dispatch: integratedLeadDispatchV1,
+  body: integratedLeadResultBodyV1('STOP'),
+})
+check(
+  integratedLeadReadyResultV1.next_action === 'PUBLISH_READY_AUTHORITY' &&
+  Object.keys(integratedLeadReadyResultV1.integrated_lead_result).sort().join('\n') === [
+    'decision', 'repository', 'task_issue', 'pull_request', 'exact_head',
+    'review_decision', 'publication_handoff', 'scope_contract_source',
+  ].sort().join('\n'),
+  'RTOV1-D exact eight-field READY_FOR_REVIEW result is admitted',
+)
+check(
+  integratedLeadStopResultV1.next_action === 'NONE' && integratedLeadStopResultV1.mutation_count === 0,
+  'RTOV1-D Integrated Lead STOP is terminal before authority publication or Ready mutation',
+)
+for (const [index, body] of [
+  integratedLeadResultBodyV1().replace(/^scope_contract_source:.*\n/m, ''),
+  integratedLeadResultBodyV1().replace('decision: READY_FOR_REVIEW', 'decision: READY_FOR_REVIEW\ndecision: READY_FOR_REVIEW'),
+  integratedLeadResultBodyV1('READY_FOR_REVIEW', '\nunknown_field: reject'),
+  integratedLeadResultBodyV1('UNKNOWN'),
+  integratedLeadResultBodyV1().replace(`exact_head: ${integratedLeadHeadV1}`, 'exact_head: null'),
+].entries()) {
+  const result = evaluateRoleDispatchOutputV1({ dispatch: integratedLeadDispatchV1, body })
+  check(result.next_action === 'STOP' && result.mutation_count === 0, `RTOV1-E malformed eight-field result fails closed ${index + 1}`)
+}
+
+const integratedLeadRecordsV1 = Object.freeze([
+  lifecycleCommentV1({ id: integratedLeadReviewCommentIdV1, createdAt: '2026-08-23T00:00:00Z', body: integratedLeadReviewBodyV1 }),
+  lifecycleCommentV1({ id: integratedLeadPublicationCommentIdV1, createdAt: '2026-08-23T00:01:00Z', body: integratedLeadPublicationBodyV1 }),
+  lifecycleCommentV1({ id: integratedLeadScopeCommentIdV1, createdAt: '2026-08-23T00:02:00Z', body: integratedLeadScopeBodyV1 }),
+])
+const integratedLeadConsumerFixtureV1 = ({ reviewBody = integratedLeadReviewBodyV1 } = {}) => {
+  const metrics = { pull: 0, history: 0, direct: 0, files: 0 }
+  const records = integratedLeadRecordsV1.map((record) =>
+    record.id === integratedLeadReviewCommentIdV1 ? Object.freeze({ ...record, body: reviewBody }) : record)
+  const direct = new Map(records.map((record) => [record.id, record]))
+  return Object.freeze({
+    metrics,
+    host: Object.freeze({
+      api: async (endpoint) => {
+        if (endpoint === `repos/${REPOSITORY}/pulls/353`) {
+          metrics.pull += 1
+          return {
+            number: 353, state: 'open', changed_files: integratedLeadPathsV1.length,
+            base: { repo: { full_name: REPOSITORY } },
+            head: { sha: integratedLeadHeadV1 },
+            body: stateBlock(integratedLeadTaskStateV1),
+          }
+        }
+        if (endpoint.startsWith(`repos/${REPOSITORY}/issues/352/comments?`)) {
+          metrics.history += 1
+          return structuredClone(records)
+        }
+        const match = /issues\/comments\/(\d+)$/.exec(endpoint)
+        if (match) {
+          metrics.direct += 1
+          const record = direct.get(Number(match[1]))
+          if (!record) throw new Error('missing_integrated_lead_record')
+          return { ...structuredClone(record), issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/352` }
+        }
+        throw new Error(`unexpected_integrated_lead_endpoint:${endpoint}`)
+      },
+    }),
+  })
+}
+const integratedLeadConsumerFixture = integratedLeadConsumerFixtureV1()
+const integratedLeadPlanV1 = await executeRoleDispatchConsumerV1({
+  dispatch: integratedLeadDispatchV1,
+  host: integratedLeadConsumerFixture.host,
+})
+check(
+  integratedLeadPlanV1.next_action === 'EXECUTE_ROLE' && integratedLeadPlanV1.role === 'INTEGRATED_LEAD_READY_REVIEW' &&
+  integratedLeadPlanV1.read_only === true && integratedLeadConsumerFixture.metrics.files === 0 &&
+  !integratedLeadPlanV1.prompt.includes('Authorized paths:') && !integratedLeadPlanV1.prompt.includes(integratedLeadReviewBodyV1),
+  'RTOV1-F existing role consumer binds IL identities without scope reconstruction or provider content',
+)
+const integratedLeadSourceDriftFixture = integratedLeadConsumerFixtureV1({ reviewBody: `${integratedLeadReviewBodyV1}\ndrift` })
+const integratedLeadSourceDriftV1 = await executeRoleDispatchConsumerV1({
+  dispatch: integratedLeadDispatchV1,
+  host: integratedLeadSourceDriftFixture.host,
+})
+check(
+  integratedLeadSourceDriftV1.next_action === 'STOP' && integratedLeadSourceDriftV1.mutation_count === 0,
+  'RTOV1-F fresh source mismatch stops before authority publication',
+)
+
+const readyAuthorityCommentIdV1 = 5379992001
+const readyAuthorityBodyV1 = readyTransitionAuthorityBodyV1({
+  authorityCommentId: readyAuthorityCommentIdV1,
+  reviewCommentId: integratedLeadReviewCommentIdV1,
+  publicationHandoffCommentId: integratedLeadPublicationCommentIdV1,
+  scopeContractSourceCommentId: integratedLeadScopeCommentIdV1,
+  overrides: {
+    authority_source: `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/attempts/1#integrated-lead-result-sha256-${'a'.repeat(64)}`,
+  },
+})
+const parsedReadyAuthorityV1 = parseReadyTransitionAuthorityV1(readyAuthorityBodyV1, REPOSITORY, 352)
+check(
+  parsedReadyAuthorityV1.authority_comment_id === readyAuthorityCommentIdV1 &&
+  parsedReadyAuthorityV1.authoring_role === 'Integrated Lead' && parsedReadyAuthorityV1.operation_count === 1,
+  'RTOV1-G exact canonical 16-field authority parses with actual self-bound comment identity',
+)
+for (const [index, body] of [
+  readyAuthorityBodyV1.replace(/^scope_contract_source:.*\n/m, ''),
+  readyAuthorityBodyV1.replace('version: 1', 'version: 1\nversion: 1'),
+  readyAuthorityBodyV1.replace(/\n```$/, '\nunknown_field: reject\n```'),
+  readyAuthorityBodyV1.replace('action: "READY_FOR_REVIEW"', 'action: "OTHER"'),
+].entries()) {
+  let rejected = false
+  try { parseReadyTransitionAuthorityV1(body, REPOSITORY, 352) } catch { rejected = true }
+  check(rejected, `RTOV1-G closed 16-field authority rejects malformed variant ${index + 1}`)
+}
+
+const readyActionV1 = Object.freeze({
+  repository: REPOSITORY,
+  task_issue_number: 352,
+  pr_number: 353,
+  exact_head: integratedLeadHeadV1,
+  action: 'READY_FOR_REVIEW',
+  method: 'markPullRequestReadyForReview',
+  operation_count: 1,
+  authority_comment_id: readyAuthorityCommentIdV1,
+  authority_url: `https://github.com/${REPOSITORY}/issues/352#issuecomment-${readyAuthorityCommentIdV1}`,
+})
+check(Object.keys(readyActionV1).length === 9, 'RTOV1-J same-invocation runtime ready_action has exactly nine fields')
+const readyOperatorFixtureV1 = ({ before = {}, after = {}, mutationRejects = false } = {}) => {
+  const metrics = { query: 0, mutation: 0 }
+  const pull = (overrides) => ({
+    id: 'PR_kwDOReadyTransition', number: 353, headRefOid: integratedLeadHeadV1,
+    baseRefName: 'main', state: 'OPEN', isDraft: true, merged: false, ...overrides,
+  })
+  return Object.freeze({
+    metrics,
+    host: Object.freeze({
+      graphql: async (query) => {
+        if (query.includes('query ReadyTransitionPull')) {
+          metrics.query += 1
+          return { repository: { nameWithOwner: REPOSITORY, pullRequest: metrics.query === 1 ? pull(before) : pull({ isDraft: false, ...after }) } }
+        }
+        if (query.includes('mutation MarkPullRequestReady')) {
+          metrics.mutation += 1
+          if (mutationRejects) throw new Error('ready_mutation_rejected')
+          return { markPullRequestReadyForReview: { clientMutationId: null } }
+        }
+        throw new Error('unexpected_ready_graphql')
+      },
+    }),
+  })
+}
+for (const [index, before] of [
+  { isDraft: false }, { state: 'CLOSED' }, { merged: true }, { headRefOid: OTHER_HEAD }, { baseRefName: 'release' },
+].entries()) {
+  const fixture = readyOperatorFixtureV1({ before })
+  const result = await executeReadyTransitionOperatorV1({ action: readyActionV1, host: fixture.host })
+  check(result.next_action === 'STOP' && result.mutation_count === 0 && fixture.metrics.mutation === 0, `RTOV1-K pre-mutation guard STOP 0 case ${index + 1}`)
+}
+const readySuccessFixtureV1 = readyOperatorFixtureV1()
+const readySuccessV1 = await executeReadyTransitionOperatorV1({ action: readyActionV1, host: readySuccessFixtureV1.host })
+check(
+  readySuccessV1.state === 'COMPLETED' && readySuccessV1.next_action === 'NONE' &&
+  readySuccessV1.mutation_count === 1 && readySuccessFixtureV1.metrics.query === 2 && readySuccessFixtureV1.metrics.mutation === 1,
+  'RTOV1-L/N valid Draft has one mutation, one direct refetch, and terminal success',
+)
+const readyRejectFixtureV1 = readyOperatorFixtureV1({ mutationRejects: true })
+const readyRejectV1 = await executeReadyTransitionOperatorV1({ action: readyActionV1, host: readyRejectFixtureV1.host })
+check(
+  readyRejectV1.next_action === 'STOP' && readyRejectV1.mutation_count === 1 &&
+  readyRejectFixtureV1.metrics.query === 1 && readyRejectFixtureV1.metrics.mutation === 1,
+  'RTOV1-M mutation rejection is STOP 1 with no retry',
+)
+
+const integratedLeadWorkflowRunV1 = roleExecutionStep.run ?? ''
+check(
+  Object.keys(workflow.jobs).length === 5 && !Object.hasOwn(workflow.jobs, 'protected_transition_ready_operator_v1') &&
+  roleConsumerJob.if.includes('INTEGRATED_LEAD_READY_REVIEW') &&
+  (integratedLeadWorkflowRunV1.match(/--ready-transition-file/g) ?? []).length === 1 &&
+  !admissionEvaluationRun.includes('ready_action_b64=') &&
+  !admissionJob.steps.some((step) => step.name === 'Execute admitted Ready transition'),
+  'RTOV1-Q existing five-job topology hosts IL publication and Ready operator only in role consumer',
+)
+check(
+  integratedLeadWorkflowRunV1.includes('Publish-ReadyTransitionAuthority') &&
+  integratedLeadWorkflowRunV1.includes('integrated-lead-result-sha256-') &&
+  integratedLeadWorkflowRunV1.includes('--method PATCH') &&
+  integratedLeadWorkflowRunV1.includes('ready_authority_refetch_mismatch') &&
+  !runnerSource.includes('isReadyTransitionAuthorityCandidateV1') &&
+  !runnerSource.includes('admitReadyTransitionAuthorityV1') &&
+  !runnerSource.includes('protected_action_count'),
+  'RTOV1-H/I/O/R authority binds exact IL execution/result, is directly refetched, cannot be rediscovered, and adds no generalized budget',
+)
+const readyContinuationSourceV1 = runnerSource.slice(
+  runnerSource.indexOf('export const executeReadyEventWithLifecycleReplayV1'),
+  runnerSource.indexOf('\nconst main = async () =>'),
+)
+check(
+  workflow.on.pull_request.types.join(',') === 'ready_for_review' &&
+  readyContinuationSourceV1.includes('executeReadyForReviewProgressionV1({ event, host, runId })') &&
+  !readyContinuationSourceV1.includes('ready_action') &&
+  !integratedLeadWorkflowRunV1.includes('executeReadyForReviewProgressionV1'),
+  'RTOV1-P natural ready_for_review continuation remains a new admission invocation',
+)
 
 const lifecycleLateHeadV1 = 'f'.repeat(40)
 const lifecycleLateHeadFixtureV1 = lifecycleProductionFixtureV1({ pr: 325, ready: true, finalPullHead: lifecycleLateHeadV1 })
@@ -8684,5 +9070,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 966) throw new Error(`expected exactly 966 assertions, observed ${assertions}`)
+if (assertions !== 995) throw new Error(`expected exactly 995 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
