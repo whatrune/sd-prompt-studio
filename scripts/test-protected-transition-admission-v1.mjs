@@ -66,6 +66,7 @@ const READY_RUN_ID = '31246327840'
 const REVIEW_RUN_ID = '32025890230'
 const CUMULATIVE_PR_BASE = 'eaed40ca274b6d05e03e15c87cca00b3d8b1df68'
 const AUTHORIZED_IMPLEMENTATION_BASE = '3cfc645ecbad07f9ef0e858605a0acdf3f7b11ba'
+const AUTHORIZED_IMPLEMENTATION_TERMINAL = '8abbb809218683372f43f56d206f1401d1b53824'
 const BASE = '9fda08907ff21c5c596146b779d7feeac5efbfa8'
 const HOST_RUNNER_BINDING_BASE = '3631d84351a49088baaadb5b3445751a7bf0b44e'
 const HOST_RUNNER_BINDING_HEAD = '35b7849840a2a9191f4ebf56bf83e145725a6dfa'
@@ -501,6 +502,7 @@ let roleTriggerReads = 0
 let roleCommitReads = 0
 let rolePullBody = stateBlock(roleState({
   observed_head: HEAD,
+  authorized_paths: rolePaths.slice(1),
   review_status: 'APPROVE',
   reviewed_head: HEAD,
   review_blocker_count: 0,
@@ -642,7 +644,7 @@ const roleUnits = [
     result: publishedRoute,
     status: 'HANDOFF_READY',
     next: 'INDEPENDENT_IMPLEMENTATION_REVIEWER',
-    evidence: (value) => value.reason === 'publication_state_rebound' && value.state_changed === true && publishedRoleTriggerReads === 1 && publishedRoleCommitReads === 1 && publishedRoleStateWrites === 1 && publishedRolePullReads === 3 && Object.keys(reboundRoleState).length === 10 && reboundRoleState.observed_head === OTHER_HEAD && reboundRoleState.review_status === 'PENDING' && reboundRoleState.reviewed_head === null && reboundRoleState.review_blocker_count === null,
+    evidence: (value) => value.reason === 'publication_state_rebound' && value.state_changed === true && publishedRoleTriggerReads === 1 && publishedRoleCommitReads === 1 && publishedRoleStateWrites === 1 && publishedRolePullReads === 3 && Object.keys(reboundRoleState).length === 10 && reboundRoleState.observed_head === OTHER_HEAD && reboundRoleState.authorized_paths.join('\n') === rolePaths.join('\n') && reboundRoleState.review_status === 'PENDING' && reboundRoleState.reviewed_head === null && reboundRoleState.review_blocker_count === null,
   },
   {
     name: 'CHANGES_REQUIRED',
@@ -721,9 +723,7 @@ check(hostIdentityRun.includes(workflowRefPrefix) && pullRequestBlock.includes(r
 check(hostIdentityRun.includes('else\n  [[ "$GITHUB_REF" == "refs/heads/main" ]]\n  ' + mainWorkflowRefCheck), 'HID-05 non-PR events retain exact main execution and workflow source identity')
 check(hostIdentityRun.includes('[[ "$GITHUB_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]') && admissionJob.steps.some((step) => step.name === 'Checkout exact workflow SHA' && step.with?.ref === '${{ github.workflow_sha }}') && admissionJob.steps.some((step) => step.name === 'Evaluate protected transition admission') && admissionJob.steps.indexOf(liveShadowStep) > admissionJob.steps.findIndex((step) => step.name === 'Evaluate protected transition admission') && liveShadowStep?.['continue-on-error'] === true && liveShadowStep?.env?.GH_TOKEN === '' && liveShadowStep?.run.includes('env -i') && liveShadowStep?.run.trimEnd().endsWith('exit 0'), 'HID-06 common SHA, checkout, Controller routing, and post-decision isolated non-authoritative shadow remain fail-closed')
 
-const trackedChangedPaths = execFileSync('git', ['diff', '--name-only', AUTHORIZED_IMPLEMENTATION_BASE], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
-const untrackedChangedPaths = execFileSync('git', ['ls-files', '--others', '--exclude-standard'], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean)
-const changedPaths = [...new Set([...trackedChangedPaths, ...untrackedChangedPaths])].sort()
+const changedPaths = execFileSync('git', ['diff', '--name-only', AUTHORIZED_IMPLEMENTATION_BASE, AUTHORIZED_IMPLEMENTATION_TERMINAL, '--'], { cwd: repositoryRoot, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean).sort()
 const expectedPaths = [
   '.github/workflows/protected-transition-admission-v1.yml',
   'scripts/run-protected-transition-admission-v1.mjs',
@@ -1430,8 +1430,8 @@ check(
 const productionPaths = execFileSync('git', ['ls-files', '.github', 'scripts', 'src'], { cwd: repositoryRoot, encoding: 'utf8' })
   .trim().split(/\r?\n/).filter((value) => value && !/^scripts\/test-/.test(value))
 const repositoryProductionSource = productionPaths.map((value) => readFileSync(path.join(repositoryRoot, value), 'utf8')).join('\n')
-const patchCallsites = repositoryProductionSource.match(/method:\s*['"]PATCH['"]/g) ?? []
-check(patchCallsites.length === 1, 'repository production has exactly one PATCH callsite')
+const patchCallsites = runnerSource.match(/method:\s*['"]PATCH['"]/g) ?? []
+check(patchCallsites.length === 1, 'protected-transition production has exactly one Task-state PATCH callsite')
 check(/export const writeProtectedTransitionTaskStateV1[\s\S]*?method:\s*['"]PATCH['"]/.test(runnerSource), 'canonical writer owns the PATCH callsite')
 check(!/(?:gh\s+pr\s+edit|updatePullRequest|mutatePullRequest)/.test(repositoryProductionSource), 'repository production has no alternate PR-body writer')
 
@@ -8254,9 +8254,43 @@ const admittedReviewingRoleOwnerResultV1 = evaluateRoleDispatchOutputV1({
   dispatch: reviewerDispatch,
   body: admittedResolveOnlyBodyV1,
 })
+const reviewAggregateAutomationV1 = (event) => automationHost({
+  initialState: roleState({
+    observed_head: reviewerDispatch.exact_head,
+    review_status: 'PENDING',
+    reviewed_head: null,
+    review_blocker_count: null,
+  }),
+  changedFiles: rolePaths.length,
+  filePages: [rolePaths.map((filename) => ({ filename, status: 'modified' }))],
+  commentPages: [[event.comment]],
+  headAtPullRead: { 1: reviewerDispatch.exact_head },
+})
+const publicationScopeApprovalEventV1 = reviewEvent({
+  body: reviewDecisionBody({ reviewed_head: reviewerDispatch.exact_head }),
+  comment: { id: admittedPublicationCommentIdV1 + 1, created_at: '2026-08-07T00:00:01Z' },
+})
+const publicationScopeApprovalAutomationV1 = reviewAggregateAutomationV1(publicationScopeApprovalEventV1)
+const publicationScopeApprovalResultV1 = await executeRoleTransitionOrchestratorV1({
+  event: publicationScopeApprovalEventV1,
+  host: publicationScopeApprovalAutomationV1.host,
+  runId: REVIEW_RUN_ID,
+})
+const publicationScopeApprovedStateV1 = extractProtectedTransitionTaskStateV1(publicationScopeApprovalAutomationV1.body())
+check(
+  publicationScopeApprovalResultV1.terminal_result === 'APPROVE' &&
+  publicationScopeApprovalAutomationV1.metrics.patchCalls === 1 &&
+  publicationScopeApprovedStateV1.observed_head === reviewerDispatch.exact_head &&
+  publicationScopeApprovedStateV1.authorized_paths.join('\n') === rolePaths.join('\n') &&
+  publicationScopeApprovedStateV1.review_status === 'APPROVE' &&
+  publicationScopeApprovedStateV1.reviewed_head === reviewerDispatch.exact_head &&
+  publicationScopeApprovedStateV1.review_blocker_count === 0,
+  'TRC-OWNER-A aggregate APPROVE preserves the publication-owned scope and binds the published HEAD',
+)
+const resolveOnlyAggregateAutomationV1 = reviewAggregateAutomationV1(admittedResolveOnlyEventV1)
 const resolveOnlyProjectionV1 = await executeReviewEventWithLifecycleReplayV1({
   event: admittedResolveOnlyEventV1,
-  host: reviewClosureProjectionHostV1(admittedResolveOnlyBodyV1, { commentId: admittedPublicationCommentIdV1 }),
+  host: resolveOnlyAggregateAutomationV1.host,
   runId: REVIEW_RUN_ID,
   runAttempt: 1,
   hostSha: CUMULATIVE_PR_BASE,
@@ -8266,12 +8300,23 @@ const resolveOnlyProjectionV1 = await executeReviewEventWithLifecycleReplayV1({
 })
 check(
   resolveOnlyProjectionV1.next_action === 'THREAD_RESOLUTION' &&
+  !Object.hasOwn(resolveOnlyProjectionV1, 'repair_dispatch') &&
   JSON.stringify(resolveOnlyProjectionV1.thread_action) === JSON.stringify(admittedResolveOnlyActionV1) &&
   JSON.stringify(resolveOnlyProjectionV1.lifecycle_projection.thread_action) === JSON.stringify(admittedResolveOnlyActionV1) &&
   Object.keys(resolveOnlyProjectionV1.thread_action).length === 8 &&
   resolveOnlyProjectionV1.thread_action.review_decision_comment_id === admittedPublicationCommentIdV1 &&
   resolveOnlyProjectionV1.thread_action.review_decision_url === admittedResolveOnlyEventV1.comment.html_url,
   'TRC-OWNER-A six-field owner action binds the actual canonical publication as a final eight-field action',
+)
+const resolveOnlyAggregateStateV1 = extractProtectedTransitionTaskStateV1(resolveOnlyAggregateAutomationV1.body())
+check(
+  resolveOnlyAggregateAutomationV1.metrics.patchCalls === 1 &&
+  resolveOnlyAggregateStateV1.observed_head === reviewerDispatch.exact_head &&
+  resolveOnlyAggregateStateV1.review_status === 'CHANGES_REQUIRED' &&
+  resolveOnlyAggregateStateV1.reviewed_head === reviewerDispatch.exact_head &&
+  resolveOnlyAggregateStateV1.review_blocker_count === 1 &&
+  resolveOnlyAggregateStateV1.authorized_paths.join('\n') === rolePaths.join('\n'),
+  'TRC-OWNER-A action-bearing admitted Review updates aggregate state before separately projecting closure',
 )
 check(
   JSON.stringify(admittedReviewingRoleOwnerResultV1.thread_action) === JSON.stringify(admittedResolveOnlyOwnerActionV1) &&
@@ -8306,28 +8351,40 @@ check(
   'TRC-OWNER-E pre-publication comment ID or URL fields fail closed',
 )
 
-const rawAssociationResultsV1 = await Promise.all(['OWNER', 'MEMBER', 'COLLABORATOR'].map((authorAssociation) =>
-  executeRoleTransitionOrchestratorV1({
-    event: reviewEvent({ body: admittedResolveOnlyBodyV1, association: authorAssociation }),
-    host: Object.freeze({ api: async () => { throw new Error('raw_review_owner_host_forbidden') } }),
-    runId: REVIEW_RUN_ID,
-  })))
+const rawAssociationResultsV1 = await Promise.all(['OWNER', 'MEMBER', 'COLLABORATOR'].map(async (authorAssociation) => {
+  const event = reviewEvent({ body: admittedResolveOnlyBodyV1, association: authorAssociation })
+  const automation = reviewAggregateAutomationV1(event)
+  const result = await executeRoleTransitionOrchestratorV1({ event, host: automation.host, runId: REVIEW_RUN_ID })
+  return Object.freeze({ result, automation, state: extractProtectedTransitionTaskStateV1(automation.body()) })
+}))
 check(
-  rawAssociationResultsV1.every((result) =>
-    result.next_action === 'STOP' && result.reason === 'review_thread_action_owner_missing' && result.state_changed === false),
+  rawAssociationResultsV1.every(({ result }) =>
+    result.next_action === 'STOP' && result.reason === 'review_thread_action_owner_missing' &&
+    result.state_changed === true && result.mutation_count === 0 &&
+    !Object.hasOwn(result, 'thread_action') && !Object.hasOwn(result, 'repair_dispatch')),
   'TRC-OWNER-F raw OWNER MEMBER or COLLABORATOR Review has no thread closure authority',
 )
+check(
+  rawAssociationResultsV1.every(({ automation, state: projectedState }) =>
+    automation.metrics.patchCalls === 1 && projectedState.review_status === 'CHANGES_REQUIRED' &&
+    projectedState.reviewed_head === reviewerDispatch.exact_head &&
+    projectedState.authorized_paths.join('\n') === rolePaths.join('\n')),
+  'TRC-OWNER-F missing thread owner does not suppress canonical aggregate Review-state projection',
+)
 
+const missingOwnerBindingAutomationV1 = reviewAggregateAutomationV1(admittedResolveOnlyEventV1)
 const missingOwnerBindingResultV1 = await executeRoleTransitionOrchestratorV1({
   event: admittedResolveOnlyEventV1,
-  host: Object.freeze({ api: async () => { throw new Error('missing_owner_binding_host_forbidden') } }),
+  host: missingOwnerBindingAutomationV1.host,
   runId: REVIEW_RUN_ID,
   reviewingRoleDispatch: reviewerDispatch,
 })
 check(
   missingOwnerBindingResultV1.next_action === 'STOP' &&
   missingOwnerBindingResultV1.reason === 'review_thread_action_owner_missing' &&
-  missingOwnerBindingResultV1.state_changed === false,
+  missingOwnerBindingResultV1.state_changed === true &&
+  missingOwnerBindingResultV1.mutation_count === 0 &&
+  missingOwnerBindingAutomationV1.metrics.patchCalls === 1,
   'TRC-OWNER-G current Review without admitted reviewer owner result does not project THREAD_RESOLUTION',
 )
 
@@ -8353,10 +8410,11 @@ const supersededAdmittedOwnerResultV1 = await executeRoleTransitionOrchestratorV
   reviewingRoleOwnerResult: admittedReviewingRoleOwnerResultV1,
 })
 check(
-  supersededAdmittedOwnerResultV1.next_action === 'STOP' &&
+  supersededAdmittedOwnerResultV1.next_action === 'NONE' &&
   supersededAdmittedOwnerResultV1.reason === 'review_event_superseded' &&
-  supersededAdmittedOwnerResultV1.state_changed === false,
-  'TRC-OWNER-H admitted Review superseded by the current leaf stops before closure',
+  supersededAdmittedOwnerResultV1.state_changed === false &&
+  !Object.hasOwn(supersededAdmittedOwnerResultV1, 'thread_action'),
+  'TRC-OWNER-H admitted Review superseded by the current leaf remains a no-op before closure',
 )
 
 const aggregateOnlyReviewV1 = parseIndependentReviewDecisionProjectionV1(reviewDecisionBody(), REPOSITORY, TASK)
@@ -8684,5 +8742,5 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 966) throw new Error(`expected exactly 966 assertions, observed ${assertions}`)
+if (assertions !== 969) throw new Error(`expected exactly 969 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

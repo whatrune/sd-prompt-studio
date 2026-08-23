@@ -2746,7 +2746,7 @@ const minimalGovernanceAuthorityActorIdentityV1 = (authority) => Object.freeze({
   type: authority?.authorityActorType ?? null,
 })
 
-const assertMinimalGovernanceProductOwnerV1 = (raw, { requireAssociation = false } = {}) => {
+export const assertMinimalGovernanceProductOwnerV1 = (raw, { requireAssociation = false } = {}) => {
   const identity = minimalGovernanceProductOwnerIdentityV1(raw)
   if (
     identity.login !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.login ||
@@ -6973,47 +6973,58 @@ export const executeRoleTransitionOrchestratorV1 = async ({
       return executeMinimalGovernanceV1({ event, host, runId, runAttempt, hostSha, jobName })
     }
     normalized = normalizeRoleTransitionEventV1(event)
-    if (normalized.parsedReview?.review.thread_actions.length === 1) {
-      request = Object.freeze({
-        transition: 'role_transition_orchestrator_v1',
-        repository: normalized.repository,
-        taskIssueNumber: normalized.taskIssueNumber,
-        prNumber: normalized.parsedReview.prNumber,
-        exactHead: normalized.parsedReview.exactHead,
-      })
-      const finalAction = bindPublishedReviewingRoleThreadActionV1({
-        normalized,
-        ownerDispatch: reviewingRoleDispatch,
-        ownerResult: reviewingRoleOwnerResult,
-      })
-      if (finalAction === null) {
-        return roleStopV1(request, 'INDETERMINATE', 'review_thread_action_owner_missing')
-      }
-      const effective = await resolveEffectiveReviewDecisionV1({ request, parsedEvent: normalized.parsedReview, host })
-      if (effective.commentId !== normalized.commentId) {
-        return roleStopV1(request, 'INDETERMINATE', 'review_event_superseded')
-      }
-      return Object.freeze({
-        transition: 'role_transition_orchestrator_v1',
-        state: 'READY',
-        allowed: false,
-        exit_code: 0,
-        reason: 'review_thread_action_admitted',
-        task_issue_number: request.taskIssueNumber,
-        pr_number: request.prNumber,
-        current_head: request.exactHead,
-        automation_status: 'HANDOFF_READY',
-        next_action: 'THREAD_RESOLUTION',
-        mutation_count: 0,
-        source_comment_id: normalized.commentId,
-        thread_action: finalAction,
-      })
-    }
     if (['APPROVE', 'CHANGES_REQUIRED', 'BLOCKED'].includes(normalized.terminalResult)) {
       const result = await executeReviewApprovalAutomationV1({ event, host, runId })
       const terminalResult = normalized.terminalResult
+      const aggregateResult = Object.freeze({ ...result, terminal_result: terminalResult, source_comment_id: normalized.commentId })
+      if (normalized.parsedReview.review.thread_actions.length === 1) {
+        const { repair_dispatch: aggregateRepairDispatch, ...aggregateStateResult } = aggregateResult
+        void aggregateRepairDispatch
+        request = Object.freeze({
+          transition: 'role_transition_orchestrator_v1',
+          repository: normalized.repository,
+          taskIssueNumber: normalized.taskIssueNumber,
+          prNumber: normalized.parsedReview.prNumber,
+          exactHead: normalized.parsedReview.exactHead,
+        })
+        const aggregateStateProjected = result.state_changed === true || (
+          result.state_changed === false && result.admission_executed === true
+        )
+        if (!aggregateStateProjected) return aggregateResult
+        const finalAction = bindPublishedReviewingRoleThreadActionV1({
+          normalized,
+          ownerDispatch: reviewingRoleDispatch,
+          ownerResult: reviewingRoleOwnerResult,
+        })
+        if (finalAction === null) {
+          return Object.freeze({
+            ...aggregateStateResult,
+            allowed: false,
+            exit_code: 1,
+            reason: 'review_thread_action_owner_missing',
+            automation_status: 'UPDATED_AND_STOPPED',
+            next_action: 'STOP',
+            mutation_count: 0,
+          })
+        }
+        return Object.freeze({
+          ...aggregateStateResult,
+          transition: 'role_transition_orchestrator_v1',
+          state: 'READY',
+          allowed: false,
+          exit_code: 0,
+          reason: 'review_thread_action_admitted',
+          task_issue_number: request.taskIssueNumber,
+          pr_number: request.prNumber,
+          current_head: request.exactHead,
+          automation_status: 'HANDOFF_READY',
+          next_action: 'THREAD_RESOLUTION',
+          mutation_count: 0,
+          thread_action: finalAction,
+        })
+      }
       if (terminalResult !== 'APPROVE' || result.state !== 'MERGE_ELIGIBLE' || result.allowed !== true || result.reason !== 'merge_gate_satisfied') {
-        return Object.freeze({ ...result, terminal_result: terminalResult, source_comment_id: normalized.commentId })
+        return aggregateResult
       }
       request = Object.freeze({ transition: 'role_transition_orchestrator_v1', repository: normalized.repository, taskIssueNumber: normalized.taskIssueNumber, prNumber: normalized.parsedReview.prNumber, exactHead: normalized.parsedReview.exactHead })
       const pull = await acquirePull(request, host)
@@ -7144,12 +7155,10 @@ export const executeRoleTransitionOrchestratorV1 = async ({
     if (priorState.architecture_status !== 'APPROVED' || priorState.implementation_authorized !== true || !authorityValid) {
       return roleStopV1(request, 'IMPLEMENTATION_BLOCKED', 'terminal_result_ambiguous_or_invalid')
     }
-    if (!sameRolePathsV1(Object.freeze([...priorState.authorized_paths].sort()), normalized.paths)) {
-      return roleStopV1(request, 'IMPLEMENTATION_BLOCKED', 'repair_scope_outside_authorized_paths')
-    }
     const candidateState = parseProtectedTransitionTaskStateV1({
       ...priorState,
       observed_head: normalized.exactHead,
+      authorized_paths: normalized.paths,
       review_status: 'PENDING',
       reviewed_head: null,
       review_blocker_count: null,
