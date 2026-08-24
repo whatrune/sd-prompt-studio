@@ -3806,6 +3806,7 @@ export const executeMinimalGovernanceFinalDriftGuardV1 = async ({ plan: planInpu
 const ROLE_TERMINAL_RESULTS_V1 = Object.freeze([
   'PRE_PR_IMPLEMENTATION_AUTHORITY',
   'PRE_PR_IMPLEMENTATION_RESULT',
+  'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION',
   'IMPLEMENTATION_AUTHORIZED',
   'IMPLEMENTATION_RESULT_READY',
   'PUBLISHED',
@@ -3818,6 +3819,7 @@ const ROLE_DISPATCH_ACTIONS_V1 = Object.freeze([
   'IMPLEMENTER',
   'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
   'INDEPENDENT_IMPLEMENTATION_REVIEWER',
+  'BOOTSTRAP_PUBLICATION_OPERATOR',
   'REPAIR_EXECUTOR',
   'MERGE_OPERATOR',
 ])
@@ -3930,6 +3932,7 @@ const roleEventEnvelopeV1 = (event) => {
 const roleTransitionMarkersV1 = (body) => Object.freeze([
   ...(/(?:^|\r?\n)record_type:[ \t]+pre_pr_implementation_authority_v1(?:\r?$)/m.test(body) ? ['PRE_PR_IMPLEMENTATION_AUTHORITY'] : []),
   ...(/(?:^|\r?\n)record_type:[ \t]+pre_pr_implementation_result_handoff_v1(?:\r?$)/m.test(body) ? ['PRE_PR_IMPLEMENTATION_RESULT'] : []),
+  ...(isPrePrBootstrapPublicationDecisionCandidateV1(body) ? ['PRE_PR_BOOTSTRAP_PUBLICATION_DECISION'] : []),
   ...(isReviewDecisionCandidateV1(body) ? ['REVIEW'] : []),
   ...(isMinimalGovernanceCandidateV1(body) ? [MINIMAL_GOVERNANCE_AUTHORITY_KIND_V1] : []),
   ...(/(?:^|\r?\n)record_type:[ \t]+implementation_authorization_v1(?:\r?$)/m.test(body) ? ['IMPLEMENTATION_AUTHORIZED'] : []),
@@ -4096,6 +4099,23 @@ export const normalizeRoleTransitionEventV1 = (event) => {
       result,
     })
   }
+  if (markers[0] === 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION') {
+    const decision = parsePrePrProductOwnerPublicationDecisionFieldsV1(body)
+    const decisionUrl = `https://github.com/${envelope.repository}/issues/${envelope.taskIssueNumber}#issuecomment-${envelope.commentId}`
+    if (
+      decision.decision !== 'BOOTSTRAP_PUBLICATION' || decision.repository !== envelope.repository ||
+      decision.task_issue_number !== envelope.taskIssueNumber ||
+      decision.result_handoff_url !== `https://github.com/${envelope.repository}/issues/${envelope.taskIssueNumber}#issuecomment-${decision.result_handoff_comment_id}`
+    ) throw new Error('pre_pr_bootstrap_publication_decision_invalid')
+    return Object.freeze({
+      ...envelope,
+      terminalResult: markers[0],
+      prNumber: null,
+      exactHead: decision.exact_baseline,
+      decisionUrl,
+      decision,
+    })
+  }
   if (markers[0] === 'REVIEW') {
     const parsed = parseReviewApprovalEventV1(event)
     if (!['APPROVE', 'CHANGES_REQUIRED', 'BLOCKED'].includes(parsed.review.decision)) {
@@ -4237,7 +4257,7 @@ const materializeImplementerContextV1 = async ({ repository, taskIssueNumber, au
 }
 
 const projectRoleSourceBindingV1 = (binding, sourceCommentId) => {
-  if (!binding || !['PRE_PR_IMPLEMENTATION_AUTHORITY', 'PRE_PR_IMPLEMENTATION_RESULT', 'REVIEW', 'IMPLEMENTATION_AUTHORIZATION', 'IMPLEMENTATION_RESULT', 'PUBLICATION_HANDOFF', 'MERGE_DECISION'].includes(binding.kind) || binding.comment_id !== sourceCommentId) {
+  if (!binding || !['PRE_PR_IMPLEMENTATION_AUTHORITY', 'PRE_PR_IMPLEMENTATION_RESULT', 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION', 'REVIEW', 'IMPLEMENTATION_AUTHORIZATION', 'IMPLEMENTATION_RESULT', 'PUBLICATION_HANDOFF', 'MERGE_DECISION'].includes(binding.kind) || binding.comment_id !== sourceCommentId) {
     throw new Error('role_dispatch_source_binding_invalid')
   }
   if (binding.kind === 'PRE_PR_IMPLEMENTATION_AUTHORITY' && (
@@ -4269,6 +4289,27 @@ const projectRoleSourceBindingV1 = (binding, sourceCommentId) => {
     !Array.isArray(binding.validation_results) || binding.validation_results.length === 0 ||
     binding.validation_results.some((value) => typeof value !== 'string' || value.length === 0)
   )) throw new Error('role_dispatch_source_binding_invalid')
+  if (binding.kind === 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION' && (
+    Object.keys(binding).sort().join('\n') !== [
+      'authorized_paths', 'body_sha256', 'branch', 'comment_id', 'decision', 'decision_url',
+      'exact_baseline', 'kind', 'operation_count', 'publication_allowed', 'repository',
+      'result_handoff_body_sha256', 'result_handoff_comment_id', 'result_handoff_url',
+      'task_issue_number', 'worktree',
+    ].sort().join('\n') ||
+    !REPOSITORY.test(binding.repository ?? '') || !positiveInteger(binding.task_issue_number) ||
+    binding.decision_url !== `https://github.com/${binding.repository}/issues/${binding.task_issue_number}#issuecomment-${sourceCommentId}` ||
+    binding.decision !== 'BOOTSTRAP_PUBLICATION' || !/^[0-9a-f]{64}$/.test(binding.body_sha256 ?? '') ||
+    !FULL_HEAD.test(binding.exact_baseline ?? '') || !PRE_PR_BRANCH_V1.test(binding.branch ?? '') ||
+    !PRE_PR_WORKTREE_V1.test(binding.worktree ?? '') ||
+    !Array.isArray(binding.authorized_paths) || binding.authorized_paths.length === 0 ||
+    new Set(binding.authorized_paths).size !== binding.authorized_paths.length ||
+    binding.authorized_paths.some((value) => !isNormalizedRepositoryPathV1(value)) ||
+    JSON.stringify(binding.authorized_paths) !== JSON.stringify([...binding.authorized_paths].sort()) ||
+    !positiveInteger(binding.result_handoff_comment_id) ||
+    binding.result_handoff_url !== `https://github.com/${binding.repository}/issues/${binding.task_issue_number}#issuecomment-${binding.result_handoff_comment_id}` ||
+    !/^[0-9a-f]{64}$/.test(binding.result_handoff_body_sha256 ?? '') ||
+    binding.publication_allowed !== true || binding.operation_count !== 1
+  )) throw new Error('role_dispatch_source_binding_invalid')
   if (binding.kind === 'REVIEW' && (!FULL_HEAD.test(binding.reviewed_head ?? '') || !['APPROVE', 'CHANGES_REQUIRED'].includes(binding.decision))) throw new Error('role_dispatch_source_binding_invalid')
   if (['IMPLEMENTATION_AUTHORIZATION', 'IMPLEMENTATION_RESULT', 'PUBLICATION_HANDOFF'].includes(binding.kind) && (
     !positiveInteger(binding.architecture_review_comment_id) || !/^[0-9a-f]{64}$/.test(binding.candidate_sha256 ?? '')
@@ -4282,7 +4323,7 @@ const projectRoleSourceBindingV1 = (binding, sourceCommentId) => {
 }
 
 const isPrePrRoleDispatchV1 = (dispatch) =>
-  ['PRE_PR_IMPLEMENTATION_AUTHORITY', 'PRE_PR_IMPLEMENTATION_RESULT'].includes(dispatch?.source_binding?.kind)
+  ['PRE_PR_IMPLEMENTATION_AUTHORITY', 'PRE_PR_IMPLEMENTATION_RESULT', 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION'].includes(dispatch?.source_binding?.kind)
 
 const ROLE_DISPATCH_FIELDS_V1 = Object.freeze(new Set([
   'repository', 'task_issue_number', 'pr_number', 'exact_head', 'source_comment_id', 'terminal_result',
@@ -4325,8 +4366,13 @@ export const projectRoleDispatchEnvelopeV1 = ({ result, repository, sourceCommen
   if (sourceBinding?.kind === 'PRE_PR_IMPLEMENTATION_RESULT' && (
     action !== 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' || result.terminal_result !== 'PRE_PR_IMPLEMENTATION_RESULT'
   )) throw new Error('role_dispatch_envelope_invalid')
+  if (sourceBinding?.kind === 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION' && (
+    action !== 'BOOTSTRAP_PUBLICATION_OPERATOR' || result.terminal_result !== 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION'
+  )) throw new Error('role_dispatch_envelope_invalid')
   const purpose = sourceBinding?.kind === 'PRE_PR_IMPLEMENTATION_RESULT'
     ? 'PRE_PR_PUBLICATION_DECISION'
+    : sourceBinding?.kind === 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION'
+      ? 'PRE_PR_BOOTSTRAP_PUBLICATION'
     : action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' && result.terminal_result === 'APPROVE'
     ? 'MERGE_DECISION'
     : action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD'
@@ -4384,13 +4430,17 @@ const PRE_PR_PUBLICATION_DECISION_SCALAR_FIELDS_V1 = Object.freeze([
 ])
 const PRE_PR_PUBLICATION_DECISION_LIST_FIELDS_V1 = Object.freeze(['authorized_paths'])
 
-export const parsePrePrProductOwnerPublicationDecisionV1 = ({ body, dispatch }) => {
+export const isPrePrBootstrapPublicationDecisionCandidateV1 = (body) =>
+  typeof body === 'string' &&
+  /(?:^|\r?\n)decision:[ \t]+BOOTSTRAP_PUBLICATION(?:\r?$)/m.test(body) &&
+  /(?:^|\r?\n)result_handoff_comment_id:[ \t]+[1-9]\d*(?:\r?$)/m.test(body) &&
+  /(?:^|\r?\n)publication_allowed:[ \t]+true(?:\r?$)/m.test(body)
+
+const parsePrePrProductOwnerPublicationDecisionFieldsV1 = (body) => {
   const yaml = parseRoleYamlV1(body)
-  const source = projectRoleSourceBindingV1(dispatch?.source_binding, dispatch?.source_comment_id)
   const paths = yaml.lists.get('authorized_paths')
   const decision = yaml.scalars.get('decision')
   if (
-    source.kind !== 'PRE_PR_IMPLEMENTATION_RESULT' ||
     yaml.scalars.size !== PRE_PR_PUBLICATION_DECISION_SCALAR_FIELDS_V1.length ||
     yaml.lists.size !== PRE_PR_PUBLICATION_DECISION_LIST_FIELDS_V1.length ||
     PRE_PR_PUBLICATION_DECISION_SCALAR_FIELDS_V1.some((field) => !yaml.scalars.has(field)) ||
@@ -4399,32 +4449,51 @@ export const parsePrePrProductOwnerPublicationDecisionV1 = ({ body, dispatch }) 
     [...yaml.lists.keys()].some((field) => !PRE_PR_PUBLICATION_DECISION_LIST_FIELDS_V1.includes(field)) ||
     [...yaml.scalars.values()].some((value) => value === null || value === 'null') ||
     !['BOOTSTRAP_PUBLICATION', 'STOP'].includes(decision) ||
-    yaml.scalars.get('repository') !== dispatch.repository ||
-    yaml.scalars.get('task_issue_number') !== dispatch.task_issue_number ||
-    yaml.scalars.get('exact_baseline') !== dispatch.exact_head ||
-    yaml.scalars.get('branch') !== source.branch || yaml.scalars.get('worktree') !== source.worktree ||
-    !sameRolePathsV1(paths, dispatch.authorized_paths) ||
-    yaml.scalars.get('result_handoff_comment_id') !== dispatch.source_comment_id ||
-    yaml.scalars.get('result_handoff_url') !== source.result_url ||
-    yaml.scalars.get('result_handoff_body_sha256') !== source.body_sha256 ||
+    !REPOSITORY.test(yaml.scalars.get('repository') ?? '') ||
+    !positiveInteger(yaml.scalars.get('task_issue_number')) ||
+    !FULL_HEAD.test(yaml.scalars.get('exact_baseline') ?? '') ||
+    !PRE_PR_BRANCH_V1.test(yaml.scalars.get('branch') ?? '') ||
+    !PRE_PR_WORKTREE_V1.test(yaml.scalars.get('worktree') ?? '') ||
+    !Array.isArray(paths) || paths.length === 0 || new Set(paths).size !== paths.length ||
+    paths.some((value) => !isNormalizedRepositoryPathV1(value)) ||
+    !positiveInteger(yaml.scalars.get('result_handoff_comment_id')) ||
+    typeof yaml.scalars.get('result_handoff_url') !== 'string' ||
+    !/^[0-9a-f]{64}$/.test(yaml.scalars.get('result_handoff_body_sha256') ?? '') ||
     (decision === 'BOOTSTRAP_PUBLICATION'
       ? yaml.scalars.get('publication_allowed') !== true || yaml.scalars.get('operation_count') !== 1
       : yaml.scalars.get('publication_allowed') !== false || yaml.scalars.get('operation_count') !== 0)
   ) throw new Error('pre_pr_publication_decision_invalid')
   return Object.freeze({
     decision,
-    repository: dispatch.repository,
-    task_issue_number: dispatch.task_issue_number,
-    exact_baseline: dispatch.exact_head,
-    branch: source.branch,
-    worktree: source.worktree,
+    repository: yaml.scalars.get('repository'),
+    task_issue_number: yaml.scalars.get('task_issue_number'),
+    exact_baseline: yaml.scalars.get('exact_baseline'),
+    branch: yaml.scalars.get('branch'),
+    worktree: yaml.scalars.get('worktree'),
     authorized_paths: Object.freeze([...paths]),
-    result_handoff_comment_id: dispatch.source_comment_id,
-    result_handoff_url: source.result_url,
-    result_handoff_body_sha256: source.body_sha256,
+    result_handoff_comment_id: yaml.scalars.get('result_handoff_comment_id'),
+    result_handoff_url: yaml.scalars.get('result_handoff_url'),
+    result_handoff_body_sha256: yaml.scalars.get('result_handoff_body_sha256'),
     publication_allowed: yaml.scalars.get('publication_allowed'),
     operation_count: yaml.scalars.get('operation_count'),
   })
+}
+
+export const parsePrePrProductOwnerPublicationDecisionV1 = ({ body, dispatch }) => {
+  const parsed = parsePrePrProductOwnerPublicationDecisionFieldsV1(body)
+  const source = projectRoleSourceBindingV1(dispatch?.source_binding, dispatch?.source_comment_id)
+  if (
+    source.kind !== 'PRE_PR_IMPLEMENTATION_RESULT' ||
+    parsed.repository !== dispatch.repository ||
+    parsed.task_issue_number !== dispatch.task_issue_number ||
+    parsed.exact_baseline !== dispatch.exact_head ||
+    parsed.branch !== source.branch || parsed.worktree !== source.worktree ||
+    !sameRolePathsV1(parsed.authorized_paths, dispatch.authorized_paths) ||
+    parsed.result_handoff_comment_id !== dispatch.source_comment_id ||
+    parsed.result_handoff_url !== source.result_url ||
+    parsed.result_handoff_body_sha256 !== source.body_sha256
+  ) throw new Error('pre_pr_publication_decision_invalid')
+  return parsed
 }
 
 const productOwnerMergeDecisionBodyV1 = (dispatch) => [
@@ -4871,6 +4940,13 @@ const validateRoleDispatchEnvelopeV1 = (dispatch) => {
       sourceBinding.repository !== dispatch.repository || sourceBinding.task_issue_number !== dispatch.task_issue_number ||
       !sameRolePathsV1(sourceBinding.changed_paths, dispatch.authorized_paths)
     )) throw new Error('role_dispatch_envelope_invalid')
+    if (sourceBinding.kind === 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION' && (
+      dispatch.next_action !== 'BOOTSTRAP_PUBLICATION_OPERATOR' ||
+      dispatch.purpose !== 'PRE_PR_BOOTSTRAP_PUBLICATION' ||
+      dispatch.terminal_result !== 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION' ||
+      sourceBinding.repository !== dispatch.repository || sourceBinding.task_issue_number !== dispatch.task_issue_number ||
+      !sameRolePathsV1(sourceBinding.authorized_paths, dispatch.authorized_paths)
+    )) throw new Error('role_dispatch_envelope_invalid')
   } else if (
     taskState.task_issue_number !== dispatch.task_issue_number || taskState.pr_number !== dispatch.pr_number ||
     taskState.observed_head !== dispatch.exact_head ||
@@ -4886,6 +4962,33 @@ const roleDispatchRequestV1 = (dispatch) => Object.freeze({
   prNumber: dispatch.pr_number,
   exactHead: dispatch.exact_head,
 })
+
+export const projectBootstrapPublicationRequestV1 = (dispatch) => {
+  dispatch = normalizeRoleDispatchConsumerV1(dispatch)
+  validateRoleDispatchEnvelopeV1(dispatch)
+  const source = projectRoleSourceBindingV1(dispatch.source_binding, dispatch.source_comment_id)
+  if (
+    source.kind !== 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION' ||
+    dispatch.next_action !== 'BOOTSTRAP_PUBLICATION_OPERATOR' ||
+    dispatch.purpose !== 'PRE_PR_BOOTSTRAP_PUBLICATION' ||
+    dispatch.terminal_result !== 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION'
+  ) throw new Error('bootstrap_publication_request_projection_invalid')
+  return Object.freeze({
+    record_type: 'bootstrap_publication_request_v1',
+    version: 1,
+    repository: source.repository,
+    task_issue_number: source.task_issue_number,
+    authorized_paths: Object.freeze([...source.authorized_paths]),
+    branch: source.branch,
+    reviewed_worktree_path: source.worktree,
+    base_branch: 'main',
+    expected_parent_head: source.exact_baseline,
+    publication_authority_comment_id: source.comment_id,
+    publication_authority_url: source.decision_url,
+    publication_authority_body_sha256: source.body_sha256,
+    operation_count: source.operation_count,
+  })
+}
 
 const acquirePrePrWorktreeBindingV1 = async (dispatch, host, allowAuthorizedChanges) => {
   if (typeof host?.worktreeState !== 'function') throw new Error('role_dispatch_binding_changed')
@@ -4927,7 +5030,7 @@ const acquireRoleDispatchBindingV1 = async (dispatch, host, expectedHead = dispa
     } catch {
       throw new Error('role_dispatch_binding_changed')
     }
-    if (dispatch.source_binding.kind === 'PRE_PR_IMPLEMENTATION_RESULT') {
+    if (['PRE_PR_IMPLEMENTATION_RESULT', 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION'].includes(dispatch.source_binding.kind)) {
       return Object.freeze({ request, pull: null, taskState: null, scope: null, task })
     }
     const context = projectImplementerContextV1(dispatch.implementer_context)
@@ -5231,6 +5334,96 @@ const verifyRoleAuthorizationChainV1 = async ({ body, dispatch, host, expected }
   return authorization
 }
 
+export const acquirePrePrBootstrapPublicationDecisionV1 = async ({
+  decisionComment,
+  repository,
+  taskIssueNumber,
+  host,
+}) => {
+  assertMinimalGovernanceProductOwnerV1(decisionComment, { requireAssociation: true })
+  const decision = parsePrePrProductOwnerPublicationDecisionFieldsV1(decisionComment?.body)
+  const decisionUrl = `https://github.com/${repository}/issues/${taskIssueNumber}#issuecomment-${decisionComment?.id}`
+  if (
+    !REPOSITORY.test(repository ?? '') || !positiveInteger(taskIssueNumber) || !positiveInteger(decisionComment?.id) ||
+    decisionComment.html_url !== decisionUrl ||
+    decisionComment.issue_url !== `https://api.github.com/repos/${repository}/issues/${taskIssueNumber}` ||
+    decision.decision !== 'BOOTSTRAP_PUBLICATION' || decision.repository !== repository ||
+    decision.task_issue_number !== taskIssueNumber ||
+    decision.result_handoff_url !== `https://github.com/${repository}/issues/${taskIssueNumber}#issuecomment-${decision.result_handoff_comment_id}`
+  ) throw new Error('pre_pr_bootstrap_publication_decision_invalid')
+
+  const resultRecord = await fetchRoleCommentRecordV1(
+    repository,
+    taskIssueNumber,
+    decision.result_handoff_comment_id,
+    host,
+  )
+  if (
+    resultRecord.html_url !== decision.result_handoff_url ||
+    createHash('sha256').update(Buffer.from(resultRecord.body, 'utf8')).digest('hex') !== decision.result_handoff_body_sha256
+  ) throw new Error('pre_pr_bootstrap_publication_result_changed')
+  const rawResult = parsePrePrImplementationResultFieldsV1(resultRecord.body)
+  const authorityCommentId = parseRoleUrlNumberV1(
+    rawResult.authority_source,
+    `https://github.com/${repository}/issues/${taskIssueNumber}#issuecomment-`,
+    'pre_pr_bootstrap_publication_authority_invalid',
+  )
+  const authorityRecord = await fetchRoleCommentRecordV1(repository, taskIssueNumber, authorityCommentId, host)
+  assertMinimalGovernanceProductOwnerV1(authorityRecord, { requireAssociation: true })
+  const authority = parsePrePrImplementationAuthorityV1({
+    body: authorityRecord.body,
+    repository,
+    taskIssueNumber,
+    commentId: authorityCommentId,
+  })
+  const authorityDispatch = Object.freeze({
+    repository,
+    task_issue_number: taskIssueNumber,
+    exact_head: authority.exact_baseline,
+    authorized_paths: authority.authorized_paths,
+    source_binding: Object.freeze({
+      kind: 'PRE_PR_IMPLEMENTATION_AUTHORITY',
+      authority_url: authority.authority_url,
+      exact_baseline: authority.exact_baseline,
+      branch: authority.branch,
+      worktree: authority.worktree,
+      validation_commands: authority.validation_commands,
+    }),
+  })
+  const validationEvidence = prePrValidationEvidenceFromResultsV1({
+    validationResults: rawResult.validation_results,
+    validationCommands: authority.validation_commands,
+    worktree: authority.worktree,
+  })
+  const result = parsePrePrImplementationResultHandoffV1({
+    body: resultRecord.body,
+    dispatch: authorityDispatch,
+    stage: 'final',
+    validationEvidence,
+  })
+  if (
+    authorityRecord.html_url !== result.authority_source ||
+    decision.exact_baseline !== authority.exact_baseline || decision.branch !== authority.branch ||
+    decision.worktree !== authority.worktree || !sameRolePathsV1(decision.authorized_paths, result.changed_paths) ||
+    rawResult.repository !== repository || rawResult.task_issue !== `https://github.com/${repository}/issues/${taskIssueNumber}` ||
+    result.exact_baseline !== decision.exact_baseline || result.branch !== decision.branch ||
+    result.worktree !== decision.worktree
+  ) throw new Error('pre_pr_bootstrap_publication_chain_mismatch')
+  return Object.freeze({
+    decision,
+    decision_comment_id: decisionComment.id,
+    decision_url: decisionUrl,
+    decision_body_sha256: createHash('sha256').update(Buffer.from(decisionComment.body, 'utf8')).digest('hex'),
+    result,
+    result_comment_id: resultRecord.id,
+    result_url: resultRecord.html_url,
+    result_body_sha256: decision.result_handoff_body_sha256,
+    authority,
+    validation_commands: authority.validation_commands,
+    validation_results: result.validation_results,
+  })
+}
+
 const verifyRoleDispatchSourceV1 = async (dispatch, host) => {
   const binding = projectRoleSourceBindingV1(dispatch.source_binding, dispatch.source_comment_id)
   if (binding.kind === 'REVIEW') {
@@ -5338,6 +5531,26 @@ const verifyRoleDispatchSourceV1 = async (dispatch, host) => {
       JSON.stringify(result.validation_results) !== JSON.stringify(binding.validation_results)
     ) throw new Error('role_dispatch_source_binding_changed')
     return source
+  }
+  if (binding.kind === 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION') {
+    const chain = await acquirePrePrBootstrapPublicationDecisionV1({
+      decisionComment: source,
+      repository: dispatch.repository,
+      taskIssueNumber: dispatch.task_issue_number,
+      host,
+    })
+    if (
+      chain.decision_comment_id !== binding.comment_id || chain.decision_url !== binding.decision_url ||
+      chain.decision_body_sha256 !== binding.body_sha256 || chain.decision.decision !== binding.decision ||
+      chain.decision.repository !== binding.repository || chain.decision.task_issue_number !== binding.task_issue_number ||
+      chain.decision.exact_baseline !== binding.exact_baseline || chain.decision.branch !== binding.branch ||
+      chain.decision.worktree !== binding.worktree || !sameRolePathsV1(chain.decision.authorized_paths, binding.authorized_paths) ||
+      chain.result_comment_id !== binding.result_handoff_comment_id || chain.result_url !== binding.result_handoff_url ||
+      chain.result_body_sha256 !== binding.result_handoff_body_sha256 ||
+      chain.decision.publication_allowed !== binding.publication_allowed || chain.decision.operation_count !== binding.operation_count ||
+      !sameRolePathsV1(chain.decision.authorized_paths, dispatch.authorized_paths)
+    ) throw new Error('role_dispatch_source_binding_changed')
+    return chain
   }
   if (binding.kind === 'IMPLEMENTATION_AUTHORIZATION') {
     await verifyRoleAuthorizationChainV1({ body: source.body, dispatch, host, expected: binding })
@@ -5559,6 +5772,15 @@ export const executeRoleDispatchConsumerV1 = async ({ dispatch, host }) => {
       taskState.review_status !== 'APPROVE' || taskState.reviewed_head !== request.exactHead || taskState.review_blocker_count !== 0
     )) throw new Error('role_dispatch_merge_decision_invalid')
     await verifyRoleDispatchSourceV1(dispatch, host)
+    if (dispatch.source_binding.kind === 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION') {
+      return Object.freeze({
+        state: 'READY', allowed: false, exit_code: 0,
+        reason: 'pre_pr_bootstrap_publication_decision_bound',
+        automation_status: 'OPERATION_READY', next_action: 'EXECUTE_BOOTSTRAP_PUBLICATION', mutation_count: 0,
+        exact_head: request.exactHead,
+        bootstrap_request: projectBootstrapPublicationRequestV1(dispatch),
+      })
+    }
     const converged = isPrePrRoleDispatchV1(dispatch)
       ? null
       : await acquireRoleConvergedEvidenceV1(dispatch, host)
@@ -6226,6 +6448,93 @@ export const executePrePrPublicationDecisionIngressV1 = async ({ event, host }) 
       request,
       'INDETERMINATE',
       error instanceof Error ? error.message : 'pre_pr_implementation_result_invalid',
+    )
+  }
+}
+
+export const executePrePrBootstrapPublicationDecisionIngressV1 = async ({ event, host }) => {
+  let request = null
+  try {
+    const normalized = normalizeRoleTransitionEventV1(event)
+    if (normalized.terminalResult !== 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION') {
+      throw new Error('pre_pr_bootstrap_publication_decision_invalid')
+    }
+    request = Object.freeze({
+      transition: 'pre_pr_bootstrap_publication_decision_ingress_v1',
+      repository: normalized.repository,
+      taskIssueNumber: normalized.taskIssueNumber,
+      prNumber: null,
+      exactHead: normalized.exactHead,
+    })
+    const freshDecision = await fetchRoleCommentRecordV1(
+      normalized.repository,
+      normalized.taskIssueNumber,
+      normalized.commentId,
+      host,
+    )
+    if (
+      freshDecision.body !== normalized.body ||
+      freshDecision.author_association !== event.comment.author_association ||
+      freshDecision.html_url !== normalized.decisionUrl
+    ) throw new Error('pre_pr_bootstrap_publication_decision_changed')
+    const chain = await acquirePrePrBootstrapPublicationDecisionV1({
+      decisionComment: freshDecision,
+      repository: normalized.repository,
+      taskIssueNumber: normalized.taskIssueNumber,
+      host,
+    })
+    if (JSON.stringify(chain.decision) !== JSON.stringify(normalized.decision)) {
+      throw new Error('pre_pr_bootstrap_publication_decision_changed')
+    }
+    const routed = Object.freeze({
+      transition: 'pre_pr_bootstrap_publication_decision_ingress_v1',
+      state: 'READY',
+      allowed: false,
+      exit_code: 0,
+      reason: 'pre_pr_bootstrap_publication_decision_admitted',
+      task_issue_number: normalized.taskIssueNumber,
+      pr_number: null,
+      current_head: normalized.exactHead,
+      out_of_scope_paths: Object.freeze([]),
+      state_changed: false,
+      automation_status: 'HANDOFF_READY',
+      next_action: 'BOOTSTRAP_PUBLICATION_OPERATOR',
+      terminal_result: 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION',
+      mutation_count: 0,
+    })
+    const sourceBinding = Object.freeze({
+      kind: 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION',
+      comment_id: normalized.commentId,
+      decision_url: normalized.decisionUrl,
+      body_sha256: chain.decision_body_sha256,
+      decision: chain.decision.decision,
+      repository: normalized.repository,
+      task_issue_number: normalized.taskIssueNumber,
+      exact_baseline: chain.decision.exact_baseline,
+      branch: chain.decision.branch,
+      worktree: chain.decision.worktree,
+      authorized_paths: Object.freeze([...chain.decision.authorized_paths].sort()),
+      result_handoff_comment_id: chain.result_comment_id,
+      result_handoff_url: chain.result_url,
+      result_handoff_body_sha256: chain.result_body_sha256,
+      publication_allowed: chain.decision.publication_allowed,
+      operation_count: chain.decision.operation_count,
+    })
+    const roleDispatch = projectRoleDispatchEnvelopeV1({
+      result: routed,
+      repository: normalized.repository,
+      sourceCommentId: normalized.commentId,
+      authorizedPaths: chain.decision.authorized_paths,
+      taskState: null,
+      sourceBinding,
+    })
+    await acquireRoleDispatchBindingV1(roleDispatch, host)
+    return Object.freeze({ ...routed, source_comment_id: normalized.commentId, role_dispatch: roleDispatch })
+  } catch (error) {
+    return roleStopV1(
+      request,
+      'INDETERMINATE',
+      error instanceof Error ? error.message : 'pre_pr_bootstrap_publication_decision_invalid',
     )
   }
 }
@@ -7751,6 +8060,9 @@ export const executeRoleTransitionOrchestratorV1 = async ({
     if (isPrePrImplementationResultCandidateV1(event?.comment?.body)) {
       return executePrePrPublicationDecisionIngressV1({ event, host })
     }
+    if (isPrePrBootstrapPublicationDecisionCandidateV1(event?.comment?.body)) {
+      return executePrePrBootstrapPublicationDecisionIngressV1({ event, host })
+    }
     if (event?.action === 'created' && typeof event?.comment?.body === 'string' && roleTransitionMarkersV1(event.comment.body).length === 0) {
       return evaluateProgressionControllerV1(skippedAutomationResult(Object.freeze({
         transition: 'role_transition_orchestrator_v1',
@@ -8352,6 +8664,7 @@ export const executeReviewEventWithLifecycleReplayV1 = async ({
     reviewingRoleOwnerResult,
   })
   if (isPrePrImplementationAuthorityCandidateV1(event?.comment?.body)) return result
+  if (isPrePrBootstrapPublicationDecisionCandidateV1(event?.comment?.body)) return result
   if (isMinimalGovernanceCandidateV1(event?.comment?.body)) return result
   const lifecycleProjection = await executeLifecycleOrchestratorV1({
     event, sourceResult: result, host,

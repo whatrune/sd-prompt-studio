@@ -132,7 +132,7 @@ jobs:
               fs.appendFileSync(output, `authority_kind=MINIMAL_GOVERNANCE_V1\n`);
               fs.appendFileSync(output, `role_exact_head=${result.exact_head}\n`);
               fs.appendFileSync(output, `minimal_merge_plan_b64=${Buffer.from(JSON.stringify(result)).toString("base64")}\n`);
-            } else if (["IMPLEMENTER", "PRODUCT_OWNER_IMPLEMENTATION_LEAD", "INDEPENDENT_IMPLEMENTATION_REVIEWER", "MERGE_OPERATOR"].includes(result.next_action)) {
+            } else if (["IMPLEMENTER", "PRODUCT_OWNER_IMPLEMENTATION_LEAD", "INDEPENDENT_IMPLEMENTATION_REVIEWER", "BOOTSTRAP_PUBLICATION_OPERATOR", "MERGE_OPERATOR"].includes(result.next_action)) {
               if (!result.role_dispatch || result.role_dispatch.next_action !== result.next_action || result.role_dispatch.exact_head !== result.current_head) throw new Error("role_dispatch_projection_invalid");
               fs.appendFileSync(output, `role_exact_head=${result.role_dispatch.exact_head}\n`);
               fs.appendFileSync(output, `role_dispatch_b64=${Buffer.from(JSON.stringify(result.role_dispatch)).toString("base64")}\n`);
@@ -163,7 +163,7 @@ jobs:
 
   protected_transition_role_dispatch_consumer_v1:
     needs: protected_transition_admission_v1
-    if: contains(fromJSON('["IMPLEMENTER","PRODUCT_OWNER_IMPLEMENTATION_LEAD","INDEPENDENT_IMPLEMENTATION_REVIEWER"]'), needs.protected_transition_admission_v1.outputs.next_action)
+    if: contains(fromJSON('["IMPLEMENTER","PRODUCT_OWNER_IMPLEMENTATION_LEAD","INDEPENDENT_IMPLEMENTATION_REVIEWER","BOOTSTRAP_PUBLICATION_OPERATOR"]'), needs.protected_transition_admission_v1.outputs.next_action)
     runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 45
     steps:
@@ -201,8 +201,11 @@ jobs:
           git -C $hostRoot checkout --quiet --detach FETCH_HEAD
           if ($LASTEXITCODE -ne 0 -or (git -C $hostRoot rev-parse HEAD) -cne $env:GITHUB_WORKFLOW_SHA) { throw 'role_host_sha_mismatch' }
           $hostRunner = Join-Path $hostRoot 'scripts/run-protected-transition-admission-v1.mjs'
+          $bootstrapRunner = Join-Path $hostRoot 'scripts/run-bootstrap-publication-operator-v1.mjs'
           if (-not (Test-Path -LiteralPath $hostRunner -PathType Leaf)) { throw 'role_host_runner_missing' }
+          if (-not (Test-Path -LiteralPath $bootstrapRunner -PathType Leaf)) { throw 'bootstrap_host_runner_missing' }
           [IO.File]::AppendAllText($env:GITHUB_ENV, "PTA_ROLE_HOST_RUNNER=$hostRunner$([Environment]::NewLine)", $utf8NoBom)
+          [IO.File]::AppendAllText($env:GITHUB_ENV, "PTA_BOOTSTRAP_HOST_RUNNER=$bootstrapRunner$([Environment]::NewLine)", $utf8NoBom)
 
       - name: Bind bounded role dispatch
         id: role_dispatch_plan
@@ -224,16 +227,23 @@ jobs:
             [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "operation=CONVERGED_NOOP$([Environment]::NewLine)", $utf8NoBom)
             exit 0
           }
+          if ($plan.next_action -ceq 'EXECUTE_BOOTSTRAP_PUBLICATION' -and $plan.exact_head -ceq '${{ needs.protected_transition_admission_v1.outputs.role_exact_head }}') {
+            $requestPath = Join-Path $env:RUNNER_TEMP 'bootstrap-publication-request.json'
+            [IO.File]::WriteAllText($requestPath, ($plan.bootstrap_request | ConvertTo-Json -Compress -Depth 5), $utf8NoBom)
+            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "operation=EXECUTE_BOOTSTRAP_PUBLICATION$([Environment]::NewLine)", $utf8NoBom)
+            exit 0
+          }
           if ($plan.next_action -cne 'EXECUTE_ROLE' -or $plan.exact_head -cne '${{ needs.protected_transition_admission_v1.outputs.role_exact_head }}') { throw 'role_dispatch_not_ready' }
           [IO.File]::WriteAllText($promptPath, [string]$plan.prompt, $utf8NoBom)
           [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "operation=EXECUTE_ROLE$([Environment]::NewLine)", $utf8NoBom)
 
       - name: Execute bounded role and host operation
-        if: steps.role_dispatch_plan.outputs.operation == 'EXECUTE_ROLE'
+        if: contains(fromJSON('["EXECUTE_ROLE","EXECUTE_BOOTSTRAP_PUBLICATION"]'), steps.role_dispatch_plan.outputs.operation)
         shell: pwsh
         timeout-minutes: 35
         env:
           GH_TOKEN: ${{ github.token }}
+          ROLE_OPERATION: ${{ steps.role_dispatch_plan.outputs.operation }}
         run: |
           $ErrorActionPreference = 'Stop'
           $utf8NoBom = [Text.UTF8Encoding]::new($false)
@@ -245,6 +255,34 @@ jobs:
           $resultPath = Join-Path $env:RUNNER_TEMP 'role-result.json'
           $dispatch = Get-Content -LiteralPath $dispatchPath -Raw -Encoding utf8 | ConvertFrom-Json
           $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json
+
+          if ($env:ROLE_OPERATION -ceq 'EXECUTE_BOOTSTRAP_PUBLICATION') {
+            $requestPath = Join-Path $env:RUNNER_TEMP 'bootstrap-publication-request.json'
+            $operatorResultPath = Join-Path $env:RUNNER_TEMP 'bootstrap-publication-result.json'
+            $request = Get-Content -LiteralPath $requestPath -Raw -Encoding utf8 | ConvertFrom-Json
+            Push-Location -LiteralPath ([string]$request.reviewed_worktree_path)
+            try {
+              $priorErrorActionPreference = $ErrorActionPreference
+              $ErrorActionPreference = 'Continue'
+              node $env:PTA_BOOTSTRAP_HOST_RUNNER --request-file $requestPath 1> $operatorResultPath
+              $operatorExit = $LASTEXITCODE
+            } finally {
+              $ErrorActionPreference = $priorErrorActionPreference
+              Pop-Location
+            }
+            $operatorResult = Get-Content -LiteralPath $operatorResultPath -Raw -Encoding utf8 | ConvertFrom-Json
+            if ($operatorExit -ne 0) {
+              if ($operatorResult.status -cne 'STOP') { throw 'bootstrap_publication_operator_result_invalid' }
+              throw "bootstrap_publication_operator_stopped_$([string]$operatorResult.reason)"
+            }
+            if (
+              $operatorResult.status -cne 'SUCCESS' -or
+              $operatorResult.reason -cne 'bootstrap_publication_complete' -or
+              $operatorResult.mutation_count -ne 4 -or
+              $operatorResult.protected_operation_count -ne 1
+            ) { throw 'bootstrap_publication_operator_result_invalid' }
+            exit 0
+          }
 
           function Invoke-BoundedRole {
             param([string]$PromptFile, [string]$Sandbox, [string]$JsonlFile, [string]$BodyFile, [string]$Workspace = $env:GITHUB_WORKSPACE)

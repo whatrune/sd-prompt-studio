@@ -5,8 +5,10 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseDocument } from 'yaml'
 import {
+  acquirePrePrBootstrapPublicationDecisionV1,
   assertMinimalGovernanceProductOwnerV1,
   extractProtectedTransitionTaskStateV1,
+  isPrePrBootstrapPublicationDecisionCandidateV1,
   repairWorkingTreePathsV1,
 } from './run-protected-transition-admission-v1.mjs'
 
@@ -59,8 +61,38 @@ const normalizedFileSystemPathV1 = (value) => {
   return process.platform === 'win32' ? resolved.toLowerCase() : resolved
 }
 
-const projectBootstrapPublicationOwnerV1 = (comment, request) => {
+const projectBootstrapPublicationOwnerV1 = async (comment, request, host) => {
   assertMinimalGovernanceProductOwnerV1(comment, { requireAssociation: true })
+  if (isPrePrBootstrapPublicationDecisionCandidateV1(comment?.body)) {
+    const chain = await acquirePrePrBootstrapPublicationDecisionV1({
+      decisionComment: comment,
+      repository: request.repository,
+      taskIssueNumber: request.task_issue_number,
+      host,
+    })
+    const decision = chain.decision
+    if (
+      comment.id !== request.publication_authority_comment_id ||
+      comment.html_url !== request.publication_authority_url ||
+      chain.decision_body_sha256 !== request.publication_authority_body_sha256 ||
+      decision.repository !== request.repository || decision.task_issue_number !== request.task_issue_number ||
+      decision.exact_baseline !== request.expected_parent_head || decision.branch !== request.branch ||
+      normalizedFileSystemPathV1(decision.worktree) !== normalizedFileSystemPathV1(request.reviewed_worktree_path) ||
+      !sameFields(request, REQUEST_FIELDS_V1) ||
+      normalizedPathSetV1(decision.authorized_paths) !== normalizedPathSetV1(request.authorized_paths) ||
+      decision.publication_allowed !== true || decision.operation_count !== request.operation_count
+    ) throw new Error('bootstrap_publication_owner_invalid')
+    return Object.freeze({
+      kind: 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION',
+      comment_id: comment.id,
+      source_url: comment.html_url,
+      body_sha256: chain.decision_body_sha256,
+      authorized_paths: Object.freeze([...decision.authorized_paths]),
+      validation_results: chain.validation_results,
+      result_url: chain.result_url,
+      unresolved_items: chain.result.unperformed_items.length,
+    })
+  }
   const blocks = typeof comment?.body === 'string'
     ? [...comment.body.matchAll(/```yaml\r?\n([\s\S]*?)\r?\n```/g)]
     : []
@@ -101,6 +133,7 @@ const projectBootstrapPublicationOwnerV1 = (comment, request) => {
     normalizedPathSetV1(paths) !== normalizedPathSetV1(request.authorized_paths)
   ) throw new Error('bootstrap_publication_owner_invalid')
   return Object.freeze({
+    kind: 'LEGACY_TASK_ASSIGNMENT',
     comment_id: comment.id,
     source_url: comment.html_url,
     body_sha256: sha256V1(comment.body),
@@ -122,6 +155,14 @@ const originRepositoryV1 = (output) => {
   return `${match[1]}/${match[2]}`.toLowerCase()
 }
 
+const bootstrapValidationBodyV1 = (owner) => owner.kind === 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION'
+  ? `- Authority-bound pre-PR validations: ${owner.validation_results.length}/${owner.validation_results.length} PASS_REUSED
+- Result Handoff: ${owner.result_url}
+- Broad validation: not rerun`
+  : `- Focused bootstrap-publication operator: ${owner.focused_assertions} assertions ${owner.focused_result}
+- git diff --check: ${owner.git_diff_check}
+- Broad validation: not rerun`
+
 const bootstrapPullBodyV1 = (request, owner) => `## Purpose
 
 Bootstrap-publication operator implementation for Task #${request.task_issue_number}.
@@ -136,9 +177,7 @@ ${request.authorized_paths.map((value) => `- \`${value}\``).join('\n')}
 
 ## Validation
 
-- Focused bootstrap-publication operator: ${owner.focused_assertions} assertions ${owner.focused_result}
-- git diff --check: ${owner.git_diff_check}
-- Broad validation: not rerun
+${bootstrapValidationBodyV1(owner)}
 
 ## Unresolved items
 
@@ -318,7 +357,7 @@ export const executeBootstrapPublicationOperatorV1 = async (rawRequest, host) =>
     sha256V1(authority.body) !== request.publication_authority_body_sha256
   ) return stop('publication_authority_binding_mismatch')
   try {
-    publicationOwner = projectBootstrapPublicationOwnerV1(authority, request)
+    publicationOwner = await projectBootstrapPublicationOwnerV1(authority, request, host)
   } catch {
     return stop('bootstrap_publication_owner_invalid')
   }

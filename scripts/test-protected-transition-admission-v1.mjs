@@ -37,6 +37,7 @@ import {
   executeRoleTransitionOrchestratorV1,
   executeProtectedTransitionAdmissionV1,
   executePrePrImplementationIngressV1,
+  executePrePrBootstrapPublicationDecisionIngressV1,
   executePrePrPublicationDecisionIngressV1,
   executeRepairProviderBindingV3,
   extractProtectedTransitionTaskStateV1,
@@ -54,6 +55,7 @@ import {
   projectIndependentReviewerFailureEvidenceV1,
   projectRoleOutputFailureDiagnosticV1,
   projectProtectedTransitionReviewStateV1,
+  projectBootstrapPublicationRequestV1,
   projectSelfHostedWindowsRepairProviderV3,
   projectRoleDispatchEnvelopeV1,
   repairWorkingTreePathsV1,
@@ -8740,7 +8742,7 @@ const lifecycleStructuralMatrix = [
 for (const [index, evidence] of lifecycleStructuralMatrix.entries()) check(evidence, `LOV1 production boundary ${index + 1}`)
 
 const workflowBoundaryMatrix = [
-  roleBindRun.includes("operation=CONVERGED_NOOP") && roleExecutionStep?.if === "steps.role_dispatch_plan.outputs.operation == 'EXECUTE_ROLE'" && roleExecutionStep?.env?.GH_TOKEN === '${{ github.token }}' && mergeDecisionOutput.next_action === 'POST_MERGE_DECISION' && !Object.hasOwn(mergeDecisionOutput, 'bounded_metadata') && roleOutputFailureDiagnosticKeys.length === 9 && roleOutputFailureDiagnosticKeys.join('\n') === expectedRoleOutputFailureDiagnosticKeys.join('\n') && roleExecutionRun.indexOf('$publicationComment = Publish-CanonicalComment -BodyFile $publicationPath') < roleExecutionRun.indexOf('--review-event-file $publishedEventPath') && roleExecutionRun.indexOf('--review-event-file $publishedEventPath') < roleExecutionRun.indexOf("-ExpectedAction 'POST_REVIEW'") && assertRoleOutputSource.includes('--role-jsonl-file $JsonlFile') && (roleExecutionRun.match(/Assert-RoleOutput[^\n]+-JsonlFile \$/g) ?? []).length === 3 && assertRoleOutputSource.includes('$failure.bounded_metadata') && expectedRoleOutputFailureDiagnosticKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("$dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && assertRoleOutputSource.includes('$failure.failure_evidence') && reviewerEvidenceHeaderKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && assertRoleOutputSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && assertRoleOutputSource.includes('$header.selected_body_utf8_byte_count -gt 262144') && assertRoleOutputSource.includes('$header.body_chunk_count -gt 64') && assertRoleOutputSource.includes('$bytes.Length -ne 4096') && assertRoleOutputSource.includes('[Convert]::FromBase64String($chunk.body_base64)') && assertRoleOutputSource.includes('$sha256.ComputeHash($capturedBytes)') && assertRoleOutputSource.includes("$header.body_capture_status -ceq 'BOUND_EXCEEDED'") && assertRoleOutputSource.includes('$chunks.Count -ne 0') && assertRoleOutputSource.includes('-gt 9007199254740991') && assertRoleOutputSource.includes('-isnot [System.Array]') && assertRoleOutputSource.includes('$diagnosticLines = @()') && assertRoleOutputSource.includes('foreach ($diagnosticLine in $diagnosticLines)') && assertRoleOutputSource.split('[Console]::Error.WriteLine($diagnosticLine)').length === 2 && assertRoleOutputSource.includes("throw 'role_output_validation_failed'") && !assertRoleOutputSource.includes('Start-Sleep') && !assertRoleOutputSource.includes('retry') && !Object.hasOwn(workflow.concurrency, 'queue') && workflow.concurrency['cancel-in-progress'] === false && roleExecutionRun.includes("if ($expected -in @('POST_REVIEW', 'POST_MERGE_DECISION'))") && !roleExecutionRun.includes('Complete-ReviewerClosure'),
+  roleBindRun.includes("operation=CONVERGED_NOOP") && roleExecutionStep?.if === "contains(fromJSON('[\"EXECUTE_ROLE\",\"EXECUTE_BOOTSTRAP_PUBLICATION\"]'), steps.role_dispatch_plan.outputs.operation)" && roleExecutionStep?.env?.GH_TOKEN === '${{ github.token }}' && roleExecutionStep?.env?.ROLE_OPERATION === '${{ steps.role_dispatch_plan.outputs.operation }}' && mergeDecisionOutput.next_action === 'POST_MERGE_DECISION' && !Object.hasOwn(mergeDecisionOutput, 'bounded_metadata') && roleOutputFailureDiagnosticKeys.length === 9 && roleOutputFailureDiagnosticKeys.join('\n') === expectedRoleOutputFailureDiagnosticKeys.join('\n') && roleExecutionRun.indexOf('$publicationComment = Publish-CanonicalComment -BodyFile $publicationPath') < roleExecutionRun.indexOf('--review-event-file $publishedEventPath') && roleExecutionRun.indexOf('--review-event-file $publishedEventPath') < roleExecutionRun.indexOf("-ExpectedAction 'POST_REVIEW'") && assertRoleOutputSource.includes('--role-jsonl-file $JsonlFile') && (roleExecutionRun.match(/Assert-RoleOutput[^\n]+-JsonlFile \$/g) ?? []).length === 3 && assertRoleOutputSource.includes('$failure.bounded_metadata') && expectedRoleOutputFailureDiagnosticKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("$dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && assertRoleOutputSource.includes('$failure.failure_evidence') && reviewerEvidenceHeaderKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && assertRoleOutputSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && assertRoleOutputSource.includes('$header.selected_body_utf8_byte_count -gt 262144') && assertRoleOutputSource.includes('$header.body_chunk_count -gt 64') && assertRoleOutputSource.includes('$bytes.Length -ne 4096') && assertRoleOutputSource.includes('[Convert]::FromBase64String($chunk.body_base64)') && assertRoleOutputSource.includes('$sha256.ComputeHash($capturedBytes)') && assertRoleOutputSource.includes("$header.body_capture_status -ceq 'BOUND_EXCEEDED'") && assertRoleOutputSource.includes('$chunks.Count -ne 0') && assertRoleOutputSource.includes('-gt 9007199254740991') && assertRoleOutputSource.includes('-isnot [System.Array]') && assertRoleOutputSource.includes('$diagnosticLines = @()') && assertRoleOutputSource.includes('foreach ($diagnosticLine in $diagnosticLines)') && assertRoleOutputSource.split('[Console]::Error.WriteLine($diagnosticLine)').length === 2 && assertRoleOutputSource.includes("throw 'role_output_validation_failed'") && !assertRoleOutputSource.includes('Start-Sleep') && !assertRoleOutputSource.includes('retry') && !Object.hasOwn(workflow.concurrency, 'queue') && workflow.concurrency['cancel-in-progress'] === false && roleExecutionRun.includes("if ($expected -in @('POST_REVIEW', 'POST_MERGE_DECISION'))") && !roleExecutionRun.includes('Complete-ReviewerClosure'),
   boundedRoleSource.startsWith('function Invoke-BoundedRole {') && !boundedRoleSource.includes('$LASTEXITCODE = $null') && boundedRoleSource.indexOf('$priorToken = $env:GH_TOKEN') < boundedRoleSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(boundedRoleSource) && boundedRoleSource.indexOf('codex.cmd exec') < boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') && boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') < boundedRoleSource.indexOf('if ($null -eq $priorToken)') && terminalAgentSelectorSource.includes('$terminalMessage = [string]$event.item.text') && !terminalAgentSelectorSource.includes('$messages +=') && (process.platform !== 'win32' || (roleProviderNativeExitProbe.success === 0 && roleProviderNativeExitProbe.failure === 37 && roleProviderTerminalMessageProbe.multiple === roleImplementationResultBody && roleProviderTerminalMessageProbe.zeroRejected === true && malformedTerminalOutput.next_action === 'STOP' && trustedHostCredentialProbe.providerToken === 'ABSENT' && trustedHostCredentialProbe.restoredToken === 'trusted-host-token' && trustedHostCredentialProbe.validatedAction === 'POST_MERGE_DECISION' && trustedHostCredentialProbe.hostTokens.join('\n') === 'trusted-host-token\ntrusted-host-token')) && roleExecutionRun.indexOf('Invoke-BoundedRole -PromptFile $promptPath') < roleExecutionRun.indexOf('$validated = Assert-RoleOutput') && roleExecutionRun.indexOf('$validated = Assert-RoleOutput') < roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') < roleExecutionRun.indexOf('$canonicalComment = Publish-CanonicalComment -BodyFile $bodyPath') && roleExecutionRun.split('Assert-FreshRoleBinding').length >= 8 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'") && roleExecutionRun.includes("throw 'publication_continuation_task_binding_invalid'") && roleExecutionRun.includes("throw 'publication_continuation_route_failed'") && roleExecutionRun.includes("throw 'publication_continuation_binding_invalid'") && roleExecutionRun.includes("throw 'publication_reviewer_dispatch_not_ready'") && roleExecutionRun.indexOf("$reviewPlan = Get-Content -LiteralPath $reviewPlanPath") < roleExecutionRun.indexOf('$reviewTask = gh api') && roleExecutionRun.includes("$reviewTask.number -ne $dispatch.task_issue_number -or $reviewTask.state -cne 'open' -or $null -ne $reviewTask.pull_request") && roleExecutionRun.indexOf("throw 'publication_reviewer_task_binding_invalid'") < roleExecutionRun.indexOf('Invoke-BoundedRole -PromptFile $reviewPromptPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath') < roleExecutionRun.indexOf('$publicationTask = gh api') && roleExecutionRun.includes("$publicationTask.number -ne $dispatch.task_issue_number -or $publicationTask.state -cne 'open' -or $null -ne $publicationTask.pull_request") && roleExecutionRun.indexOf('$publicationTask = gh api') < roleExecutionRun.indexOf('$canonicalReviewComment = Publish-CanonicalComment -BodyFile $reviewBodyPath') && !roleExecutionRun.includes('Assert-FreshReviewerSnapshot') && !roleExecutionRun.includes('review_thread_snapshot'),
   postRepairReviewJob.steps.find((step) => step.name === 'Bind post-repair Independent Reviewer')?.run.includes('task_state = $state') && postRepairExecutionStep?.env?.GH_TOKEN === '${{ github.token }}' && postRepairExecutionRun.includes('--role-rebind-file') && !postRepairExecutionRun.includes('--review-publication-rebind-file') && !postRepairExecutionRun.includes('--review-closure-file') && postRepairExecutionRun.includes('if ($nativeExit -ne 0) { throw "post_repair_review_provider_failed_$nativeExit" }') && postRepairExecutionRun.includes("if ($messages.Count -ne 1) { throw 'post_repair_review_result_cardinality_invalid' }") && postRepairProviderThroughRebindSource.indexOf('$priorToken = $env:GH_TOKEN') < postRepairProviderThroughRebindSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(postRepairProviderThroughRebindSource) && postRepairProviderThroughRebindSource.indexOf('codex.cmd exec') < postRepairProviderThroughRebindSource.indexOf('$nativeExit = $LASTEXITCODE') && postRepairProviderThroughRebindSource.indexOf('$nativeExit = $LASTEXITCODE') < postRepairProviderThroughRebindSource.indexOf('if ($null -eq $priorToken)') && postRepairProviderThroughRebindSource.indexOf('if ($null -eq $priorToken)') < postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-output-file') && postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-output-file') < postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-rebind-file') && postRepairExecutionRun.indexOf('if ($nativeExit -ne 0)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairExecutionRun.indexOf('if ($messages.Count -ne 1)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && postRepairEvidenceValidatorSource.includes('$sha256.ComputeHash($capturedBytes)') && !postRepairEvidenceValidatorSource.includes('post_repair') && postRepairExecutionRun.includes("$failureDispatch.next_action -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.indexOf('[Console]::Error.WriteLine($diagnosticLine)') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.includes('$diagnosticLines = @()') && (process.platform !== 'win32' || (postRepairFailureEvidenceProbe.lineCount === reviewerFailureEvidence.chunks.length + 1 && postRepairFailureEvidenceProbe.headerRecordType === 'independent_reviewer_role_output_failure_evidence_v1' && postRepairFailureEvidenceProbe.chunkRecordTypesValid === true && postRepairFailureEvidenceProbe.invalidRejected === true && postRepairTrustedHostCredentialProbe.valid.providerToken === 'ABSENT' && postRepairTrustedHostCredentialProbe.valid.restoredToken === 'trusted-post-repair-host-token' && postRepairTrustedHostCredentialProbe.valid.outcome === 'COMPLETED' && postRepairTrustedHostCredentialProbe.valid.validatedAction === 'POST_REVIEW' && postRepairTrustedHostCredentialProbe.valid.reboundAction === 'PROTECTED_OPERATION_READY' && postRepairTrustedHostCredentialProbe.valid.hostCalls.length === 2 && postRepairTrustedHostCredentialProbe.valid.hostCalls.every((call) => call.startsWith('PRESENT:')) && postRepairTrustedHostCredentialProbe.valid.hostCalls[1].includes('--role-rebind-file') && postRepairTrustedHostCredentialProbe.invalid.providerToken === 'ABSENT' && postRepairTrustedHostCredentialProbe.invalid.restoredToken === 'trusted-post-repair-host-token' && postRepairTrustedHostCredentialProbe.invalid.outcome === 'post_repair_review_result_invalid' && postRepairTrustedHostCredentialProbe.invalid.validatedAction === null && postRepairTrustedHostCredentialProbe.invalid.reboundAction === null && postRepairTrustedHostCredentialProbe.invalid.hostCalls.length === 1 && postRepairTrustedHostCredentialProbe.invalid.hostCalls[0].startsWith('PRESENT:'))),
   runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id') && runnerSource.includes("const ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'") && ['GITHUB_REPOSITORY', 'GITHUB_REF', 'GITHUB_WORKFLOW_REF', 'GITHUB_WORKFLOW_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_JOB'].every((name) => runnerSource.includes(`process.env.${name}`)) && runnerSource.includes('RESOLVE_REVIEW_THREAD_MUTATION') && !runnerSource.includes('executeReviewerPublicationRebindV1') && runnerSource.includes('executeReviewThreadClosureV1') && !runnerSource.includes("mode: 'review_publication_rebind'") && runnerSource.includes("mode: 'review_closure'") && runnerSource.match(/parseIndependentReviewDecisionProjectionV1/g)?.length === 7,
@@ -9264,5 +9266,154 @@ check(
   'PPD-13 Bootstrap Publication remains the fresh mutable-worktree verifier and is not invoked by Product Owner decision ingress',
 )
 
-if (assertions !== 1016) throw new Error(`expected exactly 1016 assertions, observed ${assertions}`)
+const PRE_PR_BOOTSTRAP_DECISION_COMMENT_ID = 539_430_9285
+const PRE_PR_BOOTSTRAP_DECISION_URL = `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${PRE_PR_BOOTSTRAP_DECISION_COMMENT_ID}`
+const prePrBootstrapDecisionRecordV1 = (body = prePrPublicationDecisionBody) => Object.freeze({
+  id: PRE_PR_BOOTSTRAP_DECISION_COMMENT_ID,
+  issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${PRE_PR_TASK}`,
+  html_url: PRE_PR_BOOTSTRAP_DECISION_URL,
+  created_at: '2026-08-24T04:00:00Z',
+  author_association: 'OWNER',
+  user: Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
+  body,
+})
+const prePrBootstrapDecisionEventV1 = (body = prePrPublicationDecisionBody) => Object.freeze({
+  action: 'created',
+  repository: Object.freeze({ full_name: REPOSITORY }),
+  issue: Object.freeze({ number: PRE_PR_TASK, state: 'open' }),
+  comment: Object.freeze({ id: PRE_PR_BOOTSTRAP_DECISION_COMMENT_ID, author_association: 'OWNER', body }),
+})
+const prePrBootstrapDecisionHostV1 = ({
+  decisionBody = prePrPublicationDecisionBody,
+  authorityComment = executablePrePrAuthorityComment,
+  resultBody = prePrPublicationResultBody,
+} = {}) => {
+  const base = prePrPublicationHostV1({ authorityComment, body: resultBody })
+  const decision = prePrBootstrapDecisionRecordV1(decisionBody)
+  return Object.freeze({
+    ...base,
+    api: async (endpoint, options) => {
+      if (endpoint === `repos/${REPOSITORY}/issues/comments/${PRE_PR_BOOTSTRAP_DECISION_COMMENT_ID}`) {
+        base.metrics.api.push(endpoint)
+        return decision
+      }
+      return base.api(endpoint, options)
+    },
+  })
+}
+
+const prePrBootstrapIngressHost = prePrBootstrapDecisionHostV1()
+const prePrBootstrapIngress = await executeRoleTransitionOrchestratorV1({
+  event: prePrBootstrapDecisionEventV1(),
+  host: prePrBootstrapIngressHost,
+  runId: REVIEW_RUN_ID,
+})
+check(
+  prePrBootstrapIngress.next_action === 'BOOTSTRAP_PUBLICATION_OPERATOR' &&
+  prePrBootstrapIngress.terminal_result === 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION' &&
+  prePrBootstrapIngress.reason === 'pre_pr_bootstrap_publication_decision_admitted' &&
+  prePrBootstrapIngress.current_head === PRE_PR_BASELINE && prePrBootstrapIngress.mutation_count === 0,
+  'PBD-01 canonical BOOTSTRAP_PUBLICATION decision uses the dedicated natural issue-comment ingress',
+)
+const expectedPrePrBootstrapBindingKeys = [
+  'kind', 'comment_id', 'decision_url', 'body_sha256', 'decision', 'repository', 'task_issue_number',
+  'exact_baseline', 'branch', 'worktree', 'authorized_paths', 'result_handoff_comment_id',
+  'result_handoff_url', 'result_handoff_body_sha256', 'publication_allowed', 'operation_count',
+]
+const prePrBootstrapBinding = prePrBootstrapIngress.role_dispatch.source_binding
+check(
+  Object.keys(prePrBootstrapBinding).sort().join('\n') === expectedPrePrBootstrapBindingKeys.sort().join('\n') &&
+  prePrBootstrapBinding.kind === 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION' &&
+  prePrBootstrapBinding.comment_id === PRE_PR_BOOTSTRAP_DECISION_COMMENT_ID &&
+  prePrBootstrapBinding.body_sha256 === createHash('sha256').update(prePrPublicationDecisionBody).digest('hex') &&
+  prePrBootstrapBinding.result_handoff_comment_id === PRE_PR_RESULT_COMMENT_ID &&
+  prePrBootstrapBinding.result_handoff_body_sha256 === createHash('sha256').update(prePrPublicationResultBody).digest('hex'),
+  'PBD-02 exact closed source binding carries the canonical decision and referenced Result identities',
+)
+check(
+  prePrBootstrapIngressHost.metrics.api.includes(`repos/${REPOSITORY}/issues/comments/${PRE_PR_BOOTSTRAP_DECISION_COMMENT_ID}`) &&
+  prePrBootstrapIngressHost.metrics.api.includes(`repos/${REPOSITORY}/issues/comments/${PRE_PR_RESULT_COMMENT_ID}`) &&
+  prePrBootstrapIngressHost.metrics.api.includes(`repos/${REPOSITORY}/issues/comments/${FRESH_PRE_PR_COMMENT_ID}`) &&
+  prePrBootstrapIngressHost.metrics.worktree.length === 0,
+  'PBD-03 decision, Result, and original authority are directly rebound without duplicating operator preflight',
+)
+const stoppedPrePrBootstrapChains = await Promise.all([
+  prePrPublicationDecisionBody.replace(/result_handoff_body_sha256: [0-9a-f]{64}/, `result_handoff_body_sha256: ${'0'.repeat(64)}`),
+  prePrPublicationDecisionBody.replace(`branch: ${PRE_PR_BRANCH}`, 'branch: codex/stale-pre-pr-branch'),
+  prePrPublicationDecisionBody.replace(PRE_PR_CHANGED_PATHS[0], 'outside/bootstrap-path.txt'),
+].map((decisionBody) => executePrePrBootstrapPublicationDecisionIngressV1({
+  event: prePrBootstrapDecisionEventV1(decisionBody),
+  host: prePrBootstrapDecisionHostV1({ decisionBody }),
+})))
+check(stoppedPrePrBootstrapChains.every((result) => result.next_action === 'STOP'), 'PBD-04 malformed or stale decision, Result, authority, and scope chains fail closed')
+
+const prePrBootstrapPlanHost = prePrBootstrapDecisionHostV1()
+const prePrBootstrapPlan = await executeRoleDispatchConsumerV1({
+  dispatch: prePrBootstrapIngress.role_dispatch,
+  host: prePrBootstrapPlanHost,
+})
+const projectedBootstrapRequest = projectBootstrapPublicationRequestV1(prePrBootstrapIngress.role_dispatch)
+const expectedBootstrapRequestKeys = [
+  'record_type', 'version', 'repository', 'task_issue_number', 'authorized_paths', 'branch',
+  'reviewed_worktree_path', 'base_branch', 'expected_parent_head', 'publication_authority_comment_id',
+  'publication_authority_url', 'publication_authority_body_sha256', 'operation_count',
+]
+check(
+  prePrBootstrapPlan.next_action === 'EXECUTE_BOOTSTRAP_PUBLICATION' &&
+  prePrBootstrapPlan.reason === 'pre_pr_bootstrap_publication_decision_bound' &&
+  prePrBootstrapPlan.mutation_count === 0 && JSON.stringify(prePrBootstrapPlan.bootstrap_request) === JSON.stringify(projectedBootstrapRequest),
+  'PBD-05 existing consumer freshly rebinds the chain and returns one terminal bootstrap operator plan',
+)
+check(
+  Object.keys(projectedBootstrapRequest).sort().join('\n') === expectedBootstrapRequestKeys.sort().join('\n') &&
+  projectedBootstrapRequest.record_type === 'bootstrap_publication_request_v1' && projectedBootstrapRequest.version === 1 &&
+  projectedBootstrapRequest.base_branch === 'main' && projectedBootstrapRequest.expected_parent_head === PRE_PR_BASELINE &&
+  projectedBootstrapRequest.reviewed_worktree_path === PRE_PR_WORKTREE,
+  'PBD-06 bootstrap request projection is the exact closed 13-field contract',
+)
+check(
+  projectedBootstrapRequest.publication_authority_comment_id === PRE_PR_BOOTSTRAP_DECISION_COMMENT_ID &&
+  projectedBootstrapRequest.publication_authority_url === PRE_PR_BOOTSTRAP_DECISION_URL &&
+  projectedBootstrapRequest.publication_authority_body_sha256 === createHash('sha256').update(prePrPublicationDecisionBody).digest('hex'),
+  'PBD-07 canonical decision identity maps unchanged to publication_authority fields',
+)
+check(
+  prePrBootstrapPlanHost.metrics.worktree.length === 0 &&
+  prePrBootstrapPlanHost.metrics.api.filter((endpoint) => endpoint.includes('/issues/comments/')).length === 3,
+  'PBD-08 consumer only validates the immutable chain before the existing operator owns worktree mutation preflight',
+)
+
+const bootstrapConsumerBlockStart = roleExecutionRun.indexOf("if ($env:ROLE_OPERATION -ceq 'EXECUTE_BOOTSTRAP_PUBLICATION')")
+const bootstrapConsumerBlockEnd = roleExecutionRun.indexOf('function Invoke-BoundedRole', bootstrapConsumerBlockStart)
+const bootstrapConsumerBlock = roleExecutionRun.slice(bootstrapConsumerBlockStart, bootstrapConsumerBlockEnd)
+check(
+  Object.keys(workflow.jobs).length === 5 &&
+  workflow.jobs.protected_transition_role_dispatch_consumer_v1.if.includes('BOOTSTRAP_PUBLICATION_OPERATOR') &&
+  roleBindRun.includes("operation=EXECUTE_BOOTSTRAP_PUBLICATION") &&
+  roleExecutionStep.env.ROLE_OPERATION === '${{ steps.role_dispatch_plan.outputs.operation }}',
+  'PBD-09 original five-job topology routes the new action only through the existing role-dispatch consumer',
+)
+check(
+  bootstrapConsumerBlockStart >= 0 &&
+  (bootstrapConsumerBlock.match(/PTA_BOOTSTRAP_HOST_RUNNER --request-file/g) ?? []).length === 1 &&
+  bootstrapConsumerBlock.includes('Push-Location -LiteralPath ([string]$request.reviewed_worktree_path)') &&
+  bootstrapConsumerBlock.includes('exit 0') && !bootstrapConsumerBlock.includes('Invoke-BoundedRole'),
+  'PBD-10 existing Bootstrap Publication operator is invoked exactly once and its result is terminal',
+)
+check(
+  !bootstrapConsumerBlock.includes('git commit') && !bootstrapConsumerBlock.includes('git push') &&
+  !bootstrapConsumerBlock.includes('pulls') && !bootstrapConsumerBlock.includes('Task-state') &&
+  !bootstrapConsumerBlock.includes('POST_REVIEW') && !bootstrapConsumerBlock.includes('READY') &&
+  !bootstrapConsumerBlock.includes('MERGE'),
+  'PBD-11 workflow duplicates no commit, push, PR, Task-state, Review, Ready, or Merge behavior',
+)
+check(
+  bootstrapOperatorSource.includes("kind: 'LEGACY_TASK_ASSIGNMENT'") &&
+  bootstrapOperatorSource.includes("kind: 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION'") &&
+  bootstrapOperatorSource.includes('isPrePrBootstrapPublicationDecisionCandidateV1(comment?.body)') &&
+  !bootstrapOperatorSource.includes('POST /issues') && !bootstrapOperatorSource.includes('create publication authority'),
+  'PBD-12 legacy Task 359 owner remains an isolated branch and no second publication authority is created',
+)
+
+if (assertions !== 1028) throw new Error(`expected exactly 1028 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
