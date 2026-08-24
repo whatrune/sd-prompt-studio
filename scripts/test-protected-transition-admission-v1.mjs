@@ -8759,6 +8759,7 @@ const PRE_PR_PATHS = Object.freeze([
 const PRE_PR_CHANGED_PATHS = Object.freeze(['scripts/test-protected-transition-admission-v1.mjs'])
 const PRE_PR_VALIDATIONS = Object.freeze(['focused RTO/PTA', 'git diff --check', 'exact one-file changed-path check'])
 const EXECUTABLE_PRE_PR_VALIDATIONS = Object.freeze(['node scripts/test-role-execution-contracts.mjs', 'git diff --check', 'git diff --name-only --no-renames HEAD --'])
+const PRE_PR_POWERSHELL_VALIDATION = `powershell.exe -NoProfile -Command "$expected = @('docs/team/05-worktree-and-branch-rules.md'); $actual = @(git diff --name-only --no-renames 4e53b7583c400236001ea751b5e84168c0496992 -- | Sort-Object -Unique); if (Compare-Object $expected $actual) { throw 'changed_path_allowlist_mismatch' }"`
 const PRE_PR_AUTHORITY_URL = `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${PRE_PR_COMMENT_ID}`
 const prePrAuthorityBody = `\`\`\`yaml
 record_type: pre_pr_implementation_authority_v1
@@ -8915,6 +8916,27 @@ check(invalidPrePrAuthorityBodies.every((body) => {
     return true
   }
 }), 'PPI-02 missing, unknown, null, and duplicate authority fields fail closed')
+const plainQuotedArgumentAuthority = parsePrePrImplementationAuthorityV1({
+  body: prePrAuthorityBody.replace('  - focused RTO/PTA', `  - ${PRE_PR_POWERSHELL_VALIDATION}`),
+  repository: REPOSITORY,
+  taskIssueNumber: PRE_PR_TASK,
+  commentId: PRE_PR_COMMENT_ID,
+})
+check(plainQuotedArgumentAuthority.validation_commands[0] === PRE_PR_POWERSHELL_VALIDATION, 'PPI-02a plain scalar ending with a quoted PowerShell argument parses unchanged')
+const unmatchedWholeScalarQuotesRejected = ['"', "'"].every((quote) => {
+  try {
+    parsePrePrImplementationAuthorityV1({
+      body: prePrAuthorityBody.replace('purpose: Implement PRE_PR_IMPLEMENTER_INGRESS_V1 only.', `purpose: ${quote}unterminated`),
+      repository: REPOSITORY,
+      taskIssueNumber: PRE_PR_TASK,
+      commentId: PRE_PR_COMMENT_ID,
+    })
+    return false
+  } catch {
+    return true
+  }
+})
+check(unmatchedWholeScalarQuotesRejected, 'PPI-02b whole-scalar double and single quotes still require matching terminal quotes')
 
 const prePrAdmissionHost = prePrHost()
 const prePrAdmission = await executePrePrImplementationIngressV1({ event: prePrEvent, host: prePrAdmissionHost })
@@ -9058,5 +9080,5 @@ const prePrWorkflowBlock = roleExecutionRun.slice(roleExecutionRun.indexOf("if (
 check(roleExecutionRun.includes("$prePrImplementer = $dispatch.next_action -ceq 'IMPLEMENTER'") && roleExecutionRun.includes('-Workspace $roleWorkspace') && roleExecutionRun.includes("'RUN_PRE_PR_VALIDATION'") && roleExecutionRun.includes("elseif ($dispatch.next_action -ceq 'IMPLEMENTER') { 'VALIDATE_IMPLEMENTATION' }") && roleExecutionRun.includes('features.shell_tool=false') && prePrWorkflowBlock.includes('foreach ($command in $commands)') && prePrWorkflowBlock.includes('Push-Location -LiteralPath $roleWorkspace') && prePrWorkflowBlock.includes('& cmd.exe /d /s /c $command') && prePrWorkflowBlock.includes('--pre-pr-finalize-file $bodyPath') && prePrWorkflowBlock.includes('$null = Publish-CanonicalComment -BodyFile $finalBodyPath') && !prePrWorkflowBlock.includes('command_execution'), 'PPI-24 host validation is exact while post-PR IMPLEMENTER and Worker shell boundaries remain unchanged')
 check(Object.keys(workflow.jobs).length === 5 && prePrWorkflowBlock.includes('$outside') && prePrWorkflowBlock.includes('Compare-Object $changed $reported') && !prePrWorkflowBlock.includes('Compare-Object $changed $authorized') && !prePrWorkflowBlock.includes('git commit') && !prePrWorkflowBlock.includes('git push') && !prePrWorkflowBlock.includes('pulls') && !prePrWorkflowBlock.includes('bootstrap-publication') && prePrWorkflowBlock.includes('exit 0'), 'PPI-25 host-validated Result subset is terminal with no new job, commit, push, PR, or bootstrap chaining')
 
-if (assertions !== 1000) throw new Error(`expected exactly 1000 assertions, observed ${assertions}`)
+if (assertions !== 1002) throw new Error(`expected exactly 1002 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

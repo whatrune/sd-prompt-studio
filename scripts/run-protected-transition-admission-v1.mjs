@@ -3831,10 +3831,10 @@ const parseRoleUrlNumberV1 = (value, prefix, reason = 'terminal_result_ambiguous
 
 const roleMarkdownScalarV1 = (value) => {
   let trimmed = value.trim().replace(/^`|`$/g, '')
-  if (trimmed.startsWith('"') || trimmed.endsWith('"')) {
+  if (trimmed.startsWith('"')) {
     if (!/^"[^"\\\u0000-\u001f\u007f]*"$/.test(trimmed)) throw new Error('terminal_result_ambiguous_or_invalid')
     trimmed = trimmed.slice(1, -1)
-  } else if (trimmed.startsWith("'") || trimmed.endsWith("'")) {
+  } else if (trimmed.startsWith("'")) {
     if (!/^'[^'\u0000-\u001f\u007f]*'$/.test(trimmed)) throw new Error('terminal_result_ambiguous_or_invalid')
     trimmed = trimmed.slice(1, -1)
   }
