@@ -203,6 +203,35 @@ export const extractProtectedTransitionTaskStateV1 = (body) => {
   return parseProtectedTransitionTaskStateJsonV1(match[1])
 }
 
+export const verifyBootstrapPublicationTaskStateV1 = ({
+  pullBody,
+  operatorTaskState,
+  taskIssueNumber,
+  prNumber,
+  pushedHead,
+  authorizedPaths,
+}) => {
+  try {
+    const current = extractProtectedTransitionTaskStateV1(pullBody)
+    const expected = parseProtectedTransitionTaskStateV1(operatorTaskState)
+    if (
+      !positiveInteger(taskIssueNumber) || !positiveInteger(prNumber) || !FULL_HEAD.test(pushedHead ?? '') ||
+      !Array.isArray(authorizedPaths) || authorizedPaths.length === 0 ||
+      new Set(authorizedPaths).size !== authorizedPaths.length ||
+      authorizedPaths.some((value) => !isNormalizedRepositoryPathV1(value)) ||
+      JSON.stringify(authorizedPaths) !== JSON.stringify([...authorizedPaths].sort()) ||
+      JSON.stringify(current) !== JSON.stringify(expected) ||
+      current.task_issue_number !== taskIssueNumber || current.pr_number !== prNumber ||
+      current.observed_head !== pushedHead || JSON.stringify(current.authorized_paths) !== JSON.stringify(authorizedPaths) ||
+      current.architecture_status !== 'APPROVED' || current.implementation_authorized !== true ||
+      current.review_status !== 'PENDING' || current.reviewed_head !== null || current.review_blocker_count !== null
+    ) throw new Error('bootstrap_publication_task_state_changed')
+    return current
+  } catch {
+    throw new Error('bootstrap_publication_task_state_changed')
+  }
+}
+
 const parseReviewScalarV1 = (raw) => {
   const value = raw.trim()
   if (value.startsWith('"')) {
@@ -1389,6 +1418,7 @@ export const acquireTransitionStateSnapshotV1 = async (request, host) => {
       number: pull.number,
       state: pull.state,
       head: pull.head.sha,
+      draft: pull.draft === true,
     }),
     pull_body: pull.body,
     task_state: taskState,
@@ -1972,6 +2002,12 @@ export const evaluateProgressionControllerV1 = (currentResult, currentContext = 
       automation_status: 'WAITING',
       next_action: 'NONE',
     })
+  }
+  if (currentResult.next_action === 'LIFECYCLE_REPLAY') {
+    if (currentResult.state !== 'MERGE_ELIGIBLE' || currentResult.allowed !== true || currentContext?.pull_draft !== true) {
+      return progressionBlockedResultV1(currentResult, 'lifecycle_replay_not_eligible')
+    }
+    return Object.freeze({ ...currentResult, exit_code: 0 })
   }
   if (currentResult.next_action === 'MERGE_DECISION') {
     if (currentResult.state !== 'MERGE_ELIGIBLE' || currentResult.allowed !== true) {
@@ -2592,6 +2628,16 @@ const completeApprovedAutomationV1 = async ({ request, host, stateChanged, curre
       next_action: 'STOP',
     }) })
   }
+  if (currentContext?.pull_draft === true) {
+    return evaluateProgressionControllerV1(Object.freeze({
+      ...admitted,
+      state_changed: stateChanged,
+      automation_status: 'LIFECYCLE_REPLAY_READY',
+      admission_executed: true,
+      next_action: 'LIFECYCLE_REPLAY',
+      mutation_count: 0,
+    }), currentContext)
+  }
   return executeProgressionControllerV1({ currentContext, host, currentResult: Object.freeze({
     ...admitted,
     state_changed: stateChanged,
@@ -2653,6 +2699,7 @@ export const executeReviewApprovalAutomationV1 = async ({ event, host, runId }) 
       review_comment_id: effective.commentId,
       review_body: effective.body,
       effective_review_current: true,
+      pull_draft: initial.pull.draft,
     })
     const candidateInput = Object.freeze({ ...initial, task_state: candidateState })
     const preflight = evaluateProtectedTransitionAdmissionV1(candidateInput)
@@ -4157,8 +4204,27 @@ export const normalizeRoleTransitionEventV1 = (event) => {
       candidateSha,
     })
   }
+  if (markers[0] === 'PUBLISHED') {
+    const publication = parseRolePublicationHandoffV1(body)
+    return Object.freeze({
+      ...envelope,
+      terminalResult: markers[0],
+      prNumber: publication.prNumber,
+      exactHead: publication.exactHead,
+      parentHead: publication.parentHead,
+      paths: publication.paths,
+      publicationMode: publication.publicationMode,
+      ...(publication.publicationMode === 'BOOTSTRAP_CREATE_ONLY_EMPTY_LEASE_CAS'
+        ? {
+            bootstrapDecisionCommentId: publication.bootstrapDecisionCommentId,
+            prePrResultHandoffCommentId: publication.prePrResultHandoffCommentId,
+            prePrImplementationAuthorityCommentId: publication.prePrImplementationAuthorityCommentId,
+          }
+        : { authorityCommentId: publication.authorityCommentId }),
+    })
+  }
   const prNumber = Number(roleLineValueV1(body, ['target PR', 'PR']).replace(/^#/, ''))
-  const paths = rolePathSectionV1(body, ['Changed paths', 'Published scope'])
+  const paths = rolePathSectionV1(body, ['Changed paths'])
   if (!positiveInteger(prNumber)) throw new Error('terminal_result_ambiguous_or_invalid')
   if (markers[0] === 'IMPLEMENTATION_RESULT_READY') {
     if (!/(?:^|\r?\n)-?[ \t]*status:[ \t]+`?completed`?(?:\r?$)/mi.test(body) ||
@@ -4175,20 +4241,7 @@ export const normalizeRoleTransitionEventV1 = (event) => {
       authorityCommentId: roleCommentIdV1(body, ['Implementation Authorization']),
     })
   }
-  if (!/(?:^|\r?\n)-?[ \t]*status:[ \t]+`?completed`?(?:\r?$)/mi.test(body) ||
-    !/(?:^|\r?\n)-?[ \t]*execution_stop_reason:[ \t]+`?completed`?(?:\r?$)/mi.test(body) ||
-    !/normal non-force/i.test(body) || !/(?:local \/ remote|remote_matches)[^\r\n]*(?:PASS|true)/i.test(body)) {
-    throw new Error('terminal_result_ambiguous_or_invalid')
-  }
-  return Object.freeze({
-    ...envelope,
-    terminalResult: markers[0],
-    prNumber,
-    exactHead: roleLineValueV1(body, ['published HEAD']),
-    parentHead: roleLineValueV1(body, ['exact parent', 'parent']),
-    paths,
-    authorityCommentId: roleCommentIdV1(body, ['Publication Authority']),
-  })
+  throw new Error('terminal_result_ambiguous_or_invalid')
 }
 
 const roleStopV1 = (request, state, reason, currentHead = request?.exactHead ?? null) => Object.freeze({
@@ -4311,12 +4364,23 @@ const projectRoleSourceBindingV1 = (binding, sourceCommentId) => {
     binding.publication_allowed !== true || binding.operation_count !== 1
   )) throw new Error('role_dispatch_source_binding_invalid')
   if (binding.kind === 'REVIEW' && (!FULL_HEAD.test(binding.reviewed_head ?? '') || !['APPROVE', 'CHANGES_REQUIRED'].includes(binding.decision))) throw new Error('role_dispatch_source_binding_invalid')
-  if (['IMPLEMENTATION_AUTHORIZATION', 'IMPLEMENTATION_RESULT', 'PUBLICATION_HANDOFF'].includes(binding.kind) && (
-    !positiveInteger(binding.architecture_review_comment_id) || !/^[0-9a-f]{64}$/.test(binding.candidate_sha256 ?? '')
-  )) throw new Error('role_dispatch_source_binding_invalid')
-  if (['IMPLEMENTATION_RESULT', 'PUBLICATION_HANDOFF'].includes(binding.kind) && !positiveInteger(binding.authorization_comment_id)) throw new Error('role_dispatch_source_binding_invalid')
-  if (binding.kind === 'PUBLICATION_HANDOFF' && (
+  const bootstrapPublicationHandoff = binding.kind === 'PUBLICATION_HANDOFF' && binding.publication_mode === 'BOOTSTRAP_CREATE_ONLY_EMPTY_LEASE_CAS'
+  if (['IMPLEMENTATION_AUTHORIZATION', 'IMPLEMENTATION_RESULT'].includes(binding.kind) || (binding.kind === 'PUBLICATION_HANDOFF' && !bootstrapPublicationHandoff)) {
+    if (
+      !positiveInteger(binding.architecture_review_comment_id) || !/^[0-9a-f]{64}$/.test(binding.candidate_sha256 ?? '')
+    ) throw new Error('role_dispatch_source_binding_invalid')
+  }
+  if ((binding.kind === 'IMPLEMENTATION_RESULT' || (binding.kind === 'PUBLICATION_HANDOFF' && !bootstrapPublicationHandoff)) && !positiveInteger(binding.authorization_comment_id)) throw new Error('role_dispatch_source_binding_invalid')
+  if (binding.kind === 'PUBLICATION_HANDOFF' && !bootstrapPublicationHandoff && (
     !positiveInteger(binding.authority_comment_id) || !positiveInteger(binding.result_comment_id) || !FULL_HEAD.test(binding.parent_head ?? '')
+  )) throw new Error('role_dispatch_source_binding_invalid')
+  if (bootstrapPublicationHandoff && (
+    Object.keys(binding).sort().join('\n') !== [
+      'bootstrap_decision_comment_id', 'comment_id', 'kind', 'parent_head',
+      'pre_pr_implementation_authority_comment_id', 'pre_pr_result_handoff_comment_id', 'publication_mode',
+    ].sort().join('\n') ||
+    !positiveInteger(binding.bootstrap_decision_comment_id) || !positiveInteger(binding.pre_pr_result_handoff_comment_id) ||
+    !positiveInteger(binding.pre_pr_implementation_authority_comment_id) || !FULL_HEAD.test(binding.parent_head ?? '')
   )) throw new Error('role_dispatch_source_binding_invalid')
   if (binding.kind === 'MERGE_DECISION' && (!positiveInteger(binding.review_comment_id) || !WORKFLOW_RUN_ID.test(String(binding.admission_run_id ?? '')))) throw new Error('role_dispatch_source_binding_invalid')
   return Object.freeze({ ...binding })
@@ -5424,6 +5488,38 @@ export const acquirePrePrBootstrapPublicationDecisionV1 = async ({
   })
 }
 
+const verifyBootstrapPublicationHandoffOwnerV1 = async ({ publication, binding, dispatch, host }) => {
+  if (
+    publication.publicationMode !== 'BOOTSTRAP_CREATE_ONLY_EMPTY_LEASE_CAS' ||
+    publication.prNumber !== dispatch.pr_number || publication.exactHead !== dispatch.exact_head ||
+    publication.parentHead !== binding.parent_head ||
+    publication.bootstrapDecisionCommentId !== binding.bootstrap_decision_comment_id ||
+    publication.prePrResultHandoffCommentId !== binding.pre_pr_result_handoff_comment_id ||
+    publication.prePrImplementationAuthorityCommentId !== binding.pre_pr_implementation_authority_comment_id ||
+    !sameRolePathsV1(publication.paths, dispatch.authorized_paths)
+  ) throw new Error('role_dispatch_source_binding_changed')
+  const decisionRecord = await fetchRoleCommentRecordV1(
+    dispatch.repository,
+    dispatch.task_issue_number,
+    publication.bootstrapDecisionCommentId,
+    host,
+  )
+  const chain = await acquirePrePrBootstrapPublicationDecisionV1({
+    decisionComment: decisionRecord,
+    repository: dispatch.repository,
+    taskIssueNumber: dispatch.task_issue_number,
+    host,
+  })
+  if (
+    chain.decision_comment_id !== binding.bootstrap_decision_comment_id ||
+    chain.result_comment_id !== binding.pre_pr_result_handoff_comment_id ||
+    chain.authority.comment_id !== binding.pre_pr_implementation_authority_comment_id ||
+    chain.decision.exact_baseline !== binding.parent_head ||
+    !sameRolePathsV1(chain.decision.authorized_paths, dispatch.authorized_paths)
+  ) throw new Error('role_dispatch_source_binding_changed')
+  return chain
+}
+
 const verifyRoleDispatchSourceV1 = async (dispatch, host) => {
   const binding = projectRoleSourceBindingV1(dispatch.source_binding, dispatch.source_comment_id)
   if (binding.kind === 'REVIEW') {
@@ -5569,6 +5665,9 @@ const verifyRoleDispatchSourceV1 = async (dispatch, host) => {
   }
   if (binding.kind === 'PUBLICATION_HANDOFF') {
     const publication = parseRolePublicationHandoffV1(source.body)
+    if (publication.publicationMode === 'BOOTSTRAP_CREATE_ONLY_EMPTY_LEASE_CAS') {
+      return verifyBootstrapPublicationHandoffOwnerV1({ publication, binding, dispatch, host })
+    }
     if (
       publication.prNumber !== dispatch.pr_number || publication.exactHead !== dispatch.exact_head ||
       publication.parentHead !== binding.parent_head || publication.authorityCommentId !== binding.authority_comment_id ||
@@ -5771,7 +5870,7 @@ export const executeRoleDispatchConsumerV1 = async ({ dispatch, host }) => {
       !positiveInteger(dispatch.external_check_success_count) || dispatch.blocking_thread_count !== 0 ||
       taskState.review_status !== 'APPROVE' || taskState.reviewed_head !== request.exactHead || taskState.review_blocker_count !== 0
     )) throw new Error('role_dispatch_merge_decision_invalid')
-    await verifyRoleDispatchSourceV1(dispatch, host)
+    const sourceOwner = await verifyRoleDispatchSourceV1(dispatch, host)
     if (dispatch.source_binding.kind === 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION') {
       return Object.freeze({
         state: 'READY', allowed: false, exit_code: 0,
@@ -5779,6 +5878,11 @@ export const executeRoleDispatchConsumerV1 = async ({ dispatch, host }) => {
         automation_status: 'OPERATION_READY', next_action: 'EXECUTE_BOOTSTRAP_PUBLICATION', mutation_count: 0,
         exact_head: request.exactHead,
         bootstrap_request: projectBootstrapPublicationRequestV1(dispatch),
+        bootstrap_owner_binding: Object.freeze({
+          decision_comment_id: sourceOwner.decision_comment_id,
+          result_handoff_comment_id: sourceOwner.result_comment_id,
+          pre_pr_implementation_authority_comment_id: sourceOwner.authority.comment_id,
+        }),
       })
     }
     const converged = isPrePrRoleDispatchV1(dispatch)
@@ -6224,16 +6328,29 @@ const parseRoleResultHandoffV1 = (body) => Object.freeze({
 })
 
 const parseRolePublicationHandoffV1 = (body) => {
+  const normalPublication = /normal non-force/i.test(body)
+  const bootstrapPublication = /create-only empty-lease CAS/i.test(body)
   if (
     !/(?:^|\r?\n)-?[ \t]*status:[ \t]+`?completed`?(?:\r?$)/mi.test(body) ||
     !/(?:^|\r?\n)-?[ \t]*execution_stop_reason:[ \t]+`?completed`?(?:\r?$)/mi.test(body) ||
-    !/normal non-force/i.test(body) || !/(?:local \/ remote|remote_matches)[^\r\n]*(?:PASS|true)/i.test(body)
+    normalPublication === bootstrapPublication || !/(?:local \/ remote|remote_matches)[^\r\n]*(?:PASS|true)/i.test(body)
   ) throw new Error('terminal_result_ambiguous_or_invalid')
-  return Object.freeze({
-    prNumber: Number(roleLineValueV1(body, ['target PR', 'PR']).replace(/^#/, '')),
+  const common = {
+    prNumber: Number(roleLineValueV1(body, bootstrapPublication ? ['target PR'] : ['target PR', 'PR']).replace(/^#/, '')),
     exactHead: roleLineValueV1(body, ['published HEAD']),
     parentHead: roleLineValueV1(body, ['exact parent', 'parent']),
     paths: rolePathSectionV1(body, ['Published scope']),
+  }
+  if (bootstrapPublication) return Object.freeze({
+    ...common,
+    publicationMode: 'BOOTSTRAP_CREATE_ONLY_EMPTY_LEASE_CAS',
+    bootstrapDecisionCommentId: roleCommentIdV1(body, ['Bootstrap Publication Decision']),
+    prePrResultHandoffCommentId: roleCommentIdV1(body, ['Pre-PR Result Handoff']),
+    prePrImplementationAuthorityCommentId: roleCommentIdV1(body, ['Pre-PR Implementation Authority']),
+  })
+  return Object.freeze({
+    ...common,
+    publicationMode: 'NORMAL_NON_FORCE',
     authorityCommentId: roleCommentIdV1(body, ['Publication Authority']),
   })
 }
@@ -6595,6 +6712,16 @@ const validateLifecycleReplaySnapshotV1 = (input) => {
     !LIFECYCLE_BODY_SHA256_V1.test(scopeContract.result_handoff_body_sha256 ?? '') ||
     !LIFECYCLE_BODY_SHA256_V1.test(scopeContract.publication_chain_sha256 ?? '')
   )) throw new Error('lifecycle_scope_binding_invalid')
+  if (scopeContract?.kind === 'BOOTSTRAP_PUBLICATION_HANDOFF' && (
+    scopeContract.publication_mode !== 'BOOTSTRAP_CREATE_ONLY_EMPTY_LEASE_CAS' ||
+    !positiveInteger(scopeContract.publication_handoff_comment_id) ||
+    !positiveInteger(scopeContract.bootstrap_decision_comment_id) ||
+    !positiveInteger(scopeContract.pre_pr_result_handoff_comment_id) ||
+    !positiveInteger(scopeContract.pre_pr_implementation_authority_comment_id) ||
+    !FULL_HEAD.test(scopeContract.authorized_parent ?? '') || !FULL_HEAD.test(scopeContract.published_head ?? '') ||
+    scopeContract.published_head !== input.exact_head || scopeContract.pr_head !== input.current_head ||
+    !sameRolePathsV1(scopeContract.paths, authorizedPaths) || !sameRolePathsV1(authorizedPaths, changedPaths)
+  )) throw new Error('lifecycle_scope_binding_invalid')
 
   const evidenceStatus = input.evidence_status
   if (
@@ -6624,6 +6751,12 @@ const validateLifecycleReplaySnapshotV1 = (input) => {
       validation.exact_head !== scopeContract?.authorized_parent ||
       validation.publication_applicable_head !== input.exact_head ||
       validation.publication_chain_sha256 !== scopeContract?.publication_chain_sha256
+    )) throw new Error('lifecycle_validation_evidence_invalid')
+    if (validation.reuse_kind === 'BOOTSTRAP_PUBLICATION_HANDOFF' && (
+      scopeContract?.kind !== 'BOOTSTRAP_PUBLICATION_HANDOFF' ||
+      !FULL_HEAD.test(validation.publication_applicable_head ?? '') ||
+      validation.exact_head !== scopeContract.authorized_parent ||
+      validation.publication_applicable_head !== input.exact_head
     )) throw new Error('lifecycle_validation_evidence_invalid')
     validation = Object.freeze({ ...validation, paths: lifecycleSortedPathsV1(validation.paths), commands: Object.freeze([...validation.commands]), input_revisions: Object.freeze([...validation.input_revisions]) })
   }
@@ -6872,11 +7005,15 @@ export const reduceLifecycleReplayV1 = (input, completionEvidence = null) => {
   }
   const validationDirect = snapshot.validation !== null &&
     snapshot.validation.exact_head === snapshot.exact_head && snapshot.validation.current_base === snapshot.current_base
-  const validationReusedAcrossPublication = snapshot.validation !== null &&
-    snapshot.validation.reuse_kind === 'PUBLICATION_CHAIN' && snapshot.scope_contract?.kind === 'PUBLICATION_CHAIN' &&
-    snapshot.validation.exact_head === snapshot.scope_contract.authorized_parent &&
-    snapshot.validation.publication_applicable_head === snapshot.exact_head &&
-    snapshot.validation.publication_chain_sha256 === snapshot.scope_contract.publication_chain_sha256
+  const validationReusedAcrossPublication = snapshot.validation !== null && (
+    (snapshot.validation.reuse_kind === 'PUBLICATION_CHAIN' && snapshot.scope_contract?.kind === 'PUBLICATION_CHAIN' &&
+      snapshot.validation.exact_head === snapshot.scope_contract.authorized_parent &&
+      snapshot.validation.publication_applicable_head === snapshot.exact_head &&
+      snapshot.validation.publication_chain_sha256 === snapshot.scope_contract.publication_chain_sha256) ||
+    (snapshot.validation.reuse_kind === 'BOOTSTRAP_PUBLICATION_HANDOFF' && snapshot.scope_contract?.kind === 'BOOTSTRAP_PUBLICATION_HANDOFF' &&
+      snapshot.validation.exact_head === snapshot.scope_contract.authorized_parent &&
+      snapshot.validation.publication_applicable_head === snapshot.exact_head)
+  )
   const validationCurrent = (validationDirect || validationReusedAcrossPublication) &&
     sameRolePathsV1(snapshot.validation.paths, snapshot.changed_paths)
   if (!validationCurrent) return project('VALIDATION', 'REVIEW_PENDING', 'fresh_validation_required', 'VALIDATE_IMPLEMENTATION')
@@ -7484,7 +7621,131 @@ const acquireLifecycleAuthorityCandidateV1 = async ({ history, identity, changed
   }
 }
 
+const projectLifecycleBootstrapValidationV1 = ({ chain, publication, publishedHead, handoffCommentId, handoffBodySha256 }) => Object.freeze({
+  status: 'PASS',
+  exact_head: publication.parentHead,
+  publication_applicable_head: publishedHead,
+  reuse_kind: 'BOOTSTRAP_PUBLICATION_HANDOFF',
+  current_base: chain.decision.exact_baseline,
+  paths: publication.paths,
+  profile: 'pre-pr-host-validation',
+  commands: chain.validation_commands,
+  input_revisions: Object.freeze([
+    `issue-comment-${handoffCommentId}:${handoffBodySha256}`,
+    `issue-comment-${chain.decision_comment_id}:${chain.decision_body_sha256}`,
+    `issue-comment-${chain.result_comment_id}:${chain.result_body_sha256}`,
+  ]),
+})
+
+const acquireLifecycleBootstrapPublishedGenerationV1 = async ({ history, identity, changedPaths, pull, host }) => {
+  const bootstrapCandidates = []
+  let malformedApplicable = false
+  for (const comment of history.comments) {
+    if (!/## Publication Handoff/i.test(comment.body) ||
+      (!/Bootstrap Publication Operator V1/i.test(comment.body) && !/create-only empty-lease CAS/i.test(comment.body))) continue
+    try {
+      const publication = parseRolePublicationHandoffV1(comment.body)
+      if (publication.publicationMode !== 'BOOTSTRAP_CREATE_ONLY_EMPTY_LEASE_CAS') continue
+      if (publication.prNumber !== identity.prNumber || publication.exactHead !== identity.exactHead) continue
+      bootstrapCandidates.push(Object.freeze({ comment, publication }))
+    } catch {
+      if (comment.body.includes(`https://github.com/${identity.repository}/pull/${identity.prNumber}`) ||
+        comment.body.includes(`target PR: \`#${identity.prNumber}\``) || comment.body.includes(identity.exactHead)) {
+        malformedApplicable = true
+      }
+    }
+  }
+  if (bootstrapCandidates.length === 0 && !malformedApplicable) return null
+
+  let admittedScope = null
+  try {
+    if (malformedApplicable || bootstrapCandidates.length !== 1) throw new Error('lifecycle_bootstrap_publication_invalid')
+    const selected = bootstrapCandidates[0]
+    const fresh = await fetchRoleCommentRecordV1(identity.repository, identity.taskIssueNumber, selected.comment.id, host)
+    const publication = parseRolePublicationHandoffV1(fresh.body)
+    if (
+      fresh.body !== selected.comment.body || fresh.author_association !== selected.comment.author_association ||
+      fresh.user?.login !== selected.comment.user.login || fresh.user?.id !== selected.comment.user.id ||
+      fresh.user?.type !== selected.comment.user.type || !lifecycleSameValueV1(publication, selected.publication)
+    ) throw new Error('lifecycle_bootstrap_publication_invalid')
+
+    const binding = projectRoleSourceBindingV1(Object.freeze({
+      kind: 'PUBLICATION_HANDOFF',
+      comment_id: selected.comment.id,
+      publication_mode: publication.publicationMode,
+      bootstrap_decision_comment_id: publication.bootstrapDecisionCommentId,
+      pre_pr_result_handoff_comment_id: publication.prePrResultHandoffCommentId,
+      pre_pr_implementation_authority_comment_id: publication.prePrImplementationAuthorityCommentId,
+      parent_head: publication.parentHead,
+    }), selected.comment.id)
+    const dispatch = Object.freeze({
+      repository: identity.repository,
+      task_issue_number: identity.taskIssueNumber,
+      pr_number: identity.prNumber,
+      exact_head: identity.exactHead,
+      authorized_paths: publication.paths,
+    })
+    const chain = await verifyBootstrapPublicationHandoffOwnerV1({ publication, binding, dispatch, host })
+    const taskState = extractProtectedTransitionTaskStateV1(pull.body)
+    const commit = await api(host, `repos/${identity.repository}/commits/${identity.exactHead}`)
+    if (
+      publication.parentHead !== chain.decision.exact_baseline ||
+      !sameRolePathsV1(publication.paths, chain.decision.authorized_paths) ||
+      !sameRolePathsV1(publication.paths, changedPaths) ||
+      pull.head?.sha !== identity.exactHead || pull.head?.repo?.full_name !== identity.repository ||
+      typeof pull.head?.ref !== 'string' || pull.head.ref.length === 0 ||
+      taskState.task_issue_number !== identity.taskIssueNumber || taskState.pr_number !== identity.prNumber ||
+      taskState.observed_head !== identity.exactHead || !sameRolePathsV1(taskState.authorized_paths, publication.paths) ||
+      taskState.architecture_status !== 'APPROVED' || taskState.implementation_authorized !== true ||
+      commit?.sha !== identity.exactHead || !Array.isArray(commit.parents) || commit.parents.length !== 1 ||
+      commit.parents[0]?.sha !== publication.parentHead
+    ) throw new Error('lifecycle_bootstrap_publication_invalid')
+
+    const bodySha256 = createHash('sha256').update(Buffer.from(fresh.body, 'utf8')).digest('hex')
+    admittedScope = Object.freeze({
+      authorizedPaths: publication.paths,
+      scopeContract: Object.freeze({
+        kind: 'BOOTSTRAP_PUBLICATION_HANDOFF',
+        authority_id: String(selected.comment.id),
+        body_sha256: bodySha256,
+        publication_mode: publication.publicationMode,
+        publication_handoff_comment_id: selected.comment.id,
+        bootstrap_decision_comment_id: publication.bootstrapDecisionCommentId,
+        pre_pr_result_handoff_comment_id: publication.prePrResultHandoffCommentId,
+        pre_pr_implementation_authority_comment_id: publication.prePrImplementationAuthorityCommentId,
+        authorized_parent: publication.parentHead,
+        published_head: publication.exactHead,
+        pr_head: pull.head.sha,
+        paths: publication.paths,
+      }),
+    })
+    return Object.freeze({
+      status: 'PRESENT',
+      remoteBranch: pull.head.ref,
+      authorizedPaths: publication.paths,
+      scopeContract: admittedScope.scopeContract,
+      validation: projectLifecycleBootstrapValidationV1({
+        chain,
+        publication,
+        publishedHead: identity.exactHead,
+        handoffCommentId: selected.comment.id,
+        handoffBodySha256: bodySha256,
+      }),
+    })
+  } catch {
+    return Object.freeze({
+      status: 'INCOMPLETE',
+      remoteBranch: null,
+      authorizedPaths: admittedScope?.authorizedPaths ?? null,
+      scopeContract: admittedScope?.scopeContract ?? null,
+      validation: null,
+    })
+  }
+}
+
 export const acquireLifecyclePublishedGenerationV1 = async ({ history, identity, changedPaths, pull, host }) => {
+  const bootstrap = await acquireLifecycleBootstrapPublishedGenerationV1({ history, identity, changedPaths, pull, host })
+  if (bootstrap !== null) return bootstrap
   let admittedPublicationScope = null
   let publishedCommit
   try {
@@ -8238,6 +8499,64 @@ export const executeRoleTransitionOrchestratorV1 = async ({
       !FULL_HEAD.test(publishedCommit.parents[0].sha ?? '') || publishedCommit.parents[0].sha !== normalized.parentHead
     ) throw new Error('terminal_result_ambiguous_or_invalid')
     const priorState = extractProtectedTransitionTaskStateV1(pull.body)
+    if (normalized.publicationMode === 'BOOTSTRAP_CREATE_ONLY_EMPTY_LEASE_CAS') {
+      const decisionRecord = await fetchRoleCommentRecordV1(
+        normalized.repository,
+        normalized.taskIssueNumber,
+        normalized.bootstrapDecisionCommentId,
+        host,
+      )
+      const chain = await acquirePrePrBootstrapPublicationDecisionV1({
+        decisionComment: decisionRecord,
+        repository: normalized.repository,
+        taskIssueNumber: normalized.taskIssueNumber,
+        host,
+      })
+      const authorityValid =
+        normalized.bootstrapDecisionCommentId === chain.decision_comment_id &&
+        normalized.prePrResultHandoffCommentId === chain.result_comment_id &&
+        normalized.prePrImplementationAuthorityCommentId === chain.authority.comment_id &&
+        chain.decision.exact_baseline === normalized.parentHead &&
+        sameRolePathsV1(chain.decision.authorized_paths, normalized.paths)
+      const initialStateMatches =
+        priorState.observed_head === normalized.exactHead &&
+        sameRolePathsV1(priorState.authorized_paths, normalized.paths) &&
+        priorState.review_status === 'PENDING' && priorState.reviewed_head === null &&
+        priorState.review_blocker_count === null
+      const pullMatches = pull.state === 'open' && pull.draft === true && pull.merged === false && pull.base?.ref === 'main'
+      if (
+        priorState.architecture_status !== 'APPROVED' || priorState.implementation_authorized !== true ||
+        !authorityValid || !initialStateMatches || !pullMatches
+      ) return roleStopV1(request, 'IMPLEMENTATION_BLOCKED', 'terminal_result_ambiguous_or_invalid')
+      const routed = evaluateRoleTransitionOrchestratorV1({
+        terminalResult: normalized.terminalResult,
+        request,
+        taskState: priorState,
+        paths: normalized.paths,
+        authorityValid,
+        rebindVerified: true,
+        stateChanged: false,
+      })
+      if (routed.next_action !== 'INDEPENDENT_IMPLEMENTATION_REVIEWER') {
+        return Object.freeze({ ...routed, source_comment_id: normalized.commentId })
+      }
+      return Object.freeze({ ...routed, source_comment_id: normalized.commentId, role_dispatch: projectRoleDispatchEnvelopeV1({
+        result: routed,
+        repository: normalized.repository,
+        sourceCommentId: normalized.commentId,
+        authorizedPaths: priorState.authorized_paths,
+        taskState: priorState,
+        sourceBinding: Object.freeze({
+          kind: 'PUBLICATION_HANDOFF',
+          comment_id: normalized.commentId,
+          publication_mode: normalized.publicationMode,
+          bootstrap_decision_comment_id: normalized.bootstrapDecisionCommentId,
+          pre_pr_result_handoff_comment_id: normalized.prePrResultHandoffCommentId,
+          pre_pr_implementation_authority_comment_id: normalized.prePrImplementationAuthorityCommentId,
+          parent_head: normalized.parentHead,
+        }),
+      }) })
+    }
     const authorityBody = await fetchReferencedCommentV1(normalized.authorityCommentId)
     const authority = parseRolePublicationAuthorityV1(authorityBody, normalized.repository, normalized.taskIssueNumber)
     const resultBody = await fetchReferencedCommentV1(authority.resultCommentId)
@@ -8670,6 +8989,7 @@ export const executeReviewEventWithLifecycleReplayV1 = async ({
     event, sourceResult: result, host,
     executionIdentity: Object.freeze({ repository: event?.repository?.full_name, runId, runAttempt, workflowSha: hostSha, jobName }),
   })
+  if (result?.next_action === 'LIFECYCLE_REPLAY') return lifecycleProjection
   return withLifecycleDiagnosticProjectionV1(result, lifecycleProjection)
 }
 
