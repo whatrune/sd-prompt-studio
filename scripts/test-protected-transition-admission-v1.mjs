@@ -36,6 +36,7 @@ import {
   executeReviewApprovalAutomationV1 as executeReviewApprovalAutomationProductionV1,
   executeRoleTransitionOrchestratorV1,
   executeProtectedTransitionAdmissionV1,
+  executePrePrImplementationIngressV1,
   executeRepairProviderBindingV3,
   extractProtectedTransitionTaskStateV1,
   isRepairProfilePathV1,
@@ -43,6 +44,9 @@ import {
   parseProductOwnerMergeDecisionV1,
   parseIndependentReviewDecisionProjectionV1,
   parseMinimalGovernanceAuthorityV1,
+  parsePrePrImplementationAuthorityV1,
+  parsePrePrImplementationResultHandoffV1,
+  finalizePrePrImplementationResultHandoffV1,
   parseLifecyclePublicationTaskBindingV1,
   parseReviewApprovalEventV1,
   projectIndependentReviewerFailureEvidenceV1,
@@ -8742,5 +8746,317 @@ const workflowBoundaryMatrix = [
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 
-if (assertions !== 969) throw new Error(`expected exactly 969 assertions, observed ${assertions}`)
+const PRE_PR_TASK = 361
+const PRE_PR_COMMENT_ID = 5389393284
+const PRE_PR_BASELINE = '65df1dd8e07b21389c321033035b579dae974df8'
+const PRE_PR_BRANCH = 'codex/steady-state-initial-publication-runbook-alignment'
+const PRE_PR_WORKTREE = 'C:/Users/defma/Documents/sd-prompt-studio/.worktrees/steady-state-initial-publication-runbook-alignment'
+const PRE_PR_PATHS = Object.freeze([
+  '.github/workflows/protected-transition-admission-v1.yml',
+  'scripts/run-protected-transition-admission-v1.mjs',
+  'scripts/test-protected-transition-admission-v1.mjs',
+])
+const PRE_PR_CHANGED_PATHS = Object.freeze(['scripts/test-protected-transition-admission-v1.mjs'])
+const PRE_PR_VALIDATIONS = Object.freeze(['focused RTO/PTA', 'git diff --check', 'exact one-file changed-path check'])
+const EXECUTABLE_PRE_PR_VALIDATIONS = Object.freeze(['node scripts/test-role-execution-contracts.mjs', 'git diff --check', 'git diff --name-only --no-renames HEAD --'])
+const PRE_PR_AUTHORITY_URL = `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${PRE_PR_COMMENT_ID}`
+const prePrAuthorityBody = `\`\`\`yaml
+record_type: pre_pr_implementation_authority_v1
+version: 1
+authoring_role: Product Owner
+authority_source: https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}
+canonical_record: ${PRE_PR_AUTHORITY_URL}
+repository: ${REPOSITORY}
+task_issue: https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}
+exact_baseline: ${PRE_PR_BASELINE}
+branch: ${PRE_PR_BRANCH}
+worktree: ${PRE_PR_WORKTREE}
+assigned_implementer: Worker
+assigned_independent_reviewer: Backend Architect
+implementation_kind: CODE
+purpose: Implement PRE_PR_IMPLEMENTER_INGRESS_V1 only.
+operation_count: 1
+implementation_allowed: true
+publication_allowed: false
+authority_lifetime: PRE_PR_IMPLEMENTATION_ONLY
+status: authorized_for_pre_pr_implementation_only
+authorized_paths:
+${PRE_PR_PATHS.map((value) => `  - ${value}`).join('\n')}
+validation_commands:
+${PRE_PR_VALIDATIONS.map((value) => `  - ${value}`).join('\n')}
+\`\`\``
+const FRESH_PRE_PR_COMMENT_ID = PRE_PR_COMMENT_ID + 1
+const FRESH_PRE_PR_AUTHORITY_URL = `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${FRESH_PRE_PR_COMMENT_ID}`
+const executablePrePrAuthorityBody = prePrAuthorityBody
+  .replace(PRE_PR_AUTHORITY_URL, FRESH_PRE_PR_AUTHORITY_URL)
+  .replace(PRE_PR_VALIDATIONS.map((value) => `  - ${value}`).join('\n'), EXECUTABLE_PRE_PR_VALIDATIONS.map((value) => `  - ${value}`).join('\n'))
+const prePrTask = Object.freeze({
+  number: PRE_PR_TASK,
+  repository_url: `https://api.github.com/repos/${REPOSITORY}`,
+  html_url: `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}`,
+  state: 'open',
+  title: 'Task: PRE_PR_IMPLEMENTER_INGRESS_V1',
+  body: 'Approved PRE_PR_IMPLEMENTER_INGRESS_V1 architecture.',
+})
+const prePrAuthorityComment = Object.freeze({
+  id: PRE_PR_COMMENT_ID,
+  issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${PRE_PR_TASK}`,
+  html_url: PRE_PR_AUTHORITY_URL,
+  created_at: '2026-08-24T00:31:37Z',
+  author_association: 'OWNER',
+  user: Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
+  body: prePrAuthorityBody,
+})
+const prePrEvent = Object.freeze({
+  action: 'created',
+  repository: Object.freeze({ full_name: REPOSITORY }),
+  issue: Object.freeze({ number: PRE_PR_TASK, state: 'open' }),
+  comment: Object.freeze({ id: PRE_PR_COMMENT_ID, author_association: 'OWNER', body: prePrAuthorityBody }),
+})
+const executablePrePrAuthorityComment = Object.freeze({
+  ...prePrAuthorityComment,
+  id: FRESH_PRE_PR_COMMENT_ID,
+  html_url: FRESH_PRE_PR_AUTHORITY_URL,
+  body: executablePrePrAuthorityBody,
+})
+const executablePrePrEvent = Object.freeze({
+  ...prePrEvent,
+  comment: Object.freeze({ id: FRESH_PRE_PR_COMMENT_ID, author_association: 'OWNER', body: executablePrePrAuthorityBody }),
+})
+const prePrResultBody = `\`\`\`yaml
+record_type: pre_pr_implementation_result_handoff_v1
+version: 1
+authoring_role: Worker
+role: IMPLEMENTER
+authority_source: ${PRE_PR_AUTHORITY_URL}
+repository: ${REPOSITORY}
+task_issue: https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}
+exact_baseline: ${PRE_PR_BASELINE}
+branch: ${PRE_PR_BRANCH}
+worktree: ${PRE_PR_WORKTREE}
+status: COMPLETE
+execution_stop_reason: completed
+blocking_finding_count: 0
+remaining_finding_count: 0
+unknown_count: 0
+changed_paths:
+${PRE_PR_CHANGED_PATHS.map((value) => `  - ${value}`).join('\n')}
+validation_results: []
+unperformed_items:
+  - host_validation_pending
+\`\`\``
+const executablePrePrResultBody = prePrResultBody.replace(PRE_PR_AUTHORITY_URL, FRESH_PRE_PR_AUTHORITY_URL)
+const prePrHost = ({
+  authorityComment = prePrAuthorityComment,
+  worktreeChanged = [],
+  worktreeStaged = [],
+  evidence = [],
+  resultCommentId = 5389500000,
+  originRepository = REPOSITORY,
+  remoteMainHead = PRE_PR_BASELINE,
+} = {}) => {
+  const metrics = { api: [], worktree: [] }
+  const resultRecord = Object.freeze({
+    id: resultCommentId,
+    issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${PRE_PR_TASK}`,
+    html_url: `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${resultCommentId}`,
+    created_at: '2026-08-24T01:00:00Z',
+    author_association: 'OWNER',
+    user: Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
+    body: prePrResultBody,
+  })
+  return Object.freeze({
+    metrics,
+    api: async (endpoint) => {
+      metrics.api.push(endpoint)
+      if (endpoint === `repos/${REPOSITORY}/issues/${PRE_PR_TASK}`) return prePrTask
+      if (endpoint === `repos/${REPOSITORY}/issues/comments/${authorityComment.id}`) return authorityComment
+      if (endpoint === `repos/${REPOSITORY}/issues/comments/${resultCommentId}`) return resultRecord
+      if (endpoint === `repos/${REPOSITORY}/issues/${PRE_PR_TASK}/comments?per_page=100&page=1`) return evidence.length === 0 ? [] : [resultRecord]
+      throw new Error(`unexpected_pre_pr_endpoint:${endpoint}`)
+    },
+    worktreeState: async (worktree) => {
+      metrics.worktree.push(worktree)
+      return Object.freeze({
+        head: PRE_PR_BASELINE,
+        branch: PRE_PR_BRANCH,
+        origin_repository: originRepository,
+        remote_main_head: remoteMainHead,
+        changed_paths: Object.freeze([...worktreeChanged]),
+        staged_paths: Object.freeze([...worktreeStaged]),
+      })
+    },
+  })
+}
+
+const parsedPrePrAuthority = parsePrePrImplementationAuthorityV1({
+  body: prePrAuthorityBody,
+  repository: REPOSITORY,
+  taskIssueNumber: PRE_PR_TASK,
+  commentId: PRE_PR_COMMENT_ID,
+})
+check(
+  parsedPrePrAuthority.exact_baseline === PRE_PR_BASELINE && parsedPrePrAuthority.branch === PRE_PR_BRANCH &&
+  parsedPrePrAuthority.worktree === PRE_PR_WORKTREE && JSON.stringify(parsedPrePrAuthority.authorized_paths) === JSON.stringify(PRE_PR_PATHS) &&
+  JSON.stringify(parsedPrePrAuthority.validation_commands) === JSON.stringify(PRE_PR_VALIDATIONS),
+  'PPI-01 exact 21-field authority is admitted without Task 361 hardcoding',
+)
+const invalidPrePrAuthorityBodies = [
+  prePrAuthorityBody.replace('purpose: Implement PRE_PR_IMPLEMENTER_INGRESS_V1 only.\n', ''),
+  prePrAuthorityBody.replace('operation_count: 1', 'operation_count: 1\nunexpected: true'),
+  prePrAuthorityBody.replace('purpose: Implement PRE_PR_IMPLEMENTER_INGRESS_V1 only.', 'purpose: null'),
+  prePrAuthorityBody.replace('version: 1', 'version: 1\nversion: 1'),
+]
+check(invalidPrePrAuthorityBodies.every((body) => {
+  try {
+    parsePrePrImplementationAuthorityV1({ body, repository: REPOSITORY, taskIssueNumber: PRE_PR_TASK, commentId: PRE_PR_COMMENT_ID })
+    return false
+  } catch {
+    return true
+  }
+}), 'PPI-02 missing, unknown, null, and duplicate authority fields fail closed')
+
+const prePrAdmissionHost = prePrHost()
+const prePrAdmission = await executePrePrImplementationIngressV1({ event: prePrEvent, host: prePrAdmissionHost })
+check(prePrAdmission.next_action === 'IMPLEMENTER' && prePrAdmission.reason === 'pre_pr_implementation_authority_admitted' && prePrAdmission.pr_number === null && prePrAdmission.current_head === PRE_PR_BASELINE && prePrAdmission.mutation_count === 0, 'PPI-03 canonical authority projects IMPLEMENTER')
+check(prePrAdmissionHost.metrics.api.every((endpoint) => !endpoint.includes('/pulls/')), 'PPI-04 admission performs no PR or Task-state acquisition')
+check(Object.keys(prePrAdmission.role_dispatch.source_binding).sort().join('\n') === ['authority_url', 'body_sha256', 'branch', 'comment_id', 'exact_baseline', 'kind', 'validation_commands', 'worktree'].sort().join('\n') && prePrAdmission.role_dispatch.source_binding.kind === 'PRE_PR_IMPLEMENTATION_AUTHORITY' && prePrAdmission.role_dispatch.source_binding.body_sha256 === createHash('sha256').update(prePrAuthorityBody).digest('hex'), 'PPI-05 source binding carries the admitted authority identity and digest')
+check(prePrAdmission.role_dispatch.next_action === 'IMPLEMENTER' && prePrAdmission.role_dispatch.pr_number === null && prePrAdmission.role_dispatch.task_state === null && JSON.stringify(prePrAdmission.role_dispatch.authorized_paths) === JSON.stringify(PRE_PR_PATHS), 'PPI-06 existing IMPLEMENTER envelope has the pre-PR null PR and Task-state boundary')
+const executablePrePrAdmission = await executePrePrImplementationIngressV1({
+  event: executablePrePrEvent,
+  host: prePrHost({ authorityComment: executablePrePrAuthorityComment }),
+})
+check(executablePrePrAdmission.next_action === 'IMPLEMENTER' && JSON.stringify(executablePrePrAdmission.role_dispatch.source_binding.validation_commands) === JSON.stringify(EXECUTABLE_PRE_PR_VALIDATIONS), 'PPI-06a a fresh structurally valid authority can bind exact executable command strings')
+
+const prePrConsumerHost = prePrHost()
+const prePrPlan = await executeRoleDispatchConsumerV1({ dispatch: prePrAdmission.role_dispatch, host: prePrConsumerHost })
+check(prePrPlan.next_action === 'EXECUTE_ROLE' && prePrPlan.role === 'IMPLEMENTER' && prePrPlan.read_only === false && prePrPlan.exact_head === PRE_PR_BASELINE, 'PPI-07 existing consumer starts the Worker once')
+check(prePrConsumerHost.metrics.worktree.join('\n') === PRE_PR_WORKTREE && prePrConsumerHost.metrics.api.every((endpoint) => !endpoint.includes('/pulls/')), 'PPI-08 consumer binds the authority worktree without PR acquisition')
+check(prePrPlan.prompt.includes(`Authority-bound worktree: ${PRE_PR_WORKTREE}`) && prePrPlan.prompt.includes(`Exact validations: ${PRE_PR_VALIDATIONS.join(', ')}`) && prePrPlan.prompt.includes('exact 18 fields') && prePrPlan.prompt.includes('Do not execute validation commands or claim validation PASS') && prePrPlan.prompt.includes('validation_results as []') && prePrPlan.prompt.includes('host_validation_pending') && prePrPlan.prompt.includes('Do not fetch GitHub context') && prePrPlan.prompt.includes('bootstrap publication'), 'PPI-09 Worker prompt faithfully carries canonical authority values while leaving execution to the host')
+
+const prePrValidationEvidenceV1 = ({
+  commands = EXECUTABLE_PRE_PR_VALIDATIONS,
+  cwd = PRE_PR_WORKTREE,
+  failedIndex = -1,
+} = {}) => Object.freeze({
+  executions: Object.freeze(commands.map((command, index) => Object.freeze({
+    command,
+    cwd,
+    exit_code: index === failedIndex ? 1 : 0,
+    output_sha256: createHash('sha256').update(`host-output:${index}`).digest('hex'),
+  }))),
+})
+const prePrValidationEvidence = prePrValidationEvidenceV1()
+const prePrInvocationDirectory = mkdtempSync(path.join(tmpdir(), 'pta-pre-pr-output-'))
+const prePrInvocationDispatchPath = path.join(prePrInvocationDirectory, 'dispatch.json')
+const prePrInvocationBodyPath = path.join(prePrInvocationDirectory, 'body.md')
+const prePrInvocationJsonlPath = path.join(prePrInvocationDirectory, 'provider.jsonl')
+writeFileSync(prePrInvocationDispatchPath, JSON.stringify(prePrAdmission.role_dispatch))
+writeFileSync(prePrInvocationBodyPath, prePrResultBody)
+writeFileSync(prePrInvocationJsonlPath, `${JSON.stringify({ type: 'item.completed', item: { type: 'command_execution', command: PRE_PR_VALIDATIONS[0], exit_code: 0 } })}\n`)
+const prePrInvocationResult = evaluateRoleOutputInvocationV1(Object.freeze({
+  dispatchFile: prePrInvocationDispatchPath,
+  outputFile: prePrInvocationBodyPath,
+  jsonlFile: prePrInvocationJsonlPath,
+  runId: null,
+  runAttempt: null,
+}))
+rmSync(prePrInvocationDirectory, { recursive: true, force: true })
+check(prePrInvocationResult.next_action === 'RUN_PRE_PR_VALIDATION' && JSON.stringify(prePrInvocationResult.changed_paths) === JSON.stringify(PRE_PR_CHANGED_PATHS), 'PPI-10a Worker output reaches host validation without trusting provider command_execution events')
+const validPrePrOutput = evaluateRoleDispatchOutputV1({ dispatch: prePrAdmission.role_dispatch, body: prePrResultBody })
+check(validPrePrOutput.next_action === 'RUN_PRE_PR_VALIDATION' && validPrePrOutput.reason === 'pre_pr_implementation_result_pending_validation' && validPrePrOutput.mutation_count === 0 && JSON.stringify(validPrePrOutput.changed_paths) === JSON.stringify(PRE_PR_CHANGED_PATHS), 'PPI-10 exact 18-field Worker Result is admitted only for host validation')
+const parsedWorkerPrePrResult = parsePrePrImplementationResultHandoffV1({ body: prePrResultBody, dispatch: prePrAdmission.role_dispatch, stage: 'worker' })
+check(parsedWorkerPrePrResult.authority_source === PRE_PR_AUTHORITY_URL && JSON.stringify(parsedWorkerPrePrResult.changed_paths) === JSON.stringify(PRE_PR_CHANGED_PATHS) && parsedWorkerPrePrResult.validation_results.length === 0 && parsedWorkerPrePrResult.unperformed_items.join('\n') === 'host_validation_pending', 'PPI-11 Worker Result binds authority and changed paths without claiming validation')
+const finalizedPrePrResult = finalizePrePrImplementationResultHandoffV1({
+  dispatch: executablePrePrAdmission.role_dispatch,
+  workerBody: executablePrePrResultBody,
+  validationEvidence: prePrValidationEvidence,
+})
+const parsedFinalPrePrResult = parsePrePrImplementationResultHandoffV1({
+  body: finalizedPrePrResult.comment_body,
+  dispatch: executablePrePrAdmission.role_dispatch,
+  stage: 'final',
+  validationEvidence: prePrValidationEvidence,
+})
+check(finalizedPrePrResult.next_action === 'POST_PRE_PR_IMPLEMENTATION_RESULT' && parsedFinalPrePrResult.validation_results.length === EXECUTABLE_PRE_PR_VALIDATIONS.length && parsedFinalPrePrResult.unperformed_items.length === 0 && parsedFinalPrePrResult.validation_results.every((value, index) => value.includes(Buffer.from(EXECUTABLE_PRE_PR_VALIDATIONS[index]).toString('base64'))), 'PPI-11a fresh executable authority host executions alone produce the final ordered validation_results')
+const invalidPrePrOutputs = [
+  prePrResultBody.replace('role: IMPLEMENTER\n', ''),
+  prePrResultBody.replace('status: COMPLETE', 'status: COMPLETE\nunexpected: true'),
+  prePrResultBody.replace('unknown_count: 0', 'unknown_count: null'),
+  prePrResultBody.replace('execution_stop_reason: completed', 'execution_stop_reason: STOP'),
+  prePrResultBody.replace('role: IMPLEMENTER', 'role: IMPLEMENTER\nassigned_implementer: Worker'),
+  prePrResultBody.replace('role: IMPLEMENTER', 'role: IMPLEMENTER\noperation_count: 1'),
+  prePrResultBody.replace('status: COMPLETE', 'status: completed'),
+]
+check(invalidPrePrOutputs.every((body) => evaluateRoleDispatchOutputV1({ dispatch: prePrAdmission.role_dispatch, body }).next_action === 'STOP'), 'PPI-12 missing, unknown, null, invalid, and superseded Result fields fail closed')
+check(prePrValidationEvidence.executions.map((item) => item.command).join('\n') === EXECUTABLE_PRE_PR_VALIDATIONS.join('\n') && prePrValidationEvidence.executions.every((item) => item.cwd === PRE_PR_WORKTREE && item.exit_code === 0), 'PPI-13 host validation evidence binds exact command order, one execution each, and exact authority cwd')
+const invalidHostValidationEvidence = [
+  prePrValidationEvidenceV1({ commands: EXECUTABLE_PRE_PR_VALIDATIONS.slice(0, -1) }),
+  prePrValidationEvidenceV1({ commands: [...EXECUTABLE_PRE_PR_VALIDATIONS, EXECUTABLE_PRE_PR_VALIDATIONS[0]] }),
+  prePrValidationEvidenceV1({ commands: [EXECUTABLE_PRE_PR_VALIDATIONS[1], EXECUTABLE_PRE_PR_VALIDATIONS[0], EXECUTABLE_PRE_PR_VALIDATIONS[2]] }),
+  prePrValidationEvidenceV1({ cwd: `${PRE_PR_WORKTREE}/other` }),
+  prePrValidationEvidenceV1({ failedIndex: 1 }),
+]
+const invalidHostEvidenceRejected = invalidHostValidationEvidence.every((validationEvidence) => {
+  try {
+    finalizePrePrImplementationResultHandoffV1({ dispatch: executablePrePrAdmission.role_dispatch, workerBody: executablePrePrResultBody, validationEvidence })
+    return false
+  } catch {
+    return true
+  }
+})
+check(invalidHostEvidenceRejected, 'PPI-14 missing, extra, duplicate, reordered, wrong-cwd, or failed host execution fails closed')
+const syntheticWorkerPassBody = prePrResultBody.replace('validation_results: []', `validation_results:\n${PRE_PR_VALIDATIONS.map((value) => `  - "${value}: PASS"`).join('\n')}`).replace('unperformed_items:\n  - host_validation_pending', 'unperformed_items: []')
+check(evaluateRoleDispatchOutputV1({ dispatch: prePrAdmission.role_dispatch, body: syntheticWorkerPassBody }).next_action === 'STOP', 'PPI-15 synthetic Worker PASS evidence is not authoritative')
+let canonicalLabelExecutionFailed = process.platform !== 'win32'
+if (process.platform === 'win32') {
+  try {
+    execFileSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', PRE_PR_VALIDATIONS[0]], { cwd: PRE_PR_WORKTREE, stdio: 'pipe' })
+  } catch {
+    canonicalLabelExecutionFailed = true
+  }
+}
+check(canonicalLabelExecutionFailed && JSON.stringify(parsedPrePrAuthority.validation_commands) === JSON.stringify(['focused RTO/PTA', 'git diff --check', 'exact one-file changed-path check']), 'PPI-15a canonical authority labels are preserved structurally and fail naturally at host execution')
+const canonicalLabelResultRejected = (() => {
+  try {
+    finalizePrePrImplementationResultHandoffV1({
+      dispatch: prePrAdmission.role_dispatch,
+      workerBody: prePrResultBody,
+      validationEvidence: prePrValidationEvidenceV1({ commands: PRE_PR_VALIDATIONS, failedIndex: 0 }),
+    })
+    return false
+  } catch {
+    return true
+  }
+})()
+check(canonicalLabelResultRejected, 'PPI-15b canonical label execution failure cannot publish a successful Result')
+check(!runnerSource.includes('isExecutablePrePrValidationCommandV1') && !runnerSource.includes('validation command classifier'), 'PPI-15c no validation-command heuristic or replacement classifier remains')
+
+const prePrConverged = await executeRoleDispatchConsumerV1({ dispatch: prePrAdmission.role_dispatch, host: prePrHost({ evidence: [prePrResultBody] }) })
+check(prePrConverged.next_action === 'EXECUTE_ROLE' && prePrConverged.mutation_count === 0 && !Object.hasOwn(prePrConverged, 'evidence_kind'), 'PPI-16 raw matching comments cannot replace the same-invocation Worker owner')
+const prePrDirty = await executeRoleDispatchConsumerV1({ dispatch: prePrAdmission.role_dispatch, host: prePrHost({ worktreeChanged: PRE_PR_PATHS }) })
+check(prePrDirty.next_action === 'STOP' && prePrDirty.reason === 'role_dispatch_binding_changed' && prePrDirty.mutation_count === 0, 'PPI-17 dirty authority worktree fails before Worker execution')
+const prePrWrongOrigin = await executeRoleDispatchConsumerV1({ dispatch: prePrAdmission.role_dispatch, host: prePrHost({ originRepository: 'other/repository' }) })
+const prePrRemoteMainDrift = await executeRoleDispatchConsumerV1({ dispatch: prePrAdmission.role_dispatch, host: prePrHost({ remoteMainHead: OTHER_HEAD }) })
+check([prePrWrongOrigin, prePrRemoteMainDrift].every((result) => result.next_action === 'STOP' && result.mutation_count === 0) && runnerSource.includes("['remote', 'get-url', '--all', 'origin']") && runnerSource.includes("['ls-remote', '--heads', 'origin', 'refs/heads/main']"), 'PPI-18 wrong origin repository and remote-main drift stop before Worker using fresh mechanical Git bindings')
+const prePrRebound = await executeRoleDispatchRebindV1({ dispatch: prePrAdmission.role_dispatch, host: prePrHost({ worktreeChanged: PRE_PR_CHANGED_PATHS }) })
+check(prePrRebound.next_action === 'PROTECTED_OPERATION_READY' && prePrRebound.mutation_count === 0, 'PPI-19 fresh rebind accepts a strict non-empty authorized subset')
+const prePrOutsideScope = await executeRoleDispatchRebindV1({ dispatch: prePrAdmission.role_dispatch, host: prePrHost({ worktreeChanged: ['outside.txt'] }) })
+const prePrEmptyResult = prePrResultBody.replace(`changed_paths:\n${PRE_PR_CHANGED_PATHS.map((value) => `  - ${value}`).join('\n')}`, 'changed_paths:')
+check(prePrOutsideScope.next_action === 'STOP' && evaluateRoleDispatchOutputV1({ dispatch: prePrAdmission.role_dispatch, body: prePrEmptyResult }).next_action === 'STOP', 'PPI-20 out-of-scope and empty successful changed_paths fail closed')
+const prePrStaged = await executeRoleDispatchRebindV1({ dispatch: prePrAdmission.role_dispatch, host: prePrHost({ worktreeChanged: PRE_PR_CHANGED_PATHS, worktreeStaged: [PRE_PR_CHANGED_PATHS[0]] }) })
+check(prePrStaged.next_action === 'STOP' && prePrStaged.mutation_count === 0, 'PPI-21 staged Worker bytes fail closed')
+const nonOwnerAuthority = Object.freeze({ ...prePrAuthorityComment, user: Object.freeze({ login: 'someone', id: 99, type: 'User' }) })
+const rejectedPrePrActor = await executePrePrImplementationIngressV1({ event: prePrEvent, host: prePrHost({ authorityComment: nonOwnerAuthority }) })
+check(rejectedPrePrActor.next_action === 'STOP' && rejectedPrePrActor.mutation_count === undefined, 'PPI-22 existing Product Owner validator rejects arbitrary matching comments')
+
+const prePrAuthorityYaml = parseYaml(prePrAuthorityBody.match(/```yaml\n([\s\S]*?)\n```/)[1])
+const prePrResultYaml = parseYaml(prePrResultBody.match(/```yaml\n([\s\S]*?)\n```/)[1])
+const finalPrePrResultYaml = parseYaml(finalizedPrePrResult.comment_body.match(/```yaml\n([\s\S]*?)\n```/)[1])
+check(Object.keys(prePrAuthorityYaml).length === 21 && Object.keys(prePrResultYaml).length === 18 && Object.keys(finalPrePrResultYaml).length === 18 && !Object.hasOwn(prePrResultYaml, 'assigned_implementer') && !Object.hasOwn(finalPrePrResultYaml, 'operation_count'), 'PPI-23 authority and Worker/final Result schemas remain exactly 21 and 18 fields')
+const prePrWorkflowBlock = roleExecutionRun.slice(roleExecutionRun.indexOf("if ($expected -ceq 'RUN_PRE_PR_VALIDATION')"), roleExecutionRun.indexOf("if ($expected -in @('POST_REVIEW', 'POST_MERGE_DECISION'))"))
+check(roleExecutionRun.includes("$prePrImplementer = $dispatch.next_action -ceq 'IMPLEMENTER'") && roleExecutionRun.includes('-Workspace $roleWorkspace') && roleExecutionRun.includes("'RUN_PRE_PR_VALIDATION'") && roleExecutionRun.includes("elseif ($dispatch.next_action -ceq 'IMPLEMENTER') { 'VALIDATE_IMPLEMENTATION' }") && roleExecutionRun.includes('features.shell_tool=false') && prePrWorkflowBlock.includes('foreach ($command in $commands)') && prePrWorkflowBlock.includes('Push-Location -LiteralPath $roleWorkspace') && prePrWorkflowBlock.includes('& cmd.exe /d /s /c $command') && prePrWorkflowBlock.includes('--pre-pr-finalize-file $bodyPath') && prePrWorkflowBlock.includes('$null = Publish-CanonicalComment -BodyFile $finalBodyPath') && !prePrWorkflowBlock.includes('command_execution'), 'PPI-24 host validation is exact while post-PR IMPLEMENTER and Worker shell boundaries remain unchanged')
+check(Object.keys(workflow.jobs).length === 5 && prePrWorkflowBlock.includes('$outside') && prePrWorkflowBlock.includes('Compare-Object $changed $reported') && !prePrWorkflowBlock.includes('Compare-Object $changed $authorized') && !prePrWorkflowBlock.includes('git commit') && !prePrWorkflowBlock.includes('git push') && !prePrWorkflowBlock.includes('pulls') && !prePrWorkflowBlock.includes('bootstrap-publication') && prePrWorkflowBlock.includes('exit 0'), 'PPI-25 host-validated Result subset is terminal with no new job, commit, push, PR, or bootstrap chaining')
+
+if (assertions !== 1000) throw new Error(`expected exactly 1000 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

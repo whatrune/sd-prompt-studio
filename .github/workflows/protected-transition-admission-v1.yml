@@ -247,7 +247,7 @@ jobs:
           $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json
 
           function Invoke-BoundedRole {
-            param([string]$PromptFile, [string]$Sandbox, [string]$JsonlFile, [string]$BodyFile)
+            param([string]$PromptFile, [string]$Sandbox, [string]$JsonlFile, [string]$BodyFile, [string]$Workspace = $env:GITHUB_WORKSPACE)
             $prompt = [IO.File]::ReadAllText($PromptFile, $utf8NoBom)
             $priorOutputEncoding = $OutputEncoding
             $priorConsoleOutputEncoding = [Console]::OutputEncoding
@@ -258,7 +258,7 @@ jobs:
               [Console]::OutputEncoding = $utf8NoBom
               $ErrorActionPreference = 'Continue'
               Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
-              $events = [string[]]@($prompt | & codex.cmd exec -c features.shell_tool=false -c sandbox_workspace_write.network_access=false -c sandbox_workspace_write.writable_roots=[] --sandbox $Sandbox --ephemeral --json --cd $env:GITHUB_WORKSPACE - 2>&1)
+              $events = [string[]]@($prompt | & codex.cmd exec -c features.shell_tool=false -c sandbox_workspace_write.network_access=false -c sandbox_workspace_write.writable_roots=[] --sandbox $Sandbox --ephemeral --json --cd $Workspace - 2>&1)
               $nativeExit = $LASTEXITCODE
             } finally {
               if ($null -eq $priorToken) { Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue } else { $env:GH_TOKEN = $priorToken }
@@ -520,10 +520,66 @@ jobs:
             ) { throw 'review_thread_action_closure_invalid' }
           }
 
+          $prePrImplementer = $dispatch.next_action -ceq 'IMPLEMENTER' -and $dispatch.source_binding.kind -ceq 'PRE_PR_IMPLEMENTATION_AUTHORITY'
+          $roleWorkspace = if ($prePrImplementer) { [string]$dispatch.source_binding.worktree } else { $env:GITHUB_WORKSPACE }
+          if ($prePrImplementer -and -not (Test-Path -LiteralPath $roleWorkspace -PathType Container)) { throw 'pre_pr_implementation_worktree_missing' }
           $sandbox = if ($plan.read_only) { 'read-only' } else { 'workspace-write' }
-          Invoke-BoundedRole -PromptFile $promptPath -Sandbox $sandbox -JsonlFile $outputPath -BodyFile $bodyPath
-          $expected = if ($dispatch.next_action -ceq 'IMPLEMENTER') { 'VALIDATE_IMPLEMENTATION' } elseif ($dispatch.purpose -ceq 'MERGE_DECISION') { 'POST_MERGE_DECISION' } elseif ($dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER') { 'POST_REVIEW' } else { 'COMMIT_PUSH_PUBLISH' }
+          Invoke-BoundedRole -PromptFile $promptPath -Sandbox $sandbox -JsonlFile $outputPath -BodyFile $bodyPath -Workspace $roleWorkspace
+          $expected = if ($prePrImplementer) { 'RUN_PRE_PR_VALIDATION' } elseif ($dispatch.next_action -ceq 'IMPLEMENTER') { 'VALIDATE_IMPLEMENTATION' } elseif ($dispatch.purpose -ceq 'MERGE_DECISION') { 'POST_MERGE_DECISION' } elseif ($dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER') { 'POST_REVIEW' } else { 'COMMIT_PUSH_PUBLISH' }
           $validated = Assert-RoleOutput -DispatchFile $dispatchPath -BodyFile $bodyPath -ExpectedAction $expected -ResultFile $resultPath -JsonlFile $outputPath
+
+          if ($expected -ceq 'RUN_PRE_PR_VALIDATION') {
+            $tracked = [string[]]@(git -C $roleWorkspace diff --name-only --no-renames HEAD --)
+            if ($LASTEXITCODE -ne 0) { throw 'pre_pr_implementation_scope_invalid' }
+            $untracked = [string[]]@(git -C $roleWorkspace ls-files --others --exclude-standard)
+            if ($LASTEXITCODE -ne 0) { throw 'pre_pr_implementation_scope_invalid' }
+            $changed = [string[]]@(@($tracked; $untracked) | ForEach-Object { $_.Replace('\', '/') } | Sort-Object -Unique)
+            $staged = [string[]]@(git -C $roleWorkspace diff --cached --name-only --no-renames -- | Sort-Object -Unique)
+            $authorized = [string[]]@($dispatch.authorized_paths | Sort-Object -Unique)
+            $reported = [string[]]@($validated.changed_paths)
+            $outside = [string[]]@($changed | Where-Object { $_ -notin $authorized })
+            if ($LASTEXITCODE -ne 0 -or $changed.Count -eq 0 -or $staged.Count -ne 0 -or $outside.Count -ne 0 -or (Compare-Object $changed $reported)) { throw 'pre_pr_implementation_scope_invalid' }
+            $commands = [string[]]@($dispatch.source_binding.validation_commands)
+            if ($commands.Count -eq 0) { throw 'pre_pr_validation_commands_invalid' }
+            $executions = @()
+            foreach ($command in $commands) {
+              Push-Location -LiteralPath $roleWorkspace
+              try {
+                $outputLines = [string[]]@(& cmd.exe /d /s /c $command 2>&1 | ForEach-Object { [string]$_ })
+                $exitCode = $LASTEXITCODE
+              } finally {
+                Pop-Location
+              }
+              $outputText = $outputLines -join [Environment]::NewLine
+              $outputBytes = [Text.Encoding]::UTF8.GetBytes($outputText)
+              $sha256 = [Security.Cryptography.SHA256]::Create()
+              try { $outputSha256 = ([BitConverter]::ToString($sha256.ComputeHash($outputBytes))).Replace('-', '').ToLowerInvariant() } finally { $sha256.Dispose() }
+              $executions += [ordered]@{
+                command = [string]$command
+                cwd = [string]$roleWorkspace
+                exit_code = [int]$exitCode
+                output_sha256 = $outputSha256
+              }
+              if ($exitCode -ne 0) { throw 'pre_pr_validation_command_failed' }
+            }
+            if ($executions.Count -ne $commands.Count) { throw 'pre_pr_validation_execution_cardinality_invalid' }
+            $validationEvidencePath = Join-Path $env:RUNNER_TEMP 'pre-pr-validation-evidence.json'
+            $finalResultPath = Join-Path $env:RUNNER_TEMP 'pre-pr-final-result.json'
+            $finalBodyPath = Join-Path $env:RUNNER_TEMP 'pre-pr-final-result.md'
+            [IO.File]::WriteAllText($validationEvidencePath, (@{ executions = $executions } | ConvertTo-Json -Depth 8 -Compress), $utf8NoBom)
+            node $env:PTA_ROLE_HOST_RUNNER --pre-pr-finalize-file $bodyPath --role-dispatch-file $dispatchPath --validation-evidence-file $validationEvidencePath 1> $finalResultPath
+            if ($LASTEXITCODE -ne 0) { throw 'pre_pr_validation_result_invalid' }
+            $finalResult = Get-Content -LiteralPath $finalResultPath -Raw -Encoding utf8 | ConvertFrom-Json
+            if (
+              $finalResult.next_action -cne 'POST_PRE_PR_IMPLEMENTATION_RESULT' -or
+              $finalResult.mutation_count -ne 0 -or
+              (Compare-Object ([string[]]@($finalResult.changed_paths)) $reported)
+            ) { throw 'pre_pr_validation_result_invalid' }
+            [IO.File]::WriteAllText($finalBodyPath, [string]$finalResult.comment_body, $utf8NoBom)
+            Assert-FreshRoleBinding -DispatchFile $dispatchPath
+            $null = Publish-CanonicalComment -BodyFile $finalBodyPath
+            exit 0
+          }
 
           if ($expected -in @('POST_REVIEW', 'POST_MERGE_DECISION')) {
             Assert-FreshRoleBinding -DispatchFile $dispatchPath
