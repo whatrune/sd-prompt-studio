@@ -4927,15 +4927,12 @@ const acquireRoleDispatchBindingV1 = async (dispatch, host, expectedHead = dispa
     } catch {
       throw new Error('role_dispatch_binding_changed')
     }
-    if (dispatch.source_binding.kind === 'PRE_PR_IMPLEMENTATION_AUTHORITY') {
-      const context = projectImplementerContextV1(dispatch.implementer_context)
-      if (task.title !== context.task_title || task.body !== context.task_body) throw new Error('role_dispatch_binding_changed')
+    if (dispatch.source_binding.kind === 'PRE_PR_IMPLEMENTATION_RESULT') {
+      return Object.freeze({ request, pull: null, taskState: null, scope: null, task })
     }
-    const resultIngress = dispatch.source_binding.kind === 'PRE_PR_IMPLEMENTATION_RESULT'
-    const worktree = await acquirePrePrWorktreeBindingV1(dispatch, host, resultIngress || allowPrePrAuthorizedChanges)
-    if (resultIngress && !sameRolePathsV1(worktree.changedPaths, dispatch.authorized_paths)) {
-      throw new Error('role_dispatch_binding_changed')
-    }
+    const context = projectImplementerContextV1(dispatch.implementer_context)
+    if (task.title !== context.task_title || task.body !== context.task_body) throw new Error('role_dispatch_binding_changed')
+    const worktree = await acquirePrePrWorktreeBindingV1(dispatch, host, allowPrePrAuthorizedChanges)
     return Object.freeze({ request, pull: null, taskState: null, scope: null, task, worktree })
   }
   const pull = await acquirePull(request, host)
