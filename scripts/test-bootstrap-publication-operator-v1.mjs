@@ -75,6 +75,92 @@ const AUTHORITY_SHA = createHash('sha256').update(AUTHORITY_BODY, 'utf8').digest
 const PR_NUMBER = 360
 const PR_URL = `https://github.com/${REPOSITORY}/pull/${PR_NUMBER}`
 const PR_NODE_ID = 'PR_kwDOTUu8Qs6bootstrap'
+const PRE_PR_AUTHORITY_ID = 5_390_000_101
+const PRE_PR_RESULT_ID = 5_390_000_102
+const PRE_PR_AUTHORITY_URL = `https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-${PRE_PR_AUTHORITY_ID}`
+const PRE_PR_RESULT_URL = `https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-${PRE_PR_RESULT_ID}`
+const PRE_PR_VALIDATION_COMMANDS = Object.freeze([
+  'node scripts/test-bootstrap-publication-operator-v1.mjs',
+  'git diff --check',
+])
+const PRE_PR_VALIDATION_RESULTS = Object.freeze(PRE_PR_VALIDATION_COMMANDS.map((command, index) =>
+  `command_base64=${Buffer.from(command, 'utf8').toString('base64')};exit_code=0;output_sha256=${createHash('sha256').update(`bootstrap-output-${index}`).digest('hex')}`,
+))
+const PRE_PR_AUTHORITY_BODY = `\`\`\`yaml
+record_type: pre_pr_implementation_authority_v1
+version: 1
+authoring_role: Product Owner
+authority_source: https://github.com/${REPOSITORY}/issues/${TASK}
+canonical_record: ${PRE_PR_AUTHORITY_URL}
+repository: ${REPOSITORY}
+task_issue: https://github.com/${REPOSITORY}/issues/${TASK}
+exact_baseline: ${PARENT}
+branch: ${BRANCH}
+worktree: ${worktree.replaceAll('\\', '/')}
+assigned_implementer: Worker
+assigned_independent_reviewer: Backend Architect
+implementation_kind: CODE
+purpose: Implement BOOTSTRAP_PUBLICATION_OPERATOR_V1.
+operation_count: 1
+implementation_allowed: true
+publication_allowed: false
+authority_lifetime: PRE_PR_IMPLEMENTATION_ONLY
+status: authorized_for_pre_pr_implementation_only
+authorized_paths:
+${PATHS.map((value) => `  - ${value}`).join('\n')}
+validation_commands:
+${PRE_PR_VALIDATION_COMMANDS.map((value) => `  - ${value}`).join('\n')}
+\`\`\``
+const PRE_PR_RESULT_BODY = `\`\`\`yaml
+record_type: pre_pr_implementation_result_handoff_v1
+version: 1
+authoring_role: Worker
+role: IMPLEMENTER
+authority_source: ${PRE_PR_AUTHORITY_URL}
+repository: ${REPOSITORY}
+task_issue: https://github.com/${REPOSITORY}/issues/${TASK}
+exact_baseline: ${PARENT}
+branch: ${BRANCH}
+worktree: ${worktree.replaceAll('\\', '/')}
+status: COMPLETE
+execution_stop_reason: completed
+blocking_finding_count: 0
+remaining_finding_count: 0
+unknown_count: 0
+changed_paths:
+${PATHS.map((value) => `  - ${value}`).join('\n')}
+validation_results:
+${PRE_PR_VALIDATION_RESULTS.map((value) => `  - ${value}`).join('\n')}
+unperformed_items: []
+\`\`\``
+const PRE_PR_DECISION_BODY = `\`\`\`yaml
+decision: BOOTSTRAP_PUBLICATION
+repository: ${REPOSITORY}
+task_issue_number: ${TASK}
+exact_baseline: ${PARENT}
+branch: ${BRANCH}
+worktree: ${worktree.replaceAll('\\', '/')}
+result_handoff_comment_id: ${PRE_PR_RESULT_ID}
+result_handoff_url: ${PRE_PR_RESULT_URL}
+result_handoff_body_sha256: ${createHash('sha256').update(PRE_PR_RESULT_BODY).digest('hex')}
+publication_allowed: true
+operation_count: 1
+authorized_paths:
+${PATHS.map((value) => `  - ${value}`).join('\n')}
+\`\`\``
+const prePrCommentRecordV1 = (id, url, body) => Object.freeze({
+  id,
+  issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`,
+  html_url: url,
+  created_at: '2026-08-24T05:00:00Z',
+  author_association: 'OWNER',
+  user: Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
+  body,
+})
+const PRE_PR_COMMENT_RECORDS = Object.freeze([
+  prePrCommentRecordV1(PRE_PR_RESULT_ID, PRE_PR_RESULT_URL, PRE_PR_RESULT_BODY),
+  prePrCommentRecordV1(PRE_PR_AUTHORITY_ID, PRE_PR_AUTHORITY_URL, PRE_PR_AUTHORITY_BODY),
+])
 
 const requestV1 = () => ({
   record_type: 'bootstrap_publication_request_v1',
@@ -190,6 +276,8 @@ const makeHostV1 = (configuration = {}) => {
     },
     api: async (endpoint, options = undefined) => {
       metrics.apiCalls.push({ endpoint, method: options?.method ?? 'GET', body: options?.body })
+      const extraComment = configuration.commentRecords?.find((comment) => endpoint.endsWith(`/issues/comments/${comment.id}`))
+      if (extraComment) return extraComment
       if (endpoint.endsWith(`/issues/comments/${AUTHORITY_ID}`)) {
         metrics.authorityRefetch += 1
         if (configuration.authorityReject) throw new Error('authority unavailable')
@@ -253,6 +341,57 @@ check(success.result.status === 'SUCCESS', 'A exact 13-field request is accepted
 check(success.host.metrics.authorityRefetch === 1, 'A accepted request starts with one authority refetch')
 check(success.host.metrics.commit === 1 && success.host.metrics.push === 1, 'A accepted request completes one commit and push')
 check(AUTHORITY_URL.includes('#issuecomment-') && success.result.status === 'SUCCESS', 'A actual canonical GitHub html_url form is accepted')
+const prePrDecisionRequest = Object.freeze({
+  ...requestV1(),
+  publication_authority_body_sha256: createHash('sha256').update(PRE_PR_DECISION_BODY).digest('hex'),
+})
+const prePrDecisionSuccess = await runV1({
+  authorityBody: PRE_PR_DECISION_BODY,
+  commentRecords: PRE_PR_COMMENT_RECORDS,
+}, prePrDecisionRequest)
+check(prePrDecisionSuccess.result.status === 'SUCCESS', 'A canonical pre-PR BOOTSTRAP_PUBLICATION decision is admitted as the existing operator authority')
+check(
+  prePrDecisionSuccess.host.metrics.apiCalls.slice(0, 3).map(({ endpoint }) => endpoint).join('\n') === [
+    `repos/${REPOSITORY}/issues/comments/${AUTHORITY_ID}`,
+    `repos/${REPOSITORY}/issues/comments/${PRE_PR_RESULT_ID}`,
+    `repos/${REPOSITORY}/issues/comments/${PRE_PR_AUTHORITY_ID}`,
+  ].join('\n'),
+  'A Product Owner decision, Result Handoff, and original authority are rebound in exact chain order',
+)
+check(
+  prePrDecisionSuccess.host.metrics.createdPullBody.includes(`Authority-bound pre-PR validations: ${PRE_PR_VALIDATION_RESULTS.length}/${PRE_PR_VALIDATION_RESULTS.length} PASS_REUSED`) &&
+  prePrDecisionSuccess.host.metrics.createdPullBody.includes(`Result Handoff: ${PRE_PR_RESULT_URL}`),
+  'A pre-PR decision reuses immutable host validation evidence without inventing legacy Task Assignment fields',
+)
+check(
+  prePrDecisionSuccess.host.metrics.commit === 1 && prePrDecisionSuccess.host.metrics.push === 1 &&
+  prePrDecisionSuccess.host.metrics.createPull === 1 && prePrDecisionSuccess.host.metrics.patch === 1,
+  'A existing bootstrap transaction remains exactly one commit, push, Draft PR, and Task-state PATCH',
+)
+const driftedPrePrResultRecord = prePrCommentRecordV1(
+  PRE_PR_RESULT_ID,
+  PRE_PR_RESULT_URL,
+  PRE_PR_RESULT_BODY.replace(`branch: ${BRANCH}`, 'branch: codex/stale-bootstrap-branch'),
+)
+const invalidPrePrDecisionChain = await runV1({
+  authorityBody: PRE_PR_DECISION_BODY,
+  commentRecords: Object.freeze([driftedPrePrResultRecord, PRE_PR_COMMENT_RECORDS[1]]),
+}, prePrDecisionRequest)
+check(
+  invalidPrePrDecisionChain.result.status === 'STOP' && invalidPrePrDecisionChain.result.reason === 'bootstrap_publication_owner_invalid' &&
+  invalidPrePrDecisionChain.result.mutation_count === 0,
+  'A stale Result or authority chain stops the operator before mutation',
+)
+check(invalidPrePrDecisionChain.host.metrics.gitCommands.length === 0, 'A invalid pre-PR chain stops before duplicating worktree preflight or transaction logic')
+check(
+  success.result.status === 'SUCCESS' && success.host.metrics.createdPullBody.includes('Focused bootstrap-publication operator: 107 assertions PASS_REUSED'),
+  'A legacy Task 359 task_assignment publication owner remains unchanged',
+)
+check(
+  prePrDecisionSuccess.host.metrics.apiCalls.filter(({ method, endpoint }) => method === 'POST' && endpoint.includes('/issues/')).length === 0 &&
+  prePrDecisionSuccess.host.metrics.apiCalls.filter(({ method, endpoint }) => method === 'POST' && endpoint.endsWith('/pulls')).length === 1,
+  'A decision chain creates no second authority and invokes only the existing Draft PR publication mutation',
+)
 check(!runnerSource.includes('request.publication_authority_url !== `https://github.com/'), 'B fabricated authority html_url prediction is absent')
 const unadmittedAuthority = await runV1({
   authorityUser: { login: 'other-owner', id: 99, type: 'User' },
