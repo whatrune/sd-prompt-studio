@@ -22,6 +22,7 @@ import {
   evaluateRoleOutputInvocationV1,
   classifyRoleOutputFailureDiagnosticV1,
   acquireLifecycleCompletionEvidenceV1,
+  acquireLifecyclePublishedGenerationV1,
   executeRoleDispatchConsumerV1,
   executeRoleDispatchRebindV1,
   executeManualProgressionControllerV1,
@@ -1248,6 +1249,17 @@ const convergedResult = await executeReviewApprovalAutomationV1({ event: reviewE
 check(convergedResult.allowed && convergedResult.automation_status === 'HANDOFF_READY', 'converged Review returns stable merge-gate handoff')
 check(convergedAutomation.metrics.patchCalls === 0 && convergedResult.admission_executed === true && convergedAutomation.metrics.checkReads === 2 && convergedAutomation.metrics.threadReads === 1, 'converged Review performs no duplicate mutation and re-evaluates the read-only gate')
 check(convergedResult.next_action === 'MERGE_OPERATOR' && convergedResult.state_changed === false, 'converged Review advances without mutation')
+
+const draftApprovedAutomation = automationHost({ initialState: approvedState(), draft: true })
+const draftApprovedResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: draftApprovedAutomation.host, runId: REVIEW_RUN_ID })
+check(
+  draftApprovedResult.next_action === 'LIFECYCLE_REPLAY' && draftApprovedResult.automation_status === 'LIFECYCLE_REPLAY_READY',
+  'steady-state Draft APPROVE continues into Lifecycle replay instead of the legacy Merge gate',
+)
+check(
+  draftApprovedAutomation.metrics.checkReads === 0 && draftApprovedAutomation.metrics.threadReads === 0 && draftApprovedResult.mutation_count === 0,
+  'Draft APPROVE suppresses legacy Merge acquisition and performs no protected mutation',
+)
 
 const architectureAutomation = automationHost({ initialState: state({ architecture_status: 'NOT_APPROVED' }) })
 const architectureResult = await executeReviewApprovalAutomationV1({ event: reviewEvent(), host: architectureAutomation.host })
@@ -9531,8 +9543,20 @@ const bootstrapPublicationHandoffEvent = Object.freeze({
   issue: Object.freeze({ number: PRE_PR_TASK, state: 'open' }),
   comment: Object.freeze({ id: BOOTSTRAP_PUBLICATION_HANDOFF_ID, author_association: 'OWNER', body: bootstrapPublicationHandoffBody }),
 })
-const bootstrapPublishedHostV1 = ({ taskState = bootstrapInitialState, pullOverrides = {} } = {}) => {
-  const chainHost = prePrBootstrapDecisionHostV1()
+const bootstrapPublicationHandoffRecord = Object.freeze({
+  id: BOOTSTRAP_PUBLICATION_HANDOFF_ID,
+  created_at: '2026-08-25T00:00:00Z',
+  author_association: 'OWNER',
+  user: Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
+  body: bootstrapPublicationHandoffBody,
+})
+const bootstrapPublishedHostV1 = ({
+  taskState = bootstrapInitialState,
+  pullOverrides = {},
+  handoffBody = bootstrapPublicationHandoffBody,
+  chainOptions = {},
+} = {}) => {
+  const chainHost = prePrBootstrapDecisionHostV1(chainOptions)
   const metrics = { ...chainHost.metrics, statePatches: 0 }
   return Object.freeze({
     ...chainHost,
@@ -9547,7 +9571,7 @@ const bootstrapPublishedHostV1 = ({ taskState = bootstrapInitialState, pullOverr
           created_at: '2026-08-25T00:00:00Z',
           author_association: 'OWNER',
           user: Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
-          body: bootstrapPublicationHandoffBody,
+          body: handoffBody,
         }
       }
       if (endpoint === `repos/${REPOSITORY}/pulls/${BOOTSTRAP_PUBLICATION_PR}`) {
@@ -9558,10 +9582,12 @@ const bootstrapPublishedHostV1 = ({ taskState = bootstrapInitialState, pullOverr
           state: 'open',
           draft: true,
           merged: false,
-          base: { ref: 'main', repo: { full_name: REPOSITORY } },
-          head: { sha: BOOTSTRAP_PUBLISHED_HEAD },
+          base: { ref: 'main', sha: PRE_PR_BASELINE, repo: { full_name: REPOSITORY } },
+          head: { sha: BOOTSTRAP_PUBLISHED_HEAD, ref: 'codex/bootstrap-publication', repo: { full_name: REPOSITORY } },
           body: stateBlock(taskState),
           changed_files: PRE_PR_CHANGED_PATHS.length,
+          mergeable: true,
+          mergeable_state: 'clean',
           ...pullOverrides,
         }
       }
@@ -9571,13 +9597,149 @@ const bootstrapPublishedHostV1 = ({ taskState = bootstrapInitialState, pullOverr
       if (endpoint.startsWith(`repos/${REPOSITORY}/pulls/${BOOTSTRAP_PUBLICATION_PR}/files?`)) {
         return PRE_PR_CHANGED_PATHS.map((filename) => ({ filename, status: 'modified' }))
       }
-      if (endpoint.startsWith(`repos/${REPOSITORY}/issues/${PRE_PR_TASK}/comments?`)) return []
+      if (endpoint.startsWith(`repos/${REPOSITORY}/issues/${PRE_PR_TASK}/comments?`)) return [bootstrapPublicationHandoffRecord]
       return chainHost.api(endpoint, options)
+    },
+    graphql: async (query) => {
+      if (!query.includes('statusCheckRollup')) throw new Error('unexpected_bootstrap_lifecycle_graphql')
+      return Object.freeze({
+        repository: Object.freeze({
+          pullRequest: Object.freeze({ headRefOid: BOOTSTRAP_PUBLISHED_HEAD }),
+          object: Object.freeze({
+            oid: BOOTSTRAP_PUBLISHED_HEAD,
+            statusCheckRollup: Object.freeze({ contexts: connectionPage([successfulCheck('bootstrap-lifecycle')]) }),
+          }),
+        }),
+      })
     },
   })
 }
 
 const bootstrapPublishedHost = bootstrapPublishedHostV1()
+const bootstrapLifecycleIdentity = Object.freeze({
+  repository: REPOSITORY,
+  taskIssueNumber: PRE_PR_TASK,
+  prNumber: BOOTSTRAP_PUBLICATION_PR,
+  exactHead: BOOTSTRAP_PUBLISHED_HEAD,
+})
+const bootstrapLifecyclePull = await bootstrapPublishedHost.api(`repos/${REPOSITORY}/pulls/${BOOTSTRAP_PUBLICATION_PR}`)
+const bootstrapLifecycleHistory = Object.freeze({ comments: Object.freeze([bootstrapPublicationHandoffRecord]) })
+const bootstrapPublishedGeneration = await acquireLifecyclePublishedGenerationV1({
+  history: bootstrapLifecycleHistory,
+  identity: bootstrapLifecycleIdentity,
+  changedPaths: PRE_PR_CHANGED_PATHS,
+  pull: bootstrapLifecyclePull,
+  host: bootstrapPublishedHost,
+})
+check(
+  bootstrapPublishedGeneration.status === 'PRESENT' &&
+  bootstrapPublishedGeneration.scopeContract.kind === 'BOOTSTRAP_PUBLICATION_HANDOFF' &&
+  bootstrapPublishedGeneration.validation.reuse_kind === 'BOOTSTRAP_PUBLICATION_HANDOFF' &&
+  JSON.stringify(bootstrapPublishedGeneration.authorizedPaths) === JSON.stringify(PRE_PR_CHANGED_PATHS),
+  'SSRR-01 canonical Bootstrap Handoff supplies admitted Lifecycle scope and reusable validation evidence',
+)
+const duplicateBootstrapGeneration = await acquireLifecyclePublishedGenerationV1({
+  history: Object.freeze({ comments: Object.freeze([
+    bootstrapPublicationHandoffRecord,
+    Object.freeze({ ...bootstrapPublicationHandoffRecord, id: BOOTSTRAP_PUBLICATION_HANDOFF_ID + 1 }),
+  ]) }),
+  identity: bootstrapLifecycleIdentity,
+  changedPaths: PRE_PR_CHANGED_PATHS,
+  pull: bootstrapLifecyclePull,
+  host: bootstrapPublishedHostV1(),
+})
+const malformedBootstrapGeneration = await acquireLifecyclePublishedGenerationV1({
+  history: Object.freeze({ comments: Object.freeze([Object.freeze({
+    ...bootstrapPublicationHandoffRecord,
+    body: bootstrapPublicationHandoffBody.replace('- status: `completed`', '- status: `broken`'),
+  })]) }),
+  identity: bootstrapLifecycleIdentity,
+  changedPaths: PRE_PR_CHANGED_PATHS,
+  pull: bootstrapLifecyclePull,
+  host: bootstrapPublishedHostV1(),
+})
+const missingBootstrapGeneration = await acquireLifecyclePublishedGenerationV1({
+  history: Object.freeze({ comments: Object.freeze([]) }),
+  identity: bootstrapLifecycleIdentity,
+  changedPaths: PRE_PR_CHANGED_PATHS,
+  pull: bootstrapLifecyclePull,
+  host: bootstrapPublishedHostV1(),
+})
+check(
+  missingBootstrapGeneration.status !== 'PRESENT' && duplicateBootstrapGeneration.status === 'INCOMPLETE' &&
+  malformedBootstrapGeneration.status === 'INCOMPLETE',
+  'SSRR-02 missing, duplicate, or malformed applicable Bootstrap Handoff fails closed',
+)
+const bootstrapDriftMatrix = await Promise.all([
+  acquireLifecyclePublishedGenerationV1({
+    history: bootstrapLifecycleHistory,
+    identity: bootstrapLifecycleIdentity,
+    changedPaths: Object.freeze(['scripts/unowned.mjs']),
+    pull: bootstrapLifecyclePull,
+    host: bootstrapPublishedHostV1(),
+  }),
+  acquireLifecyclePublishedGenerationV1({
+    history: bootstrapLifecycleHistory,
+    identity: bootstrapLifecycleIdentity,
+    changedPaths: PRE_PR_CHANGED_PATHS,
+    pull: Object.freeze({ ...bootstrapLifecyclePull, head: Object.freeze({ ...bootstrapLifecyclePull.head, sha: 'e'.repeat(40) }) }),
+    host: bootstrapPublishedHostV1(),
+  }),
+  acquireLifecyclePublishedGenerationV1({
+    history: bootstrapLifecycleHistory,
+    identity: bootstrapLifecycleIdentity,
+    changedPaths: PRE_PR_CHANGED_PATHS,
+    pull: Object.freeze({ ...bootstrapLifecyclePull, body: stateBlock({ ...bootstrapInitialState, observed_head: 'e'.repeat(40) }) }),
+    host: bootstrapPublishedHostV1(),
+  }),
+  acquireLifecyclePublishedGenerationV1({
+    history: bootstrapLifecycleHistory,
+    identity: bootstrapLifecycleIdentity,
+    changedPaths: PRE_PR_CHANGED_PATHS,
+    pull: bootstrapLifecyclePull,
+    host: bootstrapPublishedHostV1({ pullOverrides: {}, taskState: bootstrapInitialState }),
+  }),
+])
+check(
+  bootstrapDriftMatrix.slice(0, 3).every((projection) => projection.status === 'INCOMPLETE') &&
+  bootstrapDriftMatrix[3].status === 'PRESENT',
+  'SSRR-03 scope, HEAD, or Task-state drift stops while the unchanged owner binding remains applicable',
+)
+const sourceDriftBootstrapGeneration = await acquireLifecyclePublishedGenerationV1({
+  history: Object.freeze({ comments: Object.freeze([Object.freeze({
+    ...bootstrapPublicationHandoffRecord,
+    body: `${bootstrapPublicationHandoffBody}\n`,
+  })]) }),
+  identity: bootstrapLifecycleIdentity,
+  changedPaths: PRE_PR_CHANGED_PATHS,
+  pull: bootstrapLifecyclePull,
+  host: bootstrapPublishedHostV1(),
+})
+const driftedParentHandoffBody = bootstrapPublicationHandoffBody.replace(PRE_PR_BASELINE, OTHER_HEAD)
+const parentDriftBootstrapGeneration = await acquireLifecyclePublishedGenerationV1({
+  history: Object.freeze({ comments: Object.freeze([Object.freeze({
+    ...bootstrapPublicationHandoffRecord,
+    body: driftedParentHandoffBody,
+  })]) }),
+  identity: bootstrapLifecycleIdentity,
+  changedPaths: PRE_PR_CHANGED_PATHS,
+  pull: bootstrapLifecyclePull,
+  host: bootstrapPublishedHostV1({ handoffBody: driftedParentHandoffBody }),
+})
+const failingValidationBootstrapGeneration = await acquireLifecyclePublishedGenerationV1({
+  history: bootstrapLifecycleHistory,
+  identity: bootstrapLifecycleIdentity,
+  changedPaths: PRE_PR_CHANGED_PATHS,
+  pull: bootstrapLifecyclePull,
+  host: bootstrapPublishedHostV1({
+    chainOptions: { resultBody: prePrPublicationResultBody.replace(';exit_code=0;', ';exit_code=1;') },
+  }),
+})
+check(
+  [sourceDriftBootstrapGeneration, parentDriftBootstrapGeneration, failingValidationBootstrapGeneration]
+    .every((projection) => projection.status === 'INCOMPLETE' && projection.validation === null),
+  'SSRR-04 Handoff source-binding, parent, or admitted validation-result drift fails closed without a validation rerun',
+)
 const bootstrapPublishedRoute = await executeRoleTransitionOrchestratorV1({
   event: bootstrapPublicationHandoffEvent,
   host: bootstrapPublishedHost,
@@ -9633,6 +9795,77 @@ const nonDraftBootstrapRoute = await executeRoleTransitionOrchestratorV1({
   host: bootstrapPublishedHostV1({ pullOverrides: { draft: false } }),
 })
 check(nonDraftBootstrapRoute.next_action === 'STOP', 'BPR-06 Bootstrap PUBLISHED requires the actual PR to remain OPEN Draft unmerged on main')
+const BOOTSTRAP_APPROVED_REVIEW_ID = BOOTSTRAP_PUBLICATION_HANDOFF_ID + 20
+const bootstrapApprovedReviewBody = reviewDecisionBody({
+  task_issue: `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}`,
+  pull_request: `https://github.com/${REPOSITORY}/pull/${BOOTSTRAP_PUBLICATION_PR}`,
+  reviewed_head: BOOTSTRAP_PUBLISHED_HEAD,
+})
+const bootstrapApprovedReviewRecord = Object.freeze({
+  id: BOOTSTRAP_APPROVED_REVIEW_ID,
+  created_at: '2026-08-25T00:01:00Z',
+  author_association: 'MEMBER',
+  user: Object.freeze({ login: 'reviewer', id: 991, type: 'User' }),
+  body: bootstrapApprovedReviewBody,
+})
+const bootstrapApprovedReviewEvent = Object.freeze({
+  action: 'created',
+  repository: Object.freeze({ full_name: REPOSITORY }),
+  issue: Object.freeze({
+    number: PRE_PR_TASK,
+    state: 'open',
+    html_url: `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}`,
+  }),
+  comment: Object.freeze({
+    id: BOOTSTRAP_APPROVED_REVIEW_ID,
+    created_at: bootstrapApprovedReviewRecord.created_at,
+    author_association: 'MEMBER',
+    html_url: `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${BOOTSTRAP_APPROVED_REVIEW_ID}`,
+    body: bootstrapApprovedReviewBody,
+  }),
+})
+const bootstrapApprovedState = Object.freeze({
+  ...bootstrapInitialState,
+  review_status: 'APPROVE',
+  reviewed_head: BOOTSTRAP_PUBLISHED_HEAD,
+  review_blocker_count: 0,
+})
+const bootstrapApprovedBaseHost = bootstrapPublishedHostV1({ taskState: bootstrapApprovedState })
+const bootstrapApprovedHost = Object.freeze({
+  ...bootstrapApprovedBaseHost,
+  api: async (endpoint, options) => {
+    if (endpoint.startsWith(`repos/${REPOSITORY}/issues/${PRE_PR_TASK}/comments?`)) {
+      return [bootstrapPublicationHandoffRecord, bootstrapApprovedReviewRecord]
+    }
+    if (endpoint === `repos/${REPOSITORY}/issues/comments/${BOOTSTRAP_APPROVED_REVIEW_ID}`) {
+      return Object.freeze({
+        ...bootstrapApprovedReviewRecord,
+        issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${PRE_PR_TASK}`,
+        html_url: `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${BOOTSTRAP_APPROVED_REVIEW_ID}`,
+      })
+    }
+    return bootstrapApprovedBaseHost.api(endpoint, options)
+  },
+})
+const bootstrapDraftApprovedLifecycle = await executeReviewEventWithLifecycleReplayV1({
+  event: bootstrapApprovedReviewEvent,
+  host: bootstrapApprovedHost,
+  runId: REVIEW_RUN_ID,
+  runAttempt: 1,
+  hostSha: PRE_PR_BASELINE,
+  jobName: 'protected_transition_admission_v1',
+})
+check(
+  bootstrapDraftApprovedLifecycle.phase === 'READY' && bootstrapDraftApprovedLifecycle.state === 'READY' &&
+  bootstrapDraftApprovedLifecycle.reason === 'ready_transition_required' &&
+  bootstrapDraftApprovedLifecycle.next_action === 'READY_TRANSITION_REQUIRED',
+  'SSRR-05 Draft current APPROVE reaches the exact existing READY_TRANSITION_REQUIRED Lifecycle projection',
+)
+check(
+  bootstrapDraftApprovedLifecycle.mutation_count === 0 && !Object.hasOwn(bootstrapDraftApprovedLifecycle, 'role_dispatch') &&
+  !Object.hasOwn(bootstrapDraftApprovedLifecycle, 'lifecycle_projection'),
+  'SSRR-06 Draft READY projection is terminal read-only output with no Role dispatch or nested replacement projection',
+)
 const bootstrapLifecycleRoute = await executeReviewEventWithLifecycleReplayV1({
   event: bootstrapPublicationHandoffEvent,
   host: bootstrapPublishedHostV1(),
@@ -9644,8 +9877,9 @@ const bootstrapLifecycleRoute = await executeReviewEventWithLifecycleReplayV1({
 check(
   bootstrapLifecycleRoute.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER' &&
   bootstrapLifecycleRoute.role_dispatch.source_binding.publication_mode === 'BOOTSTRAP_CREATE_ONLY_EMPTY_LEASE_CAS' &&
-  !Object.hasOwn(bootstrapLifecycleRoute, 'lifecycle_projection'),
-  'BPR-07 production review-event boundary preserves the admitted Bootstrap PUBLISHED owner result',
+  bootstrapLifecycleRoute.lifecycle_projection.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER' &&
+  bootstrapLifecycleRoute.lifecycle_projection.mutation_count === 0,
+  'BPR-07 production boundary preserves the admitted Bootstrap PUBLISHED owner while Lifecycle consumes its publication generation',
 )
 check(
   bootstrapConsumerBlock.includes("status -cne 'SUCCESS'") &&
@@ -9671,5 +9905,5 @@ check(
   'BPR-10 five-job topology, Bootstrap transaction semantics, initial Task-state, and natural triggers remain unchanged',
 )
 
-if (assertions !== 1045) throw new Error(`expected exactly 1045 assertions, observed ${assertions}`)
+if (assertions !== 1053) throw new Error(`expected exactly 1053 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
