@@ -37,6 +37,7 @@ import {
   executeRoleTransitionOrchestratorV1,
   executeProtectedTransitionAdmissionV1,
   executePrePrImplementationIngressV1,
+  executePrePrPublicationDecisionIngressV1,
   executeRepairProviderBindingV3,
   extractProtectedTransitionTaskStateV1,
   isRepairProfilePathV1,
@@ -46,6 +47,7 @@ import {
   parseMinimalGovernanceAuthorityV1,
   parsePrePrImplementationAuthorityV1,
   parsePrePrImplementationResultHandoffV1,
+  parsePrePrProductOwnerPublicationDecisionV1,
   finalizePrePrImplementationResultHandoffV1,
   parseLifecyclePublicationTaskBindingV1,
   parseReviewApprovalEventV1,
@@ -8853,6 +8855,7 @@ const prePrHost = ({
   worktreeStaged = [],
   evidence = [],
   resultCommentId = 5389500000,
+  resultBody = prePrResultBody,
   originRepository = REPOSITORY,
   remoteMainHead = PRE_PR_BASELINE,
 } = {}) => {
@@ -8864,7 +8867,7 @@ const prePrHost = ({
     created_at: '2026-08-24T01:00:00Z',
     author_association: 'OWNER',
     user: Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
-    body: prePrResultBody,
+    body: resultBody,
   })
   return Object.freeze({
     metrics,
@@ -9080,5 +9083,147 @@ const prePrWorkflowBlock = roleExecutionRun.slice(roleExecutionRun.indexOf("if (
 check(roleExecutionRun.includes("$prePrImplementer = $dispatch.next_action -ceq 'IMPLEMENTER'") && roleExecutionRun.includes('-Workspace $roleWorkspace') && roleExecutionRun.includes("'RUN_PRE_PR_VALIDATION'") && roleExecutionRun.includes("elseif ($dispatch.next_action -ceq 'IMPLEMENTER') { 'VALIDATE_IMPLEMENTATION' }") && roleExecutionRun.includes('features.shell_tool=false') && prePrWorkflowBlock.includes('foreach ($command in $commands)') && prePrWorkflowBlock.includes('Push-Location -LiteralPath $roleWorkspace') && prePrWorkflowBlock.includes('& cmd.exe /d /s /c $command') && prePrWorkflowBlock.includes('--pre-pr-finalize-file $bodyPath') && prePrWorkflowBlock.includes('$null = Publish-CanonicalComment -BodyFile $finalBodyPath') && !prePrWorkflowBlock.includes('command_execution'), 'PPI-24 host validation is exact while post-PR IMPLEMENTER and Worker shell boundaries remain unchanged')
 check(Object.keys(workflow.jobs).length === 5 && prePrWorkflowBlock.includes('$outside') && prePrWorkflowBlock.includes('Compare-Object $changed $reported') && !prePrWorkflowBlock.includes('Compare-Object $changed $authorized') && !prePrWorkflowBlock.includes('git commit') && !prePrWorkflowBlock.includes('git push') && !prePrWorkflowBlock.includes('pulls') && !prePrWorkflowBlock.includes('bootstrap-publication') && prePrWorkflowBlock.includes('exit 0'), 'PPI-25 host-validated Result subset is terminal with no new job, commit, push, PR, or bootstrap chaining')
 
-if (assertions !== 1002) throw new Error(`expected exactly 1002 assertions, observed ${assertions}`)
+const PRE_PR_RESULT_COMMENT_ID = 5391811884
+const prePrPublicationResultBody = finalizedPrePrResult.comment_body
+const prePrPublicationResultEventV1 = (body = prePrPublicationResultBody, overrides = {}) => Object.freeze({
+  action: 'created',
+  repository: Object.freeze({ full_name: REPOSITORY }),
+  issue: Object.freeze({ number: PRE_PR_TASK, state: 'open' }),
+  comment: Object.freeze({ id: PRE_PR_RESULT_COMMENT_ID, author_association: 'OWNER', body }),
+  ...overrides,
+})
+const prePrPublicationHostV1 = ({ body = prePrPublicationResultBody, worktreeChanged = PRE_PR_CHANGED_PATHS, ...options } = {}) => prePrHost({
+  authorityComment: executablePrePrAuthorityComment,
+  resultCommentId: PRE_PR_RESULT_COMMENT_ID,
+  resultBody: body,
+  worktreeChanged,
+  ...options,
+})
+const prePrPublicationHost = prePrPublicationHostV1()
+const prePrPublicationIngress = await executeRoleTransitionOrchestratorV1({
+  event: prePrPublicationResultEventV1(),
+  host: prePrPublicationHost,
+  runId: REVIEW_RUN_ID,
+})
+check(
+  prePrPublicationIngress.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' &&
+  prePrPublicationIngress.terminal_result === 'PRE_PR_IMPLEMENTATION_RESULT' &&
+  prePrPublicationIngress.reason === 'pre_pr_implementation_result_admitted' &&
+  prePrPublicationIngress.pr_number === null && prePrPublicationIngress.current_head === PRE_PR_BASELINE &&
+  prePrPublicationIngress.mutation_count === 0,
+  'PPD-01 canonical pre-PR Result natural event reaches Product Owner without Review-event semantics',
+)
+check(
+  Object.keys(prePrPublicationIngress.role_dispatch.source_binding).sort().join('\n') === [
+    'authority_source', 'body_sha256', 'branch', 'changed_paths', 'comment_id', 'exact_baseline', 'kind',
+    'repository', 'result_url', 'task_issue_number', 'validation_results', 'worktree',
+  ].sort().join('\n') &&
+  prePrPublicationIngress.role_dispatch.source_binding.kind === 'PRE_PR_IMPLEMENTATION_RESULT' &&
+  prePrPublicationIngress.role_dispatch.source_binding.body_sha256 === createHash('sha256').update(prePrPublicationResultBody).digest('hex'),
+  'PPD-02 exact PRE_PR_IMPLEMENTATION_RESULT source binding preserves Result identity, worktree, paths, validation, and authority source',
+)
+check(
+  prePrPublicationIngress.role_dispatch.pr_number === null && prePrPublicationIngress.role_dispatch.task_state === null &&
+  prePrPublicationHost.metrics.api.includes(`repos/${REPOSITORY}/issues/comments/${PRE_PR_RESULT_COMMENT_ID}`) &&
+  prePrPublicationHost.metrics.api.includes(`repos/${REPOSITORY}/issues/comments/${FRESH_PRE_PR_COMMENT_ID}`) &&
+  prePrPublicationHost.metrics.api.every((endpoint) => !endpoint.includes('/pulls/')),
+  'PPD-03 Result and referenced authority are directly refetched with no PR or Task-state acquisition',
+)
+
+const mismatchedPrePrPublicationBodies = [
+  prePrPublicationResultBody.replace(`task_issue: https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}`, `task_issue: https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK + 1}`),
+  prePrPublicationResultBody.replace(`exact_baseline: ${PRE_PR_BASELINE}`, `exact_baseline: ${OTHER_HEAD}`),
+  prePrPublicationResultBody.replace(`branch: ${PRE_PR_BRANCH}`, 'branch: codex/other-pre-pr-branch'),
+  prePrPublicationResultBody.replace(`worktree: ${PRE_PR_WORKTREE}`, `${PRE_PR_WORKTREE}/other`),
+  prePrPublicationResultBody.replace(PRE_PR_CHANGED_PATHS[0], 'outside/result-path.txt'),
+  prePrPublicationResultBody.replace(/output_sha256=[0-9a-f]{64}/, 'output_sha256=invalid'),
+]
+const mismatchedPrePrPublicationResults = await Promise.all(mismatchedPrePrPublicationBodies.map((body) => executePrePrPublicationDecisionIngressV1({
+  event: prePrPublicationResultEventV1(body),
+  host: prePrPublicationHostV1({ body }),
+})))
+check(mismatchedPrePrPublicationResults.every((result) => result.next_action === 'STOP'), 'PPD-04 mismatched Task, baseline, branch, worktree, scope, and validation evidence fail closed')
+const driftedPrePrPublication = await executePrePrPublicationDecisionIngressV1({
+  event: prePrPublicationResultEventV1(),
+  host: prePrPublicationHostV1({ worktreeChanged: PRE_PR_PATHS }),
+})
+check(driftedPrePrPublication.next_action === 'STOP' && driftedPrePrPublication.reason === 'role_dispatch_binding_changed', 'PPD-05 current worktree scope drift stops before Product Owner dispatch')
+
+const prePrPublicationPlanHost = prePrPublicationHostV1()
+const prePrPublicationPlan = await executeRoleDispatchConsumerV1({ dispatch: prePrPublicationIngress.role_dispatch, host: prePrPublicationPlanHost })
+check(
+  prePrPublicationPlan.next_action === 'EXECUTE_ROLE' && prePrPublicationPlan.role === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' &&
+  prePrPublicationPlan.purpose === 'PRE_PR_PUBLICATION_DECISION' && prePrPublicationPlan.read_only === true,
+  'PPD-06 existing Product Owner consumer is dispatched read-only from the admitted Result',
+)
+check(
+  prePrPublicationPlan.prompt.includes('exact 12 fields') && prePrPublicationPlan.prompt.includes('BOOTSTRAP_PUBLICATION or STOP') &&
+  prePrPublicationPlan.prompt.includes('Do not invoke publication mechanics') &&
+  prePrPublicationPlanHost.metrics.api.every((endpoint) => !endpoint.includes('/pulls/')),
+  'PPD-07 Product Owner prompt carries only the pre-PR decision contract and no PR acquisition',
+)
+
+const prePrPublicationDecisionBodyV1 = ({ decision = 'BOOTSTRAP_PUBLICATION', additions = '' } = {}) => `\`\`\`yaml
+decision: ${decision}
+repository: ${REPOSITORY}
+task_issue_number: ${PRE_PR_TASK}
+exact_baseline: ${PRE_PR_BASELINE}
+branch: ${PRE_PR_BRANCH}
+worktree: ${PRE_PR_WORKTREE}
+result_handoff_comment_id: ${PRE_PR_RESULT_COMMENT_ID}
+result_handoff_url: https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${PRE_PR_RESULT_COMMENT_ID}
+result_handoff_body_sha256: ${createHash('sha256').update(prePrPublicationResultBody).digest('hex')}
+publication_allowed: ${decision === 'BOOTSTRAP_PUBLICATION'}
+operation_count: ${decision === 'BOOTSTRAP_PUBLICATION' ? 1 : 0}${additions}
+authorized_paths:
+${PRE_PR_CHANGED_PATHS.map((value) => `  - ${value}`).join('\n')}
+\`\`\``
+const prePrPublicationDecisionBody = prePrPublicationDecisionBodyV1()
+const parsedPrePrPublicationDecision = parsePrePrProductOwnerPublicationDecisionV1({
+  body: prePrPublicationDecisionBody,
+  dispatch: prePrPublicationIngress.role_dispatch,
+})
+const acceptedPrePrPublicationDecision = evaluateRoleDispatchOutputV1({
+  dispatch: prePrPublicationIngress.role_dispatch,
+  body: prePrPublicationDecisionBody,
+})
+check(
+  Object.keys(parsedPrePrPublicationDecision).length === 12 && parsedPrePrPublicationDecision.decision === 'BOOTSTRAP_PUBLICATION' &&
+  parsedPrePrPublicationDecision.publication_allowed === true && parsedPrePrPublicationDecision.operation_count === 1 &&
+  acceptedPrePrPublicationDecision.next_action === 'POST_PRE_PR_PUBLICATION_DECISION',
+  'PPD-08 exact closed Product Owner BOOTSTRAP_PUBLICATION decision is accepted for canonical publication',
+)
+const stoppedPrePrPublicationDecision = evaluateRoleDispatchOutputV1({
+  dispatch: prePrPublicationIngress.role_dispatch,
+  body: prePrPublicationDecisionBodyV1({ decision: 'STOP' }),
+})
+check(stoppedPrePrPublicationDecision.next_action === 'STOP' && stoppedPrePrPublicationDecision.reason === 'pre_pr_publication_declined', 'PPD-09 exact Product Owner STOP decision is accepted and terminates without publication')
+const invalidPrePrPublicationDecisions = [
+  prePrPublicationDecisionBody.replace(`task_issue_number: ${PRE_PR_TASK}\n`, ''),
+  prePrPublicationDecisionBody.replace('decision: BOOTSTRAP_PUBLICATION', 'decision: BOOTSTRAP_PUBLICATION\npr_number: 360'),
+  prePrPublicationDecisionBody.replace('publication_allowed: true', 'publication_allowed: null'),
+  prePrPublicationDecisionBody.replace(`result_handoff_comment_id: ${PRE_PR_RESULT_COMMENT_ID}`, `result_handoff_comment_id: ${PRE_PR_RESULT_COMMENT_ID + 1}`),
+  prePrPublicationDecisionBody.replace(PRE_PR_CHANGED_PATHS[0], 'outside/decision-path.txt'),
+]
+check(invalidPrePrPublicationDecisions.every((body) => evaluateRoleDispatchOutputV1({ dispatch: prePrPublicationIngress.role_dispatch, body }).next_action === 'STOP'), 'PPD-10 missing, PR-bound, null, stale Result, and scope-drift decision fields fail closed')
+
+const prePrDecisionWorkflowStart = roleExecutionRun.indexOf("if ($expected -ceq 'POST_PRE_PR_PUBLICATION_DECISION')")
+const prePrDecisionWorkflowEnd = roleExecutionRun.indexOf("if ($expected -ne 'VALIDATE_IMPLEMENTATION')", prePrDecisionWorkflowStart)
+const prePrDecisionWorkflowBlock = roleExecutionRun.slice(prePrDecisionWorkflowStart, prePrDecisionWorkflowEnd)
+check(
+  prePrDecisionWorkflowStart >= 0 && roleExecutionRun.includes("$prePrPublicationDecision = $dispatch.next_action -ceq 'PRODUCT_OWNER_IMPLEMENTATION_LEAD'") &&
+  prePrDecisionWorkflowBlock.includes('Assert-FreshRoleBinding') && prePrDecisionWorkflowBlock.includes('Publish-CanonicalComment') &&
+  prePrDecisionWorkflowBlock.includes('$prePrDecisionComment.id') && prePrDecisionWorkflowBlock.includes('$prePrDecisionComment.html_url') &&
+  prePrDecisionWorkflowBlock.includes('exit 0') && !prePrDecisionWorkflowBlock.includes('run-bootstrap-publication-operator-v1') &&
+  !prePrDecisionWorkflowBlock.includes('git commit') && !prePrDecisionWorkflowBlock.includes('git push') &&
+  !prePrDecisionWorkflowBlock.includes('pulls') && !prePrDecisionWorkflowBlock.includes('Task-state'),
+  'PPD-11 canonical decision is published once after fresh rebind and terminates before bootstrap publication mechanics',
+)
+check(
+  (prePrDecisionWorkflowBlock.match(/Publish-CanonicalComment/g) ?? []).length === 1 && Object.keys(workflow.jobs).length === 5 &&
+  evaluateRoleDispatchOutputV1({ dispatch: publicationDispatch, body: rolePublicationAuthorityBody }).next_action === 'COMMIT_PUSH_PUBLISH',
+  'PPD-12 one canonical publication, original five-job topology, and existing post-PR Product Owner path remain unchanged',
+)
+
+if (assertions !== 1014) throw new Error(`expected exactly 1014 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
