@@ -267,6 +267,7 @@ jobs:
           $resultPath = Join-Path $env:RUNNER_TEMP 'role-result.json'
           $dispatch = Get-Content -LiteralPath $dispatchPath -Raw -Encoding utf8 | ConvertFrom-Json
           $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json
+          $bootstrapOperatorResult = $null
 
           if ($env:ROLE_OPERATION -ceq 'EXECUTE_BOOTSTRAP_PUBLICATION') {
             $requestPath = Join-Path $env:RUNNER_TEMP 'bootstrap-publication-request.json'
@@ -293,7 +294,7 @@ jobs:
               $operatorResult.mutation_count -ne 4 -or
               $operatorResult.protected_operation_count -ne 1
             ) { throw 'bootstrap_publication_operator_result_invalid' }
-            exit 0
+            $bootstrapOperatorResult = $operatorResult
           }
 
           function Invoke-BoundedRole {
@@ -568,6 +569,74 @@ jobs:
               $closure.transition -cne 'review_closure' -or $closure.state -cne 'COMPLETED' -or
               $closure.next_action -cne 'NONE' -or $closure.mutation_count -ne 1
             ) { throw 'review_thread_action_closure_invalid' }
+          }
+
+          if ($null -ne $bootstrapOperatorResult) {
+            $request = Get-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'bootstrap-publication-request.json') -Raw -Encoding utf8 | ConvertFrom-Json
+            $owner = $plan.bootstrap_owner_binding
+            $authorized = [string[]]@($request.authorized_paths | Sort-Object -Unique)
+            $state = $bootstrapOperatorResult.task_state
+            $statePaths = [string[]]@($state.authorized_paths | Sort-Object -Unique)
+            if (
+              $bootstrapOperatorResult.repository -cne $request.repository -or
+              $bootstrapOperatorResult.task_issue_number -ne $request.task_issue_number -or
+              $bootstrapOperatorResult.branch -cne $request.branch -or
+              $bootstrapOperatorResult.pushed_head -isnot [string] -or $bootstrapOperatorResult.pushed_head -cnotmatch '^[0-9a-f]{40}$' -or
+              $bootstrapOperatorResult.pushed_head -ceq $request.expected_parent_head -or
+              ($bootstrapOperatorResult.pr_number -isnot [long] -and $bootstrapOperatorResult.pr_number -isnot [int]) -or
+              $bootstrapOperatorResult.pr_number -le 0 -or
+              $null -eq $owner -or $owner.decision_comment_id -ne $dispatch.source_comment_id -or
+              $owner.result_handoff_comment_id -ne $dispatch.source_binding.result_handoff_comment_id -or
+              ($owner.pre_pr_implementation_authority_comment_id -isnot [long] -and $owner.pre_pr_implementation_authority_comment_id -isnot [int]) -or
+              $owner.pre_pr_implementation_authority_comment_id -le 0 -or
+              $state.record_type -cne 'protected_transition_task_state_v1' -or
+              $state.task_issue_number -ne $request.task_issue_number -or
+              $state.pr_number -ne $bootstrapOperatorResult.pr_number -or
+              $state.observed_head -cne $bootstrapOperatorResult.pushed_head -or
+              $state.review_status -cne 'PENDING' -or $null -ne $state.reviewed_head -or $null -ne $state.review_blocker_count -or
+              (Compare-Object $statePaths $authorized)
+            ) { throw 'bootstrap_publication_handoff_binding_invalid' }
+
+            $pull = gh api "repos/$($request.repository)/pulls/$($bootstrapOperatorResult.pr_number)" | ConvertFrom-Json
+            if (
+              $LASTEXITCODE -ne 0 -or $pull.number -ne $bootstrapOperatorResult.pr_number -or
+              $pull.html_url -cne $bootstrapOperatorResult.pr_url -or $pull.base.repo.full_name -cne $request.repository -or
+              $pull.state -cne 'open' -or $pull.draft -ne $true -or $pull.merged -ne $false -or
+              $pull.base.ref -cne 'main' -or $pull.head.sha -cne $bootstrapOperatorResult.pushed_head
+            ) { throw 'bootstrap_publication_handoff_pull_invalid' }
+            $stateRebindInputPath = Join-Path $env:RUNNER_TEMP 'bootstrap-publication-task-state-rebind.json'
+            $stateRebindResultPath = Join-Path $env:RUNNER_TEMP 'bootstrap-publication-task-state-rebound.json'
+            $stateRebindInput = [ordered]@{
+              pullBody = [string]$pull.body
+              operatorTaskState = $state
+              taskIssueNumber = [int64]$request.task_issue_number
+              prNumber = [int64]$bootstrapOperatorResult.pr_number
+              pushedHead = [string]$bootstrapOperatorResult.pushed_head
+              authorizedPaths = $authorized
+            }
+            [IO.File]::WriteAllText($stateRebindInputPath, ($stateRebindInput | ConvertTo-Json -Compress -Depth 8), $utf8NoBom)
+            node --input-type=module -e "import { readFileSync } from 'node:fs'; import { pathToFileURL } from 'node:url'; const owner = await import(pathToFileURL(process.argv[1]).href); const input = JSON.parse(readFileSync(process.argv[2], 'utf8')); process.stdout.write(JSON.stringify(owner.verifyBootstrapPublicationTaskStateV1(input)));" $env:PTA_ROLE_HOST_RUNNER $stateRebindInputPath 1> $stateRebindResultPath
+            if ($LASTEXITCODE -ne 0) { throw 'bootstrap_publication_task_state_changed' }
+            $freshState = Get-Content -LiteralPath $stateRebindResultPath -Raw -Encoding utf8 | ConvertFrom-Json
+            if (
+              $freshState.task_issue_number -ne $request.task_issue_number -or
+              $freshState.pr_number -ne $bootstrapOperatorResult.pr_number -or
+              $freshState.observed_head -cne $bootstrapOperatorResult.pushed_head -or
+              (Compare-Object ([string[]]@($freshState.authorized_paths)) $authorized)
+            ) { throw 'bootstrap_publication_task_state_changed' }
+            $commit = gh api "repos/$($request.repository)/commits/$($bootstrapOperatorResult.pushed_head)" | ConvertFrom-Json
+            if (
+              $LASTEXITCODE -ne 0 -or $commit.sha -cne $bootstrapOperatorResult.pushed_head -or
+              @($commit.parents).Count -ne 1 -or $commit.parents[0].sha -cne $request.expected_parent_head
+            ) { throw 'bootstrap_publication_handoff_parent_invalid' }
+
+            $publicationPath = Join-Path $env:RUNNER_TEMP 'bootstrap-publication-handoff.md'
+            $pathLines = ($authorized | ForEach-Object { "- ``$_``" }) -join [Environment]::NewLine
+            $taskUrl = "https://github.com/$($request.repository)/issues/$($request.task_issue_number)"
+            $publication = "## Publication Handoff — Bootstrap Publication Operator V1`n`n- Bootstrap Publication Decision: $taskUrl#issuecomment-$($owner.decision_comment_id)`n- Pre-PR Result Handoff: $taskUrl#issuecomment-$($owner.result_handoff_comment_id)`n- Pre-PR Implementation Authority: $taskUrl#issuecomment-$($owner.pre_pr_implementation_authority_comment_id)`n- target PR: ``#$($bootstrapOperatorResult.pr_number)```n- published HEAD: ``$($bootstrapOperatorResult.pushed_head)```n- exact parent: ``$($request.expected_parent_head)```n- push mode: create-only empty-lease CAS`n- local / remote HEAD equality: PASS`n`n### Published scope`n`n$pathLines`n`n### Terminal state`n`n- status: ``completed```n- execution_stop_reason: ``completed```n"
+            [IO.File]::WriteAllText($publicationPath, $publication, $utf8NoBom)
+            $null = Publish-CanonicalComment -BodyFile $publicationPath
+            exit 0
           }
 
           $prePrImplementer = $dispatch.next_action -ceq 'IMPLEMENTER' -and $dispatch.source_binding.kind -ceq 'PRE_PR_IMPLEMENTATION_AUTHORITY'

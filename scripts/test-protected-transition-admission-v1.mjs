@@ -62,6 +62,7 @@ import {
   reduceLifecycleReplayV1,
   resolveEffectiveReviewDecisionV1,
   selectRepairValidationProfileV1,
+  verifyBootstrapPublicationTaskStateV1,
 } from './run-protected-transition-admission-v1.mjs'
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -9392,6 +9393,9 @@ check(
 const bootstrapConsumerBlockStart = roleExecutionRun.indexOf("if ($env:ROLE_OPERATION -ceq 'EXECUTE_BOOTSTRAP_PUBLICATION')")
 const bootstrapConsumerBlockEnd = roleExecutionRun.indexOf('function Invoke-BoundedRole', bootstrapConsumerBlockStart)
 const bootstrapConsumerBlock = roleExecutionRun.slice(bootstrapConsumerBlockStart, bootstrapConsumerBlockEnd)
+const bootstrapHandoffBlockStart = roleExecutionRun.indexOf('if ($null -ne $bootstrapOperatorResult)')
+const bootstrapHandoffBlockEnd = roleExecutionRun.indexOf('$prePrImplementer =', bootstrapHandoffBlockStart)
+const bootstrapHandoffBlock = roleExecutionRun.slice(bootstrapHandoffBlockStart, bootstrapHandoffBlockEnd)
 check(
   Object.keys(workflow.jobs).length === 5 &&
   workflow.jobs.protected_transition_role_dispatch_consumer_v1.if.includes('BOOTSTRAP_PUBLICATION_OPERATOR') &&
@@ -9403,15 +9407,17 @@ check(
   bootstrapConsumerBlockStart >= 0 &&
   (bootstrapConsumerBlock.match(/PTA_BOOTSTRAP_HOST_RUNNER --request-file/g) ?? []).length === 1 &&
   bootstrapConsumerBlock.includes('Push-Location -LiteralPath ([string]$request.reviewed_worktree_path)') &&
-  bootstrapConsumerBlock.includes('exit 0') && !bootstrapConsumerBlock.includes('Invoke-BoundedRole'),
-  'PBD-10 existing Bootstrap Publication operator is invoked exactly once and its result is terminal',
+  bootstrapConsumerBlock.includes('$bootstrapOperatorResult = $operatorResult') && !bootstrapConsumerBlock.includes('Invoke-BoundedRole'),
+  'PBD-10 existing Bootstrap Publication operator is invoked exactly once and its successful result reaches Handoff publication',
 )
 check(
   !bootstrapConsumerBlock.includes('git commit') && !bootstrapConsumerBlock.includes('git push') &&
   !bootstrapConsumerBlock.includes('pulls') && !bootstrapConsumerBlock.includes('Task-state') &&
-  !bootstrapConsumerBlock.includes('POST_REVIEW') && !bootstrapConsumerBlock.includes('READY') &&
-  !bootstrapConsumerBlock.includes('MERGE'),
-  'PBD-11 workflow duplicates no commit, push, PR, Task-state, Review, Ready, or Merge behavior',
+  bootstrapHandoffBlock.includes('Publish-CanonicalComment -BodyFile $publicationPath') &&
+  !bootstrapHandoffBlock.includes('method PATCH') && !bootstrapHandoffBlock.includes('git commit') &&
+  !bootstrapHandoffBlock.includes('git push') && !bootstrapHandoffBlock.includes('POST_REVIEW') &&
+  !bootstrapHandoffBlock.includes('READY') && !bootstrapHandoffBlock.includes('MERGE'),
+  'PBD-11 workflow adds only the canonical Bootstrap Handoff and duplicates no transaction, Task-state, Review, Ready, or Merge behavior',
 )
 check(
   bootstrapOperatorSource.includes("kind: 'LEGACY_TASK_ASSIGNMENT'") &&
@@ -9448,5 +9454,222 @@ check(
   'PBD-16 Bootstrap operator source, five-job topology, and existing Worker path remain unchanged',
 )
 
-if (assertions !== 1032) throw new Error(`expected exactly 1032 assertions, observed ${assertions}`)
+const BOOTSTRAP_PUBLICATION_HANDOFF_ID = 5_395_000_001
+const BOOTSTRAP_PUBLICATION_PR = 368
+const BOOTSTRAP_PUBLISHED_HEAD = 'd'.repeat(40)
+const bootstrapInitialState = Object.freeze({
+  record_type: PROTECTED_TRANSITION_TASK_STATE_V1,
+  task_issue_number: PRE_PR_TASK,
+  pr_number: BOOTSTRAP_PUBLICATION_PR,
+  observed_head: BOOTSTRAP_PUBLISHED_HEAD,
+  authorized_paths: [...PRE_PR_CHANGED_PATHS],
+  architecture_status: 'APPROVED',
+  implementation_authorized: true,
+  review_status: 'PENDING',
+  reviewed_head: null,
+  review_blocker_count: null,
+})
+const reboundBootstrapTaskState = verifyBootstrapPublicationTaskStateV1({
+  pullBody: stateBlock(bootstrapInitialState),
+  operatorTaskState: bootstrapInitialState,
+  taskIssueNumber: PRE_PR_TASK,
+  prNumber: BOOTSTRAP_PUBLICATION_PR,
+  pushedHead: BOOTSTRAP_PUBLISHED_HEAD,
+  authorizedPaths: PRE_PR_CHANGED_PATHS,
+})
+check(
+  JSON.stringify(reboundBootstrapTaskState) === JSON.stringify(bootstrapInitialState),
+  'BPR-00a valid freshly extracted PR Task-state permits Bootstrap Handoff publication',
+)
+const missingBootstrapTaskState = await errorOf(() => verifyBootstrapPublicationTaskStateV1({
+  pullBody: 'Draft PR body without a protected transition Task-state',
+  operatorTaskState: bootstrapInitialState,
+  taskIssueNumber: PRE_PR_TASK,
+  prNumber: BOOTSTRAP_PUBLICATION_PR,
+  pushedHead: BOOTSTRAP_PUBLISHED_HEAD,
+  authorizedPaths: PRE_PR_CHANGED_PATHS,
+}))
+check(
+  missingBootstrapTaskState?.message === 'bootstrap_publication_task_state_changed',
+  'BPR-00b Task-state removal after operator success blocks Bootstrap Handoff publication',
+)
+const changedBootstrapTaskState = await errorOf(() => verifyBootstrapPublicationTaskStateV1({
+  pullBody: stateBlock({ ...bootstrapInitialState, review_status: 'APPROVE', reviewed_head: BOOTSTRAP_PUBLISHED_HEAD, review_blocker_count: 0 }),
+  operatorTaskState: bootstrapInitialState,
+  taskIssueNumber: PRE_PR_TASK,
+  prNumber: BOOTSTRAP_PUBLICATION_PR,
+  pushedHead: BOOTSTRAP_PUBLISHED_HEAD,
+  authorizedPaths: PRE_PR_CHANGED_PATHS,
+}))
+check(
+  changedBootstrapTaskState?.message === 'bootstrap_publication_task_state_changed',
+  'BPR-00c Task-state mutation after operator success blocks Bootstrap Handoff publication',
+)
+const bootstrapPublicationHandoffBody = `## Publication Handoff — Bootstrap Publication Operator V1
+
+- Bootstrap Publication Decision: https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${PRE_PR_BOOTSTRAP_DECISION_COMMENT_ID}
+- Pre-PR Result Handoff: https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${PRE_PR_RESULT_COMMENT_ID}
+- Pre-PR Implementation Authority: https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${FRESH_PRE_PR_COMMENT_ID}
+- target PR: \`#${BOOTSTRAP_PUBLICATION_PR}\`
+- published HEAD: \`${BOOTSTRAP_PUBLISHED_HEAD}\`
+- exact parent: \`${PRE_PR_BASELINE}\`
+- push mode: create-only empty-lease CAS
+- local / remote HEAD equality: PASS
+
+### Published scope
+
+${PRE_PR_CHANGED_PATHS.map((value) => `- \`${value}\``).join('\n')}
+
+### Terminal state
+
+- status: \`completed\`
+- execution_stop_reason: \`completed\`
+`
+const bootstrapPublicationHandoffEvent = Object.freeze({
+  action: 'created',
+  repository: Object.freeze({ full_name: REPOSITORY }),
+  issue: Object.freeze({ number: PRE_PR_TASK, state: 'open' }),
+  comment: Object.freeze({ id: BOOTSTRAP_PUBLICATION_HANDOFF_ID, author_association: 'OWNER', body: bootstrapPublicationHandoffBody }),
+})
+const bootstrapPublishedHostV1 = ({ taskState = bootstrapInitialState, pullOverrides = {} } = {}) => {
+  const chainHost = prePrBootstrapDecisionHostV1()
+  const metrics = { ...chainHost.metrics, statePatches: 0 }
+  return Object.freeze({
+    ...chainHost,
+    metrics,
+    api: async (endpoint, options) => {
+      if (endpoint === `repos/${REPOSITORY}/issues/comments/${BOOTSTRAP_PUBLICATION_HANDOFF_ID}`) {
+        metrics.api.push(endpoint)
+        return {
+          id: BOOTSTRAP_PUBLICATION_HANDOFF_ID,
+          issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${PRE_PR_TASK}`,
+          html_url: `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${BOOTSTRAP_PUBLICATION_HANDOFF_ID}`,
+          created_at: '2026-08-25T00:00:00Z',
+          author_association: 'OWNER',
+          user: Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
+          body: bootstrapPublicationHandoffBody,
+        }
+      }
+      if (endpoint === `repos/${REPOSITORY}/pulls/${BOOTSTRAP_PUBLICATION_PR}`) {
+        if (options?.method === 'PATCH') metrics.statePatches += 1
+        return {
+          number: BOOTSTRAP_PUBLICATION_PR,
+          html_url: `https://github.com/${REPOSITORY}/pull/${BOOTSTRAP_PUBLICATION_PR}`,
+          state: 'open',
+          draft: true,
+          merged: false,
+          base: { ref: 'main', repo: { full_name: REPOSITORY } },
+          head: { sha: BOOTSTRAP_PUBLISHED_HEAD },
+          body: stateBlock(taskState),
+          changed_files: PRE_PR_CHANGED_PATHS.length,
+          ...pullOverrides,
+        }
+      }
+      if (endpoint === `repos/${REPOSITORY}/commits/${BOOTSTRAP_PUBLISHED_HEAD}`) {
+        return { sha: BOOTSTRAP_PUBLISHED_HEAD, parents: [{ sha: PRE_PR_BASELINE }] }
+      }
+      if (endpoint.startsWith(`repos/${REPOSITORY}/pulls/${BOOTSTRAP_PUBLICATION_PR}/files?`)) {
+        return PRE_PR_CHANGED_PATHS.map((filename) => ({ filename, status: 'modified' }))
+      }
+      if (endpoint.startsWith(`repos/${REPOSITORY}/issues/${PRE_PR_TASK}/comments?`)) return []
+      return chainHost.api(endpoint, options)
+    },
+  })
+}
+
+const bootstrapPublishedHost = bootstrapPublishedHostV1()
+const bootstrapPublishedRoute = await executeRoleTransitionOrchestratorV1({
+  event: bootstrapPublicationHandoffEvent,
+  host: bootstrapPublishedHost,
+})
+check(
+  bootstrapPublishedRoute.terminal_result === 'PUBLISHED' &&
+  bootstrapPublishedRoute.reason === 'publication_state_rebound' &&
+  bootstrapPublishedRoute.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER' &&
+  bootstrapPublishedRoute.current_head === BOOTSTRAP_PUBLISHED_HEAD &&
+  bootstrapPublishedRoute.state_changed === false,
+  'BPR-01 exact Bootstrap Handoff reuses PUBLISHED routing without another Task-state write',
+)
+const bootstrapPublishedBinding = bootstrapPublishedRoute.role_dispatch.source_binding
+check(
+  Object.keys(bootstrapPublishedBinding).sort().join('\n') === [
+    'bootstrap_decision_comment_id', 'comment_id', 'kind', 'parent_head',
+    'pre_pr_implementation_authority_comment_id', 'pre_pr_result_handoff_comment_id', 'publication_mode',
+  ].sort().join('\n') &&
+  bootstrapPublishedBinding.kind === 'PUBLICATION_HANDOFF' &&
+  bootstrapPublishedBinding.comment_id === BOOTSTRAP_PUBLICATION_HANDOFF_ID &&
+  bootstrapPublishedBinding.bootstrap_decision_comment_id === PRE_PR_BOOTSTRAP_DECISION_COMMENT_ID &&
+  bootstrapPublishedBinding.pre_pr_result_handoff_comment_id === PRE_PR_RESULT_COMMENT_ID &&
+  bootstrapPublishedBinding.pre_pr_implementation_authority_comment_id === FRESH_PRE_PR_COMMENT_ID &&
+  bootstrapPublishedBinding.parent_head === PRE_PR_BASELINE,
+  'BPR-02 Bootstrap PUBLICATION_HANDOFF binding carries the exact Decision, Result, Authority, Handoff, and parent identities',
+)
+check(
+  bootstrapPublishedHost.metrics.statePatches === 0 &&
+  bootstrapPublishedRoute.role_dispatch.task_state.review_status === 'PENDING' &&
+  JSON.stringify(bootstrapPublishedRoute.role_dispatch.authorized_paths) === JSON.stringify(PRE_PR_CHANGED_PATHS),
+  'BPR-03 matching initial Task-state is reused unchanged and remains reviewer-routable',
+)
+const bootstrapReviewerPlan = await executeRoleDispatchConsumerV1({
+  dispatch: bootstrapPublishedRoute.role_dispatch,
+  host: bootstrapPublishedHostV1(),
+})
+check(
+  bootstrapReviewerPlan.next_action === 'EXECUTE_ROLE' &&
+  bootstrapReviewerPlan.role === 'INDEPENDENT_IMPLEMENTATION_REVIEWER' &&
+  bootstrapReviewerPlan.read_only === true && bootstrapReviewerPlan.exact_head === BOOTSTRAP_PUBLISHED_HEAD,
+  'BPR-04 existing role consumer accepts the rebound Bootstrap Handoff and dispatches the reviewer',
+)
+const staleBootstrapState = Object.freeze({ ...bootstrapInitialState, review_status: 'APPROVE', reviewed_head: BOOTSTRAP_PUBLISHED_HEAD, review_blocker_count: 0 })
+const staleBootstrapHost = bootstrapPublishedHostV1({ taskState: staleBootstrapState })
+const staleBootstrapRoute = await executeRoleTransitionOrchestratorV1({ event: bootstrapPublicationHandoffEvent, host: staleBootstrapHost })
+check(
+  staleBootstrapRoute.next_action === 'STOP' && staleBootstrapRoute.reason === 'terminal_result_ambiguous_or_invalid' &&
+  staleBootstrapHost.metrics.statePatches === 0,
+  'BPR-05 non-initial Task-state stops before reviewer routing and is not repaired by PUBLISHED',
+)
+const nonDraftBootstrapRoute = await executeRoleTransitionOrchestratorV1({
+  event: bootstrapPublicationHandoffEvent,
+  host: bootstrapPublishedHostV1({ pullOverrides: { draft: false } }),
+})
+check(nonDraftBootstrapRoute.next_action === 'STOP', 'BPR-06 Bootstrap PUBLISHED requires the actual PR to remain OPEN Draft unmerged on main')
+const bootstrapLifecycleRoute = await executeReviewEventWithLifecycleReplayV1({
+  event: bootstrapPublicationHandoffEvent,
+  host: bootstrapPublishedHostV1(),
+  runId: REVIEW_RUN_ID,
+  runAttempt: 1,
+  hostSha: PRE_PR_BASELINE,
+  jobName: 'protected_transition_admission_v1',
+})
+check(
+  bootstrapLifecycleRoute.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER' &&
+  bootstrapLifecycleRoute.role_dispatch.source_binding.publication_mode === 'BOOTSTRAP_CREATE_ONLY_EMPTY_LEASE_CAS' &&
+  !Object.hasOwn(bootstrapLifecycleRoute, 'lifecycle_projection'),
+  'BPR-07 production review-event boundary preserves the admitted Bootstrap PUBLISHED owner result',
+)
+check(
+  bootstrapConsumerBlock.includes("status -cne 'SUCCESS'") &&
+  bootstrapConsumerBlock.includes("reason -cne 'bootstrap_publication_complete'") &&
+  bootstrapHandoffBlock.includes("$pull.state -cne 'open'") && bootstrapHandoffBlock.includes('$pull.draft -ne $true') &&
+  bootstrapHandoffBlock.includes('$pull.merged -ne $false') && bootstrapHandoffBlock.includes("$pull.base.ref -cne 'main'") &&
+  bootstrapHandoffBlock.includes("$state.review_status -cne 'PENDING'") && bootstrapHandoffBlock.includes('Compare-Object $statePaths $authorized') &&
+  bootstrapHandoffBlock.includes('verifyBootstrapPublicationTaskStateV1(input)') &&
+  bootstrapHandoffBlock.indexOf('verifyBootstrapPublicationTaskStateV1(input)') < bootstrapHandoffBlock.indexOf('Publish-CanonicalComment -BodyFile $publicationPath'),
+  'BPR-08 workflow publishes a Bootstrap Handoff only after exact operator, PR, parent, scope, and initial-state checks',
+)
+check(
+  (bootstrapHandoffBlock.match(/Publish-CanonicalComment -BodyFile \$publicationPath/g) ?? []).length === 1 &&
+  bootstrapHandoffBlock.includes('push mode: create-only empty-lease CAS') &&
+  bootstrapHandoffBlock.includes('local / remote HEAD equality: PASS') && bootstrapHandoffBlock.includes('exit 0') &&
+  !bootstrapHandoffBlock.includes('--review-event-file') && !bootstrapHandoffBlock.includes('Invoke-BoundedRole'),
+  'BPR-09 one Bootstrap Handoff terminates its invocation and the natural issue-comment event owns PUBLISHED continuation',
+)
+check(
+  Object.keys(workflow.jobs).length === 5 && !workflowSource.includes('pull_request.opened') &&
+  !bootstrapHandoffBlock.includes('PATCH') && !bootstrapHandoffBlock.includes('writeProtectedTransitionTaskStateV1') &&
+  bootstrapOperatorSource === baselineBootstrapOperatorSource,
+  'BPR-10 five-job topology, Bootstrap transaction semantics, initial Task-state, and natural triggers remain unchanged',
+)
+
+if (assertions !== 1045) throw new Error(`expected exactly 1045 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
