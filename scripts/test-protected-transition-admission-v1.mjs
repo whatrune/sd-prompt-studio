@@ -374,9 +374,11 @@ check(duplicateJsonError?.message === 'json_duplicate_key', 'duplicate JSON keys
 
 const workflowPath = path.join(repositoryRoot, '.github/workflows/protected-transition-admission-v1.yml')
 const runnerPath = path.join(repositoryRoot, 'scripts/run-protected-transition-admission-v1.mjs')
+const bootstrapOperatorPath = path.join(repositoryRoot, 'scripts/run-bootstrap-publication-operator-v1.mjs')
 const corePath = path.join(repositoryRoot, 'src/continuous-orchestration/protected-transition-admission-v1.ts')
 const workflowSource = readFileSync(workflowPath, 'utf8')
 const runnerSource = readFileSync(runnerPath, 'utf8')
+const bootstrapOperatorSource = readFileSync(bootstrapOperatorPath, 'utf8')
 const coreSource = readFileSync(corePath, 'utf8')
 const workflow = parseYaml(workflowSource)
 
@@ -9092,13 +9094,21 @@ const prePrPublicationResultEventV1 = (body = prePrPublicationResultBody, overri
   comment: Object.freeze({ id: PRE_PR_RESULT_COMMENT_ID, author_association: 'OWNER', body }),
   ...overrides,
 })
-const prePrPublicationHostV1 = ({ body = prePrPublicationResultBody, worktreeChanged = PRE_PR_CHANGED_PATHS, ...options } = {}) => prePrHost({
-  authorityComment: executablePrePrAuthorityComment,
-  resultCommentId: PRE_PR_RESULT_COMMENT_ID,
-  resultBody: body,
-  worktreeChanged,
-  ...options,
-})
+const prePrPublicationHostV1 = ({ body = prePrPublicationResultBody, ...options } = {}) => {
+  const host = prePrHost({
+    authorityComment: executablePrePrAuthorityComment,
+    resultCommentId: PRE_PR_RESULT_COMMENT_ID,
+    resultBody: body,
+    ...options,
+  })
+  return Object.freeze({
+    ...host,
+    worktreeState: async (worktree) => {
+      host.metrics.worktree.push(worktree)
+      throw new Error('cross_event_worktree_unavailable')
+    },
+  })
+}
 const prePrPublicationHost = prePrPublicationHostV1()
 const prePrPublicationIngress = await executeRoleTransitionOrchestratorV1({
   event: prePrPublicationResultEventV1(),
@@ -9110,8 +9120,8 @@ check(
   prePrPublicationIngress.terminal_result === 'PRE_PR_IMPLEMENTATION_RESULT' &&
   prePrPublicationIngress.reason === 'pre_pr_implementation_result_admitted' &&
   prePrPublicationIngress.pr_number === null && prePrPublicationIngress.current_head === PRE_PR_BASELINE &&
-  prePrPublicationIngress.mutation_count === 0,
-  'PPD-01 canonical pre-PR Result natural event reaches Product Owner without Review-event semantics',
+  prePrPublicationIngress.mutation_count === 0 && prePrPublicationHost.metrics.worktree.length === 0,
+  'PPD-01 canonical pre-PR Result reaches Product Owner when the authority worktree filesystem is unavailable',
 )
 check(
   Object.keys(prePrPublicationIngress.role_dispatch.source_binding).sort().join('\n') === [
@@ -9126,11 +9136,12 @@ check(
   prePrPublicationIngress.role_dispatch.pr_number === null && prePrPublicationIngress.role_dispatch.task_state === null &&
   prePrPublicationHost.metrics.api.includes(`repos/${REPOSITORY}/issues/comments/${PRE_PR_RESULT_COMMENT_ID}`) &&
   prePrPublicationHost.metrics.api.includes(`repos/${REPOSITORY}/issues/comments/${FRESH_PRE_PR_COMMENT_ID}`) &&
-  prePrPublicationHost.metrics.api.every((endpoint) => !endpoint.includes('/pulls/')),
-  'PPD-03 Result and referenced authority are directly refetched with no PR or Task-state acquisition',
+  prePrPublicationHost.metrics.api.every((endpoint) => !endpoint.includes('/pulls/')) && prePrPublicationHost.metrics.worktree.length === 0,
+  'PPD-03 Result and referenced authority are directly refetched with no PR, Task-state, filesystem, or git acquisition',
 )
 
 const mismatchedPrePrPublicationBodies = [
+  prePrPublicationResultBody.replace(`repository: ${REPOSITORY}`, 'repository: other/repository'),
   prePrPublicationResultBody.replace(`task_issue: https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}`, `task_issue: https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK + 1}`),
   prePrPublicationResultBody.replace(`exact_baseline: ${PRE_PR_BASELINE}`, `exact_baseline: ${OTHER_HEAD}`),
   prePrPublicationResultBody.replace(`branch: ${PRE_PR_BRANCH}`, 'branch: codex/other-pre-pr-branch'),
@@ -9142,25 +9153,42 @@ const mismatchedPrePrPublicationResults = await Promise.all(mismatchedPrePrPubli
   event: prePrPublicationResultEventV1(body),
   host: prePrPublicationHostV1({ body }),
 })))
-check(mismatchedPrePrPublicationResults.every((result) => result.next_action === 'STOP'), 'PPD-04 mismatched Task, baseline, branch, worktree, scope, and validation evidence fail closed')
+check(mismatchedPrePrPublicationResults.every((result) => result.next_action === 'STOP'), 'PPD-04 mismatched repository, Task, baseline, branch, worktree, scope, and validation evidence fail closed')
+const mismatchedPrePrPublicationAuthority = Object.freeze({
+  ...executablePrePrAuthorityComment,
+  body: executablePrePrAuthorityBody.replace(`worktree: ${PRE_PR_WORKTREE}`, `worktree: ${PRE_PR_WORKTREE}/other`),
+})
 const driftedPrePrPublication = await executePrePrPublicationDecisionIngressV1({
   event: prePrPublicationResultEventV1(),
-  host: prePrPublicationHostV1({ worktreeChanged: PRE_PR_PATHS }),
+  host: prePrPublicationHostV1({ authorityComment: mismatchedPrePrPublicationAuthority }),
 })
-check(driftedPrePrPublication.next_action === 'STOP' && driftedPrePrPublication.reason === 'role_dispatch_binding_changed', 'PPD-05 current worktree scope drift stops before Product Owner dispatch')
+check(driftedPrePrPublication.next_action === 'STOP' && driftedPrePrPublication.reason === 'pre_pr_implementation_result_invalid', 'PPD-05 authority and Result worktree STRING mismatch stops without filesystem access')
 
 const prePrPublicationPlanHost = prePrPublicationHostV1()
 const prePrPublicationPlan = await executeRoleDispatchConsumerV1({ dispatch: prePrPublicationIngress.role_dispatch, host: prePrPublicationPlanHost })
 check(
   prePrPublicationPlan.next_action === 'EXECUTE_ROLE' && prePrPublicationPlan.role === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' &&
-  prePrPublicationPlan.purpose === 'PRE_PR_PUBLICATION_DECISION' && prePrPublicationPlan.read_only === true,
-  'PPD-06 existing Product Owner consumer is dispatched read-only from the admitted Result',
+  prePrPublicationPlan.purpose === 'PRE_PR_PUBLICATION_DECISION' && prePrPublicationPlan.read_only === true &&
+  prePrPublicationPlanHost.metrics.worktree.length === 0,
+  'PPD-06 existing Product Owner consumer is dispatched read-only without reacquiring implementation bytes',
 )
 check(
   prePrPublicationPlan.prompt.includes('exact 12 fields') && prePrPublicationPlan.prompt.includes('BOOTSTRAP_PUBLICATION or STOP') &&
   prePrPublicationPlan.prompt.includes('Do not invoke publication mechanics') &&
   prePrPublicationPlanHost.metrics.api.every((endpoint) => !endpoint.includes('/pulls/')),
   'PPD-07 Product Owner prompt carries only the pre-PR decision contract and no PR acquisition',
+)
+const prePrPublicationRebindHost = prePrPublicationHostV1()
+const reboundPrePrPublication = await executeRoleDispatchRebindV1({
+  dispatch: prePrPublicationIngress.role_dispatch,
+  host: prePrPublicationRebindHost,
+})
+check(
+  reboundPrePrPublication.next_action === 'PROTECTED_OPERATION_READY' &&
+  prePrPublicationRebindHost.metrics.worktree.length === 0 &&
+  prePrPublicationRebindHost.metrics.api.includes(`repos/${REPOSITORY}/issues/comments/${PRE_PR_RESULT_COMMENT_ID}`) &&
+  prePrPublicationRebindHost.metrics.api.includes(`repos/${REPOSITORY}/issues/comments/${FRESH_PRE_PR_COMMENT_ID}`),
+  'PPD-07a fresh Result rebind direct-refetches immutable owners without worktree acquisition',
 )
 
 const prePrPublicationDecisionBodyV1 = ({ decision = 'BOOTSTRAP_PUBLICATION', additions = '' } = {}) => `\`\`\`yaml
@@ -9224,6 +9252,17 @@ check(
   evaluateRoleDispatchOutputV1({ dispatch: publicationDispatch, body: rolePublicationAuthorityBody }).next_action === 'COMMIT_PUSH_PUBLISH',
   'PPD-12 one canonical publication, original five-job topology, and existing post-PR Product Owner path remain unchanged',
 )
+const bootstrapFreshBindingIndex = bootstrapOperatorSource.indexOf('normalizedFileSystemPathV1(host.worktreePath)')
+const bootstrapStageIndex = bootstrapOperatorSource.indexOf("host.git(['add', '--', ...request.authorized_paths])")
+check(
+  bootstrapFreshBindingIndex >= 0 && bootstrapFreshBindingIndex < bootstrapStageIndex &&
+  bootstrapOperatorSource.includes("host.git(['branch', '--show-current']") &&
+  bootstrapOperatorSource.includes("['remote', 'get-url', '--push', '--all', 'origin']") &&
+  bootstrapOperatorSource.includes('repairWorkingTreePathsV1(') &&
+  bootstrapOperatorSource.includes("['ls-remote', '--heads', 'origin', `refs/heads/${request.branch}`]") &&
+  prePrDecisionWorkflowBlock.includes('exit 0') && !prePrDecisionWorkflowBlock.includes('run-bootstrap-publication-operator-v1'),
+  'PPD-13 Bootstrap Publication remains the fresh mutable-worktree verifier and is not invoked by Product Owner decision ingress',
+)
 
-if (assertions !== 1014) throw new Error(`expected exactly 1014 assertions, observed ${assertions}`)
+if (assertions !== 1016) throw new Error(`expected exactly 1016 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
