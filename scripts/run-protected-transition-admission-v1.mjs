@@ -242,6 +242,12 @@ const parseMinimalGovernanceYamlV1 = (body) => {
       lists.set(listKey, [])
       continue
     }
+    const emptyList = line.match(/^([a-z][a-z0-9_]*):[ \t]+\[\][ \t]*$/)
+    if (emptyList && !scalars.has(emptyList[1]) && !lists.has(emptyList[1])) {
+      listKey = null
+      lists.set(emptyList[1], [])
+      continue
+    }
     const scalar = line.match(/^([a-z][a-z0-9_]*):[ \t]+(.+)$/)
     if (!scalar || scalars.has(scalar[1]) || lists.has(scalar[1])) {
       throw new Error('minimal_governance_yaml_shape_invalid')
@@ -3798,6 +3804,7 @@ export const executeMinimalGovernanceFinalDriftGuardV1 = async ({ plan: planInpu
 }
 
 const ROLE_TERMINAL_RESULTS_V1 = Object.freeze([
+  'PRE_PR_IMPLEMENTATION_AUTHORITY',
   'IMPLEMENTATION_AUTHORIZED',
   'IMPLEMENTATION_RESULT_READY',
   'PUBLISHED',
@@ -3851,6 +3858,12 @@ const parseRoleYamlV1 = (body) => {
     const listItem = line.match(/^  -[ \t]+(.+)$/)
     if (listItem && listKey) {
       lists.get(listKey).push(roleMarkdownScalarV1(listItem[1]))
+      continue
+    }
+    const emptyList = line.match(/^([a-z][a-z0-9_]*):[ \t]+\[\][ \t]*$/)
+    if (emptyList && !scalars.has(emptyList[1]) && !lists.has(emptyList[1])) {
+      listKey = null
+      lists.set(emptyList[1], [])
       continue
     }
     const listStart = line.match(/^([a-z][a-z0-9_]*):[ \t]*$/)
@@ -3914,6 +3927,7 @@ const roleEventEnvelopeV1 = (event) => {
 }
 
 const roleTransitionMarkersV1 = (body) => Object.freeze([
+  ...(/(?:^|\r?\n)record_type:[ \t]+pre_pr_implementation_authority_v1(?:\r?$)/m.test(body) ? ['PRE_PR_IMPLEMENTATION_AUTHORITY'] : []),
   ...(isReviewDecisionCandidateV1(body) ? ['REVIEW'] : []),
   ...(isMinimalGovernanceCandidateV1(body) ? [MINIMAL_GOVERNANCE_AUTHORITY_KIND_V1] : []),
   ...(/(?:^|\r?\n)record_type:[ \t]+implementation_authorization_v1(?:\r?$)/m.test(body) ? ['IMPLEMENTATION_AUTHORIZED'] : []),
@@ -3921,6 +3935,74 @@ const roleTransitionMarkersV1 = (body) => Object.freeze([
   ...(/^## Backend Implementer Result Handoff\b/m.test(body) ? ['IMPLEMENTATION_RESULT_READY'] : []),
   ...(/^## Publication Handoff\b/m.test(body) ? ['PUBLISHED'] : []),
 ])
+
+const PRE_PR_IMPLEMENTATION_AUTHORITY_SCALAR_FIELDS_V1 = Object.freeze([
+  'record_type', 'version', 'authoring_role', 'authority_source', 'canonical_record', 'repository',
+  'task_issue', 'exact_baseline', 'branch', 'worktree', 'assigned_implementer',
+  'assigned_independent_reviewer', 'implementation_kind', 'purpose', 'operation_count',
+  'implementation_allowed', 'publication_allowed', 'authority_lifetime', 'status',
+])
+const PRE_PR_IMPLEMENTATION_AUTHORITY_LIST_FIELDS_V1 = Object.freeze(['authorized_paths', 'validation_commands'])
+const PRE_PR_IMPLEMENTATION_AUTHORITY_FIELDS_V1 = Object.freeze([
+  ...PRE_PR_IMPLEMENTATION_AUTHORITY_SCALAR_FIELDS_V1,
+  ...PRE_PR_IMPLEMENTATION_AUTHORITY_LIST_FIELDS_V1,
+])
+const PRE_PR_BRANCH_V1 = /^codex\/(?!.*(?:^|\/)\.\.?(?:\/|$))(?!.*\.\.)(?!.*\/\/)[A-Za-z0-9._/-]+[A-Za-z0-9_-]$/
+const PRE_PR_WORKTREE_V1 = /^[A-Za-z]:\/(?!.*(?:^|\/)\.\.?(?:\/|$))(?!.*\/\/)[^\u0000-\u001f\u007f\\]+$/
+
+export const isPrePrImplementationAuthorityCandidateV1 = (body) =>
+  typeof body === 'string' && /(?:^|\r?\n)record_type:[ \t]+pre_pr_implementation_authority_v1(?:\r?$)/m.test(body)
+
+export const parsePrePrImplementationAuthorityV1 = ({ body, repository, taskIssueNumber, commentId }) => {
+  const yaml = parseRoleYamlV1(body)
+  const scalarNames = [...yaml.scalars.keys()]
+  const listNames = [...yaml.lists.keys()]
+  const taskUrl = `https://github.com/${repository}/issues/${taskIssueNumber}`
+  const commentUrl = `${taskUrl}#issuecomment-${commentId}`
+  const paths = yaml.lists.get('authorized_paths')
+  const validationCommands = yaml.lists.get('validation_commands')
+  if (
+    !REPOSITORY.test(repository ?? '') || !positiveInteger(taskIssueNumber) || !positiveInteger(commentId) ||
+    scalarNames.length + listNames.length !== PRE_PR_IMPLEMENTATION_AUTHORITY_FIELDS_V1.length ||
+    PRE_PR_IMPLEMENTATION_AUTHORITY_SCALAR_FIELDS_V1.some((field) => !yaml.scalars.has(field)) ||
+    PRE_PR_IMPLEMENTATION_AUTHORITY_LIST_FIELDS_V1.some((field) => !yaml.lists.has(field)) ||
+    scalarNames.some((field) => !PRE_PR_IMPLEMENTATION_AUTHORITY_SCALAR_FIELDS_V1.includes(field)) ||
+    listNames.some((field) => !PRE_PR_IMPLEMENTATION_AUTHORITY_LIST_FIELDS_V1.includes(field)) ||
+    [...yaml.scalars.values()].some((value) => value === null || value === 'null') ||
+    yaml.scalars.get('record_type') !== 'pre_pr_implementation_authority_v1' ||
+    yaml.scalars.get('version') !== 1 || yaml.scalars.get('authoring_role') !== 'Product Owner' ||
+    yaml.scalars.get('authority_source') !== taskUrl || yaml.scalars.get('canonical_record') !== commentUrl ||
+    yaml.scalars.get('repository') !== repository || yaml.scalars.get('task_issue') !== taskUrl ||
+    !FULL_HEAD.test(yaml.scalars.get('exact_baseline') ?? '') ||
+    !PRE_PR_BRANCH_V1.test(yaml.scalars.get('branch') ?? '') ||
+    !PRE_PR_WORKTREE_V1.test(yaml.scalars.get('worktree') ?? '') ||
+    yaml.scalars.get('assigned_implementer') !== 'Worker' ||
+    yaml.scalars.get('assigned_independent_reviewer') !== 'Backend Architect' ||
+    yaml.scalars.get('implementation_kind') !== 'CODE' ||
+    typeof yaml.scalars.get('purpose') !== 'string' || yaml.scalars.get('purpose').length === 0 ||
+    yaml.scalars.get('operation_count') !== 1 || yaml.scalars.get('implementation_allowed') !== true ||
+    yaml.scalars.get('publication_allowed') !== false ||
+    yaml.scalars.get('authority_lifetime') !== 'PRE_PR_IMPLEMENTATION_ONLY' ||
+    yaml.scalars.get('status') !== 'authorized_for_pre_pr_implementation_only' ||
+    !Array.isArray(paths) || paths.length === 0 || new Set(paths).size !== paths.length ||
+    paths.some((value) => !isNormalizedRepositoryPathV1(value)) ||
+    !Array.isArray(validationCommands) || validationCommands.length === 0 ||
+    new Set(validationCommands).size !== validationCommands.length ||
+    validationCommands.some((value) => typeof value !== 'string' || value.length === 0)
+  ) throw new Error('pre_pr_implementation_authority_invalid')
+  return Object.freeze({
+    repository,
+    task_issue_number: taskIssueNumber,
+    comment_id: commentId,
+    authority_url: commentUrl,
+    exact_baseline: yaml.scalars.get('exact_baseline'),
+    branch: yaml.scalars.get('branch'),
+    worktree: yaml.scalars.get('worktree'),
+    purpose: yaml.scalars.get('purpose'),
+    authorized_paths: Object.freeze([...paths].sort()),
+    validation_commands: Object.freeze([...validationCommands]),
+  })
+}
 
 export const parseProductOwnerMergeDecisionV1 = (body, repository, taskIssueNumber) => {
   const yaml = parseRoleYamlV1(body)
@@ -3980,6 +4062,15 @@ export const normalizeRoleTransitionEventV1 = (event) => {
   const body = envelope.body
   const markers = roleTransitionMarkersV1(body)
   if (markers.length !== 1) throw new Error('terminal_result_ambiguous_or_invalid')
+  if (markers[0] === 'PRE_PR_IMPLEMENTATION_AUTHORITY') {
+    const authority = parsePrePrImplementationAuthorityV1({
+      body,
+      repository: envelope.repository,
+      taskIssueNumber: envelope.taskIssueNumber,
+      commentId: envelope.commentId,
+    })
+    return Object.freeze({ ...envelope, terminalResult: markers[0], authority })
+  }
   if (markers[0] === 'REVIEW') {
     const parsed = parseReviewApprovalEventV1(event)
     if (!['APPROVE', 'CHANGES_REQUIRED', 'BLOCKED'].includes(parsed.review.decision)) {
@@ -4121,9 +4212,21 @@ const materializeImplementerContextV1 = async ({ repository, taskIssueNumber, au
 }
 
 const projectRoleSourceBindingV1 = (binding, sourceCommentId) => {
-  if (!binding || !['REVIEW', 'IMPLEMENTATION_AUTHORIZATION', 'IMPLEMENTATION_RESULT', 'PUBLICATION_HANDOFF', 'MERGE_DECISION'].includes(binding.kind) || binding.comment_id !== sourceCommentId) {
+  if (!binding || !['PRE_PR_IMPLEMENTATION_AUTHORITY', 'REVIEW', 'IMPLEMENTATION_AUTHORIZATION', 'IMPLEMENTATION_RESULT', 'PUBLICATION_HANDOFF', 'MERGE_DECISION'].includes(binding.kind) || binding.comment_id !== sourceCommentId) {
     throw new Error('role_dispatch_source_binding_invalid')
   }
+  if (binding.kind === 'PRE_PR_IMPLEMENTATION_AUTHORITY' && (
+    Object.keys(binding).sort().join('\n') !== [
+      'authority_url', 'body_sha256', 'branch', 'comment_id', 'exact_baseline', 'kind',
+      'validation_commands', 'worktree',
+    ].sort().join('\n') ||
+    !new RegExp(`^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/[1-9]\\d*#issuecomment-${sourceCommentId}$`).test(binding.authority_url ?? '') ||
+    !/^[0-9a-f]{64}$/.test(binding.body_sha256 ?? '') || !FULL_HEAD.test(binding.exact_baseline ?? '') ||
+    !PRE_PR_BRANCH_V1.test(binding.branch ?? '') || !PRE_PR_WORKTREE_V1.test(binding.worktree ?? '') ||
+    !Array.isArray(binding.validation_commands) || binding.validation_commands.length === 0 ||
+    new Set(binding.validation_commands).size !== binding.validation_commands.length ||
+    binding.validation_commands.some((value) => typeof value !== 'string' || value.length === 0)
+  )) throw new Error('role_dispatch_source_binding_invalid')
   if (binding.kind === 'REVIEW' && (!FULL_HEAD.test(binding.reviewed_head ?? '') || !['APPROVE', 'CHANGES_REQUIRED'].includes(binding.decision))) throw new Error('role_dispatch_source_binding_invalid')
   if (['IMPLEMENTATION_AUTHORIZATION', 'IMPLEMENTATION_RESULT', 'PUBLICATION_HANDOFF'].includes(binding.kind) && (
     !positiveInteger(binding.architecture_review_comment_id) || !/^[0-9a-f]{64}$/.test(binding.candidate_sha256 ?? '')
@@ -4160,15 +4263,20 @@ const normalizeRoleDispatchConsumerV1 = (dispatch) => {
 }
 
 export const projectRoleDispatchEnvelopeV1 = ({ result, repository, sourceCommentId, authorizedPaths, taskState, sourceBinding, admissionRunId = null, implementerContext = null }) => {
-  const parsedTaskState = parseProtectedTransitionTaskStateV1(taskState)
+  const prePr = sourceBinding?.kind === 'PRE_PR_IMPLEMENTATION_AUTHORITY'
+  const parsedTaskState = prePr ? null : parseProtectedTransitionTaskStateV1(taskState)
   if (
     !result || !ROLE_DISPATCH_ACTIONS_V1.includes(result.next_action) || result.next_action === 'REPAIR_EXECUTOR' ||
     !REPOSITORY.test(repository ?? '') || !positiveInteger(result.task_issue_number) ||
-    !positiveInteger(result.pr_number) || !FULL_HEAD.test(result.current_head ?? '') ||
+    (prePr ? result.pr_number !== null : !positiveInteger(result.pr_number)) || !FULL_HEAD.test(result.current_head ?? '') ||
     !positiveInteger(sourceCommentId) || !Array.isArray(authorizedPaths) || authorizedPaths.length === 0 ||
     new Set(authorizedPaths).size !== authorizedPaths.length || authorizedPaths.some((value) => !isNormalizedRepositoryPathV1(value))
   ) throw new Error('role_dispatch_envelope_invalid')
   const action = result.next_action
+  if (prePr && (
+    action !== 'IMPLEMENTER' || result.terminal_result !== 'PRE_PR_IMPLEMENTATION_AUTHORITY' ||
+    sourceBinding.exact_baseline !== result.current_head || taskState !== null
+  )) throw new Error('role_dispatch_envelope_invalid')
   const purpose = action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' && result.terminal_result === 'APPROVE'
     ? 'MERGE_DECISION'
     : action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD'
@@ -4252,7 +4360,7 @@ const roleDispatchPromptV1 = (dispatch) => {
   const common = [
     `Repository: ${dispatch.repository}`,
     `Task: #${dispatch.task_issue_number}`,
-    `PR: #${dispatch.pr_number}`,
+    dispatch.pr_number === null ? 'PR: not yet created' : `PR: #${dispatch.pr_number}`,
     `Exact HEAD: ${dispatch.exact_head}`,
     `Source comment: #${dispatch.source_comment_id}`,
     `Authorized paths: ${dispatch.authorized_paths.join(', ')}`,
@@ -4260,6 +4368,22 @@ const roleDispatchPromptV1 = (dispatch) => {
   ]
   if (dispatch.next_action === 'IMPLEMENTER') {
     const context = projectImplementerContextV1(dispatch.implementer_context)
+    if (dispatch.source_binding?.kind === 'PRE_PR_IMPLEMENTATION_AUTHORITY') {
+      return [
+        ...common,
+        `Authority-bound branch: ${dispatch.source_binding.branch}`,
+        `Authority-bound worktree: ${dispatch.source_binding.worktree}`,
+        `Exact validations: ${dispatch.source_binding.validation_commands.join(', ')}`,
+        '--- BEGIN CURRENT TASK TITLE ---', context.task_title, '--- END CURRENT TASK TITLE ---',
+        '--- BEGIN CURRENT TASK BODY ---', context.task_body, '--- END CURRENT TASK BODY ---',
+        '--- BEGIN APPROVED PRE-PR AUTHORITY ---', context.approved_correction_context, '--- END APPROVED PRE-PR AUTHORITY ---',
+        'Act as Worker in the authority-bound worktree. Edit only the authorized paths. Do not fetch GitHub context, call another agent, commit, push, create a PR, publish a comment, or invoke bootstrap publication.',
+        'Do not execute validation commands or claim validation PASS. The protected-transition consumer host owns validation execution after it verifies your changed paths.',
+        'Return only one YAML block with these exact 18 fields: record_type, version, authoring_role, role, authority_source, repository, task_issue, exact_baseline, branch, worktree, status, execution_stop_reason, blocking_finding_count, remaining_finding_count, unknown_count, changed_paths, validation_results, unperformed_items.',
+        'Use record_type pre_pr_implementation_result_handoff_v1, version 1, authoring_role Worker, role IMPLEMENTER, status COMPLETE, execution_stop_reason completed, and zero finding counts.',
+        'changed_paths must be the non-empty normalized sorted unique actual changed-path subset. Return validation_results as [] and unperformed_items with exactly one item: host_validation_pending.',
+      ].join('\n')
+    }
     return [
       ...common,
       '--- BEGIN CURRENT TASK TITLE ---', context.task_title, '--- END CURRENT TASK TITLE ---',
@@ -4568,7 +4692,11 @@ export const evaluateRoleOutputInvocationV1 = (
 ) => {
   const dispatch = readJsonFileV1(invocation.dispatchFile)
   const bodyBytes = readFileSync(invocation.outputFile)
-  const result = evaluateRoleDispatchOutputV1({ dispatch, body: bodyBytes.toString('utf8') })
+  let jsonlBytes = null
+  const result = evaluateRoleDispatchOutputV1({
+    dispatch,
+    body: bodyBytes.toString('utf8'),
+  })
   if (result.exit_code === 0) return result
   if (dispatch.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER') {
     let failureEvidence
@@ -4584,12 +4712,14 @@ export const evaluateRoleOutputInvocationV1 = (
     }
     return Object.freeze({ ...result, failure_evidence: failureEvidence })
   }
+  if (dispatch.source_binding?.kind === 'PRE_PR_IMPLEMENTATION_AUTHORITY') return result
   if (!invocation.jsonlFile) return result
-  let jsonlBytes
-  try {
-    jsonlBytes = readFileSync(invocation.jsonlFile)
-  } catch {
-    jsonlBytes = Buffer.alloc(0)
+  if (jsonlBytes === null) {
+    try {
+      jsonlBytes = readFileSync(invocation.jsonlFile)
+    } catch {
+      jsonlBytes = Buffer.alloc(0)
+    }
   }
   const { expectedBody, metadata: core } = projectCore({ dispatch, bodyBytes, jsonlBytes })
   let boundedMetadata
@@ -4602,19 +4732,27 @@ export const evaluateRoleOutputInvocationV1 = (
 }
 
 const validateRoleDispatchEnvelopeV1 = (dispatch) => {
+  const prePr = dispatch?.source_binding?.kind === 'PRE_PR_IMPLEMENTATION_AUTHORITY'
   if (
     !dispatch || !CENTRAL_ROLE_DISPATCH_ACTIONS_V1.includes(dispatch.next_action) ||
     !REPOSITORY.test(dispatch.repository ?? '') || !positiveInteger(dispatch.task_issue_number) ||
-    !positiveInteger(dispatch.pr_number) || !FULL_HEAD.test(dispatch.exact_head ?? '') ||
+    (prePr ? dispatch.pr_number !== null : !positiveInteger(dispatch.pr_number)) || !FULL_HEAD.test(dispatch.exact_head ?? '') ||
     !positiveInteger(dispatch.source_comment_id) || !Array.isArray(dispatch.authorized_paths) ||
     dispatch.authorized_paths.length === 0 || new Set(dispatch.authorized_paths).size !== dispatch.authorized_paths.length ||
     dispatch.authorized_paths.some((value) => !isNormalizedRepositoryPathV1(value))
   ) throw new Error('role_dispatch_envelope_invalid')
-  const taskState = parseProtectedTransitionTaskStateV1(dispatch.task_state)
-  projectRoleSourceBindingV1(dispatch.source_binding, dispatch.source_comment_id)
+  const taskState = prePr ? null : parseProtectedTransitionTaskStateV1(dispatch.task_state)
+  const sourceBinding = projectRoleSourceBindingV1(dispatch.source_binding, dispatch.source_comment_id)
   if (dispatch.next_action === 'IMPLEMENTER') projectImplementerContextV1(dispatch.implementer_context)
   else if (Object.hasOwn(dispatch, 'implementer_context')) throw new Error('role_dispatch_envelope_invalid')
-  if (
+  if (prePr) {
+    if (
+      dispatch.next_action !== 'IMPLEMENTER' || dispatch.purpose !== 'IMPLEMENTER' ||
+      dispatch.terminal_result !== 'PRE_PR_IMPLEMENTATION_AUTHORITY' || dispatch.task_state !== null ||
+      sourceBinding.exact_baseline !== dispatch.exact_head ||
+      sourceBinding.authority_url !== `https://github.com/${dispatch.repository}/issues/${dispatch.task_issue_number}#issuecomment-${dispatch.source_comment_id}`
+    ) throw new Error('role_dispatch_envelope_invalid')
+  } else if (
     taskState.task_issue_number !== dispatch.task_issue_number || taskState.pr_number !== dispatch.pr_number ||
     taskState.observed_head !== dispatch.exact_head ||
     !sameRolePathsV1(Object.freeze([...taskState.authorized_paths].sort()), Object.freeze([...dispatch.authorized_paths].sort()))
@@ -4630,9 +4768,51 @@ const roleDispatchRequestV1 = (dispatch) => Object.freeze({
   exactHead: dispatch.exact_head,
 })
 
-const acquireRoleDispatchBindingV1 = async (dispatch, host, expectedHead = dispatch.exact_head) => {
+const acquirePrePrWorktreeBindingV1 = async (dispatch, host, allowAuthorizedChanges) => {
+  if (typeof host?.worktreeState !== 'function') throw new Error('role_dispatch_binding_changed')
+  const binding = dispatch.source_binding
+  const state = await host.worktreeState(binding.worktree)
+  const changedPaths = Array.isArray(state?.changed_paths) ? Object.freeze([...state.changed_paths]) : null
+  const stagedPaths = Array.isArray(state?.staged_paths) ? Object.freeze([...state.staged_paths]) : null
+  if (
+    !state || state.head !== dispatch.exact_head || state.branch !== binding.branch ||
+    state.origin_repository !== dispatch.repository || state.remote_main_head !== binding.exact_baseline ||
+    changedPaths === null || stagedPaths === null || stagedPaths.length !== 0 ||
+    new Set(changedPaths).size !== changedPaths.length ||
+    changedPaths.some((value) => !isNormalizedRepositoryPathV1(value)) ||
+    JSON.stringify(changedPaths) !== JSON.stringify([...changedPaths].sort()) ||
+    (allowAuthorizedChanges
+      ? changedPaths.length === 0 || changedPaths.some((value) => !dispatch.authorized_paths.includes(value))
+      : changedPaths.length !== 0)
+  ) throw new Error('role_dispatch_binding_changed')
+  return Object.freeze({
+    worktree: binding.worktree,
+    branch: binding.branch,
+    originRepository: state.origin_repository,
+    remoteMainHead: state.remote_main_head,
+    changedPaths,
+    stagedPaths,
+  })
+}
+
+const acquireRoleDispatchBindingV1 = async (dispatch, host, expectedHead = dispatch.exact_head, { allowPrePrAuthorizedChanges = false } = {}) => {
   const expectedState = validateRoleDispatchEnvelopeV1(dispatch)
   const request = roleDispatchRequestV1(dispatch)
+  if (dispatch.source_binding.kind === 'PRE_PR_IMPLEMENTATION_AUTHORITY') {
+    let task
+    try {
+      task = validateTaskIdentityRawV1(
+        await api(host, `repos/${dispatch.repository}/issues/${dispatch.task_issue_number}`),
+        request,
+      )
+    } catch {
+      throw new Error('role_dispatch_binding_changed')
+    }
+    const context = projectImplementerContextV1(dispatch.implementer_context)
+    if (task.title !== context.task_title || task.body !== context.task_body) throw new Error('role_dispatch_binding_changed')
+    const worktree = await acquirePrePrWorktreeBindingV1(dispatch, host, allowPrePrAuthorizedChanges)
+    return Object.freeze({ request, pull: null, taskState: null, scope: null, task, worktree })
+  }
   const pull = await acquirePull(request, host)
   const taskState = extractProtectedTransitionTaskStateV1(pull.body)
   const scope = await acquireChangedPathScopeV1(request, pull, host)
@@ -4682,6 +4862,129 @@ const isCompletedRoleResultV1 = (body) =>
   /(?:^|\r?\n)-?[ \t]*status:[ \t]+`?completed`?(?:\r?$)/mi.test(body) &&
   /(?:^|\r?\n)-?[ \t]*execution_stop_reason:[ \t]+`?completed`?(?:\r?$)/mi.test(body) &&
   /(?:blocker \/ remaining \/ UNKNOWN|blocker_count \/ remaining_count \/ unknown_count)[^\r\n]*`?0 \/ 0 \/ 0`?/i.test(body)
+
+const PRE_PR_IMPLEMENTATION_RESULT_SCALAR_FIELDS_V1 = Object.freeze([
+  'record_type', 'version', 'authoring_role', 'role', 'authority_source', 'repository', 'task_issue',
+  'exact_baseline', 'branch', 'worktree',
+  'blocking_finding_count', 'remaining_finding_count', 'unknown_count', 'status',
+  'execution_stop_reason',
+])
+const PRE_PR_IMPLEMENTATION_RESULT_LIST_FIELDS_V1 = Object.freeze(['changed_paths', 'validation_results', 'unperformed_items'])
+
+const normalizePrePrHostValidationEvidenceV1 = ({ dispatch, validationEvidence }) => {
+  const commands = dispatch?.source_binding?.validation_commands
+  if (
+    dispatch?.source_binding?.kind !== 'PRE_PR_IMPLEMENTATION_AUTHORITY' ||
+    !validationEvidence || Object.keys(validationEvidence).join('\n') !== 'executions' ||
+    !Array.isArray(validationEvidence.executions) || validationEvidence.executions.length !== commands.length
+  ) throw new Error('pre_pr_validation_evidence_invalid')
+  const executions = validationEvidence.executions.map((execution, index) => {
+    if (
+      !execution || Object.keys(execution).sort().join('\n') !== ['command', 'cwd', 'exit_code', 'output_sha256'].sort().join('\n') ||
+      execution.command !== commands[index] || execution.cwd !== dispatch.source_binding.worktree ||
+      execution.exit_code !== 0 || !/^[0-9a-f]{64}$/.test(execution.output_sha256 ?? '')
+    ) throw new Error('pre_pr_validation_evidence_invalid')
+    return Object.freeze({ ...execution })
+  })
+  return Object.freeze({ executions: Object.freeze(executions) })
+}
+
+const prePrValidationResultV1 = (execution) =>
+  `command_base64=${Buffer.from(execution.command, 'utf8').toString('base64')};exit_code=${execution.exit_code};output_sha256=${execution.output_sha256}`
+
+export const parsePrePrImplementationResultHandoffV1 = ({ body, dispatch, stage = 'final', validationEvidence = null }) => {
+  const yaml = parseRoleYamlV1(body)
+  const scalarNames = [...yaml.scalars.keys()]
+  const listNames = [...yaml.lists.keys()]
+  const changedPaths = yaml.lists.get('changed_paths')
+  const validationResults = yaml.lists.get('validation_results')
+  const unperformedItems = yaml.lists.get('unperformed_items')
+  const source = dispatch?.source_binding
+  const admittedEvidence = stage === 'final'
+    ? normalizePrePrHostValidationEvidenceV1({ dispatch, validationEvidence })
+    : null
+  const expectedValidationResults = admittedEvidence === null
+    ? Object.freeze([])
+    : Object.freeze(admittedEvidence.executions.map(prePrValidationResultV1))
+  const expectedUnperformedItems = stage === 'worker' ? Object.freeze(['host_validation_pending']) : Object.freeze([])
+  if (
+    !['worker', 'final'].includes(stage) || !dispatch || source?.kind !== 'PRE_PR_IMPLEMENTATION_AUTHORITY' ||
+    scalarNames.length + listNames.length !== 18 ||
+    PRE_PR_IMPLEMENTATION_RESULT_SCALAR_FIELDS_V1.some((field) => !yaml.scalars.has(field)) ||
+    PRE_PR_IMPLEMENTATION_RESULT_LIST_FIELDS_V1.some((field) => !yaml.lists.has(field)) ||
+    scalarNames.some((field) => !PRE_PR_IMPLEMENTATION_RESULT_SCALAR_FIELDS_V1.includes(field)) ||
+    listNames.some((field) => !PRE_PR_IMPLEMENTATION_RESULT_LIST_FIELDS_V1.includes(field)) ||
+    [...yaml.scalars.values()].some((value) => value === null || value === 'null') ||
+    yaml.scalars.get('record_type') !== 'pre_pr_implementation_result_handoff_v1' ||
+    yaml.scalars.get('version') !== 1 || yaml.scalars.get('authoring_role') !== 'Worker' ||
+    yaml.scalars.get('role') !== 'IMPLEMENTER' ||
+    yaml.scalars.get('authority_source') !== source.authority_url ||
+    yaml.scalars.get('repository') !== dispatch.repository ||
+    yaml.scalars.get('task_issue') !== `https://github.com/${dispatch.repository}/issues/${dispatch.task_issue_number}` ||
+    yaml.scalars.get('exact_baseline') !== dispatch.exact_head ||
+    yaml.scalars.get('branch') !== source.branch || yaml.scalars.get('worktree') !== source.worktree ||
+    yaml.scalars.get('blocking_finding_count') !== 0 || yaml.scalars.get('remaining_finding_count') !== 0 ||
+    yaml.scalars.get('unknown_count') !== 0 || yaml.scalars.get('status') !== 'COMPLETE' ||
+    yaml.scalars.get('execution_stop_reason') !== 'completed' ||
+    !Array.isArray(changedPaths) || changedPaths.length === 0 || new Set(changedPaths).size !== changedPaths.length ||
+    changedPaths.some((value) => !isNormalizedRepositoryPathV1(value) || !dispatch.authorized_paths.includes(value)) ||
+    JSON.stringify(changedPaths) !== JSON.stringify([...changedPaths].sort()) ||
+    !Array.isArray(validationResults) || JSON.stringify(validationResults) !== JSON.stringify(expectedValidationResults) ||
+    !Array.isArray(unperformedItems) || JSON.stringify(unperformedItems) !== JSON.stringify(expectedUnperformedItems)
+  ) throw new Error('pre_pr_implementation_result_invalid')
+  return Object.freeze({
+    authority_source: source.authority_url,
+    exact_baseline: dispatch.exact_head,
+    branch: source.branch,
+    worktree: source.worktree,
+    changed_paths: Object.freeze([...changedPaths].sort()),
+    validation_results: Object.freeze([...validationResults]),
+    unperformed_items: Object.freeze([...unperformedItems]),
+  })
+}
+
+const prePrImplementationResultBodyV1 = ({ dispatch, changedPaths, validationEvidence }) => {
+  const evidence = normalizePrePrHostValidationEvidenceV1({ dispatch, validationEvidence })
+  return [
+    '```yaml',
+    'record_type: pre_pr_implementation_result_handoff_v1',
+    'version: 1',
+    'authoring_role: Worker',
+    'role: IMPLEMENTER',
+    `authority_source: ${dispatch.source_binding.authority_url}`,
+    `repository: ${dispatch.repository}`,
+    `task_issue: https://github.com/${dispatch.repository}/issues/${dispatch.task_issue_number}`,
+    `exact_baseline: ${dispatch.exact_head}`,
+    `branch: ${dispatch.source_binding.branch}`,
+    `worktree: ${dispatch.source_binding.worktree}`,
+    'status: COMPLETE',
+    'execution_stop_reason: completed',
+    'blocking_finding_count: 0',
+    'remaining_finding_count: 0',
+    'unknown_count: 0',
+    'changed_paths:',
+    ...changedPaths.map((value) => `  - ${value}`),
+    'validation_results:',
+    ...evidence.executions.map((execution) => `  - ${prePrValidationResultV1(execution)}`),
+    'unperformed_items: []',
+    '```',
+  ].join('\n')
+}
+
+export const finalizePrePrImplementationResultHandoffV1 = ({ dispatch, workerBody, validationEvidence }) => {
+  const worker = parsePrePrImplementationResultHandoffV1({ body: workerBody, dispatch, stage: 'worker' })
+  const commentBody = prePrImplementationResultBodyV1({
+    dispatch,
+    changedPaths: worker.changed_paths,
+    validationEvidence,
+  })
+  parsePrePrImplementationResultHandoffV1({ body: commentBody, dispatch, stage: 'final', validationEvidence })
+  return Object.freeze({
+    state: 'READY', allowed: false, exit_code: 0,
+    reason: 'pre_pr_implementation_result_valid', next_action: 'POST_PRE_PR_IMPLEMENTATION_RESULT',
+    mutation_count: 0, changed_paths: worker.changed_paths, comment_body: commentBody,
+  })
+}
 
 const roleEvidenceProjectionV1 = (dispatch, body) => {
   try {
@@ -4792,6 +5095,24 @@ const verifyRoleDispatchSourceV1 = async (dispatch, host) => {
   const source = await fetchRoleCommentRecordV1(dispatch.repository, dispatch.task_issue_number, dispatch.source_comment_id, host)
   if (dispatch.next_action === 'IMPLEMENTER' && source.body !== projectImplementerContextV1(dispatch.implementer_context).approved_correction_context) {
     throw new Error('role_dispatch_source_binding_changed')
+  }
+  if (binding.kind === 'PRE_PR_IMPLEMENTATION_AUTHORITY') {
+    assertMinimalGovernanceProductOwnerV1(source, { requireAssociation: true })
+    const authority = parsePrePrImplementationAuthorityV1({
+      body: source.body,
+      repository: dispatch.repository,
+      taskIssueNumber: dispatch.task_issue_number,
+      commentId: dispatch.source_comment_id,
+    })
+    if (
+      source.html_url !== binding.authority_url ||
+      createHash('sha256').update(Buffer.from(source.body, 'utf8')).digest('hex') !== binding.body_sha256 ||
+      authority.exact_baseline !== dispatch.exact_head || authority.exact_baseline !== binding.exact_baseline ||
+      authority.branch !== binding.branch || authority.worktree !== binding.worktree ||
+      !sameRolePathsV1(authority.authorized_paths, Object.freeze([...dispatch.authorized_paths].sort())) ||
+      JSON.stringify(authority.validation_commands) !== JSON.stringify(binding.validation_commands)
+    ) throw new Error('role_dispatch_source_binding_changed')
+    return source
   }
   if (binding.kind === 'IMPLEMENTATION_AUTHORIZATION') {
     await verifyRoleAuthorizationChainV1({ body: source.body, dispatch, host, expected: binding })
@@ -4984,7 +5305,9 @@ export const executeRoleDispatchRebindV1 = async ({ dispatch, host, operation = 
     if (!['canonical_write', 'commit_push', 'publication_handoff'].includes(operation)) throw new Error('role_rebind_operation_invalid')
     const expectedHead = operation === 'publication_handoff' ? newHead : dispatch.exact_head
     if (operation === 'publication_handoff' && (!FULL_HEAD.test(newHead ?? '') || newHead === dispatch.exact_head)) throw new Error('role_rebind_operation_invalid')
-    await acquireRoleDispatchBindingV1(dispatch, host, expectedHead)
+    await acquireRoleDispatchBindingV1(dispatch, host, expectedHead, {
+      allowPrePrAuthorizedChanges: dispatch.source_binding?.kind === 'PRE_PR_IMPLEMENTATION_AUTHORITY',
+    })
     await verifyRoleDispatchSourceV1(dispatch, host)
     await verifyMergeDecisionGateV1(dispatch, host, executionIdentity)
     if (operation !== 'canonical_write') {
@@ -5011,7 +5334,9 @@ export const executeRoleDispatchConsumerV1 = async ({ dispatch, host }) => {
       taskState.review_status !== 'APPROVE' || taskState.reviewed_head !== request.exactHead || taskState.review_blocker_count !== 0
     )) throw new Error('role_dispatch_merge_decision_invalid')
     await verifyRoleDispatchSourceV1(dispatch, host)
-    const converged = await acquireRoleConvergedEvidenceV1(dispatch, host)
+    const converged = dispatch.source_binding.kind === 'PRE_PR_IMPLEMENTATION_AUTHORITY'
+      ? null
+      : await acquireRoleConvergedEvidenceV1(dispatch, host)
     if (converged) return Object.freeze({
       state: 'COMPLETED', allowed: false, exit_code: 0, reason: 'role_evidence_reused',
       automation_status: 'COMPLETED_NOOP', next_action: 'CONVERGED_NOOP', mutation_count: 0,
@@ -5039,6 +5364,15 @@ export const evaluateRoleDispatchOutputV1 = ({ dispatch, body }) => {
       throw new Error('role_output_invalid')
     }
     if (dispatch.next_action === 'IMPLEMENTER') {
+      if (dispatch.source_binding?.kind === 'PRE_PR_IMPLEMENTATION_AUTHORITY') {
+        const parsed = parsePrePrImplementationResultHandoffV1({ body, dispatch, stage: 'worker' })
+        return Object.freeze({
+          state: 'READY', allowed: false, exit_code: 0,
+          reason: 'pre_pr_implementation_result_pending_validation',
+          next_action: 'RUN_PRE_PR_VALIDATION', mutation_count: 0, comment_body: body,
+          changed_paths: parsed.changed_paths,
+        })
+      }
       const parsed = parseRoleResultHandoffV1(body)
       if (
         parsed.prNumber !== dispatch.pr_number || parsed.exactHead !== dispatch.exact_head ||
@@ -5445,6 +5779,95 @@ const parseRolePublicationHandoffV1 = (body) => {
 }
 
 const sameRolePathsV1 = (left, right) => Array.isArray(left) && Array.isArray(right) && left.join('\n') === right.join('\n')
+
+export const executePrePrImplementationIngressV1 = async ({ event, host }) => {
+  let request = null
+  try {
+    let normalized = normalizeRoleTransitionEventV1(event)
+    if (normalized.terminalResult !== 'PRE_PR_IMPLEMENTATION_AUTHORITY') {
+      throw new Error('pre_pr_implementation_authority_invalid')
+    }
+    request = Object.freeze({
+      transition: 'pre_pr_implementer_ingress_v1',
+      repository: normalized.repository,
+      taskIssueNumber: normalized.taskIssueNumber,
+      prNumber: null,
+      exactHead: normalized.authority.exact_baseline,
+    })
+    const fresh = await fetchRoleCommentRecordV1(
+      normalized.repository,
+      normalized.taskIssueNumber,
+      normalized.commentId,
+      host,
+    )
+    if (
+      fresh.body !== normalized.body || fresh.author_association !== event.comment.author_association ||
+      fresh.html_url !== normalized.authority.authority_url
+    ) throw new Error('pre_pr_implementation_authority_changed')
+    assertMinimalGovernanceProductOwnerV1(fresh, { requireAssociation: true })
+    normalized = normalizeRoleTransitionEventV1(Object.freeze({
+      ...event,
+      comment: Object.freeze({
+        ...event.comment,
+        id: fresh.id,
+        author_association: fresh.author_association,
+        body: fresh.body,
+      }),
+    }))
+    const authority = normalized.authority
+    const implementerContext = await materializeImplementerContextV1({
+      repository: authority.repository,
+      taskIssueNumber: authority.task_issue_number,
+      authorizationBody: fresh.body,
+      host,
+    })
+    const routed = Object.freeze({
+      transition: 'pre_pr_implementer_ingress_v1',
+      state: 'REVIEW_PENDING',
+      allowed: false,
+      exit_code: 0,
+      reason: 'pre_pr_implementation_authority_admitted',
+      task_issue_number: authority.task_issue_number,
+      pr_number: null,
+      current_head: authority.exact_baseline,
+      out_of_scope_paths: Object.freeze([]),
+      state_changed: false,
+      automation_status: 'HANDOFF_READY',
+      next_action: 'IMPLEMENTER',
+      terminal_result: 'PRE_PR_IMPLEMENTATION_AUTHORITY',
+      mutation_count: 0,
+    })
+    const sourceBinding = Object.freeze({
+      kind: 'PRE_PR_IMPLEMENTATION_AUTHORITY',
+      comment_id: authority.comment_id,
+      authority_url: authority.authority_url,
+      body_sha256: createHash('sha256').update(Buffer.from(fresh.body, 'utf8')).digest('hex'),
+      exact_baseline: authority.exact_baseline,
+      branch: authority.branch,
+      worktree: authority.worktree,
+      validation_commands: authority.validation_commands,
+    })
+    return Object.freeze({
+      ...routed,
+      source_comment_id: authority.comment_id,
+      role_dispatch: projectRoleDispatchEnvelopeV1({
+        result: routed,
+        repository: authority.repository,
+        sourceCommentId: authority.comment_id,
+        authorizedPaths: authority.authorized_paths,
+        taskState: null,
+        sourceBinding,
+        implementerContext,
+      }),
+    })
+  } catch (error) {
+    return roleStopV1(
+      request,
+      'INDETERMINATE',
+      error instanceof Error ? error.message : 'pre_pr_implementation_authority_invalid',
+    )
+  }
+}
 
 const LIFECYCLE_BODY_SHA256_V1 = /^[0-9a-f]{64}$/
 const LIFECYCLE_EVIDENCE_STATES_V1 = new Set(['PRESENT', 'MISSING', 'INCOMPLETE'])
@@ -6961,6 +7384,9 @@ export const executeRoleTransitionOrchestratorV1 = async ({
   let normalized
   let request
   try {
+    if (isPrePrImplementationAuthorityCandidateV1(event?.comment?.body)) {
+      return executePrePrImplementationIngressV1({ event, host })
+    }
     if (event?.action === 'created' && typeof event?.comment?.body === 'string' && roleTransitionMarkersV1(event.comment.body).length === 0) {
       return evaluateProgressionControllerV1(skippedAutomationResult(Object.freeze({
         transition: 'role_transition_orchestrator_v1',
@@ -7291,6 +7717,19 @@ const parseInvocation = (argv, environment) => {
     return Object.freeze({ mode: 'minimal_governance_drift_guard', planFile: argv[1] })
   }
   if (
+    argv.length === 6 &&
+    argv[0] === '--pre-pr-finalize-file' && typeof argv[1] === 'string' && argv[1].length > 0 &&
+    argv[2] === '--role-dispatch-file' && typeof argv[3] === 'string' && argv[3].length > 0 &&
+    argv[4] === '--validation-evidence-file' && typeof argv[5] === 'string' && argv[5].length > 0
+  ) {
+    return Object.freeze({
+      mode: 'pre_pr_finalize',
+      outputFile: argv[1],
+      dispatchFile: argv[3],
+      validationEvidenceFile: argv[5],
+    })
+  }
+  if (
     (argv.length === 4 || argv.length === 6) &&
     argv[0] === '--role-output-file' && typeof argv[1] === 'string' && argv[1].length > 0 &&
     argv[2] === '--role-dispatch-file' && typeof argv[3] === 'string' && argv[3].length > 0 &&
@@ -7476,6 +7915,30 @@ const productionHost = (environment) => {
       if (!FULL_HEAD.test(ref?.object?.sha ?? '')) throw new Error('repair_remote_ref_invalid')
       return ref.object.sha
     },
+    worktreeState: async (worktree) => {
+      const git = (args) => execFileSync('git', ['-C', worktree, ...args], { encoding: 'utf8' })
+      const split = (value) => value.split('\0').filter((item) => item.length > 0).map((item) => item.replace(/\\/g, '/'))
+      const head = git(['rev-parse', '--verify', 'HEAD']).trim()
+      const branch = git(['branch', '--show-current']).trim()
+      const originUrls = git(['remote', 'get-url', '--all', 'origin']).split(/\r?\n/).filter((value) => value.length > 0)
+      if (originUrls.length !== 1) throw new Error('role_dispatch_binding_changed')
+      const originMatch = /^(?:https:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+?)(?:\.git)?$/.exec(originUrls[0])
+      if (!originMatch || !REPOSITORY.test(originMatch[1])) throw new Error('role_dispatch_binding_changed')
+      const remoteMainLines = git(['ls-remote', '--heads', 'origin', 'refs/heads/main']).trim().split(/\r?\n/).filter((value) => value.length > 0)
+      const remoteMain = remoteMainLines.length === 1 ? /^([0-9a-f]{40})\s+refs\/heads\/main$/.exec(remoteMainLines[0]) : null
+      if (!remoteMain) throw new Error('role_dispatch_binding_changed')
+      const tracked = split(git(['diff', '--name-only', '-z', '--no-renames', 'HEAD', '--']))
+      const untracked = split(git(['ls-files', '--others', '--exclude-standard', '-z']))
+      const staged = split(git(['diff', '--cached', '--name-only', '-z', '--no-renames', '--']))
+      return Object.freeze({
+        head,
+        branch,
+        origin_repository: originMatch[1],
+        remote_main_head: remoteMain[1],
+        changed_paths: Object.freeze([...new Set([...tracked, ...untracked])].sort()),
+        staged_paths: Object.freeze([...new Set(staged)].sort()),
+      })
+    },
     graphql: async (query, variables) => {
       const response = await fetch('https://api.github.com/graphql', {
         method: 'POST',
@@ -7524,6 +7987,7 @@ export const executeReviewEventWithLifecycleReplayV1 = async ({
     reviewingRoleDispatch,
     reviewingRoleOwnerResult,
   })
+  if (isPrePrImplementationAuthorityCandidateV1(event?.comment?.body)) return result
   if (isMinimalGovernanceCandidateV1(event?.comment?.body)) return result
   const lifecycleProjection = await executeLifecycleOrchestratorV1({
     event, sourceResult: result, host,
@@ -7615,6 +8079,12 @@ const main = async () => {
                 })
             : invocation.mode === 'role_output'
               ? evaluateRoleOutputInvocationV1(invocation)
+            : invocation.mode === 'pre_pr_finalize'
+              ? finalizePrePrImplementationResultHandoffV1({
+                  dispatch: readJsonFileV1(invocation.dispatchFile),
+                  workerBody: readFileSync(invocation.outputFile, 'utf8'),
+                  validationEvidence: readJsonFileV1(invocation.validationEvidenceFile),
+                })
           : invocation.mode === 'repair_provider_exec_bind'
             ? await executeRepairProviderBindingV3({
                 boundary: 'pre_exec',
