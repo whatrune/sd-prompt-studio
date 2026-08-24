@@ -381,6 +381,10 @@ const corePath = path.join(repositoryRoot, 'src/continuous-orchestration/protect
 const workflowSource = readFileSync(workflowPath, 'utf8')
 const runnerSource = readFileSync(runnerPath, 'utf8')
 const bootstrapOperatorSource = readFileSync(bootstrapOperatorPath, 'utf8')
+const baselineBootstrapOperatorSource = execFileSync('git', ['show', 'HEAD:scripts/run-bootstrap-publication-operator-v1.mjs'], {
+  cwd: repositoryRoot,
+  encoding: 'utf8',
+})
 const coreSource = readFileSync(corePath, 'utf8')
 const workflow = parseYaml(workflowSource)
 
@@ -5240,6 +5244,8 @@ const roleConsumerJob = workflow.jobs.protected_transition_role_dispatch_consume
 const mergeOperatorJob = workflow.jobs.protected_transition_merge_operator_v1
 const postRepairReviewJob = workflow.jobs.protected_transition_post_repair_review_v1
 const mergeHostRunnerStep = mergeOperatorJob.steps.find((step) => step.name === 'Materialize immutable merge host runner')
+const roleHostRunnerStep = roleConsumerJob.steps.find((step) => step.name === 'Materialize immutable role host runner')
+const roleHostRunnerRun = roleHostRunnerStep?.run ?? ''
 const roleBindRun = roleConsumerJob.steps.find((step) => step.name === 'Bind bounded role dispatch')?.run ?? ''
 const roleExecutionStep = roleConsumerJob.steps.find((step) => step.name === 'Execute bounded role and host operation')
 const roleExecutionRun = roleExecutionStep?.run ?? ''
@@ -9414,6 +9420,33 @@ check(
   !bootstrapOperatorSource.includes('POST /issues') && !bootstrapOperatorSource.includes('create publication authority'),
   'PBD-12 legacy Task 359 owner remains an isolated branch and no second publication authority is created',
 )
+check(
+  roleHostRunnerStep?.env?.ROLE_NEXT_ACTION === '${{ needs.protected_transition_admission_v1.outputs.next_action }}' &&
+  roleHostRunnerRun.includes("if ($env:ROLE_NEXT_ACTION -ceq 'BOOTSTRAP_PUBLICATION_OPERATOR')") &&
+  roleHostRunnerRun.includes("Join-Path $hostRoot 'package-lock.json'") &&
+  (workflowSource.match(/npm ci/g) ?? []).length === 1,
+  'PBD-13 Bootstrap route installs exact locked role-host dependencies once without changing other Role routes',
+)
+check(
+  roleHostRunnerRun.indexOf('Push-Location -LiteralPath $hostRoot') < roleHostRunnerRun.indexOf('npm ci') &&
+  roleHostRunnerRun.indexOf('npm ci') < roleHostRunnerRun.indexOf('PTA_BOOTSTRAP_HOST_RUNNER') &&
+  roleHostRunnerRun.includes("$bootstrapRunner = Join-Path $hostRoot 'scripts/run-bootstrap-publication-operator-v1.mjs'") &&
+  bootstrapConsumerBlock.includes('node $env:PTA_BOOTSTRAP_HOST_RUNNER --request-file $requestPath'),
+  'PBD-14 dependency installation and Bootstrap module execution use the same immutable role-host root',
+)
+check(
+  roleHostRunnerRun.includes("if ($LASTEXITCODE -ne 0) { throw 'role_host_dependency_install_failed' }") &&
+  !Object.hasOwn(roleHostRunnerStep, 'continue-on-error') &&
+  roleConsumerJob.steps.indexOf(roleHostRunnerStep) < roleConsumerJob.steps.indexOf(roleExecutionStep) &&
+  !roleHostRunnerRun.includes('npm install') && !roleHostRunnerRun.includes('npm install -g'),
+  'PBD-15 failed npm ci terminates before operator invocation with no fallback or global install',
+)
+check(
+  bootstrapOperatorSource === baselineBootstrapOperatorSource && Object.keys(workflow.jobs).length === 5 &&
+  roleHostRunnerRun.includes("$env:ROLE_NEXT_ACTION -ceq 'BOOTSTRAP_PUBLICATION_OPERATOR'") &&
+  !roleHostRunnerRun.includes("$env:ROLE_NEXT_ACTION -ceq 'IMPLEMENTER'"),
+  'PBD-16 Bootstrap operator source, five-job topology, and existing Worker path remain unchanged',
+)
 
-if (assertions !== 1028) throw new Error(`expected exactly 1028 assertions, observed ${assertions}`)
+if (assertions !== 1032) throw new Error(`expected exactly 1032 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

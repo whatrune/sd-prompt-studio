@@ -180,6 +180,8 @@ jobs:
 
       - name: Materialize immutable role host runner
         shell: pwsh
+        env:
+          ROLE_NEXT_ACTION: ${{ needs.protected_transition_admission_v1.outputs.next_action }}
         run: |
           $ErrorActionPreference = 'Stop'
           if ($PSVersionTable.PSVersion.Major -ne 7) { throw 'role_powershell_major_invalid' }
@@ -204,6 +206,16 @@ jobs:
           $bootstrapRunner = Join-Path $hostRoot 'scripts/run-bootstrap-publication-operator-v1.mjs'
           if (-not (Test-Path -LiteralPath $hostRunner -PathType Leaf)) { throw 'role_host_runner_missing' }
           if (-not (Test-Path -LiteralPath $bootstrapRunner -PathType Leaf)) { throw 'bootstrap_host_runner_missing' }
+          if ($env:ROLE_NEXT_ACTION -ceq 'BOOTSTRAP_PUBLICATION_OPERATOR') {
+            if (-not (Test-Path -LiteralPath (Join-Path $hostRoot 'package-lock.json') -PathType Leaf)) { throw 'role_host_package_lock_missing' }
+            Push-Location -LiteralPath $hostRoot
+            try {
+              npm ci
+              if ($LASTEXITCODE -ne 0) { throw 'role_host_dependency_install_failed' }
+            } finally {
+              Pop-Location
+            }
+          }
           [IO.File]::AppendAllText($env:GITHUB_ENV, "PTA_ROLE_HOST_RUNNER=$hostRunner$([Environment]::NewLine)", $utf8NoBom)
           [IO.File]::AppendAllText($env:GITHUB_ENV, "PTA_BOOTSTRAP_HOST_RUNNER=$bootstrapRunner$([Environment]::NewLine)", $utf8NoBom)
 
