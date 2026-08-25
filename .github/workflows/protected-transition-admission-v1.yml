@@ -339,7 +339,28 @@ jobs:
               try {
                 $failure = Get-Content -LiteralPath $ResultFile -Raw -Encoding utf8 | ConvertFrom-Json
                 $dispatch = Get-Content -LiteralPath $DispatchFile -Raw -Encoding utf8 | ConvertFrom-Json
-                if ($dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER') {
+                if (
+                  $dispatch.next_action -ceq 'IMPLEMENTER' -and
+                  $dispatch.source_binding.kind -ceq 'PRE_PR_IMPLEMENTATION_AUTHORITY'
+                ) {
+                  $requiredNames = [string[]]@(
+                    'allowed', 'automation_status', 'exit_code', 'mutation_count', 'next_action', 'reason', 'state'
+                  )
+                  $actualNames = [string[]]@($failure.psobject.Properties.Name | Sort-Object)
+                  if (
+                    $null -eq $failure -or $actualNames.Count -ne 7 -or (Compare-Object $requiredNames $actualNames) -or
+                    $failure.state -cne 'INDETERMINATE' -or $failure.allowed -ne $false -or
+                    $failure.exit_code -ne 1 -or
+                    $failure.reason -notin @(
+                      'role_output_invalid',
+                      'terminal_result_ambiguous_or_invalid',
+                      'pre_pr_implementation_result_invalid'
+                    ) -or
+                    $failure.automation_status -cne 'BLOCKED' -or $failure.next_action -cne 'STOP' -or
+                    $failure.mutation_count -ne 0
+                  ) { throw 'pre_pr_implementer_role_output_failure_invalid' }
+                  $diagnosticLines = @($failure | ConvertTo-Json -Compress -Depth 2)
+                } elseif ($dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER') {
                   $evidence = $failure.failure_evidence
                   $header = $evidence.header
                   $chunks = @($evidence.chunks)
