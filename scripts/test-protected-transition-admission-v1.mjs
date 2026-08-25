@@ -9892,6 +9892,12 @@ check(
   'BPR-08 workflow publishes a Bootstrap Handoff only after exact operator, PR, parent, scope, and initial-state checks',
 )
 check(
+  bootstrapHandoffBlock.includes("pathToFileURL(process.argv[2]).href") &&
+  bootstrapHandoffBlock.includes("readFileSync(process.argv[3], 'utf8')") &&
+  bootstrapHandoffBlock.includes('task-state-helper-import $env:PTA_ROLE_HOST_RUNNER $stateRebindInputPath'),
+  'BPR-08a Task-state revalidation imports the runner without colliding with its process.argv[1] entrypoint guard',
+)
+check(
   (bootstrapHandoffBlock.match(/Publish-CanonicalComment -BodyFile \$publicationPath/g) ?? []).length === 1 &&
   bootstrapHandoffBlock.includes('push mode: create-only empty-lease CAS') &&
   bootstrapHandoffBlock.includes('local / remote HEAD equality: PASS') && bootstrapHandoffBlock.includes('exit 0') &&
@@ -9905,5 +9911,5 @@ check(
   'BPR-10 five-job topology, Bootstrap transaction semantics, initial Task-state, and natural triggers remain unchanged',
 )
 
-if (assertions !== 1053) throw new Error(`expected exactly 1053 assertions, observed ${assertions}`)
+if (assertions !== 1054) throw new Error(`expected exactly 1054 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
