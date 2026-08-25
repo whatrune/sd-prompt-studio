@@ -9517,6 +9517,54 @@ check(
   changedBootstrapTaskState?.message === 'bootstrap_publication_task_state_changed',
   'BPR-00c Task-state mutation after operator success blocks Bootstrap Handoff publication',
 )
+const changedBootstrapTaskIdentity = await errorOf(() => verifyBootstrapPublicationTaskStateV1({
+  pullBody: stateBlock(bootstrapInitialState),
+  operatorTaskState: bootstrapInitialState,
+  taskIssueNumber: PRE_PR_TASK + 1,
+  prNumber: BOOTSTRAP_PUBLICATION_PR,
+  pushedHead: BOOTSTRAP_PUBLISHED_HEAD,
+  authorizedPaths: PRE_PR_CHANGED_PATHS,
+}))
+check(
+  changedBootstrapTaskIdentity?.message === 'bootstrap_publication_task_state_changed',
+  'BPR-00d Task identity drift before Bootstrap Handoff publication fails closed',
+)
+const changedBootstrapPrIdentity = await errorOf(() => verifyBootstrapPublicationTaskStateV1({
+  pullBody: stateBlock(bootstrapInitialState),
+  operatorTaskState: bootstrapInitialState,
+  taskIssueNumber: PRE_PR_TASK,
+  prNumber: BOOTSTRAP_PUBLICATION_PR + 1,
+  pushedHead: BOOTSTRAP_PUBLISHED_HEAD,
+  authorizedPaths: PRE_PR_CHANGED_PATHS,
+}))
+check(
+  changedBootstrapPrIdentity?.message === 'bootstrap_publication_task_state_changed',
+  'BPR-00e PR identity drift before Bootstrap Handoff publication fails closed',
+)
+const changedBootstrapPublishedHead = await errorOf(() => verifyBootstrapPublicationTaskStateV1({
+  pullBody: stateBlock(bootstrapInitialState),
+  operatorTaskState: bootstrapInitialState,
+  taskIssueNumber: PRE_PR_TASK,
+  prNumber: BOOTSTRAP_PUBLICATION_PR,
+  pushedHead: OTHER_HEAD,
+  authorizedPaths: PRE_PR_CHANGED_PATHS,
+}))
+check(
+  changedBootstrapPublishedHead?.message === 'bootstrap_publication_task_state_changed',
+  'BPR-00f published HEAD drift before Bootstrap Handoff publication fails closed',
+)
+const changedBootstrapAuthorizedPaths = await errorOf(() => verifyBootstrapPublicationTaskStateV1({
+  pullBody: stateBlock(bootstrapInitialState),
+  operatorTaskState: bootstrapInitialState,
+  taskIssueNumber: PRE_PR_TASK,
+  prNumber: BOOTSTRAP_PUBLICATION_PR,
+  pushedHead: BOOTSTRAP_PUBLISHED_HEAD,
+  authorizedPaths: ['scripts/run-protected-transition-admission-v1.mjs'],
+}))
+check(
+  changedBootstrapAuthorizedPaths?.message === 'bootstrap_publication_task_state_changed',
+  'BPR-00g authorized-path drift before Bootstrap Handoff publication fails closed',
+)
 const bootstrapPublicationHandoffBody = `## Publication Handoff — Bootstrap Publication Operator V1
 
 - Bootstrap Publication Decision: https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${PRE_PR_BOOTSTRAP_DECISION_COMMENT_ID}
@@ -9905,5 +9953,5 @@ check(
   'BPR-10 five-job topology, Bootstrap transaction semantics, initial Task-state, and natural triggers remain unchanged',
 )
 
-if (assertions !== 1053) throw new Error(`expected exactly 1053 assertions, observed ${assertions}`)
+if (assertions !== 1057) throw new Error(`expected exactly 1057 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
