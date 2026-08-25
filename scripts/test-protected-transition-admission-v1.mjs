@@ -9795,6 +9795,33 @@ check(
   bootstrapReviewerPlan.read_only === true && bootstrapReviewerPlan.exact_head === BOOTSTRAP_PUBLISHED_HEAD,
   'BPR-04 existing role consumer accepts the rebound Bootstrap Handoff and dispatches the reviewer',
 )
+const cumulativeBootstrapState = Object.freeze({ ...bootstrapInitialState, authorized_paths: PRE_PR_PATHS })
+const cumulativeBootstrapHost = bootstrapPublishedHostV1({ taskState: cumulativeBootstrapState })
+const cumulativeBootstrapPull = await cumulativeBootstrapHost.api(`repos/${REPOSITORY}/pulls/${BOOTSTRAP_PUBLICATION_PR}`)
+const cumulativeBootstrapGeneration = await acquireLifecyclePublishedGenerationV1({
+  history: bootstrapLifecycleHistory,
+  identity: bootstrapLifecycleIdentity,
+  changedPaths: PRE_PR_CHANGED_PATHS,
+  pull: cumulativeBootstrapPull,
+  host: cumulativeBootstrapHost,
+})
+const cumulativeBootstrapRoute = await executeRoleTransitionOrchestratorV1({
+  event: bootstrapPublicationHandoffEvent,
+  host: bootstrapPublishedHostV1({ taskState: cumulativeBootstrapState }),
+})
+const cumulativeBootstrapReviewerPlan = await executeRoleDispatchConsumerV1({
+  dispatch: cumulativeBootstrapRoute.role_dispatch,
+  host: bootstrapPublishedHostV1({ taskState: cumulativeBootstrapState }),
+})
+check(
+  cumulativeBootstrapGeneration.status === 'PRESENT' &&
+  JSON.stringify(cumulativeBootstrapGeneration.authorizedPaths) === JSON.stringify(PRE_PR_PATHS) &&
+  cumulativeBootstrapRoute.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER' &&
+  JSON.stringify(cumulativeBootstrapRoute.role_dispatch.authorized_paths) === JSON.stringify(PRE_PR_PATHS) &&
+  cumulativeBootstrapReviewerPlan.next_action === 'EXECUTE_ROLE' &&
+  cumulativeBootstrapReviewerPlan.role === 'INDEPENDENT_IMPLEMENTATION_REVIEWER',
+  'BPR-04a same-Task correction delta is admitted within cumulative Task-state scope and preserves that scope for Review',
+)
 const staleBootstrapState = Object.freeze({ ...bootstrapInitialState, review_status: 'APPROVE', reviewed_head: BOOTSTRAP_PUBLISHED_HEAD, review_blocker_count: 0 })
 const staleBootstrapHost = bootstrapPublishedHostV1({ taskState: staleBootstrapState })
 const staleBootstrapRoute = await executeRoleTransitionOrchestratorV1({ event: bootstrapPublicationHandoffEvent, host: staleBootstrapHost })
@@ -9924,5 +9951,5 @@ check(
   'BPR-10 five-job topology, Bootstrap transaction semantics, initial Task-state, and natural triggers remain unchanged',
 )
 
-if (assertions !== 1056) throw new Error(`expected exactly 1056 assertions, observed ${assertions}`)
+if (assertions !== 1057) throw new Error(`expected exactly 1057 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
