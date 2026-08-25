@@ -615,7 +615,7 @@ jobs:
               authorizedPaths = $authorized
             }
             [IO.File]::WriteAllText($stateRebindInputPath, ($stateRebindInput | ConvertTo-Json -Compress -Depth 8), $utf8NoBom)
-            node --input-type=module -e "import { readFileSync } from 'node:fs'; import { pathToFileURL } from 'node:url'; const owner = await import(pathToFileURL(process.argv[1]).href); const input = JSON.parse(readFileSync(process.argv[2], 'utf8')); process.stdout.write(JSON.stringify(owner.verifyBootstrapPublicationTaskStateV1(input)));" $env:PTA_ROLE_HOST_RUNNER $stateRebindInputPath 1> $stateRebindResultPath
+            node --input-type=module -e "import { readFileSync } from 'node:fs'; import { pathToFileURL } from 'node:url'; const owner = await import(pathToFileURL(process.argv[2]).href); const input = JSON.parse(readFileSync(process.argv[3], 'utf8')); process.stdout.write(JSON.stringify(owner.verifyBootstrapPublicationTaskStateV1(input)));" task-state-helper-import $env:PTA_ROLE_HOST_RUNNER $stateRebindInputPath 1> $stateRebindResultPath
             if ($LASTEXITCODE -ne 0) { throw 'bootstrap_publication_task_state_changed' }
             $freshState = Get-Content -LiteralPath $stateRebindResultPath -Raw -Encoding utf8 | ConvertFrom-Json
             if (
