@@ -132,7 +132,7 @@ jobs:
               fs.appendFileSync(output, `authority_kind=MINIMAL_GOVERNANCE_V1\n`);
               fs.appendFileSync(output, `role_exact_head=${result.exact_head}\n`);
               fs.appendFileSync(output, `minimal_merge_plan_b64=${Buffer.from(JSON.stringify(result)).toString("base64")}\n`);
-            } else if (["IMPLEMENTER", "PRODUCT_OWNER_IMPLEMENTATION_LEAD", "INDEPENDENT_IMPLEMENTATION_REVIEWER", "BOOTSTRAP_PUBLICATION_OPERATOR", "MERGE_OPERATOR"].includes(result.next_action)) {
+            } else if (["IMPLEMENTER", "PRODUCT_OWNER_IMPLEMENTATION_LEAD", "INDEPENDENT_IMPLEMENTATION_REVIEWER", "INTEGRATED_LEAD_READY_REVIEW", "BOOTSTRAP_PUBLICATION_OPERATOR", "MERGE_OPERATOR"].includes(result.next_action)) {
               if (!result.role_dispatch || result.role_dispatch.next_action !== result.next_action || result.role_dispatch.exact_head !== result.current_head) throw new Error("role_dispatch_projection_invalid");
               fs.appendFileSync(output, `role_exact_head=${result.role_dispatch.exact_head}\n`);
               fs.appendFileSync(output, `role_dispatch_b64=${Buffer.from(JSON.stringify(result.role_dispatch)).toString("base64")}\n`);
@@ -163,7 +163,7 @@ jobs:
 
   protected_transition_role_dispatch_consumer_v1:
     needs: protected_transition_admission_v1
-    if: contains(fromJSON('["IMPLEMENTER","PRODUCT_OWNER_IMPLEMENTATION_LEAD","INDEPENDENT_IMPLEMENTATION_REVIEWER","BOOTSTRAP_PUBLICATION_OPERATOR"]'), needs.protected_transition_admission_v1.outputs.next_action)
+    if: contains(fromJSON('["IMPLEMENTER","PRODUCT_OWNER_IMPLEMENTATION_LEAD","INDEPENDENT_IMPLEMENTATION_REVIEWER","INTEGRATED_LEAD_READY_REVIEW","BOOTSTRAP_PUBLICATION_OPERATOR"]'), needs.protected_transition_admission_v1.outputs.next_action)
     runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 45
     steps:
@@ -496,7 +496,10 @@ jobs:
               throw 'role_output_validation_failed'
             }
             $validated = Get-Content -LiteralPath $ResultFile -Raw -Encoding utf8 | ConvertFrom-Json
-            if ($validated.next_action -cne $ExpectedAction) { throw 'role_output_operation_invalid' }
+            if (
+              ($ExpectedAction -ceq 'READY_FOR_REVIEW_OR_NONE' -and $validated.next_action -notin @('READY_FOR_REVIEW', 'NONE')) -or
+              ($ExpectedAction -cne 'READY_FOR_REVIEW_OR_NONE' -and $validated.next_action -cne $ExpectedAction)
+            ) { throw 'role_output_operation_invalid' }
             return $validated
           }
 
@@ -666,8 +669,25 @@ jobs:
           if ($prePrImplementer -and -not (Test-Path -LiteralPath $roleWorkspace -PathType Container)) { throw 'pre_pr_implementation_worktree_missing' }
           $sandbox = if ($plan.read_only) { 'read-only' } else { 'workspace-write' }
           Invoke-BoundedRole -PromptFile $promptPath -Sandbox $sandbox -JsonlFile $outputPath -BodyFile $bodyPath -Workspace $roleWorkspace
-          $expected = if ($prePrImplementer) { 'RUN_PRE_PR_VALIDATION' } elseif ($prePrPublicationDecision) { 'POST_PRE_PR_PUBLICATION_DECISION' } elseif ($dispatch.next_action -ceq 'IMPLEMENTER') { 'VALIDATE_IMPLEMENTATION' } elseif ($dispatch.purpose -ceq 'MERGE_DECISION') { 'POST_MERGE_DECISION' } elseif ($dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER') { 'POST_REVIEW' } else { 'COMMIT_PUSH_PUBLISH' }
+          $expected = if ($prePrImplementer) { 'RUN_PRE_PR_VALIDATION' } elseif ($prePrPublicationDecision) { 'POST_PRE_PR_PUBLICATION_DECISION' } elseif ($dispatch.next_action -ceq 'IMPLEMENTER') { 'VALIDATE_IMPLEMENTATION' } elseif ($dispatch.purpose -ceq 'MERGE_DECISION') { 'POST_MERGE_DECISION' } elseif ($dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER') { 'POST_REVIEW' } elseif ($dispatch.next_action -ceq 'INTEGRATED_LEAD_READY_REVIEW') { 'READY_FOR_REVIEW_OR_NONE' } else { 'COMMIT_PUSH_PUBLISH' }
           $validated = Assert-RoleOutput -DispatchFile $dispatchPath -BodyFile $bodyPath -ExpectedAction $expected -ResultFile $resultPath -JsonlFile $outputPath
+
+          if ($dispatch.next_action -ceq 'INTEGRATED_LEAD_READY_REVIEW') {
+            if ($validated.next_action -ceq 'NONE') { exit 0 }
+            Assert-FreshRoleBinding -DispatchFile $dispatchPath
+            $operatorPath = Join-Path $env:RUNNER_TEMP 'ready-transition-result.json'
+            node $env:PTA_ROLE_HOST_RUNNER --ready-transition-dispatch-file $dispatchPath --ready-transition-result-file $bodyPath 1> $operatorPath
+            $operatorExit = $LASTEXITCODE
+            $operator = Get-Content -LiteralPath $operatorPath -Raw -Encoding utf8 | ConvertFrom-Json
+            if (
+              $operator.transition -cne 'ready_transition' -or $operator.next_action -notin @('NONE', 'STOP') -or
+              $operator.mutation_count -notin @(0, 1) -or ($operator.mutation_count -eq 0 -and $operator.mutation_attempted -ne $false) -or
+              ($operator.mutation_count -eq 1 -and $operator.mutation_attempted -ne $true) -or
+              ($operatorExit -eq 0 -and ($operator.state -cne 'COMPLETED' -or $operator.reason -cne 'ready_transition_completed' -or $operator.next_action -cne 'NONE' -or $operator.mutation_count -ne 1)) -or
+              ($operatorExit -ne 0 -and $operator.next_action -cne 'STOP')
+            ) { throw 'ready_transition_operator_invalid' }
+            exit $operatorExit
+          }
 
           if ($expected -ceq 'RUN_PRE_PR_VALIDATION') {
             $tracked = [string[]]@(git -C $roleWorkspace diff --name-only --no-renames HEAD --)

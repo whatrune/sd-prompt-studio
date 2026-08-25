@@ -30,6 +30,7 @@ import {
   executeReviewEventWithLifecycleReplayV1,
   executeReviewThreadClosureV1,
   executeReadyEventWithLifecycleReplayV1,
+  executeReadyTransitionOperatorV1,
   executeMinimalGovernanceFinalDriftGuardV1,
   executeMinimalGovernanceV1,
   executeRepairExecutorV1,
@@ -57,6 +58,9 @@ import {
   projectRoleOutputFailureDiagnosticV1,
   projectProtectedTransitionReviewStateV1,
   projectBootstrapPublicationRequestV1,
+  projectIntegratedLeadReadyReviewV1,
+  projectReadyActionV1,
+  projectReadyTransitionAuthorityV1,
   projectSelfHostedWindowsRepairProviderV3,
   projectRoleDispatchEnvelopeV1,
   repairWorkingTreePathsV1,
@@ -1448,7 +1452,7 @@ check(noTargetResult.state === 'INDETERMINATE' && noTargetResult.reason === 'rev
 
 check(
   (runnerSource.match(/await resolveEffectiveReviewDecisionV1\(\{ request, parsedEvent, host \}\)/g) ?? []).length === 2 &&
-  (runnerSource.match(/await acquireEffectiveReviewDecisionV1\(\{/g) ?? []).length === 4 &&
+  (runnerSource.match(/await acquireEffectiveReviewDecisionV1\(\{/g) ?? []).length === 5 &&
   (runnerSource.match(/reduceCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 3 &&
   (runnerSource.match(/confirmCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 3,
   'RRC-07 issue_comment, Ready, fresh rebind, and Lifecycle reuse the canonical aggregate Review owner',
@@ -1915,7 +1919,7 @@ check(
   (runnerSource.match(/reduceSelfAwareCurrentChecksV1\(/g) ?? []).length === 3 &&
   (runnerSource.match(/partitionReadyRunChecksV1\(/g) ?? []).length === 2 &&
   runnerSource.includes("const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'") &&
-  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 4,
+  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 5,
   'SGR-12 shared-helper use and correction/cumulative allowlists hold without duplicate sibling filters',
 )
 
@@ -9869,15 +9873,16 @@ const bootstrapDraftApprovedLifecycle = await executeReviewEventWithLifecycleRep
   jobName: 'protected_transition_admission_v1',
 })
 check(
-  bootstrapDraftApprovedLifecycle.phase === 'READY' && bootstrapDraftApprovedLifecycle.state === 'READY' &&
-  bootstrapDraftApprovedLifecycle.reason === 'ready_transition_required' &&
-  bootstrapDraftApprovedLifecycle.next_action === 'READY_TRANSITION_REQUIRED',
-  'SSRR-05 Draft current APPROVE reaches the exact existing READY_TRANSITION_REQUIRED Lifecycle projection',
+  bootstrapDraftApprovedLifecycle.terminal_result === 'READY_TRANSITION_REQUIRED' &&
+  bootstrapDraftApprovedLifecycle.next_action === 'INTEGRATED_LEAD_READY_REVIEW' &&
+  bootstrapDraftApprovedLifecycle.role_dispatch.next_action === 'INTEGRATED_LEAD_READY_REVIEW' &&
+  bootstrapDraftApprovedLifecycle.role_dispatch.source_binding.kind === 'READY_TRANSITION_REQUIRED',
+  'SSRR-05 Draft current APPROVE connects READY_TRANSITION_REQUIRED to Integrated Lead Ready Review',
 )
 check(
-  bootstrapDraftApprovedLifecycle.mutation_count === 0 && !Object.hasOwn(bootstrapDraftApprovedLifecycle, 'role_dispatch') &&
+  bootstrapDraftApprovedLifecycle.mutation_count === 0 && Object.hasOwn(bootstrapDraftApprovedLifecycle, 'role_dispatch') &&
   !Object.hasOwn(bootstrapDraftApprovedLifecycle, 'lifecycle_projection'),
-  'SSRR-06 Draft READY projection is terminal read-only output with no Role dispatch or nested replacement projection',
+  'SSRR-06 Draft READY routing remains read-only and does not add a nested replacement projection',
 )
 const bootstrapLifecycleRoute = await executeReviewEventWithLifecycleReplayV1({
   event: bootstrapPublicationHandoffEvent,
@@ -9924,5 +9929,317 @@ check(
   'BPR-10 five-job topology, Bootstrap transaction semantics, initial Task-state, and natural triggers remain unchanged',
 )
 
-if (assertions !== 1056) throw new Error(`expected exactly 1056 assertions, observed ${assertions}`)
+const readyConnectionPathsV1 = Object.freeze([
+  '.github/workflows/protected-transition-admission-v1.yml',
+  'scripts/run-protected-transition-admission-v1.mjs',
+  'scripts/test-protected-transition-admission-v1.mjs',
+])
+const readyConnectionTaskV1 = 361
+const readyConnectionPrV1 = 373
+const readyConnectionHeadV1 = 'a444444444444444444444444444444444444444'
+const readyConnectionReviewIdV1 = 5406098001
+const readyConnectionPublicationIdV1 = 5406098002
+const readyConnectionScopeIdV1 = 5406098003
+const readyConnectionReviewBodyV1 = 'frozen current APPROVE review body'
+const readyConnectionPublicationBodyV1 = 'frozen publication handoff body'
+const readyConnectionScopeBodyV1 = 'frozen scope contract source body'
+const readyConnectionTaskStateV1 = state({
+  task_issue_number: readyConnectionTaskV1,
+  pr_number: readyConnectionPrV1,
+  observed_head: readyConnectionHeadV1,
+  authorized_paths: [...readyConnectionPathsV1],
+  review_status: 'APPROVE',
+  reviewed_head: readyConnectionHeadV1,
+  review_blocker_count: 0,
+})
+const readyConnectionProjectionV1 = Object.freeze({
+  task_issue_number: readyConnectionTaskV1,
+  pr_number: readyConnectionPrV1,
+  current_head: readyConnectionHeadV1,
+  phase: 'READY',
+  state: 'READY',
+  reason: 'ready_transition_required',
+  next_action: 'READY_TRANSITION_REQUIRED',
+  mutation_count: 0,
+})
+const readyConnectionOwnerContextV1 = Object.freeze({
+  projection: readyConnectionProjectionV1,
+  snapshot: Object.freeze({
+    repository: REPOSITORY,
+    task_issue_number: readyConnectionTaskV1,
+    pr_number: readyConnectionPrV1,
+    exact_head: readyConnectionHeadV1,
+    authorized_paths: readyConnectionPathsV1,
+    review: Object.freeze({
+      comment_id: readyConnectionReviewIdV1,
+      body_sha256: createHash('sha256').update(readyConnectionReviewBodyV1).digest('hex'),
+      reviewed_head: readyConnectionHeadV1,
+      decision: 'APPROVE',
+      blocking_finding_count: 0,
+      remaining_finding_count: 0,
+      unknown_count: 0,
+    }),
+    scope_contract: Object.freeze({
+      kind: 'PUBLICATION_CHAIN',
+      authority_id: String(readyConnectionScopeIdV1),
+      body_sha256: createHash('sha256').update(readyConnectionScopeBodyV1).digest('hex'),
+      result_handoff_comment_id: readyConnectionPublicationIdV1,
+      result_handoff_body_sha256: createHash('sha256').update(readyConnectionPublicationBodyV1).digest('hex'),
+    }),
+  }),
+  pull: Object.freeze({ body: stateBlock(readyConnectionTaskStateV1) }),
+})
+const readyConnectionSourceResultV1 = Object.freeze({
+  transition: 'role_transition_orchestrator_v1',
+  state: 'MERGE_ELIGIBLE',
+  allowed: true,
+  exit_code: 0,
+  reason: 'merge_gate_satisfied',
+  task_issue_number: readyConnectionTaskV1,
+  pr_number: readyConnectionPrV1,
+  current_head: readyConnectionHeadV1,
+  terminal_result: 'APPROVE',
+  next_action: 'LIFECYCLE_REPLAY',
+  mutation_count: 0,
+  source_comment_id: readyConnectionReviewIdV1,
+})
+const readyConnectionEventV1 = Object.freeze({
+  action: 'created',
+  repository: Object.freeze({ full_name: REPOSITORY }),
+  issue: Object.freeze({ number: readyConnectionTaskV1 }),
+  comment: Object.freeze({ id: readyConnectionReviewIdV1, body: readyConnectionReviewBodyV1 }),
+})
+const readyConnectionRoutedV1 = projectIntegratedLeadReadyReviewV1({
+  result: readyConnectionSourceResultV1,
+  lifecycleOwnerContext: readyConnectionOwnerContextV1,
+  event: readyConnectionEventV1,
+  runId: REVIEW_RUN_ID,
+  runAttempt: 1,
+})
+const readyConnectionDispatchV1 = readyConnectionRoutedV1.role_dispatch
+check(
+  readyConnectionRoutedV1.next_action === 'INTEGRATED_LEAD_READY_REVIEW' &&
+  readyConnectionRoutedV1.terminal_result === 'READY_TRANSITION_REQUIRED' &&
+  readyConnectionDispatchV1.next_action === 'INTEGRATED_LEAD_READY_REVIEW',
+  'RTR-B1-01 exact READY_TRANSITION_REQUIRED routes to the existing Integrated Lead Ready Review',
+)
+check(
+  Object.isFrozen(readyConnectionRoutedV1) && Object.isFrozen(readyConnectionDispatchV1) &&
+  readyConnectionDispatchV1.admission_run_id === REVIEW_RUN_ID && readyConnectionDispatchV1.admission_run_attempt === 1 &&
+  readyConnectionDispatchV1.source_binding.review_body_sha256 === createHash('sha256').update(readyConnectionReviewBodyV1).digest('hex') &&
+  readyConnectionDispatchV1.source_binding.publication_handoff_body_sha256 === createHash('sha256').update(readyConnectionPublicationBodyV1).digest('hex') &&
+  readyConnectionDispatchV1.source_binding.scope_contract_source_body_sha256 === createHash('sha256').update(readyConnectionScopeBodyV1).digest('hex'),
+  'RTR-B1-02 routing freezes exact execution and source identities',
+)
+check(
+  ['phase', 'state', 'reason', 'next_action', 'mutation_count'].every((field) => projectIntegratedLeadReadyReviewV1({
+    result: readyConnectionSourceResultV1,
+    lifecycleOwnerContext: {
+      ...readyConnectionOwnerContextV1,
+      projection: { ...readyConnectionProjectionV1, [field]: field === 'mutation_count' ? 1 : 'OTHER' },
+    },
+    event: readyConnectionEventV1,
+    runId: REVIEW_RUN_ID,
+    runAttempt: 1,
+  }) === readyConnectionSourceResultV1),
+  'RTR-B1-03 every non-exact Lifecycle projection preserves the existing owner result',
+)
+check(
+  projectIntegratedLeadReadyReviewV1({
+    result: readyConnectionSourceResultV1,
+    lifecycleOwnerContext: readyConnectionOwnerContextV1,
+    event: { ...readyConnectionEventV1, comment: { id: readyConnectionReviewIdV1 + 1, body: readyConnectionReviewBodyV1 } },
+    runId: REVIEW_RUN_ID,
+    runAttempt: 1,
+  }) === readyConnectionSourceResultV1,
+  'RTR-B1-04 trigger identity drift fails closed before dispatch',
+)
+check(
+  projectIntegratedLeadReadyReviewV1({
+    result: readyConnectionSourceResultV1,
+    lifecycleOwnerContext: {
+      ...readyConnectionOwnerContextV1,
+      snapshot: { ...readyConnectionOwnerContextV1.snapshot, authorized_paths: Object.freeze(['outside.ts']) },
+    },
+    event: readyConnectionEventV1,
+    runId: REVIEW_RUN_ID,
+    runAttempt: 1,
+  }) === readyConnectionSourceResultV1,
+  'RTR-B1-05 scope drift fails closed before dispatch',
+)
+
+const readyConnectionResultBodyV1 = (decision = 'READY_FOR_REVIEW', extra = '') => `\`\`\`yaml
+decision: ${decision}
+repository: ${REPOSITORY}
+task_issue: https://github.com/${REPOSITORY}/issues/${readyConnectionTaskV1}
+pull_request: https://github.com/${REPOSITORY}/pull/${readyConnectionPrV1}
+exact_head: "${readyConnectionHeadV1}"
+review_decision: https://github.com/${REPOSITORY}/issues/${readyConnectionTaskV1}#issuecomment-${readyConnectionReviewIdV1}
+publication_handoff: https://github.com/${REPOSITORY}/issues/${readyConnectionTaskV1}#issuecomment-${readyConnectionPublicationIdV1}
+scope_contract_source: https://github.com/${REPOSITORY}/issues/${readyConnectionTaskV1}#issuecomment-${readyConnectionScopeIdV1}${extra}
+\`\`\``
+const readyConnectionOwnerResultV1 = evaluateRoleDispatchOutputV1({
+  dispatch: readyConnectionDispatchV1,
+  body: readyConnectionResultBodyV1(),
+})
+const readyConnectionStopResultV1 = evaluateRoleDispatchOutputV1({
+  dispatch: readyConnectionDispatchV1,
+  body: readyConnectionResultBodyV1('STOP'),
+})
+check(
+  readyConnectionOwnerResultV1.next_action === 'READY_FOR_REVIEW' &&
+  readyConnectionOwnerResultV1.integrated_lead_result.decision === 'READY_FOR_REVIEW' &&
+  Object.isFrozen(readyConnectionOwnerResultV1.integrated_lead_result),
+  'RTR-B1-06 exact eight-field READY_FOR_REVIEW result is frozen and admitted',
+)
+check(
+  readyConnectionStopResultV1.next_action === 'NONE' && readyConnectionStopResultV1.mutation_count === 0,
+  'RTR-B1-07 Integrated Lead STOP is terminal before Ready authority or mutation',
+)
+const malformedReadyConnectionBodiesV1 = [
+  readyConnectionResultBodyV1().replace(/^scope_contract_source:.*\n/m, ''),
+  readyConnectionResultBodyV1().replace('decision: READY_FOR_REVIEW', 'decision: READY_FOR_REVIEW\ndecision: READY_FOR_REVIEW'),
+  readyConnectionResultBodyV1('UNKNOWN'),
+  readyConnectionResultBodyV1('READY_FOR_REVIEW', '\nunknown_field: reject'),
+]
+check(
+  malformedReadyConnectionBodiesV1.every((body) => {
+    const result = evaluateRoleDispatchOutputV1({ dispatch: readyConnectionDispatchV1, body })
+    return result.next_action === 'STOP' && result.mutation_count === 0
+  }),
+  'RTR-B1-08 malformed Integrated Lead results fail closed',
+)
+
+const readyConnectionExecutionIdentityV1 = Object.freeze({
+  repository: REPOSITORY,
+  runId: REVIEW_RUN_ID,
+  runAttempt: 1,
+  jobName: 'protected_transition_role_dispatch_consumer_v1',
+})
+const newReadyConnectionAuthorityV1 = () => projectReadyTransitionAuthorityV1({
+  dispatch: readyConnectionDispatchV1,
+  ownerResult: readyConnectionOwnerResultV1,
+  executionIdentity: readyConnectionExecutionIdentityV1,
+})
+const readyConnectionAuthorityV1 = newReadyConnectionAuthorityV1()
+const readyConnectionActionV1 = projectReadyActionV1(readyConnectionAuthorityV1)
+check(
+  Object.keys(readyConnectionAuthorityV1).sort().join('\n') === [
+    'record_type', 'version', 'authoring_role', 'repository', 'task_issue_number', 'pr_number',
+    'exact_head', 'action', 'method', 'operation_count', 'admission_run_id', 'admission_run_attempt',
+    'source_comment_id', 'authorized_paths', 'source_binding', 'integrated_lead_result',
+  ].sort().join('\n') && readyConnectionAuthorityV1.record_type === 'ready_transition_authority_v1' &&
+  readyConnectionAuthorityV1.version === 1 && readyConnectionAuthorityV1.authoring_role === 'Integrated Lead' &&
+  Object.isFrozen(readyConnectionAuthorityV1) && Object.isFrozen(readyConnectionAuthorityV1.authorized_paths) &&
+  readyConnectionAuthorityV1.action === 'READY_FOR_REVIEW' && readyConnectionAuthorityV1.operation_count === 1 &&
+  Object.keys(readyConnectionActionV1).sort().join('\n') === [
+    'repository', 'task_issue_number', 'pr_number', 'exact_head', 'action', 'method',
+    'operation_count', 'admission_run_id', 'admission_run_attempt',
+  ].sort().join('\n') && Object.isFrozen(readyConnectionActionV1),
+  'RTR-B1-09 same-invocation Ready authority is frozen and single-operation',
+)
+let readyConnectionIdentityRejectedV1 = false
+try {
+  projectReadyTransitionAuthorityV1({
+    dispatch: readyConnectionDispatchV1,
+    ownerResult: readyConnectionOwnerResultV1,
+    executionIdentity: { ...readyConnectionExecutionIdentityV1, runAttempt: 2 },
+  })
+} catch { readyConnectionIdentityRejectedV1 = true }
+check(readyConnectionIdentityRejectedV1, 'RTR-B1-10 execution identity drift rejects Ready authority projection')
+
+const readyConnectionOperatorFixtureV1 = ({ before = {}, after = {}, mutationRejects = false } = {}) => {
+  const metrics = { query: 0, mutation: 0 }
+  const pull = (overrides) => ({
+    id: 'PR_kwDOReadyConnection', number: readyConnectionPrV1, headRefOid: readyConnectionHeadV1,
+    baseRefName: 'main', state: 'OPEN', isDraft: true, merged: false, ...overrides,
+  })
+  return Object.freeze({
+    metrics,
+    host: Object.freeze({
+      graphql: async (query) => {
+        if (query.includes('query ReadyTransitionPull')) {
+          metrics.query += 1
+          return { repository: { nameWithOwner: REPOSITORY, pullRequest: metrics.query === 1 ? pull(before) : pull({ isDraft: false, ...after }) } }
+        }
+        if (query.includes('mutation MarkPullRequestReady')) {
+          metrics.mutation += 1
+          if (mutationRejects) throw new Error('ready_mutation_rejected')
+          return { markPullRequestReadyForReview: { clientMutationId: null } }
+        }
+        throw new Error('unexpected_ready_connection_graphql')
+      },
+    }),
+  })
+}
+const readyConnectionGuardResultsV1 = []
+for (const before of [
+  { isDraft: false }, { state: 'CLOSED' }, { merged: true }, { headRefOid: OTHER_HEAD }, { baseRefName: 'release' },
+]) {
+  const fixture = readyConnectionOperatorFixtureV1({ before })
+  readyConnectionGuardResultsV1.push({
+    fixture,
+    result: await executeReadyTransitionOperatorV1({ authority: newReadyConnectionAuthorityV1(), host: fixture.host }),
+  })
+}
+check(
+  readyConnectionGuardResultsV1.every(({ fixture, result }) => result.next_action === 'STOP' && result.mutation_count === 0 && fixture.metrics.mutation === 0),
+  'RTR-B1-11 every pre-mutation PR identity/state/scope guard stops with zero mutation',
+)
+const readyConnectionSuccessFixtureV1 = readyConnectionOperatorFixtureV1()
+const readyConnectionSuccessAuthorityV1 = newReadyConnectionAuthorityV1()
+const readyConnectionSuccessV1 = await executeReadyTransitionOperatorV1({
+  authority: readyConnectionSuccessAuthorityV1,
+  host: readyConnectionSuccessFixtureV1.host,
+})
+check(
+  readyConnectionSuccessV1.state === 'COMPLETED' && readyConnectionSuccessV1.reason === 'ready_transition_completed' &&
+  readyConnectionSuccessV1.mutation_count === 1 && readyConnectionSuccessFixtureV1.metrics.query === 2 &&
+  readyConnectionSuccessFixtureV1.metrics.mutation === 1 &&
+  Object.keys(readyConnectionSuccessV1.ready_action).sort().join('\n') === Object.keys(readyConnectionActionV1).sort().join('\n'),
+  'RTR-B1-12 one guarded Ready mutation is directly refetched to terminal success',
+)
+const readyConnectionReuseV1 = await executeReadyTransitionOperatorV1({
+  authority: readyConnectionSuccessAuthorityV1,
+  host: readyConnectionSuccessFixtureV1.host,
+})
+check(
+  readyConnectionReuseV1.next_action === 'STOP' && readyConnectionReuseV1.reason === 'ready_transition_authority_already_used' &&
+  readyConnectionSuccessFixtureV1.metrics.query === 2 && readyConnectionSuccessFixtureV1.metrics.mutation === 1,
+  'RTR-B1-13 one frozen Ready authority is single-use',
+)
+const readyConnectionRejectFixtureV1 = readyConnectionOperatorFixtureV1({ mutationRejects: true })
+const readyConnectionRejectV1 = await executeReadyTransitionOperatorV1({
+  authority: newReadyConnectionAuthorityV1(),
+  host: readyConnectionRejectFixtureV1.host,
+})
+check(
+  readyConnectionRejectV1.next_action === 'STOP' && readyConnectionRejectV1.mutation_count === 1 &&
+  readyConnectionRejectFixtureV1.metrics.query === 1 && readyConnectionRejectFixtureV1.metrics.mutation === 1,
+  'RTR-B1-14 mutation failure stops after one attempt with no retry or refetch substitution',
+)
+
+const readyConnectionWorkflowRunV1 = roleExecutionStep.run ?? ''
+check(
+  Object.keys(workflow.jobs).length === 5 && !Object.hasOwn(workflow.jobs, 'protected_transition_ready_operator_v1') &&
+  roleConsumerJob.if.includes('INTEGRATED_LEAD_READY_REVIEW') &&
+  (readyConnectionWorkflowRunV1.match(/--ready-transition-dispatch-file/g) ?? []).length === 1 &&
+  (runnerSource.match(/ready_transition_authority_v1/g) ?? []).length === 2 && !readyConnectionWorkflowRunV1.includes('Publish-ReadyTransitionAuthority') &&
+  !readyConnectionWorkflowRunV1.includes('integrated-lead-result-sha256-'),
+  'RTR-B1-15 existing job/provider topology hosts no schema or proof comment',
+)
+const readyConnectionOperatorSourceV1 = runnerSource.slice(
+  runnerSource.indexOf('export const executeReadyTransitionOperatorV1'),
+  runnerSource.indexOf('export const executeMergeOperatorV1'),
+)
+check(
+  workflow.on.pull_request.types.join(',') === 'ready_for_review' &&
+  !readyConnectionWorkflowRunV1.includes('--ready-event-file') &&
+  !readyConnectionOperatorSourceV1.includes('executeReadyForReviewProgressionV1') &&
+  !readyConnectionOperatorSourceV1.includes('retry') && !readyConnectionOperatorSourceV1.includes('fallback') &&
+  mergeOperatorJob.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR' && (needs.protected_transition_admission_v1.outputs.terminal_result == 'MERGE_ALLOWED' || needs.protected_transition_admission_v1.outputs.terminal_result == 'MINIMAL_GOVERNANCE_V1')",
+  'RTR-B1-16 natural ready_for_review continuation and existing Merge behavior remain unchanged',
+)
+
+if (assertions !== 1072) throw new Error(`expected exactly 1072 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
