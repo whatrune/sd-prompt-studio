@@ -10147,7 +10147,12 @@ check(
   'BPR-10 five-job topology, Bootstrap transaction semantics, initial Task-state, and natural triggers remain unchanged',
 )
 
-const roleProgressPromptInstruction = 'If your work is not complete and another execution is required, return exactly IN_PROGRESS and nothing else.'
+const roleProgressPromptGuidance = Object.freeze([
+  'Do not return IN_PROGRESS merely to report ongoing work.',
+  'Continue working within the current execution whenever the assigned Role can still make progress.',
+  'Return exactly IN_PROGRESS only when this execution genuinely cannot complete the assigned Role and another execution of the same Role is required.',
+])
+const supersededRoleProgressPromptInstruction = 'If your work is not complete and another execution is required, return exactly IN_PROGRESS and nothing else.'
 check(
   progressRoleSource.startsWith('function Invoke-BoundedRoleUntilTerminal {') &&
   progressRoleSource.includes('for ($providerExecution = 1; $providerExecution -le 3; $providerExecution++)') &&
@@ -10161,10 +10166,13 @@ check(
   'RIP-07 exact transport classifier performs only bounded same-dispatch rebind and provider execution with no parser, publication, polling, or protected mutation during progress',
 )
 check(
-  runnerSource.split(roleProgressPromptInstruction).length === 2 &&
+  roleProgressPromptGuidance.every((instruction) => runnerSource.split(instruction).length === 2) &&
+  !runnerSource.includes(supersededRoleProgressPromptInstruction) &&
   [implementerPlan, mergeDecisionPlan, publicationPlan, prePrPlan, prePrPublicationPlan, bootstrapReviewerPlan, cumulativeBootstrapReviewerPlan]
-    .every((plan) => plan.next_action === 'EXECUTE_ROLE' && plan.prompt.includes(roleProgressPromptInstruction)),
-  'RIP-08 every retry-capable Role prompt contains the exact standalone IN_PROGRESS instruction',
+    .every((plan) => plan.next_action === 'EXECUTE_ROLE' &&
+      roleProgressPromptGuidance.every((instruction) => plan.prompt.includes(instruction)) &&
+      !plan.prompt.includes(supersededRoleProgressPromptInstruction)),
+  'RIP-08 every retry-capable Role prompt contains the exact conditional IN_PROGRESS guidance and no progress-only encouragement',
 )
 const mainProgressTransportIndex = roleExecutionRun.indexOf('Invoke-BoundedRoleUntilTerminal -PromptFile $promptPath')
 const mainTerminalParserIndex = roleExecutionRun.indexOf('$validated = Assert-RoleOutput', mainProgressTransportIndex)
