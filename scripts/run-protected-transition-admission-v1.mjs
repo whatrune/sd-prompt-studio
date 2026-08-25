@@ -4597,7 +4597,9 @@ const roleDispatchPromptV1 = (dispatch) => {
     `Exact HEAD: ${dispatch.exact_head}`,
     `Source comment: #${dispatch.source_comment_id}`,
     `Authorized paths: ${dispatch.authorized_paths.join(', ')}`,
-    'If your work is not complete and another execution is required, return exactly IN_PROGRESS and nothing else.',
+    'Do not return IN_PROGRESS merely to report ongoing work.',
+    'Continue working within the current execution whenever the assigned Role can still make progress.',
+    'Return exactly IN_PROGRESS only when this execution genuinely cannot complete the assigned Role and another execution of the same Role is required.',
     'Do not call another agent. Do not merge. Return only the requested existing canonical record body.',
   ]
   if (dispatch.next_action === 'IMPLEMENTER') {
