@@ -6742,7 +6742,8 @@ const validateLifecycleReplaySnapshotV1 = (input) => {
     !positiveInteger(scopeContract.pre_pr_implementation_authority_comment_id) ||
     !FULL_HEAD.test(scopeContract.authorized_parent ?? '') || !FULL_HEAD.test(scopeContract.published_head ?? '') ||
     scopeContract.published_head !== input.exact_head || scopeContract.pr_head !== input.current_head ||
-    !sameRolePathsV1(scopeContract.paths, authorizedPaths) || !sameRolePathsV1(authorizedPaths, changedPaths)
+    changedPaths.length === 0 || !rolePathsContainV1(authorizedPaths, scopeContract.paths) ||
+    !sameRolePathsV1(scopeContract.paths, changedPaths)
   )) throw new Error('lifecycle_scope_binding_invalid')
 
   const evidenceStatus = input.evidence_status
