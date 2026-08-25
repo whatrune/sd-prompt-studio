@@ -5106,6 +5106,14 @@ const acquireRoleDispatchBindingV1 = async (dispatch, host, expectedHead = dispa
   const pull = await acquirePull(request, host)
   const taskState = extractProtectedTransitionTaskStateV1(pull.body)
   const scope = await acquireChangedPathScopeV1(request, pull, host)
+  const sourceBinding = projectRoleSourceBindingV1(dispatch.source_binding, dispatch.source_comment_id)
+  const cumulativeBootstrapReviewerScope =
+    dispatch.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER' &&
+    sourceBinding.kind === 'PUBLICATION_HANDOFF' &&
+    sourceBinding.publication_mode === 'BOOTSTRAP_CREATE_ONLY_EMPTY_LEASE_CAS'
+  const actualScopeMatches = cumulativeBootstrapReviewerScope
+    ? scope.actual_paths.length > 0 && rolePathsContainV1(taskState.authorized_paths, scope.actual_paths)
+    : sameRolePathsV1(scope.actual_paths, Object.freeze([...dispatch.authorized_paths].sort()))
   let task = null
   if (dispatch.next_action === 'IMPLEMENTER') {
     try {
@@ -5124,7 +5132,7 @@ const acquireRoleDispatchBindingV1 = async (dispatch, host, expectedHead = dispa
   if (
     pull.head.sha !== expectedHead || JSON.stringify(taskState) !== JSON.stringify(expectedState) ||
     taskState.architecture_status !== 'APPROVED' || taskState.implementation_authorized !== true ||
-    !sameRolePathsV1(scope.actual_paths, Object.freeze([...dispatch.authorized_paths].sort()))
+    !actualScopeMatches
   ) throw new Error('role_dispatch_binding_changed')
   return Object.freeze({ request, pull, taskState, scope, task })
 }
@@ -5497,7 +5505,7 @@ const verifyBootstrapPublicationHandoffOwnerV1 = async ({ publication, binding, 
     publication.bootstrapDecisionCommentId !== binding.bootstrap_decision_comment_id ||
     publication.prePrResultHandoffCommentId !== binding.pre_pr_result_handoff_comment_id ||
     publication.prePrImplementationAuthorityCommentId !== binding.pre_pr_implementation_authority_comment_id ||
-    !sameRolePathsV1(publication.paths, dispatch.authorized_paths)
+    !rolePathsContainV1(dispatch.authorized_paths, publication.paths)
   ) throw new Error('role_dispatch_source_binding_changed')
   const decisionRecord = await fetchRoleCommentRecordV1(
     dispatch.repository,
@@ -5516,7 +5524,7 @@ const verifyBootstrapPublicationHandoffOwnerV1 = async ({ publication, binding, 
     chain.result_comment_id !== binding.pre_pr_result_handoff_comment_id ||
     chain.authority.comment_id !== binding.pre_pr_implementation_authority_comment_id ||
     chain.decision.exact_baseline !== binding.parent_head ||
-    !sameRolePathsV1(chain.decision.authorized_paths, dispatch.authorized_paths)
+    !rolePathsContainV1(dispatch.authorized_paths, chain.decision.authorized_paths)
   ) throw new Error('role_dispatch_source_binding_changed')
   return chain
 }
@@ -6368,6 +6376,8 @@ const parseRolePublicationHandoffV1 = (body) => {
 }
 
 const sameRolePathsV1 = (left, right) => Array.isArray(left) && Array.isArray(right) && left.join('\n') === right.join('\n')
+const rolePathsContainV1 = (container, contained) =>
+  Array.isArray(container) && Array.isArray(contained) && contained.every((pathValue) => container.includes(pathValue))
 
 export const executePrePrImplementationIngressV1 = async ({ event, host }) => {
   let request = null
@@ -6732,7 +6742,8 @@ const validateLifecycleReplaySnapshotV1 = (input) => {
     !positiveInteger(scopeContract.pre_pr_implementation_authority_comment_id) ||
     !FULL_HEAD.test(scopeContract.authorized_parent ?? '') || !FULL_HEAD.test(scopeContract.published_head ?? '') ||
     scopeContract.published_head !== input.exact_head || scopeContract.pr_head !== input.current_head ||
-    !sameRolePathsV1(scopeContract.paths, authorizedPaths) || !sameRolePathsV1(authorizedPaths, changedPaths)
+    changedPaths.length === 0 || !rolePathsContainV1(authorizedPaths, scopeContract.paths) ||
+    !sameRolePathsV1(scopeContract.paths, changedPaths)
   )) throw new Error('lifecycle_scope_binding_invalid')
 
   const evidenceStatus = input.evidence_status
@@ -7707,7 +7718,7 @@ const acquireLifecycleBootstrapPublishedGenerationV1 = async ({ history, identit
       pull.head?.sha !== identity.exactHead || pull.head?.repo?.full_name !== identity.repository ||
       typeof pull.head?.ref !== 'string' || pull.head.ref.length === 0 ||
       taskState.task_issue_number !== identity.taskIssueNumber || taskState.pr_number !== identity.prNumber ||
-      taskState.observed_head !== identity.exactHead || !sameRolePathsV1(taskState.authorized_paths, publication.paths) ||
+      taskState.observed_head !== identity.exactHead || !rolePathsContainV1(taskState.authorized_paths, publication.paths) ||
       taskState.architecture_status !== 'APPROVED' || taskState.implementation_authorized !== true ||
       commit?.sha !== identity.exactHead || !Array.isArray(commit.parents) || commit.parents.length !== 1 ||
       commit.parents[0]?.sha !== publication.parentHead
@@ -7715,7 +7726,7 @@ const acquireLifecycleBootstrapPublishedGenerationV1 = async ({ history, identit
 
     const bodySha256 = createHash('sha256').update(Buffer.from(fresh.body, 'utf8')).digest('hex')
     admittedScope = Object.freeze({
-      authorizedPaths: publication.paths,
+      authorizedPaths: taskState.authorized_paths,
       scopeContract: Object.freeze({
         kind: 'BOOTSTRAP_PUBLICATION_HANDOFF',
         authority_id: String(selected.comment.id),
@@ -7734,7 +7745,7 @@ const acquireLifecycleBootstrapPublishedGenerationV1 = async ({ history, identit
     return Object.freeze({
       status: 'PRESENT',
       remoteBranch: pull.head.ref,
-      authorizedPaths: publication.paths,
+      authorizedPaths: taskState.authorized_paths,
       scopeContract: admittedScope.scopeContract,
       validation: projectLifecycleBootstrapValidationV1({
         chain,
@@ -8532,7 +8543,7 @@ export const executeRoleTransitionOrchestratorV1 = async ({
         sameRolePathsV1(chain.decision.authorized_paths, normalized.paths)
       const initialStateMatches =
         priorState.observed_head === normalized.exactHead &&
-        sameRolePathsV1(priorState.authorized_paths, normalized.paths) &&
+        rolePathsContainV1(priorState.authorized_paths, normalized.paths) &&
         priorState.review_status === 'PENDING' && priorState.reviewed_head === null &&
         priorState.review_blocker_count === null
       const pullMatches = pull.state === 'open' && pull.draft === true && pull.merged === false && pull.base?.ref === 'main'

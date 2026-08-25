@@ -9795,6 +9795,112 @@ check(
   bootstrapReviewerPlan.read_only === true && bootstrapReviewerPlan.exact_head === BOOTSTRAP_PUBLISHED_HEAD,
   'BPR-04 existing role consumer accepts the rebound Bootstrap Handoff and dispatches the reviewer',
 )
+const cumulativeBootstrapState = Object.freeze({ ...bootstrapInitialState, authorized_paths: PRE_PR_PATHS })
+const cumulativeBootstrapHost = bootstrapPublishedHostV1({ taskState: cumulativeBootstrapState })
+const cumulativeBootstrapPull = await cumulativeBootstrapHost.api(`repos/${REPOSITORY}/pulls/${BOOTSTRAP_PUBLICATION_PR}`)
+const cumulativeBootstrapGeneration = await acquireLifecyclePublishedGenerationV1({
+  history: bootstrapLifecycleHistory,
+  identity: bootstrapLifecycleIdentity,
+  changedPaths: PRE_PR_CHANGED_PATHS,
+  pull: cumulativeBootstrapPull,
+  host: cumulativeBootstrapHost,
+})
+const cumulativeBootstrapRoute = await executeRoleTransitionOrchestratorV1({
+  event: bootstrapPublicationHandoffEvent,
+  host: bootstrapPublishedHostV1({ taskState: cumulativeBootstrapState }),
+})
+const cumulativeBootstrapReviewerPlan = await executeRoleDispatchConsumerV1({
+  dispatch: cumulativeBootstrapRoute.role_dispatch,
+  host: bootstrapPublishedHostV1({ taskState: cumulativeBootstrapState }),
+})
+check(
+  cumulativeBootstrapGeneration.status === 'PRESENT' &&
+  JSON.stringify(cumulativeBootstrapGeneration.authorizedPaths) === JSON.stringify(PRE_PR_PATHS) &&
+  cumulativeBootstrapRoute.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER' &&
+  JSON.stringify(cumulativeBootstrapRoute.role_dispatch.authorized_paths) === JSON.stringify(PRE_PR_PATHS) &&
+  cumulativeBootstrapReviewerPlan.next_action === 'EXECUTE_ROLE' &&
+  cumulativeBootstrapReviewerPlan.role === 'INDEPENDENT_IMPLEMENTATION_REVIEWER',
+  'BPR-04a same-Task correction delta is admitted within cumulative Task-state scope and preserves that scope for Review',
+)
+const lifecycleCorrectionDeltaPaths = Object.freeze(PRE_PR_PATHS.slice(1))
+const lifecycleCorrectionSnapshot = Object.freeze({
+  repository: REPOSITORY,
+  task_issue_number: PRE_PR_TASK,
+  pr_number: BOOTSTRAP_PUBLICATION_PR,
+  target_branch: 'main',
+  exact_head: BOOTSTRAP_PUBLISHED_HEAD,
+  current_head: BOOTSTRAP_PUBLISHED_HEAD,
+  current_base: PRE_PR_BASELINE,
+  pull_state: 'open',
+  pull_draft: true,
+  pull_merged: false,
+  mergeable: true,
+  changed_paths: lifecycleCorrectionDeltaPaths,
+  authorized_paths: PRE_PR_PATHS,
+  scope_contract: Object.freeze({
+    ...cumulativeBootstrapGeneration.scopeContract,
+    paths: lifecycleCorrectionDeltaPaths,
+  }),
+  evidence_status: Object.freeze({ validation: 'PRESENT', authority: 'MISSING', review: 'MISSING', checks: 'PRESENT' }),
+  validation: Object.freeze({
+    ...cumulativeBootstrapGeneration.validation,
+    paths: lifecycleCorrectionDeltaPaths,
+  }),
+  review: null,
+  checks: Object.freeze([]),
+  ready_evidence: null,
+  authority: null,
+})
+const lifecycleCorrectionResult = await executeLifecycleOrchestratorV1({ snapshot: lifecycleCorrectionSnapshot })
+check(
+  lifecycleCorrectionResult.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER' &&
+  lifecycleCorrectionResult.reason === 'fresh_review_required',
+  'BPR-04b Lifecycle accepts a non-empty two-path same-Task correction delta within cumulative three-path Task-state scope',
+)
+const lifecycleOutsideCorrectionPaths = Object.freeze([...lifecycleCorrectionDeltaPaths, 'scripts/outside-cumulative-scope.mjs'])
+const lifecycleOutsideCorrectionResult = await executeLifecycleOrchestratorV1({
+  snapshot: Object.freeze({
+    ...lifecycleCorrectionSnapshot,
+    changed_paths: lifecycleOutsideCorrectionPaths,
+    scope_contract: Object.freeze({ ...lifecycleCorrectionSnapshot.scope_contract, paths: lifecycleOutsideCorrectionPaths }),
+    validation: Object.freeze({ ...lifecycleCorrectionSnapshot.validation, paths: lifecycleOutsideCorrectionPaths }),
+  }),
+})
+check(
+  lifecycleOutsideCorrectionResult.next_action === 'STOP' && lifecycleOutsideCorrectionResult.reason === 'lifecycle_scope_binding_invalid',
+  'BPR-04c same-Task correction delta outside cumulative Task-state scope stops at Lifecycle scope binding',
+)
+const ordinaryPublicationChainSha = lifecycleReplayShaV1('ordinary-publication-chain')
+const lifecycleOrdinarySubsetResult = await executeLifecycleOrchestratorV1({
+  snapshot: Object.freeze({
+    ...lifecycleCorrectionSnapshot,
+    scope_contract: Object.freeze({
+      kind: 'PUBLICATION_CHAIN',
+      authority_id: 'ordinary-publication-chain',
+      body_sha256: lifecycleReplayShaV1('ordinary-publication-authority'),
+      result_handoff_comment_id: 1,
+      task_assignment_comment_id: 2,
+      task_assignment_body_sha256: lifecycleReplayShaV1('ordinary-task-assignment'),
+      publication_authority_comment_id: 3,
+      authorized_parent: PRE_PR_BASELINE,
+      published_head: BOOTSTRAP_PUBLISHED_HEAD,
+      commit_parent: PRE_PR_BASELINE,
+      remote_head: BOOTSTRAP_PUBLISHED_HEAD,
+      pr_head: BOOTSTRAP_PUBLISHED_HEAD,
+      result_handoff_body_sha256: lifecycleReplayShaV1('ordinary-result-handoff'),
+      publication_chain_sha256: ordinaryPublicationChainSha,
+    }),
+    validation: Object.freeze({
+      ...lifecycleCorrectionSnapshot.validation,
+      reuse_kind: 'PUBLICATION_CHAIN',
+      publication_chain_sha256: ordinaryPublicationChainSha,
+    }),
+  }),
+})
+check(
+  lifecycleOrdinarySubsetResult.next_action === 'STOP' && lifecycleOrdinarySubsetResult.reason === 'lifecycle_scope_binding_invalid',
+  'BPR-04d ordinary Lifecycle publication scope remains exact and rejects a strict subset',
+)
 const staleBootstrapState = Object.freeze({ ...bootstrapInitialState, review_status: 'APPROVE', reviewed_head: BOOTSTRAP_PUBLISHED_HEAD, review_blocker_count: 0 })
 const staleBootstrapHost = bootstrapPublishedHostV1({ taskState: staleBootstrapState })
 const staleBootstrapRoute = await executeRoleTransitionOrchestratorV1({ event: bootstrapPublicationHandoffEvent, host: staleBootstrapHost })
@@ -9924,5 +10030,5 @@ check(
   'BPR-10 five-job topology, Bootstrap transaction semantics, initial Task-state, and natural triggers remain unchanged',
 )
 
-if (assertions !== 1056) throw new Error(`expected exactly 1056 assertions, observed ${assertions}`)
+if (assertions !== 1060) throw new Error(`expected exactly 1060 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
