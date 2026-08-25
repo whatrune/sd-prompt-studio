@@ -13,6 +13,7 @@ import {
   projectProtectedTransitionApprovedReviewStateV1,
 } from '../src/continuous-orchestration/protected-transition-admission-v1.ts'
 import {
+  admitReadyTransitionAuthorityV1,
   acquireChangedPathScopeV1,
   evaluateProgressionControllerV1,
   evaluateMergeAllowedAutomationV1,
@@ -29,6 +30,7 @@ import {
   executeLifecycleOrchestratorV1,
   executeReviewEventWithLifecycleReplayV1,
   executeReviewThreadClosureV1,
+  executeReadyTransitionOperatorV1,
   executeReadyEventWithLifecycleReplayV1,
   executeMinimalGovernanceFinalDriftGuardV1,
   executeMinimalGovernanceV1,
@@ -50,6 +52,7 @@ import {
   parsePrePrImplementationAuthorityV1,
   parsePrePrImplementationResultHandoffV1,
   parsePrePrProductOwnerPublicationDecisionV1,
+  parseReadyTransitionAuthorityV1,
   finalizePrePrImplementationResultHandoffV1,
   parseLifecyclePublicationTaskBindingV1,
   parseReviewApprovalEventV1,
@@ -57,8 +60,10 @@ import {
   projectRoleOutputFailureDiagnosticV1,
   projectProtectedTransitionReviewStateV1,
   projectBootstrapPublicationRequestV1,
+  projectReadyTransitionAuthorityBodyV1,
   projectSelfHostedWindowsRepairProviderV3,
   projectRoleDispatchEnvelopeV1,
+  projectIntegratedLeadReadyReviewV1,
   repairWorkingTreePathsV1,
   reduceLifecycleReplayV1,
   resolveEffectiveReviewDecisionV1,
@@ -1448,7 +1453,7 @@ check(noTargetResult.state === 'INDETERMINATE' && noTargetResult.reason === 'rev
 
 check(
   (runnerSource.match(/await resolveEffectiveReviewDecisionV1\(\{ request, parsedEvent, host \}\)/g) ?? []).length === 2 &&
-  (runnerSource.match(/await acquireEffectiveReviewDecisionV1\(\{/g) ?? []).length === 4 &&
+  (runnerSource.match(/await acquireEffectiveReviewDecisionV1\(\{/g) ?? []).length === 5 &&
   (runnerSource.match(/reduceCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 3 &&
   (runnerSource.match(/confirmCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 3,
   'RRC-07 issue_comment, Ready, fresh rebind, and Lifecycle reuse the canonical aggregate Review owner',
@@ -1915,7 +1920,7 @@ check(
   (runnerSource.match(/reduceSelfAwareCurrentChecksV1\(/g) ?? []).length === 3 &&
   (runnerSource.match(/partitionReadyRunChecksV1\(/g) ?? []).length === 2 &&
   runnerSource.includes("const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'") &&
-  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 4,
+  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 5,
   'SGR-12 shared-helper use and correction/cumulative allowlists hold without duplicate sibling filters',
 )
 
@@ -10119,15 +10124,19 @@ const bootstrapDraftApprovedLifecycle = await executeReviewEventWithLifecycleRep
   jobName: 'protected_transition_admission_v1',
 })
 check(
-  bootstrapDraftApprovedLifecycle.phase === 'READY' && bootstrapDraftApprovedLifecycle.state === 'READY' &&
-  bootstrapDraftApprovedLifecycle.reason === 'ready_transition_required' &&
-  bootstrapDraftApprovedLifecycle.next_action === 'READY_TRANSITION_REQUIRED',
-  'SSRR-05 Draft current APPROVE reaches the exact existing READY_TRANSITION_REQUIRED Lifecycle projection',
+  bootstrapDraftApprovedLifecycle.next_action === 'INTEGRATED_LEAD_READY_REVIEW' &&
+  bootstrapDraftApprovedLifecycle.terminal_result === 'READY_TRANSITION_REQUIRED' &&
+  bootstrapDraftApprovedLifecycle.lifecycle_projection.phase === 'READY' &&
+  bootstrapDraftApprovedLifecycle.lifecycle_projection.state === 'READY' &&
+  bootstrapDraftApprovedLifecycle.lifecycle_projection.execution_stop_reason === 'ready_transition_required' &&
+  bootstrapDraftApprovedLifecycle.lifecycle_projection.next_action === 'READY_TRANSITION_REQUIRED',
+  'SSRR-05 Draft current APPROVE preserves READY_TRANSITION_REQUIRED and projects the Integrated Lead owner dispatch',
 )
 check(
-  bootstrapDraftApprovedLifecycle.mutation_count === 0 && !Object.hasOwn(bootstrapDraftApprovedLifecycle, 'role_dispatch') &&
-  !Object.hasOwn(bootstrapDraftApprovedLifecycle, 'lifecycle_projection'),
-  'SSRR-06 Draft READY projection is terminal read-only output with no Role dispatch or nested replacement projection',
+  bootstrapDraftApprovedLifecycle.mutation_count === 0 &&
+  bootstrapDraftApprovedLifecycle.role_dispatch.next_action === 'INTEGRATED_LEAD_READY_REVIEW' &&
+  bootstrapDraftApprovedLifecycle.role_dispatch.source_binding.kind === 'READY_TRANSITION_REQUIRED',
+  'SSRR-06 Draft READY projection remains mutation-free while the existing role consumer owns the next semantic decision',
 )
 const bootstrapLifecycleRoute = await executeReviewEventWithLifecycleReplayV1({
   event: bootstrapPublicationHandoffEvent,
@@ -10143,6 +10152,298 @@ check(
   bootstrapLifecycleRoute.lifecycle_projection.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER' &&
   bootstrapLifecycleRoute.lifecycle_projection.mutation_count === 0,
   'BPR-07 production boundary preserves the admitted Bootstrap PUBLISHED owner while Lifecycle consumes its publication generation',
+)
+
+const readyAuthorityDispatchV1 = bootstrapDraftApprovedLifecycle.role_dispatch
+const readyAuthorityBindingV1 = readyAuthorityDispatchV1.source_binding
+const readyAuthorityResultBodyV1 = (decision = 'READY_FOR_REVIEW') => `# Integrated Lead Ready Review
+
+\`\`\`yaml
+decision: ${decision}
+repository: ${readyAuthorityDispatchV1.repository}
+task_issue: https://github.com/${readyAuthorityDispatchV1.repository}/issues/${readyAuthorityDispatchV1.task_issue_number}
+pull_request: https://github.com/${readyAuthorityDispatchV1.repository}/pull/${readyAuthorityDispatchV1.pr_number}
+exact_head: ${readyAuthorityDispatchV1.exact_head}
+review_decision: https://github.com/${readyAuthorityDispatchV1.repository}/issues/${readyAuthorityDispatchV1.task_issue_number}#issuecomment-${readyAuthorityBindingV1.review_comment_id}
+publication_handoff: https://github.com/${readyAuthorityDispatchV1.repository}/issues/${readyAuthorityDispatchV1.task_issue_number}#issuecomment-${readyAuthorityBindingV1.publication_handoff_comment_id}
+scope_contract_source: https://github.com/${readyAuthorityDispatchV1.repository}/issues/${readyAuthorityDispatchV1.task_issue_number}#issuecomment-${readyAuthorityBindingV1.scope_contract_source_comment_id}
+\`\`\``
+const readyAuthorityOwnerResultV1 = evaluateRoleDispatchOutputV1({
+  dispatch: readyAuthorityDispatchV1,
+  body: readyAuthorityResultBodyV1(),
+})
+const readyAuthorityStoppedResultV1 = evaluateRoleDispatchOutputV1({
+  dispatch: readyAuthorityDispatchV1,
+  body: readyAuthorityResultBodyV1('STOP'),
+})
+check(
+  readyAuthorityOwnerResultV1.next_action === 'PUBLISH_READY_AUTHORITY' &&
+  readyAuthorityStoppedResultV1.next_action === 'NONE' && readyAuthorityStoppedResultV1.mutation_count === 0 &&
+  Object.keys(readyAuthorityOwnerResultV1.integrated_lead_result).length === 8,
+  'RAB-01 exact Integrated Lead result selects canonical authority publication while STOP remains terminal before publication',
+)
+
+const READY_AUTHORITY_COMMENT_ID = BOOTSTRAP_APPROVED_REVIEW_ID + 100
+const READY_AUTHORITY_HOST_SHA = '5650da0cc95bd540092cd0eba02a557a2c015e71'
+const READY_AUTHORITY_URL = `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${READY_AUTHORITY_COMMENT_ID}`
+const READY_AUTHORITY_RESULT_SHA = createHash('sha256').update(Buffer.from(readyAuthorityOwnerResultV1.comment_body, 'utf8')).digest('hex')
+const readyAuthorityBodyV1 = (overrides = {}, extra = '') => {
+  const values = {
+    record_type: 'ready_transition_authority_v1',
+    version: 1,
+    authoring_role: 'Integrated Lead',
+    authority_source: `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/attempts/1#integrated-lead-result-sha256-${READY_AUTHORITY_RESULT_SHA}`,
+    canonical_record: READY_AUTHORITY_URL,
+    repository: REPOSITORY,
+    task_issue: `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}`,
+    pull_request: `https://github.com/${REPOSITORY}/pull/${BOOTSTRAP_PUBLICATION_PR}`,
+    exact_head: BOOTSTRAP_PUBLISHED_HEAD,
+    target_branch: 'main',
+    action: 'READY_FOR_REVIEW',
+    method: 'markPullRequestReadyForReview',
+    operation_count: 1,
+    review_decision: `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${BOOTSTRAP_APPROVED_REVIEW_ID}`,
+    publication_handoff: `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${BOOTSTRAP_PUBLICATION_HANDOFF_ID}`,
+    scope_contract_source: `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${BOOTSTRAP_PUBLICATION_HANDOFF_ID}`,
+    ...overrides,
+  }
+  return `# Ready Transition Authority
+
+\`\`\`yaml
+${Object.entries(values).map(([key, value]) => `${key}: ${value}`).join('\n')}${extra}
+\`\`\`\n`
+}
+const parsedReadyAuthorityV1 = parseReadyTransitionAuthorityV1(readyAuthorityBodyV1(), REPOSITORY, PRE_PR_TASK)
+check(
+  parsedReadyAuthorityV1.authority_comment_id === READY_AUTHORITY_COMMENT_ID &&
+  parsedReadyAuthorityV1.pr_number === BOOTSTRAP_PUBLICATION_PR && parsedReadyAuthorityV1.exact_head === BOOTSTRAP_PUBLISHED_HEAD &&
+  Object.keys(parseYaml(readyAuthorityBodyV1().match(/```yaml\n([\s\S]*?)\n```/)[1])).length === 16 &&
+  projectReadyTransitionAuthorityBodyV1({
+    dispatch: readyAuthorityDispatchV1,
+    ownerResult: readyAuthorityOwnerResultV1,
+    authorityCommentId: READY_AUTHORITY_COMMENT_ID,
+  }) === readyAuthorityBodyV1(),
+  'RAB-02 exact existing 16-field Ready authority contract parses with canonical self-bound identity',
+)
+
+const readyAuthorityExecutionIdentityV1 = Object.freeze({
+  repository: REPOSITORY,
+  ref: 'refs/heads/main',
+  workflowRef: `${REPOSITORY}/.github/workflows/protected-transition-admission-v1.yml@refs/heads/main`,
+  workflowSha: READY_AUTHORITY_HOST_SHA,
+  runId: REVIEW_RUN_ID,
+  runAttempt: 1,
+  jobName: 'protected_transition_role_dispatch_consumer_v1',
+})
+const readyAuthorityHostV1 = ({
+  authorityBody = readyAuthorityBodyV1(), authorityId = READY_AUTHORITY_COMMENT_ID,
+  returnedAuthorityId = authorityId, authorityUrl = READY_AUTHORITY_URL, omitAuthority = false,
+  before = {}, after = {}, mutationRejects = false,
+} = {}) => {
+  const metrics = { authorityReads: 0, pulls: 0, mutations: 0, runReads: 0, jobReads: 0 }
+  const base = bootstrapApprovedHost
+  const jobs = roleAdmissionJobs({
+    runId: REVIEW_RUN_ID,
+    head: READY_AUTHORITY_HOST_SHA,
+    states: { protected_transition_role_dispatch_consumer_v1: Object.freeze({ status: 'in_progress', conclusion: null }) },
+  })
+  const admissionRun = roleAdmissionRun({
+    runId: REVIEW_RUN_ID,
+    event: 'issue_comment',
+    head: READY_AUTHORITY_HOST_SHA,
+    status: 'in_progress',
+    conclusion: null,
+  })
+  const pull = (overrides) => Object.freeze({
+    id: 'PR_kwDOReadyAuthorityBoundary',
+    number: BOOTSTRAP_PUBLICATION_PR,
+    headRefOid: BOOTSTRAP_PUBLISHED_HEAD,
+    baseRefName: 'main',
+    state: 'OPEN',
+    isDraft: true,
+    merged: false,
+    ...overrides,
+  })
+  return Object.freeze({
+    metrics,
+    host: Object.freeze({
+      ...base,
+      api: async (endpoint, options = undefined) => {
+        if (endpoint === `repos/${REPOSITORY}/issues/comments/${authorityId}`) {
+          metrics.authorityReads += 1
+          if (omitAuthority) throw new Error('ready_authority_missing')
+          return Object.freeze({
+            id: returnedAuthorityId,
+            issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${PRE_PR_TASK}`,
+            html_url: authorityUrl,
+            author_association: 'MEMBER',
+            user: Object.freeze({ login: 'github-actions[bot]', id: 41898282, type: 'Bot' }),
+            body: authorityBody,
+          })
+        }
+        if (endpoint === `repos/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}`) {
+          metrics.runReads += 1
+          return admissionRun
+        }
+        if (endpoint === `repos/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/jobs?per_page=100`) {
+          metrics.jobReads += 1
+          return jobs
+        }
+        if (endpoint === `repos/${REPOSITORY}`) return Object.freeze({
+          full_name: REPOSITORY,
+          url: `https://api.github.com/repos/${REPOSITORY}`,
+          default_branch: 'main',
+        })
+        return base.api(endpoint, options)
+      },
+      graphql: async (query, variables) => {
+        if (query.includes('query ReadyTransitionPull')) {
+          metrics.pulls += 1
+          return Object.freeze({ repository: Object.freeze({
+            nameWithOwner: REPOSITORY,
+            pullRequest: metrics.pulls === 1 ? pull(before) : pull({ isDraft: false, ...after }),
+          }) })
+        }
+        if (query.includes('mutation MarkPullRequestReady')) {
+          metrics.mutations += 1
+          if (mutationRejects) throw new Error('ready_mutation_rejected')
+          return Object.freeze({ markPullRequestReadyForReview: Object.freeze({ clientMutationId: null }) })
+        }
+        return base.graphql(query, variables)
+      },
+    }),
+  })
+}
+
+const readyAdmissionFixtureV1 = readyAuthorityHostV1()
+const admittedReadyActionV1 = await admitReadyTransitionAuthorityV1({
+  authorityCommentId: READY_AUTHORITY_COMMENT_ID,
+  dispatch: readyAuthorityDispatchV1,
+  ownerResult: readyAuthorityOwnerResultV1,
+  executionIdentity: readyAuthorityExecutionIdentityV1,
+  host: readyAdmissionFixtureV1.host,
+})
+check(
+  Object.keys(admittedReadyActionV1).length === 9 &&
+  admittedReadyActionV1.authority_comment_id === READY_AUTHORITY_COMMENT_ID &&
+  admittedReadyActionV1.authority_url === READY_AUTHORITY_URL && readyAdmissionFixtureV1.metrics.mutations === 0,
+  'RAB-03 canonical publication direct-refetch and admission produce the exact nine-field ready_action before any mutation',
+)
+
+const noAuthorityFixtureV1 = readyAuthorityHostV1({ omitAuthority: true })
+const noAuthorityReadyResultV1 = await executeReadyTransitionOperatorV1({
+  authorityCommentId: READY_AUTHORITY_COMMENT_ID,
+  dispatch: readyAuthorityDispatchV1,
+  ownerResult: readyAuthorityOwnerResultV1,
+  executionIdentity: readyAuthorityExecutionIdentityV1,
+  host: noAuthorityFixtureV1.host,
+})
+check(
+  noAuthorityReadyResultV1.next_action === 'STOP' && noAuthorityReadyResultV1.mutation_count === 0 &&
+  noAuthorityFixtureV1.metrics.mutations === 0 && noAuthorityFixtureV1.metrics.pulls === 0 &&
+  !Object.hasOwn(noAuthorityReadyResultV1, 'ready_action'),
+  'RAB-04 no canonical authority publication means no Ready mutation',
+)
+
+const readyIdentityMismatchFixturesV1 = [
+  readyAuthorityHostV1({ returnedAuthorityId: READY_AUTHORITY_COMMENT_ID + 1 }),
+  readyAuthorityHostV1({ authorityUrl: `${READY_AUTHORITY_URL}-mismatch` }),
+  readyAuthorityHostV1({ authorityBody: readyAuthorityBodyV1({ canonical_record: `${READY_AUTHORITY_URL}-mismatch` }) }),
+  readyAuthorityHostV1({ authorityBody: readyAuthorityBodyV1({ task_issue: `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK + 1}` }) }),
+  readyAuthorityHostV1({ authorityBody: readyAuthorityBodyV1({ pull_request: `https://github.com/${REPOSITORY}/pull/${BOOTSTRAP_PUBLICATION_PR + 1}` }) }),
+  readyAuthorityHostV1({ authorityBody: readyAuthorityBodyV1({ exact_head: OTHER_HEAD }) }),
+  readyAuthorityHostV1({ authorityBody: readyAuthorityBodyV1({ review_decision: `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${BOOTSTRAP_APPROVED_REVIEW_ID + 1}` }) }),
+  readyAuthorityHostV1({ authorityBody: readyAuthorityBodyV1({ publication_handoff: `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${BOOTSTRAP_PUBLICATION_HANDOFF_ID + 1}` }) }),
+  readyAuthorityHostV1({ authorityBody: readyAuthorityBodyV1({ scope_contract_source: `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${BOOTSTRAP_PUBLICATION_HANDOFF_ID + 1}` }) }),
+  readyAuthorityHostV1({ authorityBody: readyAuthorityBodyV1({ authority_source: `https://github.com/${REPOSITORY}/actions/runs/${READY_RUN_ID}/attempts/1#integrated-lead-result-sha256-${READY_AUTHORITY_RESULT_SHA}` }) }),
+  readyAuthorityHostV1({ authorityBody: readyAuthorityBodyV1({}, '\nmanual_extra: reject') }),
+]
+for (const [index, fixture] of readyIdentityMismatchFixturesV1.entries()) {
+  const result = await executeReadyTransitionOperatorV1({
+    authorityCommentId: READY_AUTHORITY_COMMENT_ID,
+    dispatch: readyAuthorityDispatchV1,
+    ownerResult: readyAuthorityOwnerResultV1,
+    executionIdentity: readyAuthorityExecutionIdentityV1,
+    host: fixture.host,
+  })
+  check(
+    result.next_action === 'STOP' && result.mutation_count === 0 && fixture.metrics.mutations === 0 && fixture.metrics.pulls === 0,
+    `RAB-05 ID, body, URL, Task, PR, HEAD, Review, Publication, scope, run, and manual-lookalike drift fail closed ${index + 1}`,
+  )
+}
+
+for (const [index, before] of [
+  { isDraft: false }, { state: 'CLOSED' }, { merged: true }, { headRefOid: OTHER_HEAD }, { baseRefName: 'release' },
+].entries()) {
+  const fixture = readyAuthorityHostV1({ before })
+  const result = await executeReadyTransitionOperatorV1({
+    authorityCommentId: READY_AUTHORITY_COMMENT_ID,
+    dispatch: readyAuthorityDispatchV1,
+    ownerResult: readyAuthorityOwnerResultV1,
+    executionIdentity: readyAuthorityExecutionIdentityV1,
+    host: fixture.host,
+  })
+  check(result.next_action === 'STOP' && result.mutation_count === 0 && fixture.metrics.mutations === 0, `RAB-06 Ready mechanical pre-write guard STOP 0 case ${index + 1}`)
+}
+
+const readySuccessFixtureV1 = readyAuthorityHostV1()
+const readySuccessResultV1 = await executeReadyTransitionOperatorV1({
+  authorityCommentId: READY_AUTHORITY_COMMENT_ID,
+  dispatch: readyAuthorityDispatchV1,
+  ownerResult: readyAuthorityOwnerResultV1,
+  executionIdentity: readyAuthorityExecutionIdentityV1,
+  host: readySuccessFixtureV1.host,
+})
+check(
+  readySuccessResultV1.state === 'COMPLETED' && readySuccessResultV1.next_action === 'NONE' &&
+  readySuccessResultV1.mutation_count === 1 && readySuccessFixtureV1.metrics.mutations === 1 &&
+  readySuccessFixtureV1.metrics.pulls === 2 && readySuccessResultV1.ready_action.authority_comment_id === READY_AUTHORITY_COMMENT_ID,
+  'RAB-07 exact admitted authority permits one Ready mutation and one post-write refetch terminally',
+)
+const readyRejectFixtureV1 = readyAuthorityHostV1({ mutationRejects: true })
+const readyRejectResultV1 = await executeReadyTransitionOperatorV1({
+  authorityCommentId: READY_AUTHORITY_COMMENT_ID,
+  dispatch: readyAuthorityDispatchV1,
+  ownerResult: readyAuthorityOwnerResultV1,
+  executionIdentity: readyAuthorityExecutionIdentityV1,
+  host: readyRejectFixtureV1.host,
+})
+check(
+  readyRejectResultV1.next_action === 'STOP' && readyRejectResultV1.mutation_count === 1 &&
+  readyRejectFixtureV1.metrics.mutations === 1 && readyRejectFixtureV1.metrics.pulls === 1,
+  'RAB-08 Ready mutation rejection remains STOP 1 with no retry and mutation_count never exceeds one',
+)
+
+const readyWorkflowSourceV1 = roleExecutionRun.slice(
+  roleExecutionRun.indexOf('function Publish-ReadyTransitionAuthority'),
+  roleExecutionRun.indexOf("if ($expected -ceq 'RUN_PRE_PR_VALIDATION')"),
+)
+const readyAdmissionSourceV1 = runnerSource.slice(
+  runnerSource.indexOf('export const admitReadyTransitionAuthorityV1'),
+  runnerSource.indexOf('export const evaluateProductOwnerMergeDecisionV1'),
+)
+check(
+  Object.keys(workflow.jobs).length === 5 && roleConsumerJob.if.includes('INTEGRATED_LEAD_READY_REVIEW') &&
+  (readyWorkflowSourceV1.match(/--ready-transition-authority-comment-id/g) ?? []).length === 1 &&
+  readyWorkflowSourceV1.indexOf('Publish-ReadyTransitionAuthority') < readyWorkflowSourceV1.indexOf('--ready-transition-authority-comment-id') &&
+  readyAdmissionSourceV1.indexOf('fetchRoleCommentRecordV1(') < readyAdmissionSourceV1.indexOf('READY_TRANSITION_PULL_QUERY') &&
+  readyAdmissionSourceV1.indexOf('parseReadyTransitionAuthorityV1(') < readyAdmissionSourceV1.indexOf('MARK_PULL_REQUEST_READY_MUTATION') &&
+  readyWorkflowSourceV1.includes('projectReadyTransitionAuthorityBodyV1') &&
+  !readyWorkflowSourceV1.includes('record_type: ready_transition_authority_v1') &&
+  !runnerSource.includes('isReadyTransitionAuthorityCandidateV1') && !readyWorkflowSourceV1.includes('ready-transition-action.json'),
+  'RAB-09 existing five-job consumer publishes, refetches, parses, admits, and only then mutates without raw authority ingress or reconstructed action file',
+)
+const readyContinuationSourceV1 = runnerSource.slice(
+  runnerSource.indexOf('export const executeReadyEventWithLifecycleReplayV1'),
+  runnerSource.indexOf('\nconst main = async () =>'),
+)
+check(
+  workflow.on.pull_request.types.join(',') === 'ready_for_review' &&
+  readyContinuationSourceV1.includes('executeReadyForReviewProgressionV1({ event, host, runId })') &&
+  !readyWorkflowSourceV1.includes('executeReadyForReviewProgressionV1') &&
+  progressRoleSource.includes("if ($terminalAgentMessage.Trim() -cne 'IN_PROGRESS') { return }") &&
+  prePrWorkflowBlock.includes('$null = Publish-CanonicalComment -BodyFile $finalBodyPath') && prePrWorkflowBlock.includes('exit 0'),
+  'RAB-10 natural ready_for_review, IN_PROGRESS, and Result Handoff continuation ownership remain unchanged',
 )
 check(
   bootstrapConsumerBlock.includes("status -cne 'SUCCESS'") &&
@@ -10254,5 +10555,5 @@ check(
   'RIP-09 only a non-progress terminal body reaches each existing parser and its naturally owned canonical publication path',
 )
 
-if (assertions !== 1073) throw new Error(`expected exactly 1073 assertions, observed ${assertions}`)
+if (assertions !== 1097) throw new Error(`expected exactly 1097 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
