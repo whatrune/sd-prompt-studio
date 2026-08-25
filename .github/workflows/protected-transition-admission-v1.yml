@@ -758,57 +758,32 @@ jobs:
             ) { throw 'pre_pr_publication_decision_identity_invalid' }
             exit 0
           }
-          if ($expected -ne 'VALIDATE_IMPLEMENTATION') { throw 'role_consumer_entry_invalid' }
+          if ($expected -ceq 'VALIDATE_IMPLEMENTATION') {
+            $changed = [string[]]@(git status --porcelain=v1 --untracked-files=all | ForEach-Object { $_.Substring(3).Replace('\', '/') } | Sort-Object -Unique)
+            $authorized = [string[]]@($dispatch.authorized_paths | Sort-Object -Unique)
+            if ($changed.Count -eq 0 -or (Compare-Object $changed $authorized)) { throw 'role_implementation_scope_invalid' }
+            git diff --check
+            if ($LASTEXITCODE -ne 0) { throw 'role_diff_check_failed' }
+            pnpm.cmd install --frozen-lockfile
+            if ($LASTEXITCODE -ne 0) { throw 'role_dependency_install_failed' }
+            pnpm.cmd run validate:dictionary
+            if ($LASTEXITCODE -ne 0) { throw 'role_dictionary_validation_failed' }
+            pnpm.cmd test
+            if ($LASTEXITCODE -ne 0) { throw 'role_test_failed' }
+            pnpm.cmd run build
+            if ($LASTEXITCODE -ne 0) { throw 'role_build_failed' }
 
-          $changed = [string[]]@(git status --porcelain=v1 --untracked-files=all | ForEach-Object { $_.Substring(3).Replace('\', '/') } | Sort-Object -Unique)
-          $authorized = [string[]]@($dispatch.authorized_paths | Sort-Object -Unique)
-          if ($changed.Count -eq 0 -or (Compare-Object $changed $authorized)) { throw 'role_implementation_scope_invalid' }
-          git diff --check
-          if ($LASTEXITCODE -ne 0) { throw 'role_diff_check_failed' }
-          pnpm.cmd install --frozen-lockfile
-          if ($LASTEXITCODE -ne 0) { throw 'role_dependency_install_failed' }
-          pnpm.cmd run validate:dictionary
-          if ($LASTEXITCODE -ne 0) { throw 'role_dictionary_validation_failed' }
-          pnpm.cmd test
-          if ($LASTEXITCODE -ne 0) { throw 'role_test_failed' }
-          pnpm.cmd run build
-          if ($LASTEXITCODE -ne 0) { throw 'role_build_failed' }
-
-          Assert-FreshRoleBinding -DispatchFile $dispatchPath
-          $resultComment = Publish-CanonicalComment -BodyFile $bodyPath
-          $poDispatch = [ordered]@{}
-          $dispatch.psobject.Properties | ForEach-Object { $poDispatch[$_.Name] = $_.Value }
-          $poDispatch.next_action = 'PRODUCT_OWNER_IMPLEMENTATION_LEAD'
-          $poDispatch.purpose = 'PUBLICATION_DECISION'
-          $poDispatch.terminal_result = 'IMPLEMENTATION_RESULT_READY'
-          $poDispatch.source_comment_id = [int64]$resultComment.id
-          $poDispatch.source_binding = [ordered]@{
-            kind = 'IMPLEMENTATION_RESULT'
-            comment_id = [int64]$resultComment.id
-            authorization_comment_id = [int64]$dispatch.source_comment_id
-            architecture_review_comment_id = [int64]$dispatch.source_binding.architecture_review_comment_id
-            candidate_sha256 = [string]$dispatch.source_binding.candidate_sha256
+            Assert-FreshRoleBinding -DispatchFile $dispatchPath
+            $null = Publish-CanonicalComment -BodyFile $bodyPath
+            exit 0
           }
-          $poDispatchPath = Join-Path $env:RUNNER_TEMP 'role-publication-dispatch.json'
-          $poPlanPath = Join-Path $env:RUNNER_TEMP 'role-publication-plan.json'
-          $poPromptPath = Join-Path $env:RUNNER_TEMP 'role-publication-prompt.txt'
-          $poBodyPath = Join-Path $env:RUNNER_TEMP 'role-publication-body.md'
-          $poOutputPath = Join-Path $env:RUNNER_TEMP 'role-publication-output.jsonl'
-          $poResultPath = Join-Path $env:RUNNER_TEMP 'role-publication-result.json'
-          [IO.File]::WriteAllText($poDispatchPath, ($poDispatch | ConvertTo-Json -Depth 8 -Compress), $utf8NoBom)
-          node $env:PTA_ROLE_HOST_RUNNER --role-dispatch-file $poDispatchPath 1> $poPlanPath
-          if ($LASTEXITCODE -ne 0) { throw 'publication_dispatch_binding_failed' }
-          $poPlan = Get-Content -LiteralPath $poPlanPath -Raw -Encoding utf8 | ConvertFrom-Json
-          if ($poPlan.next_action -ceq 'CONVERGED_NOOP') { exit 0 }
-          if ($poPlan.next_action -cne 'EXECUTE_ROLE') { throw 'publication_dispatch_not_ready' }
-          $poPrompt = "$($poPlan.prompt)`nResult Handoff comment: https://github.com/$($dispatch.repository)/issues/$($dispatch.task_issue_number)#issuecomment-$($resultComment.id)`nValidated changed paths: $($authorized -join ', ')"
-          [IO.File]::WriteAllText($poPromptPath, $poPrompt, $utf8NoBom)
-          Invoke-BoundedRoleUntilTerminal -PromptFile $poPromptPath -Sandbox 'read-only' -JsonlFile $poOutputPath -BodyFile $poBodyPath -DispatchFile $poDispatchPath
-          $null = Assert-RoleOutput -DispatchFile $poDispatchPath -BodyFile $poBodyPath -ExpectedAction 'COMMIT_PUSH_PUBLISH' -ResultFile $poResultPath -JsonlFile $poOutputPath
-          Assert-FreshRoleBinding -DispatchFile $poDispatchPath
-          $authorityComment = Publish-CanonicalComment -BodyFile $poBodyPath
+          if ($expected -cne 'COMMIT_PUSH_PUBLISH') { throw 'role_consumer_entry_invalid' }
 
-          Assert-FreshRoleBinding -DispatchFile $poDispatchPath -Operation 'commit_push' -AuthorityCommentId ([int64]$authorityComment.id)
+          $authorized = [string[]]@($dispatch.authorized_paths | Sort-Object -Unique)
+          Assert-FreshRoleBinding -DispatchFile $dispatchPath
+          $authorityComment = Publish-CanonicalComment -BodyFile $bodyPath
+
+          Assert-FreshRoleBinding -DispatchFile $dispatchPath -Operation 'commit_push' -AuthorityCommentId ([int64]$authorityComment.id)
           $pull = gh api "repos/$($dispatch.repository)/pulls/$($dispatch.pr_number)" | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or $pull.state -cne 'open' -or $pull.head.sha -cne $dispatch.exact_head -or [string]::IsNullOrWhiteSpace([string]$pull.head.ref)) { throw 'publication_pull_binding_changed' }
           $remote = git ls-remote --heads "https://github.com/$($dispatch.repository).git" "refs/heads/$($pull.head.ref)"
@@ -818,7 +793,7 @@ jobs:
           git -c user.name='protected-transition-role-consumer-v1' -c user.email='protected-transition-role-consumer-v1@users.noreply.github.com' commit -m 'implement authorized protected transition task'
           if ($LASTEXITCODE -ne 0) { throw 'publication_commit_failed' }
           $newHead = (git rev-parse HEAD).Trim()
-          Assert-FreshRoleBinding -DispatchFile $poDispatchPath -Operation 'commit_push' -AuthorityCommentId ([int64]$authorityComment.id)
+          Assert-FreshRoleBinding -DispatchFile $dispatchPath -Operation 'commit_push' -AuthorityCommentId ([int64]$authorityComment.id)
           git push --porcelain "https://github.com/$($dispatch.repository).git" "HEAD:refs/heads/$($pull.head.ref)"
           if ($LASTEXITCODE -ne 0) { throw 'publication_push_failed' }
           $remoteAfter = git ls-remote --heads "https://github.com/$($dispatch.repository).git" "refs/heads/$($pull.head.ref)"
@@ -827,7 +802,7 @@ jobs:
           $pathLines = ($authorized | ForEach-Object { "- ``$_``" }) -join [Environment]::NewLine
           $publication = "## Publication Handoff`n`n- Publication Authority: https://github.com/$($dispatch.repository)/issues/$($dispatch.task_issue_number)#issuecomment-$($authorityComment.id)`n- target PR: ``#$($dispatch.pr_number)```n- published HEAD: ``$newHead```n- exact parent: ``$($dispatch.exact_head)```n- push mode: normal non-force fast-forward`n- local / remote HEAD equality: PASS`n`n### Published scope`n`n$pathLines`n`n### Terminal state`n`n- status: ``completed```n- execution_stop_reason: ``completed```n"
           [IO.File]::WriteAllText($publicationPath, $publication, $utf8NoBom)
-          Assert-FreshRoleBinding -DispatchFile $poDispatchPath -Operation 'publication_handoff' -AuthorityCommentId ([int64]$authorityComment.id) -NewHead $newHead
+          Assert-FreshRoleBinding -DispatchFile $dispatchPath -Operation 'publication_handoff' -AuthorityCommentId ([int64]$authorityComment.id) -NewHead $newHead
           $publicationComment = Publish-CanonicalComment -BodyFile $publicationPath
           $task = gh api "repos/$($dispatch.repository)/issues/$($dispatch.task_issue_number)" | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or $task.number -ne $dispatch.task_issue_number -or $task.state -cne 'open' -or $null -ne $task.pull_request) { throw 'publication_continuation_task_binding_invalid' }
