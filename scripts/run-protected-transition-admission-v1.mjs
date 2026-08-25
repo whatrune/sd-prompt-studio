@@ -4597,6 +4597,7 @@ const roleDispatchPromptV1 = (dispatch) => {
     `Exact HEAD: ${dispatch.exact_head}`,
     `Source comment: #${dispatch.source_comment_id}`,
     `Authorized paths: ${dispatch.authorized_paths.join(', ')}`,
+    'If your work is not complete and another execution is required, return exactly IN_PROGRESS and nothing else.',
     'Do not call another agent. Do not merge. Return only the requested existing canonical record body.',
   ]
   if (dispatch.next_action === 'IMPLEMENTER') {

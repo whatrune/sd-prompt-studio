@@ -330,6 +330,24 @@ jobs:
             [IO.File]::WriteAllText($BodyFile, $terminalMessage, $utf8NoBom)
           }
 
+          function Invoke-BoundedRoleUntilTerminal {
+            param(
+              [string]$PromptFile,
+              [string]$Sandbox,
+              [string]$JsonlFile,
+              [string]$BodyFile,
+              [string]$DispatchFile,
+              [string]$Workspace = $env:GITHUB_WORKSPACE
+            )
+            for ($providerExecution = 1; $providerExecution -le 3; $providerExecution++) {
+              Invoke-BoundedRole -PromptFile $PromptFile -Sandbox $Sandbox -JsonlFile $JsonlFile -BodyFile $BodyFile -Workspace $Workspace
+              $terminalAgentMessage = [IO.File]::ReadAllText($BodyFile, $utf8NoBom)
+              if ($terminalAgentMessage.Trim() -cne 'IN_PROGRESS') { return }
+              if ($providerExecution -eq 3) { throw 'role_in_progress_retry_limit_reached' }
+              Assert-FreshRoleBinding -DispatchFile $DispatchFile
+            }
+          }
+
           function Assert-RoleOutput {
             param([string]$DispatchFile, [string]$BodyFile, [string]$ExpectedAction, [string]$ResultFile, [string]$JsonlFile)
             node $env:PTA_ROLE_HOST_RUNNER --role-output-file $BodyFile --role-dispatch-file $DispatchFile --role-jsonl-file $JsonlFile 1> $ResultFile
@@ -665,7 +683,7 @@ jobs:
           $roleWorkspace = if ($prePrImplementer) { [string]$dispatch.source_binding.worktree } else { $env:GITHUB_WORKSPACE }
           if ($prePrImplementer -and -not (Test-Path -LiteralPath $roleWorkspace -PathType Container)) { throw 'pre_pr_implementation_worktree_missing' }
           $sandbox = if ($plan.read_only) { 'read-only' } else { 'workspace-write' }
-          Invoke-BoundedRole -PromptFile $promptPath -Sandbox $sandbox -JsonlFile $outputPath -BodyFile $bodyPath -Workspace $roleWorkspace
+          Invoke-BoundedRoleUntilTerminal -PromptFile $promptPath -Sandbox $sandbox -JsonlFile $outputPath -BodyFile $bodyPath -DispatchFile $dispatchPath -Workspace $roleWorkspace
           $expected = if ($prePrImplementer) { 'RUN_PRE_PR_VALIDATION' } elseif ($prePrPublicationDecision) { 'POST_PRE_PR_PUBLICATION_DECISION' } elseif ($dispatch.next_action -ceq 'IMPLEMENTER') { 'VALIDATE_IMPLEMENTATION' } elseif ($dispatch.purpose -ceq 'MERGE_DECISION') { 'POST_MERGE_DECISION' } elseif ($dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER') { 'POST_REVIEW' } else { 'COMMIT_PUSH_PUBLISH' }
           $validated = Assert-RoleOutput -DispatchFile $dispatchPath -BodyFile $bodyPath -ExpectedAction $expected -ResultFile $resultPath -JsonlFile $outputPath
 
@@ -785,7 +803,7 @@ jobs:
           if ($poPlan.next_action -cne 'EXECUTE_ROLE') { throw 'publication_dispatch_not_ready' }
           $poPrompt = "$($poPlan.prompt)`nResult Handoff comment: https://github.com/$($dispatch.repository)/issues/$($dispatch.task_issue_number)#issuecomment-$($resultComment.id)`nValidated changed paths: $($authorized -join ', ')"
           [IO.File]::WriteAllText($poPromptPath, $poPrompt, $utf8NoBom)
-          Invoke-BoundedRole -PromptFile $poPromptPath -Sandbox 'read-only' -JsonlFile $poOutputPath -BodyFile $poBodyPath
+          Invoke-BoundedRoleUntilTerminal -PromptFile $poPromptPath -Sandbox 'read-only' -JsonlFile $poOutputPath -BodyFile $poBodyPath -DispatchFile $poDispatchPath
           $null = Assert-RoleOutput -DispatchFile $poDispatchPath -BodyFile $poBodyPath -ExpectedAction 'COMMIT_PUSH_PUBLISH' -ResultFile $poResultPath -JsonlFile $poOutputPath
           Assert-FreshRoleBinding -DispatchFile $poDispatchPath
           $authorityComment = Publish-CanonicalComment -BodyFile $poBodyPath
@@ -862,7 +880,7 @@ jobs:
           [IO.File]::WriteAllText($reviewPromptPath, [string]$reviewPlan.prompt, $utf8NoBom)
           $reviewTask = gh api "repos/$($dispatch.repository)/issues/$($dispatch.task_issue_number)" | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or $reviewTask.number -ne $dispatch.task_issue_number -or $reviewTask.state -cne 'open' -or $null -ne $reviewTask.pull_request) { throw 'publication_reviewer_task_binding_invalid' }
-          Invoke-BoundedRole -PromptFile $reviewPromptPath -Sandbox 'read-only' -JsonlFile $reviewOutputPath -BodyFile $reviewBodyPath
+          Invoke-BoundedRoleUntilTerminal -PromptFile $reviewPromptPath -Sandbox 'read-only' -JsonlFile $reviewOutputPath -BodyFile $reviewBodyPath -DispatchFile $reviewDispatchPath
           $null = Assert-RoleOutput -DispatchFile $reviewDispatchPath -BodyFile $reviewBodyPath -ExpectedAction 'POST_REVIEW' -ResultFile $reviewResultPath -JsonlFile $reviewOutputPath
           Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath
           $publicationTask = gh api "repos/$($dispatch.repository)/issues/$($dispatch.task_issue_number)" | ConvertFrom-Json

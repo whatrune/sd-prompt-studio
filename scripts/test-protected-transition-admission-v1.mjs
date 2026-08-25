@@ -5268,8 +5268,11 @@ const mergeOperationRun = mergeOperatorJob.steps.find((step) => step.name === 'P
 const postRepairExecutionStep = postRepairReviewJob.steps.find((step) => step.name === 'Execute and publish post-repair Review')
 const postRepairExecutionRun = postRepairExecutionStep?.run ?? ''
 const boundedRoleStart = roleExecutionRun.indexOf('function Invoke-BoundedRole {')
-const boundedRoleEnd = roleExecutionRun.indexOf('\n}\n\nfunction Assert-RoleOutput', boundedRoleStart)
+const boundedRoleEnd = roleExecutionRun.indexOf('\n}\n\nfunction Invoke-BoundedRoleUntilTerminal', boundedRoleStart)
 const boundedRoleSource = boundedRoleStart >= 0 && boundedRoleEnd > boundedRoleStart ? roleExecutionRun.slice(boundedRoleStart, boundedRoleEnd + 2) : ''
+const progressRoleStart = roleExecutionRun.indexOf('function Invoke-BoundedRoleUntilTerminal {')
+const progressRoleEnd = roleExecutionRun.indexOf('\n}\n\nfunction Assert-RoleOutput', progressRoleStart)
+const progressRoleSource = progressRoleStart >= 0 && progressRoleEnd > progressRoleStart ? roleExecutionRun.slice(progressRoleStart, progressRoleEnd + 2) : ''
 const assertRoleOutputStart = roleExecutionRun.indexOf('function Assert-RoleOutput {')
 const assertRoleOutputEnd = roleExecutionRun.indexOf('\n}\n\nfunction Assert-FreshRoleBinding', assertRoleOutputStart)
 const assertRoleOutputSource = assertRoleOutputStart >= 0 && assertRoleOutputEnd > assertRoleOutputStart ? roleExecutionRun.slice(assertRoleOutputStart, assertRoleOutputEnd + 2) : ''
@@ -5335,6 +5338,120 @@ try { Select-TerminalAgentMessage -events (Read-Lines '${zeroEncoded}') | Out-Nu
   return JSON.parse(execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' }))
 })() : null
 const malformedTerminalOutput = process.platform === 'win32' ? evaluateRoleDispatchOutputV1({ dispatch: implementerDispatch, body: roleProviderTerminalMessageProbe.malformed }) : null
+const progressRoleTransportProbe = process.platform === 'win32' ? (() => {
+  const probeRoot = mkdtempSync(path.join(tmpdir(), 'pta-role-progress-'))
+  const scenarios = [
+    { name: 'one_progress_success', outputs: ['IN_PROGRESS', roleImplementationResultBody] },
+    { name: 'two_progress_success', outputs: ['IN_PROGRESS', 'IN_PROGRESS', roleImplementationResultBody] },
+    { name: 'retry_limit', outputs: ['IN_PROGRESS', 'IN_PROGRESS', 'IN_PROGRESS'] },
+    { name: 'whitespace_progress', outputs: [' \r\nIN_PROGRESS\t ', roleImplementationResultBody] },
+    { name: 'initial_success', outputs: [roleImplementationResultBody] },
+    { name: 'initial_stop', outputs: ['STOP'] },
+    { name: 'rebind_drift', outputs: ['IN_PROGRESS', roleImplementationResultBody], drift: true },
+    { name: 'prose', outputs: ['work remains IN_PROGRESS'] },
+    { name: 'json', outputs: ['{"status":"IN_PROGRESS"}'] },
+    { name: 'yaml', outputs: ['status: IN_PROGRESS'] },
+    { name: 'prefix', outputs: ['IN_PROGRESS later'] },
+    { name: 'suffix', outputs: ['later IN_PROGRESS'] },
+  ]
+  const encodedScenarios = Buffer.from(JSON.stringify(scenarios), 'utf8').toString('base64')
+  try {
+    const script = `
+$ErrorActionPreference = 'Stop'
+$utf8NoBom = [Text.UTF8Encoding]::new($false)
+$scenarioDefinitions = @([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encodedScenarios}')) | ConvertFrom-Json)
+$bodyPath = Join-Path '${probeRoot.replaceAll('\\', '\\\\')}' 'body.md'
+$script:scenarioOutputs = @()
+$script:providerCalls = 0
+$script:rebindCalls = 0
+$script:invocations = @()
+$script:drift = $false
+function Invoke-BoundedRole {
+  param([string]$PromptFile, [string]$Sandbox, [string]$JsonlFile, [string]$BodyFile, [string]$Workspace)
+  $value = [string]$script:scenarioOutputs[$script:providerCalls]
+  $script:providerCalls++
+  $script:invocations += [ordered]@{ prompt = $PromptFile; sandbox = $Sandbox; jsonl = $JsonlFile; body = $BodyFile; workspace = $Workspace }
+  [IO.File]::WriteAllText($BodyFile, $value, $utf8NoBom)
+}
+function Assert-FreshRoleBinding {
+  param([string]$DispatchFile)
+  $script:rebindCalls++
+  if ($script:drift) { throw 'role_pre_operation_rebind_failed' }
+}
+${progressRoleSource}
+function Invoke-Scenario {
+  param($Scenario)
+  $script:scenarioOutputs = @($Scenario.outputs)
+  $script:providerCalls = 0
+  $script:rebindCalls = 0
+  $script:invocations = @()
+  $script:drift = $Scenario.drift -eq $true
+  Remove-Item -LiteralPath $bodyPath -Force -ErrorAction SilentlyContinue
+  $reason = 'RETURNED'
+  try {
+    Invoke-BoundedRoleUntilTerminal -PromptFile 'same-prompt' -Sandbox 'read-only' -JsonlFile 'same-jsonl' -BodyFile $bodyPath -DispatchFile 'same-dispatch' -Workspace 'same-workspace'
+  } catch { $reason = $_.Exception.Message }
+  $finalBody = if (Test-Path -LiteralPath $bodyPath) { [IO.File]::ReadAllText($bodyPath, $utf8NoBom) } else { $null }
+  return [ordered]@{
+    name = [string]$Scenario.name
+    reason = $reason
+    provider_calls = $script:providerCalls
+    rebind_calls = $script:rebindCalls
+    final_body = $finalBody
+    invocation_count = $script:invocations.Count
+    same_invocation = @($script:invocations | Where-Object { $_.prompt -cne 'same-prompt' -or $_.sandbox -cne 'read-only' -or $_.jsonl -cne 'same-jsonl' -or $_.body -cne $bodyPath -or $_.workspace -cne 'same-workspace' }).Count -eq 0
+  }
+}
+$results = @($scenarioDefinitions | ForEach-Object { Invoke-Scenario -Scenario $_ })
+[Console]::Out.Write(($results | ConvertTo-Json -Compress -Depth 5))
+`
+    return Object.fromEntries(JSON.parse(execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' })).map((value) => [value.name, value]))
+  } finally {
+    rmSync(probeRoot, { recursive: true, force: true })
+  }
+})() : null
+check(
+  process.platform !== 'win32' || (
+    progressRoleTransportProbe.one_progress_success.provider_calls === 2 && progressRoleTransportProbe.one_progress_success.rebind_calls === 1 &&
+    progressRoleTransportProbe.one_progress_success.final_body === roleImplementationResultBody &&
+    progressRoleTransportProbe.two_progress_success.provider_calls === 3 && progressRoleTransportProbe.two_progress_success.rebind_calls === 2 &&
+    progressRoleTransportProbe.two_progress_success.final_body === roleImplementationResultBody
+  ),
+  'RIP-01 one or two exact IN_PROGRESS bodies freshly rebind and reach the unchanged terminal success body',
+)
+check(
+  process.platform !== 'win32' || (
+    progressRoleTransportProbe.retry_limit.reason === 'role_in_progress_retry_limit_reached' &&
+    progressRoleTransportProbe.retry_limit.provider_calls === 3 && progressRoleTransportProbe.retry_limit.rebind_calls === 2
+  ),
+  'RIP-02 three exact IN_PROGRESS bodies stop at the fixed provider limit without a fourth execution',
+)
+check(
+  process.platform !== 'win32' || (
+    progressRoleTransportProbe.whitespace_progress.provider_calls === 2 && progressRoleTransportProbe.whitespace_progress.rebind_calls === 1 &&
+    progressRoleTransportProbe.whitespace_progress.final_body === roleImplementationResultBody
+  ),
+  'RIP-03 surrounding whitespace around standalone IN_PROGRESS remains nonterminal progress',
+)
+check(
+  process.platform !== 'win32' || (
+    progressRoleTransportProbe.rebind_drift.reason === 'role_pre_operation_rebind_failed' &&
+    progressRoleTransportProbe.rebind_drift.provider_calls === 1 && progressRoleTransportProbe.rebind_drift.rebind_calls === 1
+  ),
+  'RIP-04 retry-time Role binding drift preserves the existing fail-closed rebind reason and stops before another provider execution',
+)
+const nonProgressTransportNames = ['initial_success', 'initial_stop', 'prose', 'json', 'yaml', 'prefix', 'suffix']
+check(
+  process.platform !== 'win32' || nonProgressTransportNames.every((name) =>
+    progressRoleTransportProbe[name].reason === 'RETURNED' && progressRoleTransportProbe[name].provider_calls === 1 &&
+    progressRoleTransportProbe[name].rebind_calls === 0) &&
+    progressRoleTransportProbe.initial_success.final_body === roleImplementationResultBody && progressRoleTransportProbe.initial_stop.final_body === 'STOP',
+  'RIP-05 initial terminal bodies and non-exact IN_PROGRESS-containing prose, JSON, YAML, prefixes, and suffixes remain terminal parser inputs',
+)
+check(
+  process.platform !== 'win32' || Object.values(progressRoleTransportProbe).every((result) => result.provider_calls <= 3 && result.same_invocation === true),
+  'RIP-06 every retry preserves the same Role invocation inputs and provider execution count never exceeds three',
+)
 const trustedHostCredentialProbe = process.platform === 'win32' ? (() => {
   const probeRoot = mkdtempSync(path.join(tmpdir(), 'pta-role-token-'))
   const providerProbePath = path.join(probeRoot, 'provider-token.txt')
@@ -8762,11 +8879,11 @@ for (const [index, evidence] of lifecycleStructuralMatrix.entries()) check(evide
 
 const workflowBoundaryMatrix = [
   roleBindRun.includes("operation=CONVERGED_NOOP") && roleExecutionStep?.if === "contains(fromJSON('[\"EXECUTE_ROLE\",\"EXECUTE_BOOTSTRAP_PUBLICATION\"]'), steps.role_dispatch_plan.outputs.operation)" && roleExecutionStep?.env?.GH_TOKEN === '${{ github.token }}' && roleExecutionStep?.env?.ROLE_OPERATION === '${{ steps.role_dispatch_plan.outputs.operation }}' && mergeDecisionOutput.next_action === 'POST_MERGE_DECISION' && !Object.hasOwn(mergeDecisionOutput, 'bounded_metadata') && roleOutputFailureDiagnosticKeys.length === 9 && roleOutputFailureDiagnosticKeys.join('\n') === expectedRoleOutputFailureDiagnosticKeys.join('\n') && roleExecutionRun.indexOf('$publicationComment = Publish-CanonicalComment -BodyFile $publicationPath') < roleExecutionRun.indexOf('--review-event-file $publishedEventPath') && roleExecutionRun.indexOf('--review-event-file $publishedEventPath') < roleExecutionRun.indexOf("-ExpectedAction 'POST_REVIEW'") && assertRoleOutputSource.includes('--role-jsonl-file $JsonlFile') && (roleExecutionRun.match(/Assert-RoleOutput[^\n]+-JsonlFile \$/g) ?? []).length === 3 && assertRoleOutputSource.includes('$failure.bounded_metadata') && expectedRoleOutputFailureDiagnosticKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("$dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && assertRoleOutputSource.includes('$failure.failure_evidence') && reviewerEvidenceHeaderKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && assertRoleOutputSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && assertRoleOutputSource.includes('$header.selected_body_utf8_byte_count -gt 262144') && assertRoleOutputSource.includes('$header.body_chunk_count -gt 64') && assertRoleOutputSource.includes('$bytes.Length -ne 4096') && assertRoleOutputSource.includes('[Convert]::FromBase64String($chunk.body_base64)') && assertRoleOutputSource.includes('$sha256.ComputeHash($capturedBytes)') && assertRoleOutputSource.includes("$header.body_capture_status -ceq 'BOUND_EXCEEDED'") && assertRoleOutputSource.includes('$chunks.Count -ne 0') && assertRoleOutputSource.includes('-gt 9007199254740991') && assertRoleOutputSource.includes('-isnot [System.Array]') && assertRoleOutputSource.includes('$diagnosticLines = @()') && assertRoleOutputSource.includes('foreach ($diagnosticLine in $diagnosticLines)') && assertRoleOutputSource.split('[Console]::Error.WriteLine($diagnosticLine)').length === 2 && assertRoleOutputSource.includes("throw 'role_output_validation_failed'") && !assertRoleOutputSource.includes('Start-Sleep') && !assertRoleOutputSource.includes('retry') && !Object.hasOwn(workflow.concurrency, 'queue') && workflow.concurrency['cancel-in-progress'] === false && roleExecutionRun.includes("if ($expected -in @('POST_REVIEW', 'POST_MERGE_DECISION'))") && !roleExecutionRun.includes('Complete-ReviewerClosure'),
-  boundedRoleSource.startsWith('function Invoke-BoundedRole {') && !boundedRoleSource.includes('$LASTEXITCODE = $null') && boundedRoleSource.indexOf('$priorToken = $env:GH_TOKEN') < boundedRoleSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(boundedRoleSource) && boundedRoleSource.indexOf('codex.cmd exec') < boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') && boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') < boundedRoleSource.indexOf('if ($null -eq $priorToken)') && terminalAgentSelectorSource.includes('$terminalMessage = [string]$event.item.text') && !terminalAgentSelectorSource.includes('$messages +=') && (process.platform !== 'win32' || (roleProviderNativeExitProbe.success === 0 && roleProviderNativeExitProbe.failure === 37 && roleProviderTerminalMessageProbe.multiple === roleImplementationResultBody && roleProviderTerminalMessageProbe.zeroRejected === true && malformedTerminalOutput.next_action === 'STOP' && trustedHostCredentialProbe.providerToken === 'ABSENT' && trustedHostCredentialProbe.restoredToken === 'trusted-host-token' && trustedHostCredentialProbe.validatedAction === 'POST_MERGE_DECISION' && trustedHostCredentialProbe.hostTokens.join('\n') === 'trusted-host-token\ntrusted-host-token')) && roleExecutionRun.indexOf('Invoke-BoundedRole -PromptFile $promptPath') < roleExecutionRun.indexOf('$validated = Assert-RoleOutput') && roleExecutionRun.indexOf('$validated = Assert-RoleOutput') < roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') < roleExecutionRun.indexOf('$canonicalComment = Publish-CanonicalComment -BodyFile $bodyPath') && roleExecutionRun.split('Assert-FreshRoleBinding').length >= 8 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'") && roleExecutionRun.includes("throw 'publication_continuation_task_binding_invalid'") && roleExecutionRun.includes("throw 'publication_continuation_route_failed'") && roleExecutionRun.includes("throw 'publication_continuation_binding_invalid'") && roleExecutionRun.includes("throw 'publication_reviewer_dispatch_not_ready'") && roleExecutionRun.indexOf("$reviewPlan = Get-Content -LiteralPath $reviewPlanPath") < roleExecutionRun.indexOf('$reviewTask = gh api') && roleExecutionRun.includes("$reviewTask.number -ne $dispatch.task_issue_number -or $reviewTask.state -cne 'open' -or $null -ne $reviewTask.pull_request") && roleExecutionRun.indexOf("throw 'publication_reviewer_task_binding_invalid'") < roleExecutionRun.indexOf('Invoke-BoundedRole -PromptFile $reviewPromptPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath') < roleExecutionRun.indexOf('$publicationTask = gh api') && roleExecutionRun.includes("$publicationTask.number -ne $dispatch.task_issue_number -or $publicationTask.state -cne 'open' -or $null -ne $publicationTask.pull_request") && roleExecutionRun.indexOf('$publicationTask = gh api') < roleExecutionRun.indexOf('$canonicalReviewComment = Publish-CanonicalComment -BodyFile $reviewBodyPath') && !roleExecutionRun.includes('Assert-FreshReviewerSnapshot') && !roleExecutionRun.includes('review_thread_snapshot'),
+  boundedRoleSource.startsWith('function Invoke-BoundedRole {') && !boundedRoleSource.includes('$LASTEXITCODE = $null') && boundedRoleSource.indexOf('$priorToken = $env:GH_TOKEN') < boundedRoleSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(boundedRoleSource) && boundedRoleSource.indexOf('codex.cmd exec') < boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') && boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') < boundedRoleSource.indexOf('if ($null -eq $priorToken)') && terminalAgentSelectorSource.includes('$terminalMessage = [string]$event.item.text') && !terminalAgentSelectorSource.includes('$messages +=') && (process.platform !== 'win32' || (roleProviderNativeExitProbe.success === 0 && roleProviderNativeExitProbe.failure === 37 && roleProviderTerminalMessageProbe.multiple === roleImplementationResultBody && roleProviderTerminalMessageProbe.zeroRejected === true && malformedTerminalOutput.next_action === 'STOP' && trustedHostCredentialProbe.providerToken === 'ABSENT' && trustedHostCredentialProbe.restoredToken === 'trusted-host-token' && trustedHostCredentialProbe.validatedAction === 'POST_MERGE_DECISION' && trustedHostCredentialProbe.hostTokens.join('\n') === 'trusted-host-token\ntrusted-host-token')) && roleExecutionRun.indexOf('Invoke-BoundedRoleUntilTerminal -PromptFile $promptPath') < roleExecutionRun.indexOf('$validated = Assert-RoleOutput') && roleExecutionRun.indexOf('$validated = Assert-RoleOutput') < roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') < roleExecutionRun.indexOf('$canonicalComment = Publish-CanonicalComment -BodyFile $bodyPath') && roleExecutionRun.split('Assert-FreshRoleBinding').length >= 8 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'") && roleExecutionRun.includes("throw 'publication_continuation_task_binding_invalid'") && roleExecutionRun.includes("throw 'publication_continuation_route_failed'") && roleExecutionRun.includes("throw 'publication_continuation_binding_invalid'") && roleExecutionRun.includes("throw 'publication_reviewer_dispatch_not_ready'") && roleExecutionRun.indexOf("$reviewPlan = Get-Content -LiteralPath $reviewPlanPath") < roleExecutionRun.indexOf('$reviewTask = gh api') && roleExecutionRun.includes("$reviewTask.number -ne $dispatch.task_issue_number -or $reviewTask.state -cne 'open' -or $null -ne $reviewTask.pull_request") && roleExecutionRun.indexOf("throw 'publication_reviewer_task_binding_invalid'") < roleExecutionRun.indexOf('Invoke-BoundedRoleUntilTerminal -PromptFile $reviewPromptPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath') < roleExecutionRun.indexOf('$publicationTask = gh api') && roleExecutionRun.includes("$publicationTask.number -ne $dispatch.task_issue_number -or $publicationTask.state -cne 'open' -or $null -ne $publicationTask.pull_request") && roleExecutionRun.indexOf('$publicationTask = gh api') < roleExecutionRun.indexOf('$canonicalReviewComment = Publish-CanonicalComment -BodyFile $reviewBodyPath') && !roleExecutionRun.includes('Assert-FreshReviewerSnapshot') && !roleExecutionRun.includes('review_thread_snapshot'),
   postRepairReviewJob.steps.find((step) => step.name === 'Bind post-repair Independent Reviewer')?.run.includes('task_state = $state') && postRepairExecutionStep?.env?.GH_TOKEN === '${{ github.token }}' && postRepairExecutionRun.includes('--role-rebind-file') && !postRepairExecutionRun.includes('--review-publication-rebind-file') && !postRepairExecutionRun.includes('--review-closure-file') && postRepairExecutionRun.includes('if ($nativeExit -ne 0) { throw "post_repair_review_provider_failed_$nativeExit" }') && postRepairExecutionRun.includes("if ($messages.Count -ne 1) { throw 'post_repair_review_result_cardinality_invalid' }") && postRepairProviderThroughRebindSource.indexOf('$priorToken = $env:GH_TOKEN') < postRepairProviderThroughRebindSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(postRepairProviderThroughRebindSource) && postRepairProviderThroughRebindSource.indexOf('codex.cmd exec') < postRepairProviderThroughRebindSource.indexOf('$nativeExit = $LASTEXITCODE') && postRepairProviderThroughRebindSource.indexOf('$nativeExit = $LASTEXITCODE') < postRepairProviderThroughRebindSource.indexOf('if ($null -eq $priorToken)') && postRepairProviderThroughRebindSource.indexOf('if ($null -eq $priorToken)') < postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-output-file') && postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-output-file') < postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-rebind-file') && postRepairExecutionRun.indexOf('if ($nativeExit -ne 0)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairExecutionRun.indexOf('if ($messages.Count -ne 1)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && postRepairEvidenceValidatorSource.includes('$sha256.ComputeHash($capturedBytes)') && !postRepairEvidenceValidatorSource.includes('post_repair') && postRepairExecutionRun.includes("$failureDispatch.next_action -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.indexOf('[Console]::Error.WriteLine($diagnosticLine)') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.includes('$diagnosticLines = @()') && (process.platform !== 'win32' || (postRepairFailureEvidenceProbe.lineCount === reviewerFailureEvidence.chunks.length + 1 && postRepairFailureEvidenceProbe.headerRecordType === 'independent_reviewer_role_output_failure_evidence_v1' && postRepairFailureEvidenceProbe.chunkRecordTypesValid === true && postRepairFailureEvidenceProbe.invalidRejected === true && postRepairTrustedHostCredentialProbe.valid.providerToken === 'ABSENT' && postRepairTrustedHostCredentialProbe.valid.restoredToken === 'trusted-post-repair-host-token' && postRepairTrustedHostCredentialProbe.valid.outcome === 'COMPLETED' && postRepairTrustedHostCredentialProbe.valid.validatedAction === 'POST_REVIEW' && postRepairTrustedHostCredentialProbe.valid.reboundAction === 'PROTECTED_OPERATION_READY' && postRepairTrustedHostCredentialProbe.valid.hostCalls.length === 2 && postRepairTrustedHostCredentialProbe.valid.hostCalls.every((call) => call.startsWith('PRESENT:')) && postRepairTrustedHostCredentialProbe.valid.hostCalls[1].includes('--role-rebind-file') && postRepairTrustedHostCredentialProbe.invalid.providerToken === 'ABSENT' && postRepairTrustedHostCredentialProbe.invalid.restoredToken === 'trusted-post-repair-host-token' && postRepairTrustedHostCredentialProbe.invalid.outcome === 'post_repair_review_result_invalid' && postRepairTrustedHostCredentialProbe.invalid.validatedAction === null && postRepairTrustedHostCredentialProbe.invalid.reboundAction === null && postRepairTrustedHostCredentialProbe.invalid.hostCalls.length === 1 && postRepairTrustedHostCredentialProbe.invalid.hostCalls[0].startsWith('PRESENT:'))),
   runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id') && runnerSource.includes("const ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'") && ['GITHUB_REPOSITORY', 'GITHUB_REF', 'GITHUB_WORKFLOW_REF', 'GITHUB_WORKFLOW_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_JOB'].every((name) => runnerSource.includes(`process.env.${name}`)) && runnerSource.includes('RESOLVE_REVIEW_THREAD_MUTATION') && !runnerSource.includes('executeReviewerPublicationRebindV1') && runnerSource.includes('executeReviewThreadClosureV1') && !runnerSource.includes("mode: 'review_publication_rebind'") && runnerSource.includes("mode: 'review_closure'") && runnerSource.match(/parseIndependentReviewDecisionProjectionV1/g)?.length === 7,
   manualWorkflowDispatchResult.state === 'MERGE_ELIGIBLE' && manualWorkflowDispatchResult.allowed === true && manualWorkflowDispatchResult.next_action === 'MERGE_DECISION' && manualWorkflowDispatchResult.automation_status === 'MERGE_DECISION_PENDING' && !Object.hasOwn(manualWorkflowDispatchResult, 'role_dispatch') && manualWorkflowDispatchAdmission.metrics.checkReads === 0 && manualWorkflowDispatchAdmission.metrics.threadReads === 0 && mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR' && (needs.protected_transition_admission_v1.outputs.terminal_result == 'MERGE_ALLOWED' || needs.protected_transition_admission_v1.outputs.terminal_result == 'MINIMAL_GOVERNANCE_V1')" && mergeOperationRun.includes('--merge-operator-file $dispatchPath') && mergeOperationRun.indexOf('--merge-operator-file $dispatchPath') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force') && !workflowSource.includes('gh workflow run') && !runnerSource.includes('createWorkflowDispatch') && runnerSource.includes('acquireMergeCheckRollupSnapshotV1') && runnerSource.includes('acquireMergeReviewThreadsV1') && runnerSource.includes('executeProtectedTransitionAdmissionV1'),
-  admissionJob.outputs.authority_kind === '${{ steps.evaluate.outputs.authority_kind }}' && admissionJob.outputs.minimal_merge_plan_b64 === '${{ steps.evaluate.outputs.minimal_merge_plan_b64 }}' && (admissionEvaluationRun.match(/--review-event-file/g) ?? []).length === 1 && !Object.hasOwn(mergeHostRunnerStep, 'if') && mergePlanRun.includes("if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1')") && mergePlanRun.indexOf("if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1')") < mergePlanRun.indexOf('node $env:PTA_MERGE_HOST_RUNNER') && (mergeOperationRun.match(/--minimal-governance-drift-guard-file/g) ?? []).length === 1 && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.indexOf('minimal_governance_final_drift_guard_matched') < mergeOperationRun.indexOf('--method PUT') && (workflowSource.match(/--method PUT/g) ?? []).length === 1 && !workflowSource.includes('Start-Sleep') && !workflowSource.includes('retry'),
+  admissionJob.outputs.authority_kind === '${{ steps.evaluate.outputs.authority_kind }}' && admissionJob.outputs.minimal_merge_plan_b64 === '${{ steps.evaluate.outputs.minimal_merge_plan_b64 }}' && (admissionEvaluationRun.match(/--review-event-file/g) ?? []).length === 1 && !Object.hasOwn(mergeHostRunnerStep, 'if') && mergePlanRun.includes("if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1')") && mergePlanRun.indexOf("if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1')") < mergePlanRun.indexOf('node $env:PTA_MERGE_HOST_RUNNER') && (mergeOperationRun.match(/--minimal-governance-drift-guard-file/g) ?? []).length === 1 && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.indexOf('minimal_governance_final_drift_guard_matched') < mergeOperationRun.indexOf('--method PUT') && (workflowSource.match(/--method PUT/g) ?? []).length === 1 && !workflowSource.includes('Start-Sleep') && !mergePlanRun.includes('retry') && !mergeOperationRun.includes('retry'),
   workflow.permissions.actions === 'read' && mergePlanRun.includes("$snapshot.pull.base -cnotmatch '^[0-9a-f]{40}$'") && !mergePlanRun.includes('$snapshot.pull.base -cne $plan.expected_base') && mergePlanRun.includes("$plan.expected_base -cnotmatch '^[0-9a-f]{40}$'") && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT'),
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
@@ -10030,5 +10147,40 @@ check(
   'BPR-10 five-job topology, Bootstrap transaction semantics, initial Task-state, and natural triggers remain unchanged',
 )
 
-if (assertions !== 1060) throw new Error(`expected exactly 1060 assertions, observed ${assertions}`)
+const roleProgressPromptInstruction = 'If your work is not complete and another execution is required, return exactly IN_PROGRESS and nothing else.'
+check(
+  progressRoleSource.startsWith('function Invoke-BoundedRoleUntilTerminal {') &&
+  progressRoleSource.includes('for ($providerExecution = 1; $providerExecution -le 3; $providerExecution++)') &&
+  progressRoleSource.includes("if ($terminalAgentMessage.Trim() -cne 'IN_PROGRESS') { return }") &&
+  progressRoleSource.includes("throw 'role_in_progress_retry_limit_reached'") &&
+  progressRoleSource.includes('Assert-FreshRoleBinding -DispatchFile $DispatchFile') &&
+  !progressRoleSource.includes('Assert-RoleOutput') && !progressRoleSource.includes('Publish-CanonicalComment') &&
+  !progressRoleSource.includes('gh api') && !progressRoleSource.includes('mutation_count') &&
+  !progressRoleSource.includes('Start-Sleep') && !progressRoleSource.includes('while (') &&
+  (roleExecutionRun.match(/Invoke-BoundedRoleUntilTerminal -PromptFile/g) ?? []).length === 3,
+  'RIP-07 exact transport classifier performs only bounded same-dispatch rebind and provider execution with no parser, publication, polling, or protected mutation during progress',
+)
+check(
+  runnerSource.split(roleProgressPromptInstruction).length === 2 &&
+  [implementerPlan, mergeDecisionPlan, publicationPlan, prePrPlan, prePrPublicationPlan, bootstrapReviewerPlan, cumulativeBootstrapReviewerPlan]
+    .every((plan) => plan.next_action === 'EXECUTE_ROLE' && plan.prompt.includes(roleProgressPromptInstruction)),
+  'RIP-08 every retry-capable Role prompt contains the exact standalone IN_PROGRESS instruction',
+)
+const mainProgressTransportIndex = roleExecutionRun.indexOf('Invoke-BoundedRoleUntilTerminal -PromptFile $promptPath')
+const mainTerminalParserIndex = roleExecutionRun.indexOf('$validated = Assert-RoleOutput', mainProgressTransportIndex)
+const publicationProgressTransportIndex = roleExecutionRun.indexOf('Invoke-BoundedRoleUntilTerminal -PromptFile $poPromptPath')
+const publicationTerminalParserIndex = roleExecutionRun.indexOf('$null = Assert-RoleOutput -DispatchFile $poDispatchPath', publicationProgressTransportIndex)
+const reviewerProgressTransportIndex = roleExecutionRun.indexOf('Invoke-BoundedRoleUntilTerminal -PromptFile $reviewPromptPath')
+const reviewerTerminalParserIndex = roleExecutionRun.indexOf('$null = Assert-RoleOutput -DispatchFile $reviewDispatchPath', reviewerProgressTransportIndex)
+check(
+  mainProgressTransportIndex >= 0 && mainProgressTransportIndex < mainTerminalParserIndex &&
+  mainTerminalParserIndex < roleExecutionRun.indexOf('$resultComment = Publish-CanonicalComment -BodyFile $bodyPath') &&
+  publicationProgressTransportIndex >= 0 && publicationProgressTransportIndex < publicationTerminalParserIndex &&
+  publicationTerminalParserIndex < roleExecutionRun.indexOf('$authorityComment = Publish-CanonicalComment -BodyFile $poBodyPath') &&
+  reviewerProgressTransportIndex >= 0 && reviewerProgressTransportIndex < reviewerTerminalParserIndex &&
+  reviewerTerminalParserIndex < roleExecutionRun.indexOf('$canonicalReviewComment = Publish-CanonicalComment -BodyFile $reviewBodyPath'),
+  'RIP-09 only a non-progress terminal body reaches each existing parser, Result Handoff, next-Role continuation, and canonical publication path',
+)
+
+if (assertions !== 1069) throw new Error(`expected exactly 1069 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
