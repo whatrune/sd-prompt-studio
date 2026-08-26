@@ -29,6 +29,7 @@ import {
   executeCanonicalMergeDecisionContinuationV1,
   executeManualProgressionControllerV1,
   executeMergeOperatorV1,
+  projectMergeOperatorWorkflowResultV1,
   executeMergeDecisionSuccessorResumeV1,
   executePostReadyProgressionOwnerV1,
   executeReadyTransitionRequiredResumeV1,
@@ -5803,6 +5804,43 @@ const mergeOperatorFinalHeadDriftV1 = await executeMergeOperatorFixtureV1({
     index + 1 === 3 ? HEAD : OTHER_HEAD,
   ]))),
 })
+const mergeOperatorWorkflowProjectionV1 = projectMergeOperatorWorkflowResultV1({
+  plan: mergeOperatorSuccessV1.result,
+  expectedHead: OTHER_HEAD,
+})
+const mergeOperatorWorkflowNoopProjectionV1 = projectMergeOperatorWorkflowResultV1({
+  plan: mergeOperatorAlreadyMergedV1.result,
+  expectedHead: OTHER_HEAD,
+})
+const mergeOperatorWorkflowNextActionErrorV1 = await errorOf(async () => projectMergeOperatorWorkflowResultV1({
+  plan: Object.freeze({ ...mergeOperatorSuccessV1.result, next_action: 'STOP' }),
+  expectedHead: OTHER_HEAD,
+}))
+const mergeOperatorWorkflowMethodErrorV1 = await errorOf(async () => projectMergeOperatorWorkflowResultV1({
+  plan: Object.freeze({ ...mergeOperatorSuccessV1.result, merge_method: 'squash' }),
+  expectedHead: OTHER_HEAD,
+}))
+const mergeOperatorWorkflowHeadErrorV1 = await errorOf(async () => projectMergeOperatorWorkflowResultV1({
+  plan: mergeOperatorSuccessV1.result,
+  expectedHead: HEAD,
+}))
+const mergeOperatorProjectionCliV1 = (() => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'merge-operator-result-projection-'))
+  const planPath = path.join(directory, 'merge-plan.json')
+  try {
+    writeFileSync(planPath, JSON.stringify(mergeOperatorSuccessV1.result), 'utf8')
+    const invoke = (expectedHead) => spawnSync(process.execPath, [
+      runnerPath,
+      '--merge-operator-result-projection-file', planPath,
+      '--expected-head', expectedHead,
+    ], { cwd: repositoryRoot, encoding: 'utf8' })
+    const success = invoke(OTHER_HEAD)
+    const invalid = invoke(HEAD)
+    return Object.freeze({ success, invalid })
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})()
 
 check(
   mergeOperatorSuccessV1.result.next_action === 'MERGE_PR' && mergeOperatorSuccessV1.result.merge_method === 'merge' &&
@@ -5862,6 +5900,40 @@ check(
   mergeOperatorSuccessV1.metrics.patchCalls === 0 && !Object.hasOwn(mergeOperatorSuccessV1.result, 'role_dispatch') &&
     Object.keys(mergeOperatorSuccessV1.result).sort().join('\n') === ['allowed', 'automation_status', 'exact_head', 'exit_code', 'merge_method', 'mutation_count', 'next_action', 'pr_number', 'reason', 'repository', 'state', 'task_issue_number'].sort().join('\n'),
   'MORR-13 success is one zero-mutation SHA-bound MERGE_PR plan and runner performs no protected action',
+)
+check(
+  JSON.stringify(mergeOperatorWorkflowProjectionV1) === JSON.stringify({
+    operation: 'MERGE_PR', pr_number: PR, exact_head: OTHER_HEAD,
+  }),
+  'MORR-14 valid Merge plan projects exactly the workflow MERGE_PR transport fields',
+)
+check(
+  JSON.stringify(mergeOperatorWorkflowNoopProjectionV1) === JSON.stringify({ operation: 'NONE' }),
+  'MORR-15 already-merged plan projects exactly the workflow NONE transport field',
+)
+check(
+  mergeOperatorWorkflowNextActionErrorV1?.message === 'merge_operator_plan_invalid',
+  'MORR-16 wrong Merge plan next action fails with the existing workflow reason',
+)
+check(
+  mergeOperatorWorkflowMethodErrorV1?.message === 'merge_operator_plan_invalid',
+  'MORR-17 wrong Merge method fails with the existing workflow reason',
+)
+check(
+  mergeOperatorWorkflowHeadErrorV1?.message === 'merge_operator_plan_invalid',
+  'MORR-18 expected-HEAD mismatch fails with the existing workflow reason',
+)
+check(
+  mergeOperatorProjectionCliV1.success.status === 0 &&
+    JSON.stringify(JSON.parse(mergeOperatorProjectionCliV1.success.stdout)) === JSON.stringify(mergeOperatorWorkflowProjectionV1) &&
+    mergeOperatorProjectionCliV1.invalid.status === 1 &&
+    JSON.parse(mergeOperatorProjectionCliV1.invalid.stdout).reason === 'merge_operator_plan_invalid',
+  'MORR-19 production CLI entrypoint exercises the owner projector and preserves fail-closed errors',
+)
+check(
+  (runnerSource.match(/--merge-operator-file/g) ?? []).length === 1 &&
+    runnerSource.includes("mode: 'merge_operator'") && runnerSource.includes('await executeMergeOperatorV1({'),
+  'MORR-20 existing Merge Operator CLI entrypoint remains unchanged',
 )
 
 check(
@@ -5961,7 +6033,8 @@ check(
     workflow.on.workflow_dispatch.inputs.repository === undefined &&
     workflowSource.includes('PTA_INPUT_MERGE_DECISION_COMMENT_ID') &&
     Object.keys(workflow.jobs).length === 5 &&
-    runnerSource.includes("import { createMergeOperatorPreflightOwnerV1 } from './protected-transition-merge-operator-preflight-v1.mjs'") &&
+    runnerSource.includes("from './protected-transition-merge-operator-preflight-v1.mjs'") &&
+    runnerSource.includes('createMergeOperatorPreflightOwnerV1,') &&
     runnerSource.includes('export const executeMergeOperatorV1 = async (input) => createMergeOperatorPreflightOwnerV1({') &&
     (runnerSource.match(/--merge-operator-file/g) ?? []).length === 1 &&
     !mergeOperatorPreflightSource.includes('--merge-operator-file') &&
@@ -6056,6 +6129,8 @@ const naturalPublicationContinuationBlock = roleExecutionRun.slice(naturalPublic
 const admissionEvaluationRun = admissionJob.steps.find((step) => step.name === 'Evaluate protected transition admission')?.run ?? ''
 const mergePlanRun = mergeOperatorJob.steps.find((step) => step.name === 'Rebind exact decision and prepare one merge')?.run ?? ''
 const mergeOperationRun = mergeOperatorJob.steps.find((step) => step.name === 'Perform one normal merge commit')?.run ?? ''
+const normalMergePlanStart = mergePlanRun.indexOf("if ($env:MERGE_TERMINAL_RESULT -cne 'MERGE_ALLOWED'")
+const normalMergePlanRun = normalMergePlanStart >= 0 ? mergePlanRun.slice(normalMergePlanStart) : ''
 const postRepairExecutionStep = postRepairReviewJob.steps.find((step) => step.name === 'Execute and publish post-repair Review')
 const postRepairExecutionRun = postRepairExecutionStep?.run ?? ''
 const boundedRoleStart = roleExecutionRun.indexOf('function Invoke-BoundedRole {')
@@ -9678,6 +9753,18 @@ manualWorkflowDispatchResult.state === 'MERGE_ELIGIBLE' && manualWorkflowDispatc
   workflow.permissions.actions === 'read' && mergePlanRun.includes("$snapshot.pull.base -cnotmatch '^[0-9a-f]{40}$'") && !mergePlanRun.includes('$snapshot.pull.base -cne $plan.expected_base') && mergePlanRun.includes("$plan.expected_base -cnotmatch '^[0-9a-f]{40}$'") && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT'),
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
+check(
+  normalMergePlanRun.includes('--merge-operator-result-projection-file $planPath') &&
+    !normalMergePlanRun.includes('$plan.next_action') && !normalMergePlanRun.includes('$plan.merge_method') &&
+    normalMergePlanRun.indexOf('operation=$($projection.operation)') < normalMergePlanRun.indexOf('pr_number=$($projection.pr_number)') &&
+    normalMergePlanRun.indexOf('pr_number=$($projection.pr_number)') < normalMergePlanRun.indexOf('exact_head=$($projection.exact_head)'),
+  'RDC-13 normal Merge result semantics are runner-owned and GITHUB_OUTPUT order is unchanged',
+)
+check(
+  mergeOperatorJob.steps.find((step) => step.name === 'Perform one normal merge commit')?.if === "steps.merge_plan.outputs.operation == 'MERGE_PR'" &&
+    (workflowSource.match(/--method PUT/g) ?? []).length === 1,
+  'RDC-14 Merge mutation remains gated only by operation MERGE_PR and occurs at most once',
+)
 
 const PRE_PR_TASK = 361
 const PRE_PR_COMMENT_ID = 5389393284
@@ -11862,5 +11949,5 @@ check(
   'SRP-10 bounded continuation adds no transition, polling, workflow dispatch, or credential dependency',
 )
 
-if (assertions !== 1171) throw new Error(`expected exactly 1171 assertions, observed ${assertions}`)
+if (assertions !== 1180) throw new Error(`expected exactly 1180 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

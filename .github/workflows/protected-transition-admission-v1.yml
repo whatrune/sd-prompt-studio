@@ -1069,15 +1069,12 @@ jobs:
           [IO.File]::WriteAllBytes($dispatchPath, [Convert]::FromBase64String($env:ROLE_DISPATCH_B64))
           node $env:PTA_MERGE_HOST_RUNNER --merge-operator-file $dispatchPath 1> $planPath
           if ($LASTEXITCODE -ne 0) { throw 'merge_operator_preflight_failed' }
-          $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json
-          if ($plan.next_action -ceq 'NONE' -and $plan.reason -ceq 'already_merged') {
-            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "operation=NONE$([Environment]::NewLine)", $utf8NoBom)
-            exit 0
-          }
-          if ($plan.next_action -cne 'MERGE_PR' -or $plan.merge_method -cne 'merge' -or $plan.exact_head -cne '${{ needs.protected_transition_admission_v1.outputs.role_exact_head }}') { throw 'merge_operator_plan_invalid' }
-          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "operation=MERGE_PR$([Environment]::NewLine)", $utf8NoBom)
-          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "pr_number=$($plan.pr_number)$([Environment]::NewLine)", $utf8NoBom)
-          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "exact_head=$($plan.exact_head)$([Environment]::NewLine)", $utf8NoBom)
+          $projection = node $env:PTA_MERGE_HOST_RUNNER --merge-operator-result-projection-file $planPath --expected-head '${{ needs.protected_transition_admission_v1.outputs.role_exact_head }}' | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'merge_operator_plan_invalid' }
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "operation=$($projection.operation)$([Environment]::NewLine)", $utf8NoBom)
+          if ($projection.operation -ceq 'NONE') { exit 0 }
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "pr_number=$($projection.pr_number)$([Environment]::NewLine)", $utf8NoBom)
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "exact_head=$($projection.exact_head)$([Environment]::NewLine)", $utf8NoBom)
 
       - name: Perform one normal merge commit
         if: steps.merge_plan.outputs.operation == 'MERGE_PR'
