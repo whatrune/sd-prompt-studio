@@ -4721,9 +4721,20 @@ const roleDispatchPromptV1 = (dispatch) => {
       `Publication Handoff body SHA-256: ${binding.publication_handoff_body_sha256}`,
       `Scope Contract source: https://github.com/${dispatch.repository}/issues/${dispatch.task_issue_number}#issuecomment-${binding.scope_contract_source_comment_id}`,
       `Scope Contract source body SHA-256: ${binding.scope_contract_source_body_sha256}`,
-      `Return exactly one YAML object with these eight fields: ${INTEGRATED_LEAD_READY_RESULT_FIELDS_V1.join(', ')}.`,
-      'Use decision READY_FOR_REVIEW or STOP and preserve the seven identity fields exactly. Do not fetch or interpret record prose.',
-      'Do not mutate GitHub, edit files, call another agent, or add prose.',
+      'Return exactly one fenced YAML block and no prose outside it.',
+      'Use this exact block, changing only decision to STOP when required:',
+      '```yaml',
+      'decision: READY_FOR_REVIEW',
+      `repository: ${dispatch.repository}`,
+      `task_issue: https://github.com/${dispatch.repository}/issues/${dispatch.task_issue_number}`,
+      `pull_request: https://github.com/${dispatch.repository}/pull/${dispatch.pr_number}`,
+      `exact_head: ${dispatch.exact_head}`,
+      `review_decision: https://github.com/${dispatch.repository}/issues/${dispatch.task_issue_number}#issuecomment-${binding.review_comment_id}`,
+      `publication_handoff: https://github.com/${dispatch.repository}/issues/${dispatch.task_issue_number}#issuecomment-${binding.publication_handoff_comment_id}`,
+      `scope_contract_source: https://github.com/${dispatch.repository}/issues/${dispatch.task_issue_number}#issuecomment-${binding.scope_contract_source_comment_id}`,
+      '```',
+      'The decision value may be READY_FOR_REVIEW or STOP. Preserve all seven identity values exactly.',
+      'Do not fetch or interpret record prose. Do not mutate GitHub, edit files, call another agent, or add prose.',
     ].join('\n')
   }
   const common = [
