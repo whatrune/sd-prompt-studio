@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { Activity, AlertTriangle, BadgeCheck, Ban, BookOpen, Camera, Check, ChevronDown, ChevronRight, ChevronUp, Copy, Eye, Gem, Image, Info, Lightbulb, Menu, MessageSquareText, Package, PersonStanding, Plus, RotateCcw, Save, Scissors, Search, Settings2, Shirt, Smile, Sparkles, Star, Tags, Trash2, UserRound, Users, WandSparkles, X } from 'lucide-react'
 import { categoryLabels, categoryOrder, subcategoryOrder, TAG_COUNT, tags, type ContentRating, type PromptTag } from './data/tags'
 import { ADULT_TAG_COUNT, adultTags } from './data/adultTags'
@@ -155,6 +155,29 @@ function relatedTags(selected: SelectedTag[]) {
   return [...new Set(wanted)].map(p => [...tags, ...adultTags].find(t => t.prompt === p)).filter(Boolean) as PromptTag[]
 }
 
+export type TagSearchKeyboardAction = Readonly<{
+  handled: boolean
+  activeIndex: number
+  activate: boolean
+  clear: boolean
+}>
+
+export function projectTagSearchKeyboardAction(key: string, activeIndex: number, resultCount: number): TagSearchKeyboardAction {
+  const count = Number.isInteger(resultCount) && resultCount > 0 ? resultCount : 0
+  const current = Number.isInteger(activeIndex) && activeIndex >= 0 && activeIndex < count ? activeIndex : -1
+  if (key === 'Escape') return Object.freeze({ handled: true, activeIndex: -1, activate: false, clear: true })
+  if (key === 'ArrowDown' && count > 0) {
+    return Object.freeze({ handled: true, activeIndex: current < 0 ? 0 : Math.min(current + 1, count - 1), activate: false, clear: false })
+  }
+  if (key === 'ArrowUp' && count > 0) {
+    return Object.freeze({ handled: true, activeIndex: current < 0 ? count - 1 : Math.max(current - 1, 0), activate: false, clear: false })
+  }
+  if (key === 'Enter' && current >= 0) {
+    return Object.freeze({ handled: true, activeIndex: current, activate: true, clear: false })
+  }
+  return Object.freeze({ handled: false, activeIndex: current, activate: false, clear: false })
+}
+
 export default function App() {
   const locale = DEFAULT_LOCALE
   const [category, setCategory] = useState('quality')
@@ -162,6 +185,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [query, setQuery] = useState('')
+  const [searchActiveIndex, setSearchActiveIndex] = useState(-1)
   const [searchCategory, setSearchCategory] = useState('すべて')
   const [favoriteCategory, setFavoriteCategory] = useState('すべて')
   const [activeColorModifier, setActiveColorModifier] = useState('')
@@ -302,6 +326,7 @@ export default function App() {
   }
   function changeSearchQuery(value: string) {
     const startsSearch = !isSearchMode && value.trim().length > 0
+    setSearchActiveIndex(-1)
     setQuery(value)
     if (startsSearch || !value.trim()) setSearchCategory('すべて')
     if (value.trim()) store.setWorkspaceView('prompt')
@@ -347,6 +372,15 @@ export default function App() {
       return true
     }).sort((a,b) => q ? scoreTag(b,q)-scoreTag(a,q) || tagSort(a,b) : tagSort(a,b))
   }, [category, subcategory, query, searchCategory, favoritesOnly, favoriteCategory, store.favoriteIds, visibleDictionaryTags, store.hideUnavailable, conflictMap])
+  const visibleSearchResultKey = isSearchMode ? filtered.map(tag => tag.id).join('\u001f') : ''
+  const activeSearchResult = isSearchMode && searchActiveIndex >= 0 && searchActiveIndex < filtered.length ? filtered[searchActiveIndex] : null
+  const activeSearchResultId = activeSearchResult ? `tag-search-result-${activeSearchResult.id}` : undefined
+  useLayoutEffect(() => {
+    setSearchActiveIndex(-1)
+  }, [visibleSearchResultKey])
+  useEffect(() => {
+    if (activeSearchResultId) document.getElementById(activeSearchResultId)?.scrollIntoView({ block: 'nearest' })
+  }, [activeSearchResultId])
   const tagCategoryGroups = useMemo<TagCategoryGroup[]>(() => {
     if (query.trim() || (!favoritesOnly && subcategory !== 'すべて')) {
       return [{ key: 'flat', groups: [{ key: 'flat', label: '', tags: filtered, showTitle: false }] }]
@@ -583,6 +617,23 @@ export default function App() {
     }
     store.addTag({...tag, weight: 1})
   }
+  function handleTagSearchKeyDown(event: ReactKeyboardEvent<HTMLInputElement>){
+    if (!isSearchMode) return
+    const action = projectTagSearchKeyboardAction(event.key, searchActiveIndex, filtered.length)
+    if (!action.handled) return
+    event.preventDefault()
+    if (action.clear) {
+      changeSearchQuery('')
+      return
+    }
+    if (action.activate) {
+      const tag = filtered[action.activeIndex]
+      if (tag) toggleDictionaryTag(tag)
+      setSearchActiveIndex(-1)
+      return
+    }
+    setSearchActiveIndex(action.activeIndex)
+  }
   function addCustom(){ store.addCustomTag(customPrompt, category, saveCustom, customLabel); setCustomPrompt(''); setCustomLabel('') }
   function exportUserDictionary(){
     const blob = new Blob([JSON.stringify(store.userTags, null, 2)], { type: 'application/json' })
@@ -650,7 +701,8 @@ export default function App() {
     const warning = !selected && conflict?.level === 'warning'
     const colorAvailability = colorNotApplicable ? '、カラー適用対象外。通常タグとして追加されます' : ''
     const accessibleLabel = `${tag.label}${appliedColor ? `、カラー: ${appliedColor.label}` : ''}${selected ? '、選択済み' : ''}${colorAvailability}`
-    return <article key={tag.id} className={`tag-card category-${tag.category} ${selected?'selected':''} ${unavailable?'unavailable':''} ${warning?'warning':''} ${colorNotApplicable?'color-not-applicable':''}`} title={appliedColor || colorNotApplicable ? accessibleLabel : undefined}>
+    const keyboardActive = isSearchMode && activeSearchResult?.id === tag.id
+    return <article key={tag.id} id={isSearchMode?`tag-search-result-${tag.id}`:undefined} className={`tag-card category-${tag.category} ${selected?'selected':''} ${unavailable?'unavailable':''} ${warning?'warning':''} ${colorNotApplicable?'color-not-applicable':''} ${keyboardActive?'keyboard-active':''}`} title={appliedColor || colorNotApplicable ? accessibleLabel : undefined}>
       <button className={`star ${favorite?'active':''}`} aria-label="お気に入り" onClick={()=>store.toggleFavorite(tag.id)}><Star size={15} fill={favorite?'currentColor':'none'}/></button>
       <button className="info-tag" title="タグ詳細" aria-label="タグ詳細" onClick={()=>setInspectedTag(tag)}><Info size={14}/></button>
       {isUser&&<button className="delete-user-tag" title="ユーザー辞書から削除" onClick={()=>store.removeUserTag(tag.id)}><X size={13}/></button>}
@@ -662,7 +714,7 @@ export default function App() {
   return <main className="app-shell">
     <header className="topbar">
       <div className="app-brand"><button type="button" className="navigation-toggle" aria-label={store.navigationCollapsed?'Navigationを展開':'Navigationを最小化'} aria-expanded={!store.navigationCollapsed} onClick={()=>{closeNavigationFlyout();store.setNavigationCollapsed(!store.navigationCollapsed)}}><Menu size={19}/></button><div><h1>SD Prompt Studio <span className="version-mark">v21.0 α1</span></h1><p>Stable Diffusion Prompt IDE · {(TAG_COUNT + ADULT_TAG_COUNT + store.userTags.length).toLocaleString()} tags</p></div></div>
-      <div className="header-search"><div className="search-box"><Search size={16}/><input aria-label="タグ検索" value={query} onChange={e=>changeSearchQuery(e.target.value)} placeholder="日本語・英語で検索" />{query.length>0&&<button type="button" className="header-search-clear" aria-label="検索をクリア" onClick={()=>changeSearchQuery('')}><X size={15}/></button>}</div></div>
+      <div className="header-search"><div className="search-box"><Search size={16}/><input aria-label="タグ検索" aria-controls={isSearchMode?'tag-search-results':undefined} aria-activedescendant={activeSearchResultId} value={query} onChange={e=>changeSearchQuery(e.target.value)} onKeyDown={handleTagSearchKeyDown} placeholder="日本語・英語で検索" />{query.length>0&&<button type="button" className="header-search-clear" aria-label="検索をクリア" onClick={()=>changeSearchQuery('')}><X size={15}/></button>}</div></div>
       <div className="header-actions">
         <div className="settings-wrap" ref={settingsRef}>
           <button type="button" className={`ghost settings-button ${settingsOpen?'active':''}`} aria-label="設定" title="設定" onClick={()=>setSettingsOpen(v=>!v)} aria-expanded={settingsOpen}>
@@ -816,7 +868,7 @@ export default function App() {
           </button>
           {!relatedCollapsed&&<div className="related-suggestions-list">{related.filter(tag=>RATING_RANK[tag.rating ?? 'general']<=RATING_RANK[store.contentLevel]).map(tag=><button key={tag.id} className={`category-${tag.category}`} onClick={()=>toggleDictionaryTag(tag)}>＋ {tag.label}<small>{tag.prompt}</small></button>)}</div>}
         </section>}
-        {favoritesOnly&&filtered.length===0?<div className="tag-empty-state"><Star size={18}/><span>お気に入りタグはありません</span></div>:<div className="tag-groups">{tagCategoryGroups.map(categoryGroup=><section className="tag-category-group" key={categoryGroup.key}>
+        {favoritesOnly&&filtered.length===0?<div className="tag-empty-state"><Star size={18}/><span>お気に入りタグはありません</span></div>:<div id={isSearchMode?'tag-search-results':undefined} className="tag-groups">{tagCategoryGroups.map(categoryGroup=><section className="tag-category-group" key={categoryGroup.key}>
           {categoryGroup.label&&<h2 className="tag-category-title">{categoryGroup.label}</h2>}
           <div className="tag-subcategory-groups">{categoryGroup.groups.map(group=><section className="tag-group" key={`${categoryGroup.key}-${group.key}`}>
             {group.showTitle&&<h3 className="tag-group-title">{group.label}</h3>}

@@ -5,7 +5,7 @@ import { createServer } from 'vite'
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 
 try {
-  const [{ adultTags }, { buildPrompt, buildPromptWithStrategy, tagSort }, { buildSavedPromptSummary, migratePersistedState, nextPromptGroupName, PROMPT_GROUP_COLORS, UNCLASSIFIED_PROMPT_GROUP_ID, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }, { applyColorModifier, buildColorModifiedTag, findColorModifier, isColorModifiableCategory }] = await Promise.all([
+  const [{ adultTags }, { buildPrompt, buildPromptWithStrategy, tagSort }, { buildSavedPromptSummary, migratePersistedState, nextPromptGroupName, PROMPT_GROUP_COLORS, UNCLASSIFIED_PROMPT_GROUP_ID, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }, { applyColorModifier, buildColorModifiedTag, findColorModifier, isColorModifiableCategory }, { projectTagSearchKeyboardAction }] = await Promise.all([
     server.ssrLoadModule('/src/data/adultTags.ts'),
     server.ssrLoadModule('/src/prompt.ts'),
     server.ssrLoadModule('/src/store.ts'),
@@ -13,6 +13,7 @@ try {
     server.ssrLoadModule('/src/engine/smartTagEngine.ts'),
     server.ssrLoadModule('/src/data/canonical.ts'),
     server.ssrLoadModule('/src/modifiers/colorModifier.ts'),
+    server.ssrLoadModule('/src/App.tsx'),
   ])
 
   assert.equal(usePromptStore.getState().navigationCollapsed, false, 'Navigation must start expanded')
@@ -789,6 +790,25 @@ try {
   assert(appSource.includes('categoryOrder.filter(categoryKey => visibleDictionaryTags.some'), 'Favorite tabs must include only categories with visible favorite tags')
   assert(appSource.includes("const [searchCategory, setSearchCategory] = useState('すべて')"), 'Search Mode must keep category selection separate from Prompt and Favorite modes')
   assert(appSource.includes("const isSearchMode = query.trim().length > 0"), 'Search Mode must derive from the existing query state')
+  assert.deepEqual(projectTagSearchKeyboardAction('ArrowDown', -1, 3), { handled: true, activeIndex: 0, activate: false, clear: false }, 'ArrowDown must enter the visible result set at the first item')
+  assert.deepEqual(projectTagSearchKeyboardAction('ArrowDown', 2, 3), { handled: true, activeIndex: 2, activate: false, clear: false }, 'ArrowDown must remain bounded at the final visible result')
+  assert.deepEqual(projectTagSearchKeyboardAction('ArrowUp', -1, 3), { handled: true, activeIndex: 2, activate: false, clear: false }, 'ArrowUp must enter the visible result set at the final item')
+  assert.deepEqual(projectTagSearchKeyboardAction('ArrowUp', 0, 3), { handled: true, activeIndex: 0, activate: false, clear: false }, 'ArrowUp must remain bounded at the first visible result')
+  assert.deepEqual(projectTagSearchKeyboardAction('Enter', 1, 3), { handled: true, activeIndex: 1, activate: true, clear: false }, 'Enter must activate only the current visible result')
+  assert.deepEqual(projectTagSearchKeyboardAction('Enter', -1, 3), { handled: false, activeIndex: -1, activate: false, clear: false }, 'Enter without an active result must remain a safe no-op')
+  assert.deepEqual(projectTagSearchKeyboardAction('Escape', 1, 3), { handled: true, activeIndex: -1, activate: false, clear: true }, 'Escape must exit the current search interaction')
+  assert.deepEqual(projectTagSearchKeyboardAction('ArrowDown', 0, 0), { handled: false, activeIndex: -1, activate: false, clear: false }, 'Empty search results must preserve normal input behavior safely')
+  assert.deepEqual(projectTagSearchKeyboardAction('Tab', 1, 3), { handled: false, activeIndex: 1, activate: false, clear: false }, 'Unrelated keys must preserve normal input behavior')
+  assert(appSource.includes('const [searchActiveIndex, setSearchActiveIndex] = useState(-1)'), 'Keyboard search must add only one non-persisted active-index state')
+  assert(appSource.includes("onKeyDown={handleTagSearchKeyDown}"), 'Header tag search must own keyboard interaction')
+  assert(appSource.includes("aria-activedescendant={activeSearchResultId}") && appSource.includes("aria-controls={isSearchMode?'tag-search-results':undefined}"), 'Header tag search must expose the deterministic active result without moving input focus')
+  assert(appSource.includes("if (tag) toggleDictionaryTag(tag)"), 'Keyboard Enter must reuse the canonical tag toggle owner')
+  assert(appSource.includes("changeSearchQuery('')"), 'Keyboard Escape and mouse clear must reuse the existing search exit owner')
+  assert(appSource.includes('setSearchActiveIndex(-1)') && appSource.includes('[visibleSearchResultKey]'), 'Query result changes and activation must reset keyboard selection')
+  assert(appSource.includes("scrollIntoView({ block: 'nearest' })"), 'Keyboard navigation must keep the active result visible')
+  assert(appSource.includes("keyboardActive?'keyboard-active':''"), 'Only the deterministic keyboard-active result must receive the highlight class')
+  assert(stylesSource.includes('.tag-card.keyboard-active') && stylesSource.includes('outline:2px solid var(--accent)'), 'Keyboard-active results must have a clear theme-aware visible highlight')
+  assert(appSource.includes('onClick={()=>toggleDictionaryTag(tag)}'), 'Mouse tag activation must retain the same canonical toggle owner')
   assert(appSource.includes('{isSearchMode&&<div className="panel-title">'), 'Search result heading must use only the trimmed Search Mode state')
   assert.equal(appSource.includes("favoritesOnly?'お気に入り'"), false, 'Favorite Workspace must not render a dedicated page title')
   assert(appSource.includes('className="header-search"'), 'Tag search must render in the App Header')
