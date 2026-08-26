@@ -931,6 +931,8 @@ const automationHost = ({
   bodyAtPullRead = {},
   pullState = 'open',
   draft = false,
+  merged = false,
+  baseRef = 'main',
   mergeable = true,
   mergeableState = 'clean',
   checkPages = [connectionPage([successfulCheck()])],
@@ -947,12 +949,12 @@ const automationHost = ({
   const currentPull = () => ({
     number: PR,
     state: pullState,
-    base: { ref: 'main', repo: { full_name: REPOSITORY } },
+    base: { ref: baseRef, repo: { full_name: REPOSITORY } },
     head: { sha: currentHead, repo: { full_name: REPOSITORY } },
     body: currentBody,
     changed_files: changedFiles,
     draft,
-    merged: false,
+    merged,
     mergeable,
     mergeable_state: mergeableState,
   })
@@ -1457,10 +1459,10 @@ check(noTargetResult.state === 'INDETERMINATE' && noTargetResult.reason === 'rev
 
 check(
   (runnerSource.match(/await resolveEffectiveReviewDecisionV1\(\{ request, parsedEvent, host \}\)/g) ?? []).length === 2 &&
-  (runnerSource.match(/await acquireEffectiveReviewDecisionV1\(\{/g) ?? []).length === 6 &&
+  (runnerSource.match(/await acquireEffectiveReviewDecisionV1\(\{/g) ?? []).length === 7 &&
   (runnerSource.match(/reduceCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 3 &&
   (runnerSource.match(/confirmCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 3,
-  'RRC-07 issue_comment, Ready, bounded resume, fresh rebind, and Lifecycle reuse the canonical aggregate Review owner',
+  'RRC-07 issue_comment, Ready, bounded resume, Merge Decision, fresh rebind, and Lifecycle reuse the canonical aggregate Review owner',
 )
 
 const productionPaths = execFileSync('git', ['ls-files', '.github', 'scripts', 'src'], { cwd: repositoryRoot, encoding: 'utf8' })
@@ -3039,7 +3041,14 @@ const postRepairReviewerDispatch = projectRoleDispatchEnvelopeV1({
     kind: 'REVIEW', comment_id: postRepairReviewSourceId, reviewed_head: HEAD, decision: 'CHANGES_REQUIRED',
   }),
 })
-const roleComment = (id, body, createdAt) => Object.freeze({ id, created_at: createdAt, issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`, author_association: 'OWNER', body })
+const roleComment = (id, body, createdAt) => Object.freeze({
+  id,
+  created_at: createdAt,
+  issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`,
+  author_association: 'OWNER',
+  user: Object.freeze({ login: 'repository-owner', id: 8111, type: 'User' }),
+  body,
+})
 const roleSourceRecords = new Map([
   [roleImplementationAuthorizationId, roleComment(roleImplementationAuthorizationId, roleImplementationAuthorizationBody, '2026-08-13T00:00:01Z')],
   [9000, roleComment(9000, roleArchitectureReviewBody, '2026-08-13T00:00:00Z')],
@@ -4593,18 +4602,38 @@ const finalGuardSourceEnd = runnerSource.indexOf('\nconst ROLE_TERMINAL_RESULTS_
 const finalGuardSource = runnerSource.slice(finalGuardSourceStart, finalGuardSourceEnd)
 check(finalGuardSourceStart >= 0 && !finalGuardSource.includes('extractProtectedTransitionTaskStateV1') && !finalGuardSource.includes('reduceCurrentLeafIndependentReviewDecisionV1') && !finalGuardSource.includes('confirmCurrentLeafIndependentReviewDecisionV1') && !finalGuardSource.includes('parseIndependentReviewDecisionProjectionV1') && !finalGuardSource.includes('acquireChangedPathScopeV1') && !finalGuardSource.includes('bindMinimalGovernanceExecutionIdentityV1') && !finalGuardSource.includes('minimal_governance_pre_operation_snapshot_v1'), 'MGV-13 final guard regenerates no legacy task state, semantic Review, validation, scope, execution identity, or sealed snapshot')
 
-const roleMergeDecisionRebindHost = ({ dispatch, admissionRun, jobs = roleAdmissionJobs(), checkPage, changedJobPage = null, sourceRecords = roleSourceRecords, defaultBranch = 'main' } = {}) => {
+const roleMergeDecisionRebindHost = ({
+  dispatch,
+  admissionRun,
+  jobs = roleAdmissionJobs(),
+  checkPage,
+  changedJobPage = null,
+  sourceRecords = roleSourceRecords,
+  directSourceRecords = sourceRecords,
+  defaultBranch = 'main',
+  taskState = dispatch.task_state,
+  paths = dispatch.authorized_paths,
+  pullState = 'open',
+  draft = false,
+  merged = false,
+  baseRef = 'main',
+  threadPages = [connectionPage([])],
+} = {}) => {
   const headAtPullRead = Object.fromEntries(Array.from({ length: 12 }, (_, index) => [index + 1, dispatch.exact_head]))
   const automation = automationHost({
-    initialState: dispatch.task_state,
-    changedFiles: dispatch.authorized_paths.length,
-    filePages: [dispatch.authorized_paths.map((filename) => ({ filename, status: 'modified' }))],
-    commentPages: [[...sourceRecords.values()].filter((comment) =>
-      typeof comment.body === 'string' && comment.body.includes('record_type: "independent_review_decision_v1"'))],
-    directCommentRecords: sourceRecords,
+    initialState: taskState,
+    changedFiles: paths.length,
+    filePages: [paths.map((filename) => ({ filename, status: 'modified' }))],
+    commentPages: [[...sourceRecords.values()]],
+    directCommentRecords: directSourceRecords,
     headAtPullRead,
     mergeableState: 'unstable',
+    pullState,
+    draft,
+    merged,
+    baseRef,
     checkPages: [checkPage, checkPage],
+    threadPages,
   })
   automation.metrics.originReads = 0
   automation.metrics.jobReads = 0
@@ -4644,16 +4673,43 @@ const executeMergeAllowedRouteFixtureV1 = async ({
   decisionCommentId,
   jobs = roleAdmissionJobs(),
   changedJobPage = null,
+  consumerRunId = '32952469774',
+  sourceRecords: suppliedSourceRecords = roleSourceRecords,
+  taskState = dispatch.task_state,
+  paths = dispatch.authorized_paths,
+  pullState = 'open',
+  draft = false,
+  merged = false,
+  baseRef = 'main',
+  threadPages = [connectionPage([])],
+  withLifecycleReplay = false,
+  directDecisionBody = null,
 }) => {
-  const sourceRecords = new Map(roleSourceRecords)
+  const sourceRecords = new Map(suppliedSourceRecords)
   sourceRecords.set(decisionCommentId, roleComment(decisionCommentId, decisionBody, '2026-08-17T10:00:00Z'))
-  const fixture = roleMergeDecisionRebindHost({ dispatch, admissionRun, jobs, checkPage, changedJobPage, sourceRecords })
+  const directSourceRecords = new Map(sourceRecords)
+  if (directDecisionBody !== null) {
+    directSourceRecords.set(decisionCommentId, roleComment(decisionCommentId, directDecisionBody, '2026-08-17T10:00:00Z'))
+  }
+  const fixture = roleMergeDecisionRebindHost({
+    dispatch, admissionRun, jobs, checkPage, changedJobPage, sourceRecords,
+    directSourceRecords, taskState, paths, pullState, draft, merged, baseRef, threadPages,
+  })
   const event = Object.freeze({
     action: 'created', repository: Object.freeze({ full_name: REPOSITORY }),
     issue: Object.freeze({ number: TASK, state: 'open' }),
     comment: Object.freeze({ id: decisionCommentId, author_association: 'OWNER', body: decisionBody }),
   })
-  const result = await executeRoleTransitionOrchestratorV1({ event, host: fixture.host })
+  const result = withLifecycleReplay
+    ? await executeReviewEventWithLifecycleReplayV1({
+        event,
+        host: fixture.host,
+        runId: consumerRunId,
+        runAttempt: 1,
+        hostSha: CUMULATIVE_PR_BASE,
+        jobName: 'protected_transition_admission_v1',
+      })
+    : await executeRoleTransitionOrchestratorV1({ event, host: fixture.host, runId: consumerRunId })
   return Object.freeze({ result, metrics: fixture.metrics })
 }
 const implementerHostMetrics = { taskReads: 0 }
@@ -5230,6 +5286,156 @@ const readyMergeAllowedManifestDrift = await executeMergeAllowedRouteFixtureV1({
   decisionCommentId: readyMergeAllowedCommentId,
   changedJobPage: readyManifestFailurePages[0],
 })
+
+const duplicateMergeDecisionRecords = new Map(roleSourceRecords)
+duplicateMergeDecisionRecords.set(
+  readyMergeAllowedCommentId + 1,
+  roleComment(readyMergeAllowedCommentId + 1, readyMergeAllowedBody, '2026-08-17T10:00:01Z'),
+)
+const duplicateMergeDecisionRoute = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  sourceRecords: duplicateMergeDecisionRecords,
+})
+const malformedMergeDecisionHistoryRecords = new Map(roleSourceRecords)
+malformedMergeDecisionHistoryRecords.set(
+  readyMergeAllowedCommentId + 2,
+  roleComment(
+    readyMergeAllowedCommentId + 2,
+    readyMergeAllowedBody.replace('status: completed', 'status: pending'),
+    '2026-08-17T10:00:02Z',
+  ),
+)
+const malformedMergeDecisionHistoryRoute = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  sourceRecords: malformedMergeDecisionHistoryRecords,
+})
+const mergeDecisionDirectRefetchDrift = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  directDecisionBody: `${readyMergeAllowedBody}\n`,
+})
+const staleReviewRecords = new Map(roleSourceRecords)
+staleReviewRecords.set(
+  mergeDecisionReviewId + 20,
+  roleComment(
+    mergeDecisionReviewId + 20,
+    reviewDecisionBody({
+      reviewed_head: OTHER_HEAD,
+      decision: 'CHANGES_REQUIRED',
+      blocking_finding_count: 1,
+      remaining_finding_count: 1,
+    }),
+    '2026-08-17T09:59:59Z',
+  ),
+)
+const staleReviewMergeDecisionRoute = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  sourceRecords: staleReviewRecords,
+})
+const scopeDriftMergeDecisionRoute = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  taskState: Object.freeze({ ...readyMergeDecisionDispatch.task_state, authorized_paths: Object.freeze([rolePaths[0]]) }),
+})
+const invalidPullMergeDecisionRoutes = await Promise.all([
+  { draft: true },
+  { pullState: 'closed' },
+  { merged: true },
+  { baseRef: 'release' },
+].map((overrides) => executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  ...overrides,
+})))
+const blockingThreadMergeDecisionRoute = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  threadPages: [connectionPage([{ id: 'merge-decision-active-thread', isResolved: false, isOutdated: false }])],
+})
+const mergeDecisionLifecycleBoundary = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  withLifecycleReplay: true,
+})
+
+check(
+  readyMergeAllowedRoute.result.next_action === 'MERGE_OPERATOR' &&
+    readyMergeAllowedRoute.result.role_dispatch?.source_binding?.admission_run_id === READY_RUN_ID &&
+    readyMergeAllowedRoute.metrics.originReads === 0,
+  'MDOB-01 completed producer run remains immutable while later natural consumer routes MERGE_OPERATOR',
+)
+check(
+  duplicateMergeDecisionRoute.result.next_action === 'STOP' && duplicateMergeDecisionRoute.result.reason === 'merge_decision_cardinality_invalid',
+  'MDOB-02 duplicate applicable Merge Decision fails closed',
+)
+check(
+  malformedMergeDecisionHistoryRoute.result.next_action === 'STOP' && malformedMergeDecisionHistoryRoute.result.reason === 'merge_decision_history_invalid',
+  'MDOB-03 malformed canonical Merge Decision history fails closed',
+)
+check(
+  mergeDecisionDirectRefetchDrift.result.next_action === 'STOP' && mergeDecisionDirectRefetchDrift.result.reason === 'merge_decision_direct_refetch_invalid',
+  'MDOB-03b direct-refetched canonical Merge Decision body must remain exact',
+)
+check(
+  staleReviewMergeDecisionRoute.result.next_action === 'STOP' && staleReviewMergeDecisionRoute.result.reason === 'merge_decision_binding_invalid',
+  'MDOB-04 current Review identity drift fails closed',
+)
+check(
+  scopeDriftMergeDecisionRoute.result.next_action === 'STOP' && scopeDriftMergeDecisionRoute.result.state_changed === false,
+  'MDOB-05 cumulative Task-state scope drift fails closed',
+)
+check(
+  invalidPullMergeDecisionRoutes.every(({ result }) => result.next_action === 'STOP' && result.state_changed === false),
+  'MDOB-06 Draft closed merged or wrong-base PR fails closed',
+)
+check(
+  readyMergeAllowedExternalFailure.result.next_action === 'STOP' && readyMergeAllowedExternalFailure.result.reason === 'merge_decision_binding_invalid',
+  'MDOB-07 failed genuine external checks fail closed',
+)
+check(
+  blockingThreadMergeDecisionRoute.result.next_action === 'STOP' && blockingThreadMergeDecisionRoute.result.reason === 'merge_decision_binding_invalid',
+  'MDOB-08 active non-outdated review thread fails closed',
+)
+check(
+  mergeDecisionLifecycleBoundary.result.next_action === 'MERGE_OPERATOR' &&
+    !Object.hasOwn(mergeDecisionLifecycleBoundary.result, 'lifecycle_projection'),
+  'MDOB-09 canonical Merge Decision continuation performs no historical Ready evidence reproof',
+)
+check(
+  [readyMergeAllowedRoute, duplicateMergeDecisionRoute, malformedMergeDecisionHistoryRoute, mergeDecisionDirectRefetchDrift,
+    staleReviewMergeDecisionRoute, scopeDriftMergeDecisionRoute, blockingThreadMergeDecisionRoute,
+    mergeDecisionLifecycleBoundary, ...invalidPullMergeDecisionRoutes]
+    .every(({ result, metrics }) => result.state_changed === false && metrics.patchCalls === 0) &&
+    !Object.hasOwn(readyMergeAllowedRoute.result, 'ready_action') && !Object.hasOwn(readyMergeAllowedRoute.result, 'merge_method'),
+  'MDOB-10 admission performs no Ready mutation synthetic event or Merge',
+)
 const rebindMatrix = [
   reboundImplementer.next_action === 'PROTECTED_OPERATION_READY' && reboundImplementer.exact_head === HEAD &&
     reboundPostRepairReviewer.next_action === 'PROTECTED_OPERATION_READY' &&
@@ -5245,9 +5451,9 @@ const rebindMatrix = [
     issueCommentProductionEquivalentSameRun.metrics.originReads === 1 && issueCommentProductionEquivalentSameRun.metrics.repositoryReads === 1 &&
     issueCommentProductionEquivalentSameRun.metrics.jobReads === 1 && issueCommentExactSameRunCheck.result.next_action === 'PROTECTED_OPERATION_READY' &&
     readyMergeAllowedRoute.result.next_action === 'MERGE_OPERATOR' && readyMergeAllowedRoute.result.terminal_result === 'MERGE_ALLOWED' &&
-    readyMergeAllowedRoute.result.role_dispatch?.next_action === 'MERGE_OPERATOR' && readyMergeAllowedRoute.metrics.originReads === 1 && readyMergeAllowedRoute.metrics.jobReads === 1 &&
+    readyMergeAllowedRoute.result.role_dispatch?.next_action === 'MERGE_OPERATOR' && readyMergeAllowedRoute.metrics.originReads === 0 && readyMergeAllowedRoute.metrics.jobReads === 0 &&
     issueCommentMergeAllowedRoute.result.next_action === 'MERGE_OPERATOR' && issueCommentMergeAllowedRoute.result.terminal_result === 'MERGE_ALLOWED' &&
-    issueCommentMergeAllowedRoute.metrics.repositoryReads === 1 && issueCommentMergeAllowedRoute.metrics.jobReads === 0 &&
+    issueCommentMergeAllowedRoute.metrics.repositoryReads === 0 && issueCommentMergeAllowedRoute.metrics.jobReads === 0 &&
     OTHER_HEAD === '3b19e86982701f7cffbe42d4d3568ad498bc016f' && CUMULATIVE_PR_BASE === 'eaed40ca274b6d05e03e15c87cca00b3d8b1df68' &&
     OTHER_HEAD !== CUMULATIVE_PR_BASE && Object.keys(parsedReadyMergeAllowed).join('\n') === Object.keys(parsedMergeDecision).join('\n') &&
     [taskTitleDrift, taskBodyDriftRebind, closedTaskConsumer, pullRequestTaskRebind, mismatchedTaskConsumer, malformedTaskRebind]
@@ -5266,7 +5472,6 @@ const rebindMatrix = [
     issueCommentSameRunJobStateResults.every(({ result }) => result.next_action === 'STOP' && result.reason === 'issue_comment_same_run_job_state_invalid') &&
     issueCommentSameRunManifestResults.every(({ result }) => result.next_action === 'STOP' && result.reason === 'issue_comment_same_run_job_manifest_invalid') &&
     issueCommentSameRunCheckIdentityResults.every(({ result }) => result.next_action === 'STOP' && result.reason === 'role_dispatch_gate_changed') &&
-    readyMergeAllowedManifestDrift.result.next_action === 'STOP' && readyMergeAllowedManifestDrift.result.reason === 'ready_self_job_manifest_invalid' &&
     readyMergeAllowedRoute.result.role_dispatch?.repository === REPOSITORY && readyMergeAllowedRoute.result.role_dispatch?.task_issue_number === TASK &&
     readyMergeAllowedRoute.result.role_dispatch?.pr_number === PR && readyMergeAllowedRoute.result.role_dispatch?.exact_head === OTHER_HEAD &&
     readyMergeAllowedRoute.result.role_dispatch?.source_comment_id === readyMergeAllowedCommentId && readyMergeAllowedRoute.result.role_dispatch?.source_binding?.kind === 'MERGE_DECISION' &&
@@ -5275,7 +5480,9 @@ const rebindMatrix = [
     readyMergeAllowedRoute.result.role_dispatch?.source_binding?.admission_run_id === READY_RUN_ID,
   reviewerDeletedSource.next_action === 'STOP' && mergeSourceDrift.next_action === 'STOP' && postRepairBindingDrift.next_action === 'STOP' &&
     readyOriginMismatchResults.every((value) => value.next_action === 'STOP' && value.reason === 'role_dispatch_origin_invalid') &&
-    readyMergeAllowedOriginDriftResults.every(({ result }) => result.next_action === 'STOP' && result.reason === 'role_dispatch_origin_invalid') &&
+    readyMergeAllowedOriginDriftResults.every(({ result, metrics }) =>
+      result.next_action === 'MERGE_OPERATOR' && result.role_dispatch?.source_binding?.admission_run_id === READY_RUN_ID &&
+      metrics.originReads === 0 && metrics.jobReads === 0) &&
     issueCommentHostIdentityDriftResults.every((value) => value.next_action === 'STOP' && value.reason === 'role_dispatch_origin_invalid') &&
     issueCommentSameRunExecutionDriftResults.every(({ result }) => result.next_action === 'STOP' && result.reason === 'role_dispatch_origin_invalid') &&
     issueCommentSameRunOriginDriftResults.every(({ result }) => result.next_action === 'STOP' && result.reason === 'role_dispatch_origin_invalid'),
@@ -8928,7 +9135,7 @@ const workflowBoundaryMatrix = [
   roleBindRun.includes("operation=CONVERGED_NOOP") && roleExecutionStep?.if === "contains(fromJSON('[\"EXECUTE_ROLE\",\"EXECUTE_BOOTSTRAP_PUBLICATION\"]'), steps.role_dispatch_plan.outputs.operation)" && roleExecutionStep?.env?.GH_TOKEN === '${{ github.token }}' && roleExecutionStep?.env?.ROLE_OPERATION === '${{ steps.role_dispatch_plan.outputs.operation }}' && mergeDecisionOutput.next_action === 'POST_MERGE_DECISION' && !Object.hasOwn(mergeDecisionOutput, 'bounded_metadata') && roleOutputFailureDiagnosticKeys.length === 9 && roleOutputFailureDiagnosticKeys.join('\n') === expectedRoleOutputFailureDiagnosticKeys.join('\n') && roleExecutionRun.indexOf('$publicationComment = Publish-CanonicalComment -BodyFile $publicationPath') < roleExecutionRun.indexOf('--review-event-file $publishedEventPath') && roleExecutionRun.indexOf('--review-event-file $publishedEventPath') < roleExecutionRun.indexOf("-ExpectedAction 'POST_REVIEW'") && assertRoleOutputSource.includes('--role-jsonl-file $JsonlFile') && (roleExecutionRun.match(/Assert-RoleOutput[^\n]+-JsonlFile \$/g) ?? []).length === 2 && assertRoleOutputSource.includes('$failure.bounded_metadata') && expectedRoleOutputFailureDiagnosticKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("$dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && assertRoleOutputSource.includes('$failure.failure_evidence') && reviewerEvidenceHeaderKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && assertRoleOutputSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && assertRoleOutputSource.includes('$header.selected_body_utf8_byte_count -gt 262144') && assertRoleOutputSource.includes('$header.body_chunk_count -gt 64') && assertRoleOutputSource.includes('$bytes.Length -ne 4096') && assertRoleOutputSource.includes('[Convert]::FromBase64String($chunk.body_base64)') && assertRoleOutputSource.includes('$sha256.ComputeHash($capturedBytes)') && assertRoleOutputSource.includes("$header.body_capture_status -ceq 'BOUND_EXCEEDED'") && assertRoleOutputSource.includes('$chunks.Count -ne 0') && assertRoleOutputSource.includes('-gt 9007199254740991') && assertRoleOutputSource.includes('-isnot [System.Array]') && assertRoleOutputSource.includes('$diagnosticLines = @()') && assertRoleOutputSource.includes('foreach ($diagnosticLine in $diagnosticLines)') && assertRoleOutputSource.split('[Console]::Error.WriteLine($diagnosticLine)').length === 2 && assertRoleOutputSource.includes("throw 'role_output_validation_failed'") && !assertRoleOutputSource.includes('Start-Sleep') && !assertRoleOutputSource.includes('retry') && !Object.hasOwn(workflow.concurrency, 'queue') && workflow.concurrency['cancel-in-progress'] === false && roleExecutionRun.includes("if ($expected -in @('POST_REVIEW', 'POST_MERGE_DECISION'))") && !roleExecutionRun.includes('Complete-ReviewerClosure'),
   boundedRoleSource.startsWith('function Invoke-BoundedRole {') && !boundedRoleSource.includes('$LASTEXITCODE = $null') && boundedRoleSource.indexOf('$priorToken = $env:GH_TOKEN') < boundedRoleSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(boundedRoleSource) && boundedRoleSource.indexOf('codex.cmd exec') < boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') && boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') < boundedRoleSource.indexOf('if ($null -eq $priorToken)') && terminalAgentSelectorSource.includes('$terminalMessage = [string]$event.item.text') && !terminalAgentSelectorSource.includes('$messages +=') && (process.platform !== 'win32' || (roleProviderNativeExitProbe.success === 0 && roleProviderNativeExitProbe.failure === 37 && roleProviderTerminalMessageProbe.multiple === roleImplementationResultBody && roleProviderTerminalMessageProbe.zeroRejected === true && malformedTerminalOutput.next_action === 'STOP' && trustedHostCredentialProbe.providerToken === 'ABSENT' && trustedHostCredentialProbe.restoredToken === 'trusted-host-token' && trustedHostCredentialProbe.validatedAction === 'POST_MERGE_DECISION' && trustedHostCredentialProbe.hostTokens.join('\n') === 'trusted-host-token\ntrusted-host-token')) && roleExecutionRun.indexOf('Invoke-BoundedRoleUntilTerminal -PromptFile $promptPath') < roleExecutionRun.indexOf('$validated = Assert-RoleOutput') && roleExecutionRun.indexOf('$validated = Assert-RoleOutput') < roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') < roleExecutionRun.indexOf('$canonicalComment = Publish-CanonicalComment -BodyFile $bodyPath') && roleExecutionRun.split('Assert-FreshRoleBinding').length >= 8 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'") && roleExecutionRun.includes("throw 'publication_continuation_task_binding_invalid'") && roleExecutionRun.includes("throw 'publication_continuation_route_failed'") && roleExecutionRun.includes("throw 'publication_continuation_binding_invalid'") && roleExecutionRun.includes("throw 'publication_reviewer_dispatch_not_ready'") && roleExecutionRun.indexOf("$reviewPlan = Get-Content -LiteralPath $reviewPlanPath") < roleExecutionRun.indexOf('$reviewTask = gh api') && roleExecutionRun.includes("$reviewTask.number -ne $dispatch.task_issue_number -or $reviewTask.state -cne 'open' -or $null -ne $reviewTask.pull_request") && roleExecutionRun.indexOf("throw 'publication_reviewer_task_binding_invalid'") < roleExecutionRun.indexOf('Invoke-BoundedRoleUntilTerminal -PromptFile $reviewPromptPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath') < roleExecutionRun.indexOf('$publicationTask = gh api') && roleExecutionRun.includes("$publicationTask.number -ne $dispatch.task_issue_number -or $publicationTask.state -cne 'open' -or $null -ne $publicationTask.pull_request") && roleExecutionRun.indexOf('$publicationTask = gh api') < roleExecutionRun.indexOf('$canonicalReviewComment = Publish-CanonicalComment -BodyFile $reviewBodyPath') && !roleExecutionRun.includes('Assert-FreshReviewerSnapshot') && !roleExecutionRun.includes('review_thread_snapshot'),
   postRepairReviewJob.steps.find((step) => step.name === 'Bind post-repair Independent Reviewer')?.run.includes('task_state = $state') && postRepairExecutionStep?.env?.GH_TOKEN === '${{ github.token }}' && postRepairExecutionRun.includes('--role-rebind-file') && !postRepairExecutionRun.includes('--review-publication-rebind-file') && !postRepairExecutionRun.includes('--review-closure-file') && postRepairExecutionRun.includes('if ($nativeExit -ne 0) { throw "post_repair_review_provider_failed_$nativeExit" }') && postRepairExecutionRun.includes("if ($messages.Count -ne 1) { throw 'post_repair_review_result_cardinality_invalid' }") && postRepairProviderThroughRebindSource.indexOf('$priorToken = $env:GH_TOKEN') < postRepairProviderThroughRebindSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(postRepairProviderThroughRebindSource) && postRepairProviderThroughRebindSource.indexOf('codex.cmd exec') < postRepairProviderThroughRebindSource.indexOf('$nativeExit = $LASTEXITCODE') && postRepairProviderThroughRebindSource.indexOf('$nativeExit = $LASTEXITCODE') < postRepairProviderThroughRebindSource.indexOf('if ($null -eq $priorToken)') && postRepairProviderThroughRebindSource.indexOf('if ($null -eq $priorToken)') < postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-output-file') && postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-output-file') < postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-rebind-file') && postRepairExecutionRun.indexOf('if ($nativeExit -ne 0)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairExecutionRun.indexOf('if ($messages.Count -ne 1)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && postRepairEvidenceValidatorSource.includes('$sha256.ComputeHash($capturedBytes)') && !postRepairEvidenceValidatorSource.includes('post_repair') && postRepairExecutionRun.includes("$failureDispatch.next_action -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.indexOf('[Console]::Error.WriteLine($diagnosticLine)') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.includes('$diagnosticLines = @()') && (process.platform !== 'win32' || (postRepairFailureEvidenceProbe.lineCount === reviewerFailureEvidence.chunks.length + 1 && postRepairFailureEvidenceProbe.headerRecordType === 'independent_reviewer_role_output_failure_evidence_v1' && postRepairFailureEvidenceProbe.chunkRecordTypesValid === true && postRepairFailureEvidenceProbe.invalidRejected === true && postRepairTrustedHostCredentialProbe.valid.providerToken === 'ABSENT' && postRepairTrustedHostCredentialProbe.valid.restoredToken === 'trusted-post-repair-host-token' && postRepairTrustedHostCredentialProbe.valid.outcome === 'COMPLETED' && postRepairTrustedHostCredentialProbe.valid.validatedAction === 'POST_REVIEW' && postRepairTrustedHostCredentialProbe.valid.reboundAction === 'PROTECTED_OPERATION_READY' && postRepairTrustedHostCredentialProbe.valid.hostCalls.length === 2 && postRepairTrustedHostCredentialProbe.valid.hostCalls.every((call) => call.startsWith('PRESENT:')) && postRepairTrustedHostCredentialProbe.valid.hostCalls[1].includes('--role-rebind-file') && postRepairTrustedHostCredentialProbe.invalid.providerToken === 'ABSENT' && postRepairTrustedHostCredentialProbe.invalid.restoredToken === 'trusted-post-repair-host-token' && postRepairTrustedHostCredentialProbe.invalid.outcome === 'post_repair_review_result_invalid' && postRepairTrustedHostCredentialProbe.invalid.validatedAction === null && postRepairTrustedHostCredentialProbe.invalid.reboundAction === null && postRepairTrustedHostCredentialProbe.invalid.hostCalls.length === 1 && postRepairTrustedHostCredentialProbe.invalid.hostCalls[0].startsWith('PRESENT:'))),
-  runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id') && runnerSource.includes("const ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'") && ['GITHUB_REPOSITORY', 'GITHUB_REF', 'GITHUB_WORKFLOW_REF', 'GITHUB_WORKFLOW_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_JOB'].every((name) => runnerSource.includes(`process.env.${name}`)) && runnerSource.includes('RESOLVE_REVIEW_THREAD_MUTATION') && !runnerSource.includes('executeReviewerPublicationRebindV1') && runnerSource.includes('executeReviewThreadClosureV1') && !runnerSource.includes("mode: 'review_publication_rebind'") && runnerSource.includes("mode: 'review_closure'") && runnerSource.match(/parseIndependentReviewDecisionProjectionV1/g)?.length === 7,
+  runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id') && runnerSource.includes("const ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'") && ['GITHUB_REPOSITORY', 'GITHUB_REF', 'GITHUB_WORKFLOW_REF', 'GITHUB_WORKFLOW_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_JOB'].every((name) => runnerSource.includes(`process.env.${name}`)) && runnerSource.includes('RESOLVE_REVIEW_THREAD_MUTATION') && !runnerSource.includes('executeReviewerPublicationRebindV1') && runnerSource.includes('executeReviewThreadClosureV1') && !runnerSource.includes("mode: 'review_publication_rebind'") && runnerSource.includes("mode: 'review_closure'") && runnerSource.match(/parseIndependentReviewDecisionProjectionV1/g)?.length === 6,
 manualWorkflowDispatchResult.state === 'MERGE_ELIGIBLE' && manualWorkflowDispatchResult.allowed === false && manualWorkflowDispatchResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' && manualWorkflowDispatchResult.automation_status === 'HANDOFF_READY' && manualWorkflowDispatchResult.role_dispatch?.purpose === 'MERGE_DECISION' && manualWorkflowDispatchAdmission.metrics.checkReads === 2 && manualWorkflowDispatchAdmission.metrics.threadReads === 1 && mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR' && (needs.protected_transition_admission_v1.outputs.terminal_result == 'MERGE_ALLOWED' || needs.protected_transition_admission_v1.outputs.terminal_result == 'MINIMAL_GOVERNANCE_V1')" && mergeOperationRun.includes('--merge-operator-file $dispatchPath') && mergeOperationRun.indexOf('--merge-operator-file $dispatchPath') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force') && !workflowSource.includes('gh workflow run') && !runnerSource.includes('createWorkflowDispatch') && runnerSource.includes('acquireMergeCheckRollupSnapshotV1') && runnerSource.includes('acquireMergeReviewThreadsV1') && runnerSource.includes('executeProtectedTransitionAdmissionV1'),
   admissionJob.outputs.authority_kind === '${{ steps.evaluate.outputs.authority_kind }}' && admissionJob.outputs.minimal_merge_plan_b64 === '${{ steps.evaluate.outputs.minimal_merge_plan_b64 }}' && (admissionEvaluationRun.match(/--review-event-file/g) ?? []).length === 1 && !Object.hasOwn(mergeHostRunnerStep, 'if') && mergePlanRun.includes("if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1')") && mergePlanRun.indexOf("if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1')") < mergePlanRun.indexOf('node $env:PTA_MERGE_HOST_RUNNER') && (mergeOperationRun.match(/--minimal-governance-drift-guard-file/g) ?? []).length === 1 && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.indexOf('minimal_governance_final_drift_guard_matched') < mergeOperationRun.indexOf('--method PUT') && (workflowSource.match(/--method PUT/g) ?? []).length === 1 && !workflowSource.includes('Start-Sleep') && !mergePlanRun.includes('retry') && !mergeOperationRun.includes('retry'),
   workflow.permissions.actions === 'read' && mergePlanRun.includes("$snapshot.pull.base -cnotmatch '^[0-9a-f]{40}$'") && !mergePlanRun.includes('$snapshot.pull.base -cne $plan.expected_base') && mergePlanRun.includes("$plan.expected_base -cnotmatch '^[0-9a-f]{40}$'") && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT'),
@@ -11118,5 +11325,5 @@ check(
   'SRP-10 bounded continuation adds no transition, polling, workflow dispatch, or credential dependency',
 )
 
-if (assertions !== 1126) throw new Error(`expected exactly 1126 assertions, observed ${assertions}`)
+if (assertions !== 1137) throw new Error(`expected exactly 1137 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
