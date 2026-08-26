@@ -63,7 +63,7 @@ try {
   assert.equal(appSource.includes("analyzerText.split(/,|\\n|BREAK/i)"), false, 'App must not retain either inline parser')
   assert.equal(appSource.includes('.slice(0,80)'), false, 'Preview must not hide parsed entries that apply will import')
 
-  console.log('Prompt Analyzer deterministic parser tests passed: 27 assertions')
+  console.log('Prompt Analyzer deterministic parser tests passed: 28 assertions')
 } finally {
   await server.close()
 }
