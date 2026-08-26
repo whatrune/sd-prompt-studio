@@ -30,6 +30,7 @@ const WORKFLOW_RUN_ID = /^[1-9]\d*$/
 const READY_ATTACHED_SELF_CHECK_CONTEXT_V1 = 'ATTACHED_CURRENT_CHECK_REQUIRED'
 const READY_REBIND_SELF_CHECK_CONTEXT_V1 = 'ATTACHED_SAME_RUN_FAMILY_EXCLUDED'
 const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'
+const MANUAL_DETACHED_ADMISSION_SELF_CHECK_CONTEXT_V1 = 'DETACHED_MANUAL_ADMISSION_CHECK_AWARE'
 const ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'
 const WORKFLOW_DISPATCH_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'
 const RTO_SELF_JOB_NAMES_V1 = Object.freeze([
@@ -2240,7 +2241,11 @@ export const executePostReadyProgressionOwnerV1 = async ({
 export const executeManualProgressionControllerV1 = async ({ request, host, runId = null }) => {
   if (request?.transition === 'merge_decision_admission') {
     return executePostReadyProgressionOwnerV1({
-      request,
+      request: Object.freeze({
+        ...request,
+        currentWorkflowRunId: runId,
+        selfCheckContext: MANUAL_DETACHED_ADMISSION_SELF_CHECK_CONTEXT_V1,
+      }),
       host,
       runId,
     })
@@ -2437,7 +2442,7 @@ const classifyMergeGatePullV1 = (request, pull) => {
     return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'pull_mergeability_indeterminate', 1, pull.head.sha)
   }
   const selfAwareUnstable = WORKFLOW_RUN_ID.test(request.currentWorkflowRunId ?? '') &&
-    [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, READY_REBIND_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1, ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext) &&
+    [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, READY_REBIND_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1, MANUAL_DETACHED_ADMISSION_SELF_CHECK_CONTEXT_V1, ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext) &&
     pull.mergeable_state === 'unstable'
   if (!pull.mergeable || (pull.mergeable_state !== 'clean' && !selfAwareUnstable)) {
     return mergeGateStoppedResultV1(request, 'IMPLEMENTATION_BLOCKED', 'pull_not_mergeable', 2, pull.head.sha)
@@ -2534,6 +2539,13 @@ const reduceSelfAwareCurrentChecksV1 = (request, rollup) => {
   const admissionName = 'protected_transition_admission_v1'
   const repairName = 'protected_transition_repair_executor_v1'
   if (!WORKFLOW_RUN_ID.test(request.currentWorkflowRunId)) throw new Error('ready_event_invalid')
+  if (request.selfCheckContext === MANUAL_DETACHED_ADMISSION_SELF_CHECK_CONTEXT_V1) {
+    return Object.freeze(selectedGenerations.filter((item) => {
+      if (item.type !== 'CheckRun' || item.name !== admissionName) return true
+      const internalRunId = parseRepositoryActionsRunIdV1(request, item)
+      return internalRunId === null || internalRunId === request.currentWorkflowRunId
+    }))
+  }
   if (request.selfCheckContext === REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1) {
     return Object.freeze(selectedGenerations.filter((item) => {
       if (item.type !== 'CheckRun' || !RTO_SELF_JOB_NAMES_V1.includes(item.name)) return true
@@ -2684,7 +2696,7 @@ export const evaluateMergeAllowedAutomationV1 = async ({ request, admitted, host
       return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'pull_mergeability_indeterminate', 1, reviewSnapshot.pull.headRefOid)
     }
     const selfAwareUnstable = WORKFLOW_RUN_ID.test(request.currentWorkflowRunId ?? '') &&
-      [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, READY_REBIND_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1, ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext) &&
+      [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, READY_REBIND_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1, MANUAL_DETACHED_ADMISSION_SELF_CHECK_CONTEXT_V1, ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext) &&
       reviewSnapshot.pull.mergeStateStatus === 'UNSTABLE'
     if (reviewSnapshot.pull.mergeable !== 'MERGEABLE' || (reviewSnapshot.pull.mergeStateStatus !== 'CLEAN' && !selfAwareUnstable)) {
       return mergeGateStoppedResultV1(request, 'IMPLEMENTATION_BLOCKED', 'pull_not_mergeable', 2, reviewSnapshot.pull.headRefOid)

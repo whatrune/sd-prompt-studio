@@ -1494,9 +1494,16 @@ const mergeAdmitted = evaluateProtectedTransitionAdmissionV1(input({
   transition: 'merge_decision_admission',
   task_state: approvedState(),
 }))
+const manualHistoricalAdmissionFailureV1 = currentReadyCheck({
+  id: 'manual-historical-admission-failure',
+  status: 'COMPLETED',
+  conclusion: 'FAILURE',
+  detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/31560744932/job/93075431467`,
+  startedAt: '2026-08-12T03:39:26Z',
+})
 const manualWorkflowDispatchAdmission = automationHost({
   initialState: approvedState(),
-  checkPages: [connectionPage([successfulCheck('manual-external-success')])],
+  checkPages: [connectionPage([manualHistoricalAdmissionFailureV1, successfulCheck('manual-external-success')])],
 })
 const manualWorkflowDispatchResult = await executeManualProgressionControllerV1({
   request: mergeRequest,
@@ -10808,6 +10815,7 @@ check(
 check(
   manualWorkflowDispatchResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' &&
   manualWorkflowDispatchResult.reason !== 'ready_current_check_missing' &&
+  manualWorkflowDispatchResult.reason !== 'checks_not_successful' &&
   manualWorkflowDispatchResult.role_dispatch?.admission_run_id === READY_RUN_ID &&
   manualWorkflowDispatchAdmission.metrics.checkReads === 2,
   'SRECD-01 manual merge admission requires genuine external checks without treating its workflow run as an attached Ready event check',
@@ -10822,12 +10830,12 @@ const naturalReadyProgressionSourceV1 = runnerSource.slice(
   runnerSource.indexOf('export const evaluateMergeAllowedAutomationV1'),
 )
 check(
-  manualProgressionSourceV1.includes('request,\n      host,\n      runId,') &&
-  !manualProgressionSourceV1.includes('currentWorkflowRunId') &&
+  manualProgressionSourceV1.includes('currentWorkflowRunId: runId') &&
+  manualProgressionSourceV1.includes('selfCheckContext: MANUAL_DETACHED_ADMISSION_SELF_CHECK_CONTEXT_V1') &&
   !manualProgressionSourceV1.includes('READY_ATTACHED_SELF_CHECK_CONTEXT_V1') &&
   naturalReadyProgressionSourceV1.includes('currentWorkflowRunId: runId ?? null') &&
   naturalReadyProgressionSourceV1.includes('selfCheckContext: READY_ATTACHED_SELF_CHECK_CONTEXT_V1'),
-  'SRECD-02 manual owner input stays event-independent while the natural Ready adapter retains its attached-current-check contract',
+  'SRECD-02 manual admission uses only its detached admission-check context while the natural Ready adapter retains its attached-current-check contract',
 )
 
 const wrongNameReadyCheckFixtureV1 = automationHost({
@@ -10868,7 +10876,7 @@ check(
 const manualExternalCheckCasesV1 = [
   { fixture: automationHost({ initialState: approvedState(), checkPages: [connectionPage([])] }), reason: 'checks_missing' },
   { fixture: automationHost({ initialState: approvedState(), checkPages: [connectionPage([{ ...successfulCheck('manual-pending'), status: 'IN_PROGRESS', conclusion: null }])] }), reason: 'checks_not_terminal' },
-  { fixture: automationHost({ initialState: approvedState(), checkPages: [connectionPage([{ ...successfulCheck('manual-failed'), conclusion: 'FAILURE' }])] }), reason: 'checks_not_successful' },
+  { fixture: automationHost({ initialState: approvedState(), checkPages: [connectionPage([manualHistoricalAdmissionFailureV1, { ...successfulCheck('manual-failed'), conclusion: 'FAILURE' }])] }), reason: 'checks_not_successful' },
 ]
 const manualExternalCheckResultsV1 = await Promise.all(manualExternalCheckCasesV1.map(({ fixture }) =>
   executeManualProgressionControllerV1({ request: mergeRequest, host: fixture.host, runId: READY_RUN_ID })))
@@ -10876,7 +10884,37 @@ check(
   manualExternalCheckResultsV1.every((result, index) =>
     result.next_action === 'STOP' && result.reason === manualExternalCheckCasesV1[index].reason) &&
   manualExternalCheckCasesV1.every(({ fixture }) => fixture.metrics.threadReads === 0),
-  'SRECD-04 manual missing, pending, or failed genuine external checks remain authoritative and fail closed',
+  'SRECD-04 manual missing, pending, or failed genuine external checks remain authoritative after stale internal admission-check exclusion',
+)
+
+const manualHistoricalOtherInternalFixtureV1 = automationHost({
+  initialState: approvedState(),
+  checkPages: [connectionPage([
+    manualHistoricalAdmissionFailureV1,
+    currentReadyCheck({
+      id: 'manual-historical-consumer-failure',
+      name: 'protected_transition_role_dispatch_consumer_v1',
+      status: 'COMPLETED',
+      conclusion: 'FAILURE',
+      detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/31560744932/job/93075431468`,
+      startedAt: '2026-08-12T03:39:27Z',
+    }),
+    successfulCheck('manual-other-internal-external-success'),
+  ])],
+})
+const manualCurrentAdmissionFixtureV1 = automationHost({
+  initialState: approvedState(),
+  checkPages: [connectionPage([currentReadyCheck(), successfulCheck('manual-current-admission-external-success')])],
+})
+const [manualHistoricalOtherInternalResultV1, manualCurrentAdmissionResultV1] = await Promise.all([
+  executeManualProgressionControllerV1({ request: mergeRequest, host: manualHistoricalOtherInternalFixtureV1.host, runId: READY_RUN_ID }),
+  executeManualProgressionControllerV1({ request: mergeRequest, host: manualCurrentAdmissionFixtureV1.host, runId: READY_RUN_ID }),
+])
+check(
+  manualHistoricalOtherInternalResultV1.reason === 'checks_not_successful' &&
+  manualCurrentAdmissionResultV1.reason === 'checks_not_terminal' &&
+  [manualHistoricalOtherInternalResultV1, manualCurrentAdmissionResultV1].every((result) => result.next_action === 'STOP'),
+  'SRECD-05 manual exclusion is limited to stale admission checks and retains other internal or current-run admission checks',
 )
 
 const manualHeadDriftFixtureV1 = automationHost({ initialState: approvedState(), headAtPullRead: { 1: OTHER_HEAD } })
@@ -10910,7 +10948,7 @@ check(
   manualDriftResultsV1[3].reason === 'post_ready_binding_invalid' &&
   manualDriftResultsV1[4].reason === 'blocking_review_threads_present' &&
   manualDriftResultsV1.every((result) => result.next_action === 'STOP'),
-  'SRECD-05 manual HEAD, Task-state, Review, scope, or active-thread drift remains fail closed before Product Owner progression',
+  'SRECD-06 manual HEAD, Task-state, Review, scope, or active-thread drift remains fail closed before Product Owner progression',
 )
 
 const postReadyDraftFixtureV1 = automationHost({ initialState: approvedState(), draft: true })
@@ -11080,5 +11118,5 @@ check(
   'SRP-10 bounded continuation adds no transition, polling, workflow dispatch, or credential dependency',
 )
 
-if (assertions !== 1125) throw new Error(`expected exactly 1125 assertions, observed ${assertions}`)
+if (assertions !== 1126) throw new Error(`expected exactly 1126 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
