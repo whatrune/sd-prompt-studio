@@ -1,3 +1,18 @@
+export const projectMergeOperatorWorkflowResultV1 = ({ plan, expectedHead }) => {
+  if (plan?.next_action === 'NONE' && plan?.reason === 'already_merged') {
+    return Object.freeze({ operation: 'NONE' })
+  }
+  if (
+    plan?.next_action !== 'MERGE_PR' || plan?.merge_method !== 'merge' ||
+    plan?.exact_head !== expectedHead
+  ) throw new Error('merge_operator_plan_invalid')
+  return Object.freeze({
+    operation: 'MERGE_PR',
+    pr_number: plan.pr_number,
+    exact_head: plan.exact_head,
+  })
+}
+
 export const createMergeOperatorPreflightOwnerV1 = ({
   REPOSITORY,
   FULL_HEAD,

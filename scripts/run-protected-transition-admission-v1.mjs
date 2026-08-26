@@ -17,7 +17,12 @@ import {
   isSharedHeadBindingStaleV1,
   validateSharedSealedEvidenceV1,
 } from '../generic-platform/src/core/shared-sealed-evidence-v1.mjs'
-import { createMergeOperatorPreflightOwnerV1 } from './protected-transition-merge-operator-preflight-v1.mjs'
+import {
+  createMergeOperatorPreflightOwnerV1,
+  projectMergeOperatorWorkflowResultV1,
+} from './protected-transition-merge-operator-preflight-v1.mjs'
+
+export { projectMergeOperatorWorkflowResultV1 }
 
 const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/
 const FULL_HEAD = /^[0-9a-f]{40}$/
@@ -9650,6 +9655,13 @@ const parseInvocation = (argv, environment) => {
   if (argv.length === 2 && argv[0] === '--merge-operator-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
     return Object.freeze({ mode: 'merge_operator', dispatchFile: argv[1] })
   }
+  if (
+    argv.length === 4 && argv[0] === '--merge-operator-result-projection-file' &&
+    typeof argv[1] === 'string' && argv[1].length > 0 && argv[2] === '--expected-head' &&
+    FULL_HEAD.test(argv[3] ?? '')
+  ) {
+    return Object.freeze({ mode: 'merge_operator_result_projection', planFile: argv[1], expectedHead: argv[3] })
+  }
   if (argv.length === 2 && argv[0] === '--minimal-governance-drift-guard-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
     return Object.freeze({ mode: 'minimal_governance_drift_guard', planFile: argv[1] })
   }
@@ -10224,7 +10236,7 @@ const main = async () => {
   let invocation
   try {
     invocation = parseInvocation(process.argv.slice(2), process.env)
-    const host = productionHost(process.env)
+    const host = invocation.mode === 'merge_operator_result_projection' ? null : productionHost(process.env)
     const executeProduction = async (executionHost = host) => invocation.mode === 'review_event'
         ? await executeReviewEventWithLifecycleReplayV1({
             event: JSON.parse(readFileSync(invocation.eventFile, 'utf8')),
@@ -10317,6 +10329,11 @@ const main = async () => {
               ? await executeMergeOperatorV1({
                   dispatch: readJsonFileV1(invocation.dispatchFile),
                   host: executionHost,
+                })
+            : invocation.mode === 'merge_operator_result_projection'
+              ? projectMergeOperatorWorkflowResultV1({
+                  plan: readJsonFileV1(invocation.planFile),
+                  expectedHead: invocation.expectedHead,
                 })
             : invocation.mode === 'minimal_governance_drift_guard'
               ? await executeMinimalGovernanceFinalDriftGuardV1({
