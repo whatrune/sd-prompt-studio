@@ -4324,6 +4324,8 @@ const isProductOwnerMergeDecisionCandidateV1 = (body) => typeof body === 'string
 
 const acquireCanonicalProductOwnerMergeDecisionV1 = async ({ request, commentId, body, host }) => {
   const history = await acquireMinimalGovernanceCommentHistoryV1(request, host)
+  const effectiveReview = await acquireEffectiveReviewDecisionV1({ request, host, history })
+  const reviewBodySha256 = createHash('sha256').update(Buffer.from(effectiveReview.body, 'utf8')).digest('hex')
   const applicable = []
   for (const comment of history.comments) {
     if (!isProductOwnerMergeDecisionCandidateV1(comment.body)) continue
@@ -4333,7 +4335,10 @@ const acquireCanonicalProductOwnerMergeDecisionV1 = async ({ request, commentId,
     } catch {
       throw new Error('merge_decision_history_invalid')
     }
-    if (decision.prNumber === request.prNumber && decision.exactHead === request.exactHead) {
+    if (
+      decision.prNumber === request.prNumber && decision.exactHead === request.exactHead &&
+      decision.reviewCommentId === effectiveReview.commentId
+    ) {
       applicable.push(Object.freeze({ comment, decision }))
     }
   }
@@ -4348,6 +4353,8 @@ const acquireCanonicalProductOwnerMergeDecisionV1 = async ({ request, commentId,
     comment_id: commentId,
     body: direct.body,
     decision: applicable[0].decision,
+    effective_review: effectiveReview,
+    review_body_sha256: reviewBodySha256,
     history,
   })
   VERIFIED_MERGE_DECISION_OWNERS_V1.add(owner)
@@ -6989,12 +6996,13 @@ export const evaluateProductOwnerMergeDecisionV1 = ({ decision, request, taskSta
   }
 }
 
-const evaluateCanonicalProductOwnerMergeDecisionV1 = ({ owner, request, taskState, effectiveReview, gateResult }) => {
+const evaluateCanonicalProductOwnerMergeDecisionV1 = ({ owner, request, taskState, gateResult }) => {
   try {
     if (!VERIFIED_MERGE_DECISION_OWNERS_V1.has(owner)) {
       throw new Error('merge_decision_owner_invalid')
     }
     const decision = owner.decision
+    const effectiveReview = owner.effective_review
     const parsedState = parseProtectedTransitionTaskStateV1(taskState)
     const review = effectiveReview?.review
     if (
@@ -7002,7 +7010,8 @@ const evaluateCanonicalProductOwnerMergeDecisionV1 = ({ owner, request, taskStat
       !positiveInteger(request.taskIssueNumber) || !positiveInteger(request.prNumber) ||
       !FULL_HEAD.test(request.exactHead ?? '') || decision.prNumber !== request.prNumber ||
       decision.exactHead !== request.exactHead || decision.blockingThreadCount !== 0 ||
-      effectiveReview.commentId !== decision.reviewCommentId ||
+      effectiveReview?.commentId !== decision.reviewCommentId ||
+      owner.review_body_sha256 !== createHash('sha256').update(Buffer.from(effectiveReview?.body ?? '', 'utf8')).digest('hex') ||
       !review || review.decision !== 'APPROVE' || review.pr_number !== request.prNumber ||
       review.reviewed_head !== request.exactHead || review.blocking_finding_count !== 0 ||
       review.remaining_finding_count !== 0 || review.unknown_count !== 0 ||
@@ -9270,12 +9279,10 @@ export const executeRoleTransitionOrchestratorV1 = async ({
         body: currentBody,
         host,
       })
-      const finalEffectiveReview = await acquireEffectiveReviewDecisionV1({ request, host, history: finalOwner.history })
       const routeResult = evaluateCanonicalProductOwnerMergeDecisionV1({
         owner: finalOwner,
         request,
         taskState: finalTaskState,
-        effectiveReview: finalEffectiveReview,
         gateResult,
       })
       if (routeResult.next_action !== 'MERGE_OPERATOR') return Object.freeze({ ...routeResult, source_comment_id: normalized.commentId })

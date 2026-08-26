@@ -5385,6 +5385,54 @@ const mergeDecisionLifecycleBoundary = await executeMergeAllowedRouteFixtureV1({
   withLifecycleReplay: true,
 })
 
+const currentReviewLeafId = mergeDecisionReviewId + 30
+const historicalMergeDecisionId = readyMergeAllowedCommentId + 30
+const duplicateCurrentMergeDecisionId = readyMergeAllowedCommentId + 31
+const currentReviewLeafBody = reviewDecisionBody({ reviewed_head: OTHER_HEAD })
+const currentReviewMergeDecisionBody = mergeDecisionBody({
+  review_decision_comment: `https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-${currentReviewLeafId}`,
+  admission_run_id: Number(READY_RUN_ID),
+  admission_run_url: `https://github.com/${REPOSITORY}/actions/runs/${READY_RUN_ID}`,
+})
+const supersededReviewHistoryRecords = new Map(roleSourceRecords)
+supersededReviewHistoryRecords.set(
+  historicalMergeDecisionId,
+  roleComment(historicalMergeDecisionId, readyMergeAllowedBody, '2026-08-17T09:58:00Z'),
+)
+supersededReviewHistoryRecords.set(
+  currentReviewLeafId,
+  roleComment(currentReviewLeafId, currentReviewLeafBody, '2026-08-17T09:59:00Z'),
+)
+const currentReviewLeafMergeDecisionRoute = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: currentReviewMergeDecisionBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  sourceRecords: supersededReviewHistoryRecords,
+})
+const supersededOnlyMergeDecisionRoute = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  sourceRecords: supersededReviewHistoryRecords,
+})
+const duplicateCurrentReviewRecords = new Map(supersededReviewHistoryRecords)
+duplicateCurrentReviewRecords.set(
+  duplicateCurrentMergeDecisionId,
+  roleComment(duplicateCurrentMergeDecisionId, currentReviewMergeDecisionBody, '2026-08-17T10:00:01Z'),
+)
+const duplicateCurrentReviewMergeDecisionRoute = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: currentReviewMergeDecisionBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  sourceRecords: duplicateCurrentReviewRecords,
+})
+
 check(
   readyMergeAllowedRoute.result.next_action === 'MERGE_OPERATOR' &&
     readyMergeAllowedRoute.result.role_dispatch?.source_binding?.admission_run_id === READY_RUN_ID &&
@@ -5404,7 +5452,7 @@ check(
   'MDOB-03b direct-refetched canonical Merge Decision body must remain exact',
 )
 check(
-  staleReviewMergeDecisionRoute.result.next_action === 'STOP' && staleReviewMergeDecisionRoute.result.reason === 'merge_decision_binding_invalid',
+  staleReviewMergeDecisionRoute.result.next_action === 'STOP' && staleReviewMergeDecisionRoute.result.reason === 'merge_decision_cardinality_invalid',
   'MDOB-04 current Review identity drift fails closed',
 )
 check(
@@ -5435,6 +5483,21 @@ check(
     .every(({ result, metrics }) => result.state_changed === false && metrics.patchCalls === 0) &&
     !Object.hasOwn(readyMergeAllowedRoute.result, 'ready_action') && !Object.hasOwn(readyMergeAllowedRoute.result, 'merge_method'),
   'MDOB-10 admission performs no Ready mutation synthetic event or Merge',
+)
+check(
+  currentReviewLeafMergeDecisionRoute.result.next_action === 'MERGE_OPERATOR' &&
+    currentReviewLeafMergeDecisionRoute.result.role_dispatch?.source_binding?.review_comment_id === currentReviewLeafId,
+  'MDOB-11 historical same-HEAD Merge Decision is ignored after the current Review leaf is selected',
+)
+check(
+  supersededOnlyMergeDecisionRoute.result.next_action === 'STOP' &&
+    supersededOnlyMergeDecisionRoute.result.reason === 'merge_decision_cardinality_invalid',
+  'MDOB-12 superseded Review decision cannot satisfy the current Review leaf binding',
+)
+check(
+  duplicateCurrentReviewMergeDecisionRoute.result.next_action === 'STOP' &&
+    duplicateCurrentReviewMergeDecisionRoute.result.reason === 'merge_decision_cardinality_invalid',
+  'MDOB-13 duplicate Merge Decisions for the current Review leaf fail closed',
 )
 const rebindMatrix = [
   reboundImplementer.next_action === 'PROTECTED_OPERATION_READY' && reboundImplementer.exact_head === HEAD &&
@@ -11325,5 +11388,5 @@ check(
   'SRP-10 bounded continuation adds no transition, polling, workflow dispatch, or credential dependency',
 )
 
-if (assertions !== 1137) throw new Error(`expected exactly 1137 assertions, observed ${assertions}`)
+if (assertions !== 1140) throw new Error(`expected exactly 1140 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
