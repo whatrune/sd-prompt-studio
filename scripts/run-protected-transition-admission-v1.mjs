@@ -9131,6 +9131,101 @@ const bindPublishedReviewingRoleThreadActionV1 = ({ normalized, ownerDispatch, o
   }))
 }
 
+export const executeCanonicalMergeDecisionContinuationV1 = async ({
+  request, commentId, body, host, runId, initialPull = null,
+}) => {
+  const ownerRequest = Object.freeze({
+    transition: 'role_transition_orchestrator_v1',
+    repository: request?.repository,
+    taskIssueNumber: request?.taskIssueNumber,
+    prNumber: request?.prNumber,
+    exactHead: request?.exactHead,
+  })
+  if (
+    !REPOSITORY.test(ownerRequest.repository ?? '') || !positiveInteger(ownerRequest.taskIssueNumber) ||
+    !positiveInteger(ownerRequest.prNumber) || !FULL_HEAD.test(ownerRequest.exactHead ?? '') ||
+    !positiveInteger(commentId) || typeof body !== 'string' || body.length === 0 ||
+    !WORKFLOW_RUN_ID.test(String(runId ?? ''))
+  ) throw new Error('merge_decision_continuation_request_invalid')
+
+  const task = await acquireTaskIdentityV1(ownerRequest, host)
+  const pull = initialPull ?? await acquireMergeGatePullV1(ownerRequest, host)
+  if (
+    task.repository !== ownerRequest.repository || task.number !== ownerRequest.taskIssueNumber ||
+    task.state !== 'open' || task.is_pull_request || pull.number !== ownerRequest.prNumber ||
+    pull.state !== 'open' || pull.draft !== false || pull.merged !== false ||
+    pull.base?.ref !== 'main' || pull.base?.repo?.full_name !== ownerRequest.repository ||
+    pull.head?.repo?.full_name !== ownerRequest.repository || pull.head?.sha !== ownerRequest.exactHead
+  ) throw new Error('merge_decision_pull_binding_invalid')
+  const taskState = extractProtectedTransitionTaskStateV1(pull.body)
+  const scope = await acquireChangedPathScopeV1(ownerRequest, pull, host)
+  if (
+    taskState.task_issue_number !== ownerRequest.taskIssueNumber || taskState.pr_number !== ownerRequest.prNumber ||
+    taskState.observed_head !== ownerRequest.exactHead || taskState.architecture_status !== 'APPROVED' ||
+    taskState.implementation_authorized !== true || taskState.review_status !== 'APPROVE' ||
+    taskState.reviewed_head !== ownerRequest.exactHead || taskState.review_blocker_count !== 0 ||
+    scope.complete !== true || !sameRolePathsV1(scope.actual_paths, taskState.authorized_paths)
+  ) throw new Error('merge_decision_task_state_binding_invalid')
+
+  await acquireCanonicalProductOwnerMergeDecisionV1({
+    request: ownerRequest,
+    commentId,
+    body,
+    host,
+  })
+  const gateRequest = Object.freeze({
+    transition: 'merge_decision_admission', repository: ownerRequest.repository,
+    taskIssueNumber: ownerRequest.taskIssueNumber, prNumber: ownerRequest.prNumber,
+    exactHead: ownerRequest.exactHead, currentWorkflowRunId: String(runId),
+    selfCheckContext: MERGE_DECISION_OWNER_SELF_CHECK_CONTEXT_V1,
+  })
+  const admitted = await executeProtectedTransitionAdmissionV1({ request: gateRequest, host })
+  const gateResult = await evaluateMergeAllowedAutomationV1({ request: gateRequest, admitted, host })
+
+  const finalTask = await acquireTaskIdentityV1(ownerRequest, host)
+  const finalPull = await acquireMergeGatePullV1(ownerRequest, host)
+  if (
+    finalTask.repository !== ownerRequest.repository || finalTask.number !== ownerRequest.taskIssueNumber ||
+    finalTask.state !== 'open' || finalTask.is_pull_request || finalPull.number !== ownerRequest.prNumber ||
+    finalPull.state !== 'open' || finalPull.draft !== false || finalPull.merged !== false ||
+    finalPull.head?.sha !== ownerRequest.exactHead || finalPull.base?.ref !== 'main' ||
+    finalPull.base?.repo?.full_name !== ownerRequest.repository || finalPull.head?.repo?.full_name !== ownerRequest.repository
+  ) throw new Error('merge_decision_pull_binding_invalid')
+  const finalTaskState = extractProtectedTransitionTaskStateV1(finalPull.body)
+  const finalScope = await acquireChangedPathScopeV1(ownerRequest, finalPull, host)
+  if (
+    JSON.stringify(finalTaskState) !== JSON.stringify(taskState) ||
+    finalScope.complete !== true || !sameRolePathsV1(finalScope.actual_paths, scope.actual_paths) ||
+    !sameRolePathsV1(finalScope.actual_paths, finalTaskState.authorized_paths)
+  ) throw new Error('merge_decision_task_state_changed')
+  const finalOwner = await acquireCanonicalProductOwnerMergeDecisionV1({
+    request: ownerRequest,
+    commentId,
+    body,
+    host,
+  })
+  const routeResult = evaluateCanonicalProductOwnerMergeDecisionV1({
+    owner: finalOwner,
+    request: ownerRequest,
+    taskState: finalTaskState,
+    gateResult,
+  })
+  if (routeResult.next_action !== 'MERGE_OPERATOR') {
+    return Object.freeze({ ...routeResult, source_comment_id: commentId })
+  }
+  const roleDispatch = projectRoleDispatchEnvelopeV1({
+    result: routeResult, repository: ownerRequest.repository, sourceCommentId: commentId,
+    authorizedPaths: finalTaskState.authorized_paths, taskState: finalTaskState,
+    sourceBinding: Object.freeze({
+      kind: 'MERGE_DECISION', comment_id: commentId,
+      review_comment_id: finalOwner.decision.reviewCommentId,
+      admission_run_id: String(finalOwner.decision.admissionRunId),
+    }),
+    admissionRunId: finalOwner.decision.admissionRunId,
+  })
+  return Object.freeze({ ...routeResult, source_comment_id: commentId, role_dispatch: roleDispatch })
+}
+
 export const executeRoleTransitionOrchestratorV1 = async ({
   event, host, runId, runAttempt = null, hostSha = null, jobName = null,
   reviewingRoleDispatch = null, reviewingRoleOwnerResult = null,
@@ -9244,55 +9339,14 @@ export const executeRoleTransitionOrchestratorV1 = async ({
     const pull = await acquirePull(request, host)
     if (pull.head.sha !== request.exactHead) return roleStopV1(request, 'STALE', 'head_binding_stale', pull.head.sha)
     if (normalized.terminalResult === 'MERGE_ALLOWED') {
-      const taskState = extractProtectedTransitionTaskStateV1(pull.body)
-      if (
-        pull.state !== 'open' || pull.draft !== false || pull.merged !== false ||
-        pull.base?.ref !== 'main' || pull.base?.repo?.full_name !== normalized.repository
-      ) throw new Error('merge_decision_pull_binding_invalid')
-      await acquireCanonicalProductOwnerMergeDecisionV1({
+      return await executeCanonicalMergeDecisionContinuationV1({
         request,
         commentId: normalized.commentId,
         body: currentBody,
         host,
+        runId,
+        initialPull: pull,
       })
-      const gateRequest = Object.freeze({
-        transition: 'merge_decision_admission', repository: normalized.repository,
-        taskIssueNumber: normalized.taskIssueNumber, prNumber: normalized.prNumber,
-        exactHead: normalized.exactHead, currentWorkflowRunId: String(runId),
-        selfCheckContext: MERGE_DECISION_OWNER_SELF_CHECK_CONTEXT_V1,
-      })
-      const admitted = await executeProtectedTransitionAdmissionV1({ request: gateRequest, host })
-      const gateResult = await evaluateMergeAllowedAutomationV1({ request: gateRequest, admitted, host })
-      const finalPull = await acquireMergeGatePullV1(request, host)
-      if (
-        finalPull.state !== 'open' || finalPull.draft !== false || finalPull.merged !== false ||
-        finalPull.head.sha !== request.exactHead || finalPull.base?.ref !== 'main' ||
-        finalPull.base?.repo?.full_name !== request.repository
-      ) throw new Error('merge_decision_pull_binding_invalid')
-      const finalTaskState = extractProtectedTransitionTaskStateV1(finalPull.body)
-      if (JSON.stringify(finalTaskState) !== JSON.stringify(taskState)) {
-        throw new Error('merge_decision_task_state_changed')
-      }
-      const finalOwner = await acquireCanonicalProductOwnerMergeDecisionV1({
-        request,
-        commentId: normalized.commentId,
-        body: currentBody,
-        host,
-      })
-      const routeResult = evaluateCanonicalProductOwnerMergeDecisionV1({
-        owner: finalOwner,
-        request,
-        taskState: finalTaskState,
-        gateResult,
-      })
-      if (routeResult.next_action !== 'MERGE_OPERATOR') return Object.freeze({ ...routeResult, source_comment_id: normalized.commentId })
-      const roleDispatch = projectRoleDispatchEnvelopeV1({
-        result: routeResult, repository: normalized.repository, sourceCommentId: normalized.commentId,
-        authorizedPaths: taskState.authorized_paths, taskState,
-        sourceBinding: Object.freeze({ kind: 'MERGE_DECISION', comment_id: normalized.commentId, review_comment_id: normalized.reviewCommentId, admission_run_id: String(normalized.admissionRunId) }),
-        admissionRunId: normalized.admissionRunId,
-      })
-      return Object.freeze({ ...routeResult, source_comment_id: normalized.commentId, role_dispatch: roleDispatch })
     }
     if (normalized.terminalResult === 'IMPLEMENTATION_AUTHORIZED') {
       const priorState = extractProtectedTransitionTaskStateV1(pull.body)
@@ -9486,7 +9540,8 @@ const parseManualCli = (argv, environment) => {
   }
   const required = ['--transition', '--task-issue-number', '--pr-number', '--exact-head']
   const resumeOnly = ['--review-decision-comment-id', '--publication-handoff-comment-id']
-  const allowed = new Set([...required, ...resumeOnly])
+  const mergeSuccessorOnly = ['--merge-decision-comment-id']
+  const allowed = new Set([...required, ...resumeOnly, ...mergeSuccessorOnly])
   if (required.some((key) => !values.has(key)) || [...values.keys()].some((key) => !allowed.has(key))) throw new Error('cli_arguments_invalid')
   const transition = values.get('--transition')
   const taskIssueNumber = Number(values.get('--task-issue-number'))
@@ -9498,10 +9553,14 @@ const parseManualCli = (argv, environment) => {
   const publicationHandoffCommentId = values.has('--publication-handoff-comment-id')
     ? Number(values.get('--publication-handoff-comment-id'))
     : null
+  const mergeDecisionCommentId = values.has('--merge-decision-comment-id')
+    ? Number(values.get('--merge-decision-comment-id'))
+    : null
   const repository = environment.GITHUB_REPOSITORY
   const resumeTransition = transition === 'ready_transition_required_resume'
+  const mergeSuccessorTransition = transition === 'merge_decision_successor_resume'
   if (
-    !['terminal_review_admission', 'merge_decision_admission', 'ready_transition_required_resume'].includes(transition) ||
+    !['terminal_review_admission', 'merge_decision_admission', 'ready_transition_required_resume', 'merge_decision_successor_resume'].includes(transition) ||
     !positiveInteger(taskIssueNumber) ||
     !positiveInteger(prNumber) ||
     !FULL_HEAD.test(exactHead ?? '') ||
@@ -9509,9 +9568,18 @@ const parseManualCli = (argv, environment) => {
     (resumeTransition && (
       values.size !== required.length + resumeOnly.length ||
       !positiveInteger(reviewDecisionCommentId) || !positiveInteger(publicationHandoffCommentId) ||
+      mergeDecisionCommentId !== null ||
       !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '') || !positiveInteger(Number(environment.GITHUB_RUN_ATTEMPT))
     )) ||
-    (!resumeTransition && (values.size !== required.length || reviewDecisionCommentId !== null || publicationHandoffCommentId !== null))
+    (mergeSuccessorTransition && (
+      values.size !== required.length + mergeSuccessorOnly.length ||
+      reviewDecisionCommentId !== null || publicationHandoffCommentId !== null ||
+      !positiveInteger(mergeDecisionCommentId) || !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '')
+    )) ||
+    (!resumeTransition && !mergeSuccessorTransition && (
+      values.size !== required.length || reviewDecisionCommentId !== null ||
+      publicationHandoffCommentId !== null || mergeDecisionCommentId !== null
+    ))
   ) {
     throw new Error('cli_arguments_invalid')
   }
@@ -9523,6 +9591,7 @@ const parseManualCli = (argv, environment) => {
     repository,
     reviewDecisionCommentId,
     publicationHandoffCommentId,
+    mergeDecisionCommentId,
   })
 }
 
@@ -9676,7 +9745,9 @@ const readJsonFileV1 = (file) => JSON.parse(readFileSync(file, 'utf8'))
 
 const liveShadowRequestV1 = (invocation, environment) => {
   if (invocation.mode === 'manual') {
-    return invocation.request.transition === 'ready_transition_required_resume' ? null : invocation.request
+    return ['ready_transition_required_resume', 'merge_decision_successor_resume'].includes(invocation.request.transition)
+      ? null
+      : invocation.request
   }
   if (!['review_event', 'ready_event'].includes(invocation.mode)) return null
   const event = readJsonFileV1(invocation.eventFile)
@@ -10078,6 +10149,51 @@ export const executeReadyTransitionRequiredResumeV1 = async ({
   }
 }
 
+const mergeDecisionSuccessorResumeStopV1 = (request, reason) => Object.freeze({
+  transition: 'merge_decision_successor_resume',
+  state: 'INDETERMINATE',
+  allowed: false,
+  exit_code: 1,
+  reason,
+  task_issue_number: request?.taskIssueNumber ?? null,
+  pr_number: request?.prNumber ?? null,
+  current_head: request?.exactHead ?? null,
+  out_of_scope_paths: Object.freeze([]),
+  state_changed: false,
+  automation_status: 'BLOCKED',
+  next_action: 'STOP',
+  mutation_count: 0,
+})
+
+export const executeMergeDecisionSuccessorResumeV1 = async ({ request, host, runId }) => {
+  try {
+    if (
+      request?.transition !== 'merge_decision_successor_resume' ||
+      !REPOSITORY.test(request?.repository ?? '') || !positiveInteger(request?.taskIssueNumber) ||
+      !positiveInteger(request?.prNumber) || !FULL_HEAD.test(request?.exactHead ?? '') ||
+      !positiveInteger(request?.mergeDecisionCommentId) || !WORKFLOW_RUN_ID.test(String(runId ?? ''))
+    ) throw new Error('merge_decision_successor_request_invalid')
+    const comment = await fetchRoleCommentRecordV1(
+      request.repository,
+      request.taskIssueNumber,
+      request.mergeDecisionCommentId,
+      host,
+    )
+    return await executeCanonicalMergeDecisionContinuationV1({
+      request,
+      commentId: comment.id,
+      body: comment.body,
+      host,
+      runId,
+    })
+  } catch (error) {
+    return mergeDecisionSuccessorResumeStopV1(
+      request,
+      error instanceof Error ? error.message : 'merge_decision_successor_failed',
+    )
+  }
+}
+
 export const executeReviewEventWithLifecycleReplayV1 = async ({
   event, host, runId, runAttempt, hostSha, jobName,
   reviewingRoleDispatch = null, reviewingRoleOwnerResult = null,
@@ -10289,6 +10405,12 @@ const main = async () => {
                       runAttempt: Number(process.env.GITHUB_RUN_ATTEMPT),
                       hostSha: process.env.GITHUB_WORKFLOW_SHA ?? null,
                       jobName: process.env.GITHUB_JOB ?? null,
+                    })
+                : invocation.request.transition === 'merge_decision_successor_resume'
+                  ? await executeMergeDecisionSuccessorResumeV1({
+                      request: invocation.request,
+                      host: executionHost,
+                      runId: process.env.GITHUB_RUN_ID ?? null,
                     })
                 : await executeManualProgressionControllerV1({
                     request: invocation.request,

@@ -11,6 +11,7 @@ name: Protected Transition Admission V1
           - terminal_review_admission
           - merge_decision_admission
           - ready_transition_required_resume
+          - merge_decision_successor_resume
       task_issue_number:
         description: Current implementation Task Issue number
         required: true
@@ -29,6 +30,10 @@ name: Protected Transition Admission V1
         type: string
       publication_handoff_comment_id:
         description: Current canonical Publication Handoff comment ID for bounded Ready resume
+        required: false
+        type: string
+      merge_decision_comment_id:
+        description: Current canonical Product Owner Merge Decision comment ID for bounded Merge successor resume
         required: false
         type: string
   issue_comment:
@@ -112,6 +117,7 @@ jobs:
           PTA_INPUT_EXACT_HEAD: ${{ inputs.exact_head }}
           PTA_INPUT_REVIEW_DECISION_COMMENT_ID: ${{ inputs.review_decision_comment_id }}
           PTA_INPUT_PUBLICATION_HANDOFF_COMMENT_ID: ${{ inputs.publication_handoff_comment_id }}
+          PTA_INPUT_MERGE_DECISION_COMMENT_ID: ${{ inputs.merge_decision_comment_id }}
           GADP_LIVE_SHADOW_DIR: ${{ runner.temp }}/gadp-live-shadow-v1
         run: |
           set -euo pipefail
@@ -129,6 +135,9 @@ jobs:
                 --review-decision-comment-id "$PTA_INPUT_REVIEW_DECISION_COMMENT_ID"
                 --publication-handoff-comment-id "$PTA_INPUT_PUBLICATION_HANDOFF_COMMENT_ID"
               )
+            fi
+            if [[ -n "$PTA_INPUT_MERGE_DECISION_COMMENT_ID" ]]; then
+              resume_args+=(--merge-decision-comment-id "$PTA_INPUT_MERGE_DECISION_COMMENT_ID")
             fi
             node scripts/run-protected-transition-admission-v1.mjs \
               --transition "$PTA_INPUT_TRANSITION" \

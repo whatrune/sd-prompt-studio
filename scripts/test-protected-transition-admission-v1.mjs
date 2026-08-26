@@ -26,7 +26,9 @@ import {
   acquireLifecyclePublishedGenerationV1,
   executeRoleDispatchConsumerV1,
   executeRoleDispatchRebindV1,
+  executeCanonicalMergeDecisionContinuationV1,
   executeManualProgressionControllerV1,
+  executeMergeDecisionSuccessorResumeV1,
   executePostReadyProgressionOwnerV1,
   executeReadyTransitionRequiredResumeV1,
   executeLifecycleOrchestratorV1,
@@ -727,7 +729,7 @@ for (const unit of roleUnits) {
 }
 
 check(Object.keys(workflow.on).join(',') === 'workflow_dispatch,issue_comment,pull_request' && workflow.on.issue_comment.types.join(',') === 'created' && workflow.on.pull_request.types.join(',') === 'ready_for_review', 'workflow has manual recovery, created Review, and Ready triggers')
-check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head,review_decision_comment_id,publication_handoff_comment_id' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number', 'workflow has the four shared inputs plus exactly two bounded Ready-resume owner IDs and canonicalizes the Task input as a number')
+check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head,review_decision_comment_id,publication_handoff_comment_id,merge_decision_comment_id' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number', 'workflow has the four shared inputs plus exactly three transition-scoped canonical owner IDs and canonicalizes the Task input as a number')
 check(Object.keys(workflow.permissions).join(',') === 'actions,contents,checks,issues,pull-requests,statuses' && workflow.permissions.actions === 'read' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'read' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read', 'workflow adds only read access for Actions, checks, and statuses')
 
 const admissionJob = workflow.jobs.protected_transition_admission_v1
@@ -1040,7 +1042,7 @@ const automationHost = ({
 // Seven Ready-for-Review bridge units x three assertions = 21.
 check(workflow.on.pull_request.types.join(',') === 'ready_for_review' && workflowSource.includes('--ready-event-file "$PTA_EVENT_PATH"'), 'RFR-01 workflow routes only Ready events to the Ready adapter')
 check(workflowSource.includes('[[ "$PTA_BASE_REF" == "main" ]]') && workflowSource.includes('refs/pull/${PTA_EVENT_PR_NUMBER}/merge'), 'RFR-01 Ready host binds main base and exact PR merge ref')
-check(Object.keys(workflow.on.workflow_dispatch.inputs).length === 6 && workflow.concurrency.group.includes('github.event.pull_request.number'), 'RFR-01 preserves four shared recovery inputs, adds only two bounded resume owner IDs, and retains the PR fallback queue key')
+check(Object.keys(workflow.on.workflow_dispatch.inputs).length === 7 && workflow.concurrency.group.includes('github.event.pull_request.number'), 'RFR-01 preserves four shared recovery inputs, adds only transition-scoped bounded owner IDs, and retains the PR fallback queue key')
 
 const validReadyAutomation = automationHost({
   initialState: approvedState(),
@@ -1937,7 +1939,7 @@ check(
   (runnerSource.match(/reduceSelfAwareCurrentChecksV1\(/g) ?? []).length === 3 &&
   (runnerSource.match(/partitionReadyRunChecksV1\(/g) ?? []).length === 2 &&
   runnerSource.includes("const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'") &&
-  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 8,
+  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 9,
   'SGR-12 shared-helper use and correction/cumulative allowlists hold without duplicate sibling filters',
 )
 
@@ -4684,6 +4686,8 @@ const executeMergeAllowedRouteFixtureV1 = async ({
   threadPages = [connectionPage([])],
   withLifecycleReplay = false,
   directDecisionBody = null,
+  successor = false,
+  successorRequestOverrides = Object.freeze({}),
 }) => {
   const sourceRecords = new Map(suppliedSourceRecords)
   sourceRecords.set(decisionCommentId, roleComment(decisionCommentId, decisionBody, '2026-08-17T10:00:00Z'))
@@ -4700,7 +4704,21 @@ const executeMergeAllowedRouteFixtureV1 = async ({
     issue: Object.freeze({ number: TASK, state: 'open' }),
     comment: Object.freeze({ id: decisionCommentId, author_association: 'OWNER', body: decisionBody }),
   })
-  const result = withLifecycleReplay
+  const result = successor
+    ? await executeMergeDecisionSuccessorResumeV1({
+        request: Object.freeze({
+          transition: 'merge_decision_successor_resume',
+          repository: REPOSITORY,
+          taskIssueNumber: TASK,
+          prNumber: PR,
+          exactHead: dispatch.exact_head,
+          mergeDecisionCommentId: decisionCommentId,
+          ...successorRequestOverrides,
+        }),
+        host: fixture.host,
+        runId: consumerRunId,
+      })
+    : withLifecycleReplay
     ? await executeReviewEventWithLifecycleReplayV1({
         event,
         host: fixture.host,
@@ -5498,6 +5516,279 @@ check(
   duplicateCurrentReviewMergeDecisionRoute.result.next_action === 'STOP' &&
     duplicateCurrentReviewMergeDecisionRoute.result.reason === 'merge_decision_cardinality_invalid',
   'MDOB-13 duplicate Merge Decisions for the current Review leaf fail closed',
+)
+
+const successorMergeAllowedRoute = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  successor: true,
+})
+const successorDirectRefetchDrift = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  directDecisionBody: `${readyMergeAllowedBody}\n`,
+  successor: true,
+})
+const successorCurrentReviewLeaf = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: currentReviewMergeDecisionBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  sourceRecords: supersededReviewHistoryRecords,
+  successor: true,
+})
+const successorSupersededOnly = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  sourceRecords: supersededReviewHistoryRecords,
+  successor: true,
+})
+const successorDuplicateCurrent = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: currentReviewMergeDecisionBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  sourceRecords: duplicateCurrentReviewRecords,
+  successor: true,
+})
+const successorIdentityDrifts = await Promise.all([
+  { successorRequestOverrides: { taskIssueNumber: TASK + 1 } },
+  { successorRequestOverrides: { prNumber: PR + 1 } },
+  { successorRequestOverrides: { exactHead: HEAD } },
+].map((overrides) => executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  successor: true,
+  ...overrides,
+})))
+const successorScopeDrift = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  taskState: Object.freeze({ ...readyMergeDecisionDispatch.task_state, authorized_paths: Object.freeze([rolePaths[0]]) }),
+  successor: true,
+})
+const successorInvalidPullStates = await Promise.all([
+  { draft: true },
+  { pullState: 'closed' },
+  { merged: true },
+  { baseRef: 'release' },
+].map((overrides) => executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  successor: true,
+  ...overrides,
+})))
+const successorExternalFailure = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: readyRoleCheckPage({ consumerStatus: 'COMPLETED', consumerConclusion: 'SUCCESS', externalFailure: true }),
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  successor: true,
+})
+const successorExternalPendingPage = readyRoleCheckPage({
+  consumerStatus: 'COMPLETED', consumerConclusion: 'SUCCESS',
+})
+successorExternalPendingPage.nodes[successorExternalPendingPage.nodes.length - 1] = Object.freeze({
+  ...successorExternalPendingPage.nodes.at(-1), status: 'IN_PROGRESS', conclusion: null,
+})
+const successorExternalPending = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: successorExternalPendingPage,
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  successor: true,
+})
+const successorExternalMissing = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: connectionPage(readyRoleCheckPage({
+    consumerStatus: 'COMPLETED', consumerConclusion: 'SUCCESS',
+  }).nodes.filter((check) => check.name.startsWith('protected_transition_'))),
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  successor: true,
+})
+const successorBlockingThread = await executeMergeAllowedRouteFixtureV1({
+  dispatch: readyMergeDecisionDispatch,
+  admissionRun: readyOriginRun,
+  checkPage: completedReadyCheckPage,
+  decisionBody: readyMergeAllowedBody,
+  decisionCommentId: readyMergeAllowedCommentId,
+  threadPages: [connectionPage([{ id: 'merge-successor-active-thread', isResolved: false, isOutdated: false }])],
+  successor: true,
+})
+let invalidSuccessorHostCalls = 0
+const invalidSuccessorHost = Object.freeze({
+  api: async () => { invalidSuccessorHostCalls += 1; throw new Error('host_must_not_be_called') },
+})
+const missingSuccessorId = await executeMergeDecisionSuccessorResumeV1({
+  request: Object.freeze({
+    transition: 'merge_decision_successor_resume', repository: REPOSITORY,
+    taskIssueNumber: TASK, prNumber: PR, exactHead: OTHER_HEAD, mergeDecisionCommentId: null,
+  }),
+  host: invalidSuccessorHost,
+  runId: REVIEW_RUN_ID,
+})
+const invalidSuccessorId = await executeMergeDecisionSuccessorResumeV1({
+  request: Object.freeze({
+    transition: 'merge_decision_successor_resume', repository: REPOSITORY,
+    taskIssueNumber: TASK, prNumber: PR, exactHead: OTHER_HEAD, mergeDecisionCommentId: 0,
+  }),
+  host: invalidSuccessorHost,
+  runId: REVIEW_RUN_ID,
+})
+const mergeSuccessorCli = (args) => spawnSync(process.execPath, [runnerPath, ...args], {
+  cwd: repositoryRoot,
+  encoding: 'utf8',
+  env: Object.freeze({ ...process.env, GITHUB_REPOSITORY: REPOSITORY, GITHUB_RUN_ID: REVIEW_RUN_ID, GITHUB_RUN_ATTEMPT: '1' }),
+})
+const missingSuccessorIdCli = mergeSuccessorCli([
+  '--transition', 'merge_decision_successor_resume',
+  '--task-issue-number', String(TASK), '--pr-number', String(PR), '--exact-head', OTHER_HEAD,
+])
+const invalidSuccessorIdCli = mergeSuccessorCli([
+  '--transition', 'merge_decision_successor_resume',
+  '--task-issue-number', String(TASK), '--pr-number', String(PR), '--exact-head', OTHER_HEAD,
+  '--merge-decision-comment-id', '0',
+])
+const unexpectedSuccessorIdCli = mergeSuccessorCli([
+  '--transition', 'merge_decision_admission',
+  '--task-issue-number', String(TASK), '--pr-number', String(PR), '--exact-head', OTHER_HEAD,
+  '--merge-decision-comment-id', String(readyMergeAllowedCommentId),
+])
+const mergeSuccessorSourceStart = runnerSource.indexOf('export const executeMergeDecisionSuccessorResumeV1')
+const mergeSuccessorSourceEnd = runnerSource.indexOf('\nexport const executeReviewEventWithLifecycleReplayV1', mergeSuccessorSourceStart)
+const mergeSuccessorSource = runnerSource.slice(mergeSuccessorSourceStart, mergeSuccessorSourceEnd)
+const canonicalMergeOwnerSourceStart = runnerSource.indexOf('export const executeCanonicalMergeDecisionContinuationV1')
+const canonicalMergeOwnerSourceEnd = runnerSource.indexOf('\nexport const executeRoleTransitionOrchestratorV1', canonicalMergeOwnerSourceStart)
+const canonicalMergeOwnerSource = runnerSource.slice(canonicalMergeOwnerSourceStart, canonicalMergeOwnerSourceEnd)
+const mergeOperatorSourceStart = runnerSource.indexOf('export const executeMergeOperatorV1')
+const mergeOperatorSourceEnd = runnerSource.indexOf('\nexport const evaluateRoleTransitionOrchestratorV1', mergeOperatorSourceStart)
+const mergeOperatorSource = runnerSource.slice(mergeOperatorSourceStart, mergeOperatorSourceEnd)
+
+check(
+  successorMergeAllowedRoute.result.next_action === 'MERGE_OPERATOR' &&
+    successorMergeAllowedRoute.result.terminal_result === 'MERGE_ALLOWED' &&
+    successorMergeAllowedRoute.result.role_dispatch?.next_action === 'MERGE_OPERATOR',
+  'MDSR-01 exact successor request emits exactly one existing Merge Operator dispatch',
+)
+check(
+  successorMergeAllowedRoute.result.source_comment_id === readyMergeAllowedCommentId &&
+    successorMergeAllowedRoute.result.role_dispatch?.source_binding?.comment_id === readyMergeAllowedCommentId &&
+    successorMergeAllowedRoute.result.role_dispatch?.source_binding?.review_comment_id === mergeDecisionReviewId,
+  'MDSR-02 successor binds the exact canonical decision and current Review identity',
+)
+check(
+  successorMergeAllowedRoute.result.role_dispatch?.source_binding?.admission_run_id === READY_RUN_ID &&
+    successorMergeAllowedRoute.result.role_dispatch?.admission_run_id === READY_RUN_ID,
+  'MDSR-03 immutable producer admission run identity is not replaced by the successor run',
+)
+check(
+  missingSuccessorId.reason === 'merge_decision_successor_request_invalid' &&
+    invalidSuccessorId.reason === 'merge_decision_successor_request_invalid' && invalidSuccessorHostCalls === 0,
+  'MDSR-04 missing or invalid successor comment ID fails before host acquisition',
+)
+check(
+  [missingSuccessorIdCli, invalidSuccessorIdCli, unexpectedSuccessorIdCli].every((value) =>
+    value.status === 1 && JSON.parse(value.stdout).reason === 'cli_arguments_invalid'),
+  'MDSR-05 successor ID is runtime-mandatory only for its transition and rejected on existing transitions',
+)
+check(
+  successorDirectRefetchDrift.result.next_action === 'STOP' &&
+    successorDirectRefetchDrift.result.reason === 'merge_decision_direct_refetch_invalid',
+  'MDSR-06 supplied canonical decision requires exact direct-refetched body equality',
+)
+check(
+  successorCurrentReviewLeaf.result.next_action === 'MERGE_OPERATOR' &&
+    successorCurrentReviewLeaf.result.role_dispatch?.source_binding?.review_comment_id === currentReviewLeafId,
+  'MDSR-07 current Review leaf is selected before historical same-HEAD decisions are filtered',
+)
+check(
+  successorSupersededOnly.result.next_action === 'STOP' &&
+    successorSupersededOnly.result.reason === 'merge_decision_cardinality_invalid',
+  'MDSR-08 a decision bound only to a superseded Review cannot become current',
+)
+check(
+  successorDuplicateCurrent.result.next_action === 'STOP' &&
+    successorDuplicateCurrent.result.reason === 'merge_decision_cardinality_invalid',
+  'MDSR-09 duplicate decisions for the current Review leaf fail closed',
+)
+check(
+  successorIdentityDrifts.every(({ result }) => result.next_action === 'STOP' && result.mutation_count === 0),
+  'MDSR-10 Task PR or HEAD drift produces no Merge Operator dispatch',
+)
+check(
+  successorScopeDrift.result.next_action === 'STOP' && successorScopeDrift.result.mutation_count === 0,
+  'MDSR-11 Task-state cumulative scope and actual PR scope must remain exact',
+)
+check(
+  successorInvalidPullStates.every(({ result }) => result.next_action === 'STOP' && result.mutation_count === 0),
+  'MDSR-12 Draft closed merged or wrong-base PR fails before Merge projection',
+)
+check(
+  successorExternalFailure.result.next_action === 'STOP' &&
+    successorExternalFailure.result.reason === 'merge_decision_binding_invalid' &&
+    successorExternalPending.result.next_action === 'STOP' &&
+    successorExternalMissing.result.next_action === 'STOP',
+  'MDSR-13 failed pending or missing genuine external checks remain authoritative and fail closed',
+)
+check(
+  successorBlockingThread.result.next_action === 'STOP' &&
+    successorBlockingThread.result.reason === 'merge_decision_binding_invalid',
+  'MDSR-14 active non-outdated blocking thread prevents Merge Operator projection',
+)
+check(
+  !Object.hasOwn(successorMergeAllowedRoute.result, 'lifecycle_projection') &&
+    !canonicalMergeOwnerSource.includes('executeLifecycle') && !canonicalMergeOwnerSource.includes('ready_for_review'),
+  'MDSR-15 canonical Merge Decision owner performs no historical Ready-evidence reproof',
+)
+check(
+  readyMergeAllowedRoute.result.next_action === successorMergeAllowedRoute.result.next_action &&
+    readyMergeAllowedRoute.result.reason === successorMergeAllowedRoute.result.reason &&
+    (runnerSource.match(/executeCanonicalMergeDecisionContinuationV1\(/g) ?? []).length === 2,
+  'MDSR-16 natural issue-comment and successor adapters converge on one shared event-independent owner',
+)
+check(
+  manualWorkflowDispatchResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' &&
+    manualWorkflowDispatchResult.role_dispatch?.purpose === 'MERGE_DECISION' &&
+    workflow.on.workflow_dispatch.inputs.transition.options.includes('merge_decision_admission'),
+  'MDSR-17 existing Merge Decision producer ingress remains unchanged',
+)
+check(
+  successorMergeAllowedRoute.metrics.patchCalls === 0 &&
+    !mergeSuccessorSource.includes("method: 'POST'") && !mergeSuccessorSource.includes("method: 'PATCH'") &&
+    !canonicalMergeOwnerSource.includes("method: 'PUT'") && !canonicalMergeOwnerSource.includes('markPullRequestReadyForReview') &&
+    !canonicalMergeOwnerSource.includes('createWorkflowDispatch') &&
+    !canonicalMergeOwnerSource.includes('PRODUCT_OWNER_IMPLEMENTATION_LEAD') &&
+    workflow.on.workflow_dispatch.inputs.repository === undefined &&
+    workflowSource.includes('PTA_INPUT_MERGE_DECISION_COMMENT_ID') &&
+    Object.keys(workflow.jobs).length === 5 &&
+    mergeOperatorSource.includes('fetchRoleCommentRecordV1') &&
+    mergeOperatorSource.includes('executeRoleTransitionOrchestratorV1') &&
+    mergeOperatorSource.includes('acquireMergeGatePullV1'),
+  'MDSR-18 ingress performs zero publication Ready or Merge mutation and preserves repository ownership job topology and final Merge guards',
 )
 const rebindMatrix = [
   reboundImplementer.next_action === 'PROTECTED_OPERATION_READY' && reboundImplementer.exact_head === HEAD &&
@@ -9161,7 +9452,7 @@ check(
 )
 
 const lifecycleSourceStart = runnerSource.indexOf('const LIFECYCLE_BODY_SHA256_V1')
-const lifecycleSourceEnd = runnerSource.indexOf('\nexport const executeRoleTransitionOrchestratorV1', lifecycleSourceStart)
+const lifecycleSourceEnd = runnerSource.indexOf('\nexport const executeCanonicalMergeDecisionContinuationV1', lifecycleSourceStart)
 const lifecycleSource = runnerSource.slice(lifecycleSourceStart, lifecycleSourceEnd)
 const lifecycleValidationOwnerProjectionSource = lifecycleSource.slice(
   lifecycleSource.indexOf('const projectLifecycleValidationEvidenceV1'),
@@ -10465,7 +10756,7 @@ const readyResumeResultV1 = await executeReadyTransitionRequiredResumeV1({
 })
 check(
   workflow.on.workflow_dispatch.inputs.transition.options.join('|') ===
-    'terminal_review_admission|merge_decision_admission|ready_transition_required_resume' &&
+    'terminal_review_admission|merge_decision_admission|ready_transition_required_resume|merge_decision_successor_resume' &&
   workflow.on.workflow_dispatch.inputs.review_decision_comment_id.required === false &&
   workflow.on.workflow_dispatch.inputs.publication_handoff_comment_id.required === false &&
   workflowSource.includes('"${resume_args[@]}"') &&
@@ -11388,5 +11679,5 @@ check(
   'SRP-10 bounded continuation adds no transition, polling, workflow dispatch, or credential dependency',
 )
 
-if (assertions !== 1140) throw new Error(`expected exactly 1140 assertions, observed ${assertions}`)
+if (assertions !== 1158) throw new Error(`expected exactly 1158 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
