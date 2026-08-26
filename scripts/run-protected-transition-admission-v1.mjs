@@ -6316,6 +6316,26 @@ export const executeRoleDispatchConsumerV1 = async ({ dispatch, host }) => {
   }
 }
 
+export const projectRoleDispatchWorkflowResultV1 = ({ plan, expectedHead }) => {
+  if (plan?.exact_head !== expectedHead) throw new Error('role_dispatch_not_ready')
+  if (plan?.next_action === 'CONVERGED_NOOP') {
+    return Object.freeze({ operation: 'CONVERGED_NOOP' })
+  }
+  if (plan?.next_action === 'EXECUTE_BOOTSTRAP_PUBLICATION') {
+    return Object.freeze({
+      operation: 'EXECUTE_BOOTSTRAP_PUBLICATION',
+      bootstrap_request: plan.bootstrap_request,
+    })
+  }
+  if (plan?.next_action === 'EXECUTE_ROLE') {
+    return Object.freeze({
+      operation: 'EXECUTE_ROLE',
+      prompt: plan.prompt,
+    })
+  }
+  throw new Error('role_dispatch_not_ready')
+}
+
 export const evaluateRoleDispatchOutputV1 = ({ dispatch, body }) => {
   let prePrImplementerOutput = false
   try {
@@ -9617,6 +9637,13 @@ const parseInvocation = (argv, environment) => {
   if (argv.length === 2 && argv[0] === '--role-dispatch-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
     return Object.freeze({ mode: 'role_dispatch', dispatchFile: argv[1] })
   }
+  if (
+    argv.length === 4 && argv[0] === '--role-dispatch-result-projection-file' &&
+    typeof argv[1] === 'string' && argv[1].length > 0 && argv[2] === '--expected-head' &&
+    FULL_HEAD.test(argv[3] ?? '')
+  ) {
+    return Object.freeze({ mode: 'role_dispatch_result_projection', planFile: argv[1], expectedHead: argv[3] })
+  }
   if (argv.length === 2 && argv[0] === '--review-closure-file' && typeof argv[1] === 'string' && argv[1].length > 0) {
     return Object.freeze({ mode: 'review_closure', actionFile: argv[1] })
   }
@@ -10236,7 +10263,9 @@ const main = async () => {
   let invocation
   try {
     invocation = parseInvocation(process.argv.slice(2), process.env)
-    const host = invocation.mode === 'merge_operator_result_projection' ? null : productionHost(process.env)
+    const host = ['role_dispatch_result_projection', 'merge_operator_result_projection'].includes(invocation.mode)
+      ? null
+      : productionHost(process.env)
     const executeProduction = async (executionHost = host) => invocation.mode === 'review_event'
         ? await executeReviewEventWithLifecycleReplayV1({
             event: JSON.parse(readFileSync(invocation.eventFile, 'utf8')),
@@ -10272,6 +10301,11 @@ const main = async () => {
                 dispatch: readJsonFileV1(invocation.dispatchFile),
                 host: executionHost,
               })
+            : invocation.mode === 'role_dispatch_result_projection'
+              ? projectRoleDispatchWorkflowResultV1({
+                  plan: readJsonFileV1(invocation.planFile),
+                  expectedHead: invocation.expectedHead,
+                })
             : invocation.mode === 'review_closure'
               ? await executeReviewThreadClosureV1({
                   action: readJsonFileV1(invocation.actionFile),
