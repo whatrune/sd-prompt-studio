@@ -1496,7 +1496,7 @@ const mergeAdmitted = evaluateProtectedTransitionAdmissionV1(input({
 }))
 const manualWorkflowDispatchAdmission = automationHost({
   initialState: approvedState(),
-  checkPages: [readyCheckPage(), readyCheckPage()],
+  checkPages: [connectionPage([successfulCheck('manual-external-success')])],
 })
 const manualWorkflowDispatchResult = await executeManualProgressionControllerV1({
   request: mergeRequest,
@@ -10805,6 +10805,114 @@ check(
   'SRP-02 natural Ready, manual admission, and same-run callers converge on one event-independent owner',
 )
 
+check(
+  manualWorkflowDispatchResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' &&
+  manualWorkflowDispatchResult.reason !== 'ready_current_check_missing' &&
+  manualWorkflowDispatchResult.role_dispatch?.admission_run_id === READY_RUN_ID &&
+  manualWorkflowDispatchAdmission.metrics.checkReads === 2,
+  'SRECD-01 manual merge admission requires genuine external checks without treating its workflow run as an attached Ready event check',
+)
+
+const manualProgressionSourceV1 = runnerSource.slice(
+  runnerSource.indexOf('export const executeManualProgressionControllerV1'),
+  runnerSource.indexOf('export const executeReadyForReviewProgressionV1'),
+)
+const naturalReadyProgressionSourceV1 = runnerSource.slice(
+  runnerSource.indexOf('export const executeReadyForReviewProgressionV1'),
+  runnerSource.indexOf('export const evaluateMergeAllowedAutomationV1'),
+)
+check(
+  manualProgressionSourceV1.includes('request,\n      host,\n      runId,') &&
+  !manualProgressionSourceV1.includes('currentWorkflowRunId') &&
+  !manualProgressionSourceV1.includes('READY_ATTACHED_SELF_CHECK_CONTEXT_V1') &&
+  naturalReadyProgressionSourceV1.includes('currentWorkflowRunId: runId ?? null') &&
+  naturalReadyProgressionSourceV1.includes('selfCheckContext: READY_ATTACHED_SELF_CHECK_CONTEXT_V1'),
+  'SRECD-02 manual owner input stays event-independent while the natural Ready adapter retains its attached-current-check contract',
+)
+
+const wrongNameReadyCheckFixtureV1 = automationHost({
+  initialState: approvedState(),
+  checkPages: [connectionPage([
+    currentReadyCheck({ name: 'protected_transition_role_dispatch_consumer_v1' }),
+    successfulCheck('wrong-name-external-success'),
+  ])],
+})
+const wrongIdentityReadyCheckFixtureV1 = automationHost({
+  initialState: approvedState(),
+  checkPages: [connectionPage([
+    currentReadyCheck({ detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${READY_RUN_ID}/not-a-job/93075431467` }),
+    successfulCheck('wrong-identity-external-success'),
+  ])],
+})
+const cardinalityReadyCheckFixtureV1 = automationHost({
+  initialState: approvedState(),
+  checkPages: [connectionPage([
+    currentReadyCheck(),
+    currentReadyCheck({ id: 'ready-current-second-name', name: 'second-current-check' }),
+    successfulCheck('cardinality-external-success'),
+  ])],
+})
+const wrongNameReadyCheckResultV1 = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: wrongNameReadyCheckFixtureV1.host, runId: READY_RUN_ID })
+const wrongIdentityReadyCheckResultV1 = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: wrongIdentityReadyCheckFixtureV1.host, runId: READY_RUN_ID })
+const cardinalityReadyCheckResultV1 = await executeReadyForReviewProgressionV1({ event: readyEvent(), host: cardinalityReadyCheckFixtureV1.host, runId: READY_RUN_ID })
+check(
+  wrongNameReadyCheckResultV1.reason === 'ready_current_check_name_invalid' &&
+  wrongIdentityReadyCheckResultV1.reason === 'ready_current_check_identity_invalid' &&
+  cardinalityReadyCheckResultV1.reason === 'ready_current_check_cardinality_invalid' &&
+  newerReadyGenerationResult.reason === 'ready_current_check_not_selected_generation' &&
+  [wrongNameReadyCheckResultV1, wrongIdentityReadyCheckResultV1, cardinalityReadyCheckResultV1, newerReadyGenerationResult]
+    .every((result) => result.next_action === 'STOP'),
+  'SRECD-03 natural Ready wrong check name, run identity, cardinality, or generation remains fail closed',
+)
+
+const manualExternalCheckCasesV1 = [
+  { fixture: automationHost({ initialState: approvedState(), checkPages: [connectionPage([])] }), reason: 'checks_missing' },
+  { fixture: automationHost({ initialState: approvedState(), checkPages: [connectionPage([{ ...successfulCheck('manual-pending'), status: 'IN_PROGRESS', conclusion: null }])] }), reason: 'checks_not_terminal' },
+  { fixture: automationHost({ initialState: approvedState(), checkPages: [connectionPage([{ ...successfulCheck('manual-failed'), conclusion: 'FAILURE' }])] }), reason: 'checks_not_successful' },
+]
+const manualExternalCheckResultsV1 = await Promise.all(manualExternalCheckCasesV1.map(({ fixture }) =>
+  executeManualProgressionControllerV1({ request: mergeRequest, host: fixture.host, runId: READY_RUN_ID })))
+check(
+  manualExternalCheckResultsV1.every((result, index) =>
+    result.next_action === 'STOP' && result.reason === manualExternalCheckCasesV1[index].reason) &&
+  manualExternalCheckCasesV1.every(({ fixture }) => fixture.metrics.threadReads === 0),
+  'SRECD-04 manual missing, pending, or failed genuine external checks remain authoritative and fail closed',
+)
+
+const manualHeadDriftFixtureV1 = automationHost({ initialState: approvedState(), headAtPullRead: { 1: OTHER_HEAD } })
+const manualStateDriftFixtureV1 = automationHost({
+  initialState: state({ architecture_status: 'NOT_APPROVED', review_status: 'APPROVE', reviewed_head: HEAD, review_blocker_count: 0 }),
+})
+const manualReviewDriftFixtureV1 = automationHost({
+  initialState: approvedState(),
+  commentPages: [[reviewEvent({ body: reviewDecisionBody({ decision: 'CHANGES_REQUIRED', blocking_finding_count: 1 }) }).comment]],
+})
+const manualScopeDriftFixtureV1 = automationHost({
+  initialState: approvedState(),
+  changedFiles: 1,
+  filePages: [[{ filename: ALLOWED[0], status: 'modified' }]],
+})
+const manualThreadDriftFixtureV1 = automationHost({
+  initialState: approvedState(),
+  threadPages: [connectionPage([{ id: 'manual-active-thread', isResolved: false, isOutdated: false }])],
+})
+const manualDriftResultsV1 = await Promise.all([
+  executeManualProgressionControllerV1({ request: mergeRequest, host: manualHeadDriftFixtureV1.host, runId: READY_RUN_ID }),
+  executeManualProgressionControllerV1({ request: mergeRequest, host: manualStateDriftFixtureV1.host, runId: READY_RUN_ID }),
+  executeManualProgressionControllerV1({ request: mergeRequest, host: manualReviewDriftFixtureV1.host, runId: READY_RUN_ID }),
+  executeManualProgressionControllerV1({ request: mergeRequest, host: manualScopeDriftFixtureV1.host, runId: READY_RUN_ID }),
+  executeManualProgressionControllerV1({ request: mergeRequest, host: manualThreadDriftFixtureV1.host, runId: READY_RUN_ID }),
+])
+check(
+  manualDriftResultsV1[0].reason === 'post_ready_binding_invalid' &&
+  manualDriftResultsV1[1].reason === 'post_ready_binding_invalid' &&
+  manualDriftResultsV1[2].reason === 'review_not_approvable' &&
+  manualDriftResultsV1[3].reason === 'post_ready_binding_invalid' &&
+  manualDriftResultsV1[4].reason === 'blocking_review_threads_present' &&
+  manualDriftResultsV1.every((result) => result.next_action === 'STOP'),
+  'SRECD-05 manual HEAD, Task-state, Review, scope, or active-thread drift remains fail closed before Product Owner progression',
+)
+
 const postReadyDraftFixtureV1 = automationHost({ initialState: approvedState(), draft: true })
 const postReadyDraftResultV1 = await executeManualProgressionControllerV1({
   request: mergeRequest,
@@ -10972,5 +11080,5 @@ check(
   'SRP-10 bounded continuation adds no transition, polling, workflow dispatch, or credential dependency',
 )
 
-if (assertions !== 1120) throw new Error(`expected exactly 1120 assertions, observed ${assertions}`)
+if (assertions !== 1125) throw new Error(`expected exactly 1125 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

@@ -2240,11 +2240,7 @@ export const executePostReadyProgressionOwnerV1 = async ({
 export const executeManualProgressionControllerV1 = async ({ request, host, runId = null }) => {
   if (request?.transition === 'merge_decision_admission') {
     return executePostReadyProgressionOwnerV1({
-      request: Object.freeze({
-        ...request,
-        currentWorkflowRunId: runId,
-        selfCheckContext: READY_ATTACHED_SELF_CHECK_CONTEXT_V1,
-      }),
+      request,
       host,
       runId,
     })
