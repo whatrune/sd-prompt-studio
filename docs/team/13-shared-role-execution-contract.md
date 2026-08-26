@@ -71,6 +71,18 @@ Issue Scope MUST NOT expand while resolving a gap. A gap or correction with the 
 
 Technical ability, repository write access, or GitHub permission MUST NOT be treated as Role authority.
 
+## Role Progress Transport
+
+`IN_PROGRESS` is an internal same-Role transport signal, not a canonical Result Handoff or a terminal Role result. The assigned Role MUST continue working within the current execution whenever it can still make progress and MUST NOT return `IN_PROGRESS` merely to report ongoing work. It MUST return exactly `IN_PROGRESS` only when the current execution genuinely cannot complete the assigned Role and another execution of the same Role is required.
+
+## Result Handoff Continuation Ownership
+
+A terminal Result Handoff completes the assigned Role; it does not require that Role to perform or authorize the next lifecycle action. After consuming an admissible terminal Result Handoff, the protected-transition consumer host owns continuation under the existing routing and authority rules. The Role MUST return only the requested canonical record body and MUST NOT replace it with status narration or independently invoke a downstream Role.
+
+## Ready Transition Authority Boundary
+
+A terminal implementation or review Result Handoff is evidence for the applicable lifecycle decision; it is not Ready authority and MUST NOT itself perform or imply a Ready transition. Ready remains a protected action and may occur only through existing explicit Ready authority and the authorized protected-transition consumer; absent that authority, the lifecycle state remains unchanged.
+
 ## Protected Actions
 
 Protected actions include Ready for Review, Approve, Merge, Revert, branch publication, Issue creation or closure, authority or completion-state changes, and any other action marked protected by the task.
