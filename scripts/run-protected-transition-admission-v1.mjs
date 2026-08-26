@@ -31,6 +31,7 @@ const READY_ATTACHED_SELF_CHECK_CONTEXT_V1 = 'ATTACHED_CURRENT_CHECK_REQUIRED'
 const READY_REBIND_SELF_CHECK_CONTEXT_V1 = 'ATTACHED_SAME_RUN_FAMILY_EXCLUDED'
 const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'
 const MANUAL_DETACHED_ADMISSION_SELF_CHECK_CONTEXT_V1 = 'DETACHED_MANUAL_ADMISSION_CHECK_AWARE'
+const MERGE_DECISION_OWNER_SELF_CHECK_CONTEXT_V1 = 'DETACHED_MERGE_DECISION_OWNER_CHECK_AWARE'
 const ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'
 const WORKFLOW_DISPATCH_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'
 const RTO_SELF_JOB_NAMES_V1 = Object.freeze([
@@ -41,6 +42,7 @@ const RTO_SELF_JOB_NAMES_V1 = Object.freeze([
   'protected_transition_post_repair_review_v1',
 ])
 const VERIFIED_ADMISSION_ORIGINS_V1 = new WeakSet()
+const VERIFIED_MERGE_DECISION_OWNERS_V1 = new WeakSet()
 const REVIEW_RECORD_TYPE = 'independent_review_decision_v1'
 const REVIEW_AUTHORING_ROLE = 'Independent Reviewer'
 const REVIEW_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
@@ -2442,7 +2444,7 @@ const classifyMergeGatePullV1 = (request, pull) => {
     return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'pull_mergeability_indeterminate', 1, pull.head.sha)
   }
   const selfAwareUnstable = WORKFLOW_RUN_ID.test(request.currentWorkflowRunId ?? '') &&
-    [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, READY_REBIND_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1, MANUAL_DETACHED_ADMISSION_SELF_CHECK_CONTEXT_V1, ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext) &&
+    [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, READY_REBIND_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1, MANUAL_DETACHED_ADMISSION_SELF_CHECK_CONTEXT_V1, MERGE_DECISION_OWNER_SELF_CHECK_CONTEXT_V1, ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext) &&
     pull.mergeable_state === 'unstable'
   if (!pull.mergeable || (pull.mergeable_state !== 'clean' && !selfAwareUnstable)) {
     return mergeGateStoppedResultV1(request, 'IMPLEMENTATION_BLOCKED', 'pull_not_mergeable', 2, pull.head.sha)
@@ -2544,6 +2546,15 @@ const reduceSelfAwareCurrentChecksV1 = (request, rollup) => {
       if (item.type !== 'CheckRun' || item.name !== admissionName) return true
       const internalRunId = parseRepositoryActionsRunIdV1(request, item)
       return internalRunId === null || internalRunId === request.currentWorkflowRunId
+    }))
+  }
+  if (request.selfCheckContext === MERGE_DECISION_OWNER_SELF_CHECK_CONTEXT_V1) {
+    return Object.freeze(selectedGenerations.filter((item) => {
+      if (!RTO_SELF_JOB_NAMES_V1.includes(item.name)) return true
+      if (item.type !== 'CheckRun' || parseRepositoryActionsRunIdV1(request, item) === null) {
+        throw new Error('merge_decision_self_check_identity_invalid')
+      }
+      return false
     }))
   }
   if (request.selfCheckContext === REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1) {
@@ -2696,7 +2707,7 @@ export const evaluateMergeAllowedAutomationV1 = async ({ request, admitted, host
       return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'pull_mergeability_indeterminate', 1, reviewSnapshot.pull.headRefOid)
     }
     const selfAwareUnstable = WORKFLOW_RUN_ID.test(request.currentWorkflowRunId ?? '') &&
-      [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, READY_REBIND_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1, MANUAL_DETACHED_ADMISSION_SELF_CHECK_CONTEXT_V1, ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext) &&
+      [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, READY_REBIND_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1, MANUAL_DETACHED_ADMISSION_SELF_CHECK_CONTEXT_V1, MERGE_DECISION_OWNER_SELF_CHECK_CONTEXT_V1, ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext) &&
       reviewSnapshot.pull.mergeStateStatus === 'UNSTABLE'
     if (reviewSnapshot.pull.mergeable !== 'MERGEABLE' || (reviewSnapshot.pull.mergeStateStatus !== 'CLEAN' && !selfAwareUnstable)) {
       return mergeGateStoppedResultV1(request, 'IMPLEMENTATION_BLOCKED', 'pull_not_mergeable', 2, reviewSnapshot.pull.headRefOid)
@@ -4306,6 +4317,48 @@ export const parseProductOwnerMergeDecisionV1 = (body, repository, taskIssueNumb
     blockingThreadCount: yaml.scalars.get('blocking_thread_count'),
     decision: 'MERGE_ALLOWED',
   })
+}
+
+const isProductOwnerMergeDecisionCandidateV1 = (body) => typeof body === 'string' &&
+  /(?:^|\r?\n)record_type:[ \t]+product_owner_merge_decision_v1(?:\r?$)/m.test(body)
+
+const acquireCanonicalProductOwnerMergeDecisionV1 = async ({ request, commentId, body, host }) => {
+  const history = await acquireMinimalGovernanceCommentHistoryV1(request, host)
+  const effectiveReview = await acquireEffectiveReviewDecisionV1({ request, host, history })
+  const reviewBodySha256 = createHash('sha256').update(Buffer.from(effectiveReview.body, 'utf8')).digest('hex')
+  const applicable = []
+  for (const comment of history.comments) {
+    if (!isProductOwnerMergeDecisionCandidateV1(comment.body)) continue
+    let decision
+    try {
+      decision = parseProductOwnerMergeDecisionV1(comment.body, request.repository, request.taskIssueNumber)
+    } catch {
+      throw new Error('merge_decision_history_invalid')
+    }
+    if (
+      decision.prNumber === request.prNumber && decision.exactHead === request.exactHead &&
+      decision.reviewCommentId === effectiveReview.commentId
+    ) {
+      applicable.push(Object.freeze({ comment, decision }))
+    }
+  }
+  if (applicable.length !== 1 || applicable[0].comment.id !== commentId) {
+    throw new Error('merge_decision_cardinality_invalid')
+  }
+  const direct = await fetchRoleCommentRecordV1(request.repository, request.taskIssueNumber, commentId, host)
+  if (direct.body !== body || direct.body !== applicable[0].comment.body) {
+    throw new Error('merge_decision_direct_refetch_invalid')
+  }
+  const owner = Object.freeze({
+    comment_id: commentId,
+    body: direct.body,
+    decision: applicable[0].decision,
+    effective_review: effectiveReview,
+    review_body_sha256: reviewBodySha256,
+    history,
+  })
+  VERIFIED_MERGE_DECISION_OWNERS_V1.add(owner)
+  return owner
 }
 
 export const normalizeRoleTransitionEventV1 = (event) => {
@@ -6943,6 +6996,46 @@ export const evaluateProductOwnerMergeDecisionV1 = ({ decision, request, taskSta
   }
 }
 
+const evaluateCanonicalProductOwnerMergeDecisionV1 = ({ owner, request, taskState, gateResult }) => {
+  try {
+    if (!VERIFIED_MERGE_DECISION_OWNERS_V1.has(owner)) {
+      throw new Error('merge_decision_owner_invalid')
+    }
+    const decision = owner.decision
+    const effectiveReview = owner.effective_review
+    const parsedState = parseProtectedTransitionTaskStateV1(taskState)
+    const review = effectiveReview?.review
+    if (
+      !decision || !request || !REPOSITORY.test(request.repository ?? '') ||
+      !positiveInteger(request.taskIssueNumber) || !positiveInteger(request.prNumber) ||
+      !FULL_HEAD.test(request.exactHead ?? '') || decision.prNumber !== request.prNumber ||
+      decision.exactHead !== request.exactHead || decision.blockingThreadCount !== 0 ||
+      effectiveReview?.commentId !== decision.reviewCommentId ||
+      owner.review_body_sha256 !== createHash('sha256').update(Buffer.from(effectiveReview?.body ?? '', 'utf8')).digest('hex') ||
+      !review || review.decision !== 'APPROVE' || review.pr_number !== request.prNumber ||
+      review.reviewed_head !== request.exactHead || review.blocking_finding_count !== 0 ||
+      review.remaining_finding_count !== 0 || review.unknown_count !== 0 ||
+      parsedState.task_issue_number !== request.taskIssueNumber || parsedState.pr_number !== request.prNumber ||
+      parsedState.observed_head !== request.exactHead || parsedState.reviewed_head !== request.exactHead ||
+      parsedState.review_status !== 'APPROVE' || parsedState.review_blocker_count !== 0 ||
+      !gateResult || gateResult.state !== 'MERGE_ELIGIBLE' || gateResult.allowed !== true ||
+      gateResult.reason !== 'merge_gate_satisfied' || gateResult.current_head !== request.exactHead ||
+      !positiveInteger(gateResult.external_check_success_count) || gateResult.blocking_thread_count !== 0
+    ) return roleStopV1(request, 'IMPLEMENTATION_BLOCKED', 'merge_decision_binding_invalid')
+    return Object.freeze({
+      ...gateResult,
+      allowed: false,
+      automation_status: 'HANDOFF_READY',
+      next_action: 'MERGE_OPERATOR',
+      reason: 'merge_allowed',
+      terminal_result: 'MERGE_ALLOWED',
+      decisionValid: true,
+    })
+  } catch (error) {
+    return roleStopV1(request, 'INDETERMINATE', error instanceof Error ? error.message : 'merge_decision_binding_invalid')
+  }
+}
+
 const roleOneScalarV1 = (yaml, keys) => {
   const values = keys.filter((key) => yaml.scalars.has(key)).map((key) => yaml.scalars.get(key))
   if (values.length !== 1) throw new Error('terminal_result_ambiguous_or_invalid')
@@ -9152,23 +9245,46 @@ export const executeRoleTransitionOrchestratorV1 = async ({
     if (pull.head.sha !== request.exactHead) return roleStopV1(request, 'STALE', 'head_binding_stale', pull.head.sha)
     if (normalized.terminalResult === 'MERGE_ALLOWED') {
       const taskState = extractProtectedTransitionTaskStateV1(pull.body)
-      const reviewComment = await fetchRoleCommentRecordV1(normalized.repository, normalized.taskIssueNumber, normalized.reviewCommentId, host)
-      const review = parseIndependentReviewDecisionProjectionV1(reviewComment.body, normalized.repository, normalized.taskIssueNumber)
-      const admissionOrigin = await resolveAdmissionRunOriginV1({
-        repository: normalized.repository, admissionRunId: String(normalized.admissionRunId),
-        prNumber: normalized.prNumber, exactHead: normalized.exactHead, host,
+      if (
+        pull.state !== 'open' || pull.draft !== false || pull.merged !== false ||
+        pull.base?.ref !== 'main' || pull.base?.repo?.full_name !== normalized.repository
+      ) throw new Error('merge_decision_pull_binding_invalid')
+      await acquireCanonicalProductOwnerMergeDecisionV1({
+        request,
+        commentId: normalized.commentId,
+        body: currentBody,
+        host,
       })
-      const admissionRun = admissionOrigin.admissionRun
       const gateRequest = Object.freeze({
         transition: 'merge_decision_admission', repository: normalized.repository,
         taskIssueNumber: normalized.taskIssueNumber, prNumber: normalized.prNumber,
-        exactHead: normalized.exactHead, currentWorkflowRunId: String(normalized.admissionRunId),
-        selfCheckContext: admissionOrigin.selfCheckContext,
-        currentWorkflowJobIds: admissionOrigin.currentWorkflowJobIds,
+        exactHead: normalized.exactHead, currentWorkflowRunId: String(runId),
+        selfCheckContext: MERGE_DECISION_OWNER_SELF_CHECK_CONTEXT_V1,
       })
       const admitted = await executeProtectedTransitionAdmissionV1({ request: gateRequest, host })
       const gateResult = await evaluateMergeAllowedAutomationV1({ request: gateRequest, admitted, host })
-      const routeResult = evaluateProductOwnerMergeDecisionV1({ decision: normalized, request, taskState, review, admissionRun, admissionOrigin, gateResult })
+      const finalPull = await acquireMergeGatePullV1(request, host)
+      if (
+        finalPull.state !== 'open' || finalPull.draft !== false || finalPull.merged !== false ||
+        finalPull.head.sha !== request.exactHead || finalPull.base?.ref !== 'main' ||
+        finalPull.base?.repo?.full_name !== request.repository
+      ) throw new Error('merge_decision_pull_binding_invalid')
+      const finalTaskState = extractProtectedTransitionTaskStateV1(finalPull.body)
+      if (JSON.stringify(finalTaskState) !== JSON.stringify(taskState)) {
+        throw new Error('merge_decision_task_state_changed')
+      }
+      const finalOwner = await acquireCanonicalProductOwnerMergeDecisionV1({
+        request,
+        commentId: normalized.commentId,
+        body: currentBody,
+        host,
+      })
+      const routeResult = evaluateCanonicalProductOwnerMergeDecisionV1({
+        owner: finalOwner,
+        request,
+        taskState: finalTaskState,
+        gateResult,
+      })
       if (routeResult.next_action !== 'MERGE_OPERATOR') return Object.freeze({ ...routeResult, source_comment_id: normalized.commentId })
       const roleDispatch = projectRoleDispatchEnvelopeV1({
         result: routeResult, repository: normalized.repository, sourceCommentId: normalized.commentId,
@@ -9974,6 +10090,7 @@ export const executeReviewEventWithLifecycleReplayV1 = async ({
   if (isPrePrImplementationAuthorityCandidateV1(event?.comment?.body)) return result
   if (isPrePrBootstrapPublicationDecisionCandidateV1(event?.comment?.body)) return result
   if (isMinimalGovernanceCandidateV1(event?.comment?.body)) return result
+  if (result?.role_dispatch?.source_binding?.kind === 'MERGE_DECISION') return result
   if (result?.next_action === 'THREAD_RESOLUTION') {
     return withLifecycleDiagnosticProjectionV1(result, lifecycleThreadResolutionProjectionV1(result))
   }
