@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -27,6 +27,7 @@ import {
   executeRoleDispatchConsumerV1,
   executeRoleDispatchRebindV1,
   executeManualProgressionControllerV1,
+  executeReadyTransitionRequiredResumeV1,
   executeLifecycleOrchestratorV1,
   executeReviewEventWithLifecycleReplayV1,
   executeReviewThreadClosureV1,
@@ -724,7 +725,7 @@ for (const unit of roleUnits) {
 }
 
 check(Object.keys(workflow.on).join(',') === 'workflow_dispatch,issue_comment,pull_request' && workflow.on.issue_comment.types.join(',') === 'created' && workflow.on.pull_request.types.join(',') === 'ready_for_review', 'workflow has manual recovery, created Review, and Ready triggers')
-check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number', 'workflow has exactly four inputs and canonicalizes the Task input as a number')
+check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head,review_decision_comment_id,publication_handoff_comment_id' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number', 'workflow has the four shared inputs plus exactly two bounded Ready-resume owner IDs and canonicalizes the Task input as a number')
 check(Object.keys(workflow.permissions).join(',') === 'actions,contents,checks,issues,pull-requests,statuses' && workflow.permissions.actions === 'read' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'read' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read', 'workflow adds only read access for Actions, checks, and statuses')
 
 const admissionJob = workflow.jobs.protected_transition_admission_v1
@@ -1034,7 +1035,7 @@ const automationHost = ({
 // Seven Ready-for-Review bridge units x three assertions = 21.
 check(workflow.on.pull_request.types.join(',') === 'ready_for_review' && workflowSource.includes('--ready-event-file "$PTA_EVENT_PATH"'), 'RFR-01 workflow routes only Ready events to the Ready adapter')
 check(workflowSource.includes('[[ "$PTA_BASE_REF" == "main" ]]') && workflowSource.includes('refs/pull/${PTA_EVENT_PR_NUMBER}/merge'), 'RFR-01 Ready host binds main base and exact PR merge ref')
-check(Object.keys(workflow.on.workflow_dispatch.inputs).length === 4 && workflow.concurrency.group.includes('github.event.pull_request.number'), 'RFR-01 preserves four recovery inputs and adds only the PR fallback queue key')
+check(Object.keys(workflow.on.workflow_dispatch.inputs).length === 6 && workflow.concurrency.group.includes('github.event.pull_request.number'), 'RFR-01 preserves four shared recovery inputs, adds only two bounded resume owner IDs, and retains the PR fallback queue key')
 
 const validReadyAutomation = automationHost({
   initialState: approvedState(),
@@ -1453,10 +1454,10 @@ check(noTargetResult.state === 'INDETERMINATE' && noTargetResult.reason === 'rev
 
 check(
   (runnerSource.match(/await resolveEffectiveReviewDecisionV1\(\{ request, parsedEvent, host \}\)/g) ?? []).length === 2 &&
-  (runnerSource.match(/await acquireEffectiveReviewDecisionV1\(\{/g) ?? []).length === 5 &&
+  (runnerSource.match(/await acquireEffectiveReviewDecisionV1\(\{/g) ?? []).length === 6 &&
   (runnerSource.match(/reduceCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 3 &&
   (runnerSource.match(/confirmCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 3,
-  'RRC-07 issue_comment, Ready, fresh rebind, and Lifecycle reuse the canonical aggregate Review owner',
+  'RRC-07 issue_comment, Ready, bounded resume, fresh rebind, and Lifecycle reuse the canonical aggregate Review owner',
 )
 
 const productionPaths = execFileSync('git', ['ls-files', '.github', 'scripts', 'src'], { cwd: repositoryRoot, encoding: 'utf8' })
@@ -1920,7 +1921,7 @@ check(
   (runnerSource.match(/reduceSelfAwareCurrentChecksV1\(/g) ?? []).length === 3 &&
   (runnerSource.match(/partitionReadyRunChecksV1\(/g) ?? []).length === 2 &&
   runnerSource.includes("const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'") &&
-  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 5,
+  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 6,
   'SGR-12 shared-helper use and correction/cumulative allowlists hold without duplicate sibling filters',
 )
 
@@ -10098,23 +10099,45 @@ const bootstrapApprovedState = Object.freeze({
   reviewed_head: BOOTSTRAP_PUBLISHED_HEAD,
   review_blocker_count: 0,
 })
-const bootstrapApprovedBaseHost = bootstrapPublishedHostV1({ taskState: bootstrapApprovedState })
-const bootstrapApprovedHost = Object.freeze({
-  ...bootstrapApprovedBaseHost,
-  api: async (endpoint, options) => {
-    if (endpoint.startsWith(`repos/${REPOSITORY}/issues/${PRE_PR_TASK}/comments?`)) {
-      return [bootstrapPublicationHandoffRecord, bootstrapApprovedReviewRecord]
-    }
-    if (endpoint === `repos/${REPOSITORY}/issues/comments/${BOOTSTRAP_APPROVED_REVIEW_ID}`) {
+const bootstrapApprovedHostV1 = ({
+  taskState = bootstrapApprovedState,
+  pullOverrides = {},
+  check = successfulCheck('bootstrap-lifecycle'),
+} = {}) => {
+  const base = bootstrapPublishedHostV1({ taskState, pullOverrides })
+  const metrics = { ...base.metrics, writes: 0 }
+  return Object.freeze({
+    ...base,
+    metrics,
+    api: async (endpoint, options) => {
+      if (options?.method && options.method !== 'GET') metrics.writes += 1
+      if (endpoint.startsWith(`repos/${REPOSITORY}/issues/${PRE_PR_TASK}/comments?`)) {
+        return [bootstrapPublicationHandoffRecord, bootstrapApprovedReviewRecord]
+      }
+      if (endpoint === `repos/${REPOSITORY}/issues/comments/${BOOTSTRAP_APPROVED_REVIEW_ID}`) {
+        return Object.freeze({
+          ...bootstrapApprovedReviewRecord,
+          issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${PRE_PR_TASK}`,
+          html_url: `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${BOOTSTRAP_APPROVED_REVIEW_ID}`,
+        })
+      }
+      return base.api(endpoint, options)
+    },
+    graphql: async (query) => {
+      if (!query.includes('statusCheckRollup')) return base.graphql(query)
       return Object.freeze({
-        ...bootstrapApprovedReviewRecord,
-        issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${PRE_PR_TASK}`,
-        html_url: `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}#issuecomment-${BOOTSTRAP_APPROVED_REVIEW_ID}`,
+        repository: Object.freeze({
+          pullRequest: Object.freeze({ headRefOid: pullOverrides.head?.sha ?? BOOTSTRAP_PUBLISHED_HEAD }),
+          object: Object.freeze({
+            oid: pullOverrides.head?.sha ?? BOOTSTRAP_PUBLISHED_HEAD,
+            statusCheckRollup: Object.freeze({ contexts: connectionPage([check]) }),
+          }),
+        }),
       })
-    }
-    return bootstrapApprovedBaseHost.api(endpoint, options)
-  },
-})
+    },
+  })
+}
+const bootstrapApprovedHost = bootstrapApprovedHostV1()
 const bootstrapDraftApprovedLifecycle = await executeReviewEventWithLifecycleReplayV1({
   event: bootstrapApprovedReviewEvent,
   host: bootstrapApprovedHost,
@@ -10137,6 +10160,157 @@ check(
   bootstrapDraftApprovedLifecycle.role_dispatch.next_action === 'INTEGRATED_LEAD_READY_REVIEW' &&
   bootstrapDraftApprovedLifecycle.role_dispatch.source_binding.kind === 'READY_TRANSITION_REQUIRED',
   'SSRR-06 Draft READY projection remains mutation-free while the existing role consumer owns the next semantic decision',
+)
+const readyResumeRequestV1 = Object.freeze({
+  transition: 'ready_transition_required_resume',
+  repository: REPOSITORY,
+  taskIssueNumber: PRE_PR_TASK,
+  prNumber: BOOTSTRAP_PUBLICATION_PR,
+  exactHead: BOOTSTRAP_PUBLISHED_HEAD,
+  reviewDecisionCommentId: BOOTSTRAP_APPROVED_REVIEW_ID,
+  publicationHandoffCommentId: BOOTSTRAP_PUBLICATION_HANDOFF_ID,
+})
+const readyResumeHost = bootstrapApprovedHostV1()
+const readyResumeResultV1 = await executeReadyTransitionRequiredResumeV1({
+  request: readyResumeRequestV1,
+  host: readyResumeHost,
+  runId: REVIEW_RUN_ID,
+  runAttempt: 1,
+  hostSha: PRE_PR_BASELINE,
+  jobName: 'protected_transition_admission_v1',
+})
+check(
+  workflow.on.workflow_dispatch.inputs.transition.options.join('|') ===
+    'terminal_review_admission|merge_decision_admission|ready_transition_required_resume' &&
+  workflow.on.workflow_dispatch.inputs.review_decision_comment_id.required === false &&
+  workflow.on.workflow_dispatch.inputs.publication_handoff_comment_id.required === false &&
+  workflowSource.includes('"${resume_args[@]}"') &&
+  !workflowSource.includes('repository_dispatch'),
+  'BRI-01 workflow exposes only the bounded Ready successor transition and its two optional-at-schema runtime-bound owner IDs',
+)
+check(
+  readyResumeResultV1.next_action === 'INTEGRATED_LEAD_READY_REVIEW' &&
+  readyResumeResultV1.terminal_result === 'READY_TRANSITION_REQUIRED' &&
+  readyResumeResultV1.role_dispatch.next_action === 'INTEGRATED_LEAD_READY_REVIEW' &&
+  readyResumeResultV1.role_dispatch.source_binding.kind === 'READY_TRANSITION_REQUIRED' &&
+  readyResumeResultV1.role_dispatch.source_binding.review_comment_id === BOOTSTRAP_APPROVED_REVIEW_ID &&
+  readyResumeResultV1.role_dispatch.source_binding.publication_handoff_comment_id === BOOTSTRAP_PUBLICATION_HANDOFF_ID,
+  'BRI-02 exact admitted current owner tuple emits exactly one existing Integrated Lead Ready Review dispatch',
+)
+check(
+  readyResumeResultV1.lifecycle_projection.phase === 'READY' &&
+  readyResumeResultV1.lifecycle_projection.state === 'READY' &&
+  readyResumeResultV1.lifecycle_projection.execution_stop_reason === 'ready_transition_required' &&
+  readyResumeResultV1.lifecycle_projection.next_action === 'READY_TRANSITION_REQUIRED' &&
+  readyResumeResultV1.mutation_count === 0 && readyResumeHost.metrics.writes === 0 && readyResumeHost.metrics.statePatches === 0,
+  'BRI-03 ingress reuses the exact READY reducer output and performs zero publication or mutation',
+)
+const readyResumeMissingIds = await executeReadyTransitionRequiredResumeV1({
+  request: Object.freeze({ ...readyResumeRequestV1, reviewDecisionCommentId: null }),
+  host: bootstrapApprovedHostV1(), runId: REVIEW_RUN_ID, runAttempt: 1,
+})
+const readyResumeInvalidIds = await executeReadyTransitionRequiredResumeV1({
+  request: Object.freeze({ ...readyResumeRequestV1, publicationHandoffCommentId: 0 }),
+  host: bootstrapApprovedHostV1(), runId: REVIEW_RUN_ID, runAttempt: 1,
+})
+check(
+  readyResumeMissingIds.reason === 'ready_transition_resume_request_invalid' &&
+  readyResumeInvalidIds.reason === 'ready_transition_resume_request_invalid' &&
+  readyResumeMissingIds.next_action === 'STOP' && readyResumeInvalidIds.mutation_count === 0,
+  'BRI-04 missing or invalid owner IDs fail closed before acquisition',
+)
+const staleReadyResumeReview = await executeReadyTransitionRequiredResumeV1({
+  request: Object.freeze({ ...readyResumeRequestV1, reviewDecisionCommentId: BOOTSTRAP_APPROVED_REVIEW_ID + 1 }),
+  host: bootstrapApprovedHostV1(), runId: REVIEW_RUN_ID, runAttempt: 1,
+})
+const staleReadyResumePublication = await executeReadyTransitionRequiredResumeV1({
+  request: Object.freeze({ ...readyResumeRequestV1, publicationHandoffCommentId: BOOTSTRAP_PUBLICATION_HANDOFF_ID + 1 }),
+  host: bootstrapApprovedHostV1(), runId: REVIEW_RUN_ID, runAttempt: 1,
+})
+check(
+  staleReadyResumeReview.reason === 'ready_transition_resume_review_binding_invalid' &&
+  staleReadyResumePublication.reason === 'ready_transition_resume_publication_binding_invalid' &&
+  staleReadyResumeReview.next_action === 'STOP' && staleReadyResumePublication.next_action === 'STOP',
+  'BRI-05 stale supplied Review or Publication owner identity produces no dispatch',
+)
+const nonDraftReadyResume = await executeReadyTransitionRequiredResumeV1({
+  request: readyResumeRequestV1,
+  host: bootstrapApprovedHostV1({ pullOverrides: { draft: false } }),
+  runId: REVIEW_RUN_ID, runAttempt: 1,
+})
+const wrongHeadReadyResume = await executeReadyTransitionRequiredResumeV1({
+  request: readyResumeRequestV1,
+  host: bootstrapApprovedHostV1({
+    pullOverrides: { head: { sha: OTHER_HEAD, ref: 'codex/bootstrap-publication', repo: { full_name: REPOSITORY } } },
+  }),
+  runId: REVIEW_RUN_ID, runAttempt: 1,
+})
+check(
+  nonDraftReadyResume.reason === 'ready_transition_resume_pull_binding_invalid' &&
+  wrongHeadReadyResume.reason === 'ready_transition_resume_pull_binding_invalid' &&
+  nonDraftReadyResume.next_action === 'STOP' && wrongHeadReadyResume.mutation_count === 0,
+  'BRI-06 non-Draft or wrong-HEAD PR state fails before Lifecycle dispatch',
+)
+const wrongScopeReadyResume = await executeReadyTransitionRequiredResumeV1({
+  request: readyResumeRequestV1,
+  host: bootstrapApprovedHostV1({
+    taskState: Object.freeze({
+      ...bootstrapApprovedState,
+      authorized_paths: Object.freeze([...PRE_PR_CHANGED_PATHS, 'docs/outside-ready-resume.md']),
+    }),
+  }),
+  runId: REVIEW_RUN_ID, runAttempt: 1,
+})
+check(
+  wrongScopeReadyResume.reason === 'ready_transition_resume_scope_binding_invalid' &&
+  wrongScopeReadyResume.next_action === 'STOP' && wrongScopeReadyResume.mutation_count === 0,
+  'BRI-07 Task-state and actual PR scope drift produces no Integrated Lead dispatch',
+)
+const nonReadyReducerResume = await executeReadyTransitionRequiredResumeV1({
+  request: readyResumeRequestV1,
+  host: bootstrapApprovedHostV1({ check: Object.freeze({ ...successfulCheck('resume-failed-check'), conclusion: 'FAILURE' }) }),
+  runId: REVIEW_RUN_ID, runAttempt: 1,
+})
+check(
+  nonReadyReducerResume.reason === 'ready_transition_resume_lifecycle_not_ready' &&
+  nonReadyReducerResume.next_action === 'STOP' && nonReadyReducerResume.mutation_count === 0,
+  'BRI-08 any non-READY Lifecycle reducer output produces no dispatch',
+)
+const readyResumeCli = (args) => spawnSync(process.execPath, [runnerPath, ...args], {
+  cwd: repositoryRoot,
+  encoding: 'utf8',
+  env: Object.freeze({
+    ...process.env,
+    GITHUB_REPOSITORY: REPOSITORY,
+    GITHUB_RUN_ID: REVIEW_RUN_ID,
+    GITHUB_RUN_ATTEMPT: '1',
+  }),
+})
+const missingResumeIdsCli = readyResumeCli([
+  '--transition', 'ready_transition_required_resume',
+  '--task-issue-number', String(PRE_PR_TASK),
+  '--pr-number', String(BOOTSTRAP_PUBLICATION_PR),
+  '--exact-head', BOOTSTRAP_PUBLISHED_HEAD,
+])
+const unexpectedExistingIdsCli = readyResumeCli([
+  '--transition', 'terminal_review_admission',
+  '--task-issue-number', String(PRE_PR_TASK),
+  '--pr-number', String(BOOTSTRAP_PUBLICATION_PR),
+  '--exact-head', BOOTSTRAP_PUBLISHED_HEAD,
+  '--review-decision-comment-id', String(BOOTSTRAP_APPROVED_REVIEW_ID),
+  '--publication-handoff-comment-id', String(BOOTSTRAP_PUBLICATION_HANDOFF_ID),
+])
+check(
+  missingResumeIdsCli.status === 1 && JSON.parse(missingResumeIdsCli.stdout).reason === 'cli_arguments_invalid' &&
+  unexpectedExistingIdsCli.status === 1 && JSON.parse(unexpectedExistingIdsCli.stdout).reason === 'cli_arguments_invalid',
+  'BRI-09 resume IDs are runtime-mandatory only for the new transition and rejected on existing transitions',
+)
+check(
+  manualWorkflowDispatchResult.next_action === 'MERGE_DECISION' &&
+  runnerSource.includes("admissionRun.event === 'workflow_dispatch'") &&
+  runnerSource.includes("throw new Error('workflow_dispatch_same_run_job_state_invalid')") &&
+  runnerSource.includes('WORKFLOW_DISPATCH_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1'),
+  'BRI-10 existing workflow_dispatch transitions remain unchanged while the new dispatch is same-invocation origin-bound',
 )
 const bootstrapLifecycleRoute = await executeReviewEventWithLifecycleReplayV1({
   event: bootstrapPublicationHandoffEvent,
@@ -10249,7 +10423,7 @@ const readyAuthorityExecutionIdentityV1 = Object.freeze({
 const readyAuthorityHostV1 = ({
   authorityBody = readyAuthorityBodyV1(), authorityId = READY_AUTHORITY_COMMENT_ID,
   returnedAuthorityId = authorityId, authorityUrl = READY_AUTHORITY_URL, omitAuthority = false,
-  before = {}, after = {}, mutationRejects = false,
+  before = {}, after = {}, mutationRejects = false, admissionEvent = 'issue_comment',
 } = {}) => {
   const metrics = { authorityReads: 0, pulls: 0, mutations: 0, runReads: 0, jobReads: 0 }
   const base = bootstrapApprovedHost
@@ -10260,8 +10434,9 @@ const readyAuthorityHostV1 = ({
   })
   const admissionRun = roleAdmissionRun({
     runId: REVIEW_RUN_ID,
-    event: 'issue_comment',
+    event: admissionEvent,
     head: READY_AUTHORITY_HOST_SHA,
+    headBranch: 'main',
     status: 'in_progress',
     conclusion: null,
   })
@@ -10430,6 +10605,19 @@ check(
   readySuccessFixtureV1.metrics.pulls === 2 && readySuccessResultV1.ready_action.authority_comment_id === READY_AUTHORITY_COMMENT_ID,
   'RAB-07 exact admitted authority permits one Ready mutation and one post-write refetch terminally',
 )
+const workflowDispatchReadyFixtureV1 = readyAuthorityHostV1({ admissionEvent: 'workflow_dispatch' })
+const workflowDispatchReadyResultV1 = await executeReadyTransitionOperatorV1({
+  authorityCommentId: READY_AUTHORITY_COMMENT_ID,
+  dispatch: readyAuthorityDispatchV1,
+  ownerResult: readyAuthorityOwnerResultV1,
+  executionIdentity: readyAuthorityExecutionIdentityV1,
+  host: workflowDispatchReadyFixtureV1.host,
+})
+check(
+  workflowDispatchReadyResultV1.state === 'COMPLETED' && workflowDispatchReadyResultV1.mutation_count === 1 &&
+  workflowDispatchReadyFixtureV1.metrics.mutations === 1 && workflowDispatchReadyFixtureV1.metrics.pulls === 2,
+  'RAB-07a bounded workflow_dispatch origin remains consumable only by its same-run Ready authority path',
+)
 const readyRejectFixtureV1 = readyAuthorityHostV1({ mutationRejects: true })
 const readyRejectResultV1 = await executeReadyTransitionOperatorV1({
   authorityCommentId: READY_AUTHORITY_COMMENT_ID,
@@ -10585,5 +10773,5 @@ check(
   'RIP-09 only a non-progress terminal body reaches each existing parser and its naturally owned canonical publication path',
 )
 
-if (assertions !== 1099) throw new Error(`expected exactly 1099 assertions, observed ${assertions}`)
+if (assertions !== 1110) throw new Error(`expected exactly 1110 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

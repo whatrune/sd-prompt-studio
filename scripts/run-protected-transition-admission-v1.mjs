@@ -31,6 +31,7 @@ const READY_ATTACHED_SELF_CHECK_CONTEXT_V1 = 'ATTACHED_CURRENT_CHECK_REQUIRED'
 const READY_REBIND_SELF_CHECK_CONTEXT_V1 = 'ATTACHED_SAME_RUN_FAMILY_EXCLUDED'
 const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'
 const ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'
+const WORKFLOW_DISPATCH_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'
 const RTO_SELF_JOB_NAMES_V1 = Object.freeze([
   'protected_transition_admission_v1',
   'protected_transition_repair_executor_v1',
@@ -5961,6 +5962,46 @@ const resolveAdmissionRunOriginV1 = async ({ repository, admissionRunId, prNumbe
       selfCheckContext = ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1
       currentWorkflowJobIds = strictManifest.jobIds
     }
+  } else if (admissionRun.event === 'workflow_dispatch') {
+    const repositoryRecord = await api(host, `repos/${repository}`)
+    const expectedWorkflowRef = `${repository}/${admissionRun.path}@refs/heads/${repositoryRecord?.default_branch}`
+    if (
+      executionIdentity === null || String(executionIdentity.runId ?? '') !== admissionRunId ||
+      admissionRun.pull_requests.length !== 0 || admissionRun.repository?.url !== expectedApiRepository ||
+      admissionRun.head_repository?.full_name !== repository || admissionRun.head_repository?.url !== expectedApiRepository ||
+      admissionRun.head_commit?.id !== admissionRun.head_sha ||
+      !repositoryRecord || repositoryRecord.full_name !== repository || repositoryRecord.url !== expectedApiRepository ||
+      typeof repositoryRecord.default_branch !== 'string' || repositoryRecord.default_branch.length === 0 ||
+      admissionRun.head_branch !== repositoryRecord.default_branch ||
+      executionIdentity.repository !== repository || executionIdentity.ref !== `refs/heads/${repositoryRecord.default_branch}` ||
+      executionIdentity.workflowRef !== expectedWorkflowRef || executionIdentity.workflowSha !== admissionRun.head_sha ||
+      !Number.isSafeInteger(executionIdentity.runAttempt) || executionIdentity.runAttempt < 1 ||
+      admissionRun.run_attempt !== executionIdentity.runAttempt ||
+      executionIdentity.jobName !== 'protected_transition_role_dispatch_consumer_v1' ||
+      admissionRun.status !== 'in_progress' || admissionRun.conclusion !== null
+    ) throw new Error('role_dispatch_origin_invalid')
+
+    const strictManifest = await acquireStrictBoundedRtoJobManifestV1({
+      repository,
+      runId: admissionRunId,
+      runAttempt: executionIdentity.runAttempt,
+      workflowSha: admissionRun.head_sha,
+      host,
+      errorReason: 'workflow_dispatch_same_run_job_manifest_invalid',
+    })
+    const jobs = strictManifest.jobs
+    const admissionJob = jobs.get('protected_transition_admission_v1')
+    const consumerJob = jobs.get('protected_transition_role_dispatch_consumer_v1')
+    if (
+      admissionJob.status !== 'completed' || admissionJob.conclusion !== 'success' ||
+      consumerJob.status !== 'in_progress' || consumerJob.conclusion !== null ||
+      RTO_SELF_JOB_NAMES_V1.filter((name) => ![
+        'protected_transition_admission_v1',
+        'protected_transition_role_dispatch_consumer_v1',
+      ].includes(name)).some((name) => jobs.get(name).status !== 'completed' || jobs.get(name).conclusion !== 'skipped')
+    ) throw new Error('workflow_dispatch_same_run_job_state_invalid')
+    selfCheckContext = WORKFLOW_DISPATCH_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1
+    currentWorkflowJobIds = strictManifest.jobIds
   } else if (admissionRun.event === 'pull_request') {
     const pull = admissionRun.pull_requests[0]
     if (
@@ -8711,15 +8752,26 @@ const acquireLifecycleReplaySnapshotV1 = async ({ event, sourceResult, host, ide
 
 const executeLifecycleProductionProjectionV1 = async ({
   event, sourceResult, host, completionEvidence, executionIdentity,
+  admittedIdentity = null, admittedPull = null,
 }) => {
   let identity = null
   try {
-    const routing = lifecycleRoutingIdentityFromProductionV1({ event, sourceResult })
-    identity = Object.freeze({
-      ...routing,
-      taskIssueNumber: sourceResult?.task_issue_number ?? event?.issue?.number ?? null,
-    })
-    const resolved = await resolveLifecycleProductionIdentityV1({ event, sourceResult, host })
+    let resolved
+    if (admittedIdentity === null) {
+      const routing = lifecycleRoutingIdentityFromProductionV1({ event, sourceResult })
+      identity = Object.freeze({
+        ...routing,
+        taskIssueNumber: sourceResult?.task_issue_number ?? event?.issue?.number ?? null,
+      })
+      resolved = await resolveLifecycleProductionIdentityV1({ event, sourceResult, host })
+    } else {
+      if (
+        !REPOSITORY.test(admittedIdentity?.repository ?? '') ||
+        !positiveInteger(admittedIdentity?.taskIssueNumber) || !positiveInteger(admittedIdentity?.prNumber) ||
+        !FULL_HEAD.test(admittedIdentity?.exactHead ?? '') || admittedPull === null
+      ) throw new Error('lifecycle_production_identity_invalid')
+      resolved = Object.freeze({ identity: Object.freeze({ ...admittedIdentity }), pull: admittedPull })
+    }
     identity = resolved.identity
     const acquired = await acquireLifecycleReplaySnapshotV1({
       event, sourceResult, host, identity, resolvedPull: resolved.pull, executionIdentity,
@@ -9142,23 +9194,46 @@ const parseManualCli = (argv, environment) => {
     if (!key?.startsWith('--') || value === undefined || values.has(key)) throw new Error('cli_arguments_invalid')
     values.set(key, value)
   }
-  const expected = ['--transition', '--task-issue-number', '--pr-number', '--exact-head']
-  if (values.size !== expected.length || expected.some((key) => !values.has(key))) throw new Error('cli_arguments_invalid')
+  const required = ['--transition', '--task-issue-number', '--pr-number', '--exact-head']
+  const resumeOnly = ['--review-decision-comment-id', '--publication-handoff-comment-id']
+  const allowed = new Set([...required, ...resumeOnly])
+  if (required.some((key) => !values.has(key)) || [...values.keys()].some((key) => !allowed.has(key))) throw new Error('cli_arguments_invalid')
   const transition = values.get('--transition')
   const taskIssueNumber = Number(values.get('--task-issue-number'))
   const prNumber = Number(values.get('--pr-number'))
   const exactHead = values.get('--exact-head')
+  const reviewDecisionCommentId = values.has('--review-decision-comment-id')
+    ? Number(values.get('--review-decision-comment-id'))
+    : null
+  const publicationHandoffCommentId = values.has('--publication-handoff-comment-id')
+    ? Number(values.get('--publication-handoff-comment-id'))
+    : null
   const repository = environment.GITHUB_REPOSITORY
+  const resumeTransition = transition === 'ready_transition_required_resume'
   if (
-    (transition !== 'terminal_review_admission' && transition !== 'merge_decision_admission') ||
+    !['terminal_review_admission', 'merge_decision_admission', 'ready_transition_required_resume'].includes(transition) ||
     !positiveInteger(taskIssueNumber) ||
     !positiveInteger(prNumber) ||
     !FULL_HEAD.test(exactHead ?? '') ||
-    !REPOSITORY.test(repository ?? '')
+    !REPOSITORY.test(repository ?? '') ||
+    (resumeTransition && (
+      values.size !== required.length + resumeOnly.length ||
+      !positiveInteger(reviewDecisionCommentId) || !positiveInteger(publicationHandoffCommentId) ||
+      !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '') || !positiveInteger(Number(environment.GITHUB_RUN_ATTEMPT))
+    )) ||
+    (!resumeTransition && (values.size !== required.length || reviewDecisionCommentId !== null || publicationHandoffCommentId !== null))
   ) {
     throw new Error('cli_arguments_invalid')
   }
-  return Object.freeze({ transition, taskIssueNumber, prNumber, exactHead, repository })
+  return Object.freeze({
+    transition,
+    taskIssueNumber,
+    prNumber,
+    exactHead,
+    repository,
+    reviewDecisionCommentId,
+    publicationHandoffCommentId,
+  })
 }
 
 const parseInvocation = (argv, environment) => {
@@ -9304,7 +9379,9 @@ const parseInvocation = (argv, environment) => {
 const readJsonFileV1 = (file) => JSON.parse(readFileSync(file, 'utf8'))
 
 const liveShadowRequestV1 = (invocation, environment) => {
-  if (invocation.mode === 'manual') return invocation.request
+  if (invocation.mode === 'manual') {
+    return invocation.request.transition === 'ready_transition_required_resume' ? null : invocation.request
+  }
   if (!['review_event', 'ready_event'].includes(invocation.mode)) return null
   const event = readJsonFileV1(invocation.eventFile)
   if (invocation.mode === 'review_event') {
@@ -9569,6 +9646,142 @@ export const projectIntegratedLeadReadyReviewV1 = ({ result, lifecycleOwnerConte
   })
 }
 
+const readyTransitionRequiredResumeStopV1 = (request, reason, currentHead = request?.exactHead ?? null) => Object.freeze({
+  transition: 'ready_transition_required_resume',
+  state: 'INDETERMINATE',
+  allowed: false,
+  exit_code: 1,
+  reason,
+  task_issue_number: request?.taskIssueNumber ?? null,
+  pr_number: request?.prNumber ?? null,
+  current_head: currentHead,
+  out_of_scope_paths: Object.freeze([]),
+  state_changed: false,
+  automation_status: 'BLOCKED',
+  next_action: 'STOP',
+  mutation_count: 0,
+})
+
+export const executeReadyTransitionRequiredResumeV1 = async ({
+  request, host, runId, runAttempt, hostSha = null, jobName = 'protected_transition_admission_v1',
+}) => {
+  try {
+    if (
+      request?.transition !== 'ready_transition_required_resume' ||
+      !REPOSITORY.test(request?.repository ?? '') || !positiveInteger(request?.taskIssueNumber) ||
+      !positiveInteger(request?.prNumber) || !FULL_HEAD.test(request?.exactHead ?? '') ||
+      !positiveInteger(request?.reviewDecisionCommentId) || !positiveInteger(request?.publicationHandoffCommentId) ||
+      !WORKFLOW_RUN_ID.test(String(runId ?? '')) || !positiveInteger(runAttempt)
+    ) throw new Error('ready_transition_resume_request_invalid')
+
+    const task = await acquireTaskIdentityV1(request, host)
+    const pull = await acquireMergeGatePullV1(request, host)
+    if (
+      task.repository !== request.repository || task.number !== request.taskIssueNumber || task.state !== 'open' || task.is_pull_request ||
+      pull.state !== 'open' || pull.draft !== true || pull.merged !== false || pull.base?.ref !== 'main' ||
+      pull.base?.repo?.full_name !== request.repository || pull.head?.repo?.full_name !== request.repository ||
+      pull.head?.sha !== request.exactHead || !FULL_HEAD.test(pull.base?.sha ?? '') ||
+      !Number.isSafeInteger(pull.changed_files) || pull.changed_files < 1
+    ) throw new Error('ready_transition_resume_pull_binding_invalid')
+
+    const taskState = extractProtectedTransitionTaskStateV1(pull.body)
+    if (
+      taskState.task_issue_number !== request.taskIssueNumber || taskState.pr_number !== request.prNumber ||
+      taskState.observed_head !== request.exactHead || taskState.architecture_status !== 'APPROVED' ||
+      taskState.implementation_authorized !== true || taskState.review_status !== 'APPROVE' ||
+      taskState.reviewed_head !== request.exactHead || taskState.review_blocker_count !== 0
+    ) throw new Error('ready_transition_resume_task_state_invalid')
+
+    const scope = await acquireChangedPathScopeV1(request, pull, host)
+    if (!sameRolePathsV1(scope.actual_paths, taskState.authorized_paths)) {
+      throw new Error('ready_transition_resume_scope_binding_invalid')
+    }
+    const history = await acquireMinimalGovernanceCommentHistoryV1(request, host)
+    const effective = await acquireEffectiveReviewDecisionV1({ request, host, history })
+    if (
+      effective.commentId !== request.reviewDecisionCommentId || effective.review.decision !== 'APPROVE' ||
+      effective.review.reviewed_head !== request.exactHead || effective.review.blocking_finding_count !== 0 ||
+      effective.review.remaining_finding_count !== 0 || effective.review.unknown_count !== 0
+    ) throw new Error('ready_transition_resume_review_binding_invalid')
+
+    const identity = Object.freeze({
+      repository: request.repository,
+      taskIssueNumber: request.taskIssueNumber,
+      prNumber: request.prNumber,
+      exactHead: request.exactHead,
+    })
+    const published = await acquireLifecyclePublishedGenerationV1({
+      history,
+      identity,
+      changedPaths: scope.actual_paths,
+      pull,
+      host,
+    })
+    if (
+      published.status !== 'PRESENT' || published.publicationHandoff?.comment_id !== request.publicationHandoffCommentId ||
+      published.scopeContract?.published_head !== request.exactHead ||
+      !sameRolePathsV1(published.authorizedPaths, taskState.authorized_paths) ||
+      !sameRolePathsV1(published.scopeContract?.paths, scope.actual_paths)
+    ) throw new Error('ready_transition_resume_publication_binding_invalid')
+
+    const lifecycleOwnerContext = await executeLifecycleProductionProjectionV1({
+      event: null,
+      sourceResult: null,
+      host,
+      completionEvidence: null,
+      executionIdentity: Object.freeze({ repository: request.repository, runId, runAttempt, workflowSha: hostSha, jobName }),
+      admittedIdentity: identity,
+      admittedPull: pull,
+    })
+    const projection = lifecycleOwnerContext.projection
+    const snapshot = lifecycleOwnerContext.snapshot
+    if (
+      projection?.phase !== 'READY' || projection.state !== 'READY' ||
+      projection.reason !== 'ready_transition_required' || projection.next_action !== 'READY_TRANSITION_REQUIRED' ||
+      projection.mutation_count !== 0 || snapshot === null || snapshot.exact_head !== request.exactHead ||
+      snapshot.review?.comment_id !== request.reviewDecisionCommentId ||
+      snapshot.published_generation?.publicationHandoff?.comment_id !== request.publicationHandoffCommentId ||
+      !sameRolePathsV1(snapshot.changed_paths, scope.actual_paths) ||
+      !sameRolePathsV1(snapshot.authorized_paths, taskState.authorized_paths)
+    ) throw new Error('ready_transition_resume_lifecycle_not_ready')
+
+    const baseResult = Object.freeze({
+      transition: request.transition,
+      state: 'READY',
+      allowed: false,
+      exit_code: 0,
+      reason: 'ready_transition_required',
+      task_issue_number: request.taskIssueNumber,
+      pr_number: request.prNumber,
+      current_head: request.exactHead,
+      out_of_scope_paths: Object.freeze([]),
+      state_changed: false,
+      automation_status: 'HANDOFF_READY',
+      next_action: 'READY_TRANSITION_REQUIRED',
+      mutation_count: 0,
+    })
+    const routed = projectIntegratedLeadReadyReviewV1({
+      result: baseResult,
+      lifecycleOwnerContext,
+      repository: request.repository,
+      runId,
+      runAttempt,
+    })
+    if (
+      routed.next_action !== 'INTEGRATED_LEAD_READY_REVIEW' || routed.terminal_result !== 'READY_TRANSITION_REQUIRED' ||
+      routed.mutation_count !== 0 || routed.role_dispatch?.next_action !== 'INTEGRATED_LEAD_READY_REVIEW' ||
+      routed.role_dispatch?.source_binding?.review_comment_id !== request.reviewDecisionCommentId ||
+      routed.role_dispatch?.source_binding?.publication_handoff_comment_id !== request.publicationHandoffCommentId
+    ) throw new Error('ready_transition_resume_dispatch_invalid')
+    return withLifecycleDiagnosticProjectionV1(routed, projection)
+  } catch (error) {
+    return readyTransitionRequiredResumeStopV1(
+      request,
+      error instanceof Error ? error.message : 'ready_transition_resume_failed',
+    )
+  }
+}
+
 export const executeReviewEventWithLifecycleReplayV1 = async ({
   event, host, runId, runAttempt, hostSha, jobName,
   reviewingRoleDispatch = null, reviewingRoleOwnerResult = null,
@@ -9756,7 +9969,16 @@ const main = async () => {
                     host: executionHost,
                     })
                   })()
-                : await executeManualProgressionControllerV1({ request: invocation.request, host: executionHost })
+                : invocation.request.transition === 'ready_transition_required_resume'
+                  ? await executeReadyTransitionRequiredResumeV1({
+                      request: invocation.request,
+                      host: executionHost,
+                      runId: process.env.GITHUB_RUN_ID,
+                      runAttempt: Number(process.env.GITHUB_RUN_ATTEMPT),
+                      hostSha: process.env.GITHUB_WORKFLOW_SHA ?? null,
+                      jobName: process.env.GITHUB_JOB ?? null,
+                    })
+                  : await executeManualProgressionControllerV1({ request: invocation.request, host: executionHost })
     const artifactDirectory = liveShadowArtifactDirectoryV1(process.env)
     let shadowRequest = null
     if (artifactDirectory !== null) {
