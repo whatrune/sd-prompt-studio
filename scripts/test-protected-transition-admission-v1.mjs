@@ -29,6 +29,7 @@ import {
   executeCanonicalMergeDecisionContinuationV1,
   executeManualProgressionControllerV1,
   executeMergeOperatorV1,
+  projectAdmissionWorkflowResultV1,
   projectMergeOperatorWorkflowResultV1,
   projectRoleDispatchWorkflowResultV1,
   executeMergeDecisionSuccessorResumeV1,
@@ -12338,5 +12339,205 @@ check(
   'ROWP-15 all current diagnostic fixtures remain byte-for-byte and order compatible',
 )
 
-if (assertions !== 1207) throw new Error(`expected exactly 1207 assertions, observed ${assertions}`)
+const admissionCommonResultV1 = Object.freeze({
+  next_action: 'STOP',
+  terminal_result: 'CHANGES_REQUIRED',
+  source_comment_id: 9401,
+})
+const admissionCommonProjectionV1 = projectAdmissionWorkflowResultV1({ result: admissionCommonResultV1 })
+const expectedAdmissionCommonLinesV1 = Object.freeze([
+  'repair_next_action=STOP',
+  'next_action=STOP',
+  'terminal_result=CHANGES_REQUIRED',
+  'source_comment_id=9401',
+])
+const admissionMinimalProjectionV1 = projectAdmissionWorkflowResultV1({ result: minimalValid.result })
+const expectedAdmissionMinimalLinesV1 = Object.freeze([
+  `repair_next_action=${minimalValid.result.next_action}`,
+  `next_action=${minimalValid.result.next_action}`,
+  `terminal_result=${minimalValid.result.terminal_result}`,
+  'source_comment_id=',
+  'authority_kind=MINIMAL_GOVERNANCE_V1',
+  `role_exact_head=${minimalValid.result.exact_head}`,
+  `minimal_merge_plan_b64=${Buffer.from(JSON.stringify(minimalValid.result)).toString('base64')}`,
+])
+const invalidAdmissionMinimalResultsV1 = [
+  { ...minimalValid.result, unknown_field: true },
+  { ...minimalValid.result, terminal_result: 'MERGE_ALLOWED' },
+  { ...minimalValid.result, current_head: HEAD },
+  { ...minimalValid.result, merge_method: 'squash' },
+  { ...minimalValid.result, operation_count: 2 },
+]
+const invalidAdmissionMinimalErrorsV1 = await Promise.all(invalidAdmissionMinimalResultsV1.map((result) =>
+  errorOf(async () => projectAdmissionWorkflowResultV1({ result }))))
+const admissionRoleActionsV1 = Object.freeze([
+  'IMPLEMENTER',
+  'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
+  'INDEPENDENT_IMPLEMENTATION_REVIEWER',
+  'INTEGRATED_LEAD_READY_REVIEW',
+  'BOOTSTRAP_PUBLICATION_OPERATOR',
+  'MERGE_OPERATOR',
+])
+const admissionRoleResultsV1 = admissionRoleActionsV1.map((nextAction, index) => {
+  const roleDispatch = Object.freeze({ next_action: nextAction, exact_head: OTHER_HEAD, ordinal: index })
+  const result = Object.freeze({
+    next_action: nextAction,
+    terminal_result: 'PUBLISHED',
+    source_comment_id: 9500 + index,
+    current_head: OTHER_HEAD,
+    role_dispatch: roleDispatch,
+  })
+  return Object.freeze({ result, roleDispatch, projection: projectAdmissionWorkflowResultV1({ result }) })
+})
+const invalidAdmissionRoleResultsV1 = [
+  { ...admissionRoleResultsV1[0].result, role_dispatch: null },
+  { ...admissionRoleResultsV1[0].result, role_dispatch: { ...admissionRoleResultsV1[0].roleDispatch, next_action: 'STOP' } },
+  { ...admissionRoleResultsV1[0].result, role_dispatch: { ...admissionRoleResultsV1[0].roleDispatch, exact_head: HEAD } },
+]
+const invalidAdmissionRoleErrorsV1 = await Promise.all(invalidAdmissionRoleResultsV1.map((result) =>
+  errorOf(async () => projectAdmissionWorkflowResultV1({ result }))))
+const admissionRepairResultV1 = Object.freeze({
+  next_action: 'REPAIR_EXECUTOR',
+  terminal_result: 'CHANGES_REQUIRED',
+  source_comment_id: 9601,
+  repair_dispatch: repairDispatch(),
+})
+const admissionRepairProjectionV1 = projectAdmissionWorkflowResultV1({ result: admissionRepairResultV1 })
+const expectedAdmissionRepairLinesV1 = Object.freeze([
+  'repair_next_action=REPAIR_EXECUTOR',
+  'next_action=REPAIR_EXECUTOR',
+  'terminal_result=CHANGES_REQUIRED',
+  'source_comment_id=9601',
+  `repair_exact_head=${admissionRepairResultV1.repair_dispatch.exact_head}`,
+  `repair_dispatch_b64=${Buffer.from(JSON.stringify(admissionRepairResultV1.repair_dispatch)).toString('base64')}`,
+])
+const admissionProjectionCliV1 = (() => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'admission-workflow-projection-'))
+  const resultPath = path.join(directory, 'admission-result.json')
+  try {
+    writeFileSync(resultPath, JSON.stringify(admissionRoleResultsV1[0].result), 'utf8')
+    return spawnSync(process.execPath, [runnerPath, '--admission-result-projection-file', resultPath], {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      env: {},
+    })
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})()
+const admissionProjectionOwnerSourceV1 = runnerSource.slice(
+  runnerSource.indexOf('export const projectAdmissionWorkflowResultV1'),
+  runnerSource.indexOf('\nexport const projectRoleDispatchWorkflowResultV1'),
+)
+const admissionProjectionTransportStartV1 = admissionEvaluationRun.indexOf('projection_file="$(mktemp)"')
+const admissionProjectionTransportV1 = admissionEvaluationRun.slice(admissionProjectionTransportStartV1)
+const admissionRoleOutputBytesV1 = `${admissionRoleResultsV1[0].projection.output_lines.join('\n')}\n`
+const expectedAdmissionRoleOutputBytesV1 = [
+  'repair_next_action=IMPLEMENTER',
+  'next_action=IMPLEMENTER',
+  'terminal_result=PUBLISHED',
+  'source_comment_id=9500',
+  `role_exact_head=${OTHER_HEAD}`,
+  `role_dispatch_b64=${Buffer.from(JSON.stringify(admissionRoleResultsV1[0].roleDispatch)).toString('base64')}`,
+  '',
+].join('\n')
+
+check(
+  Object.keys(admissionCommonProjectionV1).join('\n') === 'output_lines' &&
+    admissionCommonProjectionV1.output_lines.join('\n') === expectedAdmissionCommonLinesV1.join('\n'),
+  'ADWP-01 common admission outputs preserve the exact four-line order and fallback projection',
+)
+check(
+  admissionMinimalProjectionV1.output_lines.join('\n') === expectedAdmissionMinimalLinesV1.join('\n') &&
+    Buffer.from(admissionMinimalProjectionV1.output_lines.at(-1).split('=')[1], 'base64').toString('utf8') === JSON.stringify(minimalValid.result),
+  'ADWP-02 valid Minimal Governance admission preserves exact output order and plan serialization identity',
+)
+check(
+  invalidAdmissionMinimalErrorsV1.every((error) => error?.message === 'minimal_governance_projection_invalid'),
+  'ADWP-03 Minimal Governance field cardinality terminal head method and operation drift preserve the exact stop reason',
+)
+check(
+  admissionRoleResultsV1.every(({ result, roleDispatch, projection }) => projection.output_lines.join('\n') === [
+    `repair_next_action=${result.next_action}`,
+    `next_action=${result.next_action}`,
+    `terminal_result=${result.terminal_result}`,
+    `source_comment_id=${result.source_comment_id}`,
+    `role_exact_head=${roleDispatch.exact_head}`,
+    `role_dispatch_b64=${Buffer.from(JSON.stringify(roleDispatch)).toString('base64')}`,
+  ].join('\n')),
+  'ADWP-04 every existing Role action preserves exact dispatch binding and output projection',
+)
+check(
+  invalidAdmissionRoleErrorsV1.every((error) => error?.message === 'role_dispatch_projection_invalid'),
+  'ADWP-05 missing or drifted Role dispatch binding preserves role_dispatch_projection_invalid',
+)
+check(
+  admissionRepairProjectionV1.output_lines.join('\n') === expectedAdmissionRepairLinesV1.join('\n'),
+  'ADWP-06 Repair admission preserves exact repair head and dispatch serialization',
+)
+check(
+  admissionCommonProjectionV1.output_lines.length === 4 &&
+    !admissionMinimalProjectionV1.output_lines.some((line) => line.startsWith('role_dispatch_b64=')) &&
+    admissionRoleResultsV1.every(({ projection }) => !projection.output_lines.some((line) => line.startsWith('minimal_merge_plan_b64=') || line.startsWith('repair_dispatch_b64='))) &&
+    !admissionRepairProjectionV1.output_lines.some((line) => line.startsWith('role_dispatch_b64=') || line.startsWith('minimal_merge_plan_b64=')),
+  'ADWP-07 admission projection branches remain mutually exclusive with no unrelated outputs',
+)
+check(
+  admissionProjectionCliV1.status === 0 && admissionProjectionCliV1.stderr === '' &&
+    JSON.stringify(JSON.parse(admissionProjectionCliV1.stdout)) === JSON.stringify(admissionRoleResultsV1[0].projection) &&
+    runnerSource.includes("invocation.mode === 'admission_result_projection'") &&
+    !admissionProjectionOwnerSourceV1.includes('process.env'),
+  'ADWP-08 private CLI uses the same pure owner without host credentials',
+)
+check(
+  admissionProjectionTransportStartV1 >= 0 &&
+    admissionProjectionTransportV1.includes('--admission-result-projection-file "$result_file"') &&
+    admissionProjectionTransportV1.includes('for (const line of projection.output_lines)') &&
+    !admissionProjectionTransportV1.includes('result.next_action') &&
+    !admissionProjectionTransportV1.includes('minimal_governance_projection_invalid') &&
+    !admissionProjectionTransportV1.includes('role_dispatch_projection_invalid'),
+  'ADWP-09 selected workflow block is transport-only and contains no admission result semantics',
+)
+check(
+  admissionRoleOutputBytesV1 === expectedAdmissionRoleOutputBytesV1,
+  'ADWP-10 GITHUB_OUTPUT projection bytes and line order remain identical',
+)
+check(
+  admissionEvaluationRun.includes('if [[ "$PTA_EVENT_NAME" == "issue_comment" ]]') &&
+    admissionEvaluationRun.includes('--review-event-file "$PTA_EVENT_PATH"') &&
+    admissionEvaluationRun.includes('--ready-event-file "$PTA_EVENT_PATH"') &&
+    admissionEvaluationRun.includes('--transition "$PTA_INPUT_TRANSITION"') &&
+    admissionEvaluationRun.includes('"${resume_args[@]}" | tee "$result_file"'),
+  'ADWP-11 issue comment Ready and workflow dispatch invocation normalization remain unchanged',
+)
+check(
+  ['repair_next_action', 'next_action', 'terminal_result', 'source_comment_id', 'authority_kind', 'role_exact_head', 'role_dispatch_b64', 'minimal_merge_plan_b64', 'repair_exact_head', 'repair_dispatch_b64']
+    .every((name) => admissionJob.outputs[name] === `\${{ steps.evaluate.outputs.${name} }}`) &&
+    roleConsumerJob?.if === "contains(fromJSON('[\"IMPLEMENTER\",\"PRODUCT_OWNER_IMPLEMENTATION_LEAD\",\"INDEPENDENT_IMPLEMENTATION_REVIEWER\",\"INTEGRATED_LEAD_READY_REVIEW\",\"BOOTSTRAP_PUBLICATION_OPERATOR\"]'), needs.protected_transition_admission_v1.outputs.next_action)" &&
+    mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR' && (needs.protected_transition_admission_v1.outputs.terminal_result == 'MERGE_ALLOWED' || needs.protected_transition_admission_v1.outputs.terminal_result == 'MINIMAL_GOVERNANCE_V1')",
+  'ADWP-12 admission output names and all downstream execution conditions remain unchanged',
+)
+check(
+  Object.keys(workflow.jobs).length === 5 && workflow.on.issue_comment.types.join(',') === 'created' &&
+    workflow.on.pull_request.types.join(',') === 'ready_for_review' && workflow.permissions.actions === 'read' &&
+    workflow.permissions['pull-requests'] === 'write',
+  'ADWP-13 workflow topology triggers and permissions remain unchanged',
+)
+check(
+  admissionProjectionOwnerSourceV1.includes("throw new Error('minimal_governance_projection_invalid')") &&
+    admissionProjectionOwnerSourceV1.includes("throw new Error('role_dispatch_projection_invalid')") &&
+    !admissionProjectionOwnerSourceV1.includes('api(') && !admissionProjectionOwnerSourceV1.includes('graphql') &&
+    !admissionProjectionOwnerSourceV1.includes('mutation_count =') && !admissionProjectionOwnerSourceV1.includes('method:') &&
+    !admissionProjectionOwnerSourceV1.includes('Publish-'),
+  'ADWP-14 pure admission projection preserves stop reasons and performs no acquisition publication or mutation',
+)
+check(
+  !admissionEvaluationRun.includes('const exactKeys =') &&
+    !admissionEvaluationRun.includes('Buffer.from(JSON.stringify(result') &&
+    (workflowSource.match(/--method PUT/g) ?? []).length === 1 &&
+    !workflowSource.includes('gh workflow run') && !runnerSource.includes('createWorkflowDispatch'),
+  'ADWP-15 no adjacent workflow block event authority or mutation behavior is broadened',
+)
+
+if (assertions !== 1222) throw new Error(`expected exactly 1222 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

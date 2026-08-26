@@ -6524,6 +6524,58 @@ export const executeRoleDispatchConsumerV1 = async ({ dispatch, host }) => {
   }
 }
 
+const ADMISSION_WORKFLOW_ROLE_ACTIONS_V1 = Object.freeze(new Set([
+  'IMPLEMENTER',
+  'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
+  'INDEPENDENT_IMPLEMENTATION_REVIEWER',
+  'INTEGRATED_LEAD_READY_REVIEW',
+  'BOOTSTRAP_PUBLICATION_OPERATOR',
+  'MERGE_OPERATOR',
+]))
+
+export const projectAdmissionWorkflowResultV1 = ({ result }) => {
+  const outputLines = [
+    `repair_next_action=${result.next_action ?? 'NONE'}`,
+    `next_action=${result.next_action ?? 'NONE'}`,
+    `terminal_result=${result.terminal_result ?? 'NONE'}`,
+    `source_comment_id=${result.source_comment_id ?? ''}`,
+  ]
+  if (result.next_action === 'MERGE_OPERATOR' && result.authority_kind === 'MINIMAL_GOVERNANCE_V1') {
+    const exactKeys = [
+      'allowed', 'authority_comment_id', 'authority_kind', 'authorized_paths', 'automation_status', 'current_head',
+      'exact_head', 'expected_base', 'exit_code', 'merge_method', 'mutation_count', 'next_action', 'operation_count',
+      'pr_number', 'protected_operation_count', 'reason', 'repository', 'sealed_snapshot_b64', 'snapshot_sha256',
+      'state', 'task_issue_number', 'terminal_result', 'transition',
+    ]
+    if (
+      Object.keys(result).sort().join('\n') !== exactKeys.sort().join('\n') ||
+      result.terminal_result !== 'MINIMAL_GOVERNANCE_V1' || result.exact_head !== result.current_head ||
+      result.merge_method !== 'merge' || result.operation_count !== 1
+    ) throw new Error('minimal_governance_projection_invalid')
+    outputLines.push(
+      'authority_kind=MINIMAL_GOVERNANCE_V1',
+      `role_exact_head=${result.exact_head}`,
+      `minimal_merge_plan_b64=${Buffer.from(JSON.stringify(result)).toString('base64')}`,
+    )
+  } else if (ADMISSION_WORKFLOW_ROLE_ACTIONS_V1.has(result.next_action)) {
+    if (
+      !result.role_dispatch || result.role_dispatch.next_action !== result.next_action ||
+      result.role_dispatch.exact_head !== result.current_head
+    ) throw new Error('role_dispatch_projection_invalid')
+    outputLines.push(
+      `role_exact_head=${result.role_dispatch.exact_head}`,
+      `role_dispatch_b64=${Buffer.from(JSON.stringify(result.role_dispatch)).toString('base64')}`,
+    )
+  }
+  if (result.next_action === 'REPAIR_EXECUTOR') {
+    outputLines.push(
+      `repair_exact_head=${result.repair_dispatch.exact_head}`,
+      `repair_dispatch_b64=${Buffer.from(JSON.stringify(result.repair_dispatch)).toString('base64')}`,
+    )
+  }
+  return Object.freeze({ output_lines: Object.freeze(outputLines) })
+}
+
 export const projectRoleDispatchWorkflowResultV1 = ({ plan, expectedHead }) => {
   if (plan?.exact_head !== expectedHead) throw new Error('role_dispatch_not_ready')
   if (plan?.next_action === 'CONVERGED_NOOP') {
@@ -9846,6 +9898,12 @@ const parseInvocation = (argv, environment) => {
     return Object.freeze({ mode: 'role_dispatch', dispatchFile: argv[1] })
   }
   if (
+    argv.length === 2 && argv[0] === '--admission-result-projection-file' &&
+    typeof argv[1] === 'string' && argv[1].length > 0
+  ) {
+    return Object.freeze({ mode: 'admission_result_projection', resultFile: argv[1] })
+  }
+  if (
     argv.length === 8 && argv[0] === '--role-output-result-projection-file' &&
     typeof argv[1] === 'string' && argv[1].length > 0 && argv[2] === '--role-dispatch-file' &&
     typeof argv[3] === 'string' && argv[3].length > 0 && argv[4] === '--validator-exit-code' &&
@@ -10486,7 +10544,7 @@ const main = async () => {
   let invocation
   try {
     invocation = parseInvocation(process.argv.slice(2), process.env)
-    const host = ['role_dispatch_result_projection', 'role_output_result_projection', 'merge_operator_result_projection'].includes(invocation.mode)
+    const host = ['admission_result_projection', 'role_dispatch_result_projection', 'role_output_result_projection', 'merge_operator_result_projection'].includes(invocation.mode)
       ? null
       : productionHost(process.env)
     const executeProduction = async (executionHost = host) => invocation.mode === 'review_event'
@@ -10524,6 +10582,8 @@ const main = async () => {
                 dispatch: readJsonFileV1(invocation.dispatchFile),
                 host: executionHost,
               })
+            : invocation.mode === 'admission_result_projection'
+              ? projectAdmissionWorkflowResultV1({ result: readJsonFileV1(invocation.resultFile) })
             : invocation.mode === 'role_dispatch_result_projection'
               ? projectRoleDispatchWorkflowResultV1({
                   plan: readJsonFileV1(invocation.planFile),
