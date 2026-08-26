@@ -27,11 +27,13 @@ import {
   executeRoleDispatchConsumerV1,
   executeRoleDispatchRebindV1,
   executeManualProgressionControllerV1,
+  executePostReadyProgressionOwnerV1,
   executeReadyTransitionRequiredResumeV1,
   executeLifecycleOrchestratorV1,
   executeReviewEventWithLifecycleReplayV1,
   executeReviewThreadClosureV1,
   executeReadyTransitionOperatorV1,
+  executeSameRunPostReadyContinuationV1,
   executeReadyEventWithLifecycleReplayV1,
   executeMinimalGovernanceFinalDriftGuardV1,
   executeMinimalGovernanceV1,
@@ -921,8 +923,8 @@ const readyCheckPage = (other = successfulCheck()) => connectionPage([currentRea
 
 const automationHost = ({
   initialState = state(),
-  changedFiles = 0,
-  filePages = [[]],
+  changedFiles = ALLOWED.length,
+  filePages = [ALLOWED.map((filename) => ({ filename, status: 'modified' }))],
   commentPages = [[reviewEvent().comment]],
   headAtPullRead = {},
   headAtCheckRead = {},
@@ -945,11 +947,12 @@ const automationHost = ({
   const currentPull = () => ({
     number: PR,
     state: pullState,
-    base: { repo: { full_name: REPOSITORY } },
-    head: { sha: currentHead },
+    base: { ref: 'main', repo: { full_name: REPOSITORY } },
+    head: { sha: currentHead, repo: { full_name: REPOSITORY } },
     body: currentBody,
     changed_files: changedFiles,
     draft,
+    merged: false,
     mergeable,
     mergeable_state: mergeableState,
   })
@@ -1491,10 +1494,14 @@ const mergeAdmitted = evaluateProtectedTransitionAdmissionV1(input({
   transition: 'merge_decision_admission',
   task_state: approvedState(),
 }))
-const manualWorkflowDispatchAdmission = automationHost({ initialState: approvedState() })
+const manualWorkflowDispatchAdmission = automationHost({
+  initialState: approvedState(),
+  checkPages: [readyCheckPage(), readyCheckPage()],
+})
 const manualWorkflowDispatchResult = await executeManualProgressionControllerV1({
   request: mergeRequest,
   host: manualWorkflowDispatchAdmission.host,
+  runId: READY_RUN_ID,
 })
 const reviewDetachedMergeRequest = Object.freeze({
   ...mergeRequest,
@@ -1921,7 +1928,7 @@ check(
   (runnerSource.match(/reduceSelfAwareCurrentChecksV1\(/g) ?? []).length === 3 &&
   (runnerSource.match(/partitionReadyRunChecksV1\(/g) ?? []).length === 2 &&
   runnerSource.includes("const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'") &&
-  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 6,
+  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 8,
   'SGR-12 shared-helper use and correction/cumulative allowlists hold without duplicate sibling filters',
 )
 
@@ -8915,7 +8922,7 @@ const workflowBoundaryMatrix = [
   boundedRoleSource.startsWith('function Invoke-BoundedRole {') && !boundedRoleSource.includes('$LASTEXITCODE = $null') && boundedRoleSource.indexOf('$priorToken = $env:GH_TOKEN') < boundedRoleSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(boundedRoleSource) && boundedRoleSource.indexOf('codex.cmd exec') < boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') && boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') < boundedRoleSource.indexOf('if ($null -eq $priorToken)') && terminalAgentSelectorSource.includes('$terminalMessage = [string]$event.item.text') && !terminalAgentSelectorSource.includes('$messages +=') && (process.platform !== 'win32' || (roleProviderNativeExitProbe.success === 0 && roleProviderNativeExitProbe.failure === 37 && roleProviderTerminalMessageProbe.multiple === roleImplementationResultBody && roleProviderTerminalMessageProbe.zeroRejected === true && malformedTerminalOutput.next_action === 'STOP' && trustedHostCredentialProbe.providerToken === 'ABSENT' && trustedHostCredentialProbe.restoredToken === 'trusted-host-token' && trustedHostCredentialProbe.validatedAction === 'POST_MERGE_DECISION' && trustedHostCredentialProbe.hostTokens.join('\n') === 'trusted-host-token\ntrusted-host-token')) && roleExecutionRun.indexOf('Invoke-BoundedRoleUntilTerminal -PromptFile $promptPath') < roleExecutionRun.indexOf('$validated = Assert-RoleOutput') && roleExecutionRun.indexOf('$validated = Assert-RoleOutput') < roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') < roleExecutionRun.indexOf('$canonicalComment = Publish-CanonicalComment -BodyFile $bodyPath') && roleExecutionRun.split('Assert-FreshRoleBinding').length >= 8 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'") && roleExecutionRun.includes("throw 'publication_continuation_task_binding_invalid'") && roleExecutionRun.includes("throw 'publication_continuation_route_failed'") && roleExecutionRun.includes("throw 'publication_continuation_binding_invalid'") && roleExecutionRun.includes("throw 'publication_reviewer_dispatch_not_ready'") && roleExecutionRun.indexOf("$reviewPlan = Get-Content -LiteralPath $reviewPlanPath") < roleExecutionRun.indexOf('$reviewTask = gh api') && roleExecutionRun.includes("$reviewTask.number -ne $dispatch.task_issue_number -or $reviewTask.state -cne 'open' -or $null -ne $reviewTask.pull_request") && roleExecutionRun.indexOf("throw 'publication_reviewer_task_binding_invalid'") < roleExecutionRun.indexOf('Invoke-BoundedRoleUntilTerminal -PromptFile $reviewPromptPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath') < roleExecutionRun.indexOf('$publicationTask = gh api') && roleExecutionRun.includes("$publicationTask.number -ne $dispatch.task_issue_number -or $publicationTask.state -cne 'open' -or $null -ne $publicationTask.pull_request") && roleExecutionRun.indexOf('$publicationTask = gh api') < roleExecutionRun.indexOf('$canonicalReviewComment = Publish-CanonicalComment -BodyFile $reviewBodyPath') && !roleExecutionRun.includes('Assert-FreshReviewerSnapshot') && !roleExecutionRun.includes('review_thread_snapshot'),
   postRepairReviewJob.steps.find((step) => step.name === 'Bind post-repair Independent Reviewer')?.run.includes('task_state = $state') && postRepairExecutionStep?.env?.GH_TOKEN === '${{ github.token }}' && postRepairExecutionRun.includes('--role-rebind-file') && !postRepairExecutionRun.includes('--review-publication-rebind-file') && !postRepairExecutionRun.includes('--review-closure-file') && postRepairExecutionRun.includes('if ($nativeExit -ne 0) { throw "post_repair_review_provider_failed_$nativeExit" }') && postRepairExecutionRun.includes("if ($messages.Count -ne 1) { throw 'post_repair_review_result_cardinality_invalid' }") && postRepairProviderThroughRebindSource.indexOf('$priorToken = $env:GH_TOKEN') < postRepairProviderThroughRebindSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(postRepairProviderThroughRebindSource) && postRepairProviderThroughRebindSource.indexOf('codex.cmd exec') < postRepairProviderThroughRebindSource.indexOf('$nativeExit = $LASTEXITCODE') && postRepairProviderThroughRebindSource.indexOf('$nativeExit = $LASTEXITCODE') < postRepairProviderThroughRebindSource.indexOf('if ($null -eq $priorToken)') && postRepairProviderThroughRebindSource.indexOf('if ($null -eq $priorToken)') < postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-output-file') && postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-output-file') < postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-rebind-file') && postRepairExecutionRun.indexOf('if ($nativeExit -ne 0)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairExecutionRun.indexOf('if ($messages.Count -ne 1)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && postRepairEvidenceValidatorSource.includes('$sha256.ComputeHash($capturedBytes)') && !postRepairEvidenceValidatorSource.includes('post_repair') && postRepairExecutionRun.includes("$failureDispatch.next_action -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.indexOf('[Console]::Error.WriteLine($diagnosticLine)') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.includes('$diagnosticLines = @()') && (process.platform !== 'win32' || (postRepairFailureEvidenceProbe.lineCount === reviewerFailureEvidence.chunks.length + 1 && postRepairFailureEvidenceProbe.headerRecordType === 'independent_reviewer_role_output_failure_evidence_v1' && postRepairFailureEvidenceProbe.chunkRecordTypesValid === true && postRepairFailureEvidenceProbe.invalidRejected === true && postRepairTrustedHostCredentialProbe.valid.providerToken === 'ABSENT' && postRepairTrustedHostCredentialProbe.valid.restoredToken === 'trusted-post-repair-host-token' && postRepairTrustedHostCredentialProbe.valid.outcome === 'COMPLETED' && postRepairTrustedHostCredentialProbe.valid.validatedAction === 'POST_REVIEW' && postRepairTrustedHostCredentialProbe.valid.reboundAction === 'PROTECTED_OPERATION_READY' && postRepairTrustedHostCredentialProbe.valid.hostCalls.length === 2 && postRepairTrustedHostCredentialProbe.valid.hostCalls.every((call) => call.startsWith('PRESENT:')) && postRepairTrustedHostCredentialProbe.valid.hostCalls[1].includes('--role-rebind-file') && postRepairTrustedHostCredentialProbe.invalid.providerToken === 'ABSENT' && postRepairTrustedHostCredentialProbe.invalid.restoredToken === 'trusted-post-repair-host-token' && postRepairTrustedHostCredentialProbe.invalid.outcome === 'post_repair_review_result_invalid' && postRepairTrustedHostCredentialProbe.invalid.validatedAction === null && postRepairTrustedHostCredentialProbe.invalid.reboundAction === null && postRepairTrustedHostCredentialProbe.invalid.hostCalls.length === 1 && postRepairTrustedHostCredentialProbe.invalid.hostCalls[0].startsWith('PRESENT:'))),
   runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id') && runnerSource.includes("const ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'") && ['GITHUB_REPOSITORY', 'GITHUB_REF', 'GITHUB_WORKFLOW_REF', 'GITHUB_WORKFLOW_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_JOB'].every((name) => runnerSource.includes(`process.env.${name}`)) && runnerSource.includes('RESOLVE_REVIEW_THREAD_MUTATION') && !runnerSource.includes('executeReviewerPublicationRebindV1') && runnerSource.includes('executeReviewThreadClosureV1') && !runnerSource.includes("mode: 'review_publication_rebind'") && runnerSource.includes("mode: 'review_closure'") && runnerSource.match(/parseIndependentReviewDecisionProjectionV1/g)?.length === 7,
-  manualWorkflowDispatchResult.state === 'MERGE_ELIGIBLE' && manualWorkflowDispatchResult.allowed === true && manualWorkflowDispatchResult.next_action === 'MERGE_DECISION' && manualWorkflowDispatchResult.automation_status === 'MERGE_DECISION_PENDING' && !Object.hasOwn(manualWorkflowDispatchResult, 'role_dispatch') && manualWorkflowDispatchAdmission.metrics.checkReads === 0 && manualWorkflowDispatchAdmission.metrics.threadReads === 0 && mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR' && (needs.protected_transition_admission_v1.outputs.terminal_result == 'MERGE_ALLOWED' || needs.protected_transition_admission_v1.outputs.terminal_result == 'MINIMAL_GOVERNANCE_V1')" && mergeOperationRun.includes('--merge-operator-file $dispatchPath') && mergeOperationRun.indexOf('--merge-operator-file $dispatchPath') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force') && !workflowSource.includes('gh workflow run') && !runnerSource.includes('createWorkflowDispatch') && runnerSource.includes('acquireMergeCheckRollupSnapshotV1') && runnerSource.includes('acquireMergeReviewThreadsV1') && runnerSource.includes('executeProtectedTransitionAdmissionV1'),
+manualWorkflowDispatchResult.state === 'MERGE_ELIGIBLE' && manualWorkflowDispatchResult.allowed === false && manualWorkflowDispatchResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' && manualWorkflowDispatchResult.automation_status === 'HANDOFF_READY' && manualWorkflowDispatchResult.role_dispatch?.purpose === 'MERGE_DECISION' && manualWorkflowDispatchAdmission.metrics.checkReads === 2 && manualWorkflowDispatchAdmission.metrics.threadReads === 1 && mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR' && (needs.protected_transition_admission_v1.outputs.terminal_result == 'MERGE_ALLOWED' || needs.protected_transition_admission_v1.outputs.terminal_result == 'MINIMAL_GOVERNANCE_V1')" && mergeOperationRun.includes('--merge-operator-file $dispatchPath') && mergeOperationRun.indexOf('--merge-operator-file $dispatchPath') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force') && !workflowSource.includes('gh workflow run') && !runnerSource.includes('createWorkflowDispatch') && runnerSource.includes('acquireMergeCheckRollupSnapshotV1') && runnerSource.includes('acquireMergeReviewThreadsV1') && runnerSource.includes('executeProtectedTransitionAdmissionV1'),
   admissionJob.outputs.authority_kind === '${{ steps.evaluate.outputs.authority_kind }}' && admissionJob.outputs.minimal_merge_plan_b64 === '${{ steps.evaluate.outputs.minimal_merge_plan_b64 }}' && (admissionEvaluationRun.match(/--review-event-file/g) ?? []).length === 1 && !Object.hasOwn(mergeHostRunnerStep, 'if') && mergePlanRun.includes("if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1')") && mergePlanRun.indexOf("if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1')") < mergePlanRun.indexOf('node $env:PTA_MERGE_HOST_RUNNER') && (mergeOperationRun.match(/--minimal-governance-drift-guard-file/g) ?? []).length === 1 && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.indexOf('minimal_governance_final_drift_guard_matched') < mergeOperationRun.indexOf('--method PUT') && (workflowSource.match(/--method PUT/g) ?? []).length === 1 && !workflowSource.includes('Start-Sleep') && !mergePlanRun.includes('retry') && !mergeOperationRun.includes('retry'),
   workflow.permissions.actions === 'read' && mergePlanRun.includes("$snapshot.pull.base -cnotmatch '^[0-9a-f]{40}$'") && !mergePlanRun.includes('$snapshot.pull.base -cne $plan.expected_base') && mergePlanRun.includes("$plan.expected_base -cnotmatch '^[0-9a-f]{40}$'") && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT'),
 ]
@@ -10306,7 +10313,8 @@ check(
   'BRI-09 resume IDs are runtime-mandatory only for the new transition and rejected on existing transitions',
 )
 check(
-  manualWorkflowDispatchResult.next_action === 'MERGE_DECISION' &&
+  manualWorkflowDispatchResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' &&
+  manualWorkflowDispatchResult.role_dispatch?.purpose === 'MERGE_DECISION' &&
   runnerSource.includes("admissionRun.event === 'workflow_dispatch'") &&
   runnerSource.includes("throw new Error('workflow_dispatch_same_run_job_state_invalid')") &&
   runnerSource.includes('WORKFLOW_DISPATCH_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1'),
@@ -10748,7 +10756,7 @@ check(
   !progressRoleSource.includes('Assert-RoleOutput') && !progressRoleSource.includes('Publish-CanonicalComment') &&
   !progressRoleSource.includes('gh api') && !progressRoleSource.includes('mutation_count') &&
   !progressRoleSource.includes('Start-Sleep') && !progressRoleSource.includes('while (') &&
-  (roleExecutionRun.match(/Invoke-BoundedRoleUntilTerminal -PromptFile/g) ?? []).length === 2,
+  (roleExecutionRun.match(/Invoke-BoundedRoleUntilTerminal -PromptFile/g) ?? []).length === 3,
   'RIP-07 exact transport classifier performs only bounded same-dispatch rebind and provider execution with no parser, publication, polling, or protected mutation during progress',
 )
 check(
@@ -10773,5 +10781,196 @@ check(
   'RIP-09 only a non-progress terminal body reaches each existing parser and its naturally owned canonical publication path',
 )
 
-if (assertions !== 1110) throw new Error(`expected exactly 1110 assertions, observed ${assertions}`)
+// SAME_RUN_POST_READY_CONTINUATION_V1 focused regression matrix.
+const postReadyOwnerFixtureV1 = automationHost({ initialState: approvedState() })
+const postReadyOwnerResultV1 = await executePostReadyProgressionOwnerV1({
+  request: mergeRequest,
+  host: postReadyOwnerFixtureV1.host,
+  runId: READY_RUN_ID,
+})
+check(
+  postReadyOwnerResultV1.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' &&
+  postReadyOwnerResultV1.role_dispatch?.purpose === 'MERGE_DECISION' &&
+  postReadyOwnerResultV1.role_dispatch?.admission_run_id === READY_RUN_ID &&
+  postReadyOwnerFixtureV1.metrics.patchCalls === 0,
+  'SRP-01 shared post-Ready owner freshly binds and emits exactly one existing Product Owner Merge Decision dispatch without mutation',
+)
+check(
+  validReadyResult.next_action === postReadyOwnerResultV1.next_action &&
+  manualWorkflowDispatchResult.next_action === postReadyOwnerResultV1.next_action &&
+  [validReadyResult, manualWorkflowDispatchResult, postReadyOwnerResultV1]
+    .every((result) => result.role_dispatch?.purpose === 'MERGE_DECISION') &&
+  runnerSource.includes('return executePostReadyProgressionOwnerV1({') &&
+  (runnerSource.match(/executePostReadyProgressionOwnerV1\(\{/g) ?? []).length === 3,
+  'SRP-02 natural Ready, manual admission, and same-run callers converge on one event-independent owner',
+)
+
+const postReadyDraftFixtureV1 = automationHost({ initialState: approvedState(), draft: true })
+const postReadyDraftResultV1 = await executeManualProgressionControllerV1({
+  request: mergeRequest,
+  host: postReadyDraftFixtureV1.host,
+  runId: READY_RUN_ID,
+})
+check(
+  postReadyDraftResultV1.next_action === 'STOP' && postReadyDraftResultV1.reason === 'post_ready_binding_invalid' &&
+  postReadyDraftFixtureV1.metrics.patchCalls === 0 && postReadyDraftFixtureV1.metrics.checkReads === 0,
+  'SRP-03 merge_decision_admission accepts only an already-Ready PR and rejects Draft before Product Owner dispatch',
+)
+
+const postReadySameRunHostV1 = () => {
+  const fixture = readyAuthorityHostV1()
+  return Object.freeze({
+    metrics: fixture.metrics,
+    host: Object.freeze({
+      ...fixture.host,
+      api: async (endpoint, options = undefined) => {
+        const result = await fixture.host.api(endpoint, options)
+        if (endpoint === `repos/${REPOSITORY}/pulls/${BOOTSTRAP_PUBLICATION_PR}` && !options?.method) {
+          return Object.freeze({ ...result, draft: false, merged: false })
+        }
+        return result
+      },
+      graphql: async (query, variables) => {
+        if (query.includes('statusCheckRollup')) {
+          const currentRunCheck = ({ name, status, conclusion, startedAt }) => currentReadyCheck({
+            id: `post-ready-${name}`,
+            name,
+            status,
+            conclusion,
+            detailsUrl: `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/job/${readyRebindJobIds[name]}`,
+            startedAt,
+            databaseId: Number(readyRebindJobIds[name]),
+            checkSuiteDatabaseId: 96000000000,
+            checkSuiteCommitOid: BOOTSTRAP_PUBLISHED_HEAD,
+          })
+          const external = currentReadyCheck({
+            id: 'post-ready-external',
+            name: 'post-ready-external',
+            status: 'COMPLETED',
+            conclusion: 'SUCCESS',
+            detailsUrl: null,
+            startedAt: '2026-08-25T03:00:00Z',
+            databaseId: 96000000001,
+            checkSuiteDatabaseId: 96000000002,
+            checkSuiteCommitOid: BOOTSTRAP_PUBLISHED_HEAD,
+          })
+          return Object.freeze({ repository: Object.freeze({
+            pullRequest: Object.freeze({ headRefOid: BOOTSTRAP_PUBLISHED_HEAD }),
+            object: Object.freeze({
+              oid: BOOTSTRAP_PUBLISHED_HEAD,
+              statusCheckRollup: Object.freeze({ contexts: connectionPage([
+                currentRunCheck({
+                  name: 'protected_transition_admission_v1',
+                  status: 'COMPLETED',
+                  conclusion: 'SUCCESS',
+                  startedAt: '2026-08-25T01:00:00Z',
+                }),
+                currentRunCheck({
+                  name: 'protected_transition_role_dispatch_consumer_v1',
+                  status: 'IN_PROGRESS',
+                  conclusion: null,
+                  startedAt: '2026-08-25T02:00:00Z',
+                }),
+                external,
+              ]) }),
+            }),
+          }) })
+        }
+        if (query.includes('reviewThreads')) {
+          return Object.freeze({ repository: Object.freeze({ pullRequest: Object.freeze({
+            number: BOOTSTRAP_PUBLICATION_PR,
+            state: 'OPEN',
+            isDraft: false,
+            mergeable: 'MERGEABLE',
+            mergeStateStatus: 'CLEAN',
+            headRefOid: BOOTSTRAP_PUBLISHED_HEAD,
+            reviewThreads: connectionPage([]),
+          }) }) })
+        }
+        return fixture.host.graphql(query, variables)
+      },
+    }),
+  })
+}
+const postReadySameRunFixtureV1 = postReadySameRunHostV1()
+const postReadySameRunResultV1 = await executeSameRunPostReadyContinuationV1({
+  readyResult: readySuccessResultV1,
+  dispatch: readyAuthorityDispatchV1,
+  executionIdentity: readyAuthorityExecutionIdentityV1,
+  host: postReadySameRunFixtureV1.host,
+})
+check(
+  postReadySameRunResultV1.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' &&
+  postReadySameRunResultV1.role_dispatch?.purpose === 'MERGE_DECISION' &&
+  postReadySameRunResultV1.role_dispatch?.admission_run_id === REVIEW_RUN_ID,
+  'SRP-04 exact successful Ready result enters the shared owner once and produces the existing Product Owner dispatch',
+)
+check(
+  postReadySameRunFixtureV1.metrics.mutations === 0 &&
+  readySuccessFixtureV1.metrics.mutations === 1 &&
+  postReadySameRunResultV1.mutation_count === 0,
+  'SRP-05 same-run continuation performs no second Ready mutation and owner progression remains mutation-free',
+)
+
+let rejectedPostReadyHostCallsV1 = 0
+const rejectedPostReadyResultV1 = await executeSameRunPostReadyContinuationV1({
+  readyResult: Object.freeze({ ...readySuccessResultV1, reason: 'ready_transition_failed' }),
+  dispatch: readyAuthorityDispatchV1,
+  executionIdentity: readyAuthorityExecutionIdentityV1,
+  host: Object.freeze({ api: async () => { rejectedPostReadyHostCallsV1 += 1; throw new Error('host_must_not_be_called') } }),
+})
+check(
+  rejectedPostReadyResultV1.next_action === 'STOP' &&
+  rejectedPostReadyResultV1.reason === 'post_ready_operator_result_invalid' && rejectedPostReadyHostCallsV1 === 0,
+  'SRP-06 Ready STOP or malformed success evidence cannot acquire or invoke the post-Ready owner',
+)
+
+const postReadyScopeDriftFixtureV1 = automationHost({
+  initialState: approvedState(),
+  changedFiles: 1,
+  filePages: [[{ filename: ALLOWED[0], status: 'modified' }]],
+})
+const postReadyScopeDriftResultV1 = await executeManualProgressionControllerV1({
+  request: mergeRequest,
+  host: postReadyScopeDriftFixtureV1.host,
+  runId: READY_RUN_ID,
+})
+check(
+  postReadyScopeDriftResultV1.next_action === 'STOP' &&
+  postReadyScopeDriftResultV1.reason === 'post_ready_binding_invalid' &&
+  postReadyScopeDriftFixtureV1.metrics.commentReads === 0 && postReadyScopeDriftFixtureV1.metrics.patchCalls === 0,
+  'SRP-07 scope drift stops before current Review acquisition or Product Owner dispatch',
+)
+
+const postReadyWorkflowBlockV1 = roleExecutionRun.slice(
+  roleExecutionRun.indexOf("if ($operatorExit -ne 0) { exit $operatorExit }"),
+  roleExecutionRun.indexOf("if ($expected -ceq 'RUN_PRE_PR_VALIDATION')"),
+)
+check(
+  (postReadyWorkflowBlockV1.match(/--post-ready-result-file/g) ?? []).length === 1 &&
+  (postReadyWorkflowBlockV1.match(/Invoke-BoundedRoleUntilTerminal/g) ?? []).length === 1 &&
+  (postReadyWorkflowBlockV1.match(/Publish-CanonicalComment/g) ?? []).length === 1 &&
+  postReadyWorkflowBlockV1.includes("ExpectedAction = 'POST_MERGE_DECISION'") &&
+  postReadyWorkflowBlockV1.includes('Assert-FreshRoleBinding -DispatchFile $postReadyDispatchPath'),
+  'SRP-08 successful same-run continuation invokes Product Owner exactly once, validates output, freshly rebinds, and publishes at most one Merge Decision',
+)
+check(
+  !postReadyWorkflowBlockV1.includes('ready_for_review') &&
+  !postReadyWorkflowBlockV1.includes('markPullRequestReadyForReview') &&
+  !postReadyWorkflowBlockV1.includes('--method PUT') &&
+  !postReadyWorkflowBlockV1.includes('merge_method') &&
+  !postReadyWorkflowBlockV1.includes('gh workflow run'),
+  'SRP-09 same-run continuation synthesizes no Ready event, performs no second Ready mutation, and performs no Merge',
+)
+check(
+  runnerSource.includes("invocation.mode === 'post_ready'") &&
+  runnerSource.includes("request?.transition === 'merge_decision_admission'") &&
+  workflow.on.workflow_dispatch.inputs.transition.options.includes('merge_decision_admission') &&
+  !runnerSource.includes('createWorkflowDispatch') &&
+  !postReadyWorkflowBlockV1.includes('GH_TOKEN') &&
+  !postReadyWorkflowBlockV1.includes('PAT') && !postReadyWorkflowBlockV1.includes('APP_TOKEN'),
+  'SRP-10 bounded continuation adds no transition, polling, workflow dispatch, or credential dependency',
+)
+
+if (assertions !== 1120) throw new Error(`expected exactly 1120 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
