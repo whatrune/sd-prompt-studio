@@ -2295,7 +2295,10 @@ export const executeReadyForReviewProgressionV1 = async ({ event, host, runId })
     }
 
     if (occurrenceCount(pull.body, STATE_START) === 0 && occurrenceCount(pull.body, STATE_END) === 0) {
-      return evaluateProgressionControllerV1(expectedLegacyReadyFailClosedResultV1(request))
+      return Object.freeze({
+        ...skippedAutomationResult(request, 'ready_event_not_applicable'),
+        mutation_count: 0,
+      })
     }
     const taskState = extractProtectedTransitionTaskStateV1(pull.body)
     request = Object.freeze({
@@ -10660,6 +10663,14 @@ export const executeReviewEventWithLifecycleReplayV1 = async ({
 
 export const executeReadyEventWithLifecycleReplayV1 = async ({ event, host, runId, runAttempt = null, hostSha = null, jobName = null }) => {
   const result = await executeReadyForReviewProgressionV1({ event, host, runId })
+  if (
+    result?.reason === 'ready_event_not_applicable' &&
+    result.automation_status === 'SKIPPED' &&
+    result.next_action === 'NONE' &&
+    result.exit_code === 0 &&
+    result.admission_executed === false &&
+    result.mutation_count === 0
+  ) return result
   const lifecycleProjection = await executeLifecycleOrchestratorV1({
     event, sourceResult: result, host,
     executionIdentity: Object.freeze({ repository: event?.repository?.full_name, runId, runAttempt, workflowSha: hostSha, jobName }),

@@ -1064,26 +1064,37 @@ check(validReadyAutomation.metrics.patchCalls === 0 && validReadyAutomation.metr
 
 const wrongReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ action: 'opened', pull: { body: 'no state' } }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
 const missingReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ repository: null }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
-const malformedReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ pull: { body: 'no state' } }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
+let zeroMarkerReadyHostCalls = 0
+const zeroMarkerReadyResult = await executeReadyForReviewProgressionV1({
+  event: readyEvent({ pull: { body: 'no state' } }),
+  host: { api: async () => { zeroMarkerReadyHostCalls += 1; throw new Error('host_must_not_be_called') } },
+  runId: READY_RUN_ID,
+})
 const partialStateReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ pull: { body: '<!-- protected-transition-task-state-v1:start -->' } }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
 const duplicateStateReadyResult = await executeReadyForReviewProgressionV1({ event: readyEvent({ pull: { body: `${stateBlock()}\n${stateBlock()}` } }), host: { api: async () => { throw new Error('host_must_not_be_called') } }, runId: READY_RUN_ID })
+const malformedCanonicalReadyResult = await executeReadyForReviewProgressionV1({
+  event: readyEvent({ pull: { body: 'before\n<!-- protected-transition-task-state-v1:start -->\nmalformed\n<!-- protected-transition-task-state-v1:end -->\nafter' } }),
+  host: { api: async () => { throw new Error('host_must_not_be_called') } },
+  runId: READY_RUN_ID,
+})
 check(wrongReadyResult.state === 'INDETERMINATE' && wrongReadyResult.reason === 'ready_event_invalid' && !Object.hasOwn(wrongReadyResult, 'record_type'), 'RFR-03 zero markers under a non-Ready action do not receive expected legacy classification')
 check(missingReadyResult.state === 'INDETERMINATE' && missingReadyResult.reason === 'ready_event_invalid', 'RFR-03 missing repository identity fails closed')
 check(
-  malformedReadyResult.record_type === 'expected_legacy_ready_fail_closed_v1' && malformedReadyResult.version === 1 &&
-  malformedReadyResult.event === 'pull_request' && malformedReadyResult.action === 'ready_for_review' &&
-  malformedReadyResult.state === 'INDETERMINATE' && malformedReadyResult.reason === 'state_block_cardinality_invalid',
-  'RFR-03 zero-marker Ready emits the versioned expected legacy fail-closed result',
+  zeroMarkerReadyResult.state === 'INDETERMINATE' && zeroMarkerReadyResult.reason === 'ready_event_not_applicable' &&
+  zeroMarkerReadyResult.automation_status === 'SKIPPED' && zeroMarkerReadyResult.next_action === 'NONE' &&
+  zeroMarkerReadyResult.exit_code === 0 && zeroMarkerReadyResult.admission_executed === false,
+  'RFR-03 zero-marker Ready is non-applicable and exits successfully without admission',
 )
 check(
-  malformedReadyResult.exit_code === 1 && malformedReadyResult.admission_executed === false &&
-  malformedReadyResult.mutation_count === 0 && malformedReadyResult.protected_operation_count === 0,
-  'RFR-03 expected legacy Ready result preserves failure with zero mutations and protected operations',
+  zeroMarkerReadyResult.mutation_count === 0 && zeroMarkerReadyHostCalls === 0 &&
+  !Object.hasOwn(zeroMarkerReadyResult, 'record_type') && !Object.hasOwn(zeroMarkerReadyResult, 'lifecycle_projection'),
+  'RFR-03 zero-marker Ready performs no host acquisition mutation historical emission or lifecycle replay',
 )
 check(
   partialStateReadyResult.reason === 'state_block_cardinality_invalid' && !Object.hasOwn(partialStateReadyResult, 'record_type') &&
-  duplicateStateReadyResult.reason === 'state_block_cardinality_invalid' && !Object.hasOwn(duplicateStateReadyResult, 'record_type'),
-  'RFR-03 partial or duplicate markers fail closed without expected legacy classification',
+  duplicateStateReadyResult.reason === 'state_block_cardinality_invalid' && !Object.hasOwn(duplicateStateReadyResult, 'record_type') &&
+  malformedCanonicalReadyResult.next_action === 'STOP' && malformedCanonicalReadyResult.exit_code !== 0,
+  'RFR-03 partial duplicate or malformed canonical state remains fail closed',
 )
 
 const readyPrMismatch = automationHost({ initialState: approvedState() })
@@ -4344,8 +4355,8 @@ check(ordinaryExternalStops.every(({ result }) => result.next_action === 'STOP')
 check(nameOnlySelfIdentity.result.next_action === 'STOP', 'HRTN-16 current-run RTO check is never excluded by name alone')
 check(
   validReadyResult.automation_status === 'HANDOFF_READY' && validReadyResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' &&
-  malformedReadyResult.reason === 'state_block_cardinality_invalid',
-  'HRTN-18 non-minimal legacy Ready behavior remains exact',
+  partialStateReadyResult.reason === 'state_block_cardinality_invalid' && malformedCanonicalReadyResult.next_action === 'STOP',
+  'HRTN-18 Task-state-bearing and malformed legacy Ready behavior remains exact',
 )
 
 const memberAuthority = await executeMinimalFixture({ eventOverrides: { author_association: 'MEMBER' } })
@@ -8535,35 +8546,26 @@ check(
   'LOV1 current RTO check without immutable current-run identity fails closed',
 )
 
-const lifecycleReadyBoundFixture = lifecycleProductionFixtureV1({
-  pr: 325,
-  ready: true,
-  readyTaskBindings: [lifecycleHistoricalIdentityV1[325].task],
-})
-const lifecycleReadyBoundResult = await executeReadyEventWithLifecycleReplayV1({
-  event: lifecycleReadyBoundFixture.event,
-  host: lifecycleReadyBoundFixture.host,
+let lifecycleReadySkipHostCallsV1 = 0
+const lifecycleReadySkippedResult = await executeReadyEventWithLifecycleReplayV1({
+  event: readyEvent({ pull: { body: 'no state' } }),
+  host: { api: async () => { lifecycleReadySkipHostCallsV1 += 1; throw new Error('host_must_not_be_called') } },
   runId: READY_RUN_ID,
 })
 check(
-  lifecycleReadyBoundResult.record_type === 'expected_legacy_ready_fail_closed_v1' &&
-  lifecycleReadyBoundResult.reason === 'state_block_cardinality_invalid' &&
-  lifecycleReadyBoundResult.task_issue_number === null,
-  'LOV1 Ready Task binding preserves expected legacy Ready fail-closed result',
+  lifecycleReadySkippedResult.reason === 'ready_event_not_applicable' &&
+  lifecycleReadySkippedResult.automation_status === 'SKIPPED' && lifecycleReadySkippedResult.next_action === 'NONE',
+  'LOV1 zero-marker Ready returns the current non-applicable result directly',
 )
 check(
-  lifecycleReadyBoundResult.lifecycle_projection.task_issue_number === null &&
-  lifecycleReadyBoundResult.lifecycle_projection.pr_number === 325 &&
-  lifecycleReadyBoundResult.lifecycle_projection.current_head === lifecycleHistoricalIdentityV1[325].head &&
-  lifecycleReadyBoundResult.lifecycle_projection.execution_stop_reason === 'architecture_gap_ready_owner_task_missing' &&
-  lifecycleReadyBoundResult.lifecycle_projection.next_action === 'STOP',
-  'LOV1 Ready without a Task owner reports the architecture gap without reconstructing PR prose',
+  lifecycleReadySkipHostCallsV1 === 0 && lifecycleReadySkippedResult.mutation_count === 0 &&
+  lifecycleReadySkippedResult.admission_executed === false && !Object.hasOwn(lifecycleReadySkippedResult, 'lifecycle_projection'),
+  'LOV1 zero-marker Ready performs no lifecycle acquisition replay dispatch or mutation',
 )
 check(
-  Object.keys(lifecycleReadyBoundResult.lifecycle_projection).sort().join('\n') === [
-    'current_head', 'execution_stop_reason', 'mutation_count', 'next_action', 'phase', 'pr_number', 'state', 'task_issue_number',
-  ].sort().join('\n') && lifecycleReadyBoundResult.lifecycle_projection.mutation_count === 0,
-  'LOV1 Ready lifecycle diagnostic projection is bounded and observable',
+  projectAdmissionWorkflowResultV1({ result: lifecycleReadySkippedResult }).output_lines.includes('next_action=NONE') &&
+  !JSON.stringify(lifecycleReadySkippedResult).includes('expected_legacy_ready_fail_closed_v1'),
+  'LOV1 zero-marker Ready projects NONE and stops current historical record emission',
 )
 
 const lifecycleIssueCommentIdentityFixture = lifecycleProductionFixtureV1({ pr: 331 })
