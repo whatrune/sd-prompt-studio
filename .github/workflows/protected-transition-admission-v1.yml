@@ -262,20 +262,16 @@ jobs:
           [IO.File]::WriteAllBytes($dispatchPath, [Convert]::FromBase64String($env:ROLE_DISPATCH_B64))
           node $env:PTA_ROLE_HOST_RUNNER --role-dispatch-file $dispatchPath 1> $planPath
           if ($LASTEXITCODE -ne 0) { throw 'role_dispatch_binding_failed' }
-          $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json
-          if ($plan.next_action -ceq 'CONVERGED_NOOP' -and $plan.exact_head -ceq '${{ needs.protected_transition_admission_v1.outputs.role_exact_head }}') {
-            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "operation=CONVERGED_NOOP$([Environment]::NewLine)", $utf8NoBom)
-            exit 0
-          }
-          if ($plan.next_action -ceq 'EXECUTE_BOOTSTRAP_PUBLICATION' -and $plan.exact_head -ceq '${{ needs.protected_transition_admission_v1.outputs.role_exact_head }}') {
+          $projectionJson = node $env:PTA_ROLE_HOST_RUNNER --role-dispatch-result-projection-file $planPath --expected-head '${{ needs.protected_transition_admission_v1.outputs.role_exact_head }}'
+          if ($LASTEXITCODE -ne 0) { throw 'role_dispatch_not_ready' }
+          $projection = $projectionJson | ConvertFrom-Json
+          if ($projection.operation -ceq 'EXECUTE_BOOTSTRAP_PUBLICATION') {
             $requestPath = Join-Path $env:RUNNER_TEMP 'bootstrap-publication-request.json'
-            [IO.File]::WriteAllText($requestPath, ($plan.bootstrap_request | ConvertTo-Json -Compress -Depth 5), $utf8NoBom)
-            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "operation=EXECUTE_BOOTSTRAP_PUBLICATION$([Environment]::NewLine)", $utf8NoBom)
-            exit 0
+            [IO.File]::WriteAllText($requestPath, ($projection.bootstrap_request | ConvertTo-Json -Compress -Depth 5), $utf8NoBom)
+          } elseif ($projection.operation -ceq 'EXECUTE_ROLE') {
+            [IO.File]::WriteAllText($promptPath, [string]$projection.prompt, $utf8NoBom)
           }
-          if ($plan.next_action -cne 'EXECUTE_ROLE' -or $plan.exact_head -cne '${{ needs.protected_transition_admission_v1.outputs.role_exact_head }}') { throw 'role_dispatch_not_ready' }
-          [IO.File]::WriteAllText($promptPath, [string]$plan.prompt, $utf8NoBom)
-          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "operation=EXECUTE_ROLE$([Environment]::NewLine)", $utf8NoBom)
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "operation=$($projection.operation)$([Environment]::NewLine)", $utf8NoBom)
 
       - name: Execute bounded role and host operation
         if: contains(fromJSON('["EXECUTE_ROLE","EXECUTE_BOOTSTRAP_PUBLICATION"]'), steps.role_dispatch_plan.outputs.operation)
