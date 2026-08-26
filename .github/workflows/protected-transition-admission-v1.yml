@@ -871,34 +871,16 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $utf8NoBom = [Text.UTF8Encoding]::new($false)
-          function Read-MinimalGovernancePlan {
-            if ($env:MERGE_TERMINAL_RESULT -cne 'MINIMAL_GOVERNANCE_V1' -or $env:MERGE_AUTHORITY_KIND -cne 'MINIMAL_GOVERNANCE_V1' -or [string]::IsNullOrWhiteSpace($env:MINIMAL_MERGE_PLAN_B64)) { throw 'minimal_governance_plan_missing' }
-            $planBytes = [Convert]::FromBase64String($env:MINIMAL_MERGE_PLAN_B64)
-            $plan = [Text.Encoding]::UTF8.GetString($planBytes) | ConvertFrom-Json
-            $expectedPlanFields = @('allowed','authority_comment_id','authority_kind','authorized_paths','automation_status','current_head','exact_head','expected_base','exit_code','merge_method','mutation_count','next_action','operation_count','pr_number','protected_operation_count','reason','repository','sealed_snapshot_b64','snapshot_sha256','state','task_issue_number','terminal_result','transition') | Sort-Object
-            $actualPlanFields = @($plan.psobject.Properties.Name | Sort-Object)
-            if (($actualPlanFields -join "`n") -cne ($expectedPlanFields -join "`n")) { throw 'minimal_governance_plan_fields_invalid' }
-            if ($plan.transition -cne 'minimal_governance_v1' -or $plan.authority_kind -cne 'MINIMAL_GOVERNANCE_V1' -or $plan.terminal_result -cne 'MINIMAL_GOVERNANCE_V1' -or $plan.next_action -cne 'MERGE_OPERATOR' -or $plan.automation_status -cne 'OPERATION_READY' -or $plan.state -cne 'READY' -or $plan.reason -cne 'minimal_governance_satisfied' -or $plan.allowed -ne $false -or $plan.exit_code -ne 0 -or $plan.merge_method -cne 'merge' -or $plan.operation_count -ne 1 -or $plan.mutation_count -ne 0 -or $plan.protected_operation_count -ne 0 -or $plan.repository -cne $env:GITHUB_REPOSITORY -or $plan.task_issue_number -lt 1 -or $plan.pr_number -lt 1 -or $plan.authority_comment_id -lt 1 -or $plan.exact_head -cne '${{ needs.protected_transition_admission_v1.outputs.role_exact_head }}' -or $plan.current_head -cne $plan.exact_head -or $plan.expected_base -cnotmatch '^[0-9a-f]{40}$' -or $plan.snapshot_sha256 -cnotmatch '^[0-9a-f]{64}$') { throw 'minimal_governance_plan_invalid' }
-            $snapshotBytes = [Convert]::FromBase64String([string]$plan.sealed_snapshot_b64)
-            $sha256 = [Security.Cryptography.SHA256]::Create()
-            try { $snapshotSha = ([BitConverter]::ToString($sha256.ComputeHash($snapshotBytes))).Replace('-', '').ToLowerInvariant() } finally { $sha256.Dispose() }
-            if ($snapshotSha -cne $plan.snapshot_sha256) { throw 'minimal_governance_snapshot_seal_invalid' }
-            $snapshot = [Text.Encoding]::UTF8.GetString($snapshotBytes) | ConvertFrom-Json
-            $expectedSnapshotFields = @('active_thread_count','authority_actor','authority_body_sha256','authority_comment_id','authority_kind','authorized_paths','comment_history_fingerprint_sha256','exact_head','expected_base','external_checks','job_manifest','pr_number','pull','record_type','repository','review_body_sha256','review_comment_id','source_counts','task','task_issue_number','task_state') | Sort-Object
-            $actualSnapshotFields = @($snapshot.psobject.Properties.Name | Sort-Object)
-            if (($actualSnapshotFields -join "`n") -cne ($expectedSnapshotFields -join "`n") -or $snapshot.record_type -cne 'minimal_governance_pre_operation_snapshot_v1' -or $snapshot.authority_kind -cne 'MINIMAL_GOVERNANCE_V1' -or $snapshot.repository -cne $plan.repository -or $snapshot.task_issue_number -ne $plan.task_issue_number -or $snapshot.pr_number -ne $plan.pr_number -or $snapshot.exact_head -cne $plan.exact_head -or $snapshot.expected_base -cne $plan.expected_base -or $snapshot.authority_comment_id -ne $plan.authority_comment_id -or $snapshot.active_thread_count -ne 0 -or $snapshot.pull.state -cne 'open' -or $snapshot.pull.draft -ne $false -or $snapshot.pull.merged -ne $false -or $snapshot.pull.head -cne $plan.exact_head -or $snapshot.pull.base -cnotmatch '^[0-9a-f]{40}$' -or $snapshot.pull.mergeable -ne $true) { throw 'minimal_governance_snapshot_binding_invalid' }
-            $expectedSourceCountFields = @('authority_refetch','pull','task','main','comment_history','review_refetch','scope','job_manifest','checks','threads') | Sort-Object
-            $actualSourceCountFields = @($snapshot.source_counts.psobject.Properties.Name | Sort-Object)
-            if (($actualSourceCountFields -join "`n") -cne ($expectedSourceCountFields -join "`n") -or @($snapshot.source_counts.psobject.Properties.Value | Where-Object { $_ -ne 1 }).Count -ne 0) { throw 'minimal_governance_snapshot_source_count_invalid' }
-            if ($snapshot.authority_body_sha256 -cnotmatch '^[0-9a-f]{64}$' -or $snapshot.review_body_sha256 -cnotmatch '^[0-9a-f]{64}$' -or $snapshot.comment_history_fingerprint_sha256 -cnotmatch '^[0-9a-f]{64}$' -or $snapshot.review_comment_id -lt 1 -or $snapshot.authority_actor.login -cne 'whatrune' -or $snapshot.authority_actor.id -ne 47842632 -or $snapshot.authority_actor.type -cne 'User' -or @($snapshot.external_checks).Count -lt 1 -or @($snapshot.external_checks | Where-Object { ($_.type -ceq 'CheckRun' -and ($_.status -cne 'COMPLETED' -or $_.conclusion -cne 'SUCCESS')) -or ($_.type -ceq 'StatusContext' -and $_.state -cne 'SUCCESS') -or $_.type -cnotin @('CheckRun','StatusContext') }).Count -ne 0 -or $snapshot.task.number -ne $plan.task_issue_number -or $snapshot.task.state -cne 'open' -or $snapshot.task.is_pull_request -ne $false -or $snapshot.task.creator.login -cne 'whatrune' -or $snapshot.task.creator.id -ne 47842632 -or $snapshot.task.creator.type -cne 'User' -or $snapshot.task_state.task_issue_number -ne $plan.task_issue_number -or $snapshot.task_state.pr_number -ne $plan.pr_number -or $snapshot.task_state.observed_head -cne $plan.exact_head -or $snapshot.task_state.reviewed_head -cne $plan.exact_head -or $snapshot.task_state.review_status -cne 'APPROVE' -or $snapshot.task_state.review_blocker_count -ne 0 -or $snapshot.job_manifest.repository -cne $plan.repository -or $snapshot.job_manifest.run_id -cnotmatch '^[1-9][0-9]*$' -or $snapshot.job_manifest.run_attempt -lt 1 -or $snapshot.job_manifest.host_sha -cne $plan.expected_base) { throw 'minimal_governance_snapshot_evidence_invalid' }
-            if (@($plan.authorized_paths).Count -eq 0 -or (@($plan.authorized_paths | Sort-Object) -join "`n") -cne (@($snapshot.authorized_paths | Sort-Object) -join "`n")) { throw 'minimal_governance_scope_binding_invalid' }
-            return $plan
-          }
           if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1') {
-            $plan = Read-MinimalGovernancePlan
-            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "operation=MERGE_PR$([Environment]::NewLine)", $utf8NoBom)
-            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "pr_number=$($plan.pr_number)$([Environment]::NewLine)", $utf8NoBom)
-            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "exact_head=$($plan.exact_head)$([Environment]::NewLine)", $utf8NoBom)
+            $encodedPlanPath = Join-Path $env:RUNNER_TEMP 'minimal-merge-plan.b64'
+            [IO.File]::WriteAllText($encodedPlanPath, [string]$env:MINIMAL_MERGE_PLAN_B64, $utf8NoBom)
+            $projection = node $env:PTA_MERGE_HOST_RUNNER `
+              --minimal-governance-plan-projection-file $encodedPlanPath `
+              --expected-head '${{ needs.protected_transition_admission_v1.outputs.role_exact_head }}' | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0) { throw "$($projection.reason)" }
+            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "operation=$($projection.operation)$([Environment]::NewLine)", $utf8NoBom)
+            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "pr_number=$($projection.pr_number)$([Environment]::NewLine)", $utf8NoBom)
+            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "exact_head=$($projection.exact_head)$([Environment]::NewLine)", $utf8NoBom)
             exit 0
           }
           if ($env:MERGE_TERMINAL_RESULT -cne 'MERGE_ALLOWED' -or -not [string]::IsNullOrWhiteSpace($env:MINIMAL_MERGE_PLAN_B64) -or -not [string]::IsNullOrWhiteSpace($env:MERGE_AUTHORITY_KIND)) { throw 'merge_operator_authority_projection_invalid' }

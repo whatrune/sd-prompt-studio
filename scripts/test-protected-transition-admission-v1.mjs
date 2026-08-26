@@ -30,6 +30,7 @@ import {
   executeManualProgressionControllerV1,
   executeMergeOperatorV1,
   projectAdmissionWorkflowResultV1,
+  projectMinimalGovernanceWorkflowMergePlanV1,
   projectMergeOperatorWorkflowResultV1,
   projectRoleDispatchWorkflowResultV1,
   executeMergeDecisionSuccessorResumeV1,
@@ -6263,6 +6264,10 @@ const naturalPublicationContinuationBlock = roleExecutionRun.slice(naturalPublic
 const admissionEvaluationRun = admissionJob.steps.find((step) => step.name === 'Evaluate protected transition admission')?.run ?? ''
 const mergePlanRun = mergeOperatorJob.steps.find((step) => step.name === 'Rebind exact decision and prepare one merge')?.run ?? ''
 const mergeOperationRun = mergeOperatorJob.steps.find((step) => step.name === 'Perform one normal merge commit')?.run ?? ''
+const minimalWorkflowProjectionOwnerSourceV1 = runnerSource.slice(
+  runnerSource.indexOf('export const projectMinimalGovernanceWorkflowMergePlanV1'),
+  runnerSource.indexOf('\nexport const projectRoleDispatchWorkflowResultV1'),
+)
 const normalMergePlanStart = mergePlanRun.indexOf("if ($env:MERGE_TERMINAL_RESULT -cne 'MERGE_ALLOWED'")
 const normalMergePlanRun = normalMergePlanStart >= 0 ? mergePlanRun.slice(normalMergePlanStart) : ''
 const postRepairExecutionStep = postRepairReviewJob.steps.find((step) => step.name === 'Execute and publish post-repair Review')
@@ -9888,7 +9893,7 @@ const workflowBoundaryMatrix = [
   runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id') && runnerSource.includes("const ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'") && ['GITHUB_REPOSITORY', 'GITHUB_REF', 'GITHUB_WORKFLOW_REF', 'GITHUB_WORKFLOW_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_JOB'].every((name) => runnerSource.includes(`process.env.${name}`)) && runnerSource.includes('RESOLVE_REVIEW_THREAD_MUTATION') && !runnerSource.includes('executeReviewerPublicationRebindV1') && runnerSource.includes('executeReviewThreadClosureV1') && !runnerSource.includes("mode: 'review_publication_rebind'") && runnerSource.includes("mode: 'review_closure'") && runnerSource.match(/parseIndependentReviewDecisionProjectionV1/g)?.length === 6,
 manualWorkflowDispatchResult.state === 'MERGE_ELIGIBLE' && manualWorkflowDispatchResult.allowed === false && manualWorkflowDispatchResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' && manualWorkflowDispatchResult.automation_status === 'HANDOFF_READY' && manualWorkflowDispatchResult.role_dispatch?.purpose === 'MERGE_DECISION' && manualWorkflowDispatchAdmission.metrics.checkReads === 2 && manualWorkflowDispatchAdmission.metrics.threadReads === 1 && mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR' && (needs.protected_transition_admission_v1.outputs.terminal_result == 'MERGE_ALLOWED' || needs.protected_transition_admission_v1.outputs.terminal_result == 'MINIMAL_GOVERNANCE_V1')" && mergeOperationRun.includes('--merge-operator-file $dispatchPath') && mergeOperationRun.indexOf('--merge-operator-file $dispatchPath') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force') && !workflowSource.includes('gh workflow run') && !runnerSource.includes('createWorkflowDispatch') && runnerSource.includes('acquireMergeCheckRollupSnapshotV1') && runnerSource.includes('acquireMergeReviewThreadsV1') && runnerSource.includes('executeProtectedTransitionAdmissionV1'),
   admissionJob.outputs.authority_kind === '${{ steps.evaluate.outputs.authority_kind }}' && admissionJob.outputs.minimal_merge_plan_b64 === '${{ steps.evaluate.outputs.minimal_merge_plan_b64 }}' && (admissionEvaluationRun.match(/--review-event-file/g) ?? []).length === 1 && !Object.hasOwn(mergeHostRunnerStep, 'if') && mergePlanRun.includes("if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1')") && mergePlanRun.indexOf("if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1')") < mergePlanRun.indexOf('node $env:PTA_MERGE_HOST_RUNNER') && (mergeOperationRun.match(/--minimal-governance-drift-guard-file/g) ?? []).length === 1 && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.indexOf('minimal_governance_final_drift_guard_matched') < mergeOperationRun.indexOf('--method PUT') && (workflowSource.match(/--method PUT/g) ?? []).length === 1 && !workflowSource.includes('Start-Sleep') && !mergePlanRun.includes('retry') && !mergeOperationRun.includes('retry'),
-  workflow.permissions.actions === 'read' && mergePlanRun.includes("$snapshot.pull.base -cnotmatch '^[0-9a-f]{40}$'") && !mergePlanRun.includes('$snapshot.pull.base -cne $plan.expected_base') && mergePlanRun.includes("$plan.expected_base -cnotmatch '^[0-9a-f]{40}$'") && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT'),
+  workflow.permissions.actions === 'read' && minimalWorkflowProjectionOwnerSourceV1.includes("FULL_HEAD.test(snapshot.pull?.base ?? '')") && !minimalWorkflowProjectionOwnerSourceV1.includes('snapshot.pull?.base !== plan.expected_base') && minimalWorkflowProjectionOwnerSourceV1.includes("FULL_HEAD.test(plan.expected_base ?? '')") && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT'),
 ]
 for (const [index, evidence] of workflowBoundaryMatrix.entries()) check(evidence, `RDC-12 simplified lifecycle and protected operation boundaries ${index + 1}`)
 check(
@@ -12427,7 +12432,7 @@ const admissionProjectionCliV1 = (() => {
 })()
 const admissionProjectionOwnerSourceV1 = runnerSource.slice(
   runnerSource.indexOf('export const projectAdmissionWorkflowResultV1'),
-  runnerSource.indexOf('\nexport const projectRoleDispatchWorkflowResultV1'),
+  runnerSource.indexOf('\nexport const projectMinimalGovernanceWorkflowMergePlanV1'),
 )
 const admissionProjectionTransportStartV1 = admissionEvaluationRun.indexOf('projection_file="$(mktemp)"')
 const admissionProjectionTransportV1 = admissionEvaluationRun.slice(admissionProjectionTransportStartV1)
@@ -12539,5 +12544,178 @@ check(
   'ADWP-15 no adjacent workflow block event authority or mutation behavior is broadened',
 )
 
-if (assertions !== 1222) throw new Error(`expected exactly 1222 assertions, observed ${assertions}`)
+const encodeMinimalWorkflowPlanV1 = (plan) => Buffer.from(JSON.stringify(plan), 'utf8').toString('base64')
+const mutateMinimalWorkflowSnapshotV1 = (plan, mutate) => {
+  const snapshot = JSON.parse(Buffer.from(plan.sealed_snapshot_b64, 'base64').toString('utf8'))
+  mutate(snapshot)
+  const snapshotBytes = Buffer.from(JSON.stringify(snapshot), 'utf8')
+  return Object.freeze({
+    ...plan,
+    sealed_snapshot_b64: snapshotBytes.toString('base64'),
+    snapshot_sha256: createHash('sha256').update(snapshotBytes).digest('hex'),
+  })
+}
+const minimalWorkflowProjectionInputV1 = Object.freeze({
+  terminalResult: 'MINIMAL_GOVERNANCE_V1',
+  authorityKind: 'MINIMAL_GOVERNANCE_V1',
+  encodedPlan: encodeMinimalWorkflowPlanV1(minimalValid.result),
+  repository: minimalValid.result.repository,
+  expectedHead: minimalValid.result.exact_head,
+})
+const minimalWorkflowProjectionV1 = projectMinimalGovernanceWorkflowMergePlanV1(minimalWorkflowProjectionInputV1)
+const minimalWorkflowMissingErrorsV1 = await Promise.all([
+  { ...minimalWorkflowProjectionInputV1, terminalResult: 'MERGE_ALLOWED' },
+  { ...minimalWorkflowProjectionInputV1, authorityKind: '' },
+  { ...minimalWorkflowProjectionInputV1, encodedPlan: ' ' },
+].map((input) => errorOf(async () => projectMinimalGovernanceWorkflowMergePlanV1(input))))
+const minimalWorkflowFieldErrorV1 = await errorOf(async () => projectMinimalGovernanceWorkflowMergePlanV1({
+  ...minimalWorkflowProjectionInputV1,
+  encodedPlan: encodeMinimalWorkflowPlanV1({ ...minimalValid.result, unknown_field: true }),
+}))
+const minimalWorkflowPlanErrorV1 = await errorOf(async () => projectMinimalGovernanceWorkflowMergePlanV1({
+  ...minimalWorkflowProjectionInputV1,
+  encodedPlan: encodeMinimalWorkflowPlanV1({ ...minimalValid.result, operation_count: 2 }),
+}))
+const minimalWorkflowEncodingErrorV1 = await errorOf(async () => projectMinimalGovernanceWorkflowMergePlanV1({
+  ...minimalWorkflowProjectionInputV1,
+  encodedPlan: `${minimalWorkflowProjectionInputV1.encodedPlan}!`,
+}))
+const minimalWorkflowSealErrorV1 = await errorOf(async () => projectMinimalGovernanceWorkflowMergePlanV1({
+  ...minimalWorkflowProjectionInputV1,
+  encodedPlan: encodeMinimalWorkflowPlanV1({ ...minimalValid.result, snapshot_sha256: '0'.repeat(64) }),
+}))
+const minimalWorkflowBindingErrorV1 = await errorOf(async () => projectMinimalGovernanceWorkflowMergePlanV1({
+  ...minimalWorkflowProjectionInputV1,
+  encodedPlan: encodeMinimalWorkflowPlanV1(mutateMinimalWorkflowSnapshotV1(minimalValid.result, (snapshot) => {
+    snapshot.active_thread_count = 1
+  })),
+}))
+const minimalWorkflowSourceCountErrorV1 = await errorOf(async () => projectMinimalGovernanceWorkflowMergePlanV1({
+  ...minimalWorkflowProjectionInputV1,
+  encodedPlan: encodeMinimalWorkflowPlanV1(mutateMinimalWorkflowSnapshotV1(minimalValid.result, (snapshot) => {
+    snapshot.source_counts.pull = 2
+  })),
+}))
+const minimalWorkflowEvidenceErrorV1 = await errorOf(async () => projectMinimalGovernanceWorkflowMergePlanV1({
+  ...minimalWorkflowProjectionInputV1,
+  encodedPlan: encodeMinimalWorkflowPlanV1(mutateMinimalWorkflowSnapshotV1(minimalValid.result, (snapshot) => {
+    snapshot.task_state.review_status = 'STOP'
+  })),
+}))
+const minimalWorkflowScopeErrorV1 = await errorOf(async () => projectMinimalGovernanceWorkflowMergePlanV1({
+  ...minimalWorkflowProjectionInputV1,
+  encodedPlan: encodeMinimalWorkflowPlanV1(mutateMinimalWorkflowSnapshotV1(minimalValid.result, (snapshot) => {
+    snapshot.authorized_paths = [...snapshot.authorized_paths, 'docs/unexpected.md']
+  })),
+}))
+const minimalWorkflowProjectionCliV1 = (() => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'minimal-governance-workflow-projection-'))
+  const encodedPlanPath = path.join(directory, 'minimal-merge-plan.b64')
+  try {
+    writeFileSync(encodedPlanPath, minimalWorkflowProjectionInputV1.encodedPlan, 'utf8')
+    return spawnSync(process.execPath, [
+      runnerPath,
+      '--minimal-governance-plan-projection-file', encodedPlanPath,
+      '--expected-head', minimalWorkflowProjectionInputV1.expectedHead,
+    ], {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      env: {
+        MERGE_TERMINAL_RESULT: minimalWorkflowProjectionInputV1.terminalResult,
+        MERGE_AUTHORITY_KIND: minimalWorkflowProjectionInputV1.authorityKind,
+        GITHUB_REPOSITORY: minimalWorkflowProjectionInputV1.repository,
+      },
+    })
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})()
+const minimalWorkflowOutputBytesV1 = [
+  `operation=${minimalWorkflowProjectionV1.operation}`,
+  `pr_number=${minimalWorkflowProjectionV1.pr_number}`,
+  `exact_head=${minimalWorkflowProjectionV1.exact_head}`,
+  '',
+].join('\n')
+
+check(
+  JSON.stringify(minimalWorkflowProjectionV1) === JSON.stringify({
+    operation: 'MERGE_PR', pr_number: minimalValid.result.pr_number, exact_head: minimalValid.result.exact_head,
+  }),
+  'MGWP-01 valid Minimal Governance plan projects the exact closed Merge workflow result',
+)
+check(
+  minimalWorkflowMissingErrorsV1.every((error) => error?.message === 'minimal_governance_plan_missing'),
+  'MGWP-02 terminal authority or encoded-plan absence preserves minimal_governance_plan_missing',
+)
+check(
+  minimalWorkflowFieldErrorV1?.message === 'minimal_governance_plan_fields_invalid' &&
+    minimalWorkflowPlanErrorV1?.message === 'minimal_governance_plan_invalid' &&
+    minimalWorkflowEncodingErrorV1?.message === 'minimal_governance_plan_invalid',
+  'MGWP-03 plan field and value rejection preserve their exact stop reasons',
+)
+check(
+  minimalWorkflowSealErrorV1?.message === 'minimal_governance_snapshot_seal_invalid' &&
+    minimalWorkflowBindingErrorV1?.message === 'minimal_governance_snapshot_binding_invalid',
+  'MGWP-04 snapshot seal and binding rejection preserve their exact stop reasons',
+)
+check(
+  minimalWorkflowSourceCountErrorV1?.message === 'minimal_governance_snapshot_source_count_invalid' &&
+    minimalWorkflowEvidenceErrorV1?.message === 'minimal_governance_snapshot_evidence_invalid' &&
+    minimalWorkflowScopeErrorV1?.message === 'minimal_governance_scope_binding_invalid',
+  'MGWP-05 source evidence and scope rejection preserve their exact stop reasons',
+)
+check(
+  minimalWorkflowProjectionCliV1.status === 0 && minimalWorkflowProjectionCliV1.stderr === '' &&
+    JSON.stringify(JSON.parse(minimalWorkflowProjectionCliV1.stdout)) === JSON.stringify(minimalWorkflowProjectionV1) &&
+    runnerSource.includes("invocation.mode === 'minimal_governance_plan_projection'") &&
+    !minimalWorkflowProjectionOwnerSourceV1.includes('process.env'),
+  'MGWP-06 private CLI uses the same pure owner without host credentials',
+)
+check(
+  mergePlanRun.includes('--minimal-governance-plan-projection-file $encodedPlanPath') &&
+    mergePlanRun.includes('if ($LASTEXITCODE -ne 0) { throw "$($projection.reason)" }') &&
+    !mergePlanRun.includes('function Read-MinimalGovernancePlan') &&
+    !mergePlanRun.includes('$expectedPlanFields') && !mergePlanRun.includes('$expectedSnapshotFields') &&
+    !mergePlanRun.includes('$expectedSourceCountFields'),
+  'MGWP-07 selected workflow branch is transport-only and preserves projected stop reasons',
+)
+check(
+  mergePlanRun.indexOf('operation=$($projection.operation)') < mergePlanRun.indexOf('pr_number=$($projection.pr_number)') &&
+    mergePlanRun.indexOf('pr_number=$($projection.pr_number)') < mergePlanRun.indexOf('exact_head=$($projection.exact_head)') &&
+    minimalWorkflowOutputBytesV1 === `operation=MERGE_PR\npr_number=${minimalValid.result.pr_number}\nexact_head=${minimalValid.result.exact_head}\n`,
+  'MGWP-08 GITHUB_OUTPUT names bytes and order remain unchanged',
+)
+check(
+  mergePlanRun.includes("if ($env:MERGE_TERMINAL_RESULT -cne 'MERGE_ALLOWED'") &&
+    mergePlanRun.includes('--merge-operator-file $dispatchPath') &&
+    mergePlanRun.includes('--merge-operator-result-projection-file $planPath') &&
+    mergePlanRun.includes("throw 'merge_operator_authority_projection_invalid'") &&
+    mergePlanRun.includes("throw 'merge_operator_preflight_failed'") &&
+    mergePlanRun.includes("throw 'merge_operator_plan_invalid'"),
+  'MGWP-09 normal Merge Operator plan path and stop reasons remain unchanged',
+)
+check(
+  !minimalWorkflowProjectionOwnerSourceV1.includes('api(') &&
+    !minimalWorkflowProjectionOwnerSourceV1.includes('graphql') &&
+    !minimalWorkflowProjectionOwnerSourceV1.includes('--method PUT') &&
+    !minimalWorkflowProjectionOwnerSourceV1.includes('Publish-') &&
+    !minimalWorkflowProjectionOwnerSourceV1.includes('markPullRequestReadyForReview'),
+  'MGWP-10 pure owner performs no acquisition publication Ready or Merge mutation',
+)
+check(
+  mergeOperatorJob.steps.find((step) => step.name === 'Perform one normal merge commit')?.if === "steps.merge_plan.outputs.operation == 'MERGE_PR'" &&
+    (workflowSource.match(/--method PUT/g) ?? []).length === 1 &&
+    mergeOperationRun.includes('--minimal-governance-drift-guard-file') &&
+    mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT'),
+  'MGWP-11 final mutation gate and Minimal Governance drift guard remain unchanged',
+)
+check(
+  Object.keys(workflow.jobs).length === 5 && workflow.on.issue_comment.types.join(',') === 'created' &&
+    workflow.on.pull_request.types.join(',') === 'ready_for_review' && workflow.permissions.actions === 'read' &&
+    workflow.permissions['pull-requests'] === 'write' && !workflowSource.includes('gh workflow run') &&
+    !runnerSource.includes('createWorkflowDispatch'),
+  'MGWP-12 workflow topology triggers permissions events and authority ownership remain unchanged',
+)
+
+if (assertions !== 1234) throw new Error(`expected exactly 1234 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
