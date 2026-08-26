@@ -376,175 +376,33 @@ jobs:
             param([string]$DispatchFile, [string]$BodyFile, [string]$ExpectedAction, [string]$ResultFile, [string]$JsonlFile)
             node $env:PTA_ROLE_HOST_RUNNER --role-output-file $BodyFile --role-dispatch-file $DispatchFile --role-jsonl-file $JsonlFile 1> $ResultFile
             $validationExit = $LASTEXITCODE
-            if ($validationExit -ne 0) {
-              $diagnosticLines = @()
+            $projectionPath = Join-Path $env:RUNNER_TEMP ("role-output-workflow-projection-{0}.json" -f ([Guid]::NewGuid().ToString('N')))
+            try {
+              node $env:PTA_ROLE_HOST_RUNNER --role-output-result-projection-file $ResultFile --role-dispatch-file $DispatchFile --validator-exit-code ([string]$validationExit) --expected-action $ExpectedAction 1> $projectionPath
+              if ($LASTEXITCODE -ne 0) { throw 'role_output_validation_failed' }
               try {
-                $failure = Get-Content -LiteralPath $ResultFile -Raw -Encoding utf8 | ConvertFrom-Json
-                $dispatch = Get-Content -LiteralPath $DispatchFile -Raw -Encoding utf8 | ConvertFrom-Json
-                if (
-                  $dispatch.next_action -ceq 'IMPLEMENTER' -and
-                  $dispatch.source_binding.kind -ceq 'PRE_PR_IMPLEMENTATION_AUTHORITY'
-                ) {
-                  $requiredNames = [string[]]@(
-                    'allowed', 'automation_status', 'exit_code', 'mutation_count', 'next_action', 'reason', 'state'
-                  )
-                  $actualNames = [string[]]@($failure.psobject.Properties.Name | Sort-Object)
-                  if (
-                    $null -eq $failure -or $actualNames.Count -ne 7 -or (Compare-Object $requiredNames $actualNames) -or
-                    $failure.state -cne 'INDETERMINATE' -or $failure.allowed -ne $false -or
-                    $failure.exit_code -ne 1 -or
-                    $failure.reason -notin @(
-                      'role_output_invalid',
-                      'terminal_result_ambiguous_or_invalid',
-                      'pre_pr_implementation_result_invalid'
-                    ) -or
-                    $failure.automation_status -cne 'BLOCKED' -or $failure.next_action -cne 'STOP' -or
-                    $failure.mutation_count -ne 0
-                  ) { throw 'pre_pr_implementer_role_output_failure_invalid' }
-                  $diagnosticLines = @($failure | ConvertTo-Json -Compress -Depth 2)
-                } elseif ($dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER') {
-                  $evidence = $failure.failure_evidence
-                  $header = $evidence.header
-                  $chunks = @($evidence.chunks)
-                  $requiredHeaderNames = [string[]]@(
-                    'binding_mismatch', 'body_capture_status', 'body_chunk_count', 'exact_head', 'field_names',
-                    'parsed_field_count', 'parser_failure_reason', 'pr_number', 'record_type', 'run_attempt', 'run_id',
-                    'scalar_types', 'selected_body_sha256', 'selected_body_utf8_byte_count', 'source_comment_id',
-                    'task_issue_number', 'yaml_block_count'
-                  )
-                  $actualEvidenceNames = [string[]]@($evidence.psobject.Properties.Name | Sort-Object)
-                  $actualHeaderNames = [string[]]@($header.psobject.Properties.Name | Sort-Object)
-                  if (
-                    $null -eq $evidence -or $null -eq $header -or $actualEvidenceNames.Count -ne 2 -or
-                    (Compare-Object ([string[]]@('chunks', 'header')) $actualEvidenceNames) -or
-                    $actualHeaderNames.Count -ne 17 -or (Compare-Object $requiredHeaderNames $actualHeaderNames)
-                  ) { throw 'independent_reviewer_failure_evidence_shape_invalid' }
-                  if (
-                    $header.record_type -cne 'independent_reviewer_role_output_failure_evidence_v1' -or
-                    $header.run_id -isnot [string] -or $header.run_id -cnotmatch '^[1-9]\d*$' -or
-                    ($header.run_attempt -isnot [int] -and $header.run_attempt -isnot [long]) -or $header.run_attempt -lt 1 -or
-                    ($header.task_issue_number -isnot [int] -and $header.task_issue_number -isnot [long]) -or $header.task_issue_number -ne $dispatch.task_issue_number -or
-                    ($header.pr_number -isnot [int] -and $header.pr_number -isnot [long]) -or $header.pr_number -ne $dispatch.pr_number -or
-                    $header.exact_head -isnot [string] -or $header.exact_head -cne $dispatch.exact_head -or
-                    ($header.source_comment_id -isnot [int] -and $header.source_comment_id -isnot [long]) -or $header.source_comment_id -ne $dispatch.source_comment_id -or
-                    $header.selected_body_sha256 -isnot [string] -or $header.selected_body_sha256 -cnotmatch '^[0-9a-f]{64}$'
-                  ) { throw 'independent_reviewer_failure_evidence_header_invalid' }
-                  foreach ($name in @('selected_body_utf8_byte_count', 'body_chunk_count', 'yaml_block_count', 'parsed_field_count')) {
-                    $value = $header.$name
-                    if (($value -isnot [int] -and $value -isnot [long]) -or $value -lt 0 -or $value -gt 9007199254740991) {
-                      throw 'independent_reviewer_failure_evidence_count_invalid'
-                    }
-                  }
-                  if ($header.field_names -isnot [System.Array] -or $header.scalar_types -isnot [System.Array]) {
-                    throw 'independent_reviewer_failure_evidence_fields_invalid'
-                  }
-                  $fieldNames = @($header.field_names)
-                  $scalarTypes = @($header.scalar_types)
-                  if (
-                    $fieldNames.Count -ne $header.parsed_field_count -or $scalarTypes.Count -ne $header.parsed_field_count -or
-                    @($fieldNames | Where-Object { $_ -isnot [string] -or $_ -cnotmatch '^[a-z][a-z0-9_]*$' }).Count -ne 0 -or
-                    @($scalarTypes | Where-Object { $_ -notin @('string', 'integer', 'boolean', 'invalid') }).Count -ne 0
-                  ) { throw 'independent_reviewer_failure_evidence_fields_invalid' }
-                  $bindingNames = [string[]]@($header.binding_mismatch.psobject.Properties.Name | Sort-Object)
-                  if (
-                    $null -eq $header.binding_mismatch -or (Compare-Object ([string[]]@('pull_request', 'reviewed_head', 'task_issue')) $bindingNames) -or
-                    @($bindingNames | Where-Object { $header.binding_mismatch.$_ -notin @('MATCH', 'MISMATCH', 'UNAVAILABLE') }).Count -ne 0
-                  ) { throw 'independent_reviewer_failure_evidence_binding_invalid' }
-                  $allowedReasons = @(
-                    'review_body_length_invalid', 'review_yaml_block_cardinality_invalid', 'review_yaml_scalar_invalid',
-                    'review_scalar_invalid', 'review_record_type_invalid', 'review_authoring_role_invalid',
-                    'review_task_issue_invalid', 'review_pull_request_invalid', 'review_reviewed_head_invalid',
-                    'review_decision_invalid', 'review_count_type_invalid', 'review_count_value_invalid',
-                    'review_status_invalid', 'review_execution_stop_reason_invalid', 'review_pr_binding_mismatch',
-                    'review_head_binding_mismatch', 'selected_body_evidence_bound_exceeded', 'role_output_invalid_unclassified'
-                  )
-                  if ($header.parser_failure_reason -notin $allowedReasons) { throw 'independent_reviewer_failure_evidence_reason_invalid' }
-
-                  if ($header.body_capture_status -ceq 'BOUND_EXCEEDED') {
-                    if (
-                      $header.selected_body_utf8_byte_count -le 262144 -or $header.body_chunk_count -ne 0 -or $chunks.Count -ne 0 -or
-                      $header.yaml_block_count -ne 0 -or $header.parsed_field_count -ne 0 -or $fieldNames.Count -ne 0 -or
-                      $scalarTypes.Count -ne 0 -or $header.parser_failure_reason -cne 'selected_body_evidence_bound_exceeded' -or
-                      @($bindingNames | Where-Object { $header.binding_mismatch.$_ -cne 'UNAVAILABLE' }).Count -ne 0
-                    ) { throw 'independent_reviewer_failure_evidence_overflow_invalid' }
-                  } elseif ($header.body_capture_status -ceq 'CAPTURED') {
-                    if (
-                      $header.selected_body_utf8_byte_count -gt 262144 -or $header.body_chunk_count -gt 64 -or
-                      $header.body_chunk_count -ne $chunks.Count
-                    ) { throw 'independent_reviewer_failure_evidence_capture_invalid' }
-                    $stream = [IO.MemoryStream]::new()
-                    try {
-                      for ($index = 0; $index -lt $chunks.Count; $index++) {
-                        $chunk = $chunks[$index]
-                        $chunkNames = [string[]]@($chunk.psobject.Properties.Name | Sort-Object)
-                        if (
-                          (Compare-Object ([string[]]@('body_base64', 'chunk_count', 'chunk_index', 'raw_byte_count', 'record_type')) $chunkNames) -or
-                          $chunk.record_type -cne 'independent_reviewer_role_output_failure_body_chunk_v1' -or
-                          $chunk.chunk_index -ne $index -or $chunk.chunk_count -ne $chunks.Count -or
-                          ($chunk.raw_byte_count -isnot [int] -and $chunk.raw_byte_count -isnot [long]) -or
-                          $chunk.raw_byte_count -lt 1 -or $chunk.raw_byte_count -gt 4096 -or $chunk.body_base64 -isnot [string]
-                        ) { throw 'independent_reviewer_failure_evidence_chunk_invalid' }
-                        try { $bytes = [Convert]::FromBase64String($chunk.body_base64) } catch { throw 'independent_reviewer_failure_evidence_chunk_invalid' }
-                        if (
-                          $bytes.Length -ne $chunk.raw_byte_count -or [Convert]::ToBase64String($bytes) -cne $chunk.body_base64 -or
-                          ($index -lt ($chunks.Count - 1) -and $bytes.Length -ne 4096)
-                        ) { throw 'independent_reviewer_failure_evidence_chunk_invalid' }
-                        $stream.Write($bytes, 0, $bytes.Length)
-                      }
-                      $capturedBytes = $stream.ToArray()
-                    } finally { $stream.Dispose() }
-                    $sha256 = [Security.Cryptography.SHA256]::Create()
-                    try { $capturedSha256 = ([BitConverter]::ToString($sha256.ComputeHash($capturedBytes))).Replace('-', '').ToLowerInvariant() } finally { $sha256.Dispose() }
-                    if ($capturedBytes.Length -ne $header.selected_body_utf8_byte_count -or $capturedSha256 -cne $header.selected_body_sha256) {
-                      throw 'independent_reviewer_failure_evidence_binding_invalid'
-                    }
-                  } else { throw 'independent_reviewer_failure_evidence_capture_invalid' }
-                  $diagnosticLines = @($header | ConvertTo-Json -Compress -Depth 5)
-                  $diagnosticLines += @($chunks | ForEach-Object { $_ | ConvertTo-Json -Compress -Depth 3 })
-                } else {
-                  $detail = $failure.bounded_metadata
-                  $requiredNames = [string[]]@(
-                    'expected_body_sha256', 'extra_field_names', 'malformed_jsonl_line_count', 'missing_field_names',
-                    'non_empty_agent_message_count', 'selected_body_sha256', 'total_jsonl_line_count',
-                    'type_mismatch_field_names', 'value_mismatch_field_names'
-                  )
-                  $actualNames = [string[]]@($detail.psobject.Properties.Name | Sort-Object)
-                  if ($null -eq $detail -or $actualNames.Count -ne 9 -or (Compare-Object $requiredNames $actualNames)) {
-                    throw 'role_output_diagnostic_shape_invalid'
-                  }
-                  foreach ($name in @('total_jsonl_line_count', 'malformed_jsonl_line_count', 'non_empty_agent_message_count')) {
-                    $value = $detail.$name
-                    if (($value -isnot [int] -and $value -isnot [long]) -or $value -lt 0 -or $value -gt 9007199254740991) {
-                      throw 'role_output_diagnostic_count_invalid'
-                    }
-                  }
-                  if ($detail.malformed_jsonl_line_count -gt $detail.total_jsonl_line_count -or $detail.non_empty_agent_message_count -gt $detail.total_jsonl_line_count) { throw 'role_output_diagnostic_count_invalid' }
-                  foreach ($name in @('selected_body_sha256', 'expected_body_sha256')) {
-                    if ($detail.$name -isnot [string] -or $detail.$name -cnotmatch '^[0-9a-f]{64}$') { throw 'role_output_diagnostic_digest_invalid' }
-                  }
-                  foreach ($name in @('missing_field_names', 'extra_field_names', 'type_mismatch_field_names', 'value_mismatch_field_names')) {
-                    if ($detail.$name -isnot [System.Array]) { throw 'role_output_diagnostic_field_names_invalid' }
-                    $rawNames = @($detail.$name)
-                    if ($rawNames.Count -gt 22 -or @($rawNames | Where-Object { $_ -isnot [string] -or $_ -cnotmatch '^[a-z][a-z0-9_]*$' }).Count -ne 0) { throw 'role_output_diagnostic_field_names_invalid' }
-                    $sortedNames = [string[]]@($rawNames | Sort-Object -Unique)
-                    if ($sortedNames.Count -ne $rawNames.Count -or (Compare-Object ([string[]]$rawNames) $sortedNames -SyncWindow 0)) { throw 'role_output_diagnostic_field_names_invalid' }
-                  }
-                  $diagnosticLines = @($detail | ConvertTo-Json -Compress -Depth 4)
-                }
+                $projection = Get-Content -LiteralPath $projectionPath -Raw -Encoding utf8 | ConvertFrom-Json
               } catch {
-                $diagnosticLines = @()
+                throw 'role_output_validation_failed'
               }
-              foreach ($diagnosticLine in $diagnosticLines) { [Console]::Error.WriteLine($diagnosticLine) }
-              throw 'role_output_validation_failed'
+              if (-not $projection.accepted) {
+                $diagnosticLines = @()
+                if ($projection.diagnostic_kind -ceq 'PRE_PR_IMPLEMENTER') {
+                  $diagnosticLines = @($projection.diagnostic | ConvertTo-Json -Compress -Depth 2)
+                } elseif ($projection.diagnostic_kind -ceq 'INDEPENDENT_REVIEWER') {
+                  $diagnosticLines = @($projection.diagnostic_header | ConvertTo-Json -Compress -Depth 5)
+                  $diagnosticLines += @($projection.diagnostic_chunks | ForEach-Object { $_ | ConvertTo-Json -Compress -Depth 3 })
+                } elseif ($projection.diagnostic_kind -ceq 'BOUNDED_METADATA') {
+                  $diagnosticLines = @($projection.diagnostic | ConvertTo-Json -Compress -Depth 4)
+                }
+                foreach ($diagnosticLine in $diagnosticLines) { [Console]::Error.WriteLine($diagnosticLine) }
+                if ($projection.error -ceq 'role_output_operation_invalid') { throw 'role_output_operation_invalid' }
+                throw 'role_output_validation_failed'
+              }
+              return Get-Content -LiteralPath $ResultFile -Raw -Encoding utf8 | ConvertFrom-Json
+            } finally {
+              Remove-Item -LiteralPath $projectionPath -Force -ErrorAction SilentlyContinue
             }
-            $validated = Get-Content -LiteralPath $ResultFile -Raw -Encoding utf8 | ConvertFrom-Json
-            $actionValid = if ($ExpectedAction -ceq 'PUBLISH_READY_AUTHORITY_OR_NONE') {
-              $validated.next_action -in @('PUBLISH_READY_AUTHORITY', 'NONE')
-            } else {
-              $validated.next_action -ceq $ExpectedAction
-            }
-            if (-not $actionValid) { throw 'role_output_operation_invalid' }
-            return $validated
           }
 
           function Assert-FreshRoleBinding {
