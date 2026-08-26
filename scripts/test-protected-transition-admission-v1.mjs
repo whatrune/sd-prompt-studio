@@ -28,6 +28,7 @@ import {
   executeRoleDispatchRebindV1,
   executeCanonicalMergeDecisionContinuationV1,
   executeManualProgressionControllerV1,
+  executeMergeOperatorV1,
   executeMergeDecisionSuccessorResumeV1,
   executePostReadyProgressionOwnerV1,
   executeReadyTransitionRequiredResumeV1,
@@ -4620,8 +4621,11 @@ const roleMergeDecisionRebindHost = ({
   merged = false,
   baseRef = 'main',
   threadPages = [connectionPage([])],
+  headAtPullRead: suppliedHeadAtPullRead = null,
+  mergeableState = 'unstable',
+  checkPages: suppliedCheckPages = null,
 } = {}) => {
-  const headAtPullRead = Object.fromEntries(Array.from({ length: 12 }, (_, index) => [index + 1, dispatch.exact_head]))
+  const headAtPullRead = suppliedHeadAtPullRead ?? Object.fromEntries(Array.from({ length: 12 }, (_, index) => [index + 1, dispatch.exact_head]))
   const automation = automationHost({
     initialState: taskState,
     changedFiles: paths.length,
@@ -4629,12 +4633,12 @@ const roleMergeDecisionRebindHost = ({
     commentPages: [[...sourceRecords.values()]],
     directCommentRecords: directSourceRecords,
     headAtPullRead,
-    mergeableState: 'unstable',
+    mergeableState,
     pullState,
     draft,
     merged,
     baseRef,
-    checkPages: [checkPage, checkPage],
+    checkPages: suppliedCheckPages ?? [checkPage, checkPage],
     threadPages,
   })
   automation.metrics.originReads = 0
@@ -5688,6 +5692,177 @@ const mergeOperatorSourceStart = runnerSource.indexOf('export const executeMerge
 const mergeOperatorSourceEnd = runnerSource.indexOf('\nexport const evaluateRoleTransitionOrchestratorV1', mergeOperatorSourceStart)
 const mergeOperatorSource = runnerSource.slice(mergeOperatorSourceStart, mergeOperatorSourceEnd)
 
+const mergeOperatorDispatchV1 = successorMergeAllowedRoute.result.role_dispatch
+const executeMergeOperatorFixtureV1 = async ({
+  dispatch = mergeOperatorDispatchV1,
+  decisionBody = readyMergeAllowedBody,
+  directDecisionBody = decisionBody,
+  omitDecision = false,
+  duplicateDecision = false,
+  supersedingReview = null,
+  taskState = dispatch.task_state,
+  paths = dispatch.authorized_paths,
+  pullState = 'open',
+  draft = false,
+  merged = false,
+  baseRef = 'main',
+  mergeableState = 'unstable',
+  checkPage = completedReadyCheckPage,
+  checkPages = null,
+  threadPages = [connectionPage([])],
+  headAtPullRead = null,
+} = {}) => {
+  const sourceRecords = new Map(roleSourceRecords)
+  if (!omitDecision) {
+    sourceRecords.set(readyMergeAllowedCommentId, roleComment(readyMergeAllowedCommentId, decisionBody, '2026-08-17T10:00:00Z'))
+  }
+  if (duplicateDecision) {
+    sourceRecords.set(readyMergeAllowedCommentId + 1, roleComment(readyMergeAllowedCommentId + 1, decisionBody, '2026-08-17T10:00:01Z'))
+  }
+  if (supersedingReview !== null) sourceRecords.set(supersedingReview.id, supersedingReview)
+  const directSourceRecords = new Map(sourceRecords)
+  if (!omitDecision) {
+    directSourceRecords.set(
+      readyMergeAllowedCommentId,
+      roleComment(readyMergeAllowedCommentId, directDecisionBody, '2026-08-17T10:00:00Z'),
+    )
+  }
+  const fixture = roleMergeDecisionRebindHost({
+    dispatch,
+    admissionRun: readyOriginRun,
+    checkPage,
+    sourceRecords,
+    directSourceRecords,
+    taskState,
+    paths,
+    pullState,
+    draft,
+    merged,
+    baseRef,
+    mergeableState,
+    checkPages,
+    threadPages,
+    headAtPullRead,
+  })
+  const result = await executeMergeOperatorV1({ dispatch, host: fixture.host })
+  return Object.freeze({ result, metrics: fixture.metrics })
+}
+
+const mergeOperatorSuccessV1 = await executeMergeOperatorFixtureV1()
+const mergeOperatorMissingDecisionV1 = await executeMergeOperatorFixtureV1({ omitDecision: true })
+const mergeOperatorDuplicateDecisionV1 = await executeMergeOperatorFixtureV1({ duplicateDecision: true })
+const mergeOperatorMalformedDecisionV1 = await executeMergeOperatorFixtureV1({
+  decisionBody: readyMergeAllowedBody.replace('merge_allowed: true', 'merge_allowed: false'),
+})
+const mergeOperatorDirectDriftV1 = await executeMergeOperatorFixtureV1({
+  directDecisionBody: readyMergeAllowedBody.replace('external_check_success_count: 2', 'external_check_success_count: 3'),
+})
+const mergeOperatorSupersededReviewV1 = await executeMergeOperatorFixtureV1({
+  supersedingReview: roleComment(
+    mergeDecisionReviewId + 1,
+    reviewDecisionBody({ reviewed_head: OTHER_HEAD }),
+    '2026-08-18T00:00:00Z',
+  ),
+})
+const mergeOperatorTaskStateDriftV1 = await executeMergeOperatorFixtureV1({
+  taskState: Object.freeze({ ...mergeOperatorDispatchV1.task_state, reviewed_head: HEAD }),
+})
+const mergeOperatorTaskDriftV1 = await executeMergeOperatorFixtureV1({
+  dispatch: Object.freeze({ ...mergeOperatorDispatchV1, task_issue_number: TASK + 1 }),
+})
+const mergeOperatorPrDriftV1 = await executeMergeOperatorFixtureV1({
+  dispatch: Object.freeze({ ...mergeOperatorDispatchV1, pr_number: PR + 1 }),
+})
+const mergeOperatorScopeDriftV1 = await executeMergeOperatorFixtureV1({ paths: [...mergeOperatorDispatchV1.authorized_paths, 'scope-drift.md'] })
+const mergeOperatorHeadDriftV1 = await executeMergeOperatorFixtureV1({
+  headAtPullRead: Object.freeze(Object.fromEntries(Array.from({ length: 12 }, (_, index) => [index + 1, HEAD]))),
+})
+const mergeOperatorBaseDriftV1 = await executeMergeOperatorFixtureV1({ baseRef: 'release' })
+const mergeOperatorDraftV1 = await executeMergeOperatorFixtureV1({ draft: true })
+const mergeOperatorClosedV1 = await executeMergeOperatorFixtureV1({ pullState: 'closed' })
+const mergeOperatorUnmergeableV1 = await executeMergeOperatorFixtureV1({ mergeableState: 'dirty' })
+const mergeOperatorAlreadyMergedV1 = await executeMergeOperatorFixtureV1({ pullState: 'closed', merged: true })
+const mergeOperatorExternalFailurePageV1 = connectionPage(completedReadyCheckPage.nodes.map((item) =>
+  item.name === 'check-ready-external-1' ? Object.freeze({ ...item, conclusion: 'FAILURE' }) : item))
+const mergeOperatorExternalPendingPageV1 = connectionPage(completedReadyCheckPage.nodes.map((item) =>
+  item.name === 'check-ready-external-1' ? Object.freeze({ ...item, status: 'IN_PROGRESS', conclusion: null }) : item))
+const mergeOperatorExternalMissingPageV1 = connectionPage(completedReadyCheckPage.nodes.filter((item) =>
+  ['protected_transition_admission_v1', 'protected_transition_repair_executor_v1', 'protected_transition_role_dispatch_consumer_v1', 'protected_transition_post_repair_review_v1', 'protected_transition_merge_operator_v1'].includes(item.name)))
+const mergeOperatorExternalStopsV1 = await Promise.all([
+  mergeOperatorExternalFailurePageV1,
+  mergeOperatorExternalPendingPageV1,
+  mergeOperatorExternalMissingPageV1,
+].map((checkPage) => executeMergeOperatorFixtureV1({ checkPage })))
+const mergeOperatorThreadStopV1 = await executeMergeOperatorFixtureV1({
+  threadPages: [connectionPage([{ id: 'merge-operator-blocker', isResolved: false, isOutdated: false }])],
+})
+const mergeOperatorFinalHeadDriftV1 = await executeMergeOperatorFixtureV1({
+  headAtPullRead: Object.freeze(Object.fromEntries(Array.from({ length: 12 }, (_, index) => [
+    index + 1,
+    index + 1 === 3 ? HEAD : OTHER_HEAD,
+  ]))),
+})
+
+check(
+  mergeOperatorSuccessV1.result.next_action === 'MERGE_PR' && mergeOperatorSuccessV1.result.merge_method === 'merge' &&
+    mergeOperatorSuccessV1.result.exact_head === OTHER_HEAD && mergeOperatorSuccessV1.result.mutation_count === 0,
+  'MORR-01 a valid admitted Merge Decision produces one normal exact-SHA Merge plan',
+)
+check(
+  !mergeOperatorSource.includes('executeRoleTransitionOrchestratorV1'),
+  'MORR-02 Merge Operator does not replay the prior-stage Role Transition Orchestrator',
+)
+check(
+  !mergeOperatorSource.includes("action: 'created'") && !mergeOperatorSource.includes('issue_comment'),
+  'MORR-03 Merge Operator constructs no synthetic issue_comment event',
+)
+check(
+  mergeOperatorSuccessV1.metrics.originReads === 0 && mergeOperatorSuccessV1.metrics.jobReads === 0 &&
+    mergeOperatorDispatchV1.admission_run_id === READY_RUN_ID,
+  'MORR-04 producer admission_run_id remains source identity and is not reinterpreted as operator run identity',
+)
+check(
+  [mergeOperatorMissingDecisionV1, mergeOperatorDuplicateDecisionV1, mergeOperatorMalformedDecisionV1, mergeOperatorDirectDriftV1]
+    .every(({ result }) => result.next_action === 'STOP' && result.mutation_count === 0),
+  'MORR-05 missing duplicate malformed or direct-refetch-drifted Merge Decision fails closed',
+)
+check(
+  mergeOperatorSupersededReviewV1.result.next_action === 'STOP' && mergeOperatorSupersededReviewV1.result.reason === 'merge_decision_cardinality_invalid',
+  'MORR-06 current Review supersession invalidates the historical Merge Decision',
+)
+check(
+  [mergeOperatorTaskDriftV1, mergeOperatorPrDriftV1, mergeOperatorTaskStateDriftV1, mergeOperatorScopeDriftV1, mergeOperatorHeadDriftV1, mergeOperatorBaseDriftV1]
+    .every(({ result }) => result.next_action === 'STOP'),
+  'MORR-07 Task PR HEAD base Task-state or scope drift fails closed',
+)
+check(
+  [mergeOperatorDraftV1, mergeOperatorClosedV1, mergeOperatorUnmergeableV1].every(({ result }) => result.next_action === 'STOP'),
+  'MORR-08 Draft closed or unmergeable PR cannot produce a Merge plan',
+)
+check(
+  mergeOperatorAlreadyMergedV1.result.reason === 'already_merged' && mergeOperatorAlreadyMergedV1.result.next_action === 'NONE' &&
+    mergeOperatorAlreadyMergedV1.result.mutation_count === 0,
+  'MORR-09 already-merged behavior remains a completed no-op',
+)
+check(
+  mergeOperatorExternalStopsV1.every(({ result }) => result.next_action === 'STOP') &&
+    mergeOperatorExternalStopsV1.map(({ result }) => result.reason).join('\n') === ['checks_not_successful', 'checks_not_terminal', 'checks_missing'].join('\n'),
+  'MORR-10 failed pending or missing genuine external checks fail closed',
+)
+check(
+  mergeOperatorThreadStopV1.result.next_action === 'STOP' && mergeOperatorThreadStopV1.result.reason === 'blocking_review_threads_present',
+  'MORR-11 an active non-outdated thread prevents a Merge plan',
+)
+check(
+  mergeOperatorFinalHeadDriftV1.result.next_action === 'STOP' && mergeOperatorFinalHeadDriftV1.result.mutation_count === 0,
+  'MORR-12 post-preflight final drift produces no Merge plan',
+)
+check(
+  mergeOperatorSuccessV1.metrics.patchCalls === 0 && !Object.hasOwn(mergeOperatorSuccessV1.result, 'role_dispatch') &&
+    Object.keys(mergeOperatorSuccessV1.result).sort().join('\n') === ['allowed', 'automation_status', 'exact_head', 'exit_code', 'merge_method', 'mutation_count', 'next_action', 'pr_number', 'reason', 'repository', 'state', 'task_issue_number'].sort().join('\n'),
+  'MORR-13 success is one zero-mutation SHA-bound MERGE_PR plan and runner performs no protected action',
+)
+
 check(
   successorMergeAllowedRoute.result.next_action === 'MERGE_OPERATOR' &&
     successorMergeAllowedRoute.result.terminal_result === 'MERGE_ALLOWED' &&
@@ -5785,8 +5960,9 @@ check(
     workflow.on.workflow_dispatch.inputs.repository === undefined &&
     workflowSource.includes('PTA_INPUT_MERGE_DECISION_COMMENT_ID') &&
     Object.keys(workflow.jobs).length === 5 &&
-    mergeOperatorSource.includes('fetchRoleCommentRecordV1') &&
-    mergeOperatorSource.includes('executeRoleTransitionOrchestratorV1') &&
+    mergeOperatorSource.includes('verifyRoleDispatchSourceV1') &&
+    mergeOperatorSource.includes('acquireMergeOperatorMechanicalSnapshotV1') &&
+    !mergeOperatorSource.includes('executeRoleTransitionOrchestratorV1') &&
     mergeOperatorSource.includes('acquireMergeGatePullV1'),
   'MDSR-18 ingress performs zero publication Ready or Merge mutation and preserves repository ownership job topology and final Merge guards',
 )
@@ -11679,5 +11855,5 @@ check(
   'SRP-10 bounded continuation adds no transition, polling, workflow dispatch, or credential dependency',
 )
 
-if (assertions !== 1158) throw new Error(`expected exactly 1158 assertions, observed ${assertions}`)
+if (assertions !== 1171) throw new Error(`expected exactly 1171 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
