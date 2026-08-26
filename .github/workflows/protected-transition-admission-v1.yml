@@ -146,30 +146,14 @@ jobs:
               --exact-head "$PTA_INPUT_EXACT_HEAD" \
               "${resume_args[@]}" | tee "$result_file"
           fi
+          projection_file="$(mktemp)"
+          node scripts/run-protected-transition-admission-v1.mjs \
+            --admission-result-projection-file "$result_file" > "$projection_file"
           node -e '
             const fs = require("node:fs");
-            const result = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-            const output = process.env.GITHUB_OUTPUT;
-            fs.appendFileSync(output, `repair_next_action=${result.next_action ?? "NONE"}\n`);
-            fs.appendFileSync(output, `next_action=${result.next_action ?? "NONE"}\n`);
-            fs.appendFileSync(output, `terminal_result=${result.terminal_result ?? "NONE"}\n`);
-            fs.appendFileSync(output, `source_comment_id=${result.source_comment_id ?? ""}\n`);
-            if (result.next_action === "MERGE_OPERATOR" && result.authority_kind === "MINIMAL_GOVERNANCE_V1") {
-              const exactKeys = ["allowed", "authority_comment_id", "authority_kind", "authorized_paths", "automation_status", "current_head", "exact_head", "expected_base", "exit_code", "merge_method", "mutation_count", "next_action", "operation_count", "pr_number", "protected_operation_count", "reason", "repository", "sealed_snapshot_b64", "snapshot_sha256", "state", "task_issue_number", "terminal_result", "transition"];
-              if (Object.keys(result).sort().join("\n") !== exactKeys.sort().join("\n") || result.terminal_result !== "MINIMAL_GOVERNANCE_V1" || result.exact_head !== result.current_head || result.merge_method !== "merge" || result.operation_count !== 1) throw new Error("minimal_governance_projection_invalid");
-              fs.appendFileSync(output, `authority_kind=MINIMAL_GOVERNANCE_V1\n`);
-              fs.appendFileSync(output, `role_exact_head=${result.exact_head}\n`);
-              fs.appendFileSync(output, `minimal_merge_plan_b64=${Buffer.from(JSON.stringify(result)).toString("base64")}\n`);
-            } else if (["IMPLEMENTER", "PRODUCT_OWNER_IMPLEMENTATION_LEAD", "INDEPENDENT_IMPLEMENTATION_REVIEWER", "INTEGRATED_LEAD_READY_REVIEW", "BOOTSTRAP_PUBLICATION_OPERATOR", "MERGE_OPERATOR"].includes(result.next_action)) {
-              if (!result.role_dispatch || result.role_dispatch.next_action !== result.next_action || result.role_dispatch.exact_head !== result.current_head) throw new Error("role_dispatch_projection_invalid");
-              fs.appendFileSync(output, `role_exact_head=${result.role_dispatch.exact_head}\n`);
-              fs.appendFileSync(output, `role_dispatch_b64=${Buffer.from(JSON.stringify(result.role_dispatch)).toString("base64")}\n`);
-            }
-            if (result.next_action === "REPAIR_EXECUTOR") {
-              fs.appendFileSync(output, `repair_exact_head=${result.repair_dispatch.exact_head}\n`);
-              fs.appendFileSync(output, `repair_dispatch_b64=${Buffer.from(JSON.stringify(result.repair_dispatch)).toString("base64")}\n`);
-            }
-          ' "$result_file"
+            const projection = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            for (const line of projection.output_lines) fs.appendFileSync(process.env.GITHUB_OUTPUT, `${line}\n`);
+          ' "$projection_file"
 
       - name: Run isolated non-authoritative GADP live shadow
         if: always()
