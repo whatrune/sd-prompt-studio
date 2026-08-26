@@ -6576,6 +6576,120 @@ export const projectAdmissionWorkflowResultV1 = ({ result }) => {
   return Object.freeze({ output_lines: Object.freeze(outputLines) })
 }
 
+export const projectMinimalGovernanceWorkflowMergePlanV1 = ({
+  terminalResult,
+  authorityKind,
+  encodedPlan,
+  repository,
+  expectedHead,
+}) => {
+  if (
+    terminalResult !== MINIMAL_GOVERNANCE_AUTHORITY_KIND_V1 ||
+    authorityKind !== MINIMAL_GOVERNANCE_AUTHORITY_KIND_V1 ||
+    typeof encodedPlan !== 'string' || encodedPlan.trim().length === 0
+  ) throw new Error('minimal_governance_plan_missing')
+  let plan
+  try {
+    const normalizedEncodedPlan = encodedPlan.replace(/\s/g, '')
+    if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(normalizedEncodedPlan)) {
+      throw new Error('minimal_governance_plan_invalid')
+    }
+    plan = JSON.parse(Buffer.from(normalizedEncodedPlan, 'base64').toString('utf8'))
+  } catch {
+    throw new Error('minimal_governance_plan_invalid')
+  }
+  if (!exactObjectKeysV1(plan, MINIMAL_GOVERNANCE_PLAN_KEYS_V1)) {
+    throw new Error('minimal_governance_plan_fields_invalid')
+  }
+  if (
+    plan.transition !== MINIMAL_GOVERNANCE_RECORD_TYPE_V1 ||
+    plan.authority_kind !== MINIMAL_GOVERNANCE_AUTHORITY_KIND_V1 ||
+    plan.terminal_result !== MINIMAL_GOVERNANCE_AUTHORITY_KIND_V1 ||
+    plan.next_action !== 'MERGE_OPERATOR' || plan.automation_status !== 'OPERATION_READY' ||
+    plan.state !== 'READY' || plan.reason !== 'minimal_governance_satisfied' ||
+    plan.allowed !== false || plan.exit_code !== 0 || plan.merge_method !== 'merge' ||
+    plan.operation_count !== 1 || plan.mutation_count !== 0 || plan.protected_operation_count !== 0 ||
+    plan.repository !== repository || !positiveInteger(plan.task_issue_number) ||
+    !positiveInteger(plan.pr_number) || !positiveInteger(plan.authority_comment_id) ||
+    plan.exact_head !== expectedHead || plan.current_head !== plan.exact_head ||
+    !FULL_HEAD.test(plan.expected_base ?? '') || !/^[0-9a-f]{64}$/.test(plan.snapshot_sha256 ?? '')
+  ) throw new Error('minimal_governance_plan_invalid')
+  let snapshotBytes
+  try {
+    const normalizedSnapshot = String(plan.sealed_snapshot_b64 ?? '').replace(/\s/g, '')
+    if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(normalizedSnapshot)) {
+      throw new Error('minimal_governance_snapshot_seal_invalid')
+    }
+    snapshotBytes = Buffer.from(normalizedSnapshot, 'base64')
+  } catch {
+    throw new Error('minimal_governance_snapshot_seal_invalid')
+  }
+  if (createHash('sha256').update(snapshotBytes).digest('hex') !== plan.snapshot_sha256) {
+    throw new Error('minimal_governance_snapshot_seal_invalid')
+  }
+  let snapshot
+  try {
+    snapshot = JSON.parse(snapshotBytes.toString('utf8'))
+  } catch {
+    throw new Error('minimal_governance_snapshot_binding_invalid')
+  }
+  if (
+    !exactObjectKeysV1(snapshot, MINIMAL_GOVERNANCE_SNAPSHOT_KEYS_V1) ||
+    snapshot.record_type !== 'minimal_governance_pre_operation_snapshot_v1' ||
+    snapshot.authority_kind !== MINIMAL_GOVERNANCE_AUTHORITY_KIND_V1 ||
+    snapshot.repository !== plan.repository || snapshot.task_issue_number !== plan.task_issue_number ||
+    snapshot.pr_number !== plan.pr_number || snapshot.exact_head !== plan.exact_head ||
+    snapshot.expected_base !== plan.expected_base || snapshot.authority_comment_id !== plan.authority_comment_id ||
+    snapshot.active_thread_count !== 0 || snapshot.pull?.state !== 'open' || snapshot.pull?.draft !== false ||
+    snapshot.pull?.merged !== false || snapshot.pull?.head !== plan.exact_head ||
+    !FULL_HEAD.test(snapshot.pull?.base ?? '') || snapshot.pull?.mergeable !== true
+  ) throw new Error('minimal_governance_snapshot_binding_invalid')
+  if (
+    !exactObjectKeysV1(snapshot.source_counts, [
+      'authority_refetch', 'pull', 'task', 'main', 'comment_history', 'review_refetch', 'scope', 'job_manifest',
+      'checks', 'threads',
+    ]) || Object.values(snapshot.source_counts).some((value) => value !== 1)
+  ) throw new Error('minimal_governance_snapshot_source_count_invalid')
+  const externalChecks = snapshot.external_checks === null || snapshot.external_checks === undefined
+    ? []
+    : Array.isArray(snapshot.external_checks) ? snapshot.external_checks : [snapshot.external_checks]
+  if (
+    !/^[0-9a-f]{64}$/.test(snapshot.authority_body_sha256 ?? '') ||
+    !/^[0-9a-f]{64}$/.test(snapshot.review_body_sha256 ?? '') ||
+    !/^[0-9a-f]{64}$/.test(snapshot.comment_history_fingerprint_sha256 ?? '') ||
+    !positiveInteger(snapshot.review_comment_id) ||
+    snapshot.authority_actor?.login !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.login ||
+    snapshot.authority_actor?.id !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.id ||
+    snapshot.authority_actor?.type !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.type ||
+    externalChecks.length === 0 || externalChecks.some((check) =>
+      (check?.type === 'CheckRun' && (check.status !== 'COMPLETED' || check.conclusion !== 'SUCCESS')) ||
+      (check?.type === 'StatusContext' && check.state !== 'SUCCESS') ||
+      !['CheckRun', 'StatusContext'].includes(check?.type)) ||
+    snapshot.task?.number !== plan.task_issue_number || snapshot.task?.state !== 'open' ||
+    snapshot.task?.is_pull_request !== false ||
+    snapshot.task?.creator?.login !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.login ||
+    snapshot.task?.creator?.id !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.id ||
+    snapshot.task?.creator?.type !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.type ||
+    snapshot.task_state?.task_issue_number !== plan.task_issue_number ||
+    snapshot.task_state?.pr_number !== plan.pr_number || snapshot.task_state?.observed_head !== plan.exact_head ||
+    snapshot.task_state?.reviewed_head !== plan.exact_head || snapshot.task_state?.review_status !== 'APPROVE' ||
+    snapshot.task_state?.review_blocker_count !== 0 || snapshot.job_manifest?.repository !== plan.repository ||
+    !WORKFLOW_RUN_ID.test(String(snapshot.job_manifest?.run_id ?? '')) ||
+    !positiveInteger(Number(snapshot.job_manifest?.run_attempt)) || snapshot.job_manifest?.host_sha !== plan.expected_base
+  ) throw new Error('minimal_governance_snapshot_evidence_invalid')
+  const planPaths = plan.authorized_paths === null || plan.authorized_paths === undefined
+    ? []
+    : Array.isArray(plan.authorized_paths) ? plan.authorized_paths : [plan.authorized_paths]
+  const snapshotPaths = snapshot.authorized_paths === null || snapshot.authorized_paths === undefined
+    ? []
+    : Array.isArray(snapshot.authorized_paths) ? snapshot.authorized_paths : [snapshot.authorized_paths]
+  if (
+    planPaths.length === 0 ||
+    [...planPaths].sort().join('\n') !== [...snapshotPaths].sort().join('\n')
+  ) throw new Error('minimal_governance_scope_binding_invalid')
+  return Object.freeze({ operation: 'MERGE_PR', pr_number: plan.pr_number, exact_head: plan.exact_head })
+}
+
 export const projectRoleDispatchWorkflowResultV1 = ({ plan, expectedHead }) => {
   if (plan?.exact_head !== expectedHead) throw new Error('role_dispatch_not_ready')
   if (plan?.next_action === 'CONVERGED_NOOP') {
@@ -9904,6 +10018,19 @@ const parseInvocation = (argv, environment) => {
     return Object.freeze({ mode: 'admission_result_projection', resultFile: argv[1] })
   }
   if (
+    argv.length === 4 && argv[0] === '--minimal-governance-plan-projection-file' &&
+    typeof argv[1] === 'string' && argv[1].length > 0 && argv[2] === '--expected-head' &&
+    typeof argv[3] === 'string' && argv[3].length > 0
+  ) {
+    return Object.freeze({
+      mode: 'minimal_governance_plan_projection', encodedPlanFile: argv[1],
+      terminalResult: environment.MERGE_TERMINAL_RESULT ?? '',
+      authorityKind: environment.MERGE_AUTHORITY_KIND ?? '',
+      repository: environment.GITHUB_REPOSITORY ?? '',
+      expectedHead: argv[3],
+    })
+  }
+  if (
     argv.length === 8 && argv[0] === '--role-output-result-projection-file' &&
     typeof argv[1] === 'string' && argv[1].length > 0 && argv[2] === '--role-dispatch-file' &&
     typeof argv[3] === 'string' && argv[3].length > 0 && argv[4] === '--validator-exit-code' &&
@@ -10544,7 +10671,7 @@ const main = async () => {
   let invocation
   try {
     invocation = parseInvocation(process.argv.slice(2), process.env)
-    const host = ['admission_result_projection', 'role_dispatch_result_projection', 'role_output_result_projection', 'merge_operator_result_projection'].includes(invocation.mode)
+    const host = ['admission_result_projection', 'minimal_governance_plan_projection', 'role_dispatch_result_projection', 'role_output_result_projection', 'merge_operator_result_projection'].includes(invocation.mode)
       ? null
       : productionHost(process.env)
     const executeProduction = async (executionHost = host) => invocation.mode === 'review_event'
@@ -10584,6 +10711,14 @@ const main = async () => {
               })
             : invocation.mode === 'admission_result_projection'
               ? projectAdmissionWorkflowResultV1({ result: readJsonFileV1(invocation.resultFile) })
+            : invocation.mode === 'minimal_governance_plan_projection'
+              ? projectMinimalGovernanceWorkflowMergePlanV1({
+                  terminalResult: invocation.terminalResult,
+                  authorityKind: invocation.authorityKind,
+                  encodedPlan: readFileSync(invocation.encodedPlanFile, 'utf8'),
+                  repository: invocation.repository,
+                  expectedHead: invocation.expectedHead,
+                })
             : invocation.mode === 'role_dispatch_result_projection'
               ? projectRoleDispatchWorkflowResultV1({
                   plan: readJsonFileV1(invocation.planFile),
