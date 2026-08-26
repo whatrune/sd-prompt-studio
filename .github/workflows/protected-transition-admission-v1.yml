@@ -10,6 +10,7 @@ name: Protected Transition Admission V1
         options:
           - terminal_review_admission
           - merge_decision_admission
+          - ready_transition_required_resume
       task_issue_number:
         description: Current implementation Task Issue number
         required: true
@@ -21,6 +22,14 @@ name: Protected Transition Admission V1
       exact_head:
         description: Full current pull request HEAD SHA
         required: true
+        type: string
+      review_decision_comment_id:
+        description: Current canonical Review Decision comment ID for bounded Ready resume
+        required: false
+        type: string
+      publication_handoff_comment_id:
+        description: Current canonical Publication Handoff comment ID for bounded Ready resume
+        required: false
         type: string
   issue_comment:
     types:
@@ -101,6 +110,8 @@ jobs:
           PTA_INPUT_TASK_ISSUE_NUMBER: ${{ inputs.task_issue_number }}
           PTA_INPUT_PR_NUMBER: ${{ inputs.pr_number }}
           PTA_INPUT_EXACT_HEAD: ${{ inputs.exact_head }}
+          PTA_INPUT_REVIEW_DECISION_COMMENT_ID: ${{ inputs.review_decision_comment_id }}
+          PTA_INPUT_PUBLICATION_HANDOFF_COMMENT_ID: ${{ inputs.publication_handoff_comment_id }}
           GADP_LIVE_SHADOW_DIR: ${{ runner.temp }}/gadp-live-shadow-v1
         run: |
           set -euo pipefail
@@ -112,11 +123,19 @@ jobs:
             node scripts/run-protected-transition-admission-v1.mjs \
               --ready-event-file "$PTA_EVENT_PATH" | tee "$result_file"
           else
+            resume_args=()
+            if [[ -n "$PTA_INPUT_REVIEW_DECISION_COMMENT_ID" || -n "$PTA_INPUT_PUBLICATION_HANDOFF_COMMENT_ID" ]]; then
+              resume_args=(
+                --review-decision-comment-id "$PTA_INPUT_REVIEW_DECISION_COMMENT_ID"
+                --publication-handoff-comment-id "$PTA_INPUT_PUBLICATION_HANDOFF_COMMENT_ID"
+              )
+            fi
             node scripts/run-protected-transition-admission-v1.mjs \
               --transition "$PTA_INPUT_TRANSITION" \
               --task-issue-number "$PTA_INPUT_TASK_ISSUE_NUMBER" \
               --pr-number "$PTA_INPUT_PR_NUMBER" \
-              --exact-head "$PTA_INPUT_EXACT_HEAD" | tee "$result_file"
+              --exact-head "$PTA_INPUT_EXACT_HEAD" \
+              "${resume_args[@]}" | tee "$result_file"
           fi
           node -e '
             const fs = require("node:fs");
