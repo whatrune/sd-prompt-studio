@@ -10156,9 +10156,7 @@ check(
 
 const readyAuthorityDispatchV1 = bootstrapDraftApprovedLifecycle.role_dispatch
 const readyAuthorityBindingV1 = readyAuthorityDispatchV1.source_binding
-const readyAuthorityResultBodyV1 = (decision = 'READY_FOR_REVIEW') => `# Integrated Lead Ready Review
-
-\`\`\`yaml
+const readyAuthorityResultBodyV1 = (decision = 'READY_FOR_REVIEW') => `\`\`\`yaml
 decision: ${decision}
 repository: ${readyAuthorityDispatchV1.repository}
 task_issue: https://github.com/${readyAuthorityDispatchV1.repository}/issues/${readyAuthorityDispatchV1.task_issue_number}
@@ -10176,11 +10174,24 @@ const readyAuthorityStoppedResultV1 = evaluateRoleDispatchOutputV1({
   dispatch: readyAuthorityDispatchV1,
   body: readyAuthorityResultBodyV1('STOP'),
 })
+const readyAuthorityUnfencedResultV1 = evaluateRoleDispatchOutputV1({
+  dispatch: readyAuthorityDispatchV1,
+  body: readyAuthorityResultBodyV1().match(/```yaml\n([\s\S]*?)\n```/)[1],
+})
+const readyAuthorityProseResultV1 = evaluateRoleDispatchOutputV1({
+  dispatch: readyAuthorityDispatchV1,
+  body: 'READY_FOR_REVIEW',
+})
 check(
   readyAuthorityOwnerResultV1.next_action === 'PUBLISH_READY_AUTHORITY' &&
   readyAuthorityStoppedResultV1.next_action === 'NONE' && readyAuthorityStoppedResultV1.mutation_count === 0 &&
   Object.keys(readyAuthorityOwnerResultV1.integrated_lead_result).length === 8,
   'RAB-01 exact Integrated Lead result selects canonical authority publication while STOP remains terminal before publication',
+)
+check(
+  readyAuthorityUnfencedResultV1.next_action === 'STOP' && readyAuthorityUnfencedResultV1.mutation_count === 0 &&
+  readyAuthorityProseResultV1.next_action === 'STOP' && readyAuthorityProseResultV1.mutation_count === 0,
+  'RAB-01a prose-only and unfenced Integrated Lead output remain rejected',
 )
 
 const READY_AUTHORITY_COMMENT_ID = BOOTSTRAP_APPROVED_REVIEW_ID + 100
@@ -10314,6 +10325,25 @@ const readyAuthorityHostV1 = ({
     }),
   })
 }
+
+const readyPromptFixtureV1 = readyAuthorityHostV1()
+const readyPromptPlanV1 = await executeRoleDispatchConsumerV1({
+  dispatch: readyAuthorityDispatchV1,
+  host: readyPromptFixtureV1.host,
+})
+const readyPromptContractV1 = readyAuthorityResultBodyV1()
+const readyPromptContractFieldsV1 = parseYaml(readyPromptContractV1.match(/```yaml\n([\s\S]*?)\n```/)[1])
+check(
+  readyPromptPlanV1.next_action === 'EXECUTE_ROLE' && readyPromptPlanV1.read_only === true &&
+  readyPromptPlanV1.prompt.includes('Return exactly one fenced YAML block and no prose outside it.') &&
+  readyPromptPlanV1.prompt.includes(readyPromptContractV1) &&
+  (readyPromptPlanV1.prompt.match(/```yaml/g) ?? []).length === 1 &&
+  (readyPromptPlanV1.prompt.match(/```/g) ?? []).length === 2 &&
+  Object.keys(readyPromptContractFieldsV1).length === 8 &&
+  readyPromptContractFieldsV1.task_issue === `https://github.com/${REPOSITORY}/issues/${PRE_PR_TASK}` &&
+  readyPromptContractFieldsV1.pull_request === `https://github.com/${REPOSITORY}/pull/${BOOTSTRAP_PUBLICATION_PR}`,
+  'RAB-02a Integrated Lead prompt supplies the exact fenced eight-field parser contract with full Task and PR URLs',
+)
 
 const readyAdmissionFixtureV1 = readyAuthorityHostV1()
 const admittedReadyActionV1 = await admitReadyTransitionAuthorityV1({
@@ -10555,5 +10585,5 @@ check(
   'RIP-09 only a non-progress terminal body reaches each existing parser and its naturally owned canonical publication path',
 )
 
-if (assertions !== 1097) throw new Error(`expected exactly 1097 assertions, observed ${assertions}`)
+if (assertions !== 1099) throw new Error(`expected exactly 1099 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
