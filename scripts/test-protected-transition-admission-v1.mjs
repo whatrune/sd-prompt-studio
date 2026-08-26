@@ -389,10 +389,13 @@ check(duplicateJsonError?.message === 'json_duplicate_key', 'duplicate JSON keys
 
 const workflowPath = path.join(repositoryRoot, '.github/workflows/protected-transition-admission-v1.yml')
 const runnerPath = path.join(repositoryRoot, 'scripts/run-protected-transition-admission-v1.mjs')
+const mergeOperatorPreflightPath = path.join(repositoryRoot, 'scripts/protected-transition-merge-operator-preflight-v1.mjs')
 const bootstrapOperatorPath = path.join(repositoryRoot, 'scripts/run-bootstrap-publication-operator-v1.mjs')
 const corePath = path.join(repositoryRoot, 'src/continuous-orchestration/protected-transition-admission-v1.ts')
 const workflowSource = readFileSync(workflowPath, 'utf8')
 const runnerSource = readFileSync(runnerPath, 'utf8')
+const mergeOperatorPreflightSource = readFileSync(mergeOperatorPreflightPath, 'utf8')
+const testSource = readFileSync(fileURLToPath(import.meta.url), 'utf8')
 const bootstrapOperatorSource = readFileSync(bootstrapOperatorPath, 'utf8')
 const baselineBootstrapOperatorSource = execFileSync('git', ['show', 'HEAD:scripts/run-bootstrap-publication-operator-v1.mjs'], {
   cwd: repositoryRoot,
@@ -5688,9 +5691,7 @@ const mergeSuccessorSource = runnerSource.slice(mergeSuccessorSourceStart, merge
 const canonicalMergeOwnerSourceStart = runnerSource.indexOf('export const executeCanonicalMergeDecisionContinuationV1')
 const canonicalMergeOwnerSourceEnd = runnerSource.indexOf('\nexport const executeRoleTransitionOrchestratorV1', canonicalMergeOwnerSourceStart)
 const canonicalMergeOwnerSource = runnerSource.slice(canonicalMergeOwnerSourceStart, canonicalMergeOwnerSourceEnd)
-const mergeOperatorSourceStart = runnerSource.indexOf('export const executeMergeOperatorV1')
-const mergeOperatorSourceEnd = runnerSource.indexOf('\nexport const evaluateRoleTransitionOrchestratorV1', mergeOperatorSourceStart)
-const mergeOperatorSource = runnerSource.slice(mergeOperatorSourceStart, mergeOperatorSourceEnd)
+const mergeOperatorSource = mergeOperatorPreflightSource
 
 const mergeOperatorDispatchV1 = successorMergeAllowedRoute.result.role_dispatch
 const executeMergeOperatorFixtureV1 = async ({
@@ -5960,6 +5961,12 @@ check(
     workflow.on.workflow_dispatch.inputs.repository === undefined &&
     workflowSource.includes('PTA_INPUT_MERGE_DECISION_COMMENT_ID') &&
     Object.keys(workflow.jobs).length === 5 &&
+    runnerSource.includes("import { createMergeOperatorPreflightOwnerV1 } from './protected-transition-merge-operator-preflight-v1.mjs'") &&
+    runnerSource.includes('export const executeMergeOperatorV1 = async (input) => createMergeOperatorPreflightOwnerV1({') &&
+    (runnerSource.match(/--merge-operator-file/g) ?? []).length === 1 &&
+    !mergeOperatorPreflightSource.includes('--merge-operator-file') &&
+    !/^import .*run-protected-transition-admission-v1/m.test(mergeOperatorPreflightSource) &&
+    !/^import .*protected-transition-merge-operator-preflight-v1/m.test(testSource) &&
     mergeOperatorSource.includes('verifyRoleDispatchSourceV1') &&
     mergeOperatorSource.includes('acquireMergeOperatorMechanicalSnapshotV1') &&
     !mergeOperatorSource.includes('executeRoleTransitionOrchestratorV1') &&
