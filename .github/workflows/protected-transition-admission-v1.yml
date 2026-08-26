@@ -751,7 +751,47 @@ jobs:
               ($operatorExit -eq 0 -and ($operator.state -cne 'COMPLETED' -or $operator.next_action -cne 'NONE' -or $operator.mutation_count -ne 1)) -or
               ($operatorExit -ne 0 -and $operator.next_action -cne 'STOP')
             ) { throw 'ready_transition_operator_invalid' }
-            exit $operatorExit
+            if ($operatorExit -ne 0) { exit $operatorExit }
+
+            $postReadyPath = Join-Path $env:RUNNER_TEMP 'post-ready-continuation.json'
+            node $env:PTA_ROLE_HOST_RUNNER --post-ready-result-file $operatorPath --role-dispatch-file $dispatchPath 1> $postReadyPath
+            if ($LASTEXITCODE -ne 0) { throw 'post_ready_continuation_failed' }
+            $postReady = Get-Content -LiteralPath $postReadyPath -Raw -Encoding utf8 | ConvertFrom-Json
+            $postReadyDispatch = $postReady.role_dispatch
+            if (
+              $postReady.next_action -cne 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' -or
+              $postReady.mutation_count -ne 0 -or $postReady.current_head -cne $dispatch.exact_head -or
+              $null -eq $postReadyDispatch -or $postReadyDispatch.next_action -cne 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' -or
+              $postReadyDispatch.purpose -cne 'MERGE_DECISION' -or $postReadyDispatch.exact_head -cne $dispatch.exact_head
+            ) { throw 'post_ready_dispatch_invalid' }
+
+            $postReadyDispatchPath = Join-Path $env:RUNNER_TEMP 'post-ready-role-dispatch.json'
+            $postReadyPlanPath = Join-Path $env:RUNNER_TEMP 'post-ready-role-plan.json'
+            $postReadyPromptPath = Join-Path $env:RUNNER_TEMP 'post-ready-role-prompt.txt'
+            $postReadyOutputPath = Join-Path $env:RUNNER_TEMP 'post-ready-role-output.jsonl'
+            $postReadyBodyPath = Join-Path $env:RUNNER_TEMP 'post-ready-role-body.md'
+            $postReadyResultPath = Join-Path $env:RUNNER_TEMP 'post-ready-role-result.json'
+            [IO.File]::WriteAllText($postReadyDispatchPath, ($postReadyDispatch | ConvertTo-Json -Depth 12 -Compress), $utf8NoBom)
+            node $env:PTA_ROLE_HOST_RUNNER --role-dispatch-file $postReadyDispatchPath 1> $postReadyPlanPath
+            if ($LASTEXITCODE -ne 0) { throw 'post_ready_role_dispatch_binding_failed' }
+            $postReadyPlan = Get-Content -LiteralPath $postReadyPlanPath -Raw -Encoding utf8 | ConvertFrom-Json
+            if (
+              $postReadyPlan.next_action -cne 'EXECUTE_ROLE' -or $postReadyPlan.exact_head -cne $dispatch.exact_head -or
+              $postReadyPlan.role -cne 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' -or -not $postReadyPlan.read_only
+            ) { throw 'post_ready_role_dispatch_not_ready' }
+            [IO.File]::WriteAllText($postReadyPromptPath, [string]$postReadyPlan.prompt, $utf8NoBom)
+            Invoke-BoundedRoleUntilTerminal -PromptFile $postReadyPromptPath -Sandbox 'read-only' -JsonlFile $postReadyOutputPath -BodyFile $postReadyBodyPath -DispatchFile $postReadyDispatchPath
+            $postReadyValidation = @{
+              DispatchFile = $postReadyDispatchPath
+              BodyFile = $postReadyBodyPath
+              ExpectedAction = 'POST_MERGE_DECISION'
+              ResultFile = $postReadyResultPath
+              JsonlFile = $postReadyOutputPath
+            }
+            $null = Assert-RoleOutput @postReadyValidation
+            Assert-FreshRoleBinding -DispatchFile $postReadyDispatchPath
+            $null = Publish-CanonicalComment -BodyFile $postReadyBodyPath
+            exit 0
           }
 
           if ($expected -ceq 'RUN_PRE_PR_VALIDATION') {

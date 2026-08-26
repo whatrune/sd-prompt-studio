@@ -2127,7 +2127,128 @@ export const executeProgressionControllerV1 = async ({ currentResult, currentCon
   return evaluateProgressionControllerV1(gated, currentContext)
 }
 
-export const executeManualProgressionControllerV1 = async ({ request, host }) => {
+const samePostReadyPathsV1 = (left, right) =>
+  Array.isArray(left) && Array.isArray(right) &&
+  JSON.stringify([...left].sort()) === JSON.stringify([...right].sort())
+
+const validatePostReadyBindingV1 = ({
+  request, task, pull, taskState, scope, requireApproved = true, requireExactScope = true,
+}) => {
+  if (
+    task.repository !== request.repository || task.number !== request.taskIssueNumber || task.state !== 'open' || task.is_pull_request ||
+    pull.number !== request.prNumber || pull.state !== 'open' || pull.draft !== false || pull.merged !== false ||
+    pull.base?.ref !== 'main' || pull.base?.repo?.full_name !== request.repository ||
+    pull.head?.repo?.full_name !== request.repository || pull.head?.sha !== request.exactHead ||
+    taskState.task_issue_number !== request.taskIssueNumber || taskState.pr_number !== request.prNumber ||
+    taskState.observed_head !== request.exactHead || taskState.architecture_status !== 'APPROVED' ||
+    taskState.implementation_authorized !== true ||
+    (requireApproved && (
+      taskState.review_status !== 'APPROVE' || taskState.reviewed_head !== request.exactHead ||
+      taskState.review_blocker_count !== 0
+    )) ||
+    scope.complete !== true || (requireExactScope && !samePostReadyPathsV1(scope.actual_paths, taskState.authorized_paths))
+  ) throw new Error('post_ready_binding_invalid')
+}
+
+export const executePostReadyProgressionOwnerV1 = async ({
+  request, host, runId, requireExactScope = true, prevalidateBinding = true, waitForTerminalChecks = false,
+}) => {
+  try {
+    if (
+      request?.transition !== 'merge_decision_admission' || !REPOSITORY.test(request?.repository ?? '') ||
+      !positiveInteger(request?.taskIssueNumber) || !positiveInteger(request?.prNumber) ||
+      !FULL_HEAD.test(request?.exactHead ?? '') || !WORKFLOW_RUN_ID.test(String(runId ?? ''))
+    ) throw new Error('post_ready_request_invalid')
+
+    if (prevalidateBinding) {
+      const task = await acquireTaskIdentityV1(request, host)
+      const pull = await acquirePull(request, host)
+      const taskState = extractProtectedTransitionTaskStateV1(pull.body)
+      const scope = await acquireChangedPathScopeV1(request, pull, host)
+      validatePostReadyBindingV1({ request, task, pull, taskState, scope, requireApproved: false, requireExactScope })
+    }
+
+    const admitted = await executeProtectedTransitionAdmissionV1({ request, host })
+    const currentResult = Object.freeze({
+      ...admitted,
+      automation_status: 'ADMISSION_EVALUATED',
+      admission_executed: true,
+      next_action: admitted.allowed && admitted.state === 'MERGE_ELIGIBLE' ? 'MERGE_DECISION' : 'STOP',
+    })
+    if (currentResult.next_action === 'MERGE_DECISION' && waitForTerminalChecks) {
+      await waitForReadyTerminalChecksV1(request, host)
+    }
+    const progressed = await executeProgressionControllerV1({
+      currentResult,
+      currentContext: Object.freeze({ request }),
+      host,
+    })
+    if (
+      progressed.state !== 'MERGE_ELIGIBLE' || progressed.allowed !== true ||
+      progressed.reason !== 'merge_gate_satisfied' || progressed.next_action !== 'MERGE_OPERATOR'
+    ) return progressed
+
+    const effective = await acquireEffectiveReviewDecisionV1({ request, host })
+    if (
+      effective.review.decision !== 'APPROVE' || effective.review.reviewed_head !== request.exactHead ||
+      effective.review.blocking_finding_count !== 0 || effective.review.remaining_finding_count !== 0 ||
+      effective.review.unknown_count !== 0
+    ) throw new Error('review_not_approvable')
+    const freshTask = await acquireTaskIdentityV1(request, host)
+    const freshPull = await acquirePull(request, host)
+    const freshState = extractProtectedTransitionTaskStateV1(freshPull.body)
+    const freshScope = await acquireChangedPathScopeV1(request, freshPull, host)
+    validatePostReadyBindingV1({
+      request, task: freshTask, pull: freshPull, taskState: freshState, scope: freshScope, requireExactScope,
+    })
+    const routed = evaluateRoleTransitionOrchestratorV1({
+      terminalResult: 'APPROVE', request, taskState: freshState,
+      paths: freshState.authorized_paths, authorityValid: true, routeResult: progressed,
+    })
+    const roleDispatch = projectRoleDispatchEnvelopeV1({
+      result: routed, repository: request.repository, sourceCommentId: effective.commentId,
+      authorizedPaths: freshState.authorized_paths, taskState: freshState,
+      sourceBinding: Object.freeze({ kind: 'REVIEW', comment_id: effective.commentId, reviewed_head: effective.review.reviewed_head, decision: effective.review.decision }),
+      admissionRunId: runId,
+    })
+    return Object.freeze({
+      ...routed,
+      mutation_count: 0,
+      source_comment_id: effective.commentId,
+      role_dispatch: roleDispatch,
+    })
+  } catch (error) {
+    if (error instanceof ReviewAutomationStop) {
+      return evaluateProgressionControllerV1(stoppedAutomationResult(
+        request,
+        error.state,
+        error.message,
+        error.exitCode,
+        error.currentHead ?? request.exactHead,
+      ))
+    }
+    return evaluateProgressionControllerV1(stoppedAutomationResult(
+      request,
+      'INDETERMINATE',
+      error instanceof Error ? error.message : 'post_ready_progression_failed',
+      1,
+      request?.exactHead,
+    ))
+  }
+}
+
+export const executeManualProgressionControllerV1 = async ({ request, host, runId = null }) => {
+  if (request?.transition === 'merge_decision_admission') {
+    return executePostReadyProgressionOwnerV1({
+      request: Object.freeze({
+        ...request,
+        currentWorkflowRunId: runId,
+        selfCheckContext: READY_ATTACHED_SELF_CHECK_CONTEXT_V1,
+      }),
+      host,
+      runId,
+    })
+  }
   const admitted = await executeProtectedTransitionAdmissionV1({ request, host })
   const currentResult = Object.freeze({
     ...admitted,
@@ -2191,41 +2312,9 @@ export const executeReadyForReviewProgressionV1 = async ({ event, host, runId })
         request.exactHead,
       ))
     }
-    const admitted = await executeProtectedTransitionAdmissionV1({ request, host })
-    const currentResult = Object.freeze({
-      ...admitted,
-      automation_status: 'ADMISSION_EVALUATED',
-      admission_executed: true,
-      next_action: admitted.allowed && admitted.state === 'MERGE_ELIGIBLE' ? 'MERGE_DECISION' : 'STOP',
+    return executePostReadyProgressionOwnerV1({
+      request, host, runId, requireExactScope: false, prevalidateBinding: false, waitForTerminalChecks: true,
     })
-    if (currentResult.next_action === 'MERGE_DECISION') await waitForReadyTerminalChecksV1(request, host)
-    const progressed = await executeProgressionControllerV1({
-      currentResult,
-      currentContext: Object.freeze({ request }),
-      host,
-    })
-    if (
-      progressed.state !== 'MERGE_ELIGIBLE' || progressed.allowed !== true ||
-      progressed.reason !== 'merge_gate_satisfied' || progressed.next_action !== 'MERGE_OPERATOR'
-    ) return progressed
-    const effective = await acquireEffectiveReviewDecisionV1({ request, host })
-    if (
-      effective.review.decision !== 'APPROVE' || effective.review.blocking_finding_count !== 0 ||
-      effective.review.remaining_finding_count !== 0 || effective.review.unknown_count !== 0
-    ) throw new Error('review_not_approvable')
-    const freshPull = await acquirePull(request, host)
-    const freshState = extractProtectedTransitionTaskStateV1(freshPull.body)
-    const routed = evaluateRoleTransitionOrchestratorV1({
-      terminalResult: 'APPROVE', request, taskState: freshState,
-      paths: freshState.authorized_paths, authorityValid: true, routeResult: progressed,
-    })
-    const roleDispatch = projectRoleDispatchEnvelopeV1({
-      result: routed, repository: request.repository, sourceCommentId: effective.commentId,
-      authorizedPaths: freshState.authorized_paths, taskState: freshState,
-      sourceBinding: Object.freeze({ kind: 'REVIEW', comment_id: effective.commentId, reviewed_head: effective.review.reviewed_head, decision: effective.review.decision }),
-      admissionRunId: runId,
-    })
-    return Object.freeze({ ...routed, source_comment_id: effective.commentId, role_dispatch: roleDispatch })
   } catch (error) {
     if (error instanceof ReviewAutomationStop) {
       return evaluateProgressionControllerV1(stoppedAutomationResult(
@@ -6724,6 +6813,83 @@ export const executeReadyTransitionOperatorV1 = async ({ authorityCommentId, dis
   }
 }
 
+const READY_TRANSITION_RESULT_FIELDS_V1 = Object.freeze([
+  'allowed', 'automation_status', 'current_head', 'exit_code', 'mutation_attempted', 'mutation_count',
+  'next_action', 'pr_number', 'ready_action', 'reason', 'repository', 'state', 'task_issue_number', 'transition',
+].sort())
+
+const READY_ACTION_FIELDS_V1 = Object.freeze([
+  'action', 'authority_comment_id', 'authority_url', 'exact_head', 'method',
+  'operation_count', 'pr_number', 'repository', 'task_issue_number',
+].sort())
+
+export const executeSameRunPostReadyContinuationV1 = async ({
+  readyResult, dispatch: inputDispatch, executionIdentity, host,
+}) => {
+  let request = Object.freeze({
+    transition: 'merge_decision_admission',
+    repository: inputDispatch?.repository ?? null,
+    taskIssueNumber: inputDispatch?.task_issue_number ?? null,
+    prNumber: inputDispatch?.pr_number ?? null,
+    exactHead: inputDispatch?.exact_head ?? null,
+  })
+  try {
+    const dispatch = normalizeRoleDispatchConsumerV1(inputDispatch)
+    if (
+      dispatch.next_action !== 'INTEGRATED_LEAD_READY_REVIEW' || dispatch.purpose !== 'INTEGRATED_LEAD_READY_REVIEW' ||
+      dispatch.terminal_result !== 'READY_TRANSITION_REQUIRED' ||
+      !readyResult || typeof readyResult !== 'object' || Array.isArray(readyResult) ||
+      Object.keys(readyResult).sort().join('\n') !== READY_TRANSITION_RESULT_FIELDS_V1.join('\n') ||
+      readyResult.transition !== 'ready_transition' || readyResult.state !== 'COMPLETED' ||
+      readyResult.allowed !== false || readyResult.exit_code !== 0 ||
+      readyResult.reason !== 'ready_transition_completed' || readyResult.automation_status !== 'COMPLETED' ||
+      readyResult.next_action !== 'NONE' || readyResult.mutation_attempted !== true || readyResult.mutation_count !== 1 ||
+      readyResult.repository !== dispatch.repository || readyResult.task_issue_number !== dispatch.task_issue_number ||
+      readyResult.pr_number !== dispatch.pr_number || readyResult.current_head !== dispatch.exact_head ||
+      !readyResult.ready_action || typeof readyResult.ready_action !== 'object' || Array.isArray(readyResult.ready_action) ||
+      Object.keys(readyResult.ready_action).sort().join('\n') !== READY_ACTION_FIELDS_V1.join('\n')
+    ) throw new Error('post_ready_operator_result_invalid')
+    const action = normalizeReadyTransitionActionV1(readyResult.ready_action)
+    if (
+      action.repository !== dispatch.repository || action.task_issue_number !== dispatch.task_issue_number ||
+      action.pr_number !== dispatch.pr_number || action.exact_head !== dispatch.exact_head ||
+      action.action !== 'READY_FOR_REVIEW' || action.method !== 'markPullRequestReadyForReview' || action.operation_count !== 1
+    ) throw new Error('post_ready_action_binding_invalid')
+
+    const origin = await resolveAdmissionRunOriginV1({
+      repository: dispatch.repository,
+      admissionRunId: dispatch.admission_run_id,
+      prNumber: dispatch.pr_number,
+      exactHead: dispatch.exact_head,
+      host,
+      executionIdentity,
+    })
+    request = Object.freeze({
+      transition: 'merge_decision_admission',
+      repository: dispatch.repository,
+      taskIssueNumber: dispatch.task_issue_number,
+      prNumber: dispatch.pr_number,
+      exactHead: dispatch.exact_head,
+      currentWorkflowRunId: dispatch.admission_run_id,
+      selfCheckContext: origin.selfCheckContext,
+      currentWorkflowJobIds: origin.currentWorkflowJobIds,
+    })
+    return executePostReadyProgressionOwnerV1({
+      request,
+      host,
+      runId: dispatch.admission_run_id,
+    })
+  } catch (error) {
+    return evaluateProgressionControllerV1(stoppedAutomationResult(
+      request,
+      'INDETERMINATE',
+      error instanceof Error ? error.message : 'post_ready_continuation_failed',
+      1,
+      request.exactHead,
+    ))
+  }
+}
+
 export const evaluateProductOwnerMergeDecisionV1 = ({ decision, request, taskState, review, admissionRun, admissionOrigin = null, gateResult }) => {
   try {
     const parsedState = parseProtectedTransitionTaskStateV1(taskState)
@@ -9283,6 +9449,12 @@ const parseInvocation = (argv, environment) => {
     })
   }
   if (
+    argv.length === 4 && argv[0] === '--post-ready-result-file' && typeof argv[1] === 'string' && argv[1].length > 0 &&
+    argv[2] === '--role-dispatch-file' && typeof argv[3] === 'string' && argv[3].length > 0
+  ) {
+    return Object.freeze({ mode: 'post_ready', readyResultFile: argv[1], dispatchFile: argv[3] })
+  }
+  if (
     [4, 6, 8].includes(argv.length) && argv[0] === '--role-rebind-file' && typeof argv[1] === 'string' && argv[1].length > 0 &&
     argv[2] === '--operation' && ['canonical_write', 'commit_push', 'publication_handoff'].includes(argv[3])
   ) {
@@ -9882,6 +10054,21 @@ const main = async () => {
                   }),
                   host: executionHost,
                 })
+            : invocation.mode === 'post_ready'
+              ? await executeSameRunPostReadyContinuationV1({
+                  readyResult: readJsonFileV1(invocation.readyResultFile),
+                  dispatch: readJsonFileV1(invocation.dispatchFile),
+                  executionIdentity: Object.freeze({
+                    repository: process.env.GITHUB_REPOSITORY ?? null,
+                    ref: process.env.GITHUB_REF ?? null,
+                    workflowRef: process.env.GITHUB_WORKFLOW_REF ?? null,
+                    workflowSha: process.env.GITHUB_WORKFLOW_SHA ?? null,
+                    runId: process.env.GITHUB_RUN_ID ?? null,
+                    runAttempt: Number(process.env.GITHUB_RUN_ATTEMPT),
+                    jobName: process.env.GITHUB_JOB ?? null,
+                  }),
+                  host: executionHost,
+                })
             : invocation.mode === 'role_rebind'
               ? await executeRoleDispatchRebindV1({
                   dispatch: readJsonFileV1(invocation.dispatchFile),
@@ -9978,7 +10165,11 @@ const main = async () => {
                       hostSha: process.env.GITHUB_WORKFLOW_SHA ?? null,
                       jobName: process.env.GITHUB_JOB ?? null,
                     })
-                  : await executeManualProgressionControllerV1({ request: invocation.request, host: executionHost })
+                : await executeManualProgressionControllerV1({
+                    request: invocation.request,
+                    host: executionHost,
+                    runId: process.env.GITHUB_RUN_ID ?? null,
+                  })
     const artifactDirectory = liveShadowArtifactDirectoryV1(process.env)
     let shadowRequest = null
     if (artifactDirectory !== null) {
