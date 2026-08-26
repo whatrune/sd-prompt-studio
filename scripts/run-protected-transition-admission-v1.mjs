@@ -6536,6 +6536,42 @@ const ADMISSION_WORKFLOW_ROLE_ACTIONS_V1 = Object.freeze(new Set([
   'MERGE_OPERATOR',
 ]))
 
+export const projectWorkflowDispatchEntrypointArgumentsV1 = ({
+  transition,
+  taskIssueNumber,
+  prNumber,
+  exactHead,
+  reviewDecisionCommentId,
+  publicationHandoffCommentId,
+  mergeDecisionCommentId,
+}) => {
+  const values = Object.freeze({
+    transition: String(transition ?? ''),
+    taskIssueNumber: String(taskIssueNumber ?? ''),
+    prNumber: String(prNumber ?? ''),
+    exactHead: String(exactHead ?? ''),
+    reviewDecisionCommentId: String(reviewDecisionCommentId ?? ''),
+    publicationHandoffCommentId: String(publicationHandoffCommentId ?? ''),
+    mergeDecisionCommentId: String(mergeDecisionCommentId ?? ''),
+  })
+  const argv = [
+    '--transition', values.transition,
+    '--task-issue-number', values.taskIssueNumber,
+    '--pr-number', values.prNumber,
+    '--exact-head', values.exactHead,
+  ]
+  if (values.reviewDecisionCommentId.length > 0 || values.publicationHandoffCommentId.length > 0) {
+    argv.push(
+      '--review-decision-comment-id', values.reviewDecisionCommentId,
+      '--publication-handoff-comment-id', values.publicationHandoffCommentId,
+    )
+  }
+  if (values.mergeDecisionCommentId.length > 0) {
+    argv.push('--merge-decision-comment-id', values.mergeDecisionCommentId)
+  }
+  return Object.freeze({ argv: Object.freeze(argv) })
+}
+
 export const projectAdmissionWorkflowResultV1 = ({ result }) => {
   const outputLines = [
     `repair_next_action=${result.next_action ?? 'NONE'}`,
@@ -9984,6 +10020,9 @@ const parseManualCli = (argv, environment) => {
 }
 
 const parseInvocation = (argv, environment) => {
+  if (argv.length === 1 && argv[0] === '--workflow-dispatch-argument-projection') {
+    return Object.freeze({ mode: 'workflow_dispatch_argument_projection' })
+  }
   if (
     argv.length === 6 &&
     argv[0] === '--review-event-file' && typeof argv[1] === 'string' && argv[1].length > 0 &&
@@ -10682,7 +10721,7 @@ const main = async () => {
   let invocation
   try {
     invocation = parseInvocation(process.argv.slice(2), process.env)
-    const host = ['admission_result_projection', 'minimal_governance_plan_projection', 'role_dispatch_result_projection', 'role_output_result_projection', 'merge_operator_result_projection'].includes(invocation.mode)
+    const host = ['workflow_dispatch_argument_projection', 'admission_result_projection', 'minimal_governance_plan_projection', 'role_dispatch_result_projection', 'role_output_result_projection', 'merge_operator_result_projection'].includes(invocation.mode)
       ? null
       : productionHost(process.env)
     const executeProduction = async (executionHost = host) => invocation.mode === 'review_event'
@@ -10720,6 +10759,16 @@ const main = async () => {
                 dispatch: readJsonFileV1(invocation.dispatchFile),
                 host: executionHost,
               })
+            : invocation.mode === 'workflow_dispatch_argument_projection'
+              ? projectWorkflowDispatchEntrypointArgumentsV1({
+                  transition: process.env.PTA_INPUT_TRANSITION,
+                  taskIssueNumber: process.env.PTA_INPUT_TASK_ISSUE_NUMBER,
+                  prNumber: process.env.PTA_INPUT_PR_NUMBER,
+                  exactHead: process.env.PTA_INPUT_EXACT_HEAD,
+                  reviewDecisionCommentId: process.env.PTA_INPUT_REVIEW_DECISION_COMMENT_ID,
+                  publicationHandoffCommentId: process.env.PTA_INPUT_PUBLICATION_HANDOFF_COMMENT_ID,
+                  mergeDecisionCommentId: process.env.PTA_INPUT_MERGE_DECISION_COMMENT_ID,
+                })
             : invocation.mode === 'admission_result_projection'
               ? projectAdmissionWorkflowResultV1({ result: readJsonFileV1(invocation.resultFile) })
             : invocation.mode === 'minimal_governance_plan_projection'

@@ -29,6 +29,7 @@ import {
   executeCanonicalMergeDecisionContinuationV1,
   executeManualProgressionControllerV1,
   executeMergeOperatorV1,
+  projectWorkflowDispatchEntrypointArgumentsV1,
   projectAdmissionWorkflowResultV1,
   projectMinimalGovernanceWorkflowMergePlanV1,
   projectMergeOperatorWorkflowResultV1,
@@ -11188,7 +11189,8 @@ check(
     'terminal_review_admission|merge_decision_admission|ready_transition_required_resume|merge_decision_successor_resume' &&
   workflow.on.workflow_dispatch.inputs.review_decision_comment_id.required === false &&
   workflow.on.workflow_dispatch.inputs.publication_handoff_comment_id.required === false &&
-  workflowSource.includes('"${resume_args[@]}"') &&
+  workflowSource.includes('--workflow-dispatch-argument-projection') &&
+  workflowSource.includes('"${dispatch_args[@]}"') &&
   !workflowSource.includes('repository_dispatch'),
   'BRI-01 workflow exposes only the bounded Ready successor transition and its two optional-at-schema runtime-bound owner IDs',
 )
@@ -12513,8 +12515,8 @@ check(
   admissionEvaluationRun.includes('if [[ "$PTA_EVENT_NAME" == "issue_comment" ]]') &&
     admissionEvaluationRun.includes('--review-event-file "$PTA_EVENT_PATH"') &&
     admissionEvaluationRun.includes('--ready-event-file "$PTA_EVENT_PATH"') &&
-    admissionEvaluationRun.includes('--transition "$PTA_INPUT_TRANSITION"') &&
-    admissionEvaluationRun.includes('"${resume_args[@]}" | tee "$result_file"'),
+    admissionEvaluationRun.includes('--workflow-dispatch-argument-projection') &&
+    admissionEvaluationRun.includes('"${dispatch_args[@]}" | tee "$result_file"'),
   'ADWP-11 issue comment Ready and workflow dispatch invocation normalization remain unchanged',
 )
 check(
@@ -12719,5 +12721,157 @@ check(
   'MGWP-12 workflow topology triggers permissions events and authority ownership remain unchanged',
 )
 
-if (assertions !== 1234) throw new Error(`expected exactly 1234 assertions, observed ${assertions}`)
+const workflowDispatchProjectionBaseV1 = Object.freeze({
+  transition: 'terminal_review_admission',
+  taskIssueNumber: '361',
+  prNumber: '380',
+  exactHead: OTHER_HEAD,
+  reviewDecisionCommentId: '',
+  publicationHandoffCommentId: '',
+  mergeDecisionCommentId: '',
+})
+const workflowDispatchBaseProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1(workflowDispatchProjectionBaseV1)
+const workflowDispatchReadyProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1({
+  ...workflowDispatchProjectionBaseV1,
+  transition: 'ready_transition_required_resume',
+  reviewDecisionCommentId: '5418897037',
+  publicationHandoffCommentId: '5418872343',
+})
+const workflowDispatchPartialReadyProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1({
+  ...workflowDispatchProjectionBaseV1,
+  reviewDecisionCommentId: '5418897037',
+})
+const workflowDispatchMergeProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1({
+  ...workflowDispatchProjectionBaseV1,
+  transition: 'merge_decision_successor_resume',
+  mergeDecisionCommentId: '5423219910',
+})
+const workflowDispatchAllOptionalProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1({
+  ...workflowDispatchProjectionBaseV1,
+  reviewDecisionCommentId: '1',
+  publicationHandoffCommentId: '2',
+  mergeDecisionCommentId: '3',
+})
+const workflowDispatchRawValueV1 = ' value with spaces\n"quotes"\\slash '
+const workflowDispatchRawProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1({
+  transition: workflowDispatchRawValueV1,
+  taskIssueNumber: null,
+  prNumber: 380,
+  exactHead: undefined,
+  reviewDecisionCommentId: ' ',
+  publicationHandoffCommentId: '',
+  mergeDecisionCommentId: '',
+})
+const workflowDispatchProjectionCliV1 = spawnSync(process.execPath, [runnerPath, '--workflow-dispatch-argument-projection'], {
+  cwd: repositoryRoot,
+  encoding: 'utf8',
+  env: {
+    PTA_INPUT_TRANSITION: workflowDispatchProjectionBaseV1.transition,
+    PTA_INPUT_TASK_ISSUE_NUMBER: workflowDispatchProjectionBaseV1.taskIssueNumber,
+    PTA_INPUT_PR_NUMBER: workflowDispatchProjectionBaseV1.prNumber,
+    PTA_INPUT_EXACT_HEAD: workflowDispatchProjectionBaseV1.exactHead,
+    PTA_INPUT_REVIEW_DECISION_COMMENT_ID: workflowDispatchProjectionBaseV1.reviewDecisionCommentId,
+    PTA_INPUT_PUBLICATION_HANDOFF_COMMENT_ID: workflowDispatchProjectionBaseV1.publicationHandoffCommentId,
+    PTA_INPUT_MERGE_DECISION_COMMENT_ID: workflowDispatchProjectionBaseV1.mergeDecisionCommentId,
+  },
+})
+const workflowDispatchProjectorSourceV1 = runnerSource.slice(
+  runnerSource.indexOf('export const projectWorkflowDispatchEntrypointArgumentsV1'),
+  runnerSource.indexOf('\nexport const projectAdmissionWorkflowResultV1'),
+)
+const workflowDispatchBranchV1 = admissionEvaluationRun
+const workflowDispatchNulBytesV1 = Buffer.from(`${workflowDispatchReadyProjectionV1.argv.join('\0')}\0`, 'utf8')
+const workflowDispatchNulRoundTripV1 = workflowDispatchNulBytesV1.toString('utf8').split('\0').slice(0, -1)
+
+check(
+  workflowDispatchBaseProjectionV1.argv.join('\n') === [
+    '--transition', 'terminal_review_admission',
+    '--task-issue-number', '361',
+    '--pr-number', '380',
+    '--exact-head', OTHER_HEAD,
+  ].join('\n'),
+  'WDAP-01 base workflow_dispatch arguments preserve exact bytes order and optional omission',
+)
+check(
+  workflowDispatchReadyProjectionV1.argv.join('\n') === [
+    '--transition', 'ready_transition_required_resume',
+    '--task-issue-number', '361',
+    '--pr-number', '380',
+    '--exact-head', OTHER_HEAD,
+    '--review-decision-comment-id', '5418897037',
+    '--publication-handoff-comment-id', '5418872343',
+  ].join('\n'),
+  'WDAP-02 Ready resume preserves exact paired owner-ID argument order',
+)
+check(
+  workflowDispatchPartialReadyProjectionV1.argv.slice(-4).join('\n') === [
+    '--review-decision-comment-id', '5418897037', '--publication-handoff-comment-id', '',
+  ].join('\n'),
+  'WDAP-03 either non-empty Ready owner ID still projects both arguments including the empty peer',
+)
+check(
+  workflowDispatchMergeProjectionV1.argv.slice(-2).join('\n') === '--merge-decision-comment-id\n5423219910' &&
+    workflowDispatchMergeProjectionV1.argv.length === 10,
+  'WDAP-04 Merge successor preserves the exact single optional argument suffix',
+)
+check(
+  workflowDispatchAllOptionalProjectionV1.argv.slice(-6).join('\n') === [
+    '--review-decision-comment-id', '1', '--publication-handoff-comment-id', '2',
+    '--merge-decision-comment-id', '3',
+  ].join('\n'),
+  'WDAP-05 simultaneous optional values preserve prior projection and fixed order for downstream rejection',
+)
+check(
+  workflowDispatchRawProjectionV1.argv[1] === workflowDispatchRawValueV1 &&
+    workflowDispatchRawProjectionV1.argv[3] === '' && workflowDispatchRawProjectionV1.argv[5] === '380' &&
+    workflowDispatchRawProjectionV1.argv[7] === '' && workflowDispatchRawProjectionV1.argv.at(-1) === '',
+  'WDAP-06 raw whitespace quotes backslashes defaults and string conversion remain untrimmed',
+)
+check(
+  workflowDispatchProjectionCliV1.status === 0 && workflowDispatchProjectionCliV1.stderr === '' &&
+    JSON.stringify(JSON.parse(workflowDispatchProjectionCliV1.stdout)) === JSON.stringify(workflowDispatchBaseProjectionV1) &&
+    runnerSource.includes("invocation.mode === 'workflow_dispatch_argument_projection'") &&
+    !workflowDispatchProjectorSourceV1.includes('process.env'),
+  'WDAP-07 private CLI composes the same pure projector without host credentials',
+)
+check(
+  JSON.stringify(workflowDispatchNulRoundTripV1) === JSON.stringify(workflowDispatchReadyProjectionV1.argv) &&
+    workflowDispatchBranchV1.includes('projection.argv.join("\\0")') &&
+    workflowDispatchBranchV1.includes("mapfile -d '' -t dispatch_args"),
+  'WDAP-08 NUL transport preserves every projected argument byte and order',
+)
+check(
+  workflowDispatchBranchV1.includes('--workflow-dispatch-argument-projection') &&
+    workflowDispatchBranchV1.includes('"${dispatch_args[@]}" | tee "$result_file"') &&
+    !workflowDispatchBranchV1.includes('resume_args=') &&
+    !workflowDispatchBranchV1.includes('--review-decision-comment-id "$PTA_INPUT') &&
+    !workflowDispatchBranchV1.includes('--merge-decision-comment-id "$PTA_INPUT'),
+  'WDAP-09 selected workflow branch is transport-only with no direct optional-argument semantics',
+)
+check(
+  admissionEvaluationRun.indexOf('if [[ "$PTA_EVENT_NAME" == "issue_comment" ]]') <
+    admissionEvaluationRun.indexOf('elif [[ "$PTA_EVENT_NAME" == "pull_request" ]]') &&
+    admissionEvaluationRun.includes('--review-event-file "$PTA_EVENT_PATH"') &&
+    admissionEvaluationRun.includes('--ready-event-file "$PTA_EVENT_PATH"') &&
+    runnerSource.includes('const parseManualCli = (argv, environment) =>') &&
+    runnerSource.includes("throw new Error('cli_arguments_invalid')"),
+  'WDAP-10 event routing ownership and runner semantic validation remain unchanged',
+)
+check(
+  !workflowDispatchProjectorSourceV1.includes('api(') && !workflowDispatchProjectorSourceV1.includes('graphql') &&
+    !workflowDispatchProjectorSourceV1.includes('mutation_count') && !workflowDispatchProjectorSourceV1.includes('Publish-') &&
+    !workflowDispatchProjectorSourceV1.includes('--method PUT'),
+  'WDAP-11 pure argument projector performs no acquisition validation publication or mutation',
+)
+check(
+  Object.keys(workflow.jobs).length === 5 && workflow.on.workflow_dispatch.inputs.transition.options.join('\n') === [
+    'terminal_review_admission', 'merge_decision_admission', 'ready_transition_required_resume',
+    'merge_decision_successor_resume',
+  ].join('\n') && workflow.on.issue_comment.types.join(',') === 'created' &&
+    workflow.on.pull_request.types.join(',') === 'ready_for_review' && workflow.permissions.actions === 'read' &&
+    workflow.permissions['pull-requests'] === 'write' && (workflowSource.match(/--method PUT/g) ?? []).length === 1,
+  'WDAP-12 workflow inputs topology triggers permissions downstream outputs and mutation count remain unchanged',
+)
+
+if (assertions !== 1246) throw new Error(`expected exactly 1246 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
