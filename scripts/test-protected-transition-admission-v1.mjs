@@ -66,6 +66,7 @@ import {
   parseReviewApprovalEventV1,
   projectIndependentReviewerFailureEvidenceV1,
   projectRoleOutputFailureDiagnosticV1,
+  projectRoleOutputWorkflowResultV1,
   projectProtectedTransitionReviewStateV1,
   projectBootstrapPublicationRequestV1,
   projectReadyTransitionAuthorityBodyV1,
@@ -6274,6 +6275,10 @@ const progressRoleSource = progressRoleStart >= 0 && progressRoleEnd > progressR
 const assertRoleOutputStart = roleExecutionRun.indexOf('function Assert-RoleOutput {')
 const assertRoleOutputEnd = roleExecutionRun.indexOf('\n}\n\nfunction Assert-FreshRoleBinding', assertRoleOutputStart)
 const assertRoleOutputSource = assertRoleOutputStart >= 0 && assertRoleOutputEnd > assertRoleOutputStart ? roleExecutionRun.slice(assertRoleOutputStart, assertRoleOutputEnd + 2) : ''
+const roleOutputWorkflowProjectorSource = runnerSource.slice(
+  runnerSource.indexOf('const validatePrePrImplementerFailureDiagnosticV1'),
+  runnerSource.indexOf('\nconst validateRoleDispatchEnvelopeV1'),
+)
 const assertFreshRoleBindingStart = roleExecutionRun.indexOf('function Assert-FreshRoleBinding {')
 const assertFreshRoleBindingEnd = roleExecutionRun.indexOf('\n}\n\nfunction Publish-CanonicalComment', assertFreshRoleBindingStart)
 const assertFreshRoleBindingSource = assertFreshRoleBindingStart >= 0 && assertFreshRoleBindingEnd > assertFreshRoleBindingStart ? roleExecutionRun.slice(assertFreshRoleBindingStart, assertFreshRoleBindingEnd + 2) : ''
@@ -6461,7 +6466,7 @@ const trustedHostCredentialProbe = process.platform === 'win32' ? (() => {
   const dispatchPath = path.join(probeRoot, 'dispatch.json')
   try {
     writeFileSync(path.join(probeRoot, 'codex.cmd'), '@echo off\r\nif defined GH_TOKEN (> "%ROLE_PROVIDER_TOKEN_PROBE%" echo PRESENT) else (> "%ROLE_PROVIDER_TOKEN_PROBE%" echo ABSENT)\r\necho {"type":"item.completed","item":{"type":"agent_message","text":"provider-result"}}\r\nexit /b 0\r\n')
-    writeFileSync(path.join(probeRoot, 'node.cmd'), '@echo off\r\nif not defined GH_TOKEN (>> "%ROLE_HOST_TOKEN_PROBE%" echo MISSING& exit /b 51)\r\n>> "%ROLE_HOST_TOKEN_PROBE%" echo %GH_TOKEN%\r\necho %* | %SystemRoot%\\System32\\findstr.exe /C:"--role-rebind-file" >nul\r\nif not errorlevel 1 (echo {"next_action":"PROTECTED_OPERATION_READY","mutation_count":0}& exit /b 0)\r\necho {"next_action":"POST_MERGE_DECISION","mutation_count":0}\r\nexit /b 0\r\n')
+    writeFileSync(path.join(probeRoot, 'node.cmd'), '@echo off\r\necho %* | %SystemRoot%\\System32\\findstr.exe /C:"--role-output-result-projection-file" >nul\r\nif not errorlevel 1 (echo {"accepted":true}& exit /b 0)\r\nif not defined GH_TOKEN (>> "%ROLE_HOST_TOKEN_PROBE%" echo MISSING& exit /b 51)\r\n>> "%ROLE_HOST_TOKEN_PROBE%" echo %GH_TOKEN%\r\necho %* | %SystemRoot%\\System32\\findstr.exe /C:"--role-rebind-file" >nul\r\nif not errorlevel 1 (echo {"next_action":"PROTECTED_OPERATION_READY","mutation_count":0}& exit /b 0)\r\necho {"next_action":"POST_MERGE_DECISION","mutation_count":0}\r\nexit /b 0\r\n')
     writeFileSync(promptPath, 'bounded prompt', 'utf8')
     writeFileSync(dispatchPath, '{}', 'utf8')
     const script = `
@@ -9876,7 +9881,7 @@ const lifecycleStructuralMatrix = [
 for (const [index, evidence] of lifecycleStructuralMatrix.entries()) check(evidence, `LOV1 production boundary ${index + 1}`)
 
 const workflowBoundaryMatrix = [
-  roleBindRun.includes('operation=$($projection.operation)') && roleExecutionStep?.if === "contains(fromJSON('[\"EXECUTE_ROLE\",\"EXECUTE_BOOTSTRAP_PUBLICATION\"]'), steps.role_dispatch_plan.outputs.operation)" && roleExecutionStep?.env?.GH_TOKEN === '${{ github.token }}' && roleExecutionStep?.env?.ROLE_OPERATION === '${{ steps.role_dispatch_plan.outputs.operation }}' && mergeDecisionOutput.next_action === 'POST_MERGE_DECISION' && !Object.hasOwn(mergeDecisionOutput, 'bounded_metadata') && roleOutputFailureDiagnosticKeys.length === 9 && roleOutputFailureDiagnosticKeys.join('\n') === expectedRoleOutputFailureDiagnosticKeys.join('\n') && roleExecutionRun.indexOf('$publicationComment = Publish-CanonicalComment -BodyFile $publicationPath') < roleExecutionRun.indexOf('--review-event-file $publishedEventPath') && roleExecutionRun.indexOf('--review-event-file $publishedEventPath') < roleExecutionRun.indexOf("-ExpectedAction 'POST_REVIEW'") && assertRoleOutputSource.includes('--role-jsonl-file $JsonlFile') && (roleExecutionRun.match(/Assert-RoleOutput[^\n]+-JsonlFile \$/g) ?? []).length === 2 && assertRoleOutputSource.includes('$failure.bounded_metadata') && expectedRoleOutputFailureDiagnosticKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("$dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && assertRoleOutputSource.includes('$failure.failure_evidence') && reviewerEvidenceHeaderKeys.every((name) => assertRoleOutputSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && assertRoleOutputSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && assertRoleOutputSource.includes('$header.selected_body_utf8_byte_count -gt 262144') && assertRoleOutputSource.includes('$header.body_chunk_count -gt 64') && assertRoleOutputSource.includes('$bytes.Length -ne 4096') && assertRoleOutputSource.includes('[Convert]::FromBase64String($chunk.body_base64)') && assertRoleOutputSource.includes('$sha256.ComputeHash($capturedBytes)') && assertRoleOutputSource.includes("$header.body_capture_status -ceq 'BOUND_EXCEEDED'") && assertRoleOutputSource.includes('$chunks.Count -ne 0') && assertRoleOutputSource.includes('-gt 9007199254740991') && assertRoleOutputSource.includes('-isnot [System.Array]') && assertRoleOutputSource.includes('$diagnosticLines = @()') && assertRoleOutputSource.includes('foreach ($diagnosticLine in $diagnosticLines)') && assertRoleOutputSource.split('[Console]::Error.WriteLine($diagnosticLine)').length === 2 && assertRoleOutputSource.includes("throw 'role_output_validation_failed'") && !assertRoleOutputSource.includes('Start-Sleep') && !assertRoleOutputSource.includes('retry') && !Object.hasOwn(workflow.concurrency, 'queue') && workflow.concurrency['cancel-in-progress'] === false && roleExecutionRun.includes("if ($expected -in @('POST_REVIEW', 'POST_MERGE_DECISION'))") && !roleExecutionRun.includes('Complete-ReviewerClosure'),
+  roleBindRun.includes('operation=$($projection.operation)') && roleExecutionStep?.if === "contains(fromJSON('[\"EXECUTE_ROLE\",\"EXECUTE_BOOTSTRAP_PUBLICATION\"]'), steps.role_dispatch_plan.outputs.operation)" && roleExecutionStep?.env?.GH_TOKEN === '${{ github.token }}' && roleExecutionStep?.env?.ROLE_OPERATION === '${{ steps.role_dispatch_plan.outputs.operation }}' && mergeDecisionOutput.next_action === 'POST_MERGE_DECISION' && !Object.hasOwn(mergeDecisionOutput, 'bounded_metadata') && roleOutputFailureDiagnosticKeys.length === 9 && roleOutputFailureDiagnosticKeys.join('\n') === expectedRoleOutputFailureDiagnosticKeys.join('\n') && roleExecutionRun.indexOf('$publicationComment = Publish-CanonicalComment -BodyFile $publicationPath') < roleExecutionRun.indexOf('--review-event-file $publishedEventPath') && roleExecutionRun.indexOf('--review-event-file $publishedEventPath') < roleExecutionRun.indexOf("-ExpectedAction 'POST_REVIEW'") && assertRoleOutputSource.includes('--role-jsonl-file $JsonlFile') && (roleExecutionRun.match(/Assert-RoleOutput[^\n]+-JsonlFile \$/g) ?? []).length === 2 && assertRoleOutputSource.includes('--role-output-result-projection-file $ResultFile') && expectedRoleOutputFailureDiagnosticKeys.every((name) => roleOutputWorkflowProjectorSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("$projection.diagnostic_kind -ceq 'PRE_PR_IMPLEMENTER'") && assertRoleOutputSource.includes("$projection.diagnostic_kind -ceq 'INDEPENDENT_REVIEWER'") && assertRoleOutputSource.includes("$projection.diagnostic_kind -ceq 'BOUNDED_METADATA'") && assertRoleOutputSource.includes('ConvertTo-Json -Compress -Depth 2') && assertRoleOutputSource.includes('ConvertTo-Json -Compress -Depth 5') && assertRoleOutputSource.includes('ConvertTo-Json -Compress -Depth 3') && assertRoleOutputSource.includes('ConvertTo-Json -Compress -Depth 4') && assertRoleOutputSource.includes('$diagnosticLines = @()') && assertRoleOutputSource.includes('foreach ($diagnosticLine in $diagnosticLines)') && assertRoleOutputSource.split('[Console]::Error.WriteLine($diagnosticLine)').length === 2 && assertRoleOutputSource.includes("throw 'role_output_validation_failed'") && !assertRoleOutputSource.includes('Start-Sleep') && !assertRoleOutputSource.includes('retry') && !Object.hasOwn(workflow.concurrency, 'queue') && workflow.concurrency['cancel-in-progress'] === false && roleExecutionRun.includes("if ($expected -in @('POST_REVIEW', 'POST_MERGE_DECISION'))") && !roleExecutionRun.includes('Complete-ReviewerClosure'),
   boundedRoleSource.startsWith('function Invoke-BoundedRole {') && !boundedRoleSource.includes('$LASTEXITCODE = $null') && boundedRoleSource.indexOf('$priorToken = $env:GH_TOKEN') < boundedRoleSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(boundedRoleSource) && boundedRoleSource.indexOf('codex.cmd exec') < boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') && boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') < boundedRoleSource.indexOf('if ($null -eq $priorToken)') && terminalAgentSelectorSource.includes('$terminalMessage = [string]$event.item.text') && !terminalAgentSelectorSource.includes('$messages +=') && (process.platform !== 'win32' || (roleProviderNativeExitProbe.success === 0 && roleProviderNativeExitProbe.failure === 37 && roleProviderTerminalMessageProbe.multiple === roleImplementationResultBody && roleProviderTerminalMessageProbe.zeroRejected === true && malformedTerminalOutput.next_action === 'STOP' && trustedHostCredentialProbe.providerToken === 'ABSENT' && trustedHostCredentialProbe.restoredToken === 'trusted-host-token' && trustedHostCredentialProbe.validatedAction === 'POST_MERGE_DECISION' && trustedHostCredentialProbe.hostTokens.join('\n') === 'trusted-host-token\ntrusted-host-token')) && roleExecutionRun.indexOf('Invoke-BoundedRoleUntilTerminal -PromptFile $promptPath') < roleExecutionRun.indexOf('$validated = Assert-RoleOutput') && roleExecutionRun.indexOf('$validated = Assert-RoleOutput') < roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') < roleExecutionRun.indexOf('$canonicalComment = Publish-CanonicalComment -BodyFile $bodyPath') && roleExecutionRun.split('Assert-FreshRoleBinding').length >= 8 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'") && roleExecutionRun.includes("throw 'publication_continuation_task_binding_invalid'") && roleExecutionRun.includes("throw 'publication_continuation_route_failed'") && roleExecutionRun.includes("throw 'publication_continuation_binding_invalid'") && roleExecutionRun.includes("throw 'publication_reviewer_dispatch_not_ready'") && roleExecutionRun.indexOf("$reviewPlan = Get-Content -LiteralPath $reviewPlanPath") < roleExecutionRun.indexOf('$reviewTask = gh api') && roleExecutionRun.includes("$reviewTask.number -ne $dispatch.task_issue_number -or $reviewTask.state -cne 'open' -or $null -ne $reviewTask.pull_request") && roleExecutionRun.indexOf("throw 'publication_reviewer_task_binding_invalid'") < roleExecutionRun.indexOf('Invoke-BoundedRoleUntilTerminal -PromptFile $reviewPromptPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath') < roleExecutionRun.indexOf('$publicationTask = gh api') && roleExecutionRun.includes("$publicationTask.number -ne $dispatch.task_issue_number -or $publicationTask.state -cne 'open' -or $null -ne $publicationTask.pull_request") && roleExecutionRun.indexOf('$publicationTask = gh api') < roleExecutionRun.indexOf('$canonicalReviewComment = Publish-CanonicalComment -BodyFile $reviewBodyPath') && !roleExecutionRun.includes('Assert-FreshReviewerSnapshot') && !roleExecutionRun.includes('review_thread_snapshot'),
   postRepairReviewJob.steps.find((step) => step.name === 'Bind post-repair Independent Reviewer')?.run.includes('task_state = $state') && postRepairExecutionStep?.env?.GH_TOKEN === '${{ github.token }}' && postRepairExecutionRun.includes('--role-rebind-file') && !postRepairExecutionRun.includes('--review-publication-rebind-file') && !postRepairExecutionRun.includes('--review-closure-file') && postRepairExecutionRun.includes('if ($nativeExit -ne 0) { throw "post_repair_review_provider_failed_$nativeExit" }') && postRepairExecutionRun.includes("if ($messages.Count -ne 1) { throw 'post_repair_review_result_cardinality_invalid' }") && postRepairProviderThroughRebindSource.indexOf('$priorToken = $env:GH_TOKEN') < postRepairProviderThroughRebindSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(postRepairProviderThroughRebindSource) && postRepairProviderThroughRebindSource.indexOf('codex.cmd exec') < postRepairProviderThroughRebindSource.indexOf('$nativeExit = $LASTEXITCODE') && postRepairProviderThroughRebindSource.indexOf('$nativeExit = $LASTEXITCODE') < postRepairProviderThroughRebindSource.indexOf('if ($null -eq $priorToken)') && postRepairProviderThroughRebindSource.indexOf('if ($null -eq $priorToken)') < postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-output-file') && postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-output-file') < postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-rebind-file') && postRepairExecutionRun.indexOf('if ($nativeExit -ne 0)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairExecutionRun.indexOf('if ($messages.Count -ne 1)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && postRepairEvidenceValidatorSource.includes('$sha256.ComputeHash($capturedBytes)') && !postRepairEvidenceValidatorSource.includes('post_repair') && postRepairExecutionRun.includes("$failureDispatch.next_action -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.indexOf('[Console]::Error.WriteLine($diagnosticLine)') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.includes('$diagnosticLines = @()') && (process.platform !== 'win32' || (postRepairFailureEvidenceProbe.lineCount === reviewerFailureEvidence.chunks.length + 1 && postRepairFailureEvidenceProbe.headerRecordType === 'independent_reviewer_role_output_failure_evidence_v1' && postRepairFailureEvidenceProbe.chunkRecordTypesValid === true && postRepairFailureEvidenceProbe.invalidRejected === true && postRepairTrustedHostCredentialProbe.valid.providerToken === 'ABSENT' && postRepairTrustedHostCredentialProbe.valid.restoredToken === 'trusted-post-repair-host-token' && postRepairTrustedHostCredentialProbe.valid.outcome === 'COMPLETED' && postRepairTrustedHostCredentialProbe.valid.validatedAction === 'POST_REVIEW' && postRepairTrustedHostCredentialProbe.valid.reboundAction === 'PROTECTED_OPERATION_READY' && postRepairTrustedHostCredentialProbe.valid.hostCalls.length === 2 && postRepairTrustedHostCredentialProbe.valid.hostCalls.every((call) => call.startsWith('PRESENT:')) && postRepairTrustedHostCredentialProbe.valid.hostCalls[1].includes('--role-rebind-file') && postRepairTrustedHostCredentialProbe.invalid.providerToken === 'ABSENT' && postRepairTrustedHostCredentialProbe.invalid.restoredToken === 'trusted-post-repair-host-token' && postRepairTrustedHostCredentialProbe.invalid.outcome === 'post_repair_review_result_invalid' && postRepairTrustedHostCredentialProbe.invalid.validatedAction === null && postRepairTrustedHostCredentialProbe.invalid.reboundAction === null && postRepairTrustedHostCredentialProbe.invalid.hostCalls.length === 1 && postRepairTrustedHostCredentialProbe.invalid.hostCalls[0].startsWith('PRESENT:'))),
   runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id') && runnerSource.includes("const ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'") && ['GITHUB_REPOSITORY', 'GITHUB_REF', 'GITHUB_WORKFLOW_REF', 'GITHUB_WORKFLOW_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_JOB'].every((name) => runnerSource.includes(`process.env.${name}`)) && runnerSource.includes('RESOLVE_REVIEW_THREAD_MUTATION') && !runnerSource.includes('executeReviewerPublicationRebindV1') && runnerSource.includes('executeReviewThreadClosureV1') && !runnerSource.includes("mode: 'review_publication_rebind'") && runnerSource.includes("mode: 'review_closure'") && runnerSource.match(/parseIndependentReviewDecisionProjectionV1/g)?.length === 6,
@@ -10242,8 +10247,21 @@ const finalPrePrResultYaml = parseYaml(finalizedPrePrResult.comment_body.match(/
 check(Object.keys(prePrAuthorityYaml).length === 21 && Object.keys(prePrResultYaml).length === 18 && Object.keys(finalPrePrResultYaml).length === 18 && !Object.hasOwn(prePrResultYaml, 'assigned_implementer') && !Object.hasOwn(finalPrePrResultYaml, 'operation_count'), 'PPI-23 authority and Worker/final Result schemas remain exactly 21 and 18 fields')
 const prePrWorkflowBlock = roleExecutionRun.slice(roleExecutionRun.indexOf("if ($expected -ceq 'RUN_PRE_PR_VALIDATION')"), roleExecutionRun.indexOf("if ($expected -in @('POST_REVIEW', 'POST_MERGE_DECISION'))"))
 check(roleExecutionRun.includes("$prePrImplementer = $dispatch.next_action -ceq 'IMPLEMENTER'") && roleExecutionRun.includes('-Workspace $roleWorkspace') && roleExecutionRun.includes("'RUN_PRE_PR_VALIDATION'") && roleExecutionRun.includes("elseif ($dispatch.next_action -ceq 'IMPLEMENTER') { 'VALIDATE_IMPLEMENTATION' }") && roleExecutionRun.includes('features.shell_tool=false') && prePrWorkflowBlock.includes('foreach ($command in $commands)') && prePrWorkflowBlock.includes('Push-Location -LiteralPath $roleWorkspace') && prePrWorkflowBlock.includes('& cmd.exe /d /s /c $command') && prePrWorkflowBlock.includes('--pre-pr-finalize-file $bodyPath') && prePrWorkflowBlock.includes('$null = Publish-CanonicalComment -BodyFile $finalBodyPath') && !prePrWorkflowBlock.includes('command_execution'), 'PPI-24 host validation is exact while post-PR IMPLEMENTER and Worker shell boundaries remain unchanged')
-const prePrRoleOutputFailureWorkflowBlock = assertRoleOutputSource.slice(assertRoleOutputSource.indexOf("$dispatch.next_action -ceq 'IMPLEMENTER'"), assertRoleOutputSource.indexOf("} elseif ($dispatch.next_action -ceq 'INDEPENDENT_IMPLEMENTATION_REVIEWER')"))
-check(prePrRoleOutputFailureWorkflowBlock.includes("$dispatch.source_binding.kind -ceq 'PRE_PR_IMPLEMENTATION_AUTHORITY'") && prePrRoleOutputFailureWorkflowBlock.includes("$actualNames.Count -ne 7") && ['role_output_invalid', 'terminal_result_ambiguous_or_invalid', 'pre_pr_implementation_result_invalid'].every((reason) => prePrRoleOutputFailureWorkflowBlock.includes(`'${reason}'`)) && prePrRoleOutputFailureWorkflowBlock.includes("$failure.state -cne 'INDETERMINATE'") && prePrRoleOutputFailureWorkflowBlock.includes('$failure.allowed -ne $false') && prePrRoleOutputFailureWorkflowBlock.includes('$failure.exit_code -ne 1') && prePrRoleOutputFailureWorkflowBlock.includes("$failure.automation_status -cne 'BLOCKED'") && prePrRoleOutputFailureWorkflowBlock.includes("$failure.next_action -cne 'STOP'") && prePrRoleOutputFailureWorkflowBlock.includes('$failure.mutation_count -ne 0') && assertRoleOutputSource.indexOf('$diagnosticLines = @($failure | ConvertTo-Json') < assertRoleOutputSource.indexOf("throw 'role_output_validation_failed'"), 'PPI-24a host validates and emits only the bounded PRE-PR rejection envelope before terminal failure')
+check(
+  roleOutputWorkflowProjectorSource.includes("dispatch?.source_binding?.kind === 'PRE_PR_IMPLEMENTATION_AUTHORITY'") &&
+    roleOutputWorkflowProjectorSource.includes("diagnosticKind = 'NONE'") &&
+    ['role_output_invalid', 'terminal_result_ambiguous_or_invalid', 'pre_pr_implementation_result_invalid']
+      .every((reason) => roleOutputWorkflowProjectorSource.includes(`'${reason}'`)) &&
+    roleOutputWorkflowProjectorSource.includes("failure.state !== 'INDETERMINATE'") &&
+    roleOutputWorkflowProjectorSource.includes('failure.allowed !== false') &&
+    roleOutputWorkflowProjectorSource.includes('failure.exit_code !== 1') &&
+    roleOutputWorkflowProjectorSource.includes("failure.automation_status !== 'BLOCKED'") &&
+    roleOutputWorkflowProjectorSource.includes("failure.next_action !== 'STOP'") &&
+    roleOutputWorkflowProjectorSource.includes('failure.mutation_count !== 0') &&
+    assertRoleOutputSource.includes("$projection.diagnostic_kind -ceq 'PRE_PR_IMPLEMENTER'") &&
+    assertRoleOutputSource.indexOf('ConvertTo-Json -Compress -Depth 2') < assertRoleOutputSource.lastIndexOf("throw 'role_output_validation_failed'"),
+  'PPI-24a runner validates the bounded PRE-PR rejection envelope before workflow-owned exact serialization and terminal failure',
+)
 check(Object.keys(workflow.jobs).length === 5 && prePrWorkflowBlock.includes('$outside') && prePrWorkflowBlock.includes('Compare-Object $changed $reported') && !prePrWorkflowBlock.includes('Compare-Object $changed $authorized') && !prePrWorkflowBlock.includes('git commit') && !prePrWorkflowBlock.includes('git push') && !prePrWorkflowBlock.includes('pulls') && !prePrWorkflowBlock.includes('bootstrap-publication') && prePrWorkflowBlock.includes('exit 0'), 'PPI-25 host-validated Result subset is terminal with no new job, commit, push, PR, or bootstrap chaining')
 
 const PRE_PR_RESULT_COMMENT_ID = 5391811884
@@ -12082,5 +12100,243 @@ check(
   'SRP-10 bounded continuation adds no transition, polling, workflow dispatch, or credential dependency',
 )
 
-if (assertions !== 1192) throw new Error(`expected exactly 1192 assertions, observed ${assertions}`)
+const roleOutputWorkflowSuccessCasesV1 = [
+  ['RUN_PRE_PR_VALIDATION', 'RUN_PRE_PR_VALIDATION'],
+  ['POST_PRE_PR_PUBLICATION_DECISION', 'POST_PRE_PR_PUBLICATION_DECISION'],
+  ['VALIDATE_IMPLEMENTATION', 'VALIDATE_IMPLEMENTATION'],
+  ['POST_MERGE_DECISION', 'POST_MERGE_DECISION'],
+  ['POST_REVIEW', 'POST_REVIEW'],
+  ['COMMIT_PUSH_PUBLISH', 'COMMIT_PUSH_PUBLISH'],
+  ['PUBLISH_READY_AUTHORITY', 'PUBLISH_READY_AUTHORITY_OR_NONE'],
+  ['NONE', 'PUBLISH_READY_AUTHORITY_OR_NONE'],
+].map(([nextAction, expectedAction]) => projectRoleOutputWorkflowResultV1({
+  dispatch: Object.freeze({ next_action: 'ROLE' }),
+  result: Object.freeze({ next_action: nextAction }),
+  validatorExitCode: 0,
+  expectedAction,
+}))
+const roleOutputWorkflowWrongActionV1 = projectRoleOutputWorkflowResultV1({
+  dispatch: mergeDecisionDispatch,
+  result: mergeDecisionOutput,
+  validatorExitCode: 0,
+  expectedAction: 'POST_REVIEW',
+})
+const integratedLeadWorkflowActionsV1 = ['PUBLISH_READY_AUTHORITY', 'NONE', 'POST_REVIEW'].map((nextAction) =>
+  projectRoleOutputWorkflowResultV1({
+    dispatch: Object.freeze({ next_action: 'INTEGRATED_LEAD_READY_REVIEW' }),
+    result: Object.freeze({ next_action: nextAction }),
+    validatorExitCode: 0,
+    expectedAction: 'PUBLISH_READY_AUTHORITY_OR_NONE',
+  }))
+const prePrImplementerFailureEnvelopeV1 = Object.freeze({
+  state: 'INDETERMINATE',
+  allowed: false,
+  exit_code: 1,
+  reason: 'role_output_invalid',
+  automation_status: 'BLOCKED',
+  next_action: 'STOP',
+  mutation_count: 0,
+})
+const prePrImplementerWorkflowFailureV1 = projectRoleOutputWorkflowResultV1({
+  dispatch: Object.freeze({
+    next_action: 'IMPLEMENTER',
+    source_binding: Object.freeze({ kind: 'PRE_PR_IMPLEMENTATION_AUTHORITY' }),
+  }),
+  result: prePrImplementerFailureEnvelopeV1,
+  validatorExitCode: 1,
+  expectedAction: 'RUN_PRE_PR_VALIDATION',
+})
+const reviewerCapturedWorkflowFailureV1 = projectRoleOutputWorkflowResultV1({
+  dispatch: reviewerDispatch,
+  result: Object.freeze({ failure_evidence: reviewerFailureEvidence }),
+  validatorExitCode: 1,
+  expectedAction: 'POST_REVIEW',
+})
+const reviewerOverflowWorkflowFailureV1 = projectRoleOutputWorkflowResultV1({
+  dispatch: reviewerDispatch,
+  result: Object.freeze({ failure_evidence: reviewerOverflowEvidence }),
+  validatorExitCode: 1,
+  expectedAction: 'POST_REVIEW',
+})
+const malformedReviewerWorkflowResultV1 = structuredClone({ failure_evidence: reviewerFailureEvidence })
+malformedReviewerWorkflowResultV1.failure_evidence.header.selected_body_sha256 = '0'.repeat(64)
+const malformedReviewerWorkflowFailureV1 = projectRoleOutputWorkflowResultV1({
+  dispatch: reviewerDispatch,
+  result: malformedReviewerWorkflowResultV1,
+  validatorExitCode: 1,
+  expectedAction: 'POST_REVIEW',
+})
+const boundedWorkflowFailureV1 = projectRoleOutputWorkflowResultV1({
+  dispatch: mergeDecisionDispatch,
+  result: Object.freeze({ bounded_metadata: roleOutputFailureDiagnostic }),
+  validatorExitCode: 1,
+  expectedAction: 'POST_MERGE_DECISION',
+})
+const malformedBoundedMetadataV1 = structuredClone(roleOutputFailureDiagnostic)
+malformedBoundedMetadataV1.missing_field_names = ['z_field', 'a_field']
+const malformedBoundedWorkflowFailureV1 = projectRoleOutputWorkflowResultV1({
+  dispatch: mergeDecisionDispatch,
+  result: Object.freeze({ bounded_metadata: malformedBoundedMetadataV1 }),
+  validatorExitCode: 1,
+  expectedAction: 'POST_MERGE_DECISION',
+})
+const integratedLeadSuppressedWorkflowFailureV1 = projectRoleOutputWorkflowResultV1({
+  dispatch: Object.freeze({ next_action: 'INTEGRATED_LEAD_READY_REVIEW' }),
+  result: Object.freeze({ bounded_metadata: roleOutputFailureDiagnostic }),
+  validatorExitCode: 1,
+  expectedAction: 'PUBLISH_READY_AUTHORITY_OR_NONE',
+})
+const prePrProductOwnerSuppressedWorkflowFailureV1 = projectRoleOutputWorkflowResultV1({
+  dispatch: Object.freeze({
+    next_action: 'PRODUCT_OWNER_IMPLEMENTATION_LEAD',
+    source_binding: Object.freeze({ kind: 'PRE_PR_IMPLEMENTATION_RESULT' }),
+  }),
+  result: Object.freeze({ bounded_metadata: roleOutputFailureDiagnostic }),
+  validatorExitCode: 1,
+  expectedAction: 'POST_PRE_PR_PUBLICATION_DECISION',
+})
+const roleOutputWorkflowProjectionCliV1 = (() => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'role-output-workflow-projection-'))
+  const dispatchPath = path.join(directory, 'role-dispatch.json')
+  const resultPath = path.join(directory, 'role-result.json')
+  try {
+    writeFileSync(dispatchPath, JSON.stringify(mergeDecisionDispatch), 'utf8')
+    writeFileSync(resultPath, JSON.stringify(mergeDecisionOutput), 'utf8')
+    return spawnSync(process.execPath, [
+      runnerPath,
+      '--role-output-result-projection-file', resultPath,
+      '--role-dispatch-file', dispatchPath,
+      '--validator-exit-code', '0',
+      '--expected-action', 'POST_MERGE_DECISION',
+    ], { cwd: repositoryRoot, encoding: 'utf8', env: {} })
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})()
+const serializeRoleOutputWorkflowDiagnosticV1 = (projection) => {
+  if (process.platform !== 'win32') return null
+  const encoded = Buffer.from(JSON.stringify(projection), 'utf8').toString('base64')
+  const script = `
+$projection = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encoded}')) | ConvertFrom-Json
+$diagnosticLines = @()
+if ($projection.diagnostic_kind -ceq 'PRE_PR_IMPLEMENTER') {
+  $diagnosticLines = @($projection.diagnostic | ConvertTo-Json -Compress -Depth 2)
+} elseif ($projection.diagnostic_kind -ceq 'INDEPENDENT_REVIEWER') {
+  $diagnosticLines = @($projection.diagnostic_header | ConvertTo-Json -Compress -Depth 5)
+  $diagnosticLines += @($projection.diagnostic_chunks | ForEach-Object { $_ | ConvertTo-Json -Compress -Depth 3 })
+} elseif ($projection.diagnostic_kind -ceq 'BOUNDED_METADATA') {
+  $diagnosticLines = @($projection.diagnostic | ConvertTo-Json -Compress -Depth 4)
+}
+[Console]::Out.Write(($diagnosticLines -join "\n"))
+`
+  return execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' })
+}
+const prePrDiagnosticBytesV1 = serializeRoleOutputWorkflowDiagnosticV1(prePrImplementerWorkflowFailureV1)
+const reviewerCapturedDiagnosticBytesV1 = serializeRoleOutputWorkflowDiagnosticV1(reviewerCapturedWorkflowFailureV1)
+const reviewerOverflowDiagnosticBytesV1 = serializeRoleOutputWorkflowDiagnosticV1(reviewerOverflowWorkflowFailureV1)
+const boundedDiagnosticBytesV1 = serializeRoleOutputWorkflowDiagnosticV1(boundedWorkflowFailureV1)
+const expectedReviewerCapturedDiagnosticV1 = [
+  JSON.stringify(reviewerFailureEvidence.header),
+  ...reviewerFailureEvidence.chunks.map((chunk) => JSON.stringify(chunk)),
+].join('\n')
+
+check(
+  roleOutputWorkflowSuccessCasesV1.every((projection) => projection.accepted === true && Object.keys(projection).join('\n') === 'accepted'),
+  'ROWP-01 every existing valid Role result keeps its currently accepted action',
+)
+check(
+  roleOutputWorkflowWrongActionV1.accepted === false && roleOutputWorkflowWrongActionV1.error === 'role_output_operation_invalid' &&
+    roleOutputWorkflowWrongActionV1.diagnostic_kind === 'NONE',
+  'ROWP-02 a successful validator result with the wrong action preserves role_output_operation_invalid',
+)
+check(
+  integratedLeadWorkflowActionsV1[0].accepted === true && integratedLeadWorkflowActionsV1[1].accepted === true &&
+    integratedLeadWorkflowActionsV1[2].accepted === false && integratedLeadWorkflowActionsV1[2].error === 'role_output_operation_invalid',
+  'ROWP-03 Integrated Lead accepts only PUBLISH_READY_AUTHORITY or NONE',
+)
+check(
+  prePrImplementerWorkflowFailureV1.accepted === false && prePrImplementerWorkflowFailureV1.error === 'role_output_validation_failed' &&
+    prePrImplementerWorkflowFailureV1.diagnostic_kind === 'PRE_PR_IMPLEMENTER' &&
+    JSON.stringify(prePrImplementerWorkflowFailureV1.diagnostic) === JSON.stringify(prePrImplementerFailureEnvelopeV1) &&
+    (process.platform !== 'win32' || prePrDiagnosticBytesV1 === JSON.stringify(prePrImplementerFailureEnvelopeV1)),
+  'ROWP-04 pre-PR Implementer rejection preserves the exact one-line seven-field diagnostic',
+)
+check(
+  reviewerCapturedWorkflowFailureV1.diagnostic_kind === 'INDEPENDENT_REVIEWER' &&
+    reviewerCapturedWorkflowFailureV1.diagnostic_header === reviewerFailureEvidence.header &&
+    reviewerCapturedWorkflowFailureV1.diagnostic_chunks === reviewerFailureEvidence.chunks &&
+    (process.platform !== 'win32' || reviewerCapturedDiagnosticBytesV1 === expectedReviewerCapturedDiagnosticV1),
+  'ROWP-05 captured Reviewer evidence preserves exact header then chunk order and bytes',
+)
+check(
+  reviewerOverflowWorkflowFailureV1.diagnostic_kind === 'INDEPENDENT_REVIEWER' &&
+    reviewerOverflowWorkflowFailureV1.diagnostic_chunks.length === 0 &&
+    (process.platform !== 'win32' || reviewerOverflowDiagnosticBytesV1 === JSON.stringify(reviewerOverflowEvidence.header)),
+  'ROWP-06 BOUND_EXCEEDED Reviewer evidence emits the header only with zero chunks',
+)
+check(
+  malformedReviewerWorkflowFailureV1.accepted === false && malformedReviewerWorkflowFailureV1.error === 'role_output_validation_failed' &&
+    malformedReviewerWorkflowFailureV1.diagnostic_kind === 'NONE' && !Object.hasOwn(malformedReviewerWorkflowFailureV1, 'diagnostic_header'),
+  'ROWP-07 malformed Reviewer evidence suppresses diagnostics and remains role_output_validation_failed',
+)
+check(
+  boundedWorkflowFailureV1.diagnostic_kind === 'BOUNDED_METADATA' &&
+    boundedWorkflowFailureV1.diagnostic === roleOutputFailureDiagnostic &&
+    (process.platform !== 'win32' || boundedDiagnosticBytesV1 === JSON.stringify(roleOutputFailureDiagnostic)),
+  'ROWP-08 generic bounded metadata preserves its exact diagnostic bytes',
+)
+check(
+  malformedBoundedWorkflowFailureV1.accepted === false && malformedBoundedWorkflowFailureV1.error === 'role_output_validation_failed' &&
+    malformedBoundedWorkflowFailureV1.diagnostic_kind === 'NONE' && !Object.hasOwn(malformedBoundedWorkflowFailureV1, 'diagnostic'),
+  'ROWP-09 malformed bounded metadata suppresses diagnostics and fails closed',
+)
+check(
+  [integratedLeadSuppressedWorkflowFailureV1, prePrProductOwnerSuppressedWorkflowFailureV1]
+    .every((projection) => projection.accepted === false && projection.error === 'role_output_validation_failed' &&
+      projection.diagnostic_kind === 'NONE' && !Object.hasOwn(projection, 'diagnostic')),
+  'ROWP-10 Integrated Lead and pre-PR Product Owner failures emit no bounded diagnostic',
+)
+check(
+  process.platform !== 'win32' || (
+    progressRoleTransportProbe.two_progress_success.provider_calls === 3 &&
+    progressRoleTransportProbe.two_progress_success.rebind_calls === 2 &&
+    progressRoleTransportProbe.retry_limit.provider_calls === 3 &&
+    progressRoleTransportProbe.retry_limit.reason === 'role_in_progress_retry_limit_reached'
+  ),
+  'ROWP-11 provider invocation IN_PROGRESS maximum and fresh retry rebind remain unchanged',
+)
+check(
+  roleExecutionRun.indexOf('$validated = Assert-RoleOutput') < roleExecutionRun.indexOf('Publish-CanonicalComment -BodyFile', roleExecutionRun.indexOf('$validated = Assert-RoleOutput')) &&
+    roleExecutionRun.indexOf('$validated = Assert-RoleOutput') < roleExecutionRun.indexOf('Publish-ReadyTransitionAuthority', roleExecutionRun.indexOf('$validated = Assert-RoleOutput')) &&
+    !roleOutputWorkflowProjectorSource.includes('Publish-CanonicalComment') &&
+    !roleOutputWorkflowProjectorSource.includes('markPullRequestReadyForReview'),
+  'ROWP-12 no publication or protected mutation occurs before an accepted Role result',
+)
+check(
+  roleOutputWorkflowProjectionCliV1.status === 0 && roleOutputWorkflowProjectionCliV1.stderr === '' &&
+    JSON.stringify(JSON.parse(roleOutputWorkflowProjectionCliV1.stdout)) === JSON.stringify({ accepted: true }) &&
+    runnerSource.includes("invocation.mode === 'role_output_result_projection'") &&
+    !roleOutputWorkflowProjectorSource.includes('process.env'),
+  'ROWP-13 the workflow-private CLI uses the same pure projector without host credentials',
+)
+check(
+  Object.keys(workflow.jobs).length === 5 && workflow.on.issue_comment.types.join(',') === 'created' &&
+    workflow.on.pull_request.types.join(',') === 'ready_for_review' &&
+    workflow.permissions['pull-requests'] === 'write' && workflow.permissions.actions === 'read' &&
+    assertRoleOutputSource.includes('--role-output-result-projection-file $ResultFile') &&
+    !assertRoleOutputSource.includes('Invoke-BoundedRoleUntilTerminal') &&
+    !assertRoleOutputSource.includes('GH_TOKEN') && (workflowSource.match(/--method PUT/g) ?? []).length === 1,
+  'ROWP-14 workflow topology triggers permissions credentials and protected mutations remain unchanged',
+)
+check(
+  process.platform !== 'win32' || [
+    prePrDiagnosticBytesV1 === JSON.stringify(prePrImplementerFailureEnvelopeV1),
+    reviewerCapturedDiagnosticBytesV1 === expectedReviewerCapturedDiagnosticV1,
+    reviewerOverflowDiagnosticBytesV1 === JSON.stringify(reviewerOverflowEvidence.header),
+    boundedDiagnosticBytesV1 === JSON.stringify(roleOutputFailureDiagnostic),
+  ].every(Boolean),
+  'ROWP-15 all current diagnostic fixtures remain byte-for-byte and order compatible',
+)
+
+if (assertions !== 1207) throw new Error(`expected exactly 1207 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

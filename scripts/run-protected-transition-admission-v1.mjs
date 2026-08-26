@@ -5289,6 +5289,214 @@ export const evaluateRoleOutputInvocationV1 = (
   return Object.freeze({ ...result, bounded_metadata: boundedMetadata })
 }
 
+const ROLE_OUTPUT_WORKFLOW_EXPECTED_ACTIONS_V1 = Object.freeze(new Set([
+  'RUN_PRE_PR_VALIDATION',
+  'POST_PRE_PR_PUBLICATION_DECISION',
+  'VALIDATE_IMPLEMENTATION',
+  'POST_MERGE_DECISION',
+  'POST_REVIEW',
+  'PUBLISH_READY_AUTHORITY_OR_NONE',
+  'COMMIT_PUSH_PUBLISH',
+]))
+
+const exactObjectFieldsV1 = (value, fields) => (
+  value !== null && typeof value === 'object' && !Array.isArray(value) &&
+  Object.keys(value).sort().join('\n') === [...fields].sort().join('\n')
+)
+
+const nonnegativeSafeIntegerV1 = (value) => Number.isSafeInteger(value) && value >= 0
+
+const validatePrePrImplementerFailureDiagnosticV1 = (failure) => {
+  const fields = ['allowed', 'automation_status', 'exit_code', 'mutation_count', 'next_action', 'reason', 'state']
+  if (
+    !exactObjectFieldsV1(failure, fields) || failure.state !== 'INDETERMINATE' || failure.allowed !== false ||
+    failure.exit_code !== 1 || ![
+      'role_output_invalid',
+      'terminal_result_ambiguous_or_invalid',
+      'pre_pr_implementation_result_invalid',
+    ].includes(failure.reason) || failure.automation_status !== 'BLOCKED' || failure.next_action !== 'STOP' ||
+    failure.mutation_count !== 0
+  ) throw new Error('pre_pr_implementer_role_output_failure_invalid')
+  return failure
+}
+
+const validateIndependentReviewerFailureDiagnosticV1 = (failure, dispatch) => {
+  const evidence = failure?.failure_evidence
+  const header = evidence?.header
+  const chunks = evidence?.chunks
+  const headerFields = [
+    'binding_mismatch', 'body_capture_status', 'body_chunk_count', 'exact_head', 'field_names',
+    'parsed_field_count', 'parser_failure_reason', 'pr_number', 'record_type', 'run_attempt', 'run_id',
+    'scalar_types', 'selected_body_sha256', 'selected_body_utf8_byte_count', 'source_comment_id',
+    'task_issue_number', 'yaml_block_count',
+  ]
+  if (!exactObjectFieldsV1(evidence, ['chunks', 'header']) || !exactObjectFieldsV1(header, headerFields) || !Array.isArray(chunks)) {
+    throw new Error('independent_reviewer_failure_evidence_shape_invalid')
+  }
+  if (
+    header.record_type !== 'independent_reviewer_role_output_failure_evidence_v1' ||
+    typeof header.run_id !== 'string' || !WORKFLOW_RUN_ID.test(header.run_id) || !positiveInteger(header.run_attempt) ||
+    !positiveInteger(header.task_issue_number) || header.task_issue_number !== dispatch?.task_issue_number ||
+    !positiveInteger(header.pr_number) || header.pr_number !== dispatch?.pr_number ||
+    typeof header.exact_head !== 'string' || header.exact_head !== dispatch?.exact_head ||
+    !positiveInteger(header.source_comment_id) || header.source_comment_id !== dispatch?.source_comment_id ||
+    typeof header.selected_body_sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(header.selected_body_sha256)
+  ) throw new Error('independent_reviewer_failure_evidence_header_invalid')
+
+  for (const name of ['selected_body_utf8_byte_count', 'body_chunk_count', 'yaml_block_count', 'parsed_field_count']) {
+    if (!nonnegativeSafeIntegerV1(header[name])) throw new Error('independent_reviewer_failure_evidence_count_invalid')
+  }
+  if (!Array.isArray(header.field_names) || !Array.isArray(header.scalar_types)) {
+    throw new Error('independent_reviewer_failure_evidence_fields_invalid')
+  }
+  const fieldNames = header.field_names
+  const scalarTypes = header.scalar_types
+  if (
+    fieldNames.length !== header.parsed_field_count || scalarTypes.length !== header.parsed_field_count ||
+    fieldNames.some((name) => typeof name !== 'string' || !/^[a-z][a-z0-9_]*$/.test(name)) ||
+    scalarTypes.some((type) => !['string', 'integer', 'boolean', 'invalid'].includes(type))
+  ) throw new Error('independent_reviewer_failure_evidence_fields_invalid')
+
+  const bindingNames = ['pull_request', 'reviewed_head', 'task_issue']
+  if (
+    !exactObjectFieldsV1(header.binding_mismatch, bindingNames) ||
+    bindingNames.some((name) => !['MATCH', 'MISMATCH', 'UNAVAILABLE'].includes(header.binding_mismatch[name]))
+  ) throw new Error('independent_reviewer_failure_evidence_binding_invalid')
+
+  const allowedReasons = [
+    'review_body_length_invalid', 'review_yaml_block_cardinality_invalid', 'review_yaml_scalar_invalid',
+    'review_scalar_invalid', 'review_record_type_invalid', 'review_authoring_role_invalid',
+    'review_task_issue_invalid', 'review_pull_request_invalid', 'review_reviewed_head_invalid',
+    'review_decision_invalid', 'review_count_type_invalid', 'review_count_value_invalid',
+    'review_status_invalid', 'review_execution_stop_reason_invalid', 'review_pr_binding_mismatch',
+    'review_head_binding_mismatch', 'selected_body_evidence_bound_exceeded', 'role_output_invalid_unclassified',
+  ]
+  if (!allowedReasons.includes(header.parser_failure_reason)) {
+    throw new Error('independent_reviewer_failure_evidence_reason_invalid')
+  }
+
+  if (header.body_capture_status === 'BOUND_EXCEEDED') {
+    if (
+      header.selected_body_utf8_byte_count <= 262144 || header.body_chunk_count !== 0 || chunks.length !== 0 ||
+      header.yaml_block_count !== 0 || header.parsed_field_count !== 0 || fieldNames.length !== 0 || scalarTypes.length !== 0 ||
+      header.parser_failure_reason !== 'selected_body_evidence_bound_exceeded' ||
+      bindingNames.some((name) => header.binding_mismatch[name] !== 'UNAVAILABLE')
+    ) throw new Error('independent_reviewer_failure_evidence_overflow_invalid')
+    return Object.freeze({ header, chunks })
+  }
+
+  if (
+    header.body_capture_status !== 'CAPTURED' || header.selected_body_utf8_byte_count > 262144 ||
+    header.body_chunk_count > 64 || header.body_chunk_count !== chunks.length
+  ) throw new Error('independent_reviewer_failure_evidence_capture_invalid')
+
+  const captured = []
+  for (let index = 0; index < chunks.length; index += 1) {
+    const chunk = chunks[index]
+    if (
+      !exactObjectFieldsV1(chunk, ['body_base64', 'chunk_count', 'chunk_index', 'raw_byte_count', 'record_type']) ||
+      chunk.record_type !== 'independent_reviewer_role_output_failure_body_chunk_v1' ||
+      chunk.chunk_index !== index || chunk.chunk_count !== chunks.length || !positiveInteger(chunk.raw_byte_count) ||
+      chunk.raw_byte_count > 4096 || typeof chunk.body_base64 !== 'string'
+    ) throw new Error('independent_reviewer_failure_evidence_chunk_invalid')
+    const bytes = Buffer.from(chunk.body_base64, 'base64')
+    if (
+      bytes.length !== chunk.raw_byte_count || bytes.toString('base64') !== chunk.body_base64 ||
+      (index < chunks.length - 1 && bytes.length !== 4096)
+    ) throw new Error('independent_reviewer_failure_evidence_chunk_invalid')
+    captured.push(bytes)
+  }
+  const capturedBytes = Buffer.concat(captured)
+  if (
+    capturedBytes.length !== header.selected_body_utf8_byte_count ||
+    createHash('sha256').update(capturedBytes).digest('hex') !== header.selected_body_sha256
+  ) throw new Error('independent_reviewer_failure_evidence_binding_invalid')
+  return Object.freeze({ header, chunks })
+}
+
+const validateBoundedRoleOutputDiagnosticV1 = (failure) => {
+  const detail = failure?.bounded_metadata
+  const fields = [
+    'expected_body_sha256', 'extra_field_names', 'malformed_jsonl_line_count', 'missing_field_names',
+    'non_empty_agent_message_count', 'selected_body_sha256', 'total_jsonl_line_count',
+    'type_mismatch_field_names', 'value_mismatch_field_names',
+  ]
+  if (!exactObjectFieldsV1(detail, fields)) throw new Error('role_output_diagnostic_shape_invalid')
+  for (const name of ['total_jsonl_line_count', 'malformed_jsonl_line_count', 'non_empty_agent_message_count']) {
+    if (!nonnegativeSafeIntegerV1(detail[name])) throw new Error('role_output_diagnostic_count_invalid')
+  }
+  if (
+    detail.malformed_jsonl_line_count > detail.total_jsonl_line_count ||
+    detail.non_empty_agent_message_count > detail.total_jsonl_line_count
+  ) throw new Error('role_output_diagnostic_count_invalid')
+  for (const name of ['selected_body_sha256', 'expected_body_sha256']) {
+    if (typeof detail[name] !== 'string' || !/^[0-9a-f]{64}$/.test(detail[name])) {
+      throw new Error('role_output_diagnostic_digest_invalid')
+    }
+  }
+  for (const name of ['missing_field_names', 'extra_field_names', 'type_mismatch_field_names', 'value_mismatch_field_names']) {
+    const names = detail[name]
+    if (!Array.isArray(names) || names.length > 22 || names.some((value) => typeof value !== 'string' || !/^[a-z][a-z0-9_]*$/.test(value))) {
+      throw new Error('role_output_diagnostic_field_names_invalid')
+    }
+    if (new Set(names).size !== names.length || names.join('\n') !== [...names].sort().join('\n')) {
+      throw new Error('role_output_diagnostic_field_names_invalid')
+    }
+  }
+  return detail
+}
+
+const rejectedRoleOutputWorkflowProjectionV1 = (error, diagnosticKind = 'NONE', diagnostic = null) => Object.freeze({
+  accepted: false,
+  error,
+  diagnostic_kind: diagnosticKind,
+  ...(diagnosticKind === 'INDEPENDENT_REVIEWER'
+    ? { diagnostic_header: diagnostic.header, diagnostic_chunks: diagnostic.chunks }
+    : diagnosticKind === 'NONE' ? {} : { diagnostic }),
+})
+
+export const projectRoleOutputWorkflowResultV1 = ({ dispatch, result, validatorExitCode, expectedAction }) => {
+  if (validatorExitCode === 0) {
+    const actionValid = expectedAction === 'PUBLISH_READY_AUTHORITY_OR_NONE'
+      ? ['PUBLISH_READY_AUTHORITY', 'NONE'].includes(result?.next_action)
+      : result?.next_action === expectedAction
+    return actionValid
+      ? Object.freeze({ accepted: true })
+      : rejectedRoleOutputWorkflowProjectionV1('role_output_operation_invalid')
+  }
+  if (validatorExitCode !== 1) return rejectedRoleOutputWorkflowProjectionV1('role_output_validation_failed')
+
+  try {
+    if (
+      dispatch?.next_action === 'IMPLEMENTER' &&
+      dispatch?.source_binding?.kind === 'PRE_PR_IMPLEMENTATION_AUTHORITY'
+    ) {
+      return rejectedRoleOutputWorkflowProjectionV1(
+        'role_output_validation_failed',
+        'PRE_PR_IMPLEMENTER',
+        validatePrePrImplementerFailureDiagnosticV1(result),
+      )
+    }
+    if (dispatch?.next_action === 'INDEPENDENT_IMPLEMENTATION_REVIEWER') {
+      return rejectedRoleOutputWorkflowProjectionV1(
+        'role_output_validation_failed',
+        'INDEPENDENT_REVIEWER',
+        validateIndependentReviewerFailureDiagnosticV1(result, dispatch),
+      )
+    }
+    if (dispatch?.next_action === 'INTEGRATED_LEAD_READY_REVIEW' || isPrePrRoleDispatchV1(dispatch)) {
+      return rejectedRoleOutputWorkflowProjectionV1('role_output_validation_failed')
+    }
+    return rejectedRoleOutputWorkflowProjectionV1(
+      'role_output_validation_failed',
+      'BOUNDED_METADATA',
+      validateBoundedRoleOutputDiagnosticV1(result),
+    )
+  } catch {
+    return rejectedRoleOutputWorkflowProjectionV1('role_output_validation_failed')
+  }
+}
+
 const validateRoleDispatchEnvelopeV1 = (dispatch) => {
   const prePr = isPrePrRoleDispatchV1(dispatch)
   if (
@@ -9638,6 +9846,21 @@ const parseInvocation = (argv, environment) => {
     return Object.freeze({ mode: 'role_dispatch', dispatchFile: argv[1] })
   }
   if (
+    argv.length === 8 && argv[0] === '--role-output-result-projection-file' &&
+    typeof argv[1] === 'string' && argv[1].length > 0 && argv[2] === '--role-dispatch-file' &&
+    typeof argv[3] === 'string' && argv[3].length > 0 && argv[4] === '--validator-exit-code' &&
+    ['0', '1'].includes(argv[5]) && argv[6] === '--expected-action' &&
+    ROLE_OUTPUT_WORKFLOW_EXPECTED_ACTIONS_V1.has(argv[7])
+  ) {
+    return Object.freeze({
+      mode: 'role_output_result_projection',
+      resultFile: argv[1],
+      dispatchFile: argv[3],
+      validatorExitCode: Number(argv[5]),
+      expectedAction: argv[7],
+    })
+  }
+  if (
     argv.length === 4 && argv[0] === '--role-dispatch-result-projection-file' &&
     typeof argv[1] === 'string' && argv[1].length > 0 && argv[2] === '--expected-head' &&
     FULL_HEAD.test(argv[3] ?? '')
@@ -10263,7 +10486,7 @@ const main = async () => {
   let invocation
   try {
     invocation = parseInvocation(process.argv.slice(2), process.env)
-    const host = ['role_dispatch_result_projection', 'merge_operator_result_projection'].includes(invocation.mode)
+    const host = ['role_dispatch_result_projection', 'role_output_result_projection', 'merge_operator_result_projection'].includes(invocation.mode)
       ? null
       : productionHost(process.env)
     const executeProduction = async (executionHost = host) => invocation.mode === 'review_event'
@@ -10305,6 +10528,13 @@ const main = async () => {
               ? projectRoleDispatchWorkflowResultV1({
                   plan: readJsonFileV1(invocation.planFile),
                   expectedHead: invocation.expectedHead,
+                })
+            : invocation.mode === 'role_output_result_projection'
+              ? projectRoleOutputWorkflowResultV1({
+                  dispatch: readJsonFileV1(invocation.dispatchFile),
+                  result: readJsonFileV1(invocation.resultFile),
+                  validatorExitCode: invocation.validatorExitCode,
+                  expectedAction: invocation.expectedAction,
                 })
             : invocation.mode === 'review_closure'
               ? await executeReviewThreadClosureV1({
