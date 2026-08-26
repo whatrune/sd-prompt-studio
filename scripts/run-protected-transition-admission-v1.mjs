@@ -2433,6 +2433,12 @@ const mergeGateFreshAdmissionStoppedResultV1 = (result) => Object.freeze({
   next_action: 'STOP',
 })
 
+const mergeGateAllowsUnstableV1 = (request) =>
+  request.selfCheckContext === MERGE_DECISION_OWNER_SELF_CHECK_CONTEXT_V1 || (
+    WORKFLOW_RUN_ID.test(request.currentWorkflowRunId ?? '') &&
+    [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, READY_REBIND_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1, MANUAL_DETACHED_ADMISSION_SELF_CHECK_CONTEXT_V1, ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext)
+  )
+
 const classifyMergeGatePullV1 = (request, pull) => {
   if (pull.head.sha !== request.exactHead) {
     return mergeGateStoppedResultV1(request, 'STALE', 'head_changed_during_merge_gate', 2, pull.head.sha)
@@ -2443,9 +2449,7 @@ const classifyMergeGatePullV1 = (request, pull) => {
   if (pull.mergeable === null || pull.mergeable_state === 'unknown') {
     return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'pull_mergeability_indeterminate', 1, pull.head.sha)
   }
-  const selfAwareUnstable = WORKFLOW_RUN_ID.test(request.currentWorkflowRunId ?? '') &&
-    [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, READY_REBIND_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1, MANUAL_DETACHED_ADMISSION_SELF_CHECK_CONTEXT_V1, MERGE_DECISION_OWNER_SELF_CHECK_CONTEXT_V1, ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext) &&
-    pull.mergeable_state === 'unstable'
+  const selfAwareUnstable = mergeGateAllowsUnstableV1(request) && pull.mergeable_state === 'unstable'
   if (!pull.mergeable || (pull.mergeable_state !== 'clean' && !selfAwareUnstable)) {
     return mergeGateStoppedResultV1(request, 'IMPLEMENTATION_BLOCKED', 'pull_not_mergeable', 2, pull.head.sha)
   }
@@ -2536,6 +2540,19 @@ const acquireStrictBoundedRtoJobManifestV1 = async ({
 
 const reduceSelfAwareCurrentChecksV1 = (request, rollup) => {
   const selectedGenerations = selectCurrentCheckGenerationsV1(rollup)
+  if (request.selfCheckContext === MERGE_DECISION_OWNER_SELF_CHECK_CONTEXT_V1) {
+    if (
+      request.currentWorkflowRunId !== undefined && request.currentWorkflowRunId !== null &&
+      !WORKFLOW_RUN_ID.test(request.currentWorkflowRunId)
+    ) throw new Error('ready_event_invalid')
+    return Object.freeze(selectedGenerations.filter((item) => {
+      if (!RTO_SELF_JOB_NAMES_V1.includes(item.name)) return true
+      if (item.type !== 'CheckRun' || parseRepositoryActionsRunIdV1(request, item) === null) {
+        throw new Error('merge_decision_self_check_identity_invalid')
+      }
+      return false
+    }))
+  }
   if (request.currentWorkflowRunId === undefined || request.currentWorkflowRunId === null) return selectedGenerations
 
   const admissionName = 'protected_transition_admission_v1'
@@ -2546,15 +2563,6 @@ const reduceSelfAwareCurrentChecksV1 = (request, rollup) => {
       if (item.type !== 'CheckRun' || item.name !== admissionName) return true
       const internalRunId = parseRepositoryActionsRunIdV1(request, item)
       return internalRunId === null || internalRunId === request.currentWorkflowRunId
-    }))
-  }
-  if (request.selfCheckContext === MERGE_DECISION_OWNER_SELF_CHECK_CONTEXT_V1) {
-    return Object.freeze(selectedGenerations.filter((item) => {
-      if (!RTO_SELF_JOB_NAMES_V1.includes(item.name)) return true
-      if (item.type !== 'CheckRun' || parseRepositoryActionsRunIdV1(request, item) === null) {
-        throw new Error('merge_decision_self_check_identity_invalid')
-      }
-      return false
     }))
   }
   if (request.selfCheckContext === REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1) {
@@ -2706,9 +2714,7 @@ export const evaluateMergeAllowedAutomationV1 = async ({ request, admitted, host
     if (reviewSnapshot.pull.mergeable === 'UNKNOWN' || reviewSnapshot.pull.mergeStateStatus === 'UNKNOWN') {
       return mergeGateStoppedResultV1(request, 'INDETERMINATE', 'pull_mergeability_indeterminate', 1, reviewSnapshot.pull.headRefOid)
     }
-    const selfAwareUnstable = WORKFLOW_RUN_ID.test(request.currentWorkflowRunId ?? '') &&
-      [READY_ATTACHED_SELF_CHECK_CONTEXT_V1, READY_REBIND_SELF_CHECK_CONTEXT_V1, REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1, MANUAL_DETACHED_ADMISSION_SELF_CHECK_CONTEXT_V1, MERGE_DECISION_OWNER_SELF_CHECK_CONTEXT_V1, ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1].includes(request.selfCheckContext) &&
-      reviewSnapshot.pull.mergeStateStatus === 'UNSTABLE'
+    const selfAwareUnstable = mergeGateAllowsUnstableV1(request) && reviewSnapshot.pull.mergeStateStatus === 'UNSTABLE'
     if (reviewSnapshot.pull.mergeable !== 'MERGEABLE' || (reviewSnapshot.pull.mergeStateStatus !== 'CLEAN' && !selfAwareUnstable)) {
       return mergeGateStoppedResultV1(request, 'IMPLEMENTATION_BLOCKED', 'pull_not_mergeable', 2, reviewSnapshot.pull.headRefOid)
     }
@@ -6422,19 +6428,113 @@ export const evaluateRoleDispatchOutputV1 = ({ dispatch, body }) => {
   }
 }
 
+const acquireMergeOperatorMechanicalSnapshotV1 = async ({ request, dispatch, decisionBody, host }) => {
+  const task = await acquireTaskIdentityV1(request, host)
+  const pull = await acquireMergeGatePullV1(request, host)
+  const pullStop = classifyMergeGatePullV1(request, pull)
+  if (pullStop !== null) throw new Error(pullStop.reason)
+  if (
+    task.repository !== request.repository || task.number !== request.taskIssueNumber ||
+    task.state !== 'open' || task.is_pull_request || pull.number !== request.prNumber ||
+    pull.state !== 'open' || pull.draft !== false || pull.merged !== false ||
+    pull.head?.sha !== request.exactHead || pull.head?.repo?.full_name !== request.repository ||
+    pull.base?.ref !== 'main' || pull.base?.repo?.full_name !== request.repository
+  ) throw new Error('merge_operator_pull_binding_changed')
+
+  const taskState = extractProtectedTransitionTaskStateV1(pull.body)
+  const scope = await acquireChangedPathScopeV1(request, pull, host)
+  if (
+    taskState.task_issue_number !== request.taskIssueNumber || taskState.pr_number !== request.prNumber ||
+    taskState.observed_head !== request.exactHead || taskState.architecture_status !== 'APPROVED' ||
+    taskState.implementation_authorized !== true || taskState.review_status !== 'APPROVE' ||
+    taskState.reviewed_head !== request.exactHead || taskState.review_blocker_count !== 0 ||
+    scope.complete !== true || !sameRolePathsV1(scope.actual_paths, taskState.authorized_paths) ||
+    !sameRolePathsV1(scope.actual_paths, dispatch.authorized_paths)
+  ) throw new Error('merge_operator_task_state_binding_changed')
+
+  const owner = await acquireCanonicalProductOwnerMergeDecisionV1({
+    request,
+    commentId: dispatch.source_comment_id,
+    body: decisionBody,
+    host,
+  })
+  const review = owner.effective_review.review
+  if (
+    owner.decision.decision !== 'MERGE_ALLOWED' || owner.decision.prNumber !== request.prNumber ||
+    owner.decision.exactHead !== request.exactHead ||
+    owner.decision.reviewCommentId !== dispatch.source_binding.review_comment_id ||
+    String(owner.decision.admissionRunId) !== String(dispatch.admission_run_id) ||
+    review.decision !== 'APPROVE' || review.reviewed_head !== request.exactHead ||
+    review.blocking_finding_count !== 0 || review.remaining_finding_count !== 0 || review.unknown_count !== 0
+  ) throw new Error('merge_operator_decision_binding_changed')
+
+  const checkSnapshot = await acquireMergeCheckRollupSnapshotV1(request, host, { stopOnPullHeadDrift: true })
+  if (checkSnapshot.headRefOid !== request.exactHead) throw new Error('head_changed_during_merge_gate')
+  const checksStop = mergeGateChecksStopV1(request, checkSnapshot.checks, request.exactHead)
+  if (checksStop !== null) throw new Error(checksStop.reason)
+
+  const threadSnapshot = await acquireMergeReviewThreadsV1(request, host)
+  const mergeStateAllowed = threadSnapshot.pull.mergeStateStatus === 'CLEAN' ||
+    (threadSnapshot.pull.mergeStateStatus === 'UNSTABLE' && mergeGateAllowsUnstableV1(request))
+  if (
+    threadSnapshot.pull.state !== 'OPEN' || threadSnapshot.pull.isDraft ||
+    threadSnapshot.pull.headRefOid !== request.exactHead ||
+    threadSnapshot.pull.mergeable !== 'MERGEABLE' || !mergeStateAllowed
+  ) throw new Error('pull_not_mergeable')
+  if (threadSnapshot.threads.some((thread) => !thread.isResolved && !thread.isOutdated)) {
+    throw new Error('blocking_review_threads_present')
+  }
+
+  return Object.freeze({
+    task_state: taskState,
+    authorized_paths: Object.freeze([...scope.actual_paths]),
+    decision_comment_id: owner.comment_id,
+    review_comment_id: owner.effective_review.commentId,
+    decision_body_sha256: createHash('sha256').update(Buffer.from(owner.body, 'utf8')).digest('hex'),
+    review_body_sha256: owner.review_body_sha256,
+  })
+}
+
+const validateMergeOperatorDispatchEnvelopeV1 = (dispatch) => {
+  dispatch = normalizeRoleDispatchConsumerV1(dispatch)
+  if (
+    dispatch.next_action !== 'MERGE_OPERATOR' || dispatch.purpose !== 'MERGE_OPERATOR' ||
+    dispatch.terminal_result !== 'MERGE_ALLOWED' || !REPOSITORY.test(dispatch.repository ?? '') ||
+    !positiveInteger(dispatch.task_issue_number) || !positiveInteger(dispatch.pr_number) ||
+    !FULL_HEAD.test(dispatch.exact_head ?? '') || !positiveInteger(dispatch.source_comment_id) ||
+    !WORKFLOW_RUN_ID.test(dispatch.admission_run_id ?? '') || dispatch.admission_state !== null ||
+    dispatch.admission_allowed !== null || dispatch.admission_reason !== null ||
+    dispatch.external_check_success_count !== null || dispatch.blocking_thread_count !== null ||
+    !Array.isArray(dispatch.authorized_paths) || dispatch.authorized_paths.length === 0 ||
+    new Set(dispatch.authorized_paths).size !== dispatch.authorized_paths.length ||
+    dispatch.authorized_paths.some((value) => !isNormalizedRepositoryPathV1(value))
+  ) throw new Error('merge_operator_dispatch_invalid')
+  const taskState = parseProtectedTransitionTaskStateV1(dispatch.task_state)
+  const binding = projectRoleSourceBindingV1(dispatch.source_binding, dispatch.source_comment_id)
+  if (
+    binding.kind !== 'MERGE_DECISION' || binding.comment_id !== dispatch.source_comment_id ||
+    !positiveInteger(binding.review_comment_id) || String(binding.admission_run_id) !== dispatch.admission_run_id ||
+    taskState.task_issue_number !== dispatch.task_issue_number || taskState.pr_number !== dispatch.pr_number ||
+    taskState.observed_head !== dispatch.exact_head ||
+    !sameRolePathsV1(taskState.authorized_paths, dispatch.authorized_paths)
+  ) throw new Error('merge_operator_dispatch_invalid')
+  return Object.freeze({ ...dispatch })
+}
+
 export const executeMergeOperatorV1 = async ({ dispatch, host }) => {
   try {
+    dispatch = validateMergeOperatorDispatchEnvelopeV1(dispatch)
     if (
       !dispatch || dispatch.next_action !== 'MERGE_OPERATOR' || dispatch.terminal_result !== 'MERGE_ALLOWED' ||
       !REPOSITORY.test(dispatch.repository ?? '') || !positiveInteger(dispatch.task_issue_number) ||
       !positiveInteger(dispatch.pr_number) || !FULL_HEAD.test(dispatch.exact_head ?? '') ||
       !positiveInteger(dispatch.source_comment_id) || !WORKFLOW_RUN_ID.test(dispatch.admission_run_id ?? '')
     ) throw new Error('merge_operator_dispatch_invalid')
-    validateRoleDispatchEnvelopeV1(dispatch)
-    await verifyRoleDispatchSourceV1(dispatch, host)
+    const decisionRecord = await verifyRoleDispatchSourceV1(dispatch, host)
     const request = Object.freeze({
-      transition: 'role_transition_orchestrator_v1', repository: dispatch.repository,
+      transition: 'merge_decision_admission', repository: dispatch.repository,
       taskIssueNumber: dispatch.task_issue_number, prNumber: dispatch.pr_number, exactHead: dispatch.exact_head,
+      selfCheckContext: MERGE_DECISION_OWNER_SELF_CHECK_CONTEXT_V1,
     })
     const initialPull = await acquireMergeGatePullV1(request, host)
     if (initialPull.head.sha !== request.exactHead) throw new Error('head_binding_stale')
@@ -6442,22 +6542,15 @@ export const executeMergeOperatorV1 = async ({ dispatch, host }) => {
       return Object.freeze({ state: 'COMPLETED', allowed: false, exit_code: 0, reason: 'already_merged', automation_status: 'COMPLETED_NOOP', next_action: 'NONE', mutation_count: 0, current_head: request.exactHead })
     }
     if (initialPull.state !== 'open' || initialPull.draft) throw new Error('pull_not_ready')
-    const comment = await fetchRoleCommentRecordV1(request.repository, request.taskIssueNumber, dispatch.source_comment_id, host)
-    const route = await executeRoleTransitionOrchestratorV1({
-      event: Object.freeze({
-        action: 'created', repository: Object.freeze({ full_name: request.repository }),
-        issue: Object.freeze({ number: request.taskIssueNumber, state: 'open' }),
-        comment: Object.freeze({ id: comment.id, author_association: comment.author_association, body: comment.body }),
-      }),
-      host,
-      runId: dispatch.admission_run_id,
+    const initialSnapshot = await acquireMergeOperatorMechanicalSnapshotV1({
+      request, dispatch, decisionBody: decisionRecord.body, host,
     })
-    if (
-      route.next_action !== 'MERGE_OPERATOR' || route.reason !== 'merge_allowed' ||
-      route.current_head !== request.exactHead || route.source_comment_id !== dispatch.source_comment_id
-    ) throw new Error('merge_operator_rebind_failed')
-    const finalPull = await acquireMergeGatePullV1(request, host)
-    if (finalPull.state !== 'open' || finalPull.draft || finalPull.head.sha !== request.exactHead) throw new Error('merge_operator_rebind_failed')
+    const finalSnapshot = await acquireMergeOperatorMechanicalSnapshotV1({
+      request, dispatch, decisionBody: decisionRecord.body, host,
+    })
+    if (JSON.stringify(finalSnapshot) !== JSON.stringify(initialSnapshot)) {
+      throw new Error('merge_operator_final_drift')
+    }
     return Object.freeze({
       state: 'READY', allowed: false, exit_code: 0, reason: 'merge_operator_bound',
       automation_status: 'OPERATION_READY', next_action: 'MERGE_PR', mutation_count: 0,
