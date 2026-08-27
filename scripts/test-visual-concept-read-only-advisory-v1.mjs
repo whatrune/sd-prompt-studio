@@ -52,12 +52,13 @@ try {
 
   equal(advisory.advisory_status, 'READY', 'valid inspection must produce a ready advisory')
   equal(advisory.rejection_reason, null, 'ready advisory must not carry a rejection reason')
-  deepEqual(advisory.projection_summary, { mapped_count: 5, unmapped_count: 3, rejected_count: 0 }, 'projection summary must remain unchanged')
+  deepEqual(advisory.projection_summary, { mapped_count: 6, unmapped_count: 2, rejected_count: 0 }, 'projection summary must reflect the exact fifth explicit mapping')
   deepEqual(advisory.mapped_concepts.map(concept => [concept.concept_id, concept.concept_status, concept.occurrences.length]), [
     ['body.state.lying', 'provisional', 2],
     ['support.arm.rearward', 'provisional', 1],
     ['body.state.reclined', 'provisional', 1],
     ['configuration.knee.bent', 'provisional', 1],
+    ['body.orientation.face_up', 'provisional', 1],
   ], 'mapped concepts must preserve first occurrence order and exact status')
   deepEqual(advisory.mapped_concepts[0].occurrences, [
     { owner_kind: 'PROMPT_BLOCK', owner_id: 'subject-1', prompt_tag_id: 'pos-lying' },
@@ -66,11 +67,10 @@ try {
   deepEqual(advisory.unmapped_tags, [
     { owner_kind: 'PROMPT_BLOCK', owner_id: 'subject-2', prompt_tag_id: 'custom-advisory-tag', diagnostic_reason: 'non_registry_tag_unmapped' },
     { owner_kind: 'SCENE', owner_id: 'scene', prompt_tag_id: 'bac-forest', diagnostic_reason: 'prompt_tag_unmapped' },
-    { owner_kind: 'SCENE', owner_id: 'scene', prompt_tag_id: 'pos-lying-on-back', diagnostic_reason: 'prompt_tag_unmapped' },
   ], 'unmapped tags must preserve projection order and diagnostics')
   deepEqual(advisory.diagnostic_reasons, [
     { reason: 'non_registry_tag_unmapped', count: 1 },
-    { reason: 'prompt_tag_unmapped', count: 2 },
+    { reason: 'prompt_tag_unmapped', count: 1 },
   ], 'diagnostic counts must preserve first occurrence order and exact-reason aggregation')
   deepEqual(advisory.relations, [], 'different PromptBlock owners must not create cross-owner relations')
   deepEqual(advisory.source_binding, inspection.source_binding, 'advisory must preserve admitted source identity')

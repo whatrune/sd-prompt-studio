@@ -43,10 +43,10 @@ try {
 
   equal(report.projection_status, 'PROJECTED', 'valid production-shaped input must project')
   equal(report.rejection_reason, null, 'successful inspection must have no rejection reason')
-  deepEqual(report.summary, { mapped_count: 4, unmapped_count: 2, rejected_count: 0 }, 'summary counts must reflect ordered projection entries')
-  equal(report.coverage.explicit_binding_count, 4, 'coverage must report all four explicit bindings')
-  equal(report.coverage.mapped_active_prompt_tag_count, 4, 'coverage must use exact active PromptTag identity matches')
-  equal(report.coverage.unmapped_active_prompt_tag_count, registry.length - 4, 'coverage must not infer additional mappings')
+  deepEqual(report.summary, { mapped_count: 5, unmapped_count: 1, rejected_count: 0 }, 'summary counts must reflect ordered projection entries')
+  equal(report.coverage.explicit_binding_count, 5, 'coverage must report all five explicit bindings')
+  equal(report.coverage.mapped_active_prompt_tag_count, 5, 'coverage must use exact active PromptTag identity matches')
+  equal(report.coverage.unmapped_active_prompt_tag_count, registry.length - 5, 'coverage must not infer additional mappings')
   equal(report.source_binding.binding_record_type, 'visual_concept_prompt_tag_bindings_v1', 'source binding must identify the binding dataset')
   equal(report.source_binding.graph_schema_version, '0.2.0', 'source binding must identify the admitted graph schema version')
   equal(report.source_binding.graph_version, '0.2.0', 'source binding must identify the admitted graph version')
@@ -55,10 +55,10 @@ try {
     ['PROMPT_BLOCK', 'subject-1', 'rin-pose-arm-support', 'MAPPED'],
     ['PROMPT_BLOCK', 'subject-1', 'rin-pose-reclining', 'MAPPED'],
     ['PROMPT_BLOCK', 'subject-1', 'v192-bent-knees', 'MAPPED'],
-    ['PROMPT_BLOCK', 'subject-1', 'pos-lying-on-back', 'UNMAPPED'],
+    ['PROMPT_BLOCK', 'subject-1', 'pos-lying-on-back', 'MAPPED'],
     ['SCENE', 'scene', 'bac-forest', 'UNMAPPED'],
   ], 'inspection must preserve projection ownership and input ordering')
-  equal(report.entries[4].diagnostic, 'prompt_tag_unmapped', 'related but unbound tags must remain explicitly unmapped')
+  deepEqual([report.entries[4].concept_id, report.entries[4].concept_status, report.entries[4].diagnostic], ['body.orientation.face_up', 'provisional', null], 'face-up orientation must remain exact in inspection output')
   equal(serializeVisualConceptReadOnlyInspectionReportV1(report), serializeVisualConceptReadOnlyInspectionReportV1(report), 'identical reports must serialize to byte-identical JSON')
 
   const rejectedProjection = createVisualConceptReadOnlyEntryAdapterV1({ bindingContract, graphContract, promptTagRegistry: registry })({ blocks: null, sceneTags: [] })

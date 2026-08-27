@@ -41,15 +41,16 @@ try {
 
   equal(catalog.record_type, 'visual_concept_production_advisory_catalog_v1', 'promoted catalog record type must be exact')
   equal(catalog.version, 1, 'promoted catalog version must be exact')
-  equal(catalog.mappings.length, 4, 'promoter must emit exactly four approved mappings')
+  equal(catalog.mappings.length, 5, 'promoter must emit exactly five approved mappings')
   deepEqual(catalog.mappings.map(mapping => [mapping.prompt_tag_id, mapping.concept_id]), [
     ['pos-lying', 'body.state.lying'],
+    ['pos-lying-on-back', 'body.orientation.face_up'],
     ['rin-pose-arm-support', 'support.arm.rearward'],
     ['rin-pose-reclining', 'body.state.reclined'],
     ['v192-bent-knees', 'configuration.knee.bent'],
   ], 'promoted mapping slice must remain exact and ordered')
   deepEqual(catalog.relations, [], 'production V1 catalog must not promote relations')
-  deepEqual(catalog.coverage, { active_prompt_tag_count: 2522, mapped_active_prompt_tag_count: 4, unmapped_active_prompt_tag_count: 2518 }, 'coverage must bind the exact active registry')
+  deepEqual(catalog.coverage, { active_prompt_tag_count: 2522, mapped_active_prompt_tag_count: 5, unmapped_active_prompt_tag_count: 2517 }, 'coverage must bind the exact active registry')
   equal(serialized, serializeVisualConceptProductionAdvisoryCatalogV1(catalog), 'promoted output must be byte-stable')
   check(isVisualConceptProductionAdvisoryArtifactCurrentV1(`${JSON.stringify(checkedInCatalog, null, 2)}\n`, serialized), 'checked-in artifact must equal fresh promotion bytes')
   check(!isVisualConceptProductionAdvisoryArtifactCurrentV1(`${serialized} `, serialized), 'stale artifact bytes must be rejected')
@@ -59,29 +60,32 @@ try {
   duplicateBinding.bindings.splice(1, 0, clone(duplicateBinding.bindings[0]))
   equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract: duplicateBinding, graphContract, promptTagRegistry: registry })), 'binding_identity_conflict', 'duplicate source binding must fail closed')
   const danglingBinding = clone(bindingContract)
-  danglingBinding.bindings[0].prompt_tag_id = 'pos-missing-production-tag'
+  danglingBinding.bindings[0].prompt_tag_id = 'pos-aaa-missing-production-tag'
   equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract: danglingBinding, graphContract, promptTagRegistry: registry })), 'binding_prompt_tag_missing', 'dangling production tag must fail closed')
   const inadmissibleGraph = clone(graphContract)
   inadmissibleGraph.concepts.find(concept => concept.concept_id === 'body.state.lying').status = 'deprecated'
   equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: inadmissibleGraph, promptTagRegistry: registry })), 'binding_concept_inadmissible', 'inadmissible concept status must fail closed')
 
   const blocks = [
-    { id: 'subject-1', name: 'Subject 1', tags: [selected('pos-lying'), { id: 'custom-tag', label: 'Custom', prompt: 'custom', category: 'pose', weight: 1 }] },
+    { id: 'subject-1', name: 'Subject 1', tags: [selected('pos-lying'), selected('pos-lying-on-back'), { id: 'custom-tag', label: 'Custom', prompt: 'custom', category: 'pose', weight: 1 }] },
     { id: 'subject-2', name: 'Subject 2', tags: [selected('rin-pose-arm-support'), selected('rin-pose-reclining'), selected('v192-bent-knees')] },
   ]
   const sceneTags = [selected('bac-forest')]
   const promptBefore = promptModule.buildPromptWithStrategy(blocks, sceneTags, 'illustrious').prompt
   const advisory = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks, sceneTags })
   equal(advisory.advisory_status, 'READY', 'valid production input must produce a ready advisory')
-  equal(advisory.mapped_count, 4, 'all four selected mapped tags must be reported')
-  equal(advisory.selected_tag_count, 6, 'all selected tags must be counted without mutation')
+  equal(advisory.mapped_count, 5, 'all five selected mapped tags must be reported')
+  equal(advisory.selected_tag_count, 7, 'all selected tags must be counted without mutation')
   equal(advisory.uncovered_selected_tag_count, 2, 'custom and unbound Scene tags must remain uncovered')
   deepEqual(advisory.mapped_entries.map(entry => [entry.owner_kind, entry.owner_id, entry.prompt_tag_id]), [
     ['PROMPT_BLOCK', 'subject-1', 'pos-lying'],
+    ['PROMPT_BLOCK', 'subject-1', 'pos-lying-on-back'],
     ['PROMPT_BLOCK', 'subject-2', 'rin-pose-arm-support'],
     ['PROMPT_BLOCK', 'subject-2', 'rin-pose-reclining'],
     ['PROMPT_BLOCK', 'subject-2', 'v192-bent-knees'],
   ], 'mapped entry ownership and production input order must be preserved')
+  const faceUpEntry = advisory.mapped_entries.find(entry => entry.prompt_tag_id === 'pos-lying-on-back')
+  deepEqual([faceUpEntry?.concept_id, faceUpEntry?.concept_status], ['body.orientation.face_up', 'provisional'], 'lying on back must expose only the exact face-up orientation concept')
   deepEqual(advisory.uncovered_entries.map(entry => [entry.owner_kind, entry.owner_id, entry.prompt_tag_id, entry.prompt_tag_label]), [
     ['PROMPT_BLOCK', 'subject-1', 'custom-tag', 'Custom'],
     ['SCENE', 'scene', 'bac-forest', selected('bac-forest').label],

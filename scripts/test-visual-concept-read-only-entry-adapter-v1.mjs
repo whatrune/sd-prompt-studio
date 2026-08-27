@@ -26,13 +26,16 @@ try {
   const reclining = selected('rin-pose-reclining')
   const bentKnees = selected('v192-bent-knees')
   const lyingOnBack = selected('pos-lying-on-back')
+  const lyingOnStomach = selected('pos-lying-on-stomach')
+  const sidewaysLying = selected('pos-sideways-lying')
+  const lyingOnSide = selected('pos-v5-lying-on-side')
   const forest = selected('bac-forest')
   const deprecated = { id: 'rin-pose-on-back', label: '仰向け', prompt: 'on back', category: 'pose', subcategory: '基本姿勢', weight: 1 }
   const custom = { id: 'custom-library-entry', label: 'Custom', prompt: 'custom library entry', category: 'pose', subcategory: 'カスタム', weight: 1 }
   const input = {
     blocks: [
       { id: 'subject-1', name: 'Subject 1', tags: [lying, armSupport, reclining, bentKnees, lyingOnBack] },
-      { id: 'subject-2', name: 'Subject 2', tags: [custom, deprecated] },
+      { id: 'subject-2', name: 'Subject 2', tags: [lyingOnStomach, sidewaysLying, lyingOnSide, custom, deprecated] },
     ],
     sceneTags: [forest],
   }
@@ -41,6 +44,7 @@ try {
   deepEqual(Object.keys(bindingContract), ['record_type', 'version', 'graph_source', 'graph_schema_source', 'graph_schema_id', 'graph_schema_version', 'graph_version', 'bindings'], 'binding root field order must remain frozen')
   deepEqual(bindingContract.bindings, [
     { prompt_tag_id: 'pos-lying', concept_id: 'body.state.lying' },
+    { prompt_tag_id: 'pos-lying-on-back', concept_id: 'body.orientation.face_up' },
     { prompt_tag_id: 'rin-pose-arm-support', concept_id: 'support.arm.rearward' },
     { prompt_tag_id: 'rin-pose-reclining', concept_id: 'body.state.reclined' },
     { prompt_tag_id: 'v192-bent-knees', concept_id: 'configuration.knee.bent' },
@@ -55,6 +59,9 @@ try {
     ['PROMPT_BLOCK', 'subject-1', 'rin-pose-reclining'],
     ['PROMPT_BLOCK', 'subject-1', 'v192-bent-knees'],
     ['PROMPT_BLOCK', 'subject-1', 'pos-lying-on-back'],
+    ['PROMPT_BLOCK', 'subject-2', 'pos-lying-on-stomach'],
+    ['PROMPT_BLOCK', 'subject-2', 'pos-sideways-lying'],
+    ['PROMPT_BLOCK', 'subject-2', 'pos-v5-lying-on-side'],
     ['PROMPT_BLOCK', 'subject-2', 'custom-library-entry'],
     ['PROMPT_BLOCK', 'subject-2', 'rin-pose-on-back'],
     ['SCENE', 'scene', 'bac-forest'],
@@ -79,11 +86,16 @@ try {
     record_type: 'visual_concept_entry_v1', owner_kind: 'PROMPT_BLOCK', owner_id: 'subject-1', prompt_tag_id: 'v192-bent-knees', mapping_status: 'MAPPED', concept_id: 'configuration.knee.bent', concept_status: 'provisional', diagnostic: null,
   }, 'bent knees must map exactly to the bent-knee configuration')
   deepEqual(projection.entries[4], {
-    record_type: 'visual_concept_entry_v1', owner_kind: 'PROMPT_BLOCK', owner_id: 'subject-1', prompt_tag_id: 'pos-lying-on-back', mapping_status: 'UNMAPPED', concept_id: null, concept_status: null, diagnostic: 'prompt_tag_unmapped',
-  }, 'an adjacent supported tag must remain explicitly unmapped')
-  equal(projection.entries[5].diagnostic, 'non_registry_tag_unmapped', 'custom IDs must remain explicitly unmapped without inference')
-  equal(projection.entries[6].diagnostic, 'non_registry_tag_unmapped', 'deprecated IDs must remain unmapped without following redirects')
-  deepEqual(projection.entries[7], {
+    record_type: 'visual_concept_entry_v1', owner_kind: 'PROMPT_BLOCK', owner_id: 'subject-1', prompt_tag_id: 'pos-lying-on-back', mapping_status: 'MAPPED', concept_id: 'body.orientation.face_up', concept_status: 'provisional', diagnostic: null,
+  }, 'lying on back must map exactly to face-up orientation without inferring a body state')
+  deepEqual(projection.entries.slice(5, 8).map(entry => [entry.prompt_tag_id, entry.mapping_status, entry.diagnostic]), [
+    ['pos-lying-on-stomach', 'UNMAPPED', 'prompt_tag_unmapped'],
+    ['pos-sideways-lying', 'UNMAPPED', 'prompt_tag_unmapped'],
+    ['pos-v5-lying-on-side', 'UNMAPPED', 'prompt_tag_unmapped'],
+  ], 'related but unbound orientation tags must remain explicitly unmapped')
+  equal(projection.entries[8].diagnostic, 'non_registry_tag_unmapped', 'custom IDs must remain explicitly unmapped without inference')
+  equal(projection.entries[9].diagnostic, 'non_registry_tag_unmapped', 'deprecated IDs must remain unmapped without following redirects')
+  deepEqual(projection.entries[10], {
     record_type: 'visual_concept_entry_v1', owner_kind: 'SCENE', owner_id: 'scene', prompt_tag_id: 'bac-forest', mapping_status: 'UNMAPPED', concept_id: null, concept_status: null, diagnostic: 'prompt_tag_unmapped',
   }, 'bac-forest must remain an exact Scene-owned unmapped entry')
 
@@ -95,7 +107,7 @@ try {
   equal(reasonFor(duplicateBinding), 'binding_identity_conflict', 'duplicate PromptTag bindings must fail closed')
 
   const danglingPromptTag = clone(bindingContract)
-  danglingPromptTag.bindings[0].prompt_tag_id = 'pos-missing-tag'
+  danglingPromptTag.bindings[0].prompt_tag_id = 'pos-aaa-missing-tag'
   equal(reasonFor(danglingPromptTag), 'binding_prompt_tag_missing', 'binding to a missing production PromptTag must fail closed')
 
   const danglingConcept = clone(bindingContract)
