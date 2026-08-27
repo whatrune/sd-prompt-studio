@@ -122,6 +122,26 @@
         "sha256": { "$ref": "#/$defs/sha256" }
       }
     },
+    "observationSchemaRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "schema_version", "path", "hash_algorithm", "hash_value"],
+      "properties": {
+        "schema_id": { "const": "https://local.sd-prompt-studio/hair-observation-schema-v1.json" },
+        "schema_version": { "const": "1.0" },
+        "path": { "const": "templates/hair-observation-schema.json" },
+        "hash_algorithm": { "const": "jcs_sha256_v1" },
+        "hash_value": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "observationSchemaRefs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hair"],
+      "properties": {
+        "hair": { "$ref": "#/$defs/observationSchemaRef" }
+      }
+    },
     "measurementCoverage": {
       "type": "object",
       "additionalProperties": false,
@@ -557,6 +577,7 @@
         "interpretation_candidates": { "type": "array", "items": { "$ref": "#/$defs/interpretationCandidate" } },
         "causal_hypotheses": { "type": "array", "items": { "$ref": "#/$defs/causalHypothesis" } },
         "evidence_bindings": { "type": "array", "items": { "$ref": "#/$defs/evidenceBinding" } },
+        "observation_schema_refs": { "$ref": "#/$defs/observationSchemaRefs" },
         "depends_on": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/assertionId" } },
         "supersedes": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/assertionId" } },
         "reproduction": { "$ref": "#/$defs/reproduction" },

@@ -68,6 +68,11 @@ manifest run-identity check, exact four-axis rubric, and stored aggregate
 recomputation. Other reserved Module slugs still fail explicitly rather than
 guessing a structure.
 
+A Hair Draft records the Observation Schema as `source_role:
+observation_schema`, binds its JCS content hash and identity/version in
+`used_schema_compatibility`, and copies that exact generation-time binding to
+the Generation Report. Pose-only and pose+face Drafts do not gain this field.
+
 ## Record Registry compatibility
 
 ```powershell
@@ -78,7 +83,12 @@ python scripts/observation_to_claim.py registry-check `
 This appends a `registry_compatibility_check` Receipt. It does not modify or
 retroactively invalidate the Draft. Module compatibility is evaluated from the
 saved compatibility projections. Metric and Evidence-ID projections are
-checked independently.
+checked independently. Hair Observation Schema compatibility is a separate
+`schema_results` collection; it is never encoded as a metric or Axis Registry
+result. The exact Hair rubric/`active_hair_axes` source is checked separately in
+`rubric_results`. Schema or Hair rubric drift makes Candidate Generation and
+Finalize fail closed while retaining the original generation hashes in the
+Receipt.
 
 ## Generate a Candidate Wrapper
 
@@ -96,6 +106,12 @@ canonical Assertion. The command returns `candidate_id`, `candidate_dir`, and
 `candidate_path`. Candidate directories are immutable: changing the Human
 Resolution or Generator version creates a different Candidate ID and never
 overwrites an earlier Candidate.
+
+For a Hair assertion, `observation_schema_refs.hair` is copied from the bound
+Draft identity, not recomputed from the current filesystem. It participates in
+`assertion_content_v1`; Candidate identity continues to bind the complete Draft
+through `source_draft_identity_hash`. Its `axis_registry_refs.hair` hash is
+likewise copied from the Draft-bound Hair rubric source.
 
 ## Finalize
 

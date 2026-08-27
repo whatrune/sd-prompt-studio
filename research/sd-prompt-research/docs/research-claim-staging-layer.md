@@ -76,7 +76,8 @@ Registered target axes must exist in the module registry (`active_observation_ax
 
 Axis Registry paths follow the separate
 [`research-claim-path-contract.md`](research-claim-path-contract.md):
-`path_base: research_project_root` applies only to `axis_registry_refs.*.path`.
+`path_base: research_project_root` applies to `axis_registry_refs.*.path` and
+the bounded Hair V1 `observation_schema_refs.hair.path`.
 Evidence `observation_path` values remain Git Repository Root relative.
 
 Reproduction counts distinguish panels, conditions, runs, independent experiment groups, models, and contexts. BRG-007-A/B/C are one independent experiment group rather than three independent experiments.
@@ -101,8 +102,13 @@ Includes:
 - scope
 - generalization status
 - dependencies
+- bound Observation Schema references, when present
 
-Excludes IDs, workflow status, Promotion state, supersession, notes, creator metadata, registry file hashes, and Review data.
+Excludes IDs, workflow status, Promotion state, supersession, notes, creator
+metadata, Axis Registry file hashes, and Review data. A Hair Observation Schema
+hash is not an Axis Registry hash: it remains first-class assertion content so
+Review, Promotion Approval, and Application continue to bind the exact
+generation-time schema through the existing Assertion content hash.
 
 ### `promotion_content_v1`
 

@@ -19,6 +19,10 @@
     "sources": {"$ref": "#/$defs/sources"},
     "identity": {"oneOf": [{"$ref": "#/$defs/successIdentity"}, {"$ref": "#/$defs/failureIdentity"}]},
     "observation_validation": {"$ref": "#/$defs/observationValidation"},
+    "schema_compatibility": {
+      "type": "array", "minItems": 1, "maxItems": 1,
+      "items": {"$ref": "https://local.sd-prompt-studio/observation-to-claim-draft-v0.1.schema.json#/$defs/schemaCompatibility"}
+    },
     "aggregate_validation": {"$ref": "#/$defs/aggregateValidation"},
     "metric_extraction": {"$ref": "#/$defs/metricExtraction"},
     "unresolved_fields": {"type": "array", "items": {"$ref": "#/$defs/unresolved"}},
@@ -65,7 +69,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["source_role", "logical_path", "hash_algorithm", "hash_value", "parse_status", "module", "run_id"],
       "properties": {
-        "source_role": {"enum": ["observation", "optional_module_observation", "manifest", "experiment_group_metadata", "module_registry", "axis_registry", "rubric"]},
+        "source_role": {"enum": ["observation", "optional_module_observation", "observation_schema", "manifest", "experiment_group_metadata", "module_registry", "axis_registry", "rubric"]},
         "logical_path": {"type": "string", "minLength": 1},
         "hash_algorithm": {"enum": ["jcs_sha256_v1", "normalized_text_file_sha256_v1", "raw_bytes_sha256_v1"]},
         "hash_value": {"$ref": "#/$defs/sha256"},

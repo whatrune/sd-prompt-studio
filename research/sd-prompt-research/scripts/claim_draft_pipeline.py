@@ -428,9 +428,10 @@ def _source_record(
     module: str,
     run_id: str,
     structured: str,
+    structured_value: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     if structured == "json":
-        data = _load_json(path)
+        data = structured_value if structured_value is not None else _load_json(path)
         algorithm = "jcs_sha256_v1"
         value = semantic_hash(data)
     elif structured == "text":
@@ -622,23 +623,60 @@ def _axis_registry_for_module(project_root: Path, module: str) -> Path:
     raise PipelineError("MODULE_NOT_SUPPORTED_BY_CLAIM_SCHEMA", f"No Axis Registry is implemented for Module: {module}")
 
 
+def _observation_schema_for_module(project_root: Path, module: str) -> Path:
+    relative = {
+        "pose": POSE_SCHEMA_RELATIVE,
+        "face": FACE_SCHEMA_RELATIVE,
+        "hair": HAIR_SCHEMA_RELATIVE,
+    }.get(module)
+    if relative is None:
+        raise PipelineError(
+            "MODULE_NOT_SUPPORTED_BY_CLAIM_SCHEMA",
+            f"No Observation Schema is implemented for Module: {module}",
+        )
+    return _safe_project_path(project_root, relative)
+
+
+def _schema_compatibility_entry(
+    project_root: Path,
+    module: str,
+    schema_path: Path,
+    schema: Mapping[str, Any],
+) -> dict[str, str]:
+    schema_id = schema.get("$id")
+    schema_version = ((schema.get("properties") or {}).get("schema_version") or {}).get("const")
+    if not isinstance(schema_id, str) or not schema_id:
+        raise PipelineError("OBSERVATION_SCHEMA_IDENTITY_INVALID", f"Observation Schema $id is required: {schema_path}")
+    if not isinstance(schema_version, str) or not schema_version:
+        raise PipelineError(
+            "OBSERVATION_SCHEMA_IDENTITY_INVALID",
+            f"Observation Schema schema_version const is required: {schema_path}",
+        )
+    projection = {
+        "module": module,
+        "source_role": "observation_schema",
+        "logical_path": _logical_path(project_root, schema_path),
+        "schema_id": schema_id,
+        "schema_version": schema_version,
+        "hash_algorithm": "jcs_sha256_v1",
+        "content_hash": semantic_hash(schema),
+        "compatibility_projection_version": "observation_schema_compatibility_v1",
+    }
+    return {**projection, "compatibility_hash": semantic_hash(projection)}
+
+
 def _validate_observation(
     project_root: Path,
     path: Path,
     module: str,
-) -> tuple[dict[str, Any], dict[str, Any], Path, dict[str, Any]]:
+) -> tuple[dict[str, Any], dict[str, Any], Path, dict[str, Any], Path, dict[str, Any]]:
     if module not in {"pose", "face", "hair"}:
         raise PipelineError(
             "MODULE_NOT_SUPPORTED_BY_CLAIM_SCHEMA",
             f"Observation validation is not implemented for Module: {module}",
         )
     data = _load_json(path)
-    schema_relative = {
-        "pose": POSE_SCHEMA_RELATIVE,
-        "face": FACE_SCHEMA_RELATIVE,
-        "hair": HAIR_SCHEMA_RELATIVE,
-    }[module]
-    schema_path = _safe_project_path(project_root, schema_relative)
+    schema_path = _observation_schema_for_module(project_root, module)
     schema = _load_json(schema_path)
     errors = _schema_errors(data, schema)
     if errors:
@@ -675,7 +713,7 @@ def _validate_observation(
         raise PipelineError("MODULE_NOT_SUPPORTED_BY_CLAIM_SCHEMA", f"Observation validation is not implemented for Module: {module}")
     if aggregate != expected:
         raise PipelineError("AGGREGATE_INCONSISTENT", f"Stored computed_aggregate does not match panel data: {path}", str(path))
-    return data, aggregate, rubric_path, rubric
+    return data, aggregate, rubric_path, rubric, schema_path, schema
 
 
 def _observation_source(
@@ -684,7 +722,9 @@ def _observation_source(
     module: str,
     module_entry: Mapping[str, Any],
 ) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
-    data, aggregate, rubric_path, rubric = _validate_observation(project_root, path, module)
+    data, aggregate, rubric_path, rubric, schema_path, schema = _validate_observation(
+        project_root, path, module
+    )
     run_id = str(data["run_id"])
     panel_count = int(data["panel_count"])
     observation_hash = semantic_hash(data)
@@ -769,6 +809,22 @@ def _observation_source(
         _source_record(project_root, path, source_role="observation" if module == "pose" else "optional_module_observation", module=module, run_id=run_id, structured="json"),
         _source_record(project_root, rubric_path, source_role="rubric", module=module, run_id=run_id, structured="text"),
     ]
+    schema_compatibility: list[dict[str, str]] = []
+    if module == "hair":
+        source_files.append(
+            _source_record(
+                project_root,
+                schema_path,
+                source_role="observation_schema",
+                module=module,
+                run_id=run_id,
+                structured="json",
+                structured_value=schema,
+            )
+        )
+        schema_compatibility.append(
+            _schema_compatibility_entry(project_root, module, schema_path, schema)
+        )
     if manifest_path.exists():
         source_files.append(
             _source_record(project_root, manifest_path, source_role="manifest", module=module, run_id=run_id, structured="text")
@@ -804,6 +860,7 @@ def _observation_source(
             "source_files": source_files,
             "module_compatibility": module_compatibility,
             "metric_compatibility": list(metric_compatibility.values()),
+            "schema_compatibility": schema_compatibility,
         },
         extracted,
         staged,
@@ -932,6 +989,7 @@ def generate_draft(
     staged: list[dict[str, Any]] = []
     module_compatibility: dict[str, dict[str, Any]] = {}
     metric_compatibility: dict[tuple[str, str, str], dict[str, Any]] = {}
+    schema_compatibility: dict[str, dict[str, Any]] = {}
     run_metadata: list[dict[str, Any]] = []
     seen_source: set[tuple[str, str]] = set()
     has_pose = False
@@ -952,6 +1010,13 @@ def generate_draft(
         staged.extend(evidence)
         run_metadata.append(loaded["run_metadata"])
         module_compatibility[module] = loaded["module_compatibility"]
+        for entry in loaded["schema_compatibility"]:
+            previous_schema = schema_compatibility.setdefault(entry["module"], entry)
+            if previous_schema != entry:
+                raise PipelineError(
+                    "DUPLICATE_SCHEMA_COMPATIBILITY_ENTRY",
+                    f"Conflicting Observation Schema compatibility entry: {entry['module']}",
+                )
         for entry in loaded["metric_compatibility"]:
             key = (entry["module"], entry["registry_role"], entry["metric"])
             previous = metric_compatibility.setdefault(key, entry)
@@ -984,6 +1049,7 @@ def generate_draft(
     )
     used_modules = sorted(module_compatibility.values(), key=lambda item: item["canonical_module_slug"])
     used_metrics = sorted(metric_compatibility.values(), key=lambda item: (item["module"], item["registry_role"], item["metric"]))
+    used_schemas = sorted(schema_compatibility.values(), key=lambda item: item["module"])
     runs = sorted(run_metadata, key=lambda item: item["run_id"])
     validator_version = (
         HAIR_OBSERVATION_VALIDATOR_VERSION
@@ -1006,6 +1072,8 @@ def generate_draft(
         "evidence_id_contract_version": EVIDENCE_ID_CONTRACT,
         "draft_schema_version": DRAFT_SCHEMA_VERSION,
     }
+    if used_schemas:
+        identity_projection["used_schema_compatibility"] = used_schemas
     identity_hash = semantic_hash(identity_projection)
     draft_id = f"draft.{identity_hash}"
     unresolved = [{"field_path": "subject", "reason_code": "SUBJECT_REQUIRES_HUMAN_RESOLUTION"}]
@@ -1029,6 +1097,8 @@ def generate_draft(
         "unresolved_fields": unresolved,
         "human_decision_required": decisions,
     }
+    if used_schemas:
+        draft["used_schema_compatibility"] = used_schemas
     report = _sort_report(
         {
             "generation_report_schema_version": GENERATION_REPORT_SCHEMA_VERSION,
@@ -1061,6 +1131,8 @@ def generate_draft(
             "diagnostics": [],
         }
     )
+    if used_schemas:
+        report["schema_compatibility"] = copy.deepcopy(used_schemas)
     draft_payload = yaml_bytes(draft)
     report_payload = json_bytes(report)
     receipt = _generation_receipt(draft, report, draft_payload, report_payload)
@@ -1419,6 +1491,150 @@ def _current_axis_refs(project_root: Path, modules: Iterable[str]) -> dict[str, 
     return result
 
 
+def _bound_schema_compatibility(draft: Mapping[str, Any]) -> list[dict[str, Any]]:
+    modules = {
+        item["canonical_module_slug"]
+        for item in draft.get("used_module_compatibility", [])
+        if isinstance(item, Mapping) and isinstance(item.get("canonical_module_slug"), str)
+    }
+    raw_entries = draft.get("used_schema_compatibility")
+    if "hair" not in modules:
+        if raw_entries not in (None, []):
+            raise PipelineError(
+                "DRAFT_SCHEMA_PROVENANCE_INCONSISTENT",
+                "Observation Schema provenance is only valid for a Hair Draft",
+            )
+        return []
+    if not isinstance(raw_entries, list) or len(raw_entries) != 1:
+        raise PipelineError(
+            "DRAFT_SCHEMA_PROVENANCE_MISSING",
+            "Hair Draft requires exactly one bound Observation Schema compatibility entry",
+        )
+    identity_entries = draft.get("draft_input_identity", {}).get("used_schema_compatibility")
+    if identity_entries != raw_entries:
+        raise PipelineError(
+            "DRAFT_SCHEMA_PROVENANCE_INCONSISTENT",
+            "Hair Draft schema compatibility disagrees with Draft input identity",
+        )
+    entry = raw_entries[0]
+    if not isinstance(entry, Mapping) or entry.get("module") != "hair":
+        raise PipelineError(
+            "DRAFT_SCHEMA_PROVENANCE_INCONSISTENT",
+            "Hair Draft Observation Schema compatibility entry is invalid",
+        )
+    projection = {key: value for key, value in entry.items() if key != "compatibility_hash"}
+    if semantic_hash(projection) != entry.get("compatibility_hash"):
+        raise PipelineError(
+            "DRAFT_SCHEMA_PROVENANCE_TAMPERED",
+            "Hair Observation Schema compatibility hash does not match its bound projection",
+        )
+    schema_sources = [
+        source
+        for source in draft.get("draft_input_identity", {}).get("source_files", [])
+        if isinstance(source, Mapping)
+        and source.get("source_role") == "observation_schema"
+        and source.get("module") == "hair"
+    ]
+    if len(schema_sources) != 1:
+        raise PipelineError(
+            "DRAFT_SCHEMA_PROVENANCE_MISSING",
+            "Hair Draft source identity requires exactly one Observation Schema source",
+        )
+    source = schema_sources[0]
+    if (
+        source.get("logical_path") != entry.get("logical_path")
+        or source.get("hash_algorithm") != entry.get("hash_algorithm")
+        or source.get("hash_value") != entry.get("content_hash")
+    ):
+        raise PipelineError(
+            "DRAFT_SCHEMA_PROVENANCE_INCONSISTENT",
+            "Hair Observation Schema source identity disagrees with its compatibility projection",
+        )
+    return [dict(entry)]
+
+
+def _bound_hair_rubric_source(draft: Mapping[str, Any]) -> dict[str, Any] | None:
+    modules = {
+        item["canonical_module_slug"]
+        for item in draft.get("used_module_compatibility", [])
+        if isinstance(item, Mapping) and isinstance(item.get("canonical_module_slug"), str)
+    }
+    if "hair" not in modules:
+        return None
+    sources = [
+        source
+        for source in draft.get("draft_input_identity", {}).get("source_files", [])
+        if isinstance(source, Mapping)
+        and source.get("source_role") == "rubric"
+        and source.get("module") == "hair"
+    ]
+    if len(sources) != 1:
+        raise PipelineError(
+            "DRAFT_RUBRIC_PROVENANCE_MISSING",
+            "Hair Draft source identity requires exactly one Hair rubric source",
+        )
+    source = sources[0]
+    if source.get("hash_algorithm") != "normalized_text_file_sha256_v1":
+        raise PipelineError(
+            "DRAFT_RUBRIC_PROVENANCE_INCONSISTENT",
+            "Hair rubric source must use normalized_text_file_sha256_v1",
+        )
+    return dict(source)
+
+
+def _assertion_axis_refs(
+    project_root: Path,
+    draft: Mapping[str, Any],
+    modules: Iterable[str],
+) -> dict[str, dict[str, str]]:
+    selected = set(modules)
+    refs = _current_axis_refs(project_root, selected - {"hair"})
+    if "hair" not in selected:
+        return refs
+    source = _bound_hair_rubric_source(draft)
+    if source is None:
+        raise PipelineError("DRAFT_RUBRIC_PROVENANCE_MISSING", "Hair rubric source is unavailable")
+    rubric_path = (_repository_root(project_root) / PurePosixPath(source["logical_path"])).resolve()
+    try:
+        research_path = rubric_path.relative_to(project_root.resolve()).as_posix()
+    except ValueError as exc:
+        raise PipelineError(
+            "DRAFT_RUBRIC_PROVENANCE_INCONSISTENT",
+            f"Bound Hair rubric path is outside the Research Project: {source['logical_path']}",
+        ) from exc
+    refs["hair"] = {"path": research_path, "sha256": source["hash_value"]}
+    return dict(sorted(refs.items()))
+
+
+def _bound_assertion_schema_refs(
+    project_root: Path,
+    draft: Mapping[str, Any],
+    modules: Iterable[str],
+) -> dict[str, dict[str, str]]:
+    selected = set(modules)
+    refs: dict[str, dict[str, str]] = {}
+    for entry in _bound_schema_compatibility(draft):
+        module = entry["module"]
+        if module not in selected:
+            continue
+        schema_path = (_repository_root(project_root) / PurePosixPath(entry["logical_path"])).resolve()
+        try:
+            research_path = schema_path.relative_to(project_root.resolve()).as_posix()
+        except ValueError as exc:
+            raise PipelineError(
+                "DRAFT_SCHEMA_PROVENANCE_INCONSISTENT",
+                f"Bound Observation Schema path is outside the Research Project: {entry['logical_path']}",
+            ) from exc
+        refs[module] = {
+            "schema_id": entry["schema_id"],
+            "schema_version": entry["schema_version"],
+            "path": research_path,
+            "hash_algorithm": entry["hash_algorithm"],
+            "hash_value": entry["content_hash"],
+        }
+    return refs
+
+
 def _candidate_identity(draft: Mapping[str, Any], resolution_hash: str) -> tuple[str, str, dict[str, Any]]:
     projection = {
         "source_draft_id": draft["draft_id"],
@@ -1678,13 +1894,20 @@ def generate_candidate(project_root: Path, draft_dir: Path) -> CandidateResult:
             "applications": [],
         },
     }
+    schema_refs = _bound_assertion_schema_refs(project_root, draft, selected_modules)
+    if schema_refs:
+        assertion["observation_schema_refs"] = schema_refs
     canonical = {
         "schema_version": "0.1.0",
         "assertion_file_id": _assertion_file_id(assertion_id),
         "claim_family": resolution["selected_claim_family"],
         "path_base": "research_project_root",
         "metric_path_syntax": "dotted_object_path_v1",
-        "axis_registry_refs": _current_axis_refs(project_root, selected_modules or [resolution["selected_scope"]["domain_scope"]]),
+        "axis_registry_refs": _assertion_axis_refs(
+            project_root,
+            draft,
+            selected_modules or [resolution["selected_scope"]["domain_scope"]],
+        ),
         "evidence_refs": sorted(new_facts, key=lambda item: item["evidence_ref_id"]),
         "assertions": [assertion],
     }
@@ -1737,6 +1960,7 @@ def check_registry_compatibility(project_root: Path, draft_dir: Path) -> Compati
     draft_dir = draft_dir.resolve()
     draft, _report = _load_and_verify_draft(project_root, draft_dir)
     _registry, modules, _registry_hash = load_module_registry(project_root)
+    bound_schemas = _bound_schema_compatibility(draft)
 
     module_results: list[dict[str, str]] = []
     module_classifications: list[str] = []
@@ -1801,6 +2025,85 @@ def check_registry_compatibility(project_root: Path, draft_dir: Path) -> Compati
                 "result": result,
             }
         )
+    rubric_results: list[dict[str, str]] = []
+    bound_rubric = _bound_hair_rubric_source(draft)
+    if bound_rubric is not None:
+        rubric_path = (
+            _repository_root(project_root) / PurePosixPath(bound_rubric["logical_path"])
+        ).resolve()
+        try:
+            rubric_path.relative_to(project_root.resolve())
+        except ValueError as exc:
+            raise PipelineError(
+                "DRAFT_RUBRIC_PROVENANCE_INCONSISTENT",
+                f"Bound Hair rubric path is outside the Research Project: {bound_rubric['logical_path']}",
+            ) from exc
+        try:
+            current_rubric_hash = normalized_text_file_sha256_v1(rubric_path)
+        except (OSError, InvalidTextEncodingError) as exc:
+            raise PipelineError(
+                "DRAFT_RUBRIC_PROVENANCE_UNAVAILABLE",
+                f"Current Hair rubric cannot be verified: {bound_rubric['logical_path']}",
+                bound_rubric["logical_path"],
+            ) from exc
+        rubric_result = (
+            "unchanged"
+            if current_rubric_hash == bound_rubric["hash_value"]
+            else "incompatible"
+        )
+        if rubric_result == "incompatible":
+            module_classifications.append(rubric_result)
+        rubric_results.append(
+            {
+                "module": "hair",
+                "source_role": "rubric",
+                "logical_path": bound_rubric["logical_path"],
+                "generation_hash": bound_rubric["hash_value"],
+                "current_hash": current_rubric_hash,
+                "result": rubric_result,
+            }
+        )
+    schema_results: list[dict[str, str]] = []
+    for bound in bound_schemas:
+        module = bound["module"]
+        schema_path = (_repository_root(project_root) / PurePosixPath(bound["logical_path"])).resolve()
+        try:
+            schema_path.relative_to(project_root.resolve())
+        except ValueError as exc:
+            raise PipelineError(
+                "DRAFT_SCHEMA_PROVENANCE_INCONSISTENT",
+                f"Bound Observation Schema path is outside the Research Project: {bound['logical_path']}",
+            ) from exc
+        try:
+            current_schema = _load_json(schema_path)
+            current = _schema_compatibility_entry(project_root, module, schema_path, current_schema)
+        except PipelineError as exc:
+            raise PipelineError(
+                "DRAFT_SCHEMA_PROVENANCE_UNAVAILABLE",
+                f"Current Observation Schema cannot be verified: {bound['logical_path']}",
+                bound["logical_path"],
+            ) from exc
+        result = (
+            "unchanged"
+            if current == bound
+            else "incompatible"
+        )
+        if result == "incompatible":
+            module_classifications.append(result)
+        schema_results.append(
+            {
+                "module": module,
+                "source_role": bound["source_role"],
+                "logical_path": bound["logical_path"],
+                "schema_id": bound["schema_id"],
+                "schema_version": bound["schema_version"],
+                "generation_content_hash": bound["content_hash"],
+                "current_content_hash": current["content_hash"],
+                "generation_compatibility_hash": bound["compatibility_hash"],
+                "current_compatibility_hash": current["compatibility_hash"],
+                "result": result,
+            }
+        )
     evidence_results: list[dict[str, str]] = []
     for item in sorted(draft["staged_evidence"], key=lambda entry: entry["evidence_id"]):
         current_hash = semantic_hash(item["evidence_id_projection"])
@@ -1822,6 +2125,19 @@ def check_registry_compatibility(project_root: Path, draft_dir: Path) -> Compati
         classification = "compatible_changed"
     else:
         classification = "unchanged"
+    compatibility_payload = {
+        "registry_load": _receipt_step("succeeded", "SUCCEEDED"),
+        "compatibility_evaluation": _receipt_step("succeeded", "SUCCEEDED"),
+        "classification": classification,
+        "module_results": module_results,
+        "metric_results": metric_results,
+        "evidence_id_results": evidence_results,
+        "diagnostics": [],
+    }
+    if schema_results:
+        compatibility_payload["schema_results"] = schema_results
+    if rubric_results:
+        compatibility_payload["rubric_results"] = rubric_results
     receipt = {
         "receipt_schema_version": RECEIPT_SCHEMA_VERSION,
         "receipt_id": uuid7_text(),
@@ -1834,15 +2150,7 @@ def check_registry_compatibility(project_root: Path, draft_dir: Path) -> Compati
                 "normalized_text_file_sha256_v1", draft, yaml_bytes(draft)
             )
         },
-        "payload": {
-            "registry_load": _receipt_step("succeeded", "SUCCEEDED"),
-            "compatibility_evaluation": _receipt_step("succeeded", "SUCCEEDED"),
-            "classification": classification,
-            "module_results": module_results,
-            "metric_results": metric_results,
-            "evidence_id_results": evidence_results,
-            "diagnostics": [],
-        },
+        "payload": compatibility_payload,
     }
     validate_artifact(project_root, "observation-to-claim-receipt.schema.json", receipt)
     _write_create_or_same(

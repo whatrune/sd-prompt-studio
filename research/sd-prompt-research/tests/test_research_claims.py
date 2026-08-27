@@ -879,10 +879,60 @@ class ResearchClaimTests(unittest.TestCase):
         changed_evidence = copy.deepcopy(data.evidence)
         changed_evidence["evidence.brg008b.gaze_direction.not_visible"]["count"] = 4
         self.assertNotEqual(original_hash, content_hash(assertion_payload(assertion, changed_evidence)))
+        schema = load_schema(ROOT / "templates" / "hair-observation-schema.json")
+        with_schema = copy.deepcopy(assertion)
+        with_schema["observation_schema_refs"] = {
+            "hair": {
+                "schema_id": schema["$id"],
+                "schema_version": schema["properties"]["schema_version"]["const"],
+                "path": "templates/hair-observation-schema.json",
+                "hash_algorithm": "jcs_sha256_v1",
+                "hash_value": content_hash(schema),
+            }
+        }
+        schema_payload = assertion_payload(with_schema, data.evidence)
+        self.assertIn("observation_schema_refs", schema_payload)
+        schema_hash = content_hash(schema_payload)
+        changed_schema_ref = copy.deepcopy(with_schema)
+        changed_schema_ref["observation_schema_refs"]["hair"]["hash_value"] = "0" * 64
+        self.assertNotEqual(
+            schema_hash,
+            content_hash(assertion_payload(changed_schema_ref, data.evidence)),
+        )
         documentation = (ROOT / "docs" / "research-claim-staging-layer.md").read_text(encoding="utf-8")
         self.assertIn("### `assertion_content_v1`", documentation)
         self.assertIn("- resolved Evidence Fact content, excluding storage location", documentation)
         self.assertIn("Excludes IDs, workflow status, Promotion state", documentation)
+
+    def test_assertion_observation_schema_binding_fails_on_current_schema_drift(self) -> None:
+        data = checked_in_knowledge()
+        assertion_id = "assertion.brg008.head_back.face_effect.001"
+        assertion = data.assertions[assertion_id]
+        schema = load_schema(ROOT / "templates" / "hair-observation-schema.json")
+        assertion["observation_schema_refs"] = {
+            "hair": {
+                "schema_id": schema["$id"],
+                "schema_version": schema["properties"]["schema_version"]["const"],
+                "path": "templates/hair-observation-schema.json",
+                "hash_algorithm": "jcs_sha256_v1",
+                "hash_value": content_hash(schema),
+            }
+        }
+        validator = make_validator(data=data, graph=self.graph)
+        validator.validate_assertions()
+        self.assertNotIn(
+            "OBSERVATION_SCHEMA_HASH_DRIFT",
+            {issue.code for issue in validator.issues},
+        )
+        changed_schema = copy.deepcopy(schema)
+        changed_schema["title"] += " drift"
+        drift_validator = make_validator(data=data, graph=self.graph)
+        with patch("validate_research_claims.load_schema", return_value=changed_schema):
+            drift_validator.validate_assertions()
+        self.assertIn(
+            "OBSERVATION_SCHEMA_HASH_DRIFT",
+            {issue.code for issue in drift_validator.issues},
+        )
 
     def test_applied_promotion_uses_historical_receipt_after_assertion_change(self) -> None:
         data, baseline, assertion_id, _, _ = applied_knowledge()

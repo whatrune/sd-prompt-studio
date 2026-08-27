@@ -244,6 +244,29 @@ def resolve_axis_registry_path(project_root: Path, stored_path: str) -> tuple[st
     return normalized, resolved_path
 
 
+def resolve_observation_schema_path(project_root: Path, stored_path: str) -> tuple[str, Path]:
+    if not isinstance(stored_path, str) or not stored_path:
+        raise AxisRegistryPathError("Observation Schema path must be a non-empty string")
+    normalized_separators = stored_path.replace("\\", "/")
+    if re.match(r"^[A-Za-z]:", normalized_separators):
+        raise AxisRegistryPathError("Observation Schema path must not use a Windows drive prefix")
+    if normalized_separators.startswith("//"):
+        raise AxisRegistryPathError("Observation Schema path must not be a UNC path")
+    pure_path = PurePosixPath(normalized_separators)
+    if pure_path.is_absolute():
+        raise AxisRegistryPathError("Observation Schema path must be relative")
+    if ".." in pure_path.parts:
+        raise AxisRegistryPathError("Observation Schema path must not contain '..'")
+    normalized = pure_path.as_posix()
+    if normalized in {"", "."}:
+        raise AxisRegistryPathError("Observation Schema path must identify a file")
+    resolved_root = project_root.resolve()
+    resolved_path = (resolved_root / pure_path).resolve(strict=False)
+    if not resolved_path.is_relative_to(resolved_root):
+        raise AxisRegistryPathError("Observation Schema path resolves outside Research Project Root")
+    return normalized, resolved_path
+
+
 def load_schema(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -518,7 +541,7 @@ def assertion_payload(assertion: Mapping[str, Any], evidence: Mapping[str, dict[
         key=lambda item: (item["evidence_ref_id"], item["applies_to"], item["evidence_role"]),
     )
     evidence_ids = sorted({item["evidence_ref_id"] for item in bindings})
-    return {
+    payload = {
         "subject": assertion["subject"],
         "claim": assertion["claim"],
         "evidence_bindings": bindings,
@@ -528,6 +551,9 @@ def assertion_payload(assertion: Mapping[str, Any], evidence: Mapping[str, dict[
         "generalization_status": assertion["generalization_status"],
         "depends_on": sorted(assertion.get("depends_on", [])),
     }
+    if "observation_schema_refs" in assertion:
+        payload["observation_schema_refs"] = copy.deepcopy(assertion["observation_schema_refs"])
+    return payload
 
 
 def promotion_payload(assertion: Mapping[str, Any], assertion_hash: str) -> dict[str, Any] | None:
@@ -863,6 +889,71 @@ class ClaimValidator:
             # KnowledgeData directly. Normal current/temp Knowledge indexing
             # supplies assertion_roots and does not reread a different tree.
             assertion_root = load_current_documents(self.project_root / "knowledge").get(file, {})
+        schema_refs = assertion.get("observation_schema_refs", {})
+        for module, schema_ref in schema_refs.items():
+            schema_path_field = f"$.observation_schema_refs.{module}.path"
+            try:
+                schema_path, schema_file = resolve_observation_schema_path(
+                    self.project_root, schema_ref["path"]
+                )
+            except (AxisRegistryPathError, OSError) as exc:
+                self.issue(
+                    "OBSERVATION_SCHEMA_PATH_INVALID",
+                    str(exc),
+                    file,
+                    schema_path_field,
+                    assertion_id,
+                )
+                continue
+            if not schema_file.is_file():
+                self.issue(
+                    "OBSERVATION_SCHEMA_NOT_FOUND",
+                    f"Observation Schema for {module} does not exist",
+                    file,
+                    schema_path_field,
+                    assertion_id,
+                )
+                continue
+            try:
+                current_schema = load_schema(schema_file)
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                self.issue(
+                    "OBSERVATION_SCHEMA_INVALID",
+                    str(exc),
+                    file,
+                    schema_path_field,
+                    assertion_id,
+                )
+                continue
+            current_hash = content_hash(current_schema)
+            if current_hash != schema_ref["hash_value"]:
+                self.issue(
+                    "OBSERVATION_SCHEMA_HASH_DRIFT",
+                    "Observation Schema content differs from the Assertion's generation-time binding",
+                    file,
+                    f"$.observation_schema_refs.{module}.hash_value",
+                    assertion_id,
+                    details={
+                        "schema_path": schema_path,
+                        "bound_hash": schema_ref["hash_value"],
+                        "current_hash": current_hash,
+                    },
+                )
+            current_schema_id = current_schema.get("$id")
+            current_schema_version = (
+                ((current_schema.get("properties") or {}).get("schema_version") or {}).get("const")
+            )
+            if (
+                current_schema_id != schema_ref["schema_id"]
+                or current_schema_version != schema_ref["schema_version"]
+            ):
+                self.issue(
+                    "OBSERVATION_SCHEMA_IDENTITY_DRIFT",
+                    "Observation Schema identity/version differs from the Assertion's generation-time binding",
+                    file,
+                    f"$.observation_schema_refs.{module}",
+                    assertion_id,
+                )
         registry_refs = assertion_root.get("axis_registry_refs", {})
         registry_axes: dict[str, set[str]] = {}
         registry_axis_fields = {
