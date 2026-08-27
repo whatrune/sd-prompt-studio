@@ -70,6 +70,23 @@ const READY_TRANSITION_ACTION_FIELDS_V1 = Object.freeze([
   'repository', 'task_issue_number', 'pr_number', 'exact_head', 'action', 'method', 'operation_count',
   'authority_comment_id', 'authority_url',
 ])
+const DRAFT_RETURN_AUTHORITY_RECORD_TYPE_V1 = 'draft_return_authority_v1'
+const DRAFT_RETURN_AUTHORITY_FIELDS_V1 = Object.freeze([
+  'record_type', 'version', 'authoring_role', 'authority_source', 'canonical_record', 'repository',
+  'task_issue', 'pull_request', 'exact_head', 'target_branch', 'action', 'method', 'operation_count',
+  'prior_ready_completion', 'prior_ready_head', 'scope_contract_source',
+])
+const DRAFT_RETURN_COMPLETION_RECORD_TYPE_V1 = 'draft_return_completion_v1'
+const DRAFT_RETURN_COMPLETION_FIELDS_V1 = Object.freeze([
+  'record_type', 'version', 'authoring_role', 'authority_source', 'canonical_record', 'repository',
+  'task_issue', 'pull_request', 'exact_head', 'target_branch', 'action', 'method', 'authority',
+  'prior_ready_completion', 'before_state', 'after_state', 'mutation_count', 'result',
+])
+const DRAFT_RETURN_ACTION_FIELDS_V1 = Object.freeze([
+  'repository', 'task_issue_number', 'pr_number', 'exact_head', 'action', 'method', 'operation_count',
+  'authority_comment_id', 'authority_url', 'prior_ready_completion_comment_id', 'prior_ready_completion_url',
+  'prior_ready_head', 'scope_contract_source',
+])
 const INTEGRATED_LEAD_READY_RESULT_FIELDS_V1 = Object.freeze([
   'decision', 'repository', 'task_issue', 'pull_request', 'exact_head',
   'review_decision', 'publication_handoff', 'scope_contract_source',
@@ -233,6 +250,12 @@ query ReadyTransitionPull($owner: String!, $name: String!, $pr: Int!) {
 const MARK_PULL_REQUEST_READY_MUTATION = `
 mutation MarkPullRequestReady($pullRequestId: ID!) {
   markPullRequestReadyForReview(input: { pullRequestId: $pullRequestId }) {
+    clientMutationId
+  }
+}`
+const CONVERT_PULL_REQUEST_TO_DRAFT_MUTATION = `
+mutation ConvertPullRequestToDraft($pullRequestId: ID!) {
+  convertPullRequestToDraft(input: { pullRequestId: $pullRequestId }) {
     clientMutationId
   }
 }`
@@ -6544,6 +6567,7 @@ export const projectWorkflowDispatchEntrypointArgumentsV1 = ({
   reviewDecisionCommentId,
   publicationHandoffCommentId,
   mergeDecisionCommentId,
+  draftReturnAuthorityCommentId,
 }) => {
   const values = Object.freeze({
     transition: String(transition ?? ''),
@@ -6553,6 +6577,7 @@ export const projectWorkflowDispatchEntrypointArgumentsV1 = ({
     reviewDecisionCommentId: String(reviewDecisionCommentId ?? ''),
     publicationHandoffCommentId: String(publicationHandoffCommentId ?? ''),
     mergeDecisionCommentId: String(mergeDecisionCommentId ?? ''),
+    draftReturnAuthorityCommentId: String(draftReturnAuthorityCommentId ?? ''),
   })
   const argv = [
     '--transition', values.transition,
@@ -6568,6 +6593,9 @@ export const projectWorkflowDispatchEntrypointArgumentsV1 = ({
   }
   if (values.mergeDecisionCommentId.length > 0) {
     argv.push('--merge-decision-comment-id', values.mergeDecisionCommentId)
+  }
+  if (values.draftReturnAuthorityCommentId.length > 0) {
+    argv.push('--draft-return-authority-comment-id', values.draftReturnAuthorityCommentId)
   }
   return Object.freeze({ argv: Object.freeze(argv) })
 }
@@ -6960,6 +6988,18 @@ const fetchRoleCommentRecordV1 = async (repository, taskIssueNumber, commentId, 
 const fetchRoleCommentV1 = async (repository, taskIssueNumber, commentId, host) =>
   (await fetchRoleCommentRecordV1(repository, taskIssueNumber, commentId, host)).body
 
+const fetchDraftReturnCompletionRecordV1 = async (repository, taskIssueNumber, commentId, host) => {
+  const comment = await api(host, `repos/${repository}/issues/comments/${commentId}`)
+  const expectedIssueUrl = `https://api.github.com/repos/${repository}/issues/${taskIssueNumber}`
+  const expectedHtmlUrl = `https://github.com/${repository}/issues/${taskIssueNumber}#issuecomment-${commentId}`
+  if (
+    !comment || comment.id !== commentId || comment.issue_url !== expectedIssueUrl || comment.html_url !== expectedHtmlUrl ||
+    typeof comment.body !== 'string' || comment.user?.login !== 'github-actions[bot]' ||
+    comment.user?.id !== 41898282 || comment.user?.type !== 'Bot'
+  ) throw new Error('draft_return_completion_publish_failed')
+  return comment
+}
+
 const normalizeReviewThreadActionV1 = (action) => {
   if (
     !action || typeof action !== 'object' || Array.isArray(action) ||
@@ -7295,6 +7335,400 @@ export const executeReadyTransitionOperatorV1 = async ({ authorityCommentId, dis
     })
   } catch (error) {
     return readyTransitionOperatorStopV1(action, error instanceof Error ? error.message : 'ready_transition_failed')
+  }
+}
+
+const parseDraftReturnCommentUrlV1 = (value, repository, taskIssueNumber, reason) => {
+  const prefix = `https://github.com/${repository}/issues/${taskIssueNumber}#issuecomment-`
+  return parseRoleUrlNumberV1(value, prefix, reason)
+}
+
+export const parseDraftReturnAuthorityV1 = (body, repository, taskIssueNumber) => {
+  try {
+    if (typeof body !== 'string' || !REPOSITORY.test(repository ?? '') || !positiveInteger(taskIssueNumber)) {
+      throw new Error('draft_return_authority_invalid')
+    }
+    const yaml = parseRoleYamlV1(body)
+    if (
+      yaml.lists.size !== 0 || yaml.scalars.size !== DRAFT_RETURN_AUTHORITY_FIELDS_V1.length ||
+      DRAFT_RETURN_AUTHORITY_FIELDS_V1.some((field) => !yaml.scalars.has(field)) ||
+      [...yaml.scalars.values()].some((value) => value === null || value === undefined || ['null', 'Null', 'NULL', '~'].includes(value))
+    ) throw new Error('draft_return_authority_invalid')
+
+    const taskUrl = `https://github.com/${repository}/issues/${taskIssueNumber}`
+    const pullPrefix = `https://github.com/${repository}/pull/`
+    const prNumber = parseRoleUrlNumberV1(yaml.scalars.get('pull_request'), pullPrefix, 'draft_return_authority_invalid')
+    const authorityCommentId = parseDraftReturnCommentUrlV1(
+      yaml.scalars.get('canonical_record'), repository, taskIssueNumber, 'draft_return_authority_invalid',
+    )
+    const authoritySourceCommentId = parseDraftReturnCommentUrlV1(
+      yaml.scalars.get('authority_source'), repository, taskIssueNumber, 'draft_return_authority_invalid',
+    )
+    const priorReadyCompletionCommentId = parseDraftReturnCommentUrlV1(
+      yaml.scalars.get('prior_ready_completion'), repository, taskIssueNumber, 'draft_return_authority_invalid',
+    )
+    const exactHead = yaml.scalars.get('exact_head')
+    const priorReadyHead = yaml.scalars.get('prior_ready_head')
+    if (
+      yaml.scalars.get('record_type') !== DRAFT_RETURN_AUTHORITY_RECORD_TYPE_V1 ||
+      yaml.scalars.get('version') !== 1 || yaml.scalars.get('authoring_role') !== 'Integrated Lead' ||
+      yaml.scalars.get('repository') !== repository || yaml.scalars.get('task_issue') !== taskUrl ||
+      !positiveInteger(prNumber) || !FULL_HEAD.test(exactHead ?? '') || !FULL_HEAD.test(priorReadyHead ?? '') ||
+      priorReadyHead === exactHead || yaml.scalars.get('target_branch') !== 'main' ||
+      yaml.scalars.get('action') !== 'RETURN_TO_DRAFT' ||
+      yaml.scalars.get('method') !== 'convertPullRequestToDraft' || yaml.scalars.get('operation_count') !== 1 ||
+      yaml.scalars.get('scope_contract_source') !== taskUrl ||
+      authoritySourceCommentId === authorityCommentId
+    ) throw new Error('draft_return_authority_invalid')
+
+    return Object.freeze({
+      record_type: DRAFT_RETURN_AUTHORITY_RECORD_TYPE_V1,
+      version: 1,
+      authoring_role: 'Integrated Lead',
+      authority_source: yaml.scalars.get('authority_source'),
+      authority_source_comment_id: authoritySourceCommentId,
+      canonical_record: yaml.scalars.get('canonical_record'),
+      authority_comment_id: authorityCommentId,
+      repository,
+      task_issue: taskUrl,
+      task_issue_number: taskIssueNumber,
+      pull_request: yaml.scalars.get('pull_request'),
+      pr_number: prNumber,
+      exact_head: exactHead,
+      target_branch: 'main',
+      action: 'RETURN_TO_DRAFT',
+      method: 'convertPullRequestToDraft',
+      operation_count: 1,
+      prior_ready_completion: yaml.scalars.get('prior_ready_completion'),
+      prior_ready_completion_comment_id: priorReadyCompletionCommentId,
+      prior_ready_head: priorReadyHead,
+      scope_contract_source: taskUrl,
+    })
+  } catch {
+    throw new Error('draft_return_authority_invalid')
+  }
+}
+
+export const parseProtectedReadyCompletionV1 = (body, repository, taskIssueNumber) => {
+  try {
+    const taskUrl = `https://github.com/${repository}/issues/${taskIssueNumber}`
+    const exactHead = roleLineValueV1(body, ['exact_head'])
+    const pullValue = roleLineValueV1(body, ['pull_request'])
+    const authority = roleLineValueV1(body, ['authority'])
+    parseDraftReturnCommentUrlV1(authority, repository, taskIssueNumber, 'draft_return_prior_ready_completion_invalid')
+    const prMatch = /^#([1-9][0-9]*)$/.exec(pullValue)
+    if (
+      roleLineValueV1(body, ['record_type']) !== 'protected_action_completion' ||
+      roleLineValueV1(body, ['canonical_task']) !== `#${taskIssueNumber}` ||
+      roleLineValueV1(body, ['action']) !== 'ready_for_review' ||
+      roleLineValueV1(body, ['repository']) !== repository || !prMatch ||
+      !FULL_HEAD.test(exactHead) || roleLineValueV1(body, ['before_state']) !== 'DRAFT' ||
+      roleLineValueV1(body, ['after_state']) !== 'READY' || roleLineValueV1(body, ['transition_count']) !== '1' ||
+      roleLineValueV1(body, ['result']) !== 'COMPLETED'
+    ) throw new Error('draft_return_prior_ready_completion_invalid')
+    return Object.freeze({
+      repository,
+      task_issue_number: taskIssueNumber,
+      pr_number: Number(prMatch[1]),
+      exact_head: exactHead,
+      authority,
+    })
+  } catch {
+    throw new Error('draft_return_prior_ready_completion_invalid')
+  }
+}
+
+export const parseDraftReturnCompletionV1 = (body, repository, taskIssueNumber) => {
+  try {
+    const yaml = parseRoleYamlV1(body)
+    if (
+      yaml.lists.size !== 0 || yaml.scalars.size !== DRAFT_RETURN_COMPLETION_FIELDS_V1.length ||
+      DRAFT_RETURN_COMPLETION_FIELDS_V1.some((field) => !yaml.scalars.has(field))
+    ) throw new Error('draft_return_completion_invalid')
+    const taskUrl = `https://github.com/${repository}/issues/${taskIssueNumber}`
+    const pullPrefix = `https://github.com/${repository}/pull/`
+    const prNumber = parseRoleUrlNumberV1(yaml.scalars.get('pull_request'), pullPrefix, 'draft_return_completion_invalid')
+    const completionCommentId = parseDraftReturnCommentUrlV1(
+      yaml.scalars.get('canonical_record'), repository, taskIssueNumber, 'draft_return_completion_invalid',
+    )
+    const authorityCommentId = parseDraftReturnCommentUrlV1(
+      yaml.scalars.get('authority'), repository, taskIssueNumber, 'draft_return_completion_invalid',
+    )
+    const priorReadyCompletionCommentId = parseDraftReturnCommentUrlV1(
+      yaml.scalars.get('prior_ready_completion'), repository, taskIssueNumber, 'draft_return_completion_invalid',
+    )
+    const exactHead = yaml.scalars.get('exact_head')
+    const authoritySourcePrefix = `https://github.com/${repository}/actions/runs/`
+    const authoritySource = yaml.scalars.get('authority_source')
+    if (
+      yaml.scalars.get('record_type') !== DRAFT_RETURN_COMPLETION_RECORD_TYPE_V1 ||
+      yaml.scalars.get('version') !== 1 || yaml.scalars.get('authoring_role') !== 'Protected Transition Operator' ||
+      yaml.scalars.get('repository') !== repository || yaml.scalars.get('task_issue') !== taskUrl ||
+      !positiveInteger(prNumber) || !FULL_HEAD.test(exactHead ?? '') || yaml.scalars.get('target_branch') !== 'main' ||
+      yaml.scalars.get('action') !== 'RETURN_TO_DRAFT' || yaml.scalars.get('method') !== 'convertPullRequestToDraft' ||
+      yaml.scalars.get('before_state') !== 'READY' || yaml.scalars.get('after_state') !== 'DRAFT' ||
+      yaml.scalars.get('mutation_count') !== 1 || yaml.scalars.get('result') !== 'COMPLETED' ||
+      typeof authoritySource !== 'string' || !authoritySource.startsWith(authoritySourcePrefix) ||
+      !/^[1-9][0-9]*\/attempts\/[1-9][0-9]*#draft-return-operator$/.test(authoritySource.slice(authoritySourcePrefix.length))
+    ) throw new Error('draft_return_completion_invalid')
+    return Object.freeze({
+      repository,
+      task_issue_number: taskIssueNumber,
+      pr_number: prNumber,
+      exact_head: exactHead,
+      completion_comment_id: completionCommentId,
+      canonical_record: yaml.scalars.get('canonical_record'),
+      authority_comment_id: authorityCommentId,
+      authority: yaml.scalars.get('authority'),
+      prior_ready_completion_comment_id: priorReadyCompletionCommentId,
+      prior_ready_completion: yaml.scalars.get('prior_ready_completion'),
+    })
+  } catch {
+    throw new Error('draft_return_completion_invalid')
+  }
+}
+
+export const projectDraftReturnAuthorityBodyV1 = ({
+  repository, taskIssueNumber, prNumber, exactHead, authorityCommentId, authoritySourceCommentId,
+  priorReadyCompletionCommentId, priorReadyHead,
+}) => {
+  const taskUrl = `https://github.com/${repository}/issues/${taskIssueNumber}`
+  return [
+    '# Draft Return Authority',
+    '',
+    '```yaml',
+    'record_type: draft_return_authority_v1',
+    'version: 1',
+    'authoring_role: Integrated Lead',
+    `authority_source: ${taskUrl}#issuecomment-${authoritySourceCommentId}`,
+    `canonical_record: ${taskUrl}#issuecomment-${authorityCommentId}`,
+    `repository: ${repository}`,
+    `task_issue: ${taskUrl}`,
+    `pull_request: https://github.com/${repository}/pull/${prNumber}`,
+    `exact_head: ${exactHead}`,
+    'target_branch: main',
+    'action: RETURN_TO_DRAFT',
+    'method: convertPullRequestToDraft',
+    'operation_count: 1',
+    `prior_ready_completion: ${taskUrl}#issuecomment-${priorReadyCompletionCommentId}`,
+    `prior_ready_head: ${priorReadyHead}`,
+    `scope_contract_source: ${taskUrl}`,
+    '```',
+    '',
+  ].join('\n')
+}
+
+const normalizeDraftReturnActionV1 = (action) => {
+  if (
+    !exactObjectKeysV1(action, DRAFT_RETURN_ACTION_FIELDS_V1) || !REPOSITORY.test(action.repository ?? '') ||
+    !positiveInteger(action.task_issue_number) || !positiveInteger(action.pr_number) || !FULL_HEAD.test(action.exact_head ?? '') ||
+    action.action !== 'RETURN_TO_DRAFT' || action.method !== 'convertPullRequestToDraft' || action.operation_count !== 1 ||
+    !positiveInteger(action.authority_comment_id) || !positiveInteger(action.prior_ready_completion_comment_id) ||
+    action.authority_url !== `https://github.com/${action.repository}/issues/${action.task_issue_number}#issuecomment-${action.authority_comment_id}` ||
+    action.prior_ready_completion_url !== `https://github.com/${action.repository}/issues/${action.task_issue_number}#issuecomment-${action.prior_ready_completion_comment_id}` ||
+    !FULL_HEAD.test(action.prior_ready_head ?? '') || action.prior_ready_head === action.exact_head ||
+    action.scope_contract_source !== `https://github.com/${action.repository}/issues/${action.task_issue_number}`
+  ) throw new Error('draft_return_action_invalid')
+  return Object.freeze({ ...action })
+}
+
+export const admitDraftReturnAuthorityV1 = async ({ request, host }) => {
+  if (
+    request?.transition !== 'draft_return_required_resume' || !REPOSITORY.test(request?.repository ?? '') ||
+    !positiveInteger(request?.taskIssueNumber) || !positiveInteger(request?.prNumber) ||
+    !FULL_HEAD.test(request?.exactHead ?? '') || !positiveInteger(request?.draftReturnAuthorityCommentId)
+  ) throw new Error('draft_return_request_invalid')
+  await acquireTaskIdentityV1(request, host)
+  const fresh = await fetchRoleCommentRecordV1(
+    request.repository, request.taskIssueNumber, request.draftReturnAuthorityCommentId, host,
+  )
+  const authorityUrl = `https://github.com/${request.repository}/issues/${request.taskIssueNumber}#issuecomment-${request.draftReturnAuthorityCommentId}`
+  if (fresh.html_url !== authorityUrl) throw new Error('draft_return_authority_identity_invalid')
+  try {
+    assertMinimalGovernanceProductOwnerV1(fresh, { requireAssociation: true })
+  } catch {
+    throw new Error('draft_return_authority_actor_invalid')
+  }
+  const authority = parseDraftReturnAuthorityV1(fresh.body, request.repository, request.taskIssueNumber)
+  if (
+    authority.authority_comment_id !== request.draftReturnAuthorityCommentId || authority.canonical_record !== authorityUrl ||
+    authority.pr_number !== request.prNumber || authority.exact_head !== request.exactHead
+  ) throw new Error('draft_return_authority_binding_invalid')
+  const priorReadyRecord = await fetchRoleCommentRecordV1(
+    request.repository, request.taskIssueNumber, authority.prior_ready_completion_comment_id, host,
+  )
+  if (priorReadyRecord.html_url !== authority.prior_ready_completion) {
+    throw new Error('draft_return_prior_ready_completion_invalid')
+  }
+  const priorReady = parseProtectedReadyCompletionV1(priorReadyRecord.body, request.repository, request.taskIssueNumber)
+  if (priorReady.pr_number !== request.prNumber || priorReady.exact_head !== authority.prior_ready_head) {
+    throw new Error('draft_return_prior_ready_completion_invalid')
+  }
+  return normalizeDraftReturnActionV1(Object.freeze({
+    repository: request.repository,
+    task_issue_number: request.taskIssueNumber,
+    pr_number: request.prNumber,
+    exact_head: request.exactHead,
+    action: 'RETURN_TO_DRAFT',
+    method: 'convertPullRequestToDraft',
+    operation_count: 1,
+    authority_comment_id: request.draftReturnAuthorityCommentId,
+    authority_url: authorityUrl,
+    prior_ready_completion_comment_id: authority.prior_ready_completion_comment_id,
+    prior_ready_completion_url: authority.prior_ready_completion,
+    prior_ready_head: authority.prior_ready_head,
+    scope_contract_source: authority.scope_contract_source,
+  }))
+}
+
+const draftReturnOperatorResultV1 = (action, {
+  state, exitCode, reason, mutationCount, automationStatus, completion = null,
+}) => Object.freeze({
+  transition: 'draft_return',
+  state,
+  allowed: false,
+  exit_code: exitCode,
+  reason,
+  automation_status: automationStatus,
+  next_action: exitCode === 0 ? 'NONE' : 'STOP',
+  mutation_attempted: mutationCount > 0,
+  mutation_count: mutationCount,
+  repository: action?.repository ?? null,
+  task_issue_number: action?.task_issue_number ?? null,
+  pr_number: action?.pr_number ?? null,
+  current_head: action?.exact_head ?? null,
+  ...(action === null ? {} : { draft_return_action: action }),
+  ...(completion === null ? {} : { completion }),
+})
+
+const draftReturnOperatorStopV1 = (action, reason, mutationCount = 0) => draftReturnOperatorResultV1(action, {
+  state: 'INDETERMINATE', exitCode: 1, reason, mutationCount, automationStatus: 'STOPPED',
+})
+
+export const projectDraftReturnCompletionBodyV1 = ({ action, completionCommentId, runId, runAttempt }) => {
+  const taskUrl = `https://github.com/${action.repository}/issues/${action.task_issue_number}`
+  return [
+    '# Draft Return Completion',
+    '',
+    '```yaml',
+    'record_type: draft_return_completion_v1',
+    'version: 1',
+    'authoring_role: Protected Transition Operator',
+    `authority_source: https://github.com/${action.repository}/actions/runs/${runId}/attempts/${runAttempt}#draft-return-operator`,
+    `canonical_record: ${taskUrl}#issuecomment-${completionCommentId}`,
+    `repository: ${action.repository}`,
+    `task_issue: ${taskUrl}`,
+    `pull_request: https://github.com/${action.repository}/pull/${action.pr_number}`,
+    `exact_head: ${action.exact_head}`,
+    'target_branch: main',
+    'action: RETURN_TO_DRAFT',
+    'method: convertPullRequestToDraft',
+    `authority: ${action.authority_url}`,
+    `prior_ready_completion: ${action.prior_ready_completion_url}`,
+    'before_state: READY',
+    'after_state: DRAFT',
+    'mutation_count: 1',
+    'result: COMPLETED',
+    '```',
+    '',
+  ].join('\n')
+}
+
+const publishDraftReturnCompletionV1 = async ({ action, host, runId, runAttempt }) => {
+  const placeholderBody = '<!-- draft-return-completion-v1:self-binding -->'
+  const posted = await api(host, `repos/${action.repository}/issues/${action.task_issue_number}/comments`, {
+    method: 'POST', body: { body: placeholderBody },
+  })
+  const completionCommentId = posted?.id
+  const completionUrl = `https://github.com/${action.repository}/issues/${action.task_issue_number}#issuecomment-${completionCommentId}`
+  if (!positiveInteger(completionCommentId) || posted?.html_url !== completionUrl || posted?.body !== placeholderBody) {
+    throw new Error('draft_return_completion_publish_failed')
+  }
+  const completionBody = projectDraftReturnCompletionBodyV1({ action, completionCommentId, runId, runAttempt })
+  const updated = await api(host, `repos/${action.repository}/issues/comments/${completionCommentId}`, {
+    method: 'PATCH', body: { body: completionBody },
+  })
+  if (updated?.id !== completionCommentId || updated?.html_url !== completionUrl || updated?.body !== completionBody) {
+    throw new Error('draft_return_completion_publish_failed')
+  }
+  const fresh = await fetchDraftReturnCompletionRecordV1(action.repository, action.task_issue_number, completionCommentId, host)
+  if (fresh.html_url !== completionUrl || fresh.body !== completionBody) throw new Error('draft_return_completion_publish_failed')
+  const parsed = parseDraftReturnCompletionV1(fresh.body, action.repository, action.task_issue_number)
+  if (
+    parsed.completion_comment_id !== completionCommentId || parsed.authority_comment_id !== action.authority_comment_id ||
+    parsed.prior_ready_completion_comment_id !== action.prior_ready_completion_comment_id ||
+    parsed.pr_number !== action.pr_number || parsed.exact_head !== action.exact_head
+  ) throw new Error('draft_return_completion_publish_failed')
+  return Object.freeze({ comment_id: completionCommentId, url: completionUrl })
+}
+
+export const executeDraftReturnOperatorV1 = async ({ request, host, runId, runAttempt }) => {
+  let action = null
+  let mutationCount = 0
+  try {
+    if (!WORKFLOW_RUN_ID.test(String(runId ?? '')) || !positiveInteger(runAttempt)) {
+      throw new Error('draft_return_execution_identity_invalid')
+    }
+    action = await admitDraftReturnAuthorityV1({ request, host })
+    const history = await acquireMinimalGovernanceCommentHistoryV1(request, host)
+    for (const comment of history.comments) {
+      if (!/(?:^|\r?\n)record_type:[ \t]+draft_return_completion_v1(?:\r?$)/m.test(comment.body)) continue
+      let completion
+      try {
+        completion = parseDraftReturnCompletionV1(comment.body, action.repository, action.task_issue_number)
+      } catch {
+        return draftReturnOperatorStopV1(action, 'draft_return_completion_history_invalid')
+      }
+      if (completion.authority_comment_id === action.authority_comment_id) {
+        return draftReturnOperatorStopV1(action, 'draft_return_authority_consumed')
+      }
+    }
+
+    const { owner, name } = repositoryPartsV1(action.repository)
+    const acquireFreshPull = () => graphql(host, READY_TRANSITION_PULL_QUERY, { owner, name, pr: action.pr_number })
+    const before = await acquireFreshPull()
+    const repository = before?.repository
+    const pull = repository?.pullRequest
+    if (
+      repository?.nameWithOwner !== action.repository || typeof pull?.id !== 'string' || pull.id.length === 0 ||
+      pull.number !== action.pr_number || pull.headRefOid !== action.exact_head || pull.baseRefName !== 'main' ||
+      pull.state !== 'OPEN' || pull.isDraft !== false || pull.merged !== false
+    ) return draftReturnOperatorStopV1(action, 'draft_return_pull_guard_failed')
+
+    mutationCount = 1
+    try {
+      await graphql(host, CONVERT_PULL_REQUEST_TO_DRAFT_MUTATION, { pullRequestId: pull.id })
+    } catch {
+      return draftReturnOperatorStopV1(action, 'draft_return_mutation_failed', mutationCount)
+    }
+
+    let after
+    try {
+      after = await acquireFreshPull()
+    } catch {
+      return draftReturnOperatorStopV1(action, 'draft_return_refetch_failed', mutationCount)
+    }
+    const confirmedRepository = after?.repository
+    const confirmedPull = confirmedRepository?.pullRequest
+    if (
+      confirmedRepository?.nameWithOwner !== action.repository || confirmedPull?.id !== pull.id ||
+      confirmedPull?.number !== action.pr_number || confirmedPull?.headRefOid !== action.exact_head ||
+      confirmedPull?.baseRefName !== 'main' || confirmedPull?.state !== 'OPEN' ||
+      confirmedPull?.isDraft !== true || confirmedPull?.merged !== false
+    ) return draftReturnOperatorStopV1(action, 'draft_return_refetch_mismatch', mutationCount)
+
+    let completion
+    try {
+      completion = await publishDraftReturnCompletionV1({ action, host, runId, runAttempt })
+    } catch {
+      return draftReturnOperatorStopV1(action, 'draft_return_completion_publish_failed', mutationCount)
+    }
+    return draftReturnOperatorResultV1(action, {
+      state: 'COMPLETED', exitCode: 0, reason: 'draft_return_completed', mutationCount,
+      automationStatus: 'COMPLETED', completion,
+    })
+  } catch (error) {
+    return draftReturnOperatorStopV1(action, error instanceof Error ? error.message : 'draft_return_failed', mutationCount)
   }
 }
 
@@ -9965,7 +10399,8 @@ const parseManualCli = (argv, environment) => {
   const required = ['--transition', '--task-issue-number', '--pr-number', '--exact-head']
   const resumeOnly = ['--review-decision-comment-id', '--publication-handoff-comment-id']
   const mergeSuccessorOnly = ['--merge-decision-comment-id']
-  const allowed = new Set([...required, ...resumeOnly, ...mergeSuccessorOnly])
+  const draftReturnOnly = ['--draft-return-authority-comment-id']
+  const allowed = new Set([...required, ...resumeOnly, ...mergeSuccessorOnly, ...draftReturnOnly])
   if (required.some((key) => !values.has(key)) || [...values.keys()].some((key) => !allowed.has(key))) throw new Error('cli_arguments_invalid')
   const transition = values.get('--transition')
   const taskIssueNumber = Number(values.get('--task-issue-number'))
@@ -9980,11 +10415,15 @@ const parseManualCli = (argv, environment) => {
   const mergeDecisionCommentId = values.has('--merge-decision-comment-id')
     ? Number(values.get('--merge-decision-comment-id'))
     : null
+  const draftReturnAuthorityCommentId = values.has('--draft-return-authority-comment-id')
+    ? Number(values.get('--draft-return-authority-comment-id'))
+    : null
   const repository = environment.GITHUB_REPOSITORY
   const resumeTransition = transition === 'ready_transition_required_resume'
   const mergeSuccessorTransition = transition === 'merge_decision_successor_resume'
+  const draftReturnTransition = transition === 'draft_return_required_resume'
   if (
-    !['terminal_review_admission', 'merge_decision_admission', 'ready_transition_required_resume', 'merge_decision_successor_resume'].includes(transition) ||
+    !['terminal_review_admission', 'merge_decision_admission', 'ready_transition_required_resume', 'merge_decision_successor_resume', 'draft_return_required_resume'].includes(transition) ||
     !positiveInteger(taskIssueNumber) ||
     !positiveInteger(prNumber) ||
     !FULL_HEAD.test(exactHead ?? '') ||
@@ -9992,17 +10431,24 @@ const parseManualCli = (argv, environment) => {
     (resumeTransition && (
       values.size !== required.length + resumeOnly.length ||
       !positiveInteger(reviewDecisionCommentId) || !positiveInteger(publicationHandoffCommentId) ||
-      mergeDecisionCommentId !== null ||
+      mergeDecisionCommentId !== null || draftReturnAuthorityCommentId !== null ||
       !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '') || !positiveInteger(Number(environment.GITHUB_RUN_ATTEMPT))
     )) ||
     (mergeSuccessorTransition && (
       values.size !== required.length + mergeSuccessorOnly.length ||
       reviewDecisionCommentId !== null || publicationHandoffCommentId !== null ||
-      !positiveInteger(mergeDecisionCommentId) || !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '')
+      draftReturnAuthorityCommentId !== null || !positiveInteger(mergeDecisionCommentId) ||
+      !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '')
     )) ||
-    (!resumeTransition && !mergeSuccessorTransition && (
+    (draftReturnTransition && (
+      values.size !== required.length + draftReturnOnly.length ||
+      reviewDecisionCommentId !== null || publicationHandoffCommentId !== null || mergeDecisionCommentId !== null ||
+      !positiveInteger(draftReturnAuthorityCommentId) || !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '') ||
+      !positiveInteger(Number(environment.GITHUB_RUN_ATTEMPT))
+    )) ||
+    (!resumeTransition && !mergeSuccessorTransition && !draftReturnTransition && (
       values.size !== required.length || reviewDecisionCommentId !== null ||
-      publicationHandoffCommentId !== null || mergeDecisionCommentId !== null
+      publicationHandoffCommentId !== null || mergeDecisionCommentId !== null || draftReturnAuthorityCommentId !== null
     ))
   ) {
     throw new Error('cli_arguments_invalid')
@@ -10016,6 +10462,7 @@ const parseManualCli = (argv, environment) => {
     reviewDecisionCommentId,
     publicationHandoffCommentId,
     mergeDecisionCommentId,
+    draftReturnAuthorityCommentId,
   })
 }
 
@@ -10220,7 +10667,7 @@ const readJsonFileV1 = (file) => JSON.parse(readFileSync(file, 'utf8'))
 
 const liveShadowRequestV1 = (invocation, environment) => {
   if (invocation.mode === 'manual') {
-    return ['ready_transition_required_resume', 'merge_decision_successor_resume'].includes(invocation.request.transition)
+    return ['ready_transition_required_resume', 'merge_decision_successor_resume', 'draft_return_required_resume'].includes(invocation.request.transition)
       ? null
       : invocation.request
   }
@@ -10768,6 +11215,7 @@ const main = async () => {
                   reviewDecisionCommentId: process.env.PTA_INPUT_REVIEW_DECISION_COMMENT_ID,
                   publicationHandoffCommentId: process.env.PTA_INPUT_PUBLICATION_HANDOFF_COMMENT_ID,
                   mergeDecisionCommentId: process.env.PTA_INPUT_MERGE_DECISION_COMMENT_ID,
+                  draftReturnAuthorityCommentId: process.env.PTA_INPUT_DRAFT_RETURN_AUTHORITY_COMMENT_ID,
                 })
             : invocation.mode === 'admission_result_projection'
               ? projectAdmissionWorkflowResultV1({ result: readJsonFileV1(invocation.resultFile) })
@@ -10919,6 +11367,13 @@ const main = async () => {
                     host: executionHost,
                     })
                   })()
+                : invocation.request.transition === 'draft_return_required_resume'
+                  ? await executeDraftReturnOperatorV1({
+                      request: invocation.request,
+                      host: executionHost,
+                      runId: process.env.GITHUB_RUN_ID,
+                      runAttempt: Number(process.env.GITHUB_RUN_ATTEMPT),
+                    })
                 : invocation.request.transition === 'ready_transition_required_resume'
                   ? await executeReadyTransitionRequiredResumeV1({
                       request: invocation.request,

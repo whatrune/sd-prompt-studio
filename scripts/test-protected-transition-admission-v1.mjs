@@ -14,6 +14,7 @@ import {
 } from '../src/continuous-orchestration/protected-transition-admission-v1.ts'
 import {
   admitReadyTransitionAuthorityV1,
+  admitDraftReturnAuthorityV1,
   acquireChangedPathScopeV1,
   evaluateProgressionControllerV1,
   evaluateMergeAllowedAutomationV1,
@@ -41,6 +42,7 @@ import {
   executeReviewEventWithLifecycleReplayV1,
   executeReviewThreadClosureV1,
   executeReadyTransitionOperatorV1,
+  executeDraftReturnOperatorV1,
   executeSameRunPostReadyContinuationV1,
   executeReadyEventWithLifecycleReplayV1,
   executeMinimalGovernanceFinalDriftGuardV1,
@@ -64,6 +66,9 @@ import {
   parsePrePrImplementationResultHandoffV1,
   parsePrePrProductOwnerPublicationDecisionV1,
   parseReadyTransitionAuthorityV1,
+  parseDraftReturnAuthorityV1,
+  parseDraftReturnCompletionV1,
+  parseProtectedReadyCompletionV1,
   finalizePrePrImplementationResultHandoffV1,
   parseLifecyclePublicationTaskBindingV1,
   parseReviewApprovalEventV1,
@@ -73,6 +78,8 @@ import {
   projectProtectedTransitionReviewStateV1,
   projectBootstrapPublicationRequestV1,
   projectReadyTransitionAuthorityBodyV1,
+  projectDraftReturnAuthorityBodyV1,
+  projectDraftReturnCompletionBodyV1,
   projectSelfHostedWindowsRepairProviderV3,
   projectRoleDispatchEnvelopeV1,
   projectIntegratedLeadReadyReviewV1,
@@ -739,8 +746,8 @@ for (const unit of roleUnits) {
 }
 
 check(Object.keys(workflow.on).join(',') === 'workflow_dispatch,issue_comment,pull_request' && workflow.on.issue_comment.types.join(',') === 'created' && workflow.on.pull_request.types.join(',') === 'ready_for_review', 'workflow has manual recovery, created Review, and Ready triggers')
-check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head,review_decision_comment_id,publication_handoff_comment_id,merge_decision_comment_id' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number', 'workflow has the four shared inputs plus exactly three transition-scoped canonical owner IDs and canonicalizes the Task input as a number')
-check(Object.keys(workflow.permissions).join(',') === 'actions,contents,checks,issues,pull-requests,statuses' && workflow.permissions.actions === 'read' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'read' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read', 'workflow adds only read access for Actions, checks, and statuses')
+check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head,review_decision_comment_id,publication_handoff_comment_id,merge_decision_comment_id,draft_return_authority_comment_id' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number', 'workflow has the four shared inputs plus exactly four transition-scoped canonical owner IDs and canonicalizes the Task input as a number')
+check(Object.keys(workflow.permissions).join(',') === 'actions,contents,checks,issues,pull-requests,statuses' && workflow.permissions.actions === 'read' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'write' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read', 'workflow grants the bounded issue-comment write required for canonical Draft Return completion')
 
 const admissionJob = workflow.jobs.protected_transition_admission_v1
 const hostIdentityStep = admissionJob.steps.find((step) => step.name === 'Admit exact default-branch host identity')
@@ -1052,7 +1059,7 @@ const automationHost = ({
 // Seven Ready-for-Review bridge units x three assertions = 21.
 check(workflow.on.pull_request.types.join(',') === 'ready_for_review' && workflowSource.includes('--ready-event-file "$PTA_EVENT_PATH"'), 'RFR-01 workflow routes only Ready events to the Ready adapter')
 check(workflowSource.includes('[[ "$PTA_BASE_REF" == "main" ]]') && workflowSource.includes('refs/pull/${PTA_EVENT_PR_NUMBER}/merge'), 'RFR-01 Ready host binds main base and exact PR merge ref')
-check(Object.keys(workflow.on.workflow_dispatch.inputs).length === 7 && workflow.concurrency.group.includes('github.event.pull_request.number'), 'RFR-01 preserves four shared recovery inputs, adds only transition-scoped bounded owner IDs, and retains the PR fallback queue key')
+check(Object.keys(workflow.on.workflow_dispatch.inputs).length === 8 && workflow.concurrency.group.includes('github.event.pull_request.number'), 'RFR-01 preserves four shared recovery inputs, adds only transition-scoped bounded owner IDs, and retains the PR fallback queue key')
 
 const validReadyAutomation = automationHost({
   initialState: approvedState(),
@@ -1492,8 +1499,12 @@ const productionPaths = execFileSync('git', ['ls-files', '.github', 'scripts', '
   .trim().split(/\r?\n/).filter((value) => value && !/^scripts\/test-/.test(value))
 const repositoryProductionSource = productionPaths.map((value) => readFileSync(path.join(repositoryRoot, value), 'utf8')).join('\n')
 const patchCallsites = runnerSource.match(/method:\s*['"]PATCH['"]/g) ?? []
-check(patchCallsites.length === 1, 'protected-transition production has exactly one Task-state PATCH callsite')
-check(/export const writeProtectedTransitionTaskStateV1[\s\S]*?method:\s*['"]PATCH['"]/.test(runnerSource), 'canonical writer owns the PATCH callsite')
+check(patchCallsites.length === 2, 'protected-transition production has one Task-state PATCH and one self-bound Draft Return completion PATCH')
+check(
+  /export const writeProtectedTransitionTaskStateV1[\s\S]*?method:\s*['"]PATCH['"]/.test(runnerSource) &&
+  /const publishDraftReturnCompletionV1[\s\S]*?method:\s*['"]PATCH['"]/.test(runnerSource),
+  'canonical state and Draft Return completion writers exclusively own the two PATCH callsites',
+)
 check(!/(?:gh\s+pr\s+edit|updatePullRequest|mutatePullRequest)/.test(repositoryProductionSource), 'repository production has no alternate PR-body writer')
 
 const concurrencyGroup = workflow.concurrency.group
@@ -1960,7 +1971,7 @@ check(
   (runnerSource.match(/reduceSelfAwareCurrentChecksV1\(/g) ?? []).length === 3 &&
   (runnerSource.match(/partitionReadyRunChecksV1\(/g) ?? []).length === 2 &&
   runnerSource.includes("const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'") &&
-  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 9,
+  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 10,
   'SGR-12 shared-helper use and correction/cumulative allowlists hold without duplicate sibling filters',
 )
 
@@ -9876,7 +9887,7 @@ const lifecycleStructuralMatrix = [
   !lifecycleSource.includes('role_dispatch:') && !lifecycleSource.includes('provider_projection') && !lifecycleSource.includes("method: 'POST'") && !lifecycleSource.includes("method: 'PUT'"),
   lifecycleAllResults.every((result) => result.mutation_count === 0 && !Object.hasOwn(result, 'comment_body') && !Object.hasOwn(result, 'authority') && !Object.hasOwn(result, 'review')),
   workflow.on.issue_comment.types.join(',') === 'created' && workflow.on.pull_request.types.join(',') === 'ready_for_review' && Object.keys(workflow.jobs).length === 5,
-  workflow.permissions.actions === 'read' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'read' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read',
+  workflow.permissions.actions === 'read' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'write' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read',
   lifecycleHistoricalPathsV1[323].length === 11 && lifecycleHistoricalPathsV1[325].length === 20 && lifecycleHistoricalPathsV1[327].length === 35 && lifecycleHistoricalPathsV1[329].length === 32 && lifecycleHistoricalPathsV1[331].length === 4 && lifecycleHistoricalPathsV1[333].length === 24,
   pr333InitialPaths.length === 18 && pr333TwentyTwoPaths.length === 22 && lifecycleHistoricalIdentityV1[333].head === '4f0154002ee0139c54cba177dea52f68a3259e87',
   lifecycleValidationOwnerProjectionSource.includes('...result.validation') &&
@@ -11186,13 +11197,14 @@ const readyResumeResultV1 = await executeReadyTransitionRequiredResumeV1({
 })
 check(
   workflow.on.workflow_dispatch.inputs.transition.options.join('|') ===
-    'terminal_review_admission|merge_decision_admission|ready_transition_required_resume|merge_decision_successor_resume' &&
+    'terminal_review_admission|merge_decision_admission|ready_transition_required_resume|merge_decision_successor_resume|draft_return_required_resume' &&
   workflow.on.workflow_dispatch.inputs.review_decision_comment_id.required === false &&
   workflow.on.workflow_dispatch.inputs.publication_handoff_comment_id.required === false &&
+  workflow.on.workflow_dispatch.inputs.draft_return_authority_comment_id.required === false &&
   workflowSource.includes('--workflow-dispatch-argument-projection') &&
   workflowSource.includes('"${dispatch_args[@]}"') &&
   !workflowSource.includes('repository_dispatch'),
-  'BRI-01 workflow exposes only the bounded Ready successor transition and its two optional-at-schema runtime-bound owner IDs',
+  'BRI-01 workflow preserves Ready successor routing and adds only the bounded Draft Return authority ingress',
 )
 check(
   readyResumeResultV1.next_action === 'INTEGRATED_LEAD_READY_REVIEW' &&
@@ -11669,6 +11681,342 @@ check(
   progressRoleSource.includes("if ($terminalAgentMessage.Trim() -cne 'IN_PROGRESS') { return }") &&
   prePrWorkflowBlock.includes('$null = Publish-CanonicalComment -BodyFile $finalBodyPath') && prePrWorkflowBlock.includes('exit 0'),
   'RAB-10 natural ready_for_review, IN_PROGRESS, and Result Handoff continuation ownership remain unchanged',
+)
+
+const DRAFT_RETURN_TASK = 415
+const DRAFT_RETURN_PR = 416
+const DRAFT_RETURN_HEAD = 'd'.repeat(40)
+const PRIOR_READY_HEAD = 'e'.repeat(40)
+const DRAFT_RETURN_AUTHORITY_ID = 6100000001
+const DRAFT_RETURN_AUTHORITY_SOURCE_ID = 6100000002
+const PRIOR_READY_COMPLETION_ID = 6100000003
+const PRIOR_READY_AUTHORITY_ID = 6100000004
+const DRAFT_RETURN_COMPLETION_ID = 6100000005
+const DRAFT_RETURN_TASK_URL = `https://github.com/${REPOSITORY}/issues/${DRAFT_RETURN_TASK}`
+const DRAFT_RETURN_AUTHORITY_URL = `${DRAFT_RETURN_TASK_URL}#issuecomment-${DRAFT_RETURN_AUTHORITY_ID}`
+const PRIOR_READY_COMPLETION_URL = `${DRAFT_RETURN_TASK_URL}#issuecomment-${PRIOR_READY_COMPLETION_ID}`
+const DRAFT_RETURN_COMPLETION_URL = `${DRAFT_RETURN_TASK_URL}#issuecomment-${DRAFT_RETURN_COMPLETION_ID}`
+const draftReturnRequestV1 = (overrides = {}) => Object.freeze({
+  transition: 'draft_return_required_resume',
+  repository: REPOSITORY,
+  taskIssueNumber: DRAFT_RETURN_TASK,
+  prNumber: DRAFT_RETURN_PR,
+  exactHead: DRAFT_RETURN_HEAD,
+  reviewDecisionCommentId: null,
+  publicationHandoffCommentId: null,
+  mergeDecisionCommentId: null,
+  draftReturnAuthorityCommentId: DRAFT_RETURN_AUTHORITY_ID,
+  ...overrides,
+})
+const draftReturnAuthorityBodyV1 = (overrides = {}) => projectDraftReturnAuthorityBodyV1({
+  repository: REPOSITORY,
+  taskIssueNumber: DRAFT_RETURN_TASK,
+  prNumber: DRAFT_RETURN_PR,
+  exactHead: DRAFT_RETURN_HEAD,
+  authorityCommentId: DRAFT_RETURN_AUTHORITY_ID,
+  authoritySourceCommentId: DRAFT_RETURN_AUTHORITY_SOURCE_ID,
+  priorReadyCompletionCommentId: PRIOR_READY_COMPLETION_ID,
+  priorReadyHead: PRIOR_READY_HEAD,
+  ...overrides,
+})
+const priorReadyCompletionBodyV1 = (overrides = {}) => {
+  const values = {
+    record_type: 'protected_action_completion',
+    canonical_task: `#${DRAFT_RETURN_TASK}`,
+    action: 'ready_for_review',
+    repository: REPOSITORY,
+    pull_request: `#${DRAFT_RETURN_PR}`,
+    exact_head: PRIOR_READY_HEAD,
+    authority: `${DRAFT_RETURN_TASK_URL}#issuecomment-${PRIOR_READY_AUTHORITY_ID}`,
+    before_state: 'DRAFT',
+    after_state: 'READY',
+    transition_count: 1,
+    result: 'COMPLETED',
+    ...overrides,
+  }
+  return `## Ready Transition Completion\n\n${Object.entries(values).map(([key, value]) => `- ${key}: \`${value}\``).join('\n')}\n`
+}
+const draftReturnActionV1 = Object.freeze({
+  repository: REPOSITORY,
+  task_issue_number: DRAFT_RETURN_TASK,
+  pr_number: DRAFT_RETURN_PR,
+  exact_head: DRAFT_RETURN_HEAD,
+  action: 'RETURN_TO_DRAFT',
+  method: 'convertPullRequestToDraft',
+  operation_count: 1,
+  authority_comment_id: DRAFT_RETURN_AUTHORITY_ID,
+  authority_url: DRAFT_RETURN_AUTHORITY_URL,
+  prior_ready_completion_comment_id: PRIOR_READY_COMPLETION_ID,
+  prior_ready_completion_url: PRIOR_READY_COMPLETION_URL,
+  prior_ready_head: PRIOR_READY_HEAD,
+  scope_contract_source: DRAFT_RETURN_TASK_URL,
+})
+const draftReturnCommentV1 = ({
+  id, body, htmlUrl = `${DRAFT_RETURN_TASK_URL}#issuecomment-${id}`,
+  user = Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
+}) => Object.freeze({
+  id,
+  issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${DRAFT_RETURN_TASK}`,
+  html_url: htmlUrl,
+  created_at: '2026-08-28T00:00:00Z',
+  author_association: user.login === 'github-actions[bot]' ? 'NONE' : 'OWNER',
+  user,
+  body,
+})
+const draftReturnHostV1 = ({
+  authorityBody = draftReturnAuthorityBodyV1(), priorReadyBody = priorReadyCompletionBodyV1(),
+  authorityUser = Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
+  omitAuthority = false, omitPriorReady = false, before = {}, after = {}, mutationRejects = false,
+  refetchRejects = false, completionPublishRejects = false, completionRefetchMismatch = false,
+  consumed = false, malformedCompletion = false,
+} = {}) => {
+  const metrics = { authorityReads: 0, priorReadyReads: 0, historyReads: 0, pulls: 0, mutations: 0, posts: 0, patches: 0, completionReads: 0 }
+  let publishedBody = null
+  const completionBody = projectDraftReturnCompletionBodyV1({
+    action: draftReturnActionV1, completionCommentId: DRAFT_RETURN_COMPLETION_ID,
+    runId: REVIEW_RUN_ID, runAttempt: 1,
+  })
+  const historyBody = malformedCompletion ? '```yaml\nrecord_type: draft_return_completion_v1\ninvalid: true\n```' : completionBody
+  const pull = (overrides) => Object.freeze({
+    id: 'PR_kwDODraftReturnOwnerV1', number: DRAFT_RETURN_PR, headRefOid: DRAFT_RETURN_HEAD,
+    baseRefName: 'main', state: 'OPEN', isDraft: false, merged: false, ...overrides,
+  })
+  return Object.freeze({
+    metrics,
+    host: Object.freeze({
+      api: async (endpoint, options = undefined) => {
+        if (endpoint === `repos/${REPOSITORY}/issues/${DRAFT_RETURN_TASK}`) return Object.freeze({
+          number: DRAFT_RETURN_TASK,
+          repository_url: `https://api.github.com/repos/${REPOSITORY}`,
+          html_url: DRAFT_RETURN_TASK_URL,
+          state: 'open',
+        })
+        if (endpoint === `repos/${REPOSITORY}/issues/comments/${DRAFT_RETURN_AUTHORITY_ID}`) {
+          metrics.authorityReads += 1
+          if (omitAuthority) throw new Error('draft_return_authority_missing')
+          return draftReturnCommentV1({ id: DRAFT_RETURN_AUTHORITY_ID, body: authorityBody, user: authorityUser })
+        }
+        if (endpoint === `repos/${REPOSITORY}/issues/comments/${PRIOR_READY_COMPLETION_ID}`) {
+          metrics.priorReadyReads += 1
+          if (omitPriorReady) throw new Error('draft_return_prior_ready_completion_missing')
+          return draftReturnCommentV1({ id: PRIOR_READY_COMPLETION_ID, body: priorReadyBody })
+        }
+        if (endpoint.startsWith(`repos/${REPOSITORY}/issues/${DRAFT_RETURN_TASK}/comments?`)) {
+          metrics.historyReads += 1
+          return consumed || malformedCompletion
+            ? [draftReturnCommentV1({
+                id: DRAFT_RETURN_COMPLETION_ID, body: historyBody,
+                user: Object.freeze({ login: 'github-actions[bot]', id: 41898282, type: 'Bot' }),
+              })]
+            : []
+        }
+        if (endpoint === `repos/${REPOSITORY}/issues/${DRAFT_RETURN_TASK}/comments` && options?.method === 'POST') {
+          metrics.posts += 1
+          if (completionPublishRejects) throw new Error('post_failed')
+          return draftReturnCommentV1({
+            id: DRAFT_RETURN_COMPLETION_ID, body: options.body.body,
+            user: Object.freeze({ login: 'github-actions[bot]', id: 41898282, type: 'Bot' }),
+          })
+        }
+        if (endpoint === `repos/${REPOSITORY}/issues/comments/${DRAFT_RETURN_COMPLETION_ID}` && options?.method === 'PATCH') {
+          metrics.patches += 1
+          if (completionPublishRejects) throw new Error('patch_failed')
+          publishedBody = options.body.body
+          return draftReturnCommentV1({
+            id: DRAFT_RETURN_COMPLETION_ID, body: publishedBody,
+            user: Object.freeze({ login: 'github-actions[bot]', id: 41898282, type: 'Bot' }),
+          })
+        }
+        if (endpoint === `repos/${REPOSITORY}/issues/comments/${DRAFT_RETURN_COMPLETION_ID}`) {
+          metrics.completionReads += 1
+          return draftReturnCommentV1({
+            id: DRAFT_RETURN_COMPLETION_ID,
+            body: completionRefetchMismatch ? `${publishedBody}\nchanged` : publishedBody,
+            user: Object.freeze({ login: 'github-actions[bot]', id: 41898282, type: 'Bot' }),
+          })
+        }
+        throw new Error(`unexpected_endpoint:${endpoint}`)
+      },
+      graphql: async (query) => {
+        if (query.includes('query ReadyTransitionPull')) {
+          metrics.pulls += 1
+          if (refetchRejects && metrics.pulls > 1) throw new Error('refetch_failed')
+          return Object.freeze({ repository: Object.freeze({
+            nameWithOwner: REPOSITORY,
+            pullRequest: metrics.pulls === 1 ? pull(before) : pull({ isDraft: true, ...after }),
+          }) })
+        }
+        if (query.includes('mutation ConvertPullRequestToDraft')) {
+          metrics.mutations += 1
+          if (mutationRejects) throw new Error('draft_mutation_rejected')
+          return Object.freeze({ convertPullRequestToDraft: Object.freeze({ clientMutationId: null }) })
+        }
+        throw new Error('unexpected_graphql')
+      },
+    }),
+  })
+}
+
+const parsedDraftReturnAuthorityV1 = parseDraftReturnAuthorityV1(
+  draftReturnAuthorityBodyV1(), REPOSITORY, DRAFT_RETURN_TASK,
+)
+const parsedPriorReadyCompletionV1 = parseProtectedReadyCompletionV1(
+  priorReadyCompletionBodyV1(), REPOSITORY, DRAFT_RETURN_TASK,
+)
+check(
+  parsedDraftReturnAuthorityV1.authority_comment_id === DRAFT_RETURN_AUTHORITY_ID &&
+  parsedDraftReturnAuthorityV1.prior_ready_completion_comment_id === PRIOR_READY_COMPLETION_ID &&
+  parsedDraftReturnAuthorityV1.prior_ready_head === PRIOR_READY_HEAD &&
+  parsedPriorReadyCompletionV1.pr_number === DRAFT_RETURN_PR && parsedPriorReadyCompletionV1.exact_head === PRIOR_READY_HEAD,
+  'DRT-01 exact Draft Return authority and historical Ready completion contracts parse deterministically',
+)
+const admittedDraftReturnFixtureV1 = draftReturnHostV1()
+const admittedDraftReturnActionV1 = await admitDraftReturnAuthorityV1({
+  request: draftReturnRequestV1(), host: admittedDraftReturnFixtureV1.host,
+})
+check(
+  JSON.stringify(admittedDraftReturnActionV1) === JSON.stringify(draftReturnActionV1) &&
+  admittedDraftReturnFixtureV1.metrics.mutations === 0,
+  'DRT-02 exact authority current HEAD and historical different-HEAD Ready completion bind before mutation',
+)
+const draftReturnSuccessFixtureV1 = draftReturnHostV1()
+const draftReturnSuccessV1 = await executeDraftReturnOperatorV1({
+  request: draftReturnRequestV1(), host: draftReturnSuccessFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
+})
+check(
+  draftReturnSuccessV1.state === 'COMPLETED' && draftReturnSuccessV1.next_action === 'NONE' &&
+  draftReturnSuccessV1.mutation_count === 1 && draftReturnSuccessFixtureV1.metrics.mutations === 1 &&
+  draftReturnSuccessFixtureV1.metrics.pulls === 2 && draftReturnSuccessFixtureV1.metrics.posts === 1 &&
+  draftReturnSuccessFixtureV1.metrics.patches === 1 && draftReturnSuccessV1.completion.url === DRAFT_RETURN_COMPLETION_URL,
+  'DRT-03 Ready PR changed HEAD plus valid exact authority performs one Draft mutation and records completion',
+)
+const parsedDraftReturnCompletionV1 = parseDraftReturnCompletionV1(
+  projectDraftReturnCompletionBodyV1({
+    action: draftReturnActionV1, completionCommentId: DRAFT_RETURN_COMPLETION_ID,
+    runId: REVIEW_RUN_ID, runAttempt: 1,
+  }),
+  REPOSITORY, DRAFT_RETURN_TASK,
+)
+check(
+  parsedDraftReturnCompletionV1.exact_head === DRAFT_RETURN_HEAD &&
+  parsedDraftReturnCompletionV1.authority_comment_id === DRAFT_RETURN_AUTHORITY_ID &&
+  parsedDraftReturnCompletionV1.prior_ready_completion_comment_id === PRIOR_READY_COMPLETION_ID,
+  'DRT-04 completion preserves exact HEAD authority and historical Ready identity',
+)
+const wrongHeadDraftReturnFixtureV1 = draftReturnHostV1()
+const wrongHeadDraftReturnV1 = await executeDraftReturnOperatorV1({
+  request: draftReturnRequestV1({ exactHead: OTHER_HEAD }), host: wrongHeadDraftReturnFixtureV1.host,
+  runId: REVIEW_RUN_ID, runAttempt: 1,
+})
+check(
+  wrongHeadDraftReturnV1.next_action === 'STOP' && wrongHeadDraftReturnV1.mutation_count === 0 &&
+  wrongHeadDraftReturnFixtureV1.metrics.mutations === 0 && wrongHeadDraftReturnFixtureV1.metrics.pulls === 0,
+  'DRT-05 wrong exact HEAD stops before mutation',
+)
+for (const [index, before] of [
+  { isDraft: true }, { state: 'CLOSED' }, { state: 'MERGED', merged: true },
+].entries()) {
+  const fixture = draftReturnHostV1({ before })
+  const result = await executeDraftReturnOperatorV1({
+    request: draftReturnRequestV1(), host: fixture.host, runId: REVIEW_RUN_ID, runAttempt: 1,
+  })
+  check(
+    result.reason === 'draft_return_pull_guard_failed' && result.mutation_count === 0 && fixture.metrics.mutations === 0,
+    `DRT-0${index + 6} Draft, closed, and merged guards each stop before mutation case ${index + 1}`,
+  )
+}
+for (const [index, fixture] of [
+  draftReturnHostV1({ omitAuthority: true }),
+  draftReturnHostV1({ authorityBody: draftReturnAuthorityBodyV1({ exactHead: OTHER_HEAD }) }),
+  draftReturnHostV1({ omitPriorReady: true }),
+  draftReturnHostV1({ authorityUser: Object.freeze({ login: 'collaborator', id: 99, type: 'User' }) }),
+].entries()) {
+  const result = await executeDraftReturnOperatorV1({
+    request: draftReturnRequestV1(), host: fixture.host, runId: REVIEW_RUN_ID, runAttempt: 1,
+  })
+  check(
+    result.next_action === 'STOP' && result.mutation_count === 0 && fixture.metrics.mutations === 0,
+    `DRT-${String(index + 9).padStart(2, '0')} missing stale unprovable or wrong-actor authority stops before mutation case ${index + 1}`,
+  )
+}
+const consumedDraftReturnFixtureV1 = draftReturnHostV1({ consumed: true })
+const consumedDraftReturnV1 = await executeDraftReturnOperatorV1({
+  request: draftReturnRequestV1(), host: consumedDraftReturnFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
+})
+check(
+  consumedDraftReturnV1.reason === 'draft_return_authority_consumed' && consumedDraftReturnV1.mutation_count === 0 &&
+  consumedDraftReturnFixtureV1.metrics.mutations === 0,
+  'DRT-12 matching completion makes Draft Return authority single-use',
+)
+const malformedHistoryFixtureV1 = draftReturnHostV1({ malformedCompletion: true })
+const malformedHistoryResultV1 = await executeDraftReturnOperatorV1({
+  request: draftReturnRequestV1(), host: malformedHistoryFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
+})
+check(
+  malformedHistoryResultV1.reason === 'draft_return_completion_history_invalid' && malformedHistoryResultV1.mutation_count === 0,
+  'DRT-13 malformed completion history fails closed before mutation',
+)
+const mutationFailureFixtureV1 = draftReturnHostV1({ mutationRejects: true })
+const mutationFailureResultV1 = await executeDraftReturnOperatorV1({
+  request: draftReturnRequestV1(), host: mutationFailureFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
+})
+check(
+  mutationFailureResultV1.reason === 'draft_return_mutation_failed' && mutationFailureResultV1.mutation_count === 1 &&
+  mutationFailureFixtureV1.metrics.mutations === 1 && mutationFailureFixtureV1.metrics.pulls === 1,
+  'DRT-14 rejected mutation stops with one attempt and no retry',
+)
+const refetchFailureFixtureV1 = draftReturnHostV1({ refetchRejects: true })
+const refetchFailureResultV1 = await executeDraftReturnOperatorV1({
+  request: draftReturnRequestV1(), host: refetchFailureFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
+})
+check(
+  refetchFailureResultV1.reason === 'draft_return_refetch_failed' && refetchFailureResultV1.mutation_count === 1,
+  'DRT-15 mutation followed by unavailable refetch fails closed',
+)
+for (const [index, after] of [
+  { isDraft: false }, { headRefOid: OTHER_HEAD },
+].entries()) {
+  const fixture = draftReturnHostV1({ after })
+  const result = await executeDraftReturnOperatorV1({
+    request: draftReturnRequestV1(), host: fixture.host, runId: REVIEW_RUN_ID, runAttempt: 1,
+  })
+  check(
+    result.reason === 'draft_return_refetch_mismatch' && result.mutation_count === 1 && fixture.metrics.posts === 0,
+    `DRT-${index + 16} non-Draft or changed-HEAD after-state fails closed without completion publication case ${index + 1}`,
+  )
+}
+const completionFailureFixtureV1 = draftReturnHostV1({ completionPublishRejects: true })
+const completionFailureResultV1 = await executeDraftReturnOperatorV1({
+  request: draftReturnRequestV1(), host: completionFailureFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
+})
+const completionRefetchMismatchFixtureV1 = draftReturnHostV1({ completionRefetchMismatch: true })
+const completionRefetchMismatchResultV1 = await executeDraftReturnOperatorV1({
+  request: draftReturnRequestV1(), host: completionRefetchMismatchFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
+})
+check(
+  completionFailureResultV1.reason === 'draft_return_completion_publish_failed' && completionFailureResultV1.mutation_count === 1 &&
+  completionFailureFixtureV1.metrics.mutations === 1 &&
+  completionRefetchMismatchResultV1.reason === 'draft_return_completion_publish_failed' &&
+  completionRefetchMismatchResultV1.mutation_count === 1,
+  'DRT-18 completion publication or direct-refetch mismatch remains fail-closed after the sole Draft mutation',
+)
+const draftReturnOperatorSourceV1 = runnerSource.slice(
+  runnerSource.indexOf('export const executeDraftReturnOperatorV1'),
+  runnerSource.indexOf('\nconst READY_TRANSITION_RESULT_FIELDS_V1'),
+)
+check(
+  (draftReturnOperatorSourceV1.match(/CONVERT_PULL_REQUEST_TO_DRAFT_MUTATION/g) ?? []).length === 1 &&
+  !draftReturnOperatorSourceV1.includes('MARK_PULL_REQUEST_READY_MUTATION') &&
+  !draftReturnOperatorSourceV1.includes('executeReadyTransitionOperatorV1') &&
+  workflow.on.pull_request.types.join(',') === 'ready_for_review',
+  'DRT-19 Draft Return owns one Draft mutation and does not synthesize or combine the later Ready transition',
+)
+check(
+  readySuccessResultV1.state === 'COMPLETED' && readySuccessResultV1.mutation_count === 1 &&
+  workflow.on.workflow_dispatch.inputs.transition.options.includes('ready_transition_required_resume') &&
+  runnerSource.includes("invocation.request.transition === 'draft_return_required_resume'") &&
+  runnerSource.includes("invocation.request.transition === 'ready_transition_required_resume'"),
+  'DRT-20 existing first-time and resumed Draft-to-Ready ownership remains distinct and unchanged',
 )
 check(
   bootstrapConsumerBlock.includes("status -cne 'SUCCESS'") &&
@@ -12729,6 +13077,7 @@ const workflowDispatchProjectionBaseV1 = Object.freeze({
   reviewDecisionCommentId: '',
   publicationHandoffCommentId: '',
   mergeDecisionCommentId: '',
+  draftReturnAuthorityCommentId: '',
 })
 const workflowDispatchBaseProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1(workflowDispatchProjectionBaseV1)
 const workflowDispatchReadyProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1({
@@ -12746,11 +13095,17 @@ const workflowDispatchMergeProjectionV1 = projectWorkflowDispatchEntrypointArgum
   transition: 'merge_decision_successor_resume',
   mergeDecisionCommentId: '5423219910',
 })
+const workflowDispatchDraftReturnProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1({
+  ...workflowDispatchProjectionBaseV1,
+  transition: 'draft_return_required_resume',
+  draftReturnAuthorityCommentId: '5445000001',
+})
 const workflowDispatchAllOptionalProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1({
   ...workflowDispatchProjectionBaseV1,
   reviewDecisionCommentId: '1',
   publicationHandoffCommentId: '2',
   mergeDecisionCommentId: '3',
+  draftReturnAuthorityCommentId: '4',
 })
 const workflowDispatchRawValueV1 = ' value with spaces\n"quotes"\\slash '
 const workflowDispatchRawProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1({
@@ -12761,6 +13116,7 @@ const workflowDispatchRawProjectionV1 = projectWorkflowDispatchEntrypointArgumen
   reviewDecisionCommentId: ' ',
   publicationHandoffCommentId: '',
   mergeDecisionCommentId: '',
+  draftReturnAuthorityCommentId: '',
 })
 const workflowDispatchProjectionCliV1 = spawnSync(process.execPath, [runnerPath, '--workflow-dispatch-argument-projection'], {
   cwd: repositoryRoot,
@@ -12773,6 +13129,7 @@ const workflowDispatchProjectionCliV1 = spawnSync(process.execPath, [runnerPath,
     PTA_INPUT_REVIEW_DECISION_COMMENT_ID: workflowDispatchProjectionBaseV1.reviewDecisionCommentId,
     PTA_INPUT_PUBLICATION_HANDOFF_COMMENT_ID: workflowDispatchProjectionBaseV1.publicationHandoffCommentId,
     PTA_INPUT_MERGE_DECISION_COMMENT_ID: workflowDispatchProjectionBaseV1.mergeDecisionCommentId,
+    PTA_INPUT_DRAFT_RETURN_AUTHORITY_COMMENT_ID: workflowDispatchProjectionBaseV1.draftReturnAuthorityCommentId,
   },
 })
 const workflowDispatchProjectorSourceV1 = runnerSource.slice(
@@ -12815,30 +13172,35 @@ check(
   'WDAP-04 Merge successor preserves the exact single optional argument suffix',
 )
 check(
-  workflowDispatchAllOptionalProjectionV1.argv.slice(-6).join('\n') === [
+  workflowDispatchDraftReturnProjectionV1.argv.slice(-2).join('\n') === '--draft-return-authority-comment-id\n5445000001' &&
+    workflowDispatchDraftReturnProjectionV1.argv.length === 10,
+  'WDAP-05 Draft Return preserves the exact single authority-ID suffix',
+)
+check(
+  workflowDispatchAllOptionalProjectionV1.argv.slice(-8).join('\n') === [
     '--review-decision-comment-id', '1', '--publication-handoff-comment-id', '2',
-    '--merge-decision-comment-id', '3',
+    '--merge-decision-comment-id', '3', '--draft-return-authority-comment-id', '4',
   ].join('\n'),
-  'WDAP-05 simultaneous optional values preserve prior projection and fixed order for downstream rejection',
+  'WDAP-06 simultaneous optional values preserve prior projection and fixed order for downstream rejection',
 )
 check(
   workflowDispatchRawProjectionV1.argv[1] === workflowDispatchRawValueV1 &&
     workflowDispatchRawProjectionV1.argv[3] === '' && workflowDispatchRawProjectionV1.argv[5] === '380' &&
     workflowDispatchRawProjectionV1.argv[7] === '' && workflowDispatchRawProjectionV1.argv.at(-1) === '',
-  'WDAP-06 raw whitespace quotes backslashes defaults and string conversion remain untrimmed',
+  'WDAP-07 raw whitespace quotes backslashes defaults and string conversion remain untrimmed',
 )
 check(
   workflowDispatchProjectionCliV1.status === 0 && workflowDispatchProjectionCliV1.stderr === '' &&
     JSON.stringify(JSON.parse(workflowDispatchProjectionCliV1.stdout)) === JSON.stringify(workflowDispatchBaseProjectionV1) &&
     runnerSource.includes("invocation.mode === 'workflow_dispatch_argument_projection'") &&
     !workflowDispatchProjectorSourceV1.includes('process.env'),
-  'WDAP-07 private CLI composes the same pure projector without host credentials',
+  'WDAP-08 private CLI composes the same pure projector without host credentials',
 )
 check(
   JSON.stringify(workflowDispatchNulRoundTripV1) === JSON.stringify(workflowDispatchReadyProjectionV1.argv) &&
     workflowDispatchBranchV1.includes('projection.argv.join("\\0")') &&
     workflowDispatchBranchV1.includes("mapfile -d '' -t dispatch_args"),
-  'WDAP-08 NUL transport preserves every projected argument byte and order',
+  'WDAP-09 NUL transport preserves every projected argument byte and order',
 )
 check(
   workflowDispatchBranchV1.includes('--workflow-dispatch-argument-projection') &&
@@ -12846,7 +13208,7 @@ check(
     !workflowDispatchBranchV1.includes('resume_args=') &&
     !workflowDispatchBranchV1.includes('--review-decision-comment-id "$PTA_INPUT') &&
     !workflowDispatchBranchV1.includes('--merge-decision-comment-id "$PTA_INPUT'),
-  'WDAP-09 selected workflow branch is transport-only with no direct optional-argument semantics',
+  'WDAP-10 selected workflow branch is transport-only with no direct optional-argument semantics',
 )
 check(
   admissionEvaluationRun.indexOf('if [[ "$PTA_EVENT_NAME" == "issue_comment" ]]') <
@@ -12855,23 +13217,25 @@ check(
     admissionEvaluationRun.includes('--ready-event-file "$PTA_EVENT_PATH"') &&
     runnerSource.includes('const parseManualCli = (argv, environment) =>') &&
     runnerSource.includes("throw new Error('cli_arguments_invalid')"),
-  'WDAP-10 event routing ownership and runner semantic validation remain unchanged',
+  'WDAP-11 event routing ownership and runner semantic validation remain unchanged',
 )
 check(
   !workflowDispatchProjectorSourceV1.includes('api(') && !workflowDispatchProjectorSourceV1.includes('graphql') &&
     !workflowDispatchProjectorSourceV1.includes('mutation_count') && !workflowDispatchProjectorSourceV1.includes('Publish-') &&
     !workflowDispatchProjectorSourceV1.includes('--method PUT'),
-  'WDAP-11 pure argument projector performs no acquisition validation publication or mutation',
+  'WDAP-12 pure argument projector performs no acquisition validation publication or mutation',
 )
 check(
   Object.keys(workflow.jobs).length === 5 && workflow.on.workflow_dispatch.inputs.transition.options.join('\n') === [
     'terminal_review_admission', 'merge_decision_admission', 'ready_transition_required_resume',
-    'merge_decision_successor_resume',
+    'merge_decision_successor_resume', 'draft_return_required_resume',
   ].join('\n') && workflow.on.issue_comment.types.join(',') === 'created' &&
     workflow.on.pull_request.types.join(',') === 'ready_for_review' && workflow.permissions.actions === 'read' &&
-    workflow.permissions['pull-requests'] === 'write' && (workflowSource.match(/--method PUT/g) ?? []).length === 1,
-  'WDAP-12 workflow inputs topology triggers permissions downstream outputs and mutation count remain unchanged',
+    workflow.permissions.issues === 'write' && workflow.permissions['pull-requests'] === 'write' &&
+    (workflowSource.match(/--method PUT/g) ?? []).length === 1 &&
+    !workflow.on.pull_request.types.includes('converted_to_draft'),
+  'WDAP-13 workflow adds only Draft Return dispatch and completion-write permission without converted_to_draft subscription',
 )
 
-if (assertions !== 1246) throw new Error(`expected exactly 1246 assertions, observed ${assertions}`)
+if (assertions !== 1268) throw new Error(`expected exactly 1268 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

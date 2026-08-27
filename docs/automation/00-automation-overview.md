@@ -45,6 +45,7 @@ Product Owner
 | General Dispatcher / controller | `src/dispatch/**` and continuous-orchestration libraries exist | none confirmed from the application root or an external production host | `UNKNOWN` |
 | Automatic Gate Progression / Role Transition | evaluator, admission, publisher, and reducer modules exist | none confirmed from the application root or Protected Transition host | `UNKNOWN` |
 | Protected Transition Admission | default-branch workflow invokes its owner CLI | `.github/workflows/protected-transition-admission-v1.yml` → `scripts/run-protected-transition-admission-v1.mjs` | production-reachable |
+| Canonical Draft Return Owner V1 | Protected Transition Admission validates one exact-HEAD, operation-specific authority and performs `convertPullRequestToDraft` once | bounded `workflow_dispatch.draft_return_required_resume` route | repository-reachable after the implementing exact HEAD reaches the default branch |
 | Repair Executor | the same workflow conditionally routes admitted `CHANGES_REQUIRED` to a self-hosted Windows job | Protected Transition Admission → `REPAIR_EXECUTOR` | production execution proven at the bound historical run below |
 | Collector V1 | owner CLI directly imports and invokes the pure core | repository source edge only; physical operator and scheduler are unproven | source-reachable; operation `UNKNOWN` |
 
@@ -55,6 +56,8 @@ Product Owner
 - For admitted `CHANGES_REQUIRED`, the Repair Executor targets only authorized paths and produces the minimum repair for the current blocking findings. After the selected focused validation profile passes, it pushes one normal non-force commit.
 - [Production run 31554006864](https://github.com/whatrune/sd-prompt-studio/actions/runs/31554006864), at host SHA `21aeefd43156ea8ddb134e74141d3e69813705ad`, is historical exact-run evidence of successful self-hosted execution, Codex repair, validation, one commit, normal push, and fresh Review handoff. The static host path is confirmed at snapshot `65e84d3d787d4db871f34d4ab1ab452494a61605`, but Repair Executor E2E success with that exact snapshot as the host SHA remains `UNKNOWN`.
 - Push後は既存state writerがPRのsingle 10-field stateをnew HEADの`REVIEW_PENDING`へrebindし、`next_action: REVIEW`（reason: `fresh_review_required`）としてfresh Reviewへ戻す。自動Mergeは行わない。
+- `draft_return_required_resume` is the bounded recovery route for a Ready PR whose HEAD changed. It admits one self-bound `draft_return_authority_v1`, proves that the prior Ready completion belongs to a different HEAD, performs exactly one `convertPullRequestToDraft` mutation, refetches the open PR at the unchanged authorized HEAD, publishes one self-bound `draft_return_completion_v1`, and stops. Fresh validation, Independent Review, Ready authority, the existing Ready operator, and the real `ready_for_review` event remain later lifecycle owners.
+- Draft Return does not subscribe to or synthesize `pull_request.converted_to_draft`. The canonical completion is the operator's direct before/after refetch record. The normative event catalog remains unchanged and does not by itself establish a production incoming edge.
 - この実在確認はProtected Transition Admission V1 hostだけに適用する。一般的なproduction dispatch／controller hostのincoming edgeを証明せず、次節の`UNKNOWN`境界を変更しない。
 
 ## Preserved UNKNOWN
