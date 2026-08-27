@@ -10,6 +10,7 @@
     "test": "node scripts/test-reclassification.mjs && node scripts/test-prompt-analyzer.mjs && node scripts/test-user-dictionary-import.mjs && node scripts/test-research-explorer-boundaries.mjs && node scripts/test-research-explorer-ui.mjs",
     "test:prompt-analyzer": "node scripts/test-prompt-analyzer.mjs",
     "test:user-dictionary-import": "node scripts/test-user-dictionary-import.mjs",
+    "test:visual-concept-read-only-entry": "node scripts/test-visual-concept-read-only-entry-adapter-v1.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "validate:dictionary": "node scripts/validate-dictionaries.mjs",
     "validate:research-boundaries": "node scripts/validate-research-explorer-boundaries.mjs",
