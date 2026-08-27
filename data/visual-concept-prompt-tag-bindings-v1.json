@@ -10,6 +10,18 @@
     {
       "prompt_tag_id": "pos-lying",
       "concept_id": "body.state.lying"
+    },
+    {
+      "prompt_tag_id": "rin-pose-arm-support",
+      "concept_id": "support.arm.rearward"
+    },
+    {
+      "prompt_tag_id": "rin-pose-reclining",
+      "concept_id": "body.state.reclined"
+    },
+    {
+      "prompt_tag_id": "v192-bent-knees",
+      "concept_id": "configuration.knee.bent"
     }
   ]
 }
