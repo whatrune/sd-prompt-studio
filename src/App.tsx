@@ -858,6 +858,11 @@ export default function App() {
 
       <section className="tag-panel panel">
         {store.workspaceView==='library'?(userDictionaryOnly?<div className="prompt-workspace-content user-dictionary-workspace">
+          <div className="prompt-controls">
+            <div className="prompt-control-bar">
+              <section className="category-tabs-section" aria-label="ユーザー辞書カテゴリ"><div className="subcategory-tabs">{['すべて',...userDictionaryCategories].map(categoryKey=>{const activeCategory=userDictionaryCategory===categoryKey;return <button key={categoryKey} className={activeCategory?'active':''} aria-pressed={activeCategory} onClick={()=>setUserDictionaryCategory(categoryKey)}><TabLabel active={activeCategory} label={categoryKey==='すべて'?'すべて':getCategoryLabel(categoryKey,locale)}/></button>})}</div></section>
+            </div>
+          </div>
           <form className="user-dictionary-registration" onSubmit={e=>{e.preventDefault();addCustom()}}>
             <div className="user-dictionary-registration-head"><div><span className="eyebrow">REGISTER</span><h2>ユーザー辞書へ登録</h2></div><small>カテゴリを選んで追加</small></div>
             <div className="user-dictionary-registration-fields">
@@ -867,11 +872,6 @@ export default function App() {
               <button className="dictionary-add" type="submit" disabled={!customPrompt.trim()||!categoryOrder.includes(userDictionaryRegistrationCategory)}><Plus size={14}/>追加</button>
             </div>
           </form>
-          <div className="prompt-controls">
-            <div className="prompt-control-bar">
-              <section className="category-tabs-section" aria-label="ユーザー辞書カテゴリ"><div className="subcategory-tabs">{['すべて',...userDictionaryCategories].map(categoryKey=>{const activeCategory=userDictionaryCategory===categoryKey;return <button key={categoryKey} className={activeCategory?'active':''} aria-pressed={activeCategory} onClick={()=>setUserDictionaryCategory(categoryKey)}><TabLabel active={activeCategory} label={categoryKey==='すべて'?'すべて':getCategoryLabel(categoryKey,locale)}/></button>})}</div></section>
-            </div>
-          </div>
           <section className="tag-list-section" aria-label="ユーザー辞書一覧">
             <div className="panel-title"><div><span className="eyebrow">LIBRARY</span><h2>User Dictionary</h2></div></div>
             {userDictionaryTags.length===0?<div className="tag-empty-state"><Tags size={18}/><span>ユーザー辞書に登録されたタグはありません</span></div>:<div className="tag-groups">{userDictionaryCategoryGroups.map(categoryGroup=><section className="tag-category-group" key={categoryGroup.key}>
