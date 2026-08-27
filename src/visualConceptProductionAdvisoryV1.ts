@@ -27,6 +27,13 @@ export type VisualConceptProductionAdvisoryEntryV1 = CatalogMapping & {
   prompt_tag_label: string
 }
 
+export type VisualConceptProductionAdvisoryUncoveredEntryV1 = {
+  owner_kind: 'PROMPT_BLOCK' | 'SCENE'
+  owner_id: string
+  prompt_tag_id: string
+  prompt_tag_label: string
+}
+
 export type VisualConceptProductionAdvisoryV1 = {
   record_type: 'visual_concept_production_advisory_v1'
   version: 1
@@ -36,6 +43,7 @@ export type VisualConceptProductionAdvisoryV1 = {
   mapped_count: number
   uncovered_selected_tag_count: number
   mapped_entries: readonly VisualConceptProductionAdvisoryEntryV1[]
+  uncovered_entries: readonly VisualConceptProductionAdvisoryUncoveredEntryV1[]
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -57,6 +65,7 @@ function unavailable(reason: 'catalog_contract_invalid' | 'projection_input_inva
     mapped_count: 0,
     uncovered_selected_tag_count: 0,
     mapped_entries: Object.freeze([]),
+    uncovered_entries: Object.freeze([]),
   })
 }
 
@@ -126,11 +135,20 @@ export function projectVisualConceptProductionAdvisoryV1({ catalog, blocks, scen
   if (!sceneTags.every(validTag)) return unavailable('projection_input_invalid')
 
   const mappedEntries: VisualConceptProductionAdvisoryEntryV1[] = []
+  const uncoveredEntries: VisualConceptProductionAdvisoryUncoveredEntryV1[] = []
   let selectedTagCount = 0
   const append = (ownerKind: 'PROMPT_BLOCK' | 'SCENE', ownerId: string, tag: SelectedTag) => {
     selectedTagCount += 1
     const mapping = mappings.get(tag.id)
-    if (!mapping) return
+    if (!mapping) {
+      uncoveredEntries.push(Object.freeze({
+        owner_kind: ownerKind,
+        owner_id: ownerId,
+        prompt_tag_id: tag.id,
+        prompt_tag_label: tag.label,
+      }))
+      return
+    }
     mappedEntries.push(Object.freeze({
       owner_kind: ownerKind,
       owner_id: ownerId,
@@ -150,5 +168,6 @@ export function projectVisualConceptProductionAdvisoryV1({ catalog, blocks, scen
     mapped_count: mappedEntries.length,
     uncovered_selected_tag_count: selectedTagCount - mappedEntries.length,
     mapped_entries: Object.freeze(mappedEntries),
+    uncovered_entries: Object.freeze(uncoveredEntries),
   })
 }
