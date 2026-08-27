@@ -868,6 +868,7 @@ class ClaimValidator:
         registry_axis_fields = {
             "pose": "active_observation_axes",
             "face": "active_face_axes",
+            "hair": "active_hair_axes",
         }
         for module, registry in registry_refs.items():
             registry_path_field = f"$.axis_registry_refs.{module}.path"

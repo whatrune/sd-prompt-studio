@@ -805,13 +805,47 @@ class ResearchClaimTests(unittest.TestCase):
         self.assertEqual(1, len(issues))
         self.assertEqual("warning", issues[0].severity)
 
-    def test_target_axis_requires_module_registry(self) -> None:
+    def test_registered_hair_axis_resolves_from_hair_registry(self) -> None:
         data = checked_in_knowledge()
         assertion = data.assertions["assertion.brg008.head_back.face_effect.001"]
-        assertion["causal_hypotheses"][0]["target_module"] = "hair"
+        file = data.assertion_files[assertion["assertion_id"]]
+        data.assertion_roots[file]["axis_registry_refs"]["hair"] = {
+            "path": "templates/hair-observation-rubric.yaml",
+            "sha256": normalized_text_file_sha256_v1(
+                ROOT / "templates" / "hair-observation-rubric.yaml"
+            ),
+        }
+        hypothesis = assertion["causal_hypotheses"][0]
+        hypothesis["target_module"] = "hair"
+        hypothesis["target_axis"] = {
+            "name": "hair_length_extent",
+            "registration_status": "registered",
+        }
         validator = make_validator(data=data, graph=self.graph)
         validator.validate_assertions()
-        self.assertIn("AXIS_REGISTRY_MODULE_NOT_FOUND", {issue.code for issue in validator.issues})
+        codes = {issue.code for issue in validator.issues}
+        self.assertNotIn("AXIS_REGISTRY_MODULE_NOT_FOUND", codes)
+        self.assertNotIn("REGISTERED_AXIS_NOT_FOUND", codes)
+
+    def test_unknown_registered_hair_axis_is_rejected(self) -> None:
+        data = checked_in_knowledge()
+        assertion = data.assertions["assertion.brg008.head_back.face_effect.001"]
+        file = data.assertion_files[assertion["assertion_id"]]
+        data.assertion_roots[file]["axis_registry_refs"]["hair"] = {
+            "path": "templates/hair-observation-rubric.yaml",
+            "sha256": normalized_text_file_sha256_v1(
+                ROOT / "templates" / "hair-observation-rubric.yaml"
+            ),
+        }
+        hypothesis = assertion["causal_hypotheses"][0]
+        hypothesis["target_module"] = "hair"
+        hypothesis["target_axis"] = {
+            "name": "hand_near_head",
+            "registration_status": "registered",
+        }
+        validator = make_validator(data=data, graph=self.graph)
+        validator.validate_assertions()
+        self.assertIn("REGISTERED_AXIS_NOT_FOUND", {issue.code for issue in validator.issues})
 
     def test_assertion_content_v1_hash_scope_is_frozen(self) -> None:
         data = checked_in_knowledge()

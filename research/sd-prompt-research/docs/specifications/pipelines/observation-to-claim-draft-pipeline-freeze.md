@@ -82,8 +82,10 @@ Canonical Knowledge
 
 ### 2.1 Observation-only mode
 
-`observation.json` is required. `manifest.yaml` is optional and, when present,
-may supply only Run identity, provenance, and source information. Prompt text,
+`observation.json` is required. `manifest.yaml` is optional for legacy pose and
+face admission and, when present, may supply only Run identity, provenance, and
+source information. Hair V1 admission requires the sibling `manifest.yaml` so
+that the optional observation's `run_id` can be checked exactly. Prompt text,
 seed, and model metadata must not be used as evidence of causality.
 
 This mode may generate descriptive material such as:
@@ -491,9 +493,34 @@ consistency validation. A missing or inconsistent aggregate in a required
 Module is a generation failure. In an Optional Module it rejects that Module's
 candidate, records the reason, and permits otherwise valid core material.
 
-Pose, Face, and future Modules retain independent source files, metric paths,
+Pose, Face, Hair V1, and future Modules retain independent source files, metric paths,
 denominator kinds, and panel universes. Totals are never compared automatically
 across Modules.
+
+### 7.1 Hair V1 admission amendment
+
+Hair V1 is an optional Module Observation supplied as
+`hair=<run-dir>/hair-observation.json` alongside the required core pose
+Observation. It uses a separate closed Observation Schema and Axis Registry and
+does not add fields to pose or face observations.
+
+The six panel IDs are exactly `1..6`. The active axis order is exactly
+`hair_length_extent`, `neck_hair_overlap`, `shoulder_hair_overlap`, and
+`hair_identity_clarity`. Their allowed values are fixed by
+`templates/hair-observation-rubric.yaml`; unknown axes and values are invalid.
+
+`computed_aggregate.axis_counts` contains every registered Hair V1 axis/value
+cell, including zero counts. Every axis map sums exactly to six. The stored
+aggregate must equal a deterministic recomputation from panel data. Extraction
+continues to use the generic stored-aggregate leaf profile with denominator
+`panel_count`; it performs no cross-condition interpretation or promotion
+decision.
+
+Legacy pose-only and pose+face inputs retain validator identity
+`observation-schema-v3.0+face-v1.0`. A Draft containing hair uses
+`observation-schema-v3.0+face-v1.0+hair-v1.0`. The Claim, Human Resolution,
+Candidate, Review, Promotion Approval, Application, and Evidence ID Schema
+versions do not change.
 
 ## 8. Draft identity
 

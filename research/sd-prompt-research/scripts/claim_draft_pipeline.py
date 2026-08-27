@@ -30,6 +30,10 @@ from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
 from finalize_face_observation import compute_aggregate as compute_face_aggregate
+from finalize_hair_observation import (
+    compute_aggregate as compute_hair_aggregate,
+    policy_errors as hair_policy_errors,
+)
 from finalize_observation import compute_aggregate as compute_pose_aggregate
 from validate_research_claims import (
     InvalidTextEncodingError,
@@ -51,6 +55,7 @@ TEMPLATE_VERSION = "0.1.0"
 EVIDENCE_ID_CONTRACT = "evidence_id_v1"
 CANDIDATE_ID_PROJECTION_VERSION = "candidate_id_projection_v1"
 OBSERVATION_VALIDATOR_VERSION = "observation-schema-v3.0+face-v1.0"
+HAIR_OBSERVATION_VALIDATOR_VERSION = "observation-schema-v3.0+face-v1.0+hair-v1.0"
 AGGREGATE_PROFILE_VERSION = "stored-computed-aggregate-v1"
 METRIC_EXTRACTION_PROFILE_VERSION = "computed-aggregate-leaves-v1"
 
@@ -73,8 +78,10 @@ MODULE_REGISTRY_SCHEMA_RELATIVE = Path("schemas/observation-module-registry.sche
 CLAIM_SCHEMA_RELATIVE = Path("schemas/research-claim-assertion.schema.json")
 POSE_SCHEMA_RELATIVE = Path("templates/observation-schema.json")
 FACE_SCHEMA_RELATIVE = Path("templates/face-observation-schema.json")
+HAIR_SCHEMA_RELATIVE = Path("templates/hair-observation-schema.json")
 POSE_REGISTRY_RELATIVE = Path("templates/rubric-template.yaml")
 FACE_REGISTRY_RELATIVE = Path("templates/face-observation-rubric.yaml")
+HAIR_REGISTRY_RELATIVE = Path("templates/hair-observation-rubric.yaml")
 
 
 class PipelineError(RuntimeError):
@@ -610,6 +617,8 @@ def _axis_registry_for_module(project_root: Path, module: str) -> Path:
         return _safe_project_path(project_root, POSE_REGISTRY_RELATIVE)
     if module == "face":
         return _safe_project_path(project_root, FACE_REGISTRY_RELATIVE)
+    if module == "hair":
+        return _safe_project_path(project_root, HAIR_REGISTRY_RELATIVE)
     raise PipelineError("MODULE_NOT_SUPPORTED_BY_CLAIM_SCHEMA", f"No Axis Registry is implemented for Module: {module}")
 
 
@@ -618,13 +627,18 @@ def _validate_observation(
     path: Path,
     module: str,
 ) -> tuple[dict[str, Any], dict[str, Any], Path, dict[str, Any]]:
-    if module not in {"pose", "face"}:
+    if module not in {"pose", "face", "hair"}:
         raise PipelineError(
             "MODULE_NOT_SUPPORTED_BY_CLAIM_SCHEMA",
             f"Observation validation is not implemented for Module: {module}",
         )
     data = _load_json(path)
-    schema_path = _safe_project_path(project_root, POSE_SCHEMA_RELATIVE if module == "pose" else FACE_SCHEMA_RELATIVE)
+    schema_relative = {
+        "pose": POSE_SCHEMA_RELATIVE,
+        "face": FACE_SCHEMA_RELATIVE,
+        "hair": HAIR_SCHEMA_RELATIVE,
+    }[module]
+    schema_path = _safe_project_path(project_root, schema_relative)
     schema = _load_json(schema_path)
     errors = _schema_errors(data, schema)
     if errors:
@@ -642,6 +656,21 @@ def _validate_observation(
         rubric_path = _axis_registry_for_module(project_root, module)
         rubric = _load_yaml(rubric_path)
         expected = compute_face_aggregate(data)
+    elif module == "hair":
+        rubric_path = _axis_registry_for_module(project_root, module)
+        rubric = _load_yaml(rubric_path)
+        manifest_path = path.parent / "manifest.yaml"
+        if not manifest_path.is_file():
+            raise PipelineError(
+                "OBSERVATION_SCHEMA_INVALID",
+                f"Hair Observation requires manifest.yaml for run identity: {path}",
+                str(path),
+            )
+        manifest = _load_yaml(manifest_path)
+        policy = hair_policy_errors(data, rubric, manifest)
+        if policy:
+            raise PipelineError("OBSERVATION_SCHEMA_INVALID", "; ".join(policy), str(path))
+        expected = compute_hair_aggregate(data)
     else:
         raise PipelineError("MODULE_NOT_SUPPORTED_BY_CLAIM_SCHEMA", f"Observation validation is not implemented for Module: {module}")
     if aggregate != expected:
@@ -956,9 +985,14 @@ def generate_draft(
     used_modules = sorted(module_compatibility.values(), key=lambda item: item["canonical_module_slug"])
     used_metrics = sorted(metric_compatibility.values(), key=lambda item: (item["module"], item["registry_role"], item["metric"]))
     runs = sorted(run_metadata, key=lambda item: item["run_id"])
+    validator_version = (
+        HAIR_OBSERVATION_VALIDATOR_VERSION
+        if "hair" in module_compatibility
+        else OBSERVATION_VALIDATOR_VERSION
+    )
     identity_projection = {
         "source_files": source_collection,
-        "observation_validator_version": OBSERVATION_VALIDATOR_VERSION,
+        "observation_validator_version": validator_version,
         "aggregate_consistency_profile_version": AGGREGATE_PROFILE_VERSION,
         "metric_extraction_profile_version": METRIC_EXTRACTION_PROFILE_VERSION,
         "generator_contract": GENERATOR_CONTRACT,
@@ -1014,7 +1048,7 @@ def generate_draft(
             },
             "observation_validation": {
                 "step_status": "succeeded",
-                "validator_version": OBSERVATION_VALIDATOR_VERSION,
+                "validator_version": validator_version,
                 "result_code": "SUCCEEDED",
             },
             "aggregate_validation": {
@@ -1047,11 +1081,17 @@ def persist_generation_failure(
     *,
     output_root: Path | None = None,
     source_paths: Sequence[Path] = (),
+    source_modules: Mapping[Path, str] | None = None,
 ) -> Path:
     project_root = project_root.resolve()
     root = (output_root or project_root / "inbox" / "claim-draft-failures").resolve()
     attempt_id = uuid7_text()
     sources: list[dict[str, Any]] = []
+    module_by_path = {
+        path.resolve(): module
+        for path, module in (source_modules or {}).items()
+    }
+    uses_hair = False
     for source in source_paths:
         if not source.exists():
             continue
@@ -1066,14 +1106,17 @@ def persist_generation_failure(
             algorithm = "jcs_sha256_v1"
             digest = semantic_hash(parsed)
             parse_status = "succeeded"
+        requested_module = module_by_path.get(source.resolve(), "pose")
+        module = "hair" if requested_module == "hair" else "pose"
+        uses_hair = uses_hair or module == "hair"
         sources.append(
             {
-                "source_role": "observation",
+                "source_role": "optional_module_observation" if module == "hair" else "observation",
                 "logical_path": _logical_path(project_root, source),
                 "hash_algorithm": algorithm,
                 "hash_value": digest,
                 "parse_status": parse_status,
-                "module": "pose",
+                "module": module,
                 "run_id": "not_applicable",
             }
         )
@@ -1092,7 +1135,11 @@ def persist_generation_failure(
             "identity": {"status": "failed", "error_code": error.code},
             "observation_validation": {
                 "step_status": "failed",
-                "validator_version": OBSERVATION_VALIDATOR_VERSION,
+                "validator_version": (
+                    HAIR_OBSERVATION_VALIDATOR_VERSION
+                    if uses_hair
+                    else OBSERVATION_VALIDATOR_VERSION
+                ),
                 "result_code": error.code,
             },
             "aggregate_validation": {"step_status": "not_started", "consistency_result": "unavailable"},
@@ -1864,8 +1911,10 @@ def canonical_knowledge_snapshot(project_root: Path) -> str:
     for relative in (
         POSE_REGISTRY_RELATIVE,
         FACE_REGISTRY_RELATIVE,
+        HAIR_REGISTRY_RELATIVE,
         POSE_SCHEMA_RELATIVE,
         FACE_SCHEMA_RELATIVE,
+        HAIR_SCHEMA_RELATIVE,
     ):
         path = project_root / relative
         if path.exists():

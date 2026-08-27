@@ -54,9 +54,18 @@ python scripts/observation_to_claim.py generate `
   --optional-observation face=experiments/bridge/BRG-008-A/face-observation.json
 ```
 
-The current implementation accepts the required `pose` module and the optional
-`face` module. The Module Registry reserves the frozen initial slugs for future
-modules, but unsupported Observation validators fail explicitly rather than
+Hair V1 uses the same optional-module entrypoint:
+
+```powershell
+python scripts/observation_to_claim.py generate `
+  --observation experiments/<domain>/<run-id>/observation.json `
+  --optional-observation hair=experiments/<domain>/<run-id>/hair-observation.json
+```
+
+The current implementation accepts required `pose` plus optional `face` and
+bounded optional `hair`. Hair must first pass its closed six-panel schema,
+manifest run-identity check, exact four-axis rubric, and stored aggregate
+recomputation. Other reserved Module slugs still fail explicitly rather than
 guessing a structure.
 
 ## Record Registry compatibility

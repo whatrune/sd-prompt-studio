@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch
 
@@ -21,6 +23,56 @@ from validate_research_claims import load_current_documents  # noqa: E402
 OBSERVATION = ROOT / "experiments" / "bridge" / "BRG-009-A" / "observation.json"
 BRG008_POSE = ROOT / "experiments" / "bridge" / "BRG-008-A" / "observation.json"
 BRG008_FACE = ROOT / "experiments" / "bridge" / "BRG-008-A" / "face-observation.json"
+
+
+@contextmanager
+def temporary_directory_with_native_cleanup(*, dir: Path | None = None):
+    root = Path(tempfile.mkdtemp(dir=dir))
+    try:
+        yield str(root)
+    finally:
+        native_root = f"\\\\?\\{root.resolve()}" if sys.platform == "win32" else str(root)
+        shutil.rmtree(native_root)
+        if root.exists():
+            raise OSError(f"Temporary directory cleanup left residue: {root}")
+
+
+def hair_observation() -> dict:
+    axes = {
+        "hair_length_extent": [
+            "above_neck", "neck_to_shoulder", "below_shoulder",
+            "waist_or_longer", "unclear", "not_visible",
+        ],
+        "neck_hair_overlap": ["absent", "present", "present", "present", "unclear", "not_visible"],
+        "shoulder_hair_overlap": ["absent", "absent", "present", "present", "unclear", "not_visible"],
+        "hair_identity_clarity": [
+            "distinct", "distinct", "distinct", "ambiguous_with_clothing",
+            "ambiguous_with_background", "not_visible",
+        ],
+    }
+    panels = []
+    for index in range(6):
+        panels.append(
+            {
+                "panel_id": index + 1,
+                **{axis: values[index] for axis, values in axes.items()},
+                "evidence_notes": [f"Panel {index + 1} visible hair evidence."],
+                "confidence": "high",
+            }
+        )
+    result = {
+        "schema_version": "1.0",
+        "run_id": "HAIR-TEST-A",
+        "blind_condition_label": "Condition A",
+        "panel_count": 6,
+        "hair_observation": {
+            "enabled": True,
+            "active_axis_order": list(axes),
+            "panels": panels,
+        },
+    }
+    result["computed_aggregate"] = pipeline.compute_hair_aggregate(result)
+    return result
 
 
 class ClaimDraftPipelineTests(unittest.TestCase):
@@ -46,6 +98,19 @@ class ClaimDraftPipelineTests(unittest.TestCase):
 
     def generate(self, output: Path) -> pipeline.GenerationResult:
         return pipeline.generate_draft(ROOT, [(OBSERVATION, "pose")], output_root=output)
+
+    def write_hair_run(self, parent: Path) -> Path:
+        run_dir = parent / "HAIR-TEST-A"
+        run_dir.mkdir(parents=True)
+        observation_path = run_dir / "hair-observation.json"
+        observation = hair_observation()
+        observation["run_id"] = "BRG-008-A"
+        observation_path.write_text(json.dumps(observation), encoding="utf-8")
+        (run_dir / "manifest.yaml").write_text(
+            "run_id: BRG-008-A\ndomain: bridge\nmodel:\n  checkpoint: novaAnimeXL_ilV190\n",
+            encoding="utf-8",
+        )
+        return observation_path
 
     def resolution_for(self, result: pipeline.GenerationResult) -> dict:
         evidence = next(
@@ -179,6 +244,149 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             evidence_modules = {item["canonical_fact"]["observation_module"] for item in result.draft["staged_evidence"]}
             self.assertEqual(modules, {"pose", "face"})
             self.assertEqual(evidence_modules, {"pose", "face"})
+
+    def test_legacy_pose_and_face_artifacts_remain_byte_identical(self) -> None:
+        cases = (
+            (
+                [(BRG008_POSE, "pose")],
+                "85306bdbb72283592bd8d08f4be351f5503170e111febe842d26826e0ef53f21",
+                "48c24dfefbeb87f5e76389bf00e4061ffa8249113bc36a33b446c22b6b2ce7fc",
+                "draft.51418dbc805a067f47105b5e27a1f433d6bccb81e737e9ca75267187b74fec30",
+            ),
+            (
+                [(BRG008_POSE, "pose"), (BRG008_FACE, "face")],
+                "23b95e1b1b37a41d78135f6a4b2633aeadca5af4843f090d7c2c6818572882c1",
+                "ab8720891732a1a5cf2cc51a85e6fafdde7d792958d3fba400ab07077895a42b",
+                "draft.95d311faba6454cfea0a5f7688db59894c6ee7a49db0baf014c5a35e7a70fab9",
+            ),
+        )
+        for sources, draft_hash, report_hash, draft_id in cases:
+            with self.subTest(sources=sources), tempfile.TemporaryDirectory() as directory:
+                result = pipeline.generate_draft(ROOT, sources, output_root=Path(directory))
+                self.assertEqual(draft_id, result.draft_id)
+                self.assertEqual(
+                    draft_hash,
+                    hashlib.sha256(pipeline.yaml_bytes(result.draft)).hexdigest(),
+                )
+                self.assertEqual(
+                    report_hash,
+                    hashlib.sha256(pipeline.json_bytes(result.report)).hexdigest(),
+                )
+                self.assertEqual(
+                    pipeline.OBSERVATION_VALIDATOR_VERSION,
+                    result.draft["draft_input_identity"]["observation_validator_version"],
+                )
+
+    def test_optional_hair_module_emits_all_bounded_counts_with_provenance(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as source_dir, tempfile.TemporaryDirectory() as output_dir:
+            hair_path = self.write_hair_run(Path(source_dir))
+            result = pipeline.generate_draft(
+                ROOT,
+                [(BRG008_POSE, "pose"), (hair_path, "hair")],
+                output_root=Path(output_dir),
+            )
+            modules = {item["canonical_module_slug"] for item in result.draft["used_module_compatibility"]}
+            hair_evidence = [
+                item for item in result.draft["staged_evidence"]
+                if item["canonical_fact"]["observation_module"] == "hair"
+            ]
+            self.assertEqual({"pose", "hair"}, modules)
+            self.assertEqual(19, len(hair_evidence))
+            self.assertEqual({6}, {item["canonical_fact"]["total"] for item in hair_evidence})
+            self.assertIn(0, {item["canonical_fact"]["count"] for item in hair_evidence})
+            self.assertEqual(
+                pipeline.HAIR_OBSERVATION_VALIDATOR_VERSION,
+                result.draft["draft_input_identity"]["observation_validator_version"],
+            )
+            source_roles = {
+                (item["module"], item["source_role"], item["run_id"])
+                for item in result.draft["draft_input_identity"]["source_files"]
+            }
+            self.assertIn(("hair", "optional_module_observation", "BRG-008-A"), source_roles)
+            self.assertIn(("hair", "rubric", "BRG-008-A"), source_roles)
+
+    def test_hair_run_mismatch_is_rejected_at_claim_admission(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as source_dir, tempfile.TemporaryDirectory() as output_dir:
+            hair_path = self.write_hair_run(Path(source_dir))
+            (hair_path.parent / "manifest.yaml").write_text("run_id: HAIR-TEST-B\n", encoding="utf-8")
+            with self.assertRaises(pipeline.PipelineError) as raised:
+                pipeline.generate_draft(
+                    ROOT,
+                    [(BRG008_POSE, "pose"), (hair_path, "hair")],
+                    output_root=Path(output_dir),
+                )
+            self.assertEqual("OBSERVATION_SCHEMA_INVALID", raised.exception.code)
+
+    def test_hair_draft_to_candidate_assertion_succeeds(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as source_dir, temporary_directory_with_native_cleanup() as output_dir:
+            hair_path = self.write_hair_run(Path(source_dir))
+            result = pipeline.generate_draft(
+                ROOT,
+                [(BRG008_POSE, "pose"), (hair_path, "hair")],
+                output_root=Path(output_dir),
+            )
+            evidence = next(
+                item for item in result.draft["staged_evidence"]
+                if item["canonical_fact"]["metric"].endswith("hair_length_extent.below_shoulder")
+            )
+            resolution = self.resolution_for(result)
+            resolution.update(
+                {
+                    "selected_assertion_id": "assertion.hair_test.length_extent.001",
+                    "selected_subject": {
+                        "kind": "phrase_surface",
+                        "phrase": "hair test observation",
+                        "locale": "en",
+                        "normalized_phrase": "hair test observation",
+                    },
+                    "selected_claim_statement": {
+                        "statement": "In BRG-008-A, below-shoulder hair extent was observed."
+                    },
+                    "selected_evidence_bindings": [
+                        {
+                            "evidence_ref_id": evidence["evidence_id"],
+                            "evidence_role": "supports",
+                            "applies_to": "assertion.hair_test.length_extent.001",
+                            "evidence_quality": {
+                                "coverage": "full",
+                                "directness": "direct",
+                                "consistency": "high",
+                            },
+                        }
+                    ],
+                    "selected_scope": {
+                        "model_scope": "single_model",
+                        "context_scope": "single_context",
+                        "domain_scope": "hair",
+                        "generalization_scope": "local",
+                    },
+                }
+            )
+            (result.draft_dir / "human-resolution.yaml").write_bytes(pipeline.yaml_bytes(resolution))
+            candidate = pipeline.generate_candidate(ROOT, result.draft_dir)
+            canonical = candidate.wrapper["canonical_assertion"]
+            self.assertEqual({"hair"}, set(canonical["axis_registry_refs"]))
+            self.assertEqual("draft", canonical["assertions"][0]["status"])
+            self.assertEqual("no_promotion", canonical["assertions"][0]["promotion"]["action"])
+
+    def test_hair_failure_report_preserves_hair_module_identity(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as source_dir, tempfile.TemporaryDirectory() as output_dir:
+            source = Path(source_dir) / "hair-observation.json"
+            source.write_bytes(b"{\xff")
+            error = pipeline.PipelineError("SOURCE_INVALID_UTF8", "invalid")
+            failure_dir = pipeline.persist_generation_failure(
+                ROOT,
+                error,
+                output_root=Path(output_dir),
+                source_paths=[source],
+                source_modules={source: "hair"},
+            )
+            report = json.loads((failure_dir / "generation-report.json").read_text(encoding="utf-8"))
+            self.assertEqual("hair", report["sources"]["source_files"][0]["module"])
+            self.assertEqual(
+                pipeline.HAIR_OBSERVATION_VALIDATOR_VERSION,
+                report["observation_validation"]["validator_version"],
+            )
 
     def test_failure_report_uses_raw_bytes_for_invalid_json(self) -> None:
         with tempfile.TemporaryDirectory(dir=ROOT) as source_dir, tempfile.TemporaryDirectory() as output_dir:

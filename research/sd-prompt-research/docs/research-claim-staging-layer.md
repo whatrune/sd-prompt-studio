@@ -72,7 +72,7 @@ Local Evidence paths are repository-root relative and use `/`. Metric paths use 
 
 Each `observed_metrics` entry resolves every listed Evidence Fact independently from Evidence Bindings. The metric paths must match. One Evidence Fact supplies the exact `count` and `total`; multiple Evidence Facts supply their sums and must all describe the same metric.
 
-Registered target axes must exist in the module registry (`active_observation_axes` for pose and `active_face_axes` for face). A proposed axis may be absent; if it is already active, validation reports a warning so its registration state can be reconciled.
+Registered target axes must exist in the module registry (`active_observation_axes` for pose, `active_face_axes` for face, and `active_hair_axes` for Hair V1). A proposed axis may be absent; if it is already active, validation reports a warning so its registration state can be reconciled.
 
 Axis Registry paths follow the separate
 [`research-claim-path-contract.md`](research-claim-path-contract.md):
