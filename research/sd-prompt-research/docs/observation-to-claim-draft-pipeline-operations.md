@@ -68,10 +68,21 @@ manifest run-identity check, exact four-axis rubric, and stored aggregate
 recomputation. Other reserved Module slugs still fail explicitly rather than
 guessing a structure.
 
+An invalid Hair optional input does not abort an otherwise valid pose Draft.
+The Generation Report records the original Hair validation code as a warning,
+the rejected Hair source remains hash-bound in the Draft identity, and no Hair
+metrics, Evidence, run metadata, Module compatibility, or schema compatibility
+is admitted. Required pose failures and optional face behavior are unchanged.
+
 A Hair Draft records the Observation Schema as `source_role:
 observation_schema`, binds its JCS content hash and identity/version in
 `used_schema_compatibility`, and copies that exact generation-time binding to
-the Generation Report. Pose-only and pose+face Drafts do not gain this field.
+the Generation Report. It is a Module-level source with `run_id:
+not_applicable`: repeated Hair runs using an identical schema share one schema
+source, while any conflicting schema identity fails closed. Observation,
+manifest, and rubric sources remain run-bound; repeated rubric sources must
+agree on their exact Module-level path/hash identity. Pose-only and pose+face
+Drafts do not gain this field.
 
 ## Record Registry compatibility
 
@@ -112,6 +123,10 @@ Draft identity, not recomputed from the current filesystem. It participates in
 `assertion_content_v1`; Candidate identity continues to bind the complete Draft
 through `source_draft_identity_hash`. Its `axis_registry_refs.hair` hash is
 likewise copied from the Draft-bound Hair rubric source.
+Independent or manually staged Assertions that bind any Hair Evidence Fact are
+subject to the same invariant: `observation_schema_refs.hair` is mandatory and
+is checked against the approved schema without substituting a current hash for
+the bound generation-time value.
 
 ## Finalize
 

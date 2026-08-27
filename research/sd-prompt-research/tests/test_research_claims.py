@@ -908,6 +908,8 @@ class ResearchClaimTests(unittest.TestCase):
         data = checked_in_knowledge()
         assertion_id = "assertion.brg008.head_back.face_effect.001"
         assertion = data.assertions[assertion_id]
+        evidence_id = assertion["evidence_bindings"][0]["evidence_ref_id"]
+        data.evidence[evidence_id]["observation_module"] = "hair"
         schema = load_schema(ROOT / "templates" / "hair-observation-schema.json")
         assertion["observation_schema_refs"] = {
             "hair": {
@@ -932,6 +934,44 @@ class ResearchClaimTests(unittest.TestCase):
         self.assertIn(
             "OBSERVATION_SCHEMA_HASH_DRIFT",
             {issue.code for issue in drift_validator.issues},
+        )
+        assertion["observation_schema_refs"]["hair"]["hash_value"] = "0" * 64
+        mismatched_validator = make_validator(data=data, graph=self.graph)
+        mismatched_validator.validate_assertions()
+        self.assertIn(
+            "OBSERVATION_SCHEMA_HASH_DRIFT",
+            {issue.code for issue in mismatched_validator.issues},
+        )
+
+    def test_hair_evidence_requires_observation_schema_provenance(self) -> None:
+        data = checked_in_knowledge()
+        assertion_id = "assertion.brg008.head_back.face_effect.001"
+        assertion = data.assertions[assertion_id]
+        evidence_id = assertion["evidence_bindings"][0]["evidence_ref_id"]
+        data.evidence[evidence_id]["observation_module"] = "hair"
+
+        missing_validator = make_validator(data=data, graph=self.graph)
+        missing_validator.validate_assertions()
+        self.assertIn(
+            "HAIR_OBSERVATION_SCHEMA_PROVENANCE_MISSING",
+            {issue.code for issue in missing_validator.issues},
+        )
+
+        schema = load_schema(ROOT / "templates" / "hair-observation-schema.json")
+        assertion["observation_schema_refs"] = {
+            "hair": {
+                "schema_id": schema["$id"],
+                "schema_version": schema["properties"]["schema_version"]["const"],
+                "path": "templates/hair-observation-schema.json",
+                "hash_algorithm": "jcs_sha256_v1",
+                "hash_value": content_hash(schema),
+            }
+        }
+        bound_validator = make_validator(data=data, graph=self.graph)
+        bound_validator.validate_assertions()
+        self.assertNotIn(
+            "HAIR_OBSERVATION_SCHEMA_PROVENANCE_MISSING",
+            {issue.code for issue in bound_validator.issues},
         )
 
     def test_applied_promotion_uses_historical_receipt_after_assertion_change(self) -> None:

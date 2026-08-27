@@ -527,6 +527,19 @@ Hair also binds `templates/hair-observation-schema.json` as a first-class
 Hair entry with schema ID, schema version, logical path, JCS content hash, and
 `observation_schema_compatibility_v1` projection hash. This field is absent for
 pose-only and pose+face Drafts so their bytes and identities remain unchanged.
+The schema source is a Module-level identity with `run_id: not_applicable`.
+Multiple admitted Hair runs using the exact same schema collapse to that one
+source record; any disagreement in path, hash algorithm, hash, parse status, or
+other source identity field fails closed. Per-run Hair Observation, manifest,
+and rubric records remain distinct. Multiple Hair rubric records are admissible
+only when their Module-level path/hash identity is exactly equal.
+
+If Hair validation fails, the optional Hair candidate is rejected without
+admitting Hair metrics, Evidence, Module compatibility, schema compatibility,
+or run metadata. The otherwise valid core pose Draft continues, binds the
+rejected optional source bytes in its input identity, and records the original
+failure code as a warning diagnostic. Required pose failures and existing face
+behavior remain unchanged.
 
 ## 8. Draft identity
 
@@ -724,6 +737,11 @@ YAML or text source uses `normalized_text_file_sha256_v1`; its `parse_status`
 records the actual structured parse result. Parse-failed sources remain present
 in `source_files`. It is invalid to describe unparseable JSON as JCS-hashed, to
 omit a failed source, or to substitute null or an empty hash.
+
+Before `source_collection_v1` is formed, identical bounded Hair
+`observation_schema` records are collapsed by their complete source identity.
+This is the only source role with this Module-level cardinality rule; it does
+not collapse run-bound Observation, manifest, or rubric provenance.
 
 Generation Failure Reports are outside that Source selection policy. A Failure
 Report may be valid JSON and still use `raw_bytes_sha256_v1` because it is an
@@ -1230,6 +1248,13 @@ Hash. For Hair assertions its projection includes the first-class
 `observation_schema_refs.hair` identity/version/path/hash binding. A Rollback
 Receipt repeats all three bindings from its related Finalize
 attempt and never substitutes the semantic Hash for either Artifact Hash.
+
+Any Assertion whose Evidence Bindings resolve to at least one Hair Evidence
+Fact requires `observation_schema_refs.hair`. Missing provenance fails semantic
+validation even if the Assertion was authored outside Candidate Generation.
+The bound hash and identity must still match the current approved schema; the
+existing Candidate and Assertion hashes preserve the generation-time value
+through Review, Promotion Approval, and Application.
 
 ## 13. Finalize transaction
 

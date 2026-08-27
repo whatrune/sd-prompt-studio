@@ -109,6 +109,10 @@ metadata, Axis Registry file hashes, and Review data. A Hair Observation Schema
 hash is not an Axis Registry hash: it remains first-class assertion content so
 Review, Promotion Approval, and Application continue to bind the exact
 generation-time schema through the existing Assertion content hash.
+Every Assertion whose Evidence Bindings resolve to Hair Evidence requires the
+Hair Observation Schema reference. This semantic invariant also applies to
+Assertions authored outside the Claim Draft generator: omission fails closed,
+and current filesystem content may verify but never replace the stored hash.
 
 ### `promotion_content_v1`
 

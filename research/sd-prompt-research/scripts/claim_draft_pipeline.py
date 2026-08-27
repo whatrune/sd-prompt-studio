@@ -817,7 +817,7 @@ def _observation_source(
                 schema_path,
                 source_role="observation_schema",
                 module=module,
-                run_id=run_id,
+                run_id="not_applicable",
                 structured="json",
                 structured_value=schema,
             )
@@ -865,6 +865,62 @@ def _observation_source(
         extracted,
         staged,
         manifest,
+    )
+
+
+def _rejected_optional_observation_source(
+    project_root: Path,
+    path: Path,
+    module: str,
+) -> dict[str, Any]:
+    """Bind a rejected optional input without admitting any of its semantics."""
+    payload = _read_bytes(path)
+    try:
+        parsed = json.loads(payload.decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        algorithm = "raw_bytes_sha256_v1"
+        digest = raw_bytes_sha256_v1(payload)
+        parse_status = "failed"
+    else:
+        algorithm = "jcs_sha256_v1"
+        digest = semantic_hash(parsed)
+        parse_status = "succeeded"
+    return {
+        "source_role": "optional_module_observation",
+        "logical_path": _logical_path(project_root, path),
+        "hash_algorithm": algorithm,
+        "hash_value": digest,
+        "parse_status": parse_status,
+        "module": module,
+        "run_id": "not_applicable",
+    }
+
+
+def _canonical_source_collection(sources: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Collapse only identical module-level schema sources; reject conflicts."""
+    ordinary: list[dict[str, Any]] = []
+    schemas: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for raw_source in sources:
+        source = dict(raw_source)
+        if source.get("source_role") != "observation_schema":
+            ordinary.append(source)
+            continue
+        key = (
+            str(source.get("module")),
+            str(source.get("source_role")),
+            str(source.get("logical_path")),
+        )
+        previous = schemas.setdefault(key, source)
+        if previous != source:
+            raise PipelineError(
+                "DUPLICATE_SCHEMA_COMPATIBILITY_ENTRY",
+                f"Conflicting Observation Schema source identity: {key}",
+            )
+    return sorted(
+        [*ordinary, *schemas.values()],
+        key=lambda item: (
+            item["source_role"], item["module"], item["run_id"], item["logical_path"]
+        ),
     )
 
 
@@ -993,14 +1049,28 @@ def generate_draft(
     run_metadata: list[dict[str, Any]] = []
     seen_source: set[tuple[str, str]] = set()
     has_pose = False
+    hair_requested = False
+    diagnostics: list[dict[str, str]] = []
 
     for source_path, requested_module in observations:
         module = _resolve_module(requested_module, modules)
         if module == "pose":
             has_pose = True
-        loaded, extracted, evidence, _manifest = _observation_source(
-            project_root, source_path.resolve(), module, modules[module]
-        )
+        if module == "hair":
+            hair_requested = True
+        resolved_source = source_path.resolve()
+        try:
+            loaded, extracted, evidence, _manifest = _observation_source(
+                project_root, resolved_source, module, modules[module]
+            )
+        except PipelineError as error:
+            if module != "hair":
+                raise
+            sources.append(
+                _rejected_optional_observation_source(project_root, resolved_source, module)
+            )
+            diagnostics.append(error.diagnostic("warning"))
+            continue
         source_key = (loaded["run_metadata"]["run_id"], module)
         if source_key in seen_source:
             raise PipelineError("DUPLICATE_OBSERVATION_SOURCE", f"Duplicate Run/Module source: {source_key}")
@@ -1043,17 +1113,14 @@ def generate_draft(
             structured="text",
         )
     )
-    source_collection = sorted(
-        sources,
-        key=lambda item: (item["source_role"], item["module"], item["run_id"], item["logical_path"]),
-    )
+    source_collection = _canonical_source_collection(sources)
     used_modules = sorted(module_compatibility.values(), key=lambda item: item["canonical_module_slug"])
     used_metrics = sorted(metric_compatibility.values(), key=lambda item: (item["module"], item["registry_role"], item["metric"]))
     used_schemas = sorted(schema_compatibility.values(), key=lambda item: item["module"])
     runs = sorted(run_metadata, key=lambda item: item["run_id"])
     validator_version = (
         HAIR_OBSERVATION_VALIDATOR_VERSION
-        if "hair" in module_compatibility
+        if hair_requested
         else OBSERVATION_VALIDATOR_VERSION
     )
     identity_projection = {
@@ -1128,7 +1195,7 @@ def generate_draft(
             "metric_extraction": {"step_status": "succeeded", "metrics": copy.deepcopy(metrics)},
             "unresolved_fields": copy.deepcopy(unresolved),
             "human_decision_required": copy.deepcopy(decisions),
-            "diagnostics": [],
+            "diagnostics": copy.deepcopy(diagnostics),
         }
     )
     if used_schemas:
@@ -1568,18 +1635,34 @@ def _bound_hair_rubric_source(draft: Mapping[str, Any]) -> dict[str, Any] | None
         and source.get("source_role") == "rubric"
         and source.get("module") == "hair"
     ]
-    if len(sources) != 1:
+    if not sources:
         raise PipelineError(
             "DRAFT_RUBRIC_PROVENANCE_MISSING",
-            "Hair Draft source identity requires exactly one Hair rubric source",
+            "Hair Draft source identity requires at least one Hair rubric source",
         )
-    source = sources[0]
-    if source.get("hash_algorithm") != "normalized_text_file_sha256_v1":
-        raise PipelineError(
-            "DRAFT_RUBRIC_PROVENANCE_INCONSISTENT",
-            "Hair rubric source must use normalized_text_file_sha256_v1",
-        )
-    return dict(source)
+    canonical: dict[str, Any] | None = None
+    for source in sources:
+        projection = {
+            "source_role": source.get("source_role"),
+            "logical_path": source.get("logical_path"),
+            "hash_algorithm": source.get("hash_algorithm"),
+            "hash_value": source.get("hash_value"),
+            "parse_status": source.get("parse_status"),
+            "module": source.get("module"),
+        }
+        if projection["hash_algorithm"] != "normalized_text_file_sha256_v1":
+            raise PipelineError(
+                "DRAFT_RUBRIC_PROVENANCE_INCONSISTENT",
+                "Hair rubric source must use normalized_text_file_sha256_v1",
+            )
+        if canonical is None:
+            canonical = projection
+        elif canonical != projection:
+            raise PipelineError(
+                "DRAFT_RUBRIC_PROVENANCE_INCONSISTENT",
+                "Hair Draft rubric sources disagree on their module-level identity",
+            )
+    return canonical
 
 
 def _assertion_axis_refs(

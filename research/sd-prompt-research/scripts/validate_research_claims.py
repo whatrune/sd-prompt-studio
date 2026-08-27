@@ -890,6 +890,19 @@ class ClaimValidator:
             # supplies assertion_roots and does not reread a different tree.
             assertion_root = load_current_documents(self.project_root / "knowledge").get(file, {})
         schema_refs = assertion.get("observation_schema_refs", {})
+        bound_modules = {
+            evidence["observation_module"]
+            for binding in assertion["evidence_bindings"]
+            if (evidence := self.data.evidence.get(binding["evidence_ref_id"])) is not None
+        }
+        if "hair" in bound_modules and "hair" not in schema_refs:
+            self.issue(
+                "HAIR_OBSERVATION_SCHEMA_PROVENANCE_MISSING",
+                "Assertion with Hair Evidence requires a bound Hair Observation Schema reference",
+                file,
+                "$.observation_schema_refs.hair",
+                assertion_id,
+            )
         for module, schema_ref in schema_refs.items():
             schema_path_field = f"$.observation_schema_refs.{module}.path"
             try:

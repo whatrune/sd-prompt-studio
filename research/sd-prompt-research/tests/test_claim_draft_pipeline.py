@@ -99,15 +99,15 @@ class ClaimDraftPipelineTests(unittest.TestCase):
     def generate(self, output: Path) -> pipeline.GenerationResult:
         return pipeline.generate_draft(ROOT, [(OBSERVATION, "pose")], output_root=output)
 
-    def write_hair_run(self, parent: Path) -> Path:
-        run_dir = parent / "HAIR-TEST-A"
+    def write_hair_run(self, parent: Path, run_id: str = "BRG-008-A") -> Path:
+        run_dir = parent / f"HAIR-{run_id}"
         run_dir.mkdir(parents=True, exist_ok=True)
         observation_path = run_dir / "hair-observation.json"
         observation = hair_observation()
-        observation["run_id"] = "BRG-008-A"
+        observation["run_id"] = run_id
         observation_path.write_text(json.dumps(observation), encoding="utf-8")
         (run_dir / "manifest.yaml").write_text(
-            "run_id: BRG-008-A\ndomain: bridge\nmodel:\n  checkpoint: novaAnimeXL_ilV190\n",
+            f"run_id: {run_id}\ndomain: bridge\nmodel:\n  checkpoint: novaAnimeXL_ilV190\n",
             encoding="utf-8",
         )
         return observation_path
@@ -304,7 +304,7 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             }
             self.assertIn(("hair", "optional_module_observation", "BRG-008-A"), source_roles)
             self.assertIn(("hair", "rubric", "BRG-008-A"), source_roles)
-            self.assertIn(("hair", "observation_schema", "BRG-008-A"), source_roles)
+            self.assertIn(("hair", "observation_schema", "not_applicable"), source_roles)
             schema = pipeline._load_json(ROOT / "templates" / "hair-observation-schema.json")
             expected_content_hash = pipeline.semantic_hash(schema)
             bound = result.draft["used_schema_compatibility"]
@@ -417,17 +417,116 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             pipeline._bound_schema_compatibility(draft)
         self.assertEqual("DRAFT_SCHEMA_PROVENANCE_MISSING", raised.exception.code)
 
-    def test_hair_run_mismatch_is_rejected_at_claim_admission(self) -> None:
+    def test_invalid_optional_hair_is_rejected_while_core_draft_continues(self) -> None:
         with tempfile.TemporaryDirectory(dir=ROOT) as source_dir, tempfile.TemporaryDirectory() as output_dir:
             hair_path = self.write_hair_run(Path(source_dir))
             (hair_path.parent / "manifest.yaml").write_text("run_id: HAIR-TEST-B\n", encoding="utf-8")
-            with self.assertRaises(pipeline.PipelineError) as raised:
-                pipeline.generate_draft(
-                    ROOT,
-                    [(BRG008_POSE, "pose"), (hair_path, "hair")],
-                    output_root=Path(output_dir),
-                )
-            self.assertEqual("OBSERVATION_SCHEMA_INVALID", raised.exception.code)
+            result = pipeline.generate_draft(
+                ROOT,
+                [(BRG008_POSE, "pose"), (hair_path, "hair")],
+                output_root=Path(output_dir),
+            )
+            modules = {
+                item["canonical_module_slug"]
+                for item in result.draft["used_module_compatibility"]
+            }
+            self.assertEqual({"pose"}, modules)
+            self.assertFalse(
+                [
+                    item
+                    for item in result.draft["staged_evidence"]
+                    if item["canonical_fact"]["observation_module"] == "hair"
+                ]
+            )
+            self.assertNotIn("used_schema_compatibility", result.draft)
+            self.assertEqual(
+                pipeline.HAIR_OBSERVATION_VALIDATOR_VERSION,
+                result.draft["draft_input_identity"]["observation_validator_version"],
+            )
+            self.assertEqual(
+                ["OBSERVATION_SCHEMA_INVALID"],
+                [item["code"] for item in result.report["diagnostics"]],
+            )
+            self.assertEqual("warning", result.report["diagnostics"][0]["severity"])
+            rejected = [
+                item
+                for item in result.draft["draft_input_identity"]["source_files"]
+                if item["module"] == "hair"
+            ]
+            self.assertEqual(1, len(rejected))
+            self.assertEqual("optional_module_observation", rejected[0]["source_role"])
+            self.assertEqual("not_applicable", rejected[0]["run_id"])
+
+    def test_repeated_hair_runs_share_one_schema_source_and_preserve_run_sources(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as source_dir, tempfile.TemporaryDirectory() as output_dir:
+            hair_a = self.write_hair_run(Path(source_dir), "BRG-008-A")
+            hair_b = self.write_hair_run(Path(source_dir), "BRG-008-B")
+            result = pipeline.generate_draft(
+                ROOT,
+                [(BRG008_POSE, "pose"), (hair_a, "hair"), (hair_b, "hair")],
+                output_root=Path(output_dir),
+            )
+            sources = result.draft["draft_input_identity"]["source_files"]
+            schema_sources = [
+                item
+                for item in sources
+                if item["module"] == "hair" and item["source_role"] == "observation_schema"
+            ]
+            observation_sources = [
+                item
+                for item in sources
+                if item["module"] == "hair"
+                and item["source_role"] == "optional_module_observation"
+            ]
+            rubric_sources = [
+                item
+                for item in sources
+                if item["module"] == "hair" and item["source_role"] == "rubric"
+            ]
+            self.assertEqual(1, len(schema_sources))
+            self.assertEqual("not_applicable", schema_sources[0]["run_id"])
+            self.assertEqual({"BRG-008-A", "BRG-008-B"}, {item["run_id"] for item in observation_sources})
+            self.assertEqual({"BRG-008-A", "BRG-008-B"}, {item["run_id"] for item in rubric_sources})
+            self.assertEqual(1, len(result.draft["used_schema_compatibility"]))
+            bound_rubric = pipeline._bound_hair_rubric_source(result.draft)
+            self.assertEqual("hair", bound_rubric["module"])
+            self.assertEqual("rubric", bound_rubric["source_role"])
+
+    def test_repeated_hair_runs_with_conflicting_schema_identity_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as source_dir, tempfile.TemporaryDirectory() as output_dir:
+            hair_a = self.write_hair_run(Path(source_dir), "BRG-008-A")
+            hair_b = self.write_hair_run(Path(source_dir), "BRG-008-B")
+            original = pipeline._observation_source
+            hair_calls = 0
+
+            def conflicting_schema(*args, **kwargs):
+                nonlocal hair_calls
+                loaded, extracted, evidence, manifest = original(*args, **kwargs)
+                if args[2] == "hair":
+                    hair_calls += 1
+                    if hair_calls == 2:
+                        loaded = copy.deepcopy(loaded)
+                        entry = loaded["schema_compatibility"][0]
+                        entry["content_hash"] = "0" * 64
+                        entry["compatibility_hash"] = pipeline.semantic_hash(
+                            {key: value for key, value in entry.items() if key != "compatibility_hash"}
+                        )
+                        schema_source = next(
+                            source
+                            for source in loaded["source_files"]
+                            if source["source_role"] == "observation_schema"
+                        )
+                        schema_source["hash_value"] = "0" * 64
+                return loaded, extracted, evidence, manifest
+
+            with patch.object(pipeline, "_observation_source", side_effect=conflicting_schema):
+                with self.assertRaises(pipeline.PipelineError) as raised:
+                    pipeline.generate_draft(
+                        ROOT,
+                        [(BRG008_POSE, "pose"), (hair_a, "hair"), (hair_b, "hair")],
+                        output_root=Path(output_dir),
+                    )
+            self.assertEqual("DUPLICATE_SCHEMA_COMPATIBILITY_ENTRY", raised.exception.code)
 
     def test_hair_draft_to_candidate_assertion_succeeds(self) -> None:
         with tempfile.TemporaryDirectory(dir=ROOT) as source_dir, temporary_directory_with_native_cleanup() as output_dir:
