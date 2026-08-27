@@ -12,6 +12,8 @@ import { DEFAULT_LOCALE, getCategoryLabel, getTagLabel, t } from './i18n'
 import { buildColorModifiedTag, COLOR_MODIFIERS, findColorModifier, isColorModifiableCategory } from './modifiers/colorModifier'
 import { parsePromptAnalyzerInput } from './promptAnalyzer'
 import { formatUserDictionaryImportFailure, parseUserDictionaryImportText } from './userDictionaryImport'
+import visualConceptProductionCatalogV1 from './data/visual-concept-production-advisory-v1.json'
+import { projectVisualConceptProductionAdvisoryV1 } from './visualConceptProductionAdvisoryV1'
 
 
 
@@ -204,6 +206,7 @@ export default function App() {
   const [relatedCollapsed, setRelatedCollapsed] = useState(false)
   const [selectedCollapsed, setSelectedCollapsed] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
+  const [visualConceptCollapsed, setVisualConceptCollapsed] = useState(false)
   const [generationContextCollapsed, setGenerationContextCollapsed] = useState(true)
   const [expansionCollapsed, setExpansionCollapsed] = useState(true)
   const [promptCollapsed, setPromptCollapsed] = useState(true)
@@ -463,6 +466,11 @@ export default function App() {
 
   const expansion = useMemo(() => buildPromptWithStrategy(store.blocks, store.sceneTags, store.modelPreset), [store.blocks, store.sceneTags, store.modelPreset])
   const prompt = expansion.prompt
+  const visualConceptAdvisory = useMemo(() => projectVisualConceptProductionAdvisoryV1({
+    catalog: visualConceptProductionCatalogV1,
+    blocks: store.blocks,
+    sceneTags: store.sceneTags,
+  }), [store.blocks, store.sceneTags])
 
   const openSavePrompt = () => {
     setSavePromptName('')
@@ -1023,6 +1031,23 @@ export default function App() {
                 </section>
               })}
             </div>
+          </div>}
+        </section>
+        <section className={`preview-section visual-concept-advisory ${visualConceptCollapsed?'collapsed':''}`} aria-labelledby="visual-concept-advisory-title">
+          <div className="preview-section-header"><button type="button" className="preview-section-toggle" onClick={()=>setVisualConceptCollapsed(value=>!value)} aria-expanded={!visualConceptCollapsed}><span id="visual-concept-advisory-title">Visual Concepts</span>{visualConceptCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button></div>
+          {!visualConceptCollapsed&&<div className="preview-section-content visual-concept-advisory-content">
+            {visualConceptAdvisory.advisory_status==='UNAVAILABLE'
+              ? <div className="visual-concept-advisory-empty"><AlertTriangle size={16}/><span>Visual Concept advisory unavailable</span></div>
+              : <>
+                {visualConceptAdvisory.mapped_entries.length===0
+                  ? <div className="visual-concept-advisory-empty"><Info size={16}/><span>No mapped concepts for this selection.</span></div>
+                  : <div className="visual-concept-advisory-list">{visualConceptAdvisory.mapped_entries.map((entry,index)=><article className="visual-concept-advisory-entry" key={`${entry.owner_kind}-${entry.owner_id}-${entry.prompt_tag_id}-${index}`}>
+                    <div><strong>{entry.prompt_tag_label}</strong><code>{entry.concept_id}</code></div>
+                    <small>{entry.concept_label}</small>
+                    <dl><div><dt>TYPE</dt><dd>{entry.concept_module} / {entry.concept_type}</dd></div><div><dt>STATUS</dt><dd>{entry.concept_status}</dd></div><div><dt>OWNER</dt><dd>{entry.owner_kind} · {entry.owner_id}</dd></div></dl>
+                  </article>)}</div>}
+                <div className="visual-concept-advisory-coverage"><span>Mapped {visualConceptAdvisory.mapped_count} of {visualConceptAdvisory.selected_tag_count} selected tags</span><strong>{visualConceptAdvisory.uncovered_selected_tag_count} outside current coverage</strong></div>
+              </>}
           </div>}
         </section>
         <section className={`preview-section generation-context ${generationContextCollapsed?'collapsed':''}`} aria-labelledby="generation-context-title">

@@ -1,0 +1,54 @@
+{
+  "record_type": "visual_concept_production_advisory_catalog_v1",
+  "version": 1,
+  "source_binding": {
+    "binding_record_type": "visual_concept_prompt_tag_bindings_v1",
+    "binding_version": 1,
+    "binding_sha256": "21fc3801f5a3d50c45465e6f09dfefea4c8da9fe2b033fdb03ac30aa7eb82855",
+    "graph_schema_id": "https://local.sd-prompt-studio/visual-concept-graph-v0.2.schema.json",
+    "graph_schema_version": "0.2.0",
+    "graph_version": "0.2.0",
+    "graph_sha256": "6de4c15d53f81e4188798ecc79593fd2d40cdf4cecbb151e7345e31a815c21f3",
+    "registry_sha256": "233568bce81627f8ff0ce75d990e80824e13d0c857340c38533dea90f4066747"
+  },
+  "coverage": {
+    "active_prompt_tag_count": 2522,
+    "mapped_active_prompt_tag_count": 4,
+    "unmapped_active_prompt_tag_count": 2518
+  },
+  "mappings": [
+    {
+      "prompt_tag_id": "pos-lying",
+      "concept_id": "body.state.lying",
+      "concept_label": "Lying body state",
+      "concept_module": "physical",
+      "concept_type": "body_state",
+      "concept_status": "provisional"
+    },
+    {
+      "prompt_tag_id": "rin-pose-arm-support",
+      "concept_id": "support.arm.rearward",
+      "concept_label": "Rearward arm support",
+      "concept_module": "relations",
+      "concept_type": "support_relation",
+      "concept_status": "provisional"
+    },
+    {
+      "prompt_tag_id": "rin-pose-reclining",
+      "concept_id": "body.state.reclined",
+      "concept_label": "Reclined body state",
+      "concept_module": "physical",
+      "concept_type": "body_state",
+      "concept_status": "provisional"
+    },
+    {
+      "prompt_tag_id": "v192-bent-knees",
+      "concept_id": "configuration.knee.bent",
+      "concept_label": "Bent knees",
+      "concept_module": "physical",
+      "concept_type": "body_part_configuration",
+      "concept_status": "provisional"
+    }
+  ],
+  "relations": []
+}
