@@ -22,13 +22,16 @@ try {
   const projectVisualConceptReadOnlyEntryV1 = createVisualConceptReadOnlyEntryAdapterV1({ bindingContract, graphContract, promptTagRegistry: registry })
   const selected = id => ({ ...registry.find(tag => tag.id === id), weight: 1 })
   const lying = selected('pos-lying')
+  const armSupport = selected('rin-pose-arm-support')
+  const reclining = selected('rin-pose-reclining')
+  const bentKnees = selected('v192-bent-knees')
   const lyingOnBack = selected('pos-lying-on-back')
   const forest = selected('bac-forest')
   const deprecated = { id: 'rin-pose-on-back', label: '仰向け', prompt: 'on back', category: 'pose', subcategory: '基本姿勢', weight: 1 }
   const custom = { id: 'custom-library-entry', label: 'Custom', prompt: 'custom library entry', category: 'pose', subcategory: 'カスタム', weight: 1 }
   const input = {
     blocks: [
-      { id: 'subject-1', name: 'Subject 1', tags: [lying, lyingOnBack] },
+      { id: 'subject-1', name: 'Subject 1', tags: [lying, armSupport, reclining, bentKnees, lyingOnBack] },
       { id: 'subject-2', name: 'Subject 2', tags: [custom, deprecated] },
     ],
     sceneTags: [forest],
@@ -36,13 +39,21 @@ try {
 
   equal(Object.keys(bindingContract).length, 8, 'binding root must contain exactly eight fields')
   deepEqual(Object.keys(bindingContract), ['record_type', 'version', 'graph_source', 'graph_schema_source', 'graph_schema_id', 'graph_schema_version', 'graph_version', 'bindings'], 'binding root field order must remain frozen')
-  deepEqual(bindingContract.bindings, [{ prompt_tag_id: 'pos-lying', concept_id: 'body.state.lying' }], 'initial binding must contain only pos-lying to body.state.lying')
+  deepEqual(bindingContract.bindings, [
+    { prompt_tag_id: 'pos-lying', concept_id: 'body.state.lying' },
+    { prompt_tag_id: 'rin-pose-arm-support', concept_id: 'support.arm.rearward' },
+    { prompt_tag_id: 'rin-pose-reclining', concept_id: 'body.state.reclined' },
+    { prompt_tag_id: 'v192-bent-knees', concept_id: 'configuration.knee.bent' },
+  ], 'binding slice must remain lexically ordered and explicit')
 
   const projection = projectVisualConceptReadOnlyEntryV1(input)
   equal(projection.status, 'PROJECTED', 'valid production contracts must project')
   equal(projection.reason, null, 'successful projection must not carry a rejection reason')
   deepEqual(projection.entries.map(entry => [entry.owner_kind, entry.owner_id, entry.prompt_tag_id]), [
     ['PROMPT_BLOCK', 'subject-1', 'pos-lying'],
+    ['PROMPT_BLOCK', 'subject-1', 'rin-pose-arm-support'],
+    ['PROMPT_BLOCK', 'subject-1', 'rin-pose-reclining'],
+    ['PROMPT_BLOCK', 'subject-1', 'v192-bent-knees'],
     ['PROMPT_BLOCK', 'subject-1', 'pos-lying-on-back'],
     ['PROMPT_BLOCK', 'subject-2', 'custom-library-entry'],
     ['PROMPT_BLOCK', 'subject-2', 'rin-pose-on-back'],
@@ -59,11 +70,20 @@ try {
     diagnostic: null,
   }, 'pos-lying must map exactly to body.state.lying with PromptBlock ownership')
   deepEqual(projection.entries[1], {
+    record_type: 'visual_concept_entry_v1', owner_kind: 'PROMPT_BLOCK', owner_id: 'subject-1', prompt_tag_id: 'rin-pose-arm-support', mapping_status: 'MAPPED', concept_id: 'support.arm.rearward', concept_status: 'provisional', diagnostic: null,
+  }, 'arm support must map exactly to rearward arm support')
+  deepEqual(projection.entries[2], {
+    record_type: 'visual_concept_entry_v1', owner_kind: 'PROMPT_BLOCK', owner_id: 'subject-1', prompt_tag_id: 'rin-pose-reclining', mapping_status: 'MAPPED', concept_id: 'body.state.reclined', concept_status: 'provisional', diagnostic: null,
+  }, 'reclining must map exactly to the reclined body state')
+  deepEqual(projection.entries[3], {
+    record_type: 'visual_concept_entry_v1', owner_kind: 'PROMPT_BLOCK', owner_id: 'subject-1', prompt_tag_id: 'v192-bent-knees', mapping_status: 'MAPPED', concept_id: 'configuration.knee.bent', concept_status: 'provisional', diagnostic: null,
+  }, 'bent knees must map exactly to the bent-knee configuration')
+  deepEqual(projection.entries[4], {
     record_type: 'visual_concept_entry_v1', owner_kind: 'PROMPT_BLOCK', owner_id: 'subject-1', prompt_tag_id: 'pos-lying-on-back', mapping_status: 'UNMAPPED', concept_id: null, concept_status: null, diagnostic: 'prompt_tag_unmapped',
   }, 'an adjacent supported tag must remain explicitly unmapped')
-  equal(projection.entries[2].diagnostic, 'non_registry_tag_unmapped', 'custom IDs must remain explicitly unmapped without inference')
-  equal(projection.entries[3].diagnostic, 'non_registry_tag_unmapped', 'deprecated IDs must remain unmapped without following redirects')
-  deepEqual(projection.entries[4], {
+  equal(projection.entries[5].diagnostic, 'non_registry_tag_unmapped', 'custom IDs must remain explicitly unmapped without inference')
+  equal(projection.entries[6].diagnostic, 'non_registry_tag_unmapped', 'deprecated IDs must remain unmapped without following redirects')
+  deepEqual(projection.entries[7], {
     record_type: 'visual_concept_entry_v1', owner_kind: 'SCENE', owner_id: 'scene', prompt_tag_id: 'bac-forest', mapping_status: 'UNMAPPED', concept_id: null, concept_status: null, diagnostic: 'prompt_tag_unmapped',
   }, 'bac-forest must remain an exact Scene-owned unmapped entry')
 
@@ -75,7 +95,7 @@ try {
   equal(reasonFor(duplicateBinding), 'binding_identity_conflict', 'duplicate PromptTag bindings must fail closed')
 
   const danglingPromptTag = clone(bindingContract)
-  danglingPromptTag.bindings[0].prompt_tag_id = 'zzz-missing-tag'
+  danglingPromptTag.bindings[0].prompt_tag_id = 'pos-missing-tag'
   equal(reasonFor(danglingPromptTag), 'binding_prompt_tag_missing', 'binding to a missing production PromptTag must fail closed')
 
   const danglingConcept = clone(bindingContract)
@@ -114,7 +134,7 @@ try {
   equal(adapterFor()({ blocks: [{ id: 'subject-1', name: 'Subject 1', tags: [{ ...lying, prompt: 'spoofed lying' }] }], sceneTags: [] }).reason, 'projection_input_invalid', 'registry identity drift in projected input must fail closed')
   equal(adapterFor()({ blocks: [{ id: 'subject-1', name: 'Subject 1', tags: [] }, { id: 'subject-1', name: 'Duplicate', tags: [] }], sceneTags: [] }).reason, 'projection_input_invalid', 'duplicate PromptBlock ownership must fail closed')
 
-  const compilerBlocks = [{ id: 'compiler-subject', name: 'Subject', tags: [lying, lyingOnBack] }]
+  const compilerBlocks = [{ id: 'compiler-subject', name: 'Subject', tags: [lying, armSupport, reclining, bentKnees, lyingOnBack] }]
   const beforeProjection = buildPrompt(compilerBlocks)
   projectVisualConceptReadOnlyEntryV1({ blocks: compilerBlocks, sceneTags: [forest] })
   equal(buildPrompt(compilerBlocks), beforeProjection, 'read-only projection must leave existing Prompt Compiler output byte-identical')
