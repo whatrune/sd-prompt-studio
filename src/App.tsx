@@ -11,6 +11,7 @@ import { buildPromptWithStrategy, tagSort } from './prompt'
 import { DEFAULT_LOCALE, getCategoryLabel, getTagLabel, t } from './i18n'
 import { buildColorModifiedTag, COLOR_MODIFIERS, findColorModifier, isColorModifiableCategory } from './modifiers/colorModifier'
 import { parsePromptAnalyzerInput } from './promptAnalyzer'
+import { formatUserDictionaryImportFailure, parseUserDictionaryImportText } from './userDictionaryImport'
 
 
 
@@ -645,13 +646,18 @@ export default function App() {
   async function importUserDictionary(file?: File){
     if (!file) return
     try {
-      const parsed = JSON.parse(await file.text())
-      const items = Array.isArray(parsed) ? parsed : parsed.tags
-      if (!Array.isArray(items)) throw new Error('配列ではありません')
-      const added = store.importUserTags(items)
-      alert(`${added}件をユーザー辞書へ追加しました`)
-    } catch { alert('JSON形式を読み込めませんでした') }
-    if (importRef.current) importRef.current.value = ''
+      const parsed = parseUserDictionaryImportText(await file.text())
+      if (!parsed.success) alert(formatUserDictionaryImportFailure(parsed))
+      else {
+        const result = store.importUserTags(parsed.items)
+        if (result.success) alert(`${result.added}件をユーザー辞書へ追加しました`)
+        else alert(formatUserDictionaryImportFailure(result))
+      }
+    } catch {
+      alert('JSON形式を読み込めませんでした')
+    } finally {
+      if (importRef.current) importRef.current.value = ''
+    }
   }
   function addClothing(){
     const parts = [clothingColor, clothingPattern, clothingMaterial, clothingItem].filter(Boolean)
