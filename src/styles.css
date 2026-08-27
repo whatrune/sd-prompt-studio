@@ -1693,6 +1693,90 @@ body,
   color: var(--text-primary);
 }
 
+/* v37: User Dictionary owns day-to-day registration and deletion */
+.user-dictionary-registration {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-secondary);
+}
+
+.user-dictionary-registration-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.user-dictionary-registration-head h2 {
+  margin: 2px 0 0;
+  font-size: 15px;
+}
+
+.user-dictionary-registration-head small {
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.user-dictionary-registration-fields {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) minmax(170px, .8fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.user-dictionary-registration-fields label {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.user-dictionary-registration-fields input,
+.user-dictionary-registration-fields select {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  padding: 6px 8px;
+}
+
+.user-dictionary-registration-fields .dictionary-add {
+  min-height: 32px;
+  padding: 6px 12px;
+}
+
+.user-dictionary-registration-fields .dictionary-add:disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+@media (max-width: 1100px) {
+  .user-dictionary-registration-fields {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .user-dictionary-registration-head {
+    align-items: start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .user-dictionary-registration-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
 .category-tabs-section > .library-tabs .library-group-select,
 .category-tabs-section > .library-tabs .library-group-delete {
   min-height: 27px;

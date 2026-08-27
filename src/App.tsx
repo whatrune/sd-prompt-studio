@@ -199,7 +199,7 @@ export default function App() {
   const [analyzerText, setAnalyzerText] = useState('')
   const [customPrompt, setCustomPrompt] = useState('')
   const [customLabel, setCustomLabel] = useState('')
-  const [saveCustom, setSaveCustom] = useState(true)
+  const [userDictionaryRegistrationCategory, setUserDictionaryRegistrationCategory] = useState('')
   const [composerCollapsed, setComposerCollapsed] = useState(true)
   const [relatedCollapsed, setRelatedCollapsed] = useState(false)
   const [selectedCollapsed, setSelectedCollapsed] = useState(false)
@@ -681,7 +681,13 @@ export default function App() {
     }
     setSearchActiveIndex(action.activeIndex)
   }
-  function addCustom(){ store.addCustomTag(customPrompt, category, saveCustom, customLabel); setCustomPrompt(''); setCustomLabel('') }
+  function addCustom(){
+    if (!customPrompt.trim() || !categoryOrder.includes(userDictionaryRegistrationCategory)) return
+    store.addCustomTag(customPrompt, userDictionaryRegistrationCategory, true, customLabel)
+    setCustomPrompt('')
+    setCustomLabel('')
+    setUserDictionaryRegistrationCategory('')
+  }
   function exportUserDictionary(){
     const blob = new Blob([JSON.stringify(store.userTags, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -757,7 +763,7 @@ export default function App() {
     return <article key={tag.id} id={isSearchMode?`tag-search-result-${tag.id}`:undefined} className={`tag-card category-${tag.category} ${selected?'selected':''} ${unavailable?'unavailable':''} ${warning?'warning':''} ${colorNotApplicable?'color-not-applicable':''} ${keyboardActive?'keyboard-active':''}`} title={appliedColor || colorNotApplicable ? accessibleLabel : undefined}>
       <button className={`star ${favorite?'active':''}`} aria-label="お気に入り" onClick={()=>store.toggleFavorite(tag.id)}><Star size={15} fill={favorite?'currentColor':'none'}/></button>
       <button className="info-tag" title="タグ詳細" aria-label="タグ詳細" onClick={()=>setInspectedTag(tag)}><Info size={14}/></button>
-      {isUser&&!userDictionaryOnly&&<button className="delete-user-tag" title="ユーザー辞書から削除" onClick={()=>store.removeUserTag(tag.id)}><X size={13}/></button>}
+      {isUser&&<button className="delete-user-tag" title="ユーザー辞書から削除" aria-label={`${tag.label}をユーザー辞書から削除`} onClick={()=>store.removeUserTag(tag.id)}><X size={13}/></button>}
       <button className="tag-main" aria-label={accessibleLabel} onClick={()=>toggleDictionaryTag(tag)}>{unavailable&&<span className="conflict-badge"><Ban size={13}/>競合</span>}{warning&&<span className="warning-badge"><AlertTriangle size={13}/>注意</span>}<strong>{tag.label}</strong><span>{selectedTag?.prompt ?? tag.prompt}</span><small>{isUser?'ユーザー辞書 / ':''}{tag.rating==='adult'?'成人向け / ':tag.rating==='suggestive'?'軽度 / ':''}{categoryLabels[tag.category]} / {tag.subcategory}</small></button>
       {appliedColor&&<span className="tag-color-ribbon" style={{ '--modifier-color': appliedColor.swatch } as CSSProperties} aria-hidden="true"/>}
     </article>
@@ -791,16 +797,8 @@ export default function App() {
                 <button onClick={exportUserDictionary}>辞書を書き出す</button>
                 <button onClick={()=>importRef.current?.click()}>辞書を読み込む</button>
                 <input ref={importRef} hidden type="file" accept="application/json" onChange={e=>importUserDictionary(e.target.files?.[0])}/>
-                {store.userTags.length>0&&<button className="danger" onClick={()=>confirm('ユーザー辞書を空にしますか？')&&store.clearUserTags()}>辞書を空にする</button>}
               </div>
-              <div className="settings-custom-form">
-                <label>English Tag<input value={customPrompt} onChange={e=>setCustomPrompt(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addCustom()} placeholder="custom prompt tag" /></label>
-                <label>表示名<input value={customLabel} onChange={e=>setCustomLabel(e.target.value)} placeholder="日本語名（任意）" /></label>
-                <label className="settings-toggle compact"><input type="checkbox" checked={saveCustom} onChange={e=>setSaveCustom(e.target.checked)}/><span><b>ユーザー辞書へ保存</b></span></label>
-                <button className="dictionary-add" onClick={addCustom}><Plus size={14}/>現在のカテゴリへ追加</button>
-              </div>
-              {store.userTags.length>0&&<div className="settings-user-list">{store.userTags.map(tag=><div key={tag.id}><span><b>{getTagLabel(tag,locale)}</b><code>{tag.prompt}</code></span><button title="削除" onClick={()=>store.removeUserTag(tag.id)}><X size={13}/></button></div>)}</div>}
-              <p>追加・削除・Import・Exportをここで管理します。Role metadataは将来の表示拡張用です。</p>
+              <p>辞書全体のImport・Exportをここで管理します。登録・閲覧・使用・削除はLIBRARYのUser Dictionaryで行います。</p>
             </section>
           </div>}
         </div>
@@ -852,6 +850,15 @@ export default function App() {
 
       <section className="tag-panel panel">
         {store.workspaceView==='library'?(userDictionaryOnly?<div className="prompt-workspace-content user-dictionary-workspace">
+          <form className="user-dictionary-registration" onSubmit={e=>{e.preventDefault();addCustom()}}>
+            <div className="user-dictionary-registration-head"><div><span className="eyebrow">REGISTER</span><h2>ユーザー辞書へ登録</h2></div><small>カテゴリを選んで追加</small></div>
+            <div className="user-dictionary-registration-fields">
+              <label>English Tag<input value={customPrompt} onChange={e=>setCustomPrompt(e.target.value)} placeholder="custom prompt tag" /></label>
+              <label>表示名<input value={customLabel} onChange={e=>setCustomLabel(e.target.value)} placeholder="日本語名（任意）" /></label>
+              <label>カテゴリ<select required value={userDictionaryRegistrationCategory} onChange={e=>setUserDictionaryRegistrationCategory(e.target.value)}><option value="">カテゴリを選択</option>{categoryOrder.map(categoryKey=><option key={categoryKey} value={categoryKey}>{getCategoryLabel(categoryKey,locale)}</option>)}</select></label>
+              <button className="dictionary-add" type="submit" disabled={!customPrompt.trim()||!categoryOrder.includes(userDictionaryRegistrationCategory)}><Plus size={14}/>追加</button>
+            </div>
+          </form>
           <div className="prompt-controls">
             <div className="prompt-control-bar">
               <section className="category-tabs-section" aria-label="ユーザー辞書カテゴリ"><div className="subcategory-tabs">{['すべて',...userDictionaryCategories].map(categoryKey=>{const activeCategory=userDictionaryCategory===categoryKey;return <button key={categoryKey} className={activeCategory?'active':''} aria-pressed={activeCategory} onClick={()=>setUserDictionaryCategory(categoryKey)}><TabLabel active={activeCategory} label={categoryKey==='すべて'?'すべて':getCategoryLabel(categoryKey,locale)}/></button>})}</div></section>
