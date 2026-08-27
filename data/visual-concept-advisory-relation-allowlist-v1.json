@@ -1,0 +1,30 @@
+{
+  "record_type": "visual_concept_advisory_relation_allowlist_v1",
+  "version": 1,
+  "graph_source": "research/sd-prompt-research/dist/visual-concept-graph.json",
+  "graph_schema_source": "research/sd-prompt-research/schemas/visual-concept-graph.schema.json",
+  "graph_schema_id": "https://local.sd-prompt-studio/visual-concept-graph-v0.2.schema.json",
+  "graph_schema_version": "0.2.0",
+  "graph_version": "0.2.0",
+  "relations": [
+    {
+      "relation_id": "relation.rear_arm_support.biases.reclined",
+      "relation_type": "biases",
+      "source_concept_id": "support.arm.rearward",
+      "target_concept_id": "body.state.reclined",
+      "direction": "directed",
+      "status": "provisional",
+      "strength": "high",
+      "confidence": "high",
+      "model_profile": "model.novaanimexl_ilv190",
+      "evidence_refs": [
+        {
+          "evidence_ref_id": "evidence.brg007b.reclined_arm_support",
+          "run_id": "BRG-007-B",
+          "confidence": "high",
+          "storage": "local"
+        }
+      ]
+    }
+  ]
+}
