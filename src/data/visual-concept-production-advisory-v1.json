@@ -4,7 +4,7 @@
   "source_binding": {
     "binding_record_type": "visual_concept_prompt_tag_bindings_v1",
     "binding_version": 1,
-    "binding_sha256": "21fc3801f5a3d50c45465e6f09dfefea4c8da9fe2b033fdb03ac30aa7eb82855",
+    "binding_sha256": "f995fbbadaa63cb70c20fa40e2d1283e708cb34a50f18fac8b54605db997773d",
     "graph_schema_id": "https://local.sd-prompt-studio/visual-concept-graph-v0.2.schema.json",
     "graph_schema_version": "0.2.0",
     "graph_version": "0.2.0",
@@ -13,8 +13,8 @@
   },
   "coverage": {
     "active_prompt_tag_count": 2522,
-    "mapped_active_prompt_tag_count": 4,
-    "unmapped_active_prompt_tag_count": 2518
+    "mapped_active_prompt_tag_count": 5,
+    "unmapped_active_prompt_tag_count": 2517
   },
   "mappings": [
     {
@@ -23,6 +23,14 @@
       "concept_label": "Lying body state",
       "concept_module": "physical",
       "concept_type": "body_state",
+      "concept_status": "provisional"
+    },
+    {
+      "prompt_tag_id": "pos-lying-on-back",
+      "concept_id": "body.orientation.face_up",
+      "concept_label": "Face-up orientation",
+      "concept_module": "physical",
+      "concept_type": "body_orientation",
       "concept_status": "provisional"
     },
     {

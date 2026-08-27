@@ -7,6 +7,7 @@ const MAPPING_KEYS = ['prompt_tag_id', 'concept_id', 'concept_label', 'concept_m
 const SHA256 = /^[0-9a-f]{64}$/
 const EXPECTED_MAPPINGS = [
   ['pos-lying', 'body.state.lying'],
+  ['pos-lying-on-back', 'body.orientation.face_up'],
   ['rin-pose-arm-support', 'support.arm.rearward'],
   ['rin-pose-reclining', 'body.state.reclined'],
   ['v192-bent-knees', 'configuration.knee.bent'],

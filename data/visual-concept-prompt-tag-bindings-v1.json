@@ -12,6 +12,10 @@
       "concept_id": "body.state.lying"
     },
     {
+      "prompt_tag_id": "pos-lying-on-back",
+      "concept_id": "body.orientation.face_up"
+    },
+    {
       "prompt_tag_id": "rin-pose-arm-support",
       "concept_id": "support.arm.rearward"
     },
