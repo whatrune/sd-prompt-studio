@@ -82,16 +82,26 @@ try {
     ['PROMPT_BLOCK', 'subject-2', 'rin-pose-reclining'],
     ['PROMPT_BLOCK', 'subject-2', 'v192-bent-knees'],
   ], 'mapped entry ownership and production input order must be preserved')
+  deepEqual(advisory.uncovered_entries.map(entry => [entry.owner_kind, entry.owner_id, entry.prompt_tag_id, entry.prompt_tag_label]), [
+    ['PROMPT_BLOCK', 'subject-1', 'custom-tag', 'Custom'],
+    ['SCENE', 'scene', 'bac-forest', selected('bac-forest').label],
+  ], 'uncovered entry identity, ownership, label, and production input order must be preserved')
+  equal(advisory.uncovered_entries.length, advisory.uncovered_selected_tag_count, 'uncovered count must equal the projected uncovered entry cardinality')
   equal(promptModule.buildPromptWithStrategy(blocks, sceneTags, 'illustrious').prompt, promptBefore, 'advisory projection must leave Prompt Compiler output byte-identical')
-  equal(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [] }).mapped_count, 0, 'empty selection must remain safe')
+  const emptySelection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [] })
+  equal(emptySelection.mapped_count, 0, 'empty selection must remain safe')
+  deepEqual(emptySelection.uncovered_entries, [], 'empty selection must expose no uncovered identities')
   const noMapped = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [{ id: 'subject-1', name: 'Subject 1', tags: [selected('pos-standing')] }], sceneTags: [] })
   equal(noMapped.advisory_status, 'READY', 'unmapped-only selection must remain an available advisory')
   equal(noMapped.uncovered_selected_tag_count, 1, 'unmapped-only selection must increment coverage count only')
+  deepEqual(noMapped.uncovered_entries.map(entry => entry.prompt_tag_id), ['pos-standing'], 'unmapped-only selection must expose the exact selected tag identity')
   const deprecated = { id: 'rin-pose-on-back', label: 'Deprecated', prompt: 'lying on back', category: 'pose', weight: 1 }
   equal(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [{ id: 'subject-1', name: 'Subject 1', tags: [deprecated] }], sceneTags: [] }).mapped_count, 0, 'deprecated IDs must not receive inferred mappings')
   const invalidCatalog = clone(checkedInCatalog)
   invalidCatalog.extra = true
-  equal(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: invalidCatalog, blocks, sceneTags }).advisory_status, 'UNAVAILABLE', 'invalid catalog must degrade the advisory only')
+  const unavailableAdvisory = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: invalidCatalog, blocks, sceneTags })
+  equal(unavailableAdvisory.advisory_status, 'UNAVAILABLE', 'invalid catalog must degrade the advisory only')
+  deepEqual(unavailableAdvisory.uncovered_entries, [], 'unavailable advisory must not expose partial uncovered identities')
   const relationCatalog = clone(checkedInCatalog)
   relationCatalog.relations.push({ relation_id: 'not-admitted' })
   equal(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: relationCatalog, blocks, sceneTags }).advisory_status, 'UNAVAILABLE', 'relations must remain unsupported in production V1')
@@ -106,9 +116,12 @@ try {
   check(visualSection > appSource.indexOf('className="selected-outline"') && visualSection < appSource.indexOf('className={`preview-section generation-context'), 'Visual Concepts must render after Prompt Context and before Generation Context')
   equal((appSource.match(/id="visual-concept-advisory-title"/g) ?? []).length, 1, 'Visual Concepts must appear only in the current Prompt Inspector')
   check(appSource.includes('Visual Concept advisory unavailable') && appSource.includes('No mapped concepts for this selection.'), 'Inspector must expose unavailable and no-mapped states')
-  check(appSource.includes('outside current coverage') && appSource.includes('entry.owner_kind') && appSource.includes('entry.owner_id'), 'Inspector must show coverage and exact ownership')
+  check(appSource.includes('MAPPED') && appSource.includes('UNCOVERED') && appSource.includes('TOTAL'), 'Inspector must distinguish all three coverage counts')
+  check(appSource.includes('Uncovered selected tags') && appSource.includes('entry.prompt_tag_id') && appSource.includes('entry.prompt_tag_label'), 'Inspector must expose uncovered tag identities in a secondary list')
+  check(appSource.includes('<details className="visual-concept-advisory-uncovered">'), 'uncovered identities must remain collapsed by default using an accessible native disclosure')
+  check(appSource.includes('entry.owner_kind') && appSource.includes('entry.owner_id'), 'Inspector must show exact selected-tag ownership')
   check(!appSource.includes('visualConceptAdvisory.relations'), 'production V1 UI must not display relations')
-  check(stylesSource.includes('.visual-concept-advisory-entry') && stylesSource.includes('.visual-concept-advisory-coverage'), 'advisory must have deterministic Inspector-native visual treatment')
+  check(stylesSource.includes('.visual-concept-advisory-entry') && stylesSource.includes('.visual-concept-advisory-coverage') && stylesSource.includes('.visual-concept-advisory-uncovered'), 'advisory must have deterministic Inspector-native visual treatment')
   check(!runtimeSource.includes('usePromptStore') && !runtimeSource.includes('buildPrompt') && !runtimeSource.includes('research/'), 'runtime owner must be pure and independent of store, compiler, and Research Repository')
 
   console.log(`Visual Concept production advisory tests passed: ${assertionCount} assertions`)

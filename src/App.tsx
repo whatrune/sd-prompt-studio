@@ -1046,7 +1046,18 @@ export default function App() {
                     <small>{entry.concept_label}</small>
                     <dl><div><dt>TYPE</dt><dd>{entry.concept_module} / {entry.concept_type}</dd></div><div><dt>STATUS</dt><dd>{entry.concept_status}</dd></div><div><dt>OWNER</dt><dd>{entry.owner_kind} · {entry.owner_id}</dd></div></dl>
                   </article>)}</div>}
-                <div className="visual-concept-advisory-coverage"><span>Mapped {visualConceptAdvisory.mapped_count} of {visualConceptAdvisory.selected_tag_count} selected tags</span><strong>{visualConceptAdvisory.uncovered_selected_tag_count} outside current coverage</strong></div>
+                <div className="visual-concept-advisory-coverage" aria-label="Visual Concept coverage summary">
+                  <span><small>MAPPED</small><strong>{visualConceptAdvisory.mapped_count}</strong></span>
+                  <span><small>UNCOVERED</small><strong>{visualConceptAdvisory.uncovered_selected_tag_count}</strong></span>
+                  <span><small>TOTAL</small><strong>{visualConceptAdvisory.selected_tag_count}</strong></span>
+                </div>
+                {visualConceptAdvisory.uncovered_entries.length>0&&<details className="visual-concept-advisory-uncovered">
+                  <summary><span>Uncovered selected tags</span><strong>{visualConceptAdvisory.uncovered_entries.length}</strong></summary>
+                  <ul>{visualConceptAdvisory.uncovered_entries.map((entry,index)=><li key={`${entry.owner_kind}-${entry.owner_id}-${entry.prompt_tag_id}-${index}`}>
+                    <div><strong>{entry.prompt_tag_label}</strong><code>{entry.prompt_tag_id}</code></div>
+                    <small>{entry.owner_kind} · {entry.owner_id}</small>
+                  </li>)}</ul>
+                </details>}
               </>}
           </div>}
         </section>
