@@ -5,6 +5,7 @@ import { adultTags } from './data/adultTags'
 import { canonicalId, resolveCanonicalTag } from './data/canonical'
 import { createId } from './id'
 import type { LocalizedLabels } from './i18n'
+import { validateUserDictionaryImportPayload, type UserDictionaryImportResult } from './userDictionaryImport'
 
 export type TagModifiers = { color?: string }
 export type SelectedTag = { id: string; prompt: string; label: string; labels?: LocalizedLabels; category: string; outputCategory?: string; subcategory?: string; sortSubcategory?: string; promptGroup?: string; promptOrder?: number; slot?: string | string[]; layer?: PromptTag['layer']; coverage?: PromptTag['coverage']; weight: number; rating?: ContentRating; baseTagId?: string; modifiers?: TagModifiers }
@@ -75,7 +76,7 @@ export type State = {
   addTag: (tag: SelectedTag) => void
   addCustomTag: (prompt: string, category: string, saveToDictionary?: boolean, label?: string) => void
   addUserTag: (tag: Omit<UserPromptTag, 'id' | 'source'> & { id?: string }) => void
-  importUserTags: (items: PromptTag[]) => number
+  importUserTags: (payload: unknown) => UserDictionaryImportResult
   removeUserTag: (id: string) => void
   clearUserTags: () => void
   removeTag: (id: string) => void
@@ -368,18 +369,19 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
     const item: UserPromptTag = { ...tag, id: tag.id || `user-${createId()}`, source: 'user' }
     return { userTags: [...state.userTags, item] }
   }),
-  importUserTags: (items) => {
-    const valid = items.filter(item => item && typeof item.prompt === 'string' && typeof item.category === 'string')
-    const before = get().userTags.length
-    set((state) => {
-      const map = new Map(state.userTags.map(t => [`${t.category}\u0000${t.prompt}`, t]))
-      valid.forEach((item) => {
-        const key = `${item.category}\u0000${item.prompt.trim()}`
-        if (!map.has(key)) map.set(key, { ...item, id: item.id || `user-${createId()}`, label: item.label || item.prompt, subcategory: item.subcategory || 'ユーザー辞書', source: 'user' })
-      })
-      return { userTags: [...map.values()] }
+  importUserTags: (payload) => {
+    const validation = validateUserDictionaryImportPayload(payload)
+    if (!validation.success) return { ...validation, added: 0 }
+
+    const current = get().userTags
+    const map = new Map(current.map(t => [`${t.category}\u0000${t.prompt}`, t]))
+    validation.items.forEach((item) => {
+      const key = `${item.category}\u0000${item.prompt.trim()}`
+      if (!map.has(key)) map.set(key, { ...item, id: item.id || `user-${createId()}`, label: item.label || item.prompt, subcategory: item.subcategory || 'ユーザー辞書', source: 'user' })
     })
-    return get().userTags.length - before
+    const added = map.size - current.length
+    if (added > 0) set({ userTags: [...map.values()] })
+    return { success: true, added, imported: validation.items.length }
   },
   removeUserTag: (id) => set((state) => ({ userTags: state.userTags.filter(t => t.id !== id), favoriteIds: state.favoriteIds.filter(x => x !== id) })),
   clearUserTags: () => set({ userTags: [] }),
