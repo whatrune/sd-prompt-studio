@@ -214,6 +214,8 @@ export default function App() {
   const [savePromptError, setSavePromptError] = useState('')
   const [savePromptGroups, setSavePromptGroups] = useState<string[]>([])
   const [activeLibraryGroup, setActiveLibraryGroup] = useState('all')
+  const [activeLibraryView, setActiveLibraryView] = useState<'saved-prompts' | 'user-dictionary'>('saved-prompts')
+  const [userDictionaryCategory, setUserDictionaryCategory] = useState('すべて')
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
   const [editingGroupName, setEditingGroupName] = useState('')
   const [editingGroupColor, setEditingGroupColor] = useState('#58a6ff')
@@ -250,6 +252,7 @@ export default function App() {
   const effectiveLibraryGroup = activeLibraryGroup === UNCLASSIFIED_PROMPT_GROUP_ID || (activeLibraryGroup !== 'all' && !userPromptGroups.some(group => group.id === activeLibraryGroup)) ? 'all' : activeLibraryGroup
   const isSearchMode = query.trim().length > 0
   const favoritesOnly = store.workspaceView === 'favorites'
+  const userDictionaryOnly = store.workspaceView === 'library' && activeLibraryView === 'user-dictionary'
   const mainSubjectId = store.blocks[0]?.id
   const [viewContextId, setViewContextId] = useState<string>(() => store.activeBlockId)
   const activeSubject = store.blocks.find(b => b.id === store.activeBlockId)!
@@ -326,6 +329,19 @@ export default function App() {
     setFavoriteCategory('すべて')
     setSubcategory('すべて')
   }
+  function navigateToSavedPromptLibrary() {
+    closeNavigationFlyout()
+    store.setWorkspaceView('library')
+    setActiveLibraryView('saved-prompts')
+    setQuery('')
+  }
+  function navigateToUserDictionary() {
+    closeNavigationFlyout()
+    store.setWorkspaceView('library')
+    setActiveLibraryView('user-dictionary')
+    setUserDictionaryCategory('すべて')
+    setQuery('')
+  }
   function changeSearchQuery(value: string) {
     const startsSearch = !isSearchMode && value.trim().length > 0
     setSearchActiveIndex(-1)
@@ -338,8 +354,36 @@ export default function App() {
   const dictionaryTags = useMemo(() => [...tags, ...adultTags, ...store.userTags], [store.userTags])
   const visibleDictionaryTags = useMemo(() => dictionaryTags.filter(tag => RATING_RANK[tag.rating ?? 'general'] <= RATING_RANK[store.contentLevel]).map(tag => ({ ...tag, label: getTagLabel(tag, locale) })), [dictionaryTags, locale, store.contentLevel])
   const analyzerEntries = useMemo(() => parsePromptAnalyzerInput(analyzerText, visibleDictionaryTags), [analyzerText, visibleDictionaryTags])
-  const conflictSelection = favoritesOnly ? [...store.sceneTags, ...activeSubject.tags] : active.tags
+  const conflictSelection = favoritesOnly || userDictionaryOnly ? [...store.sceneTags, ...activeSubject.tags] : active.tags
   const conflictMap = useMemo(() => getConflictMap(visibleDictionaryTags, conflictSelection, dictionaryTags), [visibleDictionaryTags, conflictSelection, dictionaryTags])
+  const visibleUserDictionaryTags = useMemo(() => visibleDictionaryTags.filter(tag => 'source' in tag
+    && (!store.hideUnavailable || conflictMap.get(tag.id)?.level !== 'hard')), [conflictMap, store.hideUnavailable, visibleDictionaryTags])
+  const userDictionaryCategories = useMemo(() => categoryOrder.filter(categoryKey => visibleUserDictionaryTags.some(tag => tag.category === categoryKey)), [visibleUserDictionaryTags])
+  useEffect(() => {
+    if (userDictionaryCategory !== 'すべて' && !userDictionaryCategories.includes(userDictionaryCategory)) setUserDictionaryCategory('すべて')
+  }, [userDictionaryCategories, userDictionaryCategory])
+  const userDictionaryTags = useMemo(() => visibleUserDictionaryTags
+    .filter(tag => userDictionaryCategory === 'すべて' || tag.category === userDictionaryCategory)
+    .sort(tagSort), [userDictionaryCategory, visibleUserDictionaryTags])
+  const userDictionaryCategoryGroups = useMemo<TagCategoryGroup[]>(() => {
+    const tagsByCategory = new Map<string, PromptTag[]>()
+    userDictionaryTags.forEach(tag => {
+      const existing = tagsByCategory.get(tag.category)
+      if (existing) existing.push(tag)
+      else tagsByCategory.set(tag.category, [tag])
+    })
+    return categoryOrder.flatMap(categoryKey => {
+      const categoryTags = tagsByCategory.get(categoryKey) ?? []
+      if (categoryTags.length === 0) return []
+      const groups = groupTagsBySubcategory(categoryTags, categoryKey)
+      const showSubcategory = groups.length > 1
+      return [{
+        key: categoryKey,
+        label: getCategoryLabel(categoryKey, locale),
+        groups: groups.map(group => ({ ...group, showTitle: showSubcategory })),
+      }]
+    })
+  }, [locale, userDictionaryTags])
   const favoriteCategories = useMemo(() => {
     const favoriteIds = new Set(store.favoriteIds)
     return categoryOrder.filter(categoryKey => visibleDictionaryTags.some(tag => tag.category === categoryKey
@@ -713,7 +757,7 @@ export default function App() {
     return <article key={tag.id} id={isSearchMode?`tag-search-result-${tag.id}`:undefined} className={`tag-card category-${tag.category} ${selected?'selected':''} ${unavailable?'unavailable':''} ${warning?'warning':''} ${colorNotApplicable?'color-not-applicable':''} ${keyboardActive?'keyboard-active':''}`} title={appliedColor || colorNotApplicable ? accessibleLabel : undefined}>
       <button className={`star ${favorite?'active':''}`} aria-label="お気に入り" onClick={()=>store.toggleFavorite(tag.id)}><Star size={15} fill={favorite?'currentColor':'none'}/></button>
       <button className="info-tag" title="タグ詳細" aria-label="タグ詳細" onClick={()=>setInspectedTag(tag)}><Info size={14}/></button>
-      {isUser&&<button className="delete-user-tag" title="ユーザー辞書から削除" onClick={()=>store.removeUserTag(tag.id)}><X size={13}/></button>}
+      {isUser&&!userDictionaryOnly&&<button className="delete-user-tag" title="ユーザー辞書から削除" onClick={()=>store.removeUserTag(tag.id)}><X size={13}/></button>}
       <button className="tag-main" aria-label={accessibleLabel} onClick={()=>toggleDictionaryTag(tag)}>{unavailable&&<span className="conflict-badge"><Ban size={13}/>競合</span>}{warning&&<span className="warning-badge"><AlertTriangle size={13}/>注意</span>}<strong>{tag.label}</strong><span>{selectedTag?.prompt ?? tag.prompt}</span><small>{isUser?'ユーザー辞書 / ':''}{tag.rating==='adult'?'成人向け / ':tag.rating==='suggestive'?'軽度 / ':''}{categoryLabels[tag.category]} / {tag.subcategory}</small></button>
       {appliedColor&&<span className="tag-color-ribbon" style={{ '--modifier-color': appliedColor.swatch } as CSSProperties} aria-hidden="true"/>}
     </article>
@@ -792,10 +836,11 @@ export default function App() {
             </div>
           </section>
           <section className={`navigation-group navigation-library ${activeNavigationFlyout==='library'?'flyout-open':''}`} onMouseEnter={()=>openNavigationFlyoutAfterDelay('library')} onMouseLeave={closeNavigationFlyoutAfterDelay} onFocus={()=>{if(store.navigationCollapsed){cancelNavigationTimers();setActiveNavigationFlyout('library')}}} onBlur={closeNavigationFlyoutAfterDelay}>
-            <button type="button" className={`navigation-primary ${store.workspaceView==='library'?'active':''}`} aria-label="ライブラリ" aria-current={store.workspaceView==='library'?'page':undefined} onClick={()=>{closeNavigationFlyout();store.setWorkspaceView('library')}}><span className="navigation-icon-slot navigation-primary-icon"><BookOpen size={17}/></span><span className="navigation-label">ライブラリ</span><span className="navigation-tooltip" role="tooltip">ライブラリ</span></button>
+            <button type="button" className={`navigation-primary ${store.workspaceView==='library'?'active':''}`} aria-label="ライブラリ" aria-current={store.workspaceView==='library'?'page':undefined} onClick={navigateToSavedPromptLibrary}><span className="navigation-icon-slot navigation-primary-icon"><BookOpen size={17}/></span><span className="navigation-label">ライブラリ</span><span className="navigation-tooltip" role="tooltip">ライブラリ</span></button>
             <div className="navigation-children navigation-flyout compact">
               {store.navigationCollapsed&&<strong>ライブラリ</strong>}
-              <button className={`navigation-item ${store.workspaceView==='library'?'active':''}`} onClick={()=>{closeNavigationFlyout();store.setWorkspaceView('library')}}><span className="navigation-icon-slot"><Save size={15}/></span><span className="navigation-item-label">Saved Prompt</span></button>
+              <button className={`navigation-item ${store.workspaceView==='library'&&activeLibraryView==='saved-prompts'?'active':''}`} onClick={navigateToSavedPromptLibrary}><span className="navigation-icon-slot"><Save size={15}/></span><span className="navigation-item-label">Saved Prompt</span></button>
+              <button className={`navigation-item ${userDictionaryOnly?'active':''}`} onClick={navigateToUserDictionary}><span className="navigation-icon-slot"><Tags size={15}/></span><span className="navigation-item-label">User Dictionary</span><small>{store.userTags.length}</small></button>
             </div>
           </section>
           </section>
@@ -806,7 +851,23 @@ export default function App() {
       </aside>
 
       <section className="tag-panel panel">
-        {store.workspaceView==='library'?<div className="library-workspace">
+        {store.workspaceView==='library'?(userDictionaryOnly?<div className="prompt-workspace-content user-dictionary-workspace">
+          <div className="prompt-controls">
+            <div className="prompt-control-bar">
+              <section className="category-tabs-section" aria-label="ユーザー辞書カテゴリ"><div className="subcategory-tabs">{['すべて',...userDictionaryCategories].map(categoryKey=>{const activeCategory=userDictionaryCategory===categoryKey;return <button key={categoryKey} className={activeCategory?'active':''} aria-pressed={activeCategory} onClick={()=>setUserDictionaryCategory(categoryKey)}><TabLabel active={activeCategory} label={categoryKey==='すべて'?'すべて':getCategoryLabel(categoryKey,locale)}/></button>})}</div></section>
+            </div>
+          </div>
+          <section className="tag-list-section" aria-label="ユーザー辞書一覧">
+            <div className="panel-title"><div><span className="eyebrow">LIBRARY</span><h2>User Dictionary</h2></div></div>
+            {userDictionaryTags.length===0?<div className="tag-empty-state"><Tags size={18}/><span>ユーザー辞書に登録されたタグはありません</span></div>:<div className="tag-groups">{userDictionaryCategoryGroups.map(categoryGroup=><section className="tag-category-group" key={categoryGroup.key}>
+              {categoryGroup.label&&<h2 className="tag-category-title">{categoryGroup.label}</h2>}
+              <div className="tag-subcategory-groups">{categoryGroup.groups.map(group=><section className="tag-group" key={`${categoryGroup.key}-${group.key}`}>
+                {group.showTitle&&<h3 className="tag-group-title">{group.label}</h3>}
+                <div className="tag-grid tag-group-grid">{group.tags.map(renderTagCard)}</div>
+              </section>)}</div>
+            </section>)}</div>}
+          </section>
+        </div>:<div className="library-workspace">
           <section className="category-tabs-section library-tabs-section" aria-label="Prompt Libraryグループ"><nav className="subcategory-tabs library-tabs">
             <button type="button" className={effectiveLibraryGroup==='all'?'active':''} aria-pressed={effectiveLibraryGroup==='all'} onClick={()=>setActiveLibraryGroup('all')}><TabLabel active={effectiveLibraryGroup==='all'} label="すべて"/></button>
             {userPromptGroups.map(group=><div key={group.id} className={`library-group-tab${activeLibraryGroup===group.id?' active':''}`} style={{'--prompt-group-color':group.color} as CSSProperties}>
@@ -836,7 +897,7 @@ export default function App() {
               </div>
             </article>})}
           </section>
-        </div>:<div className="prompt-workspace-content">
+        </div>):<div className="prompt-workspace-content">
         <div className="prompt-controls">
         <div className="prompt-control-bar">
         {isSearchMode&&<section className="category-tabs-section" aria-label="検索結果カテゴリ"><div className="subcategory-tabs">{['すべて',...searchCategories].map(categoryKey=>{const activeCategory=searchCategory===categoryKey;return <button key={categoryKey} className={activeCategory?'active':''} aria-pressed={activeCategory} onClick={()=>setSearchCategory(categoryKey)}><TabLabel active={activeCategory} label={categoryKey==='すべて'?'すべて':getCategoryLabel(categoryKey,locale)}/></button>})}</div></section>}
@@ -888,7 +949,7 @@ export default function App() {
       </section>
 
       <aside className="preview panel">
-        {store.workspaceView==='library'?<>
+        {store.workspaceView==='library'&&!userDictionaryOnly?<>
         <div className="inspector-header" aria-label="Saved Prompt Inspector">
           <div className="block-tabs"><button type="button" className="active">{selectedSavedPrompt?.name??'Promptを選択'}</button></div>
           <section className="prompt-actions"><strong>Prompt Actions</strong><button className="copy-positive" onClick={()=>copyPrompt('actions')}>{copiedPositive?<Check size={16}/>:<Copy size={16}/>}<span>{copiedPositive?'コピー済み':'Positiveをコピー'}</span></button><button className="copy-negative" onClick={()=>copyNegativePrompt(true)}>{copiedNegative?<Check size={16}/>:<Copy size={16}/>}<span>{copiedNegative?'コピー済み':'Negativeをコピー'}</span></button><button type="button" className="save-current-prompt" aria-label="Promptを保存" title="Promptを保存" onClick={openSavePrompt}><Save size={16}/></button><button type="button" className="clear-current-prompt" aria-label="Promptをクリア" title="Promptをクリア" onClick={()=>setClearPromptConfirmOpen(true)}><Trash2 size={16}/></button></section>
