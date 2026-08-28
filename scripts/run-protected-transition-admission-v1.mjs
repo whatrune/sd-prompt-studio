@@ -80,7 +80,8 @@ const DRAFT_RETURN_COMPLETION_RECORD_TYPE_V1 = 'draft_return_completion_v1'
 const DRAFT_RETURN_COMPLETION_FIELDS_V1 = Object.freeze([
   'record_type', 'version', 'authoring_role', 'authority_source', 'canonical_record', 'repository',
   'task_issue', 'pull_request', 'exact_head', 'target_branch', 'action', 'method', 'authority',
-  'authority_body_sha256', 'prior_ready_completion', 'before_state', 'after_state', 'mutation_count',
+  'operation_count', 'authority_body_sha256', 'prior_ready_completion', 'before_pull_state', 'before_state',
+  'after_pull_state', 'after_state', 'mutation_count',
   'operation_evidence', 'operation_evidence_sha256', 'result',
 ])
 const DRAFT_RETURN_ACTION_FIELDS_V1 = Object.freeze([
@@ -7552,7 +7553,9 @@ export const parseDraftReturnCompletionV1 = (body, repository, taskIssueNumber) 
       yaml.scalars.get('repository') !== repository || yaml.scalars.get('task_issue') !== taskUrl ||
       !positiveInteger(prNumber) || !FULL_HEAD.test(exactHead ?? '') || yaml.scalars.get('target_branch') !== 'main' ||
       yaml.scalars.get('action') !== 'RETURN_TO_DRAFT' || yaml.scalars.get('method') !== 'convertPullRequestToDraft' ||
-      yaml.scalars.get('before_state') !== 'READY' || yaml.scalars.get('after_state') !== 'DRAFT' ||
+      yaml.scalars.get('operation_count') !== 1 || yaml.scalars.get('before_pull_state') !== 'OPEN' ||
+      yaml.scalars.get('before_state') !== 'READY' || yaml.scalars.get('after_pull_state') !== 'OPEN' ||
+      yaml.scalars.get('after_state') !== 'DRAFT' ||
       yaml.scalars.get('mutation_count') !== 1 || yaml.scalars.get('result') !== 'COMPLETED' ||
       !/^[0-9a-f]{64}$/.test(yaml.scalars.get('authority_body_sha256') ?? '') ||
       !/^[0-9a-f]{64}$/.test(yaml.scalars.get('operation_evidence_sha256') ?? '')
@@ -7689,7 +7692,7 @@ const normalizeDraftReturnExecutionV1 = ({ runId, runAttempt, hostSha, jobName }
   })
 }
 
-const projectDraftReturnOperationEvidenceV1 = ({ action, execution, confirmedPull }) => {
+const projectDraftReturnOperationEvidenceV1 = ({ action, execution, beforePull, confirmedPull }) => {
   const projection = Object.freeze({
     record_type: 'draft_return_operation_evidence_v1',
     version: 1,
@@ -7706,6 +7709,15 @@ const projectDraftReturnOperationEvidenceV1 = ({ action, execution, confirmedPul
     run_attempt: execution.run_attempt,
     workflow_sha: execution.workflow_sha,
     job_name: execution.job_name,
+    before_pull: Object.freeze({
+      id: beforePull.id,
+      number: beforePull.number,
+      head_ref_oid: beforePull.headRefOid,
+      base_ref_name: beforePull.baseRefName,
+      state: beforePull.state,
+      is_draft: beforePull.isDraft,
+      merged: beforePull.merged,
+    }),
     before_state: 'READY',
     after_state: 'DRAFT',
     mutation_count: 1,
@@ -7728,6 +7740,7 @@ const projectDraftReturnOperationEvidenceV1 = ({ action, execution, confirmedPul
 const draftReturnOperatorResultV1 = (action, {
   state, exitCode, reason, mutationCount, automationStatus, execution = null, operationConsumed = false,
   completionRecorded = false, operationEvidence = null, confirmedPull = null, completion = null,
+  beforePull = null,
 }) => Object.freeze({
   transition: 'draft_return',
   state,
@@ -7747,16 +7760,18 @@ const draftReturnOperatorResultV1 = (action, {
   ...(action === null ? {} : { draft_return_action: action }),
   ...(execution === null ? {} : { execution }),
   ...(operationEvidence === null ? {} : { operation_evidence: operationEvidence }),
+  ...(beforePull === null ? {} : { before_pull: beforePull }),
   ...(confirmedPull === null ? {} : { confirmed_pull: confirmedPull }),
   ...(completion === null ? {} : { completion }),
 })
 
 const draftReturnOperatorStopV1 = (action, reason, {
   mutationCount = 0, execution = null, operationConsumed = false, completionRecorded = false,
-  operationEvidence = null, confirmedPull = null, state = 'INDETERMINATE',
+  operationEvidence = null, beforePull = null, confirmedPull = null, state = 'INDETERMINATE',
 } = {}) => draftReturnOperatorResultV1(action, {
   state, exitCode: 1, reason, mutationCount, automationStatus: 'STOPPED', execution, operationConsumed,
   completionRecorded, operationEvidence, confirmedPull,
+  beforePull,
 })
 
 export const projectDraftReturnCompletionBodyV1 = ({
@@ -7779,10 +7794,13 @@ export const projectDraftReturnCompletionBodyV1 = ({
     'target_branch: main',
     'action: RETURN_TO_DRAFT',
     'method: convertPullRequestToDraft',
+    'operation_count: 1',
     `authority: ${action.authority_url}`,
     `authority_body_sha256: ${action.authority_body_sha256}`,
     `prior_ready_completion: ${action.prior_ready_completion_url}`,
+    'before_pull_state: OPEN',
     'before_state: READY',
+    'after_pull_state: OPEN',
     'after_state: DRAFT',
     'mutation_count: 1',
     `operation_evidence: ${operationEvidence.source}`,
@@ -7873,6 +7891,12 @@ const assertDraftReturnTerminalResultV1 = ({ terminal, action, execution, mode, 
     JSON.stringify(terminal.draft_return_action) !== JSON.stringify(action) ||
     JSON.stringify(terminal.execution) !== JSON.stringify(execution)
   ) throw new Error('draft_return_operation_terminal_invalid')
+  const before = terminal.before_pull
+  if (
+    typeof before?.id !== 'string' || before.id.length === 0 || before.number !== action.pr_number ||
+    before.headRefOid !== action.exact_head || before.baseRefName !== 'main' || before.state !== 'OPEN' ||
+    before.isDraft !== (mode === 'RECOVERY_COMPLETED') || before.merged !== false
+  ) throw new Error('draft_return_operation_terminal_invalid')
   const confirmed = terminal.confirmed_pull
   if (
     typeof confirmed?.id !== 'string' || confirmed.id.length === 0 || confirmed.number !== action.pr_number ||
@@ -7881,7 +7905,7 @@ const assertDraftReturnTerminalResultV1 = ({ terminal, action, execution, mode, 
   ) throw new Error('draft_return_operation_terminal_invalid')
   const expectedEvidence = mode === 'RECOVERY_COMPLETED'
     ? expectedOperationEvidence
-    : projectDraftReturnOperationEvidenceV1({ action, execution, confirmedPull: confirmed })
+    : projectDraftReturnOperationEvidenceV1({ action, execution, beforePull: before, confirmedPull: confirmed })
   if (expectedEvidence === null) throw new Error('draft_return_operation_evidence_invalid')
   if (JSON.stringify(terminal.operation_evidence) !== JSON.stringify(expectedEvidence)) {
     throw new Error('draft_return_operation_evidence_invalid')
@@ -8075,6 +8099,7 @@ export const executeDraftReturnOperatorV1 = async ({ request, host, runId, runAt
       return draftReturnOperatorStopV1(action, 'draft_return_authority_consumed', {
         execution, operationConsumed: true, completionRecorded: true,
         operationEvidence: authenticated[0].operation.operation_evidence,
+        beforePull: authenticated[0].operation.terminal_result.before_pull,
         confirmedPull: authenticated[0].operation.terminal_result.confirmed_pull,
       })
     }
@@ -8107,13 +8132,13 @@ export const executeDraftReturnOperatorV1 = async ({ request, host, runId, runAt
       } catch {
         return draftReturnOperatorStopV1(action, 'draft_return_completion_publish_failed', {
           execution, operationConsumed: true, completionRecorded: false,
-          operationEvidence: recovered.operation_evidence, confirmedPull: pull, state: 'RECOVERY_REQUIRED',
+          operationEvidence: recovered.operation_evidence, beforePull: pull, confirmedPull: pull, state: 'RECOVERY_REQUIRED',
         })
       }
       return draftReturnOperatorResultV1(action, {
         state: 'COMPLETED', exitCode: 0, reason: 'draft_return_completion_recovered', mutationCount: 0,
         automationStatus: 'COMPLETED', execution, operationConsumed: true, completionRecorded: true,
-        operationEvidence: recovered.operation_evidence, confirmedPull: pull, completion,
+        operationEvidence: recovered.operation_evidence, beforePull: pull, confirmedPull: pull, completion,
       })
     }
     if (pull.isDraft !== false) return draftReturnOperatorStopV1(action, 'draft_return_pull_guard_failed')
@@ -8147,7 +8172,7 @@ export const executeDraftReturnOperatorV1 = async ({ request, host, runId, runAt
     })
 
     const operationEvidence = projectDraftReturnOperationEvidenceV1({
-      action, execution, confirmedPull,
+      action, execution, beforePull: pull, confirmedPull,
     })
 
     let completion
@@ -8158,13 +8183,13 @@ export const executeDraftReturnOperatorV1 = async ({ request, host, runId, runAt
     } catch {
       return draftReturnOperatorStopV1(action, 'draft_return_completion_publish_failed', {
         mutationCount, execution, operationConsumed: true, completionRecorded: false,
-        operationEvidence, confirmedPull, state: 'RECOVERY_REQUIRED',
+        operationEvidence, beforePull: pull, confirmedPull, state: 'RECOVERY_REQUIRED',
       })
     }
     return draftReturnOperatorResultV1(action, {
       state: 'COMPLETED', exitCode: 0, reason: 'draft_return_completed', mutationCount,
       automationStatus: 'COMPLETED', execution, operationConsumed: true, completionRecorded: true,
-      operationEvidence, confirmedPull, completion,
+      operationEvidence, beforePull: pull, confirmedPull, completion,
     })
   } catch (error) {
     return draftReturnOperatorStopV1(action, error instanceof Error ? error.message : 'draft_return_failed', {
