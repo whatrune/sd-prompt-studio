@@ -20,36 +20,144 @@ const boundedMessage = (value) => String(value ?? 'github_request_failed')
   .replace(/[\r\n\t]+/gu, ' ')
   .slice(0, 512)
 
-const request = async (url, options = {}) => {
-  const token = process.env.GH_TOKEN
-  if (typeof token !== 'string' || token.length === 0) throw new Error('github_token_missing')
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      Accept: 'application/vnd.github+json',
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      'X-GitHub-Api-Version': '2022-11-28',
-      ...options.headers,
-    },
-  })
-  let body
-  try { body = await response.json() } catch { throw new Error(`github_response_invalid:${response.status}`) }
-  if (!response.ok) throw new Error(`github_http_${response.status}:${boundedMessage(body?.message)}`)
-  return body
+const boundedAtom = (value, pattern, maximum) => {
+  if (typeof value !== 'string' || value.length === 0 || value.length > maximum || !pattern.test(value)) return null
+  return value
 }
 
-export const createProductionHostV1 = () => Object.freeze({
-  api: (route) => request(`${API_ROOT}/${route}`),
-  graphql: async (query, variables) => {
-    const body = await request(`${API_ROOT}/graphql`, {
+const boundedGraphqlErrors = (value) => Object.freeze(
+  (Array.isArray(value) ? value : []).slice(0, 8).map((error) => Object.freeze({
+    type: boundedAtom(error?.type, /^[A-Za-z0-9_.:-]+$/u, 64),
+    message: boundedMessage(error?.message),
+  })),
+)
+
+const mutationDiagnostic = ({
+  phase,
+  requestDispatchStarted,
+  responseReceived,
+  httpStatus = null,
+  githubRequestId = null,
+  graphqlErrors = [],
+  networkException = null,
+}) => Object.freeze({
+  phase,
+  request_dispatch_started: requestDispatchStarted,
+  response_received: responseReceived,
+  http_status: Number.isInteger(httpStatus) && httpStatus >= 100 && httpStatus <= 599 ? httpStatus : null,
+  github_request_id: boundedAtom(githubRequestId, /^[A-Za-z0-9:-]+$/u, 128),
+  graphql_errors: boundedGraphqlErrors(graphqlErrors),
+  network_exception: networkException === null ? null : Object.freeze({
+    name: boundedAtom(networkException?.name, /^[A-Za-z0-9_.:-]+$/u, 64),
+    code: boundedAtom(networkException?.code, /^[A-Za-z0-9_.:-]+$/u, 64),
+  }),
+})
+
+const mutationDiagnosticError = (diagnostic) => {
+  const error = new Error('github_mutation_request_failed')
+  Object.defineProperty(error, 'mutation_diagnostic', { value: diagnostic })
+  return error
+}
+
+const request = async (url, options = {}, context = {}) => {
+  const token = context.token ?? process.env.GH_TOKEN
+  const fetchImpl = context.fetchImpl ?? globalThis.fetch
+  const diagnosticOperation = context.diagnosticOperation ?? null
+  if (typeof token !== 'string' || token.length === 0) {
+    if (diagnosticOperation !== null) {
+      throw mutationDiagnosticError(mutationDiagnostic({
+        phase: `${diagnosticOperation}_REQUEST_PREPARE`,
+        requestDispatchStarted: false,
+        responseReceived: false,
+      }))
+    }
+    throw new Error('github_token_missing')
+  }
+  let response
+  try {
+    response = await fetchImpl(url, {
+      ...options,
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        ...options.headers,
+      },
+    })
+  } catch (error) {
+    if (diagnosticOperation !== null) {
+      throw mutationDiagnosticError(mutationDiagnostic({
+        phase: `${diagnosticOperation}_TRANSPORT`,
+        requestDispatchStarted: true,
+        responseReceived: false,
+        networkException: {
+          name: error instanceof Error ? error.name : null,
+          code: error?.code ?? error?.cause?.code ?? null,
+        },
+      }))
+    }
+    throw error
+  }
+  const responseDiagnostic = diagnosticOperation === null ? null : {
+    requestDispatchStarted: true,
+    responseReceived: true,
+    httpStatus: response.status,
+    githubRequestId: response.headers?.get?.('x-github-request-id') ?? null,
+  }
+  let body
+  try {
+    body = await response.json()
+  } catch {
+    if (diagnosticOperation !== null) {
+      throw mutationDiagnosticError(mutationDiagnostic({
+        phase: `${diagnosticOperation}_RESPONSE_PARSE`,
+        ...responseDiagnostic,
+      }))
+    }
+    throw new Error(`github_response_invalid:${response.status}`)
+  }
+  if (!response.ok) {
+    if (diagnosticOperation !== null) {
+      throw mutationDiagnosticError(mutationDiagnostic({
+        phase: `${diagnosticOperation}_HTTP_RESPONSE`,
+        ...responseDiagnostic,
+        graphqlErrors: body?.errors,
+      }))
+    }
+    throw new Error(`github_http_${response.status}:${boundedMessage(body?.message)}`)
+  }
+  return diagnosticOperation === null ? body : Object.freeze({ body, responseDiagnostic: Object.freeze(responseDiagnostic) })
+}
+
+export const createProductionHostV1 = ({ fetchImpl = globalThis.fetch, token = process.env.GH_TOKEN } = {}) => Object.freeze({
+  api: (route) => request(`${API_ROOT}/${route}`, {}, { fetchImpl, token }),
+  graphql: async (query, variables, options = {}) => {
+    const diagnosticOperation = options?.diagnostic_operation ?? null
+    const response = await request(`${API_ROOT}/graphql`, {
       method: 'POST',
       body: JSON.stringify({ query, variables }),
-    })
+    }, { diagnosticOperation, fetchImpl, token })
+    const body = diagnosticOperation === null ? response : response.body
     if (Array.isArray(body?.errors) && body.errors.length > 0) {
+      if (diagnosticOperation !== null) {
+        throw mutationDiagnosticError(mutationDiagnostic({
+          phase: `${diagnosticOperation}_GRAPHQL_RESPONSE`,
+          ...response.responseDiagnostic,
+          graphqlErrors: body.errors,
+        }))
+      }
       throw new Error(`github_graphql_error:${boundedMessage(body.errors[0]?.message)}`)
     }
-    if (body?.data === undefined) throw new Error('github_graphql_response_invalid')
+    if (body?.data === undefined) {
+      if (diagnosticOperation !== null) {
+        throw mutationDiagnosticError(mutationDiagnostic({
+          phase: `${diagnosticOperation}_RESPONSE_PARSE`,
+          ...response.responseDiagnostic,
+        }))
+      }
+      throw new Error('github_graphql_response_invalid')
+    }
     return body.data
   },
 })
