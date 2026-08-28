@@ -46,6 +46,8 @@ import {
   executeReviewThreadClosureV1,
   executeReadyTransitionOperatorV1,
   executeDraftReturnOperatorV1,
+  projectDraftReturnMutationDiagnosticV1,
+  classifyDraftReturnMutationResponseV1,
   executeReadyReviewTerminalObservationOwnerV1,
   executeSameRunPostReadyContinuationV1,
   executeReadyEventWithLifecycleReplayV1,
@@ -11802,6 +11804,7 @@ const draftReturnHostV1 = ({
   authorityBody = draftReturnAuthorityBodyV1(), priorReadyBody = priorReadyCompletionBodyV1(),
   authorityUser = Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
   omitAuthority = false, omitPriorReady = false, before = {}, after = {}, mutationRejects = false,
+  mutationDiagnosticInput = null, mutationErrorName = 'Error', mutationErrorCode = null,
   refetchRejects = false, completionPublishRejects = false, completionRefetchMismatch = false,
   consumed = false, malformedCompletion = false, trustedCompletion = false,
   durableTerminals = Object.freeze([]), completionTerminal = null,
@@ -11928,7 +11931,7 @@ const draftReturnHostV1 = ({
         }
         throw new Error(`unexpected_endpoint:${endpoint}`)
       },
-      graphql: async (query) => {
+      graphql: async (query, variables, diagnostic = undefined) => {
         if (query.includes('query ReadyTransitionPull')) {
           metrics.pulls += 1
           if (refetchRejects && metrics.pulls > 1) throw new Error('refetch_failed')
@@ -11939,7 +11942,31 @@ const draftReturnHostV1 = ({
         }
         if (query.includes('mutation ConvertPullRequestToDraft')) {
           metrics.mutations += 1
-          if (mutationRejects) throw new Error('draft_mutation_rejected')
+          const diagnosticInput = mutationDiagnosticInput ?? (mutationRejects
+            ? {
+                execution_phase: 'RESPONSE_VALIDATION',
+                request_dispatch_started: true,
+                response_received: true,
+                http_status: 200,
+                github_request_id: 'TEST:REQUEST:REJECTED',
+                graphql_errors: [{ type: 'FORBIDDEN', path: ['convertPullRequestToDraft'], message: 'mutation rejected' }],
+                outcome_classification: 'DEFINITIVE_REJECTION',
+              }
+            : {
+                execution_phase: 'RESPONSE_VALIDATION',
+                request_dispatch_started: true,
+                response_received: true,
+                http_status: 200,
+                github_request_id: 'TEST:REQUEST:SUCCESS',
+                outcome_classification: 'OUTCOME_UNKNOWN',
+              })
+          diagnostic?.capture?.(projectDraftReturnMutationDiagnosticV1(diagnosticInput))
+          if (mutationRejects) {
+            const error = new Error('draft_mutation_rejected')
+            error.name = mutationErrorName
+            if (mutationErrorCode !== null) error.code = mutationErrorCode
+            throw error
+          }
           return Object.freeze({ convertPullRequestToDraft: Object.freeze({ clientMutationId: null }) })
         }
         throw new Error('unexpected_graphql')
@@ -11993,7 +12020,11 @@ check(
   draftReturnSuccessV1.state === 'COMPLETED' && draftReturnSuccessV1.next_action === 'NONE' &&
   draftReturnSuccessV1.mutation_count === 1 && draftReturnSuccessFixtureV1.metrics.mutations === 1 &&
   draftReturnSuccessFixtureV1.metrics.pulls === 2 && draftReturnSuccessFixtureV1.metrics.posts === 1 &&
-  draftReturnSuccessFixtureV1.metrics.patches === 1 && draftReturnSuccessV1.completion.url === DRAFT_RETURN_COMPLETION_URL,
+  draftReturnSuccessFixtureV1.metrics.patches === 1 && draftReturnSuccessV1.completion.url === DRAFT_RETURN_COMPLETION_URL &&
+  draftReturnSuccessV1.mutation_diagnostic.operation === 'convertPullRequestToDraft' &&
+  draftReturnSuccessV1.mutation_diagnostic.execution_phase === 'AFTER_STATE_CONFIRMED' &&
+  draftReturnSuccessV1.mutation_diagnostic.outcome_classification === 'MUTATION_CONFIRMED' &&
+  draftReturnSuccessV1.mutation_diagnostic.http_status === 200,
   'DRT-03 Ready PR changed HEAD plus valid exact authority performs one Draft mutation and records completion',
 )
 const parsedDraftReturnCompletionV1 = parseDraftReturnCompletionV1(
@@ -12063,13 +12094,37 @@ check(
   malformedHistoryResultV1.reason === 'draft_return_completion_history_invalid' && malformedHistoryResultV1.mutation_count === 0,
   'DRT-13 malformed completion history fails closed before mutation',
 )
-const mutationFailureFixtureV1 = draftReturnHostV1({ mutationRejects: true })
+const diagnosticSecretV1 = `github_pat_${'s'.repeat(32)}`
+const mutationFailureFixtureV1 = draftReturnHostV1({
+  mutationRejects: true,
+  mutationDiagnosticInput: {
+    execution_phase: 'RESPONSE_VALIDATION',
+    request_dispatch_started: true,
+    response_received: true,
+    http_status: 200,
+    github_request_id: 'TEST:REQUEST:GRAPHQL',
+    graphql_errors: Array.from({ length: 12 }, (_, index) => ({
+      type: 'FORBIDDEN',
+      path: ['convertPullRequestToDraft', index, 'x'.repeat(256)],
+      message: `GraphQL rejection ${index} Bearer ${diagnosticSecretV1} https://user:password@example.test/path?token=${diagnosticSecretV1} Cookie: session=${diagnosticSecretV1}\n${'m'.repeat(700)}`,
+    })),
+    outcome_classification: 'DEFINITIVE_REJECTION',
+  },
+})
 const mutationFailureResultV1 = await executeDraftReturnFixtureV1({
   request: draftReturnRequestV1(), host: mutationFailureFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
 })
+const mutationFailureDiagnosticJsonV1 = JSON.stringify(mutationFailureResultV1.mutation_diagnostic)
 check(
   mutationFailureResultV1.reason === 'draft_return_mutation_failed' && mutationFailureResultV1.mutation_count === 1 &&
-  mutationFailureFixtureV1.metrics.mutations === 1 && mutationFailureFixtureV1.metrics.pulls === 1,
+  mutationFailureResultV1.operation_consumed === true && mutationFailureFixtureV1.metrics.mutations === 1 &&
+  mutationFailureFixtureV1.metrics.pulls === 1 &&
+  mutationFailureResultV1.mutation_diagnostic.outcome_classification === 'DEFINITIVE_REJECTION' &&
+  mutationFailureResultV1.mutation_diagnostic.graphql_errors.length === 8 &&
+  mutationFailureResultV1.mutation_diagnostic.graphql_errors.every((error) => error.message.length <= 512) &&
+  !mutationFailureDiagnosticJsonV1.includes(diagnosticSecretV1) &&
+  !mutationFailureDiagnosticJsonV1.includes('user:password') &&
+  !mutationFailureDiagnosticJsonV1.includes('session='),
   'DRT-14 rejected mutation stops with one attempt and no retry',
 )
 const refetchFailureFixtureV1 = draftReturnHostV1({ refetchRejects: true })
@@ -12077,7 +12132,9 @@ const refetchFailureResultV1 = await executeDraftReturnFixtureV1({
   request: draftReturnRequestV1(), host: refetchFailureFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
 })
 check(
-  refetchFailureResultV1.reason === 'draft_return_refetch_failed' && refetchFailureResultV1.mutation_count === 1,
+  refetchFailureResultV1.reason === 'draft_return_refetch_failed' && refetchFailureResultV1.mutation_count === 1 &&
+  refetchFailureResultV1.mutation_diagnostic.execution_phase === 'AFTER_STATE_REFETCH' &&
+  refetchFailureResultV1.mutation_diagnostic.outcome_classification === 'OUTCOME_UNKNOWN',
   'DRT-15 mutation followed by unavailable refetch fails closed',
 )
 for (const [index, after] of [
@@ -12088,7 +12145,9 @@ for (const [index, after] of [
     request: draftReturnRequestV1(), host: fixture.host, runId: REVIEW_RUN_ID, runAttempt: 1,
   })
   check(
-    result.reason === 'draft_return_refetch_mismatch' && result.mutation_count === 1 && fixture.metrics.posts === 0,
+    result.reason === 'draft_return_refetch_mismatch' && result.mutation_count === 1 && fixture.metrics.posts === 0 &&
+    result.mutation_diagnostic.execution_phase === 'AFTER_STATE_VALIDATION' &&
+    result.mutation_diagnostic.outcome_classification === 'OUTCOME_UNKNOWN',
     `DRT-${index + 16} non-Draft or changed-HEAD after-state fails closed without completion publication case ${index + 1}`,
   )
 }
@@ -12234,6 +12293,97 @@ check(
   runnerSource.includes("invocation.request.transition === 'draft_return_required_resume'") &&
   runnerSource.includes("invocation.request.transition === 'ready_transition_required_resume'"),
   'DRT-26 existing first-time and resumed Draft-to-Ready ownership remains distinct and unchanged',
+)
+const beforeDispatchFailureFixtureV1 = draftReturnHostV1({
+  mutationRejects: true,
+  mutationDiagnosticInput: {
+    execution_phase: 'REQUEST_PREPARATION',
+    request_dispatch_started: false,
+    response_received: false,
+    network_exception_name: 'TypeError',
+    network_exception_code: 'ENETUNREACH',
+    outcome_classification: 'OUTCOME_UNKNOWN',
+  },
+})
+const beforeDispatchFailureResultV1 = await executeDraftReturnFixtureV1({
+  request: draftReturnRequestV1(), host: beforeDispatchFailureFixtureV1.host,
+})
+check(
+  beforeDispatchFailureResultV1.reason === 'draft_return_mutation_failed' &&
+  beforeDispatchFailureResultV1.operation_consumed === true &&
+  beforeDispatchFailureResultV1.mutation_count === 1 &&
+  beforeDispatchFailureResultV1.mutation_diagnostic.request_dispatch_started === false &&
+  beforeDispatchFailureResultV1.mutation_diagnostic.response_received === false &&
+  beforeDispatchFailureResultV1.mutation_diagnostic.network_exception_code === 'ENETUNREACH' &&
+  beforeDispatchFailureResultV1.mutation_diagnostic.outcome_classification === 'OUTCOME_UNKNOWN',
+  'DRT-27 pre-dispatch failure produces a bounded diagnostic without changing consumption or retry semantics',
+)
+const afterDispatchFailureFixtureV1 = draftReturnHostV1({
+  mutationRejects: true,
+  mutationDiagnosticInput: {
+    execution_phase: 'REQUEST_DISPATCH',
+    request_dispatch_started: true,
+    response_received: false,
+    network_exception_name: 'TypeError',
+    network_exception_code: 'ECONNRESET',
+    outcome_classification: 'OUTCOME_UNKNOWN',
+  },
+})
+const afterDispatchFailureResultV1 = await executeDraftReturnFixtureV1({
+  request: draftReturnRequestV1(), host: afterDispatchFailureFixtureV1.host,
+})
+check(
+  afterDispatchFailureResultV1.mutation_diagnostic.request_dispatch_started === true &&
+  afterDispatchFailureResultV1.mutation_diagnostic.response_received === false &&
+  afterDispatchFailureResultV1.mutation_diagnostic.network_exception_code === 'ECONNRESET' &&
+  afterDispatchFailureResultV1.mutation_diagnostic.outcome_classification === 'OUTCOME_UNKNOWN' &&
+  afterDispatchFailureFixtureV1.metrics.mutations === 1,
+  'DRT-28 reset after possible dispatch remains outcome-unknown and is never retried',
+)
+const malformedResponseFixtureV1 = draftReturnHostV1({
+  mutationRejects: true,
+  mutationDiagnosticInput: {
+    execution_phase: 'RESPONSE_VALIDATION',
+    request_dispatch_started: true,
+    response_received: true,
+    http_status: 200,
+    github_request_id: 'TEST:REQUEST:MALFORMED',
+    outcome_classification: 'OUTCOME_UNKNOWN',
+  },
+})
+const malformedResponseResultV1 = await executeDraftReturnFixtureV1({
+  request: draftReturnRequestV1(), host: malformedResponseFixtureV1.host,
+})
+check(
+  malformedResponseResultV1.mutation_diagnostic.execution_phase === 'RESPONSE_VALIDATION' &&
+  malformedResponseResultV1.mutation_diagnostic.response_received === true &&
+  malformedResponseResultV1.mutation_diagnostic.http_status === 200 &&
+  malformedResponseResultV1.mutation_diagnostic.graphql_errors.length === 0 &&
+  malformedResponseResultV1.mutation_diagnostic.outcome_classification === 'OUTCOME_UNKNOWN',
+  'DRT-29 malformed response is bounded and cannot be mistaken for rejection or confirmation',
+)
+check(
+  Object.keys(draftReturnSuccessV1.mutation_diagnostic).sort().join('\n') === [
+    'execution_phase', 'github_request_id', 'graphql_errors', 'http_status', 'network_exception_code',
+    'network_exception_name', 'operation', 'outcome_classification', 'request_dispatch_started', 'response_received',
+  ].sort().join('\n') &&
+  completionFailureResultV1.mutation_diagnostic.outcome_classification === 'MUTATION_CONFIRMED' &&
+  recoveryPublicationFailureV1.mutation_diagnostic === undefined,
+  'DRT-30 diagnostic shape is closed while confirmed completion recovery retains its existing no-mutation semantics',
+)
+check(
+  classifyDraftReturnMutationResponseV1({ response_received: true, http_status: 403, response_ok: false }) === 'DEFINITIVE_REJECTION' &&
+  classifyDraftReturnMutationResponseV1({ response_received: true, http_status: 408, response_ok: false }) === 'OUTCOME_UNKNOWN' &&
+  classifyDraftReturnMutationResponseV1({ response_received: true, http_status: 500, response_ok: false }) === 'OUTCOME_UNKNOWN' &&
+  classifyDraftReturnMutationResponseV1({
+    response_received: true, http_status: 200, response_ok: true, payload_parsed: true,
+    graphql_errors: [{ type: 'FORBIDDEN' }], mutation_result_returned: false,
+  }) === 'DEFINITIVE_REJECTION' &&
+  classifyDraftReturnMutationResponseV1({
+    response_received: true, http_status: 200, response_ok: true, payload_parsed: true,
+    graphql_errors: [{ type: 'PARTIAL' }], mutation_result_returned: true,
+  }) === 'OUTCOME_UNKNOWN',
+  'DRT-31 HTTP and GraphQL response classifications preserve rejection certainty and ambiguity boundaries',
 )
 check(
   bootstrapConsumerBlock.includes("status -cne 'SUCCESS'") &&
@@ -13835,5 +13985,5 @@ check(
   'RTO-20 retired Collector remains absent and GADP shadow remains isolated non-authoritative continue-on-error',
 )
 
-if (assertions !== 1295) throw new Error(`expected exactly 1295 assertions, observed ${assertions}`)
+if (assertions !== 1300) throw new Error(`expected exactly 1300 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

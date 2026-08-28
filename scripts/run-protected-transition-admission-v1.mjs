@@ -299,6 +299,110 @@ mutation ConvertPullRequestToDraft($pullRequestId: ID!) {
   }
 }`
 
+const DRAFT_RETURN_MUTATION_OPERATION_V1 = 'convertPullRequestToDraft'
+const DRAFT_RETURN_MUTATION_OUTCOMES_V1 = new Set([
+  'DEFINITIVE_REJECTION',
+  'OUTCOME_UNKNOWN',
+  'MUTATION_CONFIRMED',
+])
+const DRAFT_RETURN_MUTATION_PHASES_V1 = new Set([
+  'REQUEST_PREPARATION',
+  'REQUEST_DISPATCH',
+  'RESPONSE_VALIDATION',
+  'AFTER_STATE_REFETCH',
+  'AFTER_STATE_VALIDATION',
+  'AFTER_STATE_CONFIRMED',
+])
+const DRAFT_RETURN_GRAPHQL_ERROR_LIMIT_V1 = 8
+const DRAFT_RETURN_GRAPHQL_PATH_LIMIT_V1 = 16
+const DRAFT_RETURN_DIAGNOSTIC_MESSAGE_LIMIT_V1 = 512
+const DRAFT_RETURN_DIAGNOSTIC_IDENTIFIER_LIMIT_V1 = 128
+
+const boundedDiagnosticIdentifierV1 = (value, maximum = DRAFT_RETURN_DIAGNOSTIC_IDENTIFIER_LIMIT_V1) => {
+  if (typeof value !== 'string' || value.length === 0 || value.length > maximum) return null
+  return /^[A-Za-z0-9_.:-]+$/.test(value) ? value : null
+}
+
+const boundedDiagnosticMessageV1 = (value) => {
+  if (typeof value !== 'string') return ''
+  const redacted = value
+    .replace(/\b(?:authorization|proxy-authorization|cookie|set-cookie)[ \t]*:[^\r\n]*/gi, '[REDACTED_HEADER]')
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+    .replace(/\b(?:Bearer|token)[ \t]+[A-Za-z0-9._~+/=-]+/gi, '[REDACTED_CREDENTIAL]')
+    .replace(/\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/g, '[REDACTED_CREDENTIAL]')
+    .replace(/\bhttps?:\/\/[^\s/@:]+:[^\s/@]+@[^\s]+/gi, '[REDACTED_URL]')
+    .replace(/([?&](?:access_token|token|auth|authorization|signature|sig|key|secret|password)=)[^\s&#]*/gi, '$1[REDACTED]')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return redacted.length <= DRAFT_RETURN_DIAGNOSTIC_MESSAGE_LIMIT_V1
+    ? redacted
+    : redacted.slice(0, DRAFT_RETURN_DIAGNOSTIC_MESSAGE_LIMIT_V1)
+}
+
+const boundedGraphqlPathV1 = (value) => Object.freeze(
+  (Array.isArray(value) ? value : []).slice(0, DRAFT_RETURN_GRAPHQL_PATH_LIMIT_V1).flatMap((component) => {
+    if (Number.isSafeInteger(component) && component >= 0) return [component]
+    const bounded = boundedDiagnosticIdentifierV1(component)
+    return bounded === null ? [] : [bounded]
+  }),
+)
+
+export const projectDraftReturnMutationDiagnosticV1 = ({
+  execution_phase = 'REQUEST_PREPARATION',
+  request_dispatch_started = false,
+  response_received = false,
+  http_status = null,
+  github_request_id = null,
+  graphql_errors = [],
+  network_exception_name = null,
+  network_exception_code = null,
+  outcome_classification = 'OUTCOME_UNKNOWN',
+} = {}) => Object.freeze({
+  operation: DRAFT_RETURN_MUTATION_OPERATION_V1,
+  execution_phase: DRAFT_RETURN_MUTATION_PHASES_V1.has(execution_phase) ? execution_phase : 'REQUEST_PREPARATION',
+  request_dispatch_started: request_dispatch_started === true,
+  response_received: response_received === true,
+  http_status: Number.isSafeInteger(http_status) && http_status >= 100 && http_status <= 599 ? http_status : null,
+  github_request_id: boundedDiagnosticIdentifierV1(github_request_id),
+  graphql_errors: Object.freeze((Array.isArray(graphql_errors) ? graphql_errors : [])
+    .slice(0, DRAFT_RETURN_GRAPHQL_ERROR_LIMIT_V1)
+    .map((error) => Object.freeze({
+      type: boundedDiagnosticIdentifierV1(error?.type),
+      path: boundedGraphqlPathV1(error?.path),
+      message: boundedDiagnosticMessageV1(error?.message),
+    }))),
+  network_exception_name: boundedDiagnosticIdentifierV1(network_exception_name),
+  network_exception_code: boundedDiagnosticIdentifierV1(network_exception_code),
+  outcome_classification: DRAFT_RETURN_MUTATION_OUTCOMES_V1.has(outcome_classification)
+    ? outcome_classification
+    : 'OUTCOME_UNKNOWN',
+})
+
+export const classifyDraftReturnMutationResponseV1 = ({
+  response_received = false,
+  http_status = null,
+  response_ok = false,
+  payload_parsed = false,
+  graphql_errors = [],
+  mutation_result_returned = false,
+} = {}) => {
+  if (response_received !== true) return 'OUTCOME_UNKNOWN'
+  if (response_ok !== true) {
+    return Number.isSafeInteger(http_status) && http_status >= 400 && http_status < 500 && http_status !== 408
+      ? 'DEFINITIVE_REJECTION'
+      : 'OUTCOME_UNKNOWN'
+  }
+  if (payload_parsed !== true) return 'OUTCOME_UNKNOWN'
+  return Array.isArray(graphql_errors) && graphql_errors.length > 0 && mutation_result_returned !== true
+    ? 'DEFINITIVE_REJECTION'
+    : 'OUTCOME_UNKNOWN'
+}
+
+const updateDraftReturnMutationDiagnosticV1 = (current, overrides) => projectDraftReturnMutationDiagnosticV1({
+  ...(current ?? {}),
+  ...overrides,
+})
+
 const positiveInteger = (value) => Number.isSafeInteger(value) && value > 0
 const nonNegativeInteger = (value) => Number.isSafeInteger(value) && value >= 0
 const occurrenceCount = (text, needle) => text.split(needle).length - 1
@@ -835,9 +939,9 @@ const apiBytes = async (host, endpoint) => {
   return host.apiBytes(endpoint)
 }
 
-const graphql = async (host, query, variables) => {
+const graphql = async (host, query, variables, diagnostic = undefined) => {
   if (!host || typeof host.graphql !== 'function') throw new Error('host_graphql_unavailable')
-  return host.graphql(query, variables)
+  return host.graphql(query, variables, diagnostic)
 }
 
 const captureProductionEvidenceSnapshotV1 = (host, kind, value) => {
@@ -7740,7 +7844,7 @@ const projectDraftReturnOperationEvidenceV1 = ({ action, execution, beforePull, 
 const draftReturnOperatorResultV1 = (action, {
   state, exitCode, reason, mutationCount, automationStatus, execution = null, operationConsumed = false,
   completionRecorded = false, operationEvidence = null, confirmedPull = null, completion = null,
-  beforePull = null,
+  beforePull = null, mutationDiagnostic = null,
 }) => Object.freeze({
   transition: 'draft_return',
   state,
@@ -7763,15 +7867,16 @@ const draftReturnOperatorResultV1 = (action, {
   ...(beforePull === null ? {} : { before_pull: beforePull }),
   ...(confirmedPull === null ? {} : { confirmed_pull: confirmedPull }),
   ...(completion === null ? {} : { completion }),
+  ...(mutationDiagnostic === null ? {} : { mutation_diagnostic: mutationDiagnostic }),
 })
 
 const draftReturnOperatorStopV1 = (action, reason, {
   mutationCount = 0, execution = null, operationConsumed = false, completionRecorded = false,
   operationEvidence = null, beforePull = null, confirmedPull = null, state = 'INDETERMINATE',
+  mutationDiagnostic = null,
 } = {}) => draftReturnOperatorResultV1(action, {
   state, exitCode: 1, reason, mutationCount, automationStatus: 'STOPPED', execution, operationConsumed,
-  completionRecorded, operationEvidence, confirmedPull,
-  beforePull,
+  completionRecorded, operationEvidence, confirmedPull, beforePull, mutationDiagnostic,
 })
 
 export const projectDraftReturnCompletionBodyV1 = ({
@@ -8076,6 +8181,7 @@ export const executeDraftReturnOperatorV1 = async ({ request, host, runId, runAt
   let action = null
   let mutationCount = 0
   let execution = null
+  let mutationDiagnostic = null
   try {
     execution = normalizeDraftReturnExecutionV1({ runId, runAttempt, hostSha, jobName })
     action = await admitDraftReturnAuthorityV1({ request, host })
@@ -8145,10 +8251,37 @@ export const executeDraftReturnOperatorV1 = async ({ request, host, runId, runAt
 
     mutationCount = 1
     try {
-      await graphql(host, CONVERT_PULL_REQUEST_TO_DRAFT_MUTATION, { pullRequestId: pull.id })
-    } catch {
+      const mutationResponse = await graphql(
+        host,
+        CONVERT_PULL_REQUEST_TO_DRAFT_MUTATION,
+        { pullRequestId: pull.id },
+        Object.freeze({
+          operation: DRAFT_RETURN_MUTATION_OPERATION_V1,
+          capture: (diagnostic) => {
+            mutationDiagnostic = projectDraftReturnMutationDiagnosticV1(diagnostic)
+          },
+        }),
+      )
+      mutationDiagnostic = updateDraftReturnMutationDiagnosticV1(mutationDiagnostic, {
+        execution_phase: 'RESPONSE_VALIDATION',
+        request_dispatch_started: true,
+        response_received: true,
+        outcome_classification: 'OUTCOME_UNKNOWN',
+      })
+      if (mutationResponse?.convertPullRequestToDraft === null || mutationResponse?.convertPullRequestToDraft === undefined) {
+        throw new Error('draft_return_mutation_response_invalid')
+      }
+    } catch (error) {
+      mutationDiagnostic ??= projectDraftReturnMutationDiagnosticV1({
+        execution_phase: 'REQUEST_DISPATCH',
+        request_dispatch_started: true,
+        response_received: false,
+        network_exception_name: error instanceof Error ? error.name : null,
+        network_exception_code: typeof error?.code === 'string' ? error.code : null,
+        outcome_classification: 'OUTCOME_UNKNOWN',
+      })
       return draftReturnOperatorStopV1(action, 'draft_return_mutation_failed', {
-        mutationCount, execution, operationConsumed: true,
+        mutationCount, execution, operationConsumed: true, mutationDiagnostic,
       })
     }
 
@@ -8156,8 +8289,12 @@ export const executeDraftReturnOperatorV1 = async ({ request, host, runId, runAt
     try {
       after = await acquireFreshPull()
     } catch {
+      mutationDiagnostic = updateDraftReturnMutationDiagnosticV1(mutationDiagnostic, {
+        execution_phase: 'AFTER_STATE_REFETCH',
+        outcome_classification: 'OUTCOME_UNKNOWN',
+      })
       return draftReturnOperatorStopV1(action, 'draft_return_refetch_failed', {
-        mutationCount, execution, operationConsumed: true,
+        mutationCount, execution, operationConsumed: true, mutationDiagnostic,
       })
     }
     const confirmedRepository = after?.repository
@@ -8167,8 +8304,19 @@ export const executeDraftReturnOperatorV1 = async ({ request, host, runId, runAt
       confirmedPull?.number !== action.pr_number || confirmedPull?.headRefOid !== action.exact_head ||
       confirmedPull?.baseRefName !== 'main' || confirmedPull?.state !== 'OPEN' ||
       confirmedPull?.isDraft !== true || confirmedPull?.merged !== false
-    ) return draftReturnOperatorStopV1(action, 'draft_return_refetch_mismatch', {
-      mutationCount, execution, operationConsumed: true,
+    ) {
+      mutationDiagnostic = updateDraftReturnMutationDiagnosticV1(mutationDiagnostic, {
+        execution_phase: 'AFTER_STATE_VALIDATION',
+        outcome_classification: 'OUTCOME_UNKNOWN',
+      })
+      return draftReturnOperatorStopV1(action, 'draft_return_refetch_mismatch', {
+        mutationCount, execution, operationConsumed: true, mutationDiagnostic,
+      })
+    }
+
+    mutationDiagnostic = updateDraftReturnMutationDiagnosticV1(mutationDiagnostic, {
+      execution_phase: 'AFTER_STATE_CONFIRMED',
+      outcome_classification: 'MUTATION_CONFIRMED',
     })
 
     const operationEvidence = projectDraftReturnOperationEvidenceV1({
@@ -8183,17 +8331,17 @@ export const executeDraftReturnOperatorV1 = async ({ request, host, runId, runAt
     } catch {
       return draftReturnOperatorStopV1(action, 'draft_return_completion_publish_failed', {
         mutationCount, execution, operationConsumed: true, completionRecorded: false,
-        operationEvidence, beforePull: pull, confirmedPull, state: 'RECOVERY_REQUIRED',
+        operationEvidence, beforePull: pull, confirmedPull, state: 'RECOVERY_REQUIRED', mutationDiagnostic,
       })
     }
     return draftReturnOperatorResultV1(action, {
       state: 'COMPLETED', exitCode: 0, reason: 'draft_return_completed', mutationCount,
       automationStatus: 'COMPLETED', execution, operationConsumed: true, completionRecorded: true,
-      operationEvidence, beforePull: pull, confirmedPull, completion,
+      operationEvidence, beforePull: pull, confirmedPull, completion, mutationDiagnostic,
     })
   } catch (error) {
     return draftReturnOperatorStopV1(action, error instanceof Error ? error.message : 'draft_return_failed', {
-      mutationCount, execution, operationConsumed: mutationCount > 0,
+      mutationCount, execution, operationConsumed: mutationCount > 0, mutationDiagnostic,
     })
   }
 }
@@ -11899,23 +12047,109 @@ const productionHost = (environment) => {
         staged_paths: Object.freeze([...new Set(staged)].sort()),
       })
     },
-    graphql: async (query, variables) => {
-      const response = await fetch('https://api.github.com/graphql', {
-        method: 'POST',
-        headers: {
-          Accept: 'application/vnd.github+json',
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'X-GitHub-Api-Version': '2022-11-28',
-          'User-Agent': 'protected-transition-admission-v1',
-        },
-        body: JSON.stringify({ query, variables }),
-      })
-      if (!response.ok) throw new Error(`github_graphql_${response.status}`)
-      const payload = await response.json()
-      if (!payload || !payload.data || (Array.isArray(payload.errors) && payload.errors.length > 0)) {
+    graphql: async (query, variables, diagnostic = undefined) => {
+      const diagnosticEnabled = diagnostic?.operation === DRAFT_RETURN_MUTATION_OPERATION_V1 &&
+        typeof diagnostic?.capture === 'function'
+      const captureDiagnostic = (values) => {
+        if (!diagnosticEnabled) return
+        diagnostic.capture(projectDraftReturnMutationDiagnosticV1(values))
+      }
+      let body
+      try {
+        body = JSON.stringify({ query, variables })
+      } catch (error) {
+        captureDiagnostic({
+          execution_phase: 'REQUEST_PREPARATION',
+          request_dispatch_started: false,
+          response_received: false,
+          network_exception_name: error instanceof Error ? error.name : null,
+          network_exception_code: typeof error?.code === 'string' ? error.code : null,
+          outcome_classification: 'OUTCOME_UNKNOWN',
+        })
+        throw error
+      }
+
+      let response
+      try {
+        response = await fetch('https://api.github.com/graphql', {
+          method: 'POST',
+          headers: {
+            Accept: 'application/vnd.github+json',
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'X-GitHub-Api-Version': '2022-11-28',
+            'User-Agent': 'protected-transition-admission-v1',
+          },
+          body,
+        })
+      } catch (error) {
+        captureDiagnostic({
+          execution_phase: 'REQUEST_DISPATCH',
+          request_dispatch_started: true,
+          response_received: false,
+          network_exception_name: error instanceof Error ? error.name : null,
+          network_exception_code: typeof error?.code === 'string'
+            ? error.code
+            : (typeof error?.cause?.code === 'string' ? error.cause.code : null),
+          outcome_classification: 'OUTCOME_UNKNOWN',
+        })
+        throw error
+      }
+
+      const responseIdentity = {
+        request_dispatch_started: true,
+        response_received: true,
+        http_status: response.status,
+        github_request_id: response.headers.get('x-github-request-id'),
+      }
+      if (!response.ok) {
+        captureDiagnostic({
+          execution_phase: 'RESPONSE_VALIDATION',
+          ...responseIdentity,
+          outcome_classification: classifyDraftReturnMutationResponseV1({
+            response_received: true,
+            http_status: response.status,
+            response_ok: false,
+          }),
+        })
+        throw new Error(`github_graphql_${response.status}`)
+      }
+
+      let payload
+      try {
+        payload = await response.json()
+      } catch {
+        captureDiagnostic({
+          execution_phase: 'RESPONSE_VALIDATION',
+          ...responseIdentity,
+          outcome_classification: 'OUTCOME_UNKNOWN',
+        })
         throw new Error('github_graphql_invalid')
       }
+      const graphqlErrors = Array.isArray(payload?.errors) ? payload.errors : []
+      const mutationSucceeded = payload?.data?.convertPullRequestToDraft !== null &&
+        payload?.data?.convertPullRequestToDraft !== undefined
+      if (!payload || !payload.data || graphqlErrors.length > 0 || (diagnosticEnabled && !mutationSucceeded)) {
+        captureDiagnostic({
+          execution_phase: 'RESPONSE_VALIDATION',
+          ...responseIdentity,
+          graphql_errors: graphqlErrors,
+          outcome_classification: classifyDraftReturnMutationResponseV1({
+            response_received: true,
+            http_status: response.status,
+            response_ok: true,
+            payload_parsed: true,
+            graphql_errors: graphqlErrors,
+            mutation_result_returned: mutationSucceeded,
+          }),
+        })
+        throw new Error('github_graphql_invalid')
+      }
+      captureDiagnostic({
+        execution_phase: 'RESPONSE_VALIDATION',
+        ...responseIdentity,
+        outcome_classification: 'OUTCOME_UNKNOWN',
+      })
       return payload.data
     },
   })
