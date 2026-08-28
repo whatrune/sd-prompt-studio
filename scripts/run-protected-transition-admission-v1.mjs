@@ -46,6 +46,14 @@ const RTO_SELF_JOB_NAMES_V1 = Object.freeze([
   'protected_transition_role_dispatch_consumer_v1',
   'protected_transition_merge_operator_v1',
   'protected_transition_post_repair_review_v1',
+  'protected_transition_current_pr_validation_republication_v1',
+])
+const HISTORICAL_LEGACY_RTO_JOB_NAMES_V1 = Object.freeze([
+  'protected_transition_admission_v1',
+  'protected_transition_repair_executor_v1',
+  'protected_transition_role_dispatch_consumer_v1',
+  'protected_transition_merge_operator_v1',
+  'protected_transition_post_repair_review_v1',
 ])
 const VERIFIED_ADMISSION_ORIGINS_V1 = new WeakSet()
 const VERIFIED_MERGE_DECISION_OWNERS_V1 = new WeakSet()
@@ -99,6 +107,24 @@ const READY_REVIEW_TERMINAL_ARTIFACT_FIELDS_V1 = Object.freeze([
   'record_type', 'version', 'authoring_role', 'canonical_record', 'repository', 'task_issue',
   'pull_request', 'exact_head', 'ready_generation', 'producer_roster', 'terminal_receipts',
   'post_terminal_thread_snapshot', 'final_head_refetch', 'component_digests', 'artifact_sha256',
+])
+const CURRENT_PR_VALIDATION_REPUBLICATION_AUTHORITY_RECORD_TYPE_V1 = 'current_pr_validation_republication_authority_v1'
+const CURRENT_PR_VALIDATION_REPUBLICATION_RESULT_KIND_V1 = 'current_pr_validation_republication_result_v1'
+const CURRENT_PR_VALIDATION_REPUBLICATION_AUTHORITY_SCALAR_FIELDS_V1 = Object.freeze([
+  'record_type', 'version', 'task_id', 'authoring_role', 'authority_source', 'canonical_record',
+  'repository', 'task_issue', 'pull_request', 'prior_canonical_head', 'new_exact_head', 'current_base',
+  'correction_authority', 'correction_completion', 'operation_count',
+])
+const CURRENT_PR_VALIDATION_REPUBLICATION_AUTHORITY_LIST_FIELDS_V1 = Object.freeze([
+  'authorized_paths', 'validation_commands',
+])
+const CURRENT_PR_VALIDATION_REPUBLICATION_RESULT_FIELDS_V1 = Object.freeze([
+  'record_type', 'version', 'result_kind', 'task_id', 'authoring_role', 'role', 'authority_source',
+  'canonical_record', 'repository', 'task_issue', 'pull_request', 'prior_canonical_head', 'new_exact_head',
+  'current_base', 'authorized_paths', 'validation_commands', 'validation_results', 'blob_oids',
+  'correction_authority', 'correction_authority_body_sha256', 'correction_completion',
+  'correction_completion_body_sha256', 'authority_body_sha256', 'validation_generation_sha256',
+  'status', 'execution_stop_reason', 'blocking_finding_count', 'remaining_finding_count', 'unknown_count',
 ])
 const INTEGRATED_LEAD_READY_RESULT_FIELDS_V1 = Object.freeze([
   'decision', 'repository', 'task_issue', 'pull_request', 'exact_head',
@@ -3196,9 +3222,9 @@ const resolveHistoricalLegacyRtoAllowlistEntryV1 = (request) => {
     !positiveInteger(entry.pr_number) || !FULL_HEAD.test(entry.head_sha) ||
     !WORKFLOW_RUN_ID.test(entry.workflow_id) || !WORKFLOW_RUN_ID.test(entry.run_id) ||
     !positiveInteger(entry.run_attempt) || !WORKFLOW_RUN_ID.test(entry.check_suite_id) ||
-    !exactObjectKeysV1(entry.job_ids, RTO_SELF_JOB_NAMES_V1) ||
+    !exactObjectKeysV1(entry.job_ids, HISTORICAL_LEGACY_RTO_JOB_NAMES_V1) ||
     Object.values(entry.job_ids).some((jobId) => !WORKFLOW_RUN_ID.test(jobId)) ||
-    new Set(Object.values(entry.job_ids)).size !== RTO_SELF_JOB_NAMES_V1.length
+    new Set(Object.values(entry.job_ids)).size !== HISTORICAL_LEGACY_RTO_JOB_NAMES_V1.length
   ) throw new Error('minimal_governance_historical_rto_allowlist_invalid')
   return entry
 }
@@ -3309,7 +3335,7 @@ const assertHistoricalLegacyRtoEvidenceV1 = (evidence, request) => {
     !WORKFLOW_RUN_ID.test(evidence.check_suite_id ?? '') || evidence.event !== 'pull_request' ||
     evidence.status !== 'COMPLETED' || evidence.conclusion !== 'FAILURE' || evidence.head_sha !== request.exactHead ||
     evidence.pr_number !== request.prNumber || evidence.base_ref !== 'main' ||
-    !Array.isArray(evidence.checks) || evidence.checks.length !== RTO_SELF_JOB_NAMES_V1.length ||
+    !Array.isArray(evidence.checks) || evidence.checks.length !== HISTORICAL_LEGACY_RTO_JOB_NAMES_V1.length ||
     !/^[0-9a-f]{64}$/.test(evidence.raw_log_sha256 ?? '')
   ) throw new Error('minimal_governance_historical_rto_evidence_invalid')
   const allowlisted = resolveHistoricalLegacyRtoAllowlistEntryV1(request)
@@ -3328,7 +3354,7 @@ const assertHistoricalLegacyRtoEvidenceV1 = (evidence, request) => {
       ]) ||
       typeof check.check_id !== 'string' || check.check_id.length === 0 ||
       !WORKFLOW_RUN_ID.test(check.check_database_id ?? '') || check.check_suite_id !== evidence.check_suite_id ||
-      !WORKFLOW_RUN_ID.test(check.job_id ?? '') || !RTO_SELF_JOB_NAMES_V1.includes(check.name) ||
+      !WORKFLOW_RUN_ID.test(check.job_id ?? '') || !HISTORICAL_LEGACY_RTO_JOB_NAMES_V1.includes(check.name) ||
       allowlisted.job_ids[check.name] !== check.job_id ||
       names.has(check.name) || jobIds.has(check.job_id) || checkIds.has(check.check_database_id) ||
       check.status !== 'COMPLETED' ||
@@ -3341,7 +3367,7 @@ const assertHistoricalLegacyRtoEvidenceV1 = (evidence, request) => {
     jobIds.add(check.job_id)
     checkIds.add(check.check_database_id)
   }
-  if (RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))) {
+  if (HISTORICAL_LEGACY_RTO_JOB_NAMES_V1.some((name) => !names.has(name))) {
     throw new Error('minimal_governance_historical_rto_evidence_invalid')
   }
   const admission = evidence.admission_job
@@ -3376,7 +3402,7 @@ const assertExpectedLegacyReadyEvidenceV1 = (evidence, request) => {
     typeof evidence.created_at !== 'string' || !STRICT_UTC.test(evidence.created_at) ||
     evidence.status !== 'COMPLETED' || evidence.conclusion !== 'FAILURE' || evidence.head_sha !== request.exactHead ||
     evidence.pr_number !== request.prNumber || evidence.base_ref !== 'main' ||
-    !Array.isArray(evidence.checks) || evidence.checks.length !== RTO_SELF_JOB_NAMES_V1.length ||
+    !Array.isArray(evidence.checks) || evidence.checks.length !== HISTORICAL_LEGACY_RTO_JOB_NAMES_V1.length ||
     !/^[0-9a-f]{64}$/.test(evidence.raw_log_sha256 ?? '')
   ) throw new Error('minimal_governance_expected_legacy_ready_evidence_invalid')
   const terminal = assertExpectedLegacyReadyTerminalResultV1(evidence.terminal_result, request, {
@@ -3399,7 +3425,7 @@ const assertExpectedLegacyReadyEvidenceV1 = (evidence, request) => {
       ]) ||
       typeof check.check_id !== 'string' || check.check_id.length === 0 ||
       !WORKFLOW_RUN_ID.test(check.check_database_id ?? '') || check.check_suite_id !== evidence.check_suite_id ||
-      !WORKFLOW_RUN_ID.test(check.job_id ?? '') || !RTO_SELF_JOB_NAMES_V1.includes(check.name) ||
+      !WORKFLOW_RUN_ID.test(check.job_id ?? '') || !HISTORICAL_LEGACY_RTO_JOB_NAMES_V1.includes(check.name) ||
       names.has(check.name) || jobIds.has(check.job_id) || checkIds.has(check.check_database_id) ||
       check.status !== 'COMPLETED' ||
       (check.name === 'protected_transition_admission_v1' ? check.conclusion !== 'FAILURE' : check.conclusion !== 'SKIPPED') ||
@@ -3411,7 +3437,7 @@ const assertExpectedLegacyReadyEvidenceV1 = (evidence, request) => {
     jobIds.add(check.job_id)
     checkIds.add(check.check_database_id)
   }
-  if (RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))) {
+  if (HISTORICAL_LEGACY_RTO_JOB_NAMES_V1.some((name) => !names.has(name))) {
     throw new Error('minimal_governance_expected_legacy_ready_evidence_invalid')
   }
   const admission = evidence.admission_job
@@ -3431,7 +3457,7 @@ const assertExpectedLegacyReadyEvidenceV1 = (evidence, request) => {
 }
 
 const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host, expectedLegacyReady = false }) => {
-  if (checks.length !== RTO_SELF_JOB_NAMES_V1.length) throw new Error('minimal_governance_historical_rto_family_invalid')
+  if (checks.length !== HISTORICAL_LEGACY_RTO_JOB_NAMES_V1.length) throw new Error('minimal_governance_historical_rto_family_invalid')
   const identities = checks.map((check) => parseRepositoryActionsJobIdentityV1(request, check))
   if (identities.some((identity) => identity === null)) throw new Error('minimal_governance_historical_rto_family_invalid')
   const runIds = new Set(identities.map((identity) => identity.runId))
@@ -3439,8 +3465,8 @@ const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host, exp
   const appIds = new Set(checks.map((check) => check.app_id))
   const checkSuiteIds = new Set(checks.map((check) => String(check.check_suite_database_id ?? '')))
   if (
-    runIds.size !== 1 || names.size !== RTO_SELF_JOB_NAMES_V1.length || appIds.size !== 1 || checkSuiteIds.size !== 1 ||
-    RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))
+    runIds.size !== 1 || names.size !== HISTORICAL_LEGACY_RTO_JOB_NAMES_V1.length || appIds.size !== 1 || checkSuiteIds.size !== 1 ||
+    HISTORICAL_LEGACY_RTO_JOB_NAMES_V1.some((name) => !names.has(name))
   ) throw new Error('minimal_governance_historical_rto_family_invalid')
   const runId = identities[0].runId
   const allowlisted = expectedLegacyReady ? null : resolveHistoricalLegacyRtoAllowlistEntryV1(request)
@@ -3463,7 +3489,7 @@ const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host, exp
 
   const page = await api(host, `repos/${request.repository}/actions/runs/${runId}/jobs?per_page=100`)
   if (
-    !page || page.total_count !== RTO_SELF_JOB_NAMES_V1.length || !Array.isArray(page.jobs) ||
+    !page || page.total_count !== HISTORICAL_LEGACY_RTO_JOB_NAMES_V1.length || !Array.isArray(page.jobs) ||
     page.jobs.length !== page.total_count
   ) throw new Error('minimal_governance_historical_rto_jobs_invalid')
   const checksByName = new Map(checks.map((check) => [check.name, check]))
@@ -3485,7 +3511,7 @@ const acquireHistoricalLegacyRtoEvidenceV1 = async ({ request, checks, host, exp
     jobsByName.set(job.name, job)
     jobIds.add(jobId)
   }
-  if (RTO_SELF_JOB_NAMES_V1.some((name) => !jobsByName.has(name))) {
+  if (HISTORICAL_LEGACY_RTO_JOB_NAMES_V1.some((name) => !jobsByName.has(name))) {
     throw new Error('minimal_governance_historical_rto_jobs_invalid')
   }
   const admissionJob = jobsByName.get('protected_transition_admission_v1')
@@ -4343,6 +4369,162 @@ export const parsePrePrImplementationAuthorityV1 = ({ body, repository, taskIssu
   })
 }
 
+const canonicalJsonValueV1 = (value) => {
+  if (Array.isArray(value)) return value.map((item) => canonicalJsonValueV1(item))
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalJsonValueV1(value[key])]))
+  }
+  return value
+}
+
+const canonicalJsonTextV1 = (value) => JSON.stringify(canonicalJsonValueV1(value))
+const canonicalJsonSha256V1 = (value) => createHash('sha256').update(Buffer.from(canonicalJsonTextV1(value), 'utf8')).digest('hex')
+const currentPrValidationTaskUrlV1 = (repository, taskIssueNumber) =>
+  `https://github.com/${repository}/issues/${taskIssueNumber}`
+const currentPrValidationCommentUrlV1 = (repository, taskIssueNumber, commentId) =>
+  `${currentPrValidationTaskUrlV1(repository, taskIssueNumber)}#issuecomment-${commentId}`
+const assertCurrentPrValidationCanonicalPublisherV1 = (comment) => {
+  try {
+    return assertMinimalGovernanceProductOwnerV1(comment, { requireAssociation: true })
+  } catch {
+    if (
+      comment?.user?.login !== TRUSTED_GITHUB_ACTIONS_BOT_V1.login ||
+      comment?.user?.id !== TRUSTED_GITHUB_ACTIONS_BOT_V1.id || comment?.user?.type !== TRUSTED_GITHUB_ACTIONS_BOT_V1.type
+    ) throw new Error('current_pr_validation_republication_canonical_publisher_invalid')
+    return Object.freeze({ ...TRUSTED_GITHUB_ACTIONS_BOT_V1 })
+  }
+}
+
+export const isCurrentPrValidationRepublicationAuthorityCandidateV1 = (body) =>
+  typeof body === 'string' && new RegExp(`(?:^|\\r?\\n)record_type:[ \\t]+${CURRENT_PR_VALIDATION_REPUBLICATION_AUTHORITY_RECORD_TYPE_V1}(?:\\r?$)`, 'm').test(body)
+
+export const parseCurrentPrValidationRepublicationAuthorityV1 = ({ body, repository, taskIssueNumber, commentId }) => {
+  const yaml = parseRoleYamlV1(body)
+  const scalars = [...yaml.scalars.keys()]
+  const lists = [...yaml.lists.keys()]
+  const taskUrl = currentPrValidationTaskUrlV1(repository, taskIssueNumber)
+  const commentUrl = currentPrValidationCommentUrlV1(repository, taskIssueNumber, commentId)
+  const paths = yaml.lists.get('authorized_paths')
+  const commands = yaml.lists.get('validation_commands')
+  const parseTaskCommentUrl = (value) => parseRoleUrlNumberV1(
+    value,
+    `${taskUrl}#issuecomment-`,
+    'current_pr_validation_republication_authority_invalid',
+  )
+  if (
+    !REPOSITORY.test(repository ?? '') || !positiveInteger(taskIssueNumber) || !positiveInteger(commentId) ||
+    scalars.length !== CURRENT_PR_VALIDATION_REPUBLICATION_AUTHORITY_SCALAR_FIELDS_V1.length ||
+    lists.length !== CURRENT_PR_VALIDATION_REPUBLICATION_AUTHORITY_LIST_FIELDS_V1.length ||
+    CURRENT_PR_VALIDATION_REPUBLICATION_AUTHORITY_SCALAR_FIELDS_V1.some((field) => !yaml.scalars.has(field)) ||
+    CURRENT_PR_VALIDATION_REPUBLICATION_AUTHORITY_LIST_FIELDS_V1.some((field) => !yaml.lists.has(field)) ||
+    scalars.some((field) => !CURRENT_PR_VALIDATION_REPUBLICATION_AUTHORITY_SCALAR_FIELDS_V1.includes(field)) ||
+    lists.some((field) => !CURRENT_PR_VALIDATION_REPUBLICATION_AUTHORITY_LIST_FIELDS_V1.includes(field)) ||
+    yaml.scalars.get('record_type') !== CURRENT_PR_VALIDATION_REPUBLICATION_AUTHORITY_RECORD_TYPE_V1 ||
+    yaml.scalars.get('version') !== 1 || yaml.scalars.get('authoring_role') !== 'Product Owner' ||
+    typeof yaml.scalars.get('task_id') !== 'string' || yaml.scalars.get('task_id').length === 0 ||
+    yaml.scalars.get('authority_source') !== taskUrl || yaml.scalars.get('canonical_record') !== commentUrl ||
+    yaml.scalars.get('repository') !== repository || yaml.scalars.get('task_issue') !== taskUrl ||
+    !positiveInteger(parseRoleUrlNumberV1(yaml.scalars.get('pull_request'), `https://github.com/${repository}/pull/`, 'current_pr_validation_republication_authority_invalid')) ||
+    !FULL_HEAD.test(yaml.scalars.get('prior_canonical_head') ?? '') ||
+    !FULL_HEAD.test(yaml.scalars.get('new_exact_head') ?? '') ||
+    yaml.scalars.get('prior_canonical_head') === yaml.scalars.get('new_exact_head') ||
+    !FULL_HEAD.test(yaml.scalars.get('current_base') ?? '') || yaml.scalars.get('operation_count') !== 1 ||
+    !Array.isArray(paths) || paths.length === 0 || new Set(paths).size !== paths.length ||
+    paths.some((value) => !isNormalizedRepositoryPathV1(value)) ||
+    !Array.isArray(commands) || commands.length === 0 || new Set(commands).size !== commands.length ||
+    commands.some((value) => typeof value !== 'string' || value.length === 0)
+  ) throw new Error('current_pr_validation_republication_authority_invalid')
+  const correctionAuthorityCommentId = parseTaskCommentUrl(yaml.scalars.get('correction_authority'))
+  const correctionCompletionCommentId = parseTaskCommentUrl(yaml.scalars.get('correction_completion'))
+  if (correctionAuthorityCommentId === correctionCompletionCommentId || [correctionAuthorityCommentId, correctionCompletionCommentId].includes(commentId)) {
+    throw new Error('current_pr_validation_republication_authority_invalid')
+  }
+  return Object.freeze({
+    repository,
+    task_issue_number: taskIssueNumber,
+    comment_id: commentId,
+    authority_url: commentUrl,
+    task_id: yaml.scalars.get('task_id'),
+    pr_number: parseRoleUrlNumberV1(yaml.scalars.get('pull_request'), `https://github.com/${repository}/pull/`),
+    prior_canonical_head: yaml.scalars.get('prior_canonical_head'),
+    new_exact_head: yaml.scalars.get('new_exact_head'),
+    current_base: yaml.scalars.get('current_base'),
+    authorized_paths: Object.freeze([...paths].sort()),
+    correction_authority: yaml.scalars.get('correction_authority'),
+    correction_authority_comment_id: correctionAuthorityCommentId,
+    correction_completion: yaml.scalars.get('correction_completion'),
+    correction_completion_comment_id: correctionCompletionCommentId,
+    validation_commands: Object.freeze([...commands]),
+    operation_count: 1,
+  })
+}
+
+const currentPrValidationRepublicationJsonBlockV1 = (body) => {
+  if (typeof body !== 'string') throw new Error('current_pr_validation_republication_result_invalid')
+  const matches = [...body.matchAll(/```json[ \t]*\r?\n([^\r\n]+)\r?\n```/g)]
+  if (matches.length !== 1) throw new Error('current_pr_validation_republication_result_invalid')
+  let parsed
+  try { parsed = JSON.parse(matches[0][1]) } catch { throw new Error('current_pr_validation_republication_result_invalid') }
+  if (canonicalJsonTextV1(parsed) !== matches[0][1]) throw new Error('current_pr_validation_republication_result_invalid')
+  return parsed
+}
+
+export const isCurrentPrValidationRepublicationResultCandidateV1 = (body) =>
+  typeof body === 'string' &&
+  /(?:^|\r?\n)record_type:[ \t]+result_handoff(?:\r?$)/m.test(body) &&
+  new RegExp(`(?:^|\\r?\\n)result_kind:[ \\t]+${CURRENT_PR_VALIDATION_REPUBLICATION_RESULT_KIND_V1}(?:\\r?$)`, 'm').test(body)
+
+export const parseCurrentPrValidationRepublicationResultV1 = ({ body, repository, taskIssueNumber, commentId }) => {
+  if (!isCurrentPrValidationRepublicationResultCandidateV1(body)) throw new Error('current_pr_validation_republication_result_invalid')
+  const result = currentPrValidationRepublicationJsonBlockV1(body)
+  const taskUrl = currentPrValidationTaskUrlV1(repository, taskIssueNumber)
+  const commentUrl = currentPrValidationCommentUrlV1(repository, taskIssueNumber, commentId)
+  const exactKeys = Object.keys(result).sort().join('\n') === [...CURRENT_PR_VALIDATION_REPUBLICATION_RESULT_FIELDS_V1].sort().join('\n')
+  const paths = result.authorized_paths
+  const commands = result.validation_commands
+  const executions = result.validation_results
+  const blobs = result.blob_oids
+  if (
+    !exactKeys || result.record_type !== 'result_handoff' || result.version !== 1 ||
+    result.result_kind !== CURRENT_PR_VALIDATION_REPUBLICATION_RESULT_KIND_V1 ||
+    typeof result.task_id !== 'string' || result.task_id.length === 0 ||
+    result.authoring_role !== 'Backend Implementer' || result.role !== 'Implementer' ||
+    result.canonical_record !== commentUrl || result.repository !== repository || result.task_issue !== taskUrl ||
+    parseRoleUrlNumberV1(result.pull_request, `https://github.com/${repository}/pull/`, 'current_pr_validation_republication_result_invalid') <= 0 ||
+    !FULL_HEAD.test(result.prior_canonical_head ?? '') || !FULL_HEAD.test(result.new_exact_head ?? '') ||
+    result.prior_canonical_head === result.new_exact_head || !FULL_HEAD.test(result.current_base ?? '') ||
+    !Array.isArray(paths) || paths.length === 0 || !sameRolePathsV1(paths, Object.freeze([...paths].sort())) ||
+    new Set(paths).size !== paths.length || paths.some((value) => !isNormalizedRepositoryPathV1(value)) ||
+    !Array.isArray(commands) || commands.length === 0 || new Set(commands).size !== commands.length ||
+    commands.some((value) => typeof value !== 'string' || value.length === 0) ||
+    !Array.isArray(executions) || executions.length !== commands.length || executions.some((execution, index) =>
+      !exactObjectKeysV1(execution, ['command', 'exit_code', 'output_sha256']) || execution.command !== commands[index] ||
+      execution.exit_code !== 0 || !/^[0-9a-f]{64}$/.test(execution.output_sha256 ?? '')) ||
+    !Array.isArray(blobs) || blobs.length !== paths.length || blobs.some((blob, index) =>
+      !exactObjectKeysV1(blob, ['path', 'blob_oid']) || blob.path !== paths[index] || !/^[0-9a-f]{40}$/.test(blob.blob_oid ?? '')) ||
+    ![result.correction_authority_body_sha256, result.correction_completion_body_sha256,
+      result.authority_body_sha256, result.validation_generation_sha256].every((value) => /^[0-9a-f]{64}$/.test(value ?? '')) ||
+    result.status !== 'completed' || result.execution_stop_reason !== 'completed' ||
+    result.blocking_finding_count !== 0 || result.remaining_finding_count !== 0 || result.unknown_count !== 0
+  ) throw new Error('current_pr_validation_republication_result_invalid')
+  const authorityCommentId = parseRoleUrlNumberV1(
+    result.authority_source, `${taskUrl}#issuecomment-`, 'current_pr_validation_republication_result_invalid',
+  )
+  const correctionAuthorityCommentId = parseRoleUrlNumberV1(
+    result.correction_authority, `${taskUrl}#issuecomment-`, 'current_pr_validation_republication_result_invalid',
+  )
+  const correctionCompletionCommentId = parseRoleUrlNumberV1(
+    result.correction_completion, `${taskUrl}#issuecomment-`, 'current_pr_validation_republication_result_invalid',
+  )
+  return Object.freeze({
+    ...result,
+    pr_number: parseRoleUrlNumberV1(result.pull_request, `https://github.com/${repository}/pull/`),
+    authority_comment_id: authorityCommentId,
+    correction_authority_comment_id: correctionAuthorityCommentId,
+    correction_completion_comment_id: correctionCompletionCommentId,
+  })
+}
+
 export const parseProductOwnerMergeDecisionV1 = (body, repository, taskIssueNumber) => {
   const yaml = parseRoleYamlV1(body)
   const expectedKeys = Object.freeze([
@@ -4636,7 +4818,7 @@ const materializeImplementerContextV1 = async ({ repository, taskIssueNumber, au
 }
 
 const projectRoleSourceBindingV1 = (binding, sourceCommentId) => {
-  if (!binding || !['PRE_PR_IMPLEMENTATION_AUTHORITY', 'PRE_PR_IMPLEMENTATION_RESULT', 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION', 'REVIEW', 'IMPLEMENTATION_AUTHORIZATION', 'IMPLEMENTATION_RESULT', 'PUBLICATION_HANDOFF', 'MERGE_DECISION', 'READY_TRANSITION_REQUIRED'].includes(binding.kind) || binding.comment_id !== sourceCommentId) {
+  if (!binding || !['PRE_PR_IMPLEMENTATION_AUTHORITY', 'PRE_PR_IMPLEMENTATION_RESULT', 'PRE_PR_BOOTSTRAP_PUBLICATION_DECISION', 'REVIEW', 'IMPLEMENTATION_AUTHORIZATION', 'IMPLEMENTATION_RESULT', 'PUBLICATION_HANDOFF', 'CURRENT_PR_VALIDATION_REPUBLICATION_HANDOFF', 'MERGE_DECISION', 'READY_TRANSITION_REQUIRED'].includes(binding.kind) || binding.comment_id !== sourceCommentId) {
     throw new Error('role_dispatch_source_binding_invalid')
   }
   if (binding.kind === 'PRE_PR_IMPLEMENTATION_AUTHORITY' && (
@@ -4709,6 +4891,14 @@ const projectRoleSourceBindingV1 = (binding, sourceCommentId) => {
     !positiveInteger(binding.pre_pr_implementation_authority_comment_id) || !FULL_HEAD.test(binding.parent_head ?? '')
   )) throw new Error('role_dispatch_source_binding_invalid')
   if (binding.kind === 'MERGE_DECISION' && (!positiveInteger(binding.review_comment_id) || !WORKFLOW_RUN_ID.test(String(binding.admission_run_id ?? '')))) throw new Error('role_dispatch_source_binding_invalid')
+  if (binding.kind === 'CURRENT_PR_VALIDATION_REPUBLICATION_HANDOFF' && (
+    !exactObjectKeysV1(binding, [
+      'kind', 'comment_id', 'authority_comment_id', 'authority_body_sha256', 'prior_canonical_head',
+      'current_base', 'validation_generation_sha256',
+    ]) || !positiveInteger(binding.authority_comment_id) ||
+    ![binding.authority_body_sha256, binding.validation_generation_sha256].every((value) => /^[0-9a-f]{64}$/.test(value ?? '')) ||
+    !FULL_HEAD.test(binding.prior_canonical_head ?? '') || !FULL_HEAD.test(binding.current_base ?? '')
+  )) throw new Error('role_dispatch_source_binding_invalid')
   if (binding.kind === 'READY_TRANSITION_REQUIRED' && (
     !exactObjectKeysV1(binding, READY_TRANSITION_SOURCE_BINDING_FIELDS_V1) ||
     !REPOSITORY.test(binding.repository ?? '') || !positiveInteger(binding.task_issue_number) ||
@@ -6316,6 +6506,36 @@ const verifyRoleDispatchSourceV1 = async (dispatch, host) => {
     await verifyRoleAuthorizationChainV1({ body: authorization.body, dispatch: parentDispatch, host, expected: binding })
     return source
   }
+  if (binding.kind === 'CURRENT_PR_VALIDATION_REPUBLICATION_HANDOFF') {
+    const result = parseCurrentPrValidationRepublicationResultV1({
+      body: source.body,
+      repository: dispatch.repository,
+      taskIssueNumber: dispatch.task_issue_number,
+      commentId: dispatch.source_comment_id,
+    })
+    const authorityRecord = await fetchRoleCommentRecordV1(
+      dispatch.repository, dispatch.task_issue_number, binding.authority_comment_id, host,
+    )
+    assertMinimalGovernanceProductOwnerV1(authorityRecord, { requireAssociation: true })
+    const authority = parseCurrentPrValidationRepublicationAuthorityV1({
+      body: authorityRecord.body,
+      repository: dispatch.repository,
+      taskIssueNumber: dispatch.task_issue_number,
+      commentId: binding.authority_comment_id,
+    })
+    if (
+      result.pr_number !== dispatch.pr_number || result.new_exact_head !== dispatch.exact_head ||
+      result.authority_comment_id !== binding.authority_comment_id ||
+      result.authority_body_sha256 !== binding.authority_body_sha256 ||
+      result.prior_canonical_head !== binding.prior_canonical_head || result.current_base !== binding.current_base ||
+      result.validation_generation_sha256 !== binding.validation_generation_sha256 ||
+      createHash('sha256').update(Buffer.from(authorityRecord.body, 'utf8')).digest('hex') !== binding.authority_body_sha256 ||
+      authority.pr_number !== dispatch.pr_number || authority.new_exact_head !== dispatch.exact_head ||
+      !sameRolePathsV1(result.authorized_paths, dispatch.authorized_paths) ||
+      !sameRolePathsV1(authority.authorized_paths, dispatch.authorized_paths)
+    ) throw new Error('role_dispatch_source_binding_changed')
+    return Object.freeze({ source, result, authority })
+  }
   if (binding.kind === 'MERGE_DECISION') {
     const decision = parseProductOwnerMergeDecisionV1(source.body, dispatch.repository, dispatch.task_issue_number)
     if (
@@ -6608,6 +6828,7 @@ export const projectWorkflowDispatchEntrypointArgumentsV1 = ({
   mergeDecisionCommentId,
   draftReturnAuthorityCommentId,
   terminalObservationAuthorityCommentId,
+  validationRepublicationAuthorityCommentId,
 }) => {
   const values = Object.freeze({
     transition: String(transition ?? ''),
@@ -6619,6 +6840,7 @@ export const projectWorkflowDispatchEntrypointArgumentsV1 = ({
     mergeDecisionCommentId: String(mergeDecisionCommentId ?? ''),
     draftReturnAuthorityCommentId: String(draftReturnAuthorityCommentId ?? ''),
     terminalObservationAuthorityCommentId: String(terminalObservationAuthorityCommentId ?? ''),
+    validationRepublicationAuthorityCommentId: String(validationRepublicationAuthorityCommentId ?? ''),
   })
   const argv = [
     '--transition', values.transition,
@@ -6640,6 +6862,9 @@ export const projectWorkflowDispatchEntrypointArgumentsV1 = ({
   }
   if (values.terminalObservationAuthorityCommentId.length > 0) {
     argv.push('--terminal-observation-authority-comment-id', values.terminalObservationAuthorityCommentId)
+  }
+  if (values.validationRepublicationAuthorityCommentId.length > 0) {
+    argv.push('--validation-republication-authority-comment-id', values.validationRepublicationAuthorityCommentId)
   }
   return Object.freeze({ argv: Object.freeze(argv) })
 }
@@ -6682,6 +6907,16 @@ export const projectAdmissionWorkflowResultV1 = ({ result }) => {
     outputLines.push(
       `repair_exact_head=${result.repair_dispatch.exact_head}`,
       `repair_dispatch_b64=${Buffer.from(JSON.stringify(result.repair_dispatch)).toString('base64')}`,
+    )
+  }
+  if (result.next_action === 'CURRENT_PR_VALIDATION_REPUBLICATION_OPERATOR') {
+    if (
+      result.validation_republication_plan?.new_exact_head !== result.current_head ||
+      result.validation_republication_plan?.operation_count !== 1
+    ) throw new Error('current_pr_validation_republication_projection_invalid')
+    outputLines.push(
+      `role_exact_head=${result.current_head}`,
+      `validation_republication_plan_b64=${Buffer.from(JSON.stringify(result.validation_republication_plan)).toString('base64')}`,
     )
   }
   return Object.freeze({ output_lines: Object.freeze(outputLines) })
@@ -8440,6 +8675,358 @@ const parseRolePublicationHandoffV1 = (body) => {
     publicationMode: 'NORMAL_NON_FORCE',
     authorityCommentId: roleCommentIdV1(body, ['Publication Authority']),
   })
+}
+
+const currentPrValidationRepublicationStopV1 = (request, reason) => Object.freeze({
+  transition: 'current_pr_validation_republication', state: 'INDETERMINATE', allowed: false,
+  exit_code: 1, reason, automation_status: 'BLOCKED', next_action: 'STOP', mutation_count: 0,
+  publication_count: 0, task_issue_number: request?.taskIssueNumber ?? null,
+  pr_number: request?.prNumber ?? null, current_head: request?.exactHead ?? null,
+})
+
+const acquireCurrentPrValidationRepublicationBindingV1 = async ({ request, authorityCommentId, host, allowCompletedResult = false }) => {
+  const pull = await acquirePull(request, host)
+  const task = validateTaskIdentityRawV1(await api(host, `repos/${request.repository}/issues/${request.taskIssueNumber}`), request)
+  const history = await acquireMinimalGovernanceCommentHistoryV1(request, host)
+  const candidates = []
+  for (const comment of history.comments) {
+    if (!isCurrentPrValidationRepublicationAuthorityCandidateV1(comment.body)) continue
+    let authority
+    try {
+      authority = parseCurrentPrValidationRepublicationAuthorityV1({
+        body: comment.body, repository: request.repository, taskIssueNumber: request.taskIssueNumber, commentId: comment.id,
+      })
+    } catch {
+      throw new Error('current_pr_validation_republication_authority_history_invalid')
+    }
+    if (authority.pr_number === request.prNumber && authority.new_exact_head === request.exactHead) {
+      candidates.push(Object.freeze({ comment, authority }))
+    }
+  }
+  if (candidates.length !== 1 || candidates[0].comment.id !== authorityCommentId) {
+    throw new Error('current_pr_validation_republication_authority_cardinality_invalid')
+  }
+  const selected = candidates[0]
+  const authorityRecord = await fetchRoleCommentRecordV1(
+    request.repository, request.taskIssueNumber, authorityCommentId, host,
+  )
+  assertMinimalGovernanceProductOwnerV1(authorityRecord, { requireAssociation: true })
+  const authority = parseCurrentPrValidationRepublicationAuthorityV1({
+    body: authorityRecord.body, repository: request.repository, taskIssueNumber: request.taskIssueNumber, commentId: authorityCommentId,
+  })
+  if (
+    authorityRecord.body !== selected.comment.body || authorityRecord.created_at !== selected.comment.created_at ||
+    authority.pr_number !== request.prNumber || authority.new_exact_head !== request.exactHead ||
+    pull.state !== 'open' || pull.draft !== true || pull.merged !== false || pull.base?.ref !== 'main' ||
+    pull.base?.sha !== authority.current_base || pull.head?.sha !== authority.new_exact_head ||
+    pull.head?.repo?.full_name !== request.repository || typeof pull.head?.ref !== 'string' || pull.head.ref.length === 0 ||
+    task.number !== request.taskIssueNumber || task.state !== 'open' || task.pull_request !== undefined
+  ) throw new Error('current_pr_validation_republication_binding_changed')
+  if (await host.branchHead(request.repository, 'main') !== authority.current_base ||
+    await host.branchHead(request.repository, pull.head.ref) !== authority.new_exact_head) {
+    throw new Error('current_pr_validation_republication_binding_changed')
+  }
+  const priorState = extractProtectedTransitionTaskStateV1(pull.body)
+  if (
+    priorState.task_issue_number !== request.taskIssueNumber || priorState.pr_number !== request.prNumber ||
+    priorState.observed_head !== authority.prior_canonical_head || priorState.architecture_status !== 'APPROVED' ||
+    priorState.implementation_authorized !== true ||
+    !sameRolePathsV1(priorState.authorized_paths, authority.authorized_paths)
+  ) throw new Error('current_pr_validation_republication_task_state_invalid')
+  const scope = await acquireChangedPathScopeV1(request, pull, host)
+  if (!scope.complete || !sameRolePathsV1(scope.actual_paths, authority.authorized_paths)) {
+    throw new Error('current_pr_validation_republication_scope_invalid')
+  }
+  const commit = await api(host, `repos/${request.repository}/commits/${authority.new_exact_head}`)
+  if (
+    commit?.sha !== authority.new_exact_head || !Array.isArray(commit.parents) || commit.parents.length !== 1 ||
+    commit.parents[0]?.sha !== authority.prior_canonical_head || !Array.isArray(commit.files) ||
+    commit.files.length !== authority.authorized_paths.length
+  ) throw new Error('current_pr_validation_republication_commit_invalid')
+  const commitFiles = new Map()
+  for (const file of commit.files) {
+    if (
+      !isNormalizedRepositoryPathV1(file?.filename) || file.status === 'removed' ||
+      !/^[0-9a-f]{40}$/.test(file?.sha ?? '') || commitFiles.has(file.filename)
+    ) throw new Error('current_pr_validation_republication_blob_identity_invalid')
+    commitFiles.set(file.filename, file.sha)
+  }
+  if (!sameRolePathsV1(Object.freeze([...commitFiles.keys()].sort()), authority.authorized_paths)) {
+    throw new Error('current_pr_validation_republication_blob_identity_invalid')
+  }
+
+  const correctionAuthorityRecord = await fetchRoleCommentRecordV1(
+    request.repository, request.taskIssueNumber, authority.correction_authority_comment_id, host,
+  )
+  assertCurrentPrValidationCanonicalPublisherV1(correctionAuthorityRecord)
+  const correctionAuthority = parseRolePublicationAuthorityV1(
+    correctionAuthorityRecord.body, request.repository, request.taskIssueNumber,
+  )
+  const correctionCompletionRecord = await fetchRoleCommentRecordV1(
+    request.repository, request.taskIssueNumber, authority.correction_completion_comment_id, host,
+  )
+  assertCurrentPrValidationCanonicalPublisherV1(correctionCompletionRecord)
+  const correctionCompletion = parseRolePublicationHandoffV1(correctionCompletionRecord.body)
+  if (
+    correctionAuthorityRecord.html_url !== authority.correction_authority ||
+    correctionCompletionRecord.html_url !== authority.correction_completion ||
+    correctionAuthority.prNumber !== request.prNumber || correctionAuthority.exactHead !== authority.prior_canonical_head ||
+    !sameRolePathsV1(correctionAuthority.paths, authority.authorized_paths) ||
+    correctionCompletion.publicationMode !== 'NORMAL_NON_FORCE' || correctionCompletion.prNumber !== request.prNumber ||
+    correctionCompletion.parentHead !== authority.prior_canonical_head ||
+    correctionCompletion.exactHead !== authority.new_exact_head ||
+    correctionCompletion.authorityCommentId !== authority.correction_authority_comment_id ||
+    !sameRolePathsV1(correctionCompletion.paths, authority.authorized_paths) ||
+    correctionCompletionRecord.created_at <= correctionAuthorityRecord.created_at ||
+    authorityRecord.created_at <= correctionCompletionRecord.created_at
+  ) throw new Error('current_pr_validation_republication_correction_chain_invalid')
+
+  const completed = history.comments.filter((comment) => {
+    if (!isCurrentPrValidationRepublicationResultCandidateV1(comment.body)) return false
+    try {
+      const result = parseCurrentPrValidationRepublicationResultV1({
+        body: comment.body, repository: request.repository, taskIssueNumber: request.taskIssueNumber, commentId: comment.id,
+      })
+      return result.authority_comment_id === authorityCommentId && result.new_exact_head === authority.new_exact_head
+    } catch {
+      throw new Error('current_pr_validation_republication_result_history_invalid')
+    }
+  })
+  if ((!allowCompletedResult && completed.length !== 0) || (allowCompletedResult && completed.length !== 1)) {
+    throw new Error('current_pr_validation_republication_authority_consumed')
+  }
+  const bodySha256 = (record) => createHash('sha256').update(Buffer.from(record.body, 'utf8')).digest('hex')
+  return Object.freeze({
+    request,
+    authority,
+    authority_body_sha256: bodySha256(authorityRecord),
+    authority_created_at: authorityRecord.created_at,
+    correction_authority_body_sha256: bodySha256(correctionAuthorityRecord),
+    correction_completion_body_sha256: bodySha256(correctionCompletionRecord),
+    blob_oids: Object.freeze(authority.authorized_paths.map((pathValue) => Object.freeze({ path: pathValue, blob_oid: commitFiles.get(pathValue) }))),
+    prior_state: priorState,
+    pull_branch: pull.head.ref,
+    ...(allowCompletedResult ? { completed_result_comment_id: completed[0].id } : {}),
+  })
+}
+
+export const executeCurrentPrValidationRepublicationAdmissionV1 = async ({ request, authorityCommentId, host }) => {
+  try {
+    if (
+      request?.transition !== 'current_pr_validation_republication' || !REPOSITORY.test(request.repository ?? '') ||
+      !positiveInteger(request.taskIssueNumber) || !positiveInteger(request.prNumber) ||
+      !FULL_HEAD.test(request.exactHead ?? '') || !positiveInteger(authorityCommentId)
+    ) throw new Error('current_pr_validation_republication_request_invalid')
+    const binding = await acquireCurrentPrValidationRepublicationBindingV1({ request, authorityCommentId, host })
+    const plan = Object.freeze({
+      record_type: 'current_pr_validation_republication_plan_v1',
+      repository: request.repository,
+      task_issue_number: request.taskIssueNumber,
+      pr_number: request.prNumber,
+      prior_canonical_head: binding.authority.prior_canonical_head,
+      new_exact_head: binding.authority.new_exact_head,
+      current_base: binding.authority.current_base,
+      pull_branch: binding.pull_branch,
+      authorized_paths: binding.authority.authorized_paths,
+      validation_commands: binding.authority.validation_commands,
+      authority_comment_id: binding.authority.comment_id,
+      authority_body_sha256: binding.authority_body_sha256,
+      correction_authority_comment_id: binding.authority.correction_authority_comment_id,
+      correction_authority_body_sha256: binding.correction_authority_body_sha256,
+      correction_completion_comment_id: binding.authority.correction_completion_comment_id,
+      correction_completion_body_sha256: binding.correction_completion_body_sha256,
+      blob_oids: binding.blob_oids,
+      operation_count: 1,
+    })
+    return Object.freeze({
+      transition: request.transition, state: 'READY', allowed: false, exit_code: 0,
+      reason: 'current_pr_validation_republication_admitted', automation_status: 'OPERATION_READY',
+      next_action: 'CURRENT_PR_VALIDATION_REPUBLICATION_OPERATOR', mutation_count: 0, publication_count: 0,
+      task_issue_number: request.taskIssueNumber, pr_number: request.prNumber, current_head: request.exactHead,
+      validation_republication_plan: plan,
+    })
+  } catch (error) {
+    return currentPrValidationRepublicationStopV1(request, error instanceof Error ? error.message : 'current_pr_validation_republication_failed')
+  }
+}
+
+const projectCurrentPrValidationRepublicationResultBodyV1 = (result) => [
+  '## Publication Handoff — Current PR Validation Republication V1',
+  '',
+  'record_type: result_handoff',
+  `result_kind: ${CURRENT_PR_VALIDATION_REPUBLICATION_RESULT_KIND_V1}`,
+  '',
+  '```json',
+  canonicalJsonTextV1(result),
+  '```',
+  '',
+  '### Exact validated scope',
+  '',
+  ...result.authorized_paths.map((pathValue) => `- \`${pathValue}\``),
+  '',
+  '### Terminal state',
+  '',
+  '- status: `completed`',
+  '- execution_stop_reason: `completed`',
+  '',
+].join('\n')
+
+const sameCurrentPrValidationRepublicationPlanV1 = (left, right) =>
+  canonicalJsonTextV1(left) === canonicalJsonTextV1(right)
+
+export const executeCurrentPrValidationRepublicationFinalizeV1 = async ({ plan, validationEvidence, host }) => {
+  const request = Object.freeze({
+    transition: 'current_pr_validation_republication', repository: plan?.repository,
+    taskIssueNumber: plan?.task_issue_number, prNumber: plan?.pr_number, exactHead: plan?.new_exact_head,
+  })
+  try {
+    if (
+      plan?.record_type !== 'current_pr_validation_republication_plan_v1' || plan.operation_count !== 1 ||
+      !positiveInteger(plan.authority_comment_id)
+    ) throw new Error('current_pr_validation_republication_plan_invalid')
+    const admitted = await executeCurrentPrValidationRepublicationAdmissionV1({
+      request, authorityCommentId: plan.authority_comment_id, host,
+    })
+    if (
+      admitted.next_action !== 'CURRENT_PR_VALIDATION_REPUBLICATION_OPERATOR' ||
+      !sameCurrentPrValidationRepublicationPlanV1(admitted.validation_republication_plan, plan)
+    ) throw new Error('current_pr_validation_republication_rebind_failed')
+    if (
+      !exactObjectKeysV1(validationEvidence, ['head_before', 'head_after', 'base_before', 'base_after', 'blob_oids', 'executions']) ||
+      validationEvidence.head_before !== plan.new_exact_head || validationEvidence.head_after !== plan.new_exact_head ||
+      validationEvidence.base_before !== plan.current_base || validationEvidence.base_after !== plan.current_base ||
+      !Array.isArray(validationEvidence.executions) || validationEvidence.executions.length !== plan.validation_commands.length ||
+      validationEvidence.executions.some((execution, index) =>
+        !exactObjectKeysV1(execution, ['command', 'exit_code', 'output_sha256']) ||
+        execution.command !== plan.validation_commands[index] || execution.exit_code !== 0 ||
+        !/^[0-9a-f]{64}$/.test(execution.output_sha256 ?? '')) ||
+      !Array.isArray(validationEvidence.blob_oids) ||
+      canonicalJsonTextV1(validationEvidence.blob_oids) !== canonicalJsonTextV1(plan.blob_oids)
+    ) throw new Error('current_pr_validation_republication_validation_evidence_invalid')
+    const binding = await acquireCurrentPrValidationRepublicationBindingV1({
+      request, authorityCommentId: plan.authority_comment_id, host,
+    })
+    const generationInput = Object.freeze({
+      repository: plan.repository,
+      task_issue_number: plan.task_issue_number,
+      pr_number: plan.pr_number,
+      prior_canonical_head: plan.prior_canonical_head,
+      new_exact_head: plan.new_exact_head,
+      current_base: plan.current_base,
+      authorized_paths: plan.authorized_paths,
+      validation_commands: plan.validation_commands,
+      validation_results: validationEvidence.executions,
+      blob_oids: plan.blob_oids,
+      authority_comment_id: plan.authority_comment_id,
+      authority_body_sha256: plan.authority_body_sha256,
+      correction_authority_comment_id: plan.correction_authority_comment_id,
+      correction_authority_body_sha256: plan.correction_authority_body_sha256,
+      correction_completion_comment_id: plan.correction_completion_comment_id,
+      correction_completion_body_sha256: plan.correction_completion_body_sha256,
+    })
+    const validationGenerationSha256 = canonicalJsonSha256V1(generationInput)
+    const staging = await api(host, `repos/${plan.repository}/issues/${plan.task_issue_number}/comments`, {
+      method: 'POST', body: { body: '# Current PR Validation Republication Result V1\n\nPublication in progress.\n' },
+    })
+    if (!positiveInteger(staging?.id)) throw new Error('current_pr_validation_republication_result_publish_failed')
+    const result = Object.freeze({
+      record_type: 'result_handoff',
+      version: 1,
+      result_kind: CURRENT_PR_VALIDATION_REPUBLICATION_RESULT_KIND_V1,
+      task_id: binding.authority.task_id,
+      authoring_role: 'Backend Implementer',
+      role: 'Implementer',
+      authority_source: binding.authority.authority_url,
+      canonical_record: currentPrValidationCommentUrlV1(plan.repository, plan.task_issue_number, staging.id),
+      repository: plan.repository,
+      task_issue: currentPrValidationTaskUrlV1(plan.repository, plan.task_issue_number),
+      pull_request: `https://github.com/${plan.repository}/pull/${plan.pr_number}`,
+      prior_canonical_head: plan.prior_canonical_head,
+      new_exact_head: plan.new_exact_head,
+      current_base: plan.current_base,
+      authorized_paths: plan.authorized_paths,
+      validation_commands: plan.validation_commands,
+      validation_results: Object.freeze(validationEvidence.executions.map((execution) => Object.freeze({ ...execution }))),
+      blob_oids: plan.blob_oids,
+      correction_authority: binding.authority.correction_authority,
+      correction_authority_body_sha256: plan.correction_authority_body_sha256,
+      correction_completion: binding.authority.correction_completion,
+      correction_completion_body_sha256: plan.correction_completion_body_sha256,
+      authority_body_sha256: plan.authority_body_sha256,
+      validation_generation_sha256: validationGenerationSha256,
+      status: 'completed',
+      execution_stop_reason: 'completed',
+      blocking_finding_count: 0,
+      remaining_finding_count: 0,
+      unknown_count: 0,
+    })
+    const body = projectCurrentPrValidationRepublicationResultBodyV1(result)
+    const updated = await api(host, `repos/${plan.repository}/issues/comments/${staging.id}`, {
+      method: 'PATCH', body: { body },
+    })
+    if (updated?.id !== staging.id || updated?.body !== body) throw new Error('current_pr_validation_republication_result_publish_failed')
+    const fresh = await fetchRoleCommentRecordV1(plan.repository, plan.task_issue_number, staging.id, host)
+    if (
+      fresh.body !== body || fresh.html_url !== result.canonical_record ||
+      fresh.user?.login !== TRUSTED_GITHUB_ACTIONS_BOT_V1.login || fresh.user?.id !== TRUSTED_GITHUB_ACTIONS_BOT_V1.id ||
+      fresh.user?.type !== TRUSTED_GITHUB_ACTIONS_BOT_V1.type
+    ) throw new Error('current_pr_validation_republication_result_refetch_failed')
+    const parsed = parseCurrentPrValidationRepublicationResultV1({
+      body: fresh.body, repository: plan.repository, taskIssueNumber: plan.task_issue_number, commentId: staging.id,
+    })
+    if (parsed.validation_generation_sha256 !== validationGenerationSha256) {
+      throw new Error('current_pr_validation_republication_generation_invalid')
+    }
+    const consumed = await acquireCurrentPrValidationRepublicationBindingV1({
+      request, authorityCommentId: plan.authority_comment_id, host, allowCompletedResult: true,
+    })
+    if (consumed.completed_result_comment_id !== staging.id) {
+      throw new Error('current_pr_validation_republication_result_cardinality_invalid')
+    }
+    const candidateState = parseProtectedTransitionTaskStateV1({
+      ...consumed.prior_state,
+      observed_head: plan.new_exact_head,
+      authorized_paths: plan.authorized_paths,
+      review_status: 'PENDING',
+      reviewed_head: null,
+      review_blocker_count: null,
+    })
+    const written = await writeProtectedTransitionTaskStateV1({
+      request, host, expectedState: consumed.prior_state, candidateState,
+    })
+    const verifiedState = extractProtectedTransitionTaskStateV1(written.body)
+    if (canonicalJsonTextV1(verifiedState) !== canonicalJsonTextV1(candidateState)) {
+      throw new Error('current_pr_validation_republication_task_state_write_failed')
+    }
+    const routed = evaluateRoleTransitionOrchestratorV1({
+      terminalResult: 'PUBLISHED', request, taskState: verifiedState, paths: plan.authorized_paths,
+      authorityValid: true, rebindVerified: true, stateChanged: written.changed,
+    })
+    if (routed.next_action !== 'INDEPENDENT_IMPLEMENTATION_REVIEWER') {
+      throw new Error('current_pr_validation_republication_review_route_failed')
+    }
+    const sourceBinding = Object.freeze({
+      kind: 'CURRENT_PR_VALIDATION_REPUBLICATION_HANDOFF',
+      comment_id: staging.id,
+      authority_comment_id: plan.authority_comment_id,
+      authority_body_sha256: plan.authority_body_sha256,
+      prior_canonical_head: plan.prior_canonical_head,
+      current_base: plan.current_base,
+      validation_generation_sha256: validationGenerationSha256,
+    })
+    return Object.freeze({
+      ...routed,
+      source_comment_id: staging.id,
+      publication_count: 1,
+      validation_generation_sha256: validationGenerationSha256,
+      role_dispatch: projectRoleDispatchEnvelopeV1({
+        result: routed, repository: plan.repository, sourceCommentId: staging.id,
+        authorizedPaths: verifiedState.authorized_paths, taskState: verifiedState, sourceBinding,
+      }),
+    })
+  } catch (error) {
+    return currentPrValidationRepublicationStopV1(request, error instanceof Error ? error.message : 'current_pr_validation_republication_failed')
+  }
 }
 
 const sameRolePathsV1 = (left, right) => Array.isArray(left) && Array.isArray(right) && left.join('\n') === right.join('\n')
@@ -10263,6 +10850,137 @@ const acquireLifecycleValidationEvidenceV1 = async ({ history, identity, changed
   }
 }
 
+const acquireLifecycleCurrentPrValidationRepublicationEvidenceV1 = async ({ history, identity, changedPaths, pull, host }) => {
+  const candidates = []
+  for (const comment of history.comments) {
+    if (!isCurrentPrValidationRepublicationResultCandidateV1(comment.body)) continue
+    let result
+    try {
+      result = parseCurrentPrValidationRepublicationResultV1({
+        body: comment.body, repository: identity.repository, taskIssueNumber: identity.taskIssueNumber, commentId: comment.id,
+      })
+    } catch {
+      return Object.freeze({ status: 'INCOMPLETE', evidence: null, authorizedPaths: null, scopeContract: null })
+    }
+    if (result.pr_number === identity.prNumber && result.new_exact_head === identity.exactHead) {
+      candidates.push(Object.freeze({ comment, result }))
+    }
+  }
+  if (candidates.length === 0) return Object.freeze({ status: 'MISSING', evidence: null, authorizedPaths: null, scopeContract: null })
+  if (candidates.length !== 1) return Object.freeze({ status: 'INCOMPLETE', evidence: null, authorizedPaths: null, scopeContract: null })
+  try {
+    const selected = candidates[0]
+    const fresh = await fetchRoleCommentRecordV1(identity.repository, identity.taskIssueNumber, selected.comment.id, host)
+    if (
+      fresh.body !== selected.comment.body || fresh.user?.login !== TRUSTED_GITHUB_ACTIONS_BOT_V1.login ||
+      fresh.user?.id !== TRUSTED_GITHUB_ACTIONS_BOT_V1.id || fresh.user?.type !== TRUSTED_GITHUB_ACTIONS_BOT_V1.type
+    ) throw new Error('current_pr_validation_republication_result_refetch_failed')
+    const result = parseCurrentPrValidationRepublicationResultV1({
+      body: fresh.body, repository: identity.repository, taskIssueNumber: identity.taskIssueNumber, commentId: fresh.id,
+    })
+    if (
+      pull.head?.sha !== identity.exactHead || pull.base?.sha !== result.current_base || pull.state !== 'open' || pull.merged !== false ||
+      !sameRolePathsV1(result.authorized_paths, changedPaths)
+    ) throw new Error('current_pr_validation_republication_result_stale')
+    const authorityRecord = await fetchRoleCommentRecordV1(
+      identity.repository, identity.taskIssueNumber, result.authority_comment_id, host,
+    )
+    assertMinimalGovernanceProductOwnerV1(authorityRecord, { requireAssociation: true })
+    const authority = parseCurrentPrValidationRepublicationAuthorityV1({
+      body: authorityRecord.body, repository: identity.repository, taskIssueNumber: identity.taskIssueNumber,
+      commentId: result.authority_comment_id,
+    })
+    const correctionAuthorityRecord = await fetchRoleCommentRecordV1(
+      identity.repository, identity.taskIssueNumber, result.correction_authority_comment_id, host,
+    )
+    const correctionCompletionRecord = await fetchRoleCommentRecordV1(
+      identity.repository, identity.taskIssueNumber, result.correction_completion_comment_id, host,
+    )
+    assertCurrentPrValidationCanonicalPublisherV1(correctionAuthorityRecord)
+    assertCurrentPrValidationCanonicalPublisherV1(correctionCompletionRecord)
+    const bodySha256 = (record) => createHash('sha256').update(Buffer.from(record.body, 'utf8')).digest('hex')
+    const correctionAuthority = parseRolePublicationAuthorityV1(
+      correctionAuthorityRecord.body, identity.repository, identity.taskIssueNumber,
+    )
+    const correctionCompletion = parseRolePublicationHandoffV1(correctionCompletionRecord.body)
+    if (
+      bodySha256(authorityRecord) !== result.authority_body_sha256 ||
+      bodySha256(correctionAuthorityRecord) !== result.correction_authority_body_sha256 ||
+      bodySha256(correctionCompletionRecord) !== result.correction_completion_body_sha256 ||
+      authority.task_id !== result.task_id || authority.pr_number !== identity.prNumber ||
+      authority.prior_canonical_head !== result.prior_canonical_head || authority.new_exact_head !== identity.exactHead ||
+      authority.current_base !== result.current_base || !sameRolePathsV1(authority.authorized_paths, changedPaths) ||
+      correctionAuthority.prNumber !== identity.prNumber || correctionAuthority.exactHead !== result.prior_canonical_head ||
+      correctionCompletion.publicationMode !== 'NORMAL_NON_FORCE' || correctionCompletion.prNumber !== identity.prNumber ||
+      correctionCompletion.parentHead !== result.prior_canonical_head || correctionCompletion.exactHead !== identity.exactHead ||
+      correctionCompletion.authorityCommentId !== result.correction_authority_comment_id ||
+      !sameRolePathsV1(correctionAuthority.paths, changedPaths) || !sameRolePathsV1(correctionCompletion.paths, changedPaths)
+    ) throw new Error('current_pr_validation_republication_result_binding_invalid')
+    const generationInput = Object.freeze({
+      repository: result.repository,
+      task_issue_number: identity.taskIssueNumber,
+      pr_number: identity.prNumber,
+      prior_canonical_head: result.prior_canonical_head,
+      new_exact_head: result.new_exact_head,
+      current_base: result.current_base,
+      authorized_paths: result.authorized_paths,
+      validation_commands: result.validation_commands,
+      validation_results: result.validation_results,
+      blob_oids: result.blob_oids,
+      authority_comment_id: result.authority_comment_id,
+      authority_body_sha256: result.authority_body_sha256,
+      correction_authority_comment_id: result.correction_authority_comment_id,
+      correction_authority_body_sha256: result.correction_authority_body_sha256,
+      correction_completion_comment_id: result.correction_completion_comment_id,
+      correction_completion_body_sha256: result.correction_completion_body_sha256,
+    })
+    if (canonicalJsonSha256V1(generationInput) !== result.validation_generation_sha256) {
+      throw new Error('current_pr_validation_republication_generation_invalid')
+    }
+    const commit = await api(host, `repos/${identity.repository}/commits/${identity.exactHead}`)
+    if (
+      commit?.sha !== identity.exactHead || !Array.isArray(commit.parents) || commit.parents.length !== 1 ||
+      commit.parents[0]?.sha !== result.prior_canonical_head || !Array.isArray(commit.files)
+    ) throw new Error('current_pr_validation_republication_commit_invalid')
+    const commitBlobs = new Map(commit.files.map((file) => [file.filename, file.sha]))
+    if (result.blob_oids.some((binding) => commitBlobs.get(binding.path) !== binding.blob_oid)) {
+      throw new Error('current_pr_validation_republication_blob_identity_invalid')
+    }
+    const resultBodySha256 = bodySha256(fresh)
+    return Object.freeze({
+      status: 'PRESENT',
+      authorizedPaths: result.authorized_paths,
+      scopeContract: Object.freeze({
+        kind: 'CURRENT_PR_VALIDATION_REPUBLICATION',
+        authority_id: String(result.authority_comment_id),
+        body_sha256: result.authority_body_sha256,
+        result_handoff_comment_id: fresh.id,
+        result_handoff_body_sha256: resultBodySha256,
+        validation_generation_sha256: result.validation_generation_sha256,
+      }),
+      evidence: Object.freeze({
+        status: 'PASS',
+        exact_head: result.new_exact_head,
+        current_base: result.current_base,
+        paths: result.authorized_paths,
+        profile: 'authority-bound-current-pr-validation-republication-v1',
+        commands: result.validation_commands,
+        input_revisions: Object.freeze([
+          `issue-comment-${fresh.id}:${resultBodySha256}`,
+          `issue-comment-${result.authority_comment_id}:${result.authority_body_sha256}`,
+          `validation-generation:${result.validation_generation_sha256}`,
+        ]),
+        source_comment_id: fresh.id,
+        source_url: result.canonical_record,
+        body_sha256: resultBodySha256,
+        validation_generation_sha256: result.validation_generation_sha256,
+      }),
+    })
+  } catch {
+    return Object.freeze({ status: 'INCOMPLETE', evidence: null, authorizedPaths: null, scopeContract: null })
+  }
+}
+
 const acquireLifecycleAuthorityCandidateV1 = async ({ history, identity, changedPaths, validation, host }) => {
   const applicablePublicationAuthorities = []
   let malformedApplicablePublicationAuthority = false
@@ -10903,14 +11621,24 @@ const acquireLifecycleReplaySnapshotV1 = async ({ event, sourceResult, host, ide
   const publishedGenerationProjection = historyStatus === 'PRESENT'
     ? await acquireLifecyclePublishedGenerationV1({ history, identity, changedPaths: scope.actual_paths, pull, host })
     : Object.freeze({ status: 'INCOMPLETE', remoteBranch: null, authorizedPaths: null, scopeContract: null, validation: null })
-  const directValidationProjection = publishedGenerationProjection.status === 'MISSING'
-    ? await acquireLifecycleValidationEvidenceV1({ history, identity, changedPaths: scope.actual_paths, host })
-    : Object.freeze({ status: publishedGenerationProjection.status, evidence: null, authorizedPaths: null, scopeContract: null })
+  const republicationValidationProjection = publishedGenerationProjection.status === 'PRESENT'
+    ? Object.freeze({ status: 'MISSING', evidence: null, authorizedPaths: null, scopeContract: null })
+    : await acquireLifecycleCurrentPrValidationRepublicationEvidenceV1({
+        history, identity, changedPaths: scope.actual_paths, pull, host,
+      })
+  const directValidationProjection = republicationValidationProjection.status === 'PRESENT'
+    ? republicationValidationProjection
+    : publishedGenerationProjection.status === 'MISSING' && republicationValidationProjection.status === 'MISSING'
+      ? await acquireLifecycleValidationEvidenceV1({ history, identity, changedPaths: scope.actual_paths, host })
+      : Object.freeze({
+          status: publishedGenerationProjection.status === 'INCOMPLETE' || republicationValidationProjection.status === 'INCOMPLETE'
+            ? 'INCOMPLETE'
+            : publishedGenerationProjection.status,
+          evidence: null, authorizedPaths: null, scopeContract: null,
+        })
   const validationProjection = publishedGenerationProjection.status === 'PRESENT'
     ? Object.freeze({ status: 'PRESENT', evidence: publishedGenerationProjection.validation })
-    : publishedGenerationProjection.status === 'INCOMPLETE'
-      ? Object.freeze({ status: 'INCOMPLETE', evidence: null })
-      : directValidationProjection
+    : directValidationProjection
   const authorityProjection = historyStatus === 'PRESENT'
     ? await acquireLifecycleAuthorityCandidateV1({
         history, identity, changedPaths: scope.actual_paths, validation: validationProjection.evidence, host,
@@ -10929,8 +11657,12 @@ const acquireLifecycleReplaySnapshotV1 = async ({ event, sourceResult, host, ide
     pull_merged: pull.merged,
     mergeable: pull.mergeable,
     changed_paths: scope.actual_paths,
-    authorized_paths: publishedGenerationProjection.authorizedPaths ?? directValidationProjection.authorizedPaths,
-    scope_contract: publishedGenerationProjection.scopeContract ?? directValidationProjection.scopeContract,
+    authorized_paths: publishedGenerationProjection.status === 'PRESENT'
+      ? publishedGenerationProjection.authorizedPaths
+      : directValidationProjection.authorizedPaths,
+    scope_contract: publishedGenerationProjection.status === 'PRESENT'
+      ? publishedGenerationProjection.scopeContract
+      : directValidationProjection.scopeContract,
     evidence_status: Object.freeze({
       validation: validationProjection.status,
       authority: authorityProjection.status,
@@ -11471,7 +12203,8 @@ const parseManualCli = (argv, environment) => {
   const mergeSuccessorOnly = ['--merge-decision-comment-id']
   const draftReturnOnly = ['--draft-return-authority-comment-id']
   const terminalObservationOnly = ['--terminal-observation-authority-comment-id']
-  const allowed = new Set([...required, ...resumeOnly, ...mergeSuccessorOnly, ...draftReturnOnly, ...terminalObservationOnly])
+  const validationRepublicationOnly = ['--validation-republication-authority-comment-id']
+  const allowed = new Set([...required, ...resumeOnly, ...mergeSuccessorOnly, ...draftReturnOnly, ...terminalObservationOnly, ...validationRepublicationOnly])
   if (required.some((key) => !values.has(key)) || [...values.keys()].some((key) => !allowed.has(key))) throw new Error('cli_arguments_invalid')
   const transition = values.get('--transition')
   const taskIssueNumber = Number(values.get('--task-issue-number'))
@@ -11492,13 +12225,17 @@ const parseManualCli = (argv, environment) => {
   const terminalObservationAuthorityCommentId = values.has('--terminal-observation-authority-comment-id')
     ? Number(values.get('--terminal-observation-authority-comment-id'))
     : null
+  const validationRepublicationAuthorityCommentId = values.has('--validation-republication-authority-comment-id')
+    ? Number(values.get('--validation-republication-authority-comment-id'))
+    : null
   const repository = environment.GITHUB_REPOSITORY
   const resumeTransition = transition === 'ready_transition_required_resume'
   const mergeSuccessorTransition = transition === 'merge_decision_successor_resume'
   const draftReturnTransition = transition === 'draft_return_required_resume'
   const terminalObservationTransition = transition === 'ready_review_terminal_observation_resume'
+  const validationRepublicationTransition = transition === 'current_pr_validation_republication'
   if (
-    !['terminal_review_admission', 'merge_decision_admission', 'ready_transition_required_resume', 'merge_decision_successor_resume', 'draft_return_required_resume', 'ready_review_terminal_observation_resume'].includes(transition) ||
+    !['terminal_review_admission', 'merge_decision_admission', 'ready_transition_required_resume', 'merge_decision_successor_resume', 'draft_return_required_resume', 'ready_review_terminal_observation_resume', 'current_pr_validation_republication'].includes(transition) ||
     !positiveInteger(taskIssueNumber) ||
     !positiveInteger(prNumber) ||
     !FULL_HEAD.test(exactHead ?? '') ||
@@ -11506,31 +12243,38 @@ const parseManualCli = (argv, environment) => {
     (resumeTransition && (
       values.size !== required.length + resumeOnly.length ||
       !positiveInteger(reviewDecisionCommentId) || !positiveInteger(publicationHandoffCommentId) ||
-      mergeDecisionCommentId !== null || draftReturnAuthorityCommentId !== null || terminalObservationAuthorityCommentId !== null ||
+      mergeDecisionCommentId !== null || draftReturnAuthorityCommentId !== null || terminalObservationAuthorityCommentId !== null || validationRepublicationAuthorityCommentId !== null ||
       !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '') || !positiveInteger(Number(environment.GITHUB_RUN_ATTEMPT))
     )) ||
     (mergeSuccessorTransition && (
       values.size !== required.length + mergeSuccessorOnly.length ||
       reviewDecisionCommentId !== null || publicationHandoffCommentId !== null ||
-      draftReturnAuthorityCommentId !== null || terminalObservationAuthorityCommentId !== null || !positiveInteger(mergeDecisionCommentId) ||
+      draftReturnAuthorityCommentId !== null || terminalObservationAuthorityCommentId !== null || validationRepublicationAuthorityCommentId !== null || !positiveInteger(mergeDecisionCommentId) ||
       !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '')
     )) ||
     (draftReturnTransition && (
       values.size !== required.length + draftReturnOnly.length ||
       reviewDecisionCommentId !== null || publicationHandoffCommentId !== null || mergeDecisionCommentId !== null ||
-      !positiveInteger(draftReturnAuthorityCommentId) || terminalObservationAuthorityCommentId !== null || !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '') ||
+      !positiveInteger(draftReturnAuthorityCommentId) || terminalObservationAuthorityCommentId !== null || validationRepublicationAuthorityCommentId !== null || !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '') ||
       !positiveInteger(Number(environment.GITHUB_RUN_ATTEMPT))
     )) ||
     (terminalObservationTransition && (
       values.size !== required.length + terminalObservationOnly.length ||
       reviewDecisionCommentId !== null || publicationHandoffCommentId !== null || mergeDecisionCommentId !== null ||
-      draftReturnAuthorityCommentId !== null || !positiveInteger(terminalObservationAuthorityCommentId) ||
+      draftReturnAuthorityCommentId !== null || !positiveInteger(terminalObservationAuthorityCommentId) || validationRepublicationAuthorityCommentId !== null ||
       !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '') || !positiveInteger(Number(environment.GITHUB_RUN_ATTEMPT))
     )) ||
-    (!resumeTransition && !mergeSuccessorTransition && !draftReturnTransition && !terminalObservationTransition && (
+    (validationRepublicationTransition && (
+      values.size !== required.length + validationRepublicationOnly.length ||
+      reviewDecisionCommentId !== null || publicationHandoffCommentId !== null || mergeDecisionCommentId !== null ||
+      draftReturnAuthorityCommentId !== null || terminalObservationAuthorityCommentId !== null ||
+      !positiveInteger(validationRepublicationAuthorityCommentId) || !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '') ||
+      !positiveInteger(Number(environment.GITHUB_RUN_ATTEMPT))
+    )) ||
+    (!resumeTransition && !mergeSuccessorTransition && !draftReturnTransition && !terminalObservationTransition && !validationRepublicationTransition && (
       values.size !== required.length || reviewDecisionCommentId !== null ||
       publicationHandoffCommentId !== null || mergeDecisionCommentId !== null || draftReturnAuthorityCommentId !== null ||
-      terminalObservationAuthorityCommentId !== null
+      terminalObservationAuthorityCommentId !== null || validationRepublicationAuthorityCommentId !== null
     ))
   ) {
     throw new Error('cli_arguments_invalid')
@@ -11546,6 +12290,7 @@ const parseManualCli = (argv, environment) => {
     mergeDecisionCommentId,
     draftReturnAuthorityCommentId,
     terminalObservationAuthorityCommentId,
+    validationRepublicationAuthorityCommentId,
   })
 }
 
@@ -11686,6 +12431,18 @@ const parseInvocation = (argv, environment) => {
     })
   }
   if (
+    argv.length === 4 &&
+    argv[0] === '--current-pr-validation-republication-finalize-file' &&
+    typeof argv[1] === 'string' && argv[1].length > 0 &&
+    argv[2] === '--validation-evidence-file' && typeof argv[3] === 'string' && argv[3].length > 0
+  ) {
+    return Object.freeze({
+      mode: 'current_pr_validation_republication_finalize',
+      planFile: argv[1],
+      validationEvidenceFile: argv[3],
+    })
+  }
+  if (
     (argv.length === 4 || argv.length === 6) &&
     argv[0] === '--role-output-file' && typeof argv[1] === 'string' && argv[1].length > 0 &&
     argv[2] === '--role-dispatch-file' && typeof argv[3] === 'string' && argv[3].length > 0 &&
@@ -11750,7 +12507,7 @@ const readJsonFileV1 = (file) => JSON.parse(readFileSync(file, 'utf8'))
 
 const liveShadowRequestV1 = (invocation, environment) => {
   if (invocation.mode === 'manual') {
-    return ['ready_transition_required_resume', 'merge_decision_successor_resume', 'draft_return_required_resume', 'ready_review_terminal_observation_resume'].includes(invocation.request.transition)
+    return ['ready_transition_required_resume', 'merge_decision_successor_resume', 'draft_return_required_resume', 'ready_review_terminal_observation_resume', 'current_pr_validation_republication'].includes(invocation.request.transition)
       ? null
       : invocation.request
   }
@@ -12300,6 +13057,7 @@ const main = async () => {
                   mergeDecisionCommentId: process.env.PTA_INPUT_MERGE_DECISION_COMMENT_ID,
                   draftReturnAuthorityCommentId: process.env.PTA_INPUT_DRAFT_RETURN_AUTHORITY_COMMENT_ID,
                   terminalObservationAuthorityCommentId: process.env.PTA_INPUT_TERMINAL_OBSERVATION_AUTHORITY_COMMENT_ID,
+                  validationRepublicationAuthorityCommentId: process.env.PTA_INPUT_VALIDATION_REPUBLICATION_AUTHORITY_COMMENT_ID,
                 })
             : invocation.mode === 'admission_result_projection'
               ? projectAdmissionWorkflowResultV1({ result: readJsonFileV1(invocation.resultFile) })
@@ -12322,6 +13080,12 @@ const main = async () => {
                   result: readJsonFileV1(invocation.resultFile),
                   validatorExitCode: invocation.validatorExitCode,
                   expectedAction: invocation.expectedAction,
+                })
+            : invocation.mode === 'current_pr_validation_republication_finalize'
+              ? await executeCurrentPrValidationRepublicationFinalizeV1({
+                  plan: readJsonFileV1(invocation.planFile),
+                  validationEvidence: readJsonFileV1(invocation.validationEvidenceFile),
+                  host: executionHost,
                 })
             : invocation.mode === 'review_closure'
               ? await executeReviewThreadClosureV1({
@@ -12480,6 +13244,12 @@ const main = async () => {
                       request: invocation.request,
                       host: executionHost,
                       runId: process.env.GITHUB_RUN_ID ?? null,
+                    })
+                : invocation.request.transition === 'current_pr_validation_republication'
+                  ? await executeCurrentPrValidationRepublicationAdmissionV1({
+                      request: invocation.request,
+                      authorityCommentId: invocation.request.validationRepublicationAuthorityCommentId,
+                      host: executionHost,
                     })
                 : await executeManualProgressionControllerV1({
                     request: invocation.request,
