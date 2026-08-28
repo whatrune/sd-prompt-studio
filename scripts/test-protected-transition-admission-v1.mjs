@@ -12422,6 +12422,11 @@ const urlRedactionMessagesV1 = [
   'keep prefix https://example.test/plain/path keep suffix',
   'keep prefix user:password@example.test/private/path keep suffix',
   'keep prefix www.example.test/path?q=value keep suffix',
+  'keep prefix //example.test/private?api_key=placeholder keep suffix',
+  'keep prefix 192.0.2.10/private?token=placeholder keep suffix',
+  'keep prefix localhost/private?secret=placeholder keep suffix',
+  'keep prefix [2001:db8::1]/private?key=placeholder keep suffix',
+  'keep prefix user:password@localhost/private?secret=placeholder keep suffix',
   `bounded non-URL text ${'n'.repeat(700)}`,
 ]
 const urlRedactionDiagnosticV1 = projectDraftReturnMutationDiagnosticV1({
@@ -12444,11 +12449,13 @@ const urlRedactionJsonV1 = JSON.stringify(urlRedactionDiagnosticV1)
 check(
   JSON.stringify(repeatedUrlRedactionDiagnosticV1) === urlRedactionJsonV1 &&
   urlRedactionDiagnosticV1.graphql_errors.every((error) => error.message.length <= 512) &&
-  urlRedactionDiagnosticV1.graphql_errors.slice(0, 6).every((error) => error.message.includes('[REDACTED_URL]')) &&
+  urlRedactionDiagnosticV1.graphql_errors.slice(0, -1).every((error) => error.message.includes('[REDACTED_URL]')) &&
   urlRedactionDiagnosticV1.graphql_errors.every((error) => error.message.includes('keep prefix') || error.message.startsWith('bounded non-URL text')) &&
   !urlRedactionJsonV1.includes('://') && !urlRedactionJsonV1.includes('client_secret') &&
   !urlRedactionJsonV1.includes('api_key') && !urlRedactionJsonV1.includes('topsecret') &&
-  !urlRedactionJsonV1.includes('user:password') && !urlRedactionJsonV1.includes('example.test'),
+  !urlRedactionJsonV1.includes('user:password') && !urlRedactionJsonV1.includes('example.test') &&
+  !urlRedactionJsonV1.includes('192.0.2.10') && !urlRedactionJsonV1.includes('localhost') &&
+  !urlRedactionJsonV1.includes('2001:db8::1'),
   'DRT-32 every URL-like diagnostic token is fully redacted before deterministic message bounding',
 )
 check(

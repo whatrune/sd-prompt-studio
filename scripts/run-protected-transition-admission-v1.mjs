@@ -330,8 +330,11 @@ const boundedDiagnosticMessageV1 = (value) => {
   const redacted = value
     .replace(/\b(?:authorization|proxy-authorization|cookie|set-cookie)[ \t]*:[^\r\n]*/gi, '[REDACTED_HEADER]')
     .replace(/\b[A-Za-z][A-Za-z0-9+.-]*:\/\/[^\s<>"'`]+/g, '[REDACTED_URL]')
+    .replace(/\/\/[^\s<>"'`]+/g, '[REDACTED_URL]')
     .replace(/\bwww\.[^\s<>"'`]+/gi, '[REDACTED_URL]')
-    .replace(/\b[^\s/@:]+:[^\s/@]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z0-9-]+(?::\d+)?(?:\/[^\s<>"'`]*)?/g, '[REDACTED_URL]')
+    .replace(/\b[^\s/@:]+:[^\s/@]+@[^\s<>"'`]+/g, '[REDACTED_URL]')
+    .replace(/\b(?:localhost|(?:\d{1,3}\.){3}\d{1,3})(?::\d{1,5})?(?:[/?#][^\s<>"'`]*)?/gi, '[REDACTED_URL]')
+    .replace(/\[[0-9A-Fa-f:.]+\](?::\d{1,5})?(?:[/?#][^\s<>"'`]*)?/g, '[REDACTED_URL]')
     .replace(/\b(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,63}(?::\d+)?(?:[/?#][^\s<>"'`]*)/gi, '[REDACTED_URL]')
     .replace(/[\u0000-\u001f\u007f]+/g, ' ')
     .replace(/\b(?:Bearer|token)[ \t]+[A-Za-z0-9._~+/=-]+/gi, '[REDACTED_CREDENTIAL]')
