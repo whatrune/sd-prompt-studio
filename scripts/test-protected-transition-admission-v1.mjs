@@ -69,6 +69,7 @@ import {
   parseIndependentReviewDecisionProjectionV1,
   parseMinimalGovernanceAuthorityV1,
   parsePrePrImplementationAuthorityV1,
+  acquirePrePrChangedPathIdentityV1,
   createPrePrDeltaManifestSha256V1,
   parsePrePrImplementationResultHandoffV1,
   parsePrePrProductOwnerPublicationDecisionV1,
@@ -10070,6 +10071,7 @@ const prePrHost = ({
   worktreeChanged = [],
   worktreeStaged = [],
   worktreeUntracked = [],
+  worktreeAbsentPaths = [],
   worktreeChangedPathBlobs = [],
   worktreeHead = PRE_PR_BASELINE,
   worktreeBranch = PRE_PR_BRANCH,
@@ -10109,6 +10111,10 @@ const prePrHost = ({
         changed_paths: Object.freeze([...worktreeChanged]),
         staged_paths: Object.freeze([...worktreeStaged]),
         untracked_paths: Object.freeze([...worktreeUntracked]),
+        changed_path_states: Object.freeze(worktreeChanged.map((repositoryPath) => Object.freeze({
+          path: repositoryPath,
+          state: worktreeAbsentPaths.includes(repositoryPath) ? 'ABSENT' : 'PRESENT',
+        }))),
         changed_path_blobs: Object.freeze([...worktreeChangedPathBlobs]),
       })
     },
@@ -10347,8 +10353,41 @@ check(!runnerSource.includes('isExecutablePrePrValidationCommandV1') && !runnerS
 
 const prePrConverged = await executeRoleDispatchConsumerV1({ dispatch: prePrAdmission.role_dispatch, host: prePrHost({ evidence: [prePrResultBody] }) })
 check(prePrConverged.next_action === 'EXECUTE_ROLE' && prePrConverged.mutation_count === 0 && !Object.hasOwn(prePrConverged, 'evidence_kind'), 'PPI-16 raw matching comments cannot replace the same-invocation Worker owner')
+const prePrPathHashCalls = []
+const prePrChangedPathIdentity = acquirePrePrChangedPathIdentityV1({
+  changedPaths: ['deleted.ts', 'modified.ts'],
+  pathIsPresent: (repositoryPath) => repositoryPath === 'modified.ts',
+  blobOidForPath: (repositoryPath) => {
+    prePrPathHashCalls.push(repositoryPath)
+    return createHash('sha1').update(repositoryPath).digest('hex')
+  },
+})
+check(
+  JSON.stringify(prePrChangedPathIdentity.changed_path_states) === JSON.stringify([
+    { path: 'deleted.ts', state: 'ABSENT' },
+    { path: 'modified.ts', state: 'PRESENT' },
+  ]) && prePrChangedPathIdentity.changed_path_blobs.length === 1 &&
+  prePrChangedPathIdentity.changed_path_blobs[0].path === 'modified.ts' &&
+  JSON.stringify(prePrPathHashCalls) === JSON.stringify(['modified.ts']),
+  'PPI-16a changed-path state remains complete while blob acquisition skips absent paths',
+)
 const prePrDirty = await executeRoleDispatchConsumerV1({ dispatch: prePrAdmission.role_dispatch, host: prePrHost({ worktreeChanged: PRE_PR_PATHS }) })
 check(prePrDirty.next_action === 'STOP' && prePrDirty.reason === 'role_dispatch_binding_changed' && prePrDirty.mutation_count === 0, 'PPI-17 dirty authority worktree fails before Worker execution')
+const legacyAbsentPathResults = await Promise.all([
+  executeRoleDispatchConsumerV1({
+    dispatch: prePrAdmission.role_dispatch,
+    host: prePrHost({ worktreeChanged: ['deleted.ts'], worktreeAbsentPaths: ['deleted.ts'] }),
+  }),
+  executeRoleDispatchConsumerV1({
+    dispatch: prePrAdmission.role_dispatch,
+    host: prePrHost({ worktreeChanged: ['renamed-away.ts', 'renamed-to.ts'], worktreeAbsentPaths: ['renamed-away.ts'] }),
+  }),
+])
+check(
+  legacyAbsentPathResults.every((result) =>
+    result.next_action === 'STOP' && result.reason === 'role_dispatch_binding_changed' && result.mutation_count === 0),
+  'PPI-17a legacy deleted and rename-away paths reach the existing binding guard without requiring blobs',
+)
 const exactDeltaConsumerResultV1 = (options = {}) => executeRoleDispatchConsumerV1({
   dispatch: exactDeltaPrePrAdmission.role_dispatch,
   host: prePrHost({
@@ -10382,7 +10421,31 @@ const exactDeltaMismatchResults = await Promise.all([
 check(
   exactDeltaMismatchResults.every((result) =>
     result.next_action === 'STOP' && result.reason === 'role_dispatch_binding_changed' && result.mutation_count === 0),
-  'PPI-17a extra, missing, wrong-byte, wrong-branch, wrong-base, staged, and untracked exact deltas fail closed',
+  'PPI-17b extra, missing, wrong-byte, wrong-branch, wrong-base, staged, and untracked exact deltas fail closed',
+)
+const exactDeltaAbsentPathResults = await Promise.all([
+  exactDeltaConsumerResultV1({
+    worktreeAbsentPaths: [PRE_PR_PATHS[0]],
+    worktreeChangedPathBlobs: PRE_PR_DELTA_BLOBS.slice(1),
+  }),
+  exactDeltaConsumerResultV1({
+    worktreeAbsentPaths: [PRE_PR_PATHS[1]],
+    worktreeChangedPathBlobs: PRE_PR_DELTA_BLOBS.filter((entry) => entry.path !== PRE_PR_PATHS[1]),
+  }),
+])
+check(
+  exactDeltaAbsentPathResults.every((result) =>
+    result.next_action === 'STOP' && result.reason === 'pre_pr_authorized_delta_non_present_path_unsupported' && result.mutation_count === 0),
+  'PPI-17c exact-delta V1 rejects deleted and rename-away paths as explicitly unsupported without tombstones',
+)
+const task417PresentFileManifest = createPrePrDeltaManifestSha256V1([
+  { path: 'docs/automation/00-automation-overview.md', blob_oid: '6e5aadbe72c2805b161104f9e1edbb27ff2268fe' },
+  { path: 'scripts/run-protected-transition-admission-v1.mjs', blob_oid: 'c8ddfc67cce0a93c106585a29522e381173ffae2' },
+  { path: 'scripts/test-protected-transition-admission-v1.mjs', blob_oid: '3a840d5e8ab567c8fc85317a378e613f038c0634' },
+])
+check(
+  task417PresentFileManifest === '990f5ff84d0c337fd4c1252f119f7dddbe7ed36dc5865bab0b44b6f3d303263a',
+  'PPI-17d present-file-only manifest encoding preserves the canonical Task 417 three-blob identity',
 )
 const prePrWrongOrigin = await executeRoleDispatchConsumerV1({ dispatch: prePrAdmission.role_dispatch, host: prePrHost({ originRepository: 'other/repository' }) })
 const prePrRemoteMainDrift = await executeRoleDispatchConsumerV1({ dispatch: prePrAdmission.role_dispatch, host: prePrHost({ remoteMainHead: OTHER_HEAD }) })
@@ -14182,5 +14245,5 @@ check(
   'RTO-20 retired Collector remains absent and GADP shadow remains isolated non-authoritative continue-on-error',
 )
 
-if (assertions !== 1307) throw new Error(`expected exactly 1307 assertions, observed ${assertions}`)
+if (assertions !== 1311) throw new Error(`expected exactly 1311 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

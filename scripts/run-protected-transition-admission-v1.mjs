@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -4420,6 +4420,30 @@ export const createPrePrDeltaManifestSha256V1 = (entries) => {
   return createHash('sha256').update(Buffer.from(manifest, 'utf8')).digest('hex')
 }
 
+export const acquirePrePrChangedPathIdentityV1 = ({ changedPaths, pathIsPresent, blobOidForPath }) => {
+  if (
+    !Array.isArray(changedPaths) || typeof pathIsPresent !== 'function' || typeof blobOidForPath !== 'function' ||
+    new Set(changedPaths).size !== changedPaths.length ||
+    changedPaths.some((repositoryPath) => !isNormalizedRepositoryPathV1(repositoryPath)) ||
+    JSON.stringify(changedPaths) !== JSON.stringify([...changedPaths].sort())
+  ) throw new Error('role_dispatch_binding_changed')
+  const changedPathStates = []
+  const changedPathBlobs = []
+  for (const repositoryPath of changedPaths) {
+    const present = pathIsPresent(repositoryPath)
+    if (typeof present !== 'boolean') throw new Error('role_dispatch_binding_changed')
+    changedPathStates.push(Object.freeze({ path: repositoryPath, state: present ? 'PRESENT' : 'ABSENT' }))
+    if (!present) continue
+    const blobOid = blobOidForPath(repositoryPath)
+    if (!GIT_BLOB_OID_V1.test(blobOid ?? '')) throw new Error('role_dispatch_binding_changed')
+    changedPathBlobs.push(Object.freeze({ path: repositoryPath, blob_oid: blobOid }))
+  }
+  return Object.freeze({
+    changed_path_states: Object.freeze(changedPathStates),
+    changed_path_blobs: Object.freeze(changedPathBlobs),
+  })
+}
+
 export const isPrePrImplementationAuthorityCandidateV1 = (body) =>
   typeof body === 'string' && /(?:^|\r?\n)record_type:[ \t]+pre_pr_implementation_authority_v1(?:\r?$)/m.test(body)
 
@@ -5818,6 +5842,7 @@ const acquirePrePrWorktreeBindingV1 = async (dispatch, host, allowAuthorizedChan
   const stagedPaths = Array.isArray(state?.staged_paths) ? Object.freeze([...state.staged_paths]) : null
   const exactDeltaBinding = binding.initial_worktree_mode === PRE_PR_EXACT_AUTHORIZED_DELTA_V1
   const untrackedPaths = Array.isArray(state?.untracked_paths) ? Object.freeze([...state.untracked_paths]) : null
+  const changedPathStates = Array.isArray(state?.changed_path_states) ? Object.freeze([...state.changed_path_states]) : null
   const changedPathBlobs = Array.isArray(state?.changed_path_blobs) ? Object.freeze([...state.changed_path_blobs]) : null
   let exactDeltaManifestMatches = false
   if (exactDeltaBinding && changedPathBlobs !== null) {
@@ -5830,19 +5855,35 @@ const acquirePrePrWorktreeBindingV1 = async (dispatch, host, allowAuthorizedChan
   }
   const exactDeltaPathsMatch = changedPaths !== null &&
     JSON.stringify(changedPaths) === JSON.stringify([...dispatch.authorized_paths].sort())
+  const changedPathStatesValid = changedPaths !== null && changedPathStates !== null &&
+    changedPathStates.length === changedPaths.length &&
+    changedPathStates.every((entry) =>
+      entry && typeof entry === 'object' && !Array.isArray(entry) &&
+      Object.keys(entry).sort().join('\n') === 'path\nstate' &&
+      isNormalizedRepositoryPathV1(entry.path) && ['PRESENT', 'ABSENT'].includes(entry.state)) &&
+    JSON.stringify(changedPathStates.map((entry) => entry.path)) === JSON.stringify(changedPaths)
   if (
     !state || state.head !== dispatch.exact_head || state.branch !== binding.branch ||
     state.origin_repository !== dispatch.repository || state.remote_main_head !== binding.exact_baseline ||
     changedPaths === null || stagedPaths === null || stagedPaths.length !== 0 ||
+    !changedPathStatesValid ||
     new Set(changedPaths).size !== changedPaths.length ||
     changedPaths.some((value) => !isNormalizedRepositoryPathV1(value)) ||
-    JSON.stringify(changedPaths) !== JSON.stringify([...changedPaths].sort()) ||
-    (exactDeltaBinding
-      ? untrackedPaths === null || untrackedPaths.length !== 0 || !exactDeltaPathsMatch || !exactDeltaManifestMatches
-      : allowAuthorizedChanges
-        ? changedPaths.length === 0 || changedPaths.some((value) => !dispatch.authorized_paths.includes(value))
-        : changedPaths.length !== 0)
+    JSON.stringify(changedPaths) !== JSON.stringify([...changedPaths].sort())
   ) throw new Error('role_dispatch_binding_changed')
+  if (exactDeltaBinding) {
+    if (untrackedPaths === null || untrackedPaths.length !== 0 || !exactDeltaPathsMatch) {
+      throw new Error('role_dispatch_binding_changed')
+    }
+    if (changedPathStates.some((entry) => entry.state === 'ABSENT')) {
+      throw new Error('pre_pr_authorized_delta_non_present_path_unsupported')
+    }
+    if (!exactDeltaManifestMatches) throw new Error('role_dispatch_binding_changed')
+  } else if (allowAuthorizedChanges
+    ? changedPaths.length === 0 || changedPaths.some((value) => !dispatch.authorized_paths.includes(value))
+    : changedPaths.length !== 0) {
+    throw new Error('role_dispatch_binding_changed')
+  }
   return Object.freeze({
     worktree: binding.worktree,
     branch: binding.branch,
@@ -12131,10 +12172,19 @@ const productionHost = (environment) => {
       const untracked = split(git(['ls-files', '--others', '--exclude-standard', '-z']))
       const staged = split(git(['diff', '--cached', '--name-only', '-z', '--no-renames', '--']))
       const changedPaths = Object.freeze([...new Set([...tracked, ...untracked])].sort())
-      const changedPathBlobs = Object.freeze(changedPaths.map((repositoryPath) => Object.freeze({
-        path: repositoryPath,
-        blob_oid: git(['hash-object', '--path', repositoryPath, '--', repositoryPath]).trim(),
-      })))
+      const changedPathIdentity = acquirePrePrChangedPathIdentityV1({
+        changedPaths,
+        pathIsPresent: (repositoryPath) => {
+          try {
+            lstatSync(path.join(worktree, ...repositoryPath.split('/')))
+            return true
+          } catch (error) {
+            if (['ENOENT', 'ENOTDIR'].includes(error?.code)) return false
+            throw error
+          }
+        },
+        blobOidForPath: (repositoryPath) => git(['hash-object', '--path', repositoryPath, '--', repositoryPath]).trim(),
+      })
       return Object.freeze({
         head,
         branch,
@@ -12143,7 +12193,8 @@ const productionHost = (environment) => {
         changed_paths: changedPaths,
         staged_paths: Object.freeze([...new Set(staged)].sort()),
         untracked_paths: Object.freeze([...new Set(untracked)].sort()),
-        changed_path_blobs: changedPathBlobs,
+        changed_path_states: changedPathIdentity.changed_path_states,
+        changed_path_blobs: changedPathIdentity.changed_path_blobs,
       })
     },
     graphql: async (query, variables, diagnostic = undefined) => {
