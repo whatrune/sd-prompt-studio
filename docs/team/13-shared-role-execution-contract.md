@@ -13,6 +13,14 @@ This document is the sole normative owner for shared admission, canonical-record
 
 Task Assignment and Result Handoff fields are owned by the [Delegation and Result Contract](11-delegation-and-result-contract.md).
 
+## Simplified Autonomous Lifecycle V1
+
+For Review, Ready, and Merge, this section supersedes historical publication-generation and evidence-chain requirements elsewhere in this document. Exactly three durable decisions are authoritative: the Task Authority, one fresh exact-HEAD Independent Review, and the Product Owner's exact-HEAD Merge Decision. Task-state, Result Handoff, Gate Status, Ready history, Collector output, terminal-observation artifacts, rosters, receipts, and publication-generation records may remain useful status or diagnostic projections, but they neither authorize nor block Review, Ready, or Merge.
+
+A HEAD change invalidates the prior Review and requires current checks plus a fresh exact-HEAD Review. It does not require returning a non-Draft PR to Draft, replaying publication, or rebuilding Ready evidence. Live GitHub state is authoritative at the protected-action boundary.
+
+Simplified V1 records use the closed fields implemented by the Node serializer/parser: Task Authority binds Task Issue number, repository, objective, authorized paths, Ready permission, and Product Owner; Review binds Task, PR, exact HEAD, decision, and the three finding counts; Merge Decision binds Task, PR, exact HEAD, expected base, authorized paths, Review identity, merge method, and operation count. GitHub's fresh-fetched Issue, Pull Request Review, and comment identities own actor and resource identity. Generic self-referential `canonical_record`, predecessor, digest, seal, and generation metadata elsewhere in this document do not apply to these three records.
+
 ## Shared Admission
 
 Before work begins, the assignee MUST fresh-fetch and verify, as applicable:
@@ -81,7 +89,7 @@ A terminal Result Handoff completes the assigned Role; it does not require that 
 
 ## Ready Transition Authority Boundary
 
-A terminal implementation or review Result Handoff is evidence for the applicable lifecycle decision; it is not Ready authority and MUST NOT itself perform or imply a Ready transition. Ready remains a protected action and may occur only through existing explicit Ready authority and the authorized protected-transition consumer; absent that authority, the lifecycle state remains unchanged.
+Ready admission exists only for one real Draft-to-Ready action when the PR is currently Draft. It requires the Task Authority, a fresh exact-HEAD Independent Review, passing live required checks, zero active unresolved non-outdated threads, exact scope and base, and explicit Product Owner permission carried by the Task Authority. A non-Draft PR needs no Ready action or Ready-generation reconstruction after a HEAD update.
 
 ## Protected Actions
 
@@ -100,22 +108,15 @@ Authority for one protected action MUST NOT be reused for another. A recommendat
 
 | HEAD change effect | Required treatment |
 | --- | --- |
-| prior Ready evidence | historical at the prior HEAD; return to Draft if the PR was Ready, then repeat required gates and Ready |
+| PR publication state | unchanged; do not return a non-Draft PR to Draft |
 | prior approval | historical at the prior HEAD; obtain fresh review and approval |
 | prior Merge completion combined with a later open-PR HEAD | canonical conflict; stop `blocked` and escalate |
 
 ## Merge Decision and Merge Operation
 
-Merge decision and Merge operation are separate authorities. The canonical sequence is:
+Merge decision and Merge operation are separate authorities. Immediately before Merge, the operator fresh-fetches the open, non-Draft, unmerged PR; exact HEAD and current main; every changed-file page and exact authorized scope; the path-aware required-check rollup; every review-thread page; the exact-HEAD approved Review; and mergeability. It then repeats that live binding once immediately before one expected-SHA Merge mutation. Missing, pending, cancelled, or failing required checks, an active unresolved non-outdated thread, stale Review, HEAD/base/scope drift, or invalid mergeability stops before mutation.
 
-1. Ready for Review completes.
-2. The current Ready-triggered review generation becomes terminal.
-3. All review threads for that generation are fetched and confirmed.
-4. The exact PR HEAD is rechecked after thread confirmation.
-5. Product Owner issues a Merge decision bound to that exact HEAD.
-6. The explicitly designated Merge operator performs the authorized mechanical Merge operation.
-
-Every step MUST complete in order. `Ready < Merge < review terminal` is a Merge-gate sequencing failure. CI success, an earlier Ready cycle, an earlier reviewed HEAD, or a pre-terminal thread count MUST NOT satisfy the sequence.
+The Merge Decision binds only the Task, PR, exact HEAD, expected base, authorized scope, exact Review identity, merge method, and `operation_count = 1`. Historical Ready generations, publication generations, terminal artifacts, Result Handoffs, and sealed evidence are not Merge inputs.
 
 The Product Owner's decision MUST NOT be inferred from the operator assignment. The operator MUST NOT decide Merge eligibility, change the approved HEAD, substitute a prohibited Merge method, or continue when the exact HEAD differs.
 
@@ -252,24 +253,9 @@ After a HEAD change, prior evidence is historical and MUST NOT be promoted to PA
 
 At a protected-action boundary, immutable admitted command evidence MAY remain reusable only if every admission condition still holds. Mutable PR state, authority state, review-thread state, and exact HEAD MUST be fresh-fetched immediately before the action.
 
-### Collector V1 Boundary
+### Historical Collector Boundary
 
-Ready Review Terminal Observation Collector V1 is required when:
-
-- current Ready-triggered generation terminality is a Merge-gate input;
-- roster-wide terminal receipts and complete post-terminal review threads are claimed;
-- Ready, Merge, and terminal sequencing is audited; or
-- a Completion or Gate Status decision depends on review-terminal observation.
-
-Collector V1 is not required for:
-
-- documentation, source, or runtime command Validation;
-- ordinary implementation review before Ready;
-- one direct check or one known-thread read;
-- a metadata-only correction that makes no review-terminal claim; or
-- ordinary status reporting.
-
-The not-required boundary never permits skipping a current-HEAD or current-thread fresh check required by the applicable review. Collector V1 remains observation evidence only; it does not classify or close findings and does not authorize a protected action.
+Collector V1, producer rosters, terminal receipts, Ready generations, and terminal-observation artifacts are not authoritative inputs to Simplified Autonomous Lifecycle V1. They may be retained only as historical or diagnostic information. The Merge operator instead fetches all current review-thread pages and the exact current HEAD directly at preflight and final rebind.
 
 ### Gate Status Projection-only Reuse
 
