@@ -70,6 +70,39 @@ const READY_TRANSITION_ACTION_FIELDS_V1 = Object.freeze([
   'repository', 'task_issue_number', 'pr_number', 'exact_head', 'action', 'method', 'operation_count',
   'authority_comment_id', 'authority_url',
 ])
+const SELF_HOSTING_UNREACHABLE_RECORD_TYPE_V1 = 'self_hosting_unreachable_v1'
+const SELF_HOSTING_UNREACHABLE_SCALAR_FIELDS_V1 = Object.freeze([
+  'record_type', 'version', 'authoring_role', 'canonical_record', 'repository', 'task_issue', 'pull_request',
+  'exact_head', 'current_base', 'classification', 'blocked_operation', 'missing_capability', 'normal_route',
+  'normal_attempt', 'normal_stop_reason', 'existing_lawful_continuation', 'status',
+])
+const SELF_HOSTING_UNREACHABLE_LIST_FIELDS_V1 = Object.freeze(['authorized_paths'])
+const STABLE_PLATFORM_BOOTSTRAP_AUTHORITY_RECORD_TYPE_V1 = 'stable_platform_bootstrap_authority_v1'
+const PLATFORM_BOOTSTRAP_MARK_READY_AUTHORITY_SCALAR_FIELDS_V1 = Object.freeze([
+  'record_type', 'version', 'task_id', 'authoring_role', 'authority_source', 'canonical_record', 'repository',
+  'task_issue', 'pull_request', 'exact_head', 'current_base', 'target_branch', 'kernel', 'operation', 'action',
+  'method', 'operation_count', 'self_hosting_proof', 'self_hosting_proof_body_sha256', 'review_decision',
+  'review_body_sha256', 'review_status', 'blocking_finding_count', 'remaining_finding_count', 'unknown_count',
+  'authority_actor_login', 'authority_actor_id', 'authority_actor_type',
+])
+const PLATFORM_BOOTSTRAP_MARK_READY_AUTHORITY_LIST_FIELDS_V1 = Object.freeze(['authorized_paths'])
+const PLATFORM_BOOTSTRAP_MARK_READY_AUTHORITY_FIELDS_V1 = Object.freeze([
+  ...PLATFORM_BOOTSTRAP_MARK_READY_AUTHORITY_SCALAR_FIELDS_V1,
+  ...PLATFORM_BOOTSTRAP_MARK_READY_AUTHORITY_LIST_FIELDS_V1,
+])
+const PLATFORM_BOOTSTRAP_MARK_READY_CONSUMPTION_RECORD_TYPE_V1 = 'stable_platform_bootstrap_consumption_v1'
+const PLATFORM_BOOTSTRAP_MARK_READY_CONSUMPTION_FIELDS_V1 = Object.freeze([
+  'record_type', 'version', 'authoring_role', 'authority_source', 'canonical_record', 'repository', 'task_issue',
+  'pull_request', 'exact_head', 'current_base', 'authority', 'authority_body_sha256', 'action', 'method',
+  'operation_count', 'run_id', 'run_attempt', 'workflow_sha', 'result',
+])
+const PLATFORM_BOOTSTRAP_MARK_READY_AUTHORIZED_PATHS_V1 = Object.freeze([
+  '.github/workflows/protected-transition-admission-v1.yml',
+  'docs/automation/00-automation-overview.md',
+  'scripts/run-protected-transition-admission-v1.mjs',
+  'scripts/test-protected-transition-admission-v1.mjs',
+].sort())
+const VERIFIED_READY_TRANSITION_ACTIONS_V1 = new WeakSet()
 const DRAFT_RETURN_AUTHORITY_RECORD_TYPE_V1 = 'draft_return_authority_v1'
 const DRAFT_RETURN_AUTHORITY_FIELDS_V1 = Object.freeze([
   'record_type', 'version', 'authoring_role', 'authority_source', 'canonical_record', 'repository',
@@ -4214,6 +4247,236 @@ export const parseReadyTransitionAuthorityV1 = (body, repository, taskIssueNumbe
   }
 }
 
+const isPlatformBootstrapMarkReadyAuthorityCandidateV1 = (body) =>
+  typeof body === 'string' && new RegExp(
+    `(?:^|\\r?\\n)record_type:[ \\t]+(?:"${STABLE_PLATFORM_BOOTSTRAP_AUTHORITY_RECORD_TYPE_V1}"|${STABLE_PLATFORM_BOOTSTRAP_AUTHORITY_RECORD_TYPE_V1})(?:\\r?$)`,
+    'm',
+  ).test(body)
+
+const isSelfHostingUnreachableCandidateV1 = (body) =>
+  typeof body === 'string' && new RegExp(
+    `(?:^|\\r?\\n)record_type:[ \\t]+(?:"${SELF_HOSTING_UNREACHABLE_RECORD_TYPE_V1}"|${SELF_HOSTING_UNREACHABLE_RECORD_TYPE_V1})(?:\\r?$)`,
+    'm',
+  ).test(body)
+
+const parsePlatformSelfAmendmentCommentUrlV1 = (value, repository, taskIssueNumber, reason) => {
+  const prefix = `https://github.com/${repository}/issues/${taskIssueNumber}#issuecomment-`
+  return parseRoleUrlNumberV1(value, prefix, reason)
+}
+
+export const parseSelfHostingUnreachableV1 = (body, repository, taskIssueNumber) => {
+  try {
+    if (typeof body !== 'string' || !REPOSITORY.test(repository ?? '') || !positiveInteger(taskIssueNumber)) {
+      throw new Error('self_hosting_unreachable_invalid')
+    }
+    const yaml = parseRoleYamlV1(body)
+    if (
+      yaml.scalars.size !== SELF_HOSTING_UNREACHABLE_SCALAR_FIELDS_V1.length ||
+      yaml.lists.size !== SELF_HOSTING_UNREACHABLE_LIST_FIELDS_V1.length ||
+      SELF_HOSTING_UNREACHABLE_SCALAR_FIELDS_V1.some((field) => !yaml.scalars.has(field)) ||
+      SELF_HOSTING_UNREACHABLE_LIST_FIELDS_V1.some((field) => !yaml.lists.has(field))
+    ) throw new Error('self_hosting_unreachable_invalid')
+    const taskUrl = `https://github.com/${repository}/issues/${taskIssueNumber}`
+    const canonicalRecord = yaml.scalars.get('canonical_record')
+    const proofCommentId = parsePlatformSelfAmendmentCommentUrlV1(
+      canonicalRecord, repository, taskIssueNumber, 'self_hosting_unreachable_invalid',
+    )
+    const prNumber = parseRoleUrlNumberV1(
+      yaml.scalars.get('pull_request'), `https://github.com/${repository}/pull/`, 'self_hosting_unreachable_invalid',
+    )
+    const normalAttempt = yaml.scalars.get('normal_attempt')
+    const runId = parseRoleUrlNumberV1(
+      normalAttempt, `https://github.com/${repository}/actions/runs/`, 'self_hosting_unreachable_invalid',
+    )
+    const authorizedPaths = yaml.lists.get('authorized_paths')
+    if (
+      yaml.scalars.get('record_type') !== SELF_HOSTING_UNREACHABLE_RECORD_TYPE_V1 ||
+      yaml.scalars.get('version') !== 1 || yaml.scalars.get('authoring_role') !== 'Backend Architect' ||
+      yaml.scalars.get('repository') !== repository || yaml.scalars.get('task_issue') !== taskUrl ||
+      !positiveInteger(proofCommentId) || !positiveInteger(prNumber) || !positiveInteger(runId) ||
+      !FULL_HEAD.test(yaml.scalars.get('exact_head') ?? '') || !FULL_HEAD.test(yaml.scalars.get('current_base') ?? '') ||
+      yaml.scalars.get('classification') !== 'SELF_HOSTING_UNREACHABLE' ||
+      yaml.scalars.get('blocked_operation') !== 'MARK_READY' ||
+      yaml.scalars.get('missing_capability') !== 'STABLE_PLATFORM_BOOTSTRAP_KERNEL_V1' ||
+      yaml.scalars.get('normal_route') !== 'READY_TRANSITION_REQUIRED_RESUME' ||
+      typeof yaml.scalars.get('normal_stop_reason') !== 'string' || yaml.scalars.get('normal_stop_reason').length === 0 ||
+      yaml.scalars.get('existing_lawful_continuation') !== 'NONE' || yaml.scalars.get('status') !== 'PROVEN' ||
+      !Array.isArray(authorizedPaths) ||
+      authorizedPaths.join('\n') !== PLATFORM_BOOTSTRAP_MARK_READY_AUTHORIZED_PATHS_V1.join('\n')
+    ) throw new Error('self_hosting_unreachable_invalid')
+    return Object.freeze({
+      proof_comment_id: proofCommentId,
+      canonical_record: canonicalRecord,
+      repository,
+      task_issue_number: taskIssueNumber,
+      pr_number: prNumber,
+      exact_head: yaml.scalars.get('exact_head'),
+      current_base: yaml.scalars.get('current_base'),
+      normal_attempt: normalAttempt,
+      normal_run_id: runId,
+      normal_stop_reason: yaml.scalars.get('normal_stop_reason'),
+      authorized_paths: Object.freeze([...authorizedPaths]),
+    })
+  } catch {
+    throw new Error('self_hosting_unreachable_invalid')
+  }
+}
+
+export const parsePlatformBootstrapMarkReadyAuthorityV1 = (body, repository, taskIssueNumber) => {
+  try {
+    if (typeof body !== 'string' || !REPOSITORY.test(repository ?? '') || !positiveInteger(taskIssueNumber)) {
+      throw new Error('platform_bootstrap_mark_ready_authority_invalid')
+    }
+    const yaml = parseRoleYamlV1(body)
+    const scalarNames = [...yaml.scalars.keys()]
+    const listNames = [...yaml.lists.keys()]
+    if (
+      scalarNames.length + listNames.length !== PLATFORM_BOOTSTRAP_MARK_READY_AUTHORITY_FIELDS_V1.length ||
+      PLATFORM_BOOTSTRAP_MARK_READY_AUTHORITY_SCALAR_FIELDS_V1.some((field) => !yaml.scalars.has(field)) ||
+      PLATFORM_BOOTSTRAP_MARK_READY_AUTHORITY_LIST_FIELDS_V1.some((field) => !yaml.lists.has(field))
+    ) throw new Error('platform_bootstrap_mark_ready_authority_invalid')
+
+    const taskUrl = `https://github.com/${repository}/issues/${taskIssueNumber}`
+    const pullPrefix = `https://github.com/${repository}/pull/`
+    const prNumber = parseRoleUrlNumberV1(
+      yaml.scalars.get('pull_request'), pullPrefix, 'platform_bootstrap_mark_ready_authority_invalid',
+    )
+    const canonicalRecord = yaml.scalars.get('canonical_record')
+    const authorityCommentId = parsePlatformSelfAmendmentCommentUrlV1(
+      canonicalRecord, repository, taskIssueNumber, 'platform_bootstrap_mark_ready_authority_invalid',
+    )
+    const reviewDecision = yaml.scalars.get('review_decision')
+    const reviewCommentId = parsePlatformSelfAmendmentCommentUrlV1(
+      reviewDecision, repository, taskIssueNumber, 'platform_bootstrap_mark_ready_authority_invalid',
+    )
+    const exactHead = yaml.scalars.get('exact_head')
+    const currentBase = yaml.scalars.get('current_base')
+    const authorizedPaths = yaml.lists.get('authorized_paths')
+    if (
+      yaml.scalars.get('record_type') !== STABLE_PLATFORM_BOOTSTRAP_AUTHORITY_RECORD_TYPE_V1 ||
+      yaml.scalars.get('version') !== 1 || yaml.scalars.get('task_id') !== `issue-${taskIssueNumber}` ||
+      yaml.scalars.get('authoring_role') !== 'Product Owner' ||
+      yaml.scalars.get('authority_source') !== canonicalRecord ||
+      yaml.scalars.get('repository') !== repository || yaml.scalars.get('task_issue') !== taskUrl ||
+      !positiveInteger(prNumber) || !FULL_HEAD.test(exactHead ?? '') || !FULL_HEAD.test(currentBase ?? '') ||
+      exactHead === currentBase || yaml.scalars.get('target_branch') !== 'main' ||
+      yaml.scalars.get('kernel') !== 'STABLE_PLATFORM_BOOTSTRAP_KERNEL_V1' ||
+      yaml.scalars.get('operation') !== 'MARK_READY' ||
+      yaml.scalars.get('action') !== 'READY_FOR_REVIEW' ||
+      yaml.scalars.get('method') !== 'markPullRequestReadyForReview' ||
+      yaml.scalars.get('operation_count') !== 1 ||
+      !/^[0-9a-f]{64}$/.test(yaml.scalars.get('self_hosting_proof_body_sha256') ?? '') ||
+      !/^[0-9a-f]{64}$/.test(yaml.scalars.get('review_body_sha256') ?? '') ||
+      yaml.scalars.get('review_status') !== 'APPROVE' ||
+      yaml.scalars.get('blocking_finding_count') !== 0 ||
+      yaml.scalars.get('remaining_finding_count') !== 0 || yaml.scalars.get('unknown_count') !== 0 ||
+      yaml.scalars.get('authority_actor_login') !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.login ||
+      yaml.scalars.get('authority_actor_id') !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.id ||
+      yaml.scalars.get('authority_actor_type') !== MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.type ||
+      !Array.isArray(authorizedPaths) ||
+      authorizedPaths.join('\n') !== PLATFORM_BOOTSTRAP_MARK_READY_AUTHORIZED_PATHS_V1.join('\n')
+    ) throw new Error('platform_bootstrap_mark_ready_authority_invalid')
+
+    return Object.freeze({
+      record_type: STABLE_PLATFORM_BOOTSTRAP_AUTHORITY_RECORD_TYPE_V1,
+      version: 1,
+      task_id: `issue-${taskIssueNumber}`,
+      authoring_role: 'Product Owner',
+      authority_source: canonicalRecord,
+      canonical_record: canonicalRecord,
+      authority_comment_id: authorityCommentId,
+      repository,
+      task_issue: taskUrl,
+      task_issue_number: taskIssueNumber,
+      pull_request: yaml.scalars.get('pull_request'),
+      pr_number: prNumber,
+      exact_head: exactHead,
+      current_base: currentBase,
+      target_branch: 'main',
+      kernel: 'STABLE_PLATFORM_BOOTSTRAP_KERNEL_V1',
+      operation: 'MARK_READY',
+      action: 'READY_FOR_REVIEW',
+      method: 'markPullRequestReadyForReview',
+      operation_count: 1,
+      self_hosting_proof: yaml.scalars.get('self_hosting_proof'),
+      self_hosting_proof_comment_id: parsePlatformSelfAmendmentCommentUrlV1(
+        yaml.scalars.get('self_hosting_proof'), repository, taskIssueNumber,
+        'platform_bootstrap_mark_ready_authority_invalid',
+      ),
+      self_hosting_proof_body_sha256: yaml.scalars.get('self_hosting_proof_body_sha256'),
+      review_decision: reviewDecision,
+      review_comment_id: reviewCommentId,
+      review_body_sha256: yaml.scalars.get('review_body_sha256'),
+      review_status: 'APPROVE',
+      blocking_finding_count: 0,
+      remaining_finding_count: 0,
+      unknown_count: 0,
+      authority_actor_login: MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.login,
+      authority_actor_id: MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.id,
+      authority_actor_type: MINIMAL_GOVERNANCE_PRODUCT_OWNER_V1.type,
+      authorized_paths: Object.freeze([...authorizedPaths]),
+    })
+  } catch {
+    throw new Error('platform_bootstrap_mark_ready_authority_invalid')
+  }
+}
+
+export const parsePlatformBootstrapMarkReadyConsumptionV1 = (body, repository, taskIssueNumber) => {
+  try {
+    const yaml = parseRoleYamlV1(body)
+    if (
+      yaml.lists.size !== 0 || yaml.scalars.size !== PLATFORM_BOOTSTRAP_MARK_READY_CONSUMPTION_FIELDS_V1.length ||
+      PLATFORM_BOOTSTRAP_MARK_READY_CONSUMPTION_FIELDS_V1.some((field) => !yaml.scalars.has(field))
+    ) throw new Error('platform_bootstrap_mark_ready_consumption_invalid')
+    const taskUrl = `https://github.com/${repository}/issues/${taskIssueNumber}`
+    const canonicalRecord = yaml.scalars.get('canonical_record')
+    const consumptionCommentId = parsePlatformSelfAmendmentCommentUrlV1(
+      canonicalRecord, repository, taskIssueNumber, 'platform_bootstrap_mark_ready_consumption_invalid',
+    )
+    const authority = yaml.scalars.get('authority')
+    const authorityCommentId = parsePlatformSelfAmendmentCommentUrlV1(
+      authority, repository, taskIssueNumber, 'platform_bootstrap_mark_ready_consumption_invalid',
+    )
+    const prNumber = parseRoleUrlNumberV1(
+      yaml.scalars.get('pull_request'), `https://github.com/${repository}/pull/`,
+      'platform_bootstrap_mark_ready_consumption_invalid',
+    )
+    const runId = String(yaml.scalars.get('run_id') ?? '')
+    const runAttempt = yaml.scalars.get('run_attempt')
+    const expectedSource = `https://github.com/${repository}/actions/runs/${runId}/attempts/${runAttempt}#platform-bootstrap-mark-ready-consumption`
+    if (
+      yaml.scalars.get('record_type') !== PLATFORM_BOOTSTRAP_MARK_READY_CONSUMPTION_RECORD_TYPE_V1 ||
+      yaml.scalars.get('version') !== 1 || yaml.scalars.get('authoring_role') !== 'Protected Transition Operator' ||
+      yaml.scalars.get('authority_source') !== expectedSource || yaml.scalars.get('repository') !== repository ||
+      yaml.scalars.get('task_issue') !== taskUrl || !positiveInteger(prNumber) ||
+      !FULL_HEAD.test(yaml.scalars.get('exact_head') ?? '') || !FULL_HEAD.test(yaml.scalars.get('current_base') ?? '') ||
+      !positiveInteger(authorityCommentId) || !/^[0-9a-f]{64}$/.test(yaml.scalars.get('authority_body_sha256') ?? '') ||
+      yaml.scalars.get('action') !== 'READY_FOR_REVIEW' ||
+      yaml.scalars.get('method') !== 'markPullRequestReadyForReview' || yaml.scalars.get('operation_count') !== 1 ||
+      !WORKFLOW_RUN_ID.test(runId) || !positiveInteger(runAttempt) ||
+      !FULL_HEAD.test(yaml.scalars.get('workflow_sha') ?? '') || yaml.scalars.get('result') !== 'AUTHORITY_CONSUMED'
+    ) throw new Error('platform_bootstrap_mark_ready_consumption_invalid')
+    return Object.freeze({
+      consumption_comment_id: consumptionCommentId,
+      canonical_record: canonicalRecord,
+      authority_source: expectedSource,
+      repository,
+      task_issue_number: taskIssueNumber,
+      pr_number: prNumber,
+      exact_head: yaml.scalars.get('exact_head'),
+      current_base: yaml.scalars.get('current_base'),
+      authority,
+      authority_comment_id: authorityCommentId,
+      authority_body_sha256: yaml.scalars.get('authority_body_sha256'),
+      run_id: runId,
+      run_attempt: runAttempt,
+      workflow_sha: yaml.scalars.get('workflow_sha'),
+    })
+  } catch {
+    throw new Error('platform_bootstrap_mark_ready_consumption_invalid')
+  }
+}
+
 const roleLineValueV1 = (body, labels) => {
   const matches = []
   for (const label of labels) {
@@ -6603,22 +6866,26 @@ export const projectWorkflowDispatchEntrypointArgumentsV1 = ({
   taskIssueNumber,
   prNumber,
   exactHead,
+  currentBase,
   reviewDecisionCommentId,
   publicationHandoffCommentId,
   mergeDecisionCommentId,
   draftReturnAuthorityCommentId,
   terminalObservationAuthorityCommentId,
+  platformBootstrapMarkReadyAuthorityCommentId,
 }) => {
   const values = Object.freeze({
     transition: String(transition ?? ''),
     taskIssueNumber: String(taskIssueNumber ?? ''),
     prNumber: String(prNumber ?? ''),
     exactHead: String(exactHead ?? ''),
+    currentBase: String(currentBase ?? ''),
     reviewDecisionCommentId: String(reviewDecisionCommentId ?? ''),
     publicationHandoffCommentId: String(publicationHandoffCommentId ?? ''),
     mergeDecisionCommentId: String(mergeDecisionCommentId ?? ''),
     draftReturnAuthorityCommentId: String(draftReturnAuthorityCommentId ?? ''),
     terminalObservationAuthorityCommentId: String(terminalObservationAuthorityCommentId ?? ''),
+    platformBootstrapMarkReadyAuthorityCommentId: String(platformBootstrapMarkReadyAuthorityCommentId ?? ''),
   })
   const argv = [
     '--transition', values.transition,
@@ -6640,6 +6907,12 @@ export const projectWorkflowDispatchEntrypointArgumentsV1 = ({
   }
   if (values.terminalObservationAuthorityCommentId.length > 0) {
     argv.push('--terminal-observation-authority-comment-id', values.terminalObservationAuthorityCommentId)
+  }
+  if (values.currentBase.length > 0 || values.platformBootstrapMarkReadyAuthorityCommentId.length > 0) {
+    argv.push(
+      '--current-base', values.currentBase,
+      '--platform-bootstrap-mark-ready-authority-comment-id', values.platformBootstrapMarkReadyAuthorityCommentId,
+    )
   }
   return Object.freeze({ argv: Object.freeze(argv) })
 }
@@ -7221,6 +7494,12 @@ const normalizeReadyTransitionActionV1 = (action) => {
   return Object.freeze({ ...action })
 }
 
+const admitVerifiedReadyTransitionActionV1 = (action) => {
+  const normalized = normalizeReadyTransitionActionV1(action)
+  VERIFIED_READY_TRANSITION_ACTIONS_V1.add(normalized)
+  return normalized
+}
+
 export const projectReadyTransitionAuthorityBodyV1 = ({ dispatch, ownerResult, authorityCommentId }) => {
   const binding = projectRoleSourceBindingV1(dispatch.source_binding, dispatch.source_comment_id)
   const authorityUrl = `https://github.com/${dispatch.repository}/issues/${dispatch.task_issue_number}#issuecomment-${authorityCommentId}`
@@ -7314,7 +7593,7 @@ export const admitReadyTransitionAuthorityV1 = async ({
       ownerResult.integrated_lead_result.scope_contract_source !== authority.scope_contract_source
     ) throw new Error('ready_transition_authority_binding_invalid')
 
-    return normalizeReadyTransitionActionV1(Object.freeze({
+    return admitVerifiedReadyTransitionActionV1(Object.freeze({
       repository: dispatch.repository,
       task_issue_number: dispatch.task_issue_number,
       pr_number: dispatch.pr_number,
@@ -7328,6 +7607,331 @@ export const admitReadyTransitionAuthorityV1 = async ({
   } catch (error) {
     throw new Error(error instanceof Error ? error.message : 'ready_transition_authority_admission_invalid')
   }
+}
+
+const normalizePlatformBootstrapMarkReadyExecutionV1 = ({ request, runId, runAttempt, hostSha, jobName }) => {
+  if (
+    !WORKFLOW_RUN_ID.test(String(runId ?? '')) || !positiveInteger(runAttempt) ||
+    hostSha !== request.currentBase || jobName !== 'protected_transition_admission_v1'
+  ) throw new Error('platform_bootstrap_mark_ready_execution_identity_invalid')
+  return Object.freeze({
+    repository: request.repository,
+    run_id: String(runId),
+    run_attempt: runAttempt,
+    workflow_sha: hostSha,
+    job_name: jobName,
+  })
+}
+
+export const projectPlatformBootstrapMarkReadyConsumptionBodyV1 = ({
+  authority, authorityBodySha256, execution, consumptionCommentId,
+}) => {
+  const taskUrl = `https://github.com/${authority.repository}/issues/${authority.task_issue_number}`
+  return [
+    '# Stable Platform Bootstrap Kernel MARK_READY Authority Consumption',
+    '',
+    '```yaml',
+    `record_type: ${PLATFORM_BOOTSTRAP_MARK_READY_CONSUMPTION_RECORD_TYPE_V1}`,
+    'version: 1',
+    'authoring_role: Protected Transition Operator',
+    `authority_source: https://github.com/${authority.repository}/actions/runs/${execution.run_id}/attempts/${execution.run_attempt}#platform-bootstrap-mark-ready-consumption`,
+    `canonical_record: ${taskUrl}#issuecomment-${consumptionCommentId}`,
+    `repository: ${authority.repository}`,
+    `task_issue: ${taskUrl}`,
+    `pull_request: https://github.com/${authority.repository}/pull/${authority.pr_number}`,
+    `exact_head: ${authority.exact_head}`,
+    `current_base: ${authority.current_base}`,
+    `authority: ${authority.canonical_record}`,
+    `authority_body_sha256: ${authorityBodySha256}`,
+    'action: READY_FOR_REVIEW',
+    'method: markPullRequestReadyForReview',
+    'operation_count: 1',
+    `run_id: ${execution.run_id}`,
+    `run_attempt: ${execution.run_attempt}`,
+    `workflow_sha: ${execution.workflow_sha}`,
+    'result: AUTHORITY_CONSUMED',
+    '```',
+    '',
+  ].join('\n')
+}
+
+const publishPlatformBootstrapMarkReadyConsumptionV1 = async ({ authority, authorityBodySha256, execution, host }) => {
+  const placeholderBody = '<!-- platform-bootstrap-mark-ready-consumption-v1:self-binding -->'
+  const posted = await api(host, `repos/${authority.repository}/issues/${authority.task_issue_number}/comments`, {
+    method: 'POST', body: { body: placeholderBody },
+  })
+  const commentId = posted?.id
+  const commentUrl = `https://github.com/${authority.repository}/issues/${authority.task_issue_number}#issuecomment-${commentId}`
+  if (!positiveInteger(commentId) || posted?.html_url !== commentUrl || posted?.body !== placeholderBody) {
+    throw new Error('platform_bootstrap_mark_ready_consumption_publish_failed')
+  }
+  const body = projectPlatformBootstrapMarkReadyConsumptionBodyV1({
+    authority, authorityBodySha256, execution, consumptionCommentId: commentId,
+  })
+  const updated = await api(host, `repos/${authority.repository}/issues/comments/${commentId}`, {
+    method: 'PATCH', body: { body },
+  })
+  if (updated?.id !== commentId || updated?.html_url !== commentUrl || updated?.body !== body) {
+    throw new Error('platform_bootstrap_mark_ready_consumption_publish_failed')
+  }
+  const fresh = await api(host, `repos/${authority.repository}/issues/comments/${commentId}`)
+  if (
+    fresh?.id !== commentId ||
+    fresh?.issue_url !== `https://api.github.com/repos/${authority.repository}/issues/${authority.task_issue_number}` ||
+    fresh.html_url !== commentUrl || fresh.body !== body || fresh.author_association !== 'NONE' ||
+    typeof fresh.created_at !== 'string' || !STRICT_UTC.test(fresh.created_at) ||
+    fresh.user?.login !== TRUSTED_GITHUB_ACTIONS_BOT_V1.login ||
+    fresh.user?.id !== TRUSTED_GITHUB_ACTIONS_BOT_V1.id || fresh.user?.type !== TRUSTED_GITHUB_ACTIONS_BOT_V1.type
+  ) throw new Error('platform_bootstrap_mark_ready_consumption_publish_failed')
+  const parsed = parsePlatformBootstrapMarkReadyConsumptionV1(body, authority.repository, authority.task_issue_number)
+  if (
+    parsed.consumption_comment_id !== commentId || parsed.authority_comment_id !== authority.authority_comment_id ||
+    parsed.authority_body_sha256 !== authorityBodySha256 || parsed.run_id !== execution.run_id ||
+    parsed.run_attempt !== execution.run_attempt || parsed.workflow_sha !== execution.workflow_sha
+  ) throw new Error('platform_bootstrap_mark_ready_consumption_publish_failed')
+  return Object.freeze({ comment_id: commentId, url: commentUrl, body, parsed })
+}
+
+const acquirePlatformBootstrapMarkReadySnapshotV1 = async ({
+  request, authority, authorityRecord, authorityBodySha256, execution, expectedConsumption, host,
+}) => {
+  const currentMain = await host.branchHead(request.repository, 'main')
+  if (currentMain !== request.currentBase || currentMain !== authority.current_base) {
+    throw new Error('platform_bootstrap_mark_ready_base_binding_invalid')
+  }
+  const task = await acquireMinimalGovernanceTaskIdentityV1(request, host)
+  const authorityActor = Object.freeze({
+    login: authority.authority_actor_login,
+    id: authority.authority_actor_id,
+    type: authority.authority_actor_type,
+  })
+  if (JSON.stringify(task.creator) !== JSON.stringify(authorityActor)) {
+    throw new Error('platform_bootstrap_mark_ready_task_actor_invalid')
+  }
+
+  const history = await acquireMinimalGovernanceCommentHistoryV1(request, host)
+  const authorityCandidates = []
+  const proofCandidates = []
+  const consumptions = []
+  for (const comment of history.comments) {
+    if (isSelfHostingUnreachableCandidateV1(comment.body)) {
+      let parsed
+      try {
+        if (
+          comment.author_association !== 'OWNER' || comment.user?.login !== authorityActor.login ||
+          comment.user?.id !== authorityActor.id || comment.user?.type !== authorityActor.type
+        ) throw new Error('self_hosting_unreachable_actor_invalid')
+        parsed = parseSelfHostingUnreachableV1(comment.body, request.repository, request.taskIssueNumber)
+      } catch {
+        throw new Error('platform_bootstrap_mark_ready_self_hosting_proof_history_invalid')
+      }
+      if (
+        parsed.pr_number === request.prNumber && parsed.exact_head === request.exactHead &&
+        parsed.current_base === request.currentBase
+      ) proofCandidates.push(Object.freeze({
+        comment,
+        parsed,
+        record: Object.freeze({ createdAt: comment.created_at, commentId: comment.id }),
+      }))
+      continue
+    }
+    if (isPlatformBootstrapMarkReadyAuthorityCandidateV1(comment.body)) {
+      let parsed
+      try {
+        assertMinimalGovernanceProductOwnerV1(comment, { requireAssociation: true })
+        parsed = parsePlatformBootstrapMarkReadyAuthorityV1(comment.body, request.repository, request.taskIssueNumber)
+      } catch {
+        throw new Error('platform_bootstrap_mark_ready_authority_history_invalid')
+      }
+      if (
+        parsed.pr_number === request.prNumber && parsed.exact_head === request.exactHead &&
+        parsed.current_base === request.currentBase
+      ) authorityCandidates.push(Object.freeze({ comment, parsed }))
+      continue
+    }
+    if (!new RegExp(`(?:^|\\r?\\n)record_type:[ \\t]+${PLATFORM_BOOTSTRAP_MARK_READY_CONSUMPTION_RECORD_TYPE_V1}(?:\\r?$)`, 'm').test(comment.body)) continue
+    if (
+      comment.user?.login !== TRUSTED_GITHUB_ACTIONS_BOT_V1.login ||
+      comment.user?.id !== TRUSTED_GITHUB_ACTIONS_BOT_V1.id || comment.user?.type !== TRUSTED_GITHUB_ACTIONS_BOT_V1.type
+    ) throw new Error('platform_bootstrap_mark_ready_consumption_history_invalid')
+    let parsed
+    try {
+      parsed = parsePlatformBootstrapMarkReadyConsumptionV1(comment.body, request.repository, request.taskIssueNumber)
+    } catch {
+      throw new Error('platform_bootstrap_mark_ready_consumption_history_invalid')
+    }
+    if (parsed.authority_comment_id === authority.authority_comment_id) consumptions.push(Object.freeze({ comment, parsed }))
+  }
+  if (
+    authorityCandidates.length !== 1 || authorityCandidates[0].comment.id !== authority.authority_comment_id ||
+    authorityCandidates[0].comment.body !== authorityRecord.body
+  ) throw new Error('platform_bootstrap_mark_ready_authority_cardinality_invalid')
+  if (
+    proofCandidates.length !== 1 || proofCandidates[0].comment.id !== authority.self_hosting_proof_comment_id ||
+    proofCandidates[0].parsed.canonical_record !== authority.self_hosting_proof ||
+    compareReviewDecisionCandidateV1(authorityRecord, proofCandidates[0].record) <= 0 ||
+    createHash('sha256').update(Buffer.from(proofCandidates[0].comment.body, 'utf8')).digest('hex') !==
+      authority.self_hosting_proof_body_sha256
+  ) throw new Error('platform_bootstrap_mark_ready_self_hosting_proof_binding_invalid')
+  const freshProof = await fetchRoleCommentRecordV1(
+    request.repository, request.taskIssueNumber, authority.self_hosting_proof_comment_id, host,
+  )
+  if (
+    freshProof.id !== proofCandidates[0].comment.id || freshProof.html_url !== authority.self_hosting_proof ||
+    freshProof.body !== proofCandidates[0].comment.body || freshProof.created_at !== proofCandidates[0].comment.created_at ||
+    freshProof.author_association !== 'OWNER' || freshProof.user?.login !== authorityActor.login ||
+    freshProof.user?.id !== authorityActor.id || freshProof.user?.type !== authorityActor.type
+  ) throw new Error('platform_bootstrap_mark_ready_self_hosting_proof_binding_invalid')
+  if (expectedConsumption === null && consumptions.length !== 0) {
+    throw new Error('platform_bootstrap_mark_ready_authority_consumed')
+  }
+  if (expectedConsumption !== null && (
+    consumptions.length !== 1 || consumptions[0].comment.id !== expectedConsumption.comment_id ||
+    consumptions[0].comment.body !== expectedConsumption.body ||
+    consumptions[0].parsed.authority_body_sha256 !== authorityBodySha256 ||
+    consumptions[0].parsed.run_id !== execution.run_id || consumptions[0].parsed.run_attempt !== execution.run_attempt ||
+    consumptions[0].parsed.workflow_sha !== execution.workflow_sha
+  )) throw new Error('platform_bootstrap_mark_ready_consumption_history_invalid')
+
+  const selectedReview = reduceCurrentLeafIndependentReviewDecisionV1({
+    comments: history.comments,
+    repository: request.repository,
+    taskIssueNumber: request.taskIssueNumber,
+    prNumber: request.prNumber,
+    exactHead: request.exactHead,
+  })
+  if (
+    selectedReview.commentId !== authority.review_comment_id ||
+    compareReviewDecisionCandidateV1(authorityRecord, selectedReview) <= 0
+  ) throw new Error('platform_bootstrap_mark_ready_review_binding_invalid')
+  const confirmedReview = await confirmCurrentLeafIndependentReviewDecisionV1({ selected: selectedReview, request, host })
+  if (
+    confirmedReview.review.decision !== 'APPROVE' || confirmedReview.review.blocking_finding_count !== 0 ||
+    confirmedReview.review.remaining_finding_count !== 0 || confirmedReview.review.unknown_count !== 0 ||
+    createHash('sha256').update(Buffer.from(confirmedReview.body, 'utf8')).digest('hex') !== authority.review_body_sha256
+  ) throw new Error('platform_bootstrap_mark_ready_review_binding_invalid')
+
+  const pull = await acquireMergeGatePullV1(request, host)
+  if (
+    pull.state !== 'open' || pull.draft !== true || pull.merged !== false || pull.head?.sha !== request.exactHead ||
+    pull.base?.ref !== 'main' || pull.base?.sha !== request.currentBase || pull.mergeable !== true ||
+    !['clean', 'unstable'].includes(pull.mergeable_state) || !Number.isSafeInteger(pull.changed_files) || pull.changed_files < 1
+  ) throw new Error('platform_bootstrap_mark_ready_pull_binding_invalid')
+  const scope = await acquireChangedPathScopeV1(request, pull, host)
+  if (!scope.complete || scope.actual_paths.join('\n') !== authority.authorized_paths.join('\n')) {
+    throw new Error('platform_bootstrap_mark_ready_scope_mismatch')
+  }
+
+  const checkRequest = Object.freeze({
+    ...request,
+    expectedBase: request.currentBase,
+    currentWorkflowRunId: execution.run_id,
+  })
+  const checkExecution = Object.freeze({
+    repository: execution.repository,
+    run_id: execution.run_id,
+    run_attempt: execution.run_attempt,
+    host_sha: execution.workflow_sha,
+    job_name: execution.job_name,
+  })
+  const checkSnapshot = await acquireMergeCheckRollupSnapshotV1(checkRequest, host, { stopOnPullHeadDrift: true })
+  if (checkSnapshot.headRefOid !== request.exactHead) throw new Error('head_binding_stale')
+  const classifiedChecks = await classifyMinimalGovernanceChecksV1({
+    request: checkRequest, checks: checkSnapshot.checks, executionIdentity: checkExecution, host,
+  })
+  const threadSnapshot = await acquireMergeReviewThreadsV1(request, host)
+  if (
+    threadSnapshot.pull.state !== 'OPEN' || threadSnapshot.pull.isDraft !== true ||
+    threadSnapshot.pull.headRefOid !== request.exactHead || threadSnapshot.pull.mergeable !== 'MERGEABLE' ||
+    !['CLEAN', 'UNSTABLE'].includes(threadSnapshot.pull.mergeStateStatus) ||
+    threadSnapshot.threads.some((thread) => !thread.isResolved && !thread.isOutdated)
+  ) throw new Error('platform_bootstrap_mark_ready_thread_or_pull_binding_invalid')
+
+  return Object.freeze({
+    task,
+    authority_comment_id: authority.authority_comment_id,
+    review_comment_id: confirmedReview.commentId,
+    scope,
+    external_check_count: classifiedChecks.external_checks.length,
+    active_thread_count: 0,
+  })
+}
+
+export const admitPlatformBootstrapMarkReadyAuthorityV1 = async ({
+  request, host, runId, runAttempt, hostSha, jobName,
+}) => {
+  if (
+    request?.transition !== 'platform_bootstrap_mark_ready_resume' || !REPOSITORY.test(request?.repository ?? '') ||
+    !positiveInteger(request?.taskIssueNumber) || !positiveInteger(request?.prNumber) ||
+    !FULL_HEAD.test(request?.exactHead ?? '') || !FULL_HEAD.test(request?.currentBase ?? '') ||
+    !positiveInteger(request?.platformBootstrapMarkReadyAuthorityCommentId)
+  ) throw new Error('platform_bootstrap_mark_ready_request_invalid')
+  const execution = normalizePlatformBootstrapMarkReadyExecutionV1({ request, runId, runAttempt, hostSha, jobName })
+  const authorityRecord = await fetchRoleCommentRecordV1(
+    request.repository, request.taskIssueNumber, request.platformBootstrapMarkReadyAuthorityCommentId, host,
+  )
+  const authorityUrl = `https://github.com/${request.repository}/issues/${request.taskIssueNumber}#issuecomment-${request.platformBootstrapMarkReadyAuthorityCommentId}`
+  if (authorityRecord.html_url !== authorityUrl || typeof authorityRecord.created_at !== 'string' || !STRICT_UTC.test(authorityRecord.created_at)) {
+    throw new Error('platform_bootstrap_mark_ready_authority_identity_invalid')
+  }
+  try {
+    assertMinimalGovernanceProductOwnerV1(authorityRecord, { requireAssociation: true })
+  } catch {
+    throw new Error('platform_bootstrap_mark_ready_authority_actor_invalid')
+  }
+  const authority = parsePlatformBootstrapMarkReadyAuthorityV1(
+    authorityRecord.body, request.repository, request.taskIssueNumber,
+  )
+  if (
+    authority.authority_comment_id !== request.platformBootstrapMarkReadyAuthorityCommentId ||
+    authority.canonical_record !== authorityUrl || authority.pr_number !== request.prNumber ||
+    authority.exact_head !== request.exactHead || authority.current_base !== request.currentBase
+  ) throw new Error('platform_bootstrap_mark_ready_authority_binding_invalid')
+  const authorityBodySha256 = createHash('sha256').update(Buffer.from(authorityRecord.body, 'utf8')).digest('hex')
+  await acquirePlatformBootstrapMarkReadySnapshotV1({
+    request, authority, authorityRecord: Object.freeze({
+      commentId: authorityRecord.id,
+      createdAt: authorityRecord.created_at,
+      body: authorityRecord.body,
+      authorAssociation: authorityRecord.author_association,
+    }),
+    authorityBodySha256, execution, expectedConsumption: null, host,
+  })
+  const consumption = await publishPlatformBootstrapMarkReadyConsumptionV1({
+    authority, authorityBodySha256, execution, host,
+  })
+  const freshAuthorityRecord = await fetchRoleCommentRecordV1(
+    request.repository, request.taskIssueNumber, request.platformBootstrapMarkReadyAuthorityCommentId, host,
+  )
+  try {
+    assertMinimalGovernanceProductOwnerV1(freshAuthorityRecord, { requireAssociation: true })
+  } catch {
+    throw new Error('platform_bootstrap_mark_ready_authority_actor_invalid')
+  }
+  if (
+    freshAuthorityRecord.body !== authorityRecord.body || freshAuthorityRecord.created_at !== authorityRecord.created_at ||
+    freshAuthorityRecord.html_url !== authorityUrl
+  ) throw new Error('platform_bootstrap_mark_ready_authority_identity_invalid')
+  await acquirePlatformBootstrapMarkReadySnapshotV1({
+    request, authority, authorityRecord: Object.freeze({
+      commentId: freshAuthorityRecord.id,
+      createdAt: freshAuthorityRecord.created_at,
+      body: freshAuthorityRecord.body,
+      authorAssociation: freshAuthorityRecord.author_association,
+    }),
+    authorityBodySha256, execution, expectedConsumption: consumption, host,
+  })
+  return admitVerifiedReadyTransitionActionV1(Object.freeze({
+    repository: request.repository,
+    task_issue_number: request.taskIssueNumber,
+    pr_number: request.prNumber,
+    exact_head: request.exactHead,
+    action: 'READY_FOR_REVIEW',
+    method: 'markPullRequestReadyForReview',
+    operation_count: 1,
+    authority_comment_id: authority.authority_comment_id,
+    authority_url: authority.canonical_record,
+  }))
 }
 
 const readyTransitionOperatorResultV1 = (action, {
@@ -7357,16 +7961,30 @@ const readyTransitionOperatorStopV1 = (action, reason, mutationCount = 0) => rea
   automationStatus: 'STOPPED',
 })
 
-export const executeReadyTransitionOperatorV1 = async ({ authorityCommentId, dispatch, ownerResult, executionIdentity, host }) => {
+export const executeReadyTransitionOperatorV1 = async ({
+  authorityCommentId = null,
+  dispatch = null,
+  ownerResult = null,
+  executionIdentity = null,
+  preAdmittedAction = null,
+  host,
+}) => {
   let action = null
   try {
-    action = await admitReadyTransitionAuthorityV1({
-      authorityCommentId,
-      dispatch,
-      ownerResult,
-      executionIdentity,
-      host,
-    })
+    if (preAdmittedAction === null) {
+      action = await admitReadyTransitionAuthorityV1({
+        authorityCommentId,
+        dispatch,
+        ownerResult,
+        executionIdentity,
+        host,
+      })
+    } else {
+      if (!VERIFIED_READY_TRANSITION_ACTIONS_V1.has(preAdmittedAction)) {
+        throw new Error('ready_transition_pre_admitted_action_invalid')
+      }
+      action = preAdmittedAction
+    }
     const { owner, name } = repositoryPartsV1(action.repository)
     const acquireFreshPull = () => graphql(host, READY_TRANSITION_PULL_QUERY, { owner, name, pr: action.pr_number })
     const before = await acquireFreshPull()
@@ -7409,6 +8027,23 @@ export const executeReadyTransitionOperatorV1 = async ({ authorityCommentId, dis
     })
   } catch (error) {
     return readyTransitionOperatorStopV1(action, error instanceof Error ? error.message : 'ready_transition_failed')
+  }
+}
+
+export const executePlatformBootstrapMarkReadyV1 = async ({
+  request, host, runId, runAttempt, hostSha, jobName,
+}) => {
+  let action = null
+  try {
+    action = await admitPlatformBootstrapMarkReadyAuthorityV1({
+      request, host, runId, runAttempt, hostSha, jobName,
+    })
+    return await executeReadyTransitionOperatorV1({ preAdmittedAction: action, host })
+  } catch (error) {
+    return readyTransitionOperatorStopV1(
+      action,
+      error instanceof Error ? error.message : 'platform_bootstrap_mark_ready_failed',
+    )
   }
 }
 
@@ -11471,12 +12106,17 @@ const parseManualCli = (argv, environment) => {
   const mergeSuccessorOnly = ['--merge-decision-comment-id']
   const draftReturnOnly = ['--draft-return-authority-comment-id']
   const terminalObservationOnly = ['--terminal-observation-authority-comment-id']
-  const allowed = new Set([...required, ...resumeOnly, ...mergeSuccessorOnly, ...draftReturnOnly, ...terminalObservationOnly])
+  const platformBootstrapMarkReadyOnly = ['--current-base', '--platform-bootstrap-mark-ready-authority-comment-id']
+  const allowed = new Set([
+    ...required, ...resumeOnly, ...mergeSuccessorOnly, ...draftReturnOnly, ...terminalObservationOnly,
+    ...platformBootstrapMarkReadyOnly,
+  ])
   if (required.some((key) => !values.has(key)) || [...values.keys()].some((key) => !allowed.has(key))) throw new Error('cli_arguments_invalid')
   const transition = values.get('--transition')
   const taskIssueNumber = Number(values.get('--task-issue-number'))
   const prNumber = Number(values.get('--pr-number'))
   const exactHead = values.get('--exact-head')
+  const currentBase = values.has('--current-base') ? values.get('--current-base') : null
   const reviewDecisionCommentId = values.has('--review-decision-comment-id')
     ? Number(values.get('--review-decision-comment-id'))
     : null
@@ -11492,13 +12132,17 @@ const parseManualCli = (argv, environment) => {
   const terminalObservationAuthorityCommentId = values.has('--terminal-observation-authority-comment-id')
     ? Number(values.get('--terminal-observation-authority-comment-id'))
     : null
+  const platformBootstrapMarkReadyAuthorityCommentId = values.has('--platform-bootstrap-mark-ready-authority-comment-id')
+    ? Number(values.get('--platform-bootstrap-mark-ready-authority-comment-id'))
+    : null
   const repository = environment.GITHUB_REPOSITORY
   const resumeTransition = transition === 'ready_transition_required_resume'
   const mergeSuccessorTransition = transition === 'merge_decision_successor_resume'
   const draftReturnTransition = transition === 'draft_return_required_resume'
   const terminalObservationTransition = transition === 'ready_review_terminal_observation_resume'
+  const platformBootstrapMarkReadyTransition = transition === 'platform_bootstrap_mark_ready_resume'
   if (
-    !['terminal_review_admission', 'merge_decision_admission', 'ready_transition_required_resume', 'merge_decision_successor_resume', 'draft_return_required_resume', 'ready_review_terminal_observation_resume'].includes(transition) ||
+    !['terminal_review_admission', 'merge_decision_admission', 'ready_transition_required_resume', 'merge_decision_successor_resume', 'draft_return_required_resume', 'ready_review_terminal_observation_resume', 'platform_bootstrap_mark_ready_resume'].includes(transition) ||
     !positiveInteger(taskIssueNumber) ||
     !positiveInteger(prNumber) ||
     !FULL_HEAD.test(exactHead ?? '') ||
@@ -11507,30 +12151,42 @@ const parseManualCli = (argv, environment) => {
       values.size !== required.length + resumeOnly.length ||
       !positiveInteger(reviewDecisionCommentId) || !positiveInteger(publicationHandoffCommentId) ||
       mergeDecisionCommentId !== null || draftReturnAuthorityCommentId !== null || terminalObservationAuthorityCommentId !== null ||
+      currentBase !== null || platformBootstrapMarkReadyAuthorityCommentId !== null ||
       !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '') || !positiveInteger(Number(environment.GITHUB_RUN_ATTEMPT))
     )) ||
     (mergeSuccessorTransition && (
       values.size !== required.length + mergeSuccessorOnly.length ||
       reviewDecisionCommentId !== null || publicationHandoffCommentId !== null ||
-      draftReturnAuthorityCommentId !== null || terminalObservationAuthorityCommentId !== null || !positiveInteger(mergeDecisionCommentId) ||
+      draftReturnAuthorityCommentId !== null || terminalObservationAuthorityCommentId !== null ||
+      currentBase !== null || platformBootstrapMarkReadyAuthorityCommentId !== null || !positiveInteger(mergeDecisionCommentId) ||
       !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '')
     )) ||
     (draftReturnTransition && (
       values.size !== required.length + draftReturnOnly.length ||
       reviewDecisionCommentId !== null || publicationHandoffCommentId !== null || mergeDecisionCommentId !== null ||
-      !positiveInteger(draftReturnAuthorityCommentId) || terminalObservationAuthorityCommentId !== null || !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '') ||
+      !positiveInteger(draftReturnAuthorityCommentId) || terminalObservationAuthorityCommentId !== null ||
+      currentBase !== null || platformBootstrapMarkReadyAuthorityCommentId !== null || !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '') ||
       !positiveInteger(Number(environment.GITHUB_RUN_ATTEMPT))
     )) ||
     (terminalObservationTransition && (
       values.size !== required.length + terminalObservationOnly.length ||
       reviewDecisionCommentId !== null || publicationHandoffCommentId !== null || mergeDecisionCommentId !== null ||
-      draftReturnAuthorityCommentId !== null || !positiveInteger(terminalObservationAuthorityCommentId) ||
+      draftReturnAuthorityCommentId !== null || currentBase !== null || platformBootstrapMarkReadyAuthorityCommentId !== null ||
+      !positiveInteger(terminalObservationAuthorityCommentId) ||
       !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '') || !positiveInteger(Number(environment.GITHUB_RUN_ATTEMPT))
     )) ||
-    (!resumeTransition && !mergeSuccessorTransition && !draftReturnTransition && !terminalObservationTransition && (
+    (platformBootstrapMarkReadyTransition && (
+      values.size !== required.length + platformBootstrapMarkReadyOnly.length ||
+      reviewDecisionCommentId !== null || publicationHandoffCommentId !== null || mergeDecisionCommentId !== null ||
+      draftReturnAuthorityCommentId !== null || terminalObservationAuthorityCommentId !== null ||
+      !FULL_HEAD.test(currentBase ?? '') || !positiveInteger(platformBootstrapMarkReadyAuthorityCommentId) ||
+      !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '') || !positiveInteger(Number(environment.GITHUB_RUN_ATTEMPT))
+    )) ||
+    (!resumeTransition && !mergeSuccessorTransition && !draftReturnTransition && !terminalObservationTransition && !platformBootstrapMarkReadyTransition && (
       values.size !== required.length || reviewDecisionCommentId !== null ||
       publicationHandoffCommentId !== null || mergeDecisionCommentId !== null || draftReturnAuthorityCommentId !== null ||
-      terminalObservationAuthorityCommentId !== null
+      terminalObservationAuthorityCommentId !== null || currentBase !== null ||
+      platformBootstrapMarkReadyAuthorityCommentId !== null
     ))
   ) {
     throw new Error('cli_arguments_invalid')
@@ -11540,12 +12196,14 @@ const parseManualCli = (argv, environment) => {
     taskIssueNumber,
     prNumber,
     exactHead,
+    currentBase,
     repository,
     reviewDecisionCommentId,
     publicationHandoffCommentId,
     mergeDecisionCommentId,
     draftReturnAuthorityCommentId,
     terminalObservationAuthorityCommentId,
+    platformBootstrapMarkReadyAuthorityCommentId,
   })
 }
 
@@ -11750,7 +12408,7 @@ const readJsonFileV1 = (file) => JSON.parse(readFileSync(file, 'utf8'))
 
 const liveShadowRequestV1 = (invocation, environment) => {
   if (invocation.mode === 'manual') {
-    return ['ready_transition_required_resume', 'merge_decision_successor_resume', 'draft_return_required_resume', 'ready_review_terminal_observation_resume'].includes(invocation.request.transition)
+    return ['ready_transition_required_resume', 'merge_decision_successor_resume', 'draft_return_required_resume', 'ready_review_terminal_observation_resume', 'platform_bootstrap_mark_ready_resume'].includes(invocation.request.transition)
       ? null
       : invocation.request
   }
@@ -12295,11 +12953,13 @@ const main = async () => {
                   taskIssueNumber: process.env.PTA_INPUT_TASK_ISSUE_NUMBER,
                   prNumber: process.env.PTA_INPUT_PR_NUMBER,
                   exactHead: process.env.PTA_INPUT_EXACT_HEAD,
+                  currentBase: process.env.PTA_INPUT_CURRENT_BASE,
                   reviewDecisionCommentId: process.env.PTA_INPUT_REVIEW_DECISION_COMMENT_ID,
                   publicationHandoffCommentId: process.env.PTA_INPUT_PUBLICATION_HANDOFF_COMMENT_ID,
                   mergeDecisionCommentId: process.env.PTA_INPUT_MERGE_DECISION_COMMENT_ID,
                   draftReturnAuthorityCommentId: process.env.PTA_INPUT_DRAFT_RETURN_AUTHORITY_COMMENT_ID,
                   terminalObservationAuthorityCommentId: process.env.PTA_INPUT_TERMINAL_OBSERVATION_AUTHORITY_COMMENT_ID,
+                  platformBootstrapMarkReadyAuthorityCommentId: process.env.PTA_INPUT_PLATFORM_BOOTSTRAP_MARK_READY_AUTHORITY_COMMENT_ID,
                 })
             : invocation.mode === 'admission_result_projection'
               ? projectAdmissionWorkflowResultV1({ result: readJsonFileV1(invocation.resultFile) })
@@ -12451,6 +13111,15 @@ const main = async () => {
                     host: executionHost,
                     })
                   })()
+                : invocation.request.transition === 'platform_bootstrap_mark_ready_resume'
+                  ? await executePlatformBootstrapMarkReadyV1({
+                      request: invocation.request,
+                      host: executionHost,
+                      runId: process.env.GITHUB_RUN_ID,
+                      runAttempt: Number(process.env.GITHUB_RUN_ATTEMPT),
+                      hostSha: process.env.GITHUB_WORKFLOW_SHA ?? null,
+                      jobName: process.env.GITHUB_JOB ?? null,
+                    })
                 : invocation.request.transition === 'draft_return_required_resume'
                   ? await executeDraftReturnOperatorV1({
                       request: invocation.request,

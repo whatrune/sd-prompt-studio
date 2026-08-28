@@ -14,6 +14,7 @@ import {
 } from '../src/continuous-orchestration/protected-transition-admission-v1.ts'
 import {
   admitReadyTransitionAuthorityV1,
+  admitPlatformBootstrapMarkReadyAuthorityV1,
   admitDraftReturnAuthorityV1,
   acquireChangedPathScopeV1,
   evaluateProgressionControllerV1,
@@ -45,6 +46,7 @@ import {
   executeReviewEventWithLifecycleReplayV1,
   executeReviewThreadClosureV1,
   executeReadyTransitionOperatorV1,
+  executePlatformBootstrapMarkReadyV1,
   executeDraftReturnOperatorV1,
   executeReadyReviewTerminalObservationOwnerV1,
   executeSameRunPostReadyContinuationV1,
@@ -70,6 +72,9 @@ import {
   parsePrePrImplementationResultHandoffV1,
   parsePrePrProductOwnerPublicationDecisionV1,
   parseReadyTransitionAuthorityV1,
+  parseSelfHostingUnreachableV1,
+  parsePlatformBootstrapMarkReadyAuthorityV1,
+  parsePlatformBootstrapMarkReadyConsumptionV1,
   parseDraftReturnAuthorityV1,
   parseDraftReturnCompletionV1,
   parseProtectedReadyCompletionV1,
@@ -82,6 +87,7 @@ import {
   projectProtectedTransitionReviewStateV1,
   projectBootstrapPublicationRequestV1,
   projectReadyTransitionAuthorityBodyV1,
+  projectPlatformBootstrapMarkReadyConsumptionBodyV1,
   projectDraftReturnAuthorityBodyV1,
   projectDraftReturnCompletionBodyV1,
   projectReadyReviewTerminalObservationAuthorityBodyV1,
@@ -752,7 +758,7 @@ for (const unit of roleUnits) {
 }
 
 check(Object.keys(workflow.on).join(',') === 'workflow_dispatch,issue_comment,pull_request' && workflow.on.issue_comment.types.join(',') === 'created' && workflow.on.pull_request.types.join(',') === 'ready_for_review', 'workflow has manual recovery, created Review, and Ready triggers')
-check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head,review_decision_comment_id,publication_handoff_comment_id,merge_decision_comment_id,draft_return_authority_comment_id,terminal_observation_authority_comment_id' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number', 'workflow has the four shared inputs plus exactly five transition-scoped canonical owner IDs and canonicalizes the Task input as a number')
+check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head,current_base,review_decision_comment_id,publication_handoff_comment_id,merge_decision_comment_id,draft_return_authority_comment_id,terminal_observation_authority_comment_id,platform_bootstrap_mark_ready_authority_comment_id' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number', 'workflow adds only exact base and one authority ID for the bounded self-amendment Ready route')
 check(Object.keys(workflow.permissions).join(',') === 'actions,contents,checks,issues,pull-requests,statuses' && workflow.permissions.actions === 'read' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'write' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read', 'workflow grants the bounded issue-comment write required for canonical Draft Return completion')
 
 const admissionJob = workflow.jobs.protected_transition_admission_v1
@@ -1065,7 +1071,7 @@ const automationHost = ({
 // Seven Ready-for-Review bridge units x three assertions = 21.
 check(workflow.on.pull_request.types.join(',') === 'ready_for_review' && workflowSource.includes('--ready-event-file "$PTA_EVENT_PATH"'), 'RFR-01 workflow routes only Ready events to the Ready adapter')
 check(workflowSource.includes('[[ "$PTA_BASE_REF" == "main" ]]') && workflowSource.includes('refs/pull/${PTA_EVENT_PR_NUMBER}/merge'), 'RFR-01 Ready host binds main base and exact PR merge ref')
-check(Object.keys(workflow.on.workflow_dispatch.inputs).length === 9 && workflow.concurrency.group.includes('github.event.pull_request.number'), 'RFR-01 preserves four shared recovery inputs, adds only transition-scoped bounded owner IDs, and retains the PR fallback queue key')
+check(Object.keys(workflow.on.workflow_dispatch.inputs).length === 11 && workflow.concurrency.group.includes('github.event.pull_request.number'), 'RFR-01 preserves existing inputs, adds only the bounded self-amendment tuple, and retains the PR fallback queue key')
 
 const validReadyAutomation = automationHost({
   initialState: approvedState(),
@@ -1496,21 +1502,22 @@ check(noTargetResult.state === 'INDETERMINATE' && noTargetResult.reason === 'rev
 check(
   (runnerSource.match(/await resolveEffectiveReviewDecisionV1\(\{ request, parsedEvent, host \}\)/g) ?? []).length === 2 &&
   (runnerSource.match(/await acquireEffectiveReviewDecisionV1\(\{/g) ?? []).length === 8 &&
-  (runnerSource.match(/reduceCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 3 &&
-  (runnerSource.match(/confirmCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 3,
-  'RRC-07 issue_comment, Ready, bounded resume, terminal artifact, Merge Decision, fresh rebind, and Lifecycle reuse the canonical aggregate Review owner',
+  (runnerSource.match(/reduceCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 4 &&
+  (runnerSource.match(/confirmCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 4,
+  'RRC-07 issue_comment, Ready, bounded resume, self-amendment rebind, terminal artifact, Merge Decision, and Lifecycle reuse the canonical Review owner',
 )
 
 const productionPaths = execFileSync('git', ['ls-files', '.github', 'scripts', 'src'], { cwd: repositoryRoot, encoding: 'utf8' })
   .trim().split(/\r?\n/).filter((value) => value && !/^scripts\/test-/.test(value))
 const repositoryProductionSource = productionPaths.map((value) => readFileSync(path.join(repositoryRoot, value), 'utf8')).join('\n')
 const patchCallsites = runnerSource.match(/method:\s*['"]PATCH['"]/g) ?? []
-check(patchCallsites.length === 3, 'protected-transition production has Task-state, Draft Return completion, and terminal artifact self-binding PATCH owners')
+check(patchCallsites.length === 4, 'protected-transition production has exactly four bounded self-binding PATCH owners')
 check(
   /export const writeProtectedTransitionTaskStateV1[\s\S]*?method:\s*['"]PATCH['"]/.test(runnerSource) &&
   /const publishDraftReturnCompletionV1[\s\S]*?method:\s*['"]PATCH['"]/.test(runnerSource) &&
+  /const publishPlatformBootstrapMarkReadyConsumptionV1[\s\S]*?method:\s*['"]PATCH['"]/.test(runnerSource) &&
   /export const executeReadyReviewTerminalObservationOwnerV1[\s\S]*?method:\s*['"]PATCH['"]/.test(runnerSource),
-  'canonical state, Draft Return completion, and sealed terminal artifact writers exclusively own the three PATCH callsites',
+  'canonical state, Draft Return completion, self-amendment consumption, and terminal artifact own all PATCH callsites',
 )
 check(!/(?:gh\s+pr\s+edit|updatePullRequest|mutatePullRequest)/.test(repositoryProductionSource), 'repository production has no alternate PR-body writer')
 
@@ -1978,7 +1985,7 @@ check(
   (runnerSource.match(/reduceSelfAwareCurrentChecksV1\(/g) ?? []).length === 3 &&
   (runnerSource.match(/partitionReadyRunChecksV1\(/g) ?? []).length === 2 &&
   runnerSource.includes("const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'") &&
-  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 10,
+  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 11,
   'SGR-12 shared-helper use and correction/cumulative allowlists hold without duplicate sibling filters',
 )
 
@@ -11215,15 +11222,17 @@ const readyResumeResultV1 = await executeReadyTransitionRequiredResumeV1({
 })
 check(
   workflow.on.workflow_dispatch.inputs.transition.options.join('|') ===
-    'terminal_review_admission|merge_decision_admission|ready_transition_required_resume|merge_decision_successor_resume|draft_return_required_resume|ready_review_terminal_observation_resume' &&
+    'terminal_review_admission|merge_decision_admission|ready_transition_required_resume|merge_decision_successor_resume|draft_return_required_resume|ready_review_terminal_observation_resume|platform_bootstrap_mark_ready_resume' &&
   workflow.on.workflow_dispatch.inputs.review_decision_comment_id.required === false &&
   workflow.on.workflow_dispatch.inputs.publication_handoff_comment_id.required === false &&
   workflow.on.workflow_dispatch.inputs.draft_return_authority_comment_id.required === false &&
   workflow.on.workflow_dispatch.inputs.terminal_observation_authority_comment_id.required === false &&
+  workflow.on.workflow_dispatch.inputs.current_base.required === false &&
+  workflow.on.workflow_dispatch.inputs.platform_bootstrap_mark_ready_authority_comment_id.required === false &&
   workflowSource.includes('--workflow-dispatch-argument-projection') &&
   workflowSource.includes('"${dispatch_args[@]}"') &&
   !workflowSource.includes('repository_dispatch'),
-  'BRI-01 workflow preserves Ready successor routing and adds only the bounded Draft Return authority ingress',
+  'BRI-01 workflow preserves existing Ready routes and adds only the bounded self-amendment tuple',
 )
 check(
   readyResumeResultV1.next_action === 'INTEGRATED_LEAD_READY_REVIEW' &&
@@ -11700,6 +11709,468 @@ check(
   progressRoleSource.includes("if ($terminalAgentMessage.Trim() -cne 'IN_PROGRESS') { return }") &&
   prePrWorkflowBlock.includes('$null = Publish-CanonicalComment -BodyFile $finalBodyPath') && prePrWorkflowBlock.includes('exit 0'),
   'RAB-10 natural ready_for_review, IN_PROGRESS, and Result Handoff continuation ownership remain unchanged',
+)
+
+const SELF_AMENDMENT_TASK = 422
+const SELF_AMENDMENT_PR = 423
+const SELF_AMENDMENT_HEAD = '45b4f3418dcc5047502406edf083f0eded0e7c9d'
+const SELF_AMENDMENT_BASE = 'fe6c23e816510227a6dfd136a70077bcb8aa18b3'
+const SELF_AMENDMENT_REVIEW_ID = 6200000001
+const SELF_AMENDMENT_AUTHORITY_ID = 6200000002
+const SELF_AMENDMENT_CONSUMPTION_ID = 6200000003
+const SELF_AMENDMENT_PROOF_ID = 6200000004
+const SELF_AMENDMENT_RUN_ID = '33150000001'
+const SELF_AMENDMENT_PATHS = Object.freeze([
+  '.github/workflows/protected-transition-admission-v1.yml',
+  'docs/automation/00-automation-overview.md',
+  'scripts/run-protected-transition-admission-v1.mjs',
+  'scripts/test-protected-transition-admission-v1.mjs',
+])
+const SELF_AMENDMENT_TASK_URL = `https://github.com/${REPOSITORY}/issues/${SELF_AMENDMENT_TASK}`
+const SELF_AMENDMENT_AUTHORITY_URL = `${SELF_AMENDMENT_TASK_URL}#issuecomment-${SELF_AMENDMENT_AUTHORITY_ID}`
+const SELF_AMENDMENT_PROOF_URL = `${SELF_AMENDMENT_TASK_URL}#issuecomment-${SELF_AMENDMENT_PROOF_ID}`
+const selfAmendmentProofBodyV1 = (overrides = {}, paths = SELF_AMENDMENT_PATHS, extra = []) => {
+  const values = {
+    record_type: 'self_hosting_unreachable_v1',
+    version: 1,
+    authoring_role: 'Backend Architect',
+    canonical_record: SELF_AMENDMENT_PROOF_URL,
+    repository: REPOSITORY,
+    task_issue: SELF_AMENDMENT_TASK_URL,
+    pull_request: `https://github.com/${REPOSITORY}/pull/${SELF_AMENDMENT_PR}`,
+    exact_head: SELF_AMENDMENT_HEAD,
+    current_base: SELF_AMENDMENT_BASE,
+    classification: 'SELF_HOSTING_UNREACHABLE',
+    blocked_operation: 'MARK_READY',
+    missing_capability: 'STABLE_PLATFORM_BOOTSTRAP_KERNEL_V1',
+    normal_route: 'READY_TRANSITION_REQUIRED_RESUME',
+    normal_attempt: `https://github.com/${REPOSITORY}/actions/runs/33149999999`,
+    normal_stop_reason: 'lifecycle_validation_evidence_invalid',
+    existing_lawful_continuation: 'NONE',
+    status: 'PROVEN',
+    ...overrides,
+  }
+  return `# Self-Hosting Unreachable Proof\n\n\`\`\`yaml\n${[
+    ...Object.entries(values).map(([key, value]) => `${key}: ${typeof value === 'number' ? value : JSON.stringify(value)}`),
+    'authorized_paths:',
+    ...paths.map((value) => `  - ${JSON.stringify(value)}`),
+    ...extra,
+  ].join('\n')}\n\`\`\``
+}
+const selfAmendmentProofBody = selfAmendmentProofBodyV1()
+const selfAmendmentProofSha = createHash('sha256').update(Buffer.from(selfAmendmentProofBody, 'utf8')).digest('hex')
+const selfAmendmentReviewBodyV1 = (overrides = {}) => {
+  const values = {
+    record_type: 'independent_review_decision_v1',
+    authoring_role: 'Independent Reviewer',
+    task_issue: SELF_AMENDMENT_TASK_URL,
+    pull_request: `https://github.com/${REPOSITORY}/pull/${SELF_AMENDMENT_PR}`,
+    reviewed_head: SELF_AMENDMENT_HEAD,
+    decision: 'APPROVE',
+    blocking_finding_count: 0,
+    remaining_finding_count: 0,
+    unknown_count: 0,
+    status: 'completed',
+    execution_stop_reason: 'completed',
+    ...overrides,
+  }
+  return `# Independent Review Decision\n\n\`\`\`yaml\n${Object.entries(values).map(([key, value]) => `${key}: ${typeof value === 'number' ? value : JSON.stringify(value)}`).join('\n')}\n\`\`\``
+}
+const selfAmendmentReviewBody = selfAmendmentReviewBodyV1()
+const selfAmendmentReviewSha = createHash('sha256').update(Buffer.from(selfAmendmentReviewBody, 'utf8')).digest('hex')
+const selfAmendmentAuthorityBodyV1 = (overrides = {}, paths = SELF_AMENDMENT_PATHS, extra = []) => {
+  const values = {
+    record_type: 'stable_platform_bootstrap_authority_v1',
+    version: 1,
+    task_id: `issue-${SELF_AMENDMENT_TASK}`,
+    authoring_role: 'Product Owner',
+    authority_source: SELF_AMENDMENT_AUTHORITY_URL,
+    canonical_record: SELF_AMENDMENT_AUTHORITY_URL,
+    repository: REPOSITORY,
+    task_issue: SELF_AMENDMENT_TASK_URL,
+    pull_request: `https://github.com/${REPOSITORY}/pull/${SELF_AMENDMENT_PR}`,
+    exact_head: SELF_AMENDMENT_HEAD,
+    current_base: SELF_AMENDMENT_BASE,
+    target_branch: 'main',
+    kernel: 'STABLE_PLATFORM_BOOTSTRAP_KERNEL_V1',
+    operation: 'MARK_READY',
+    action: 'READY_FOR_REVIEW',
+    method: 'markPullRequestReadyForReview',
+    operation_count: 1,
+    self_hosting_proof: SELF_AMENDMENT_PROOF_URL,
+    self_hosting_proof_body_sha256: selfAmendmentProofSha,
+    review_decision: `${SELF_AMENDMENT_TASK_URL}#issuecomment-${SELF_AMENDMENT_REVIEW_ID}`,
+    review_body_sha256: selfAmendmentReviewSha,
+    review_status: 'APPROVE',
+    blocking_finding_count: 0,
+    remaining_finding_count: 0,
+    unknown_count: 0,
+    authority_actor_login: 'whatrune',
+    authority_actor_id: 47842632,
+    authority_actor_type: 'User',
+    ...overrides,
+  }
+  return `# Stable Platform Bootstrap Kernel MARK_READY Authority\n\n\`\`\`yaml\n${[
+    ...Object.entries(values).map(([key, value]) => `${key}: ${typeof value === 'number' ? value : JSON.stringify(value)}`),
+    'authorized_paths:',
+    ...paths.map((value) => `  - ${JSON.stringify(value)}`),
+    ...extra,
+  ].join('\n')}\n\`\`\``
+}
+const selfAmendmentAuthorityBody = selfAmendmentAuthorityBodyV1()
+const selfAmendmentAuthoritySha = createHash('sha256').update(Buffer.from(selfAmendmentAuthorityBody, 'utf8')).digest('hex')
+const selfAmendmentCommentV1 = ({ id, body, createdAt, actor, association }) => Object.freeze({
+  id,
+  created_at: createdAt,
+  author_association: association,
+  user: actor,
+  issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${SELF_AMENDMENT_TASK}`,
+  html_url: `${SELF_AMENDMENT_TASK_URL}#issuecomment-${id}`,
+  body,
+})
+const selfAmendmentReviewCommentV1 = (body = selfAmendmentReviewBody, overrides = {}) => selfAmendmentCommentV1({
+  id: SELF_AMENDMENT_REVIEW_ID,
+  body,
+  createdAt: '2026-08-28T11:00:00Z',
+  actor: Object.freeze({ login: 'independent-reviewer', id: 62001, type: 'User' }),
+  association: 'MEMBER',
+  ...overrides,
+})
+const selfAmendmentProofCommentV1 = (body = selfAmendmentProofBody, overrides = {}) => selfAmendmentCommentV1({
+  id: SELF_AMENDMENT_PROOF_ID,
+  body,
+  createdAt: '2026-08-28T10:59:00Z',
+  actor: minimalProductOwner,
+  association: 'OWNER',
+  ...overrides,
+})
+const selfAmendmentAuthorityCommentV1 = (body = selfAmendmentAuthorityBody, overrides = {}) => selfAmendmentCommentV1({
+  id: SELF_AMENDMENT_AUTHORITY_ID,
+  body,
+  createdAt: '2026-08-28T11:01:00Z',
+  actor: minimalProductOwner,
+  association: 'OWNER',
+  ...overrides,
+})
+const selfAmendmentRequestV1 = (overrides = {}) => Object.freeze({
+  transition: 'platform_bootstrap_mark_ready_resume',
+  repository: REPOSITORY,
+  taskIssueNumber: SELF_AMENDMENT_TASK,
+  prNumber: SELF_AMENDMENT_PR,
+  exactHead: SELF_AMENDMENT_HEAD,
+  currentBase: SELF_AMENDMENT_BASE,
+  platformBootstrapMarkReadyAuthorityCommentId: SELF_AMENDMENT_AUTHORITY_ID,
+  ...overrides,
+})
+const selfAmendmentPullV1 = (overrides = {}) => ({
+  number: SELF_AMENDMENT_PR,
+  state: 'open',
+  draft: true,
+  merged: false,
+  mergeable: true,
+  mergeable_state: 'clean',
+  base: { ref: 'main', sha: SELF_AMENDMENT_BASE, repo: { full_name: REPOSITORY } },
+  head: { sha: SELF_AMENDMENT_HEAD },
+  body: 'Historical Task-state remains intentionally stale.',
+  changed_files: SELF_AMENDMENT_PATHS.length,
+  ...overrides,
+})
+const createSelfAmendmentReadyFixtureV1 = ({
+  request = selfAmendmentRequestV1(),
+  authorityBody = selfAmendmentAuthorityBody,
+  reviewBody = selfAmendmentReviewBody,
+  proofBody = selfAmendmentProofBody,
+  comments = null,
+  pull = selfAmendmentPullV1(),
+  mainHead = SELF_AMENDMENT_BASE,
+  paths = SELF_AMENDMENT_PATHS,
+  checks = connectionPage([successfulCheck('platform-self-amendment-external')]),
+  threads = connectionPage([]),
+  graphqlPull = {},
+  mutationRejects = false,
+  priorConsumption = false,
+} = {}) => {
+  const metrics = { mutations: 0, pulls: 0, consumptions: 0, patches: 0, checks: 0, threads: 0 }
+  const review = selfAmendmentReviewCommentV1(reviewBody)
+  const proof = selfAmendmentProofCommentV1(proofBody)
+  const authority = selfAmendmentAuthorityCommentV1(authorityBody)
+  const execution = Object.freeze({
+    repository: REPOSITORY,
+    run_id: SELF_AMENDMENT_RUN_ID,
+    run_attempt: 1,
+    workflow_sha: SELF_AMENDMENT_BASE,
+    job_name: 'protected_transition_admission_v1',
+  })
+  const parsedAuthority = (() => {
+    try { return parsePlatformBootstrapMarkReadyAuthorityV1(authorityBody, REPOSITORY, SELF_AMENDMENT_TASK) } catch { return null }
+  })()
+  const priorConsumptionBody = parsedAuthority === null ? null : projectPlatformBootstrapMarkReadyConsumptionBodyV1({
+    authority: parsedAuthority,
+    authorityBodySha256: createHash('sha256').update(Buffer.from(authorityBody, 'utf8')).digest('hex'),
+    execution,
+    consumptionCommentId: SELF_AMENDMENT_CONSUMPTION_ID,
+  })
+  const history = comments === null ? [proof, review, authority] : [...comments]
+  if (priorConsumption && priorConsumptionBody !== null) history.push(selfAmendmentCommentV1({
+    id: SELF_AMENDMENT_CONSUMPTION_ID,
+    body: priorConsumptionBody,
+    createdAt: '2026-08-28T11:02:00Z',
+    actor: Object.freeze({ login: 'github-actions[bot]', id: 41898282, type: 'Bot' }),
+    association: 'NONE',
+  }))
+  let consumptionBody = priorConsumption ? priorConsumptionBody : null
+  const host = Object.freeze({
+    branchHead: async () => mainHead,
+    api: async (endpoint, options = undefined) => {
+      if (endpoint === `repos/${REPOSITORY}/issues/comments/${SELF_AMENDMENT_AUTHORITY_ID}`) return structuredClone(authority)
+      if (endpoint === `repos/${REPOSITORY}/issues/comments/${SELF_AMENDMENT_REVIEW_ID}`) return structuredClone(review)
+      if (endpoint === `repos/${REPOSITORY}/issues/comments/${SELF_AMENDMENT_PROOF_ID}`) return structuredClone(proof)
+      if (endpoint === `repos/${REPOSITORY}/issues/comments/${SELF_AMENDMENT_CONSUMPTION_ID}` && consumptionBody !== null) {
+        return structuredClone(selfAmendmentCommentV1({
+          id: SELF_AMENDMENT_CONSUMPTION_ID,
+          body: consumptionBody,
+          createdAt: '2026-08-28T11:02:00Z',
+          actor: Object.freeze({ login: 'github-actions[bot]', id: 41898282, type: 'Bot' }),
+          association: 'NONE',
+        }))
+      }
+      if (endpoint === `repos/${REPOSITORY}/issues/${SELF_AMENDMENT_TASK}`) return {
+        number: SELF_AMENDMENT_TASK,
+        state: 'open',
+        html_url: SELF_AMENDMENT_TASK_URL,
+        repository_url: `https://api.github.com/repos/${REPOSITORY}`,
+        user: minimalProductOwner,
+      }
+      if (endpoint.startsWith(`repos/${REPOSITORY}/issues/${SELF_AMENDMENT_TASK}/comments?`)) return structuredClone(history)
+      if (endpoint === `repos/${REPOSITORY}/issues/${SELF_AMENDMENT_TASK}/comments` && options?.method === 'POST') {
+        metrics.consumptions += 1
+        return { id: SELF_AMENDMENT_CONSUMPTION_ID, html_url: `${SELF_AMENDMENT_TASK_URL}#issuecomment-${SELF_AMENDMENT_CONSUMPTION_ID}`, body: options.body.body }
+      }
+      if (endpoint === `repos/${REPOSITORY}/issues/comments/${SELF_AMENDMENT_CONSUMPTION_ID}` && options?.method === 'PATCH') {
+        metrics.patches += 1
+        consumptionBody = options.body.body
+        history.push(selfAmendmentCommentV1({
+          id: SELF_AMENDMENT_CONSUMPTION_ID,
+          body: consumptionBody,
+          createdAt: '2026-08-28T11:02:00Z',
+          actor: Object.freeze({ login: 'github-actions[bot]', id: 41898282, type: 'Bot' }),
+          association: 'NONE',
+        }))
+        return { id: SELF_AMENDMENT_CONSUMPTION_ID, html_url: `${SELF_AMENDMENT_TASK_URL}#issuecomment-${SELF_AMENDMENT_CONSUMPTION_ID}`, body: consumptionBody }
+      }
+      if (endpoint === `repos/${REPOSITORY}/pulls/${SELF_AMENDMENT_PR}`) return structuredClone(pull)
+      if (endpoint.startsWith(`repos/${REPOSITORY}/pulls/${SELF_AMENDMENT_PR}/files?`)) {
+        return paths.map((filename) => ({ filename, status: 'modified' }))
+      }
+      throw new Error(`unexpected_self_amendment_endpoint:${endpoint}`)
+    },
+    graphql: async (query, variables) => {
+      if (query.includes('statusCheckRollup')) {
+        metrics.checks += 1
+        return { repository: { pullRequest: { headRefOid: SELF_AMENDMENT_HEAD }, object: { oid: variables.head, statusCheckRollup: { contexts: structuredClone(checks) } } } }
+      }
+      if (query.includes('reviewThreads')) {
+        metrics.threads += 1
+        return { repository: { pullRequest: {
+          number: SELF_AMENDMENT_PR,
+          state: 'OPEN',
+          isDraft: true,
+          mergeable: graphqlPull.mergeable ?? 'MERGEABLE',
+          mergeStateStatus: graphqlPull.mergeStateStatus ?? 'CLEAN',
+          headRefOid: graphqlPull.headRefOid ?? SELF_AMENDMENT_HEAD,
+          reviewThreads: structuredClone(threads),
+        } } }
+      }
+      if (query.includes('query ReadyTransitionPull')) {
+        metrics.pulls += 1
+        return { repository: { nameWithOwner: REPOSITORY, pullRequest: {
+          id: 'PR_kwDOPlatformBootstrapMarkReady',
+          number: SELF_AMENDMENT_PR,
+          headRefOid: SELF_AMENDMENT_HEAD,
+          baseRefName: 'main',
+          state: 'OPEN',
+          isDraft: metrics.pulls === 1,
+          merged: false,
+        } } }
+      }
+      if (query.includes('mutation MarkPullRequestReady')) {
+        metrics.mutations += 1
+        if (mutationRejects) throw new Error('ready_mutation_rejected')
+        return { markPullRequestReadyForReview: { clientMutationId: null } }
+      }
+      throw new Error('unexpected_self_amendment_graphql')
+    },
+  })
+  return Object.freeze({ request, host, metrics, consumptionBody: () => consumptionBody })
+}
+
+const parsedSelfHostingProofV1 = parseSelfHostingUnreachableV1(
+  selfAmendmentProofBody, REPOSITORY, SELF_AMENDMENT_TASK,
+)
+check(
+  parsedSelfHostingProofV1.pr_number === SELF_AMENDMENT_PR &&
+  parsedSelfHostingProofV1.exact_head === SELF_AMENDMENT_HEAD &&
+  parsedSelfHostingProofV1.current_base === SELF_AMENDMENT_BASE &&
+  parsedSelfHostingProofV1.normal_run_id === 33149999999 &&
+  parsedSelfHostingProofV1.authorized_paths.join('\n') === SELF_AMENDMENT_PATHS.join('\n'),
+  'SBK-01 canonical self-hosting-unreachable proof binds exact Task PR HEAD base failed route and scope',
+)
+const malformedSelfHostingProofsV1 = [
+  selfAmendmentProofBodyV1({ classification: 'BOOTSTRAP_CONVENIENCE' }),
+  selfAmendmentProofBodyV1({ blocked_operation: 'PUBLISH' }),
+  selfAmendmentProofBodyV1({ missing_capability: 'GENERIC_MUTATION_EXECUTOR' }),
+  selfAmendmentProofBodyV1({ existing_lawful_continuation: 'MANUAL_READY' }),
+  selfAmendmentProofBodyV1({}, SELF_AMENDMENT_PATHS.slice(1)),
+  selfAmendmentProofBodyV1({}, SELF_AMENDMENT_PATHS, ['unexpected_field: true']),
+]
+const malformedSelfHostingProofErrorsV1 = await Promise.all(malformedSelfHostingProofsV1.map((body) => errorOf(
+  () => parseSelfHostingUnreachableV1(body, REPOSITORY, SELF_AMENDMENT_TASK),
+)))
+check(
+  malformedSelfHostingProofErrorsV1.every((error) => error?.message === 'self_hosting_unreachable_invalid'),
+  'SBK-02 malformed scope operation or nonterminal self-hosting proof fails closed',
+)
+
+const parsedSelfAmendmentAuthorityV1 = parsePlatformBootstrapMarkReadyAuthorityV1(
+  selfAmendmentAuthorityBody, REPOSITORY, SELF_AMENDMENT_TASK,
+)
+check(
+  parsedSelfAmendmentAuthorityV1.pr_number === SELF_AMENDMENT_PR &&
+  parsedSelfAmendmentAuthorityV1.exact_head === SELF_AMENDMENT_HEAD &&
+  parsedSelfAmendmentAuthorityV1.current_base === SELF_AMENDMENT_BASE &&
+  parsedSelfAmendmentAuthorityV1.authorized_paths.join('\n') === SELF_AMENDMENT_PATHS.join('\n'),
+  'SBK-03 exact stable Kernel authority binds MARK_READY proof Task PR HEAD base Review and scope',
+)
+const malformedSelfAmendmentAuthoritiesV1 = [
+  selfAmendmentAuthorityBodyV1({ task_id: `issue-${SELF_AMENDMENT_TASK + 1}` }),
+  selfAmendmentAuthorityBodyV1({ kernel: 'GENERIC_MUTATION_EXECUTOR' }),
+  selfAmendmentAuthorityBodyV1({ operation: 'PUBLISH' }),
+  selfAmendmentAuthorityBodyV1({ review_status: 'CHANGES_REQUIRED', blocking_finding_count: 1 }),
+  selfAmendmentAuthorityBodyV1({ operation_count: 2 }),
+  selfAmendmentAuthorityBodyV1({}, SELF_AMENDMENT_PATHS.slice(1)),
+  selfAmendmentAuthorityBodyV1({}, [...SELF_AMENDMENT_PATHS, 'src/App.tsx']),
+  selfAmendmentAuthorityBodyV1({}, SELF_AMENDMENT_PATHS, ['unexpected_field: true']),
+]
+const malformedSelfAmendmentAuthorityErrorsV1 = await Promise.all(malformedSelfAmendmentAuthoritiesV1.map((body) => errorOf(
+  () => parsePlatformBootstrapMarkReadyAuthorityV1(body, REPOSITORY, SELF_AMENDMENT_TASK),
+)))
+check(
+  malformedSelfAmendmentAuthorityErrorsV1.every((error) => error?.message === 'platform_bootstrap_mark_ready_authority_invalid'),
+  'SBK-04 wrong Task Kernel operation proof Review count scope or extra field fails closed',
+)
+
+const validSelfAmendmentFixtureV1 = createSelfAmendmentReadyFixtureV1()
+const validSelfAmendmentResultV1 = await executePlatformBootstrapMarkReadyV1({
+  request: validSelfAmendmentFixtureV1.request,
+  host: validSelfAmendmentFixtureV1.host,
+  runId: SELF_AMENDMENT_RUN_ID,
+  runAttempt: 1,
+  hostSha: SELF_AMENDMENT_BASE,
+  jobName: 'protected_transition_admission_v1',
+})
+check(
+  validSelfAmendmentResultV1.state === 'COMPLETED' && validSelfAmendmentResultV1.mutation_count === 1 &&
+  validSelfAmendmentFixtureV1.metrics.mutations === 1 && validSelfAmendmentFixtureV1.metrics.pulls === 2 &&
+  validSelfAmendmentFixtureV1.metrics.consumptions === 1 && validSelfAmendmentFixtureV1.metrics.patches === 1,
+  'SBK-05 exact authority claims single use then calls the existing Ready operator exactly once',
+)
+const parsedSelfAmendmentConsumptionV1 = parsePlatformBootstrapMarkReadyConsumptionV1(
+  validSelfAmendmentFixtureV1.consumptionBody(), REPOSITORY, SELF_AMENDMENT_TASK,
+)
+check(
+  parsedSelfAmendmentConsumptionV1.authority_comment_id === SELF_AMENDMENT_AUTHORITY_ID &&
+  parsedSelfAmendmentConsumptionV1.authority_body_sha256 === selfAmendmentAuthoritySha &&
+  parsedSelfAmendmentConsumptionV1.run_id === SELF_AMENDMENT_RUN_ID,
+  'SBK-06 canonical consumption claim self-binds authority digest and exact default-branch execution identity',
+)
+
+const selfAmendmentFailureFixturesV1 = [
+  createSelfAmendmentReadyFixtureV1({ authorityBody: selfAmendmentAuthorityBodyV1({ self_hosting_proof_body_sha256: '0'.repeat(64) }) }),
+  createSelfAmendmentReadyFixtureV1({ authorityBody: selfAmendmentAuthorityBodyV1({ pull_request: `https://github.com/${REPOSITORY}/pull/${SELF_AMENDMENT_PR + 1}` }) }),
+  createSelfAmendmentReadyFixtureV1({ authorityBody: selfAmendmentAuthorityBodyV1({ exact_head: OTHER_HEAD }) }),
+  createSelfAmendmentReadyFixtureV1({ authorityBody: selfAmendmentAuthorityBodyV1({ current_base: HEAD }) }),
+  createSelfAmendmentReadyFixtureV1({ request: selfAmendmentRequestV1({ taskIssueNumber: SELF_AMENDMENT_TASK + 1 }) }),
+  createSelfAmendmentReadyFixtureV1({ request: selfAmendmentRequestV1({ prNumber: SELF_AMENDMENT_PR + 1 }) }),
+  createSelfAmendmentReadyFixtureV1({ request: selfAmendmentRequestV1({ exactHead: OTHER_HEAD }) }),
+  createSelfAmendmentReadyFixtureV1({ request: selfAmendmentRequestV1({ currentBase: HEAD }) }),
+  createSelfAmendmentReadyFixtureV1({ paths: SELF_AMENDMENT_PATHS.slice(1) }),
+  createSelfAmendmentReadyFixtureV1({ reviewBody: selfAmendmentReviewBodyV1({ decision: 'CHANGES_REQUIRED', blocking_finding_count: 1 }) }),
+  createSelfAmendmentReadyFixtureV1({ comments: [selfAmendmentProofCommentV1(), selfAmendmentAuthorityCommentV1()] }),
+  createSelfAmendmentReadyFixtureV1({ comments: [selfAmendmentReviewCommentV1(), selfAmendmentAuthorityCommentV1()] }),
+  createSelfAmendmentReadyFixtureV1({ proofBody: selfAmendmentProofBodyV1({ pull_request: `https://github.com/${REPOSITORY}/pull/${SELF_AMENDMENT_PR + 1}` }) }),
+  createSelfAmendmentReadyFixtureV1({ proofBody: selfAmendmentProofBodyV1({ exact_head: OTHER_HEAD }) }),
+  createSelfAmendmentReadyFixtureV1({ proofBody: selfAmendmentProofBodyV1({ current_base: HEAD }) }),
+  createSelfAmendmentReadyFixtureV1({ proofBody: selfAmendmentProofBodyV1({ blocked_operation: 'PUBLISH' }) }),
+  createSelfAmendmentReadyFixtureV1({ proofBody: `${selfAmendmentProofBody}\n` }),
+  createSelfAmendmentReadyFixtureV1({ checks: connectionPage([{ ...successfulCheck('pending-platform-check'), status: 'IN_PROGRESS', conclusion: null }]) }),
+  createSelfAmendmentReadyFixtureV1({ checks: connectionPage([{ ...successfulCheck('failed-platform-check'), conclusion: 'FAILURE' }]) }),
+  createSelfAmendmentReadyFixtureV1({ threads: connectionPage([{ id: 'PRRT_platform_open', isResolved: false, isOutdated: false }]) }),
+  createSelfAmendmentReadyFixtureV1({ pull: selfAmendmentPullV1({ mergeable: false, mergeable_state: 'dirty' }) }),
+  createSelfAmendmentReadyFixtureV1({ pull: selfAmendmentPullV1({ draft: false }) }),
+  createSelfAmendmentReadyFixtureV1({ pull: selfAmendmentPullV1({ state: 'closed' }) }),
+  createSelfAmendmentReadyFixtureV1({ pull: selfAmendmentPullV1({ merged: true }) }),
+  createSelfAmendmentReadyFixtureV1({ priorConsumption: true }),
+]
+const selfAmendmentFailureResultsV1 = []
+for (const fixture of selfAmendmentFailureFixturesV1) {
+  selfAmendmentFailureResultsV1.push(Object.freeze({
+    fixture,
+    result: await executePlatformBootstrapMarkReadyV1({
+      request: fixture.request,
+      host: fixture.host,
+      runId: SELF_AMENDMENT_RUN_ID,
+      runAttempt: 1,
+      hostSha: SELF_AMENDMENT_BASE,
+      jobName: 'protected_transition_admission_v1',
+    }),
+  }))
+}
+check(
+  selfAmendmentFailureResultsV1.every(({ fixture, result }) =>
+    result.next_action === 'STOP' && result.mutation_count === 0 && fixture.metrics.mutations === 0),
+  'SBK-07 identity proof scope Review checks threads mergeability state and consumed-authority drift all STOP before mutation',
+)
+const forgedReadyActionFixtureV1 = readyAuthorityHostV1()
+const forgedReadyActionResultV1 = await executeReadyTransitionOperatorV1({
+  preAdmittedAction: Object.freeze({
+    repository: REPOSITORY,
+    task_issue_number: SELF_AMENDMENT_TASK,
+    pr_number: SELF_AMENDMENT_PR,
+    exact_head: SELF_AMENDMENT_HEAD,
+    action: 'READY_FOR_REVIEW',
+    method: 'markPullRequestReadyForReview',
+    operation_count: 1,
+    authority_comment_id: SELF_AMENDMENT_AUTHORITY_ID,
+    authority_url: SELF_AMENDMENT_AUTHORITY_URL,
+  }),
+  host: forgedReadyActionFixtureV1.host,
+})
+check(
+  forgedReadyActionResultV1.next_action === 'STOP' && forgedReadyActionResultV1.mutation_count === 0 &&
+  forgedReadyActionFixtureV1.metrics.mutations === 0,
+  'SBK-08 an unverified raw action cannot bypass either canonical Ready admission',
+)
+const platformReadyOwnerSourceV1 = runnerSource.slice(
+  runnerSource.indexOf('export const admitPlatformBootstrapMarkReadyAuthorityV1'),
+  runnerSource.indexOf('const readyTransitionOperatorResultV1'),
+)
+const platformReadyExecutionSourceV1 = runnerSource.slice(
+  runnerSource.indexOf('export const executePlatformBootstrapMarkReadyV1'),
+  runnerSource.indexOf('const parseDraftReturnCommentUrlV1'),
+)
+check(
+  platformReadyExecutionSourceV1.includes('executeReadyTransitionOperatorV1({ preAdmittedAction: action, host })') &&
+  !platformReadyExecutionSourceV1.includes('MARK_PULL_REQUEST_READY_MUTATION') &&
+  !platformReadyExecutionSourceV1.includes('markPullRequestReadyForReview(input:') &&
+  (runnerSource.match(/mutation MarkPullRequestReady\(/g) ?? []).length === 1,
+  'SBK-09 bootstrap admission reuses the sole existing Ready mutation implementation',
+)
+check(
+  !platformReadyOwnerSourceV1.includes('extractProtectedTransitionTaskStateV1') &&
+  !platformReadyOwnerSourceV1.includes('writeProtectedTransitionTaskStateV1') &&
+  !platformReadyOwnerSourceV1.includes('validation_generation') &&
+  workflow.on.pull_request.types.join(',') === 'ready_for_review',
+  'SBK-10 Task-state and validation are neither read synthesized nor repaired and real Ready events remain required',
 )
 
 const DRAFT_RETURN_TASK = 415
@@ -13317,6 +13788,12 @@ const workflowDispatchDraftReturnProjectionV1 = projectWorkflowDispatchEntrypoin
   transition: 'draft_return_required_resume',
   draftReturnAuthorityCommentId: '5445000001',
 })
+const workflowDispatchSelfAmendmentReadyProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1({
+  ...workflowDispatchProjectionBaseV1,
+  transition: 'platform_bootstrap_mark_ready_resume',
+  currentBase: SELF_AMENDMENT_BASE,
+  platformBootstrapMarkReadyAuthorityCommentId: String(SELF_AMENDMENT_AUTHORITY_ID),
+})
 const workflowDispatchAllOptionalProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1({
   ...workflowDispatchProjectionBaseV1,
   reviewDecisionCommentId: '1',
@@ -13394,6 +13871,13 @@ check(
   'WDAP-05 Draft Return preserves the exact single authority-ID suffix',
 )
 check(
+  workflowDispatchSelfAmendmentReadyProjectionV1.argv.slice(-4).join('\n') === [
+    '--current-base', SELF_AMENDMENT_BASE,
+    '--platform-bootstrap-mark-ready-authority-comment-id', String(SELF_AMENDMENT_AUTHORITY_ID),
+  ].join('\n') && workflowDispatchSelfAmendmentReadyProjectionV1.argv.length === 12,
+  'WDAP-05a Stable Platform Bootstrap Kernel MARK_READY preserves the exact base and authority-ID suffix',
+)
+check(
   workflowDispatchAllOptionalProjectionV1.argv.slice(-8).join('\n') === [
     '--review-decision-comment-id', '1', '--publication-handoff-comment-id', '2',
     '--merge-decision-comment-id', '3', '--draft-return-authority-comment-id', '4',
@@ -13446,12 +13930,13 @@ check(
   Object.keys(workflow.jobs).length === 5 && workflow.on.workflow_dispatch.inputs.transition.options.join('\n') === [
     'terminal_review_admission', 'merge_decision_admission', 'ready_transition_required_resume',
     'merge_decision_successor_resume', 'draft_return_required_resume', 'ready_review_terminal_observation_resume',
+    'platform_bootstrap_mark_ready_resume',
   ].join('\n') && workflow.on.issue_comment.types.join(',') === 'created' &&
     workflow.on.pull_request.types.join(',') === 'ready_for_review' && workflow.permissions.actions === 'read' &&
     workflow.permissions.issues === 'write' && workflow.permissions['pull-requests'] === 'write' &&
     (workflowSource.match(/--method PUT/g) ?? []).length === 1 &&
     !workflow.on.pull_request.types.includes('converted_to_draft'),
-  'WDAP-13 workflow adds only bounded Draft Return and terminal-observation dispatches without converted_to_draft subscription',
+  'WDAP-13 workflow adds only bounded recovery and self-amendment dispatches without synthetic event subscriptions',
 )
 
 const terminalCanonicalValueV1 = (value) => Array.isArray(value)
@@ -13835,5 +14320,5 @@ check(
   'RTO-20 retired Collector remains absent and GADP shadow remains isolated non-authoritative continue-on-error',
 )
 
-if (assertions !== 1295) throw new Error(`expected exactly 1295 assertions, observed ${assertions}`)
+if (assertions !== 1306) throw new Error(`expected exactly 1306 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

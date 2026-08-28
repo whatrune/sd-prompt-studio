@@ -14,6 +14,7 @@ name: Protected Transition Admission V1
           - merge_decision_successor_resume
           - draft_return_required_resume
           - ready_review_terminal_observation_resume
+          - platform_bootstrap_mark_ready_resume
       task_issue_number:
         description: Current implementation Task Issue number
         required: true
@@ -25,6 +26,10 @@ name: Protected Transition Admission V1
       exact_head:
         description: Full current pull request HEAD SHA
         required: true
+        type: string
+      current_base:
+        description: Exact current main SHA for Stable Platform Bootstrap Kernel MARK_READY admission
+        required: false
         type: string
       review_decision_comment_id:
         description: Current canonical Review Decision comment ID for bounded Ready resume
@@ -44,6 +49,10 @@ name: Protected Transition Admission V1
         type: string
       terminal_observation_authority_comment_id:
         description: Exact canonical current-Ready terminal observation authority comment ID
+        required: false
+        type: string
+      platform_bootstrap_mark_ready_authority_comment_id:
+        description: Exact self-bound Stable Platform Bootstrap Kernel authority comment ID for MARK_READY
         required: false
         type: string
   issue_comment:
@@ -125,11 +134,13 @@ jobs:
           PTA_INPUT_TASK_ISSUE_NUMBER: ${{ inputs.task_issue_number }}
           PTA_INPUT_PR_NUMBER: ${{ inputs.pr_number }}
           PTA_INPUT_EXACT_HEAD: ${{ inputs.exact_head }}
+          PTA_INPUT_CURRENT_BASE: ${{ inputs.current_base }}
           PTA_INPUT_REVIEW_DECISION_COMMENT_ID: ${{ inputs.review_decision_comment_id }}
           PTA_INPUT_PUBLICATION_HANDOFF_COMMENT_ID: ${{ inputs.publication_handoff_comment_id }}
           PTA_INPUT_MERGE_DECISION_COMMENT_ID: ${{ inputs.merge_decision_comment_id }}
           PTA_INPUT_DRAFT_RETURN_AUTHORITY_COMMENT_ID: ${{ inputs.draft_return_authority_comment_id }}
           PTA_INPUT_TERMINAL_OBSERVATION_AUTHORITY_COMMENT_ID: ${{ inputs.terminal_observation_authority_comment_id }}
+          PTA_INPUT_PLATFORM_BOOTSTRAP_MARK_READY_AUTHORITY_COMMENT_ID: ${{ inputs.platform_bootstrap_mark_ready_authority_comment_id }}
           GADP_LIVE_SHADOW_DIR: ${{ runner.temp }}/gadp-live-shadow-v1
         run: |
           set -euo pipefail
