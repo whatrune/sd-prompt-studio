@@ -11715,6 +11715,15 @@ const DRAFT_RETURN_TASK_URL = `https://github.com/${REPOSITORY}/issues/${DRAFT_R
 const DRAFT_RETURN_AUTHORITY_URL = `${DRAFT_RETURN_TASK_URL}#issuecomment-${DRAFT_RETURN_AUTHORITY_ID}`
 const PRIOR_READY_COMPLETION_URL = `${DRAFT_RETURN_TASK_URL}#issuecomment-${PRIOR_READY_COMPLETION_ID}`
 const DRAFT_RETURN_COMPLETION_URL = `${DRAFT_RETURN_TASK_URL}#issuecomment-${DRAFT_RETURN_COMPLETION_ID}`
+const DRAFT_RETURN_WORKFLOW_HEAD = 'f'.repeat(40)
+const DRAFT_RETURN_RECOVERY_RUN_ID = '33100000001'
+const DRAFT_RETURN_REPLAY_RUN_ID = '33100000002'
+const draftReturnExecutionV1 = Object.freeze({
+  run_id: REVIEW_RUN_ID,
+  run_attempt: 1,
+  workflow_sha: DRAFT_RETURN_WORKFLOW_HEAD,
+  job_name: 'protected_transition_admission_v1',
+})
 const draftReturnRequestV1 = (overrides = {}) => Object.freeze({
   transition: 'draft_return_required_resume',
   repository: REPOSITORY,
@@ -11765,10 +11774,16 @@ const draftReturnActionV1 = Object.freeze({
   operation_count: 1,
   authority_comment_id: DRAFT_RETURN_AUTHORITY_ID,
   authority_url: DRAFT_RETURN_AUTHORITY_URL,
+  authority_body_sha256: createHash('sha256').update(Buffer.from(draftReturnAuthorityBodyV1(), 'utf8')).digest('hex'),
+  authority_created_at: '2026-08-28T00:00:00Z',
   prior_ready_completion_comment_id: PRIOR_READY_COMPLETION_ID,
   prior_ready_completion_url: PRIOR_READY_COMPLETION_URL,
   prior_ready_head: PRIOR_READY_HEAD,
   scope_contract_source: DRAFT_RETURN_TASK_URL,
+})
+const draftReturnOperationEvidenceV1 = Object.freeze({
+  source: `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/attempts/1#draft-return-operator`,
+  sha256: 'a'.repeat(64),
 })
 const draftReturnCommentV1 = ({
   id, body, htmlUrl = `${DRAFT_RETURN_TASK_URL}#issuecomment-${id}`,
@@ -11787,13 +11802,15 @@ const draftReturnHostV1 = ({
   authorityUser = Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
   omitAuthority = false, omitPriorReady = false, before = {}, after = {}, mutationRejects = false,
   refetchRejects = false, completionPublishRejects = false, completionRefetchMismatch = false,
-  consumed = false, malformedCompletion = false,
+  consumed = false, malformedCompletion = false, trustedCompletion = false,
+  durableTerminals = Object.freeze([]), completionTerminal = null,
 } = {}) => {
   const metrics = { authorityReads: 0, priorReadyReads: 0, historyReads: 0, pulls: 0, mutations: 0, posts: 0, patches: 0, completionReads: 0 }
   let publishedBody = null
   const completionBody = projectDraftReturnCompletionBodyV1({
     action: draftReturnActionV1, completionCommentId: DRAFT_RETURN_COMPLETION_ID,
-    runId: REVIEW_RUN_ID, runAttempt: 1,
+    publisherExecution: completionTerminal?.execution ?? draftReturnExecutionV1,
+    operationEvidence: completionTerminal?.operation_evidence ?? draftReturnOperationEvidenceV1,
   })
   const historyBody = malformedCompletion ? '```yaml\nrecord_type: draft_return_completion_v1\ninvalid: true\n```' : completionBody
   const pull = (overrides) => Object.freeze({
@@ -11825,7 +11842,9 @@ const draftReturnHostV1 = ({
           return consumed || malformedCompletion
             ? [draftReturnCommentV1({
                 id: DRAFT_RETURN_COMPLETION_ID, body: historyBody,
-                user: Object.freeze({ login: 'github-actions[bot]', id: 41898282, type: 'Bot' }),
+                user: trustedCompletion || malformedCompletion
+                  ? Object.freeze({ login: 'github-actions[bot]', id: 41898282, type: 'Bot' })
+                  : Object.freeze({ login: 'lookalike-reviewer', id: 77, type: 'User' }),
               })]
             : []
         }
@@ -11850,8 +11869,60 @@ const draftReturnHostV1 = ({
           metrics.completionReads += 1
           return draftReturnCommentV1({
             id: DRAFT_RETURN_COMPLETION_ID,
-            body: completionRefetchMismatch ? `${publishedBody}\nchanged` : publishedBody,
+            body: completionRefetchMismatch ? `${publishedBody}\nchanged` : (publishedBody ?? historyBody),
             user: Object.freeze({ login: 'github-actions[bot]', id: 41898282, type: 'Bot' }),
+          })
+        }
+        if (endpoint.startsWith(`repos/${REPOSITORY}/actions/workflows/protected-transition-admission-v1.yml/runs?`)) {
+          const failed = durableTerminals.filter((terminal) => terminal.exit_code === 1)
+          return Object.freeze({
+            total_count: failed.length,
+            workflow_runs: Object.freeze(failed.map((terminal) => Object.freeze({
+              id: Number(terminal.execution.run_id), event: 'workflow_dispatch', status: 'completed',
+              conclusion: 'failure', created_at: '2026-08-28T00:01:00Z',
+            }))),
+          })
+        }
+        const runMatch = new RegExp(`^repos/${REPOSITORY}/actions/runs/([1-9][0-9]*)$`).exec(endpoint)
+        if (runMatch !== null) {
+          const terminal = durableTerminals.find((item) => item.execution.run_id === runMatch[1])
+          if (terminal === undefined) throw new Error('durable_run_missing')
+          const conclusion = terminal.exit_code === 0 ? 'success' : 'failure'
+          return Object.freeze({
+            id: Number(runMatch[1]), run_attempt: terminal.execution.run_attempt, workflow_id: 327818524,
+            repository: Object.freeze({ full_name: REPOSITORY }),
+            path: '.github/workflows/protected-transition-admission-v1.yml', event: 'workflow_dispatch',
+            status: 'completed', conclusion, head_branch: 'main', head_sha: terminal.execution.workflow_sha,
+            url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${runMatch[1]}`,
+            html_url: `https://github.com/${REPOSITORY}/actions/runs/${runMatch[1]}`,
+            created_at: '2026-08-28T00:01:00Z',
+          })
+        }
+        const jobsMatch = new RegExp(`^repos/${REPOSITORY}/actions/runs/([1-9][0-9]*)/jobs\\?per_page=100$`).exec(endpoint)
+        if (jobsMatch !== null) {
+          const terminal = durableTerminals.find((item) => item.execution.run_id === jobsMatch[1])
+          if (terminal === undefined) throw new Error('durable_jobs_missing')
+          const conclusion = terminal.exit_code === 0 ? 'success' : 'failure'
+          const jobId = `${jobsMatch[1]}1`
+          const checkId = `${jobsMatch[1]}2`
+          return Object.freeze({ total_count: 1, jobs: Object.freeze([Object.freeze({
+            id: Number(jobId), run_id: Number(jobsMatch[1]), run_attempt: terminal.execution.run_attempt,
+            name: 'protected_transition_admission_v1', head_sha: terminal.execution.workflow_sha,
+            status: 'completed', conclusion,
+            url: `https://api.github.com/repos/${REPOSITORY}/actions/jobs/${jobId}`,
+            html_url: `https://github.com/${REPOSITORY}/actions/runs/${jobsMatch[1]}/job/${jobId}`,
+            check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/${checkId}`,
+          })]) })
+        }
+        const checkMatch = new RegExp(`^repos/${REPOSITORY}/check-runs/([1-9][0-9]*)$`).exec(endpoint)
+        if (checkMatch !== null) {
+          const terminal = durableTerminals.find((item) => `${item.execution.run_id}2` === checkMatch[1])
+          if (terminal === undefined) throw new Error('durable_check_missing')
+          const jobId = `${terminal.execution.run_id}1`
+          return Object.freeze({
+            app: Object.freeze({ id: 15368 }), status: 'completed',
+            conclusion: terminal.exit_code === 0 ? 'success' : 'failure',
+            details_url: `https://github.com/${REPOSITORY}/actions/runs/${terminal.execution.run_id}/job/${jobId}`,
           })
         }
         throw new Error(`unexpected_endpoint:${endpoint}`)
@@ -11872,9 +11943,24 @@ const draftReturnHostV1 = ({
         }
         throw new Error('unexpected_graphql')
       },
+      apiBytes: async (endpoint) => {
+        const match = new RegExp(`^repos/${REPOSITORY}/actions/jobs/([1-9][0-9]*)/logs$`).exec(endpoint)
+        if (match === null) throw new Error(`unexpected_bytes_endpoint:${endpoint}`)
+        const terminal = durableTerminals.find((item) => `${item.execution.run_id}1` === match[1])
+        if (terminal === undefined) throw new Error('durable_log_missing')
+        return Buffer.from(`${JSON.stringify(terminal)}\n`, 'utf8')
+      },
     }),
   })
 }
+
+const executeDraftReturnFixtureV1 = (values) => executeDraftReturnOperatorV1({
+  runId: REVIEW_RUN_ID,
+  runAttempt: 1,
+  hostSha: DRAFT_RETURN_WORKFLOW_HEAD,
+  jobName: 'protected_transition_admission_v1',
+  ...values,
+})
 
 const parsedDraftReturnAuthorityV1 = parseDraftReturnAuthorityV1(
   draftReturnAuthorityBodyV1(), REPOSITORY, DRAFT_RETURN_TASK,
@@ -11899,7 +11985,7 @@ check(
   'DRT-02 exact authority current HEAD and historical different-HEAD Ready completion bind before mutation',
 )
 const draftReturnSuccessFixtureV1 = draftReturnHostV1()
-const draftReturnSuccessV1 = await executeDraftReturnOperatorV1({
+const draftReturnSuccessV1 = await executeDraftReturnFixtureV1({
   request: draftReturnRequestV1(), host: draftReturnSuccessFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
 })
 check(
@@ -11912,7 +11998,7 @@ check(
 const parsedDraftReturnCompletionV1 = parseDraftReturnCompletionV1(
   projectDraftReturnCompletionBodyV1({
     action: draftReturnActionV1, completionCommentId: DRAFT_RETURN_COMPLETION_ID,
-    runId: REVIEW_RUN_ID, runAttempt: 1,
+    publisherExecution: draftReturnExecutionV1, operationEvidence: draftReturnOperationEvidenceV1,
   }),
   REPOSITORY, DRAFT_RETURN_TASK,
 )
@@ -11923,7 +12009,7 @@ check(
   'DRT-04 completion preserves exact HEAD authority and historical Ready identity',
 )
 const wrongHeadDraftReturnFixtureV1 = draftReturnHostV1()
-const wrongHeadDraftReturnV1 = await executeDraftReturnOperatorV1({
+const wrongHeadDraftReturnV1 = await executeDraftReturnFixtureV1({
   request: draftReturnRequestV1({ exactHead: OTHER_HEAD }), host: wrongHeadDraftReturnFixtureV1.host,
   runId: REVIEW_RUN_ID, runAttempt: 1,
 })
@@ -11936,11 +12022,12 @@ for (const [index, before] of [
   { isDraft: true }, { state: 'CLOSED' }, { state: 'MERGED', merged: true },
 ].entries()) {
   const fixture = draftReturnHostV1({ before })
-  const result = await executeDraftReturnOperatorV1({
+  const result = await executeDraftReturnFixtureV1({
     request: draftReturnRequestV1(), host: fixture.host, runId: REVIEW_RUN_ID, runAttempt: 1,
   })
   check(
-    result.reason === 'draft_return_pull_guard_failed' && result.mutation_count === 0 && fixture.metrics.mutations === 0,
+    result.reason === (index === 0 ? 'draft_return_recovery_evidence_missing' : 'draft_return_pull_guard_failed') &&
+    result.mutation_count === 0 && fixture.metrics.mutations === 0,
     `DRT-0${index + 6} Draft, closed, and merged guards each stop before mutation case ${index + 1}`,
   )
 }
@@ -11950,7 +12037,7 @@ for (const [index, fixture] of [
   draftReturnHostV1({ omitPriorReady: true }),
   draftReturnHostV1({ authorityUser: Object.freeze({ login: 'collaborator', id: 99, type: 'User' }) }),
 ].entries()) {
-  const result = await executeDraftReturnOperatorV1({
+  const result = await executeDraftReturnFixtureV1({
     request: draftReturnRequestV1(), host: fixture.host, runId: REVIEW_RUN_ID, runAttempt: 1,
   })
   check(
@@ -11959,16 +12046,16 @@ for (const [index, fixture] of [
   )
 }
 const consumedDraftReturnFixtureV1 = draftReturnHostV1({ consumed: true })
-const consumedDraftReturnV1 = await executeDraftReturnOperatorV1({
+const consumedDraftReturnV1 = await executeDraftReturnFixtureV1({
   request: draftReturnRequestV1(), host: consumedDraftReturnFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
 })
 check(
-  consumedDraftReturnV1.reason === 'draft_return_authority_consumed' && consumedDraftReturnV1.mutation_count === 0 &&
-  consumedDraftReturnFixtureV1.metrics.mutations === 0,
-  'DRT-12 matching completion makes Draft Return authority single-use',
+  consumedDraftReturnV1.reason === 'draft_return_completed' && consumedDraftReturnV1.mutation_count === 1 &&
+  consumedDraftReturnFixtureV1.metrics.mutations === 1,
+  'DRT-12 unauthenticated completion lookalike cannot consume Draft Return authority',
 )
 const malformedHistoryFixtureV1 = draftReturnHostV1({ malformedCompletion: true })
-const malformedHistoryResultV1 = await executeDraftReturnOperatorV1({
+const malformedHistoryResultV1 = await executeDraftReturnFixtureV1({
   request: draftReturnRequestV1(), host: malformedHistoryFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
 })
 check(
@@ -11976,7 +12063,7 @@ check(
   'DRT-13 malformed completion history fails closed before mutation',
 )
 const mutationFailureFixtureV1 = draftReturnHostV1({ mutationRejects: true })
-const mutationFailureResultV1 = await executeDraftReturnOperatorV1({
+const mutationFailureResultV1 = await executeDraftReturnFixtureV1({
   request: draftReturnRequestV1(), host: mutationFailureFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
 })
 check(
@@ -11985,7 +12072,7 @@ check(
   'DRT-14 rejected mutation stops with one attempt and no retry',
 )
 const refetchFailureFixtureV1 = draftReturnHostV1({ refetchRejects: true })
-const refetchFailureResultV1 = await executeDraftReturnOperatorV1({
+const refetchFailureResultV1 = await executeDraftReturnFixtureV1({
   request: draftReturnRequestV1(), host: refetchFailureFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
 })
 check(
@@ -11996,7 +12083,7 @@ for (const [index, after] of [
   { isDraft: false }, { headRefOid: OTHER_HEAD },
 ].entries()) {
   const fixture = draftReturnHostV1({ after })
-  const result = await executeDraftReturnOperatorV1({
+  const result = await executeDraftReturnFixtureV1({
     request: draftReturnRequestV1(), host: fixture.host, runId: REVIEW_RUN_ID, runAttempt: 1,
   })
   check(
@@ -12005,19 +12092,121 @@ for (const [index, after] of [
   )
 }
 const completionFailureFixtureV1 = draftReturnHostV1({ completionPublishRejects: true })
-const completionFailureResultV1 = await executeDraftReturnOperatorV1({
+const completionFailureResultV1 = await executeDraftReturnFixtureV1({
   request: draftReturnRequestV1(), host: completionFailureFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
 })
 const completionRefetchMismatchFixtureV1 = draftReturnHostV1({ completionRefetchMismatch: true })
-const completionRefetchMismatchResultV1 = await executeDraftReturnOperatorV1({
+const completionRefetchMismatchResultV1 = await executeDraftReturnFixtureV1({
   request: draftReturnRequestV1(), host: completionRefetchMismatchFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
 })
 check(
   completionFailureResultV1.reason === 'draft_return_completion_publish_failed' && completionFailureResultV1.mutation_count === 1 &&
-  completionFailureFixtureV1.metrics.mutations === 1 &&
+  completionFailureResultV1.state === 'RECOVERY_REQUIRED' && completionFailureResultV1.operation_consumed === true &&
+  completionFailureResultV1.completion_recorded === false && completionFailureFixtureV1.metrics.mutations === 1 &&
   completionRefetchMismatchResultV1.reason === 'draft_return_completion_publish_failed' &&
   completionRefetchMismatchResultV1.mutation_count === 1,
   'DRT-18 completion publication or direct-refetch mismatch remains fail-closed after the sole Draft mutation',
+)
+const recoveryFixtureV1 = draftReturnHostV1({
+  before: Object.freeze({ isDraft: true }),
+  durableTerminals: Object.freeze([completionFailureResultV1]),
+})
+const recoveredDraftReturnV1 = await executeDraftReturnFixtureV1({
+  request: draftReturnRequestV1(), host: recoveryFixtureV1.host,
+  runId: DRAFT_RETURN_RECOVERY_RUN_ID,
+})
+check(
+  recoveredDraftReturnV1.reason === 'draft_return_completion_recovered' && recoveredDraftReturnV1.state === 'COMPLETED' &&
+  recoveredDraftReturnV1.mutation_count === 0 && recoveredDraftReturnV1.operation_consumed === true &&
+  recoveredDraftReturnV1.completion_recorded === true && recoveryFixtureV1.metrics.mutations === 0 &&
+  recoveredDraftReturnV1.operation_evidence.sha256 === completionFailureResultV1.operation_evidence.sha256,
+  'DRT-19 authenticated durable state B evidence publishes only the missing completion and never repeats Draft mutation',
+)
+const authenticatedConsumedFixtureV1 = draftReturnHostV1({
+  consumed: true,
+  trustedCompletion: true,
+  completionTerminal: recoveredDraftReturnV1,
+  durableTerminals: Object.freeze([completionFailureResultV1, recoveredDraftReturnV1]),
+})
+const authenticatedConsumedV1 = await executeDraftReturnFixtureV1({
+  request: draftReturnRequestV1(), host: authenticatedConsumedFixtureV1.host,
+  runId: DRAFT_RETURN_REPLAY_RUN_ID,
+})
+check(
+  authenticatedConsumedV1.reason === 'draft_return_authority_consumed' &&
+  authenticatedConsumedV1.operation_consumed === true && authenticatedConsumedV1.completion_recorded === true &&
+  authenticatedConsumedV1.mutation_count === 0 && authenticatedConsumedFixtureV1.metrics.mutations === 0,
+  'DRT-20 authenticated self-bound completion plus operation and publisher runs makes authority single-use',
+)
+const normalAuthenticatedConsumedFixtureV1 = draftReturnHostV1({
+  consumed: true,
+  trustedCompletion: true,
+  completionTerminal: draftReturnSuccessV1,
+  durableTerminals: Object.freeze([draftReturnSuccessV1]),
+})
+const normalAuthenticatedConsumedV1 = await executeDraftReturnFixtureV1({
+  request: draftReturnRequestV1(), host: normalAuthenticatedConsumedFixtureV1.host,
+  runId: DRAFT_RETURN_REPLAY_RUN_ID,
+})
+check(
+  normalAuthenticatedConsumedV1.reason === 'draft_return_authority_consumed' &&
+  normalAuthenticatedConsumedV1.operation_consumed === true && normalAuthenticatedConsumedV1.completion_recorded === true &&
+  normalAuthenticatedConsumedFixtureV1.metrics.mutations === 0,
+  'DRT-21 normal state C completion authenticates its exact successful operation run before consumption',
+)
+const uncertainResponseCompletedFixtureV1 = draftReturnHostV1({
+  consumed: true,
+  trustedCompletion: true,
+  completionTerminal: completionFailureResultV1,
+  durableTerminals: Object.freeze([completionFailureResultV1]),
+})
+const uncertainResponseCompletedV1 = await executeDraftReturnFixtureV1({
+  request: draftReturnRequestV1(), host: uncertainResponseCompletedFixtureV1.host,
+  runId: DRAFT_RETURN_REPLAY_RUN_ID,
+})
+check(
+  uncertainResponseCompletedV1.reason === 'draft_return_authority_consumed' &&
+  uncertainResponseCompletedV1.operation_consumed === true && uncertainResponseCompletedV1.completion_recorded === true &&
+  uncertainResponseCompletedFixtureV1.metrics.mutations === 0,
+  'DRT-22 a canonical completion that survived an uncertain publication response closes state C without mutation replay',
+)
+const recoveryPublicationFailureFixtureV1 = draftReturnHostV1({
+  before: Object.freeze({ isDraft: true }),
+  durableTerminals: Object.freeze([completionFailureResultV1]),
+  completionPublishRejects: true,
+})
+const recoveryPublicationFailureV1 = await executeDraftReturnFixtureV1({
+  request: draftReturnRequestV1(), host: recoveryPublicationFailureFixtureV1.host,
+  runId: DRAFT_RETURN_RECOVERY_RUN_ID,
+})
+check(
+  recoveryPublicationFailureV1.reason === 'draft_return_completion_publish_failed' &&
+  recoveryPublicationFailureV1.state === 'RECOVERY_REQUIRED' && recoveryPublicationFailureV1.mutation_count === 0 &&
+  recoveryPublicationFailureV1.operation_consumed === true && recoveryPublicationFailureV1.completion_recorded === false &&
+  recoveryPublicationFailureFixtureV1.metrics.mutations === 0,
+  'DRT-23 repeated completion-publication failure preserves state B and never repeats the protected mutation',
+)
+const tamperedCompletionTerminalV1 = Object.freeze({
+  ...recoveredDraftReturnV1,
+  operation_evidence: Object.freeze({
+    ...recoveredDraftReturnV1.operation_evidence,
+    sha256: '0'.repeat(64),
+  }),
+})
+const tamperedCompletionFixtureV1 = draftReturnHostV1({
+  consumed: true,
+  trustedCompletion: true,
+  completionTerminal: tamperedCompletionTerminalV1,
+  durableTerminals: Object.freeze([completionFailureResultV1, recoveredDraftReturnV1]),
+})
+const tamperedCompletionResultV1 = await executeDraftReturnFixtureV1({
+  request: draftReturnRequestV1(), host: tamperedCompletionFixtureV1.host,
+  runId: DRAFT_RETURN_REPLAY_RUN_ID,
+})
+check(
+  tamperedCompletionResultV1.reason === 'draft_return_completion_history_invalid' &&
+  tamperedCompletionResultV1.mutation_count === 0 && tamperedCompletionFixtureV1.metrics.mutations === 0,
+  'DRT-24 completion digest tampering fails closed before consumed or resume classification',
 )
 const draftReturnOperatorSourceV1 = runnerSource.slice(
   runnerSource.indexOf('export const executeDraftReturnOperatorV1'),
@@ -12028,14 +12217,14 @@ check(
   !draftReturnOperatorSourceV1.includes('MARK_PULL_REQUEST_READY_MUTATION') &&
   !draftReturnOperatorSourceV1.includes('executeReadyTransitionOperatorV1') &&
   workflow.on.pull_request.types.join(',') === 'ready_for_review',
-  'DRT-19 Draft Return owns one Draft mutation and does not synthesize or combine the later Ready transition',
+  'DRT-25 Draft Return owns one Draft mutation and does not synthesize or combine the later Ready transition',
 )
 check(
   readySuccessResultV1.state === 'COMPLETED' && readySuccessResultV1.mutation_count === 1 &&
   workflow.on.workflow_dispatch.inputs.transition.options.includes('ready_transition_required_resume') &&
   runnerSource.includes("invocation.request.transition === 'draft_return_required_resume'") &&
   runnerSource.includes("invocation.request.transition === 'ready_transition_required_resume'"),
-  'DRT-20 existing first-time and resumed Draft-to-Ready ownership remains distinct and unchanged',
+  'DRT-26 existing first-time and resumed Draft-to-Ready ownership remains distinct and unchanged',
 )
 check(
   bootstrapConsumerBlock.includes("status -cne 'SUCCESS'") &&
@@ -13637,5 +13826,5 @@ check(
   'RTO-20 retired Collector remains absent and GADP shadow remains isolated non-authoritative continue-on-error',
 )
 
-if (assertions !== 1289) throw new Error(`expected exactly 1289 assertions, observed ${assertions}`)
+if (assertions !== 1295) throw new Error(`expected exactly 1295 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
