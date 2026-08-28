@@ -35,7 +35,7 @@ Product Owner
 - The original alignment authority consists of the direct GitHub records [Issue #240](https://github.com/whatrune/sd-prompt-studio/issues/240) and [Resume Dispatch](https://github.com/whatrune/sd-prompt-studio/issues/240#issuecomment-5176584167). The direct record for Repair Executor production evidence is [Issue #278](https://github.com/whatrune/sd-prompt-studio/issues/278).
 - Repository-relative paths in this section and document are supporting records only when bound to full commit SHA `65e84d3d787d4db871f34d4ab1ab452494a61605`. A repository-relative path is not itself a Canonical Record, authority, or runtime proof.
 - Production composition rootのsupporting recordは`src/main.tsx` → `src/appRouter.tsx` → `src/App.tsx`である。このrootから`src/dispatch/**`、`src/automatic-gate-progression/**`、`src/canonical-event-admission/**`、`src/gate-status-publisher/**`、`src/continuous-orchestration/**`へのincoming edgeは確認できない。
-- Retired Collector V1 and its Continuous Orchestration sources are absent from the current repository. The current Merge contract's terminal-observation requirement is owned by the bounded Protected Transition Admission owner described below; this does not restore the retired service or CLI.
+- `scripts/run-ready-review-terminal-observation-collector-v1.mjs`はCollector V1のproduction CLI adapter sourceとして存在し、`src/continuous-orchestration/ready-review-terminal-observation-artifact-v1.ts`のpure coreを直接importして呼び出す。ただし、このsource edgeはphysical operator、scheduler／automatic trigger、Cloudflare設定、またはrepository外の実行経路の存在を証明しない。
 - Source、public export、fixture、test runner、internal library／module consumerの存在は、それだけではproduction runtime reachabilityの証拠にならない。
 
 ### Capability and Reachability Matrix
@@ -45,10 +45,8 @@ Product Owner
 | General Dispatcher / controller | `src/dispatch/**` and continuous-orchestration libraries exist | none confirmed from the application root or an external production host | `UNKNOWN` |
 | Automatic Gate Progression / Role Transition | evaluator, admission, publisher, and reducer modules exist | none confirmed from the application root or Protected Transition host | `UNKNOWN` |
 | Protected Transition Admission | default-branch workflow invokes its owner CLI | `.github/workflows/protected-transition-admission-v1.yml` → `scripts/run-protected-transition-admission-v1.mjs` | production-reachable |
-| Canonical Draft Return Owner V1 | Protected Transition Admission validates one exact-HEAD, operation-specific authority and performs `convertPullRequestToDraft` once | bounded `workflow_dispatch.draft_return_required_resume` route | repository-reachable after the implementing exact HEAD reaches the default branch |
-| Current PTA Ready Review Terminal Observation Owner V1 | Protected Transition Admission binds the current real Ready generation, an explicit admitted-reviewer roster, terminal receipts, complete post-terminal review-thread pagination, a final HEAD refetch, and one self-bound canonical JSON seal | bounded `workflow_dispatch.ready_review_terminal_observation_resume` route; Merge Decision and Merge Operator reacquire the current-generation record | repository-reachable after the implementing exact HEAD reaches the default branch |
 | Repair Executor | the same workflow conditionally routes admitted `CHANGES_REQUIRED` to a self-hosted Windows job | Protected Transition Admission → `REPAIR_EXECUTOR` | production execution proven at the bound historical run below |
-| Retired Collector V1 / Continuous Orchestration | removed in the retirement change; no source, CLI, workflow, service, or scheduler owner remains | none | retired; not a current Merge evidence owner |
+| Collector V1 | owner CLI directly imports and invokes the pure core | repository source edge only; physical operator and scheduler are unproven | source-reachable; operation `UNKNOWN` |
 
 ### Protected Transition Production Host
 
@@ -57,12 +55,6 @@ Product Owner
 - For admitted `CHANGES_REQUIRED`, the Repair Executor targets only authorized paths and produces the minimum repair for the current blocking findings. After the selected focused validation profile passes, it pushes one normal non-force commit.
 - [Production run 31554006864](https://github.com/whatrune/sd-prompt-studio/actions/runs/31554006864), at host SHA `21aeefd43156ea8ddb134e74141d3e69813705ad`, is historical exact-run evidence of successful self-hosted execution, Codex repair, validation, one commit, normal push, and fresh Review handoff. The static host path is confirmed at snapshot `65e84d3d787d4db871f34d4ab1ab452494a61605`, but Repair Executor E2E success with that exact snapshot as the host SHA remains `UNKNOWN`.
 - Push後は既存state writerがPRのsingle 10-field stateをnew HEADの`REVIEW_PENDING`へrebindし、`next_action: REVIEW`（reason: `fresh_review_required`）としてfresh Reviewへ戻す。自動Mergeは行わない。
-- `draft_return_required_resume` is the bounded recovery route for a Ready PR whose HEAD changed. It admits one self-bound `draft_return_authority_v1`, binds the authority body digest, proves that the prior Ready completion belongs to a different HEAD, performs exactly one `convertPullRequestToDraft` mutation, refetches the open PR at the unchanged authorized HEAD, publishes one self-bound `draft_return_completion_v1`, and stops. A completion consumes the authority only after the GitHub Actions bot actor, Task/PR/HEAD, self URL, authority digest, operation evidence, and the exact default-branch PTA run/job/log all authenticate. If the mutation and Draft refetch succeeded but completion publication failed, the failed PTA run is the durable `operation_consumed=true` / `completion_recorded=false` owner: a later resume may publish only the missing completion after revalidating that run and the unchanged open Draft PR, with `mutation_count=0`. Draft state alone is never recovery evidence. Fresh validation, Independent Review, Ready authority, the existing Ready operator, and the real `ready_for_review` event remain later lifecycle owners.
-- Draft Return does not subscribe to or synthesize `pull_request.converted_to_draft`. The canonical completion is the operator's direct before/after refetch record. The normative event catalog remains unchanged and does not by itself establish a production incoming edge.
-- `ready_review_terminal_observation_resume` admits one exact-HEAD, operation-specific Product Owner / Backend Architect authority. The authority binds the current Ready completion to the latest real `ready_for_review` timeline event and freezes a unique roster of admitted `INDEPENDENT_IMPLEMENTATION_REVIEWER` dispatches for that generation. Exactly one canonical Review Decision receipt is required per roster producer, and each receipt must be later than the Ready event.
-- After the last terminal receipt, the owner fetches every `PullRequest.reviewThreads` page, records pagination completeness and snapshot timestamps, and refetches the open Ready PR at the unchanged exact HEAD. It then publishes one self-bound `ready_review_terminal_observation_artifact_v1`, validates every component digest and the final canonical JSON SHA-256 seal, and refetches the published Task Issue comment.
-- The sealed artifact supplements rather than replaces current Merge evidence. Merge Decision and Merge Operator reacquire the artifact for the current Ready generation, while the existing owners still freshly enforce current `APPROVE / 0 / 0 / 0`, unresolved-thread count, successful checks, exact HEAD, mergeability, Product Owner Merge Decision, and the final Merge rebind.
-- A stale generation, synthetic or mismatched Ready identity, missing or duplicate producer receipt, pre-Ready receipt, incomplete thread pagination, HEAD drift, malformed canonical JSON, or digest mismatch stops before Merge. Old Ready generations remain historical. GADP remains an isolated `continue-on-error` non-authoritative shadow and cannot substitute for the sealed PTA record.
 - この実在確認はProtected Transition Admission V1 hostだけに適用する。一般的なproduction dispatch／controller hostのincoming edgeを証明せず、次節の`UNKNOWN`境界を変更しない。
 
 ## Preserved UNKNOWN
@@ -70,6 +62,8 @@ Product Owner
 次はcanonical runtime recordまたはproduction composition／execution hostからのincoming edgeで実証されるまで`UNKNOWN`のまま維持する。
 
 - production dispatch／controller host
+- Collector V1 physical operator
+- Collector V1 scheduler／automatic trigger owner
 - Cloudflare側設定と実行条件
 - repository外Automation実行経路
 

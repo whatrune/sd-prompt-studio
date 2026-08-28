@@ -14,7 +14,6 @@ import {
 } from '../src/continuous-orchestration/protected-transition-admission-v1.ts'
 import {
   admitReadyTransitionAuthorityV1,
-  admitDraftReturnAuthorityV1,
   acquireChangedPathScopeV1,
   evaluateProgressionControllerV1,
   evaluateMergeAllowedAutomationV1,
@@ -25,9 +24,6 @@ import {
   classifyRoleOutputFailureDiagnosticV1,
   acquireLifecycleCompletionEvidenceV1,
   acquireLifecyclePublishedGenerationV1,
-  acquireCurrentReadyGenerationV1,
-  acquirePostTerminalReviewThreadSnapshotV1,
-  acquireCurrentReadyReviewTerminalObservationArtifactV1,
   executeRoleDispatchConsumerV1,
   executeRoleDispatchRebindV1,
   executeCanonicalMergeDecisionContinuationV1,
@@ -45,8 +41,6 @@ import {
   executeReviewEventWithLifecycleReplayV1,
   executeReviewThreadClosureV1,
   executeReadyTransitionOperatorV1,
-  executeDraftReturnOperatorV1,
-  executeReadyReviewTerminalObservationOwnerV1,
   executeSameRunPostReadyContinuationV1,
   executeReadyEventWithLifecycleReplayV1,
   executeMinimalGovernanceFinalDriftGuardV1,
@@ -70,9 +64,6 @@ import {
   parsePrePrImplementationResultHandoffV1,
   parsePrePrProductOwnerPublicationDecisionV1,
   parseReadyTransitionAuthorityV1,
-  parseDraftReturnAuthorityV1,
-  parseDraftReturnCompletionV1,
-  parseProtectedReadyCompletionV1,
   finalizePrePrImplementationResultHandoffV1,
   parseLifecyclePublicationTaskBindingV1,
   parseReviewApprovalEventV1,
@@ -82,16 +73,12 @@ import {
   projectProtectedTransitionReviewStateV1,
   projectBootstrapPublicationRequestV1,
   projectReadyTransitionAuthorityBodyV1,
-  projectDraftReturnAuthorityBodyV1,
-  projectDraftReturnCompletionBodyV1,
-  projectReadyReviewTerminalObservationAuthorityBodyV1,
   projectSelfHostedWindowsRepairProviderV3,
   projectRoleDispatchEnvelopeV1,
   projectIntegratedLeadReadyReviewV1,
   repairWorkingTreePathsV1,
   reduceLifecycleReplayV1,
   resolveEffectiveReviewDecisionV1,
-  validateReadyReviewTerminalObservationArtifactV1,
   selectRepairValidationProfileV1,
   verifyBootstrapPublicationTaskStateV1,
 } from './run-protected-transition-admission-v1.mjs'
@@ -752,8 +739,8 @@ for (const unit of roleUnits) {
 }
 
 check(Object.keys(workflow.on).join(',') === 'workflow_dispatch,issue_comment,pull_request' && workflow.on.issue_comment.types.join(',') === 'created' && workflow.on.pull_request.types.join(',') === 'ready_for_review', 'workflow has manual recovery, created Review, and Ready triggers')
-check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head,review_decision_comment_id,publication_handoff_comment_id,merge_decision_comment_id,draft_return_authority_comment_id,terminal_observation_authority_comment_id' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number', 'workflow has the four shared inputs plus exactly five transition-scoped canonical owner IDs and canonicalizes the Task input as a number')
-check(Object.keys(workflow.permissions).join(',') === 'actions,contents,checks,issues,pull-requests,statuses' && workflow.permissions.actions === 'read' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'write' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read', 'workflow grants the bounded issue-comment write required for canonical Draft Return completion')
+check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head,review_decision_comment_id,publication_handoff_comment_id,merge_decision_comment_id' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number', 'workflow has the four shared inputs plus exactly three transition-scoped canonical owner IDs and canonicalizes the Task input as a number')
+check(Object.keys(workflow.permissions).join(',') === 'actions,contents,checks,issues,pull-requests,statuses' && workflow.permissions.actions === 'read' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'read' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read', 'workflow adds only read access for Actions, checks, and statuses')
 
 const admissionJob = workflow.jobs.protected_transition_admission_v1
 const hostIdentityStep = admissionJob.steps.find((step) => step.name === 'Admit exact default-branch host identity')
@@ -780,7 +767,7 @@ const expectedPaths = [
 ]
 check(changedPaths.join('\n') === expectedPaths.join('\n'), 'fresh-base correction diff is exactly three authorized paths')
 const productionSource = `${workflowSource}\n${runnerSource}\n${coreSource}`
-check(!/(trust_root|revocation|assignment_record|finalization_binding|\bcollector\b|\.jcs|upload-artifact)/i.test(productionSource), 'retired Collector and orchestration mechanisms are absent while current PTA generation and roster semantics are permitted')
+check(!/(trust_root|revocation|ready_generation|producer_roster|assignment_record|finalization_binding|collector|\.jcs|upload-artifact)/i.test(productionSource), 'retired mechanisms are absent')
 check(runnerSource.includes('/comments?since=') && runnerSource.includes('pageNumber > 32'), 'runner uses bounded forward-only Review pagination')
 check(runnerSource.includes('acquireTaskIdentityV1') && runnerSource.includes('acquireChangedPathScopeV1') && runnerSource.includes('executeManualProgressionControllerV1') && runnerSource.includes('createProductionEvidenceCaptureV1') && runnerSource.includes('captureProductionEvidenceSnapshotV1') && runnerSource.includes('projectProductionParityRecordBV1') && !runnerSource.includes('evaluateSharedEvidenceGenericV1'), 'runner carries production-consumed acquisition snapshots into Record A and owns Record B without Generic mapper reuse')
 check(runnerSource.includes('previous_filename') && runnerSource.includes('state_changed_during_evaluation'), 'runner checks rename and late state change')
@@ -1065,7 +1052,7 @@ const automationHost = ({
 // Seven Ready-for-Review bridge units x three assertions = 21.
 check(workflow.on.pull_request.types.join(',') === 'ready_for_review' && workflowSource.includes('--ready-event-file "$PTA_EVENT_PATH"'), 'RFR-01 workflow routes only Ready events to the Ready adapter')
 check(workflowSource.includes('[[ "$PTA_BASE_REF" == "main" ]]') && workflowSource.includes('refs/pull/${PTA_EVENT_PR_NUMBER}/merge'), 'RFR-01 Ready host binds main base and exact PR merge ref')
-check(Object.keys(workflow.on.workflow_dispatch.inputs).length === 9 && workflow.concurrency.group.includes('github.event.pull_request.number'), 'RFR-01 preserves four shared recovery inputs, adds only transition-scoped bounded owner IDs, and retains the PR fallback queue key')
+check(Object.keys(workflow.on.workflow_dispatch.inputs).length === 7 && workflow.concurrency.group.includes('github.event.pull_request.number'), 'RFR-01 preserves four shared recovery inputs, adds only transition-scoped bounded owner IDs, and retains the PR fallback queue key')
 
 const validReadyAutomation = automationHost({
   initialState: approvedState(),
@@ -1495,23 +1482,18 @@ check(noTargetResult.state === 'INDETERMINATE' && noTargetResult.reason === 'rev
 
 check(
   (runnerSource.match(/await resolveEffectiveReviewDecisionV1\(\{ request, parsedEvent, host \}\)/g) ?? []).length === 2 &&
-  (runnerSource.match(/await acquireEffectiveReviewDecisionV1\(\{/g) ?? []).length === 8 &&
+  (runnerSource.match(/await acquireEffectiveReviewDecisionV1\(\{/g) ?? []).length === 7 &&
   (runnerSource.match(/reduceCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 3 &&
   (runnerSource.match(/confirmCurrentLeafIndependentReviewDecisionV1\(\{/g) ?? []).length === 3,
-  'RRC-07 issue_comment, Ready, bounded resume, terminal artifact, Merge Decision, fresh rebind, and Lifecycle reuse the canonical aggregate Review owner',
+  'RRC-07 issue_comment, Ready, bounded resume, Merge Decision, fresh rebind, and Lifecycle reuse the canonical aggregate Review owner',
 )
 
 const productionPaths = execFileSync('git', ['ls-files', '.github', 'scripts', 'src'], { cwd: repositoryRoot, encoding: 'utf8' })
   .trim().split(/\r?\n/).filter((value) => value && !/^scripts\/test-/.test(value))
 const repositoryProductionSource = productionPaths.map((value) => readFileSync(path.join(repositoryRoot, value), 'utf8')).join('\n')
 const patchCallsites = runnerSource.match(/method:\s*['"]PATCH['"]/g) ?? []
-check(patchCallsites.length === 3, 'protected-transition production has Task-state, Draft Return completion, and terminal artifact self-binding PATCH owners')
-check(
-  /export const writeProtectedTransitionTaskStateV1[\s\S]*?method:\s*['"]PATCH['"]/.test(runnerSource) &&
-  /const publishDraftReturnCompletionV1[\s\S]*?method:\s*['"]PATCH['"]/.test(runnerSource) &&
-  /export const executeReadyReviewTerminalObservationOwnerV1[\s\S]*?method:\s*['"]PATCH['"]/.test(runnerSource),
-  'canonical state, Draft Return completion, and sealed terminal artifact writers exclusively own the three PATCH callsites',
-)
+check(patchCallsites.length === 1, 'protected-transition production has exactly one Task-state PATCH callsite')
+check(/export const writeProtectedTransitionTaskStateV1[\s\S]*?method:\s*['"]PATCH['"]/.test(runnerSource), 'canonical writer owns the PATCH callsite')
 check(!/(?:gh\s+pr\s+edit|updatePullRequest|mutatePullRequest)/.test(repositoryProductionSource), 'repository production has no alternate PR-body writer')
 
 const concurrencyGroup = workflow.concurrency.group
@@ -1978,7 +1960,7 @@ check(
   (runnerSource.match(/reduceSelfAwareCurrentChecksV1\(/g) ?? []).length === 3 &&
   (runnerSource.match(/partitionReadyRunChecksV1\(/g) ?? []).length === 2 &&
   runnerSource.includes("const REVIEW_DETACHED_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SELF_CHECK_AWARE'") &&
-  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 10,
+  (runnerSource.match(/runId: process\.env\.GITHUB_RUN_ID/g) ?? []).length === 9,
   'SGR-12 shared-helper use and correction/cumulative allowlists hold without duplicate sibling filters',
 )
 
@@ -4687,13 +4669,6 @@ const roleMergeDecisionRebindHost = ({
     metrics: automation.metrics,
     host: Object.freeze({
       ...automation.host,
-      acquireReadyReviewTerminalObservationArtifactV1: async ({ request }) => Object.freeze({
-        comment_id: 999001,
-        canonical_record: `https://github.com/${request.repository}/issues/${request.taskIssueNumber}#issuecomment-999001`,
-        artifact_sha256: 'a'.repeat(64),
-        ready_generation_id: 'b'.repeat(64),
-        review_comment_id: mergeDecisionReviewId,
-      }),
       api: async (endpoint, options = undefined) => {
         if (endpoint === `repos/${dispatch.repository}/actions/runs/${dispatch.admission_run_id}`) {
           automation.metrics.originReads += 1
@@ -6076,9 +6051,7 @@ check(
     Object.keys(workflow.jobs).length === 5 &&
     runnerSource.includes("from './protected-transition-merge-operator-preflight-v1.mjs'") &&
     runnerSource.includes('createMergeOperatorPreflightOwnerV1,') &&
-    runnerSource.includes('export const executeMergeOperatorV1 = async (input) => {') &&
-    runnerSource.includes('await requireReadyReviewTerminalObservationV1({') &&
-    runnerSource.includes('return await createMergeOperatorPreflightOwnerV1({') &&
+    runnerSource.includes('export const executeMergeOperatorV1 = async (input) => createMergeOperatorPreflightOwnerV1({') &&
     (runnerSource.match(/--merge-operator-file/g) ?? []).length === 1 &&
     !mergeOperatorPreflightSource.includes('--merge-operator-file') &&
     !/^import .*run-protected-transition-admission-v1/m.test(mergeOperatorPreflightSource) &&
@@ -9900,12 +9873,10 @@ const lifecycleStructuralMatrix = [
   !runnerSource.includes('--lifecycle-orchestrator-event-file') && !workflowSource.includes('lifecycle-orchestrator-event-file'),
   !lifecycleSource.includes('executeRoleDispatchConsumerV1(') && !lifecycleSource.includes('executeMinimalGovernanceV1(') && !lifecycleSource.includes('writeProtectedTransitionTaskStateV1('),
   !lifecycleSource.includes('acquireHistoricalLegacyRtoEvidenceV1('),
-  !lifecycleSource.includes('role_dispatch:') && !lifecycleSource.includes('provider_projection') &&
-    (lifecycleSource.match(/method: 'POST'/g) ?? []).length === 1 &&
-    lifecycleSource.includes('executeReadyReviewTerminalObservationOwnerV1') && !lifecycleSource.includes("method: 'PUT'"),
+  !lifecycleSource.includes('role_dispatch:') && !lifecycleSource.includes('provider_projection') && !lifecycleSource.includes("method: 'POST'") && !lifecycleSource.includes("method: 'PUT'"),
   lifecycleAllResults.every((result) => result.mutation_count === 0 && !Object.hasOwn(result, 'comment_body') && !Object.hasOwn(result, 'authority') && !Object.hasOwn(result, 'review')),
   workflow.on.issue_comment.types.join(',') === 'created' && workflow.on.pull_request.types.join(',') === 'ready_for_review' && Object.keys(workflow.jobs).length === 5,
-  workflow.permissions.actions === 'read' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'write' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read',
+  workflow.permissions.actions === 'read' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'read' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read',
   lifecycleHistoricalPathsV1[323].length === 11 && lifecycleHistoricalPathsV1[325].length === 20 && lifecycleHistoricalPathsV1[327].length === 35 && lifecycleHistoricalPathsV1[329].length === 32 && lifecycleHistoricalPathsV1[331].length === 4 && lifecycleHistoricalPathsV1[333].length === 24,
   pr333InitialPaths.length === 18 && pr333TwentyTwoPaths.length === 22 && lifecycleHistoricalIdentityV1[333].head === '4f0154002ee0139c54cba177dea52f68a3259e87',
   lifecycleValidationOwnerProjectionSource.includes('...result.validation') &&
@@ -9922,7 +9893,7 @@ const workflowBoundaryMatrix = [
   roleBindRun.includes('operation=$($projection.operation)') && roleExecutionStep?.if === "contains(fromJSON('[\"EXECUTE_ROLE\",\"EXECUTE_BOOTSTRAP_PUBLICATION\"]'), steps.role_dispatch_plan.outputs.operation)" && roleExecutionStep?.env?.GH_TOKEN === '${{ github.token }}' && roleExecutionStep?.env?.ROLE_OPERATION === '${{ steps.role_dispatch_plan.outputs.operation }}' && mergeDecisionOutput.next_action === 'POST_MERGE_DECISION' && !Object.hasOwn(mergeDecisionOutput, 'bounded_metadata') && roleOutputFailureDiagnosticKeys.length === 9 && roleOutputFailureDiagnosticKeys.join('\n') === expectedRoleOutputFailureDiagnosticKeys.join('\n') && roleExecutionRun.indexOf('$publicationComment = Publish-CanonicalComment -BodyFile $publicationPath') < roleExecutionRun.indexOf('--review-event-file $publishedEventPath') && roleExecutionRun.indexOf('--review-event-file $publishedEventPath') < roleExecutionRun.indexOf("-ExpectedAction 'POST_REVIEW'") && assertRoleOutputSource.includes('--role-jsonl-file $JsonlFile') && (roleExecutionRun.match(/Assert-RoleOutput[^\n]+-JsonlFile \$/g) ?? []).length === 2 && assertRoleOutputSource.includes('--role-output-result-projection-file $ResultFile') && expectedRoleOutputFailureDiagnosticKeys.every((name) => roleOutputWorkflowProjectorSource.includes(`'${name}'`)) && assertRoleOutputSource.includes("$projection.diagnostic_kind -ceq 'PRE_PR_IMPLEMENTER'") && assertRoleOutputSource.includes("$projection.diagnostic_kind -ceq 'INDEPENDENT_REVIEWER'") && assertRoleOutputSource.includes("$projection.diagnostic_kind -ceq 'BOUNDED_METADATA'") && assertRoleOutputSource.includes('ConvertTo-Json -Compress -Depth 2') && assertRoleOutputSource.includes('ConvertTo-Json -Compress -Depth 5') && assertRoleOutputSource.includes('ConvertTo-Json -Compress -Depth 3') && assertRoleOutputSource.includes('ConvertTo-Json -Compress -Depth 4') && assertRoleOutputSource.includes('$diagnosticLines = @()') && assertRoleOutputSource.includes('foreach ($diagnosticLine in $diagnosticLines)') && assertRoleOutputSource.split('[Console]::Error.WriteLine($diagnosticLine)').length === 2 && assertRoleOutputSource.includes("throw 'role_output_validation_failed'") && !assertRoleOutputSource.includes('Start-Sleep') && !assertRoleOutputSource.includes('retry') && !Object.hasOwn(workflow.concurrency, 'queue') && workflow.concurrency['cancel-in-progress'] === false && roleExecutionRun.includes("if ($expected -in @('POST_REVIEW', 'POST_MERGE_DECISION'))") && !roleExecutionRun.includes('Complete-ReviewerClosure'),
   boundedRoleSource.startsWith('function Invoke-BoundedRole {') && !boundedRoleSource.includes('$LASTEXITCODE = $null') && boundedRoleSource.indexOf('$priorToken = $env:GH_TOKEN') < boundedRoleSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(boundedRoleSource) && boundedRoleSource.indexOf('codex.cmd exec') < boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') && boundedRoleSource.indexOf('$nativeExit = $LASTEXITCODE') < boundedRoleSource.indexOf('if ($null -eq $priorToken)') && terminalAgentSelectorSource.includes('$terminalMessage = [string]$event.item.text') && !terminalAgentSelectorSource.includes('$messages +=') && (process.platform !== 'win32' || (roleProviderNativeExitProbe.success === 0 && roleProviderNativeExitProbe.failure === 37 && roleProviderTerminalMessageProbe.multiple === roleImplementationResultBody && roleProviderTerminalMessageProbe.zeroRejected === true && malformedTerminalOutput.next_action === 'STOP' && trustedHostCredentialProbe.providerToken === 'ABSENT' && trustedHostCredentialProbe.restoredToken === 'trusted-host-token' && trustedHostCredentialProbe.validatedAction === 'POST_MERGE_DECISION' && trustedHostCredentialProbe.hostTokens.join('\n') === 'trusted-host-token\ntrusted-host-token')) && roleExecutionRun.indexOf('Invoke-BoundedRoleUntilTerminal -PromptFile $promptPath') < roleExecutionRun.indexOf('$validated = Assert-RoleOutput') && roleExecutionRun.indexOf('$validated = Assert-RoleOutput') < roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $dispatchPath') < roleExecutionRun.indexOf('$canonicalComment = Publish-CanonicalComment -BodyFile $bodyPath') && roleExecutionRun.split('Assert-FreshRoleBinding').length >= 8 && roleExecutionRun.includes("-Operation 'commit_push'") && roleExecutionRun.includes("-Operation 'publication_handoff'") && roleExecutionRun.includes("throw 'publication_continuation_task_binding_invalid'") && roleExecutionRun.includes("throw 'publication_continuation_route_failed'") && roleExecutionRun.includes("throw 'publication_continuation_binding_invalid'") && roleExecutionRun.includes("throw 'publication_reviewer_dispatch_not_ready'") && roleExecutionRun.indexOf("$reviewPlan = Get-Content -LiteralPath $reviewPlanPath") < roleExecutionRun.indexOf('$reviewTask = gh api') && roleExecutionRun.includes("$reviewTask.number -ne $dispatch.task_issue_number -or $reviewTask.state -cne 'open' -or $null -ne $reviewTask.pull_request") && roleExecutionRun.indexOf("throw 'publication_reviewer_task_binding_invalid'") < roleExecutionRun.indexOf('Invoke-BoundedRoleUntilTerminal -PromptFile $reviewPromptPath') && roleExecutionRun.indexOf('Assert-FreshRoleBinding -DispatchFile $reviewDispatchPath') < roleExecutionRun.indexOf('$publicationTask = gh api') && roleExecutionRun.includes("$publicationTask.number -ne $dispatch.task_issue_number -or $publicationTask.state -cne 'open' -or $null -ne $publicationTask.pull_request") && roleExecutionRun.indexOf('$publicationTask = gh api') < roleExecutionRun.indexOf('$canonicalReviewComment = Publish-CanonicalComment -BodyFile $reviewBodyPath') && !roleExecutionRun.includes('Assert-FreshReviewerSnapshot') && !roleExecutionRun.includes('review_thread_snapshot'),
   postRepairReviewJob.steps.find((step) => step.name === 'Bind post-repair Independent Reviewer')?.run.includes('task_state = $state') && postRepairExecutionStep?.env?.GH_TOKEN === '${{ github.token }}' && postRepairExecutionRun.includes('--role-rebind-file') && !postRepairExecutionRun.includes('--review-publication-rebind-file') && !postRepairExecutionRun.includes('--review-closure-file') && postRepairExecutionRun.includes('if ($nativeExit -ne 0) { throw "post_repair_review_provider_failed_$nativeExit" }') && postRepairExecutionRun.includes("if ($messages.Count -ne 1) { throw 'post_repair_review_result_cardinality_invalid' }") && postRepairProviderThroughRebindSource.indexOf('$priorToken = $env:GH_TOKEN') < postRepairProviderThroughRebindSource.indexOf('Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue') && /Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue\n\s+\$events = .*codex\.cmd exec/.test(postRepairProviderThroughRebindSource) && postRepairProviderThroughRebindSource.indexOf('codex.cmd exec') < postRepairProviderThroughRebindSource.indexOf('$nativeExit = $LASTEXITCODE') && postRepairProviderThroughRebindSource.indexOf('$nativeExit = $LASTEXITCODE') < postRepairProviderThroughRebindSource.indexOf('if ($null -eq $priorToken)') && postRepairProviderThroughRebindSource.indexOf('if ($null -eq $priorToken)') < postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-output-file') && postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-output-file') < postRepairProviderThroughRebindSource.indexOf('node $env:PTA_REVIEW_HOST_RUNNER --role-rebind-file') && postRepairExecutionRun.indexOf('if ($nativeExit -ne 0)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairExecutionRun.indexOf('if ($messages.Count -ne 1)') < postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_evidence_v1'") && postRepairEvidenceValidatorSource.includes("'independent_reviewer_role_output_failure_body_chunk_v1'") && postRepairEvidenceValidatorSource.includes('$sha256.ComputeHash($capturedBytes)') && !postRepairEvidenceValidatorSource.includes('post_repair') && postRepairExecutionRun.includes("$failureDispatch.next_action -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") && postRepairExecutionRun.indexOf('Get-ValidatedReviewerFailureEvidenceLines -Failure $failure -Dispatch $failureDispatch') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.indexOf('[Console]::Error.WriteLine($diagnosticLine)') < postRepairExecutionRun.indexOf("throw 'post_repair_review_result_invalid'") && postRepairExecutionRun.includes('$diagnosticLines = @()') && (process.platform !== 'win32' || (postRepairFailureEvidenceProbe.lineCount === reviewerFailureEvidence.chunks.length + 1 && postRepairFailureEvidenceProbe.headerRecordType === 'independent_reviewer_role_output_failure_evidence_v1' && postRepairFailureEvidenceProbe.chunkRecordTypesValid === true && postRepairFailureEvidenceProbe.invalidRejected === true && postRepairTrustedHostCredentialProbe.valid.providerToken === 'ABSENT' && postRepairTrustedHostCredentialProbe.valid.restoredToken === 'trusted-post-repair-host-token' && postRepairTrustedHostCredentialProbe.valid.outcome === 'COMPLETED' && postRepairTrustedHostCredentialProbe.valid.validatedAction === 'POST_REVIEW' && postRepairTrustedHostCredentialProbe.valid.reboundAction === 'PROTECTED_OPERATION_READY' && postRepairTrustedHostCredentialProbe.valid.hostCalls.length === 2 && postRepairTrustedHostCredentialProbe.valid.hostCalls.every((call) => call.startsWith('PRESENT:')) && postRepairTrustedHostCredentialProbe.valid.hostCalls[1].includes('--role-rebind-file') && postRepairTrustedHostCredentialProbe.invalid.providerToken === 'ABSENT' && postRepairTrustedHostCredentialProbe.invalid.restoredToken === 'trusted-post-repair-host-token' && postRepairTrustedHostCredentialProbe.invalid.outcome === 'post_repair_review_result_invalid' && postRepairTrustedHostCredentialProbe.invalid.validatedAction === null && postRepairTrustedHostCredentialProbe.invalid.reboundAction === null && postRepairTrustedHostCredentialProbe.invalid.hostCalls.length === 1 && postRepairTrustedHostCredentialProbe.invalid.hostCalls[0].startsWith('PRESENT:'))),
-  runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id') && runnerSource.includes("const ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'") && ['GITHUB_REPOSITORY', 'GITHUB_REF', 'GITHUB_WORKFLOW_REF', 'GITHUB_WORKFLOW_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_JOB'].every((name) => runnerSource.includes(`process.env.${name}`)) && runnerSource.includes('RESOLVE_REVIEW_THREAD_MUTATION') && !runnerSource.includes('executeReviewerPublicationRebindV1') && runnerSource.includes('executeReviewThreadClosureV1') && !runnerSource.includes("mode: 'review_publication_rebind'") && runnerSource.includes("mode: 'review_closure'") && runnerSource.match(/parseIndependentReviewDecisionProjectionV1/g)?.length === 8,
+  runnerSource.includes('verifyMergeDecisionGateV1') && runnerSource.includes("next_action: 'CONVERGED_NOOP'") && runnerSource.includes('result.authorizationCommentId === dispatch.source_comment_id') && runnerSource.includes("const ISSUE_COMMENT_SAME_RUN_REBIND_SELF_CHECK_CONTEXT_V1 = 'DETACHED_SAME_RUN_FAMILY_EXCLUDED'") && ['GITHUB_REPOSITORY', 'GITHUB_REF', 'GITHUB_WORKFLOW_REF', 'GITHUB_WORKFLOW_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_JOB'].every((name) => runnerSource.includes(`process.env.${name}`)) && runnerSource.includes('RESOLVE_REVIEW_THREAD_MUTATION') && !runnerSource.includes('executeReviewerPublicationRebindV1') && runnerSource.includes('executeReviewThreadClosureV1') && !runnerSource.includes("mode: 'review_publication_rebind'") && runnerSource.includes("mode: 'review_closure'") && runnerSource.match(/parseIndependentReviewDecisionProjectionV1/g)?.length === 6,
 manualWorkflowDispatchResult.state === 'MERGE_ELIGIBLE' && manualWorkflowDispatchResult.allowed === false && manualWorkflowDispatchResult.next_action === 'PRODUCT_OWNER_IMPLEMENTATION_LEAD' && manualWorkflowDispatchResult.automation_status === 'HANDOFF_READY' && manualWorkflowDispatchResult.role_dispatch?.purpose === 'MERGE_DECISION' && manualWorkflowDispatchAdmission.metrics.checkReads === 2 && manualWorkflowDispatchAdmission.metrics.threadReads === 1 && mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR' && (needs.protected_transition_admission_v1.outputs.terminal_result == 'MERGE_ALLOWED' || needs.protected_transition_admission_v1.outputs.terminal_result == 'MINIMAL_GOVERNANCE_V1')" && mergeOperationRun.includes('--merge-operator-file $dispatchPath') && mergeOperationRun.indexOf('--merge-operator-file $dispatchPath') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.includes("merge_method = 'merge'") && !mergeOperationRun.includes('--force') && !workflowSource.includes('gh workflow run') && !runnerSource.includes('createWorkflowDispatch') && runnerSource.includes('acquireMergeCheckRollupSnapshotV1') && runnerSource.includes('acquireMergeReviewThreadsV1') && runnerSource.includes('executeProtectedTransitionAdmissionV1'),
   admissionJob.outputs.authority_kind === '${{ steps.evaluate.outputs.authority_kind }}' && admissionJob.outputs.minimal_merge_plan_b64 === '${{ steps.evaluate.outputs.minimal_merge_plan_b64 }}' && (admissionEvaluationRun.match(/--review-event-file/g) ?? []).length === 1 && !Object.hasOwn(mergeHostRunnerStep, 'if') && mergePlanRun.includes("if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1')") && mergePlanRun.indexOf("if ($env:MERGE_TERMINAL_RESULT -ceq 'MINIMAL_GOVERNANCE_V1')") < mergePlanRun.indexOf('node $env:PTA_MERGE_HOST_RUNNER') && (mergeOperationRun.match(/--minimal-governance-drift-guard-file/g) ?? []).length === 1 && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT') && mergeOperationRun.indexOf('minimal_governance_final_drift_guard_matched') < mergeOperationRun.indexOf('--method PUT') && (workflowSource.match(/--method PUT/g) ?? []).length === 1 && !workflowSource.includes('Start-Sleep') && !mergePlanRun.includes('retry') && !mergeOperationRun.includes('retry'),
   workflow.permissions.actions === 'read' && minimalWorkflowProjectionOwnerSourceV1.includes("FULL_HEAD.test(snapshot.pull?.base ?? '')") && !minimalWorkflowProjectionOwnerSourceV1.includes('snapshot.pull?.base !== plan.expected_base') && minimalWorkflowProjectionOwnerSourceV1.includes("FULL_HEAD.test(plan.expected_base ?? '')") && mergeOperationRun.indexOf('--minimal-governance-drift-guard-file') < mergeOperationRun.indexOf('--method PUT'),
@@ -11215,15 +11186,13 @@ const readyResumeResultV1 = await executeReadyTransitionRequiredResumeV1({
 })
 check(
   workflow.on.workflow_dispatch.inputs.transition.options.join('|') ===
-    'terminal_review_admission|merge_decision_admission|ready_transition_required_resume|merge_decision_successor_resume|draft_return_required_resume|ready_review_terminal_observation_resume' &&
+    'terminal_review_admission|merge_decision_admission|ready_transition_required_resume|merge_decision_successor_resume' &&
   workflow.on.workflow_dispatch.inputs.review_decision_comment_id.required === false &&
   workflow.on.workflow_dispatch.inputs.publication_handoff_comment_id.required === false &&
-  workflow.on.workflow_dispatch.inputs.draft_return_authority_comment_id.required === false &&
-  workflow.on.workflow_dispatch.inputs.terminal_observation_authority_comment_id.required === false &&
   workflowSource.includes('--workflow-dispatch-argument-projection') &&
   workflowSource.includes('"${dispatch_args[@]}"') &&
   !workflowSource.includes('repository_dispatch'),
-  'BRI-01 workflow preserves Ready successor routing and adds only the bounded Draft Return authority ingress',
+  'BRI-01 workflow exposes only the bounded Ready successor transition and its two optional-at-schema runtime-bound owner IDs',
 )
 check(
   readyResumeResultV1.next_action === 'INTEGRATED_LEAD_READY_REVIEW' &&
@@ -11700,540 +11669,6 @@ check(
   progressRoleSource.includes("if ($terminalAgentMessage.Trim() -cne 'IN_PROGRESS') { return }") &&
   prePrWorkflowBlock.includes('$null = Publish-CanonicalComment -BodyFile $finalBodyPath') && prePrWorkflowBlock.includes('exit 0'),
   'RAB-10 natural ready_for_review, IN_PROGRESS, and Result Handoff continuation ownership remain unchanged',
-)
-
-const DRAFT_RETURN_TASK = 415
-const DRAFT_RETURN_PR = 416
-const DRAFT_RETURN_HEAD = 'd'.repeat(40)
-const PRIOR_READY_HEAD = 'e'.repeat(40)
-const DRAFT_RETURN_AUTHORITY_ID = 6100000001
-const DRAFT_RETURN_AUTHORITY_SOURCE_ID = 6100000002
-const PRIOR_READY_COMPLETION_ID = 6100000003
-const PRIOR_READY_AUTHORITY_ID = 6100000004
-const DRAFT_RETURN_COMPLETION_ID = 6100000005
-const DRAFT_RETURN_TASK_URL = `https://github.com/${REPOSITORY}/issues/${DRAFT_RETURN_TASK}`
-const DRAFT_RETURN_AUTHORITY_URL = `${DRAFT_RETURN_TASK_URL}#issuecomment-${DRAFT_RETURN_AUTHORITY_ID}`
-const PRIOR_READY_COMPLETION_URL = `${DRAFT_RETURN_TASK_URL}#issuecomment-${PRIOR_READY_COMPLETION_ID}`
-const DRAFT_RETURN_COMPLETION_URL = `${DRAFT_RETURN_TASK_URL}#issuecomment-${DRAFT_RETURN_COMPLETION_ID}`
-const DRAFT_RETURN_WORKFLOW_HEAD = 'f'.repeat(40)
-const DRAFT_RETURN_RECOVERY_RUN_ID = '33100000001'
-const DRAFT_RETURN_REPLAY_RUN_ID = '33100000002'
-const DRAFT_RETURN_UNRELATED_RUN_ID = '33100000003'
-const draftReturnExecutionV1 = Object.freeze({
-  run_id: REVIEW_RUN_ID,
-  run_attempt: 1,
-  workflow_sha: DRAFT_RETURN_WORKFLOW_HEAD,
-  job_name: 'protected_transition_admission_v1',
-})
-const draftReturnRequestV1 = (overrides = {}) => Object.freeze({
-  transition: 'draft_return_required_resume',
-  repository: REPOSITORY,
-  taskIssueNumber: DRAFT_RETURN_TASK,
-  prNumber: DRAFT_RETURN_PR,
-  exactHead: DRAFT_RETURN_HEAD,
-  reviewDecisionCommentId: null,
-  publicationHandoffCommentId: null,
-  mergeDecisionCommentId: null,
-  draftReturnAuthorityCommentId: DRAFT_RETURN_AUTHORITY_ID,
-  ...overrides,
-})
-const draftReturnAuthorityBodyV1 = (overrides = {}) => projectDraftReturnAuthorityBodyV1({
-  repository: REPOSITORY,
-  taskIssueNumber: DRAFT_RETURN_TASK,
-  prNumber: DRAFT_RETURN_PR,
-  exactHead: DRAFT_RETURN_HEAD,
-  authorityCommentId: DRAFT_RETURN_AUTHORITY_ID,
-  authoritySourceCommentId: DRAFT_RETURN_AUTHORITY_SOURCE_ID,
-  priorReadyCompletionCommentId: PRIOR_READY_COMPLETION_ID,
-  priorReadyHead: PRIOR_READY_HEAD,
-  ...overrides,
-})
-const priorReadyCompletionBodyV1 = (overrides = {}) => {
-  const values = {
-    record_type: 'protected_action_completion',
-    canonical_task: `#${DRAFT_RETURN_TASK}`,
-    action: 'ready_for_review',
-    repository: REPOSITORY,
-    pull_request: `#${DRAFT_RETURN_PR}`,
-    exact_head: PRIOR_READY_HEAD,
-    authority: `${DRAFT_RETURN_TASK_URL}#issuecomment-${PRIOR_READY_AUTHORITY_ID}`,
-    before_state: 'DRAFT',
-    after_state: 'READY',
-    transition_count: 1,
-    result: 'COMPLETED',
-    ...overrides,
-  }
-  return `## Ready Transition Completion\n\n${Object.entries(values).map(([key, value]) => `- ${key}: \`${value}\``).join('\n')}\n`
-}
-const draftReturnActionV1 = Object.freeze({
-  repository: REPOSITORY,
-  task_issue_number: DRAFT_RETURN_TASK,
-  pr_number: DRAFT_RETURN_PR,
-  exact_head: DRAFT_RETURN_HEAD,
-  action: 'RETURN_TO_DRAFT',
-  method: 'convertPullRequestToDraft',
-  operation_count: 1,
-  authority_comment_id: DRAFT_RETURN_AUTHORITY_ID,
-  authority_url: DRAFT_RETURN_AUTHORITY_URL,
-  authority_body_sha256: createHash('sha256').update(Buffer.from(draftReturnAuthorityBodyV1(), 'utf8')).digest('hex'),
-  authority_created_at: '2026-08-28T00:00:00Z',
-  prior_ready_completion_comment_id: PRIOR_READY_COMPLETION_ID,
-  prior_ready_completion_url: PRIOR_READY_COMPLETION_URL,
-  prior_ready_head: PRIOR_READY_HEAD,
-  scope_contract_source: DRAFT_RETURN_TASK_URL,
-})
-const draftReturnOperationEvidenceV1 = Object.freeze({
-  source: `https://github.com/${REPOSITORY}/actions/runs/${REVIEW_RUN_ID}/attempts/1#draft-return-operator`,
-  sha256: 'a'.repeat(64),
-})
-const draftReturnCommentV1 = ({
-  id, body, htmlUrl = `${DRAFT_RETURN_TASK_URL}#issuecomment-${id}`,
-  user = Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
-}) => Object.freeze({
-  id,
-  issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${DRAFT_RETURN_TASK}`,
-  html_url: htmlUrl,
-  created_at: '2026-08-28T00:00:00Z',
-  author_association: user.login === 'github-actions[bot]' ? 'NONE' : 'OWNER',
-  user,
-  body,
-})
-const draftReturnHostV1 = ({
-  authorityBody = draftReturnAuthorityBodyV1(), priorReadyBody = priorReadyCompletionBodyV1(),
-  authorityUser = Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
-  omitAuthority = false, omitPriorReady = false, before = {}, after = {}, mutationRejects = false,
-  refetchRejects = false, completionPublishRejects = false, completionRefetchMismatch = false,
-  consumed = false, malformedCompletion = false, trustedCompletion = false,
-  durableTerminals = Object.freeze([]), completionTerminal = null,
-} = {}) => {
-  const metrics = { authorityReads: 0, priorReadyReads: 0, historyReads: 0, pulls: 0, mutations: 0, posts: 0, patches: 0, completionReads: 0 }
-  let publishedBody = null
-  const completionBody = projectDraftReturnCompletionBodyV1({
-    action: draftReturnActionV1, completionCommentId: DRAFT_RETURN_COMPLETION_ID,
-    publisherExecution: completionTerminal?.execution ?? draftReturnExecutionV1,
-    operationEvidence: completionTerminal?.operation_evidence ?? draftReturnOperationEvidenceV1,
-  })
-  const historyBody = malformedCompletion ? '```yaml\nrecord_type: draft_return_completion_v1\ninvalid: true\n```' : completionBody
-  const pull = (overrides) => Object.freeze({
-    id: 'PR_kwDODraftReturnOwnerV1', number: DRAFT_RETURN_PR, headRefOid: DRAFT_RETURN_HEAD,
-    baseRefName: 'main', state: 'OPEN', isDraft: false, merged: false, ...overrides,
-  })
-  return Object.freeze({
-    metrics,
-    host: Object.freeze({
-      api: async (endpoint, options = undefined) => {
-        if (endpoint === `repos/${REPOSITORY}/issues/${DRAFT_RETURN_TASK}`) return Object.freeze({
-          number: DRAFT_RETURN_TASK,
-          repository_url: `https://api.github.com/repos/${REPOSITORY}`,
-          html_url: DRAFT_RETURN_TASK_URL,
-          state: 'open',
-        })
-        if (endpoint === `repos/${REPOSITORY}/issues/comments/${DRAFT_RETURN_AUTHORITY_ID}`) {
-          metrics.authorityReads += 1
-          if (omitAuthority) throw new Error('draft_return_authority_missing')
-          return draftReturnCommentV1({ id: DRAFT_RETURN_AUTHORITY_ID, body: authorityBody, user: authorityUser })
-        }
-        if (endpoint === `repos/${REPOSITORY}/issues/comments/${PRIOR_READY_COMPLETION_ID}`) {
-          metrics.priorReadyReads += 1
-          if (omitPriorReady) throw new Error('draft_return_prior_ready_completion_missing')
-          return draftReturnCommentV1({ id: PRIOR_READY_COMPLETION_ID, body: priorReadyBody })
-        }
-        if (endpoint.startsWith(`repos/${REPOSITORY}/issues/${DRAFT_RETURN_TASK}/comments?`)) {
-          metrics.historyReads += 1
-          return consumed || malformedCompletion
-            ? [draftReturnCommentV1({
-                id: DRAFT_RETURN_COMPLETION_ID, body: historyBody,
-                user: trustedCompletion || malformedCompletion
-                  ? Object.freeze({ login: 'github-actions[bot]', id: 41898282, type: 'Bot' })
-                  : Object.freeze({ login: 'lookalike-reviewer', id: 77, type: 'User' }),
-              })]
-            : []
-        }
-        if (endpoint === `repos/${REPOSITORY}/issues/${DRAFT_RETURN_TASK}/comments` && options?.method === 'POST') {
-          metrics.posts += 1
-          if (completionPublishRejects) throw new Error('post_failed')
-          return draftReturnCommentV1({
-            id: DRAFT_RETURN_COMPLETION_ID, body: options.body.body,
-            user: Object.freeze({ login: 'github-actions[bot]', id: 41898282, type: 'Bot' }),
-          })
-        }
-        if (endpoint === `repos/${REPOSITORY}/issues/comments/${DRAFT_RETURN_COMPLETION_ID}` && options?.method === 'PATCH') {
-          metrics.patches += 1
-          if (completionPublishRejects) throw new Error('patch_failed')
-          publishedBody = options.body.body
-          return draftReturnCommentV1({
-            id: DRAFT_RETURN_COMPLETION_ID, body: publishedBody,
-            user: Object.freeze({ login: 'github-actions[bot]', id: 41898282, type: 'Bot' }),
-          })
-        }
-        if (endpoint === `repos/${REPOSITORY}/issues/comments/${DRAFT_RETURN_COMPLETION_ID}`) {
-          metrics.completionReads += 1
-          return draftReturnCommentV1({
-            id: DRAFT_RETURN_COMPLETION_ID,
-            body: completionRefetchMismatch ? `${publishedBody}\nchanged` : (publishedBody ?? historyBody),
-            user: Object.freeze({ login: 'github-actions[bot]', id: 41898282, type: 'Bot' }),
-          })
-        }
-        if (endpoint.startsWith(`repos/${REPOSITORY}/actions/workflows/protected-transition-admission-v1.yml/runs?`)) {
-          const failed = durableTerminals.filter((terminal) => terminal.exit_code === 1)
-          return Object.freeze({
-            total_count: failed.length,
-            workflow_runs: Object.freeze(failed.map((terminal) => Object.freeze({
-              id: Number(terminal.execution.run_id), event: 'workflow_dispatch', status: 'completed',
-              conclusion: 'failure', created_at: '2026-08-28T00:01:00Z',
-            }))),
-          })
-        }
-        const runMatch = new RegExp(`^repos/${REPOSITORY}/actions/runs/([1-9][0-9]*)$`).exec(endpoint)
-        if (runMatch !== null) {
-          const terminal = durableTerminals.find((item) => item.execution.run_id === runMatch[1])
-          if (terminal === undefined) throw new Error('durable_run_missing')
-          const conclusion = terminal.exit_code === 0 ? 'success' : 'failure'
-          return Object.freeze({
-            id: Number(runMatch[1]), run_attempt: terminal.execution.run_attempt, workflow_id: 327818524,
-            repository: Object.freeze({ full_name: REPOSITORY }),
-            path: '.github/workflows/protected-transition-admission-v1.yml', event: 'workflow_dispatch',
-            status: 'completed', conclusion, head_branch: 'main', head_sha: terminal.execution.workflow_sha,
-            url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${runMatch[1]}`,
-            html_url: `https://github.com/${REPOSITORY}/actions/runs/${runMatch[1]}`,
-            created_at: '2026-08-28T00:01:00Z',
-          })
-        }
-        const jobsMatch = new RegExp(`^repos/${REPOSITORY}/actions/runs/([1-9][0-9]*)/jobs\\?per_page=100$`).exec(endpoint)
-        if (jobsMatch !== null) {
-          const terminal = durableTerminals.find((item) => item.execution.run_id === jobsMatch[1])
-          if (terminal === undefined) throw new Error('durable_jobs_missing')
-          const conclusion = terminal.exit_code === 0 ? 'success' : 'failure'
-          const jobId = `${jobsMatch[1]}1`
-          const checkId = `${jobsMatch[1]}2`
-          return Object.freeze({ total_count: 1, jobs: Object.freeze([Object.freeze({
-            id: Number(jobId), run_id: Number(jobsMatch[1]), run_attempt: terminal.execution.run_attempt,
-            name: 'protected_transition_admission_v1', head_sha: terminal.execution.workflow_sha,
-            status: 'completed', conclusion,
-            url: `https://api.github.com/repos/${REPOSITORY}/actions/jobs/${jobId}`,
-            html_url: `https://github.com/${REPOSITORY}/actions/runs/${jobsMatch[1]}/job/${jobId}`,
-            check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/${checkId}`,
-          })]) })
-        }
-        const checkMatch = new RegExp(`^repos/${REPOSITORY}/check-runs/([1-9][0-9]*)$`).exec(endpoint)
-        if (checkMatch !== null) {
-          const terminal = durableTerminals.find((item) => `${item.execution.run_id}2` === checkMatch[1])
-          if (terminal === undefined) throw new Error('durable_check_missing')
-          const jobId = `${terminal.execution.run_id}1`
-          return Object.freeze({
-            app: Object.freeze({ id: 15368 }), status: 'completed',
-            conclusion: terminal.exit_code === 0 ? 'success' : 'failure',
-            details_url: `https://github.com/${REPOSITORY}/actions/runs/${terminal.execution.run_id}/job/${jobId}`,
-          })
-        }
-        throw new Error(`unexpected_endpoint:${endpoint}`)
-      },
-      graphql: async (query) => {
-        if (query.includes('query ReadyTransitionPull')) {
-          metrics.pulls += 1
-          if (refetchRejects && metrics.pulls > 1) throw new Error('refetch_failed')
-          return Object.freeze({ repository: Object.freeze({
-            nameWithOwner: REPOSITORY,
-            pullRequest: metrics.pulls === 1 ? pull(before) : pull({ isDraft: true, ...after }),
-          }) })
-        }
-        if (query.includes('mutation ConvertPullRequestToDraft')) {
-          metrics.mutations += 1
-          if (mutationRejects) throw new Error('draft_mutation_rejected')
-          return Object.freeze({ convertPullRequestToDraft: Object.freeze({ clientMutationId: null }) })
-        }
-        throw new Error('unexpected_graphql')
-      },
-      apiBytes: async (endpoint) => {
-        const match = new RegExp(`^repos/${REPOSITORY}/actions/jobs/([1-9][0-9]*)/logs$`).exec(endpoint)
-        if (match === null) throw new Error(`unexpected_bytes_endpoint:${endpoint}`)
-        const terminal = durableTerminals.find((item) => `${item.execution.run_id}1` === match[1])
-        if (terminal === undefined) throw new Error('durable_log_missing')
-        return Buffer.from(`${JSON.stringify(terminal)}\n`, 'utf8')
-      },
-    }),
-  })
-}
-
-const executeDraftReturnFixtureV1 = (values) => executeDraftReturnOperatorV1({
-  runId: REVIEW_RUN_ID,
-  runAttempt: 1,
-  hostSha: DRAFT_RETURN_WORKFLOW_HEAD,
-  jobName: 'protected_transition_admission_v1',
-  ...values,
-})
-
-const parsedDraftReturnAuthorityV1 = parseDraftReturnAuthorityV1(
-  draftReturnAuthorityBodyV1(), REPOSITORY, DRAFT_RETURN_TASK,
-)
-const parsedPriorReadyCompletionV1 = parseProtectedReadyCompletionV1(
-  priorReadyCompletionBodyV1(), REPOSITORY, DRAFT_RETURN_TASK,
-)
-check(
-  parsedDraftReturnAuthorityV1.authority_comment_id === DRAFT_RETURN_AUTHORITY_ID &&
-  parsedDraftReturnAuthorityV1.prior_ready_completion_comment_id === PRIOR_READY_COMPLETION_ID &&
-  parsedDraftReturnAuthorityV1.prior_ready_head === PRIOR_READY_HEAD &&
-  parsedPriorReadyCompletionV1.pr_number === DRAFT_RETURN_PR && parsedPriorReadyCompletionV1.exact_head === PRIOR_READY_HEAD,
-  'DRT-01 exact Draft Return authority and historical Ready completion contracts parse deterministically',
-)
-const admittedDraftReturnFixtureV1 = draftReturnHostV1()
-const admittedDraftReturnActionV1 = await admitDraftReturnAuthorityV1({
-  request: draftReturnRequestV1(), host: admittedDraftReturnFixtureV1.host,
-})
-check(
-  JSON.stringify(admittedDraftReturnActionV1) === JSON.stringify(draftReturnActionV1) &&
-  admittedDraftReturnFixtureV1.metrics.mutations === 0,
-  'DRT-02 exact authority current HEAD and historical different-HEAD Ready completion bind before mutation',
-)
-const draftReturnSuccessFixtureV1 = draftReturnHostV1()
-const draftReturnSuccessV1 = await executeDraftReturnFixtureV1({
-  request: draftReturnRequestV1(), host: draftReturnSuccessFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
-})
-check(
-  draftReturnSuccessV1.state === 'COMPLETED' && draftReturnSuccessV1.next_action === 'NONE' &&
-  draftReturnSuccessV1.mutation_count === 1 && draftReturnSuccessFixtureV1.metrics.mutations === 1 &&
-  draftReturnSuccessFixtureV1.metrics.pulls === 2 && draftReturnSuccessFixtureV1.metrics.posts === 1 &&
-  draftReturnSuccessFixtureV1.metrics.patches === 1 && draftReturnSuccessV1.completion.url === DRAFT_RETURN_COMPLETION_URL,
-  'DRT-03 Ready PR changed HEAD plus valid exact authority performs one Draft mutation and records completion',
-)
-const parsedDraftReturnCompletionV1 = parseDraftReturnCompletionV1(
-  projectDraftReturnCompletionBodyV1({
-    action: draftReturnActionV1, completionCommentId: DRAFT_RETURN_COMPLETION_ID,
-    publisherExecution: draftReturnExecutionV1, operationEvidence: draftReturnOperationEvidenceV1,
-  }),
-  REPOSITORY, DRAFT_RETURN_TASK,
-)
-check(
-  parsedDraftReturnCompletionV1.exact_head === DRAFT_RETURN_HEAD &&
-  parsedDraftReturnCompletionV1.authority_comment_id === DRAFT_RETURN_AUTHORITY_ID &&
-  parsedDraftReturnCompletionV1.prior_ready_completion_comment_id === PRIOR_READY_COMPLETION_ID,
-  'DRT-04 completion preserves exact HEAD authority and historical Ready identity',
-)
-const wrongHeadDraftReturnFixtureV1 = draftReturnHostV1()
-const wrongHeadDraftReturnV1 = await executeDraftReturnFixtureV1({
-  request: draftReturnRequestV1({ exactHead: OTHER_HEAD }), host: wrongHeadDraftReturnFixtureV1.host,
-  runId: REVIEW_RUN_ID, runAttempt: 1,
-})
-check(
-  wrongHeadDraftReturnV1.next_action === 'STOP' && wrongHeadDraftReturnV1.mutation_count === 0 &&
-  wrongHeadDraftReturnFixtureV1.metrics.mutations === 0 && wrongHeadDraftReturnFixtureV1.metrics.pulls === 0,
-  'DRT-05 wrong exact HEAD stops before mutation',
-)
-for (const [index, before] of [
-  { isDraft: true }, { state: 'CLOSED' }, { state: 'MERGED', merged: true },
-].entries()) {
-  const fixture = draftReturnHostV1({ before })
-  const result = await executeDraftReturnFixtureV1({
-    request: draftReturnRequestV1(), host: fixture.host, runId: REVIEW_RUN_ID, runAttempt: 1,
-  })
-  check(
-    result.reason === (index === 0 ? 'draft_return_recovery_evidence_missing' : 'draft_return_pull_guard_failed') &&
-    result.mutation_count === 0 && fixture.metrics.mutations === 0,
-    `DRT-0${index + 6} Draft, closed, and merged guards each stop before mutation case ${index + 1}`,
-  )
-}
-for (const [index, fixture] of [
-  draftReturnHostV1({ omitAuthority: true }),
-  draftReturnHostV1({ authorityBody: draftReturnAuthorityBodyV1({ exactHead: OTHER_HEAD }) }),
-  draftReturnHostV1({ omitPriorReady: true }),
-  draftReturnHostV1({ authorityUser: Object.freeze({ login: 'collaborator', id: 99, type: 'User' }) }),
-].entries()) {
-  const result = await executeDraftReturnFixtureV1({
-    request: draftReturnRequestV1(), host: fixture.host, runId: REVIEW_RUN_ID, runAttempt: 1,
-  })
-  check(
-    result.next_action === 'STOP' && result.mutation_count === 0 && fixture.metrics.mutations === 0,
-    `DRT-${String(index + 9).padStart(2, '0')} missing stale unprovable or wrong-actor authority stops before mutation case ${index + 1}`,
-  )
-}
-const consumedDraftReturnFixtureV1 = draftReturnHostV1({ consumed: true })
-const consumedDraftReturnV1 = await executeDraftReturnFixtureV1({
-  request: draftReturnRequestV1(), host: consumedDraftReturnFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
-})
-check(
-  consumedDraftReturnV1.reason === 'draft_return_completed' && consumedDraftReturnV1.mutation_count === 1 &&
-  consumedDraftReturnFixtureV1.metrics.mutations === 1,
-  'DRT-12 unauthenticated completion lookalike cannot consume Draft Return authority',
-)
-const malformedHistoryFixtureV1 = draftReturnHostV1({ malformedCompletion: true })
-const malformedHistoryResultV1 = await executeDraftReturnFixtureV1({
-  request: draftReturnRequestV1(), host: malformedHistoryFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
-})
-check(
-  malformedHistoryResultV1.reason === 'draft_return_completion_history_invalid' && malformedHistoryResultV1.mutation_count === 0,
-  'DRT-13 malformed completion history fails closed before mutation',
-)
-const mutationFailureFixtureV1 = draftReturnHostV1({ mutationRejects: true })
-const mutationFailureResultV1 = await executeDraftReturnFixtureV1({
-  request: draftReturnRequestV1(), host: mutationFailureFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
-})
-check(
-  mutationFailureResultV1.reason === 'draft_return_mutation_failed' && mutationFailureResultV1.mutation_count === 1 &&
-  mutationFailureFixtureV1.metrics.mutations === 1 && mutationFailureFixtureV1.metrics.pulls === 1,
-  'DRT-14 rejected mutation stops with one attempt and no retry',
-)
-const refetchFailureFixtureV1 = draftReturnHostV1({ refetchRejects: true })
-const refetchFailureResultV1 = await executeDraftReturnFixtureV1({
-  request: draftReturnRequestV1(), host: refetchFailureFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
-})
-check(
-  refetchFailureResultV1.reason === 'draft_return_refetch_failed' && refetchFailureResultV1.mutation_count === 1,
-  'DRT-15 mutation followed by unavailable refetch fails closed',
-)
-for (const [index, after] of [
-  { isDraft: false }, { headRefOid: OTHER_HEAD },
-].entries()) {
-  const fixture = draftReturnHostV1({ after })
-  const result = await executeDraftReturnFixtureV1({
-    request: draftReturnRequestV1(), host: fixture.host, runId: REVIEW_RUN_ID, runAttempt: 1,
-  })
-  check(
-    result.reason === 'draft_return_refetch_mismatch' && result.mutation_count === 1 && fixture.metrics.posts === 0,
-    `DRT-${index + 16} non-Draft or changed-HEAD after-state fails closed without completion publication case ${index + 1}`,
-  )
-}
-const completionFailureFixtureV1 = draftReturnHostV1({ completionPublishRejects: true })
-const completionFailureResultV1 = await executeDraftReturnFixtureV1({
-  request: draftReturnRequestV1(), host: completionFailureFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
-})
-const completionRefetchMismatchFixtureV1 = draftReturnHostV1({ completionRefetchMismatch: true })
-const completionRefetchMismatchResultV1 = await executeDraftReturnFixtureV1({
-  request: draftReturnRequestV1(), host: completionRefetchMismatchFixtureV1.host, runId: REVIEW_RUN_ID, runAttempt: 1,
-})
-check(
-  completionFailureResultV1.reason === 'draft_return_completion_publish_failed' && completionFailureResultV1.mutation_count === 1 &&
-  completionFailureResultV1.state === 'RECOVERY_REQUIRED' && completionFailureResultV1.operation_consumed === true &&
-  completionFailureResultV1.completion_recorded === false && completionFailureFixtureV1.metrics.mutations === 1 &&
-  completionRefetchMismatchResultV1.reason === 'draft_return_completion_publish_failed' &&
-  completionRefetchMismatchResultV1.mutation_count === 1,
-  'DRT-18 completion publication or direct-refetch mismatch remains fail-closed after the sole Draft mutation',
-)
-const unrelatedDraftReturnFailureV1 = Object.freeze({
-  ...completionFailureResultV1,
-  execution: Object.freeze({ ...completionFailureResultV1.execution, run_id: DRAFT_RETURN_UNRELATED_RUN_ID }),
-  draft_return_action: Object.freeze({
-    ...completionFailureResultV1.draft_return_action,
-    authority_comment_id: DRAFT_RETURN_AUTHORITY_ID + 100,
-  }),
-})
-const recoveryFixtureV1 = draftReturnHostV1({
-  before: Object.freeze({ isDraft: true }),
-  durableTerminals: Object.freeze([unrelatedDraftReturnFailureV1, completionFailureResultV1]),
-})
-const recoveredDraftReturnV1 = await executeDraftReturnFixtureV1({
-  request: draftReturnRequestV1(), host: recoveryFixtureV1.host,
-  runId: DRAFT_RETURN_RECOVERY_RUN_ID,
-})
-check(
-  recoveredDraftReturnV1.reason === 'draft_return_completion_recovered' && recoveredDraftReturnV1.state === 'COMPLETED' &&
-  recoveredDraftReturnV1.mutation_count === 0 && recoveredDraftReturnV1.operation_consumed === true &&
-  recoveredDraftReturnV1.completion_recorded === true && recoveryFixtureV1.metrics.mutations === 0 &&
-  recoveredDraftReturnV1.operation_evidence.sha256 === completionFailureResultV1.operation_evidence.sha256,
-  'DRT-19 authenticated durable state B evidence ignores other authorities, publishes only the missing completion, and never repeats Draft mutation',
-)
-const authenticatedConsumedFixtureV1 = draftReturnHostV1({
-  consumed: true,
-  trustedCompletion: true,
-  completionTerminal: recoveredDraftReturnV1,
-  durableTerminals: Object.freeze([completionFailureResultV1, recoveredDraftReturnV1]),
-})
-const authenticatedConsumedV1 = await executeDraftReturnFixtureV1({
-  request: draftReturnRequestV1(), host: authenticatedConsumedFixtureV1.host,
-  runId: DRAFT_RETURN_REPLAY_RUN_ID,
-})
-check(
-  authenticatedConsumedV1.reason === 'draft_return_authority_consumed' &&
-  authenticatedConsumedV1.operation_consumed === true && authenticatedConsumedV1.completion_recorded === true &&
-  authenticatedConsumedV1.mutation_count === 0 && authenticatedConsumedFixtureV1.metrics.mutations === 0,
-  'DRT-20 authenticated self-bound completion plus operation and publisher runs makes authority single-use',
-)
-const normalAuthenticatedConsumedFixtureV1 = draftReturnHostV1({
-  consumed: true,
-  trustedCompletion: true,
-  completionTerminal: draftReturnSuccessV1,
-  durableTerminals: Object.freeze([draftReturnSuccessV1]),
-})
-const normalAuthenticatedConsumedV1 = await executeDraftReturnFixtureV1({
-  request: draftReturnRequestV1(), host: normalAuthenticatedConsumedFixtureV1.host,
-  runId: DRAFT_RETURN_REPLAY_RUN_ID,
-})
-check(
-  normalAuthenticatedConsumedV1.reason === 'draft_return_authority_consumed' &&
-  normalAuthenticatedConsumedV1.operation_consumed === true && normalAuthenticatedConsumedV1.completion_recorded === true &&
-  normalAuthenticatedConsumedFixtureV1.metrics.mutations === 0,
-  'DRT-21 normal state C completion authenticates its exact successful operation run before consumption',
-)
-const uncertainResponseCompletedFixtureV1 = draftReturnHostV1({
-  consumed: true,
-  trustedCompletion: true,
-  completionTerminal: completionFailureResultV1,
-  durableTerminals: Object.freeze([completionFailureResultV1]),
-})
-const uncertainResponseCompletedV1 = await executeDraftReturnFixtureV1({
-  request: draftReturnRequestV1(), host: uncertainResponseCompletedFixtureV1.host,
-  runId: DRAFT_RETURN_REPLAY_RUN_ID,
-})
-check(
-  uncertainResponseCompletedV1.reason === 'draft_return_authority_consumed' &&
-  uncertainResponseCompletedV1.operation_consumed === true && uncertainResponseCompletedV1.completion_recorded === true &&
-  uncertainResponseCompletedFixtureV1.metrics.mutations === 0,
-  'DRT-22 a canonical completion that survived an uncertain publication response closes state C without mutation replay',
-)
-const recoveryPublicationFailureFixtureV1 = draftReturnHostV1({
-  before: Object.freeze({ isDraft: true }),
-  durableTerminals: Object.freeze([completionFailureResultV1]),
-  completionPublishRejects: true,
-})
-const recoveryPublicationFailureV1 = await executeDraftReturnFixtureV1({
-  request: draftReturnRequestV1(), host: recoveryPublicationFailureFixtureV1.host,
-  runId: DRAFT_RETURN_RECOVERY_RUN_ID,
-})
-check(
-  recoveryPublicationFailureV1.reason === 'draft_return_completion_publish_failed' &&
-  recoveryPublicationFailureV1.state === 'RECOVERY_REQUIRED' && recoveryPublicationFailureV1.mutation_count === 0 &&
-  recoveryPublicationFailureV1.operation_consumed === true && recoveryPublicationFailureV1.completion_recorded === false &&
-  recoveryPublicationFailureFixtureV1.metrics.mutations === 0,
-  'DRT-23 repeated completion-publication failure preserves state B and never repeats the protected mutation',
-)
-const tamperedCompletionTerminalV1 = Object.freeze({
-  ...recoveredDraftReturnV1,
-  operation_evidence: Object.freeze({
-    ...recoveredDraftReturnV1.operation_evidence,
-    sha256: '0'.repeat(64),
-  }),
-})
-const tamperedCompletionFixtureV1 = draftReturnHostV1({
-  consumed: true,
-  trustedCompletion: true,
-  completionTerminal: tamperedCompletionTerminalV1,
-  durableTerminals: Object.freeze([completionFailureResultV1, recoveredDraftReturnV1]),
-})
-const tamperedCompletionResultV1 = await executeDraftReturnFixtureV1({
-  request: draftReturnRequestV1(), host: tamperedCompletionFixtureV1.host,
-  runId: DRAFT_RETURN_REPLAY_RUN_ID,
-})
-check(
-  tamperedCompletionResultV1.reason === 'draft_return_completion_history_invalid' &&
-  tamperedCompletionResultV1.mutation_count === 0 && tamperedCompletionFixtureV1.metrics.mutations === 0,
-  'DRT-24 completion digest tampering fails closed before consumed or resume classification',
-)
-const draftReturnOperatorSourceV1 = runnerSource.slice(
-  runnerSource.indexOf('export const executeDraftReturnOperatorV1'),
-  runnerSource.indexOf('\nconst READY_TRANSITION_RESULT_FIELDS_V1'),
-)
-check(
-  (draftReturnOperatorSourceV1.match(/CONVERT_PULL_REQUEST_TO_DRAFT_MUTATION/g) ?? []).length === 1 &&
-  !draftReturnOperatorSourceV1.includes('MARK_PULL_REQUEST_READY_MUTATION') &&
-  !draftReturnOperatorSourceV1.includes('executeReadyTransitionOperatorV1') &&
-  workflow.on.pull_request.types.join(',') === 'ready_for_review',
-  'DRT-25 Draft Return owns one Draft mutation and does not synthesize or combine the later Ready transition',
-)
-check(
-  readySuccessResultV1.state === 'COMPLETED' && readySuccessResultV1.mutation_count === 1 &&
-  workflow.on.workflow_dispatch.inputs.transition.options.includes('ready_transition_required_resume') &&
-  runnerSource.includes("invocation.request.transition === 'draft_return_required_resume'") &&
-  runnerSource.includes("invocation.request.transition === 'ready_transition_required_resume'"),
-  'DRT-26 existing first-time and resumed Draft-to-Ready ownership remains distinct and unchanged',
 )
 check(
   bootstrapConsumerBlock.includes("status -cne 'SUCCESS'") &&
@@ -13294,7 +12729,6 @@ const workflowDispatchProjectionBaseV1 = Object.freeze({
   reviewDecisionCommentId: '',
   publicationHandoffCommentId: '',
   mergeDecisionCommentId: '',
-  draftReturnAuthorityCommentId: '',
 })
 const workflowDispatchBaseProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1(workflowDispatchProjectionBaseV1)
 const workflowDispatchReadyProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1({
@@ -13312,17 +12746,11 @@ const workflowDispatchMergeProjectionV1 = projectWorkflowDispatchEntrypointArgum
   transition: 'merge_decision_successor_resume',
   mergeDecisionCommentId: '5423219910',
 })
-const workflowDispatchDraftReturnProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1({
-  ...workflowDispatchProjectionBaseV1,
-  transition: 'draft_return_required_resume',
-  draftReturnAuthorityCommentId: '5445000001',
-})
 const workflowDispatchAllOptionalProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1({
   ...workflowDispatchProjectionBaseV1,
   reviewDecisionCommentId: '1',
   publicationHandoffCommentId: '2',
   mergeDecisionCommentId: '3',
-  draftReturnAuthorityCommentId: '4',
 })
 const workflowDispatchRawValueV1 = ' value with spaces\n"quotes"\\slash '
 const workflowDispatchRawProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1({
@@ -13333,7 +12761,6 @@ const workflowDispatchRawProjectionV1 = projectWorkflowDispatchEntrypointArgumen
   reviewDecisionCommentId: ' ',
   publicationHandoffCommentId: '',
   mergeDecisionCommentId: '',
-  draftReturnAuthorityCommentId: '',
 })
 const workflowDispatchProjectionCliV1 = spawnSync(process.execPath, [runnerPath, '--workflow-dispatch-argument-projection'], {
   cwd: repositoryRoot,
@@ -13346,7 +12773,6 @@ const workflowDispatchProjectionCliV1 = spawnSync(process.execPath, [runnerPath,
     PTA_INPUT_REVIEW_DECISION_COMMENT_ID: workflowDispatchProjectionBaseV1.reviewDecisionCommentId,
     PTA_INPUT_PUBLICATION_HANDOFF_COMMENT_ID: workflowDispatchProjectionBaseV1.publicationHandoffCommentId,
     PTA_INPUT_MERGE_DECISION_COMMENT_ID: workflowDispatchProjectionBaseV1.mergeDecisionCommentId,
-    PTA_INPUT_DRAFT_RETURN_AUTHORITY_COMMENT_ID: workflowDispatchProjectionBaseV1.draftReturnAuthorityCommentId,
   },
 })
 const workflowDispatchProjectorSourceV1 = runnerSource.slice(
@@ -13389,35 +12815,30 @@ check(
   'WDAP-04 Merge successor preserves the exact single optional argument suffix',
 )
 check(
-  workflowDispatchDraftReturnProjectionV1.argv.slice(-2).join('\n') === '--draft-return-authority-comment-id\n5445000001' &&
-    workflowDispatchDraftReturnProjectionV1.argv.length === 10,
-  'WDAP-05 Draft Return preserves the exact single authority-ID suffix',
-)
-check(
-  workflowDispatchAllOptionalProjectionV1.argv.slice(-8).join('\n') === [
+  workflowDispatchAllOptionalProjectionV1.argv.slice(-6).join('\n') === [
     '--review-decision-comment-id', '1', '--publication-handoff-comment-id', '2',
-    '--merge-decision-comment-id', '3', '--draft-return-authority-comment-id', '4',
+    '--merge-decision-comment-id', '3',
   ].join('\n'),
-  'WDAP-06 simultaneous optional values preserve prior projection and fixed order for downstream rejection',
+  'WDAP-05 simultaneous optional values preserve prior projection and fixed order for downstream rejection',
 )
 check(
   workflowDispatchRawProjectionV1.argv[1] === workflowDispatchRawValueV1 &&
     workflowDispatchRawProjectionV1.argv[3] === '' && workflowDispatchRawProjectionV1.argv[5] === '380' &&
     workflowDispatchRawProjectionV1.argv[7] === '' && workflowDispatchRawProjectionV1.argv.at(-1) === '',
-  'WDAP-07 raw whitespace quotes backslashes defaults and string conversion remain untrimmed',
+  'WDAP-06 raw whitespace quotes backslashes defaults and string conversion remain untrimmed',
 )
 check(
   workflowDispatchProjectionCliV1.status === 0 && workflowDispatchProjectionCliV1.stderr === '' &&
     JSON.stringify(JSON.parse(workflowDispatchProjectionCliV1.stdout)) === JSON.stringify(workflowDispatchBaseProjectionV1) &&
     runnerSource.includes("invocation.mode === 'workflow_dispatch_argument_projection'") &&
     !workflowDispatchProjectorSourceV1.includes('process.env'),
-  'WDAP-08 private CLI composes the same pure projector without host credentials',
+  'WDAP-07 private CLI composes the same pure projector without host credentials',
 )
 check(
   JSON.stringify(workflowDispatchNulRoundTripV1) === JSON.stringify(workflowDispatchReadyProjectionV1.argv) &&
     workflowDispatchBranchV1.includes('projection.argv.join("\\0")') &&
     workflowDispatchBranchV1.includes("mapfile -d '' -t dispatch_args"),
-  'WDAP-09 NUL transport preserves every projected argument byte and order',
+  'WDAP-08 NUL transport preserves every projected argument byte and order',
 )
 check(
   workflowDispatchBranchV1.includes('--workflow-dispatch-argument-projection') &&
@@ -13425,7 +12846,7 @@ check(
     !workflowDispatchBranchV1.includes('resume_args=') &&
     !workflowDispatchBranchV1.includes('--review-decision-comment-id "$PTA_INPUT') &&
     !workflowDispatchBranchV1.includes('--merge-decision-comment-id "$PTA_INPUT'),
-  'WDAP-10 selected workflow branch is transport-only with no direct optional-argument semantics',
+  'WDAP-09 selected workflow branch is transport-only with no direct optional-argument semantics',
 )
 check(
   admissionEvaluationRun.indexOf('if [[ "$PTA_EVENT_NAME" == "issue_comment" ]]') <
@@ -13434,406 +12855,23 @@ check(
     admissionEvaluationRun.includes('--ready-event-file "$PTA_EVENT_PATH"') &&
     runnerSource.includes('const parseManualCli = (argv, environment) =>') &&
     runnerSource.includes("throw new Error('cli_arguments_invalid')"),
-  'WDAP-11 event routing ownership and runner semantic validation remain unchanged',
+  'WDAP-10 event routing ownership and runner semantic validation remain unchanged',
 )
 check(
   !workflowDispatchProjectorSourceV1.includes('api(') && !workflowDispatchProjectorSourceV1.includes('graphql') &&
     !workflowDispatchProjectorSourceV1.includes('mutation_count') && !workflowDispatchProjectorSourceV1.includes('Publish-') &&
     !workflowDispatchProjectorSourceV1.includes('--method PUT'),
-  'WDAP-12 pure argument projector performs no acquisition validation publication or mutation',
+  'WDAP-11 pure argument projector performs no acquisition validation publication or mutation',
 )
 check(
   Object.keys(workflow.jobs).length === 5 && workflow.on.workflow_dispatch.inputs.transition.options.join('\n') === [
     'terminal_review_admission', 'merge_decision_admission', 'ready_transition_required_resume',
-    'merge_decision_successor_resume', 'draft_return_required_resume', 'ready_review_terminal_observation_resume',
+    'merge_decision_successor_resume',
   ].join('\n') && workflow.on.issue_comment.types.join(',') === 'created' &&
     workflow.on.pull_request.types.join(',') === 'ready_for_review' && workflow.permissions.actions === 'read' &&
-    workflow.permissions.issues === 'write' && workflow.permissions['pull-requests'] === 'write' &&
-    (workflowSource.match(/--method PUT/g) ?? []).length === 1 &&
-    !workflow.on.pull_request.types.includes('converted_to_draft'),
-  'WDAP-13 workflow adds only bounded Draft Return and terminal-observation dispatches without converted_to_draft subscription',
+    workflow.permissions['pull-requests'] === 'write' && (workflowSource.match(/--method PUT/g) ?? []).length === 1,
+  'WDAP-12 workflow inputs topology triggers permissions downstream outputs and mutation count remain unchanged',
 )
 
-const terminalCanonicalValueV1 = (value) => Array.isArray(value)
-  ? value.map(terminalCanonicalValueV1)
-  : value !== null && typeof value === 'object'
-    ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, terminalCanonicalValueV1(value[key])]))
-    : value
-const terminalDigestV1 = (value) => createHash('sha256')
-  .update(Buffer.from(JSON.stringify(terminalCanonicalValueV1(value)), 'utf8'))
-  .digest('hex')
-const TERMINAL_READY_EVENT_ID = 991001
-const TERMINAL_READY_EVENT_NODE_ID = 'RFR_terminal_generation_v1'
-const TERMINAL_COMPLETION_ID = 991002
-const TERMINAL_AUTHORITY_ID = 991003
-const TERMINAL_RECEIPT_ID = 991004
-const TERMINAL_ARTIFACT_ID = 991005
-const TERMINAL_HEAD = reviewerDispatch.exact_head
-const terminalProductOwnerCommentV1 = (id, body, createdAt) => Object.freeze({
-  ...roleComment(id, body, createdAt),
-  user: Object.freeze({ login: 'whatrune', id: 47842632, type: 'User' }),
-})
-const terminalBotCommentV1 = (id, body, createdAt) => Object.freeze({
-  ...roleComment(id, body, createdAt),
-  author_association: 'NONE',
-  user: Object.freeze({ login: 'github-actions[bot]', id: 41898282, type: 'Bot' }),
-})
-const terminalReadyCompletionBodyV1 = [
-  'record_type: protected_action_completion',
-  `canonical_task: #${TASK}`,
-  `pull_request: #${PR}`,
-  'action: ready_for_review',
-  `repository: ${REPOSITORY}`,
-  `exact_head: ${TERMINAL_HEAD}`,
-  `authority: https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-991000`,
-  'before_state: DRAFT',
-  'after_state: READY',
-  'transition_count: 1',
-  'result: COMPLETED',
-].join('\n')
-const terminalReviewBodyV1 = reviewDecisionBody({ reviewed_head: TERMINAL_HEAD })
-const terminalPullV1 = (head = TERMINAL_HEAD) => Object.freeze({
-  ...pullObject({ head, taskState: reviewerDispatch.task_state }),
-  draft: false,
-  merged: false,
-  mergeable: true,
-  mergeable_state: 'clean',
-  base: Object.freeze({ ref: 'main', repo: Object.freeze({ full_name: REPOSITORY }) }),
-  head: Object.freeze({ sha: head, repo: Object.freeze({ full_name: REPOSITORY }) }),
-})
-
-const createReadyReviewTerminalFixtureV1 = async ({
-  readyEvents = [Object.freeze({
-    id: TERMINAL_READY_EVENT_ID,
-    node_id: TERMINAL_READY_EVENT_NODE_ID,
-    event: 'ready_for_review',
-    created_at: '2026-08-28T10:00:00Z',
-  })],
-  completionCreatedAt = '2026-08-28T10:01:00Z',
-  receiptCreatedAt = '2026-08-28T10:02:00Z',
-  receiptBody = terminalReviewBodyV1,
-  authorityGenerationTransform = (generation) => generation,
-  threadPages = [Object.freeze({
-    totalCount: 0,
-    nodes: Object.freeze([]),
-    pageInfo: Object.freeze({ hasNextPage: false, endCursor: null }),
-  })],
-  finalPullHead = TERMINAL_HEAD,
-  threadHead = TERMINAL_HEAD,
-  nowValues = ['2026-08-28T10:03:00Z', '2026-08-28T10:04:00Z', '2026-08-28T10:05:00Z'],
-  omitReceipt = false,
-} = {}) => {
-  const comments = new Map()
-  comments.set(TERMINAL_COMPLETION_ID, roleComment(TERMINAL_COMPLETION_ID, terminalReadyCompletionBodyV1, completionCreatedAt))
-  if (!omitReceipt) comments.set(TERMINAL_RECEIPT_ID, roleComment(TERMINAL_RECEIPT_ID, receiptBody, receiptCreatedAt))
-  let pullReads = 0
-  let threadPageIndex = 0
-  let nowIndex = 0
-  let publications = 0
-  let artifactBody = null
-  let producerVerifications = 0
-  const host = {
-    now: () => nowValues[Math.min(nowIndex++, nowValues.length - 1)],
-    verifyReadyReviewProducerV1: async (dispatch) => {
-      producerVerifications += 1
-      if (JSON.stringify(terminalCanonicalValueV1(dispatch)) !== JSON.stringify(terminalCanonicalValueV1(reviewerDispatch))) {
-        throw new Error('ready_review_test_dispatch_changed')
-      }
-    },
-    api: async (endpoint, options = undefined) => {
-      if (endpoint === `repos/${REPOSITORY}/pulls/${PR}`) {
-        pullReads += 1
-        return terminalPullV1(pullReads >= 3 ? finalPullHead : TERMINAL_HEAD)
-      }
-      if (endpoint.startsWith(`repos/${REPOSITORY}/issues/${PR}/timeline?`)) {
-        return endpoint.endsWith('page=1') ? structuredClone(readyEvents) : []
-      }
-      if (endpoint.startsWith(`repos/${REPOSITORY}/issues/${TASK}/comments?`)) {
-        return endpoint.endsWith('page=1') ? [...comments.values()] : []
-      }
-      if (endpoint === `repos/${REPOSITORY}/issues/${TASK}/comments` && options?.method === 'POST') {
-        publications += 1
-        const comment = terminalBotCommentV1(TERMINAL_ARTIFACT_ID, options.body.body, '2026-08-28T10:04:30Z')
-        comments.set(TERMINAL_ARTIFACT_ID, comment)
-        return comment
-      }
-      if (endpoint === `repos/${REPOSITORY}/issues/comments/${TERMINAL_ARTIFACT_ID}` && options?.method === 'PATCH') {
-        artifactBody = options.body.body
-        const comment = terminalBotCommentV1(TERMINAL_ARTIFACT_ID, artifactBody, '2026-08-28T10:04:30Z')
-        comments.set(TERMINAL_ARTIFACT_ID, comment)
-        return comment
-      }
-      const direct = /^repos\/[^/]+\/[^/]+\/issues\/comments\/([1-9]\d*)$/.exec(endpoint)
-      if (direct) {
-        const comment = comments.get(Number(direct[1]))
-        if (!comment) throw new Error('ready_review_test_comment_missing')
-        return comment
-      }
-      throw new Error(`unexpected_ready_review_api:${endpoint}:${options?.method ?? 'GET'}`)
-    },
-    graphql: async (query) => {
-      if (!query.includes('ReadyReviewTerminalThreads')) throw new Error('unexpected_ready_review_graphql')
-      const connection = threadPages[Math.min(threadPageIndex++, threadPages.length - 1)]
-      return Object.freeze({ repository: Object.freeze({ pullRequest: Object.freeze({
-        number: PR,
-        state: 'OPEN',
-        isDraft: false,
-        merged: false,
-        headRefOid: threadHead,
-        reviewThreads: connection,
-      }) }) })
-    },
-  }
-  const request = Object.freeze({ repository: REPOSITORY, taskIssueNumber: TASK, prNumber: PR, exactHead: TERMINAL_HEAD })
-  const generation = await acquireCurrentReadyGenerationV1(request, host)
-  const authorityGeneration = authorityGenerationTransform(generation)
-  const producerIdentity = Object.freeze({
-    dispatch: reviewerDispatch,
-    exact_head: TERMINAL_HEAD,
-    ready_generation_id: authorityGeneration.ready_generation_id,
-  })
-  const producer = Object.freeze({
-    producer_id: terminalDigestV1(producerIdentity),
-    exact_head: TERMINAL_HEAD,
-    ready_generation_id: authorityGeneration.ready_generation_id,
-    dispatch: reviewerDispatch,
-    receipt_comment_id: TERMINAL_RECEIPT_ID,
-  })
-  const authorityBody = projectReadyReviewTerminalObservationAuthorityBodyV1({
-    repository: REPOSITORY,
-    taskIssueNumber: TASK,
-    prNumber: PR,
-    exactHead: TERMINAL_HEAD,
-    authorityCommentId: TERMINAL_AUTHORITY_ID,
-    readyGeneration: authorityGeneration,
-    producerRoster: [producer],
-  })
-  comments.set(TERMINAL_AUTHORITY_ID, terminalProductOwnerCommentV1(TERMINAL_AUTHORITY_ID, authorityBody, '2026-08-28T10:02:30Z'))
-  return Object.freeze({
-    request,
-    host: Object.freeze(host),
-    generation,
-    producer,
-    comments,
-    metrics: Object.freeze({
-      publications: () => publications,
-      producerVerifications: () => producerVerifications,
-      artifactBody: () => artifactBody,
-    }),
-  })
-}
-
-const readyGenerationFixtureV1 = await createReadyReviewTerminalFixtureV1()
-check(
-  readyGenerationFixtureV1.generation.exact_head === TERMINAL_HEAD &&
-    readyGenerationFixtureV1.generation.ready_event_id === TERMINAL_READY_EVENT_ID &&
-    readyGenerationFixtureV1.generation.ready_completion_comment_id === TERMINAL_COMPLETION_ID &&
-    /^[0-9a-f]{64}$/.test(readyGenerationFixtureV1.generation.ready_generation_id),
-  'RTO-01 current Ready generation binds repository Task PR HEAD completion and the real ready_for_review event',
-)
-
-const validTerminalOwnerFixtureV1 = await createReadyReviewTerminalFixtureV1()
-const validTerminalOwnerResultV1 = await executeReadyReviewTerminalObservationOwnerV1({
-  request: validTerminalOwnerFixtureV1.request,
-  authorityCommentId: TERMINAL_AUTHORITY_ID,
-  host: validTerminalOwnerFixtureV1.host,
-})
-check(
-  validTerminalOwnerResultV1.state === 'COMPLETED' && validTerminalOwnerResultV1.next_action === 'NONE' &&
-    validTerminalOwnerResultV1.publication_count === 1 && validTerminalOwnerFixtureV1.metrics.publications() === 1 &&
-    validTerminalOwnerFixtureV1.metrics.producerVerifications() === 1,
-  'RTO-02 valid explicit current-generation roster produces exactly one terminal artifact record',
-)
-const validTerminalArtifactV1 = JSON.parse([...validTerminalOwnerFixtureV1.metrics.artifactBody().matchAll(/```json\r?\n([^\r\n]+)\r?\n```/g)][0][1])
-check(
-  validTerminalArtifactV1.ready_generation.ready_generation_id === validTerminalOwnerFixtureV1.generation.ready_generation_id &&
-    validTerminalArtifactV1.producer_roster.length === 1 && validTerminalArtifactV1.terminal_receipts.length === 1 &&
-    validTerminalArtifactV1.terminal_receipts[0].ready_generation_id === validTerminalOwnerFixtureV1.generation.ready_generation_id,
-  'RTO-03 producer roster and terminal receipt are exact-HEAD and current-Ready-generation bound',
-)
-check(
-  validTerminalArtifactV1.post_terminal_thread_snapshot.pagination_complete === true &&
-    validTerminalArtifactV1.post_terminal_thread_snapshot.started_at > validTerminalArtifactV1.terminal_receipts[0].terminal_timestamp &&
-    validTerminalArtifactV1.final_head_refetch.exact_head === TERMINAL_HEAD,
-  'RTO-04 complete thread pagination starts after the last receipt and finishes with an exact-HEAD refetch',
-)
-check(
-  validateReadyReviewTerminalObservationArtifactV1({
-    artifact: validTerminalArtifactV1,
-    repository: REPOSITORY,
-    taskIssueNumber: TASK,
-    commentId: TERMINAL_ARTIFACT_ID,
-  }).artifact_sha256 === validTerminalOwnerResultV1.artifact_sha256,
-  'RTO-05 canonical artifact component digests and final seal validate deterministically',
-)
-
-const secondTerminalOwnerFixtureV1 = await createReadyReviewTerminalFixtureV1()
-const secondTerminalOwnerResultV1 = await executeReadyReviewTerminalObservationOwnerV1({
-  request: secondTerminalOwnerFixtureV1.request,
-  authorityCommentId: TERMINAL_AUTHORITY_ID,
-  host: secondTerminalOwnerFixtureV1.host,
-})
-check(
-  secondTerminalOwnerResultV1.artifact_sha256 === validTerminalOwnerResultV1.artifact_sha256 &&
-    secondTerminalOwnerFixtureV1.metrics.artifactBody() === validTerminalOwnerFixtureV1.metrics.artifactBody(),
-  'RTO-06 identical bounded inputs produce byte-identical canonical JSON and artifact SHA-256',
-)
-
-const staleGenerationFixtureV1 = await createReadyReviewTerminalFixtureV1({
-  authorityGenerationTransform: (generation) => Object.freeze({ ...generation, ready_generation_id: 'c'.repeat(64) }),
-})
-const staleGenerationResultV1 = await executeReadyReviewTerminalObservationOwnerV1({
-  request: staleGenerationFixtureV1.request,
-  authorityCommentId: TERMINAL_AUTHORITY_ID,
-  host: staleGenerationFixtureV1.host,
-})
-check(
-  staleGenerationResultV1.reason === 'ready_review_terminal_generation_stale' &&
-    staleGenerationResultV1.publication_count === 0 && staleGenerationFixtureV1.metrics.publications() === 0,
-  'RTO-07 stale Ready generation fails before publication',
-)
-
-const wrongReadyEventFixtureV1 = await createReadyReviewTerminalFixtureV1({
-  readyEvents: [
-    Object.freeze({ id: TERMINAL_READY_EVENT_ID, node_id: TERMINAL_READY_EVENT_NODE_ID, event: 'ready_for_review', created_at: '2026-08-28T10:00:00Z' }),
-    Object.freeze({ id: TERMINAL_READY_EVENT_ID + 1, node_id: 'CTD_terminal_generation_v1', event: 'converted_to_draft', created_at: '2026-08-28T10:00:30Z' }),
-  ],
-}).catch((error) => error)
-check(wrongReadyEventFixtureV1?.message === 'ready_review_current_generation_missing', 'RTO-08 a converted_to_draft event after Ready invalidates that generation')
-
-const preReadyReceiptFixtureV1 = await createReadyReviewTerminalFixtureV1({ receiptCreatedAt: '2026-08-28T09:59:59Z' })
-const preReadyReceiptResultV1 = await executeReadyReviewTerminalObservationOwnerV1({
-  request: preReadyReceiptFixtureV1.request,
-  authorityCommentId: TERMINAL_AUTHORITY_ID,
-  host: preReadyReceiptFixtureV1.host,
-})
-check(preReadyReceiptResultV1.reason === 'ready_review_terminal_receipt_invalid' && preReadyReceiptFixtureV1.metrics.publications() === 0, 'RTO-09 pre-Ready terminal receipt fails closed')
-
-const wrongHeadReceiptFixtureV1 = await createReadyReviewTerminalFixtureV1({
-  receiptBody: reviewDecisionBody({ reviewed_head: OTHER_HEAD === TERMINAL_HEAD ? HEAD : OTHER_HEAD }),
-})
-const wrongHeadReceiptResultV1 = await executeReadyReviewTerminalObservationOwnerV1({
-  request: wrongHeadReceiptFixtureV1.request,
-  authorityCommentId: TERMINAL_AUTHORITY_ID,
-  host: wrongHeadReceiptFixtureV1.host,
-})
-check(wrongHeadReceiptResultV1.reason === 'ready_review_terminal_receipt_invalid' && wrongHeadReceiptFixtureV1.metrics.publications() === 0, 'RTO-10 stale or wrong-HEAD receipt fails closed')
-
-const missingReceiptFixtureV1 = await createReadyReviewTerminalFixtureV1({ omitReceipt: true })
-const missingReceiptResultV1 = await executeReadyReviewTerminalObservationOwnerV1({
-  request: missingReceiptFixtureV1.request,
-  authorityCommentId: TERMINAL_AUTHORITY_ID,
-  host: missingReceiptFixtureV1.host,
-})
-check(missingReceiptResultV1.reason === 'ready_review_test_comment_missing' && missingReceiptFixtureV1.metrics.publications() === 0, 'RTO-11 missing roster producer receipt fails before publication')
-
-const preTerminalSnapshotFixtureV1 = await createReadyReviewTerminalFixtureV1({
-  nowValues: ['2026-08-28T10:02:00Z', '2026-08-28T10:04:00Z', '2026-08-28T10:05:00Z'],
-})
-const preTerminalSnapshotResultV1 = await executeReadyReviewTerminalObservationOwnerV1({
-  request: preTerminalSnapshotFixtureV1.request,
-  authorityCommentId: TERMINAL_AUTHORITY_ID,
-  host: preTerminalSnapshotFixtureV1.host,
-})
-check(preTerminalSnapshotResultV1.reason === 'ready_review_thread_snapshot_not_post_terminal' && preTerminalSnapshotFixtureV1.metrics.publications() === 0, 'RTO-12 thread snapshot at or before the terminal boundary fails closed')
-
-const incompleteThreadFixtureV1 = await createReadyReviewTerminalFixtureV1({
-  threadPages: [Object.freeze({
-    totalCount: 1,
-    nodes: Object.freeze([]),
-    pageInfo: Object.freeze({ hasNextPage: false, endCursor: null }),
-  })],
-})
-const incompleteThreadResultV1 = await executeReadyReviewTerminalObservationOwnerV1({
-  request: incompleteThreadFixtureV1.request,
-  authorityCommentId: TERMINAL_AUTHORITY_ID,
-  host: incompleteThreadFixtureV1.host,
-})
-check(incompleteThreadResultV1.reason === 'ready_review_thread_snapshot_count_mismatch' && incompleteThreadFixtureV1.metrics.publications() === 0, 'RTO-13 incomplete review-thread pagination fails closed')
-
-const headDriftFixtureV1 = await createReadyReviewTerminalFixtureV1({ finalPullHead: OTHER_HEAD === TERMINAL_HEAD ? HEAD : OTHER_HEAD })
-const headDriftResultV1 = await executeReadyReviewTerminalObservationOwnerV1({
-  request: headDriftFixtureV1.request,
-  authorityCommentId: TERMINAL_AUTHORITY_ID,
-  host: headDriftFixtureV1.host,
-})
-check(headDriftResultV1.reason === 'ready_review_head_changed_after_snapshot' && headDriftFixtureV1.metrics.publications() === 0, 'RTO-14 HEAD drift after the thread snapshot fails before artifact publication')
-
-const duringSnapshotHeadDriftFixtureV1 = await createReadyReviewTerminalFixtureV1({
-  threadHead: OTHER_HEAD === TERMINAL_HEAD ? HEAD : OTHER_HEAD,
-})
-const duringSnapshotHeadDriftResultV1 = await executeReadyReviewTerminalObservationOwnerV1({
-  request: duringSnapshotHeadDriftFixtureV1.request,
-  authorityCommentId: TERMINAL_AUTHORITY_ID,
-  host: duringSnapshotHeadDriftFixtureV1.host,
-})
-check(
-  duringSnapshotHeadDriftResultV1.reason === 'ready_review_thread_snapshot_page_invalid' &&
-    duringSnapshotHeadDriftFixtureV1.metrics.publications() === 0,
-  'RTO-14b HEAD drift during thread pagination fails before artifact publication',
-)
-
-const tamperedArtifactV1 = structuredClone(validTerminalArtifactV1)
-tamperedArtifactV1.terminal_receipts[0].terminal_timestamp = '2026-08-28T10:02:01Z'
-const tamperedArtifactErrorV1 = await errorOf(() => validateReadyReviewTerminalObservationArtifactV1({
-  artifact: tamperedArtifactV1,
-  repository: REPOSITORY,
-  taskIssueNumber: TASK,
-  commentId: TERMINAL_ARTIFACT_ID,
-}))
-check(tamperedArtifactErrorV1?.message === 'ready_review_terminal_artifact_digest_mismatch', 'RTO-15 malformed or tampered artifact fails canonical component and seal validation')
-
-const currentArtifactResultV1 = await acquireCurrentReadyReviewTerminalObservationArtifactV1({
-  request: validTerminalOwnerFixtureV1.request,
-  host: validTerminalOwnerFixtureV1.host,
-})
-check(
-  currentArtifactResultV1.comment_id === TERMINAL_ARTIFACT_ID &&
-    currentArtifactResultV1.review_comment_id === TERMINAL_RECEIPT_ID &&
-    currentArtifactResultV1.ready_generation_id === validTerminalOwnerFixtureV1.generation.ready_generation_id &&
-    validTerminalOwnerFixtureV1.metrics.producerVerifications() === 2,
-  'RTO-16 Merge admission reacquires the sealed current-generation artifact producer and current APPROVE receipt',
-)
-
-const duplicateProducerErrorV1 = await errorOf(() => projectReadyReviewTerminalObservationAuthorityBodyV1({
-  repository: REPOSITORY,
-  taskIssueNumber: TASK,
-  prNumber: PR,
-  exactHead: TERMINAL_HEAD,
-  authorityCommentId: TERMINAL_AUTHORITY_ID,
-  readyGeneration: readyGenerationFixtureV1.generation,
-  producerRoster: [readyGenerationFixtureV1.producer, readyGenerationFixtureV1.producer],
-}))
-check(duplicateProducerErrorV1?.message === 'ready_review_terminal_authority_invalid', 'RTO-17 duplicate producer or receipt identity is rejected by the frozen roster contract')
-
-const terminalDispatchProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1({
-  transition: 'ready_review_terminal_observation_resume',
-  taskIssueNumber: TASK,
-  prNumber: PR,
-  exactHead: TERMINAL_HEAD,
-  terminalObservationAuthorityCommentId: TERMINAL_AUTHORITY_ID,
-})
-check(
-  terminalDispatchProjectionV1.argv.join('|') === [
-    '--transition', 'ready_review_terminal_observation_resume', '--task-issue-number', String(TASK),
-    '--pr-number', String(PR), '--exact-head', TERMINAL_HEAD,
-    '--terminal-observation-authority-comment-id', String(TERMINAL_AUTHORITY_ID),
-  ].join('|') && workflowSource.includes('PTA_INPUT_TERMINAL_OBSERVATION_AUTHORITY_COMMENT_ID'),
-  'RTO-18 workflow dispatch transports only the exact operation-specific terminal observation authority',
-)
-check(
-  runnerSource.includes('await requireReadyReviewTerminalObservationV1({ request: ownerRequest, host })') &&
-    runnerSource.includes('await requireReadyReviewTerminalObservationV1({') &&
-    runnerSource.includes('acquireCurrentReadyReviewTerminalObservationArtifactV1') &&
-    mergeOperatorSource.includes('acquireMergeReviewThreadsV1') && mergeOperatorSource.includes('acquireMergeCheckRollupSnapshotV1'),
-  'RTO-19 Merge Decision and Merge Operator require the sealed artifact while retaining fresh checks threads and mergeability owners',
-)
-check(
-  !workflowSource.includes('src/continuous-orchestration/ready-review-terminal-observation-collector') &&
-    !runnerSource.includes('ready-review-terminal-observation-collector') &&
-    !workflowSource.includes('upload-artifact') && liveShadowStep?.['continue-on-error'] === true && liveShadowStep?.env?.GH_TOKEN === '',
-  'RTO-20 retired Collector remains absent and GADP shadow remains isolated non-authoritative continue-on-error',
-)
-
-if (assertions !== 1295) throw new Error(`expected exactly 1295 assertions, observed ${assertions}`)
+if (assertions !== 1246) throw new Error(`expected exactly 1246 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
