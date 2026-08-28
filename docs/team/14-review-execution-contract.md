@@ -11,6 +11,8 @@ uses: assignment_shape, result_handoff_shape, handoff_status, shared_admission, 
 
 This document is the sole normative owner for review admission, review findings, and Review Decision records. Shared authority, Repository Reality, protected actions, failure behavior, correction, Resume, completion, finding-closure authority, and Merge sequencing come from the [Shared Role Execution Contract](13-shared-role-execution-contract.md). Assignment and Result Handoff shapes come from the [Delegation and Result Contract](11-delegation-and-result-contract.md).
 
+For Simplified Autonomous Lifecycle V1, one authenticated GitHub Pull Request Review is the preferred authoritative Review surface. It MUST be authored by an `OWNER`, `MEMBER`, or `COLLABORATOR` other than the implementation PR author, be tied to the exact current commit OID, have state `APPROVED`, and carry the closed decision `blocking / remaining / unknown = 0 / 0 / 0`. The bounded Task Issue comment compatibility surface below applies only when Pull Request Review publication is unavailable. A HEAD change makes either surface stale and requires a fresh Review. Task-state, Result Handoff, Gate Status, Ready history, and terminal-observation records are status only and do not block or authorize Review or Merge.
+
 ## Review Admission
 
 At review start and immediately before recording the decision, the reviewer MUST fresh-fetch:
@@ -73,27 +75,15 @@ A stale, missing, or conflicting Gate Status entry is a review finding. The revi
 
 The dependent read-only gate MAY reuse verified post-write evidence only under the Gate Status projection-only conditions in the Shared Role Execution Contract. Any HEAD or cumulative-authority change, non-projection edit, missing digest, failed post-write re-fetch, concurrent edit, or mismatch requires rerun and fail-closed handling.
 
-After a HEAD change, prior Ready and approval evidence become historical at the prior HEAD. If the PR was Ready, a recorded return to Draft and fresh applicable gates, review, and Ready are required. A completed Merge combined with a later open-PR HEAD is a blocking canonical conflict.
+After a HEAD change, prior approval is historical and a fresh exact-HEAD Review is required. GitHub's non-Draft publication state remains unchanged; no Draft return, Ready replay, or publication-generation replay is required.
 
 ## Review Decision Record
 
-A Review Decision or Amendment MUST be a top-level Task Issue record with a direct `canonical_record` URL. PR review UI and inline threads are evidence mirrors, not the canonical record.
+A Simplified V1 Review Decision MUST be a GitHub Pull Request Review bound to the exact commit OID. Its body is produced by the repository's Node-owned serializer and parsed by the same closed parser. The closed machine fields are Task Issue number, PR number, reviewed HEAD, decision, and `blocking`, `remaining`, and `unknown` counts. GitHub owns the Review ID, URL, authenticated actor, association, timestamp, and commit binding; these are fresh-fetched rather than copied into a self-bound body.
 
-Its authority metadata includes `task_id`, `record_type`, `authoring_role`, `authority_source`, and `canonical_record`.
+The legacy authority-metadata vocabulary `task_id`, `record_type`, `authoring_role`, and `authority_source` remains applicable to legacy Issue records. In Simplified V1, `record_type` and `reviewer_role` are body fields while GitHub resource identity plus the bound Task Issue supply the other identity context without self-referential metadata.
 
-The record MUST include:
-
-- `task_id`, record type, authoring and reviewing Role, authority source, and prior record;
-- repository, PR, branch, reviewed full HEAD, and review scope;
-- objective and acceptance result;
-- evidence and validation results;
-- cumulative findings with stable IDs, severity, required correction, and closure state;
-- decision: approval-equivalent, changes required, or blocked;
-- execution stop reason and Result Handoff status;
-- protected-action state and next owner; and
-- unresolved and unperformed items.
-
-A repository-relative document MAY be attached only as a supporting record with its full commit SHA.
+When GitHub Pull Request Review publication is unavailable, the exact same serialized Review body may be published once as a top-level Task Issue comment and selected explicitly as the authoritative compatibility surface. It MUST NOT coexist with or override a Pull Request Review decision for the same lifecycle attempt. Legacy Issue-comment Review metadata and Result Handoff fields are status only under Simplified V1.
 
 ## Findings and Closure
 
@@ -109,17 +99,9 @@ The reviewer MAY inspect and report within assigned review authority. The review
 
 Role-specific review vocabulary and authority remain with the applicable reviewing Role.
 
-## Ready-Triggered Review Observation
+## Live Review Observation
 
-Collector V1 required and not-required applicability is selected by the Shared Role Execution Contract. This section defines review use when Collector V1 is required; it does not make Collector V1 mandatory for ordinary command Validation, pre-Ready implementation review, one direct check or known-thread read, metadata-only correction without a review-terminal claim, or ordinary status reporting.
-
-When Collector V1 is required, the reviewer admits only the exact sealed artifact produced after one terminal receipt for every admitted roster producer and a complete post-terminal review-thread traversal. Missing, duplicate, stale, mixed, malformed, or digest-inconsistent evidence produces no admissible artifact. Collector V1 remains observation-only: it does not select producers, interpret thread state, classify or close findings, decide Merge eligibility, or authorize a protected action. Applicability and evidence-reuse meaning remain owned by the Shared Role Execution Contract; repository/runtime status is maintained in the [Automation Overview](../automation/00-automation-overview.md).
-
-For Merge-gate review, the current Ready-triggered generation MUST be terminal before its thread snapshot is complete. The reviewing Role then MUST inspect every returned thread and recheck the exact PR HEAD. A prior Ready generation, pre-terminal thread count, or earlier reviewed HEAD is insufficient.
-
-If Merge occurred before the current generation became terminal, the reviewer MUST record the exact Ready, Merge, terminal, and thread timestamps as a blocking sequencing finding. A later technical finding MUST NOT be reclassified as post-Merge-only when this ordering failure exists.
-
-Pure evaluator and controller source components exist, but source presence and internal imports do not establish a production review controller. Unless a production host, exact task opt-in, and incoming edge are admitted, the reviewing Role performs the existing human-led decision. An automated evaluator MUST consume admitted sealed evidence without refetching or reconstructing omitted evidence and cannot acquire review, finding-closure, Completion, Gate Status, or protected-action authority.
+Review terminal generations, Collector artifacts, producer rosters, and receipts are not part of Simplified V1 admission. The reviewer decides the exact current HEAD once. The Merge operator independently fetches all live thread pages, requires zero active unresolved non-outdated threads, and rechecks the exact HEAD immediately before mutation. This live observation supplements rather than replaces the reviewer's semantic decision.
 
 ## Terminal Review Result
 

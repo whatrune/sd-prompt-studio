@@ -1,166 +1,58 @@
-# Integrated Dispatch Automation Overview
+# Simplified Autonomous Lifecycle V1
 
-## Status
+## Current production contract
 
-- Contract version: `0.1.0`
-- Status: Freeze candidate
-- Repository reality snapshot: supporting-record commit `65e84d3d787d4db871f34d4ab1ab452494a61605`; this immutable SHA is not labeled `Current main`
-- General production dispatch／controller status: `UNKNOWN`; no incoming production edge to the general Dispatcher, Automatic Gate Progression, or Role Transition / Continuous Orchestration controller is confirmed at that snapshot
-- Bounded production host status: Protected Transition Admission and its Repair Executor route are repository-reachable and have direct production execution evidence as described below
+The default-branch workflow `.github/workflows/protected-transition-admission-v1.yml` is the bounded production host for Ready and Merge. It checks out its exact default-branch workflow SHA with credentials disabled and invokes `scripts/run-protected-transition-admission-v1.mjs`. The runner uses the pure live-state owner in `scripts/protected-transition-merge-operator-preflight-v1.mjs`.
 
-## Purpose
+Only three durable decisions are authoritative:
 
-Integrated Dispatch Automation is the general target Contract for passing Canonical Task Assignments created by the Integrated Lead to specialist Role execution environments without adding decisions, and for collecting execution state and Result Handoffs. The bounded Protected Transition host that currently exists does not implement this Contract as a whole.
+1. Task Authority in the Task Issue body;
+2. one authenticated GitHub Pull Request Review tied to the exact current commit and carrying `APPROVE / 0 / 0 / 0`, or the bounded Task Issue comment compatibility form described below;
+3. one Product Owner Merge Decision bound to the exact Task, PR, HEAD, base, scope, Review, merge method, and operation count.
 
-このContractの目的は自動実行そのものではなく、自動化してよい実行管理と、人間に残す判断を分離することである。
+Task-state, Result Handoff, Gate Status, publication generations, Ready generations, terminal observations, producer rosters, receipts, Minimal Governance, and Bootstrap records are not admission inputs. They may remain historical or diagnostic data only.
 
-The following diagram shows the logical responsibility flow of the general target. It does not represent the current production runtime topology or an implemented host.
+## Ready
 
-```text
-Product Owner
-        ↓ approval and product decisions
-Integrated Lead
-        ↓ canonical Task Assignment
-Dispatcher
-        ↓ validated execution request
-Specialist Runner
-        ↓ Result Handoff
-Integrated Lead
-        ↓ integrated report
-Product Owner
-```
+Ready is a bounded action only for a PR that is currently Draft. A Product Owner `workflow_dispatch` request supplies the Task, PR, exact HEAD, and exact Review ID. The host fresh-fetches Task Authority, current main, PR, changed paths, exact Review, required checks, all thread pages, and mergeability; repeats the binding before mutation; then performs exactly one real `markPullRequestReadyForReview` mutation and verifies the resulting live state.
 
-## Repository Reality Snapshot
+A non-Draft PR does not require another Ready operation after a HEAD change. The HEAD change invalidates the prior Review and requires current checks plus a fresh Review only.
 
-- The original alignment authority consists of the direct GitHub records [Issue #240](https://github.com/whatrune/sd-prompt-studio/issues/240) and [Resume Dispatch](https://github.com/whatrune/sd-prompt-studio/issues/240#issuecomment-5176584167). The direct record for Repair Executor production evidence is [Issue #278](https://github.com/whatrune/sd-prompt-studio/issues/278).
-- Repository-relative paths in this section and document are supporting records only when bound to full commit SHA `65e84d3d787d4db871f34d4ab1ab452494a61605`. A repository-relative path is not itself a Canonical Record, authority, or runtime proof.
-- Production composition rootのsupporting recordは`src/main.tsx` → `src/appRouter.tsx` → `src/App.tsx`である。このrootから`src/dispatch/**`、`src/automatic-gate-progression/**`、`src/canonical-event-admission/**`、`src/gate-status-publisher/**`、`src/continuous-orchestration/**`へのincoming edgeは確認できない。
-- `scripts/run-ready-review-terminal-observation-collector-v1.mjs`はCollector V1のproduction CLI adapter sourceとして存在し、`src/continuous-orchestration/ready-review-terminal-observation-artifact-v1.ts`のpure coreを直接importして呼び出す。ただし、このsource edgeはphysical operator、scheduler／automatic trigger、Cloudflare設定、またはrepository外の実行経路の存在を証明しない。
-- Source、public export、fixture、test runner、internal library／module consumerの存在は、それだけではproduction runtime reachabilityの証拠にならない。
+## Merge
 
-### Capability and Reachability Matrix
+A final, parser-valid Merge Decision must be present in the initial `issue_comment.created` body on the canonical Task Issue. The workflow treats that event as the operation trigger and identity. It fresh-fetches:
 
-| Capability | Repository component at snapshot | Production incoming edge | Evidence state |
-| --- | --- | --- | --- |
-| General Dispatcher / controller | `src/dispatch/**` and continuous-orchestration libraries exist | none confirmed from the application root or an external production host | `UNKNOWN` |
-| Automatic Gate Progression / Role Transition | evaluator, admission, publisher, and reducer modules exist | none confirmed from the application root or Protected Transition host | `UNKNOWN` |
-| Protected Transition Admission | default-branch workflow invokes its owner CLI | `.github/workflows/protected-transition-admission-v1.yml` → `scripts/run-protected-transition-admission-v1.mjs` | production-reachable |
-| Repair Executor | the same workflow conditionally routes admitted `CHANGES_REQUIRED` to a self-hosted Windows job | Protected Transition Admission → `REPAIR_EXECUTOR` | production execution proven at the bound historical run below |
-| Collector V1 | owner CLI directly imports and invokes the pure core | repository source edge only; physical operator and scheduler are unproven | source-reachable; operation `UNKNOWN` |
+- Task and Task Authority;
+- PR state, exact HEAD, and current `main`;
+- every changed-file page and exact authorized scope;
+- the exact GitHub Pull Request Review;
+- the path-aware required-check rollup;
+- every review-thread page; and
+- mergeability.
 
-### Protected Transition Production Host
+The same binding is evaluated again immediately before mutation. The operator then performs one expected-SHA merge with no automatic retry. After success it re-fetches the PR, `main`, and merge commit and verifies that the exact reviewed HEAD and previous main are the two merge parents.
 
-- At snapshot `65e84d3d787d4db871f34d4ab1ab452494a61605`, `.github/workflows/protected-transition-admission-v1.yml` exists as a default-branch host. It evaluates `scripts/run-protected-transition-admission-v1.mjs` once for `workflow_dispatch`, created `issue_comment`, and `pull_request.ready_for_review` events.
-- A same-HEAD Review Decision is projected into state. An admissible `APPROVE` advances to one admission evaluation. `CHANGES_REQUIRED` or `BLOCKED` records blocking state and does not advance except to an authorized next action.
-- For admitted `CHANGES_REQUIRED`, the Repair Executor targets only authorized paths and produces the minimum repair for the current blocking findings. After the selected focused validation profile passes, it pushes one normal non-force commit.
-- [Production run 31554006864](https://github.com/whatrune/sd-prompt-studio/actions/runs/31554006864), at host SHA `21aeefd43156ea8ddb134e74141d3e69813705ad`, is historical exact-run evidence of successful self-hosted execution, Codex repair, validation, one commit, normal push, and fresh Review handoff. The static host path is confirmed at snapshot `65e84d3d787d4db871f34d4ab1ab452494a61605`, but Repair Executor E2E success with that exact snapshot as the host SHA remains `UNKNOWN`.
-- Push後は既存state writerがPRのsingle 10-field stateをnew HEADの`REVIEW_PENDING`へrebindし、`next_action: REVIEW`（reason: `fresh_review_required`）としてfresh Reviewへ戻す。自動Mergeは行わない。
-- この実在確認はProtected Transition Admission V1 hostだけに適用する。一般的なproduction dispatch／controller hostのincoming edgeを証明せず、次節の`UNKNOWN`境界を変更しない。
+## Required checks
 
-## Preserved UNKNOWN
+The closed catalog is:
 
-次はcanonical runtime recordまたはproduction composition／execution hostからのincoming edgeで実証されるまで`UNKNOWN`のまま維持する。
+| Changed paths | Required exact-HEAD checks |
+| --- | --- |
+| all changes | `build-preview`, `Cloudflare Pages` |
+| any `research/sd-prompt-research/**` path | the two checks above plus `validate` |
 
-- production dispatch／controller host
-- Collector V1 physical operator
-- Collector V1 scheduler／automatic trigger owner
-- Cloudflare側設定と実行条件
-- repository外Automation実行経路
+Missing, pending, cancelled, ambiguous, or unsuccessful required checks stop before a protected mutation. The operator does not create or consume a check-evidence record.
 
-## Responsibility Boundary
+## Serialization and transport
 
-### Integrated Lead
+Task Authority, Review body, and Merge Decision use one Node-owned UTF-8 serializer/parser pair per record. A body must be complete at creation time, contain exactly one fenced JSON block, and round-trip byte-for-byte. When GitHub Pull Request Review publication is unavailable, the exact same Review body may be published once as a top-level comment on the canonical Task Issue and selected explicitly as `TASK_ISSUE_COMMENT`; it is one compatibility surface, not a second semantic decision. Placeholder-then-PATCH publication, PowerShell Markdown interpolation, self-referential URLs, and digest/seal layers are not part of V1.
 
-- 依頼を分類する。
-- 適切な専門Roleと依存関係を決める。
-- Task AssignmentをCanonical Recordへ保存する。
-- Result Handoffを検証し、必要なら差し戻す。
-- Product Ownerへ統合報告する。
+## Self-hosting exception
 
-### Dispatcher
+When a platform PR introduces the owner needed to finish itself and the current default branch cannot execute that owner, the Product Owner may make one explicit operational bootstrap decision bound to the exact Task, PR, HEAD, base, scope, fresh Review, live checks, threads, and mergeability. A trusted external operator may perform only the otherwise-unreachable exact-HEAD protected operation. This is not a reusable authority schema, workflow, evidence chain, or Bootstrap Kernel.
 
-- Task Assignmentを受け付ける。
-- 形式、承認、Role Binding、重複実行を確認する。
-- 対応する論理Runnerへ起動要求を渡す。
-- Dispatch状態、timeout、cancel、failureを管理する。
-- Result Handoffを受領してIntegrated Leadへ返す。
+## Historical automation components
 
-Dispatcherは実行管理Roleであり、Architecture、Contract、Product、Research、Observation、Scope、Merge、Revertを判断しない。
+Older Repair, Draft Return, publication replay, Result Handoff, Ready-generation, terminal-observation, Collector, Minimal Governance, and Bootstrap implementations or records are historical. Their presence does not establish current production authority and they must not be used to block or authorize Simplified V1 transitions.
 
-### Specialist Runner
-
-- Assignmentで指定されたPrimary Roleとして作業する。
-- Allowed / Forbidden ChangesとFreeze済みContractを守る。
-- 指定Validationを実行する。
-- Result Handoffを返す。
-
-## Normative Sources
-
-このContractは次を拡張せずに参照する。
-
-1. [`../team/00-operating-model.md`](../team/00-operating-model.md)
-2. [`../team/05-worktree-and-branch-rules.md`](../team/05-worktree-and-branch-rules.md)
-3. [`../team/08-integrated-lead-charter.md`](../team/08-integrated-lead-charter.md)
-4. [`../team/09-development-routing-contract.md`](../team/09-development-routing-contract.md)
-5. [`../team/10-research-operations-routing-contract.md`](../team/10-research-operations-routing-contract.md)
-6. [`../team/11-delegation-and-result-contract.md`](../team/11-delegation-and-result-contract.md)
-
-衝突時は既存Team Contractと対象領域のFreeze Contractを優先する。Dispatcherは衝突を解決せず`blocked`としてArchitect Teamへ返す。
-
-## Future MVP Scope
-
-将来の最小MVPは次の一往復に限定する。
-
-```text
-Approved GitHub Issue Task Assignment
-        ↓
-Dispatcher admission
-        ↓
-Worker Runner one-shot execution
-        ↓
-Draft PR or Result Handoff
-        ↓
-Integrated Lead verification
-```
-
-MVPで自動化可能な操作:
-
-- Task形式と必須Fieldの確認
-- 承認状態とRole Bindingの確認
-- Worker Runnerの一回起動
-- Assignmentで指定されたValidationの実行要求
-- 許可済みの場合の通常PushとDraft PR作成要求
-- Result Handoff投稿
-- Dispatch状態更新
-
-MVPで自動化しない操作:
-
-- 自動Approve、Merge、Revert
-- `main`直接変更またはforce push
-- Contract、Scope、Product優先順位の変更
-- 次Roleの自動連鎖
-- Canonical Mapping採用
-- Research判断、Observation判断、Research Claim生成
-- Existing RunまたはResearch Artifactの破壊的変更
-
-## Contract Documents
-
-- [`01-dispatch-contract.md`](01-dispatch-contract.md): Trigger、状態、重複防止、実行Lifecycle
-- [`02-role-runner-mapping.md`](02-role-runner-mapping.md): Role Bindingと論理Runner
-- [`03-approval-gate.md`](03-approval-gate.md): Human GateとAutomation Gate
-- [`04-security-boundary.md`](04-security-boundary.md): Trust Boundaryと禁止事項
-- [`05-automation-handoff-contract.md`](05-automation-handoff-contract.md): 実行情報を含むResult Handoff
-
-## Deferred Implementation Decisions
-
-次は本Contractでは決定または実装しない。
-
-- GitHub-hosted / self-hosted runnerの選択
-- RunnerのOS、Service、User、Network構成
-- GitHub Actions、Webhook、Bot、常駐Serviceの選択
-- Codex CLI、SDK、Actionの選択と引数
-- Secret、Token、Environmentの具体設定
-- 永続DatabaseまたはJSON Schema
-- Workflow YAML、Dispatcher Script、Runner provisioning
-
-これらは本ContractのSecurity BoundaryとAcceptance Criteriaを満たす別Implementation Taskで決定する。
+General dispatch, specialist execution, and Result Handoff conventions remain documented by the Team contracts for work coordination. They are separate from the live Review/Ready/Merge admission defined here.
