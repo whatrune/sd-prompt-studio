@@ -12429,28 +12429,22 @@ const urlRedactionMessagesV1 = [
   'keep prefix user:password@localhost/private?secret=placeholder keep suffix',
   `bounded non-URL text ${'n'.repeat(700)}`,
 ]
-const urlRedactionDiagnosticV1 = projectDraftReturnMutationDiagnosticV1({
+const projectUrlRedactionMessageV1 = (message) => projectDraftReturnMutationDiagnosticV1({
   execution_phase: 'RESPONSE_VALIDATION',
   request_dispatch_started: true,
   response_received: true,
   http_status: 200,
-  graphql_errors: urlRedactionMessagesV1.map((message) => ({ type: 'FORBIDDEN', path: ['mutation'], message })),
+  graphql_errors: [{ type: 'FORBIDDEN', path: ['mutation'], message }],
   outcome_classification: 'DEFINITIVE_REJECTION',
-})
-const repeatedUrlRedactionDiagnosticV1 = projectDraftReturnMutationDiagnosticV1({
-  execution_phase: 'RESPONSE_VALIDATION',
-  request_dispatch_started: true,
-  response_received: true,
-  http_status: 200,
-  graphql_errors: urlRedactionMessagesV1.map((message) => ({ type: 'FORBIDDEN', path: ['mutation'], message })),
-  outcome_classification: 'DEFINITIVE_REJECTION',
-})
-const urlRedactionJsonV1 = JSON.stringify(urlRedactionDiagnosticV1)
+}).graphql_errors[0].message
+const urlRedactionResultsV1 = urlRedactionMessagesV1.map(projectUrlRedactionMessageV1)
+const repeatedUrlRedactionResultsV1 = urlRedactionMessagesV1.map(projectUrlRedactionMessageV1)
+const urlRedactionJsonV1 = JSON.stringify(urlRedactionResultsV1)
 check(
-  JSON.stringify(repeatedUrlRedactionDiagnosticV1) === urlRedactionJsonV1 &&
-  urlRedactionDiagnosticV1.graphql_errors.every((error) => error.message.length <= 512) &&
-  urlRedactionDiagnosticV1.graphql_errors.slice(0, -1).every((error) => error.message.includes('[REDACTED_URL]')) &&
-  urlRedactionDiagnosticV1.graphql_errors.every((error) => error.message.includes('keep prefix') || error.message.startsWith('bounded non-URL text')) &&
+  JSON.stringify(repeatedUrlRedactionResultsV1) === urlRedactionJsonV1 &&
+  urlRedactionResultsV1.slice(0, -1).every((message) => message === 'keep prefix [REDACTED_URL] keep suffix') &&
+  urlRedactionResultsV1.at(-1).length === 512 &&
+  urlRedactionResultsV1.at(-1).startsWith('bounded non-URL text ') &&
   !urlRedactionJsonV1.includes('://') && !urlRedactionJsonV1.includes('client_secret') &&
   !urlRedactionJsonV1.includes('api_key') && !urlRedactionJsonV1.includes('topsecret') &&
   !urlRedactionJsonV1.includes('user:password') && !urlRedactionJsonV1.includes('example.test') &&
