@@ -305,6 +305,8 @@ const DRAFT_RETURN_MUTATION_OUTCOMES_V1 = new Set([
   'OUTCOME_UNKNOWN',
   'MUTATION_CONFIRMED',
 ])
+const DRAFT_RETURN_DEFINITIVE_HTTP_STATUSES_V1 = new Set([400, 401, 404, 405, 409, 422])
+const DRAFT_RETURN_DEFINITIVE_GRAPHQL_ERROR_TYPES_V1 = new Set(['FORBIDDEN', 'UNPROCESSABLE'])
 const DRAFT_RETURN_MUTATION_PHASES_V1 = new Set([
   'REQUEST_PREPARATION',
   'REQUEST_DISPATCH',
@@ -327,11 +329,13 @@ const boundedDiagnosticMessageV1 = (value) => {
   if (typeof value !== 'string') return ''
   const redacted = value
     .replace(/\b(?:authorization|proxy-authorization|cookie|set-cookie)[ \t]*:[^\r\n]*/gi, '[REDACTED_HEADER]')
+    .replace(/\b[A-Za-z][A-Za-z0-9+.-]*:\/\/[^\s<>"'`]+/g, '[REDACTED_URL]')
+    .replace(/\bwww\.[^\s<>"'`]+/gi, '[REDACTED_URL]')
+    .replace(/\b[^\s/@:]+:[^\s/@]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z0-9-]+(?::\d+)?(?:\/[^\s<>"'`]*)?/g, '[REDACTED_URL]')
+    .replace(/\b(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,63}(?::\d+)?(?:[/?#][^\s<>"'`]*)/gi, '[REDACTED_URL]')
     .replace(/[\u0000-\u001f\u007f]+/g, ' ')
     .replace(/\b(?:Bearer|token)[ \t]+[A-Za-z0-9._~+/=-]+/gi, '[REDACTED_CREDENTIAL]')
     .replace(/\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/g, '[REDACTED_CREDENTIAL]')
-    .replace(/\bhttps?:\/\/[^\s/@:]+:[^\s/@]+@[^\s]+/gi, '[REDACTED_URL]')
-    .replace(/([?&](?:access_token|token|auth|authorization|signature|sig|key|secret|password)=)[^\s&#]*/gi, '$1[REDACTED]')
     .replace(/\s+/g, ' ')
     .trim()
   return redacted.length <= DRAFT_RETURN_DIAGNOSTIC_MESSAGE_LIMIT_V1
@@ -388,12 +392,13 @@ export const classifyDraftReturnMutationResponseV1 = ({
 } = {}) => {
   if (response_received !== true) return 'OUTCOME_UNKNOWN'
   if (response_ok !== true) {
-    return Number.isSafeInteger(http_status) && http_status >= 400 && http_status < 500 && http_status !== 408
+    return DRAFT_RETURN_DEFINITIVE_HTTP_STATUSES_V1.has(http_status)
       ? 'DEFINITIVE_REJECTION'
       : 'OUTCOME_UNKNOWN'
   }
   if (payload_parsed !== true) return 'OUTCOME_UNKNOWN'
-  return Array.isArray(graphql_errors) && graphql_errors.length > 0 && mutation_result_returned !== true
+  return Array.isArray(graphql_errors) && graphql_errors.length > 0 && mutation_result_returned !== true &&
+    graphql_errors.every((error) => DRAFT_RETURN_DEFINITIVE_GRAPHQL_ERROR_TYPES_V1.has(error?.type))
     ? 'DEFINITIVE_REJECTION'
     : 'OUTCOME_UNKNOWN'
 }

@@ -12372,8 +12372,10 @@ check(
   'DRT-30 diagnostic shape is closed while confirmed completion recovery retains its existing no-mutation semantics',
 )
 check(
-  classifyDraftReturnMutationResponseV1({ response_received: true, http_status: 403, response_ok: false }) === 'DEFINITIVE_REJECTION' &&
+  classifyDraftReturnMutationResponseV1({ response_received: true, http_status: 401, response_ok: false }) === 'DEFINITIVE_REJECTION' &&
+  classifyDraftReturnMutationResponseV1({ response_received: true, http_status: 403, response_ok: false }) === 'OUTCOME_UNKNOWN' &&
   classifyDraftReturnMutationResponseV1({ response_received: true, http_status: 408, response_ok: false }) === 'OUTCOME_UNKNOWN' &&
+  classifyDraftReturnMutationResponseV1({ response_received: true, http_status: 429, response_ok: false }) === 'OUTCOME_UNKNOWN' &&
   classifyDraftReturnMutationResponseV1({ response_received: true, http_status: 500, response_ok: false }) === 'OUTCOME_UNKNOWN' &&
   classifyDraftReturnMutationResponseV1({
     response_received: true, http_status: 200, response_ok: true, payload_parsed: true,
@@ -12381,9 +12383,73 @@ check(
   }) === 'DEFINITIVE_REJECTION' &&
   classifyDraftReturnMutationResponseV1({
     response_received: true, http_status: 200, response_ok: true, payload_parsed: true,
-    graphql_errors: [{ type: 'PARTIAL' }], mutation_result_returned: true,
+    graphql_errors: [{ type: 'UNPROCESSABLE' }], mutation_result_returned: false,
+  }) === 'DEFINITIVE_REJECTION' &&
+  classifyDraftReturnMutationResponseV1({
+    response_received: true, http_status: 200, response_ok: true, payload_parsed: true,
+    graphql_errors: [{ type: 'INTERNAL' }], mutation_result_returned: false,
+  }) === 'OUTCOME_UNKNOWN' &&
+  classifyDraftReturnMutationResponseV1({
+    response_received: true, http_status: 200, response_ok: true, payload_parsed: true,
+    graphql_errors: [{ type: 'TIMEOUT' }], mutation_result_returned: false,
+  }) === 'OUTCOME_UNKNOWN' &&
+  classifyDraftReturnMutationResponseV1({
+    response_received: true, http_status: 200, response_ok: true, payload_parsed: true,
+    graphql_errors: [{ type: 'FUTURE_UNKNOWN_TYPE' }], mutation_result_returned: false,
+  }) === 'OUTCOME_UNKNOWN' &&
+  classifyDraftReturnMutationResponseV1({
+    response_received: true, http_status: 200, response_ok: true, payload_parsed: true,
+    graphql_errors: [{ message: 'missing type' }], mutation_result_returned: false,
+  }) === 'OUTCOME_UNKNOWN' &&
+  classifyDraftReturnMutationResponseV1({
+    response_received: true, http_status: 200, response_ok: true, payload_parsed: true,
+    graphql_errors: [{ type: 'FORBIDDEN' }, { type: 'INTERNAL' }], mutation_result_returned: false,
+  }) === 'OUTCOME_UNKNOWN' &&
+  classifyDraftReturnMutationResponseV1({
+    response_received: true, http_status: 200, response_ok: true, payload_parsed: true,
+    graphql_errors: [], mutation_result_returned: false,
+  }) === 'OUTCOME_UNKNOWN' &&
+  classifyDraftReturnMutationResponseV1({
+    response_received: true, http_status: 200, response_ok: true, payload_parsed: true,
+    graphql_errors: [{ type: 'FORBIDDEN' }], mutation_result_returned: true,
   }) === 'OUTCOME_UNKNOWN',
   'DRT-31 HTTP and GraphQL response classifications preserve rejection certainty and ambiguity boundaries',
+)
+const urlRedactionMessagesV1 = [
+  'keep prefix https://example.test/cb?client_secret=s3cr3t keep suffix',
+  'keep prefix http://example.test/cb?api_key=topsecret#fragment keep suffix',
+  'keep prefix custom+proto://example.test/path?credential=s%2533cr%2533t keep suffix',
+  'keep prefix https://example.test/plain/path keep suffix',
+  'keep prefix user:password@example.test/private/path keep suffix',
+  'keep prefix www.example.test/path?q=value keep suffix',
+  `bounded non-URL text ${'n'.repeat(700)}`,
+]
+const urlRedactionDiagnosticV1 = projectDraftReturnMutationDiagnosticV1({
+  execution_phase: 'RESPONSE_VALIDATION',
+  request_dispatch_started: true,
+  response_received: true,
+  http_status: 200,
+  graphql_errors: urlRedactionMessagesV1.map((message) => ({ type: 'FORBIDDEN', path: ['mutation'], message })),
+  outcome_classification: 'DEFINITIVE_REJECTION',
+})
+const repeatedUrlRedactionDiagnosticV1 = projectDraftReturnMutationDiagnosticV1({
+  execution_phase: 'RESPONSE_VALIDATION',
+  request_dispatch_started: true,
+  response_received: true,
+  http_status: 200,
+  graphql_errors: urlRedactionMessagesV1.map((message) => ({ type: 'FORBIDDEN', path: ['mutation'], message })),
+  outcome_classification: 'DEFINITIVE_REJECTION',
+})
+const urlRedactionJsonV1 = JSON.stringify(urlRedactionDiagnosticV1)
+check(
+  JSON.stringify(repeatedUrlRedactionDiagnosticV1) === urlRedactionJsonV1 &&
+  urlRedactionDiagnosticV1.graphql_errors.every((error) => error.message.length <= 512) &&
+  urlRedactionDiagnosticV1.graphql_errors.slice(0, 6).every((error) => error.message.includes('[REDACTED_URL]')) &&
+  urlRedactionDiagnosticV1.graphql_errors.every((error) => error.message.includes('keep prefix') || error.message.startsWith('bounded non-URL text')) &&
+  !urlRedactionJsonV1.includes('://') && !urlRedactionJsonV1.includes('client_secret') &&
+  !urlRedactionJsonV1.includes('api_key') && !urlRedactionJsonV1.includes('topsecret') &&
+  !urlRedactionJsonV1.includes('user:password') && !urlRedactionJsonV1.includes('example.test'),
+  'DRT-32 every URL-like diagnostic token is fully redacted before deterministic message bounding',
 )
 check(
   bootstrapConsumerBlock.includes("status -cne 'SUCCESS'") &&
@@ -13985,5 +14051,5 @@ check(
   'RTO-20 retired Collector remains absent and GADP shadow remains isolated non-authoritative continue-on-error',
 )
 
-if (assertions !== 1300) throw new Error(`expected exactly 1300 assertions, observed ${assertions}`)
+if (assertions !== 1301) throw new Error(`expected exactly 1301 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)
