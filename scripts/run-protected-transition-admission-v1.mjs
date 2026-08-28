@@ -87,6 +87,17 @@ const DRAFT_RETURN_ACTION_FIELDS_V1 = Object.freeze([
   'authority_comment_id', 'authority_url', 'prior_ready_completion_comment_id', 'prior_ready_completion_url',
   'prior_ready_head', 'scope_contract_source',
 ])
+const READY_REVIEW_TERMINAL_AUTHORITY_RECORD_TYPE_V1 = 'ready_review_terminal_observation_authority_v1'
+const READY_REVIEW_TERMINAL_ARTIFACT_RECORD_TYPE_V1 = 'ready_review_terminal_observation_artifact_v1'
+const READY_REVIEW_TERMINAL_AUTHORITY_FIELDS_V1 = Object.freeze([
+  'record_type', 'version', 'authoring_role', 'canonical_record', 'repository', 'task_issue',
+  'pull_request', 'exact_head', 'operation', 'operation_count', 'ready_generation', 'producer_roster',
+])
+const READY_REVIEW_TERMINAL_ARTIFACT_FIELDS_V1 = Object.freeze([
+  'record_type', 'version', 'authoring_role', 'canonical_record', 'repository', 'task_issue',
+  'pull_request', 'exact_head', 'ready_generation', 'producer_roster', 'terminal_receipts',
+  'post_terminal_thread_snapshot', 'final_head_refetch', 'component_digests', 'artifact_sha256',
+])
 const INTEGRATED_LEAD_READY_RESULT_FIELDS_V1 = Object.freeze([
   'decision', 'repository', 'task_issue', 'pull_request', 'exact_head',
   'review_decision', 'publication_handoff', 'scope_contract_source',
@@ -207,6 +218,31 @@ query MergeAllowedThreads($owner: String!, $name: String!, $pr: Int!, $after: St
       reviewThreads(first: 100, after: $after) {
         totalCount
         nodes { id isResolved isOutdated }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+}`
+const READY_REVIEW_TERMINAL_THREADS_QUERY_V1 = `
+query ReadyReviewTerminalThreads($owner: String!, $name: String!, $pr: Int!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $pr) {
+      number
+      state
+      isDraft
+      merged
+      headRefOid
+      reviewThreads(first: 100, after: $after) {
+        totalCount
+        nodes {
+          id
+          isResolved
+          isOutdated
+          path
+          line
+          originalLine
+          comments(last: 1) { nodes { id createdAt } }
+        }
         pageInfo { hasNextPage endCursor }
       }
     }
@@ -6568,6 +6604,7 @@ export const projectWorkflowDispatchEntrypointArgumentsV1 = ({
   publicationHandoffCommentId,
   mergeDecisionCommentId,
   draftReturnAuthorityCommentId,
+  terminalObservationAuthorityCommentId,
 }) => {
   const values = Object.freeze({
     transition: String(transition ?? ''),
@@ -6578,6 +6615,7 @@ export const projectWorkflowDispatchEntrypointArgumentsV1 = ({
     publicationHandoffCommentId: String(publicationHandoffCommentId ?? ''),
     mergeDecisionCommentId: String(mergeDecisionCommentId ?? ''),
     draftReturnAuthorityCommentId: String(draftReturnAuthorityCommentId ?? ''),
+    terminalObservationAuthorityCommentId: String(terminalObservationAuthorityCommentId ?? ''),
   })
   const argv = [
     '--transition', values.transition,
@@ -6596,6 +6634,9 @@ export const projectWorkflowDispatchEntrypointArgumentsV1 = ({
   }
   if (values.draftReturnAuthorityCommentId.length > 0) {
     argv.push('--draft-return-authority-comment-id', values.draftReturnAuthorityCommentId)
+  }
+  if (values.terminalObservationAuthorityCommentId.length > 0) {
+    argv.push('--terminal-observation-authority-comment-id', values.terminalObservationAuthorityCommentId)
   }
   return Object.freeze({ argv: Object.freeze(argv) })
 }
@@ -6895,31 +6936,60 @@ export const evaluateRoleDispatchOutputV1 = ({ dispatch, body }) => {
   }
 }
 
-export const executeMergeOperatorV1 = async (input) => createMergeOperatorPreflightOwnerV1({
-  REPOSITORY,
-  FULL_HEAD,
-  WORKFLOW_RUN_ID,
-  MERGE_DECISION_OWNER_SELF_CHECK_CONTEXT_V1,
-  positiveInteger,
-  isNormalizedRepositoryPathV1,
-  normalizeRoleDispatchConsumerV1,
-  parseProtectedTransitionTaskStateV1,
-  projectRoleSourceBindingV1,
-  sameRolePathsV1,
-  acquireTaskIdentityV1,
-  acquireMergeGatePullV1,
-  classifyMergeGatePullV1,
-  extractProtectedTransitionTaskStateV1,
-  acquireChangedPathScopeV1,
-  acquireCanonicalProductOwnerMergeDecisionV1,
-  createHash,
-  acquireMergeCheckRollupSnapshotV1,
-  mergeGateChecksStopV1,
-  acquireMergeReviewThreadsV1,
-  mergeGateAllowsUnstableV1,
-  verifyRoleDispatchSourceV1,
-  roleDispatchStopV1,
-}).executeMergeOperatorV1(input)
+const requireReadyReviewTerminalObservationV1 = async ({ request, host }) => {
+  const acquire = typeof host?.acquireReadyReviewTerminalObservationArtifactV1 === 'function'
+    ? host.acquireReadyReviewTerminalObservationArtifactV1
+    : ({ request: target }) => acquireCurrentReadyReviewTerminalObservationArtifactV1({ request: target, host })
+  const artifact = await acquire({ request })
+  if (
+    !artifact || !positiveInteger(artifact.comment_id) || !/^[0-9a-f]{64}$/.test(artifact.artifact_sha256 ?? '') ||
+    typeof artifact.ready_generation_id !== 'string' || !/^[0-9a-f]{64}$/.test(artifact.ready_generation_id) ||
+    !positiveInteger(artifact.review_comment_id)
+  ) throw new Error('ready_review_terminal_artifact_invalid')
+  return artifact
+}
+
+export const executeMergeOperatorV1 = async (input) => {
+  try {
+    const dispatch = normalizeRoleDispatchConsumerV1(input?.dispatch)
+    await requireReadyReviewTerminalObservationV1({
+      request: Object.freeze({
+        repository: dispatch.repository,
+        taskIssueNumber: dispatch.task_issue_number,
+        prNumber: dispatch.pr_number,
+        exactHead: dispatch.exact_head,
+      }),
+      host: input?.host,
+    })
+    return await createMergeOperatorPreflightOwnerV1({
+      REPOSITORY,
+      FULL_HEAD,
+      WORKFLOW_RUN_ID,
+      MERGE_DECISION_OWNER_SELF_CHECK_CONTEXT_V1,
+      positiveInteger,
+      isNormalizedRepositoryPathV1,
+      normalizeRoleDispatchConsumerV1,
+      parseProtectedTransitionTaskStateV1,
+      projectRoleSourceBindingV1,
+      sameRolePathsV1,
+      acquireTaskIdentityV1,
+      acquireMergeGatePullV1,
+      classifyMergeGatePullV1,
+      extractProtectedTransitionTaskStateV1,
+      acquireChangedPathScopeV1,
+      acquireCanonicalProductOwnerMergeDecisionV1,
+      createHash,
+      acquireMergeCheckRollupSnapshotV1,
+      mergeGateChecksStopV1,
+      acquireMergeReviewThreadsV1,
+      mergeGateAllowsUnstableV1,
+      verifyRoleDispatchSourceV1,
+      roleDispatchStopV1,
+    }).executeMergeOperatorV1({ ...input, dispatch })
+  } catch (error) {
+    return roleDispatchStopV1(error instanceof Error ? error.message : 'ready_review_terminal_artifact_invalid')
+  }
+}
 
 export const evaluateRoleTransitionOrchestratorV1 = ({ terminalResult, request, taskState, paths, authorityValid, routeResult, rebindVerified = false, stateChanged = false }) => {
   try {
@@ -8303,6 +8373,608 @@ const lifecycleCanonicalValueV1 = (value) => {
 
 const lifecycleSameValueV1 = (left, right) =>
   JSON.stringify(lifecycleCanonicalValueV1(left)) === JSON.stringify(lifecycleCanonicalValueV1(right))
+
+const readyReviewCanonicalJsonV1 = (value) => JSON.stringify(lifecycleCanonicalValueV1(value))
+const readyReviewDigestV1 = (value) => createHash('sha256')
+  .update(Buffer.from(readyReviewCanonicalJsonV1(value), 'utf8'))
+  .digest('hex')
+
+const parseReadyReviewCanonicalJsonBlockV1 = (body, reason) => {
+  if (typeof body !== 'string') throw new Error(reason)
+  const blocks = [...body.matchAll(/```json\r?\n([^\r\n]+)\r?\n```/g)]
+  if (blocks.length !== 1) throw new Error(reason)
+  let value
+  try {
+    value = JSON.parse(blocks[0][1])
+  } catch {
+    throw new Error(reason)
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value) || blocks[0][1] !== readyReviewCanonicalJsonV1(value)) {
+    throw new Error(reason)
+  }
+  return value
+}
+
+const readyReviewTaskCommentUrlV1 = (repository, taskIssueNumber, commentId) =>
+  `https://github.com/${repository}/issues/${taskIssueNumber}#issuecomment-${commentId}`
+
+const readyReviewGenerationIdentityV1 = ({ repository, taskIssueNumber, prNumber, exactHead, completion, event }) => {
+  const identity = Object.freeze({
+    repository,
+    task_issue_number: taskIssueNumber,
+    pr_number: prNumber,
+    exact_head: exactHead,
+    ready_completion_comment_id: completion.id,
+    ready_completion_created_at: completion.created_at,
+    ready_event_id: event.id,
+    ready_event_node_id: event.node_id,
+    ready_event_created_at: event.created_at,
+  })
+  return Object.freeze({ ...identity, ready_generation_id: readyReviewDigestV1(identity) })
+}
+
+const acquirePullReadyTimelineV1 = async (request, host) => {
+  const events = []
+  const ids = new Set()
+  const fingerprints = new Set()
+  let pageCount = 0
+  for (let pageNumber = 1; pageNumber <= 32; pageNumber += 1) {
+    const page = await api(host, `repos/${request.repository}/issues/${request.prNumber}/timeline?per_page=${PAGE_SIZE}&page=${pageNumber}`)
+    if (!Array.isArray(page) || page.length > PAGE_SIZE) throw new Error('ready_review_timeline_page_invalid')
+    const fingerprint = JSON.stringify(page.map((item) => [item?.id, item?.node_id, item?.event, item?.created_at]))
+    if (page.length > 0 && fingerprints.has(fingerprint)) throw new Error('ready_review_timeline_page_repeated')
+    fingerprints.add(fingerprint)
+    for (const item of page) {
+      if (!['ready_for_review', 'converted_to_draft'].includes(item?.event)) continue
+      if (
+        !positiveInteger(item?.id) || ids.has(item.id) || typeof item.node_id !== 'string' || item.node_id.length === 0 ||
+        typeof item.created_at !== 'string' || !STRICT_UTC.test(item.created_at)
+      ) throw new Error('ready_review_timeline_event_invalid')
+      ids.add(item.id)
+      events.push(Object.freeze({ id: item.id, node_id: item.node_id, event: item.event, created_at: item.created_at }))
+    }
+    pageCount = pageNumber
+    if (page.length < PAGE_SIZE) break
+    if (pageNumber === 32) throw new Error('ready_review_timeline_terminal_page_missing')
+  }
+  events.sort((left, right) => left.created_at.localeCompare(right.created_at) || left.id - right.id)
+  if (events.length === 0 || events.at(-1).event !== 'ready_for_review') throw new Error('ready_review_current_generation_missing')
+  return Object.freeze({ event: events.at(-1), page_count: pageCount, events: Object.freeze(events) })
+}
+
+export const acquireCurrentReadyGenerationV1 = async (request, host, history = null) => {
+  if (
+    !REPOSITORY.test(request?.repository ?? '') || !positiveInteger(request?.taskIssueNumber) ||
+    !positiveInteger(request?.prNumber) || !FULL_HEAD.test(request?.exactHead ?? '')
+  ) throw new Error('ready_review_generation_request_invalid')
+  const pull = await acquireMergeGatePullV1(request, host)
+  if (
+    pull.number !== request.prNumber || pull.state !== 'open' || pull.draft !== false || pull.merged !== false ||
+    pull.head?.sha !== request.exactHead || pull.base?.ref !== 'main' ||
+    pull.base?.repo?.full_name !== request.repository || pull.head?.repo?.full_name !== request.repository
+  ) throw new Error('ready_review_generation_pull_invalid')
+  const currentHistory = history ?? await acquireMinimalGovernanceCommentHistoryV1(request, host)
+  const timeline = await acquirePullReadyTimelineV1(request, host)
+  const completions = []
+  for (const comment of currentHistory.comments) {
+    if (!/(?:^|\r?\n)record_type:[ \t]+protected_action_completion(?:\r?$)/m.test(comment.body)) continue
+    let completion
+    try {
+      completion = parseProtectedReadyCompletionV1(comment.body, request.repository, request.taskIssueNumber)
+    } catch {
+      throw new Error('ready_review_completion_invalid')
+    }
+    if (completion.pr_number !== request.prNumber || completion.exact_head !== request.exactHead) continue
+    completions.push(Object.freeze({ ...completion, id: comment.id, created_at: comment.created_at, body: comment.body }))
+  }
+  completions.sort((left, right) => left.created_at.localeCompare(right.created_at) || left.id - right.id)
+  const completion = completions.at(-1)
+  if (!completion || completion.created_at < timeline.event.created_at) throw new Error('ready_review_completion_event_mismatch')
+  return Object.freeze({
+    ...readyReviewGenerationIdentityV1({
+      repository: request.repository,
+      taskIssueNumber: request.taskIssueNumber,
+      prNumber: request.prNumber,
+      exactHead: request.exactHead,
+      completion,
+      event: timeline.event,
+    }),
+    timeline_page_count: timeline.page_count,
+  })
+}
+
+const normalizeReadyReviewProducerV1 = (producer, request, readyGenerationId) => {
+  if (!exactObjectKeysV1(producer, ['producer_id', 'exact_head', 'ready_generation_id', 'dispatch', 'receipt_comment_id'])) {
+    throw new Error('ready_review_producer_invalid')
+  }
+  const dispatch = normalizeRoleDispatchConsumerV1(producer.dispatch)
+  if (
+    dispatch.next_action !== 'INDEPENDENT_IMPLEMENTATION_REVIEWER' ||
+    dispatch.purpose !== 'INDEPENDENT_IMPLEMENTATION_REVIEWER' ||
+    dispatch.repository !== request.repository || dispatch.task_issue_number !== request.taskIssueNumber ||
+    dispatch.pr_number !== request.prNumber || dispatch.exact_head !== request.exactHead ||
+    producer.exact_head !== request.exactHead || producer.ready_generation_id !== readyGenerationId ||
+    !/^[0-9a-f]{64}$/.test(readyGenerationId ?? '') ||
+    !positiveInteger(producer.receipt_comment_id)
+  ) throw new Error('ready_review_producer_invalid')
+  const producerId = readyReviewDigestV1(Object.freeze({
+    dispatch,
+    exact_head: producer.exact_head,
+    ready_generation_id: producer.ready_generation_id,
+  }))
+  if (producer.producer_id !== producerId) throw new Error('ready_review_producer_invalid')
+  return Object.freeze({
+    producer_id: producerId,
+    exact_head: producer.exact_head,
+    ready_generation_id: producer.ready_generation_id,
+    dispatch,
+    receipt_comment_id: producer.receipt_comment_id,
+  })
+}
+
+export const projectReadyReviewTerminalObservationAuthorityBodyV1 = ({
+  repository, taskIssueNumber, prNumber, exactHead, authorityCommentId, readyGeneration, producerRoster,
+}) => {
+  const request = Object.freeze({ repository, taskIssueNumber, prNumber, exactHead })
+  const normalizedRoster = Object.freeze(producerRoster.map((producer) =>
+    normalizeReadyReviewProducerV1(producer, request, readyGeneration?.ready_generation_id)))
+  if (
+    normalizedRoster.length === 0 || new Set(normalizedRoster.map((producer) => producer.producer_id)).size !== normalizedRoster.length ||
+    new Set(normalizedRoster.map((producer) => producer.receipt_comment_id)).size !== normalizedRoster.length ||
+    JSON.stringify(normalizedRoster.map((producer) => producer.producer_id)) !==
+      JSON.stringify(normalizedRoster.map((producer) => producer.producer_id).sort())
+  ) throw new Error('ready_review_terminal_authority_invalid')
+  const value = Object.freeze({
+    record_type: READY_REVIEW_TERMINAL_AUTHORITY_RECORD_TYPE_V1,
+    version: 1,
+    authoring_role: 'Product Owner / Backend Architect',
+    canonical_record: readyReviewTaskCommentUrlV1(repository, taskIssueNumber, authorityCommentId),
+    repository,
+    task_issue: `https://github.com/${repository}/issues/${taskIssueNumber}`,
+    pull_request: `https://github.com/${repository}/pull/${prNumber}`,
+    exact_head: exactHead,
+    operation: 'COLLECT_READY_REVIEW_TERMINAL_OBSERVATION',
+    operation_count: 1,
+    ready_generation: readyGeneration,
+    producer_roster: normalizedRoster,
+  })
+  return `# Ready Review Terminal Observation Authority V1\n\n\`\`\`json\n${readyReviewCanonicalJsonV1(value)}\n\`\`\`\n`
+}
+
+export const parseReadyReviewTerminalObservationAuthorityV1 = ({ body, repository, taskIssueNumber, commentId }) => {
+  const value = parseReadyReviewCanonicalJsonBlockV1(body, 'ready_review_terminal_authority_invalid')
+  if (
+    !exactObjectKeysV1(value, READY_REVIEW_TERMINAL_AUTHORITY_FIELDS_V1) ||
+    value.record_type !== READY_REVIEW_TERMINAL_AUTHORITY_RECORD_TYPE_V1 || value.version !== 1 ||
+    value.authoring_role !== 'Product Owner / Backend Architect' || value.repository !== repository ||
+    value.task_issue !== `https://github.com/${repository}/issues/${taskIssueNumber}` ||
+    value.canonical_record !== readyReviewTaskCommentUrlV1(repository, taskIssueNumber, commentId) ||
+    value.operation !== 'COLLECT_READY_REVIEW_TERMINAL_OBSERVATION' || value.operation_count !== 1 ||
+    !FULL_HEAD.test(value.exact_head ?? '') || !Array.isArray(value.producer_roster) || value.producer_roster.length === 0
+  ) throw new Error('ready_review_terminal_authority_invalid')
+  const pullPrefix = `https://github.com/${repository}/pull/`
+  const prNumber = typeof value.pull_request === 'string' && value.pull_request.startsWith(pullPrefix)
+    ? Number(value.pull_request.slice(pullPrefix.length))
+    : Number.NaN
+  const request = Object.freeze({ repository, taskIssueNumber, prNumber, exactHead: value.exact_head })
+  if (!positiveInteger(prNumber)) throw new Error('ready_review_terminal_authority_invalid')
+  const roster = value.producer_roster.map((producer) =>
+    normalizeReadyReviewProducerV1(producer, request, value.ready_generation?.ready_generation_id))
+  if (
+    new Set(roster.map((producer) => producer.producer_id)).size !== roster.length ||
+    new Set(roster.map((producer) => producer.receipt_comment_id)).size !== roster.length ||
+    JSON.stringify(roster.map((producer) => producer.producer_id)) !== JSON.stringify(roster.map((producer) => producer.producer_id).sort())
+  ) throw new Error('ready_review_terminal_authority_invalid')
+  return Object.freeze({ ...value, task_issue_number: taskIssueNumber, pr_number: prNumber, producer_roster: Object.freeze(roster) })
+}
+
+const acquireReadyReviewTerminalReceiptsV1 = async ({ request, generation, authority, host }) => {
+  const receipts = []
+  for (const producer of authority.producer_roster) {
+    if (typeof host?.verifyReadyReviewProducerV1 === 'function') {
+      await host.verifyReadyReviewProducerV1(producer.dispatch)
+    } else {
+      await acquireRoleDispatchBindingV1(producer.dispatch, host)
+      await verifyRoleDispatchSourceV1(producer.dispatch, host)
+    }
+    const comment = await fetchRoleCommentRecordV1(
+      request.repository, request.taskIssueNumber, producer.receipt_comment_id, host,
+    )
+    const review = parseIndependentReviewDecisionProjectionV1(comment.body, request.repository, request.taskIssueNumber)
+    if (
+      review.pr_number !== request.prNumber || review.reviewed_head !== request.exactHead ||
+      typeof comment.created_at !== 'string' || !STRICT_UTC.test(comment.created_at) ||
+      comment.created_at <= generation.ready_event_created_at
+    ) throw new Error('ready_review_terminal_receipt_invalid')
+    receipts.push(Object.freeze({
+      producer_id: producer.producer_id,
+      exact_head: request.exactHead,
+      ready_generation_id: generation.ready_generation_id,
+      review_decision_comment_id: comment.id,
+      review_decision_url: readyReviewTaskCommentUrlV1(request.repository, request.taskIssueNumber, comment.id),
+      review_body_sha256: createHash('sha256').update(Buffer.from(comment.body, 'utf8')).digest('hex'),
+      terminal_timestamp: comment.created_at,
+      decision: review.decision,
+      blocking_finding_count: review.blocking_finding_count,
+      remaining_finding_count: review.remaining_finding_count,
+      unknown_count: review.unknown_count,
+    }))
+  }
+  receipts.sort((left, right) => left.producer_id.localeCompare(right.producer_id))
+  return Object.freeze(receipts)
+}
+
+const readyReviewNowV1 = (host) => {
+  const value = typeof host?.now === 'function' ? host.now() : new Date().toISOString()
+  if (typeof value !== 'string' || !STRICT_UTC.test(value)) throw new Error('ready_review_clock_invalid')
+  return value
+}
+
+export const acquirePostTerminalReviewThreadSnapshotV1 = async ({ request, lastReceiptAt, host }) => {
+  const startedAt = readyReviewNowV1(host)
+  if (startedAt <= lastReceiptAt) throw new Error('ready_review_thread_snapshot_not_post_terminal')
+  const { owner, name } = repositoryPartsV1(request.repository)
+  const pages = []
+  const threads = []
+  const threadIds = new Set()
+  const cursors = new Set()
+  let expectedTotal = null
+  let after = null
+  for (let pageNumber = 1; pageNumber <= 32; pageNumber += 1) {
+    const data = await graphql(host, READY_REVIEW_TERMINAL_THREADS_QUERY_V1, { owner, name, pr: request.prNumber, after })
+    const pull = data?.repository?.pullRequest
+    const connection = pull?.reviewThreads
+    if (
+      pull?.number !== request.prNumber || pull?.state !== 'OPEN' || pull?.isDraft !== false || pull?.merged !== false ||
+      pull?.headRefOid !== request.exactHead || !connection || !Number.isSafeInteger(connection.totalCount) ||
+      connection.totalCount < 0 || !Array.isArray(connection.nodes) || connection.nodes.length > PAGE_SIZE
+    ) throw new Error('ready_review_thread_snapshot_page_invalid')
+    if (expectedTotal === null) expectedTotal = connection.totalCount
+    if (expectedTotal !== connection.totalCount) throw new Error('ready_review_thread_snapshot_total_changed')
+    const projected = []
+    for (const thread of connection.nodes) {
+      const comments = thread?.comments?.nodes
+      if (
+        typeof thread?.id !== 'string' || thread.id.length === 0 || threadIds.has(thread.id) ||
+        typeof thread.isResolved !== 'boolean' || typeof thread.isOutdated !== 'boolean' ||
+        typeof thread.path !== 'string' || thread.path.length === 0 || !Array.isArray(comments) || comments.length > 1
+      ) throw new Error('ready_review_thread_snapshot_thread_invalid')
+      const lastComment = comments.length === 0 ? null : comments[0]
+      if (lastComment !== null && (
+        typeof lastComment.id !== 'string' || lastComment.id.length === 0 ||
+        typeof lastComment.createdAt !== 'string' || !STRICT_UTC.test(lastComment.createdAt)
+      )) throw new Error('ready_review_thread_snapshot_thread_invalid')
+      threadIds.add(thread.id)
+      const item = Object.freeze({
+        id: thread.id,
+        is_resolved: thread.isResolved,
+        is_outdated: thread.isOutdated,
+        path: thread.path,
+        line: Number.isSafeInteger(thread.line) ? thread.line : null,
+        original_line: Number.isSafeInteger(thread.originalLine) ? thread.originalLine : null,
+        last_comment: lastComment === null ? null : Object.freeze({ id: lastComment.id, created_at: lastComment.createdAt }),
+      })
+      projected.push(item)
+      threads.push(item)
+    }
+    const next = validatePageInfoV1(connection.pageInfo, cursors)
+    pages.push(Object.freeze({
+      page_number: pageNumber,
+      after_cursor: after,
+      end_cursor: next,
+      node_count: projected.length,
+      nodes: Object.freeze(projected),
+    }))
+    if (next === null) break
+    after = next
+    if (pageNumber === 32) throw new Error('ready_review_thread_snapshot_terminal_page_missing')
+  }
+  if (threads.length !== expectedTotal) throw new Error('ready_review_thread_snapshot_count_mismatch')
+  const endedAt = readyReviewNowV1(host)
+  if (endedAt < startedAt) throw new Error('ready_review_thread_snapshot_clock_invalid')
+  const finalPull = await acquireMergeGatePullV1(request, host)
+  if (
+    finalPull.number !== request.prNumber || finalPull.state !== 'open' || finalPull.draft !== false ||
+    finalPull.merged !== false || finalPull.head?.sha !== request.exactHead
+  ) throw new Error('ready_review_head_changed_after_snapshot')
+  return Object.freeze({
+    started_at: startedAt,
+    ended_at: endedAt,
+    page_count: pages.length,
+    total_count: expectedTotal,
+    pagination_complete: true,
+    pages: Object.freeze(pages),
+    final_head_refetch: Object.freeze({
+      observed_at: readyReviewNowV1(host),
+      exact_head: finalPull.head.sha,
+      state: finalPull.state,
+      draft: finalPull.draft,
+      merged: finalPull.merged,
+    }),
+  })
+}
+
+const readyReviewArtifactWithoutSealV1 = (artifact) => {
+  const { artifact_sha256: _seal, ...withoutSeal } = artifact
+  return withoutSeal
+}
+
+export const validateReadyReviewTerminalObservationArtifactV1 = ({ artifact, repository, taskIssueNumber, commentId }) => {
+  if (
+    !exactObjectKeysV1(artifact, READY_REVIEW_TERMINAL_ARTIFACT_FIELDS_V1) ||
+    artifact.record_type !== READY_REVIEW_TERMINAL_ARTIFACT_RECORD_TYPE_V1 || artifact.version !== 1 ||
+    artifact.authoring_role !== 'Protected Transition Admission' || artifact.repository !== repository ||
+    artifact.task_issue !== `https://github.com/${repository}/issues/${taskIssueNumber}` ||
+    artifact.canonical_record !== readyReviewTaskCommentUrlV1(repository, taskIssueNumber, commentId) ||
+    !FULL_HEAD.test(artifact.exact_head ?? '') || !/^[0-9a-f]{64}$/.test(artifact.artifact_sha256 ?? '') ||
+    !Array.isArray(artifact.producer_roster) || artifact.producer_roster.length === 0 ||
+    !Array.isArray(artifact.terminal_receipts) || artifact.terminal_receipts.length !== artifact.producer_roster.length ||
+    artifact.post_terminal_thread_snapshot?.pagination_complete !== true ||
+    artifact.final_head_refetch?.exact_head !== artifact.exact_head
+  ) throw new Error('ready_review_terminal_artifact_invalid')
+  const generationId = artifact.ready_generation?.ready_generation_id
+  const rosterIds = artifact.producer_roster.map((producer) => producer?.producer_id)
+  const receiptIds = artifact.terminal_receipts.map((receipt) => receipt?.producer_id)
+  const lastReceiptAt = artifact.terminal_receipts.reduce((latest, receipt) =>
+    typeof receipt?.terminal_timestamp === 'string' && receipt.terminal_timestamp > latest ? receipt.terminal_timestamp : latest, '')
+  if (
+    artifact.pull_request !== `https://github.com/${repository}/pull/${artifact.ready_generation?.pr_number}` ||
+    artifact.ready_generation?.repository !== repository || artifact.ready_generation?.task_issue_number !== taskIssueNumber ||
+    !positiveInteger(artifact.ready_generation?.pr_number) || artifact.ready_generation?.exact_head !== artifact.exact_head ||
+    !positiveInteger(artifact.ready_generation?.ready_completion_comment_id) ||
+    !positiveInteger(artifact.ready_generation?.ready_event_id) ||
+    typeof artifact.ready_generation?.ready_event_node_id !== 'string' || artifact.ready_generation.ready_event_node_id.length === 0 ||
+    !STRICT_UTC.test(artifact.ready_generation?.ready_completion_created_at ?? '') ||
+    !STRICT_UTC.test(artifact.ready_generation?.ready_event_created_at ?? '') ||
+    !/^[0-9a-f]{64}$/.test(generationId ?? '') || new Set(rosterIds).size !== rosterIds.length ||
+    JSON.stringify(rosterIds) !== JSON.stringify([...rosterIds].sort()) ||
+    JSON.stringify(receiptIds) !== JSON.stringify(rosterIds) ||
+    artifact.producer_roster.some((producer) => (
+      !exactObjectKeysV1(producer, ['producer_id', 'exact_head', 'ready_generation_id', 'dispatch']) ||
+      producer?.exact_head !== artifact.exact_head || producer?.ready_generation_id !== generationId ||
+      producer?.producer_id !== readyReviewDigestV1(Object.freeze({
+        dispatch: producer?.dispatch,
+        exact_head: producer?.exact_head,
+        ready_generation_id: producer?.ready_generation_id,
+      }))
+    )) ||
+    artifact.terminal_receipts.some((receipt) => (
+      !exactObjectKeysV1(receipt, [
+        'producer_id', 'exact_head', 'ready_generation_id', 'review_decision_comment_id', 'review_decision_url',
+        'review_body_sha256', 'terminal_timestamp', 'decision', 'blocking_finding_count',
+        'remaining_finding_count', 'unknown_count',
+      ]) ||
+      receipt?.exact_head !== artifact.exact_head || receipt?.ready_generation_id !== generationId ||
+      !positiveInteger(receipt?.review_decision_comment_id) ||
+      receipt?.review_decision_url !== readyReviewTaskCommentUrlV1(repository, taskIssueNumber, receipt.review_decision_comment_id) ||
+      !/^[0-9a-f]{64}$/.test(receipt?.review_body_sha256 ?? '') || !STRICT_UTC.test(receipt?.terminal_timestamp ?? '') ||
+      !['APPROVE', 'CHANGES_REQUIRED', 'BLOCKED'].includes(receipt?.decision) ||
+      ![receipt?.blocking_finding_count, receipt?.remaining_finding_count, receipt?.unknown_count]
+        .every((count) => Number.isSafeInteger(count) && count >= 0)
+    )) ||
+    !STRICT_UTC.test(artifact.post_terminal_thread_snapshot?.started_at ?? '') ||
+    !STRICT_UTC.test(artifact.post_terminal_thread_snapshot?.ended_at ?? '') ||
+    artifact.post_terminal_thread_snapshot.started_at <= lastReceiptAt ||
+    artifact.post_terminal_thread_snapshot.ended_at < artifact.post_terminal_thread_snapshot.started_at ||
+    !Number.isSafeInteger(artifact.post_terminal_thread_snapshot?.page_count) || artifact.post_terminal_thread_snapshot.page_count < 1 ||
+    !Number.isSafeInteger(artifact.post_terminal_thread_snapshot?.total_count) || artifact.post_terminal_thread_snapshot.total_count < 0 ||
+    !Array.isArray(artifact.post_terminal_thread_snapshot?.pages) ||
+    artifact.post_terminal_thread_snapshot.pages.length !== artifact.post_terminal_thread_snapshot.page_count ||
+    !STRICT_UTC.test(artifact.final_head_refetch?.observed_at ?? '') || artifact.final_head_refetch?.state !== 'open' ||
+    artifact.final_head_refetch?.draft !== false || artifact.final_head_refetch?.merged !== false
+  ) throw new Error('ready_review_terminal_artifact_invalid')
+  let observedThreadCount = 0
+  let expectedAfter = null
+  const threadIds = new Set()
+  for (const [index, page] of artifact.post_terminal_thread_snapshot.pages.entries()) {
+    if (
+      !exactObjectKeysV1(page, ['page_number', 'after_cursor', 'end_cursor', 'node_count', 'nodes']) ||
+      page.page_number !== index + 1 || page.after_cursor !== expectedAfter ||
+      !Number.isSafeInteger(page.node_count) || page.node_count < 0 || !Array.isArray(page.nodes) ||
+      page.nodes.length !== page.node_count || (page.end_cursor !== null && (typeof page.end_cursor !== 'string' || page.end_cursor.length === 0))
+    ) throw new Error('ready_review_terminal_artifact_invalid')
+    for (const thread of page.nodes) {
+      if (
+        !exactObjectKeysV1(thread, ['id', 'is_resolved', 'is_outdated', 'path', 'line', 'original_line', 'last_comment']) ||
+        typeof thread.id !== 'string' || thread.id.length === 0 || threadIds.has(thread.id) ||
+        typeof thread.is_resolved !== 'boolean' || typeof thread.is_outdated !== 'boolean' ||
+        typeof thread.path !== 'string' || thread.path.length === 0
+      ) throw new Error('ready_review_terminal_artifact_invalid')
+      threadIds.add(thread.id)
+    }
+    observedThreadCount += page.node_count
+    expectedAfter = page.end_cursor
+  }
+  if (expectedAfter !== null || observedThreadCount !== artifact.post_terminal_thread_snapshot.total_count) {
+    throw new Error('ready_review_terminal_artifact_invalid')
+  }
+  const expectedDigests = Object.freeze({
+    ready_generation_sha256: readyReviewDigestV1(artifact.ready_generation),
+    producer_roster_sha256: readyReviewDigestV1(artifact.producer_roster),
+    terminal_receipts_sha256: readyReviewDigestV1(artifact.terminal_receipts),
+    thread_snapshot_sha256: readyReviewDigestV1(artifact.post_terminal_thread_snapshot),
+    final_head_refetch_sha256: readyReviewDigestV1(artifact.final_head_refetch),
+  })
+  if (
+    !lifecycleSameValueV1(artifact.component_digests, expectedDigests) ||
+    readyReviewDigestV1(readyReviewArtifactWithoutSealV1(artifact)) !== artifact.artifact_sha256
+  ) throw new Error('ready_review_terminal_artifact_digest_mismatch')
+  return Object.freeze(artifact)
+}
+
+const projectReadyReviewArtifactBodyV1 = (artifact) =>
+  `# Ready Review Terminal Observation Artifact V1\n\n\`\`\`json\n${readyReviewCanonicalJsonV1(artifact)}\n\`\`\`\n`
+
+export const executeReadyReviewTerminalObservationOwnerV1 = async ({ request, authorityCommentId, host }) => {
+  try {
+    if (
+      !REPOSITORY.test(request?.repository ?? '') || !positiveInteger(request?.taskIssueNumber) ||
+      !positiveInteger(request?.prNumber) || !FULL_HEAD.test(request?.exactHead ?? '') ||
+      !positiveInteger(authorityCommentId)
+    ) throw new Error('ready_review_terminal_request_invalid')
+    const authorityComment = await fetchRoleCommentRecordV1(
+      request.repository, request.taskIssueNumber, authorityCommentId, host,
+    )
+    assertMinimalGovernanceProductOwnerV1(authorityComment, { requireAssociation: true })
+    const authority = parseReadyReviewTerminalObservationAuthorityV1({
+      body: authorityComment.body,
+      repository: request.repository,
+      taskIssueNumber: request.taskIssueNumber,
+      commentId: authorityCommentId,
+    })
+    if (authority.pr_number !== request.prNumber || authority.exact_head !== request.exactHead) {
+      throw new Error('ready_review_terminal_authority_binding_invalid')
+    }
+    const history = await acquireMinimalGovernanceCommentHistoryV1(request, host)
+    const generation = await acquireCurrentReadyGenerationV1(request, host, history)
+    if (!lifecycleSameValueV1(authority.ready_generation, generation)) {
+      throw new Error('ready_review_terminal_generation_stale')
+    }
+    if (authorityComment.created_at <= generation.ready_event_created_at) {
+      throw new Error('ready_review_terminal_roster_pre_ready')
+    }
+    const receipts = await acquireReadyReviewTerminalReceiptsV1({ request, generation, authority, host })
+    const lastReceiptAt = receipts.reduce((latest, receipt) => latest > receipt.terminal_timestamp ? latest : receipt.terminal_timestamp, '')
+    const snapshot = await acquirePostTerminalReviewThreadSnapshotV1({ request, lastReceiptAt, host })
+    const staging = await api(host, `repos/${request.repository}/issues/${request.taskIssueNumber}/comments`, {
+      method: 'POST', body: { body: '# Ready Review Terminal Observation Artifact V1\n\nPublication in progress.\n' },
+    })
+    if (!positiveInteger(staging?.id)) throw new Error('ready_review_terminal_artifact_publish_failed')
+    const artifactCore = Object.freeze({
+      record_type: READY_REVIEW_TERMINAL_ARTIFACT_RECORD_TYPE_V1,
+      version: 1,
+      authoring_role: 'Protected Transition Admission',
+      canonical_record: readyReviewTaskCommentUrlV1(request.repository, request.taskIssueNumber, staging.id),
+      repository: request.repository,
+      task_issue: `https://github.com/${request.repository}/issues/${request.taskIssueNumber}`,
+      pull_request: `https://github.com/${request.repository}/pull/${request.prNumber}`,
+      exact_head: request.exactHead,
+      ready_generation: generation,
+      producer_roster: Object.freeze(authority.producer_roster.map(({
+        producer_id, exact_head, ready_generation_id, dispatch,
+      }) => Object.freeze({ producer_id, exact_head, ready_generation_id, dispatch }))),
+      terminal_receipts: receipts,
+      post_terminal_thread_snapshot: Object.freeze({
+        started_at: snapshot.started_at,
+        ended_at: snapshot.ended_at,
+        page_count: snapshot.page_count,
+        total_count: snapshot.total_count,
+        pagination_complete: true,
+        pages: snapshot.pages,
+      }),
+      final_head_refetch: snapshot.final_head_refetch,
+    })
+    const componentDigests = Object.freeze({
+      ready_generation_sha256: readyReviewDigestV1(artifactCore.ready_generation),
+      producer_roster_sha256: readyReviewDigestV1(artifactCore.producer_roster),
+      terminal_receipts_sha256: readyReviewDigestV1(artifactCore.terminal_receipts),
+      thread_snapshot_sha256: readyReviewDigestV1(artifactCore.post_terminal_thread_snapshot),
+      final_head_refetch_sha256: readyReviewDigestV1(artifactCore.final_head_refetch),
+    })
+    const withoutSeal = Object.freeze({ ...artifactCore, component_digests: componentDigests })
+    const artifact = Object.freeze({ ...withoutSeal, artifact_sha256: readyReviewDigestV1(withoutSeal) })
+    validateReadyReviewTerminalObservationArtifactV1({
+      artifact, repository: request.repository, taskIssueNumber: request.taskIssueNumber, commentId: staging.id,
+    })
+    const body = projectReadyReviewArtifactBodyV1(artifact)
+    const updated = await api(host, `repos/${request.repository}/issues/comments/${staging.id}`, {
+      method: 'PATCH', body: { body },
+    })
+    if (updated?.id !== staging.id || updated?.body !== body) throw new Error('ready_review_terminal_artifact_publish_failed')
+    const fresh = await api(host, `repos/${request.repository}/issues/comments/${staging.id}`)
+    if (
+      fresh?.id !== staging.id || fresh?.body !== body ||
+      fresh?.issue_url !== `https://api.github.com/repos/${request.repository}/issues/${request.taskIssueNumber}` ||
+      fresh?.user?.login !== 'github-actions[bot]' || fresh?.user?.id !== 41898282 || fresh?.user?.type !== 'Bot'
+    ) throw new Error('ready_review_terminal_artifact_refetch_failed')
+    const parsed = parseReadyReviewCanonicalJsonBlockV1(fresh.body, 'ready_review_terminal_artifact_invalid')
+    validateReadyReviewTerminalObservationArtifactV1({
+      artifact: parsed, repository: request.repository, taskIssueNumber: request.taskIssueNumber, commentId: staging.id,
+    })
+    return Object.freeze({
+      transition: 'ready_review_terminal_observation_resume', state: 'COMPLETED', allowed: false,
+      exit_code: 0, reason: 'ready_review_terminal_observation_complete', automation_status: 'COMPLETED',
+      next_action: 'NONE', mutation_count: 0, publication_count: 1,
+      task_issue_number: request.taskIssueNumber, pr_number: request.prNumber, current_head: request.exactHead,
+      ready_generation_id: generation.ready_generation_id,
+      artifact_comment_id: staging.id, artifact_url: artifact.canonical_record, artifact_sha256: artifact.artifact_sha256,
+    })
+  } catch (error) {
+    return Object.freeze({
+      transition: 'ready_review_terminal_observation_resume', state: 'INDETERMINATE', allowed: false,
+      exit_code: 1, reason: error instanceof Error ? error.message : 'ready_review_terminal_observation_failed',
+      automation_status: 'BLOCKED', next_action: 'STOP', mutation_count: 0, publication_count: 0,
+      task_issue_number: request?.taskIssueNumber ?? null, pr_number: request?.prNumber ?? null,
+      current_head: request?.exactHead ?? null,
+    })
+  }
+}
+
+export const acquireCurrentReadyReviewTerminalObservationArtifactV1 = async ({ request, host }) => {
+  const history = await acquireMinimalGovernanceCommentHistoryV1(request, host)
+  const generation = await acquireCurrentReadyGenerationV1(request, host, history)
+  const candidates = []
+  for (const comment of history.comments) {
+    if (!comment.body.includes(READY_REVIEW_TERMINAL_ARTIFACT_RECORD_TYPE_V1)) continue
+    if (comment.user?.login !== 'github-actions[bot]' || comment.user?.id !== 41898282 || comment.user?.type !== 'Bot') continue
+    const parsed = parseReadyReviewCanonicalJsonBlockV1(comment.body, 'ready_review_terminal_artifact_invalid')
+    const artifact = validateReadyReviewTerminalObservationArtifactV1({
+      artifact: parsed, repository: request.repository, taskIssueNumber: request.taskIssueNumber, commentId: comment.id,
+    })
+    if (
+      artifact.pull_request === `https://github.com/${request.repository}/pull/${request.prNumber}` &&
+      artifact.exact_head === request.exactHead && artifact.ready_generation?.ready_generation_id === generation.ready_generation_id
+    ) candidates.push(Object.freeze({ comment, artifact }))
+  }
+  if (candidates.length !== 1) throw new Error('ready_review_terminal_artifact_current_generation_missing')
+  const selected = candidates[0]
+  const fresh = await api(host, `repos/${request.repository}/issues/comments/${selected.comment.id}`)
+  if (fresh?.body !== selected.comment.body) throw new Error('ready_review_terminal_artifact_refetch_failed')
+  if (!lifecycleSameValueV1(selected.artifact.ready_generation, generation)) {
+    throw new Error('ready_review_terminal_artifact_generation_stale')
+  }
+  for (const producer of selected.artifact.producer_roster) {
+    if (typeof host?.verifyReadyReviewProducerV1 === 'function') {
+      await host.verifyReadyReviewProducerV1(producer.dispatch)
+    } else {
+      await acquireRoleDispatchBindingV1(producer.dispatch, host)
+      await verifyRoleDispatchSourceV1(producer.dispatch, host)
+    }
+  }
+  for (const receipt of selected.artifact.terminal_receipts) {
+    const comment = await fetchRoleCommentRecordV1(
+      request.repository, request.taskIssueNumber, receipt.review_decision_comment_id, host,
+    )
+    const review = parseIndependentReviewDecisionProjectionV1(comment.body, request.repository, request.taskIssueNumber)
+    const bodySha256 = createHash('sha256').update(Buffer.from(comment.body, 'utf8')).digest('hex')
+    if (
+      bodySha256 !== receipt.review_body_sha256 || comment.created_at !== receipt.terminal_timestamp ||
+      receipt.exact_head !== request.exactHead || receipt.ready_generation_id !== generation.ready_generation_id ||
+      review.reviewed_head !== request.exactHead || review.pr_number !== request.prNumber ||
+      review.decision !== receipt.decision || review.blocking_finding_count !== receipt.blocking_finding_count ||
+      review.remaining_finding_count !== receipt.remaining_finding_count || review.unknown_count !== receipt.unknown_count
+    ) throw new Error('ready_review_terminal_receipt_changed')
+  }
+  const effective = await acquireEffectiveReviewDecisionV1({ request, host, history })
+  const receiptIds = new Set(selected.artifact.terminal_receipts.map((receipt) => receipt.review_decision_comment_id))
+  if (
+    !receiptIds.has(effective.commentId) || effective.review.decision !== 'APPROVE' ||
+    effective.review.blocking_finding_count !== 0 || effective.review.remaining_finding_count !== 0 ||
+    effective.review.unknown_count !== 0
+  ) throw new Error('ready_review_terminal_current_review_not_approved')
+  const finalPull = await acquireMergeGatePullV1(request, host)
+  if (
+    finalPull.state !== 'open' || finalPull.draft !== false || finalPull.merged !== false ||
+    finalPull.head?.sha !== request.exactHead
+  ) throw new Error('ready_review_terminal_artifact_head_stale')
+  return Object.freeze({
+    comment_id: selected.comment.id,
+    canonical_record: selected.artifact.canonical_record,
+    artifact_sha256: selected.artifact.artifact_sha256,
+    ready_generation_id: generation.ready_generation_id,
+    review_comment_id: effective.commentId,
+  })
+}
 
 const validateLifecycleReplaySnapshotV1 = (input) => {
   if (
@@ -10025,6 +10697,8 @@ export const executeCanonicalMergeDecisionContinuationV1 = async ({
     scope.complete !== true || !sameRolePathsV1(scope.actual_paths, taskState.authorized_paths)
   ) throw new Error('merge_decision_task_state_binding_invalid')
 
+  await requireReadyReviewTerminalObservationV1({ request: ownerRequest, host })
+
   await acquireCanonicalProductOwnerMergeDecisionV1({
     request: ownerRequest,
     commentId,
@@ -10400,7 +11074,8 @@ const parseManualCli = (argv, environment) => {
   const resumeOnly = ['--review-decision-comment-id', '--publication-handoff-comment-id']
   const mergeSuccessorOnly = ['--merge-decision-comment-id']
   const draftReturnOnly = ['--draft-return-authority-comment-id']
-  const allowed = new Set([...required, ...resumeOnly, ...mergeSuccessorOnly, ...draftReturnOnly])
+  const terminalObservationOnly = ['--terminal-observation-authority-comment-id']
+  const allowed = new Set([...required, ...resumeOnly, ...mergeSuccessorOnly, ...draftReturnOnly, ...terminalObservationOnly])
   if (required.some((key) => !values.has(key)) || [...values.keys()].some((key) => !allowed.has(key))) throw new Error('cli_arguments_invalid')
   const transition = values.get('--transition')
   const taskIssueNumber = Number(values.get('--task-issue-number'))
@@ -10418,12 +11093,16 @@ const parseManualCli = (argv, environment) => {
   const draftReturnAuthorityCommentId = values.has('--draft-return-authority-comment-id')
     ? Number(values.get('--draft-return-authority-comment-id'))
     : null
+  const terminalObservationAuthorityCommentId = values.has('--terminal-observation-authority-comment-id')
+    ? Number(values.get('--terminal-observation-authority-comment-id'))
+    : null
   const repository = environment.GITHUB_REPOSITORY
   const resumeTransition = transition === 'ready_transition_required_resume'
   const mergeSuccessorTransition = transition === 'merge_decision_successor_resume'
   const draftReturnTransition = transition === 'draft_return_required_resume'
+  const terminalObservationTransition = transition === 'ready_review_terminal_observation_resume'
   if (
-    !['terminal_review_admission', 'merge_decision_admission', 'ready_transition_required_resume', 'merge_decision_successor_resume', 'draft_return_required_resume'].includes(transition) ||
+    !['terminal_review_admission', 'merge_decision_admission', 'ready_transition_required_resume', 'merge_decision_successor_resume', 'draft_return_required_resume', 'ready_review_terminal_observation_resume'].includes(transition) ||
     !positiveInteger(taskIssueNumber) ||
     !positiveInteger(prNumber) ||
     !FULL_HEAD.test(exactHead ?? '') ||
@@ -10431,24 +11110,31 @@ const parseManualCli = (argv, environment) => {
     (resumeTransition && (
       values.size !== required.length + resumeOnly.length ||
       !positiveInteger(reviewDecisionCommentId) || !positiveInteger(publicationHandoffCommentId) ||
-      mergeDecisionCommentId !== null || draftReturnAuthorityCommentId !== null ||
+      mergeDecisionCommentId !== null || draftReturnAuthorityCommentId !== null || terminalObservationAuthorityCommentId !== null ||
       !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '') || !positiveInteger(Number(environment.GITHUB_RUN_ATTEMPT))
     )) ||
     (mergeSuccessorTransition && (
       values.size !== required.length + mergeSuccessorOnly.length ||
       reviewDecisionCommentId !== null || publicationHandoffCommentId !== null ||
-      draftReturnAuthorityCommentId !== null || !positiveInteger(mergeDecisionCommentId) ||
+      draftReturnAuthorityCommentId !== null || terminalObservationAuthorityCommentId !== null || !positiveInteger(mergeDecisionCommentId) ||
       !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '')
     )) ||
     (draftReturnTransition && (
       values.size !== required.length + draftReturnOnly.length ||
       reviewDecisionCommentId !== null || publicationHandoffCommentId !== null || mergeDecisionCommentId !== null ||
-      !positiveInteger(draftReturnAuthorityCommentId) || !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '') ||
+      !positiveInteger(draftReturnAuthorityCommentId) || terminalObservationAuthorityCommentId !== null || !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '') ||
       !positiveInteger(Number(environment.GITHUB_RUN_ATTEMPT))
     )) ||
-    (!resumeTransition && !mergeSuccessorTransition && !draftReturnTransition && (
+    (terminalObservationTransition && (
+      values.size !== required.length + terminalObservationOnly.length ||
+      reviewDecisionCommentId !== null || publicationHandoffCommentId !== null || mergeDecisionCommentId !== null ||
+      draftReturnAuthorityCommentId !== null || !positiveInteger(terminalObservationAuthorityCommentId) ||
+      !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '') || !positiveInteger(Number(environment.GITHUB_RUN_ATTEMPT))
+    )) ||
+    (!resumeTransition && !mergeSuccessorTransition && !draftReturnTransition && !terminalObservationTransition && (
       values.size !== required.length || reviewDecisionCommentId !== null ||
-      publicationHandoffCommentId !== null || mergeDecisionCommentId !== null || draftReturnAuthorityCommentId !== null
+      publicationHandoffCommentId !== null || mergeDecisionCommentId !== null || draftReturnAuthorityCommentId !== null ||
+      terminalObservationAuthorityCommentId !== null
     ))
   ) {
     throw new Error('cli_arguments_invalid')
@@ -10463,6 +11149,7 @@ const parseManualCli = (argv, environment) => {
     publicationHandoffCommentId,
     mergeDecisionCommentId,
     draftReturnAuthorityCommentId,
+    terminalObservationAuthorityCommentId,
   })
 }
 
@@ -10667,7 +11354,7 @@ const readJsonFileV1 = (file) => JSON.parse(readFileSync(file, 'utf8'))
 
 const liveShadowRequestV1 = (invocation, environment) => {
   if (invocation.mode === 'manual') {
-    return ['ready_transition_required_resume', 'merge_decision_successor_resume', 'draft_return_required_resume'].includes(invocation.request.transition)
+    return ['ready_transition_required_resume', 'merge_decision_successor_resume', 'draft_return_required_resume', 'ready_review_terminal_observation_resume'].includes(invocation.request.transition)
       ? null
       : invocation.request
   }
@@ -11216,6 +11903,7 @@ const main = async () => {
                   publicationHandoffCommentId: process.env.PTA_INPUT_PUBLICATION_HANDOFF_COMMENT_ID,
                   mergeDecisionCommentId: process.env.PTA_INPUT_MERGE_DECISION_COMMENT_ID,
                   draftReturnAuthorityCommentId: process.env.PTA_INPUT_DRAFT_RETURN_AUTHORITY_COMMENT_ID,
+                  terminalObservationAuthorityCommentId: process.env.PTA_INPUT_TERMINAL_OBSERVATION_AUTHORITY_COMMENT_ID,
                 })
             : invocation.mode === 'admission_result_projection'
               ? projectAdmissionWorkflowResultV1({ result: readJsonFileV1(invocation.resultFile) })
@@ -11373,6 +12061,12 @@ const main = async () => {
                       host: executionHost,
                       runId: process.env.GITHUB_RUN_ID,
                       runAttempt: Number(process.env.GITHUB_RUN_ATTEMPT),
+                    })
+                : invocation.request.transition === 'ready_review_terminal_observation_resume'
+                  ? await executeReadyReviewTerminalObservationOwnerV1({
+                      request: invocation.request,
+                      authorityCommentId: invocation.request.terminalObservationAuthorityCommentId,
+                      host: executionHost,
                     })
                 : invocation.request.transition === 'ready_transition_required_resume'
                   ? await executeReadyTransitionRequiredResumeV1({
