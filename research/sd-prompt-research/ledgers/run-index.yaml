@@ -174,3 +174,15 @@ runs:
   status: OBSERVED
   updated_at: '2026-07-17T21:39:32+09:00'
   path: experiments/bridge/BRG-013-C
+- run_id: HAIR-001-A
+  domain: hair
+  title: HAIR-001-A — bob cut control
+  status: OBSERVED
+  updated_at: '2026-08-29T02:40:53+09:00'
+  path: experiments/hair/HAIR-001-A
+- run_id: HAIR-001-B
+  domain: hair
+  title: HAIR-001-B — long hair treatment
+  status: OBSERVED
+  updated_at: '2026-08-29T02:40:54+09:00'
+  path: experiments/hair/HAIR-001-B

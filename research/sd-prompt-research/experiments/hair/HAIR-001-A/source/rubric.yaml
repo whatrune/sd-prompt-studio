@@ -1,0 +1,48 @@
+schema_version: '3.0'
+run_id: HAIR-001-A
+target_concept: ''
+blind_condition_label: Condition A
+blind_analysis: false
+special_values:
+  unclear: Visible evidence is insufficient or conflicting.
+  not_visible: The relevant body region is cropped or fully obscured.
+axis_catalog:
+  body_state:
+    label: Body State
+    allowed_values: [standing, sitting, kneeling, quadruped, squatting, lying, reclined, suspended, airborne, unclear]
+  body_orientation:
+    label: Body Orientation
+    allowed_values: [face_up, face_down, side_left, side_right, vertical, horizontal, inverted_vertical, oblique, unclear]
+  head_orientation:
+    label: Head Orientation
+    allowed_values: [neutral, flexed_forward, extended_backward, rotated_left, rotated_right, tilted_left, tilted_right, visually_inverted, unclear, not_visible]
+  torso_arch:
+    label: Torso Arch
+    allowed_values: [none, weak, medium, strong, extreme, unclear, not_visible]
+  support_evidence_visibility:
+    label: Support Evidence Visibility
+    allowed_values: [clear, partial, occluded, out_of_frame, unclear]
+active_observation_axes: [body_state, body_orientation, head_orientation, torso_arch, support_evidence_visibility]
+contact_load:
+  enabled: true
+  fields: [left_hand, right_hand, left_forearm, right_forearm]
+  allowed_values: [none, light, supporting, weight_bearing, unclear]
+morphology_candidates:
+  primary: [standing_pose, unclear]
+  secondary: [standing_pose, not_applicable, unclear]
+artifact_checks: [none]
+cross_domain_effects:
+  enabled: false
+  domains: []
+  strength_values: []
+  effect_type_values: []
+rules:
+  preserve_axis_labels_exactly: true
+  preserve_axis_order: true
+  output_all_active_axes_for_every_panel: true
+  use_allowed_values_only: true
+  visible_evidence_only: true
+  enforce_visible_evidence_policy: true
+  analyst_must_not_assign_target_alignment: true
+  analyst_must_not_finalize_concept: true
+  six_images_are_directional_evidence_only: true
