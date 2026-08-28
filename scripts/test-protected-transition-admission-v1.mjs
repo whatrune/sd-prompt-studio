@@ -69,6 +69,7 @@ import {
   parsePrePrImplementationAuthorityV1,
   parseCurrentPrValidationRepublicationAuthorityV1,
   isCurrentPrValidationRepublicationAuthorityCandidateV1,
+  projectCurrentPrValidationExecutionPlanV1,
   executeCurrentPrValidationRepublicationAdmissionV1,
   executeCurrentPrValidationRepublicationFinalizeV1,
   parsePrePrImplementationResultHandoffV1,
@@ -3162,6 +3163,7 @@ const readyRebindJobIds = Object.freeze({
   protected_transition_repair_executor_v1: '95344878997',
   protected_transition_post_repair_review_v1: '95344879635',
   protected_transition_current_pr_validation_republication_v1: '95344879901',
+  protected_transition_current_pr_validation_republication_finalize_v1: '95344879902',
 })
 const roleAdmissionRun = ({
   runId = READY_RUN_ID,
@@ -5836,7 +5838,7 @@ const mergeOperatorExternalFailurePageV1 = connectionPage(completedReadyCheckPag
 const mergeOperatorExternalPendingPageV1 = connectionPage(completedReadyCheckPage.nodes.map((item) =>
   item.name === 'check-ready-external-1' ? Object.freeze({ ...item, status: 'IN_PROGRESS', conclusion: null }) : item))
 const mergeOperatorExternalMissingPageV1 = connectionPage(completedReadyCheckPage.nodes.filter((item) =>
-  ['protected_transition_admission_v1', 'protected_transition_repair_executor_v1', 'protected_transition_role_dispatch_consumer_v1', 'protected_transition_post_repair_review_v1', 'protected_transition_merge_operator_v1', 'protected_transition_current_pr_validation_republication_v1'].includes(item.name)))
+  ['protected_transition_admission_v1', 'protected_transition_repair_executor_v1', 'protected_transition_role_dispatch_consumer_v1', 'protected_transition_post_repair_review_v1', 'protected_transition_merge_operator_v1', 'protected_transition_current_pr_validation_republication_v1', 'protected_transition_current_pr_validation_republication_finalize_v1'].includes(item.name)))
 const mergeOperatorExternalStopsV1 = await Promise.all([
   mergeOperatorExternalFailurePageV1,
   mergeOperatorExternalPendingPageV1,
@@ -6079,7 +6081,7 @@ check(
     !canonicalMergeOwnerSource.includes('PRODUCT_OWNER_IMPLEMENTATION_LEAD') &&
     workflow.on.workflow_dispatch.inputs.repository === undefined &&
     workflowSource.includes('PTA_INPUT_MERGE_DECISION_COMMENT_ID') &&
-    Object.keys(workflow.jobs).length === 6 &&
+    Object.keys(workflow.jobs).length === 7 &&
     runnerSource.includes("from './protected-transition-merge-operator-preflight-v1.mjs'") &&
     runnerSource.includes('createMergeOperatorPreflightOwnerV1,') &&
     runnerSource.includes('export const executeMergeOperatorV1 = async (input) => {') &&
@@ -7253,9 +7255,10 @@ const lifecycleProductionFixtureV1 = ({
     'protected_transition_merge_operator_v1',
     'protected_transition_post_repair_review_v1',
     'protected_transition_current_pr_validation_republication_v1',
+    'protected_transition_current_pr_validation_republication_finalize_v1',
   ])
   const lifecycleJobIds = Object.freeze(Object.fromEntries(
-    ['95591890192', '95591918182', '95591918148', '95591918161', '95591918420', '95591918421'].map((jobId, index) => [lifecycleRtoJobNames[index], jobId]),
+    ['95591890192', '95591918182', '95591918148', '95591918161', '95591918420', '95591918421', '95591918422'].map((jobId, index) => [lifecycleRtoJobNames[index], jobId]),
   ))
   const lifecycleCheckSuiteId = 87008787144
   const lifecycleCurrentCheck = currentReadyCheck({
@@ -9862,7 +9865,7 @@ const reviewingRoleOwnerClosureSourceV1 = roleExecutionRun.slice(
 const roleExecutionMainSourceV1 = roleExecutionRun.slice(reviewingRoleOwnerClosureEndV1)
 check(
   !Object.hasOwn(workflow.jobs, 'protected_transition_review_closure_v1') &&
-  Object.keys(workflow.jobs).length === 6 &&
+  Object.keys(workflow.jobs).length === 7 &&
   !Object.hasOwn(admissionJob.outputs, 'review_closure_b64') &&
   !Object.hasOwn(admissionJob.outputs, 'review_closure_exact_head') &&
   admissionReviewClosureStepIndexV1 === -1 &&
@@ -9911,7 +9914,7 @@ const lifecycleStructuralMatrix = [
     (lifecycleSource.match(/method: 'POST'/g) ?? []).length === 1 &&
     lifecycleSource.includes('executeReadyReviewTerminalObservationOwnerV1') && !lifecycleSource.includes("method: 'PUT'"),
   lifecycleAllResults.every((result) => result.mutation_count === 0 && !Object.hasOwn(result, 'comment_body') && !Object.hasOwn(result, 'authority') && !Object.hasOwn(result, 'review')),
-  workflow.on.issue_comment.types.join(',') === 'created' && workflow.on.pull_request.types.join(',') === 'ready_for_review' && Object.keys(workflow.jobs).length === 6,
+  workflow.on.issue_comment.types.join(',') === 'created' && workflow.on.pull_request.types.join(',') === 'ready_for_review' && Object.keys(workflow.jobs).length === 7,
   workflow.permissions.actions === 'read' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'write' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read',
   lifecycleHistoricalPathsV1[323].length === 11 && lifecycleHistoricalPathsV1[325].length === 20 && lifecycleHistoricalPathsV1[327].length === 35 && lifecycleHistoricalPathsV1[329].length === 32 && lifecycleHistoricalPathsV1[331].length === 4 && lifecycleHistoricalPathsV1[333].length === 24,
   pr333InitialPaths.length === 18 && pr333TwentyTwoPaths.length === 22 && lifecycleHistoricalIdentityV1[333].head === '4f0154002ee0139c54cba177dea52f68a3259e87',
@@ -10307,7 +10310,7 @@ check(
     assertRoleOutputSource.indexOf('ConvertTo-Json -Compress -Depth 2') < assertRoleOutputSource.lastIndexOf("throw 'role_output_validation_failed'"),
   'PPI-24a runner validates the bounded PRE-PR rejection envelope before workflow-owned exact serialization and terminal failure',
 )
-check(Object.keys(workflow.jobs).length === 6 && prePrWorkflowBlock.includes('$outside') && prePrWorkflowBlock.includes('Compare-Object $changed $reported') && !prePrWorkflowBlock.includes('Compare-Object $changed $authorized') && !prePrWorkflowBlock.includes('git commit') && !prePrWorkflowBlock.includes('git push') && !prePrWorkflowBlock.includes('pulls') && !prePrWorkflowBlock.includes('bootstrap-publication') && prePrWorkflowBlock.includes('exit 0'), 'PPI-25 host-validated Result subset remains terminal with no commit, push, PR, or bootstrap chaining')
+check(Object.keys(workflow.jobs).length === 7 && prePrWorkflowBlock.includes('$outside') && prePrWorkflowBlock.includes('Compare-Object $changed $reported') && !prePrWorkflowBlock.includes('Compare-Object $changed $authorized') && !prePrWorkflowBlock.includes('git commit') && !prePrWorkflowBlock.includes('git push') && !prePrWorkflowBlock.includes('pulls') && !prePrWorkflowBlock.includes('bootstrap-publication') && prePrWorkflowBlock.includes('exit 0'), 'PPI-25 host-validated Result subset remains terminal with no commit, push, PR, or bootstrap chaining')
 
 const PRE_PR_RESULT_COMMENT_ID = 5391811884
 const prePrPublicationResultBody = finalizedPrePrResult.comment_body
@@ -10472,7 +10475,7 @@ check(
   'PPD-11 canonical decision is published once after fresh rebind and terminates before bootstrap publication mechanics',
 )
 check(
-  (prePrDecisionWorkflowBlock.match(/Publish-CanonicalComment/g) ?? []).length === 1 && Object.keys(workflow.jobs).length === 6 &&
+  (prePrDecisionWorkflowBlock.match(/Publish-CanonicalComment/g) ?? []).length === 1 && Object.keys(workflow.jobs).length === 7 &&
   evaluateRoleDispatchOutputV1({ dispatch: publicationDispatch, body: rolePublicationAuthorityBody }).next_action === 'COMMIT_PUSH_PUBLISH',
   'PPD-12 one canonical publication and existing post-PR Product Owner path remain unchanged',
 )
@@ -10612,7 +10615,7 @@ const bootstrapHandoffBlockStart = roleExecutionRun.indexOf('if ($null -ne $boot
 const bootstrapHandoffBlockEnd = roleExecutionRun.indexOf('$prePrImplementer =', bootstrapHandoffBlockStart)
 const bootstrapHandoffBlock = roleExecutionRun.slice(bootstrapHandoffBlockStart, bootstrapHandoffBlockEnd)
 check(
-  Object.keys(workflow.jobs).length === 6 &&
+  Object.keys(workflow.jobs).length === 7 &&
   workflow.jobs.protected_transition_role_dispatch_consumer_v1.if.includes('BOOTSTRAP_PUBLICATION_OPERATOR') &&
   roleBindRun.includes('operation=$($projection.operation)') &&
   roleDispatchBootstrapProjectionV1.operation === 'EXECUTE_BOOTSTRAP_PUBLICATION' &&
@@ -10643,7 +10646,7 @@ check(
   'PBD-12 legacy Task 359 owner remains an isolated branch and no second publication authority is created',
 )
 check(
-  roleHostRunnerStep?.env?.ROLE_NEXT_ACTION === '${{ needs.protected_transition_current_pr_validation_republication_v1.outputs.next_action || needs.protected_transition_admission_v1.outputs.next_action }}' &&
+  roleHostRunnerStep?.env?.ROLE_NEXT_ACTION === '${{ needs.protected_transition_current_pr_validation_republication_finalize_v1.outputs.next_action || needs.protected_transition_admission_v1.outputs.next_action }}' &&
   roleHostRunnerRun.includes("if ($env:ROLE_NEXT_ACTION -ceq 'BOOTSTRAP_PUBLICATION_OPERATOR')") &&
   roleHostRunnerRun.includes("Join-Path $hostRoot 'package-lock.json'") &&
   (workflowSource.match(/npm ci/g) ?? []).length === 1,
@@ -10664,7 +10667,7 @@ check(
   'PBD-15 failed npm ci terminates before operator invocation with no fallback or global install',
 )
 check(
-  bootstrapOperatorSource === baselineBootstrapOperatorSource && Object.keys(workflow.jobs).length === 6 &&
+  bootstrapOperatorSource === baselineBootstrapOperatorSource && Object.keys(workflow.jobs).length === 7 &&
   roleHostRunnerRun.includes("$env:ROLE_NEXT_ACTION -ceq 'BOOTSTRAP_PUBLICATION_OPERATOR'") &&
   !roleHostRunnerRun.includes("$env:ROLE_NEXT_ACTION -ceq 'IMPLEMENTER'"),
   'PBD-16 Bootstrap operator source and existing Worker path remain unchanged',
@@ -11687,7 +11690,7 @@ const readyAdmissionSourceV1 = runnerSource.slice(
   runnerSource.indexOf('export const evaluateProductOwnerMergeDecisionV1'),
 )
 check(
-  Object.keys(workflow.jobs).length === 6 && roleConsumerJob.if.includes('INTEGRATED_LEAD_READY_REVIEW') &&
+  Object.keys(workflow.jobs).length === 7 && roleConsumerJob.if.includes('INTEGRATED_LEAD_READY_REVIEW') &&
   (readyWorkflowSourceV1.match(/--ready-transition-authority-comment-id/g) ?? []).length === 1 &&
   readyWorkflowSourceV1.indexOf('Publish-ReadyTransitionAuthority') < readyWorkflowSourceV1.indexOf('--ready-transition-authority-comment-id') &&
   readyAdmissionSourceV1.indexOf('fetchRoleCommentRecordV1(') < readyAdmissionSourceV1.indexOf('READY_TRANSITION_PULL_QUERY') &&
@@ -12267,7 +12270,7 @@ check(
   'BPR-09 one Bootstrap Handoff terminates its invocation and the natural issue-comment event owns PUBLISHED continuation',
 )
 check(
-  Object.keys(workflow.jobs).length === 6 && !workflowSource.includes('pull_request.opened') &&
+  Object.keys(workflow.jobs).length === 7 && !workflowSource.includes('pull_request.opened') &&
   !bootstrapHandoffBlock.includes('PATCH') && !bootstrapHandoffBlock.includes('writeProtectedTransitionTaskStateV1') &&
   bootstrapOperatorSource === baselineBootstrapOperatorSource,
   'BPR-10 Bootstrap transaction semantics, initial Task-state, and natural triggers remain unchanged',
@@ -12903,7 +12906,7 @@ check(
   'ROWP-13 the workflow-private CLI uses the same pure projector without host credentials',
 )
 check(
-  Object.keys(workflow.jobs).length === 6 && workflow.on.issue_comment.types.join(',') === 'created' &&
+  Object.keys(workflow.jobs).length === 7 && workflow.on.issue_comment.types.join(',') === 'created' &&
     workflow.on.pull_request.types.join(',') === 'ready_for_review' &&
     workflow.permissions['pull-requests'] === 'write' && workflow.permissions.actions === 'read' &&
     assertRoleOutputSource.includes('--role-output-result-projection-file $ResultFile') &&
@@ -13095,12 +13098,12 @@ check(
 check(
   ['repair_next_action', 'next_action', 'terminal_result', 'source_comment_id', 'authority_kind', 'role_exact_head', 'role_dispatch_b64', 'minimal_merge_plan_b64', 'repair_exact_head', 'repair_dispatch_b64', 'validation_republication_plan_b64']
     .every((name) => admissionJob.outputs[name] === `\${{ steps.evaluate.outputs.${name} }}`) &&
-    roleConsumerJob?.if.includes("needs.protected_transition_current_pr_validation_republication_v1.outputs.next_action == 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") &&
+    roleConsumerJob?.if.includes("needs.protected_transition_current_pr_validation_republication_finalize_v1.outputs.next_action == 'INDEPENDENT_IMPLEMENTATION_REVIEWER'") &&
     mergeOperatorJob?.if === "needs.protected_transition_admission_v1.outputs.next_action == 'MERGE_OPERATOR' && (needs.protected_transition_admission_v1.outputs.terminal_result == 'MERGE_ALLOWED' || needs.protected_transition_admission_v1.outputs.terminal_result == 'MINIMAL_GOVERNANCE_V1')",
   'ADWP-12 admission output names and all downstream execution conditions remain unchanged',
 )
 check(
-  Object.keys(workflow.jobs).length === 6 && workflow.on.issue_comment.types.join(',') === 'created' &&
+  Object.keys(workflow.jobs).length === 7 && workflow.on.issue_comment.types.join(',') === 'created' &&
     workflow.on.pull_request.types.join(',') === 'ready_for_review' && workflow.permissions.actions === 'read' &&
     workflow.permissions['pull-requests'] === 'write',
   'ADWP-13 workflow topology triggers and permissions remain unchanged',
@@ -13287,7 +13290,7 @@ check(
   'MGWP-11 final mutation gate and Minimal Governance drift guard remain unchanged',
 )
 check(
-  Object.keys(workflow.jobs).length === 6 && workflow.on.issue_comment.types.join(',') === 'created' &&
+  Object.keys(workflow.jobs).length === 7 && workflow.on.issue_comment.types.join(',') === 'created' &&
     workflow.on.pull_request.types.join(',') === 'ready_for_review' && workflow.permissions.actions === 'read' &&
     workflow.permissions['pull-requests'] === 'write' && !workflowSource.includes('gh workflow run') &&
     !runnerSource.includes('createWorkflowDispatch'),
@@ -13451,7 +13454,7 @@ check(
   'WDAP-12 pure argument projector performs no acquisition validation publication or mutation',
 )
 check(
-  Object.keys(workflow.jobs).length === 6 && workflow.on.workflow_dispatch.inputs.transition.options.join('\n') === [
+  Object.keys(workflow.jobs).length === 7 && workflow.on.workflow_dispatch.inputs.transition.options.join('\n') === [
     'terminal_review_admission', 'merge_decision_admission', 'ready_transition_required_resume',
     'merge_decision_successor_resume', 'draft_return_required_resume', 'ready_review_terminal_observation_resume',
     'current_pr_validation_republication',
@@ -13858,7 +13861,15 @@ const CVR_PATHS = Object.freeze([
   'scripts/run-protected-transition-admission-v1.mjs',
   'scripts/test-protected-transition-admission-v1.mjs',
 ])
-const CVR_COMMANDS = Object.freeze(['node scripts/test-protected-transition-admission-v1.mjs', 'git diff --check'])
+const CVR_COMMANDS = Object.freeze([
+  'current_pr_validation.pta_focused.v1',
+  'current_pr_validation.role_contracts.v1',
+  'current_pr_validation.node_syntax_runner.v1',
+  'current_pr_validation.node_syntax_tests.v1',
+  'current_pr_validation.npm_test.v1',
+  'current_pr_validation.npm_build.v1',
+  'current_pr_validation.git_diff_check.v1',
+])
 const currentPrValidationAuthorityBodyV1 = [
   '# Current PR Validation Republication Authority V1', '', '```yaml',
   'record_type: current_pr_validation_republication_authority_v1', 'version: 1',
@@ -13886,6 +13897,8 @@ for (const [body, label] of [
   [currentPrValidationAuthorityBodyV1.replace('new_exact_head:', 'unexpected_field: x\nnew_exact_head:'), 'extra field'],
   [currentPrValidationAuthorityBodyV1.replace(`new_exact_head: ${CVR_NEW_HEAD}`, `new_exact_head: ${CVR_PRIOR_HEAD}`), 'same head'],
   [currentPrValidationAuthorityBodyV1.replace(`#issuecomment-${CVR_CORRECTION_COMPLETION_ID}`, `#issuecomment-${CVR_CORRECTION_AUTHORITY_ID}`), 'duplicate correction record'],
+  [currentPrValidationAuthorityBodyV1.replace(CVR_COMMANDS[0], 'node scripts/test-protected-transition-admission-v1.mjs'), 'arbitrary shell command'],
+  [currentPrValidationAuthorityBodyV1.replace(CVR_COMMANDS[0], 'current_pr_validation.unknown.v1'), 'unknown command ID'],
 ]) {
   let error = null
   try { parseCurrentPrValidationRepublicationAuthorityV1({ body, repository: REPOSITORY, taskIssueNumber: CVR_TASK, commentId: CVR_AUTHORITY_ID }) }
@@ -13907,16 +13920,32 @@ const currentPrValidationWorkflowProjectionV1 = projectAdmissionWorkflowResultV1
 }) })
 check(currentPrValidationWorkflowProjectionV1.output_lines.some((line) => line === `role_exact_head=${CVR_NEW_HEAD}`) && currentPrValidationWorkflowProjectionV1.output_lines.some((line) => line.startsWith('validation_republication_plan_b64=')), 'CVR-07 admitted plan is exact-HEAD transported without a role prompt')
 const currentPrValidationJobV1 = workflow.jobs.protected_transition_current_pr_validation_republication_v1
-const currentPrValidationRunV1 = currentPrValidationJobV1.steps.find((step) => step.id === 'finalize')?.run ?? ''
-check(currentPrValidationJobV1.needs === 'protected_transition_admission_v1' && currentPrValidationJobV1.if.includes('CURRENT_PR_VALIDATION_REPUBLICATION_OPERATOR'), 'CVR-08 one bounded default-branch-owned operator job is admitted')
-check(currentPrValidationRunV1.includes('& cmd.exe /d /s /c $command') && currentPrValidationRunV1.includes('output_sha256') && currentPrValidationRunV1.includes('if ($exitCode -ne 0)'), 'CVR-09 existing ordered validation execution semantics are reused fail closed')
-check(currentPrValidationRunV1.includes('git ls-tree HEAD') && currentPrValidationRunV1.includes('$baseAfter -cne $baseBefore') && currentPrValidationRunV1.includes('$headAfter -cne $headBefore'), 'CVR-10 blob base and HEAD drift are rebound around validation')
-check(!currentPrValidationRunV1.includes('codex.cmd') && !currentPrValidationRunV1.includes('git commit') && !currentPrValidationRunV1.includes('git push'), 'CVR-11 validation owner does not implement commit or push')
-check(roleConsumerJob.needs.includes('protected_transition_current_pr_validation_republication_v1') && roleConsumerJob.if.includes('INDEPENDENT_IMPLEMENTATION_REVIEWER'), 'CVR-12 completion reuses the existing Independent Reviewer consumer')
-check(runnerSource.includes("publishedGenerationProjection.status === 'MISSING' && republicationValidationProjection.status === 'MISSING'") && runnerSource.includes("kind: 'CURRENT_PR_VALIDATION_REPUBLICATION'"), 'CVR-13 only exact V1 republication evidence can bypass an incomplete initial generation')
-check(runnerSource.includes("review_status: 'PENDING'") && runnerSource.includes('canonicalJsonSha256V1(generationInput)'), 'CVR-14 generation seal and existing Task-state writer reset old Review authority')
-check(runnerSource.includes("correctionCompletion.publicationMode !== 'NORMAL_NON_FORCE'") && runnerSource.includes('commit.parents[0]?.sha !== authority.prior_canonical_head'), 'CVR-15 correction completion and direct single-parent A-to-B history are mandatory')
-check(!workflowSource.includes('gh workflow run') && (workflowSource.match(/--method PUT/g) ?? []).length === 1 && !currentPrValidationRunV1.includes('markPullRequestReadyForReview'), 'CVR-16 owner adds no Ready Merge or workflow-dispatch shortcut')
+const currentPrValidationRunV1 = currentPrValidationJobV1.steps.find((step) => step.id === 'validate')?.run ?? ''
+const currentPrValidationFinalizeJobV1 = workflow.jobs.protected_transition_current_pr_validation_republication_finalize_v1
+const currentPrValidationFinalizeRunV1 = currentPrValidationFinalizeJobV1.steps.find((step) => step.id === 'finalize')?.run ?? ''
+const currentPrValidationExecutionPlanV1 = projectCurrentPrValidationExecutionPlanV1({
+  validationCommands: CVR_COMMANDS, priorCanonicalHead: CVR_PRIOR_HEAD, newExactHead: CVR_NEW_HEAD,
+})
+check(
+  currentPrValidationExecutionPlanV1[0].executable === 'node' &&
+    currentPrValidationExecutionPlanV1[0].arguments.join('|') === 'scripts/test-protected-transition-admission-v1.mjs' &&
+    currentPrValidationExecutionPlanV1.at(-1).arguments.join('|') === `diff|--check|${CVR_PRIOR_HEAD}|${CVR_NEW_HEAD}|--`,
+  'CVR-08 runner owns the exact executable and argv projection for every closed command ID',
+)
+check(currentPrValidationJobV1.needs === 'protected_transition_admission_v1' && currentPrValidationJobV1.if.includes('CURRENT_PR_VALIDATION_REPUBLICATION_OPERATOR') && currentPrValidationJobV1['runs-on'] === 'windows-latest', 'CVR-09 validation runs only in one disposable GitHub-hosted Windows job')
+check(currentPrValidationJobV1.permissions.contents === 'read' && Object.keys(currentPrValidationJobV1.permissions).length === 1 && currentPrValidationJobV1.steps[0].with['persist-credentials'] === false && currentPrValidationJobV1.steps[0].with['fetch-depth'] === 0, 'CVR-10 validation job has contents-read only and exact non-persistent checkout')
+check(currentPrValidationRunV1.includes('& $executable @arguments') && currentPrValidationRunV1.includes('output_sha256') && currentPrValidationRunV1.includes('if ($exitCode -ne 0)') && !currentPrValidationRunV1.includes('cmd.exe'), 'CVR-11 closed executable arrays replace authority-controlled shell evaluation')
+check(['GH_TOKEN', 'GITHUB_TOKEN', 'GITHUB_OUTPUT', 'GITHUB_ENV', 'GITHUB_PATH', 'GITHUB_STEP_SUMMARY'].every((name) => currentPrValidationRunV1.includes(`'${name}'`)) && !JSON.stringify(currentPrValidationJobV1).includes('${{ github.token }}'), 'CVR-12 validation subprocesses receive no protected token or workflow command-file capability')
+check(currentPrValidationRunV1.includes('git ls-tree HEAD') && currentPrValidationRunV1.includes('$baseAfter -cne $baseBefore') && currentPrValidationRunV1.includes('$headAfter -cne $headBefore'), 'CVR-13 disposable validation emits bounded blob base and HEAD metadata')
+check(currentPrValidationFinalizeJobV1['runs-on'] === 'ubuntu-latest' && currentPrValidationFinalizeJobV1.permissions.contents === 'read' && currentPrValidationFinalizeJobV1.permissions.issues === 'write' && currentPrValidationFinalizeJobV1.permissions['pull-requests'] === 'write', 'CVR-14 write-capable finalizer is a distinct trusted default-branch job')
+check(currentPrValidationFinalizeJobV1.steps[0].with.ref === '${{ github.workflow_sha }}' && currentPrValidationFinalizeJobV1.steps[0].with['persist-credentials'] === false && currentPrValidationFinalizeRunV1.includes('--current-pr-validation-republication-finalize-file') && !currentPrValidationFinalizeRunV1.includes('npm.cmd') && !currentPrValidationFinalizeRunV1.includes('validation_execution_plan'), 'CVR-15 finalizer executes only the default-branch runner and bounded evidence projection, never B code')
+check(currentPrValidationFinalizeRunV1.includes('VALIDATION_REPUBLICATION_EVIDENCE_B64') && currentPrValidationFinalizeRunV1.includes('result.publication_count !== 1') && runnerSource.includes('executeCurrentPrValidationRepublicationAdmissionV1') && runnerSource.includes('sameCurrentPrValidationRepublicationPlanV1'), 'CVR-16 finalizer rebinds canonical PR HEAD base blobs scope and Task-state before publication')
+check(!currentPrValidationRunV1.includes('codex.cmd') && !currentPrValidationRunV1.includes('git commit') && !currentPrValidationRunV1.includes('git push') && !currentPrValidationFinalizeRunV1.includes('git commit') && !currentPrValidationFinalizeRunV1.includes('git push'), 'CVR-17 split owners add no commit push or Codex execution')
+check(roleConsumerJob.needs.includes('protected_transition_current_pr_validation_republication_finalize_v1') && roleConsumerJob.if.includes('protected_transition_current_pr_validation_republication_finalize_v1.outputs.next_action'), 'CVR-18 completion reuses the existing Independent Reviewer consumer after trusted finalization')
+check(runnerSource.includes("publishedGenerationProjection.status === 'MISSING' && republicationValidationProjection.status === 'MISSING'") && runnerSource.includes("kind: 'CURRENT_PR_VALIDATION_REPUBLICATION'"), 'CVR-19 only exact V1 republication evidence can bypass an incomplete initial generation')
+check(runnerSource.includes("review_status: 'PENDING'") && runnerSource.includes('canonicalJsonSha256V1(generationInput)'), 'CVR-20 generation seal and existing Task-state writer reset old Review authority')
+check(runnerSource.includes("correctionCompletion.publicationMode !== 'NORMAL_NON_FORCE'") && runnerSource.includes('commit.parents[0]?.sha !== authority.prior_canonical_head'), 'CVR-21 correction completion and direct single-parent A-to-B history are mandatory')
+check(!workflowSource.includes('gh workflow run') && (workflowSource.match(/--method PUT/g) ?? []).length === 1 && !currentPrValidationRunV1.includes('markPullRequestReadyForReview'), 'CVR-22 owner adds no Ready Merge or workflow-dispatch shortcut')
 
-if (assertions !== 1314) throw new Error(`expected exactly 1314 assertions, observed ${assertions}`)
+if (assertions !== 1322) throw new Error(`expected exactly 1322 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

@@ -47,6 +47,7 @@ const RTO_SELF_JOB_NAMES_V1 = Object.freeze([
   'protected_transition_merge_operator_v1',
   'protected_transition_post_repair_review_v1',
   'protected_transition_current_pr_validation_republication_v1',
+  'protected_transition_current_pr_validation_republication_finalize_v1',
 ])
 const HISTORICAL_LEGACY_RTO_JOB_NAMES_V1 = Object.freeze([
   'protected_transition_admission_v1',
@@ -118,6 +119,29 @@ const CURRENT_PR_VALIDATION_REPUBLICATION_AUTHORITY_SCALAR_FIELDS_V1 = Object.fr
 const CURRENT_PR_VALIDATION_REPUBLICATION_AUTHORITY_LIST_FIELDS_V1 = Object.freeze([
   'authorized_paths', 'validation_commands',
 ])
+const CURRENT_PR_VALIDATION_COMMAND_CATALOG_V1 = Object.freeze({
+  'current_pr_validation.pta_focused.v1': Object.freeze({
+    executable: 'node', arguments: Object.freeze(['scripts/test-protected-transition-admission-v1.mjs']),
+  }),
+  'current_pr_validation.role_contracts.v1': Object.freeze({
+    executable: 'node', arguments: Object.freeze(['scripts/test-role-execution-contracts.mjs']),
+  }),
+  'current_pr_validation.node_syntax_runner.v1': Object.freeze({
+    executable: 'node', arguments: Object.freeze(['--check', 'scripts/run-protected-transition-admission-v1.mjs']),
+  }),
+  'current_pr_validation.node_syntax_tests.v1': Object.freeze({
+    executable: 'node', arguments: Object.freeze(['--check', 'scripts/test-protected-transition-admission-v1.mjs']),
+  }),
+  'current_pr_validation.npm_test.v1': Object.freeze({
+    executable: 'npm.cmd', arguments: Object.freeze(['test']),
+  }),
+  'current_pr_validation.npm_build.v1': Object.freeze({
+    executable: 'npm.cmd', arguments: Object.freeze(['run', 'build']),
+  }),
+  'current_pr_validation.git_diff_check.v1': Object.freeze({
+    executable: 'git', arguments: Object.freeze(['diff', '--check', '$PRIOR_CANONICAL_HEAD', '$NEW_EXACT_HEAD', '--']),
+  }),
+})
 const CURRENT_PR_VALIDATION_REPUBLICATION_RESULT_FIELDS_V1 = Object.freeze([
   'record_type', 'version', 'result_kind', 'task_id', 'authoring_role', 'role', 'authority_source',
   'canonical_record', 'repository', 'task_issue', 'pull_request', 'prior_canonical_head', 'new_exact_head',
@@ -126,6 +150,25 @@ const CURRENT_PR_VALIDATION_REPUBLICATION_RESULT_FIELDS_V1 = Object.freeze([
   'correction_completion_body_sha256', 'authority_body_sha256', 'validation_generation_sha256',
   'status', 'execution_stop_reason', 'blocking_finding_count', 'remaining_finding_count', 'unknown_count',
 ])
+
+export const projectCurrentPrValidationExecutionPlanV1 = ({ validationCommands, priorCanonicalHead, newExactHead }) => {
+  if (!Array.isArray(validationCommands) || !FULL_HEAD.test(priorCanonicalHead ?? '') || !FULL_HEAD.test(newExactHead ?? '')) {
+    throw new Error('current_pr_validation_republication_command_id_invalid')
+  }
+  return Object.freeze(validationCommands.map((commandId) => {
+    const catalogEntry = CURRENT_PR_VALIDATION_COMMAND_CATALOG_V1[commandId]
+    if (!catalogEntry) throw new Error('current_pr_validation_republication_command_id_invalid')
+    return Object.freeze({
+      command_id: commandId,
+      executable: catalogEntry.executable,
+      arguments: Object.freeze(catalogEntry.arguments.map((argument) => {
+        if (argument === '$PRIOR_CANONICAL_HEAD') return priorCanonicalHead
+        if (argument === '$NEW_EXACT_HEAD') return newExactHead
+        return argument
+      })),
+    })
+  }))
+}
 const INTEGRATED_LEAD_READY_RESULT_FIELDS_V1 = Object.freeze([
   'decision', 'repository', 'task_issue', 'pull_request', 'exact_head',
   'review_decision', 'publication_handoff', 'scope_contract_source',
@@ -4432,7 +4475,7 @@ export const parseCurrentPrValidationRepublicationAuthorityV1 = ({ body, reposit
     !Array.isArray(paths) || paths.length === 0 || new Set(paths).size !== paths.length ||
     paths.some((value) => !isNormalizedRepositoryPathV1(value)) ||
     !Array.isArray(commands) || commands.length === 0 || new Set(commands).size !== commands.length ||
-    commands.some((value) => typeof value !== 'string' || value.length === 0)
+    commands.some((value) => typeof value !== 'string' || !Object.hasOwn(CURRENT_PR_VALIDATION_COMMAND_CATALOG_V1, value))
   ) throw new Error('current_pr_validation_republication_authority_invalid')
   const correctionAuthorityCommentId = parseTaskCommentUrl(yaml.scalars.get('correction_authority'))
   const correctionCompletionCommentId = parseTaskCommentUrl(yaml.scalars.get('correction_completion'))
@@ -4496,7 +4539,7 @@ export const parseCurrentPrValidationRepublicationResultV1 = ({ body, repository
     !Array.isArray(paths) || paths.length === 0 || !sameRolePathsV1(paths, Object.freeze([...paths].sort())) ||
     new Set(paths).size !== paths.length || paths.some((value) => !isNormalizedRepositoryPathV1(value)) ||
     !Array.isArray(commands) || commands.length === 0 || new Set(commands).size !== commands.length ||
-    commands.some((value) => typeof value !== 'string' || value.length === 0) ||
+    commands.some((value) => typeof value !== 'string' || !Object.hasOwn(CURRENT_PR_VALIDATION_COMMAND_CATALOG_V1, value)) ||
     !Array.isArray(executions) || executions.length !== commands.length || executions.some((execution, index) =>
       !exactObjectKeysV1(execution, ['command', 'exit_code', 'output_sha256']) || execution.command !== commands[index] ||
       execution.exit_code !== 0 || !/^[0-9a-f]{64}$/.test(execution.output_sha256 ?? '')) ||
@@ -8829,6 +8872,11 @@ export const executeCurrentPrValidationRepublicationAdmissionV1 = async ({ reque
       pull_branch: binding.pull_branch,
       authorized_paths: binding.authority.authorized_paths,
       validation_commands: binding.authority.validation_commands,
+      validation_execution_plan: projectCurrentPrValidationExecutionPlanV1({
+        validationCommands: binding.authority.validation_commands,
+        priorCanonicalHead: binding.authority.prior_canonical_head,
+        newExactHead: binding.authority.new_exact_head,
+      }),
       authority_comment_id: binding.authority.comment_id,
       authority_body_sha256: binding.authority_body_sha256,
       correction_authority_comment_id: binding.authority.correction_authority_comment_id,
@@ -8882,7 +8930,12 @@ export const executeCurrentPrValidationRepublicationFinalizeV1 = async ({ plan, 
   try {
     if (
       plan?.record_type !== 'current_pr_validation_republication_plan_v1' || plan.operation_count !== 1 ||
-      !positiveInteger(plan.authority_comment_id)
+      !positiveInteger(plan.authority_comment_id) ||
+      canonicalJsonTextV1(plan.validation_execution_plan) !== canonicalJsonTextV1(projectCurrentPrValidationExecutionPlanV1({
+        validationCommands: plan.validation_commands ?? [],
+        priorCanonicalHead: plan.prior_canonical_head,
+        newExactHead: plan.new_exact_head,
+      }))
     ) throw new Error('current_pr_validation_republication_plan_invalid')
     const admitted = await executeCurrentPrValidationRepublicationAdmissionV1({
       request, authorityCommentId: plan.authority_comment_id, host,

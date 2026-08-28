@@ -190,17 +190,18 @@ jobs:
   protected_transition_current_pr_validation_republication_v1:
     needs: protected_transition_admission_v1
     if: needs.protected_transition_admission_v1.outputs.next_action == 'CURRENT_PR_VALIDATION_REPUBLICATION_OPERATOR'
-    runs-on: [self-hosted, Windows, X64]
+    runs-on: windows-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
     outputs:
-      next_action: ${{ steps.finalize.outputs.next_action }}
-      role_dispatch_b64: ${{ steps.finalize.outputs.role_dispatch_b64 }}
-      role_exact_head: ${{ steps.finalize.outputs.role_exact_head }}
+      validation_evidence_b64: ${{ steps.validate.outputs.validation_evidence_b64 }}
     steps:
-      - name: Checkout exact validation republication HEAD
+      - name: Checkout exact validation HEAD in disposable workspace
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ needs.protected_transition_admission_v1.outputs.role_exact_head }}
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Use Node.js 24
@@ -208,54 +209,51 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Materialize immutable validation republication host runner
+      - name: Install frozen validation dependencies
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $utf8NoBom = [Text.UTF8Encoding]::new($false)
-          if ($PSVersionTable.PSVersion.Major -ne 7 -or $env:GITHUB_WORKFLOW_SHA -notmatch '^[0-9a-f]{40}$') { throw 'validation_republication_host_identity_invalid' }
-          $runnerTempRoot = [IO.Path]::GetFullPath($env:RUNNER_TEMP).TrimEnd([char[]]@('\', '/'))
-          $hostRoot = [IO.Path]::GetFullPath((Join-Path $runnerTempRoot ("current-pr-validation-republication-host-{0}-{1}" -f $env:GITHUB_RUN_ID, $env:GITHUB_RUN_ATTEMPT)))
-          if (-not $hostRoot.StartsWith($runnerTempRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or (Test-Path -LiteralPath $hostRoot)) { throw 'validation_republication_host_path_invalid' }
-          New-Item -ItemType Directory -Path $hostRoot -ErrorAction Stop | Out-Null
-          git -C $hostRoot init --quiet
-          git -C $hostRoot remote add origin "https://github.com/$($env:GITHUB_REPOSITORY).git"
-          git -C $hostRoot fetch --no-tags --depth=1 origin $env:GITHUB_WORKFLOW_SHA
-          if ($LASTEXITCODE -ne 0) { throw 'validation_republication_host_fetch_failed' }
-          git -C $hostRoot checkout --quiet --detach FETCH_HEAD
-          if ($LASTEXITCODE -ne 0 -or (git -C $hostRoot rev-parse HEAD) -cne $env:GITHUB_WORKFLOW_SHA) { throw 'validation_republication_host_sha_mismatch' }
-          $hostRunner = Join-Path $hostRoot 'scripts/run-protected-transition-admission-v1.mjs'
-          if (-not (Test-Path -LiteralPath $hostRunner -PathType Leaf)) { throw 'validation_republication_host_runner_missing' }
-          [IO.File]::AppendAllText($env:GITHUB_ENV, "PTA_VALIDATION_REPUBLICATION_HOST_RUNNER=$hostRunner$([Environment]::NewLine)", $utf8NoBom)
+          npm.cmd ci --ignore-scripts
+          if ($LASTEXITCODE -ne 0) { throw 'current_pr_validation_republication_dependency_install_failed' }
 
-      - name: Run authority-bound validation and publish Result Handoff
-        id: finalize
+      - name: Run closed-catalog validation without protected credentials
+        id: validate
         shell: pwsh
         env:
-          GH_TOKEN: ${{ github.token }}
           VALIDATION_REPUBLICATION_PLAN_B64: ${{ needs.protected_transition_admission_v1.outputs.validation_republication_plan_b64 }}
         run: |
           $ErrorActionPreference = 'Stop'
           $utf8NoBom = [Text.UTF8Encoding]::new($false)
           $planPath = Join-Path $env:RUNNER_TEMP 'current-pr-validation-republication-plan.json'
           $evidencePath = Join-Path $env:RUNNER_TEMP 'current-pr-validation-republication-evidence.json'
-          $resultPath = Join-Path $env:RUNNER_TEMP 'current-pr-validation-republication-result.json'
           [IO.File]::WriteAllBytes($planPath, [Convert]::FromBase64String($env:VALIDATION_REPUBLICATION_PLAN_B64))
           $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json
           $headBefore = [string](git rev-parse --verify HEAD)
           if ($LASTEXITCODE -ne 0 -or $headBefore -cne [string]$plan.new_exact_head) { throw 'current_pr_validation_republication_head_changed' }
-          $baseBefore = [string]((gh api "repos/$($plan.repository)/git/ref/heads/main" | ConvertFrom-Json).object.sha)
+          $baseBefore = [string](git rev-parse --verify refs/remotes/origin/main)
           if ($LASTEXITCODE -ne 0 -or $baseBefore -cne [string]$plan.current_base) { throw 'current_pr_validation_republication_base_changed' }
-          $commands = [string[]]@($plan.validation_commands)
-          if ($commands.Count -eq 0) { throw 'current_pr_validation_republication_commands_invalid' }
+          $commands = @($plan.validation_execution_plan)
+          if ($commands.Count -eq 0 -or $commands.Count -ne @($plan.validation_commands).Count) { throw 'current_pr_validation_republication_commands_invalid' }
           $executions = @()
           foreach ($command in $commands) {
-            $outputLines = [string[]]@(& cmd.exe /d /s /c $command 2>&1 | ForEach-Object { [string]$_ })
-            $exitCode = $LASTEXITCODE
+            if ([string]$command.command_id -cne [string]$plan.validation_commands[$executions.Count] -or [string]::IsNullOrWhiteSpace([string]$command.executable)) { throw 'current_pr_validation_republication_commands_invalid' }
+            $executable = (Get-Command ([string]$command.executable) -CommandType Application -ErrorAction Stop).Source
+            $arguments = [string[]]@($command.arguments)
+            $protectedEnvironment = @{}
+            foreach ($name in @('GH_TOKEN', 'GITHUB_TOKEN', 'GITHUB_OUTPUT', 'GITHUB_ENV', 'GITHUB_PATH', 'GITHUB_STEP_SUMMARY')) {
+              $item = Get-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue
+              if ($null -ne $item) { $protectedEnvironment[$name] = [string]$item.Value; Remove-Item -LiteralPath "Env:$name" -ErrorAction Stop }
+            }
+            try {
+              $outputLines = [string[]]@(& $executable @arguments 2>&1 | ForEach-Object { [string]$_ })
+              $exitCode = $LASTEXITCODE
+            } finally {
+              foreach ($entry in $protectedEnvironment.GetEnumerator()) { Set-Item -LiteralPath "Env:$($entry.Key)" -Value $entry.Value }
+            }
             $outputText = $outputLines -join [Environment]::NewLine
             $sha256 = [Security.Cryptography.SHA256]::Create()
             try { $outputSha256 = ([BitConverter]::ToString($sha256.ComputeHash([Text.Encoding]::UTF8.GetBytes($outputText)))).Replace('-', '').ToLowerInvariant() } finally { $sha256.Dispose() }
-            $executions += [ordered]@{ command = [string]$command; exit_code = [int]$exitCode; output_sha256 = $outputSha256 }
+            $executions += [ordered]@{ command = [string]$command.command_id; exit_code = [int]$exitCode; output_sha256 = $outputSha256 }
             if ($exitCode -ne 0) { throw 'current_pr_validation_republication_command_failed' }
           }
           $blobOids = @()
@@ -267,29 +265,77 @@ jobs:
             $blobOids += [ordered]@{ path = [string]$binding.path; blob_oid = [string]$binding.blob_oid }
           }
           $headAfter = [string](git rev-parse --verify HEAD)
-          $baseAfter = [string]((gh api "repos/$($plan.repository)/git/ref/heads/main" | ConvertFrom-Json).object.sha)
+          $baseAfter = [string](git rev-parse --verify refs/remotes/origin/main)
           if ($LASTEXITCODE -ne 0 -or $headAfter -cne $headBefore -or $baseAfter -cne $baseBefore) { throw 'current_pr_validation_republication_drift' }
           $evidence = [ordered]@{ head_before = $headBefore; head_after = $headAfter; base_before = $baseBefore; base_after = $baseAfter; blob_oids = $blobOids; executions = $executions }
           [IO.File]::WriteAllText($evidencePath, ($evidence | ConvertTo-Json -Depth 8 -Compress), $utf8NoBom)
-          node $env:PTA_VALIDATION_REPUBLICATION_HOST_RUNNER --current-pr-validation-republication-finalize-file $planPath --validation-evidence-file $evidencePath 1> $resultPath
-          if ($LASTEXITCODE -ne 0) { throw 'current_pr_validation_republication_finalize_failed' }
-          $result = Get-Content -LiteralPath $resultPath -Raw -Encoding utf8 | ConvertFrom-Json
-          if ($result.next_action -cne 'INDEPENDENT_IMPLEMENTATION_REVIEWER' -or $result.current_head -cne $headAfter -or $result.publication_count -ne 1 -or $null -eq $result.role_dispatch) { throw 'current_pr_validation_republication_result_invalid' }
-          $roleDispatchB64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($result.role_dispatch | ConvertTo-Json -Depth 12 -Compress)))
-          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "next_action=$($result.next_action)$([Environment]::NewLine)", $utf8NoBom)
-          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "role_exact_head=$($result.current_head)$([Environment]::NewLine)", $utf8NoBom)
-          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "role_dispatch_b64=$roleDispatchB64$([Environment]::NewLine)", $utf8NoBom)
+          $validationEvidenceB64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($evidencePath))
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "validation_evidence_b64=$validationEvidenceB64$([Environment]::NewLine)", $utf8NoBom)
+
+  protected_transition_current_pr_validation_republication_finalize_v1:
+    needs: [protected_transition_admission_v1, protected_transition_current_pr_validation_republication_v1]
+    if: needs.protected_transition_admission_v1.outputs.next_action == 'CURRENT_PR_VALIDATION_REPUBLICATION_OPERATOR' && needs.protected_transition_current_pr_validation_republication_v1.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    outputs:
+      next_action: ${{ steps.finalize.outputs.next_action }}
+      role_dispatch_b64: ${{ steps.finalize.outputs.role_dispatch_b64 }}
+      role_exact_head: ${{ steps.finalize.outputs.role_exact_head }}
+    steps:
+      - name: Checkout exact trusted finalizer SHA
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@49933ea5288ca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24"
+
+      - name: Rebind and publish bounded validation result
+        id: finalize
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VALIDATION_REPUBLICATION_PLAN_B64: ${{ needs.protected_transition_admission_v1.outputs.validation_republication_plan_b64 }}
+          VALIDATION_REPUBLICATION_EVIDENCE_B64: ${{ needs.protected_transition_current_pr_validation_republication_v1.outputs.validation_evidence_b64 }}
+        run: |
+          set -euo pipefail
+          plan_path="$(mktemp)"
+          evidence_path="$(mktemp)"
+          result_path="$(mktemp)"
+          printf '%s' "$VALIDATION_REPUBLICATION_PLAN_B64" | base64 --decode > "$plan_path"
+          printf '%s' "$VALIDATION_REPUBLICATION_EVIDENCE_B64" | base64 --decode > "$evidence_path"
+          node scripts/run-protected-transition-admission-v1.mjs \
+            --current-pr-validation-republication-finalize-file "$plan_path" \
+            --validation-evidence-file "$evidence_path" > "$result_path"
+          node -e '
+            const fs = require("node:fs");
+            const result = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            if (result.next_action !== "INDEPENDENT_IMPLEMENTATION_REVIEWER" || result.publication_count !== 1 || !result.role_dispatch) throw new Error("current_pr_validation_republication_result_invalid");
+            const lines = [
+              `next_action=${result.next_action}`,
+              `role_exact_head=${result.current_head}`,
+              `role_dispatch_b64=${Buffer.from(JSON.stringify(result.role_dispatch), "utf8").toString("base64")}`,
+            ];
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `${lines.join("\n")}\n`);
+          ' "$result_path"
 
   protected_transition_role_dispatch_consumer_v1:
-    needs: [protected_transition_admission_v1, protected_transition_current_pr_validation_republication_v1]
-    if: always() && (contains(fromJSON('["IMPLEMENTER","PRODUCT_OWNER_IMPLEMENTATION_LEAD","INDEPENDENT_IMPLEMENTATION_REVIEWER","INTEGRATED_LEAD_READY_REVIEW","BOOTSTRAP_PUBLICATION_OPERATOR"]'), needs.protected_transition_admission_v1.outputs.next_action) || needs.protected_transition_current_pr_validation_republication_v1.outputs.next_action == 'INDEPENDENT_IMPLEMENTATION_REVIEWER')
+    needs: [protected_transition_admission_v1, protected_transition_current_pr_validation_republication_v1, protected_transition_current_pr_validation_republication_finalize_v1]
+    if: always() && (contains(fromJSON('["IMPLEMENTER","PRODUCT_OWNER_IMPLEMENTATION_LEAD","INDEPENDENT_IMPLEMENTATION_REVIEWER","INTEGRATED_LEAD_READY_REVIEW","BOOTSTRAP_PUBLICATION_OPERATOR"]'), needs.protected_transition_admission_v1.outputs.next_action) || needs.protected_transition_current_pr_validation_republication_finalize_v1.outputs.next_action == 'INDEPENDENT_IMPLEMENTATION_REVIEWER')
     runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 45
     steps:
       - name: Checkout exact role HEAD
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ needs.protected_transition_current_pr_validation_republication_v1.outputs.role_exact_head || needs.protected_transition_admission_v1.outputs.role_exact_head }}
+          ref: ${{ needs.protected_transition_current_pr_validation_republication_finalize_v1.outputs.role_exact_head || needs.protected_transition_admission_v1.outputs.role_exact_head }}
           persist-credentials: false
 
       - name: Use Node.js 24
@@ -300,7 +346,7 @@ jobs:
       - name: Materialize immutable role host runner
         shell: pwsh
         env:
-          ROLE_NEXT_ACTION: ${{ needs.protected_transition_current_pr_validation_republication_v1.outputs.next_action || needs.protected_transition_admission_v1.outputs.next_action }}
+          ROLE_NEXT_ACTION: ${{ needs.protected_transition_current_pr_validation_republication_finalize_v1.outputs.next_action || needs.protected_transition_admission_v1.outputs.next_action }}
         run: |
           $ErrorActionPreference = 'Stop'
           if ($PSVersionTable.PSVersion.Major -ne 7) { throw 'role_powershell_major_invalid' }
@@ -343,7 +389,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          ROLE_DISPATCH_B64: ${{ needs.protected_transition_current_pr_validation_republication_v1.outputs.role_dispatch_b64 || needs.protected_transition_admission_v1.outputs.role_dispatch_b64 }}
+          ROLE_DISPATCH_B64: ${{ needs.protected_transition_current_pr_validation_republication_finalize_v1.outputs.role_dispatch_b64 || needs.protected_transition_admission_v1.outputs.role_dispatch_b64 }}
         run: |
           $ErrorActionPreference = 'Stop'
           $utf8NoBom = [Text.UTF8Encoding]::new($false)
@@ -353,7 +399,7 @@ jobs:
           [IO.File]::WriteAllBytes($dispatchPath, [Convert]::FromBase64String($env:ROLE_DISPATCH_B64))
           node $env:PTA_ROLE_HOST_RUNNER --role-dispatch-file $dispatchPath 1> $planPath
           if ($LASTEXITCODE -ne 0) { throw 'role_dispatch_binding_failed' }
-          $projectionJson = node $env:PTA_ROLE_HOST_RUNNER --role-dispatch-result-projection-file $planPath --expected-head '${{ needs.protected_transition_current_pr_validation_republication_v1.outputs.role_exact_head || needs.protected_transition_admission_v1.outputs.role_exact_head }}'
+          $projectionJson = node $env:PTA_ROLE_HOST_RUNNER --role-dispatch-result-projection-file $planPath --expected-head '${{ needs.protected_transition_current_pr_validation_republication_finalize_v1.outputs.role_exact_head || needs.protected_transition_admission_v1.outputs.role_exact_head }}'
           if ($LASTEXITCODE -ne 0) { throw 'role_dispatch_not_ready' }
           $projection = $projectionJson | ConvertFrom-Json
           if ($projection.operation -ceq 'EXECUTE_BOOTSTRAP_PUBLICATION') {
