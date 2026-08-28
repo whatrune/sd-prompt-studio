@@ -4322,6 +4322,65 @@ export const parseSelfHostingUnreachableV1 = (body, repository, taskIssueNumber)
   }
 }
 
+const authenticateSelfHostingUnreachableNormalAttemptV1 = async ({ request, proof, host }) => {
+  const runId = String(proof.normal_run_id)
+  const expectedApiRepository = `https://api.github.com/repos/${request.repository}`
+  const expectedApiRunUrl = `${expectedApiRepository}/actions/runs/${runId}`
+  const expectedRunUrl = `https://github.com/${request.repository}/actions/runs/${runId}`
+  const run = await api(host, `repos/${request.repository}/actions/runs/${runId}`)
+  if (
+    String(run?.id ?? '') !== runId || !positiveInteger(run?.run_attempt) ||
+    run?.repository?.full_name !== request.repository || run?.repository?.url !== expectedApiRepository ||
+    run?.head_repository?.full_name !== request.repository || run?.head_repository?.url !== expectedApiRepository ||
+    run?.path !== '.github/workflows/protected-transition-admission-v1.yml' || run?.event !== 'workflow_dispatch' ||
+    run?.status !== 'completed' || run?.conclusion !== 'failure' || run?.head_sha !== proof.current_base ||
+    run?.head_commit?.id !== proof.current_base || run?.head_branch !== 'main' ||
+    run?.url !== expectedApiRunUrl || run?.html_url !== expectedRunUrl ||
+    run?.jobs_url !== `${expectedApiRunUrl}/jobs` || !Array.isArray(run?.pull_requests) || run.pull_requests.length !== 0
+  ) throw new Error('platform_bootstrap_mark_ready_normal_attempt_invalid')
+
+  const strictManifest = await acquireStrictBoundedRtoJobManifestV1({
+    repository: request.repository,
+    runId,
+    runAttempt: run.run_attempt,
+    workflowSha: proof.current_base,
+    host,
+    errorReason: 'platform_bootstrap_mark_ready_normal_attempt_invalid',
+  })
+  const admissionJob = strictManifest.jobs.get('protected_transition_admission_v1')
+  if (
+    admissionJob.status !== 'completed' || admissionJob.conclusion !== 'failure' ||
+    RTO_SELF_JOB_NAMES_V1.filter((name) => name !== 'protected_transition_admission_v1')
+      .some((name) => strictManifest.jobs.get(name).status !== 'completed' || strictManifest.jobs.get(name).conclusion !== 'skipped')
+  ) throw new Error('platform_bootstrap_mark_ready_normal_attempt_invalid')
+
+  const extracted = extractRtoTerminalResultCandidateV1(
+    await apiBytes(host, `repos/${request.repository}/actions/jobs/${admissionJob.id}/logs`),
+  )
+  const terminal = extracted.terminal_result
+  if (
+    !exactObjectKeysV1(terminal, [
+      'transition', 'state', 'allowed', 'exit_code', 'reason', 'task_issue_number', 'pr_number', 'current_head',
+      'out_of_scope_paths', 'state_changed', 'automation_status', 'next_action', 'mutation_count',
+    ]) ||
+    terminal.transition !== 'ready_transition_required_resume' || terminal.state !== 'INDETERMINATE' ||
+    terminal.allowed !== false || terminal.exit_code !== 1 || terminal.reason !== proof.normal_stop_reason ||
+    terminal.task_issue_number !== request.taskIssueNumber || terminal.pr_number !== request.prNumber ||
+    terminal.current_head !== request.exactHead || !Array.isArray(terminal.out_of_scope_paths) ||
+    terminal.out_of_scope_paths.length !== 0 || terminal.state_changed !== false ||
+    terminal.automation_status !== 'BLOCKED' || terminal.next_action !== 'STOP' || terminal.mutation_count !== 0
+  ) throw new Error('platform_bootstrap_mark_ready_normal_attempt_invalid')
+  return Object.freeze({
+    run_id: runId,
+    run_attempt: run.run_attempt,
+    admission_job_id: String(admissionJob.id),
+    terminal_result_sha256: createHash('sha256')
+      .update(Buffer.from(JSON.stringify(terminal), 'utf8'))
+      .digest('hex'),
+    raw_log_sha256: extracted.raw_log_sha256,
+  })
+}
+
 export const parsePlatformBootstrapMarkReadyAuthorityV1 = (body, repository, taskIssueNumber) => {
   try {
     if (typeof body !== 'string' || !REPOSITORY.test(repository ?? '') || !positiveInteger(taskIssueNumber)) {
@@ -6703,36 +6762,82 @@ const resolveAdmissionRunOriginV1 = async ({ repository, admissionRunId, prNumbe
   } else if (admissionRun.event === 'pull_request') {
     const pull = admissionRun.pull_requests[0]
     if (
-      admissionRun.status !== 'completed' || admissionRun.conclusion !== 'success' ||
       admissionRun.head_sha !== exactHead || admissionRun.pull_requests.length !== 1 ||
       pull?.number !== prNumber || pull?.url !== `${expectedApiRepository}/pulls/${prNumber}` ||
       pull?.head?.sha !== exactHead || pull?.head?.repo?.url !== expectedApiRepository ||
       pull?.base?.repo?.url !== expectedApiRepository
     ) throw new Error('role_dispatch_origin_invalid')
 
-    const page = await api(host, `repos/${repository}/actions/runs/${admissionRunId}/jobs?per_page=100`)
-    if (
-      !page || !Number.isSafeInteger(page.total_count) || page.total_count !== RTO_SELF_JOB_NAMES_V1.length ||
-      !Array.isArray(page.jobs) || page.jobs.length !== page.total_count
-    ) throw new Error('ready_self_job_manifest_invalid')
-    const pairs = []
-    const names = new Set()
-    const ids = new Set()
-    for (const job of page.jobs) {
-      const jobId = String(job?.id ?? '')
+    const sameRun = executionIdentity !== null && String(executionIdentity.runId ?? '') === admissionRunId
+    if (!sameRun) {
       if (
-        !WORKFLOW_RUN_ID.test(jobId) || String(job?.run_id ?? '') !== admissionRunId ||
-        !RTO_SELF_JOB_NAMES_V1.includes(job?.name) || names.has(job.name) || ids.has(jobId) ||
-        job?.head_sha !== exactHead ||
-        job?.html_url !== `${expectedRunUrl}/job/${jobId}`
+        admissionRun.status !== 'completed' || admissionRun.conclusion !== 'success'
+      ) throw new Error('role_dispatch_origin_invalid')
+
+      const page = await api(host, `repos/${repository}/actions/runs/${admissionRunId}/jobs?per_page=100`)
+      if (
+        !page || !Number.isSafeInteger(page.total_count) || page.total_count !== RTO_SELF_JOB_NAMES_V1.length ||
+        !Array.isArray(page.jobs) || page.jobs.length !== page.total_count
       ) throw new Error('ready_self_job_manifest_invalid')
-      names.add(job.name)
-      ids.add(jobId)
-      pairs.push([job.name, jobId])
+      const pairs = []
+      const names = new Set()
+      const ids = new Set()
+      for (const job of page.jobs) {
+        const jobId = String(job?.id ?? '')
+        if (
+          !WORKFLOW_RUN_ID.test(jobId) || String(job?.run_id ?? '') !== admissionRunId ||
+          !RTO_SELF_JOB_NAMES_V1.includes(job?.name) || names.has(job.name) || ids.has(jobId) ||
+          job?.head_sha !== exactHead ||
+          job?.html_url !== `${expectedRunUrl}/job/${jobId}`
+        ) throw new Error('ready_self_job_manifest_invalid')
+        names.add(job.name)
+        ids.add(jobId)
+        pairs.push([job.name, jobId])
+      }
+      if (RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))) throw new Error('ready_self_job_manifest_invalid')
+      selfCheckContext = READY_REBIND_SELF_CHECK_CONTEXT_V1
+      currentWorkflowJobIds = Object.freeze(Object.fromEntries(pairs))
+    } else {
+      const repositoryRecord = await api(host, `repos/${repository}`)
+      const defaultBranch = repositoryRecord?.default_branch
+      const currentMain = typeof host?.branchHead === 'function' && typeof defaultBranch === 'string'
+        ? await host.branchHead(repository, defaultBranch)
+        : null
+      const expectedRef = `refs/pull/${prNumber}/merge`
+      const expectedWorkflowRef = `${repository}/${admissionRun.path}@refs/heads/${defaultBranch}`
+      if (
+        !repositoryRecord || repositoryRecord.full_name !== repository || repositoryRecord.url !== expectedApiRepository ||
+        defaultBranch !== 'main' || !FULL_HEAD.test(currentMain ?? '') ||
+        executionIdentity.repository !== repository || executionIdentity.ref !== expectedRef ||
+        executionIdentity.workflowRef !== expectedWorkflowRef || executionIdentity.workflowSha !== currentMain ||
+        !Number.isSafeInteger(executionIdentity.runAttempt) || executionIdentity.runAttempt < 1 ||
+        admissionRun.run_attempt !== executionIdentity.runAttempt ||
+        executionIdentity.jobName !== 'protected_transition_role_dispatch_consumer_v1' ||
+        admissionRun.status !== 'in_progress' || admissionRun.conclusion !== null
+      ) throw new Error('role_dispatch_origin_invalid')
+
+      const strictManifest = await acquireStrictBoundedRtoJobManifestV1({
+        repository,
+        runId: admissionRunId,
+        runAttempt: executionIdentity.runAttempt,
+        workflowSha: exactHead,
+        host,
+        errorReason: 'ready_same_run_job_manifest_invalid',
+      })
+      const jobs = strictManifest.jobs
+      const admissionJob = jobs.get('protected_transition_admission_v1')
+      const consumerJob = jobs.get('protected_transition_role_dispatch_consumer_v1')
+      if (
+        admissionJob.status !== 'completed' || admissionJob.conclusion !== 'success' ||
+        consumerJob.status !== 'in_progress' || consumerJob.conclusion !== null ||
+        RTO_SELF_JOB_NAMES_V1.filter((name) => ![
+          'protected_transition_admission_v1',
+          'protected_transition_role_dispatch_consumer_v1',
+        ].includes(name)).some((name) => jobs.get(name).status !== 'completed' || jobs.get(name).conclusion !== 'skipped')
+      ) throw new Error('ready_same_run_job_state_invalid')
+      selfCheckContext = READY_REBIND_SELF_CHECK_CONTEXT_V1
+      currentWorkflowJobIds = strictManifest.jobIds
     }
-    if (RTO_SELF_JOB_NAMES_V1.some((name) => !names.has(name))) throw new Error('ready_self_job_manifest_invalid')
-    selfCheckContext = READY_REBIND_SELF_CHECK_CONTEXT_V1
-    currentWorkflowJobIds = Object.freeze(Object.fromEntries(pairs))
   } else {
     throw new Error('role_dispatch_origin_invalid')
   }
@@ -7782,6 +7887,11 @@ const acquirePlatformBootstrapMarkReadySnapshotV1 = async ({
     freshProof.author_association !== 'OWNER' || freshProof.user?.login !== authorityActor.login ||
     freshProof.user?.id !== authorityActor.id || freshProof.user?.type !== authorityActor.type
   ) throw new Error('platform_bootstrap_mark_ready_self_hosting_proof_binding_invalid')
+  await authenticateSelfHostingUnreachableNormalAttemptV1({
+    request,
+    proof: proofCandidates[0].parsed,
+    host,
+  })
   if (expectedConsumption === null && consumptions.length !== 0) {
     throw new Error('platform_bootstrap_mark_ready_authority_consumed')
   }

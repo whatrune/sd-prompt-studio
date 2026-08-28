@@ -4669,6 +4669,7 @@ const roleMergeDecisionRebindHost = ({
   headAtPullRead: suppliedHeadAtPullRead = null,
   mergeableState = 'unstable',
   checkPages: suppliedCheckPages = null,
+  currentMain = CUMULATIVE_PR_BASE,
 } = {}) => {
   const headAtPullRead = suppliedHeadAtPullRead ?? Object.fromEntries(Array.from({ length: 12 }, (_, index) => [index + 1, dispatch.exact_head]))
   const automation = automationHost({
@@ -4694,6 +4695,7 @@ const roleMergeDecisionRebindHost = ({
     metrics: automation.metrics,
     host: Object.freeze({
       ...automation.host,
+      branchHead: async () => currentMain,
       acquireReadyReviewTerminalObservationArtifactV1: async ({ request }) => Object.freeze({
         comment_id: 999001,
         canonical_record: `https://github.com/${request.repository}/issues/${request.taskIssueNumber}#issuecomment-999001`,
@@ -5133,6 +5135,84 @@ const readyOriginRebind = roleMergeDecisionRebindHost({
   checkPage: readyRoleCheckPage(),
 })
 const readyOriginRebound = await executeRoleDispatchRebindV1({ dispatch: readyMergeDecisionDispatch, host: readyOriginRebind.host })
+const readyPullRequestSameRunExecutionV1 = Object.freeze({
+  repository: REPOSITORY,
+  ref: `refs/pull/${PR}/merge`,
+  workflowRef: `${REPOSITORY}/.github/workflows/protected-transition-admission-v1.yml@refs/heads/main`,
+  workflowSha: CUMULATIVE_PR_BASE,
+  runId: READY_RUN_ID,
+  runAttempt: 1,
+  jobName: 'protected_transition_role_dispatch_consumer_v1',
+})
+const readyPullRequestSameRunAdmissionV1 = roleAdmissionRun({
+  head: OTHER_HEAD,
+  status: 'in_progress',
+  conclusion: null,
+})
+const readyPullRequestSameRunJobsV1 = roleAdmissionJobs({
+  head: OTHER_HEAD,
+  states: {
+    protected_transition_role_dispatch_consumer_v1: Object.freeze({ status: 'in_progress', conclusion: null }),
+  },
+})
+const executeReadyPullRequestSameRunRebindFixtureV1 = async ({
+  admissionRun = readyPullRequestSameRunAdmissionV1,
+  jobs = readyPullRequestSameRunJobsV1,
+  executionIdentity = readyPullRequestSameRunExecutionV1,
+  checkPage = readyRoleCheckPage(),
+} = {}) => {
+  const fixture = roleMergeDecisionRebindHost({
+    dispatch: readyMergeDecisionDispatch,
+    admissionRun,
+    jobs,
+    checkPage,
+    currentMain: CUMULATIVE_PR_BASE,
+  })
+  const result = await executeRoleDispatchRebindV1({
+    dispatch: readyMergeDecisionDispatch,
+    host: fixture.host,
+    executionIdentity,
+  })
+  return Object.freeze({ result, metrics: fixture.metrics })
+}
+const readyPullRequestProductionEquivalentSameRunV1 = await executeReadyPullRequestSameRunRebindFixtureV1()
+const readyPullRequestSameRunExecutionDriftsV1 = await Promise.all([
+  Object.freeze({ ...readyPullRequestSameRunExecutionV1, repository: `${REPOSITORY}-other` }),
+  Object.freeze({ ...readyPullRequestSameRunExecutionV1, ref: `refs/pull/${PR + 1}/merge` }),
+  Object.freeze({ ...readyPullRequestSameRunExecutionV1, workflowRef: `${REPOSITORY}/.github/workflows/other.yml@refs/heads/main` }),
+  Object.freeze({ ...readyPullRequestSameRunExecutionV1, workflowSha: HEAD }),
+  Object.freeze({ ...readyPullRequestSameRunExecutionV1, runAttempt: 2 }),
+  Object.freeze({ ...readyPullRequestSameRunExecutionV1, jobName: 'protected_transition_merge_operator_v1' }),
+].map((executionIdentity) => executeReadyPullRequestSameRunRebindFixtureV1({ executionIdentity })))
+const readyPullRequestSameRunJobStateDriftsV1 = await Promise.all([
+  roleAdmissionJobs({
+    head: OTHER_HEAD,
+    states: {
+      protected_transition_admission_v1: Object.freeze({ status: 'completed', conclusion: 'failure' }),
+      protected_transition_role_dispatch_consumer_v1: Object.freeze({ status: 'in_progress', conclusion: null }),
+    },
+  }),
+  roleAdmissionJobs({
+    head: OTHER_HEAD,
+    states: {
+      protected_transition_role_dispatch_consumer_v1: Object.freeze({ status: 'completed', conclusion: 'success' }),
+    },
+  }),
+].map((jobs) => executeReadyPullRequestSameRunRebindFixtureV1({ jobs })))
+const readyPullRequestSameRunManifestDriftsV1 = await Promise.all([
+  roleAdmissionJobs({
+    head: OTHER_HEAD,
+    jobs: readyPullRequestSameRunJobsV1.jobs.map((job, index) => index === 0
+      ? Object.freeze({ ...job, name: 'unknown_rto_job_v1' })
+      : job),
+  }),
+  roleAdmissionJobs({
+    head: OTHER_HEAD,
+    jobs: readyPullRequestSameRunJobsV1.jobs.map((job, index) => index === 1
+      ? Object.freeze({ ...job, run_attempt: 2 })
+      : job),
+  }),
+].map((jobs) => executeReadyPullRequestSameRunRebindFixtureV1({ jobs })))
 const issueCommentOriginRebind = roleMergeDecisionRebindHost({
   dispatch: mergeDecisionDispatch,
   admissionRun: roleAdmissionRun({ runId: REVIEW_RUN_ID, event: 'issue_comment', head: CUMULATIVE_PR_BASE }),
@@ -6101,6 +6181,11 @@ const rebindMatrix = [
     reboundPostRepairReviewer.next_action === 'PROTECTED_OPERATION_READY' &&
     readyOriginRebound.next_action === 'PROTECTED_OPERATION_READY' && readyOriginRebound.exact_head === OTHER_HEAD &&
     readyOriginRebind.metrics.originReads === 1 && readyOriginRebind.metrics.jobReads === 1 &&
+    readyPullRequestProductionEquivalentSameRunV1.result.next_action === 'PROTECTED_OPERATION_READY' &&
+    readyPullRequestProductionEquivalentSameRunV1.result.reason === 'role_dispatch_rebound' &&
+    readyPullRequestProductionEquivalentSameRunV1.metrics.originReads === 1 &&
+    readyPullRequestProductionEquivalentSameRunV1.metrics.repositoryReads === 1 &&
+    readyPullRequestProductionEquivalentSameRunV1.metrics.jobReads === 1 &&
     issueCommentOriginRebound.next_action === 'PROTECTED_OPERATION_READY' && issueCommentOriginRebind.metrics.originReads === 1 &&
     issueCommentOriginRebind.metrics.repositoryReads === 1 && issueCommentOriginRebind.metrics.jobReads === 0 &&
     issueCommentProductionEquivalentSameRun.result.state === 'READY' && issueCommentProductionEquivalentSameRun.result.allowed === false &&
@@ -6131,6 +6216,9 @@ const rebindMatrix = [
     readyManifestFailures.every((value) => value.next_action === 'STOP' && value.reason === 'ready_self_job_manifest_invalid') &&
     issueCommentSameRunJobStateResults.every(({ result }) => result.next_action === 'STOP' && result.reason === 'issue_comment_same_run_job_state_invalid') &&
     issueCommentSameRunManifestResults.every(({ result }) => result.next_action === 'STOP' && result.reason === 'issue_comment_same_run_job_manifest_invalid') &&
+    readyPullRequestSameRunExecutionDriftsV1.every(({ result }) => result.next_action === 'STOP' && result.reason === 'role_dispatch_origin_invalid') &&
+    readyPullRequestSameRunJobStateDriftsV1.every(({ result }) => result.next_action === 'STOP' && result.reason === 'ready_same_run_job_state_invalid') &&
+    readyPullRequestSameRunManifestDriftsV1.every(({ result }) => result.next_action === 'STOP' && result.reason === 'ready_same_run_job_manifest_invalid') &&
     issueCommentSameRunCheckIdentityResults.every(({ result }) => result.next_action === 'STOP' && result.reason === 'role_dispatch_gate_changed') &&
     readyMergeAllowedRoute.result.role_dispatch?.repository === REPOSITORY && readyMergeAllowedRoute.result.role_dispatch?.task_issue_number === TASK &&
     readyMergeAllowedRoute.result.role_dispatch?.pr_number === PR && readyMergeAllowedRoute.result.role_dispatch?.exact_head === OTHER_HEAD &&
@@ -6150,7 +6238,7 @@ const rebindMatrix = [
     reboundImplementer, reboundPostRepairReviewer, taskTitleDrift, taskBodyDriftRebind, closedTaskConsumer,
     pullRequestTaskRebind, mismatchedTaskConsumer, malformedTaskRebind, implementerAuthorityDrift, postRepairDecisionDrift,
     publicationReferenceDrift, ...postRepairCountDrifts, reviewerDeletedSource, mergeSourceDrift, postRepairBindingDrift,
-    readyOriginRebound, issueCommentOriginRebound, issueCommentSameRunStopped, readyExternalFailure, ...readyIdentityFailures,
+    readyOriginRebound, readyPullRequestProductionEquivalentSameRunV1.result, issueCommentOriginRebound, issueCommentSameRunStopped, readyExternalFailure, ...readyIdentityFailures,
     ...readyOriginMismatchResults, ...readyManifestFailures, ...issueCommentHostIdentityDriftResults,
     issueCommentProductionEquivalentSameRun.result, issueCommentExactSameRunCheck.result,
     ...issueCommentSameRunExternalStops.map(({ result }) => result), ...issueCommentSameRunExecutionDriftResults.map(({ result }) => result),
@@ -11720,6 +11808,7 @@ const SELF_AMENDMENT_AUTHORITY_ID = 6200000002
 const SELF_AMENDMENT_CONSUMPTION_ID = 6200000003
 const SELF_AMENDMENT_PROOF_ID = 6200000004
 const SELF_AMENDMENT_RUN_ID = '33150000001'
+const SELF_AMENDMENT_NORMAL_RUN_ID = '33149999999'
 const SELF_AMENDMENT_PATHS = Object.freeze([
   '.github/workflows/protected-transition-admission-v1.yml',
   'docs/automation/00-automation-overview.md',
@@ -11744,7 +11833,7 @@ const selfAmendmentProofBodyV1 = (overrides = {}, paths = SELF_AMENDMENT_PATHS, 
     blocked_operation: 'MARK_READY',
     missing_capability: 'STABLE_PLATFORM_BOOTSTRAP_KERNEL_V1',
     normal_route: 'READY_TRANSITION_REQUIRED_RESUME',
-    normal_attempt: `https://github.com/${REPOSITORY}/actions/runs/33149999999`,
+    normal_attempt: `https://github.com/${REPOSITORY}/actions/runs/${SELF_AMENDMENT_NORMAL_RUN_ID}`,
     normal_stop_reason: 'lifecycle_validation_evidence_invalid',
     existing_lawful_continuation: 'NONE',
     status: 'PROVEN',
@@ -11875,6 +11964,49 @@ const selfAmendmentPullV1 = (overrides = {}) => ({
   changed_files: SELF_AMENDMENT_PATHS.length,
   ...overrides,
 })
+const selfAmendmentNormalTerminalV1 = (overrides = {}) => Object.freeze({
+  transition: 'ready_transition_required_resume',
+  state: 'INDETERMINATE',
+  allowed: false,
+  exit_code: 1,
+  reason: 'lifecycle_validation_evidence_invalid',
+  task_issue_number: SELF_AMENDMENT_TASK,
+  pr_number: SELF_AMENDMENT_PR,
+  current_head: SELF_AMENDMENT_HEAD,
+  out_of_scope_paths: Object.freeze([]),
+  state_changed: false,
+  automation_status: 'BLOCKED',
+  next_action: 'STOP',
+  mutation_count: 0,
+  ...overrides,
+})
+const selfAmendmentNormalRunV1 = (overrides = {}) => Object.freeze({
+  ...roleAdmissionRun({
+    runId: SELF_AMENDMENT_NORMAL_RUN_ID,
+    event: 'workflow_dispatch',
+    head: SELF_AMENDMENT_BASE,
+    headBranch: 'main',
+    pullRequests: [],
+    status: 'completed',
+    conclusion: 'failure',
+  }),
+  url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${SELF_AMENDMENT_NORMAL_RUN_ID}`,
+  jobs_url: `https://api.github.com/repos/${REPOSITORY}/actions/runs/${SELF_AMENDMENT_NORMAL_RUN_ID}/jobs`,
+  ...overrides,
+})
+const selfAmendmentNormalJobsV1 = (overrides = {}) => roleAdmissionJobs({
+  runId: SELF_AMENDMENT_NORMAL_RUN_ID,
+  head: SELF_AMENDMENT_BASE,
+  states: {
+    protected_transition_admission_v1: Object.freeze({ status: 'completed', conclusion: 'failure' }),
+    protected_transition_role_dispatch_consumer_v1: Object.freeze({ status: 'completed', conclusion: 'skipped' }),
+    ...overrides,
+  },
+})
+const selfAmendmentNormalLogV1 = (terminal = selfAmendmentNormalTerminalV1()) => Buffer.from(
+  `2026-08-28T10:58:00Z ${JSON.stringify(terminal)}`,
+  'utf8',
+)
 const createSelfAmendmentReadyFixtureV1 = ({
   request = selfAmendmentRequestV1(),
   authorityBody = selfAmendmentAuthorityBody,
@@ -11889,8 +12021,14 @@ const createSelfAmendmentReadyFixtureV1 = ({
   graphqlPull = {},
   mutationRejects = false,
   priorConsumption = false,
+  normalRun = selfAmendmentNormalRunV1(),
+  normalJobs = selfAmendmentNormalJobsV1(),
+  normalLog = selfAmendmentNormalLogV1(),
 } = {}) => {
-  const metrics = { mutations: 0, pulls: 0, consumptions: 0, patches: 0, checks: 0, threads: 0 }
+  const metrics = {
+    mutations: 0, pulls: 0, consumptions: 0, patches: 0, checks: 0, threads: 0,
+    normalRunReads: 0, normalJobReads: 0, normalLogReads: 0,
+  }
   const review = selfAmendmentReviewCommentV1(reviewBody)
   const proof = selfAmendmentProofCommentV1(proofBody)
   const authority = selfAmendmentAuthorityCommentV1(authorityBody)
@@ -11922,6 +12060,14 @@ const createSelfAmendmentReadyFixtureV1 = ({
   const host = Object.freeze({
     branchHead: async () => mainHead,
     api: async (endpoint, options = undefined) => {
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${SELF_AMENDMENT_NORMAL_RUN_ID}`) {
+        metrics.normalRunReads += 1
+        return structuredClone(normalRun)
+      }
+      if (endpoint === `repos/${REPOSITORY}/actions/runs/${SELF_AMENDMENT_NORMAL_RUN_ID}/jobs?per_page=100`) {
+        metrics.normalJobReads += 1
+        return structuredClone(normalJobs)
+      }
       if (endpoint === `repos/${REPOSITORY}/issues/comments/${SELF_AMENDMENT_AUTHORITY_ID}`) return structuredClone(authority)
       if (endpoint === `repos/${REPOSITORY}/issues/comments/${SELF_AMENDMENT_REVIEW_ID}`) return structuredClone(review)
       if (endpoint === `repos/${REPOSITORY}/issues/comments/${SELF_AMENDMENT_PROOF_ID}`) return structuredClone(proof)
@@ -11963,6 +12109,14 @@ const createSelfAmendmentReadyFixtureV1 = ({
         return paths.map((filename) => ({ filename, status: 'modified' }))
       }
       throw new Error(`unexpected_self_amendment_endpoint:${endpoint}`)
+    },
+    apiBytes: async (endpoint) => {
+      const admissionJob = normalJobs.jobs.find((job) => job.name === 'protected_transition_admission_v1')
+      if (endpoint !== `repos/${REPOSITORY}/actions/jobs/${admissionJob?.id}/logs`) {
+        throw new Error(`unexpected_self_amendment_bytes_endpoint:${endpoint}`)
+      }
+      metrics.normalLogReads += 1
+      return new Uint8Array(normalLog)
     },
     graphql: async (query, variables) => {
       if (query.includes('statusCheckRollup')) {
@@ -12011,7 +12165,7 @@ check(
   parsedSelfHostingProofV1.pr_number === SELF_AMENDMENT_PR &&
   parsedSelfHostingProofV1.exact_head === SELF_AMENDMENT_HEAD &&
   parsedSelfHostingProofV1.current_base === SELF_AMENDMENT_BASE &&
-  parsedSelfHostingProofV1.normal_run_id === 33149999999 &&
+  parsedSelfHostingProofV1.normal_run_id === Number(SELF_AMENDMENT_NORMAL_RUN_ID) &&
   parsedSelfHostingProofV1.authorized_paths.join('\n') === SELF_AMENDMENT_PATHS.join('\n'),
   'SBK-01 canonical self-hosting-unreachable proof binds exact Task PR HEAD base failed route and scope',
 )
@@ -12071,8 +12225,11 @@ const validSelfAmendmentResultV1 = await executePlatformBootstrapMarkReadyV1({
 check(
   validSelfAmendmentResultV1.state === 'COMPLETED' && validSelfAmendmentResultV1.mutation_count === 1 &&
   validSelfAmendmentFixtureV1.metrics.mutations === 1 && validSelfAmendmentFixtureV1.metrics.pulls === 2 &&
-  validSelfAmendmentFixtureV1.metrics.consumptions === 1 && validSelfAmendmentFixtureV1.metrics.patches === 1,
-  'SBK-05 exact authority claims single use then calls the existing Ready operator exactly once',
+  validSelfAmendmentFixtureV1.metrics.consumptions === 1 && validSelfAmendmentFixtureV1.metrics.patches === 1 &&
+  validSelfAmendmentFixtureV1.metrics.normalRunReads === 2 &&
+  validSelfAmendmentFixtureV1.metrics.normalJobReads === 2 &&
+  validSelfAmendmentFixtureV1.metrics.normalLogReads === 2,
+  'SBK-05 exact authority authenticates the failed normal route twice claims single use then calls the existing Ready operator exactly once',
 )
 const parsedSelfAmendmentConsumptionV1 = parsePlatformBootstrapMarkReadyConsumptionV1(
   validSelfAmendmentFixtureV1.consumptionBody(), REPOSITORY, SELF_AMENDMENT_TASK,
@@ -12110,6 +12267,18 @@ const selfAmendmentFailureFixturesV1 = [
   createSelfAmendmentReadyFixtureV1({ pull: selfAmendmentPullV1({ state: 'closed' }) }),
   createSelfAmendmentReadyFixtureV1({ pull: selfAmendmentPullV1({ merged: true }) }),
   createSelfAmendmentReadyFixtureV1({ priorConsumption: true }),
+  createSelfAmendmentReadyFixtureV1({ normalRun: selfAmendmentNormalRunV1({ event: 'issue_comment' }) }),
+  createSelfAmendmentReadyFixtureV1({
+    normalJobs: selfAmendmentNormalJobsV1({
+      protected_transition_admission_v1: Object.freeze({ status: 'completed', conclusion: 'success' }),
+    }),
+  }),
+  createSelfAmendmentReadyFixtureV1({
+    normalLog: selfAmendmentNormalLogV1(selfAmendmentNormalTerminalV1({ reason: 'different_stop_reason' })),
+  }),
+  createSelfAmendmentReadyFixtureV1({
+    normalLog: selfAmendmentNormalLogV1(selfAmendmentNormalTerminalV1({ task_issue_number: SELF_AMENDMENT_TASK + 1 })),
+  }),
 ]
 const selfAmendmentFailureResultsV1 = []
 for (const fixture of selfAmendmentFailureFixturesV1) {
@@ -12128,7 +12297,7 @@ for (const fixture of selfAmendmentFailureFixturesV1) {
 check(
   selfAmendmentFailureResultsV1.every(({ fixture, result }) =>
     result.next_action === 'STOP' && result.mutation_count === 0 && fixture.metrics.mutations === 0),
-  'SBK-07 identity proof scope Review checks threads mergeability state and consumed-authority drift all STOP before mutation',
+  'SBK-07 identity proof authenticated normal attempt scope Review checks threads mergeability state and consumed-authority drift all STOP before mutation',
 )
 const forgedReadyActionFixtureV1 = readyAuthorityHostV1()
 const forgedReadyActionResultV1 = await executeReadyTransitionOperatorV1({
