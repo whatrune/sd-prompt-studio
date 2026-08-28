@@ -12,8 +12,6 @@ name: Protected Transition Admission V1
           - merge_decision_admission
           - ready_transition_required_resume
           - merge_decision_successor_resume
-          - draft_return_required_resume
-          - ready_review_terminal_observation_resume
       task_issue_number:
         description: Current implementation Task Issue number
         required: true
@@ -38,14 +36,6 @@ name: Protected Transition Admission V1
         description: Current canonical Product Owner Merge Decision comment ID for bounded Merge successor resume
         required: false
         type: string
-      draft_return_authority_comment_id:
-        description: Exact canonical Draft Return authority comment ID for bounded Ready-to-Draft resume
-        required: false
-        type: string
-      terminal_observation_authority_comment_id:
-        description: Exact canonical current-Ready terminal observation authority comment ID
-        required: false
-        type: string
   issue_comment:
     types:
       - created
@@ -57,7 +47,7 @@ permissions:
   actions: read
   contents: read
   checks: read
-  issues: write
+  issues: read
   pull-requests: write
   statuses: read
 
@@ -128,8 +118,6 @@ jobs:
           PTA_INPUT_REVIEW_DECISION_COMMENT_ID: ${{ inputs.review_decision_comment_id }}
           PTA_INPUT_PUBLICATION_HANDOFF_COMMENT_ID: ${{ inputs.publication_handoff_comment_id }}
           PTA_INPUT_MERGE_DECISION_COMMENT_ID: ${{ inputs.merge_decision_comment_id }}
-          PTA_INPUT_DRAFT_RETURN_AUTHORITY_COMMENT_ID: ${{ inputs.draft_return_authority_comment_id }}
-          PTA_INPUT_TERMINAL_OBSERVATION_AUTHORITY_COMMENT_ID: ${{ inputs.terminal_observation_authority_comment_id }}
           GADP_LIVE_SHADOW_DIR: ${{ runner.temp }}/gadp-live-shadow-v1
         run: |
           set -euo pipefail
