@@ -82,8 +82,10 @@ Canonical Knowledge
 
 ### 2.1 Observation-only mode
 
-`observation.json` is required. `manifest.yaml` is optional and, when present,
-may supply only Run identity, provenance, and source information. Prompt text,
+`observation.json` is required. `manifest.yaml` is optional for legacy pose and
+face admission and, when present, may supply only Run identity, provenance, and
+source information. Hair V1 admission requires the sibling `manifest.yaml` so
+that the optional observation's `run_id` can be checked exactly. Prompt text,
 seed, and model metadata must not be used as evidence of causality.
 
 This mode may generate descriptive material such as:
@@ -491,9 +493,53 @@ consistency validation. A missing or inconsistent aggregate in a required
 Module is a generation failure. In an Optional Module it rejects that Module's
 candidate, records the reason, and permits otherwise valid core material.
 
-Pose, Face, and future Modules retain independent source files, metric paths,
+Pose, Face, Hair V1, and future Modules retain independent source files, metric paths,
 denominator kinds, and panel universes. Totals are never compared automatically
 across Modules.
+
+### 7.1 Hair V1 admission amendment
+
+Hair V1 is an optional Module Observation supplied as
+`hair=<run-dir>/hair-observation.json` alongside the required core pose
+Observation. It uses a separate closed Observation Schema and Axis Registry and
+does not add fields to pose or face observations.
+
+The six panel IDs are exactly `1..6`. The active axis order is exactly
+`hair_length_extent`, `neck_hair_overlap`, `shoulder_hair_overlap`, and
+`hair_identity_clarity`. Their allowed values are fixed by
+`templates/hair-observation-rubric.yaml`; unknown axes and values are invalid.
+
+`computed_aggregate.axis_counts` contains every registered Hair V1 axis/value
+cell, including zero counts. Every axis map sums exactly to six. The stored
+aggregate must equal a deterministic recomputation from panel data. Extraction
+continues to use the generic stored-aggregate leaf profile with denominator
+`panel_count`; it performs no cross-condition interpretation or promotion
+decision.
+
+Legacy pose-only and pose+face inputs retain validator identity
+`observation-schema-v3.0+face-v1.0`. A Draft containing hair uses
+`observation-schema-v3.0+face-v1.0+hair-v1.0`. The Claim, Human Resolution,
+Candidate, Review, Promotion Approval, Application, and Evidence ID Schema
+versions do not change.
+
+Hair also binds `templates/hair-observation-schema.json` as a first-class
+`observation_schema` source. `used_schema_compatibility` contains exactly one
+Hair entry with schema ID, schema version, logical path, JCS content hash, and
+`observation_schema_compatibility_v1` projection hash. This field is absent for
+pose-only and pose+face Drafts so their bytes and identities remain unchanged.
+The schema source is a Module-level identity with `run_id: not_applicable`.
+Multiple admitted Hair runs using the exact same schema collapse to that one
+source record; any disagreement in path, hash algorithm, hash, parse status, or
+other source identity field fails closed. Per-run Hair Observation, manifest,
+and rubric records remain distinct. Multiple Hair rubric records are admissible
+only when their Module-level path/hash identity is exactly equal.
+
+If Hair validation fails, the optional Hair candidate is rejected without
+admitting Hair metrics, Evidence, Module compatibility, schema compatibility,
+or run metadata. The otherwise valid core pose Draft continues, binds the
+rejected optional source bytes in its input identity, and records the original
+failure code as a warning diagnostic. Required pose failures and existing face
+behavior remain unchanged.
 
 ## 8. Draft identity
 
@@ -511,6 +557,7 @@ Graph, and other audit hashes. Its canonical projection contains:
 - used Module hard-compatibility hashes and ID-contract references;
 - used Rubric and Axis Registry role hashes;
 - sorted `used_metric_compatibility` entries;
+- the Hair `used_schema_compatibility` entry, when Hair is present;
 - `evidence_id_contract_version`; and
 - the pre-schema Draft format version.
 
@@ -651,7 +698,8 @@ deterministic or reinterpreted as a Draft ID.
 closed `source_file_v1` objects. Each source object requires:
 
 - `source_role`: enum `observation`, `optional_module_observation`, `manifest`,
-  `experiment_group_metadata`, `module_registry`, `axis_registry`, or `rubric`;
+  `experiment_group_metadata`, `module_registry`, `axis_registry`, `rubric`, or
+  bounded Hair `observation_schema`;
 - `logical_path`: non-empty POSIX-style provenance path;
 - `hash_algorithm`: enum `jcs_sha256_v1`,
   `normalized_text_file_sha256_v1`, or `raw_bytes_sha256_v1`;
@@ -689,6 +737,11 @@ YAML or text source uses `normalized_text_file_sha256_v1`; its `parse_status`
 records the actual structured parse result. Parse-failed sources remain present
 in `source_files`. It is invalid to describe unparseable JSON as JCS-hashed, to
 omit a failed source, or to substitute null or an empty hash.
+
+Before `source_collection_v1` is formed, identical bounded Hair
+`observation_schema` records are collapsed by their complete source identity.
+This is the only source role with this Module-level cardinality rule; it does
+not collapse run-bound Observation, manifest, or rubric provenance.
 
 Generation Failure Reports are outside that Source selection policy. A Failure
 Report may be valid JSON and still use `raw_bytes_sha256_v1` because it is an
@@ -869,6 +922,12 @@ The `registry_compatibility_check` payload requires:
   `generation_hash`, `current_hash`, and `result`;
 - `metric_results`: array of closed objects requiring `module`, `metric`,
   `generation_hash`, `current_hash`, and `result`;
+- optional `schema_results`: exactly one closed Hair object preserving schema
+  identity/version, logical path, generation/current content hashes,
+  generation/current compatibility hashes, and `result`;
+- optional `rubric_results`: exactly one closed Hair object preserving the
+  Draft-bound rubric/`active_hair_axes` source path, generation/current hashes,
+  and `result`;
 - `evidence_id_results`: array of closed objects requiring `evidence_id`,
   `generation_projection_hash`, `current_projection_hash`, and `result`; and
 - `diagnostics`: array of `diagnostic_v1`.
@@ -939,8 +998,10 @@ Unsupported and mismatched versions produce `RECEIPT_SCHEMA_UNSUPPORTED` and
 
 Compatibility Receipts store generation-time and current Registry versions and
 hashes, per-used-Module hard and change results, used Registry-role and metric
-results, Evidence ID projection results, final compatibility classification,
-warnings, and errors. Unused Registry material is not copied.
+results, Hair Observation Schema results, Evidence ID projection results,
+final compatibility classification, warnings, and errors. Unused Registry
+material is not copied. Current filesystem content never replaces a stored
+generation-time schema hash.
 
 Artifact hashes use JSON JCS/SHA-256 or YAML normalized-text SHA-256 as declared
 by each map entry. Map ordering is governed by JCS. Receipt timestamps and
@@ -1183,8 +1244,17 @@ separate. `candidate_wrapper_artifact_hash_v1` and
 `canonical_assertion_artifact_hash_v1` are
 `normalized_text_file_sha256_v1` Artifact Hashes over their exact saved bytes.
 `assertion_content_v1_hash` is the existing RFC 8785 JCS plus SHA-256 semantic
-Hash. A Rollback Receipt repeats all three bindings from its related Finalize
+Hash. For Hair assertions its projection includes the first-class
+`observation_schema_refs.hair` identity/version/path/hash binding. A Rollback
+Receipt repeats all three bindings from its related Finalize
 attempt and never substitutes the semantic Hash for either Artifact Hash.
+
+Any Assertion whose Evidence Bindings resolve to at least one Hair Evidence
+Fact requires `observation_schema_refs.hair`. Missing provenance fails semantic
+validation even if the Assertion was authored outside Candidate Generation.
+The bound hash and identity must still match the current approved schema; the
+existing Candidate and Assertion hashes preserve the generation-time value
+through Review, Promotion Approval, and Application.
 
 ## 13. Finalize transaction
 

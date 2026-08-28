@@ -54,10 +54,35 @@ python scripts/observation_to_claim.py generate `
   --optional-observation face=experiments/bridge/BRG-008-A/face-observation.json
 ```
 
-The current implementation accepts the required `pose` module and the optional
-`face` module. The Module Registry reserves the frozen initial slugs for future
-modules, but unsupported Observation validators fail explicitly rather than
+Hair V1 uses the same optional-module entrypoint:
+
+```powershell
+python scripts/observation_to_claim.py generate `
+  --observation experiments/<domain>/<run-id>/observation.json `
+  --optional-observation hair=experiments/<domain>/<run-id>/hair-observation.json
+```
+
+The current implementation accepts required `pose` plus optional `face` and
+bounded optional `hair`. Hair must first pass its closed six-panel schema,
+manifest run-identity check, exact four-axis rubric, and stored aggregate
+recomputation. Other reserved Module slugs still fail explicitly rather than
 guessing a structure.
+
+An invalid Hair optional input does not abort an otherwise valid pose Draft.
+The Generation Report records the original Hair validation code as a warning,
+the rejected Hair source remains hash-bound in the Draft identity, and no Hair
+metrics, Evidence, run metadata, Module compatibility, or schema compatibility
+is admitted. Required pose failures and optional face behavior are unchanged.
+
+A Hair Draft records the Observation Schema as `source_role:
+observation_schema`, binds its JCS content hash and identity/version in
+`used_schema_compatibility`, and copies that exact generation-time binding to
+the Generation Report. It is a Module-level source with `run_id:
+not_applicable`: repeated Hair runs using an identical schema share one schema
+source, while any conflicting schema identity fails closed. Observation,
+manifest, and rubric sources remain run-bound; repeated rubric sources must
+agree on their exact Module-level path/hash identity. Pose-only and pose+face
+Drafts do not gain this field.
 
 ## Record Registry compatibility
 
@@ -69,7 +94,12 @@ python scripts/observation_to_claim.py registry-check `
 This appends a `registry_compatibility_check` Receipt. It does not modify or
 retroactively invalidate the Draft. Module compatibility is evaluated from the
 saved compatibility projections. Metric and Evidence-ID projections are
-checked independently.
+checked independently. Hair Observation Schema compatibility is a separate
+`schema_results` collection; it is never encoded as a metric or Axis Registry
+result. The exact Hair rubric/`active_hair_axes` source is checked separately in
+`rubric_results`. Schema or Hair rubric drift makes Candidate Generation and
+Finalize fail closed while retaining the original generation hashes in the
+Receipt.
 
 ## Generate a Candidate Wrapper
 
@@ -87,6 +117,16 @@ canonical Assertion. The command returns `candidate_id`, `candidate_dir`, and
 `candidate_path`. Candidate directories are immutable: changing the Human
 Resolution or Generator version creates a different Candidate ID and never
 overwrites an earlier Candidate.
+
+For a Hair assertion, `observation_schema_refs.hair` is copied from the bound
+Draft identity, not recomputed from the current filesystem. It participates in
+`assertion_content_v1`; Candidate identity continues to bind the complete Draft
+through `source_draft_identity_hash`. Its `axis_registry_refs.hair` hash is
+likewise copied from the Draft-bound Hair rubric source.
+Independent or manually staged Assertions that bind any Hair Evidence Fact are
+subject to the same invariant: `observation_schema_refs.hair` is mandatory and
+is checked against the approved schema without substituting a current hash for
+the bound generation-time value.
 
 ## Finalize
 

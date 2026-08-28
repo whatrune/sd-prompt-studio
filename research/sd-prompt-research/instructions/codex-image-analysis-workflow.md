@@ -93,6 +93,32 @@ Enable it only when the Run manifest declares `outputs.face_observation_json`. W
 
 - Research Packet generation includes the optional Face Module only when the manifest declares `outputs.face_observation_json` and that file exists.
 
+## Optional Hair V1 Module
+
+The Hair V1 Module is opt-in and does not change pose Observation Schema v3.0
+or the optional Face Module.
+
+Enable it only when the Run manifest declares
+`outputs.hair_observation_json: hair-observation.json`.
+
+- Read `templates/hair-observation-rubric.yaml` and
+  `templates/hair-observation-schema.json`.
+- Inspect panel images without using Prompt text to identify or disambiguate
+  hair.
+- Write `hair-observation.json`; do not add Hair fields to `observation.json`
+  or `face-observation.json`.
+- Record exactly the four registered Hair V1 axes for every panel. Do not add
+  hand-near-head, effect, interpretation, or source-Concept fields.
+- Use `unclear`, `not_visible`, or an approved identity-ambiguity value rather
+  than resolving uncertain pixels from Prompt text.
+- Validate and aggregate it with:
+
+  `python scripts/finalize_hair_observation.py --run-dir experiments/{domain}/{run-id}`
+
+The finalizer requires panel IDs `1..6`, manifest/run identity, the exact closed
+axis/value catalog, all aggregate cells including zeros, and exact aggregate
+recomputation.
+
 ## Restrictions
 
 Do not:

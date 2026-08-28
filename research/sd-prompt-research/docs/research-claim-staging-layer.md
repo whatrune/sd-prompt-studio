@@ -72,11 +72,12 @@ Local Evidence paths are repository-root relative and use `/`. Metric paths use 
 
 Each `observed_metrics` entry resolves every listed Evidence Fact independently from Evidence Bindings. The metric paths must match. One Evidence Fact supplies the exact `count` and `total`; multiple Evidence Facts supply their sums and must all describe the same metric.
 
-Registered target axes must exist in the module registry (`active_observation_axes` for pose and `active_face_axes` for face). A proposed axis may be absent; if it is already active, validation reports a warning so its registration state can be reconciled.
+Registered target axes must exist in the module registry (`active_observation_axes` for pose, `active_face_axes` for face, and `active_hair_axes` for Hair V1). A proposed axis may be absent; if it is already active, validation reports a warning so its registration state can be reconciled.
 
 Axis Registry paths follow the separate
 [`research-claim-path-contract.md`](research-claim-path-contract.md):
-`path_base: research_project_root` applies only to `axis_registry_refs.*.path`.
+`path_base: research_project_root` applies to `axis_registry_refs.*.path` and
+the bounded Hair V1 `observation_schema_refs.hair.path`.
 Evidence `observation_path` values remain Git Repository Root relative.
 
 Reproduction counts distinguish panels, conditions, runs, independent experiment groups, models, and contexts. BRG-007-A/B/C are one independent experiment group rather than three independent experiments.
@@ -101,8 +102,17 @@ Includes:
 - scope
 - generalization status
 - dependencies
+- bound Observation Schema references, when present
 
-Excludes IDs, workflow status, Promotion state, supersession, notes, creator metadata, registry file hashes, and Review data.
+Excludes IDs, workflow status, Promotion state, supersession, notes, creator
+metadata, Axis Registry file hashes, and Review data. A Hair Observation Schema
+hash is not an Axis Registry hash: it remains first-class assertion content so
+Review, Promotion Approval, and Application continue to bind the exact
+generation-time schema through the existing Assertion content hash.
+Every Assertion whose Evidence Bindings resolve to Hair Evidence requires the
+Hair Observation Schema reference. This semantic invariant also applies to
+Assertions authored outside the Claim Draft generator: omission fails closed,
+and current filesystem content may verify but never replace the stored hash.
 
 ### `promotion_content_v1`
 

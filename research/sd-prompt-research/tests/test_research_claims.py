@@ -805,13 +805,47 @@ class ResearchClaimTests(unittest.TestCase):
         self.assertEqual(1, len(issues))
         self.assertEqual("warning", issues[0].severity)
 
-    def test_target_axis_requires_module_registry(self) -> None:
+    def test_registered_hair_axis_resolves_from_hair_registry(self) -> None:
         data = checked_in_knowledge()
         assertion = data.assertions["assertion.brg008.head_back.face_effect.001"]
-        assertion["causal_hypotheses"][0]["target_module"] = "hair"
+        file = data.assertion_files[assertion["assertion_id"]]
+        data.assertion_roots[file]["axis_registry_refs"]["hair"] = {
+            "path": "templates/hair-observation-rubric.yaml",
+            "sha256": normalized_text_file_sha256_v1(
+                ROOT / "templates" / "hair-observation-rubric.yaml"
+            ),
+        }
+        hypothesis = assertion["causal_hypotheses"][0]
+        hypothesis["target_module"] = "hair"
+        hypothesis["target_axis"] = {
+            "name": "hair_length_extent",
+            "registration_status": "registered",
+        }
         validator = make_validator(data=data, graph=self.graph)
         validator.validate_assertions()
-        self.assertIn("AXIS_REGISTRY_MODULE_NOT_FOUND", {issue.code for issue in validator.issues})
+        codes = {issue.code for issue in validator.issues}
+        self.assertNotIn("AXIS_REGISTRY_MODULE_NOT_FOUND", codes)
+        self.assertNotIn("REGISTERED_AXIS_NOT_FOUND", codes)
+
+    def test_unknown_registered_hair_axis_is_rejected(self) -> None:
+        data = checked_in_knowledge()
+        assertion = data.assertions["assertion.brg008.head_back.face_effect.001"]
+        file = data.assertion_files[assertion["assertion_id"]]
+        data.assertion_roots[file]["axis_registry_refs"]["hair"] = {
+            "path": "templates/hair-observation-rubric.yaml",
+            "sha256": normalized_text_file_sha256_v1(
+                ROOT / "templates" / "hair-observation-rubric.yaml"
+            ),
+        }
+        hypothesis = assertion["causal_hypotheses"][0]
+        hypothesis["target_module"] = "hair"
+        hypothesis["target_axis"] = {
+            "name": "hand_near_head",
+            "registration_status": "registered",
+        }
+        validator = make_validator(data=data, graph=self.graph)
+        validator.validate_assertions()
+        self.assertIn("REGISTERED_AXIS_NOT_FOUND", {issue.code for issue in validator.issues})
 
     def test_assertion_content_v1_hash_scope_is_frozen(self) -> None:
         data = checked_in_knowledge()
@@ -845,10 +879,100 @@ class ResearchClaimTests(unittest.TestCase):
         changed_evidence = copy.deepcopy(data.evidence)
         changed_evidence["evidence.brg008b.gaze_direction.not_visible"]["count"] = 4
         self.assertNotEqual(original_hash, content_hash(assertion_payload(assertion, changed_evidence)))
+        schema = load_schema(ROOT / "templates" / "hair-observation-schema.json")
+        with_schema = copy.deepcopy(assertion)
+        with_schema["observation_schema_refs"] = {
+            "hair": {
+                "schema_id": schema["$id"],
+                "schema_version": schema["properties"]["schema_version"]["const"],
+                "path": "templates/hair-observation-schema.json",
+                "hash_algorithm": "jcs_sha256_v1",
+                "hash_value": content_hash(schema),
+            }
+        }
+        schema_payload = assertion_payload(with_schema, data.evidence)
+        self.assertIn("observation_schema_refs", schema_payload)
+        schema_hash = content_hash(schema_payload)
+        changed_schema_ref = copy.deepcopy(with_schema)
+        changed_schema_ref["observation_schema_refs"]["hair"]["hash_value"] = "0" * 64
+        self.assertNotEqual(
+            schema_hash,
+            content_hash(assertion_payload(changed_schema_ref, data.evidence)),
+        )
         documentation = (ROOT / "docs" / "research-claim-staging-layer.md").read_text(encoding="utf-8")
         self.assertIn("### `assertion_content_v1`", documentation)
         self.assertIn("- resolved Evidence Fact content, excluding storage location", documentation)
         self.assertIn("Excludes IDs, workflow status, Promotion state", documentation)
+
+    def test_assertion_observation_schema_binding_fails_on_current_schema_drift(self) -> None:
+        data = checked_in_knowledge()
+        assertion_id = "assertion.brg008.head_back.face_effect.001"
+        assertion = data.assertions[assertion_id]
+        evidence_id = assertion["evidence_bindings"][0]["evidence_ref_id"]
+        data.evidence[evidence_id]["observation_module"] = "hair"
+        schema = load_schema(ROOT / "templates" / "hair-observation-schema.json")
+        assertion["observation_schema_refs"] = {
+            "hair": {
+                "schema_id": schema["$id"],
+                "schema_version": schema["properties"]["schema_version"]["const"],
+                "path": "templates/hair-observation-schema.json",
+                "hash_algorithm": "jcs_sha256_v1",
+                "hash_value": content_hash(schema),
+            }
+        }
+        validator = make_validator(data=data, graph=self.graph)
+        validator.validate_assertions()
+        self.assertNotIn(
+            "OBSERVATION_SCHEMA_HASH_DRIFT",
+            {issue.code for issue in validator.issues},
+        )
+        changed_schema = copy.deepcopy(schema)
+        changed_schema["title"] += " drift"
+        drift_validator = make_validator(data=data, graph=self.graph)
+        with patch("validate_research_claims.load_schema", return_value=changed_schema):
+            drift_validator.validate_assertions()
+        self.assertIn(
+            "OBSERVATION_SCHEMA_HASH_DRIFT",
+            {issue.code for issue in drift_validator.issues},
+        )
+        assertion["observation_schema_refs"]["hair"]["hash_value"] = "0" * 64
+        mismatched_validator = make_validator(data=data, graph=self.graph)
+        mismatched_validator.validate_assertions()
+        self.assertIn(
+            "OBSERVATION_SCHEMA_HASH_DRIFT",
+            {issue.code for issue in mismatched_validator.issues},
+        )
+
+    def test_hair_evidence_requires_observation_schema_provenance(self) -> None:
+        data = checked_in_knowledge()
+        assertion_id = "assertion.brg008.head_back.face_effect.001"
+        assertion = data.assertions[assertion_id]
+        evidence_id = assertion["evidence_bindings"][0]["evidence_ref_id"]
+        data.evidence[evidence_id]["observation_module"] = "hair"
+
+        missing_validator = make_validator(data=data, graph=self.graph)
+        missing_validator.validate_assertions()
+        self.assertIn(
+            "HAIR_OBSERVATION_SCHEMA_PROVENANCE_MISSING",
+            {issue.code for issue in missing_validator.issues},
+        )
+
+        schema = load_schema(ROOT / "templates" / "hair-observation-schema.json")
+        assertion["observation_schema_refs"] = {
+            "hair": {
+                "schema_id": schema["$id"],
+                "schema_version": schema["properties"]["schema_version"]["const"],
+                "path": "templates/hair-observation-schema.json",
+                "hash_algorithm": "jcs_sha256_v1",
+                "hash_value": content_hash(schema),
+            }
+        }
+        bound_validator = make_validator(data=data, graph=self.graph)
+        bound_validator.validate_assertions()
+        self.assertNotIn(
+            "HAIR_OBSERVATION_SCHEMA_PROVENANCE_MISSING",
+            {issue.code for issue in bound_validator.issues},
+        )
 
     def test_applied_promotion_uses_historical_receipt_after_assertion_change(self) -> None:
         data, baseline, assertion_id, _, _ = applied_knowledge()

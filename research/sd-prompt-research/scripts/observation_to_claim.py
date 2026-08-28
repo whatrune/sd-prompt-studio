@@ -29,7 +29,10 @@ def parser(default_root: Path) -> argparse.ArgumentParser:
         action="append",
         default=[],
         metavar="MODULE=PATH",
-        help="Optional Module Observation, for example face=.../face-observation.json",
+        help=(
+            "Optional Module Observation, for example face=.../face-observation.json "
+            "or hair=.../hair-observation.json"
+        ),
     )
     generate.add_argument("--output-root", type=Path)
 
@@ -86,6 +89,7 @@ def main(argv: list[str] | None = None) -> int:
                     project_root,
                     error,
                     source_paths=[path for path, _module in observations],
+                    source_modules={path: module for path, module in observations},
                 )
                 print(
                     json.dumps(
