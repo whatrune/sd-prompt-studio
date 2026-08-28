@@ -14,16 +14,17 @@ name: Protected Transition Admission V1
           - merge_decision_successor_resume
           - draft_return_required_resume
           - ready_review_terminal_observation_resume
+          - pre_pr_implementation_authority_resume
       task_issue_number:
         description: Current implementation Task Issue number
         required: true
         type: number
       pr_number:
         description: Current pull request number
-        required: true
+        required: false
         type: string
       exact_head:
-        description: Full current pull request HEAD SHA
+        description: Full current pull request HEAD or pre-PR baseline SHA
         required: true
         type: string
       review_decision_comment_id:
@@ -44,6 +45,22 @@ name: Protected Transition Admission V1
         type: string
       terminal_observation_authority_comment_id:
         description: Exact canonical current-Ready terminal observation authority comment ID
+        required: false
+        type: string
+      pre_pr_implementation_authority_comment_id:
+        description: Finalized canonical 21-field pre-PR Implementation Authority comment ID
+        required: false
+        type: string
+      pre_pr_branch:
+        description: Exact authority-bound pre-PR branch
+        required: false
+        type: string
+      pre_pr_worktree:
+        description: Exact authority-bound pre-PR worktree
+        required: false
+        type: string
+      operation_count:
+        description: Exact authority-bound operation count
         required: false
         type: string
   issue_comment:
@@ -130,6 +147,10 @@ jobs:
           PTA_INPUT_MERGE_DECISION_COMMENT_ID: ${{ inputs.merge_decision_comment_id }}
           PTA_INPUT_DRAFT_RETURN_AUTHORITY_COMMENT_ID: ${{ inputs.draft_return_authority_comment_id }}
           PTA_INPUT_TERMINAL_OBSERVATION_AUTHORITY_COMMENT_ID: ${{ inputs.terminal_observation_authority_comment_id }}
+          PTA_INPUT_PRE_PR_IMPLEMENTATION_AUTHORITY_COMMENT_ID: ${{ inputs.pre_pr_implementation_authority_comment_id }}
+          PTA_INPUT_PRE_PR_BRANCH: ${{ inputs.pre_pr_branch }}
+          PTA_INPUT_PRE_PR_WORKTREE: ${{ inputs.pre_pr_worktree }}
+          PTA_INPUT_OPERATION_COUNT: ${{ inputs.operation_count }}
           GADP_LIVE_SHADOW_DIR: ${{ runner.temp }}/gadp-live-shadow-v1
         run: |
           set -euo pipefail

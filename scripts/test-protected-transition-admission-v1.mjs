@@ -57,6 +57,7 @@ import {
   executeRoleTransitionOrchestratorV1,
   executeProtectedTransitionAdmissionV1,
   executePrePrImplementationIngressV1,
+  executePrePrImplementationAuthorityResumeV1,
   executePrePrBootstrapPublicationDecisionIngressV1,
   executePrePrPublicationDecisionIngressV1,
   executeRepairProviderBindingV3,
@@ -66,6 +67,7 @@ import {
   parseProductOwnerMergeDecisionV1,
   parseIndependentReviewDecisionProjectionV1,
   parseMinimalGovernanceAuthorityV1,
+  parseManualCli,
   parsePrePrImplementationAuthorityV1,
   parsePrePrImplementationResultHandoffV1,
   parsePrePrProductOwnerPublicationDecisionV1,
@@ -752,7 +754,7 @@ for (const unit of roleUnits) {
 }
 
 check(Object.keys(workflow.on).join(',') === 'workflow_dispatch,issue_comment,pull_request' && workflow.on.issue_comment.types.join(',') === 'created' && workflow.on.pull_request.types.join(',') === 'ready_for_review', 'workflow has manual recovery, created Review, and Ready triggers')
-check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head,review_decision_comment_id,publication_handoff_comment_id,merge_decision_comment_id,draft_return_authority_comment_id,terminal_observation_authority_comment_id' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number', 'workflow has the four shared inputs plus exactly five transition-scoped canonical owner IDs and canonicalizes the Task input as a number')
+check(Object.keys(workflow.on.workflow_dispatch.inputs).join(',') === 'transition,task_issue_number,pr_number,exact_head,review_decision_comment_id,publication_handoff_comment_id,merge_decision_comment_id,draft_return_authority_comment_id,terminal_observation_authority_comment_id,pre_pr_implementation_authority_comment_id,pre_pr_branch,pre_pr_worktree,operation_count' && workflow.on.workflow_dispatch.inputs.task_issue_number.type === 'number', 'workflow retains the shared inputs and adds only the bounded pre-PR resume identity tuple')
 check(Object.keys(workflow.permissions).join(',') === 'actions,contents,checks,issues,pull-requests,statuses' && workflow.permissions.actions === 'read' && workflow.permissions.contents === 'read' && workflow.permissions.checks === 'read' && workflow.permissions.issues === 'write' && workflow.permissions['pull-requests'] === 'write' && workflow.permissions.statuses === 'read', 'workflow grants the bounded issue-comment write required for canonical Draft Return completion')
 
 const admissionJob = workflow.jobs.protected_transition_admission_v1
@@ -1065,7 +1067,7 @@ const automationHost = ({
 // Seven Ready-for-Review bridge units x three assertions = 21.
 check(workflow.on.pull_request.types.join(',') === 'ready_for_review' && workflowSource.includes('--ready-event-file "$PTA_EVENT_PATH"'), 'RFR-01 workflow routes only Ready events to the Ready adapter')
 check(workflowSource.includes('[[ "$PTA_BASE_REF" == "main" ]]') && workflowSource.includes('refs/pull/${PTA_EVENT_PR_NUMBER}/merge'), 'RFR-01 Ready host binds main base and exact PR merge ref')
-check(Object.keys(workflow.on.workflow_dispatch.inputs).length === 9 && workflow.concurrency.group.includes('github.event.pull_request.number'), 'RFR-01 preserves four shared recovery inputs, adds only transition-scoped bounded owner IDs, and retains the PR fallback queue key')
+check(Object.keys(workflow.on.workflow_dispatch.inputs).length === 13 && workflow.concurrency.group.includes('github.event.pull_request.number'), 'RFR-01 preserves Ready routing while adding only the bounded pre-PR resume identity tuple')
 
 const validReadyAutomation = automationHost({
   initialState: approvedState(),
@@ -10051,6 +10053,7 @@ const prePrHost = ({
   resultBody = prePrResultBody,
   originRepository = REPOSITORY,
   remoteMainHead = PRE_PR_BASELINE,
+  historyComments = null,
 } = {}) => {
   const metrics = { api: [], worktree: [] }
   const resultRecord = Object.freeze({
@@ -10070,6 +10073,9 @@ const prePrHost = ({
       if (endpoint === `repos/${REPOSITORY}/issues/comments/${authorityComment.id}`) return authorityComment
       if (endpoint === `repos/${REPOSITORY}/issues/comments/${resultCommentId}`) return resultRecord
       if (endpoint === `repos/${REPOSITORY}/issues/${PRE_PR_TASK}/comments?per_page=100&page=1`) return evidence.length === 0 ? [] : [resultRecord]
+      if (endpoint === `repos/${REPOSITORY}/issues/${PRE_PR_TASK}/comments?sort=created&direction=asc&per_page=100&page=1`) {
+        return historyComments ?? [authorityComment, ...(evidence.length === 0 ? [] : [resultRecord])]
+      }
       throw new Error(`unexpected_pre_pr_endpoint:${endpoint}`)
     },
     worktreeState: async (worktree) => {
@@ -10145,6 +10151,114 @@ const executablePrePrAdmission = await executePrePrImplementationIngressV1({
   host: prePrHost({ authorityComment: executablePrePrAuthorityComment }),
 })
 check(executablePrePrAdmission.next_action === 'IMPLEMENTER' && JSON.stringify(executablePrePrAdmission.role_dispatch.source_binding.validation_commands) === JSON.stringify(EXECUTABLE_PRE_PR_VALIDATIONS), 'PPI-06a a fresh structurally valid authority can bind exact executable command strings')
+
+const prePrResumeRequestV1 = (overrides = {}) => Object.freeze({
+  transition: 'pre_pr_implementation_authority_resume',
+  repository: REPOSITORY,
+  taskIssueNumber: PRE_PR_TASK,
+  prNumber: null,
+  exactHead: PRE_PR_BASELINE,
+  prePrImplementationAuthorityCommentId: PRE_PR_COMMENT_ID,
+  prePrBranch: PRE_PR_BRANCH,
+  prePrWorktree: PRE_PR_WORKTREE,
+  operationCount: 1,
+  ...overrides,
+})
+const prePrResumeHost = prePrHost()
+const prePrResume = await executePrePrImplementationAuthorityResumeV1({
+  request: prePrResumeRequestV1(),
+  host: prePrResumeHost,
+})
+check(
+  prePrResume.next_action === 'IMPLEMENTER' &&
+  prePrResume.reason === 'pre_pr_implementation_authority_resume_admitted' &&
+  prePrResume.transition === 'pre_pr_implementation_authority_resume_v1' &&
+  prePrResume.pr_number === null && prePrResume.current_head === PRE_PR_BASELINE && prePrResume.mutation_count === 0,
+  'PPI-R01 finalized self-bound 21-field authority resume reaches the existing IMPLEMENTER dispatch',
+)
+check(
+  prePrResume.role_dispatch.source_binding.body_sha256 === createHash('sha256').update(prePrAuthorityBody).digest('hex') &&
+  JSON.stringify(prePrResume.role_dispatch.source_binding) === JSON.stringify(prePrAdmission.role_dispatch.source_binding) &&
+  JSON.stringify(prePrResume.role_dispatch.implementer_context) === JSON.stringify(prePrAdmission.role_dispatch.implementer_context),
+  'PPI-R02 resume binds the fresh body digest and reuses the existing Worker authority/context projection unchanged',
+)
+check(
+  prePrResumeHost.metrics.api.join('\n') === [
+    `repos/${REPOSITORY}/issues/${PRE_PR_TASK}`,
+    `repos/${REPOSITORY}/issues/comments/${PRE_PR_COMMENT_ID}`,
+    `repos/${REPOSITORY}/issues/${PRE_PR_TASK}/comments?sort=created&direction=asc&per_page=100&page=1`,
+    `repos/${REPOSITORY}/issues/${PRE_PR_TASK}`,
+  ].join('\n'),
+  'PPI-R03 resume fresh-fetches Task, finalized authority, and complete Task history before existing context materialization',
+)
+const prePrResumeRejections = []
+const capturePrePrResumeRejectionV1 = async ({ request = prePrResumeRequestV1(), authorityComment = prePrAuthorityComment, evidence = [], historyComments = null } = {}) => {
+  const result = await executePrePrImplementationAuthorityResumeV1({
+    request,
+    host: prePrHost({ authorityComment, evidence, historyComments }),
+  })
+  prePrResumeRejections.push(result)
+  return result
+}
+const placeholderPrePrComment = Object.freeze({ ...prePrAuthorityComment, body: 'publication pending' })
+const wrongSelfBoundPrePrComment = Object.freeze({
+  ...prePrAuthorityComment,
+  body: prePrAuthorityBody.replace(PRE_PR_AUTHORITY_URL, `${PRE_PR_AUTHORITY_URL}-wrong`),
+})
+const wrongTaskPrePrComment = Object.freeze({
+  ...prePrAuthorityComment,
+  body: prePrAuthorityBody.replaceAll(`/issues/${PRE_PR_TASK}`, `/issues/${PRE_PR_TASK + 1}`),
+})
+const wrongRepositoryPrePrComment = Object.freeze({
+  ...prePrAuthorityComment,
+  body: prePrAuthorityBody.replaceAll(REPOSITORY, 'other/repository'),
+})
+const wrongActorPrePrComment = Object.freeze({
+  ...prePrAuthorityComment,
+  user: Object.freeze({ login: 'someone', id: 99, type: 'User' }),
+})
+const unsupported23FieldPrePrBody = prePrAuthorityBody.replace(
+  'operation_count: 1',
+  `operation_count: 1\ninitial_worktree_mode: EXACT_AUTHORIZED_DELTA\ninitial_delta_manifest_sha256: ${'a'.repeat(64)}`,
+)
+const unsupported23FieldPrePrComment = Object.freeze({ ...prePrAuthorityComment, body: unsupported23FieldPrePrBody })
+const placeholderPrePrResume = await capturePrePrResumeRejectionV1({ authorityComment: placeholderPrePrComment })
+const wrongSelfBoundPrePrResume = await capturePrePrResumeRejectionV1({ authorityComment: wrongSelfBoundPrePrComment })
+const wrongTaskPrePrResume = await capturePrePrResumeRejectionV1({ authorityComment: wrongTaskPrePrComment })
+const wrongRepositoryPrePrResume = await capturePrePrResumeRejectionV1({ authorityComment: wrongRepositoryPrePrComment })
+const wrongActorPrePrResume = await capturePrePrResumeRejectionV1({ authorityComment: wrongActorPrePrComment })
+const staleBasePrePrResume = await capturePrePrResumeRejectionV1({ request: prePrResumeRequestV1({ exactHead: OTHER_HEAD }) })
+const wrongBranchPrePrResume = await capturePrePrResumeRejectionV1({ request: prePrResumeRequestV1({ prePrBranch: 'codex/wrong-branch' }) })
+const wrongWorktreePrePrResume = await capturePrePrResumeRejectionV1({ request: prePrResumeRequestV1({ prePrWorktree: `${PRE_PR_WORKTREE}/wrong` }) })
+const wrongOperationPrePrResume = await capturePrePrResumeRejectionV1({ request: prePrResumeRequestV1({ operationCount: 2 }) })
+const missingHistoryAuthorityResume = await capturePrePrResumeRejectionV1({ historyComments: [] })
+const consumedPrePrResume = await capturePrePrResumeRejectionV1({ evidence: [prePrResultBody] })
+const unsupported23FieldPrePrResume = await capturePrePrResumeRejectionV1({ authorityComment: unsupported23FieldPrePrComment })
+check(
+  placeholderPrePrResume.reason === 'pre_pr_implementation_authority_invalid' &&
+  wrongSelfBoundPrePrResume.reason === 'pre_pr_implementation_authority_invalid' &&
+  wrongTaskPrePrResume.reason === 'pre_pr_implementation_authority_invalid' &&
+  wrongRepositoryPrePrResume.reason === 'pre_pr_implementation_authority_invalid' &&
+  wrongActorPrePrResume.reason === 'pre_pr_implementation_authority_resume_actor_invalid',
+  'PPI-R04 placeholder, wrong self-binding/Task/repository, and wrong canonical actor stop before Worker dispatch',
+)
+check(
+  staleBasePrePrResume.reason === 'pre_pr_implementation_authority_resume_binding_invalid' &&
+  wrongBranchPrePrResume.reason === 'pre_pr_implementation_authority_resume_binding_invalid' &&
+  wrongWorktreePrePrResume.reason === 'pre_pr_implementation_authority_resume_binding_invalid' &&
+  wrongOperationPrePrResume.reason === 'pre_pr_implementation_authority_resume_request_invalid',
+  'PPI-R05 stale base, wrong branch/worktree, and wrong operation count fail closed',
+)
+check(
+  missingHistoryAuthorityResume.reason === 'pre_pr_implementation_authority_resume_uniqueness_invalid' &&
+  consumedPrePrResume.reason === 'pre_pr_implementation_authority_consumed' &&
+  unsupported23FieldPrePrResume.reason === 'pre_pr_implementation_authority_resume_unsupported',
+  'PPI-R06 authority uniqueness/consumption is enforced and the 23-field form is explicitly unsupported',
+)
+check(
+  prePrResumeRejections.every((result) => result.next_action === 'STOP' && result.allowed === false && result.exit_code === 1 && !Object.hasOwn(result, 'role_dispatch')),
+  'PPI-R07 every invalid resume stops before Worker dispatch without protected mutation',
+)
 
 const prePrConsumerHost = prePrHost()
 const prePrPlan = await executeRoleDispatchConsumerV1({ dispatch: prePrAdmission.role_dispatch, host: prePrConsumerHost })
@@ -11215,7 +11329,7 @@ const readyResumeResultV1 = await executeReadyTransitionRequiredResumeV1({
 })
 check(
   workflow.on.workflow_dispatch.inputs.transition.options.join('|') ===
-    'terminal_review_admission|merge_decision_admission|ready_transition_required_resume|merge_decision_successor_resume|draft_return_required_resume|ready_review_terminal_observation_resume' &&
+    'terminal_review_admission|merge_decision_admission|ready_transition_required_resume|merge_decision_successor_resume|draft_return_required_resume|ready_review_terminal_observation_resume|pre_pr_implementation_authority_resume' &&
   workflow.on.workflow_dispatch.inputs.review_decision_comment_id.required === false &&
   workflow.on.workflow_dispatch.inputs.publication_handoff_comment_id.required === false &&
   workflow.on.workflow_dispatch.inputs.draft_return_authority_comment_id.required === false &&
@@ -13317,6 +13431,16 @@ const workflowDispatchDraftReturnProjectionV1 = projectWorkflowDispatchEntrypoin
   transition: 'draft_return_required_resume',
   draftReturnAuthorityCommentId: '5445000001',
 })
+const workflowDispatchPrePrResumeProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1({
+  transition: 'pre_pr_implementation_authority_resume',
+  taskIssueNumber: String(PRE_PR_TASK),
+  prNumber: '',
+  exactHead: PRE_PR_BASELINE,
+  prePrImplementationAuthorityCommentId: String(PRE_PR_COMMENT_ID),
+  prePrBranch: PRE_PR_BRANCH,
+  prePrWorktree: PRE_PR_WORKTREE,
+  operationCount: '1',
+})
 const workflowDispatchAllOptionalProjectionV1 = projectWorkflowDispatchEntrypointArgumentsV1({
   ...workflowDispatchProjectionBaseV1,
   reviewDecisionCommentId: '1',
@@ -13394,6 +13518,44 @@ check(
   'WDAP-05 Draft Return preserves the exact single authority-ID suffix',
 )
 check(
+  workflowDispatchPrePrResumeProjectionV1.argv.join('\n') === [
+    '--transition', 'pre_pr_implementation_authority_resume',
+    '--task-issue-number', String(PRE_PR_TASK),
+    '--exact-head', PRE_PR_BASELINE,
+    '--pre-pr-implementation-authority-comment-id', String(PRE_PR_COMMENT_ID),
+    '--pre-pr-branch', PRE_PR_BRANCH,
+    '--pre-pr-worktree', PRE_PR_WORKTREE,
+    '--operation-count', '1',
+  ].join('\n') && !workflowDispatchPrePrResumeProjectionV1.argv.includes('--pr-number'),
+  'WDAP-05a Pre-PR resume projects only the exact Task baseline authority branch worktree and operation binding',
+)
+const parsedPrePrResumeCliV1 = parseManualCli(workflowDispatchPrePrResumeProjectionV1.argv, { GITHUB_REPOSITORY: REPOSITORY })
+check(
+  parsedPrePrResumeCliV1.transition === 'pre_pr_implementation_authority_resume' &&
+  parsedPrePrResumeCliV1.taskIssueNumber === PRE_PR_TASK && parsedPrePrResumeCliV1.prNumber === null &&
+  parsedPrePrResumeCliV1.exactHead === PRE_PR_BASELINE &&
+  parsedPrePrResumeCliV1.prePrImplementationAuthorityCommentId === PRE_PR_COMMENT_ID &&
+  parsedPrePrResumeCliV1.prePrBranch === PRE_PR_BRANCH && parsedPrePrResumeCliV1.prePrWorktree === PRE_PR_WORKTREE &&
+  parsedPrePrResumeCliV1.operationCount === 1,
+  'WDAP-05b runner admits the exact projected pre-PR resume tuple without a PR identity',
+)
+const invalidPrePrResumeCliV1 = [
+  workflowDispatchPrePrResumeProjectionV1.argv.slice(0, -2),
+  [...workflowDispatchPrePrResumeProjectionV1.argv, '--pr-number', '419'],
+  workflowDispatchPrePrResumeProjectionV1.argv.map((value, index) => index === workflowDispatchPrePrResumeProjectionV1.argv.length - 1 ? '2' : value),
+]
+check(
+  invalidPrePrResumeCliV1.every((argv) => {
+    try {
+      parseManualCli(argv, { GITHUB_REPOSITORY: REPOSITORY })
+      return false
+    } catch (error) {
+      return error instanceof Error && error.message === 'cli_arguments_invalid'
+    }
+  }),
+  'WDAP-05c missing binding, PR injection, and non-single operation count fail at runner admission',
+)
+check(
   workflowDispatchAllOptionalProjectionV1.argv.slice(-8).join('\n') === [
     '--review-decision-comment-id', '1', '--publication-handoff-comment-id', '2',
     '--merge-decision-comment-id', '3', '--draft-return-authority-comment-id', '4',
@@ -13446,12 +13608,16 @@ check(
   Object.keys(workflow.jobs).length === 5 && workflow.on.workflow_dispatch.inputs.transition.options.join('\n') === [
     'terminal_review_admission', 'merge_decision_admission', 'ready_transition_required_resume',
     'merge_decision_successor_resume', 'draft_return_required_resume', 'ready_review_terminal_observation_resume',
+    'pre_pr_implementation_authority_resume',
   ].join('\n') && workflow.on.issue_comment.types.join(',') === 'created' &&
     workflow.on.pull_request.types.join(',') === 'ready_for_review' && workflow.permissions.actions === 'read' &&
     workflow.permissions.issues === 'write' && workflow.permissions['pull-requests'] === 'write' &&
+    workflow.on.workflow_dispatch.inputs.pr_number.required === false &&
+    ['pre_pr_implementation_authority_comment_id', 'pre_pr_branch', 'pre_pr_worktree', 'operation_count']
+      .every((name) => workflow.on.workflow_dispatch.inputs[name].required === false) &&
     (workflowSource.match(/--method PUT/g) ?? []).length === 1 &&
     !workflow.on.pull_request.types.includes('converted_to_draft'),
-  'WDAP-13 workflow adds only bounded Draft Return and terminal-observation dispatches without converted_to_draft subscription',
+  'WDAP-13 workflow adds only bounded resume dispatches without changing event subscriptions or protected mutations',
 )
 
 const terminalCanonicalValueV1 = (value) => Array.isArray(value)
@@ -13835,5 +14001,5 @@ check(
   'RTO-20 retired Collector remains absent and GADP shadow remains isolated non-authoritative continue-on-error',
 )
 
-if (assertions !== 1295) throw new Error(`expected exactly 1295 assertions, observed ${assertions}`)
+if (assertions !== 1305) throw new Error(`expected exactly 1305 assertions, observed ${assertions}`)
 process.stdout.write(`protected-transition-admission-v1: ${assertions} assertions passed\n`)

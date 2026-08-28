@@ -4343,6 +4343,24 @@ export const parsePrePrImplementationAuthorityV1 = ({ body, repository, taskIssu
   })
 }
 
+const parseResumablePrePrImplementationAuthorityV1 = (input) => {
+  try {
+    return parsePrePrImplementationAuthorityV1(input)
+  } catch {
+    if (isPrePrImplementationAuthorityCandidateV1(input?.body)) {
+      try {
+        const yaml = parseRoleYamlV1(input.body)
+        if (yaml.scalars.size + yaml.lists.size === 23) {
+          throw new Error('pre_pr_implementation_authority_resume_unsupported')
+        }
+      } catch (error) {
+        if (error instanceof Error && error.message === 'pre_pr_implementation_authority_resume_unsupported') throw error
+      }
+    }
+    throw new Error('pre_pr_implementation_authority_invalid')
+  }
+}
+
 export const parseProductOwnerMergeDecisionV1 = (body, repository, taskIssueNumber) => {
   const yaml = parseRoleYamlV1(body)
   const expectedKeys = Object.freeze([
@@ -6608,6 +6626,10 @@ export const projectWorkflowDispatchEntrypointArgumentsV1 = ({
   mergeDecisionCommentId,
   draftReturnAuthorityCommentId,
   terminalObservationAuthorityCommentId,
+  prePrImplementationAuthorityCommentId,
+  prePrBranch,
+  prePrWorktree,
+  operationCount,
 }) => {
   const values = Object.freeze({
     transition: String(transition ?? ''),
@@ -6619,7 +6641,24 @@ export const projectWorkflowDispatchEntrypointArgumentsV1 = ({
     mergeDecisionCommentId: String(mergeDecisionCommentId ?? ''),
     draftReturnAuthorityCommentId: String(draftReturnAuthorityCommentId ?? ''),
     terminalObservationAuthorityCommentId: String(terminalObservationAuthorityCommentId ?? ''),
+    prePrImplementationAuthorityCommentId: String(prePrImplementationAuthorityCommentId ?? ''),
+    prePrBranch: String(prePrBranch ?? ''),
+    prePrWorktree: String(prePrWorktree ?? ''),
+    operationCount: String(operationCount ?? ''),
   })
+  if (values.transition === 'pre_pr_implementation_authority_resume') {
+    return Object.freeze({
+      argv: Object.freeze([
+        '--transition', values.transition,
+        '--task-issue-number', values.taskIssueNumber,
+        '--exact-head', values.exactHead,
+        '--pre-pr-implementation-authority-comment-id', values.prePrImplementationAuthorityCommentId,
+        '--pre-pr-branch', values.prePrBranch,
+        '--pre-pr-worktree', values.prePrWorktree,
+        '--operation-count', values.operationCount,
+      ]),
+    })
+  }
   const argv = [
     '--transition', values.transition,
     '--task-issue-number', values.taskIssueNumber,
@@ -8446,6 +8485,136 @@ const sameRolePathsV1 = (left, right) => Array.isArray(left) && Array.isArray(ri
 const rolePathsContainV1 = (container, contained) =>
   Array.isArray(container) && Array.isArray(contained) && contained.every((pathValue) => container.includes(pathValue))
 
+const projectPrePrImplementationAuthorityDispatchV1 = async ({ authority, authorityBody, transition, reason, host }) => {
+  const implementerContext = await materializeImplementerContextV1({
+    repository: authority.repository,
+    taskIssueNumber: authority.task_issue_number,
+    authorizationBody: authorityBody,
+    host,
+  })
+  const routed = Object.freeze({
+    transition,
+    state: 'REVIEW_PENDING',
+    allowed: false,
+    exit_code: 0,
+    reason,
+    task_issue_number: authority.task_issue_number,
+    pr_number: null,
+    current_head: authority.exact_baseline,
+    out_of_scope_paths: Object.freeze([]),
+    state_changed: false,
+    automation_status: 'HANDOFF_READY',
+    next_action: 'IMPLEMENTER',
+    terminal_result: 'PRE_PR_IMPLEMENTATION_AUTHORITY',
+    mutation_count: 0,
+  })
+  const sourceBinding = Object.freeze({
+    kind: 'PRE_PR_IMPLEMENTATION_AUTHORITY',
+    comment_id: authority.comment_id,
+    authority_url: authority.authority_url,
+    body_sha256: createHash('sha256').update(Buffer.from(authorityBody, 'utf8')).digest('hex'),
+    exact_baseline: authority.exact_baseline,
+    branch: authority.branch,
+    worktree: authority.worktree,
+    validation_commands: authority.validation_commands,
+  })
+  return Object.freeze({
+    ...routed,
+    source_comment_id: authority.comment_id,
+    role_dispatch: projectRoleDispatchEnvelopeV1({
+      result: routed,
+      repository: authority.repository,
+      sourceCommentId: authority.comment_id,
+      authorizedPaths: authority.authorized_paths,
+      taskState: null,
+      sourceBinding,
+      implementerContext,
+    }),
+  })
+}
+
+const assertPrePrImplementationAuthorityResumeUnconsumedV1 = async ({ request, authority, fresh, host }) => {
+  const history = await acquireMinimalGovernanceCommentHistoryV1(request, host)
+  const selected = history.comments.filter((comment) => comment.id === authority.comment_id)
+  if (
+    selected.length !== 1 || selected[0].body !== fresh.body ||
+    selected[0].author_association !== fresh.author_association ||
+    selected[0].user.login !== fresh.user?.login || selected[0].user.id !== fresh.user?.id ||
+    selected[0].user.type !== fresh.user?.type
+  ) throw new Error('pre_pr_implementation_authority_resume_uniqueness_invalid')
+  const consumers = []
+  for (const comment of history.comments) {
+    if (!isPrePrImplementationResultCandidateV1(comment.body)) continue
+    let result
+    try {
+      result = parsePrePrImplementationResultFieldsV1(comment.body)
+    } catch {
+      if (comment.body.includes(authority.authority_url)) {
+        throw new Error('pre_pr_implementation_authority_resume_consumption_invalid')
+      }
+      continue
+    }
+    if (result.authority_source !== authority.authority_url) continue
+    if (
+      result.repository !== authority.repository ||
+      result.task_issue !== `https://github.com/${authority.repository}/issues/${authority.task_issue_number}` ||
+      result.exact_baseline !== authority.exact_baseline || result.branch !== authority.branch ||
+      result.worktree !== authority.worktree
+    ) throw new Error('pre_pr_implementation_authority_resume_consumption_invalid')
+    consumers.push(comment.id)
+  }
+  if (consumers.length > 0) throw new Error('pre_pr_implementation_authority_consumed')
+}
+
+export const executePrePrImplementationAuthorityResumeV1 = async ({ request, host }) => {
+  try {
+    if (
+      request?.transition !== 'pre_pr_implementation_authority_resume' ||
+      !REPOSITORY.test(request?.repository ?? '') || !positiveInteger(request?.taskIssueNumber) ||
+      request?.prNumber !== null || !FULL_HEAD.test(request?.exactHead ?? '') ||
+      !positiveInteger(request?.prePrImplementationAuthorityCommentId) ||
+      !PRE_PR_BRANCH_V1.test(request?.prePrBranch ?? '') ||
+      !PRE_PR_WORKTREE_V1.test(request?.prePrWorktree ?? '') || request?.operationCount !== 1
+    ) throw new Error('pre_pr_implementation_authority_resume_request_invalid')
+    await acquireTaskIdentityV1(request, host)
+    const fresh = await fetchRoleCommentRecordV1(
+      request.repository,
+      request.taskIssueNumber,
+      request.prePrImplementationAuthorityCommentId,
+      host,
+    )
+    try {
+      assertMinimalGovernanceProductOwnerV1(fresh, { requireAssociation: true })
+    } catch {
+      throw new Error('pre_pr_implementation_authority_resume_actor_invalid')
+    }
+    const authority = parseResumablePrePrImplementationAuthorityV1({
+      body: fresh.body,
+      repository: request.repository,
+      taskIssueNumber: request.taskIssueNumber,
+      commentId: request.prePrImplementationAuthorityCommentId,
+    })
+    if (
+      fresh.html_url !== authority.authority_url || authority.exact_baseline !== request.exactHead ||
+      authority.branch !== request.prePrBranch || authority.worktree !== request.prePrWorktree
+    ) throw new Error('pre_pr_implementation_authority_resume_binding_invalid')
+    await assertPrePrImplementationAuthorityResumeUnconsumedV1({ request, authority, fresh, host })
+    return projectPrePrImplementationAuthorityDispatchV1({
+      authority,
+      authorityBody: fresh.body,
+      transition: 'pre_pr_implementation_authority_resume_v1',
+      reason: 'pre_pr_implementation_authority_resume_admitted',
+      host,
+    })
+  } catch (error) {
+    return roleStopV1(
+      request,
+      'INDETERMINATE',
+      error instanceof Error ? error.message : 'pre_pr_implementation_authority_resume_failed',
+    )
+  }
+}
+
 export const executePrePrImplementationIngressV1 = async ({ event, host }) => {
   let request = null
   try {
@@ -8481,50 +8650,12 @@ export const executePrePrImplementationIngressV1 = async ({ event, host }) => {
       }),
     }))
     const authority = normalized.authority
-    const implementerContext = await materializeImplementerContextV1({
-      repository: authority.repository,
-      taskIssueNumber: authority.task_issue_number,
-      authorizationBody: fresh.body,
-      host,
-    })
-    const routed = Object.freeze({
+    return projectPrePrImplementationAuthorityDispatchV1({
+      authority,
+      authorityBody: fresh.body,
       transition: 'pre_pr_implementer_ingress_v1',
-      state: 'REVIEW_PENDING',
-      allowed: false,
-      exit_code: 0,
       reason: 'pre_pr_implementation_authority_admitted',
-      task_issue_number: authority.task_issue_number,
-      pr_number: null,
-      current_head: authority.exact_baseline,
-      out_of_scope_paths: Object.freeze([]),
-      state_changed: false,
-      automation_status: 'HANDOFF_READY',
-      next_action: 'IMPLEMENTER',
-      terminal_result: 'PRE_PR_IMPLEMENTATION_AUTHORITY',
-      mutation_count: 0,
-    })
-    const sourceBinding = Object.freeze({
-      kind: 'PRE_PR_IMPLEMENTATION_AUTHORITY',
-      comment_id: authority.comment_id,
-      authority_url: authority.authority_url,
-      body_sha256: createHash('sha256').update(Buffer.from(fresh.body, 'utf8')).digest('hex'),
-      exact_baseline: authority.exact_baseline,
-      branch: authority.branch,
-      worktree: authority.worktree,
-      validation_commands: authority.validation_commands,
-    })
-    return Object.freeze({
-      ...routed,
-      source_comment_id: authority.comment_id,
-      role_dispatch: projectRoleDispatchEnvelopeV1({
-        result: routed,
-        repository: authority.repository,
-        sourceCommentId: authority.comment_id,
-        authorizedPaths: authority.authorized_paths,
-        taskState: null,
-        sourceBinding,
-        implementerContext,
-      }),
+      host,
     })
   } catch (error) {
     return roleStopV1(
@@ -11458,7 +11589,7 @@ export const executeProtectedTransitionAdmissionV1 = async ({ request, host }) =
   }
 }
 
-const parseManualCli = (argv, environment) => {
+export const parseManualCli = (argv, environment) => {
   const values = new Map()
   for (let index = 0; index < argv.length; index += 2) {
     const key = argv[index]
@@ -11466,16 +11597,23 @@ const parseManualCli = (argv, environment) => {
     if (!key?.startsWith('--') || value === undefined || values.has(key)) throw new Error('cli_arguments_invalid')
     values.set(key, value)
   }
-  const required = ['--transition', '--task-issue-number', '--pr-number', '--exact-head']
+  const commonRequired = ['--transition', '--task-issue-number', '--exact-head']
+  const prRequired = ['--pr-number']
   const resumeOnly = ['--review-decision-comment-id', '--publication-handoff-comment-id']
   const mergeSuccessorOnly = ['--merge-decision-comment-id']
   const draftReturnOnly = ['--draft-return-authority-comment-id']
   const terminalObservationOnly = ['--terminal-observation-authority-comment-id']
-  const allowed = new Set([...required, ...resumeOnly, ...mergeSuccessorOnly, ...draftReturnOnly, ...terminalObservationOnly])
-  if (required.some((key) => !values.has(key)) || [...values.keys()].some((key) => !allowed.has(key))) throw new Error('cli_arguments_invalid')
+  const prePrResumeOnly = [
+    '--pre-pr-implementation-authority-comment-id', '--pre-pr-branch', '--pre-pr-worktree', '--operation-count',
+  ]
+  const allowed = new Set([
+    ...commonRequired, ...prRequired, ...resumeOnly, ...mergeSuccessorOnly, ...draftReturnOnly,
+    ...terminalObservationOnly, ...prePrResumeOnly,
+  ])
+  if (commonRequired.some((key) => !values.has(key)) || [...values.keys()].some((key) => !allowed.has(key))) throw new Error('cli_arguments_invalid')
   const transition = values.get('--transition')
   const taskIssueNumber = Number(values.get('--task-issue-number'))
-  const prNumber = Number(values.get('--pr-number'))
+  const prNumber = values.has('--pr-number') ? Number(values.get('--pr-number')) : null
   const exactHead = values.get('--exact-head')
   const reviewDecisionCommentId = values.has('--review-decision-comment-id')
     ? Number(values.get('--review-decision-comment-id'))
@@ -11492,15 +11630,24 @@ const parseManualCli = (argv, environment) => {
   const terminalObservationAuthorityCommentId = values.has('--terminal-observation-authority-comment-id')
     ? Number(values.get('--terminal-observation-authority-comment-id'))
     : null
+  const prePrImplementationAuthorityCommentId = values.has('--pre-pr-implementation-authority-comment-id')
+    ? Number(values.get('--pre-pr-implementation-authority-comment-id'))
+    : null
+  const prePrBranch = values.get('--pre-pr-branch') ?? null
+  const prePrWorktree = values.get('--pre-pr-worktree') ?? null
+  const operationCount = values.has('--operation-count') ? Number(values.get('--operation-count')) : null
   const repository = environment.GITHUB_REPOSITORY
   const resumeTransition = transition === 'ready_transition_required_resume'
   const mergeSuccessorTransition = transition === 'merge_decision_successor_resume'
   const draftReturnTransition = transition === 'draft_return_required_resume'
   const terminalObservationTransition = transition === 'ready_review_terminal_observation_resume'
+  const prePrImplementationAuthorityResumeTransition = transition === 'pre_pr_implementation_authority_resume'
+  const required = [...commonRequired, ...(prePrImplementationAuthorityResumeTransition ? [] : prRequired)]
   if (
-    !['terminal_review_admission', 'merge_decision_admission', 'ready_transition_required_resume', 'merge_decision_successor_resume', 'draft_return_required_resume', 'ready_review_terminal_observation_resume'].includes(transition) ||
+    !['terminal_review_admission', 'merge_decision_admission', 'ready_transition_required_resume', 'merge_decision_successor_resume', 'draft_return_required_resume', 'ready_review_terminal_observation_resume', 'pre_pr_implementation_authority_resume'].includes(transition) ||
+    required.some((key) => !values.has(key)) ||
     !positiveInteger(taskIssueNumber) ||
-    !positiveInteger(prNumber) ||
+    (!prePrImplementationAuthorityResumeTransition && !positiveInteger(prNumber)) ||
     !FULL_HEAD.test(exactHead ?? '') ||
     !REPOSITORY.test(repository ?? '') ||
     (resumeTransition && (
@@ -11527,10 +11674,18 @@ const parseManualCli = (argv, environment) => {
       draftReturnAuthorityCommentId !== null || !positiveInteger(terminalObservationAuthorityCommentId) ||
       !WORKFLOW_RUN_ID.test(environment.GITHUB_RUN_ID ?? '') || !positiveInteger(Number(environment.GITHUB_RUN_ATTEMPT))
     )) ||
-    (!resumeTransition && !mergeSuccessorTransition && !draftReturnTransition && !terminalObservationTransition && (
+    (prePrImplementationAuthorityResumeTransition && (
+      values.size !== commonRequired.length + prePrResumeOnly.length || prNumber !== null ||
+      reviewDecisionCommentId !== null || publicationHandoffCommentId !== null || mergeDecisionCommentId !== null ||
+      draftReturnAuthorityCommentId !== null || terminalObservationAuthorityCommentId !== null ||
+      !positiveInteger(prePrImplementationAuthorityCommentId) || !PRE_PR_BRANCH_V1.test(prePrBranch ?? '') ||
+      !PRE_PR_WORKTREE_V1.test(prePrWorktree ?? '') || operationCount !== 1
+    )) ||
+    (!resumeTransition && !mergeSuccessorTransition && !draftReturnTransition && !terminalObservationTransition && !prePrImplementationAuthorityResumeTransition && (
       values.size !== required.length || reviewDecisionCommentId !== null ||
       publicationHandoffCommentId !== null || mergeDecisionCommentId !== null || draftReturnAuthorityCommentId !== null ||
-      terminalObservationAuthorityCommentId !== null
+      terminalObservationAuthorityCommentId !== null || prePrImplementationAuthorityCommentId !== null ||
+      prePrBranch !== null || prePrWorktree !== null || operationCount !== null
     ))
   ) {
     throw new Error('cli_arguments_invalid')
@@ -11546,6 +11701,10 @@ const parseManualCli = (argv, environment) => {
     mergeDecisionCommentId,
     draftReturnAuthorityCommentId,
     terminalObservationAuthorityCommentId,
+    prePrImplementationAuthorityCommentId,
+    prePrBranch,
+    prePrWorktree,
+    operationCount,
   })
 }
 
@@ -11750,7 +11909,7 @@ const readJsonFileV1 = (file) => JSON.parse(readFileSync(file, 'utf8'))
 
 const liveShadowRequestV1 = (invocation, environment) => {
   if (invocation.mode === 'manual') {
-    return ['ready_transition_required_resume', 'merge_decision_successor_resume', 'draft_return_required_resume', 'ready_review_terminal_observation_resume'].includes(invocation.request.transition)
+    return ['ready_transition_required_resume', 'merge_decision_successor_resume', 'draft_return_required_resume', 'ready_review_terminal_observation_resume', 'pre_pr_implementation_authority_resume'].includes(invocation.request.transition)
       ? null
       : invocation.request
   }
@@ -12300,6 +12459,10 @@ const main = async () => {
                   mergeDecisionCommentId: process.env.PTA_INPUT_MERGE_DECISION_COMMENT_ID,
                   draftReturnAuthorityCommentId: process.env.PTA_INPUT_DRAFT_RETURN_AUTHORITY_COMMENT_ID,
                   terminalObservationAuthorityCommentId: process.env.PTA_INPUT_TERMINAL_OBSERVATION_AUTHORITY_COMMENT_ID,
+                  prePrImplementationAuthorityCommentId: process.env.PTA_INPUT_PRE_PR_IMPLEMENTATION_AUTHORITY_COMMENT_ID,
+                  prePrBranch: process.env.PTA_INPUT_PRE_PR_BRANCH,
+                  prePrWorktree: process.env.PTA_INPUT_PRE_PR_WORKTREE,
+                  operationCount: process.env.PTA_INPUT_OPERATION_COUNT,
                 })
             : invocation.mode === 'admission_result_projection'
               ? projectAdmissionWorkflowResultV1({ result: readJsonFileV1(invocation.resultFile) })
@@ -12451,6 +12614,11 @@ const main = async () => {
                     host: executionHost,
                     })
                   })()
+                : invocation.request.transition === 'pre_pr_implementation_authority_resume'
+                  ? await executePrePrImplementationAuthorityResumeV1({
+                      request: invocation.request,
+                      host: executionHost,
+                    })
                 : invocation.request.transition === 'draft_return_required_resume'
                   ? await executeDraftReturnOperatorV1({
                       request: invocation.request,
