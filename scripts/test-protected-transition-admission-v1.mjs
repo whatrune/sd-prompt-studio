@@ -11718,6 +11718,7 @@ const DRAFT_RETURN_COMPLETION_URL = `${DRAFT_RETURN_TASK_URL}#issuecomment-${DRA
 const DRAFT_RETURN_WORKFLOW_HEAD = 'f'.repeat(40)
 const DRAFT_RETURN_RECOVERY_RUN_ID = '33100000001'
 const DRAFT_RETURN_REPLAY_RUN_ID = '33100000002'
+const DRAFT_RETURN_UNRELATED_RUN_ID = '33100000003'
 const draftReturnExecutionV1 = Object.freeze({
   run_id: REVIEW_RUN_ID,
   run_attempt: 1,
@@ -12107,9 +12108,17 @@ check(
   completionRefetchMismatchResultV1.mutation_count === 1,
   'DRT-18 completion publication or direct-refetch mismatch remains fail-closed after the sole Draft mutation',
 )
+const unrelatedDraftReturnFailureV1 = Object.freeze({
+  ...completionFailureResultV1,
+  execution: Object.freeze({ ...completionFailureResultV1.execution, run_id: DRAFT_RETURN_UNRELATED_RUN_ID }),
+  draft_return_action: Object.freeze({
+    ...completionFailureResultV1.draft_return_action,
+    authority_comment_id: DRAFT_RETURN_AUTHORITY_ID + 100,
+  }),
+})
 const recoveryFixtureV1 = draftReturnHostV1({
   before: Object.freeze({ isDraft: true }),
-  durableTerminals: Object.freeze([completionFailureResultV1]),
+  durableTerminals: Object.freeze([unrelatedDraftReturnFailureV1, completionFailureResultV1]),
 })
 const recoveredDraftReturnV1 = await executeDraftReturnFixtureV1({
   request: draftReturnRequestV1(), host: recoveryFixtureV1.host,
@@ -12120,7 +12129,7 @@ check(
   recoveredDraftReturnV1.mutation_count === 0 && recoveredDraftReturnV1.operation_consumed === true &&
   recoveredDraftReturnV1.completion_recorded === true && recoveryFixtureV1.metrics.mutations === 0 &&
   recoveredDraftReturnV1.operation_evidence.sha256 === completionFailureResultV1.operation_evidence.sha256,
-  'DRT-19 authenticated durable state B evidence publishes only the missing completion and never repeats Draft mutation',
+  'DRT-19 authenticated durable state B evidence ignores other authorities, publishes only the missing completion, and never repeats Draft mutation',
 )
 const authenticatedConsumedFixtureV1 = draftReturnHostV1({
   consumed: true,

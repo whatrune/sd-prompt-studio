@@ -7934,6 +7934,9 @@ const acquireDraftReturnRunEvidenceV1 = async ({
   ) throw new Error('draft_return_operation_check_invalid')
   const rawLog = await apiBytes(host, `repos/${action.repository}/actions/jobs/${jobId}/logs`)
   const extracted = extractDraftReturnTerminalResultV1(rawLog)
+  if (extracted.terminal_result?.draft_return_action?.authority_comment_id !== action.authority_comment_id) {
+    throw new Error('draft_return_operation_not_candidate')
+  }
   const execution = normalizeDraftReturnExecutionV1({
     runId: String(runId), runAttempt: run.run_attempt, hostSha: run.head_sha, jobName: job.name,
   })
