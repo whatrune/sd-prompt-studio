@@ -19,7 +19,7 @@ For Review, Ready, and Merge, this section supersedes historical publication-gen
 
 A HEAD change invalidates the prior Review and requires current checks plus a fresh exact-HEAD Review. It does not require returning a non-Draft PR to Draft, replaying publication, or rebuilding Ready evidence. Live GitHub state is authoritative at the protected-action boundary.
 
-Simplified V1 records use the closed fields implemented by the Node serializer/parser: Task Authority binds repository, objective, authorized paths, Ready permission, and Product Owner; Review binds Task, PR, exact HEAD, decision, and the three finding counts; Merge Decision binds Task, PR, exact HEAD, expected base, authorized paths, Review identity, merge method, and operation count. GitHub's fresh-fetched Issue, Pull Request Review, and comment identities own actor and resource identity. Generic self-referential `canonical_record`, predecessor, digest, seal, and generation metadata elsewhere in this document do not apply to these three records.
+Simplified V1 records use the closed fields implemented by the Node serializer/parser: Task Authority binds Task Issue number, repository, objective, authorized paths, Ready permission, and Product Owner; Review binds Task, PR, exact HEAD, decision, and the three finding counts; Merge Decision binds Task, PR, exact HEAD, expected base, authorized paths, Review identity, merge method, and operation count. GitHub's fresh-fetched Issue, Pull Request Review, and comment identities own actor and resource identity. Generic self-referential `canonical_record`, predecessor, digest, seal, and generation metadata elsewhere in this document do not apply to these three records.
 
 ## Shared Admission
 

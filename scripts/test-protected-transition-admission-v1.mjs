@@ -27,6 +27,7 @@ const REVIEW_URL = `https://github.com/${REPOSITORY}/pull/${PR}#pullrequestrevie
 
 const taskInput = Object.freeze({
   record_type: 'simplified_task_authority_v1',
+  task_issue: TASK,
   repository: REPOSITORY,
   objective: 'SIMPLIFIED_AUTONOMOUS_LIFECYCLE_V1',
   authorized_paths: PATHS,

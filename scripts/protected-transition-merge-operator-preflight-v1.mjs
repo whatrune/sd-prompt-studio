@@ -10,7 +10,7 @@ const REVIEW_RECORD = 'simplified_independent_review_v1'
 const MERGE_RECORD = 'simplified_merge_decision_v1'
 
 const TASK_FIELDS = Object.freeze([
-  'record_type', 'repository', 'objective', 'authorized_paths', 'ready_allowed', 'product_owner_login',
+  'record_type', 'task_issue', 'repository', 'objective', 'authorized_paths', 'ready_allowed', 'product_owner_login',
 ])
 const REVIEW_FIELDS = Object.freeze([
   'record_type', 'reviewer_role', 'task_issue', 'pull_request', 'reviewed_head', 'decision',
@@ -143,7 +143,8 @@ export const serializeSimplifiedTaskAuthorityV1 = (input) => {
 export const parseSimplifiedTaskAuthorityV1 = (body) => {
   const value = parseRecordBody(body, TASK_RECORD, TASK_FIELDS, 'task_authority_invalid')
   if (
-    !REPOSITORY.test(value.repository ?? '') || typeof value.objective !== 'string' || value.objective.length === 0 ||
+    !positiveInteger(value.task_issue) || !REPOSITORY.test(value.repository ?? '') ||
+    typeof value.objective !== 'string' || value.objective.length === 0 ||
     value.objective.length > 512 || typeof value.ready_allowed !== 'boolean' ||
     value.product_owner_login !== PRODUCT_OWNER_LOGIN
   ) throw new Error('task_authority_invalid')
@@ -329,7 +330,8 @@ const acquireLiveSnapshot = async ({
     : review?.id === reviewId && review?.issue_url === `https://api.github.com/repos/${repository}/issues/${taskIssue}` &&
       REVIEWER_ASSOCIATIONS.has(review?.author_association)
   if (
-    task?.number !== taskIssue || task?.state !== 'open' || task?.pull_request !== undefined ||
+    task?.number !== taskIssue || taskAuthority.task_issue !== taskIssue ||
+    task?.state !== 'open' || task?.pull_request !== undefined ||
     task?.user?.login !== taskAuthority.product_owner_login || taskAuthority.repository !== repository ||
     typeof pull?.node_id !== 'string' || pull.node_id.length === 0 ||
     pull?.number !== prNumber || pull?.state !== 'open' || pull?.merged !== false ||
