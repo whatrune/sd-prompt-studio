@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import {
   executeSimplifiedMergeV1,
-  executeSimplifiedReadyV1,
   serializeSimplifiedMergeDecisionV1,
   serializeSimplifiedReviewV1,
   serializeSimplifiedTaskAuthorityV1,
@@ -190,13 +189,9 @@ if (process.argv[1] !== undefined && pathToFileURL(process.argv[1]).href === imp
     process.stdout.write(body)
   } else {
     const issueEventFile = valueAfter('--simplified-issue-comment-event-file')
-    const dispatchEventFile = valueAfter('--simplified-workflow-dispatch-event-file')
-    if ((issueEventFile === null) === (dispatchEventFile === null)) throw new Error('exactly_one_event_file_required')
-    const event = readJson(issueEventFile ?? dispatchEventFile)
-    if (dispatchEventFile !== null) event.action = 'workflow_dispatch'
-    const plan = issueEventFile !== null
-      ? await executeSimplifiedMergeV1({ event, host: createProductionHostV1() })
-      : await executeSimplifiedReadyV1({ event, host: createProductionHostV1() })
+    if (issueEventFile === null) throw new Error('issue_comment_event_file_required')
+    const event = readJson(issueEventFile)
+    const plan = await executeSimplifiedMergeV1({ event, host: createProductionHostV1() })
     process.stdout.write(`${JSON.stringify(plan)}\n`)
     process.exitCode = plan.exit_code
   }

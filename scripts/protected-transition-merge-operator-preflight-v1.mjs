@@ -74,13 +74,6 @@ query SimplifiedThreads($owner: String!, $name: String!, $pr: Int!, $after: Stri
   }
 }`
 
-const READY_MUTATION = `
-mutation MarkSimplifiedReady($pullRequestId: ID!) {
-  markPullRequestReadyForReview(input: { pullRequestId: $pullRequestId }) {
-    pullRequest { id number state isDraft merged headRefOid }
-  }
-}`
-
 const MERGE_MUTATION = `
 mutation MergeSimplifiedPullRequest($pullRequestId: ID!, $expectedHeadOid: GitObjectID!) {
   mergePullRequest(input: {
@@ -292,13 +285,12 @@ export const evaluateRequiredChecksV1 = ({ checks, paths, exactHead }) => {
 
 const acquireLiveSnapshot = async ({
   repository, taskIssue, prNumber, exactHead, expectedBase, authorizedPaths,
-  reviewId, reviewUrl = null, expectedDraft, host,
+  reviewId, reviewUrl = null, host,
   reviewKind = 'PULL_REQUEST_REVIEW',
 }) => {
   if (
     !REPOSITORY.test(repository ?? '') || !positiveInteger(taskIssue) || !positiveInteger(prNumber) ||
-    !FULL_SHA.test(exactHead ?? '') || !FULL_SHA.test(expectedBase ?? '') || !positiveInteger(reviewId) ||
-    typeof expectedDraft !== 'boolean'
+    !FULL_SHA.test(exactHead ?? '') || !FULL_SHA.test(expectedBase ?? '') || !positiveInteger(reviewId)
   ) throw new Error('live_snapshot_request_invalid')
   authorizedPaths = normalizedPaths(authorizedPaths, 'authorized_scope_invalid')
 
@@ -335,7 +327,7 @@ const acquireLiveSnapshot = async ({
     task?.user?.login !== taskAuthority.product_owner_login || taskAuthority.repository !== repository ||
     typeof pull?.node_id !== 'string' || pull.node_id.length === 0 ||
     pull?.number !== prNumber || pull?.state !== 'open' || pull?.merged !== false ||
-    pull?.draft !== expectedDraft || pull?.head?.sha !== exactHead || pull?.head?.repo?.full_name !== repository ||
+    pull?.draft !== false || pull?.head?.sha !== exactHead || pull?.head?.repo?.full_name !== repository ||
     pull?.base?.ref !== 'main' || pull?.base?.repo?.full_name !== repository ||
     mainRef?.ref !== 'refs/heads/main' || mainRef?.object?.sha !== expectedBase ||
     !reviewIdentityValid || review?.html_url !== reviewExpectedUrl ||
@@ -347,7 +339,7 @@ const acquireLiveSnapshot = async ({
   const requiredChecks = evaluateRequiredChecksV1({ checks, paths: files, exactHead })
   const livePull = threadSnapshot.pull
   if (
-    livePull.state !== 'OPEN' || livePull.isDraft !== expectedDraft || livePull.merged !== false ||
+    livePull.state !== 'OPEN' || livePull.isDraft !== false || livePull.merged !== false ||
     livePull.headRefOid !== exactHead || livePull.mergeable !== 'MERGEABLE' || livePull.mergeStateStatus !== 'CLEAN'
   ) throw new Error('mergeability_invalid')
   if (threadSnapshot.threads.some((thread) => !thread.isResolved && !thread.isOutdated)) {
@@ -370,8 +362,7 @@ const acquireLiveSnapshot = async ({
     thread_ids: Object.freeze(threadSnapshot.threads.map((thread) => thread.id).sort()),
     mergeable: livePull.mergeable,
     merge_state_status: livePull.mergeStateStatus,
-    draft: expectedDraft,
-    ready_allowed: taskAuthority.ready_allowed,
+    draft: false,
   })
 }
 
@@ -386,12 +377,12 @@ const boundedDiagnosticMessage = (value) => String(value ?? 'github_request_fail
   .replace(/[\r\n\t]+/gu, ' ')
   .slice(0, 512)
 
-const projectReadyMutationDiagnosticV1 = (error) => {
+const projectMergeMutationDiagnosticV1 = (error) => {
   const value = error?.mutation_diagnostic
   const graphqlErrors = (Array.isArray(value?.graphql_errors) ? value.graphql_errors : []).slice(0, 8)
   const networkException = value?.network_exception
   return Object.freeze({
-    phase: boundedDiagnosticAtom(value?.phase, 96) ?? 'READY_MUTATION_UNKNOWN',
+    phase: boundedDiagnosticAtom(value?.phase, 96) ?? 'MERGE_MUTATION_UNKNOWN',
     request_dispatch_started: typeof value?.request_dispatch_started === 'boolean' ? value.request_dispatch_started : null,
     response_received: typeof value?.response_received === 'boolean' ? value.response_received : null,
     http_status: Number.isInteger(value?.http_status) && value.http_status >= 100 && value.http_status <= 599 ? value.http_status : null,
@@ -416,79 +407,6 @@ const stopped = (operation, reason, mutationCount = 0, outcome = 'DEFINITIVE_REJ
   ...(diagnostic === null ? {} : { mutation_diagnostic: diagnostic }),
   exit_code: 1,
 })
-
-export const executeSimplifiedReadyV1 = async ({ event, host }) => {
-  const operation = 'READY'
-  try {
-    const inputs = event?.inputs
-    const repository = event?.repository?.full_name
-    const taskIssue = Number(inputs?.task_issue_number)
-    const prNumber = Number(inputs?.pr_number)
-    const reviewId = Number(inputs?.review_id)
-    const exactHead = inputs?.exact_head
-    if (
-      event?.action !== 'workflow_dispatch' || inputs?.operation !== 'ready' ||
-      event?.sender?.login !== PRODUCT_OWNER_LOGIN || !REPOSITORY.test(repository ?? '') ||
-      !positiveInteger(taskIssue) || !positiveInteger(prNumber) || !positiveInteger(reviewId) ||
-      !FULL_SHA.test(exactHead ?? '')
-    ) throw new Error('ready_admission_invalid')
-
-    const task = await host.api(`repos/${repository}/issues/${taskIssue}`)
-    const authority = parseSimplifiedTaskAuthorityV1(task?.body)
-    const mainRef = await host.api(`repos/${repository}/git/ref/heads/main`)
-    const expectedBase = mainRef?.object?.sha
-    if (!FULL_SHA.test(expectedBase ?? '') || authority.ready_allowed !== true) throw new Error('ready_not_authorized')
-
-    const initial = await acquireLiveSnapshot({
-      repository, taskIssue, prNumber, exactHead, expectedBase,
-      authorizedPaths: authority.authorized_paths, reviewId, expectedDraft: true, host,
-      reviewKind: inputs?.review_kind,
-    })
-    const final = await acquireLiveSnapshot({
-      repository, taskIssue, prNumber, exactHead, expectedBase,
-      authorizedPaths: authority.authorized_paths, reviewId, expectedDraft: true, host,
-      reviewKind: inputs?.review_kind,
-    })
-    if (JSON.stringify(initial) !== JSON.stringify(final)) throw new Error('ready_final_drift')
-
-    const mutationCount = 1
-    let mutation
-    try {
-      mutation = await host.graphql(
-        READY_MUTATION,
-        { pullRequestId: initial.pull_id },
-        { diagnostic_operation: 'READY_MUTATION' },
-      )
-    } catch (error) {
-      return stopped(
-        operation,
-        'ready_outcome_unknown',
-        mutationCount,
-        'OUTCOME_UNKNOWN',
-        projectReadyMutationDiagnosticV1(error),
-      )
-    }
-    const changed = mutation?.markPullRequestReadyForReview?.pullRequest
-    if (
-      changed?.id !== initial.pull_id || changed?.number !== prNumber || changed?.state !== 'OPEN' ||
-      changed?.isDraft !== false || changed?.merged !== false || changed?.headRefOid !== exactHead
-    ) return stopped(operation, 'ready_after_state_invalid', mutationCount, 'OUTCOME_UNKNOWN')
-
-    const after = await host.api(`repos/${repository}/pulls/${prNumber}`)
-    if (
-      after?.state !== 'open' || after?.draft !== false || after?.merged !== false ||
-      after?.head?.sha !== exactHead
-    ) return stopped(operation, 'ready_after_refetch_invalid', mutationCount, 'OUTCOME_UNKNOWN')
-
-    return Object.freeze({
-      operation, state: 'COMPLETED', reason: 'ready_completed', outcome: 'MUTATION_CONFIRMED',
-      mutation_count: mutationCount, exit_code: 0, repository, task_issue: taskIssue,
-      pr_number: prNumber, exact_head: exactHead,
-    })
-  } catch (error) {
-    return stopped(operation, error instanceof Error ? error.message : 'ready_failed')
-  }
-}
 
 export const executeSimplifiedMergeV1 = async ({ event, host }) => {
   const operation = 'MERGE'
@@ -518,7 +436,6 @@ export const executeSimplifiedMergeV1 = async ({ event, host }) => {
       reviewId: decision.review_id,
       reviewUrl: decision.review_url,
       reviewKind: decision.review_kind,
-      expectedDraft: false,
       host,
     })
     const final = await acquireLiveSnapshot({
@@ -531,7 +448,6 @@ export const executeSimplifiedMergeV1 = async ({ event, host }) => {
       reviewId: decision.review_id,
       reviewUrl: decision.review_url,
       reviewKind: decision.review_kind,
-      expectedDraft: false,
       host,
     })
     if (JSON.stringify(initial) !== JSON.stringify(final)) throw new Error('merge_final_drift')
@@ -539,12 +455,22 @@ export const executeSimplifiedMergeV1 = async ({ event, host }) => {
     const mutationCount = 1
     let mutation
     try {
-      mutation = await host.graphql(MERGE_MUTATION, {
-        pullRequestId: initial.pull_id,
-        expectedHeadOid: decision.exact_head,
-      })
-    } catch {
-      return stopped(operation, 'merge_outcome_unknown', mutationCount, 'OUTCOME_UNKNOWN')
+      mutation = await host.graphql(
+        MERGE_MUTATION,
+        {
+          pullRequestId: initial.pull_id,
+          expectedHeadOid: decision.exact_head,
+        },
+        { diagnostic_operation: 'MERGE_MUTATION' },
+      )
+    } catch (error) {
+      return stopped(
+        operation,
+        'merge_outcome_unknown',
+        mutationCount,
+        'OUTCOME_UNKNOWN',
+        projectMergeMutationDiagnosticV1(error),
+      )
     }
     const merged = mutation?.mergePullRequest?.pullRequest
     if (

@@ -13,13 +13,13 @@ This document is the sole normative owner for shared admission, canonical-record
 
 Task Assignment and Result Handoff fields are owned by the [Delegation and Result Contract](11-delegation-and-result-contract.md).
 
-## Simplified Autonomous Lifecycle V1
+## Non-Draft Merge-only Lifecycle V1
 
-For Review, Ready, and Merge, this section supersedes historical publication-generation and evidence-chain requirements elsewhere in this document. Exactly three durable decisions are authoritative: the Task Authority, one fresh exact-HEAD Independent Review, and the Product Owner's exact-HEAD Merge Decision. Task-state, Result Handoff, Gate Status, Ready history, Collector output, terminal-observation artifacts, rosters, receipts, and publication-generation records may remain useful status or diagnostic projections, but they neither authorize nor block Review, Ready, or Merge.
+For Review and Merge, this section supersedes historical publication-generation and evidence-chain requirements elsewhere in this document. Exactly three durable decisions are authoritative: the Task Authority, one fresh exact-HEAD Independent Review, and the Product Owner's exact-HEAD Merge Decision. Task-state, Result Handoff, Gate Status, Ready history, Collector output, terminal-observation artifacts, rosters, receipts, and publication-generation records may remain useful status or diagnostic projections, but they neither authorize nor block Review or Merge.
 
 A HEAD change invalidates the prior Review and requires current checks plus a fresh exact-HEAD Review. It does not require returning a non-Draft PR to Draft, replaying publication, or rebuilding Ready evidence. Live GitHub state is authoritative at the protected-action boundary.
 
-Simplified V1 records use the closed fields implemented by the Node serializer/parser: Task Authority binds Task Issue number, repository, objective, authorized paths, Ready permission, and Product Owner; Review binds Task, PR, exact HEAD, decision, and the three finding counts; Merge Decision binds Task, PR, exact HEAD, expected base, authorized paths, Review identity, merge method, and operation count. GitHub's fresh-fetched Issue, Pull Request Review, and comment identities own actor and resource identity. Generic self-referential `canonical_record`, predecessor, digest, seal, and generation metadata elsewhere in this document do not apply to these three records.
+Simplified V1 records use the closed fields implemented by the Node serializer/parser: Task Authority binds Task Issue number, repository, objective, authorized paths, the legacy `ready_allowed` compatibility field, and Product Owner; Review binds Task, PR, exact HEAD, decision, and the three finding counts; Merge Decision binds Task, PR, exact HEAD, expected base, authorized paths, Review identity, merge method, and operation count. The parser continues to accept Boolean `ready_allowed` values in existing Task bodies, but the field has no operational effect. GitHub's fresh-fetched Issue, Pull Request Review, and comment identities own actor and resource identity. Generic self-referential `canonical_record`, predecessor, digest, seal, and generation metadata elsewhere in this document do not apply to these three records.
 
 ## Shared Admission
 
@@ -87,13 +87,13 @@ Technical ability, repository write access, or GitHub permission MUST NOT be tre
 
 A terminal Result Handoff completes the assigned Role; it does not require that Role to perform or authorize the next lifecycle action. After consuming an admissible terminal Result Handoff, the protected-transition consumer host owns continuation under the existing routing and authority rules. The Role MUST return only the requested canonical record body and MUST NOT replace it with status narration or independently invoke a downstream Role.
 
-## Ready Transition Authority Boundary
+## Non-Draft Publication Boundary
 
-Ready admission exists only for one real Draft-to-Ready action when the PR is currently Draft. It requires the Task Authority, a fresh exact-HEAD Independent Review, passing live required checks, zero active unresolved non-outdated threads, exact scope and base, and explicit Product Owner permission carried by the Task Authority. A non-Draft PR needs no Ready action or Ready-generation reconstruction after a HEAD update.
+Normal autonomous publication creates a non-Draft pull request. Draft is available only when the Product Owner explicitly requests a manual working state. Draft pull requests are not Merge-eligible, and the autonomous lifecycle does not own Draft-to-Ready conversion. A HEAD update preserves publication state and requires applicable current checks plus a fresh exact-HEAD Review.
 
 ## Protected Actions
 
-Protected actions include Ready for Review, Approve, Merge, Revert, branch publication, Issue creation or closure, authority or completion-state changes, and any other action marked protected by the task.
+Protected actions include Approve, Merge, Revert, branch publication, Issue creation or closure, authority or completion-state changes, and any other action marked protected by the task.
 
 A protected action MUST have:
 
