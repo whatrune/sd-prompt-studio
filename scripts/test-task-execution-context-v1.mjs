@@ -7,6 +7,7 @@ import {
   admitParallelExecutionsV1,
   assertBoundedExecutionContextV1,
   assertSharedDependencyAccessV1,
+  bindExpectedPullRequestV1,
   createBoundedExecutionIdentityV1,
   inspectHistoricalCommitV1,
 } from './task-execution-context-v1.mjs'
@@ -16,6 +17,7 @@ function equal(actual, expected, message) {
   assert.equal(actual, expected, message)
   assertions += 1
 }
+
 function deepEqual(actual, expected, message) {
   assert.deepEqual(actual, expected, message)
   assertions += 1
@@ -83,6 +85,35 @@ function observed(id = identity(), overrides = {}) {
     },
     ...overrides,
   }
+}
+
+// Post-publication acquisition calls only the exact expected PR tuple.
+{
+  const id = identity()
+  let fetched = null
+  const local = observed(id, { pr_lookup_attempted: false, requested_pr_number: undefined, pr: null })
+  const bound = bindExpectedPullRequestV1(id, local, (repository, pullRequest) => {
+    fetched = { repository, pullRequest }
+    return {
+      number: pullRequest,
+      state: 'open',
+      merged: false,
+      head: { sha: id.expected_head },
+      base: { sha: id.expected_base, repo: { full_name: id.repository } },
+    }
+  })
+  deepEqual(fetched, { repository: id.repository, pullRequest: id.expected_pr })
+  equal(assertBoundedExecutionContextV1(id, bound).admitted, true)
+
+  const prepublication = identity({ expected_pr: null })
+  let prepublicationFetchCount = 0
+  const prepublicationBound = bindExpectedPullRequestV1(
+    prepublication,
+    observed(prepublication, { pr_lookup_attempted: false, requested_pr_number: undefined, pr: null }),
+    () => { prepublicationFetchCount += 1 },
+  )
+  equal(prepublicationFetchCount, 0)
+  equal(assertBoundedExecutionContextV1(prepublication, prepublicationBound).admitted, true)
 }
 
 {

@@ -233,6 +233,39 @@ export function observeLocalWorktreeV1(identity, { remoteMainSha } = {}) {
   })
 }
 
+export function bindExpectedPullRequestV1(identity, localObservation, fetchPullRequest) {
+  if (identity.expected_pr === null) {
+    return Object.freeze({ ...localObservation, pr_lookup_attempted: false, pr: null })
+  }
+  if (typeof fetchPullRequest !== 'function') mismatch('expected_pr_fetcher')
+  const requestedPrNumber = identity.expected_pr
+  const value = fetchPullRequest(identity.repository, requestedPrNumber)
+  if (!value || typeof value !== 'object' || Array.isArray(value)) mismatch('expected_pr_response')
+  return Object.freeze({
+    ...localObservation,
+    pr_lookup_attempted: true,
+    requested_pr_number: requestedPrNumber,
+    pr: Object.freeze({
+      number: value.number,
+      repository: value.base?.repo?.full_name?.toLowerCase?.() ?? null,
+      state: value.state?.toUpperCase?.() ?? null,
+      merged: value.merged,
+      head: value.head?.sha,
+      base: value.base?.sha,
+    }),
+  })
+}
+
+function fetchExpectedPullRequestWithGh(repository, pullRequest) {
+  const route = `repos/${repository}/pulls/${pullRequest}`
+  const output = execFileSync('gh', ['api', route], { encoding: 'utf8' })
+  try {
+    return JSON.parse(output)
+  } catch {
+    mismatch('expected_pr_response')
+  }
+}
+
 function parseCliArgs(argv) {
   const allowed = new Set([
     'repository',
@@ -279,8 +312,8 @@ function runCli() {
     expected_head: args.get('expected-head'),
     execution_instance_id: args.get('execution-instance-id'),
   })
-  if (identity.expected_pr !== null) mismatch('creation_requires_prepublication_identity')
-  const observed = observeLocalWorktreeV1(identity, { remoteMainSha: args.get('remote-main-sha') })
+  const localObservation = observeLocalWorktreeV1(identity, { remoteMainSha: args.get('remote-main-sha') })
+  const observed = bindExpectedPullRequestV1(identity, localObservation, fetchExpectedPullRequestWithGh)
   assertBoundedExecutionContextV1(identity, observed)
   process.stdout.write(`${JSON.stringify({
     admitted: true,
