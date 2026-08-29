@@ -708,6 +708,43 @@ try {
         }
     }
 
+    $nodeCommand = Get-Command node -CommandType Application -ErrorAction Stop | Select-Object -First 1
+    $identityScript = Join-Path $PSScriptRoot 'task-execution-context-v1.mjs'
+    if (-not (Test-Path -LiteralPath $identityScript -PathType Leaf)) {
+        throw 'Bounded execution identity validator is unavailable.'
+    }
+    $canonicalCommon = Get-GitCommonDirectory -Worktree $script:CanonicalPath
+    $identityArguments = @(
+        $identityScript,
+        '--repository', $RepositorySlug,
+        '--canonical-task-id', "#$CanonicalTaskId",
+        '--objective', $Objective,
+        '--branch', $Branch,
+        '--worktree', $script:ResolvedTargetPath,
+        '--git-common-dir', $canonicalCommon,
+        '--expected-base', $BaseCommit,
+        '--expected-head', $ExpectedHead,
+        '--expected-pr', 'null',
+        '--execution-instance-id', $ExecutionInstanceId,
+        '--validate-input-only', 'true'
+    )
+    foreach ($authorizedPath in $AuthorizedPaths) {
+        $identityArguments += @('--authorized-path', $authorizedPath)
+    }
+    $identityInputResult = Invoke-NativeCommand -FilePath $nodeCommand.Source -Arguments $identityArguments -WorkingDirectory $script:CanonicalPath
+    if ($identityInputResult.ExitCode -ne 0 -or $identityInputResult.Output.Count -ne 1) {
+        throw 'execution_identity_mismatch'
+    }
+    try {
+        $identityInputProjection = $identityInputResult.Output[0] | ConvertFrom-Json
+    }
+    catch {
+        throw 'execution_identity_mismatch'
+    }
+    if ($identityInputProjection.admitted -ne $true -or $identityInputProjection.phase -cne 'INPUT_VALIDATED') {
+        throw 'execution_identity_mismatch'
+    }
+
     $pnpmCommand = Get-Command pnpm.cmd -CommandType Application -ErrorAction Stop | Select-Object -First 1
 
     $addResult = Invoke-NativeCommand -FilePath $script:GitExecutable -Arguments @(
@@ -738,11 +775,6 @@ try {
         throw 'Target LF configuration verification failed.'
     }
 
-    $nodeCommand = Get-Command node -CommandType Application -ErrorAction Stop | Select-Object -First 1
-    $identityScript = Join-Path $script:ResolvedTargetPath 'scripts/task-execution-context-v1.mjs'
-    if (-not (Test-Path -LiteralPath $identityScript -PathType Leaf)) {
-        throw 'Bounded execution identity validator is unavailable.'
-    }
     $identityArguments = @(
         $identityScript,
         '--repository', $RepositorySlug,

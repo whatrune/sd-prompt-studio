@@ -292,6 +292,8 @@ function parseCliArgs(argv) {
     'expected-pr',
     'execution-instance-id',
     'authorized-path',
+    'validate-input-only',
+    'git-common-dir',
   ])
   const result = new Map()
   for (let index = 0; index < argv.length; index += 2) {
@@ -309,8 +311,14 @@ function parseCliArgs(argv) {
 
 function runCli() {
   const args = parseCliArgs(process.argv.slice(2))
-  const worktree = canonicalExistingPath(args.get('worktree'))
-  const commonDir = canonicalExistingPath(runGit(worktree, ['rev-parse', '--path-format=absolute', '--git-common-dir']))
+  const validateInputOnly = args.get('validate-input-only') === 'true'
+  if (args.has('validate-input-only') && !validateInputOnly) mismatch('cli_arguments')
+  const worktree = validateInputOnly
+    ? normalizeAbsolutePathV1(args.get('worktree'), 'worktree_path')
+    : canonicalExistingPath(args.get('worktree'))
+  const commonDir = validateInputOnly
+    ? canonicalExistingPath(args.get('git-common-dir'))
+    : canonicalExistingPath(runGit(worktree, ['rev-parse', '--path-format=absolute', '--git-common-dir']))
   const expectedPrText = args.get('expected-pr') ?? 'null'
   const identity = createBoundedExecutionIdentityV1({
     repository: args.get('repository'),
@@ -325,6 +333,19 @@ function runCli() {
     expected_head: args.get('expected-head'),
     execution_instance_id: args.get('execution-instance-id'),
   })
+  if (validateInputOnly) {
+    if (identity.expected_pr !== null) mismatch('prepublication_pr_discovery')
+    process.stdout.write(`${JSON.stringify({
+      admitted: true,
+      phase: 'INPUT_VALIDATED',
+      canonical_task_id: identity.canonical_task_id,
+      objective_digest: identity.objective_digest,
+      authorized_paths_digest: identity.authorized_paths_digest,
+      execution_instance_id: identity.execution_instance_id,
+    })}\n`)
+    return
+  }
+  if (args.has('git-common-dir')) mismatch('cli_arguments')
   const localObservation = observeLocalWorktreeV1(identity)
   const observed = bindExpectedPullRequestV1(identity, localObservation, fetchExpectedPullRequestWithGh)
   assertBoundedExecutionContextV1(identity, observed)

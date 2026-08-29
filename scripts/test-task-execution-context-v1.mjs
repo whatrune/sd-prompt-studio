@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, realpathSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync, readFileSync, realpathSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import {
@@ -43,6 +44,25 @@ const paths455 = [
   'src/data/visual-concept-production-advisory-v1.json',
 ]
 
+function runInputValidation(authorizedPaths) {
+  const args = [
+    'scripts/task-execution-context-v1.mjs',
+    '--repository', 'whatrune/sd-prompt-studio',
+    '--canonical-task-id', '#455',
+    '--objective', 'Bind hair.long production advisory.',
+    '--branch', 'codex/hair-long-production-advisory-binding-phase-1',
+    '--worktree', worktree455,
+    '--git-common-dir', root,
+    '--expected-base', base,
+    '--expected-head', base,
+    '--expected-pr', 'null',
+    '--execution-instance-id', '33333333-3333-4333-8333-333333333333',
+    '--validate-input-only', 'true',
+  ]
+  for (const authorizedPath of authorizedPaths) args.push('--authorized-path', authorizedPath)
+  return spawnSync(process.execPath, args, { cwd: process.cwd(), encoding: 'utf8' })
+}
+
 function identity(overrides = {}) {
   return createBoundedExecutionIdentityV1({
     repository: 'whatrune/sd-prompt-studio',
@@ -85,6 +105,23 @@ function observed(id = identity(), overrides = {}) {
     },
     ...overrides,
   }
+}
+
+// Identity input validation is complete before any worktree mutation.
+{
+  const valid = runInputValidation(paths455)
+  equal(valid.status, 0)
+  const result = JSON.parse(valid.stdout)
+  equal(result.phase, 'INPUT_VALIDATED')
+  for (const invalidPaths of [['../outside'], [paths455[0], paths455[0]], [' docs/other.md']]) {
+    const invalid = runInputValidation(invalidPaths)
+    equal(invalid.status, 1)
+    equal(invalid.stderr.trim(), EXECUTION_IDENTITY_MISMATCH_V1)
+  }
+
+  const worktreeCreator = readFileSync('scripts/create-task-worktree.ps1', 'utf8')
+  assert.ok(worktreeCreator.indexOf('$identityInputResult =') < worktreeCreator.indexOf("'worktree', 'add', '-b'"))
+  assertions += 1
 }
 
 // Post-publication acquisition calls only the exact expected PR tuple.
