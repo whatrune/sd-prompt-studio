@@ -1,7 +1,7 @@
 {
   "schema_version": "0.2.0",
   "graph_version": "0.2.1",
-  "generated_at": "2026-08-29T19:55:18Z",
+  "generated_at": "2026-08-29T20:42:52Z",
   "source_files": [
     "concepts/physical-concepts.json",
     "concepts/relations.json",
@@ -444,7 +444,7 @@
       ],
       "module": "hair",
       "concept_type": "hair",
-      "human_meaning": "Hair long enough to overlap the neck, shoulders, or nearby hands depending on pose and camera.",
+      "human_meaning": "Hair long enough to extend below the shoulder line; overlap with the neck, shoulders, or nearby hands is pose- and camera-dependent and is not a defining criterion.",
       "scope": [
         "hair",
         "head",

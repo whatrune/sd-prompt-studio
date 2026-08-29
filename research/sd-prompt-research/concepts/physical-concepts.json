@@ -368,7 +368,7 @@
       "aliases": ["long hair"],
       "module": "hair",
       "concept_type": "hair",
-      "human_meaning": "Hair long enough to overlap the neck, shoulders, or nearby hands depending on pose and camera.",
+      "human_meaning": "Hair long enough to extend below the shoulder line; overlap with the neck, shoulders, or nearby hands is pose- and camera-dependent and is not a defining criterion.",
       "scope": ["hair", "head", "neck", "shoulders"],
       "evidence_refs": [
         {
