@@ -413,6 +413,17 @@ py -m venv .venv
 pip install -r requirements.txt
 ```
 
+## Validation Fast Path V1
+
+Pull Requestの`validate` checkは、exact baseからexact HEADまでの完全な`git diff --name-only -z --no-renames`を`select_validation_profile.py`で分類します。通常実行でProfileを手動指定することはできません。
+
+- `RESEARCH_EXPERIMENT_ONLY`: Experiment/Ledger content向けのObservation、Schema、Evidence、Concept Graph、Research Claims、Explorer実Data、Run Registrationのfocused testsと3つのcurrent-state validator。
+- `CONCEPT_GRAPH_CONTENT`: Concept Graph、Research Claims、Explorer実Dataのfocused testsと3つのcurrent-state validator。Experiment pathとの混在時はExperiment checksも合成します。
+- `PRODUCTION_ADAPTER`: 閉じたVisual Concept production adapter/catalog pathに対する既存focused Node tests/checks。独立して必須の`build-preview`が`pnpm test`と`pnpm build`を所有します。
+- `FULL_RESEARCH`: 全Research test discovery（既存suiteとselector focused tests）、3つのcurrent-state validator、closed production adapter tests/checks。ほかの全Profileを包含する安全側supersetです。
+
+Validator/Test code、Schema、Template、Shared Registry、Workflow/Selector、unknown path、malformed inputは必ず`FULL_RESEARCH`へfallbackします。Default branchと定期回帰も`FULL_RESEARCH`です。Selectorは分類path、選択Profile、固定command、fallback reasonをlogとjob summaryへ表示するだけで、Evidence Recordを作成しません。
+
 WSL / Linux例:
 
 ```bash
