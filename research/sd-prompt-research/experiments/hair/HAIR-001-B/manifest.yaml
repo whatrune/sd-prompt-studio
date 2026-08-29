@@ -1,0 +1,87 @@
+schema_version: '1.0'
+run_id: HAIR-001-B
+domain: hair
+condition: Condition B
+title: HAIR-001-B — long hair treatment
+status: OBSERVED
+created_at: '2026-08-29T02:33:42+09:00'
+updated_at: '2026-08-29T02:40:54+09:00'
+research:
+  target_phrase: long hair
+  research_question: Does replacing bob cut with long hair produce a direct, repeatable
+    visible increase in hair length?
+  baseline_run_id: HAIR-001-A
+  variant_label: B — treatment
+  hypothesis_before_run: Condition B will show below-shoulder hair more often than
+    Condition A at matched seeds.
+prompt:
+  positive: 1girl, solo, upper body, three-quarter back view, standing, straight posture,
+    arms relaxed at sides, fitted sleeveless top, plain background, long hair
+  negative: low quality, worst quality, blurry, deformed, bad anatomy, bad hands,
+    extra fingers, missing fingers, text, watermark, raised arms, arms up, hand on
+    face, hand on hair
+  changed_phrases:
+  - long hair
+  fixed_phrases:
+  - 1girl
+  - solo
+  - upper body
+  - three-quarter back view
+  - standing
+  - straight posture
+  - arms relaxed at sides
+  - fitted sleeveless top
+  - plain background
+model:
+  checkpoint: novaAnimeXL_ilV190
+  checkpoint_sha256: fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f
+  vae: ''
+  sampler: Euler a
+  scheduler: Automatic
+  steps: 20
+  cfg_scale: 4.5
+  width: 1024
+  height: 1024
+  seeds:
+  - 110731
+  - 240517
+  - 381029
+  - 527413
+  - 684221
+  - 902117
+source:
+  sheet_file: null
+  metadata_file: source/HAIR-001-B_metadata.yaml
+  sidecar_file: null
+  layout: individual_panels
+  panel_count: 6
+  original_filename: HAIR-001-v3.zip
+outputs:
+  panels:
+  - panels/HAIR-001-B_01.png
+  - panels/HAIR-001-B_02.png
+  - panels/HAIR-001-B_03.png
+  - panels/HAIR-001-B_04.png
+  - panels/HAIR-001-B_05.png
+  - panels/HAIR-001-B_06.png
+  preview_file: null
+  rubric_file: source/rubric.yaml
+  observation_file: observation.md
+  observation_json: observation.json
+  hair_observation_json: hair-observation.json
+  hair_observation_schema: templates/hair-observation-schema.json
+  hair_observation_rubric: templates/hair-observation-rubric.yaml
+  research_review_file: research-review.md
+  observation_schema: templates/observation-schema.json
+  canonical_observation: observation.json
+workflow:
+  assigned_to: 研究担当ChatGPT
+  human_reviewed_by: null
+  accepted_at: null
+  notes: HAIR-001-v3 is the only canonical input; v1 and v2 are pilots and excluded.
+ingested_metadata:
+  metadata_status: verified
+  source: sidecar_json
+  format: png+json
+  archive_filename: HAIR-001-v3.zip
+  archive_sha256: 2f9bdc9a82dc9b989234eee8412b0f09033e611abc9474575bea228a7490792c

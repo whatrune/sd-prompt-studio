@@ -1,0 +1,249 @@
+{
+  "schema_version": "3.0",
+  "run_id": "HAIR-001-A",
+  "blind_condition_label": "Condition A",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "body_state",
+    "body_orientation",
+    "head_orientation",
+    "torso_arch",
+    "support_evidence_visibility"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "All six panels show an upright, vertical upper-body view with the head turned left.",
+      "Feet and the support boundary are outside the crop in all six panels."
+    ],
+    "analysis_notes": [
+      "Visible image evidence only; the prompt was not used to assign pose observations.",
+      "Hair-specific observations are recorded separately in hair-observation.json."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "unclear",
+        "vertical",
+        "rotated_left",
+        "none",
+        "out_of_frame"
+      ],
+      "primary_morphology": "unclear",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The torso is visibly upright and vertical, and the face profile shows the head turned left; feet and the support boundary are out of frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "unclear",
+        "vertical",
+        "rotated_left",
+        "none",
+        "out_of_frame"
+      ],
+      "primary_morphology": "unclear",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The torso is visibly upright and vertical, and the face profile shows the head turned left; feet and the support boundary are out of frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "unclear",
+        "vertical",
+        "rotated_left",
+        "none",
+        "out_of_frame"
+      ],
+      "primary_morphology": "unclear",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The torso is visibly upright and vertical, and the visible ear and profile show the head turned left; feet and the support boundary are out of frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "unclear",
+        "vertical",
+        "rotated_left",
+        "none",
+        "out_of_frame"
+      ],
+      "primary_morphology": "unclear",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The torso is visibly upright and vertical, and the face profile shows the head turned left; feet and the support boundary are out of frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "unclear",
+        "vertical",
+        "rotated_left",
+        "none",
+        "out_of_frame"
+      ],
+      "primary_morphology": "unclear",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The torso is visibly upright and vertical, and the face profile shows the head turned left; feet and the support boundary are out of frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "unclear",
+        "vertical",
+        "rotated_left",
+        "none",
+        "out_of_frame"
+      ],
+      "primary_morphology": "unclear",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The torso is visibly upright and vertical, and the face profile shows the head turned left; feet and the support boundary are out of frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [
+    {
+      "panel_id": 1,
+      "field": "support/contact_load",
+      "reason": "Feet, hands, and the support boundary are outside the crop."
+    },
+    {
+      "panel_id": 2,
+      "field": "support/contact_load",
+      "reason": "Feet, hands, and the support boundary are outside the crop."
+    },
+    {
+      "panel_id": 3,
+      "field": "support/contact_load",
+      "reason": "Feet, hands, and the support boundary are outside the crop."
+    },
+    {
+      "panel_id": 4,
+      "field": "support/contact_load",
+      "reason": "Feet, hands, and the support boundary are outside the crop."
+    },
+    {
+      "panel_id": 5,
+      "field": "support/contact_load",
+      "reason": "Feet, hands, and the support boundary are outside the crop."
+    },
+    {
+      "panel_id": 6,
+      "field": "support/contact_load",
+      "reason": "Feet, hands, and the support boundary are outside the crop."
+    }
+  ],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "The pose observation is condition-local; the matched hair comparison is recorded in research-review.md.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "body_state": {
+        "unclear": 6
+      },
+      "body_orientation": {
+        "vertical": 6
+      },
+      "head_orientation": {
+        "rotated_left": 6
+      },
+      "torso_arch": {
+        "none": 6
+      },
+      "support_evidence_visibility": {
+        "out_of_frame": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "unclear": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
