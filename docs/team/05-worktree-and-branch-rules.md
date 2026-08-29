@@ -37,7 +37,7 @@ repository-root/
 └─ ...
 ```
 
-実際の名前はTaskまたはPRを識別できればよい。worktree Path自体をContract、Artifact ID、保存データへ含めない。
+実際の名前はTaskまたはPRを識別できればよい。canonical absolute worktree pathはprocess-localなBounded Execution Identityへ含めるが、authority、lifecycle evidence、Artifact ID、または永続recordにはしない。
 
 ## Project-Local Filesystem Boundary
 
@@ -102,6 +102,16 @@ git worktree add .worktrees/<task> -b codex/<role>-<purpose> origin/main
 - 他担当者のbranchをmerge、rebase、cherry-pickする前に依存関係とOwnerを確認する。
 - main更新が必要になった場合、未コミット変更を保持したまま無理に同期しない。
 - force push、history rewrite、destructive resetを標準手順にしない。
+
+## Parallel Isolation
+
+- Each active Task has one exact registered worktree path and one exact branch. Resolution by current working directory, fuzzy branch name, latest related commit, latest PR, or a historical same-path commit is prohibited.
+- The expected base is the freshly resolved remote `origin/main` commit. A local branch named `main` is never base evidence.
+- Independent executions must have distinct Task, branch, worktree, execution-instance, and published PR identities. Disjoint authorized paths may execute concurrently.
+- Overlapping authorized paths require explicit dependency ordering or compatibility reconciliation before either execution mutates shared paths.
+- Every mutation command explicitly targets the assigned worktree. A command must not inherit another Task merely because that Task's worktree is the current directory.
+- A shared `node_modules` junction is read-only for concurrent Tasks and is admitted only when tracked dependency manifest identities match. No package-manager install, update, repair, or metadata mutation may run through the shared junction.
+- Historical commits may be inspected only as explicitly labelled diagnostics and never become the current execution target.
 
 ## PR Rules
 

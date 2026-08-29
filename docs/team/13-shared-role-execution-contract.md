@@ -38,6 +38,16 @@ Each authority-bearing record MUST expose `task_id`, `record_type`, `authoring_r
 
 Missing, conflicting, stale, inaccessible, or Role-incompatible authority MUST fail closed. The assignee MUST NOT infer omitted authority from chat, memory, a PR description, a Gate Status projection, static source presence, or CI success.
 
+### Bounded Execution Admission V1
+
+The process-local identity shape is owned by the [Delegation and Result Contract](11-delegation-and-result-contract.md#bounded-execution-identity-v1). Admission freshly binds every field to the exact registered worktree and current repository state. Any repository, Task, objective digest, branch, worktree, Git common-directory, authorized-path digest, expected base, expected PR, or expected HEAD mismatch stops as `execution_identity_mismatch`; there is no fallback lookup.
+
+The worktree is resolved only from the identity's exact canonical registered path. CWD, fuzzy branch matching, latest related commits, latest PRs, and same-path history are not current identity. Before publication, PR discovery is prohibited. After publication, the consumer requests only `expected_pr`, requires it to be open and unmerged, and verifies its repository, base, and head. A closed or merged PR is historical and cannot become the current target.
+
+Fresh remote `origin/main`, not a local branch named `main`, establishes `expected_base`. Historical commits outside `expected_base..expected_head` may be inspected only when explicitly labelled `historical_diagnostic`; that inspection is never admitted as current execution context.
+
+Disjoint identities may execute concurrently only with unique Task, branch, worktree, execution-instance, and published PR identities. Overlapping authorized paths require explicit dependency ordering or compatibility reconciliation. Shared dependencies are read-only and require exact manifest identity; package-manager mutation through a shared dependency junction is prohibited.
+
 ## Canonical Record Admission
 
 For a new or migrated live record, `canonical_record` MUST be a direct GitHub Issue or PR body URL, or a direct top-level comment URL, from which the complete record can be fresh-fetched. A repository-relative Markdown path is not a canonical record. It MAY be cited as a `supporting_record` only with a full 40-character commit SHA.
