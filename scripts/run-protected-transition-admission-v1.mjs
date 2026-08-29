@@ -52,6 +52,7 @@ const mutationDiagnostic = ({
   responseReceived,
   httpStatus = null,
   githubRequestId = null,
+  responseMessage = null,
   graphqlErrors = [],
   networkException = null,
 }) => Object.freeze({
@@ -60,6 +61,7 @@ const mutationDiagnostic = ({
   response_received: responseReceived,
   http_status: Number.isInteger(httpStatus) && httpStatus >= 100 && httpStatus <= 599 ? httpStatus : null,
   github_request_id: boundedAtom(githubRequestId, /^[A-Za-z0-9:-]+$/u, 128),
+  response_message: responseMessage === null ? null : boundedMessage(responseMessage),
   graphql_errors: boundedGraphqlErrors(graphqlErrors),
   network_exception: networkException === null ? null : Object.freeze({
     name: boundedAtom(networkException?.name, /^[A-Za-z0-9_.:-]+$/u, 64),
@@ -136,6 +138,7 @@ const request = async (url, options = {}, context = {}) => {
       throw mutationDiagnosticError(mutationDiagnostic({
         phase: `${diagnosticOperation}_HTTP_RESPONSE`,
         ...responseDiagnostic,
+        responseMessage: body?.message,
         graphqlErrors: body?.errors,
       }))
     }
@@ -146,6 +149,23 @@ const request = async (url, options = {}, context = {}) => {
 
 export const createProductionHostV1 = ({ fetchImpl = globalThis.fetch, token = process.env.GH_TOKEN } = {}) => Object.freeze({
   api: (route) => request(`${API_ROOT}/${route}`, {}, { fetchImpl, token }),
+  mergePullRequest: async ({ repository, prNumber, exactHead }) => {
+    if (
+      typeof repository !== 'string' || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(repository) ||
+      !Number.isSafeInteger(prNumber) || prNumber < 1 ||
+      typeof exactHead !== 'string' || !/^[0-9a-f]{40}$/u.test(exactHead)
+    ) throw new Error('merge_rest_request_invalid')
+    const [owner, name] = repository.split('/')
+    const response = await request(
+      `${API_ROOT}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/pulls/${prNumber}/merge`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ sha: exactHead, merge_method: 'merge' }),
+      },
+      { diagnosticOperation: 'MERGE_MUTATION', fetchImpl, token },
+    )
+    return response.body
+  },
   graphql: async (query, variables, options = {}) => {
     const diagnosticOperation = options?.diagnostic_operation ?? null
     const response = await request(`${API_ROOT}/graphql`, {

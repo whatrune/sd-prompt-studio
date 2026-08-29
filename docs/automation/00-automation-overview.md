@@ -30,7 +30,7 @@ A final, parser-valid Merge Decision must be present in the initial `issue_comme
 - every review-thread page; and
 - mergeability.
 
-The same binding is evaluated again immediately before mutation. The operator then performs one expected-SHA merge with no automatic retry. After success it re-fetches the PR, `main`, and merge commit and verifies that the exact reviewed HEAD and previous main are the two merge parents.
+The same binding is evaluated again immediately before mutation. The operator then performs one expected-SHA merge through GitHub's closed REST `PUT /repos/{repository}/pulls/{pull_number}/merge` operation with `sha` fixed to the reviewed HEAD and `merge_method` fixed to `merge`. The default-branch job grants `contents: write` only because that endpoint requires it; checks, Issues, Pull Requests, and statuses remain read-only, and all unspecified permissions remain unavailable. The operator has no generic REST write surface and no automatic retry. An explicit `409` or other `4xx` response fails closed, while transport loss, `5xx`, malformed responses, and failed post-Merge verification remain `OUTCOME_UNKNOWN`. After success it re-fetches the PR, `main`, and merge commit and verifies that the exact reviewed HEAD and previous main are the two merge parents.
 
 ## Required checks
 
