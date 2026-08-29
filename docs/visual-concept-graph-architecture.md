@@ -89,7 +89,9 @@ concepts/*.json
 `research/sd-prompt-research/schemas/visual-concept-graph.schema.json` is a Draft 2020-12 schema. It validates both module sources through `$defs.sourceModule` and the integrated distribution root.
 
 - `schema_version: 0.2.0` describes the prototype data format, including Hair Effects and Control Context Profiles.
-- `graph_version: 0.2.0` describes the current prototype knowledge content.
+- `graph_version` is the monotonic prototype knowledge-content revision. It is not a schema or production compatibility version. Research Claim validation requires it to increase when `graph_content_identity_v1` changes and forbids changing it without a content change.
+
+Production compatibility is owned by the Graph schema ID, `schema_version`, and validated required structure. Legacy `graph_version` fields in binding and inspection records remain revision metadata and are not exact compatibility gates. Production catalog freshness reuses the catalog's deterministic mapped-concept projection and exact binding/registry identities; it does not hash the entire Research Graph. Consequently, same-schema changes to an unmapped research-only concept do not require catalog regeneration, while changes to mapped concept fields still change the catalog bytes and fail freshness checks until explicitly promoted.
 
 The root uses arrays for concepts and edges because stable ordered output produces readable diffs and each item carries its own ID. Generated indexes provide constant-time lookup without duplicating full objects. Indexes contain IDs or array offsets only.
 

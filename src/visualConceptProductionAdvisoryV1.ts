@@ -1,7 +1,7 @@
 import type { PromptBlock, SelectedTag } from './store'
 
 const ROOT_KEYS = ['record_type', 'version', 'source_binding', 'coverage', 'mappings', 'relations']
-const SOURCE_KEYS = ['binding_record_type', 'binding_version', 'binding_sha256', 'graph_schema_id', 'graph_schema_version', 'graph_version', 'graph_sha256', 'registry_sha256']
+const SOURCE_KEYS = ['binding_record_type', 'binding_version', 'binding_sha256', 'graph_schema_id', 'graph_schema_version', 'registry_sha256']
 const COVERAGE_KEYS = ['active_prompt_tag_count', 'mapped_active_prompt_tag_count', 'unmapped_active_prompt_tag_count']
 const MAPPING_KEYS = ['prompt_tag_id', 'concept_id', 'concept_label', 'concept_module', 'concept_type', 'concept_status']
 const SHA256 = /^[0-9a-f]{64}$/
@@ -80,8 +80,6 @@ function validateCatalog(value: unknown): Map<string, CatalogMapping> | null {
     || !SHA256.test(String(value.source_binding.binding_sha256))
     || value.source_binding.graph_schema_id !== 'https://local.sd-prompt-studio/visual-concept-graph-v0.2.schema.json'
     || value.source_binding.graph_schema_version !== '0.2.0'
-    || value.source_binding.graph_version !== '0.2.0'
-    || !SHA256.test(String(value.source_binding.graph_sha256))
     || !SHA256.test(String(value.source_binding.registry_sha256))
     || !isRecord(value.coverage) || !exactKeys(value.coverage, COVERAGE_KEYS)
     || !nonNegativeInteger(value.coverage.active_prompt_tag_count)
