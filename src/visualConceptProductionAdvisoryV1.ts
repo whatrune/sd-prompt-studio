@@ -6,6 +6,7 @@ const COVERAGE_KEYS = ['active_prompt_tag_count', 'mapped_active_prompt_tag_coun
 const MAPPING_KEYS = ['prompt_tag_id', 'concept_id', 'concept_label', 'concept_module', 'concept_type', 'concept_status']
 const SHA256 = /^[0-9a-f]{64}$/
 const EXPECTED_MAPPINGS = [
+  ['hai-long-hair', 'hair.long'],
   ['pos-lying', 'body.state.lying'],
   ['pos-lying-on-back', 'body.orientation.face_up'],
   ['rin-pose-arm-support', 'support.arm.rearward'],

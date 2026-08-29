@@ -28,11 +28,12 @@ const errorMessage = callback => { try { callback(); return null } catch (error)
 
 const server = await createServer({ root: repoRoot, configFile: false, logLevel: 'silent', server: { middlewareMode: true }, appType: 'custom' })
 try {
-  const [{ tags }, { adultTags }, runtime, promptModule] = await Promise.all([
+  const [{ tags }, { adultTags }, runtime, promptModule, smartTagEngine] = await Promise.all([
     server.ssrLoadModule('/src/data/tags.ts'),
     server.ssrLoadModule('/src/data/adultTags.ts'),
     server.ssrLoadModule('/src/visualConceptProductionAdvisoryV1.ts'),
     server.ssrLoadModule('/src/prompt.ts'),
+    server.ssrLoadModule('/src/engine/smartTagEngine.ts'),
   ])
   const registry = [...tags, ...adultTags]
   const catalog = projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract, promptTagRegistry: registry })
@@ -41,8 +42,9 @@ try {
 
   equal(catalog.record_type, 'visual_concept_production_advisory_catalog_v1', 'promoted catalog record type must be exact')
   equal(catalog.version, 1, 'promoted catalog version must be exact')
-  equal(catalog.mappings.length, 5, 'promoter must emit exactly five approved mappings')
+  equal(catalog.mappings.length, 6, 'promoter must emit exactly six approved mappings')
   deepEqual(catalog.mappings.map(mapping => [mapping.prompt_tag_id, mapping.concept_id]), [
+    ['hai-long-hair', 'hair.long'],
     ['pos-lying', 'body.state.lying'],
     ['pos-lying-on-back', 'body.orientation.face_up'],
     ['rin-pose-arm-support', 'support.arm.rearward'],
@@ -50,7 +52,7 @@ try {
     ['v192-bent-knees', 'configuration.knee.bent'],
   ], 'promoted mapping slice must remain exact and ordered')
   deepEqual(catalog.relations, [], 'production V1 catalog must not promote relations')
-  deepEqual(catalog.coverage, { active_prompt_tag_count: 2522, mapped_active_prompt_tag_count: 5, unmapped_active_prompt_tag_count: 2517 }, 'coverage must bind the exact active registry')
+  deepEqual(catalog.coverage, { active_prompt_tag_count: 2522, mapped_active_prompt_tag_count: 6, unmapped_active_prompt_tag_count: 2516 }, 'coverage must bind the exact active registry')
   deepEqual(Object.keys(catalog.source_binding), ['binding_record_type', 'binding_version', 'binding_sha256', 'graph_schema_id', 'graph_schema_version', 'registry_sha256'], 'catalog source binding must use schema identity and production inputs without full-Graph revision or digest coupling')
   equal(serialized, serializeVisualConceptProductionAdvisoryCatalogV1(catalog), 'promoted output must be byte-stable')
   check(isVisualConceptProductionAdvisoryArtifactCurrentV1(`${JSON.stringify(checkedInCatalog, null, 2)}\n`, serialized), 'checked-in artifact must equal fresh promotion bytes')
@@ -61,51 +63,49 @@ try {
   duplicateBinding.bindings.splice(1, 0, clone(duplicateBinding.bindings[0]))
   equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract: duplicateBinding, graphContract, promptTagRegistry: registry })), 'binding_identity_conflict', 'duplicate source binding must fail closed')
   const danglingBinding = clone(bindingContract)
-  danglingBinding.bindings[0].prompt_tag_id = 'pos-aaa-missing-production-tag'
+  danglingBinding.bindings[0].prompt_tag_id = 'aaa-missing-production-tag'
   equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract: danglingBinding, graphContract, promptTagRegistry: registry })), 'binding_prompt_tag_missing', 'dangling production tag must fail closed')
   const inadmissibleGraph = clone(graphContract)
   inadmissibleGraph.concepts.find(concept => concept.concept_id === 'body.state.lying').status = 'deprecated'
   equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: inadmissibleGraph, promptTagRegistry: registry })), 'binding_concept_inadmissible', 'inadmissible concept status must fail closed')
   const unmappedResearchChange = clone(graphContract)
-  unmappedResearchChange.graph_version = '0.2.1'
-  const hairLong = unmappedResearchChange.concepts.find(concept => concept.concept_id === 'hair.long')
-  hairLong.status = 'provisional'
-  hairLong.evidence_refs = [{
-    evidence_ref_id: 'evidence.hair001b.long_extent',
-    run_id: 'HAIR-001-B',
-    observation_path: 'experiments/hair/HAIR-001-B/hair-observation.json',
-    metric: 'computed_aggregate.axis_counts.hair_length_extent.below_shoulder',
-    count: 6,
-    total: 6,
-    confidence: 'high',
-    storage: 'local',
-  }]
+  unmappedResearchChange.concepts.find(concept => concept.concept_id === 'clothing.upper.oversized_white_tshirt').label = 'Changed unmapped research label'
   const unmappedResearchCatalog = projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: unmappedResearchChange, promptTagRegistry: registry })
   equal(serializeVisualConceptProductionAdvisoryCatalogV1(unmappedResearchCatalog), serialized, 'unmapped same-schema research content must not stale the production catalog')
   const mappedProductionChange = clone(graphContract)
-  mappedProductionChange.graph_version = '0.2.1'
-  mappedProductionChange.concepts.find(concept => concept.concept_id === 'body.state.lying').label = 'Changed production label'
+  mappedProductionChange.concepts.find(concept => concept.concept_id === 'hair.long').label = 'Changed production label'
   const mappedProductionCatalog = projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: mappedProductionChange, promptTagRegistry: registry })
   check(serializeVisualConceptProductionAdvisoryCatalogV1(mappedProductionCatalog) !== serialized, 'mapped production-relevant field change must stale the catalog')
 
+  const longHairTag = registry.find(tag => tag.id === 'hai-long-hair')
+  deepEqual([longHairTag?.prompt, longHairTag?.category, longHairTag?.slot], ['long hair', 'hair', 'hair_length_back'], 'bound PromptTag emission identity must remain unchanged')
+  for (const conflictingId of ['hai-short-hair', 'hai-medium-hair', 'hai-shoulder-length-hair', 'hai-very-long-hair']) {
+    equal(smartTagEngine.getConflictReason(registry.find(tag => tag.id === conflictingId), [selected('hai-long-hair')], registry)?.level, 'hard', `${conflictingId} must preserve the existing hair-length slot conflict`)
+  }
+  for (const compatibleId of ['hai-bob-cut', 'hai-twintails', 'hai-ponytail']) {
+    equal(smartTagEngine.getConflictReason(registry.find(tag => tag.id === compatibleId), [selected('hai-long-hair')], registry), null, `${compatibleId} must preserve existing main-hairstyle coexistence`)
+  }
   const blocks = [
-    { id: 'subject-1', name: 'Subject 1', tags: [selected('pos-lying'), selected('pos-lying-on-back'), { id: 'custom-tag', label: 'Custom', prompt: 'custom', category: 'pose', weight: 1 }] },
+    { id: 'subject-1', name: 'Subject 1', tags: [selected('hai-long-hair'), selected('pos-lying'), selected('pos-lying-on-back'), { id: 'custom-tag', label: 'Custom', prompt: 'custom', category: 'pose', weight: 1 }] },
     { id: 'subject-2', name: 'Subject 2', tags: [selected('rin-pose-arm-support'), selected('rin-pose-reclining'), selected('v192-bent-knees')] },
   ]
   const sceneTags = [selected('bac-forest')]
   const promptBefore = promptModule.buildPromptWithStrategy(blocks, sceneTags, 'illustrious').prompt
   const advisory = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks, sceneTags })
   equal(advisory.advisory_status, 'READY', 'valid production input must produce a ready advisory')
-  equal(advisory.mapped_count, 5, 'all five selected mapped tags must be reported')
-  equal(advisory.selected_tag_count, 7, 'all selected tags must be counted without mutation')
+  equal(advisory.mapped_count, 6, 'all six selected mapped tags must be reported')
+  equal(advisory.selected_tag_count, 8, 'all selected tags must be counted without mutation')
   equal(advisory.uncovered_selected_tag_count, 2, 'custom and unbound Scene tags must remain uncovered')
   deepEqual(advisory.mapped_entries.map(entry => [entry.owner_kind, entry.owner_id, entry.prompt_tag_id]), [
+    ['PROMPT_BLOCK', 'subject-1', 'hai-long-hair'],
     ['PROMPT_BLOCK', 'subject-1', 'pos-lying'],
     ['PROMPT_BLOCK', 'subject-1', 'pos-lying-on-back'],
     ['PROMPT_BLOCK', 'subject-2', 'rin-pose-arm-support'],
     ['PROMPT_BLOCK', 'subject-2', 'rin-pose-reclining'],
     ['PROMPT_BLOCK', 'subject-2', 'v192-bent-knees'],
   ], 'mapped entry ownership and production input order must be preserved')
+  const hairLongEntry = advisory.mapped_entries.find(entry => entry.prompt_tag_id === 'hai-long-hair')
+  deepEqual([hairLongEntry?.concept_id, hairLongEntry?.concept_status], ['hair.long', 'provisional'], 'long hair must expose only the exact provisional hair.long concept')
   const faceUpEntry = advisory.mapped_entries.find(entry => entry.prompt_tag_id === 'pos-lying-on-back')
   deepEqual([faceUpEntry?.concept_id, faceUpEntry?.concept_status], ['body.orientation.face_up', 'provisional'], 'lying on back must expose only the exact face-up orientation concept')
   deepEqual(advisory.uncovered_entries.map(entry => [entry.owner_kind, entry.owner_id, entry.prompt_tag_id, entry.prompt_tag_label]), [
@@ -113,6 +113,7 @@ try {
     ['SCENE', 'scene', 'bac-forest', selected('bac-forest').label],
   ], 'uncovered entry identity, ownership, label, and production input order must be preserved')
   equal(advisory.uncovered_entries.length, advisory.uncovered_selected_tag_count, 'uncovered count must equal the projected uncovered entry cardinality')
+  check(promptBefore.includes('long hair'), 'existing Prompt Compiler must continue to emit the exact long hair phrase')
   equal(promptModule.buildPromptWithStrategy(blocks, sceneTags, 'illustrious').prompt, promptBefore, 'advisory projection must leave Prompt Compiler output byte-identical')
   const emptySelection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [] })
   equal(emptySelection.mapped_count, 0, 'empty selection must remain safe')

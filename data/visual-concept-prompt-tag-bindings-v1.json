@@ -5,8 +5,12 @@
   "graph_schema_source": "research/sd-prompt-research/schemas/visual-concept-graph.schema.json",
   "graph_schema_id": "https://local.sd-prompt-studio/visual-concept-graph-v0.2.schema.json",
   "graph_schema_version": "0.2.0",
-  "graph_version": "0.2.0",
+  "graph_version": "0.2.1",
   "bindings": [
+    {
+      "prompt_tag_id": "hai-long-hair",
+      "concept_id": "hair.long"
+    },
     {
       "prompt_tag_id": "pos-lying",
       "concept_id": "body.state.lying"
