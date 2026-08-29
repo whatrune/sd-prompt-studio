@@ -74,6 +74,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          READY_BOT_TOKEN: ${{ github.event_name == 'workflow_dispatch' && secrets.READY_BOT_TOKEN || '' }}
         run: |
           set -euo pipefail
           if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then

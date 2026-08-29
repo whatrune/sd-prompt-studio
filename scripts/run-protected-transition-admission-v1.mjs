@@ -66,8 +66,14 @@ const mutationDiagnosticError = (diagnostic) => {
   return error
 }
 
+export const takeReadyMutationTokenV1 = (environment = process.env) => {
+  const token = environment.READY_BOT_TOKEN
+  delete environment.READY_BOT_TOKEN
+  return typeof token === 'string' && token.length > 0 ? token : null
+}
+
 const request = async (url, options = {}, context = {}) => {
-  const token = context.token ?? process.env.GH_TOKEN
+  const token = Object.hasOwn(context, 'token') ? context.token : process.env.GH_TOKEN
   const fetchImpl = context.fetchImpl ?? globalThis.fetch
   const diagnosticOperation = context.diagnosticOperation ?? null
   if (typeof token !== 'string' || token.length === 0) {
@@ -137,14 +143,19 @@ const request = async (url, options = {}, context = {}) => {
   return diagnosticOperation === null ? body : Object.freeze({ body, responseDiagnostic: Object.freeze(responseDiagnostic) })
 }
 
-export const createProductionHostV1 = ({ fetchImpl = globalThis.fetch, token = process.env.GH_TOKEN } = {}) => Object.freeze({
+export const createProductionHostV1 = ({
+  fetchImpl = globalThis.fetch,
+  token = process.env.GH_TOKEN,
+  readyMutationToken = null,
+} = {}) => Object.freeze({
   api: (route) => request(`${API_ROOT}/${route}`, {}, { fetchImpl, token }),
   graphql: async (query, variables, options = {}) => {
     const diagnosticOperation = options?.diagnostic_operation ?? null
+    const operationToken = diagnosticOperation === 'READY_MUTATION' ? readyMutationToken : token
     const response = await request(`${API_ROOT}/graphql`, {
       method: 'POST',
       body: JSON.stringify({ query, variables }),
-    }, { diagnosticOperation, fetchImpl, token })
+    }, { diagnosticOperation, fetchImpl, token: operationToken })
     const body = diagnosticOperation === null ? response : response.body
     if (Array.isArray(body?.errors) && body.errors.length > 0) {
       if (diagnosticOperation !== null) {
@@ -192,11 +203,12 @@ if (process.argv[1] !== undefined && pathToFileURL(process.argv[1]).href === imp
     const issueEventFile = valueAfter('--simplified-issue-comment-event-file')
     const dispatchEventFile = valueAfter('--simplified-workflow-dispatch-event-file')
     if ((issueEventFile === null) === (dispatchEventFile === null)) throw new Error('exactly_one_event_file_required')
+    const readyMutationToken = takeReadyMutationTokenV1(process.env)
     const event = readJson(issueEventFile ?? dispatchEventFile)
     if (dispatchEventFile !== null) event.action = 'workflow_dispatch'
     const plan = issueEventFile !== null
       ? await executeSimplifiedMergeV1({ event, host: createProductionHostV1() })
-      : await executeSimplifiedReadyV1({ event, host: createProductionHostV1() })
+      : await executeSimplifiedReadyV1({ event, host: createProductionHostV1({ readyMutationToken }) })
     process.stdout.write(`${JSON.stringify(plan)}\n`)
     process.exitCode = plan.exit_code
   }

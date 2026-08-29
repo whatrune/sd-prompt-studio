@@ -11,7 +11,7 @@ import {
   serializeSimplifiedReviewV1,
   serializeSimplifiedTaskAuthorityV1,
 } from './protected-transition-merge-operator-preflight-v1.mjs'
-import { createProductionHostV1 } from './run-protected-transition-admission-v1.mjs'
+import { createProductionHostV1, takeReadyMutationTokenV1 } from './run-protected-transition-admission-v1.mjs'
 
 const REPOSITORY = 'whatrune/sd-prompt-studio'
 const HEAD = '1'.repeat(40)
@@ -241,6 +241,7 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
 {
   const host = createProductionHostV1({
     token: 'test-token',
+    readyMutationToken: 'ready-test-token',
     fetchImpl: async () => new Response(JSON.stringify({
       errors: [{ type: 'FORBIDDEN', message: 'Denied by https://api.github.com/graphql?token=secret-value' }],
     }), { status: 200, headers: { 'x-github-request-id': 'REQ:PERMISSION' } }),
@@ -286,6 +287,7 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
   ]
   const host = createProductionHostV1({
     token: 'test-token',
+    readyMutationToken: 'ready-test-token',
     fetchImpl: async () => new Response(JSON.stringify({
       errors: secretMessages.map(([message]) => ({ type: 'FORBIDDEN', message })),
     }), { status: 200, headers: { 'x-github-request-id': 'REQ:CREDENTIALS' } }),
@@ -315,6 +317,7 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
 {
   const host = createProductionHostV1({
     token: 'test-token',
+    readyMutationToken: 'ready-test-token',
     fetchImpl: async () => new Response(JSON.stringify({
       errors: [
         { type: 'FORBIDDEN', message: 'Denied by https://api.github.com/graphql?token=url-secret' },
@@ -335,6 +338,7 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
 {
   const host = createProductionHostV1({
     token: 'test-token',
+    readyMutationToken: 'ready-test-token',
     fetchImpl: async () => new Response(JSON.stringify({ message: 'Resource not accessible by integration' }), {
       status: 403,
       headers: { 'x-github-request-id': 'REQ:HTTP' },
@@ -351,6 +355,7 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
 {
   const host = createProductionHostV1({
     token: 'test-token',
+    readyMutationToken: 'ready-test-token',
     fetchImpl: async () => {
       const error = new TypeError('connection reset after dispatch; Authorization: Bearer transport-secret')
       error.code = 'ECONNRESET'
@@ -370,6 +375,7 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
 {
   const host = createProductionHostV1({
     token: 'test-token',
+    readyMutationToken: 'ready-test-token',
     fetchImpl: async () => new Response('{invalid-json', {
       status: 200,
       headers: { 'x-github-request-id': 'REQ:MALFORMED' },
@@ -383,6 +389,51 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
   equal(error.mutation_diagnostic.github_request_id, 'REQ:MALFORMED')
   equal(error.mutation_diagnostic.graphql_errors.length, 0)
   equal(error.mutation_diagnostic.network_exception, null)
+}
+{
+  let fetchCalls = 0
+  const host = createProductionHostV1({
+    token: 'github-read-token',
+    fetchImpl: async () => {
+      fetchCalls += 1
+      throw new Error('fetch_must_not_run_without_ready_bot_token')
+    },
+  })
+  const error = await captureError(() => host.graphql('mutation Ready', {}, { diagnostic_operation: 'READY_MUTATION' }))
+  equal(error.mutation_diagnostic.phase, 'READY_MUTATION_REQUEST_PREPARE')
+  equal(error.mutation_diagnostic.request_dispatch_started, false)
+  equal(error.mutation_diagnostic.response_received, false)
+  equal(fetchCalls, 0)
+}
+{
+  const authorizations = []
+  const host = createProductionHostV1({
+    token: 'github-read-token',
+    readyMutationToken: 'ready-bot-secret',
+    fetchImpl: async (url, options) => {
+      authorizations.push([url, options.headers.Authorization])
+      if (url.endsWith('/graphql')) {
+        return new Response(JSON.stringify({ data: { markPullRequestReadyForReview: { pullRequest: { isDraft: false } } } }), { status: 200 })
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    },
+  })
+  await host.api('repos/whatrune/sd-prompt-studio/pulls/434')
+  await host.graphql('mutation Ready', {}, { diagnostic_operation: 'READY_MUTATION' })
+  await host.api('repos/whatrune/sd-prompt-studio/pulls/434')
+  await host.graphql('mutation Merge', {}, { diagnostic_operation: 'MERGE_MUTATION' })
+  equal(authorizations[0][1], 'Bearer github-read-token')
+  equal(authorizations[1][1], 'Bearer ready-bot-secret')
+  equal(authorizations[2][1], 'Bearer github-read-token')
+  equal(authorizations[3][1], 'Bearer github-read-token')
+  equal(JSON.stringify(authorizations).includes('ready-bot-secret'), true)
+}
+{
+  const environment = { READY_BOT_TOKEN: 'ready-bot-secret', GH_TOKEN: 'github-read-token' }
+  equal(takeReadyMutationTokenV1(environment), 'ready-bot-secret')
+  equal(Object.hasOwn(environment, 'READY_BOT_TOKEN'), false)
+  equal(environment.GH_TOKEN, 'github-read-token')
+  equal(takeReadyMutationTokenV1(environment), null)
 }
 {
   const fixture = createFixture()
@@ -415,6 +466,9 @@ const workflow = readFileSync(new URL('../.github/workflows/protected-transition
 ok(workflow.includes('simplified_protected_transition_v1:'))
 ok(workflow.includes('persist-credentials: false'))
 ok(workflow.includes('github.workflow_sha'))
+ok(workflow.includes("READY_BOT_TOKEN: ${{ github.event_name == 'workflow_dispatch' && secrets.READY_BOT_TOKEN || '' }}"))
+equal((workflow.match(/READY_BOT_TOKEN:/g) ?? []).length, 1)
+equal((workflow.match(/GH_TOKEN: \$\{\{ github\.token \}\}/g) ?? []).length, 1)
 equal((workflow.match(/^    runs-on:/gm) ?? []).length, 1)
 for (const retired of ['ready_transition_required_resume', 'minimal_governance', 'terminal_observation', 'protected_transition_task_state']) {
   equal(workflow.includes(retired), false)
