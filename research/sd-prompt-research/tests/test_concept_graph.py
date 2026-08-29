@@ -83,9 +83,12 @@ class ConceptGraphBuildTests(unittest.TestCase):
                 seen[evidence_id] = evidence
 
             run_id = evidence["run_id"]
-            self.assertIn(run_id, runs, evidence_id)
             self.assertIn(run_id, indexed_runs, evidence_id)
-            self.assertEqual("local", evidence["storage"], evidence_id)
+            self.assertIn(evidence["storage"], {"local", "external"}, evidence_id)
+            if evidence["storage"] == "external":
+                continue
+
+            self.assertIn(run_id, runs, evidence_id)
 
             relative = PurePosixPath(evidence["observation_path"])
             self.assertFalse(relative.is_absolute(), evidence_id)
@@ -267,6 +270,18 @@ class ConceptGraphBuildTests(unittest.TestCase):
                 graph["indexes"]["evidence_by_run_id"]
             )
         )
+
+    def test_valid_external_evidence_ref_skips_local_artifact_resolution(self) -> None:
+        source = self.load_source("physical-concepts.json")
+        concept = next(item for item in source["concepts"] if item.get("evidence_refs"))
+        external = concept["evidence_refs"][0]
+        external["run_id"] = "EXTERNAL-RUN"
+        external["observation_path"] = "external/catalog/observation.json"
+        external["storage"] = "external"
+        self.save_source("physical-concepts.json", source)
+        graph, warnings = build_graph(ROOT, self.sources, SCHEMA, "2026-01-01T00:00:00Z")
+        self.assert_evidence_contract(graph, warnings)
+        self.assertIn("EXTERNAL-RUN", graph["indexes"]["evidence_by_run_id"])
 
     def test_unknown_evidence_run_fails_contract_validation(self) -> None:
         source = self.load_source("physical-concepts.json")
