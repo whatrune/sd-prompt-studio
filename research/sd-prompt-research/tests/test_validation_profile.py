@@ -9,12 +9,20 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from select_validation_profile import (  # noqa: E402
+    CLAIMS_CHECK_COMMAND,
     CONCEPT_GRAPH_CONTENT,
+    CONCEPT_TEST_MODULES,
+    EXPLORER_CHECK_COMMAND,
     EXPERIMENT_TEST_MODULES,
     FULL_RESEARCH,
+    FULL_TEST_COMMAND,
+    GRAPH_CHECK_COMMAND,
     PRODUCTION_ADAPTER,
+    PRODUCTION_CHECK_COMMAND,
+    PRODUCTION_TEST_COMMAND,
     RESEARCH_EXPERIMENT_ONLY,
     classify_paths,
+    forced_full_selection,
     parse_nul_paths,
 )
 
@@ -75,6 +83,51 @@ class ValidationProfileTests(unittest.TestCase):
         self.assertEqual(FULL_RESEARCH, selection.profile)
         self.assertTrue(selection.run_full_research)
         self.assertTrue(selection.run_production_adapter_tests)
+
+    def test_forced_default_branch_full_runs_production_adapter_checks(self) -> None:
+        selection = forced_full_selection("default_branch_regression")
+        self.assertEqual(FULL_RESEARCH, selection.profile)
+        self.assertTrue(selection.run_full_research)
+        self.assertTrue(selection.run_production_adapter_tests)
+        self.assertIn(PRODUCTION_TEST_COMMAND, selection.commands)
+        self.assertIn(PRODUCTION_CHECK_COMMAND, selection.commands)
+
+    def test_forced_scheduled_full_runs_production_adapter_checks(self) -> None:
+        selection = forced_full_selection("scheduled_periodic_regression")
+        self.assertEqual(FULL_RESEARCH, selection.profile)
+        self.assertTrue(selection.run_full_research)
+        self.assertTrue(selection.run_production_adapter_tests)
+        self.assertIn(PRODUCTION_TEST_COMMAND, selection.commands)
+        self.assertIn(PRODUCTION_CHECK_COMMAND, selection.commands)
+
+    def test_full_research_is_a_strict_superset_of_bounded_profile_checks(self) -> None:
+        full = forced_full_selection("scheduled_periodic_regression")
+        self.assertIn(FULL_TEST_COMMAND, full.commands)
+        for command in (
+            GRAPH_CHECK_COMMAND,
+            EXPLORER_CHECK_COMMAND,
+            CLAIMS_CHECK_COMMAND,
+            PRODUCTION_TEST_COMMAND,
+            PRODUCTION_CHECK_COMMAND,
+        ):
+            with self.subTest(command=command):
+                self.assertIn(command, full.commands)
+        discovered_modules = {
+            f"tests.{path.stem}" for path in (ROOT / "tests").glob("test_*.py")
+        }
+        self.assertTrue(set(EXPERIMENT_TEST_MODULES).issubset(discovered_modules))
+        self.assertTrue(set(CONCEPT_TEST_MODULES).issubset(discovered_modules))
+
+    def test_unrelated_bounded_profiles_do_not_gain_production_checks(self) -> None:
+        for path in (
+            "research/sd-prompt-research/experiments/hair/HAIR-001-A/observation.json",
+            "research/sd-prompt-research/concepts/physical-concepts.json",
+        ):
+            with self.subTest(path=path):
+                selection = classify_paths([path])
+                self.assertFalse(selection.run_production_adapter_tests)
+                self.assertNotIn(PRODUCTION_TEST_COMMAND, selection.commands)
+                self.assertNotIn(PRODUCTION_CHECK_COMMAND, selection.commands)
 
     def test_schema_and_template_paths_fall_back_to_full(self) -> None:
         for path in (
@@ -148,6 +201,8 @@ class ValidationProfileTests(unittest.TestCase):
             ROOT.parents[1] / ".github" / "workflows" / "research-claims.yml"
         ).read_text(encoding="utf-8")
         self.assertNotIn("workflow_dispatch", workflow)
+        self.assertIn("default_branch_regression", workflow)
+        self.assertIn("scheduled_periodic_regression", workflow)
         self.assertIn("git diff --name-only -z --no-renames", workflow)
         self.assertIn("python -m unittest discover -s tests -v", workflow)
         self.assertIn("python scripts/build_concept_graph.py --check", workflow)

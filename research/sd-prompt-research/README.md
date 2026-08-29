@@ -420,7 +420,7 @@ Pull Requestの`validate` checkは、exact baseからexact HEADまでの完全�
 - `RESEARCH_EXPERIMENT_ONLY`: Experiment/Ledger content向けのObservation、Schema、Evidence、Concept Graph、Research Claims、Explorer実Data、Run Registrationのfocused testsと3つのcurrent-state validator。
 - `CONCEPT_GRAPH_CONTENT`: Concept Graph、Research Claims、Explorer実Dataのfocused testsと3つのcurrent-state validator。Experiment pathとの混在時はExperiment checksも合成します。
 - `PRODUCTION_ADAPTER`: 閉じたVisual Concept production adapter/catalog pathに対する既存focused Node tests/checks。独立して必須の`build-preview`が`pnpm test`と`pnpm build`を所有します。
-- `FULL_RESEARCH`: 全Research test discovery（既存suiteとselector focused tests）と3つのcurrent-state validator。
+- `FULL_RESEARCH`: 全Research test discovery（既存suiteとselector focused tests）、3つのcurrent-state validator、closed production adapter tests/checks。ほかの全Profileを包含する安全側supersetです。
 
 Validator/Test code、Schema、Template、Shared Registry、Workflow/Selector、unknown path、malformed inputは必ず`FULL_RESEARCH`へfallbackします。Default branchと定期回帰も`FULL_RESEARCH`です。Selectorは分類path、選択Profile、固定command、fallback reasonをlogとjob summaryへ表示するだけで、Evidence Recordを作成しません。
 

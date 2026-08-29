@@ -76,11 +76,19 @@ jobs:
               --paths-file "$changed_paths" \
               --github-output "$GITHUB_OUTPUT" \
               --summary "$GITHUB_STEP_SUMMARY"
-          else
+          elif [[ "$EVENT_NAME" == "push" ]]; then
             python "$selector" \
-              --force-full-reason default_branch_or_periodic_regression \
+              --force-full-reason default_branch_regression \
               --github-output "$GITHUB_OUTPUT" \
               --summary "$GITHUB_STEP_SUMMARY"
+          elif [[ "$EVENT_NAME" == "schedule" ]]; then
+            python "$selector" \
+              --force-full-reason scheduled_periodic_regression \
+              --github-output "$GITHUB_OUTPUT" \
+              --summary "$GITHUB_STEP_SUMMARY"
+          else
+            echo "unsupported_validation_event" >&2
+            exit 1
           fi
 
       - name: Install research dependencies

@@ -144,21 +144,20 @@ def _commands(*, profile: str, experiment: bool, concept: bool, production: bool
 
 
 def _full_selection(classified_paths: tuple[ClassifiedPath, ...], reason: str) -> ValidationSelection:
-    production = any(item.path_class == PRODUCTION for item in classified_paths)
     return ValidationSelection(
         profile=FULL_RESEARCH,
         classified_paths=classified_paths,
         fallback_reason=reason,
         run_experiment_tests=False,
         run_concept_tests=False,
-        run_production_adapter_tests=production,
+        run_production_adapter_tests=True,
         run_research_validators=True,
         run_full_research=True,
         commands=_commands(
             profile=FULL_RESEARCH,
             experiment=False,
             concept=False,
-            production=production,
+            production=True,
         ),
     )
 
