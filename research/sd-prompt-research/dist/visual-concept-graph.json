@@ -1,7 +1,7 @@
 {
   "schema_version": "0.2.0",
-  "graph_version": "0.2.0",
-  "generated_at": "2026-07-15T14:07:41Z",
+  "graph_version": "0.2.1",
+  "generated_at": "2026-08-29T19:55:18Z",
   "source_files": [
     "concepts/physical-concepts.json",
     "concepts/relations.json",
@@ -451,6 +451,31 @@
         "neck",
         "shoulders"
       ],
+      "evidence_refs": [
+        {
+          "evidence_ref_id": "evidence.hair001a.long_extent_control",
+          "run_id": "HAIR-001-A",
+          "observation_path": "experiments/hair/HAIR-001-A/hair-observation.json",
+          "metric": "computed_aggregate.axis_counts.hair_length_extent.below_shoulder",
+          "count": 0,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        },
+        {
+          "evidence_ref_id": "evidence.hair001b.long_extent",
+          "run_id": "HAIR-001-B",
+          "observation_path": "experiments/hair/HAIR-001-B/hair-observation.json",
+          "metric": "computed_aggregate.axis_counts.hair_length_extent.below_shoulder",
+          "count": 6,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local",
+          "notes": [
+            "HAIR-001 matched-seed review records B visibly longer than A in 6/6 pairs and PROMOTION_ELIGIBLE."
+          ]
+        }
+      ],
       "hair_properties": {
         "intrinsic": {
           "length": "long",
@@ -488,7 +513,7 @@
         ],
         "generative_effects": []
       },
-      "status": "draft",
+      "status": "provisional",
       "notes": [
         "Visibility effects are design candidates and have no BRG-007 evidence assignment."
       ]
@@ -1709,6 +1734,12 @@
       "BRG-007-C": [
         "contact.arm.surface",
         "phrase.arms_supporting_body"
+      ],
+      "HAIR-001-A": [
+        "hair.long"
+      ],
+      "HAIR-001-B": [
+        "hair.long"
       ]
     }
   }
