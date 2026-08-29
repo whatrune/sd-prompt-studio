@@ -1,6 +1,6 @@
 {
   "schema_version": "0.2.0",
-  "graph_version": "0.2.0",
+  "graph_version": "0.2.1",
   "module_file_id": "unmodeled-effects",
   "module_family": "unmodeled_effects",
   "description": "Structured effects that are observed or nominated but do not yet justify a formal axis or concept promotion.",
