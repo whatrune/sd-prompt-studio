@@ -74,17 +74,6 @@ query SimplifiedThreads($owner: String!, $name: String!, $pr: Int!, $after: Stri
   }
 }`
 
-const MERGE_MUTATION = `
-mutation MergeSimplifiedPullRequest($pullRequestId: ID!, $expectedHeadOid: GitObjectID!) {
-  mergePullRequest(input: {
-    pullRequestId: $pullRequestId,
-    expectedHeadOid: $expectedHeadOid,
-    mergeMethod: MERGE
-  }) {
-    pullRequest { id number state merged headRefOid mergeCommit { oid } }
-  }
-}`
-
 const exactKeys = (value, expected) => (
   value !== null && typeof value === 'object' && !Array.isArray(value) &&
   Object.keys(value).sort().join('\n') === [...expected].sort().join('\n')
@@ -395,6 +384,9 @@ const projectMergeMutationDiagnosticV1 = (error) => {
     response_received: typeof value?.response_received === 'boolean' ? value.response_received : null,
     http_status: Number.isInteger(value?.http_status) && value.http_status >= 100 && value.http_status <= 599 ? value.http_status : null,
     github_request_id: boundedDiagnosticAtom(value?.github_request_id, 128),
+    response_message: value?.response_message === null || value?.response_message === undefined
+      ? null
+      : boundedDiagnosticMessage(value.response_message),
     graphql_errors: Object.freeze(graphqlErrors.map((entry) => Object.freeze({
       type: boundedDiagnosticAtom(entry?.type, 64),
       message: boundedDiagnosticMessage(entry?.message),
@@ -408,7 +400,7 @@ const projectMergeMutationDiagnosticV1 = (error) => {
 
 const stopped = (operation, reason, mutationCount = 0, outcome = 'DEFINITIVE_REJECTION', diagnostic = null) => Object.freeze({
   operation,
-  state: mutationCount === 0 ? 'STOPPED' : 'INDETERMINATE',
+  state: outcome === 'OUTCOME_UNKNOWN' ? 'INDETERMINATE' : 'STOPPED',
   reason,
   outcome,
   mutation_count: mutationCount,
@@ -463,38 +455,42 @@ export const executeSimplifiedMergeV1 = async ({ event, host }) => {
     const mutationCount = 1
     let mutation
     try {
-      mutation = await host.graphql(
-        MERGE_MUTATION,
-        {
-          pullRequestId: initial.pull_id,
-          expectedHeadOid: decision.exact_head,
-        },
-        { diagnostic_operation: 'MERGE_MUTATION' },
-      )
+      mutation = await host.mergePullRequest({
+        repository,
+        prNumber: decision.pull_request,
+        exactHead: decision.exact_head,
+      })
     } catch (error) {
+      const diagnostic = projectMergeMutationDiagnosticV1(error)
+      const explicitRejection = diagnostic.response_received === true &&
+        Number.isInteger(diagnostic.http_status) &&
+        diagnostic.http_status >= 400 && diagnostic.http_status < 500
       return stopped(
         operation,
-        'merge_outcome_unknown',
+        diagnostic.http_status === 409
+          ? 'merge_exact_head_rejected'
+          : explicitRejection
+            ? 'merge_rejected'
+            : 'merge_outcome_unknown',
         mutationCount,
-        'OUTCOME_UNKNOWN',
-        projectMergeMutationDiagnosticV1(error),
+        explicitRejection ? 'DEFINITIVE_REJECTION' : 'OUTCOME_UNKNOWN',
+        diagnostic,
       )
     }
-    const merged = mutation?.mergePullRequest?.pullRequest
-    if (
-      merged?.id !== initial.pull_id || merged?.number !== decision.pull_request || merged?.state !== 'MERGED' ||
-      merged?.merged !== true || merged?.headRefOid !== decision.exact_head || !FULL_SHA.test(merged?.mergeCommit?.oid ?? '')
-    ) return stopped(operation, 'merge_after_state_invalid', mutationCount, 'OUTCOME_UNKNOWN')
+    if (mutation?.merged !== true || !FULL_SHA.test(mutation?.sha ?? '')) {
+      return stopped(operation, 'merge_after_state_invalid', mutationCount, 'OUTCOME_UNKNOWN')
+    }
+    const mergeCommit = mutation.sha
 
     const [afterPull, afterMain, commit] = await Promise.all([
       host.api(`repos/${repository}/pulls/${decision.pull_request}`),
       host.api(`repos/${repository}/git/ref/heads/main`),
-      host.api(`repos/${repository}/git/commits/${merged.mergeCommit.oid}`),
+      host.api(`repos/${repository}/git/commits/${mergeCommit}`),
     ])
     const parents = Array.isArray(commit?.parents) ? commit.parents.map((parent) => parent?.sha) : []
     if (
       afterPull?.state !== 'closed' || afterPull?.merged !== true || afterPull?.head?.sha !== decision.exact_head ||
-      afterPull?.merge_commit_sha !== merged.mergeCommit.oid || afterMain?.object?.sha !== merged.mergeCommit.oid ||
+      afterPull?.merge_commit_sha !== mergeCommit || afterMain?.object?.sha !== mergeCommit ||
       parents.length !== 2 || !parents.includes(decision.expected_base) || !parents.includes(decision.exact_head)
     ) return stopped(operation, 'merge_after_refetch_invalid', mutationCount, 'OUTCOME_UNKNOWN')
 
@@ -502,7 +498,7 @@ export const executeSimplifiedMergeV1 = async ({ event, host }) => {
       operation, state: 'COMPLETED', reason: 'merge_completed', outcome: 'MUTATION_CONFIRMED',
       mutation_count: mutationCount, exit_code: 0, repository, task_issue: taskIssue,
       pr_number: decision.pull_request, exact_head: decision.exact_head,
-      previous_main: decision.expected_base, merge_commit: merged.mergeCommit.oid,
+      previous_main: decision.expected_base, merge_commit: mergeCommit,
       new_main: afterMain.object.sha, merged_paths: initial.authorized_paths,
     })
   } catch (error) {

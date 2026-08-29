@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { parseDocument } from 'yaml'
 import {
   evaluateRequiredChecksV1,
   executeSimplifiedMergeV1,
@@ -72,7 +73,17 @@ const check = (name, appDatabaseId, overrides = {}) => ({
   ...overrides,
 })
 
-const createFixture = ({ draft = false, reviewHead = HEAD, paths = PATHS, threads = [], checks, main = BASE, mergeError = null } = {}) => {
+const createFixture = ({
+  draft = false,
+  reviewHead = HEAD,
+  paths = PATHS,
+  threads = [],
+  checks,
+  main = BASE,
+  mergeError = null,
+  mergeResponse = { sha: MERGE, merged: true, message: 'Pull Request successfully merged' },
+  afterMergeParents = [{ sha: BASE }, { sha: HEAD }],
+} = {}) => {
   const state = {
     draft,
     merged: false,
@@ -111,8 +122,20 @@ const createFixture = ({ draft = false, reviewHead = HEAD, paths = PATHS, thread
       }
       if (route === `repos/${REPOSITORY}/git/ref/heads/main`) return { ref: 'refs/heads/main', object: { sha: state.main } }
       if (route === `repos/${REPOSITORY}/pulls/${PR}/files?per_page=100&page=1`) return paths.map((filename) => ({ filename }))
-      if (route === `repos/${REPOSITORY}/git/commits/${MERGE}`) return { sha: MERGE, parents: [{ sha: BASE }, { sha: HEAD }] }
+      if (route === `repos/${REPOSITORY}/git/commits/${MERGE}`) return { sha: MERGE, parents: afterMergeParents }
       throw new Error(`unexpected_api:${route}`)
+    },
+    async mergePullRequest({ repository, prNumber, exactHead }) {
+      state.mergeMutations += 1
+      state.mergeExpectedHead = exactHead
+      if (repository !== REPOSITORY || prNumber !== PR) throw new Error('unexpected_merge_request')
+      if (mergeError !== null) throw mergeError
+      if (mergeResponse?.merged === true && mergeResponse.sha === MERGE) {
+        state.merged = true
+        state.mergeCommit = MERGE
+        state.main = MERGE
+      }
+      return mergeResponse
     },
     async graphql(query, variables) {
       if (query.includes('query SimplifiedChecks')) {
@@ -129,15 +152,6 @@ const createFixture = ({ draft = false, reviewHead = HEAD, paths = PATHS, thread
           mergeStateStatus: 'CLEAN',
           reviewThreads: { nodes: threads, pageInfo: { hasNextPage: false, endCursor: null } },
         } } }
-      }
-      if (query.includes('mutation MergeSimplifiedPullRequest')) {
-        if (mergeError !== null) throw mergeError
-        state.mergeMutations += 1
-        state.mergeExpectedHead = variables?.expectedHeadOid ?? null
-        state.merged = true
-        state.mergeCommit = MERGE
-        state.main = MERGE
-        return { mergePullRequest: { pullRequest: { id: 'PR_node_430', number: PR, state: 'MERGED', merged: true, headRefOid: HEAD, mergeCommit: { oid: MERGE } } } }
       }
       throw new Error('unexpected_graphql')
     },
@@ -228,27 +242,47 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
   equal(fixture.state.mergeMutations, 0)
 }
 {
+  let observedAuthorization = null
   const host = createProductionHostV1({
     token: 'test-token',
-    fetchImpl: async () => new Response(JSON.stringify({
-      errors: [{ type: 'FORBIDDEN', message: 'Denied by https://api.github.com/graphql?token=secret-value' }],
-    }), { status: 200, headers: { 'x-github-request-id': 'REQ:PERMISSION' } }),
+    fetchImpl: async (_url, options) => {
+      observedAuthorization = options.headers.Authorization
+      return new Response(JSON.stringify({
+        sha: MERGE,
+        merged: true,
+        message: 'Pull Request successfully merged',
+      }), { status: 200, headers: { 'x-github-request-id': 'REQ:SUCCESS' } })
+    },
   })
-  const error = await captureError(() => host.graphql(
-    'mutation MergeSimplifiedPullRequest { viewer { login } }',
-    {},
-    { diagnostic_operation: 'MERGE_MUTATION' },
-  ))
+  const result = await host.mergePullRequest({ repository: REPOSITORY, prNumber: PR, exactHead: HEAD })
+  equal(result.sha, MERGE)
+  equal(result.merged, true)
+  equal(observedAuthorization, 'Bearer test-token')
+}
+{
+  let observedRequest = null
+  const host = createProductionHostV1({
+    token: 'test-token',
+    fetchImpl: async (url, options) => {
+      observedRequest = { url, options }
+      return new Response(JSON.stringify({
+        message: 'Denied by https://api.github.com/private?token=secret-value',
+      }), { status: 403, headers: { 'x-github-request-id': 'REQ:PERMISSION' } })
+    },
+  })
+  const error = await captureError(() => host.mergePullRequest({ repository: REPOSITORY, prNumber: PR, exactHead: HEAD }))
   const diagnostic = error.mutation_diagnostic
-  equal(diagnostic.phase, 'MERGE_MUTATION_GRAPHQL_RESPONSE')
+  equal(observedRequest.url, `https://api.github.com/repos/whatrune/sd-prompt-studio/pulls/${PR}/merge`)
+  equal(observedRequest.options.method, 'PUT')
+  equal(observedRequest.options.body, JSON.stringify({ sha: HEAD, merge_method: 'merge' }))
+  equal(diagnostic.phase, 'MERGE_MUTATION_HTTP_RESPONSE')
   equal(diagnostic.request_dispatch_started, true)
   equal(diagnostic.response_received, true)
-  equal(diagnostic.http_status, 200)
+  equal(diagnostic.http_status, 403)
   equal(diagnostic.github_request_id, 'REQ:PERMISSION')
-  equal(diagnostic.graphql_errors.length, 1)
-  equal(diagnostic.graphql_errors[0].type, 'FORBIDDEN')
-  equal(diagnostic.graphql_errors[0].message, 'Denied by [REDACTED_URL]')
-  equal(Object.keys(diagnostic).join(','), 'phase,request_dispatch_started,response_received,http_status,github_request_id,graphql_errors,network_exception')
+  equal(diagnostic.response_message, 'Denied by [REDACTED_URL]')
+  equal(diagnostic.graphql_errors.length, 0)
+  equal(Object.keys(diagnostic).join(','), 'phase,request_dispatch_started,response_received,http_status,github_request_id,response_message,graphql_errors,network_exception')
   equal(JSON.stringify(diagnostic).includes('secret-value'), false)
   equal(JSON.stringify(diagnostic).includes('api.github.com'), false)
   equal(JSON.stringify(diagnostic).includes('test-token'), false)
@@ -256,12 +290,12 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
 
   const fixture = createFixture({ mergeError: error })
   const result = await executeSimplifiedMergeV1({ event: mergeEvent(), host: fixture.host })
-  equal(result.state, 'INDETERMINATE')
-  equal(result.reason, 'merge_outcome_unknown')
-  equal(result.outcome, 'OUTCOME_UNKNOWN')
+  equal(result.state, 'STOPPED')
+  equal(result.reason, 'merge_rejected')
+  equal(result.outcome, 'DEFINITIVE_REJECTION')
   equal(result.mutation_count, 1)
-  equal(result.mutation_diagnostic.phase, 'MERGE_MUTATION_GRAPHQL_RESPONSE')
-  equal(fixture.state.mergeMutations, 0)
+  equal(result.mutation_diagnostic.phase, 'MERGE_MUTATION_HTTP_RESPONSE')
+  equal(fixture.state.mergeMutations, 1)
 }
 {
   const secretMessages = [
@@ -273,53 +307,78 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
     ['Authorization   :   Basic    whitespace-secret', 'Authorization   :   Basic    [REDACTED]'],
     ['Mutation failed: Authorization: Bearer embedded-secret while processing', 'Mutation failed: Authorization: Bearer [REDACTED] while processing'],
   ]
-  const host = createProductionHostV1({
-    token: 'test-token',
-    fetchImpl: async () => new Response(JSON.stringify({
-      errors: secretMessages.map(([message]) => ({ type: 'FORBIDDEN', message })),
-    }), { status: 200, headers: { 'x-github-request-id': 'REQ:CREDENTIALS' } }),
-  })
-  const error = await captureError(() => host.graphql(
-    'mutation MergeSimplifiedPullRequest { viewer { login } }',
-    {},
-    { diagnostic_operation: 'MERGE_MUTATION' },
-  ))
-  const diagnostic = error.mutation_diagnostic
-  equal(
-    JSON.stringify(diagnostic.graphql_errors.map(({ message }) => message)),
-    JSON.stringify(secretMessages.map(([, expected]) => expected)),
-  )
-  for (const secret of [
-    'bearer-secret',
-    'basic-secret',
-    'cookie-secret',
-    'set-cookie-secret',
-    'mixed-secret',
-    'whitespace-secret',
-    'embedded-secret',
-  ]) {
-    equal(JSON.stringify(diagnostic).includes(secret), false)
+  for (const [message, expected] of secretMessages) {
+    const host = createProductionHostV1({
+      token: 'test-token',
+      fetchImpl: async () => new Response(JSON.stringify({ message }), {
+        status: 403,
+        headers: { 'x-github-request-id': 'REQ:CREDENTIALS' },
+      }),
+    })
+    const error = await captureError(() => host.mergePullRequest({ repository: REPOSITORY, prNumber: PR, exactHead: HEAD }))
+    equal(error.mutation_diagnostic.response_message, expected)
+    equal(error.mutation_diagnostic.response_message.includes('[REDACTED]'), true)
+    equal(error.mutation_diagnostic.response_message === message, false)
   }
 }
 {
   const host = createProductionHostV1({
     token: 'test-token',
-    fetchImpl: async () => new Response(JSON.stringify({
-      errors: [
-        { type: 'FORBIDDEN', message: 'Denied by https://api.github.com/graphql?token=url-secret' },
-        { type: 'INTERNAL', message: 'ordinary non-secret diagnostic text' },
-      ],
-    }), { status: 200, headers: { 'x-github-request-id': 'REQ:TEXT' } }),
+    fetchImpl: async () => new Response(JSON.stringify({ message: 'Head branch was modified' }), {
+      status: 409,
+      headers: { 'x-github-request-id': 'REQ:HEAD-MISMATCH' },
+    }),
   })
-  const error = await captureError(() => host.graphql(
-    'mutation MergeSimplifiedPullRequest { viewer { login } }',
-    {},
-    { diagnostic_operation: 'MERGE_MUTATION' },
-  ))
+  const error = await captureError(() => host.mergePullRequest({ repository: REPOSITORY, prNumber: PR, exactHead: HEAD }))
+  const fixture = createFixture({ mergeError: error })
+  const result = await executeSimplifiedMergeV1({ event: mergeEvent(), host: fixture.host })
+  equal(result.state, 'STOPPED')
+  equal(result.reason, 'merge_exact_head_rejected')
+  equal(result.outcome, 'DEFINITIVE_REJECTION')
+  equal(result.mutation_count, 1)
+  equal(result.mutation_diagnostic.http_status, 409)
+  equal(result.mutation_diagnostic.response_message, 'Head branch was modified')
+  equal(fixture.state.mergeMutations, 1)
+}
+{
+  const host = createProductionHostV1({
+    token: 'test-token',
+    fetchImpl: async () => new Response(JSON.stringify({ message: 'Service unavailable' }), {
+      status: 503,
+      headers: { 'x-github-request-id': 'REQ:SERVER' },
+    }),
+  })
+  const error = await captureError(() => host.mergePullRequest({ repository: REPOSITORY, prNumber: PR, exactHead: HEAD }))
+  const fixture = createFixture({ mergeError: error })
+  const result = await executeSimplifiedMergeV1({ event: mergeEvent(), host: fixture.host })
+  equal(result.state, 'INDETERMINATE')
+  equal(result.reason, 'merge_outcome_unknown')
+  equal(result.outcome, 'OUTCOME_UNKNOWN')
+  equal(result.mutation_count, 1)
+  equal(result.mutation_diagnostic.http_status, 503)
+  equal(fixture.state.mergeMutations, 1)
+}
+{
+  const host = createProductionHostV1({
+    token: 'test-token',
+    fetchImpl: async () => new Response(JSON.stringify({
+      message: 'Denied by https://api.github.com/merge?token=url-secret',
+    }), { status: 403, headers: { 'x-github-request-id': 'REQ:TEXT' } }),
+  })
+  const error = await captureError(() => host.mergePullRequest({ repository: REPOSITORY, prNumber: PR, exactHead: HEAD }))
   const diagnostic = error.mutation_diagnostic
-  equal(diagnostic.graphql_errors[0].message, 'Denied by [REDACTED_URL]')
-  equal(diagnostic.graphql_errors[1].message, 'ordinary non-secret diagnostic text')
+  equal(diagnostic.response_message, 'Denied by [REDACTED_URL]')
   equal(JSON.stringify(diagnostic).includes('url-secret'), false)
+
+  const ordinaryHost = createProductionHostV1({
+    token: 'test-token',
+    fetchImpl: async () => new Response(JSON.stringify({ message: 'ordinary non-secret diagnostic text' }), {
+      status: 403,
+      headers: { 'x-github-request-id': 'REQ:ORDINARY' },
+    }),
+  })
+  const ordinaryError = await captureError(() => ordinaryHost.mergePullRequest({ repository: REPOSITORY, prNumber: PR, exactHead: HEAD }))
+  equal(ordinaryError.mutation_diagnostic.response_message, 'ordinary non-secret diagnostic text')
 }
 {
   const urlLikeMessages = [
@@ -332,50 +391,34 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
     'Denied by user:password@example.test/private?secret=userinfo-secret',
     'Denied by user:password@[2001:db8::1]/private?secret=ipv6-userinfo-secret',
   ]
-  const host = createProductionHostV1({
-    token: 'test-token',
-    fetchImpl: async () => new Response(JSON.stringify({
-      errors: urlLikeMessages.map((message) => ({ type: 'FORBIDDEN', message })),
-    }), { status: 200, headers: { 'x-github-request-id': 'REQ:URL-FORMS' } }),
-  })
-  const error = await captureError(() => host.graphql(
-    'mutation MergeSimplifiedPullRequest { viewer { login } }',
-    {},
-    { diagnostic_operation: 'MERGE_MUTATION' },
-  ))
-  for (const entry of error.mutation_diagnostic.graphql_errors) {
-    equal(entry.message, 'Denied by [REDACTED_URL]')
-  }
-  for (const fragment of [
-    'example.test', '192.0.2.10', '2001:db8', 'localhost', 'password',
-    'protocol-relative-secret', 'ipv4-secret', 'ipv6-secret', 'bare-ipv6-secret',
-    'localhost-secret', 'host-path-secret', 'userinfo-secret', 'ipv6-userinfo-secret',
-  ]) {
-    equal(JSON.stringify(error.mutation_diagnostic).includes(fragment), false)
+  for (const message of urlLikeMessages) {
+    const host = createProductionHostV1({
+      token: 'test-token',
+      fetchImpl: async () => new Response(JSON.stringify({ message }), {
+        status: 403,
+        headers: { 'x-github-request-id': 'REQ:URL-FORMS' },
+      }),
+    })
+    const error = await captureError(() => host.mergePullRequest({ repository: REPOSITORY, prNumber: PR, exactHead: HEAD }))
+    equal(error.mutation_diagnostic.response_message, 'Denied by [REDACTED_URL]')
   }
 
   const projectionError = new Error('raw_projection_failure')
   Object.defineProperty(projectionError, 'mutation_diagnostic', { value: {
-    phase: 'MERGE_MUTATION_GRAPHQL_RESPONSE',
+    phase: 'MERGE_MUTATION_HTTP_RESPONSE',
     request_dispatch_started: true,
     response_received: true,
-    http_status: 200,
+    http_status: 403,
     github_request_id: 'REQ:RAW-PROJECTION',
-    graphql_errors: [
-      { type: 'FORBIDDEN', message: 'Projection saw //example.test/private?token=projection-secret' },
-      { type: 'FORBIDDEN', message: 'Authorization: Bearer projection-bearer-secret' },
-      { type: 'FORBIDDEN', message: 'Projection saw user:password@[2001:db8::1]/private?token=projection-ipv6-userinfo-secret' },
-    ],
+    response_message: 'Projection saw //example.test/private?token=projection-secret; Authorization: Bearer projection-bearer-secret',
+    graphql_errors: [],
     network_exception: null,
   } })
   const fixture = createFixture({ mergeError: projectionError })
   const result = await executeSimplifiedMergeV1({ event: mergeEvent(), host: fixture.host })
-  equal(result.mutation_diagnostic.graphql_errors[0].message, 'Projection saw [REDACTED_URL]')
-  equal(result.mutation_diagnostic.graphql_errors[1].message, 'Authorization: Bearer [REDACTED]')
-  equal(result.mutation_diagnostic.graphql_errors[2].message, 'Projection saw [REDACTED_URL]')
+  equal(result.mutation_diagnostic.response_message, 'Projection saw [REDACTED_URL] Authorization: Bearer [REDACTED]')
   equal(JSON.stringify(result.mutation_diagnostic).includes('projection-secret'), false)
   equal(JSON.stringify(result.mutation_diagnostic).includes('projection-bearer-secret'), false)
-  equal(JSON.stringify(result.mutation_diagnostic).includes('projection-ipv6-userinfo-secret'), false)
 }
 {
   const host = createProductionHostV1({
@@ -385,12 +428,13 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
       headers: { 'x-github-request-id': 'REQ:HTTP' },
     }),
   })
-  const error = await captureError(() => host.graphql('mutation Merge', {}, { diagnostic_operation: 'MERGE_MUTATION' }))
+  const error = await captureError(() => host.mergePullRequest({ repository: REPOSITORY, prNumber: PR, exactHead: HEAD }))
   equal(error.mutation_diagnostic.phase, 'MERGE_MUTATION_HTTP_RESPONSE')
   equal(error.mutation_diagnostic.request_dispatch_started, true)
   equal(error.mutation_diagnostic.response_received, true)
   equal(error.mutation_diagnostic.http_status, 403)
   equal(error.mutation_diagnostic.github_request_id, 'REQ:HTTP')
+  equal(error.mutation_diagnostic.response_message, 'Resource not accessible by integration')
   equal(error.mutation_diagnostic.graphql_errors.length, 0)
 }
 {
@@ -402,7 +446,7 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
       throw error
     },
   })
-  const error = await captureError(() => host.graphql('mutation Merge', {}, { diagnostic_operation: 'MERGE_MUTATION' }))
+  const error = await captureError(() => host.mergePullRequest({ repository: REPOSITORY, prNumber: PR, exactHead: HEAD }))
   equal(error.mutation_diagnostic.phase, 'MERGE_MUTATION_TRANSPORT')
   equal(error.mutation_diagnostic.request_dispatch_started, true)
   equal(error.mutation_diagnostic.response_received, false)
@@ -411,6 +455,11 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
   equal(error.mutation_diagnostic.network_exception.code, 'ECONNRESET')
   equal(JSON.stringify(error.mutation_diagnostic).includes('connection reset'), false)
   equal(JSON.stringify(error.mutation_diagnostic).includes('transport-secret'), false)
+  const fixture = createFixture({ mergeError: error })
+  const result = await executeSimplifiedMergeV1({ event: mergeEvent(), host: fixture.host })
+  equal(result.state, 'INDETERMINATE')
+  equal(result.outcome, 'OUTCOME_UNKNOWN')
+  equal(fixture.state.mergeMutations, 1)
 }
 {
   const host = createProductionHostV1({
@@ -420,14 +469,38 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
       headers: { 'x-github-request-id': 'REQ:MALFORMED' },
     }),
   })
-  const error = await captureError(() => host.graphql('mutation Merge', {}, { diagnostic_operation: 'MERGE_MUTATION' }))
+  const error = await captureError(() => host.mergePullRequest({ repository: REPOSITORY, prNumber: PR, exactHead: HEAD }))
   equal(error.mutation_diagnostic.phase, 'MERGE_MUTATION_RESPONSE_PARSE')
   equal(error.mutation_diagnostic.request_dispatch_started, true)
   equal(error.mutation_diagnostic.response_received, true)
   equal(error.mutation_diagnostic.http_status, 200)
   equal(error.mutation_diagnostic.github_request_id, 'REQ:MALFORMED')
+  equal(error.mutation_diagnostic.response_message, null)
   equal(error.mutation_diagnostic.graphql_errors.length, 0)
   equal(error.mutation_diagnostic.network_exception, null)
+  const fixture = createFixture({ mergeError: error })
+  const result = await executeSimplifiedMergeV1({ event: mergeEvent(), host: fixture.host })
+  equal(result.state, 'INDETERMINATE')
+  equal(result.outcome, 'OUTCOME_UNKNOWN')
+  equal(fixture.state.mergeMutations, 1)
+}
+{
+  const fixture = createFixture({ mergeResponse: { message: 'indeterminate response' } })
+  const result = await executeSimplifiedMergeV1({ event: mergeEvent(), host: fixture.host })
+  equal(result.state, 'INDETERMINATE')
+  equal(result.reason, 'merge_after_state_invalid')
+  equal(result.outcome, 'OUTCOME_UNKNOWN')
+  equal(result.mutation_count, 1)
+  equal(fixture.state.mergeMutations, 1)
+}
+{
+  const fixture = createFixture({ afterMergeParents: [{ sha: BASE }, { sha: '4'.repeat(40) }] })
+  const result = await executeSimplifiedMergeV1({ event: mergeEvent(), host: fixture.host })
+  equal(result.state, 'INDETERMINATE')
+  equal(result.reason, 'merge_after_refetch_invalid')
+  equal(result.outcome, 'OUTCOME_UNKNOWN')
+  equal(result.mutation_count, 1)
+  equal(fixture.state.mergeMutations, 1)
 }
 {
   const fixture = createFixture()
@@ -451,17 +524,31 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
 }
 
 const workflow = readFileSync(new URL('../.github/workflows/protected-transition-admission-v1.yml', import.meta.url), 'utf8')
+const workflowDocument = parseDocument(workflow)
+equal(workflowDocument.errors.length, 0)
+const workflowPermissions = workflowDocument.toJS().permissions
 const preflightSource = readFileSync(new URL('./protected-transition-merge-operator-preflight-v1.mjs', import.meta.url), 'utf8')
 const runnerSource = readFileSync(new URL('./run-protected-transition-admission-v1.mjs', import.meta.url), 'utf8')
 ok(workflow.includes('simplified_protected_transition_v1:'))
 ok(workflow.includes('persist-credentials: false'))
 ok(workflow.includes('github.workflow_sha'))
 ok(workflow.includes('issue_comment:'))
+equal(Object.keys(workflowPermissions).sort().join(','), 'checks,contents,issues,pull-requests,statuses')
+equal(workflowPermissions.contents, 'write')
+equal(workflowPermissions.checks, 'read')
+equal(workflowPermissions.issues, 'read')
+equal(workflowPermissions['pull-requests'], 'read')
+equal(workflowPermissions.statuses, 'read')
 equal(workflow.includes('workflow_dispatch:'), false)
 equal(workflow.includes('READY_BOT_TOKEN'), false)
 equal(preflightSource.includes('executeSimplifiedReadyV1'), false)
 equal(preflightSource.includes('markPullRequestReadyForReview'), false)
 equal(preflightSource.includes('READY_MUTATION'), false)
+equal(preflightSource.includes('mutation MergeSimplifiedPullRequest'), false)
+equal(preflightSource.includes('mergePullRequest(input:'), false)
+ok(preflightSource.includes('host.mergePullRequest'))
+ok(runnerSource.includes("method: 'PUT'"))
+ok(runnerSource.includes("body: JSON.stringify({ sha: exactHead, merge_method: 'merge' })"))
 equal(runnerSource.includes('simplified-workflow-dispatch-event-file'), false)
 equal((workflow.match(/^    runs-on:/gm) ?? []).length, 1)
 for (const retired of ['ready_transition_required_resume', 'minimal_governance', 'terminal_observation', 'protected_transition_task_state']) {
