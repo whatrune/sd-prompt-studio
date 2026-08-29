@@ -275,6 +275,64 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
   equal(fixture.state.readyMutations, 0)
 }
 {
+  const secretMessages = [
+    ['Authorization: Bearer bearer-secret', 'Authorization: Bearer [REDACTED]'],
+    ['Authorization: Basic basic-secret', 'Authorization: Basic [REDACTED]'],
+    ['Cookie: session=cookie-secret', 'Cookie: [REDACTED]'],
+    ['Set-Cookie: session=set-cookie-secret; Secure', 'Set-Cookie: [REDACTED]'],
+    ['aUtHoRiZaTiOn: bEaReR mixed-secret', 'aUtHoRiZaTiOn: bEaReR [REDACTED]'],
+    ['Authorization   :   Basic    whitespace-secret', 'Authorization   :   Basic    [REDACTED]'],
+    ['Mutation failed: Authorization: Bearer embedded-secret while processing', 'Mutation failed: Authorization: Bearer [REDACTED] while processing'],
+  ]
+  const host = createProductionHostV1({
+    token: 'test-token',
+    fetchImpl: async () => new Response(JSON.stringify({
+      errors: secretMessages.map(([message]) => ({ type: 'FORBIDDEN', message })),
+    }), { status: 200, headers: { 'x-github-request-id': 'REQ:CREDENTIALS' } }),
+  })
+  const error = await captureError(() => host.graphql(
+    'mutation MarkSimplifiedReady { viewer { login } }',
+    {},
+    { diagnostic_operation: 'READY_MUTATION' },
+  ))
+  const diagnostic = error.mutation_diagnostic
+  equal(
+    JSON.stringify(diagnostic.graphql_errors.map(({ message }) => message)),
+    JSON.stringify(secretMessages.map(([, expected]) => expected)),
+  )
+  for (const secret of [
+    'bearer-secret',
+    'basic-secret',
+    'cookie-secret',
+    'set-cookie-secret',
+    'mixed-secret',
+    'whitespace-secret',
+    'embedded-secret',
+  ]) {
+    equal(JSON.stringify(diagnostic).includes(secret), false)
+  }
+}
+{
+  const host = createProductionHostV1({
+    token: 'test-token',
+    fetchImpl: async () => new Response(JSON.stringify({
+      errors: [
+        { type: 'FORBIDDEN', message: 'Denied by https://api.github.com/graphql?token=url-secret' },
+        { type: 'INTERNAL', message: 'ordinary non-secret diagnostic text' },
+      ],
+    }), { status: 200, headers: { 'x-github-request-id': 'REQ:TEXT' } }),
+  })
+  const error = await captureError(() => host.graphql(
+    'mutation MarkSimplifiedReady { viewer { login } }',
+    {},
+    { diagnostic_operation: 'READY_MUTATION' },
+  ))
+  const diagnostic = error.mutation_diagnostic
+  equal(diagnostic.graphql_errors[0].message, 'Denied by [REDACTED_URL]')
+  equal(diagnostic.graphql_errors[1].message, 'ordinary non-secret diagnostic text')
+  equal(JSON.stringify(diagnostic).includes('url-secret'), false)
+}
+{
   const host = createProductionHostV1({
     token: 'test-token',
     fetchImpl: async () => new Response(JSON.stringify({ message: 'Resource not accessible by integration' }), {
@@ -294,7 +352,7 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
   const host = createProductionHostV1({
     token: 'test-token',
     fetchImpl: async () => {
-      const error = new TypeError('connection reset after dispatch')
+      const error = new TypeError('connection reset after dispatch; Authorization: Bearer transport-secret')
       error.code = 'ECONNRESET'
       throw error
     },
@@ -307,6 +365,7 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
   equal(error.mutation_diagnostic.network_exception.name, 'TypeError')
   equal(error.mutation_diagnostic.network_exception.code, 'ECONNRESET')
   equal(JSON.stringify(error.mutation_diagnostic).includes('connection reset'), false)
+  equal(JSON.stringify(error.mutation_diagnostic).includes('transport-secret'), false)
 }
 {
   const host = createProductionHostV1({

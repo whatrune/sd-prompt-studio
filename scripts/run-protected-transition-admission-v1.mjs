@@ -15,7 +15,14 @@ const valueAfter = (flag) => {
   return index < 0 || index + 1 >= args.length ? null : args[index + 1]
 }
 
-const boundedMessage = (value) => String(value ?? 'github_request_failed')
+const redactCredentialBearingText = (value) => String(value ?? 'github_request_failed')
+  .replace(
+    /(\bauthorization\s*:\s*(?:bearer|basic)\s+)(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s,;]+)/giu,
+    '$1[REDACTED]',
+  )
+  .replace(/(\b(?:set-cookie|cookie)\s*:\s*)[^\r\n]*/giu, '$1[REDACTED]')
+
+const boundedMessage = (value) => redactCredentialBearingText(value)
   .replace(/(?:[A-Za-z][A-Za-z0-9+.-]*:\/\/|www\.)[^\s<>"']+/gu, '[REDACTED_URL]')
   .replace(/[\r\n\t]+/gu, ' ')
   .slice(0, 512)
