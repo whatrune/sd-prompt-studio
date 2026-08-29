@@ -35,6 +35,7 @@ try {
       selected('rin-pose-reclining'),
       selected('v192-bent-knees'),
       selected('pos-lying-on-back'),
+      selected('hai-long-hair'),
     ] }],
     sceneTags: [selected('bac-forest')],
   }
@@ -43,22 +44,24 @@ try {
 
   equal(report.projection_status, 'PROJECTED', 'valid production-shaped input must project')
   equal(report.rejection_reason, null, 'successful inspection must have no rejection reason')
-  deepEqual(report.summary, { mapped_count: 5, unmapped_count: 1, rejected_count: 0 }, 'summary counts must reflect ordered projection entries')
-  equal(report.coverage.explicit_binding_count, 5, 'coverage must report all five explicit bindings')
-  equal(report.coverage.mapped_active_prompt_tag_count, 5, 'coverage must use exact active PromptTag identity matches')
-  equal(report.coverage.unmapped_active_prompt_tag_count, registry.length - 5, 'coverage must not infer additional mappings')
+  deepEqual(report.summary, { mapped_count: 6, unmapped_count: 1, rejected_count: 0 }, 'summary counts must reflect ordered projection entries')
+  equal(report.coverage.explicit_binding_count, 6, 'coverage must report all six explicit bindings')
+  equal(report.coverage.mapped_active_prompt_tag_count, 6, 'coverage must use exact active PromptTag identity matches')
+  equal(report.coverage.unmapped_active_prompt_tag_count, registry.length - 6, 'coverage must not infer additional mappings')
   equal(report.source_binding.binding_record_type, 'visual_concept_prompt_tag_bindings_v1', 'source binding must identify the binding dataset')
   equal(report.source_binding.graph_schema_version, '0.2.0', 'source binding must identify the admitted graph schema version')
-  equal(report.source_binding.graph_version, '0.2.0', 'source binding must identify the admitted graph version')
+  equal(report.source_binding.graph_version, '0.2.1', 'source binding must identify the admitted graph revision')
   deepEqual(report.entries.map(entry => [entry.owner_kind, entry.owner_id, entry.prompt_tag_id, entry.mapping_status]), [
     ['PROMPT_BLOCK', 'subject-1', 'pos-lying', 'MAPPED'],
     ['PROMPT_BLOCK', 'subject-1', 'rin-pose-arm-support', 'MAPPED'],
     ['PROMPT_BLOCK', 'subject-1', 'rin-pose-reclining', 'MAPPED'],
     ['PROMPT_BLOCK', 'subject-1', 'v192-bent-knees', 'MAPPED'],
     ['PROMPT_BLOCK', 'subject-1', 'pos-lying-on-back', 'MAPPED'],
+    ['PROMPT_BLOCK', 'subject-1', 'hai-long-hair', 'MAPPED'],
     ['SCENE', 'scene', 'bac-forest', 'UNMAPPED'],
   ], 'inspection must preserve projection ownership and input ordering')
   deepEqual([report.entries[4].concept_id, report.entries[4].concept_status, report.entries[4].diagnostic], ['body.orientation.face_up', 'provisional', null], 'face-up orientation must remain exact in inspection output')
+  deepEqual([report.entries[5].concept_id, report.entries[5].concept_status, report.entries[5].diagnostic], ['hair.long', 'provisional', null], 'long hair must remain an exact provisional mapping in inspection output')
   equal(serializeVisualConceptReadOnlyInspectionReportV1(report), serializeVisualConceptReadOnlyInspectionReportV1(report), 'identical reports must serialize to byte-identical JSON')
 
   const rejectedProjection = createVisualConceptReadOnlyEntryAdapterV1({ bindingContract, graphContract, promptTagRegistry: registry })({ blocks: null, sceneTags: [] })

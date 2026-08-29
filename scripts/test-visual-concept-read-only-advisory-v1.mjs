@@ -33,10 +33,11 @@ try {
   const selected = id => ({ ...registry.find(tag => tag.id === id), weight: 1 })
   const armSupport = selected('rin-pose-arm-support')
   const reclining = selected('rin-pose-reclining')
+  const longHair = selected('hai-long-hair')
   const custom = { id: 'custom-advisory-tag', label: 'Custom', prompt: 'custom advisory tag', category: 'pose', weight: 1 }
   const input = {
     blocks: [
-      { id: 'subject-1', name: 'Subject 1', tags: [selected('pos-lying'), selected('rin-pose-arm-support'), selected('pos-lying')] },
+      { id: 'subject-1', name: 'Subject 1', tags: [selected('pos-lying'), selected('rin-pose-arm-support'), selected('pos-lying'), longHair] },
       { id: 'subject-2', name: 'Subject 2', tags: [selected('rin-pose-reclining'), selected('v192-bent-knees'), custom] },
     ],
     sceneTags: [selected('bac-forest'), selected('pos-lying-on-back')],
@@ -52,10 +53,11 @@ try {
 
   equal(advisory.advisory_status, 'READY', 'valid inspection must produce a ready advisory')
   equal(advisory.rejection_reason, null, 'ready advisory must not carry a rejection reason')
-  deepEqual(advisory.projection_summary, { mapped_count: 6, unmapped_count: 2, rejected_count: 0 }, 'projection summary must reflect the exact fifth explicit mapping')
+  deepEqual(advisory.projection_summary, { mapped_count: 7, unmapped_count: 2, rejected_count: 0 }, 'projection summary must reflect the exact sixth explicit mapping')
   deepEqual(advisory.mapped_concepts.map(concept => [concept.concept_id, concept.concept_status, concept.occurrences.length]), [
     ['body.state.lying', 'provisional', 2],
     ['support.arm.rearward', 'provisional', 1],
+    ['hair.long', 'provisional', 1],
     ['body.state.reclined', 'provisional', 1],
     ['configuration.knee.bent', 'provisional', 1],
     ['body.orientation.face_up', 'provisional', 1],
@@ -98,9 +100,9 @@ try {
   const nextRevisionInspection = clone(inspection)
   const nextRevisionAllowlist = clone(relationAllowlist)
   const nextRevisionGraph = clone(graphContract)
-  nextRevisionInspection.source_binding.graph_version = '0.2.1'
-  nextRevisionAllowlist.graph_version = '0.2.1'
-  nextRevisionGraph.graph_version = '0.2.1'
+  nextRevisionInspection.source_binding.graph_version = '0.2.2'
+  nextRevisionAllowlist.graph_version = '0.2.2'
+  nextRevisionGraph.graph_version = '0.2.2'
   equal(advisoryFor(nextRevisionInspection, nextRevisionAllowlist, nextRevisionGraph).advisory_status, 'READY', 'same-schema next graph revision must preserve exact relation admission')
   const statusDrift = clone(inspection)
   statusDrift.entries[0].concept_status = 'confirmed'
