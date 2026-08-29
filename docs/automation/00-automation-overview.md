@@ -43,6 +43,8 @@ The closed catalog is:
 
 Missing, pending, cancelled, ambiguous, or unsuccessful required checks stop before a protected mutation. The operator does not create or consume a check-evidence record.
 
+`validate` keeps one canonical check name while `.github/workflows/research-claims.yml` selects a closed validation profile from the complete exact base-to-HEAD NUL-delimited changed-path set. Experiment content, Concept Graph content, and the closed production adapter surface use fixed focused profiles. Validator/framework changes, Schema/Template/shared-contract changes, Workflow/Selector changes, unknown paths, malformed input, default-branch regression, and periodic regression use `FULL_RESEARCH`. A scope change always recomputes the profile from the complete diff. The selected paths, profile, fixed commands, fallback reason, and elapsed stage times are diagnostic log/summary output only; they are not lifecycle evidence.
+
 ## Serialization and transport
 
 Task Authority, Review body, and Merge Decision use one Node-owned UTF-8 serializer/parser pair per record. A body must be complete at creation time, contain exactly one fenced JSON block, and round-trip byte-for-byte. When GitHub Pull Request Review publication is unavailable, the exact same Review body may be published once as a top-level comment on the canonical Task Issue and selected explicitly as `TASK_ISSUE_COMMENT`; it is one compatibility surface, not a second semantic decision. Placeholder-then-PATCH publication, PowerShell Markdown interpolation, self-referential URLs, and digest/seal layers are not part of V1.
