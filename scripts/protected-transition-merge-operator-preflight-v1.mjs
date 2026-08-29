@@ -375,12 +375,45 @@ const acquireLiveSnapshot = async ({
   })
 }
 
-const stopped = (operation, reason, mutationCount = 0, outcome = 'DEFINITIVE_REJECTION') => Object.freeze({
+const boundedDiagnosticAtom = (value, maximum) => (
+  typeof value === 'string' && value.length > 0 && value.length <= maximum && /^[A-Za-z0-9_.:-]+$/u.test(value)
+    ? value
+    : null
+)
+
+const boundedDiagnosticMessage = (value) => String(value ?? 'github_request_failed')
+  .replace(/(?:[A-Za-z][A-Za-z0-9+.-]*:\/\/|www\.)[^\s<>"']+/gu, '[REDACTED_URL]')
+  .replace(/[\r\n\t]+/gu, ' ')
+  .slice(0, 512)
+
+const projectReadyMutationDiagnosticV1 = (error) => {
+  const value = error?.mutation_diagnostic
+  const graphqlErrors = (Array.isArray(value?.graphql_errors) ? value.graphql_errors : []).slice(0, 8)
+  const networkException = value?.network_exception
+  return Object.freeze({
+    phase: boundedDiagnosticAtom(value?.phase, 96) ?? 'READY_MUTATION_UNKNOWN',
+    request_dispatch_started: typeof value?.request_dispatch_started === 'boolean' ? value.request_dispatch_started : null,
+    response_received: typeof value?.response_received === 'boolean' ? value.response_received : null,
+    http_status: Number.isInteger(value?.http_status) && value.http_status >= 100 && value.http_status <= 599 ? value.http_status : null,
+    github_request_id: boundedDiagnosticAtom(value?.github_request_id, 128),
+    graphql_errors: Object.freeze(graphqlErrors.map((entry) => Object.freeze({
+      type: boundedDiagnosticAtom(entry?.type, 64),
+      message: boundedDiagnosticMessage(entry?.message),
+    }))),
+    network_exception: networkException === null || networkException === undefined ? null : Object.freeze({
+      name: boundedDiagnosticAtom(networkException?.name, 64),
+      code: boundedDiagnosticAtom(networkException?.code, 64),
+    }),
+  })
+}
+
+const stopped = (operation, reason, mutationCount = 0, outcome = 'DEFINITIVE_REJECTION', diagnostic = null) => Object.freeze({
   operation,
   state: mutationCount === 0 ? 'STOPPED' : 'INDETERMINATE',
   reason,
   outcome,
   mutation_count: mutationCount,
+  ...(diagnostic === null ? {} : { mutation_diagnostic: diagnostic }),
   exit_code: 1,
 })
 
@@ -421,9 +454,19 @@ export const executeSimplifiedReadyV1 = async ({ event, host }) => {
     const mutationCount = 1
     let mutation
     try {
-      mutation = await host.graphql(READY_MUTATION, { pullRequestId: initial.pull_id })
-    } catch {
-      return stopped(operation, 'ready_outcome_unknown', mutationCount, 'OUTCOME_UNKNOWN')
+      mutation = await host.graphql(
+        READY_MUTATION,
+        { pullRequestId: initial.pull_id },
+        { diagnostic_operation: 'READY_MUTATION' },
+      )
+    } catch (error) {
+      return stopped(
+        operation,
+        'ready_outcome_unknown',
+        mutationCount,
+        'OUTCOME_UNKNOWN',
+        projectReadyMutationDiagnosticV1(error),
+      )
     }
     const changed = mutation?.markPullRequestReadyForReview?.pullRequest
     if (

@@ -11,6 +11,7 @@ import {
   serializeSimplifiedReviewV1,
   serializeSimplifiedTaskAuthorityV1,
 } from './protected-transition-merge-operator-preflight-v1.mjs'
+import { createProductionHostV1 } from './run-protected-transition-admission-v1.mjs'
 
 const REPOSITORY = 'whatrune/sd-prompt-studio'
 const HEAD = '1'.repeat(40)
@@ -72,7 +73,7 @@ const check = (name, appDatabaseId, overrides = {}) => ({
   ...overrides,
 })
 
-const createFixture = ({ draft = false, reviewHead = HEAD, paths = PATHS, threads = [], checks, main = BASE } = {}) => {
+const createFixture = ({ draft = false, reviewHead = HEAD, paths = PATHS, threads = [], checks, main = BASE, readyError = null } = {}) => {
   const state = {
     draft,
     merged: false,
@@ -131,6 +132,7 @@ const createFixture = ({ draft = false, reviewHead = HEAD, paths = PATHS, thread
         } } }
       }
       if (query.includes('mutation MarkSimplifiedReady')) {
+        if (readyError !== null) throw readyError
         state.readyMutations += 1
         state.draft = false
         return { markPullRequestReadyForReview: { pullRequest: { id: 'PR_node_430', number: PR, state: 'OPEN', isDraft: false, merged: false, headRefOid: HEAD } } }
@@ -166,6 +168,14 @@ let assertions = 0
 const equal = (actual, expected) => { assert.equal(actual, expected); assertions += 1 }
 const ok = (actual) => { assert.ok(actual); assertions += 1 }
 const throws = (fn, expected) => { assert.throws(fn, expected); assertions += 1 }
+const captureError = async (fn) => {
+  try {
+    await fn()
+  } catch (error) {
+    return error
+  }
+  throw new Error('expected_error_not_thrown')
+}
 
 const taskBody = serializeSimplifiedTaskAuthorityV1(taskInput)
 equal(parseSimplifiedTaskAuthorityV1(taskBody).objective, taskInput.objective)
@@ -226,6 +236,94 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
   equal(result.mutation_count, 1)
   equal(fixture.state.readyMutations, 1)
   equal(fixture.state.draft, false)
+  equal(result.mutation_diagnostic, undefined)
+}
+{
+  const host = createProductionHostV1({
+    token: 'test-token',
+    fetchImpl: async () => new Response(JSON.stringify({
+      errors: [{ type: 'FORBIDDEN', message: 'Denied by https://api.github.com/graphql?token=secret-value' }],
+    }), { status: 200, headers: { 'x-github-request-id': 'REQ:PERMISSION' } }),
+  })
+  const error = await captureError(() => host.graphql(
+    'mutation MarkSimplifiedReady { viewer { login } }',
+    {},
+    { diagnostic_operation: 'READY_MUTATION' },
+  ))
+  const diagnostic = error.mutation_diagnostic
+  equal(diagnostic.phase, 'READY_MUTATION_GRAPHQL_RESPONSE')
+  equal(diagnostic.request_dispatch_started, true)
+  equal(diagnostic.response_received, true)
+  equal(diagnostic.http_status, 200)
+  equal(diagnostic.github_request_id, 'REQ:PERMISSION')
+  equal(diagnostic.graphql_errors.length, 1)
+  equal(diagnostic.graphql_errors[0].type, 'FORBIDDEN')
+  equal(diagnostic.graphql_errors[0].message, 'Denied by [REDACTED_URL]')
+  equal(Object.keys(diagnostic).join(','), 'phase,request_dispatch_started,response_received,http_status,github_request_id,graphql_errors,network_exception')
+  equal(JSON.stringify(diagnostic).includes('secret-value'), false)
+  equal(JSON.stringify(diagnostic).includes('api.github.com'), false)
+  equal(JSON.stringify(diagnostic).includes('test-token'), false)
+  equal(JSON.stringify(diagnostic).includes('Authorization'), false)
+
+  const fixture = createFixture({ draft: true, readyError: error })
+  const result = await executeSimplifiedReadyV1({ event: readyEvent(), host: fixture.host })
+  equal(result.state, 'INDETERMINATE')
+  equal(result.reason, 'ready_outcome_unknown')
+  equal(result.outcome, 'OUTCOME_UNKNOWN')
+  equal(result.mutation_count, 1)
+  equal(result.mutation_diagnostic.phase, 'READY_MUTATION_GRAPHQL_RESPONSE')
+  equal(fixture.state.readyMutations, 0)
+}
+{
+  const host = createProductionHostV1({
+    token: 'test-token',
+    fetchImpl: async () => new Response(JSON.stringify({ message: 'Resource not accessible by integration' }), {
+      status: 403,
+      headers: { 'x-github-request-id': 'REQ:HTTP' },
+    }),
+  })
+  const error = await captureError(() => host.graphql('mutation Ready', {}, { diagnostic_operation: 'READY_MUTATION' }))
+  equal(error.mutation_diagnostic.phase, 'READY_MUTATION_HTTP_RESPONSE')
+  equal(error.mutation_diagnostic.request_dispatch_started, true)
+  equal(error.mutation_diagnostic.response_received, true)
+  equal(error.mutation_diagnostic.http_status, 403)
+  equal(error.mutation_diagnostic.github_request_id, 'REQ:HTTP')
+  equal(error.mutation_diagnostic.graphql_errors.length, 0)
+}
+{
+  const host = createProductionHostV1({
+    token: 'test-token',
+    fetchImpl: async () => {
+      const error = new TypeError('connection reset after dispatch')
+      error.code = 'ECONNRESET'
+      throw error
+    },
+  })
+  const error = await captureError(() => host.graphql('mutation Ready', {}, { diagnostic_operation: 'READY_MUTATION' }))
+  equal(error.mutation_diagnostic.phase, 'READY_MUTATION_TRANSPORT')
+  equal(error.mutation_diagnostic.request_dispatch_started, true)
+  equal(error.mutation_diagnostic.response_received, false)
+  equal(error.mutation_diagnostic.http_status, null)
+  equal(error.mutation_diagnostic.network_exception.name, 'TypeError')
+  equal(error.mutation_diagnostic.network_exception.code, 'ECONNRESET')
+  equal(JSON.stringify(error.mutation_diagnostic).includes('connection reset'), false)
+}
+{
+  const host = createProductionHostV1({
+    token: 'test-token',
+    fetchImpl: async () => new Response('{invalid-json', {
+      status: 200,
+      headers: { 'x-github-request-id': 'REQ:MALFORMED' },
+    }),
+  })
+  const error = await captureError(() => host.graphql('mutation Ready', {}, { diagnostic_operation: 'READY_MUTATION' }))
+  equal(error.mutation_diagnostic.phase, 'READY_MUTATION_RESPONSE_PARSE')
+  equal(error.mutation_diagnostic.request_dispatch_started, true)
+  equal(error.mutation_diagnostic.response_received, true)
+  equal(error.mutation_diagnostic.http_status, 200)
+  equal(error.mutation_diagnostic.github_request_id, 'REQ:MALFORMED')
+  equal(error.mutation_diagnostic.graphql_errors.length, 0)
+  equal(error.mutation_diagnostic.network_exception, null)
 }
 {
   const fixture = createFixture()
