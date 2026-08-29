@@ -93,7 +93,7 @@ Normal autonomous publication creates a non-Draft pull request. Draft is availab
 
 ## Protected Actions
 
-Protected actions include Approve, Merge, Revert, branch publication, Issue creation or closure, authority or completion-state changes, and any other action marked protected by the task.
+Protected actions include Ready for Review, Approve, Merge, Revert, branch publication, Issue creation or closure, authority or completion-state changes, and any other action marked protected by the task. Ready remains protected when a human explicitly performs it for an exceptional manual-Draft PR, but the autonomous lifecycle has no Ready owner or production route.
 
 A protected action MUST have:
 

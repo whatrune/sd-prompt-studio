@@ -22,7 +22,7 @@ const redactCredentialBearingText = (value) => String(value ?? 'github_request_f
   .replace(/(\b(?:set-cookie|cookie)\s*:\s*)[^\r\n]*/giu, '$1[REDACTED]')
 
 const redactUrlLikeTokens = (value) => String(value)
-  .replace(/\b[^\s<>"'@/:]+:[^\s<>"'@/]+@[A-Za-z0-9.-]+(?::\d+)?(?:\/[^\s<>"']*)?/gu, '[REDACTED_URL]')
+  .replace(/\b[^\s<>"'@/:]+:[^\s<>"'@/]+@(?:\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]+)(?::\d+)?(?:\/[^\s<>"']*)?/gu, '[REDACTED_URL]')
   .replace(/(?:(?:[A-Za-z][A-Za-z0-9+.-]*:)?\/\/|www\.)[^\s<>"']+/gu, '[REDACTED_URL]')
   .replace(/\[[0-9A-Fa-f:.]+\](?::\d+)?(?:\/[^\s<>"']*)?/gu, '[REDACTED_URL]')
   .replace(/\b(?:[0-9A-Fa-f]{1,4}:){2,}[0-9A-Fa-f:]*\/[^\s<>"']*/gu, '[REDACTED_URL]')

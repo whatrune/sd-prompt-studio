@@ -330,6 +330,7 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
     'Denied by localhost/private?secret=localhost-secret',
     'Denied by example.test/private?secret=host-path-secret',
     'Denied by user:password@example.test/private?secret=userinfo-secret',
+    'Denied by user:password@[2001:db8::1]/private?secret=ipv6-userinfo-secret',
   ]
   const host = createProductionHostV1({
     token: 'test-token',
@@ -348,7 +349,7 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
   for (const fragment of [
     'example.test', '192.0.2.10', '2001:db8', 'localhost', 'password',
     'protocol-relative-secret', 'ipv4-secret', 'ipv6-secret', 'bare-ipv6-secret',
-    'localhost-secret', 'host-path-secret', 'userinfo-secret',
+    'localhost-secret', 'host-path-secret', 'userinfo-secret', 'ipv6-userinfo-secret',
   ]) {
     equal(JSON.stringify(error.mutation_diagnostic).includes(fragment), false)
   }
@@ -363,6 +364,7 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
     graphql_errors: [
       { type: 'FORBIDDEN', message: 'Projection saw //example.test/private?token=projection-secret' },
       { type: 'FORBIDDEN', message: 'Authorization: Bearer projection-bearer-secret' },
+      { type: 'FORBIDDEN', message: 'Projection saw user:password@[2001:db8::1]/private?token=projection-ipv6-userinfo-secret' },
     ],
     network_exception: null,
   } })
@@ -370,8 +372,10 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
   const result = await executeSimplifiedMergeV1({ event: mergeEvent(), host: fixture.host })
   equal(result.mutation_diagnostic.graphql_errors[0].message, 'Projection saw [REDACTED_URL]')
   equal(result.mutation_diagnostic.graphql_errors[1].message, 'Authorization: Bearer [REDACTED]')
+  equal(result.mutation_diagnostic.graphql_errors[2].message, 'Projection saw [REDACTED_URL]')
   equal(JSON.stringify(result.mutation_diagnostic).includes('projection-secret'), false)
   equal(JSON.stringify(result.mutation_diagnostic).includes('projection-bearer-secret'), false)
+  equal(JSON.stringify(result.mutation_diagnostic).includes('projection-ipv6-userinfo-secret'), false)
 }
 {
   const host = createProductionHostV1({
