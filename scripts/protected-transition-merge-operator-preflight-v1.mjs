@@ -373,7 +373,15 @@ const boundedDiagnosticAtom = (value, maximum) => (
 )
 
 const boundedDiagnosticMessage = (value) => String(value ?? 'github_request_failed')
-  .replace(/(?:[A-Za-z][A-Za-z0-9+.-]*:\/\/|www\.)[^\s<>"']+/gu, '[REDACTED_URL]')
+  .replace(/(\bauthorization\s*:\s*(?:bearer|basic)\s+)(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s,;]+)/giu, '$1[REDACTED]')
+  .replace(/(\b(?:set-cookie|cookie)\s*:\s*)[^\r\n]*/giu, '$1[REDACTED]')
+  .replace(/\b[^\s<>"'@/:]+:[^\s<>"'@/]+@[A-Za-z0-9.-]+(?::\d+)?(?:\/[^\s<>"']*)?/gu, '[REDACTED_URL]')
+  .replace(/(?:(?:[A-Za-z][A-Za-z0-9+.-]*:)?\/\/|www\.)[^\s<>"']+/gu, '[REDACTED_URL]')
+  .replace(/\[[0-9A-Fa-f:.]+\](?::\d+)?(?:\/[^\s<>"']*)?/gu, '[REDACTED_URL]')
+  .replace(/\b(?:[0-9A-Fa-f]{1,4}:){2,}[0-9A-Fa-f:]*\/[^\s<>"']*/gu, '[REDACTED_URL]')
+  .replace(/\b(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?(?:\/[^\s<>"']*)?/gu, '[REDACTED_URL]')
+  .replace(/\blocalhost(?::\d+)?(?:\/[^\s<>"']*)?/giu, '[REDACTED_URL]')
+  .replace(/\b(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,63}(?::\d+)?\/[^\s<>"']*/gu, '[REDACTED_URL]')
   .replace(/[\r\n\t]+/gu, ' ')
   .slice(0, 512)
 

@@ -21,8 +21,16 @@ const redactCredentialBearingText = (value) => String(value ?? 'github_request_f
   )
   .replace(/(\b(?:set-cookie|cookie)\s*:\s*)[^\r\n]*/giu, '$1[REDACTED]')
 
-const boundedMessage = (value) => redactCredentialBearingText(value)
-  .replace(/(?:[A-Za-z][A-Za-z0-9+.-]*:\/\/|www\.)[^\s<>"']+/gu, '[REDACTED_URL]')
+const redactUrlLikeTokens = (value) => String(value)
+  .replace(/\b[^\s<>"'@/:]+:[^\s<>"'@/]+@[A-Za-z0-9.-]+(?::\d+)?(?:\/[^\s<>"']*)?/gu, '[REDACTED_URL]')
+  .replace(/(?:(?:[A-Za-z][A-Za-z0-9+.-]*:)?\/\/|www\.)[^\s<>"']+/gu, '[REDACTED_URL]')
+  .replace(/\[[0-9A-Fa-f:.]+\](?::\d+)?(?:\/[^\s<>"']*)?/gu, '[REDACTED_URL]')
+  .replace(/\b(?:[0-9A-Fa-f]{1,4}:){2,}[0-9A-Fa-f:]*\/[^\s<>"']*/gu, '[REDACTED_URL]')
+  .replace(/\b(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?(?:\/[^\s<>"']*)?/gu, '[REDACTED_URL]')
+  .replace(/\blocalhost(?::\d+)?(?:\/[^\s<>"']*)?/giu, '[REDACTED_URL]')
+  .replace(/\b(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,63}(?::\d+)?\/[^\s<>"']*/gu, '[REDACTED_URL]')
+
+const boundedMessage = (value) => redactUrlLikeTokens(redactCredentialBearingText(value))
   .replace(/[\r\n\t]+/gu, ' ')
   .slice(0, 512)
 

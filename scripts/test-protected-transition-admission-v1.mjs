@@ -322,6 +322,58 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
   equal(JSON.stringify(diagnostic).includes('url-secret'), false)
 }
 {
+  const urlLikeMessages = [
+    'Denied by //example.test/private?token=protocol-relative-secret',
+    'Denied by 192.0.2.10/private?token=ipv4-secret',
+    'Denied by [2001:db8::1]/private?token=ipv6-secret',
+    'Denied by 2001:db8::1/private?token=bare-ipv6-secret',
+    'Denied by localhost/private?secret=localhost-secret',
+    'Denied by example.test/private?secret=host-path-secret',
+    'Denied by user:password@example.test/private?secret=userinfo-secret',
+  ]
+  const host = createProductionHostV1({
+    token: 'test-token',
+    fetchImpl: async () => new Response(JSON.stringify({
+      errors: urlLikeMessages.map((message) => ({ type: 'FORBIDDEN', message })),
+    }), { status: 200, headers: { 'x-github-request-id': 'REQ:URL-FORMS' } }),
+  })
+  const error = await captureError(() => host.graphql(
+    'mutation MergeSimplifiedPullRequest { viewer { login } }',
+    {},
+    { diagnostic_operation: 'MERGE_MUTATION' },
+  ))
+  for (const entry of error.mutation_diagnostic.graphql_errors) {
+    equal(entry.message, 'Denied by [REDACTED_URL]')
+  }
+  for (const fragment of [
+    'example.test', '192.0.2.10', '2001:db8', 'localhost', 'password',
+    'protocol-relative-secret', 'ipv4-secret', 'ipv6-secret', 'bare-ipv6-secret',
+    'localhost-secret', 'host-path-secret', 'userinfo-secret',
+  ]) {
+    equal(JSON.stringify(error.mutation_diagnostic).includes(fragment), false)
+  }
+
+  const projectionError = new Error('raw_projection_failure')
+  Object.defineProperty(projectionError, 'mutation_diagnostic', { value: {
+    phase: 'MERGE_MUTATION_GRAPHQL_RESPONSE',
+    request_dispatch_started: true,
+    response_received: true,
+    http_status: 200,
+    github_request_id: 'REQ:RAW-PROJECTION',
+    graphql_errors: [
+      { type: 'FORBIDDEN', message: 'Projection saw //example.test/private?token=projection-secret' },
+      { type: 'FORBIDDEN', message: 'Authorization: Bearer projection-bearer-secret' },
+    ],
+    network_exception: null,
+  } })
+  const fixture = createFixture({ mergeError: projectionError })
+  const result = await executeSimplifiedMergeV1({ event: mergeEvent(), host: fixture.host })
+  equal(result.mutation_diagnostic.graphql_errors[0].message, 'Projection saw [REDACTED_URL]')
+  equal(result.mutation_diagnostic.graphql_errors[1].message, 'Authorization: Bearer [REDACTED]')
+  equal(JSON.stringify(result.mutation_diagnostic).includes('projection-secret'), false)
+  equal(JSON.stringify(result.mutation_diagnostic).includes('projection-bearer-secret'), false)
+}
+{
   const host = createProductionHostV1({
     token: 'test-token',
     fetchImpl: async () => new Response(JSON.stringify({ message: 'Resource not accessible by integration' }), {
