@@ -121,9 +121,15 @@ try {
   const unsupportedSchema = clone(graphContract)
   unsupportedSchema.schema_version = '0.3.0'
   equal(reasonFor(bindingContract, unsupportedSchema), 'graph_contract_unsupported', 'unsupported graph schema version must fail closed')
-  const unsupportedGraph = clone(graphContract)
-  unsupportedGraph.graph_version = '0.3.0'
-  equal(reasonFor(bindingContract, unsupportedGraph), 'graph_contract_unsupported', 'unsupported graph version must fail closed')
+  const nextGraphRevision = clone(graphContract)
+  nextGraphRevision.graph_version = '0.2.1'
+  equal(reasonFor(bindingContract, nextGraphRevision), null, 'same-schema next graph content revision must remain compatible')
+  const nextBindingRevision = clone(bindingContract)
+  nextBindingRevision.graph_version = '0.2.1'
+  equal(reasonFor(nextBindingRevision), null, 'legacy binding graph revision must not act as a compatibility gate')
+  const malformedGraphRevision = clone(graphContract)
+  malformedGraphRevision.graph_version = 'not-a-version'
+  equal(reasonFor(bindingContract, malformedGraphRevision), 'graph_contract_invalid', 'malformed graph revision must fail closed')
 
   const inadmissibleGraph = clone(graphContract)
   inadmissibleGraph.concepts.find(concept => concept.concept_id === 'body.state.lying').status = 'deprecated'

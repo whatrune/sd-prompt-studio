@@ -74,8 +74,6 @@ export function projectVisualConceptProductionAdvisoryCatalogV1({ bindingContrac
       binding_sha256: sha256(bindingContract),
       graph_schema_id: bindingContract.graph_schema_id,
       graph_schema_version: graphContract.schema_version,
-      graph_version: graphContract.graph_version,
-      graph_sha256: sha256(graphContract),
       registry_sha256: sha256(promptTagRegistry),
     }),
     coverage: Object.freeze({

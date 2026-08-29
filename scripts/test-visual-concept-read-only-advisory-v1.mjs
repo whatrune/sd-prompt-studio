@@ -93,8 +93,15 @@ try {
   countDrift.summary.mapped_count += 1
   equal(advisoryFor(countDrift).rejection_reason, 'advisory_input_invalid', 'projection count drift must fail closed')
   const sourceDrift = clone(inspection)
-  sourceDrift.source_binding.graph_version = '0.3.0'
-  equal(advisoryFor(sourceDrift).rejection_reason, 'advisory_input_invalid', 'unsupported inspection source identity must fail closed')
+  sourceDrift.source_binding.graph_version = 'not-a-version'
+  equal(advisoryFor(sourceDrift).rejection_reason, 'advisory_input_invalid', 'malformed inspection graph revision must fail closed')
+  const nextRevisionInspection = clone(inspection)
+  const nextRevisionAllowlist = clone(relationAllowlist)
+  const nextRevisionGraph = clone(graphContract)
+  nextRevisionInspection.source_binding.graph_version = '0.2.1'
+  nextRevisionAllowlist.graph_version = '0.2.1'
+  nextRevisionGraph.graph_version = '0.2.1'
+  equal(advisoryFor(nextRevisionInspection, nextRevisionAllowlist, nextRevisionGraph).advisory_status, 'READY', 'same-schema next graph revision must preserve exact relation admission')
   const statusDrift = clone(inspection)
   statusDrift.entries[0].concept_status = 'confirmed'
   statusDrift.entries[2].concept_status = 'provisional'

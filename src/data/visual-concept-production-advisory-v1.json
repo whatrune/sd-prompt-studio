@@ -7,8 +7,6 @@
     "binding_sha256": "f995fbbadaa63cb70c20fa40e2d1283e708cb34a50f18fac8b54605db997773d",
     "graph_schema_id": "https://local.sd-prompt-studio/visual-concept-graph-v0.2.schema.json",
     "graph_schema_version": "0.2.0",
-    "graph_version": "0.2.0",
-    "graph_sha256": "6de4c15d53f81e4188798ecc79593fd2d40cdf4cecbb151e7345e31a815c21f3",
     "registry_sha256": "233568bce81627f8ff0ce75d990e80824e13d0c857340c38533dea90f4066747"
   },
   "coverage": {

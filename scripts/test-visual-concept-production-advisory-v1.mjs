@@ -51,6 +51,7 @@ try {
   ], 'promoted mapping slice must remain exact and ordered')
   deepEqual(catalog.relations, [], 'production V1 catalog must not promote relations')
   deepEqual(catalog.coverage, { active_prompt_tag_count: 2522, mapped_active_prompt_tag_count: 5, unmapped_active_prompt_tag_count: 2517 }, 'coverage must bind the exact active registry')
+  deepEqual(Object.keys(catalog.source_binding), ['binding_record_type', 'binding_version', 'binding_sha256', 'graph_schema_id', 'graph_schema_version', 'registry_sha256'], 'catalog source binding must use schema identity and production inputs without full-Graph revision or digest coupling')
   equal(serialized, serializeVisualConceptProductionAdvisoryCatalogV1(catalog), 'promoted output must be byte-stable')
   check(isVisualConceptProductionAdvisoryArtifactCurrentV1(`${JSON.stringify(checkedInCatalog, null, 2)}\n`, serialized), 'checked-in artifact must equal fresh promotion bytes')
   check(!isVisualConceptProductionAdvisoryArtifactCurrentV1(`${serialized} `, serialized), 'stale artifact bytes must be rejected')
@@ -65,6 +66,27 @@ try {
   const inadmissibleGraph = clone(graphContract)
   inadmissibleGraph.concepts.find(concept => concept.concept_id === 'body.state.lying').status = 'deprecated'
   equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: inadmissibleGraph, promptTagRegistry: registry })), 'binding_concept_inadmissible', 'inadmissible concept status must fail closed')
+  const unmappedResearchChange = clone(graphContract)
+  unmappedResearchChange.graph_version = '0.2.1'
+  const hairLong = unmappedResearchChange.concepts.find(concept => concept.concept_id === 'hair.long')
+  hairLong.status = 'provisional'
+  hairLong.evidence_refs = [{
+    evidence_ref_id: 'evidence.hair001b.long_extent',
+    run_id: 'HAIR-001-B',
+    observation_path: 'experiments/hair/HAIR-001-B/hair-observation.json',
+    metric: 'computed_aggregate.axis_counts.hair_length_extent.below_shoulder',
+    count: 6,
+    total: 6,
+    confidence: 'high',
+    storage: 'local',
+  }]
+  const unmappedResearchCatalog = projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: unmappedResearchChange, promptTagRegistry: registry })
+  equal(serializeVisualConceptProductionAdvisoryCatalogV1(unmappedResearchCatalog), serialized, 'unmapped same-schema research content must not stale the production catalog')
+  const mappedProductionChange = clone(graphContract)
+  mappedProductionChange.graph_version = '0.2.1'
+  mappedProductionChange.concepts.find(concept => concept.concept_id === 'body.state.lying').label = 'Changed production label'
+  const mappedProductionCatalog = projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: mappedProductionChange, promptTagRegistry: registry })
+  check(serializeVisualConceptProductionAdvisoryCatalogV1(mappedProductionCatalog) !== serialized, 'mapped production-relevant field change must stale the catalog')
 
   const blocks = [
     { id: 'subject-1', name: 'Subject 1', tags: [selected('pos-lying'), selected('pos-lying-on-back'), { id: 'custom-tag', label: 'Custom', prompt: 'custom', category: 'pose', weight: 1 }] },

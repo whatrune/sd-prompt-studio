@@ -59,8 +59,9 @@ const SOURCE_BINDING_CONSTANTS = Object.freeze({
   graph_schema_source: 'research/sd-prompt-research/schemas/visual-concept-graph.schema.json',
   graph_schema_id: 'https://local.sd-prompt-studio/visual-concept-graph-v0.2.schema.json',
   graph_schema_version: '0.2.0',
-  graph_version: '0.2.0',
 })
+
+const GRAPH_VERSION = /^0\.[0-9]+\.[0-9]+$/
 
 const RELATION_ALLOWLIST_ROOT_KEYS = [
   'record_type',
@@ -203,6 +204,8 @@ function validCoverage(coverage) {
 function validSourceBinding(sourceBinding) {
   return hasExactKeys(sourceBinding, SOURCE_BINDING_KEYS)
     && Object.entries(SOURCE_BINDING_CONSTANTS).every(([key, value]) => sourceBinding[key] === value)
+    && typeof sourceBinding.graph_version === 'string'
+    && GRAPH_VERSION.test(sourceBinding.graph_version)
 }
 
 function validNonEmptyStringSet(value) {
@@ -269,7 +272,8 @@ function validateRelationAllowlist(value) {
     || value.graph_schema_source !== SOURCE_BINDING_CONSTANTS.graph_schema_source
     || value.graph_schema_id !== SOURCE_BINDING_CONSTANTS.graph_schema_id
     || value.graph_schema_version !== SOURCE_BINDING_CONSTANTS.graph_schema_version
-    || value.graph_version !== SOURCE_BINDING_CONSTANTS.graph_version
+    || typeof value.graph_version !== 'string'
+    || !GRAPH_VERSION.test(value.graph_version)
     || !Array.isArray(value.relations)
     || value.relations.length !== 1) return 'advisory_relation_contract_invalid'
 
@@ -298,7 +302,8 @@ function validateRelationAllowlist(value) {
 function validateRelationGraph(graphContract, allowlistedRelation) {
   if (!hasExactKeys(graphContract, GRAPH_ROOT_KEYS)
     || graphContract.schema_version !== SOURCE_BINDING_CONSTANTS.graph_schema_version
-    || graphContract.graph_version !== SOURCE_BINDING_CONSTANTS.graph_version
+    || typeof graphContract.graph_version !== 'string'
+    || !GRAPH_VERSION.test(graphContract.graph_version)
     || !Array.isArray(graphContract.concepts)
     || !Array.isArray(graphContract.target_patterns)
     || !Array.isArray(graphContract.model_profiles)

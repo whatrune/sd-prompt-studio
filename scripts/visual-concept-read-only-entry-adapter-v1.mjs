@@ -39,8 +39,9 @@ const BINDING_CONSTANTS = Object.freeze({
   graph_schema_source: 'research/sd-prompt-research/schemas/visual-concept-graph.schema.json',
   graph_schema_id: 'https://local.sd-prompt-studio/visual-concept-graph-v0.2.schema.json',
   graph_schema_version: '0.2.0',
-  graph_version: '0.2.0',
 })
+
+const GRAPH_VERSION = /^0\.[0-9]+\.[0-9]+$/
 
 function isRecord(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -66,6 +67,7 @@ function validateBindingContract(value) {
   for (const [key, expected] of Object.entries(BINDING_CONSTANTS)) {
     if (value[key] !== expected) return 'binding_contract_invalid'
   }
+  if (typeof value.graph_version !== 'string' || !GRAPH_VERSION.test(value.graph_version)) return 'binding_contract_invalid'
   if (!Array.isArray(value.bindings)) return 'binding_contract_invalid'
 
   const bindings = []
@@ -90,9 +92,10 @@ function validatePromptTagRegistry(registry) {
 
 function validateGraphContract(value, boundConceptIds) {
   if (!isRecord(value)) return 'graph_contract_invalid'
-  if (value.schema_version !== BINDING_CONSTANTS.graph_schema_version || value.graph_version !== BINDING_CONSTANTS.graph_version) return 'graph_contract_unsupported'
+  if (value.schema_version !== BINDING_CONSTANTS.graph_schema_version) return 'graph_contract_unsupported'
   if (!hasExactKeys(value, GRAPH_ROOT_KEYS)) return 'graph_contract_invalid'
-  if (typeof value.generated_at !== 'string'
+  if (typeof value.graph_version !== 'string' || !GRAPH_VERSION.test(value.graph_version)
+    || typeof value.generated_at !== 'string'
     || !Array.isArray(value.source_files)
     || !Array.isArray(value.concepts)
     || !Array.isArray(value.relations)
