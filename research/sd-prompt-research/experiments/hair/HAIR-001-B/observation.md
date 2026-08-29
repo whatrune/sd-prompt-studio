@@ -17,12 +17,12 @@
 
 ### Panel 1
 
-- Body State: standing
+- Body State: unclear
 - Body Orientation: vertical
 - Head Orientation: rotated_left
 - Torso Arch: none
 - Support Evidence Visibility: out_of_frame
-- Primary Pose Morphology: standing_pose
+- Primary Pose Morphology: unclear
 - Secondary Pose Morphologies: none_observed
 - Evidence Notes:
   - The torso is visibly upright and vertical, and the visible ear shows the head turned left; feet and the support boundary are out of frame.
@@ -33,12 +33,12 @@
 
 ### Panel 2
 
-- Body State: standing
+- Body State: unclear
 - Body Orientation: vertical
 - Head Orientation: rotated_left
 - Torso Arch: none
 - Support Evidence Visibility: out_of_frame
-- Primary Pose Morphology: standing_pose
+- Primary Pose Morphology: unclear
 - Secondary Pose Morphologies: none_observed
 - Evidence Notes:
   - The torso is visibly upright and vertical, and the visible profile shows the head turned left; feet and the support boundary are out of frame.
@@ -49,12 +49,12 @@
 
 ### Panel 3
 
-- Body State: standing
+- Body State: unclear
 - Body Orientation: vertical
 - Head Orientation: rotated_left
 - Torso Arch: none
 - Support Evidence Visibility: out_of_frame
-- Primary Pose Morphology: standing_pose
+- Primary Pose Morphology: unclear
 - Secondary Pose Morphologies: none_observed
 - Evidence Notes:
   - The torso is visibly upright and vertical, and the face profile shows the head turned left; feet and the support boundary are out of frame.
@@ -65,12 +65,12 @@
 
 ### Panel 4
 
-- Body State: standing
+- Body State: unclear
 - Body Orientation: vertical
 - Head Orientation: rotated_left
 - Torso Arch: none
 - Support Evidence Visibility: out_of_frame
-- Primary Pose Morphology: standing_pose
+- Primary Pose Morphology: unclear
 - Secondary Pose Morphologies: none_observed
 - Evidence Notes:
   - The torso is visibly upright and vertical, and the face profile shows the head turned left; feet and the support boundary are out of frame.
@@ -81,12 +81,12 @@
 
 ### Panel 5
 
-- Body State: standing
+- Body State: unclear
 - Body Orientation: vertical
 - Head Orientation: rotated_left
 - Torso Arch: none
 - Support Evidence Visibility: out_of_frame
-- Primary Pose Morphology: standing_pose
+- Primary Pose Morphology: unclear
 - Secondary Pose Morphologies: none_observed
 - Evidence Notes:
   - The torso is visibly upright and vertical, and the face profile shows the head turned left; feet and the support boundary are out of frame.
@@ -97,12 +97,12 @@
 
 ### Panel 6
 
-- Body State: standing
+- Body State: unclear
 - Body Orientation: vertical
 - Head Orientation: rotated_left
 - Torso Arch: none
 - Support Evidence Visibility: out_of_frame
-- Primary Pose Morphology: standing_pose
+- Primary Pose Morphology: unclear
 - Secondary Pose Morphologies: none_observed
 - Evidence Notes:
   - The torso is visibly upright and vertical, and the face profile shows the head turned left; feet and the support boundary are out of frame.
@@ -113,7 +113,7 @@
 
 ## Computed Aggregate
 
-- Body State: standing=6/6
+- Body State: unclear=6/6
 - Body Orientation: vertical=6/6
 - Head Orientation: rotated_left=6/6
 - Torso Arch: none=6/6
@@ -129,7 +129,7 @@
 
 ## Observed Morphologies
 
-- standing_pose
+- unclear
 
 ## Uncertain
 

@@ -25,13 +25,13 @@
     {
       "panel_id": 1,
       "axis_values": [
-        "standing",
+        "unclear",
         "vertical",
         "rotated_left",
         "none",
         "out_of_frame"
       ],
-      "primary_morphology": "standing_pose",
+      "primary_morphology": "unclear",
       "secondary_morphologies": [],
       "evidence_notes": [
         "The torso is visibly upright and vertical, and the face profile shows the head turned left; feet and the support boundary are out of frame."
@@ -51,13 +51,13 @@
     {
       "panel_id": 2,
       "axis_values": [
-        "standing",
+        "unclear",
         "vertical",
         "rotated_left",
         "none",
         "out_of_frame"
       ],
-      "primary_morphology": "standing_pose",
+      "primary_morphology": "unclear",
       "secondary_morphologies": [],
       "evidence_notes": [
         "The torso is visibly upright and vertical, and the face profile shows the head turned left; feet and the support boundary are out of frame."
@@ -77,13 +77,13 @@
     {
       "panel_id": 3,
       "axis_values": [
-        "standing",
+        "unclear",
         "vertical",
         "rotated_left",
         "none",
         "out_of_frame"
       ],
-      "primary_morphology": "standing_pose",
+      "primary_morphology": "unclear",
       "secondary_morphologies": [],
       "evidence_notes": [
         "The torso is visibly upright and vertical, and the visible ear and profile show the head turned left; feet and the support boundary are out of frame."
@@ -103,13 +103,13 @@
     {
       "panel_id": 4,
       "axis_values": [
-        "standing",
+        "unclear",
         "vertical",
         "rotated_left",
         "none",
         "out_of_frame"
       ],
-      "primary_morphology": "standing_pose",
+      "primary_morphology": "unclear",
       "secondary_morphologies": [],
       "evidence_notes": [
         "The torso is visibly upright and vertical, and the face profile shows the head turned left; feet and the support boundary are out of frame."
@@ -129,13 +129,13 @@
     {
       "panel_id": 5,
       "axis_values": [
-        "standing",
+        "unclear",
         "vertical",
         "rotated_left",
         "none",
         "out_of_frame"
       ],
-      "primary_morphology": "standing_pose",
+      "primary_morphology": "unclear",
       "secondary_morphologies": [],
       "evidence_notes": [
         "The torso is visibly upright and vertical, and the face profile shows the head turned left; feet and the support boundary are out of frame."
@@ -155,13 +155,13 @@
     {
       "panel_id": 6,
       "axis_values": [
-        "standing",
+        "unclear",
         "vertical",
         "rotated_left",
         "none",
         "out_of_frame"
       ],
-      "primary_morphology": "standing_pose",
+      "primary_morphology": "unclear",
       "secondary_morphologies": [],
       "evidence_notes": [
         "The torso is visibly upright and vertical, and the face profile shows the head turned left; feet and the support boundary are out of frame."
@@ -221,7 +221,7 @@
   "computed_aggregate": {
     "axis_counts": {
       "body_state": {
-        "standing": 6
+        "unclear": 6
       },
       "body_orientation": {
         "vertical": 6
@@ -237,7 +237,7 @@
       }
     },
     "primary_morphology_counts": {
-      "standing_pose": 6
+      "unclear": 6
     },
     "secondary_morphology_counts": {},
     "artifact_counts": {
