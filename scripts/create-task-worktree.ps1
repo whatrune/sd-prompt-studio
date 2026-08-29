@@ -12,6 +12,28 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$WorktreePath,
 
+    [Parameter(Mandatory = $true)]
+    [string]$RepositorySlug,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateRange(1, [int]::MaxValue)]
+    [int]$CanonicalTaskId,
+
+    [Parameter(Mandatory = $true)]
+    [string]$Objective,
+
+    [Parameter(Mandatory = $true)]
+    [string[]]$AuthorizedPaths,
+
+    [Parameter(Mandatory = $true)]
+    [string]$ExpectedHead,
+
+    [Parameter(Mandatory = $false)]
+    [Nullable[int]]$ExpectedPullRequest,
+
+    [Parameter(Mandatory = $false)]
+    [string]$ExecutionInstanceId = ([guid]::NewGuid().ToString()),
+
     [Parameter(Mandatory = $false)]
     [string]$DependencyProviderWorktree
 )
@@ -26,6 +48,7 @@ $script:ResolvedTargetPath = $null
 $script:ProviderResolvedPath = $null
 $script:ProviderHead = $null
 $script:ManifestBlobBinding = $null
+$script:ExecutionIdentityProjection = $null
 
 function Invoke-NativeCommand {
     param(
@@ -615,8 +638,44 @@ try {
         throw 'RepositoryPath must identify the canonical main worktree.'
     }
 
-    if ($BaseCommit -notmatch '^[0-9a-fA-F]{40}$') {
-        throw 'BaseCommit must be a full 40-character SHA.'
+    if ($BaseCommit -notmatch '^[0-9a-f]{40}$') {
+        throw 'BaseCommit must be a canonical lower-case full 40-character SHA.'
+    }
+    if ($ExpectedHead -cne $BaseCommit) {
+        throw 'ExpectedHead must equal BaseCommit for a newly created worktree.'
+    }
+    if ($RepositorySlug -notmatch '^[a-z0-9_.-]+/[a-z0-9_.-]+$') {
+        throw 'RepositorySlug must be a canonical lower-case owner/repository identity.'
+    }
+    if ([string]::IsNullOrWhiteSpace($Objective)) {
+        throw 'Objective must be non-empty.'
+    }
+    if ($AuthorizedPaths.Count -eq 0) {
+        throw 'AuthorizedPaths must be non-empty.'
+    }
+    if ($null -ne $ExpectedPullRequest) {
+        throw 'New worktree creation requires expected_pr = null; PR discovery before publication is prohibited.'
+    }
+    if ($ExecutionInstanceId -notmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$') {
+        throw 'ExecutionInstanceId must be a canonical UUID.'
+    }
+
+    $originResult = Invoke-Git -Repository $script:CanonicalPath -Arguments @('remote', 'get-url', 'origin')
+    Assert-GitSuccess -Result $originResult -Operation 'resolve origin repository'
+    $origin = ($originResult.Output -join '')
+    $escapedRepository = [regex]::Escape($RepositorySlug)
+    if ($origin -notmatch "(?i)(github\.com[:/])$escapedRepository(?:\.git)?$") {
+        throw 'RepositorySlug does not match the exact origin repository.'
+    }
+
+    $remoteMainResult = Invoke-Git -Repository $script:CanonicalPath -Arguments @('ls-remote', '--exit-code', 'origin', 'refs/heads/main')
+    Assert-GitSuccess -Result $remoteMainResult -Operation 'resolve fresh remote main'
+    if ($remoteMainResult.Output.Count -ne 1 -or $remoteMainResult.Output[0] -notmatch '^([0-9a-f]{40})\s+refs/heads/main$') {
+        throw 'Fresh remote main response is invalid.'
+    }
+    $remoteMain = $Matches[1]
+    if ($remoteMain -cne $BaseCommit) {
+        throw 'BaseCommit does not match fresh remote main.'
     }
     $baseTypeResult = Invoke-Git -Repository $script:CanonicalPath -Arguments @('cat-file', '-t', $BaseCommit)
     if ($baseTypeResult.ExitCode -ne 0 -or ($baseTypeResult.Output -join '') -cne 'commit') {
@@ -649,6 +708,43 @@ try {
         }
     }
 
+    $nodeCommand = Get-Command node -CommandType Application -ErrorAction Stop | Select-Object -First 1
+    $identityScript = Join-Path $PSScriptRoot 'task-execution-context-v1.mjs'
+    if (-not (Test-Path -LiteralPath $identityScript -PathType Leaf)) {
+        throw 'Bounded execution identity validator is unavailable.'
+    }
+    $canonicalCommon = Get-GitCommonDirectory -Worktree $script:CanonicalPath
+    $identityArguments = @(
+        $identityScript,
+        '--repository', $RepositorySlug,
+        '--canonical-task-id', "#$CanonicalTaskId",
+        '--objective', $Objective,
+        '--branch', $Branch,
+        '--worktree', $script:ResolvedTargetPath,
+        '--git-common-dir', $canonicalCommon,
+        '--expected-base', $BaseCommit,
+        '--expected-head', $ExpectedHead,
+        '--expected-pr', 'null',
+        '--execution-instance-id', $ExecutionInstanceId,
+        '--validate-input-only', 'true'
+    )
+    foreach ($authorizedPath in $AuthorizedPaths) {
+        $identityArguments += @('--authorized-path', $authorizedPath)
+    }
+    $identityInputResult = Invoke-NativeCommand -FilePath $nodeCommand.Source -Arguments $identityArguments -WorkingDirectory $script:CanonicalPath
+    if ($identityInputResult.ExitCode -ne 0 -or $identityInputResult.Output.Count -ne 1) {
+        throw 'execution_identity_mismatch'
+    }
+    try {
+        $identityInputProjection = $identityInputResult.Output[0] | ConvertFrom-Json
+    }
+    catch {
+        throw 'execution_identity_mismatch'
+    }
+    if ($identityInputProjection.admitted -ne $true -or $identityInputProjection.phase -cne 'INPUT_VALIDATED') {
+        throw 'execution_identity_mismatch'
+    }
+
     $pnpmCommand = Get-Command pnpm.cmd -CommandType Application -ErrorAction Stop | Select-Object -First 1
 
     $addResult = Invoke-NativeCommand -FilePath $script:GitExecutable -Arguments @(
@@ -677,6 +773,35 @@ try {
     if ((Get-OptionalGitConfig -Repository $script:ResolvedTargetPath -Key 'core.autocrlf') -cne 'false' -or
         (Get-OptionalGitConfig -Repository $script:ResolvedTargetPath -Key 'core.eol') -cne 'lf') {
         throw 'Target LF configuration verification failed.'
+    }
+
+    $identityArguments = @(
+        $identityScript,
+        '--repository', $RepositorySlug,
+        '--canonical-task-id', "#$CanonicalTaskId",
+        '--objective', $Objective,
+        '--branch', $Branch,
+        '--worktree', $script:ResolvedTargetPath,
+        '--expected-base', $BaseCommit,
+        '--expected-head', $ExpectedHead,
+        '--expected-pr', 'null',
+        '--execution-instance-id', $ExecutionInstanceId
+    )
+    foreach ($authorizedPath in $AuthorizedPaths) {
+        $identityArguments += @('--authorized-path', $authorizedPath)
+    }
+    $identityResult = Invoke-NativeCommand -FilePath $nodeCommand.Source -Arguments $identityArguments -WorkingDirectory $script:CanonicalPath
+    if ($identityResult.ExitCode -ne 0 -or $identityResult.Output.Count -ne 1) {
+        throw 'execution_identity_mismatch'
+    }
+    try {
+        $script:ExecutionIdentityProjection = $identityResult.Output[0] | ConvertFrom-Json
+    }
+    catch {
+        throw 'execution_identity_mismatch'
+    }
+    if ($script:ExecutionIdentityProjection.admitted -ne $true) {
+        throw 'execution_identity_mismatch'
     }
 
     $targetManifestBefore = Get-ManifestSnapshot -Worktree $script:ResolvedTargetPath
@@ -799,13 +924,17 @@ Write-Output "exact_base=$BaseCommit"
 Write-Output "branch=$Branch"
 Write-Output "worktree=$($script:ResolvedTargetPath)"
 Write-Output "dependency_route=$($script:DependencyRoute)"
+Write-Output "canonical_task_id=#$CanonicalTaskId"
+Write-Output "objective_digest=$($script:ExecutionIdentityProjection.objective_digest)"
+Write-Output "authorized_paths_digest=$($script:ExecutionIdentityProjection.authorized_paths_digest)"
+Write-Output "execution_instance_id=$($script:ExecutionIdentityProjection.execution_instance_id)"
 if ($script:DependencyRoute -ceq 'explicit_provider_junction') {
     Write-Output 'dependency_route: explicit_provider_junction'
-    Write-Output 'dependency_storage: shared mutable dependency cache'
+    Write-Output 'dependency_storage: shared read-only dependency payload'
     Write-Output "provider_resolved_path: $($script:ProviderResolvedPath)"
     Write-Output "provider_head: $($script:ProviderHead)"
     Write-Output "manifest_blob_binding: $($script:ManifestBlobBinding)"
     Write-Output 'target_pnpm_process_environment: PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false'
-    Write-Output 'provider_invariant: Git state, manifest blob binding, installed package content, and resolved dependency graph must remain unchanged; package-manager metadata bytes and timestamps may change.'
+    Write-Output 'provider_invariant: Git state, manifest blob binding, installed package content, and resolved dependency graph must remain unchanged; package-manager mutation through the shared junction is prohibited.'
 }
 exit 0

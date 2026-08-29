@@ -52,6 +52,26 @@ Task Assignmentは作業開始前に、共通identity fieldと次を含む。
 
 AssignmentにはRepositoryのTask Assignment Templateを使用できる。会話内の補足がauthority、Contract、scope判断を含む場合、direct canonical recordへ累積する。
 
+### Bounded Execution Identity V1
+
+Every active execution derives one immutable, process-local execution identity from its admitted Task Assignment:
+
+| Field | Required meaning |
+| --- | --- |
+| `repository` | exact canonical `owner/repository` |
+| `canonical_task_id` | exact Task Issue identity |
+| `objective` / `objective_digest` | whitespace-normalized objective and SHA-256 digest |
+| `branch` | exact assigned branch |
+| `worktree_path` | canonical absolute path of the exact registered worktree |
+| `git_common_dir` | canonical absolute Git common-directory identity |
+| `authorized_paths` / `authorized_paths_digest` | sorted unique repository-relative paths and SHA-256 digest |
+| `expected_base` | freshly resolved remote-main full SHA |
+| `expected_pr` | `null` before publication; exact PR number after publication |
+| `expected_head` | exact current execution full SHA |
+| `execution_instance_id` | process-local UUID used only for correlation |
+
+This projection is not a new record schema, authority, Task-state, generation, or lifecycle evidence. It is never published or reused to authorize a protected action. A new HEAD or publication state creates a new in-process projection from the same canonical Task authority; it does not create a historical evidence chain.
+
 ## Result Handoff Contract
 
 Result Handoffは共通identity fieldと次を含む。
