@@ -208,10 +208,24 @@ function canonicalExistingPath(value) {
   return path.normalize(realpathSync.native(value)).replace(/[\\/]$/, '')
 }
 
-export function observeLocalWorktreeV1(identity, { remoteMainSha } = {}) {
+function originMatchesRepositoryV1(origin, repository) {
+  const escaped = repository.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`github\\.com[:/]${escaped}(?:\\.git)?$`, 'i').test(origin)
+}
+
+function resolveRemoteMainV1(worktree) {
+  const output = runGit(worktree, ['ls-remote', '--exit-code', 'origin', 'refs/heads/main'])
+  const match = output.match(/^([0-9a-f]{40})\s+refs\/heads\/main$/)
+  if (!match) mismatch('expected_base_remote_main')
+  return match[1]
+}
+
+export function observeLocalWorktreeV1(identity) {
   const worktree = canonicalExistingPath(identity.worktree_path)
   const topLevel = canonicalExistingPath(runGit(worktree, ['rev-parse', '--show-toplevel']))
   if (!exactPathEqual(worktree, topLevel)) mismatch('worktree_path')
+  const origin = runGit(worktree, ['remote', 'get-url', 'origin'])
+  if (!originMatchesRepositoryV1(origin, identity.repository)) mismatch('repository_origin')
   const commonDir = canonicalExistingPath(runGit(worktree, ['rev-parse', '--path-format=absolute', '--git-common-dir']))
   const rows = runGit(worktree, ['worktree', 'list', '--porcelain']).split(/\r?\n/)
   const registeredPaths = rows.filter((row) => row.startsWith('worktree ')).map((row) => canonicalExistingPath(row.slice(9)))
@@ -226,7 +240,7 @@ export function observeLocalWorktreeV1(identity, { remoteMainSha } = {}) {
     registered_worktree_path: exactRegistrations[0],
     git_common_dir: commonDir,
     authorized_paths: identity.authorized_paths,
-    remote_main_sha: normalizeShaV1(remoteMainSha, 'expected_base_remote_main'),
+    remote_main_sha: resolveRemoteMainV1(worktree),
     head: runGit(worktree, ['rev-parse', 'HEAD']),
     pr_lookup_attempted: false,
     pr: null,
@@ -274,7 +288,6 @@ function parseCliArgs(argv) {
     'branch',
     'worktree',
     'expected-base',
-    'remote-main-sha',
     'expected-head',
     'expected-pr',
     'execution-instance-id',
@@ -312,7 +325,7 @@ function runCli() {
     expected_head: args.get('expected-head'),
     execution_instance_id: args.get('execution-instance-id'),
   })
-  const localObservation = observeLocalWorktreeV1(identity, { remoteMainSha: args.get('remote-main-sha') })
+  const localObservation = observeLocalWorktreeV1(identity)
   const observed = bindExpectedPullRequestV1(identity, localObservation, fetchExpectedPullRequestWithGh)
   assertBoundedExecutionContextV1(identity, observed)
   process.stdout.write(`${JSON.stringify({

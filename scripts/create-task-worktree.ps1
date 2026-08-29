@@ -751,7 +751,6 @@ try {
         '--branch', $Branch,
         '--worktree', $script:ResolvedTargetPath,
         '--expected-base', $BaseCommit,
-        '--remote-main-sha', $remoteMain,
         '--expected-head', $ExpectedHead,
         '--expected-pr', 'null',
         '--execution-instance-id', $ExecutionInstanceId
