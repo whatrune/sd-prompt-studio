@@ -70,15 +70,21 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Evaluate the live protected operation
+      - name: Evaluate the live Ready operation
+        if: github.event_name == 'workflow_dispatch'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          READY_BOT_TOKEN: ${{ github.event_name == 'workflow_dispatch' && secrets.READY_BOT_TOKEN || '' }}
+          READY_BOT_TOKEN: ${{ secrets.READY_BOT_TOKEN }}
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
-            node scripts/run-protected-transition-admission-v1.mjs --simplified-workflow-dispatch-event-file "$GITHUB_EVENT_PATH"
-          else
-            node scripts/run-protected-transition-admission-v1.mjs --simplified-issue-comment-event-file "$GITHUB_EVENT_PATH"
-          fi
+          node scripts/run-protected-transition-admission-v1.mjs --simplified-workflow-dispatch-event-file "$GITHUB_EVENT_PATH"
+
+      - name: Evaluate the live Merge operation
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node scripts/run-protected-transition-admission-v1.mjs --simplified-issue-comment-event-file "$GITHUB_EVENT_PATH"

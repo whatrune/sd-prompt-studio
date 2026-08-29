@@ -419,14 +419,15 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
     },
   })
   await host.api('repos/whatrune/sd-prompt-studio/pulls/434')
-  await host.graphql('mutation Ready', {}, { diagnostic_operation: 'READY_MUTATION' })
+  const readyResult = await host.graphql('mutation Ready', {}, { diagnostic_operation: 'READY_MUTATION' })
   await host.api('repos/whatrune/sd-prompt-studio/pulls/434')
-  await host.graphql('mutation Merge', {}, { diagnostic_operation: 'MERGE_MUTATION' })
+  const mergeResult = await host.graphql('mutation Merge', {}, { diagnostic_operation: 'MERGE_MUTATION' })
   equal(authorizations[0][1], 'Bearer github-read-token')
   equal(authorizations[1][1], 'Bearer ready-bot-secret')
   equal(authorizations[2][1], 'Bearer github-read-token')
   equal(authorizations[3][1], 'Bearer github-read-token')
-  equal(JSON.stringify(authorizations).includes('ready-bot-secret'), true)
+  equal(JSON.stringify(readyResult).includes('ready-bot-secret'), false)
+  equal(JSON.stringify(mergeResult).includes('ready-bot-secret'), false)
 }
 {
   const environment = { READY_BOT_TOKEN: 'ready-bot-secret', GH_TOKEN: 'github-read-token' }
@@ -466,9 +467,11 @@ const workflow = readFileSync(new URL('../.github/workflows/protected-transition
 ok(workflow.includes('simplified_protected_transition_v1:'))
 ok(workflow.includes('persist-credentials: false'))
 ok(workflow.includes('github.workflow_sha'))
-ok(workflow.includes("READY_BOT_TOKEN: ${{ github.event_name == 'workflow_dispatch' && secrets.READY_BOT_TOKEN || '' }}"))
+ok(workflow.includes('Evaluate the live Ready operation'))
+ok(workflow.includes('Evaluate the live Merge operation'))
+ok(workflow.includes('READY_BOT_TOKEN: ${{ secrets.READY_BOT_TOKEN }}'))
 equal((workflow.match(/READY_BOT_TOKEN:/g) ?? []).length, 1)
-equal((workflow.match(/GH_TOKEN: \$\{\{ github\.token \}\}/g) ?? []).length, 1)
+equal((workflow.match(/GH_TOKEN: \$\{\{ github\.token \}\}/g) ?? []).length, 2)
 equal((workflow.match(/^    runs-on:/gm) ?? []).length, 1)
 for (const retired of ['ready_transition_required_resume', 'minimal_governance', 'terminal_observation', 'protected_transition_task_state']) {
   equal(workflow.includes(retired), false)
