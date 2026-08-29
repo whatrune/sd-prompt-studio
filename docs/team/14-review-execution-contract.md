@@ -11,7 +11,7 @@ uses: assignment_shape, result_handoff_shape, handoff_status, shared_admission, 
 
 This document is the sole normative owner for review admission, review findings, and Review Decision records. Shared authority, Repository Reality, protected actions, failure behavior, correction, Resume, completion, finding-closure authority, and Merge sequencing come from the [Shared Role Execution Contract](13-shared-role-execution-contract.md). Assignment and Result Handoff shapes come from the [Delegation and Result Contract](11-delegation-and-result-contract.md).
 
-For Simplified Autonomous Lifecycle V1, one authenticated GitHub Pull Request Review is the preferred authoritative Review surface. It MUST be authored by an `OWNER`, `MEMBER`, or `COLLABORATOR` other than the implementation PR author, be tied to the exact current commit OID, have state `APPROVED`, and carry the closed decision `blocking / remaining / unknown = 0 / 0 / 0`. The bounded Task Issue comment compatibility surface below applies only when Pull Request Review publication is unavailable. A HEAD change makes either surface stale and requires a fresh Review. Task-state, Result Handoff, Gate Status, Ready history, and terminal-observation records are status only and do not block or authorize Review or Merge.
+For Non-Draft Merge-only Lifecycle V1, one authenticated GitHub Pull Request Review is the preferred authoritative Review surface. It MUST be authored by an `OWNER`, `MEMBER`, or `COLLABORATOR` other than the implementation PR author, be tied to the exact current commit OID, have state `APPROVED`, and carry the closed decision `blocking / remaining / unknown = 0 / 0 / 0`. The bounded Task Issue comment compatibility surface below applies only when Pull Request Review publication is unavailable. A HEAD change makes either surface stale and requires a fresh Review. Task-state, Result Handoff, Gate Status, historical Ready records, and terminal-observation records are status only and do not block or authorize Review or Merge.
 
 ## Review Admission
 
@@ -69,13 +69,13 @@ The reviewer MUST record the applicable condition and scope of any rerun. A reru
 
 ## Gate Status Overlay
 
-Before relying on Gate Status, the reviewer MUST fresh-fetch the PR body and every cited canonical record. The reviewer MUST verify current HEAD, applicable Final Regression and Operational Validation results, Draft or Ready state, independent Ready, Approve, and Merge fields, current blocker, and next gate.
+Before relying on Gate Status, the reviewer MUST fresh-fetch the PR body and every cited canonical record. The reviewer MUST verify current HEAD, applicable Final Regression and Operational Validation results, non-Draft or explicit manual-Draft publication state, Approve and Merge fields, current blocker, and next gate.
 
 A stale, missing, or conflicting Gate Status entry is a review finding. The reviewer MUST require same-task metadata-only correction. The dependent read-only gate MUST be rerun unless the Shared Role Execution Contract's projection-only reuse admission conditions are all satisfied. The reviewer MUST NOT silently repair metadata or treat CI success as completion.
 
 The dependent read-only gate MAY reuse verified post-write evidence only under the Gate Status projection-only conditions in the Shared Role Execution Contract. Any HEAD or cumulative-authority change, non-projection edit, missing digest, failed post-write re-fetch, concurrent edit, or mismatch requires rerun and fail-closed handling.
 
-After a HEAD change, prior approval is historical and a fresh exact-HEAD Review is required. GitHub's non-Draft publication state remains unchanged; no Draft return, Ready replay, or publication-generation replay is required.
+After a HEAD change, prior approval is historical and a fresh exact-HEAD Review is required. GitHub's publication state remains unchanged; no publication-generation replay is required.
 
 ## Review Decision Record
 
@@ -111,4 +111,4 @@ The reviewer MUST publish one canonical terminal result:
 - changes required when review completed and blocking correction is assigned; or
 - blocked when review cannot complete because required authority or evidence is unavailable.
 
-This result completes only the Review Task. Ready, Approve, Merge, finding closure, metadata correction, and artifact completion remain separate authorities and records.
+This result completes only the Review Task. Approve, Merge, finding closure, metadata correction, and artifact completion remain separate authorities and records.

@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs'
 import {
   evaluateRequiredChecksV1,
   executeSimplifiedMergeV1,
-  executeSimplifiedReadyV1,
   parseSimplifiedMergeDecisionV1,
   parseSimplifiedReviewV1,
   parseSimplifiedTaskAuthorityV1,
@@ -73,15 +72,15 @@ const check = (name, appDatabaseId, overrides = {}) => ({
   ...overrides,
 })
 
-const createFixture = ({ draft = false, reviewHead = HEAD, paths = PATHS, threads = [], checks, main = BASE, readyError = null } = {}) => {
+const createFixture = ({ draft = false, reviewHead = HEAD, paths = PATHS, threads = [], checks, main = BASE, mergeError = null } = {}) => {
   const state = {
     draft,
     merged: false,
     head: HEAD,
     main,
     mergeCommit: null,
-    readyMutations: 0,
     mergeMutations: 0,
+    mergeExpectedHead: null,
   }
   const checkNodes = checks ?? [check('build-preview', 15368), check('Cloudflare Pages', 85455)]
   const taskBody = serializeSimplifiedTaskAuthorityV1(taskInput)
@@ -115,7 +114,7 @@ const createFixture = ({ draft = false, reviewHead = HEAD, paths = PATHS, thread
       if (route === `repos/${REPOSITORY}/git/commits/${MERGE}`) return { sha: MERGE, parents: [{ sha: BASE }, { sha: HEAD }] }
       throw new Error(`unexpected_api:${route}`)
     },
-    async graphql(query) {
+    async graphql(query, variables) {
       if (query.includes('query SimplifiedChecks')) {
         return { repository: { object: { oid: HEAD, statusCheckRollup: { contexts: { nodes: checkNodes, pageInfo: { hasNextPage: false, endCursor: null } } } } } }
       }
@@ -131,14 +130,10 @@ const createFixture = ({ draft = false, reviewHead = HEAD, paths = PATHS, thread
           reviewThreads: { nodes: threads, pageInfo: { hasNextPage: false, endCursor: null } },
         } } }
       }
-      if (query.includes('mutation MarkSimplifiedReady')) {
-        if (readyError !== null) throw readyError
-        state.readyMutations += 1
-        state.draft = false
-        return { markPullRequestReadyForReview: { pullRequest: { id: 'PR_node_430', number: PR, state: 'OPEN', isDraft: false, merged: false, headRefOid: HEAD } } }
-      }
       if (query.includes('mutation MergeSimplifiedPullRequest')) {
+        if (mergeError !== null) throw mergeError
         state.mergeMutations += 1
+        state.mergeExpectedHead = variables?.expectedHeadOid ?? null
         state.merged = true
         state.mergeCommit = MERGE
         state.main = MERGE
@@ -157,13 +152,6 @@ const mergeEvent = (decision = decisionInput()) => ({
   comment: { user: { login: 'whatrune' }, body: serializeSimplifiedMergeDecisionV1(decision) },
 })
 
-const readyEvent = () => ({
-  action: 'workflow_dispatch',
-  repository: { full_name: REPOSITORY },
-  sender: { login: 'whatrune' },
-  inputs: { operation: 'ready', task_issue_number: String(TASK), pr_number: String(PR), exact_head: HEAD, review_id: String(REVIEW), review_kind: 'PULL_REQUEST_REVIEW' },
-})
-
 let assertions = 0
 const equal = (actual, expected) => { assert.equal(actual, expected); assertions += 1 }
 const ok = (actual) => { assert.ok(actual); assertions += 1 }
@@ -180,6 +168,9 @@ const captureError = async (fn) => {
 const taskBody = serializeSimplifiedTaskAuthorityV1(taskInput)
 equal(parseSimplifiedTaskAuthorityV1(taskBody).objective, taskInput.objective)
 equal(serializeSimplifiedTaskAuthorityV1(parseSimplifiedTaskAuthorityV1(taskBody)), taskBody)
+equal(parseSimplifiedTaskAuthorityV1(taskBody).ready_allowed, true)
+const taskBodyWithoutReadyPermission = serializeSimplifiedTaskAuthorityV1({ ...taskInput, ready_allowed: false })
+equal(parseSimplifiedTaskAuthorityV1(taskBodyWithoutReadyPermission).ready_allowed, false)
 const reviewBody = serializeSimplifiedReviewV1(reviewInput())
 equal(parseSimplifiedReviewV1(reviewBody).reviewed_head, HEAD)
 equal(serializeSimplifiedReviewV1(parseSimplifiedReviewV1(reviewBody)), reviewBody)
@@ -203,6 +194,7 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
   equal(result.reason, 'merge_completed')
   equal(result.mutation_count, 1)
   equal(fixture.state.mergeMutations, 1)
+  equal(fixture.state.mergeExpectedHead, HEAD)
   equal(result.merge_commit, MERGE)
 }
 {
@@ -231,12 +223,9 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
 }
 {
   const fixture = createFixture({ draft: true })
-  const result = await executeSimplifiedReadyV1({ event: readyEvent(), host: fixture.host })
-  equal(result.state, 'COMPLETED')
-  equal(result.mutation_count, 1)
-  equal(fixture.state.readyMutations, 1)
-  equal(fixture.state.draft, false)
-  equal(result.mutation_diagnostic, undefined)
+  const result = await executeSimplifiedMergeV1({ event: mergeEvent(), host: fixture.host })
+  equal(result.reason, 'live_binding_invalid')
+  equal(fixture.state.mergeMutations, 0)
 }
 {
   const host = createProductionHostV1({
@@ -246,12 +235,12 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
     }), { status: 200, headers: { 'x-github-request-id': 'REQ:PERMISSION' } }),
   })
   const error = await captureError(() => host.graphql(
-    'mutation MarkSimplifiedReady { viewer { login } }',
+    'mutation MergeSimplifiedPullRequest { viewer { login } }',
     {},
-    { diagnostic_operation: 'READY_MUTATION' },
+    { diagnostic_operation: 'MERGE_MUTATION' },
   ))
   const diagnostic = error.mutation_diagnostic
-  equal(diagnostic.phase, 'READY_MUTATION_GRAPHQL_RESPONSE')
+  equal(diagnostic.phase, 'MERGE_MUTATION_GRAPHQL_RESPONSE')
   equal(diagnostic.request_dispatch_started, true)
   equal(diagnostic.response_received, true)
   equal(diagnostic.http_status, 200)
@@ -265,14 +254,14 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
   equal(JSON.stringify(diagnostic).includes('test-token'), false)
   equal(JSON.stringify(diagnostic).includes('Authorization'), false)
 
-  const fixture = createFixture({ draft: true, readyError: error })
-  const result = await executeSimplifiedReadyV1({ event: readyEvent(), host: fixture.host })
+  const fixture = createFixture({ mergeError: error })
+  const result = await executeSimplifiedMergeV1({ event: mergeEvent(), host: fixture.host })
   equal(result.state, 'INDETERMINATE')
-  equal(result.reason, 'ready_outcome_unknown')
+  equal(result.reason, 'merge_outcome_unknown')
   equal(result.outcome, 'OUTCOME_UNKNOWN')
   equal(result.mutation_count, 1)
-  equal(result.mutation_diagnostic.phase, 'READY_MUTATION_GRAPHQL_RESPONSE')
-  equal(fixture.state.readyMutations, 0)
+  equal(result.mutation_diagnostic.phase, 'MERGE_MUTATION_GRAPHQL_RESPONSE')
+  equal(fixture.state.mergeMutations, 0)
 }
 {
   const secretMessages = [
@@ -291,9 +280,9 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
     }), { status: 200, headers: { 'x-github-request-id': 'REQ:CREDENTIALS' } }),
   })
   const error = await captureError(() => host.graphql(
-    'mutation MarkSimplifiedReady { viewer { login } }',
+    'mutation MergeSimplifiedPullRequest { viewer { login } }',
     {},
-    { diagnostic_operation: 'READY_MUTATION' },
+    { diagnostic_operation: 'MERGE_MUTATION' },
   ))
   const diagnostic = error.mutation_diagnostic
   equal(
@@ -323,14 +312,70 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
     }), { status: 200, headers: { 'x-github-request-id': 'REQ:TEXT' } }),
   })
   const error = await captureError(() => host.graphql(
-    'mutation MarkSimplifiedReady { viewer { login } }',
+    'mutation MergeSimplifiedPullRequest { viewer { login } }',
     {},
-    { diagnostic_operation: 'READY_MUTATION' },
+    { diagnostic_operation: 'MERGE_MUTATION' },
   ))
   const diagnostic = error.mutation_diagnostic
   equal(diagnostic.graphql_errors[0].message, 'Denied by [REDACTED_URL]')
   equal(diagnostic.graphql_errors[1].message, 'ordinary non-secret diagnostic text')
   equal(JSON.stringify(diagnostic).includes('url-secret'), false)
+}
+{
+  const urlLikeMessages = [
+    'Denied by //example.test/private?token=protocol-relative-secret',
+    'Denied by 192.0.2.10/private?token=ipv4-secret',
+    'Denied by [2001:db8::1]/private?token=ipv6-secret',
+    'Denied by 2001:db8::1/private?token=bare-ipv6-secret',
+    'Denied by localhost/private?secret=localhost-secret',
+    'Denied by example.test/private?secret=host-path-secret',
+    'Denied by user:password@example.test/private?secret=userinfo-secret',
+    'Denied by user:password@[2001:db8::1]/private?secret=ipv6-userinfo-secret',
+  ]
+  const host = createProductionHostV1({
+    token: 'test-token',
+    fetchImpl: async () => new Response(JSON.stringify({
+      errors: urlLikeMessages.map((message) => ({ type: 'FORBIDDEN', message })),
+    }), { status: 200, headers: { 'x-github-request-id': 'REQ:URL-FORMS' } }),
+  })
+  const error = await captureError(() => host.graphql(
+    'mutation MergeSimplifiedPullRequest { viewer { login } }',
+    {},
+    { diagnostic_operation: 'MERGE_MUTATION' },
+  ))
+  for (const entry of error.mutation_diagnostic.graphql_errors) {
+    equal(entry.message, 'Denied by [REDACTED_URL]')
+  }
+  for (const fragment of [
+    'example.test', '192.0.2.10', '2001:db8', 'localhost', 'password',
+    'protocol-relative-secret', 'ipv4-secret', 'ipv6-secret', 'bare-ipv6-secret',
+    'localhost-secret', 'host-path-secret', 'userinfo-secret', 'ipv6-userinfo-secret',
+  ]) {
+    equal(JSON.stringify(error.mutation_diagnostic).includes(fragment), false)
+  }
+
+  const projectionError = new Error('raw_projection_failure')
+  Object.defineProperty(projectionError, 'mutation_diagnostic', { value: {
+    phase: 'MERGE_MUTATION_GRAPHQL_RESPONSE',
+    request_dispatch_started: true,
+    response_received: true,
+    http_status: 200,
+    github_request_id: 'REQ:RAW-PROJECTION',
+    graphql_errors: [
+      { type: 'FORBIDDEN', message: 'Projection saw //example.test/private?token=projection-secret' },
+      { type: 'FORBIDDEN', message: 'Authorization: Bearer projection-bearer-secret' },
+      { type: 'FORBIDDEN', message: 'Projection saw user:password@[2001:db8::1]/private?token=projection-ipv6-userinfo-secret' },
+    ],
+    network_exception: null,
+  } })
+  const fixture = createFixture({ mergeError: projectionError })
+  const result = await executeSimplifiedMergeV1({ event: mergeEvent(), host: fixture.host })
+  equal(result.mutation_diagnostic.graphql_errors[0].message, 'Projection saw [REDACTED_URL]')
+  equal(result.mutation_diagnostic.graphql_errors[1].message, 'Authorization: Bearer [REDACTED]')
+  equal(result.mutation_diagnostic.graphql_errors[2].message, 'Projection saw [REDACTED_URL]')
+  equal(JSON.stringify(result.mutation_diagnostic).includes('projection-secret'), false)
+  equal(JSON.stringify(result.mutation_diagnostic).includes('projection-bearer-secret'), false)
+  equal(JSON.stringify(result.mutation_diagnostic).includes('projection-ipv6-userinfo-secret'), false)
 }
 {
   const host = createProductionHostV1({
@@ -340,8 +385,8 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
       headers: { 'x-github-request-id': 'REQ:HTTP' },
     }),
   })
-  const error = await captureError(() => host.graphql('mutation Ready', {}, { diagnostic_operation: 'READY_MUTATION' }))
-  equal(error.mutation_diagnostic.phase, 'READY_MUTATION_HTTP_RESPONSE')
+  const error = await captureError(() => host.graphql('mutation Merge', {}, { diagnostic_operation: 'MERGE_MUTATION' }))
+  equal(error.mutation_diagnostic.phase, 'MERGE_MUTATION_HTTP_RESPONSE')
   equal(error.mutation_diagnostic.request_dispatch_started, true)
   equal(error.mutation_diagnostic.response_received, true)
   equal(error.mutation_diagnostic.http_status, 403)
@@ -357,8 +402,8 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
       throw error
     },
   })
-  const error = await captureError(() => host.graphql('mutation Ready', {}, { diagnostic_operation: 'READY_MUTATION' }))
-  equal(error.mutation_diagnostic.phase, 'READY_MUTATION_TRANSPORT')
+  const error = await captureError(() => host.graphql('mutation Merge', {}, { diagnostic_operation: 'MERGE_MUTATION' }))
+  equal(error.mutation_diagnostic.phase, 'MERGE_MUTATION_TRANSPORT')
   equal(error.mutation_diagnostic.request_dispatch_started, true)
   equal(error.mutation_diagnostic.response_received, false)
   equal(error.mutation_diagnostic.http_status, null)
@@ -375,8 +420,8 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
       headers: { 'x-github-request-id': 'REQ:MALFORMED' },
     }),
   })
-  const error = await captureError(() => host.graphql('mutation Ready', {}, { diagnostic_operation: 'READY_MUTATION' }))
-  equal(error.mutation_diagnostic.phase, 'READY_MUTATION_RESPONSE_PARSE')
+  const error = await captureError(() => host.graphql('mutation Merge', {}, { diagnostic_operation: 'MERGE_MUTATION' }))
+  equal(error.mutation_diagnostic.phase, 'MERGE_MUTATION_RESPONSE_PARSE')
   equal(error.mutation_diagnostic.request_dispatch_started, true)
   equal(error.mutation_diagnostic.response_received, true)
   equal(error.mutation_diagnostic.http_status, 200)
@@ -395,12 +440,6 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
   equal(fixture.state.mergeMutations, 1)
 }
 {
-  const fixture = createFixture({ draft: false })
-  const result = await executeSimplifiedReadyV1({ event: readyEvent(), host: fixture.host })
-  equal(result.reason, 'live_binding_invalid')
-  equal(fixture.state.readyMutations, 0)
-}
-{
   const fixture = createFixture()
   const result = await executeSimplifiedMergeV1({ event: {
     action: 'created', repository: { full_name: REPOSITORY },
@@ -412,9 +451,18 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
 }
 
 const workflow = readFileSync(new URL('../.github/workflows/protected-transition-admission-v1.yml', import.meta.url), 'utf8')
+const preflightSource = readFileSync(new URL('./protected-transition-merge-operator-preflight-v1.mjs', import.meta.url), 'utf8')
+const runnerSource = readFileSync(new URL('./run-protected-transition-admission-v1.mjs', import.meta.url), 'utf8')
 ok(workflow.includes('simplified_protected_transition_v1:'))
 ok(workflow.includes('persist-credentials: false'))
 ok(workflow.includes('github.workflow_sha'))
+ok(workflow.includes('issue_comment:'))
+equal(workflow.includes('workflow_dispatch:'), false)
+equal(workflow.includes('READY_BOT_TOKEN'), false)
+equal(preflightSource.includes('executeSimplifiedReadyV1'), false)
+equal(preflightSource.includes('markPullRequestReadyForReview'), false)
+equal(preflightSource.includes('READY_MUTATION'), false)
+equal(runnerSource.includes('simplified-workflow-dispatch-event-file'), false)
 equal((workflow.match(/^    runs-on:/gm) ?? []).length, 1)
 for (const retired of ['ready_transition_required_resume', 'minimal_governance', 'terminal_observation', 'protected_transition_task_state']) {
   equal(workflow.includes(retired), false)

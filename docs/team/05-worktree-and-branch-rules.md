@@ -105,7 +105,8 @@ git worktree add .worktrees/<task> -b codex/<role>-<purpose> origin/main
 
 ## PR Rules
 
-- 指定がなければDraft PRとして作成する。
+- 通常の自律Publicationではnon-Draft PRとして作成する。DraftはProduct Ownerがmanual working stateとして明示的に要求した場合だけ使用する。
+- Draft PRはMerge対象にせず、自律LifecycleはDraftからnon-Draftへの状態変更を所有しない。
 - PR本文にはPurpose、Background、User impact、Changes、Validation、Unverified itemsを含める。
 - Contract PRはImplementationを含めない。
 - Implementation PRは対象Freeze Contractを変更しない。

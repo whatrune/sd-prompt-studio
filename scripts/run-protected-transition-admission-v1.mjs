@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import {
   executeSimplifiedMergeV1,
-  executeSimplifiedReadyV1,
   serializeSimplifiedMergeDecisionV1,
   serializeSimplifiedReviewV1,
   serializeSimplifiedTaskAuthorityV1,
@@ -22,8 +21,16 @@ const redactCredentialBearingText = (value) => String(value ?? 'github_request_f
   )
   .replace(/(\b(?:set-cookie|cookie)\s*:\s*)[^\r\n]*/giu, '$1[REDACTED]')
 
-const boundedMessage = (value) => redactCredentialBearingText(value)
-  .replace(/(?:[A-Za-z][A-Za-z0-9+.-]*:\/\/|www\.)[^\s<>"']+/gu, '[REDACTED_URL]')
+const redactUrlLikeTokens = (value) => String(value)
+  .replace(/\b[^\s<>"'@/:]+:[^\s<>"'@/]+@(?:\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]+)(?::\d+)?(?:\/[^\s<>"']*)?/gu, '[REDACTED_URL]')
+  .replace(/(?:(?:[A-Za-z][A-Za-z0-9+.-]*:)?\/\/|www\.)[^\s<>"']+/gu, '[REDACTED_URL]')
+  .replace(/\[[0-9A-Fa-f:.]+\](?::\d+)?(?:\/[^\s<>"']*)?/gu, '[REDACTED_URL]')
+  .replace(/\b(?:[0-9A-Fa-f]{1,4}:){2,}[0-9A-Fa-f:]*\/[^\s<>"']*/gu, '[REDACTED_URL]')
+  .replace(/\b(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?(?:\/[^\s<>"']*)?/gu, '[REDACTED_URL]')
+  .replace(/\blocalhost(?::\d+)?(?:\/[^\s<>"']*)?/giu, '[REDACTED_URL]')
+  .replace(/\b(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,63}(?::\d+)?\/[^\s<>"']*/gu, '[REDACTED_URL]')
+
+const boundedMessage = (value) => redactUrlLikeTokens(redactCredentialBearingText(value))
   .replace(/[\r\n\t]+/gu, ' ')
   .slice(0, 512)
 
@@ -190,13 +197,9 @@ if (process.argv[1] !== undefined && pathToFileURL(process.argv[1]).href === imp
     process.stdout.write(body)
   } else {
     const issueEventFile = valueAfter('--simplified-issue-comment-event-file')
-    const dispatchEventFile = valueAfter('--simplified-workflow-dispatch-event-file')
-    if ((issueEventFile === null) === (dispatchEventFile === null)) throw new Error('exactly_one_event_file_required')
-    const event = readJson(issueEventFile ?? dispatchEventFile)
-    if (dispatchEventFile !== null) event.action = 'workflow_dispatch'
-    const plan = issueEventFile !== null
-      ? await executeSimplifiedMergeV1({ event, host: createProductionHostV1() })
-      : await executeSimplifiedReadyV1({ event, host: createProductionHostV1() })
+    if (issueEventFile === null) throw new Error('issue_comment_event_file_required')
+    const event = readJson(issueEventFile)
+    const plan = await executeSimplifiedMergeV1({ event, host: createProductionHostV1() })
     process.stdout.write(`${JSON.stringify(plan)}\n`)
     process.exitCode = plan.exit_code
   }

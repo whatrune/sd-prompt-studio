@@ -1,34 +1,6 @@
 name: Simplified Protected Transition V1
 
 "on":
-  workflow_dispatch:
-    inputs:
-      operation:
-        description: The bounded protected operation
-        required: true
-        type: choice
-        options: [ready]
-      task_issue_number:
-        description: Canonical Task Issue number
-        required: true
-        type: number
-      pr_number:
-        description: Pull request number
-        required: true
-        type: number
-      exact_head:
-        description: Exact reviewed pull request HEAD
-        required: true
-        type: string
-      review_id:
-        description: Exact GitHub pull request Review ID
-        required: true
-        type: number
-      review_kind:
-        description: Authoritative Review surface
-        required: true
-        type: choice
-        options: [PULL_REQUEST_REVIEW, TASK_ISSUE_COMMENT]
   issue_comment:
     types: [created]
 
@@ -40,7 +12,7 @@ permissions:
   statuses: read
 
 concurrency:
-  group: simplified-protected-transition-v1-${{ github.repository }}-${{ github.event.issue.number || inputs.task_issue_number }}
+  group: simplified-protected-transition-v1-${{ github.repository }}-${{ github.event.issue.number }}
   cancel-in-progress: false
 
 jobs:
@@ -76,8 +48,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
-            node scripts/run-protected-transition-admission-v1.mjs --simplified-workflow-dispatch-event-file "$GITHUB_EVENT_PATH"
-          else
-            node scripts/run-protected-transition-admission-v1.mjs --simplified-issue-comment-event-file "$GITHUB_EVENT_PATH"
-          fi
+          node scripts/run-protected-transition-admission-v1.mjs --simplified-issue-comment-event-file "$GITHUB_EVENT_PATH"

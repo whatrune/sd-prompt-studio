@@ -1,8 +1,8 @@
-# Simplified Autonomous Lifecycle V1
+# Non-Draft Merge-only Lifecycle V1
 
 ## Current production contract
 
-The default-branch workflow `.github/workflows/protected-transition-admission-v1.yml` is the bounded production host for Ready and Merge. It checks out its exact default-branch workflow SHA with credentials disabled and invokes `scripts/run-protected-transition-admission-v1.mjs`. The runner uses the pure live-state owner in `scripts/protected-transition-merge-operator-preflight-v1.mjs`.
+The default-branch workflow `.github/workflows/protected-transition-admission-v1.yml` is the bounded production host for Merge. It checks out its exact default-branch workflow SHA with credentials disabled and invokes `scripts/run-protected-transition-admission-v1.mjs`. The runner uses the pure live-state owner in `scripts/protected-transition-merge-operator-preflight-v1.mjs`.
 
 Only three durable decisions are authoritative:
 
@@ -10,13 +10,13 @@ Only three durable decisions are authoritative:
 2. one authenticated GitHub Pull Request Review tied to the exact current commit and carrying `APPROVE / 0 / 0 / 0`, or the bounded Task Issue comment compatibility form described below;
 3. one Product Owner Merge Decision bound to the exact Task, PR, HEAD, base, scope, Review, merge method, and operation count.
 
-Task-state, Result Handoff, Gate Status, publication generations, Ready generations, terminal observations, producer rosters, receipts, Minimal Governance, and Bootstrap records are not admission inputs. They may remain historical or diagnostic data only.
+Task-state, Result Handoff, Gate Status, publication generations, historical Ready records, terminal observations, producer rosters, receipts, Minimal Governance, and Bootstrap records are not admission inputs. They may remain historical or diagnostic data only.
 
-## Ready
+## Publication state
 
-Ready is a bounded action only for a PR that is currently Draft. A Product Owner `workflow_dispatch` request supplies the Task, PR, exact HEAD, and exact Review ID. The host fresh-fetches Task Authority, current main, PR, changed paths, exact Review, required checks, all thread pages, and mergeability; repeats the binding before mutation; then performs exactly one real `markPullRequestReadyForReview` mutation and verifies the resulting live state.
+Normal autonomous publication creates a non-Draft pull request. Draft is supported only when the Product Owner explicitly requests a manual working state. A Draft pull request is not Merge-eligible, and the autonomous lifecycle does not own Draft-to-Ready conversion.
 
-A non-Draft PR does not require another Ready operation after a HEAD change. The HEAD change invalidates the prior Review and requires current checks plus a fresh Review only.
+A HEAD change preserves the GitHub publication state. It invalidates the prior Review and requires current checks plus a fresh exact-HEAD Review only.
 
 ## Merge
 
@@ -47,12 +47,8 @@ Missing, pending, cancelled, ambiguous, or unsuccessful required checks stop bef
 
 Task Authority, Review body, and Merge Decision use one Node-owned UTF-8 serializer/parser pair per record. A body must be complete at creation time, contain exactly one fenced JSON block, and round-trip byte-for-byte. When GitHub Pull Request Review publication is unavailable, the exact same Review body may be published once as a top-level comment on the canonical Task Issue and selected explicitly as `TASK_ISSUE_COMMENT`; it is one compatibility surface, not a second semantic decision. Placeholder-then-PATCH publication, PowerShell Markdown interpolation, self-referential URLs, and digest/seal layers are not part of V1.
 
-## Self-hosting exception
-
-When a platform PR introduces the owner needed to finish itself and the current default branch cannot execute that owner, the Product Owner may make one explicit operational bootstrap decision bound to the exact Task, PR, HEAD, base, scope, fresh Review, live checks, threads, and mergeability. A trusted external operator may perform only the otherwise-unreachable exact-HEAD protected operation. This is not a reusable authority schema, workflow, evidence chain, or Bootstrap Kernel.
-
 ## Historical automation components
 
 Older Repair, Draft Return, publication replay, Result Handoff, Ready-generation, terminal-observation, Collector, Minimal Governance, and Bootstrap implementations or records are historical. Their presence does not establish current production authority and they must not be used to block or authorize Simplified V1 transitions.
 
-General dispatch, specialist execution, and Result Handoff conventions remain documented by the Team contracts for work coordination. They are separate from the live Review/Ready/Merge admission defined here.
+General dispatch, specialist execution, and Result Handoff conventions remain documented by the Team contracts for work coordination. They are separate from the live Review/Merge admission defined here.
