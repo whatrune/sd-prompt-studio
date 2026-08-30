@@ -1,0 +1,198 @@
+{
+  "schema_version": "3.0",
+  "run_id": "HAIR-003-B",
+  "blind_condition_label": "Condition B",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "main_hairstyle_identity",
+    "visible_structure",
+    "composition_integrity"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "A distinct bob_silhouette is visible in all six panels.",
+      "No hair-structure ambiguity or generation artifact is visible."
+    ],
+    "analysis_notes": [
+      "Visible image evidence only; prompt text was not used to assign observations.",
+      "Hair extent and overlap are recorded separately in hair-observation.json."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "distinct",
+        "bob_silhouette",
+        "coherent"
+      ],
+      "primary_morphology": "main_hairstyle_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "A coherent bob silhouette ends around the neck and remains visually separable from clothing and background."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "distinct",
+        "bob_silhouette",
+        "coherent"
+      ],
+      "primary_morphology": "main_hairstyle_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible hair forms a coherent short bob boundary at the neck with no structural ambiguity."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "distinct",
+        "bob_silhouette",
+        "coherent"
+      ],
+      "primary_morphology": "main_hairstyle_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The rounded bob outline and lower hair edge are directly visible and coherent around the neck."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "distinct",
+        "bob_silhouette",
+        "coherent"
+      ],
+      "primary_morphology": "main_hairstyle_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "A rear three-quarter view shows an unbroken bob silhouette ending above the shoulder line."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "distinct",
+        "bob_silhouette",
+        "coherent"
+      ],
+      "primary_morphology": "main_hairstyle_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The rounded bob shape and short lower edge are distinct with no visible generation defect."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "distinct",
+        "bob_silhouette",
+        "coherent"
+      ],
+      "primary_morphology": "main_hairstyle_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The rear view visibly preserves a coherent bob silhouette bounded near the neck."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file records condition-local visible structure; matched-seed comparison is recorded in research-review.md.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "main_hairstyle_identity": {
+        "distinct": 6
+      },
+      "visible_structure": {
+        "bob_silhouette": 6
+      },
+      "composition_integrity": {
+        "coherent": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "main_hairstyle_composition": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}

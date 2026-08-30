@@ -222,3 +222,15 @@ runs:
   status: OBSERVED
   updated_at: '2026-08-30T20:04:15+09:00'
   path: experiments/hair/HAIR-002-F
+- run_id: HAIR-003-A
+  domain: hair
+  title: HAIR-003-A — bob cut control replication
+  status: OBSERVED
+  updated_at: '2026-08-30T21:22:52+09:00'
+  path: experiments/hair/HAIR-003-A
+- run_id: HAIR-003-B
+  domain: hair
+  title: HAIR-003-B — bob cut + long hair treatment replication
+  status: OBSERVED
+  updated_at: '2026-08-30T21:22:52+09:00'
+  path: experiments/hair/HAIR-003-B
