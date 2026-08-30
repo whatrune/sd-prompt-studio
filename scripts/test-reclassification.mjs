@@ -5,7 +5,7 @@ import { createServer } from 'vite'
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 
 try {
-  const [{ adultTags }, { buildPrompt, buildPromptWithStrategy, tagSort }, { buildSavedPromptSummary, migratePersistedState, nextPromptGroupName, PROMPT_GROUP_COLORS, UNCLASSIFIED_PROMPT_GROUP_ID, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }, { applyColorModifier, buildColorModifiedTag, findColorModifier, isColorModifiableCategory }, { projectTagSearchKeyboardAction }] = await Promise.all([
+  const [{ adultTags }, { buildPrompt, buildPromptWithStrategy, tagSort }, { buildSavedPromptSummary, migratePersistedState, nextPromptGroupName, PROMPT_GROUP_COLORS, UNCLASSIFIED_PROMPT_GROUP_ID, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }, { applyColorModifier, buildColorModifiedTag, findColorModifier, isColorModifiableCategory }, { projectDictionaryConflictMap, projectTagSearchKeyboardAction }] = await Promise.all([
     server.ssrLoadModule('/src/data/adultTags.ts'),
     server.ssrLoadModule('/src/prompt.ts'),
     server.ssrLoadModule('/src/store.ts'),
@@ -553,6 +553,37 @@ try {
   usePromptStore.getState().removeTagFromLayer('scene', sceneQuality.id)
   assert.equal(usePromptStore.getState().sceneTags.length, 0, 'selected Common tags must be removable from Scene while editing a Character')
 
+  const selected = tag => ({ ...tag, weight: 1 })
+  const bobCut = tags.find(tag => tag.id === 'hai-bob-cut')
+  const longHair = tags.find(tag => tag.id === 'hai-long-hair')
+  const twintails = tags.find(tag => tag.id === 'hai-twintails')
+  const ponytail = tags.find(tag => tag.id === 'hai-ponytail')
+  const closedEyes = tags.find(tag => tag.id === 'eye-closed-eyes')
+  const lookingAtViewer = tags.find(tag => tag.id === 'eye-looking-at-viewer')
+  const forest = tags.find(tag => tag.id === 'bac-forest')
+  const beach = tags.find(tag => tag.id === 'bac-beach')
+  for (const tag of [bobCut, longHair, twintails, ponytail, closedEyes, lookingAtViewer, forest, beach]) assert(tag, 'destination-aware conflict fixtures must resolve from the canonical dictionary')
+
+  assert.equal(projectDictionaryConflictMap([longHair], [sceneQuality], [selected(bobCut)], allTags).get(longHair.id)?.level, 'hard', 'Scene-layer global search must evaluate long hair against the destination Subject containing bob cut')
+  assert.equal(projectDictionaryConflictMap([bobCut], [sceneQuality], [selected(longHair)], allTags).get(bobCut.id)?.level, 'hard', 'Scene-layer global search must evaluate bob cut against the destination Subject containing long hair')
+  assert.equal(projectDictionaryConflictMap([twintails], [sceneQuality], [selected(longHair)], allTags).get(twintails.id), null, 'twintails and long hair must remain compatible in the destination Subject')
+  assert.equal(projectDictionaryConflictMap([ponytail], [sceneQuality], [selected(longHair)], allTags).get(ponytail.id), null, 'ponytail and long hair must remain compatible in the destination Subject')
+  assert.equal(projectDictionaryConflictMap([forest], [selected(beach)], [selected(bobCut)], allTags).get(forest.id)?.level, 'hard', 'Scene-owned candidates must evaluate the Scene destination context')
+  assert.equal(projectDictionaryConflictMap([forest], [], [selected(beach)], allTags).get(forest.id), null, 'Scene-owned candidates must not evaluate Subject-only selections')
+  assert.equal(projectDictionaryConflictMap([lookingAtViewer], [sceneQuality], [selected(closedEyes)], allTags).get(lookingAtViewer.id)?.level, 'hard', 'other Subject-owned conflicts must evaluate the destination Subject while Scene is active')
+  const mixedDestinationConflicts = projectDictionaryConflictMap([forest, longHair], [selected(beach)], [selected(bobCut)], allTags)
+  assert.equal(mixedDestinationConflicts.get(forest.id)?.level, 'hard', 'mixed Favorites and User Dictionary surfaces must project Scene candidates against Scene')
+  assert.equal(mixedDestinationConflicts.get(longHair.id)?.level, 'hard', 'mixed Favorites and User Dictionary surfaces must project Subject candidates against Subject')
+  assert.equal(projectDictionaryConflictMap([longHair], [sceneQuality], [selected(bobCut)], allTags).get(longHair.id)?.level, getConflictReason(longHair, [sceneQuality, selected(bobCut)], allTags)?.level, 'direct Subject-category conflict behavior must remain unchanged')
+  assert.equal(projectDictionaryConflictMap([forest], [selected(beach)], [selected(bobCut)], allTags).get(forest.id)?.level, getConflictReason(forest, [selected(beach)], allTags)?.level, 'direct Scene-category conflict behavior must remain unchanged')
+  const forcedExistingSelection = [selected(bobCut), selected(longHair)]
+  const forcedExistingSnapshot = JSON.stringify(forcedExistingSelection)
+  projectDictionaryConflictMap([bobCut, longHair], [], forcedExistingSelection, allTags)
+  assert.equal(JSON.stringify(forcedExistingSelection), forcedExistingSnapshot, 'conflict projection must not delete or suppress forced/imported existing combinations')
+  const unrelatedPromptBefore = buildPrompt([{ id: 'routing-proof', name: 'Subject', tags: [selected(twintails), selected(longHair)] }], [sceneQuality])
+  projectDictionaryConflictMap([forest, bobCut], [sceneQuality], [selected(twintails), selected(longHair)], allTags)
+  assert.equal(buildPrompt([{ id: 'routing-proof', name: 'Subject', tags: [selected(twintails), selected(longHair)] }], [sceneQuality]), unrelatedPromptBefore, 'destination-aware conflict projection must not change unrelated prompt bytes or ordering')
+
   const migratedWithoutLibrary = migratePersistedState({
     blocks: [{ id: 'legacy-library', name: '被写体 1', tags: [subjectHair] }],
     sceneTags: [sceneQuality],
@@ -834,7 +865,8 @@ try {
   assert(appSource.includes("const userDictionaryOnly = store.workspaceView === 'library' && activeLibraryView === 'user-dictionary'"), 'User Dictionary mode must remain within the existing Library workspace')
   assert(appSource.includes("visibleDictionaryTags.filter(tag => 'source' in tag"), 'User Dictionary cards must derive from the existing persisted dictionary projection')
   assert(appSource.includes("userDictionaryCategory === 'すべて' || tag.category === userDictionaryCategory"), 'User Dictionary category tabs must filter without changing tag metadata')
-  assert(appSource.includes("const conflictSelection = favoritesOnly || userDictionaryOnly ? [...store.sceneTags, ...activeSubject.tags] : active.tags"), 'User Dictionary must reuse the complete current prompt selection for conflict projection')
+  assert(appSource.includes('projectDictionaryConflictMap(visibleDictionaryTags, selectedLayerTags.scene, selectedLayerTags.subject, dictionaryTags)'), 'Global search, Favorites, and User Dictionary must use candidate-destination-aware conflict projection')
+  assert.equal(appSource.includes('const conflictSelection ='), false, 'heterogeneous dictionary candidates must not share one displayed-layer-derived conflict context')
   const userDictionaryWorkspaceSource = appSource.slice(appSource.indexOf('userDictionaryOnly?<div className="prompt-workspace-content user-dictionary-workspace">'), appSource.indexOf(':<div className="library-workspace">'))
   assert(userDictionaryWorkspaceSource.includes('aria-label="ユーザー辞書一覧"'), 'User Dictionary must render an accessible Library usage surface')
   assert(userDictionaryWorkspaceSource.includes('group.tags.map(renderTagCard)'), 'User Dictionary entries must reuse the existing tag card renderer')
