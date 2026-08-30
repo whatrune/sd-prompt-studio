@@ -95,7 +95,9 @@ try {
     $jobResults = @($jobs | Wait-Job | Receive-Job)
     $jobs | Remove-Job -Force
     Assert-True ($jobResults.Count -eq 2) 'parallel acquisition result count mismatch'
-    Assert-True (@($jobResults | Where-Object ExitCode -ne 0).Count -eq 0) 'parallel acquisition failed'
+    $parallelFailures = @($jobResults | Where-Object ExitCode -ne 0)
+    $parallelFailureText = @($parallelFailures | ForEach-Object { "exit=$($_.ExitCode) output=$($_.Output)" }) -join '; '
+    Assert-True ($parallelFailures.Count -eq 0) "parallel acquisition failed ($parallelFailureText)"
     $parallel = @($jobResults | ForEach-Object { $_.Output | ConvertFrom-Json })
     $parallelStates = @($parallel | ForEach-Object cache_state) -join ','
     Assert-True (@($parallel | Where-Object cache_state -eq 'cold').Count -eq 1) "simultaneous cache miss did not produce exactly one builder (states=$parallelStates)"
@@ -169,17 +171,18 @@ try {
     [IO.File]::AppendAllText($lockPath, "# abandoned lock identity`n")
     $abandonedIdentity = Invoke-Acquire -Helper $helper -Repository $worktreeA -Python $python -IdentityOnly
     $abandonedLock = Join-Path (Join-Path $abandonedIdentity.cache_root 'locks') ($abandonedIdentity.identity + '.lock')
-    New-Item -ItemType Directory -Path $abandonedLock -Force | Out-Null
     $deadOwner = [ordered]@{
         identity = $abandonedIdentity.identity
         process_id = 2147483647
-        process_start_ticks = 1
+        acquired_at_utc = '2000-01-01T00:00:00.0000000Z'
         nonce = '0123456789abcdef0123456789abcdef'
     }
-    [IO.File]::WriteAllText((Join-Path $abandonedLock 'owner.json'), (($deadOwner | ConvertTo-Json -Compress) + "`n"), [Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText($abandonedLock, (($deadOwner | ConvertTo-Json -Compress) + "`n"), [Text.UTF8Encoding]::new($false))
     $recovered = Invoke-Acquire -Helper $helper -Repository $worktreeA -Python $python
     Assert-True ($recovered.cache_state -eq 'cold') 'abandoned identity lock was not reclaimed'
-    Assert-True (-not (Test-Path -LiteralPath $abandonedLock)) 'abandoned identity lock survived successful acquisition'
+    $leaseProbe = [IO.FileStream]::new($abandonedLock, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+    $leaseProbe.Dispose()
+    Assert-True (Test-Path -LiteralPath $abandonedLock -PathType Leaf) 'recovered identity lease file is absent'
 
     $badRoot = Join-Path $tempRoot 'bad'
     New-Item -ItemType Directory -Path (Join-Path $badRoot 'research/sd-prompt-research') -Force | Out-Null

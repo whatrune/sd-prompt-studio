@@ -406,91 +406,43 @@ function New-CachedEnvironment {
     New-CompletionManifest -BuildPath $BuildPath -IdentityProjection $IdentityProjection -LockedDistributions $LockedDistributions -Payload $payload
 }
 
-function Get-ProcessStartTicks {
-    param([Parameter(Mandatory = $true)][int]$ProcessId)
-    try { return (Get-Process -Id $ProcessId -ErrorAction Stop).StartTime.ToUniversalTime().Ticks }
-    catch { return $null }
-}
-
-function New-LockOwner {
-    param([Parameter(Mandatory = $true)][string]$Identity)
-    return [ordered]@{
-        identity = $Identity
-        process_id = $PID
-        process_start_ticks = Get-ProcessStartTicks -ProcessId $PID
-        nonce = [guid]::NewGuid().ToString('N')
+function Try-AcquireIdentityLock {
+    param(
+        [Parameter(Mandatory = $true)][string]$LockPath,
+        [Parameter(Mandatory = $true)][string]$Identity
+    )
+    $stream = $null
+    try {
+        try {
+            $stream = [IO.FileStream]::new(
+                $LockPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None
+            )
+        }
+        catch [IO.IOException] {
+            $stream = [IO.FileStream]::new(
+                $LockPath, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None
+            )
+        }
     }
-}
+    catch [IO.IOException] { return $null }
 
-function Write-LockOwner {
-    param(
-        [Parameter(Mandatory = $true)][string]$LockDirectory,
-        [Parameter(Mandatory = $true)][System.Collections.IDictionary]$Owner
-    )
-    $path = Join-Path $LockDirectory 'owner.json'
-    $temporary = Join-Path $LockDirectory ("owner.$($Owner.nonce).tmp")
-    [IO.File]::WriteAllText($temporary, (($Owner | ConvertTo-Json -Compress) + "`n"), [Text.UTF8Encoding]::new($false))
-    Move-Item -LiteralPath $temporary -Destination $path -ErrorAction Stop
-}
-
-function Test-LockOwnerActive {
-    param(
-        [Parameter(Mandatory = $true)][string]$LockDirectory,
-        [Parameter(Mandatory = $true)][string]$Identity
-    )
-    $ownerPath = Join-Path $LockDirectory 'owner.json'
-    if (-not (Test-Path -LiteralPath $ownerPath -PathType Leaf)) { return $true }
-    try { $owner = Get-Content -Raw -LiteralPath $ownerPath | ConvertFrom-Json }
-    catch { return $false }
-    $expectedKeys = @('identity', 'nonce', 'process_id', 'process_start_ticks') | Sort-Object
-    $actualKeys = @($owner.psobject.Properties.Name | Sort-Object)
-    if (($expectedKeys -join "`n") -cne ($actualKeys -join "`n")) { return $false }
-    if ([string]$owner.identity -cne $Identity -or [string]$owner.nonce -notmatch '^[0-9a-f]{32}$') { return $false }
-    if ($owner.process_id -isnot [long] -and $owner.process_id -isnot [int]) { return $false }
-    if ($owner.process_start_ticks -isnot [long] -and $owner.process_start_ticks -isnot [int]) { return $false }
-    $currentStart = Get-ProcessStartTicks -ProcessId ([int]$owner.process_id)
-    return $null -ne $currentStart -and [long]$currentStart -eq [long]$owner.process_start_ticks
-}
-
-function Move-AbandonedLock {
-    param(
-        [Parameter(Mandatory = $true)][string]$LockDirectory,
-        [Parameter(Mandatory = $true)][string]$Identity
-    )
-    if (-not (Test-Path -LiteralPath $LockDirectory -PathType Container)) { return $true }
-    if (-not (Test-Path -LiteralPath (Join-Path $LockDirectory 'owner.json') -PathType Leaf)) { return $false }
-    if (Test-LockOwnerActive -LockDirectory $LockDirectory -Identity $Identity) { return $false }
-    $reclaimed = "$LockDirectory.reclaimed.$([guid]::NewGuid().ToString('N').Substring(0, 8))"
-    try { Move-Item -LiteralPath $LockDirectory -Destination $reclaimed -ErrorAction Stop }
-    catch { return $false }
-    Remove-Item -LiteralPath $reclaimed -Recurse -Force
-    return $true
-}
-
-function Move-UninitializedLockAfterTimeout {
-    param([Parameter(Mandatory = $true)][string]$LockDirectory)
-    if (-not (Test-Path -LiteralPath $LockDirectory -PathType Container)) { return $true }
-    if (Test-Path -LiteralPath (Join-Path $LockDirectory 'owner.json') -PathType Leaf) { return $false }
-    $reclaimed = "$LockDirectory.uninitialized.$([guid]::NewGuid().ToString('N').Substring(0, 8))"
-    try { Move-Item -LiteralPath $LockDirectory -Destination $reclaimed -ErrorAction Stop }
-    catch { return $false }
-    Remove-Item -LiteralPath $reclaimed -Recurse -Force
-    return $true
-}
-
-function Remove-OwnedLock {
-    param(
-        [Parameter(Mandatory = $true)][string]$LockDirectory,
-        [Parameter(Mandatory = $true)][string]$Nonce
-    )
-    if (-not (Test-Path -LiteralPath $LockDirectory -PathType Container)) { return }
-    try { $owner = Get-Content -Raw -LiteralPath (Join-Path $LockDirectory 'owner.json') | ConvertFrom-Json }
-    catch { return }
-    if ([string]$owner.nonce -cne $Nonce) { return }
-    $released = "$LockDirectory.released.$([guid]::NewGuid().ToString('N').Substring(0, 8))"
-    try { Move-Item -LiteralPath $LockDirectory -Destination $released -ErrorAction Stop }
-    catch { return }
-    Remove-Item -LiteralPath $released -Recurse -Force
+    try {
+        $owner = [ordered]@{
+            identity = $Identity
+            process_id = $PID
+            acquired_at_utc = [DateTime]::UtcNow.ToString('O')
+            nonce = [guid]::NewGuid().ToString('N')
+        }
+        $bytes = [Text.UTF8Encoding]::new($false).GetBytes(($owner | ConvertTo-Json -Compress) + "`n")
+        $stream.SetLength(0)
+        $stream.Write($bytes, 0, $bytes.Length)
+        $stream.Flush($true)
+        return $stream
+    }
+    catch {
+        $stream.Dispose()
+        throw
+    }
 }
 
 function Get-AcquisitionResult {
@@ -536,43 +488,18 @@ if ($existing.Valid) {
     exit 0
 }
 
-$lockDirectory = Join-Path $locksRoot ($identityProjection.Identity + '.lock')
+$identityLockPath = Join-Path $locksRoot ($identityProjection.Identity + '.lock')
 $deadline = [DateTime]::UtcNow.AddSeconds($LockTimeoutSeconds)
-$ownsLock = $false
-$lockOwner = $null
-while (-not $ownsLock) {
-    $createdLock = $false
-    try {
-        New-Item -ItemType Directory -Path $lockDirectory -ErrorAction Stop | Out-Null
-        $createdLock = $true
-    }
-    catch { $createdLock = $false }
-    if ($createdLock) {
-        try {
-            $lockOwner = New-LockOwner -Identity $identityProjection.Identity
-            Write-LockOwner -LockDirectory $lockDirectory -Owner $lockOwner
-            $ownsLock = $true
-            continue
-        }
-        catch {
-            if (Test-Path -LiteralPath $lockDirectory) { Remove-Item -LiteralPath $lockDirectory -Recurse -Force }
-            throw
-        }
-    }
-    else {
+$lockHandle = $null
+while ($null -eq $lockHandle) {
+    $lockHandle = Try-AcquireIdentityLock -LockPath $identityLockPath -Identity $identityProjection.Identity
+    if ($null -eq $lockHandle) {
         $winner = Test-FinalEnvironment -Repository $repository -FinalPath $finalPath -IdentityProjection $identityProjection -LockedDistributions $lockedDistributions -RequirementsPath $requirementsPath
         if ($winner.Valid) {
             Get-AcquisitionResult -CacheState 'warm_after_wait' -CacheRoot $cacheRoot -IdentityProjection $identityProjection -Python $winner.Python | ConvertTo-Json -Depth 8 -Compress
             exit 0
         }
-        if (Move-AbandonedLock -LockDirectory $lockDirectory -Identity $identityProjection.Identity) { continue }
-        if ([DateTime]::UtcNow -ge $deadline) {
-            if (Move-UninitializedLockAfterTimeout -LockDirectory $lockDirectory) {
-                $deadline = [DateTime]::UtcNow.AddSeconds($LockTimeoutSeconds)
-                continue
-            }
-            throw 'python_validation_environment_lock_timeout'
-        }
+        if ([DateTime]::UtcNow -ge $deadline) { throw 'python_validation_environment_lock_timeout' }
         Start-Sleep -Milliseconds 200
     }
 }
@@ -593,5 +520,5 @@ try {
 }
 finally {
     if (Test-Path -LiteralPath $buildPath) { Remove-Item -LiteralPath $buildPath -Recurse -Force }
-    if ($null -ne $lockOwner) { Remove-OwnedLock -LockDirectory $lockDirectory -Nonce $lockOwner.nonce }
+    if ($null -ne $lockHandle) { $lockHandle.Dispose() }
 }
