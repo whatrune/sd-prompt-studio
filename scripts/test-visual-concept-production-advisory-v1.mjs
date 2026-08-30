@@ -13,6 +13,7 @@ import {
 
 const repoRoot = path.resolve(fileURLToPath(new URL('..', import.meta.url)))
 const readJson = relative => JSON.parse(fs.readFileSync(path.join(repoRoot, relative), 'utf8'))
+const hairDictionary = readJson('data/hair.json')
 const bindingContract = readJson('data/visual-concept-prompt-tag-bindings-v1.json')
 const graphContract = readJson('research/sd-prompt-research/dist/visual-concept-graph.json')
 const checkedInCatalog = readJson('src/data/visual-concept-production-advisory-v1.json')
@@ -78,13 +79,29 @@ try {
   check(serializeVisualConceptProductionAdvisoryCatalogV1(mappedProductionCatalog) !== serialized, 'mapped production-relevant field change must stale the catalog')
 
   const longHairTag = registry.find(tag => tag.id === 'hai-long-hair')
+  const bobCutTag = registry.find(tag => tag.id === 'hai-bob-cut')
   deepEqual([longHairTag?.prompt, longHairTag?.category, longHairTag?.slot], ['long hair', 'hair', 'hair_length_back'], 'bound PromptTag emission identity must remain unchanged')
+  deepEqual(hairDictionary.find(tag => tag.id === 'hai-bob-cut')?.conflicts, ['long hair'], 'source dictionary must own exactly the bob-cut to long-hair conflict')
+  deepEqual(bobCutTag?.conflicts, ['long hair'], 'runtime PromptTag registry must preserve the exact source conflict')
+  equal(longHairTag?.conflicts, undefined, 'long hair must not gain a reciprocal conflict record')
   for (const conflictingId of ['hai-short-hair', 'hai-medium-hair', 'hai-shoulder-length-hair', 'hai-very-long-hair']) {
     equal(smartTagEngine.getConflictReason(registry.find(tag => tag.id === conflictingId), [selected('hai-long-hair')], registry)?.level, 'hard', `${conflictingId} must preserve the existing hair-length slot conflict`)
   }
-  for (const compatibleId of ['hai-bob-cut', 'hai-twintails', 'hai-ponytail']) {
+  equal(smartTagEngine.getConflictReason(registry.find(tag => tag.id === 'hai-bob-cut'), [selected('hai-long-hair')], registry)?.level, 'hard', 'bob cut must explicitly conflict when long hair is already selected')
+  equal(smartTagEngine.getConflictReason(registry.find(tag => tag.id === 'hai-long-hair'), [selected('hai-bob-cut')], registry)?.level, 'hard', 'long hair must conflict when bob cut is already selected through symmetric evaluation')
+  for (const compatibleId of ['hai-twintails', 'hai-ponytail']) {
     equal(smartTagEngine.getConflictReason(registry.find(tag => tag.id === compatibleId), [selected('hai-long-hair')], registry), null, `${compatibleId} must preserve existing main-hairstyle coexistence`)
   }
+  for (const conflictingId of ['hai-twintails', 'hai-ponytail']) {
+    equal(smartTagEngine.getConflictReason(registry.find(tag => tag.id === conflictingId), [selected('hai-bob-cut')], registry)?.level, 'hard', `${conflictingId} must preserve the existing main-hairstyle slot conflict`)
+  }
+  const promptFor = ids => promptModule.buildPrompt([{ id: 'subject-1', name: 'Subject 1', tags: ids.map(selected) }])
+  const promptEnvelope = body => `[]\n\n[]\n\n[${body}]\n\nBREAK\n\n[]\n\n[]\n\nBREAK\n\n[]`
+  equal(promptFor(['hai-bob-cut']), promptEnvelope('bob cut'), 'bob cut alone must preserve its exact emitted Prompt bytes')
+  equal(promptFor(['hai-long-hair']), promptEnvelope('long hair'), 'long hair alone must preserve its exact emitted Prompt bytes')
+  equal(promptFor(['hai-twintails', 'hai-long-hair']), promptEnvelope('twintails, long hair'), 'twintails and long hair must coexist in the existing main-hairstyle-before-length order')
+  equal(promptFor(['hai-ponytail', 'hai-long-hair']), promptEnvelope('ponytail, long hair'), 'ponytail and long hair must coexist in the existing main-hairstyle-before-length order')
+  equal(promptFor(['pos-standing', 'eye-blue-eyes']), '[]\n\n[]\n\n[blue eyes]\n\nBREAK\n\n[standing]\n\n[]\n\nBREAK\n\n[]', 'unrelated Prompt output must remain byte-identical')
   const blocks = [
     { id: 'subject-1', name: 'Subject 1', tags: [selected('hai-long-hair'), selected('pos-lying'), selected('pos-lying-on-back'), { id: 'custom-tag', label: 'Custom', prompt: 'custom', category: 'pose', weight: 1 }] },
     { id: 'subject-2', name: 'Subject 2', tags: [selected('rin-pose-arm-support'), selected('rin-pose-reclining'), selected('v192-bent-knees')] },

@@ -182,6 +182,21 @@ export function projectTagSearchKeyboardAction(key: string, activeIndex: number,
   return Object.freeze({ handled: false, activeIndex: current, activate: false, clear: false })
 }
 
+export function projectDictionaryConflictMap(
+  candidates: PromptTag[],
+  sceneTags: SelectedTag[],
+  subjectTags: SelectedTag[],
+  dictionary: PromptTag[],
+) {
+  const sceneCandidates: PromptTag[] = []
+  const subjectCandidates: PromptTag[] = []
+  candidates.forEach(tag => (isSceneCategory(tag.category) ? sceneCandidates : subjectCandidates).push(tag))
+  return new Map([
+    ...getConflictMap(sceneCandidates, sceneTags, dictionary),
+    ...getConflictMap(subjectCandidates, [...sceneTags, ...subjectTags], dictionary),
+  ])
+}
+
 export default function App() {
   const locale = DEFAULT_LOCALE
   const [category, setCategory] = useState('quality')
@@ -260,6 +275,13 @@ export default function App() {
   const [viewContextId, setViewContextId] = useState<string>(() => store.activeBlockId)
   const activeSubject = store.blocks.find(b => b.id === store.activeBlockId)!
   const active = store.activeLayer === 'scene' ? { id: 'scene', name: 'Scene', tags: store.sceneTags } : { ...activeSubject, tags: [...store.sceneTags, ...activeSubject.tags] }
+  const selectedLayerTags = useMemo(() => {
+    const subject = store.blocks.find(block => block.id === viewContextId) ?? activeSubject
+    return {
+      scene: store.sceneTags,
+      subject: subject.tags,
+    }
+  }, [activeSubject, store.blocks, store.sceneTags, viewContextId])
 
   useLayoutEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -357,8 +379,7 @@ export default function App() {
   const dictionaryTags = useMemo(() => [...tags, ...adultTags, ...store.userTags], [store.userTags])
   const visibleDictionaryTags = useMemo(() => dictionaryTags.filter(tag => RATING_RANK[tag.rating ?? 'general'] <= RATING_RANK[store.contentLevel]).map(tag => ({ ...tag, label: getTagLabel(tag, locale) })), [dictionaryTags, locale, store.contentLevel])
   const analyzerEntries = useMemo(() => parsePromptAnalyzerInput(analyzerText, visibleDictionaryTags), [analyzerText, visibleDictionaryTags])
-  const conflictSelection = favoritesOnly || userDictionaryOnly ? [...store.sceneTags, ...activeSubject.tags] : active.tags
-  const conflictMap = useMemo(() => getConflictMap(visibleDictionaryTags, conflictSelection, dictionaryTags), [visibleDictionaryTags, conflictSelection, dictionaryTags])
+  const conflictMap = useMemo(() => projectDictionaryConflictMap(visibleDictionaryTags, selectedLayerTags.scene, selectedLayerTags.subject, dictionaryTags), [dictionaryTags, selectedLayerTags, visibleDictionaryTags])
   const visibleUserDictionaryTags = useMemo(() => visibleDictionaryTags.filter(tag => 'source' in tag
     && (!store.hideUnavailable || conflictMap.get(tag.id)?.level !== 'hard')), [conflictMap, store.hideUnavailable, visibleDictionaryTags])
   const userDictionaryCategories = useMemo(() => categoryOrder.filter(categoryKey => visibleUserDictionaryTags.some(tag => tag.category === categoryKey)), [visibleUserDictionaryTags])
@@ -456,14 +477,6 @@ export default function App() {
     }
     return [{ key: category, groups: groupTagsBySubcategory(filtered, category) }]
   }, [category, favoritesOnly, filtered, locale, query, subcategory])
-  const selectedLayerTags = useMemo(() => {
-    const subject = store.blocks.find(block => block.id === viewContextId) ?? activeSubject
-    return {
-      scene: store.sceneTags,
-      subject: subject.tags,
-    }
-  }, [activeSubject, store.blocks, store.sceneTags, viewContextId])
-
   const expansion = useMemo(() => buildPromptWithStrategy(store.blocks, store.sceneTags, store.modelPreset), [store.blocks, store.sceneTags, store.modelPreset])
   const prompt = expansion.prompt
   const visualConceptAdvisory = useMemo(() => projectVisualConceptProductionAdvisoryV1({

@@ -7,7 +7,7 @@
     "binding_sha256": "02d715e2e241452935e6bb5b2e81b4c979708fb331d9c4d0ab1b515a6e5aa319",
     "graph_schema_id": "https://local.sd-prompt-studio/visual-concept-graph-v0.2.schema.json",
     "graph_schema_version": "0.2.0",
-    "registry_sha256": "233568bce81627f8ff0ce75d990e80824e13d0c857340c38533dea90f4066747"
+    "registry_sha256": "aa4d5b70a31e64e081ce256831f013e18ee365f106cd5311574dd9d33336d8e8"
   },
   "coverage": {
     "active_prompt_tag_count": 2522,

@@ -1635,7 +1635,7 @@ const rawTags: PromptTag[] = [
   makeTag({"id":"hai-floating-hair","label":"浮遊する髪","prompt":"floating hair","category":"hair","subcategory":"後ろ髪・長さ","slot":"hair_length_back"}),
   makeTag({"id":"hai-hair-behind-back","label":"背中に流した髪","prompt":"hair behind back","category":"hair","subcategory":"後ろ髪・長さ","slot":"hair_length_back"}),
   makeTag({"id":"hai-hair-over-shoulder","label":"肩にかけた髪","prompt":"hair over shoulder","category":"hair","subcategory":"後ろ髪・長さ","slot":"hair_length_back"}),
-  makeTag({"id":"hai-bob-cut","label":"ボブ","prompt":"bob cut","category":"hair","subcategory":"髪型","slot":"main_hairstyle"}),
+  makeTag({"id":"hai-bob-cut","label":"ボブ","prompt":"bob cut","category":"hair","subcategory":"髪型","slot":"main_hairstyle","conflicts":["long hair"]}),
   makeTag({"id":"hai-inverted-bob","label":"前下がりボブ","prompt":"inverted bob","category":"hair","subcategory":"髪型","slot":"main_hairstyle"}),
   makeTag({"id":"hai-lob-cut","label":"ロブ","prompt":"lob cut","category":"hair","subcategory":"髪型","slot":"main_hairstyle"}),
   makeTag({"id":"hai-pixie-cut","label":"ピクシーカット","prompt":"pixie cut","category":"hair","subcategory":"髪型","slot":"main_hairstyle"}),
