@@ -13,6 +13,11 @@ import {
   serializeSimplifiedTaskAuthorityV1,
 } from './protected-transition-merge-operator-preflight-v1.mjs'
 import { createProductionHostV1 } from './run-protected-transition-admission-v1.mjs'
+import {
+  discoverPromptTagDictionaryFilesV1,
+  parsePromptTagDictionaryV1,
+  validatePromptTagDictionaryRootV1,
+} from './validate-dictionaries.mjs'
 
 const REPOSITORY = 'whatrune/sd-prompt-studio'
 const HEAD = '1'.repeat(40)
@@ -210,6 +215,22 @@ equal(classifyValidationPathsV1([]).fallback_reason, 'empty_changed_path_set')
 equal(classifyValidationPathsV1(['docs/a.md', 'docs/a.md']).fallback_reason, 'duplicate_changed_path')
 equal(classifyValidationPathsV1(['a//b']).fallback_reason, 'malformed_changed_path')
 equal(classifyValidationPathsV1(['data/validation-path-ownership-v1.json']).profile, 'FULL_RESEARCH')
+equal(classifyValidationPathsV1(['scripts/validate-dictionaries.mjs']).profile, 'FULL_RESEARCH')
+
+const discoveredDictionaryFiles = discoverPromptTagDictionaryFilesV1([
+  'hair.json',
+  'validation-path-ownership-v1.json',
+  'visual-concept-advisory-relation-allowlist-v1.json',
+  'visual-concept-prompt-tag-bindings-v1.json',
+  'slots.json',
+  'unexpected-data-contract.json',
+  'notes.md',
+])
+equal(discoveredDictionaryFiles.join(','), 'hair.json,unexpected-data-contract.json')
+equal(parsePromptTagDictionaryV1('hair.json', '[{"id":"hai-long-hair","prompt":"long hair","category":"hair"}]').length, 1)
+throws(() => validatePromptTagDictionaryRootV1('hair.json', [{ id: 'broken', prompt: '', category: 'hair' }]), /invalid row/)
+throws(() => validatePromptTagDictionaryRootV1('unexpected-data-contract.json', { catalog: true }), /dictionary root must be an array/)
+throws(() => parsePromptTagDictionaryV1('foreign-malformed.json', '{'), SyntaxError)
 equal(evaluateRequiredChecksV1({ checks: allChecks, paths: PATHS, exactHead: HEAD }).length, 3)
 equal(evaluateRequiredChecksV1({ checks: allChecks, paths: ['data/visual-concept-prompt-tag-bindings-v1.json', 'scripts/test-visual-concept-read-only-inspection-v1.mjs'], exactHead: HEAD }).length, 3)
 equal(evaluateRequiredChecksV1({ checks: allChecks, paths: ['unknown/new.bin'], exactHead: HEAD }).length, 3)

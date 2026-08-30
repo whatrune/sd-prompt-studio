@@ -77,6 +77,7 @@ class ValidationProfileTests(unittest.TestCase):
             "data/validation-path-ownership-v1.json",
             "research/sd-prompt-research/scripts/select_validation_profile.py",
             "scripts/protected-transition-merge-operator-preflight-v1.mjs",
+            "scripts/validate-dictionaries.mjs",
         ):
             with self.subTest(path=path):
                 self.assert_profile(FULL_RESEARCH, [path])

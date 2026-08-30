@@ -44,7 +44,8 @@
       "research/sd-prompt-research/scripts/select_validation_profile.py",
       "research/sd-prompt-research/tests/test_validation_profile.py",
       "scripts/protected-transition-merge-operator-preflight-v1.mjs",
-      "scripts/test-protected-transition-admission-v1.mjs"
+      "scripts/test-protected-transition-admission-v1.mjs",
+      "scripts/validate-dictionaries.mjs"
     ],
     "prefixes": [
       "research/sd-prompt-research/knowledge/registries/",

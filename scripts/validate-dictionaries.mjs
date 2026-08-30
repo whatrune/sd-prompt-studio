@@ -1,7 +1,37 @@
 import fs from 'node:fs'
 
+export const NON_DICTIONARY_DATA_CONTRACTS_V1 = Object.freeze([
+  'validation-path-ownership-v1.json',
+  'visual-concept-advisory-relation-allowlist-v1.json',
+  'visual-concept-prompt-tag-bindings-v1.json',
+])
+const nonDictionaryDataContractsV1 = new Set(NON_DICTIONARY_DATA_CONTRACTS_V1)
+
+export const discoverPromptTagDictionaryFilesV1 = (names) => {
+  if (!Array.isArray(names) || names.some(name => typeof name !== 'string')) {
+    throw new Error('dictionary discovery input must be an array of file names')
+  }
+  return names.filter(name => (
+    name.endsWith('.json')
+    && name !== 'slots.json'
+    && !nonDictionaryDataContractsV1.has(name)
+  ))
+}
+
+export const validatePromptTagDictionaryRootV1 = (file, rows) => {
+  if (!Array.isArray(rows)) throw new Error(`${file}: dictionary root must be an array`)
+  for (const row of rows) {
+    if (!row.id || !row.prompt || !row.category) throw new Error(`${file}: invalid row`)
+  }
+  return rows
+}
+
+export const parsePromptTagDictionaryV1 = (file, raw) => (
+  validatePromptTagDictionaryRootV1(file, JSON.parse(raw))
+)
+
 const dir = new URL('../data/', import.meta.url)
-const files = fs.readdirSync(dir).filter(name => name.endsWith('.json') && name !== 'slots.json')
+const files = discoverPromptTagDictionaryFilesV1(fs.readdirSync(dir))
 const ids = new Set()
 const rowsById = new Map()
 const posePrompts = new Set()
@@ -11,10 +41,8 @@ const allowedCategories = new Set(['quality', 'people', 'character', 'expression
 let count = 0
 
 for (const file of files) {
-  const rows = JSON.parse(fs.readFileSync(new URL(file, dir), 'utf8'))
-  if (!Array.isArray(rows)) throw new Error(`${file}: dictionary root must be an array`)
+  const rows = parsePromptTagDictionaryV1(file, fs.readFileSync(new URL(file, dir), 'utf8'))
   for (const row of rows) {
-    if (!row.id || !row.prompt || !row.category) throw new Error(`${file}: invalid row`)
     if (!allowedCategories.has(row.category)) throw new Error(`${file}: unknown major category ${row.category} on ${row.id}`)
     if (ids.has(row.id)) throw new Error(`duplicate id: ${row.id}`)
     if (row.category === 'pose' && row.prompt.includes(',')) throw new Error(`${file}: pose prompt must be a single representative tag: ${row.id}`)
