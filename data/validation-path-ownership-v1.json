@@ -1,0 +1,115 @@
+{
+  "catalog_id": "validation_path_ownership_v1",
+  "catalog_version": 1,
+  "full_profile": "FULL_RESEARCH",
+  "profiles": {
+    "RESEARCH_EXPERIMENT": {
+      "runtime_deployable": false,
+      "bundles": ["research_experiment", "research_validators"]
+    },
+    "CONCEPT_GRAPH": {
+      "runtime_deployable": true,
+      "bundles": ["concept_graph", "research_validators", "production_advisory"]
+    },
+    "FULL_RESEARCH": {
+      "runtime_deployable": true,
+      "bundles": ["full_research", "research_validators", "production_advisory", "prompt_data", "application", "platform"]
+    },
+    "PRODUCTION_ADVISORY": {
+      "runtime_deployable": true,
+      "bundles": ["production_advisory"]
+    },
+    "PROMPT_DATA": {
+      "runtime_deployable": true,
+      "bundles": ["prompt_data"]
+    },
+    "APPLICATION": {
+      "runtime_deployable": true,
+      "bundles": ["application"]
+    },
+    "PLATFORM": {
+      "runtime_deployable": true,
+      "bundles": ["platform"]
+    },
+    "DOCUMENTATION": {
+      "runtime_deployable": false,
+      "bundles": []
+    }
+  },
+  "force_full": {
+    "exact": [
+      ".github/workflows/research-claims.yml",
+      "data/validation-path-ownership-v1.json",
+      "research/sd-prompt-research/requirements.txt",
+      "research/sd-prompt-research/scripts/select_validation_profile.py",
+      "research/sd-prompt-research/tests/test_validation_profile.py",
+      "scripts/protected-transition-merge-operator-preflight-v1.mjs",
+      "scripts/test-protected-transition-admission-v1.mjs"
+    ],
+    "prefixes": [
+      "research/sd-prompt-research/knowledge/registries/",
+      "research/sd-prompt-research/schemas/",
+      "research/sd-prompt-research/scripts/",
+      "research/sd-prompt-research/templates/",
+      "research/sd-prompt-research/tests/"
+    ]
+  },
+  "ownership": [
+    {
+      "profile": "RESEARCH_EXPERIMENT",
+      "exact": ["research/sd-prompt-research/ledgers/run-index.yaml"],
+      "prefixes": ["research/sd-prompt-research/experiments/"]
+    },
+    {
+      "profile": "CONCEPT_GRAPH",
+      "exact": ["research/sd-prompt-research/dist/visual-concept-graph.json"],
+      "prefixes": ["research/sd-prompt-research/concepts/"]
+    },
+    {
+      "profile": "PRODUCTION_ADVISORY",
+      "exact": [
+        "data/visual-concept-advisory-relation-allowlist-v1.json",
+        "data/visual-concept-prompt-tag-bindings-v1.json",
+        "scripts/inspect-visual-concept-read-only-v1.mjs",
+        "scripts/promote-visual-concept-production-advisory-v1.mjs",
+        "scripts/test-visual-concept-production-advisory-v1.mjs",
+        "scripts/test-visual-concept-read-only-advisory-v1.mjs",
+        "scripts/test-visual-concept-read-only-entry-adapter-v1.mjs",
+        "scripts/test-visual-concept-read-only-inspection-v1.mjs",
+        "scripts/visual-concept-read-only-advisory-v1.mjs",
+        "scripts/visual-concept-read-only-entry-adapter-v1.mjs",
+        "src/data/visual-concept-production-advisory-v1.json",
+        "src/visualConceptProductionAdvisoryV1.ts"
+      ],
+      "prefixes": []
+    },
+    {
+      "profile": "PROMPT_DATA",
+      "exact": [],
+      "prefixes": ["data/"]
+    },
+    {
+      "profile": "APPLICATION",
+      "exact": [
+        "index.html",
+        "package.json",
+        "pnpm-lock.yaml",
+        "tsconfig.app.json",
+        "tsconfig.json",
+        "tsconfig.node.json",
+        "vite.config.ts"
+      ],
+      "prefixes": ["public/", "src/"]
+    },
+    {
+      "profile": "PLATFORM",
+      "exact": [".github/pull_request_template.md", "AGENTS.md"],
+      "prefixes": [".github/workflows/", "docs/team/", "scripts/"]
+    },
+    {
+      "profile": "DOCUMENTATION",
+      "exact": ["README.md"],
+      "prefixes": ["docs/"]
+    }
+  ]
+}

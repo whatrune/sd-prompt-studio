@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+
 const FULL_SHA = /^[0-9a-f]{40}$/
 const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/
 const PRODUCT_OWNER_LOGIN = 'whatrune'
@@ -26,6 +28,48 @@ const CHECK_CATALOG = Object.freeze({
   'Cloudflare Pages': Object.freeze({ name: 'Cloudflare Pages', appDatabaseId: '85455' }),
   validate: Object.freeze({ name: 'validate', appDatabaseId: '15368' }),
 })
+
+const VALIDATION_PROFILE_NAMES = Object.freeze([
+  'RESEARCH_EXPERIMENT', 'CONCEPT_GRAPH', 'FULL_RESEARCH', 'PRODUCTION_ADVISORY',
+  'PROMPT_DATA', 'APPLICATION', 'PLATFORM', 'DOCUMENTATION',
+])
+
+const loadValidationCatalogV1 = () => {
+  let value
+  try {
+    value = JSON.parse(readFileSync(new URL('../data/validation-path-ownership-v1.json', import.meta.url), 'utf8'))
+  } catch {
+    throw new Error('validation_catalog_invalid')
+  }
+  if (
+    !exactKeys(value, ['catalog_id', 'catalog_version', 'full_profile', 'profiles', 'force_full', 'ownership']) ||
+    value.catalog_id !== 'validation_path_ownership_v1' || value.catalog_version !== 1 ||
+    value.full_profile !== 'FULL_RESEARCH' || !exactKeys(value.profiles, VALIDATION_PROFILE_NAMES) ||
+    !exactKeys(value.force_full, ['exact', 'prefixes']) || !Array.isArray(value.ownership)
+  ) throw new Error('validation_catalog_invalid')
+  const validPathList = (paths, prefixes = false) => (
+    Array.isArray(paths) && new Set(paths).size === paths.length && paths.every((path) => (
+      normalizedPath(path) || (prefixes && typeof path === 'string' && path.endsWith('/') && normalizedPath(path.slice(0, -1)))
+    ))
+  )
+  if (!validPathList(value.force_full.exact) || !validPathList(value.force_full.prefixes, true)) {
+    throw new Error('validation_catalog_invalid')
+  }
+  for (const profile of VALIDATION_PROFILE_NAMES) {
+    if (
+      !exactKeys(value.profiles[profile], ['runtime_deployable', 'bundles']) ||
+      typeof value.profiles[profile].runtime_deployable !== 'boolean' ||
+      !Array.isArray(value.profiles[profile].bundles)
+    ) throw new Error('validation_catalog_invalid')
+  }
+  for (const rule of value.ownership) {
+    if (
+      !exactKeys(rule, ['profile', 'exact', 'prefixes']) || !VALIDATION_PROFILE_NAMES.includes(rule.profile) ||
+      rule.profile === value.full_profile || !validPathList(rule.exact) || !validPathList(rule.prefixes, true)
+    ) throw new Error('validation_catalog_invalid')
+  }
+  return Object.freeze(value)
+}
 
 const CHECKS_QUERY = `
 query SimplifiedChecks($owner: String!, $name: String!, $head: GitObjectID!, $after: String) {
@@ -86,6 +130,8 @@ const normalizedPath = (value) => (
   !value.includes('\\') && !value.startsWith('/') && !value.endsWith('/') &&
   !value.split('/').some((part) => part.length === 0 || part === '.' || part === '..')
 )
+
+const VALIDATION_CATALOG = loadValidationCatalogV1()
 
 const normalizedPaths = (value, reason) => {
   if (
@@ -171,10 +217,42 @@ export const parseSimplifiedMergeDecisionV1 = (body) => {
   return Object.freeze({ ...value, authorized_paths: normalizedPaths(value.authorized_paths, 'merge_decision_invalid') })
 }
 
+export const classifyValidationPathsV1 = (paths) => {
+  const full = (reason) => Object.freeze({ profile: VALIDATION_CATALOG.full_profile, fallback_reason: reason })
+  if (!Array.isArray(paths) || paths.length === 0) return full('empty_changed_path_set')
+  if (paths.some((path) => !normalizedPath(path))) return full('malformed_changed_path')
+  if (new Set(paths).size !== paths.length) return full('duplicate_changed_path')
+  const classes = []
+  for (const path of [...paths].sort()) {
+    if (
+      VALIDATION_CATALOG.force_full.exact.includes(path) ||
+      VALIDATION_CATALOG.force_full.prefixes.some((prefix) => path.startsWith(prefix))
+    ) return full(`control_plane_path:${path}`)
+    const exact = new Set(VALIDATION_CATALOG.ownership.filter((rule) => rule.exact.includes(path)).map((rule) => rule.profile))
+    if (exact.size > 1) return full(`ambiguous_exact_owner:${path}`)
+    if (exact.size === 1) {
+      classes.push([...exact][0])
+      continue
+    }
+    const prefixMatches = VALIDATION_CATALOG.ownership.flatMap((rule) => (
+      rule.prefixes.filter((prefix) => path.startsWith(prefix)).map((prefix) => ({ length: prefix.length, profile: rule.profile }))
+    ))
+    if (prefixMatches.length === 0) return full(`unknown_path:${path}`)
+    const longest = Math.max(...prefixMatches.map((match) => match.length))
+    const profiles = new Set(prefixMatches.filter((match) => match.length === longest).map((match) => match.profile))
+    if (profiles.size !== 1) return full(`ambiguous_prefix_owner:${path}`)
+    classes.push([...profiles][0])
+  }
+  if (new Set(classes).size !== 1) return full('mixed_ownership_classes')
+  return Object.freeze({ profile: classes[0], fallback_reason: null })
+}
+
 export const requiredCheckCatalogForPathsV1 = (paths) => {
-  paths = normalizedPaths(paths, 'changed_path_scope_invalid')
-  const names = ['build-preview', 'Cloudflare Pages']
-  if (paths.some((path) => path.startsWith('research/sd-prompt-research/'))) names.push('validate')
+  const selection = classifyValidationPathsV1(paths)
+  const names = ['validate']
+  if (VALIDATION_CATALOG.profiles[selection.profile].runtime_deployable) {
+    names.push('build-preview', 'Cloudflare Pages')
+  }
   return Object.freeze(names.map((name) => CHECK_CATALOG[name]))
 }
 
@@ -190,6 +268,10 @@ const acquireFiles = async ({ repository, prNumber, host }) => {
     if (!Array.isArray(nodes)) throw new Error('changed_path_acquisition_failed')
     for (const node of nodes) {
       if (!normalizedPath(node?.filename)) throw new Error('changed_path_acquisition_failed')
+      if (node?.status === 'renamed') {
+        if (!normalizedPath(node?.previous_filename)) throw new Error('changed_path_acquisition_failed')
+        paths.push(node.previous_filename)
+      }
       paths.push(node.filename)
     }
     if (nodes.length < PAGE_SIZE) return normalizedPaths(paths, 'changed_path_acquisition_failed')
