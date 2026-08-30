@@ -4,11 +4,15 @@ import http.client
 import json
 import os
 import shutil
+import socket
+import struct
 import subprocess
 import sys
 import tempfile
 import threading
+import traceback
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest.mock import patch
 
@@ -20,6 +24,65 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import research_explorer as explorer  # noqa: E402
 import claim_draft_pipeline as pipeline  # noqa: E402
+
+
+class HTTPFixtureHandler(explorer.ResearchExplorerHandler):
+    def end_headers(self) -> None:
+        if self.headers.get("Connection", "").lower() == "close":
+            self.send_header("Connection", "close")
+        super().end_headers()
+
+
+def configure_http_fixture(
+    server: explorer.ResearchExplorerHTTPServer,
+    errors: list[object],
+) -> None:
+    server.daemon_threads = False
+    server.RequestHandlerClass = HTTPFixtureHandler
+    server.fixture_close_event = threading.Event()
+    def record_error(_request: object, address: object) -> None:
+        detail = traceback.format_exc()
+        errors.append((address, detail))
+        sys.stderr.write(detail)
+
+    server.handle_error = record_error
+    close_request = server.close_request
+
+    def graceful_shutdown_request(request: socket.socket) -> None:
+        linger_format = "HH" if sys.platform == "win32" else "ii"
+        request.setsockopt(
+            socket.SOL_SOCKET,
+            socket.SO_LINGER,
+            struct.pack(linger_format, 1, 5),
+        )
+        try:
+            request.shutdown(socket.SHUT_WR)
+        finally:
+            close_request(request)
+            server.fixture_close_event.set()
+
+    server.shutdown_request = graceful_shutdown_request
+
+
+def close_http_fixture_connection(
+    connection: http.client.HTTPConnection,
+    close_event: threading.Event,
+) -> int:
+    close_event.clear()
+    try:
+        connection.request("GET", "/", headers={"Connection": "close"})
+        if connection.sock is None:
+            raise AssertionError("Research Explorer fixture connection socket is unavailable")
+        response = connection.getresponse()
+        response.read()
+        if response.getheader("Connection", "").lower() != "close":
+            raise AssertionError("Research Explorer fixture close response omitted Connection: close")
+        status = response.status
+    finally:
+        connection.close()
+    if not close_event.wait(timeout=5):
+        raise AssertionError("Research Explorer fixture close was not observed by the server")
+    return status
 
 
 class ResearchExplorerTestCase(unittest.TestCase):
@@ -408,30 +471,52 @@ class ResearchExplorerHTTPTests(ResearchExplorerTestCase):
             port=0,
             session_token="test-session-token",
         )
+        self.server_errors: list[object] = []
+        configure_http_fixture(self.server, self.server_errors)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         self.port = self.server.server_address[1]
+        self.connection = http.client.HTTPConnection(
+            "127.0.0.1",
+            self.port,
+            timeout=5,
+            source_address=("127.0.0.2", 0),
+        )
 
     def tearDown(self) -> None:
-        self.server.shutdown()
-        self.server.server_close()
-        self.thread.join(timeout=5)
-        super().tearDown()
+        request_threads: list[threading.Thread] = []
+        try:
+            self.assertEqual(
+                close_http_fixture_connection(self.connection, self.server.fixture_close_event),
+                200,
+            )
+        finally:
+            self.server.shutdown()
+            self.thread.join(timeout=5)
+            request_threads = list(getattr(self.server, "_threads", ()))
+            self.server.server_close()
+            try:
+                self.assertIsNone(self.connection.sock)
+                self.assertFalse(self.thread.is_alive())
+                self.assertEqual(self.server.fileno(), -1)
+                self.assertFalse(any(thread.is_alive() for thread in request_threads))
+                self.assertEqual(self.server_errors, [])
+            finally:
+                super().tearDown()
 
     def request(
         self,
         method: str,
         path: str,
         *,
+        body: bytes | None = None,
         headers: dict[str, str] | None = None,
     ) -> tuple[int, dict[str, str], bytes]:
-        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
-        connection.request(method, path, headers=headers or {})
-        response = connection.getresponse()
+        self.connection.request(method, path, body=body, headers=headers or {})
+        response = self.connection.getresponse()
         body = response.read()
         result_headers = {key.lower(): value for key, value in response.getheaders()}
         status = response.status
-        connection.close()
         return status, result_headers, body
 
     def session_cookie(self) -> str:
@@ -479,13 +564,17 @@ class ResearchExplorerHTTPTests(ResearchExplorerTestCase):
         cookie = self.session_cookie()
         for method in ("POST", "PUT", "PATCH", "DELETE", "OPTIONS"):
             with self.subTest(method=method):
-                status, _, body = self.request(
+                status, headers, body = self.request(
                     method,
                     "/api/research/index",
+                    body=b'{"unexpected":"request body"}',
                     headers={"Cookie": cookie},
                 )
                 self.assertEqual(status, 405)
+                self.assertEqual(headers.get("connection"), "close")
                 self.assertEqual(json.loads(body)["error"]["code"], "READ_ONLY_API")
+                follow_up_status, _, _ = self.request("GET", "/")
+                self.assertEqual(follow_up_status, 200)
 
     def test_artifact_read_requires_snapshot_and_rejects_stale_source(self) -> None:
         cookie = self.session_cookie()
@@ -580,6 +669,129 @@ class ResearchExplorerHTTPTests(ResearchExplorerTestCase):
         )
         self.assertEqual(status, 404)
         self.assertEqual(json.loads(body)["error"]["code"], "ARTIFACT_ID_INVALID")
+
+    def test_parallel_http_fixtures_use_distinct_ephemeral_ports(self) -> None:
+        servers: list[explorer.ResearchExplorerHTTPServer] = []
+        threads: list[threading.Thread] = []
+        connections: list[http.client.HTTPConnection] = []
+        server_errors: list[list[object]] = []
+        close_errors: list[BaseException] = []
+        try:
+            for index in range(2):
+                server = explorer.create_companion_server(
+                    self.project,
+                    self.frontend,
+                    host="127.0.0.1",
+                    port=0,
+                    session_token=f"parallel-session-{index}",
+                )
+                errors: list[object] = []
+                configure_http_fixture(server, errors)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                servers.append(server)
+                threads.append(thread)
+                server_errors.append(errors)
+                connections.append(
+                    http.client.HTTPConnection(
+                        "127.0.0.1",
+                        server.server_address[1],
+                        timeout=5,
+                        source_address=("127.0.0.2", 0),
+                    )
+                )
+
+            self.assertEqual(len({server.server_address[1] for server in servers}), 2)
+
+            def exercise(index: int) -> tuple[int, int, bytes]:
+                connection = connections[index]
+                connection.request("GET", "/")
+                frontend = connection.getresponse()
+                frontend_body = frontend.read()
+                cookie = frontend.getheader("Set-Cookie", "").split(";", 1)[0]
+                connection.request(
+                    "GET",
+                    "/api/research/index",
+                    headers={"Cookie": cookie},
+                )
+                api = connection.getresponse()
+                api_body = api.read()
+                return frontend.status, api.status, frontend_body + api_body
+
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                results = list(pool.map(exercise, range(2)))
+            self.assertTrue(all(frontend == 200 and api == 200 for frontend, api, _ in results))
+        finally:
+            for index, connection in enumerate(connections):
+                try:
+                    if close_http_fixture_connection(
+                        connection,
+                        servers[index].fixture_close_event,
+                    ) != 200:
+                        raise AssertionError("Research Explorer fixture close response was not successful")
+                except BaseException as exc:
+                    close_errors.append(exc)
+            for server in servers:
+                server.shutdown()
+            for thread in threads:
+                thread.join(timeout=5)
+            request_threads = [
+                request_thread
+                for server in servers
+                for request_thread in list(getattr(server, "_threads", ()))
+            ]
+            for server in servers:
+                server.server_close()
+
+        self.assertTrue(all(connection.sock is None for connection in connections))
+        self.assertTrue(all(not thread.is_alive() for thread in threads))
+        self.assertTrue(all(server.fileno() == -1 for server in servers))
+        self.assertFalse(any(thread.is_alive() for thread in request_threads))
+        self.assertTrue(all(errors == [] for errors in server_errors))
+        self.assertEqual(close_errors, [])
+
+    def test_completed_keepalive_reset_is_a_clean_disconnect(self) -> None:
+        server = explorer.create_companion_server(
+            self.project,
+            self.frontend,
+            host="127.0.0.1",
+            port=0,
+            session_token="reset-session",
+        )
+        server_errors: list[object] = []
+        configure_http_fixture(server, server_errors)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        connection = http.client.HTTPConnection(
+            "127.0.0.1",
+            server.server_address[1],
+            timeout=5,
+            source_address=("127.0.0.2", 0),
+        )
+        try:
+            connection.request("GET", "/")
+            response = connection.getresponse()
+            response.read()
+            self.assertEqual(response.status, 200)
+            self.assertIsNotNone(connection.sock)
+            linger_format = "HH" if sys.platform == "win32" else "ii"
+            connection.sock.setsockopt(
+                socket.SOL_SOCKET,
+                socket.SO_LINGER,
+                struct.pack(linger_format, 1, 0),
+            )
+        finally:
+            connection.close()
+            server.shutdown()
+            thread.join(timeout=5)
+            request_threads = list(getattr(server, "_threads", ()))
+            server.server_close()
+
+        self.assertIsNone(connection.sock)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(server.fileno(), -1)
+        self.assertFalse(any(request_thread.is_alive() for request_thread in request_threads))
+        self.assertEqual(server_errors, [])
 
 
 if __name__ == "__main__":
