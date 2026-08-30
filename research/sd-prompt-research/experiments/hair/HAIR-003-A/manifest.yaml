@@ -1,0 +1,87 @@
+schema_version: '1.0'
+run_id: HAIR-003-A
+domain: hair
+condition: Condition A
+title: HAIR-003-A — bob cut control replication
+status: OBSERVED
+created_at: '2026-08-30T21:06:26+09:00'
+updated_at: '2026-08-30T21:22:52+09:00'
+research:
+  target_phrase: bob cut
+  research_question: Does adding long hair to bob cut reliably fail to produce long-hair
+    extent while preserving bob-cut identity?
+  baseline_run_id: HAIR-002-A
+  variant_label: A — fresh-seed control
+  hypothesis_before_run: HAIR-002 observed a suppression candidate; this fresh-seed
+    replication may confirm, reject, or leave that result inconclusive.
+prompt:
+  positive: 1girl, solo, upper body, three-quarter back view, standing, straight posture,
+    arms relaxed at sides, fitted sleeveless top, plain background, bob cut
+  negative: low quality, worst quality, blurry, deformed, bad anatomy, bad hands,
+    extra fingers, missing fingers, text, watermark, raised arms, arms up, hand on
+    face, hand on hair
+  changed_phrases:
+  - bob cut
+  fixed_phrases:
+  - 1girl
+  - solo
+  - upper body
+  - three-quarter back view
+  - standing
+  - straight posture
+  - arms relaxed at sides
+  - fitted sleeveless top
+  - plain background
+model:
+  checkpoint: novaAnimeXL_ilV190
+  checkpoint_sha256: fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f
+  vae: ''
+  sampler: Euler a
+  scheduler: Automatic
+  steps: 20
+  cfg_scale: 4.5
+  width: 1024
+  height: 1024
+  seeds:
+  - 677787952
+  - 1577455770
+  - 147154807
+  - 153275517
+  - 772828733
+  - 895886237
+source:
+  sheet_file: null
+  metadata_file: source/HAIR-003-A_metadata.yaml
+  sidecar_file: null
+  layout: individual_panels
+  panel_count: 6
+  original_filename: HAIR-003-task-467-20260830-210626.zip
+outputs:
+  panels:
+  - panels/HAIR-003-A_01.png
+  - panels/HAIR-003-A_02.png
+  - panels/HAIR-003-A_03.png
+  - panels/HAIR-003-A_04.png
+  - panels/HAIR-003-A_05.png
+  - panels/HAIR-003-A_06.png
+  preview_file: null
+  rubric_file: source/rubric.yaml
+  observation_file: observation.md
+  observation_json: observation.json
+  hair_observation_json: hair-observation.json
+  hair_observation_schema: templates/hair-observation-schema.json
+  hair_observation_rubric: templates/hair-observation-rubric.yaml
+  research_review_file: research-review.md
+  observation_schema: templates/observation-schema.json
+  canonical_observation: observation.json
+workflow:
+  assigned_to: 研究担当ChatGPT
+  human_reviewed_by: null
+  accepted_at: null
+  notes: "Generated directly through the verified A1111 txt2img API under Task #467. Results are research evidence only."
+ingested_metadata:
+  metadata_status: verified
+  source: a1111_txt2img_api
+  format: png+json
+  archive_filename: HAIR-003-task-467-20260830-210626.zip
+  archive_sha256: 9c49514ba9597e17792ea9c8f3667faaa7afc735137e80afc12456343b96a0fd
