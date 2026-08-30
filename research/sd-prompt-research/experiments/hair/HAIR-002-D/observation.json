@@ -1,0 +1,198 @@
+{
+  "schema_version": "3.0",
+  "run_id": "HAIR-002-D",
+  "blind_condition_label": "Condition D",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "main_hairstyle_identity",
+    "visible_structure",
+    "composition_integrity"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "The twin_tied_tails structure is visibly distinct in all six panels.",
+      "No hair-structure ambiguity or generation artifact is visible in the six panels."
+    ],
+    "analysis_notes": [
+      "Visible image evidence only; prompt text was not used to assign observations.",
+      "Hair extent and overlap are recorded separately in hair-observation.json."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "distinct",
+        "twin_tied_tails",
+        "coherent"
+      ],
+      "primary_morphology": "main_hairstyle_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Panel 1 visibly shows a coherent twin_tied_tails with identifiable hair boundaries and no structural artifact."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "distinct",
+        "twin_tied_tails",
+        "coherent"
+      ],
+      "primary_morphology": "main_hairstyle_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Panel 2 visibly shows a coherent twin_tied_tails with identifiable hair boundaries and no structural artifact."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "distinct",
+        "twin_tied_tails",
+        "coherent"
+      ],
+      "primary_morphology": "main_hairstyle_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Panel 3 visibly shows a coherent twin_tied_tails with identifiable hair boundaries and no structural artifact."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "distinct",
+        "twin_tied_tails",
+        "coherent"
+      ],
+      "primary_morphology": "main_hairstyle_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Panel 4 visibly shows a coherent twin_tied_tails with identifiable hair boundaries and no structural artifact."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "distinct",
+        "twin_tied_tails",
+        "coherent"
+      ],
+      "primary_morphology": "main_hairstyle_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Panel 5 visibly shows a coherent twin_tied_tails with identifiable hair boundaries and no structural artifact."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "distinct",
+        "twin_tied_tails",
+        "coherent"
+      ],
+      "primary_morphology": "main_hairstyle_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Panel 6 visibly shows a coherent twin_tied_tails with identifiable hair boundaries and no structural artifact."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file records condition-local visible structure; matched-seed comparison is recorded in research-review.md.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "main_hairstyle_identity": {
+        "distinct": 6
+      },
+      "visible_structure": {
+        "twin_tied_tails": 6
+      },
+      "composition_integrity": {
+        "coherent": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "main_hairstyle_composition": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}

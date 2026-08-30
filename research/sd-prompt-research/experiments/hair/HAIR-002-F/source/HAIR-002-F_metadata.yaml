@@ -1,0 +1,86 @@
+metadata_status: verified
+source: a1111_txt2img_api
+format: png
+official_input:
+  archive: HAIR-002-task-463-20260830-195045.zip
+  sha256: c343d2c599f2220f9894ee4439bb99f4836ee4e762ccc6912e4085c96025d0db
+  panel_count: 36
+  sidecar_count: 36
+generation:
+  positive_prompt: 1girl, solo, upper body, three-quarter back view, standing, straight posture, arms
+    relaxed at sides, fitted sleeveless top, plain background, ponytail, long hair
+  negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra
+    fingers, missing fingers, text, watermark, raised arms, arms up, hand on face, hand on hair
+  hair_phrase: ponytail, long hair
+  settings:
+    model: novaAnimeXL_ilV190
+    model_hash: fa486caafc
+    model_sha256: fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f
+    sampler: Euler a
+    scheduler: Automatic
+    steps: 20
+    cfg_scale: 4.5
+    width: 1024
+    height: 1024
+  ordered_seeds:
+    - 110731
+    - 240517
+    - 381029
+    - 527413
+    - 684221
+    - 902117
+pairing_contract:
+  paired_run_id: HAIR-002-E
+  exact_difference: append long hair to the control prompt
+  prompt_equal_except_long_hair_addition: true
+  negative_prompt_equal: true
+  settings_equal: true
+  ordered_seeds_equal: true
+panels:
+  - panel_id: 1
+    seed: 110731
+    image_file: panels/HAIR-002-F_01.png
+    image_sha256: 0a128881f0c937d727919dbc64a39e99aef50a1f11411f20a6088cfdf8544300
+    original_metadata_file: HAIR-002-F-01-seed-110731.json
+    metadata_sha256: 4c4f48e154973205dab3f1ed0592dab82ac68810fb9d5343c1fbc99876fc7c22
+  - panel_id: 2
+    seed: 240517
+    image_file: panels/HAIR-002-F_02.png
+    image_sha256: e4b8b020f8dfe27e6607609400c16f625ce1fa96caae81dc82b0214097483eec
+    original_metadata_file: HAIR-002-F-02-seed-240517.json
+    metadata_sha256: 52e61c2d27c3625f341231ce69f611841bece6a4baf7e09fb04cc2919a78736f
+  - panel_id: 3
+    seed: 381029
+    image_file: panels/HAIR-002-F_03.png
+    image_sha256: 27f4518f9187f618c98786b20a8ab9f2df628e1bd72d20307a602ecad82b03f0
+    original_metadata_file: HAIR-002-F-03-seed-381029.json
+    metadata_sha256: 7fbd199d585722632cea2217cfbf3846c4db4a39b3718261deb4ccdff6ebc7e0
+  - panel_id: 4
+    seed: 527413
+    image_file: panels/HAIR-002-F_04.png
+    image_sha256: 18df4b5827c37fefd55dc3d1ed12b335c7dbfba06cc940aab83d19410e511425
+    original_metadata_file: HAIR-002-F-04-seed-527413.json
+    metadata_sha256: e09c51c85cdb160ab729a43c49f7976d7b3c21c6c43874e9870e97fbd74acc91
+  - panel_id: 5
+    seed: 684221
+    image_file: panels/HAIR-002-F_05.png
+    image_sha256: 796dbe28b4c13d744cb893e9b9cf099bd46414e90378c46bdf054a3e7a5c8e3c
+    original_metadata_file: HAIR-002-F-05-seed-684221.json
+    metadata_sha256: 7d36cf2c1dfddeb5d0be43269c1294cbcd7d388b8b0dfad16e5c39ed45ebab21
+  - panel_id: 6
+    seed: 902117
+    image_file: panels/HAIR-002-F_06.png
+    image_sha256: e930c06364e8f724b2a71c22ad37d2464a37308776556a72743c20b168df078a
+    original_metadata_file: HAIR-002-F-06-seed-902117.json
+    metadata_sha256: dd7644c08e8eb050a66db41a915bb187ab8e5838d9725d65532cdd412883f466
+verification:
+  panel_count: 6
+  png_integrity: PASS
+  dimensions: PASS
+  generation_provenance: PASS
+  matched_seed_contract: PASS
+  prompt_delta_contract: PASS
+pair_summary:
+  decision: COEXISTENCE_CANDIDATE
+  treatment_below_shoulder: 6/6
+  main_hairstyle_retained: 6/6
