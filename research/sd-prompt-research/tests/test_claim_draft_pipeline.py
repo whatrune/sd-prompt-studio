@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch
@@ -26,8 +27,30 @@ BRG008_FACE = ROOT / "experiments" / "bridge" / "BRG-008-A" / "face-observation.
 
 
 @contextmanager
-def temporary_directory_with_native_cleanup(*, dir: Path | None = None):
-    root = Path(tempfile.mkdtemp(dir=dir))
+def temporary_directory_with_native_cleanup():
+    parent = Path(tempfile.gettempdir()).resolve()
+    probe = parent / f"cdp-{uuid.uuid4().hex[:12]}"
+    try:
+        probe.mkdir()
+        marker = probe / "write-delete.probe"
+        marker.write_bytes(b"ok")
+        marker.unlink()
+        probe.rmdir()
+    except OSError as error:
+        native_probe = f"\\\\?\\{probe}" if sys.platform == "win32" else str(probe)
+        if probe.exists():
+            shutil.rmtree(native_probe, ignore_errors=True)
+        raise RuntimeError(
+            f"claim_draft_test_temp_root_unavailable: {parent}: {type(error).__name__}"
+        ) from error
+
+    root = parent / f"cdt-{uuid.uuid4().hex[:12]}"
+    try:
+        root.mkdir()
+    except OSError as error:
+        raise RuntimeError(
+            f"claim_draft_test_temp_directory_creation_failed: {parent}: {type(error).__name__}"
+        ) from error
     try:
         yield str(root)
     finally:
@@ -199,8 +222,26 @@ class ClaimDraftPipelineTests(unittest.TestCase):
         self.assertEqual(set(modules), {"pose", "face", "hair", "clothing", "camera", "object", "other"})
         self.assertRegex(content_hash, r"^[a-f0-9]{64}$")
 
+    def test_bounded_temp_directory_uses_verified_local_root_and_cleans_up(self) -> None:
+        with temporary_directory_with_native_cleanup() as directory:
+            root = Path(directory)
+            self.assertEqual(root.parent, Path(tempfile.gettempdir()).resolve())
+            (root / "proof.txt").write_text("writable", encoding="utf-8")
+        self.assertFalse(root.exists())
+
+    def test_bounded_temp_directory_fails_promptly_for_unusable_root(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            blocker = Path(directory) / "not-a-directory"
+            blocker.write_text("blocked", encoding="utf-8")
+            with patch.object(tempfile, "gettempdir", return_value=str(blocker)):
+                with self.assertRaisesRegex(
+                    RuntimeError, "claim_draft_test_temp_root_unavailable"
+                ):
+                    with temporary_directory_with_native_cleanup():
+                        self.fail("unusable temporary root was admitted")
+
     def test_generation_is_deterministic_and_idempotent(self) -> None:
-        with tempfile.TemporaryDirectory(dir=Path.home()) as directory:
+        with temporary_directory_with_native_cleanup() as directory:
             first = self.generate(Path(directory))
             second = self.generate(Path(directory))
             self.assertEqual(first.draft_id, second.draft_id)
@@ -644,7 +685,7 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             )
 
     def test_candidate_wrapper_does_not_leak_metadata_into_canonical_assertion(self) -> None:
-        with tempfile.TemporaryDirectory(dir=Path.home()) as directory:
+        with temporary_directory_with_native_cleanup() as directory:
             result = self.generate(Path(directory))
             resolution = self.resolution_for(result)
             (result.draft_dir / "human-resolution.yaml").write_bytes(pipeline.yaml_bytes(resolution))
@@ -656,7 +697,7 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             pipeline.validate_artifact(ROOT, "observation-to-claim-candidate.schema.json", candidate.wrapper)
 
     def test_existing_canonical_evidence_is_referenced_without_duplication(self) -> None:
-        with tempfile.TemporaryDirectory() as project_dir, tempfile.TemporaryDirectory(dir=Path.home()) as first_output, tempfile.TemporaryDirectory(dir=Path.home()) as second_output:
+        with tempfile.TemporaryDirectory() as project_dir, temporary_directory_with_native_cleanup() as first_output, temporary_directory_with_native_cleanup() as second_output:
             project_root = self.temporary_project(project_dir)
             observation = project_root / "experiments" / "bridge" / "BRG-009-A" / "observation.json"
             first = pipeline.generate_draft(
@@ -708,7 +749,7 @@ class ClaimDraftPipelineTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, "EXPLICIT_FINALIZE_REQUIRED")
 
     def test_finalize_postvalidation_failure_rolls_back_and_records_receipt(self) -> None:
-        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir, tempfile.TemporaryDirectory() as project_dir:
+        with temporary_directory_with_native_cleanup() as output_dir, tempfile.TemporaryDirectory() as project_dir:
             result = self.generate(Path(output_dir))
             resolution = self.resolution_for(result)
             (result.draft_dir / "human-resolution.yaml").write_bytes(pipeline.yaml_bytes(resolution))
@@ -733,7 +774,7 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             destination = project_root / "knowledge" / "assertions" / "assertion-brg009-lying-arch-001.yaml"
             self.assertFalse(destination.exists())
             receipts = [
-                json.loads(path.read_text(encoding="utf-8"))
+                pipeline._load_json(path)
                 for path in (candidate.candidate_dir / "generation-receipts").glob("*.json")
             ]
             self.assertTrue(any(item["receipt_type"] == "finalize_attempt" for item in receipts))
@@ -756,7 +797,7 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             )
 
     def test_finalize_success_installs_only_canonical_assertion(self) -> None:
-        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir, tempfile.TemporaryDirectory() as project_dir:
+        with temporary_directory_with_native_cleanup() as output_dir, tempfile.TemporaryDirectory() as project_dir:
             result = self.generate(Path(output_dir))
             resolution = self.resolution_for(result)
             (result.draft_dir / "human-resolution.yaml").write_bytes(pipeline.yaml_bytes(resolution))
@@ -779,7 +820,7 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             self.assertEqual(finalized.receipt["result"], "succeeded")
 
     def test_finalize_rejects_schema_valid_canonical_assertion_tampering(self) -> None:
-        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
+        with temporary_directory_with_native_cleanup() as output_dir:
             result, candidate = self.candidate_for(ROOT, Path(output_dir))
             wrapper = copy.deepcopy(candidate.wrapper)
             wrapper["canonical_assertion"]["assertions"][0]["claim"]["statement"] += " Tampered."
@@ -797,7 +838,7 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             )
 
     def test_finalize_rejects_wrapper_metadata_tampering(self) -> None:
-        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
+        with temporary_directory_with_native_cleanup() as output_dir:
             result, candidate = self.candidate_for(ROOT, Path(output_dir))
             wrapper = copy.deepcopy(candidate.wrapper)
             wrapper["generator_version"] = "0.2.0"
@@ -812,7 +853,7 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             self.assertEqual(raised.exception.code, "CANDIDATE_TAMPERED")
 
     def test_finalize_preflight_schema_failure_writes_failed_receipt(self) -> None:
-        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
+        with temporary_directory_with_native_cleanup() as output_dir:
             result, candidate = self.candidate_for(ROOT, Path(output_dir))
             wrapper = copy.deepcopy(candidate.wrapper)
             wrapper["generator_version"] = "invalid-version"
@@ -826,7 +867,7 @@ class ClaimDraftPipelineTests(unittest.TestCase):
                 )
             self.assertEqual(raised.exception.code, "CANDIDATE_SCHEMA_INVALID")
             receipts = [
-                json.loads(path.read_text(encoding="utf-8"))
+                pipeline._load_json(path)
                 for path in candidate.candidate_dir.joinpath("generation-receipts").glob("*.json")
             ]
             failed = [
@@ -841,7 +882,7 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             self.assertEqual(failed[0]["payload"]["candidate_identity"]["status"], "not_available")
 
     def test_canonical_yaml_serialization_uses_explicit_root_order(self) -> None:
-        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
+        with temporary_directory_with_native_cleanup() as output_dir:
             _result, candidate = self.candidate_for(ROOT, Path(output_dir))
             canonical = candidate.wrapper["canonical_assertion"]
 
@@ -909,7 +950,7 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             )
 
     def test_human_resolutions_create_separate_immutable_candidates(self) -> None:
-        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
+        with temporary_directory_with_native_cleanup() as output_dir:
             result = self.generate(Path(output_dir))
             first_resolution = self.resolution_for(result)
             resolution_path = result.draft_dir / "human-resolution.yaml"
@@ -927,7 +968,7 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             self.assertEqual(first.candidate_path.read_bytes(), original)
 
     def test_same_candidate_id_with_changed_content_is_collision(self) -> None:
-        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
+        with temporary_directory_with_native_cleanup() as output_dir:
             result, candidate = self.candidate_for(ROOT, Path(output_dir))
             candidate.candidate_path.write_bytes(candidate.candidate_path.read_bytes() + b"\n")
             with patch.object(pipeline, "_integrated_validate"):
@@ -942,7 +983,7 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             )
 
     def test_finalize_rejects_candidate_id_path_mismatch(self) -> None:
-        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
+        with temporary_directory_with_native_cleanup() as output_dir:
             result, candidate = self.candidate_for(ROOT, Path(output_dir))
             with self.assertRaises(pipeline.PipelineError) as raised:
                 pipeline.finalize_candidate(
@@ -972,7 +1013,7 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             )
 
     def test_candidate_schema_rejects_non_semver_generator(self) -> None:
-        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
+        with temporary_directory_with_native_cleanup() as output_dir:
             _result, candidate = self.candidate_for(ROOT, Path(output_dir))
             invalid = copy.deepcopy(candidate.wrapper)
             invalid["generator_version"] = "not-semver"
@@ -981,9 +1022,9 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             self.assertEqual(raised.exception.code, "CANDIDATE_SCHEMA_INVALID")
 
     def test_candidate_and_finalize_receipts_bind_same_three_hashes(self) -> None:
-        with tempfile.TemporaryDirectory(dir=Path.home()) as output_dir, tempfile.TemporaryDirectory() as project_dir:
-            result, candidate = self.candidate_for(ROOT, Path(output_dir))
+        with temporary_directory_with_native_cleanup() as output_dir, tempfile.TemporaryDirectory() as project_dir:
             project_root = self.temporary_project(project_dir)
+            result, candidate = self.candidate_for(project_root, Path(output_dir))
             with patch.object(pipeline, "_integrated_validate"), patch.object(
                 pipeline.subprocess,
                 "run",
@@ -1004,8 +1045,71 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             ):
                 self.assertEqual(first[key], second[key])
 
+    def test_finalize_rejects_each_candidate_receipt_hash_mismatch(self) -> None:
+        cases = {
+            "candidate_wrapper_artifact_hash_v1": "CANDIDATE_TAMPERED",
+            "canonical_assertion_artifact_hash_v1": "CANONICAL_ASSERTION_HASH_MISMATCH",
+            "assertion_content_v1_hash": "CANDIDATE_TAMPERED",
+        }
+        for key, expected_code in cases.items():
+            with self.subTest(hash_name=key), tempfile.TemporaryDirectory() as project_dir, temporary_directory_with_native_cleanup() as output_dir:
+                project_root = self.temporary_project(project_dir)
+                result, candidate = self.candidate_for(project_root, Path(output_dir))
+                receipt_path = next(
+                    (candidate.candidate_dir / "generation-receipts").glob("*.json")
+                )
+                receipt = pipeline._load_json(receipt_path)
+                original = receipt["payload"]["candidate_identity"][key]
+                receipt["payload"]["candidate_identity"][key] = (
+                    "0" if original[0] != "0" else "1"
+                ) * 64
+                Path(pipeline._native_path(receipt_path)).write_bytes(
+                    pipeline.json_bytes(receipt)
+                )
+                with self.assertRaises(pipeline.PipelineError) as raised:
+                    pipeline.finalize_candidate(
+                        project_root,
+                        result.draft_dir,
+                        candidate_id=candidate.candidate_id,
+                        explicit_finalize=True,
+                    )
+                self.assertEqual(raised.exception.code, expected_code)
+
+    def test_finalize_rejects_malformed_and_missing_candidate_receipts(self) -> None:
+        for disposition in ("malformed", "missing"):
+            with self.subTest(disposition=disposition), tempfile.TemporaryDirectory() as project_dir, temporary_directory_with_native_cleanup() as output_dir:
+                project_root = self.temporary_project(project_dir)
+                result, candidate = self.candidate_for(project_root, Path(output_dir))
+                receipt_path = next(
+                    (candidate.candidate_dir / "generation-receipts").glob("*.json")
+                )
+                if disposition == "malformed":
+                    Path(pipeline._native_path(receipt_path)).write_bytes(
+                        pipeline.json_bytes({"receipt_type": "invalid"})
+                    )
+                else:
+                    Path(pipeline._native_path(receipt_path)).unlink()
+                with self.assertRaises(pipeline.PipelineError) as raised:
+                    pipeline.finalize_candidate(
+                        project_root,
+                        result.draft_dir,
+                        candidate_id=candidate.candidate_id,
+                        explicit_finalize=True,
+                    )
+                self.assertEqual(raised.exception.code, "CANDIDATE_RECEIPT_NOT_FOUND")
+
+    def test_repeated_candidate_generation_has_deterministic_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as project_dir, temporary_directory_with_native_cleanup() as first_output, temporary_directory_with_native_cleanup() as second_output:
+            project_root = self.temporary_project(project_dir)
+            _first_result, first = self.candidate_for(project_root, Path(first_output))
+            _second_result, second = self.candidate_for(project_root, Path(second_output))
+            self.assertEqual(
+                first.receipt["payload"]["candidate_identity"],
+                second.receipt["payload"]["candidate_identity"],
+            )
+
     def test_existing_evidence_full_observation_hash_collision_is_rejected(self) -> None:
-        with tempfile.TemporaryDirectory() as project_dir, tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
+        with tempfile.TemporaryDirectory() as project_dir, temporary_directory_with_native_cleanup() as output_dir:
             project_root = self.temporary_project(project_dir)
             observation = project_root / "experiments" / "bridge" / "BRG-009-A" / "observation.json"
             result = pipeline.generate_draft(
@@ -1037,7 +1141,7 @@ class ClaimDraftPipelineTests(unittest.TestCase):
             self.assertEqual(raised.exception.code, "EVIDENCE_ID_COLLISION")
 
     def test_deprecated_used_module_is_incompatible(self) -> None:
-        with tempfile.TemporaryDirectory() as project_dir, tempfile.TemporaryDirectory(dir=Path.home()) as output_dir:
+        with tempfile.TemporaryDirectory() as project_dir, temporary_directory_with_native_cleanup() as output_dir:
             project_root = self.temporary_project(project_dir)
             result, candidate = self.candidate_for(project_root, Path(output_dir))
             registry_path = project_root / "knowledge" / "registries" / "observation-modules.yaml"
