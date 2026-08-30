@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { parseDocument } from 'yaml'
 import {
+  classifyValidationPathsV1,
   evaluateRequiredChecksV1,
   executeSimplifiedMergeV1,
   parseSimplifiedMergeDecisionV1,
@@ -12,6 +13,11 @@ import {
   serializeSimplifiedTaskAuthorityV1,
 } from './protected-transition-merge-operator-preflight-v1.mjs'
 import { createProductionHostV1 } from './run-protected-transition-admission-v1.mjs'
+import {
+  discoverPromptTagDictionaryFilesV1,
+  parsePromptTagDictionaryV1,
+  validatePromptTagDictionaryRootV1,
+} from './validate-dictionaries.mjs'
 
 const REPOSITORY = 'whatrune/sd-prompt-studio'
 const HEAD = '1'.repeat(40)
@@ -93,7 +99,7 @@ const createFixture = ({
     mergeMutations: 0,
     mergeExpectedHead: null,
   }
-  const checkNodes = checks ?? [check('build-preview', 15368), check('Cloudflare Pages', 85455)]
+  const checkNodes = checks ?? [check('validate', 15368), check('build-preview', 15368), check('Cloudflare Pages', 85455)]
   const taskBody = serializeSimplifiedTaskAuthorityV1(taskInput)
   const reviewBody = serializeSimplifiedReviewV1(reviewInput(reviewHead))
   const pullRest = () => ({
@@ -195,11 +201,47 @@ throws(() => parseSimplifiedTaskAuthorityV1('# placeholder'), /task_authority_in
 throws(() => parseSimplifiedReviewV1(reviewBody.replace('"decision": "APPROVE"', '"decision": "CHANGES_REQUIRED"')), /review_invalid/)
 throws(() => parseSimplifiedMergeDecisionV1(`${decisionBody}\n\`\`\`json\n{}\n\`\`\``), /merge_decision_invalid/)
 
-equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('Cloudflare Pages', 85455)], paths: PATHS, exactHead: HEAD }).length, 2)
-throws(() => evaluateRequiredChecksV1({ checks: [check('build-preview', 15368)], paths: PATHS, exactHead: HEAD }), /required_check_missing:Cloudflare Pages/)
-throws(() => evaluateRequiredChecksV1({ checks: [check('build-preview', 15368, { conclusion: 'FAILURE' }), check('Cloudflare Pages', 85455)], paths: PATHS, exactHead: HEAD }), /required_check_not_successful:build-preview/)
-const researchPaths = ['research/sd-prompt-research/example.json']
-equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('Cloudflare Pages', 85455), check('validate', 15368)], paths: researchPaths, exactHead: HEAD }).length, 3)
+const allChecks = [check('validate', 15368), check('build-preview', 15368), check('Cloudflare Pages', 85455)]
+equal(classifyValidationPathsV1(['research/sd-prompt-research/experiments/hair/HAIR-001-A/observation.json']).profile, 'RESEARCH_EXPERIMENT')
+equal(classifyValidationPathsV1(['research/sd-prompt-research/concepts/physical-concepts.json']).profile, 'CONCEPT_GRAPH')
+equal(classifyValidationPathsV1(['data/visual-concept-prompt-tag-bindings-v1.json', 'src/visualConceptProductionAdvisoryV1.ts']).profile, 'PRODUCTION_ADVISORY')
+equal(classifyValidationPathsV1(['data/prompt-tags.json']).profile, 'PROMPT_DATA')
+equal(classifyValidationPathsV1(['src/main.tsx']).profile, 'APPLICATION')
+equal(classifyValidationPathsV1(['scripts/ordinary-platform-check.mjs']).profile, 'PLATFORM')
+equal(classifyValidationPathsV1(['docs/product/guide.md']).profile, 'DOCUMENTATION')
+equal(classifyValidationPathsV1(['unknown/new.bin']).profile, 'FULL_RESEARCH')
+equal(classifyValidationPathsV1(['docs/product/guide.md', 'src/main.tsx']).fallback_reason, 'mixed_ownership_classes')
+equal(classifyValidationPathsV1([]).fallback_reason, 'empty_changed_path_set')
+equal(classifyValidationPathsV1(['docs/a.md', 'docs/a.md']).fallback_reason, 'duplicate_changed_path')
+equal(classifyValidationPathsV1(['a//b']).fallback_reason, 'malformed_changed_path')
+equal(classifyValidationPathsV1(['docs/x\ny.md']).fallback_reason, 'malformed_changed_path')
+equal(classifyValidationPathsV1(['docs/x\u007fy.md']).fallback_reason, 'malformed_changed_path')
+equal(classifyValidationPathsV1(['C:/docs/a.md']).fallback_reason, 'malformed_changed_path')
+equal(classifyValidationPathsV1(['data/validation-path-ownership-v1.json']).profile, 'FULL_RESEARCH')
+equal(classifyValidationPathsV1(['scripts/validate-dictionaries.mjs']).profile, 'FULL_RESEARCH')
+
+const discoveredDictionaryFiles = discoverPromptTagDictionaryFilesV1([
+  'hair.json',
+  'validation-path-ownership-v1.json',
+  'visual-concept-advisory-relation-allowlist-v1.json',
+  'visual-concept-prompt-tag-bindings-v1.json',
+  'slots.json',
+  'unexpected-data-contract.json',
+  'notes.md',
+])
+equal(discoveredDictionaryFiles.join(','), 'hair.json,unexpected-data-contract.json')
+equal(parsePromptTagDictionaryV1('hair.json', '[{"id":"hai-long-hair","prompt":"long hair","category":"hair"}]').length, 1)
+throws(() => validatePromptTagDictionaryRootV1('hair.json', [{ id: 'broken', prompt: '', category: 'hair' }]), /invalid row/)
+throws(() => validatePromptTagDictionaryRootV1('unexpected-data-contract.json', { catalog: true }), /dictionary root must be an array/)
+throws(() => parsePromptTagDictionaryV1('foreign-malformed.json', '{'), SyntaxError)
+equal(evaluateRequiredChecksV1({ checks: allChecks, paths: PATHS, exactHead: HEAD }).length, 3)
+equal(evaluateRequiredChecksV1({ checks: allChecks, paths: ['data/visual-concept-prompt-tag-bindings-v1.json', 'scripts/test-visual-concept-read-only-inspection-v1.mjs'], exactHead: HEAD }).length, 3)
+equal(evaluateRequiredChecksV1({ checks: allChecks, paths: ['unknown/new.bin'], exactHead: HEAD }).length, 3)
+equal(evaluateRequiredChecksV1({ checks: [check('validate', 15368)], paths: ['docs/product/guide.md'], exactHead: HEAD }).length, 1)
+equal(evaluateRequiredChecksV1({ checks: [check('validate', 15368)], paths: ['research/sd-prompt-research/experiments/hair/HAIR-001-A/observation.json'], exactHead: HEAD }).length, 1)
+throws(() => evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('Cloudflare Pages', 85455)], paths: PATHS, exactHead: HEAD }), /required_check_missing:validate/)
+throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check('Cloudflare Pages', 85455)], paths: PATHS, exactHead: HEAD }), /required_check_missing:build-preview/)
+throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check('build-preview', 15368, { conclusion: 'FAILURE' }), check('Cloudflare Pages', 85455)], paths: PATHS, exactHead: HEAD }), /required_check_not_successful:build-preview/)
 
 {
   const fixture = createFixture()
@@ -218,7 +260,7 @@ equal(evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('
   equal(fixture.state.mergeMutations, 0)
 }
 {
-  const fixture = createFixture({ checks: [check('build-preview', 15368), check('Cloudflare Pages', 85455, { status: 'IN_PROGRESS', conclusion: null })] })
+  const fixture = createFixture({ checks: [check('validate', 15368), check('build-preview', 15368), check('Cloudflare Pages', 85455, { status: 'IN_PROGRESS', conclusion: null })] })
   const result = await executeSimplifiedMergeV1({ event: mergeEvent(), host: fixture.host })
   equal(result.reason, 'required_check_not_successful:Cloudflare Pages')
   equal(fixture.state.mergeMutations, 0)

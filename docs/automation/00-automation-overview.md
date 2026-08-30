@@ -34,16 +34,19 @@ The same binding is evaluated again immediately before mutation. The operator th
 
 ## Required checks
 
-The closed catalog is:
+`data/validation-path-ownership-v1.json` is the single closed path-ownership catalog consumed by both validation selection and Merge required-check projection. The catalog defines eight profiles: `RESEARCH_EXPERIMENT`, `CONCEPT_GRAPH`, `FULL_RESEARCH`, `PRODUCTION_ADVISORY`, `PROMPT_DATA`, `APPLICATION`, `PLATFORM`, and `DOCUMENTATION`.
 
-| Changed paths | Required exact-HEAD checks |
+| Classified change | Required exact-HEAD checks |
 | --- | --- |
-| all changes | `build-preview`, `Cloudflare Pages` |
-| any `research/sd-prompt-research/**` path | the two checks above plus `validate` |
+| every known class | `validate` |
+| runtime/deployable class | `validate`, `build-preview`, `Cloudflare Pages` |
+| mixed, unknown, malformed, duplicate, empty, or control-plane input | all three checks; `validate` executes `FULL_RESEARCH` |
 
 Missing, pending, cancelled, ambiguous, or unsuccessful required checks stop before a protected mutation. The operator does not create or consume a check-evidence record.
 
-`validate` keeps one canonical check name while `.github/workflows/research-claims.yml` selects a closed validation profile from the complete exact base-to-HEAD NUL-delimited changed-path set. Experiment content, Concept Graph content, and the closed production adapter surface use fixed focused profiles. Validator/framework changes, Schema/Template/shared-contract changes, Workflow/Selector changes, unknown paths, malformed input, default-branch regression, and periodic regression use `FULL_RESEARCH`. `FULL_RESEARCH` is the strict safe superset: it also runs the closed production adapter tests/checks. A scope change always recomputes the profile from the complete diff. The selected paths, profile, fixed commands, fallback reason, and elapsed stage times are diagnostic log/summary output only; they are not lifecycle evidence.
+`.github/workflows/research-claims.yml` produces one universal `validate` check for every pull request. It selects the profile from the complete exact base-to-HEAD NUL-delimited path set using `git diff --name-only -z --no-renames`; a rename is therefore classified as deletion plus addition. Exact ownership is required. Multiple ownership classes do not form an optimistic union and instead fall back to `FULL_RESEARCH`. Catalog, classifier, workflow-control, validator, schema, template, malformed, duplicate, empty, and unmatched inputs also fail closed to `FULL_RESEARCH`.
+
+Bounded profiles run only catalog-owned fixed command bundles. `FULL_RESEARCH` is the strict safe superset and includes the full Research suite, Research validators, production advisory checks, PromptTag data checks, application test/build, and platform contract checks. Default-branch, scheduled, and explicit manual validation always force that full cross-boundary regression. These full runs detect regressions but are not durable Merge evidence. Selected paths, profile, fixed commands, fallback reason, and GitHub Actions step timings are diagnostic output only; there are no validation records or generations.
 
 ## Serialization and transport
 

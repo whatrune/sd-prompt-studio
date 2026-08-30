@@ -2,28 +2,11 @@ name: Research Claim Validation
 
 on:
   pull_request:
-    paths:
-      - "research/sd-prompt-research/**"
-      - "data/visual-concept-advisory-relation-allowlist-v1.json"
-      - "data/visual-concept-prompt-tag-bindings-v1.json"
-      - "scripts/promote-visual-concept-production-advisory-v1.mjs"
-      - "scripts/test-visual-concept-production-advisory-v1.mjs"
-      - "src/data/visual-concept-production-advisory-v1.json"
-      - "src/visualConceptProductionAdvisoryV1.ts"
-      - ".github/workflows/research-claims.yml"
   push:
     branches: [main]
-    paths:
-      - "research/sd-prompt-research/**"
-      - "data/visual-concept-advisory-relation-allowlist-v1.json"
-      - "data/visual-concept-prompt-tag-bindings-v1.json"
-      - "scripts/promote-visual-concept-production-advisory-v1.mjs"
-      - "scripts/test-visual-concept-production-advisory-v1.mjs"
-      - "src/data/visual-concept-production-advisory-v1.json"
-      - "src/visualConceptProductionAdvisoryV1.ts"
-      - ".github/workflows/research-claims.yml"
   schedule:
     - cron: "17 3 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -63,46 +46,39 @@ jobs:
               echo "invalid_exact_revision" >&2
               exit 1
             fi
-            if [[ "$(git rev-parse HEAD)" != "$EXACT_HEAD_SHA" ]]; then
-              echo "checked_out_head_mismatch" >&2
-              exit 1
-            fi
+            [[ "$(git rev-parse HEAD)" == "$EXACT_HEAD_SHA" ]] || { echo "checked_out_head_mismatch" >&2; exit 1; }
             git cat-file -e "$EXACT_BASE_SHA^{commit}"
             git cat-file -e "$EXACT_HEAD_SHA^{commit}"
-            changed_paths="$RUNNER_TEMP/research-validation-paths.zlist"
-            echo "changed_paths_command=git diff --name-only -z --no-renames $EXACT_BASE_SHA $EXACT_HEAD_SHA --"
+            changed_paths="$RUNNER_TEMP/validation-paths.zlist"
             git diff --name-only -z --no-renames "$EXACT_BASE_SHA" "$EXACT_HEAD_SHA" -- > "$changed_paths"
-            python "$selector" \
-              --paths-file "$changed_paths" \
-              --github-output "$GITHUB_OUTPUT" \
-              --summary "$GITHUB_STEP_SUMMARY"
+            python "$selector" --paths-file "$changed_paths" --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
           elif [[ "$EVENT_NAME" == "push" ]]; then
-            python "$selector" \
-              --force-full-reason default_branch_regression \
-              --github-output "$GITHUB_OUTPUT" \
-              --summary "$GITHUB_STEP_SUMMARY"
+            python "$selector" --force-full-reason default_branch_regression --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
           elif [[ "$EVENT_NAME" == "schedule" ]]; then
-            python "$selector" \
-              --force-full-reason scheduled_periodic_regression \
-              --github-output "$GITHUB_OUTPUT" \
-              --summary "$GITHUB_STEP_SUMMARY"
+            python "$selector" --force-full-reason scheduled_periodic_regression --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
+          elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            python "$selector" --force-full-reason explicit_full_regression --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
           else
             echo "unsupported_validation_event" >&2
             exit 1
           fi
 
+      - name: Verify classifier contract
+        working-directory: research/sd-prompt-research
+        run: python -m unittest tests.test_validation_profile -v
+
       - name: Install research dependencies
-        if: steps.profile.outputs.selected_profile != 'PRODUCTION_ADAPTER'
+        if: steps.profile.outputs.install_research_dependencies == 'true'
         run: python -m pip install -r research/sd-prompt-research/requirements.txt
 
-      - name: Set up Node.js for production adapter profile
-        if: steps.profile.outputs.run_production_adapter_tests == 'true'
+      - name: Set up Node.js
+        if: steps.profile.outputs.install_node_dependencies == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Install production adapter dependencies
-        if: steps.profile.outputs.run_production_adapter_tests == 'true'
+      - name: Install Node dependencies
+        if: steps.profile.outputs.install_node_dependencies == 'true'
         shell: bash
         run: |
           corepack enable
@@ -111,121 +87,79 @@ jobs:
       - name: Run Full Research tests
         if: steps.profile.outputs.run_full_research == 'true'
         working-directory: research/sd-prompt-research
-        shell: bash
-        run: |
-          started=$(date +%s)
-          set +e
-          python -m unittest discover -s tests -v
-          status=$?
-          set -e
-          elapsed=$(($(date +%s) - started))
-          printf '| `full-research-tests` | %s |\n' "$elapsed" >> "$GITHUB_STEP_SUMMARY"
-          exit "$status"
+        run: python -m unittest discover -s tests -v
 
-      - name: Run experiment-content focused tests
-        if: steps.profile.outputs.run_experiment_tests == 'true'
+      - name: Run research experiment tests
+        if: steps.profile.outputs.run_research_experiment == 'true'
         working-directory: research/sd-prompt-research
-        shell: bash
-        run: |
-          started=$(date +%s)
-          set +e
-          python -m unittest \
-            tests.test_camera_visibility_metadata_schema \
-            tests.test_concept_graph \
-            tests.test_evidence_evaluation \
-            tests.test_face_observation \
-            tests.test_hair_observation \
-            tests.test_image_observation_evidence_rule_schema \
-            tests.test_observation_pipeline \
-            tests.test_prompt_provenance_schema \
-            tests.test_research_claims \
-            tests.test_research_explorer_integration \
-            tests.test_research_run_registration \
-            -v
-          status=$?
-          set -e
-          elapsed=$(($(date +%s) - started))
-          printf '| `experiment-content-tests` | %s |\n' "$elapsed" >> "$GITHUB_STEP_SUMMARY"
-          exit "$status"
+        run: >-
+          python -m unittest
+          tests.test_camera_visibility_metadata_schema tests.test_concept_graph
+          tests.test_evidence_evaluation tests.test_face_observation tests.test_hair_observation
+          tests.test_image_observation_evidence_rule_schema tests.test_observation_pipeline
+          tests.test_prompt_provenance_schema tests.test_research_claims
+          tests.test_research_explorer_integration tests.test_research_run_registration -v
 
-      - name: Run Concept Graph focused tests
-        if: >-
-          steps.profile.outputs.run_concept_tests == 'true' &&
-          steps.profile.outputs.run_experiment_tests != 'true'
+      - name: Run Concept Graph tests
+        if: steps.profile.outputs.run_concept_graph == 'true'
         working-directory: research/sd-prompt-research
-        shell: bash
-        run: |
-          started=$(date +%s)
-          set +e
-          python -m unittest \
-            tests.test_concept_graph \
-            tests.test_research_claims \
-            tests.test_research_explorer_integration \
-            -v
-          status=$?
-          set -e
-          elapsed=$(($(date +%s) - started))
-          printf '| `concept-graph-content-tests` | %s |\n' "$elapsed" >> "$GITHUB_STEP_SUMMARY"
-          exit "$status"
+        run: >-
+          python -m unittest tests.test_concept_graph tests.test_research_claims
+          tests.test_research_explorer_integration -v
 
-      - name: Validate Concept Graph sources
+      - name: Validate Concept Graph
         if: steps.profile.outputs.run_research_validators == 'true'
         working-directory: research/sd-prompt-research
-        shell: bash
-        run: |
-          started=$(date +%s)
-          set +e
-          python scripts/build_concept_graph.py --check
-          status=$?
-          set -e
-          elapsed=$(($(date +%s) - started))
-          printf '| `concept-graph-check` | %s |\n' "$elapsed" >> "$GITHUB_STEP_SUMMARY"
-          exit "$status"
+        run: python scripts/build_concept_graph.py --check
 
-      - name: Validate Research Explorer index
+      - name: Validate Research Explorer
         if: steps.profile.outputs.run_research_validators == 'true'
         working-directory: research/sd-prompt-research
-        shell: bash
-        run: |
-          started=$(date +%s)
-          set +e
-          python scripts/research_explorer.py index --check
-          status=$?
-          set -e
-          elapsed=$(($(date +%s) - started))
-          printf '| `research-explorer-index` | %s |\n' "$elapsed" >> "$GITHUB_STEP_SUMMARY"
-          exit "$status"
+        run: python scripts/research_explorer.py index --check
 
-      - name: Validate Research Claim staging layer
+      - name: Validate Research Claims
         if: steps.profile.outputs.run_research_validators == 'true'
         working-directory: research/sd-prompt-research
-        shell: bash
-        run: |
-          started=$(date +%s)
-          set +e
-          python scripts/validate_research_claims.py \
-            --baseline-ref "$CLAIM_VALIDATION_BASELINE_SHA" \
-            --validation-context current_state \
-            --format json
-          status=$?
-          set -e
-          elapsed=$(($(date +%s) - started))
-          printf '| `research-claims` | %s |\n' "$elapsed" >> "$GITHUB_STEP_SUMMARY"
-          exit "$status"
+        run: >-
+          python scripts/validate_research_claims.py --baseline-ref "$CLAIM_VALIDATION_BASELINE_SHA"
+          --validation-context current_state --format json
 
-      - name: Run production adapter focused tests
-        if: steps.profile.outputs.run_production_adapter_tests == 'true'
+      - name: Validate production advisory
+        if: steps.profile.outputs.run_production_advisory == 'true'
         shell: bash
         run: |
-          started=$(date +%s)
-          set +e
           node scripts/test-visual-concept-production-advisory-v1.mjs
-          test_status=$?
-          if [[ "$test_status" -eq 0 ]]; then
-            node scripts/promote-visual-concept-production-advisory-v1.mjs --check
-            test_status=$?
-          fi
-          set -e
-          elapsed=$(($(date +%s) - started))
-          printf '| `production-adapter-focused` | %s |\n' "$elapsed" >> "$GITHUB_STEP_SUMMARY"
-          exit "$test_status"
+          node scripts/test-visual-concept-read-only-advisory-v1.mjs
+          node scripts/test-visual-concept-read-only-entry-adapter-v1.mjs
+          node scripts/test-visual-concept-read-only-inspection-v1.mjs
+          node scripts/promote-visual-concept-production-advisory-v1.mjs --check
+
+      - name: Validate PromptTag data
+        if: steps.profile.outputs.run_prompt_data == 'true'
+        shell: bash
+        run: |
+          node scripts/validate-dictionaries.mjs
+          node scripts/test-reclassification.mjs
+          node scripts/test-prompt-analyzer.mjs
+
+      - name: Validate application
+        if: steps.profile.outputs.run_application == 'true'
+        shell: bash
+        run: |
+          pnpm test
+          pnpm run build
+
+      - name: Validate platform contracts
+        if: steps.profile.outputs.run_platform == 'true'
+        shell: bash
+        run: |
+          node scripts/test-role-execution-contracts.mjs
+          node scripts/test-protected-transition-admission-v1.mjs
+          node scripts/test-task-execution-context-v1.mjs
+
+      - name: Verify exact diff formatting
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          EXACT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: git diff --check "$EXACT_BASE_SHA" "$EXACT_HEAD_SHA" --
