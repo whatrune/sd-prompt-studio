@@ -128,6 +128,14 @@ try {
     [IO.File]::AppendAllText($requirementsA, "# identity change`n")
     $changedIdentity = (Invoke-Acquire -Helper $helper -Repository $worktreeA -Python $python -IdentityOnly).identity
     Assert-True ($changedIdentity -cne $beforeSourceIdentity) 'requirements change did not create a new identity'
+    [IO.File]::WriteAllText($requirementsA, "Pillow>=13`n", [Text.UTF8Encoding]::new($false))
+    $unsatisfiedIdentity = Invoke-Acquire -Helper $helper -Repository $worktreeA -Python $python -IdentityOnly
+    $unsatisfied = Invoke-AcquireExpectFailure -Helper $helper -Repository $worktreeA -Python $python
+    Assert-True ($unsatisfied.ExitCode -ne 0) 'lock incompatible with direct requirements unexpectedly passed'
+    Assert-True ($unsatisfied.Output -match 'python_validation_direct_requirements_unsatisfied') 'direct requirement mismatch reason was not precise'
+    $unsatisfiedFinal = Join-Path (Join-Path $unsatisfiedIdentity.cache_root 'environments') $unsatisfiedIdentity.identity
+    Assert-True (-not (Test-Path -LiteralPath $unsatisfiedFinal)) 'direct requirement mismatch left a finalized environment'
+    Copy-Item -LiteralPath $sourceRequirements -Destination $requirementsA -Force
 
     $finalPath = Join-Path (Join-Path $warm.cache_root 'environments') $warm.identity
     $manifestPath = Join-Path $finalPath 'completion-manifest.json'
@@ -155,6 +163,22 @@ try {
     $rebuiltIncomplete = Invoke-Acquire -Helper $helper -Repository $worktreeB -Python $python
     Assert-True ($rebuiltIncomplete.cache_state -eq 'cold') 'incomplete finalized cache was reused'
     Assert-True (Test-Path -LiteralPath $manifestPath -PathType Leaf) 'incomplete cache was not rebuilt'
+
+    $lockPath = Join-Path $worktreeA 'research/sd-prompt-research/requirements.lock.txt'
+    [IO.File]::AppendAllText($lockPath, "# abandoned lock identity`n")
+    $abandonedIdentity = Invoke-Acquire -Helper $helper -Repository $worktreeA -Python $python -IdentityOnly
+    $abandonedLock = Join-Path (Join-Path $abandonedIdentity.cache_root 'locks') ($abandonedIdentity.identity + '.lock')
+    New-Item -ItemType Directory -Path $abandonedLock -Force | Out-Null
+    $deadOwner = [ordered]@{
+        identity = $abandonedIdentity.identity
+        process_id = 2147483647
+        process_start_ticks = 1
+        nonce = '0123456789abcdef0123456789abcdef'
+    }
+    [IO.File]::WriteAllText((Join-Path $abandonedLock 'owner.json'), (($deadOwner | ConvertTo-Json -Compress) + "`n"), [Text.UTF8Encoding]::new($false))
+    $recovered = Invoke-Acquire -Helper $helper -Repository $worktreeA -Python $python
+    Assert-True ($recovered.cache_state -eq 'cold') 'abandoned identity lock was not reclaimed'
+    Assert-True (-not (Test-Path -LiteralPath $abandonedLock)) 'abandoned identity lock survived successful acquisition'
 
     $badRoot = Join-Path $tempRoot 'bad'
     New-Item -ItemType Directory -Path (Join-Path $badRoot 'research/sd-prompt-research') -Force | Out-Null

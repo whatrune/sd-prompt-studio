@@ -18,6 +18,7 @@ $ErrorActionPreference = 'Stop'
 $script:CacheContractVersion = 1
 $script:RequiredImports = @('yaml', 'jsonschema', 'rfc8785', 'PIL', 'reportlab', 'pypdf')
 $script:EnvironmentNames = @('PYTHONHOME', 'PYTHONPATH', 'PYTHONUSERBASE')
+$script:LockInitializationGraceSeconds = 5
 
 function Get-Sha256Text {
     param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Text)
@@ -219,6 +220,51 @@ function Get-EnvironmentMetadataDigest {
     return Get-Sha256Text ($rows -join "`n")
 }
 
+function Assert-DirectRequirementsSatisfied {
+    param(
+        [Parameter(Mandatory = $true)][string]$Executable,
+        [Parameter(Mandatory = $true)][string]$RequirementsPath
+    )
+    $code = @'
+import importlib.metadata
+import pathlib
+import sys
+from pip._vendor.packaging.requirements import InvalidRequirement, Requirement
+
+failures = []
+for number, raw in enumerate(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").splitlines(), 1):
+    line = raw.strip()
+    if not line or line.startswith("#"):
+        continue
+    if line.startswith(("-", ".", "/")) or "\\" in line:
+        failures.append(f"line_{number}:unsupported_requirement_form")
+        continue
+    try:
+        requirement = Requirement(line)
+    except InvalidRequirement:
+        failures.append(f"line_{number}:invalid_requirement")
+        continue
+    if requirement.url is not None:
+        failures.append(f"line_{number}:direct_url_unsupported")
+        continue
+    if requirement.marker is not None and not requirement.marker.evaluate():
+        continue
+    try:
+        version = importlib.metadata.version(requirement.name)
+    except importlib.metadata.PackageNotFoundError:
+        failures.append(f"line_{number}:distribution_missing")
+        continue
+    if requirement.specifier and not requirement.specifier.contains(version, prereleases=True):
+        failures.append(f"line_{number}:version_unsatisfied")
+
+if failures:
+    print(";".join(failures))
+    raise SystemExit(1)
+'@
+    $result = Invoke-IsolatedPython -Executable $Executable -Arguments @('-B', '-E', '-s', '-c', $code, $RequirementsPath)
+    Assert-PythonSuccess -Result $result -Reason 'python_validation_direct_requirements_unsatisfied'
+}
+
 function Assert-NoRepositoryInjection {
     param(
         [Parameter(Mandatory = $true)][string]$Repository,
@@ -256,7 +302,8 @@ function Assert-EnvironmentPayload {
         [Parameter(Mandatory = $true)][string]$Repository,
         [Parameter(Mandatory = $true)][string]$EnvironmentPath,
         [Parameter(Mandatory = $true)][psobject]$IdentityProjection,
-        [Parameter(Mandatory = $true)][object[]]$LockedDistributions
+        [Parameter(Mandatory = $true)][object[]]$LockedDistributions,
+        [Parameter(Mandatory = $true)][string]$RequirementsPath
     )
     Assert-NoRepositoryInjection -Repository $Repository -EnvironmentPath $EnvironmentPath -IdentityProjection $IdentityProjection
     $python = Get-VenvPythonPath -EnvironmentPath $EnvironmentPath
@@ -272,6 +319,7 @@ function Assert-EnvironmentPayload {
     }
     $check = Invoke-IsolatedPython -Executable $python -Arguments @('-B', '-E', '-s', '-m', 'pip', 'check')
     Assert-PythonSuccess -Result $check -Reason 'python_validation_pip_consistency_failed'
+    Assert-DirectRequirementsSatisfied -Executable $python -RequirementsPath $RequirementsPath
     $imports = ($script:RequiredImports | ForEach-Object { "import $_" }) -join '; '
     $smoke = Invoke-IsolatedPython -Executable $python -Arguments @('-B', '-E', '-s', '-c', $imports)
     Assert-PythonSuccess -Result $smoke -Reason 'python_validation_import_smoke_failed'
@@ -286,7 +334,8 @@ function Test-FinalEnvironment {
         [Parameter(Mandatory = $true)][string]$Repository,
         [Parameter(Mandatory = $true)][string]$FinalPath,
         [Parameter(Mandatory = $true)][psobject]$IdentityProjection,
-        [Parameter(Mandatory = $true)][object[]]$LockedDistributions
+        [Parameter(Mandatory = $true)][object[]]$LockedDistributions,
+        [Parameter(Mandatory = $true)][string]$RequirementsPath
     )
     try {
         $manifestPath = Join-Path $FinalPath 'completion-manifest.json'
@@ -305,7 +354,7 @@ function Test-FinalEnvironment {
             throw 'completion_manifest_distribution_identity_invalid'
         }
         $environmentPath = Join-Path $FinalPath 'environment'
-        $payload = Assert-EnvironmentPayload -Repository $Repository -EnvironmentPath $environmentPath -IdentityProjection $IdentityProjection -LockedDistributions $LockedDistributions
+        $payload = Assert-EnvironmentPayload -Repository $Repository -EnvironmentPath $environmentPath -IdentityProjection $IdentityProjection -LockedDistributions $LockedDistributions -RequirementsPath $RequirementsPath
         if ([string]$manifest.metadata_digest -cne $payload.MetadataDigest) { throw 'completion_manifest_metadata_digest_invalid' }
         $relative = [IO.Path]::GetRelativePath((Get-FileSystemPath $FinalPath), (Get-FileSystemPath $payload.Python)).Replace('\', '/')
         if ([string]$manifest.interpreter_relative_path -cne $relative) { throw 'completion_manifest_interpreter_invalid' }
@@ -354,8 +403,85 @@ function New-CachedEnvironment {
         '-B', '-E', '-s', '-m', 'pip', 'install', '--disable-pip-version-check', '--no-input', '--require-hashes', '-r', $LockPath
     )
     Assert-PythonSuccess -Result $install -Reason 'python_validation_locked_install_failed'
-    $payload = Assert-EnvironmentPayload -Repository $Repository -EnvironmentPath $environmentPath -IdentityProjection $IdentityProjection -LockedDistributions $LockedDistributions
+    $payload = Assert-EnvironmentPayload -Repository $Repository -EnvironmentPath $environmentPath -IdentityProjection $IdentityProjection -LockedDistributions $LockedDistributions -RequirementsPath (Join-Path $Repository 'research/sd-prompt-research/requirements.txt')
     New-CompletionManifest -BuildPath $BuildPath -IdentityProjection $IdentityProjection -LockedDistributions $LockedDistributions -Payload $payload
+}
+
+function Get-ProcessStartTicks {
+    param([Parameter(Mandatory = $true)][int]$ProcessId)
+    try { return (Get-Process -Id $ProcessId -ErrorAction Stop).StartTime.ToUniversalTime().Ticks }
+    catch { return $null }
+}
+
+function New-LockOwner {
+    param([Parameter(Mandatory = $true)][string]$Identity)
+    return [ordered]@{
+        identity = $Identity
+        process_id = $PID
+        process_start_ticks = Get-ProcessStartTicks -ProcessId $PID
+        nonce = [guid]::NewGuid().ToString('N')
+    }
+}
+
+function Write-LockOwner {
+    param(
+        [Parameter(Mandatory = $true)][string]$LockDirectory,
+        [Parameter(Mandatory = $true)][System.Collections.IDictionary]$Owner
+    )
+    $path = Join-Path $LockDirectory 'owner.json'
+    [IO.File]::WriteAllText($path, (($Owner | ConvertTo-Json -Compress) + "`n"), [Text.UTF8Encoding]::new($false))
+}
+
+function Test-LockOwnerActive {
+    param(
+        [Parameter(Mandatory = $true)][string]$LockDirectory,
+        [Parameter(Mandatory = $true)][string]$Identity
+    )
+    $ownerPath = Join-Path $LockDirectory 'owner.json'
+    if (-not (Test-Path -LiteralPath $ownerPath -PathType Leaf)) {
+        try { $age = [DateTime]::UtcNow - (Get-Item -LiteralPath $LockDirectory).CreationTimeUtc }
+        catch { return $false }
+        return $age.TotalSeconds -lt $script:LockInitializationGraceSeconds
+    }
+    try { $owner = Get-Content -Raw -LiteralPath $ownerPath | ConvertFrom-Json }
+    catch { return $false }
+    $expectedKeys = @('identity', 'nonce', 'process_id', 'process_start_ticks') | Sort-Object
+    $actualKeys = @($owner.psobject.Properties.Name | Sort-Object)
+    if (($expectedKeys -join "`n") -cne ($actualKeys -join "`n")) { return $false }
+    if ([string]$owner.identity -cne $Identity -or [string]$owner.nonce -notmatch '^[0-9a-f]{32}$') { return $false }
+    if ($owner.process_id -isnot [long] -and $owner.process_id -isnot [int]) { return $false }
+    if ($owner.process_start_ticks -isnot [long] -and $owner.process_start_ticks -isnot [int]) { return $false }
+    $currentStart = Get-ProcessStartTicks -ProcessId ([int]$owner.process_id)
+    return $null -ne $currentStart -and [long]$currentStart -eq [long]$owner.process_start_ticks
+}
+
+function Move-AbandonedLock {
+    param(
+        [Parameter(Mandatory = $true)][string]$LockDirectory,
+        [Parameter(Mandatory = $true)][string]$Identity
+    )
+    if (-not (Test-Path -LiteralPath $LockDirectory -PathType Container)) { return $true }
+    if (Test-LockOwnerActive -LockDirectory $LockDirectory -Identity $Identity) { return $false }
+    $reclaimed = "$LockDirectory.reclaimed.$([guid]::NewGuid().ToString('N').Substring(0, 8))"
+    try { Move-Item -LiteralPath $LockDirectory -Destination $reclaimed -ErrorAction Stop }
+    catch { return $false }
+    Remove-Item -LiteralPath $reclaimed -Recurse -Force
+    return $true
+}
+
+function Remove-OwnedLock {
+    param(
+        [Parameter(Mandatory = $true)][string]$LockDirectory,
+        [Parameter(Mandatory = $true)][string]$Nonce
+    )
+    if (-not (Test-Path -LiteralPath $LockDirectory -PathType Container)) { return }
+    try { $owner = Get-Content -Raw -LiteralPath (Join-Path $LockDirectory 'owner.json') | ConvertFrom-Json }
+    catch { return }
+    if ([string]$owner.nonce -cne $Nonce) { return }
+    $released = "$LockDirectory.released.$([guid]::NewGuid().ToString('N').Substring(0, 8))"
+    try { Move-Item -LiteralPath $LockDirectory -Destination $released -ErrorAction Stop }
+    catch { return }
+    Remove-Item -LiteralPath $released -Recurse -Force
 }
 
 function Get-AcquisitionResult {
@@ -395,7 +521,7 @@ $buildsRoot = Join-Path $cacheRoot 'builds'
 $environmentsRoot = Join-Path $cacheRoot 'environments'
 New-Item -ItemType Directory -Force -Path $locksRoot, $buildsRoot, $environmentsRoot | Out-Null
 $finalPath = Join-Path $environmentsRoot $identityProjection.Identity
-$existing = Test-FinalEnvironment -Repository $repository -FinalPath $finalPath -IdentityProjection $identityProjection -LockedDistributions $lockedDistributions
+$existing = Test-FinalEnvironment -Repository $repository -FinalPath $finalPath -IdentityProjection $identityProjection -LockedDistributions $lockedDistributions -RequirementsPath $requirementsPath
 if ($existing.Valid) {
     Get-AcquisitionResult -CacheState 'warm' -CacheRoot $cacheRoot -IdentityProjection $identityProjection -Python $existing.Python | ConvertTo-Json -Depth 8 -Compress
     exit 0
@@ -404,17 +530,33 @@ if ($existing.Valid) {
 $lockDirectory = Join-Path $locksRoot ($identityProjection.Identity + '.lock')
 $deadline = [DateTime]::UtcNow.AddSeconds($LockTimeoutSeconds)
 $ownsLock = $false
+$lockOwner = $null
 while (-not $ownsLock) {
+    $createdLock = $false
     try {
         New-Item -ItemType Directory -Path $lockDirectory -ErrorAction Stop | Out-Null
-        $ownsLock = $true
+        $createdLock = $true
     }
-    catch {
-        $winner = Test-FinalEnvironment -Repository $repository -FinalPath $finalPath -IdentityProjection $identityProjection -LockedDistributions $lockedDistributions
+    catch { $createdLock = $false }
+    if ($createdLock) {
+        try {
+            $lockOwner = New-LockOwner -Identity $identityProjection.Identity
+            Write-LockOwner -LockDirectory $lockDirectory -Owner $lockOwner
+            $ownsLock = $true
+            continue
+        }
+        catch {
+            if (Test-Path -LiteralPath $lockDirectory) { Remove-Item -LiteralPath $lockDirectory -Recurse -Force }
+            throw
+        }
+    }
+    else {
+        $winner = Test-FinalEnvironment -Repository $repository -FinalPath $finalPath -IdentityProjection $identityProjection -LockedDistributions $lockedDistributions -RequirementsPath $requirementsPath
         if ($winner.Valid) {
             Get-AcquisitionResult -CacheState 'warm_after_wait' -CacheRoot $cacheRoot -IdentityProjection $identityProjection -Python $winner.Python | ConvertTo-Json -Depth 8 -Compress
             exit 0
         }
+        if (Move-AbandonedLock -LockDirectory $lockDirectory -Identity $identityProjection.Identity) { continue }
         if ([DateTime]::UtcNow -ge $deadline) { throw 'python_validation_environment_lock_timeout' }
         Start-Sleep -Milliseconds 200
     }
@@ -422,7 +564,7 @@ while (-not $ownsLock) {
 
 $buildPath = Join-Path $buildsRoot ($identityProjection.Identity.Substring(0, 12) + '.' + [guid]::NewGuid().ToString('N').Substring(0, 8))
 try {
-    $winner = Test-FinalEnvironment -Repository $repository -FinalPath $finalPath -IdentityProjection $identityProjection -LockedDistributions $lockedDistributions
+    $winner = Test-FinalEnvironment -Repository $repository -FinalPath $finalPath -IdentityProjection $identityProjection -LockedDistributions $lockedDistributions -RequirementsPath $requirementsPath
     if ($winner.Valid) {
         Get-AcquisitionResult -CacheState 'warm_after_lock' -CacheRoot $cacheRoot -IdentityProjection $identityProjection -Python $winner.Python | ConvertTo-Json -Depth 8 -Compress
         exit 0
@@ -430,11 +572,11 @@ try {
     if (Test-Path -LiteralPath $finalPath) { Remove-Item -LiteralPath $finalPath -Recurse -Force }
     New-CachedEnvironment -Repository $repository -BasePython $basePython -LockPath $lockPath -BuildPath $buildPath -IdentityProjection $identityProjection -LockedDistributions $lockedDistributions
     Move-Item -LiteralPath $buildPath -Destination $finalPath
-    $final = Test-FinalEnvironment -Repository $repository -FinalPath $finalPath -IdentityProjection $identityProjection -LockedDistributions $lockedDistributions
+    $final = Test-FinalEnvironment -Repository $repository -FinalPath $finalPath -IdentityProjection $identityProjection -LockedDistributions $lockedDistributions -RequirementsPath $requirementsPath
     if (-not $final.Valid) { throw "python_validation_environment_finalization_failed:$($final.Reason)" }
     Get-AcquisitionResult -CacheState 'cold' -CacheRoot $cacheRoot -IdentityProjection $identityProjection -Python $final.Python | ConvertTo-Json -Depth 8 -Compress
 }
 finally {
     if (Test-Path -LiteralPath $buildPath) { Remove-Item -LiteralPath $buildPath -Recurse -Force }
-    if (Test-Path -LiteralPath $lockDirectory) { Remove-Item -LiteralPath $lockDirectory -Recurse -Force }
+    if ($null -ne $lockOwner) { Remove-OwnedLock -LockDirectory $lockDirectory -Nonce $lockOwner.nonce }
 }
