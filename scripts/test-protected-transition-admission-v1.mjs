@@ -218,7 +218,24 @@ equal(classifyValidationPathsV1(['docs/x\ny.md']).fallback_reason, 'malformed_ch
 equal(classifyValidationPathsV1(['docs/x\u007fy.md']).fallback_reason, 'malformed_changed_path')
 equal(classifyValidationPathsV1(['C:/docs/a.md']).fallback_reason, 'malformed_changed_path')
 equal(classifyValidationPathsV1(['data/validation-path-ownership-v1.json']).profile, 'FULL_RESEARCH')
+equal(classifyValidationPathsV1(['research/sd-prompt-research/requirements.lock.txt']).profile, 'FULL_RESEARCH')
+equal(classifyValidationPathsV1(['scripts/acquire-python-validation-environment-v1.ps1']).profile, 'FULL_RESEARCH')
+equal(classifyValidationPathsV1(['scripts/test-python-validation-environment-v1.ps1']).profile, 'FULL_RESEARCH')
 equal(classifyValidationPathsV1(['scripts/validate-dictionaries.mjs']).profile, 'FULL_RESEARCH')
+
+const validationWorkflow = readFileSync(new URL('../.github/workflows/research-claims.yml', import.meta.url), 'utf8')
+const pythonCacheHelper = readFileSync(new URL('./acquire-python-validation-environment-v1.ps1', import.meta.url), 'utf8')
+const pythonLock = readFileSync(new URL('../research/sd-prompt-research/requirements.lock.txt', import.meta.url), 'utf8')
+ok(validationWorkflow.includes('actions/cache@v4'))
+ok(validationWorkflow.includes('acquire-python-validation-environment-v1.ps1'))
+ok(validationWorkflow.includes('test-python-validation-environment-v1.ps1'))
+ok(validationWorkflow.includes('"$VALIDATION_PYTHON" -B -E -s'))
+equal(validationWorkflow.includes('python -m pip install -r research/sd-prompt-research/requirements.txt'), false)
+ok(pythonCacheHelper.includes("Join-Path $gitCommonDirectory 'codex-cache/python-validation-v1'"))
+ok(pythonCacheHelper.includes("'--require-hashes'"))
+ok(pythonCacheHelper.includes("$script:RequiredImports = @('yaml', 'jsonschema', 'rfc8785', 'PIL', 'reportlab', 'pypdf')"))
+equal((pythonLock.match(/^[-A-Za-z0-9_.]+==/gm) ?? []).length, 12)
+ok((pythonLock.match(/--hash=sha256:[0-9a-f]{64}/g) ?? []).length >= 12)
 
 const discoveredDictionaryFiles = discoverPromptTagDictionaryFilesV1([
   'hair.json',

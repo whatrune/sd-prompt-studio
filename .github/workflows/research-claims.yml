@@ -26,11 +26,10 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python
+        id: python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
-          cache-dependency-path: research/sd-prompt-research/requirements.txt
 
       - name: Classify exact changed paths
         id: profile
@@ -67,9 +66,25 @@ jobs:
         working-directory: research/sd-prompt-research
         run: python -m unittest tests.test_validation_profile -v
 
-      - name: Install research dependencies
+      - name: Restore immutable Python validation environment
         if: steps.profile.outputs.install_research_dependencies == 'true'
-        run: python -m pip install -r research/sd-prompt-research/requirements.txt
+        uses: actions/cache@v4
+        with:
+          path: .git/codex-cache/python-validation-v1/environments
+          key: >-
+            python-validation-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.python.outputs.python-version }}-${{
+            hashFiles('research/sd-prompt-research/requirements.txt', 'research/sd-prompt-research/requirements.lock.txt') }}
+
+      - name: Acquire immutable Python validation environment
+        id: python_validation
+        if: steps.profile.outputs.install_research_dependencies == 'true'
+        shell: pwsh
+        run: |
+          $result = & ./scripts/acquire-python-validation-environment-v1.ps1 `
+            -RepositoryPath $env:GITHUB_WORKSPACE `
+            -PythonExecutable (Get-Command python).Source | ConvertFrom-Json
+          "python_executable=$($result.python_executable)" >> $env:GITHUB_OUTPUT
+          "cache_state=$($result.cache_state)" >> $env:GITHUB_OUTPUT
 
       - name: Set up Node.js
         if: steps.profile.outputs.install_node_dependencies == 'true'
@@ -87,13 +102,17 @@ jobs:
       - name: Run Full Research tests
         if: steps.profile.outputs.run_full_research == 'true'
         working-directory: research/sd-prompt-research
-        run: python -m unittest discover -s tests -v
+        env:
+          VALIDATION_PYTHON: ${{ steps.python_validation.outputs.python_executable }}
+        run: '"$VALIDATION_PYTHON" -B -E -s -m unittest discover -s tests -v'
 
       - name: Run research experiment tests
         if: steps.profile.outputs.run_research_experiment == 'true'
         working-directory: research/sd-prompt-research
+        env:
+          VALIDATION_PYTHON: ${{ steps.python_validation.outputs.python_executable }}
         run: >-
-          python -m unittest
+          "$VALIDATION_PYTHON" -B -E -s -m unittest
           tests.test_camera_visibility_metadata_schema tests.test_concept_graph
           tests.test_evidence_evaluation tests.test_face_observation tests.test_hair_observation
           tests.test_image_observation_evidence_rule_schema tests.test_observation_pipeline
@@ -103,25 +122,33 @@ jobs:
       - name: Run Concept Graph tests
         if: steps.profile.outputs.run_concept_graph == 'true'
         working-directory: research/sd-prompt-research
+        env:
+          VALIDATION_PYTHON: ${{ steps.python_validation.outputs.python_executable }}
         run: >-
-          python -m unittest tests.test_concept_graph tests.test_research_claims
+          "$VALIDATION_PYTHON" -B -E -s -m unittest tests.test_concept_graph tests.test_research_claims
           tests.test_research_explorer_integration -v
 
       - name: Validate Concept Graph
         if: steps.profile.outputs.run_research_validators == 'true'
         working-directory: research/sd-prompt-research
-        run: python scripts/build_concept_graph.py --check
+        env:
+          VALIDATION_PYTHON: ${{ steps.python_validation.outputs.python_executable }}
+        run: '"$VALIDATION_PYTHON" -B -E -s scripts/build_concept_graph.py --check'
 
       - name: Validate Research Explorer
         if: steps.profile.outputs.run_research_validators == 'true'
         working-directory: research/sd-prompt-research
-        run: python scripts/research_explorer.py index --check
+        env:
+          VALIDATION_PYTHON: ${{ steps.python_validation.outputs.python_executable }}
+        run: '"$VALIDATION_PYTHON" -B -E -s scripts/research_explorer.py index --check'
 
       - name: Validate Research Claims
         if: steps.profile.outputs.run_research_validators == 'true'
         working-directory: research/sd-prompt-research
+        env:
+          VALIDATION_PYTHON: ${{ steps.python_validation.outputs.python_executable }}
         run: >-
-          python scripts/validate_research_claims.py --baseline-ref "$CLAIM_VALIDATION_BASELINE_SHA"
+          "$VALIDATION_PYTHON" -B -E -s scripts/validate_research_claims.py --baseline-ref "$CLAIM_VALIDATION_BASELINE_SHA"
           --validation-context current_state --format json
 
       - name: Validate production advisory
@@ -156,6 +183,13 @@ jobs:
           node scripts/test-role-execution-contracts.mjs
           node scripts/test-protected-transition-admission-v1.mjs
           node scripts/test-task-execution-context-v1.mjs
+
+      - name: Validate immutable Python environment cache
+        if: steps.profile.outputs.run_full_research == 'true'
+        shell: pwsh
+        run: >-
+          ./scripts/test-python-validation-environment-v1.ps1
+          -PythonExecutable (Get-Command python).Source
 
       - name: Verify exact diff formatting
         if: github.event_name == 'pull_request'

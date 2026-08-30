@@ -40,10 +40,13 @@
     "exact": [
       ".github/workflows/research-claims.yml",
       "data/validation-path-ownership-v1.json",
+      "research/sd-prompt-research/requirements.lock.txt",
       "research/sd-prompt-research/requirements.txt",
       "research/sd-prompt-research/scripts/select_validation_profile.py",
       "research/sd-prompt-research/tests/test_validation_profile.py",
+      "scripts/acquire-python-validation-environment-v1.ps1",
       "scripts/protected-transition-merge-operator-preflight-v1.mjs",
+      "scripts/test-python-validation-environment-v1.ps1",
       "scripts/test-protected-transition-admission-v1.mjs",
       "scripts/validate-dictionaries.mjs"
     ],
