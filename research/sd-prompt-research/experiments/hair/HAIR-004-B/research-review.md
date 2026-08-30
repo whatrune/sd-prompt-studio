@@ -67,4 +67,4 @@ HAIR-002 C/D used the identical prompt, negative prompt, model, and settings wit
 - `CONFIRMED_COEXISTENCE` is bounded to this exact model, settings, camera, pose, and seed sample.
 - It establishes visible twintails plus long tied-tail extent, not separate loose/non-tail long hair.
 - It does not itself justify a compiler coexistence rule.
-- Canonical Run-ledger mutation is intentionally deferred from this parallel phase.
+- HAIR-004-A and HAIR-004-B are each registered exactly once in the canonical run-index as part of this exact 15-path delta; no ledger mutation remains deferred.
