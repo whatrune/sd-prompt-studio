@@ -27,7 +27,6 @@ prompt:
   - arms relaxed at sides
   - fitted sleeveless top
   - plain background
-  - ponytail
 model:
   checkpoint: novaAnimeXL_ilV190
   checkpoint_sha256: fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f
