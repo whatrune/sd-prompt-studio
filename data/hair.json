@@ -661,7 +661,10 @@
     "prompt": "bob cut",
     "category": "hair",
     "subcategory": "髪型",
-    "slot": "main_hairstyle"
+    "slot": "main_hairstyle",
+    "conflicts": [
+      "long hair"
+    ]
   },
   {
     "id": "hai-inverted-bob",
