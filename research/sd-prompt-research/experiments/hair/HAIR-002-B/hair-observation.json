@@ -1,0 +1,114 @@
+{
+  "schema_version": "1.0",
+  "run_id": "HAIR-002-B",
+  "blind_condition_label": "Condition B",
+  "panel_count": 6,
+  "hair_observation": {
+    "enabled": true,
+    "active_axis_order": [
+      "hair_length_extent",
+      "neck_hair_overlap",
+      "shoulder_hair_overlap",
+      "hair_identity_clarity"
+    ],
+    "panels": [
+      {
+        "panel_id": 1,
+        "hair_length_extent": "neck_to_shoulder",
+        "neck_hair_overlap": "present",
+        "shoulder_hair_overlap": "absent",
+        "hair_identity_clarity": "distinct",
+        "evidence_notes": [
+          "Identifiable hair is visibly bounded between the neck and shoulder line; the bob_silhouette remains distinct from clothing and background."
+        ],
+        "confidence": "high"
+      },
+      {
+        "panel_id": 2,
+        "hair_length_extent": "neck_to_shoulder",
+        "neck_hair_overlap": "present",
+        "shoulder_hair_overlap": "absent",
+        "hair_identity_clarity": "distinct",
+        "evidence_notes": [
+          "Identifiable hair is visibly bounded between the neck and shoulder line; the bob_silhouette remains distinct from clothing and background."
+        ],
+        "confidence": "high"
+      },
+      {
+        "panel_id": 3,
+        "hair_length_extent": "neck_to_shoulder",
+        "neck_hair_overlap": "present",
+        "shoulder_hair_overlap": "absent",
+        "hair_identity_clarity": "distinct",
+        "evidence_notes": [
+          "Identifiable hair is visibly bounded between the neck and shoulder line; the bob_silhouette remains distinct from clothing and background."
+        ],
+        "confidence": "high"
+      },
+      {
+        "panel_id": 4,
+        "hair_length_extent": "neck_to_shoulder",
+        "neck_hair_overlap": "present",
+        "shoulder_hair_overlap": "absent",
+        "hair_identity_clarity": "distinct",
+        "evidence_notes": [
+          "Identifiable hair is visibly bounded between the neck and shoulder line; the bob_silhouette remains distinct from clothing and background."
+        ],
+        "confidence": "high"
+      },
+      {
+        "panel_id": 5,
+        "hair_length_extent": "neck_to_shoulder",
+        "neck_hair_overlap": "present",
+        "shoulder_hair_overlap": "absent",
+        "hair_identity_clarity": "distinct",
+        "evidence_notes": [
+          "Identifiable hair is visibly bounded between the neck and shoulder line; the bob_silhouette remains distinct from clothing and background."
+        ],
+        "confidence": "high"
+      },
+      {
+        "panel_id": 6,
+        "hair_length_extent": "neck_to_shoulder",
+        "neck_hair_overlap": "present",
+        "shoulder_hair_overlap": "absent",
+        "hair_identity_clarity": "distinct",
+        "evidence_notes": [
+          "Identifiable hair is visibly bounded between the neck and shoulder line; the bob_silhouette remains distinct from clothing and background."
+        ],
+        "confidence": "high"
+      }
+    ]
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "hair_length_extent": {
+        "above_neck": 0,
+        "neck_to_shoulder": 6,
+        "below_shoulder": 0,
+        "waist_or_longer": 0,
+        "unclear": 0,
+        "not_visible": 0
+      },
+      "neck_hair_overlap": {
+        "present": 6,
+        "absent": 0,
+        "unclear": 0,
+        "not_visible": 0
+      },
+      "shoulder_hair_overlap": {
+        "present": 0,
+        "absent": 6,
+        "unclear": 0,
+        "not_visible": 0
+      },
+      "hair_identity_clarity": {
+        "distinct": 6,
+        "ambiguous_with_clothing": 0,
+        "ambiguous_with_background": 0,
+        "artifact": 0,
+        "not_visible": 0
+      }
+    }
+  }
+}

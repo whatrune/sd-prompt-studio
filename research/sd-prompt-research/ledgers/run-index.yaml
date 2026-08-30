@@ -186,3 +186,39 @@ runs:
   status: OBSERVED
   updated_at: '2026-08-29T02:40:54+09:00'
   path: experiments/hair/HAIR-001-B
+- run_id: HAIR-002-A
+  domain: hair
+  title: HAIR-002-A — bob cut control
+  status: OBSERVED
+  updated_at: '2026-08-30T20:04:13+09:00'
+  path: experiments/hair/HAIR-002-A
+- run_id: HAIR-002-B
+  domain: hair
+  title: HAIR-002-B — bob cut + long hair treatment
+  status: OBSERVED
+  updated_at: '2026-08-30T20:04:13+09:00'
+  path: experiments/hair/HAIR-002-B
+- run_id: HAIR-002-C
+  domain: hair
+  title: HAIR-002-C — twintails control
+  status: OBSERVED
+  updated_at: '2026-08-30T20:04:14+09:00'
+  path: experiments/hair/HAIR-002-C
+- run_id: HAIR-002-D
+  domain: hair
+  title: HAIR-002-D — twintails + long hair treatment
+  status: OBSERVED
+  updated_at: '2026-08-30T20:04:14+09:00'
+  path: experiments/hair/HAIR-002-D
+- run_id: HAIR-002-E
+  domain: hair
+  title: HAIR-002-E — ponytail control
+  status: OBSERVED
+  updated_at: '2026-08-30T20:04:15+09:00'
+  path: experiments/hair/HAIR-002-E
+- run_id: HAIR-002-F
+  domain: hair
+  title: HAIR-002-F — ponytail + long hair treatment
+  status: OBSERVED
+  updated_at: '2026-08-30T20:04:15+09:00'
+  path: experiments/hair/HAIR-002-F
