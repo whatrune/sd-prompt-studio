@@ -75,8 +75,11 @@ class ValidationProfileTests(unittest.TestCase):
         for path in (
             ".github/workflows/research-claims.yml",
             "data/validation-path-ownership-v1.json",
+            "research/sd-prompt-research/requirements.lock.txt",
             "research/sd-prompt-research/scripts/select_validation_profile.py",
+            "scripts/acquire-python-validation-environment-v1.ps1",
             "scripts/protected-transition-merge-operator-preflight-v1.mjs",
+            "scripts/test-python-validation-environment-v1.ps1",
             "scripts/validate-dictionaries.mjs",
         ):
             with self.subTest(path=path):
@@ -149,6 +152,13 @@ class ValidationProfileTests(unittest.TestCase):
         self.assertIn("workflow_dispatch:", workflow)
         self.assertIn("git diff --name-only -z --no-renames", workflow)
         self.assertIn("explicit_full_regression", workflow)
+        self.assertIn("actions/cache@v4", workflow)
+        self.assertIn("requirements.lock.txt", workflow)
+        self.assertIn("acquire-python-validation-environment-v1.ps1", workflow)
+        self.assertIn("test-python-validation-environment-v1.ps1", workflow)
+        self.assertIn("python_executable", workflow)
+        self.assertIn('"$VALIDATION_PYTHON" -B -E -s', workflow)
+        self.assertNotIn("python -m pip install -r research/sd-prompt-research/requirements.txt", workflow)
         self.assertIn("pnpm test", workflow)
         self.assertIn("pnpm run build", workflow)
 
