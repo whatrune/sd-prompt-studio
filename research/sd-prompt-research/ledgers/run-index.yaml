@@ -246,3 +246,15 @@ runs:
   status: OBSERVED
   updated_at: '2026-08-30T21:20:57+09:00'
   path: experiments/hair/HAIR-004-B
+- run_id: HAIR-005-A
+  domain: hair
+  title: HAIR-005-A — ponytail control
+  status: OBSERVED
+  updated_at: '2026-08-30T21:12:57+09:00'
+  path: experiments/hair/HAIR-005-A
+- run_id: HAIR-005-B
+  domain: hair
+  title: HAIR-005-B — ponytail + long hair treatment
+  status: OBSERVED
+  updated_at: '2026-08-30T21:12:57+09:00'
+  path: experiments/hair/HAIR-005-B
