@@ -738,6 +738,13 @@ class ResearchExplorerHTTPServer(ThreadingHTTPServer):
 
 class ResearchExplorerHandler(BaseHTTPRequestHandler):
     server_version = "SDPromptStudioResearchExplorer/0.1"
+    protocol_version = "HTTP/1.1"
+
+    def handle(self) -> None:
+        try:
+            super().handle()
+        except ConnectionResetError:
+            self.close_connection = True
 
     @property
     def state(self) -> CompanionState:

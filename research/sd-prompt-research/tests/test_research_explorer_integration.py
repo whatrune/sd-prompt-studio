@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import http.client
 import json
+import socket
+import struct
 import sys
 import tempfile
 import threading
+import traceback
 import unittest
 from pathlib import Path
 
@@ -15,6 +18,65 @@ if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
 import research_explorer as explorer  # noqa: E402
+
+
+class HTTPFixtureHandler(explorer.ResearchExplorerHandler):
+    def end_headers(self) -> None:
+        if self.headers.get("Connection", "").lower() == "close":
+            self.send_header("Connection", "close")
+        super().end_headers()
+
+
+def configure_http_fixture(
+    server: explorer.ResearchExplorerHTTPServer,
+    errors: list[object],
+) -> None:
+    server.daemon_threads = False
+    server.RequestHandlerClass = HTTPFixtureHandler
+    server.fixture_close_event = threading.Event()
+    def record_error(_request: object, address: object) -> None:
+        detail = traceback.format_exc()
+        errors.append((address, detail))
+        sys.stderr.write(detail)
+
+    server.handle_error = record_error
+    close_request = server.close_request
+
+    def graceful_shutdown_request(request: socket.socket) -> None:
+        linger_format = "HH" if sys.platform == "win32" else "ii"
+        request.setsockopt(
+            socket.SOL_SOCKET,
+            socket.SO_LINGER,
+            struct.pack(linger_format, 1, 5),
+        )
+        try:
+            request.shutdown(socket.SHUT_WR)
+        finally:
+            close_request(request)
+            server.fixture_close_event.set()
+
+    server.shutdown_request = graceful_shutdown_request
+
+
+def close_http_fixture_connection(
+    connection: http.client.HTTPConnection,
+    close_event: threading.Event,
+) -> int:
+    close_event.clear()
+    try:
+        connection.request("GET", "/", headers={"Connection": "close"})
+        if connection.sock is None:
+            raise AssertionError("Research Explorer fixture connection socket is unavailable")
+        response = connection.getresponse()
+        response.read()
+        if response.getheader("Connection", "").lower() != "close":
+            raise AssertionError("Research Explorer fixture close response omitted Connection: close")
+        status = response.status
+    finally:
+        connection.close()
+    if not close_event.wait(timeout=10):
+        raise AssertionError("Research Explorer fixture close was not observed by the server")
+    return status
 
 
 class ResearchExplorerRealDataIntegrationTests(unittest.TestCase):
@@ -31,16 +93,44 @@ class ResearchExplorerRealDataIntegrationTests(unittest.TestCase):
             port=0,
             session_token="integration-session-token",
         )
+        cls.server_errors: list[object] = []
+        configure_http_fixture(cls.server, cls.server_errors)
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
         cls.port = cls.server.server_address[1]
 
+    def setUp(self) -> None:
+        self.connection = http.client.HTTPConnection(
+            "127.0.0.1",
+            self.port,
+            timeout=10,
+            source_address=("127.0.0.2", 0),
+        )
+
+    def tearDown(self) -> None:
+        self.assertEqual(
+            close_http_fixture_connection(self.connection, self.server.fixture_close_event),
+            200,
+        )
+        self.assertIsNone(self.connection.sock)
+
     @classmethod
     def tearDownClass(cls) -> None:
         cls.server.shutdown()
-        cls.server.server_close()
         cls.thread.join(timeout=5)
-        cls.frontend_temp.cleanup()
+        request_threads = list(getattr(cls.server, "_threads", ()))
+        cls.server.server_close()
+        try:
+            if cls.thread.is_alive():
+                raise AssertionError("Research Explorer serve thread remained alive")
+            if cls.server.fileno() != -1:
+                raise AssertionError("Research Explorer listening socket remained open")
+            if any(thread.is_alive() for thread in request_threads):
+                raise AssertionError("Research Explorer request thread remained alive")
+            if cls.server_errors:
+                raise AssertionError(f"Research Explorer server errors: {cls.server_errors!r}")
+        finally:
+            cls.frontend_temp.cleanup()
 
     def request(
         self,
@@ -49,13 +139,11 @@ class ResearchExplorerRealDataIntegrationTests(unittest.TestCase):
         *,
         headers: dict[str, str] | None = None,
     ) -> tuple[int, dict[str, str], bytes]:
-        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
-        connection.request(method, path, headers=headers or {})
-        response = connection.getresponse()
+        self.connection.request(method, path, headers=headers or {})
+        response = self.connection.getresponse()
         body = response.read()
         result_headers = {key.lower(): value for key, value in response.getheaders()}
         status = response.status
-        connection.close()
         return status, result_headers, body
 
     def session_cookie(self) -> str:
