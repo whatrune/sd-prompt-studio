@@ -214,6 +214,9 @@ equal(classifyValidationPathsV1(['docs/product/guide.md', 'src/main.tsx']).fallb
 equal(classifyValidationPathsV1([]).fallback_reason, 'empty_changed_path_set')
 equal(classifyValidationPathsV1(['docs/a.md', 'docs/a.md']).fallback_reason, 'duplicate_changed_path')
 equal(classifyValidationPathsV1(['a//b']).fallback_reason, 'malformed_changed_path')
+equal(classifyValidationPathsV1(['docs/x\ny.md']).fallback_reason, 'malformed_changed_path')
+equal(classifyValidationPathsV1(['docs/x\u007fy.md']).fallback_reason, 'malformed_changed_path')
+equal(classifyValidationPathsV1(['C:/docs/a.md']).fallback_reason, 'malformed_changed_path')
 equal(classifyValidationPathsV1(['data/validation-path-ownership-v1.json']).profile, 'FULL_RESEARCH')
 equal(classifyValidationPathsV1(['scripts/validate-dictionaries.mjs']).profile, 'FULL_RESEARCH')
 

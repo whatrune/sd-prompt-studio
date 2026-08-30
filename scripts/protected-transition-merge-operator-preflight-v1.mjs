@@ -127,7 +127,8 @@ const positiveInteger = (value) => Number.isSafeInteger(value) && value > 0
 
 const normalizedPath = (value) => (
   typeof value === 'string' && value.length > 0 && value.length <= 512 &&
-  !value.includes('\\') && !value.startsWith('/') && !value.endsWith('/') &&
+  !value.includes('\\') && !/[\u0000-\u001f\u007f]/.test(value) &&
+  !/^[A-Za-z]:/.test(value) && !value.startsWith('/') && !value.endsWith('/') &&
   !value.split('/').some((part) => part.length === 0 || part === '.' || part === '..')
 )
 
