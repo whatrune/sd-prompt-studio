@@ -18,7 +18,6 @@ $ErrorActionPreference = 'Stop'
 $script:CacheContractVersion = 1
 $script:RequiredImports = @('yaml', 'jsonschema', 'rfc8785', 'PIL', 'reportlab', 'pypdf')
 $script:EnvironmentNames = @('PYTHONHOME', 'PYTHONPATH', 'PYTHONUSERBASE')
-$script:LockInitializationGraceSeconds = 5
 
 function Get-Sha256Text {
     param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Text)
@@ -429,7 +428,9 @@ function Write-LockOwner {
         [Parameter(Mandatory = $true)][System.Collections.IDictionary]$Owner
     )
     $path = Join-Path $LockDirectory 'owner.json'
-    [IO.File]::WriteAllText($path, (($Owner | ConvertTo-Json -Compress) + "`n"), [Text.UTF8Encoding]::new($false))
+    $temporary = Join-Path $LockDirectory ("owner.$($Owner.nonce).tmp")
+    [IO.File]::WriteAllText($temporary, (($Owner | ConvertTo-Json -Compress) + "`n"), [Text.UTF8Encoding]::new($false))
+    Move-Item -LiteralPath $temporary -Destination $path -ErrorAction Stop
 }
 
 function Test-LockOwnerActive {
@@ -438,11 +439,7 @@ function Test-LockOwnerActive {
         [Parameter(Mandatory = $true)][string]$Identity
     )
     $ownerPath = Join-Path $LockDirectory 'owner.json'
-    if (-not (Test-Path -LiteralPath $ownerPath -PathType Leaf)) {
-        try { $age = [DateTime]::UtcNow - (Get-Item -LiteralPath $LockDirectory).CreationTimeUtc }
-        catch { return $false }
-        return $age.TotalSeconds -lt $script:LockInitializationGraceSeconds
-    }
+    if (-not (Test-Path -LiteralPath $ownerPath -PathType Leaf)) { return $true }
     try { $owner = Get-Content -Raw -LiteralPath $ownerPath | ConvertFrom-Json }
     catch { return $false }
     $expectedKeys = @('identity', 'nonce', 'process_id', 'process_start_ticks') | Sort-Object
@@ -461,8 +458,20 @@ function Move-AbandonedLock {
         [Parameter(Mandatory = $true)][string]$Identity
     )
     if (-not (Test-Path -LiteralPath $LockDirectory -PathType Container)) { return $true }
+    if (-not (Test-Path -LiteralPath (Join-Path $LockDirectory 'owner.json') -PathType Leaf)) { return $false }
     if (Test-LockOwnerActive -LockDirectory $LockDirectory -Identity $Identity) { return $false }
     $reclaimed = "$LockDirectory.reclaimed.$([guid]::NewGuid().ToString('N').Substring(0, 8))"
+    try { Move-Item -LiteralPath $LockDirectory -Destination $reclaimed -ErrorAction Stop }
+    catch { return $false }
+    Remove-Item -LiteralPath $reclaimed -Recurse -Force
+    return $true
+}
+
+function Move-UninitializedLockAfterTimeout {
+    param([Parameter(Mandatory = $true)][string]$LockDirectory)
+    if (-not (Test-Path -LiteralPath $LockDirectory -PathType Container)) { return $true }
+    if (Test-Path -LiteralPath (Join-Path $LockDirectory 'owner.json') -PathType Leaf) { return $false }
+    $reclaimed = "$LockDirectory.uninitialized.$([guid]::NewGuid().ToString('N').Substring(0, 8))"
     try { Move-Item -LiteralPath $LockDirectory -Destination $reclaimed -ErrorAction Stop }
     catch { return $false }
     Remove-Item -LiteralPath $reclaimed -Recurse -Force
@@ -557,7 +566,13 @@ while (-not $ownsLock) {
             exit 0
         }
         if (Move-AbandonedLock -LockDirectory $lockDirectory -Identity $identityProjection.Identity) { continue }
-        if ([DateTime]::UtcNow -ge $deadline) { throw 'python_validation_environment_lock_timeout' }
+        if ([DateTime]::UtcNow -ge $deadline) {
+            if (Move-UninitializedLockAfterTimeout -LockDirectory $lockDirectory) {
+                $deadline = [DateTime]::UtcNow.AddSeconds($LockTimeoutSeconds)
+                continue
+            }
+            throw 'python_validation_environment_lock_timeout'
+        }
         Start-Sleep -Milliseconds 200
     }
 }

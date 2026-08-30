@@ -97,8 +97,9 @@ try {
     Assert-True ($jobResults.Count -eq 2) 'parallel acquisition result count mismatch'
     Assert-True (@($jobResults | Where-Object ExitCode -ne 0).Count -eq 0) 'parallel acquisition failed'
     $parallel = @($jobResults | ForEach-Object { $_.Output | ConvertFrom-Json })
-    Assert-True (@($parallel | Where-Object cache_state -eq 'cold').Count -eq 1) 'simultaneous cache miss did not produce exactly one builder'
-    Assert-True (@($parallel | Where-Object cache_state -match '^warm').Count -eq 1) 'simultaneous cache miss loser did not reuse winner'
+    $parallelStates = @($parallel | ForEach-Object cache_state) -join ','
+    Assert-True (@($parallel | Where-Object cache_state -eq 'cold').Count -eq 1) "simultaneous cache miss did not produce exactly one builder (states=$parallelStates)"
+    Assert-True (@($parallel | Where-Object cache_state -match '^warm').Count -eq 1) "simultaneous cache miss loser did not reuse winner (states=$parallelStates)"
     Assert-True (($parallel | Select-Object -ExpandProperty identity -Unique).Count -eq 1) 'parallel worktrees did not share dependency identity'
 
     $watch = [Diagnostics.Stopwatch]::StartNew()
