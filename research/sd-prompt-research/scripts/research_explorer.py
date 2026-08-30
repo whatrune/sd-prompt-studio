@@ -753,18 +753,32 @@ class ResearchExplorerHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
         sys.stderr.write("research-explorer: " + (format % args) + "\n")
 
-    def _send_json(self, status: int, payload: Mapping[str, Any]) -> None:
+    def _send_json(
+        self,
+        status: int,
+        payload: Mapping[str, Any],
+        *,
+        close_connection: bool = False,
+    ) -> None:
         data = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
+        if close_connection:
+            self.close_connection = True
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        if close_connection:
+            self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write(data)
 
-    def _reject(self, error: ResearchExplorerError) -> None:
-        self._send_json(error.status, {"error": error.as_dict()})
+    def _reject(self, error: ResearchExplorerError, *, close_connection: bool = False) -> None:
+        self._send_json(
+            error.status,
+            {"error": error.as_dict()},
+            close_connection=close_connection,
+        )
 
     def _validate_host_and_origin(self) -> None:
         host = self.headers.get("Host", "").lower()
@@ -879,12 +893,13 @@ class ResearchExplorerHandler(BaseHTTPRequestHandler):
         try:
             self._validate_host_and_origin()
         except ResearchExplorerError as exc:
-            self._reject(exc)
+            self._reject(exc, close_connection=True)
             return
         self._reject(
             ResearchExplorerError(
                 "READ_ONLY_API", "Research Explorer API does not expose mutation endpoints", status=405
-            )
+            ),
+            close_connection=True,
         )
 
     do_POST = _reject_mutation  # type: ignore[assignment]

@@ -509,9 +509,10 @@ class ResearchExplorerHTTPTests(ResearchExplorerTestCase):
         method: str,
         path: str,
         *,
+        body: bytes | None = None,
         headers: dict[str, str] | None = None,
     ) -> tuple[int, dict[str, str], bytes]:
-        self.connection.request(method, path, headers=headers or {})
+        self.connection.request(method, path, body=body, headers=headers or {})
         response = self.connection.getresponse()
         body = response.read()
         result_headers = {key.lower(): value for key, value in response.getheaders()}
@@ -563,13 +564,17 @@ class ResearchExplorerHTTPTests(ResearchExplorerTestCase):
         cookie = self.session_cookie()
         for method in ("POST", "PUT", "PATCH", "DELETE", "OPTIONS"):
             with self.subTest(method=method):
-                status, _, body = self.request(
+                status, headers, body = self.request(
                     method,
                     "/api/research/index",
+                    body=b'{"unexpected":"request body"}',
                     headers={"Cookie": cookie},
                 )
                 self.assertEqual(status, 405)
+                self.assertEqual(headers.get("connection"), "close")
                 self.assertEqual(json.loads(body)["error"]["code"], "READ_ONLY_API")
+                follow_up_status, _, _ = self.request("GET", "/")
+                self.assertEqual(follow_up_status, 200)
 
     def test_artifact_read_requires_snapshot_and_rejects_stale_source(self) -> None:
         cookie = self.session_cookie()
