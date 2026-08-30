@@ -234,3 +234,15 @@ runs:
   status: OBSERVED
   updated_at: '2026-08-30T21:22:52+09:00'
   path: experiments/hair/HAIR-003-B
+- run_id: HAIR-004-A
+  domain: hair
+  title: HAIR-004-A — twintails control replication
+  status: OBSERVED
+  updated_at: '2026-08-30T21:20:23+09:00'
+  path: experiments/hair/HAIR-004-A
+- run_id: HAIR-004-B
+  domain: hair
+  title: HAIR-004-B — twintails + long hair treatment replication
+  status: OBSERVED
+  updated_at: '2026-08-30T21:20:57+09:00'
+  path: experiments/hair/HAIR-004-B

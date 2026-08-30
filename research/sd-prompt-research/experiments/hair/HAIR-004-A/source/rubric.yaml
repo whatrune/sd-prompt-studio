@@ -1,0 +1,55 @@
+schema_version: "3.0"
+run_id: HAIR-004-A
+target_concept: ""
+blind_condition_label: Condition A
+blind_analysis: false
+special_values:
+  unclear: Visible evidence is insufficient or conflicting.
+  not_visible: The relevant hair region is cropped or fully obscured.
+axis_catalog:
+  twintail_identity:
+    label: Twintail Identity
+    allowed_values: [distinct, partial, ambiguous, absent, not_visible]
+  tied_tail_length_extent:
+    label: Tied-tail Length Extent
+    allowed_values: [above_neck, neck_to_shoulder, below_shoulder, waist_or_longer, unclear, not_visible]
+  non_tail_hair_length_extent:
+    label: Non-tail Hair Length Extent
+    allowed_values: [none_visible, above_neck, neck_to_shoulder, below_shoulder, waist_or_longer, unclear, not_visible]
+  long_extent_source:
+    label: Long Extent Source
+    allowed_values: [tied_tails_only, non_tail_only, both, cannot_separate, no_below_shoulder_extent, not_visible]
+  composition_integrity:
+    label: Composition Integrity
+    allowed_values: [coherent, ambiguous, artifact, not_visible]
+active_observation_axes:
+  - twintail_identity
+  - tied_tail_length_extent
+  - non_tail_hair_length_extent
+  - long_extent_source
+  - composition_integrity
+contact_load:
+  enabled: false
+  fields: [left_hand, right_hand, left_forearm, right_forearm]
+  allowed_values: [none, light, supporting, weight_bearing, unclear]
+morphology_candidates:
+  primary: [twintail_long_hair_composition]
+  secondary: [none]
+artifact_checks: [none, hair_structure_artifact, other]
+cross_domain_effects:
+  enabled: false
+  domains: []
+  strength_values: []
+  effect_type_values: []
+rules:
+  preserve_axis_labels_exactly: true
+  preserve_axis_order: true
+  output_all_active_axes_for_every_panel: true
+  use_allowed_values_only: true
+  visible_evidence_only: true
+  enforce_visible_evidence_policy: true
+  separate_tied_tail_extent_from_non_tail_extent: true
+  do_not_credit_control_tail_length_as_treatment_effect: true
+  analyst_must_not_assign_target_alignment: true
+  analyst_must_not_finalize_concept: true
+  six_images_are_directional_evidence_only: true

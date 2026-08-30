@@ -1,0 +1,223 @@
+{
+  "schema_version": "3.0",
+  "run_id": "HAIR-004-A",
+  "blind_condition_label": "Condition A",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "twintail_identity",
+    "tied_tail_length_extent",
+    "non_tail_hair_length_extent",
+    "long_extent_source",
+    "composition_integrity"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Two separately tied hair tails are visibly distinct in all six panels.",
+      "Three panels have tied-tail tips below the shoulder line; the other three remain between neck and shoulder.",
+      "No non-tail hair mass extends below the shoulder line in any panel.",
+      "No hair-structure ambiguity or generation artifact is visible."
+    ],
+    "analysis_notes": [
+      "Visible image evidence only; prompt text was not used to assign observations.",
+      "Tied-tail extent and non-tail extent are recorded separately so baseline tail length is not mistaken for an added treatment effect.",
+      "Total identifiable hair extent and overlap are recorded separately in hair-observation.json."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "distinct",
+        "below_shoulder",
+        "above_neck",
+        "tied_tails_only",
+        "coherent"
+      ],
+      "primary_morphology": "twintail_long_hair_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Two tied tails are separately visible; their lower tips are below the shoulder line. Loose non-tail hair remains above the neck, and no structural artifact is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "distinct",
+        "neck_to_shoulder",
+        "above_neck",
+        "no_below_shoulder_extent",
+        "coherent"
+      ],
+      "primary_morphology": "twintail_long_hair_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Two tied tails are separately visible; their lower tips are between the neck and shoulder line. Loose non-tail hair remains above the neck, and no structural artifact is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "distinct",
+        "neck_to_shoulder",
+        "above_neck",
+        "no_below_shoulder_extent",
+        "coherent"
+      ],
+      "primary_morphology": "twintail_long_hair_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Two tied tails are separately visible; their lower tips are between the neck and shoulder line. Loose non-tail hair remains above the neck, and no structural artifact is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "distinct",
+        "below_shoulder",
+        "above_neck",
+        "tied_tails_only",
+        "coherent"
+      ],
+      "primary_morphology": "twintail_long_hair_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Two tied tails are separately visible; their lower tips are below the shoulder line. Loose non-tail hair remains above the neck, and no structural artifact is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "distinct",
+        "neck_to_shoulder",
+        "above_neck",
+        "no_below_shoulder_extent",
+        "coherent"
+      ],
+      "primary_morphology": "twintail_long_hair_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Two tied tails are separately visible; their lower tips are between the neck and shoulder line. Loose non-tail hair remains above the neck, and no structural artifact is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "distinct",
+        "below_shoulder",
+        "above_neck",
+        "tied_tails_only",
+        "coherent"
+      ],
+      "primary_morphology": "twintail_long_hair_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Two tied tails are separately visible; their lower tips are below the shoulder line. Loose non-tail hair remains above the neck, and no structural artifact is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file records condition-local visible structure; matched-seed comparison is recorded in research-review.md.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "twintail_identity": {
+        "distinct": 6
+      },
+      "tied_tail_length_extent": {
+        "below_shoulder": 3,
+        "neck_to_shoulder": 3
+      },
+      "non_tail_hair_length_extent": {
+        "above_neck": 6
+      },
+      "long_extent_source": {
+        "tied_tails_only": 3,
+        "no_below_shoulder_extent": 3
+      },
+      "composition_integrity": {
+        "coherent": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "twintail_long_hair_composition": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
