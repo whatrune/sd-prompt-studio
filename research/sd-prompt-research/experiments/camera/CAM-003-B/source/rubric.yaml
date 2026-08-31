@@ -1,0 +1,154 @@
+schema_version: '3.0'
+target_concept: ''
+blind_condition_label: COND-B6C5F7A5
+blind_analysis: true
+special_values:
+  unclear: Visible evidence is insufficient or conflicting.
+  not_visible: The required anatomical region is cropped or fully obscured.
+axis_catalog:
+  observed_framing:
+    label: Observed Framing
+    allowed_values:
+    - full_body
+    - upper_body
+    - portrait
+    - close_up
+    - unknown
+  face_visibility:
+    label: Face Visibility
+    allowed_values:
+    - visible
+    - partial
+    - not_visible
+    - unclear
+  head_visibility:
+    label: Head Visibility
+    allowed_values:
+    - visible
+    - partial
+    - not_visible
+    - unclear
+  shoulders_visibility:
+    label: Shoulders Visibility
+    allowed_values:
+    - visible
+    - partial
+    - not_visible
+    - unclear
+  torso_visibility:
+    label: Torso Visibility
+    allowed_values:
+    - visible
+    - partial
+    - not_visible
+    - unclear
+  hips_visibility:
+    label: Hips Visibility
+    allowed_values:
+    - visible
+    - partial
+    - not_visible
+    - unclear
+  knees_visibility:
+    label: Knees Visibility
+    allowed_values:
+    - visible
+    - partial
+    - not_visible
+    - unclear
+  feet_visibility:
+    label: Feet Visibility
+    allowed_values:
+    - visible
+    - partial
+    - not_visible
+    - unclear
+  face_detail_assessability:
+    label: Face Detail Assessability
+    allowed_values:
+    - assessable
+    - unassessable
+    - unclear
+  support_boundary_visibility:
+    label: Support Boundary Visibility
+    allowed_values:
+    - present
+    - absent
+    - unclear
+    - not_visible
+  body_state:
+    label: Body State
+    allowed_values:
+    - standing
+    - sitting
+    - kneeling
+    - squatting
+    - lying
+    - other
+    - unclear
+  ambiguity_or_artifact:
+    label: Ambiguity Or Artifact
+    allowed_values:
+    - none
+    - face_detail_ambiguous
+    - anatomy_artifact
+    - composition_artifact
+    - multiple
+active_observation_axes:
+- observed_framing
+- face_visibility
+- head_visibility
+- shoulders_visibility
+- torso_visibility
+- hips_visibility
+- knees_visibility
+- feet_visibility
+- face_detail_assessability
+- support_boundary_visibility
+- body_state
+- ambiguity_or_artifact
+contact_load:
+  enabled: false
+  fields:
+  - left_hand
+  - right_hand
+  - left_forearm
+  - right_forearm
+  allowed_values:
+  - none
+  - light
+  - supporting
+  - weight_bearing
+  - unclear
+morphology_candidates:
+  primary:
+  - camera_visibility_observation
+  secondary:
+  - none
+artifact_checks:
+- none
+- face_detail_ambiguous
+- anatomy_artifact
+- composition_artifact
+- multiple
+cross_domain_effects:
+  enabled: false
+  domains: []
+  strength_values: []
+  effect_type_values: []
+rules:
+  preserve_axis_labels_exactly: true
+  preserve_axis_order: true
+  output_all_active_axes_for_every_panel: true
+  use_allowed_values_only: true
+  visible_evidence_only: true
+  enforce_visible_evidence_policy: true
+  standing_requires:
+  - knees_visibility=visible
+  - feet_visibility=visible
+  - support_boundary_visibility=present
+  prompt_blind_freeze_required: true
+  analyst_must_not_assign_target_alignment: true
+  analyst_must_not_finalize_concept: true
+  six_images_are_directional_evidence_only: true
+run_id: CAM-003-B
