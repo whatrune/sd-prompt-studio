@@ -366,3 +366,15 @@ runs:
   status: OBSERVED
   updated_at: '2026-08-31T12:45:55+09:00'
   path: experiments/camera/CAM-003-B
+- run_id: EYE-002-A
+  domain: eyes
+  title: EYE-002-A — one eye closed control
+  status: OBSERVED
+  updated_at: '2026-08-31T14:18:12+09:00'
+  path: experiments/eyes/EYE-002-A
+- run_id: EYE-002-B
+  domain: eyes
+  title: EYE-002-B — looking at viewer plus one eye closed treatment
+  status: OBSERVED
+  updated_at: '2026-08-31T14:18:12+09:00'
+  path: experiments/eyes/EYE-002-B

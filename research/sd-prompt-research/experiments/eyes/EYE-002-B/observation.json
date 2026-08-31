@@ -1,0 +1,233 @@
+{
+  "schema_version": "3.0",
+  "run_id": "EYE-002-B",
+  "blind_condition_label": "C-5DA7848D6D0F1AEE",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "eyes_visible",
+    "eye_state",
+    "gaze_direction",
+    "eye_state_assessable",
+    "gaze_assessable",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition C-5DA7848D6D0F1AEE: both eyes visible=6/6.",
+      "Opaque condition C-5DA7848D6D0F1AEE: one_closed eye state=6/6.",
+      "Opaque condition C-5DA7848D6D0F1AEE: assessable toward_viewer gaze=6/6.",
+      "Opaque condition C-5DA7848D6D0F1AEE: ambiguity/artifact=0/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque matched-pair IDs, visible pixels, and pixel/file hashes; prompts, seeds, requested concepts, run mapping, Task identity, and generation metadata were withheld.",
+      "The 12-panel opaque observation record was frozen before mapping disclosure at SHA-256 fae913eaf0ee23c0c28a6100ae9b26c90c891fc9d12685e88c7ce6b22c94fa31.",
+      "Canonical run_id, panel_id, and seed binding was applied only after decoding and did not change any frozen visual row.",
+      "Gaze was classified only from visible pupil/eye-direction evidence; face orientation alone was not used.",
+      "Prompt support, matched-seed comparison, and final experiment classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "both",
+        "one_closed",
+        "toward_viewer",
+        "yes",
+        "yes",
+        "none"
+      ],
+      "primary_morphology": "eye_state_gaze_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both eye regions are unobstructed; the image-right eye is shut, while the image-left eye is open with a clearly visible pupil centered within the iris."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "both",
+        "one_closed",
+        "toward_viewer",
+        "yes",
+        "yes",
+        "none"
+      ],
+      "primary_morphology": "eye_state_gaze_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both eye regions are unobstructed; the image-right eye is shut, while the image-left eye is open with a clearly visible pupil centered within the iris."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "both",
+        "one_closed",
+        "toward_viewer",
+        "yes",
+        "yes",
+        "none"
+      ],
+      "primary_morphology": "eye_state_gaze_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both eye regions are unobstructed; the image-right eye is shut, while the image-left eye is open with a clearly visible pupil centered within the iris."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "both",
+        "one_closed",
+        "toward_viewer",
+        "yes",
+        "yes",
+        "none"
+      ],
+      "primary_morphology": "eye_state_gaze_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both eye regions are unobstructed; the image-right eye is shut, while the image-left eye is open with a clearly visible pupil centered within the iris."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "both",
+        "one_closed",
+        "toward_viewer",
+        "yes",
+        "yes",
+        "none"
+      ],
+      "primary_morphology": "eye_state_gaze_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both eye regions are unobstructed; the image-right eye is shut, while the image-left eye is open with a clearly visible pupil centered within the iris."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "both",
+        "one_closed",
+        "toward_viewer",
+        "yes",
+        "yes",
+        "none"
+      ],
+      "primary_morphology": "eye_state_gaze_composition",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both eye regions are unobstructed; the image-right eye is shut, while the image-left eye is open with a clearly visible pupil centered within the iris."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "eyes_visible": {
+        "both": 6
+      },
+      "eye_state": {
+        "one_closed": 6
+      },
+      "gaze_direction": {
+        "toward_viewer": 6
+      },
+      "eye_state_assessable": {
+        "yes": 6
+      },
+      "gaze_assessable": {
+        "yes": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "eye_state_gaze_composition": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}

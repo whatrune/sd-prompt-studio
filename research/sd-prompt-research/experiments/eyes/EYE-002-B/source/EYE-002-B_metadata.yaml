@@ -1,0 +1,293 @@
+{
+  "metadata_status": "verified",
+  "source": "a1111_txt2img_api",
+  "format": "png+json",
+  "official_input": {
+    "generation_session": "EYE-002-task-492-20260831T140437+0900",
+    "panel_count": 12,
+    "sidecar_count": 12
+  },
+  "condition": {
+    "role": "treatment",
+    "target": "looking at viewer with one eye closed"
+  },
+  "generation": {
+    "positive_prompt": "1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, one eye closed",
+    "negative_prompt": "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame",
+    "settings": {
+      "model": "novaAnimeXL_ilV190",
+      "model_hash": "fa486caafc",
+      "model_sha256": "fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f",
+      "sampler": "Euler a",
+      "scheduler": "Automatic",
+      "steps": 20,
+      "cfg_scale": 4.5,
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1,
+      "n_iter": 1,
+      "enable_hr": false,
+      "restore_faces": false,
+      "tiling": false
+    },
+    "ordered_seeds": [
+      1126645754,
+      1332582485,
+      1588147170,
+      1901831359,
+      1918636949,
+      2128309031
+    ]
+  },
+  "matched_pair_contract": {
+    "control_run_id": "EYE-002-A",
+    "treatment_run_id": "EYE-002-B",
+    "only_prompt_difference": "insertion of looking at viewer immediately before one eye closed",
+    "negative_prompt_equal": true,
+    "settings_equal": true,
+    "ordered_seeds_equal": true
+  },
+  "provenance_binding": {
+    "execution_instance_id": "49200000-0000-4000-8000-000000000001",
+    "observer_manifest_sha256": "61e43f9cb74ce3648edaadc735ed08afe0addf4893fcd47b57cf6a90ca2e7e5b",
+    "blind_observation_freeze_sha256": "fae913eaf0ee23c0c28a6100ae9b26c90c891fc9d12685e88c7ce6b22c94fa31",
+    "request_sampler_scheduler_exact": true,
+    "response_parameters_sampler_scheduler_exact": true,
+    "parsed_info_sampler_exact": true,
+    "infotext_sampler_schedule_exact": true,
+    "response_info_scheduler_not_required": true
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "seed": 1126645754,
+      "image_file": "panels/EYE-002-B_01.png",
+      "image_sha256": "7c8949aab8ae00a67d2d038905242e20d7977fd5ba1527b21603626acda841e5",
+      "image_bytes": 1334175,
+      "provenance_file": "source/tmp/generation/EYE-002-B_01_response.json",
+      "provenance_sha256": "8020ae4218bc91e150cedc22d8f3dac78d63588bd3fe994783dc016564c3f5b0",
+      "dispatch_started_at": "2026-08-31T05:05:13.529Z",
+      "response_received_at": "2026-08-31T05:05:20.285Z",
+      "returned_generation": {
+        "prompt": "1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, one eye closed",
+        "negative_prompt": "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame",
+        "seed": 1126645754,
+        "subseed": 139324454,
+        "model": "novaAnimeXL_ilV190",
+        "model_hash": "fa486caafc",
+        "sampler": "Euler a",
+        "scheduler": "Automatic",
+        "steps": 20,
+        "cfg_scale": 4.5,
+        "width": 1024,
+        "height": 1024,
+        "batch_size": 1,
+        "version": "f2.0.1v1.10.1-previous-669-gdfdcbab6",
+        "infotext": "1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, one eye closed\nNegative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame\nSteps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1126645754, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6"
+      },
+      "binding_checks": {
+        "request_sampler": "Euler a",
+        "request_scheduler": "Automatic",
+        "response_parameters_sampler": "Euler a",
+        "response_parameters_scheduler": "Automatic",
+        "response_info_sampler": "Euler a",
+        "infotext_sampler": "Euler a",
+        "infotext_schedule_type": "Automatic"
+      }
+    },
+    {
+      "panel_id": 2,
+      "seed": 1332582485,
+      "image_file": "panels/EYE-002-B_02.png",
+      "image_sha256": "ec80f7aebf2391907e190cd565685572975969cf5e145dfea9f596c0ebc00ca3",
+      "image_bytes": 1288661,
+      "provenance_file": "source/tmp/generation/EYE-002-B_02_response.json",
+      "provenance_sha256": "dd6641c54feceed4bc3e1a12ce14d2006e563dc18911bc08d5bcab31587cddc4",
+      "dispatch_started_at": "2026-08-31T05:05:20.295Z",
+      "response_received_at": "2026-08-31T05:05:26.233Z",
+      "returned_generation": {
+        "prompt": "1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, one eye closed",
+        "negative_prompt": "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame",
+        "seed": 1332582485,
+        "subseed": 4198897920,
+        "model": "novaAnimeXL_ilV190",
+        "model_hash": "fa486caafc",
+        "sampler": "Euler a",
+        "scheduler": "Automatic",
+        "steps": 20,
+        "cfg_scale": 4.5,
+        "width": 1024,
+        "height": 1024,
+        "batch_size": 1,
+        "version": "f2.0.1v1.10.1-previous-669-gdfdcbab6",
+        "infotext": "1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, one eye closed\nNegative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame\nSteps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1332582485, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6"
+      },
+      "binding_checks": {
+        "request_sampler": "Euler a",
+        "request_scheduler": "Automatic",
+        "response_parameters_sampler": "Euler a",
+        "response_parameters_scheduler": "Automatic",
+        "response_info_sampler": "Euler a",
+        "infotext_sampler": "Euler a",
+        "infotext_schedule_type": "Automatic"
+      }
+    },
+    {
+      "panel_id": 3,
+      "seed": 1588147170,
+      "image_file": "panels/EYE-002-B_03.png",
+      "image_sha256": "a04096ff4ca347f457fd8d5d45b09a1c5e8ed893e84b4efbbaef8064bed46ef0",
+      "image_bytes": 1270341,
+      "provenance_file": "source/tmp/generation/EYE-002-B_03_response.json",
+      "provenance_sha256": "2414c0532e4a05c24a056b2e85b862afc2da0e6ca7e6d39447e3906ab5249071",
+      "dispatch_started_at": "2026-08-31T05:05:26.239Z",
+      "response_received_at": "2026-08-31T05:05:32.212Z",
+      "returned_generation": {
+        "prompt": "1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, one eye closed",
+        "negative_prompt": "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame",
+        "seed": 1588147170,
+        "subseed": 180764840,
+        "model": "novaAnimeXL_ilV190",
+        "model_hash": "fa486caafc",
+        "sampler": "Euler a",
+        "scheduler": "Automatic",
+        "steps": 20,
+        "cfg_scale": 4.5,
+        "width": 1024,
+        "height": 1024,
+        "batch_size": 1,
+        "version": "f2.0.1v1.10.1-previous-669-gdfdcbab6",
+        "infotext": "1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, one eye closed\nNegative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame\nSteps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1588147170, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6"
+      },
+      "binding_checks": {
+        "request_sampler": "Euler a",
+        "request_scheduler": "Automatic",
+        "response_parameters_sampler": "Euler a",
+        "response_parameters_scheduler": "Automatic",
+        "response_info_sampler": "Euler a",
+        "infotext_sampler": "Euler a",
+        "infotext_schedule_type": "Automatic"
+      }
+    },
+    {
+      "panel_id": 4,
+      "seed": 1901831359,
+      "image_file": "panels/EYE-002-B_04.png",
+      "image_sha256": "39c9262dcb94d5e4a75841b56067f1a6670c566b3cc10bf8f2d58932250da547",
+      "image_bytes": 1321205,
+      "provenance_file": "source/tmp/generation/EYE-002-B_04_response.json",
+      "provenance_sha256": "72a7fefb88261f1a4ff4890ef3bbcd00ffd427b6f1b2824550982c2d6995760a",
+      "dispatch_started_at": "2026-08-31T05:05:32.221Z",
+      "response_received_at": "2026-08-31T05:05:38.191Z",
+      "returned_generation": {
+        "prompt": "1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, one eye closed",
+        "negative_prompt": "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame",
+        "seed": 1901831359,
+        "subseed": 1385404140,
+        "model": "novaAnimeXL_ilV190",
+        "model_hash": "fa486caafc",
+        "sampler": "Euler a",
+        "scheduler": "Automatic",
+        "steps": 20,
+        "cfg_scale": 4.5,
+        "width": 1024,
+        "height": 1024,
+        "batch_size": 1,
+        "version": "f2.0.1v1.10.1-previous-669-gdfdcbab6",
+        "infotext": "1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, one eye closed\nNegative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame\nSteps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1901831359, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6"
+      },
+      "binding_checks": {
+        "request_sampler": "Euler a",
+        "request_scheduler": "Automatic",
+        "response_parameters_sampler": "Euler a",
+        "response_parameters_scheduler": "Automatic",
+        "response_info_sampler": "Euler a",
+        "infotext_sampler": "Euler a",
+        "infotext_schedule_type": "Automatic"
+      }
+    },
+    {
+      "panel_id": 5,
+      "seed": 1918636949,
+      "image_file": "panels/EYE-002-B_05.png",
+      "image_sha256": "1cffcc3065006d0d62e85a56eadb052cd87a711ec8034d659bd3fc1e4605cc5a",
+      "image_bytes": 1216863,
+      "provenance_file": "source/tmp/generation/EYE-002-B_05_response.json",
+      "provenance_sha256": "0a48c8225d1dc5b8b057f690000d88b8fd2c42a8367d2d604eb588e79764aed8",
+      "dispatch_started_at": "2026-08-31T05:05:38.197Z",
+      "response_received_at": "2026-08-31T05:05:44.162Z",
+      "returned_generation": {
+        "prompt": "1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, one eye closed",
+        "negative_prompt": "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame",
+        "seed": 1918636949,
+        "subseed": 3658574055,
+        "model": "novaAnimeXL_ilV190",
+        "model_hash": "fa486caafc",
+        "sampler": "Euler a",
+        "scheduler": "Automatic",
+        "steps": 20,
+        "cfg_scale": 4.5,
+        "width": 1024,
+        "height": 1024,
+        "batch_size": 1,
+        "version": "f2.0.1v1.10.1-previous-669-gdfdcbab6",
+        "infotext": "1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, one eye closed\nNegative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame\nSteps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1918636949, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6"
+      },
+      "binding_checks": {
+        "request_sampler": "Euler a",
+        "request_scheduler": "Automatic",
+        "response_parameters_sampler": "Euler a",
+        "response_parameters_scheduler": "Automatic",
+        "response_info_sampler": "Euler a",
+        "infotext_sampler": "Euler a",
+        "infotext_schedule_type": "Automatic"
+      }
+    },
+    {
+      "panel_id": 6,
+      "seed": 2128309031,
+      "image_file": "panels/EYE-002-B_06.png",
+      "image_sha256": "36a04cc14792d4a72342e7ae56e77e67f562a679c67d77df4184ba24a3501b2a",
+      "image_bytes": 1273062,
+      "provenance_file": "source/tmp/generation/EYE-002-B_06_response.json",
+      "provenance_sha256": "44084a2a3e71d722c9459ca378a6405855e73f6027861c7fb7da5cd80635a646",
+      "dispatch_started_at": "2026-08-31T05:05:44.169Z",
+      "response_received_at": "2026-08-31T05:05:50.159Z",
+      "returned_generation": {
+        "prompt": "1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, one eye closed",
+        "negative_prompt": "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame",
+        "seed": 2128309031,
+        "subseed": 3942804088,
+        "model": "novaAnimeXL_ilV190",
+        "model_hash": "fa486caafc",
+        "sampler": "Euler a",
+        "scheduler": "Automatic",
+        "steps": 20,
+        "cfg_scale": 4.5,
+        "width": 1024,
+        "height": 1024,
+        "batch_size": 1,
+        "version": "f2.0.1v1.10.1-previous-669-gdfdcbab6",
+        "infotext": "1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, one eye closed\nNegative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame\nSteps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 2128309031, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6"
+      },
+      "binding_checks": {
+        "request_sampler": "Euler a",
+        "request_scheduler": "Automatic",
+        "response_parameters_sampler": "Euler a",
+        "response_parameters_scheduler": "Automatic",
+        "response_info_sampler": "Euler a",
+        "infotext_sampler": "Euler a",
+        "infotext_schedule_type": "Automatic"
+      }
+    }
+  ],
+  "verification": {
+    "panel_count": 6,
+    "png_integrity": "PASS",
+    "dimensions": "PASS",
+    "generation_provenance": "PASS",
+    "matched_prompt_contract": "PASS",
+    "observation_status": "PROMPT_BLIND_OBSERVATION_FROZEN_AND_DECODED",
+    "ledger_registration": "DEFERRED_TO_POST_LEDGER"
+  }
+}
