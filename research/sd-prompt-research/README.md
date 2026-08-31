@@ -88,8 +88,8 @@ Codexは明示的な許可がない限り、Research Interpretation、Working Co
 4. 未分割の場合のみ、6枚一体画像をPanelへ分割する。
 5. `manifest.yaml`、`source/rubric.yaml`、Observation成果物を所定位置へ作成または正規更新する。
 6. Observation完成条件をすべて満たした場合のみ、Runを`OBSERVED`へ更新する。
-7. 手順6に成功した場合のみ、`register_research_run.py`でRunを登録する。
-8. 手順6に成功した場合のみ、Derived Indexを再生成して検証する。
+7. 手順6に成功した場合のみ、`register_research_run.py --check`でPRE_LEDGER検証する。
+8. 手順6に成功した場合のみ、Derived Indexを生成して検証する。Run Ledgerへのcanonical登録は最終publication時にだけ行う。
 9. 手順6に成功した場合のみ、必要に応じてLocal Companion Serviceを再起動し、Research Explorerで表示確認する。
 10. 実行内容、作成・更新ファイル、最終ステータス、検証結果、未完了工程を報告する。
 
@@ -174,7 +174,7 @@ Grouped Runは共有Base Run ID単位で1つ、単一RunはそのRunだけをPDF
 
 ### Research Explorerへの反映
 
-「Research Explorerへ反映」は、`register_research_run.py`によるRun Ledgerへの登録または同期、Derived Index再生成、Derived Index上でのRun/Observation Relationship生成、IndexのSchema・整合性検証、必要なLocal Companion Service再起動、対象Run・Observation・Relationshipの表示確認を意味する。
+「Research Explorerへ反映」は、`register_research_run.py --check`によるPRE_LEDGER検証、最終publication時のfresh digestに束縛されたRun Ledger登録、Derived Index生成、Derived Index上でのRun/Observation Relationship生成、IndexのSchema・整合性検証、必要なLocal Companion Service再起動、対象Run・Observation・Relationshipの表示確認を意味する。通常のingestionとPRE_LEDGER検証はRun Ledgerを変更しない。
 
 Run/Observation Relationshipは、同一Canonical Runディレクトリに存在し、完全一致するRun IDを持つRun ArtifactとObservation Artifactから機械的に派生するRead Model情報である。Base Run IDやGrouped Runの比較関係から生成せず、Canonical Research Dataへ研究判断として永続保存しない。各条件Runは完全なRun ID単位で個別にRelationshipを生成する。
 
@@ -392,15 +392,40 @@ Index検証:
 
 起動方法、API、Fingerprint、Security境界は[`docs/research-explorer-companion-service.md`](docs/research-explorer-companion-service.md)を参照してください。
 
-正式化済みRunをLedgerへ登録し、Run/Observation Relationshipを含むDerived Indexを再生成・検証する最小経路:
+正式化済みRunは、canonical Ledger登録前にPRE_LEDGER検証できます:
 
 ```powershell
 .venv\Scripts\python.exe scripts\register_research_run.py `
   --run-dir experiments\bridge\BRG-010-A `
-  --index-output tmp\research-explorer-index.json
+  --check
 ```
 
-この処理はClaim、Evidence、Human Resolution、Finalizeを生成しません。詳細は[`docs/research-run-ingestion.md`](docs/research-run-ingestion.md)を参照してください。
+この検証は`run-index.yaml`を変更せず、Runが未登録でも利用できます。canonical
+Ledger登録は最終publication時だけ行い、fresh Ledger bytesのSHA-256とpublication
+対象の全Runを一度に渡します:
+
+```powershell
+.venv\Scripts\python.exe scripts\register_research_run.py `
+  --run-dir experiments\bridge\BRG-010-A `
+  --run-dir experiments\bridge\BRG-010-B `
+  --finalize-ledger `
+  --expected-ledger-sha256 <fresh-lowercase-sha256>
+```
+
+finalization後は、全Runのexact canonical登録をread-onlyで再検証します:
+
+```powershell
+.venv\Scripts\python.exe scripts\register_research_run.py `
+  --run-dir experiments\bridge\BRG-010-A `
+  --run-dir experiments\bridge\BRG-010-B `
+  --check `
+  --require-registered
+```
+
+ingestionはLedgerを変更しません。通常の`--check`は登録前に使え、multi-Run
+reconciliationは最終publication境界でatomicに行います。per-Task Ledgerや予約機構は
+ありません。この処理はClaim、Evidence、Human Resolution、Finalizeを生成しません。
+詳細は[`docs/research-run-ingestion.md`](docs/research-run-ingestion.md)を参照してください。
 
 ## セットアップ
 
