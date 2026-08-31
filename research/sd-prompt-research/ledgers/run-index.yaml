@@ -390,3 +390,21 @@ runs:
   status: OBSERVED
   updated_at: '2026-08-31T14:30:47+09:00'
   path: experiments/eyes/EYE-001-B
+- run_id: EYE-003-A
+  domain: eyes
+  title: EYE-003-A — looking at viewer control
+  status: OBSERVED
+  updated_at: '2026-08-31T17:20:13+09:00'
+  path: experiments/eyes/EYE-003-A
+- run_id: EYE-003-B
+  domain: eyes
+  title: EYE-003-B — looking away control
+  status: OBSERVED
+  updated_at: '2026-08-31T17:20:13+09:00'
+  path: experiments/eyes/EYE-003-B
+- run_id: EYE-003-C
+  domain: eyes
+  title: EYE-003-C — directional gaze joint treatment
+  status: OBSERVED
+  updated_at: '2026-08-31T17:20:13+09:00'
+  path: experiments/eyes/EYE-003-C

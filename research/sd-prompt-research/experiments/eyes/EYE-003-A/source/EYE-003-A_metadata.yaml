@@ -1,0 +1,91 @@
+metadata_status: verified
+source: a1111_txt2img_api
+format: png+json
+official_input:
+  generation_session: EYE-003-task-495-20260831T170744+0900
+  total_panel_count: 18
+  condition_panel_count: 6
+condition:
+  role: control
+  target: looking at viewer
+generation:
+  positive_prompt: '1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer'
+  negative_prompt: 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame'
+  settings: &settings {model: novaAnimeXL_ilV190, model_hash: fa486caafc, model_sha256: fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f, sampler: Euler a, scheduler: Automatic, steps: 20, cfg_scale: 4.5, width: 1024, height: 1024, batch_size: 1, n_iter: 1, enable_hr: false, restore_faces: false, tiling: false}
+  ordered_seeds: &seeds [1126645754, 1332582485, 1588147170, 1901831359, 1918636949, 2128309031]
+three_condition_contract:
+  runs: [EYE-003-A, EYE-003-B, EYE-003-C]
+  common_prefix_equal: true
+  approved_suffixes: [looking at viewer, looking away, 'looking at viewer, looking away']
+  negative_prompt_equal: true
+  settings_equal: true
+  ordered_seeds_equal: true
+provenance_binding:
+  execution_instance_id: 161bb0fc-b9fb-4eec-b89f-1103e428f75c
+  blind_observation_freeze_sha256: 427c30abe78ea31e7c1529fefbfea8d35da5911bdaa3afbb7f2ee82e636a530d
+  request_sampler_scheduler_exact: true
+  response_parameters_sampler_scheduler_exact: true
+  parsed_info_sampler_exact: true
+  infotext_sampler_schedule_exact: true
+  prompt_negative_seed_model_settings_exact: true
+panels:
+- panel_id: 1
+  seed: 1126645754
+  image_file: panels/EYE-003-A_01.png
+  image_sha256: ea93eae42a5b74700b589bf9afb3d61d8ea373dad4076e17a41117340e10d00a
+  image_bytes: 1315270
+  provenance_file: source/tmp/generation/EYE-003-A_01_response.json
+  provenance_sha256: baa81947958f9fa9180ecefb96290a9cdca926c9034829db9507e3bc8e079955
+  generated_at: '2026-08-31T08:07:51.1771304Z'
+  returned_generation: {seed: 1126645754, subseed: 1692780498, model: novaAnimeXL_ilV190, model_hash: fa486caafc, sampler: Euler a, scheduler: Automatic, steps: 20, cfg_scale: 4.5, width: 1024, height: 1024, version: f2.0.1v1.10.1-previous-669-gdfdcbab6}
+  binding_checks: {request_sampler: Euler a, request_scheduler: Automatic, response_parameters_sampler: Euler a, response_parameters_scheduler: Automatic, response_info_sampler: Euler a, infotext_sampler: Euler a, infotext_schedule_type: Automatic}
+- panel_id: 2
+  seed: 1332582485
+  image_file: panels/EYE-003-A_02.png
+  image_sha256: 9514430d1107108827c8aa154e886ce25e9e0a3cdb833ea66f3fae07b599178e
+  image_bytes: 1269993
+  provenance_file: source/tmp/generation/EYE-003-A_02_response.json
+  provenance_sha256: 650051c07e32fad8af67f8c186b05e2e720a1e5b07eeb41a02103e5c5a06dbe5
+  generated_at: '2026-08-31T08:07:57.091144Z'
+  returned_generation: {seed: 1332582485, subseed: 1426961505, model: novaAnimeXL_ilV190, model_hash: fa486caafc, sampler: Euler a, scheduler: Automatic, steps: 20, cfg_scale: 4.5, width: 1024, height: 1024, version: f2.0.1v1.10.1-previous-669-gdfdcbab6}
+  binding_checks: {request_sampler: Euler a, request_scheduler: Automatic, response_parameters_sampler: Euler a, response_parameters_scheduler: Automatic, response_info_sampler: Euler a, infotext_sampler: Euler a, infotext_schedule_type: Automatic}
+- panel_id: 3
+  seed: 1588147170
+  image_file: panels/EYE-003-A_03.png
+  image_sha256: 1bd91e397459653dfc371c5c435dfed6be310e703a1512503c00e21b2a8b0b0d
+  image_bytes: 1281913
+  provenance_file: source/tmp/generation/EYE-003-A_03_response.json
+  provenance_sha256: 833def57f4778d28bc040f737faa8e845eaccfea824a059c82f40325ad962bb6
+  generated_at: '2026-08-31T08:08:03.0264955Z'
+  returned_generation: {seed: 1588147170, subseed: 4005374424, model: novaAnimeXL_ilV190, model_hash: fa486caafc, sampler: Euler a, scheduler: Automatic, steps: 20, cfg_scale: 4.5, width: 1024, height: 1024, version: f2.0.1v1.10.1-previous-669-gdfdcbab6}
+  binding_checks: {request_sampler: Euler a, request_scheduler: Automatic, response_parameters_sampler: Euler a, response_parameters_scheduler: Automatic, response_info_sampler: Euler a, infotext_sampler: Euler a, infotext_schedule_type: Automatic}
+- panel_id: 4
+  seed: 1901831359
+  image_file: panels/EYE-003-A_04.png
+  image_sha256: 1fdf613c29b33cf11a543ac9a3099230c10bab72ca944638d7efcb8d9c8f3fa6
+  image_bytes: 1300522
+  provenance_file: source/tmp/generation/EYE-003-A_04_response.json
+  provenance_sha256: 3fef3bdb779338a043e7665df18d8b4ae7b52de80c2e84360812ac68dc284fe9
+  generated_at: '2026-08-31T08:08:08.9541362Z'
+  returned_generation: {seed: 1901831359, subseed: 1566012921, model: novaAnimeXL_ilV190, model_hash: fa486caafc, sampler: Euler a, scheduler: Automatic, steps: 20, cfg_scale: 4.5, width: 1024, height: 1024, version: f2.0.1v1.10.1-previous-669-gdfdcbab6}
+  binding_checks: {request_sampler: Euler a, request_scheduler: Automatic, response_parameters_sampler: Euler a, response_parameters_scheduler: Automatic, response_info_sampler: Euler a, infotext_sampler: Euler a, infotext_schedule_type: Automatic}
+- panel_id: 5
+  seed: 1918636949
+  image_file: panels/EYE-003-A_05.png
+  image_sha256: ec7d7c961a4d8802062a93f0eb51254c464e6665a13505d02df4eaededc3c79e
+  image_bytes: 1185800
+  provenance_file: source/tmp/generation/EYE-003-A_05_response.json
+  provenance_sha256: 924d4673068b44ecf1ea77a5acab0da40eff845945dcf4d92d26e0478b401379
+  generated_at: '2026-08-31T08:08:14.8921517Z'
+  returned_generation: {seed: 1918636949, subseed: 1631054040, model: novaAnimeXL_ilV190, model_hash: fa486caafc, sampler: Euler a, scheduler: Automatic, steps: 20, cfg_scale: 4.5, width: 1024, height: 1024, version: f2.0.1v1.10.1-previous-669-gdfdcbab6}
+  binding_checks: {request_sampler: Euler a, request_scheduler: Automatic, response_parameters_sampler: Euler a, response_parameters_scheduler: Automatic, response_info_sampler: Euler a, infotext_sampler: Euler a, infotext_schedule_type: Automatic}
+- panel_id: 6
+  seed: 2128309031
+  image_file: panels/EYE-003-A_06.png
+  image_sha256: 66adf99bf770ce73fd5e2c82dfcf70fd585e5c802d007c6438412ead00de8362
+  image_bytes: 1309201
+  provenance_file: source/tmp/generation/EYE-003-A_06_response.json
+  provenance_sha256: 13ba9647f37628c71e27f94b79f79640c2cb70e406a9192564f982d197527a67
+  generated_at: '2026-08-31T08:08:20.8733199Z'
+  returned_generation: {seed: 2128309031, subseed: 923841668, model: novaAnimeXL_ilV190, model_hash: fa486caafc, sampler: Euler a, scheduler: Automatic, steps: 20, cfg_scale: 4.5, width: 1024, height: 1024, version: f2.0.1v1.10.1-previous-669-gdfdcbab6}
+  binding_checks: {request_sampler: Euler a, request_scheduler: Automatic, response_parameters_sampler: Euler a, response_parameters_scheduler: Automatic, response_info_sampler: Euler a, infotext_sampler: Euler a, infotext_schedule_type: Automatic}
