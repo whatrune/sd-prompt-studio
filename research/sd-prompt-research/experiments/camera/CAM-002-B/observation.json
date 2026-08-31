@@ -1,0 +1,316 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-002-B",
+  "blind_condition_label": "COND-556BEAD9",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "upper_frame_boundary",
+    "lower_frame_boundary",
+    "head_visibility",
+    "shoulder_visibility",
+    "hand_visibility",
+    "waist_visibility",
+    "hip_pelvis_visibility",
+    "thigh_visibility",
+    "knee_visibility",
+    "lower_leg_visibility",
+    "feet_visibility",
+    "body_orientation",
+    "boundary_ambiguity_or_artifact",
+    "assessable"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-556BEAD9 lower-frame distribution: mid_thigh=4/6, proximal_thigh=2/6.",
+      "Opaque condition COND-556BEAD9 assessable=6/6 and boundary ambiguity/artifact none=6/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition/panel identities and pixels; run identity, prompt text, requested framing, PromptTag IDs, emitted phrases, and seed mapping were withheld.",
+      "The 12-panel opaque observation record was frozen before mapping disclosure at SHA-256 d9796946ebdef8a6dcfd4a32577478e07f9113f32042ef6d5929388c78833cad.",
+      "Canonical run and seed binding was applied after decoding without changing any frozen visual axis value or evidence note.",
+      "Prompt agreement, matched-seed comparisons, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "margin_above_head",
+        "mid_thigh",
+        "complete",
+        "both_complete",
+        "both_complete",
+        "complete",
+        "complete",
+        "mid_thigh_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "front",
+        "none",
+        "yes"
+      ],
+      "primary_morphology": "camera_boundary_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Single front-facing figure with visible crown margin and a lower edge across the thighs."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "margin_above_head",
+        "mid_thigh",
+        "complete",
+        "both_complete",
+        "both_complete",
+        "complete",
+        "complete",
+        "mid_thigh_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "front",
+        "none",
+        "yes"
+      ],
+      "primary_morphology": "camera_boundary_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Single front-facing figure with complete hands and a lower edge across the thighs."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "margin_above_head",
+        "proximal_thigh",
+        "complete",
+        "both_complete",
+        "partial_only",
+        "complete",
+        "complete",
+        "proximal_only",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "front",
+        "none",
+        "yes"
+      ],
+      "primary_morphology": "camera_boundary_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Crown has clear space above it; both hands and the upper thighs intersect the lower edge."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "margin_above_head",
+        "proximal_thigh",
+        "complete",
+        "both_complete",
+        "both_complete",
+        "complete",
+        "complete",
+        "proximal_only",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "front",
+        "none",
+        "yes"
+      ],
+      "primary_morphology": "camera_boundary_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Single front-facing figure; complete hands sit above a lower edge crossing the upper thighs."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "through_hair_or_head",
+        "mid_thigh",
+        "partial",
+        "both_complete",
+        "both_complete",
+        "complete",
+        "complete",
+        "mid_thigh_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "three_quarter",
+        "none",
+        "yes"
+      ],
+      "primary_morphology": "camera_boundary_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The crown intersects the top edge; the slightly turned figure remains otherwise directly bounded."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "margin_above_head",
+        "mid_thigh",
+        "complete",
+        "both_complete",
+        "both_complete",
+        "complete",
+        "complete",
+        "mid_thigh_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "front",
+        "none",
+        "yes"
+      ],
+      "primary_morphology": "camera_boundary_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Single front-facing figure with complete hands; the frame ends across the thighs."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves opaque condition-local visible evidence; decoding and matched-seed experiment comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "upper_frame_boundary": {
+        "margin_above_head": 5,
+        "through_hair_or_head": 1
+      },
+      "lower_frame_boundary": {
+        "mid_thigh": 4,
+        "proximal_thigh": 2
+      },
+      "head_visibility": {
+        "complete": 5,
+        "partial": 1
+      },
+      "shoulder_visibility": {
+        "both_complete": 6
+      },
+      "hand_visibility": {
+        "both_complete": 5,
+        "partial_only": 1
+      },
+      "waist_visibility": {
+        "complete": 6
+      },
+      "hip_pelvis_visibility": {
+        "complete": 6
+      },
+      "thigh_visibility": {
+        "mid_thigh_visible": 4,
+        "proximal_only": 2
+      },
+      "knee_visibility": {
+        "not_visible": 6
+      },
+      "lower_leg_visibility": {
+        "not_visible": 6
+      },
+      "feet_visibility": {
+        "not_visible": 6
+      },
+      "body_orientation": {
+        "front": 5,
+        "three_quarter": 1
+      },
+      "boundary_ambiguity_or_artifact": {
+        "none": 6
+      },
+      "assessable": {
+        "yes": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "camera_boundary_visibility_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}

@@ -330,3 +330,15 @@ runs:
   status: OBSERVED
   updated_at: '2026-08-31T09:30:58+09:00'
   path: experiments/pose/POSE-001-L
+- run_id: CAM-002-A
+  domain: camera
+  title: CAM-002-A — neutral framing control
+  status: OBSERVED
+  updated_at: '2026-08-31T11:32:06+09:00'
+  path: experiments/camera/CAM-002-A
+- run_id: CAM-002-B
+  domain: camera
+  title: CAM-002-B — cowboy shot treatment
+  status: OBSERVED
+  updated_at: '2026-08-31T11:32:06+09:00'
+  path: experiments/camera/CAM-002-B
