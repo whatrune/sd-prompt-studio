@@ -1,0 +1,88 @@
+schema_version: '1.0'
+run_id: EYE-002-B
+domain: eyes
+condition: looking at viewer plus one eye closed treatment
+title: EYE-002-B — looking at viewer plus one eye closed treatment
+status: OBSERVED
+created_at: '2026-08-31T14:04:37+09:00'
+updated_at: '2026-08-31T14:18:12+09:00'
+research:
+  target_phrase: looking at viewer, one eye closed
+  research_question: Does looking at viewer coexist with one eye closed, suppress either visible condition, become non-assessable, or produce another bounded outcome?
+  baseline_run_id: EYE-002-A
+  variant_label: looking at viewer plus one eye closed treatment
+  hypothesis_before_run: Adding looking at viewer may coexist with one eye closed, suppress one visible condition, become non-assessable, or produce ambiguity or artifact.
+prompt:
+  positive: 1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, one eye closed
+  negative: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame
+  changed_phrases:
+  - looking at viewer
+  - one eye closed
+  fixed_phrases:
+  - 1girl
+  - solo
+  - upper body
+  - front view
+  - centered composition
+  - neutral expression
+  - hair tucked behind ears
+  - unobstructed eye region
+  - arms lowered
+  - hands away from face
+  - simple sleeveless top
+  - plain studio background
+model:
+  checkpoint: novaAnimeXL_ilV190
+  checkpoint_sha256: fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f
+  vae: ''
+  sampler: Euler a
+  scheduler: Automatic
+  steps: 20
+  cfg_scale: 4.5
+  width: 1024
+  height: 1024
+  batch_size: 1
+  n_iter: 1
+  enable_hr: false
+  restore_faces: false
+  tiling: false
+  seeds:
+  - 1126645754
+  - 1332582485
+  - 1588147170
+  - 1901831359
+  - 1918636949
+  - 2128309031
+source:
+  sheet_file: null
+  metadata_file: source/EYE-002-B_metadata.yaml
+  sidecar_file: null
+  layout: individual_panels
+  panel_count: 6
+  original_filename: null
+outputs:
+  panels:
+  - panels/EYE-002-B_01.png
+  - panels/EYE-002-B_02.png
+  - panels/EYE-002-B_03.png
+  - panels/EYE-002-B_04.png
+  - panels/EYE-002-B_05.png
+  - panels/EYE-002-B_06.png
+  preview_file: null
+  rubric_file: source/rubric.yaml
+  observation_file: observation.md
+  observation_json: observation.json
+  research_review_file: research-review.md
+  observation_schema: templates/observation-schema.json
+  canonical_observation: observation.json
+workflow:
+  assigned_to: 研究担当ChatGPT
+  human_reviewed_by: null
+  accepted_at: null
+  notes: 'Generated directly through the verified A1111 txt2img API under Task #492. Prompt-blind observations were frozen before mapping decode. Classification: CONFIRMED_COEXISTENCE. EYE-002-A and EYE-002-B are each registered exactly once in the canonical run-index as part of this exact 13-path Task delta; no ledger mutation remains deferred. Results are research evidence only.'
+ingested_metadata:
+  metadata_status: verified
+  source: a1111_txt2img_api
+  format: png+json
+  archive_filename: null
+  archive_sha256: null
