@@ -258,3 +258,75 @@ runs:
   status: OBSERVED
   updated_at: '2026-08-30T21:12:57+09:00'
   path: experiments/hair/HAIR-005-B
+- run_id: POSE-001-A
+  domain: pose
+  title: POSE-001-A — standing / full body
+  status: OBSERVED
+  updated_at: '2026-08-31T09:08:34+09:00'
+  path: experiments/pose/POSE-001-A
+- run_id: POSE-001-B
+  domain: pose
+  title: POSE-001-B — standing / cowboy shot
+  status: OBSERVED
+  updated_at: '2026-08-31T09:08:57+09:00'
+  path: experiments/pose/POSE-001-B
+- run_id: POSE-001-C
+  domain: pose
+  title: POSE-001-C — standing / upper body
+  status: OBSERVED
+  updated_at: '2026-08-31T09:08:57+09:00'
+  path: experiments/pose/POSE-001-C
+- run_id: POSE-001-D
+  domain: pose
+  title: POSE-001-D — standing / close-up
+  status: OBSERVED
+  updated_at: '2026-08-31T09:08:57+09:00'
+  path: experiments/pose/POSE-001-D
+- run_id: POSE-001-E
+  domain: pose
+  title: POSE-001-E — sitting / full body
+  status: OBSERVED
+  updated_at: '2026-08-31T09:08:58+09:00'
+  path: experiments/pose/POSE-001-E
+- run_id: POSE-001-F
+  domain: pose
+  title: POSE-001-F — sitting / cowboy shot
+  status: OBSERVED
+  updated_at: '2026-08-31T09:08:58+09:00'
+  path: experiments/pose/POSE-001-F
+- run_id: POSE-001-G
+  domain: pose
+  title: POSE-001-G — sitting / upper body
+  status: OBSERVED
+  updated_at: '2026-08-31T09:08:58+09:00'
+  path: experiments/pose/POSE-001-G
+- run_id: POSE-001-H
+  domain: pose
+  title: POSE-001-H — sitting / close-up
+  status: OBSERVED
+  updated_at: '2026-08-31T09:08:58+09:00'
+  path: experiments/pose/POSE-001-H
+- run_id: POSE-001-I
+  domain: pose
+  title: POSE-001-I — kneeling / full body
+  status: OBSERVED
+  updated_at: '2026-08-31T09:08:58+09:00'
+  path: experiments/pose/POSE-001-I
+- run_id: POSE-001-J
+  domain: pose
+  title: POSE-001-J — kneeling / cowboy shot
+  status: OBSERVED
+  updated_at: '2026-08-31T09:08:59+09:00'
+  path: experiments/pose/POSE-001-J
+- run_id: POSE-001-K
+  domain: pose
+  title: POSE-001-K — kneeling / upper body
+  status: OBSERVED
+  updated_at: '2026-08-31T09:08:59+09:00'
+  path: experiments/pose/POSE-001-K
+- run_id: POSE-001-L
+  domain: pose
+  title: POSE-001-L — kneeling / close-up
+  status: OBSERVED
+  updated_at: '2026-08-31T09:08:59+09:00'
+  path: experiments/pose/POSE-001-L

@@ -1,0 +1,281 @@
+{
+  "schema_version": "3.0",
+  "run_id": "POSE-001-B",
+  "blind_condition_label": "standing / cowboy shot",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "observed_framing",
+    "body_state",
+    "body_orientation",
+    "feet_visible",
+    "knees_visible",
+    "support_boundary_visible",
+    "seat_or_ground_contact_visible",
+    "lower_body_visibility",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Requested cowboy shot framing is visibly represented in 3/6 panels.",
+      "Direct visible evidence supports the prompted standing body state in 3/6 panels.",
+      "A prominent unexpected aircraft or aircraft-like support structure is present in all six panels."
+    ],
+    "analysis_notes": [
+      "Visible image evidence only; prompt text was not used to assign body state.",
+      "Prompt support is derived only in research-review.md after prompt-blind panel observation."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "cowboy_shot",
+        "unclear",
+        "vertical",
+        "none",
+        "both",
+        "absent",
+        "unclear",
+        "partial",
+        "composition_artifact"
+      ],
+      "primary_morphology": "pose_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Panel 1 visibly shows cowboy shot framing. The feet-to-floor support boundary is cropped, so standing is not inferred from the vertical torso and visible knees alone. A prominent unexpected aircraft or aircraft-like support structure is visible in the composition."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "unexpected_aircraft_composition"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "cowboy_shot",
+        "unclear",
+        "vertical",
+        "none",
+        "both",
+        "absent",
+        "unclear",
+        "partial",
+        "composition_artifact"
+      ],
+      "primary_morphology": "pose_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Panel 2 visibly shows cowboy shot framing. The feet-to-floor support boundary is cropped, so standing is not inferred from the vertical torso and visible knees alone. A prominent unexpected aircraft or aircraft-like support structure is visible in the composition."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "unexpected_aircraft_composition"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "full_body",
+        "standing",
+        "vertical",
+        "both",
+        "both",
+        "present",
+        "present",
+        "complete",
+        "composition_artifact"
+      ],
+      "primary_morphology": "pose_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Panel 3 visibly shows full body framing. Both knees, both feet, and the floor/support boundary are directly visible, supporting standing. A prominent unexpected aircraft or aircraft-like support structure is visible in the composition."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "unexpected_aircraft_composition"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "full_body",
+        "standing",
+        "vertical",
+        "both",
+        "both",
+        "present",
+        "present",
+        "complete",
+        "composition_artifact"
+      ],
+      "primary_morphology": "pose_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Panel 4 visibly shows full body framing. Both knees, both feet, and the floor/support boundary are directly visible, supporting standing. A prominent unexpected aircraft or aircraft-like support structure is visible in the composition."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "unexpected_aircraft_composition"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "full_body",
+        "standing",
+        "vertical",
+        "both",
+        "both",
+        "present",
+        "present",
+        "complete",
+        "composition_artifact"
+      ],
+      "primary_morphology": "pose_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Panel 5 visibly shows full body framing. Both knees, both feet, and the floor/support boundary are directly visible, supporting standing. A prominent unexpected aircraft or aircraft-like support structure is visible in the composition."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "unexpected_aircraft_composition"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "cowboy_shot",
+        "unclear",
+        "vertical",
+        "none",
+        "both",
+        "absent",
+        "unclear",
+        "partial",
+        "composition_artifact"
+      ],
+      "primary_morphology": "pose_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Panel 6 visibly shows cowboy shot framing. The feet-to-floor support boundary is cropped, so standing is not inferred from the vertical torso and visible knees alone. A prominent unexpected aircraft or aircraft-like support structure is visible in the composition."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "unexpected_aircraft_composition"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [
+    {
+      "panel_id": 1,
+      "field": "body_state",
+      "reason": "Feet-to-floor support evidence is cropped; standing is not inferred from torso orientation alone."
+    },
+    {
+      "panel_id": 2,
+      "field": "body_state",
+      "reason": "Feet-to-floor support evidence is cropped; standing is not inferred from torso orientation alone."
+    },
+    {
+      "panel_id": 6,
+      "field": "body_state",
+      "reason": "Feet-to-floor support evidence is cropped; standing is not inferred from torso orientation alone."
+    }
+  ],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file records condition-local visible evidence; the frozen 12-cell decision is recorded in research-review.md.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "observed_framing": {
+        "cowboy_shot": 3,
+        "full_body": 3
+      },
+      "body_state": {
+        "unclear": 3,
+        "standing": 3
+      },
+      "body_orientation": {
+        "vertical": 6
+      },
+      "feet_visible": {
+        "none": 3,
+        "both": 3
+      },
+      "knees_visible": {
+        "both": 6
+      },
+      "support_boundary_visible": {
+        "absent": 3,
+        "present": 3
+      },
+      "seat_or_ground_contact_visible": {
+        "unclear": 3,
+        "present": 3
+      },
+      "lower_body_visibility": {
+        "partial": 3,
+        "complete": 3
+      },
+      "ambiguity_or_artifact": {
+        "composition_artifact": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "pose_visibility_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "unexpected_aircraft_composition": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
