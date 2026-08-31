@@ -1,0 +1,251 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CLOTHING-001-B",
+  "blind_condition_label": "COND-6D1B81",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "upper_garment_presence",
+    "upper_garment_fit",
+    "upper_garment_lower_edge",
+    "pelvis_surface_boundary_visibility",
+    "primary_obscuring_source",
+    "body_orientation",
+    "framing",
+    "artifact_severity"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "The upper garment was present and loose in 6/6 panels.",
+      "The pelvis-to-surface boundary was partially visible in 6/6 panels.",
+      "The upper garment was the primary obscuring source in 6/6; all panels remained full-body and visibly supine."
+    ],
+    "analysis_notes": [
+      "The observer received only opaque condition/panel identities and pixels; prompts, seeds, run mapping, Task identity, requested labels, and generation metadata were withheld.",
+      "The 12-panel opaque observation record was frozen before mapping disclosure at SHA-256 60555888ae3dc36de693036c3c236ef6e56a5efc0616ac313bf8aae95964a92d.",
+      "Canonical run_id, panel_id, and seed binding was applied only after freeze and did not change a visual row.",
+      "Matched-seed outcomes and final classification are review-derived only after decode."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "present",
+        "loose",
+        "covers_pelvis",
+        "partial",
+        "upper_garment",
+        "supine",
+        "full_body",
+        "none"
+      ],
+      "primary_morphology": "pelvis_boundary_visibility",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Loose fabric extends across the pelvis and obscures part of the pelvis-to-floor silhouette."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "present",
+        "loose",
+        "covers_pelvis",
+        "partial",
+        "upper_garment",
+        "supine",
+        "full_body",
+        "none"
+      ],
+      "primary_morphology": "pelvis_boundary_visibility",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The draped lower edge covers the upper pelvis, leaving only a partial contact outline visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "present",
+        "loose",
+        "covers_pelvis",
+        "partial",
+        "upper_garment",
+        "supine",
+        "full_body",
+        "none"
+      ],
+      "primary_morphology": "pelvis_boundary_visibility",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The loose shirt overlaps the pelvis region and is the primary source of partial boundary visibility."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "present",
+        "loose",
+        "covers_pelvis",
+        "partial",
+        "upper_garment",
+        "supine",
+        "full_body",
+        "none"
+      ],
+      "primary_morphology": "pelvis_boundary_visibility",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The garment drapes over the pelvis even though the full body remains in frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "present",
+        "loose",
+        "covers_pelvis",
+        "partial",
+        "upper_garment",
+        "supine",
+        "full_body",
+        "none"
+      ],
+      "primary_morphology": "pelvis_boundary_visibility",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Loose fabric covers the upper pelvis and reduces direct visibility of its surface-facing outline."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "present",
+        "loose",
+        "covers_pelvis",
+        "partial",
+        "upper_garment",
+        "supine",
+        "full_body",
+        "none"
+      ],
+      "primary_morphology": "pelvis_boundary_visibility",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The extended lower edge overlaps the pelvis and partially obscures the contact boundary."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "upper_garment_presence": {
+        "present": 6
+      },
+      "upper_garment_fit": {
+        "loose": 6
+      },
+      "upper_garment_lower_edge": {
+        "covers_pelvis": 6
+      },
+      "pelvis_surface_boundary_visibility": {
+        "partial": 6
+      },
+      "primary_obscuring_source": {
+        "upper_garment": 6
+      },
+      "body_orientation": {
+        "supine": 6
+      },
+      "framing": {
+        "full_body": 6
+      },
+      "artifact_severity": {
+        "none": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "pelvis_boundary_visibility": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}

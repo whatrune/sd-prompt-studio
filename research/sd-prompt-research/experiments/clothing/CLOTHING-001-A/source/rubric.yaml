@@ -1,0 +1,140 @@
+schema_version: "3.0"
+run_id: CLOTHING-001-A
+target_concept: ""
+blind_condition_label: COND-DB1765
+blind_analysis: true
+special_values:
+  unclear: Visible evidence is insufficient or conflicting.
+  not_assessable: The requested pelvis-to-surface boundary judgment cannot be made from visible evidence.
+  not_visible: The required garment or pelvis region is cropped or fully obscured.
+axis_catalog:
+  upper_garment_presence:
+    label: Upper Garment Presence
+    allowed_values:
+      - present
+      - absent
+      - not_visible
+      - unclear
+  upper_garment_fit:
+    label: Upper Garment Fit
+    allowed_values:
+      - close_fitting
+      - loose
+      - unclear
+      - not_assessable
+  upper_garment_lower_edge:
+    label: Upper Garment Lower Edge
+    allowed_values:
+      - above_pelvis
+      - at_pelvis
+      - covers_pelvis
+      - not_visible
+      - unclear
+  pelvis_surface_boundary_visibility:
+    label: Pelvis-Surface Boundary Visibility
+    allowed_values:
+      - clear
+      - partial
+      - not_visible
+      - unclear
+      - not_assessable
+  primary_obscuring_source:
+    label: Primary Obscuring Source
+    allowed_values:
+      - none
+      - upper_garment
+      - lower_garment
+      - body_pose
+      - framing
+      - unclear
+  body_orientation:
+    label: Body Orientation
+    allowed_values:
+      - supine
+      - not_supine
+      - unclear
+      - not_visible
+  framing:
+    label: Framing
+    allowed_values:
+      - full_body
+      - partial_body
+      - unclear
+  artifact_severity:
+    label: Artifact Severity
+    allowed_values:
+      - none
+      - minor
+      - major
+active_observation_axes:
+  - upper_garment_presence
+  - upper_garment_fit
+  - upper_garment_lower_edge
+  - pelvis_surface_boundary_visibility
+  - primary_obscuring_source
+  - body_orientation
+  - framing
+  - artifact_severity
+contact_load:
+  enabled: false
+  fields: []
+  allowed_values: []
+morphology_candidates:
+  primary:
+    - pelvis_boundary_visibility
+  secondary:
+    - none
+artifact_checks:
+  - none
+  - minor
+  - major
+cross_domain_effects:
+  enabled: false
+  domains: []
+  strength_values: []
+  effect_type_values: []
+rules:
+  preserve_axis_labels_exactly: true
+  preserve_axis_order: true
+  output_all_active_axes_for_every_panel: true
+  use_allowed_values_only: true
+  visible_evidence_only: true
+  prompt_blind_freeze_required: true
+  blind_rows_sha256_required_before_decode: true
+  opaque_condition_and_panel_ids_only: true
+  mapping_decode_after_freeze_required: true
+  derived_pair_outcome_after_decode_only: true
+  analyst_must_not_finalize_production_behavior: true
+decision_contract:
+  prerequisite_failure_result: INCONCLUSIVE
+  prerequisites:
+    panel_completeness:
+      count: 12
+      total: 12
+    exact_matched_seed_count: 6
+    pelvis_boundary_assessable_per_condition:
+      minimum_count: 5
+      total: 6
+    full_body_per_condition:
+      minimum_count: 5
+      total: 6
+    supine_per_condition:
+      minimum_count: 5
+      total: 6
+    major_artifact_per_condition:
+      maximum_count: 1
+      total: 6
+  stable_treatment_threshold:
+    minimum_count: 5
+    total: 6
+  pair_classifications:
+    - OVERSIZED_REDUCED_VISIBILITY
+    - NO_REDUCTION
+    - LOWER_GARMENT_CONFOUNDED
+    - NOT_ASSESSABLE
+  classifications:
+    - RELATION_SUPPORTED
+    - RELATION_NOT_SUPPORTED
+    - LOWER_GARMENT_CONFOUND_CONFIRMED
+    - SEED_DEPENDENT_OR_INCONSISTENT
+    - INCONCLUSIVE

@@ -1,0 +1,858 @@
+metadata_status: verified
+source: a1111_txt2img_api
+format: png+json
+official_input:
+  canonical_task_issue: 501
+  generation_session: CLOTHING-001-task-501-20260831T164915.935Z
+  total_panel_count: 12
+  condition_panel_count: 6
+  runtime_endpoint_binding: approved_private_a1111_endpoint
+condition:
+  role: treatment
+  target: plain oversized white T-shirt
+generation:
+  positive_prompt: 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+  negative_prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+  settings:
+    model: novaAnimeXL_ilV190
+    model_hash: fa486caafc
+    model_sha256: fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f
+    sampler: Euler a
+    scheduler: Automatic
+    steps: 20
+    cfg_scale: 4.5
+    width: 1024
+    height: 1024
+    batch_size: 1
+    n_iter: 1
+    enable_hr: false
+    restore_faces: false
+    tiling: false
+  ordered_seeds:
+    - 1126645754
+    - 1332582485
+    - 1588147170
+    - 1901831359
+    - 1918636949
+    - 2128309031
+two_condition_contract:
+  runs:
+    - CLOTHING-001-A
+    - CLOTHING-001-B
+  matched_pair: CLOTHING-001-A/CLOTHING-001-B
+  pair_prompt_difference: plain fitted white t-shirt versus plain oversized white t-shirt only
+  negative_prompt_equal: true
+  settings_equal: true
+  ordered_seeds_equal: true
+provenance_binding:
+  execution_instance_id: 4a81ad13-aaac-4dda-bf78-5cc4a20bd08f
+  task_issue: 501
+  generation_summary_sha256: 2e3811157c5d649ad6479e76dadca80597dbcabe888d625b1eaae8623b4e02da
+  blind_observation_freeze_sha256: 60555888ae3dc36de693036c3c236ef6e56a5efc0616ac313bf8aae95964a92d
+  blind_observer_manifest_sha256: db527da10f82224ac1e796a8cdc83947a7d80e865f6162e84ca39951bac95626
+  blind_mapping_sha256: 9b66fbb48e8bafc1001250e8f67a46aa7e5dc13a7f61cbba760dc01401a4c9db
+  request_sampler_scheduler_exact: true
+  response_parameters_sampler_scheduler_exact: true
+  parsed_info_sampler_exact: true
+  infotext_sampler_schedule_exact: true
+  prompt_negative_seed_model_settings_exact: true
+  tracked_metadata_independently_recheckable: true
+panels:
+  - panel_id: 1
+    seed: 1126645754
+    image_file: panels/CLOTHING-001-B_01.png
+    image_sha256: cd04e433e5252c593d39b9e5b3ea97c30e5ffbb2b86a36073ad220de6093b4ae
+    image_bytes: 606911
+    generated_at: 2026-08-31T16:49:58.190Z
+    returned_generation:
+      seed: 1126645754
+      subseed: 70626721
+      model: novaAnimeXL_ilV190
+      model_hash: fa486caafc
+      sampler: Euler a
+      scheduler: Automatic
+      steps: 20
+      cfg_scale: 4.5
+      width: 1024
+      height: 1024
+      version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    binding_checks:
+      request_sampler: Euler a
+      request_scheduler: Automatic
+      response_parameters_sampler: Euler a
+      response_parameters_scheduler: Automatic
+      response_info_sampler: Euler a
+      infotext_sampler: Euler a
+      infotext_schedule_type: Automatic
+    returned_prompt: 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+    returned_negative_prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+    response_parameters:
+      prompt: 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      negative_prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      styles: null
+      seed: 1126645754
+      subseed: -1
+      subseed_strength: 0
+      seed_resize_from_h: -1
+      seed_resize_from_w: -1
+      sampler_name: Euler a
+      scheduler: Automatic
+      batch_size: 1
+      n_iter: 1
+      steps: 20
+      cfg_scale: 4.5
+      distilled_cfg_scale: 3.5
+      width: 1024
+      height: 1024
+      restore_faces: false
+      tiling: false
+      do_not_save_samples: false
+      do_not_save_grid: false
+      eta: null
+      denoising_strength: null
+      s_min_uncond: null
+      s_churn: null
+      s_tmax: null
+      s_tmin: null
+      s_noise: null
+      override_settings: null
+      override_settings_restore_afterwards: true
+      refiner_checkpoint: null
+      refiner_switch_at: null
+      disable_extra_networks: false
+      firstpass_image: null
+      comments: null
+      enable_hr: false
+      firstphase_width: 0
+      firstphase_height: 0
+      hr_scale: 2
+      hr_upscaler: null
+      hr_second_pass_steps: 0
+      hr_resize_x: 0
+      hr_resize_y: 0
+      hr_checkpoint_name: null
+      hr_additional_modules: null
+      hr_sampler_name: null
+      hr_scheduler: null
+      hr_prompt: ""
+      hr_negative_prompt: ""
+      hr_cfg: 1
+      hr_distilled_cfg: 3.5
+      force_task_id: null
+      sampler_index: Euler
+      script_name: null
+      script_args: []
+      send_images: true
+      save_images: false
+      alwayson_scripts: {}
+      infotext: null
+    response_info:
+      prompt: 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      all_prompts:
+        - 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      negative_prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      all_negative_prompts:
+        - standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      seed: 1126645754
+      all_seeds:
+        - 1126645754
+      subseed: 70626721
+      all_subseeds:
+        - 70626721
+      subseed_strength: 0
+      width: 1024
+      height: 1024
+      sampler_name: Euler a
+      cfg_scale: 4.5
+      steps: 20
+      batch_size: 1
+      restore_faces: false
+      face_restoration_model: null
+      sd_model_name: novaAnimeXL_ilV190
+      sd_model_hash: fa486caafc
+      sd_vae_name: null
+      sd_vae_hash: null
+      seed_resize_from_w: -1
+      seed_resize_from_h: -1
+      denoising_strength: null
+      extra_generation_params: {}
+      index_of_first_image: 0
+      infotexts:
+        - |-
+          1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+          Negative prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+          Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1126645754, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+      styles: []
+      job_timestamp: "20260901014951"
+      clip_skip: 1
+      is_using_inpainting_conditioning: false
+      version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    infotext: |-
+      1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      Negative prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1126645754, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+  - panel_id: 2
+    seed: 1332582485
+    image_file: panels/CLOTHING-001-B_02.png
+    image_sha256: 04d2483a97705efb354563224cf951af9216a410aeede193dc2093eecf98dee5
+    image_bytes: 644348
+    generated_at: 2026-08-31T16:50:03.985Z
+    returned_generation:
+      seed: 1332582485
+      subseed: 1338456762
+      model: novaAnimeXL_ilV190
+      model_hash: fa486caafc
+      sampler: Euler a
+      scheduler: Automatic
+      steps: 20
+      cfg_scale: 4.5
+      width: 1024
+      height: 1024
+      version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    binding_checks:
+      request_sampler: Euler a
+      request_scheduler: Automatic
+      response_parameters_sampler: Euler a
+      response_parameters_scheduler: Automatic
+      response_info_sampler: Euler a
+      infotext_sampler: Euler a
+      infotext_schedule_type: Automatic
+    returned_prompt: 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+    returned_negative_prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+    response_parameters:
+      prompt: 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      negative_prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      styles: null
+      seed: 1332582485
+      subseed: -1
+      subseed_strength: 0
+      seed_resize_from_h: -1
+      seed_resize_from_w: -1
+      sampler_name: Euler a
+      scheduler: Automatic
+      batch_size: 1
+      n_iter: 1
+      steps: 20
+      cfg_scale: 4.5
+      distilled_cfg_scale: 3.5
+      width: 1024
+      height: 1024
+      restore_faces: false
+      tiling: false
+      do_not_save_samples: false
+      do_not_save_grid: false
+      eta: null
+      denoising_strength: null
+      s_min_uncond: null
+      s_churn: null
+      s_tmax: null
+      s_tmin: null
+      s_noise: null
+      override_settings: null
+      override_settings_restore_afterwards: true
+      refiner_checkpoint: null
+      refiner_switch_at: null
+      disable_extra_networks: false
+      firstpass_image: null
+      comments: null
+      enable_hr: false
+      firstphase_width: 0
+      firstphase_height: 0
+      hr_scale: 2
+      hr_upscaler: null
+      hr_second_pass_steps: 0
+      hr_resize_x: 0
+      hr_resize_y: 0
+      hr_checkpoint_name: null
+      hr_additional_modules: null
+      hr_sampler_name: null
+      hr_scheduler: null
+      hr_prompt: ""
+      hr_negative_prompt: ""
+      hr_cfg: 1
+      hr_distilled_cfg: 3.5
+      force_task_id: null
+      sampler_index: Euler
+      script_name: null
+      script_args: []
+      send_images: true
+      save_images: false
+      alwayson_scripts: {}
+      infotext: null
+    response_info:
+      prompt: 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      all_prompts:
+        - 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      negative_prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      all_negative_prompts:
+        - standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      seed: 1332582485
+      all_seeds:
+        - 1332582485
+      subseed: 1338456762
+      all_subseeds:
+        - 1338456762
+      subseed_strength: 0
+      width: 1024
+      height: 1024
+      sampler_name: Euler a
+      cfg_scale: 4.5
+      steps: 20
+      batch_size: 1
+      restore_faces: false
+      face_restoration_model: null
+      sd_model_name: novaAnimeXL_ilV190
+      sd_model_hash: fa486caafc
+      sd_vae_name: null
+      sd_vae_hash: null
+      seed_resize_from_w: -1
+      seed_resize_from_h: -1
+      denoising_strength: null
+      extra_generation_params: {}
+      index_of_first_image: 0
+      infotexts:
+        - |-
+          1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+          Negative prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+          Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1332582485, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+      styles: []
+      job_timestamp: "20260901014958"
+      clip_skip: 1
+      is_using_inpainting_conditioning: false
+      version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    infotext: |-
+      1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      Negative prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1332582485, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+  - panel_id: 3
+    seed: 1588147170
+    image_file: panels/CLOTHING-001-B_03.png
+    image_sha256: dc7867987804a7fabbff5b25af0171794d1b2af8b2d263120de33ca01de34d33
+    image_bytes: 769895
+    generated_at: 2026-08-31T16:50:09.868Z
+    returned_generation:
+      seed: 1588147170
+      subseed: 310578437
+      model: novaAnimeXL_ilV190
+      model_hash: fa486caafc
+      sampler: Euler a
+      scheduler: Automatic
+      steps: 20
+      cfg_scale: 4.5
+      width: 1024
+      height: 1024
+      version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    binding_checks:
+      request_sampler: Euler a
+      request_scheduler: Automatic
+      response_parameters_sampler: Euler a
+      response_parameters_scheduler: Automatic
+      response_info_sampler: Euler a
+      infotext_sampler: Euler a
+      infotext_schedule_type: Automatic
+    returned_prompt: 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+    returned_negative_prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+    response_parameters:
+      prompt: 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      negative_prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      styles: null
+      seed: 1588147170
+      subseed: -1
+      subseed_strength: 0
+      seed_resize_from_h: -1
+      seed_resize_from_w: -1
+      sampler_name: Euler a
+      scheduler: Automatic
+      batch_size: 1
+      n_iter: 1
+      steps: 20
+      cfg_scale: 4.5
+      distilled_cfg_scale: 3.5
+      width: 1024
+      height: 1024
+      restore_faces: false
+      tiling: false
+      do_not_save_samples: false
+      do_not_save_grid: false
+      eta: null
+      denoising_strength: null
+      s_min_uncond: null
+      s_churn: null
+      s_tmax: null
+      s_tmin: null
+      s_noise: null
+      override_settings: null
+      override_settings_restore_afterwards: true
+      refiner_checkpoint: null
+      refiner_switch_at: null
+      disable_extra_networks: false
+      firstpass_image: null
+      comments: null
+      enable_hr: false
+      firstphase_width: 0
+      firstphase_height: 0
+      hr_scale: 2
+      hr_upscaler: null
+      hr_second_pass_steps: 0
+      hr_resize_x: 0
+      hr_resize_y: 0
+      hr_checkpoint_name: null
+      hr_additional_modules: null
+      hr_sampler_name: null
+      hr_scheduler: null
+      hr_prompt: ""
+      hr_negative_prompt: ""
+      hr_cfg: 1
+      hr_distilled_cfg: 3.5
+      force_task_id: null
+      sampler_index: Euler
+      script_name: null
+      script_args: []
+      send_images: true
+      save_images: false
+      alwayson_scripts: {}
+      infotext: null
+    response_info:
+      prompt: 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      all_prompts:
+        - 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      negative_prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      all_negative_prompts:
+        - standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      seed: 1588147170
+      all_seeds:
+        - 1588147170
+      subseed: 310578437
+      all_subseeds:
+        - 310578437
+      subseed_strength: 0
+      width: 1024
+      height: 1024
+      sampler_name: Euler a
+      cfg_scale: 4.5
+      steps: 20
+      batch_size: 1
+      restore_faces: false
+      face_restoration_model: null
+      sd_model_name: novaAnimeXL_ilV190
+      sd_model_hash: fa486caafc
+      sd_vae_name: null
+      sd_vae_hash: null
+      seed_resize_from_w: -1
+      seed_resize_from_h: -1
+      denoising_strength: null
+      extra_generation_params: {}
+      index_of_first_image: 0
+      infotexts:
+        - |-
+          1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+          Negative prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+          Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1588147170, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+      styles: []
+      job_timestamp: "20260901015004"
+      clip_skip: 1
+      is_using_inpainting_conditioning: false
+      version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    infotext: |-
+      1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      Negative prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1588147170, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+  - panel_id: 4
+    seed: 1901831359
+    image_file: panels/CLOTHING-001-B_04.png
+    image_sha256: c1d8883e5f916749bd4ac048dc3c393c36c81974d813dca3785875fc03972cb1
+    image_bytes: 798888
+    generated_at: 2026-08-31T16:50:15.821Z
+    returned_generation:
+      seed: 1901831359
+      subseed: 1126547220
+      model: novaAnimeXL_ilV190
+      model_hash: fa486caafc
+      sampler: Euler a
+      scheduler: Automatic
+      steps: 20
+      cfg_scale: 4.5
+      width: 1024
+      height: 1024
+      version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    binding_checks:
+      request_sampler: Euler a
+      request_scheduler: Automatic
+      response_parameters_sampler: Euler a
+      response_parameters_scheduler: Automatic
+      response_info_sampler: Euler a
+      infotext_sampler: Euler a
+      infotext_schedule_type: Automatic
+    returned_prompt: 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+    returned_negative_prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+    response_parameters:
+      prompt: 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      negative_prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      styles: null
+      seed: 1901831359
+      subseed: -1
+      subseed_strength: 0
+      seed_resize_from_h: -1
+      seed_resize_from_w: -1
+      sampler_name: Euler a
+      scheduler: Automatic
+      batch_size: 1
+      n_iter: 1
+      steps: 20
+      cfg_scale: 4.5
+      distilled_cfg_scale: 3.5
+      width: 1024
+      height: 1024
+      restore_faces: false
+      tiling: false
+      do_not_save_samples: false
+      do_not_save_grid: false
+      eta: null
+      denoising_strength: null
+      s_min_uncond: null
+      s_churn: null
+      s_tmax: null
+      s_tmin: null
+      s_noise: null
+      override_settings: null
+      override_settings_restore_afterwards: true
+      refiner_checkpoint: null
+      refiner_switch_at: null
+      disable_extra_networks: false
+      firstpass_image: null
+      comments: null
+      enable_hr: false
+      firstphase_width: 0
+      firstphase_height: 0
+      hr_scale: 2
+      hr_upscaler: null
+      hr_second_pass_steps: 0
+      hr_resize_x: 0
+      hr_resize_y: 0
+      hr_checkpoint_name: null
+      hr_additional_modules: null
+      hr_sampler_name: null
+      hr_scheduler: null
+      hr_prompt: ""
+      hr_negative_prompt: ""
+      hr_cfg: 1
+      hr_distilled_cfg: 3.5
+      force_task_id: null
+      sampler_index: Euler
+      script_name: null
+      script_args: []
+      send_images: true
+      save_images: false
+      alwayson_scripts: {}
+      infotext: null
+    response_info:
+      prompt: 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      all_prompts:
+        - 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      negative_prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      all_negative_prompts:
+        - standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      seed: 1901831359
+      all_seeds:
+        - 1901831359
+      subseed: 1126547220
+      all_subseeds:
+        - 1126547220
+      subseed_strength: 0
+      width: 1024
+      height: 1024
+      sampler_name: Euler a
+      cfg_scale: 4.5
+      steps: 20
+      batch_size: 1
+      restore_faces: false
+      face_restoration_model: null
+      sd_model_name: novaAnimeXL_ilV190
+      sd_model_hash: fa486caafc
+      sd_vae_name: null
+      sd_vae_hash: null
+      seed_resize_from_w: -1
+      seed_resize_from_h: -1
+      denoising_strength: null
+      extra_generation_params: {}
+      index_of_first_image: 0
+      infotexts:
+        - |-
+          1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+          Negative prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+          Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1901831359, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+      styles: []
+      job_timestamp: "20260901015010"
+      clip_skip: 1
+      is_using_inpainting_conditioning: false
+      version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    infotext: |-
+      1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      Negative prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1901831359, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+  - panel_id: 5
+    seed: 1918636949
+    image_file: panels/CLOTHING-001-B_05.png
+    image_sha256: 51d8fdabc1fcba80993ad1b54c9a7c1c0ef2b4d465d2c812edfae4d88581500c
+    image_bytes: 1010730
+    generated_at: 2026-08-31T16:50:21.799Z
+    returned_generation:
+      seed: 1918636949
+      subseed: 1348908465
+      model: novaAnimeXL_ilV190
+      model_hash: fa486caafc
+      sampler: Euler a
+      scheduler: Automatic
+      steps: 20
+      cfg_scale: 4.5
+      width: 1024
+      height: 1024
+      version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    binding_checks:
+      request_sampler: Euler a
+      request_scheduler: Automatic
+      response_parameters_sampler: Euler a
+      response_parameters_scheduler: Automatic
+      response_info_sampler: Euler a
+      infotext_sampler: Euler a
+      infotext_schedule_type: Automatic
+    returned_prompt: 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+    returned_negative_prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+    response_parameters:
+      prompt: 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      negative_prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      styles: null
+      seed: 1918636949
+      subseed: -1
+      subseed_strength: 0
+      seed_resize_from_h: -1
+      seed_resize_from_w: -1
+      sampler_name: Euler a
+      scheduler: Automatic
+      batch_size: 1
+      n_iter: 1
+      steps: 20
+      cfg_scale: 4.5
+      distilled_cfg_scale: 3.5
+      width: 1024
+      height: 1024
+      restore_faces: false
+      tiling: false
+      do_not_save_samples: false
+      do_not_save_grid: false
+      eta: null
+      denoising_strength: null
+      s_min_uncond: null
+      s_churn: null
+      s_tmax: null
+      s_tmin: null
+      s_noise: null
+      override_settings: null
+      override_settings_restore_afterwards: true
+      refiner_checkpoint: null
+      refiner_switch_at: null
+      disable_extra_networks: false
+      firstpass_image: null
+      comments: null
+      enable_hr: false
+      firstphase_width: 0
+      firstphase_height: 0
+      hr_scale: 2
+      hr_upscaler: null
+      hr_second_pass_steps: 0
+      hr_resize_x: 0
+      hr_resize_y: 0
+      hr_checkpoint_name: null
+      hr_additional_modules: null
+      hr_sampler_name: null
+      hr_scheduler: null
+      hr_prompt: ""
+      hr_negative_prompt: ""
+      hr_cfg: 1
+      hr_distilled_cfg: 3.5
+      force_task_id: null
+      sampler_index: Euler
+      script_name: null
+      script_args: []
+      send_images: true
+      save_images: false
+      alwayson_scripts: {}
+      infotext: null
+    response_info:
+      prompt: 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      all_prompts:
+        - 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      negative_prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      all_negative_prompts:
+        - standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      seed: 1918636949
+      all_seeds:
+        - 1918636949
+      subseed: 1348908465
+      all_subseeds:
+        - 1348908465
+      subseed_strength: 0
+      width: 1024
+      height: 1024
+      sampler_name: Euler a
+      cfg_scale: 4.5
+      steps: 20
+      batch_size: 1
+      restore_faces: false
+      face_restoration_model: null
+      sd_model_name: novaAnimeXL_ilV190
+      sd_model_hash: fa486caafc
+      sd_vae_name: null
+      sd_vae_hash: null
+      seed_resize_from_w: -1
+      seed_resize_from_h: -1
+      denoising_strength: null
+      extra_generation_params: {}
+      index_of_first_image: 0
+      infotexts:
+        - |-
+          1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+          Negative prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+          Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1918636949, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+      styles: []
+      job_timestamp: "20260901015015"
+      clip_skip: 1
+      is_using_inpainting_conditioning: false
+      version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    infotext: |-
+      1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      Negative prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1918636949, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+  - panel_id: 6
+    seed: 2128309031
+    image_file: panels/CLOTHING-001-B_06.png
+    image_sha256: c816b19a0bd5807ed610136f1a8aeaf4a3af8df78f4321d5a1059b4796cb5041
+    image_bytes: 1004037
+    generated_at: 2026-08-31T16:50:27.795Z
+    returned_generation:
+      seed: 2128309031
+      subseed: 713953938
+      model: novaAnimeXL_ilV190
+      model_hash: fa486caafc
+      sampler: Euler a
+      scheduler: Automatic
+      steps: 20
+      cfg_scale: 4.5
+      width: 1024
+      height: 1024
+      version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    binding_checks:
+      request_sampler: Euler a
+      request_scheduler: Automatic
+      response_parameters_sampler: Euler a
+      response_parameters_scheduler: Automatic
+      response_info_sampler: Euler a
+      infotext_sampler: Euler a
+      infotext_schedule_type: Automatic
+    returned_prompt: 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+    returned_negative_prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+    response_parameters:
+      prompt: 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      negative_prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      styles: null
+      seed: 2128309031
+      subseed: -1
+      subseed_strength: 0
+      seed_resize_from_h: -1
+      seed_resize_from_w: -1
+      sampler_name: Euler a
+      scheduler: Automatic
+      batch_size: 1
+      n_iter: 1
+      steps: 20
+      cfg_scale: 4.5
+      distilled_cfg_scale: 3.5
+      width: 1024
+      height: 1024
+      restore_faces: false
+      tiling: false
+      do_not_save_samples: false
+      do_not_save_grid: false
+      eta: null
+      denoising_strength: null
+      s_min_uncond: null
+      s_churn: null
+      s_tmax: null
+      s_tmin: null
+      s_noise: null
+      override_settings: null
+      override_settings_restore_afterwards: true
+      refiner_checkpoint: null
+      refiner_switch_at: null
+      disable_extra_networks: false
+      firstpass_image: null
+      comments: null
+      enable_hr: false
+      firstphase_width: 0
+      firstphase_height: 0
+      hr_scale: 2
+      hr_upscaler: null
+      hr_second_pass_steps: 0
+      hr_resize_x: 0
+      hr_resize_y: 0
+      hr_checkpoint_name: null
+      hr_additional_modules: null
+      hr_sampler_name: null
+      hr_scheduler: null
+      hr_prompt: ""
+      hr_negative_prompt: ""
+      hr_cfg: 1
+      hr_distilled_cfg: 3.5
+      force_task_id: null
+      sampler_index: Euler
+      script_name: null
+      script_args: []
+      send_images: true
+      save_images: false
+      alwayson_scripts: {}
+      infotext: null
+    response_info:
+      prompt: 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      all_prompts:
+        - 1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      negative_prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      all_negative_prompts:
+        - standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      seed: 2128309031
+      all_seeds:
+        - 2128309031
+      subseed: 713953938
+      all_subseeds:
+        - 713953938
+      subseed_strength: 0
+      width: 1024
+      height: 1024
+      sampler_name: Euler a
+      cfg_scale: 4.5
+      steps: 20
+      batch_size: 1
+      restore_faces: false
+      face_restoration_model: null
+      sd_model_name: novaAnimeXL_ilV190
+      sd_model_hash: fa486caafc
+      sd_vae_name: null
+      sd_vae_hash: null
+      seed_resize_from_w: -1
+      seed_resize_from_h: -1
+      denoising_strength: null
+      extra_generation_params: {}
+      index_of_first_image: 0
+      infotexts:
+        - |-
+          1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+          Negative prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+          Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 2128309031, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+      styles: []
+      job_timestamp: "20260901015021"
+      clip_skip: 1
+      is_using_inpainting_conditioning: false
+      version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    infotext: |-
+      1girl, silver hair, bob cut, plain oversized white t-shirt, black compression shorts, lying on back, on a flat floor, arms spread on the floor, legs straight, full body, side view, simple background
+      Negative prompt: standing, sitting, kneeling, prone, cropped, out of frame, shirt lift, lifted shirt, crop top, tucked shirt, open shirt, dress, skirt, baggy shorts, oversized shorts, modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), conjoined, bad ai-generated
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 2128309031, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6

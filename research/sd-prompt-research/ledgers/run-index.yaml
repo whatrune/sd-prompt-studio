@@ -444,3 +444,15 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-01T00:59:40+09:00'
   path: experiments/eyes/EYE-004-F
+- run_id: CLOTHING-001-A
+  domain: clothing
+  title: CLOTHING-001-A — fitted white T-shirt control
+  status: OBSERVED
+  updated_at: '2026-09-01T01:50:57+09:00'
+  path: experiments/clothing/CLOTHING-001-A
+- run_id: CLOTHING-001-B
+  domain: clothing
+  title: CLOTHING-001-B — oversized white T-shirt treatment
+  status: OBSERVED
+  updated_at: '2026-09-01T01:50:57+09:00'
+  path: experiments/clothing/CLOTHING-001-B
