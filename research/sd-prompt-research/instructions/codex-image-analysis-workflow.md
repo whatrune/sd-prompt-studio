@@ -48,7 +48,15 @@ Do not create a downloadable JSON file or a Run-prefixed duplicate when Codex is
 
 6. Follow `instructions/codex-run-finalize.md` to validate the JSON, generate computed aggregates, update `manifest.yaml`, and finalize the Run.
 
-7. Synchronize the corresponding entry in `ledgers/run-index.yaml` with the manifest status and update time.
+7. Run PRE_LEDGER registration validation without changing
+   `ledgers/run-index.yaml`:
+
+   `python scripts/register_research_run.py --run-dir experiments/{domain}/{run-id} --check`
+
+   A finalized Run need not be present in the Ledger at this stage. Generation,
+   observation, PRE_LEDGER validation, focused validation, authoring, and
+   task-local Research Review remain parallel. Do not reserve a Ledger entry or
+   serialize this task-local work.
 
 8. Regenerate `observation.md` from the finalized canonical JSON:
 
@@ -75,6 +83,20 @@ Do not create a downloadable JSON file or a Run-prefixed duplicate when Codex is
 - Render the generated PDF to images and inspect every page for clipped, overlapping, missing, or unreadable text.
 
 10. Report the full saved Run folder path and research packet PDF path in the completion response.
+
+## Final publication boundary
+
+Immediately before publication, acquire fresh main and the exact current
+`ledgers/run-index.yaml` bytes. Reconcile every Run owned by the publication in
+one invocation with repeated `--run-dir`, `--finalize-ledger`, and the fresh
+`--expected-ledger-sha256`. Then require POST_LEDGER validation with
+`--check --require-registered`, produce the exact final PR HEAD, obtain Fresh
+Review, and Merge.
+
+Only fresh Ledger acquisition, reconciliation, POST_LEDGER validation, final
+HEAD Review, and Merge are serialized. Do not introduce a queue, reservation,
+daemon, second Ledger, or authority type, and do not regenerate valid Run-local
+artifacts solely because another publication advanced the Ledger.
 
 ## Optional Face Module
 
