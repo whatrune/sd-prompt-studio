@@ -1,5 +1,14 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { parseDocument } from 'yaml'
 import {
   acquireSimplifiedPreDecisionPreflightV1,
@@ -13,7 +22,10 @@ import {
   serializeSimplifiedReviewV1,
   serializeSimplifiedTaskAuthorityV1,
 } from './protected-transition-merge-operator-preflight-v1.mjs'
-import { createProductionHostV1 } from './run-protected-transition-admission-v1.mjs'
+import {
+  createProductionHostV1,
+  writeProtectedPublicationBodyFileV1,
+} from './run-protected-transition-admission-v1.mjs'
 import {
   discoverPromptTagDictionaryFilesV1,
   parsePromptTagDictionaryV1,
@@ -239,6 +251,127 @@ equal(serializeSimplifiedMergeDecisionV1(parseSimplifiedMergeDecisionV1(decision
 throws(() => parseSimplifiedTaskAuthorityV1('# placeholder'), /task_authority_invalid/)
 throws(() => parseSimplifiedReviewV1(reviewBody.replace('"decision": "APPROVE"', '"decision": "CHANGES_REQUIRED"')), /review_invalid/)
 throws(() => parseSimplifiedMergeDecisionV1(`${decisionBody}\n\`\`\`json\n{}\n\`\`\``), /merge_decision_invalid/)
+
+{
+  const directory = mkdtempSync(join(tmpdir(), 'protected-publication-transport-'))
+  try {
+    const reviewFile = join(directory, 'review.md')
+    const reviewPublicationBody = `# 独立レビュー #477\n\n可視 evidence の確認。\n\n${reviewBody}\n追記: # は本文です。\n`
+    const reviewResult = writeProtectedPublicationBodyFileV1({
+      kind: 'review',
+      body: reviewPublicationBody,
+      outputFile: reviewFile,
+    })
+    equal(reviewResult.state, 'COMPLETED')
+    equal(Buffer.compare(readFileSync(reviewFile), Buffer.from(reviewPublicationBody, 'utf8')), 0)
+    equal(parseSimplifiedReviewV1(readFileSync(reviewFile, 'utf8')).reviewed_head, HEAD)
+    ok(readFileSync(reviewFile, 'utf8').includes('\n\n'))
+    ok(readFileSync(reviewFile, 'utf8').includes('追記: # は本文です。'))
+
+    const decisionFile = join(directory, 'decision.md')
+    const decisionPublicationBody = `# マージ判断\r\n\r\n${decisionBody.replaceAll('\n', '\r\n')}\r\n決定 #482\r\n`
+    const decisionResult = writeProtectedPublicationBodyFileV1({
+      kind: 'merge',
+      body: decisionPublicationBody,
+      outputFile: decisionFile,
+    })
+    equal(decisionResult.state, 'COMPLETED')
+    equal(Buffer.compare(readFileSync(decisionFile), Buffer.from(decisionPublicationBody, 'utf8')), 0)
+    equal(parseSimplifiedMergeDecisionV1(readFileSync(decisionFile, 'utf8')).exact_head, HEAD)
+    ok(readFileSync(decisionFile, 'utf8').includes('\r\n\r\n'))
+
+    const cliReviewInput = join(directory, 'review-input.json')
+    const cliReviewOutput = join(directory, 'review-output.md')
+    writeFileSync(cliReviewInput, JSON.stringify(reviewInput()), 'utf8')
+    const cliReview = spawnSync(process.execPath, [
+      fileURLToPath(new URL('./run-protected-transition-admission-v1.mjs', import.meta.url)),
+      '--serialize-review-file', cliReviewInput,
+      '--publication-body-output-file', cliReviewOutput,
+    ], { encoding: 'utf8' })
+    equal(cliReview.status, 0)
+    equal(JSON.parse(cliReview.stdout).state, 'COMPLETED')
+    equal(Buffer.compare(readFileSync(cliReviewOutput), Buffer.from(reviewBody, 'utf8')), 0)
+    equal(parseSimplifiedReviewV1(readFileSync(cliReviewOutput, 'utf8')).reviewed_head, HEAD)
+
+    const cliDecisionInput = join(directory, 'decision-input.json')
+    const cliDecisionOutput = join(directory, 'decision-output.md')
+    writeFileSync(cliDecisionInput, JSON.stringify(decisionInput()), 'utf8')
+    const cliDecision = spawnSync(process.execPath, [
+      fileURLToPath(new URL('./run-protected-transition-admission-v1.mjs', import.meta.url)),
+      '--serialize-merge-decision-file', cliDecisionInput,
+      '--publication-body-output-file', cliDecisionOutput,
+    ], { encoding: 'utf8' })
+    equal(cliDecision.status, 0)
+    equal(JSON.parse(cliDecision.stdout).publication_kind, 'merge')
+    equal(Buffer.compare(readFileSync(cliDecisionOutput), Buffer.from(decisionBody, 'utf8')), 0)
+    equal(parseSimplifiedMergeDecisionV1(readFileSync(cliDecisionOutput, 'utf8')).exact_head, HEAD)
+
+    const legacyStdout = spawnSync(process.execPath, [
+      fileURLToPath(new URL('./run-protected-transition-admission-v1.mjs', import.meta.url)),
+      '--serialize-review-file', cliReviewInput,
+    ], { encoding: 'utf8' })
+    equal(legacyStdout.status, 0)
+    equal(legacyStdout.stdout, reviewBody)
+
+    throws(() => writeProtectedPublicationBodyFileV1({
+      kind: 'review', body: '', outputFile: join(directory, 'empty.md'),
+    }), /publication_transport_body_invalid/)
+    throws(() => writeProtectedPublicationBodyFileV1({
+      kind: 'review', body: '# malformed', outputFile: join(directory, 'malformed.md'),
+    }), /review_invalid/)
+    throws(() => writeProtectedPublicationBodyFileV1({
+      kind: 'review', body: reviewBody, outputFile: reviewFile,
+    }), /publication_transport_invalid/)
+
+    let partialRemoved = false
+    throws(() => writeProtectedPublicationBodyFileV1({
+      kind: 'review',
+      body: reviewBody,
+      outputFile: 'partial.md',
+      fileHost: {
+        openSync: () => 7,
+        writeSync: (_descriptor, bytes) => bytes.length - 1,
+        fsyncSync: () => {},
+        closeSync: () => {},
+        readFileSync: () => Buffer.from(reviewBody, 'utf8'),
+        unlinkSync: () => { partialRemoved = true },
+      },
+    }), /publication_transport_invalid/)
+    equal(partialRemoved, true)
+
+    let mismatchRemoved = false
+    throws(() => writeProtectedPublicationBodyFileV1({
+      kind: 'merge',
+      body: decisionBody,
+      outputFile: 'mismatch.md',
+      fileHost: {
+        openSync: () => 8,
+        writeSync: (_descriptor, bytes) => bytes.length,
+        fsyncSync: () => {},
+        closeSync: () => {},
+        readFileSync: () => Buffer.from(`${decisionBody}corrupt`, 'utf8'),
+        unlinkSync: () => { mismatchRemoved = true },
+      },
+    }), /publication_transport_invalid/)
+    equal(mismatchRemoved, true)
+
+    throws(() => writeProtectedPublicationBodyFileV1({
+      kind: 'merge',
+      body: decisionBody,
+      outputFile: 'uncreatable.md',
+      fileHost: {
+        openSync: () => { throw new Error('permission denied') },
+        writeSync: () => 0,
+        fsyncSync: () => {},
+        closeSync: () => {},
+        readFileSync: () => Buffer.alloc(0),
+        unlinkSync: () => {},
+      },
+    }), /publication_transport_invalid/)
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+}
 
 const allChecks = [check('validate', 15368), check('build-preview', 15368), check('Cloudflare Pages', 85455)]
 equal(classifyValidationPathsV1(['research/sd-prompt-research/experiments/hair/HAIR-001-A/observation.json']).profile, 'RESEARCH_EXPERIMENT')
@@ -762,6 +895,9 @@ equal(preflightSource.includes('mergePullRequest(input:'), false)
 ok(preflightSource.includes('host.mergePullRequest'))
 ok(runnerSource.includes("valueAfter('--pre-decision-preflight-file')"))
 ok(runnerSource.includes('acquireSimplifiedPreDecisionPreflightV1'))
+ok(runnerSource.includes("args.includes('--publication-body-output-file')"))
+ok(runnerSource.includes('writeProtectedPublicationBodyFileV1'))
+equal(runnerSource.includes(".join(' ')"), false)
 ok(agentsSource.includes('## Immediate Terminal Continuation'))
 ok(agentsSource.includes('wait_threads'))
 ok(agentsSource.includes('same owning Worker'))

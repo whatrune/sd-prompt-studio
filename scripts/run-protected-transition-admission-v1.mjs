@@ -1,8 +1,17 @@
-import { readFileSync } from 'node:fs'
+import {
+  closeSync,
+  fsyncSync,
+  openSync,
+  readFileSync,
+  unlinkSync,
+  writeSync,
+} from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import {
   acquireSimplifiedPreDecisionPreflightV1,
   executeSimplifiedMergeV1,
+  parseSimplifiedMergeDecisionV1,
+  parseSimplifiedReviewV1,
   serializeSimplifiedMergeDecisionV1,
   serializeSimplifiedReviewV1,
   serializeSimplifiedTaskAuthorityV1,
@@ -38,6 +47,69 @@ const boundedMessage = (value) => redactUrlLikeTokens(redactCredentialBearingTex
 const boundedAtom = (value, pattern, maximum) => {
   if (typeof value !== 'string' || value.length === 0 || value.length > maximum || !pattern.test(value)) return null
   return value
+}
+
+const productionPublicationFileHostV1 = Object.freeze({
+  closeSync,
+  fsyncSync,
+  openSync,
+  readFileSync,
+  unlinkSync,
+  writeSync,
+})
+
+const publicationParserV1 = (kind) => {
+  if (kind === 'review') return parseSimplifiedReviewV1
+  if (kind === 'merge') return parseSimplifiedMergeDecisionV1
+  throw new Error('publication_transport_kind_invalid')
+}
+
+export const writeProtectedPublicationBodyFileV1 = ({
+  kind,
+  body,
+  outputFile,
+  fileHost = productionPublicationFileHostV1,
+}) => {
+  const parse = publicationParserV1(kind)
+  if (typeof body !== 'string' || body.length === 0) throw new Error('publication_transport_body_invalid')
+  if (typeof outputFile !== 'string' || outputFile.length === 0) throw new Error('publication_transport_output_file_invalid')
+  parse(body)
+  const expected = Buffer.from(body, 'utf8')
+  if (expected.length === 0 || new TextDecoder('utf-8', { fatal: true }).decode(expected) !== body) {
+    throw new Error('publication_transport_encoding_invalid')
+  }
+
+  let descriptor = null
+  let created = false
+  try {
+    descriptor = fileHost.openSync(outputFile, 'wx', 0o600)
+    created = true
+    const written = fileHost.writeSync(descriptor, expected, 0, expected.length, 0)
+    if (written !== expected.length) throw new Error('publication_transport_partial_write')
+    fileHost.fsyncSync(descriptor)
+    fileHost.closeSync(descriptor)
+    descriptor = null
+
+    const observed = fileHost.readFileSync(outputFile)
+    const observedBytes = Buffer.isBuffer(observed) ? observed : Buffer.from(observed)
+    if (!observedBytes.equals(expected)) throw new Error('publication_transport_readback_mismatch')
+    const observedBody = new TextDecoder('utf-8', { fatal: true }).decode(observedBytes)
+    if (observedBody !== body) throw new Error('publication_transport_encoding_mismatch')
+    parse(observedBody)
+    return Object.freeze({
+      state: 'COMPLETED',
+      publication_kind: kind,
+      byte_length: expected.length,
+    })
+  } catch (cause) {
+    if (descriptor !== null) {
+      try { fileHost.closeSync(descriptor) } catch {}
+    }
+    if (created) {
+      try { fileHost.unlinkSync(outputFile) } catch {}
+    }
+    throw new Error('publication_transport_invalid', { cause })
+  }
 }
 
 const boundedGraphqlErrors = (value) => Object.freeze(
@@ -215,7 +287,15 @@ if (process.argv[1] !== undefined && pathToFileURL(process.argv[1]).href === imp
       : kind === 'review'
         ? serializeSimplifiedReviewV1(input)
         : serializeSimplifiedMergeDecisionV1(input)
-    process.stdout.write(body)
+    const publicationOutputRequested = args.includes('--publication-body-output-file')
+    const publicationOutputFile = valueAfter('--publication-body-output-file')
+    if (publicationOutputRequested) {
+      if (publicationOutputFile === null) throw new Error('publication_transport_output_file_required')
+      const result = writeProtectedPublicationBodyFileV1({ kind, body, outputFile: publicationOutputFile })
+      process.stdout.write(`${JSON.stringify(result)}\n`)
+    } else {
+      process.stdout.write(body)
+    }
   } else {
     const preDecisionPreflightFile = valueAfter('--pre-decision-preflight-file')
     if (preDecisionPreflightFile !== null) {
