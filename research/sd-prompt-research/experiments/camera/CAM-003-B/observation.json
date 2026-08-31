@@ -1,0 +1,302 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-003-B",
+  "blind_condition_label": "COND-B6C5F7A5",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "observed_framing",
+    "face_visibility",
+    "head_visibility",
+    "shoulders_visibility",
+    "torso_visibility",
+    "hips_visibility",
+    "knees_visibility",
+    "feet_visibility",
+    "face_detail_assessability",
+    "support_boundary_visibility",
+    "body_state",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-B6C5F7A5: observed close_up framing=0/6.",
+      "Opaque condition COND-B6C5F7A5: joint face/head/detail assessable=1/6.",
+      "Opaque condition COND-B6C5F7A5: ambiguity/artifact=5/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, and visible pixels; prompts, seeds, requested framing, run mapping, PromptTag IDs, and emitted phrases were withheld.",
+      "The 12-panel opaque observation record was frozen before mapping disclosure at SHA-256 b3935a55158af5adcf3982af2b0312530019811837c6d52a3c260f3ffe6aa43c.",
+      "Canonical run_id and seed binding was applied only after decoding and did not change any frozen visual row.",
+      "Prompt support, matched-seed comparison, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "unknown",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "partial",
+        "visible",
+        "visible",
+        "visible",
+        "unassessable",
+        "present",
+        "standing",
+        "composition_artifact"
+      ],
+      "primary_morphology": "camera_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The top edge cuts through the torso and excludes head, face, and shoulders; hips, knees, and feet are visible, with tiled floor lines and a cast shadow showing support."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "composition_artifact"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "full_body",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "assessable",
+        "present",
+        "standing",
+        "none"
+      ],
+      "primary_morphology": "camera_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The entire figure and clear face are visible; both feet rest on a floor defined by baseboard and floor seams."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "unknown",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "partial",
+        "visible",
+        "visible",
+        "visible",
+        "unassessable",
+        "present",
+        "standing",
+        "composition_artifact"
+      ],
+      "primary_morphology": "camera_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The image is cropped above the waist, omitting head, face, shoulders, and upper torso; hips, knees, and both feet remain visible against a wall-floor boundary with cast shadow."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "composition_artifact"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "unknown",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "partial",
+        "visible",
+        "visible",
+        "visible",
+        "unassessable",
+        "present",
+        "standing",
+        "composition_artifact"
+      ],
+      "primary_morphology": "camera_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The upper crop excludes the head, face, shoulders, and upper torso; hips through both feet are visible, and the feet meet a floor boundary with a cast shadow."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "composition_artifact"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "unknown",
+        "partial",
+        "partial",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "unassessable",
+        "present",
+        "standing",
+        "composition_artifact"
+      ],
+      "primary_morphology": "camera_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The upper frame clips most of the head and face above the mouth; shoulders through both feet remain visible, and the feet contact a floor at a wall-floor boundary."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "composition_artifact"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "unknown",
+        "not_visible",
+        "not_visible",
+        "partial",
+        "partial",
+        "visible",
+        "visible",
+        "visible",
+        "unassessable",
+        "present",
+        "standing",
+        "composition_artifact"
+      ],
+      "primary_morphology": "camera_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The crop begins across the upper torso, excluding the head, face, and most shoulder contours; hips, knees, and feet are visible on a floor plane with contact shadow."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "composition_artifact"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "observed_framing": {
+        "unknown": 5,
+        "full_body": 1
+      },
+      "face_visibility": {
+        "not_visible": 4,
+        "visible": 1,
+        "partial": 1
+      },
+      "head_visibility": {
+        "not_visible": 4,
+        "visible": 1,
+        "partial": 1
+      },
+      "shoulders_visibility": {
+        "not_visible": 3,
+        "visible": 2,
+        "partial": 1
+      },
+      "torso_visibility": {
+        "partial": 4,
+        "visible": 2
+      },
+      "hips_visibility": {
+        "visible": 6
+      },
+      "knees_visibility": {
+        "visible": 6
+      },
+      "feet_visibility": {
+        "visible": 6
+      },
+      "face_detail_assessability": {
+        "unassessable": 5,
+        "assessable": 1
+      },
+      "support_boundary_visibility": {
+        "present": 6
+      },
+      "body_state": {
+        "standing": 6
+      },
+      "ambiguity_or_artifact": {
+        "composition_artifact": 5,
+        "none": 1
+      }
+    },
+    "primary_morphology_counts": {
+      "camera_visibility_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "composition_artifact": 5,
+      "none": 1
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}

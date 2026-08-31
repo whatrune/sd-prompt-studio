@@ -354,3 +354,15 @@ runs:
   status: OBSERVED
   updated_at: '2026-08-31T11:29:35+09:00'
   path: experiments/camera/CAM-001-B
+- run_id: CAM-003-A
+  domain: camera
+  title: CAM-003-A — neutral camera control
+  status: OBSERVED
+  updated_at: '2026-08-31T12:45:55+09:00'
+  path: experiments/camera/CAM-003-A
+- run_id: CAM-003-B
+  domain: camera
+  title: CAM-003-B — close-up treatment
+  status: OBSERVED
+  updated_at: '2026-08-31T12:45:55+09:00'
+  path: experiments/camera/CAM-003-B
