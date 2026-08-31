@@ -1,6 +1,6 @@
 {
   "schema_version": "0.2.0",
-  "graph_version": "0.2.1",
+  "graph_version": "0.2.2",
   "module_file_id": "physical-concepts",
   "module_family": "physical",
   "description": "Sparse physical, face, clothing, and visibility concepts used by the initial compiler foundation.",
@@ -484,15 +484,34 @@
             "target": "pelvis-surface boundary",
             "effect": "May obscure the boundary needed to assess pelvis elevation or contact.",
             "status": "provisional",
-            "confidence": "medium",
+            "confidence": "high",
             "evidence_status": "provisional",
             "evidence_refs": [
               {
-                "evidence_ref_id": "evidence.brg007b.hip_unclear",
-                "run_id": "BRG-007-B",
-                "observation_path": "experiments/bridge/BRG-007-B/observation.json",
-                "research_packet_path": "reports/BRG-007_research-packet.pdf",
-                "metric": "computed_aggregate.axis_counts.hip_elevation.unclear",
+                "evidence_ref_id": "evidence.clothing001a.pelvis_boundary.clear",
+                "run_id": "CLOTHING-001-A",
+                "observation_path": "experiments/clothing/CLOTHING-001-A/observation.json",
+                "metric": "computed_aggregate.axis_counts.pelvis_surface_boundary_visibility.clear",
+                "count": 6,
+                "total": 6,
+                "confidence": "high",
+                "storage": "local"
+              },
+              {
+                "evidence_ref_id": "evidence.clothing001b.pelvis_boundary.partial",
+                "run_id": "CLOTHING-001-B",
+                "observation_path": "experiments/clothing/CLOTHING-001-B/observation.json",
+                "metric": "computed_aggregate.axis_counts.pelvis_surface_boundary_visibility.partial",
+                "count": 6,
+                "total": 6,
+                "confidence": "high",
+                "storage": "local"
+              },
+              {
+                "evidence_ref_id": "evidence.clothing001b.primary_obscuring_source.upper_garment",
+                "run_id": "CLOTHING-001-B",
+                "observation_path": "experiments/clothing/CLOTHING-001-B/observation.json",
+                "metric": "computed_aggregate.axis_counts.primary_obscuring_source.upper_garment",
                 "count": 6,
                 "total": 6,
                 "confidence": "high",
