@@ -67,18 +67,28 @@ manifest.yaml
 ## Registering an observed Run for Research Explorer
 
 Image ingestion alone creates an `INGESTED` Run and an Observation template. Do
-not register that placeholder as an observed Artifact. After the existing Image
-Analyst/finalization workflow has produced a schema-valid `observation.json`, a
-matching `computed_aggregate`, and `manifest.status: OBSERVED`, run:
+not register that placeholder and do not update `ledgers/run-index.yaml` during
+ingestion. After the existing Image Analyst/finalization workflow has produced
+a schema-valid `observation.json`, a matching `computed_aggregate`, and
+`manifest.status: OBSERVED`, perform PRE_LEDGER validation:
 
 ```powershell
 python scripts/register_research_run.py `
   --run-dir experiments/bridge/BRG-010-A `
-  --index-output tmp/research-explorer-index.json
+  --check
 ```
 
-This command mechanically validates the Run bundle, updates
-`ledgers/run-index.yaml`, regenerates the Derived Index, and confirms the
-`observation_of` relationship. It does not generate Claims or research
-interpretation. Restart the Local Companion Service to load the new in-memory
+This mechanically validates the Run bundle and its Derived Index relationship
+without requiring or writing a canonical Ledger entry. Generation, ingestion,
+observation, PRE_LEDGER validation, focused validation, authoring, and
+task-local Research Review may proceed independently in parallel.
+
+Only at final publication, acquire fresh main and fresh Run Ledger bytes, then
+reconcile all publication-owned Runs together using repeated `--run-dir`,
+`--finalize-ledger`, and `--expected-ledger-sha256`. Follow it with
+`--check --require-registered`, bind Fresh Review to the exact final PR HEAD,
+and Merge. Only that final Run Ledger reconciliation boundary is serialized;
+no queue, reservation, daemon, second Ledger, or new authority is introduced.
+
+Restart the Local Companion Service after publication to load the new in-memory
 Index; PR75 intentionally provides no mutation or refresh endpoint.

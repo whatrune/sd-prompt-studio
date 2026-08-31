@@ -10,7 +10,8 @@ generated image
   -> existing image ingestion
   -> Observation JSON
   -> existing Observation finalization
-  -> Run registration
+  -> PRE_LEDGER validation and task-local Research Review
+  -> final Run Ledger reconciliation at publication
   -> Derived Index regeneration
   -> Research Explorer display
 ```
@@ -58,26 +59,50 @@ Validate without writing the Ledger or an Index output:
   --check
 ```
 
-Register the Run and optionally save a disposable Index for inspection:
+Ordinary ingestion and PRE_LEDGER validation do not update
+`ledgers/run-index.yaml`. Multiple finalized Runs may therefore be generated,
+observed, validated, and reviewed independently in parallel.
+
+At final publication only, first acquire the fresh main branch and exact current
+Run Ledger bytes. Compute their SHA-256 and atomically reconcile every Run owned
+by the publication:
 
 ```powershell
 .venv\Scripts\python.exe scripts\register_research_run.py `
   --run-dir experiments\bridge\BRG-010-A `
+  --run-dir experiments\bridge\BRG-010-B `
+  --finalize-ledger `
+  --expected-ledger-sha256 <fresh-lowercase-sha256> `
   --index-output tmp\research-explorer-index.json
 ```
 
-The command:
+The finalizer:
 
-1. validates the existing Run bundle;
-2. updates or adds exactly one Run entry in `ledgers/run-index.yaml`;
-3. regenerates and validates the existing Research Explorer Derived Index;
-4. confirms discovery of the Run and Observation Artifacts;
-5. confirms the mechanical `observation_of` relationship;
-6. returns the Artifact IDs and `index_snapshot_id` as JSON.
+1. validates every supplied Run bundle before reading or writing the Ledger;
+2. strictly validates the fresh Ledger and its expected SHA-256;
+3. reconciles the supplied Run summaries in lexical Run-ID order in memory;
+4. preserves every unrelated entry and its existing order;
+5. replaces `run-index.yaml` once, only when the exact bytes change;
+6. validates every resulting registration and Research Explorer relationship;
+7. restores the exact prior Ledger bytes if post-write validation fails;
+8. returns the Artifact IDs and `index_snapshot_id` as JSON.
 
-Registration is idempotent for the same Run ID. If Index regeneration or
-relationship verification fails after the Ledger update, the previous Ledger
-bytes are restored.
+After final reconciliation, validate the exact registrations without writing:
+
+```powershell
+.venv\Scripts\python.exe scripts\register_research_run.py `
+  --run-dir experiments\bridge\BRG-010-A `
+  --run-dir experiments\bridge\BRG-010-B `
+  --check `
+  --require-registered
+```
+
+The publication sequence is serialized only across the fresh main/Run Ledger
+acquisition, atomic reconciliation, POST_LEDGER validation, exact final PR HEAD,
+Fresh Review, and Merge. Generation, ingestion, observation, PRE_LEDGER
+validation, focused validation, authoring, and task-local Research Review stay
+parallel. There is no second ledger, queue, reservation, daemon, or new
+authority type.
 
 ## Relationship
 

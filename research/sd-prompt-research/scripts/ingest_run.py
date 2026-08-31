@@ -277,32 +277,6 @@ def load_existing_manifest(run_dir: Path) -> dict[str, Any] | None:
     return data
 
 
-def update_run_index(root: Path, manifest: dict[str, Any]) -> None:
-    index_path = root / "ledgers" / "run-index.yaml"
-    index_path.parent.mkdir(parents=True, exist_ok=True)
-    index = yaml.safe_load(index_path.read_text(encoding="utf-8")) if index_path.exists() else None
-    if not isinstance(index, dict):
-        index = {"schema_version": "1.0", "runs": []}
-    runs = index.setdefault("runs", [])
-    summary = {
-        "run_id": manifest.get("run_id"),
-        "domain": manifest.get("domain"),
-        "title": manifest.get("title"),
-        "status": manifest.get("status"),
-        "updated_at": manifest.get("updated_at"),
-        "path": f"experiments/{manifest.get('domain')}/{manifest.get('run_id')}",
-    }
-    replaced = False
-    for i, item in enumerate(runs):
-        if isinstance(item, dict) and item.get("run_id") == manifest.get("run_id"):
-            runs[i] = summary
-            replaced = True
-            break
-    if not replaced:
-        runs.append(summary)
-    index_path.write_text(yaml.safe_dump(index, allow_unicode=True, sort_keys=False), encoding="utf-8")
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
@@ -474,8 +448,6 @@ def main() -> int:
         else:
             run_dir.parent.mkdir(parents=True, exist_ok=True)
             temp_dir.rename(run_dir)
-
-        update_run_index(root, manifest)
 
         if args.move:
             source_image.unlink()
