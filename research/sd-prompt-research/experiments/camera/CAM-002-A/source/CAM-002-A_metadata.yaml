@@ -1,0 +1,269 @@
+metadata_status: verified
+source: a1111_txt2img_api
+format: png+json
+official_input:
+  generation_id: 20260831T021003Z-cf0097d3
+  panel_count: 12
+  sidecar_count: 12
+  started_utc: '2026-08-31T02:10:03.929104Z'
+  finished_utc: '2026-08-31T02:12:02.155876Z'
+condition:
+  kind: neutral framing control
+generation:
+  positive_prompt: 1girl, solo, neutral expression, plain fitted sleeveless top, black shorts, standing, arms relaxed at sides,
+    front view, simple studio background
+  negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra
+    limbs, fused limbs, text, watermark
+  settings:
+    model: novaAnimeXL_ilV190
+    model_hash: fa486caafc
+    model_sha256: fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f
+    sampler: Euler a
+    scheduler: Automatic
+    steps: 20
+    cfg_scale: 4.5
+    width: 1024
+    height: 1024
+    batch_size: 1
+    n_iter: 1
+    enable_hr: false
+    restore_faces: false
+    tiling: false
+  ordered_seeds:
+  - 1085743552
+  - 1498980057
+  - 582359355
+  - 1712699272
+  - 738358221
+  - 194153683
+matched_pair_contract:
+  baseline_run_id: CAM-002-A
+  treatment_run_id: CAM-002-B
+  only_prompt_difference: cowboy shot
+  negative_prompt_equal: true
+  settings_equal: true
+  ordered_seeds_equal: true
+panels:
+- panel_id: 1
+  seed: 1085743552
+  image_file: panels/CAM-002-A_01.png
+  image_sha256: 00b47fd170c7059c3dfdb2e96ef6382c114cc00b42ad7a45b5de38e0e27a0b71
+  image_bytes: 999245
+  generation_sidecar_file: panels/CAM-002-A_01.a1111.json
+  generation_sidecar_sha256: 03836dda011f654af6ed989d0f5276a049785976cb2908846fb2c6a8140e87bc
+  pixel_sha256: 5b44d303268e0787796f6271f918f527746e642fe3833adeec1f19ec257c3895
+  dispatch_started_at: '2026-08-31T02:10:03.929104Z'
+  response_received_at: '2026-08-31T02:10:10.455508Z'
+  returned_generation:
+    prompt: 1girl, solo, neutral expression, plain fitted sleeveless top, black shorts, standing, arms relaxed at sides, front
+      view, simple studio background
+    negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
+      extra limbs, fused limbs, text, watermark
+    seed: 1085743552
+    subseed: 3858751152
+    model: novaAnimeXL_ilV190
+    model_hash: fa486caafc
+    sampler: Euler a
+    scheduler: Automatic
+    steps: 20
+    cfg_scale: 4.5
+    width: 1024
+    height: 1024
+    batch_size: 1
+    version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    infotext: '1girl, solo, neutral expression, plain fitted sleeveless top, black shorts, standing, arms relaxed at sides,
+      front view, simple studio background
+
+      Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
+      extra limbs, fused limbs, text, watermark
+
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1085743552, Size: 1024x1024, Model hash:
+      fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6'
+- panel_id: 2
+  seed: 1498980057
+  image_file: panels/CAM-002-A_02.png
+  image_sha256: ae2c85dbcd40756c30c0b37db6832fedb3fb38a34585908f3bb890cc984ee2cc
+  image_bytes: 982959
+  generation_sidecar_file: panels/CAM-002-A_02.a1111.json
+  generation_sidecar_sha256: e7c7d442b99a34c6ea0fbf84ea7661cfd68a2f4d4611e58186b1fb36dad73322
+  pixel_sha256: e0a5534f7e1a309476794f79e1eb44e0d7b205320eebf77fa997ab4799bad67c
+  dispatch_started_at: '2026-08-31T02:10:10.708217Z'
+  response_received_at: '2026-08-31T02:10:16.520496Z'
+  returned_generation:
+    prompt: 1girl, solo, neutral expression, plain fitted sleeveless top, black shorts, standing, arms relaxed at sides, front
+      view, simple studio background
+    negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
+      extra limbs, fused limbs, text, watermark
+    seed: 1498980057
+    subseed: 435316430
+    model: novaAnimeXL_ilV190
+    model_hash: fa486caafc
+    sampler: Euler a
+    scheduler: Automatic
+    steps: 20
+    cfg_scale: 4.5
+    width: 1024
+    height: 1024
+    batch_size: 1
+    version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    infotext: '1girl, solo, neutral expression, plain fitted sleeveless top, black shorts, standing, arms relaxed at sides,
+      front view, simple studio background
+
+      Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
+      extra limbs, fused limbs, text, watermark
+
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1498980057, Size: 1024x1024, Model hash:
+      fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6'
+- panel_id: 3
+  seed: 582359355
+  image_file: panels/CAM-002-A_03.png
+  image_sha256: 0224968cdf712099287e18e4ad18bd093b48d1ec0b0ab433cbcbbe3cf0825101
+  image_bytes: 855464
+  generation_sidecar_file: panels/CAM-002-A_03.a1111.json
+  generation_sidecar_sha256: afd18ea4efb2ebff7a7d3217639131d9ac164b9c7bc15c58b42abd615916258d
+  pixel_sha256: 616f36fe4229882111f9da7a4b57a07dcb099957631d682953a3f4e2a4f6d16b
+  dispatch_started_at: '2026-08-31T02:10:16.701444Z'
+  response_received_at: '2026-08-31T02:10:22.520816Z'
+  returned_generation:
+    prompt: 1girl, solo, neutral expression, plain fitted sleeveless top, black shorts, standing, arms relaxed at sides, front
+      view, simple studio background
+    negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
+      extra limbs, fused limbs, text, watermark
+    seed: 582359355
+    subseed: 435170108
+    model: novaAnimeXL_ilV190
+    model_hash: fa486caafc
+    sampler: Euler a
+    scheduler: Automatic
+    steps: 20
+    cfg_scale: 4.5
+    width: 1024
+    height: 1024
+    batch_size: 1
+    version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    infotext: '1girl, solo, neutral expression, plain fitted sleeveless top, black shorts, standing, arms relaxed at sides,
+      front view, simple studio background
+
+      Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
+      extra limbs, fused limbs, text, watermark
+
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 582359355, Size: 1024x1024, Model hash:
+      fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6'
+- panel_id: 4
+  seed: 1712699272
+  image_file: panels/CAM-002-A_04.png
+  image_sha256: 018e25c8f0f2cb5e47cc8eb69fb13d33081c5fb7059a2ab875915c6cc8f5312c
+  image_bytes: 658826
+  generation_sidecar_file: panels/CAM-002-A_04.a1111.json
+  generation_sidecar_sha256: dd01fca43a06602a5bf2dfc49cbc2ec65bc33e3b26fd18df828439d0d7d7a7a9
+  pixel_sha256: 7837064de0fb6f4df7157543751828b61053d022ca2e31c396bd3ae04fcda301
+  dispatch_started_at: '2026-08-31T02:10:22.677950Z'
+  response_received_at: '2026-08-31T02:10:28.356308Z'
+  returned_generation:
+    prompt: 1girl, solo, neutral expression, plain fitted sleeveless top, black shorts, standing, arms relaxed at sides, front
+      view, simple studio background
+    negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
+      extra limbs, fused limbs, text, watermark
+    seed: 1712699272
+    subseed: 2919056174
+    model: novaAnimeXL_ilV190
+    model_hash: fa486caafc
+    sampler: Euler a
+    scheduler: Automatic
+    steps: 20
+    cfg_scale: 4.5
+    width: 1024
+    height: 1024
+    batch_size: 1
+    version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    infotext: '1girl, solo, neutral expression, plain fitted sleeveless top, black shorts, standing, arms relaxed at sides,
+      front view, simple studio background
+
+      Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
+      extra limbs, fused limbs, text, watermark
+
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1712699272, Size: 1024x1024, Model hash:
+      fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6'
+- panel_id: 5
+  seed: 738358221
+  image_file: panels/CAM-002-A_05.png
+  image_sha256: 40119e0f422b2cecdd9bc870d54a0b8b0fbe71e273cd0aadbf7807cb8694efb4
+  image_bytes: 934132
+  generation_sidecar_file: panels/CAM-002-A_05.a1111.json
+  generation_sidecar_sha256: e1e93a6d59c8f7d786734943e6cc15dc904b3c7636dbd9cac180d21fd39fabd1
+  pixel_sha256: 1564f5025d44eeb40f9fa217487262c16a166d7029b56e1c4404c31e87454871
+  dispatch_started_at: '2026-08-31T02:10:28.469713Z'
+  response_received_at: '2026-08-31T02:10:34.350894Z'
+  returned_generation:
+    prompt: 1girl, solo, neutral expression, plain fitted sleeveless top, black shorts, standing, arms relaxed at sides, front
+      view, simple studio background
+    negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
+      extra limbs, fused limbs, text, watermark
+    seed: 738358221
+    subseed: 250491522
+    model: novaAnimeXL_ilV190
+    model_hash: fa486caafc
+    sampler: Euler a
+    scheduler: Automatic
+    steps: 20
+    cfg_scale: 4.5
+    width: 1024
+    height: 1024
+    batch_size: 1
+    version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    infotext: '1girl, solo, neutral expression, plain fitted sleeveless top, black shorts, standing, arms relaxed at sides,
+      front view, simple studio background
+
+      Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
+      extra limbs, fused limbs, text, watermark
+
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 738358221, Size: 1024x1024, Model hash:
+      fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6'
+- panel_id: 6
+  seed: 194153683
+  image_file: panels/CAM-002-A_06.png
+  image_sha256: 45e5aa1c276e04300f415be3335e7cd7ba476bab3b7ca784ad4d6e46672541ed
+  image_bytes: 927439
+  generation_sidecar_file: panels/CAM-002-A_06.a1111.json
+  generation_sidecar_sha256: 97f68e733dd52c92bc1fb4b5b48ee2db105f05666e8c5625722dd27167282e48
+  pixel_sha256: f641fafe72f692b09fb5666336ce9d3a6b696d0811ea891a5eaff329b8b0d314
+  dispatch_started_at: '2026-08-31T02:10:34.523289Z'
+  response_received_at: '2026-08-31T02:10:46.820868Z'
+  returned_generation:
+    prompt: 1girl, solo, neutral expression, plain fitted sleeveless top, black shorts, standing, arms relaxed at sides, front
+      view, simple studio background
+    negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
+      extra limbs, fused limbs, text, watermark
+    seed: 194153683
+    subseed: 2465479864
+    model: novaAnimeXL_ilV190
+    model_hash: fa486caafc
+    sampler: Euler a
+    scheduler: Automatic
+    steps: 20
+    cfg_scale: 4.5
+    width: 1024
+    height: 1024
+    batch_size: 1
+    version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    infotext: '1girl, solo, neutral expression, plain fitted sleeveless top, black shorts, standing, arms relaxed at sides,
+      front view, simple studio background
+
+      Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
+      extra limbs, fused limbs, text, watermark
+
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 194153683, Size: 1024x1024, Model hash:
+      fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6'
+verification:
+  panel_count: 6
+  png_integrity: PASS
+  dimensions: PASS
+  generation_provenance: PASS
+  matched_prompt_contract: PASS
+experiment_summary:
+  decision: INCONCLUSIVE
+  assessable: 6/6
+  ambiguity_or_artifact: 0/6
+  matched_pair_tighter: 3/6
+  matched_pair_same: 3/6
+  matched_pair_looser: 0/6

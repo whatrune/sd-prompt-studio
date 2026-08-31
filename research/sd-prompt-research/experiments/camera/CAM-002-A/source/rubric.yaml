@@ -1,0 +1,180 @@
+schema_version: '3.0'
+target_concept: ''
+blind_analysis: true
+special_values:
+  unclear: Visible evidence is insufficient or conflicting.
+  not_visible: The anatomical region is outside the frame or fully obscured.
+axis_catalog:
+  upper_frame_boundary:
+    label: Upper Frame Boundary
+    allowed_values:
+    - margin_above_head
+    - through_hair_or_head
+    - forehead_or_brow
+    - eye_region
+    - nose_or_midface
+    - mouth_or_chin
+    - neck_or_shoulders
+    - torso_below_shoulders
+    - unclear
+  lower_frame_boundary:
+    label: Lower Frame Boundary
+    allowed_values:
+    - below_feet
+    - through_feet
+    - ankle_or_lower_leg
+    - knee_region
+    - distal_thigh
+    - mid_thigh
+    - proximal_thigh
+    - hip_or_pelvis
+    - waist_or_abdomen
+    - torso_above_waist
+    - unclear
+  head_visibility:
+    label: Head Visibility
+    allowed_values:
+    - complete
+    - partial
+    - not_visible
+    - unclear
+  shoulder_visibility:
+    label: Shoulder Visibility
+    allowed_values:
+    - both_complete
+    - one_or_partial
+    - not_visible
+    - unclear
+  hand_visibility:
+    label: Hand Visibility
+    allowed_values:
+    - both_complete
+    - one_complete
+    - partial_only
+    - not_visible
+    - unclear
+  waist_visibility:
+    label: Waist Visibility
+    allowed_values:
+    - complete
+    - partial
+    - not_visible
+    - unclear
+  hip_pelvis_visibility:
+    label: Hip/Pelvis Visibility
+    allowed_values:
+    - complete
+    - partial
+    - not_visible
+    - unclear
+  thigh_visibility:
+    label: Thigh Visibility
+    allowed_values:
+    - complete
+    - through_knees
+    - distal_thigh_visible
+    - mid_thigh_visible
+    - proximal_only
+    - not_visible
+    - unclear
+  knee_visibility:
+    label: Knee Visibility
+    allowed_values:
+    - both_complete
+    - one_complete
+    - partial_only
+    - not_visible
+    - unclear
+  lower_leg_visibility:
+    label: Lower Leg Visibility
+    allowed_values:
+    - both_complete
+    - one_complete
+    - partial_only
+    - not_visible
+    - unclear
+  feet_visibility:
+    label: Feet Visibility
+    allowed_values:
+    - both_complete
+    - one_complete
+    - partial_only
+    - not_visible
+    - unclear
+  body_orientation:
+    label: Body Orientation
+    allowed_values:
+    - front
+    - three_quarter
+    - profile
+    - back
+    - unclear
+  boundary_ambiguity_or_artifact:
+    label: Boundary Ambiguity Or Artifact
+    allowed_values:
+    - none
+    - upper_boundary_ambiguous
+    - lower_boundary_ambiguous
+    - anatomy_artifact
+    - composition_artifact
+    - multiple
+  assessable:
+    label: Boundary Assessable
+    allowed_values:
+    - 'yes'
+    - 'no'
+active_observation_axes:
+- upper_frame_boundary
+- lower_frame_boundary
+- head_visibility
+- shoulder_visibility
+- hand_visibility
+- waist_visibility
+- hip_pelvis_visibility
+- thigh_visibility
+- knee_visibility
+- lower_leg_visibility
+- feet_visibility
+- body_orientation
+- boundary_ambiguity_or_artifact
+- assessable
+contact_load:
+  enabled: false
+  fields:
+  - left_hand
+  - right_hand
+  - left_forearm
+  - right_forearm
+  allowed_values:
+  - none
+  - light
+  - supporting
+  - weight_bearing
+  - unclear
+morphology_candidates:
+  primary:
+  - camera_boundary_visibility_observation
+  secondary:
+  - none
+artifact_checks:
+- none
+- anatomy_artifact
+- composition_artifact
+- other
+cross_domain_effects:
+  enabled: false
+  domains: []
+  strength_values: []
+  effect_type_values: []
+rules:
+  preserve_axis_labels_exactly: true
+  preserve_axis_order: true
+  output_all_active_axes_for_every_panel: true
+  use_allowed_values_only: true
+  visible_evidence_only: true
+  enforce_visible_evidence_policy: true
+  analyst_must_not_assign_target_alignment: true
+  analyst_must_not_finalize_concept: true
+  six_images_are_directional_evidence_only: true
+blind_condition_label: COND-7AB18955
+run_id: CAM-002-A
