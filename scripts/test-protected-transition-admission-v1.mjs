@@ -31,6 +31,7 @@ import {
   parsePromptTagDictionaryV1,
   validatePromptTagDictionaryRootV1,
 } from './validate-dictionaries.mjs'
+import { projectAutomatedReviewToMergeReadyContinuationV1 } from './task-execution-context-v1.mjs'
 
 const REPOSITORY = 'whatrune/sd-prompt-studio'
 const HEAD = '1'.repeat(40)
@@ -211,29 +212,6 @@ const captureError = async (fn) => {
     return error
   }
   throw new Error('expected_error_not_thrown')
-}
-
-const simulateImmediateCoordinatorContinuationV1 = ({
-  waitTerminal,
-  terminalKind,
-  identityMatches,
-  owningWorker,
-  observedAt,
-}) => {
-  if (waitTerminal !== true || identityMatches !== true) {
-    return Object.freeze({ actions: Object.freeze([]), action_at: null })
-  }
-  const action = terminalKind === 'CHECKS_PASS'
-    ? Object.freeze({ type: 'DISPATCH_FRESH_REVIEW' })
-    : terminalKind === 'REVIEW_FINDING'
-      ? Object.freeze({ type: 'FOLLOW_UP_OWNING_WORKER', worker: owningWorker })
-      : terminalKind === 'REVIEW_APPROVE'
-        ? Object.freeze({ type: 'RUN_PRE_DECISION_PREFLIGHT' })
-        : null
-  return Object.freeze({
-    actions: Object.freeze(action === null ? [] : [action]),
-    action_at: action === null ? null : observedAt,
-  })
 }
 
 const taskBody = serializeSimplifiedTaskAuthorityV1(taskInput)
@@ -507,12 +485,14 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
   const historicalFindingTerminal = Date.parse('2026-08-28T12:40:20Z')
   const historicalWorkerStart = Date.parse('2026-08-28T13:17:44Z')
   equal(historicalWorkerStart - historicalFindingTerminal, 37 * 60 * 1000 + 24 * 1000)
-  const continuation = simulateImmediateCoordinatorContinuationV1({
+  const continuation = projectAutomatedReviewToMergeReadyContinuationV1({
     waitTerminal: true,
     terminalKind: 'REVIEW_FINDING',
     identityMatches: true,
     owningWorker: 'task-468-worker',
     observedAt: historicalFindingTerminal,
+    terminalCursor: 'task-468-finding-terminal',
+    consumedCursor: null,
   })
   equal(continuation.actions.length, 1)
   equal(continuation.actions[0].type, 'FOLLOW_UP_OWNING_WORKER')
@@ -520,21 +500,21 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
   equal(continuation.action_at - historicalFindingTerminal <= 10_000, true)
 }
 {
-  const checks = simulateImmediateCoordinatorContinuationV1({
+  const checks = projectAutomatedReviewToMergeReadyContinuationV1({
     waitTerminal: true, terminalKind: 'CHECKS_PASS', identityMatches: true,
-    owningWorker: 'worker', observedAt: 100,
+    owningWorker: 'worker', observedAt: 100, terminalCursor: 'checks-pass', consumedCursor: null,
   })
-  const approval = simulateImmediateCoordinatorContinuationV1({
+  const approval = projectAutomatedReviewToMergeReadyContinuationV1({
     waitTerminal: true, terminalKind: 'REVIEW_APPROVE', identityMatches: true,
-    owningWorker: 'worker', observedAt: 100,
+    owningWorker: 'worker', observedAt: 100, terminalCursor: 'review-approve', consumedCursor: null,
   })
-  const nonterminal = simulateImmediateCoordinatorContinuationV1({
+  const nonterminal = projectAutomatedReviewToMergeReadyContinuationV1({
     waitTerminal: false, terminalKind: 'CHECKS_PASS', identityMatches: true,
-    owningWorker: 'worker', observedAt: 100,
+    owningWorker: 'worker', observedAt: 100, terminalCursor: 'checks-nonterminal', consumedCursor: null,
   })
-  const mismatch = simulateImmediateCoordinatorContinuationV1({
+  const mismatch = projectAutomatedReviewToMergeReadyContinuationV1({
     waitTerminal: true, terminalKind: 'REVIEW_FINDING', identityMatches: false,
-    owningWorker: 'worker', observedAt: 100,
+    owningWorker: 'worker', observedAt: 100, terminalCursor: 'finding-mismatch', consumedCursor: null,
   })
   equal(checks.actions.length, 1)
   equal(checks.actions[0].type, 'DISPATCH_FRESH_REVIEW')
@@ -542,6 +522,11 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
   equal(approval.actions[0].type, 'RUN_PRE_DECISION_PREFLIGHT')
   equal(nonterminal.actions.length, 0)
   equal(mismatch.actions.length, 0)
+  equal(projectAutomatedReviewToMergeReadyContinuationV1({
+    waitTerminal: true, terminalKind: 'CHECKS_PASS', identityMatches: true,
+    owningWorker: 'worker', observedAt: 100,
+    terminalCursor: 'checks-pass', consumedCursor: checks.consumed_cursor,
+  }).actions.length, 0)
 }
 
 {

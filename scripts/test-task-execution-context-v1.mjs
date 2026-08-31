@@ -11,6 +11,7 @@ import {
   bindExpectedPullRequestV1,
   createBoundedExecutionIdentityV1,
   inspectHistoricalCommitV1,
+  projectAutomatedReviewToMergeReadyContinuationV1,
 } from './task-execution-context-v1.mjs'
 
 let assertions = 0
@@ -208,7 +209,7 @@ function observed(id = identity(), overrides = {}) {
   })), 'prepublication_pr_discovery')
 }
 
-// 9-10. Disjoint identities run concurrently; overlap needs ordering/reconciliation.
+// 9-10. Distinct identities run concurrently; base freshness is independent of path overlap.
 {
   const left = identity()
   const right = identity({
@@ -220,13 +221,114 @@ function observed(id = identity(), overrides = {}) {
     expected_head: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     execution_instance_id: '22222222-2222-4222-8222-222222222222',
   })
-  equal(admitParallelExecutionsV1(left, right).admission, 'CONCURRENT')
+  const currentMain = left.expected_base
+  const advancedMain = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+  const concurrent = admitParallelExecutionsV1(left, right, { fresh_origin_main: currentMain })
+  equal(concurrent.admission, 'CONCURRENT')
+  equal(concurrent.fresh_base_rebind_required, false)
   const overlap = createBoundedExecutionIdentityV1({
     ...right,
     authorized_paths: [paths455[0]],
   })
-  equal(admitParallelExecutionsV1(left, overlap).admission, 'SERIALIZATION_REQUIRED')
-  equal(admitParallelExecutionsV1(left, overlap, { dependency_ordered: true }).admission, 'ORDERED')
+  const disjointAfterAdvance = admitParallelExecutionsV1(left, right, { fresh_origin_main: advancedMain })
+  equal(disjointAfterAdvance.admission, 'CONCURRENT')
+  equal(disjointAfterAdvance.overlapping_paths.length, 0)
+  equal(disjointAfterAdvance.fresh_base_rebind_required, true)
+
+  const overlappingAfterAdvance = admitParallelExecutionsV1(left, overlap, {
+    fresh_origin_main: advancedMain,
+    shared_owner_conflict: true,
+  })
+  equal(overlappingAfterAdvance.admission, 'SERIALIZATION_REQUIRED')
+  equal(overlappingAfterAdvance.overlapping_paths.length, 1)
+  equal(overlappingAfterAdvance.fresh_base_rebind_required, true)
+  const reconciledOverlap = admitParallelExecutionsV1(left, overlap, {
+    fresh_origin_main: advancedMain,
+    compatibility_reconciled: true,
+  })
+  equal(reconciledOverlap.admission, 'ORDERED')
+  equal(reconciledOverlap.fresh_base_rebind_required, true)
+
+  const unchangedOverlap = admitParallelExecutionsV1(left, overlap, { fresh_origin_main: currentMain })
+  equal(unchangedOverlap.admission, 'CONCURRENT')
+  equal(unchangedOverlap.fresh_base_rebind_required, false)
+  equal(admitParallelExecutionsV1(left, overlap, {
+    fresh_origin_main: currentMain,
+    dependency_ordered: true,
+  }).admission, 'ORDERED')
+  equal(admitParallelExecutionsV1(left, right, {
+    fresh_origin_main: currentMain,
+    protected_transition_conflict: true,
+  }).admission, 'SERIALIZATION_REQUIRED')
+}
+
+// The full bounded coordinator chain advances exactly once and stops before Product Owner authority.
+{
+  const actionFor = (terminalKind, overrides = {}) => projectAutomatedReviewToMergeReadyContinuationV1({
+    waitTerminal: true,
+    terminalKind,
+    identityMatches: true,
+    owningWorker: 'task-497-worker',
+    observedAt: 100,
+    terminalCursor: `cursor-${terminalKind}`,
+    consumedCursor: null,
+    ...overrides,
+  })
+  const expected = [
+    ['IMPLEMENTATION_COMPLETE', 'DISPATCH_PREPUBLICATION_REVIEW'],
+    ['PREPUBLICATION_REVIEW_APPROVE', 'DISPATCH_UNCHANGED_PUBLICATION'],
+    ['PUBLICATION_COMPLETE', 'WAIT_CURRENT_HEAD_CHECKS'],
+    ['CHECKS_PASS', 'DISPATCH_FRESH_REVIEW'],
+    ['CORRECTION_CHECKS_PASS', 'DISPATCH_REPLACEMENT_FRESH_REVIEW'],
+    ['REVIEW_FINDING', 'FOLLOW_UP_OWNING_WORKER'],
+    ['REVIEW_APPROVE', 'RUN_PRE_DECISION_PREFLIGHT'],
+  ]
+  for (const [terminalKind, actionType] of expected) {
+    const result = actionFor(terminalKind)
+    equal(result.outcome, 'CONTINUE')
+    equal(result.actions.length, 1)
+    equal(result.actions[0].type, actionType)
+  }
+  equal(actionFor('REVIEW_FINDING').actions[0].worker, 'task-497-worker')
+  const mergeReady = actionFor('PRE_DECISION_PASS')
+  equal(mergeReady.outcome, 'MERGE_READY')
+  equal(mergeReady.actions.length, 0)
+  equal(actionFor('CHECKS_FAILED').outcome, 'NO_ADVANCE')
+  equal(actionFor('CHECKS_PASS', { waitTerminal: false }).actions.length, 0)
+  equal(actionFor('REVIEW_APPROVE', { identityMatches: false }).actions.length, 0)
+  equal(actionFor('REVIEW_FINDING', { owningWorker: null }).actions.length, 0)
+  equal(actionFor('CHECKS_PASS', { observedAt: -1 }).actions.length, 0)
+  equal(actionFor('CHECKS_PASS', { terminalCursor: null }).actions.length, 0)
+}
+
+// Existing wait cursor identity makes terminal continuation exactly-once without durable state.
+{
+  const project = (terminalKind, terminalCursor, consumedCursor) => projectAutomatedReviewToMergeReadyContinuationV1({
+    waitTerminal: true,
+    terminalKind,
+    identityMatches: true,
+    owningWorker: 'task-497-worker',
+    observedAt: 200,
+    terminalCursor,
+    consumedCursor,
+  })
+  const implementation = project('IMPLEMENTATION_COMPLETE', 'cursor-implementation', null)
+  equal(implementation.actions.length, 1)
+  equal(implementation.actions[0].type, 'DISPATCH_PREPUBLICATION_REVIEW')
+  equal(implementation.consumed_cursor, 'cursor-implementation')
+  equal(project('IMPLEMENTATION_COMPLETE', 'cursor-implementation', implementation.consumed_cursor).actions.length, 0)
+
+  const publication = project('PREPUBLICATION_REVIEW_APPROVE', 'cursor-publication', implementation.consumed_cursor)
+  equal(publication.actions.length, 1)
+  equal(publication.actions[0].type, 'DISPATCH_UNCHANGED_PUBLICATION')
+  equal(publication.consumed_cursor, 'cursor-publication')
+  equal(project('PREPUBLICATION_REVIEW_APPROVE', 'cursor-publication', publication.consumed_cursor).actions.length, 0)
+
+  const finding = project('REVIEW_FINDING', 'cursor-finding', publication.consumed_cursor)
+  equal(finding.actions.length, 1)
+  equal(finding.actions[0].type, 'FOLLOW_UP_OWNING_WORKER')
+  equal(finding.consumed_cursor, 'cursor-finding')
+  equal(project('REVIEW_FINDING', 'cursor-finding', finding.consumed_cursor).actions.length, 0)
 }
 
 // 11. Local branch "main" is not evidence of remote-main identity.

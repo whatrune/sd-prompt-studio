@@ -18,6 +18,14 @@ Normal autonomous publication creates a non-Draft pull request. Draft is support
 
 A HEAD change preserves the GitHub publication state. It invalidates the prior Review and requires current checks plus a fresh exact-HEAD Review only.
 
+## Coordinator continuation to Merge-ready
+
+Integrated Lead uses the existing task-local `wait_threads` target and cursor; there is no repository scheduler, daemon, queue, database, or polling service. The returned terminal cursor advances the task-local consumed cursor before its one projected action. Repeated delivery of the same consumed cursor is a no-op, while a distinct terminal cursor may project its next action normally. A complete implementation first receives a task-local prepublication Independent Review bound to one clean exact commit. That result is only an unchanged-publication gate. Under explicit publication authority, the publisher pushes the exact reviewed commit without amend, rebase, additional commit, or tree change and creates one non-Draft PR.
+
+After direct PR refetch binds the exact Task, branch, registered worktree, PR, base, HEAD, and authorized scope, the coordinator waits for current-HEAD checks. Checks PASS dispatches the authoritative Fresh exact-HEAD Review. Review findings stop Merge-ready progression and return only through the existing same-Worker correction route. Fresh Review `APPROVE / 0 / 0 / 0` runs the existing read-only pre-Decision preflight. A successful preflight projects transient `MERGE_READY` and stops for the Product Owner Merge Decision; it does not publish a record or authorize Merge.
+
+Independent Canonical Tasks use independent wait targets and cursors and may progress concurrently. Shared file names do not create a global lock. Serialization is limited to exact execution-identity collisions, proven shared mutable owners, or the same protected-action resource. Any fresh `origin/main` advancement invalidates every stale lane `expected_base`, whether authorized paths overlap or not. Disjoint advancement may rebind straightforwardly; semantic overlap stays fail-closed until compatibility reconciliation. Either path requires current checks and Fresh exact-HEAD Review after the resulting HEAD rebind, never silent publication of reviewed bytes against a changed binding.
+
 ## Merge
 
 A final, parser-valid Merge Decision must be present in the initial `issue_comment.created` body on the canonical Task Issue. The workflow treats that event as the operation trigger and identity. It fresh-fetches:

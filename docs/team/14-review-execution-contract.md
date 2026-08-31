@@ -15,6 +15,10 @@ For Non-Draft Merge-only Lifecycle V1, one authenticated GitHub Pull Request Rev
 
 ## Review Admission
 
+Before publication, Integrated Lead MAY dispatch one task-local Independent Review of a completed implementation only as the unchanged-publication gate defined by the Shared Role Execution Contract. That review MUST bind the canonical Task, branch, registered worktree, authorized scope, clean exact commit, complete validation, and implementation Result Handoff. Its `APPROVE / 0 / 0 / 0` result permits only separately authorized publication of the exact reviewed commit. It is not a Simplified V1 Review Decision, cannot close a post-publication finding, and cannot satisfy Merge admission.
+
+After non-Draft publication and current-HEAD checks PASS, the reviewer MUST perform the authoritative Fresh Review through the PR-bound admission below. Publication, a prepublication approval, or byte identity alone MUST NOT substitute for that Fresh Review.
+
 At review start and immediately before recording the decision, the reviewer MUST fresh-fetch:
 
 - the canonical Task Assignment and cumulative authority records;
@@ -75,7 +79,7 @@ A stale, missing, or conflicting Gate Status entry is a review finding. The revi
 
 The dependent read-only gate MAY reuse verified post-write evidence only under the Gate Status projection-only conditions in the Shared Role Execution Contract. Any HEAD or cumulative-authority change, non-projection edit, missing digest, failed post-write re-fetch, concurrent edit, or mismatch requires rerun and fail-closed handling.
 
-After a HEAD change, prior approval is historical and a fresh exact-HEAD Review is required. GitHub's publication state remains unchanged; no publication-generation replay is required.
+After a HEAD change, including a fresh-base rebind caused by any `origin/main` advancement regardless of path overlap, prior approval is historical and a fresh exact-HEAD Review is required. GitHub's publication state remains unchanged; no publication-generation replay is required.
 
 ## Review Decision Record
 
