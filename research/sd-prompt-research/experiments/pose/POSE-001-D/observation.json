@@ -1,0 +1,262 @@
+{
+  "schema_version": "3.0",
+  "run_id": "POSE-001-D",
+  "blind_condition_label": "COND-10",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "observed_framing",
+    "body_state",
+    "body_orientation",
+    "feet_visible",
+    "knees_visible",
+    "support_boundary_visible",
+    "seat_or_ground_contact_visible",
+    "lower_body_visibility",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-10 observed-framing distribution: full_body=2/6, other=4/6.",
+      "Opaque condition COND-10 body-state distribution: standing=6/6.",
+      "A prominent unexpected aircraft or aircraft-like structure is visible in 6/6 panels."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only COND-10, panel number, seed identity, and pixels; prompts, requested pose/framing, PromptTag IDs, emitted phrases, and run mapping were withheld.",
+      "The 72-panel opaque observation record was frozen before mapping disclosure at SHA-256 e6a6209adfb63444fc5cd51c6ee088d732534ed167683e57bf309a94a413c8a3.",
+      "Canonical run_id binding was applied after decoding without changing any frozen panel axis value.",
+      "Prompt-support and final-condition comparisons are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "full_body",
+        "standing",
+        "vertical",
+        "both",
+        "both",
+        "present",
+        "present",
+        "complete",
+        "composition_artifact"
+      ],
+      "primary_morphology": "pose_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Panel 1 visibly shows framing `full_body`, body state `standing`, and `vertical` orientation. Direct visible evidence records feet `both`, knees `both`, support boundary `present`, seat/ground contact `present`, and lower-body visibility `complete`. A prominent unexpected aircraft or aircraft-like structure is visible in the composition."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "unexpected_aircraft_composition"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "other",
+        "standing",
+        "vertical",
+        "both",
+        "both",
+        "present",
+        "present",
+        "complete",
+        "composition_artifact"
+      ],
+      "primary_morphology": "pose_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Panel 2 visibly shows framing `other`, body state `standing`, and `vertical` orientation. Direct visible evidence records feet `both`, knees `both`, support boundary `present`, seat/ground contact `present`, and lower-body visibility `complete`. A prominent unexpected aircraft or aircraft-like structure is visible in the composition."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "unexpected_aircraft_composition"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "other",
+        "standing",
+        "vertical",
+        "both",
+        "both",
+        "present",
+        "present",
+        "complete",
+        "composition_artifact"
+      ],
+      "primary_morphology": "pose_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Panel 3 visibly shows framing `other`, body state `standing`, and `vertical` orientation. Direct visible evidence records feet `both`, knees `both`, support boundary `present`, seat/ground contact `present`, and lower-body visibility `complete`. A prominent unexpected aircraft or aircraft-like structure is visible in the composition."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "unexpected_aircraft_composition"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "other",
+        "standing",
+        "vertical",
+        "both",
+        "both",
+        "present",
+        "present",
+        "complete",
+        "composition_artifact"
+      ],
+      "primary_morphology": "pose_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Panel 4 visibly shows framing `other`, body state `standing`, and `vertical` orientation. Direct visible evidence records feet `both`, knees `both`, support boundary `present`, seat/ground contact `present`, and lower-body visibility `complete`. A prominent unexpected aircraft or aircraft-like structure is visible in the composition."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "unexpected_aircraft_composition"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "other",
+        "standing",
+        "vertical",
+        "both",
+        "both",
+        "present",
+        "present",
+        "complete",
+        "composition_artifact"
+      ],
+      "primary_morphology": "pose_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Panel 5 visibly shows framing `other`, body state `standing`, and `vertical` orientation. Direct visible evidence records feet `both`, knees `both`, support boundary `present`, seat/ground contact `present`, and lower-body visibility `complete`. A prominent unexpected aircraft or aircraft-like structure is visible in the composition."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "unexpected_aircraft_composition"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "full_body",
+        "standing",
+        "vertical",
+        "both",
+        "both",
+        "present",
+        "present",
+        "complete",
+        "composition_artifact"
+      ],
+      "primary_morphology": "pose_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Panel 6 visibly shows framing `full_body`, body state `standing`, and `vertical` orientation. Direct visible evidence records feet `both`, knees `both`, support boundary `present`, seat/ground contact `present`, and lower-body visibility `complete`. A prominent unexpected aircraft or aircraft-like structure is visible in the composition."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "unexpected_aircraft_composition"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves opaque condition-local visible evidence; decoding and experiment comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "observed_framing": {
+        "full_body": 2,
+        "other": 4
+      },
+      "body_state": {
+        "standing": 6
+      },
+      "body_orientation": {
+        "vertical": 6
+      },
+      "feet_visible": {
+        "both": 6
+      },
+      "knees_visible": {
+        "both": 6
+      },
+      "support_boundary_visible": {
+        "present": 6
+      },
+      "seat_or_ground_contact_visible": {
+        "present": 6
+      },
+      "lower_body_visibility": {
+        "complete": 6
+      },
+      "ambiguity_or_artifact": {
+        "composition_artifact": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "pose_visibility_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "unexpected_aircraft_composition": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
