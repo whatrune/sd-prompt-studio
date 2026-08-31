@@ -79,7 +79,7 @@ workflow:
   assigned_to: 研究担当ChatGPT
   human_reviewed_by: null
   accepted_at: null
-  notes: 'Generated directly through the verified A1111 txt2img API under Task #492. Prompt-blind observations were frozen before mapping decode. Classification: CONFIRMED_COEXISTENCE. Canonical ledger registration remains pending. Results are research evidence only.'
+  notes: 'Generated directly through the verified A1111 txt2img API under Task #492. Prompt-blind observations were frozen before mapping decode. Classification: CONFIRMED_COEXISTENCE. EYE-002-A and EYE-002-B are each registered exactly once in the canonical run-index as part of this exact 13-path Task delta; no ledger mutation remains deferred. Results are research evidence only.'
 ingested_metadata:
   metadata_status: verified
   source: a1111_txt2img_api

@@ -288,6 +288,6 @@
     "generation_provenance": "PASS",
     "matched_prompt_contract": "PASS",
     "observation_status": "PROMPT_BLIND_OBSERVATION_FROZEN_AND_DECODED",
-    "ledger_registration": "DEFERRED_TO_POST_LEDGER"
+    "ledger_registration": "REGISTERED_EXACTLY_ONCE_IN_CANONICAL_RUN_INDEX"
   }
 }
