@@ -22,6 +22,10 @@ const MERGE_FIELDS = Object.freeze([
   'record_type', 'task_issue', 'pull_request', 'exact_head', 'expected_base',
   'authorized_paths', 'review_kind', 'review_id', 'review_url', 'merge_method', 'operation_count',
 ])
+const PRE_DECISION_FIELDS = Object.freeze([
+  'repository', 'task_issue', 'pull_request', 'exact_head', 'expected_base',
+  'authorized_paths', 'review_kind', 'review_id', 'review_url',
+])
 
 const CHECK_CATALOG = Object.freeze({
   'build-preview': Object.freeze({ name: 'build-preview', appDatabaseId: '15368' }),
@@ -435,6 +439,24 @@ const acquireLiveSnapshot = async ({
     mergeable: livePull.mergeable,
     merge_state_status: livePull.mergeStateStatus,
     draft: false,
+  })
+}
+
+export const acquireSimplifiedPreDecisionPreflightV1 = async ({ request, host }) => {
+  if (!exactKeys(request, PRE_DECISION_FIELDS) || host === null || typeof host !== 'object') {
+    throw new Error('pre_decision_preflight_request_invalid')
+  }
+  return acquireLiveSnapshot({
+    repository: request.repository,
+    taskIssue: request.task_issue,
+    prNumber: request.pull_request,
+    exactHead: request.exact_head,
+    expectedBase: request.expected_base,
+    authorizedPaths: request.authorized_paths,
+    reviewId: request.review_id,
+    reviewUrl: request.review_url,
+    reviewKind: request.review_kind,
+    host,
   })
 }
 

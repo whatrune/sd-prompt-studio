@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { parseDocument } from 'yaml'
 import {
+  acquireSimplifiedPreDecisionPreflightV1,
   classifyValidationPathsV1,
   evaluateRequiredChecksV1,
   executeSimplifiedMergeV1,
@@ -66,6 +67,18 @@ const decisionInput = (overrides = {}) => Object.freeze({
   operation_count: 1,
   ...overrides,
 })
+const preDecisionInput = (overrides = {}) => Object.freeze({
+  repository: REPOSITORY,
+  task_issue: TASK,
+  pull_request: PR,
+  exact_head: HEAD,
+  expected_base: BASE,
+  authorized_paths: PATHS,
+  review_kind: 'PULL_REQUEST_REVIEW',
+  review_id: REVIEW,
+  review_url: REVIEW_URL,
+  ...overrides,
+})
 
 const check = (name, appDatabaseId, overrides = {}) => ({
   __typename: 'CheckRun',
@@ -81,11 +94,14 @@ const check = (name, appDatabaseId, overrides = {}) => ({
 
 const createFixture = ({
   draft = false,
+  head = HEAD,
   reviewHead = HEAD,
   paths = PATHS,
   threads = [],
   checks,
   main = BASE,
+  mergeable = 'MERGEABLE',
+  mergeStateStatus = 'CLEAN',
   mergeError = null,
   mergeResponse = { sha: MERGE, merged: true, message: 'Pull Request successfully merged' },
   afterMergeParents = [{ sha: BASE }, { sha: HEAD }],
@@ -93,7 +109,7 @@ const createFixture = ({
   const state = {
     draft,
     merged: false,
-    head: HEAD,
+    head,
     main,
     mergeCommit: null,
     mergeMutations: 0,
@@ -154,8 +170,8 @@ const createFixture = ({
           isDraft: state.draft,
           merged: state.merged,
           headRefOid: state.head,
-          mergeable: 'MERGEABLE',
-          mergeStateStatus: 'CLEAN',
+          mergeable,
+          mergeStateStatus,
           reviewThreads: { nodes: threads, pageInfo: { hasNextPage: false, endCursor: null } },
         } } }
       }
@@ -183,6 +199,29 @@ const captureError = async (fn) => {
     return error
   }
   throw new Error('expected_error_not_thrown')
+}
+
+const simulateImmediateCoordinatorContinuationV1 = ({
+  waitTerminal,
+  terminalKind,
+  identityMatches,
+  owningWorker,
+  observedAt,
+}) => {
+  if (waitTerminal !== true || identityMatches !== true) {
+    return Object.freeze({ actions: Object.freeze([]), action_at: null })
+  }
+  const action = terminalKind === 'CHECKS_PASS'
+    ? Object.freeze({ type: 'DISPATCH_FRESH_REVIEW' })
+    : terminalKind === 'REVIEW_FINDING'
+      ? Object.freeze({ type: 'FOLLOW_UP_OWNING_WORKER', worker: owningWorker })
+      : terminalKind === 'REVIEW_APPROVE'
+        ? Object.freeze({ type: 'RUN_PRE_DECISION_PREFLIGHT' })
+        : null
+  return Object.freeze({
+    actions: Object.freeze(action === null ? [] : [action]),
+    action_at: action === null ? null : observedAt,
+  })
 }
 
 const taskBody = serializeSimplifiedTaskAuthorityV1(taskInput)
@@ -259,6 +298,118 @@ equal(evaluateRequiredChecksV1({ checks: [check('validate', 15368)], paths: ['re
 throws(() => evaluateRequiredChecksV1({ checks: [check('build-preview', 15368), check('Cloudflare Pages', 85455)], paths: PATHS, exactHead: HEAD }), /required_check_missing:validate/)
 throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check('Cloudflare Pages', 85455)], paths: PATHS, exactHead: HEAD }), /required_check_missing:build-preview/)
 throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check('build-preview', 15368, { conclusion: 'FAILURE' }), check('Cloudflare Pages', 85455)], paths: PATHS, exactHead: HEAD }), /required_check_not_successful:build-preview/)
+
+{
+  const fixture = createFixture()
+  const snapshot = await acquireSimplifiedPreDecisionPreflightV1({ request: preDecisionInput(), host: fixture.host })
+  equal(snapshot.task_issue, TASK)
+  equal(snapshot.pr_number, PR)
+  equal(snapshot.exact_head, HEAD)
+  equal(snapshot.expected_base, BASE)
+  equal(snapshot.authorized_paths.join(','), PATHS.slice().sort().join(','))
+  equal(snapshot.required_checks.length, 3)
+  equal(snapshot.thread_ids.length, 0)
+  equal(snapshot.mergeable, 'MERGEABLE')
+  equal(fixture.state.mergeMutations, 0)
+}
+{
+  const fixture = createFixture({ threads: [{ id: 'thread-1', isResolved: false, isOutdated: false }] })
+  const error = await captureError(() => acquireSimplifiedPreDecisionPreflightV1({ request: preDecisionInput(), host: fixture.host }))
+  equal(error.message, 'blocking_review_threads_present')
+  equal(fixture.state.mergeMutations, 0)
+}
+{
+  const fixture = createFixture({ checks: [check('validate', 15368), check('build-preview', 15368), check('Cloudflare Pages', 85455, { status: 'IN_PROGRESS', conclusion: null })] })
+  const error = await captureError(() => acquireSimplifiedPreDecisionPreflightV1({ request: preDecisionInput(), host: fixture.host }))
+  equal(error.message, 'required_check_not_successful:Cloudflare Pages')
+  equal(fixture.state.mergeMutations, 0)
+}
+{
+  const fixture = createFixture({ main: '4'.repeat(40) })
+  const error = await captureError(() => acquireSimplifiedPreDecisionPreflightV1({ request: preDecisionInput(), host: fixture.host }))
+  equal(error.message, 'live_binding_invalid')
+  equal(fixture.state.mergeMutations, 0)
+}
+{
+  const fixture = createFixture({ draft: true })
+  const error = await captureError(() => acquireSimplifiedPreDecisionPreflightV1({ request: preDecisionInput(), host: fixture.host }))
+  equal(error.message, 'live_binding_invalid')
+  equal(fixture.state.mergeMutations, 0)
+}
+{
+  const fixture = createFixture({ head: '4'.repeat(40) })
+  const error = await captureError(() => acquireSimplifiedPreDecisionPreflightV1({ request: preDecisionInput(), host: fixture.host }))
+  equal(error.message, 'review_threads_acquisition_failed')
+  equal(fixture.state.mergeMutations, 0)
+}
+{
+  const fixture = createFixture({ reviewHead: BASE })
+  const error = await captureError(() => acquireSimplifiedPreDecisionPreflightV1({ request: preDecisionInput(), host: fixture.host }))
+  equal(error.message, 'live_binding_invalid')
+  equal(fixture.state.mergeMutations, 0)
+}
+{
+  const fixture = createFixture({ paths: ['AGENTS.md'] })
+  const error = await captureError(() => acquireSimplifiedPreDecisionPreflightV1({ request: preDecisionInput(), host: fixture.host }))
+  equal(error.message, 'live_binding_invalid')
+  equal(fixture.state.mergeMutations, 0)
+}
+{
+  const fixture = createFixture({ mergeable: 'CONFLICTING', mergeStateStatus: 'DIRTY' })
+  const error = await captureError(() => acquireSimplifiedPreDecisionPreflightV1({ request: preDecisionInput(), host: fixture.host }))
+  equal(error.message, 'mergeability_invalid')
+  equal(fixture.state.mergeMutations, 0)
+}
+{
+  const fixture = createFixture()
+  const error = await captureError(() => acquireSimplifiedPreDecisionPreflightV1({
+    request: { ...preDecisionInput(), unknown_field: true },
+    host: fixture.host,
+  }))
+  equal(error.message, 'pre_decision_preflight_request_invalid')
+  equal(fixture.state.mergeMutations, 0)
+}
+
+{
+  const historicalFindingTerminal = Date.parse('2026-08-28T12:40:20Z')
+  const historicalWorkerStart = Date.parse('2026-08-28T13:17:44Z')
+  equal(historicalWorkerStart - historicalFindingTerminal, 37 * 60 * 1000 + 24 * 1000)
+  const continuation = simulateImmediateCoordinatorContinuationV1({
+    waitTerminal: true,
+    terminalKind: 'REVIEW_FINDING',
+    identityMatches: true,
+    owningWorker: 'task-468-worker',
+    observedAt: historicalFindingTerminal,
+  })
+  equal(continuation.actions.length, 1)
+  equal(continuation.actions[0].type, 'FOLLOW_UP_OWNING_WORKER')
+  equal(continuation.actions[0].worker, 'task-468-worker')
+  equal(continuation.action_at - historicalFindingTerminal <= 10_000, true)
+}
+{
+  const checks = simulateImmediateCoordinatorContinuationV1({
+    waitTerminal: true, terminalKind: 'CHECKS_PASS', identityMatches: true,
+    owningWorker: 'worker', observedAt: 100,
+  })
+  const approval = simulateImmediateCoordinatorContinuationV1({
+    waitTerminal: true, terminalKind: 'REVIEW_APPROVE', identityMatches: true,
+    owningWorker: 'worker', observedAt: 100,
+  })
+  const nonterminal = simulateImmediateCoordinatorContinuationV1({
+    waitTerminal: false, terminalKind: 'CHECKS_PASS', identityMatches: true,
+    owningWorker: 'worker', observedAt: 100,
+  })
+  const mismatch = simulateImmediateCoordinatorContinuationV1({
+    waitTerminal: true, terminalKind: 'REVIEW_FINDING', identityMatches: false,
+    owningWorker: 'worker', observedAt: 100,
+  })
+  equal(checks.actions.length, 1)
+  equal(checks.actions[0].type, 'DISPATCH_FRESH_REVIEW')
+  equal(approval.actions.length, 1)
+  equal(approval.actions[0].type, 'RUN_PRE_DECISION_PREFLIGHT')
+  equal(nonterminal.actions.length, 0)
+  equal(mismatch.actions.length, 0)
+}
 
 {
   const fixture = createFixture()
@@ -588,6 +739,9 @@ equal(workflowDocument.errors.length, 0)
 const workflowPermissions = workflowDocument.toJS().permissions
 const preflightSource = readFileSync(new URL('./protected-transition-merge-operator-preflight-v1.mjs', import.meta.url), 'utf8')
 const runnerSource = readFileSync(new URL('./run-protected-transition-admission-v1.mjs', import.meta.url), 'utf8')
+const agentsSource = readFileSync(new URL('../AGENTS.md', import.meta.url), 'utf8')
+const integratedLeadSource = readFileSync(new URL('../docs/team/08-integrated-lead-charter.md', import.meta.url), 'utf8')
+const sharedRoleSource = readFileSync(new URL('../docs/team/13-shared-role-execution-contract.md', import.meta.url), 'utf8')
 ok(workflow.includes('simplified_protected_transition_v1:'))
 ok(workflow.includes('persist-credentials: false'))
 ok(workflow.includes('github.workflow_sha'))
@@ -606,6 +760,19 @@ equal(preflightSource.includes('READY_MUTATION'), false)
 equal(preflightSource.includes('mutation MergeSimplifiedPullRequest'), false)
 equal(preflightSource.includes('mergePullRequest(input:'), false)
 ok(preflightSource.includes('host.mergePullRequest'))
+ok(runnerSource.includes("valueAfter('--pre-decision-preflight-file')"))
+ok(runnerSource.includes('acquireSimplifiedPreDecisionPreflightV1'))
+ok(agentsSource.includes('## Immediate Terminal Continuation'))
+ok(agentsSource.includes('wait_threads'))
+ok(agentsSource.includes('same owning Worker'))
+ok(agentsSource.includes('at most 10 seconds'))
+ok(integratedLeadSource.includes('checks PASS dispatches Fresh Review'))
+ok(integratedLeadSource.includes('correction checks PASS dispatches replacement Fresh Review'))
+ok(integratedLeadSource.includes('read-only pre-Decision preflight'))
+ok(sharedRoleSource.includes('Timeout, nonterminal state, stale HEAD, and identity mismatch prohibit stage advance'))
+ok(sharedRoleSource.includes('zero active unresolved non-outdated threads'))
+equal((preflightSource.match(/const initial = await acquireLiveSnapshot/g) ?? []).length, 1)
+equal((preflightSource.match(/const final = await acquireLiveSnapshot/g) ?? []).length, 1)
 ok(runnerSource.includes("method: 'PUT'"))
 ok(runnerSource.includes("body: JSON.stringify({ sha: exactHead, merge_method: 'merge' })"))
 equal(runnerSource.includes('simplified-workflow-dispatch-event-file'), false)

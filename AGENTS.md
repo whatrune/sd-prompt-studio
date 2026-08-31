@@ -27,6 +27,14 @@ Lower-precedence documents MUST NOT weaken these canonical rules. A conflict tha
 - Architecture Gap, internal implementation discretion, Issue Scope, same-task correction, protected actions, and Merge sequencing MUST use the Shared Role Execution Contract without local reinterpretation.
 - Existing user changes MUST be preserved. Destructive Git operations, unrelated cleanup, and scope expansion MUST NOT be performed without explicit authority.
 
+## Immediate Terminal Continuation
+
+- Integrated Lead is the continuation owner for terminal check and review events. After dispatching an owner or reviewer, it MUST wait through the existing `wait_threads` target and cursor and, when that wait reports a terminal event, fresh-bind the exact Task, PR, HEAD, branch, worktree, and authorized scope before taking exactly one valid next-stage action.
+- A terminal checks PASS result MUST immediately dispatch Fresh Review. A terminal Fresh Review finding MUST immediately follow up the same owning Worker after revalidating `BOUNDED_EXECUTION_IDENTITY_V1`. Correction checks PASS MUST immediately dispatch replacement Fresh Review. Fresh Review APPROVE MUST immediately run the read-only pre-Decision preflight.
+- A timeout, nonterminal result, stale HEAD, or execution-identity mismatch MUST NOT advance the stage. There is no fallback to a fuzzy or latest Worker and no automatic retry.
+- Once the terminal event and fresh binding make the next action deterministic, Integrated Lead MUST NOT enter an intermediate passive wait. The target event-to-next-action latency is at most 10 seconds, excluding the execution time of the wait, GitHub, check, review, or other external tool itself.
+- Before requesting a Product Owner Merge Decision, Integrated Lead MUST pass the shared read-only pre-Decision preflight, including zero active unresolved non-outdated review threads. Publishing a Decision first and relying on the Merge operator to reject it later is prohibited.
+
 ## Git and Change Scope
 
 - `gh auth status` MUST NOT be treated as the sole GitHub-access test; repository API access and the required operation must be verified directly when authentication output conflicts with observed access.
