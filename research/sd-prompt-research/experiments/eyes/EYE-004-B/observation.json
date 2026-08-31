@@ -1,0 +1,262 @@
+{
+  "schema_version": "3.0",
+  "run_id": "EYE-004-B",
+  "blind_condition_label": "COND-05",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "observed_framing",
+    "face_visibility",
+    "eyes_visible",
+    "left_eye_gaze",
+    "right_eye_gaze",
+    "binocular_coordination",
+    "face_orientation",
+    "gaze_assessable",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-05: face and both eyes visible with gaze assessable in 6/6 panels.",
+      "Both eyes were viewer-directed in 6/6 and away-directed in 0/6 panels.",
+      "Frontal face orientation occurred in 6/6; three-quarter orientation occurred in 0/6; ambiguity/artifact was 0/6."
+    ],
+    "analysis_notes": [
+      "The observer received only opaque condition/panel IDs and pixels; prompts, seeds, requested labels, run mapping, Task identity, and generation metadata were withheld.",
+      "The 36-panel opaque observation record was frozen before mapping disclosure at SHA-256 abd1d1e319cece7f711df6472e16510334b87158f929149c3707663361622fbe.",
+      "Canonical run_id, panel_id, and seed binding was applied only after freeze and did not change a visual row.",
+      "Gaze used visible pupil/eye-direction evidence; face orientation alone was insufficient.",
+      "Matched-seed outcomes and final classification are review-derived only after decode."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "upper_body",
+        "clear",
+        "both",
+        "toward_viewer",
+        "toward_viewer",
+        "aligned",
+        "frontal",
+        "yes",
+        "none"
+      ],
+      "primary_morphology": "directional_gaze_semantic_disambiguation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both eyes show direct viewer contact."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "upper_body",
+        "clear",
+        "both",
+        "toward_viewer",
+        "toward_viewer",
+        "aligned",
+        "frontal",
+        "yes",
+        "none"
+      ],
+      "primary_morphology": "directional_gaze_semantic_disambiguation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both pupils are centered and aligned toward the viewer."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "upper_body",
+        "clear",
+        "both",
+        "toward_viewer",
+        "toward_viewer",
+        "aligned",
+        "frontal",
+        "yes",
+        "none"
+      ],
+      "primary_morphology": "directional_gaze_semantic_disambiguation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both pupils are clearly visible and directed toward the viewer."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "upper_body",
+        "clear",
+        "both",
+        "toward_viewer",
+        "toward_viewer",
+        "aligned",
+        "frontal",
+        "yes",
+        "none"
+      ],
+      "primary_morphology": "directional_gaze_semantic_disambiguation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both pupils are centered and coherently viewer-directed."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "upper_body",
+        "clear",
+        "both",
+        "toward_viewer",
+        "toward_viewer",
+        "aligned",
+        "frontal",
+        "yes",
+        "none"
+      ],
+      "primary_morphology": "directional_gaze_semantic_disambiguation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both eyes are clear with matching viewer-directed gaze."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "upper_body",
+        "clear",
+        "both",
+        "toward_viewer",
+        "toward_viewer",
+        "aligned",
+        "frontal",
+        "yes",
+        "none"
+      ],
+      "primary_morphology": "directional_gaze_semantic_disambiguation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both pupils are visible and viewer-directed."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "observed_framing": {
+        "upper_body": 6
+      },
+      "face_visibility": {
+        "clear": 6
+      },
+      "eyes_visible": {
+        "both": 6
+      },
+      "left_eye_gaze": {
+        "toward_viewer": 6
+      },
+      "right_eye_gaze": {
+        "toward_viewer": 6
+      },
+      "binocular_coordination": {
+        "aligned": 6
+      },
+      "face_orientation": {
+        "frontal": 6
+      },
+      "gaze_assessable": {
+        "yes": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "directional_gaze_semantic_disambiguation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}

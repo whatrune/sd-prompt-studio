@@ -408,3 +408,39 @@ runs:
   status: OBSERVED
   updated_at: '2026-08-31T17:20:13+09:00'
   path: experiments/eyes/EYE-003-C
+- run_id: EYE-004-A
+  domain: eyes
+  title: EYE-004-A — orientation-locked upper-body reference
+  status: OBSERVED
+  updated_at: '2026-09-01T00:59:40+09:00'
+  path: experiments/eyes/EYE-004-A
+- run_id: EYE-004-B
+  domain: eyes
+  title: EYE-004-B — orientation-locked upper-body looking-away treatment
+  status: OBSERVED
+  updated_at: '2026-09-01T00:59:40+09:00'
+  path: experiments/eyes/EYE-004-B
+- run_id: EYE-004-C
+  domain: eyes
+  title: EYE-004-C — orientation-unlocked upper-body reference
+  status: OBSERVED
+  updated_at: '2026-09-01T00:59:40+09:00'
+  path: experiments/eyes/EYE-004-C
+- run_id: EYE-004-D
+  domain: eyes
+  title: EYE-004-D — orientation-unlocked upper-body looking-away treatment
+  status: OBSERVED
+  updated_at: '2026-09-01T00:59:40+09:00'
+  path: experiments/eyes/EYE-004-D
+- run_id: EYE-004-E
+  domain: eyes
+  title: EYE-004-E — orientation-unlocked medium-close-up reference
+  status: OBSERVED
+  updated_at: '2026-09-01T00:59:40+09:00'
+  path: experiments/eyes/EYE-004-E
+- run_id: EYE-004-F
+  domain: eyes
+  title: EYE-004-F — orientation-unlocked medium-close-up looking-away treatment
+  status: OBSERVED
+  updated_at: '2026-09-01T00:59:40+09:00'
+  path: experiments/eyes/EYE-004-F
