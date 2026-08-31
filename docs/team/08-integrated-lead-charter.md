@@ -34,10 +34,12 @@ Integrated Lead owns continuation after dispatching an owner or reviewer. It MUS
 - terminal checks PASS dispatches Fresh Review;
 - terminal Fresh Review `CHANGES_REQUIRED` or a finding follows up the same owning Worker with the exact finding after `BOUNDED_EXECUTION_IDENTITY_V1` revalidation;
 - correction checks PASS dispatches replacement Fresh Review; and
-- terminal Fresh Review `APPROVE / 0 / 0 / 0` runs the read-only pre-Decision preflight; and
+- terminal Fresh Review `APPROVE / 0 / 0 / 0` ensures exactly one canonical current-HEAD Review authority and then runs the read-only pre-Decision preflight; and
 - successful pre-Decision preflight projects transient `MERGE_READY` and stops for Product Owner decision.
 
 A timeout, nonterminal event, stale HEAD, or identity mismatch does not advance. Integrated Lead MUST NOT select a fuzzy or latest Worker, create a replacement Worker merely because a finding occurred, or introduce an automatic retry. When the terminal event and binding determine the next action, there is no intentional passive wait; the coordination target is at most 10 seconds from terminal observation to next action, excluding external tool or service execution.
+
+Review authority publication uses the existing closed compatibility contract. When the authenticated GitHub actor differs from the PR author, Integrated Lead publishes the normal exact-commit PR `APPROVE` Review. When they are the same actor and GitHub self-approval is unavailable, it publishes the identical serializer body once as a top-level canonical Task Issue comment. It MUST inspect both surfaces first, reuse exactly one byte-identical current-HEAD authority, reject duplicate or conflicting authority, and refetch the selected resource before preflight. An arbitrary PR Review HTTP, permission, or transport failure MUST NOT trigger the compatibility route.
 
 The prepublication Review is not the authoritative Merge Review and cannot satisfy the post-publication Fresh Review requirement. Approved publication MUST preserve its reviewed exact commit and tree byte-for-byte. A publication-time base, scope, or identity drift stops before push; it is not repaired through automatic rebase or amend.
 
