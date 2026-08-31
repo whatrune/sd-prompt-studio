@@ -378,3 +378,15 @@ runs:
   status: OBSERVED
   updated_at: '2026-08-31T14:18:12+09:00'
   path: experiments/eyes/EYE-002-B
+- run_id: EYE-001-A
+  domain: eyes
+  title: EYE-001-A — closed eyes control
+  status: OBSERVED
+  updated_at: '2026-08-31T14:30:47+09:00'
+  path: experiments/eyes/EYE-001-A
+- run_id: EYE-001-B
+  domain: eyes
+  title: EYE-001-B — looking at viewer plus closed eyes treatment
+  status: OBSERVED
+  updated_at: '2026-08-31T14:30:47+09:00'
+  path: experiments/eyes/EYE-001-B
