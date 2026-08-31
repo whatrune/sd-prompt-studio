@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import {
+  acquireSimplifiedPreDecisionPreflightV1,
   executeSimplifiedMergeV1,
   serializeSimplifiedMergeDecisionV1,
   serializeSimplifiedReviewV1,
@@ -216,11 +217,21 @@ if (process.argv[1] !== undefined && pathToFileURL(process.argv[1]).href === imp
         : serializeSimplifiedMergeDecisionV1(input)
     process.stdout.write(body)
   } else {
-    const issueEventFile = valueAfter('--simplified-issue-comment-event-file')
-    if (issueEventFile === null) throw new Error('issue_comment_event_file_required')
-    const event = readJson(issueEventFile)
-    const plan = await executeSimplifiedMergeV1({ event, host: createProductionHostV1() })
-    process.stdout.write(`${JSON.stringify(plan)}\n`)
-    process.exitCode = plan.exit_code
+    const preDecisionPreflightFile = valueAfter('--pre-decision-preflight-file')
+    if (preDecisionPreflightFile !== null) {
+      const snapshot = await acquireSimplifiedPreDecisionPreflightV1({
+        request: readJson(preDecisionPreflightFile),
+        host: createProductionHostV1(),
+      })
+      process.stdout.write(`${JSON.stringify(snapshot)}\n`)
+      process.exitCode = 0
+    } else {
+      const issueEventFile = valueAfter('--simplified-issue-comment-event-file')
+      if (issueEventFile === null) throw new Error('issue_comment_event_file_required')
+      const event = readJson(issueEventFile)
+      const plan = await executeSimplifiedMergeV1({ event, host: createProductionHostV1() })
+      process.stdout.write(`${JSON.stringify(plan)}\n`)
+      process.exitCode = plan.exit_code
+    }
   }
 }

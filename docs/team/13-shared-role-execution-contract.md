@@ -19,6 +19,12 @@ For Review and Merge, this section supersedes historical publication-generation 
 
 A HEAD change invalidates the prior Review and requires current checks plus a fresh exact-HEAD Review. It does not require returning a non-Draft PR to Draft, replaying publication, or rebuilding Ready evidence. Live GitHub state is authoritative at the protected-action boundary.
 
+### Terminal Event Continuation
+
+The Integrated Lead remains the continuation owner after dispatching a Worker or reviewing Role. It MUST wait through the existing `wait_threads` target and cursor. When checks or Review reaches a terminal result, the same coordination turn MUST fresh-bind the exact execution identity and perform exactly one deterministic next-stage action: checks PASS to Fresh Review; Review finding to the same owning Worker; correction checks PASS to replacement Fresh Review; or Fresh Review APPROVE to read-only pre-Decision preflight. The finding continuation MUST preserve the exact Task, branch, worktree, HEAD generation, and authorized scope and MUST revalidate `BOUNDED_EXECUTION_IDENTITY_V1` before follow-up.
+
+Timeout, nonterminal state, stale HEAD, and identity mismatch prohibit stage advance. A terminal event MUST NOT create Worker self-resumption, fuzzy Worker selection, automatic retry, a new lifecycle state, or an intermediate passive wait. The event-to-next-action coordination target is at most 10 seconds, excluding external tool or service execution.
+
 Simplified V1 records use the closed fields implemented by the Node serializer/parser: Task Authority binds Task Issue number, repository, objective, authorized paths, the legacy `ready_allowed` compatibility field, and Product Owner; Review binds Task, PR, exact HEAD, decision, and the three finding counts; Merge Decision binds Task, PR, exact HEAD, expected base, authorized paths, Review identity, merge method, and operation count. The parser continues to accept Boolean `ready_allowed` values in existing Task bodies, but the field has no operational effect. GitHub's fresh-fetched Issue, Pull Request Review, and comment identities own actor and resource identity. Generic self-referential `canonical_record`, predecessor, digest, seal, and generation metadata elsewhere in this document do not apply to these three records.
 
 ## Shared Admission
@@ -123,6 +129,8 @@ Authority for one protected action MUST NOT be reused for another. A recommendat
 | prior Merge completion combined with a later open-PR HEAD | canonical conflict; stop `blocked` and escalate |
 
 ## Merge Decision and Merge Operation
+
+Before the Product Owner is asked for a Merge Decision, Integrated Lead MUST run the shared read-only pre-Decision preflight. It fresh-fetches and requires the exact Task, open non-Draft unmerged PR, exact HEAD and current main base, every changed-file page and exact authorized scope, the current exact-HEAD Fresh Review, the path-aware required-check rollup, every review-thread page with zero active unresolved non-outdated threads, and current Merge applicability. Failure stops before a Decision request and performs no publication or mutation.
 
 Merge decision and Merge operation are separate authorities. Immediately before Merge, the operator fresh-fetches the open, non-Draft, unmerged PR; exact HEAD and current main; every changed-file page and exact authorized scope; the path-aware required-check rollup; every review-thread page; the exact-HEAD approved Review; and mergeability. It then repeats that live binding once immediately before one expected-SHA Merge mutation. Missing, pending, cancelled, or failing required checks, an active unresolved non-outdated thread, stale Review, HEAD/base/scope drift, or invalid mergeability stops before mutation.
 
