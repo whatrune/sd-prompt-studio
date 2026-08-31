@@ -1,0 +1,85 @@
+schema_version: '1.0'
+run_id: CAM-001-B
+domain: camera
+condition: full body treatment
+title: CAM-001-B — full body treatment
+status: OBSERVED
+created_at: '2026-08-31T11:10:30+09:00'
+updated_at: '2026-08-31T11:29:35+09:00'
+research:
+  target_phrase: full body
+  research_question: Does the existing production full body framing phrase materially increase complete-body assessability over a neutral camera control?
+  baseline_run_id: CAM-001-A
+  variant_label: full body treatment
+  hypothesis_before_run: Adding full body may increase direct complete-body visibility relative to the matched neutral camera control.
+prompt:
+  positive: 1girl, solo, plain fitted sleeveless top, black shorts, barefoot, neutral expression, arms relaxed at sides, standing, full body, front view, simple studio background
+  negative: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+  changed_phrases:
+  - full body
+  fixed_phrases:
+  - 1girl
+  - solo
+  - plain fitted sleeveless top
+  - black shorts
+  - barefoot
+  - neutral expression
+  - arms relaxed at sides
+  - standing
+  - front view
+  - simple studio background
+model:
+  checkpoint: novaAnimeXL_ilV190
+  checkpoint_sha256: fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f
+  vae: ''
+  sampler: Euler a
+  scheduler: Automatic
+  steps: 20
+  cfg_scale: 4.5
+  width: 1024
+  height: 1024
+  batch_size: 1
+  n_iter: 1
+  enable_hr: false
+  restore_faces: false
+  tiling: false
+  seeds:
+  - 2093987865
+  - 1573117377
+  - 1119182243
+  - 1062738181
+  - 245258905
+  - 1624701473
+source:
+  sheet_file: null
+  metadata_file: source/CAM-001-B_metadata.yaml
+  sidecar_file: null
+  layout: individual_panels
+  panel_count: 6
+  original_filename: null
+outputs:
+  panels:
+  - panels/CAM-001-B_01.png
+  - panels/CAM-001-B_02.png
+  - panels/CAM-001-B_03.png
+  - panels/CAM-001-B_04.png
+  - panels/CAM-001-B_05.png
+  - panels/CAM-001-B_06.png
+  preview_file: null
+  rubric_file: source/rubric.yaml
+  observation_file: observation.md
+  observation_json: observation.json
+  research_review_file: research-review.md
+  observation_schema: templates/observation-schema.json
+  canonical_observation: observation.json
+workflow:
+  assigned_to: 研究担当ChatGPT
+  human_reviewed_by: null
+  accepted_at: null
+  notes: 'Generated directly through the verified A1111 txt2img API under Task #485. Prompt-blind observation was frozen before condition mapping disclosure. Results are research evidence only.'
+ingested_metadata:
+  metadata_status: verified
+  source: a1111_txt2img_api
+  format: png+json
+  archive_filename: null
+  archive_sha256: null

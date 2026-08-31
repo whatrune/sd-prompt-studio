@@ -1,0 +1,262 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-001-A",
+  "blind_condition_label": "COND-33fead1abc31",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "observed_framing",
+    "head_visibility",
+    "torso_visibility",
+    "knees_visibility",
+    "feet_visibility",
+    "lower_body_visibility",
+    "support_boundary_visibility",
+    "ambiguity_or_artifact",
+    "complete_body_assessable"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-33fead1abc31: complete-body assessable=6/6.",
+      "Opaque condition COND-33fead1abc31: full_body observed framing=6/6.",
+      "Opaque condition COND-33fead1abc31: ambiguity/artifact=0/6.",
+      "Opaque condition COND-33fead1abc31: support boundary present=6/6, absent=0/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, and visible pixels; prompts, seeds, requested framing, run mapping, PromptTag IDs, and emitted phrases were withheld.",
+      "The 12-panel opaque observation record was frozen before mapping disclosure at SHA-256 2e3a61c016b4a169af1f7735bb499e6c2c20a9971137dff8488ffe7e4a27f875.",
+      "Canonical run_id and seed binding was applied only after decoding and did not change any frozen visual row.",
+      "Matched-seed comparison and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "full_body",
+        "complete",
+        "complete",
+        "both",
+        "both",
+        "complete",
+        "present",
+        "none",
+        "yes"
+      ],
+      "primary_morphology": "camera_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Opaque panel PANEL-beffb5c2037e40 visibly shows full_body framing, complete head and torso, both knees and both feet, complete lower-body visibility, support boundary present, and no visible ambiguity or artifact. The complete-body assessability value is mechanically derived from those frozen visible axes."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "full_body",
+        "complete",
+        "complete",
+        "both",
+        "both",
+        "complete",
+        "present",
+        "none",
+        "yes"
+      ],
+      "primary_morphology": "camera_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Opaque panel PANEL-7d50e2a9828244 visibly shows full_body framing, complete head and torso, both knees and both feet, complete lower-body visibility, support boundary present, and no visible ambiguity or artifact. The complete-body assessability value is mechanically derived from those frozen visible axes."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "full_body",
+        "complete",
+        "complete",
+        "both",
+        "both",
+        "complete",
+        "present",
+        "none",
+        "yes"
+      ],
+      "primary_morphology": "camera_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Opaque panel PANEL-24153e40850c4f visibly shows full_body framing, complete head and torso, both knees and both feet, complete lower-body visibility, support boundary present, and no visible ambiguity or artifact. The complete-body assessability value is mechanically derived from those frozen visible axes."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "full_body",
+        "complete",
+        "complete",
+        "both",
+        "both",
+        "complete",
+        "present",
+        "none",
+        "yes"
+      ],
+      "primary_morphology": "camera_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Opaque panel PANEL-ca0f7b7865be42 visibly shows full_body framing, complete head and torso, both knees and both feet, complete lower-body visibility, support boundary present, and no visible ambiguity or artifact. The complete-body assessability value is mechanically derived from those frozen visible axes."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "full_body",
+        "complete",
+        "complete",
+        "both",
+        "both",
+        "complete",
+        "present",
+        "none",
+        "yes"
+      ],
+      "primary_morphology": "camera_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Opaque panel PANEL-e04d4dd1bd104f visibly shows full_body framing, complete head and torso, both knees and both feet, complete lower-body visibility, support boundary present, and no visible ambiguity or artifact. The complete-body assessability value is mechanically derived from those frozen visible axes."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "full_body",
+        "complete",
+        "complete",
+        "both",
+        "both",
+        "complete",
+        "present",
+        "none",
+        "yes"
+      ],
+      "primary_morphology": "camera_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Opaque panel PANEL-ae5d75ff88614f visibly shows full_body framing, complete head and torso, both knees and both feet, complete lower-body visibility, support boundary present, and no visible ambiguity or artifact. The complete-body assessability value is mechanically derived from those frozen visible axes."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "observed_framing": {
+        "full_body": 6
+      },
+      "head_visibility": {
+        "complete": 6
+      },
+      "torso_visibility": {
+        "complete": 6
+      },
+      "knees_visibility": {
+        "both": 6
+      },
+      "feet_visibility": {
+        "both": 6
+      },
+      "lower_body_visibility": {
+        "complete": 6
+      },
+      "support_boundary_visibility": {
+        "present": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 6
+      },
+      "complete_body_assessable": {
+        "yes": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "camera_visibility_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
