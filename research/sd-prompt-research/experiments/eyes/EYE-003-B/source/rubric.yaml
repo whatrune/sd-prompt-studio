@@ -1,0 +1,49 @@
+schema_version: '3.0'
+run_id: EYE-003-B
+target_concept: ''
+blind_condition_label: COND-03
+blind_analysis: true
+special_values:
+  unclear: Visible evidence is insufficient or conflicting.
+  not_assessable: Visible pupil or eye-direction evidence cannot support the requested judgment.
+axis_catalog:
+  eyes_visible: {label: Eyes Visible, allowed_values: [both, one, none, unclear]}
+  left_eye_gaze: {label: Image-left Eye Gaze, allowed_values: [toward_viewer, away, unclear, not_assessable]}
+  right_eye_gaze: {label: Image-right Eye Gaze, allowed_values: [toward_viewer, away, unclear, not_assessable]}
+  binocular_coordination: {label: Binocular Coordination, allowed_values: [aligned, coherent_split, conflicting_or_artifacted, unclear]}
+  face_orientation: {label: Face Orientation, allowed_values: [frontal, three_quarter, profile, unclear]}
+  gaze_assessable: {label: Gaze Assessable, allowed_values: ['yes', 'no']}
+  ambiguity_or_artifact: {label: Ambiguity Or Artifact, allowed_values: [none, ambiguous, artifact]}
+active_observation_axes: [eyes_visible, left_eye_gaze, right_eye_gaze, binocular_coordination, face_orientation, gaze_assessable, ambiguity_or_artifact]
+contact_load: {enabled: false, fields: [], allowed_values: []}
+morphology_candidates: {primary: [directional_gaze_composition], secondary: [none]}
+artifact_checks: [none, ambiguous, artifact]
+cross_domain_effects: {enabled: false, domains: [], strength_values: [], effect_type_values: []}
+rules:
+  preserve_axis_labels_exactly: true
+  preserve_axis_order: true
+  output_all_active_axes_for_every_panel: true
+  use_allowed_values_only: true
+  visible_evidence_only: true
+  gaze_requires_pupil_or_eye_direction_evidence: true
+  face_orientation_alone_is_insufficient_for_gaze: true
+  prompt_blind_freeze_required: true
+  blind_rows_sha256_required_before_decode: true
+  opaque_condition_and_panel_ids_only: true
+  mapping_decode_after_freeze_required: true
+  derived_treatment_outcome_after_decode_only: true
+  analyst_must_not_finalize_production_behavior: true
+decision_contract:
+  prerequisite_failure_result: INCONCLUSIVE
+  prerequisites:
+    panel_completeness: {count: 18, total: 18}
+    exact_matched_seed_count: 6
+    gaze_assessable_yes_per_condition: {minimum_count: 5, total: 6}
+    viewer_control_toward_viewer: {minimum_count: 5, total: 6}
+    away_control_away: {minimum_count: 5, total: 6}
+    ambiguity_or_artifact_non_none_per_condition: {maximum_count: 1, total: 6}
+  classification_precedence:
+  - {classification: CONFIRMED_COEXISTENCE, treatment_coherent_joint: {minimum_count: 5, total: 6}}
+  - {classification: CONFIRMED_SUPPRESSION, treatment_single_direction_only: {minimum_count: 5, total: 6}, matched_control_support_required: true}
+  - {classification: CONFIRMED_CONTRADICTION, treatment_directional_conflict: {minimum_count: 5, total: 6}}
+  - {classification: INCONCLUSIVE, rule: All remaining outcomes or any prerequisite failure.}
