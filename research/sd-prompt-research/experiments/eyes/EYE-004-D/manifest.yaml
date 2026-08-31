@@ -1,0 +1,86 @@
+schema_version: '1.0'
+run_id: EYE-004-D
+domain: eyes
+condition: orientation-unlocked upper-body looking-away treatment
+title: EYE-004-D — orientation-unlocked upper-body looking-away treatment
+status: OBSERVED
+created_at: '2026-09-01T00:41:08+09:00'
+updated_at: '2026-09-01T00:59:40+09:00'
+research:
+  target_phrase: looking away
+  research_question: What does looking away visibly do under the current model, and do orientation locking or framing mask its effect?
+  baseline_run_id: EYE-004-C
+  variant_label: orientation-unlocked upper-body looking-away treatment
+  hypothesis_before_run: The treatment may express eye-direction, head-orientation, combined, absent, or seed-dependent effects without presuming any production conflict.
+prompt:
+  positive: 1girl, solo, upper body, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking away
+  negative: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, cropped face, one eye out of frame
+  changed_phrases:
+  - looking away
+  fixed_phrases:
+  - 1girl
+  - solo
+  - upper body
+  - centered composition
+  - neutral expression
+  - hair tucked behind ears
+  - unobstructed eye region
+  - arms lowered
+  - hands away from face
+  - simple sleeveless top
+  - plain studio background
+model:
+  checkpoint: novaAnimeXL_ilV190
+  checkpoint_sha256: fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f
+  vae: ''
+  sampler: Euler a
+  scheduler: Automatic
+  steps: 20
+  cfg_scale: 4.5
+  width: 1024
+  height: 1024
+  batch_size: 1
+  n_iter: 1
+  enable_hr: false
+  restore_faces: false
+  tiling: false
+  seeds:
+  - 1126645754
+  - 1332582485
+  - 1588147170
+  - 1901831359
+  - 1918636949
+  - 2128309031
+source:
+  sheet_file: null
+  metadata_file: source/EYE-004-D_metadata.yaml
+  sidecar_file: null
+  layout: individual_panels
+  panel_count: 6
+  original_filename: null
+outputs:
+  panels:
+  - panels/EYE-004-D_01.png
+  - panels/EYE-004-D_02.png
+  - panels/EYE-004-D_03.png
+  - panels/EYE-004-D_04.png
+  - panels/EYE-004-D_05.png
+  - panels/EYE-004-D_06.png
+  preview_file: null
+  rubric_file: source/rubric.yaml
+  observation_file: observation.md
+  observation_json: observation.json
+  research_review_file: research-review.md
+  observation_schema: templates/observation-schema.json
+  canonical_observation: observation.json
+workflow:
+  assigned_to: 研究担当ChatGPT
+  human_reviewed_by: null
+  accepted_at: null
+  notes: 'Generated through the verified A1111 txt2img API under Task #499. Prompt-blind observations were frozen before mapping decode. Classification: INCONCLUSIVE. EYE-004-A through EYE-004-F are each registered exactly once in the canonical run-index as part of this exact 37-path Task delta. Results are research evidence only.'
+ingested_metadata:
+  metadata_status: verified
+  source: a1111_txt2img_api
+  format: png+json
+  archive_filename: null
+  archive_sha256: null
