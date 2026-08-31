@@ -223,6 +223,6 @@ verification:
   matrix_prompt_contract: PASS
 experiment_summary:
   decision: INCONCLUSIVE
-  requested_framing_visible: 6/6
+  requested_framing_visible: 0/6
   pose_prompt_supported_by_visible_evidence: 6/6
   ambiguity_or_artifact: 6/6

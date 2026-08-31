@@ -1,7 +1,7 @@
 schema_version: '3.0'
 target_concept: ''
-blind_condition_label: standing / full body
-blind_analysis: false
+blind_condition_label: COND-01
+blind_analysis: true
 special_values:
   unclear: Visible evidence is insufficient or conflicting.
   not_visible: The required anatomical region is cropped or fully obscured.

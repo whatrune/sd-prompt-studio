@@ -1,7 +1,7 @@
 {
   "schema_version": "3.0",
   "run_id": "POSE-001-G",
-  "blind_condition_label": "sitting / upper body",
+  "blind_condition_label": "COND-11",
   "panel_count": 6,
   "image_layout": "individual_panels",
   "active_axis_order": [
@@ -17,13 +17,15 @@
   ],
   "summary": {
     "overall_visible_pattern": [
-      "Requested upper body framing is visibly represented in 0/6 panels.",
-      "Direct visible evidence supports the prompted sitting body state in 6/6 panels.",
-      "A prominent unexpected aircraft or aircraft-like support structure is present in all six panels."
+      "Opaque condition COND-11 observed-framing distribution: full_body=6/6.",
+      "Opaque condition COND-11 body-state distribution: sitting=6/6.",
+      "A prominent unexpected aircraft or aircraft-like structure is visible in 6/6 panels."
     ],
     "analysis_notes": [
-      "Visible image evidence only; prompt text was not used to assign body state.",
-      "Prompt support is derived only in research-review.md after prompt-blind panel observation."
+      "Observer input exposed only COND-11, panel number, seed identity, and pixels; prompts, requested pose/framing, PromptTag IDs, emitted phrases, and run mapping were withheld.",
+      "The 72-panel opaque observation record was frozen before mapping disclosure at SHA-256 e6a6209adfb63444fc5cd51c6ee088d732534ed167683e57bf309a94a413c8a3.",
+      "Canonical run_id binding was applied after decoding without changing any frozen panel axis value.",
+      "Prompt-support and final-condition comparisons are review-derived only in research-review.md."
     ]
   },
   "panels": [
@@ -43,7 +45,7 @@
       "primary_morphology": "pose_visibility_observation",
       "secondary_morphologies": [],
       "evidence_notes": [
-        "Panel 1 visibly shows full body framing. Pelvis-to-support contact and at least one knee are directly visible, supporting sitting. A prominent unexpected aircraft or aircraft-like support structure is visible in the composition."
+        "Panel 1 visibly shows framing `full_body`, body state `sitting`, and `vertical` orientation. Direct visible evidence records feet `both`, knees `both`, support boundary `present`, seat/ground contact `present`, and lower-body visibility `complete`. A prominent unexpected aircraft or aircraft-like structure is visible in the composition."
       ],
       "cross_domain_effects": [],
       "artifacts": [
@@ -73,7 +75,7 @@
       "primary_morphology": "pose_visibility_observation",
       "secondary_morphologies": [],
       "evidence_notes": [
-        "Panel 2 visibly shows full body framing. Pelvis-to-support contact and at least one knee are directly visible, supporting sitting. A prominent unexpected aircraft or aircraft-like support structure is visible in the composition."
+        "Panel 2 visibly shows framing `full_body`, body state `sitting`, and `vertical` orientation. Direct visible evidence records feet `both`, knees `both`, support boundary `present`, seat/ground contact `present`, and lower-body visibility `complete`. A prominent unexpected aircraft or aircraft-like structure is visible in the composition."
       ],
       "cross_domain_effects": [],
       "artifacts": [
@@ -103,7 +105,7 @@
       "primary_morphology": "pose_visibility_observation",
       "secondary_morphologies": [],
       "evidence_notes": [
-        "Panel 3 visibly shows full body framing. Pelvis-to-support contact and at least one knee are directly visible, supporting sitting. A prominent unexpected aircraft or aircraft-like support structure is visible in the composition."
+        "Panel 3 visibly shows framing `full_body`, body state `sitting`, and `vertical` orientation. Direct visible evidence records feet `both`, knees `both`, support boundary `present`, seat/ground contact `present`, and lower-body visibility `complete`. A prominent unexpected aircraft or aircraft-like structure is visible in the composition."
       ],
       "cross_domain_effects": [],
       "artifacts": [
@@ -133,7 +135,7 @@
       "primary_morphology": "pose_visibility_observation",
       "secondary_morphologies": [],
       "evidence_notes": [
-        "Panel 4 visibly shows full body framing. Pelvis-to-support contact and at least one knee are directly visible, supporting sitting. A prominent unexpected aircraft or aircraft-like support structure is visible in the composition."
+        "Panel 4 visibly shows framing `full_body`, body state `sitting`, and `vertical` orientation. Direct visible evidence records feet `both`, knees `both`, support boundary `present`, seat/ground contact `present`, and lower-body visibility `complete`. A prominent unexpected aircraft or aircraft-like structure is visible in the composition."
       ],
       "cross_domain_effects": [],
       "artifacts": [
@@ -163,7 +165,7 @@
       "primary_morphology": "pose_visibility_observation",
       "secondary_morphologies": [],
       "evidence_notes": [
-        "Panel 5 visibly shows full body framing. Pelvis-to-support contact and at least one knee are directly visible, supporting sitting. A prominent unexpected aircraft or aircraft-like support structure is visible in the composition."
+        "Panel 5 visibly shows framing `full_body`, body state `sitting`, and `vertical` orientation. Direct visible evidence records feet `both`, knees `both`, support boundary `present`, seat/ground contact `present`, and lower-body visibility `complete`. A prominent unexpected aircraft or aircraft-like structure is visible in the composition."
       ],
       "cross_domain_effects": [],
       "artifacts": [
@@ -193,7 +195,7 @@
       "primary_morphology": "pose_visibility_observation",
       "secondary_morphologies": [],
       "evidence_notes": [
-        "Panel 6 visibly shows full body framing. Pelvis-to-support contact and at least one knee are directly visible, supporting sitting. A prominent unexpected aircraft or aircraft-like support structure is visible in the composition."
+        "Panel 6 visibly shows framing `full_body`, body state `sitting`, and `vertical` orientation. Direct visible evidence records feet `both`, knees `both`, support boundary `present`, seat/ground contact `present`, and lower-body visibility `complete`. A prominent unexpected aircraft or aircraft-like structure is visible in the composition."
       ],
       "cross_domain_effects": [],
       "artifacts": [
@@ -213,7 +215,7 @@
   "ontology_extension_candidates": [],
   "cross_condition_comparison": {
     "status": "not_performed",
-    "reason": "This file records condition-local visible evidence; the frozen 12-cell decision is recorded in research-review.md.",
+    "reason": "This file preserves opaque condition-local visible evidence; decoding and experiment comparison occur only in research-review.md after freeze.",
     "observations": []
   },
   "computed_aggregate": {

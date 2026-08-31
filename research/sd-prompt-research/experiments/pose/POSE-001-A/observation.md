@@ -1,17 +1,23 @@
-# POSE-001-A Observation Report
+# COND-01 Prompt-Blind Observation Report
 
-## Run Summary
+## Blind Input Contract
 
-- Condition: standing / full body
+- Opaque condition: `COND-01`
 - Panel count: 6
-- Requested framing visibly represented: 6/6
-- Prompted body state supported by direct visible evidence: 6/6
+- Observer-visible identity: opaque condition, panel number, seed identity
+- Hidden during assessment: requested pose, requested framing, run mapping, PromptTag IDs, emitted phrases
+- Frozen blind observation SHA-256: `e6a6209adfb63444fc5cd51c6ee088d732534ed167683e57bf309a94a413c8a3`
+- Mapping disclosure: after the blind observation was saved and hashed
+
+## Visible Pattern
+
+- Observed framing: full_body=6/6
+- Body state: standing=6/6
 - Unexpected aircraft composition: 6/6
-- Observation method: visible evidence only; prompt-blind body-state assignment
 
 ## Panel Observations
 
-### Panel 1
+### Panel 1 — seed 369828088
 
 - Observed framing: `full_body`
 - Body state: `standing`
@@ -22,22 +28,9 @@
 - Seat or ground contact visible: `present`
 - Lower-body visibility: `complete`
 - Ambiguity/artifact: `composition_artifact`
-- Evidence: Panel 1 visibly shows full body framing. Both knees, both feet, and the floor/support boundary are directly visible, supporting standing. A prominent unexpected aircraft or aircraft-like support structure is visible in the composition.
+- Visible artifact: a prominent unexpected aircraft or aircraft-like structure is present.
 
-### Panel 2
-
-- Observed framing: `full_body`
-- Body state: `standing`
-- Body orientation: `vertical`
-- Feet visible: `both`
-- Knees visible: `both`
-- Support boundary visible: `present`
-- Seat or ground contact visible: `present`
-- Lower-body visibility: `complete`
-- Ambiguity/artifact: `composition_artifact`
-- Evidence: Panel 2 visibly shows full body framing. Both knees, both feet, and the floor/support boundary are directly visible, supporting standing. A prominent unexpected aircraft or aircraft-like support structure is visible in the composition.
-
-### Panel 3
+### Panel 2 — seed 1088111652
 
 - Observed framing: `full_body`
 - Body state: `standing`
@@ -48,22 +41,9 @@
 - Seat or ground contact visible: `present`
 - Lower-body visibility: `complete`
 - Ambiguity/artifact: `composition_artifact`
-- Evidence: Panel 3 visibly shows full body framing. Both knees, both feet, and the floor/support boundary are directly visible, supporting standing. A prominent unexpected aircraft or aircraft-like support structure is visible in the composition.
+- Visible artifact: a prominent unexpected aircraft or aircraft-like structure is present.
 
-### Panel 4
-
-- Observed framing: `full_body`
-- Body state: `standing`
-- Body orientation: `vertical`
-- Feet visible: `both`
-- Knees visible: `both`
-- Support boundary visible: `present`
-- Seat or ground contact visible: `present`
-- Lower-body visibility: `complete`
-- Ambiguity/artifact: `composition_artifact`
-- Evidence: Panel 4 visibly shows full body framing. Both knees, both feet, and the floor/support boundary are directly visible, supporting standing. A prominent unexpected aircraft or aircraft-like support structure is visible in the composition.
-
-### Panel 5
+### Panel 3 — seed 503922994
 
 - Observed framing: `full_body`
 - Body state: `standing`
@@ -74,9 +54,9 @@
 - Seat or ground contact visible: `present`
 - Lower-body visibility: `complete`
 - Ambiguity/artifact: `composition_artifact`
-- Evidence: Panel 5 visibly shows full body framing. Both knees, both feet, and the floor/support boundary are directly visible, supporting standing. A prominent unexpected aircraft or aircraft-like support structure is visible in the composition.
+- Visible artifact: a prominent unexpected aircraft or aircraft-like structure is present.
 
-### Panel 6
+### Panel 4 — seed 1119258024
 
 - Observed framing: `full_body`
 - Body state: `standing`
@@ -87,10 +67,37 @@
 - Seat or ground contact visible: `present`
 - Lower-body visibility: `complete`
 - Ambiguity/artifact: `composition_artifact`
-- Evidence: Panel 6 visibly shows full body framing. Both knees, both feet, and the floor/support boundary are directly visible, supporting standing. A prominent unexpected aircraft or aircraft-like support structure is visible in the composition.
+- Visible artifact: a prominent unexpected aircraft or aircraft-like structure is present.
+
+### Panel 5 — seed 1380338377
+
+- Observed framing: `full_body`
+- Body state: `standing`
+- Body orientation: `vertical`
+- Feet visible: `both`
+- Knees visible: `both`
+- Support boundary visible: `present`
+- Seat or ground contact visible: `present`
+- Lower-body visibility: `complete`
+- Ambiguity/artifact: `composition_artifact`
+- Visible artifact: a prominent unexpected aircraft or aircraft-like structure is present.
+
+### Panel 6 — seed 2107167983
+
+- Observed framing: `full_body`
+- Body state: `standing`
+- Body orientation: `vertical`
+- Feet visible: `both`
+- Knees visible: `both`
+- Support boundary visible: `present`
+- Seat or ground contact visible: `present`
+- Lower-body visibility: `complete`
+- Ambiguity/artifact: `composition_artifact`
+- Visible artifact: a prominent unexpected aircraft or aircraft-like structure is present.
 
 ## Interpretation Boundary
 
-- Prompt text was not used as observation evidence.
+- Prompt text and requested condition were unavailable during observation.
 - A vertical torso alone was not treated as proof of standing.
-- The overall experiment classification is review-derived and recorded in `research-review.md`.
+- The opaque observations were frozen before decoding.
+- Prompt-support and the overall classification are review-derived after decoding and recorded in `research-review.md`.
