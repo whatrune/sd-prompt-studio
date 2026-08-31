@@ -183,13 +183,78 @@ export function admitParallelExecutionsV1(left, right, options = {}) {
   }
   const rightPaths = new Set(right.authorized_paths)
   const overlappingPaths = left.authorized_paths.filter((value) => rightPaths.has(value))
-  if (overlappingPaths.length === 0) {
-    return Object.freeze({ admission: 'CONCURRENT', overlapping_paths: Object.freeze([]) })
+  if (options.shared_owner_conflict === true || options.protected_transition_conflict === true) {
+    return Object.freeze({
+      admission: 'SERIALIZATION_REQUIRED',
+      overlapping_paths: Object.freeze(overlappingPaths),
+      fresh_base_rebind_required: overlappingPaths.length > 0,
+    })
   }
   if (options.dependency_ordered === true || options.compatibility_reconciled === true) {
-    return Object.freeze({ admission: 'ORDERED', overlapping_paths: Object.freeze(overlappingPaths) })
+    return Object.freeze({
+      admission: 'ORDERED',
+      overlapping_paths: Object.freeze(overlappingPaths),
+      fresh_base_rebind_required: overlappingPaths.length > 0,
+    })
   }
-  return Object.freeze({ admission: 'SERIALIZATION_REQUIRED', overlapping_paths: Object.freeze(overlappingPaths) })
+  return Object.freeze({
+    admission: 'CONCURRENT',
+    overlapping_paths: Object.freeze(overlappingPaths),
+    fresh_base_rebind_required: overlappingPaths.length > 0,
+  })
+}
+
+const immediateContinuationActionV1 = (terminalKind, owningWorker) => {
+  if (terminalKind === 'IMPLEMENTATION_COMPLETE') return Object.freeze({ type: 'DISPATCH_PREPUBLICATION_REVIEW' })
+  if (terminalKind === 'PREPUBLICATION_REVIEW_APPROVE') return Object.freeze({ type: 'DISPATCH_UNCHANGED_PUBLICATION' })
+  if (terminalKind === 'PUBLICATION_COMPLETE') return Object.freeze({ type: 'WAIT_CURRENT_HEAD_CHECKS' })
+  if (terminalKind === 'CHECKS_PASS') return Object.freeze({ type: 'DISPATCH_FRESH_REVIEW' })
+  if (terminalKind === 'CORRECTION_CHECKS_PASS') return Object.freeze({ type: 'DISPATCH_REPLACEMENT_FRESH_REVIEW' })
+  if (terminalKind === 'REVIEW_FINDING') {
+    return typeof owningWorker === 'string' && owningWorker.length > 0
+      ? Object.freeze({ type: 'FOLLOW_UP_OWNING_WORKER', worker: owningWorker })
+      : null
+  }
+  if (terminalKind === 'REVIEW_APPROVE') return Object.freeze({ type: 'RUN_PRE_DECISION_PREFLIGHT' })
+  return null
+}
+
+export function projectAutomatedReviewToMergeReadyContinuationV1({
+  waitTerminal,
+  terminalKind,
+  identityMatches,
+  owningWorker = null,
+  observedAt,
+  terminalCursor,
+  consumedCursor = null,
+}) {
+  const cursorValid = typeof terminalCursor === 'string' && terminalCursor.length > 0
+    && (consumedCursor === null || (typeof consumedCursor === 'string' && consumedCursor.length > 0))
+  const noAdvance = () => Object.freeze({
+    outcome: 'NO_ADVANCE',
+    actions: Object.freeze([]),
+    action_at: null,
+    consumed_cursor: consumedCursor,
+  })
+  if (waitTerminal !== true || identityMatches !== true || !Number.isSafeInteger(observedAt) || observedAt < 0
+    || !cursorValid || terminalCursor === consumedCursor) {
+    return noAdvance()
+  }
+  if (terminalKind === 'PRE_DECISION_PASS') {
+    return Object.freeze({
+      outcome: 'MERGE_READY',
+      actions: Object.freeze([]),
+      action_at: observedAt,
+      consumed_cursor: terminalCursor,
+    })
+  }
+  const action = immediateContinuationActionV1(terminalKind, owningWorker)
+  return Object.freeze({
+    outcome: action === null ? 'NO_ADVANCE' : 'CONTINUE',
+    actions: Object.freeze(action === null ? [] : [action]),
+    action_at: action === null ? null : observedAt,
+    consumed_cursor: action === null ? consumedCursor : terminalCursor,
+  })
 }
 
 export function assertSharedDependencyAccessV1({ left_manifest_digest, right_manifest_digest, operation }) {

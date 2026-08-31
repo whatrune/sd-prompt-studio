@@ -15,6 +15,10 @@ For Non-Draft Merge-only Lifecycle V1, one authenticated GitHub Pull Request Rev
 
 ## Review Admission
 
+Before publication, Integrated Lead MAY dispatch one task-local Independent Review of a completed implementation only as the unchanged-publication gate defined by the Shared Role Execution Contract. That review MUST bind the canonical Task, branch, registered worktree, authorized scope, clean exact commit, complete validation, and implementation Result Handoff. Its `APPROVE / 0 / 0 / 0` result permits only separately authorized publication of the exact reviewed commit. It is not a Simplified V1 Review Decision, cannot close a post-publication finding, and cannot satisfy Merge admission.
+
+After non-Draft publication and current-HEAD checks PASS, the reviewer MUST perform the authoritative Fresh Review through the PR-bound admission below. Publication, a prepublication approval, or byte identity alone MUST NOT substitute for that Fresh Review.
+
 At review start and immediately before recording the decision, the reviewer MUST fresh-fetch:
 
 - the canonical Task Assignment and cumulative authority records;

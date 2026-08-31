@@ -26,14 +26,22 @@ Integrated Lead MUST:
 
 ## Immediate Terminal Continuation
 
-Integrated Lead owns continuation after dispatching an owner or reviewer. It MUST use the existing `wait_threads` target and cursor, consume the terminal event in the same coordination turn, fresh-bind the exact Task, PR, HEAD, branch, worktree, and authorized scope, and immediately execute exactly one valid next-stage action:
+Integrated Lead owns continuation after dispatching an owner or reviewer. It MUST use the existing `wait_threads` target and cursor, require the returned terminal cursor to differ from the task-local consumed cursor, advance the consumed cursor before dispatch, fresh-bind the exact Task, PR, HEAD, branch, worktree, and authorized scope, and immediately execute exactly one valid next-stage action. Repeated delivery of the consumed cursor performs no additional action:
 
+- terminal implementation completion with complete validation dispatches task-local prepublication Independent Review bound to a clean exact commit;
+- terminal prepublication `APPROVE / 0 / 0 / 0` dispatches unchanged publication under the Task's explicit publication authority;
+- verified exact-commit non-Draft publication establishes the task-local current-HEAD check wait target;
 - terminal checks PASS dispatches Fresh Review;
 - terminal Fresh Review `CHANGES_REQUIRED` or a finding follows up the same owning Worker with the exact finding after `BOUNDED_EXECUTION_IDENTITY_V1` revalidation;
 - correction checks PASS dispatches replacement Fresh Review; and
-- terminal Fresh Review `APPROVE / 0 / 0 / 0` runs the read-only pre-Decision preflight.
+- terminal Fresh Review `APPROVE / 0 / 0 / 0` runs the read-only pre-Decision preflight; and
+- successful pre-Decision preflight projects transient `MERGE_READY` and stops for Product Owner decision.
 
 A timeout, nonterminal event, stale HEAD, or identity mismatch does not advance. Integrated Lead MUST NOT select a fuzzy or latest Worker, create a replacement Worker merely because a finding occurred, or introduce an automatic retry. When the terminal event and binding determine the next action, there is no intentional passive wait; the coordination target is at most 10 seconds from terminal observation to next action, excluding external tool or service execution.
+
+The prepublication Review is not the authoritative Merge Review and cannot satisfy the post-publication Fresh Review requirement. Approved publication MUST preserve its reviewed exact commit and tree byte-for-byte. A publication-time base, scope, or identity drift stops before push; it is not repaired through automatic rebase or amend.
+
+Integrated Lead MAY coordinate independent Canonical Tasks concurrently only when Task, branch, registered worktree, execution-instance, and published PR identities are distinct. An overlapping path does not by itself establish a shared mutable owner. Exact identity collisions, a proven shared mutable owner, and the same protected-action resource remain serialized. A terminal event advances only its owning Task and cursor.
 
 ## Authority Boundary
 
@@ -66,6 +74,8 @@ Integrated Lead MUST NOT repeat specialist Validation or the reviewing Role's se
 ## Merge Routing Delta
 
 Integrated Lead MUST execute the shared read-only pre-Decision preflight before asking the Product Owner for a Merge decision. The preflight freshly verifies exact Task, PR, HEAD, base, authorized scope, current Fresh Review, required and external required checks, zero active unresolved non-outdated review threads, OPEN / non-Draft / unmerged PR state, and current Merge applicability. If any prerequisite is incomplete, the task MUST return to the responsible owner without requesting Merge eligibility. A Product Owner Merge Decision MUST NOT be published first and treated as a probe for the Merge operator's later live guard.
+
+Preflight success is reported only as transient `MERGE_READY`. Integrated Lead MUST stop there and MUST NOT infer, request on behalf of, publish, or execute the Product Owner Merge Decision.
 
 Integrated Lead MUST NOT decide Merge eligibility. If the Product Owner has issued an exact-HEAD Merge decision and explicitly designated Integrated Lead as the Merge operator, Integrated Lead MAY perform only the mechanical Merge operation authorized by that decision. The Merge handoff MUST identify the binding exact HEAD and any prohibited alternative Merge method.
 
