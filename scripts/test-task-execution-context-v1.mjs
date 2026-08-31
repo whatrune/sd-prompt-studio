@@ -209,7 +209,7 @@ function observed(id = identity(), overrides = {}) {
   })), 'prepublication_pr_discovery')
 }
 
-// 9-10. Distinct identities run concurrently; paths alone are not a shared owner.
+// 9-10. Distinct identities run concurrently; base freshness is independent of path overlap.
 {
   const left = identity()
   const right = identity({
@@ -221,16 +221,45 @@ function observed(id = identity(), overrides = {}) {
     expected_head: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     execution_instance_id: '22222222-2222-4222-8222-222222222222',
   })
-  equal(admitParallelExecutionsV1(left, right).admission, 'CONCURRENT')
+  const currentMain = left.expected_base
+  const advancedMain = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+  const concurrent = admitParallelExecutionsV1(left, right, { fresh_origin_main: currentMain })
+  equal(concurrent.admission, 'CONCURRENT')
+  equal(concurrent.fresh_base_rebind_required, false)
   const overlap = createBoundedExecutionIdentityV1({
     ...right,
     authorized_paths: [paths455[0]],
   })
-  equal(admitParallelExecutionsV1(left, overlap).admission, 'CONCURRENT')
-  equal(admitParallelExecutionsV1(left, overlap).fresh_base_rebind_required, true)
-  equal(admitParallelExecutionsV1(left, overlap, { dependency_ordered: true }).admission, 'ORDERED')
-  equal(admitParallelExecutionsV1(left, overlap, { shared_owner_conflict: true }).admission, 'SERIALIZATION_REQUIRED')
-  equal(admitParallelExecutionsV1(left, right, { protected_transition_conflict: true }).admission, 'SERIALIZATION_REQUIRED')
+  const disjointAfterAdvance = admitParallelExecutionsV1(left, right, { fresh_origin_main: advancedMain })
+  equal(disjointAfterAdvance.admission, 'CONCURRENT')
+  equal(disjointAfterAdvance.overlapping_paths.length, 0)
+  equal(disjointAfterAdvance.fresh_base_rebind_required, true)
+
+  const overlappingAfterAdvance = admitParallelExecutionsV1(left, overlap, {
+    fresh_origin_main: advancedMain,
+    shared_owner_conflict: true,
+  })
+  equal(overlappingAfterAdvance.admission, 'SERIALIZATION_REQUIRED')
+  equal(overlappingAfterAdvance.overlapping_paths.length, 1)
+  equal(overlappingAfterAdvance.fresh_base_rebind_required, true)
+  const reconciledOverlap = admitParallelExecutionsV1(left, overlap, {
+    fresh_origin_main: advancedMain,
+    compatibility_reconciled: true,
+  })
+  equal(reconciledOverlap.admission, 'ORDERED')
+  equal(reconciledOverlap.fresh_base_rebind_required, true)
+
+  const unchangedOverlap = admitParallelExecutionsV1(left, overlap, { fresh_origin_main: currentMain })
+  equal(unchangedOverlap.admission, 'CONCURRENT')
+  equal(unchangedOverlap.fresh_base_rebind_required, false)
+  equal(admitParallelExecutionsV1(left, overlap, {
+    fresh_origin_main: currentMain,
+    dependency_ordered: true,
+  }).admission, 'ORDERED')
+  equal(admitParallelExecutionsV1(left, right, {
+    fresh_origin_main: currentMain,
+    protected_transition_conflict: true,
+  }).admission, 'SERIALIZATION_REQUIRED')
 }
 
 // The full bounded coordinator chain advances exactly once and stops before Product Owner authority.

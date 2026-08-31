@@ -79,7 +79,7 @@ A stale, missing, or conflicting Gate Status entry is a review finding. The revi
 
 The dependent read-only gate MAY reuse verified post-write evidence only under the Gate Status projection-only conditions in the Shared Role Execution Contract. Any HEAD or cumulative-authority change, non-projection edit, missing digest, failed post-write re-fetch, concurrent edit, or mismatch requires rerun and fail-closed handling.
 
-After a HEAD change, prior approval is historical and a fresh exact-HEAD Review is required. GitHub's publication state remains unchanged; no publication-generation replay is required.
+After a HEAD change, including a fresh-base rebind caused by any `origin/main` advancement regardless of path overlap, prior approval is historical and a fresh exact-HEAD Review is required. GitHub's publication state remains unchanged; no publication-generation replay is required.
 
 ## Review Decision Record
 

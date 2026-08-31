@@ -183,24 +183,26 @@ export function admitParallelExecutionsV1(left, right, options = {}) {
   }
   const rightPaths = new Set(right.authorized_paths)
   const overlappingPaths = left.authorized_paths.filter((value) => rightPaths.has(value))
+  const freshOriginMain = normalizeShaV1(options.fresh_origin_main, 'fresh_origin_main')
+  const freshBaseRebindRequired = freshOriginMain !== left.expected_base
   if (options.shared_owner_conflict === true || options.protected_transition_conflict === true) {
     return Object.freeze({
       admission: 'SERIALIZATION_REQUIRED',
       overlapping_paths: Object.freeze(overlappingPaths),
-      fresh_base_rebind_required: overlappingPaths.length > 0,
+      fresh_base_rebind_required: freshBaseRebindRequired,
     })
   }
   if (options.dependency_ordered === true || options.compatibility_reconciled === true) {
     return Object.freeze({
       admission: 'ORDERED',
       overlapping_paths: Object.freeze(overlappingPaths),
-      fresh_base_rebind_required: overlappingPaths.length > 0,
+      fresh_base_rebind_required: freshBaseRebindRequired,
     })
   }
   return Object.freeze({
     admission: 'CONCURRENT',
     overlapping_paths: Object.freeze(overlappingPaths),
-    fresh_base_rebind_required: overlappingPaths.length > 0,
+    fresh_base_rebind_required: freshBaseRebindRequired,
   })
 }
 

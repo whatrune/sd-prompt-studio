@@ -41,7 +41,7 @@ A timeout, nonterminal event, stale HEAD, or identity mismatch does not advance.
 
 The prepublication Review is not the authoritative Merge Review and cannot satisfy the post-publication Fresh Review requirement. Approved publication MUST preserve its reviewed exact commit and tree byte-for-byte. A publication-time base, scope, or identity drift stops before push; it is not repaired through automatic rebase or amend.
 
-Integrated Lead MAY coordinate independent Canonical Tasks concurrently only when Task, branch, registered worktree, execution-instance, and published PR identities are distinct. An overlapping path does not by itself establish a shared mutable owner. Exact identity collisions, a proven shared mutable owner, and the same protected-action resource remain serialized. A terminal event advances only its owning Task and cursor.
+Integrated Lead MAY coordinate independent Canonical Tasks concurrently only when Task, branch, registered worktree, execution-instance, and published PR identities are distinct. An overlapping path does not by itself establish a shared mutable owner. Exact identity collisions, a proven shared mutable owner, and the same protected-action resource remain serialized. A terminal event advances only its owning Task and cursor. A fresh `origin/main` value different from the lane's `expected_base` always requires fresh base/HEAD rebinding, independent of path overlap. Disjoint changes may rebind straightforwardly; semantic overlap remains fail-closed until compatibility reconciliation. The rebound HEAD requires current checks and Fresh exact-HEAD Review.
 
 ## Authority Boundary
 
