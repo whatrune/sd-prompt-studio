@@ -1,0 +1,255 @@
+metadata_status: verified
+source: a1111_txt2img_api
+format: png+json
+official_input:
+  generation_session: EYE-001-task-491-20260831T140740+0900
+  panel_count: 12
+  sidecar_count: 12
+  observer_manifest_sha256: d072b0ac6358d7cac20daca54ca0a61a34936ba0324c5be9c079a4effde9a80a
+condition:
+  role: treatment
+  eye_composition: 'looking at viewer, closed eyes'
+generation:
+  positive_prompt: '1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, closed eyes'
+  negative_prompt: 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame'
+  settings:
+    model: novaAnimeXL_ilV190
+    model_hash: fa486caafc
+    model_sha256: fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f
+    sampler: Euler a
+    scheduler: Automatic
+    steps: 20
+    cfg_scale: 4.5
+    width: 1024
+    height: 1024
+    batch_size: 1
+    n_iter: 1
+    enable_hr: false
+    restore_faces: false
+    tiling: false
+  ordered_seeds:
+  - 1126645754
+  - 1332582485
+  - 1588147170
+  - 1901831359
+  - 1918636949
+  - 2128309031
+matched_pair_contract:
+  control_run_id: EYE-001-A
+  treatment_run_id: EYE-001-B
+  only_prompt_difference: insertion of looking at viewer immediately before closed eyes
+  negative_prompt_equal: true
+  settings_equal: true
+  ordered_seeds_equal: true
+panels:
+- panel_id: 1
+  seed: 1126645754
+  image_file: panels/EYE-001-B_01.png
+  image_sha256: 122f843255a8d22aae4bfe0664bdd26fba0f17b766a1ace208c6844fe18f8484
+  image_bytes: 1335177
+  original_metadata_file: EYE-001-B_01_generation.json
+  metadata_sha256: 0f8f03f678f2bd76ec25f7b19edfe199d3bc78ebc2ca98fa27b93cf69661fe8a
+  request_file: EYE-001-B_01_request.json
+  request_sha256: e72f867bf7fdc61b6310a8c9a659d344295b76a3f61ccc4190c6f8eaf6b1ec8c
+  raw_response_file: EYE-001-B_01_response.json
+  raw_response_sha256: d30145822ccc2a5097ce351bb4832673572ec03ed59824b2930ebb7538c65e4f
+  dispatch_started_at: '2026-08-31T14:08:18.6942910+09:00'
+  response_received_at: '2026-08-31T14:08:25.2995726+09:00'
+  returned_generation:
+    prompt: '1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, closed eyes'
+    negative_prompt: 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame'
+    seed: 1126645754
+    subseed: 1816937737
+    subseed_strength: 0
+    model: novaAnimeXL_ilV190
+    model_hash: fa486caafc
+    sampler: Euler a
+    scheduler: Automatic
+    steps: 20
+    cfg_scale: 4.5
+    width: 1024
+    height: 1024
+    batch_size: 1
+    n_iter: 1
+    enable_hr: false
+    restore_faces: false
+    tiling: false
+    version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+- panel_id: 2
+  seed: 1332582485
+  image_file: panels/EYE-001-B_02.png
+  image_sha256: c93823b1ddf7f6afd506841b9b5e10d17af3516fe8659d499fa7698b27f32549
+  image_bytes: 1315425
+  original_metadata_file: EYE-001-B_02_generation.json
+  metadata_sha256: c99d1ea34b57b7f98812383e3115547be5223db5e207c05aad729b377266ea36
+  request_file: EYE-001-B_02_request.json
+  request_sha256: 9f426efc90854f4e6fa166685281a08e5f9286b732619075b5d28e7de1011805
+  raw_response_file: EYE-001-B_02_response.json
+  raw_response_sha256: de4a23844c473113ff051e79c8d638b0fc2f8203167eb6fd8df315fb5b522d4a
+  dispatch_started_at: '2026-08-31T14:08:25.4914916+09:00'
+  response_received_at: '2026-08-31T14:08:31.4979950+09:00'
+  returned_generation:
+    prompt: '1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, closed eyes'
+    negative_prompt: 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame'
+    seed: 1332582485
+    subseed: 3464388699
+    subseed_strength: 0
+    model: novaAnimeXL_ilV190
+    model_hash: fa486caafc
+    sampler: Euler a
+    scheduler: Automatic
+    steps: 20
+    cfg_scale: 4.5
+    width: 1024
+    height: 1024
+    batch_size: 1
+    n_iter: 1
+    enable_hr: false
+    restore_faces: false
+    tiling: false
+    version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+- panel_id: 3
+  seed: 1588147170
+  image_file: panels/EYE-001-B_03.png
+  image_sha256: 019f91d46d716b2b74fda85c2393c768946a062d1f8e01f84f6bb3d1751e42fe
+  image_bytes: 1277988
+  original_metadata_file: EYE-001-B_03_generation.json
+  metadata_sha256: a4ed0f9db4e9263668a53d00dc2e65c017c8388b39782f83b368c5a3c6a87690
+  request_file: EYE-001-B_03_request.json
+  request_sha256: fd272626416d577b6e6d81b7126508c8de1f658cc75cbb1c72d4dbd7cca3597f
+  raw_response_file: EYE-001-B_03_response.json
+  raw_response_sha256: 2de2dd741ad270520e8df341d00b275a29fc1c45f4134eafa99ba6c567afaa6d
+  dispatch_started_at: '2026-08-31T14:08:31.6991323+09:00'
+  response_received_at: '2026-08-31T14:08:37.6400575+09:00'
+  returned_generation:
+    prompt: '1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, closed eyes'
+    negative_prompt: 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame'
+    seed: 1588147170
+    subseed: 3951132330
+    subseed_strength: 0
+    model: novaAnimeXL_ilV190
+    model_hash: fa486caafc
+    sampler: Euler a
+    scheduler: Automatic
+    steps: 20
+    cfg_scale: 4.5
+    width: 1024
+    height: 1024
+    batch_size: 1
+    n_iter: 1
+    enable_hr: false
+    restore_faces: false
+    tiling: false
+    version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+- panel_id: 4
+  seed: 1901831359
+  image_file: panels/EYE-001-B_04.png
+  image_sha256: bbb5174d0d8d3df19147b14d7ddf0c7287f0550d7d4183fb3e104ad355a852f1
+  image_bytes: 1243335
+  original_metadata_file: EYE-001-B_04_generation.json
+  metadata_sha256: d6fbe678ef6dd1e94dc7b2f78467a9d53b0f031275e1d7e9a7a55a0a4f0a2e91
+  request_file: EYE-001-B_04_request.json
+  request_sha256: a79430c5c3038ada71e25b0b2eb27cdc090f65b3e4035ea1739fc48649250522
+  raw_response_file: EYE-001-B_04_response.json
+  raw_response_sha256: 30cae2de3288efd9585e1a1d7dcc0b7f0a914c0cc460da0cd056e008b156c2e4
+  dispatch_started_at: '2026-08-31T14:08:37.8214129+09:00'
+  response_received_at: '2026-08-31T14:08:43.8416591+09:00'
+  returned_generation:
+    prompt: '1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, closed eyes'
+    negative_prompt: 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame'
+    seed: 1901831359
+    subseed: 1991963367
+    subseed_strength: 0
+    model: novaAnimeXL_ilV190
+    model_hash: fa486caafc
+    sampler: Euler a
+    scheduler: Automatic
+    steps: 20
+    cfg_scale: 4.5
+    width: 1024
+    height: 1024
+    batch_size: 1
+    n_iter: 1
+    enable_hr: false
+    restore_faces: false
+    tiling: false
+    version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+- panel_id: 5
+  seed: 1918636949
+  image_file: panels/EYE-001-B_05.png
+  image_sha256: b3e0a39828007d12c95c6c465131fe07d11aad70d52b08ad330d1e7d74012a5e
+  image_bytes: 1290357
+  original_metadata_file: EYE-001-B_05_generation.json
+  metadata_sha256: 281e05de8e5a9d759460cb2272db7e91918a8b0a2a32372ebff31aecf8bfca35
+  request_file: EYE-001-B_05_request.json
+  request_sha256: d1ed415cb7fb12e3796b4b76e2eada1b7792ac27a9679b21336f91d1c4f8e91f
+  raw_response_file: EYE-001-B_05_response.json
+  raw_response_sha256: 78329e930eccf059b264ab94b1f27d6e6e77ba1a7c141f96d2520d8fac06b196
+  dispatch_started_at: '2026-08-31T14:08:44.0208387+09:00'
+  response_received_at: '2026-08-31T14:08:50.0851913+09:00'
+  returned_generation:
+    prompt: '1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, closed eyes'
+    negative_prompt: 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame'
+    seed: 1918636949
+    subseed: 1066056819
+    subseed_strength: 0
+    model: novaAnimeXL_ilV190
+    model_hash: fa486caafc
+    sampler: Euler a
+    scheduler: Automatic
+    steps: 20
+    cfg_scale: 4.5
+    width: 1024
+    height: 1024
+    batch_size: 1
+    n_iter: 1
+    enable_hr: false
+    restore_faces: false
+    tiling: false
+    version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+- panel_id: 6
+  seed: 2128309031
+  image_file: panels/EYE-001-B_06.png
+  image_sha256: 55387d1cd3a2d03bda2cb3898fef8ca35b567027f006ac1ea3391982136c2a61
+  image_bytes: 1336166
+  original_metadata_file: EYE-001-B_06_generation.json
+  metadata_sha256: 30a165ec88d3b5cd625b644cd89a5dd308cb5b9528d374134f7f954444b1652b
+  request_file: EYE-001-B_06_request.json
+  request_sha256: 9977d5482764d786d2fe0c99bd6826ca13e393dd0f996c8467d3d443c63dc6bb
+  raw_response_file: EYE-001-B_06_response.json
+  raw_response_sha256: 352f463d5996b6eb822283d625f9e03e36a7fe20595016538501b804dddeba95
+  dispatch_started_at: '2026-08-31T14:08:50.2746992+09:00'
+  response_received_at: '2026-08-31T14:08:56.2624948+09:00'
+  returned_generation:
+    prompt: '1girl, solo, upper body, front view, centered composition, neutral expression, hair tucked behind ears, unobstructed eye region, arms lowered, hands away from face, simple sleeveless top, plain studio background, looking at viewer, closed eyes'
+    negative_prompt: 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, glasses, sunglasses, eyepatch, blindfold, hair over eyes, hand on face, hand near face, profile, looking back, extreme head turn, cropped face, one eye out of frame'
+    seed: 2128309031
+    subseed: 2989192138
+    subseed_strength: 0
+    model: novaAnimeXL_ilV190
+    model_hash: fa486caafc
+    sampler: Euler a
+    scheduler: Automatic
+    steps: 20
+    cfg_scale: 4.5
+    width: 1024
+    height: 1024
+    batch_size: 1
+    n_iter: 1
+    enable_hr: false
+    restore_faces: false
+    tiling: false
+    version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+verification:
+  panel_count: 6
+  png_integrity: PASS
+  dimensions: PASS
+  generation_provenance: PASS
+  matched_prompt_contract: PASS
+  request_sampler_scheduler_binding: PASS
+  response_parameters_binding: PASS
+  response_info_sampler_binding: PASS
+  structured_infotext_sampler_scheduler_binding: PASS
+  observer_pixel_identity: PASS
+observation_status: PROMPT_BLIND_OBSERVATION_FROZEN_AND_DECODED
+ledger_registration: REGISTERED_EXACTLY_ONCE_IN_CANONICAL_RUN_INDEX
