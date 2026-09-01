@@ -1,0 +1,241 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-005-B",
+  "blind_condition_label": "COND-03",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "apparent_camera_vertical_position",
+    "apparent_viewing_direction",
+    "head_to_body_perspective",
+    "floor_support_geometry",
+    "full_body_visibility",
+    "angle_assessability",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-03: one stable vertical-angle pattern is visible in 6/6 panels.",
+      "Opaque condition COND-03: angle assessable=6/6.",
+      "Opaque condition COND-03: composition artifact=6/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, and visible pixels; prompts, seeds, requested angle, run mapping, PromptTag IDs, and emitted phrases were withheld.",
+      "The 18-panel opaque observation record was frozen before mapping disclosure at SHA-256 eb664c09bf2f130228878eb5891988aa615cc720c670abeed3137b808afc06e8.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen visual row.",
+      "Requested-angle alignment, matched-seed comparison, prerequisite handling, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "below_subject",
+        "upward",
+        "lower_body_emphasized",
+        "low_view_recession",
+        "visible",
+        "assessable",
+        "composition_artifact"
+      ],
+      "primary_morphology": "camera_angle_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible upward view from below the subject, lower-body emphasis, and low-view floor recession directly support the observation. A large aircraft is visibly present and recorded as a composition artifact."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "composition_artifact"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "below_subject",
+        "upward",
+        "lower_body_emphasized",
+        "low_view_recession",
+        "visible",
+        "assessable",
+        "composition_artifact"
+      ],
+      "primary_morphology": "camera_angle_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible upward view from below the subject, lower-body emphasis, and low-view floor recession directly support the observation. A large aircraft is visibly present and recorded as a composition artifact."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "composition_artifact"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "below_subject",
+        "upward",
+        "lower_body_emphasized",
+        "low_view_recession",
+        "visible",
+        "assessable",
+        "composition_artifact"
+      ],
+      "primary_morphology": "camera_angle_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible upward view from below the subject, lower-body emphasis, and low-view floor recession directly support the observation. A large aircraft is visibly present and recorded as a composition artifact."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "composition_artifact"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "below_subject",
+        "upward",
+        "lower_body_emphasized",
+        "low_view_recession",
+        "visible",
+        "assessable",
+        "composition_artifact"
+      ],
+      "primary_morphology": "camera_angle_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible upward view from below the subject, lower-body emphasis, and low-view floor recession directly support the observation. A large aircraft is visibly present and recorded as a composition artifact."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "composition_artifact"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "below_subject",
+        "upward",
+        "lower_body_emphasized",
+        "low_view_recession",
+        "visible",
+        "assessable",
+        "composition_artifact"
+      ],
+      "primary_morphology": "camera_angle_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible upward view from below the subject, lower-body emphasis, and low-view floor recession directly support the observation. A large aircraft is visibly present and recorded as a composition artifact."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "composition_artifact"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "below_subject",
+        "upward",
+        "lower_body_emphasized",
+        "low_view_recession",
+        "visible",
+        "assessable",
+        "composition_artifact"
+      ],
+      "primary_morphology": "camera_angle_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible upward view from below the subject, lower-body emphasis, and low-view floor recession directly support the observation. A large aircraft is visibly present and recorded as a composition artifact."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "composition_artifact"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "apparent_camera_vertical_position": {
+        "below_subject": 6
+      },
+      "apparent_viewing_direction": {
+        "upward": 6
+      },
+      "head_to_body_perspective": {
+        "lower_body_emphasized": 6
+      },
+      "floor_support_geometry": {
+        "low_view_recession": 6
+      },
+      "full_body_visibility": {
+        "visible": 6
+      },
+      "angle_assessability": {
+        "assessable": 6
+      },
+      "ambiguity_or_artifact": {
+        "composition_artifact": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "camera_angle_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "composition_artifact": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
