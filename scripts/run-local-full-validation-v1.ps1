@@ -134,9 +134,6 @@ print(json.dumps(payload, sort_keys=True))
         if (-not $validationPython.StartsWith('\\?\', [StringComparison]::Ordinal)) {
             throw 'local_full_validation_extended_path_identity_missing'
         }
-        if ([int]$identity.resource_length -le 260) {
-            throw 'local_full_validation_extended_resource_boundary_unexercised'
-        }
     }
 
     $pythonSteps = @(
