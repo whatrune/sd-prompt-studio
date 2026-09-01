@@ -135,27 +135,26 @@ The only additional Git lifecycle check is that an explicitly authorized operato
 
 ## Cleanup Procedure
 
-Merge確認後に次を行う。
+正常にMergeされたTaskは、post-Merge verificationがPASSし、`blocking / remaining / unknown = 0 / 0 / 0`であることを確認した後、次の順序で終了する。
 
 ```text
-1. PRがMERGEDであることを確認
-2. origin/mainにmerge commitが存在することを確認
-3. remote作業branchを削除
-4. worktreeに未コミット変更がないことを確認
-5. worktree remove
-6. local branchを削除
-7. git worktree prune
+1. Mergeが確認済みで、post-Merge verificationがPASSしていることを確認
+2. blocking / remaining / unknown = 0 / 0 / 0であることを確認
+3. Canonical Task Issueがopenならcompletedとしてclose
+4. PRがMERGED / CLOSEDであることを確認
+5. assigned Task worktreeに未コミット変更がないことを確認
+6. active executionまたはprocessがworktreeを使用していないことを確認
+7. git worktree remove <task-worktree>
+8. DONE
 ```
 
 概念コマンド:
 
 ```bash
-git worktree remove .worktrees/<task>
-git branch -d codex/<role>-<purpose>
-git worktree prune
+git worktree remove <task-worktree>
 ```
 
-未コミット変更があるworktreeを強制削除しない。cleanup失敗はmerge失敗と混同せず、PR状態とlocal cleanup状態を分離して報告する。
+未コミット変更があるworktreeを強制削除しない。normal cleanupはlocal branchまたはremote branchを削除しない。worktree removalの失敗は、既に確認済みのMergeを無効化せず、cleanup failureとしてMerge結果とは分離して報告する。この手順はTask終了時の同期的な処理であり、cleanup framework、daemon、scheduler、databaseを要求しない。
 
 ## Handoff Between Worktrees
 
