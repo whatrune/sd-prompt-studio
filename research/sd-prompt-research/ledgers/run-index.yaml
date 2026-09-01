@@ -480,3 +480,21 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-01T10:26:20+09:00'
   path: experiments/camera/CAM-004-D
+- run_id: CAM-005-A
+  domain: camera
+  title: CAM-005-A — eye level
+  status: OBSERVED
+  updated_at: '2026-09-02T01:36:12+09:00'
+  path: experiments/camera/CAM-005-A
+- run_id: CAM-005-B
+  domain: camera
+  title: CAM-005-B — low angle
+  status: OBSERVED
+  updated_at: '2026-09-02T01:36:26+09:00'
+  path: experiments/camera/CAM-005-B
+- run_id: CAM-005-C
+  domain: camera
+  title: CAM-005-C — high angle
+  status: OBSERVED
+  updated_at: '2026-09-02T01:36:26+09:00'
+  path: experiments/camera/CAM-005-C
