@@ -10,6 +10,7 @@ import {
   executeNormalTaskExecutionOperatorV1,
   extractProtectedTransitionTaskStateV1,
   insertInitialProtectedTransitionTaskStateV1,
+  productionHostV1,
 } from './run-bootstrap-publication-operator-v1.mjs'
 import {
   serializeCanonicalTaskIssueBodyV1,
@@ -696,6 +697,7 @@ const makeNormalHostV1 = ({
   taskBody = NORMAL_TASK_BODY,
   advancedPaths = [],
   baseIsDescendant = true,
+  successorIsDescendant = true,
   existingPr = false,
   terminalEventTransform = (value) => value,
 } = {}) => {
@@ -796,6 +798,10 @@ const makeNormalHostV1 = ({
       if (command === `diff --name-only -z --no-renames ${PARENT} ${currentBase} --`) {
         return advancedPaths.length === 0 ? '' : `${advancedPaths.join('\0')}\0`
       }
+      if (command === `merge-base --is-ancestor ${PARENT} ${PUSHED}`) {
+        if (!successorIsDescendant) throw new Error('not ancestor')
+        return ''
+      }
       if (args[0] === 'ls-remote') return remoteHead === null ? '' : `${remoteHead}\trefs/heads/${BRANCH}\n`
       if (args[0] === 'push') { metrics.push += 1; remoteHead = currentHead; return `*\tHEAD:refs/heads/${BRANCH}\t[new branch]\n` }
       throw new Error(`unexpected normal git command: ${command}`)
@@ -873,34 +879,34 @@ const makeNormalHostV1 = ({
 
 {
   const host = makeNormalHostV1({
-    initialHead: FRESH_BASE,
+    initialHead: PARENT,
     currentBase: FRESH_BASE,
     remoteInitially: PARENT,
     existingPr: true,
     advancedPaths: ['docs/unrelated-main-change.md'],
   })
   const result = await executeNormalTaskExecutionOperatorV1(
-    normalRequestV1('COMMIT_VALIDATED_TREE', FRESH_BASE, {
+    normalRequestV1('COMMIT_VALIDATED_TREE', PARENT, {
       expected_base: FRESH_BASE,
       expected_pr: PR_NUMBER,
       expected_remote_head: PARENT,
     }),
     host,
   )
-  check(result.status === 'SUCCESS' && result.parent_head === FRESH_BASE, 'N disjoint fresh-main advancement admits a freshly rebound validated-tree commit')
+  check(result.status === 'SUCCESS' && result.parent_head === PARENT, 'N disjoint fresh-main advancement preserves the existing PR lineage for the validated successor commit')
   check(host.metrics.commit === 1 && host.metrics.acquireContinuation === 1, 'N rebound commit still consumes one fetched terminal handoff and one commit')
 }
 
 {
   const host = makeNormalHostV1({
-    initialHead: FRESH_BASE,
+    initialHead: PARENT,
     currentBase: FRESH_BASE,
     remoteInitially: PARENT,
     existingPr: true,
     advancedPaths: [PATHS[0]],
   })
   const result = await executeNormalTaskExecutionOperatorV1(
-    normalRequestV1('COMMIT_VALIDATED_TREE', FRESH_BASE, {
+    normalRequestV1('COMMIT_VALIDATED_TREE', PARENT, {
       expected_base: FRESH_BASE,
       expected_pr: PR_NUMBER,
       expected_remote_head: PARENT,
@@ -913,14 +919,14 @@ const makeNormalHostV1 = ({
 
 {
   const host = makeNormalHostV1({
-    initialHead: FRESH_BASE,
+    initialHead: PARENT,
     currentBase: FRESH_BASE,
     remoteInitially: PARENT,
     existingPr: true,
     baseIsDescendant: false,
   })
   const result = await executeNormalTaskExecutionOperatorV1(
-    normalRequestV1('COMMIT_VALIDATED_TREE', FRESH_BASE, {
+    normalRequestV1('COMMIT_VALIDATED_TREE', PARENT, {
       expected_base: FRESH_BASE,
       expected_pr: PR_NUMBER,
       expected_remote_head: PARENT,
@@ -959,6 +965,43 @@ const makeNormalHostV1 = ({
 {
   const host = makeNormalHostV1({
     initialHead: PUSHED,
+    currentBase: FRESH_BASE,
+    remoteInitially: PARENT,
+    existingPr: true,
+    advancedPaths: ['docs/unrelated-main-change.md'],
+  })
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('PUBLISH_REVIEWED_COMMIT', PUSHED, {
+      expected_base: FRESH_BASE,
+      expected_pr: PR_NUMBER,
+      expected_remote_head: PARENT,
+    }),
+    host,
+  )
+  check(result.status === 'SUCCESS' && result.reason === 'reviewed_correction_published', 'P disjoint fresh-main advancement preserves reachable successor publication')
+  check(host.metrics.push === 1 && result.pushed_head === PUSHED, 'P fresh-base successor publishes once from the existing PR lineage')
+}
+
+{
+  const host = makeNormalHostV1({
+    initialHead: PUSHED,
+    remoteInitially: PARENT,
+    successorIsDescendant: false,
+  })
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('PUBLISH_REVIEWED_COMMIT', PUSHED, {
+      expected_pr: PR_NUMBER,
+      expected_remote_head: PARENT,
+    }),
+    host,
+  )
+  check(result.reason === 'successor_head_not_descendant' && result.mutation_count === 0, 'P a leased but non-descendant correction stops before publication mutation')
+  check(host.metrics.push === 0 && host.metrics.createPull === 0, 'P non-descendant correction performs no push or PR mutation')
+}
+
+{
+  const host = makeNormalHostV1({
+    initialHead: PUSHED,
     terminalEventTransform: (event) => ({ ...event, result: { ...event.result, unknown: 1 } }),
   })
   const invalid = await executeNormalTaskExecutionOperatorV1(
@@ -975,6 +1018,77 @@ const makeNormalHostV1 = ({
   )
   check(duplicate.reason === 'remote_branch_already_exists' && duplicate.mutation_count === 0, 'P a pre-existing remote branch fails closed instead of republishing')
   check(host.metrics.push === 0 && host.metrics.createPull === 0, 'P remote identity collision performs no mutation')
+}
+
+{
+  const directory = mkdtempSync(path.join(tmpdir(), 'normal-continuation-event-'))
+  try {
+    const eventFile = path.join(directory, 'event.json')
+    const event = { target: NORMAL_TARGET, cursor: normalCursorV1('PUBLISH_REVIEWED_COMMIT') }
+    writeFileSync(eventFile, `${JSON.stringify(event)}\n`, 'utf8')
+    const apiCalls = []
+    const host = productionHostV1({
+      GH_TOKEN: 'test-token',
+      GITHUB_REPOSITORY: REPOSITORY,
+      CODEX_CONTINUATION_EVENT_FILE: eventFile,
+    }, {
+      cwd: worktree,
+      observeLocalWorktree: (identity) => ({
+        repository: identity.repository,
+        canonical_task_id: identity.canonical_task_id,
+        objective_digest: identity.objective_digest,
+        branch: identity.branch,
+        worktree_path: identity.worktree_path,
+        registered_worktree_path: identity.worktree_path,
+        git_common_dir: identity.git_common_dir,
+        authorized_paths: identity.authorized_paths,
+        remote_main_sha: identity.expected_base,
+        head: identity.expected_head,
+        pr_lookup_attempted: false,
+        pr: null,
+      }),
+      fetch: async (url) => {
+        apiCalls.push(url)
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            number: PR_NUMBER,
+            state: 'open',
+            merged: false,
+            head: { sha: PARENT },
+            base: { sha: PARENT, repo: { full_name: REPOSITORY } },
+          }),
+        }
+      },
+    })
+    const fetched = await host.refetchContinuationEvent({ target: event.target, cursor: event.cursor })
+    check(JSON.stringify(fetched) === JSON.stringify(event), 'P production host refetches the exact host-owned continuation event file')
+    let mismatchRejected = false
+    try { await host.refetchContinuationEvent({ target: event.target, cursor: 'different-cursor' }) } catch (error) {
+      mismatchRejected = error.message === 'continuation_event_transport_invalid'
+    }
+    check(mismatchRejected, 'P production continuation transport rejects a target or cursor mismatch')
+    const identity = {
+      repository: REPOSITORY,
+      canonical_task_id: TASK,
+      objective_digest: 'digest',
+      branch: BRANCH,
+      worktree_path: worktree,
+      git_common_dir: NORMAL_COMMON_DIR,
+      authorized_paths: [...PATHS],
+      expected_base: PARENT,
+      expected_head: PUSHED,
+      expected_remote_head: PARENT,
+      expected_pr: PR_NUMBER,
+    }
+    const observed = await host.observeExecution(identity)
+    check(apiCalls.length === 1 && apiCalls[0].endsWith(`/repos/${REPOSITORY}/pulls/${PR_NUMBER}`), 'P production execution observation fetches only the exact expected PR')
+    check(observed.pr_lookup_attempted === true && observed.requested_pr_number === PR_NUMBER, 'P production execution observation records exact PR lookup ownership')
+    check(observed.pr.number === PR_NUMBER && observed.pr.head === PARENT && observed.pr.base === PARENT, 'P production execution observation binds the expected PR tuple')
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
 }
 
 const scopeDiff = spawnSync('git', ['diff', '--name-only', '--no-renames', PARENT, '759918b6527c2b1fca3de924fa8042f413426822', '--'], {

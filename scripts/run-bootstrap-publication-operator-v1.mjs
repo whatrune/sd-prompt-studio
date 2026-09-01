@@ -9,6 +9,7 @@ import {
 } from './run-protected-transition-admission-v1.mjs'
 import {
   assertBoundedExecutionContextV1,
+  bindExpectedPullRequestV1,
   createBoundedExecutionIdentityV1,
   observeLocalWorktreeV1,
 } from './task-execution-context-v1.mjs'
@@ -415,7 +416,7 @@ const samePathsV1 = (left, right) => (
   Array.isArray(left) && Array.isArray(right) && normalizedPathSetV1(left) === normalizedPathSetV1(right)
 )
 
-const admitNormalExecutionIdentityV1 = ({ request, host }) => {
+const admitNormalExecutionIdentityV1 = async ({ request, host }) => {
   const identity = createBoundedExecutionIdentityV1({
     repository: request.repository.toLowerCase(),
     canonical_task_id: request.task_issue_number,
@@ -430,9 +431,7 @@ const admitNormalExecutionIdentityV1 = ({ request, host }) => {
     expected_remote_head: request.expected_remote_head,
     execution_instance_id: request.execution_instance_id,
   })
-  const observed = typeof host.observeExecution === 'function'
-    ? host.observeExecution(identity)
-    : observeLocalWorktreeV1(identity)
+  const observed = await host.observeExecution(identity)
   assertBoundedExecutionContextV1(identity, observed)
   return identity
 }
@@ -553,7 +552,8 @@ export const executeNormalTaskExecutionOperatorV1 = async (rawRequest, host) => 
   }
   if (
     host === null || typeof host !== 'object' || typeof host.api !== 'function' ||
-    typeof host.git !== 'function' || typeof host.refetchContinuationEvent !== 'function' ||
+    typeof host.git !== 'function' || typeof host.observeExecution !== 'function' ||
+    typeof host.refetchContinuationEvent !== 'function' ||
     host.repository !== request.repository ||
     normalizedFileSystemPathV1(host.worktreePath ?? '') !== normalizedFileSystemPathV1(request.worktree_path)
   ) return stop('normal_task_execution_host_invalid')
@@ -570,7 +570,7 @@ export const executeNormalTaskExecutionOperatorV1 = async (rawRequest, host) => 
       request,
       host,
     })
-    admitNormalExecutionIdentityV1({ request, host })
+    await admitNormalExecutionIdentityV1({ request, host })
     if (request.expected_pr !== null) {
       assertExistingNormalTaskPullV1({
         pull: await host.api(`repos/${request.repository}/pulls/${request.expected_pr}`),
@@ -640,6 +640,13 @@ export const executeNormalTaskExecutionOperatorV1 = async (rawRequest, host) => 
     const status = host.git(['status', '--porcelain=v1', '-z'], { encoding: 'utf8' })
     const head = host.git(['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
     if (status !== '' || head !== request.expected_head) throw new Error('reviewed_tree_binding_mismatch')
+    if (request.expected_pr !== null) {
+      try {
+        host.git(['merge-base', '--is-ancestor', request.expected_remote_head, request.expected_head])
+      } catch {
+        throw new Error('successor_head_not_descendant')
+      }
+    }
     const remote = remoteBranchStateV1(host.git(
       ['ls-remote', '--heads', 'origin', `refs/heads/${request.branch}`], { encoding: 'utf8' },
     ), request.branch)
@@ -1080,12 +1087,17 @@ export const executeBootstrapPublicationOperatorV1 = async (rawRequest, host) =>
   })
 }
 
-const productionHostV1 = (environment) => {
+export const productionHostV1 = (environment, dependencies = {}) => {
   const token = environment.GH_TOKEN
   const repository = environment.GITHUB_REPOSITORY
   if (!token || !REPOSITORY.test(repository ?? '')) throw new Error('production_environment_invalid')
+  const fetchImplementation = dependencies.fetch ?? fetch
+  const executeGit = dependencies.execFileSync ?? execFileSync
+  const worktreePath = dependencies.cwd ?? process.cwd()
+  const readContinuationEvent = dependencies.readContinuationEvent ?? readRequestFileV1
+  const observeLocalWorktree = dependencies.observeLocalWorktree ?? observeLocalWorktreeV1
   const api = async (endpoint, options = undefined) => {
-    const response = await fetch(`https://api.github.com/${endpoint}`, {
+    const response = await fetchImplementation(`https://api.github.com/${endpoint}`, {
       method: options?.method ?? 'GET',
       headers: {
         Accept: 'application/vnd.github+json',
@@ -1099,12 +1111,32 @@ const productionHostV1 = (environment) => {
     if (!response.ok) throw new Error(`github_api_${response.status}`)
     return response.status === 204 ? null : response.json()
   }
+  const refetchContinuationEvent = async ({ target, cursor }) => {
+    const file = environment.CODEX_CONTINUATION_EVENT_FILE
+    if (typeof file !== 'string' || !path.isAbsolute(file) || file.includes('\0')) {
+      throw new Error('continuation_event_transport_invalid')
+    }
+    const event = readContinuationEvent(file)
+    if (event?.target !== target || event?.cursor !== cursor) {
+      throw new Error('continuation_event_transport_invalid')
+    }
+    return event
+  }
+  const observeExecution = async (identity) => {
+    const local = observeLocalWorktree(identity)
+    const pull = identity.expected_pr === null
+      ? null
+      : await api(`repos/${identity.repository}/pulls/${identity.expected_pr}`)
+    return bindExpectedPullRequestV1(identity, local, () => pull)
+  }
   return Object.freeze({
     repository,
-    worktreePath: process.cwd(),
+    worktreePath,
     api,
-    git: (args, options = undefined) => execFileSync('git', args, {
-      cwd: process.cwd(),
+    refetchContinuationEvent,
+    observeExecution,
+    git: (args, options = undefined) => executeGit('git', args, {
+      cwd: worktreePath,
       ...options,
     }),
   })
