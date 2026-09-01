@@ -10,7 +10,7 @@ import {
 } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { isAbsolute, join, normalize } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { parseDocument } from 'yaml'
 import {
@@ -62,9 +62,33 @@ const REVIEW_PUBLICATION_FORBIDDEN_CHANGES = Object.freeze([
 const REVIEW_PUBLICATION_PREDELEGATION_FORBIDDEN_CHANGES = Object.freeze([
   'review_publication_before_fresh_approval', 'alternate_surface_fallback', 'merge', 'retry',
 ])
+const NORMAL_TASK_EXECUTION_PREDELEGATION_GRANT_FIELDS = Object.freeze([
+  'protected_action', 'activation', 'materialization_only', 'repository', 'task_issue',
+  'head_branch', 'worktree_path', 'expected_base', 'authorized_paths', 'authorized_actor',
+  'execution_identity_contract', 'allowed_operations', 'fallback_allowed',
+])
+const NORMAL_TASK_EXECUTION_OPERATION_FIELDS = Object.freeze([
+  'worktree_creation', 'validated_tree_commit', 'unchanged_publication',
+])
+const NORMAL_TASK_EXECUTION_WORKTREE_FIELDS = Object.freeze([
+  'operation_count', 'exact_registered_path_required', 'fresh_remote_main_required',
+])
+const NORMAL_TASK_EXECUTION_COMMIT_FIELDS = Object.freeze([
+  'activation', 'operation_count_per_execution_identity', 'exact_scope_required',
+  'same_task_correction_allowed',
+])
+const NORMAL_TASK_EXECUTION_PUBLICATION_FIELDS = Object.freeze([
+  'activation', 'initial_push_operation_count', 'correction_push_operation_count_per_execution_identity',
+  'pull_request_creation_count_per_task', 'draft', 'exact_reviewed_commit_required',
+  'direct_refetch_required',
+])
+const NORMAL_TASK_EXECUTION_FORBIDDEN_CHANGES = Object.freeze([
+  'scope_expansion', 'rebase', 'amend', 'ready_mutation', 'merge', 'retry', 'issue_closure',
+])
 const CANONICAL_TASK_BODY_REQUEST_FIELDS = Object.freeze([
   'title', 'repository', 'objective', 'markdown', 'authorized_paths', 'head_branch',
-  'authorized_actor', 'permitted_surface', 'ready_allowed', 'product_owner_login',
+  'worktree_path', 'expected_base', 'authorized_actor', 'permitted_surface',
+  'ready_allowed', 'product_owner_login',
 ])
 const CANONICAL_TASK_BODY_MODES = Object.freeze(['UNBOUND_CREATE', 'BOUND_FINAL'])
 const CANONICAL_TASK_SELF_BINDING_FIELDS = Object.freeze([
@@ -73,6 +97,10 @@ const CANONICAL_TASK_SELF_BINDING_FIELDS = Object.freeze([
   'review_publication_predelegation.authority_source',
   'review_publication_predelegation.canonical_record',
   'review_publication_predelegation.allowed_changes.task_issue',
+  'normal_execution_predelegation.task_id',
+  'normal_execution_predelegation.authority_source',
+  'normal_execution_predelegation.canonical_record',
+  'normal_execution_predelegation.allowed_changes.task_issue',
 ])
 const FULL_SHA = /^[0-9a-f]{40}$/u
 const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u
@@ -500,6 +528,9 @@ const canonicalTaskBodyRequestV1 = (request) => {
     /[\s\\\u0000-\u001f\u007f]/u.test(request.head_branch) || request.head_branch.startsWith('/') ||
     request.head_branch.endsWith('/') || request.head_branch.includes('//') || request.head_branch.includes('..') ||
     request.head_branch.includes('@{') ||
+    typeof request.worktree_path !== 'string' || !isAbsolute(request.worktree_path) ||
+    request.worktree_path.includes('\0') || normalize(request.worktree_path) !== request.worktree_path ||
+    !FULL_SHA.test(request.expected_base ?? '') ||
     typeof request.authorized_actor !== 'string' ||
     !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/u.test(request.authorized_actor) ||
     !['PULL_REQUEST_REVIEW', 'TASK_ISSUE_COMMENT'].includes(request.permitted_surface) ||
@@ -565,10 +596,93 @@ const canonicalReviewPublicationPredelegationV2 = ({ request, taskIssue }) => {
   })
 }
 
+const canonicalNormalTaskExecutionPredelegationV1 = ({ request, taskIssue }) => {
+  const taskUrl = `https://github.com/${request.repository}/issues/${taskIssue}`
+  return Object.freeze({
+    task_id: `TASK-${taskIssue}-NORMAL-EXECUTION-PREDELEGATION`,
+    record_type: 'task_assignment',
+    authoring_role: 'Product Owner / Normal Task Execution Predelegator',
+    authority_source: taskUrl,
+    canonical_record: taskUrl,
+    prior_record_url: 'not_applicable',
+    cumulative_scope: 'NORMAL_TASK_EXECUTION_PREDELEGATION',
+    supporting_records: 'not_applicable',
+    requested_by: 'Product Owner',
+    assigned_role: 'Bounded Normal Task Execution Host',
+    purpose: 'Predelegate exact-base worktree admission, one validated-tree commit per execution identity, and one unchanged non-Draft publication.',
+    background: 'Terminal continuation events activate closed operations but are not independent authority.',
+    input_documents: 'Shared Role Execution Contract, Delegation and Result Contract, Integrated Lead Charter, and BOUNDED_EXECUTION_IDENTITY_V1.',
+    allowed_changes: Object.freeze({
+      protected_action: 'NORMAL_TASK_EXECUTION',
+      activation: 'CANONICAL_TASK_ADMISSION',
+      materialization_only: false,
+      repository: request.repository,
+      task_issue: taskIssue,
+      head_branch: request.head_branch,
+      worktree_path: request.worktree_path,
+      expected_base: request.expected_base,
+      authorized_paths: request.authorized_paths,
+      authorized_actor: request.authorized_actor,
+      execution_identity_contract: 'BOUNDED_EXECUTION_IDENTITY_V1',
+      allowed_operations: Object.freeze({
+        worktree_creation: Object.freeze({
+          operation_count: 1,
+          exact_registered_path_required: true,
+          fresh_remote_main_required: true,
+        }),
+        validated_tree_commit: Object.freeze({
+          activation: 'VALIDATED_EXACT_SCOPE_TREE',
+          operation_count_per_execution_identity: 1,
+          exact_scope_required: true,
+          same_task_correction_allowed: true,
+        }),
+        unchanged_publication: Object.freeze({
+          activation: 'PREPUBLICATION_REVIEW_APPROVE',
+          initial_push_operation_count: 1,
+          correction_push_operation_count_per_execution_identity: 1,
+          pull_request_creation_count_per_task: 1,
+          draft: false,
+          exact_reviewed_commit_required: true,
+          direct_refetch_required: true,
+        }),
+      }),
+      fallback_allowed: false,
+    }),
+    forbidden_changes: NORMAL_TASK_EXECUTION_FORBIDDEN_CHANGES,
+    expected_outputs: 'One admitted worktree, one exact validated-tree commit per execution identity, and one unchanged non-Draft publication.',
+    validation: 'Exact Task, branch, registered worktree, remote-main base, execution identity, HEAD, scope, review, remote ref, and pull-request refetch binding.',
+    completion_conditions: 'The reviewed exact commit is published once to one non-Draft PR and the current-HEAD check wait is established.',
+    escalation_conditions: 'Any authority, identity, base, scope, tree, review, remote-ref, publication, or mutation ambiguity.',
+  })
+}
+
 const serializeFencedYamlJsonV1 = (value) => `\`\`\`yaml\n${JSON.stringify(value, null, 2)}\n\`\`\`\n`
 
-const composeCanonicalTaskIssueBodyV1 = ({ markdown, taskAuthorityBody, predelegation }) => (
-  `${markdown}\n\n${taskAuthorityBody}\n${serializeFencedYamlJsonV1(predelegation)}`
+const classifyNormalTaskExecutionPredelegationV1 = (body) => {
+  const candidates = [...body.matchAll(/```yaml\r?\n([\s\S]*?)\r?\n```/gu)]
+    .filter((block) => block[1].includes('NORMAL_TASK_EXECUTION'))
+  if (candidates.length === 0) return null
+  if (candidates.length !== 1) throw new Error('normal_task_execution_predelegation_invalid')
+  const document = parseDocument(candidates[0][1], { uniqueKeys: true })
+  if (document.errors.length !== 0) throw new Error('normal_task_execution_predelegation_invalid')
+  const assignment = document.toJS()
+  const grant = assignment?.allowed_changes
+  const operations = grant?.allowed_operations
+  if (
+    !exactKeys(assignment, REVIEW_PUBLICATION_ASSIGNMENT_FIELDS) ||
+    !exactKeys(grant, NORMAL_TASK_EXECUTION_PREDELEGATION_GRANT_FIELDS) ||
+    !exactKeys(operations, NORMAL_TASK_EXECUTION_OPERATION_FIELDS) ||
+    !exactKeys(operations?.worktree_creation, NORMAL_TASK_EXECUTION_WORKTREE_FIELDS) ||
+    !exactKeys(operations?.validated_tree_commit, NORMAL_TASK_EXECUTION_COMMIT_FIELDS) ||
+    !exactKeys(operations?.unchanged_publication, NORMAL_TASK_EXECUTION_PUBLICATION_FIELDS)
+  ) throw new Error('normal_task_execution_predelegation_invalid')
+  return assignment
+}
+
+const composeCanonicalTaskIssueBodyV1 = ({
+  markdown, taskAuthorityBody, normalExecutionPredelegation, reviewPublicationPredelegation,
+}) => (
+  `${markdown}\n\n${taskAuthorityBody}\n${normalExecutionPredelegation === null ? '' : serializeFencedYamlJsonV1(normalExecutionPredelegation)}${serializeFencedYamlJsonV1(reviewPublicationPredelegation)}`
 )
 
 export const parseCanonicalTaskIssueBodyV1 = ({ body, mode }) => {
@@ -579,7 +693,12 @@ export const parseCanonicalTaskIssueBodyV1 = ({ body, mode }) => {
     body.includes('System.Object[]') || !body.endsWith('\n') || body.endsWith('\n\n')
   ) throw new Error('canonical_task_body_invalid')
   const fenceLines = body.match(/^```(?:json|yaml)?$/gmu) ?? []
-  if (fenceLines.join('\n') !== '```json\n```\n```yaml\n```') throw new Error('canonical_task_body_invalid')
+  if (![
+    '```json\n```\n```yaml\n```',
+    '```json\n```\n```yaml\n```\n```yaml\n```',
+  ].includes(fenceLines.join('\n'))) {
+    throw new Error('canonical_task_body_invalid')
+  }
   const authorityHeading = '# Simplified Lifecycle Task Authority'
   const headingMarker = `\n\n${authorityHeading}\n\n\`\`\`json\n`
   const headingIndex = body.indexOf(headingMarker)
@@ -594,26 +713,71 @@ export const parseCanonicalTaskIssueBodyV1 = ({ body, mode }) => {
     markdown,
     authorized_paths: ['parser-validation'],
     head_branch: 'codex/parser-validation',
+    worktree_path: process.platform === 'win32' ? 'C:\\parser-validation' : '/parser-validation',
+    expected_base: '0'.repeat(40),
     authorized_actor: 'parser-validation',
     permitted_surface: 'TASK_ISSUE_COMMENT',
     ready_allowed: false,
     product_owner_login: 'whatrune',
   })
   const taskAuthority = parseSimplifiedTaskAuthorityV1(body, { binding_mode: admittedMode })
+  const normalExecutionPredelegation = classifyNormalTaskExecutionPredelegationV1(body)
   const profiles = classifyReviewPublicationTaskAssignmentsV2(body)
   if (profiles.predelegation === null || profiles.exact_assignment !== null) {
     throw new Error('canonical_task_body_invalid')
   }
+  const normalGrant = normalExecutionPredelegation?.allowed_changes
+  const normalOperations = normalGrant?.allowed_operations
+  const taskUrl = `https://github.com/${taskAuthority.repository}/issues/${taskAuthority.task_issue}`
+  if (normalExecutionPredelegation !== null && (
+    normalExecutionPredelegation.task_id !== `TASK-${taskAuthority.task_issue}-NORMAL-EXECUTION-PREDELEGATION` ||
+    normalExecutionPredelegation.authoring_role !== 'Product Owner / Normal Task Execution Predelegator' ||
+    normalExecutionPredelegation.authority_source !== taskUrl ||
+    normalExecutionPredelegation.canonical_record !== taskUrl ||
+    normalExecutionPredelegation.prior_record_url !== 'not_applicable' ||
+    normalExecutionPredelegation.cumulative_scope !== 'NORMAL_TASK_EXECUTION_PREDELEGATION' ||
+    normalExecutionPredelegation.supporting_records !== 'not_applicable' ||
+    normalExecutionPredelegation.requested_by !== 'Product Owner' ||
+    normalExecutionPredelegation.assigned_role !== 'Bounded Normal Task Execution Host' ||
+    normalGrant.protected_action !== 'NORMAL_TASK_EXECUTION' ||
+    normalGrant.activation !== 'CANONICAL_TASK_ADMISSION' || normalGrant.materialization_only !== false ||
+    normalGrant.repository !== taskAuthority.repository || normalGrant.task_issue !== taskAuthority.task_issue ||
+    !nonEmptyText(normalGrant.head_branch) || !isAbsolute(normalGrant.worktree_path) ||
+    !FULL_SHA.test(normalGrant.expected_base ?? '') ||
+    !samePaths(normalGrant.authorized_paths, taskAuthority.authorized_paths) ||
+    normalGrant.execution_identity_contract !== 'BOUNDED_EXECUTION_IDENTITY_V1' ||
+    normalOperations.worktree_creation.operation_count !== 1 ||
+    normalOperations.worktree_creation.exact_registered_path_required !== true ||
+    normalOperations.worktree_creation.fresh_remote_main_required !== true ||
+    normalOperations.validated_tree_commit.activation !== 'VALIDATED_EXACT_SCOPE_TREE' ||
+    normalOperations.validated_tree_commit.operation_count_per_execution_identity !== 1 ||
+    normalOperations.validated_tree_commit.exact_scope_required !== true ||
+    normalOperations.validated_tree_commit.same_task_correction_allowed !== true ||
+    normalOperations.unchanged_publication.activation !== 'PREPUBLICATION_REVIEW_APPROVE' ||
+    normalOperations.unchanged_publication.initial_push_operation_count !== 1 ||
+    normalOperations.unchanged_publication.correction_push_operation_count_per_execution_identity !== 1 ||
+    normalOperations.unchanged_publication.pull_request_creation_count_per_task !== 1 ||
+    normalOperations.unchanged_publication.draft !== false ||
+    normalOperations.unchanged_publication.exact_reviewed_commit_required !== true ||
+    normalOperations.unchanged_publication.direct_refetch_required !== true ||
+    normalGrant.fallback_allowed !== false ||
+    normalExecutionPredelegation.forbidden_changes.join('\n') !== NORMAL_TASK_EXECUTION_FORBIDDEN_CHANGES.join('\n') ||
+    normalGrant.head_branch !== profiles.predelegation.allowed_changes.head_branch ||
+    normalGrant.authorized_actor !== profiles.predelegation.allowed_changes.authorized_actor ||
+    !samePaths(normalGrant.authorized_paths, profiles.predelegation.allowed_changes.authorized_paths)
+  )) throw new Error('canonical_task_body_invalid')
   const expected = composeCanonicalTaskIssueBodyV1({
     markdown,
     taskAuthorityBody: serializeSimplifiedTaskAuthorityV1(taskAuthority, { binding_mode: admittedMode }),
-    predelegation: profiles.predelegation,
+    normalExecutionPredelegation,
+    reviewPublicationPredelegation: profiles.predelegation,
   })
   if (body !== expected) throw new Error('canonical_task_body_invalid')
   return Object.freeze({
     mode: admittedMode,
     markdown,
     task_authority: taskAuthority,
+    normal_execution_predelegation: normalExecutionPredelegation,
     review_publication_predelegation: profiles.predelegation,
   })
 }
@@ -634,7 +798,11 @@ export const serializeCanonicalTaskIssueBodyV1 = ({ request, mode, taskIssue = n
   const body = composeCanonicalTaskIssueBodyV1({
     markdown: admittedRequest.markdown,
     taskAuthorityBody: serializeSimplifiedTaskAuthorityV1(taskAuthority, { binding_mode: admittedMode }),
-    predelegation: canonicalReviewPublicationPredelegationV2({
+    normalExecutionPredelegation: canonicalNormalTaskExecutionPredelegationV1({
+      request: admittedRequest,
+      taskIssue: boundTaskIssue,
+    }),
+    reviewPublicationPredelegation: canonicalReviewPublicationPredelegationV2({
       request: admittedRequest,
       taskIssue: boundTaskIssue,
     }),
@@ -665,10 +833,20 @@ export const proveCanonicalTaskIssueSelfBindingDeltaV1 = ({
   neutralPredelegation.authority_source = `https://github.com/${admittedRequest.repository}/issues/0`
   neutralPredelegation.canonical_record = `https://github.com/${admittedRequest.repository}/issues/0`
   neutralPredelegation.allowed_changes.task_issue = 0
+  const neutralNormalExecution = canonicalJsonCloneV1(bound.normal_execution_predelegation)
+  neutralNormalExecution.task_id = 'TASK-0-NORMAL-EXECUTION-PREDELEGATION'
+  neutralNormalExecution.authority_source = `https://github.com/${admittedRequest.repository}/issues/0`
+  neutralNormalExecution.canonical_record = `https://github.com/${admittedRequest.repository}/issues/0`
+  neutralNormalExecution.allowed_changes.task_issue = 0
   if (
     JSON.stringify(neutralTask) !== JSON.stringify(unbound.task_authority) ||
     JSON.stringify(neutralPredelegation) !== JSON.stringify(unbound.review_publication_predelegation) ||
+    JSON.stringify(neutralNormalExecution) !== JSON.stringify(unbound.normal_execution_predelegation) ||
     !samePaths(bound.task_authority.authorized_paths, unbound.task_authority.authorized_paths) ||
+    !samePaths(
+      bound.normal_execution_predelegation.allowed_changes.authorized_paths,
+      unbound.normal_execution_predelegation.allowed_changes.authorized_paths,
+    ) ||
     !samePaths(
       bound.review_publication_predelegation.allowed_changes.authorized_paths,
       unbound.review_publication_predelegation.allowed_changes.authorized_paths,
@@ -793,9 +971,15 @@ export const publishCanonicalTaskIssueV1 = async ({ request, host }) => {
     const finalBody = parseCanonicalTaskIssueBodyV1({ body: patchedRefetch.body, mode: 'BOUND_FINAL' })
     if (
       finalBody.task_authority.task_issue !== taskIssue ||
+      finalBody.normal_execution_predelegation.task_id !== `TASK-${taskIssue}-NORMAL-EXECUTION-PREDELEGATION` ||
+      finalBody.normal_execution_predelegation.allowed_changes.task_issue !== taskIssue ||
       finalBody.review_publication_predelegation.task_id !== `TASK-${taskIssue}-REVIEW-PUBLICATION-PREDELEGATION` ||
       finalBody.review_publication_predelegation.allowed_changes.task_issue !== taskIssue ||
       !samePaths(finalBody.task_authority.authorized_paths, admittedRequest.authorized_paths) ||
+      !samePaths(
+        finalBody.normal_execution_predelegation.allowed_changes.authorized_paths,
+        admittedRequest.authorized_paths,
+      ) ||
       !samePaths(
         finalBody.review_publication_predelegation.allowed_changes.authorized_paths,
         admittedRequest.authorized_paths,
@@ -808,6 +992,7 @@ export const publishCanonicalTaskIssueV1 = async ({ request, host }) => {
       create_mutation_count: createMutationCount,
       patch_mutation_count: patchMutationCount,
       task_authority_count: 1,
+      normal_execution_predelegation_count: 1,
       review_publication_predelegation_count: 1,
       authorized_paths: admittedRequest.authorized_paths,
       unbound_body_sha256: createHash('sha256').update(unboundBytes).digest('hex'),

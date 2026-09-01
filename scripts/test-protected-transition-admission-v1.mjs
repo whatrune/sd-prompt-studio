@@ -67,6 +67,8 @@ const canonicalTaskBodyRequest = (overrides = {}) => Object.freeze({
   markdown: '# Canonical Task 日本語\n\nBlank lines, Unicode ✓, and embedded # remain content.',
   authorized_paths: [...CANONICAL_TASK_PATHS].reverse(),
   head_branch: 'codex/canonical-task-body-serialization-v1',
+  worktree_path: join('C:\\', 'workspace', '.worktrees', 'canonical-task-body-serialization-v1'),
+  expected_base: BASE,
   authorized_actor: 'whatrune',
   permitted_surface: 'TASK_ISSUE_COMMENT',
   ready_allowed: false,
@@ -601,18 +603,32 @@ const parsedCanonicalTaskBound = parseCanonicalTaskIssueBodyV1({
 })
 equal(parsedCanonicalTaskUnbound.task_authority.task_issue, 0)
 equal(parsedCanonicalTaskBound.task_authority.task_issue, 526)
+equal(parsedCanonicalTaskBound.normal_execution_predelegation.allowed_changes.task_issue, 526)
+equal(parsedCanonicalTaskBound.normal_execution_predelegation.task_id, 'TASK-526-NORMAL-EXECUTION-PREDELEGATION')
+equal(parsedCanonicalTaskBound.normal_execution_predelegation.allowed_changes.expected_base, BASE)
 equal(parsedCanonicalTaskBound.review_publication_predelegation.allowed_changes.task_issue, 526)
 equal(parsedCanonicalTaskBound.review_publication_predelegation.task_id, 'TASK-526-REVIEW-PUBLICATION-PREDELEGATION')
 equal(parsedCanonicalTaskBound.task_authority.authorized_paths.join('\n'), [...CANONICAL_TASK_PATHS].sort().join('\n'))
+equal(parsedCanonicalTaskBound.normal_execution_predelegation.allowed_changes.authorized_paths.join('\n'), [...CANONICAL_TASK_PATHS].sort().join('\n'))
 equal(parsedCanonicalTaskBound.review_publication_predelegation.allowed_changes.authorized_paths.join('\n'), [...CANONICAL_TASK_PATHS].sort().join('\n'))
 equal((canonicalTaskBoundBody.match(/^```json$/gmu) ?? []).length, 1)
-equal((canonicalTaskBoundBody.match(/^```yaml$/gmu) ?? []).length, 1)
+equal((canonicalTaskBoundBody.match(/^```yaml$/gmu) ?? []).length, 2)
 equal(canonicalTaskBoundBody.includes('\r'), false)
 equal(canonicalTaskBoundBody.endsWith('\n') && !canonicalTaskBoundBody.endsWith('\n\n'), true)
 ok(canonicalTaskBoundBody.includes('日本語'))
 ok(canonicalTaskBoundBody.includes('Unicode ✓'))
 ok(canonicalTaskBoundBody.includes('embedded # remain content'))
 equal(canonicalTaskBoundBody.includes('System.Object[]'), false)
+const legacyCanonicalTaskBody = canonicalTaskBoundBody.replace(
+  yamlBlock(parsedCanonicalTaskBound.normal_execution_predelegation),
+  '',
+)
+const parsedLegacyCanonicalTaskBody = parseCanonicalTaskIssueBodyV1({
+  body: legacyCanonicalTaskBody,
+  mode: 'BOUND_FINAL',
+})
+equal(parsedLegacyCanonicalTaskBody.normal_execution_predelegation, null)
+equal(parsedLegacyCanonicalTaskBody.review_publication_predelegation.allowed_changes.task_issue, 526)
 const canonicalTaskDelta = proveCanonicalTaskIssueSelfBindingDeltaV1({
   request: canonicalTaskBodyRequest(),
   unboundBody: canonicalTaskUnboundBody,
@@ -626,6 +642,10 @@ equal(canonicalTaskDelta.changed_fields.join('\n'), [
   'review_publication_predelegation.authority_source',
   'review_publication_predelegation.canonical_record',
   'review_publication_predelegation.allowed_changes.task_issue',
+  'normal_execution_predelegation.task_id',
+  'normal_execution_predelegation.authority_source',
+  'normal_execution_predelegation.canonical_record',
+  'normal_execution_predelegation.allowed_changes.task_issue',
 ].join('\n'))
 equal(canonicalTaskDelta.authorized_paths.join('\n'), [...CANONICAL_TASK_PATHS].sort().join('\n'))
 throws(() => parseSimplifiedTaskAuthorityV1(
@@ -683,7 +703,7 @@ const parsedTask526Body = parseCanonicalTaskIssueBodyV1({ body: task526Body, mod
 equal(parsedTask526Body.task_authority.authorized_paths.join('\n'), [...task526Paths].sort().join('\n'))
 equal(task526Body.includes('System.Object[]'), false)
 equal((task526Body.match(/^```json$/gmu) ?? []).length, 1)
-equal((task526Body.match(/^```yaml$/gmu) ?? []).length, 1)
+equal((task526Body.match(/^```yaml$/gmu) ?? []).length, 2)
 
 {
   const directory = mkdtempSync(join(tmpdir(), 'protected-publication-transport-'))
@@ -916,6 +936,7 @@ const createCanonicalTaskPublicationHost = ({
   equal(result.create_mutation_count, 1)
   equal(result.patch_mutation_count, 1)
   equal(result.task_authority_count, 1)
+  equal(result.normal_execution_predelegation_count, 1)
   equal(result.review_publication_predelegation_count, 1)
   equal(result.self_binding_delta.state, 'PASS')
   equal(result.self_binding_delta.changed_fields.join('\n'), canonicalTaskDelta.changed_fields.join('\n'))
@@ -925,6 +946,7 @@ const createCanonicalTaskPublicationHost = ({
   equal(fixture.state.issueApiCalls, 2)
   const final = parseCanonicalTaskIssueBodyV1({ body: fixture.state.body, mode: 'BOUND_FINAL' })
   equal(final.task_authority.task_issue, 526)
+  equal(final.normal_execution_predelegation.allowed_changes.task_issue, 526)
   equal(final.review_publication_predelegation.allowed_changes.task_issue, 526)
 }
 

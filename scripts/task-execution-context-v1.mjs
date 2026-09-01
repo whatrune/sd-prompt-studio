@@ -207,10 +207,20 @@ export function admitParallelExecutionsV1(left, right, options = {}) {
 }
 
 const immediateContinuationActionV1 = (terminalKind, owningWorker) => {
-  if (terminalKind === 'IMPLEMENTATION_COMPLETE') return Object.freeze({ type: 'DISPATCH_PREPUBLICATION_REVIEW' })
-  if (terminalKind === 'PREPUBLICATION_REVIEW_APPROVE') return Object.freeze({ type: 'DISPATCH_UNCHANGED_PUBLICATION' })
+  if (terminalKind === 'TASK_ADMITTED') {
+    return Object.freeze({ type: 'CREATE_ASSIGNED_WORKTREE_AND_DISPATCH_IMPLEMENTATION' })
+  }
+  if (terminalKind === 'IMPLEMENTATION_COMPLETE') {
+    return Object.freeze({ type: 'COMMIT_VALIDATED_TREE_AND_DISPATCH_PREPUBLICATION_REVIEW' })
+  }
+  if (terminalKind === 'PREPUBLICATION_REVIEW_APPROVE') {
+    return Object.freeze({ type: 'PUBLISH_REVIEWED_COMMIT_NON_DRAFT' })
+  }
   if (terminalKind === 'PUBLICATION_COMPLETE') return Object.freeze({ type: 'WAIT_CURRENT_HEAD_CHECKS' })
   if (terminalKind === 'CHECKS_PASS') return Object.freeze({ type: 'DISPATCH_FRESH_REVIEW' })
+  if (terminalKind === 'CORRECTION_IMPLEMENTATION_COMPLETE') {
+    return Object.freeze({ type: 'COMMIT_VALIDATED_CORRECTION_AND_DISPATCH_PREPUBLICATION_REVIEW' })
+  }
   if (terminalKind === 'CORRECTION_CHECKS_PASS') return Object.freeze({ type: 'DISPATCH_REPLACEMENT_FRESH_REVIEW' })
   if (terminalKind === 'REVIEW_FINDING') {
     return typeof owningWorker === 'string' && owningWorker.length > 0

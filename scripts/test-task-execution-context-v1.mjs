@@ -275,10 +275,12 @@ function observed(id = identity(), overrides = {}) {
     ...overrides,
   })
   const expected = [
-    ['IMPLEMENTATION_COMPLETE', 'DISPATCH_PREPUBLICATION_REVIEW'],
-    ['PREPUBLICATION_REVIEW_APPROVE', 'DISPATCH_UNCHANGED_PUBLICATION'],
+    ['TASK_ADMITTED', 'CREATE_ASSIGNED_WORKTREE_AND_DISPATCH_IMPLEMENTATION'],
+    ['IMPLEMENTATION_COMPLETE', 'COMMIT_VALIDATED_TREE_AND_DISPATCH_PREPUBLICATION_REVIEW'],
+    ['PREPUBLICATION_REVIEW_APPROVE', 'PUBLISH_REVIEWED_COMMIT_NON_DRAFT'],
     ['PUBLICATION_COMPLETE', 'WAIT_CURRENT_HEAD_CHECKS'],
     ['CHECKS_PASS', 'DISPATCH_FRESH_REVIEW'],
+    ['CORRECTION_IMPLEMENTATION_COMPLETE', 'COMMIT_VALIDATED_CORRECTION_AND_DISPATCH_PREPUBLICATION_REVIEW'],
     ['CORRECTION_CHECKS_PASS', 'DISPATCH_REPLACEMENT_FRESH_REVIEW'],
     ['REVIEW_FINDING', 'FOLLOW_UP_OWNING_WORKER'],
     ['REVIEW_APPROVE', 'ENSURE_REVIEW_AUTHORITY_AND_RUN_PREFLIGHT'],
@@ -314,13 +316,13 @@ function observed(id = identity(), overrides = {}) {
   })
   const implementation = project('IMPLEMENTATION_COMPLETE', 'cursor-implementation', null)
   equal(implementation.actions.length, 1)
-  equal(implementation.actions[0].type, 'DISPATCH_PREPUBLICATION_REVIEW')
+  equal(implementation.actions[0].type, 'COMMIT_VALIDATED_TREE_AND_DISPATCH_PREPUBLICATION_REVIEW')
   equal(implementation.consumed_cursor, 'cursor-implementation')
   equal(project('IMPLEMENTATION_COMPLETE', 'cursor-implementation', implementation.consumed_cursor).actions.length, 0)
 
   const publication = project('PREPUBLICATION_REVIEW_APPROVE', 'cursor-publication', implementation.consumed_cursor)
   equal(publication.actions.length, 1)
-  equal(publication.actions[0].type, 'DISPATCH_UNCHANGED_PUBLICATION')
+  equal(publication.actions[0].type, 'PUBLISH_REVIEWED_COMMIT_NON_DRAFT')
   equal(publication.consumed_cursor, 'cursor-publication')
   equal(project('PREPUBLICATION_REVIEW_APPROVE', 'cursor-publication', publication.consumed_cursor).actions.length, 0)
 
