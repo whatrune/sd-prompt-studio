@@ -5,12 +5,14 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseDocument } from 'yaml'
 import {
-  acquirePrePrBootstrapPublicationDecisionV1,
-  assertMinimalGovernanceProductOwnerV1,
-  extractProtectedTransitionTaskStateV1,
-  isPrePrBootstrapPublicationDecisionCandidateV1,
-  repairWorkingTreePathsV1,
+  parseCanonicalTaskIssueBodyV1,
 } from './run-protected-transition-admission-v1.mjs'
+import {
+  assertBoundedExecutionContextV1,
+  bindExpectedPullRequestV1,
+  createBoundedExecutionIdentityV1,
+  observeLocalWorktreeV1,
+} from './task-execution-context-v1.mjs'
 
 const REQUEST_FIELDS_V1 = Object.freeze([
   'record_type',
@@ -27,6 +29,26 @@ const REQUEST_FIELDS_V1 = Object.freeze([
   'publication_authority_body_sha256',
   'operation_count',
 ])
+const NORMAL_REQUEST_FIELDS_V1 = Object.freeze([
+  'record_type', 'version', 'operation', 'repository', 'task_issue_number', 'objective',
+  'authorized_paths', 'branch', 'worktree_path', 'git_common_dir', 'expected_base',
+  'expected_head', 'expected_pr', 'expected_remote_head', 'execution_instance_id',
+  'continuation_target', 'continuation_cursor', 'operation_count',
+])
+const TERMINAL_EVENT_FIELDS_V1 = Object.freeze([
+  'target', 'cursor', 'consumed', 'kind', 'repository', 'task_issue_number', 'objective',
+  'branch', 'worktree_path', 'expected_base', 'expected_head', 'authorized_paths',
+  'execution_instance_id', 'result',
+])
+const IMPLEMENTATION_HANDOFF_FIELDS_V1 = Object.freeze([
+  'record_type', 'authoring_role', 'status', 'execution_stop_reason', 'blocking',
+  'remaining', 'unknown', 'changed_paths', 'validation_results', 'unperformed_items',
+])
+const PREPUBLICATION_REVIEW_FIELDS_V1 = Object.freeze([
+  'reviewer_role',
+  'decision', 'blocking', 'remaining', 'unknown', 'reviewed_head',
+])
+const NORMAL_OPERATIONS_V1 = Object.freeze(['COMMIT_VALIDATED_TREE', 'PUBLISH_REVIEWED_COMMIT'])
 const INITIAL_STATE_BINDING_FIELDS_V1 = Object.freeze([
   'task_issue_number', 'pr_number', 'observed_head', 'authorized_paths',
 ])
@@ -59,6 +81,120 @@ const sha256V1 = (value) => createHash('sha256').update(value, 'utf8').digest('h
 const normalizedFileSystemPathV1 = (value) => {
   const resolved = path.resolve(value).replaceAll('\\', '/').replace(/\/+$/, '')
   return process.platform === 'win32' ? resolved.toLowerCase() : resolved
+}
+
+export const assertMinimalGovernanceProductOwnerV1 = (raw, { requireAssociation = false } = {}) => {
+  if (
+    raw?.user?.login !== 'whatrune' || !positiveInteger(raw?.user?.id) || raw?.user?.type !== 'User' ||
+    (requireAssociation && raw?.author_association !== 'OWNER')
+  ) throw new Error('minimal_governance_product_owner_identity_invalid')
+  return Object.freeze({ login: raw.user.login, id: raw.user.id, type: raw.user.type })
+}
+
+export const repairWorkingTreePathsV1 = (expectedHead, executeGit) => {
+  if (!FULL_HEAD.test(expectedHead ?? '') || typeof executeGit !== 'function') {
+    throw new Error('repair_worktree_head_invalid')
+  }
+  const currentHead = executeGit(['rev-parse', '--verify', 'HEAD'], { encoding: 'utf8' }).trim()
+  if (currentHead !== expectedHead) throw new Error('repair_worktree_head_changed')
+  try { executeGit(['diff', '--cached', '--quiet', '--']) } catch { throw new Error('repair_index_not_clean') }
+  const tracked = splitNullSeparatedV1(executeGit(
+    ['diff', '--name-only', '-z', '--no-renames', 'HEAD', '--'], { encoding: 'utf8' },
+  ))
+  const untracked = splitNullSeparatedV1(executeGit(
+    ['ls-files', '--others', '--exclude-standard', '-z'], { encoding: 'utf8' },
+  ))
+  return Object.freeze([...new Set([...tracked, ...untracked])].sort())
+}
+
+const parseProtectedTransitionTaskStateJsonV1 = (raw) => {
+  let value
+  try { value = JSON.parse(raw) } catch { throw new Error('state_block_shape_invalid') }
+  if (
+    value === null || typeof value !== 'object' || Array.isArray(value) ||
+    !positiveInteger(value.task_issue_number) || !positiveInteger(value.pr_number) ||
+    !FULL_HEAD.test(value.observed_head ?? '') || !Array.isArray(value.authorized_paths) ||
+    !value.authorized_paths.every(isNormalizedRepositoryPathV1) ||
+    value.architecture_status !== 'APPROVED' || value.implementation_authorized !== true ||
+    value.review_status !== 'PENDING' || value.reviewed_head !== null || value.review_blocker_count !== null
+  ) throw new Error('state_block_shape_invalid')
+  return Object.freeze({ ...value, authorized_paths: Object.freeze([...value.authorized_paths]) })
+}
+
+export const extractProtectedTransitionTaskStateV1 = (body) => {
+  if (typeof body !== 'string' || occurrenceCount(body, STATE_START) !== 1 || occurrenceCount(body, STATE_END) !== 1) {
+    throw new Error('state_block_cardinality_invalid')
+  }
+  const start = body.indexOf(STATE_START)
+  const end = body.indexOf(STATE_END)
+  const match = body.slice(start + STATE_START.length, end).match(/^\s*```json\r?\n([\s\S]*?)\r?\n```\s*$/u)
+  if (start < 0 || end <= start || !match) throw new Error('state_block_shape_invalid')
+  return parseProtectedTransitionTaskStateJsonV1(match[1])
+}
+
+const singleYamlObjectV1 = (body, errorCode) => {
+  const blocks = typeof body === 'string' ? [...body.matchAll(/```yaml\r?\n([\s\S]*?)\r?\n```/gu)] : []
+  if (blocks.length !== 1) throw new Error(errorCode)
+  const document = parseDocument(blocks[0][1], { uniqueKeys: true })
+  if (document.errors.length !== 0) throw new Error(errorCode)
+  const value = document.toJS()
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new Error(errorCode)
+  return value
+}
+
+const isPrePrBootstrapPublicationDecisionCandidateV1 = (body) => (
+  typeof body === 'string' && /(?:^|\r?\n)decision:[ \t]+BOOTSTRAP_PUBLICATION(?:\r?$)/mu.test(body) &&
+  /(?:^|\r?\n)result_handoff_comment_id:[ \t]+[1-9]\d*(?:\r?$)/mu.test(body) &&
+  /(?:^|\r?\n)publication_allowed:[ \t]+true(?:\r?$)/mu.test(body)
+)
+
+const acquirePrePrBootstrapPublicationDecisionV1 = async ({
+  decisionComment, repository, taskIssueNumber, host,
+}) => {
+  const decision = singleYamlObjectV1(decisionComment?.body, 'pre_pr_bootstrap_publication_decision_invalid')
+  const taskUrl = `https://github.com/${repository}/issues/${taskIssueNumber}`
+  const resultUrl = `${taskUrl}#issuecomment-${decision.result_handoff_comment_id}`
+  if (
+    decision.decision !== 'BOOTSTRAP_PUBLICATION' || decision.repository !== repository ||
+    decision.task_issue_number !== taskIssueNumber || !FULL_HEAD.test(decision.exact_baseline ?? '') ||
+    !isValidBranchV1(decision.branch) || typeof decision.worktree !== 'string' ||
+    decision.result_handoff_url !== resultUrl || !SHA256.test(decision.result_handoff_body_sha256 ?? '') ||
+    decision.publication_allowed !== true || decision.operation_count !== 1 ||
+    !Array.isArray(decision.authorized_paths) || !decision.authorized_paths.every(isNormalizedRepositoryPathV1)
+  ) throw new Error('pre_pr_bootstrap_publication_decision_invalid')
+  const resultRecord = await host.api(`repos/${repository}/issues/comments/${decision.result_handoff_comment_id}`)
+  if (
+    resultRecord?.html_url !== resultUrl || typeof resultRecord?.body !== 'string' ||
+    sha256V1(resultRecord.body) !== decision.result_handoff_body_sha256
+  ) throw new Error('pre_pr_bootstrap_publication_result_changed')
+  const result = singleYamlObjectV1(resultRecord.body, 'pre_pr_bootstrap_publication_result_invalid')
+  const authorityMatch = String(result.authority_source ?? '').match(/#issuecomment-([1-9]\d*)$/u)
+  if (!authorityMatch) throw new Error('pre_pr_bootstrap_publication_authority_invalid')
+  const authorityRecord = await host.api(`repos/${repository}/issues/comments/${Number(authorityMatch[1])}`)
+  assertMinimalGovernanceProductOwnerV1(authorityRecord, { requireAssociation: true })
+  const authority = singleYamlObjectV1(authorityRecord?.body, 'pre_pr_bootstrap_publication_authority_invalid')
+  if (
+    authority.record_type !== 'pre_pr_implementation_authority_v1' || authority.repository !== repository ||
+    authority.task_issue !== taskUrl || authority.exact_baseline !== decision.exact_baseline ||
+    authority.branch !== decision.branch || authority.worktree !== decision.worktree ||
+    authority.implementation_allowed !== true || authority.publication_allowed !== false ||
+    !samePathsV1(authority.authorized_paths, decision.authorized_paths) ||
+    result.record_type !== 'pre_pr_implementation_result_handoff_v1' || result.repository !== repository ||
+    result.task_issue !== taskUrl || result.exact_baseline !== decision.exact_baseline ||
+    result.branch !== decision.branch || result.worktree !== decision.worktree ||
+    result.status !== 'COMPLETE' || result.execution_stop_reason !== 'completed' ||
+    result.blocking_finding_count !== 0 || result.remaining_finding_count !== 0 || result.unknown_count !== 0 ||
+    !samePathsV1(result.changed_paths, decision.authorized_paths) || !Array.isArray(result.validation_results) ||
+    result.validation_results.length !== authority.validation_commands?.length ||
+    !Array.isArray(result.unperformed_items) || result.unperformed_items.length !== 0
+  ) throw new Error('pre_pr_bootstrap_publication_chain_mismatch')
+  return Object.freeze({
+    decision,
+    decision_body_sha256: sha256V1(decisionComment.body),
+    validation_results: Object.freeze([...result.validation_results]),
+    result_url: resultRecord.html_url,
+    result: Object.freeze({ unperformed_items: Object.freeze([]) }),
+  })
 }
 
 const projectBootstrapPublicationOwnerV1 = async (comment, request, host) => {
@@ -217,6 +353,390 @@ const parseBootstrapPublicationRequestV1 = (request) => {
   })
 }
 
+const parseNormalTaskExecutionRequestV1 = (request) => {
+  if (!sameFields(request, NORMAL_REQUEST_FIELDS_V1)) throw new Error('normal_task_execution_request_schema_invalid')
+  if (
+    request.record_type !== 'normal_task_execution_request_v1' || request.version !== 1 ||
+    !NORMAL_OPERATIONS_V1.includes(request.operation) || !REPOSITORY.test(request.repository ?? '') ||
+    !positiveInteger(request.task_issue_number) || typeof request.objective !== 'string' ||
+    request.objective.trim().length === 0 || request.objective !== request.objective.trim() ||
+    !Array.isArray(request.authorized_paths) || request.authorized_paths.length === 0 ||
+    !request.authorized_paths.every(isNormalizedRepositoryPathV1) ||
+    new Set(request.authorized_paths).size !== request.authorized_paths.length ||
+    !isValidBranchV1(request.branch) || typeof request.worktree_path !== 'string' ||
+    !path.isAbsolute(request.worktree_path) || request.worktree_path.includes('\0') ||
+    typeof request.git_common_dir !== 'string' || !path.isAbsolute(request.git_common_dir) ||
+    !FULL_HEAD.test(request.expected_base ?? '') || !FULL_HEAD.test(request.expected_head ?? '') ||
+    !(request.expected_pr === null || positiveInteger(request.expected_pr)) ||
+    !(request.expected_remote_head === null || FULL_HEAD.test(request.expected_remote_head ?? '')) ||
+    typeof request.execution_instance_id !== 'string' || request.execution_instance_id.length === 0 ||
+    typeof request.continuation_target !== 'string' || request.continuation_target.length === 0 ||
+    typeof request.continuation_cursor !== 'string' || request.continuation_cursor.length === 0 ||
+    request.operation_count !== 1
+  ) throw new Error('normal_task_execution_request_value_invalid')
+  if (
+    (request.expected_pr === null) !== (request.expected_remote_head === null)
+  ) throw new Error('normal_task_execution_request_value_invalid')
+  return Object.freeze({
+    ...request,
+    authorized_paths: Object.freeze([...request.authorized_paths].sort()),
+  })
+}
+
+const assertNormalTaskExecutionAuthorityV1 = ({ request, task, actor }) => {
+  if (
+    task === null || typeof task !== 'object' || task.number !== request.task_issue_number ||
+    task.state !== 'open' || task.pull_request !== undefined || task.user?.login !== 'whatrune' ||
+    task.author_association !== 'OWNER' || actor?.login !== 'whatrune' || typeof task.body !== 'string'
+  ) throw new Error('normal_task_execution_authority_invalid')
+  let parsed
+  try {
+    parsed = parseCanonicalTaskIssueBodyV1({ body: task.body, mode: 'BOUND_FINAL' })
+  } catch {
+    throw new Error('normal_task_execution_authority_invalid')
+  }
+  const authority = parsed.task_authority
+  const predelegation = parsed.normal_execution_predelegation
+  const grant = predelegation.allowed_changes
+  if (
+    authority.task_issue !== request.task_issue_number || authority.repository !== request.repository ||
+    authority.objective !== request.objective || !samePathsV1(authority.authorized_paths, request.authorized_paths) ||
+    predelegation.task_id !== `TASK-${request.task_issue_number}-NORMAL-EXECUTION-PREDELEGATION` ||
+    grant.repository !== request.repository || grant.task_issue !== request.task_issue_number ||
+    grant.head_branch !== request.branch ||
+    normalizedFileSystemPathV1(grant.worktree_path) !== normalizedFileSystemPathV1(request.worktree_path) ||
+    !FULL_HEAD.test(grant.expected_base ?? '') || !samePathsV1(grant.authorized_paths, request.authorized_paths) ||
+    grant.authorized_actor !== actor.login || grant.execution_identity_contract !== 'BOUNDED_EXECUTION_IDENTITY_V1' ||
+    grant.fallback_allowed !== false
+  ) throw new Error('normal_task_execution_authority_invalid')
+  return Object.freeze({ authority, predelegation })
+}
+
+const samePathsV1 = (left, right) => (
+  Array.isArray(left) && Array.isArray(right) && normalizedPathSetV1(left) === normalizedPathSetV1(right)
+)
+
+const admitNormalExecutionIdentityV1 = async ({ request, host }) => {
+  const identity = createBoundedExecutionIdentityV1({
+    repository: request.repository.toLowerCase(),
+    canonical_task_id: request.task_issue_number,
+    objective: request.objective,
+    branch: request.branch,
+    worktree_path: request.worktree_path,
+    git_common_dir: request.git_common_dir,
+    authorized_paths: request.authorized_paths,
+    expected_base: request.expected_base,
+    expected_pr: request.expected_pr,
+    expected_head: request.expected_head,
+    expected_remote_head: request.expected_remote_head,
+    execution_instance_id: request.execution_instance_id,
+  })
+  const observed = await host.observeExecution(identity)
+  assertBoundedExecutionContextV1(identity, observed)
+  return identity
+}
+
+const assertFreshBaseRebindV1 = ({ initialBase, request, host }) => {
+  if (initialBase === request.expected_base) return
+  try {
+    host.git(['merge-base', '--is-ancestor', initialBase, request.expected_base])
+  } catch {
+    throw new Error('fresh_base_not_descendant')
+  }
+  let advancedPaths
+  try {
+    advancedPaths = splitNullSeparatedV1(host.git(
+      ['diff', '--name-only', '-z', '--no-renames', initialBase, request.expected_base, '--'],
+      { encoding: 'utf8' },
+    ))
+  } catch {
+    throw new Error('fresh_base_diff_unavailable')
+  }
+  if (advancedPaths.some((value) => request.authorized_paths.includes(value))) {
+    throw new Error('fresh_base_compatibility_required')
+  }
+}
+
+const assertPassingValidationResultsV1 = (values, expectedHead) => (
+  Array.isArray(values) && values.length > 0 && values.every((value) => (
+    value !== null && typeof value === 'object' && !Array.isArray(value) &&
+    typeof value.command === 'string' && value.command.length > 0 && value.result === 'PASS' &&
+    value.exact_head === expectedHead
+  ))
+)
+
+const assertTerminalContinuationEventV1 = ({ event, request }) => {
+  if (
+    !sameFields(event, TERMINAL_EVENT_FIELDS_V1) || event.target !== request.continuation_target ||
+    event.cursor !== request.continuation_cursor || event.consumed !== true ||
+    event.repository !== request.repository || event.task_issue_number !== request.task_issue_number ||
+    event.objective !== request.objective || event.branch !== request.branch ||
+    normalizedFileSystemPathV1(event.worktree_path) !== normalizedFileSystemPathV1(request.worktree_path) ||
+    event.expected_base !== request.expected_base || event.expected_head !== request.expected_head ||
+    !samePathsV1(event.authorized_paths, request.authorized_paths) ||
+    event.execution_instance_id !== request.execution_instance_id
+  ) throw new Error('terminal_continuation_event_invalid')
+  if (request.operation === 'COMMIT_VALIDATED_TREE') {
+    const expectedKind = request.expected_pr === null
+      ? 'IMPLEMENTATION_COMPLETE'
+      : 'CORRECTION_IMPLEMENTATION_COMPLETE'
+    const handoff = event.result
+    if (
+      event.kind !== expectedKind || !sameFields(handoff, IMPLEMENTATION_HANDOFF_FIELDS_V1) ||
+      handoff.record_type !== 'result_handoff' || handoff.authoring_role !== 'IMPLEMENTER' ||
+      handoff.status !== 'completed' || handoff.execution_stop_reason !== 'completed' ||
+      handoff.blocking !== 0 || handoff.remaining !== 0 || handoff.unknown !== 0 ||
+      !samePathsV1(handoff.changed_paths, request.authorized_paths) ||
+      !assertPassingValidationResultsV1(handoff.validation_results, request.expected_head) ||
+      !Array.isArray(handoff.unperformed_items) || handoff.unperformed_items.length !== 0
+    ) throw new Error('implementation_result_handoff_invalid')
+    return Object.freeze({ ...event, result: Object.freeze({ ...handoff }) })
+  }
+  const review = event.result
+  if (
+    event.kind !== 'PREPUBLICATION_REVIEW_APPROVE' ||
+    !sameFields(review, PREPUBLICATION_REVIEW_FIELDS_V1) ||
+    review.reviewer_role !== 'INDEPENDENT_REVIEWER' || review.decision !== 'APPROVE' ||
+    review.blocking !== 0 || review.remaining !== 0 || review.unknown !== 0 ||
+    review.reviewed_head !== request.expected_head
+  ) throw new Error('prepublication_review_invalid')
+  return Object.freeze({ ...event, result: Object.freeze({ ...review }) })
+}
+
+const assertExistingNormalTaskPullV1 = ({ pull, request, expectedHead }) => {
+  if (
+    pull === null || typeof pull !== 'object' || pull.number !== request.expected_pr ||
+    pull.state !== 'open' || pull.draft !== false || pull.merged !== false ||
+    pull.base?.ref !== 'main' || pull.base?.sha !== request.expected_base ||
+    pull.base?.repo?.full_name !== request.repository || pull.head?.ref !== request.branch ||
+    pull.head?.sha !== expectedHead || pull.head?.repo?.full_name !== request.repository
+  ) throw new Error('existing_pull_request_binding_mismatch')
+  return pull
+}
+
+const normalPullBodyV1 = (request) => `## Purpose
+
+Implement Task #${request.task_issue_number} from its exact authorized scope.
+
+## User impact
+
+Delivers the reviewed Task result without changing the reviewed commit.
+
+## Changes
+
+${request.authorized_paths.map((value) => `- \`${value}\``).join('\n')}
+
+## Validation
+
+Exact-scope validation completed before the prepublication Independent Review.
+
+## Unresolved items
+
+None.`
+
+const validNormalPullV1 = ({ pull, request }) => (
+  pull !== null && typeof pull === 'object' && positiveInteger(pull.number) &&
+  typeof pull.html_url === 'string' && pull.state === 'open' && pull.draft === false &&
+  pull.merged === false && pull.base?.ref === 'main' && pull.base?.sha === request.expected_base &&
+  pull.base?.repo?.full_name === request.repository && pull.head?.ref === request.branch &&
+  pull.head?.sha === request.expected_head && pull.head?.repo?.full_name === request.repository &&
+  pull.body === normalPullBodyV1(request)
+)
+
+export const executeNormalTaskExecutionOperatorV1 = async (rawRequest, host) => {
+  const counters = { mutation_count: 0, protected_operation_count: 0 }
+  const stop = (reason, extra = {}) => resultV1('STOP', reason, counters, extra)
+  let request
+  try { request = parseNormalTaskExecutionRequestV1(rawRequest) } catch (error) {
+    return stop(error.message)
+  }
+  if (
+    host === null || typeof host !== 'object' || typeof host.api !== 'function' ||
+    typeof host.git !== 'function' || typeof host.observeExecution !== 'function' ||
+    typeof host.refetchContinuationEvent !== 'function' ||
+    host.repository !== request.repository ||
+    normalizedFileSystemPathV1(host.worktreePath ?? '') !== normalizedFileSystemPathV1(request.worktree_path)
+  ) return stop('normal_task_execution_host_invalid')
+
+  let terminalEvent
+  try {
+    const [actor, task] = await Promise.all([
+      host.api('user'),
+      host.api(`repos/${request.repository}/issues/${request.task_issue_number}`),
+    ])
+    const admittedAuthority = assertNormalTaskExecutionAuthorityV1({ request, task, actor })
+    assertFreshBaseRebindV1({
+      initialBase: admittedAuthority.predelegation.allowed_changes.expected_base,
+      request,
+      host,
+    })
+    await admitNormalExecutionIdentityV1({ request, host })
+    if (request.expected_pr !== null) {
+      assertExistingNormalTaskPullV1({
+        pull: await host.api(`repos/${request.repository}/pulls/${request.expected_pr}`),
+        request,
+        expectedHead: request.expected_remote_head,
+      })
+    }
+    terminalEvent = assertTerminalContinuationEventV1({
+      event: await host.refetchContinuationEvent({
+        target: request.continuation_target,
+        cursor: request.continuation_cursor,
+      }),
+      request,
+    })
+  } catch (error) {
+    return stop(error?.code === 'execution_identity_mismatch' ? error.code : error?.message ?? 'normal_task_execution_admission_failed')
+  }
+
+  if (request.operation === 'COMMIT_VALIDATED_TREE') {
+    let changedPaths
+    try {
+      changedPaths = repairWorkingTreePathsV1(
+        request.expected_head,
+        (args, options = undefined) => host.git(args, options),
+      )
+      if (!samePathsV1(changedPaths, request.authorized_paths)) throw new Error('changed_paths_mismatch')
+      host.git(['add', '--', ...request.authorized_paths])
+      const staged = splitNullSeparatedV1(host.git(
+        ['diff', '--cached', '--name-only', '-z', '--no-renames', 'HEAD', '--'],
+        { encoding: 'utf8' },
+      ))
+      if (!samePathsV1(staged, request.authorized_paths)) throw new Error('staged_paths_mismatch')
+    } catch (error) {
+      return stop(error?.message ?? 'validated_tree_preflight_failed')
+    }
+    counters.mutation_count = 1
+    counters.protected_operation_count = 1
+    try { host.git(['commit', '-m', `Implement Task #${request.task_issue_number}`]) } catch {
+      return stop('commit_failed')
+    }
+    try {
+      const committedHead = host.git(['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
+      const parent = host.git(['rev-parse', 'HEAD^'], { encoding: 'utf8' }).trim()
+      const committedPaths = splitNullSeparatedV1(host.git(
+        ['diff', '--name-only', '-z', '--no-renames', request.expected_head, committedHead, '--'],
+        { encoding: 'utf8' },
+      ))
+      const status = host.git(['status', '--porcelain=v1', '-z'], { encoding: 'utf8' })
+      if (
+        !FULL_HEAD.test(committedHead) || committedHead === request.expected_head || parent !== request.expected_head ||
+        !samePathsV1(committedPaths, request.authorized_paths) || status !== ''
+      ) return stop('commit_result_invalid', { committed_head: committedHead })
+      return resultV1('SUCCESS', 'validated_tree_committed', counters, {
+        task_issue_number: request.task_issue_number,
+        branch: request.branch,
+        committed_head: committedHead,
+        parent_head: parent,
+        execution_instance_id: request.execution_instance_id,
+        continuation_cursor: terminalEvent.cursor,
+      })
+    } catch {
+      return stop('commit_result_invalid')
+    }
+  }
+
+  try {
+    const status = host.git(['status', '--porcelain=v1', '-z'], { encoding: 'utf8' })
+    const head = host.git(['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
+    if (status !== '' || head !== request.expected_head) throw new Error('reviewed_tree_binding_mismatch')
+    if (request.expected_pr !== null) {
+      try {
+        host.git(['merge-base', '--is-ancestor', request.expected_remote_head, request.expected_head])
+      } catch {
+        throw new Error('successor_head_not_descendant')
+      }
+    }
+    const remote = remoteBranchStateV1(host.git(
+      ['ls-remote', '--heads', 'origin', `refs/heads/${request.branch}`], { encoding: 'utf8' },
+    ), request.branch)
+    if (request.expected_pr === null) {
+      if (remote.kind === 'PRESENT') throw new Error('remote_branch_already_exists')
+      if (remote.kind !== 'ABSENT') throw new Error('remote_branch_state_ambiguous')
+    } else if (remote.kind !== 'PRESENT' || remote.head !== request.expected_remote_head) {
+      throw new Error('remote_head_mismatch')
+    }
+  } catch (error) {
+    return stop(error?.message ?? 'publication_preflight_failed')
+  }
+  counters.mutation_count = 1
+  counters.protected_operation_count = 1
+  try {
+    const output = host.git([
+      'push', '--porcelain',
+      `--force-with-lease=refs/heads/${request.branch}:${request.expected_remote_head ?? ''}`,
+      'origin', `HEAD:refs/heads/${request.branch}`,
+    ], { encoding: 'utf8' })
+    if (
+      typeof output !== 'string' ||
+      (request.expected_pr === null ? !output.includes('[new branch]') : !output.includes(request.branch))
+    ) throw new Error('push_unconfirmed')
+  } catch {
+    return stop('push_failed')
+  }
+  try {
+    const remote = remoteBranchStateV1(host.git(
+      ['ls-remote', '--heads', 'origin', `refs/heads/${request.branch}`], { encoding: 'utf8' },
+    ), request.branch)
+    if (remote.kind !== 'PRESENT' || remote.head !== request.expected_head) throw new Error('remote_head_mismatch')
+  } catch (error) {
+    return stop(error.message)
+  }
+  if (request.expected_pr !== null) {
+    let correctedPull
+    try { correctedPull = await host.api(`repos/${request.repository}/pulls/${request.expected_pr}`) } catch {
+      return stop('pull_request_refetch_failed', { pr_number: request.expected_pr })
+    }
+    try {
+      assertExistingNormalTaskPullV1({ pull: correctedPull, request, expectedHead: request.expected_head })
+    } catch (error) {
+      return stop(error.message, { pr_number: request.expected_pr })
+    }
+    return resultV1('SUCCESS', 'reviewed_correction_published', counters, {
+      task_issue_number: request.task_issue_number,
+      branch: request.branch,
+      pushed_head: request.expected_head,
+      pr_number: correctedPull.number,
+      pr_url: correctedPull.html_url,
+      execution_instance_id: request.execution_instance_id,
+      continuation_cursor: terminalEvent.cursor,
+    })
+  }
+  counters.mutation_count = 2
+  let created
+  try {
+    created = await host.api(`repos/${request.repository}/pulls`, {
+      method: 'POST',
+      body: {
+        title: `Task #${request.task_issue_number}: ${request.objective}`,
+        head: request.branch,
+        base: 'main',
+        body: normalPullBodyV1(request),
+        draft: false,
+      },
+    })
+  } catch {
+    return stop('pull_request_creation_failed')
+  }
+  if (!positiveInteger(created?.number)) return stop('pull_request_identity_invalid')
+  let freshPull
+  try { freshPull = await host.api(`repos/${request.repository}/pulls/${created.number}`) } catch {
+    return stop('pull_request_refetch_failed', { pr_number: created.number })
+  }
+  if (!validNormalPullV1({ pull: freshPull, request }) || freshPull.html_url !== created.html_url) {
+    return stop('pull_request_binding_mismatch', { pr_number: created.number })
+  }
+  return resultV1('SUCCESS', 'reviewed_commit_published', counters, {
+    task_issue_number: request.task_issue_number,
+    branch: request.branch,
+    pushed_head: request.expected_head,
+    pr_number: freshPull.number,
+    pr_url: freshPull.html_url,
+    execution_instance_id: request.execution_instance_id,
+    continuation_cursor: terminalEvent.cursor,
+  })
+}
+
 const assertNoDuplicateTopLevelKeysV1 = (source) => {
   let objectDepth = 0
   let arrayDepth = 0
@@ -260,7 +780,7 @@ const assertNoDuplicateTopLevelKeysV1 = (source) => {
   }
 }
 
-const parseRequestFileV1 = (file) => {
+const readRequestFileV1 = (file) => {
   if (typeof file !== 'string' || !path.isAbsolute(file)) throw new Error('request_file_invalid')
   const source = readFileSync(file, 'utf8')
   let request
@@ -271,8 +791,10 @@ const parseRequestFileV1 = (file) => {
     if (error?.message === 'request_duplicate_field') throw error
     throw new Error('request_json_invalid')
   }
-  return parseBootstrapPublicationRequestV1(request)
+  return request
 }
+
+const parseRequestFileV1 = (file) => parseBootstrapPublicationRequestV1(readRequestFileV1(file))
 
 const initialStateV1 = (binding) => Object.freeze({
   record_type: 'protected_transition_task_state_v1',
@@ -565,12 +1087,17 @@ export const executeBootstrapPublicationOperatorV1 = async (rawRequest, host) =>
   })
 }
 
-const productionHostV1 = (environment) => {
+export const productionHostV1 = (environment, dependencies = {}) => {
   const token = environment.GH_TOKEN
   const repository = environment.GITHUB_REPOSITORY
   if (!token || !REPOSITORY.test(repository ?? '')) throw new Error('production_environment_invalid')
+  const fetchImplementation = dependencies.fetch ?? fetch
+  const executeGit = dependencies.execFileSync ?? execFileSync
+  const worktreePath = dependencies.cwd ?? process.cwd()
+  const readContinuationEvent = dependencies.readContinuationEvent ?? readRequestFileV1
+  const observeLocalWorktree = dependencies.observeLocalWorktree ?? observeLocalWorktreeV1
   const api = async (endpoint, options = undefined) => {
-    const response = await fetch(`https://api.github.com/${endpoint}`, {
+    const response = await fetchImplementation(`https://api.github.com/${endpoint}`, {
       method: options?.method ?? 'GET',
       headers: {
         Accept: 'application/vnd.github+json',
@@ -584,12 +1111,32 @@ const productionHostV1 = (environment) => {
     if (!response.ok) throw new Error(`github_api_${response.status}`)
     return response.status === 204 ? null : response.json()
   }
+  const refetchContinuationEvent = async ({ target, cursor }) => {
+    const file = environment.CODEX_CONTINUATION_EVENT_FILE
+    if (typeof file !== 'string' || !path.isAbsolute(file) || file.includes('\0')) {
+      throw new Error('continuation_event_transport_invalid')
+    }
+    const event = readContinuationEvent(file)
+    if (event?.target !== target || event?.cursor !== cursor) {
+      throw new Error('continuation_event_transport_invalid')
+    }
+    return event
+  }
+  const observeExecution = async (identity) => {
+    const local = observeLocalWorktree(identity)
+    const pull = identity.expected_pr === null
+      ? null
+      : await api(`repos/${identity.repository}/pulls/${identity.expected_pr}`)
+    return bindExpectedPullRequestV1(identity, local, () => pull)
+  }
   return Object.freeze({
     repository,
-    worktreePath: process.cwd(),
+    worktreePath,
     api,
-    git: (args, options = undefined) => execFileSync('git', args, {
-      cwd: process.cwd(),
+    refetchContinuationEvent,
+    observeExecution,
+    git: (args, options = undefined) => executeGit('git', args, {
+      cwd: worktreePath,
       ...options,
     }),
   })
@@ -600,8 +1147,12 @@ if (isMainV1) {
   const counters = { mutation_count: 0, protected_operation_count: 0 }
   try {
     if (process.argv.length !== 4 || process.argv[2] !== '--request-file') throw new Error('cli_arguments_invalid')
-    const request = parseRequestFileV1(process.argv[3])
-    const result = await executeBootstrapPublicationOperatorV1(request, productionHostV1(process.env))
+    const rawRequest = readRequestFileV1(process.argv[3])
+    const normal = rawRequest?.record_type === 'normal_task_execution_request_v1'
+    const request = normal ? rawRequest : parseBootstrapPublicationRequestV1(rawRequest)
+    const result = normal
+      ? await executeNormalTaskExecutionOperatorV1(request, productionHostV1(process.env))
+      : await executeBootstrapPublicationOperatorV1(request, productionHostV1(process.env))
     process.stdout.write(`${JSON.stringify(result)}\n`)
     if (result.status !== 'SUCCESS') process.exitCode = 1
   } catch (error) {

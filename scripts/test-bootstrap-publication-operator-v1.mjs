@@ -5,12 +5,15 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import {
+  assertMinimalGovernanceProductOwnerV1,
   executeBootstrapPublicationOperatorV1,
+  executeNormalTaskExecutionOperatorV1,
+  extractProtectedTransitionTaskStateV1,
   insertInitialProtectedTransitionTaskStateV1,
+  productionHostV1,
 } from './run-bootstrap-publication-operator-v1.mjs'
 import {
-  assertMinimalGovernanceProductOwnerV1,
-  extractProtectedTransitionTaskStateV1,
+  serializeCanonicalTaskIssueBodyV1,
 } from './run-protected-transition-admission-v1.mjs'
 
 let assertions = 0
@@ -26,6 +29,7 @@ const runnerSource = readFileSync(runnerPath, 'utf8')
 const REPOSITORY = 'whatrune/sd-prompt-studio'
 const TASK = 359
 const PARENT = '8abbb809218683372f43f56d206f1401d1b53824'
+const FRESH_BASE = 'c'.repeat(40)
 const PUSHED = 'b'.repeat(40)
 const AUTHORITY_ID = 5_400_000_001
 const AUTHORITY_URL = `https://github.com/${REPOSITORY}/issues/359#issuecomment-${AUTHORITY_ID}`
@@ -635,8 +639,457 @@ check(!runnerSource.includes("['reset'") && !runnerSource.includes("['rebase'") 
 check(!runnerSource.includes("'--force'") && !runnerSource.includes("'+refs/heads/"), 'X runner has no unconditional force or plus-refspec push')
 check(runnerSource.includes('`--force-with-lease=refs/heads/${request.branch}:`'), 'X runner retains exact create-only empty-lease CAS')
 check(!/setTimeout|retry/i.test(runnerSource), 'X runner has no retry mechanism')
-check(runnerSource.includes('extractProtectedTransitionTaskStateV1'), 'Y existing Task-state extractor is imported and reused')
-check(!runnerSource.includes('parseProtectedTransitionTaskStateV1') && !runnerSource.includes('parseProtectedTransitionTaskStateJsonV1'), 'Y no second Task-state parser exists')
+check(runnerSource.includes('extractProtectedTransitionTaskStateV1'), 'Y legacy bootstrap Task-state extractor remains available')
+check(runnerSource.includes('parseProtectedTransitionTaskStateJsonV1'), 'Y legacy bootstrap retains its bounded Task-state compatibility parser')
+
+// The normal Task route reuses the same bounded owner for commit and unchanged non-Draft publication.
+const NORMAL_OBJECTIVE = 'BOUNDED_NORMAL_TASK_EXECUTION_PREDELEGATION_AND_CONTINUATION_WIRING_V1'
+const NORMAL_INSTANCE = '706ca1fb-4c8d-43df-9bc3-e1371e038383'
+const NORMAL_TARGET = 'codex-thread-normal-task-538'
+const NORMAL_COMMON_DIR = path.join(worktree, '.git-common')
+const NORMAL_TASK_BODY = serializeCanonicalTaskIssueBodyV1({
+  request: {
+    title: NORMAL_OBJECTIVE,
+    repository: REPOSITORY,
+    objective: NORMAL_OBJECTIVE,
+    markdown: `# ${NORMAL_OBJECTIVE}\n\nNormal exact-scope execution.`,
+    authorized_paths: [...PATHS],
+    head_branch: BRANCH,
+    worktree_path: worktree,
+    expected_base: PARENT,
+    authorized_actor: 'whatrune',
+    permitted_surface: 'TASK_ISSUE_COMMENT',
+    ready_allowed: false,
+    product_owner_login: 'whatrune',
+  },
+  mode: 'BOUND_FINAL',
+  taskIssue: TASK,
+})
+const normalCursorV1 = (operation) => operation === 'COMMIT_VALIDATED_TREE'
+  ? 'cursor-implementation-complete'
+  : 'cursor-prepublication-review-approve'
+const normalRequestV1 = (operation, expectedHead, overrides = {}) => ({
+  record_type: 'normal_task_execution_request_v1',
+  version: 1,
+  operation,
+  repository: REPOSITORY,
+  task_issue_number: TASK,
+  objective: NORMAL_OBJECTIVE,
+  authorized_paths: [...PATHS],
+  branch: BRANCH,
+  worktree_path: worktree,
+  git_common_dir: NORMAL_COMMON_DIR,
+  expected_base: PARENT,
+  expected_head: expectedHead,
+  expected_pr: null,
+  expected_remote_head: null,
+  execution_instance_id: NORMAL_INSTANCE,
+  continuation_target: NORMAL_TARGET,
+  continuation_cursor: normalCursorV1(operation),
+  operation_count: 1,
+  ...overrides,
+})
+const makeNormalHostV1 = ({
+  initialHead = PARENT,
+  currentBase = PARENT,
+  remoteInitially = null,
+  actor = 'whatrune',
+  taskBody = NORMAL_TASK_BODY,
+  advancedPaths = [],
+  baseIsDescendant = true,
+  successorIsDescendant = true,
+  existingPr = false,
+  terminalEventTransform = (value) => value,
+} = {}) => {
+  const metrics = { commit: 0, push: 0, createPull: 0, acquireContinuation: 0, apiCalls: [], createdPull: null }
+  let currentHead = initialHead
+  let remoteHead = remoteInitially
+  let staged = []
+  let pullBody = null
+  const host = {
+    repository: REPOSITORY,
+    worktreePath: worktree,
+    metrics,
+    refetchContinuationEvent: async ({ target, cursor }) => {
+      metrics.acquireContinuation += 1
+      const operation = cursor === normalCursorV1('COMMIT_VALIDATED_TREE')
+        ? 'COMMIT_VALIDATED_TREE'
+        : 'PUBLISH_REVIEWED_COMMIT'
+      const common = {
+        target,
+        cursor,
+        consumed: true,
+        kind: operation === 'COMMIT_VALIDATED_TREE'
+          ? (existingPr ? 'CORRECTION_IMPLEMENTATION_COMPLETE' : 'IMPLEMENTATION_COMPLETE')
+          : 'PREPUBLICATION_REVIEW_APPROVE',
+        repository: REPOSITORY,
+        task_issue_number: TASK,
+        objective: NORMAL_OBJECTIVE,
+        branch: BRANCH,
+        worktree_path: worktree,
+        expected_base: currentBase,
+        expected_head: currentHead,
+        authorized_paths: [...PATHS],
+        execution_instance_id: NORMAL_INSTANCE,
+      }
+      const result = operation === 'COMMIT_VALIDATED_TREE'
+        ? {
+            record_type: 'result_handoff',
+            authoring_role: 'IMPLEMENTER',
+            status: 'completed',
+            execution_stop_reason: 'completed',
+            blocking: 0,
+            remaining: 0,
+            unknown: 0,
+            changed_paths: [...PATHS],
+            validation_results: [{ command: 'canonical validation', result: 'PASS', exact_head: currentHead }],
+            unperformed_items: [],
+          }
+        : {
+            reviewer_role: 'INDEPENDENT_REVIEWER',
+            decision: 'APPROVE',
+            blocking: 0,
+            remaining: 0,
+            unknown: 0,
+            reviewed_head: currentHead,
+          }
+      return terminalEventTransform({ ...common, result })
+    },
+    observeExecution: (identity) => ({
+      repository: identity.repository,
+      canonical_task_id: identity.canonical_task_id,
+      objective_digest: identity.objective_digest,
+      branch: BRANCH,
+      worktree_path: worktree,
+      registered_worktree_path: worktree,
+      git_common_dir: NORMAL_COMMON_DIR,
+      authorized_paths: identity.authorized_paths,
+      remote_main_sha: currentBase,
+      head: currentHead,
+      pr_lookup_attempted: identity.expected_pr !== null,
+      requested_pr_number: identity.expected_pr ?? undefined,
+      pr: identity.expected_pr === null ? null : {
+        number: PR_NUMBER,
+        repository: REPOSITORY,
+        state: 'OPEN',
+        merged: false,
+        head: remoteHead,
+        base: currentBase,
+        branch: BRANCH,
+      },
+    }),
+    git: (args) => {
+      const command = args.join(' ')
+      if (command === 'rev-parse --verify HEAD') return `${currentHead}\n`
+      if (command === 'diff --cached --quiet --') return ''
+      if (command === 'diff --name-only -z --no-renames HEAD --') return ''
+      if (command === 'ls-files --others --exclude-standard -z') return `${PATHS.join('\0')}\0`
+      if (args[0] === 'add') { staged = args.slice(2); return '' }
+      if (command === 'diff --cached --name-only -z --no-renames HEAD --') return `${staged.join('\0')}\0`
+      if (args[0] === 'commit') { metrics.commit += 1; currentHead = PUSHED; return '[commit]\n' }
+      if (command === 'rev-parse HEAD') return `${currentHead}\n`
+      if (command === 'rev-parse HEAD^') return `${initialHead}\n`
+      if (command === `diff --name-only -z --no-renames ${initialHead} ${PUSHED} --`) return `${PATHS.join('\0')}\0`
+      if (command === 'status --porcelain=v1 -z') return ''
+      if (command === `merge-base --is-ancestor ${PARENT} ${currentBase}`) {
+        if (!baseIsDescendant) throw new Error('not ancestor')
+        return ''
+      }
+      if (command === `diff --name-only -z --no-renames ${PARENT} ${currentBase} --`) {
+        return advancedPaths.length === 0 ? '' : `${advancedPaths.join('\0')}\0`
+      }
+      if (command === `merge-base --is-ancestor ${PARENT} ${PUSHED}`) {
+        if (!successorIsDescendant) throw new Error('not ancestor')
+        return ''
+      }
+      if (args[0] === 'ls-remote') return remoteHead === null ? '' : `${remoteHead}\trefs/heads/${BRANCH}\n`
+      if (args[0] === 'push') { metrics.push += 1; remoteHead = currentHead; return `*\tHEAD:refs/heads/${BRANCH}\t[new branch]\n` }
+      throw new Error(`unexpected normal git command: ${command}`)
+    },
+    api: async (endpoint, options = undefined) => {
+      metrics.apiCalls.push({ endpoint, method: options?.method ?? 'GET' })
+      if (endpoint === 'user') return { login: actor }
+      if (endpoint === `repos/${REPOSITORY}/issues/${TASK}`) return {
+        number: TASK,
+        state: 'open',
+        body: taskBody,
+        user: { login: 'whatrune' },
+        author_association: 'OWNER',
+      }
+      if (endpoint === `repos/${REPOSITORY}/pulls` && options?.method === 'POST') {
+        metrics.createPull += 1
+        pullBody = options.body.body
+        metrics.createdPull = options.body
+        return { number: PR_NUMBER, html_url: PR_URL }
+      }
+      if (endpoint === `repos/${REPOSITORY}/pulls/${PR_NUMBER}`) return {
+        number: PR_NUMBER,
+        html_url: PR_URL,
+        state: 'open',
+        draft: false,
+        merged: false,
+        base: { ref: 'main', sha: currentBase, repo: { full_name: REPOSITORY } },
+        head: { ref: BRANCH, sha: remoteHead ?? currentHead, repo: { full_name: REPOSITORY } },
+        body: pullBody,
+      }
+      throw new Error(`unexpected normal api call: ${endpoint}`)
+    },
+  }
+  return host
+}
+
+{
+  const host = makeNormalHostV1()
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('COMMIT_VALIDATED_TREE', PARENT), host,
+  )
+  check(result.status === 'SUCCESS' && result.reason === 'validated_tree_committed', 'N normal route commits the exact validated tree')
+  check(result.mutation_count === 1 && result.protected_operation_count === 1 && host.metrics.commit === 1, 'N validated-tree commit is one bounded protected mutation')
+  check(result.committed_head === PUSHED && result.parent_head === PARENT, 'N committed tree remains exact-parent bound')
+  const duplicate = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('COMMIT_VALIDATED_TREE', PARENT), host,
+  )
+  check(duplicate.status === 'STOP' && duplicate.reason === 'execution_identity_mismatch', 'N repeated consumed execution identity cannot create another commit')
+  check(host.metrics.commit === 1, 'N duplicate invocation performs zero additional commit mutations')
+}
+
+{
+  const host = makeNormalHostV1({
+    terminalEventTransform: (event) => ({
+      ...event,
+      result: { ...event.result, validation_results: [{ command: 'canonical validation', result: 'FAIL', exact_head: PARENT }] },
+    }),
+  })
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('COMMIT_VALIDATED_TREE', PARENT), host,
+  )
+  check(result.reason === 'implementation_result_handoff_invalid' && result.mutation_count === 0, 'N commit requires fetched terminal PASS validation evidence')
+  check(host.metrics.acquireContinuation === 1 && host.metrics.commit === 0, 'N invalid fetched handoff performs no stage or commit mutation')
+}
+
+{
+  const host = makeNormalHostV1()
+  const result = await executeNormalTaskExecutionOperatorV1({
+    ...normalRequestV1('PUBLISH_REVIEWED_COMMIT', PUSHED),
+    prepublication_review: { decision: 'APPROVE', blocking: 0, remaining: 0, unknown: 0, reviewed_head: PUSHED },
+  }, host)
+  check(result.reason === 'normal_task_execution_request_schema_invalid' && result.mutation_count === 0, 'N caller-supplied Review data is not an admitted request field')
+  check(host.metrics.apiCalls.length === 0 && host.metrics.acquireContinuation === 0, 'N synthetic Review data stops before authority or terminal-event access')
+}
+
+{
+  const host = makeNormalHostV1({
+    initialHead: PARENT,
+    currentBase: FRESH_BASE,
+    remoteInitially: PARENT,
+    existingPr: true,
+    advancedPaths: ['docs/unrelated-main-change.md'],
+  })
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('COMMIT_VALIDATED_TREE', PARENT, {
+      expected_base: FRESH_BASE,
+      expected_pr: PR_NUMBER,
+      expected_remote_head: PARENT,
+    }),
+    host,
+  )
+  check(result.status === 'SUCCESS' && result.parent_head === PARENT, 'N disjoint fresh-main advancement preserves the existing PR lineage for the validated successor commit')
+  check(host.metrics.commit === 1 && host.metrics.acquireContinuation === 1, 'N rebound commit still consumes one fetched terminal handoff and one commit')
+}
+
+{
+  const host = makeNormalHostV1({
+    initialHead: PARENT,
+    currentBase: FRESH_BASE,
+    remoteInitially: PARENT,
+    existingPr: true,
+    advancedPaths: [PATHS[0]],
+  })
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('COMMIT_VALIDATED_TREE', PARENT, {
+      expected_base: FRESH_BASE,
+      expected_pr: PR_NUMBER,
+      expected_remote_head: PARENT,
+    }),
+    host,
+  )
+  check(result.reason === 'fresh_base_compatibility_required' && result.mutation_count === 0, 'N fresh-base overlap remains fail-closed for compatibility reconciliation')
+  check(host.metrics.acquireContinuation === 0 && host.metrics.commit === 0, 'N overlapping fresh base stops before terminal evidence or mutation')
+}
+
+{
+  const host = makeNormalHostV1({
+    initialHead: PARENT,
+    currentBase: FRESH_BASE,
+    remoteInitially: PARENT,
+    existingPr: true,
+    baseIsDescendant: false,
+  })
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('COMMIT_VALIDATED_TREE', PARENT, {
+      expected_base: FRESH_BASE,
+      expected_pr: PR_NUMBER,
+      expected_remote_head: PARENT,
+    }),
+    host,
+  )
+  check(result.reason === 'fresh_base_not_descendant' && result.mutation_count === 0, 'N divergent fresh base is rejected without mutation')
+}
+
+{
+  const host = makeNormalHostV1({ initialHead: PUSHED })
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('PUBLISH_REVIEWED_COMMIT', PUSHED), host,
+  )
+  check(result.status === 'SUCCESS' && result.reason === 'reviewed_commit_published', 'P approved reviewed commit publishes normally')
+  check(result.mutation_count === 2 && result.protected_operation_count === 1, 'P publication is one push and one PR create under one protected operation')
+  check(host.metrics.push === 1 && host.metrics.createPull === 1, 'P unchanged publication performs each mutation once')
+  check(host.metrics.createdPull.draft === false, 'P normal Task publication creates a non-Draft PR')
+  check(!host.metrics.apiCalls.some(({ method }) => method === 'PATCH'), 'P normal publication does not insert legacy Task-state or PATCH the PR')
+}
+
+{
+  const host = makeNormalHostV1({ initialHead: PUSHED, remoteInitially: PARENT })
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('PUBLISH_REVIEWED_COMMIT', PUSHED, {
+      expected_pr: PR_NUMBER,
+      expected_remote_head: PARENT,
+    }),
+    host,
+  )
+  check(result.status === 'SUCCESS' && result.reason === 'reviewed_correction_published', 'P same-task correction pushes the newly reviewed exact commit to the existing PR')
+  check(result.mutation_count === 1 && host.metrics.push === 1 && host.metrics.createPull === 0, 'P correction publication updates only the branch and never creates a duplicate PR')
+  check(result.pr_number === PR_NUMBER && result.pushed_head === PUSHED, 'P corrected PR is directly refetched at the successor HEAD')
+}
+
+{
+  const host = makeNormalHostV1({
+    initialHead: PUSHED,
+    currentBase: FRESH_BASE,
+    remoteInitially: PARENT,
+    existingPr: true,
+    advancedPaths: ['docs/unrelated-main-change.md'],
+  })
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('PUBLISH_REVIEWED_COMMIT', PUSHED, {
+      expected_base: FRESH_BASE,
+      expected_pr: PR_NUMBER,
+      expected_remote_head: PARENT,
+    }),
+    host,
+  )
+  check(result.status === 'SUCCESS' && result.reason === 'reviewed_correction_published', 'P disjoint fresh-main advancement preserves reachable successor publication')
+  check(host.metrics.push === 1 && result.pushed_head === PUSHED, 'P fresh-base successor publishes once from the existing PR lineage')
+}
+
+{
+  const host = makeNormalHostV1({
+    initialHead: PUSHED,
+    remoteInitially: PARENT,
+    successorIsDescendant: false,
+  })
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('PUBLISH_REVIEWED_COMMIT', PUSHED, {
+      expected_pr: PR_NUMBER,
+      expected_remote_head: PARENT,
+    }),
+    host,
+  )
+  check(result.reason === 'successor_head_not_descendant' && result.mutation_count === 0, 'P a leased but non-descendant correction stops before publication mutation')
+  check(host.metrics.push === 0 && host.metrics.createPull === 0, 'P non-descendant correction performs no push or PR mutation')
+}
+
+{
+  const host = makeNormalHostV1({
+    initialHead: PUSHED,
+    terminalEventTransform: (event) => ({ ...event, result: { ...event.result, unknown: 1 } }),
+  })
+  const invalid = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('PUBLISH_REVIEWED_COMMIT', PUSHED), host,
+  )
+  check(invalid.reason === 'prepublication_review_invalid' && invalid.mutation_count === 0, 'P blocker or UNKNOWN fails before publication mutation')
+  check(host.metrics.acquireContinuation === 1 && host.metrics.push === 0, 'P invalid fetched prepublication result performs zero publication mutation')
+}
+
+{
+  const host = makeNormalHostV1({ initialHead: PUSHED, remoteInitially: PUSHED })
+  const duplicate = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('PUBLISH_REVIEWED_COMMIT', PUSHED), host,
+  )
+  check(duplicate.reason === 'remote_branch_already_exists' && duplicate.mutation_count === 0, 'P a pre-existing remote branch fails closed instead of republishing')
+  check(host.metrics.push === 0 && host.metrics.createPull === 0, 'P remote identity collision performs no mutation')
+}
+
+{
+  const directory = mkdtempSync(path.join(tmpdir(), 'normal-continuation-event-'))
+  try {
+    const eventFile = path.join(directory, 'event.json')
+    const event = { target: NORMAL_TARGET, cursor: normalCursorV1('PUBLISH_REVIEWED_COMMIT') }
+    writeFileSync(eventFile, `${JSON.stringify(event)}\n`, 'utf8')
+    const apiCalls = []
+    const host = productionHostV1({
+      GH_TOKEN: 'test-token',
+      GITHUB_REPOSITORY: REPOSITORY,
+      CODEX_CONTINUATION_EVENT_FILE: eventFile,
+    }, {
+      cwd: worktree,
+      observeLocalWorktree: (identity) => ({
+        repository: identity.repository,
+        canonical_task_id: identity.canonical_task_id,
+        objective_digest: identity.objective_digest,
+        branch: identity.branch,
+        worktree_path: identity.worktree_path,
+        registered_worktree_path: identity.worktree_path,
+        git_common_dir: identity.git_common_dir,
+        authorized_paths: identity.authorized_paths,
+        remote_main_sha: identity.expected_base,
+        head: identity.expected_head,
+        pr_lookup_attempted: false,
+        pr: null,
+      }),
+      fetch: async (url) => {
+        apiCalls.push(url)
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            number: PR_NUMBER,
+            state: 'open',
+            merged: false,
+            head: { sha: PARENT },
+            base: { sha: PARENT, repo: { full_name: REPOSITORY } },
+          }),
+        }
+      },
+    })
+    const fetched = await host.refetchContinuationEvent({ target: event.target, cursor: event.cursor })
+    check(JSON.stringify(fetched) === JSON.stringify(event), 'P production host refetches the exact host-owned continuation event file')
+    let mismatchRejected = false
+    try { await host.refetchContinuationEvent({ target: event.target, cursor: 'different-cursor' }) } catch (error) {
+      mismatchRejected = error.message === 'continuation_event_transport_invalid'
+    }
+    check(mismatchRejected, 'P production continuation transport rejects a target or cursor mismatch')
+    const identity = {
+      repository: REPOSITORY,
+      canonical_task_id: TASK,
+      objective_digest: 'digest',
+      branch: BRANCH,
+      worktree_path: worktree,
+      git_common_dir: NORMAL_COMMON_DIR,
+      authorized_paths: [...PATHS],
+      expected_base: PARENT,
+      expected_head: PUSHED,
+      expected_remote_head: PARENT,
+      expected_pr: PR_NUMBER,
+    }
+    const observed = await host.observeExecution(identity)
+    check(apiCalls.length === 1 && apiCalls[0].endsWith(`/repos/${REPOSITORY}/pulls/${PR_NUMBER}`), 'P production execution observation fetches only the exact expected PR')
+    check(observed.pr_lookup_attempted === true && observed.requested_pr_number === PR_NUMBER, 'P production execution observation records exact PR lookup ownership')
+    check(observed.pr.number === PR_NUMBER && observed.pr.head === PARENT && observed.pr.base === PARENT, 'P production execution observation binds the expected PR tuple')
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+}
 
 const scopeDiff = spawnSync('git', ['diff', '--name-only', '--no-renames', PARENT, '759918b6527c2b1fca3de924fa8042f413426822', '--'], {
   cwd: worktree,

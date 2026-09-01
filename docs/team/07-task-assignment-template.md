@@ -53,6 +53,8 @@ This non-normative template captures task-specific assignment inputs and expecte
 
 For a logical Review-publication exact assignment, also record the stable predelegation identity and the closed exact grant. Do not record a `wait_threads` cursor: it is wake-up state, not authority. The consumer derives the logical identity from repository + Task + PR + HEAD + protected action + actor + surface + decision and treats only byte-identical canonical semantic payloads as equivalent.
 
+For a normal-execution predelegation, use the same `task_assignment` record and bind the exact repository, Task, initial fresh base, branch, canonical worktree path, sorted authorized paths, actor, and `BOUNDED_EXECUTION_IDENTITY_V1`. List the three closed operations separately: exact worktree creation once; exact validated-tree commit once per admitted execution identity; and unchanged reviewed-commit push plus one non-Draft PR creation. State explicitly that the cursor is activation only, the protected host must refetch its consumed terminal Result Handoff or Independent Review before mutation, and caller-supplied result data is not admitted. The initial base is the authority anchor; a freshly observed descendant `origin/main` may rebind only when its changed paths are disjoint from the Task scope, while overlap or divergence requires compatibility authority. Scope change, rebase, amend, Ready, Merge, retry, and Issue closure remain forbidden.
+
 ## Scope
 
 - Allowed files / directories:
