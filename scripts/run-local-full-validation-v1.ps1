@@ -16,12 +16,22 @@ function Invoke-LocalFullValidationProcessV1 {
         [string]$Executable,
 
         [Parameter(Mandatory = $true)]
-        [string[]]$Arguments
+        [string[]]$Arguments,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$ClearPythonEnvironment
     )
 
     $previousErrorActionPreference = $ErrorActionPreference
+    $savedPythonEnvironment = @{}
     try {
         $ErrorActionPreference = 'Continue'
+        if ($ClearPythonEnvironment) {
+            foreach ($name in @('PYTHONHOME', 'PYTHONPATH', 'PYTHONUSERBASE')) {
+                $savedPythonEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+                [Environment]::SetEnvironmentVariable($name, $null, 'Process')
+            }
+        }
         $output = @(& $Executable @Arguments 2>&1 | ForEach-Object { "$_" })
         $exitCode = $LASTEXITCODE
         return [pscustomobject]@{
@@ -30,8 +40,68 @@ function Invoke-LocalFullValidationProcessV1 {
         }
     }
     finally {
+        if ($ClearPythonEnvironment) {
+            foreach ($name in @('PYTHONHOME', 'PYTHONPATH', 'PYTHONUSERBASE')) {
+                [Environment]::SetEnvironmentVariable($name, $savedPythonEnvironment[$name], 'Process')
+            }
+        }
         $ErrorActionPreference = $previousErrorActionPreference
     }
+}
+
+function Assert-LocalFullValidationBootstrapRuntimeV1 {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PythonExecutable
+    )
+
+    if ([string]::IsNullOrEmpty($PythonExecutable)) {
+        throw 'local_full_validation_bootstrap_runtime_invalid'
+    }
+
+    $probeCode = @'
+import json
+import sys
+print(json.dumps({
+    "python_implementation": sys.implementation.name,
+    "exact_python_version": ".".join(str(part) for part in sys.version_info[:3]),
+    "python_cache_tag": sys.implementation.cache_tag,
+    "python_executable": sys.executable,
+}, sort_keys=True))
+'@
+    try {
+        $probe = Invoke-LocalFullValidationProcessV1 `
+            -Executable $PythonExecutable `
+            -Arguments @('-B', '-E', '-s', '-c', $probeCode) `
+            -ClearPythonEnvironment
+    }
+    catch {
+        throw 'local_full_validation_bootstrap_runtime_invalid'
+    }
+    if ($probe.ExitCode -ne 0 -or $probe.Output.Count -ne 1) {
+        throw 'local_full_validation_bootstrap_runtime_invalid'
+    }
+    try {
+        $identity = $probe.Output[0] | ConvertFrom-Json
+    }
+    catch {
+        throw 'local_full_validation_bootstrap_runtime_invalid'
+    }
+    $expectedFields = @(
+        'exact_python_version', 'python_cache_tag', 'python_executable', 'python_implementation'
+    ) | Sort-Object
+    $actualFields = @($identity.psobject.Properties.Name | Sort-Object)
+    if (
+        ($expectedFields -join "`n") -cne ($actualFields -join "`n") -or
+        [string]$identity.python_implementation -cne 'cpython' -or
+        [string]$identity.exact_python_version -cne '3.12.13' -or
+        [string]$identity.python_cache_tag -cne 'cpython-312' -or
+        [string]$identity.python_executable -cne $PythonExecutable
+    ) {
+        throw 'local_full_validation_bootstrap_runtime_invalid'
+    }
+    return $identity
 }
 
 function Complete-LocalFullValidationStepV1 {
@@ -63,6 +133,8 @@ function Invoke-LocalFullValidationV1 {
     if ($ExactBaselineCommit -notmatch '^[0-9a-f]{40}$') {
         throw 'local_full_validation_baseline_invalid'
     }
+
+    $bootstrapRuntime = Assert-LocalFullValidationBootstrapRuntimeV1 -PythonExecutable $BasePythonExecutable
 
     $repository = Split-Path -Parent $PSScriptRoot
     $gitExecutable = (Get-Command git -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
