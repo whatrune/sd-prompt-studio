@@ -1,6 +1,6 @@
 {
   "schema_version": "0.2.0",
-  "graph_version": "0.2.2",
+  "graph_version": "0.2.3",
   "module_file_id": "semantic-concepts",
   "module_family": "semantic",
   "description": "Initial entity identity, species, semantic role, object, activity, and environment concepts.",
