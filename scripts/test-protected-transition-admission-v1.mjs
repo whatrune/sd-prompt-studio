@@ -67,7 +67,9 @@ const canonicalTaskBodyRequest = (overrides = {}) => Object.freeze({
   markdown: '# Canonical Task 日本語\n\nBlank lines, Unicode ✓, and embedded # remain content.',
   authorized_paths: [...CANONICAL_TASK_PATHS].reverse(),
   head_branch: 'codex/canonical-task-body-serialization-v1',
-  worktree_path: join('C:\\', 'workspace', '.worktrees', 'canonical-task-body-serialization-v1'),
+  worktree_path: process.platform === 'win32'
+    ? join('C:\\', 'workspace', '.worktrees', 'canonical-task-body-serialization-v1')
+    : join('/workspace', '.worktrees', 'canonical-task-body-serialization-v1'),
   expected_base: BASE,
   authorized_actor: 'whatrune',
   permitted_surface: 'TASK_ISSUE_COMMENT',
