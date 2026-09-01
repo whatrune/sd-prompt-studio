@@ -671,7 +671,9 @@ const assertCanonicalTaskIssueResourceV1 = ({ resource, request, taskIssue, body
   if (
     resource === null || typeof resource !== 'object' || Array.isArray(resource) ||
     resource.number !== taskIssue || resource.title !== request.title || resource.body !== body ||
-    resource.state !== 'open' || resource.pull_request !== undefined || resource.html_url !== expectedUrl
+    resource.state !== 'open' || resource.pull_request !== undefined || resource.html_url !== expectedUrl ||
+    resource.user === null || typeof resource.user !== 'object' || Array.isArray(resource.user) ||
+    resource.user.login !== request.product_owner_login || resource.author_association !== 'OWNER'
   ) throw new Error('canonical_task_issue_resource_mismatch')
   return resource
 }
@@ -688,6 +690,11 @@ export const publishCanonicalTaskIssueV1 = async ({ request, host }) => {
   let createMutationCount = 0
   let patchMutationCount = 0
   try {
+    const authenticatedActor = await host.api('user')
+    if (
+      authenticatedActor === null || typeof authenticatedActor !== 'object' ||
+      Array.isArray(authenticatedActor) || authenticatedActor.login !== admittedRequest.product_owner_login
+    ) throw new Error('canonical_task_issue_actor_invalid')
     const unboundBody = serializeCanonicalTaskIssueBodyV1({
       request: admittedRequest,
       mode: 'UNBOUND_CREATE',

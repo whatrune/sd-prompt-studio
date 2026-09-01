@@ -851,24 +851,36 @@ equal((task526Body.match(/^```yaml$/gmu) ?? []).length, 1)
 
 const createCanonicalTaskPublicationHost = ({
   taskIssue = 526,
+  authenticatedActor = 'whatrune',
+  resourceAuthor = 'whatrune',
+  resourceAuthorAssociation = 'OWNER',
   createError = null,
   createBodyMismatch = false,
   patchError = null,
   patchRefetchMismatch = false,
 } = {}) => {
-  const state = { createCalls: 0, patchCalls: 0, apiCalls: 0, title: null, body: null, patched: false }
+  const state = {
+    actorApiCalls: 0, issueApiCalls: 0, createCalls: 0, patchCalls: 0,
+    title: null, body: null, patched: false,
+  }
   const resource = (body = state.body) => ({
     number: taskIssue,
     title: state.title,
     body,
     state: 'open',
     html_url: `https://github.com/${REPOSITORY}/issues/${taskIssue}`,
+    user: { login: resourceAuthor },
+    author_association: resourceAuthorAssociation,
   })
   return {
     state,
     host: {
       api: async (route) => {
-        state.apiCalls += 1
+        if (route === 'user') {
+          state.actorApiCalls += 1
+          return { login: authenticatedActor }
+        }
+        state.issueApiCalls += 1
         equal(route, `repos/${REPOSITORY}/issues/${taskIssue}`)
         return resource(state.patched && patchRefetchMismatch ? `${state.body}corrupt` : state.body)
       },
@@ -909,7 +921,8 @@ const createCanonicalTaskPublicationHost = ({
   equal(result.self_binding_delta.changed_fields.join('\n'), canonicalTaskDelta.changed_fields.join('\n'))
   equal(fixture.state.createCalls, 1)
   equal(fixture.state.patchCalls, 1)
-  equal(fixture.state.apiCalls, 2)
+  equal(fixture.state.actorApiCalls, 1)
+  equal(fixture.state.issueApiCalls, 2)
   const final = parseCanonicalTaskIssueBodyV1({ body: fixture.state.body, mode: 'BOUND_FINAL' })
   equal(final.task_authority.task_issue, 526)
   equal(final.review_publication_predelegation.allowed_changes.task_issue, 526)
@@ -922,9 +935,10 @@ const createCanonicalTaskPublicationHost = ({
     host: fixture.host,
   }))
   equal(error.message, 'transport lost')
+  equal(fixture.state.actorApiCalls, 1)
   equal(fixture.state.createCalls, 1)
   equal(fixture.state.patchCalls, 0)
-  equal(fixture.state.apiCalls, 0)
+  equal(fixture.state.issueApiCalls, 0)
 }
 
 {
@@ -934,9 +948,10 @@ const createCanonicalTaskPublicationHost = ({
     host: fixture.host,
   }))
   equal(error.message, 'canonical_task_issue_resource_mismatch')
+  equal(fixture.state.actorApiCalls, 1)
   equal(fixture.state.createCalls, 1)
   equal(fixture.state.patchCalls, 0)
-  equal(fixture.state.apiCalls, 0)
+  equal(fixture.state.issueApiCalls, 0)
 }
 
 {
@@ -946,9 +961,10 @@ const createCanonicalTaskPublicationHost = ({
     host: fixture.host,
   }))
   equal(error.message, 'patch transport lost')
+  equal(fixture.state.actorApiCalls, 1)
   equal(fixture.state.createCalls, 1)
   equal(fixture.state.patchCalls, 1)
-  equal(fixture.state.apiCalls, 1)
+  equal(fixture.state.issueApiCalls, 1)
 }
 
 {
@@ -958,9 +974,49 @@ const createCanonicalTaskPublicationHost = ({
     host: fixture.host,
   }))
   equal(error.message, 'canonical_task_issue_resource_mismatch')
+  equal(fixture.state.actorApiCalls, 1)
   equal(fixture.state.createCalls, 1)
   equal(fixture.state.patchCalls, 1)
-  equal(fixture.state.apiCalls, 2)
+  equal(fixture.state.issueApiCalls, 2)
+}
+
+{
+  const fixture = createCanonicalTaskPublicationHost({ authenticatedActor: 'collaborator' })
+  const error = await captureError(() => publishCanonicalTaskIssueV1({
+    request: canonicalTaskBodyRequest(),
+    host: fixture.host,
+  }))
+  equal(error.message, 'canonical_task_issue_actor_invalid')
+  equal(fixture.state.actorApiCalls, 1)
+  equal(fixture.state.createCalls, 0)
+  equal(fixture.state.patchCalls, 0)
+  equal(fixture.state.issueApiCalls, 0)
+}
+
+{
+  const fixture = createCanonicalTaskPublicationHost({ resourceAuthor: 'collaborator' })
+  const error = await captureError(() => publishCanonicalTaskIssueV1({
+    request: canonicalTaskBodyRequest(),
+    host: fixture.host,
+  }))
+  equal(error.message, 'canonical_task_issue_resource_mismatch')
+  equal(fixture.state.actorApiCalls, 1)
+  equal(fixture.state.createCalls, 1)
+  equal(fixture.state.patchCalls, 0)
+  equal(fixture.state.issueApiCalls, 0)
+}
+
+{
+  const fixture = createCanonicalTaskPublicationHost({ resourceAuthorAssociation: 'COLLABORATOR' })
+  const error = await captureError(() => publishCanonicalTaskIssueV1({
+    request: canonicalTaskBodyRequest(),
+    host: fixture.host,
+  }))
+  equal(error.message, 'canonical_task_issue_resource_mismatch')
+  equal(fixture.state.actorApiCalls, 1)
+  equal(fixture.state.createCalls, 1)
+  equal(fixture.state.patchCalls, 0)
+  equal(fixture.state.issueApiCalls, 0)
 }
 
 const allChecks = [check('validate', 15368), check('build-preview', 15368), check('Cloudflare Pages', 85455)]
@@ -2028,6 +2084,8 @@ ok(runnerSource.includes('patchTaskIssueBody'))
 equal((runnerSource.match(/method: 'PATCH'/g) ?? []).length, 1)
 ok(runnerSource.includes("diagnosticOperation: 'CANONICAL_TASK_CREATE_MUTATION'"))
 ok(runnerSource.includes("diagnosticOperation: 'CANONICAL_TASK_PATCH_MUTATION'"))
+ok(runnerSource.includes("authenticatedActor.login !== admittedRequest.product_owner_login"))
+ok(runnerSource.includes("resource.author_association !== 'OWNER'"))
 ok(runnerSource.includes("valueAfter('--create-canonical-task-issue-file')"))
 ok(runnerSource.includes("valueAfter('--serialize-canonical-task-body-file')"))
 ok(runnerSource.includes("args.includes('--publication-body-output-file')"))
