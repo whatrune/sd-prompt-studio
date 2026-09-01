@@ -366,6 +366,7 @@ const createReviewRoutingFixture = ({
   finalActor = actor,
   finalHead = HEAD,
   finalBase = BASE,
+  driftAfterLiveReads = 1,
   finalAuthorityBody = null,
   authorityAppearsBeforeMutation = false,
   publicationError = null,
@@ -423,7 +424,7 @@ const createReviewRoutingFixture = ({
     async api(route) {
       if (route === 'user') {
         state.userReads += 1
-        return { login: state.userReads === 1 ? actor : finalActor }
+        return { login: state.userReads <= driftAfterLiveReads ? actor : finalActor }
       }
       if (route === `repos/${REPOSITORY}/issues/${TASK}`) {
         state.taskReads += 1
@@ -454,13 +455,16 @@ const createReviewRoutingFixture = ({
         return {
           ...pull,
           user: { login: pullAuthor },
-          head: { ...pull.head, sha: state.pullReads === 1 ? HEAD : finalHead },
-          base: { ...pull.base, sha: state.pullReads === 1 ? BASE : finalBase },
+          head: { ...pull.head, sha: state.pullReads <= driftAfterLiveReads ? HEAD : finalHead },
+          base: { ...pull.base, sha: state.pullReads <= driftAfterLiveReads ? BASE : finalBase },
         }
       }
       if (route === `repos/${REPOSITORY}/git/ref/heads/main`) {
         state.mainReads += 1
-        return { ref: 'refs/heads/main', object: { sha: state.mainReads === 1 ? BASE : finalBase } }
+        return {
+          ref: 'refs/heads/main',
+          object: { sha: state.mainReads <= driftAfterLiveReads ? BASE : finalBase },
+        }
       }
       if (route === `repos/${REPOSITORY}/pulls/${PR}/reviews?per_page=100&page=1`) return [...state.pullReviews]
       if (route === `repos/${REPOSITORY}/issues/${TASK}/comments?per_page=100&page=1`) {
@@ -1011,6 +1015,21 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
   equal(result.publication_authority_record, null)
 }
 
+// A legacy Task with an existing exact Review reuses it without requiring the new predelegation.
+{
+  const fixture = createReviewRoutingFixture({
+    existing: [{ kind: 'TASK_ISSUE_COMMENT' }],
+    includeAuthority: false,
+    includePredelegation: false,
+  })
+  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: fixture.host })
+  equal(result.state, 'MERGE_READY')
+  equal(result.publication_route, 'REUSED')
+  equal(result.assignment_materialization_mutation_count, 0)
+  equal(result.publication_mutation_count, 0)
+  equal(fixture.state.assignmentCommentMutations + fixture.state.taskCommentMutations, 0)
+}
+
 // A concurrently published exact authority is reused during the final mutation-boundary recheck.
 {
   const fixture = createReviewRoutingFixture({ authorityAppearsBeforeMutation: true })
@@ -1146,6 +1165,20 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
     request: reviewRoutingInput(), host: actorDrift.host,
   }))).message, 'review_publication_final_binding_invalid')
   equal(actorDrift.state.pullReviewMutations + actorDrift.state.taskCommentMutations, 0)
+
+  const immediatelyBeforePublicationDrift = createReviewRoutingFixture({
+    finalHead: '6'.repeat(40),
+    driftAfterLiveReads: 2,
+  })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: immediatelyBeforePublicationDrift.host,
+  }))).message, 'review_publication_final_binding_invalid')
+  equal(immediatelyBeforePublicationDrift.state.pullReads, 3)
+  equal(
+    immediatelyBeforePublicationDrift.state.pullReviewMutations +
+      immediatelyBeforePublicationDrift.state.taskCommentMutations,
+    0,
+  )
 
   const authorityRemoved = createReviewRoutingFixture({
     finalAuthorityBody: serializeSimplifiedTaskAuthorityV1(taskInput),

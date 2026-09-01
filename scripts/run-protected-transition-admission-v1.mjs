@@ -822,10 +822,10 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
 
   let live = await acquireLiveBinding()
   let publicationRoute = routeFor(live)
-  let admitted = admitPredelegation(live, publicationRoute)
   let authorities = await acquireCurrentReviewAuthorities({
     host, request, pull: live.pull, expectedBody: request.review_body,
   })
+  let admitted = authorities.length === 0 ? admitPredelegation(live, publicationRoute) : null
   let assignments = authorities.length === 0
     ? await acquireAssignments(live, publicationRoute, admitted.profiles)
     : Object.freeze([])
@@ -930,6 +930,13 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
 
   if (authorities.length === 0) {
     mutationCount = 1
+    try {
+      live = await acquireLiveBinding()
+    } catch {
+      throw new Error('review_publication_final_binding_invalid')
+    }
+    if (routeFor(live) !== publicationRoute) throw new Error('review_publication_final_binding_invalid')
+    admitted = admitPredelegation(live, publicationRoute)
     const selfAuthored = publicationRoute === 'TASK_ISSUE_COMMENT'
     const resource = selfAuthored
       ? await host.publishTaskIssueComment({
