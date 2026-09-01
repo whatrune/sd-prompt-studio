@@ -365,6 +365,17 @@ function observed(id = identity(), overrides = {}) {
 {
   const powershell = process.platform === 'win32' ? 'pwsh.exe' : 'pwsh'
   const syncScript = path.resolve('scripts/sync-local-main-after-merge-v1.ps1')
+  const syncSource = readFileSync(syncScript, 'utf8')
+  equal(
+    /if \(\$localMain -ceq \$script:OriginMain\) \{[\s\S]*?Get-VerifiedSynchronizedState[\s\S]*?ALREADY_EQUAL/u.test(syncSource),
+    true,
+    'the no-op path rechecks current refs and root cleanliness before PASS',
+  )
+  equal(
+    /function Get-VerifiedSynchronizedState \{[\s\S]*?refs\/heads\/main[\s\S]*?refs\/remotes\/origin\/main[\s\S]*?status[\s\S]*?local_main_sync_final_verification_failed/u.test(syncSource),
+    true,
+    'final verification rereads both refs and fails closed on dirty or unequal state',
+  )
   const fixtureRoots = []
   const git = (cwd, args, expectedStatus = 0) => {
     const result = spawnSync('git', args, { cwd, encoding: 'utf8' })

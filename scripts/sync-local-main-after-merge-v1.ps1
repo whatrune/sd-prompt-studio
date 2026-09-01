@@ -77,6 +77,19 @@ function Write-Result {
     } | ConvertTo-Json -Depth 3 -Compress | Write-Output
 }
 
+function Get-VerifiedSynchronizedState {
+    $localMainAfter = Require-GitSuccess -Result (Invoke-NativeGit -Arguments @('rev-parse', 'refs/heads/main')) -Reason 'local_main_sync_final_verification_failed'
+    $originMainAfter = Require-GitSuccess -Result (Invoke-NativeGit -Arguments @('rev-parse', 'refs/remotes/origin/main')) -Reason 'local_main_sync_final_verification_failed'
+    $finalStatus = Invoke-NativeGit -Arguments @('status', '--porcelain=v1', '--untracked-files=all')
+    if ($localMainAfter -cne $originMainAfter -or $finalStatus.ExitCode -ne 0 -or $finalStatus.Output.Count -ne 0) {
+        throw 'local_main_sync_final_verification_failed'
+    }
+    return [pscustomobject]@{
+        LocalMain = $localMainAfter
+        OriginMain = $originMainAfter
+    }
+}
+
 try {
     $gitCommand = Get-Command git -CommandType Application -ErrorAction Stop | Select-Object -First 1
     $script:GitExecutable = $gitCommand.Source
@@ -142,7 +155,9 @@ try {
     }
 
     if ($localMain -ceq $script:OriginMain) {
-        Write-Result -State 'PASS' -Reason 'local_main_already_equal' -Action 'ALREADY_EQUAL' -LocalMainAfter $localMain -LocalOnlyCommits $localOnlyCommits
+        $verified = Get-VerifiedSynchronizedState
+        $script:OriginMain = $verified.OriginMain
+        Write-Result -State 'PASS' -Reason 'local_main_already_equal' -Action 'ALREADY_EQUAL' -LocalMainAfter $verified.LocalMain -LocalOnlyCommits $localOnlyCommits
         exit 0
     }
 
@@ -155,15 +170,9 @@ try {
         throw 'local_main_sync_fast_forward_failed'
     }
 
-    $localMainAfter = Require-GitSuccess -Result (Invoke-NativeGit -Arguments @('rev-parse', 'refs/heads/main')) -Reason 'local_main_sync_final_verification_failed'
-    $originMainAfter = Require-GitSuccess -Result (Invoke-NativeGit -Arguments @('rev-parse', 'refs/remotes/origin/main')) -Reason 'local_main_sync_final_verification_failed'
-    $finalStatus = Invoke-NativeGit -Arguments @('status', '--porcelain=v1', '--untracked-files=all')
-    if ($localMainAfter -cne $originMainAfter -or $finalStatus.ExitCode -ne 0 -or $finalStatus.Output.Count -ne 0) {
-        throw 'local_main_sync_final_verification_failed'
-    }
-
-    $script:OriginMain = $originMainAfter
-    Write-Result -State 'PASS' -Reason 'local_main_fast_forwarded' -Action 'FAST_FORWARD' -LocalMainAfter $localMainAfter -LocalOnlyCommits $localOnlyCommits
+    $verified = Get-VerifiedSynchronizedState
+    $script:OriginMain = $verified.OriginMain
+    Write-Result -State 'PASS' -Reason 'local_main_fast_forwarded' -Action 'FAST_FORWARD' -LocalMainAfter $verified.LocalMain -LocalOnlyCommits $localOnlyCommits
     exit 0
 }
 catch {
