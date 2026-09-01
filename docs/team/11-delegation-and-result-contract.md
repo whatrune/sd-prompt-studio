@@ -30,6 +30,12 @@ migration後のlive Taskでは、Task AssignmentとResult Handoffに次の共通
 
 repository-relative Markdown path、local path、branch名、commit SHAだけを`canonical_record`にしてはならない。これらはimmutableな`supporting_records`としてだけ使用できる。
 
+### Resource-derived Task Assignment comment
+
+`REVIEW_AUTHORITY_PUBLICATION` のexact Task Assignmentを新しいtop-level Canonical Task commentとして一度だけCREATEする場合に限り、pre-create bodyの`canonical_record`はliteral `GITHUB_RESOURCE`を使用できる。これは新しいrecord schemaでも自己参照URLの代替文字列でもなく、既存`task_assignment`のresource-derived identity profileである。bodyはCREATE前にrepository、Task、PR、HEAD、base、branch、scope、actor、surface、Review、predelegation identity、Fresh Review terminal cursorを完全にbindする。
+
+successful CREATE responseと同じcommentのdirect refetchが返すcomment ID / URLを、consumerがadmitted `canonical_record`として投影する。stored bodyは`GITHUB_RESOURCE`のまま変更せず、comment PATCHを行わない。response/refetchのID、URL、body、actor、Task resourceが一致しなければassignmentは成立しない。ambiguous CREATEはretryしない。既存のdirect URLを持つlegacy Task-body assignmentは引き続きreadableである。
+
 PR #167より前に成立したlegacy Taskは、当時のpinned canonical sourceとProduct Owner acceptanceを維持する。migration後fieldを暗黙retrofitしてinvalid化しない。
 
 ## Task Assignment Contract
