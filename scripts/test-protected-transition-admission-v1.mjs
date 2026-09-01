@@ -48,6 +48,8 @@ const BRANCH = 'codex/review-publication-test'
 const REVIEW = 9001
 const REVIEW_URL = `https://github.com/${REPOSITORY}/pull/${PR}#pullrequestreview-${REVIEW}`
 const FRESH_REVIEW_CURSOR = 'wait-threads-review-approve-cursor-v1'
+const FRESH_REVIEW_THREAD = 'thread-fresh-review-v1'
+const FRESH_REVIEW_HOST = 'local'
 
 const taskInput = Object.freeze({
   record_type: 'simplified_task_authority_v1',
@@ -210,7 +212,10 @@ const reviewRoutingInput = (overrides = {}) => Object.freeze({
   pull_request: PR,
   exact_head: HEAD,
   expected_base: BASE,
+  head_branch: BRANCH,
   authorized_paths: PATHS,
+  review_thread_id: FRESH_REVIEW_THREAD,
+  review_host_id: FRESH_REVIEW_HOST,
   review_input: reviewInput(),
   fresh_review_terminal: {
     wait_terminal: true,
@@ -219,6 +224,16 @@ const reviewRoutingInput = (overrides = {}) => Object.freeze({
     terminal_cursor: FRESH_REVIEW_CURSOR,
     prior_consumed_cursor: null,
     consumed_cursor: FRESH_REVIEW_CURSOR,
+    repository: REPOSITORY,
+    task_issue: TASK,
+    pull_request: PR,
+    exact_head: HEAD,
+    expected_base: BASE,
+    head_branch: BRANCH,
+    authorized_paths: PATHS,
+    review_input: reviewInput(),
+    thread_id: FRESH_REVIEW_THREAD,
+    host_id: FRESH_REVIEW_HOST,
   },
   ...overrides,
 })
@@ -369,6 +384,8 @@ const createReviewRoutingFixture = ({
   driftAfterLiveReads = 1,
   finalAuthorityBody = null,
   authorityAppearsBeforeMutation = false,
+  authorityAppearsOnCommentListRead = null,
+  assignmentAppearsOnCommentListRead = null,
   publicationError = null,
   assignmentError = null,
   assignmentResponseMismatch = false,
@@ -469,8 +486,18 @@ const createReviewRoutingFixture = ({
       if (route === `repos/${REPOSITORY}/pulls/${PR}/reviews?per_page=100&page=1`) return [...state.pullReviews]
       if (route === `repos/${REPOSITORY}/issues/${TASK}/comments?per_page=100&page=1`) {
         state.taskCommentListReads += 1
-        if (authorityAppearsBeforeMutation && state.taskCommentListReads === 2 && state.taskComments.length === 0) {
+        if (
+          (authorityAppearsBeforeMutation && state.taskCommentListReads === 2) ||
+          state.taskCommentListReads === authorityAppearsOnCommentListRead
+        ) {
+          if (state.taskComments.length !== 0) return [...state.taskComments]
           state.taskComments.push(taskCommentResource(9299))
+        }
+        if (state.taskCommentListReads === assignmentAppearsOnCommentListRead) {
+          state.taskComments.push(taskCommentResource(9410, yamlBlock(resourceReviewPublicationAssignment({
+            actor,
+            surface: actor === pullAuthor ? 'TASK_ISSUE_COMMENT' : 'PULL_REQUEST_REVIEW',
+          }))))
         }
         return [...state.taskComments]
       }
@@ -844,6 +871,33 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
   equal(fixture.state.assignmentCommentMutations + fixture.state.taskCommentMutations, 0)
 }
 
+// The new terminal cursor advances only when its Fresh Review execution identity matches this lane.
+{
+  for (const terminalOverride of [
+    { task_issue: TASK + 1 },
+    { pull_request: PR + 1 },
+    { exact_head: '8'.repeat(40) },
+    { expected_base: '9'.repeat(40) },
+    { head_branch: 'codex/other-lane' },
+    { authorized_paths: ['docs/other.md'] },
+    { review_input: { ...reviewInput(), reviewed_head: '7'.repeat(40) } },
+    { thread_id: 'thread-other-review' },
+    { host_id: 'remote-other-host' },
+  ]) {
+    const fixture = createReviewRoutingFixture({ includeAuthority: false })
+    const request = reviewRoutingInput({
+      fresh_review_terminal: {
+        ...reviewRoutingInput().fresh_review_terminal,
+        ...terminalOverride,
+      },
+    })
+    const result = await ensureReviewAuthorityAndRunPreflightV1({ request, host: fixture.host })
+    equal(result.state, 'NO_ADVANCE')
+    equal(fixture.state.userReads + fixture.state.taskReads + fixture.state.pullReads, 0)
+    equal(fixture.state.assignmentCommentMutations + fixture.state.taskCommentMutations, 0)
+  }
+}
+
 // A next distinct terminal cursor advances once, while replaying it cannot duplicate assignment or Review.
 {
   const fixture = createReviewRoutingFixture({ includeAuthority: false })
@@ -891,12 +945,29 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
 
   const malformed = createReviewRoutingFixture({
     includeAuthority: false,
-    existing: [{ kind: 'TASK_ASSIGNMENT', body: '```yaml\nprotected_action: REVIEW_AUTHORITY_PUBLICATION\n```\n' }],
+    existing: [{
+      kind: 'TASK_ASSIGNMENT',
+      body: '```yaml\nrecord_type: task_assignment\nallowed_changes:\n  protected_action: REVIEW_AUTHORITY_PUBLICATION\n```\n',
+    }],
   })
   equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
     request: reviewRoutingInput(), host: malformed.host,
   }))).message, 'review_publication_authority_malformed')
   equal(malformed.state.assignmentCommentMutations + malformed.state.taskCommentMutations, 0)
+}
+
+// Ordinary Task discussion that merely mentions the action name is not an assignment candidate.
+{
+  const fixture = createReviewRoutingFixture({
+    existing: [{
+      kind: 'TASK_ASSIGNMENT',
+      body: 'A diagnostic mentioned REVIEW_AUTHORITY_PUBLICATION, but this is ordinary prose.',
+    }],
+  })
+  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: fixture.host })
+  equal(result.state, 'MERGE_READY')
+  equal(result.assignment_materialization_mutation_count, 0)
+  equal(result.publication_mutation_count, 1)
 }
 
 // Assignment comment CREATE is single-attempt and direct-refetch/resource binding is exact.
@@ -1187,6 +1258,25 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
     request: reviewRoutingInput(), host: authorityRemoved.host,
   }))).message, 'review_publication_predelegation_required')
   equal(authorityRemoved.state.pullReviewMutations + authorityRemoved.state.taskCommentMutations, 0)
+}
+
+// Authority and assignment cardinality are reacquired after the final live rebind.
+{
+  const fixture = createReviewRoutingFixture({ authorityAppearsOnCommentListRead: 4 })
+  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: fixture.host })
+  equal(result.publication_route, 'REUSED')
+  equal(result.publication_mutation_count, 0)
+  equal(result.review_id, 9299)
+  equal(fixture.state.pullReviewMutations + fixture.state.taskCommentMutations, 0)
+
+  const duplicateAssignment = createReviewRoutingFixture({ assignmentAppearsOnCommentListRead: 4 })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: duplicateAssignment.host,
+  }))).message, 'review_publication_authority_duplicate')
+  equal(
+    duplicateAssignment.state.pullReviewMutations + duplicateAssignment.state.taskCommentMutations,
+    0,
+  )
 }
 
 // A distinct-actor PR publication failure never falls back to the Task comment route.

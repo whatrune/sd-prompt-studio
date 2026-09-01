@@ -25,7 +25,8 @@ const REVIEW_RECORD_MARKER = '"record_type": "simplified_independent_review_v1"'
 const REVIEWER_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 const REVIEW_ROUTING_REQUEST_FIELDS = Object.freeze([
   'repository', 'task_issue', 'pull_request', 'exact_head', 'expected_base',
-  'authorized_paths', 'review_input', 'fresh_review_terminal',
+  'head_branch', 'authorized_paths', 'review_thread_id', 'review_host_id',
+  'review_input', 'fresh_review_terminal',
 ])
 const REVIEW_PUBLICATION_ASSIGNMENT_FIELDS = Object.freeze([
   'task_id', 'record_type', 'authoring_role', 'authority_source', 'canonical_record',
@@ -53,7 +54,9 @@ const REVIEW_PUBLICATION_PREDELEGATION_REVIEW_FIELDS = Object.freeze([
 ])
 const FRESH_REVIEW_TERMINAL_FIELDS = Object.freeze([
   'wait_terminal', 'terminal_kind', 'observed_at', 'terminal_cursor',
-  'prior_consumed_cursor', 'consumed_cursor',
+  'prior_consumed_cursor', 'consumed_cursor', 'repository', 'task_issue',
+  'pull_request', 'exact_head', 'expected_base', 'head_branch',
+  'authorized_paths', 'review_input', 'thread_id', 'host_id',
 ])
 const REVIEW_PUBLICATION_FORBIDDEN_CHANGES = Object.freeze([
   'alternate_surface_fallback', 'merge', 'retry',
@@ -413,6 +416,15 @@ const classifyReviewPublicationTaskAssignmentsV1 = (body) => {
   })
 }
 
+const isReviewPublicationAssignmentCommentCandidateV1 = (body) => {
+  if (typeof body !== 'string' || body.length === 0 || body.length > 65_536) return false
+  const blocks = [...body.matchAll(/```yaml\r?\n([\s\S]*?)\r?\n```/gu)]
+  return blocks.some((block) => (
+    /^\s*["']?record_type["']?\s*:\s*["']?task_assignment["']?/mu.test(block[1]) &&
+    /^\s*["']?protected_action["']?\s*:\s*["']?REVIEW_AUTHORITY_PUBLICATION["']?/mu.test(block[1])
+  ))
+}
+
 const validateReviewPublicationAssignmentCommonV1 = ({ assignment, task, taskUrl }) => {
   const priorRecordValid = assignment.prior_record_url === 'not_applicable' ||
     /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/issues\/[1-9][0-9]*$/u.test(
@@ -680,10 +692,7 @@ const acquireCurrentReviewPublicationAssignmentsV1 = async ({
     route: `repos/${request.repository}/issues/${request.task_issue}/comments`,
   })
   for (const comment of comments) {
-    if (
-      typeof comment?.body !== 'string' ||
-      !comment.body.includes('REVIEW_AUTHORITY_PUBLICATION')
-    ) continue
+    if (!isReviewPublicationAssignmentCommentCandidateV1(comment?.body)) continue
     const profiles = classifyReviewPublicationTaskAssignmentsV1(comment.body)
     if (profiles.predelegation !== null || profiles.exact_assignment === null) {
       throw new Error('review_publication_authority_malformed')
@@ -713,6 +722,8 @@ const validateReviewRoutingRequest = (request) => {
     !Number.isSafeInteger(request.task_issue) || request.task_issue < 1 ||
     !Number.isSafeInteger(request.pull_request) || request.pull_request < 1 ||
     !FULL_SHA.test(request.exact_head ?? '') || !FULL_SHA.test(request.expected_base ?? '') ||
+    !nonEmptyText(request.head_branch) || request.head_branch !== request.head_branch.trim() ||
+    !nonEmptyText(request.review_thread_id) || !nonEmptyText(request.review_host_id) ||
     !exactKeys(terminal, FRESH_REVIEW_TERMINAL_FIELDS) || terminal.wait_terminal !== true ||
     terminal.terminal_kind !== 'REVIEW_APPROVE' ||
     !Number.isSafeInteger(terminal.observed_at) || terminal.observed_at < 0 ||
@@ -727,10 +738,23 @@ const validateReviewRoutingRequest = (request) => {
     review.task_issue !== request.task_issue || review.pull_request !== request.pull_request ||
     review.reviewed_head !== request.exact_head
   ) throw new Error('review_publication_binding_invalid')
+  let terminalReviewBody = null
+  try {
+    terminalReviewBody = serializeSimplifiedReviewV1(terminal.review_input)
+  } catch {
+    terminalReviewBody = null
+  }
+  const identityMatches = (
+    terminal.repository === request.repository && terminal.task_issue === request.task_issue &&
+    terminal.pull_request === request.pull_request && terminal.exact_head === request.exact_head &&
+    terminal.expected_base === request.expected_base && terminal.head_branch === request.head_branch &&
+    samePaths(terminal.authorized_paths, authorizedPaths) && terminalReviewBody === reviewBody &&
+    terminal.thread_id === request.review_thread_id && terminal.host_id === request.review_host_id
+  )
   const continuation = projectAutomatedReviewToMergeReadyContinuationV1({
     waitTerminal: terminal.wait_terminal,
     terminalKind: terminal.terminal_kind,
-    identityMatches: true,
+    identityMatches,
     observedAt: terminal.observed_at,
     terminalCursor: terminal.terminal_cursor,
     consumedCursor: terminal.prior_consumed_cursor,
@@ -793,7 +817,7 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
       taskAuthority.task_issue !== request.task_issue || taskAuthority.repository !== request.repository ||
       task?.user?.login !== taskAuthority.product_owner_login ||
       pull?.number !== request.pull_request || pull?.state !== 'open' || pull?.draft !== false || pull?.merged !== false ||
-      pull?.head?.sha !== request.exact_head || !nonEmptyText(pull?.head?.ref) ||
+      pull?.head?.sha !== request.exact_head || pull?.head?.ref !== request.head_branch ||
       pull?.head?.repo?.full_name !== request.repository ||
       pull?.base?.ref !== 'main' || pull?.base?.sha !== request.expected_base ||
       pull?.base?.repo?.full_name !== request.repository ||
@@ -929,7 +953,6 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
   }
 
   if (authorities.length === 0) {
-    mutationCount = 1
     try {
       live = await acquireLiveBinding()
     } catch {
@@ -937,33 +960,46 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
     }
     if (routeFor(live) !== publicationRoute) throw new Error('review_publication_final_binding_invalid')
     admitted = admitPredelegation(live, publicationRoute)
-    const selfAuthored = publicationRoute === 'TASK_ISSUE_COMMENT'
-    const resource = selfAuthored
-      ? await host.publishTaskIssueComment({
-          repository: request.repository,
-          taskIssue: request.task_issue,
-          body: request.review_body,
-        })
-      : await host.publishPullRequestReview({
-          repository: request.repository,
-          prNumber: request.pull_request,
-          exactHead: request.exact_head,
-          body: request.review_body,
-        })
-    if (!Number.isSafeInteger(resource?.id) || resource.id < 1) throw new Error('review_publication_response_invalid')
-    const route = selfAuthored
-      ? `repos/${request.repository}/issues/comments/${resource.id}`
-      : `repos/${request.repository}/pulls/${request.pull_request}/reviews/${resource.id}`
-    const refetched = await host.api(route)
-    if (refetched?.user?.login !== live.actor.login) throw new Error('review_publication_refetch_mismatch')
-    reviewAuthorityFromResource({
-      kind: publicationRoute, resource: refetched, request, pull: live.pull, expectedBody: request.review_body,
-    })
     authorities = await acquireCurrentReviewAuthorities({
       host, request, pull: live.pull, expectedBody: request.review_body,
     })
-    if (authorities.length !== 1 || authorities[0].review_id !== resource.id) {
-      throw new Error('review_publication_refetch_mismatch')
+    assignments = authorities.length === 0
+      ? await acquireAssignments(live, publicationRoute, admitted.profiles)
+      : Object.freeze([])
+    if (authorities.length === 0) {
+      if (assignments.length !== 1) throw new Error('review_publication_authority_required')
+      publicationAuthority = assignments[0]
+      mutationCount = 1
+      const selfAuthored = publicationRoute === 'TASK_ISSUE_COMMENT'
+      const resource = selfAuthored
+        ? await host.publishTaskIssueComment({
+            repository: request.repository,
+            taskIssue: request.task_issue,
+            body: request.review_body,
+          })
+        : await host.publishPullRequestReview({
+            repository: request.repository,
+            prNumber: request.pull_request,
+            exactHead: request.exact_head,
+            body: request.review_body,
+          })
+      if (!Number.isSafeInteger(resource?.id) || resource.id < 1) throw new Error('review_publication_response_invalid')
+      const route = selfAuthored
+        ? `repos/${request.repository}/issues/comments/${resource.id}`
+        : `repos/${request.repository}/pulls/${request.pull_request}/reviews/${resource.id}`
+      const refetched = await host.api(route)
+      if (refetched?.user?.login !== live.actor.login) throw new Error('review_publication_refetch_mismatch')
+      reviewAuthorityFromResource({
+        kind: publicationRoute, resource: refetched, request, pull: live.pull, expectedBody: request.review_body,
+      })
+      authorities = await acquireCurrentReviewAuthorities({
+        host, request, pull: live.pull, expectedBody: request.review_body,
+      })
+      if (authorities.length !== 1 || authorities[0].review_id !== resource.id) {
+        throw new Error('review_publication_refetch_mismatch')
+      }
+    } else {
+      publicationRoute = 'REUSED'
     }
   } else {
     publicationRoute = 'REUSED'
