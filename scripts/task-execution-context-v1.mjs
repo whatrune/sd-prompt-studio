@@ -275,6 +275,68 @@ export function projectAutomatedReviewToMergeReadyContinuationV1({
   })
 }
 
+export function projectPreDecisionReviewFindingContinuationV1({
+  correction,
+  identity,
+  owningWorker,
+  observedAt,
+  consumedCursor = null,
+}) {
+  const fields = [
+    'state', 'reason', 'continuation_kind', 'continuation_cursor', 'repository',
+    'task_issue', 'pull_request', 'exact_head', 'expected_base', 'head_branch',
+    'authorized_paths', 'active_thread_ids', 'assignment_materialization_mutation_count',
+    'publication_mutation_count',
+  ]
+  if (
+    correction === null || typeof correction !== 'object' || Array.isArray(correction) ||
+    Object.keys(correction).sort().join('\0') !== [...fields].sort().join('\0') ||
+    correction.state !== 'CORRECTION_REQUIRED' || correction.reason !== 'blocking_review_threads_present' ||
+    correction.continuation_kind !== 'REVIEW_FINDING' || identity === null || typeof identity !== 'object' ||
+    correction.repository !== identity.repository || correction.task_issue !== Number(identity.canonical_task_id.slice(1)) ||
+    correction.pull_request !== identity.expected_pr || correction.exact_head !== identity.expected_head ||
+    correction.expected_base !== identity.expected_base || correction.head_branch !== identity.branch ||
+    !exactArrayEqual(correction.authorized_paths, identity.authorized_paths) ||
+    !Array.isArray(correction.active_thread_ids) || correction.active_thread_ids.length === 0 ||
+    !correction.active_thread_ids.every((value) => typeof value === 'string' && value.length > 0) ||
+    new Set(correction.active_thread_ids).size !== correction.active_thread_ids.length ||
+    correction.active_thread_ids.join('\0') !== [...correction.active_thread_ids].sort().join('\0') ||
+    !Number.isSafeInteger(correction.assignment_materialization_mutation_count) ||
+    correction.assignment_materialization_mutation_count < 0 ||
+    !Number.isSafeInteger(correction.publication_mutation_count) || correction.publication_mutation_count < 0
+  ) mismatch('review_correction_binding')
+  const cursorInput = JSON.stringify({
+    repository: correction.repository,
+    task_issue: correction.task_issue,
+    pull_request: correction.pull_request,
+    exact_head: correction.exact_head,
+    active_thread_ids: correction.active_thread_ids,
+  })
+  if (correction.continuation_cursor !== `review-finding-${sha256(cursorInput)}`) {
+    mismatch('review_correction_cursor')
+  }
+  const projected = projectAutomatedReviewToMergeReadyContinuationV1({
+    waitTerminal: true,
+    terminalKind: 'REVIEW_FINDING',
+    identityMatches: true,
+    owningWorker,
+    observedAt,
+    terminalCursor: correction.continuation_cursor,
+    consumedCursor,
+  })
+  if (projected.actions.length === 0) return projected
+  return Object.freeze({
+    ...projected,
+    actions: Object.freeze([Object.freeze({
+      ...projected.actions[0],
+      task_issue: correction.task_issue,
+      pull_request: correction.pull_request,
+      exact_head: correction.exact_head,
+      active_thread_ids: Object.freeze([...correction.active_thread_ids]),
+    })]),
+  })
+}
+
 export function assertSharedDependencyAccessV1({ left_manifest_digest, right_manifest_digest, operation }) {
   if (!SHA_PATTERN.test(left_manifest_digest ?? '') || left_manifest_digest !== right_manifest_digest) {
     mismatch('shared_dependency_manifest_identity')

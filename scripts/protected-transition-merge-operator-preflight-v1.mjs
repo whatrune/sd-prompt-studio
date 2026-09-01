@@ -31,6 +31,36 @@ const REVIEW_PUBLICATION_PREFLIGHT_FIELDS = Object.freeze([
   'authorized_paths',
 ])
 
+const blockingReviewThreadsV1 = ({
+  repository,
+  taskIssue,
+  pullRequest,
+  exactHead,
+  expectedBase,
+  headBranch,
+  authorizedPaths,
+  threads,
+}) => {
+  const activeThreadIds = threads
+    .filter((thread) => !thread.isResolved && !thread.isOutdated)
+    .map((thread) => thread.id)
+    .sort()
+  if (activeThreadIds.length === 0) return
+  const error = new Error('blocking_review_threads_present')
+  error.code = 'blocking_review_threads_present'
+  error.correction = Object.freeze({
+    repository,
+    task_issue: taskIssue,
+    pull_request: pullRequest,
+    exact_head: exactHead,
+    expected_base: expectedBase,
+    head_branch: headBranch,
+    authorized_paths: Object.freeze([...authorizedPaths]),
+    active_thread_ids: Object.freeze(activeThreadIds),
+  })
+  throw error
+}
+
 const CHECK_CATALOG = Object.freeze({
   'build-preview': Object.freeze({ name: 'build-preview', appDatabaseId: '15368' }),
   'Cloudflare Pages': Object.freeze({ name: 'Cloudflare Pages', appDatabaseId: '85455' }),
@@ -433,9 +463,16 @@ const acquireLiveSnapshot = async ({
     livePull.state !== 'OPEN' || livePull.isDraft !== false || livePull.merged !== false ||
     livePull.headRefOid !== exactHead || livePull.mergeable !== 'MERGEABLE' || livePull.mergeStateStatus !== 'CLEAN'
   ) throw new Error('mergeability_invalid')
-  if (threadSnapshot.threads.some((thread) => !thread.isResolved && !thread.isOutdated)) {
-    throw new Error('blocking_review_threads_present')
-  }
+  blockingReviewThreadsV1({
+    repository,
+    taskIssue,
+    pullRequest: prNumber,
+    exactHead,
+    expectedBase,
+    headBranch: pull.head.ref,
+    authorizedPaths,
+    threads: threadSnapshot.threads,
+  })
 
   return Object.freeze({
     repository,
@@ -523,9 +560,16 @@ export const acquireSimplifiedReviewPublicationPreflightV2 = async ({ request, h
     livePull.headRefOid !== request.exact_head || livePull.mergeable !== 'MERGEABLE' ||
     livePull.mergeStateStatus !== 'CLEAN'
   ) throw new Error('mergeability_invalid')
-  if (threadSnapshot.threads.some((thread) => !thread.isResolved && !thread.isOutdated)) {
-    throw new Error('blocking_review_threads_present')
-  }
+  blockingReviewThreadsV1({
+    repository: request.repository,
+    taskIssue: request.task_issue,
+    pullRequest: request.pull_request,
+    exactHead: request.exact_head,
+    expectedBase: request.expected_base,
+    headBranch: pull.head.ref,
+    authorizedPaths,
+    threads: threadSnapshot.threads,
+  })
   return Object.freeze({
     repository: request.repository,
     task_issue: request.task_issue,
