@@ -51,7 +51,7 @@ $helper = Join-Path $repository 'scripts/acquire-python-validation-environment-v
 $python = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $PythonExecutable).Path)
 $sourceRequirements = Join-Path $repository 'research/sd-prompt-research/requirements.txt'
 $sourceLock = Join-Path $repository 'research/sd-prompt-research/requirements.lock.txt'
-$tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('pvc-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
+$tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('pvc-' + [guid]::NewGuid().ToString('N').Substring(0, 8) + '-' + ('x' * 48))
 $seed = Join-Path $tempRoot 'seed'
 $worktreeA = Join-Path $tempRoot 'task-a'
 $worktreeB = Join-Path $tempRoot 'task-b'
@@ -111,12 +111,27 @@ try {
     Assert-True ($watch.ElapsedMilliseconds -le 2000) "warm acquisition exceeded 2 seconds ($($watch.ElapsedMilliseconds) ms)"
     Assert-True (Test-Path -LiteralPath $warm.python_executable -PathType Leaf) 'cached interpreter is absent'
 
+    $opaquePython = [string]$warm.python_executable
+    $consumerPayload = [ordered]@{ python_executable = $opaquePython } | ConvertTo-Json -Compress
+    $consumerPython = [string](($consumerPayload | ConvertFrom-Json).python_executable)
+    Assert-True ($consumerPython -ceq $opaquePython) 'JSON transport changed the opaque cached interpreter identity'
+    if ($env:OS -eq 'Windows_NT') {
+        Assert-True ($consumerPython.StartsWith('\\?\', [StringComparison]::Ordinal)) 'Windows cached interpreter lost its extended-path identity'
+    }
+    Assert-True ([string]$warm.cache_root -like "$tempRoot*") 'cache acquisition escaped the disposable test repository'
+
     $prior = Get-Location
     try {
         Set-Location -LiteralPath $worktreeA
-        $cwd = @(& $warm.python_executable -B -E -s -c 'import os; print(os.getcwd())')
+        $cwd = @(& $consumerPython -B -E -s -c 'import os; print(os.getcwd())')
         Assert-True ($LASTEXITCODE -eq 0) 'cached interpreter execution failed'
         Assert-True ([IO.Path]::GetFullPath($cwd[0]).TrimEnd('\', '/') -ceq [IO.Path]::GetFullPath($worktreeA).TrimEnd('\', '/')) 'validation did not execute in assigned worktree'
+
+        $resourceProbe = @(& $consumerPython -B -E -s -c 'import jsonschema; from importlib.resources import files; resource = files("jsonschema_specifications").joinpath("schemas/draft202012/vocabularies/format-annotation"); print(len(str(resource))); print("READABLE" if resource.read_bytes() else "EMPTY")')
+        Assert-True ($LASTEXITCODE -eq 0) 'extended-path package resource probe failed'
+        Assert-True ($resourceProbe.Count -eq 2) 'extended-path package resource probe output is invalid'
+        Assert-True ([int]$resourceProbe[0] -gt 260) 'package resource path did not exercise the extended-path boundary'
+        Assert-True ($resourceProbe[1] -ceq 'READABLE') 'jsonschema specification resource was not readable'
     }
     finally { Set-Location -LiteralPath $prior }
 
