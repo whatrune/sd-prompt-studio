@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import {
@@ -473,6 +473,202 @@ function observed(id = identity(), overrides = {}) {
     equal(fetchFailureResult.result.status, 1)
     equal(fetchFailureResult.payload.reason, 'local_main_sync_fetch_failed')
     equal(git(fetchFailure.local, ['rev-parse', 'HEAD']), fetchFailureHead)
+  } finally {
+    for (const fixtureRoot of fixtureRoots) rmSync(fixtureRoot, { recursive: true, force: true })
+  }
+}
+
+// Post-Merge worktree cleanup removes only a verified exact-path residue.
+{
+  const powershell = process.platform === 'win32' ? 'pwsh.exe' : 'pwsh'
+  const cleanupScript = path.resolve('scripts/remove-task-worktree-after-merge-v1.ps1')
+  const fixtureRoots = []
+  const psLiteral = (value) => `'${String(value).replaceAll("'", "''")}'`
+  const git = (cwd, args, expectedStatus = 0) => {
+    const result = spawnSync('git', args, { cwd, encoding: 'utf8' })
+    equal(result.status, expectedStatus, `${args.join(' ')}\n${result.stdout}\n${result.stderr}`)
+    return result.stdout.trim()
+  }
+  const createFixture = (label) => {
+    const fixtureRoot = realpathSync.native(mkdtempSync(path.join(tmpdir(), `worktree-cleanup-${label}-`)))
+    fixtureRoots.push(fixtureRoot)
+    const repository = path.join(fixtureRoot, 'repository')
+    mkdirSync(repository)
+    git(repository, ['init', '-b', 'main'])
+    git(repository, ['config', 'user.email', 'tests@example.invalid'])
+    git(repository, ['config', 'user.name', 'Test Author'])
+    writeFileSync(path.join(repository, 'state.txt'), 'initial\n', 'utf8')
+    git(repository, ['add', 'state.txt'])
+    git(repository, ['commit', '-m', 'initial'])
+    mkdirSync(path.join(repository, '.worktrees'))
+    return { fixtureRoot, repository }
+  }
+  const addWorktree = (fixture, label) => {
+    const target = path.join(fixture.repository, '.worktrees', label)
+    const branch = `codex/${label}`
+    git(fixture.repository, ['worktree', 'add', '-b', branch, target, 'HEAD'])
+    return { target, branch, head: git(target, ['rev-parse', 'HEAD']) }
+  }
+  const refsDigest = (repository) => git(repository, [
+    'for-each-ref', '--format=%(refname) %(objectname)', 'refs/heads', 'refs/remotes',
+  ]).split(/\r?\n/u).sort().join('\n')
+  const invokeCleanup = (fixture, worktree) => {
+    const result = spawnSync(powershell, [
+      '-NoLogo', '-NoProfile', '-NonInteractive', '-File', cleanupScript,
+      '-RepositoryPath', fixture.repository,
+      '-TaskWorktreePath', worktree.target,
+      '-ExpectedBranch', worktree.branch,
+      '-ExpectedHead', worktree.head,
+    ], { cwd: process.cwd(), encoding: 'utf8' })
+    const lines = result.stdout.trim().split(/\r?\n/u).filter(Boolean)
+    assert.ok(lines.length > 0, `${result.status}\n${result.error?.stack ?? ''}\n${result.stdout}\n${result.stderr}`)
+    return { result, payload: JSON.parse(lines.at(-1)) }
+  }
+  const invokeResidual = (repository, retired, captured) => {
+    const command = [
+      `. ${psLiteral(cleanupScript)}`,
+      'try {',
+      `  $removed=Remove-VerifiedResidualPath -Repository ${psLiteral(repository)} -RetiredWorktreePath ${psLiteral(retired)} -CapturedRetiredWorktreePath ${psLiteral(captured)}`,
+      "  [pscustomobject]@{state='PASS';removed=$removed} | ConvertTo-Json -Compress",
+      '  exit 0',
+      '} catch {',
+      "  [pscustomobject]@{state='FAILED';reason=$_.Exception.Message} | ConvertTo-Json -Compress",
+      '  exit 1',
+      '}',
+    ].join('; ')
+    const result = spawnSync(powershell, [
+      '-NoLogo', '-NoProfile', '-NonInteractive', '-Command', command,
+    ], { cwd: process.cwd(), encoding: 'utf8' })
+    const lines = result.stdout.trim().split(/\r?\n/u).filter(Boolean)
+    assert.ok(lines.length > 0, `${result.status}\n${result.error?.stack ?? ''}\n${result.stdout}\n${result.stderr}`)
+    return { result, payload: JSON.parse(lines.at(-1)) }
+  }
+
+  try {
+    const cleanupSource = readFileSync(cleanupScript, 'utf8')
+    for (const prohibitedDiscovery of ['Get-CimInstance', 'Win32_Process', 'CreateFileW', '/proc', 'Get-ActivePathOwnerCount']) {
+      equal(cleanupSource.includes(prohibitedDiscovery), false, prohibitedDiscovery)
+    }
+
+    const ordinary = createFixture('ordinary')
+    const ordinaryWorktree = addWorktree(ordinary, 'ordinary-task')
+    const ordinaryRefs = refsDigest(ordinary.repository)
+    const ordinaryResult = invokeCleanup(ordinary, ordinaryWorktree)
+    equal(ordinaryResult.result.status, 0, JSON.stringify({ payload: ordinaryResult.payload, stderr: ordinaryResult.result.stderr }))
+    equal(ordinaryResult.payload.state, 'PASS')
+    equal(ordinaryResult.payload.action, 'GIT_REMOVE')
+    equal(ordinaryResult.payload.residual_removed, false)
+    equal(ordinaryResult.payload.branch_refs_preserved, true)
+    equal(ordinaryResult.payload.merge_outcome_affected, false)
+    equal(refsDigest(ordinary.repository), ordinaryRefs)
+    equal(
+      git(ordinary.repository, ['worktree', 'list', '--porcelain']).replaceAll('\\', '/').includes(ordinaryWorktree.target.replaceAll('\\', '/')),
+      false,
+    )
+    equal(rmSync(ordinaryWorktree.target, { recursive: true, force: true }), undefined)
+
+    const dirty = createFixture('dirty')
+    const dirtyWorktree = addWorktree(dirty, 'dirty-task')
+    writeFileSync(path.join(dirtyWorktree.target, 'untracked.txt'), 'dirty\n', 'utf8')
+    const dirtyRefs = refsDigest(dirty.repository)
+    const dirtyResult = invokeCleanup(dirty, dirtyWorktree)
+    equal(dirtyResult.result.status, 1)
+    equal(dirtyResult.payload.reason, 'worktree_cleanup_target_dirty')
+    equal(dirtyResult.payload.merge_outcome_affected, false)
+    equal(refsDigest(dirty.repository), dirtyRefs)
+    equal(
+      git(dirty.repository, ['worktree', 'list', '--porcelain']).replaceAll('\\', '/').includes(dirtyWorktree.target.replaceAll('\\', '/')),
+      true,
+    )
+
+    const residue = createFixture('residue')
+    const residueWorktree = addWorktree(residue, 'residue-task')
+    git(residue.repository, ['worktree', 'remove', '--', residueWorktree.target])
+    mkdirSync(path.join(residueWorktree.target, 'node_modules'), { recursive: true })
+    writeFileSync(path.join(residueWorktree.target, 'node_modules', 'residue.txt'), 'residue\n', 'utf8')
+    const residueRefs = refsDigest(residue.repository)
+    const residueResult = invokeResidual(residue.repository, residueWorktree.target, residueWorktree.target)
+    equal(residueResult.result.status, 0)
+    equal(residueResult.payload.state, 'PASS')
+    equal(residueResult.payload.removed, true)
+    equal(refsDigest(residue.repository), residueRefs)
+    equal(rmSync(residueWorktree.target, { recursive: true, force: true }), undefined)
+
+    const registered = createFixture('registered')
+    const registeredWorktree = addWorktree(registered, 'registered-task')
+    const registeredResult = invokeResidual(registered.repository, registeredWorktree.target, registeredWorktree.target)
+    equal(registeredResult.result.status, 1)
+    equal(registeredResult.payload.reason, 'worktree_cleanup_residual_still_registered')
+    equal(readFileSync(path.join(registeredWorktree.target, 'state.txt'), 'utf8').replaceAll('\r\n', '\n'), 'initial\n')
+
+    const marker = createFixture('marker')
+    const markerPath = path.join(marker.repository, '.worktrees', 'marker-task')
+    mkdirSync(markerPath)
+    writeFileSync(path.join(markerPath, '.git'), 'historical marker\n', 'utf8')
+    const markerResult = invokeResidual(marker.repository, markerPath, markerPath)
+    equal(markerResult.result.status, 1)
+    equal(markerResult.payload.reason, 'worktree_cleanup_git_marker_present')
+    equal(readFileSync(path.join(markerPath, '.git'), 'utf8'), 'historical marker\n')
+
+    const registeredAncestor = createFixture('registered-ancestor')
+    const registeredAncestorWorktree = addWorktree(registeredAncestor, 'registered-ancestor-task')
+    const nestedRetiredPath = path.join(registeredAncestorWorktree.target, 'nested-residue')
+    mkdirSync(nestedRetiredPath)
+    writeFileSync(path.join(nestedRetiredPath, 'owned.txt'), 'owned\n', 'utf8')
+    const registeredAncestorResult = invokeResidual(
+      registeredAncestor.repository,
+      nestedRetiredPath,
+      nestedRetiredPath,
+    )
+    equal(registeredAncestorResult.result.status, 1)
+    equal(registeredAncestorResult.payload.reason, 'worktree_cleanup_residual_still_registered')
+    equal(readFileSync(path.join(nestedRetiredPath, 'owned.txt'), 'utf8'), 'owned\n')
+
+    const reparseAncestor = createFixture('reparse-ancestor')
+    const redirectedRoot = path.join(reparseAncestor.fixtureRoot, 'redirected-root')
+    const reparsePath = path.join(reparseAncestor.repository, '.worktrees', 'redirected')
+    mkdirSync(redirectedRoot)
+    symlinkSync(redirectedRoot, reparsePath, process.platform === 'win32' ? 'junction' : 'dir')
+    const redirectedRetiredPath = path.join(reparsePath, 'residue-task')
+    mkdirSync(redirectedRetiredPath)
+    writeFileSync(path.join(redirectedRetiredPath, 'owned.txt'), 'owned\n', 'utf8')
+    const reparseAncestorResult = invokeResidual(
+      reparseAncestor.repository,
+      redirectedRetiredPath,
+      redirectedRetiredPath,
+    )
+    equal(reparseAncestorResult.result.status, 1)
+    equal(reparseAncestorResult.payload.reason, 'worktree_cleanup_reparse_ancestor_present')
+    equal(readFileSync(path.join(redirectedRetiredPath, 'owned.txt'), 'utf8'), 'owned\n')
+
+    const reparseRoot = createFixture('reparse-root')
+    const redirectedTaskRoot = path.join(reparseRoot.fixtureRoot, 'redirected-task-root')
+    const linkedRetiredPath = path.join(reparseRoot.repository, '.worktrees', 'linked-task')
+    mkdirSync(redirectedTaskRoot)
+    writeFileSync(path.join(redirectedTaskRoot, 'owned.txt'), 'owned\n', 'utf8')
+    symlinkSync(redirectedTaskRoot, linkedRetiredPath, process.platform === 'win32' ? 'junction' : 'dir')
+    const reparseRootResult = invokeResidual(reparseRoot.repository, linkedRetiredPath, linkedRetiredPath)
+    equal(reparseRootResult.result.status, 1)
+    equal(reparseRootResult.payload.reason, 'worktree_cleanup_residual_root_invalid')
+    equal(readFileSync(path.join(redirectedTaskRoot, 'owned.txt'), 'utf8'), 'owned\n')
+
+    const bounded = createFixture('bounded')
+    const outsidePath = path.join(bounded.fixtureRoot, 'outside-task')
+    mkdirSync(outsidePath)
+    const outsideResult = invokeResidual(bounded.repository, outsidePath, outsidePath)
+    equal(outsideResult.result.status, 1)
+    equal(outsideResult.payload.reason, 'worktree_cleanup_target_outside_repository_worktrees')
+    equal(realpathSync.native(outsidePath), outsidePath)
+
+    const binding = createFixture('binding')
+    const bindingPath = path.join(binding.repository, '.worktrees', 'binding-task')
+    const otherPath = path.join(binding.repository, '.worktrees', 'other-task')
+    mkdirSync(bindingPath)
+    mkdirSync(otherPath)
+    const bindingResult = invokeResidual(binding.repository, bindingPath, otherPath)
+    equal(bindingResult.result.status, 1)
+    equal(bindingResult.payload.reason, 'worktree_cleanup_retired_path_binding_invalid')
+    equal(realpathSync.native(bindingPath), bindingPath)
   } finally {
     for (const fixtureRoot of fixtureRoots) rmSync(fixtureRoot, { recursive: true, force: true })
   }

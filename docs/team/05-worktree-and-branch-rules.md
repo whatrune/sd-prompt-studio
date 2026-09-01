@@ -148,20 +148,32 @@ The only additional Git lifecycle check is that an explicitly authorized operato
 8. PRがMERGED / CLOSEDであることを確認
 9. assigned Task worktreeに未コミット変更がないことを確認
 10. active executionまたはprocessがworktreeを使用していないことを確認
-11. git worktree remove <task-worktree>
-12. DONE
+11. remove-task-worktree-after-merge-v1.ps1でnormal git worktree removeを実行する
+12. former Task worktree pathが残る場合、unregistered、別のregistered Task worktree配下ではないこと、.git markerなし、reparse/symlink ancestorまたはroot escapeなし、およびcaptured exact path一致を再確認する
+13. verified orphan residueだけをexact former Task worktree pathから削除し、path absenceとbranch/ref preservationを確認する
+14. DONE
 ```
 
 概念コマンド:
 
-```bash
+```powershell
 pwsh scripts/sync-local-main-after-merge-v1.ps1 -RepositoryPath <repository-root>
-git worktree remove <task-worktree>
+pwsh scripts/remove-task-worktree-after-merge-v1.ps1 `
+  -RepositoryPath <repository-root> `
+  -TaskWorktreePath <task-worktree> `
+  -ExpectedBranch <task-branch> `
+  -ExpectedHead <task-head>
 ```
 
 `sync-local-main-after-merge-v1.ps1`はpost-Merge verification後のlocal housekeeping ownerである。fresh-fetchした`origin/main`をintegration authorityとして使い、rootが`main`をcheckoutしたroot worktreeであること、rootがcleanであること、`origin/main..main`のcommit数が0であること、および`main`が`origin/main`のancestorであることをrequireする。同期は既にequalならzero-mutation PASS、それ以外は`git merge --ff-only origin/main`だけを許し、最後に`main == origin/main`とclean rootをrequireする。rebase、merge commit、reset、force-update、およびbranch deletionは行わない。
 
 fetch failure、dirty root、local-only commit、divergence、FF-only failure、またはfinal equality failureではlocal-main synchronizationをfail closedにする。そのfailureは確認済みMergeを無効化せず、local-main synchronization failureとして分離して報告する。Task worktree cleanupに実際の依存がなければ、上記の安全なcleanup確認を継続してよい。
+
+Active-execution ownershipはnormal `git worktree remove`より前の既存lifecycle gateが所有する。terminal cleanup operatorはassigned execution identityを使い、active executionがそのworktreeを所有していないことを確認してからcleanup helperを呼ぶ。`remove-task-worktree-after-merge-v1.ps1`はOS-wide process discovery、command-line scan、cwd/open-handle enumerationを重複実装しない。
+
+`remove-task-worktree-after-merge-v1.ps1`はnormal Task worktree removalとその直後のexact-path verificationのownerである。captured Task worktree path、branch、およびHEADをfreshなregistered worktree realityにbindし、cleanである場合だけforceなしの`git worktree remove`を実行する。Git removal成功後にpathが残った場合は、同じcaptured exact pathであること、canonical repository root以外のregistered worktreeと同一・そのancestor・そのdescendantではないこと、rootに`.git` markerがないこと、およびrepository-owned `.worktrees` rootからtarget rootまでにreparse point、junction、またはsymlinkがないことをfresh-checkする。全predicateがPASSしたorphan residueだけをliteral path traversalで削除し、linkをfollowしない。local/remote branchまたはrefは削除・変更しない。
+
+Git removal failure、dirty worktree、identity mismatch、registered residue/ancestor、`.git` marker、reparse/symlink escape、boundary mismatch、residual removal failure、またはbranch/ref driftではcleanupをfail closedにする。cleanup failureは確認済みMergeまたは成功済みworktree deregistrationを無効化せず、Merge結果とは別に報告する。unsafe fallback、force Git removal、および別pathへのdeletion expansionは禁止する。
 
 Canonical Task Issueのcloseはrepository cleanupとは別のprotected actionであり、明示的なProduct OwnerまたはIssue-closure authorityを必要とする。Merge Decision authorityからIssue closeを推論してはならない。Issue-closure authorityの不在またはIssue closeの失敗は、確認済みのMergeまたはworktree cleanupをblockせず、無効化もしない。
 
