@@ -1712,6 +1712,84 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
   equal(observed[1].options.body, JSON.stringify({ body: reviewBody }))
 }
 {
+  const originalGhToken = process.env.GH_TOKEN
+  const originalGithubToken = process.env.GITHUB_TOKEN
+  const authorizationFor = async (host) => {
+    const result = await host.api('user')
+    return result.authorization
+  }
+  const fetchWithAuthorizationReceipt = async (_url, options) => new Response(JSON.stringify({
+    authorization: options.headers.Authorization,
+  }), { status: 200 })
+
+  equal(await authorizationFor(createProductionHostV1({
+    environment: { GH_TOKEN: 'gh-only-secret', GITHUB_TOKEN: '' },
+    fetchImpl: fetchWithAuthorizationReceipt,
+  })), 'Bearer gh-only-secret')
+  equal(await authorizationFor(createProductionHostV1({
+    environment: { GH_TOKEN: '', GITHUB_TOKEN: 'github-only-secret' },
+    fetchImpl: fetchWithAuthorizationReceipt,
+  })), 'Bearer github-only-secret')
+
+  throws(() => createProductionHostV1({ environment: {} }), /github_token_missing/)
+  throws(() => createProductionHostV1({
+    environment: { GH_TOKEN: '', GITHUB_TOKEN: '' },
+  }), /github_token_missing/)
+  throws(() => createProductionHostV1({
+    environment: { GH_TOKEN: 'gh-secret', GITHUB_TOKEN: 'github-secret' },
+  }), /github_token_ambiguous/)
+  throws(() => createProductionHostV1({
+    environment: { GH_TOKEN: 'same-secret', GITHUB_TOKEN: 'same-secret' },
+  }), /github_token_ambiguous/)
+
+  const reads = { GH_TOKEN: 0, GITHUB_TOKEN: 0 }
+  const boundOnceHost = createProductionHostV1({
+    environment: {
+      get GH_TOKEN() {
+        reads.GH_TOKEN += 1
+        return 'bound-once-secret'
+      },
+      get GITHUB_TOKEN() {
+        reads.GITHUB_TOKEN += 1
+        return ''
+      },
+    },
+    fetchImpl: fetchWithAuthorizationReceipt,
+  })
+  equal(reads.GH_TOKEN, 1)
+  equal(reads.GITHUB_TOKEN, 1)
+  equal(await authorizationFor(boundOnceHost), 'Bearer bound-once-secret')
+  equal(await authorizationFor(boundOnceHost), 'Bearer bound-once-secret')
+  equal(reads.GH_TOKEN, 1)
+  equal(reads.GITHUB_TOKEN, 1)
+
+  const explicitHost = createProductionHostV1({
+    token: 'explicit-secret',
+    environment: {
+      get GH_TOKEN() { throw new Error('environment_must_not_be_read') },
+      get GITHUB_TOKEN() { throw new Error('environment_must_not_be_read') },
+    },
+    fetchImpl: fetchWithAuthorizationReceipt,
+  })
+  equal(await authorizationFor(explicitHost), 'Bearer explicit-secret')
+  throws(() => createProductionHostV1({ token: '' }), /github_token_missing/)
+
+  let failedRequestCount = 0
+  const failureHost = createProductionHostV1({
+    environment: { GH_TOKEN: 'failure-secret', GITHUB_TOKEN: '' },
+    fetchImpl: async () => {
+      failedRequestCount += 1
+      return new Response(JSON.stringify({ message: 'denied' }), { status: 403 })
+    },
+  })
+  const failure = await captureError(() => failureHost.api('user'))
+  equal(failedRequestCount, 1)
+  equal(failure.message, 'github_http_403:denied')
+  equal(failure.message.includes('failure-secret'), false)
+  equal(process.env.GH_TOKEN, originalGhToken)
+  equal(process.env.GITHUB_TOKEN, originalGithubToken)
+}
+{
   let observedAuthorization = null
   const host = createProductionHostV1({
     token: 'test-token',
@@ -2086,6 +2164,9 @@ ok(runnerSource.includes("diagnosticOperation: 'CANONICAL_TASK_CREATE_MUTATION'"
 ok(runnerSource.includes("diagnosticOperation: 'CANONICAL_TASK_PATCH_MUTATION'"))
 ok(runnerSource.includes("authenticatedActor.login !== admittedRequest.product_owner_login"))
 ok(runnerSource.includes("resource.author_association !== 'OWNER'"))
+ok(runnerSource.includes("throw new Error('github_token_ambiguous')"))
+equal(runnerSource.includes('context.token ?? process.env.GH_TOKEN'), false)
+equal(runnerSource.includes('token = process.env.GH_TOKEN'), false)
 ok(runnerSource.includes("valueAfter('--create-canonical-task-issue-file')"))
 ok(runnerSource.includes("valueAfter('--serialize-canonical-task-body-file')"))
 ok(runnerSource.includes("args.includes('--publication-body-output-file')"))

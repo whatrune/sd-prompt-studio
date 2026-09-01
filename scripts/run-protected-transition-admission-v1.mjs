@@ -212,7 +212,7 @@ const mutationDiagnosticError = (diagnostic) => {
 }
 
 const request = async (url, options = {}, context = {}) => {
-  const token = context.token ?? process.env.GH_TOKEN
+  const token = context.token
   const fetchImpl = context.fetchImpl ?? globalThis.fetch
   const diagnosticOperation = context.diagnosticOperation ?? null
   if (typeof token !== 'string' || token.length === 0) {
@@ -283,7 +283,23 @@ const request = async (url, options = {}, context = {}) => {
   return diagnosticOperation === null ? body : Object.freeze({ body, responseDiagnostic: Object.freeze(responseDiagnostic) })
 }
 
-export const createProductionHostV1 = ({ fetchImpl = globalThis.fetch, token = process.env.GH_TOKEN } = {}) => Object.freeze({
+const resolveGitHubTokenV1 = (environment) => {
+  const ghToken = environment?.GH_TOKEN
+  const githubToken = environment?.GITHUB_TOKEN
+  const hasGhToken = typeof ghToken === 'string' && ghToken.length > 0
+  const hasGithubToken = typeof githubToken === 'string' && githubToken.length > 0
+  if (hasGhToken && hasGithubToken) throw new Error('github_token_ambiguous')
+  if (!hasGhToken && !hasGithubToken) throw new Error('github_token_missing')
+  return hasGhToken ? ghToken : githubToken
+}
+
+export const createProductionHostV1 = (options = {}) => {
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch
+  const token = Object.hasOwn(options, 'token')
+    ? options.token
+    : resolveGitHubTokenV1(options.environment ?? process.env)
+  if (typeof token !== 'string' || token.length === 0) throw new Error('github_token_missing')
+  return Object.freeze({
   api: (route) => request(`${API_ROOT}/${route}`, {}, { fetchImpl, token }),
   createTaskIssue: async ({ repository, title, body }) => {
     if (
@@ -393,7 +409,8 @@ export const createProductionHostV1 = ({ fetchImpl = globalThis.fetch, token = p
     }
     return body.data
   },
-})
+  })
+}
 
 const exactKeys = (value, fields) => (
   value !== null && typeof value === 'object' && !Array.isArray(value) &&
