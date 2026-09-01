@@ -91,3 +91,9 @@ git diff --check
 - Product Owner approval required:
 - Next owner:
 ````
+
+## Review-publication predelegation profile
+
+When the Product Owner predelegates later exact Review-publication assignment materialization, the complete Canonical Task body contains exactly one additional `task_assignment` profile. Its `allowed_changes` binds `protected_action: REVIEW_AUTHORITY_PUBLICATION`, `activation: FRESH_EXACT_HEAD_REVIEW_APPROVE`, `materialization_only: true`, repository, Task, branch, cumulative authorized paths, authenticated actor, exactly one permitted surface, the required `APPROVE / 0 / 0 / 0` result, `operation_count: 1`, and `fallback_allowed: false`. It contains no PR, HEAD, or base and cannot itself authorize Review publication.
+
+After the activation cursor is consumed, the consumer derives the exact PR, HEAD, base, branch, scope, actor, surface, and Review from fresh state. It reuses one uniquely valid exact assignment or creates exactly one top-level Canonical Task Issue comment. The comment body is complete before CREATE and uses `canonical_record: GITHUB_RESOURCE`; the returned and directly refetched GitHub comment resource supplies the admitted canonical ID and URL. The comment is never PATCHed, and the Canonical Task body is never rewritten to materialize the exact assignment. Duplicate or conflicting applicable records, drift, or an ambiguous CREATE stop without retry.
