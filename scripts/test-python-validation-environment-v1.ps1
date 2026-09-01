@@ -81,18 +81,33 @@ try {
         Assert-True ($runnerSource -notmatch $forbiddenPattern) "runner contains forbidden path or execution pattern $forbiddenPattern"
     }
 
-    $bootstrapIdentity = Assert-LocalFullValidationBootstrapRuntimeV1 -PythonExecutable $python
-    Assert-True ([string]$bootstrapIdentity.python_implementation -ceq 'cpython') 'approved bootstrap implementation was not admitted'
-    Assert-True ([string]$bootstrapIdentity.exact_python_version -ceq '3.12.13') 'approved bootstrap version was not admitted'
-    Assert-True ([string]$bootstrapIdentity.python_cache_tag -ceq 'cpython-312') 'approved bootstrap cache tag was not admitted'
-    Assert-True ([string]$bootstrapIdentity.python_executable -ceq $python) 'approved bootstrap executable identity changed'
+    $suppliedRuntimeProbe = @(& $python -B -E -s -c 'import json, sys; print(json.dumps({"implementation": sys.implementation.name, "version": ".".join(str(part) for part in sys.version_info[:3]), "cache_tag": sys.implementation.cache_tag}, sort_keys=True))' 2>&1 | ForEach-Object { "$_" })
+    Assert-True ($LASTEXITCODE -eq 0 -and $suppliedRuntimeProbe.Count -eq 1) 'supplied test runtime identity probe failed'
+    $suppliedRuntimeIdentity = $suppliedRuntimeProbe[0] | ConvertFrom-Json
+    $suppliedRuntimeIsApproved = (
+        [string]$suppliedRuntimeIdentity.implementation -ceq 'cpython' -and
+        [string]$suppliedRuntimeIdentity.version -ceq '3.12.13' -and
+        [string]$suppliedRuntimeIdentity.cache_tag -ceq 'cpython-312'
+    )
 
     $poison = Join-Path $tempRoot 'poison-path'
     New-Item -ItemType Directory -Path $poison -Force | Out-Null
     $pythonMarker = Join-Path $poison 'python-invoked.txt'
     $pyMarker = Join-Path $poison 'py-invoked.txt'
-    [IO.File]::WriteAllText((Join-Path $poison 'python.cmd'), "@echo off`r`necho invoked>$pythonMarker`r`nexit /b 99`r`n", [Text.Encoding]::ASCII)
-    [IO.File]::WriteAllText((Join-Path $poison 'py.cmd'), "@echo off`r`necho invoked>$pyMarker`r`nexit /b 99`r`n", [Text.Encoding]::ASCII)
+    if ($env:OS -eq 'Windows_NT') {
+        $fakePythonCommand = Join-Path $poison 'python.cmd'
+        $fakePyCommand = Join-Path $poison 'py.cmd'
+        [IO.File]::WriteAllText($fakePythonCommand, "@echo off`r`necho invoked>$pythonMarker`r`nexit /b 99`r`n", [Text.Encoding]::ASCII)
+        [IO.File]::WriteAllText($fakePyCommand, "@echo off`r`necho invoked>$pyMarker`r`nexit /b 99`r`n", [Text.Encoding]::ASCII)
+    }
+    else {
+        $fakePythonCommand = Join-Path $poison 'python'
+        $fakePyCommand = Join-Path $poison 'py'
+        [IO.File]::WriteAllText($fakePythonCommand, "#!/bin/sh`nprintf invoked > '$pythonMarker'`nexit 99`n", [Text.UTF8Encoding]::new($false))
+        [IO.File]::WriteAllText($fakePyCommand, "#!/bin/sh`nprintf invoked > '$pyMarker'`nexit 99`n", [Text.UTF8Encoding]::new($false))
+        & chmod '+x' $fakePythonCommand $fakePyCommand
+        if ($LASTEXITCODE -ne 0) { throw 'fake_path_command_setup_failed' }
+    }
     $savedPath = [Environment]::GetEnvironmentVariable('PATH', 'Process')
     $savedPythonHome = [Environment]::GetEnvironmentVariable('PYTHONHOME', 'Process')
     $savedPythonPathForBootstrap = [Environment]::GetEnvironmentVariable('PYTHONPATH', 'Process')
@@ -102,8 +117,24 @@ try {
         [Environment]::SetEnvironmentVariable('PYTHONHOME', $poison, 'Process')
         [Environment]::SetEnvironmentVariable('PYTHONPATH', $poison, 'Process')
         [Environment]::SetEnvironmentVariable('PYTHONUSERBASE', $poison, 'Process')
-        $isolatedBootstrapIdentity = Assert-LocalFullValidationBootstrapRuntimeV1 -PythonExecutable $python
-        Assert-True ([string]$isolatedBootstrapIdentity.python_executable -ceq $python) 'poisoned environment changed supplied bootstrap identity'
+        $bootstrapAdmission = try {
+            $identity = Assert-LocalFullValidationBootstrapRuntimeV1 -PythonExecutable $python
+            [pscustomobject]@{ Admitted = $true; Identity = $identity; Reason = $null }
+        }
+        catch {
+            [pscustomobject]@{ Admitted = $false; Identity = $null; Reason = $_.Exception.Message }
+        }
+        if ($suppliedRuntimeIsApproved) {
+            Assert-True ($bootstrapAdmission.Admitted) 'approved bootstrap runtime was not admitted'
+            Assert-True ([string]$bootstrapAdmission.Identity.python_implementation -ceq 'cpython') 'approved bootstrap implementation changed'
+            Assert-True ([string]$bootstrapAdmission.Identity.exact_python_version -ceq '3.12.13') 'approved bootstrap version changed'
+            Assert-True ([string]$bootstrapAdmission.Identity.python_cache_tag -ceq 'cpython-312') 'approved bootstrap cache tag changed'
+            Assert-True ([string]$bootstrapAdmission.Identity.python_executable -ceq $python) 'approved bootstrap executable identity changed'
+        }
+        else {
+            Assert-True (-not $bootstrapAdmission.Admitted) 'non-approved supplied runtime was admitted'
+            Assert-True ($bootstrapAdmission.Reason -ceq 'local_full_validation_bootstrap_runtime_invalid') 'non-approved supplied runtime rejection reason changed'
+        }
         Assert-True (-not (Test-Path -LiteralPath $pythonMarker)) 'fake python from PATH was invoked'
         Assert-True (-not (Test-Path -LiteralPath $pyMarker)) 'fake py from PATH was invoked'
     }
@@ -114,14 +145,21 @@ try {
         [Environment]::SetEnvironmentVariable('PYTHONUSERBASE', $savedPythonUserBase, 'Process')
     }
 
-    $fake314 = Join-Path $tempRoot 'python-3.14.cmd'
+    $fake314 = Join-Path $tempRoot $(if ($env:OS -eq 'Windows_NT') { 'python-3.14.cmd' } else { 'python-3.14' })
     $fake314Payload = [ordered]@{
         exact_python_version = '3.14.0'
         python_cache_tag = 'cpython-314'
         python_executable = $fake314
         python_implementation = 'cpython'
     } | ConvertTo-Json -Compress
-    [IO.File]::WriteAllText($fake314, "@echo off`r`necho $fake314Payload`r`nexit /b 0`r`n", [Text.Encoding]::ASCII)
+    if ($env:OS -eq 'Windows_NT') {
+        [IO.File]::WriteAllText($fake314, "@echo off`r`necho $fake314Payload`r`nexit /b 0`r`n", [Text.Encoding]::ASCII)
+    }
+    else {
+        [IO.File]::WriteAllText($fake314, "#!/bin/sh`nprintf '%s\\n' '$fake314Payload'`n", [Text.UTF8Encoding]::new($false))
+        & chmod '+x' $fake314
+        if ($LASTEXITCODE -ne 0) { throw 'fake_runtime_setup_failed' }
+    }
     $wrongRuntimeReason = try {
         Assert-LocalFullValidationBootstrapRuntimeV1 -PythonExecutable $fake314 | Out-Null
         'unexpected_success'
