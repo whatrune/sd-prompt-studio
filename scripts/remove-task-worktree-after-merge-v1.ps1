@@ -18,6 +18,8 @@ $script:GitExecutable = $null
 $script:Repository = $null
 $script:RetiredWorktree = $null
 $script:CleanupExitCode = 1
+$script:GitRemoveExitCode = $null
+$script:GitRemoveStderr = $null
 
 function Invoke-NativeGit {
     param(
@@ -55,6 +57,64 @@ function Require-GitSuccess {
         throw $Reason
     }
     return ($Result.Output -join "`n").Trim()
+}
+
+function Get-BoundedDiagnosticText {
+    param(
+        [Parameter(Mandatory = $false)]
+        [AllowEmptyString()]
+        [string]$Text = ''
+    )
+
+    $normalized = $Text.Replace("`r`n", "`n").Replace("`r", "`n")
+    if ($normalized.Length -le 512) {
+        return $normalized
+    }
+    return $normalized.Substring(0, 512)
+}
+
+function Invoke-GitWorktreeRemove {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Repository,
+
+        [Parameter(Mandatory = $true)]
+        [string]$TaskWorktreePath
+    )
+
+    $stderrPath = Join-Path ([IO.Path]::GetTempPath()) (
+        'worktree-remove-' + [guid]::NewGuid().ToString('N') + '.stderr'
+    )
+    try {
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = 'Continue'
+            $output = @(
+                & $script:GitExecutable -C $Repository worktree remove -- $TaskWorktreePath 2> $stderrPath |
+                    ForEach-Object { "$_" }
+            )
+            $exitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
+        $stderr = if (Test-Path -LiteralPath $stderrPath -PathType Leaf) {
+            [IO.File]::ReadAllText($stderrPath)
+        }
+        else {
+            ''
+        }
+        return [pscustomobject]@{
+            ExitCode = $exitCode
+            Output = $output
+            StandardError = $stderr
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $stderrPath) {
+            Remove-Item -LiteralPath $stderrPath -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 function Get-NormalizedPath {
@@ -252,6 +312,44 @@ function Remove-VerifiedResidualPath {
     return $true
 }
 
+function Complete-GitWorktreeRemove {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Repository,
+
+        [Parameter(Mandatory = $true)]
+        [string]$RetiredWorktreePath,
+
+        [Parameter(Mandatory = $true)]
+        [psobject]$RemoveResult
+    )
+
+    if ([string]::IsNullOrWhiteSpace($script:GitExecutable)) {
+        $script:GitExecutable = (Get-Command git -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+    }
+    if ($RemoveResult.ExitCode -isnot [int]) {
+        throw 'worktree_cleanup_git_remove_result_invalid'
+    }
+    $script:GitRemoveExitCode = [int]$RemoveResult.ExitCode
+    $script:GitRemoveStderr = Get-BoundedDiagnosticText -Text ([string]$RemoveResult.StandardError)
+
+    $registeredPaths = Get-RegisteredWorktreePaths -Repository $Repository
+    if (@($registeredPaths | Where-Object {
+        $_.Equals($RetiredWorktreePath, [StringComparison]::OrdinalIgnoreCase)
+    }).Count -ne 0) {
+        throw 'worktree_cleanup_git_remove_failed'
+    }
+
+    $residualRemoved = Remove-VerifiedResidualPath `
+        -Repository $Repository `
+        -RetiredWorktreePath $RetiredWorktreePath `
+        -CapturedRetiredWorktreePath $RetiredWorktreePath
+    return [pscustomobject]@{
+        ResidualRemoved = $residualRemoved
+        NonzeroDeregistered = $script:GitRemoveExitCode -ne 0
+    }
+}
+
 function Write-CleanupResult {
     param(
         [Parameter(Mandatory = $true)]
@@ -267,7 +365,14 @@ function Write-CleanupResult {
         [bool]$ResidualRemoved = $false,
 
         [Parameter(Mandatory = $false)]
-        [Nullable[bool]]$BranchRefsPreserved = $null
+        [Nullable[bool]]$BranchRefsPreserved = $null,
+
+        [Parameter(Mandatory = $false)]
+        [Nullable[int]]$GitRemoveExitCode = $script:GitRemoveExitCode,
+
+        [Parameter(Mandatory = $false)]
+        [AllowNull()]
+        [string]$GitRemoveStderr = $script:GitRemoveStderr
     )
 
     [ordered]@{
@@ -278,6 +383,8 @@ function Write-CleanupResult {
         retired_worktree = $script:RetiredWorktree
         residual_removed = $ResidualRemoved
         branch_refs_preserved = $BranchRefsPreserved
+        git_remove_exit_code = $GitRemoveExitCode
+        git_remove_stderr = $GitRemoveStderr
         merge_outcome_affected = $false
     } | ConvertTo-Json -Depth 3 -Compress | Write-Output
 }
@@ -336,17 +443,14 @@ function Invoke-TaskWorktreeCleanup {
             throw 'worktree_cleanup_target_dirty'
         }
         $refsBefore = Get-BranchRefDigest -Repository $script:Repository
-        $remove = Invoke-NativeGit -Repository $script:Repository -Arguments @(
-            'worktree', 'remove', '--', $script:RetiredWorktree
-        )
-        if ($remove.ExitCode -ne 0) {
-            throw 'worktree_cleanup_git_remove_failed'
-        }
-
-        $residualRemoved = Remove-VerifiedResidualPath `
+        $remove = Invoke-GitWorktreeRemove `
+            -Repository $script:Repository `
+            -TaskWorktreePath $script:RetiredWorktree
+        $completion = Complete-GitWorktreeRemove `
             -Repository $script:Repository `
             -RetiredWorktreePath $script:RetiredWorktree `
-            -CapturedRetiredWorktreePath $script:RetiredWorktree
+            -RemoveResult $remove
+        $residualRemoved = $completion.ResidualRemoved
         $refsAfter = Get-BranchRefDigest -Repository $script:Repository
         if ($refsBefore -cne $refsAfter) {
             throw 'worktree_cleanup_branch_refs_changed'
@@ -358,7 +462,20 @@ function Invoke-TaskWorktreeCleanup {
         Write-CleanupResult `
             -State 'PASS' `
             -Reason 'task_worktree_cleanup_completed' `
-            -Action $(if ($residualRemoved) { 'GIT_REMOVE_PLUS_RESIDUE_REMOVE' } else { 'GIT_REMOVE' }) `
+            -Action $(
+                if ($completion.NonzeroDeregistered -and $residualRemoved) {
+                    'GIT_REMOVE_NONZERO_DEREGISTERED_PLUS_RESIDUE_REMOVE'
+                }
+                elseif ($completion.NonzeroDeregistered) {
+                    'GIT_REMOVE_NONZERO_DEREGISTERED'
+                }
+                elseif ($residualRemoved) {
+                    'GIT_REMOVE_PLUS_RESIDUE_REMOVE'
+                }
+                else {
+                    'GIT_REMOVE'
+                }
+            ) `
             -ResidualRemoved $residualRemoved `
             -BranchRefsPreserved $true
         $script:CleanupExitCode = 0

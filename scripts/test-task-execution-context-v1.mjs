@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import {
@@ -556,6 +556,25 @@ function observed(id = identity(), overrides = {}) {
     assert.ok(lines.length > 0, `${result.status}\n${result.error?.stack ?? ''}\n${result.stdout}\n${result.stderr}`)
     return { result, payload: JSON.parse(lines.at(-1)) }
   }
+  const invokeRemoveCompletion = (repository, retired, exitCode, stderr) => {
+    const command = [
+      `. ${psLiteral(cleanupScript)}`,
+      'try {',
+      `  $completion=Complete-GitWorktreeRemove -Repository ${psLiteral(repository)} -RetiredWorktreePath ${psLiteral(retired)} -RemoveResult ([pscustomobject]@{ExitCode=${exitCode};StandardError=${psLiteral(stderr)}})`,
+      "  [pscustomobject]@{state='PASS';residual_removed=$completion.ResidualRemoved;nonzero_deregistered=$completion.NonzeroDeregistered;git_remove_exit_code=$script:GitRemoveExitCode;git_remove_stderr=$script:GitRemoveStderr} | ConvertTo-Json -Compress",
+      '  exit 0',
+      '} catch {',
+      "  [pscustomobject]@{state='FAILED';reason=$_.Exception.Message;git_remove_exit_code=$script:GitRemoveExitCode;git_remove_stderr=$script:GitRemoveStderr} | ConvertTo-Json -Compress",
+      '  exit 1',
+      '}',
+    ].join('; ')
+    const result = spawnSync(powershell, [
+      '-NoLogo', '-NoProfile', '-NonInteractive', '-Command', command,
+    ], { cwd: process.cwd(), encoding: 'utf8' })
+    const lines = result.stdout.trim().split(/\r?\n/u).filter(Boolean)
+    assert.ok(lines.length > 0, `${result.status}\n${result.error?.stack ?? ''}\n${result.stdout}\n${result.stderr}`)
+    return { result, payload: JSON.parse(lines.at(-1)) }
+  }
 
   try {
     const cleanupSource = readFileSync(cleanupScript, 'utf8')
@@ -572,6 +591,8 @@ function observed(id = identity(), overrides = {}) {
     equal(ordinaryResult.payload.action, 'GIT_REMOVE')
     equal(ordinaryResult.payload.residual_removed, false)
     equal(ordinaryResult.payload.branch_refs_preserved, true)
+    equal(ordinaryResult.payload.git_remove_exit_code, 0)
+    equal(ordinaryResult.payload.git_remove_stderr, '')
     equal(ordinaryResult.payload.merge_outcome_affected, false)
     equal(refsDigest(ordinary.repository), ordinaryRefs)
     equal(
@@ -606,6 +627,46 @@ function observed(id = identity(), overrides = {}) {
     equal(residueResult.payload.removed, true)
     equal(refsDigest(residue.repository), residueRefs)
     equal(rmSync(residueWorktree.target, { recursive: true, force: true }), undefined)
+
+    const partial = createFixture('partial-success')
+    const partialWorktree = addWorktree(partial, 'partial-success-task')
+    git(partial.repository, ['worktree', 'remove', '--', partialWorktree.target])
+    mkdirSync(path.join(partialWorktree.target, 'node_modules'), { recursive: true })
+    writeFileSync(path.join(partialWorktree.target, 'node_modules', 'residue.txt'), 'residue\n', 'utf8')
+    const partialRefs = refsDigest(partial.repository)
+    const partialStderr = `fatal: simulated partial filesystem cleanup\n${'x'.repeat(600)}`
+    const partialResult = invokeRemoveCompletion(
+      partial.repository,
+      partialWorktree.target,
+      23,
+      partialStderr,
+    )
+    equal(partialResult.result.status, 0)
+    equal(partialResult.payload.state, 'PASS')
+    equal(partialResult.payload.residual_removed, true)
+    equal(partialResult.payload.nonzero_deregistered, true)
+    equal(partialResult.payload.git_remove_exit_code, 23)
+    equal(partialResult.payload.git_remove_stderr, partialStderr.slice(0, 512))
+    equal(existsSync(partialWorktree.target), false)
+    equal(refsDigest(partial.repository), partialRefs)
+
+    const partialRegistered = createFixture('partial-still-registered')
+    const partialRegisteredWorktree = addWorktree(partialRegistered, 'partial-still-registered-task')
+    const partialRegisteredResult = invokeRemoveCompletion(
+      partialRegistered.repository,
+      partialRegisteredWorktree.target,
+      17,
+      'fatal: registration remains',
+    )
+    equal(partialRegisteredResult.result.status, 1)
+    equal(partialRegisteredResult.payload.state, 'FAILED')
+    equal(partialRegisteredResult.payload.reason, 'worktree_cleanup_git_remove_failed')
+    equal(partialRegisteredResult.payload.git_remove_exit_code, 17)
+    equal(partialRegisteredResult.payload.git_remove_stderr, 'fatal: registration remains')
+    equal(
+      git(partialRegistered.repository, ['worktree', 'list', '--porcelain']).replaceAll('\\', '/').includes(partialRegisteredWorktree.target.replaceAll('\\', '/')),
+      true,
+    )
 
     const registered = createFixture('registered')
     const registeredWorktree = addWorktree(registered, 'registered-task')
