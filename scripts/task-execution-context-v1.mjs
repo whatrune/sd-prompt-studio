@@ -104,6 +104,11 @@ export function createBoundedExecutionIdentityV1(input) {
     mismatch('execution_instance_id')
   }
 
+  const expectedPr = normalizePrV1(input.expected_pr)
+  const expectedHead = normalizeShaV1(input.expected_head, 'expected_head')
+  const expectedRemoteHead = expectedPr === null
+    ? null
+    : normalizeShaV1(input.expected_remote_head ?? expectedHead, 'expected_remote_head')
   return Object.freeze({
     repository: normalizeRepositoryV1(input.repository),
     canonical_task_id: normalizeTaskV1(input.canonical_task_id),
@@ -115,8 +120,9 @@ export function createBoundedExecutionIdentityV1(input) {
     authorized_paths: authorizedPaths,
     authorized_paths_digest: digestAuthorizedPathsV1(authorizedPaths),
     expected_base: normalizeShaV1(input.expected_base, 'expected_base'),
-    expected_pr: normalizePrV1(input.expected_pr),
-    expected_head: normalizeShaV1(input.expected_head, 'expected_head'),
+    expected_pr: expectedPr,
+    expected_head: expectedHead,
+    expected_remote_head: expectedRemoteHead,
     execution_instance_id: executionInstanceId,
   })
 }
@@ -157,7 +163,7 @@ export function assertBoundedExecutionContextV1(identity, observed) {
     if (!pr || pr.number !== identity.expected_pr) mismatch('expected_pr')
     if (pr.repository !== identity.repository) mismatch('pr_repository')
     if (pr.state !== 'OPEN' || pr.merged === true) mismatch('pr_state')
-    if (pr.head !== identity.expected_head) mismatch('pr_head')
+    if (pr.head !== identity.expected_remote_head) mismatch('pr_head')
     if (pr.base !== identity.expected_base) mismatch('pr_base')
   }
   return Object.freeze({ admitted: true, execution_instance_id: identity.execution_instance_id })

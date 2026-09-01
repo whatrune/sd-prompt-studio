@@ -101,11 +101,22 @@ function observed(id = identity(), overrides = {}) {
       repository: id.repository,
       state: 'OPEN',
       merged: false,
-      head: id.expected_head,
+      head: id.expected_remote_head,
       base: id.expected_base,
     },
     ...overrides,
   }
+}
+
+// A fresh-base rebind may have a new local validation HEAD while the exact existing PR remains at its leased remote HEAD.
+{
+  const freshBase = '4'.repeat(40)
+  const reboundHead = '5'.repeat(40)
+  const id = identity({ expected_base: freshBase, expected_head: reboundHead, expected_remote_head: head455 })
+  equal(assertBoundedExecutionContextV1(id, observed(id)).admitted, true)
+  mismatch(() => assertBoundedExecutionContextV1(id, observed(id, {
+    pr: { ...observed(id).pr, head: reboundHead },
+  })), 'pr_head')
 }
 
 // Identity input validation is complete before any worktree mutation.

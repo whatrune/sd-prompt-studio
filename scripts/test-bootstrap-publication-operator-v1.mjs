@@ -28,6 +28,7 @@ const runnerSource = readFileSync(runnerPath, 'utf8')
 const REPOSITORY = 'whatrune/sd-prompt-studio'
 const TASK = 359
 const PARENT = '8abbb809218683372f43f56d206f1401d1b53824'
+const FRESH_BASE = 'c'.repeat(40)
 const PUSHED = 'b'.repeat(40)
 const AUTHORITY_ID = 5_400_000_001
 const AUTHORITY_URL = `https://github.com/${REPOSITORY}/issues/359#issuecomment-${AUTHORITY_ID}`
@@ -643,6 +644,7 @@ check(runnerSource.includes('parseProtectedTransitionTaskStateJsonV1'), 'Y legac
 // The normal Task route reuses the same bounded owner for commit and unchanged non-Draft publication.
 const NORMAL_OBJECTIVE = 'BOUNDED_NORMAL_TASK_EXECUTION_PREDELEGATION_AND_CONTINUATION_WIRING_V1'
 const NORMAL_INSTANCE = '706ca1fb-4c8d-43df-9bc3-e1371e038383'
+const NORMAL_TARGET = 'codex-thread-normal-task-538'
 const NORMAL_COMMON_DIR = path.join(worktree, '.git-common')
 const NORMAL_TASK_BODY = serializeCanonicalTaskIssueBodyV1({
   request: {
@@ -662,7 +664,10 @@ const NORMAL_TASK_BODY = serializeCanonicalTaskIssueBodyV1({
   mode: 'BOUND_FINAL',
   taskIssue: TASK,
 })
-const normalRequestV1 = (operation, expectedHead, review = null, overrides = {}) => ({
+const normalCursorV1 = (operation) => operation === 'COMMIT_VALIDATED_TREE'
+  ? 'cursor-implementation-complete'
+  : 'cursor-prepublication-review-approve'
+const normalRequestV1 = (operation, expectedHead, overrides = {}) => ({
   record_type: 'normal_task_execution_request_v1',
   version: 1,
   operation,
@@ -678,15 +683,23 @@ const normalRequestV1 = (operation, expectedHead, review = null, overrides = {})
   expected_pr: null,
   expected_remote_head: null,
   execution_instance_id: NORMAL_INSTANCE,
-  prepublication_review: review,
+  continuation_target: NORMAL_TARGET,
+  continuation_cursor: normalCursorV1(operation),
   operation_count: 1,
   ...overrides,
 })
-const normalReviewV1 = (head = PUSHED) => ({
-  decision: 'APPROVE', blocking: 0, remaining: 0, unknown: 0, reviewed_head: head,
-})
-const makeNormalHostV1 = ({ initialHead = PARENT, remoteInitially = null, actor = 'whatrune', taskBody = NORMAL_TASK_BODY } = {}) => {
-  const metrics = { commit: 0, push: 0, createPull: 0, apiCalls: [], createdPull: null }
+const makeNormalHostV1 = ({
+  initialHead = PARENT,
+  currentBase = PARENT,
+  remoteInitially = null,
+  actor = 'whatrune',
+  taskBody = NORMAL_TASK_BODY,
+  advancedPaths = [],
+  baseIsDescendant = true,
+  existingPr = false,
+  terminalEventTransform = (value) => value,
+} = {}) => {
+  const metrics = { commit: 0, push: 0, createPull: 0, acquireContinuation: 0, apiCalls: [], createdPull: null }
   let currentHead = initialHead
   let remoteHead = remoteInitially
   let staged = []
@@ -695,6 +708,51 @@ const makeNormalHostV1 = ({ initialHead = PARENT, remoteInitially = null, actor 
     repository: REPOSITORY,
     worktreePath: worktree,
     metrics,
+    refetchContinuationEvent: async ({ target, cursor }) => {
+      metrics.acquireContinuation += 1
+      const operation = cursor === normalCursorV1('COMMIT_VALIDATED_TREE')
+        ? 'COMMIT_VALIDATED_TREE'
+        : 'PUBLISH_REVIEWED_COMMIT'
+      const common = {
+        target,
+        cursor,
+        consumed: true,
+        kind: operation === 'COMMIT_VALIDATED_TREE'
+          ? (existingPr ? 'CORRECTION_IMPLEMENTATION_COMPLETE' : 'IMPLEMENTATION_COMPLETE')
+          : 'PREPUBLICATION_REVIEW_APPROVE',
+        repository: REPOSITORY,
+        task_issue_number: TASK,
+        objective: NORMAL_OBJECTIVE,
+        branch: BRANCH,
+        worktree_path: worktree,
+        expected_base: currentBase,
+        expected_head: currentHead,
+        authorized_paths: [...PATHS],
+        execution_instance_id: NORMAL_INSTANCE,
+      }
+      const result = operation === 'COMMIT_VALIDATED_TREE'
+        ? {
+            record_type: 'result_handoff',
+            authoring_role: 'IMPLEMENTER',
+            status: 'completed',
+            execution_stop_reason: 'completed',
+            blocking: 0,
+            remaining: 0,
+            unknown: 0,
+            changed_paths: [...PATHS],
+            validation_results: [{ command: 'canonical validation', result: 'PASS', exact_head: currentHead }],
+            unperformed_items: [],
+          }
+        : {
+            reviewer_role: 'INDEPENDENT_REVIEWER',
+            decision: 'APPROVE',
+            blocking: 0,
+            remaining: 0,
+            unknown: 0,
+            reviewed_head: currentHead,
+          }
+      return terminalEventTransform({ ...common, result })
+    },
     observeExecution: (identity) => ({
       repository: identity.repository,
       canonical_task_id: identity.canonical_task_id,
@@ -704,10 +762,19 @@ const makeNormalHostV1 = ({ initialHead = PARENT, remoteInitially = null, actor 
       registered_worktree_path: worktree,
       git_common_dir: NORMAL_COMMON_DIR,
       authorized_paths: identity.authorized_paths,
-      remote_main_sha: PARENT,
+      remote_main_sha: currentBase,
       head: currentHead,
-      pr_lookup_attempted: false,
-      pr: null,
+      pr_lookup_attempted: identity.expected_pr !== null,
+      requested_pr_number: identity.expected_pr ?? undefined,
+      pr: identity.expected_pr === null ? null : {
+        number: PR_NUMBER,
+        repository: REPOSITORY,
+        state: 'OPEN',
+        merged: false,
+        head: remoteHead,
+        base: currentBase,
+        branch: BRANCH,
+      },
     }),
     git: (args) => {
       const command = args.join(' ')
@@ -719,9 +786,16 @@ const makeNormalHostV1 = ({ initialHead = PARENT, remoteInitially = null, actor 
       if (command === 'diff --cached --name-only -z --no-renames HEAD --') return `${staged.join('\0')}\0`
       if (args[0] === 'commit') { metrics.commit += 1; currentHead = PUSHED; return '[commit]\n' }
       if (command === 'rev-parse HEAD') return `${currentHead}\n`
-      if (command === 'rev-parse HEAD^') return `${PARENT}\n`
-      if (command === `diff --name-only -z --no-renames ${PARENT} ${PUSHED} --`) return `${PATHS.join('\0')}\0`
+      if (command === 'rev-parse HEAD^') return `${initialHead}\n`
+      if (command === `diff --name-only -z --no-renames ${initialHead} ${PUSHED} --`) return `${PATHS.join('\0')}\0`
       if (command === 'status --porcelain=v1 -z') return ''
+      if (command === `merge-base --is-ancestor ${PARENT} ${currentBase}`) {
+        if (!baseIsDescendant) throw new Error('not ancestor')
+        return ''
+      }
+      if (command === `diff --name-only -z --no-renames ${PARENT} ${currentBase} --`) {
+        return advancedPaths.length === 0 ? '' : `${advancedPaths.join('\0')}\0`
+      }
       if (args[0] === 'ls-remote') return remoteHead === null ? '' : `${remoteHead}\trefs/heads/${BRANCH}\n`
       if (args[0] === 'push') { metrics.push += 1; remoteHead = currentHead; return `*\tHEAD:refs/heads/${BRANCH}\t[new branch]\n` }
       throw new Error(`unexpected normal git command: ${command}`)
@@ -748,7 +822,7 @@ const makeNormalHostV1 = ({ initialHead = PARENT, remoteInitially = null, actor 
         state: 'open',
         draft: false,
         merged: false,
-        base: { ref: 'main', sha: PARENT, repo: { full_name: REPOSITORY } },
+        base: { ref: 'main', sha: currentBase, repo: { full_name: REPOSITORY } },
         head: { ref: BRANCH, sha: remoteHead ?? currentHead, repo: { full_name: REPOSITORY } },
         body: pullBody,
       }
@@ -774,9 +848,92 @@ const makeNormalHostV1 = ({ initialHead = PARENT, remoteInitially = null, actor 
 }
 
 {
+  const host = makeNormalHostV1({
+    terminalEventTransform: (event) => ({
+      ...event,
+      result: { ...event.result, validation_results: [{ command: 'canonical validation', result: 'FAIL', exact_head: PARENT }] },
+    }),
+  })
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('COMMIT_VALIDATED_TREE', PARENT), host,
+  )
+  check(result.reason === 'implementation_result_handoff_invalid' && result.mutation_count === 0, 'N commit requires fetched terminal PASS validation evidence')
+  check(host.metrics.acquireContinuation === 1 && host.metrics.commit === 0, 'N invalid fetched handoff performs no stage or commit mutation')
+}
+
+{
+  const host = makeNormalHostV1()
+  const result = await executeNormalTaskExecutionOperatorV1({
+    ...normalRequestV1('PUBLISH_REVIEWED_COMMIT', PUSHED),
+    prepublication_review: { decision: 'APPROVE', blocking: 0, remaining: 0, unknown: 0, reviewed_head: PUSHED },
+  }, host)
+  check(result.reason === 'normal_task_execution_request_schema_invalid' && result.mutation_count === 0, 'N caller-supplied Review data is not an admitted request field')
+  check(host.metrics.apiCalls.length === 0 && host.metrics.acquireContinuation === 0, 'N synthetic Review data stops before authority or terminal-event access')
+}
+
+{
+  const host = makeNormalHostV1({
+    initialHead: FRESH_BASE,
+    currentBase: FRESH_BASE,
+    remoteInitially: PARENT,
+    existingPr: true,
+    advancedPaths: ['docs/unrelated-main-change.md'],
+  })
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('COMMIT_VALIDATED_TREE', FRESH_BASE, {
+      expected_base: FRESH_BASE,
+      expected_pr: PR_NUMBER,
+      expected_remote_head: PARENT,
+    }),
+    host,
+  )
+  check(result.status === 'SUCCESS' && result.parent_head === FRESH_BASE, 'N disjoint fresh-main advancement admits a freshly rebound validated-tree commit')
+  check(host.metrics.commit === 1 && host.metrics.acquireContinuation === 1, 'N rebound commit still consumes one fetched terminal handoff and one commit')
+}
+
+{
+  const host = makeNormalHostV1({
+    initialHead: FRESH_BASE,
+    currentBase: FRESH_BASE,
+    remoteInitially: PARENT,
+    existingPr: true,
+    advancedPaths: [PATHS[0]],
+  })
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('COMMIT_VALIDATED_TREE', FRESH_BASE, {
+      expected_base: FRESH_BASE,
+      expected_pr: PR_NUMBER,
+      expected_remote_head: PARENT,
+    }),
+    host,
+  )
+  check(result.reason === 'fresh_base_compatibility_required' && result.mutation_count === 0, 'N fresh-base overlap remains fail-closed for compatibility reconciliation')
+  check(host.metrics.acquireContinuation === 0 && host.metrics.commit === 0, 'N overlapping fresh base stops before terminal evidence or mutation')
+}
+
+{
+  const host = makeNormalHostV1({
+    initialHead: FRESH_BASE,
+    currentBase: FRESH_BASE,
+    remoteInitially: PARENT,
+    existingPr: true,
+    baseIsDescendant: false,
+  })
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('COMMIT_VALIDATED_TREE', FRESH_BASE, {
+      expected_base: FRESH_BASE,
+      expected_pr: PR_NUMBER,
+      expected_remote_head: PARENT,
+    }),
+    host,
+  )
+  check(result.reason === 'fresh_base_not_descendant' && result.mutation_count === 0, 'N divergent fresh base is rejected without mutation')
+}
+
+{
   const host = makeNormalHostV1({ initialHead: PUSHED })
   const result = await executeNormalTaskExecutionOperatorV1(
-    normalRequestV1('PUBLISH_REVIEWED_COMMIT', PUSHED, normalReviewV1()), host,
+    normalRequestV1('PUBLISH_REVIEWED_COMMIT', PUSHED), host,
   )
   check(result.status === 'SUCCESS' && result.reason === 'reviewed_commit_published', 'P approved reviewed commit publishes normally')
   check(result.mutation_count === 2 && result.protected_operation_count === 1, 'P publication is one push and one PR create under one protected operation')
@@ -788,7 +945,7 @@ const makeNormalHostV1 = ({ initialHead = PARENT, remoteInitially = null, actor 
 {
   const host = makeNormalHostV1({ initialHead: PUSHED, remoteInitially: PARENT })
   const result = await executeNormalTaskExecutionOperatorV1(
-    normalRequestV1('PUBLISH_REVIEWED_COMMIT', PUSHED, normalReviewV1(), {
+    normalRequestV1('PUBLISH_REVIEWED_COMMIT', PUSHED, {
       expected_pr: PR_NUMBER,
       expected_remote_head: PARENT,
     }),
@@ -800,18 +957,21 @@ const makeNormalHostV1 = ({ initialHead = PARENT, remoteInitially = null, actor 
 }
 
 {
-  const host = makeNormalHostV1({ initialHead: PUSHED })
+  const host = makeNormalHostV1({
+    initialHead: PUSHED,
+    terminalEventTransform: (event) => ({ ...event, result: { ...event.result, unknown: 1 } }),
+  })
   const invalid = await executeNormalTaskExecutionOperatorV1(
-    normalRequestV1('PUBLISH_REVIEWED_COMMIT', PUSHED, { ...normalReviewV1(), unknown: 1 }), host,
+    normalRequestV1('PUBLISH_REVIEWED_COMMIT', PUSHED), host,
   )
   check(invalid.reason === 'prepublication_review_invalid' && invalid.mutation_count === 0, 'P blocker or UNKNOWN fails before publication mutation')
-  check(host.metrics.apiCalls.length === 0 && host.metrics.push === 0, 'P invalid prepublication result stops before live authority access')
+  check(host.metrics.acquireContinuation === 1 && host.metrics.push === 0, 'P invalid fetched prepublication result performs zero publication mutation')
 }
 
 {
   const host = makeNormalHostV1({ initialHead: PUSHED, remoteInitially: PUSHED })
   const duplicate = await executeNormalTaskExecutionOperatorV1(
-    normalRequestV1('PUBLISH_REVIEWED_COMMIT', PUSHED, normalReviewV1()), host,
+    normalRequestV1('PUBLISH_REVIEWED_COMMIT', PUSHED), host,
   )
   check(duplicate.reason === 'remote_branch_already_exists' && duplicate.mutation_count === 0, 'P a pre-existing remote branch fails closed instead of republishing')
   check(host.metrics.push === 0 && host.metrics.createPull === 0, 'P remote identity collision performs no mutation')

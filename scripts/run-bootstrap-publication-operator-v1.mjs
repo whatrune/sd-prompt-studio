@@ -32,9 +32,19 @@ const NORMAL_REQUEST_FIELDS_V1 = Object.freeze([
   'record_type', 'version', 'operation', 'repository', 'task_issue_number', 'objective',
   'authorized_paths', 'branch', 'worktree_path', 'git_common_dir', 'expected_base',
   'expected_head', 'expected_pr', 'expected_remote_head', 'execution_instance_id',
-  'prepublication_review', 'operation_count',
+  'continuation_target', 'continuation_cursor', 'operation_count',
+])
+const TERMINAL_EVENT_FIELDS_V1 = Object.freeze([
+  'target', 'cursor', 'consumed', 'kind', 'repository', 'task_issue_number', 'objective',
+  'branch', 'worktree_path', 'expected_base', 'expected_head', 'authorized_paths',
+  'execution_instance_id', 'result',
+])
+const IMPLEMENTATION_HANDOFF_FIELDS_V1 = Object.freeze([
+  'record_type', 'authoring_role', 'status', 'execution_stop_reason', 'blocking',
+  'remaining', 'unknown', 'changed_paths', 'validation_results', 'unperformed_items',
 ])
 const PREPUBLICATION_REVIEW_FIELDS_V1 = Object.freeze([
+  'reviewer_role',
   'decision', 'blocking', 'remaining', 'unknown', 'reviewed_head',
 ])
 const NORMAL_OPERATIONS_V1 = Object.freeze(['COMMIT_VALIDATED_TREE', 'PUBLISH_REVIEWED_COMMIT'])
@@ -358,30 +368,17 @@ const parseNormalTaskExecutionRequestV1 = (request) => {
     !FULL_HEAD.test(request.expected_base ?? '') || !FULL_HEAD.test(request.expected_head ?? '') ||
     !(request.expected_pr === null || positiveInteger(request.expected_pr)) ||
     !(request.expected_remote_head === null || FULL_HEAD.test(request.expected_remote_head ?? '')) ||
-    typeof request.execution_instance_id !== 'string' || request.operation_count !== 1
+    typeof request.execution_instance_id !== 'string' || request.execution_instance_id.length === 0 ||
+    typeof request.continuation_target !== 'string' || request.continuation_target.length === 0 ||
+    typeof request.continuation_cursor !== 'string' || request.continuation_cursor.length === 0 ||
+    request.operation_count !== 1
   ) throw new Error('normal_task_execution_request_value_invalid')
-  if (request.operation === 'COMMIT_VALIDATED_TREE' && request.prepublication_review !== null) {
-    throw new Error('normal_task_execution_request_value_invalid')
-  }
   if (
-    (request.expected_pr === null) !== (request.expected_remote_head === null) ||
-    (request.operation === 'COMMIT_VALIDATED_TREE' && request.expected_remote_head !== null &&
-      request.expected_remote_head !== request.expected_head)
+    (request.expected_pr === null) !== (request.expected_remote_head === null)
   ) throw new Error('normal_task_execution_request_value_invalid')
-  if (request.operation === 'PUBLISH_REVIEWED_COMMIT') {
-    const review = request.prepublication_review
-    if (
-      !sameFields(review, PREPUBLICATION_REVIEW_FIELDS_V1) || review.decision !== 'APPROVE' ||
-      review.blocking !== 0 || review.remaining !== 0 || review.unknown !== 0 ||
-      review.reviewed_head !== request.expected_head
-    ) throw new Error('prepublication_review_invalid')
-  }
   return Object.freeze({
     ...request,
     authorized_paths: Object.freeze([...request.authorized_paths].sort()),
-    prepublication_review: request.prepublication_review === null
-      ? null
-      : Object.freeze({ ...request.prepublication_review }),
   })
 }
 
@@ -407,7 +404,7 @@ const assertNormalTaskExecutionAuthorityV1 = ({ request, task, actor }) => {
     grant.repository !== request.repository || grant.task_issue !== request.task_issue_number ||
     grant.head_branch !== request.branch ||
     normalizedFileSystemPathV1(grant.worktree_path) !== normalizedFileSystemPathV1(request.worktree_path) ||
-    grant.expected_base !== request.expected_base || !samePathsV1(grant.authorized_paths, request.authorized_paths) ||
+    !FULL_HEAD.test(grant.expected_base ?? '') || !samePathsV1(grant.authorized_paths, request.authorized_paths) ||
     grant.authorized_actor !== actor.login || grant.execution_identity_contract !== 'BOUNDED_EXECUTION_IDENTITY_V1' ||
     grant.fallback_allowed !== false
   ) throw new Error('normal_task_execution_authority_invalid')
@@ -428,8 +425,9 @@ const admitNormalExecutionIdentityV1 = ({ request, host }) => {
     git_common_dir: request.git_common_dir,
     authorized_paths: request.authorized_paths,
     expected_base: request.expected_base,
-    expected_pr: null,
+    expected_pr: request.expected_pr,
     expected_head: request.expected_head,
+    expected_remote_head: request.expected_remote_head,
     execution_instance_id: request.execution_instance_id,
   })
   const observed = typeof host.observeExecution === 'function'
@@ -437,6 +435,73 @@ const admitNormalExecutionIdentityV1 = ({ request, host }) => {
     : observeLocalWorktreeV1(identity)
   assertBoundedExecutionContextV1(identity, observed)
   return identity
+}
+
+const assertFreshBaseRebindV1 = ({ initialBase, request, host }) => {
+  if (initialBase === request.expected_base) return
+  try {
+    host.git(['merge-base', '--is-ancestor', initialBase, request.expected_base])
+  } catch {
+    throw new Error('fresh_base_not_descendant')
+  }
+  let advancedPaths
+  try {
+    advancedPaths = splitNullSeparatedV1(host.git(
+      ['diff', '--name-only', '-z', '--no-renames', initialBase, request.expected_base, '--'],
+      { encoding: 'utf8' },
+    ))
+  } catch {
+    throw new Error('fresh_base_diff_unavailable')
+  }
+  if (advancedPaths.some((value) => request.authorized_paths.includes(value))) {
+    throw new Error('fresh_base_compatibility_required')
+  }
+}
+
+const assertPassingValidationResultsV1 = (values, expectedHead) => (
+  Array.isArray(values) && values.length > 0 && values.every((value) => (
+    value !== null && typeof value === 'object' && !Array.isArray(value) &&
+    typeof value.command === 'string' && value.command.length > 0 && value.result === 'PASS' &&
+    value.exact_head === expectedHead
+  ))
+)
+
+const assertTerminalContinuationEventV1 = ({ event, request }) => {
+  if (
+    !sameFields(event, TERMINAL_EVENT_FIELDS_V1) || event.target !== request.continuation_target ||
+    event.cursor !== request.continuation_cursor || event.consumed !== true ||
+    event.repository !== request.repository || event.task_issue_number !== request.task_issue_number ||
+    event.objective !== request.objective || event.branch !== request.branch ||
+    normalizedFileSystemPathV1(event.worktree_path) !== normalizedFileSystemPathV1(request.worktree_path) ||
+    event.expected_base !== request.expected_base || event.expected_head !== request.expected_head ||
+    !samePathsV1(event.authorized_paths, request.authorized_paths) ||
+    event.execution_instance_id !== request.execution_instance_id
+  ) throw new Error('terminal_continuation_event_invalid')
+  if (request.operation === 'COMMIT_VALIDATED_TREE') {
+    const expectedKind = request.expected_pr === null
+      ? 'IMPLEMENTATION_COMPLETE'
+      : 'CORRECTION_IMPLEMENTATION_COMPLETE'
+    const handoff = event.result
+    if (
+      event.kind !== expectedKind || !sameFields(handoff, IMPLEMENTATION_HANDOFF_FIELDS_V1) ||
+      handoff.record_type !== 'result_handoff' || handoff.authoring_role !== 'IMPLEMENTER' ||
+      handoff.status !== 'completed' || handoff.execution_stop_reason !== 'completed' ||
+      handoff.blocking !== 0 || handoff.remaining !== 0 || handoff.unknown !== 0 ||
+      !samePathsV1(handoff.changed_paths, request.authorized_paths) ||
+      !assertPassingValidationResultsV1(handoff.validation_results, request.expected_head) ||
+      !Array.isArray(handoff.unperformed_items) || handoff.unperformed_items.length !== 0
+    ) throw new Error('implementation_result_handoff_invalid')
+    return Object.freeze({ ...event, result: Object.freeze({ ...handoff }) })
+  }
+  const review = event.result
+  if (
+    event.kind !== 'PREPUBLICATION_REVIEW_APPROVE' ||
+    !sameFields(review, PREPUBLICATION_REVIEW_FIELDS_V1) ||
+    review.reviewer_role !== 'INDEPENDENT_REVIEWER' || review.decision !== 'APPROVE' ||
+    review.blocking !== 0 || review.remaining !== 0 || review.unknown !== 0 ||
+    review.reviewed_head !== request.expected_head
+  ) throw new Error('prepublication_review_invalid')
+  return Object.freeze({ ...event, result: Object.freeze({ ...review }) })
 }
 
 const assertExistingNormalTaskPullV1 = ({ pull, request, expectedHead }) => {
@@ -488,27 +553,38 @@ export const executeNormalTaskExecutionOperatorV1 = async (rawRequest, host) => 
   }
   if (
     host === null || typeof host !== 'object' || typeof host.api !== 'function' ||
-    typeof host.git !== 'function' || host.repository !== request.repository ||
+    typeof host.git !== 'function' || typeof host.refetchContinuationEvent !== 'function' ||
+    host.repository !== request.repository ||
     normalizedFileSystemPathV1(host.worktreePath ?? '') !== normalizedFileSystemPathV1(request.worktree_path)
   ) return stop('normal_task_execution_host_invalid')
 
+  let terminalEvent
   try {
     const [actor, task] = await Promise.all([
       host.api('user'),
       host.api(`repos/${request.repository}/issues/${request.task_issue_number}`),
     ])
-    assertNormalTaskExecutionAuthorityV1({ request, task, actor })
+    const admittedAuthority = assertNormalTaskExecutionAuthorityV1({ request, task, actor })
+    assertFreshBaseRebindV1({
+      initialBase: admittedAuthority.predelegation.allowed_changes.expected_base,
+      request,
+      host,
+    })
     admitNormalExecutionIdentityV1({ request, host })
     if (request.expected_pr !== null) {
-      const expectedPullHead = request.operation === 'COMMIT_VALIDATED_TREE'
-        ? request.expected_head
-        : request.expected_remote_head
       assertExistingNormalTaskPullV1({
         pull: await host.api(`repos/${request.repository}/pulls/${request.expected_pr}`),
         request,
-        expectedHead: expectedPullHead,
+        expectedHead: request.expected_remote_head,
       })
     }
+    terminalEvent = assertTerminalContinuationEventV1({
+      event: await host.refetchContinuationEvent({
+        target: request.continuation_target,
+        cursor: request.continuation_cursor,
+      }),
+      request,
+    })
   } catch (error) {
     return stop(error?.code === 'execution_identity_mismatch' ? error.code : error?.message ?? 'normal_task_execution_admission_failed')
   }
@@ -553,6 +629,7 @@ export const executeNormalTaskExecutionOperatorV1 = async (rawRequest, host) => 
         committed_head: committedHead,
         parent_head: parent,
         execution_instance_id: request.execution_instance_id,
+        continuation_cursor: terminalEvent.cursor,
       })
     } catch {
       return stop('commit_result_invalid')
@@ -615,6 +692,7 @@ export const executeNormalTaskExecutionOperatorV1 = async (rawRequest, host) => 
       pr_number: correctedPull.number,
       pr_url: correctedPull.html_url,
       execution_instance_id: request.execution_instance_id,
+      continuation_cursor: terminalEvent.cursor,
     })
   }
   counters.mutation_count = 2
@@ -648,6 +726,7 @@ export const executeNormalTaskExecutionOperatorV1 = async (rawRequest, host) => 
     pr_number: freshPull.number,
     pr_url: freshPull.html_url,
     execution_instance_id: request.execution_instance_id,
+    continuation_cursor: terminalEvent.cursor,
   })
 }
 
