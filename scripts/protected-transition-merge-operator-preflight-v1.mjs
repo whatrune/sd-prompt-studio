@@ -26,6 +26,10 @@ const PRE_DECISION_FIELDS = Object.freeze([
   'repository', 'task_issue', 'pull_request', 'exact_head', 'expected_base',
   'authorized_paths', 'review_kind', 'review_id', 'review_url',
 ])
+const REVIEW_PUBLICATION_PREFLIGHT_FIELDS = Object.freeze([
+  'repository', 'task_issue', 'pull_request', 'exact_head', 'expected_base',
+  'authorized_paths',
+])
 
 const CHECK_CATALOG = Object.freeze({
   'build-preview': Object.freeze({ name: 'build-preview', appDatabaseId: '15368' }),
@@ -457,6 +461,78 @@ export const acquireSimplifiedPreDecisionPreflightV1 = async ({ request, host })
     reviewUrl: request.review_url,
     reviewKind: request.review_kind,
     host,
+  })
+}
+
+export const acquireSimplifiedReviewPublicationPreflightV2 = async ({ request, host }) => {
+  if (
+    !exactKeys(request, REVIEW_PUBLICATION_PREFLIGHT_FIELDS) || host === null || typeof host !== 'object' ||
+    typeof host.api !== 'function' || typeof host.graphql !== 'function' ||
+    !REPOSITORY.test(request?.repository ?? '') || !positiveInteger(request?.task_issue) ||
+    !positiveInteger(request?.pull_request) || !FULL_SHA.test(request?.exact_head ?? '') ||
+    !FULL_SHA.test(request?.expected_base ?? '')
+  ) throw new Error('review_publication_preflight_request_invalid')
+  const authorizedPaths = normalizedPaths(request.authorized_paths, 'authorized_scope_invalid')
+  const [task, pull, mainRef, files, checks, threadSnapshot] = await Promise.all([
+    host.api(`repos/${request.repository}/issues/${request.task_issue}`),
+    host.api(`repos/${request.repository}/pulls/${request.pull_request}`),
+    host.api(`repos/${request.repository}/git/ref/heads/main`),
+    acquireFiles({ repository: request.repository, prNumber: request.pull_request, host }),
+    acquireChecks({ repository: request.repository, exactHead: request.exact_head, host }),
+    acquireThreads({
+      repository: request.repository,
+      prNumber: request.pull_request,
+      exactHead: request.exact_head,
+      host,
+    }),
+  ])
+  let taskAuthority
+  try {
+    taskAuthority = parseSimplifiedTaskAuthorityV1(task?.body)
+  } catch {
+    throw new Error('review_publication_live_binding_invalid')
+  }
+  if (
+    task?.number !== request.task_issue || task?.state !== 'open' || task?.pull_request !== undefined ||
+    taskAuthority.task_issue !== request.task_issue || taskAuthority.repository !== request.repository ||
+    task?.user?.login !== taskAuthority.product_owner_login ||
+    typeof pull?.node_id !== 'string' || pull.node_id.length === 0 ||
+    pull?.number !== request.pull_request || pull?.state !== 'open' || pull?.draft !== false || pull?.merged !== false ||
+    pull?.head?.sha !== request.exact_head || typeof pull?.head?.ref !== 'string' || pull.head.ref.length === 0 ||
+    pull?.head?.repo?.full_name !== request.repository || pull?.base?.ref !== 'main' ||
+    pull?.base?.sha !== request.expected_base || pull?.base?.repo?.full_name !== request.repository ||
+    mainRef?.ref !== 'refs/heads/main' || mainRef?.object?.sha !== request.expected_base ||
+    !samePaths(taskAuthority.authorized_paths, authorizedPaths) || !samePaths(files, authorizedPaths)
+  ) throw new Error('review_publication_live_binding_invalid')
+
+  const requiredChecks = evaluateRequiredChecksV1({ checks, paths: files, exactHead: request.exact_head })
+  const livePull = threadSnapshot.pull
+  if (
+    livePull.state !== 'OPEN' || livePull.isDraft !== false || livePull.merged !== false ||
+    livePull.headRefOid !== request.exact_head || livePull.mergeable !== 'MERGEABLE' ||
+    livePull.mergeStateStatus !== 'CLEAN'
+  ) throw new Error('mergeability_invalid')
+  if (threadSnapshot.threads.some((thread) => !thread.isResolved && !thread.isOutdated)) {
+    throw new Error('blocking_review_threads_present')
+  }
+  return Object.freeze({
+    repository: request.repository,
+    task_issue: request.task_issue,
+    pr_number: request.pull_request,
+    pull_id: pull.node_id,
+    exact_head: request.exact_head,
+    expected_base: request.expected_base,
+    head_branch: pull.head.ref,
+    pull_author: pull.user?.login ?? null,
+    task_body: task.body,
+    task_author: task.user.login,
+    task_author_association: task.author_association ?? null,
+    authorized_paths: authorizedPaths,
+    required_checks: requiredChecks,
+    thread_ids: Object.freeze(threadSnapshot.threads.map((thread) => thread.id).sort()),
+    mergeable: livePull.mergeable,
+    merge_state_status: livePull.mergeStateStatus,
+    draft: false,
   })
 }
 
