@@ -1,7 +1,7 @@
 {
   "schema_version": "0.2.0",
-  "graph_version": "0.2.2",
-  "generated_at": "2026-08-31T18:00:33Z",
+  "graph_version": "0.2.3",
+  "generated_at": "2026-09-01T02:20:31Z",
   "source_files": [
     "concepts/physical-concepts.json",
     "concepts/relations.json",
@@ -113,6 +113,142 @@
       "scope": [
         "body",
         "upper_torso"
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "camera.framing.close_up",
+      "label": "Close-up framing",
+      "aliases": [
+        "close-up"
+      ],
+      "module": "camera",
+      "concept_type": "camera",
+      "human_meaning": "A face-led camera framing with a lower crop boundary around the upper chest or chest.",
+      "scope": [
+        "camera_framing",
+        "subject"
+      ],
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "CAM-004-D produced close-up framing in 6/6 panels under the tested neutral prompt context.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.cam004d.observed_close_up",
+              "run_id": "CAM-004-D",
+              "observation_path": "experiments/camera/CAM-004-D/observation.json",
+              "metric": "computed_aggregate.axis_counts.observed_framing.close_up",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "camera.framing.cowboy_shot",
+      "label": "Cowboy-shot framing",
+      "aliases": [
+        "cowboy shot"
+      ],
+      "module": "camera",
+      "concept_type": "camera",
+      "human_meaning": "A camera framing that visibly includes the subject from the head through approximately the upper or middle thigh.",
+      "scope": [
+        "camera_framing",
+        "subject"
+      ],
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "CAM-004-B produced cowboy-shot framing in 6/6 panels under the tested neutral prompt context.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.cam004b.observed_cowboy_shot",
+              "run_id": "CAM-004-B",
+              "observation_path": "experiments/camera/CAM-004-B/observation.json",
+              "metric": "computed_aggregate.axis_counts.observed_framing.cowboy_shot",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "camera.framing.full_body",
+      "label": "Full-body framing",
+      "aliases": [
+        "full body"
+      ],
+      "module": "camera",
+      "concept_type": "camera",
+      "human_meaning": "A camera framing that visibly includes the subject from the head through the feet.",
+      "scope": [
+        "camera_framing",
+        "subject"
+      ],
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "CAM-004-A produced full-body framing in 6/6 panels under the tested neutral prompt context.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.cam004a.observed_full_body",
+              "run_id": "CAM-004-A",
+              "observation_path": "experiments/camera/CAM-004-A/observation.json",
+              "metric": "computed_aggregate.axis_counts.observed_framing.full_body",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "camera.framing.upper_body",
+      "label": "Upper-body framing",
+      "aliases": [
+        "upper body"
+      ],
+      "module": "camera",
+      "concept_type": "camera",
+      "human_meaning": "A camera framing centered on the head and upper torso with a lower crop boundary around the waist.",
+      "scope": [
+        "camera_framing",
+        "subject"
+      ],
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "CAM-004-C produced upper-body framing in 6/6 panels under the tested neutral prompt context.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.cam004c.observed_upper_body",
+              "run_id": "CAM-004-C",
+              "observation_path": "experiments/camera/CAM-004-C/observation.json",
+              "metric": "computed_aggregate.axis_counts.observed_framing.upper_body",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        }
       ],
       "status": "provisional"
     },
@@ -1459,48 +1595,58 @@
       "body.proportion.slender": 6,
       "body.state.lying": 7,
       "body.state.reclined": 8,
-      "clothing.lower.black_shorts": 9,
-      "clothing.outer.white_coat": 10,
-      "clothing.style.fantasy": 11,
-      "clothing.upper.oversized_white_tshirt": 12,
-      "configuration.hand.near_head": 13,
-      "configuration.knee.bent": 14,
-      "contact.arm.surface": 15,
-      "contact.back.absent": 16,
-      "contact.foot.sole_surface": 17,
-      "contact.head.surface_support": 18,
-      "contact.pelvis.surface": 19,
-      "contact.shoulder.surface_support": 20,
-      "environment.forest": 21,
-      "environment.medical": 22,
-      "face.expression.professional": 23,
-      "face.expression.semantic_shift": 24,
-      "face.eyelid.partially_closed": 25,
-      "face.gaze.upward": 26,
-      "face.mouth.open": 27,
-      "hair.long": 28,
-      "object.stethoscope": 29,
-      "orientation.head.extended_backward": 30,
-      "pelvis.elevation.above_surface": 31,
-      "phrase.arms_supporting_body": 32,
-      "role.activity.dancer": 33,
-      "role.narrative.warrior": 34,
-      "role.occupation.doctor": 35,
-      "role.rank.queen": 36,
-      "role.situational.patient": 37,
-      "species.elf": 38,
-      "species.mermaid": 39,
-      "support.arm.rearward": 40,
-      "support.elbow.weight_bearing": 41,
-      "support.foot.weight_bearing": 42,
-      "support.hand.weight_bearing": 43,
-      "torso.arch.strong": 44,
-      "visibility.hand_near_head_contact": 45,
-      "visibility.neck": 46,
-      "visibility.pelvis_boundary": 47,
-      "visibility.shoulder_contact_boundary": 48
+      "camera.framing.close_up": 9,
+      "camera.framing.cowboy_shot": 10,
+      "camera.framing.full_body": 11,
+      "camera.framing.upper_body": 12,
+      "clothing.lower.black_shorts": 13,
+      "clothing.outer.white_coat": 14,
+      "clothing.style.fantasy": 15,
+      "clothing.upper.oversized_white_tshirt": 16,
+      "configuration.hand.near_head": 17,
+      "configuration.knee.bent": 18,
+      "contact.arm.surface": 19,
+      "contact.back.absent": 20,
+      "contact.foot.sole_surface": 21,
+      "contact.head.surface_support": 22,
+      "contact.pelvis.surface": 23,
+      "contact.shoulder.surface_support": 24,
+      "environment.forest": 25,
+      "environment.medical": 26,
+      "face.expression.professional": 27,
+      "face.expression.semantic_shift": 28,
+      "face.eyelid.partially_closed": 29,
+      "face.gaze.upward": 30,
+      "face.mouth.open": 31,
+      "hair.long": 32,
+      "object.stethoscope": 33,
+      "orientation.head.extended_backward": 34,
+      "pelvis.elevation.above_surface": 35,
+      "phrase.arms_supporting_body": 36,
+      "role.activity.dancer": 37,
+      "role.narrative.warrior": 38,
+      "role.occupation.doctor": 39,
+      "role.rank.queen": 40,
+      "role.situational.patient": 41,
+      "species.elf": 42,
+      "species.mermaid": 43,
+      "support.arm.rearward": 44,
+      "support.elbow.weight_bearing": 45,
+      "support.foot.weight_bearing": 46,
+      "support.hand.weight_bearing": 47,
+      "torso.arch.strong": 48,
+      "visibility.hand_near_head_contact": 49,
+      "visibility.neck": 50,
+      "visibility.pelvis_boundary": 51,
+      "visibility.shoulder_contact_boundary": 52
     },
     "concepts_by_module": {
+      "camera": [
+        "camera.framing.close_up",
+        "camera.framing.cowboy_shot",
+        "camera.framing.full_body",
+        "camera.framing.upper_body"
+      ],
       "clothing": [
         "clothing.lower.black_shorts",
         "clothing.outer.white_coat",
@@ -1591,6 +1737,12 @@
         "body.state.lying",
         "body.state.reclined"
       ],
+      "camera": [
+        "camera.framing.close_up",
+        "camera.framing.cowboy_shot",
+        "camera.framing.full_body",
+        "camera.framing.upper_body"
+      ],
       "clothing": [
         "clothing.lower.black_shorts",
         "clothing.outer.white_coat",
@@ -1662,9 +1814,12 @@
       "arm support": "support.arm.rearward",
       "arms supporting body": "phrase.arms_supporting_body",
       "black shorts": "clothing.lower.black_shorts",
+      "close-up": "camera.framing.close_up",
+      "cowboy shot": "camera.framing.cowboy_shot",
       "doctor": "role.occupation.doctor",
       "elf": "species.elf",
       "face up": "body.orientation.face_up",
+      "full body": "camera.framing.full_body",
       "head back": "orientation.head.extended_backward",
       "head tilted backward": "orientation.head.extended_backward",
       "long hair": "hair.long",
@@ -1675,7 +1830,8 @@
       "plain oversized white t-shirt": "clothing.upper.oversized_white_tshirt",
       "rear arm support": "support.arm.rearward",
       "reclined": "body.state.reclined",
-      "supine orientation": "body.orientation.face_up"
+      "supine orientation": "body.orientation.face_up",
+      "upper body": "camera.framing.upper_body"
     },
     "relations_by_source": {
       "clothing.upper.oversized_white_tshirt": [
@@ -1790,6 +1946,18 @@
       "BRG-007-C": [
         "contact.arm.surface",
         "phrase.arms_supporting_body"
+      ],
+      "CAM-004-A": [
+        "camera.framing.full_body"
+      ],
+      "CAM-004-B": [
+        "camera.framing.cowboy_shot"
+      ],
+      "CAM-004-C": [
+        "camera.framing.upper_body"
+      ],
+      "CAM-004-D": [
+        "camera.framing.close_up"
       ],
       "CLOTHING-001-A": [
         "clothing.upper.oversized_white_tshirt",
