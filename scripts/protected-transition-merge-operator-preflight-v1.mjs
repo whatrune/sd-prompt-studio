@@ -171,16 +171,27 @@ const parseRecordBody = (body, recordType, fields, reason) => {
 
 const serializeRecordBody = (heading, value) => `${heading}\n\n\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\`\n`
 
-export const serializeSimplifiedTaskAuthorityV1 = (input) => {
+const taskAuthorityBindingModeV1 = (options) => {
+  const mode = options?.binding_mode ?? 'BOUND_FINAL'
+  if (!['UNBOUND_CREATE', 'BOUND_FINAL'].includes(mode)) throw new Error('task_authority_invalid')
+  return mode
+}
+
+export const serializeSimplifiedTaskAuthorityV1 = (input, options = {}) => {
   if (!exactKeys(input, TASK_FIELDS)) throw new Error('task_authority_invalid')
-  const value = parseSimplifiedTaskAuthorityV1(serializeRecordBody('# Simplified Lifecycle Task Authority', input))
+  const value = parseSimplifiedTaskAuthorityV1(
+    serializeRecordBody('# Simplified Lifecycle Task Authority', input),
+    options,
+  )
   return serializeRecordBody('# Simplified Lifecycle Task Authority', value)
 }
 
-export const parseSimplifiedTaskAuthorityV1 = (body) => {
+export const parseSimplifiedTaskAuthorityV1 = (body, options = {}) => {
+  const bindingMode = taskAuthorityBindingModeV1(options)
   const value = parseRecordBody(body, TASK_RECORD, TASK_FIELDS, 'task_authority_invalid')
   if (
-    !positiveInteger(value.task_issue) || !REPOSITORY.test(value.repository ?? '') ||
+    (bindingMode === 'UNBOUND_CREATE' ? value.task_issue !== 0 : !positiveInteger(value.task_issue)) ||
+    !REPOSITORY.test(value.repository ?? '') ||
     typeof value.objective !== 'string' || value.objective.length === 0 ||
     value.objective.length > 512 || typeof value.ready_allowed !== 'boolean' ||
     value.product_owner_login !== PRODUCT_OWNER_LOGIN
