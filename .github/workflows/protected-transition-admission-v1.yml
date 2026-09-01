@@ -42,6 +42,24 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Enable Corepack
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+
+      - name: Install locked Node dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+
+      - name: Smoke import the protected-transition entrypoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module -e "await import('./scripts/run-protected-transition-admission-v1.mjs')"
+
       - name: Evaluate the live protected operation
         shell: bash
         env:
