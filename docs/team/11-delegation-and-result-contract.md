@@ -52,6 +52,12 @@ Task Assignmentは作業開始前に、共通identity fieldと次を含む。
 
 AssignmentにはRepositoryのTask Assignment Templateを使用できる。会話内の補足がauthority、Contract、scope判断を含む場合、direct canonical recordへ累積する。
 
+### Logical Review-publication Assignment V2
+
+A Canonical Task MAY contain one stable Product Owner `REVIEW_AUTHORITY_PUBLICATION` predelegation. It authorizes only post-Fresh-Review exact-assignment derivation; it does not itself authorize Review publication. The derived exact assignment remains a `task_assignment` and is written as one complete top-level Task comment with `canonical_record: GITHUB_RESOURCE`. The successful CREATE response and direct refetch bind the physical comment ID and URL; the comment is never PATCHed and does not contain a self-referential URL.
+
+Its logical identity is the ordered tuple `repository`, `task_issue`, `pull_request`, `exact_head`, `protected_action`, `authorized_actor`, `permitted_surface`, and the closed Review decision fields. Base, branch, scope, predelegation identity, and the remaining assignment fields are canonical semantic payload. Multiple comments with the same logical identity and byte-identical canonical semantic payload represent one logical authority and are deterministically collapsed. A differing payload under that identity is a conflict. Historical HEAD/base records are non-applicable to current publication, malformed or wrong-actor records fail closed, and legacy direct Task-body exact assignments remain readable when uniquely valid.
+
 ### Bounded Execution Identity V1
 
 Every active execution derives one immutable, process-local execution identity from its admitted Task Assignment:

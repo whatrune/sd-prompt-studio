@@ -18,7 +18,7 @@ This non-normative template captures task-specific assignment inputs and expecte
 - record_type: task_assignment
 - authoring_role:
 - authority_source:
-- canonical_record: direct GitHub Issue body or top-level comment URL that exposes the complete Assignment
+- canonical_record: direct GitHub Issue body or top-level comment URL that exposes the complete Assignment; `GITHUB_RESOURCE` only for the closed logical Review-publication assignment route whose successful CREATE response is immediately direct-refetched
 - prior_record_url:
 - cumulative_scope / supersede_scope:
 - supporting_records: repository-relative path at full 40-character commit SHA | not_applicable
@@ -50,6 +50,8 @@ This non-normative template captures task-specific assignment inputs and expecte
 - Preconditions:
 - Completion conditions:
 - Escalation conditions:
+
+For a logical Review-publication exact assignment, also record the stable predelegation identity and the closed exact grant. Do not record a `wait_threads` cursor: it is wake-up state, not authority. The consumer derives the logical identity from repository + Task + PR + HEAD + protected action + actor + surface + decision and treats only byte-identical canonical semantic payloads as equivalent.
 
 ## Scope
 
