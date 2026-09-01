@@ -48,6 +48,7 @@ function Invoke-AcquireExpectFailure {
 
 $repository = [IO.Path]::GetFullPath((Resolve-Path (Join-Path $PSScriptRoot '..')).Path)
 $helper = Join-Path $repository 'scripts/acquire-python-validation-environment-v1.ps1'
+$runner = Join-Path $repository 'scripts/run-local-full-validation-v1.ps1'
 $python = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $PythonExecutable).Path)
 $sourceRequirements = Join-Path $repository 'research/sd-prompt-research/requirements.txt'
 $sourceLock = Join-Path $repository 'research/sd-prompt-research/requirements.lock.txt'
@@ -57,6 +58,20 @@ $worktreeA = Join-Path $tempRoot 'task-a'
 $worktreeB = Join-Path $tempRoot 'task-b'
 
 try {
+    . $runner
+    $runnerSource = Get-Content -Raw -LiteralPath $runner
+    Assert-True (([regex]::Matches($runnerSource, 'acquire-python-validation-environment-v1\.ps1')).Count -eq 1) 'runner does not invoke the acquisition helper exactly once'
+    Assert-True ($runnerSource -match '&\s+\$Executable\s+@Arguments') 'runner does not use the direct call-operator argument-array boundary'
+    Assert-True ($runnerSource -match '\$validationPython\s*=\s*\[string\]\$acquisition\.python_executable') 'runner does not consume the returned executable directly'
+    Assert-True ($runnerSource -match "profile\s*=\s*'FULL_RESEARCH'") 'runner does not own the fixed FULL_RESEARCH profile'
+    foreach ($forbiddenPattern in @(
+        'Invoke-Expression', 'Resolve-Path', 'GetFullPath', 'Get-ChildItem',
+        'cache_root', 'environment[\\/]Scripts[\\/]python\.exe',
+        'Set-Location', 'Push-Location', 'Pop-Location'
+    )) {
+        Assert-True ($runnerSource -notmatch $forbiddenPattern) "runner contains forbidden path or execution pattern $forbiddenPattern"
+    }
+
     New-Item -ItemType Directory -Path (Join-Path $seed 'research/sd-prompt-research') -Force | Out-Null
     Copy-Item -LiteralPath $sourceRequirements -Destination (Join-Path $seed 'research/sd-prompt-research/requirements.txt')
     Copy-Item -LiteralPath $sourceLock -Destination (Join-Path $seed 'research/sd-prompt-research/requirements.lock.txt')
@@ -111,10 +126,7 @@ try {
     Assert-True ($watch.ElapsedMilliseconds -le 2000) "warm acquisition exceeded 2 seconds ($($watch.ElapsedMilliseconds) ms)"
     Assert-True (Test-Path -LiteralPath $warm.python_executable -PathType Leaf) 'cached interpreter is absent'
 
-    $opaquePython = [string]$warm.python_executable
-    $consumerPayload = [ordered]@{ python_executable = $opaquePython } | ConvertTo-Json -Compress
-    $consumerPython = [string](($consumerPayload | ConvertFrom-Json).python_executable)
-    Assert-True ($consumerPython -ceq $opaquePython) 'JSON transport changed the opaque cached interpreter identity'
+    $consumerPython = [string]$warm.python_executable
     if ($env:OS -eq 'Windows_NT') {
         Assert-True ($consumerPython.StartsWith('\\?\', [StringComparison]::Ordinal)) 'Windows cached interpreter lost its extended-path identity'
     }
@@ -123,15 +135,15 @@ try {
     $prior = Get-Location
     try {
         Set-Location -LiteralPath $worktreeA
-        $cwd = @(& $consumerPython -B -E -s -c 'import os; print(os.getcwd())')
-        Assert-True ($LASTEXITCODE -eq 0) 'cached interpreter execution failed'
-        Assert-True ([IO.Path]::GetFullPath($cwd[0]).TrimEnd('\', '/') -ceq [IO.Path]::GetFullPath($worktreeA).TrimEnd('\', '/')) 'validation did not execute in assigned worktree'
-
-        $resourceProbe = @(& $consumerPython -B -E -s -c 'import jsonschema; from importlib.resources import files; resource = files("jsonschema_specifications").joinpath("schemas/draft202012/vocabularies/format-annotation"); print(len(str(resource))); print("READABLE" if resource.read_bytes() else "EMPTY")')
-        Assert-True ($LASTEXITCODE -eq 0) 'extended-path package resource probe failed'
-        Assert-True ($resourceProbe.Count -eq 2) 'extended-path package resource probe output is invalid'
-        Assert-True ([int]$resourceProbe[0] -gt 260) 'package resource path did not exercise the extended-path boundary'
-        Assert-True ($resourceProbe[1] -ceq 'READABLE') 'jsonschema specification resource was not readable'
+        $probeCode = 'import json, os, sys, jsonschema; from importlib.resources import files; resource = files("jsonschema_specifications").joinpath("schemas/draft202012/vocabularies/format-annotation"); print(json.dumps({"cwd": os.getcwd(), "python_executable": sys.executable, "resource_length": len(str(resource)), "resource_readable": bool(resource.read_bytes())}, sort_keys=True))'
+        $probeResult = Invoke-LocalFullValidationProcessV1 -Executable $consumerPython -Arguments @('-B', '-E', '-s', '-c', $probeCode)
+        Assert-True ($probeResult.ExitCode -eq 0) 'real runner invocation boundary rejected the exact returned executable'
+        Assert-True ($probeResult.Output.Count -eq 1) 'real runner invocation boundary probe output is invalid'
+        $probe = ($probeResult.Output[0] | ConvertFrom-Json)
+        Assert-True ([string]$probe.python_executable -ceq $consumerPython) 'invoked sys.executable differs from the exact acquisition result'
+        Assert-True ([IO.Path]::GetFullPath([string]$probe.cwd).TrimEnd('\', '/') -ceq [IO.Path]::GetFullPath($worktreeA).TrimEnd('\', '/')) 'validation did not execute in assigned worktree'
+        Assert-True ([int]$probe.resource_length -gt 260) 'package resource path did not exercise the extended-path boundary'
+        Assert-True ($probe.resource_readable -eq $true) 'jsonschema specification resource was not readable'
     }
     finally { Set-Location -LiteralPath $prior }
 
@@ -165,7 +177,9 @@ try {
     }
     finally { [Environment]::SetEnvironmentVariable('PYTHONPATH', $savedPythonPath, 'Process') }
 
-    $sitePackages = @(& $warm.python_executable -B -E -s -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')[0]
+    $sitePackagesResult = Invoke-LocalFullValidationProcessV1 -Executable ([string]$warm.python_executable) -Arguments @('-B', '-E', '-s', '-c', 'import sysconfig; print(sysconfig.get_paths()["purelib"])')
+    Assert-True ($sitePackagesResult.ExitCode -eq 0) 'real runner invocation boundary could not resolve disposable site-packages'
+    $sitePackages = $sitePackagesResult.Output[0]
     [IO.File]::WriteAllText((Join-Path $sitePackages 'repository-injection.pth'), ($worktreeB + "`n"), [Text.UTF8Encoding]::new($false))
     $rebuiltPth = Invoke-Acquire -Helper $helper -Repository $worktreeB -Python $python
     Assert-True ($rebuiltPth.cache_state -eq 'cold') 'repository-bearing pth entry was reused'

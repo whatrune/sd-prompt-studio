@@ -79,6 +79,7 @@ class ValidationProfileTests(unittest.TestCase):
             "research/sd-prompt-research/scripts/select_validation_profile.py",
             "scripts/acquire-python-validation-environment-v1.ps1",
             "scripts/protected-transition-merge-operator-preflight-v1.mjs",
+            "scripts/run-local-full-validation-v1.ps1",
             "scripts/test-python-validation-environment-v1.ps1",
             "scripts/validate-dictionaries.mjs",
         ):
