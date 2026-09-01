@@ -1309,7 +1309,54 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
 const workflow = readFileSync(new URL('../.github/workflows/protected-transition-admission-v1.yml', import.meta.url), 'utf8')
 const workflowDocument = parseDocument(workflow)
 equal(workflowDocument.errors.length, 0)
-const workflowPermissions = workflowDocument.toJS().permissions
+const workflowValue = workflowDocument.toJS()
+const workflowPermissions = workflowValue.permissions
+const protectedTransitionJob = workflowValue.jobs.simplified_protected_transition_v1
+const protectedTransitionSteps = protectedTransitionJob.steps
+const protectedTransitionStepNames = protectedTransitionSteps.map((step) => step.name)
+const expectedProtectedTransitionStepNames = [
+  'Require the immutable default-branch host',
+  'Checkout exact workflow host',
+  'Use Node.js 24',
+  'Enable Corepack',
+  'Install locked Node dependencies',
+  'Smoke import the protected-transition entrypoint',
+  'Evaluate the live protected operation',
+]
+equal(JSON.stringify(protectedTransitionStepNames), JSON.stringify(expectedProtectedTransitionStepNames))
+const corepackStep = protectedTransitionSteps[3]
+const installStep = protectedTransitionSteps[4]
+const importSmokeStep = protectedTransitionSteps[5]
+const liveOperationStep = protectedTransitionSteps[6]
+equal(corepackStep.run.trim(), 'set -euo pipefail\ncorepack enable')
+equal(installStep.run.trim(), 'set -euo pipefail\npnpm install --frozen-lockfile')
+equal(
+  importSmokeStep.run.trim(),
+  'set -euo pipefail\nnode --input-type=module -e "await import(\'./scripts/run-protected-transition-admission-v1.mjs\')"',
+)
+equal(corepackStep.env, undefined)
+equal(installStep.env, undefined)
+equal(importSmokeStep.env, undefined)
+for (const prerequisiteStep of [corepackStep, installStep, importSmokeStep]) {
+  equal(prerequisiteStep.if, undefined)
+  equal(prerequisiteStep['continue-on-error'], undefined)
+}
+equal(Object.keys(liveOperationStep.env).join(','), 'GH_TOKEN')
+equal(liveOperationStep.env.GH_TOKEN, '${{ github.token }}')
+equal(liveOperationStep.if, undefined)
+equal(liveOperationStep['continue-on-error'], undefined)
+equal(protectedTransitionJob.env, undefined)
+equal(workflowValue.env, undefined)
+const credentialBearingSteps = protectedTransitionSteps
+  .filter((step) => Object.keys(step.env ?? {}).some((name) => name === 'GH_TOKEN' || name === 'GITHUB_TOKEN'))
+  .map((step) => step.name)
+equal(JSON.stringify(credentialBearingSteps), JSON.stringify(['Evaluate the live protected operation']))
+equal(workflow.includes('GITHUB_TOKEN'), false)
+const pnpmInstallLines = workflow.split(/\r?\n/)
+  .map((line) => line.trim())
+  .filter((line) => /^pnpm install(?:\s|$)/.test(line))
+equal(JSON.stringify(pnpmInstallLines), JSON.stringify(['pnpm install --frozen-lockfile']))
+equal(workflow.split(/\r?\n/).some((line) => /^\s*npm install(?:\s|$)/.test(line)), false)
 const preflightSource = readFileSync(new URL('./protected-transition-merge-operator-preflight-v1.mjs', import.meta.url), 'utf8')
 const runnerSource = readFileSync(new URL('./run-protected-transition-admission-v1.mjs', import.meta.url), 'utf8')
 const agentsSource = readFileSync(new URL('../AGENTS.md', import.meta.url), 'utf8')
