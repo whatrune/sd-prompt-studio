@@ -38,8 +38,19 @@ const REVIEW_PUBLICATION_GRANT_FIELDS = Object.freeze([
   'head_branch', 'expected_base', 'authorized_paths', 'authorized_actor',
   'permitted_surface', 'review', 'operation_count', 'fallback_allowed',
 ])
+const REVIEW_PUBLICATION_PREDELEGATION_GRANT_FIELDS = Object.freeze([
+  'protected_action', 'activation', 'materialization_only', 'repository',
+  'task_issue', 'head_branch', 'authorized_paths', 'authorized_actor',
+  'permitted_surface', 'required_review', 'operation_count', 'fallback_allowed',
+])
+const REVIEW_PUBLICATION_PREDELEGATION_REVIEW_FIELDS = Object.freeze([
+  'record_type', 'reviewer_role', 'decision', 'blocking', 'remaining', 'unknown',
+])
 const REVIEW_PUBLICATION_FORBIDDEN_CHANGES = Object.freeze([
   'alternate_surface_fallback', 'merge', 'retry',
+])
+const REVIEW_PUBLICATION_PREDELEGATION_FORBIDDEN_CHANGES = Object.freeze([
+  'review_publication_before_fresh_approval', 'alternate_surface_fallback', 'merge', 'retry',
 ])
 const FULL_SHA = /^[0-9a-f]{40}$/u
 const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u
@@ -274,6 +285,18 @@ export const createProductionHostV1 = ({ fetchImpl = globalThis.fetch, token = p
     )
     return response.body
   },
+  patchTaskIssueBody: async ({ repository, taskIssue, body }) => {
+    if (
+      !REPOSITORY.test(repository ?? '') || !Number.isSafeInteger(taskIssue) || taskIssue < 1 ||
+      typeof body !== 'string' || body.length === 0 || body.length > 65_536
+    ) throw new Error('review_assignment_materialization_request_invalid')
+    const response = await request(
+      `${API_ROOT}/repos/${repository}/issues/${taskIssue}`,
+      { method: 'PATCH', body: JSON.stringify({ body }) },
+      { diagnosticOperation: 'REVIEW_ASSIGNMENT_MUTATION', fetchImpl, token },
+    )
+    return response.body
+  },
   mergePullRequest: async ({ repository, prNumber, exactHead }) => {
     if (
       typeof repository !== 'string' || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(repository) ||
@@ -345,25 +368,96 @@ const samePaths = (left, right) => (
 
 const nonEmptyText = (value) => typeof value === 'string' && value.length > 0
 
-const parseReviewPublicationTaskAssignmentV1 = ({ body, request, task, pull, actor, surface }) => {
+const classifyReviewPublicationTaskAssignmentsV1 = (body) => {
   if (typeof body !== 'string' || body.length === 0 || body.length > 65_536) {
     throw new Error('review_publication_authority_required')
   }
   const blocks = [...body.matchAll(/```yaml\r?\n([\s\S]*?)\r?\n```/gu)]
   const candidates = blocks.filter((block) => block[1].includes('REVIEW_AUTHORITY_PUBLICATION'))
-  if (candidates.length === 0) throw new Error('review_publication_authority_required')
-  if (candidates.length !== 1) throw new Error('review_publication_authority_duplicate')
+  const predelegations = []
+  const exactAssignments = []
+  for (const candidate of candidates) {
+    const document = parseDocument(candidate[1], { uniqueKeys: true })
+    if (document.errors.length !== 0) throw new Error('review_publication_authority_malformed')
+    const assignment = document.toJS()
+    const grant = assignment?.allowed_changes
+    if (
+      !exactKeys(assignment, REVIEW_PUBLICATION_ASSIGNMENT_FIELDS) ||
+      grant?.protected_action !== 'REVIEW_AUTHORITY_PUBLICATION'
+    ) throw new Error('review_publication_authority_malformed')
+    if (exactKeys(grant, REVIEW_PUBLICATION_PREDELEGATION_GRANT_FIELDS)) {
+      predelegations.push(assignment)
+    } else if (exactKeys(grant, REVIEW_PUBLICATION_GRANT_FIELDS)) {
+      exactAssignments.push(assignment)
+    } else {
+      throw new Error('review_publication_authority_malformed')
+    }
+  }
+  if (predelegations.length > 1) throw new Error('review_publication_predelegation_duplicate')
+  if (exactAssignments.length > 1) throw new Error('review_publication_authority_duplicate')
+  return Object.freeze({
+    predelegation: predelegations[0] ?? null,
+    exact_assignment: exactAssignments[0] ?? null,
+  })
+}
 
-  const document = parseDocument(candidates[0][1], { uniqueKeys: true })
-  if (document.errors.length !== 0) throw new Error('review_publication_authority_malformed')
-  const assignment = document.toJS()
+const validateReviewPublicationAssignmentCommonV1 = ({ assignment, task, taskUrl }) => {
+  if (
+    task?.user?.login !== 'whatrune' || task?.author_association !== 'OWNER' ||
+    assignment.record_type !== 'task_assignment' ||
+    assignment.authority_source !== taskUrl || assignment.canonical_record !== taskUrl ||
+    assignment.supporting_records !== 'not_applicable' ||
+    assignment.requested_by !== 'Product Owner' ||
+    assignment.assigned_role !== 'Protected Transition Consumer Host' ||
+    !nonEmptyText(assignment.purpose) || !nonEmptyText(assignment.background) ||
+    !nonEmptyText(assignment.input_documents) || !nonEmptyText(assignment.expected_outputs) ||
+    !nonEmptyText(assignment.validation) || !nonEmptyText(assignment.completion_conditions) ||
+    !nonEmptyText(assignment.escalation_conditions) || !Array.isArray(assignment.forbidden_changes)
+  ) throw new Error('review_publication_authority_invalid')
+}
+
+const parseReviewPublicationPredelegationV1 = ({ profiles, request, task, pull, actor, surface }) => {
+  const assignment = profiles.predelegation
+  if (assignment === null) throw new Error('review_publication_predelegation_required')
   const grant = assignment?.allowed_changes
   if (
-    !exactKeys(assignment, REVIEW_PUBLICATION_ASSIGNMENT_FIELDS) ||
-    !exactKeys(grant, REVIEW_PUBLICATION_GRANT_FIELDS)
+    !exactKeys(grant?.required_review, REVIEW_PUBLICATION_PREDELEGATION_REVIEW_FIELDS)
   ) throw new Error('review_publication_authority_malformed')
-
   const taskUrl = `https://github.com/${request.repository}/issues/${request.task_issue}`
+  validateReviewPublicationAssignmentCommonV1({ assignment, task, taskUrl })
+  const expectedReview = parseSimplifiedReviewV1(request.review_body)
+  const requiredReview = grant.required_review
+  if (
+    assignment.task_id !== `TASK-${request.task_issue}-REVIEW-PUBLICATION-PREDELEGATION` ||
+    assignment.authoring_role !== 'Product Owner / Review Publication Predelegator' ||
+    assignment.prior_record_url !== 'not_applicable' ||
+    assignment.cumulative_scope !== 'REVIEW_AUTHORITY_PUBLICATION_PREDELEGATION' ||
+    assignment.forbidden_changes.join('\n') !== REVIEW_PUBLICATION_PREDELEGATION_FORBIDDEN_CHANGES.join('\n') ||
+    grant.activation !== 'FRESH_EXACT_HEAD_REVIEW_APPROVE' || grant.materialization_only !== true ||
+    grant.repository !== request.repository || grant.task_issue !== request.task_issue ||
+    grant.head_branch !== pull?.head?.ref || !samePaths(grant.authorized_paths, request.authorized_paths) ||
+    grant.authorized_actor !== actor?.login || grant.permitted_surface !== surface ||
+    requiredReview.record_type !== expectedReview.record_type ||
+    requiredReview.reviewer_role !== expectedReview.reviewer_role ||
+    requiredReview.decision !== expectedReview.decision ||
+    requiredReview.blocking !== expectedReview.blocking ||
+    requiredReview.remaining !== expectedReview.remaining ||
+    requiredReview.unknown !== expectedReview.unknown ||
+    grant.operation_count !== 1 || grant.fallback_allowed !== false
+  ) throw new Error('review_publication_predelegation_invalid')
+  return Object.freeze({
+    canonical_record: taskUrl,
+    authorized_actor: grant.authorized_actor,
+    permitted_surface: grant.permitted_surface,
+  })
+}
+
+const parseReviewPublicationTaskAssignmentV1 = ({ profiles, request, task, pull, actor, surface }) => {
+  const assignment = profiles.exact_assignment
+  if (assignment === null) throw new Error('review_publication_authority_required')
+  const grant = assignment.allowed_changes
+  const taskUrl = `https://github.com/${request.repository}/issues/${request.task_issue}`
+  validateReviewPublicationAssignmentCommonV1({ assignment, task, taskUrl })
   let serializedReview
   try {
     serializedReview = serializeSimplifiedReviewV1(grant.review)
@@ -371,21 +465,10 @@ const parseReviewPublicationTaskAssignmentV1 = ({ body, request, task, pull, act
     throw new Error('review_publication_authority_invalid')
   }
   if (
-    task?.user?.login !== 'whatrune' || task?.author_association !== 'OWNER' ||
     assignment.task_id !== `TASK-${request.task_issue}-REVIEW-AUTHORITY-PUBLICATION` ||
-    assignment.record_type !== 'task_assignment' ||
     assignment.authoring_role !== 'Product Owner / Review Publication Authorizer' ||
-    assignment.authority_source !== taskUrl || assignment.canonical_record !== taskUrl ||
-    assignment.prior_record_url !== 'not_applicable' ||
+    !['not_applicable', taskUrl].includes(assignment.prior_record_url) ||
     assignment.cumulative_scope !== 'REVIEW_AUTHORITY_PUBLICATION' ||
-    assignment.supporting_records !== 'not_applicable' ||
-    assignment.requested_by !== 'Product Owner' ||
-    assignment.assigned_role !== 'Protected Transition Consumer Host' ||
-    !nonEmptyText(assignment.purpose) || !nonEmptyText(assignment.background) ||
-    !nonEmptyText(assignment.input_documents) || !nonEmptyText(assignment.expected_outputs) ||
-    !nonEmptyText(assignment.validation) || !nonEmptyText(assignment.completion_conditions) ||
-    !nonEmptyText(assignment.escalation_conditions) ||
-    !Array.isArray(assignment.forbidden_changes) ||
     assignment.forbidden_changes.join('\n') !== REVIEW_PUBLICATION_FORBIDDEN_CHANGES.join('\n') ||
     grant.protected_action !== 'REVIEW_AUTHORITY_PUBLICATION' ||
     grant.repository !== request.repository || grant.task_issue !== request.task_issue ||
@@ -402,6 +485,50 @@ const parseReviewPublicationTaskAssignmentV1 = ({ body, request, task, pull, act
     authorized_actor: grant.authorized_actor,
     permitted_surface: grant.permitted_surface,
   })
+}
+
+const exactReviewPublicationAssignmentV1 = ({ request, task, pull, actor, surface }) => {
+  const taskUrl = `https://github.com/${request.repository}/issues/${request.task_issue}`
+  return Object.freeze({
+    task_id: `TASK-${request.task_issue}-REVIEW-AUTHORITY-PUBLICATION`,
+    record_type: 'task_assignment',
+    authoring_role: 'Product Owner / Review Publication Authorizer',
+    authority_source: taskUrl,
+    canonical_record: taskUrl,
+    prior_record_url: taskUrl,
+    cumulative_scope: 'REVIEW_AUTHORITY_PUBLICATION',
+    supporting_records: 'not_applicable',
+    requested_by: 'Product Owner',
+    assigned_role: 'Protected Transition Consumer Host',
+    purpose: 'Authorize one exact Review authority publication.',
+    background: 'Fresh semantic Review completed for the exact current PR HEAD.',
+    input_documents: 'Shared Role Execution Contract and Review Execution Contract.',
+    allowed_changes: Object.freeze({
+      protected_action: 'REVIEW_AUTHORITY_PUBLICATION',
+      repository: request.repository,
+      task_issue: request.task_issue,
+      pull_request: request.pull_request,
+      exact_head: request.exact_head,
+      head_branch: pull.head.ref,
+      expected_base: request.expected_base,
+      authorized_paths: request.authorized_paths,
+      authorized_actor: actor.login,
+      permitted_surface: surface,
+      review: request.review_input,
+      operation_count: 1,
+      fallback_allowed: false,
+    }),
+    forbidden_changes: REVIEW_PUBLICATION_FORBIDDEN_CHANGES,
+    expected_outputs: 'One exact Review authority publication and refetched completion record.',
+    validation: 'Exact live binding and refetch equality.',
+    completion_conditions: 'One valid Review authority or zero-mutation reuse.',
+    escalation_conditions: 'Any authority, identity, surface, or publication mismatch.',
+  })
+}
+
+const appendReviewPublicationAssignmentV1 = ({ body, assignment }) => {
+  const separator = body.endsWith('\n') ? '\n' : '\n\n'
+  return `${body}${separator}\`\`\`yaml\n${JSON.stringify(assignment, null, 2)}\n\`\`\`\n`
 }
 
 const acquirePagedItems = async ({ host, route }) => {
@@ -507,7 +634,8 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
   request = validateReviewRoutingRequest(request)
   if (
     host === null || typeof host !== 'object' || typeof host.api !== 'function' ||
-    typeof host.publishPullRequestReview !== 'function' || typeof host.publishTaskIssueComment !== 'function'
+    typeof host.publishPullRequestReview !== 'function' || typeof host.publishTaskIssueComment !== 'function' ||
+    typeof host.patchTaskIssueBody !== 'function'
   ) throw new Error('review_publication_host_invalid')
 
   const acquireLiveBinding = async () => {
@@ -546,20 +674,25 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
   let authorities = await acquireCurrentReviewAuthorities({
     host, request, pull: live.pull, expectedBody: request.review_body,
   })
+  let assignmentMutationCount = 0
   let mutationCount = 0
   let publicationRoute = 'REUSED'
   let publicationAuthority = null
   if (authorities.length === 0) {
     const selfAuthored = live.actor.login === live.pull.user?.login
     publicationRoute = selfAuthored ? 'TASK_ISSUE_COMMENT' : 'PULL_REQUEST_REVIEW'
-    publicationAuthority = parseReviewPublicationTaskAssignmentV1({
-      body: live.task.body,
-      request,
-      task: live.task,
-      pull: live.pull,
-      actor: live.actor,
-      surface: publicationRoute,
-    })
+    let expectedTaskBody = live.task.body
+    let profiles = classifyReviewPublicationTaskAssignmentsV1(expectedTaskBody)
+    const initialExactAssignmentPresent = profiles.exact_assignment !== null
+    if (profiles.exact_assignment !== null) {
+      publicationAuthority = parseReviewPublicationTaskAssignmentV1({
+        profiles, request, task: live.task, pull: live.pull, actor: live.actor, surface: publicationRoute,
+      })
+    } else {
+      parseReviewPublicationPredelegationV1({
+        profiles, request, task: live.task, pull: live.pull, actor: live.actor, surface: publicationRoute,
+      })
+    }
 
     try {
       live = await acquireLiveBinding()
@@ -568,19 +701,80 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
     }
     const finalSelfAuthored = live.actor.login === live.pull.user?.login
     const finalRoute = finalSelfAuthored ? 'TASK_ISSUE_COMMENT' : 'PULL_REQUEST_REVIEW'
-    publicationAuthority = parseReviewPublicationTaskAssignmentV1({
-      body: live.task.body,
-      request,
-      task: live.task,
-      pull: live.pull,
-      actor: live.actor,
-      surface: finalRoute,
-    })
-    if (finalRoute !== publicationRoute) throw new Error('review_publication_final_binding_invalid')
 
     authorities = await acquireCurrentReviewAuthorities({
       host, request, pull: live.pull, expectedBody: request.review_body,
     })
+
+    if (authorities.length === 0) {
+      profiles = classifyReviewPublicationTaskAssignmentsV1(live.task.body)
+      if (profiles.exact_assignment !== null) {
+        publicationAuthority = parseReviewPublicationTaskAssignmentV1({
+          profiles, request, task: live.task, pull: live.pull, actor: live.actor, surface: finalRoute,
+        })
+        expectedTaskBody = live.task.body
+      } else {
+        if (initialExactAssignmentPresent) throw new Error('review_publication_authority_required')
+        parseReviewPublicationPredelegationV1({
+          profiles, request, task: live.task, pull: live.pull, actor: live.actor, surface: finalRoute,
+        })
+        if (finalRoute !== publicationRoute) throw new Error('review_publication_final_binding_invalid')
+        if (live.task.body !== expectedTaskBody) throw new Error('review_assignment_materialization_final_binding_invalid')
+
+        const assignment = exactReviewPublicationAssignmentV1({
+          request, task: live.task, pull: live.pull, actor: live.actor, surface: publicationRoute,
+        })
+        const materializedBody = appendReviewPublicationAssignmentV1({ body: expectedTaskBody, assignment })
+        if (materializedBody.length > 65_536) throw new Error('review_assignment_materialization_body_invalid')
+        assignmentMutationCount = 1
+        const patched = await host.patchTaskIssueBody({
+          repository: request.repository,
+          taskIssue: request.task_issue,
+          body: materializedBody,
+        })
+        const taskUrl = `https://github.com/${request.repository}/issues/${request.task_issue}`
+        if (
+          patched?.number !== request.task_issue || patched?.html_url !== taskUrl ||
+          patched?.user?.login !== live.task.user.login || patched?.body !== materializedBody
+        ) throw new Error('review_assignment_materialization_response_invalid')
+        const refetched = await host.api(`repos/${request.repository}/issues/${request.task_issue}`)
+        if (
+          refetched?.number !== request.task_issue || refetched?.html_url !== taskUrl ||
+          refetched?.user?.login !== live.task.user.login || refetched?.state !== 'open' ||
+          refetched?.body !== materializedBody
+        ) throw new Error('review_assignment_materialization_refetch_mismatch')
+        profiles = classifyReviewPublicationTaskAssignmentsV1(refetched.body)
+        parseReviewPublicationPredelegationV1({
+          profiles, request, task: refetched, pull: live.pull, actor: live.actor, surface: publicationRoute,
+        })
+        publicationAuthority = parseReviewPublicationTaskAssignmentV1({
+          profiles, request, task: refetched, pull: live.pull, actor: live.actor, surface: publicationRoute,
+        })
+        live = Object.freeze({ ...live, task: refetched })
+        expectedTaskBody = materializedBody
+      }
+
+      let reviewLive
+      try {
+        reviewLive = await acquireLiveBinding()
+      } catch {
+        throw new Error('review_publication_final_binding_invalid')
+      }
+      const reviewSelfAuthored = reviewLive.actor.login === reviewLive.pull.user?.login
+      const reviewRoute = reviewSelfAuthored ? 'TASK_ISSUE_COMMENT' : 'PULL_REQUEST_REVIEW'
+      if (reviewRoute !== publicationRoute || reviewLive.task.body !== expectedTaskBody) {
+        throw new Error('review_publication_final_binding_invalid')
+      }
+      profiles = classifyReviewPublicationTaskAssignmentsV1(reviewLive.task.body)
+      publicationAuthority = parseReviewPublicationTaskAssignmentV1({
+        profiles, request, task: reviewLive.task, pull: reviewLive.pull,
+        actor: reviewLive.actor, surface: reviewRoute,
+      })
+      live = reviewLive
+      authorities = await acquireCurrentReviewAuthorities({
+        host, request, pull: live.pull, expectedBody: request.review_body,
+      })
+    }
   }
 
   if (authorities.length === 0) {
@@ -635,6 +829,7 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
   return Object.freeze({
     state: 'MERGE_READY',
     publication_route: publicationRoute,
+    assignment_materialization_mutation_count: assignmentMutationCount,
     publication_mutation_count: mutationCount,
     review_kind: authority.review_kind,
     review_id: authority.review_id,

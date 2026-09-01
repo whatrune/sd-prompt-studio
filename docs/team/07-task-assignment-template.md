@@ -91,3 +91,9 @@ git diff --check
 - Product Owner approval required:
 - Next owner:
 ````
+
+## Review-publication predelegation profile
+
+When the Product Owner predelegates later exact Review-publication assignment materialization, the complete Canonical Task body contains exactly one additional `task_assignment` profile. Its `allowed_changes` binds `protected_action: REVIEW_AUTHORITY_PUBLICATION`, `activation: FRESH_EXACT_HEAD_REVIEW_APPROVE`, `materialization_only: true`, repository, Task, branch, cumulative authorized paths, authenticated actor, exactly one permitted surface, the required `APPROVE / 0 / 0 / 0` result, `operation_count: 1`, and `fallback_allowed: false`. It contains no PR, HEAD, or base and cannot itself authorize Review publication.
+
+After the activation predicate passes, the consumer may append at most one exact assignment to the same cumulative Task Issue body. The exact assignment uses the Task Issue URL as `authority_source` and `canonical_record`, links `prior_record_url` to that Task resource, and binds the freshly acquired PR, HEAD, base, branch, scope, actor, surface, and closed Review. Existing Task Authority and predelegation bytes remain unchanged. Duplicate profiles, a stale exact assignment, body drift, or an ambiguous PATCH stop without retry.

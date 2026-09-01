@@ -257,17 +257,97 @@ const reviewPublicationAssignment = ({
   ...topOverrides,
 })
 
+const reviewPublicationPredelegation = ({
+  actor = 'whatrune',
+  surface = 'TASK_ISSUE_COMMENT',
+  topOverrides = {},
+  grantOverrides = {},
+} = {}) => ({
+  task_id: `TASK-${TASK}-REVIEW-PUBLICATION-PREDELEGATION`,
+  record_type: 'task_assignment',
+  authoring_role: 'Product Owner / Review Publication Predelegator',
+  authority_source: `https://github.com/${REPOSITORY}/issues/${TASK}`,
+  canonical_record: `https://github.com/${REPOSITORY}/issues/${TASK}`,
+  prior_record_url: 'not_applicable',
+  cumulative_scope: 'REVIEW_AUTHORITY_PUBLICATION_PREDELEGATION',
+  supporting_records: 'not_applicable',
+  requested_by: 'Product Owner',
+  assigned_role: 'Protected Transition Consumer Host',
+  purpose: 'Predelegate one exact Review-publication assignment materialization.',
+  background: 'Exact PR, HEAD, and base are derived only after Fresh Review approval.',
+  input_documents: 'Shared Role Execution Contract and Review Execution Contract.',
+  allowed_changes: {
+    protected_action: 'REVIEW_AUTHORITY_PUBLICATION',
+    activation: 'FRESH_EXACT_HEAD_REVIEW_APPROVE',
+    materialization_only: true,
+    repository: REPOSITORY,
+    task_issue: TASK,
+    head_branch: BRANCH,
+    authorized_paths: PATHS,
+    authorized_actor: actor,
+    permitted_surface: surface,
+    required_review: {
+      record_type: 'simplified_independent_review_v1',
+      reviewer_role: 'INDEPENDENT_REVIEWER',
+      decision: 'APPROVE',
+      blocking: 0,
+      remaining: 0,
+      unknown: 0,
+    },
+    operation_count: 1,
+    fallback_allowed: false,
+    ...grantOverrides,
+  },
+  forbidden_changes: [
+    'review_publication_before_fresh_approval', 'alternate_surface_fallback', 'merge', 'retry',
+  ],
+  expected_outputs: 'One exact assignment followed by Review publication or reuse.',
+  validation: 'Fresh binding, cardinality, and refetch equality.',
+  completion_conditions: 'One exact assignment or zero-mutation reuse.',
+  escalation_conditions: 'Any stale identity, duplicate, conflict, or ambiguous mutation.',
+  ...topOverrides,
+})
+
 const taskBodyWithReviewPublicationAssignment = (options = {}) => (
   `${serializeSimplifiedTaskAuthorityV1(taskInput)}\n\`\`\`yaml\n${JSON.stringify(reviewPublicationAssignment(options), null, 2)}\n\`\`\`\n`
 )
+
+const taskBodyWithReviewPublicationRecords = ({
+  includePredelegation = false,
+  includeAuthority = false,
+  actor = 'whatrune',
+  surface = 'TASK_ISSUE_COMMENT',
+  predelegationTopOverrides = {},
+  predelegationGrantOverrides = {},
+  authorityTopOverrides = {},
+  authorityGrantOverrides = {},
+} = {}) => {
+  const blocks = []
+  if (includePredelegation) {
+    blocks.push(reviewPublicationPredelegation({
+      actor, surface, topOverrides: predelegationTopOverrides, grantOverrides: predelegationGrantOverrides,
+    }))
+  }
+  if (includeAuthority) {
+    blocks.push(reviewPublicationAssignment({
+      actor, surface, topOverrides: authorityTopOverrides, grantOverrides: authorityGrantOverrides,
+    }))
+  }
+  return `${serializeSimplifiedTaskAuthorityV1(taskInput)}${blocks.map((record) => (
+    `\n\`\`\`yaml\n${JSON.stringify(record, null, 2)}\n\`\`\`\n`
+  )).join('')}`
+}
 
 const createReviewRoutingFixture = ({
   actor = 'whatrune',
   pullAuthor = 'whatrune',
   existing = [],
   includeAuthority = true,
+  includePredelegation = false,
   authorityTopOverrides = {},
   authorityGrantOverrides = {},
+  predelegationTopOverrides = {},
+  predelegationGrantOverrides = {},
   authorityBody = null,
   issueAuthorAssociation = 'OWNER',
   finalActor = actor,
@@ -276,6 +356,8 @@ const createReviewRoutingFixture = ({
   finalAuthorityBody = null,
   authorityAppearsBeforeMutation = false,
   publicationError = null,
+  assignmentPatchError = null,
+  assignmentRefetchMismatch = false,
   refetchMismatch = false,
   refetchActorMismatch = false,
 } = {}) => {
@@ -291,6 +373,10 @@ const createReviewRoutingFixture = ({
     pullReads: 0,
     mainReads: 0,
     taskCommentListReads: 0,
+    assignmentPatchMutations: 0,
+    assignmentPatchBodies: [],
+    taskBodyWasPatched: false,
+    assignmentMismatchDelivered: false,
   }
   const pullReviewResource = (id, body = expectedBody) => ({
     id,
@@ -325,15 +411,31 @@ const createReviewRoutingFixture = ({
         state.taskReads += 1
         const task = await base.host.api(route)
         const surface = actor === pullAuthor ? 'TASK_ISSUE_COMMENT' : 'PULL_REQUEST_REVIEW'
-        const initialBody = authorityBody ?? (includeAuthority
-          ? taskBodyWithReviewPublicationAssignment({
-              actor, surface, topOverrides: authorityTopOverrides, grantOverrides: authorityGrantOverrides,
-            })
-          : task.body)
+        const initialBody = authorityBody ?? taskBodyWithReviewPublicationRecords({
+          includePredelegation,
+          includeAuthority,
+          actor,
+          surface,
+          predelegationTopOverrides,
+          predelegationGrantOverrides,
+          authorityTopOverrides,
+          authorityGrantOverrides,
+        })
+        if (state.taskBody === undefined) state.taskBody = initialBody
+        let body = state.taskBody
+        if (!state.taskBodyWasPatched && state.taskReads > 1 && finalAuthorityBody !== null) {
+          body = finalAuthorityBody
+        } else if (
+          state.taskBodyWasPatched && assignmentRefetchMismatch && !state.assignmentMismatchDelivered
+        ) {
+          state.assignmentMismatchDelivered = true
+          body = `${state.taskBody}\n`
+        }
         return {
           ...task,
+          html_url: `https://github.com/${REPOSITORY}/issues/${TASK}`,
           author_association: issueAuthorAssociation,
-          body: state.taskReads === 1 || finalAuthorityBody === null ? initialBody : finalAuthorityBody,
+          body,
         }
       }
       if (route === `repos/${REPOSITORY}/pulls/${PR}`) {
@@ -393,6 +495,24 @@ const createReviewRoutingFixture = ({
       const resource = taskCommentResource(9302, body)
       state.taskComments.push(resource)
       return resource
+    },
+    async patchTaskIssueBody({ repository, taskIssue, body }) {
+      state.assignmentPatchMutations += 1
+      state.assignmentPatchBodies.push(body)
+      if (assignmentPatchError !== null) throw assignmentPatchError
+      if (repository !== REPOSITORY || taskIssue !== TASK || typeof body !== 'string') {
+        throw new Error('unexpected_task_body_patch')
+      }
+      state.taskBody = body
+      state.taskBodyWasPatched = true
+      return {
+        number: TASK,
+        state: 'open',
+        html_url: `https://github.com/${REPOSITORY}/issues/${TASK}`,
+        author_association: 'OWNER',
+        user: { login: 'whatrune' },
+        body,
+      }
     },
     graphql: (...values) => base.host.graphql(...values),
   }
@@ -684,8 +804,77 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
   const fixture = createReviewRoutingFixture({ includeAuthority: false })
   equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
     request: reviewRoutingInput(), host: fixture.host,
-  }))).message, 'review_publication_authority_required')
+  }))).message, 'review_publication_predelegation_required')
   equal(fixture.state.taskCommentMutations + fixture.state.pullReviewMutations, 0)
+}
+
+// One predelegation materializes one deterministic exact Task-body assignment before Review publication.
+{
+  const fixture = createReviewRoutingFixture({ includeAuthority: false, includePredelegation: true })
+  const initialBody = taskBodyWithReviewPublicationRecords({ includePredelegation: true })
+  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: fixture.host })
+  equal(result.state, 'MERGE_READY')
+  equal(result.assignment_materialization_mutation_count, 1)
+  equal(result.publication_mutation_count, 1)
+  equal(fixture.state.assignmentPatchMutations, 1)
+  equal(fixture.state.taskCommentMutations, 1)
+  equal(fixture.state.pullReviewMutations, 0)
+  equal(fixture.state.assignmentPatchBodies.length, 1)
+  equal(fixture.state.assignmentPatchBodies[0].slice(0, initialBody.length), initialBody)
+  const yamlBlocks = [...fixture.state.assignmentPatchBodies[0].matchAll(/```yaml\r?\n([\s\S]*?)\r?\n```/gu)]
+  equal(yamlBlocks.length, 2)
+  const materialized = parseDocument(yamlBlocks[1][1], { uniqueKeys: true }).toJS()
+  equal(materialized.record_type, 'task_assignment')
+  equal(materialized.authority_source, `https://github.com/${REPOSITORY}/issues/${TASK}`)
+  equal(materialized.canonical_record, `https://github.com/${REPOSITORY}/issues/${TASK}`)
+  equal(materialized.prior_record_url, `https://github.com/${REPOSITORY}/issues/${TASK}`)
+  equal(materialized.allowed_changes.pull_request, PR)
+  equal(materialized.allowed_changes.exact_head, HEAD)
+  equal(materialized.allowed_changes.expected_base, BASE)
+  equal(materialized.allowed_changes.operation_count, 1)
+  equal(materialized.allowed_changes.fallback_allowed, false)
+  equal(result.publication_authority_record, `https://github.com/${REPOSITORY}/issues/${TASK}`)
+
+  const repeatedFixture = createReviewRoutingFixture({ includeAuthority: false, includePredelegation: true })
+  await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: repeatedFixture.host })
+  equal(repeatedFixture.state.assignmentPatchBodies[0], fixture.state.assignmentPatchBodies[0])
+}
+
+// The structural profiles coexist without substring-based false duplicate detection.
+{
+  const fixture = createReviewRoutingFixture({ includeAuthority: true, includePredelegation: true })
+  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: fixture.host })
+  equal(result.state, 'MERGE_READY')
+  equal(result.assignment_materialization_mutation_count, 0)
+  equal(result.publication_mutation_count, 1)
+  equal(fixture.state.assignmentPatchMutations, 0)
+  equal(fixture.state.taskCommentMutations, 1)
+}
+
+// Existing exact Review authority bypasses assignment materialization entirely.
+{
+  const fixture = createReviewRoutingFixture({
+    existing: [{ kind: 'TASK_ISSUE_COMMENT' }], includeAuthority: false, includePredelegation: true,
+  })
+  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: fixture.host })
+  equal(result.publication_route, 'REUSED')
+  equal(result.assignment_materialization_mutation_count, 0)
+  equal(result.publication_mutation_count, 0)
+  equal(fixture.state.assignmentPatchMutations, 0)
+  equal(fixture.state.taskCommentMutations, 0)
+}
+
+// A concurrently materialized exact assignment is reused with zero Task-body mutation.
+{
+  const finalBody = taskBodyWithReviewPublicationRecords({ includePredelegation: true, includeAuthority: true })
+  const fixture = createReviewRoutingFixture({
+    includeAuthority: false, includePredelegation: true, finalAuthorityBody: finalBody,
+  })
+  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: fixture.host })
+  equal(result.state, 'MERGE_READY')
+  equal(result.assignment_materialization_mutation_count, 0)
+  equal(fixture.state.assignmentPatchMutations, 0)
+  equal(fixture.state.taskCommentMutations, 1)
 }
 
 // An exact Product Owner Task Assignment admits the self-authored compatibility surface.
@@ -836,6 +1025,90 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
     request: reviewRoutingInput(), host: malformed.host,
   }))).message, 'review_publication_authority_malformed')
   equal(malformed.state.pullReviewMutations + malformed.state.taskCommentMutations, 0)
+}
+
+// Predelegation and exact-assignment cardinality are independent and fail closed.
+{
+  const predelegationBody = taskBodyWithReviewPublicationRecords({ includePredelegation: true })
+  const predelegationBlock = predelegationBody.slice(predelegationBody.indexOf('```yaml'))
+  const duplicate = createReviewRoutingFixture({
+    includeAuthority: false,
+    authorityBody: `${predelegationBody}\n${predelegationBlock}`,
+  })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: duplicate.host,
+  }))).message, 'review_publication_predelegation_duplicate')
+  equal(duplicate.state.assignmentPatchMutations, 0)
+  equal(duplicate.state.pullReviewMutations + duplicate.state.taskCommentMutations, 0)
+
+  const invalid = createReviewRoutingFixture({
+    includeAuthority: false,
+    includePredelegation: true,
+    predelegationGrantOverrides: { activation: 'IMMEDIATE' },
+  })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: invalid.host,
+  }))).message, 'review_publication_predelegation_invalid')
+  equal(invalid.state.assignmentPatchMutations, 0)
+  equal(invalid.state.pullReviewMutations + invalid.state.taskCommentMutations, 0)
+
+  const stale = createReviewRoutingFixture({
+    includeAuthority: true,
+    includePredelegation: true,
+    authorityGrantOverrides: { exact_head: BASE },
+  })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: stale.host,
+  }))).message, 'review_publication_authority_invalid')
+  equal(stale.state.assignmentPatchMutations, 0)
+  equal(stale.state.pullReviewMutations + stale.state.taskCommentMutations, 0)
+}
+
+// Drift before Task-body PATCH produces zero mutation and never absorbs unrelated body changes.
+{
+  const headDrift = createReviewRoutingFixture({
+    includeAuthority: false, includePredelegation: true, finalHead: '4'.repeat(40),
+  })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: headDrift.host,
+  }))).message, 'review_publication_final_binding_invalid')
+  equal(headDrift.state.assignmentPatchMutations, 0)
+  equal(headDrift.state.pullReviewMutations + headDrift.state.taskCommentMutations, 0)
+
+  const initialBody = taskBodyWithReviewPublicationRecords({ includePredelegation: true })
+  const bodyDrift = createReviewRoutingFixture({
+    includeAuthority: false,
+    includePredelegation: true,
+    finalAuthorityBody: `${initialBody}\n`,
+  })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: bodyDrift.host,
+  }))).message, 'review_assignment_materialization_final_binding_invalid')
+  equal(bodyDrift.state.assignmentPatchMutations, 0)
+  equal(bodyDrift.state.pullReviewMutations + bodyDrift.state.taskCommentMutations, 0)
+}
+
+// An ambiguous PATCH or post-PATCH mismatch is terminal and receives no Review publication.
+{
+  const ambiguous = createReviewRoutingFixture({
+    includeAuthority: false,
+    includePredelegation: true,
+    assignmentPatchError: new Error('github_mutation_request_failed'),
+  })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: ambiguous.host,
+  }))).message, 'github_mutation_request_failed')
+  equal(ambiguous.state.assignmentPatchMutations, 1)
+  equal(ambiguous.state.pullReviewMutations + ambiguous.state.taskCommentMutations, 0)
+
+  const mismatch = createReviewRoutingFixture({
+    includeAuthority: false, includePredelegation: true, assignmentRefetchMismatch: true,
+  })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: mismatch.host,
+  }))).message, 'review_assignment_materialization_refetch_mismatch')
+  equal(mismatch.state.assignmentPatchMutations, 1)
+  equal(mismatch.state.pullReviewMutations + mismatch.state.taskCommentMutations, 0)
 }
 
 // HEAD/base/actor are read again immediately before the publication mutation.
@@ -1017,12 +1290,16 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
     repository: REPOSITORY, prNumber: PR, exactHead: HEAD, body: reviewBody,
   })
   await host.publishTaskIssueComment({ repository: REPOSITORY, taskIssue: TASK, body: reviewBody })
+  await host.patchTaskIssueBody({ repository: REPOSITORY, taskIssue: TASK, body: taskBody })
   equal(observed[0].url, `https://api.github.com/repos/${REPOSITORY}/pulls/${PR}/reviews`)
   equal(observed[0].options.method, 'POST')
   equal(observed[0].options.body, JSON.stringify({ body: reviewBody, event: 'APPROVE', commit_id: HEAD }))
   equal(observed[1].url, `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}/comments`)
   equal(observed[1].options.method, 'POST')
   equal(observed[1].options.body, JSON.stringify({ body: reviewBody }))
+  equal(observed[2].url, `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`)
+  equal(observed[2].options.method, 'PATCH')
+  equal(observed[2].options.body, JSON.stringify({ body: taskBody }))
 }
 {
   let observedAuthorization = null
@@ -1313,6 +1590,8 @@ const workflowPermissions = workflowDocument.toJS().permissions
 const preflightSource = readFileSync(new URL('./protected-transition-merge-operator-preflight-v1.mjs', import.meta.url), 'utf8')
 const runnerSource = readFileSync(new URL('./run-protected-transition-admission-v1.mjs', import.meta.url), 'utf8')
 const agentsSource = readFileSync(new URL('../AGENTS.md', import.meta.url), 'utf8')
+const automationSource = readFileSync(new URL('../docs/automation/00-automation-overview.md', import.meta.url), 'utf8')
+const assignmentTemplateSource = readFileSync(new URL('../docs/team/07-task-assignment-template.md', import.meta.url), 'utf8')
 const integratedLeadSource = readFileSync(new URL('../docs/team/08-integrated-lead-charter.md', import.meta.url), 'utf8')
 const sharedRoleSource = readFileSync(new URL('../docs/team/13-shared-role-execution-contract.md', import.meta.url), 'utf8')
 ok(workflow.includes('simplified_protected_transition_v1:'))
@@ -1337,6 +1616,10 @@ ok(runnerSource.includes("valueAfter('--pre-decision-preflight-file')"))
 ok(runnerSource.includes('acquireSimplifiedPreDecisionPreflightV1'))
 ok(runnerSource.includes("args.includes('--publication-body-output-file')"))
 ok(runnerSource.includes('writeProtectedPublicationBodyFileV1'))
+ok(runnerSource.includes("method: 'PATCH'"))
+ok(runnerSource.includes("diagnosticOperation: 'REVIEW_ASSIGNMENT_MUTATION'"))
+ok(runnerSource.includes('review_publication_predelegation_duplicate'))
+ok(runnerSource.includes('assignment_materialization_mutation_count'))
 equal(runnerSource.includes(".join(' ')"), false)
 ok(agentsSource.includes('## Immediate Terminal Continuation'))
 ok(agentsSource.includes('wait_threads'))
@@ -1345,6 +1628,10 @@ ok(agentsSource.includes('at most 10 seconds'))
 ok(integratedLeadSource.includes('checks PASS dispatches Fresh Review'))
 ok(integratedLeadSource.includes('correction checks PASS dispatches replacement Fresh Review'))
 ok(integratedLeadSource.includes('read-only pre-Decision preflight'))
+ok(integratedLeadSource.includes('materialization-only predelegation'))
+ok(automationSource.includes('cardinalities `1` and `0..1`'))
+ok(assignmentTemplateSource.includes('FRESH_EXACT_HEAD_REVIEW_APPROVE'))
+ok(sharedRoleSource.includes('append exactly one exact assignment'))
 ok(sharedRoleSource.includes('Timeout, nonterminal state, stale HEAD, and identity mismatch prohibit stage advance'))
 ok(sharedRoleSource.includes('zero active unresolved non-outdated threads'))
 equal((preflightSource.match(/const initial = await acquireLiveSnapshot/g) ?? []).length, 1)
