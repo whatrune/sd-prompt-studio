@@ -84,6 +84,19 @@ function Test-PathWithin {
     )
 }
 
+function Test-IsLinkOrReparsePoint {
+    param(
+        [Parameter(Mandatory = $true)]
+        [psobject]$Item
+    )
+
+    return (
+        ($Item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+        -not [string]::IsNullOrEmpty([string]$Item.LinkType) -or
+        $null -ne $Item.Target
+    )
+}
+
 function Assert-NoReparseAncestor {
     param(
         [Parameter(Mandatory = $true)]
@@ -106,7 +119,7 @@ function Assert-NoReparseAncestor {
     }
     foreach ($candidate in $pathsToCheck) {
         $item = Get-Item -LiteralPath $candidate -Force -ErrorAction Stop
-        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        if (Test-IsLinkOrReparsePoint -Item $item) {
             throw 'worktree_cleanup_reparse_ancestor_present'
         }
     }
@@ -147,164 +160,6 @@ function Get-RegisteredWorktreePaths {
             Where-Object { $_.StartsWith('worktree ', [StringComparison]::Ordinal) } |
             ForEach-Object { Get-NormalizedPath -Path $_.Substring(9) }
     )
-}
-
-function Get-ActivePathOwnerCount {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Path
-    )
-
-    try {
-        if ($IsWindows) {
-            $commandLineOwners = @(
-                Get-CimInstance Win32_Process |
-                    Where-Object {
-                        $_.ProcessId -ne $PID -and
-                        -not [string]::IsNullOrEmpty($_.CommandLine) -and
-                            $_.CommandLine.IndexOf($Path, [StringComparison]::OrdinalIgnoreCase) -ge 0
-                    }
-            ).Count
-            if ($commandLineOwners -ne 0) {
-                return $commandLineOwners
-            }
-
-            if ($null -eq ('WorktreeCleanup.NativePathProbe' -as [type])) {
-                Add-Type -TypeDefinition @'
-using System;
-using System.Runtime.InteropServices;
-using Microsoft.Win32.SafeHandles;
-
-namespace WorktreeCleanup {
-    public static class NativePathProbe {
-        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        private static extern SafeFileHandle CreateFileW(
-            string fileName,
-            uint desiredAccess,
-            uint shareMode,
-            IntPtr securityAttributes,
-            uint creationDisposition,
-            uint flagsAndAttributes,
-            IntPtr templateFile);
-
-        public static int OpenExclusive(string path) {
-            const uint GenericRead = 0x80000000;
-            const uint OpenExisting = 3;
-            const uint FileFlagBackupSemantics = 0x02000000;
-            const uint FileFlagOpenReparsePoint = 0x00200000;
-            using (SafeFileHandle handle = CreateFileW(
-                path,
-                GenericRead,
-                0,
-                IntPtr.Zero,
-                OpenExisting,
-                FileFlagBackupSemantics | FileFlagOpenReparsePoint,
-                IntPtr.Zero)) {
-                return handle.IsInvalid ? Marshal.GetLastWin32Error() : 0;
-            }
-        }
-    }
-}
-'@
-            }
-
-            $probePaths = @($Path)
-            try {
-                $probePaths += @(
-                    Get-ChildItem -LiteralPath $Path -Force -Recurse -ErrorAction Stop |
-                        ForEach-Object { $_.FullName }
-                )
-            }
-            catch [System.IO.IOException] {
-                return 1
-            }
-            foreach ($probePath in $probePaths) {
-                $errorCode = [WorktreeCleanup.NativePathProbe]::OpenExclusive($probePath)
-                if ($errorCode -in @(32, 33)) {
-                    return 1
-                }
-                if ($errorCode -ne 0) {
-                    throw 'worktree_cleanup_active_process_check_failed'
-                }
-            }
-            return 0
-        }
-
-        if (Test-Path -LiteralPath '/proc' -PathType Container) {
-            $selfStatus = Get-Content -LiteralPath '/proc/self/status' -ErrorAction Stop
-            $selfUidLine = @($selfStatus | Where-Object { $_.StartsWith('Uid:', [StringComparison]::Ordinal) })
-            if ($selfUidLine.Count -ne 1) {
-                throw 'worktree_cleanup_active_process_check_failed'
-            }
-            $selfUid = @($selfUidLine[0] -split '\s+' | Where-Object { $_ -match '^\d+$' })[0]
-            $count = 0
-            foreach ($processDirectory in Get-ChildItem -LiteralPath '/proc' -Directory -ErrorAction Stop) {
-                if ($processDirectory.Name -notmatch '^\d+$' -or [int]$processDirectory.Name -eq $PID) {
-                    continue
-                }
-                try {
-                    $status = Get-Content -LiteralPath (Join-Path $processDirectory.FullName 'status') -ErrorAction Stop
-                    $uidLine = @($status | Where-Object { $_.StartsWith('Uid:', [StringComparison]::Ordinal) })
-                    if ($uidLine.Count -ne 1) {
-                        throw 'worktree_cleanup_active_process_check_failed'
-                    }
-                    $processUid = @($uidLine[0] -split '\s+' | Where-Object { $_ -match '^\d+$' })[0]
-                    if ($processUid -cne $selfUid) {
-                        continue
-                    }
-                    $stateLine = @($status | Where-Object { $_.StartsWith('State:', [StringComparison]::Ordinal) })
-                    if ($stateLine.Count -eq 1 -and $stateLine[0] -match '^State:\s+Z') {
-                        continue
-                    }
-
-                    $ownerTargets = @()
-                    $cwdItem = Get-Item -LiteralPath (Join-Path $processDirectory.FullName 'cwd') -Force -ErrorAction Stop
-                    $ownerTargets += @($cwdItem.Target)
-                    $fdDirectory = Join-Path $processDirectory.FullName 'fd'
-                    foreach ($descriptor in Get-ChildItem -LiteralPath $fdDirectory -Force -ErrorAction Stop) {
-                        $ownerTargets += @($descriptor.Target)
-                    }
-                    foreach ($ownerTarget in $ownerTargets) {
-                        $targetText = [string]$ownerTarget
-                        if ($targetText.EndsWith(' (deleted)', [StringComparison]::Ordinal)) {
-                            $targetText = $targetText.Substring(0, $targetText.Length - 10)
-                        }
-                        if ([IO.Path]::IsPathRooted($targetText) -and (Test-PathWithin -Candidate $targetText -Container $Path)) {
-                            $count += 1
-                            break
-                        }
-                    }
-                    if ($count -ne 0) {
-                        return 1
-                    }
-
-                    $commandLinePath = Join-Path $processDirectory.FullName 'cmdline'
-                    $commandLine = [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($commandLinePath)).Replace("`0", ' ')
-                    if ($commandLine.Contains($Path, [StringComparison]::Ordinal)) {
-                        $count += 1
-                    }
-                }
-                catch {
-                    if (-not (Test-Path -LiteralPath $processDirectory.FullName)) {
-                        continue
-                    }
-                    if ($_.Exception.Message -eq 'worktree_cleanup_active_process_check_failed') {
-                        throw
-                    }
-                    throw 'worktree_cleanup_active_process_check_failed'
-                }
-            }
-            return $count
-        }
-
-        throw 'worktree_cleanup_active_process_check_unavailable'
-    }
-    catch {
-        if ($_.Exception.Message -eq 'worktree_cleanup_active_process_check_unavailable') {
-            throw
-        }
-        throw 'worktree_cleanup_active_process_check_failed'
-    }
 }
 
 function Get-BranchRefDigest {
@@ -383,11 +238,8 @@ function Remove-VerifiedResidualPath {
         throw 'worktree_cleanup_residual_still_registered'
     }
 
-    if ((Get-ActivePathOwnerCount -Path $retired) -ne 0) {
-        throw 'worktree_cleanup_residual_active_process'
-    }
     $targetItem = Get-Item -LiteralPath $retired -Force
-    if (-not $targetItem.PSIsContainer -or ($targetItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+    if (-not $targetItem.PSIsContainer -or (Test-IsLinkOrReparsePoint -Item $targetItem)) {
         throw 'worktree_cleanup_residual_root_invalid'
     }
     if (Test-Path -LiteralPath (Join-Path $retired '.git')) {
@@ -483,10 +335,6 @@ function Invoke-TaskWorktreeCleanup {
         if ($status.Output.Count -ne 0) {
             throw 'worktree_cleanup_target_dirty'
         }
-        if ((Get-ActivePathOwnerCount -Path $script:RetiredWorktree) -ne 0) {
-            throw 'worktree_cleanup_target_active_process'
-        }
-
         $refsBefore = Get-BranchRefDigest -Repository $script:Repository
         $remove = Invoke-NativeGit -Repository $script:Repository -Arguments @(
             'worktree', 'remove', '--', $script:RetiredWorktree
