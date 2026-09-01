@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import {
@@ -524,10 +524,24 @@ function observed(id = identity(), overrides = {}) {
     assert.ok(lines.length > 0, `${result.status}\n${result.error?.stack ?? ''}\n${result.stdout}\n${result.stderr}`)
     return { result, payload: JSON.parse(lines.at(-1)) }
   }
-  const invokeResidual = (repository, retired, captured, { activeOwner = false } = {}) => {
-    const holderStart = activeOwner
-      ? `$holder=Start-Process -FilePath (Get-Command node -CommandType Application | Select-Object -First 1).Source -ArgumentList @('-e','setTimeout(()=>{},30000)',${psLiteral(retired)}) -PassThru;`
-      : '$holder=$null;'
+  const invokeResidual = (repository, retired, captured, { activeOwner = null } = {}) => {
+    const holderCode = activeOwner === 'open-handle'
+      ? "const fs=require('node:fs');fs.openSync('node_modules/owned.txt','r');process.stdout.write('READY\\n');setTimeout(()=>{},30000)"
+      : "process.stdout.write('READY\\n');setTimeout(()=>{},30000)"
+    const holderStart = activeOwner === null
+      ? '$holder=$null;'
+      : [
+          '$psi=[Diagnostics.ProcessStartInfo]::new()',
+          '$psi.FileName=(Get-Command node -CommandType Application | Select-Object -First 1).Source',
+          '$psi.UseShellExecute=$false',
+          '$psi.RedirectStandardOutput=$true',
+          `$psi.WorkingDirectory=${psLiteral(retired)}`,
+          "$psi.ArgumentList.Add('-e')",
+          `$psi.ArgumentList.Add(${psLiteral(holderCode)})`,
+          activeOwner === 'command-line' ? `$psi.ArgumentList.Add(${psLiteral(retired)})` : null,
+          '$holder=[Diagnostics.Process]::Start($psi)',
+          "if($holder.StandardOutput.ReadLine() -cne 'READY'){throw 'holder_start_failed'}",
+        ].filter(Boolean).join('; ') + ';'
     const command = [
       `. ${psLiteral(cleanupScript)}`,
       holderStart,
@@ -615,10 +629,61 @@ function observed(id = identity(), overrides = {}) {
     const activePath = path.join(active.repository, '.worktrees', 'active-task')
     mkdirSync(path.join(activePath, 'node_modules'), { recursive: true })
     writeFileSync(path.join(activePath, 'node_modules', 'owned.txt'), 'owned\n', 'utf8')
-    const activeResult = invokeResidual(active.repository, activePath, activePath, { activeOwner: true })
+    const activeResult = invokeResidual(active.repository, activePath, activePath, { activeOwner: 'command-line' })
     equal(activeResult.result.status, 1)
     equal(activeResult.payload.reason, 'worktree_cleanup_residual_active_process')
     equal(readFileSync(path.join(activePath, 'node_modules', 'owned.txt'), 'utf8'), 'owned\n')
+
+    const openHandle = createFixture('open-handle')
+    const openHandlePath = path.join(openHandle.repository, '.worktrees', 'open-handle-task')
+    mkdirSync(path.join(openHandlePath, 'node_modules'), { recursive: true })
+    writeFileSync(path.join(openHandlePath, 'node_modules', 'owned.txt'), 'owned\n', 'utf8')
+    const openHandleResult = invokeResidual(openHandle.repository, openHandlePath, openHandlePath, { activeOwner: 'open-handle' })
+    equal(openHandleResult.result.status, 1)
+    equal(openHandleResult.payload.reason, 'worktree_cleanup_residual_active_process', JSON.stringify(openHandleResult.payload))
+    equal(readFileSync(path.join(openHandlePath, 'node_modules', 'owned.txt'), 'utf8'), 'owned\n')
+
+    if (process.platform !== 'win32') {
+      const activeCwd = createFixture('active-cwd')
+      const activeCwdPath = path.join(activeCwd.repository, '.worktrees', 'active-cwd-task')
+      mkdirSync(path.join(activeCwdPath, 'node_modules'), { recursive: true })
+      writeFileSync(path.join(activeCwdPath, 'node_modules', 'owned.txt'), 'owned\n', 'utf8')
+      const activeCwdResult = invokeResidual(activeCwd.repository, activeCwdPath, activeCwdPath, { activeOwner: 'cwd' })
+      equal(activeCwdResult.result.status, 1)
+      equal(activeCwdResult.payload.reason, 'worktree_cleanup_residual_active_process')
+      equal(readFileSync(path.join(activeCwdPath, 'node_modules', 'owned.txt'), 'utf8'), 'owned\n')
+    }
+
+    const registeredAncestor = createFixture('registered-ancestor')
+    const registeredAncestorWorktree = addWorktree(registeredAncestor, 'registered-ancestor-task')
+    const nestedRetiredPath = path.join(registeredAncestorWorktree.target, 'nested-residue')
+    mkdirSync(nestedRetiredPath)
+    writeFileSync(path.join(nestedRetiredPath, 'owned.txt'), 'owned\n', 'utf8')
+    const registeredAncestorResult = invokeResidual(
+      registeredAncestor.repository,
+      nestedRetiredPath,
+      nestedRetiredPath,
+    )
+    equal(registeredAncestorResult.result.status, 1)
+    equal(registeredAncestorResult.payload.reason, 'worktree_cleanup_residual_still_registered')
+    equal(readFileSync(path.join(nestedRetiredPath, 'owned.txt'), 'utf8'), 'owned\n')
+
+    const reparseAncestor = createFixture('reparse-ancestor')
+    const redirectedRoot = path.join(reparseAncestor.fixtureRoot, 'redirected-root')
+    const reparsePath = path.join(reparseAncestor.repository, '.worktrees', 'redirected')
+    mkdirSync(redirectedRoot)
+    symlinkSync(redirectedRoot, reparsePath, process.platform === 'win32' ? 'junction' : 'dir')
+    const redirectedRetiredPath = path.join(reparsePath, 'residue-task')
+    mkdirSync(redirectedRetiredPath)
+    writeFileSync(path.join(redirectedRetiredPath, 'owned.txt'), 'owned\n', 'utf8')
+    const reparseAncestorResult = invokeResidual(
+      reparseAncestor.repository,
+      redirectedRetiredPath,
+      redirectedRetiredPath,
+    )
+    equal(reparseAncestorResult.result.status, 1)
+    equal(reparseAncestorResult.payload.reason, 'worktree_cleanup_reparse_ancestor_present')
+    equal(readFileSync(path.join(redirectedRetiredPath, 'owned.txt'), 'utf8'), 'owned\n')
 
     const bounded = createFixture('bounded')
     const outsidePath = path.join(bounded.fixtureRoot, 'outside-task')
