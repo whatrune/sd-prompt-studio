@@ -56,6 +56,10 @@ provenance_binding:
   infotext_sampler_schedule_exact: true
   independently_recheckable_from_tracked_metadata: true
   ignored_diagnostic_files_required_for_recheck: false
+prompt_blind_record_reference:
+  owner_path: research/sd-prompt-research/experiments/camera/CAM-005-A/source/CAM-005-A_metadata.yaml
+  freeze_sha256: eb664c09bf2f130228878eb5891988aa615cc720c670abeed3137b808afc06e8
+  mapping_sha256: c0d785c72788988e088fcfd74a01d7fa15625fedf872c7194778d0d6ea978813
 panels:
   - panel_id: 1
     seed: 349127811

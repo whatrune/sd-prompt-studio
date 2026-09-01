@@ -15,6 +15,7 @@ The three requested vertical camera-angle directions are visually separated in 6
 - Observer input contained only opaque condition IDs, opaque panel IDs, and pixels; requested angle, run mapping, prompt terms, and seeds were unavailable.
 - Frozen visual observation SHA-256: eb664c09bf2f130228878eb5891988aa615cc720c670abeed3137b808afc06e8.
 - Sealed condition mapping SHA-256: c0d785c72788988e088fcfd74a01d7fa15625fedf872c7194778d0d6ea978813.
+- Canonical tracked blind-record owner: `research/sd-prompt-research/experiments/camera/CAM-005-A/source/CAM-005-A_metadata.yaml`; its exact UTF-8 freeze and mapping payloads independently rehash to the two recorded SHA-256 identities.
 - Condition mapping was decoded only after the visual record was frozen; no visual row was changed after decode.
 
 ## Per-Arm Metrics
