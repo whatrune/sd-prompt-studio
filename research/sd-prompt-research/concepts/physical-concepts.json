@@ -1,6 +1,6 @@
 {
   "schema_version": "0.2.0",
-  "graph_version": "0.2.2",
+  "graph_version": "0.2.3",
   "module_file_id": "physical-concepts",
   "module_family": "physical",
   "description": "Sparse physical, face, clothing, and visibility concepts used by the initial compiler foundation.",
@@ -426,6 +426,122 @@
       },
       "status": "provisional",
       "notes": ["Visibility effects are design candidates and have no BRG-007 evidence assignment."]
+    },
+    {
+      "concept_id": "camera.framing.full_body",
+      "label": "Full-body framing",
+      "aliases": ["full body"],
+      "module": "camera",
+      "concept_type": "camera",
+      "human_meaning": "A camera framing that visibly includes the subject from the head through the feet.",
+      "scope": ["camera_framing", "subject"],
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "CAM-004-A produced full-body framing in 6/6 panels under the tested neutral prompt context.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.cam004a.observed_full_body",
+              "run_id": "CAM-004-A",
+              "observation_path": "experiments/camera/CAM-004-A/observation.json",
+              "metric": "computed_aggregate.axis_counts.observed_framing.full_body",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "camera.framing.cowboy_shot",
+      "label": "Cowboy-shot framing",
+      "aliases": ["cowboy shot"],
+      "module": "camera",
+      "concept_type": "camera",
+      "human_meaning": "A camera framing that visibly includes the subject from the head through approximately the upper or middle thigh.",
+      "scope": ["camera_framing", "subject"],
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "CAM-004-B produced cowboy-shot framing in 6/6 panels under the tested neutral prompt context.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.cam004b.observed_cowboy_shot",
+              "run_id": "CAM-004-B",
+              "observation_path": "experiments/camera/CAM-004-B/observation.json",
+              "metric": "computed_aggregate.axis_counts.observed_framing.cowboy_shot",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "camera.framing.upper_body",
+      "label": "Upper-body framing",
+      "aliases": ["upper body"],
+      "module": "camera",
+      "concept_type": "camera",
+      "human_meaning": "A camera framing centered on the head and upper torso with a lower crop boundary around the waist.",
+      "scope": ["camera_framing", "subject"],
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "CAM-004-C produced upper-body framing in 6/6 panels under the tested neutral prompt context.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.cam004c.observed_upper_body",
+              "run_id": "CAM-004-C",
+              "observation_path": "experiments/camera/CAM-004-C/observation.json",
+              "metric": "computed_aggregate.axis_counts.observed_framing.upper_body",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "camera.framing.close_up",
+      "label": "Close-up framing",
+      "aliases": ["close-up"],
+      "module": "camera",
+      "concept_type": "camera",
+      "human_meaning": "A face-led camera framing with a lower crop boundary around the upper chest or chest.",
+      "scope": ["camera_framing", "subject"],
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "CAM-004-D produced close-up framing in 6/6 panels under the tested neutral prompt context.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.cam004d.observed_close_up",
+              "run_id": "CAM-004-D",
+              "observation_path": "experiments/camera/CAM-004-D/observation.json",
+              "metric": "computed_aggregate.axis_counts.observed_framing.close_up",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        }
+      ],
+      "status": "provisional"
     },
     {
       "concept_id": "visibility.pelvis_boundary",
