@@ -1,11 +1,16 @@
 import {
   closeSync,
   fsyncSync,
+  mkdtempSync,
   openSync,
   readFileSync,
+  rmSync,
   unlinkSync,
   writeSync,
 } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { parseDocument } from 'yaml'
 import {
@@ -57,6 +62,18 @@ const REVIEW_PUBLICATION_FORBIDDEN_CHANGES = Object.freeze([
 const REVIEW_PUBLICATION_PREDELEGATION_FORBIDDEN_CHANGES = Object.freeze([
   'review_publication_before_fresh_approval', 'alternate_surface_fallback', 'merge', 'retry',
 ])
+const CANONICAL_TASK_BODY_REQUEST_FIELDS = Object.freeze([
+  'title', 'repository', 'objective', 'markdown', 'authorized_paths', 'head_branch',
+  'authorized_actor', 'permitted_surface', 'ready_allowed', 'product_owner_login',
+])
+const CANONICAL_TASK_BODY_MODES = Object.freeze(['UNBOUND_CREATE', 'BOUND_FINAL'])
+const CANONICAL_TASK_SELF_BINDING_FIELDS = Object.freeze([
+  'task_authority.task_issue',
+  'review_publication_predelegation.task_id',
+  'review_publication_predelegation.authority_source',
+  'review_publication_predelegation.canonical_record',
+  'review_publication_predelegation.allowed_changes.task_issue',
+])
 const FULL_SHA = /^[0-9a-f]{40}$/u
 const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u
 const args = process.argv.slice(2)
@@ -99,7 +116,11 @@ const productionPublicationFileHostV1 = Object.freeze({
   writeSync,
 })
 
-const publicationParserV1 = (kind) => {
+const publicationParserV1 = (kind, taskBindingMode = null) => {
+  if (kind === 'task') return parseSimplifiedTaskAuthorityV1
+  if (kind === 'canonical_task') {
+    return (body) => parseCanonicalTaskIssueBodyV1({ body, mode: taskBindingMode })
+  }
   if (kind === 'review') return parseSimplifiedReviewV1
   if (kind === 'merge') return parseSimplifiedMergeDecisionV1
   throw new Error('publication_transport_kind_invalid')
@@ -109,9 +130,10 @@ export const writeProtectedPublicationBodyFileV1 = ({
   kind,
   body,
   outputFile,
+  taskBindingMode = null,
   fileHost = productionPublicationFileHostV1,
 }) => {
-  const parse = publicationParserV1(kind)
+  const parse = publicationParserV1(kind, taskBindingMode)
   if (typeof body !== 'string' || body.length === 0) throw new Error('publication_transport_body_invalid')
   if (typeof outputFile !== 'string' || outputFile.length === 0) throw new Error('publication_transport_output_file_invalid')
   parse(body)
@@ -263,6 +285,30 @@ const request = async (url, options = {}, context = {}) => {
 
 export const createProductionHostV1 = ({ fetchImpl = globalThis.fetch, token = process.env.GH_TOKEN } = {}) => Object.freeze({
   api: (route) => request(`${API_ROOT}/${route}`, {}, { fetchImpl, token }),
+  createTaskIssue: async ({ repository, title, body }) => {
+    if (
+      !REPOSITORY.test(repository ?? '') || typeof title !== 'string' || title.length === 0 || title.length > 256 ||
+      typeof body !== 'string' || body.length === 0
+    ) throw new Error('canonical_task_issue_create_request_invalid')
+    const response = await request(
+      `${API_ROOT}/repos/${repository}/issues`,
+      { method: 'POST', body: JSON.stringify({ title, body }) },
+      { diagnosticOperation: 'CANONICAL_TASK_CREATE_MUTATION', fetchImpl, token },
+    )
+    return response.body
+  },
+  patchTaskIssueBody: async ({ repository, taskIssue, body }) => {
+    if (
+      !REPOSITORY.test(repository ?? '') || !Number.isSafeInteger(taskIssue) || taskIssue < 1 ||
+      typeof body !== 'string' || body.length === 0
+    ) throw new Error('canonical_task_issue_patch_request_invalid')
+    const response = await request(
+      `${API_ROOT}/repos/${repository}/issues/${taskIssue}`,
+      { method: 'PATCH', body: JSON.stringify({ body }) },
+      { diagnosticOperation: 'CANONICAL_TASK_PATCH_MUTATION', fetchImpl, token },
+    )
+    return response.body
+  },
   publishPullRequestReview: async ({ repository, prNumber, exactHead, body }) => {
     if (
       !REPOSITORY.test(repository ?? '') || !Number.isSafeInteger(prNumber) || prNumber < 1 ||
@@ -407,6 +453,346 @@ const classifyReviewPublicationTaskAssignmentsV2 = (body) => {
     predelegation: predelegations[0] ?? null,
     exact_assignment: exactAssignments[0] ?? null,
   })
+}
+
+const canonicalTaskBodyModeV1 = (mode) => {
+  if (!CANONICAL_TASK_BODY_MODES.includes(mode)) throw new Error('canonical_task_body_mode_invalid')
+  return mode
+}
+
+const canonicalTaskBodyRequestV1 = (request) => {
+  if (!exactKeys(request, CANONICAL_TASK_BODY_REQUEST_FIELDS)) {
+    throw new Error('canonical_task_body_request_invalid')
+  }
+  let authorizedPaths
+  try {
+    authorizedPaths = normalizedPaths(request.authorized_paths)
+  } catch {
+    throw new Error('canonical_task_body_request_invalid')
+  }
+  if (
+    typeof request.title !== 'string' || request.title.length === 0 || request.title.length > 256 ||
+    request.title !== request.title.trim() || /[\u0000-\u001f\u007f]/u.test(request.title) ||
+    !REPOSITORY.test(request.repository ?? '') ||
+    typeof request.objective !== 'string' || request.objective.length === 0 || request.objective.length > 512 ||
+    request.objective !== request.objective.trim() || /[\u0000-\u001f\u007f]/u.test(request.objective) ||
+    typeof request.markdown !== 'string' || request.markdown.length === 0 || request.markdown.length > 32_768 ||
+    request.markdown.endsWith('\n') || /[\r\u0000]/u.test(request.markdown) ||
+    /(^|\n)```/u.test(request.markdown) || request.markdown.includes('System.Object[]') ||
+    typeof request.head_branch !== 'string' || request.head_branch.length === 0 || request.head_branch.length > 255 ||
+    /[\s\\\u0000-\u001f\u007f]/u.test(request.head_branch) || request.head_branch.startsWith('/') ||
+    request.head_branch.endsWith('/') || request.head_branch.includes('//') || request.head_branch.includes('..') ||
+    request.head_branch.includes('@{') ||
+    typeof request.authorized_actor !== 'string' ||
+    !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/u.test(request.authorized_actor) ||
+    !['PULL_REQUEST_REVIEW', 'TASK_ISSUE_COMMENT'].includes(request.permitted_surface) ||
+    request.ready_allowed !== false || request.product_owner_login !== 'whatrune'
+  ) throw new Error('canonical_task_body_request_invalid')
+  return Object.freeze({ ...request, authorized_paths: authorizedPaths })
+}
+
+const canonicalTaskIssueNumberV1 = ({ mode, taskIssue }) => {
+  const admittedMode = canonicalTaskBodyModeV1(mode)
+  if (admittedMode === 'UNBOUND_CREATE') {
+    if (taskIssue !== null && taskIssue !== undefined && taskIssue !== 0) {
+      throw new Error('canonical_task_body_binding_invalid')
+    }
+    return 0
+  }
+  if (!Number.isSafeInteger(taskIssue) || taskIssue < 1) throw new Error('canonical_task_body_binding_invalid')
+  return taskIssue
+}
+
+const canonicalReviewPublicationPredelegationV2 = ({ request, taskIssue }) => {
+  const taskUrl = `https://github.com/${request.repository}/issues/${taskIssue}`
+  return Object.freeze({
+    task_id: `TASK-${taskIssue}-REVIEW-PUBLICATION-PREDELEGATION`,
+    record_type: 'task_assignment',
+    authoring_role: 'Product Owner / Review Publication Predelegator',
+    authority_source: taskUrl,
+    canonical_record: taskUrl,
+    prior_record_url: 'not_applicable',
+    cumulative_scope: 'REVIEW_AUTHORITY_PUBLICATION_PREDELEGATION',
+    supporting_records: 'not_applicable',
+    requested_by: 'Product Owner',
+    assigned_role: 'Protected Transition Consumer Host',
+    purpose: 'Predelegate deterministic exact Review-publication assignment materialization after Fresh exact-HEAD approval.',
+    background: 'The semantic Review result is a wake-up signal and is not publication authority.',
+    input_documents: 'Shared Role Execution Contract, Delegation and Result Contract, Review Execution Contract, and Integrated Lead Charter.',
+    allowed_changes: Object.freeze({
+      protected_action: 'REVIEW_AUTHORITY_PUBLICATION',
+      activation: 'FRESH_EXACT_HEAD_REVIEW_APPROVE',
+      materialization_only: true,
+      repository: request.repository,
+      task_issue: taskIssue,
+      head_branch: request.head_branch,
+      authorized_paths: request.authorized_paths,
+      authorized_actor: request.authorized_actor,
+      permitted_surface: request.permitted_surface,
+      required_review: Object.freeze({
+        record_type: 'simplified_independent_review_v1',
+        reviewer_role: 'INDEPENDENT_REVIEWER',
+        decision: 'APPROVE',
+        blocking: 0,
+        remaining: 0,
+        unknown: 0,
+      }),
+      operation_count: 1,
+      fallback_allowed: false,
+    }),
+    forbidden_changes: REVIEW_PUBLICATION_PREDELEGATION_FORBIDDEN_CHANGES,
+    expected_outputs: 'One admitted logical Review-publication assignment authority and one exact Review publication or zero-mutation reuse.',
+    validation: 'Fresh GitHub state, deterministic logical identity, canonical semantic-payload equivalence, resource refetch equality, and fail-closed conflicts.',
+    completion_conditions: 'One logical authority is admitted, one exact Review is published or reused, and pre-Decision preflight passes.',
+    escalation_conditions: 'Any stale identity, blocker, unknown, conflict, malformed record, ambiguous mutation, or preflight failure.',
+  })
+}
+
+const serializeFencedYamlJsonV1 = (value) => `\`\`\`yaml\n${JSON.stringify(value, null, 2)}\n\`\`\`\n`
+
+const composeCanonicalTaskIssueBodyV1 = ({ markdown, taskAuthorityBody, predelegation }) => (
+  `${markdown}\n\n${taskAuthorityBody}\n${serializeFencedYamlJsonV1(predelegation)}`
+)
+
+export const parseCanonicalTaskIssueBodyV1 = ({ body, mode }) => {
+  const admittedMode = canonicalTaskBodyModeV1(mode)
+  if (
+    typeof body !== 'string' || body.length === 0 || body.length > 65_536 ||
+    body.startsWith('\uFEFF') || body.includes('\r') || body.includes('\u0000') ||
+    body.includes('System.Object[]') || !body.endsWith('\n') || body.endsWith('\n\n')
+  ) throw new Error('canonical_task_body_invalid')
+  const fenceLines = body.match(/^```(?:json|yaml)?$/gmu) ?? []
+  if (fenceLines.join('\n') !== '```json\n```\n```yaml\n```') throw new Error('canonical_task_body_invalid')
+  const authorityHeading = '# Simplified Lifecycle Task Authority'
+  const headingMarker = `\n\n${authorityHeading}\n\n\`\`\`json\n`
+  const headingIndex = body.indexOf(headingMarker)
+  if (headingIndex < 1 || body.indexOf(headingMarker, headingIndex + 1) !== -1) {
+    throw new Error('canonical_task_body_invalid')
+  }
+  const markdown = body.slice(0, headingIndex)
+  canonicalTaskBodyRequestV1({
+    title: 'parser-validation',
+    repository: 'owner/repository',
+    objective: 'parser-validation',
+    markdown,
+    authorized_paths: ['parser-validation'],
+    head_branch: 'codex/parser-validation',
+    authorized_actor: 'parser-validation',
+    permitted_surface: 'TASK_ISSUE_COMMENT',
+    ready_allowed: false,
+    product_owner_login: 'whatrune',
+  })
+  const taskAuthority = parseSimplifiedTaskAuthorityV1(body, { binding_mode: admittedMode })
+  const profiles = classifyReviewPublicationTaskAssignmentsV2(body)
+  if (profiles.predelegation === null || profiles.exact_assignment !== null) {
+    throw new Error('canonical_task_body_invalid')
+  }
+  const expected = composeCanonicalTaskIssueBodyV1({
+    markdown,
+    taskAuthorityBody: serializeSimplifiedTaskAuthorityV1(taskAuthority, { binding_mode: admittedMode }),
+    predelegation: profiles.predelegation,
+  })
+  if (body !== expected) throw new Error('canonical_task_body_invalid')
+  return Object.freeze({
+    mode: admittedMode,
+    markdown,
+    task_authority: taskAuthority,
+    review_publication_predelegation: profiles.predelegation,
+  })
+}
+
+export const serializeCanonicalTaskIssueBodyV1 = ({ request, mode, taskIssue = null }) => {
+  const admittedRequest = canonicalTaskBodyRequestV1(request)
+  const admittedMode = canonicalTaskBodyModeV1(mode)
+  const boundTaskIssue = canonicalTaskIssueNumberV1({ mode: admittedMode, taskIssue })
+  const taskAuthority = Object.freeze({
+    record_type: 'simplified_task_authority_v1',
+    task_issue: boundTaskIssue,
+    repository: admittedRequest.repository,
+    objective: admittedRequest.objective,
+    authorized_paths: admittedRequest.authorized_paths,
+    ready_allowed: admittedRequest.ready_allowed,
+    product_owner_login: admittedRequest.product_owner_login,
+  })
+  const body = composeCanonicalTaskIssueBodyV1({
+    markdown: admittedRequest.markdown,
+    taskAuthorityBody: serializeSimplifiedTaskAuthorityV1(taskAuthority, { binding_mode: admittedMode }),
+    predelegation: canonicalReviewPublicationPredelegationV2({
+      request: admittedRequest,
+      taskIssue: boundTaskIssue,
+    }),
+  })
+  parseCanonicalTaskIssueBodyV1({ body, mode: admittedMode })
+  return body
+}
+
+const canonicalJsonCloneV1 = (value) => JSON.parse(JSON.stringify(value))
+
+export const proveCanonicalTaskIssueSelfBindingDeltaV1 = ({
+  request, unboundBody, boundBody, taskIssue,
+}) => {
+  const admittedRequest = canonicalTaskBodyRequestV1(request)
+  if (
+    unboundBody !== serializeCanonicalTaskIssueBodyV1({ request: admittedRequest, mode: 'UNBOUND_CREATE' }) ||
+    boundBody !== serializeCanonicalTaskIssueBodyV1({
+      request: admittedRequest, mode: 'BOUND_FINAL', taskIssue,
+    })
+  ) throw new Error('canonical_task_self_binding_delta_invalid')
+  const unbound = parseCanonicalTaskIssueBodyV1({ body: unboundBody, mode: 'UNBOUND_CREATE' })
+  const bound = parseCanonicalTaskIssueBodyV1({ body: boundBody, mode: 'BOUND_FINAL' })
+  if (unbound.markdown !== bound.markdown) throw new Error('canonical_task_self_binding_delta_invalid')
+  const neutralTask = canonicalJsonCloneV1(bound.task_authority)
+  neutralTask.task_issue = 0
+  const neutralPredelegation = canonicalJsonCloneV1(bound.review_publication_predelegation)
+  neutralPredelegation.task_id = 'TASK-0-REVIEW-PUBLICATION-PREDELEGATION'
+  neutralPredelegation.authority_source = `https://github.com/${admittedRequest.repository}/issues/0`
+  neutralPredelegation.canonical_record = `https://github.com/${admittedRequest.repository}/issues/0`
+  neutralPredelegation.allowed_changes.task_issue = 0
+  if (
+    JSON.stringify(neutralTask) !== JSON.stringify(unbound.task_authority) ||
+    JSON.stringify(neutralPredelegation) !== JSON.stringify(unbound.review_publication_predelegation) ||
+    !samePaths(bound.task_authority.authorized_paths, unbound.task_authority.authorized_paths) ||
+    !samePaths(
+      bound.review_publication_predelegation.allowed_changes.authorized_paths,
+      unbound.review_publication_predelegation.allowed_changes.authorized_paths,
+    )
+  ) throw new Error('canonical_task_self_binding_delta_invalid')
+  return Object.freeze({
+    state: 'PASS',
+    task_issue: taskIssue,
+    changed_fields: CANONICAL_TASK_SELF_BINDING_FIELDS,
+    unchanged_markdown_sha256: createHash('sha256').update(unbound.markdown, 'utf8').digest('hex'),
+    authorized_paths: admittedRequest.authorized_paths,
+  })
+}
+
+const assertCanonicalTaskIssueResourceV1 = ({ resource, request, taskIssue, body }) => {
+  const expectedUrl = `https://github.com/${request.repository}/issues/${taskIssue}`
+  if (
+    resource === null || typeof resource !== 'object' || Array.isArray(resource) ||
+    resource.number !== taskIssue || resource.title !== request.title || resource.body !== body ||
+    resource.state !== 'open' || resource.pull_request !== undefined || resource.html_url !== expectedUrl
+  ) throw new Error('canonical_task_issue_resource_mismatch')
+  return resource
+}
+
+export const publishCanonicalTaskIssueV1 = async ({ request, host }) => {
+  const admittedRequest = canonicalTaskBodyRequestV1(request)
+  if (
+    host === null || typeof host !== 'object' || typeof host.api !== 'function' ||
+    typeof host.createTaskIssue !== 'function' || typeof host.patchTaskIssueBody !== 'function'
+  ) throw new Error('canonical_task_issue_host_invalid')
+  const directory = mkdtempSync(join(tmpdir(), 'canonical-task-publication-'))
+  const unboundPath = join(directory, 'unbound-create.md')
+  const boundPath = join(directory, 'bound-final.md')
+  let createMutationCount = 0
+  let patchMutationCount = 0
+  try {
+    const unboundBody = serializeCanonicalTaskIssueBodyV1({
+      request: admittedRequest,
+      mode: 'UNBOUND_CREATE',
+    })
+    writeProtectedPublicationBodyFileV1({
+      kind: 'canonical_task',
+      body: unboundBody,
+      outputFile: unboundPath,
+      taskBindingMode: 'UNBOUND_CREATE',
+    })
+    const unboundBytes = readFileSync(unboundPath)
+    const transportedUnboundBody = new TextDecoder('utf-8', { fatal: true }).decode(unboundBytes)
+    if (transportedUnboundBody !== unboundBody) throw new Error('canonical_task_issue_transport_mismatch')
+
+    createMutationCount += 1
+    const created = await host.createTaskIssue({
+      repository: admittedRequest.repository,
+      title: admittedRequest.title,
+      body: transportedUnboundBody,
+    })
+    if (!Number.isSafeInteger(created?.number) || created.number < 1) {
+      throw new Error('canonical_task_issue_create_response_indeterminate')
+    }
+    const taskIssue = created.number
+    assertCanonicalTaskIssueResourceV1({
+      resource: created,
+      request: admittedRequest,
+      taskIssue,
+      body: transportedUnboundBody,
+    })
+    const createdRefetch = await host.api(`repos/${admittedRequest.repository}/issues/${taskIssue}`)
+    assertCanonicalTaskIssueResourceV1({
+      resource: createdRefetch,
+      request: admittedRequest,
+      taskIssue,
+      body: transportedUnboundBody,
+    })
+
+    const boundBody = serializeCanonicalTaskIssueBodyV1({
+      request: admittedRequest,
+      mode: 'BOUND_FINAL',
+      taskIssue,
+    })
+    const delta = proveCanonicalTaskIssueSelfBindingDeltaV1({
+      request: admittedRequest,
+      unboundBody: transportedUnboundBody,
+      boundBody,
+      taskIssue,
+    })
+    writeProtectedPublicationBodyFileV1({
+      kind: 'canonical_task',
+      body: boundBody,
+      outputFile: boundPath,
+      taskBindingMode: 'BOUND_FINAL',
+    })
+    const boundBytes = readFileSync(boundPath)
+    const transportedBoundBody = new TextDecoder('utf-8', { fatal: true }).decode(boundBytes)
+    if (transportedBoundBody !== boundBody) throw new Error('canonical_task_issue_transport_mismatch')
+
+    patchMutationCount += 1
+    const patched = await host.patchTaskIssueBody({
+      repository: admittedRequest.repository,
+      taskIssue,
+      body: transportedBoundBody,
+    })
+    assertCanonicalTaskIssueResourceV1({
+      resource: patched,
+      request: admittedRequest,
+      taskIssue,
+      body: transportedBoundBody,
+    })
+    const patchedRefetch = await host.api(`repos/${admittedRequest.repository}/issues/${taskIssue}`)
+    assertCanonicalTaskIssueResourceV1({
+      resource: patchedRefetch,
+      request: admittedRequest,
+      taskIssue,
+      body: transportedBoundBody,
+    })
+    const finalBody = parseCanonicalTaskIssueBodyV1({ body: patchedRefetch.body, mode: 'BOUND_FINAL' })
+    if (
+      finalBody.task_authority.task_issue !== taskIssue ||
+      finalBody.review_publication_predelegation.task_id !== `TASK-${taskIssue}-REVIEW-PUBLICATION-PREDELEGATION` ||
+      finalBody.review_publication_predelegation.allowed_changes.task_issue !== taskIssue ||
+      !samePaths(finalBody.task_authority.authorized_paths, admittedRequest.authorized_paths) ||
+      !samePaths(
+        finalBody.review_publication_predelegation.allowed_changes.authorized_paths,
+        admittedRequest.authorized_paths,
+      )
+    ) throw new Error('canonical_task_issue_final_admission_invalid')
+    return Object.freeze({
+      state: 'COMPLETED',
+      task_issue: taskIssue,
+      task_url: patchedRefetch.html_url,
+      create_mutation_count: createMutationCount,
+      patch_mutation_count: patchMutationCount,
+      task_authority_count: 1,
+      review_publication_predelegation_count: 1,
+      authorized_paths: admittedRequest.authorized_paths,
+      unbound_body_sha256: createHash('sha256').update(unboundBytes).digest('hex'),
+      final_body_sha256: createHash('sha256').update(boundBytes).digest('hex'),
+      self_binding_delta: delta,
+    })
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
 }
 
 const isReviewPublicationAssignmentCommentCandidateV2 = (body) => (
@@ -985,6 +1371,7 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
 
 const readJson = (file) => JSON.parse(readFileSync(file, 'utf8'))
 if (process.argv[1] !== undefined && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  const canonicalTaskBodyFile = valueAfter('--serialize-canonical-task-body-file')
   const serializeMode = valueAfter('--serialize-task-authority-file') !== null
     ? ['task', valueAfter('--serialize-task-authority-file')]
     : valueAfter('--serialize-review-file') !== null
@@ -993,7 +1380,25 @@ if (process.argv[1] !== undefined && pathToFileURL(process.argv[1]).href === imp
         ? ['merge', valueAfter('--serialize-merge-decision-file')]
         : null
 
-  if (serializeMode !== null) {
+  if (canonicalTaskBodyFile !== null) {
+    const mode = valueAfter('--canonical-task-body-mode')
+    const taskIssueText = valueAfter('--task-issue')
+    const taskIssue = taskIssueText === null ? null : Number(taskIssueText)
+    const body = serializeCanonicalTaskIssueBodyV1({
+      request: readJson(canonicalTaskBodyFile),
+      mode,
+      taskIssue,
+    })
+    const publicationOutputFile = valueAfter('--publication-body-output-file')
+    if (publicationOutputFile === null) throw new Error('publication_transport_output_file_required')
+    const result = writeProtectedPublicationBodyFileV1({
+      kind: 'canonical_task',
+      body,
+      outputFile: publicationOutputFile,
+      taskBindingMode: mode,
+    })
+    process.stdout.write(`${JSON.stringify(result)}\n`)
+  } else if (serializeMode !== null) {
     const [kind, file] = serializeMode
     const input = readJson(file)
     const body = kind === 'task'
@@ -1011,9 +1416,17 @@ if (process.argv[1] !== undefined && pathToFileURL(process.argv[1]).href === imp
       process.stdout.write(body)
     }
   } else {
+    const canonicalTaskPublicationFile = valueAfter('--create-canonical-task-issue-file')
     const reviewAuthorityPreflightFile = valueAfter('--ensure-review-authority-and-run-preflight-file')
     const preDecisionPreflightFile = valueAfter('--pre-decision-preflight-file')
-    if (reviewAuthorityPreflightFile !== null) {
+    if (canonicalTaskPublicationFile !== null) {
+      const result = await publishCanonicalTaskIssueV1({
+        request: readJson(canonicalTaskPublicationFile),
+        host: createProductionHostV1(),
+      })
+      process.stdout.write(`${JSON.stringify(result)}\n`)
+      process.exitCode = 0
+    } else if (reviewAuthorityPreflightFile !== null) {
       const result = await ensureReviewAuthorityAndRunPreflightV1({
         request: readJson(reviewAuthorityPreflightFile),
         host: createProductionHostV1(),

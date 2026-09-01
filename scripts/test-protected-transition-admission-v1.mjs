@@ -26,8 +26,12 @@ import {
 import {
   createProductionHostV1,
   ensureReviewAuthorityAndRunPreflightV1,
+  parseCanonicalTaskIssueBodyV1,
   projectReviewPublicationLogicalAssignmentIdentityV2,
   projectReviewPublicationLogicalAssignmentSemanticPayloadV2,
+  proveCanonicalTaskIssueSelfBindingDeltaV1,
+  publishCanonicalTaskIssueV1,
+  serializeCanonicalTaskIssueBodyV1,
   writeProtectedPublicationBodyFileV1,
 } from './run-protected-transition-admission-v1.mjs'
 import {
@@ -50,6 +54,25 @@ const PR = 430
 const BRANCH = 'codex/review-publication-test'
 const REVIEW = 9001
 const REVIEW_URL = `https://github.com/${REPOSITORY}/pull/${PR}#pullrequestreview-${REVIEW}`
+const CANONICAL_TASK_PATHS = Object.freeze([
+  'docs/automation/00-automation-overview.md',
+  'scripts/protected-transition-merge-operator-preflight-v1.mjs',
+  'scripts/run-protected-transition-admission-v1.mjs',
+])
+
+const canonicalTaskBodyRequest = (overrides = {}) => Object.freeze({
+  title: 'CANONICAL_TASK_BODY_SERIALIZATION_V1',
+  repository: REPOSITORY,
+  objective: 'CANONICAL_TASK_BODY_SERIALIZATION_V1',
+  markdown: '# Canonical Task 日本語\n\nBlank lines, Unicode ✓, and embedded # remain content.',
+  authorized_paths: [...CANONICAL_TASK_PATHS].reverse(),
+  head_branch: 'codex/canonical-task-body-serialization-v1',
+  authorized_actor: 'whatrune',
+  permitted_surface: 'TASK_ISSUE_COMMENT',
+  ready_allowed: false,
+  product_owner_login: 'whatrune',
+  ...overrides,
+})
 
 const taskInput = Object.freeze({
   record_type: 'simplified_task_authority_v1',
@@ -559,9 +582,141 @@ throws(() => parseSimplifiedTaskAuthorityV1('# placeholder'), /task_authority_in
 throws(() => parseSimplifiedReviewV1(reviewBody.replace('"decision": "APPROVE"', '"decision": "CHANGES_REQUIRED"')), /review_invalid/)
 throws(() => parseSimplifiedMergeDecisionV1(`${decisionBody}\n\`\`\`json\n{}\n\`\`\``), /merge_decision_invalid/)
 
+const canonicalTaskUnboundBody = serializeCanonicalTaskIssueBodyV1({
+  request: canonicalTaskBodyRequest(),
+  mode: 'UNBOUND_CREATE',
+})
+const canonicalTaskBoundBody = serializeCanonicalTaskIssueBodyV1({
+  request: canonicalTaskBodyRequest(),
+  mode: 'BOUND_FINAL',
+  taskIssue: 526,
+})
+const parsedCanonicalTaskUnbound = parseCanonicalTaskIssueBodyV1({
+  body: canonicalTaskUnboundBody,
+  mode: 'UNBOUND_CREATE',
+})
+const parsedCanonicalTaskBound = parseCanonicalTaskIssueBodyV1({
+  body: canonicalTaskBoundBody,
+  mode: 'BOUND_FINAL',
+})
+equal(parsedCanonicalTaskUnbound.task_authority.task_issue, 0)
+equal(parsedCanonicalTaskBound.task_authority.task_issue, 526)
+equal(parsedCanonicalTaskBound.review_publication_predelegation.allowed_changes.task_issue, 526)
+equal(parsedCanonicalTaskBound.review_publication_predelegation.task_id, 'TASK-526-REVIEW-PUBLICATION-PREDELEGATION')
+equal(parsedCanonicalTaskBound.task_authority.authorized_paths.join('\n'), [...CANONICAL_TASK_PATHS].sort().join('\n'))
+equal(parsedCanonicalTaskBound.review_publication_predelegation.allowed_changes.authorized_paths.join('\n'), [...CANONICAL_TASK_PATHS].sort().join('\n'))
+equal((canonicalTaskBoundBody.match(/^```json$/gmu) ?? []).length, 1)
+equal((canonicalTaskBoundBody.match(/^```yaml$/gmu) ?? []).length, 1)
+equal(canonicalTaskBoundBody.includes('\r'), false)
+equal(canonicalTaskBoundBody.endsWith('\n') && !canonicalTaskBoundBody.endsWith('\n\n'), true)
+ok(canonicalTaskBoundBody.includes('日本語'))
+ok(canonicalTaskBoundBody.includes('Unicode ✓'))
+ok(canonicalTaskBoundBody.includes('embedded # remain content'))
+equal(canonicalTaskBoundBody.includes('System.Object[]'), false)
+const canonicalTaskDelta = proveCanonicalTaskIssueSelfBindingDeltaV1({
+  request: canonicalTaskBodyRequest(),
+  unboundBody: canonicalTaskUnboundBody,
+  boundBody: canonicalTaskBoundBody,
+  taskIssue: 526,
+})
+equal(canonicalTaskDelta.state, 'PASS')
+equal(canonicalTaskDelta.changed_fields.join('\n'), [
+  'task_authority.task_issue',
+  'review_publication_predelegation.task_id',
+  'review_publication_predelegation.authority_source',
+  'review_publication_predelegation.canonical_record',
+  'review_publication_predelegation.allowed_changes.task_issue',
+].join('\n'))
+equal(canonicalTaskDelta.authorized_paths.join('\n'), [...CANONICAL_TASK_PATHS].sort().join('\n'))
+throws(() => parseSimplifiedTaskAuthorityV1(
+  serializeSimplifiedTaskAuthorityV1({ ...taskInput, task_issue: 0 }, { binding_mode: 'UNBOUND_CREATE' }),
+), /task_authority_invalid/)
+equal(parseSimplifiedTaskAuthorityV1(
+  serializeSimplifiedTaskAuthorityV1({ ...taskInput, task_issue: 0 }, { binding_mode: 'UNBOUND_CREATE' }),
+  { binding_mode: 'UNBOUND_CREATE' },
+).task_issue, 0)
+throws(() => serializeCanonicalTaskIssueBodyV1({
+  request: canonicalTaskBodyRequest({ markdown: '# Invalid\n\nSystem.Object[]' }),
+  mode: 'UNBOUND_CREATE',
+}), /canonical_task_body_request_invalid/)
+throws(() => serializeCanonicalTaskIssueBodyV1({
+  request: canonicalTaskBodyRequest({ markdown: '# Invalid\n\n```json\n{}\n```' }),
+  mode: 'UNBOUND_CREATE',
+}), /canonical_task_body_request_invalid/)
+throws(() => serializeCanonicalTaskIssueBodyV1({
+  request: canonicalTaskBodyRequest({ authorized_paths: [CANONICAL_TASK_PATHS[0], CANONICAL_TASK_PATHS[0]] }),
+  mode: 'UNBOUND_CREATE',
+}), /canonical_task_body_request_invalid/)
+throws(() => serializeCanonicalTaskIssueBodyV1({
+  request: canonicalTaskBodyRequest(),
+  mode: 'BOUND_FINAL',
+  taskIssue: 0,
+}), /canonical_task_body_binding_invalid/)
+throws(() => proveCanonicalTaskIssueSelfBindingDeltaV1({
+  request: canonicalTaskBodyRequest(),
+  unboundBody: canonicalTaskUnboundBody,
+  boundBody: canonicalTaskBoundBody.replace('Unicode ✓', 'Unicode changed'),
+  taskIssue: 526,
+}), /canonical_task_self_binding_delta_invalid|canonical_task_body_invalid/)
+
+// Task #526 regression: a six-path array is rendered as six strings, never as PowerShell's System.Object[].
+const task526Paths = Object.freeze([
+  'research/sd-prompt-research/concepts/physical-concepts.json',
+  'research/sd-prompt-research/concepts/semantic-concepts.json',
+  'research/sd-prompt-research/concepts/relations.json',
+  'research/sd-prompt-research/concepts/target-patterns.json',
+  'research/sd-prompt-research/concepts/unmodeled-effects.json',
+  'research/sd-prompt-research/dist/visual-concept-graph.json',
+])
+const task526Body = serializeCanonicalTaskIssueBodyV1({
+  request: canonicalTaskBodyRequest({
+    title: 'CAM_004_CONCEPT_GRAPH_EVIDENCE_ADMISSION_V1_SUCCESSOR',
+    objective: 'CAM_004_CONCEPT_GRAPH_EVIDENCE_ADMISSION_V1_SUCCESSOR',
+    markdown: '# CAM-004 Graph successor\n\nExact approved scope follows from structured input.',
+    authorized_paths: [...task526Paths].reverse(),
+    head_branch: 'codex/cam-004-concept-graph-evidence-admission-v1-successor',
+  }),
+  mode: 'BOUND_FINAL',
+  taskIssue: 526,
+})
+const parsedTask526Body = parseCanonicalTaskIssueBodyV1({ body: task526Body, mode: 'BOUND_FINAL' })
+equal(parsedTask526Body.task_authority.authorized_paths.join('\n'), [...task526Paths].sort().join('\n'))
+equal(task526Body.includes('System.Object[]'), false)
+equal((task526Body.match(/^```json$/gmu) ?? []).length, 1)
+equal((task526Body.match(/^```yaml$/gmu) ?? []).length, 1)
+
 {
   const directory = mkdtempSync(join(tmpdir(), 'protected-publication-transport-'))
   try {
+    const taskAuthorityFile = join(directory, 'task-authority.md')
+    const taskAuthorityResult = writeProtectedPublicationBodyFileV1({
+      kind: 'task',
+      body: taskBody,
+      outputFile: taskAuthorityFile,
+    })
+    equal(taskAuthorityResult.state, 'COMPLETED')
+    equal(Buffer.compare(readFileSync(taskAuthorityFile), Buffer.from(taskBody, 'utf8')), 0)
+
+    const canonicalTaskUnboundFile = join(directory, 'canonical-task-unbound.md')
+    const canonicalTaskUnboundResult = writeProtectedPublicationBodyFileV1({
+      kind: 'canonical_task',
+      body: canonicalTaskUnboundBody,
+      outputFile: canonicalTaskUnboundFile,
+      taskBindingMode: 'UNBOUND_CREATE',
+    })
+    equal(canonicalTaskUnboundResult.state, 'COMPLETED')
+    equal(Buffer.compare(readFileSync(canonicalTaskUnboundFile), Buffer.from(canonicalTaskUnboundBody, 'utf8')), 0)
+
+    const canonicalTaskBoundFile = join(directory, 'canonical-task-bound.md')
+    const canonicalTaskBoundResult = writeProtectedPublicationBodyFileV1({
+      kind: 'canonical_task',
+      body: canonicalTaskBoundBody,
+      outputFile: canonicalTaskBoundFile,
+      taskBindingMode: 'BOUND_FINAL',
+    })
+    equal(canonicalTaskBoundResult.state, 'COMPLETED')
+    equal(Buffer.compare(readFileSync(canonicalTaskBoundFile), Buffer.from(canonicalTaskBoundBody, 'utf8')), 0)
+
     const reviewFile = join(directory, 'review.md')
     const reviewPublicationBody = `# 独立レビュー #477\n\n可視 evidence の確認。\n\n${reviewBody}\n追記: # は本文です。\n`
     const reviewResult = writeProtectedPublicationBodyFileV1({
@@ -612,6 +767,20 @@ throws(() => parseSimplifiedMergeDecisionV1(`${decisionBody}\n\`\`\`json\n{}\n\`
     equal(JSON.parse(cliDecision.stdout).publication_kind, 'merge')
     equal(Buffer.compare(readFileSync(cliDecisionOutput), Buffer.from(decisionBody, 'utf8')), 0)
     equal(parseSimplifiedMergeDecisionV1(readFileSync(cliDecisionOutput, 'utf8')).exact_head, HEAD)
+
+    const cliCanonicalTaskInput = join(directory, 'canonical-task-input.json')
+    const cliCanonicalTaskOutput = join(directory, 'canonical-task-output.md')
+    writeFileSync(cliCanonicalTaskInput, JSON.stringify(canonicalTaskBodyRequest()), 'utf8')
+    const cliCanonicalTask = spawnSync(process.execPath, [
+      fileURLToPath(new URL('./run-protected-transition-admission-v1.mjs', import.meta.url)),
+      '--serialize-canonical-task-body-file', cliCanonicalTaskInput,
+      '--canonical-task-body-mode', 'BOUND_FINAL',
+      '--task-issue', '526',
+      '--publication-body-output-file', cliCanonicalTaskOutput,
+    ], { encoding: 'utf8' })
+    equal(cliCanonicalTask.status, 0)
+    equal(JSON.parse(cliCanonicalTask.stdout).publication_kind, 'canonical_task')
+    equal(Buffer.compare(readFileSync(cliCanonicalTaskOutput), Buffer.from(canonicalTaskBoundBody, 'utf8')), 0)
 
     const legacyStdout = spawnSync(process.execPath, [
       fileURLToPath(new URL('./run-protected-transition-admission-v1.mjs', import.meta.url)),
@@ -678,6 +847,120 @@ throws(() => parseSimplifiedMergeDecisionV1(`${decisionBody}\n\`\`\`json\n{}\n\`
   } finally {
     rmSync(directory, { recursive: true, force: true })
   }
+}
+
+const createCanonicalTaskPublicationHost = ({
+  taskIssue = 526,
+  createError = null,
+  createBodyMismatch = false,
+  patchError = null,
+  patchRefetchMismatch = false,
+} = {}) => {
+  const state = { createCalls: 0, patchCalls: 0, apiCalls: 0, title: null, body: null, patched: false }
+  const resource = (body = state.body) => ({
+    number: taskIssue,
+    title: state.title,
+    body,
+    state: 'open',
+    html_url: `https://github.com/${REPOSITORY}/issues/${taskIssue}`,
+  })
+  return {
+    state,
+    host: {
+      api: async (route) => {
+        state.apiCalls += 1
+        equal(route, `repos/${REPOSITORY}/issues/${taskIssue}`)
+        return resource(state.patched && patchRefetchMismatch ? `${state.body}corrupt` : state.body)
+      },
+      createTaskIssue: async ({ repository, title, body }) => {
+        state.createCalls += 1
+        equal(repository, REPOSITORY)
+        state.title = title
+        state.body = body
+        if (createError !== null) throw createError
+        return resource(createBodyMismatch ? `${body}corrupt` : body)
+      },
+      patchTaskIssueBody: async ({ repository, taskIssue: patchedTaskIssue, body }) => {
+        state.patchCalls += 1
+        equal(repository, REPOSITORY)
+        equal(patchedTaskIssue, taskIssue)
+        if (patchError !== null) throw patchError
+        state.body = body
+        state.patched = true
+        return resource()
+      },
+    },
+  }
+}
+
+{
+  const fixture = createCanonicalTaskPublicationHost()
+  const result = await publishCanonicalTaskIssueV1({
+    request: canonicalTaskBodyRequest(),
+    host: fixture.host,
+  })
+  equal(result.state, 'COMPLETED')
+  equal(result.task_issue, 526)
+  equal(result.create_mutation_count, 1)
+  equal(result.patch_mutation_count, 1)
+  equal(result.task_authority_count, 1)
+  equal(result.review_publication_predelegation_count, 1)
+  equal(result.self_binding_delta.state, 'PASS')
+  equal(result.self_binding_delta.changed_fields.join('\n'), canonicalTaskDelta.changed_fields.join('\n'))
+  equal(fixture.state.createCalls, 1)
+  equal(fixture.state.patchCalls, 1)
+  equal(fixture.state.apiCalls, 2)
+  const final = parseCanonicalTaskIssueBodyV1({ body: fixture.state.body, mode: 'BOUND_FINAL' })
+  equal(final.task_authority.task_issue, 526)
+  equal(final.review_publication_predelegation.allowed_changes.task_issue, 526)
+}
+
+{
+  const fixture = createCanonicalTaskPublicationHost({ createError: new Error('transport lost') })
+  const error = await captureError(() => publishCanonicalTaskIssueV1({
+    request: canonicalTaskBodyRequest(),
+    host: fixture.host,
+  }))
+  equal(error.message, 'transport lost')
+  equal(fixture.state.createCalls, 1)
+  equal(fixture.state.patchCalls, 0)
+  equal(fixture.state.apiCalls, 0)
+}
+
+{
+  const fixture = createCanonicalTaskPublicationHost({ createBodyMismatch: true })
+  const error = await captureError(() => publishCanonicalTaskIssueV1({
+    request: canonicalTaskBodyRequest(),
+    host: fixture.host,
+  }))
+  equal(error.message, 'canonical_task_issue_resource_mismatch')
+  equal(fixture.state.createCalls, 1)
+  equal(fixture.state.patchCalls, 0)
+  equal(fixture.state.apiCalls, 0)
+}
+
+{
+  const fixture = createCanonicalTaskPublicationHost({ patchError: new Error('patch transport lost') })
+  const error = await captureError(() => publishCanonicalTaskIssueV1({
+    request: canonicalTaskBodyRequest(),
+    host: fixture.host,
+  }))
+  equal(error.message, 'patch transport lost')
+  equal(fixture.state.createCalls, 1)
+  equal(fixture.state.patchCalls, 1)
+  equal(fixture.state.apiCalls, 1)
+}
+
+{
+  const fixture = createCanonicalTaskPublicationHost({ patchRefetchMismatch: true })
+  const error = await captureError(() => publishCanonicalTaskIssueV1({
+    request: canonicalTaskBodyRequest(),
+    host: fixture.host,
+  }))
+  equal(error.message, 'canonical_task_issue_resource_mismatch')
+  equal(fixture.state.createCalls, 1)
+  equal(fixture.state.patchCalls, 1)
+  equal(fixture.state.apiCalls, 2)
 }
 
 const allChecks = [check('validate', 15368), check('build-preview', 15368), check('Cloudflare Pages', 85455)]
@@ -1738,8 +2021,15 @@ ok(runnerSource.includes('projectReviewPublicationLogicalAssignmentIdentityV2'))
 ok(runnerSource.includes('publishTaskAssignmentComment'))
 ok(runnerSource.includes("canonical_record: 'GITHUB_RESOURCE'"))
 equal(runnerSource.includes('fresh_review_terminal_cursor'), false)
-equal(runnerSource.includes('patchTaskIssueBody'), false)
-equal(runnerSource.includes("method: 'PATCH'"), false)
+ok(runnerSource.includes('serializeCanonicalTaskIssueBodyV1'))
+ok(runnerSource.includes('publishCanonicalTaskIssueV1'))
+ok(runnerSource.includes('createTaskIssue'))
+ok(runnerSource.includes('patchTaskIssueBody'))
+equal((runnerSource.match(/method: 'PATCH'/g) ?? []).length, 1)
+ok(runnerSource.includes("diagnosticOperation: 'CANONICAL_TASK_CREATE_MUTATION'"))
+ok(runnerSource.includes("diagnosticOperation: 'CANONICAL_TASK_PATCH_MUTATION'"))
+ok(runnerSource.includes("valueAfter('--create-canonical-task-issue-file')"))
+ok(runnerSource.includes("valueAfter('--serialize-canonical-task-body-file')"))
 ok(runnerSource.includes("args.includes('--publication-body-output-file')"))
 ok(runnerSource.includes('writeProtectedPublicationBodyFileV1'))
 equal(runnerSource.includes(".join(' ')"), false)
