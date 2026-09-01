@@ -217,7 +217,7 @@ const immediateContinuationActionV1 = (terminalKind, owningWorker) => {
       ? Object.freeze({ type: 'FOLLOW_UP_OWNING_WORKER', worker: owningWorker })
       : null
   }
-  if (terminalKind === 'REVIEW_APPROVE') return Object.freeze({ type: 'RUN_PRE_DECISION_PREFLIGHT' })
+  if (terminalKind === 'REVIEW_APPROVE') return Object.freeze({ type: 'ENSURE_REVIEW_AUTHORITY_AND_RUN_PREFLIGHT' })
   return null
 }
 

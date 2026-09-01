@@ -24,6 +24,7 @@ import {
 } from './protected-transition-merge-operator-preflight-v1.mjs'
 import {
   createProductionHostV1,
+  ensureReviewAuthorityAndRunPreflightV1,
   writeProtectedPublicationBodyFileV1,
 } from './run-protected-transition-admission-v1.mjs'
 import {
@@ -43,6 +44,7 @@ const PATHS = Object.freeze([
 ])
 const TASK = 429
 const PR = 430
+const BRANCH = 'codex/review-publication-test'
 const REVIEW = 9001
 const REVIEW_URL = `https://github.com/${REPOSITORY}/pull/${PR}#pullrequestreview-${REVIEW}`
 
@@ -139,8 +141,8 @@ const createFixture = ({
     merged: state.merged,
     draft: state.draft,
     user: { login: 'implementation-author' },
-    head: { sha: state.head, repo: { full_name: REPOSITORY } },
-    base: { ref: 'main', repo: { full_name: REPOSITORY } },
+    head: { ref: BRANCH, sha: state.head, repo: { full_name: REPOSITORY } },
+    base: { ref: 'main', sha: state.main, repo: { full_name: REPOSITORY } },
     merge_commit_sha: state.mergeCommit,
   })
   const host = {
@@ -200,6 +202,202 @@ const mergeEvent = (decision = decisionInput()) => ({
   issue: { number: TASK },
   comment: { user: { login: 'whatrune' }, body: serializeSimplifiedMergeDecisionV1(decision) },
 })
+
+const reviewRoutingInput = (overrides = {}) => Object.freeze({
+  repository: REPOSITORY,
+  task_issue: TASK,
+  pull_request: PR,
+  exact_head: HEAD,
+  expected_base: BASE,
+  authorized_paths: PATHS,
+  review_input: reviewInput(),
+  ...overrides,
+})
+
+const reviewPublicationAssignment = ({
+  actor = 'whatrune',
+  surface = 'TASK_ISSUE_COMMENT',
+  topOverrides = {},
+  grantOverrides = {},
+} = {}) => ({
+  task_id: `TASK-${TASK}-REVIEW-AUTHORITY-PUBLICATION`,
+  record_type: 'task_assignment',
+  authoring_role: 'Product Owner / Review Publication Authorizer',
+  authority_source: `https://github.com/${REPOSITORY}/issues/${TASK}`,
+  canonical_record: `https://github.com/${REPOSITORY}/issues/${TASK}`,
+  prior_record_url: 'not_applicable',
+  cumulative_scope: 'REVIEW_AUTHORITY_PUBLICATION',
+  supporting_records: 'not_applicable',
+  requested_by: 'Product Owner',
+  assigned_role: 'Protected Transition Consumer Host',
+  purpose: 'Authorize one exact Review authority publication.',
+  background: 'Fresh semantic Review completed for the exact current PR HEAD.',
+  input_documents: 'Shared Role Execution Contract and Review Execution Contract.',
+  allowed_changes: {
+    protected_action: 'REVIEW_AUTHORITY_PUBLICATION',
+    repository: REPOSITORY,
+    task_issue: TASK,
+    pull_request: PR,
+    exact_head: HEAD,
+    head_branch: BRANCH,
+    expected_base: BASE,
+    authorized_paths: PATHS,
+    authorized_actor: actor,
+    permitted_surface: surface,
+    review: reviewInput(),
+    operation_count: 1,
+    fallback_allowed: false,
+    ...grantOverrides,
+  },
+  forbidden_changes: ['alternate_surface_fallback', 'merge', 'retry'],
+  expected_outputs: 'One exact Review authority publication and refetched completion record.',
+  validation: 'Exact live binding and refetch equality.',
+  completion_conditions: 'One valid Review authority or zero-mutation reuse.',
+  escalation_conditions: 'Any authority, identity, surface, or publication mismatch.',
+  ...topOverrides,
+})
+
+const taskBodyWithReviewPublicationAssignment = (options = {}) => (
+  `${serializeSimplifiedTaskAuthorityV1(taskInput)}\n\`\`\`yaml\n${JSON.stringify(reviewPublicationAssignment(options), null, 2)}\n\`\`\`\n`
+)
+
+const createReviewRoutingFixture = ({
+  actor = 'whatrune',
+  pullAuthor = 'whatrune',
+  existing = [],
+  includeAuthority = true,
+  authorityTopOverrides = {},
+  authorityGrantOverrides = {},
+  authorityBody = null,
+  issueAuthorAssociation = 'OWNER',
+  finalActor = actor,
+  finalHead = HEAD,
+  finalBase = BASE,
+  finalAuthorityBody = null,
+  authorityAppearsBeforeMutation = false,
+  publicationError = null,
+  refetchMismatch = false,
+  refetchActorMismatch = false,
+} = {}) => {
+  const base = createFixture()
+  const expectedBody = serializeSimplifiedReviewV1(reviewInput())
+  const state = {
+    pullReviewMutations: 0,
+    taskCommentMutations: 0,
+    pullReviews: [],
+    taskComments: [],
+    userReads: 0,
+    taskReads: 0,
+    pullReads: 0,
+    mainReads: 0,
+    taskCommentListReads: 0,
+  }
+  const pullReviewResource = (id, body = expectedBody) => ({
+    id,
+    state: 'APPROVED',
+    commit_id: HEAD,
+    html_url: `https://github.com/${REPOSITORY}/pull/${PR}#pullrequestreview-${id}`,
+    author_association: 'COLLABORATOR',
+    user: { login: 'independent-reviewer' },
+    body,
+  })
+  const taskCommentResource = (id, body = expectedBody) => ({
+    id,
+    issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`,
+    html_url: `https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-${id}`,
+    author_association: 'OWNER',
+    user: { login: 'whatrune' },
+    body,
+  })
+  for (const [index, item] of existing.entries()) {
+    const id = 9200 + index
+    const body = item.body ?? expectedBody
+    if (item.kind === 'PULL_REQUEST_REVIEW') state.pullReviews.push(pullReviewResource(id, body))
+    else state.taskComments.push(taskCommentResource(id, body))
+  }
+  const host = {
+    async api(route) {
+      if (route === 'user') {
+        state.userReads += 1
+        return { login: state.userReads === 1 ? actor : finalActor }
+      }
+      if (route === `repos/${REPOSITORY}/issues/${TASK}`) {
+        state.taskReads += 1
+        const task = await base.host.api(route)
+        const surface = actor === pullAuthor ? 'TASK_ISSUE_COMMENT' : 'PULL_REQUEST_REVIEW'
+        const initialBody = authorityBody ?? (includeAuthority
+          ? taskBodyWithReviewPublicationAssignment({
+              actor, surface, topOverrides: authorityTopOverrides, grantOverrides: authorityGrantOverrides,
+            })
+          : task.body)
+        return {
+          ...task,
+          author_association: issueAuthorAssociation,
+          body: state.taskReads === 1 || finalAuthorityBody === null ? initialBody : finalAuthorityBody,
+        }
+      }
+      if (route === `repos/${REPOSITORY}/pulls/${PR}`) {
+        state.pullReads += 1
+        const pull = await base.host.api(route)
+        return {
+          ...pull,
+          user: { login: pullAuthor },
+          head: { ...pull.head, sha: state.pullReads === 1 ? HEAD : finalHead },
+          base: { ...pull.base, sha: state.pullReads === 1 ? BASE : finalBase },
+        }
+      }
+      if (route === `repos/${REPOSITORY}/git/ref/heads/main`) {
+        state.mainReads += 1
+        return { ref: 'refs/heads/main', object: { sha: state.mainReads === 1 ? BASE : finalBase } }
+      }
+      if (route === `repos/${REPOSITORY}/pulls/${PR}/reviews?per_page=100&page=1`) return [...state.pullReviews]
+      if (route === `repos/${REPOSITORY}/issues/${TASK}/comments?per_page=100&page=1`) {
+        state.taskCommentListReads += 1
+        if (authorityAppearsBeforeMutation && state.taskCommentListReads === 2 && state.taskComments.length === 0) {
+          state.taskComments.push(taskCommentResource(9299))
+        }
+        return [...state.taskComments]
+      }
+      const reviewMatch = route.match(new RegExp(`^repos/${REPOSITORY}/pulls/${PR}/reviews/(\\d+)$`))
+      if (reviewMatch) {
+        const resource = state.pullReviews.find((item) => item.id === Number(reviewMatch[1]))
+        if (resource === undefined) throw new Error(`unexpected_api:${route}`)
+        if (refetchMismatch) return { ...resource, body: `${resource.body}\n` }
+        return refetchActorMismatch ? { ...resource, user: { login: 'wrong-actor' } } : resource
+      }
+      const commentMatch = route.match(new RegExp(`^repos/${REPOSITORY}/issues/comments/(\\d+)$`))
+      if (commentMatch) {
+        const resource = state.taskComments.find((item) => item.id === Number(commentMatch[1]))
+        if (resource === undefined) throw new Error(`unexpected_api:${route}`)
+        if (refetchMismatch) return { ...resource, body: `${resource.body}\n` }
+        return refetchActorMismatch ? { ...resource, user: { login: 'wrong-actor' } } : resource
+      }
+      return base.host.api(route)
+    },
+    async publishPullRequestReview({ repository, prNumber, exactHead, body }) {
+      state.pullReviewMutations += 1
+      if (publicationError !== null) throw publicationError
+      if (repository !== REPOSITORY || prNumber !== PR || exactHead !== HEAD || body !== expectedBody) {
+        throw new Error('unexpected_pull_review_publication')
+      }
+      const resource = pullReviewResource(9301, body)
+      state.pullReviews.push(resource)
+      return resource
+    },
+    async publishTaskIssueComment({ repository, taskIssue, body }) {
+      state.taskCommentMutations += 1
+      if (publicationError !== null) throw publicationError
+      if (repository !== REPOSITORY || taskIssue !== TASK || body !== expectedBody) {
+        throw new Error('unexpected_task_comment_publication')
+      }
+      const resource = taskCommentResource(9302, body)
+      state.taskComments.push(resource)
+      return resource
+    },
+    graphql: (...values) => base.host.graphql(...values),
+  }
+  return { host, state, expectedBody }
+}
 
 let assertions = 0
 const equal = (actual, expected) => { assert.equal(actual, expected); assertions += 1 }
@@ -481,6 +679,240 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
   equal(fixture.state.mergeMutations, 0)
 }
 
+// Semantic approval alone never grants the separate protected publication action.
+{
+  const fixture = createReviewRoutingFixture({ includeAuthority: false })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: fixture.host,
+  }))).message, 'review_publication_authority_required')
+  equal(fixture.state.taskCommentMutations + fixture.state.pullReviewMutations, 0)
+}
+
+// An exact Product Owner Task Assignment admits the self-authored compatibility surface.
+{
+  const fixture = createReviewRoutingFixture()
+  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: fixture.host })
+  equal(result.state, 'MERGE_READY')
+  equal(result.publication_route, 'TASK_ISSUE_COMMENT')
+  equal(result.publication_mutation_count, 1)
+  equal(result.review_kind, 'TASK_ISSUE_COMMENT')
+  equal(result.exact_head, HEAD)
+  equal(fixture.state.taskCommentMutations, 1)
+  equal(fixture.state.pullReviewMutations, 0)
+  equal(result.preflight.review_actor, 'whatrune')
+  equal(result.publication_authority_record, `https://github.com/${REPOSITORY}/issues/${TASK}`)
+}
+
+// A separately actor-bound Task Assignment preserves the normal PR APPROVE route.
+{
+  const fixture = createReviewRoutingFixture({ actor: 'independent-reviewer' })
+  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: fixture.host })
+  equal(result.state, 'MERGE_READY')
+  equal(result.publication_route, 'PULL_REQUEST_REVIEW')
+  equal(result.publication_mutation_count, 1)
+  equal(result.review_kind, 'PULL_REQUEST_REVIEW')
+  equal(fixture.state.pullReviewMutations, 1)
+  equal(fixture.state.taskCommentMutations, 0)
+  equal(result.preflight.review_actor, 'independent-reviewer')
+}
+
+// Exactly one byte-identical current-HEAD authority is reused without publication.
+{
+  const fixture = createReviewRoutingFixture({
+    existing: [{ kind: 'TASK_ISSUE_COMMENT' }], includeAuthority: false,
+  })
+  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: fixture.host })
+  equal(result.state, 'MERGE_READY')
+  equal(result.publication_route, 'REUSED')
+  equal(result.publication_mutation_count, 0)
+  equal(result.review_kind, 'TASK_ISSUE_COMMENT')
+  equal(fixture.state.pullReviewMutations + fixture.state.taskCommentMutations, 0)
+  equal(result.publication_authority_record, null)
+}
+
+// A concurrently published exact authority is reused during the final mutation-boundary recheck.
+{
+  const fixture = createReviewRoutingFixture({ authorityAppearsBeforeMutation: true })
+  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: fixture.host })
+  equal(result.publication_route, 'REUSED')
+  equal(result.publication_mutation_count, 0)
+  equal(result.review_id, 9299)
+  equal(fixture.state.pullReviewMutations + fixture.state.taskCommentMutations, 0)
+}
+
+// Duplicate, conflicting, and malformed authority fail closed before a mutation.
+{
+  const duplicate = createReviewRoutingFixture({
+    existing: [{ kind: 'PULL_REQUEST_REVIEW' }, { kind: 'TASK_ISSUE_COMMENT' }], includeAuthority: false,
+  })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: duplicate.host,
+  }))).message, 'review_authority_duplicate')
+  equal(duplicate.state.pullReviewMutations + duplicate.state.taskCommentMutations, 0)
+
+  const conflict = createReviewRoutingFixture({
+    existing: [{ kind: 'TASK_ISSUE_COMMENT', body: `${serializeSimplifiedReviewV1(reviewInput())}\n` }],
+    includeAuthority: false,
+  })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: conflict.host,
+  }))).message, 'review_authority_conflict')
+  equal(conflict.state.pullReviewMutations + conflict.state.taskCommentMutations, 0)
+
+  const malformed = createReviewRoutingFixture({
+    existing: [{ kind: 'TASK_ISSUE_COMMENT', body: '# Review\n\n```json\n{"record_type": "simplified_independent_review_v1"}\n```\n' }],
+    includeAuthority: false,
+  })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: malformed.host,
+  }))).message, 'review_authority_malformed')
+  equal(malformed.state.pullReviewMutations + malformed.state.taskCommentMutations, 0)
+}
+
+// Every action binding is exact; mismatches stop before publication.
+{
+  const invalidGrants = [
+    { repository: 'other/repository' },
+    { task_issue: TASK + 1 },
+    { pull_request: PR + 1 },
+    { exact_head: BASE },
+    { head_branch: 'codex/wrong-branch' },
+    { expected_base: HEAD },
+    { authorized_paths: ['AGENTS.md'] },
+    { authorized_actor: 'other-actor' },
+    { permitted_surface: 'PULL_REQUEST_REVIEW' },
+    { review: { ...reviewInput(), unknown: 1 } },
+    { operation_count: 2 },
+    { fallback_allowed: true },
+  ]
+  for (const grantOverrides of invalidGrants) {
+    const fixture = createReviewRoutingFixture({ authorityGrantOverrides: grantOverrides })
+    equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+      request: reviewRoutingInput(), host: fixture.host,
+    }))).message, 'review_publication_authority_invalid')
+    equal(fixture.state.pullReviewMutations + fixture.state.taskCommentMutations, 0)
+  }
+  const wrongOwner = createReviewRoutingFixture({ issueAuthorAssociation: 'NONE' })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: wrongOwner.host,
+  }))).message, 'review_publication_authority_invalid')
+  equal(wrongOwner.state.pullReviewMutations + wrongOwner.state.taskCommentMutations, 0)
+
+  const wrongDistinctSurface = createReviewRoutingFixture({
+    actor: 'independent-reviewer', authorityGrantOverrides: { permitted_surface: 'TASK_ISSUE_COMMENT' },
+  })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: wrongDistinctSurface.host,
+  }))).message, 'review_publication_authority_invalid')
+  equal(wrongDistinctSurface.state.pullReviewMutations + wrongDistinctSurface.state.taskCommentMutations, 0)
+
+  for (const topOverrides of [
+    { authoring_role: 'Independent Reviewer' },
+    { authority_source: 'https://github.com/whatrune/sd-prompt-studio/issues/1' },
+    { record_type: 'result_handoff' },
+  ]) {
+    const fixture = createReviewRoutingFixture({ authorityTopOverrides: topOverrides })
+    equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+      request: reviewRoutingInput(), host: fixture.host,
+    }))).message, 'review_publication_authority_invalid')
+    equal(fixture.state.pullReviewMutations + fixture.state.taskCommentMutations, 0)
+  }
+}
+
+// Duplicate or malformed publication assignments do not grant mutation authority.
+{
+  const assignment = taskBodyWithReviewPublicationAssignment()
+  const yamlBlock = assignment.slice(assignment.indexOf('```yaml'))
+  const duplicate = createReviewRoutingFixture({ authorityBody: `${assignment}\n${yamlBlock}` })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: duplicate.host,
+  }))).message, 'review_publication_authority_duplicate')
+  equal(duplicate.state.pullReviewMutations + duplicate.state.taskCommentMutations, 0)
+
+  const malformed = createReviewRoutingFixture({
+    authorityBody: `${serializeSimplifiedTaskAuthorityV1(taskInput)}\n\`\`\`yaml\nauthority_kind: REVIEW_AUTHORITY_PUBLICATION\n  malformed\n\`\`\`\n`,
+  })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: malformed.host,
+  }))).message, 'review_publication_authority_malformed')
+  equal(malformed.state.pullReviewMutations + malformed.state.taskCommentMutations, 0)
+}
+
+// HEAD/base/actor are read again immediately before the publication mutation.
+{
+  const headDrift = createReviewRoutingFixture({ finalHead: '4'.repeat(40) })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: headDrift.host,
+  }))).message, 'review_publication_final_binding_invalid')
+  equal(headDrift.state.pullReviewMutations + headDrift.state.taskCommentMutations, 0)
+
+  const baseDrift = createReviewRoutingFixture({ finalBase: '5'.repeat(40) })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: baseDrift.host,
+  }))).message, 'review_publication_final_binding_invalid')
+  equal(baseDrift.state.pullReviewMutations + baseDrift.state.taskCommentMutations, 0)
+
+  const actorDrift = createReviewRoutingFixture({ finalActor: 'other-actor' })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: actorDrift.host,
+  }))).message, 'review_publication_authority_invalid')
+  equal(actorDrift.state.pullReviewMutations + actorDrift.state.taskCommentMutations, 0)
+
+  const authorityRemoved = createReviewRoutingFixture({
+    finalAuthorityBody: serializeSimplifiedTaskAuthorityV1(taskInput),
+  })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: authorityRemoved.host,
+  }))).message, 'review_publication_authority_required')
+  equal(authorityRemoved.state.pullReviewMutations + authorityRemoved.state.taskCommentMutations, 0)
+}
+
+// A distinct-actor PR publication failure never falls back to the Task comment route.
+{
+  const fixture = createReviewRoutingFixture({
+    actor: 'independent-reviewer',
+    publicationError: new Error('github_http_403:forbidden'),
+  })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: fixture.host,
+  }))).message, 'github_http_403:forbidden')
+  equal(fixture.state.pullReviewMutations, 1)
+  equal(fixture.state.taskCommentMutations, 0)
+}
+
+// Publication is not admitted unless the exact created resource refetches byte-identically.
+{
+  const fixture = createReviewRoutingFixture({ refetchMismatch: true })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: fixture.host,
+  }))).message, 'review_authority_conflict')
+  equal(fixture.state.taskCommentMutations, 1)
+  equal(fixture.state.pullReviewMutations, 0)
+}
+{
+  const fixture = createReviewRoutingFixture({ refetchActorMismatch: true })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: fixture.host,
+  }))).message, 'review_publication_refetch_mismatch')
+  equal(fixture.state.taskCommentMutations, 1)
+  equal(fixture.state.pullReviewMutations, 0)
+}
+
+// Blockers/UNKNOWN and exact Task/PR/HEAD binding remain closed serializer/preflight predicates.
+{
+  const fixture = createReviewRoutingFixture()
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput({ review_input: { ...reviewInput(), unknown: 1 } }),
+    host: fixture.host,
+  }))).message, 'review_invalid')
+  equal(fixture.state.pullReviewMutations + fixture.state.taskCommentMutations, 0)
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput({ exact_head: BASE }),
+    host: fixture.host,
+  }))).message, 'review_publication_binding_invalid')
+  equal(fixture.state.pullReviewMutations + fixture.state.taskCommentMutations, 0)
+}
+
 {
   const historicalFindingTerminal = Date.parse('2026-08-28T12:40:20Z')
   const historicalWorkerStart = Date.parse('2026-08-28T13:17:44Z')
@@ -519,7 +951,7 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
   equal(checks.actions.length, 1)
   equal(checks.actions[0].type, 'DISPATCH_FRESH_REVIEW')
   equal(approval.actions.length, 1)
-  equal(approval.actions[0].type, 'RUN_PRE_DECISION_PREFLIGHT')
+  equal(approval.actions[0].type, 'ENSURE_REVIEW_AUTHORITY_AND_RUN_PREFLIGHT')
   equal(nonterminal.actions.length, 0)
   equal(mismatch.actions.length, 0)
   equal(projectAutomatedReviewToMergeReadyContinuationV1({
@@ -568,6 +1000,29 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
   const result = await executeSimplifiedMergeV1({ event: mergeEvent(), host: fixture.host })
   equal(result.reason, 'live_binding_invalid')
   equal(fixture.state.mergeMutations, 0)
+}
+{
+  const observed = []
+  const host = createProductionHostV1({
+    token: 'test-token',
+    fetchImpl: async (url, options) => {
+      observed.push({ url, options })
+      return new Response(JSON.stringify({ id: observed.length }), {
+        status: 200,
+        headers: { 'x-github-request-id': `REQ:REVIEW:${observed.length}` },
+      })
+    },
+  })
+  await host.publishPullRequestReview({
+    repository: REPOSITORY, prNumber: PR, exactHead: HEAD, body: reviewBody,
+  })
+  await host.publishTaskIssueComment({ repository: REPOSITORY, taskIssue: TASK, body: reviewBody })
+  equal(observed[0].url, `https://api.github.com/repos/${REPOSITORY}/pulls/${PR}/reviews`)
+  equal(observed[0].options.method, 'POST')
+  equal(observed[0].options.body, JSON.stringify({ body: reviewBody, event: 'APPROVE', commit_id: HEAD }))
+  equal(observed[1].url, `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}/comments`)
+  equal(observed[1].options.method, 'POST')
+  equal(observed[1].options.body, JSON.stringify({ body: reviewBody }))
 }
 {
   let observedAuthorization = null

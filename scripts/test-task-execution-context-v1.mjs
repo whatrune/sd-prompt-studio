@@ -281,7 +281,7 @@ function observed(id = identity(), overrides = {}) {
     ['CHECKS_PASS', 'DISPATCH_FRESH_REVIEW'],
     ['CORRECTION_CHECKS_PASS', 'DISPATCH_REPLACEMENT_FRESH_REVIEW'],
     ['REVIEW_FINDING', 'FOLLOW_UP_OWNING_WORKER'],
-    ['REVIEW_APPROVE', 'RUN_PRE_DECISION_PREFLIGHT'],
+    ['REVIEW_APPROVE', 'ENSURE_REVIEW_AUTHORITY_AND_RUN_PREFLIGHT'],
   ]
   for (const [terminalKind, actionType] of expected) {
     const result = actionFor(terminalKind)
@@ -329,6 +329,16 @@ function observed(id = identity(), overrides = {}) {
   equal(finding.actions[0].type, 'FOLLOW_UP_OWNING_WORKER')
   equal(finding.consumed_cursor, 'cursor-finding')
   equal(project('REVIEW_FINDING', 'cursor-finding', finding.consumed_cursor).actions.length, 0)
+
+  const approval = project('REVIEW_APPROVE', 'cursor-review-approve', finding.consumed_cursor)
+  equal(approval.actions.length, 1)
+  equal(approval.actions[0].type, 'ENSURE_REVIEW_AUTHORITY_AND_RUN_PREFLIGHT')
+  equal(approval.consumed_cursor, 'cursor-review-approve')
+  equal(project('REVIEW_APPROVE', 'cursor-review-approve', approval.consumed_cursor).actions.length, 0)
+
+  const nextApproval = project('REVIEW_APPROVE', 'cursor-review-approve-next', approval.consumed_cursor)
+  equal(nextApproval.actions.length, 1)
+  equal(nextApproval.actions[0].type, 'ENSURE_REVIEW_AUTHORITY_AND_RUN_PREFLIGHT')
 }
 
 // 11. Local branch "main" is not evidence of remote-main identity.
