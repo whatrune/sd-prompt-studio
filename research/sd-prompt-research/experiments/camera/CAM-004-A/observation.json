@@ -1,0 +1,281 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-004-A",
+  "blind_condition_label": "COND-03",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "observed_framing",
+    "upper_crop_boundary",
+    "lower_crop_boundary",
+    "head_visibility",
+    "torso_visibility",
+    "pelvis_visibility",
+    "knees_visibility",
+    "feet_visibility",
+    "face_detail",
+    "framing_boundary_assessable",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-03: observed full_body framing=6/6.",
+      "Opaque condition COND-03: framing boundary assessable=6/6.",
+      "Opaque condition COND-03: ambiguity/artifact=0/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, and visible pixels; prompts, seeds, requested framing, run mapping, PromptTag IDs, and emitted phrases were withheld.",
+      "The 24-panel opaque observation record was frozen before mapping disclosure at SHA-256 4474d955e559885a04a24a283da6feda7275eff985a098294c968f6112804f2f.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen visual row.",
+      "Requested-framing alignment, matched-seed comparison, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "low",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible crop extends from above the head to below feet; framing boundary is directly assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "low",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible crop extends from above the head to below feet; framing boundary is directly assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "low",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible crop extends from above the head to below feet; framing boundary is directly assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "low",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible crop extends from above the head to below feet; framing boundary is directly assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "low",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible crop extends from above the head to below feet; framing boundary is directly assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "low",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible crop extends from above the head to below feet; framing boundary is directly assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "observed_framing": {
+        "full_body": 6
+      },
+      "upper_crop_boundary": {
+        "above_head": 6
+      },
+      "lower_crop_boundary": {
+        "below_feet": 6
+      },
+      "head_visibility": {
+        "visible": 6
+      },
+      "torso_visibility": {
+        "visible": 6
+      },
+      "pelvis_visibility": {
+        "visible": 6
+      },
+      "knees_visibility": {
+        "visible": 6
+      },
+      "feet_visibility": {
+        "visible": 6
+      },
+      "face_detail": {
+        "low": 6
+      },
+      "framing_boundary_assessable": {
+        "assessable": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "camera_framing_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}

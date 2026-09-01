@@ -1,0 +1,593 @@
+metadata_status: verified
+source: a1111_txt2img_api
+format: png+json
+official_input:
+  generation_session: CAM-004-task-510-2026-09-01T012356898Z
+  panel_count: 24
+  sidecar_count: 24
+condition:
+  role: control
+  framing: full body
+generation:
+  positive_prompt: 1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, full body
+  negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+  settings:
+    model: novaAnimeXL_ilV190
+    model_hash: fa486caafc
+    model_sha256: fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f
+    sampler: Euler a
+    scheduler: Automatic
+    steps: 20
+    cfg_scale: 4.5
+    width: 1024
+    height: 1024
+    batch_size: 1
+    n_iter: 1
+    enable_hr: false
+    restore_faces: false
+    tiling: false
+  ordered_seeds:
+  - 317428159
+  - 684905731
+  - 926173847
+  - 1248053691
+  - 1673924803
+  - 2037469157
+matched_seed_contract:
+  run_ids:
+  - CAM-004-A
+  - CAM-004-B
+  - CAM-004-C
+  - CAM-004-D
+  only_prompt_difference: terminal canonical camera framing phrase
+  negative_prompt_equal: true
+  settings_equal: true
+  ordered_seeds_equal: true
+provenance_binding:
+  execution_instance_id: b5f1ad5d-2624-4eba-948a-d92e38e5d24f
+  blind_freeze_sha256: 4474d955e559885a04a24a283da6feda7275eff985a098294c968f6112804f2f
+  response_parameters_exact: true
+  parsed_info_sampler_exact: true
+  infotext_sampler_schedule_exact: true
+  independently_recheckable_from_tracked_metadata: true
+  ignored_diagnostic_files_required_for_recheck: false
+panels:
+- panel_id: 1
+  seed: 317428159
+  image_file: panels/CAM-004-A_01.png
+  image_sha256: 054340188266189eae315dc53e5073b8649a585c1d016b32f9e869118e924d08
+  image_bytes: 956360
+  diagnostic_provenance_file: source/tmp/generation/CAM-004-A_01_response.json
+  diagnostic_provenance_sha256: 5e648736ed7f87a9aac372a1d7e8f731e3d23e4266db6924c6a1577429aeb5e0
+  tracked_metadata_is_authoritative: true
+  dispatch_started_at: '2026-09-01T01:23:56.901Z'
+  response_received_at: '2026-09-01T01:24:03.605Z'
+  returned_parameters:
+    prompt: 1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, full body
+    negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+    styles: null
+    seed: 317428159
+    subseed: -1
+    subseed_strength: 0
+    seed_resize_from_h: -1
+    seed_resize_from_w: -1
+    sampler_name: Euler a
+    scheduler: Automatic
+    batch_size: 1
+    n_iter: 1
+    steps: 20
+    cfg_scale: 4.5
+    distilled_cfg_scale: 3.5
+    width: 1024
+    height: 1024
+    restore_faces: false
+    tiling: false
+    do_not_save_samples: false
+    do_not_save_grid: false
+    eta: null
+    denoising_strength: null
+    s_min_uncond: null
+    s_churn: null
+    s_tmax: null
+    s_tmin: null
+    s_noise: null
+    override_settings: null
+    override_settings_restore_afterwards: true
+    refiner_checkpoint: null
+    refiner_switch_at: null
+    disable_extra_networks: false
+    firstpass_image: null
+    comments: null
+    enable_hr: false
+    firstphase_width: 0
+    firstphase_height: 0
+    hr_scale: 2
+    hr_upscaler: null
+    hr_second_pass_steps: 0
+    hr_resize_x: 0
+    hr_resize_y: 0
+    hr_checkpoint_name: null
+    hr_additional_modules: null
+    hr_sampler_name: null
+    hr_scheduler: null
+    hr_prompt: ''
+    hr_negative_prompt: ''
+    hr_cfg: 1
+    hr_distilled_cfg: 3.5
+    force_task_id: null
+    sampler_index: Euler
+    script_name: null
+    script_args: []
+    send_images: true
+    save_images: false
+    alwayson_scripts: {}
+    infotext: null
+  parsed_response_info:
+    prompt: 1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, full body
+    negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+    seed: 317428159
+    subseed: 2570478849
+    sampler_name: Euler a
+    cfg_scale: 4.5
+    steps: 20
+    width: 1024
+    height: 1024
+    sd_model_name: novaAnimeXL_ilV190
+    sd_model_hash: fa486caafc
+    version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    infotext: '1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, full body
+
+      Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 317428159, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6'
+- panel_id: 2
+  seed: 684905731
+  image_file: panels/CAM-004-A_02.png
+  image_sha256: 1cc5bbe8b7f41c72db3c5ab3d59f6e708afae85c0ba7dd3a2bfc4207d0bf4892
+  image_bytes: 651445
+  diagnostic_provenance_file: source/tmp/generation/CAM-004-A_02_response.json
+  diagnostic_provenance_sha256: 20d3f556bd3213bf525af49a83c3c8b088b360880ca208963e2e85070f14d9ef
+  tracked_metadata_is_authoritative: true
+  dispatch_started_at: '2026-09-01T01:24:03.622Z'
+  response_received_at: '2026-09-01T01:24:09.215Z'
+  returned_parameters:
+    prompt: 1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, full body
+    negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+    styles: null
+    seed: 684905731
+    subseed: -1
+    subseed_strength: 0
+    seed_resize_from_h: -1
+    seed_resize_from_w: -1
+    sampler_name: Euler a
+    scheduler: Automatic
+    batch_size: 1
+    n_iter: 1
+    steps: 20
+    cfg_scale: 4.5
+    distilled_cfg_scale: 3.5
+    width: 1024
+    height: 1024
+    restore_faces: false
+    tiling: false
+    do_not_save_samples: false
+    do_not_save_grid: false
+    eta: null
+    denoising_strength: null
+    s_min_uncond: null
+    s_churn: null
+    s_tmax: null
+    s_tmin: null
+    s_noise: null
+    override_settings: null
+    override_settings_restore_afterwards: true
+    refiner_checkpoint: null
+    refiner_switch_at: null
+    disable_extra_networks: false
+    firstpass_image: null
+    comments: null
+    enable_hr: false
+    firstphase_width: 0
+    firstphase_height: 0
+    hr_scale: 2
+    hr_upscaler: null
+    hr_second_pass_steps: 0
+    hr_resize_x: 0
+    hr_resize_y: 0
+    hr_checkpoint_name: null
+    hr_additional_modules: null
+    hr_sampler_name: null
+    hr_scheduler: null
+    hr_prompt: ''
+    hr_negative_prompt: ''
+    hr_cfg: 1
+    hr_distilled_cfg: 3.5
+    force_task_id: null
+    sampler_index: Euler
+    script_name: null
+    script_args: []
+    send_images: true
+    save_images: false
+    alwayson_scripts: {}
+    infotext: null
+  parsed_response_info:
+    prompt: 1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, full body
+    negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+    seed: 684905731
+    subseed: 3599528266
+    sampler_name: Euler a
+    cfg_scale: 4.5
+    steps: 20
+    width: 1024
+    height: 1024
+    sd_model_name: novaAnimeXL_ilV190
+    sd_model_hash: fa486caafc
+    version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    infotext: '1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, full body
+
+      Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 684905731, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6'
+- panel_id: 3
+  seed: 926173847
+  image_file: panels/CAM-004-A_03.png
+  image_sha256: d08a37c2eb80bf1861c2e1d4b866492e2af403ffae877ef435f71002eee98995
+  image_bytes: 573713
+  diagnostic_provenance_file: source/tmp/generation/CAM-004-A_03_response.json
+  diagnostic_provenance_sha256: f4a87b97c67c69c7e70c56dafc50d0bf66774f22d9b500cdc7c120a7457deb07
+  tracked_metadata_is_authoritative: true
+  dispatch_started_at: '2026-09-01T01:24:09.227Z'
+  response_received_at: '2026-09-01T01:24:14.842Z'
+  returned_parameters:
+    prompt: 1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, full body
+    negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+    styles: null
+    seed: 926173847
+    subseed: -1
+    subseed_strength: 0
+    seed_resize_from_h: -1
+    seed_resize_from_w: -1
+    sampler_name: Euler a
+    scheduler: Automatic
+    batch_size: 1
+    n_iter: 1
+    steps: 20
+    cfg_scale: 4.5
+    distilled_cfg_scale: 3.5
+    width: 1024
+    height: 1024
+    restore_faces: false
+    tiling: false
+    do_not_save_samples: false
+    do_not_save_grid: false
+    eta: null
+    denoising_strength: null
+    s_min_uncond: null
+    s_churn: null
+    s_tmax: null
+    s_tmin: null
+    s_noise: null
+    override_settings: null
+    override_settings_restore_afterwards: true
+    refiner_checkpoint: null
+    refiner_switch_at: null
+    disable_extra_networks: false
+    firstpass_image: null
+    comments: null
+    enable_hr: false
+    firstphase_width: 0
+    firstphase_height: 0
+    hr_scale: 2
+    hr_upscaler: null
+    hr_second_pass_steps: 0
+    hr_resize_x: 0
+    hr_resize_y: 0
+    hr_checkpoint_name: null
+    hr_additional_modules: null
+    hr_sampler_name: null
+    hr_scheduler: null
+    hr_prompt: ''
+    hr_negative_prompt: ''
+    hr_cfg: 1
+    hr_distilled_cfg: 3.5
+    force_task_id: null
+    sampler_index: Euler
+    script_name: null
+    script_args: []
+    send_images: true
+    save_images: false
+    alwayson_scripts: {}
+    infotext: null
+  parsed_response_info:
+    prompt: 1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, full body
+    negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+    seed: 926173847
+    subseed: 2159787185
+    sampler_name: Euler a
+    cfg_scale: 4.5
+    steps: 20
+    width: 1024
+    height: 1024
+    sd_model_name: novaAnimeXL_ilV190
+    sd_model_hash: fa486caafc
+    version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    infotext: '1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, full body
+
+      Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 926173847, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6'
+- panel_id: 4
+  seed: 1248053691
+  image_file: panels/CAM-004-A_04.png
+  image_sha256: 8de66d0cf57a9030f8138cde1faea5817f195594213a8c19660b918f72ed50b1
+  image_bytes: 834884
+  diagnostic_provenance_file: source/tmp/generation/CAM-004-A_04_response.json
+  diagnostic_provenance_sha256: 7096b2907edfb3532be716cd7aa424557a2427acbbb34a39ce6e57f3380dbaf7
+  tracked_metadata_is_authoritative: true
+  dispatch_started_at: '2026-09-01T01:24:14.856Z'
+  response_received_at: '2026-09-01T01:24:20.626Z'
+  returned_parameters:
+    prompt: 1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, full body
+    negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+    styles: null
+    seed: 1248053691
+    subseed: -1
+    subseed_strength: 0
+    seed_resize_from_h: -1
+    seed_resize_from_w: -1
+    sampler_name: Euler a
+    scheduler: Automatic
+    batch_size: 1
+    n_iter: 1
+    steps: 20
+    cfg_scale: 4.5
+    distilled_cfg_scale: 3.5
+    width: 1024
+    height: 1024
+    restore_faces: false
+    tiling: false
+    do_not_save_samples: false
+    do_not_save_grid: false
+    eta: null
+    denoising_strength: null
+    s_min_uncond: null
+    s_churn: null
+    s_tmax: null
+    s_tmin: null
+    s_noise: null
+    override_settings: null
+    override_settings_restore_afterwards: true
+    refiner_checkpoint: null
+    refiner_switch_at: null
+    disable_extra_networks: false
+    firstpass_image: null
+    comments: null
+    enable_hr: false
+    firstphase_width: 0
+    firstphase_height: 0
+    hr_scale: 2
+    hr_upscaler: null
+    hr_second_pass_steps: 0
+    hr_resize_x: 0
+    hr_resize_y: 0
+    hr_checkpoint_name: null
+    hr_additional_modules: null
+    hr_sampler_name: null
+    hr_scheduler: null
+    hr_prompt: ''
+    hr_negative_prompt: ''
+    hr_cfg: 1
+    hr_distilled_cfg: 3.5
+    force_task_id: null
+    sampler_index: Euler
+    script_name: null
+    script_args: []
+    send_images: true
+    save_images: false
+    alwayson_scripts: {}
+    infotext: null
+  parsed_response_info:
+    prompt: 1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, full body
+    negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+    seed: 1248053691
+    subseed: 4169272746
+    sampler_name: Euler a
+    cfg_scale: 4.5
+    steps: 20
+    width: 1024
+    height: 1024
+    sd_model_name: novaAnimeXL_ilV190
+    sd_model_hash: fa486caafc
+    version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    infotext: '1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, full body
+
+      Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1248053691, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6'
+- panel_id: 5
+  seed: 1673924803
+  image_file: panels/CAM-004-A_05.png
+  image_sha256: d17a3fd373851eb452f94a21217efeb68c0e08f5c6582aeb5198a78ccc9087bb
+  image_bytes: 564572
+  diagnostic_provenance_file: source/tmp/generation/CAM-004-A_05_response.json
+  diagnostic_provenance_sha256: 74cca063c49df4ebd2a26f294a60c20f5267d09d570d27558d27f8261aa492e0
+  tracked_metadata_is_authoritative: true
+  dispatch_started_at: '2026-09-01T01:24:20.641Z'
+  response_received_at: '2026-09-01T01:24:26.278Z'
+  returned_parameters:
+    prompt: 1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, full body
+    negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+    styles: null
+    seed: 1673924803
+    subseed: -1
+    subseed_strength: 0
+    seed_resize_from_h: -1
+    seed_resize_from_w: -1
+    sampler_name: Euler a
+    scheduler: Automatic
+    batch_size: 1
+    n_iter: 1
+    steps: 20
+    cfg_scale: 4.5
+    distilled_cfg_scale: 3.5
+    width: 1024
+    height: 1024
+    restore_faces: false
+    tiling: false
+    do_not_save_samples: false
+    do_not_save_grid: false
+    eta: null
+    denoising_strength: null
+    s_min_uncond: null
+    s_churn: null
+    s_tmax: null
+    s_tmin: null
+    s_noise: null
+    override_settings: null
+    override_settings_restore_afterwards: true
+    refiner_checkpoint: null
+    refiner_switch_at: null
+    disable_extra_networks: false
+    firstpass_image: null
+    comments: null
+    enable_hr: false
+    firstphase_width: 0
+    firstphase_height: 0
+    hr_scale: 2
+    hr_upscaler: null
+    hr_second_pass_steps: 0
+    hr_resize_x: 0
+    hr_resize_y: 0
+    hr_checkpoint_name: null
+    hr_additional_modules: null
+    hr_sampler_name: null
+    hr_scheduler: null
+    hr_prompt: ''
+    hr_negative_prompt: ''
+    hr_cfg: 1
+    hr_distilled_cfg: 3.5
+    force_task_id: null
+    sampler_index: Euler
+    script_name: null
+    script_args: []
+    send_images: true
+    save_images: false
+    alwayson_scripts: {}
+    infotext: null
+  parsed_response_info:
+    prompt: 1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, full body
+    negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+    seed: 1673924803
+    subseed: 2149646615
+    sampler_name: Euler a
+    cfg_scale: 4.5
+    steps: 20
+    width: 1024
+    height: 1024
+    sd_model_name: novaAnimeXL_ilV190
+    sd_model_hash: fa486caafc
+    version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    infotext: '1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, full body
+
+      Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1673924803, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6'
+- panel_id: 6
+  seed: 2037469157
+  image_file: panels/CAM-004-A_06.png
+  image_sha256: f48f5950481e9509e3db80ad1178456ad70ab2ef1ae0ae222dc17582ef53247a
+  image_bytes: 526510
+  diagnostic_provenance_file: source/tmp/generation/CAM-004-A_06_response.json
+  diagnostic_provenance_sha256: dce2da6c27045cc7d897e73f979de077b9a7bbb4e27b5efb8c59302c5df785dd
+  tracked_metadata_is_authoritative: true
+  dispatch_started_at: '2026-09-01T01:24:26.288Z'
+  response_received_at: '2026-09-01T01:24:31.941Z'
+  returned_parameters:
+    prompt: 1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, full body
+    negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+    styles: null
+    seed: 2037469157
+    subseed: -1
+    subseed_strength: 0
+    seed_resize_from_h: -1
+    seed_resize_from_w: -1
+    sampler_name: Euler a
+    scheduler: Automatic
+    batch_size: 1
+    n_iter: 1
+    steps: 20
+    cfg_scale: 4.5
+    distilled_cfg_scale: 3.5
+    width: 1024
+    height: 1024
+    restore_faces: false
+    tiling: false
+    do_not_save_samples: false
+    do_not_save_grid: false
+    eta: null
+    denoising_strength: null
+    s_min_uncond: null
+    s_churn: null
+    s_tmax: null
+    s_tmin: null
+    s_noise: null
+    override_settings: null
+    override_settings_restore_afterwards: true
+    refiner_checkpoint: null
+    refiner_switch_at: null
+    disable_extra_networks: false
+    firstpass_image: null
+    comments: null
+    enable_hr: false
+    firstphase_width: 0
+    firstphase_height: 0
+    hr_scale: 2
+    hr_upscaler: null
+    hr_second_pass_steps: 0
+    hr_resize_x: 0
+    hr_resize_y: 0
+    hr_checkpoint_name: null
+    hr_additional_modules: null
+    hr_sampler_name: null
+    hr_scheduler: null
+    hr_prompt: ''
+    hr_negative_prompt: ''
+    hr_cfg: 1
+    hr_distilled_cfg: 3.5
+    force_task_id: null
+    sampler_index: Euler
+    script_name: null
+    script_args: []
+    send_images: true
+    save_images: false
+    alwayson_scripts: {}
+    infotext: null
+  parsed_response_info:
+    prompt: 1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, full body
+    negative_prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+    seed: 2037469157
+    subseed: 2241356279
+    sampler_name: Euler a
+    cfg_scale: 4.5
+    steps: 20
+    width: 1024
+    height: 1024
+    sd_model_name: novaAnimeXL_ilV190
+    sd_model_hash: fa486caafc
+    version: f2.0.1v1.10.1-previous-669-gdfdcbab6
+    infotext: '1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, full body
+
+      Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 2037469157, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version: f2.0.1v1.10.1-previous-669-gdfdcbab6'
+verification:
+  panel_count: 6
+  png_integrity: PASS
+  dimensions: PASS
+  generation_provenance: PASS
+  matched_prompt_contract: PASS
+experiment_summary:
+  decision: CONFIRMED_ORDERED_FRAMING_SLOT_DISCRIMINATION
+  requested_framing_visible: 6/6
+  framing_boundary_assessable: 6/6
+  ambiguity_or_artifact: 0/6

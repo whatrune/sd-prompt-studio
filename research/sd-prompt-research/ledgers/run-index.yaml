@@ -456,3 +456,27 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-01T02:02:50+09:00'
   path: experiments/clothing/CLOTHING-001-B
+- run_id: CAM-004-A
+  domain: camera
+  title: CAM-004-A — full body
+  status: OBSERVED
+  updated_at: '2026-09-01T10:26:20+09:00'
+  path: experiments/camera/CAM-004-A
+- run_id: CAM-004-B
+  domain: camera
+  title: CAM-004-B — cowboy shot
+  status: OBSERVED
+  updated_at: '2026-09-01T10:26:20+09:00'
+  path: experiments/camera/CAM-004-B
+- run_id: CAM-004-C
+  domain: camera
+  title: CAM-004-C — upper body
+  status: OBSERVED
+  updated_at: '2026-09-01T10:26:20+09:00'
+  path: experiments/camera/CAM-004-C
+- run_id: CAM-004-D
+  domain: camera
+  title: CAM-004-D — close-up
+  status: OBSERVED
+  updated_at: '2026-09-01T10:26:20+09:00'
+  path: experiments/camera/CAM-004-D
