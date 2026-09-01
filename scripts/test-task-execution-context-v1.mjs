@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, realpathSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import {
@@ -359,6 +359,123 @@ function observed(id = identity(), overrides = {}) {
   equal(assertSharedDependencyAccessV1({ left_manifest_digest: manifest, right_manifest_digest: manifest, operation: 'read' }).admitted, true)
   mismatch(() => assertSharedDependencyAccessV1({ left_manifest_digest: manifest, right_manifest_digest: manifest, operation: 'install' }), 'shared_dependency_mutation_prohibited')
   mismatch(() => assertSharedDependencyAccessV1({ left_manifest_digest: manifest, right_manifest_digest: 'c'.repeat(40), operation: 'read' }), 'shared_dependency_manifest_identity')
+}
+
+// Post-Merge local main synchronization is FF-only, deterministic, and cleanup-independent.
+{
+  const powershell = process.platform === 'win32' ? 'pwsh.exe' : 'pwsh'
+  const syncScript = path.resolve('scripts/sync-local-main-after-merge-v1.ps1')
+  const syncSource = readFileSync(syncScript, 'utf8')
+  equal(
+    /if \(\$localMain -ceq \$script:OriginMain\) \{[\s\S]*?Get-VerifiedSynchronizedState[\s\S]*?ALREADY_EQUAL/u.test(syncSource),
+    true,
+    'the no-op path rechecks current refs and root cleanliness before PASS',
+  )
+  equal(
+    /function Get-VerifiedSynchronizedState \{[\s\S]*?refs\/heads\/main[\s\S]*?refs\/remotes\/origin\/main[\s\S]*?status[\s\S]*?local_main_sync_final_verification_failed/u.test(syncSource),
+    true,
+    'final verification rereads both refs and fails closed on dirty or unequal state',
+  )
+  const fixtureRoots = []
+  const git = (cwd, args, expectedStatus = 0) => {
+    const result = spawnSync('git', args, { cwd, encoding: 'utf8' })
+    equal(result.status, expectedStatus, `${args.join(' ')}\n${result.stdout}\n${result.stderr}`)
+    return result.stdout.trim()
+  }
+  const createFixture = (label) => {
+    const fixtureRoot = realpathSync.native(mkdtempSync(path.join(tmpdir(), `local-main-sync-${label}-`)))
+    fixtureRoots.push(fixtureRoot)
+    const remote = path.join(fixtureRoot, 'remote.git')
+    const seed = path.join(fixtureRoot, 'seed')
+    const local = path.join(fixtureRoot, 'local')
+    mkdirSync(seed)
+    git(fixtureRoot, ['init', '--bare', remote])
+    git(seed, ['init', '-b', 'main'])
+    git(seed, ['config', 'user.email', 'tests@example.invalid'])
+    git(seed, ['config', 'user.name', 'Test Author'])
+    writeFileSync(path.join(seed, 'state.txt'), 'initial\n', 'utf8')
+    git(seed, ['add', 'state.txt'])
+    git(seed, ['commit', '-m', 'initial'])
+    git(seed, ['remote', 'add', 'origin', remote])
+    git(seed, ['push', '-u', 'origin', 'main'])
+    git(fixtureRoot, ['clone', '--branch', 'main', remote, local])
+    git(local, ['config', 'user.email', 'tests@example.invalid'])
+    git(local, ['config', 'user.name', 'Test Author'])
+    return { fixtureRoot, remote, seed, local }
+  }
+  const commit = (repository, content, message) => {
+    writeFileSync(path.join(repository, 'state.txt'), `${content}\n`, 'utf8')
+    git(repository, ['add', 'state.txt'])
+    git(repository, ['commit', '-m', message])
+    return git(repository, ['rev-parse', 'HEAD'])
+  }
+  const advanceRemote = (fixture, content) => {
+    const head = commit(fixture.seed, content, `remote ${content}`)
+    git(fixture.seed, ['push', 'origin', 'main'])
+    return head
+  }
+  const invokeSync = (repository) => {
+    const result = spawnSync(powershell, [
+      '-NoLogo', '-NoProfile', '-NonInteractive', '-File', syncScript,
+      '-RepositoryPath', repository,
+    ], { cwd: process.cwd(), encoding: 'utf8' })
+    const lines = result.stdout.trim().split(/\r?\n/u).filter(Boolean)
+    const payload = JSON.parse(lines.at(-1))
+    return { result, payload }
+  }
+
+  try {
+    const behind = createFixture('behind')
+    const expectedRemote = advanceRemote(behind, 'advanced')
+    const behindResult = invokeSync(behind.local)
+    equal(behindResult.result.status, 0)
+    equal(behindResult.payload.state, 'PASS')
+    equal(behindResult.payload.action, 'FAST_FORWARD')
+    equal(behindResult.payload.local_main_after, expectedRemote)
+    equal(behindResult.payload.local_main_after, behindResult.payload.origin_main)
+    equal(behindResult.payload.merge_outcome_affected, false)
+    equal(behindResult.payload.worktree_cleanup_may_continue, true)
+
+    const equalResult = invokeSync(behind.local)
+    equal(equalResult.result.status, 0)
+    equal(equalResult.payload.state, 'PASS')
+    equal(equalResult.payload.action, 'ALREADY_EQUAL')
+    equal(equalResult.payload.local_main_before, equalResult.payload.local_main_after)
+
+    const dirty = createFixture('dirty')
+    const dirtyHead = git(dirty.local, ['rev-parse', 'HEAD'])
+    writeFileSync(path.join(dirty.local, 'untracked.txt'), 'dirty\n', 'utf8')
+    const dirtyResult = invokeSync(dirty.local)
+    equal(dirtyResult.result.status, 1)
+    equal(dirtyResult.payload.reason, 'local_main_sync_root_dirty')
+    equal(git(dirty.local, ['rev-parse', 'HEAD']), dirtyHead)
+    equal(dirtyResult.payload.worktree_cleanup_may_continue, true)
+
+    const localOnly = createFixture('local-only')
+    const localOnlyHead = commit(localOnly.local, 'local-only', 'local only')
+    const localOnlyResult = invokeSync(localOnly.local)
+    equal(localOnlyResult.result.status, 1)
+    equal(localOnlyResult.payload.reason, 'local_main_sync_local_only_commits')
+    equal(git(localOnly.local, ['rev-parse', 'HEAD']), localOnlyHead)
+
+    const diverged = createFixture('diverged')
+    const divergedHead = commit(diverged.local, 'local-diverged', 'local diverged')
+    advanceRemote(diverged, 'remote-diverged')
+    const divergedResult = invokeSync(diverged.local)
+    equal(divergedResult.result.status, 1)
+    equal(divergedResult.payload.reason, 'local_main_sync_diverged')
+    equal(git(diverged.local, ['rev-parse', 'HEAD']), divergedHead)
+
+    const fetchFailure = createFixture('fetch-failure')
+    const fetchFailureHead = git(fetchFailure.local, ['rev-parse', 'HEAD'])
+    git(fetchFailure.local, ['remote', 'set-url', 'origin', path.join(fetchFailure.fixtureRoot, 'missing.git')])
+    const fetchFailureResult = invokeSync(fetchFailure.local)
+    equal(fetchFailureResult.result.status, 1)
+    equal(fetchFailureResult.payload.reason, 'local_main_sync_fetch_failed')
+    equal(git(fetchFailure.local, ['rev-parse', 'HEAD']), fetchFailureHead)
+  } finally {
+    for (const fixtureRoot of fixtureRoots) rmSync(fixtureRoot, { recursive: true, force: true })
+  }
 }
 
 process.stdout.write(`task-execution-context-v1: ${assertions} assertions passed\n`)

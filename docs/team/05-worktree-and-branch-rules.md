@@ -139,18 +139,29 @@ The only additional Git lifecycle check is that an explicitly authorized operato
 
 ```text
 1. Mergeが確認済みで、post-Merge verificationがPASSしていることを確認
-2. PRがMERGED / CLOSEDであることを確認
-3. assigned Task worktreeに未コミット変更がないことを確認
-4. active executionまたはprocessがworktreeを使用していないことを確認
-5. git worktree remove <task-worktree>
-6. DONE
+2. origin/mainをfresh-fetchする
+3. root worktreeがcleanであることを確認する
+4. local mainにlocal-only commitがないことを確認する
+5. mainがorigin/mainのancestorであり、fast-forwardだけが可能であることを確認する
+6. main == origin/mainならidempotent PASS、そうでなければgit merge --ff-only origin/mainを実行する
+7. main == origin/mainを再確認する
+8. PRがMERGED / CLOSEDであることを確認
+9. assigned Task worktreeに未コミット変更がないことを確認
+10. active executionまたはprocessがworktreeを使用していないことを確認
+11. git worktree remove <task-worktree>
+12. DONE
 ```
 
 概念コマンド:
 
 ```bash
+pwsh scripts/sync-local-main-after-merge-v1.ps1 -RepositoryPath <repository-root>
 git worktree remove <task-worktree>
 ```
+
+`sync-local-main-after-merge-v1.ps1`はpost-Merge verification後のlocal housekeeping ownerである。fresh-fetchした`origin/main`をintegration authorityとして使い、rootが`main`をcheckoutしたroot worktreeであること、rootがcleanであること、`origin/main..main`のcommit数が0であること、および`main`が`origin/main`のancestorであることをrequireする。同期は既にequalならzero-mutation PASS、それ以外は`git merge --ff-only origin/main`だけを許し、最後に`main == origin/main`とclean rootをrequireする。rebase、merge commit、reset、force-update、およびbranch deletionは行わない。
+
+fetch failure、dirty root、local-only commit、divergence、FF-only failure、またはfinal equality failureではlocal-main synchronizationをfail closedにする。そのfailureは確認済みMergeを無効化せず、local-main synchronization failureとして分離して報告する。Task worktree cleanupに実際の依存がなければ、上記の安全なcleanup確認を継続してよい。
 
 Canonical Task Issueのcloseはrepository cleanupとは別のprotected actionであり、明示的なProduct OwnerまたはIssue-closure authorityを必要とする。Merge Decision authorityからIssue closeを推論してはならない。Issue-closure authorityの不在またはIssue closeの失敗は、確認済みのMergeまたはworktree cleanupをblockせず、無効化もしない。
 
