@@ -62,6 +62,15 @@ try {
     $runnerSource = Get-Content -Raw -LiteralPath $runner
     Assert-True (([regex]::Matches($runnerSource, 'acquire-python-validation-environment-v1\.ps1')).Count -eq 1) 'runner does not invoke the acquisition helper exactly once'
     Assert-True ($runnerSource -match '&\s+\$Executable\s+@Arguments') 'runner does not use the direct call-operator argument-array boundary'
+    Assert-True ($runnerSource -match '@\(''-B'', ''-E'', ''-s'', ''-c'', \$probeCode\)') 'bootstrap runtime probe does not use the exact isolated flags'
+    Assert-True ($runnerSource -match '@\(''PYTHONHOME'', ''PYTHONPATH'', ''PYTHONUSERBASE''\)') 'bootstrap runtime probe does not clear the closed Python environment set'
+    Assert-True ($runnerSource -notmatch 'Get-Command\s+(?:python|python3|py)(?:\.exe)?\b') 'runner performs forbidden Python command discovery'
+    $bootstrapAdmissionOffset = $runnerSource.IndexOf('$bootstrapRuntime = Assert-LocalFullValidationBootstrapRuntimeV1 -PythonExecutable $BasePythonExecutable', [StringComparison]::Ordinal)
+    $acquisitionOffset = $runnerSource.IndexOf('$acquisitionHelper = Join-Path $PSScriptRoot ''acquire-python-validation-environment-v1.ps1''', [StringComparison]::Ordinal)
+    Assert-True ($bootstrapAdmissionOffset -ge 0 -and $acquisitionOffset -gt $bootstrapAdmissionOffset) 'bootstrap runtime admission does not precede acquisition'
+    $acquisitionResultOffset = $runnerSource.IndexOf('$acquisitionResult = Invoke-LocalFullValidationProcessV1', [StringComparison]::Ordinal)
+    $acquisitionSlice = $runnerSource.Substring($acquisitionOffset, $acquisitionResultOffset - $acquisitionOffset)
+    Assert-True (([regex]::Matches($acquisitionSlice, '''-PythonExecutable'', \$BasePythonExecutable')).Count -eq 1) 'admitted bootstrap executable is not passed unchanged exactly once to acquisition'
     Assert-True ($runnerSource -match '\$validationPython\s*=\s*\[string\]\$acquisition\.python_executable') 'runner does not consume the returned executable directly'
     Assert-True ($runnerSource -match "profile\s*=\s*'FULL_RESEARCH'") 'runner does not own the fixed FULL_RESEARCH profile'
     foreach ($forbiddenPattern in @(
@@ -71,6 +80,61 @@ try {
     )) {
         Assert-True ($runnerSource -notmatch $forbiddenPattern) "runner contains forbidden path or execution pattern $forbiddenPattern"
     }
+
+    $bootstrapIdentity = Assert-LocalFullValidationBootstrapRuntimeV1 -PythonExecutable $python
+    Assert-True ([string]$bootstrapIdentity.python_implementation -ceq 'cpython') 'approved bootstrap implementation was not admitted'
+    Assert-True ([string]$bootstrapIdentity.exact_python_version -ceq '3.12.13') 'approved bootstrap version was not admitted'
+    Assert-True ([string]$bootstrapIdentity.python_cache_tag -ceq 'cpython-312') 'approved bootstrap cache tag was not admitted'
+    Assert-True ([string]$bootstrapIdentity.python_executable -ceq $python) 'approved bootstrap executable identity changed'
+
+    $poison = Join-Path $tempRoot 'poison-path'
+    New-Item -ItemType Directory -Path $poison -Force | Out-Null
+    $pythonMarker = Join-Path $poison 'python-invoked.txt'
+    $pyMarker = Join-Path $poison 'py-invoked.txt'
+    [IO.File]::WriteAllText((Join-Path $poison 'python.cmd'), "@echo off`r`necho invoked>$pythonMarker`r`nexit /b 99`r`n", [Text.Encoding]::ASCII)
+    [IO.File]::WriteAllText((Join-Path $poison 'py.cmd'), "@echo off`r`necho invoked>$pyMarker`r`nexit /b 99`r`n", [Text.Encoding]::ASCII)
+    $savedPath = [Environment]::GetEnvironmentVariable('PATH', 'Process')
+    $savedPythonHome = [Environment]::GetEnvironmentVariable('PYTHONHOME', 'Process')
+    $savedPythonPathForBootstrap = [Environment]::GetEnvironmentVariable('PYTHONPATH', 'Process')
+    $savedPythonUserBase = [Environment]::GetEnvironmentVariable('PYTHONUSERBASE', 'Process')
+    try {
+        [Environment]::SetEnvironmentVariable('PATH', "$poison;$savedPath", 'Process')
+        [Environment]::SetEnvironmentVariable('PYTHONHOME', $poison, 'Process')
+        [Environment]::SetEnvironmentVariable('PYTHONPATH', $poison, 'Process')
+        [Environment]::SetEnvironmentVariable('PYTHONUSERBASE', $poison, 'Process')
+        $isolatedBootstrapIdentity = Assert-LocalFullValidationBootstrapRuntimeV1 -PythonExecutable $python
+        Assert-True ([string]$isolatedBootstrapIdentity.python_executable -ceq $python) 'poisoned environment changed supplied bootstrap identity'
+        Assert-True (-not (Test-Path -LiteralPath $pythonMarker)) 'fake python from PATH was invoked'
+        Assert-True (-not (Test-Path -LiteralPath $pyMarker)) 'fake py from PATH was invoked'
+    }
+    finally {
+        [Environment]::SetEnvironmentVariable('PATH', $savedPath, 'Process')
+        [Environment]::SetEnvironmentVariable('PYTHONHOME', $savedPythonHome, 'Process')
+        [Environment]::SetEnvironmentVariable('PYTHONPATH', $savedPythonPathForBootstrap, 'Process')
+        [Environment]::SetEnvironmentVariable('PYTHONUSERBASE', $savedPythonUserBase, 'Process')
+    }
+
+    $fake314 = Join-Path $tempRoot 'python-3.14.cmd'
+    $fake314Payload = [ordered]@{
+        exact_python_version = '3.14.0'
+        python_cache_tag = 'cpython-314'
+        python_executable = $fake314
+        python_implementation = 'cpython'
+    } | ConvertTo-Json -Compress
+    [IO.File]::WriteAllText($fake314, "@echo off`r`necho $fake314Payload`r`nexit /b 0`r`n", [Text.Encoding]::ASCII)
+    $wrongRuntimeReason = try {
+        Assert-LocalFullValidationBootstrapRuntimeV1 -PythonExecutable $fake314 | Out-Null
+        'unexpected_success'
+    }
+    catch { $_.Exception.Message }
+    Assert-True ($wrongRuntimeReason -ceq 'local_full_validation_bootstrap_runtime_invalid') 'Python 3.14 was not rejected by the pre-acquisition guard'
+
+    $missingRuntimeReason = try {
+        Assert-LocalFullValidationBootstrapRuntimeV1 -PythonExecutable (Join-Path $tempRoot 'missing-python.exe') | Out-Null
+        'unexpected_success'
+    }
+    catch { $_.Exception.Message }
+    Assert-True ($missingRuntimeReason -ceq 'local_full_validation_bootstrap_runtime_invalid') 'missing bootstrap runtime was not rejected'
 
     New-Item -ItemType Directory -Path (Join-Path $seed 'research/sd-prompt-research') -Force | Out-Null
     Copy-Item -LiteralPath $sourceRequirements -Destination (Join-Path $seed 'research/sd-prompt-research/requirements.txt')
