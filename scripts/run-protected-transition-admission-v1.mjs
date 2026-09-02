@@ -1360,6 +1360,49 @@ const validateReviewRoutingRequest = (request) => {
   return Object.freeze({ ...request, authorized_paths: authorizedPaths, review_body: reviewBody })
 }
 
+const projectReviewCorrectionRequiredV1 = ({ error, request, assignmentMutationCount, publicationMutationCount }) => {
+  if (error?.code !== 'blocking_review_threads_present') return null
+  const correction = error.correction
+  const fields = [
+    'repository', 'task_issue', 'pull_request', 'exact_head', 'expected_base',
+    'head_branch', 'authorized_paths', 'active_thread_ids',
+  ]
+  if (
+    !exactKeys(correction, fields) || correction.repository !== request.repository ||
+    correction.task_issue !== request.task_issue || correction.pull_request !== request.pull_request ||
+    correction.exact_head !== request.exact_head || correction.expected_base !== request.expected_base ||
+    typeof correction.head_branch !== 'string' || correction.head_branch.length === 0 ||
+    !samePaths(correction.authorized_paths, request.authorized_paths) ||
+    !Array.isArray(correction.active_thread_ids) || correction.active_thread_ids.length === 0 ||
+    !correction.active_thread_ids.every((value) => typeof value === 'string' && value.length > 0) ||
+    new Set(correction.active_thread_ids).size !== correction.active_thread_ids.length ||
+    correction.active_thread_ids.join('\0') !== [...correction.active_thread_ids].sort().join('\0')
+  ) throw new Error('review_correction_binding_invalid')
+  const cursorInput = JSON.stringify({
+    repository: correction.repository,
+    task_issue: correction.task_issue,
+    pull_request: correction.pull_request,
+    exact_head: correction.exact_head,
+    active_thread_ids: correction.active_thread_ids,
+  })
+  return Object.freeze({
+    state: 'CORRECTION_REQUIRED',
+    reason: 'blocking_review_threads_present',
+    continuation_kind: 'REVIEW_FINDING',
+    continuation_cursor: `review-finding-${createHash('sha256').update(cursorInput, 'utf8').digest('hex')}`,
+    repository: correction.repository,
+    task_issue: correction.task_issue,
+    pull_request: correction.pull_request,
+    exact_head: correction.exact_head,
+    expected_base: correction.expected_base,
+    head_branch: correction.head_branch,
+    authorized_paths: Object.freeze([...correction.authorized_paths]),
+    active_thread_ids: Object.freeze([...correction.active_thread_ids]),
+    assignment_materialization_mutation_count: assignmentMutationCount,
+    publication_mutation_count: publicationMutationCount,
+  })
+}
+
 export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) => {
   request = validateReviewRoutingRequest(request)
   if (
@@ -1418,12 +1461,21 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
     expectedBody: request.review_body,
   })
 
-  let live = await acquireLiveBinding()
+  let assignmentMutationCount = 0
+  let publicationMutationCount = 0
+  let live
+  try {
+    live = await acquireLiveBinding()
+  } catch (error) {
+    const correction = projectReviewCorrectionRequiredV1({
+      error, request, assignmentMutationCount, publicationMutationCount,
+    })
+    if (correction !== null) return correction
+    throw error
+  }
   let publicationRoute = routeFor(live)
   const publicationActor = live.actor.login
   let authorities = await acquireReviews(live)
-  let assignmentMutationCount = 0
-  let publicationMutationCount = 0
   let publicationAuthority = null
 
   if (authorities.length === 0) {
@@ -1433,7 +1485,15 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
 
     if (assignments.length === 0) {
       admitted = admitPredelegation(live, publicationRoute)
-      live = await acquireLiveBinding()
+      try {
+        live = await acquireLiveBinding()
+      } catch (error) {
+        const correction = projectReviewCorrectionRequiredV1({
+          error, request, assignmentMutationCount, publicationMutationCount,
+        })
+        if (correction !== null) return correction
+        throw error
+      }
       const reboundRoute = routeFor(live)
       if (reboundRoute !== publicationRoute) throw new Error('review_assignment_materialization_final_binding_invalid')
       admitted = admitPredelegation(live, publicationRoute)
@@ -1494,7 +1554,11 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
 
   try {
     live = await acquireLiveBinding()
-  } catch {
+  } catch (error) {
+    const correction = projectReviewCorrectionRequiredV1({
+      error, request, assignmentMutationCount, publicationMutationCount,
+    })
+    if (correction !== null) return correction
     throw new Error('review_publication_final_binding_invalid')
   }
   if (authorities.length === 0 && live.actor.login !== publicationActor) {
@@ -1549,20 +1613,29 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
   }
 
   const authority = authorities[0]
-  const preflight = await acquireSimplifiedPreDecisionPreflightV1({
-    request: {
-      repository: request.repository,
-      task_issue: request.task_issue,
-      pull_request: request.pull_request,
-      exact_head: request.exact_head,
-      expected_base: request.expected_base,
-      authorized_paths: request.authorized_paths,
-      review_kind: authority.review_kind,
-      review_id: authority.review_id,
-      review_url: authority.review_url,
-    },
-    host,
-  })
+  let preflight
+  try {
+    preflight = await acquireSimplifiedPreDecisionPreflightV1({
+      request: {
+        repository: request.repository,
+        task_issue: request.task_issue,
+        pull_request: request.pull_request,
+        exact_head: request.exact_head,
+        expected_base: request.expected_base,
+        authorized_paths: request.authorized_paths,
+        review_kind: authority.review_kind,
+        review_id: authority.review_id,
+        review_url: authority.review_url,
+      },
+      host,
+    })
+  } catch (error) {
+    const correction = projectReviewCorrectionRequiredV1({
+      error, request, assignmentMutationCount, publicationMutationCount,
+    })
+    if (correction !== null) return correction
+    throw error
+  }
   return Object.freeze({
     state: 'MERGE_READY',
     publication_route: publicationRoute,

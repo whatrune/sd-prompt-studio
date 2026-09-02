@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -12,6 +13,7 @@ import {
   createBoundedExecutionIdentityV1,
   inspectHistoricalCommitV1,
   projectAutomatedReviewToMergeReadyContinuationV1,
+  projectPreDecisionReviewFindingContinuationV1,
 } from './task-execution-context-v1.mjs'
 
 let assertions = 0
@@ -352,6 +354,93 @@ function observed(id = identity(), overrides = {}) {
   const nextApproval = project('REVIEW_APPROVE', 'cursor-review-approve-next', approval.consumed_cursor)
   equal(nextApproval.actions.length, 1)
   equal(nextApproval.actions[0].type, 'ENSURE_REVIEW_AUTHORITY_AND_RUN_PREFLIGHT')
+}
+
+// A live pre-Decision thread race becomes one exact Task/PR/HEAD-bound same-Worker correction.
+{
+  const id = identity()
+  const activeThreadIds = ['PRRT_task_542_provenance']
+  const cursorInput = JSON.stringify({
+    repository: id.repository,
+    task_issue: 455,
+    pull_request: id.expected_pr,
+    exact_head: id.expected_head,
+    active_thread_ids: activeThreadIds,
+  })
+  const correction = {
+    state: 'CORRECTION_REQUIRED',
+    reason: 'blocking_review_threads_present',
+    continuation_kind: 'REVIEW_FINDING',
+    continuation_cursor: `review-finding-${createHash('sha256').update(cursorInput, 'utf8').digest('hex')}`,
+    repository: id.repository,
+    task_issue: 455,
+    pull_request: id.expected_pr,
+    exact_head: id.expected_head,
+    expected_base: id.expected_base,
+    head_branch: id.branch,
+    authorized_paths: id.authorized_paths,
+    active_thread_ids: activeThreadIds,
+    assignment_materialization_mutation_count: 0,
+    publication_mutation_count: 0,
+  }
+  const first = projectPreDecisionReviewFindingContinuationV1({
+    correction,
+    identity: id,
+    observed: observed(id),
+    owningWorker: 'task-542-research-worker',
+    observedAt: 300,
+  })
+  equal(first.outcome, 'CONTINUE')
+  equal(first.actions.length, 1)
+  equal(first.actions[0].type, 'FOLLOW_UP_OWNING_WORKER')
+  equal(first.actions[0].worker, 'task-542-research-worker')
+  equal(first.actions[0].task_issue, 455)
+  equal(first.actions[0].pull_request, id.expected_pr)
+  equal(first.actions[0].exact_head, id.expected_head)
+  equal(first.actions[0].active_thread_ids.join(','), activeThreadIds.join(','))
+  equal(projectPreDecisionReviewFindingContinuationV1({
+    correction,
+    identity: id,
+    observed: observed(id),
+    owningWorker: 'task-542-research-worker',
+    observedAt: 301,
+    consumedCursor: first.consumed_cursor,
+  }).actions.length, 0)
+  mismatch(() => projectPreDecisionReviewFindingContinuationV1({
+    correction: { ...correction, exact_head: historical411 },
+    identity: id,
+    observed: observed(id),
+    owningWorker: 'task-542-research-worker',
+    observedAt: 302,
+  }), 'review_correction_binding')
+  mismatch(() => projectPreDecisionReviewFindingContinuationV1({
+    correction,
+    identity: id,
+    observed: observed(id, { head: historical411 }),
+    owningWorker: 'task-542-research-worker',
+    observedAt: 303,
+  }), 'expected_head')
+  mismatch(() => projectPreDecisionReviewFindingContinuationV1({
+    correction,
+    identity: id,
+    observed: observed(id, { registered_worktree_path: worktreeOther }),
+    owningWorker: 'task-542-research-worker',
+    observedAt: 304,
+  }), 'registered_worktree_path')
+  mismatch(() => projectPreDecisionReviewFindingContinuationV1({
+    correction,
+    identity: id,
+    observed: observed(id, { remote_main_sha: historical411 }),
+    owningWorker: 'task-542-research-worker',
+    observedAt: 305,
+  }), 'expected_base_remote_main')
+  mismatch(() => projectPreDecisionReviewFindingContinuationV1({
+    correction,
+    identity: id,
+    observed: observed(id, { pr: { ...observed(id).pr, head: historical411 } }),
+    owningWorker: 'task-542-research-worker',
+    observedAt: 306,
+  }), 'pr_head')
 }
 
 // 11. Local branch "main" is not evidence of remote-main identity.

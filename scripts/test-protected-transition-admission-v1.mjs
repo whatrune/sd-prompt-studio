@@ -1424,10 +1424,50 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
     }
     return createFixture().host.graphql(query, variables)
   }
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+  const correction = await ensureReviewAuthorityAndRunPreflightV1({
     request: reviewRoutingInput(), host: blocked.host,
-  }))).message, 'blocking_review_threads_present')
+  })
+  equal(correction.state, 'CORRECTION_REQUIRED')
+  equal(correction.reason, 'blocking_review_threads_present')
+  equal(correction.continuation_kind, 'REVIEW_FINDING')
+  equal(correction.repository, REPOSITORY)
+  equal(correction.task_issue, TASK)
+  equal(correction.pull_request, PR)
+  equal(correction.exact_head, HEAD)
+  equal(correction.expected_base, BASE)
+  equal(correction.active_thread_ids.join(','), 'active-thread')
+  equal(correction.assignment_materialization_mutation_count, 0)
+  equal(correction.publication_mutation_count, 0)
+  ok(/^review-finding-[0-9a-f]{64}$/.test(correction.continuation_cursor))
   equal(blocked.state.assignmentCommentMutations + blocked.state.taskCommentMutations, 0)
+
+  const blockedDuringAssignmentMaterialization = createReviewRoutingFixture({
+    includeAuthority: false,
+    includePredelegation: true,
+  })
+  let threadReads = 0
+  blockedDuringAssignmentMaterialization.host.graphql = async (query, variables) => {
+    if (query.includes('query SimplifiedThreads')) {
+      threadReads += 1
+      if (threadReads === 2) {
+        return { repository: { pullRequest: {
+          number: PR, state: 'OPEN', isDraft: false, merged: false, headRefOid: HEAD,
+          mergeable: 'MERGEABLE', mergeStateStatus: 'CLEAN',
+          reviewThreads: { nodes: [{ id: 'assignment-race-thread', isResolved: false, isOutdated: false }], pageInfo: { hasNextPage: false, endCursor: null } },
+        } } }
+      }
+    }
+    return createFixture().host.graphql(query, variables)
+  }
+  const assignmentRace = await ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: blockedDuringAssignmentMaterialization.host,
+  })
+  equal(assignmentRace.state, 'CORRECTION_REQUIRED')
+  equal(assignmentRace.active_thread_ids.join(','), 'assignment-race-thread')
+  equal(assignmentRace.assignment_materialization_mutation_count, 0)
+  equal(assignmentRace.publication_mutation_count, 0)
+  equal(blockedDuringAssignmentMaterialization.state.assignmentCommentMutations, 0)
+  equal(blockedDuringAssignmentMaterialization.state.taskCommentMutations, 0)
 }
 
 // The shared publication guard exposes only current mechanical evidence and performs no mutation.
@@ -2209,7 +2249,8 @@ ok(automationOverviewSource.includes('supplies no publication authority'))
 ok(automationOverviewSource.includes('Multiple physical comments with that identity'))
 ok(taskAssignmentTemplateSource.includes('Do not record a `wait_threads` cursor'))
 ok(delegationSource.includes('### Logical Review-publication Assignment V2'))
-ok(sharedRoleSource.includes('Timeout, nonterminal state, stale HEAD, and identity mismatch prohibit stage advance'))
+ok(sharedRoleSource.includes('Fresh Review `CHANGES_REQUIRED` prohibit stage advance'))
+ok(sharedRoleSource.includes('one deterministic `REVIEW_FINDING` cursor'))
 ok(sharedRoleSource.includes('terminal cursor is a wake-up signal only'))
 ok(sharedRoleSource.includes('zero active unresolved non-outdated threads'))
 equal((preflightSource.match(/const initial = await acquireLiveSnapshot/g) ?? []).length, 1)
