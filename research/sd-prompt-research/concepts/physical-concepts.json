@@ -723,6 +723,28 @@
               "total": 6,
               "confidence": "high",
               "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam010b.profile_face_for_facing_viewer_comparison",
+              "run_id": "CAM-010-B",
+              "observation_path": "experiments/camera/CAM-010-B/observation.json",
+              "metric": "computed_aggregate.axis_counts.face_presentation.profile",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local",
+              "notes": ["CAM-010 matched-seed review records facing viewer versus profile as visibly distinct in 6/6 pairs."]
+            },
+            {
+              "evidence_ref_id": "evidence.cam010c.rear_torso_for_facing_viewer_comparison",
+              "run_id": "CAM-010-C",
+              "observation_path": "experiments/camera/CAM-010-C/observation.json",
+              "metric": "computed_aggregate.axis_counts.torso_orientation_to_camera.rear",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local",
+              "notes": ["CAM-010 matched-seed review records facing viewer versus facing away as visibly distinct in 6/6 pairs."]
             }
           ]
         }
@@ -763,6 +785,28 @@
               "confidence": "high",
               "storage": "local",
               "notes": ["This bounded count prevents interpreting profile face presentation as stable strict whole-body lateral orientation."]
+            },
+            {
+              "evidence_ref_id": "evidence.cam010a.frontal_torso_for_profile_comparison",
+              "run_id": "CAM-010-A",
+              "observation_path": "experiments/camera/CAM-010-A/observation.json",
+              "metric": "computed_aggregate.axis_counts.torso_orientation_to_camera.frontal",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local",
+              "notes": ["CAM-010 matched-seed review records profile versus facing viewer as visibly distinct in 6/6 pairs."]
+            },
+            {
+              "evidence_ref_id": "evidence.cam010c.rear_torso_for_profile_comparison",
+              "run_id": "CAM-010-C",
+              "observation_path": "experiments/camera/CAM-010-C/observation.json",
+              "metric": "computed_aggregate.axis_counts.torso_orientation_to_camera.rear",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local",
+              "notes": ["CAM-010 matched-seed review records profile versus facing away as visibly distinct in 6/6 pairs."]
             }
           ]
         }
@@ -802,6 +846,28 @@
               "total": 6,
               "confidence": "high",
               "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam010a.frontal_torso_for_facing_away_comparison",
+              "run_id": "CAM-010-A",
+              "observation_path": "experiments/camera/CAM-010-A/observation.json",
+              "metric": "computed_aggregate.axis_counts.torso_orientation_to_camera.frontal",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local",
+              "notes": ["CAM-010 matched-seed review records facing away versus facing viewer as visibly distinct in 6/6 pairs."]
+            },
+            {
+              "evidence_ref_id": "evidence.cam010b.profile_face_for_facing_away_comparison",
+              "run_id": "CAM-010-B",
+              "observation_path": "experiments/camera/CAM-010-B/observation.json",
+              "metric": "computed_aggregate.axis_counts.face_presentation.profile",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local",
+              "notes": ["CAM-010 matched-seed review records facing away versus profile as visibly distinct in 6/6 pairs."]
             }
           ]
         }
