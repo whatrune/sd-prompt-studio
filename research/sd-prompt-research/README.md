@@ -400,6 +400,20 @@ Index検証:
   --check
 ```
 
+multi-arm prompt-blind Researchでtracked metadataだけからblind freezeを再検証可能と宣言する場合は、PRE_LEDGER検証より前に同じ登録ownerでbindingを一度生成します。全armと、freeze / mapping（利用時はobserver input）のexact UTF-8 payloadを保持するowner recordを渡します:
+
+```powershell
+.venv\Scripts\python.exe scripts\register_research_run.py `
+  --run-dir experiments\camera\CAM-EXAMPLE-A `
+  --run-dir experiments\camera\CAM-EXAMPLE-B `
+  --run-dir experiments\camera\CAM-EXAMPLE-C `
+  --bind-prompt-blind-provenance `
+  --prompt-blind-owner-run-id CAM-EXAMPLE-A `
+  --prompt-blind-owner-record <sealed-owner-record.yaml>
+```
+
+このoperationは、選択した1つのtracked metadataへ`tracked_prompt_blind_record_owner_v1`を、残る全armへそのexact owner pathとcontent hashesを追加し、Ledgerは変更しません。通常の`--check`と`--finalize-ledger`は、`independently_recheckable_from_tracked_metadata: true`を宣言した全matched armについて、ownerがexactly oneであること、payload hash、owner path、各dependent referenceを再検証します。欠落・重複・不一致はpublication前にfail closedです。
+
 この検証は`run-index.yaml`を変更せず、Runが未登録でも利用できます。canonical
 Ledger登録は最終publication時だけ行い、fresh Ledger bytesのSHA-256とpublication
 対象の全Runを一度に渡します:
