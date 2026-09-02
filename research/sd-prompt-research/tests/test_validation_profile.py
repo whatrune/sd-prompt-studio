@@ -186,7 +186,7 @@ class ValidationProfileTests(unittest.TestCase):
     def test_validate_owns_documentation_contracts(self) -> None:
         workflow = (REPOSITORY_ROOT / ".github/workflows/research-claims.yml").read_text(encoding="utf-8")
         self.assertIn("steps.profile.outputs.run_documentation == 'true'", workflow)
-        self.assertIn("node scripts/test-role-execution-contracts.mjs", workflow)
+        self.assertEqual(1, workflow.count("node scripts/test-role-execution-contracts.mjs"))
 
 
 if __name__ == "__main__":
