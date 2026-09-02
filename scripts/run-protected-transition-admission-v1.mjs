@@ -337,12 +337,22 @@ const resolveGitHubTokenV1 = (environment) => {
 
 export const createProductionHostV1 = (options = {}) => {
   const fetchImpl = options.fetchImpl ?? globalThis.fetch
+  const environment = options.environment ?? process.env
   const token = Object.hasOwn(options, 'token')
     ? options.token
-    : resolveGitHubTokenV1(options.environment ?? process.env)
+    : resolveGitHubTokenV1(environment)
   if (typeof token !== 'string' || token.length === 0) throw new Error('github_token_missing')
   return Object.freeze({
   api: (route) => request(`${API_ROOT}/${route}`, {}, { fetchImpl, token }),
+  refetchContinuationEvent: async ({ cursor }) => {
+    const file = environment.CODEX_CONTINUATION_EVENT_FILE
+    if (typeof file !== 'string' || !isAbsolute(file) || file.includes('\0')) {
+      throw new Error('continuation_event_transport_invalid')
+    }
+    const event = readJson(file)
+    if (event?.continuation_cursor !== cursor) throw new Error('continuation_event_transport_invalid')
+    return event
+  },
   createTaskIssue: async ({ repository, title, body }) => {
     if (
       !REPOSITORY.test(repository ?? '') || typeof title !== 'string' || title.length === 0 || title.length > 256 ||
@@ -1442,6 +1452,42 @@ const validateReviewRoutingRequest = (request) => {
   })
 }
 
+const assertRefetchedCorrectionFindingEventV1 = ({ event, request }) => {
+  if (request.correction_context === null) return null
+  const fields = [
+    'state', 'reason', 'continuation_kind', 'continuation_cursor', 'repository',
+    'task_issue', 'pull_request', 'exact_head', 'expected_base', 'head_branch',
+    'authorized_paths', 'active_thread_ids', 'assignment_materialization_mutation_count',
+    'publication_mutation_count', 'thread_resolution_mutation_count',
+  ]
+  const context = request.correction_context
+  if (
+    !exactKeys(event, fields) || event.state !== 'CORRECTION_REQUIRED' ||
+    event.reason !== 'blocking_review_threads_present' || event.continuation_kind !== 'REVIEW_FINDING' ||
+    event.continuation_cursor !== context.finding_cursor || event.repository !== request.repository ||
+    event.task_issue !== request.task_issue || event.pull_request !== request.pull_request ||
+    event.exact_head !== context.finding_head || event.expected_base !== request.expected_base ||
+    typeof event.head_branch !== 'string' || event.head_branch.length === 0 ||
+    !samePaths(event.authorized_paths, request.authorized_paths) ||
+    !samePaths(event.active_thread_ids, context.active_thread_ids) ||
+    !Number.isSafeInteger(event.assignment_materialization_mutation_count) ||
+    event.assignment_materialization_mutation_count < 0 ||
+    !Number.isSafeInteger(event.publication_mutation_count) || event.publication_mutation_count < 0 ||
+    !Number.isSafeInteger(event.thread_resolution_mutation_count) || event.thread_resolution_mutation_count < 0
+  ) throw new Error('review_correction_binding_invalid')
+  const cursorInput = JSON.stringify({
+    repository: event.repository,
+    task_issue: event.task_issue,
+    pull_request: event.pull_request,
+    exact_head: event.exact_head,
+    active_thread_ids: [...event.active_thread_ids].sort(),
+  })
+  if (event.continuation_cursor !== `review-finding-${createHash('sha256').update(cursorInput, 'utf8').digest('hex')}`) {
+    throw new Error('review_correction_binding_invalid')
+  }
+  return Object.freeze({ ...event, active_thread_ids: Object.freeze([...event.active_thread_ids].sort()) })
+}
+
 const assertCorrectedThreadResolutionAuthorityV1 = ({ live, request }) => {
   if (request.correction_context === null) return null
   let parsed
@@ -1514,8 +1560,17 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
     host === null || typeof host !== 'object' || typeof host.api !== 'function' ||
     typeof host.publishPullRequestReview !== 'function' || typeof host.publishTaskIssueComment !== 'function' ||
     typeof host.publishTaskAssignmentComment !== 'function' ||
-    (request.correction_context !== null && typeof host.resolveReviewThread !== 'function')
+    (request.correction_context !== null && (
+      typeof host.resolveReviewThread !== 'function' || typeof host.refetchContinuationEvent !== 'function'
+    ))
   ) throw new Error('review_publication_host_invalid')
+
+  if (request.correction_context !== null) {
+    assertRefetchedCorrectionFindingEventV1({
+      event: await host.refetchContinuationEvent({ cursor: request.correction_context.finding_cursor }),
+      request,
+    })
+  }
 
   const acquireLiveBinding = async () => {
     const [actor, snapshot] = await Promise.all([
@@ -1582,8 +1637,8 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
     throw error
   }
   if (request.correction_context !== null) {
-    assertCorrectedThreadResolutionAuthorityV1({ live, request })
     let remaining = [...live.active_thread_ids]
+    if (remaining.length > 0) assertCorrectedThreadResolutionAuthorityV1({ live, request })
     while (remaining.length > 0) {
       const threadId = remaining[0]
       threadResolutionMutationCount += 1
@@ -1612,7 +1667,7 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
         if (correction !== null) return correction
         throw error
       }
-      assertCorrectedThreadResolutionAuthorityV1({ live, request })
+      if (remaining.length > 0) assertCorrectedThreadResolutionAuthorityV1({ live, request })
     }
   }
   let publicationRoute = routeFor(live)
