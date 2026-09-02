@@ -20,6 +20,8 @@ $script:RetiredWorktree = $null
 $script:CleanupExitCode = 1
 $script:GitRemoveExitCode = $null
 $script:GitRemoveStderr = $null
+$script:GitCommonDirectory = $null
+$script:GitCommonDirectoryCapability = 'NOT_PROVEN'
 
 function Invoke-NativeGit {
     param(
@@ -222,6 +224,72 @@ function Get-RegisteredWorktreePaths {
     )
 }
 
+function Get-GitCommonDirectory {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Repository
+    )
+
+    $commonDirectory = Require-GitSuccess -Result (
+        Invoke-NativeGit -Repository $Repository -Arguments @(
+            'rev-parse', '--path-format=absolute', '--git-common-dir'
+        )
+    ) -Reason 'worktree_cleanup_git_common_dir_invalid'
+    if ([string]::IsNullOrWhiteSpace($commonDirectory)) {
+        throw 'worktree_cleanup_git_common_dir_invalid'
+    }
+    $resolved = Get-NormalizedPath -Path $commonDirectory
+    if (-not (Test-Path -LiteralPath $resolved -PathType Container)) {
+        throw 'worktree_cleanup_git_common_dir_invalid'
+    }
+    return $resolved
+}
+
+function Assert-GitCommonDirectoryMutationCapability {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$GitCommonDirectory
+    )
+
+    $resolvedCommonDirectory = Get-NormalizedPath -Path $GitCommonDirectory
+    $administrationRoot = Join-Path $resolvedCommonDirectory 'worktrees'
+    if (-not (Test-Path -LiteralPath $administrationRoot -PathType Container)) {
+        throw 'worktree_cleanup_git_common_dir_not_writable'
+    }
+
+    $probeFile = Join-Path $administrationRoot (
+        '.codex-worktree-cleanup-capability-' + [guid]::NewGuid().ToString('N') + '.probe'
+    )
+    $stream = $null
+    try {
+        $stream = [IO.FileStream]::new(
+            $probeFile,
+            [IO.FileMode]::CreateNew,
+            [IO.FileAccess]::Write,
+            [IO.FileShare]::None,
+            4096,
+            ([IO.FileOptions]::WriteThrough -bor [IO.FileOptions]::DeleteOnClose)
+        )
+        $payload = [Text.Encoding]::UTF8.GetBytes('WORKTREE_CLEANUP_GITDIR_WRITABLE_HOST_V1')
+        $stream.Write($payload, 0, $payload.Length)
+        $stream.Flush($true)
+        $stream.Dispose()
+        $stream = $null
+        if (Test-Path -LiteralPath $probeFile) {
+            throw 'worktree_cleanup_git_common_dir_not_writable'
+        }
+    }
+    catch {
+        throw 'worktree_cleanup_git_common_dir_not_writable'
+    }
+    finally {
+        if ($null -ne $stream) {
+            $stream.Dispose()
+        }
+    }
+    $script:GitCommonDirectoryCapability = 'PROVEN'
+}
+
 function Get-BranchRefDigest {
     param(
         [Parameter(Mandatory = $true)]
@@ -385,6 +453,8 @@ function Write-CleanupResult {
         branch_refs_preserved = $BranchRefsPreserved
         git_remove_exit_code = $GitRemoveExitCode
         git_remove_stderr = $GitRemoveStderr
+        git_common_directory = $script:GitCommonDirectory
+        git_common_directory_capability = $script:GitCommonDirectoryCapability
         merge_outcome_affected = $false
     } | ConvertTo-Json -Depth 3 -Compress | Write-Output
 }
@@ -442,6 +512,9 @@ function Invoke-TaskWorktreeCleanup {
         if ($status.Output.Count -ne 0) {
             throw 'worktree_cleanup_target_dirty'
         }
+        $script:GitCommonDirectory = Get-GitCommonDirectory -Repository $script:Repository
+        Assert-GitCommonDirectoryMutationCapability `
+            -GitCommonDirectory $script:GitCommonDirectory
         $refsBefore = Get-BranchRefDigest -Repository $script:Repository
         $remove = Invoke-GitWorktreeRemove `
             -Repository $script:Repository `
