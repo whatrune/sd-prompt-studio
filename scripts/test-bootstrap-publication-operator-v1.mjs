@@ -647,6 +647,11 @@ const NORMAL_OBJECTIVE = 'BOUNDED_NORMAL_TASK_EXECUTION_PREDELEGATION_AND_CONTIN
 const NORMAL_INSTANCE = '706ca1fb-4c8d-43df-9bc3-e1371e038383'
 const NORMAL_TARGET = 'codex-thread-normal-task-538'
 const NORMAL_COMMON_DIR = path.join(worktree, '.git-common')
+const NORMAL_CORRECTION_CONTEXT = Object.freeze({
+  finding_cursor: 'review-finding-cursor',
+  finding_head: PARENT,
+  active_thread_ids: Object.freeze(['thread-1']),
+})
 const NORMAL_TASK_BODY = serializeCanonicalTaskIssueBodyV1({
   request: {
     title: NORMAL_OBJECTIVE,
@@ -665,32 +670,46 @@ const NORMAL_TASK_BODY = serializeCanonicalTaskIssueBodyV1({
   mode: 'BOUND_FINAL',
   taskIssue: TASK,
 })
+const LEGACY_NORMAL_TASK_BODY = NORMAL_TASK_BODY.replace(
+  /([ \t]*)"initial_exact_scope_required": true,\n\1"correction_delta_subset_allowed": true,/u,
+  '$1"exact_scope_required": true,',
+)
+check(!LEGACY_NORMAL_TASK_BODY.includes('correction_delta_subset_allowed'), 'N legacy normal-task fixture removes the explicit correction-subset capability')
 const normalCursorV1 = (operation) => operation === 'COMMIT_VALIDATED_TREE'
   ? 'cursor-implementation-complete'
   : 'cursor-prepublication-review-approve'
-const normalRequestV1 = (operation, expectedHead, overrides = {}) => ({
-  record_type: 'normal_task_execution_request_v1',
-  version: 1,
-  operation,
-  repository: REPOSITORY,
-  task_issue_number: TASK,
-  objective: NORMAL_OBJECTIVE,
-  authorized_paths: [...PATHS],
-  branch: BRANCH,
-  worktree_path: worktree,
-  git_common_dir: NORMAL_COMMON_DIR,
-  expected_base: PARENT,
-  expected_head: expectedHead,
-  expected_pr: null,
-  expected_remote_head: null,
-  execution_instance_id: NORMAL_INSTANCE,
-  continuation_target: NORMAL_TARGET,
-  continuation_cursor: normalCursorV1(operation),
-  operation_count: 1,
-  ...overrides,
-})
+const normalRequestV1 = (operation, expectedHead, overrides = {}) => {
+  const request = {
+    record_type: 'normal_task_execution_request_v1',
+    version: 1,
+    operation,
+    repository: REPOSITORY,
+    task_issue_number: TASK,
+    objective: NORMAL_OBJECTIVE,
+    authorized_paths: [...PATHS],
+    changed_paths: [...PATHS],
+    correction_context: null,
+    branch: BRANCH,
+    worktree_path: worktree,
+    git_common_dir: NORMAL_COMMON_DIR,
+    expected_base: PARENT,
+    expected_head: expectedHead,
+    expected_pr: null,
+    expected_remote_head: null,
+    execution_instance_id: NORMAL_INSTANCE,
+    continuation_target: NORMAL_TARGET,
+    continuation_cursor: normalCursorV1(operation),
+    operation_count: 1,
+    ...overrides,
+  }
+  if (request.expected_pr !== null && request.correction_context === null) {
+    request.correction_context = NORMAL_CORRECTION_CONTEXT
+  }
+  return request
+}
 const makeNormalHostV1 = ({
   initialHead = PARENT,
+  parentHead = PARENT,
   currentBase = PARENT,
   remoteInitially = null,
   actor = 'whatrune',
@@ -699,6 +718,10 @@ const makeNormalHostV1 = ({
   baseIsDescendant = true,
   successorIsDescendant = true,
   existingPr = false,
+  changedPaths = PATHS,
+  correctionContext = (existingPr || (remoteInitially !== null && remoteInitially !== PUSHED))
+    ? NORMAL_CORRECTION_CONTEXT
+    : null,
   terminalEventTransform = (value) => value,
 } = {}) => {
   const metrics = { commit: 0, push: 0, createPull: 0, acquireContinuation: 0, apiCalls: [], createdPull: null }
@@ -731,6 +754,7 @@ const makeNormalHostV1 = ({
         expected_head: currentHead,
         authorized_paths: [...PATHS],
         execution_instance_id: NORMAL_INSTANCE,
+        correction_context: correctionContext,
       }
       const result = operation === 'COMMIT_VALIDATED_TREE'
         ? {
@@ -741,7 +765,7 @@ const makeNormalHostV1 = ({
             blocking: 0,
             remaining: 0,
             unknown: 0,
-            changed_paths: [...PATHS],
+            changed_paths: [...changedPaths],
             validation_results: [{ command: 'canonical validation', result: 'PASS', exact_head: currentHead }],
             unperformed_items: [],
           }
@@ -783,13 +807,13 @@ const makeNormalHostV1 = ({
       if (command === 'rev-parse --verify HEAD') return `${currentHead}\n`
       if (command === 'diff --cached --quiet --') return ''
       if (command === 'diff --name-only -z --no-renames HEAD --') return ''
-      if (command === 'ls-files --others --exclude-standard -z') return `${PATHS.join('\0')}\0`
+      if (command === 'ls-files --others --exclude-standard -z') return `${changedPaths.join('\0')}\0`
       if (args[0] === 'add') { staged = args.slice(2); return '' }
       if (command === 'diff --cached --name-only -z --no-renames HEAD --') return `${staged.join('\0')}\0`
       if (args[0] === 'commit') { metrics.commit += 1; currentHead = PUSHED; return '[commit]\n' }
       if (command === 'rev-parse HEAD') return `${currentHead}\n`
-      if (command === 'rev-parse HEAD^') return `${initialHead}\n`
-      if (command === `diff --name-only -z --no-renames ${initialHead} ${PUSHED} --`) return `${PATHS.join('\0')}\0`
+      if (command === 'rev-parse HEAD^') return `${parentHead}\n`
+      if (command === `diff --name-only -z --no-renames ${parentHead} ${PUSHED} --`) return `${changedPaths.join('\0')}\0`
       if (command === 'status --porcelain=v1 -z') return ''
       if (command === `merge-base --is-ancestor ${PARENT} ${currentBase}`) {
         if (!baseIsDescendant) throw new Error('not ancestor')
@@ -898,6 +922,96 @@ const makeNormalHostV1 = ({
 }
 
 {
+  const correctionDelta = [PATHS[0]]
+  const host = makeNormalHostV1({
+    initialHead: PARENT,
+    remoteInitially: PARENT,
+    existingPr: true,
+    changedPaths: correctionDelta,
+  })
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('COMMIT_VALIDATED_TREE', PARENT, {
+      expected_pr: PR_NUMBER,
+      expected_remote_head: PARENT,
+      changed_paths: correctionDelta,
+    }),
+    host,
+  )
+  check(result.status === 'SUCCESS' && result.reason === 'validated_tree_committed', 'N same-task correction admits an exact non-empty delta within cumulative authority')
+  check(result.changed_paths.join(',') === correctionDelta.join(','), 'N committed correction reports the exact validated delta')
+}
+
+{
+  const correctionDelta = [PATHS[0]]
+  const host = makeNormalHostV1({
+    initialHead: PARENT,
+    remoteInitially: PARENT,
+    existingPr: true,
+    changedPaths: correctionDelta,
+    taskBody: LEGACY_NORMAL_TASK_BODY,
+  })
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('COMMIT_VALIDATED_TREE', PARENT, {
+      expected_pr: PR_NUMBER,
+      expected_remote_head: PARENT,
+      changed_paths: correctionDelta,
+    }),
+    host,
+  )
+  check(result.reason === 'correction_delta_subset_not_authorized' && result.mutation_count === 0, 'N legacy predelegation cannot silently acquire correction-delta subset authority')
+  check(host.metrics.acquireContinuation === 0 && host.metrics.commit === 0, 'N rejected legacy subset stops before terminal evidence or mutation')
+}
+
+{
+  const host = makeNormalHostV1({
+    initialHead: PARENT,
+    remoteInitially: PARENT,
+    existingPr: true,
+    taskBody: LEGACY_NORMAL_TASK_BODY,
+  })
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('COMMIT_VALIDATED_TREE', PARENT, {
+      expected_pr: PR_NUMBER,
+      expected_remote_head: PARENT,
+    }),
+    host,
+  )
+  check(result.status === 'SUCCESS' && result.reason === 'validated_tree_committed', 'N legacy predelegation retains compatible full-scope same-task correction')
+  check(host.metrics.acquireContinuation === 1 && host.metrics.commit === 1, 'N admitted legacy full-scope correction consumes one event and creates one commit')
+}
+
+{
+  const host = makeNormalHostV1({ existingPr: true, remoteInitially: PARENT })
+  const outside = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('COMMIT_VALIDATED_TREE', PARENT, {
+      expected_pr: PR_NUMBER,
+      expected_remote_head: PARENT,
+      changed_paths: ['docs/outside-authority.md'],
+    }),
+    host,
+  )
+  check(outside.reason === 'changed_paths_outside_authority' && outside.mutation_count === 0, 'N correction delta outside cumulative authority fails before mutation')
+  check(host.metrics.acquireContinuation === 0 && host.metrics.commit === 0, 'N out-of-authority delta consumes no event and creates no commit')
+}
+
+{
+  const host = makeNormalHostV1({
+    existingPr: true,
+    remoteInitially: PARENT,
+    changedPaths: [PATHS[0]],
+  })
+  const mismatch = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('COMMIT_VALIDATED_TREE', PARENT, {
+      expected_pr: PR_NUMBER,
+      expected_remote_head: PARENT,
+      changed_paths: [PATHS[1]],
+    }),
+    host,
+  )
+  check(mismatch.reason === 'implementation_result_handoff_invalid' && mismatch.mutation_count === 0, 'N claimed correction delta must equal fetched validated handoff paths')
+}
+
+{
   const host = makeNormalHostV1({
     initialHead: PARENT,
     currentBase: FRESH_BASE,
@@ -960,6 +1074,21 @@ const makeNormalHostV1 = ({
   check(result.status === 'SUCCESS' && result.reason === 'reviewed_correction_published', 'P same-task correction pushes the newly reviewed exact commit to the existing PR')
   check(result.mutation_count === 1 && host.metrics.push === 1 && host.metrics.createPull === 0, 'P correction publication updates only the branch and never creates a duplicate PR')
   check(result.pr_number === PR_NUMBER && result.pushed_head === PUSHED, 'P corrected PR is directly refetched at the successor HEAD')
+}
+
+{
+  const correctionDelta = [PATHS[0]]
+  const host = makeNormalHostV1({ initialHead: PUSHED, remoteInitially: PARENT, changedPaths: correctionDelta })
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('PUBLISH_REVIEWED_COMMIT', PUSHED, {
+      expected_pr: PR_NUMBER,
+      expected_remote_head: PARENT,
+      changed_paths: correctionDelta,
+    }),
+    host,
+  )
+  check(result.status === 'SUCCESS' && result.reason === 'reviewed_correction_published', 'P exact reviewed correction subset publishes to the existing PR')
+  check(result.changed_paths.join(',') === correctionDelta.join(','), 'P publication preserves exact correction delta distinct from cumulative scope')
 }
 
 {

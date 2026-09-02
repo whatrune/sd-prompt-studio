@@ -397,8 +397,9 @@ const createReviewRoutingFixture = ({
   publicationError = null,
   refetchMismatch = false,
   refetchActorMismatch = false,
+  threads = [],
 } = {}) => {
-  const base = createFixture()
+  const base = createFixture({ threads })
   const expectedBody = serializeSimplifiedReviewV1(reviewInput())
   const state = {
     pullReviewMutations: 0,
@@ -411,6 +412,7 @@ const createReviewRoutingFixture = ({
     pullReads: 0,
     mainReads: 0,
     taskCommentListReads: 0,
+    threadResolutionMutations: 0,
   }
   const pullReviewResource = (id, body = expectedBody) => ({
     id,
@@ -552,10 +554,32 @@ const createReviewRoutingFixture = ({
       if (concurrentEquivalentAssignmentOnCreate) state.taskComments.push(taskCommentResource(9402, body))
       return assignmentResponseMismatch ? { ...resource, html_url: 'https://invalid.example/comment' } : resource
     },
+    async resolveReviewThread({ threadId }) {
+      state.threadResolutionMutations += 1
+      const thread = threads.find((item) => item.id === threadId)
+      if (thread === undefined) throw new Error('unexpected_review_thread_resolution')
+      thread.isResolved = true
+      return { ...thread }
+    },
     graphql: (...values) => base.host.graphql(...values),
   }
   return { host, state, expectedBody }
 }
+
+const canonicalReviewCorrectionTaskBody = () => serializeCanonicalTaskIssueBodyV1({
+  request: canonicalTaskBodyRequest({
+    title: 'SAME_TASK_CORRECTION_CONTINUATION_COMPLETION_V1',
+    objective: taskInput.objective,
+    markdown: '# Same-Task Correction Continuation\n\nBounded correction continuation.',
+    authorized_paths: PATHS,
+    head_branch: BRANCH,
+    worktree_path: process.platform === 'win32'
+      ? join('C:\\', 'workspace', '.worktrees', 'same-task-correction')
+      : join('/workspace', '.worktrees', 'same-task-correction'),
+  }),
+  mode: 'BOUND_FINAL',
+  taskIssue: TASK,
+})
 
 let assertions = 0
 const equal = (actual, expected) => { assert.equal(actual, expected); assertions += 1 }
@@ -1246,6 +1270,77 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
   equal(fixture.state.assignmentCommentMutations, 1)
   equal(fixture.state.taskCommentMutations, 1)
   equal(fixture.state.pullReviewMutations, 0)
+}
+
+// Replacement Fresh Review resolves only the exact consumed finding threads before canonical Review publication.
+{
+  const thread = { id: 'PRRT_corrected_thread', isResolved: false, isOutdated: false }
+  const fixture = createReviewRoutingFixture({
+    includeAuthority: false,
+    authorityBody: canonicalReviewCorrectionTaskBody(),
+    threads: [thread],
+  })
+  const result = await ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput({
+      correction_context: {
+        finding_cursor: 'review-finding-consumed-cursor',
+        finding_head: '4'.repeat(40),
+        active_thread_ids: [thread.id],
+      },
+    }),
+    host: fixture.host,
+  })
+  equal(result.state, 'MERGE_READY')
+  equal(result.thread_resolution_mutation_count, 1)
+  equal(fixture.state.threadResolutionMutations, 1)
+  equal(thread.isResolved, true)
+  equal(result.publication_mutation_count, 1)
+}
+
+{
+  const newThread = { id: 'PRRT_new_live_finding', isResolved: false, isOutdated: false }
+  const fixture = createReviewRoutingFixture({
+    includeAuthority: false,
+    authorityBody: canonicalReviewCorrectionTaskBody(),
+    threads: [newThread],
+  })
+  const result = await ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput({
+      correction_context: {
+        finding_cursor: 'review-finding-consumed-cursor',
+        finding_head: '4'.repeat(40),
+        active_thread_ids: ['PRRT_prior_finding'],
+      },
+    }),
+    host: fixture.host,
+  })
+  equal(result.state, 'CORRECTION_REQUIRED')
+  equal(result.active_thread_ids.join(','), newThread.id)
+  equal(result.thread_resolution_mutation_count, 0)
+  equal(fixture.state.threadResolutionMutations, 0)
+  equal(fixture.state.taskCommentMutations, 0)
+}
+
+{
+  const resolved = { id: 'PRRT_already_resolved', isResolved: true, isOutdated: false }
+  const fixture = createReviewRoutingFixture({
+    includeAuthority: false,
+    authorityBody: canonicalReviewCorrectionTaskBody(),
+    threads: [resolved],
+  })
+  const result = await ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput({
+      correction_context: {
+        finding_cursor: 'review-finding-consumed-cursor',
+        finding_head: '4'.repeat(40),
+        active_thread_ids: [resolved.id],
+      },
+    }),
+    host: fixture.host,
+  })
+  equal(result.state, 'MERGE_READY')
+  equal(result.thread_resolution_mutation_count, 0)
+  equal(fixture.state.threadResolutionMutations, 0)
 }
 
 // The logical key excludes physical resource identity and base, while the semantic payload retains both binding data.

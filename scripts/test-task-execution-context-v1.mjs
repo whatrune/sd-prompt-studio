@@ -277,6 +277,11 @@ function observed(id = identity(), overrides = {}) {
 
 // The full bounded coordinator chain advances exactly once and stops before Product Owner authority.
 {
+  const correctionContext = {
+    finding_cursor: 'cursor-review-finding',
+    finding_head: head455,
+    active_thread_ids: ['thread-1'],
+  }
   const actionFor = (terminalKind, overrides = {}) => projectAutomatedReviewToMergeReadyContinuationV1({
     waitTerminal: true,
     terminalKind,
@@ -285,6 +290,9 @@ function observed(id = identity(), overrides = {}) {
     observedAt: 100,
     terminalCursor: `cursor-${terminalKind}`,
     consumedCursor: null,
+    correctionContext: ['CORRECTION_IMPLEMENTATION_COMPLETE', 'CORRECTION_CHECKS_PASS'].includes(terminalKind)
+      ? correctionContext
+      : null,
     ...overrides,
   })
   const expected = [
@@ -382,6 +390,7 @@ function observed(id = identity(), overrides = {}) {
     active_thread_ids: activeThreadIds,
     assignment_materialization_mutation_count: 0,
     publication_mutation_count: 0,
+    thread_resolution_mutation_count: 0,
   }
   const first = projectPreDecisionReviewFindingContinuationV1({
     correction,
@@ -398,6 +407,32 @@ function observed(id = identity(), overrides = {}) {
   equal(first.actions[0].pull_request, id.expected_pr)
   equal(first.actions[0].exact_head, id.expected_head)
   equal(first.actions[0].active_thread_ids.join(','), activeThreadIds.join(','))
+  const context = first.actions[0].correction_context
+  equal(context.finding_cursor, correction.continuation_cursor)
+  equal(context.finding_head, id.expected_head)
+  const correctionCommit = projectAutomatedReviewToMergeReadyContinuationV1({
+    waitTerminal: true,
+    terminalKind: 'CORRECTION_IMPLEMENTATION_COMPLETE',
+    identityMatches: true,
+    owningWorker: 'task-542-research-worker',
+    observedAt: 303,
+    terminalCursor: 'cursor-correction-complete',
+    consumedCursor: first.consumed_cursor,
+    correctionContext: context,
+  })
+  equal(correctionCommit.actions[0].type, 'COMMIT_VALIDATED_CORRECTION_AND_DISPATCH_PREPUBLICATION_REVIEW')
+  equal(correctionCommit.actions[0].correction_context.finding_cursor, correction.continuation_cursor)
+  const replacementApproval = projectAutomatedReviewToMergeReadyContinuationV1({
+    waitTerminal: true,
+    terminalKind: 'REVIEW_APPROVE',
+    identityMatches: true,
+    observedAt: 304,
+    terminalCursor: 'cursor-replacement-review',
+    consumedCursor: correctionCommit.consumed_cursor,
+    correctionContext: context,
+  })
+  equal(replacementApproval.actions[0].type, 'RESOLVE_CORRECTED_THREADS_AND_ENSURE_REVIEW_AUTHORITY_AND_RUN_PREFLIGHT')
+  equal(replacementApproval.actions[0].correction_context.active_thread_ids.join(','), activeThreadIds.join(','))
   equal(projectPreDecisionReviewFindingContinuationV1({
     correction,
     identity: id,

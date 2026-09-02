@@ -31,14 +31,14 @@ const REQUEST_FIELDS_V1 = Object.freeze([
 ])
 const NORMAL_REQUEST_FIELDS_V1 = Object.freeze([
   'record_type', 'version', 'operation', 'repository', 'task_issue_number', 'objective',
-  'authorized_paths', 'branch', 'worktree_path', 'git_common_dir', 'expected_base',
+  'authorized_paths', 'changed_paths', 'correction_context', 'branch', 'worktree_path', 'git_common_dir', 'expected_base',
   'expected_head', 'expected_pr', 'expected_remote_head', 'execution_instance_id',
   'continuation_target', 'continuation_cursor', 'operation_count',
 ])
 const TERMINAL_EVENT_FIELDS_V1 = Object.freeze([
   'target', 'cursor', 'consumed', 'kind', 'repository', 'task_issue_number', 'objective',
   'branch', 'worktree_path', 'expected_base', 'expected_head', 'authorized_paths',
-  'execution_instance_id', 'result',
+  'execution_instance_id', 'correction_context', 'result',
 ])
 const IMPLEMENTATION_HANDOFF_FIELDS_V1 = Object.freeze([
   'record_type', 'authoring_role', 'status', 'execution_stop_reason', 'blocking',
@@ -76,6 +76,10 @@ const isValidBranchV1 = (value) => (
   !value.endsWith('/') && !value.endsWith('.lock')
 )
 const normalizedPathSetV1 = (values) => [...values].sort().join('\0')
+const pathsAreSubsetV1 = (subset, superset) => {
+  const allowed = new Set(superset)
+  return subset.every((value) => allowed.has(value))
+}
 const splitNullSeparatedV1 = (value) => value.split('\0').filter((item) => item.length > 0)
 const sha256V1 = (value) => createHash('sha256').update(value, 'utf8').digest('hex')
 const normalizedFileSystemPathV1 = (value) => {
@@ -363,6 +367,9 @@ const parseNormalTaskExecutionRequestV1 = (request) => {
     !Array.isArray(request.authorized_paths) || request.authorized_paths.length === 0 ||
     !request.authorized_paths.every(isNormalizedRepositoryPathV1) ||
     new Set(request.authorized_paths).size !== request.authorized_paths.length ||
+    !Array.isArray(request.changed_paths) || request.changed_paths.length === 0 ||
+    !request.changed_paths.every(isNormalizedRepositoryPathV1) ||
+    new Set(request.changed_paths).size !== request.changed_paths.length ||
     !isValidBranchV1(request.branch) || typeof request.worktree_path !== 'string' ||
     !path.isAbsolute(request.worktree_path) || request.worktree_path.includes('\0') ||
     typeof request.git_common_dir !== 'string' || !path.isAbsolute(request.git_common_dir) ||
@@ -377,11 +384,47 @@ const parseNormalTaskExecutionRequestV1 = (request) => {
   if (
     (request.expected_pr === null) !== (request.expected_remote_head === null)
   ) throw new Error('normal_task_execution_request_value_invalid')
+  const authorizedPaths = [...request.authorized_paths].sort()
+  const changedPaths = [...request.changed_paths].sort()
+  if (!pathsAreSubsetV1(changedPaths, authorizedPaths)) throw new Error('changed_paths_outside_authority')
+  if (request.expected_pr === null && !samePathsV1(changedPaths, authorizedPaths)) {
+    throw new Error('initial_changed_paths_mismatch')
+  }
+  const correctionContext = normalizeCorrectionContextV1(request.correction_context)
+  if ((request.expected_pr === null) !== (correctionContext === null)) {
+    throw new Error('correction_context_invalid')
+  }
   return Object.freeze({
     ...request,
-    authorized_paths: Object.freeze([...request.authorized_paths].sort()),
+    authorized_paths: Object.freeze(authorizedPaths),
+    changed_paths: Object.freeze(changedPaths),
+    correction_context: correctionContext,
   })
 }
+
+const normalizeCorrectionContextV1 = (value) => {
+  if (value === null) return null
+  const fields = ['finding_cursor', 'finding_head', 'active_thread_ids']
+  if (
+    !sameFields(value, fields) || typeof value.finding_cursor !== 'string' || value.finding_cursor.length === 0 ||
+    !FULL_HEAD.test(value.finding_head ?? '') || !Array.isArray(value.active_thread_ids) ||
+    value.active_thread_ids.length === 0 ||
+    !value.active_thread_ids.every((item) => typeof item === 'string' && item.length > 0) ||
+    new Set(value.active_thread_ids).size !== value.active_thread_ids.length
+  ) throw new Error('correction_context_invalid')
+  return Object.freeze({
+    finding_cursor: value.finding_cursor,
+    finding_head: value.finding_head,
+    active_thread_ids: Object.freeze([...value.active_thread_ids].sort()),
+  })
+}
+
+const sameCorrectionContextV1 = (left, right) => (
+  left === null && right === null
+) || (
+  left !== null && right !== null && left.finding_cursor === right.finding_cursor &&
+  left.finding_head === right.finding_head && samePathsV1(left.active_thread_ids, right.active_thread_ids)
+)
 
 const assertNormalTaskExecutionAuthorityV1 = ({ request, task, actor }) => {
   if (
@@ -474,6 +517,7 @@ const assertTerminalContinuationEventV1 = ({ event, request }) => {
     normalizedFileSystemPathV1(event.worktree_path) !== normalizedFileSystemPathV1(request.worktree_path) ||
     event.expected_base !== request.expected_base || event.expected_head !== request.expected_head ||
     !samePathsV1(event.authorized_paths, request.authorized_paths) ||
+    !sameCorrectionContextV1(normalizeCorrectionContextV1(event.correction_context), request.correction_context) ||
     event.execution_instance_id !== request.execution_instance_id
   ) throw new Error('terminal_continuation_event_invalid')
   if (request.operation === 'COMMIT_VALIDATED_TREE') {
@@ -486,7 +530,7 @@ const assertTerminalContinuationEventV1 = ({ event, request }) => {
       handoff.record_type !== 'result_handoff' || handoff.authoring_role !== 'IMPLEMENTER' ||
       handoff.status !== 'completed' || handoff.execution_stop_reason !== 'completed' ||
       handoff.blocking !== 0 || handoff.remaining !== 0 || handoff.unknown !== 0 ||
-      !samePathsV1(handoff.changed_paths, request.authorized_paths) ||
+      !samePathsV1(handoff.changed_paths, request.changed_paths) ||
       !assertPassingValidationResultsV1(handoff.validation_results, request.expected_head) ||
       !Array.isArray(handoff.unperformed_items) || handoff.unperformed_items.length !== 0
     ) throw new Error('implementation_result_handoff_invalid')
@@ -559,12 +603,18 @@ export const executeNormalTaskExecutionOperatorV1 = async (rawRequest, host) => 
   ) return stop('normal_task_execution_host_invalid')
 
   let terminalEvent
+  let admittedAuthority
   try {
     const [actor, task] = await Promise.all([
       host.api('user'),
       host.api(`repos/${request.repository}/issues/${request.task_issue_number}`),
     ])
-    const admittedAuthority = assertNormalTaskExecutionAuthorityV1({ request, task, actor })
+    admittedAuthority = assertNormalTaskExecutionAuthorityV1({ request, task, actor })
+    const commitGrant = admittedAuthority.predelegation.allowed_changes.allowed_operations.validated_tree_commit
+    if (
+      request.expected_pr !== null && !samePathsV1(request.changed_paths, request.authorized_paths) &&
+      commitGrant.correction_delta_subset_allowed !== true
+    ) throw new Error('correction_delta_subset_not_authorized')
     assertFreshBaseRebindV1({
       initialBase: admittedAuthority.predelegation.allowed_changes.expected_base,
       request,
@@ -596,13 +646,13 @@ export const executeNormalTaskExecutionOperatorV1 = async (rawRequest, host) => 
         request.expected_head,
         (args, options = undefined) => host.git(args, options),
       )
-      if (!samePathsV1(changedPaths, request.authorized_paths)) throw new Error('changed_paths_mismatch')
-      host.git(['add', '--', ...request.authorized_paths])
+      if (!samePathsV1(changedPaths, request.changed_paths)) throw new Error('changed_paths_mismatch')
+      host.git(['add', '--', ...request.changed_paths])
       const staged = splitNullSeparatedV1(host.git(
         ['diff', '--cached', '--name-only', '-z', '--no-renames', 'HEAD', '--'],
         { encoding: 'utf8' },
       ))
-      if (!samePathsV1(staged, request.authorized_paths)) throw new Error('staged_paths_mismatch')
+      if (!samePathsV1(staged, request.changed_paths)) throw new Error('staged_paths_mismatch')
     } catch (error) {
       return stop(error?.message ?? 'validated_tree_preflight_failed')
     }
@@ -621,7 +671,7 @@ export const executeNormalTaskExecutionOperatorV1 = async (rawRequest, host) => 
       const status = host.git(['status', '--porcelain=v1', '-z'], { encoding: 'utf8' })
       if (
         !FULL_HEAD.test(committedHead) || committedHead === request.expected_head || parent !== request.expected_head ||
-        !samePathsV1(committedPaths, request.authorized_paths) || status !== ''
+        !samePathsV1(committedPaths, request.changed_paths) || status !== ''
       ) return stop('commit_result_invalid', { committed_head: committedHead })
       return resultV1('SUCCESS', 'validated_tree_committed', counters, {
         task_issue_number: request.task_issue_number,
@@ -630,6 +680,8 @@ export const executeNormalTaskExecutionOperatorV1 = async (rawRequest, host) => 
         parent_head: parent,
         execution_instance_id: request.execution_instance_id,
         continuation_cursor: terminalEvent.cursor,
+        changed_paths: request.changed_paths,
+        correction_context: request.correction_context,
       })
     } catch {
       return stop('commit_result_invalid')
@@ -640,6 +692,15 @@ export const executeNormalTaskExecutionOperatorV1 = async (rawRequest, host) => 
     const status = host.git(['status', '--porcelain=v1', '-z'], { encoding: 'utf8' })
     const head = host.git(['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
     if (status !== '' || head !== request.expected_head) throw new Error('reviewed_tree_binding_mismatch')
+    const previousHead = request.expected_remote_head ?? request.expected_base
+    const parent = host.git(['rev-parse', 'HEAD^'], { encoding: 'utf8' }).trim()
+    const reviewedPaths = splitNullSeparatedV1(host.git(
+      ['diff', '--name-only', '-z', '--no-renames', previousHead, request.expected_head, '--'],
+      { encoding: 'utf8' },
+    ))
+    if (parent !== previousHead || !samePathsV1(reviewedPaths, request.changed_paths)) {
+      throw new Error('reviewed_delta_binding_mismatch')
+    }
     if (request.expected_pr !== null) {
       try {
         host.git(['merge-base', '--is-ancestor', request.expected_remote_head, request.expected_head])
@@ -700,6 +761,8 @@ export const executeNormalTaskExecutionOperatorV1 = async (rawRequest, host) => 
       pr_url: correctedPull.html_url,
       execution_instance_id: request.execution_instance_id,
       continuation_cursor: terminalEvent.cursor,
+      changed_paths: request.changed_paths,
+      correction_context: request.correction_context,
     })
   }
   counters.mutation_count = 2
@@ -734,6 +797,8 @@ export const executeNormalTaskExecutionOperatorV1 = async (rawRequest, host) => 
     pr_url: freshPull.html_url,
     execution_instance_id: request.execution_instance_id,
     continuation_cursor: terminalEvent.cursor,
+    changed_paths: request.changed_paths,
+    correction_context: request.correction_context,
   })
 }
 

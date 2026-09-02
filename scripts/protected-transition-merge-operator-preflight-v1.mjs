@@ -512,7 +512,9 @@ export const acquireSimplifiedPreDecisionPreflightV1 = async ({ request, host })
   })
 }
 
-export const acquireSimplifiedReviewPublicationPreflightV2 = async ({ request, host }) => {
+export const acquireSimplifiedReviewPublicationPreflightV2 = async ({
+  request, host, expectedActiveThreadIds = null,
+}) => {
   if (
     !exactKeys(request, REVIEW_PUBLICATION_PREFLIGHT_FIELDS) || host === null || typeof host !== 'object' ||
     typeof host.api !== 'function' || typeof host.graphql !== 'function' ||
@@ -521,6 +523,16 @@ export const acquireSimplifiedReviewPublicationPreflightV2 = async ({ request, h
     !FULL_SHA.test(request?.expected_base ?? '')
   ) throw new Error('review_publication_preflight_request_invalid')
   const authorizedPaths = normalizedPaths(request.authorized_paths, 'authorized_scope_invalid')
+  if (
+    expectedActiveThreadIds !== null && (
+      !Array.isArray(expectedActiveThreadIds) || expectedActiveThreadIds.length === 0 ||
+      !expectedActiveThreadIds.every((value) => typeof value === 'string' && value.length > 0) ||
+      new Set(expectedActiveThreadIds).size !== expectedActiveThreadIds.length
+    )
+  ) throw new Error('review_correction_thread_identity_invalid')
+  const expectedThreadIds = expectedActiveThreadIds === null
+    ? null
+    : Object.freeze([...expectedActiveThreadIds].sort())
   const [task, pull, mainRef, files, checks, threadSnapshot] = await Promise.all([
     host.api(`repos/${request.repository}/issues/${request.task_issue}`),
     host.api(`repos/${request.repository}/pulls/${request.pull_request}`),
@@ -560,16 +572,20 @@ export const acquireSimplifiedReviewPublicationPreflightV2 = async ({ request, h
     livePull.headRefOid !== request.exact_head || livePull.mergeable !== 'MERGEABLE' ||
     livePull.mergeStateStatus !== 'CLEAN'
   ) throw new Error('mergeability_invalid')
-  blockingReviewThreadsV1({
-    repository: request.repository,
-    taskIssue: request.task_issue,
-    pullRequest: request.pull_request,
-    exactHead: request.exact_head,
-    expectedBase: request.expected_base,
-    headBranch: pull.head.ref,
-    authorizedPaths,
-    threads: threadSnapshot.threads,
-  })
+  const activeThreads = threadSnapshot.threads
+    .filter((thread) => !thread.isResolved && !thread.isOutdated)
+  if (expectedThreadIds === null || activeThreads.some((thread) => !expectedThreadIds.includes(thread.id))) {
+    blockingReviewThreadsV1({
+      repository: request.repository,
+      taskIssue: request.task_issue,
+      pullRequest: request.pull_request,
+      exactHead: request.exact_head,
+      expectedBase: request.expected_base,
+      headBranch: pull.head.ref,
+      authorizedPaths,
+      threads: threadSnapshot.threads,
+    })
+  }
   return Object.freeze({
     repository: request.repository,
     task_issue: request.task_issue,
@@ -585,6 +601,7 @@ export const acquireSimplifiedReviewPublicationPreflightV2 = async ({ request, h
     authorized_paths: authorizedPaths,
     required_checks: requiredChecks,
     thread_ids: Object.freeze(threadSnapshot.threads.map((thread) => thread.id).sort()),
+    active_thread_ids: Object.freeze(activeThreads.map((thread) => thread.id).sort()),
     mergeable: livePull.mergeable,
     merge_state_status: livePull.mergeStateStatus,
     draft: false,
