@@ -1,0 +1,251 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-010-C",
+  "blind_condition_label": "COND-V2",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "torso_orientation_to_camera",
+    "face_presentation",
+    "shoulder_presentation",
+    "hip_presentation",
+    "back_visibility",
+    "orientation_assessability",
+    "full_body_visibility",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-V2: torso counts {'rear': 6}.",
+      "Opaque condition COND-V2: face counts {'rear_or_hidden': 6}.",
+      "Opaque condition COND-V2: assessable=6/6; ambiguity/artifact=0/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, and visible pixels; prompt, seed, requested orientation, run mapping, PromptTag IDs, and emitted phrases were withheld.",
+      "The 18-panel opaque observation record was frozen before mapping disclosure at SHA-256 a951214a8f0dc7802325bec5d3cabcbee094e73aaa912a7f846cc1950c3f2245.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen visual row.",
+      "Requested-condition alignment, matched-seed comparison, threshold application, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "rear",
+        "rear_or_hidden",
+        "rear",
+        "rear",
+        "visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "subject_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Centered symmetric rear view clearly exposes the back of the head, top, shoulders, hips, legs, and heels."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "rear",
+        "rear_or_hidden",
+        "rear",
+        "rear",
+        "visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "subject_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Back of head and clothing face camera directly, with rear shoulders and hips visible through the complete figure."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "rear",
+        "rear_or_hidden",
+        "rear",
+        "rear",
+        "visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "subject_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Long hair hides the face while the back of the shirt and rear of the shorts are centered and fully visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "rear",
+        "rear_or_hidden",
+        "rear",
+        "rear",
+        "visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "subject_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Elevated camera shows the full back surface, rear shoulders and hips, backs of legs, and both feet."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "rear",
+        "rear_or_hidden",
+        "rear",
+        "rear",
+        "visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "subject_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Rear surfaces of head, shoulders, torso, shorts, legs, and feet are visible despite a slightly widened stance."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "rear",
+        "rear_or_hidden",
+        "rear",
+        "rear",
+        "visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "subject_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Back of head, shirt, shoulders, shorts, legs, and heels all face camera in a complete rear view."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "torso_orientation_to_camera": {
+        "rear": 6
+      },
+      "face_presentation": {
+        "rear_or_hidden": 6
+      },
+      "shoulder_presentation": {
+        "rear": 6
+      },
+      "hip_presentation": {
+        "rear": 6
+      },
+      "back_visibility": {
+        "visible": 6
+      },
+      "orientation_assessability": {
+        "assessable": 6
+      },
+      "full_body_visibility": {
+        "visible": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "subject_orientation_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}

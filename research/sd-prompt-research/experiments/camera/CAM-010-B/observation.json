@@ -1,0 +1,258 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-010-B",
+  "blind_condition_label": "COND-H8",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "torso_orientation_to_camera",
+    "face_presentation",
+    "shoulder_presentation",
+    "hip_presentation",
+    "back_visibility",
+    "orientation_assessability",
+    "full_body_visibility",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-H8: torso counts {'frontal': 3, 'lateral': 1, 'three_quarter': 2}.",
+      "Opaque condition COND-H8: face counts {'profile': 6}.",
+      "Opaque condition COND-H8: assessable=6/6; ambiguity/artifact=0/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, and visible pixels; prompt, seed, requested orientation, run mapping, PromptTag IDs, and emitted phrases were withheld.",
+      "The 18-panel opaque observation record was frozen before mapping disclosure at SHA-256 a951214a8f0dc7802325bec5d3cabcbee094e73aaa912a7f846cc1950c3f2245.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen visual row.",
+      "Requested-condition alignment, matched-seed comparison, threshold application, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "frontal",
+        "profile",
+        "frontal",
+        "frontal",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "subject_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Torso and shorts present their front surfaces with nearly even shoulders and hips; the head alone is turned to profile."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "lateral",
+        "profile",
+        "lateral",
+        "lateral",
+        "partial",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "subject_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Figure is shown in a clear side silhouette with one-eye facial profile, stacked shoulders and hips, and a visible rear contour."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "three_quarter",
+        "profile",
+        "oblique",
+        "oblique",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "subject_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible chest and shorts front are rotated off-axis, with uneven shoulder and hip depth and a side-facing face."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "frontal",
+        "profile",
+        "frontal",
+        "frontal",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "subject_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Torso, shoulders, and hips remain front-facing while the head turns left into profile; the full body is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "frontal",
+        "profile",
+        "frontal",
+        "frontal",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "subject_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Chest, shoulders, shorts front, and hips face camera while the head turns fully to the side in profile."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "three_quarter",
+        "profile",
+        "oblique",
+        "oblique",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "subject_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Front surfaces remain visible but the shoulder and hip lines are angled, while the face is presented in profile."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "torso_orientation_to_camera": {
+        "frontal": 3,
+        "lateral": 1,
+        "three_quarter": 2
+      },
+      "face_presentation": {
+        "profile": 6
+      },
+      "shoulder_presentation": {
+        "frontal": 3,
+        "lateral": 1,
+        "oblique": 2
+      },
+      "hip_presentation": {
+        "frontal": 3,
+        "lateral": 1,
+        "oblique": 2
+      },
+      "back_visibility": {
+        "not_visible": 5,
+        "partial": 1
+      },
+      "orientation_assessability": {
+        "assessable": 6
+      },
+      "full_body_visibility": {
+        "visible": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "subject_orientation_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
