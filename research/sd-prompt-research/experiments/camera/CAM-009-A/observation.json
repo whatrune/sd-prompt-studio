@@ -1,0 +1,241 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-009-A",
+  "blind_condition_label": "COND-M9",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "frame_roll_orientation",
+    "roll_magnitude",
+    "environmental_level_reference",
+    "subject_vertical_axis",
+    "roll_assessability",
+    "full_body_visibility",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-M9: level frame=6/6.",
+      "Opaque condition COND-M9: roll assessable=6/6.",
+      "Opaque condition COND-M9: ambiguity/artifact=0/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, and visible pixels; prompt, seed, requested roll condition, run mapping, PromptTag IDs, and emitted phrases were withheld.",
+      "The 12-panel opaque observation record was frozen before mapping disclosure at SHA-256 5bc9d6c82a4ae77a77e6f9f77c5dab72a5bac01b320b1bfd9a00bd141929f278.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen visual row.",
+      "Requested-condition alignment, matched-seed comparison, threshold application, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "level",
+        "none_or_minimal",
+        "clear",
+        "upright_in_frame",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "camera_roll_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The wall seam is vertical and the baseboard and floor joints provide horizontal level references."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "level",
+        "none_or_minimal",
+        "clear",
+        "upright_in_frame",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "camera_roll_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The wall grid has vertical uprights and horizontal crossbars aligned with the frame, with matching level floor references."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "level",
+        "none_or_minimal",
+        "clear",
+        "upright_in_frame",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "camera_roll_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The rear wall seams are vertical while the baseboard and front floor joints run horizontally across the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "level",
+        "none_or_minimal",
+        "clear",
+        "upright_in_frame",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "camera_roll_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both room corners are vertical, the rear baseboard is horizontal, and the floor grid remains level in frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "level",
+        "none_or_minimal",
+        "clear",
+        "upright_in_frame",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "camera_roll_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The rear baseboard is horizontal and the two room corners show balanced perspective convergence around an upright subject."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "level",
+        "none_or_minimal",
+        "clear",
+        "upright_in_frame",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "camera_roll_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Central wall seams are vertical and the side-wall and floor grids converge symmetrically without a common roll direction."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "frame_roll_orientation": {
+        "level": 6
+      },
+      "roll_magnitude": {
+        "none_or_minimal": 6
+      },
+      "environmental_level_reference": {
+        "clear": 6
+      },
+      "subject_vertical_axis": {
+        "upright_in_frame": 6
+      },
+      "roll_assessability": {
+        "assessable": 6
+      },
+      "full_body_visibility": {
+        "visible": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "camera_roll_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
