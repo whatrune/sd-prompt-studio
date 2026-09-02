@@ -1,0 +1,1059 @@
+'schema_version': '3.0'
+'metadata_status': 'verified'
+'source': 'a1111_txt2img_api'
+'format': 'png+json'
+'official_input':
+  'generation_session': 'CAM-012-task-568-20260903072224'
+  'panel_count': 18
+  'sidecar_count': 18
+'condition':
+  'role': 'subject_elevation_arm'
+  'subject_placement_phrase': 'subject high in frame'
+'generation':
+  'positive_prompt': '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted
+    sleeveless top, black shorts, barefoot, full body, eye level, front view, empty seamless studio,
+    plain floor, subject high in frame'
+  'negative_prompt': 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra
+    fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft,
+    vehicle, background objects, props, furniture'
+  'settings':
+    'model': 'novaAnimeXL_ilV190'
+    'hash': 'fa486caafc'
+    'sha256': 'fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f'
+    'sampler': 'Euler a'
+    'scheduler': 'Automatic'
+    'steps': 20
+    'cfg_scale': 4.5
+    'width': 1024
+    'height': 1024
+    'batch_size': 1
+    'n_iter': 1
+    'enable_hr': false
+    'restore_faces': false
+    'tiling': false
+  'ordered_seeds':
+    - 418275903
+    - 972604118
+    - 136850427
+    - 1552098734
+    - 1880456211
+    - 204617395
+'matched_seed_contract':
+  'run_ids':
+    - 'CAM-012-A'
+    - 'CAM-012-B'
+    - 'CAM-012-C'
+  'only_prompt_difference': 'terminal subject-placement phrase: subject low in frame | subject
+    centered vertically in frame | subject high in frame'
+  'negative_prompt_equal': true
+  'settings_equal': true
+  'ordered_seeds_equal': true
+'provenance_binding':
+  'repository': 'whatrune/sd-prompt-studio'
+  'task_issue': 568
+  'expected_base': 'ffc875f77ca6921d0e443c082af9e6cb1a19b6e8'
+  'execution_instance_id': '576a8afe-5e8b-4109-aa5e-071acfb4497f'
+  'observer_input_sha256': '3fdf03cc21400b65513a3ff32b09c9e7d4170ceb6d6cb1a701dff65b22d2a040'
+  'blind_freeze_sha256': '1655d25c6796ca403e48fd7680545744f78f9670ad58cc3ef63f2f030b96549a'
+  'sealed_mapping_sha256': '0c7a2d7c6279f8294473560335bb31cc65b6f19711e87a73b86c571d6bf616e3'
+  'response_parameters_exact': true
+  'parsed_info_sampler_exact': true
+  'infotext_sampler_schedule_exact': true
+  'independently_recheckable_from_tracked_metadata': true
+  'ignored_diagnostic_files_required_for_recheck': false
+'panels':
+  - 'panel_id': 1
+    'seed': 418275903
+    'image_file': 'panels/CAM-012-C_01.png'
+    'image_sha256': '92867d44279b8273325337d232f8aeac15b9c9df0d52b9324b407e6c477cf4a9'
+    'image_bytes': 903241
+    'diagnostic_provenance_file': 'source/tmp/generation/CAM-012-C_01_response.json'
+    'diagnostic_provenance_sha256': '9eac97b3ffd9f96780b3d351d3c2b1a897bb11e0f2d40ba0b117f1adebe428c1'
+    'returned_parameters':
+      'prompt': '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+        top, black shorts, barefoot, full body, eye level, front view, empty seamless studio, plain
+        floor, subject high in frame'
+      'negative_prompt': 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra
+        fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft,
+        vehicle, background objects, props, furniture'
+      'styles': null
+      'seed': 418275903
+      'subseed': -1
+      'subseed_strength': 0
+      'seed_resize_from_h': -1
+      'seed_resize_from_w': -1
+      'sampler_name': 'Euler a'
+      'scheduler': 'Automatic'
+      'batch_size': 1
+      'n_iter': 1
+      'steps': 20
+      'cfg_scale': 4.5
+      'distilled_cfg_scale': 3.5
+      'width': 1024
+      'height': 1024
+      'restore_faces': false
+      'tiling': false
+      'do_not_save_samples': false
+      'do_not_save_grid': false
+      'eta': null
+      'denoising_strength': null
+      's_min_uncond': null
+      's_churn': null
+      's_tmax': null
+      's_tmin': null
+      's_noise': null
+      'override_settings': null
+      'override_settings_restore_afterwards': true
+      'refiner_checkpoint': null
+      'refiner_switch_at': null
+      'disable_extra_networks': false
+      'firstpass_image': null
+      'comments': null
+      'enable_hr': false
+      'firstphase_width': 0
+      'firstphase_height': 0
+      'hr_scale': 2
+      'hr_upscaler': null
+      'hr_second_pass_steps': 0
+      'hr_resize_x': 0
+      'hr_resize_y': 0
+      'hr_checkpoint_name': null
+      'hr_additional_modules': null
+      'hr_sampler_name': null
+      'hr_scheduler': null
+      'hr_prompt': ''
+      'hr_negative_prompt': ''
+      'hr_cfg': 1
+      'hr_distilled_cfg': 3.5
+      'force_task_id': null
+      'sampler_index': 'Euler'
+      'script_name': null
+      'script_args': []
+      'send_images': true
+      'save_images': false
+      'alwayson_scripts': {}
+      'infotext': null
+    'response_info_raw': '{"prompt": "1girl, solo, standing, neutral expression, arms relaxed at sides,
+      plain fitted sleeveless top, black shorts, barefoot, full body, eye level, front view, empty
+      seamless studio, plain floor, subject high in frame", "all_prompts": ["1girl, solo, standing,
+      neutral expression, arms relaxed at sides, plain fitted sleeveless top, black shorts,
+      barefoot, full body, eye level, front view, empty seamless studio, plain floor, subject high
+      in frame"], "negative_prompt": "low quality, worst quality, blurry, deformed, bad anatomy, bad
+      hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane,
+      aircraft, vehicle, background objects, props, furniture", "all_negative_prompts": ["low
+      quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing
+      fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft, vehicle, background
+      objects, props, furniture"], "seed": 418275903, "all_seeds": [418275903], "subseed":
+      2674944204, "all_subseeds": [2674944204], "subseed_strength": 0, "width": 1024, "height":
+      1024, "sampler_name": "Euler a", "cfg_scale": 4.5, "steps": 20, "batch_size": 1,
+      "restore_faces": false, "face_restoration_model": null, "sd_model_name": "novaAnimeXL_ilV190",
+      "sd_model_hash": "fa486caafc", "sd_vae_name": null, "sd_vae_hash": null, "seed_resize_from_w":
+      -1, "seed_resize_from_h": -1, "denoising_strength": null, "extra_generation_params": {},
+      "index_of_first_image": 0, "infotexts": ["1girl, solo, standing, neutral expression, arms
+      relaxed at sides, plain fitted sleeveless top, black shorts, barefoot, full body, eye level,
+      front view, empty seamless studio, plain floor, subject high in frame\nNegative prompt: low
+      quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing
+      fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft, vehicle, background
+      objects, props, furniture\nSteps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale:
+      4.5, Seed: 418275903, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190,
+      Version: f2.0.1v1.10.1-previous-669-gdfdcbab6"], "styles": [], "job_timestamp":
+      "20260903072336", "clip_skip": 1, "is_using_inpainting_conditioning": false, "version":
+      "f2.0.1v1.10.1-previous-669-gdfdcbab6"}'
+    'parsed_response_info':
+      'prompt': '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+        top, black shorts, barefoot, full body, eye level, front view, empty seamless studio, plain
+        floor, subject high in frame'
+      'all_prompts':
+        - '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+          top, black shorts, barefoot, full body, eye level, front view, empty seamless studio,
+          plain floor, subject high in frame'
+      'negative_prompt': 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra
+        fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft,
+        vehicle, background objects, props, furniture'
+      'all_negative_prompts':
+        - 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers,
+          missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft, vehicle,
+          background objects, props, furniture'
+      'seed': 418275903
+      'all_seeds':
+        - 418275903
+      'subseed': 2674944204
+      'all_subseeds':
+        - 2674944204
+      'subseed_strength': 0
+      'width': 1024
+      'height': 1024
+      'sampler_name': 'Euler a'
+      'cfg_scale': 4.5
+      'steps': 20
+      'batch_size': 1
+      'restore_faces': false
+      'face_restoration_model': null
+      'sd_model_name': 'novaAnimeXL_ilV190'
+      'sd_model_hash': 'fa486caafc'
+      'sd_vae_name': null
+      'sd_vae_hash': null
+      'seed_resize_from_w': -1
+      'seed_resize_from_h': -1
+      'denoising_strength': null
+      'extra_generation_params': {}
+      'index_of_first_image': 0
+      'infotexts':
+        - '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+          top, black shorts, barefoot, full body, eye level, front view, empty seamless studio,
+          plain floor, subject high in frame
+
+          Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands,
+          extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane,
+          aircraft, vehicle, background objects, props, furniture
+
+          Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 418275903,
+          Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version:
+          f2.0.1v1.10.1-previous-669-gdfdcbab6'
+      'styles': []
+      'job_timestamp': '20260903072336'
+      'clip_skip': 1
+      'is_using_inpainting_conditioning': false
+      'version': 'f2.0.1v1.10.1-previous-669-gdfdcbab6'
+    'infotext_used_for_binding': '1girl, solo, standing, neutral expression, arms relaxed at sides,
+      plain fitted sleeveless top, black shorts, barefoot, full body, eye level, front view, empty
+      seamless studio, plain floor, subject high in frame
+
+      Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra
+      fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft,
+      vehicle, background objects, props, furniture
+
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 418275903, Size:
+      1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version:
+      f2.0.1v1.10.1-previous-669-gdfdcbab6'
+    'tracked_metadata_is_authoritative': true
+  - 'panel_id': 2
+    'seed': 972604118
+    'image_file': 'panels/CAM-012-C_02.png'
+    'image_sha256': '266f356c03cdca852d9a5838510050301bcfe03bbf0e4e2e0620e33b3ba0d3c1'
+    'image_bytes': 979078
+    'diagnostic_provenance_file': 'source/tmp/generation/CAM-012-C_02_response.json'
+    'diagnostic_provenance_sha256': 'd0fce509a0ab9b993d7cb659b7c92d97515fe87129700dd6955ae5fd9b51b631'
+    'returned_parameters':
+      'prompt': '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+        top, black shorts, barefoot, full body, eye level, front view, empty seamless studio, plain
+        floor, subject high in frame'
+      'negative_prompt': 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra
+        fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft,
+        vehicle, background objects, props, furniture'
+      'styles': null
+      'seed': 972604118
+      'subseed': -1
+      'subseed_strength': 0
+      'seed_resize_from_h': -1
+      'seed_resize_from_w': -1
+      'sampler_name': 'Euler a'
+      'scheduler': 'Automatic'
+      'batch_size': 1
+      'n_iter': 1
+      'steps': 20
+      'cfg_scale': 4.5
+      'distilled_cfg_scale': 3.5
+      'width': 1024
+      'height': 1024
+      'restore_faces': false
+      'tiling': false
+      'do_not_save_samples': false
+      'do_not_save_grid': false
+      'eta': null
+      'denoising_strength': null
+      's_min_uncond': null
+      's_churn': null
+      's_tmax': null
+      's_tmin': null
+      's_noise': null
+      'override_settings': null
+      'override_settings_restore_afterwards': true
+      'refiner_checkpoint': null
+      'refiner_switch_at': null
+      'disable_extra_networks': false
+      'firstpass_image': null
+      'comments': null
+      'enable_hr': false
+      'firstphase_width': 0
+      'firstphase_height': 0
+      'hr_scale': 2
+      'hr_upscaler': null
+      'hr_second_pass_steps': 0
+      'hr_resize_x': 0
+      'hr_resize_y': 0
+      'hr_checkpoint_name': null
+      'hr_additional_modules': null
+      'hr_sampler_name': null
+      'hr_scheduler': null
+      'hr_prompt': ''
+      'hr_negative_prompt': ''
+      'hr_cfg': 1
+      'hr_distilled_cfg': 3.5
+      'force_task_id': null
+      'sampler_index': 'Euler'
+      'script_name': null
+      'script_args': []
+      'send_images': true
+      'save_images': false
+      'alwayson_scripts': {}
+      'infotext': null
+    'response_info_raw': '{"prompt": "1girl, solo, standing, neutral expression, arms relaxed at sides,
+      plain fitted sleeveless top, black shorts, barefoot, full body, eye level, front view, empty
+      seamless studio, plain floor, subject high in frame", "all_prompts": ["1girl, solo, standing,
+      neutral expression, arms relaxed at sides, plain fitted sleeveless top, black shorts,
+      barefoot, full body, eye level, front view, empty seamless studio, plain floor, subject high
+      in frame"], "negative_prompt": "low quality, worst quality, blurry, deformed, bad anatomy, bad
+      hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane,
+      aircraft, vehicle, background objects, props, furniture", "all_negative_prompts": ["low
+      quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing
+      fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft, vehicle, background
+      objects, props, furniture"], "seed": 972604118, "all_seeds": [972604118], "subseed":
+      495128280, "all_subseeds": [495128280], "subseed_strength": 0, "width": 1024, "height": 1024,
+      "sampler_name": "Euler a", "cfg_scale": 4.5, "steps": 20, "batch_size": 1, "restore_faces":
+      false, "face_restoration_model": null, "sd_model_name": "novaAnimeXL_ilV190", "sd_model_hash":
+      "fa486caafc", "sd_vae_name": null, "sd_vae_hash": null, "seed_resize_from_w": -1,
+      "seed_resize_from_h": -1, "denoising_strength": null, "extra_generation_params": {},
+      "index_of_first_image": 0, "infotexts": ["1girl, solo, standing, neutral expression, arms
+      relaxed at sides, plain fitted sleeveless top, black shorts, barefoot, full body, eye level,
+      front view, empty seamless studio, plain floor, subject high in frame\nNegative prompt: low
+      quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing
+      fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft, vehicle, background
+      objects, props, furniture\nSteps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale:
+      4.5, Seed: 972604118, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190,
+      Version: f2.0.1v1.10.1-previous-669-gdfdcbab6"], "styles": [], "job_timestamp":
+      "20260903072343", "clip_skip": 1, "is_using_inpainting_conditioning": false, "version":
+      "f2.0.1v1.10.1-previous-669-gdfdcbab6"}'
+    'parsed_response_info':
+      'prompt': '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+        top, black shorts, barefoot, full body, eye level, front view, empty seamless studio, plain
+        floor, subject high in frame'
+      'all_prompts':
+        - '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+          top, black shorts, barefoot, full body, eye level, front view, empty seamless studio,
+          plain floor, subject high in frame'
+      'negative_prompt': 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra
+        fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft,
+        vehicle, background objects, props, furniture'
+      'all_negative_prompts':
+        - 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers,
+          missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft, vehicle,
+          background objects, props, furniture'
+      'seed': 972604118
+      'all_seeds':
+        - 972604118
+      'subseed': 495128280
+      'all_subseeds':
+        - 495128280
+      'subseed_strength': 0
+      'width': 1024
+      'height': 1024
+      'sampler_name': 'Euler a'
+      'cfg_scale': 4.5
+      'steps': 20
+      'batch_size': 1
+      'restore_faces': false
+      'face_restoration_model': null
+      'sd_model_name': 'novaAnimeXL_ilV190'
+      'sd_model_hash': 'fa486caafc'
+      'sd_vae_name': null
+      'sd_vae_hash': null
+      'seed_resize_from_w': -1
+      'seed_resize_from_h': -1
+      'denoising_strength': null
+      'extra_generation_params': {}
+      'index_of_first_image': 0
+      'infotexts':
+        - '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+          top, black shorts, barefoot, full body, eye level, front view, empty seamless studio,
+          plain floor, subject high in frame
+
+          Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands,
+          extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane,
+          aircraft, vehicle, background objects, props, furniture
+
+          Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 972604118,
+          Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version:
+          f2.0.1v1.10.1-previous-669-gdfdcbab6'
+      'styles': []
+      'job_timestamp': '20260903072343'
+      'clip_skip': 1
+      'is_using_inpainting_conditioning': false
+      'version': 'f2.0.1v1.10.1-previous-669-gdfdcbab6'
+    'infotext_used_for_binding': '1girl, solo, standing, neutral expression, arms relaxed at sides,
+      plain fitted sleeveless top, black shorts, barefoot, full body, eye level, front view, empty
+      seamless studio, plain floor, subject high in frame
+
+      Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra
+      fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft,
+      vehicle, background objects, props, furniture
+
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 972604118, Size:
+      1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version:
+      f2.0.1v1.10.1-previous-669-gdfdcbab6'
+    'tracked_metadata_is_authoritative': true
+  - 'panel_id': 3
+    'seed': 136850427
+    'image_file': 'panels/CAM-012-C_03.png'
+    'image_sha256': '1b27229192e1f9191d3f68e7d57c9e0b22ba889cce79da0ab04006341f42890d'
+    'image_bytes': 942594
+    'diagnostic_provenance_file': 'source/tmp/generation/CAM-012-C_03_response.json'
+    'diagnostic_provenance_sha256': '1426e74c9aa5faf6b542bdecf09baff5d7531d9388e56de66319ecc7a17011a0'
+    'returned_parameters':
+      'prompt': '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+        top, black shorts, barefoot, full body, eye level, front view, empty seamless studio, plain
+        floor, subject high in frame'
+      'negative_prompt': 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra
+        fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft,
+        vehicle, background objects, props, furniture'
+      'styles': null
+      'seed': 136850427
+      'subseed': -1
+      'subseed_strength': 0
+      'seed_resize_from_h': -1
+      'seed_resize_from_w': -1
+      'sampler_name': 'Euler a'
+      'scheduler': 'Automatic'
+      'batch_size': 1
+      'n_iter': 1
+      'steps': 20
+      'cfg_scale': 4.5
+      'distilled_cfg_scale': 3.5
+      'width': 1024
+      'height': 1024
+      'restore_faces': false
+      'tiling': false
+      'do_not_save_samples': false
+      'do_not_save_grid': false
+      'eta': null
+      'denoising_strength': null
+      's_min_uncond': null
+      's_churn': null
+      's_tmax': null
+      's_tmin': null
+      's_noise': null
+      'override_settings': null
+      'override_settings_restore_afterwards': true
+      'refiner_checkpoint': null
+      'refiner_switch_at': null
+      'disable_extra_networks': false
+      'firstpass_image': null
+      'comments': null
+      'enable_hr': false
+      'firstphase_width': 0
+      'firstphase_height': 0
+      'hr_scale': 2
+      'hr_upscaler': null
+      'hr_second_pass_steps': 0
+      'hr_resize_x': 0
+      'hr_resize_y': 0
+      'hr_checkpoint_name': null
+      'hr_additional_modules': null
+      'hr_sampler_name': null
+      'hr_scheduler': null
+      'hr_prompt': ''
+      'hr_negative_prompt': ''
+      'hr_cfg': 1
+      'hr_distilled_cfg': 3.5
+      'force_task_id': null
+      'sampler_index': 'Euler'
+      'script_name': null
+      'script_args': []
+      'send_images': true
+      'save_images': false
+      'alwayson_scripts': {}
+      'infotext': null
+    'response_info_raw': '{"prompt": "1girl, solo, standing, neutral expression, arms relaxed at sides,
+      plain fitted sleeveless top, black shorts, barefoot, full body, eye level, front view, empty
+      seamless studio, plain floor, subject high in frame", "all_prompts": ["1girl, solo, standing,
+      neutral expression, arms relaxed at sides, plain fitted sleeveless top, black shorts,
+      barefoot, full body, eye level, front view, empty seamless studio, plain floor, subject high
+      in frame"], "negative_prompt": "low quality, worst quality, blurry, deformed, bad anatomy, bad
+      hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane,
+      aircraft, vehicle, background objects, props, furniture", "all_negative_prompts": ["low
+      quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing
+      fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft, vehicle, background
+      objects, props, furniture"], "seed": 136850427, "all_seeds": [136850427], "subseed":
+      1256762559, "all_subseeds": [1256762559], "subseed_strength": 0, "width": 1024, "height":
+      1024, "sampler_name": "Euler a", "cfg_scale": 4.5, "steps": 20, "batch_size": 1,
+      "restore_faces": false, "face_restoration_model": null, "sd_model_name": "novaAnimeXL_ilV190",
+      "sd_model_hash": "fa486caafc", "sd_vae_name": null, "sd_vae_hash": null, "seed_resize_from_w":
+      -1, "seed_resize_from_h": -1, "denoising_strength": null, "extra_generation_params": {},
+      "index_of_first_image": 0, "infotexts": ["1girl, solo, standing, neutral expression, arms
+      relaxed at sides, plain fitted sleeveless top, black shorts, barefoot, full body, eye level,
+      front view, empty seamless studio, plain floor, subject high in frame\nNegative prompt: low
+      quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing
+      fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft, vehicle, background
+      objects, props, furniture\nSteps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale:
+      4.5, Seed: 136850427, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190,
+      Version: f2.0.1v1.10.1-previous-669-gdfdcbab6"], "styles": [], "job_timestamp":
+      "20260903072349", "clip_skip": 1, "is_using_inpainting_conditioning": false, "version":
+      "f2.0.1v1.10.1-previous-669-gdfdcbab6"}'
+    'parsed_response_info':
+      'prompt': '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+        top, black shorts, barefoot, full body, eye level, front view, empty seamless studio, plain
+        floor, subject high in frame'
+      'all_prompts':
+        - '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+          top, black shorts, barefoot, full body, eye level, front view, empty seamless studio,
+          plain floor, subject high in frame'
+      'negative_prompt': 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra
+        fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft,
+        vehicle, background objects, props, furniture'
+      'all_negative_prompts':
+        - 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers,
+          missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft, vehicle,
+          background objects, props, furniture'
+      'seed': 136850427
+      'all_seeds':
+        - 136850427
+      'subseed': 1256762559
+      'all_subseeds':
+        - 1256762559
+      'subseed_strength': 0
+      'width': 1024
+      'height': 1024
+      'sampler_name': 'Euler a'
+      'cfg_scale': 4.5
+      'steps': 20
+      'batch_size': 1
+      'restore_faces': false
+      'face_restoration_model': null
+      'sd_model_name': 'novaAnimeXL_ilV190'
+      'sd_model_hash': 'fa486caafc'
+      'sd_vae_name': null
+      'sd_vae_hash': null
+      'seed_resize_from_w': -1
+      'seed_resize_from_h': -1
+      'denoising_strength': null
+      'extra_generation_params': {}
+      'index_of_first_image': 0
+      'infotexts':
+        - '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+          top, black shorts, barefoot, full body, eye level, front view, empty seamless studio,
+          plain floor, subject high in frame
+
+          Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands,
+          extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane,
+          aircraft, vehicle, background objects, props, furniture
+
+          Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 136850427,
+          Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version:
+          f2.0.1v1.10.1-previous-669-gdfdcbab6'
+      'styles': []
+      'job_timestamp': '20260903072349'
+      'clip_skip': 1
+      'is_using_inpainting_conditioning': false
+      'version': 'f2.0.1v1.10.1-previous-669-gdfdcbab6'
+    'infotext_used_for_binding': '1girl, solo, standing, neutral expression, arms relaxed at sides,
+      plain fitted sleeveless top, black shorts, barefoot, full body, eye level, front view, empty
+      seamless studio, plain floor, subject high in frame
+
+      Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra
+      fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft,
+      vehicle, background objects, props, furniture
+
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 136850427, Size:
+      1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version:
+      f2.0.1v1.10.1-previous-669-gdfdcbab6'
+    'tracked_metadata_is_authoritative': true
+  - 'panel_id': 4
+    'seed': 1552098734
+    'image_file': 'panels/CAM-012-C_04.png'
+    'image_sha256': '841c40996a7545b4cfece25d49afa10be2ee04132a6ab2b7e00a26c6e1fd0eda'
+    'image_bytes': 975773
+    'diagnostic_provenance_file': 'source/tmp/generation/CAM-012-C_04_response.json'
+    'diagnostic_provenance_sha256': '024f9f7ee038108945b92a536ee7934da0bf2210ae0617fa556f7752fa3f31e8'
+    'returned_parameters':
+      'prompt': '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+        top, black shorts, barefoot, full body, eye level, front view, empty seamless studio, plain
+        floor, subject high in frame'
+      'negative_prompt': 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra
+        fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft,
+        vehicle, background objects, props, furniture'
+      'styles': null
+      'seed': 1552098734
+      'subseed': -1
+      'subseed_strength': 0
+      'seed_resize_from_h': -1
+      'seed_resize_from_w': -1
+      'sampler_name': 'Euler a'
+      'scheduler': 'Automatic'
+      'batch_size': 1
+      'n_iter': 1
+      'steps': 20
+      'cfg_scale': 4.5
+      'distilled_cfg_scale': 3.5
+      'width': 1024
+      'height': 1024
+      'restore_faces': false
+      'tiling': false
+      'do_not_save_samples': false
+      'do_not_save_grid': false
+      'eta': null
+      'denoising_strength': null
+      's_min_uncond': null
+      's_churn': null
+      's_tmax': null
+      's_tmin': null
+      's_noise': null
+      'override_settings': null
+      'override_settings_restore_afterwards': true
+      'refiner_checkpoint': null
+      'refiner_switch_at': null
+      'disable_extra_networks': false
+      'firstpass_image': null
+      'comments': null
+      'enable_hr': false
+      'firstphase_width': 0
+      'firstphase_height': 0
+      'hr_scale': 2
+      'hr_upscaler': null
+      'hr_second_pass_steps': 0
+      'hr_resize_x': 0
+      'hr_resize_y': 0
+      'hr_checkpoint_name': null
+      'hr_additional_modules': null
+      'hr_sampler_name': null
+      'hr_scheduler': null
+      'hr_prompt': ''
+      'hr_negative_prompt': ''
+      'hr_cfg': 1
+      'hr_distilled_cfg': 3.5
+      'force_task_id': null
+      'sampler_index': 'Euler'
+      'script_name': null
+      'script_args': []
+      'send_images': true
+      'save_images': false
+      'alwayson_scripts': {}
+      'infotext': null
+    'response_info_raw': '{"prompt": "1girl, solo, standing, neutral expression, arms relaxed at sides,
+      plain fitted sleeveless top, black shorts, barefoot, full body, eye level, front view, empty
+      seamless studio, plain floor, subject high in frame", "all_prompts": ["1girl, solo, standing,
+      neutral expression, arms relaxed at sides, plain fitted sleeveless top, black shorts,
+      barefoot, full body, eye level, front view, empty seamless studio, plain floor, subject high
+      in frame"], "negative_prompt": "low quality, worst quality, blurry, deformed, bad anatomy, bad
+      hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane,
+      aircraft, vehicle, background objects, props, furniture", "all_negative_prompts": ["low
+      quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing
+      fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft, vehicle, background
+      objects, props, furniture"], "seed": 1552098734, "all_seeds": [1552098734], "subseed":
+      2796118637, "all_subseeds": [2796118637], "subseed_strength": 0, "width": 1024, "height":
+      1024, "sampler_name": "Euler a", "cfg_scale": 4.5, "steps": 20, "batch_size": 1,
+      "restore_faces": false, "face_restoration_model": null, "sd_model_name": "novaAnimeXL_ilV190",
+      "sd_model_hash": "fa486caafc", "sd_vae_name": null, "sd_vae_hash": null, "seed_resize_from_w":
+      -1, "seed_resize_from_h": -1, "denoising_strength": null, "extra_generation_params": {},
+      "index_of_first_image": 0, "infotexts": ["1girl, solo, standing, neutral expression, arms
+      relaxed at sides, plain fitted sleeveless top, black shorts, barefoot, full body, eye level,
+      front view, empty seamless studio, plain floor, subject high in frame\nNegative prompt: low
+      quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing
+      fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft, vehicle, background
+      objects, props, furniture\nSteps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale:
+      4.5, Seed: 1552098734, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190,
+      Version: f2.0.1v1.10.1-previous-669-gdfdcbab6"], "styles": [], "job_timestamp":
+      "20260903072355", "clip_skip": 1, "is_using_inpainting_conditioning": false, "version":
+      "f2.0.1v1.10.1-previous-669-gdfdcbab6"}'
+    'parsed_response_info':
+      'prompt': '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+        top, black shorts, barefoot, full body, eye level, front view, empty seamless studio, plain
+        floor, subject high in frame'
+      'all_prompts':
+        - '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+          top, black shorts, barefoot, full body, eye level, front view, empty seamless studio,
+          plain floor, subject high in frame'
+      'negative_prompt': 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra
+        fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft,
+        vehicle, background objects, props, furniture'
+      'all_negative_prompts':
+        - 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers,
+          missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft, vehicle,
+          background objects, props, furniture'
+      'seed': 1552098734
+      'all_seeds':
+        - 1552098734
+      'subseed': 2796118637
+      'all_subseeds':
+        - 2796118637
+      'subseed_strength': 0
+      'width': 1024
+      'height': 1024
+      'sampler_name': 'Euler a'
+      'cfg_scale': 4.5
+      'steps': 20
+      'batch_size': 1
+      'restore_faces': false
+      'face_restoration_model': null
+      'sd_model_name': 'novaAnimeXL_ilV190'
+      'sd_model_hash': 'fa486caafc'
+      'sd_vae_name': null
+      'sd_vae_hash': null
+      'seed_resize_from_w': -1
+      'seed_resize_from_h': -1
+      'denoising_strength': null
+      'extra_generation_params': {}
+      'index_of_first_image': 0
+      'infotexts':
+        - '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+          top, black shorts, barefoot, full body, eye level, front view, empty seamless studio,
+          plain floor, subject high in frame
+
+          Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands,
+          extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane,
+          aircraft, vehicle, background objects, props, furniture
+
+          Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1552098734,
+          Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version:
+          f2.0.1v1.10.1-previous-669-gdfdcbab6'
+      'styles': []
+      'job_timestamp': '20260903072355'
+      'clip_skip': 1
+      'is_using_inpainting_conditioning': false
+      'version': 'f2.0.1v1.10.1-previous-669-gdfdcbab6'
+    'infotext_used_for_binding': '1girl, solo, standing, neutral expression, arms relaxed at sides,
+      plain fitted sleeveless top, black shorts, barefoot, full body, eye level, front view, empty
+      seamless studio, plain floor, subject high in frame
+
+      Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra
+      fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft,
+      vehicle, background objects, props, furniture
+
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1552098734, Size:
+      1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version:
+      f2.0.1v1.10.1-previous-669-gdfdcbab6'
+    'tracked_metadata_is_authoritative': true
+  - 'panel_id': 5
+    'seed': 1880456211
+    'image_file': 'panels/CAM-012-C_05.png'
+    'image_sha256': 'e715fbe85fd54bd9862e9e560b85bb5e86b3a662f78adbb535d7fe4e52f734ec'
+    'image_bytes': 1008077
+    'diagnostic_provenance_file': 'source/tmp/generation/CAM-012-C_05_response.json'
+    'diagnostic_provenance_sha256': 'f116754c98222c64eca36f08912749340ba492d17eda56be17e5161fdbcae88e'
+    'returned_parameters':
+      'prompt': '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+        top, black shorts, barefoot, full body, eye level, front view, empty seamless studio, plain
+        floor, subject high in frame'
+      'negative_prompt': 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra
+        fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft,
+        vehicle, background objects, props, furniture'
+      'styles': null
+      'seed': 1880456211
+      'subseed': -1
+      'subseed_strength': 0
+      'seed_resize_from_h': -1
+      'seed_resize_from_w': -1
+      'sampler_name': 'Euler a'
+      'scheduler': 'Automatic'
+      'batch_size': 1
+      'n_iter': 1
+      'steps': 20
+      'cfg_scale': 4.5
+      'distilled_cfg_scale': 3.5
+      'width': 1024
+      'height': 1024
+      'restore_faces': false
+      'tiling': false
+      'do_not_save_samples': false
+      'do_not_save_grid': false
+      'eta': null
+      'denoising_strength': null
+      's_min_uncond': null
+      's_churn': null
+      's_tmax': null
+      's_tmin': null
+      's_noise': null
+      'override_settings': null
+      'override_settings_restore_afterwards': true
+      'refiner_checkpoint': null
+      'refiner_switch_at': null
+      'disable_extra_networks': false
+      'firstpass_image': null
+      'comments': null
+      'enable_hr': false
+      'firstphase_width': 0
+      'firstphase_height': 0
+      'hr_scale': 2
+      'hr_upscaler': null
+      'hr_second_pass_steps': 0
+      'hr_resize_x': 0
+      'hr_resize_y': 0
+      'hr_checkpoint_name': null
+      'hr_additional_modules': null
+      'hr_sampler_name': null
+      'hr_scheduler': null
+      'hr_prompt': ''
+      'hr_negative_prompt': ''
+      'hr_cfg': 1
+      'hr_distilled_cfg': 3.5
+      'force_task_id': null
+      'sampler_index': 'Euler'
+      'script_name': null
+      'script_args': []
+      'send_images': true
+      'save_images': false
+      'alwayson_scripts': {}
+      'infotext': null
+    'response_info_raw': '{"prompt": "1girl, solo, standing, neutral expression, arms relaxed at sides,
+      plain fitted sleeveless top, black shorts, barefoot, full body, eye level, front view, empty
+      seamless studio, plain floor, subject high in frame", "all_prompts": ["1girl, solo, standing,
+      neutral expression, arms relaxed at sides, plain fitted sleeveless top, black shorts,
+      barefoot, full body, eye level, front view, empty seamless studio, plain floor, subject high
+      in frame"], "negative_prompt": "low quality, worst quality, blurry, deformed, bad anatomy, bad
+      hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane,
+      aircraft, vehicle, background objects, props, furniture", "all_negative_prompts": ["low
+      quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing
+      fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft, vehicle, background
+      objects, props, furniture"], "seed": 1880456211, "all_seeds": [1880456211], "subseed":
+      1096999345, "all_subseeds": [1096999345], "subseed_strength": 0, "width": 1024, "height":
+      1024, "sampler_name": "Euler a", "cfg_scale": 4.5, "steps": 20, "batch_size": 1,
+      "restore_faces": false, "face_restoration_model": null, "sd_model_name": "novaAnimeXL_ilV190",
+      "sd_model_hash": "fa486caafc", "sd_vae_name": null, "sd_vae_hash": null, "seed_resize_from_w":
+      -1, "seed_resize_from_h": -1, "denoising_strength": null, "extra_generation_params": {},
+      "index_of_first_image": 0, "infotexts": ["1girl, solo, standing, neutral expression, arms
+      relaxed at sides, plain fitted sleeveless top, black shorts, barefoot, full body, eye level,
+      front view, empty seamless studio, plain floor, subject high in frame\nNegative prompt: low
+      quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing
+      fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft, vehicle, background
+      objects, props, furniture\nSteps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale:
+      4.5, Seed: 1880456211, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190,
+      Version: f2.0.1v1.10.1-previous-669-gdfdcbab6"], "styles": [], "job_timestamp":
+      "20260903072401", "clip_skip": 1, "is_using_inpainting_conditioning": false, "version":
+      "f2.0.1v1.10.1-previous-669-gdfdcbab6"}'
+    'parsed_response_info':
+      'prompt': '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+        top, black shorts, barefoot, full body, eye level, front view, empty seamless studio, plain
+        floor, subject high in frame'
+      'all_prompts':
+        - '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+          top, black shorts, barefoot, full body, eye level, front view, empty seamless studio,
+          plain floor, subject high in frame'
+      'negative_prompt': 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra
+        fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft,
+        vehicle, background objects, props, furniture'
+      'all_negative_prompts':
+        - 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers,
+          missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft, vehicle,
+          background objects, props, furniture'
+      'seed': 1880456211
+      'all_seeds':
+        - 1880456211
+      'subseed': 1096999345
+      'all_subseeds':
+        - 1096999345
+      'subseed_strength': 0
+      'width': 1024
+      'height': 1024
+      'sampler_name': 'Euler a'
+      'cfg_scale': 4.5
+      'steps': 20
+      'batch_size': 1
+      'restore_faces': false
+      'face_restoration_model': null
+      'sd_model_name': 'novaAnimeXL_ilV190'
+      'sd_model_hash': 'fa486caafc'
+      'sd_vae_name': null
+      'sd_vae_hash': null
+      'seed_resize_from_w': -1
+      'seed_resize_from_h': -1
+      'denoising_strength': null
+      'extra_generation_params': {}
+      'index_of_first_image': 0
+      'infotexts':
+        - '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+          top, black shorts, barefoot, full body, eye level, front view, empty seamless studio,
+          plain floor, subject high in frame
+
+          Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands,
+          extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane,
+          aircraft, vehicle, background objects, props, furniture
+
+          Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1880456211,
+          Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version:
+          f2.0.1v1.10.1-previous-669-gdfdcbab6'
+      'styles': []
+      'job_timestamp': '20260903072401'
+      'clip_skip': 1
+      'is_using_inpainting_conditioning': false
+      'version': 'f2.0.1v1.10.1-previous-669-gdfdcbab6'
+    'infotext_used_for_binding': '1girl, solo, standing, neutral expression, arms relaxed at sides,
+      plain fitted sleeveless top, black shorts, barefoot, full body, eye level, front view, empty
+      seamless studio, plain floor, subject high in frame
+
+      Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra
+      fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft,
+      vehicle, background objects, props, furniture
+
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 1880456211, Size:
+      1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version:
+      f2.0.1v1.10.1-previous-669-gdfdcbab6'
+    'tracked_metadata_is_authoritative': true
+  - 'panel_id': 6
+    'seed': 204617395
+    'image_file': 'panels/CAM-012-C_06.png'
+    'image_sha256': '118fc629679bebda14191fd6b9cde0764395dd47d52d194659e65ca44e14627b'
+    'image_bytes': 1126469
+    'diagnostic_provenance_file': 'source/tmp/generation/CAM-012-C_06_response.json'
+    'diagnostic_provenance_sha256': '79069a6d9dd8cb3292a4a5aa50d0527f5697390ac73107332a81e58f0f915b82'
+    'returned_parameters':
+      'prompt': '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+        top, black shorts, barefoot, full body, eye level, front view, empty seamless studio, plain
+        floor, subject high in frame'
+      'negative_prompt': 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra
+        fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft,
+        vehicle, background objects, props, furniture'
+      'styles': null
+      'seed': 204617395
+      'subseed': -1
+      'subseed_strength': 0
+      'seed_resize_from_h': -1
+      'seed_resize_from_w': -1
+      'sampler_name': 'Euler a'
+      'scheduler': 'Automatic'
+      'batch_size': 1
+      'n_iter': 1
+      'steps': 20
+      'cfg_scale': 4.5
+      'distilled_cfg_scale': 3.5
+      'width': 1024
+      'height': 1024
+      'restore_faces': false
+      'tiling': false
+      'do_not_save_samples': false
+      'do_not_save_grid': false
+      'eta': null
+      'denoising_strength': null
+      's_min_uncond': null
+      's_churn': null
+      's_tmax': null
+      's_tmin': null
+      's_noise': null
+      'override_settings': null
+      'override_settings_restore_afterwards': true
+      'refiner_checkpoint': null
+      'refiner_switch_at': null
+      'disable_extra_networks': false
+      'firstpass_image': null
+      'comments': null
+      'enable_hr': false
+      'firstphase_width': 0
+      'firstphase_height': 0
+      'hr_scale': 2
+      'hr_upscaler': null
+      'hr_second_pass_steps': 0
+      'hr_resize_x': 0
+      'hr_resize_y': 0
+      'hr_checkpoint_name': null
+      'hr_additional_modules': null
+      'hr_sampler_name': null
+      'hr_scheduler': null
+      'hr_prompt': ''
+      'hr_negative_prompt': ''
+      'hr_cfg': 1
+      'hr_distilled_cfg': 3.5
+      'force_task_id': null
+      'sampler_index': 'Euler'
+      'script_name': null
+      'script_args': []
+      'send_images': true
+      'save_images': false
+      'alwayson_scripts': {}
+      'infotext': null
+    'response_info_raw': '{"prompt": "1girl, solo, standing, neutral expression, arms relaxed at sides,
+      plain fitted sleeveless top, black shorts, barefoot, full body, eye level, front view, empty
+      seamless studio, plain floor, subject high in frame", "all_prompts": ["1girl, solo, standing,
+      neutral expression, arms relaxed at sides, plain fitted sleeveless top, black shorts,
+      barefoot, full body, eye level, front view, empty seamless studio, plain floor, subject high
+      in frame"], "negative_prompt": "low quality, worst quality, blurry, deformed, bad anatomy, bad
+      hands, extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane,
+      aircraft, vehicle, background objects, props, furniture", "all_negative_prompts": ["low
+      quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing
+      fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft, vehicle, background
+      objects, props, furniture"], "seed": 204617395, "all_seeds": [204617395], "subseed":
+      1130465228, "all_subseeds": [1130465228], "subseed_strength": 0, "width": 1024, "height":
+      1024, "sampler_name": "Euler a", "cfg_scale": 4.5, "steps": 20, "batch_size": 1,
+      "restore_faces": false, "face_restoration_model": null, "sd_model_name": "novaAnimeXL_ilV190",
+      "sd_model_hash": "fa486caafc", "sd_vae_name": null, "sd_vae_hash": null, "seed_resize_from_w":
+      -1, "seed_resize_from_h": -1, "denoising_strength": null, "extra_generation_params": {},
+      "index_of_first_image": 0, "infotexts": ["1girl, solo, standing, neutral expression, arms
+      relaxed at sides, plain fitted sleeveless top, black shorts, barefoot, full body, eye level,
+      front view, empty seamless studio, plain floor, subject high in frame\nNegative prompt: low
+      quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing
+      fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft, vehicle, background
+      objects, props, furniture\nSteps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale:
+      4.5, Seed: 204617395, Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190,
+      Version: f2.0.1v1.10.1-previous-669-gdfdcbab6"], "styles": [], "job_timestamp":
+      "20260903072407", "clip_skip": 1, "is_using_inpainting_conditioning": false, "version":
+      "f2.0.1v1.10.1-previous-669-gdfdcbab6"}'
+    'parsed_response_info':
+      'prompt': '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+        top, black shorts, barefoot, full body, eye level, front view, empty seamless studio, plain
+        floor, subject high in frame'
+      'all_prompts':
+        - '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+          top, black shorts, barefoot, full body, eye level, front view, empty seamless studio,
+          plain floor, subject high in frame'
+      'negative_prompt': 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra
+        fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft,
+        vehicle, background objects, props, furniture'
+      'all_negative_prompts':
+        - 'low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers,
+          missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft, vehicle,
+          background objects, props, furniture'
+      'seed': 204617395
+      'all_seeds':
+        - 204617395
+      'subseed': 1130465228
+      'all_subseeds':
+        - 1130465228
+      'subseed_strength': 0
+      'width': 1024
+      'height': 1024
+      'sampler_name': 'Euler a'
+      'cfg_scale': 4.5
+      'steps': 20
+      'batch_size': 1
+      'restore_faces': false
+      'face_restoration_model': null
+      'sd_model_name': 'novaAnimeXL_ilV190'
+      'sd_model_hash': 'fa486caafc'
+      'sd_vae_name': null
+      'sd_vae_hash': null
+      'seed_resize_from_w': -1
+      'seed_resize_from_h': -1
+      'denoising_strength': null
+      'extra_generation_params': {}
+      'index_of_first_image': 0
+      'infotexts':
+        - '1girl, solo, standing, neutral expression, arms relaxed at sides, plain fitted sleeveless
+          top, black shorts, barefoot, full body, eye level, front view, empty seamless studio,
+          plain floor, subject high in frame
+
+          Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands,
+          extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane,
+          aircraft, vehicle, background objects, props, furniture
+
+          Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 204617395,
+          Size: 1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version:
+          f2.0.1v1.10.1-previous-669-gdfdcbab6'
+      'styles': []
+      'job_timestamp': '20260903072407'
+      'clip_skip': 1
+      'is_using_inpainting_conditioning': false
+      'version': 'f2.0.1v1.10.1-previous-669-gdfdcbab6'
+    'infotext_used_for_binding': '1girl, solo, standing, neutral expression, arms relaxed at sides,
+      plain fitted sleeveless top, black shorts, barefoot, full body, eye level, front view, empty
+      seamless studio, plain floor, subject high in frame
+
+      Negative prompt: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra
+      fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft,
+      vehicle, background objects, props, furniture
+
+      Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 4.5, Seed: 204617395, Size:
+      1024x1024, Model hash: fa486caafc, Model: novaAnimeXL_ilV190, Version:
+      f2.0.1v1.10.1-previous-669-gdfdcbab6'
+    'tracked_metadata_is_authoritative': true
+prompt_blind_record_reference:
+  owner_path: research/sd-prompt-research/experiments/camera/CAM-012-A/source/CAM-012-A_metadata.yaml
+  freeze_sha256: 1655d25c6796ca403e48fd7680545744f78f9670ad58cc3ef63f2f030b96549a
+  mapping_sha256: 0c7a2d7c6279f8294473560335bb31cc65b6f19711e87a73b86c571d6bf616e3
+  observer_input_sha256: 3fdf03cc21400b65513a3ff32b09c9e7d4170ceb6d6cb1a701dff65b22d2a040
