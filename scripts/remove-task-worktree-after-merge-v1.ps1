@@ -21,6 +21,7 @@ $script:CleanupExitCode = 1
 $script:GitRemoveExitCode = $null
 $script:GitRemoveStderr = $null
 $script:GitCommonDirectory = $null
+$script:WorktreeAdministrationDirectory = $null
 $script:GitCommonDirectoryCapability = 'NOT_PROVEN'
 
 function Invoke-NativeGit {
@@ -245,20 +246,54 @@ function Get-GitCommonDirectory {
     return $resolved
 }
 
-function Assert-GitCommonDirectoryMutationCapability {
+function Get-WorktreeAdministrationDirectory {
     param(
+        [Parameter(Mandatory = $true)]
+        [string]$RetiredWorktree,
+
         [Parameter(Mandatory = $true)]
         [string]$GitCommonDirectory
     )
 
-    $resolvedCommonDirectory = Get-NormalizedPath -Path $GitCommonDirectory
-    $administrationRoot = Join-Path $resolvedCommonDirectory 'worktrees'
-    if (-not (Test-Path -LiteralPath $administrationRoot -PathType Container)) {
+    $markerPath = Join-Path $RetiredWorktree '.git'
+    if (-not (Test-Path -LiteralPath $markerPath -PathType Leaf)) {
+        throw 'worktree_cleanup_administration_entry_invalid'
+    }
+    $marker = [IO.File]::ReadAllText($markerPath).Trim()
+    if ($marker -notmatch '^gitdir:\s+(.+)$') {
+        throw 'worktree_cleanup_administration_entry_invalid'
+    }
+    $candidate = $Matches[1]
+    if (-not [IO.Path]::IsPathRooted($candidate)) {
+        $candidate = Join-Path $RetiredWorktree $candidate
+    }
+    $resolved = Get-NormalizedPath -Path $candidate
+    $administrationRoot = Get-NormalizedPath -Path (Join-Path $GitCommonDirectory 'worktrees')
+    $parent = Get-NormalizedPath -Path ([IO.Directory]::GetParent($resolved).FullName)
+    if (
+        -not $parent.Equals($administrationRoot, [StringComparison]::OrdinalIgnoreCase) -or
+        -not (Test-Path -LiteralPath $resolved -PathType Container) -or
+        (Test-IsLinkOrReparsePoint -Item (Get-Item -LiteralPath $resolved -Force))
+    ) {
+        throw 'worktree_cleanup_administration_entry_invalid'
+    }
+    return $resolved
+}
+
+function Invoke-GitAdministrationMutationProbe {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Container,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Label
+    )
+
+    if (-not (Test-Path -LiteralPath $Container -PathType Container)) {
         throw 'worktree_cleanup_git_common_dir_not_writable'
     }
-
-    $probePath = Join-Path $administrationRoot (
-        '.codex-worktree-cleanup-capability-' + [guid]::NewGuid().ToString('N')
+    $probePath = Join-Path $Container (
+        '.codex-worktree-cleanup-capability-' + $Label + '-' + [guid]::NewGuid().ToString('N')
     )
     $probeFile = Join-Path $probePath 'write-delete.probe'
     $stream = $null
@@ -293,6 +328,40 @@ function Assert-GitCommonDirectoryMutationCapability {
             $stream.Dispose()
         }
     }
+}
+
+function Assert-GitCommonDirectoryMutationCapability {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$GitCommonDirectory,
+
+        [Parameter(Mandatory = $true)]
+        [string]$WorktreeAdministrationDirectory
+    )
+
+    $resolvedCommonDirectory = Get-NormalizedPath -Path $GitCommonDirectory
+    $administrationRoot = Join-Path $resolvedCommonDirectory 'worktrees'
+    $resolvedWorktreeAdministration = Get-NormalizedPath -Path $WorktreeAdministrationDirectory
+    $administrationParent = if (Test-Path -LiteralPath $resolvedWorktreeAdministration -PathType Container) {
+        Get-NormalizedPath -Path ([IO.Directory]::GetParent($resolvedWorktreeAdministration).FullName)
+    }
+    else {
+        $null
+    }
+    if (
+        -not (Test-Path -LiteralPath $administrationRoot -PathType Container) -or
+        $null -eq $administrationParent -or
+        -not $administrationParent.Equals(
+            (Get-NormalizedPath -Path $administrationRoot),
+            [StringComparison]::OrdinalIgnoreCase
+        )
+    ) {
+        throw 'worktree_cleanup_git_common_dir_not_writable'
+    }
+    Invoke-GitAdministrationMutationProbe -Container $administrationRoot -Label 'root'
+    Invoke-GitAdministrationMutationProbe `
+        -Container $resolvedWorktreeAdministration `
+        -Label 'entry'
     $script:GitCommonDirectoryCapability = 'PROVEN'
 }
 
@@ -460,6 +529,7 @@ function Write-CleanupResult {
         git_remove_exit_code = $GitRemoveExitCode
         git_remove_stderr = $GitRemoveStderr
         git_common_directory = $script:GitCommonDirectory
+        worktree_administration_directory = $script:WorktreeAdministrationDirectory
         git_common_directory_capability = $script:GitCommonDirectoryCapability
         merge_outcome_affected = $false
     } | ConvertTo-Json -Depth 3 -Compress | Write-Output
@@ -519,8 +589,12 @@ function Invoke-TaskWorktreeCleanup {
             throw 'worktree_cleanup_target_dirty'
         }
         $script:GitCommonDirectory = Get-GitCommonDirectory -Repository $script:Repository
-        Assert-GitCommonDirectoryMutationCapability `
+        $script:WorktreeAdministrationDirectory = Get-WorktreeAdministrationDirectory `
+            -RetiredWorktree $script:RetiredWorktree `
             -GitCommonDirectory $script:GitCommonDirectory
+        Assert-GitCommonDirectoryMutationCapability `
+            -GitCommonDirectory $script:GitCommonDirectory `
+            -WorktreeAdministrationDirectory $script:WorktreeAdministrationDirectory
         $refsBefore = Get-BranchRefDigest -Repository $script:Repository
         $remove = Invoke-GitWorktreeRemove `
             -Repository $script:Repository `
