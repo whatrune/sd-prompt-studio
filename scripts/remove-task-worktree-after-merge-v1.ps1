@@ -286,19 +286,23 @@ function Invoke-GitAdministrationMutationProbe {
         [string]$Container,
 
         [Parameter(Mandatory = $true)]
-        [string]$Label
+        [string]$Label,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$RequireDirectoryDelete
     )
 
     if (-not (Test-Path -LiteralPath $Container -PathType Container)) {
         throw 'worktree_cleanup_git_common_dir_not_writable'
     }
-    $probePath = Join-Path $Container (
-        '.codex-worktree-cleanup-capability-' + $Label + '-' + [guid]::NewGuid().ToString('N')
-    )
-    $probeFile = Join-Path $probePath 'write-delete.probe'
+    $identity = '.codex-worktree-cleanup-capability-' + $Label + '-' + [guid]::NewGuid().ToString('N')
+    $probePath = if ($RequireDirectoryDelete) { Join-Path $Container $identity } else { $Container }
+    $probeFile = Join-Path $probePath ($identity + '.probe')
     $stream = $null
     try {
-        [void][IO.Directory]::CreateDirectory($probePath)
+        if ($RequireDirectoryDelete) {
+            [void][IO.Directory]::CreateDirectory($probePath)
+        }
         $stream = [IO.FileStream]::new(
             $probeFile,
             [IO.FileMode]::CreateNew,
@@ -315,9 +319,11 @@ function Invoke-GitAdministrationMutationProbe {
         if (Test-Path -LiteralPath $probeFile) {
             throw 'worktree_cleanup_git_common_dir_not_writable'
         }
-        [IO.Directory]::Delete($probePath, $false)
-        if (Test-Path -LiteralPath $probePath) {
-            throw 'worktree_cleanup_git_common_dir_not_writable'
+        if ($RequireDirectoryDelete) {
+            [IO.Directory]::Delete($probePath, $false)
+            if (Test-Path -LiteralPath $probePath) {
+                throw 'worktree_cleanup_git_common_dir_not_writable'
+            }
         }
     }
     catch {
@@ -358,7 +364,10 @@ function Assert-GitCommonDirectoryMutationCapability {
     ) {
         throw 'worktree_cleanup_git_common_dir_not_writable'
     }
-    Invoke-GitAdministrationMutationProbe -Container $administrationRoot -Label 'root'
+    Invoke-GitAdministrationMutationProbe `
+        -Container $administrationRoot `
+        -Label 'root' `
+        -RequireDirectoryDelete
     Invoke-GitAdministrationMutationProbe `
         -Container $resolvedWorktreeAdministration `
         -Label 'entry'
