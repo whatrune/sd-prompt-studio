@@ -22,112 +22,53 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Set up classifier Python
+        uses: actions/setup-python@v5
         with:
-          node-version: 22
+          python-version: "3.12"
 
-      - name: Classify pull request changes
-        id: changes
+      - name: Classify exact changed paths
+        id: profile
         shell: bash
         env:
           EXACT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          set -u
-
-          docs_only=false
-          classification=full
-          reason=unclassified
-          changed_path_count=0
+          set -euo pipefail
+          selector="research/sd-prompt-research/scripts/select_validation_profile.py"
           changed_paths_file="$RUNNER_TEMP/pr-changed-paths.zlist"
+          [[ "$EXACT_BASE_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "invalid_base_sha" >&2; exit 1; }
+          [[ "$EXACT_HEAD_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "invalid_head_sha" >&2; exit 1; }
+          [[ "$(git rev-parse HEAD)" == "$EXACT_HEAD_SHA" ]] || { echo "checked_out_head_mismatch" >&2; exit 1; }
+          git cat-file -e "$EXACT_BASE_SHA^{commit}"
+          git cat-file -e "$EXACT_HEAD_SHA^{commit}"
+          git diff --name-only -z --no-renames "$EXACT_BASE_SHA" "$EXACT_HEAD_SHA" -- > "$changed_paths_file"
+          python "$selector" --paths-file "$changed_paths_file" --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
 
-          echo "exact_base_sha=$EXACT_BASE_SHA"
-          echo "exact_head_sha=$EXACT_HEAD_SHA"
-          echo "changed_paths_command=git diff --name-only -z --no-renames $EXACT_BASE_SHA $EXACT_HEAD_SHA --"
-
-          if [[ ! "$EXACT_BASE_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
-            reason=invalid_base_sha
-          elif [[ ! "$EXACT_HEAD_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
-            reason=invalid_head_sha
-          elif [[ "$(git rev-parse HEAD 2>/dev/null || true)" != "$EXACT_HEAD_SHA" ]]; then
-            reason=checked_out_head_mismatch
-          elif ! git cat-file -e "$EXACT_BASE_SHA^{commit}" 2>/dev/null; then
-            reason=base_commit_unavailable
-          elif ! git cat-file -e "$EXACT_HEAD_SHA^{commit}" 2>/dev/null; then
-            reason=head_commit_unavailable
-          elif ! git diff --name-only -z --no-renames "$EXACT_BASE_SHA" "$EXACT_HEAD_SHA" -- > "$changed_paths_file"; then
-            reason=changed_path_acquisition_failed
-          elif [[ ! -s "$changed_paths_file" ]]; then
-            reason=empty_changed_path_set
-          else
-            all_markdown=true
-            malformed_path=false
-
-            while IFS= read -r -d '' path; do
-              changed_path_count=$((changed_path_count + 1))
-              printf 'changed_path=%q\n' "$path"
-
-              if [[ -z "$path" || "$path" == /* || "$path" == ./* || "$path" == ../* || "$path" == */./* || "$path" == */../* || "$path" =~ [[:cntrl:]] ]]; then
-                malformed_path=true
-              elif [[ "$path" != *.md ]]; then
-                all_markdown=false
-              fi
-            done < "$changed_paths_file"
-
-            if [[ "$changed_path_count" -eq 0 ]]; then
-              reason=empty_changed_path_set
-            elif [[ "$malformed_path" == true ]]; then
-              reason=malformed_changed_path
-            elif [[ "$all_markdown" == true ]]; then
-              docs_only=true
-              classification=docs-only
-              reason=all_changed_paths_end_in_md
-            else
-              reason=non_markdown_or_mixed_changes
-            fi
-          fi
-
-          echo "changed_path_count=$changed_path_count"
-          echo "classification=$classification"
-          echo "classification_reason=$reason"
-          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
-
-      - name: Validate role execution contracts
-        if: steps.changes.outputs.docs_only == 'true'
-        run: |
-          echo 'command=node scripts/test-role-execution-contracts.mjs'
-          node scripts/test-role-execution-contracts.mjs
-
-      - name: Check exact pull request diff
-        if: steps.changes.outputs.docs_only == 'true'
-        env:
-          EXACT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          echo "exact_base_sha=$EXACT_BASE_SHA"
-          echo "exact_head_sha=$EXACT_HEAD_SHA"
-          echo "command=git diff --check $EXACT_BASE_SHA $EXACT_HEAD_SHA"
-          git diff --check "$EXACT_BASE_SHA" "$EXACT_HEAD_SHA"
+      - name: Setup Node.js
+        if: steps.profile.outputs.runtime_deployable == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - name: Enable pnpm
-        if: steps.changes.outputs.docs_only != 'true'
+        if: steps.profile.outputs.runtime_deployable == 'true'
         run: corepack enable
 
       - name: Install dependencies
-        if: steps.changes.outputs.docs_only != 'true'
-        run: pnpm install
+        if: steps.profile.outputs.runtime_deployable == 'true'
+        run: pnpm install --frozen-lockfile
 
       - name: Test
-        if: steps.changes.outputs.docs_only != 'true'
+        if: steps.profile.outputs.runtime_deployable == 'true'
         run: pnpm test
 
       - name: Build preview
-        if: steps.changes.outputs.docs_only != 'true'
+        if: steps.profile.outputs.runtime_deployable == 'true'
         run: pnpm build
 
       - name: Upload preview artifact
-        if: steps.changes.outputs.docs_only != 'true'
+        if: steps.profile.outputs.runtime_deployable == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: preview-pr-${{ github.event.pull_request.number }}
@@ -136,8 +77,12 @@ jobs:
           retention-days: 14
 
       - name: Add preview instructions
-        if: steps.changes.outputs.docs_only != 'true'
+        if: steps.profile.outputs.runtime_deployable == 'true'
         run: |
           echo '### Pull Request Preview' >> "$GITHUB_STEP_SUMMARY"
           echo 'Download the `preview-pr-${{ github.event.pull_request.number }}` artifact from this workflow run.' >> "$GITHUB_STEP_SUMMARY"
           echo 'Serve the extracted directory with any static web server to inspect the production build.' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record non-runtime preview result
+        if: steps.profile.outputs.runtime_deployable != 'true'
+        run: echo 'Canonical validation ownership classified this PR as non-runtime; no preview build is required.' >> "$GITHUB_STEP_SUMMARY"

@@ -71,6 +71,15 @@ class ValidationProfileTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assert_profile(expected, [path])
 
+        documentation = classify_paths(["docs/product/guide.md"])
+        self.assertFalse(documentation.runtime_deployable)
+        self.assertEqual(("documentation",), documentation.bundles)
+        self.assertEqual(("node scripts/test-role-execution-contracts.mjs",), documentation.commands)
+
+        platform = classify_paths(["scripts/some-platform-contract.mjs"])
+        self.assertTrue(platform.runtime_deployable)
+        self.assertEqual(("platform", "documentation"), platform.bundles)
+
     def test_control_plane_catalog_workflow_and_classifier_force_full(self) -> None:
         for path in (
             ".github/workflows/research-claims.yml",
@@ -162,6 +171,22 @@ class ValidationProfileTests(unittest.TestCase):
         self.assertNotIn("python -m pip install -r research/sd-prompt-research/requirements.txt", workflow)
         self.assertIn("pnpm test", workflow)
         self.assertIn("pnpm run build", workflow)
+
+    def test_preview_consumes_canonical_profile_without_path_taxonomy(self) -> None:
+        workflow = (REPOSITORY_ROOT / ".github/workflows/preview.yml").read_text(encoding="utf-8")
+        self.assertIn("select_validation_profile.py", workflow)
+        self.assertIn("git diff --name-only -z --no-renames", workflow)
+        self.assertNotIn("all_markdown", workflow)
+        self.assertNotIn("docs_only", workflow)
+        self.assertNotIn("*.md", workflow)
+        self.assertNotIn("test-role-execution-contracts.mjs", workflow)
+        self.assertGreaterEqual(workflow.count("steps.profile.outputs.runtime_deployable == 'true'"), 6)
+        self.assertIn("pnpm install --frozen-lockfile", workflow)
+
+    def test_validate_owns_documentation_contracts(self) -> None:
+        workflow = (REPOSITORY_ROOT / ".github/workflows/research-claims.yml").read_text(encoding="utf-8")
+        self.assertIn("steps.profile.outputs.run_documentation == 'true'", workflow)
+        self.assertIn("node scripts/test-role-execution-contracts.mjs", workflow)
 
 
 if __name__ == "__main__":
