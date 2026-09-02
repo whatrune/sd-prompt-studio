@@ -516,3 +516,15 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-02T11:18:00+09:00'
   path: experiments/camera/CAM-006-C
+- run_id: CAM-007-A
+  domain: camera
+  title: CAM-007-A — neutral control
+  status: OBSERVED
+  updated_at: '2026-09-02T13:08:12+09:00'
+  path: experiments/camera/CAM-007-A
+- run_id: CAM-007-B
+  domain: camera
+  title: CAM-007-B — eye level
+  status: OBSERVED
+  updated_at: '2026-09-02T13:08:12+09:00'
+  path: experiments/camera/CAM-007-B
