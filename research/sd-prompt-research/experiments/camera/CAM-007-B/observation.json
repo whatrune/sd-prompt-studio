@@ -1,0 +1,247 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-007-B",
+  "blind_condition_label": "COND-01",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "apparent_camera_vertical_position",
+    "apparent_viewing_direction",
+    "head_to_body_perspective",
+    "floor_support_geometry",
+    "full_body_visibility",
+    "angle_assessability",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-01: visible vertical-angle pattern=below_subject in 4/6 panels and unclear in 2/6 panels.",
+      "Opaque condition COND-01: angle assessable=4/6.",
+      "Opaque condition COND-01: angle ambiguity/artifact=2/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, and visible pixels; prompts, seeds, requested angle, run mapping, PromptTag IDs, and emitted phrases were withheld.",
+      "The 12-panel opaque observation record was frozen before mapping disclosure at SHA-256 6d048b85af1ec14358c14cde18a01295b210eb2206150c9f8856b5ab0042401b.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen visual row.",
+      "Requested-angle alignment, matched-seed comparison, prerequisite handling, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "below_subject",
+        "upward",
+        "neutral",
+        "low_view_recession",
+        "visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_angle_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "A deep tiled foreground converges behind the fully visible feet, while the face and torso remain nearly frontal and proportionally neutral."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "unclear",
+        "level",
+        "neutral",
+        "level_horizon",
+        "visible",
+        "unassessable",
+        "angle_ambiguous"
+      ],
+      "primary_morphology": "camera_angle_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The centered full-body view is visually flat and frontal; the narrow floor strip does not establish a reliable high or low viewpoint."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "angle_ambiguous"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "below_subject",
+        "upward",
+        "neutral",
+        "low_view_recession",
+        "visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_angle_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The parquet plane recedes from large foreground sections toward the fully visible figure, while the head and torso show no strong enlargement."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "below_subject",
+        "upward",
+        "neutral",
+        "low_view_recession",
+        "visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_angle_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The complete frontal figure stands over strongly converging floor seams; the low vanishing cues suggest an upward view without marked body distortion."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "below_subject",
+        "upward",
+        "neutral",
+        "low_view_recession",
+        "visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_angle_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Converging tile seams occupy the foreground beneath a complete frontal figure, indicating a low-positioned view with otherwise neutral proportions."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "unclear",
+        "level",
+        "neutral",
+        "level_horizon",
+        "visible",
+        "unassessable",
+        "angle_ambiguous"
+      ],
+      "primary_morphology": "camera_angle_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The full figure is front-facing with little foreshortening, and the shallow rectilinear floor supplies weak vertical-position cues."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "angle_ambiguous"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "apparent_camera_vertical_position": {
+        "below_subject": 4,
+        "unclear": 2
+      },
+      "apparent_viewing_direction": {
+        "upward": 4,
+        "level": 2
+      },
+      "head_to_body_perspective": {
+        "neutral": 6
+      },
+      "floor_support_geometry": {
+        "low_view_recession": 4,
+        "level_horizon": 2
+      },
+      "full_body_visibility": {
+        "visible": 6
+      },
+      "angle_assessability": {
+        "assessable": 4,
+        "unassessable": 2
+      },
+      "ambiguity_or_artifact": {
+        "none": 4,
+        "angle_ambiguous": 2
+      }
+    },
+    "primary_morphology_counts": {
+      "camera_angle_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 4,
+      "angle_ambiguous": 2
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
