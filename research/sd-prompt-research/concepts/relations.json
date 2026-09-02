@@ -1,6 +1,6 @@
 {
   "schema_version": "0.2.0",
-  "graph_version": "0.2.3",
+  "graph_version": "0.2.4",
   "module_file_id": "relations",
   "module_family": "relations",
   "description": "Cross-module edges; concepts are not duplicated to represent secondary effects or semantic packages.",
