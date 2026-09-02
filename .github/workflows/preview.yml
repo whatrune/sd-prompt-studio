@@ -35,7 +35,9 @@ jobs:
           EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          selector="research/sd-prompt-research/scripts/select_validation_profile.py"
+          trusted_classifier_root="$RUNNER_TEMP/trusted-validation-classifier"
+          trusted_selector="$trusted_classifier_root/research/sd-prompt-research/scripts/select_validation_profile.py"
+          trusted_catalog="$trusted_classifier_root/data/validation-path-ownership-v1.json"
           changed_paths_file="$RUNNER_TEMP/pr-changed-paths.zlist"
           [[ "$EXACT_BASE_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "invalid_base_sha" >&2; exit 1; }
           [[ "$EXACT_HEAD_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "invalid_head_sha" >&2; exit 1; }
@@ -43,7 +45,10 @@ jobs:
           git cat-file -e "$EXACT_BASE_SHA^{commit}"
           git cat-file -e "$EXACT_HEAD_SHA^{commit}"
           git diff --name-only -z --no-renames "$EXACT_BASE_SHA" "$EXACT_HEAD_SHA" -- > "$changed_paths_file"
-          python "$selector" --paths-file "$changed_paths_file" --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
+          mkdir -p "$(dirname "$trusted_selector")" "$(dirname "$trusted_catalog")"
+          git show "$EXACT_BASE_SHA:research/sd-prompt-research/scripts/select_validation_profile.py" > "$trusted_selector"
+          git show "$EXACT_BASE_SHA:data/validation-path-ownership-v1.json" > "$trusted_catalog"
+          python "$trusted_selector" --paths-file "$changed_paths_file" --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Setup Node.js
         if: steps.profile.outputs.runtime_deployable == 'true'
