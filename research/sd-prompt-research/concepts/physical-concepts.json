@@ -566,6 +566,26 @@
               "total": 6,
               "confidence": "medium",
               "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam006b.low_angle_for_eye_level_comparison",
+              "run_id": "CAM-006-B",
+              "observation_path": "experiments/camera/CAM-006-B/observation.json",
+              "metric": "computed_aggregate.axis_counts.apparent_camera_vertical_position.below_subject",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam006c.high_angle_for_eye_level_comparison",
+              "run_id": "CAM-006-C",
+              "observation_path": "experiments/camera/CAM-006-C/observation.json",
+              "metric": "computed_aggregate.axis_counts.apparent_camera_vertical_position.above_subject",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
             }
           ]
         }
@@ -595,6 +615,26 @@
               "total": 6,
               "confidence": "high",
               "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam006a.eye_level_for_low_angle_comparison",
+              "run_id": "CAM-006-A",
+              "observation_path": "experiments/camera/CAM-006-A/observation.json",
+              "metric": "computed_aggregate.axis_counts.apparent_camera_vertical_position.eye_level",
+              "count": 4,
+              "total": 6,
+              "confidence": "medium",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam006c.high_angle_for_low_angle_comparison",
+              "run_id": "CAM-006-C",
+              "observation_path": "experiments/camera/CAM-006-C/observation.json",
+              "metric": "computed_aggregate.axis_counts.apparent_camera_vertical_position.above_subject",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
             }
           ]
         }
@@ -620,6 +660,26 @@
               "run_id": "CAM-006-C",
               "observation_path": "experiments/camera/CAM-006-C/observation.json",
               "metric": "computed_aggregate.axis_counts.apparent_camera_vertical_position.above_subject",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam006a.eye_level_for_high_angle_comparison",
+              "run_id": "CAM-006-A",
+              "observation_path": "experiments/camera/CAM-006-A/observation.json",
+              "metric": "computed_aggregate.axis_counts.apparent_camera_vertical_position.eye_level",
+              "count": 4,
+              "total": 6,
+              "confidence": "medium",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam006b.low_angle_for_high_angle_comparison",
+              "run_id": "CAM-006-B",
+              "observation_path": "experiments/camera/CAM-006-B/observation.json",
+              "metric": "computed_aggregate.axis_counts.apparent_camera_vertical_position.below_subject",
               "count": 6,
               "total": 6,
               "confidence": "high",

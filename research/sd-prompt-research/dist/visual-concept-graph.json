@@ -1,7 +1,7 @@
 {
   "schema_version": "0.2.0",
   "graph_version": "0.2.4",
-  "generated_at": "2026-09-02T02:58:47Z",
+  "generated_at": "2026-09-02T03:17:46Z",
   "source_files": [
     "concepts/physical-concepts.json",
     "concepts/relations.json",
@@ -144,6 +144,26 @@
               "total": 6,
               "confidence": "medium",
               "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam006b.low_angle_for_eye_level_comparison",
+              "run_id": "CAM-006-B",
+              "observation_path": "experiments/camera/CAM-006-B/observation.json",
+              "metric": "computed_aggregate.axis_counts.apparent_camera_vertical_position.below_subject",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam006c.high_angle_for_eye_level_comparison",
+              "run_id": "CAM-006-C",
+              "observation_path": "experiments/camera/CAM-006-C/observation.json",
+              "metric": "computed_aggregate.axis_counts.apparent_camera_vertical_position.above_subject",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
             }
           ]
         }
@@ -178,6 +198,26 @@
               "total": 6,
               "confidence": "high",
               "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam006a.eye_level_for_high_angle_comparison",
+              "run_id": "CAM-006-A",
+              "observation_path": "experiments/camera/CAM-006-A/observation.json",
+              "metric": "computed_aggregate.axis_counts.apparent_camera_vertical_position.eye_level",
+              "count": 4,
+              "total": 6,
+              "confidence": "medium",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam006b.low_angle_for_high_angle_comparison",
+              "run_id": "CAM-006-B",
+              "observation_path": "experiments/camera/CAM-006-B/observation.json",
+              "metric": "computed_aggregate.axis_counts.apparent_camera_vertical_position.below_subject",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
             }
           ]
         }
@@ -208,6 +248,26 @@
               "run_id": "CAM-006-B",
               "observation_path": "experiments/camera/CAM-006-B/observation.json",
               "metric": "computed_aggregate.axis_counts.apparent_camera_vertical_position.below_subject",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam006a.eye_level_for_low_angle_comparison",
+              "run_id": "CAM-006-A",
+              "observation_path": "experiments/camera/CAM-006-A/observation.json",
+              "metric": "computed_aggregate.axis_counts.apparent_camera_vertical_position.eye_level",
+              "count": 4,
+              "total": 6,
+              "confidence": "medium",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam006c.high_angle_for_low_angle_comparison",
+              "run_id": "CAM-006-C",
+              "observation_path": "experiments/camera/CAM-006-C/observation.json",
+              "metric": "computed_aggregate.axis_counts.apparent_camera_vertical_position.above_subject",
               "count": 6,
               "total": 6,
               "confidence": "high",
@@ -2074,13 +2134,19 @@
         "camera.framing.close_up"
       ],
       "CAM-006-A": [
-        "camera.angle.eye_level"
+        "camera.angle.eye_level",
+        "camera.angle.high_angle",
+        "camera.angle.low_angle"
       ],
       "CAM-006-B": [
+        "camera.angle.eye_level",
+        "camera.angle.high_angle",
         "camera.angle.low_angle"
       ],
       "CAM-006-C": [
-        "camera.angle.high_angle"
+        "camera.angle.eye_level",
+        "camera.angle.high_angle",
+        "camera.angle.low_angle"
       ],
       "CLOTHING-001-A": [
         "clothing.upper.oversized_white_tshirt",
