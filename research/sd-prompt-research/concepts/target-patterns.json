@@ -1,6 +1,6 @@
 {
   "schema_version": "0.2.0",
-  "graph_version": "0.2.3",
+  "graph_version": "0.2.4",
   "module_file_id": "target-patterns",
   "module_family": "target_patterns",
   "description": "Interpretation patterns and Human Intent profiles. Pose names enter through profiles and patterns, not ontology partitions.",

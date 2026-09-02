@@ -1,6 +1,6 @@
 {
   "schema_version": "0.2.0",
-  "graph_version": "0.2.3",
+  "graph_version": "0.2.4",
   "module_file_id": "physical-concepts",
   "module_family": "physical",
   "description": "Sparse physical, face, clothing, and visibility concepts used by the initial compiler foundation.",
@@ -533,6 +533,93 @@
               "run_id": "CAM-004-D",
               "observation_path": "experiments/camera/CAM-004-D/observation.json",
               "metric": "computed_aggregate.axis_counts.observed_framing.close_up",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "camera.angle.eye_level",
+      "label": "Eye-level camera angle",
+      "aliases": ["eye level"],
+      "module": "camera",
+      "concept_type": "camera",
+      "human_meaning": "A camera viewpoint positioned approximately level with the subject, producing a visibly level viewing direction without a dominant upward or downward angle.",
+      "scope": ["camera_vertical_angle", "subject"],
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "CAM-006-A produced eye-level vertical-position evidence in 4/6 panels under the tested neutral prompt context. Matched eye-level-to-low-angle and eye-level-to-high-angle comparisons were directionally discriminated in 5/6 pairs each; this does not establish fully stable eye-level behavior or full three-way discrimination.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.cam006a.observed_eye_level",
+              "run_id": "CAM-006-A",
+              "observation_path": "experiments/camera/CAM-006-A/observation.json",
+              "metric": "computed_aggregate.axis_counts.apparent_camera_vertical_position.eye_level",
+              "count": 4,
+              "total": 6,
+              "confidence": "medium",
+              "storage": "local"
+            }
+          ]
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "camera.angle.low_angle",
+      "label": "Low camera angle",
+      "aliases": ["low angle"],
+      "module": "camera",
+      "concept_type": "camera",
+      "human_meaning": "A camera viewpoint visibly below the subject with an upward viewing direction.",
+      "scope": ["camera_vertical_angle", "subject"],
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "CAM-006-B produced below-subject vertical-position evidence in 6/6 panels under the tested neutral prompt context. The matched eye-level-to-low-angle comparison was directionally discriminated in 5/6 pairs, and low-angle versus high-angle opposite evidence was discriminated in 6/6 pairs.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.cam006b.observed_low_angle",
+              "run_id": "CAM-006-B",
+              "observation_path": "experiments/camera/CAM-006-B/observation.json",
+              "metric": "computed_aggregate.axis_counts.apparent_camera_vertical_position.below_subject",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "camera.angle.high_angle",
+      "label": "High camera angle",
+      "aliases": ["high angle"],
+      "module": "camera",
+      "concept_type": "camera",
+      "human_meaning": "A camera viewpoint visibly above the subject with a downward viewing direction.",
+      "scope": ["camera_vertical_angle", "subject"],
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "CAM-006-C produced above-subject vertical-position evidence in 6/6 panels under the tested neutral prompt context. The matched eye-level-to-high-angle comparison was directionally discriminated in 5/6 pairs, and low-angle versus high-angle opposite evidence was discriminated in 6/6 pairs.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.cam006c.observed_high_angle",
+              "run_id": "CAM-006-C",
+              "observation_path": "experiments/camera/CAM-006-C/observation.json",
+              "metric": "computed_aggregate.axis_counts.apparent_camera_vertical_position.above_subject",
               "count": 6,
               "total": 6,
               "confidence": "high",

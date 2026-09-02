@@ -1,7 +1,7 @@
 {
   "schema_version": "0.2.0",
-  "graph_version": "0.2.3",
-  "generated_at": "2026-09-01T02:20:31Z",
+  "graph_version": "0.2.4",
+  "generated_at": "2026-09-02T02:58:47Z",
   "source_files": [
     "concepts/physical-concepts.json",
     "concepts/relations.json",
@@ -113,6 +113,108 @@
       "scope": [
         "body",
         "upper_torso"
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "camera.angle.eye_level",
+      "label": "Eye-level camera angle",
+      "aliases": [
+        "eye level"
+      ],
+      "module": "camera",
+      "concept_type": "camera",
+      "human_meaning": "A camera viewpoint positioned approximately level with the subject, producing a visibly level viewing direction without a dominant upward or downward angle.",
+      "scope": [
+        "camera_vertical_angle",
+        "subject"
+      ],
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "CAM-006-A produced eye-level vertical-position evidence in 4/6 panels under the tested neutral prompt context. Matched eye-level-to-low-angle and eye-level-to-high-angle comparisons were directionally discriminated in 5/6 pairs each; this does not establish fully stable eye-level behavior or full three-way discrimination.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.cam006a.observed_eye_level",
+              "run_id": "CAM-006-A",
+              "observation_path": "experiments/camera/CAM-006-A/observation.json",
+              "metric": "computed_aggregate.axis_counts.apparent_camera_vertical_position.eye_level",
+              "count": 4,
+              "total": 6,
+              "confidence": "medium",
+              "storage": "local"
+            }
+          ]
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "camera.angle.high_angle",
+      "label": "High camera angle",
+      "aliases": [
+        "high angle"
+      ],
+      "module": "camera",
+      "concept_type": "camera",
+      "human_meaning": "A camera viewpoint visibly above the subject with a downward viewing direction.",
+      "scope": [
+        "camera_vertical_angle",
+        "subject"
+      ],
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "CAM-006-C produced above-subject vertical-position evidence in 6/6 panels under the tested neutral prompt context. The matched eye-level-to-high-angle comparison was directionally discriminated in 5/6 pairs, and low-angle versus high-angle opposite evidence was discriminated in 6/6 pairs.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.cam006c.observed_high_angle",
+              "run_id": "CAM-006-C",
+              "observation_path": "experiments/camera/CAM-006-C/observation.json",
+              "metric": "computed_aggregate.axis_counts.apparent_camera_vertical_position.above_subject",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "camera.angle.low_angle",
+      "label": "Low camera angle",
+      "aliases": [
+        "low angle"
+      ],
+      "module": "camera",
+      "concept_type": "camera",
+      "human_meaning": "A camera viewpoint visibly below the subject with an upward viewing direction.",
+      "scope": [
+        "camera_vertical_angle",
+        "subject"
+      ],
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "CAM-006-B produced below-subject vertical-position evidence in 6/6 panels under the tested neutral prompt context. The matched eye-level-to-low-angle comparison was directionally discriminated in 5/6 pairs, and low-angle versus high-angle opposite evidence was discriminated in 6/6 pairs.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.cam006b.observed_low_angle",
+              "run_id": "CAM-006-B",
+              "observation_path": "experiments/camera/CAM-006-B/observation.json",
+              "metric": "computed_aggregate.axis_counts.apparent_camera_vertical_position.below_subject",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        }
       ],
       "status": "provisional"
     },
@@ -1595,53 +1697,59 @@
       "body.proportion.slender": 6,
       "body.state.lying": 7,
       "body.state.reclined": 8,
-      "camera.framing.close_up": 9,
-      "camera.framing.cowboy_shot": 10,
-      "camera.framing.full_body": 11,
-      "camera.framing.upper_body": 12,
-      "clothing.lower.black_shorts": 13,
-      "clothing.outer.white_coat": 14,
-      "clothing.style.fantasy": 15,
-      "clothing.upper.oversized_white_tshirt": 16,
-      "configuration.hand.near_head": 17,
-      "configuration.knee.bent": 18,
-      "contact.arm.surface": 19,
-      "contact.back.absent": 20,
-      "contact.foot.sole_surface": 21,
-      "contact.head.surface_support": 22,
-      "contact.pelvis.surface": 23,
-      "contact.shoulder.surface_support": 24,
-      "environment.forest": 25,
-      "environment.medical": 26,
-      "face.expression.professional": 27,
-      "face.expression.semantic_shift": 28,
-      "face.eyelid.partially_closed": 29,
-      "face.gaze.upward": 30,
-      "face.mouth.open": 31,
-      "hair.long": 32,
-      "object.stethoscope": 33,
-      "orientation.head.extended_backward": 34,
-      "pelvis.elevation.above_surface": 35,
-      "phrase.arms_supporting_body": 36,
-      "role.activity.dancer": 37,
-      "role.narrative.warrior": 38,
-      "role.occupation.doctor": 39,
-      "role.rank.queen": 40,
-      "role.situational.patient": 41,
-      "species.elf": 42,
-      "species.mermaid": 43,
-      "support.arm.rearward": 44,
-      "support.elbow.weight_bearing": 45,
-      "support.foot.weight_bearing": 46,
-      "support.hand.weight_bearing": 47,
-      "torso.arch.strong": 48,
-      "visibility.hand_near_head_contact": 49,
-      "visibility.neck": 50,
-      "visibility.pelvis_boundary": 51,
-      "visibility.shoulder_contact_boundary": 52
+      "camera.angle.eye_level": 9,
+      "camera.angle.high_angle": 10,
+      "camera.angle.low_angle": 11,
+      "camera.framing.close_up": 12,
+      "camera.framing.cowboy_shot": 13,
+      "camera.framing.full_body": 14,
+      "camera.framing.upper_body": 15,
+      "clothing.lower.black_shorts": 16,
+      "clothing.outer.white_coat": 17,
+      "clothing.style.fantasy": 18,
+      "clothing.upper.oversized_white_tshirt": 19,
+      "configuration.hand.near_head": 20,
+      "configuration.knee.bent": 21,
+      "contact.arm.surface": 22,
+      "contact.back.absent": 23,
+      "contact.foot.sole_surface": 24,
+      "contact.head.surface_support": 25,
+      "contact.pelvis.surface": 26,
+      "contact.shoulder.surface_support": 27,
+      "environment.forest": 28,
+      "environment.medical": 29,
+      "face.expression.professional": 30,
+      "face.expression.semantic_shift": 31,
+      "face.eyelid.partially_closed": 32,
+      "face.gaze.upward": 33,
+      "face.mouth.open": 34,
+      "hair.long": 35,
+      "object.stethoscope": 36,
+      "orientation.head.extended_backward": 37,
+      "pelvis.elevation.above_surface": 38,
+      "phrase.arms_supporting_body": 39,
+      "role.activity.dancer": 40,
+      "role.narrative.warrior": 41,
+      "role.occupation.doctor": 42,
+      "role.rank.queen": 43,
+      "role.situational.patient": 44,
+      "species.elf": 45,
+      "species.mermaid": 46,
+      "support.arm.rearward": 47,
+      "support.elbow.weight_bearing": 48,
+      "support.foot.weight_bearing": 49,
+      "support.hand.weight_bearing": 50,
+      "torso.arch.strong": 51,
+      "visibility.hand_near_head_contact": 52,
+      "visibility.neck": 53,
+      "visibility.pelvis_boundary": 54,
+      "visibility.shoulder_contact_boundary": 55
     },
     "concepts_by_module": {
       "camera": [
+        "camera.angle.eye_level",
+        "camera.angle.high_angle",
+        "camera.angle.low_angle",
         "camera.framing.close_up",
         "camera.framing.cowboy_shot",
         "camera.framing.full_body",
@@ -1738,6 +1846,9 @@
         "body.state.reclined"
       ],
       "camera": [
+        "camera.angle.eye_level",
+        "camera.angle.high_angle",
+        "camera.angle.low_angle",
         "camera.framing.close_up",
         "camera.framing.cowboy_shot",
         "camera.framing.full_body",
@@ -1818,11 +1929,14 @@
       "cowboy shot": "camera.framing.cowboy_shot",
       "doctor": "role.occupation.doctor",
       "elf": "species.elf",
+      "eye level": "camera.angle.eye_level",
       "face up": "body.orientation.face_up",
       "full body": "camera.framing.full_body",
       "head back": "orientation.head.extended_backward",
       "head tilted backward": "orientation.head.extended_backward",
+      "high angle": "camera.angle.high_angle",
       "long hair": "hair.long",
+      "low angle": "camera.angle.low_angle",
       "lying": "body.state.lying",
       "lying down": "body.state.lying",
       "mermaid": "species.mermaid",
@@ -1958,6 +2072,15 @@
       ],
       "CAM-004-D": [
         "camera.framing.close_up"
+      ],
+      "CAM-006-A": [
+        "camera.angle.eye_level"
+      ],
+      "CAM-006-B": [
+        "camera.angle.low_angle"
+      ],
+      "CAM-006-C": [
+        "camera.angle.high_angle"
       ],
       "CLOTHING-001-A": [
         "clothing.upper.oversized_white_tshirt",
