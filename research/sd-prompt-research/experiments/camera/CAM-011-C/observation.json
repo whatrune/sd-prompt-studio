@@ -1,0 +1,251 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-011-C",
+  "blind_condition_label": "COND-V9",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "subject_frame_height_band",
+    "surrounding_margin",
+    "environment_dominance",
+    "face_head_scale",
+    "whole_subject_visibility",
+    "distance_assessability",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-V9: frame-height counts {'large': 4, 'very_large': 2}.",
+      "Opaque condition COND-V9: margin counts {'moderate': 2, 'ample': 2, 'minimal': 2}.",
+      "Opaque condition COND-V9: assessable=6/6; ambiguity/artifact=1/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, and visible pixels; prompt, seed, requested distance, run mapping, PromptTag IDs, and emitted phrases were withheld.",
+      "The 18-panel opaque observation record was frozen before mapping disclosure at SHA-256 1207e68094d282305cbf3a5e3c5de8d0a0bf6a6db35530b6049a58caf3ca766f.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen visual row.",
+      "Requested-condition alignment, matched-seed comparison, threshold application, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "large",
+        "moderate",
+        "balanced",
+        "small",
+        "visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "subject_distance_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Full standing figure occupies most, but not nearly all, of the image height with clear wall and floor margin."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "large",
+        "ample",
+        "environment_dominant",
+        "small",
+        "visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "subject_distance_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "An elevated oblique view shows the entire figure surrounded on all sides by a much larger expanse of patterned paving."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "very_large",
+        "minimal",
+        "subject_dominant",
+        "unclear",
+        "cropped",
+        "assessable",
+        "composition_artifact"
+      ],
+      "primary_morphology": "subject_distance_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The upper torso and head lie outside the frame; the visible shorts and legs occupy nearly the full image height."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "composition_artifact"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "large",
+        "moderate",
+        "balanced",
+        "small",
+        "visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "subject_distance_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Full figure spans about two thirds of the frame height with a clear corridor surround and reflective foreground."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "large",
+        "ample",
+        "environment_dominant",
+        "small",
+        "visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "subject_distance_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Complete figure is centered at roughly two thirds frame height while the deep corridor and floor occupy most of the composition."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "very_large",
+        "minimal",
+        "subject_dominant",
+        "medium",
+        "visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "subject_distance_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Head-to-feet figure nearly fills the frame vertically under a high viewpoint, leaving only narrow vertical clearance."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "subject_frame_height_band": {
+        "large": 4,
+        "very_large": 2
+      },
+      "surrounding_margin": {
+        "moderate": 2,
+        "ample": 2,
+        "minimal": 2
+      },
+      "environment_dominance": {
+        "balanced": 2,
+        "environment_dominant": 2,
+        "subject_dominant": 2
+      },
+      "face_head_scale": {
+        "small": 4,
+        "unclear": 1,
+        "medium": 1
+      },
+      "whole_subject_visibility": {
+        "visible": 5,
+        "cropped": 1
+      },
+      "distance_assessability": {
+        "assessable": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 5,
+        "composition_artifact": 1
+      }
+    },
+    "primary_morphology_counts": {
+      "subject_distance_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 5,
+      "composition_artifact": 1
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}

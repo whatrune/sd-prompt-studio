@@ -576,3 +576,21 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-02T10:14:45+00:00'
   path: experiments/camera/CAM-010-C
+- run_id: CAM-011-A
+  domain: camera
+  title: CAM-011-A — subject close to camera
+  status: OBSERVED
+  updated_at: '2026-09-02T22:00:33+09:00'
+  path: experiments/camera/CAM-011-A
+- run_id: CAM-011-B
+  domain: camera
+  title: CAM-011-B — subject at medium distance from camera
+  status: OBSERVED
+  updated_at: '2026-09-02T22:00:34+09:00'
+  path: experiments/camera/CAM-011-B
+- run_id: CAM-011-C
+  domain: camera
+  title: CAM-011-C — subject far from camera
+  status: OBSERVED
+  updated_at: '2026-09-02T22:00:34+09:00'
+  path: experiments/camera/CAM-011-C
