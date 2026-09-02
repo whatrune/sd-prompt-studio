@@ -257,11 +257,13 @@ function Assert-GitCommonDirectoryMutationCapability {
         throw 'worktree_cleanup_git_common_dir_not_writable'
     }
 
-    $probeFile = Join-Path $administrationRoot (
-        '.codex-worktree-cleanup-capability-' + [guid]::NewGuid().ToString('N') + '.probe'
+    $probePath = Join-Path $administrationRoot (
+        '.codex-worktree-cleanup-capability-' + [guid]::NewGuid().ToString('N')
     )
+    $probeFile = Join-Path $probePath 'write-delete.probe'
     $stream = $null
     try {
+        [void][IO.Directory]::CreateDirectory($probePath)
         $stream = [IO.FileStream]::new(
             $probeFile,
             [IO.FileMode]::CreateNew,
@@ -276,6 +278,10 @@ function Assert-GitCommonDirectoryMutationCapability {
         $stream.Dispose()
         $stream = $null
         if (Test-Path -LiteralPath $probeFile) {
+            throw 'worktree_cleanup_git_common_dir_not_writable'
+        }
+        [IO.Directory]::Delete($probePath, $false)
+        if (Test-Path -LiteralPath $probePath) {
             throw 'worktree_cleanup_git_common_dir_not_writable'
         }
     }
