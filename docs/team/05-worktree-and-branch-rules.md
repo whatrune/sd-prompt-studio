@@ -148,7 +148,7 @@ The only additional Git lifecycle check is that an explicitly authorized operato
 8. PRがMERGED / CLOSEDであることを確認
 9. assigned Task worktreeに未コミット変更がないことを確認
 10. active executionまたはprocessがworktreeを使用していないことを確認
-11. remove-task-worktree-after-merge-v1.ps1でnormal git worktree removeを実行する
+11. remove-task-worktree-after-merge-v1.ps1をGit common-directoryへwrite/delete可能な同一host processで実行し、normal git worktree removeの直前にそのcapabilityを実測する
 12. former Task worktree pathが残る場合、unregistered、別のregistered Task worktree配下ではないこと、.git markerなし、reparse/symlink ancestorまたはroot escapeなし、およびcaptured exact path一致を再確認する
 13. verified orphan residueだけをexact former Task worktree pathから削除し、path absenceとbranch/ref preservationを確認する
 14. DONE
@@ -172,6 +172,8 @@ fetch failure、dirty root、local-only commit、divergence、FF-only failure、
 Active-execution ownershipはnormal `git worktree remove`より前の既存lifecycle gateが所有する。terminal cleanup operatorはassigned execution identityを使い、active executionがそのworktreeを所有していないことを確認してからcleanup helperを呼ぶ。`remove-task-worktree-after-merge-v1.ps1`はOS-wide process discovery、command-line scan、cwd/open-handle enumerationを重複実装しない。
 
 `remove-task-worktree-after-merge-v1.ps1`はnormal Task worktree removalとその直後のexact-path verificationのownerである。captured Task worktree path、branch、およびHEADをfreshなregistered worktree realityにbindし、cleanである場合だけforceなしの`git worktree remove`を1回実行する。commandのexitにかかわらず直後にexact registrationをfresh-refetchし、registrationが残る場合はfail closedにする。非ゼロexitでもregistrationが消えている場合はGitをretryせず、同じcaptured exact pathであること、canonical repository root以外のregistered worktreeと同一・そのancestor・そのdescendantではないこと、rootに`.git` markerがないこと、およびrepository-owned `.worktrees` rootからtarget rootまでにreparse point、junction、またはsymlinkがないことをfresh-checkする。全predicateがPASSしたorphan residueだけをliteral path traversalで削除し、linkをfollowしない。original Git exit codeとbounded stderrをcleanup diagnosticに保持する。local/remote branchまたはrefは削除・変更しない。
+
+同helperはTask checkoutを変更する前に、exact repositoryからabsolute Git common-directoryとassigned worktreeの`.git` markerが指すexact registered administration entryを解決する。entryはcommon-directory直下の`worktrees` administration rootに属するnon-reparse direct childでなければならない。同一processはadministration rootで一意なprobe directoryとdelete-on-close fileのcreate、flush、close、directory delete、およびabsence verificationを完了し、exact entry内では一意なdelete-on-close fileのcreate、flush、close、およびabsenceを検証しなければならない。これによりparentのdirectory deletionとentry固有のwrite/delete ACLを、Git-owned file、ref、または既存Task metadataを変更せずに検査する。成功時にprobe residueを残さない。parentまたはexact entryの必要なcapabilityを証明できないhostでは`worktree_cleanup_git_common_dir_not_writable`としてfail closedにし、`git worktree remove`を呼ばない。別hostへのfallback、self-elevation、prune、force、またはretryは行わない。
 
 Git removal後もregistrationが残る場合、dirty worktree、identity mismatch、registered residue/ancestor、`.git` marker、reparse/symlink escape、boundary mismatch、residual removal failure、またはbranch/ref driftではcleanupをfail closedにする。非ゼロexit後にregistrationが消えている部分成功はfailure retryではなくfresh state reconciliationとして既存residue cleanupへ進む。cleanup failureは確認済みMergeまたは成功済みworktree deregistrationを無効化せず、Merge結果とは別に報告する。unsafe fallback、force Git removal、および別pathへのdeletion expansionは禁止する。
 

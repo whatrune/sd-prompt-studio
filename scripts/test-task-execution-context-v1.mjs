@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import {
@@ -699,15 +699,92 @@ function observed(id = identity(), overrides = {}) {
     assert.ok(lines.length > 0, `${result.status}\n${result.error?.stack ?? ''}\n${result.stdout}\n${result.stderr}`)
     return { result, payload: JSON.parse(lines.at(-1)) }
   }
+  const invokeCommonDirectoryCapability = (commonDirectory, administrationDirectory) => {
+    const command = [
+      `. ${psLiteral(cleanupScript)}`,
+      'try {',
+      `  Assert-GitCommonDirectoryMutationCapability -GitCommonDirectory ${psLiteral(commonDirectory)} -WorktreeAdministrationDirectory ${psLiteral(administrationDirectory)}`,
+      "  [pscustomobject]@{state='PASS';capability=$script:GitCommonDirectoryCapability} | ConvertTo-Json -Compress",
+      '  exit 0',
+      '} catch {',
+      "  [pscustomobject]@{state='FAILED';reason=$_.Exception.Message;capability=$script:GitCommonDirectoryCapability} | ConvertTo-Json -Compress",
+      '  exit 1',
+      '}',
+    ].join('; ')
+    const result = spawnSync(powershell, [
+      '-NoLogo', '-NoProfile', '-NonInteractive', '-Command', command,
+    ], { cwd: process.cwd(), encoding: 'utf8' })
+    const lines = result.stdout.trim().split(/\r?\n/u).filter(Boolean)
+    assert.ok(lines.length > 0, `${result.status}\n${result.error?.stack ?? ''}\n${result.stdout}\n${result.stderr}`)
+    return { result, payload: JSON.parse(lines.at(-1)) }
+  }
 
   try {
     const cleanupSource = readFileSync(cleanupScript, 'utf8')
     for (const prohibitedDiscovery of ['Get-CimInstance', 'Win32_Process', 'CreateFileW', '/proc', 'Get-ActivePathOwnerCount']) {
       equal(cleanupSource.includes(prohibitedDiscovery), false, prohibitedDiscovery)
     }
+    assert.ok(
+      cleanupSource.indexOf('Assert-GitCommonDirectoryMutationCapability `') <
+        cleanupSource.indexOf('$remove = Invoke-GitWorktreeRemove `'),
+    )
+    equal(cleanupSource.includes('worktree prune'), false)
+
+    const capability = createFixture('git-common-dir-capability')
+    const capabilityWorktree = addWorktree(capability, 'capability-task')
+    const capabilityCommonDirectory = git(capability.repository, [
+      'rev-parse', '--path-format=absolute', '--git-common-dir',
+    ])
+    const capabilityAdministrationDirectory = git(capabilityWorktree.target, [
+      'rev-parse', '--path-format=absolute', '--git-dir',
+    ])
+    const capabilityResult = invokeCommonDirectoryCapability(
+      capabilityCommonDirectory,
+      capabilityAdministrationDirectory,
+    )
+    equal(capabilityResult.result.status, 0)
+    equal(capabilityResult.payload.state, 'PASS')
+    equal(capabilityResult.payload.capability, 'PROVEN')
+    equal(
+      readdirSync(path.join(capabilityCommonDirectory, 'worktrees')).some(
+        (entry) => entry.startsWith('.codex-worktree-cleanup-capability-'),
+      ),
+      false,
+    )
+    equal(
+      readdirSync(capabilityAdministrationDirectory).some(
+        (entry) => entry.startsWith('.codex-worktree-cleanup-capability-'),
+      ),
+      false,
+    )
+
+    const invalidCapabilityRoot = path.join(capability.fixtureRoot, 'not-a-directory')
+    writeFileSync(invalidCapabilityRoot, 'not a directory\n', 'utf8')
+    const invalidCapabilityResult = invokeCommonDirectoryCapability(
+      invalidCapabilityRoot,
+      capabilityAdministrationDirectory,
+    )
+    equal(invalidCapabilityResult.result.status, 1)
+    equal(invalidCapabilityResult.payload.state, 'FAILED')
+    equal(invalidCapabilityResult.payload.reason, 'worktree_cleanup_git_common_dir_not_writable')
+    equal(invalidCapabilityResult.payload.capability, 'NOT_PROVEN')
+
+    const invalidAdministrationEntry = path.join(capability.fixtureRoot, 'not-an-administration-directory')
+    writeFileSync(invalidAdministrationEntry, 'not a directory\n', 'utf8')
+    const invalidAdministrationResult = invokeCommonDirectoryCapability(
+      capabilityCommonDirectory,
+      invalidAdministrationEntry,
+    )
+    equal(invalidAdministrationResult.result.status, 1)
+    equal(invalidAdministrationResult.payload.state, 'FAILED')
+    equal(invalidAdministrationResult.payload.reason, 'worktree_cleanup_git_common_dir_not_writable')
+    equal(invalidAdministrationResult.payload.capability, 'NOT_PROVEN')
 
     const ordinary = createFixture('ordinary')
     const ordinaryWorktree = addWorktree(ordinary, 'ordinary-task')
+    const ordinaryAdministrationDirectory = git(ordinaryWorktree.target, [
+      'rev-parse', '--path-format=absolute', '--git-dir',
+    ])
     const ordinaryRefs = refsDigest(ordinary.repository)
     const ordinaryResult = invokeCleanup(ordinary, ordinaryWorktree)
     equal(ordinaryResult.result.status, 0, JSON.stringify({ payload: ordinaryResult.payload, stderr: ordinaryResult.result.stderr }))
@@ -717,6 +794,12 @@ function observed(id = identity(), overrides = {}) {
     equal(ordinaryResult.payload.branch_refs_preserved, true)
     equal(ordinaryResult.payload.git_remove_exit_code, 0)
     equal(ordinaryResult.payload.git_remove_stderr, '')
+    equal(ordinaryResult.payload.git_common_directory, realpathSync.native(path.join(ordinary.repository, '.git')))
+    equal(
+      ordinaryResult.payload.worktree_administration_directory,
+      path.resolve(ordinaryAdministrationDirectory),
+    )
+    equal(ordinaryResult.payload.git_common_directory_capability, 'PROVEN')
     equal(ordinaryResult.payload.merge_outcome_affected, false)
     equal(refsDigest(ordinary.repository), ordinaryRefs)
     equal(
