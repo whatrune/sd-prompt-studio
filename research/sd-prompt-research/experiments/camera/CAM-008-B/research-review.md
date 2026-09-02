@@ -2,7 +2,7 @@
 
 ## Final Experiment Classification
 
-**PARTIAL_HORIZONTAL_CAMERA_ANGLE_DISCRIMINATION**
+**INCONCLUSIVE**
 
 All 18 panels are independently provenance-valid and orientation-assessable. The `front view` arm produced a strict frontal torso in 6/6 panels. The `side view` arm produced a front-oblique three-quarter torso in 6/6 and a strict lateral torso in 0/6, with orientation ambiguity in 3/6. The `from behind` arm showed visible back evidence in 6/6, while strict centered rear torso evidence occurred in 3/6 and rear three-quarter evidence in 3/6. Full three-way canonical target alignment is therefore not established.
 
@@ -34,7 +34,7 @@ All 18 panels are independently provenance-valid and orientation-assessable. The
 | side view vs from behind | 6/6 |
 | front view vs from behind | 6/6 |
 
-Composite orientation uses only the already-frozen torso-orientation and back-visibility axes. Although every pair is visibly distinct, `side view` fails the strict lateral target at 0/6 and exceeds the allowed ambiguity bound, while `from behind` splits between centered rear and rear three-quarter presentation. The mandatory classification is therefore `PARTIAL_HORIZONTAL_CAMERA_ANGLE_DISCRIMINATION`, not full discrimination.
+Composite orientation uses only the already-frozen torso-orientation and back-visibility axes. Although every pair is visibly distinct, the predeclared prerequisite permits ambiguity/artifact in at most 1/6 panels per arm, while `side view` reaches 3/6. That prerequisite failure makes both full and partial positive-discrimination branches inadmissible. The mandatory classification is therefore `INCONCLUSIVE`; the `side view` strict-lateral result of 0/6 and the `from behind` split between centered rear and rear three-quarter presentation remain descriptive observations only.
 
 ## Production Reality Boundary
 
