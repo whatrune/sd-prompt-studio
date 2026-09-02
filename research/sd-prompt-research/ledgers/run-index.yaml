@@ -558,3 +558,21 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-02T18:23:09+09:00'
   path: experiments/camera/CAM-009-B
+- run_id: CAM-010-A
+  domain: camera
+  title: CAM-010-A — facing viewer
+  status: OBSERVED
+  updated_at: '2026-09-02T10:14:45+00:00'
+  path: experiments/camera/CAM-010-A
+- run_id: CAM-010-B
+  domain: camera
+  title: CAM-010-B — profile
+  status: OBSERVED
+  updated_at: '2026-09-02T10:14:45+00:00'
+  path: experiments/camera/CAM-010-B
+- run_id: CAM-010-C
+  domain: camera
+  title: CAM-010-C — facing away
+  status: OBSERVED
+  updated_at: '2026-09-02T10:14:45+00:00'
+  path: experiments/camera/CAM-010-C

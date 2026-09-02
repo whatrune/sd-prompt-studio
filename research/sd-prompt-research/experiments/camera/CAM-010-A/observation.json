@@ -1,0 +1,251 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-010-A",
+  "blind_condition_label": "COND-R4",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "torso_orientation_to_camera",
+    "face_presentation",
+    "shoulder_presentation",
+    "hip_presentation",
+    "back_visibility",
+    "orientation_assessability",
+    "full_body_visibility",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-R4: torso counts {'frontal': 6}.",
+      "Opaque condition COND-R4: face counts {'frontal': 6}.",
+      "Opaque condition COND-R4: assessable=6/6; ambiguity/artifact=0/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, and visible pixels; prompt, seed, requested orientation, run mapping, PromptTag IDs, and emitted phrases were withheld.",
+      "The 18-panel opaque observation record was frozen before mapping disclosure at SHA-256 a951214a8f0dc7802325bec5d3cabcbee094e73aaa912a7f846cc1950c3f2245.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen visual row.",
+      "Requested-condition alignment, matched-seed comparison, threshold application, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "frontal",
+        "frontal",
+        "frontal",
+        "frontal",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "subject_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Face and torso point directly toward camera; shoulders and hips are even, with the entire figure in frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "frontal",
+        "frontal",
+        "frontal",
+        "frontal",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "subject_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Elevated view still clearly shows a centered front-facing face, chest, shoulders, hips, and complete body."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "frontal",
+        "frontal",
+        "frontal",
+        "frontal",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "subject_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Straight-on full-body view with symmetric shoulders and hips, frontal face, and no visible back."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "frontal",
+        "frontal",
+        "frontal",
+        "frontal",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "subject_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Front of face, chest, shoulders, shorts, and both feet are symmetrically visible despite the elevated camera angle."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "frontal",
+        "frontal",
+        "frontal",
+        "frontal",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "subject_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Front facial and garment details are visible; shoulders and hips remain front-facing despite an asymmetrical leg stance."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "frontal",
+        "frontal",
+        "frontal",
+        "frontal",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "subject_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Centered front view shows both sides of the face, chest, shorts front, legs, and feet without visible back surface."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "torso_orientation_to_camera": {
+        "frontal": 6
+      },
+      "face_presentation": {
+        "frontal": 6
+      },
+      "shoulder_presentation": {
+        "frontal": 6
+      },
+      "hip_presentation": {
+        "frontal": 6
+      },
+      "back_visibility": {
+        "not_visible": 6
+      },
+      "orientation_assessability": {
+        "assessable": 6
+      },
+      "full_body_visibility": {
+        "visible": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "subject_orientation_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
