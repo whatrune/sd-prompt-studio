@@ -398,6 +398,22 @@ class ResearchRunRegistrationTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, "PROMPT_BLIND_PROVENANCE_INVALID")
         self.assertIn("CAM-TEST-B", raised.exception.message)
 
+    def test_prompt_blind_declared_group_must_include_validated_run(self) -> None:
+        runs, _owner_input, _digests = self.make_prompt_blind_group()
+        other_runs, other_owner_input, _other_digests = self.make_prompt_blind_group(
+            ("CAM-OTHER-A", "CAM-OTHER-B", "CAM-OTHER-C")
+        )
+        self.bind_prompt_blind(other_runs, other_owner_input, owner_run_id="CAM-OTHER-A")
+        path = runs[0] / "source" / "CAM-TEST-A_metadata.yaml"
+        metadata = yaml.safe_load(path.read_text(encoding="utf-8"))
+        metadata["matched_seed_contract"]["run_ids"] = [run.name for run in other_runs]
+        path.write_text(yaml.safe_dump(metadata, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+        with self.assertRaises(registration.RunRegistrationError) as raised:
+            self.check(runs[0])
+        self.assertEqual(raised.exception.code, "PROMPT_BLIND_PROVENANCE_INVALID")
+        self.assertIn("absent", raised.exception.message)
+
     def test_prompt_blind_mismatched_reference_hash_fails_closed(self) -> None:
         runs, owner_input, _digests = self.make_prompt_blind_group()
         self.bind_prompt_blind(runs, owner_input)
@@ -438,6 +454,37 @@ class ResearchRunRegistrationTests(unittest.TestCase):
         with self.assertRaises(registration.RunRegistrationError) as raised:
             self.bind_prompt_blind(runs, owner_input)
         self.assertEqual(raised.exception.code, "PROMPT_BLIND_PROVENANCE_INVALID")
+
+    def test_missing_prompt_blind_owner_input_returns_structured_error(self) -> None:
+        runs, _owner_input, _digests = self.make_prompt_blind_group()
+        with self.assertRaises(registration.RunRegistrationError) as raised:
+            self.bind_prompt_blind(runs, self.project / "missing-owner.yaml")
+        self.assertEqual(raised.exception.code, "PROMPT_BLIND_PROVENANCE_INVALID")
+        self.assertIn("cannot be resolved", raised.exception.message)
+
+    def test_prompt_blind_freshness_race_never_overwrites_external_bytes(self) -> None:
+        runs, owner_input, _digests = self.make_prompt_blind_group()
+        paths = [run / "source" / f"{run.name}_metadata.yaml" for run in runs]
+        originals = {path: path.read_bytes() for path in paths}
+        externally_changed = originals[paths[1]] + b"# concurrent external change\n"
+        original_guard = registration._require_metadata_fresh
+        calls = 0
+
+        def introduce_change(path: Path, expected: bytes) -> None:
+            nonlocal calls
+            calls += 1
+            if calls == 5:
+                paths[1].write_bytes(externally_changed)
+            original_guard(path, expected)
+
+        with patch.object(registration, "_require_metadata_fresh", side_effect=introduce_change):
+            with self.assertRaises(registration.RunRegistrationError) as raised:
+                self.bind_prompt_blind(runs, owner_input)
+        self.assertEqual(raised.exception.code, "PROMPT_BLIND_PROVENANCE_STALE")
+        self.assertEqual(paths[0].read_bytes(), originals[paths[0]])
+        self.assertEqual(paths[1].read_bytes(), externally_changed)
+        self.assertEqual(paths[2].read_bytes(), originals[paths[2]])
+        self.assertFalse(any(path.with_name(path.name + ".prompt-blind.tmp").exists() for path in paths))
 
     def test_prompt_blind_duplicate_owner_is_rejected(self) -> None:
         runs, owner_input, _digests = self.make_prompt_blind_group()

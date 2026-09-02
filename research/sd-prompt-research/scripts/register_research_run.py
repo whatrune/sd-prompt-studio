@@ -301,6 +301,11 @@ def _validate_prompt_blind_groups(project_root: Path, validated_runs: Sequence[M
         if not _requires_prompt_blind_binding(metadata):
             continue
         run_ids = _prompt_blind_group_ids(metadata)
+        if run["run_id"] not in run_ids:
+            raise RunRegistrationError(
+                "PROMPT_BLIND_PROVENANCE_INVALID",
+                f"Validated Run is absent from its declared matched Run set: {run['run_id']}",
+            )
         identity = (run["domain"], run_ids)
         if identity not in validated_groups:
             _validate_prompt_blind_group(project_root, run["domain"], metadata)
@@ -483,7 +488,13 @@ def _validated_runs(
 
 
 def _load_owner_record(path: Path) -> dict[str, Any]:
-    value = _load_yaml(path.expanduser().resolve(strict=True))
+    try:
+        resolved = path.expanduser().resolve(strict=True)
+    except OSError as exc:
+        raise RunRegistrationError(
+            "PROMPT_BLIND_PROVENANCE_INVALID", "Prompt-blind owner record cannot be resolved"
+        ) from exc
+    value = _load_yaml(resolved)
     if set(value) == {"prompt_blind_record_owner"}:
         value = value["prompt_blind_record_owner"]
     if not isinstance(value, dict):
@@ -511,6 +522,19 @@ def _append_yaml_field(payload: bytes, field: str, value: Mapping[str, Any]) -> 
         {field: dict(value)}, allow_unicode=True, sort_keys=False, line_break="\n"
     ).encode("utf-8")
     return prefix + rendered
+
+
+def _require_metadata_fresh(path: Path, expected: bytes) -> None:
+    try:
+        current = path.read_bytes()
+    except OSError as exc:
+        raise RunRegistrationError(
+            "PROMPT_BLIND_PROVENANCE_STALE", f"Tracked metadata cannot be refetched: {path.name}"
+        ) from exc
+    if current != expected:
+        raise RunRegistrationError(
+            "PROMPT_BLIND_PROVENANCE_STALE", f"Tracked metadata changed before binding: {path.name}"
+        )
 
 
 def bind_prompt_blind_provenance(
@@ -601,24 +625,49 @@ def bind_prompt_blind_provenance(
     written: list[Path] = []
     temporaries: list[Path] = []
     try:
+        for metadata_path in candidates:
+            _require_metadata_fresh(metadata_path, originals[metadata_path])
         for metadata_path, candidate in candidates.items():
             if candidate == originals[metadata_path]:
                 continue
             temporary = metadata_path.with_name(metadata_path.name + ".prompt-blind.tmp")
+            if temporary.exists():
+                raise RunRegistrationError(
+                    "PROMPT_BLIND_PROVENANCE_WRITE_FAILED",
+                    f"Prompt-blind temporary path already exists: {temporary.name}",
+                )
             temporary.write_bytes(candidate)
             temporaries.append(temporary)
         for temporary in temporaries:
             destination = temporary.with_name(temporary.name.removesuffix(".prompt-blind.tmp"))
+            _require_metadata_fresh(destination, originals[destination])
             temporary.replace(destination)
             written.append(destination)
         seed_metadata = _load_yaml(metadata_by_run[owner_run_id][0])
         _validate_prompt_blind_group(root, domain, seed_metadata)
     except Exception as exc:
+        rollback_conflict = False
         for path in written:
-            path.write_bytes(originals[path])
+            try:
+                if path.read_bytes() == candidates[path]:
+                    rollback = path.with_name(path.name + ".prompt-blind.rollback.tmp")
+                    if rollback.exists():
+                        rollback_conflict = True
+                        continue
+                    rollback.write_bytes(originals[path])
+                    rollback.replace(path)
+                else:
+                    rollback_conflict = True
+            except OSError:
+                rollback_conflict = True
         for temporary in temporaries:
             if temporary.exists():
                 temporary.unlink()
+        if rollback_conflict:
+            raise RunRegistrationError(
+                "PROMPT_BLIND_PROVENANCE_ROLLBACK_CONFLICT",
+                "Prompt-blind authoring stopped without overwriting concurrently changed metadata",
+            ) from exc
         if isinstance(exc, RunRegistrationError):
             raise
         raise RunRegistrationError("PROMPT_BLIND_PROVENANCE_WRITE_FAILED", str(exc)) from exc
