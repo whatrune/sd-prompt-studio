@@ -1,7 +1,7 @@
 {
   "schema_version": "0.2.0",
-  "graph_version": "0.2.4",
-  "generated_at": "2026-09-02T03:17:46Z",
+  "graph_version": "0.2.5",
+  "generated_at": "2026-09-02T11:24:53Z",
   "source_files": [
     "concepts/physical-concepts.json",
     "concepts/relations.json",
@@ -408,6 +408,141 @@
               "total": 6,
               "confidence": "high",
               "storage": "local"
+            }
+          ]
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "camera.subject_orientation.facing_away",
+      "label": "Subject facing away",
+      "aliases": [
+        "facing away"
+      ],
+      "module": "camera",
+      "concept_type": "camera",
+      "human_meaning": "A subject presentation in which rear torso surfaces and the back of the subject visibly face the viewer.",
+      "scope": [
+        "subject_orientation",
+        "subject"
+      ],
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "CAM-010-C produced the strict rear torso-plus-hidden-or-rear-face composite in 6/6 panels under the tested neutral prompt context. Its matched composite differed from the facing-viewer and profile arms in 6/6 seeds each.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.cam010c.observed_rear_torso",
+              "run_id": "CAM-010-C",
+              "observation_path": "experiments/camera/CAM-010-C/observation.json",
+              "metric": "computed_aggregate.axis_counts.torso_orientation_to_camera.rear",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam010c.observed_rear_or_hidden_face",
+              "run_id": "CAM-010-C",
+              "observation_path": "experiments/camera/CAM-010-C/observation.json",
+              "metric": "computed_aggregate.axis_counts.face_presentation.rear_or_hidden",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "camera.subject_orientation.facing_viewer",
+      "label": "Subject facing viewer",
+      "aliases": [
+        "facing viewer"
+      ],
+      "module": "camera",
+      "concept_type": "camera",
+      "human_meaning": "A subject presentation in which the torso and face visibly present frontally toward the viewer.",
+      "scope": [
+        "subject_orientation",
+        "subject"
+      ],
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "CAM-010-A produced the strict frontal torso-plus-face composite in 6/6 panels under the tested neutral prompt context. Its matched composite differed from the profile and facing-away arms in 6/6 seeds each.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.cam010a.observed_frontal_torso",
+              "run_id": "CAM-010-A",
+              "observation_path": "experiments/camera/CAM-010-A/observation.json",
+              "metric": "computed_aggregate.axis_counts.torso_orientation_to_camera.frontal",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam010a.observed_frontal_face",
+              "run_id": "CAM-010-A",
+              "observation_path": "experiments/camera/CAM-010-A/observation.json",
+              "metric": "computed_aggregate.axis_counts.face_presentation.frontal",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "camera.subject_orientation.profile_face",
+      "label": "Profile face presentation",
+      "aliases": [
+        "profile"
+      ],
+      "module": "camera",
+      "concept_type": "camera",
+      "human_meaning": "A face presented in lateral profile; this concept does not assert strict whole-body lateral orientation.",
+      "scope": [
+        "subject_orientation",
+        "face"
+      ],
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "CAM-010-B produced profile face presentation in 6/6 panels, but strict whole-subject lateral torso orientation in only 1/6 under the tested neutral prompt context. Its matched composite differed from the facing-viewer and facing-away arms in 6/6 seeds each; this does not establish reliable whole-body lateral orientation.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.cam010b.observed_profile_face",
+              "run_id": "CAM-010-B",
+              "observation_path": "experiments/camera/CAM-010-B/observation.json",
+              "metric": "computed_aggregate.axis_counts.face_presentation.profile",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam010b.observed_lateral_torso",
+              "run_id": "CAM-010-B",
+              "observation_path": "experiments/camera/CAM-010-B/observation.json",
+              "metric": "computed_aggregate.axis_counts.torso_orientation_to_camera.lateral",
+              "count": 1,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local",
+              "notes": [
+                "This bounded count prevents interpreting profile face presentation as stable strict whole-body lateral orientation."
+              ]
             }
           ]
         }
@@ -1764,46 +1899,49 @@
       "camera.framing.cowboy_shot": 13,
       "camera.framing.full_body": 14,
       "camera.framing.upper_body": 15,
-      "clothing.lower.black_shorts": 16,
-      "clothing.outer.white_coat": 17,
-      "clothing.style.fantasy": 18,
-      "clothing.upper.oversized_white_tshirt": 19,
-      "configuration.hand.near_head": 20,
-      "configuration.knee.bent": 21,
-      "contact.arm.surface": 22,
-      "contact.back.absent": 23,
-      "contact.foot.sole_surface": 24,
-      "contact.head.surface_support": 25,
-      "contact.pelvis.surface": 26,
-      "contact.shoulder.surface_support": 27,
-      "environment.forest": 28,
-      "environment.medical": 29,
-      "face.expression.professional": 30,
-      "face.expression.semantic_shift": 31,
-      "face.eyelid.partially_closed": 32,
-      "face.gaze.upward": 33,
-      "face.mouth.open": 34,
-      "hair.long": 35,
-      "object.stethoscope": 36,
-      "orientation.head.extended_backward": 37,
-      "pelvis.elevation.above_surface": 38,
-      "phrase.arms_supporting_body": 39,
-      "role.activity.dancer": 40,
-      "role.narrative.warrior": 41,
-      "role.occupation.doctor": 42,
-      "role.rank.queen": 43,
-      "role.situational.patient": 44,
-      "species.elf": 45,
-      "species.mermaid": 46,
-      "support.arm.rearward": 47,
-      "support.elbow.weight_bearing": 48,
-      "support.foot.weight_bearing": 49,
-      "support.hand.weight_bearing": 50,
-      "torso.arch.strong": 51,
-      "visibility.hand_near_head_contact": 52,
-      "visibility.neck": 53,
-      "visibility.pelvis_boundary": 54,
-      "visibility.shoulder_contact_boundary": 55
+      "camera.subject_orientation.facing_away": 16,
+      "camera.subject_orientation.facing_viewer": 17,
+      "camera.subject_orientation.profile_face": 18,
+      "clothing.lower.black_shorts": 19,
+      "clothing.outer.white_coat": 20,
+      "clothing.style.fantasy": 21,
+      "clothing.upper.oversized_white_tshirt": 22,
+      "configuration.hand.near_head": 23,
+      "configuration.knee.bent": 24,
+      "contact.arm.surface": 25,
+      "contact.back.absent": 26,
+      "contact.foot.sole_surface": 27,
+      "contact.head.surface_support": 28,
+      "contact.pelvis.surface": 29,
+      "contact.shoulder.surface_support": 30,
+      "environment.forest": 31,
+      "environment.medical": 32,
+      "face.expression.professional": 33,
+      "face.expression.semantic_shift": 34,
+      "face.eyelid.partially_closed": 35,
+      "face.gaze.upward": 36,
+      "face.mouth.open": 37,
+      "hair.long": 38,
+      "object.stethoscope": 39,
+      "orientation.head.extended_backward": 40,
+      "pelvis.elevation.above_surface": 41,
+      "phrase.arms_supporting_body": 42,
+      "role.activity.dancer": 43,
+      "role.narrative.warrior": 44,
+      "role.occupation.doctor": 45,
+      "role.rank.queen": 46,
+      "role.situational.patient": 47,
+      "species.elf": 48,
+      "species.mermaid": 49,
+      "support.arm.rearward": 50,
+      "support.elbow.weight_bearing": 51,
+      "support.foot.weight_bearing": 52,
+      "support.hand.weight_bearing": 53,
+      "torso.arch.strong": 54,
+      "visibility.hand_near_head_contact": 55,
+      "visibility.neck": 56,
+      "visibility.pelvis_boundary": 57,
+      "visibility.shoulder_contact_boundary": 58
     },
     "concepts_by_module": {
       "camera": [
@@ -1813,7 +1951,10 @@
         "camera.framing.close_up",
         "camera.framing.cowboy_shot",
         "camera.framing.full_body",
-        "camera.framing.upper_body"
+        "camera.framing.upper_body",
+        "camera.subject_orientation.facing_away",
+        "camera.subject_orientation.facing_viewer",
+        "camera.subject_orientation.profile_face"
       ],
       "clothing": [
         "clothing.lower.black_shorts",
@@ -1912,7 +2053,10 @@
         "camera.framing.close_up",
         "camera.framing.cowboy_shot",
         "camera.framing.full_body",
-        "camera.framing.upper_body"
+        "camera.framing.upper_body",
+        "camera.subject_orientation.facing_away",
+        "camera.subject_orientation.facing_viewer",
+        "camera.subject_orientation.profile_face"
       ],
       "clothing": [
         "clothing.lower.black_shorts",
@@ -1991,6 +2135,8 @@
       "elf": "species.elf",
       "eye level": "camera.angle.eye_level",
       "face up": "body.orientation.face_up",
+      "facing away": "camera.subject_orientation.facing_away",
+      "facing viewer": "camera.subject_orientation.facing_viewer",
       "full body": "camera.framing.full_body",
       "head back": "orientation.head.extended_backward",
       "head tilted backward": "orientation.head.extended_backward",
@@ -2002,6 +2148,7 @@
       "mermaid": "species.mermaid",
       "oversized white t-shirt": "clothing.upper.oversized_white_tshirt",
       "plain oversized white t-shirt": "clothing.upper.oversized_white_tshirt",
+      "profile": "camera.subject_orientation.profile_face",
       "rear arm support": "support.arm.rearward",
       "reclined": "body.state.reclined",
       "supine orientation": "body.orientation.face_up",
@@ -2147,6 +2294,15 @@
         "camera.angle.eye_level",
         "camera.angle.high_angle",
         "camera.angle.low_angle"
+      ],
+      "CAM-010-A": [
+        "camera.subject_orientation.facing_viewer"
+      ],
+      "CAM-010-B": [
+        "camera.subject_orientation.profile_face"
+      ],
+      "CAM-010-C": [
+        "camera.subject_orientation.facing_away"
       ],
       "CLOTHING-001-A": [
         "clothing.upper.oversized_white_tshirt",
