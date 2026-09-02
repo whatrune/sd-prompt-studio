@@ -1,0 +1,118 @@
+schema_version: '3.0'
+target_concept: ''
+blind_analysis: true
+special_values:
+  unclear: Visible evidence is insufficient or conflicting.
+  not_visible: The relevant evidence is cropped or fully obscured.
+axis_catalog:
+  torso_orientation_to_camera:
+    label: Torso Orientation To Camera
+    allowed_values:
+      - frontal
+      - lateral
+      - rear
+      - three_quarter
+      - unclear
+  face_presentation:
+    label: Face Presentation
+    allowed_values:
+      - frontal
+      - profile
+      - rear_or_hidden
+      - partial
+      - unclear
+  shoulder_presentation:
+    label: Shoulder Presentation
+    allowed_values:
+      - frontal
+      - lateral
+      - rear
+      - oblique
+      - unclear
+  hip_presentation:
+    label: Hip Presentation
+    allowed_values:
+      - frontal
+      - lateral
+      - rear
+      - oblique
+      - unclear
+  back_visibility:
+    label: Back Visibility
+    allowed_values:
+      - visible
+      - partial
+      - not_visible
+      - unclear
+  orientation_assessability:
+    label: Orientation Assessability
+    allowed_values:
+      - assessable
+      - unassessable
+      - unclear
+  full_body_visibility:
+    label: Full Body Visibility
+    allowed_values:
+      - visible
+      - partial
+      - not_visible
+      - unclear
+  ambiguity_or_artifact:
+    label: Ambiguity Or Artifact
+    allowed_values:
+      - none
+      - orientation_ambiguous
+      - anatomy_artifact
+      - composition_artifact
+      - multiple
+active_observation_axes:
+  - torso_orientation_to_camera
+  - face_presentation
+  - shoulder_presentation
+  - hip_presentation
+  - back_visibility
+  - orientation_assessability
+  - full_body_visibility
+  - ambiguity_or_artifact
+contact_load:
+  enabled: false
+  fields:
+    - left_hand
+    - right_hand
+    - left_forearm
+    - right_forearm
+  allowed_values:
+    - none
+    - light
+    - supporting
+    - weight_bearing
+    - unclear
+morphology_candidates:
+  primary:
+    - camera_orientation_observation
+  secondary:
+    - none
+artifact_checks:
+  - none
+  - orientation_ambiguous
+  - anatomy_artifact
+  - composition_artifact
+  - multiple
+cross_domain_effects:
+  enabled: false
+  domains: []
+  strength_values: []
+  effect_type_values: []
+rules:
+  preserve_axis_labels_exactly: true
+  preserve_axis_order: true
+  output_all_active_axes_for_every_panel: true
+  use_allowed_values_only: true
+  visible_evidence_only: true
+  enforce_visible_evidence_policy: true
+  prompt_blind_freeze_required: true
+  analyst_must_not_assign_target_alignment: true
+  analyst_must_not_finalize_concept: true
+  six_images_are_directional_evidence_only: true
+blind_condition_label: COND-M4
+run_id: CAM-008-B

@@ -1,0 +1,266 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-008-B",
+  "blind_condition_label": "COND-M4",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "torso_orientation_to_camera",
+    "face_presentation",
+    "shoulder_presentation",
+    "hip_presentation",
+    "back_visibility",
+    "orientation_assessability",
+    "full_body_visibility",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-M4: torso orientation counts={\"three_quarter\":6}.",
+      "Opaque condition COND-M4: orientation assessable=6/6.",
+      "Opaque condition COND-M4: ambiguity/artifact=3/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, and visible pixels; prompts, seeds, requested orientation, run mapping, PromptTag IDs, and emitted phrases were withheld.",
+      "The 18-panel opaque observation record was frozen before mapping disclosure at SHA-256 c451f3878f8ed14a235d9c938726bc6b666df8c88108fc9d8611da28d3bb6ec8.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen visual row.",
+      "Requested-orientation alignment, matched-seed comparison, threshold application, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "three_quarter",
+        "partial",
+        "oblique",
+        "oblique",
+        "not_visible",
+        "assessable",
+        "visible",
+        "orientation_ambiguous"
+      ],
+      "primary_morphology": "camera_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The top front and zipper are visible, with a slight left-right depth offset across the shoulders.",
+        "Both eyes are visible while the face is turned slightly away from a straight-on view.",
+        "The complete figure, including both feet, is inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "orientation_ambiguous"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "three_quarter",
+        "partial",
+        "oblique",
+        "oblique",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "camera_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The torso and shorts fronts remain visible while one side of the body recedes.",
+        "The face is angled, with both eyes visible but unequal in presentation.",
+        "The figure is visible continuously from head to toes."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "three_quarter",
+        "partial",
+        "oblique",
+        "oblique",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "camera_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The front of the top is broad but the shoulder line and waist are visibly angled.",
+        "Both eyes are present in a turned, non-profile face.",
+        "Head, legs, and feet are all fully framed."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "three_quarter",
+        "partial",
+        "oblique",
+        "oblique",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "camera_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The front of the clothing is visible with the near shoulder and hip more prominent.",
+        "The face is turned enough that one side is strongly reduced.",
+        "The entire standing figure is visible without cropping."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "three_quarter",
+        "partial",
+        "oblique",
+        "frontal",
+        "not_visible",
+        "assessable",
+        "visible",
+        "orientation_ambiguous"
+      ],
+      "primary_morphology": "camera_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The shoulders and upper torso show a mild turn, while the shorts front reads nearly straight-on.",
+        "Both eyes are visible in a slightly turned face.",
+        "The body is shown fully from hair to toes."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "orientation_ambiguous"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "three_quarter",
+        "partial",
+        "oblique",
+        "oblique",
+        "not_visible",
+        "assessable",
+        "visible",
+        "orientation_ambiguous"
+      ],
+      "primary_morphology": "camera_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The torso and pelvis have a shallow diagonal presentation with the front still dominant.",
+        "Both eyes are visible, but the head is not square to the camera.",
+        "The full standing body and both feet are visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "orientation_ambiguous"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "torso_orientation_to_camera": {
+        "three_quarter": 6
+      },
+      "face_presentation": {
+        "partial": 6
+      },
+      "shoulder_presentation": {
+        "oblique": 6
+      },
+      "hip_presentation": {
+        "oblique": 5,
+        "frontal": 1
+      },
+      "back_visibility": {
+        "not_visible": 6
+      },
+      "orientation_assessability": {
+        "assessable": 6
+      },
+      "full_body_visibility": {
+        "visible": 6
+      },
+      "ambiguity_or_artifact": {
+        "orientation_ambiguous": 3,
+        "none": 3
+      }
+    },
+    "primary_morphology_counts": {
+      "camera_orientation_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "orientation_ambiguous": 3,
+      "none": 3
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
