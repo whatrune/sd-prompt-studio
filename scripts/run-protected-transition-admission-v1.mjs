@@ -1485,7 +1485,15 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
 
     if (assignments.length === 0) {
       admitted = admitPredelegation(live, publicationRoute)
-      live = await acquireLiveBinding()
+      try {
+        live = await acquireLiveBinding()
+      } catch (error) {
+        const correction = projectReviewCorrectionRequiredV1({
+          error, request, assignmentMutationCount, publicationMutationCount,
+        })
+        if (correction !== null) return correction
+        throw error
+      }
       const reboundRoute = routeFor(live)
       if (reboundRoute !== publicationRoute) throw new Error('review_assignment_materialization_final_binding_invalid')
       admitted = admitPredelegation(live, publicationRoute)

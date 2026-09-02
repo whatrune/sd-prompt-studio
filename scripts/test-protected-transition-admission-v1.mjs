@@ -1440,6 +1440,34 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
   equal(correction.publication_mutation_count, 0)
   ok(/^review-finding-[0-9a-f]{64}$/.test(correction.continuation_cursor))
   equal(blocked.state.assignmentCommentMutations + blocked.state.taskCommentMutations, 0)
+
+  const blockedDuringAssignmentMaterialization = createReviewRoutingFixture({
+    includeAuthority: false,
+    includePredelegation: true,
+  })
+  let threadReads = 0
+  blockedDuringAssignmentMaterialization.host.graphql = async (query, variables) => {
+    if (query.includes('query SimplifiedThreads')) {
+      threadReads += 1
+      if (threadReads === 2) {
+        return { repository: { pullRequest: {
+          number: PR, state: 'OPEN', isDraft: false, merged: false, headRefOid: HEAD,
+          mergeable: 'MERGEABLE', mergeStateStatus: 'CLEAN',
+          reviewThreads: { nodes: [{ id: 'assignment-race-thread', isResolved: false, isOutdated: false }], pageInfo: { hasNextPage: false, endCursor: null } },
+        } } }
+      }
+    }
+    return createFixture().host.graphql(query, variables)
+  }
+  const assignmentRace = await ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: blockedDuringAssignmentMaterialization.host,
+  })
+  equal(assignmentRace.state, 'CORRECTION_REQUIRED')
+  equal(assignmentRace.active_thread_ids.join(','), 'assignment-race-thread')
+  equal(assignmentRace.assignment_materialization_mutation_count, 0)
+  equal(assignmentRace.publication_mutation_count, 0)
+  equal(blockedDuringAssignmentMaterialization.state.assignmentCommentMutations, 0)
+  equal(blockedDuringAssignmentMaterialization.state.taskCommentMutations, 0)
 }
 
 // The shared publication guard exposes only current mechanical evidence and performs no mutation.

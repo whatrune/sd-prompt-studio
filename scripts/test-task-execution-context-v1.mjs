@@ -386,6 +386,7 @@ function observed(id = identity(), overrides = {}) {
   const first = projectPreDecisionReviewFindingContinuationV1({
     correction,
     identity: id,
+    observed: observed(id),
     owningWorker: 'task-542-research-worker',
     observedAt: 300,
   })
@@ -400,6 +401,7 @@ function observed(id = identity(), overrides = {}) {
   equal(projectPreDecisionReviewFindingContinuationV1({
     correction,
     identity: id,
+    observed: observed(id),
     owningWorker: 'task-542-research-worker',
     observedAt: 301,
     consumedCursor: first.consumed_cursor,
@@ -407,9 +409,38 @@ function observed(id = identity(), overrides = {}) {
   mismatch(() => projectPreDecisionReviewFindingContinuationV1({
     correction: { ...correction, exact_head: historical411 },
     identity: id,
+    observed: observed(id),
     owningWorker: 'task-542-research-worker',
     observedAt: 302,
   }), 'review_correction_binding')
+  mismatch(() => projectPreDecisionReviewFindingContinuationV1({
+    correction,
+    identity: id,
+    observed: observed(id, { head: historical411 }),
+    owningWorker: 'task-542-research-worker',
+    observedAt: 303,
+  }), 'expected_head')
+  mismatch(() => projectPreDecisionReviewFindingContinuationV1({
+    correction,
+    identity: id,
+    observed: observed(id, { registered_worktree_path: worktreeOther }),
+    owningWorker: 'task-542-research-worker',
+    observedAt: 304,
+  }), 'registered_worktree_path')
+  mismatch(() => projectPreDecisionReviewFindingContinuationV1({
+    correction,
+    identity: id,
+    observed: observed(id, { remote_main_sha: historical411 }),
+    owningWorker: 'task-542-research-worker',
+    observedAt: 305,
+  }), 'expected_base_remote_main')
+  mismatch(() => projectPreDecisionReviewFindingContinuationV1({
+    correction,
+    identity: id,
+    observed: observed(id, { pr: { ...observed(id).pr, head: historical411 } }),
+    owningWorker: 'task-542-research-worker',
+    observedAt: 306,
+  }), 'pr_head')
 }
 
 // 11. Local branch "main" is not evidence of remote-main identity.

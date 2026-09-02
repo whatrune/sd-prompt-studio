@@ -278,6 +278,7 @@ export function projectAutomatedReviewToMergeReadyContinuationV1({
 export function projectPreDecisionReviewFindingContinuationV1({
   correction,
   identity,
+  observed,
   owningWorker,
   observedAt,
   consumedCursor = null,
@@ -315,6 +316,7 @@ export function projectPreDecisionReviewFindingContinuationV1({
   if (correction.continuation_cursor !== `review-finding-${sha256(cursorInput)}`) {
     mismatch('review_correction_cursor')
   }
+  assertBoundedExecutionContextV1(identity, observed)
   const projected = projectAutomatedReviewToMergeReadyContinuationV1({
     waitTerminal: true,
     terminalKind: 'REVIEW_FINDING',
