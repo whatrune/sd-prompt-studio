@@ -51,8 +51,8 @@ provenance_binding:
   task_issue: 556
   expected_base: c145129356a49138f2ccae41c8264de2708f30db
   execution_instance_id: 79546c42-2456-4df7-9d6f-b0a08e93a8f6
-  observer_input_sha256: fbae3415caeddb8974a1107d0ab03b9f7c5785d47e20602ccac29a0fbf945919
-  blind_freeze_sha256: 5bc9d6c82a4ae77a77e6f9f77c5dab72a5bac01b320b1bfd9a00bd141929f278
+  observer_input_sha256: 71f762cb01cc8156ce1a48aba143c36269ba2450954f24211722135bb7717f7f
+  blind_freeze_sha256: b975fd7e3e32eaa1018397733517e0e4cf96be43e5cc97a0daaedb02b5db04f9
   sealed_mapping_sha256: 28fa3a5edb590bf8ec4416f2ac94a38803ab6c901a5631e113846b46e9b1810d
   response_parameters_exact: true
   parsed_info_sampler_exact: true
@@ -1034,5 +1034,5 @@ panels:
     tracked_metadata_is_authoritative: true
 prompt_blind_record_reference:
   owner_path: research/sd-prompt-research/experiments/camera/CAM-009-A/source/CAM-009-A_metadata.yaml
-  freeze_sha256: 5bc9d6c82a4ae77a77e6f9f77c5dab72a5bac01b320b1bfd9a00bd141929f278
+  freeze_sha256: b975fd7e3e32eaa1018397733517e0e4cf96be43e5cc97a0daaedb02b5db04f9
   mapping_sha256: 28fa3a5edb590bf8ec4416f2ac94a38803ab6c901a5631e113846b46e9b1810d

@@ -2,7 +2,7 @@
 
 - Run ID: CAM-009-A
 - Opaque condition: COND-M9
-- Prompt-blind freeze: `5bc9d6c82a4ae77a77e6f9f77c5dab72a5bac01b320b1bfd9a00bd141929f278`
+- Prompt-blind freeze: `b975fd7e3e32eaa1018397733517e0e4cf96be43e5cc97a0daaedb02b5db04f9`
 - Panels: 6/6
 
 ## Visible evidence summary

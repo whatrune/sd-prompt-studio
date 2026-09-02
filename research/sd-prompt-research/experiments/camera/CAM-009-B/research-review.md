@@ -10,7 +10,7 @@ Both arms satisfied every predeclared observation prerequisite, but the requeste
 
 - The observer received only opaque condition IDs, opaque panel IDs, and pixels.
 - Requested roll condition, run mapping, prompt terms, and seeds were withheld.
-- Blind observations were frozen before decode at SHA-256 `5bc9d6c82a4ae77a77e6f9f77c5dab72a5bac01b320b1bfd9a00bd141929f278`.
+- Blind observations were frozen before decode at SHA-256 `b975fd7e3e32eaa1018397733517e0e4cf96be43e5cc97a0daaedb02b5db04f9`.
 - The sealed mapping rehashes to `28fa3a5edb590bf8ec4416f2ac94a38803ab6c901a5631e113846b46e9b1810d`.
 - Canonical tracked owner: `research/sd-prompt-research/experiments/camera/CAM-009-A/source/CAM-009-A_metadata.yaml`.
 - Mapping decode changed no frozen visual row.

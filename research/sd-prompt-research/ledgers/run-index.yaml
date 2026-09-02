@@ -550,11 +550,11 @@ runs:
   domain: camera
   title: CAM-009-A — neutral roll control
   status: OBSERVED
-  updated_at: '2026-09-02T18:03:35+09:00'
+  updated_at: '2026-09-02T18:23:08+09:00'
   path: experiments/camera/CAM-009-A
 - run_id: CAM-009-B
   domain: camera
   title: CAM-009-B — dutch angle treatment
   status: OBSERVED
-  updated_at: '2026-09-02T18:03:36+09:00'
+  updated_at: '2026-09-02T18:23:09+09:00'
   path: experiments/camera/CAM-009-B
