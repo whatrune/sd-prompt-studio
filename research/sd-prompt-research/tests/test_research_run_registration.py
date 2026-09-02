@@ -100,6 +100,70 @@ class ResearchRunRegistrationTests(unittest.TestCase):
     def ledger_digest(self) -> str:
         return hashlib.sha256(self.ledger_path.read_bytes()).hexdigest()
 
+    def make_prompt_blind_group(
+        self,
+        run_ids: tuple[str, ...] = ("CAM-TEST-A", "CAM-TEST-B", "CAM-TEST-C"),
+    ) -> tuple[list[Path], Path, dict[str, str]]:
+        payloads = {
+            "observer_input": '{"conditions":["COND-01","COND-02","COND-03"]}',
+            "freeze": '{"observations":{"COND-01":"visible"}}',
+            "mapping": '{"COND-01":"CAM-TEST-A","COND-02":"CAM-TEST-B","COND-03":"CAM-TEST-C"}',
+        }
+        digests = {name: hashlib.sha256(value.encode("utf-8")).hexdigest() for name, value in payloads.items()}
+        runs: list[Path] = []
+        for run_id in run_ids:
+            run_dir = self.make_run(run_id, domain="camera")
+            manifest_path = run_dir / "manifest.yaml"
+            manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+            manifest["source"]["metadata_file"] = f"source/{run_id}_metadata.yaml"
+            manifest_path.write_text(
+                yaml.safe_dump(manifest, allow_unicode=True, sort_keys=False), encoding="utf-8"
+            )
+            metadata = {
+                "run_id": run_id,
+                "matched_seed_contract": {"run_ids": list(run_ids)},
+                "provenance_binding": {
+                    "observer_input_sha256": digests["observer_input"],
+                    "blind_freeze_sha256": digests["freeze"],
+                    "sealed_mapping_sha256": digests["mapping"],
+                    "independently_recheckable_from_tracked_metadata": True,
+                },
+                "panels": [],
+            }
+            (run_dir / "source" / f"{run_id}_metadata.yaml").write_text(
+                yaml.safe_dump(metadata, allow_unicode=True, sort_keys=False), encoding="utf-8"
+            )
+            runs.append(run_dir)
+
+        owner_metadata = runs[0] / "source" / f"{run_ids[0]}_metadata.yaml"
+        owner_record = {
+            "record_type": "tracked_prompt_blind_record_owner_v1",
+            "owner_path": registration._repository_relative_path(self.project, owner_metadata),
+            "serialization": "exact_utf8_lf",
+            **{
+                name: {"sha256": digests[name], "utf8_payload": payloads[name]}
+                for name in ("observer_input", "freeze", "mapping")
+            },
+        }
+        owner_input = self.project / "prompt-blind-owner.yaml"
+        owner_input.write_text(
+            yaml.safe_dump(owner_record, allow_unicode=True, sort_keys=False), encoding="utf-8"
+        )
+        return runs, owner_input, digests
+
+    def bind_prompt_blind(
+        self,
+        runs: list[Path],
+        owner_input: Path,
+        owner_run_id: str = "CAM-TEST-A",
+    ) -> dict[str, object]:
+        return registration.bind_prompt_blind_provenance(
+            self.project,
+            runs,
+            owner_run_id=owner_run_id,
+            owner_record_path=owner_input,
+        )
+
     def finalize(self, *run_dirs: Path, **kwargs: object) -> dict[str, object]:
         expected_digest = kwargs.pop("expected_ledger_sha256", self.ledger_digest())
         return registration.register_runs(
@@ -287,6 +351,155 @@ class ResearchRunRegistrationTests(unittest.TestCase):
         result = registration.register_run(self.project, self.run_dir, check_only=True)
         self.assertFalse(result["registered"])
         self.assertEqual(result["run_path"], "experiments/bridge/BRG-TEST-A")
+
+    def test_prompt_blind_authoring_emits_one_owner_and_exact_references(self) -> None:
+        runs, owner_input, digests = self.make_prompt_blind_group()
+        metadata_paths = [run / "source" / f"{run.name}_metadata.yaml" for run in runs]
+        prefixes = {path: path.read_bytes() for path in metadata_paths}
+        ledger_before = self.ledger_path.read_bytes()
+
+        result = self.bind_prompt_blind(runs, owner_input)
+
+        self.assertEqual(result["owner_run_id"], "CAM-TEST-A")
+        self.assertEqual(len(result["changed_metadata_paths"]), 3)
+        self.assertFalse(result["ledger_mutated"])
+        self.assertEqual(self.ledger_path.read_bytes(), ledger_before)
+        for path in metadata_paths:
+            self.assertTrue(path.read_bytes().startswith(prefixes[path]))
+        owner = yaml.safe_load(metadata_paths[0].read_text(encoding="utf-8"))[
+            "prompt_blind_record_owner"
+        ]
+        expected_reference = {
+            "owner_path": owner["owner_path"],
+            "observer_input_sha256": digests["observer_input"],
+            "freeze_sha256": digests["freeze"],
+            "mapping_sha256": digests["mapping"],
+        }
+        for path in metadata_paths[1:]:
+            metadata = yaml.safe_load(path.read_text(encoding="utf-8"))
+            self.assertEqual(metadata["prompt_blind_record_reference"], expected_reference)
+        self.assertFalse(self.check(runs[1])["registered"])
+
+        before_repeat = {path: path.read_bytes() for path in metadata_paths}
+        repeated = self.bind_prompt_blind(runs, owner_input)
+        self.assertEqual(repeated["changed_metadata_paths"], [])
+        self.assertEqual({path: path.read_bytes() for path in metadata_paths}, before_repeat)
+
+    def test_prompt_blind_missing_dependent_reference_fails_closed(self) -> None:
+        runs, owner_input, _digests = self.make_prompt_blind_group()
+        self.bind_prompt_blind(runs, owner_input)
+        path = runs[1] / "source" / "CAM-TEST-B_metadata.yaml"
+        metadata = yaml.safe_load(path.read_text(encoding="utf-8"))
+        del metadata["prompt_blind_record_reference"]
+        path.write_text(yaml.safe_dump(metadata, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+        with self.assertRaises(registration.RunRegistrationError) as raised:
+            self.check(runs[2])
+        self.assertEqual(raised.exception.code, "PROMPT_BLIND_PROVENANCE_INVALID")
+        self.assertIn("CAM-TEST-B", raised.exception.message)
+
+    def test_prompt_blind_declared_group_must_include_validated_run(self) -> None:
+        runs, _owner_input, _digests = self.make_prompt_blind_group()
+        other_runs, other_owner_input, _other_digests = self.make_prompt_blind_group(
+            ("CAM-OTHER-A", "CAM-OTHER-B", "CAM-OTHER-C")
+        )
+        self.bind_prompt_blind(other_runs, other_owner_input, owner_run_id="CAM-OTHER-A")
+        path = runs[0] / "source" / "CAM-TEST-A_metadata.yaml"
+        metadata = yaml.safe_load(path.read_text(encoding="utf-8"))
+        metadata["matched_seed_contract"]["run_ids"] = [run.name for run in other_runs]
+        path.write_text(yaml.safe_dump(metadata, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+        with self.assertRaises(registration.RunRegistrationError) as raised:
+            self.check(runs[0])
+        self.assertEqual(raised.exception.code, "PROMPT_BLIND_PROVENANCE_INVALID")
+        self.assertIn("absent", raised.exception.message)
+
+    def test_prompt_blind_mismatched_reference_hash_fails_closed(self) -> None:
+        runs, owner_input, _digests = self.make_prompt_blind_group()
+        self.bind_prompt_blind(runs, owner_input)
+        path = runs[2] / "source" / "CAM-TEST-C_metadata.yaml"
+        metadata = yaml.safe_load(path.read_text(encoding="utf-8"))
+        metadata["prompt_blind_record_reference"]["freeze_sha256"] = "0" * 64
+        path.write_text(yaml.safe_dump(metadata, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+        with self.assertRaises(registration.RunRegistrationError) as raised:
+            self.check(runs[0])
+        self.assertEqual(raised.exception.code, "PROMPT_BLIND_PROVENANCE_INVALID")
+
+    def test_prompt_blind_owner_payload_and_path_are_verified(self) -> None:
+        runs, owner_input, _digests = self.make_prompt_blind_group()
+        owner = yaml.safe_load(owner_input.read_text(encoding="utf-8"))
+        owner["owner_path"] = "research/sd-prompt-research/experiments/camera/OTHER/source/owner.yaml"
+        owner_input.write_text(yaml.safe_dump(owner, sort_keys=False), encoding="utf-8")
+        before = {
+            path: path.read_bytes()
+            for path in (run / "source" / f"{run.name}_metadata.yaml" for run in runs)
+        }
+        with self.assertRaises(registration.RunRegistrationError) as raised:
+            self.bind_prompt_blind(runs, owner_input)
+        self.assertEqual(raised.exception.code, "PROMPT_BLIND_PROVENANCE_INVALID")
+        self.assertEqual(
+            {
+                path: path.read_bytes()
+                for path in (run / "source" / f"{run.name}_metadata.yaml" for run in runs)
+            },
+            before,
+        )
+
+        owner["owner_path"] = registration._repository_relative_path(
+            self.project, runs[0] / "source" / "CAM-TEST-A_metadata.yaml"
+        )
+        owner["freeze"]["utf8_payload"] += "tampered"
+        owner_input.write_text(yaml.safe_dump(owner, sort_keys=False), encoding="utf-8")
+        with self.assertRaises(registration.RunRegistrationError) as raised:
+            self.bind_prompt_blind(runs, owner_input)
+        self.assertEqual(raised.exception.code, "PROMPT_BLIND_PROVENANCE_INVALID")
+
+    def test_missing_prompt_blind_owner_input_returns_structured_error(self) -> None:
+        runs, _owner_input, _digests = self.make_prompt_blind_group()
+        with self.assertRaises(registration.RunRegistrationError) as raised:
+            self.bind_prompt_blind(runs, self.project / "missing-owner.yaml")
+        self.assertEqual(raised.exception.code, "PROMPT_BLIND_PROVENANCE_INVALID")
+        self.assertIn("cannot be resolved", raised.exception.message)
+
+    def test_prompt_blind_freshness_race_never_overwrites_external_bytes(self) -> None:
+        runs, owner_input, _digests = self.make_prompt_blind_group()
+        paths = [run / "source" / f"{run.name}_metadata.yaml" for run in runs]
+        originals = {path: path.read_bytes() for path in paths}
+        externally_changed = originals[paths[1]] + b"# concurrent external change\n"
+        original_guard = registration._require_metadata_fresh
+        calls = 0
+
+        def introduce_change(path: Path, expected: bytes) -> None:
+            nonlocal calls
+            calls += 1
+            if calls == 5:
+                paths[1].write_bytes(externally_changed)
+            original_guard(path, expected)
+
+        with patch.object(registration, "_require_metadata_fresh", side_effect=introduce_change):
+            with self.assertRaises(registration.RunRegistrationError) as raised:
+                self.bind_prompt_blind(runs, owner_input)
+        self.assertEqual(raised.exception.code, "PROMPT_BLIND_PROVENANCE_STALE")
+        self.assertEqual(paths[0].read_bytes(), originals[paths[0]])
+        self.assertEqual(paths[1].read_bytes(), externally_changed)
+        self.assertEqual(paths[2].read_bytes(), originals[paths[2]])
+        self.assertFalse(any(path.with_name(path.name + ".prompt-blind.tmp").exists() for path in paths))
+
+    def test_prompt_blind_duplicate_owner_is_rejected(self) -> None:
+        runs, owner_input, _digests = self.make_prompt_blind_group()
+        self.bind_prompt_blind(runs, owner_input)
+        owner_metadata = yaml.safe_load(
+            (runs[0] / "source" / "CAM-TEST-A_metadata.yaml").read_text(encoding="utf-8")
+        )
+        path = runs[1] / "source" / "CAM-TEST-B_metadata.yaml"
+        metadata = yaml.safe_load(path.read_text(encoding="utf-8"))
+        del metadata["prompt_blind_record_reference"]
+        metadata["prompt_blind_record_owner"] = owner_metadata["prompt_blind_record_owner"]
+        path.write_text(yaml.safe_dump(metadata, allow_unicode=True, sort_keys=False), encoding="utf-8")
+        with self.assertRaises(registration.RunRegistrationError) as raised:
+            self.check(runs[0])
+        self.assertEqual(raised.exception.code, "PROMPT_BLIND_PROVENANCE_INVALID")
 
     def test_run_and_aggregate_mismatches_write_nothing(self) -> None:
         observation_path = self.run_dir / "observation.json"
